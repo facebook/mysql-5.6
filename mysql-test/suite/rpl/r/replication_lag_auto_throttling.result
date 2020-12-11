@@ -51,9 +51,9 @@ delete from t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	0
+50092	ER_WRITE_QUERY_THROTTLED	0
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists, Insert query sql_id should be throttled. Expect warnings. ###
 select sleep(@wat_freq);
@@ -63,9 +63,9 @@ insert into t values(2);
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	1
+50092	ER_WRITE_QUERY_THROTTLED	1
 select count from performance_schema.write_throttling_log where type = 'SQL_ID' and mode = 'AUTO';
 count
 1
@@ -77,9 +77,9 @@ sleep(@wat_freq)
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_between_start_end_throttle_threshold';
 insert into t values(2);
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	2
+50092	ER_WRITE_QUERY_THROTTLED	2
 select count from performance_schema.write_throttling_log where type = 'SQL_ID' and mode = 'AUTO';
 count
 2
@@ -91,9 +91,9 @@ sleep(@wat_freq)
 set @@global.debug= '-d,dbug.simulate_lag_between_start_end_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
 insert into t values(2);
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	2
+50092	ER_WRITE_QUERY_THROTTLED	2
 select count from performance_schema.write_throttling_log where type = 'SQL_ID' and mode = 'AUTO';
 count
 2
@@ -137,9 +137,9 @@ delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	0
+50092	ER_WRITE_QUERY_THROTTLED	0
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists, Shard 'test' should be throttled. Expect warnings. ###
 select sleep(@wat_freq);
@@ -149,9 +149,9 @@ insert into test1.t values(2);
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SHARD	test
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	1
+50092	ER_WRITE_QUERY_THROTTLED	1
 select count from performance_schema.write_throttling_log where type = 'SHARD' and mode = 'AUTO';
 count
 1
@@ -163,9 +163,9 @@ sleep(@wat_freq)
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
 insert into test1.t values(2);
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	1
+50092	ER_WRITE_QUERY_THROTTLED	1
 select count from performance_schema.write_throttling_log where type = 'SHARD' and mode = 'AUTO';
 count
 1
@@ -222,9 +222,9 @@ SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	72
 USER	root	113
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	0
+50092	ER_WRITE_QUERY_THROTTLED	0
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists, Insert query sql_id should be throttled. Expect warnings. ###
 select sleep(@wat_freq);
@@ -234,9 +234,9 @@ insert into test.t values(2);
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	1
+50092	ER_WRITE_QUERY_THROTTLED	1
 ####### Next Cycle #######
 ### Expectation - Replication lag goes away, Insert query sql_id should not be throttled anymore. Expect warnings count to not increase anymore. ###
 select sleep(@wat_freq);
@@ -245,9 +245,9 @@ sleep(@wat_freq)
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
 insert into test.t values(2);
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	1
+50092	ER_WRITE_QUERY_THROTTLED	1
 ####### Reset #######
 TRUNCATE test.t;
 TRUNCATE test1.t;
@@ -299,9 +299,9 @@ set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	1
+50092	ER_WRITE_QUERY_THROTTLED	1
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists. The system should identify delete query sql_id as the culprit and start throttling it as well. ###
 select sleep(@wat_freq);
@@ -315,9 +315,9 @@ select type, value from performance_schema.write_throttling_rules where mode = '
 type	value
 SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4
 SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	3
+50092	ER_WRITE_QUERY_THROTTLED	3
 ####### Next Cycle #######
 ### Expectation - Replication lag goes away. The system should stop throttling insert query but still throttle delete query. Expect warnings from delete queries ###
 select sleep(@wat_freq);
@@ -332,9 +332,9 @@ set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	4
+50092	ER_WRITE_QUERY_THROTTLED	4
 ####### Next Cycle #######
 ### Expectation - Replication lag goes away. The system should release the delete query now and stop throttling it. Expect warnings count to not increase ###
 select sleep(@wat_freq);
@@ -346,9 +346,9 @@ delete from t where a = 4;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	4
+50092	ER_WRITE_QUERY_THROTTLED	4
 ####### Reset #######
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
@@ -426,9 +426,9 @@ SHARD	test	149
 SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3	36
 SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4	113
 USER	root	149
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	0
+50092	ER_WRITE_QUERY_THROTTLED	0
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists. The system should identify delete query as the culprit and throttle it. Expect warnings. ###
 select sleep(@wat_freq);
@@ -448,9 +448,9 @@ SHARD	test	72
 SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3	36
 SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4	36
 USER	root	72
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	1
+50092	ER_WRITE_QUERY_THROTTLED	1
 ####### Reset #######
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
@@ -497,9 +497,9 @@ set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 CLIENT	99914b932bd37a50b983c5e7c90ae93b
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	4
+50092	ER_WRITE_QUERY_THROTTLED	4
 ####### Reset #######
 use test;
 TRUNCATE test.t;
@@ -549,9 +549,9 @@ delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	0
+50092	ER_WRITE_QUERY_THROTTLED	0
 ####### Reset #######
 use test;
 TRUNCATE test.t;
@@ -607,9 +607,9 @@ set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 CLIENT	99914b932bd37a50b983c5e7c90ae93b
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	4
+50092	ER_WRITE_QUERY_THROTTLED	4
 ####### Reset #######
 use test;
 TRUNCATE test.t;
@@ -629,6 +629,8 @@ SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
 SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=TRUE;
+### Store total error logs until now for comparison later ###
+Select sum(count) from performance_schema.write_throttling_log into @log_count;
 insert into test.t values(2);
 set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test.t where a = 2;
@@ -658,9 +660,9 @@ insert into test1.t values(2);
 set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 ### next query should be throttled(warning) as the query tag is present
 insert into test1.t values(2);
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	1
+50092	ER_WRITE_QUERY_THROTTLED	1
 ### next query should be throttled(error) as the query tag is present
 insert into test1.t values(2);
 ERROR HY000: Exceeded write workload limit. Try again later
@@ -682,9 +684,13 @@ set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 CLIENT	99914b932bd37a50b983c5e7c90ae93b
-select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50118;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
-50118	ER_WRITE_QUERY_THROTTLED	4
+50092	ER_WRITE_QUERY_THROTTLED	4
+### Total throttling error/warning for this test  ###
+Select CAST(sum(count) - @log_count AS UNSIGNED) from performance_schema.write_throttling_log;
+CAST(sum(count) - @log_count AS UNSIGNED)
+4
 ####### Reset #######
 use test;
 TRUNCATE test.t;
