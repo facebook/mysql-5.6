@@ -9818,14 +9818,44 @@ ER_STALE_HLC_READ
 ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND
   eng "Requested HLC read bound when allow_noncurrent_db_rw set to %d != 3"
 
+ER_PLACEHOLDER_50087
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50088
+  eng "Placeholder"
+
+ER_MAX_TMP_DISK_USAGE_EXCEEDED
+  eng "Disk usage for temp objects exceeds specified limit"
+
+ER_PLACEHOLDER_50090
+  eng "Placeholder"
+
+ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
+  eng "Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)"
+
+ER_WRITE_QUERY_THROTTLED
+  eng "Exceeded write workload limit. Try again later"
+
+ER_SLAVE_IO_RAFT_CONFLICT
+  eng "slave io thread is running when try to enable raft"
+
+ER_RAFT_BINLOG_ERROR_ACTION
+  eng "binlog_error_action should be set to ROLLBACK_TRX in raft mode."
+
+ER_RAFT_OPERATION_INCOMPATIBLE
+  eng "This operation is not allowed since raft is enabled"
+
+ER_RAFT_FILE_ROTATION_FAILED
+  eng "File rotation failed to reach consensus"
+
+ER_PLACEHOLDER_50097
+  eng "Placeholder"
+
 ER_HLC_WAIT_TIMEDOUT
   eng "Got timeout while waiting for HLC: %llu"
 
 ER_INVALID_HLC_WAIT_TIMEOUT
   eng "Invalid HLC wait timeout supplied: `%s`"
-
-ER_MAX_TMP_DISK_USAGE_EXCEEDED
-  eng "Disk usage for temp objects exceeds specified limit"
 
 #
 # FB error codes specifically for 8.0 only start at 50100.
@@ -9871,26 +9901,8 @@ ER_WARN_USER_TABLE_BLOCKED_ENGINE
 ER_RPL_SLAVE_MAX_GTID_RECOVERED
   eng "Max GTID recovered at the end of recovery %s"
 
-ER_RAFT_FILE_ROTATION_FAILED
-  eng "File rotation failed to reach consensus"
-
-ER_RAFT_OPERATION_INCOMPATIBLE
-  eng "This operation is not allowed since raft is enabled"
-
-ER_SLAVE_IO_RAFT_CONFLICT
-  eng "slave io thread is running when try to enable raft"
-
-ER_RAFT_BINLOG_ERROR_ACTION
-  eng "binlog_error_action should be set to ROLLBACK_TRX in raft mode."
-
 ER_LOG_ALTER_DB
   eng "Alter database query: %s (user '%s' from '%s')"
-
-ER_WRITE_QUERY_THROTTLED
-  eng "Exceeded write workload limit. Try again later"
-
-ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
-  eng "Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)"
 
 #
 # End of 8.0 FB MySQL error messages.

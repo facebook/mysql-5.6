@@ -29,7 +29,7 @@ this query raises warning
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 show warnings;
 Level	Code	Message
-Note	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.1.2: Raise warning
 set @@GLOBAL.write_control_level=WARN;
 insert into test values(1, 1, 1);
@@ -38,7 +38,7 @@ this query raises warning
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 show warnings;
 Level	Code	Message
-Warning	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test
 set @@GLOBAL.write_control_level=OFF;
 delete from test;
@@ -48,10 +48,10 @@ insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 this query fails with an error
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -82,7 +82,7 @@ this query raises warning
 insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
 show warnings;
 Level	Code	Message
-Note	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.1.5: Raise warning
 set @@GLOBAL.write_control_level=WARN;
 insert into test values(1, 1, 1);
@@ -93,7 +93,7 @@ this query raises warning
 insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
 show warnings;
 Level	Code	Message
-Warning	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test
 set @@GLOBAL.write_control_level=OFF;
 delete from test;
@@ -105,10 +105,10 @@ insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
 this query fails with an error
 insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -155,7 +155,7 @@ this query raises warning
 update test set b=-3 where a <= 3;
 show warnings;
 Level	Code	Message
-Note	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.2.2: Raise warning
 set @@GLOBAL.write_control_level=WARN;
 update test set b=-11 where a <= 1;
@@ -164,7 +164,7 @@ this query raises warning
 update test set b=-13 where a <= 3;
 show warnings;
 Level	Code	Message
-Warning	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.2.3: Raise error
 set @@GLOBAL.write_control_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
@@ -178,10 +178,10 @@ update test set b=-21 where a <= 1;
 update test set b=-22 where a <= 2;
 this query fails with an error
 update test set b=-23 where a <= 3;
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -223,7 +223,7 @@ this query raises warning
 update test set b=-35 where a <= 5;
 show warnings;
 Level	Code	Message
-Note	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.2.5: Raise warning
 set @@GLOBAL.write_control_level=WARN;
 update test set b=-41 where a <= 1;
@@ -234,7 +234,7 @@ this query raises warning
 update test set b=-45 where a <= 5;
 show warnings;
 Level	Code	Message
-Warning	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.2.6: Raise error
 set @@GLOBAL.write_control_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
@@ -244,10 +244,10 @@ update test set b=-53 where a <= 3;
 update test set b=-54 where a <= 4;
 this query fails with an error
 update test set b=-55 where a <= 5;
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -298,7 +298,7 @@ this query raises warning
 delete from test where a in (4, 5, 6);
 show warnings;
 Level	Code	Message
-Note	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test and insert 15 rows
 set @@GLOBAL.write_control_level=OFF;
 delete from test;
@@ -311,7 +311,7 @@ this query raises warning
 delete from test where a in (4, 5, 6);
 show warnings;
 Level	Code	Message
-Warning	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test and insert 15 rows
 set @@GLOBAL.write_control_level=OFF;
 delete from test;
@@ -323,10 +323,10 @@ delete from test where a = 1;
 delete from test where a in (2, 3);
 this query fails with an error
 delete from test where a in (4, 5, 6);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -369,7 +369,7 @@ this query raises warning
 delete from test where a in (11, 12, 13, 14, 15);
 show warnings;
 Level	Code	Message
-Note	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test and insert 15 rows
 set @@GLOBAL.write_control_level=OFF;
 delete from test;
@@ -384,7 +384,7 @@ this query raises warning
 delete from test where a in (11, 12, 13, 14, 15);
 show warnings;
 Level	Code	Message
-Warning	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test and insert 15 rows
 set @@GLOBAL.write_control_level=OFF;
 delete from test;
@@ -398,10 +398,10 @@ delete from test where a in (4, 5, 6);
 delete from test where a in (7, 8, 9, 10);
 this query fails with an error
 delete from test where a in (11, 12, 13, 14, 15);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -514,10 +514,10 @@ select 6;
 2
 3
 3
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -644,10 +644,10 @@ select 8;
 4
 5
 5
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -765,10 +765,10 @@ select 6;
 2
 3
 3
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -904,10 +904,10 @@ select 8;
 4
 5
 5
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -1038,10 +1038,10 @@ select 6;
 2
 3
 3
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -1188,10 +1188,10 @@ select 8;
 4
 5
 5
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -1332,10 +1332,10 @@ select 8;
 2
 3
 3
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -1483,10 +1483,10 @@ select 8;
 4
 5
 5
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 show errors;
 Level	Code	Message
-Error	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Error	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select sum(count)
 from performance_schema.write_throttling_log
 where transaction_type='LONG';
@@ -1541,7 +1541,7 @@ select 2;
 insert into test values(2, 2, 2), (3, 3, 3);
 show warnings;
 Level	Code	Message
-Note	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 3;
 3
 3
@@ -1572,7 +1572,7 @@ select 2;
 insert into test values(2, 2, 2), (3, 3, 3);
 show warnings;
 Level	Code	Message
-Warning	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 3;
 3
 3
@@ -1605,12 +1605,12 @@ select 2;
 2
 2
 insert into test values(2, 2, 2), (3, 3, 3);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 3;
 3
 3
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -1662,7 +1662,7 @@ select 3;
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 show warnings;
 Level	Code	Message
-Note	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -1701,7 +1701,7 @@ select 3;
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 show warnings;
 Level	Code	Message
-Warning	50119	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -1742,7 +1742,7 @@ select 3;
 3
 3
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -1876,12 +1876,12 @@ select 2;
 2
 2
 update test set b=-22 where a <= 2;
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 3;
 3
 3
 update test set b=-23 where a <= 3;
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -2016,7 +2016,7 @@ select 3;
 3
 3
 update test set b=-53 where a <= 3;
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -2025,7 +2025,7 @@ select 5;
 5
 5
 update test set b=-55 where a <= 5;
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 6;
 6
 6
@@ -2159,12 +2159,12 @@ select 2;
 2
 2
 delete from test where a in (2, 3);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 3;
 3
 3
 delete from test where a in (4, 5, 6);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -2173,7 +2173,7 @@ select 5;
 5
 5
 delete from test where a in (10, 11, 12, 13);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 6;
 6
 6
@@ -2298,7 +2298,7 @@ select 3;
 3
 3
 delete from test where a in (4, 5, 6);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -2307,7 +2307,7 @@ select 5;
 5
 5
 delete from test where a in (11, 12, 13, 14, 15);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 6;
 6
 6
@@ -2445,7 +2445,7 @@ select 3;
 3
 3
 update test set b=-1 where a in (4, 5);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 4;
 4
 4
@@ -2458,7 +2458,7 @@ select 6;
 6
 6
 update test set b=-1 where a in (7, 8, 9);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 7;
 7
 7
@@ -2597,7 +2597,7 @@ select 4;
 4
 4
 insert into test values (17, 17, 17);
-ERROR HY000: Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+ERROR HY000: Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 select 5;
 5
 5
