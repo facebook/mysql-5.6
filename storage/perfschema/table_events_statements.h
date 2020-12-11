@@ -177,6 +177,10 @@ struct row_events_statements {
   ulonglong m_no_good_index_used;
   /** Column CPU_TIME. */
   ulonglong m_cpu_time;
+  /** Column FILESORT_DISK_USAGE. */
+  ulonglong m_filesort_disk_usage_peak;
+  /** Column TMP_TABLE_DISK_USAGE. */
+  ulonglong m_tmp_table_disk_usage_peak;
 
   /** Column STATEMENT_ID. */
   ulonglong m_statement_id;

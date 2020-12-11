@@ -218,6 +218,10 @@ struct PSI_statement_locker_state_v1 {
   unsigned int m_query_sample_length;
   /** True if @c m_query_sample was truncated. */
   bool m_query_sample_truncated;
+  /** Peak filesort disk usage by statement. */
+  unsigned long long m_filesort_disk_usage_peak;
+  /** Peak temp table disk usage by statement. */
+  unsigned long long m_tmp_table_disk_usage_peak;
 
   PSI_sp_share *m_parent_sp_share;
   PSI_prepared_stmt *m_parent_prepared_stmt;
@@ -495,6 +499,24 @@ typedef void (*set_statement_no_index_used_t)(
 */
 typedef void (*set_statement_no_good_index_used_t)(
     struct PSI_statement_locker *locker);
+
+/**
+  Update a statement event "filesort disk usage" metric.
+  The metric maintains the max value seen during statement execution.
+  @param locker the statement locker
+  @param value new disk usage value
+*/
+typedef void (*update_statement_filesort_disk_usage_t)(
+    struct PSI_statement_locker *locker, unsigned long long value);
+
+/**
+  Update a statement event "tmp table disk usage" metric.
+  The metric maintains the max value seen during statement execution.
+  @param locker the statement locker
+  @param value new disk usage value
+*/
+typedef void (*update_statement_tmp_table_disk_usage_t)(
+    struct PSI_statement_locker *locker, unsigned long long value);
 
 /**
   End a statement event.

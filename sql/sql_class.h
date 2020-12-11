@@ -2634,6 +2634,10 @@ class THD : public MDL_context_owner,
   std::atomic<longlong> m_unreported_global_filesort_delta{0};
   std::atomic<longlong> m_unreported_global_tmp_table_delta{0};
 
+  /* Offsets for statement peak disk usage. */
+  ulonglong m_stmt_filesort_disk_usage_offset{0};
+  ulonglong m_stmt_tmp_table_disk_usage_offset{0};
+
  public:
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
   const CHARSET_INFO *db_charset;

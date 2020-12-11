@@ -88,6 +88,8 @@ struct PSI_statement_locker_state_v1 {
   const char *m_query_sample;
   unsigned int m_query_sample_length;
   bool m_query_sample_truncated;
+  unsigned long long m_filesort_disk_usage_peak;
+  unsigned long long m_tmp_table_disk_usage_peak;
   PSI_sp_share *m_parent_sp_share;
   PSI_prepared_stmt *m_parent_prepared_stmt;
 };
@@ -167,6 +169,10 @@ typedef void (*set_statement_no_index_used_t)(
     struct PSI_statement_locker *locker);
 typedef void (*set_statement_no_good_index_used_t)(
     struct PSI_statement_locker *locker);
+typedef void (*update_statement_filesort_disk_usage_t)(
+    struct PSI_statement_locker *locker, unsigned long long value);
+typedef void (*update_statement_tmp_table_disk_usage_t)(
+    struct PSI_statement_locker *locker, unsigned long long value);
 typedef void (*end_statement_v1_t)(struct PSI_statement_locker *locker,
                                    void *stmt_da);
 typedef PSI_prepared_stmt *(*create_prepared_stmt_v1_t)(
@@ -237,6 +243,8 @@ struct PSI_statement_service_v2 {
   inc_statement_sort_scan_t inc_statement_sort_scan;
   set_statement_no_index_used_t set_statement_no_index_used;
   set_statement_no_good_index_used_t set_statement_no_good_index_used;
+  update_statement_filesort_disk_usage_t update_statement_filesort_disk_usage;
+  update_statement_tmp_table_disk_usage_t update_statement_tmp_table_disk_usage;
   end_statement_v1_t end_statement;
   create_prepared_stmt_v1_t create_prepared_stmt;
   destroy_prepared_stmt_v1_t destroy_prepared_stmt;

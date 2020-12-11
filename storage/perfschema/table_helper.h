@@ -910,6 +910,8 @@ struct PFS_statement_stat_row {
     Expressed in DISPLAY units (picoseconds).
   */
   ulonglong m_cpu_time;
+  ulonglong m_filesort_disk_usage_peak;
+  ulonglong m_tmp_table_disk_usage_peak;
 
   /** Build a row from a memory buffer. */
   inline void set(time_normalizer *normalizer, const PFS_statement_stat *stat) {
@@ -949,6 +951,8 @@ struct PFS_statement_stat_row {
       m_no_index_used = stat->m_no_index_used;
       m_no_good_index_used = stat->m_no_good_index_used;
       m_cpu_time = stat->m_cpu_time * NANOSEC_TO_PICOSEC;
+      m_filesort_disk_usage_peak = stat->m_filesort_disk_usage_peak;
+      m_tmp_table_disk_usage_peak = stat->m_tmp_table_disk_usage_peak;
     } else {
       m_timer1_row.reset();
 
@@ -982,6 +986,8 @@ struct PFS_statement_stat_row {
       m_no_index_used = 0;
       m_no_good_index_used = 0;
       m_cpu_time = 0;
+      m_filesort_disk_usage_peak = 0;
+      m_tmp_table_disk_usage_peak = 0;
     }
   }
 

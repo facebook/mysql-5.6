@@ -1,0 +1,201 @@
+TRUNCATE TABLE performance_schema.events_statements_history_long;
+Test 1: Create table statement
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+create table test_table (i int, c char(255)) ENGINE=InnoDB;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Populate rows
+insert into test_table values (0, lpad('a', 250, 'b'));
+insert into test_table select i+1,c from test_table;
+insert into test_table select i+2,c from test_table;
+insert into test_table select i+4,c from test_table;
+insert into test_table select i+8,c from test_table;
+insert into test_table select i+16,c from test_table;
+insert into test_table select i+32,c from test_table;
+insert into test_table select i+64,c from test_table;
+insert into test_table select i+128,c from test_table;
+insert into test_table select i+256,c from test_table;
+Test 2: Insert statement
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+insert into test_table select i+512,c from test_table;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 3: Simple select query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+select i, substr(c, 1, 10) from test_table;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 4: Select query with group by
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+select i, substr(c, 1, 10) from test_table group by i, c;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 5: Select query with order by
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+select i, substr(c, 1, 10) from test_table order by i, c;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by non-zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by non-zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 6: Select query with group by and order by
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+select i, substr(c, 1, 10) from test_table group by i, c order by i, c;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by non-zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by non-zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 7: Multiple statement
+select i, substr(c, 1, 10) from test_table;
+select i, substr(c, 1, 10) from test_table group by i, c;
+select i, substr(c, 1, 10) from test_table order by i, c;
+select i, substr(c, 1, 10) from test_table group by i, c order by i, c;
+||||
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by non-zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by non-zero.]
+Test 8: Update query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+update test_table set c = lpad('b', 250, 'a');;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 9: Delete query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+delete from test_table where i < 100;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 10: Create temporary table
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+create temporary table tm_test_table(i int, c char(255)) engine=innodb;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 11: Insert into temporary table query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+insert into tm_test_table select * from test_table;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 12: Update temporary table query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+update tm_test_table set c = lpad('b', 250, 'a');;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 13: Delete temporary table query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+delete from tm_test_table where i < 100;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 14: Multiple statement using temporary table
+insert into tm_test_table select * from test_table;
+update tm_test_table set c = lpad('b', 250, 'a');
+delete from tm_test_table where i < 100;
+||||
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+Test 15: Drop table query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+drop table test_table;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 16: Drop temporary table query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+drop temporary table tm_test_table;;
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_user_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_host_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_program should be increased by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_thread_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_global_by_event_name should increase by zero.]
+include/assert.inc [sum_filesort_disk_usage on events_statements_summary_by_all should increase by zero.]
+include/assert.inc [filesort_disk_usage on events_statements_history_long should increase by zero.]
+SET @@global.performance_schema_esms_by_all = @start_value;

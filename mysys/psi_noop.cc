@@ -772,6 +772,16 @@ static void set_statement_no_good_index_used_noop(PSI_statement_locker *) {
   return;
 }
 
+static void update_statement_filesort_disk_usage_noop(PSI_statement_locker *,
+                                                      ulonglong) {
+  return;
+}
+
+static void update_statement_tmp_table_disk_usage_noop(PSI_statement_locker *,
+                                                       ulonglong) {
+  return;
+}
+
 static void end_statement_noop(PSI_statement_locker *, void *) { return; }
 
 static PSI_prepared_stmt *create_prepared_stmt_noop(void *, uint,
@@ -852,6 +862,8 @@ static PSI_statement_service_t psi_statement_noop = {
     inc_statement_sort_scan_noop,
     set_statement_no_index_used_noop,
     set_statement_no_good_index_used_noop,
+    update_statement_filesort_disk_usage_noop,
+    update_statement_tmp_table_disk_usage_noop,
     end_statement_noop,
     create_prepared_stmt_noop,
     destroy_prepared_stmt_noop,

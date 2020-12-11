@@ -1068,6 +1068,12 @@ void PFS_statement_stat_row::set_field(uint index, Field *f) {
     case 34: /* SUM_SKIPPED */
       set_field_ulonglong(f, m_skipped_count);
       break;
+    case 35: /* SUM_FILESORT_DISK_USAGE */
+      set_field_ulonglong(f, m_filesort_disk_usage_peak);
+      break;
+    case 36: /* SUM_TMP_TABLE_DISK_USAGE */
+      set_field_ulonglong(f, m_tmp_table_disk_usage_peak);
+      break;
     default:
       assert(false);
       break;

@@ -266,12 +266,16 @@
   - add skipped count to statement statistics
 
   80028-014:
- - add COLUMN_STATISTICS table
+  - add COLUMN_STATISTICS table
+
+  80028-015:
+  - add SUM_FILESORT_DISK_USAGE to statements tables.
+  - add SUM_TMP_TABLE_DISK_USAGE to statements tables.
 
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80028-014. i.e. 8.0.28 Facebook schema change no. 14.
+  Version published is now 80028-015. i.e. 8.0.28 Facebook schema change no. 15.
 */
 
-static const uint PFS_DD_VERSION = 80028014;
+static const uint PFS_DD_VERSION = 80028015;
 
 #endif /* PFS_DD_VERSION_H */

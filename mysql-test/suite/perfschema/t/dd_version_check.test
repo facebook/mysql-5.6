@@ -161,6 +161,10 @@ insert into test.pfs_published_schema
  values("MySQL 8.0.28-014",
         "eda972e228ed763b2092138f7e28e237185e4f2aa0bc422e8d4a130ea8ee5b46");
 
+insert into test.pfs_published_schema
+ values("MySQL 8.0.28-015",
+        "d0adedd3db0a0bdcb2bd969dbce54f7a0ee5896ef89f4cc4372f899134091345");
+
 
 create table test.pfs_check_table
   (id int NOT NULL AUTO_INCREMENT,

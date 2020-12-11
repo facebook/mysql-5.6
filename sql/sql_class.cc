@@ -1256,6 +1256,13 @@ void THD::reset_stmt_stats() {
   m_binlog_bytes_written = 0; /* binlog bytes written */
   m_stmt_total_write_time = 0;
   m_stmt_start_write_time_is_set = false;
+
+  /* The disk usage of a single statement is the difference between the peak
+     session usage during the statement execution and the session usage at
+     the start of the statement. So remember disk usage at the start and
+     use it to offset the peak. */
+  m_stmt_filesort_disk_usage_offset = m_filesort_disk_usage;
+  m_stmt_tmp_table_disk_usage_offset = m_tmp_table_disk_usage;
 }
 
 void THD::init_query_mem_roots() {
@@ -4152,6 +4159,13 @@ void THD::adjust_filesort_disk_usage(longlong delta) {
             &m_unreported_global_filesort_delta, &filesort_disk_usage,
             &filesort_disk_usage_peak, &filesort_disk_usage_period_peak,
             skip_session);
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+  ulonglong stmt_usage =
+      m_filesort_disk_usage - m_stmt_filesort_disk_usage_offset;
+  PSI_STATEMENT_CALL(update_statement_filesort_disk_usage)
+  (m_statement_psi, stmt_usage);
+#endif
 }
 
 /**
@@ -4167,6 +4181,13 @@ void THD::adjust_tmp_table_disk_usage(longlong delta) {
             &m_unreported_global_tmp_table_delta, &tmp_table_disk_usage,
             &tmp_table_disk_usage_peak, &tmp_table_disk_usage_period_peak,
             skip_session);
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+  ulonglong stmt_usage =
+      m_tmp_table_disk_usage - m_stmt_tmp_table_disk_usage_offset;
+  PSI_STATEMENT_CALL(update_statement_tmp_table_disk_usage)
+  (m_statement_psi, stmt_usage);
+#endif
 }
 
 /**

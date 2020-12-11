@@ -402,6 +402,8 @@ struct PFS_statement_stat {
     Expressed in STORAGE units (nanoseconds).
   */
   ulonglong m_cpu_time{0};
+  ulonglong m_filesort_disk_usage_peak{0};
+  ulonglong m_tmp_table_disk_usage_peak{0};
   ulonglong m_tmp_table_bytes_written{0};
   ulonglong m_filesort_bytes_written{0};
   ulong m_index_dive_count{0};
@@ -451,6 +453,8 @@ struct PFS_statement_stat {
       m_no_index_used += stat->m_no_index_used;
       m_no_good_index_used += stat->m_no_good_index_used;
       m_cpu_time += stat->m_cpu_time;
+      m_filesort_disk_usage_peak += stat->m_filesort_disk_usage_peak;
+      m_tmp_table_disk_usage_peak += stat->m_tmp_table_disk_usage_peak;
     }
   }
 };
