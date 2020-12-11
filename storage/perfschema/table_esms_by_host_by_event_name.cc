@@ -89,6 +89,8 @@ Plugin_table table_esms_by_host_by_event_name::m_table_def(
     "  SUM_COMPILATION_CPU BIGINT unsigned not null,\n"
     "  SUM_ELAPSED_TIME BIGINT unsigned not null,\n"
     "  SUM_SKIPPED BIGINT unsigned not null,\n"
+    "  SUM_FILESORT_DISK_USAGE BIGINT unsigned not null,\n"
+    "  SUM_TMP_TABLE_DISK_USAGE BIGINT unsigned not null,\n"
     "  UNIQUE KEY (HOST, EVENT_NAME) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",

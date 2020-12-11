@@ -224,10 +224,14 @@
 
   80020-014:
    - add COLUMN_STATISTICS table
+
+  80020-015:
+   - add SUM_FILESORT_DISK_USAGE to statements tables.
+   - add SUM_TMP_TABLE_DISK_USAGE to statements tables.
 */
-/* Version published now is 80020-014. i.e. 8.0.20 Facebook schema change
- * no. 14.
+/* Version published now is 80020-015. i.e. 8.0.20 Facebook schema change
+ * no. 15.
  */
-static const uint PFS_DD_VERSION = 80020014;
+static const uint PFS_DD_VERSION = 80020015;
 
 #endif /* PFS_DD_VERSION_H */

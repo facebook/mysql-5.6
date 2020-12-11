@@ -137,6 +137,12 @@ void pfs_set_statement_no_index_used_v2(PSI_statement_locker *locker);
 
 void pfs_set_statement_no_good_index_used_v2(PSI_statement_locker *locker);
 
+void pfs_update_statement_filesort_disk_usage_v2(PSI_statement_locker *locker,
+                                                 ulonglong value);
+
+void pfs_update_statement_tmp_table_disk_usage_v2(PSI_statement_locker *locker,
+                                                  ulonglong value);
+
 void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da);
 
 PSI_digest_locker *pfs_digest_start_v2(PSI_statement_locker *locker);
