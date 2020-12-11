@@ -181,6 +181,10 @@ struct row_events_statements {
   bool m_secondary;
   /** Column SKIPPED_COUNT. */
   uint m_skipped_count;
+  /** Column FILESORT_DISK_USAGE. */
+  ulonglong m_filesort_disk_usage_peak;
+  /** Column TMP_TABLE_DISK_USAGE. */
+  ulonglong m_tmp_table_disk_usage_peak;
 };
 
 /** Position of a cursor on PERFORMANCE_SCHEMA.EVENTS_STATEMENTS_CURRENT. */

@@ -104,6 +104,8 @@ Plugin_table table_events_statements_current::m_table_def(
     "  COMPILATION_CPU BIGINT unsigned not null,\n"
     "  ELAPSED_TIME BIGINT unsigned not null,\n"
     "  SKIPPED_COUNT BIGINT unsigned not null,\n"
+    "  FILESORT_DISK_USAGE BIGINT unsigned not null,\n"
+    "  TMP_TABLE_DISK_USAGE BIGINT unsigned not null,\n"
     "  PRIMARY KEY (THREAD_ID, EVENT_ID) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
@@ -186,6 +188,8 @@ Plugin_table table_events_statements_history::m_table_def(
     "  COMPILATION_CPU BIGINT unsigned not null,\n"
     "  ELAPSED_TIME BIGINT unsigned not null,\n"
     "  SKIPPED_COUNT BIGINT unsigned not null,\n"
+    "  FILESORT_DISK_USAGE BIGINT unsigned not null,\n"
+    "  TMP_TABLE_DISK_USAGE BIGINT unsigned not null,\n"
     "  PRIMARY KEY (THREAD_ID, EVENT_ID) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
@@ -267,7 +271,9 @@ Plugin_table table_events_statements_history_long::m_table_def(
     "  INDEX_DIVE_CPU BIGINT unsigned not null,\n"
     "  COMPILATION_CPU BIGINT unsigned not null,\n"
     "  ELAPSED_TIME BIGINT unsigned not null,\n"
-    "  SKIPPED_COUNT BIGINT unsigned not null\n"
+    "  SKIPPED_COUNT BIGINT unsigned not null,\n"
+    "  FILESORT_DISK_USAGE BIGINT unsigned not null,\n"
+    "  TMP_TABLE_DISK_USAGE BIGINT unsigned not null\n"
     "",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
@@ -402,6 +408,8 @@ int table_events_statements_common::make_row_part_1(
   m_row.m_max_controlled_memory = statement->m_max_controlled_memory;
   m_row.m_max_total_memory = statement->m_max_total_memory;
   m_row.m_secondary = statement->m_secondary;
+  m_row.m_filesort_disk_usage_peak = statement->m_filesort_disk_usage_peak;
+  m_row.m_tmp_table_disk_usage_peak = statement->m_tmp_table_disk_usage_peak;
 
   /* Copy the digest storage. */
   digest->copy(&statement->m_digest_storage);
@@ -707,6 +715,20 @@ int table_events_statements_common::read_row_values(TABLE *table,
         case 52: /* SKIPPED_COUNT */
           if (m_row.m_skipped_count != 0) {
             set_field_ulonglong(f, m_row.m_skipped_count);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 53: /* FILESORT_DISK_USAGE */
+          if (m_row.m_filesort_disk_usage_peak != 0) {
+            set_field_ulonglong(f, m_row.m_filesort_disk_usage_peak);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 54: /* TMP_TABLE_DISK_USAGE */
+          if (m_row.m_tmp_table_disk_usage_peak != 0) {
+            set_field_ulonglong(f, m_row.m_tmp_table_disk_usage_peak);
           } else {
             f->set_null();
           }

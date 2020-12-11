@@ -1085,13 +1085,19 @@ void PFS_statement_stat_row::set_field(uint index, Field *f) {
     case 34: /* SUM_SKIPPED */
       set_field_ulonglong(f, m_skipped_count);
       break;
-    case 35: /* MAX_CONTROLLED_MEMORY */
+    case 35: /* SUM_FILESORT_DISK_USAGE */
+      set_field_ulonglong(f, m_filesort_disk_usage_peak);
+      break;
+    case 36: /* SUM_TMP_TABLE_DISK_USAGE */
+      set_field_ulonglong(f, m_tmp_table_disk_usage_peak);
+      break;
+    case 37: /* MAX_CONTROLLED_MEMORY */
       set_field_ulonglong(f, m_max_controlled_memory);
       break;
-    case 36: /* MAX_TOTAL_MEMORY */
+    case 38: /* MAX_TOTAL_MEMORY */
       set_field_ulonglong(f, m_max_total_memory);
       break;
-    case 37: /* COUNT_SECONDARY */
+    case 39: /* COUNT_SECONDARY */
       set_field_ulonglong(f, m_count_secondary);
       break;
     default:

@@ -53,7 +53,9 @@ events_statements_history_long	CREATE TABLE `events_statements_history_long` (
   `INDEX_DIVE_CPU` bigint unsigned NOT NULL,
   `COMPILATION_CPU` bigint unsigned NOT NULL,
   `ELAPSED_TIME` bigint unsigned NOT NULL,
-  `SKIPPED_COUNT` bigint unsigned NOT NULL
+  `SKIPPED_COUNT` bigint unsigned NOT NULL,
+  `FILESORT_DISK_USAGE` bigint unsigned NOT NULL,
+  `TMP_TABLE_DISK_USAGE` bigint unsigned NOT NULL
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 select * from INFORMATION_SCHEMA.STATISTICS
 where TABLE_SCHEMA = "performance_schema"

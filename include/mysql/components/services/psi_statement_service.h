@@ -120,6 +120,10 @@ set_statement_no_index_used_t set_statement_no_index_used;
 set_statement_no_good_index_used_t set_statement_no_good_index_used;
 /** @sa set_statement_secondary_engine_v3_t. */
 set_statement_secondary_engine_v3_t set_statement_secondary_engine;
+/** @sa update_statement_filesort_disk_usage. */
+update_statement_filesort_disk_usage_t update_statement_filesort_disk_usage;
+/** @sa update_statement_tmp_table_disk_usage. */
+update_statement_tmp_table_disk_usage_t update_statement_tmp_table_disk_usage;
 /** @sa end_statement_v1_t. */
 end_statement_v1_t end_statement;
 

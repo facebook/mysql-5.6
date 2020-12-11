@@ -86,6 +86,8 @@ Plugin_table table_esms_global_by_event_name::m_table_def(
     "  SUM_COMPILATION_CPU BIGINT unsigned not null,\n"
     "  SUM_ELAPSED_TIME BIGINT unsigned not null,\n"
     "  SUM_SKIPPED BIGINT unsigned not null,\n"
+    "  SUM_FILESORT_DISK_USAGE BIGINT unsigned not null,\n"
+    "  SUM_TMP_TABLE_DISK_USAGE BIGINT unsigned not null,\n"
     "  MAX_CONTROLLED_MEMORY BIGINT unsigned not null,\n"
     "  MAX_TOTAL_MEMORY BIGINT unsigned not null,\n"
     "  COUNT_SECONDARY BIGINT unsigned not null,\n"

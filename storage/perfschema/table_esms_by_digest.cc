@@ -90,6 +90,8 @@ Plugin_table table_esms_by_digest::m_table_def(
     "  SUM_COMPILATION_CPU BIGINT unsigned not null,\n"
     "  SUM_ELAPSED_TIME BIGINT unsigned not null,\n"
     "  SUM_SKIPPED BIGINT unsigned not null,\n"
+    "  SUM_FILESORT_DISK_USAGE BIGINT unsigned not null,\n"
+    "  SUM_TMP_TABLE_DISK_USAGE BIGINT unsigned not null,\n"
     "  MAX_CONTROLLED_MEMORY BIGINT unsigned not null,\n"
     "  MAX_TOTAL_MEMORY BIGINT unsigned not null,\n"
     "  COUNT_SECONDARY BIGINT unsigned not null,\n"
@@ -327,22 +329,22 @@ int table_esms_by_digest::read_row_values(TABLE *table, unsigned char *buf,
         case 2: /* DIGEST_TEXT */
           m_row.m_digest.set_field(f->field_index(), f);
           break;
-        case 41: /* FIRST_SEEN */
+        case 43: /* FIRST_SEEN */
           set_field_timestamp(f, m_row.m_first_seen);
           break;
-        case 42: /* LAST_SEEN */
+        case 44: /* LAST_SEEN */
           set_field_timestamp(f, m_row.m_last_seen);
           break;
-        case 43: /* QUANTILE_95 */
+        case 45: /* QUANTILE_95 */
           set_field_ulonglong(f, m_row.m_p95);
           break;
-        case 44: /* QUANTILE_99 */
+        case 46: /* QUANTILE_99 */
           set_field_ulonglong(f, m_row.m_p99);
           break;
-        case 45: /* QUANTILE_999 */
+        case 47: /* QUANTILE_999 */
           set_field_ulonglong(f, m_row.m_p999);
           break;
-        case 46: /* QUERY_SAMPLE_TEXT */
+        case 48: /* QUERY_SAMPLE_TEXT */
           if (m_row.m_query_sample.length())
             set_field_text(f, m_row.m_query_sample.ptr(),
                            m_row.m_query_sample.length(),
@@ -351,10 +353,10 @@ int table_esms_by_digest::read_row_values(TABLE *table, unsigned char *buf,
             f->set_null();
           }
           break;
-        case 47: /* QUERY_SAMPLE_SEEN */
+        case 49: /* QUERY_SAMPLE_SEEN */
           set_field_timestamp(f, m_row.m_query_sample_seen);
           break;
-        case 48: /* QUERY_SAMPLE_TIMER_WAIT */
+        case 50: /* QUERY_SAMPLE_TIMER_WAIT */
           set_field_ulonglong(f, m_row.m_query_sample_timer_wait);
           break;
         default: /* 3, ... COUNT/SUM/MIN/AVG/MAX */

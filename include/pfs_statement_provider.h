@@ -139,6 +139,12 @@ void pfs_set_statement_no_good_index_used_vc(PSI_statement_locker *locker);
 void pfs_set_statement_secondary_engine_vc(PSI_statement_locker *locker,
                                            bool secondary);
 
+void pfs_update_statement_filesort_disk_usage_vc(PSI_statement_locker *locker,
+                                                 ulonglong value);
+
+void pfs_update_statement_tmp_table_disk_usage_vc(PSI_statement_locker *locker,
+                                                  ulonglong value);
+
 void pfs_end_statement_vc(PSI_statement_locker *locker, void *stmt_da);
 
 PSI_prepared_stmt *pfs_create_prepared_stmt_vc(void *identity, uint stmt_id,

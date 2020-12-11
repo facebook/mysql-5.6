@@ -405,6 +405,8 @@ struct PFS_statement_stat {
   ulonglong m_max_controlled_memory{0};
   ulonglong m_max_total_memory{0};
   ulonglong m_count_secondary{0};
+  ulonglong m_filesort_disk_usage_peak{0};
+  ulonglong m_tmp_table_disk_usage_peak{0};
   ulonglong m_tmp_table_bytes_written{0};
   ulonglong m_filesort_bytes_written{0};
   ulong m_index_dive_count{0};
@@ -470,6 +472,8 @@ struct PFS_statement_stat {
         m_max_total_memory = stat->m_max_total_memory;
       }
       m_count_secondary += stat->m_count_secondary;
+      m_filesort_disk_usage_peak += stat->m_filesort_disk_usage_peak;
+      m_tmp_table_disk_usage_peak += stat->m_tmp_table_disk_usage_peak;
     }
   }
 };
