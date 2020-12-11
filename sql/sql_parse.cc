@@ -2187,6 +2187,10 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       thd->set_secondary_engine_optimization(
           Secondary_engine_optimization::PRIMARY_TENTATIVELY);
 
+      const char *beginning_of_current_stmt = thd->query().str;
+      char sub_query[1025];  // 1024 bytes + '\0'
+      int sub_query_byte_length;
+
       mysql_parse(thd, &parser_state, &last_timer);
 
       // Check if the statement failed and needs to be restarted in
@@ -2202,10 +2206,6 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       DBUG_EXECUTE_IF("parser_stmt_to_error_log_with_system_prio", {
         LogErr(SYSTEM_LEVEL, ER_PARSER_TRACE, thd->query().str);
       });
-
-      const char *beginning_of_current_stmt = thd->query().str;
-      char sub_query[1025];  // 1024 bytes + '\0'
-      int sub_query_byte_length;
 
       while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
              !thd->is_error()) {
@@ -2304,9 +2304,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         thd->set_secondary_engine_optimization(saved_secondary_engine);
       }
 
-      const char *query_end = thd->query().str + thd->query().length;
       sub_query_byte_length =
-        static_cast<int>(query_end - beginning_of_current_stmt);
+          static_cast<int>(packet_end - beginning_of_current_stmt);
       sub_query_byte_length = std::min(sub_query_byte_length, 1024);
       memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
       sub_query[sub_query_byte_length] = '\0';
