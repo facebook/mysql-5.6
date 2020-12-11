@@ -264,12 +264,17 @@
 
   80023-015:
 
- - add COLUMN_STATISTICS table
+  - add COLUMN_STATISTICS table
+
+  80023-016:
+
+  - add SUM_FILESORT_DISK_USAGE to statements tables.
+  - add SUM_TMP_TABLE_DISK_USAGE to statements tables.
 
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-015. i.e. 8.0.23 Facebook schema change no. 15.
+  Version published is now 80023-016. i.e. 8.0.23 Facebook schema change no. 16.
 */
 
-static const uint PFS_DD_VERSION = 80023015;
+static const uint PFS_DD_VERSION = 80023016;
 
 #endif /* PFS_DD_VERSION_H */

@@ -7324,6 +7324,20 @@ static void lo_set_statement_no_good_index_used_v2(
   }
 }
 
+static void lo_update_statement_filesort_disk_usage_v2(
+    PSI_statement_locker *locker, ulonglong value) {
+  if (g_statement_chain != nullptr) {
+    g_statement_chain->update_statement_filesort_disk_usage(locker, value);
+  }
+}
+
+static void lo_update_statement_tmp_table_disk_usage_v2(
+    PSI_statement_locker *locker, ulonglong value) {
+  if (g_statement_chain != nullptr) {
+    g_statement_chain->update_statement_tmp_table_disk_usage(locker, value);
+  }
+}
+
 static void lo_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
   if (g_statement_chain != nullptr) {
     g_statement_chain->end_statement(locker, stmt_da);
