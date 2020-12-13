@@ -1325,7 +1325,8 @@ bool INLINE_ATTR select_exec::run_query() {
   bool ret = false;
 
   if (m_unpack_value) {
-    m_converter->setup_field_decoders(m_table->read_set);
+    m_converter->setup_field_decoders(m_table->read_set, m_index,
+                                      false /* keyread_only */);
   }
 
   m_row_buf_prefix_end_pos = 0;
