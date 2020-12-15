@@ -15,6 +15,13 @@ def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	ROLE_HOST	6	NULL	YES	va
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_GRANTABLE	7		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_DEFAULT	8	NULL	YES	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_MANDATORY	9		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	WAITING_QUERIES	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	RUNNING_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	ABORTED_QUERIES	4		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	TIMEOUT_QUERIES	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	CONNECTIONS	6		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	REJECTED_CONNECTIONS	7		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
 def	information_schema	ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
 def	information_schema	ADMISSION_CONTROL_QUEUE	QUEUE_ID	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
 def	information_schema	ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
@@ -718,6 +725,13 @@ COL_CML	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	C
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_GRANTABLE	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_DEFAULT	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_MANDATORY	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
+3.0000	information_schema	ADMISSION_CONTROL_ENTITIES	SCHEMA_NAME	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	WAITING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	RUNNING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	ABORTED_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	TIMEOUT_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	CONNECTIONS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	REJECTED_CONNECTIONS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 3.0000	information_schema	ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
 NULL	information_schema	ADMISSION_CONTROL_QUEUE	QUEUE_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned

@@ -80,6 +80,7 @@ Database: information_schema
 |                Tables                 |
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
+| ADMISSION_CONTROL_ENTITIES            |
 | ADMISSION_CONTROL_QUEUE               |
 | APPLICABLE_ROLES                      |
 | AUTHINFO                              |
@@ -187,6 +188,7 @@ Database: INFORMATION_SCHEMA
 |                Tables                 |
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
+| ADMISSION_CONTROL_ENTITIES            |
 | ADMISSION_CONTROL_QUEUE               |
 | APPLICABLE_ROLES                      |
 | AUTHINFO                              |

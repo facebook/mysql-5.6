@@ -1605,6 +1605,7 @@ TEST_P(ShareConnectionTestWithRestartedServer,
       case cmd_byte<classic_protocol::message::client::Quit>():
         expected_response = ExpectedResponse::None;
         break;
+      case cmd_byte<classic_protocol::message::client::InitSchema>():
       case cmd_byte<classic_protocol::message::client::ResetConnection>():
       case cmd_byte<classic_protocol::message::client::Ping>():
       case cmd_byte<classic_protocol::message::client::Clone>():

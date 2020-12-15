@@ -1,0 +1,37 @@
+source include/big_test.inc;
+source include/not_valgrind.inc;
+
+create user test_user@localhost identified with 'mysql_native_password' BY '';
+grant all on test.* to test_user@localhost;
+
+let $i = 10;
+while ($i)
+{
+  eval create database test_db$i;
+  eval grant all on test_db$i.* to test_user@localhost;
+
+  eval use test_db$i;
+
+  dec $i;
+}
+
+let $error_query = sum_error_raised as "errors present" from performance_schema.events_errors_summary_global_by_error where error_name = "ER_MULTI_TENANCY_MAX_CONNECTION";
+let $error_count_init = `select $error_query`;
+
+
+let $exec = /usr/bin/python3 $MYSQL_TEST_DIR/t/max_db_connections_stress.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --db_prefix='test_db' --db_count=10;
+exec $exec > $MYSQLTEST_VARDIR/tmp/max_db_connections_stress.output;
+
+let $i = 10;
+while ($i)
+{
+  eval drop database test_db$i;
+  dec $i;
+}
+
+drop user test_user@localhost;
+remove_file $MYSQLTEST_VARDIR/tmp/max_db_connections_stress.output;
+
+disable_query_log;
+eval select $error_count_init < $error_query;
+enable_query_log;

@@ -49,6 +49,11 @@
 #include <unordered_map>
 #include <vector>
 
+/**
+  Forward declarations.
+*/
+class Ac_info;
+
 extern bool opt_admission_control_by_trx;
 extern ulonglong admission_control_filter;
 extern char *admission_control_weights;
@@ -68,46 +73,6 @@ extern PSI_stage_info stage_admission_control_exit;
 extern PSI_stage_info stage_waiting_for_admission;
 extern PSI_stage_info stage_waiting_for_readmission;
 #endif
-
-// TODO: remove this block eventually when this becomes part of audit plugin?
-// TBD later
-// Resource isolation types that a multi-tenancy plugin will handle.
-// Currently connection and query limits are two resource types. More will be
-// supported in the future.
-enum class enum_multi_tenancy_resource_type : int32_t {
-  MULTI_TENANCY_RESOURCE_CONNECTION,
-  MULTI_TENANCY_RESOURCE_QUERY,
-
-  MULTI_TENANCY_NUM_RESOURCE_TYPES
-};
-
-// TODO: Remove this enum when code becomes part of plugin
-// Callback function return types.
-// - ACCEPT: resource can be granted
-// - WAIT: may need to wait for resource to be freed up
-// - REJECT: resource cannot be granted
-// - FALLBACK: plugin is disabled
-enum class enum_multi_tenancy_return_type : int32_t {
-  MULTI_TENANCY_RET_ACCEPT = 0,
-  MULTI_TENANCY_RET_WAIT,
-  MULTI_TENANCY_RET_REJECT,
-
-  MULTI_TENANCY_RET_FALLBACK,
-  MULTI_TENANCY_NUM_RETURN_TYPES
-};
-
-typedef enum enum_multi_tenancy_resource_type MT_RESOURCE_TYPE;
-typedef enum enum_multi_tenancy_return_type MT_RETURN_TYPE;
-typedef std::unordered_map<std::string, std::string> ATTRS_MAP_T;
-typedef std::vector<std::pair<std::string, std::string>> ATTRS_VEC_T;
-
-struct multi_tenancy_resource_attributes {
-  const ATTRS_MAP_T *connection_attrs_map;
-  const ATTRS_VEC_T *query_attrs_vec;
-  const char *database;
-};
-
-typedef struct multi_tenancy_resource_attributes MT_RESOURCE_ATTRS;
 
 // The contents here must match entries in admission_control_filter_names array
 enum enum_admission_control_filter {
@@ -145,16 +110,17 @@ enum enum_admission_control_request_mode {
   AC_REQUEST_QUERY_READMIT_HIPRI,
 };
 
-extern int multi_tenancy_admit_query(
+int multi_tenancy_add_connection(THD *, const char *);
+int multi_tenancy_close_connection(THD *);
+int multi_tenancy_admit_query(
     THD *, enum_admission_control_request_mode mode = AC_REQUEST_QUERY);
-extern int multi_tenancy_exit_query(THD *);
+int multi_tenancy_exit_query(THD *);
 int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
+int fill_ac_entities(THD *thd, Table_ref *tables, Item *cond);
 
 /**
   Per-thread information used in admission control.
 */
-
-struct st_ac_node;
 struct st_ac_node {
   st_ac_node(const st_ac_node &) = delete;
   st_ac_node &operator=(const st_ac_node &) = delete;
@@ -168,6 +134,8 @@ struct st_ac_node {
   long queue;
   // The THD owning this node.
   THD *thd;
+  // The ac_info this node belongs to.
+  std::shared_ptr<Ac_info> ac_info;
   st_ac_node(THD *thd_arg);
   ~st_ac_node();
 };
@@ -200,21 +168,40 @@ struct Ac_queue {
 class Ac_info {
   friend class AC;
   friend int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
+  friend int fill_ac_entities(THD *thd, Table_ref *tables, Item *cond);
+
   // Queues
   std::array<Ac_queue, MAX_AC_QUEUES> queues{};
-  // Count for waiting_queries in queues for this Ac_info.
-  unsigned long waiting_queries;
+
+  // Entity name used as key in ac_info map.
+  std::string entity;
+
+  // Count for waiting queries in queues for this Ac_info.
+  unsigned long waiting_queries = 0;
   // Count for running queries in queues for this Ac_info.
-  unsigned long running_queries;
-  // Protects the queues.
+  unsigned long running_queries = 0;
+  // Count for rejected queries in queues for this Ac_info.
+  unsigned long aborted_queries = 0;
+  // Count for timed out queries in queues for this Ac_info.
+  unsigned long timeout_queries = 0;
+
+  // Count for current connections.
+  unsigned long connections = 0;
+  // Stats for rejected connections.
+  ulonglong rejected_connections = 0;
+
+  // Protects Ac_info.
   mysql_mutex_t lock;
 
  public:
-  Ac_info();
+  Ac_info(const std::string &);
   ~Ac_info();
   // Disable copy constructor.
   Ac_info(const Ac_info &) = delete;
   Ac_info &operator=(const Ac_info &) = delete;
+
+  // Accessors.
+  const std::string &get_entity() const;
 };
 
 using Ac_info_ptr = std::shared_ptr<Ac_info>;
@@ -231,12 +218,15 @@ enum class Ac_result {
 */
 class AC {
   friend int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
+  friend int fill_ac_entities(THD *thd, Table_ref *tables, Item *cond);
 
   // This map is protected by the rwlock LOCK_ac.
   using Ac_info_ptr_container = std::unordered_map<std::string, Ac_info_ptr>;
   Ac_info_ptr_container ac_map;
   // Variables to track global limits
-  ulong max_running_queries, max_waiting_queries;
+  ulong max_running_queries = 0;
+  ulong max_waiting_queries = 0;
+  ulong max_connections = 0;
 
   std::array<unsigned long, MAX_AC_QUEUES> weights{};
   /**
@@ -246,8 +236,9 @@ class AC {
   */
   mutable mysql_rwlock_t LOCK_ac;
 
-  std::atomic_ullong total_aborted_queries;
-  std::atomic_ullong total_timeout_queries;
+  std::atomic_ullong total_aborted_queries{0};
+  std::atomic_ullong total_timeout_queries{0};
+  std::atomic_ullong total_rejected_connections{0};
 
  public:
   AC();
@@ -268,13 +259,14 @@ class AC {
 
   void update_max_waiting_queries(ulong val);
 
+  void update_max_connections(ulong val);
+
   ulong get_max_running_queries() const;
 
   ulong get_max_waiting_queries() const;
 
-  Ac_result admission_control_enter(THD *, const MT_RESOURCE_ATTRS *,
-                                    enum_admission_control_request_mode);
-  void admission_control_exit(THD *, const MT_RESOURCE_ATTRS *);
+  Ac_result admission_control_enter(THD *, enum_admission_control_request_mode);
+  void admission_control_exit(THD *);
   bool wait_for_signal(THD *, st_ac_node_ptr &, const Ac_info_ptr &ac_info,
                        enum_admission_control_request_mode);
   static void enqueue(THD *thd, Ac_info_ptr ac_info,
@@ -282,14 +274,42 @@ class AC {
   static void dequeue(THD *thd, Ac_info_ptr ac_info);
   static void dequeue_and_run(THD *thd, Ac_info_ptr ac_info);
 
+  Ac_result add_connection(THD *, const char *);
+  void close_connection(THD *);
+
   int update_queue_weights(char *str);
 
   ulonglong get_total_aborted_queries() const { return total_aborted_queries; }
   ulonglong get_total_timeout_queries() const { return total_timeout_queries; }
+  ulonglong get_total_rejected_connections() const {
+    return total_rejected_connections;
+  }
 
   ulong get_total_running_queries() const;
 
   ulong get_total_waiting_queries() const;
+};
+
+/**
+  @brief Class temporarily holding existing resources during ac_info switch.
+*/
+class Ac_switch_guard {
+  THD *thd;
+  std::shared_ptr<Ac_info> ac_info;
+  // Whether switch succeeded or not.
+  bool committed = false;
+  // Is switch actually needed?
+  bool do_switch = true;
+
+ public:
+  Ac_switch_guard(THD *);
+  ~Ac_switch_guard();
+  void commit() {
+    // If switch is not needed then commit is ignored, and ac_info will be
+    // restored.
+    if (do_switch) committed = true;
+  }
+  int add_connection(const char *new_db);
 };
 
 #endif /* _sql_admission_control_h */

@@ -1,7 +1,10 @@
 create database test_db;
+create database test_db2;
 create user 'test_user'@'localhost';
 grant all on test_db.* to 'test_user'@'localhost';
+grant all on test_db2.* to 'test_user'@'localhost';
 grant all on test.* to 'test_user'@'localhost';
+use test_db2;
 use test_db;
 set @start_max_running_queries= @@global.max_running_queries;
 set @start_max_waiting_queries= @@global.max_waiting_queries;
@@ -22,7 +25,7 @@ use test_db;
 select * from t1||||
 ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
 Maximum waiting queries reached. So this would hit an error.
-use test;
+use test_db2;
 create table t1_test(aaa int);
 insert into t1_test values (1);
 select aaa from t1_test;
@@ -43,8 +46,16 @@ Check status variables
 aborted_queries = 3
 running_queries = 10
 waiting_queries = 5
+select * from information_schema.admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	5	10	3	0	15	0
+test_db2	0	0	0	0	0	0
 Filled up queues on one db doesn't affect queries on other db.
-use test;
+use test_db2;
+select * from information_schema.admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	5	10	3	0	15	0
+test_db2	0	1	0	0	1	0
 set @@global.max_waiting_queries=6;
 Kill a thread that is waiting for admission.
 select count(*) from t1;
@@ -91,6 +102,10 @@ Check status variables
 include/assert.inc [DB Admission control waiting queries should be zero]
 include/assert.inc [DB Admission control running queries should be zero]
 include/assert.inc [DB Admission control aborted queries should be five]
+select * from information_schema.admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	0	0	5	0	13	0
+test_db2	0	0	0	0	0	0
 set @@global.admission_control_by_trx = @save_admission_control_by_trx;
 select @@global.admission_control_by_trx;
 @@global.admission_control_by_trx
@@ -124,6 +139,10 @@ timeout_queries should be 1
 timeout_queries = 1
 waiting_queries should be 0
 waiting_queries = 0
+select * from information_schema.admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	0	0	5	1	15	0
+test_db2	0	0	0	0	0	0
 reset global.max_running_queries and global.max_waiting_queries
 set @@global.max_running_queries=10;
 set @@global.max_waiting_queries=5;
@@ -134,6 +153,8 @@ Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
 count(*)
 0
+select * from information_schema.admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
 drop user test_user@localhost;

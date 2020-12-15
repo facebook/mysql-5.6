@@ -1420,14 +1420,6 @@ err:
 static void mysql_change_db_impl(THD *thd, const LEX_CSTRING &new_db_name,
                                  ulong new_db_access,
                                  const CHARSET_INFO *new_db_charset) {
-  if (thd->is_in_ac) {
-    // current admission control is per database
-    assert(thd->db().str != nullptr);
-    // if the thd is already in admission control for the previous
-    // database, we need to release it before resetting the value.
-    multi_tenancy_exit_query(thd);
-  }
-
   /* 1. Change current database in THD. */
 
   if (new_db_name.str == nullptr) {
@@ -1784,4 +1776,42 @@ bool mysql_opt_change_db(THD *thd, const LEX_CSTRING &new_db_name,
   backup_current_db_name(thd, saved_db_name);
 
   return mysql_change_db(thd, new_db_name, force_switch);
+}
+
+/**
+ * This function is called for the following commands to set
+ * the session's default database: COM_INIT_DB, SQLCOM_CHANGE_DB,
+ * COM_CONNECT, COM_CHANGE_USER. In this function, we will check the
+ * admission control and connection limit for the new database.
+ *
+ * @retval
+ *   0   ok
+ * @retval
+ *   1   failed to set session db
+ */
+bool set_session_db_helper(THD *thd, const LEX_CSTRING &new_db) {
+  Ac_switch_guard switch_guard(thd);
+  bool error = switch_guard.add_connection(new_db.str);
+
+  if (error) {
+    // Connection rejected/throttled. Push error message.
+    std::string entity(new_db.str);
+    if (thd->security_context()->host_or_ip().str) {
+      if (!entity.empty()) entity += " on ";
+      entity += thd->security_context()->host_or_ip().str;
+    }
+
+    my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), entity.c_str());
+  } else {
+    // Switch to new db if it is specified.
+    if (new_db.length)
+      error = mysql_change_db(thd, new_db, false);  // Do not force switch.
+
+    if (!error)
+      // No db, or successful switch, so mark guard to keep the changes.
+      switch_guard.commit();
+  }
+
+  // Switch guard either commits or rolls back the switch operation.
+  return error;
 }
