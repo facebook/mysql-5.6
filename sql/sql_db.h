@@ -49,4 +49,5 @@ bool get_default_db_collation(THD *thd, const char *db_name,
                               const CHARSET_INFO **collation);
 bool is_thd_db_read_only_by_name(THD *thd, const char *db);
 enum_db_read_only get_db_read_only(const dd::Schema &schema);
+bool set_session_db_helper(THD *thd, const LEX_CSTRING &new_db);
 #endif /* SQL_DB_INCLUDED */

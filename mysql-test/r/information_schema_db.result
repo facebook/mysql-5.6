@@ -6,6 +6,7 @@ drop function if exists f2;
 use INFORMATION_SCHEMA;
 show tables where Tables_in_information_schema NOT LIKE 'INNODB%' and Tables_in_information_schema NOT LIKE 'ndb%';
 Tables_in_information_schema
+ADMISSION_CONTROL_ENTITIES
 ADMISSION_CONTROL_QUEUE
 AUTHINFO
 CHARACTER_SETS

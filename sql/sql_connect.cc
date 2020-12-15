@@ -918,6 +918,8 @@ void close_connection(THD *thd, uint sql_errno, bool server_shutdown,
                       bool generate_event) {
   DBUG_ENTER("close_connection");
 
+  multi_tenancy_close_connection(thd);
+
   if (sql_errno) net_send_error(thd, sql_errno, ER_DEFAULT(sql_errno));
   thd->disconnect(server_shutdown);
 
