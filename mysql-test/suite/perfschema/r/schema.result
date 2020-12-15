@@ -9,6 +9,7 @@ show tables;
 Tables_in_performance_schema
 accounts
 client_attributes
+column_statistics
 cond_instances
 data_lock_waits
 data_locks

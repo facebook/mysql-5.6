@@ -1,0 +1,96 @@
+DROP TABLE IF EXISTS MyGuests;
+DROP DATABASE IF EXISTS cus_test;
+CREATE DATABASE cus_test;
+USE cus_test;
+CREATE TABLE MyGuests (
+id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+firstname VARCHAR(30) NOT NULL,
+lastname VARCHAR(30) NOT NULL,
+email VARCHAR(50),
+reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO MyGuests (firstname, lastname, email)
+VALUES ('John', 'Doe', 'john@example.com');
+INSERT INTO MyGuests (firstname, lastname, email)
+VALUES ('Johnny', 'Doe', 'john2@example.com');
+INSERT INTO MyGuests (firstname, lastname, email)
+VALUES ('Mohandas', 'Gandhi', NULL);
+set global column_stats_control = ON;
+SELECT firstname, lastname, email FROM MyGuests WHERE id = 1;
+firstname	lastname	email
+John	Doe	john@example.com
+SELECT firstname, email FROM MyGuests WHERE id IN (1, 2) AND lastname = 'Doe';
+firstname	email
+John	john@example.com
+Johnny	john2@example.com
+SELECT email FROM MyGuests WHERE id > 1;
+email
+john2@example.com
+NULL
+SELECT firstname, email FROM MyGuests WHERE id IN (1, -2) OR firstname = 'Doe';
+firstname	email
+John	john@example.com
+SELECT firstname, email FROM MyGuests WHERE (id = 1 AND ((id > -1) OR (id > 2 AND lastname = 'Doe'))) ORDER BY id, lastname LIMIT 2;
+firstname	email
+John	john@example.com
+SELECT firstname, lastname, email FROM MyGuests WHERE email <=> 'john@example.com' AND id <> 1000 AND firstname != 'gandhi';
+firstname	lastname	email
+John	Doe	john@example.com
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
+id	firstname	lastname	email
+1	John	Doe	john@example.com
+2	Johnny	Doe	john2@example.com
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email NOT LIKE 'john2%';
+id	firstname	lastname	email
+1	John	Doe	john@example.com
+SELECT firstname FROM MyGuests WHERE email IS NULL;
+firstname
+Mohandas
+SELECT firstname, lastname, email FROM MyGuests WHERE id >= 1 AND email IS NOT NULL;
+firstname	lastname	email
+John	Doe	john@example.com
+Johnny	Doe	john2@example.com
+SELECT firstname, lastname, email FROM MyGuests WHERE id BETWEEN 2 AND 5;
+firstname	lastname	email
+Johnny	Doe	john2@example.com
+Mohandas	Gandhi	NULL
+SELECT firstname, lastname, email FROM MyGuests WHERE id NOT BETWEEN 2 AND 5;
+firstname	lastname	email
+John	Doe	john@example.com
+SELECT firstname, email FROM MyGuests WHERE id NOT IN (1, 2);
+firstname	email
+Mohandas	NULL
+SELECT email FROM MyGuests WHERE fake_column = 1;
+ERROR 42S22: Unknown column 'fake_column' in 'where clause'
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+COUNT(DISTINCT SQL_ID)
+12
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics;
+SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
+075e164873deb72bd3a41586f7fd2dfa77d87ef355dad1a0d028981a4b5f7d16	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+075e164873deb72bd3a41586f7fd2dfa77d87ef355dad1a0d028981a4b5f7d16	cus_test	MyGuests	lastname	FILTER	EQUAL
+2b385a64037eb95c3da87a86ef9678d608947fb71e8e382d736d0f9a2efd23cf	cus_test	MyGuests	firstname	FILTER	EQUAL
+2b385a64037eb95c3da87a86ef9678d608947fb71e8e382d736d0f9a2efd23cf	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+42af7c0049fc920d6d9c143add82d860e89d62f420e1cdb45859ced93214015f	cus_test	MyGuests	email	FILTER	NULL_CHECK
+5553e858318b95399e8200c3fb072eb1d12778043636d8b1798af51cdc4bf392	cus_test	MyGuests	id	FILTER	GREATER_THAN
+646a353538f8b699d3b747687d9fef3dfc40878be1dc00c92e165999c4754d8c	cus_test	MyGuests	email	FILTER	NULL_CHECK
+646a353538f8b699d3b747687d9fef3dfc40878be1dc00c92e165999c4754d8c	cus_test	MyGuests	id	FILTER	GREATER_THAN_EQUAL
+7a3628d6efc00d5744d41ecdb811739cb3963675578ef0a06e853efaf07653f1	cus_test	MyGuests	id	FILTER	EQUAL
+88342e2a0506eb9f97f966d6e7eeb8d538e17c7b74e4c47b699a28dbb9dd282b	cus_test	MyGuests	email	FILTER	NULLSAFE_EQUAL
+88342e2a0506eb9f97f966d6e7eeb8d538e17c7b74e4c47b699a28dbb9dd282b	cus_test	MyGuests	firstname	FILTER	NOT_EQUAL
+88342e2a0506eb9f97f966d6e7eeb8d538e17c7b74e4c47b699a28dbb9dd282b	cus_test	MyGuests	id	FILTER	NOT_EQUAL
+897425c9bd7eb83a224903e118e2e8a0849f5ed9ac19ecaf3d2a7d0a263c9d0b	cus_test	MyGuests	id	FILTER	EQUAL
+897425c9bd7eb83a224903e118e2e8a0849f5ed9ac19ecaf3d2a7d0a263c9d0b	cus_test	MyGuests	id	FILTER	GREATER_THAN
+897425c9bd7eb83a224903e118e2e8a0849f5ed9ac19ecaf3d2a7d0a263c9d0b	cus_test	MyGuests	id	ORDER_BY	SORT_ASCENDING
+897425c9bd7eb83a224903e118e2e8a0849f5ed9ac19ecaf3d2a7d0a263c9d0b	cus_test	MyGuests	lastname	FILTER	EQUAL
+897425c9bd7eb83a224903e118e2e8a0849f5ed9ac19ecaf3d2a7d0a263c9d0b	cus_test	MyGuests	lastname	ORDER_BY	SORT_ASCENDING
+8d8e76cb09279ec64c6a65c640295118f6961d3a8cee08e6c477a705913513b6	cus_test	MyGuests	id	FILTER	BETWEEN
+a98537124a693590457d2cf2432bfcfbb1c3913f98fb15366a979c442f37aa25	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+e48f7768025a58738c19abeeb7f304a8b898f49ff5d6debed1515a60a00d3943	cus_test	MyGuests	email	FILTER	PATTERN_MATCH
+fe2f9785260cd64f476c0dd344c2429e4ea5771a73d7b07caea2ba2b8ae9a317	cus_test	MyGuests	id	FILTER	BETWEEN
+set global column_stats_control = OFF_HARD;
+DROP TABLE MyGuests;
+DROP DATABASE cus_test;

@@ -199,7 +199,10 @@
 
    800171012:
    add skipped count to statement statistics
+
+   800171013:
+   add COLUMN_STATISTICS table
 */
-static const uint PFS_DD_VERSION = 800171012;
+static const uint PFS_DD_VERSION = 800171013;
 
 #endif /* PFS_DD_VERSION_H */

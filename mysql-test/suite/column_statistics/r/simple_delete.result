@@ -1,0 +1,37 @@
+DROP TABLE IF EXISTS tbl1;
+DROP DATABASE IF EXISTS cus_test;
+CREATE DATABASE cus_test;
+USE cus_test;
+CREATE TABLE tbl1 (
+col1 INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+col2 INT(6) NOT NULL,
+col3 INT(6) NOT NULL,
+col4 INT(6) NOT NULL
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TABLE tbl2 LIKE tbl1;
+INSERT INTO tbl1 (col2, col3, col4) VALUES (2,3,4);
+INSERT INTO tbl1 (col2, col3, col4) VALUES (3,4,5);
+INSERT INTO tbl1 (col2, col3, col4) VALUES (4,5,6);
+SET GLOBAL column_stats_control = ON;
+DELETE FROM tbl1 WHERE col2 > 3;
+DELETE FROM tbl2 WHERE col1 > 0 AND (col2 < 0 OR (col3 > 0 AND col4 < 0));
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+COUNT(DISTINCT SQL_ID)
+2
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics;
+SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
+bb610a537b49db1dd2aa8daa284d58359fc2cfb771a6b63ee3c649b47ecf89ca	cus_test	tbl2	col1	FILTER	GREATER_THAN
+bb610a537b49db1dd2aa8daa284d58359fc2cfb771a6b63ee3c649b47ecf89ca	cus_test	tbl2	col2	FILTER	LESS_THAN
+bb610a537b49db1dd2aa8daa284d58359fc2cfb771a6b63ee3c649b47ecf89ca	cus_test	tbl2	col3	FILTER	GREATER_THAN
+bb610a537b49db1dd2aa8daa284d58359fc2cfb771a6b63ee3c649b47ecf89ca	cus_test	tbl2	col4	FILTER	LESS_THAN
+fb48afcbc9cde77779021269c33fc2e96c6735fa3145bec2d4ef74f988f97e7d	cus_test	tbl1	col2	FILTER	GREATER_THAN
+set global column_stats_control = OFF_HARD;
+DROP TABLE tbl1;
+DROP TABLE tbl2;
+DROP DATABASE cus_test;
