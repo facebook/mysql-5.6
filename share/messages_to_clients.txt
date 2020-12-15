@@ -9854,8 +9854,8 @@ ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
 ER_PLACEHOLDER_50038
   eng "Placeholder"
 
-ER_PLACEHOLDER_50039
-  eng "Placeholder"
+ER_MULTI_TENANCY_MAX_CONNECTION
+  eng "Maximum connections reached for `%s`"
 
 ER_KEYS_OUT_OF_ORDER
   eng "Keys are out order during bulk load"

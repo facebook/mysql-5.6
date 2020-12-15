@@ -3073,6 +3073,13 @@ static bool update_max_waiting_queries(
   return false;
 }
 
+static bool update_max_db_connections(
+    sys_var *self MY_ATTRIBUTE((unused)), THD *thd MY_ATTRIBUTE((unused)),
+    enum_var_type type MY_ATTRIBUTE((unused))) {
+  db_ac->update_max_connections(opt_max_db_connections);
+  return false;
+}
+
 static Sys_var_ulong Sys_max_running_queries(
     "max_running_queries",
     "The maximum number of running queries allowed for a database. "
@@ -3088,6 +3095,14 @@ static Sys_var_ulong Sys_max_waiting_queries(
     GLOBAL_VAR(opt_max_waiting_queries), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, 100000), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_max_waiting_queries));
+
+static Sys_var_ulong Sys_max_db_connections(
+    "max_db_connections",
+    "The maximum number of connections allowed for a database. "
+    "If this value is 0, no such limits are applied.",
+    GLOBAL_VAR(opt_max_db_connections), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 100000), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(update_max_db_connections));
 
 /*
   Do not add more than 63 entries here.

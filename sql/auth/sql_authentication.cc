@@ -4221,16 +4221,17 @@ int acl_authenticate(THD *thd, enum_server_command command) {
     sctx->cache_current_db_access(0);
 
     /* Change a database if necessary */
-    if (mpvio.db.length) {
-      if (mysql_change_db(thd, to_lex_cstring(mpvio.db), false)) {
-        /* mysql_change_db() has pushed the error message. */
-        release_user_connection(thd);
-        Host_errors errors;
+    if (set_session_db_helper(thd, to_lex_cstring(mpvio.db))) {
+      /* mysql_change_db() has pushed the error message. */
+      release_user_connection(thd);
+      Host_errors errors;
+      if (thd->get_stmt_da()->mysql_errno() == ER_MULTI_TENANCY_MAX_CONNECTION)
+        errors.m_connect = 1;
+      else
         errors.m_default_database = 1;
-        inc_host_errors(mpvio.ip, &errors);
-        login_failed_error(thd, &mpvio, mpvio.auth_info.password_used);
-        goto end;
-      }
+      inc_host_errors(mpvio.ip, &errors);
+      login_failed_error(thd, &mpvio, mpvio.auth_info.password_used);
+      goto end;
     }
 
     if (mpvio.auth_info.external_user[0])
