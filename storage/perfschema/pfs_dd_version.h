@@ -260,12 +260,16 @@
 
   80023-014:
 
- - add skipped count to statement statistics
+  - add skipped count to statement statistics
+
+  80023-015:
+
+ - add COLUMN_STATISTICS table
 
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-014. i.e. 8.0.23 Facebook schema change no. 14.
+  Version published is now 80023-015. i.e. 8.0.23 Facebook schema change no. 15.
 */
 
-static const uint PFS_DD_VERSION = 80023014;
+static const uint PFS_DD_VERSION = 80023015;
 
 #endif /* PFS_DD_VERSION_H */

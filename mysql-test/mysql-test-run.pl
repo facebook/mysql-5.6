@@ -286,6 +286,7 @@ our @DEFAULT_SUITES = qw(
   test_services
   x
 
+  column_statistics
   grant
   rocksdb
   rocksdb_rpl
