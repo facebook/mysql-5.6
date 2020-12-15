@@ -80,6 +80,7 @@ Database: information_schema
 |                Tables                 |
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
+| ADMISSION_CONTROL_ENTITIES            |
 | ADMISSION_CONTROL_QUEUE               |
 | APPLICABLE_ROLES                      |
 | AUTHINFO                              |
@@ -139,6 +140,7 @@ Database: information_schema
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
 | ROCKSDB_ACTIVE_COMPACTION_STATS       |
+| ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_COMPACTION_HISTORY            |
@@ -181,6 +183,7 @@ Database: INFORMATION_SCHEMA
 |                Tables                 |
 +---------------------------------------+
 | ADMINISTRABLE_ROLE_AUTHORIZATIONS     |
+| ADMISSION_CONTROL_ENTITIES            |
 | ADMISSION_CONTROL_QUEUE               |
 | APPLICABLE_ROLES                      |
 | AUTHINFO                              |
@@ -240,6 +243,7 @@ Database: INFORMATION_SCHEMA
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
 | ROCKSDB_ACTIVE_COMPACTION_STATS       |
+| ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_COMPACTION_HISTORY            |

@@ -15,6 +15,13 @@ def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	ROLE_HOST	6	NULL	YES	va
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_GRANTABLE	7		NO	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_DEFAULT	8	NULL	YES	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_MANDATORY	9		NO	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	WAITING_QUERIES	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	RUNNING_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	ABORTED_QUERIES	4		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	TIMEOUT_QUERIES	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	CONNECTIONS	6		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_ENTITIES	REJECTED_CONNECTIONS	7		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
 def	information_schema	ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL
 def	information_schema	ADMISSION_CONTROL_QUEUE	QUEUE_ID	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
 def	information_schema	ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
@@ -263,6 +270,9 @@ def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	CF_NAME	2		NO	varchar	171
 def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	INPUT_FILES	3		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
 def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	OUTPUT_FILES	4		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
 def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	COMPACTION_REASON	5		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	CREATE_TIME	1		NO	timestamp	NULL	NULL	NULL	NULL	NULL	NULL	NULL	timestamp			select			NULL
+def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	QUERY	2		NO	varchar	33	100	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(100)			select			NULL
+def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	ERROR_MSG	3		NO	varchar	33	100	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(100)			select			NULL
 def	information_schema	ROCKSDB_CFSTATS	CF_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL
 def	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	2		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL
 def	information_schema	ROCKSDB_CFSTATS	VALUE	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
@@ -630,6 +640,7 @@ COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
 3.0118	varchar	utf8	utf8_general_ci
 3.0156	varchar	utf8	utf8_general_ci
 3.0238	varchar	utf8	utf8_general_ci
+3.0303	varchar	utf8	utf8_general_ci
 3.0476	varchar	utf8	utf8_general_ci
 3.0769	varchar	utf8	utf8_general_ci
 3.2000	varchar	utf8	utf8_general_ci
@@ -684,6 +695,13 @@ COL_CML	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	C
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_GRANTABLE	varchar	3	9	utf8	utf8_general_ci	varchar(3)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_DEFAULT	varchar	3	9	utf8	utf8_general_ci	varchar(3)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_MANDATORY	varchar	3	9	utf8	utf8_general_ci	varchar(3)
+3.0000	information_schema	ADMISSION_CONTROL_ENTITIES	SCHEMA_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	WAITING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	RUNNING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	ABORTED_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	TIMEOUT_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	CONNECTIONS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_ENTITIES	REJECTED_CONNECTIONS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 3.0000	information_schema	ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(192)
 NULL	information_schema	ADMISSION_CONTROL_QUEUE	QUEUE_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
@@ -932,6 +950,9 @@ NULL	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	THREAD_ID	bigint	NULL	NU
 3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	INPUT_FILES	varchar	171	513	utf8	utf8_general_ci	varchar(513)
 3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	OUTPUT_FILES	varchar	171	513	utf8	utf8_general_ci	varchar(513)
 3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	COMPACTION_REASON	varchar	171	513	utf8	utf8_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	CREATE_TIME	timestamp	NULL	NULL	NULL	NULL	timestamp
+3.0303	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	QUERY	varchar	33	100	utf8	utf8_general_ci	varchar(100)
+3.0303	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	ERROR_MSG	varchar	33	100	utf8	utf8_general_ci	varchar(100)
 3.0156	information_schema	ROCKSDB_CFSTATS	CF_NAME	varchar	64	193	utf8	utf8_general_ci	varchar(193)
 3.0156	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	varchar	64	193	utf8	utf8_general_ci	varchar(193)
 NULL	information_schema	ROCKSDB_CFSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint
