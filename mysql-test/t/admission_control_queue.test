@@ -4,6 +4,8 @@ grant all on test_db.* to test_user@localhost;
 grant all on test.* to test_user@localhost;
 use test_db;
 
+--let $ac_entities_query=select * from information_schema.admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%'
+
 set @save_max_running_queries = @@max_running_queries;
 set @save_max_waiting_queries = @@max_waiting_queries;
 set @save_admission_control_weights = @@admission_control_weights;
@@ -27,6 +29,7 @@ let $wait_condition =
   select count(*) = 1 from information_schema.admission_control_queue
     where schema_name = "test_db" and queue_id = 0 and waiting_queries = 0 and running_queries = 1;
 --source include/wait_condition.inc
+--eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
 select RELEASE_LOCK('lock1');
@@ -34,6 +37,7 @@ select RELEASE_LOCK('lock1');
 let $wait_condition =
   select count(*) = 0 from information_schema.admission_control_queue;
 --source include/wait_condition.inc
+--eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
 --connection con1
@@ -61,6 +65,7 @@ let $wait_condition =
   select count(*) = 1 from information_schema.admission_control_queue
     where schema_name = "test_db" and queue_id = 1 and waiting_queries = 0 and running_queries = 1;
 --source include/wait_condition.inc
+--eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
 select RELEASE_LOCK('lock1');
@@ -96,6 +101,7 @@ let $wait_condition =
   select count(*) = 1 from information_schema.admission_control_queue
     where schema_name = "test_db" and queue_id = 2 and waiting_queries = 0 and running_queries = 1;
 --source include/wait_condition.inc
+--eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
 select RELEASE_LOCK('lock1');
@@ -103,6 +109,7 @@ select RELEASE_LOCK('lock1');
 let $wait_condition =
   select count(*) = 0 from information_schema.admission_control_queue;
 --source include/wait_condition.inc
+--eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
 --connection con1
@@ -137,6 +144,7 @@ let $wait_condition =
   select count(*) = 1 from information_schema.admission_control_queue
     where schema_name = "test_db" and queue_id = 0 and waiting_queries = 0 and running_queries = 5;
 --source include/wait_condition.inc
+--eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
 --echo # Set up 5 waiting queries each for queue 1 and 2
@@ -162,6 +170,7 @@ let $wait_condition =
   select sum(waiting_queries) = 10 from information_schema.admission_control_queue
     where schema_name = "test_db" and queue_id in (1, 2);
 --source include/wait_condition.inc
+--eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
 --connection default
@@ -178,6 +187,7 @@ let $wait_condition =
   select sum(running_queries) = 5 from information_schema.admission_control_queue
     where schema_name = "test_db" and queue_id in (1, 2);
 --source include/wait_condition.inc
+--eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
 --echo # Cleanup

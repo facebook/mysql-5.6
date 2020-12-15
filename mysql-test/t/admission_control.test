@@ -1,14 +1,19 @@
 --source include/count_sessions.inc
 create database test_db;
+create database test_db2;
 create user 'test_user'@'localhost';
 grant all on test_db.* to 'test_user'@'localhost';
+grant all on test_db2.* to 'test_user'@'localhost';
 grant all on test.* to 'test_user'@'localhost';
 
 let $start_aborted_queries = query_get_value(show global status like "Database_admission_control_aborted_queries", Value, 1);
 let $start_running_queries = query_get_value(show global status like "Database_admission_control_running_queries", Value, 1);
 let $start_waiting_queries = query_get_value(show global status like "Database_admission_control_waiting_queries", Value, 1);
 
+let $ac_entities_query=select * from information_schema.admission_control_entities where schema_name like 'test_db%' order by schema_name;
+
 connection default;
+use test_db2;
 use test_db;
 set @start_max_running_queries= @@global.max_running_queries;
 set @start_max_waiting_queries= @@global.max_waiting_queries;
@@ -74,10 +79,10 @@ delimiter ||||;
 use test_db;
 select * from t1||||
 
-# Query will only fail on test_db, but not on test
+# Query will only fail on test_db, but not on test_db2
 --echo Maximum waiting queries reached. So this would hit an error.
 --error ER_DB_ADMISSION_CONTROL
-use test;
+use test_db2;
 create table t1_test(aaa int);
 insert into t1_test values (1);
 select aaa from t1_test;
@@ -111,11 +116,13 @@ let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
 --echo aborted_queries = $aborted_queries
 --echo running_queries = $running_queries
 --echo waiting_queries = $waiting_queries
+eval $ac_entities_query;
 
 --echo Filled up queues on one db doesn't affect queries on other db.
-connect (con_test, localhost, test_user,,test);
+connect (con_test, localhost, test_user,,test_db2);
 connection con_test;
-use test;
+use test_db2;
+eval $ac_entities_query;
 disconnect con_test;
 
 connection default;
@@ -312,6 +319,7 @@ let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
 --let $assert_cond= $aborted_queries = 5
 --source include/assert.inc
 
+eval $ac_entities_query;
 
 # restore admission_control_by_trx
 connection default;
@@ -379,6 +387,7 @@ let $timeout_queries = `select $timeout_queries - $start_timeout_queries`;
 let $waiting_queries = query_get_value(show global status like "Database_admission_control_waiting_queries", Value, 1);
 --echo waiting_queries should be 0
 --echo waiting_queries = $waiting_queries
+eval $ac_entities_query;
 
 connection default;
 --echo reset global.max_running_queries and global.max_waiting_queries
@@ -402,6 +411,7 @@ while($i)
 }
 connection default;
 drop database test_db;
+drop database test_db2;
 let $i= 15;
 while($i)
 {
@@ -417,6 +427,7 @@ enable_result_log;
 connection default;
 --echo Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
+eval $ac_entities_query;
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
 drop user test_user@localhost;

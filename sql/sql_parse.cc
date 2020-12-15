@@ -2032,8 +2032,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
                           com_data->com_init_db.db_name,
                           com_data->com_init_db.length, thd->charset());
 
-      LEX_CSTRING tmp_cstr = {tmp.str, tmp.length};
-      if (!mysql_change_db(thd, tmp_cstr, false)) {
+      if (!set_session_db_helper(thd, to_lex_cstring(tmp))) {
         query_logger.general_log_write(thd, command, thd->db().str,
                                        thd->db().length);
         my_ok(thd);
@@ -4061,9 +4060,8 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       }
     } break;
     case SQLCOM_CHANGE_DB: {
-      const LEX_CSTRING db_str = {select_lex->db, strlen(select_lex->db)};
-
-      if (!mysql_change_db(thd, db_str, false)) my_ok(thd);
+      if (!set_session_db_helper(thd, to_lex_cstring(select_lex->db)))
+        my_ok(thd);
 
       break;
     }
