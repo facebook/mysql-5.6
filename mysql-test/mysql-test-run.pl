@@ -229,7 +229,7 @@ our $opt_xml_report;
 # Suites run by default (i.e. when invoking ./mtr without parameters)
 #
 our $DEFAULT_SUITES =
-"rocksdb,rocksdb_rpl,rocksdb_stress,rocksdb_sys_vars,rpl_mts,auth_sec,binlog_gtid,binlog_nogtid,clone,collations,connection_control,encryption,federated,funcs_2,gcol,grant,sysschema,gis,information_schema,innodb,innodb_fts,innodb_gis,innodb_undo,innodb_zip,json,main,opt_trace,parts,perfschema,query_rewrite_plugins,rpl,rpl_gtid,rpl_nogtid,rpl_recovery,secondary_engine,service_status_var_registration,service_sys_var_registration,service_udf_registration,sys_vars,binlog,test_service_sql_api,test_services,x";
+"rocksdb,rocksdb_rpl,rocksdb_stress,rocksdb_sys_vars,rpl_mts,auth_sec,binlog_gtid,binlog_nogtid,clone,collations,column_statistics,connection_control,encryption,federated,funcs_2,gcol,grant,sysschema,gis,information_schema,innodb,innodb_fts,innodb_gis,innodb_undo,innodb_zip,json,main,opt_trace,parts,perfschema,query_rewrite_plugins,rpl,rpl_gtid,rpl_nogtid,rpl_recovery,secondary_engine,service_status_var_registration,service_sys_var_registration,service_udf_registration,sys_vars,binlog,test_service_sql_api,test_services,x";
 
 # End of list of default suites
 
@@ -7575,7 +7575,7 @@ Options to control what test suites or cases to run
                         sysschema test suite. An empty sys database is
                         still created.
   skip-test-list=FILE   Skip the tests listed in FILE. Each line in the file
-                        is an entry and should be formatted as: 
+                        is an entry and should be formatted as:
                         <TESTNAME> : <COMMENT>
                         Multiple files can be passed in, each with a separate
                         skip-test-list option.
@@ -7633,7 +7633,7 @@ Options for test case authoring
   test-progress[={0|1}] Print the percentage of tests completed. This setting
                         is enabled by default. To disable it, set the value to
                         0. Argument to '--test-progress' is optional.
-                        
+
 
 Options that pass on options (these may be repeated)
 

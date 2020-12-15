@@ -72,6 +72,7 @@ pfs_variable.h
 pfs_visitor.h
 table_accounts.h
 table_all_instr.h
+table_column_statistics.h
 table_esgs_by_account_by_event_name.h
 table_esgs_by_host_by_event_name.h
 table_esgs_by_thread_by_event_name.h
@@ -220,6 +221,7 @@ service_pfs_notification.cc
 service_pfs_resource_group.cc
 table_accounts.cc
 table_all_instr.cc
+table_column_statistics.cc
 table_esgs_by_account_by_event_name.cc
 table_esgs_by_host_by_event_name.cc
 table_esgs_by_thread_by_event_name.cc

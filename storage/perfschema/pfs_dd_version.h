@@ -221,11 +221,13 @@
 
   80020-013:
    - add skipped count to statement statistics
-*/
 
-/* Version published now is 80020-013. i.e. 8.0.20 Facebook schema change
- * no. 13.
+  80020-014:
+   - add COLUMN_STATISTICS table
+*/
+/* Version published now is 80020-014. i.e. 8.0.20 Facebook schema change
+ * no. 14.
  */
-static const uint PFS_DD_VERSION = 80020013;
+static const uint PFS_DD_VERSION = 80020014;
 
 #endif /* PFS_DD_VERSION_H */

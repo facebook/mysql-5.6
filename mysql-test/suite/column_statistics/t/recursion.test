@@ -1,0 +1,115 @@
+--disable_warnings
+DROP TABLE IF EXISTS ColumnStatisticsRecursion;
+DROP DATABASE IF EXISTS cus_test;
+CREATE DATABASE cus_test;
+USE cus_test;
+--enable_warnings
+
+--source include/have_debug.inc
+
+--echo # Setting up environment
+
+CREATE TABLE ColumnStatisticsRecursion (
+  c0 INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  c1 INT(6) UNSIGNED,
+  c2 INT(6) UNSIGNED,
+  c3 INT(6) UNSIGNED,
+  c4 INT(6) UNSIGNED,
+  c5 INT(6) UNSIGNED,
+  c6 INT(6) UNSIGNED,
+  c7 INT(6) UNSIGNED,
+  c8 INT(6) UNSIGNED,
+  c9 INT(6) UNSIGNED,
+  c10 INT(6) UNSIGNED,
+  c11 INT(6) UNSIGNED,
+  c12 INT(6) UNSIGNED,
+  c13 INT(6) UNSIGNED,
+  c14 INT(6) UNSIGNED,
+  c15 INT(6) UNSIGNED
+);
+
+INSERT INTO ColumnStatisticsRecursion
+  (c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+VALUES
+  (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+set global column_stats_control = ON;
+
+SET SESSION DEBUG="+d,crash_excessive_recursion_column_stats";
+
+--echo # Control setup: No crash
+
+SELECT c0 FROM ColumnStatisticsRecursion
+WHERE (c0 = 0 AND
+      (c1 = 0 OR
+      (c2 = 0 AND
+      (c3 = 0 OR
+      (c4 = 0 AND
+      (c5 = 0 OR
+      (c6 = 0 AND
+      (c7 = 0 OR
+      (c8 = 0 AND
+      (c9 = 0 OR
+      (c10 = 0 AND
+      (c11 = 0 OR
+      (c12 = 0 AND
+      (c13 = 0 OR
+      (c14 = 0
+      )))))))))))))));
+
+--echo # Control setup: Results
+
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+SORTED_RESULT;
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics;
+
+--echo # Test setup: Preparing for crash
+
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+# 2013 - CR_SERVER_LOST
+--error 2013
+SELECT c0 FROM ColumnStatisticsRecursion
+WHERE (c0 = 0 AND
+      (c1 = 0 OR
+      (c2 = 0 AND
+      (c3 = 0 OR
+      (c4 = 0 AND
+      (c5 = 0 OR
+      (c6 = 0 AND
+      (c7 = 0 OR
+      (c8 = 0 AND
+      (c9 = 0 OR
+      (c10 = 0 AND
+      (c11 = 0 OR
+      (c12 = 0 AND
+      (c13 = 0 OR
+      (c14 = 0 AND
+      (c15 = 0
+      ))))))))))))))));
+
+--source include/wait_until_disconnected.inc
+
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+
+--echo # Environment cleanup
+
+USE cus_test;
+
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+SORTED_RESULT;
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics;
+
+set global column_stats_control = OFF_HARD;
+
+DROP TABLE ColumnStatisticsRecursion;
+DROP DATABASE cus_test;

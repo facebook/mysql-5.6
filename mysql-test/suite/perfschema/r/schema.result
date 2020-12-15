@@ -10,6 +10,7 @@ Tables_in_performance_schema
 accounts
 binary_log_transaction_compression_stats
 client_attributes
+column_statistics
 cond_instances
 data_lock_waits
 data_locks

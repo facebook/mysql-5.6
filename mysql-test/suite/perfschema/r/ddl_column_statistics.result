@@ -1,0 +1,11 @@
+ALTER TABLE performance_schema.column_statistics
+ADD COLUMN foo integer;
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+TRUNCATE TABLE performance_schema.column_statistics;
+ERROR 42000: DROP command denied to user 'root'@'localhost' for table 'column_statistics'
+ALTER TABLE performance_schema.column_statistics
+ADD INDEX test_index(COLUMN_NAME);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+CREATE UNIQUE INDEX test_index ON
+performance_schema.column_statistics(COLUMN_NAME);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'

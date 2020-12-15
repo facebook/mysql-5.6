@@ -1,0 +1,19 @@
+SELECT * FROM performance_schema.column_statistics
+LIMIT 1;
+INSERT INTO performance_schema.column_statistics
+VALUES('sql_id1', 'db_name', 'tab_name', 'col1', 'FILTER', 'EQUAL');
+ERROR 42000: INSERT command denied to user 'root'@'localhost' for table 'column_statistics'
+UPDATE performance_schema.column_statistics
+SET TABLE_NAME='new_table' WHERE TABLE_NAME='tab1';
+ERROR 42000: UPDATE command denied to user 'root'@'localhost' for table 'column_statistics'
+DELETE FROM performance_schema.column_statistics
+WHERE SQL_ID='12';
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'column_statistics'
+DELETE FROM performance_schema.column_statistics;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'column_statistics'
+LOCK TABLES performance_schema.column_statistics READ;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'column_statistics'
+UNLOCK TABLES;
+LOCK TABLES performance_schema.column_statistics WRITE;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'column_statistics'
+UNLOCK TABLES;
