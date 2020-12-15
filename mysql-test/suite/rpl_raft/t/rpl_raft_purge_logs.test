@@ -1,0 +1,250 @@
+source ../include/raft_3_node.inc;
+--disable_query_log
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Create connections to server 4 and 5 (these are not in the ring)
+let $rpl_server_number= 4;
+let $rpl_connection_name= server_4;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_4;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+let $rpl_server_number= 5;
+let $rpl_connection_name= server_5;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_5;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+connection server_1;
+show status like 'rpl_raft_role';
+
+connection server_2;
+show status like 'rpl_raft_role';
+
+connection server_3;
+show status like 'rpl_raft_role';
+
+connection server_1;
+create table t1 (a int primary key);
+
+# Insert some rows into t1
+echo "Inserting rows into t1 on server_1";
+--let $j = 0
+--disable_query_log
+while ($j <= 20)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+select count(*) from t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+# Now purge binary logs and verify that it works
+echo "Now purging binary logs in server_1";
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+flush binary logs;
+source include/show_binary_logs.inc;
+eval purge binary logs to '$binlog';
+source include/show_binary_logs.inc;
+
+# Now insert some more rows and purge binary logs again
+echo "Inserting more rows into t1 after purging binary logs on server_1";
+--disable_query_log
+while ($j <= 40)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+select count(*) from t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+echo "Now purging binary logs in server_1";
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+flush binary logs;
+source include/show_binary_logs.inc;
+eval purge binary logs to '$binlog';
+source include/show_binary_logs.inc;
+
+echo "Inserting more rows into t1 after purging binary logs on server_1";
+--disable_query_log
+while ($j <= 60)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+select count(*) from t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+echo "Now purging binary logs in server_1";
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+flush binary logs;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+source include/show_binary_logs.inc;
+eval purge binary logs to '$binlog';
+source include/show_binary_logs.inc;
+
+# Try to purge some logs on follower. This will purge apply logs and no raft
+# consultation is needed
+echo "Purging apply logs on follower: server_2";
+connection server_2;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+flush binary logs;
+source include/show_binary_logs.inc;
+eval purge binary logs to '$binlog';
+source include/show_binary_logs.inc;
+echo "Checking table t1 in follower: server_2";
+select count(*) from t1;
+
+connection server_3;
+echo "Checking table t1 in follower: server_3";
+select count(*) from t1;
+
+echo "Transfering leadership: server_1 -> server_2";
+let $rpl_raft_leader_number= 2;
+source ../include/raft_promote_to_leader.inc;
+
+connection server_2;
+sleep 10;
+
+echo "Inserting some rows into t1 from leader: server_2";
+--disable_query_log
+while ($j <= 80)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+select count(*) from t1;
+
+let $sync_slave_connection= server_1;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+echo "Now purging binary logs in server_2";
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+flush binary logs;
+
+let $sync_slave_connection= server_1;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+source include/show_binary_logs.inc;
+eval purge binary logs to '$binlog';
+source include/show_binary_logs.inc;
+
+echo "Inserting more rows into t1 from server_2 after purging binary logs";
+--disable_query_log
+while ($j <= 100)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+select count(*) from t1;
+
+let $sync_slave_connection= server_1;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+echo "Purging apply logs on follower: server_1";
+flush binary logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+source include/show_binary_logs.inc;
+eval purge binary logs to '$binlog';
+source include/show_binary_logs.inc;
+echo "Checking table t1 in follower: server_1";
+select count(*) from t1;
+
+connection server_1;
+echo "Transfering leadership: server_2 -> server_1";
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+echo "Inserting more rows into t1 from server_1";
+sleep 10;
+--disable_query_log
+while ($j <= 120)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+select count(*) from t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+echo "Now purging binary logs in server_1";
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+flush binary logs;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+source include/show_binary_logs.inc;
+eval purge binary logs to '$binlog';
+source include/show_binary_logs.inc;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+echo "Checking table t1 in follower: server_2";
+select count(*) from t1;
+
+connection server_3;
+echo "Checking table t1 in follower: server_3";
+select count(*) from t1;
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
