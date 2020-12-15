@@ -16,6 +16,7 @@
 # no error, and a few other invariants.  So we issue SHOW SLAVE
 # STATUS, and if it returns no rows we fake the result.
 --let $tmp= 0
+let $rpl_enable_raft= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`;
 if (`SELECT @@server_id <> 0`)
 {
   --let $tmp= query_get_value(SHOW SLAVE STATUS, Slave_IO_Running, 1)
@@ -24,7 +25,6 @@ if (`SELECT @@server_id <> 0`)
 if ($tmp)
 {
   # Note: after WL#5177, fields 13-18 shall not be filtered-out.
-  let $rpl_enable_raft= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`;
   --echo Slave_IO_State	
   if ($rpl_enable_raft)
   {
@@ -34,7 +34,14 @@ if ($tmp)
   {
     --echo Master_Host	127.0.0.1
   }
-  --echo Master_User	root
+  if ($rpl_enable_raft)
+  {
+      --echo Master_User	#
+  }
+  if (!$rpl_enable_raft)
+  {
+    --echo Master_User	root
+  }
   --echo Master_Port	#
   --echo Connect_Retry	#
   --echo Master_Log_File	#
@@ -95,7 +102,14 @@ if ($tmp)
 }
 if (!$tmp) {
   # Note: after WL#5177, fields 13-18 shall not be filtered-out.
-  --replace_column 4 # 5 # 6 # 7 # 8 # 9 # 10 # 13 # 14 # 15 # 16 # 17 # 18 # 23 # 24 # 25 # 26 # 27 # 42 # 43 # 44 # 48 # 54 # 55 # 57 # 58 # 59 #
+  if ($rpl_enable_raft)
+  {
+    --replace_column 3 # 4 # 5 # 6 # 7 # 8 # 9 # 10 # 13 # 14 # 15 # 16 # 17 # 18 # 23 # 24 # 25 # 26 # 27 # 42 # 43 # 44 # 48 # 54 # 55 # 57 # 58 # 59 #
+  }
+  if (!$rpl_enable_raft)
+  {
+    --replace_column 4 # 5 # 6 # 7 # 8 # 9 # 10 # 13 # 14 # 15 # 16 # 17 # 18 # 23 # 24 # 25 # 26 # 27 # 42 # 43 # 44 # 48 # 54 # 55 # 57 # 58 # 59 #
+  }
   query_vertical
   SHOW SLAVE STATUS;
 }

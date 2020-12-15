@@ -1573,6 +1573,32 @@ private:
     // should be executed in sync mode
     if (get_type_code() == METADATA_EVENT && !mts_in_group)
       return EVENT_EXEC_SYNC;
+
+    // Case: In the raft world we won't check server_id like the if condition
+    // below because some events can be written in the relay log by the plugin.
+    // The logic here is that for format desc event and rotate event if the
+    // end_log_pos is 0 or they come in the middle of a trx we execute them in
+    // ASYNC mode, meaning that the coordinator thread will apply these events
+    // without waiting for worker threads to finish every thing before this
+    // event. We cannot wait for worker threads to finish because we are in the
+    // middle of a trx and the worker does not have all events to complete the
+    // trx. This should never happen in raft mode because it means that we've
+    // split a trx across two raft logs.
+    if (enable_raft_plugin &&
+        (get_type_code() == FORMAT_DESCRIPTION_EVENT ||
+         get_type_code() == ROTATE_EVENT))
+    {
+        if (log_pos == 0 || mts_in_group)
+        {
+          sql_print_error("%s found in the middle of a trx or with "
+              "end_log_pos = 0, this is not expected in raft mode",
+              get_type_str());
+          return EVENT_EXEC_ASYNC;
+        }
+        else
+          return EVENT_EXEC_SYNC;
+    }
+
     if ((get_type_code() == FORMAT_DESCRIPTION_EVENT &&
          ((server_id == (uint32) ::server_id) || (log_pos == 0))) ||
         (get_type_code() == ROTATE_EVENT &&

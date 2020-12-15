@@ -199,6 +199,13 @@ source include/rpl_restart_server.inc;
 let $rpl_raft_leader_number= 1;
 source ../include/raft_promote_to_leader.inc;
 
+disable_warnings;
+connection server_4;
+START SLAVE IO_THREAD;
+connection server_5;
+START SLAVE IO_THREAD;
+enable_warnings;
+
 connection server_1;
 insert into t1 values(12);
 let $sync_slave_connection= server_2;
