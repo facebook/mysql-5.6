@@ -1,0 +1,180 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+create table t1 (a int primary key);
+"Inserting rows into t1 on server_1"
+select count(*) from t1;
+count(*)
+21
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Now purging binary logs in server_1"
+flush binary logs;
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000001	#	#
+binary-logs-13000.000002	#	#
+binary-logs-13000.000003	#	#
+purge binary logs to 'binary-logs-13000.000002';
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000002	#	#
+binary-logs-13000.000003	#	#
+"Inserting more rows into t1 after purging binary logs on server_1"
+select count(*) from t1;
+count(*)
+41
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Now purging binary logs in server_1"
+flush binary logs;
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000002	#	#
+binary-logs-13000.000003	#	#
+binary-logs-13000.000004	#	#
+purge binary logs to 'binary-logs-13000.000003';
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000003	#	#
+binary-logs-13000.000004	#	#
+"Inserting more rows into t1 after purging binary logs on server_1"
+select count(*) from t1;
+count(*)
+61
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Now purging binary logs in server_1"
+flush binary logs;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000003	#	#
+binary-logs-13000.000004	#	#
+binary-logs-13000.000005	#	#
+purge binary logs to 'binary-logs-13000.000004';
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000004	#	#
+binary-logs-13000.000005	#	#
+"Purging apply logs on follower: server_2"
+flush binary logs;
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13001.000002	#	#
+apply-logs-13001.000003	#	#
+purge binary logs to 'apply-logs-13001.000002';
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13001.000002	#	#
+apply-logs-13001.000003	#	#
+"Checking table t1 in follower: server_2"
+select count(*) from t1;
+count(*)
+61
+"Checking table t1 in follower: server_3"
+select count(*) from t1;
+count(*)
+61
+"Transfering leadership: server_1 -> server_2"
+include/raft_promote_to_leader.inc
+"Inserting some rows into t1 from leader: server_2"
+select count(*) from t1;
+count(*)
+81
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Now purging binary logs in server_2"
+flush binary logs;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13001.000001	#	#
+binary-logs-13001.000002	#	#
+binary-logs-13001.000003	#	#
+binary-logs-13001.000004	#	#
+binary-logs-13001.000005	#	#
+binary-logs-13001.000006	#	#
+binary-logs-13001.000007	#	#
+purge binary logs to 'binary-logs-13001.000006';
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13001.000006	#	#
+binary-logs-13001.000007	#	#
+"Inserting more rows into t1 from server_2 after purging binary logs"
+select count(*) from t1;
+count(*)
+101
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Purging apply logs on follower: server_1"
+flush binary logs;
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13000.000001	#	#
+apply-logs-13000.000002	#	#
+purge binary logs to 'apply-logs-13000.000002';
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13000.000002	#	#
+"Checking table t1 in follower: server_1"
+select count(*) from t1;
+count(*)
+101
+"Transfering leadership: server_2 -> server_1"
+include/raft_promote_to_leader.inc
+"Inserting more rows into t1 from server_1"
+select count(*) from t1;
+count(*)
+121
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Now purging binary logs in server_1"
+flush binary logs;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000004	#	#
+binary-logs-13000.000005	#	#
+binary-logs-13000.000006	#	#
+binary-logs-13000.000007	#	#
+binary-logs-13000.000008	#	#
+binary-logs-13000.000009	#	#
+purge binary logs to 'binary-logs-13000.000008';
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000008	#	#
+binary-logs-13000.000009	#	#
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Checking table t1 in follower: server_2"
+select count(*) from t1;
+count(*)
+121
+"Checking table t1 in follower: server_3"
+select count(*) from t1;
+count(*)
+121
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
