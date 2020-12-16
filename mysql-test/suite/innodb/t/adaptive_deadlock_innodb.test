@@ -18,6 +18,10 @@ SELECT @@global.innodb_deadlock_detect;
 set global innodb_deadlock_detect=1;
 set global innodb_max_deadlock_detection_steps=1;
 SELECT @@global.innodb_max_deadlock_detection_steps;
+SET @start_innodb_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
+SET GLOBAL innodb_lock_wait_timeout = 200;
+SELECT @@global.innodb_lock_wait_timeout;
+
 
 --echo
 --echo Deadlock Detection bailed out early
@@ -128,5 +132,7 @@ SET @@global.innodb_max_deadlock_detection_steps = @start_max_deadlock_detection
 SELECT @@global.innodb_max_deadlock_detection_steps;
 SET @@global.innodb_deadlock_detect = @start_innodb_deadlock_detect;
 SELECT @@global.innodb_deadlock_detect;
+SET @@global.innodb_lock_wait_timeout = @start_innodb_lock_wait_timeout;
+SELECT @@global.innodb_lock_wait_timeout;
 
 drop table lockt;
