@@ -16266,7 +16266,7 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   }
 
   // How many buffer required to store all requried keys
-  uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
+  uint calculated_buf = mrr_get_length_per_rec() * res * 10 + 1;
   // How many buffer required to store maximum number of keys per MRR
   ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
   uint mrr_batch_size_buff =
@@ -16308,8 +16308,8 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
     // For scans on secondary keys, we use MultiGet when we read the PK values.
     // We only need PK values when the scan is non-index-only.
     if ((*flags & HA_MRR_INDEX_ONLY) == 0) {
-      *flags &= ~HA_MRR_SUPPORT_SORTED;  //  Non-sorted mode
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+      *flags |= HA_MRR_SUPPORT_SORTED;
       *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
       *bufsz = mrr_bufsz;
     }
@@ -16458,7 +16458,6 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   if (!current_thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) ||
       (mode & HA_MRR_USE_DEFAULT_IMPL) != 0 ||
       (buf->buffer_end - buf->buffer < mrr_get_length_per_rec()) ||
-      (active_index != table->s->primary_key && (mode & HA_MRR_SORTED) != 0) ||
       (THDVAR(current_thd, mrr_batch_size) == 0)) {
     mrr_uses_default_impl = true;
     res = handler::multi_range_read_init(seq, seq_init_param, n_ranges, mode,
@@ -16480,8 +16479,6 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   if (is_mrr_assoc) {
     ++table->in_use->status_var.ha_multi_range_read_init_count;
   }
-
-  mrr_sorted_mode = (mode & HA_MRR_SORTED) != 0;
 
   if (active_index == table->s->primary_key) {
     // ICP is not supported for PK, so we don't expect that BKA's variant
@@ -16652,7 +16649,7 @@ int ha_rocksdb::mrr_fill_buffer() {
   */
 
   tx->multi_get(m_pk_descr->get_cf(), mrr_n_elements, mrr_keys, mrr_values,
-                mrr_statuses, mrr_sorted_mode);
+                mrr_statuses, active_index == table->s->primary_key);
 
   return 0;
 }
