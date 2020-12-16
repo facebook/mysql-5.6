@@ -11,20 +11,20 @@ set optimizer_switch='mrr_cost_based=off';
 set debug = '+d,rocksdb_mrr_debug2';
 set debug = '+d,mrr_double_count';
 set optimizer_switch='mrr=off';
-explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	PRIMARY,a	a	9	NULL	#	Using index condition
 set optimizer_switch='mrr=on';
-explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	PRIMARY,a	a	4	const	#	Using where
 set debug = '-d,mrr_double_count';
 set optimizer_switch='mrr=off';
-explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	PRIMARY,a	a	9	NULL	#	Using index condition
 set optimizer_switch='mrr=on';
-explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	PRIMARY,a	a	9	NULL	#	Using index condition
 set debug = '-d,rocksdb_mrr_debug2';

@@ -24,18 +24,18 @@ set debug = '+d,rocksdb_mrr_debug2';
 set debug = '+d,mrr_double_count';
 set optimizer_switch='mrr=off';
 --replace_column 9 #
-explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c desc;
 set optimizer_switch='mrr=on';
 --replace_column 9 #
-explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c desc;
 
 set debug = '-d,mrr_double_count';
 set optimizer_switch='mrr=off';
 --replace_column 9 #
-explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c desc;
 set optimizer_switch='mrr=on';
 --replace_column 9 #
-explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c desc;
 
 set debug = '-d,rocksdb_mrr_debug2';
 set optimizer_switch = @save_optimizer_switch;
