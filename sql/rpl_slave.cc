@@ -1126,11 +1126,41 @@ int rli_relay_log_raft_reset(
   mysql_mutex_lock(&mi->data_lock);
   mysql_mutex_lock(&mi->rli->data_lock);
 
-  if (mi->rli->check_info() == REPOSITORY_DOES_NOT_EXIST) {
-    sql_print_information(
-        "Relay log info repository doesn't exists, creating one now.");
-    if (global_init_info(mi, false, SLAVE_SQL | SLAVE_IO, false)) {
-      sql_print_error("Failed to initialize the master info structure");
+  enum_return_check check_return_mi= mi->check_info();
+  enum_return_check check_return_rli= mi->rli->check_info();
+
+  // If the master.info file does not exist, or if it exists,
+  // but the inited has never happened (most likely due to an
+  // error), try mi_init_info
+  if (check_return_mi == REPOSITORY_DOES_NOT_EXIST ||
+      !mi->inited)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("rli_relay_log_raft_reset: Master info "
+                          "repository doesn't exist or not inited."
+                          " Calling mi_init_info");
+    if (mi->mi_init_info())
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("rli_relay_log_raft_reset: Failed to initialize "
+                      "the master info structure");
+      error= 1;
+      goto end;
+    }
+  }
+
+  if (check_return_rli == REPOSITORY_DOES_NOT_EXIST ||
+      !mi->rli->inited)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("rli_relay_log_raft_reset: Relay log info repository"
+                          " doesn't exist or not inited. Calling"
+                          " global_init_info");
+    if (global_init_info(mi, false, SLAVE_SQL | SLAVE_IO, false))
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("rli_relay_log_raft_reset: Failed to initialize the"
+                      " relay log info structure");
       error= 1;
       goto end;
     }
@@ -1144,7 +1174,8 @@ int rli_relay_log_raft_reset(
   if (mi->rli->relay_log.open_index_file(opt_binlog_index_name,
                                         opt_bin_logname, false))
   {
-    sql_print_error("rli_relay_log_raft_reset::failed to open index file");
+    // NO_LINT_DEBUG
+    sql_print_error("rli_relay_log_raft_reset: Failed to open index file");
     error= 1;
     mi->rli->relay_log.unlock_index();
     mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
@@ -1170,7 +1201,8 @@ int rli_relay_log_raft_reset(
   if (mi->rli->relay_log.open_existing_binlog(opt_bin_logname,
                                     SEQ_READ_APPEND, max_binlog_size))
   {
-    sql_print_error("rli_relay_log_raft_reset::failed to open binlog file");
+    // NO_LINT_DEBUG
+    sql_print_error("rli_relay_log_raft_reset: Failed to open binlog file");
     error= 1;
     mi->rli->relay_log.unlock_index();
     mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
@@ -1188,14 +1220,15 @@ int rli_relay_log_raft_reset(
                                           &errmsg,
                                           0 /*look for a description_event*/)))
   {
-    sql_print_error(
-        "rli_relay_log_raft_reset::failed to init_relay_log_pos, errmsg: %s",
-        errmsg);
+    // NO_LINT_DEBUG
+    sql_print_error("rli_relay_log_raft_reset: Failed to "
+                    "init_relay_log_pos, errmsg: %s",
+                    errmsg);
     goto end;
   }
 
   sql_print_information(
-      "Relay log cursor set to: %s:%llu",
+      "rli_relay_log_raft_reset: Relay log cursor set to: %s:%llu",
       mi->rli->get_group_relay_log_name(),
       mi->rli->get_group_relay_log_pos());
 
@@ -1252,27 +1285,72 @@ int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask,
   check_return= mi->check_info();
   if (check_return == ERROR_CHECKING_REPOSITORY)
   {
+    if (enable_raft_plugin)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("global_init_info: mi repository "
+                      "check returns ERROR_CHECKING_REPOSITORY");
+    }
     init_error= 1;
     goto end;
   }
 
+  // ignore_if_no_info is used to skip the init_info process if
+  // master.info file is not present. Its used to skip this
+  // code in the startup of mysqld.
+  // Set ignore_if_no_info to always call mi_init_info
   if (!(ignore_if_no_info && check_return == REPOSITORY_DOES_NOT_EXIST))
   {
-    if ((thread_mask & SLAVE_IO) != 0 && mi->mi_init_info())
-      init_error= 1;
+    if ((thread_mask & SLAVE_IO) != 0)
+    {
+      if (enable_raft_plugin)
+      {
+        // NO_LINT_DEBUG
+        sql_print_information("global_init_info: mi_init_info called");
+      }
+      if (mi->mi_init_info())
+      {
+        if (enable_raft_plugin)
+        {
+          // NO_LINT_DEBUG
+          sql_print_error("global_init_info: mi_init_info returned error");
+        }
+        init_error= 1;
+      }
+    }
   }
 
   check_return= mi->rli->check_info();
   if (check_return == ERROR_CHECKING_REPOSITORY)
   {
+    if (enable_raft_plugin)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("global_init_info: rli repository check returns"
+                      " ERROR_CHECKING_REPOSITORY");
+    }
     init_error= 1;
     goto end;
   }
   if (!(ignore_if_no_info && check_return == REPOSITORY_DOES_NOT_EXIST))
   {
-    if (((thread_mask & SLAVE_SQL) != 0 || !(mi->rli->inited))
-        && mi->rli->rli_init_info(startup))
-      init_error= 1;
+    if (((thread_mask & SLAVE_SQL) != 0 || !(mi->rli->inited)))
+    {
+      if (enable_raft_plugin)
+      {
+        // NO_LINT_DEBUG
+        sql_print_information("global_init_info: rli_init_info called");
+      }
+      if (mi->rli->rli_init_info(startup))
+      {
+        if (enable_raft_plugin)
+        {
+          // NO_LINT_DEBUG
+          sql_print_error("global_init_info: rli_init_info returned error");
+        }
+        init_error= 1;
+      }
+    }
   }
 
   DBUG_EXECUTE_IF("enable_mts_worker_failure_init",
@@ -1916,6 +1994,12 @@ int start_slave_threads(bool need_lock_slave, bool wait_for_start,
   {
     error= !mi->inited ? ER_SLAVE_MI_INIT_REPOSITORY :
                          ER_SLAVE_RLI_INIT_REPOSITORY;
+    if (enable_raft_plugin)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("start_slave_threads: error: %d mi_inited: %d",
+                      error, mi->inited);
+    }
     Rpl_info *info= (!mi->inited ?  mi : static_cast<Rpl_info *>(mi->rli));
     const char* prefix= current_thd ? ER(error) : ER_DEFAULT(error);
     info->report(ERROR_LEVEL, error, prefix, NULL);
@@ -9549,7 +9633,14 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
   if (thread_mask) //some threads are stopped, start them
   {
     if (global_init_info(mi, false, thread_mask))
+    {
       slave_errno=ER_MASTER_INFO;
+      if (enable_raft_plugin)
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("start_slave: error as global_init_info failed");
+      }
+    }
     else if (server_id_supplied && *mi->host)
     {
       /*
