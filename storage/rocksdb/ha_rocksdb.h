@@ -683,9 +683,6 @@ class ha_rocksdb : public my_core::handler {
   // calls to it
   bool mrr_uses_default_impl;
 
-  bool mrr_sorted_mode;  // true <=> we are in ordered-keys, ordered-results
-                         // mode.
-
   // RANGE_SEQ_IF is stored in handler::mrr_funcs
   HANDLER_BUFFER mrr_buf;
 
