@@ -11967,24 +11967,26 @@ my_off_t MYSQL_BIN_LOG::get_binlog_end_pos() const {
 }
 
 /* wait_for_ack can be modified by this function */
-my_off_t MYSQL_BIN_LOG::get_last_acked_pos(bool &wait_for_ack, bool need_lock,
+my_off_t MYSQL_BIN_LOG::get_last_acked_pos(bool *wait_for_ack,
                                            const char *sender_log_name) {
-  wait_for_ack = wait_for_ack && rpl_wait_for_semi_sync_ack &&
-                 rpl_semi_sync_master_enabled;
+  *wait_for_ack = *wait_for_ack && rpl_wait_for_semi_sync_ack &&
+                  rpl_semi_sync_master_enabled;
 
-  if (!wait_for_ack) return atomic_binlog_end_pos;
+  if (!*wait_for_ack) return atomic_binlog_end_pos;
 
-  if (need_lock) lock_binlog_end_pos();
-  const int res = (last_acked.first.length() > strlen(sender_log_name))
-                      ? 1
-                      : strcmp(last_acked.first.c_str(), sender_log_name);
-  const my_off_t last_acked_pos = last_acked.second;
-  if (need_lock) unlock_binlog_end_pos();
+  const char *file_name = sender_log_name + dirname_length(sender_log_name);
+  const uint file_num = extract_file_index(file_name).second;
+
+  // get a copy of last acked pos atomically
+  const st_filenum_pos local_last_acked = last_acked.load();
+
+  const int res = local_last_acked.file_num - file_num;
+  const my_off_t last_acked_pos = local_last_acked.pos;
 
   if (res == 0) return last_acked_pos;
   if (res < 0) return 0;  // wait for ack
 
-  wait_for_ack = false;
+  *wait_for_ack = false;
   return atomic_binlog_end_pos;
 }
 
@@ -11995,13 +11997,28 @@ void signal_semi_sync_ack(const std::string &file, uint pos) {
 
 void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
                                          const my_off_t log_pos) {
-  if (!log_file) return;
+  if (!log_file || !log_file[0]) return;
 
-  const auto acked = std::make_pair(std::string(log_file), log_pos);
+  const char *file_name = log_file + dirname_length(log_file);
+  const st_filenum_pos acked = {
+      extract_file_index(file_name).second,
+      // NOTE: If the acked pos cannot fit in st_filenum_pos::pos then we store
+      // uint_max, this way we'll never send unacked trxs because the last acked
+      // pos will be stuck at position uint_max in the current binlog file until
+      // a rotation happens. This can only happen when a very large trx is
+      // written to the binlog, max_binlog_size is capped at 1G but that's a
+      // soft limit as one could still write more that 1G of binlogs in a single
+      // trx, so when we hit this the log will immediately be rotated and things
+      // will be back to normal.
+      static_cast<uint>(std::min<ulonglong>(st_filenum_pos::max_pos, log_pos))};
+
+  // case: nothing to update so no signal needed, let's exit
+  if (acked <= last_acked.load()) {
+    return;
+  }
+
   lock_binlog_end_pos();
-  const bool update = acked.first.length() == last_acked.first.length() ?
-    acked > last_acked : acked.first.length() > last_acked.first.length();
-  if (update) {
+  if (acked > last_acked.load()) {
     last_acked = acked;
     signal_update();
   }
@@ -12012,17 +12029,25 @@ void MYSQL_BIN_LOG::reset_semi_sync_last_acked() {
   lock_binlog_end_pos();
   /* binary log is rotated and all trxs in previous binlog are already committed
    * to the storage engine */
-  last_acked = std::make_pair(log_file_name, 0);
+  if (strlen(log_file_name)) {
+    last_acked = {extract_file_index(log_file_name).second, 0};
+  } else {
+    last_acked = {0, 0};
+  }
   signal_update();
   unlock_binlog_end_pos();
 }
 
 void MYSQL_BIN_LOG::get_semi_sync_last_acked(std::string &log_file,
                                              my_off_t &log_pos) {
-  lock_binlog_end_pos();
-  log_file = last_acked.first;
-  log_pos = last_acked.second;
-  unlock_binlog_end_pos();
+  const st_filenum_pos local_last_acked = last_acked.load();
+  if (local_last_acked.file_num) {
+    char full_name[FN_REFLEN + 1];
+    snprintf(full_name, FN_REFLEN, "%s.%06u", opt_bin_logname,
+             local_last_acked.file_num);
+    log_file = std::string(full_name);
+  }
+  log_pos = local_last_acked.pos;
 }
 
 bool THD::is_binlog_cache_empty(bool is_transactional) const {

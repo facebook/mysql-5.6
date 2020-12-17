@@ -228,7 +228,7 @@ reset master;
 
 --let $last_acked= query_get_value(show status like "Rpl_last_semi_sync_acked_pos", Value, 1)
 --let $assert_text= Last acked pos should be empty
---let $assert_cond= "$last_acked" = "./master-bin.000001:0"
+--let $assert_cond= "$last_acked" = "master-bin.000001:0"
 --source include/assert.inc
 
 set @@global.gtid_purged= @gtid_exec;

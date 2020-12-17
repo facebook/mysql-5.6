@@ -538,8 +538,8 @@ int Binlog_sender::get_binlog_end_pos(File_reader *reader, my_off_t *end_pos) {
       to wait for updates on the binary log (Binlog_sender::wait_new_event()).
     */
     bool wait_for_ack = !m_is_semi_sync_slave;
-    *end_pos = mysql_bin_log.get_last_acked_pos(wait_for_ack, true,
-                                                m_linfo.log_file_name);
+    *end_pos =
+        mysql_bin_log.get_last_acked_pos(&wait_for_ack, m_linfo.log_file_name);
 
     /* If this is a cold binlog file, we are done getting the end pos */
     if (unlikely(!wait_for_ack &&
@@ -797,8 +797,8 @@ int Binlog_sender::wait_new_events(my_off_t log_pos) {
     there is no need to wait.
   */
   bool wait_for_ack = !m_is_semi_sync_slave;
-  if (mysql_bin_log.get_last_acked_pos(wait_for_ack, false,
-                                       m_linfo.log_file_name) > log_pos ||
+  if (mysql_bin_log.get_last_acked_pos(&wait_for_ack, m_linfo.log_file_name) >
+          log_pos ||
       (!wait_for_ack && !mysql_bin_log.is_active(m_linfo.log_file_name))) {
     mysql_bin_log.unlock_binlog_end_pos();
     return ret;
