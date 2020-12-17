@@ -11,7 +11,8 @@ grant all on test to test_user@localhost;
 
 --connection default
 
-set @@GLOBAL.sql_findings_control=on;
+truncate table performance_schema.events_statements_summary_by_digest;
+truncate table performance_schema.events_errors_summary_by_user_by_error;
 
 #############
 # Case 1: off
@@ -20,11 +21,13 @@ set @@GLOBAL.sql_findings_control=on;
 --echo "Case 1: off, no error expected"
 
 --connect (con1,localhost,test_user,,test)
---send SELECT 'Q1', sleep(2) from dual
+create table skip_dup_tab (c int);
+insert into skip_dup_tab values(1);
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
 --real_sleep 1
 
 --connect (con2,localhost,test_user,,test)
---send SELECT 'Q1', sleep(2) from dual
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
 
 --connection con1
 --reap
@@ -47,11 +50,11 @@ set @@GLOBAL.sql_duplicate_executions_control=error;
 --echo "Case 2: on, in a transaction, no error"
 
 --connect (con1,localhost,test_user,,test)
---send begin; SELECT 'Q1', sleep(2) from dual; rollback;
+--send begin; SELECT 'Q1', sleep(2) from skip_dup_tab q1; rollback;
 --real_sleep 1
 
 --connect (con2,localhost,test_user,,test)
---send SELECT 'Q1', sleep(2) from dual
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
 
 --connection con1
 --reap
@@ -69,11 +72,11 @@ set @@GLOBAL.sql_duplicate_executions_control=error;
 --echo "Case 3: on, expected the new error"
 
 --connect (con1,localhost,test_user,,test)
---send SELECT 'Q1', sleep(2) from dual
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
 --real_sleep 1
 
 --connect (con2,localhost,test_user,,test)
---send SELECT 'Q1', sleep(2) from dual
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
 
 --connection con1
 --reap
@@ -92,11 +95,11 @@ set @@GLOBAL.sql_duplicate_executions_control=error;
 --echo "Case 4.1: on, comment handling: mix quotes and comments"
 
 --connect (con1,localhost,test_user,,test)
---send /*C1*/ select 'Q2', '/*', "*/" /*C2*/, sleep(2) from dual /*C3*/
+--send /*C1*/ select 'Q2', '/*', "*/" /*C2*/, sleep(2) from skip_dup_tab q2 /*C3*/
 --real_sleep 1
 
 --connect (con2,localhost,test_user,,test)
---send /*'D1'*/ select 'Q2', '/*', "*/" /*D2*/, sleep(2) from dual /*"D3"*/
+--send /*'D1'*/ select 'Q2', '/*', "*/" /*D2*/, sleep(2) from skip_dup_tab q2 /*"D3"*/
 
 --connection con1
 --reap
@@ -111,11 +114,11 @@ set @@GLOBAL.sql_duplicate_executions_control=error;
 --echo "Case 4.2: on, comment handling: same with escaped quotes"
 
 --connect (con1,localhost,test_user,,test)
---send /*C1*/ select '''Q3''', '''/*''', """*/""" /*C2*/, 1+sleep(2) from dual /*C3*/
+--send /*C1*/ select '''Q3''', '''/*''', """*/""" /*C2*/, 1+sleep(2) from skip_dup_tab q3 /*C3*/
 --real_sleep 1
 
 --connect (con2,localhost,test_user,,test)
---send /*'D1'*/ select '''Q3''', '''/*''', """*/""" /*D2*/, 1+sleep(2) from dual /*"D3"*/
+--send /*'D1'*/ select '''Q3''', '''/*''', """*/""" /*D2*/, 1+sleep(2) from skip_dup_tab q3 /*"D3"*/
 
 --connection con1
 --reap
@@ -130,10 +133,14 @@ set @@GLOBAL.sql_duplicate_executions_control=error;
 --connection default
 --echo
 --echo "execution_count=6 (Q1) 2 (Q2/Q3) and skipped_count=1 for all queries"
-select query_sample_text, count_star, sum_skipped
+select digest, digest_text, count_star, sum_skipped
 from performance_schema.events_statements_summary_by_digest
-where sum_skipped > 0
-order by length(query_sample_text);
+where digest_text like 'SELECT %skip_dup_tab%'
+order by digest;
+
+select ERROR_NUMBER, ERROR_NAME, SUM_ERROR_RAISED
+from performance_schema.events_errors_summary_by_user_by_error
+where error_number = 50088 and user='test_user';
 
 set @@GLOBAL.sql_duplicate_executions_control=warn;
 
@@ -166,8 +173,6 @@ set session sql_mode=NO_ENGINE_SUBSTITUTION;
 --connection default
 --echo
 -- echo "duplicate executions reported as warning"
-## select sql_id, code, level, message, query_text, count
-## from performance_schema.sql_findings;
 show warnings;
 
 # set variable to 0 and we rely in connection or query attributes
@@ -229,9 +234,9 @@ query_attrs_add @@sql_max_dup_exe 1;
 
 --connection default
 # tidy up
+drop table skip_dup_tab;
 drop table t1;
 drop user test_user@localhost;
-set @@GLOBAL.sql_findings_control=DEFAULT;
 set @@GLOBAL.sql_maximum_duplicate_executions=DEFAULT;
 set @@GLOBAL.sql_duplicate_executions_control=DEFAULT;
 
