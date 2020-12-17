@@ -179,6 +179,10 @@ ADD_CONVENIENCE_LIBRARY(mysys ${MYSYS_SOURCES}
   ${SSL_LIBRARIES}
   )
 
+IF(MY_COMPILER_IS_CLANG)
+  TARGET_LINK_LIBRARIES(mysys atomic)
+ENDIF()
+
 # For targets that link with mysys, and are independent of other targets.
 IF(TARGET copy_openssl_dlls)
   ADD_DEPENDENCIES(mysys copy_openssl_dlls)
