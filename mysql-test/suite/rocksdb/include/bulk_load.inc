@@ -161,7 +161,7 @@ select count(b) from t3;
 
 # Create a dummy file with a bulk load extesion.  It should be removed when
 # the server starts
---let $tmpext = .bulk_load.tmp
+--let $tmpext = .bulk_load.tmp.sst
 --let $MYSQLD_DATADIR= `SELECT @@datadir`
 --let $datadir = $MYSQLD_DATADIR/.rocksdb
 --write_file $datadir/test$tmpext
