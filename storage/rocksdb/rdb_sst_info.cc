@@ -548,5 +548,5 @@ void Rdb_sst_info::init(const rocksdb::DB *const db) {
 }
 
 std::atomic<uint64_t> Rdb_sst_info::m_prefix_counter(0);
-std::string Rdb_sst_info::m_suffix = ".bulk_load.tmp";
+std::string Rdb_sst_info::m_suffix = ".bulk_load.tmp.sst";
 }  // namespace myrocks

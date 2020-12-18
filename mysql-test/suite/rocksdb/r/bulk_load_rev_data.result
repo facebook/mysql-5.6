@@ -57,7 +57,7 @@ count(a)
 select count(b) from t2;
 count(b)
 500000
-longfilenamethatvalidatesthatthiswillgetdeleted.bulk_load.tmp
-test.bulk_load.tmp
+longfilenamethatvalidatesthatthiswillgetdeleted.bulk_load.tmp.sst
+test.bulk_load.tmp.sst
 # restart
 DROP TABLE t1, t2;
