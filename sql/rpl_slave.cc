@@ -10060,6 +10060,15 @@ bool change_master(THD* thd, Master_info* mi)
   bool mts_remove_workers= false;
 
   DBUG_ENTER("change_master");
+  if (enable_raft_plugin && !override_enable_raft_check)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Did not allow change_master as enable_raft_plugin is ON");
+    my_error(ER_RAFT_OPERATION_INCOMPATIBLE, MYF(0),
+        "change master not allowed when enable_raft_plugin is ON");
+    DBUG_RETURN(1);
+  }
 
   lock_slave_threads(mi);
   init_thread_mask(&thread_mask,mi,0 /*not inverse*/);
