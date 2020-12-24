@@ -20,6 +20,7 @@
   MYSQL_SERVER define is set!
 */
 #include "my_io.h"
+#include "sql/handler.h"
 #include "sql/sql_partition.h"
 #define MYSQL_SERVER 1
 #define LOG_SUBSYSTEM_TAG "partition_base"
@@ -49,6 +50,7 @@
 #include "sql/dd/types/partition.h"
 #include "sql/dd/types/table.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -4815,6 +4817,147 @@ int Partition_base::check_for_upgrade(HA_CHECK_OPT *check_opt) {
   }
 
   DBUG_RETURN(error);
+}
+
+/*
+  -------------------------------------------------------------------------
+  MODULE MRR support
+  -------------------------------------------------------------------------
+*/
+ha_rows Partition_base::multi_range_read_info_const(
+    uint keyno, RANGE_SEQ_IF *seq, void *seq_init_param, uint n_ranges,
+    uint *bufsz, uint *flags, Cost_estimate *cost) {
+  ha_rows rows = 0, estimated_rows = 0;
+  uint partition_index = 0, part_id;
+  uint default_bufsz = *bufsz;
+  DBUG_ENTER("Partition_base::multi_range_read_info_const");
+
+  while ((part_id = get_biggest_used_partition(&partition_index)) !=
+         NO_CURRENT_PART_ID) {
+    uint part_bufsz = default_bufsz;
+    Cost_estimate part_cost;
+    rows = m_file[part_id]->multi_range_read_info_const(
+        keyno, seq, seq_init_param, n_ranges, &part_bufsz, flags, &part_cost);
+    if (rows == HA_POS_ERROR) DBUG_RETURN(HA_POS_ERROR);
+
+    DBUG_PRINT("info", ("part %u match %lu rows of %lu", part_id, (ulong)rows,
+                        (ulong)m_file[part_id]->stats.records));
+    *cost += part_cost;
+    estimated_rows += rows;
+    *bufsz = max(*bufsz, part_bufsz);
+  }
+
+  *flags &= ~HA_MRR_SUPPORT_SORTED;  //  Non-sorted mode
+  DBUG_RETURN(estimated_rows);
+}
+
+ha_rows Partition_base::multi_range_read_info(uint keyno, uint n_ranges,
+                                              uint keys, uint *bufsz,
+                                              uint *flags,
+                                              Cost_estimate *cost) {
+  ha_rows rows = 0, estimated_rows = 0;
+  uint partition_index = 0, part_id;
+  Cost_estimate part_cost;
+  DBUG_ENTER("Partition_base::multi_range_read_info");
+
+  if ((part_id = get_biggest_used_partition(&partition_index)) !=
+      NO_CURRENT_PART_ID) {
+    rows = m_file[part_id]->multi_range_read_info(keyno, n_ranges, keys, bufsz,
+                                                  flags, &part_cost);
+
+    if (rows == HA_POS_ERROR) DBUG_RETURN(HA_POS_ERROR);
+    DBUG_PRINT("info", ("part %u match %lu rows of %lu", part_id, (ulong)rows,
+                        (ulong)m_file[part_id]->stats.records));
+  }
+  uint tot_used_partitions = m_part_info->num_partitions_used();
+  part_cost.multiply(tot_used_partitions);
+  *cost += part_cost;
+  estimated_rows += rows * tot_used_partitions;
+  DBUG_RETURN(estimated_rows);
+}
+
+int Partition_base::multi_range_read_init(RANGE_SEQ_IF *seq,
+                                          void *seq_init_param, uint n_ranges,
+                                          uint mode, HANDLER_BUFFER *buf) {
+  DBUG_ENTER("Partition_base::multi_range_read_init");
+  mrr_have_range = false;
+
+  if (m_ordered) {
+    mrr_uses_default_impl = true;
+    DBUG_RETURN(handler::multi_range_read_init(seq, seq_init_param, n_ranges,
+                                               mode, buf));
+  }
+  // Only initialze the first used partition
+  uint part_id = m_part_info->get_first_used_partition();
+  if (part_id == MY_BIT_NONE) {
+    /* No partition to scan. */
+    return HA_ERR_END_OF_FILE;
+  }
+  int res = m_file[part_id]->multi_range_read_init(seq, seq_init_param,
+                                                   n_ranges, mode, buf);
+
+  if (res != 0) DBUG_RETURN(res);
+
+  if (m_ordered || m_file[part_id]->mrr_uses_default_impl) {
+    mrr_uses_default_impl = true;
+    res = handler::multi_range_read_init(seq, seq_init_param, n_ranges, mode,
+                                         buf);
+    DBUG_RETURN(res);
+  }
+  mrr_uses_default_impl = false;
+  // Save multi_range_read_init parameters to initialize following partitions
+  // During m_file[part_id]->multi_range_read_init(),
+  // it will call quick_range_seq_init() to init seq_init_param fields.---
+  // seq_init_param->qr_traversal_ctx.cur ==
+  // seq_init_param->qr_traversal_ctx.begin
+  //
+  // During m_file[part_id]->multi_range_read_next(), it will finish scan all
+  // ranges in that partition --- seq_init_param->qr_traversal_ctx.cur ==
+  // seq_init_param->qr_traversal_ctx.end.
+  // also all partitions in a table share same seq_init_param which is a
+  // QUICK_RANGE_SELECT instance.
+  // The following m_file[next part_id]->multi_range_read_next() will do
+  // nothing without re(initialze) seq_init_param->qr_traversal_ctx.cur
+  m_mrr_seq = *seq;
+  m_mrr_seq_init_param = seq_init_param;
+  m_mrr_n_ranges = n_ranges;
+  m_mrr_mode = mode;
+  m_mrr_buf = buf;
+
+  m_part_spec.start_part = part_id;
+  m_part_spec.end_part = m_tot_parts - 1;
+  DBUG_RETURN(res);
+}
+
+int Partition_base::multi_range_read_next(char **range_info) {
+  int res = 0;
+  DBUG_ENTER("Partition_base::multi_range_read_next");
+
+  if (mrr_uses_default_impl) {
+    DBUG_RETURN(handler::multi_range_read_next(range_info));
+  }
+
+  // SE multi_range_read_next support kill switch to avoid infinite loop
+  while (true) {
+    res = m_file[m_part_spec.start_part]->ha_multi_range_read_next(range_info);
+    if (res == HA_ERR_END_OF_FILE) {
+      // find next partition
+      m_part_spec.start_part =
+          m_part_info->get_next_used_partition(m_part_spec.start_part);
+      // no more part?
+      if (m_part_spec.start_part >= m_tot_parts) {
+        DBUG_RETURN(HA_ERR_END_OF_FILE);
+      }
+
+      // init next partition
+      m_file[m_part_spec.start_part]->multi_range_read_init(
+          &m_mrr_seq, m_mrr_seq_init_param, m_mrr_n_ranges, m_mrr_mode,
+          m_mrr_buf);
+    } else {
+      break;
+    }
+  }
+  DBUG_RETURN(res);
 }
 
 }  // namespace native_part

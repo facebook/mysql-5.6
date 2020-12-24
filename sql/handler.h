@@ -4284,6 +4284,10 @@ class handler {
   /* Current range (the one we're now returning rows from) */
   KEY_MULTI_RANGE mrr_cur_range;
 
+  // true <=> The scan uses the default MRR implementation, just redirect all
+  // calls to it
+  bool mrr_uses_default_impl;
+
   /*
     The direction of the current range or index scan. This is used by
     the ICP implementation to determine if it has reached the end
