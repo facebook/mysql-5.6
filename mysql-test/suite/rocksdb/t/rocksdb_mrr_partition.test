@@ -1,0 +1,216 @@
+#
+#  Test for MyRocks'Partition MRR implementation based on MultiGet.
+#
+# initialize some data tables(t1, t2, t3)
+CREATE TABLE t1(a int);
+INSERT INTO t1 VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+CREATE TABLE t2(a int);
+INSERT INTO t2 SELECT A.a + 10*(B.a + 10*C.a) FROM t1 A, t1 B, t1 C;
+
+CREATE TABLE t3 (
+  a char(8) not null, b char(8) not null, filler char(200),
+  key(a)
+);
+INSERT INTO t3 SELECT @a:=concat('c-', 1000+ A.a, '=w'), @a, 'filler' FROM t2 A;
+INSERT INTO t3 SELECT concat('c-', 1000+A.a, '=w'), concat('c-', 2000+A.a, '=w'),
+                      'filler-1' FROM t2 A;
+INSERT INTO t3 SELECT concat('c-', 1000+A.a, '=w'), concat('c-', 3000+A.a, '=w'),
+                      'filler-2' FROM t2 A;
+SELECT a,filler FROM t3 WHERE a >= 'c-1011=w' AND a <= 'c-1015=w' ORDER BY a,filler;
+
+
+set @save_optimizer_switch=@@optimizer_switch;
+set optimizer_switch='batched_key_access=ON,mrr=on,mrr_cost_based=off';
+set @save_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;
+set rocksdb_mrr_batch_size=5;
+
+--echo #
+--echo # key partition -- SK
+--echo #
+CREATE TABLE `t4` (
+  `a` char(8) NOT NULL,
+  `b` char(8) NOT NULL,
+  `filler` char(200) DEFAULT NULL,
+  KEY `a` (`a`)
+) CHARACTER set latin1 COLLATE latin1_general_cs PARTITION BY KEY (a) PARTITIONS 4;
+
+INSERT INTO t4 SELECT a,b,filler FROM t3;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t4;
+
+let mrr_query=SELECT a,filler FROM t4 WHERE a >= 'c-1011=w' AND a <= 'c-1015=w' ORDER BY a;
+--source ../include/mrr_stats.inc
+
+--echo #
+--echo # Test for HA_MRR_SUPPORT_SORTED support in ref plan/key partition -- SK
+--echo #
+CREATE table t5 (
+  kp1 int,
+  kp2 int,
+  kp3 int,
+  col1 int,
+  key (kp1, kp2, kp3)
+)PARTITION BY KEY (kp1, kp2, kp3) PARTITIONS 4;
+INSERT INTO t5 SELECT A.a, B.a, C.a, 123456 FROM t1 A, t1 B, t1 C;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t5;
+
+let mrr_query=SELECT * FROM t5 WHERE kp1=1 ORDER BY kp2 LIMIT 20;
+--source ../include/mrr_stats.inc
+
+# No MRR due to DESC order
+--replace_column 10 # 11 #
+explain SELECT * FROM t5 where kp1=1 order by kp2 DESC limit 20;
+
+--echo #
+--echo # key partition -- PK
+--echo #
+CREATE TABLE `t6` (
+  `a` int  NOT NULL,
+  `b` char(8) NOT NULL,
+  `filler` char(200) DEFAULT NULL,
+  Primary KEY `a` (`a`)
+) CHARACTER set latin1 COLLATE latin1_general_cs PARTITION BY KEY (a) PARTITIONS 4;
+
+INSERT INTO t6 SELECT a, concat('c-', a), concat('filler-',a) FROM t2;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t6;
+
+let mrr_query=SELECT * FROM t6 FORCE INDEX (primary) WHERE
+a IN (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23);
+--source ../include/mrr_stats.inc
+
+--echo # key partition(PK) sorted
+let mrr_query=SELECT * FROM t6 FORCE INDEX (primary) WHERE
+a IN (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23) ORDER BY b;
+--source ../include/mrr_stats.inc
+
+--echo #
+--echo # range partition
+--echo #
+CREATE TABLE `t7` (
+  fname VARCHAR(50) NOT NULL,
+  lname VARCHAR(50) NOT NULL,
+  region_code TINYINT UNSIGNED NOT NULL,
+  dob DATE NOT NULL,
+  key region_code(region_code)
+) PARTITION BY RANGE(region_code)
+  (
+    PARTITION p0 VALUES LESS THAN (64),
+    PARTITION p1 VALUES LESS THAN (128),
+    PARTITION p2 VALUES LESS THAN (192),
+    PARTITION p3 VALUES LESS THAN MAXVALUE
+);
+INSERT INTO t7 SELECT concat('f-', a), concat('l-',a), a % 128, DATE(now()) FROM t2 WHERE a < 250;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t7;
+
+let mrr_query=SELECT fname FROM t7 WHERE region_code >=50 and region_code <=60 ORDER BY fname;
+--source ../include/mrr_stats.inc
+
+let mrr_query=SELECT fname FROM t7 WHERE region_code >=70 and region_code <=120 ORDER BY fname LIMIT 20;
+--source ../include/mrr_stats.inc
+
+let mrr_query=SELECT fname FROM t7 WHERE region_code >=130 and region_code <=180 ORDER BY fname LIMIT 20;
+--source ../include/mrr_stats.inc
+
+let mrr_query=SELECT fname FROM t7 WHERE region_code >=200 and region_code <=250 ORDER BY fname LIMIT 20; 
+--source ../include/mrr_stats.inc
+
+--replace_column 10 # 11 #
+explain SELECT fname FROM t7 WHERE region_code >=50 and region_code <=250 LIMIT 20;
+--sorted_result
+SELECT fname FROM t7 where region_code >=50 and region_code <=250 LIMIT 20;
+
+--replace_column 10 # 11 #
+explain SELECT fname FROM t7 WHERE region_code >=100 and region_code <=150 LIMIT 20;
+--sorted_result
+SELECT fname FROM t7 WHERE region_code >=100 and region_code <=150 LIMIT 20;
+
+--echo #
+--echo # Range partition sorted
+--echo #
+CREATE TABLE t8 (
+  `id` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `start` int(10) unsigned NOT NULL DEFAULT '0',
+  `stop` int(10) unsigned NOT NULL DEFAULT '0',
+  `value` bigint(20) NOT NULL DEFAULT '0',
+  `time_created` int(10) unsigned NOT NULL DEFAULT '0',
+  `type` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`,`start`,`time_created`,`type`),
+  KEY `value_time_created` (value, `time_created`)
+) PARTITION BY RANGE (`time_created`)
+(
+ PARTITION p0 VALUES LESS THAN (10),
+ PARTITION p1 VALUES LESS THAN (20),
+ PARTITION p2 VALUES LESS THAN (30),
+ PARTITION p3 VALUES LESS THAN (40),
+ PARTITION p4 VALUES LESS THAN (50),
+ PARTITION p5 VALUES LESS THAN MAXVALUE
+);
+INSERT INTO t8 SELECT a, 10 + a, 25 + a,  50 - a, a, a % 32 FROM t2;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t8;
+
+let mrr_query=SELECT time_created, stop FROM t8 FORCE INDEX(value_time_created)
+WHERE value >= 5 AND time_created != 10 ORDER BY time_created LIMIT 20;
+--source ../include/mrr_stats.inc
+
+let mrr_query=SELECT time_created, stop, value FROM t8 FORCE INDEX(value_time_created)
+WHERE value >= 5 AND time_created != 10 ORDER BY value LIMIT 20;
+--source ../include/mrr_stats.inc
+
+
+CREATE TABLE `id_stat` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `start` int(10) unsigned NOT NULL DEFAULT '0',
+  `value` int(10) unsigned NOT NULL DEFAULT '0',
+  `parent_id` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`,`start`),
+  KEY `parent_id` (`parent_id`,`start`)
+) PARTITION BY RANGE (`start`)
+(PARTITION p0 VALUES LESS THAN (10),
+ PARTITION p1 VALUES LESS THAN (20),
+ PARTITION p2 VALUES LESS THAN (30),
+ PARTITION p3 VALUES LESS THAN (40),
+ PARTITION p4 VALUES LESS THAN (50),
+ PARTITION p5 VALUES LESS THAN (60),
+ PARTITION p6 VALUES LESS THAN (100));
+
+INSERT INTO id_stat(start, value, parent_id) SELECT a % 100, a, a % 10 FROM t2;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table id_stat;
+
+let mrr_query=
+SELECT parent_id AS pid, SUM(value) AS id_values FROM id_stat
+FORCE INDEX (parent_id) WHERE parent_id IN (1,5) AND (start >= 50) AND (start < 90)
+GROUP BY parent_id LIMIT 20;
+--source ../include/mrr_stats.inc
+
+--echo #
+--echo # Hash Partition
+--echo #
+CREATE table t9 (
+  kp1 int,
+  kp2 int,
+  kp3 int,
+  col1 int,
+  key (kp1, kp2, kp3)
+) PARTITION BY HASH(kp1) PARTITIONS 4;
+INSERT INTO t9 SELECT A.a, B.a, C.a, 123456 FROM t1 A, t1 B, t1 C;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t9;
+
+let mrr_query=SELECT * FROM t9 FORCE INDEX (kp1) WHERE kp1 = 1 ORDER BY kp2
+LIMIT 20;
+--source ../include/mrr_stats.inc
+
+let mrr_query=SELECT * FROM t9 FORCE INDEX (kp1) WHERE kp1 in (1,2) ORDER BY kp2
+LIMIT 20;
+--source ../include/mrr_stats.inc
+
+# cleanup
+set optimizer_switch=@save_optimizer_switch;
+set rocksdb_mrr_batch_size = @save_rocksdb_mrr_batch_size;
+drop table t1, t2, t3, t4, t5,t6, t7, t8, id_stat, t9;

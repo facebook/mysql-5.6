@@ -1,0 +1,1023 @@
+CREATE TABLE t1(a int);
+INSERT INTO t1 VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE t2(a int);
+INSERT INTO t2 SELECT A.a + 10*(B.a + 10*C.a) FROM t1 A, t1 B, t1 C;
+CREATE TABLE t3 (
+a char(8) not null, b char(8) not null, filler char(200),
+key(a)
+);
+INSERT INTO t3 SELECT @a:=concat('c-', 1000+ A.a, '=w'), @a, 'filler' FROM t2 A;
+Warnings:
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+INSERT INTO t3 SELECT concat('c-', 1000+A.a, '=w'), concat('c-', 2000+A.a, '=w'),
+'filler-1' FROM t2 A;
+INSERT INTO t3 SELECT concat('c-', 1000+A.a, '=w'), concat('c-', 3000+A.a, '=w'),
+'filler-2' FROM t2 A;
+SELECT a,filler FROM t3 WHERE a >= 'c-1011=w' AND a <= 'c-1015=w' ORDER BY a,filler;
+a	filler
+c-1011=w	filler
+c-1011=w	filler-1
+c-1011=w	filler-2
+c-1012=w	filler
+c-1012=w	filler-1
+c-1012=w	filler-2
+c-1013=w	filler
+c-1013=w	filler-1
+c-1013=w	filler-2
+c-1014=w	filler
+c-1014=w	filler-1
+c-1014=w	filler-2
+c-1015=w	filler
+c-1015=w	filler-1
+c-1015=w	filler-2
+set @save_optimizer_switch=@@optimizer_switch;
+set optimizer_switch='batched_key_access=ON,mrr=on,mrr_cost_based=off';
+set @save_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;
+set rocksdb_mrr_batch_size=5;
+#
+# key partition -- SK
+#
+CREATE TABLE `t4` (
+`a` char(8) NOT NULL,
+`b` char(8) NOT NULL,
+`filler` char(200) DEFAULT NULL,
+KEY `a` (`a`)
+) CHARACTER set latin1 COLLATE latin1_general_cs PARTITION BY KEY (a) PARTITIONS 4;
+INSERT INTO t4 SELECT a,b,filler FROM t3;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t4;
+Table	Op	Msg_type	Msg_text
+test.t4	analyze	status	OK
+# show explain
+explain SELECT a,filler FROM t4 WHERE a >= 'c-1011=w' AND a <= 'c-1015=w' ORDER BY a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	p0,p1,p2,p3	range	a	a	8	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t4`.`a` AS `a`,`test`.`t4`.`filler` AS `filler` from `test`.`t4` where ((`test`.`t4`.`a` >= 'c-1011=w') and (`test`.`t4`.`a` <= 'c-1015=w')) order by `test`.`t4`.`a`
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+Warnings:
+Note	1051	Unknown table 'test.mrr_stats_t1'
+Note	1051	Unknown table 'test.mrr_stats_t2'
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT a,filler FROM t4 WHERE a >= 'c-1011=w' AND a <= 'c-1015=w' ORDER BY a;
+a	filler
+c-1011=w	filler
+c-1011=w	filler-1
+c-1011=w	filler-2
+c-1012=w	filler
+c-1012=w	filler-1
+c-1012=w	filler-2
+c-1013=w	filler
+c-1013=w	filler-1
+c-1013=w	filler-2
+c-1014=w	filler
+c-1014=w	filler-1
+c-1014=w	filler-2
+c-1015=w	filler
+c-1015=w	filler-1
+c-1015=w	filler-2
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	15
+rocksdb_number_db_next_found	15
+rocksdb_number_db_seek	4
+rocksdb_number_db_seek_found	1
+rocksdb_rows_read	15
+#
+# Test for HA_MRR_SUPPORT_SORTED support in ref plan/key partition -- SK
+#
+CREATE table t5 (
+kp1 int,
+kp2 int,
+kp3 int,
+col1 int,
+key (kp1, kp2, kp3)
+)PARTITION BY KEY (kp1, kp2, kp3) PARTITIONS 4;
+INSERT INTO t5 SELECT A.a, B.a, C.a, 123456 FROM t1 A, t1 B, t1 C;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t5;
+Table	Op	Msg_type	Msg_text
+test.t5	analyze	status	OK
+# show explain
+explain SELECT * FROM t5 WHERE kp1=1 ORDER BY kp2 LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	p0,p1,p2,p3	range	kp1	kp1	5	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t5`.`kp1` AS `kp1`,`test`.`t5`.`kp2` AS `kp2`,`test`.`t5`.`kp3` AS `kp3`,`test`.`t5`.`col1` AS `col1` from `test`.`t5` where (`test`.`t5`.`kp1` = 1) order by `test`.`t5`.`kp2` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT * FROM t5 WHERE kp1=1 ORDER BY kp2 LIMIT 20;
+kp1	kp2	kp3	col1
+1	0	0	123456
+1	0	1	123456
+1	0	2	123456
+1	0	3	123456
+1	0	4	123456
+1	0	5	123456
+1	0	6	123456
+1	0	7	123456
+1	0	8	123456
+1	0	9	123456
+1	1	0	123456
+1	1	1	123456
+1	1	2	123456
+1	1	3	123456
+1	1	4	123456
+1	1	5	123456
+1	1	6	123456
+1	1	7	123456
+1	1	8	123456
+1	1	9	123456
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	19
+rocksdb_number_db_next_found	19
+rocksdb_number_db_seek	4
+rocksdb_number_db_seek_found	1
+rocksdb_rows_read	20
+explain SELECT * FROM t5 where kp1=1 order by kp2 DESC limit 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t5	p0,p1,p2,p3	range	kp1	kp1	5	NULL	#	#	Using index condition; Backward index scan
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t5`.`kp1` AS `kp1`,`test`.`t5`.`kp2` AS `kp2`,`test`.`t5`.`kp3` AS `kp3`,`test`.`t5`.`col1` AS `col1` from `test`.`t5` where (`test`.`t5`.`kp1` = 1) order by `test`.`t5`.`kp2` desc limit 20
+#
+# key partition -- PK
+#
+CREATE TABLE `t6` (
+`a` int  NOT NULL,
+`b` char(8) NOT NULL,
+`filler` char(200) DEFAULT NULL,
+Primary KEY `a` (`a`)
+) CHARACTER set latin1 COLLATE latin1_general_cs PARTITION BY KEY (a) PARTITIONS 4;
+INSERT INTO t6 SELECT a, concat('c-', a), concat('filler-',a) FROM t2;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t6;
+Table	Op	Msg_type	Msg_text
+test.t6	analyze	status	OK
+# show explain
+explain SELECT * FROM t6 FORCE INDEX (primary) WHERE
+a IN (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t6	p0,p1,p2,p3	range	PRIMARY	PRIMARY	4	NULL	#	#	Using where; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t6`.`filler` AS `filler` from `test`.`t6` FORCE INDEX (PRIMARY) where (`test`.`t6`.`a` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23))
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT * FROM t6 FORCE INDEX (primary) WHERE
+a IN (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23);
+a	b	filler
+1	c-1	filler-1
+5	c-5	filler-5
+9	c-9	filler-9
+13	c-13	filler-13
+17	c-17	filler-17
+21	c-21	filler-21
+0	c-0	filler-0
+4	c-4	filler-4
+8	c-8	filler-8
+12	c-12	filler-12
+16	c-16	filler-16
+20	c-20	filler-20
+3	c-3	filler-3
+7	c-7	filler-7
+11	c-11	filler-11
+15	c-15	filler-15
+19	c-19	filler-19
+23	c-23	filler-23
+2	c-2	filler-2
+6	c-6	filler-6
+10	c-10	filler-10
+14	c-14	filler-14
+18	c-18	filler-18
+22	c-22	filler-22
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_multiget_bytes_read	5016
+rocksdb_number_multiget_get	20
+rocksdb_number_multiget_keys_read	96
+rocksdb_rows_read	24
+# key partition(PK) sorted
+# show explain
+explain SELECT * FROM t6 FORCE INDEX (primary) WHERE
+a IN (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23) ORDER BY b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t6	p0,p1,p2,p3	range	PRIMARY	PRIMARY	4	NULL	#	#	Using where; Using MRR; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t6`.`a` AS `a`,`test`.`t6`.`b` AS `b`,`test`.`t6`.`filler` AS `filler` from `test`.`t6` FORCE INDEX (PRIMARY) where (`test`.`t6`.`a` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)) order by `test`.`t6`.`b`
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT * FROM t6 FORCE INDEX (primary) WHERE
+a IN (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23) ORDER BY b;
+a	b	filler
+0	c-0	filler-0
+1	c-1	filler-1
+10	c-10	filler-10
+11	c-11	filler-11
+12	c-12	filler-12
+13	c-13	filler-13
+14	c-14	filler-14
+15	c-15	filler-15
+16	c-16	filler-16
+17	c-17	filler-17
+18	c-18	filler-18
+19	c-19	filler-19
+2	c-2	filler-2
+20	c-20	filler-20
+21	c-21	filler-21
+22	c-22	filler-22
+23	c-23	filler-23
+3	c-3	filler-3
+4	c-4	filler-4
+5	c-5	filler-5
+6	c-6	filler-6
+7	c-7	filler-7
+8	c-8	filler-8
+9	c-9	filler-9
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_multiget_bytes_read	5016
+rocksdb_number_multiget_get	20
+rocksdb_number_multiget_keys_read	96
+rocksdb_rows_read	24
+#
+# range partition
+#
+CREATE TABLE `t7` (
+fname VARCHAR(50) NOT NULL,
+lname VARCHAR(50) NOT NULL,
+region_code TINYINT UNSIGNED NOT NULL,
+dob DATE NOT NULL,
+key region_code(region_code)
+) PARTITION BY RANGE(region_code)
+(
+PARTITION p0 VALUES LESS THAN (64),
+PARTITION p1 VALUES LESS THAN (128),
+PARTITION p2 VALUES LESS THAN (192),
+PARTITION p3 VALUES LESS THAN MAXVALUE
+);
+INSERT INTO t7 SELECT concat('f-', a), concat('l-',a), a % 128, DATE(now()) FROM t2 WHERE a < 250;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t7;
+Table	Op	Msg_type	Msg_text
+test.t7	analyze	status	OK
+# show explain
+explain SELECT fname FROM t7 WHERE region_code >=50 and region_code <=60 ORDER BY fname;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	p0	range	region_code	region_code	1	NULL	#	#	Using index condition; Using MRR; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t7`.`fname` AS `fname` from `test`.`t7` where ((`test`.`t7`.`region_code` >= 50) and (`test`.`t7`.`region_code` <= 60)) order by `test`.`t7`.`fname`
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT fname FROM t7 WHERE region_code >=50 and region_code <=60 ORDER BY fname;
+fname
+f-178
+f-179
+f-180
+f-181
+f-182
+f-183
+f-184
+f-185
+f-186
+f-187
+f-188
+f-50
+f-51
+f-52
+f-53
+f-54
+f-55
+f-56
+f-57
+f-58
+f-59
+f-60
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	22
+rocksdb_number_db_next_found	22
+rocksdb_number_db_seek	1
+rocksdb_number_db_seek_found	1
+rocksdb_number_multiget_bytes_read	330
+rocksdb_number_multiget_get	5
+rocksdb_number_multiget_keys_read	22
+rocksdb_rows_read	22
+# show explain
+explain SELECT fname FROM t7 WHERE region_code >=70 and region_code <=120 ORDER BY fname LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	p1	range	region_code	region_code	1	NULL	#	#	Using index condition; Using MRR; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t7`.`fname` AS `fname` from `test`.`t7` where ((`test`.`t7`.`region_code` >= 70) and (`test`.`t7`.`region_code` <= 120)) order by `test`.`t7`.`fname` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT fname FROM t7 WHERE region_code >=70 and region_code <=120 ORDER BY fname LIMIT 20;
+fname
+f-100
+f-101
+f-102
+f-103
+f-104
+f-105
+f-106
+f-107
+f-108
+f-109
+f-110
+f-111
+f-112
+f-113
+f-114
+f-115
+f-116
+f-117
+f-118
+f-119
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	102
+rocksdb_number_db_next_found	102
+rocksdb_number_db_seek	1
+rocksdb_number_db_seek_found	1
+rocksdb_number_multiget_bytes_read	1572
+rocksdb_number_multiget_get	21
+rocksdb_number_multiget_keys_read	102
+rocksdb_rows_read	102
+# show explain
+explain SELECT fname FROM t7 WHERE region_code >=130 and region_code <=180 ORDER BY fname LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	p2	range	region_code	region_code	1	NULL	#	#	Using index condition; Using MRR; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t7`.`fname` AS `fname` from `test`.`t7` where ((`test`.`t7`.`region_code` >= 130) and (`test`.`t7`.`region_code` <= 180)) order by `test`.`t7`.`fname` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT fname FROM t7 WHERE region_code >=130 and region_code <=180 ORDER BY fname LIMIT 20;
+fname
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_seek	1
+# show explain
+explain SELECT fname FROM t7 WHERE region_code >=200 and region_code <=250 ORDER BY fname LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	p3	range	region_code	region_code	1	NULL	#	#	Using index condition; Using MRR; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t7`.`fname` AS `fname` from `test`.`t7` where ((`test`.`t7`.`region_code` >= 200) and (`test`.`t7`.`region_code` <= 250)) order by `test`.`t7`.`fname` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT fname FROM t7 WHERE region_code >=200 and region_code <=250 ORDER BY fname LIMIT 20;
+fname
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_seek	1
+explain SELECT fname FROM t7 WHERE region_code >=50 and region_code <=250 LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	p0,p1,p2,p3	range	region_code	region_code	1	NULL	#	#	Using index condition; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t7`.`fname` AS `fname` from `test`.`t7` where ((`test`.`t7`.`region_code` >= 50) and (`test`.`t7`.`region_code` <= 250)) limit 20
+SELECT fname FROM t7 where region_code >=50 and region_code <=250 LIMIT 20;
+fname
+f-178
+f-179
+f-180
+f-181
+f-182
+f-183
+f-184
+f-185
+f-186
+f-187
+f-50
+f-51
+f-52
+f-53
+f-54
+f-55
+f-56
+f-57
+f-58
+f-59
+explain SELECT fname FROM t7 WHERE region_code >=100 and region_code <=150 LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t7	p1,p2	range	region_code	region_code	1	NULL	#	#	Using index condition; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t7`.`fname` AS `fname` from `test`.`t7` where ((`test`.`t7`.`region_code` >= 100) and (`test`.`t7`.`region_code` <= 150)) limit 20
+SELECT fname FROM t7 WHERE region_code >=100 and region_code <=150 LIMIT 20;
+fname
+f-100
+f-101
+f-102
+f-103
+f-104
+f-105
+f-106
+f-107
+f-108
+f-109
+f-228
+f-229
+f-230
+f-231
+f-232
+f-233
+f-234
+f-235
+f-236
+f-237
+#
+# Range partition sorted
+#
+CREATE TABLE t8 (
+`id` bigint(20) unsigned NOT NULL DEFAULT '0',
+`start` int(10) unsigned NOT NULL DEFAULT '0',
+`stop` int(10) unsigned NOT NULL DEFAULT '0',
+`value` bigint(20) NOT NULL DEFAULT '0',
+`time_created` int(10) unsigned NOT NULL DEFAULT '0',
+`type` tinyint(3) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`id`,`start`,`time_created`,`type`),
+KEY `value_time_created` (value, `time_created`)
+) PARTITION BY RANGE (`time_created`)
+(
+PARTITION p0 VALUES LESS THAN (10),
+PARTITION p1 VALUES LESS THAN (20),
+PARTITION p2 VALUES LESS THAN (30),
+PARTITION p3 VALUES LESS THAN (40),
+PARTITION p4 VALUES LESS THAN (50),
+PARTITION p5 VALUES LESS THAN MAXVALUE
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO t8 SELECT a, 10 + a, 25 + a,  50 - a, a, a % 32 FROM t2;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t8;
+Table	Op	Msg_type	Msg_text
+test.t8	analyze	status	OK
+# show explain
+explain SELECT time_created, stop FROM t8 FORCE INDEX(value_time_created)
+WHERE value >= 5 AND time_created != 10 ORDER BY time_created LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t8	p0,p1,p2,p3,p4,p5	range	value_time_created	value_time_created	8	NULL	#	#	Using index condition; Using MRR; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t8`.`time_created` AS `time_created`,`test`.`t8`.`stop` AS `stop` from `test`.`t8` FORCE INDEX (`value_time_created`) where ((`test`.`t8`.`value` >= 5) and (`test`.`t8`.`time_created` <> 10)) order by `test`.`t8`.`time_created` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT time_created, stop FROM t8 FORCE INDEX(value_time_created)
+WHERE value >= 5 AND time_created != 10 ORDER BY time_created LIMIT 20;
+time_created	stop
+0	25
+1	26
+2	27
+3	28
+4	29
+5	30
+6	31
+7	32
+8	33
+9	34
+11	36
+12	37
+13	38
+14	39
+15	40
+16	41
+17	42
+18	43
+19	44
+20	45
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	46
+rocksdb_number_db_next_found	41
+rocksdb_number_db_seek	6
+rocksdb_number_db_seek_found	5
+rocksdb_number_multiget_bytes_read	540
+rocksdb_number_multiget_get	10
+rocksdb_number_multiget_keys_read	45
+rocksdb_rows_read	45
+# show explain
+explain SELECT time_created, stop, value FROM t8 FORCE INDEX(value_time_created)
+WHERE value >= 5 AND time_created != 10 ORDER BY value LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t8	p0,p1,p2,p3,p4,p5	range	value_time_created	value_time_created	8	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t8`.`time_created` AS `time_created`,`test`.`t8`.`stop` AS `stop`,`test`.`t8`.`value` AS `value` from `test`.`t8` FORCE INDEX (`value_time_created`) where ((`test`.`t8`.`value` >= 5) and (`test`.`t8`.`time_created` <> 10)) order by `test`.`t8`.`value` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT time_created, stop, value FROM t8 FORCE INDEX(value_time_created)
+WHERE value >= 5 AND time_created != 10 ORDER BY value LIMIT 20;
+time_created	stop	value
+45	70	5
+44	69	6
+43	68	7
+42	67	8
+41	66	9
+40	65	10
+39	64	11
+38	63	12
+37	62	13
+36	61	14
+35	60	15
+34	59	16
+33	58	17
+32	57	18
+31	56	19
+30	55	20
+29	54	21
+28	53	22
+27	52	23
+26	51	24
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	19
+rocksdb_number_db_next_found	17
+rocksdb_number_db_seek	6
+rocksdb_number_db_seek_found	5
+rocksdb_rows_read	22
+CREATE TABLE `id_stat` (
+`id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+`start` int(10) unsigned NOT NULL DEFAULT '0',
+`value` int(10) unsigned NOT NULL DEFAULT '0',
+`parent_id` bigint(20) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`id`,`start`),
+KEY `parent_id` (`parent_id`,`start`)
+) PARTITION BY RANGE (`start`)
+(PARTITION p0 VALUES LESS THAN (10),
+PARTITION p1 VALUES LESS THAN (20),
+PARTITION p2 VALUES LESS THAN (30),
+PARTITION p3 VALUES LESS THAN (40),
+PARTITION p4 VALUES LESS THAN (50),
+PARTITION p5 VALUES LESS THAN (60),
+PARTITION p6 VALUES LESS THAN (100));
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO id_stat(start, value, parent_id) SELECT a % 100, a, a % 10 FROM t2;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table id_stat;
+Table	Op	Msg_type	Msg_text
+test.id_stat	analyze	status	OK
+# show explain
+explain SELECT parent_id AS pid, SUM(value) AS id_values FROM id_stat
+FORCE INDEX (parent_id) WHERE parent_id IN (1,5) AND (start >= 50) AND (start < 90)
+GROUP BY parent_id LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	id_stat	p5,p6	range	parent_id	parent_id	12	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`id_stat`.`parent_id` AS `pid`,sum(`test`.`id_stat`.`value`) AS `id_values` from `test`.`id_stat` FORCE INDEX (`parent_id`) where ((`test`.`id_stat`.`parent_id` in (1,5)) and (`test`.`id_stat`.`start` >= 50) and (`test`.`id_stat`.`start` < 90)) group by `test`.`id_stat`.`parent_id` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT parent_id AS pid, SUM(value) AS id_values FROM id_stat
+FORCE INDEX (parent_id) WHERE parent_id IN (1,5) AND (start >= 50) AND (start < 90)
+GROUP BY parent_id LIMIT 20;
+pid	id_values
+1	20640
+5	20800
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	80
+rocksdb_number_db_next_found	78
+rocksdb_number_db_seek	4
+rocksdb_number_db_seek_found	4
+rocksdb_rows_read	80
+#
+# Hash Partition
+#
+CREATE table t9 (
+kp1 int,
+kp2 int,
+kp3 int,
+col1 int,
+key (kp1, kp2, kp3)
+) PARTITION BY HASH(kp1) PARTITIONS 4;
+INSERT INTO t9 SELECT A.a, B.a, C.a, 123456 FROM t1 A, t1 B, t1 C;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t9;
+Table	Op	Msg_type	Msg_text
+test.t9	analyze	status	OK
+# show explain
+explain SELECT * FROM t9 FORCE INDEX (kp1) WHERE kp1 = 1 ORDER BY kp2
+LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t9	p1	range	kp1	kp1	5	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t9`.`kp1` AS `kp1`,`test`.`t9`.`kp2` AS `kp2`,`test`.`t9`.`kp3` AS `kp3`,`test`.`t9`.`col1` AS `col1` from `test`.`t9` FORCE INDEX (`kp1`) where (`test`.`t9`.`kp1` = 1) order by `test`.`t9`.`kp2` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT * FROM t9 FORCE INDEX (kp1) WHERE kp1 = 1 ORDER BY kp2
+LIMIT 20;
+kp1	kp2	kp3	col1
+1	0	0	123456
+1	0	1	123456
+1	0	2	123456
+1	0	3	123456
+1	0	4	123456
+1	0	5	123456
+1	0	6	123456
+1	0	7	123456
+1	0	8	123456
+1	0	9	123456
+1	1	0	123456
+1	1	1	123456
+1	1	2	123456
+1	1	3	123456
+1	1	4	123456
+1	1	5	123456
+1	1	6	123456
+1	1	7	123456
+1	1	8	123456
+1	1	9	123456
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	19
+rocksdb_number_db_next_found	19
+rocksdb_number_db_seek	1
+rocksdb_number_db_seek_found	1
+rocksdb_rows_read	20
+# show explain
+explain SELECT * FROM t9 FORCE INDEX (kp1) WHERE kp1 in (1,2) ORDER BY kp2
+LIMIT 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t9	p1,p2	range	kp1	kp1	5	NULL	#	#	Using index condition; Using MRR; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t9`.`kp1` AS `kp1`,`test`.`t9`.`kp2` AS `kp2`,`test`.`t9`.`kp3` AS `kp3`,`test`.`t9`.`col1` AS `col1` from `test`.`t9` FORCE INDEX (`kp1`) where (`test`.`t9`.`kp1` in (1,2)) order by `test`.`t9`.`kp2` limit 20
+# save old counter
+DROP TEMPORARY TABLE IF EXISTS mrr_stats_t1, mrr_stats_t2;
+CREATE TEMPORARY TABLE mrr_stats_t1 as
+SELECT * FROM performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+flush status;
+SELECT * FROM t9 FORCE INDEX (kp1) WHERE kp1 in (1,2) ORDER BY kp2
+LIMIT 20;
+kp1	kp2	kp3	col1
+2	0	8	123456
+2	0	0	123456
+2	0	1	123456
+2	0	5	123456
+2	0	6	123456
+2	0	2	123456
+2	0	3	123456
+2	0	4	123456
+2	0	7	123456
+2	0	9	123456
+1	0	0	123456
+1	0	9	123456
+1	0	8	123456
+1	0	7	123456
+1	0	6	123456
+1	0	5	123456
+1	0	4	123456
+1	0	3	123456
+1	0	2	123456
+1	0	1	123456
+CREATE TEMPORARY TABLE mrr_stats_t2 as
+SELECT * from performance_schema.global_status
+WHERE variable_name in (
+'ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND',
+'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND',
+'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET',
+'ROCKSDB_NUMBER_MULTIGET_KEYS_READ'
+);
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	0
+SELECT
+variable_name,
+mrr_stats_t2.variable_value - mrr_stats_t1.variable_value as DIFF
+FROM
+mrr_stats_t1 JOIN mrr_stats_t2 USING (VARIABLE_NAME)
+HAVING
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	200
+rocksdb_number_db_next_found	198
+rocksdb_number_db_seek	4
+rocksdb_number_db_seek_found	2
+rocksdb_number_multiget_bytes_read	3400
+rocksdb_number_multiget_get	40
+rocksdb_number_multiget_keys_read	200
+rocksdb_rows_read	200
+set optimizer_switch=@save_optimizer_switch;
+set rocksdb_mrr_batch_size = @save_rocksdb_mrr_batch_size;
+drop table t1, t2, t3, t4, t5,t6, t7, t8, id_stat, t9;
