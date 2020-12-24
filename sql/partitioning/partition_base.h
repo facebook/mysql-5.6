@@ -121,6 +121,13 @@ class Partition_base : public handler,
   this allows to release the memory used by cloned object quickly */
   MEM_ROOT *m_clone_mem_root;
 
+  // save MRR init parameter to initialize following partitions
+  RANGE_SEQ_IF m_mrr_seq;
+  void *m_mrr_seq_init_param;
+  uint m_mrr_n_ranges;
+  uint m_mrr_mode;
+  HANDLER_BUFFER *m_mrr_buf;
+
  public:
   handler *clone(const char *name, MEM_ROOT *mem_root) override = 0;
 
@@ -954,6 +961,23 @@ class Partition_base : public handler,
   uint alter_flags(uint flags MY_ATTRIBUTE((unused))) const override {
     return (HA_PARTITION_FUNCTION_SUPPORTED | HA_INPLACE_CHANGE_PARTITION);
   }
+
+  /*
+    -------------------------------------------------------------------------
+    MODULE MRR support
+    -------------------------------------------------------------------------
+  */
+  ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                      void *seq_init_param, uint n_ranges,
+                                      uint *bufsz, uint *flags,
+                                      Cost_estimate *cost) override;
+  ha_rows multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                                uint *bufsz, uint *flags,
+                                Cost_estimate *cost) override;
+  int multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
+                            uint n_ranges, uint mode,
+                            HANDLER_BUFFER *buf) override;
+  int multi_range_read_next(char **range_info) override;
 
  private:
   /* private support functions for Partition_helper: */

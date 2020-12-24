@@ -683,10 +683,6 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       rocksdb::Slice *upper_bound_slice);
 
  private:
-  // true <=> The scan uses the default MRR implementation, just redirect all
-  // calls to it
-  bool mrr_uses_default_impl;
-
   bool mrr_sorted_mode;  // true <=> we are in ordered-keys, ordered-results
   // RANGE_SEQ_IF is stored in handler::mrr_funcs
   HANDLER_BUFFER mrr_buf;
