@@ -53,9 +53,7 @@ class Rdb_thread {
   mysql_mutex_t m_signal_mutex;
   mysql_cond_t m_signal_cond;
 
-  // TODO: When porting to 8.0 we should move to std::atomic
-  // instead of volatile
-  THD::killed_state volatile m_killed;
+  std::atomic<THD::killed_state> m_killed;
 
  public:
   Rdb_thread() : m_run_once(false), m_killed(THD::NOT_KILLED) {}

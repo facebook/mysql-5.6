@@ -10022,13 +10022,7 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
     transactions that are in the commit pipeline
   */
   DEBUG_SYNC(thd, "commit_wait_for_shutdown");
-  DBUG_EXECUTE_IF("commit_on_shutdown_testing", {
-    /* For testing, set killed flag if shutdown is in progress */
-    if (shutdown_in_progress)
-      thd->killed = THD::KILL_CONNECTION;
-  };);
-  if (shutdown_in_progress && !thd->slave_thread &&
-      thd->killed == THD::KILL_CONNECTION) {
+  if (!thd->slave_thread && thd->killed == THD::KILL_CONNECTION) {
     thd->disconnect();
   }
 

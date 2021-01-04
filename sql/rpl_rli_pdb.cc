@@ -2774,7 +2774,7 @@ err:
     if (log_warnings > 1)
       sql_print_information("Worker %lu is exiting: killed %i, error %i, "
                             "running_status %d",
-                            worker->id, thd->killed, thd->is_error(),
+                            worker->id, thd->killed.load(), thd->is_error(),
                             worker->running_status.load());
     worker->slave_worker_ends_group(ev, error, temporary_error);
   }

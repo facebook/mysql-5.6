@@ -3902,7 +3902,7 @@ public:
     ABORT_QUERY=ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT,
     KILLED_NO_VALUE      /* means neither of the states */
   };
-  killed_state volatile killed;
+  std::atomic<killed_state> killed;
 
   /* scramble - random string sent to client on handshake */
   char	     scramble[SCRAMBLE_LENGTH+1];

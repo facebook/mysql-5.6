@@ -590,7 +590,7 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
                   };);
 
 #ifndef EMBEDDED_LIBRARY
-  killed_status= (error == 0) ? THD::NOT_KILLED : thd->killed;
+  killed_status= (error == 0) ? THD::NOT_KILLED : thd->killed.load();
 #endif
 
   /*

@@ -12456,7 +12456,7 @@ static int calculate_cardinality_table_scan(
         &to_recalc,
     std::unordered_map<GL_INDEX_ID, Rdb_index_stats> *stats,
     table_cardinality_scan_type scan_type, uint64_t max_num_rows_scanned,
-    THD::killed_state volatile *killed) {
+    std::atomic<THD::killed_state> *killed) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(scan_type != SCAN_TYPE_NONE);
@@ -12674,7 +12674,8 @@ static int read_stats_from_ssts(
 static int calculate_stats(
     const std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>>
         &to_recalc,
-    table_cardinality_scan_type scan_type, THD::killed_state volatile *killed) {
+    table_cardinality_scan_type scan_type,
+    std::atomic<THD::killed_state> *killed) {
   DBUG_ENTER_FUNC();
 
   std::unordered_map<GL_INDEX_ID, Rdb_index_stats> stats;
@@ -12711,7 +12712,7 @@ static int calculate_stats(
 
 static int calculate_stats_for_table(
     const std::string &tbl_name, table_cardinality_scan_type scan_type,
-    THD::killed_state volatile *killed = nullptr) {
+    std::atomic<THD::killed_state> *killed = nullptr) {
   DBUG_ENTER_FUNC();
   std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>> to_recalc;
   std::vector<GL_INDEX_ID> indexes;

@@ -2449,7 +2449,7 @@ bool multi_update::send_eof()
     if local_error is not set ON until after do_updates() then
     later carried out killing should not affect binlogging.
   */
-  killed_status= (local_error == 0)? THD::NOT_KILLED : thd->killed;
+  killed_status= (local_error == 0)? THD::NOT_KILLED : thd->killed.load();
   THD_STAGE_INFO(thd, stage_end);
 
   /* We must invalidate the query cache before binlog writing and

@@ -1051,7 +1051,7 @@ bool multi_delete::send_eof()
 
   /* compute a total error to know if something failed */
   local_error= local_error || error;
-  killed_status= (local_error == 0)? THD::NOT_KILLED : thd->killed;
+  killed_status= (local_error == 0)? THD::NOT_KILLED : thd->killed.load();
   /* reset used flags */
   THD_STAGE_INFO(thd, stage_end);
 
