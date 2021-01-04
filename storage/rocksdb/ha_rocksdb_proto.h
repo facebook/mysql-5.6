@@ -105,7 +105,7 @@ bool rdb_sync_wal_supported();
 
 enum operation_type : int;
 void rdb_update_global_stats(const operation_type &type, uint count,
-                             bool is_system_table = false);
+                             Rdb_tbl_def *td = nullptr);
 
 class Rdb_dict_manager;
 Rdb_dict_manager *rdb_get_dict_manager(void)
