@@ -687,8 +687,8 @@ class select_exec {
                                     bool use_bloom,
                                     const rocksdb::Slice &lower_bound,
                                     const rocksdb::Slice &upper_bound) {
-      return rdb_tx_get_iterator(m_tx, cf, !use_bloom, true /* fill_cache */,
-                                 lower_bound, upper_bound);
+      return rdb_tx_get_iterator(m_thd, cf, !use_bloom, lower_bound,
+                                 upper_bound, nullptr);
     }
 
     rocksdb::Status get(rocksdb::ColumnFamilyHandle *cf,
