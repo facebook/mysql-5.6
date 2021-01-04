@@ -91,7 +91,7 @@ set debug_sync='RESET';
 
 
 connection conn1;
-set debug_sync='rocksdb.check_flags_inwdi SIGNAL parked WAIT_FOR go';
+set debug_sync='rocksdb.check_flags_nwd SIGNAL parked WAIT_FOR go';
 send SELECT kp1 FROM t3 ORDER BY kp1;
 
 connection default;
