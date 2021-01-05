@@ -2129,6 +2129,13 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         lost_gtids_is_subset= gtids_lost.is_subset(slave_gtid_executed);
       }
 
+      if (!lost_gtids_is_subset)
+      {
+        errmsg= ER(ER_MASTER_HAS_PURGED_REQUIRED_GTIDS);
+        my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
+        GOTO_ERR;
+      }
+
       first_gtid.clear();
       if (dump_log.find_first_log_not_in_gtid_set(name,
                                                   slave_gtid_executed,

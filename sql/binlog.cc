@@ -7965,8 +7965,8 @@ int binlog_change_to_apply()
   LOG_INFO linfo;
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
-  mysql_bin_log.lock_index();
   dump_log.lock();
+  mysql_bin_log.lock_index();
   mysql_bin_log.lock_binlog_end_pos();
 
   mysql_bin_log.close(LOG_CLOSE_INDEX);
@@ -8033,8 +8033,8 @@ int binlog_change_to_apply()
 err:
 
   mysql_bin_log.unlock_binlog_end_pos();
-  dump_log.unlock();
   mysql_bin_log.unlock_index();
+  dump_log.unlock();
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_RETURN(error);
@@ -8054,8 +8054,8 @@ int binlog_change_to_binlog()
   uint64_t prev_hlc= 0;
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
-  mysql_bin_log.lock_index();
   dump_log.lock();
+  mysql_bin_log.lock_index();
 #ifdef HAVE_REPLICATION
   active_mi->rli->relay_log.lock_binlog_end_pos();
 #endif // HAVE_REPLICATION
@@ -8168,8 +8168,8 @@ err:
 #ifdef HAVE_REPLICATION
   active_mi->rli->relay_log.unlock_binlog_end_pos();
 #endif // HAVE_REPLICATION
-  dump_log.unlock();
   mysql_bin_log.unlock_index();
+  dump_log.unlock();
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_RETURN(error);
