@@ -643,7 +643,7 @@ class select_exec {
     m_use_full_key = true;
     m_ddl_manager = rdb_get_ddl_manager();
     m_index_is_pk = (m_index == m_table_share->primary_key);
-    m_handler = m_table->file;
+    m_handler = static_cast<ha_rocksdb *>(m_table->file);
     m_thd = parser.get_thd();
     m_protocol = m_thd->get_protocol();
     m_examined_rows = 0;
@@ -772,7 +772,7 @@ class select_exec {
   Rdb_tbl_def *m_tbl_def;
   std::shared_ptr<Rdb_key_def> m_key_def;
   std::shared_ptr<Rdb_key_def> m_pk_def;
-  handler *m_handler;
+  ha_rocksdb *m_handler;
   THD *m_thd;
   Protocol *m_protocol;
   std::unique_ptr<Rdb_converter> m_converter;
@@ -1365,6 +1365,8 @@ bool INLINE_ATTR select_exec::run_query() {
   m_thd->status_var.rows_sent += m_rows_sent;
   m_thd->inc_examined_row_count(m_examined_rows);
   m_thd->status_var.rows_examined += m_examined_rows;
+
+  m_handler->update_row_read(m_examined_rows);
 
   return ret;
 }

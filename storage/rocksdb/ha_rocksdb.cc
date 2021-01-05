@@ -243,14 +243,18 @@ std::unordered_map<ulonglong, std::weak_ptr<Rdb_explicit_snapshot>>
 /**
   Updates row counters based on the table type and operation type.
 */
-void ha_rocksdb::update_row_stats(const operation_type &type) {
+void ha_rocksdb::update_row_stats(const operation_type &type, ulonglong count) {
   assert(type < ROWS_MAX);
   // Find if we are modifying system databases.
   if (table->s && m_tbl_def->m_is_mysql_system_table) {
-    global_stats.system_rows[type].inc();
+    global_stats.system_rows[type].add(count);
   } else {
-    global_stats.rows[type].inc();
+    global_stats.rows[type].add(count);
   }
+}
+
+void ha_rocksdb::update_row_read(ulonglong count) {
+  update_row_stats(ROWS_READ, count);
 }
 
 void dbug_dump_database(rocksdb::DB *db);
@@ -16110,7 +16114,6 @@ const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx) {
 rocksdb::Iterator *rdb_tx_get_iterator(
     Rdb_transaction *tx, const rocksdb::ReadOptions &options,
     rocksdb::ColumnFamilyHandle *const column_family) {
-  global_stats.queries[QUERIES_RANGE].inc();
   return tx->get_iterator(options, column_family);
 }
 
