@@ -1513,9 +1513,8 @@ bool INLINE_ATTR select_exec::setup_iterator(txn_wrapper *txn,
   m_lower_bound_buf.reserve(bound_len);
   m_upper_bound_buf.reserve(bound_len);
   bool use_bloom = ha_rocksdb::check_bloom_and_set_bounds(
-      m_thd, *m_key_def, eq_slice, m_use_full_key, bound_len,
-      m_lower_bound_buf.data(), m_upper_bound_buf.data(), &m_lower_bound_slice,
-      &m_upper_bound_slice);
+      m_thd, *m_key_def, eq_slice, bound_len, m_lower_bound_buf.data(),
+      m_upper_bound_buf.data(), &m_lower_bound_slice, &m_upper_bound_slice);
   rocksdb::Iterator *it = txn->get_iterator(
       m_key_def->get_cf(), use_bloom, m_lower_bound_slice, m_upper_bound_slice);
   if (it == nullptr) {

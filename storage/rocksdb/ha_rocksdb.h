@@ -270,6 +270,8 @@ class ha_rocksdb : public my_core::handler {
 
   bool m_rnd_scan_started;
 
+  bool m_full_key_lookup = false;
+
   /*
     true means INSERT ON DUPLICATE KEY UPDATE. In such case we can optimize by
     remember the failed attempt (if there is one that violates uniqueness check)
@@ -314,8 +316,9 @@ class ha_rocksdb : public my_core::handler {
                       const TABLE *const old_table_arg = nullptr,
                       const Rdb_tbl_def *const old_tbl_def_arg = nullptr) const
       MY_ATTRIBUTE((__nonnull__(2, 3), __warn_unused_result__));
-  int secondary_index_read(const int keyno, uchar *const buf, bool *skip_row)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int secondary_index_read(const int keyno, uchar *const buf,
+                           const rocksdb::Slice *value, bool *skip_row)
+      MY_ATTRIBUTE((__warn_unused_result__));
   static void setup_iterator_bounds(const Rdb_key_def &kd,
                                     const rocksdb::Slice &eq_cond,
                                     size_t bound_len, uchar *const lower_bound,
@@ -323,11 +326,9 @@ class ha_rocksdb : public my_core::handler {
                                     rocksdb::Slice *lower_bound_slice,
                                     rocksdb::Slice *upper_bound_slice);
   static bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
-                                   const rocksdb::Slice &eq_cond,
-                                   const bool use_all_keys);
+                                   const rocksdb::Slice &eq_cond);
   void setup_scan_iterator(const Rdb_key_def &kd, rocksdb::Slice *slice,
-                           const bool use_all_keys, const uint eq_cond_len)
-      MY_ATTRIBUTE((__nonnull__));
+                           const uint eq_cond_len) MY_ATTRIBUTE((__nonnull__));
   void release_scan_iterator(void);
 
   rocksdb::Status get_for_update(Rdb_transaction *const tx,
@@ -348,6 +349,8 @@ class ha_rocksdb : public my_core::handler {
     return get_row_by_rowid(buf, reinterpret_cast<const char *>(rowid),
                             rowid_size, skip_row, skip_lookup, skip_ttl_check);
   }
+  int get_row_by_sk(uchar *buf, const Rdb_key_def &kd,
+                    const rocksdb::Slice *key);
 
   void load_auto_incr_value();
   ulonglong load_auto_incr_value_from_index();
@@ -623,6 +626,8 @@ class ha_rocksdb : public my_core::handler {
 
   int index_next(uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
+  int index_next_same(uchar *const buf, const uchar *key, uint keylen) override
+      MY_ATTRIBUTE((__warn_unused_result__));
   int index_prev(uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
 
@@ -654,9 +659,8 @@ class ha_rocksdb : public my_core::handler {
 
   static bool check_bloom_and_set_bounds(
       THD *thd, const Rdb_key_def &kd, const rocksdb::Slice &eq_cond,
-      const bool use_all_keys, size_t bound_len, uchar *const lower_bound,
-      uchar *const upper_bound, rocksdb::Slice *lower_bound_slice,
-      rocksdb::Slice *upper_bound_slice);
+      size_t bound_len, uchar *const lower_bound, uchar *const upper_bound,
+      rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice);
 
  private:
   bool mrr_sorted_mode;  // true <=> we are in ordered-keys, ordered-results
