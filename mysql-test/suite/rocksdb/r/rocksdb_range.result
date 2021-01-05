@@ -1,6 +1,7 @@
 select * from information_schema.engines where engine = 'rocksdb';
 ENGINE	SUPPORT	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
 ROCKSDB	DEFAULT	RocksDB storage engine	YES	YES	YES
+set optimizer_force_index_for_range = on;
 drop table if exists t0,t1,t2,t3,t4,t5;
 create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -64,6 +65,16 @@ Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`a` AS `a`,
 select * from t2 force index (a) where a=3 and pk=33;
 pk	a	b
 33	3	33
+explain 
+select * from t2 force index (a) where a=3 and pk in (33, 34);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	a	a	8	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` FORCE INDEX (`a`) where ((`test`.`t2`.`a` = 3) and (`test`.`t2`.`pk` in (33,34)))
+select * from t2 force index (a) where a=3 and pk in (33, 34);
+pk	a	b
+33	3	33
+34	3	34
 select * from t2 force index (a) where a=99 and pk=99;
 pk	a	b
 select * from t2 force index (a) where a=0 and pk=0;
@@ -316,3 +327,4 @@ Note	1003	/* select#1 */ select `test`.`t5`.`pk` AS `pk`,`test`.`t5`.`a` AS `a`,
 select * from t5 where a=5 and b in (4) order by c desc;
 pk	a	b	c
 drop table t0,t1,t2,t3,t4,t5;
+set optimizer_force_index_for_range = off;

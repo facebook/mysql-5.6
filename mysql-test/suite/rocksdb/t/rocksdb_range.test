@@ -5,6 +5,8 @@
 #
 select * from information_schema.engines where engine = 'rocksdb';
 
+set optimizer_force_index_for_range = on;
+
 --disable_warnings
 drop table if exists t0,t1,t2,t3,t4,t5;
 --enable_warnings
@@ -45,6 +47,11 @@ select * from t2 force index (a) where a=2;
 explain 
 select * from t2 force index (a) where a=3 and pk=33;
 select * from t2 force index (a) where a=3 and pk=33;
+
+--replace_column 10 # 11 #
+explain 
+select * from t2 force index (a) where a=3 and pk in (33, 34);
+select * from t2 force index (a) where a=3 and pk in (33, 34);
 
 select * from t2 force index (a) where a=99 and pk=99;
 select * from t2 force index (a) where a=0 and pk=0;
@@ -191,3 +198,4 @@ select * from t5 where a=5 and b in (4) order by c desc;
 select * from t5 where a=5 and b in (4) order by c desc;
 
 drop table t0,t1,t2,t3,t4,t5;
+set optimizer_force_index_for_range = off;
