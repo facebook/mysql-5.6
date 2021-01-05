@@ -127,6 +127,118 @@ variable_name="rocksdb_select_bypass_executed";
 --echo # Should be 3
 SELECT @c-@b;
 
+--echo # Point Query Stats
+
+SELECT variable_value INTO @bypass_executed_old FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_select_bypass_executed";
+SELECT variable_value INTO @bypass_rows_read_old FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_rows_read";
+SELECT variable_value INTO @bypass_queries_point_old FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_queries_point";
+SELECT variable_value INTO @bypass_queries_range_old FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_queries_range";
+SELECT variable_value INTO @bypass_rows_sent_old FROM
+performance_schema.global_status WHERE
+variable_name="rows_sent";
+
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
+WHERE id1=1 AND id2=2 AND link_type=3;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
+WHERE id1 IN (1) AND id2 IN (2) AND link_type=3;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
+WHERE id1 IN (1, 2) AND id2 IN (2, 3, 4) AND link_type=3;
+
+SELECT variable_value INTO @bypass_executed_new FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_select_bypass_executed";
+SELECT variable_value INTO @bypass_rows_read_new FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_rows_read";
+SELECT variable_value INTO @bypass_queries_point_new FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_queries_point";
+SELECT variable_value INTO @bypass_queries_range_new FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_queries_range";
+SELECT variable_value INTO @bypass_rows_sent_new FROM
+performance_schema.global_status WHERE
+variable_name="rows_sent";
+
+SELECT @bypass_executed_new - @bypass_executed_old;
+SELECT @bypass_rows_read_new - @bypass_rows_read_old;
+SELECT @bypass_queries_point_new - @bypass_queries_point_old;
+SELECT @bypass_queries_range_new - @bypass_queries_range_old;
+SELECT @bypass_rows_sent_new - @bypass_rows_sent_old;
+
+--echo # Range Query Stats
+
+SELECT variable_value INTO @bypass_executed_old FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_select_bypass_executed";
+SELECT variable_value INTO @bypass_rows_read_old FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_rows_read";
+SELECT variable_value INTO @bypass_queries_point_old FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_queries_point";
+SELECT variable_value INTO @bypass_queries_range_old FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_queries_range";
+SELECT variable_value INTO @bypass_rows_sent_old FROM
+performance_schema.global_status WHERE
+variable_name="rows_sent";
+
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
+ORDER BY TIME DESC;
+
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
+ORDER BY TIME DESC LIMIT 10;
+
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
+ORDER BY TIME DESC LIMIT 5;
+
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
+ORDER BY TIME DESC LIMIT 1;
+
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
+ORDER BY TIME DESC LIMIT 0;
+
+SELECT variable_value INTO @bypass_executed_new FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_select_bypass_executed";
+SELECT variable_value INTO @bypass_rows_read_new FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_rows_read";
+SELECT variable_value INTO @bypass_queries_point_new FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_queries_point";
+SELECT variable_value INTO @bypass_queries_range_new FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_queries_range";
+SELECT variable_value INTO @bypass_rows_sent_new FROM
+performance_schema.global_status WHERE
+variable_name="rows_sent";
+
+SELECT @bypass_executed_new - @bypass_executed_old;
+SELECT @bypass_rows_read_new - @bypass_rows_read_old;
+SELECT @bypass_queries_point_new - @bypass_queries_point_old;
+SELECT @bypass_queries_range_new - @bypass_queries_range_old;
+SELECT @bypass_rows_sent_new - @bypass_rows_sent_old;
+
 --echo # Point query
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
