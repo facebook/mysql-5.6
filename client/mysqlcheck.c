@@ -1046,5 +1046,6 @@ int main(int argc, char **argv)
   my_free(shared_memory_base_name);
 #endif
   my_end(my_end_arg);
+  free_defaults(argv);
   return(first_error!=0);
 } /* main */
