@@ -177,7 +177,7 @@ HA_EXTRA_NO_KEYREAD=8		Normal read of records (def)
 HA_EXTRA_NO_USER_CHANGE=9	No user is allowed to write 
 HA_EXTRA_KEY_CACHE=10 
 HA_EXTRA_NO_KEY_CACHE=11 
-HA_EXTRA_WAIT_LOCK=12		Wait until file is avalably (def) 
+HA_EXTRA_WAIT_LOCK=12		Wait until file is available (def) 
 HA_EXTRA_NO_WAIT_LOCK=13		If file is locked, return quickly 
 HA_EXTRA_WRITE_CACHE=14		Use write cache in ha_write() 
 HA_EXTRA_FLUSH_CACHE=15		flush write_record_cache 
@@ -770,7 +770,7 @@ uint _mi_make_key( MI_INFO *mip, uint keynr, uchar *key, const char *record, my_
 Construct a key string for the given index, from the provided record buffer.
 ??? When packed records are used ...
 This is an internal function, not for use by applications. Monty says: "This can't be used to create an external key for an application from your record."
-See mi_make_application_key() for a similar function that is useable by applications.
+See mi_make_application_key() for a similar function that is usable by applications.
 
 The parameters are:
 A MI_INFO pointer mip.
@@ -872,7 +872,7 @@ HEAP tables only exists in memory so they are lost if `mysqld' is taken down or 
 
 The *MySQL* internal HEAP tables uses 100% dynamic hashing without overflow areas and don't have problems with delete. 
 
-You can only access things by equality using a index (usually by the `=' operator) whith a heap table. 
+You can only access things by equality using a index (usually by the `=' operator) with a heap table. 
 The downside with HEAPS are: 
   1. You need enough extra memory for all HEAP tables that you want to use at the same time. 
   2. You can't search on a part of a index. 
