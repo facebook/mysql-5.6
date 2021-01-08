@@ -3197,6 +3197,14 @@ class Rdb_transaction {
     assert(snapshot != nullptr);
 
     m_read_opts.snapshot = snapshot;
+    // TODO: Use snapshot timestamp from rocksdb Snapshot object itself. This
+    // saves the extra call to fetch current time, and allows TTL compaction
+    // (which uses rocksdb timestamp) to be consistent with TTL read filtering
+    // (which uses this timestamp).
+    //
+    // There is no correctness problem though since m_snapshot_timestamp is
+    // generally set after the snapshot has been created, so compaction is
+    // not dropping anything that should have been visible.
     rdb->GetEnv()->GetCurrentTime(&m_snapshot_timestamp);
     m_is_delayed_snapshot = false;
   }
@@ -3944,6 +3952,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     }
 
     if (need_clear && m_rocksdb_tx != nullptr) m_rocksdb_tx->ClearSnapshot();
+    m_is_delayed_snapshot = false;
   }
 
   bool has_snapshot() { return m_read_opts.snapshot != nullptr; }
@@ -4091,6 +4100,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     set_initial_savepoint();
 
     m_ddl_transaction = false;
+    m_is_delayed_snapshot = false;
   }
 
   void set_name() override {
@@ -4151,6 +4161,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
         if (cur_snapshot != nullptr) {
           rdb->GetEnv()->GetCurrentTime(&m_snapshot_timestamp);
         } else {
+          m_rocksdb_tx->SetSnapshotOnNextOperation(m_notifier);
           m_is_delayed_snapshot = true;
         }
       }
@@ -7372,6 +7383,7 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
                                      const int64_t curr_ts) {
   assert(kd.has_ttl());
   assert(kd.m_ttl_rec_offset != UINT_MAX);
+  THD *thd = ha_thd();
 
   /*
     Curr_ts can only be 0 if there are no snapshots open.
@@ -7383,7 +7395,10 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
     also log a warning and increment a diagnostic counter.
   */
   if (curr_ts == 0) {
-    update_row_stats(ROWS_HIDDEN_NO_SNAPSHOT);
+    assert(false);
+    push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                        "TTL read filtering called with no snapshot.");
+    update_row_stats(ROWS_UNFILTERED_NO_SNAPSHOT);
     return false;
   }
 
@@ -7426,7 +7441,6 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
     update_row_stats(ROWS_FILTERED);
 
     /* increment examined row count when rows are skipped */
-    THD *thd = ha_thd();
     thd->inc_examined_row_count(1);
     DEBUG_SYNC(thd, "rocksdb.ttl_rows_examined");
   }
@@ -10691,11 +10705,10 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
     If the pk key has ttl, we may need to pretend the row wasn't
     found if it is already expired.
   */
+  assert(row_info.tx->has_snapshot() && row_info.tx->m_snapshot_timestamp != 0);
   if (key_found && m_pk_descr->has_ttl() &&
       should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
-                          (row_info.tx->m_snapshot_timestamp
-                               ? row_info.tx->m_snapshot_timestamp
-                               : static_cast<int64_t>(std::time(nullptr))))) {
+                          row_info.tx->m_snapshot_timestamp)) {
     key_found = false;
   }
 
@@ -10850,6 +10863,7 @@ int ha_rocksdb::check_and_lock_sk(
     Also need to scan RocksDB and verify the key has not been deleted
     in the transaction.
   */
+  assert(row_info.tx->has_snapshot() && row_info.tx->m_snapshot_timestamp != 0);
   *found = !read_key_exact(kd, iter, all_parts_used, new_slice,
                            row_info.tx->m_snapshot_timestamp);
 
@@ -10890,6 +10904,9 @@ int ha_rocksdb::check_and_lock_sk(
 int ha_rocksdb::check_uniqueness_and_lock(
     const struct update_row_info &row_info, bool pk_changed,
     bool skip_unique_check) {
+  Rdb_transaction *const tx = get_or_create_tx(ha_thd());
+  tx->acquire_snapshot(false);
+
   /*
     Go through each index and determine if the index has uniqueness
     requirements. If it does, then try to obtain a row lock on the new values.
@@ -14714,6 +14731,8 @@ static void myrocks_update_status() {
   export_stats.rows_deleted_blind = global_stats.rows[ROWS_DELETED_BLIND];
   export_stats.rows_expired = global_stats.rows[ROWS_EXPIRED];
   export_stats.rows_filtered = global_stats.rows[ROWS_FILTERED];
+  export_stats.rows_unfiltered_no_snapshot =
+      global_stats.rows[ROWS_UNFILTERED_NO_SNAPSHOT];
 
   export_stats.system_rows_deleted = global_stats.system_rows[ROWS_DELETED];
   export_stats.system_rows_inserted = global_stats.system_rows[ROWS_INSERTED];
@@ -14760,6 +14779,9 @@ static SHOW_VAR myrocks_status_variables[] = {
     DEF_STATUS_VAR_FUNC("rows_expired", &export_stats.rows_expired,
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("rows_filtered", &export_stats.rows_filtered,
+                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("rows_unfiltered_no_snapshot",
+                        &export_stats.rows_unfiltered_no_snapshot,
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("system_rows_deleted",
                         &export_stats.system_rows_deleted, SHOW_LONGLONG),

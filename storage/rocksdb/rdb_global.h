@@ -368,7 +368,7 @@ enum operation_type : int {
   ROWS_DELETED_BLIND,
   ROWS_EXPIRED,
   ROWS_FILTERED,
-  ROWS_HIDDEN_NO_SNAPSHOT,
+  ROWS_UNFILTERED_NO_SNAPSHOT,
   ROWS_MAX
 };
 
@@ -411,7 +411,7 @@ struct st_export_stats {
   ulonglong rows_deleted_blind;
   ulonglong rows_expired;
   ulonglong rows_filtered;
-  ulonglong rows_hidden_no_snapshot;
+  ulonglong rows_unfiltered_no_snapshot;
 
   ulonglong system_rows_deleted;
   ulonglong system_rows_inserted;
