@@ -4,7 +4,7 @@ FBSON: a binary storage format for JSON strings
 
 The format proposed here is inspired from Universal Binary JSON
 (http://ubjson.org/) and BSON (http://bsonspec.org/spec.html). I simplified and
-unified the two open specs, while removed much grammer that are irrelavent to
+unified the two open specs, while removed much grammar that are irrelevant to
 JSON. FBSON is fully compatible with JSON standards (http://json.org/).
 
 == Key ==
@@ -67,7 +67,7 @@ types are directly serialized onto FBSON packed bytes. Therefore, to get the
 FBSON packed bytes after parsing is simply a sequence read of the blob. 
 
 FBSON classes are essentially packed structs aligned with FBSON bytes. So
-desrialization of the packed bytes into C++ objects is highly efficient
+deserialization of the packed bytes into C++ objects is highly efficient
 (equivalent to a simple cast from the underlying bytes), and doesn't incur any
 memory allocation or copying.
 
