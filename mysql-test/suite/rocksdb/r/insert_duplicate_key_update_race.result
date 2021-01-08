@@ -10,7 +10,9 @@ UNIQUE KEY uniq_idx (a,b)
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set DEBUG_SYNC = "ha_write_row_end WAIT_FOR flushed EXECUTE 1";
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 insert into extra(id, a, b, c) values (null, 1, 'b1', 'cc1'), (6, 2,'b2','cc2'), (null,3,'b3','c3'),(null, 4,'b4','c4'),(null, 5,'b5','c5') on duplicate key update c=values(c);
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 insert into extra(a, b, c) values (2,'b2','c2'),(3,'b3','c3'),(4,'b4','tc4'),(5,'b5','c5') on duplicate key update c=values(c);
 Warnings:
 Warning	1287	'VALUES function' is deprecated and will be removed in a future release. Please use an alias (INSERT INTO ... VALUES (...) AS alias) and replace VALUES(col) in the ON DUPLICATE KEY UPDATE clause with alias.col instead
