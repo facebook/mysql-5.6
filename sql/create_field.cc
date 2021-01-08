@@ -400,8 +400,8 @@ bool Create_field::init(
                    fld_name); /* purecov: inspected */
           DBUG_RETURN(true);
         } else {
+          Strict_error_handler strict_handler;
           if (thd->install_strict_handler()) {
-            Strict_error_handler strict_handler;
             thd->push_internal_handler(&strict_handler);
           }
 
