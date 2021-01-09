@@ -1,6 +1,7 @@
 source include/not_valgrind.inc;
 source include/have_debug.inc;
 source include/master-slave.inc;
+source include/not_asan.inc;
 
 
 call mtr.add_suppression("Timeout waiting for reply of binlog");
