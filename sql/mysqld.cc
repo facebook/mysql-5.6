@@ -12482,6 +12482,31 @@ static void set_server_version(void)
   if (!strstr(MYSQL_SERVER_SUFFIX_STR, "-debug"))
     end= strmov(end, "-debug");
 #endif
+#ifdef HAVE_VALGRIND
+  if (SERVER_VERSION_LENGTH - (end - server_version) >
+      static_cast<int>(sizeof("-valgrind")))
+    end = strmov(end, "-valgrind");
+#endif
+#ifdef HAVE_ASAN
+  if (SERVER_VERSION_LENGTH - (end - server_version) >
+      static_cast<int>(sizeof("-asan")))
+    end = strmov(end, "-asan");
+#endif
+#ifdef HAVE_LSAN
+  if (SERVER_VERSION_LENGTH - (end - server_version) >
+      static_cast<int>(sizeof("-lsan")))
+    end = strmov(end, "-lsan");
+#endif
+#ifdef HAVE_UBSAN
+  if (SERVER_VERSION_LENGTH - (end - server_version) >
+      static_cast<int>(sizeof("-ubsan")))
+    end = strmov(end, "-ubsan");
+#endif
+#ifdef HAVE_TSAN
+  if (SERVER_VERSION_LENGTH - (end - server_version) >
+      static_cast<int>(sizeof("-tsan")))
+    end = strmov(end, "-tsan");
+#endif
   if (opt_log || opt_slow_log || opt_bin_log)
     strmov(end, "-log");                     // This may slow down system
 }
