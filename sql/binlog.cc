@@ -10878,9 +10878,6 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
   else
     mysql_mutex_assert_owner(&LOCK_log);
 
-  // TODO(luqun): assign correct values
-  ulong signal_cnt = 0;
-
   Raft_replication_observer::st_setup_flush_arg arg;
   arg.log_file_cache = m_binlog_file->get_io_cache();
   arg.log_prefix = name;
