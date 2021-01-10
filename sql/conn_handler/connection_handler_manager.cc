@@ -126,6 +126,16 @@ bool Connection_handler_manager::check_and_incr_conn_count(
   return connection_accepted;
 }
 
+void Connection_handler_manager::dec_connection_count() {
+  mysql_mutex_lock(&LOCK_connection_count);
+  connection_count--;
+  /*
+    Notify shutdown thread when last connection is done with its job
+  */
+  if (connection_count == 0) mysql_cond_signal(&COND_connection_count);
+  mysql_mutex_unlock(&LOCK_connection_count);
+}
+
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_key key_LOCK_connection_count;
 
