@@ -8190,7 +8190,13 @@ int MYSQL_BIN_LOG::new_file_impl(
     // pattern in most places of after_commit hook (TODO)
     (void)RUN_HOOK(raft_replication, after_commit, (current_thd));
   }
-
+  if (!error && enable_raft_plugin && (is_relay_log || rotate_via_raft)) {
+    // Register new log to raft
+    // Previous close(LOG_CLOSE_TO_BE_OPENED | LOG_CLOSE_INDEX,) will close
+    // binlog and its IO_CACHE.
+    register_log_entities(current_thd, /*context=*/0,
+                          /*need_lock=*/false, is_relay_log);
+  }
 end:
   if (error && close_on_error /* rotate, flush or reopen failed */) {
     /*
@@ -11332,7 +11338,7 @@ err:
   DBUG_RETURN(error);
 }
 
-int binlog_change_to_binlog() {
+int binlog_change_to_binlog(THD *thd) {
   DBUG_ENTER("binlog_change_to_binlog");
 
   // disable_raft_log_repointing for MTR integration tests
@@ -11439,6 +11445,11 @@ int binlog_change_to_binlog() {
   mysql_bin_log.is_apply_log = false;
   mysql_bin_log.apply_file_count.store(0);
 
+  // Register new log to raft
+  // Previous mysql_bin_log.close(LOG_CLOSE_INDEX) will also close binlog and
+  // its IO_CACHE.
+  mysql_bin_log.register_log_entities(thd, /*context=*/0, /*need_lock=*/false,
+                                      /*is_relay_log=*/false);
 err:
   mysql_bin_log.unlock_index();
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());

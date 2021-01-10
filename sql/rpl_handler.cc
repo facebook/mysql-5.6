@@ -82,7 +82,7 @@ extern int raft_stop_sql_thread(THD *thd);
 extern int raft_stop_io_thread(THD *thd);
 extern int raft_start_sql_thread(THD *thd);
 extern int rli_relay_log_raft_reset(
-    std::pair<std::string, unsigned long long> raft_log_applied_upto_pos);
+    std::pair<std::string, uint64_t> raft_log_applied_upto_pos, THD *thd);
 extern int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids);
 /** end of raft related extern funtion declarations  **/
 
@@ -1789,7 +1789,8 @@ extern "C" void *process_raft_queue(void *) {
         result.error = 0;
         break;
       case RaftListenerCallbackType::RLI_RELAY_LOG_RESET: {
-        result.error = rli_relay_log_raft_reset(element.arg.log_file_pos);
+        result.error =
+            rli_relay_log_raft_reset(element.arg.log_file_pos, current_thd);
         break;
       }
       case RaftListenerCallbackType::RESET_SLAVE: {
@@ -1809,7 +1810,7 @@ extern "C" void *process_raft_queue(void *) {
         break;
       }
       case RaftListenerCallbackType::BINLOG_CHANGE_TO_BINLOG: {
-        result.error = binlog_change_to_binlog();
+        result.error = binlog_change_to_binlog(current_thd);
         break;
       }
       case RaftListenerCallbackType::STOP_SQL_THREAD: {

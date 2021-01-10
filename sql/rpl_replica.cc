@@ -1416,7 +1416,7 @@ static Master_info *raft_get_default_mi();
  * to binlog name
  */
 int rli_relay_log_raft_reset(
-    std::pair<std::string, unsigned long long> raft_log_applied_upto_pos) {
+    std::pair<std::string, uint64_t> raft_log_applied_upto_pos, THD *thd) {
   DBUG_ENTER("rli_relay_log_raft_reset");
   Master_info *mi = nullptr;
   Relay_log_info *rli = nullptr;
@@ -1529,6 +1529,12 @@ int rli_relay_log_raft_reset(
   mi->rli->set_event_relay_log_pos(rli->get_group_relay_log_pos());
   mi->rli->set_event_relay_log_name(rli->get_group_relay_log_name());
 
+  // Register log to raft
+  // Previous mi->rli->relay_log.close(LOG_CLOSE_INDEX) will also close
+  // binlog and its IO_CACHE.
+  mi->rli->relay_log.register_log_entities(thd, /*context=*/0,
+                                           /*need_lock=*/false,
+                                           /*is_relay_log=*/true);
   mi->rli->relay_log.unlock_index();
   mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
 

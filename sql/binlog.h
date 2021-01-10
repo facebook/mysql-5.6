@@ -1658,7 +1658,7 @@ int binlog_change_to_apply();
 
   @returns true if a problem occurs, false otherwise.
  */
-int binlog_change_to_binlog();
+int binlog_change_to_binlog(THD *thd);
 
 /**
   Turns a relative log binary log path into a full path, based on the
