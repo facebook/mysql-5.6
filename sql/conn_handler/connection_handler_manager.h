@@ -182,15 +182,7 @@ class Connection_handler_manager {
   /**
     Decrease the number of current connections.
   */
-  static void dec_connection_count() {
-    mysql_mutex_lock(&LOCK_connection_count);
-    connection_count--;
-    /*
-      Notify shutdown thread when last connection is done with its job
-    */
-    if (connection_count == 0) mysql_cond_signal(&COND_connection_count);
-    mysql_mutex_unlock(&LOCK_connection_count);
-  }
+  static void dec_connection_count();
 
   void inc_aborted_connects() { m_aborted_connects++; }
 
