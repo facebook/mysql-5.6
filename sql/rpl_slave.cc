@@ -1708,6 +1708,7 @@ int raft_change_master(
           sizeof(mi->host) - 1);
   mi->port = master_instance.second;
   mi->set_auto_position(true);
+  mi->init_master_log_pos();
   mi->inited = true;
   mi->flush_info(true);
   mysql_mutex_unlock(&mi->data_lock);
