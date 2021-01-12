@@ -1,4 +1,6 @@
 --source include/have_debug.inc
+--source include/not_asan.inc
+--source include/not_valgrind.inc
 
 --let $_mysqld_option=--debug="+d,rocksdb_init_failure_files_corruption"
 --source include/restart_mysqld_with_invalid_option.inc
