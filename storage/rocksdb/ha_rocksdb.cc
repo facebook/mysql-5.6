@@ -8367,6 +8367,11 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
   if (!ttl_column.empty()) {
     (*new_key_def)->m_ttl_column = ttl_column;
   }
+
+  if ((*new_key_def)->extract_partial_index_info(table_arg, tbl_def_arg)) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
   // initialize key_def
   (*new_key_def)->setup(table_arg, tbl_def_arg);
   DBUG_RETURN(HA_EXIT_SUCCESS);

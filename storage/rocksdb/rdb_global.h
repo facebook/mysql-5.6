@@ -170,6 +170,18 @@ const char *const RDB_TTL_DURATION_QUALIFIER = "ttl_duration";
 const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
 
 /*
+  Qualifier name for number of prefix keyparts in partial index
+*/
+const char *const RDB_PARTIAL_INDEX_KEYPARTS_QUALIFIER =
+    "partial_group_keyparts";
+
+/*
+  Qualifier name for materialization threshold in partial index
+*/
+const char *const RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER =
+    "partial_group_threshold";
+
+/*
   Default, minimal valid, and maximum valid sampling rate values when collecting
   statistics about table.
 */

@@ -289,6 +289,8 @@ Rdb_key_def::Rdb_key_def(
       m_key_parts(0),
       m_ttl_pk_key_part_offset(UINT_MAX),
       m_ttl_field_index(UINT_MAX),
+      m_partial_index_keyparts(0),
+      m_partial_index_threshold(0),
       m_prefix_extractor(nullptr),
       m_maxlength(0)  // means 'not intialized'
 {
@@ -316,6 +318,8 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
       m_key_parts(k.m_key_parts),
       m_ttl_pk_key_part_offset(k.m_ttl_pk_key_part_offset),
       m_ttl_field_index(UINT_MAX),
+      m_partial_index_keyparts(k.m_partial_index_keyparts),
+      m_partial_index_threshold(k.m_partial_index_threshold),
       m_prefix_extractor(k.m_prefix_extractor),
       m_maxlength(k.m_maxlength) {
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
@@ -420,6 +424,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
     */
     Rdb_key_def::extract_ttl_col(tbl, tbl_def, &m_ttl_column,
                                  &m_ttl_field_index, true);
+    extract_partial_index_info(tbl, tbl_def);
 
     size_t max_len = INDEX_NUMBER_SIZE;
     int unpack_len = 0;
@@ -658,57 +663,128 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
   return HA_EXIT_SUCCESS;
 }
 
+uint Rdb_key_def::extract_partial_index_info(
+    const TABLE *const table_arg, const Rdb_tbl_def *const tbl_def_arg) {
+  // Nothing to parse if this is a hidden PK.
+  if (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY) {
+    return HA_EXIT_SUCCESS;
+  }
+
+  std::string key_comment(table_arg->key_info[m_keyno].comment.str,
+                          table_arg->key_info[m_keyno].comment.length);
+
+  bool per_part_match = false;
+  std::string keyparts_str = Rdb_key_def::parse_comment_for_qualifier(
+      key_comment, table_arg, tbl_def_arg, &per_part_match,
+      RDB_PARTIAL_INDEX_KEYPARTS_QUALIFIER);
+
+  std::string threshold_str = Rdb_key_def::parse_comment_for_qualifier(
+      key_comment, table_arg, tbl_def_arg, &per_part_match,
+      RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER);
+
+  if (threshold_str.empty() && keyparts_str.empty()) {
+    m_partial_index_keyparts = 0;
+    m_partial_index_threshold = 0;
+    return HA_EXIT_SUCCESS;
+  }
+
+  if (table_arg->part_info != nullptr) {
+    my_printf_error(ER_NOT_SUPPORTED_YET,
+                    "Partial indexes not supported for partitioned tables.",
+                    MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  if (is_primary_key()) {
+    my_printf_error(ER_WRONG_ARGUMENTS,
+                    "Primary key cannot be a partial index.", MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  if (table_arg->key_info[m_keyno].flags & HA_NOSAME) {
+    my_printf_error(ER_NOT_SUPPORTED_YET,
+                    "Unique key cannot be a partial index.", MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  if (table_has_hidden_pk(table_arg)) {
+    my_printf_error(ER_NOT_SUPPORTED_YET,
+                    "Table with no primary key cannot have a partial index.",
+                    MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  if (table_arg->s->next_number_index == m_keyno) {
+    my_printf_error(ER_NOT_SUPPORTED_YET,
+                    "Autoincrement key cannot be a partial index.", MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  m_partial_index_threshold = std::strtoull(threshold_str.c_str(), nullptr, 0);
+  if (!m_partial_index_threshold) {
+    my_printf_error(ER_WRONG_ARGUMENTS,
+                    "Invalid partial index group size threshold.", MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  m_partial_index_keyparts = std::strtoull(keyparts_str.c_str(), nullptr, 0);
+  if (!m_partial_index_keyparts) {
+    my_printf_error(ER_WRONG_ARGUMENTS,
+                    "Invalid number of keyparts in partial index group.",
+                    MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  uint n_keyparts =
+      std::min(table_arg->key_info[table_arg->s->primary_key].actual_key_parts,
+               table_arg->key_info[m_keyno].actual_key_parts);
+  if (n_keyparts <= m_partial_index_keyparts) {
+    my_printf_error(ER_WRONG_ARGUMENTS,
+                    "Too many keyparts in partial index group.", MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  // Verify that PK/SK actually share a common prefix.
+  KEY_PART_INFO *key_part_sk = table_arg->key_info[m_keyno].key_part;
+  KEY_PART_INFO *key_part_pk =
+      table_arg->key_info[table_arg->s->primary_key].key_part;
+
+  for (uint i = 0; i < m_partial_index_keyparts; i++) {
+    if (key_part_sk->fieldnr != key_part_pk->fieldnr ||
+        key_part_sk->field->field_length != key_part_pk->field->field_length) {
+      my_printf_error(
+          ER_WRONG_ARGUMENTS,
+          "Primary and secondary key must share common prefix fields.", MYF(0));
+      return HA_EXIT_FAILURE;
+    }
+    key_part_sk++;
+    key_part_pk++;
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
 const std::string Rdb_key_def::gen_qualifier_for_table(
     const char *const qualifier, const std::string &partition_name) {
   bool has_partition = !partition_name.empty();
   std::string qualifier_str = "";
 
-  if (!strcmp(qualifier, RDB_CF_NAME_QUALIFIER)) {
-    return has_partition ? gen_cf_name_qualifier_for_partition(partition_name)
-                         : qualifier_str + RDB_CF_NAME_QUALIFIER +
-                               RDB_QUALIFIER_VALUE_SEP;
-  } else if (!strcmp(qualifier, RDB_TTL_DURATION_QUALIFIER)) {
-    return has_partition
-               ? gen_ttl_duration_qualifier_for_partition(partition_name)
-               : qualifier_str + RDB_TTL_DURATION_QUALIFIER +
-                     RDB_QUALIFIER_VALUE_SEP;
-  } else if (!strcmp(qualifier, RDB_TTL_COL_QUALIFIER)) {
-    return has_partition ? gen_ttl_col_qualifier_for_partition(partition_name)
-                         : qualifier_str + RDB_TTL_COL_QUALIFIER +
-                               RDB_QUALIFIER_VALUE_SEP;
+  if (has_partition) {
+    qualifier_str += partition_name + RDB_PER_PARTITION_QUALIFIER_NAME_SEP;
+  }
+
+  if (!strcmp(qualifier, RDB_CF_NAME_QUALIFIER) ||
+      !strcmp(qualifier, RDB_TTL_DURATION_QUALIFIER) ||
+      !strcmp(qualifier, RDB_TTL_COL_QUALIFIER) ||
+      !strcmp(qualifier, RDB_PARTIAL_INDEX_KEYPARTS_QUALIFIER) ||
+      !strcmp(qualifier, RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER)) {
+    qualifier_str += std::string(qualifier) + RDB_QUALIFIER_VALUE_SEP;
   } else {
-    assert(0);
+    assert(false);
+    return std::string("");
   }
 
   return qualifier_str;
-}
-
-/*
-  Formats the string and returns the column family name assignment part for a
-  specific partition.
-*/
-const std::string Rdb_key_def::gen_cf_name_qualifier_for_partition(
-    const std::string &prefix) {
-  assert(!prefix.empty());
-
-  return prefix + RDB_PER_PARTITION_QUALIFIER_NAME_SEP + RDB_CF_NAME_QUALIFIER +
-         RDB_QUALIFIER_VALUE_SEP;
-}
-
-const std::string Rdb_key_def::gen_ttl_duration_qualifier_for_partition(
-    const std::string &prefix) {
-  assert(!prefix.empty());
-
-  return prefix + RDB_PER_PARTITION_QUALIFIER_NAME_SEP +
-         RDB_TTL_DURATION_QUALIFIER + RDB_QUALIFIER_VALUE_SEP;
-}
-
-const std::string Rdb_key_def::gen_ttl_col_qualifier_for_partition(
-    const std::string &prefix) {
-  assert(!prefix.empty());
-
-  return prefix + RDB_PER_PARTITION_QUALIFIER_NAME_SEP + RDB_TTL_COL_QUALIFIER +
-         RDB_QUALIFIER_VALUE_SEP;
 }
 
 const std::string Rdb_key_def::parse_comment_for_qualifier(
