@@ -1,0 +1,162 @@
+set optimizer_force_index_for_range = on;
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t values ("1", "1", "2", "1");
+INSERT INTO t values ("1", "2", "1", "1");
+INSERT INTO t values ("11111111", "1", "9", "1");
+INSERT INTO t values ("11111111", "2", "8", "1");
+INSERT INTO t values ("11111111", "3", "7", "1");
+INSERT INTO t values ("11111111", "4", "5", "1");
+INSERT INTO t values ("11111111", "5", "4", "1");
+INSERT INTO t values ("11111111", "6", "2", "1");
+INSERT INTO t values ("111111111", "1", "9", "1");
+INSERT INTO t values ("111111111", "2", "2", "1");
+INSERT INTO t values ("11111112", "1", "1", "1");
+DROP TABLE t;
+CREATE TABLE t (i int, j int, k int, l int,
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t values (1, 1, 2, 1);
+INSERT INTO t values (1, 2, 1, 1);
+INSERT INTO t values (2, 1, 9, 1);
+INSERT INTO t values (2, 2, 8, 1);
+INSERT INTO t values (2, 3, 7, 1);
+INSERT INTO t values (2, 4, 5, 1);
+INSERT INTO t values (2, 5, 4, 1);
+INSERT INTO t values (2, 6, 2, 1);
+INSERT INTO t values (4, 1, 1, 1);
+set rocksdb_partial_index_sort_max_mem = 1;
+SELECT i, j, k FROM t FORCE INDEX (ik1) WHERE i = 1 ORDER BY i ASC , k ASC;
+ERROR HY000: Out of memory; check if mysqld or some other process uses all available memory; if not, you may have to use 'ulimit' to allow mysqld to use more memory or you can add more swap space
+set rocksdb_partial_index_sort_max_mem = DEFAULT;
+DROP TABLE t;
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=rev:cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=rev:cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t values ("1", "1", "2", "1");
+INSERT INTO t values ("1", "2", "1", "1");
+INSERT INTO t values ("11111111", "1", "9", "1");
+INSERT INTO t values ("11111111", "2", "8", "1");
+INSERT INTO t values ("11111111", "3", "7", "1");
+INSERT INTO t values ("11111111", "4", "5", "1");
+INSERT INTO t values ("11111111", "5", "4", "1");
+INSERT INTO t values ("11111111", "6", "2", "1");
+INSERT INTO t values ("111111111", "1", "9", "1");
+INSERT INTO t values ("111111111", "2", "2", "1");
+INSERT INTO t values ("11111112", "1", "1", "1");
+DROP TABLE t;
+CREATE TABLE t (i int, j int, k int, l int,
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=rev:cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=rev:cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t values (1, 1, 2, 1);
+INSERT INTO t values (1, 2, 1, 1);
+INSERT INTO t values (2, 1, 9, 1);
+INSERT INTO t values (2, 2, 8, 1);
+INSERT INTO t values (2, 3, 7, 1);
+INSERT INTO t values (2, 4, 5, 1);
+INSERT INTO t values (2, 5, 4, 1);
+INSERT INTO t values (2, 6, 2, 1);
+INSERT INTO t values (4, 1, 1, 1);
+set rocksdb_partial_index_sort_max_mem = 1;
+SELECT i, j, k FROM t FORCE INDEX (ik1) WHERE i = 1 ORDER BY i ASC , k ASC;
+ERROR HY000: Out of memory; check if mysqld or some other process uses all available memory; if not, you may have to use 'ulimit' to allow mysqld to use more memory or you can add more swap space
+set rocksdb_partial_index_sort_max_mem = DEFAULT;
+DROP TABLE t;
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t values ("1", "1", "2", "1");
+INSERT INTO t values ("1", "2", "1", "1");
+INSERT INTO t values ("11111111", "1", "9", "1");
+INSERT INTO t values ("11111111", "2", "8", "1");
+INSERT INTO t values ("11111111", "3", "7", "1");
+INSERT INTO t values ("11111111", "4", "5", "1");
+INSERT INTO t values ("11111111", "5", "4", "1");
+INSERT INTO t values ("11111111", "6", "2", "1");
+INSERT INTO t values ("111111111", "1", "9", "1");
+INSERT INTO t values ("111111111", "2", "2", "1");
+INSERT INTO t values ("11111112", "1", "1", "1");
+DROP TABLE t;
+CREATE TABLE t (i int, j int, k int, l int,
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t values (1, 1, 2, 1);
+INSERT INTO t values (1, 2, 1, 1);
+INSERT INTO t values (2, 1, 9, 1);
+INSERT INTO t values (2, 2, 8, 1);
+INSERT INTO t values (2, 3, 7, 1);
+INSERT INTO t values (2, 4, 5, 1);
+INSERT INTO t values (2, 5, 4, 1);
+INSERT INTO t values (2, 6, 2, 1);
+INSERT INTO t values (4, 1, 1, 1);
+set rocksdb_partial_index_sort_max_mem = 1;
+SELECT i, j, k FROM t FORCE INDEX (ik1) WHERE i = 1 ORDER BY i DESC , k DESC;
+ERROR HY000: Out of memory; check if mysqld or some other process uses all available memory; if not, you may have to use 'ulimit' to allow mysqld to use more memory or you can add more swap space
+set rocksdb_partial_index_sort_max_mem = DEFAULT;
+DROP TABLE t;
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=rev:cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=rev:cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t values ("1", "1", "2", "1");
+INSERT INTO t values ("1", "2", "1", "1");
+INSERT INTO t values ("11111111", "1", "9", "1");
+INSERT INTO t values ("11111111", "2", "8", "1");
+INSERT INTO t values ("11111111", "3", "7", "1");
+INSERT INTO t values ("11111111", "4", "5", "1");
+INSERT INTO t values ("11111111", "5", "4", "1");
+INSERT INTO t values ("11111111", "6", "2", "1");
+INSERT INTO t values ("111111111", "1", "9", "1");
+INSERT INTO t values ("111111111", "2", "2", "1");
+INSERT INTO t values ("11111112", "1", "1", "1");
+DROP TABLE t;
+CREATE TABLE t (i int, j int, k int, l int,
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=rev:cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=rev:cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t values (1, 1, 2, 1);
+INSERT INTO t values (1, 2, 1, 1);
+INSERT INTO t values (2, 1, 9, 1);
+INSERT INTO t values (2, 2, 8, 1);
+INSERT INTO t values (2, 3, 7, 1);
+INSERT INTO t values (2, 4, 5, 1);
+INSERT INTO t values (2, 5, 4, 1);
+INSERT INTO t values (2, 6, 2, 1);
+INSERT INTO t values (4, 1, 1, 1);
+set rocksdb_partial_index_sort_max_mem = 1;
+SELECT i, j, k FROM t FORCE INDEX (ik1) WHERE i = 1 ORDER BY i DESC , k DESC;
+ERROR HY000: Out of memory; check if mysqld or some other process uses all available memory; if not, you may have to use 'ulimit' to allow mysqld to use more memory or you can add more swap space
+set rocksdb_partial_index_sort_max_mem = DEFAULT;
+DROP TABLE t;
+set optimizer_force_index_for_range = off;
