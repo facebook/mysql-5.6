@@ -8401,6 +8401,12 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
     DBUG_RETURN(HA_ERR_ROCKSDB_TABLE_INDEX_DIRECTORY_NOT_SUPPORTED);
   }
 
+  if (unlikely(create_info->options & HA_LEX_CREATE_TMP_TABLE)) {
+    my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
+             ha_resolve_storage_engine_name(create_info->db_type), "TEMPORARY");
+    DBUG_RETURN(HA_ERR_ROCKSDB_INVALID_TABLE);
+  }
+
   int err;
   /*
     Construct dbname.tablename ourselves, because parititioning
