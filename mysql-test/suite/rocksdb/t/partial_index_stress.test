@@ -1,0 +1,62 @@
+#
+# Stress partial indexes by performing writes, and checking that PK/SK are still consistent.
+#
+
+set @save_rocksdb_lock_wait_timeout = @@rocksdb_lock_wait_timeout;
+set global rocksdb_lock_wait_timeout = 100000;
+
+CREATE TABLE `link_table` (
+  `id1` bigint unsigned NOT NULL DEFAULT '0',
+  `id1_type` int unsigned NOT NULL DEFAULT '0',
+  `id2` bigint unsigned NOT NULL DEFAULT '0',
+  `id2_type` int unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint NOT NULL DEFAULT '0',
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `time` int unsigned NOT NULL DEFAULT '0',
+  `version` bigint unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+
+exec /usr/bin/python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
+
+DROP TABLE link_table;
+
+CREATE TABLE `link_table` (
+  `id1` binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  `raw_key` text COLLATE latin1_bin,
+  `id2` bigint unsigned NOT NULL DEFAULT '0',
+  `id2_type` int unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint NOT NULL DEFAULT '0',
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `time` int unsigned NOT NULL DEFAULT '0',
+  `version` bigint unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+
+exec /usr/bin/python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
+
+DROP TABLE link_table;
+
+CREATE TABLE `link_table` (
+  `id1` bigint unsigned NOT NULL DEFAULT '0',
+  `id1_type` int unsigned NOT NULL DEFAULT '0',
+  `id2` bigint unsigned NOT NULL DEFAULT '0',
+  `id2_type` int unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint NOT NULL DEFAULT '0',
+  `data` text COLLATE latin1_bin NOT NULL,
+  `time` int unsigned NOT NULL DEFAULT '0',
+  `version` bigint unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`(255)) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+
+exec /usr/bin/python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
+
+DROP TABLE link_table;
+
+set global rocksdb_lock_wait_timeout = @save_rocksdb_lock_wait_timeout;

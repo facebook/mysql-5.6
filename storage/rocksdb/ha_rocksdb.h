@@ -1119,6 +1119,8 @@ uint32_t get_select_bypass_debug_row_delay();
 unsigned long long  // NOLINT(runtime/int)
 get_select_bypass_multiget_min();
 
+unsigned long long get_partial_index_sort_max_mem(THD *thd);
+
 Rdb_transaction *get_tx_from_thd(THD *const thd);
 
 const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
@@ -1140,6 +1142,9 @@ rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
                                       const rocksdb::Slice &key,
                                       rocksdb::PinnableSlice *const value,
                                       bool exclusive, bool skip_wait);
+
+void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
+                         const rocksdb::Slice &key, bool force);
 
 void rdb_tx_multi_get(Rdb_transaction *tx,
                       rocksdb::ColumnFamilyHandle *const column_family,
@@ -1192,5 +1197,10 @@ int rdb_tx_set_status_error(Rdb_transaction *tx, const rocksdb::Status &s,
 extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
 extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
+
+extern std::atomic<uint64_t> rocksdb_partial_index_groups_sorted;
+extern std::atomic<uint64_t> rocksdb_partial_index_groups_materialized;
+extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;
+extern std::atomic<uint64_t> rocksdb_partial_index_rows_materialized;
 
 }  // namespace myrocks
