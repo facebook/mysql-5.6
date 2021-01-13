@@ -1,0 +1,296 @@
+
+--echo #
+--echo # Negative test cases
+--echo #
+
+--error ER_NOT_SUPPORTED_YET
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  PRIMARY KEY (c1) COMMENT 'p0_cfname=aaa;p1_cfname=bbb;p2_cfname=ccc',
+  KEY (c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB
+PARTITION BY LIST(c1) (
+  PARTITION p0 VALUES IN (1, 4, 7),
+  PARTITION p1 VALUES IN (2, 5, 8),
+  PARTITION p2 VALUES IN (3, 6, 9)
+);
+
+--error ER_NOT_SUPPORTED_YET
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  PRIMARY KEY (c1) COMMENT 'p0_cfname=aaa;p1_cfname=bbb;p2_cfname=ccc',
+  KEY (c2) COMMENT 'p0_partial_group_keyparts=2;p0_partial_group_threshold=10000'
+) ENGINE=ROCKSDB
+PARTITION BY LIST(c1) (
+  PARTITION p0 VALUES IN (1, 4, 7),
+  PARTITION p1 VALUES IN (2, 5, 8),
+  PARTITION p2 VALUES IN (3, 6, 9)
+);
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  PRIMARY KEY (c1) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_NOT_SUPPORTED_YET
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  KEY (c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_NOT_SUPPORTED_YET
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  PRIMARY KEY (c1),
+  UNIQUE KEY (c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_NOT_SUPPORTED_YET
+CREATE TABLE t (
+  c1 INT,
+  c2 INT AUTO_INCREMENT,
+  PRIMARY KEY (c1),
+  KEY (c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  PRIMARY KEY (c1),
+  KEY (c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=asdf'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  PRIMARY KEY (c1),
+  KEY (c2) COMMENT 'partial_group_keyparts=asdf;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2),
+  KEY (c1, c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2),
+  KEY (c1, c2, c4) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2),
+  KEY (c1, c2, c4) COMMENT 'partial_group_keyparts=3;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2, c3),
+  KEY (c1, c2, c4) COMMENT 'partial_group_keyparts=3;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c2, c3, c4),
+  KEY (c1, c2, c4) COMMENT 'partial_group_keyparts=3;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 VARCHAR(255),
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2(5), c3),
+  KEY (c1, c2(4), c4) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  c5 INT,
+  PRIMARY KEY (c1, c2, c5),
+  KEY (c1, c2, c4) COMMENT 'partial_group_keyparts=2'
+) ENGINE=ROCKSDB;
+
+--error ER_WRONG_ARGUMENTS
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  c5 INT,
+  PRIMARY KEY (c1, c2, c5),
+  KEY (c1, c2, c4) COMMENT 'partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+
+--echo #
+--echo # Positive test cases
+--echo #
+
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  c5 INT,
+  PRIMARY KEY (c1, c2, c5),
+  KEY (c1, c2, c4) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+DROP TABLE t;
+
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2, c3),
+  KEY (c1, c2, c4) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+DROP TABLE t;
+
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2, c3),
+  KEY (c1, c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+DROP TABLE t;
+
+CREATE TABLE t (
+  c1 INT,
+  c2 VARCHAR(255),
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2(4), c3),
+  KEY (c1, c2(4), c4) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+DROP TABLE t;
+
+CREATE TABLE t (
+  c1 INT,
+  c2 VARCHAR(255),
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2(4), c3),
+  KEY (c1, c2(4), c4) COMMENT 'partial_group_keyparts=1;partial_group_threshold=10000'
+) ENGINE=ROCKSDB;
+DROP TABLE t;
+
+CREATE TABLE t (
+  id1 bigint(20) unsigned NOT NULL DEFAULT '0',
+  id1_type int(10) unsigned NOT NULL DEFAULT '0',
+  id2 bigint(20) unsigned NOT NULL DEFAULT '0',
+  id2_type int(10) unsigned NOT NULL DEFAULT '0',
+  assoc_type bigint(20) unsigned NOT NULL DEFAULT '0',
+  visibility tinyint(3) NOT NULL DEFAULT '0',
+  data varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  time int(10) unsigned NOT NULL DEFAULT '0',
+  version bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (assoc_type, id1, id2) COMMENT 'cf_assoc',
+  KEY id1_type (assoc_type, id1, visibility, time, id2, version, data) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+DROP TABLE t;
+
+CREATE TABLE t (
+  id1 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  raw_key text COLLATE latin1_bin,
+  id2 bigint(20) unsigned NOT NULL DEFAULT '0',
+  id2_type int(10) unsigned NOT NULL DEFAULT '0',
+  assoc_type bigint(20) unsigned NOT NULL DEFAULT '0',
+  visibility tinyint(3) NOT NULL DEFAULT '0',
+  data varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  time int(10) unsigned NOT NULL DEFAULT '0',
+  version bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (assoc_type, id1, id2) COMMENT 'cf_assoc',
+  KEY id1_type (assoc_type, id1, visibility, time, id2, version, data) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+DROP TABLE t;
+
+
+CREATE TABLE t (
+  id1 bigint(20) unsigned NOT NULL DEFAULT '0',
+  id1_type int(10) unsigned NOT NULL DEFAULT '0',
+  id2 bigint(20) unsigned NOT NULL DEFAULT '0',
+  id2_type int(10) unsigned NOT NULL DEFAULT '0',
+  assoc_type bigint(20) unsigned NOT NULL DEFAULT '0',
+  visibility tinyint(4) NOT NULL DEFAULT '0',
+  data text COLLATE latin1_bin NOT NULL,
+  time int(10) unsigned NOT NULL DEFAULT '0',
+  version bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (assoc_type, id1, id2) COMMENT 'cf_assoc',
+  KEY id1_type (assoc_type, id1, visibility, time, id2, version, data(255)) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+DROP TABLE t;
+
+--echo #
+--echo # ALTER TABLE test cases
+--echo #
+
+CREATE TABLE t (
+  c1 INT,
+  c2 INT,
+  c3 INT,
+  c4 INT,
+  PRIMARY KEY (c1, c2, c3)
+) ENGINE=ROCKSDB;
+
+ALTER TABLE t ADD INDEX new_idx(c1, c2, c4) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000';
+ALTER TABLE t DROP INDEX new_idx;
+
+ALTER TABLE t ADD INDEX new_idx(c1, c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000';
+ALTER TABLE t DROP INDEX new_idx;
+
+--error ER_WRONG_ARGUMENTS
+ALTER TABLE t ADD INDEX new_idx(c1, c2, c4) COMMENT 'partial_group_keyparts=2';
+--error ER_WRONG_ARGUMENTS
+ALTER TABLE t ADD INDEX new_idx(c1, c2, c4) COMMENT 'partial_group_threshold=10000';
+--error ER_WRONG_ARGUMENTS
+ALTER TABLE t ADD INDEX new_idx(c2, c3, c4) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000';
+
+
+ALTER TABLE t ADD INDEX new_idx(c1, c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000';
+
+--error ER_NOT_SUPPORTED_YET
+ALTER TABLE t DROP PRIMARY KEY;
+
+ALTER TABLE t DROP PRIMARY KEY, ADD PRIMARY KEY (c1, c2, c3);
+--error ER_WRONG_ARGUMENTS
+ALTER TABLE t DROP PRIMARY KEY, ADD PRIMARY KEY (c2, c3, c4);
+
+DROP TABLE t;
