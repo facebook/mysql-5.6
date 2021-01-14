@@ -1,0 +1,7 @@
+#
+# PS-7167: "slice1.compare.slice2" debug assertion
+#
+CREATE TABLE t0(c1 INT UNSIGNED, PRIMARY KEY(c1)) ENGINE=RocksDB;
+SELECT * FROM t0 WHERE c1<>4294967295;
+c1
+DROP TABLE t0;
