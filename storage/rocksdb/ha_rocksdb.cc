@@ -12644,7 +12644,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *const min_key,
   // right bound being successor() of the left one, e.g. "t.key>10 AND t.key<11"
   if (slice1.compare(slice2) >= 0) {
     // It's not possible to get slice2 > slice1
-    DBUG_ASSERT(slice1.compare(slice2) == 0);
+    DBUG_ASSERT(!min_key || !max_key || slice1.compare(slice2) == 0);
     DBUG_RETURN(HA_EXIT_SUCCESS);
   }
 
