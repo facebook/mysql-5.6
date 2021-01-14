@@ -1,6 +1,16 @@
 --source include/have_rocksdb.inc
 
 --echo #
+--echo # PS-7167: "slice1.compare.slice2" debug assertion
+--echo #
+
+CREATE TABLE t0(c1 INT UNSIGNED, PRIMARY KEY(c1)) ENGINE=RocksDB;
+SELECT * FROM t0 WHERE c1<>4294967295;
+
+DROP TABLE t0;
+
+
+--echo #
 --echo # PS-7290: Using RocksDB as a temp table can lead to an assertion on the debug build
 --echo #
 
