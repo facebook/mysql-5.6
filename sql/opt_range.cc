@@ -1637,6 +1637,26 @@ int QUICK_ROR_INTERSECT_SELECT::init()
 
 
 /*
+  Mark column bitmap for this index used by ROR-merged scan
+*/
+void QUICK_RANGE_SELECT::mark_columns_ror_merged_scan() {
+  /*
+    We are only going to read key fields and call position() on 'file'
+    The following sets head->tmp_set to only use this key and then updates
+    head->read_set and head->write_set to use this bitmap.
+    The now bitmap is stored in 'column_bitmap' which is used in ::get_next()
+  */
+  handler *org_file= head->file;
+  head->file= file;
+  /* We don't have to set 'head->keyread' here as the 'file' is unique */
+  if (!head->no_keyread)
+    head->mark_columns_used_by_index(index);
+  head->prepare_for_position();
+  head->file= org_file;
+  bitmap_copy(&column_bitmap, head->read_set);
+}
+
+/*
   Initialize this quick select to be a ROR-merged scan.
 
   SYNOPSIS
@@ -1660,7 +1680,7 @@ int QUICK_ROR_INTERSECT_SELECT::init()
 
 int QUICK_RANGE_SELECT::init_ror_merged_scan(bool reuse_handler)
 {
-  handler *save_file= file, *org_file;
+  handler *save_file= file;
   THD *thd;
   MY_BITMAP * const save_read_set= head->read_set;
   MY_BITMAP * const save_write_set= head->write_set;
@@ -1671,11 +1691,19 @@ int QUICK_RANGE_SELECT::init_ror_merged_scan(bool reuse_handler)
   if (reuse_handler)
   {
     DBUG_PRINT("info", ("Reusing handler %p", file));
+
+    head->column_bitmaps_set_no_signal(&column_bitmap, &column_bitmap);
+
+    /*
+      Make sure column_bitmap is set properly before init/reset so that
+      handler knows exactly which columns to unpack
+    */
+    mark_columns_ror_merged_scan();
+
     if (init() || reset())
     {
       DBUG_RETURN(1);
     }
-    head->column_bitmaps_set(&column_bitmap, &column_bitmap);
     file->extra(HA_EXTRA_SECONDARY_SORT_ROWID);
     goto end;
   }
@@ -1702,7 +1730,13 @@ int QUICK_RANGE_SELECT::init_ror_merged_scan(bool reuse_handler)
     goto failure;  /* purecov: inspected */
   }
 
-  head->column_bitmaps_set(&column_bitmap, &column_bitmap);
+  head->column_bitmaps_set_no_signal(&column_bitmap, &column_bitmap);
+
+  /*
+    Make sure column_bitmap is set properly before init/reset so that
+    handler knows exactly which columns to unpack
+  */
+  mark_columns_ror_merged_scan();
 
   if (file->ha_external_lock(thd, F_RDLCK))
     goto failure;
@@ -1719,26 +1753,11 @@ int QUICK_RANGE_SELECT::init_ror_merged_scan(bool reuse_handler)
 
 end:
   /*
-    We are only going to read key fields and call position() on 'file'
-    The following sets head->tmp_set to only use this key and then updates
-    head->read_set and head->write_set to use this bitmap.
-    The now bitmap is stored in 'column_bitmap' which is used in ::get_next()
-  */
-  org_file= head->file;
-  head->file= file;
-  /* We don't have to set 'head->keyread' here as the 'file' is unique */
-  if (!head->no_keyread)
-    head->mark_columns_used_by_index(index);
-  head->prepare_for_position();
-  head->file= org_file;
-  bitmap_copy(&column_bitmap, head->read_set);
-
-  /*
     We have prepared a column_bitmap which get_next() will use. To do this we
     used TABLE::read_set/write_set as playground; restore them to their
     original value to not pollute other scans.
   */
-  head->column_bitmaps_set(save_read_set, save_write_set);
+  head->column_bitmaps_set_no_signal(save_read_set, save_write_set);
 
   DBUG_RETURN(0);
 

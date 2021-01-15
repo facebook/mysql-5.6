@@ -337,14 +337,13 @@ void Rdb_converter::get_storage_type(Rdb_field_encoder *const encoder,
     Setup which fields will be unpacked when reading rows
 
   @detail
-    Three special cases when we still unpack all fields:
+    Two special cases when we still unpack all fields:
     - When client requires decode_all_fields, such as this table is being
   updated (m_lock_rows==RDB_LOCK_WRITE).
     - When @@rocksdb_verify_row_debug_checksums is ON (In this mode, we need
   to read all fields to find whether there is a row checksum at the end. We
   could skip the fields instead of decoding them, but currently we do
   decoding.)
-    - On index merge as bitmap is cleared during that operation
 
   @seealso
     Rdb_converter::setup_field_encoders()
@@ -358,10 +357,8 @@ void Rdb_converter::setup_field_decoders(const MY_BITMAP *field_map,
   int skip_size = 0;
 
   for (uint i = 0; i < m_table->s->fields; i++) {
-    // bitmap is cleared on index merge, but it still needs to decode columns
     bool field_requested =
         decode_all_fields || m_verify_row_debug_checksums ||
-        bitmap_is_clear_all(field_map) ||
         bitmap_is_set(field_map, m_table->field[i]->field_index);
 
     // We only need the decoder if the whole record is stored.

@@ -473,6 +473,7 @@ public:
   bool reverse_sorted() const { return false; }
   bool reverse_sort_possible() const { return true; }
   bool unique_key_range();
+  void mark_columns_ror_merged_scan();
   int init_ror_merged_scan(bool reuse_handler);
   void save_last_pos()
   { file->position(record); }
