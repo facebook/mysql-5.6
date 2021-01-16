@@ -1683,6 +1683,13 @@ int raft_reset_slave(THD *) {
   mysql_mutex_lock(&mi->rli->data_lock);
   mi->rli->inited = false;
   mi->flush_info(true);
+  /**
+    Clear the retrieved gtid set for this channel.
+  */
+  mi->rli->get_sid_lock()->wrlock();
+  (const_cast<Gtid_set *>(mi->rli->get_gtid_set()))->clear_set_and_sid_map();
+  mi->rli->get_sid_lock()->unlock();
+
   mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
 
