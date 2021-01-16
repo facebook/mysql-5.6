@@ -804,12 +804,6 @@ int Rdb_key_def::read_memcmp_key_part(const TABLE *table_arg,
   Rdb_field_packing *fpi = &m_pack_info[part_num];
   DBUG_ASSERT(table_arg->s != nullptr);
 
-  bool is_hidden_pk_part = (part_num + 1 == m_key_parts) &&
-                           (table_arg->s->primary_key == MAX_INDEXES);
-  Field *field = nullptr;
-  if (!is_hidden_pk_part) {
-    field = fpi->get_field_in_table(table_arg);
-  }
   if ((fpi->m_skip_func)(fpi, reader)) {
     return 1;
   }
@@ -1542,10 +1536,6 @@ size_t Rdb_key_def::key_length(const TABLE *const table,
   }
   for (uint i = 0; i < m_key_parts; i++) {
     const Rdb_field_packing *fpi = &m_pack_info[i];
-    const Field *field = nullptr;
-    if (m_index_type != INDEX_TYPE_HIDDEN_PRIMARY) {
-      field = fpi->get_field_in_table(table);
-    }
     if ((fpi->m_skip_func)(fpi, &reader)) {
       return size_t(-1);
     }
