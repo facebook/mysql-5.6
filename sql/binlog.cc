@@ -665,6 +665,8 @@ class binlog_cache_data {
 
   bool is_finalized() const { return flags.finalized; }
 
+  bool is_transactional() const { return flags.transactional; }
+
   Rows_log_event *pending() const { return m_pending; }
 
   void set_pending(Rows_log_event *const pending) { m_pending = pending; }
@@ -1791,7 +1793,12 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
   } else {
     std::unique_ptr<Binlog_cache_storage> temp_binlog_cache =
         std::make_unique<Binlog_cache_storage>();
-    temp_binlog_cache->open(4096, 4096);
+
+    temp_binlog_cache->open(
+        cache_data->is_transactional() ? binlog_cache_size
+                                       : binlog_stmt_cache_size,
+        cache_data->is_transactional() ? max_binlog_cache_size
+                                       : max_binlog_stmt_cache_size);
 
     (void)gtid_event.write(temp_binlog_cache.get());
 
