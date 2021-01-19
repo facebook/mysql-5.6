@@ -8859,7 +8859,7 @@ int mysqld_main(int argc, char **argv)
     unireg_abort(MYSQLD_ABORT_EXIT);
 
   // TODO(luqun): moved to after_server_startup hook or something similar
-  if (enable_raft_plugin) {
+  if (!opt_initialize) {
     // do the postponed init of raft, now that
     // binlog recovery has finished.
     raft_plugin_initialize();
