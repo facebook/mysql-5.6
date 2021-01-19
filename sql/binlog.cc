@@ -2099,7 +2099,11 @@ int binlog_cache_data::flush(THD *thd, my_off_t *bytes_written,
     if (!error && enable_raft_plugin && !mysql_bin_log.is_apply_log) {
       std::unique_ptr<Binlog_cache_storage> temp_binlog_cache =
           std::make_unique<Binlog_cache_storage>();
-      temp_binlog_cache->open(4096, 4096);
+
+      temp_binlog_cache->open(
+          flags.transactional ? binlog_cache_size : binlog_stmt_cache_size,
+          flags.transactional ? max_binlog_cache_size
+                              : max_binlog_stmt_cache_size);
 
       if ((error = mysql_bin_log.write_gtid(thd, this, &writer,
                                             temp_binlog_cache.get())))
