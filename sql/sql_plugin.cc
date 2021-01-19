@@ -1444,8 +1444,8 @@ static bool plugin_init_initialize_and_reap() {
        ++it) {
     plugin_ptr = *it;
     // Delay initialze raft plugin
-    if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED &&
-        strcmp(plugin_ptr->name.str, raft_plugin_name.str)) {
+    if (0 == strcmp(plugin_ptr->name.str, raft_plugin_name.str)) continue;
+    if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED) {
       if (plugin_initialize(plugin_ptr)) {
         plugin_ptr->state = PLUGIN_IS_DYING;
         *(reap++) = plugin_ptr;
@@ -1718,21 +1718,25 @@ bool raft_plugin_initialize() {
   mysql_mutex_lock(&LOCK_plugin);
   if (!(plugin_ptr =
             plugin_find_internal(raft_plugin_name, MYSQL_ANY_PLUGIN))) {
-    mysql_mutex_unlock(&LOCK_plugin);
     goto err;
   }
-  if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED &&
-      plugin_initialize(plugin_ptr)) {
-    mysql_mutex_unlock(&LOCK_plugin);
-    plugin_ptr->state = PLUGIN_IS_DYING;
-    plugin_deinitialize(plugin_ptr, true);
-    mysql_mutex_lock(&LOCK_plugin_delete);
-    mysql_mutex_lock(&LOCK_plugin);
-    plugin_del(plugin_ptr);
-    mysql_mutex_unlock(&LOCK_plugin_delete);
-    my_error(ER_CANT_INITIALIZE_UDF, MYF(0), raft_plugin_name.str,
-             "Plugin initialization function failed.");
-    error = true;
+  // NO_LINT_DEBUG
+  sql_print_information("Found raft plugin");
+  if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED) {
+    // NO_LINT_DEBUG
+    sql_print_information("Initializing raft plugin");
+    if (plugin_initialize(plugin_ptr)) {
+      mysql_mutex_unlock(&LOCK_plugin);
+      plugin_ptr->state = PLUGIN_IS_DYING;
+      plugin_deinitialize(plugin_ptr, true);
+      mysql_mutex_lock(&LOCK_plugin_delete);
+      mysql_mutex_lock(&LOCK_plugin);
+      plugin_del(plugin_ptr);
+      mysql_mutex_unlock(&LOCK_plugin_delete);
+      my_error(ER_CANT_INITIALIZE_UDF, MYF(0), raft_plugin_name.str,
+               "Plugin initialization function failed.");
+      error = true;
+    }
   }
 err:
   mysql_mutex_unlock(&LOCK_plugin);
