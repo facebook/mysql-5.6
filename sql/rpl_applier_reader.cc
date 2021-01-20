@@ -456,6 +456,21 @@ bool Rpl_applier_reader::purge_applied_logs() {
   return m_errmsg != nullptr;
 }
 
+int Rpl_applier_reader::update_relay_log_coordinates(Relay_log_info *rli) {
+  int error = rli->relay_log.find_log_pos(
+      &m_linfo, rli->get_event_relay_log_name(), false /*need_lock_index*/);
+  if (error) {
+    // This is a fatal error. SQL threads wont be able to read relay logs to
+    // apply trxs.
+    // NO_LINT_DEBUG
+    sql_print_error(
+        "find_log_pos error during update_relay_log_coordinates: %d  "
+        "offset: %llu, log: %s",
+        error, m_linfo.index_file_offset, rli->get_group_relay_log_name());
+  }
+  return error;
+}
+
 /**
    Temporarily disables the receiver thread's check for log space, allowing it
    to queue more than log_space_limit events or rotate relay log. This is needed

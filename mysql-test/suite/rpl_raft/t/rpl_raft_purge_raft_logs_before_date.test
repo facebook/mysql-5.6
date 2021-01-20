@@ -1,0 +1,275 @@
+source include/have_debug.inc;
+source ../include/raft_3_node.inc;
+
+--disable_query_log
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Create connections to server 4 and 5 (these are not in the ring)
+let $rpl_server_number= 4;
+let $rpl_connection_name= server_4;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_4;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+let $rpl_server_number= 5;
+let $rpl_connection_name= server_5;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_5;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+connection server_1;
+show status like 'rpl_raft_role';
+
+connection server_2;
+show status like 'rpl_raft_role';
+
+connection server_3;
+show status like 'rpl_raft_role';
+
+connection server_1;
+create table t1 (a int primary key);
+
+# case 1: Insert some rows into t1. This will rotate the raft log for every 
+# insert. Subsequently purge raft logs on leader and follower and verify table
+# contents and remaining raft logs
+echo "Case 1: Insert on leader and purge on leader and follower";
+echo "Inserting rows into t1 on leader: server_1";
+--let $j = 1
+--disable_query_log
+while ($j <= 5)
+{
+  connection server_1;
+  eval insert into t1 values($j);
+  let $sync_slave_connection= server_2;
+  source include/sync_slave_sql_with_master.inc;
+  let $sync_slave_connection= server_3;
+  source include/sync_slave_sql_with_master.inc;
+
+  --inc $j
+}
+--enable_query_log
+
+connection server_1;
+# Sleep for 10s to expire the logs
+select sleep(10);
+echo "Purging raft logs on leader: server_1";
+source include/show_raft_logs.inc;
+purge raft logs before now();
+source include/show_raft_logs.inc;
+
+echo "Verifying table on leader: server_1";
+select count(*) from t1;
+
+connection server_2;
+echo "Purging raft logs on follower: server_2";
+source include/show_raft_logs.inc;
+purge raft logs before now();
+source include/show_raft_logs.inc;
+
+echo "Verifying table on follower: server_2";
+select count(*) from t1;
+
+connection server_1;
+# Case 2: Insert more rows into leader after purging raft logs. Insert should
+# work fine without any issues. Purge raft logs should continue to work on
+# leader and follower
+echo "Inserting more rows into t1 from leader: server_1";
+--disable_query_log
+while ($j <= 10)
+{
+  connection server_1;
+  eval insert into t1 values($j);
+  let $sync_slave_connection= server_2;
+  source include/sync_slave_sql_with_master.inc;
+  let $sync_slave_connection= server_3;
+  source include/sync_slave_sql_with_master.inc;
+
+  --inc $j
+}
+--enable_query_log
+
+connection server_1;
+echo "Purging raft logs on leader: server_1";
+# Sleep for 10s to expire the logs
+select sleep(10);
+source include/show_raft_logs.inc;
+eval purge raft logs before now();
+source include/show_raft_logs.inc;
+
+echo "Verifying table on leader: server_1";
+select count(*) from t1;
+
+connection server_2;
+echo "Purging raft logs on follower: server_2";
+source include/show_raft_logs.inc;
+purge raft logs before now();
+source include/show_raft_logs.inc;
+
+echo "Verifying table on follower: server_2";
+select count(*) from t1;
+
+# Case 3: Stop slave sql thread on server_2 and insert rows into t1 from leader.
+# Should not be able to purge logs beyond what the sql appliers have applied and
+# purge raft logs on server_2 should include a warning about file being active
+echo "Case 3 : Insert rows on leader after stopping sql_thread on follower. "
+echo "Purge should not delete raft logs which have not yet been applied."
+connection server_1;
+echo "Inserting more rows into t1 from leader: server_1";
+--disable_query_log
+while ($j <= 15)
+{
+  connection server_1;
+  eval insert into t1 values($j);
+  let $sync_slave_connection= server_2;
+  source include/sync_slave_sql_with_master.inc;
+  let $sync_slave_connection= server_3;
+  source include/sync_slave_sql_with_master.inc;
+
+  --inc $j
+}
+--enable_query_log
+
+connection server_2;
+echo "Stopping slave sql_thread on follower: server_2";
+stop slave sql_thread;
+
+connection server_1;
+echo "Inserting more rows into t1 from leader: server_1 after stopping sql_thread on follower: server_2";
+--disable_query_log
+while ($j <= 20)
+{
+  connection server_1;
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+
+connection server_1;
+echo "Purging raft logs on leader: server_1";
+# Sleep for 10s to expire the logs
+select sleep(10);
+source include/show_raft_logs.inc;
+eval purge raft logs before now();
+source include/show_raft_logs.inc;
+
+echo "Verifying table on leader: server_1";
+select count(*) from t1;
+select sleep(10);
+
+connection server_2;
+echo "Purging raft logs on follower: server_2. This should not purge all logs and include a warning";
+source include/show_raft_logs.inc;
+eval purge raft logs before now();
+source include/show_raft_logs.inc;
+
+echo "Verifying table on follower: server_2";
+select count(*) from t1;
+
+# start and sync sql_thread. all rows should be succesfully applied and table
+# content should match with leader
+echo "Starting slave sql_thread on follower: server_2";
+start slave sql_thread;
+
+connection server_1;
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+echo "Purging raft logs on follower: server_2";
+eval purge raft logs before now();
+source include/show_raft_logs.inc;
+
+echo "Verifying table on follower: server_2 after starting sql_thread";
+select count(*) from t1;
+
+# Case 4: Transfer leadership and purge raft logs on new leader and old leader
+echo "Case 4: Transfer leadership and purge raft logs";
+echo "Transfering leadership: server_1 -> server_2";
+let $rpl_raft_leader_number= 2;
+source ../include/raft_promote_to_leader.inc;
+
+connection server_2;
+# Sleep for mysql master to be setup
+select sleep(10);
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+
+echo "Inserting some rows into t1 from leader: server_2";
+--disable_query_log
+while ($j <= 25)
+{
+  connection server_2;
+  eval insert into t1 values($j);
+  let $sync_slave_connection= server_1;
+  source include/sync_slave_sql_with_master.inc;
+  let $sync_slave_connection= server_3;
+  source include/sync_slave_sql_with_master.inc;
+
+  --inc $j
+}
+--enable_query_log
+
+connection server_2;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+eval insert into t1 values($j);
+select count(*) from t1;
+let $sync_slave_connection= server_1;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+# Sleep for 10s to expire the logs
+select sleep(10);
+echo "Purging raft logs on leader: server_2";
+source include/show_raft_logs.inc;
+purge raft logs before now();
+source include/show_raft_logs.inc;
+source include/show_binary_logs.inc;
+
+echo "Verifying table on leader: server_1";
+select count(*) from t1;
+
+connection server_1;
+echo "Purging raft logs on follower: server_1";
+source include/show_raft_logs.inc;
+eval purge raft logs before now();
+source include/show_raft_logs.inc;
+
+echo "Verifying table on follower: server_1";
+select count(*) from t1;
+
+connection server_3;
+echo "Purging raft logs on follower: server_3";
+let $raft_log_name= query_get_value(show slave status, Relay_Log_File, 1);
+eval purge raft logs to '$raft_log_name';
+source include/show_raft_logs.inc;
+
+echo "Verifying table on follower: server_3";
+select count(*) from t1;
+
+connection server_2;
+echo "Transfering leadership: server_1 -> server_2";
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+connection server_1;
+# Sleep for mysql master to be setup
+select sleep(10);
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
