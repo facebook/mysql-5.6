@@ -41,6 +41,7 @@
 #include "mysql_com.h"
 #include "sql/current_thd.h"
 #include "sql/debug_sync.h"
+#include "sql/rpl_applier_reader.h"
 
 class Master_info;
 class Relay_log_info;
@@ -633,6 +634,7 @@ extern ulong get_num_before_image_inconsistencies();
 
 int init_slave_thread(THD *thd, SLAVE_THD_TYPE thd_type);
 
+extern std::weak_ptr<Rpl_applier_reader> global_applier_reader;
 /**
   @} (end of group Replication)
 */

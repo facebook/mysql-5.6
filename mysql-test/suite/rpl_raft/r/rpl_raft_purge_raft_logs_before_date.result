@@ -1,0 +1,341 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+create table t1 (a int primary key);
+"Case 1: Insert on leader and purge on leader and follower"
+"Inserting rows into t1 on leader: server_1"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select sleep(10);
+sleep(10)
+0
+"Purging raft logs on leader: server_1"
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000001	#	No
+binary-logs-13000.000002	#	No
+binary-logs-13000.000003	#	No
+binary-logs-13000.000004	#	No
+binary-logs-13000.000005	#	No
+binary-logs-13000.000006	#	No
+binary-logs-13000.000007	#	No
+binary-logs-13000.000008	#	No
+binary-logs-13000.000009	#	No
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13000.000009 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000008 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000008	#	No
+binary-logs-13000.000009	#	No
+"Verifying table on leader: server_1"
+select count(*) from t1;
+count(*)
+5
+"Purging raft logs on follower: server_2"
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000001	#
+binary-logs-13001.000002	#
+binary-logs-13001.000003	#
+binary-logs-13001.000004	#
+binary-logs-13001.000005	#
+binary-logs-13001.000006	#
+binary-logs-13001.000007	#
+binary-logs-13001.000008	#
+binary-logs-13001.000009	#
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13001.000009 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000008 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000008	#
+binary-logs-13001.000009	#
+"Verifying table on follower: server_2"
+select count(*) from t1;
+count(*)
+5
+"Inserting more rows into t1 from leader: server_1"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Purging raft logs on leader: server_1"
+select sleep(10);
+sleep(10)
+0
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000008	#	No
+binary-logs-13000.000009	#	No
+binary-logs-13000.000010	#	No
+binary-logs-13000.000011	#	No
+binary-logs-13000.000012	#	No
+binary-logs-13000.000013	#	No
+binary-logs-13000.000014	#	No
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13000.000014 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000013 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000013	#	No
+binary-logs-13000.000014	#	No
+"Verifying table on leader: server_1"
+select count(*) from t1;
+count(*)
+10
+"Purging raft logs on follower: server_2"
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000008	#
+binary-logs-13001.000009	#
+binary-logs-13001.000010	#
+binary-logs-13001.000011	#
+binary-logs-13001.000012	#
+binary-logs-13001.000013	#
+binary-logs-13001.000014	#
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13001.000014 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000013 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000013	#
+binary-logs-13001.000014	#
+"Verifying table on follower: server_2"
+select count(*) from t1;
+count(*)
+10
+"Case 3 : Insert rows on leader after stopping sql_thread on follower. "
+echo "Purge should not delete raft logs which have not yet been applied."
+connection server_1
+"Inserting more rows into t1 from leader: server_1"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Stopping slave sql_thread on follower: server_2"
+stop slave sql_thread;
+"Inserting more rows into t1 from leader: server_1 after stopping sql_thread on follower: server_2"
+"Purging raft logs on leader: server_1"
+select sleep(10);
+sleep(10)
+0
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000013	#	No
+binary-logs-13000.000014	#	No
+binary-logs-13000.000015	#	No
+binary-logs-13000.000016	#	No
+binary-logs-13000.000017	#	No
+binary-logs-13000.000018	#	No
+binary-logs-13000.000019	#	No
+binary-logs-13000.000020	#	No
+binary-logs-13000.000021	#	No
+binary-logs-13000.000022	#	No
+binary-logs-13000.000023	#	No
+binary-logs-13000.000024	#	No
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13000.000024 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000023 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000023	#	No
+binary-logs-13000.000024	#	No
+"Verifying table on leader: server_1"
+select count(*) from t1;
+count(*)
+20
+select sleep(10);
+sleep(10)
+0
+"Purging raft logs on follower: server_2. This should not purge all logs and include a warning"
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000013	#
+binary-logs-13001.000014	#
+binary-logs-13001.000015	#
+binary-logs-13001.000016	#
+binary-logs-13001.000017	#
+binary-logs-13001.000018	#
+binary-logs-13001.000019	#
+binary-logs-13001.000020	#
+binary-logs-13001.000021	#
+binary-logs-13001.000022	#
+binary-logs-13001.000023	#
+binary-logs-13001.000024	#
+purge raft logs before now();
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000019	#
+binary-logs-13001.000020	#
+binary-logs-13001.000021	#
+binary-logs-13001.000022	#
+binary-logs-13001.000023	#
+binary-logs-13001.000024	#
+"Verifying table on follower: server_2"
+select count(*) from t1;
+count(*)
+15
+"Starting slave sql_thread on follower: server_2"
+start slave sql_thread;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Purging raft logs on follower: server_2"
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13001.000024 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000023 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000023	#
+binary-logs-13001.000024	#
+"Verifying table on follower: server_2 after starting sql_thread"
+select count(*) from t1;
+count(*)
+20
+"Case 4: Transfer leadership and purge raft logs"
+"Transfering leadership: server_1 -> server_2"
+include/raft_promote_to_leader.inc
+select sleep(10);
+sleep(10)
+0
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+"Inserting some rows into t1 from leader: server_2"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+insert into t1 values(26);
+select count(*) from t1;
+count(*)
+26
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select sleep(10);
+sleep(10)
+0
+"Purging raft logs on leader: server_2"
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13001.000023	#	No
+binary-logs-13001.000024	#	No
+binary-logs-13001.000025	#	No
+binary-logs-13001.000026	#	No
+binary-logs-13001.000027	#	No
+binary-logs-13001.000028	#	No
+binary-logs-13001.000029	#	No
+binary-logs-13001.000030	#	No
+binary-logs-13001.000031	#	No
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13001.000031 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000030 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13001.000030	#	No
+binary-logs-13001.000031	#	No
+show binary logs;
+Log_name	File_size	Encrypted
+binary-logs-13001.000030	#	#
+binary-logs-13001.000031	#	#
+"Verifying table on leader: server_1"
+select count(*) from t1;
+count(*)
+26
+"Purging raft logs on follower: server_1"
+show raft logs;
+Log_name	File_size
+binary-logs-13000.000023	#
+binary-logs-13000.000024	#
+binary-logs-13000.000025	#
+binary-logs-13000.000026	#
+binary-logs-13000.000027	#
+binary-logs-13000.000028	#
+binary-logs-13000.000029	#
+binary-logs-13000.000030	#
+binary-logs-13000.000031	#
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13000.000031 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000030 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size
+binary-logs-13000.000030	#
+binary-logs-13000.000031	#
+"Verifying table on follower: server_1"
+select count(*) from t1;
+count(*)
+26
+"Purging raft logs on follower: server_3"
+purge raft logs to 'binary-logs-13002.000031';
+Warnings:
+Warning	1868	file ./binary-logs-13002.000030 was not purged because it is the active log file.
+show raft logs;
+Log_name	File_size
+binary-logs-13002.000030	#
+binary-logs-13002.000031	#
+"Verifying table on follower: server_3"
+select count(*) from t1;
+count(*)
+26
+"Transfering leadership: server_1 -> server_2"
+include/raft_promote_to_leader.inc
+select sleep(10);
+sleep(10)
+0
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

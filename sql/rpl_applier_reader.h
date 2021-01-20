@@ -83,6 +83,17 @@ class Rpl_applier_reader {
   */
   Log_event *read_next_event();
 
+  /**
+   Updates the index file cordinates in relay log info. All required locks need
+   to be acquired by the caller.
+
+  @param rli Relay log info that needs to be updated
+
+  @retval 0 success
+  @retval non-zero failure
+  */
+  int update_relay_log_coordinates(Relay_log_info *rli);
+
  private:
   Relaylog_file_reader m_relaylog_file_reader;
   Relay_log_info *m_rli = nullptr;
