@@ -198,7 +198,7 @@ bool reset_seconds_behind_master = true;
 
 const char *relay_log_index = nullptr;
 const char *relay_log_basename = nullptr;
-
+std::weak_ptr<Rpl_applier_reader> global_applier_reader;
 /*
   MTS load-ballancing parameter.
   Max length of one MTS Worker queue. The value also determines the size
@@ -7384,7 +7384,8 @@ extern "C" void *handle_slave_sql(void *arg) {
   bool mts_inited = false;
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   Commit_order_manager *commit_order_mngr = nullptr;
-  Rpl_applier_reader applier_reader(rli);
+  auto applier_reader = std::make_shared<Rpl_applier_reader>(rli);
+  global_applier_reader = applier_reader;
   Relay_log_info::enum_priv_checks_status priv_check_status =
       Relay_log_info::enum_priv_checks_status::SUCCESS;
 
@@ -7607,7 +7608,7 @@ extern "C" void *handle_slave_sql(void *arg) {
     rli->trans_retries = 0;  // start from "no error"
     DBUG_PRINT("info", ("rli->trans_retries: %lu", rli->trans_retries));
 
-    if (applier_reader.open(&errmsg)) {
+    if (applier_reader->open(&errmsg)) {
       rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR, "%s", errmsg);
       goto err;
     }
@@ -7711,7 +7712,7 @@ extern "C" void *handle_slave_sql(void *arg) {
 
       // read next event
       mysql_mutex_lock(&rli->data_lock);
-      ev = applier_reader.read_next_event();
+      ev = applier_reader->read_next_event();
       mysql_mutex_unlock(&rli->data_lock);
 
       // set additional context as needed by the scheduler before execution
@@ -7721,7 +7722,7 @@ extern "C" void *handle_slave_sql(void *arg) {
         rli->current_mts_submode->set_multi_threaded_applier_context(*rli, *ev);
 
       // try to execute the event
-      switch (exec_relay_log_event(thd, rli, &applier_reader, ev)) {
+      switch (exec_relay_log_event(thd, rli, applier_reader.get(), ev)) {
         case SLAVE_APPLY_EVENT_AND_UPDATE_POS_OK:
           /** success, we read the next event. */
           /** fall through */
@@ -7802,7 +7803,7 @@ extern "C" void *handle_slave_sql(void *arg) {
     mysql_mutex_lock(&rli->run_lock);
     /* We need data_lock, at least to wake up any waiting source_pos_wait() */
     mysql_mutex_lock(&rli->data_lock);
-    applier_reader.close();
+    applier_reader->close();
     assert(rli->slave_running == 1);  // tracking buffer overrun
     /* When source_pos_wait() wakes up it will check this and terminate */
     rli->slave_running = 0;

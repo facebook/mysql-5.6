@@ -3541,7 +3541,7 @@ bool purge_raft_logs(THD *thd, const char *to_log) {
 
   // Lock requirement and ordering based on SQL appliers next_event loop
   mysql_mutex_lock(&rli->data_lock);
-
+  rli->relay_log.lock_index();
   char search_file_name[FN_REFLEN];
   mysql_bin_log.make_log_name(search_file_name, to_log);
 
@@ -3555,14 +3555,17 @@ bool purge_raft_logs(THD *thd, const char *to_log) {
   bool error = purge_error_message(
       thd, rli->relay_log.purge_logs(search_file_name,
                                      /*included=*/false,
-                                     /*need_lock_index=*/true,
+                                     /*need_lock_index=*/false,
                                      /*need_update_threads=*/true,
                                      /*decrease_log_space=*/nullptr,
                                      /*auto_purge=*/false,
                                      rli->get_group_relay_log_name()));
 
-  // TODO(pgl) - Add code to fix relay log index file.
+  if (!error) {
+    error = update_relay_log_cordinates(rli);
+  }
 
+  rli->relay_log.unlock_index();
   mysql_mutex_unlock(&rli->data_lock);
   unlock_master_info(active_mi);
 
@@ -3599,6 +3602,7 @@ bool purge_raft_logs_before_date(THD *thd, time_t purge_time) {
 
   // Lock requirement and ordering based SQL appliers next_event loop
   mysql_mutex_lock(&rli->data_lock);
+  rli->relay_log.lock_index();
 
   // Note that we pass max_log as group_relay_log_name. This is because we
   // should not purge anything that is still needed by sql appliers.
@@ -3612,12 +3616,39 @@ bool purge_raft_logs_before_date(THD *thd, time_t purge_time) {
                purge_time,
                /*auto_purge=*/false,
                /*stop_purge=*/false,
-               /*need_lock_index=*/true, rli->get_group_relay_log_name()));
+               /*need_lock_index=*/false, rli->get_group_relay_log_name()));
 
-  // TODO(pgl) - Add code to fix relay log index file.
-
+  if (!error) {
+    error = update_relay_log_cordinates(rli);
+  }
+  rli->relay_log.unlock_index();
   mysql_mutex_unlock(&rli->data_lock);
   unlock_master_info(active_mi);
+  return error;
+}
+
+/**
+  Updates the index file cordinates in relay log info. All required locks need
+  to be acquired by the caller
+
+  @param rli Relay log info that needs to be updated
+
+  @retval FALSE success
+  @retval TRUE failure
+*/
+bool update_relay_log_cordinates(Relay_log_info *rli) {
+  auto applier_reader = global_applier_reader.lock();
+  if (!applier_reader) return false;
+  int error = applier_reader->update_relay_log_coordinates(rli);
+
+  if (error) {
+    if (binlog_error_action == ABORT_SERVER ||
+        binlog_error_action == ROLLBACK_TRX) {
+      exec_binlog_error_action_abort(
+          "Could not update relay log position "
+          "for applier threads. Aborting server");
+    }
+  }
   return error;
 }
 
@@ -10866,7 +10897,6 @@ static int register_entities_with_raft() {
   // Plugin will make that the default file to write to
   err = active_mi->rli->relay_log.register_log_entities(
       thd, /*context=*/0, /*need_lock=*/true, /*is_relay_log=*/true);
-
   unlock_master_info(active_mi);
   if (err) {
     // NO_LINT_DEBUG

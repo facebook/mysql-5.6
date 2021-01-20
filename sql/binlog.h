@@ -1589,6 +1589,7 @@ bool purge_source_logs_to_file(THD *thd, const char *to_log);
 bool purge_source_logs_before_date(THD *thd, time_t purge_time);
 bool purge_raft_logs(THD *thd, const char *to_log);
 bool purge_raft_logs_before_date(THD *thd, time_t purge_time);
+bool update_relay_log_cordinates(Relay_log_info *rli);
 bool show_raft_logs(THD *thd);
 bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool mysql_show_binlog_events(THD *thd);
