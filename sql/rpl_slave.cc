@@ -185,7 +185,7 @@ bool reset_seconds_behind_master = true;
 
 const char *relay_log_index = nullptr;
 const char *relay_log_basename = nullptr;
-
+std::weak_ptr<Rpl_applier_reader> global_applier_reader;
 /*
   MTS load-ballancing parameter.
   Max length of one MTS Worker queue. The value also determines the size
@@ -7213,8 +7213,8 @@ extern "C" void *handle_slave_sql(void *arg) {
   bool mts_inited = false;
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   Commit_order_manager *commit_order_mngr = nullptr;
-  Rpl_applier_reader applier_reader(rli);
-
+  auto applier_reader = std::make_shared<Rpl_applier_reader>(rli);
+  global_applier_reader = applier_reader;
   // needs to call my_thread_init(), otherwise we get a coredump in DBUG_ stuff
   my_thread_init();
   DBUG_ENTER("handle_slave_sql");
@@ -7404,7 +7404,7 @@ extern "C" void *handle_slave_sql(void *arg) {
   rli->trans_retries = 0;  // start from "no error"
   DBUG_PRINT("info", ("rli->trans_retries: %lu", rli->trans_retries));
 
-  if (applier_reader.open(&errmsg)) {
+  if (applier_reader->open(&errmsg)) {
     rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR, "%s", errmsg);
     goto err;
   }
@@ -7477,7 +7477,7 @@ extern "C" void *handle_slave_sql(void *arg) {
       saved_skip = 0;
     }
 
-    if (exec_relay_log_event(thd, rli, &applier_reader)) {
+    if (exec_relay_log_event(thd, rli, applier_reader.get())) {
       DBUG_PRINT("info", ("exec_relay_log_event() failed"));
 
       // do not scare the user if SQL thread was simply killed or stopped
@@ -7541,7 +7541,7 @@ err:
   mysql_mutex_lock(&rli->run_lock);
   /* We need data_lock, at least to wake up any waiting master_pos_wait() */
   mysql_mutex_lock(&rli->data_lock);
-  applier_reader.close();
+  applier_reader->close();
   DBUG_ASSERT(rli->slave_running == 1);  // tracking buffer overrun
   /* When master_pos_wait() wakes up it will check this and terminate */
   rli->slave_running = 0;
@@ -7598,7 +7598,6 @@ err:
   */
   mysql_thread_set_psi_THD(nullptr);
   delete thd;
-
   /*
    Note: the order of the broadcast and unlock calls below (first broadcast,
    then unlock) is important. Otherwise a killer_thread can execute between the
