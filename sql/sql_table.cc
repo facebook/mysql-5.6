@@ -105,9 +105,11 @@ static int mysql_prepare_create_table(
             false otherwise
 */
 static bool should_check_table_for_primary_key(
-    THD *thd, HA_CREATE_INFO *create_info, const char *db_name)
+    THD *thd, HA_CREATE_INFO *create_info, const char *db_name,
+    bool ignore_block_create_no_pk_flag)
 {
-  if (!thd->variables.block_create_no_primary_key ||
+  if (ignore_block_create_no_pk_flag ||
+      !thd->variables.block_create_no_primary_key ||
       (create_info->options & HA_LEX_CREATE_TMP_TABLE) ||
       strcmp(db_name, "mysql") == 0 ||
       strcmp(db_name, "mtr") == 0)
@@ -4703,6 +4705,11 @@ static void sp_prepare_create_field(THD *thd, Create_field *sql_field)
   @param no_ha_table         Indicates that only .FRM file (and PAR file if table
                              is partitioned) needs to be created and not a table
                              in the storage engine.
+  @param ignore_block_create_no_pk_flag
+                              Set to true if we need to ignore
+                              block_create_no_pk_flag. This is set true
+                              from alter table if the previous table has no pk.
+
   @param[out] is_trans       Identifies the type of engine where the table
                              was created: either trans or non-trans.
   @param[out] key_info       Array of KEY objects describing keys in table
@@ -4730,6 +4737,7 @@ bool create_table_impl(THD *thd,
                        bool internal_tmp_table,
                        uint select_field_count,
                        bool no_ha_table,
+                       bool ignore_block_create_no_pk_flag,
                        bool *is_trans,
                        KEY **key_info,
                        uint *key_count)
@@ -4766,7 +4774,8 @@ bool create_table_impl(THD *thd,
     DBUG_RETURN(TRUE);
   }
   bool validate_primary_key_existence =
-      should_check_table_for_primary_key(thd, create_info, db);
+      should_check_table_for_primary_key(
+        thd, create_info, db, ignore_block_create_no_pk_flag);
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   partition_info *part_info= thd->work_part_info;
 
@@ -5272,6 +5281,7 @@ bool mysql_create_table_no_lock(THD *thd,
 
   return create_table_impl(thd, db, table_name, table_name, path, create_info,
                            alter_info, false, select_field_count, false,
+                           false /*ignore_block_create_no_primary_key*/,
                            is_trans, &not_used_1, &not_used_2);
 }
 
@@ -8824,12 +8834,20 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
   bool varchar= create_info->varchar;
 
   tmp_disable_binlog(thd);
+
+  // If original table has no primary key, then block_create_no_primary_key
+  // shouldn't affect any alter.
+  bool ignore_block_create_no_primary_key = false;
+  if (table_list->table->s->primary_key == MAX_KEY)
+    ignore_block_create_no_primary_key = true;
+
   error= create_table_impl(thd, alter_ctx.new_db, alter_ctx.tmp_name,
                            alter_ctx.table_name,
                            alter_ctx.get_tmp_path(),
                            create_info, alter_info,
-                           true, 0, true, NULL,
-                           &key_info, &key_count);
+                           true, 0, true,
+                           ignore_block_create_no_primary_key,
+                           NULL, &key_info, &key_count);
   reenable_binlog(thd);
   thd->abort_on_warning= false;
   if (error)
