@@ -1,0 +1,38 @@
+--source include/have_rocksdb.inc
+--source ../include/bypass_create_table.inc
+
+--echo # Range query, SECONDARY KEY
+--echo # Reverse Column family + ascending
+
+--let query_order=ASC
+--let query_table=link_table
+--source bypass_select_range_sk.inc
+
+--echo # Reverse Column family + descending
+
+--let query_order=DESC
+--let query_table=link_table
+--source bypass_select_range_sk.inc
+
+--echo # forward column family + ascending
+
+--let query_order=ASC
+--let query_table=link_table2
+--source bypass_select_range_sk.inc
+
+--echo # forward column family + descending
+
+--let query_order=DESC
+--let query_table=link_table2
+--source bypass_select_range_sk.inc
+
+DROP TABLE count_table;
+DROP TABLE link_table;
+DROP TABLE link_table2;
+DROP TABLE id_table;
+DROP TABLE node_table;
+DROP TABLE link_table5;
+DROP TABLE link_table5_rev;
+DROP TABLE link_table3;
+DROP TABLE link_table6;
+DROP TABLE link_table4;
