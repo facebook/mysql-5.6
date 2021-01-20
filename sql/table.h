@@ -58,7 +58,7 @@
 #include "sql/sql_list.h"
 #include "sql/sql_plist.h"
 #include "sql/sql_plugin_ref.h"
-#include "sql/sql_sort.h"  // Sort_result
+#include "sql/sql_sort.h"  // Filesort_info
 #include "thr_lock.h"
 #include "typelib.h"
 
