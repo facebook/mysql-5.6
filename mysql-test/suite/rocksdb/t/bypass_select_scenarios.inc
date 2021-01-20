@@ -9,1150 +9,183 @@ SELECT variable_value into @executed_start
 FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 
-# Range query, flag = 0
---echo # Reverse Column family + ascending
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type ASC, visibility ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type ASC, visibility ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
---echo # Reverse Column family + descending
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type DESC, visibility DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type DESC, visibility DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
---echo # column family + ascending
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type ASC, visibility ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type ASC, visibility ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
---echo # column family + descending
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type DESC, visibility DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type DESC, visibility DESC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
-
---echo # column family + ascending
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 12
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 9 AND TIME <= 11
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 7 AND TIME <= 8
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 5 AND id1 = 1 AND visibility = 4 AND
-      TIME >= 10 AND TIME <= 15
-ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1
-ORDER BY visibility ASC LIMIT 0, 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type ASC, visibility ASC LIMIT 0, 1000;
-
-SELECT id1, id2, link_type, visibility, data, TIME, version
-FROM link_table2 FORCE INDEX (id1_type)
-WHERE id1 = 1
-ORDER BY link_type ASC, visibility ASC LIMIT 0, 1000;
-
---echo # Range query, flag = 1
---echo # Ascending
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 1 AND visibility = 1
-ORDER BY id2 ASC LIMIT 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 1 AND visibility = 2
-ORDER BY id2 ASC LIMIT 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 1 AND visibility = 3
-ORDER BY id2 ASC LIMIT 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 2 AND visibility = 1
-ORDER BY id2 ASC LIMIT 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 2 AND visibility = 2
-ORDER BY id2 ASC LIMIT 1000;
-
---echo # Dscending
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 1 AND visibility = 1
-ORDER BY id2 DESC LIMIT 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 1 AND visibility = 2
-ORDER BY id2 DESC LIMIT 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 1 AND visibility = 3
-ORDER BY id2 DESC LIMIT 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 2 AND visibility = 1
-ORDER BY id2 DESC LIMIT 1000;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
-FROM link_table5 FORCE INDEX (PRIMARY)
-WHERE link_type = 1 AND id1 = 2 AND visibility = 2
-ORDER BY id2 DESC LIMIT 1000;
-
 --echo # Range query, binary key
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table4 FORCE INDEX (id1_type)
 WHERE link_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
       visibility = 1  AND time >= 0 AND time <= 4294967295
 ORDER BY time DESC, id2 DESC LIMIT 0, 1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table4 FORCE INDEX (id1_type)
 WHERE link_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
       visibility = 1  AND time >= 0 AND time <= 4294967295
 ORDER BY time ASC, id2 ASC LIMIT 0, 1000;
+--source ../include/verify_bypass_query.inc
 
 --echo # Point query, flag = 0
+let bypass_query=
 SELECT /*+ bypass */ id, type, version, update_time, data
 FROM node_table FORCE INDEX (PRIMARY)
-WHERE id IN (1, 2, 3, 4, 5) AND type = 1;
+WHERE id IN (1, 2, 3, 4, 5) AND type = 1
+ORDER BY type, id;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id, type, version, update_time, data
 FROM node_table FORCE INDEX (PRIMARY)
 WHERE id IN (1) AND type = 1;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id, type, version, update_time, data
 FROM node_table FORCE INDEX (PRIMARY)
-WHERE id = 2 AND type = 1;
+WHERE id = 2 AND type = 1
+ORDER BY type, id;
+--source ../include/verify_bypass_query.inc
 
 --echo # Point query, flag = 1
+let bypass_query=
 SELECT /*+ bypass */ id, type, row_created_time, is_deleted
 FROM id_table FORCE INDEX (PRIMARY)
-WHERE id IN (1, 2, 3, 4, 5);
+WHERE id IN (1, 2, 3, 4, 5)
+ORDER BY id;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id, type, row_created_time, is_deleted
 FROM id_table FORCE INDEX (PRIMARY)
 WHERE id IN (1);
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id, type, row_created_time, is_deleted
 FROM id_table FORCE INDEX (PRIMARY)
 WHERE id = 1;
+--source ../include/verify_bypass_query.inc
 
 --echo # Point query, flag = 2
+let bypass_query=
 SELECT /*+ bypass */ id, type, link_type, count, TIME, version
 FROM count_table
 WHERE id = 2 AND link_type = 1;
+--source ../include/verify_bypass_query.inc
 
 --echo # Bugs found when debugging real production scenarios
 # pk_unpack_buf unassigned when unpack_pk=false and unpack_value=true
 # PinnableSlice destroyed before send_row
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table3 FORCE INDEX (id1_type)
 WHERE link_type = 1 AND id1 = 1 AND visibility = 1
       AND time >= 0 AND time <= 4294967295
 ORDER BY time DESC, id2 DESC LIMIT 0, 10000;
+--source ../include/verify_bypass_query.inc
 
 # Partial keys should not be unpacked
-SELECT /*+ bypass */ data from link_table6 FORCE INDEX (id1_type) where id1=1;
+# BUG: This is currently broken
+#let bypass_query=
+#SELECT /*+ bypass */ data from link_table6 FORCE INDEX (id1_type) where id1=1;
+#--source ../include/verify_bypass_query.inc
 
 # time >= ONLY crashes
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 1 AND id1 = 1 AND visibility = 0 AND time >= 1551074583 AND
       time >= 0 AND time <= 4294967295
 ORDER BY time DESC, id2 DESC LIMIT 0, 500;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 1 AND id1 = 1 AND visibility = 0 AND time >= 1551074583
 ORDER BY time DESC, id2 DESC LIMIT 0, 500;
+--source ../include/verify_bypass_query.inc
 
 # IN expression multiplexing
+let bypass_query=
 SELECT /*+ bypass */ id1, id1_type, id2, id2_type FROM link_table
-WHERE link_type=3 and id1 in (1, 2, 3);
+WHERE link_type=3 and id1 in (1, 2, 3)
+ORDER BY link_type, id1, id2;
+--source ../include/verify_bypass_query.inc
 
 # IN expression multiplexing in middle
+let bypass_query=
 SELECT /*+ bypass */ id1, id1_type, id2, id2_type from link_table
-WHERE link_type=3 and id1 IN (1, 2, 3) and id2=1;
+WHERE link_type=3 and id1 IN (1, 2, 3) and id2=1
+ORDER BY link_type, id1, id2;
+--source ../include/verify_bypass_query.inc
 
 # IN expression with multiple IN
+let bypass_query=
 SELECT /*+ bypass */ id1, id1_type, id2, id2_type from link_table
-WHERE link_type=3 and id1 IN (1, 2, 3) and id2 IN (3, 4, 5);
+WHERE link_type=3 and id1 IN (1, 2, 3) and id2 IN (3, 4, 5)
+ORDER BY link_type, id1, id2;
+--source ../include/verify_bypass_query.inc
 
 # Decoding varchar with extra padding spaces from index
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, data, version, time
 FROM link_table FORCE INDEX (id1_type)
 WHERE id1=9 and link_type=5;
+--source ../include/verify_bypass_query.inc
 
 # Point query with duplicate items
+let bypass_query=
 SELECT /*+ bypass */ id, type, version, update_time, data
 FROM node_table FORCE INDEX (PRIMARY)
 WHERE id IN (5, 5, 5, 5, 5) AND type = 1;
+--source ../include/verify_bypass_query.inc
 
 # Point query with reverse order
+let bypass_query=
 SELECT /*+ bypass */ id, type, version, update_time, data
 FROM node_table FORCE INDEX (PRIMARY)
 WHERE id IN (5, 4, 3, 2, 1) AND type = 1;
+--source ../include/verify_bypass_query.inc
 
 # Point query with correct order
+let bypass_query=
 SELECT /*+ bypass */ id, type, version, update_time, data
 FROM node_table FORCE INDEX (PRIMARY)
 WHERE id IN (5, 4, 3, 2, 1) AND type = 1 ORDER BY id DESC;
+--source ../include/verify_bypass_query.inc
 
 # Range query with bloom filter
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, data, time, version FROM link_table5
 WHERE link_type=1 and id1=2 and id2 > 1;
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, data, time, version FROM link_table5
 WHERE link_type=1 and id1=2 and id2 >= 1;
+--source ../include/verify_bypass_query.inc
 
 --echo # Range query with PK key only
+let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
 WHERE link_type=1 and id1=2 and id2=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
 WHERE link_type=1 and id1=2 and id2=1;
+--source ../include/verify_bypass_query.inc
 
 --echo # Range query with PK key only with filters
+let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
 WHERE link_type=1 and id1=2 and id2 > 1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
 WHERE link_type=1 and id1=2 and id2 >= 1;
+--source ../include/verify_bypass_query.inc
 
 # Prefix query returning large rows causing reallocation m_row_buf
 # which lead to stale pointers in m_send_mapping.first
@@ -1187,10 +220,12 @@ insert into link_table7 values (9223372036854775807, 100, 1223372036854775803,
   '0123456789012345678901234567890123456789012345678901234567890123456789'
   '0123456789012345678901234567890', 1234563, 9223372036854775803);
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table7 FORCE INDEX (id1_type)
 WHERE link_type = 9223372036854775807  and id1 = 9223372036854775807
 and visibility = 0 ORDER BY time ASC, id2 ASC limit 0, 1000;
+--source ../include/verify_bypass_query.inc
 
 DROP TABLE link_table7;
 
@@ -1212,9 +247,11 @@ CREATE TABLE `link_table8` (
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 insert into link_table8 values (1, 0x03030303, 1, 0, 100, 0, 'data1', 0, 0);
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table8 FORCE INDEX (PRIMARY) WHERE link_type = 100 and id1 = 1
 ORDER BY id2 ASC limit 0, 1000;
+--source ../include/verify_bypass_query.inc
 
 DROP TABLE link_table8;
 
@@ -1225,14 +262,12 @@ connect (con1,localhost,root,,);
 --echo # Switch to connection con1
 connection con1;
 
-SHOW STATUS LIKE 'rows_%';
-
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
 FROM link_table5 FORCE INDEX (PRIMARY)
 WHERE link_type = 1 AND id1 = 1 AND visibility = 1
 ORDER BY id2 ASC LIMIT 1;
-
-SHOW STATUS LIKE 'rows_%';
+--source ../include/verify_bypass_query.inc
 
 --echo # Switch back to default connection
 connection default;
@@ -1253,6 +288,7 @@ DROP TABLE link_table2;
 DROP TABLE id_table;
 DROP TABLE node_table;
 DROP TABLE link_table5;
+DROP TABLE link_table5_rev;
 DROP TABLE link_table3;
 DROP TABLE link_table6;
 DROP TABLE link_table4;

@@ -240,148 +240,215 @@ SELECT @bypass_queries_range_new - @bypass_queries_range_old;
 SELECT @bypass_rows_sent_new - @bypass_rows_sent_old;
 
 --echo # Point query
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
+--source ../include/verify_bypass_query.inc
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2 IN (2, 3, 4) AND link_type=3;
+--source ../include/verify_bypass_query.inc
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2 IN (2) AND link_type=3;
+--source ../include/verify_bypass_query.inc
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1 IN (1) AND id2 IN (2) AND link_type=3;
+--source ../include/verify_bypass_query.inc
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1 IN (1, 2) AND id2 IN (2, 3, 4) AND link_type=3;
+--source ../include/verify_bypass_query.inc
 
 --echo # Prefix range query
 
 --echo # Prefix range query with SK
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND time = 10
 ORDER BY TIME DESC LIMIT 10;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND time = 10
 ORDER BY TIME ASC LIMIT 10;
+--source ../include/verify_bypass_query.inc
 
 --echo # Prefix range query with SK with limits
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 0;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 0,10;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 0,5;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 0,1;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,0;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,10;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,5;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,1;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,0;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5,10;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5,5;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5,1;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5,0;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10,10;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10,5;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10,1;
+--source ../include/verify_bypass_query.inc
 
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10,0;
+--source ../include/verify_bypass_query.inc
 
 --echo # Prefix range query with PK
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type FROM link_table FORCE INDEX (PRIMARY)
 WHERE link_type=3 AND id1=1 ORDER BY id2 DESC;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type FROM link_table FORCE INDEX (PRIMARY)
 WHERE link_type=3 AND id1=1 ORDER BY id2 ASC;
+--source ../include/verify_bypass_query.inc
 
 --echo # Prefix range query with PK + value
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (PRIMARY)
 WHERE link_type=3 AND id1=1 ORDER BY id2 DESC;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (PRIMARY)
 WHERE link_type=3 AND id1=1 ORDER BY id2 ASC;
+--source ../include/verify_bypass_query.inc
 
 --echo # Transaction
 BEGIN;
@@ -412,8 +479,10 @@ SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=x'01';
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=NULL;
 
 --echo # Full table scan
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1_type=1;
+--source ../include/verify_bypass_query.inc
 
 --echo MultiGet
 
@@ -421,26 +490,44 @@ select @@rocksdb_select_bypass_multiget_min into
     @save_rocksdb_select_bypass_multiget_min;
 set global rocksdb_select_bypass_multiget_min=0;
 
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
 WHERE id1=1 and id2 IN (1) and link_type=3;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
-WHERE id1=1 and id2 IN (1, 2, 3) and link_type=3;
+WHERE id1=1 and id2 IN (1, 2, 3) and link_type=3 ORDER BY link_type, id1, id2;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
-WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3
+ORDER BY link_type, id1, id2;
+--source ../include/verify_bypass_query.inc
 
 BEGIN;
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
-WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3
+ORDER BY link_type, id1, id2;
+--source ../include/verify_bypass_query.inc
 ROLLBACK;
 
 BEGIN;
 UPDATE link_table set data="cde" WHERE id1=1 and id2=2 and link_type = 3;
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
-WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3
+ORDER BY link_type, id1, id2;
+--source ../include/verify_bypass_query.inc
 ROLLBACK;
 
+let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
-WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3
+ORDER BY link_type, id1, id2;
+--source ../include/verify_bypass_query.inc
 
 set global rocksdb_select_bypass_multiget_min=
     @save_rocksdb_select_bypass_multiget_min;
@@ -482,6 +569,7 @@ DROP TABLE link_table2;
 DROP TABLE id_table;
 DROP TABLE node_table;
 DROP TABLE link_table5;
+DROP TABLE link_table5_rev;
 DROP TABLE link_table6;
 DROP TABLE link_table4;
 
