@@ -407,6 +407,7 @@ class Rdb_string_writer {
   uchar *end() { return m_data.data() + m_pos; }
   const uchar *end() const { return m_data.data() + m_pos; }
   size_t get_current_pos() const { return m_pos; }
+  bool is_empty() const { return m_pos == 0; }
 
   void write_uint8_at(const size_t pos, const uint new_val) {
     // This function will only overwrite what was written
@@ -438,6 +439,54 @@ class Rdb_string_writer {
 
   rocksdb::Slice to_slice() {
     return rocksdb::Slice(reinterpret_cast<char *>(m_data.data()), m_pos);
+  }
+
+  bool operator==(const Rdb_string_writer &rhs) const {
+    if (m_pos == rhs.m_pos) {
+      if (m_pos == 0) {
+        // Both empty
+        return true;
+      }
+      return memcmp(ptr(), rhs.ptr(), m_pos) == 0;
+    }
+
+    return false;
+  }
+
+  bool operator>=(const Rdb_string_writer &rhs) const {
+    return cmp(*this, rhs) >= 0;
+  }
+  bool operator<=(const Rdb_string_writer &rhs) const {
+    return cmp(*this, rhs) <= 0;
+  }
+  bool operator>(const Rdb_string_writer &rhs) const {
+    return cmp(*this, rhs) > 0;
+  }
+  bool operator<(const Rdb_string_writer &rhs) const {
+    return cmp(*this, rhs) < 0;
+  }
+
+  static int cmp(const Rdb_string_writer &lhs, const Rdb_string_writer &rhs) {
+    size_t l_size = lhs.get_current_pos();
+    size_t r_size = rhs.get_current_pos();
+    size_t size = std::min(l_size, r_size);
+
+    // Only compare if both of them are not empty
+    if (size > 0) {
+      int diff = memcmp(lhs.ptr(), rhs.ptr(), size);
+      if (diff) {
+        return diff;
+      }
+    }
+
+    // The first min(l_size, r_size) bytes are equal, compare length
+    if (l_size > r_size) {
+      return 1;
+    } else if (l_size < r_size) {
+      return -1;
+    } else {
+      return 0;
+    }
   }
 };
 

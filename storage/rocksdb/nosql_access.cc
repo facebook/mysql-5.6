@@ -657,6 +657,7 @@ class select_exec {
            sizeof(m_field_index_to_where));
     m_unsupported = false;
     m_error_msg = "UNKNOWN";
+    m_start_inclusive = m_end_inclusive = true;
   }
 
   bool run();
@@ -727,14 +728,26 @@ class select_exec {
   };
 
   struct key_index_tuple_writer {
-    Rdb_string_writer writer;  // The KeyIndexTuple
-    uint eq_len;               // Length of prefix key
+    Rdb_string_writer start;  // Start KeyIndexTuple
+    uint eq_len;              // Length of prefix key
+    Rdb_string_writer end;    // End KeyIndexTuple, only used for ranges
 
-    rocksdb::Slice to_key_slice() { return writer.to_slice(); }
+    // Get the slice for packed key - point query only
+    rocksdb::Slice get_key_slice() {
+      assert(end.is_empty());
+      return start.to_slice();
+    }
 
-    rocksdb::Slice to_eq_slice() {
-      assert(eq_len <= writer.get_current_pos());
-      return rocksdb::Slice(reinterpret_cast<char *>(writer.ptr()), eq_len);
+    // Get the start range for packed key - range query only
+    rocksdb::Slice get_start_key_slice() { return start.to_slice(); }
+
+    // Get the end range for packed key - range query only
+    rocksdb::Slice get_end_key_slice() { return end.to_slice(); }
+
+    // Return slice for prefix range query
+    rocksdb::Slice get_eq_slice() {
+      assert(eq_len <= start.get_current_pos());
+      return rocksdb::Slice(reinterpret_cast<char *>(start.ptr()), eq_len);
     }
   };
 
@@ -751,7 +764,7 @@ class select_exec {
   bool run_sk_point_query(txn_wrapper *txn);
   bool pack_index_tuple(uint key_part_no, Rdb_string_writer *writer,
                         const Field *field, Item *item);
-  bool pack_cond(uint key_part_no, const sql_cond &cond);
+  bool pack_cond(uint key_part_no, const sql_cond &cond, bool is_start = true);
   bool send_row();
   bool use_bloom_filter(rocksdb::Slice eq_slice);
 
@@ -843,6 +856,10 @@ class select_exec {
   // LIMIT lower bound
   // For LIMIT offset, row_count, this is offset
   uint64_t m_offset_limit;
+
+  // Whether the range query (begin, end) is inclusive in begin/end
+  bool m_start_inclusive;
+  bool m_end_inclusive;
 };
 
 bool select_exec::pack_index_tuple(uint key_part_no, Rdb_string_writer *writer,
@@ -915,16 +932,21 @@ bool select_exec::pack_index_tuple(uint key_part_no, Rdb_string_writer *writer,
   return false;
 }
 
-bool inline select_exec::pack_cond(uint key_part_no, const sql_cond &cond) {
-  if (likely(m_key_index_tuples.size() == 1)) {
-    // Optimize for the common case
-    if (pack_index_tuple(key_part_no, &m_key_index_tuples[0].writer, cond.field,
-                         cond.val_item)) {
-      return true;
+bool inline select_exec::pack_cond(uint key_part_no, const sql_cond &cond,
+                                   bool is_start) {
+  if (is_start) {
+    // Start key in range query or key in point query
+    for (auto &entry : m_key_index_tuples) {
+      if (pack_index_tuple(key_part_no, &entry.start, cond.field,
+                           cond.val_item)) {
+        return true;
+      }
     }
   } else {
-    for (auto &writer : m_key_index_tuples) {
-      if (pack_index_tuple(key_part_no, &writer.writer, cond.field,
+    // End key in range query
+    for (auto &entry : m_key_index_tuples) {
+      assert(!entry.end.is_empty());
+      if (pack_index_tuple(key_part_no, &entry.end, cond.field,
                            cond.val_item)) {
         return true;
       }
@@ -973,8 +995,8 @@ bool INLINE_ATTR select_exec::scan_where() {
 
   // We start with just one KeyIndexTuple to pack
   m_key_index_tuples.emplace_back();
-  m_key_index_tuples[0].writer.reserve(m_key_def->max_storage_fmt_length());
-  m_key_index_tuples[0].writer.write_uint32(m_key_def->get_index_number());
+  m_key_index_tuples[0].start.reserve(m_key_def->max_storage_fmt_length());
+  m_key_index_tuples[0].start.write_uint32(m_key_def->get_index_number());
 
   // Scan the index sequentially, and pack the prefix key as we go
   // We stop building the the key if we see a gap, rest become filters.
@@ -1039,10 +1061,11 @@ bool INLINE_ATTR select_exec::scan_where() {
         std::vector<key_index_tuple_writer> new_writers;
         new_writers.reserve(KEY_WRITER_DEFAULT_SIZE);
         for (uint i = 0; i < prev_size; ++i) {
+          assert(m_key_index_tuples[i].end.is_empty());
           for (uint j = 1; j < in_elem_count; ++j) {
             new_writers.emplace_back(m_key_index_tuples[i]);
             if (pack_index_tuple(key_part_no,
-                                 &new_writers[new_writers.size() - 1].writer,
+                                 &new_writers[new_writers.size() - 1].start,
                                  cond.field, args[j])) {
               return true;
             }
@@ -1059,37 +1082,46 @@ bool INLINE_ATTR select_exec::scan_where() {
       }
 
       // Process >, >=, <, <=
-
       if (eq_only) {
         // We now start to build range query initial position
         // Remeber eq_len at this point - this is the prefix
         // However we do need to keep going
         for (uint i = 0; i < m_key_index_tuples.size(); ++i) {
           m_key_index_tuples[i].eq_len =
-              m_key_index_tuples[i].writer.get_current_pos();
+              m_key_index_tuples[i].start.get_current_pos();
         }
         eq_only = false;
       }
 
-      // >, >=, <, <=
-      int begin_id = -1, end_id = -1;
+      // Figure out (start, end) range for range query
+      int start_id = -1, end_id = -1;
+      bool start_inclusive = false, end_inclusive = false;
       if (cond.op_type == Item_func::GT_FUNC ||
           cond.op_type == Item_func::GE_FUNC) {
-        begin_id = index_pair.first;
+        start_id = index_pair.first;
+        if (cond.op_type == Item_func::GE_FUNC) {
+          start_inclusive = true;
+        }
       } else {
         end_id = index_pair.first;
+        if (cond.op_type == Item_func::LE_FUNC) {
+          end_inclusive = true;
+        }
       }
 
       if (index_pair.second >= 0) {
         auto &second_cond = where_list[index_pair.second];
         if (second_cond.op_type == Item_func::GT_FUNC ||
             second_cond.op_type == Item_func::GE_FUNC) {
-          if (begin_id != -1) {
+          if (start_id != -1) {
             m_unsupported = true;
             m_error_msg = "Unsupported range query pattern";
             return true;
           } else {
-            begin_id = index_pair.second;
+            start_id = index_pair.second;
+            if (cond.op_type == Item_func::GE_FUNC) {
+              start_inclusive = true;
+            }
           }
         } else {
           if (end_id != -1) {
@@ -1098,29 +1130,56 @@ bool INLINE_ATTR select_exec::scan_where() {
             return true;
           } else {
             end_id = index_pair.second;
+            if (second_cond.op_type == Item_func::LE_FUNC) {
+              end_inclusive = true;
+            }
           }
         }
       }
 
-      // pick the initial position based on column family sorting and ordering
-      int initial_id;
+      // This ensures we always go from start -> end regardless of ordering
       if (m_parser.is_order_desc()) {
-        initial_id = end_id;
-      } else {
-        initial_id = begin_id;
+        std::swap(start_id, end_id);
+        std::swap(start_inclusive, end_inclusive);
       }
 
-      if (initial_id >= 0) {
-        if (pack_cond(key_part_no, where_list[initial_id])) {
-          return true;
+      // Process the range
+      if (start_id >= 0 || end_id >= 0) {
+        if (end_id >= 0) {
+          // end key should start from prefix of start key, which is
+          // the current value of start key before appending the condition
+          for (auto &entry : m_key_index_tuples) {
+            if (entry.end.is_empty()) {
+              entry.end = entry.start;
+            }
+          }
         }
-      } else {
-        // There is no corresponding operator to build our starting slice
-        // We stop building the KeyIndexTuple - all the remaining are going to
-        // be filters
-        break;
+        if (start_id >= 0) {
+          // Mark the where condition as processed so that they don't go into
+          // filters - there is no point evaluating them since we already
+          // accounted for them in (start, end) range
+          where_list_processed[start_id] = true;
+          m_start_inclusive = start_inclusive;
+          if (pack_cond(key_part_no, where_list[start_id],
+                        true /* is_start */)) {
+            return true;
+          }
+        }
+        if (end_id >= 0) {
+          // Mark the where condition as processed so that they don't go into
+          // filters
+          where_list_processed[end_id] = true;
+          m_end_inclusive = end_inclusive;
+          if (pack_cond(key_part_no, where_list[end_id], false /* is_end */)) {
+            return true;
+          }
+        }
       }
 
+      // Either we've seen a range already or this is a unsupported operator
+      // We stop building the KeyIndexTuple - all the remaining are going to
+      // be filters
+      break;
     } else {
       // We stop building the KeyIndexTuple - all the remaining are going to be
       // filters
@@ -1128,36 +1187,19 @@ bool INLINE_ATTR select_exec::scan_where() {
     }
   }
 
-  // Sort the key in index order
+  // Sort the key in index order to ensure the query output is also in
+  // correct index order
   if (!m_parser.is_order_desc()) {
     std::sort(
         m_key_index_tuples.begin(), m_key_index_tuples.end(),
         [](const key_index_tuple_writer &l, const key_index_tuple_writer &r) {
-          size_t l_size = l.writer.get_current_pos();
-          size_t r_size = r.writer.get_current_pos();
-          size_t size = std::min(l_size, r_size);
-
-          int diff = memcmp(l.writer.ptr(), r.writer.ptr(), size);
-          if (diff == 0) {
-            return (l_size < r_size);
-          }
-
-          return diff < 0;
+          return l.start < r.start;
         });
   } else {
     std::sort(
         m_key_index_tuples.begin(), m_key_index_tuples.end(),
         [](const key_index_tuple_writer &l, const key_index_tuple_writer &r) {
-          size_t l_size = l.writer.get_current_pos();
-          size_t r_size = r.writer.get_current_pos();
-          size_t size = std::min(l_size, r_size);
-
-          int diff = memcmp(l.writer.ptr(), r.writer.ptr(), size);
-          if (diff == 0) {
-            return (l_size >= r_size);
-          }
-
-          return diff > 0;
+          return l.start > r.start;
         });
   }
 
@@ -1166,16 +1208,14 @@ bool INLINE_ATTR select_exec::scan_where() {
       std::unique(
           m_key_index_tuples.begin(), m_key_index_tuples.end(),
           [](const key_index_tuple_writer &l, const key_index_tuple_writer &r) {
-            return l.writer.get_current_pos() == r.writer.get_current_pos() &&
-                   memcmp(l.writer.ptr(), r.writer.ptr(),
-                          l.writer.get_current_pos()) == 0;
+            return l.start == r.start && l.end == r.end;
           }),
       m_key_index_tuples.end());
 
   if (eq_only) {
     for (uint i = 0; i < m_key_index_tuples.size(); ++i) {
       m_key_index_tuples[i].eq_len =
-          m_key_index_tuples[i].writer.get_current_pos();
+          m_key_index_tuples[i].start.get_current_pos();
     }
   }
 
@@ -1301,6 +1341,10 @@ bool INLINE_ATTR select_exec::run() {
     return true;
   }
 
+  if (m_select_limit == 0) {
+    return false;
+  }
+
   return run_query();
 }
 
@@ -1362,9 +1406,7 @@ bool INLINE_ATTR select_exec::run_query() {
 
   // Update examined_row count
   m_thd->inc_sent_row_count(m_rows_sent);
-  m_thd->status_var.rows_sent += m_rows_sent;
   m_thd->inc_examined_row_count(m_examined_rows);
-  m_thd->status_var.rows_examined += m_examined_rows;
 
   m_handler->update_row_read(m_examined_rows);
 
@@ -1382,7 +1424,7 @@ bool INLINE_ATTR select_exec::run_pk_point_query(txn_wrapper *txn) {
     std::vector<rocksdb::Status> statuses(size);
 
     for (auto &writer : m_key_index_tuples) {
-      key_slices.push_back(writer.to_key_slice());
+      key_slices.push_back(writer.get_key_slice());
     }
 
     // Just let linter shut up
@@ -1395,7 +1437,7 @@ bool INLINE_ATTR select_exec::run_pk_point_query(txn_wrapper *txn) {
                    value_slices.data(), statuses.data());
 
     for (size_t i = 0; i < size; ++i) {
-      if (handle_killed()) {
+      if (unlikely(handle_killed())) {
         return true;
       }
 
@@ -1427,7 +1469,7 @@ bool INLINE_ATTR select_exec::run_pk_point_query(txn_wrapper *txn) {
 
       value_slice.Reset();
 
-      rocksdb::Slice key_slice = writer.writer.to_slice();
+      rocksdb::Slice key_slice = writer.get_key_slice();
       rocksdb::Status s = txn->get(cf, key_slice, &value_slice);
       if (s.IsNotFound()) {
         continue;
@@ -1456,12 +1498,12 @@ bool INLINE_ATTR select_exec::run_pk_point_query(txn_wrapper *txn) {
 bool INLINE_ATTR select_exec::run_sk_point_query(txn_wrapper *txn) {
   auto cf = m_key_def->get_cf();
   for (auto &writer : m_key_index_tuples) {
-    if (handle_killed()) {
+    if (unlikely(handle_killed())) {
       return true;
     }
 
-    rocksdb::Slice key_slice = writer.to_key_slice();
-    txn->set_seek_mode(use_bloom_filter(writer.to_eq_slice()));
+    rocksdb::Slice key_slice = writer.get_key_slice();
+    txn->set_seek_mode(use_bloom_filter(writer.get_eq_slice()));
     m_scan_it.reset(txn->get_iterator(cf));
     if (m_scan_it == nullptr) {
       return true;
@@ -1498,16 +1540,17 @@ bool INLINE_ATTR select_exec::run_sk_point_query(txn_wrapper *txn) {
   This is the slow path as we need to unpack into record[0]
  */
 bool INLINE_ATTR select_exec::eval_cond() {
-  auto where_list = m_parser.get_cond_list();
-  for (uint i = 0; i < m_filter_count; ++i) {
-    // Let MySQL evaluate the conditional expression with item pointing to
-    // the field record. At least this is better than MySQL where index_key=A
-    // are always evaluated even though it is not necessary
-    if (where_list[m_filter_list[i]].cond_item->val_int() == 0) {
-      return false;
+  if (unlikely(m_filter_count > 0)) {
+    auto where_list = m_parser.get_cond_list();
+    for (uint i = 0; i < m_filter_count; ++i) {
+      // Let MySQL evaluate the conditional expression with item pointing to
+      // the field record. At least this is better than MySQL where index_key=A
+      // are always evaluated even though it is not necessary
+      if (where_list[m_filter_list[i]].cond_item->val_int() == 0) {
+        return false;
+      }
     }
   }
-
   return true;
 }
 
@@ -1585,10 +1628,7 @@ int INLINE_ATTR select_exec::eval_and_send() {
   m_examined_rows++;
   if (eval_cond()) {
     m_row_count++;
-    if (m_row_count > m_select_limit) {
-      // no more items to consider
-      return -1;
-    } else if (m_row_count > m_offset_limit) {
+    if (m_row_count > m_offset_limit) {
       if (m_debug_row_delay > 0) {
         // Inject artificial delays for debugging/testing purposes
         my_sleep(m_debug_row_delay * 1000000);
@@ -1597,11 +1637,11 @@ int INLINE_ATTR select_exec::eval_and_send() {
         // failure
         return 1;
       }
+    }
 
-      if (m_row_count == m_select_limit) {
-        // we just sent the last one
-        return -1;
-      }
+    if (m_row_count >= m_select_limit) {
+      // we just sent the last one
+      return -1;
     }
   }
 
@@ -1610,33 +1650,90 @@ int INLINE_ATTR select_exec::eval_and_send() {
 }
 
 bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
+  // Determine seek direction - forward (Seek) or reverse (SeekForPrev)
   bool reverse_seek = m_key_def->m_is_reverse_cf ^ m_parser.is_order_desc();
 
   for (uint i = 0; i < m_key_index_tuples.size(); ++i) {
-    if (handle_killed()) {
+    if (unlikely(handle_killed())) {
       return true;
     }
 
-    rocksdb::Slice key_slice = m_key_index_tuples[i].to_key_slice();
-    uint eq_len = m_key_index_tuples[i].eq_len;
+    rocksdb::Slice start_key_slice =
+        m_key_index_tuples[i].get_start_key_slice();
+    rocksdb::Slice end_key_slice = m_key_index_tuples[i].get_end_key_slice();
+    rocksdb::Slice eq_slice = m_key_index_tuples[i].get_eq_slice();
 
+    // If the start key is not full key - either it is missing some columns
+    // or it is a secondary key (which by definition is never full as it
+    // has PK at the end). This impacts the seeking behavior below
+    bool partial_start_key =
+        !m_index_is_pk || start_key_slice.size() == eq_slice.size();
+
+    // If we need to start at a prefix (unbounded) that is "shorter" than
+    // the end key
+    bool is_start_prefix_key = start_key_slice.size() == eq_slice.size();
+
+    // Range query need to support 4 combinations
+    // * forward cf, ascending order
+    // * forward cf, desending order
+    // * reverse cf, ascending order
+    // * reverse cf, descending order
+    // By look at the different combinations, one is able to infer
+    // * (Start, end) vs (end, start) is determined by order
+    // * End condition is determined by order
+    // * Seek direction is determined by reverse_seek
+    //
+    // Note we have already swapped start/end in case of descending order in
+    // scan_where, so we always start at start_key_slice and end at
+    // end_key_slice regardless. The more challenging / confusing part is to
+    // determine the exact (start, end) based on cf, order, and prefix
+    std::vector<uchar> initial_pos(
+        start_key_slice.data(),
+        start_key_slice.data() + start_key_slice.size());
+    rocksdb::Slice initial_pos_slice(
+        reinterpret_cast<char *>(initial_pos.data()), start_key_slice.size());
+    std::vector<uchar> end_pos(end_key_slice.data(),
+                               end_key_slice.data() + end_key_slice.size());
+    rocksdb::Slice end_pos_slice(reinterpret_cast<char *>(end_pos.data()),
+                                 end_key_slice.size());
     if (m_parser.is_order_desc()) {
-      // HA_READ_PREFIX_LAST (reverse cf) or HA_READ_PREFIX_LAST_OR_PREV
-      std::vector<uchar> initial_pos(key_slice.data(),
-                                     key_slice.data() + key_slice.size());
+      int eq_bytes_changed = 0;
 
-      rocksdb::Slice initial_pos_slice(
-          reinterpret_cast<char *>(initial_pos.data()), key_slice.size());
+      // In reverse order, both forward cf (SeekForPrev) and reverse cf
+      // (Seek) have the same matrix:
+      // PK, A >= n --> start at n
+      // PK, A >  n --> start at pred(n)
+      // SK, A >= n --> start at succ(n)
+      // SK, A >  n --> start at n
+      // >= Prefix n --> start at succ(n)
+      if (m_start_inclusive && partial_start_key) {
+        // SK A >= n and prefix
+        int bytes_changed =
+            m_key_def->successor(initial_pos.data(), initial_pos.size());
+        if (is_start_prefix_key) {
+          eq_bytes_changed = bytes_changed;
+        }
+      } else if (m_index_is_pk && !m_start_inclusive) {
+        // PK A > n
+        m_key_def->predecessor(initial_pos.data(), initial_pos.size());
+      }
 
-      uint bytes_changed =
-          m_key_def->successor(initial_pos.data(), key_slice.size());
+      if (!end_key_slice.empty()) {
+        // Adjust end key if needed
+        // In reverse order, both forward cf (SeekForPrev) and reverse cf
+        // (Seek) have the same matrix:
+        // PK, A >= n --> stop at A < n
+        // PK, A >  n --> stop at A < succ(n)
+        // SK, A >= n --> stop at A < n
+        // SK, A >  n --> stop at A < succ(n)
+        // >= Prefix n --> stop at A < n
+        if (!m_end_inclusive) {
+          m_key_def->successor(end_pos.data(), end_pos.size());
+        }
+      }
 
-      // Account for the bytes changed by successor call in bloom filter
-      // calculation
       txn->set_seek_mode(use_bloom_filter(
-          rocksdb::Slice(reinterpret_cast<char *>(initial_pos.data()),
-                         eq_len - bytes_changed)));
-
+          rocksdb::Slice(eq_slice.data(), eq_slice.size() - eq_bytes_changed)));
       m_scan_it.reset(txn->get_iterator(m_key_def->get_cf()));
       if (m_scan_it == nullptr) {
         return true;
@@ -1644,63 +1741,100 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
 
       rocksdb_smart_seek(!m_key_def->m_is_reverse_cf, m_scan_it.get(),
                          initial_pos_slice);
-
-      if (!is_valid_iterator(m_scan_it.get())) {
-        continue;
-      }
-
-      const rocksdb::Slice rkey = m_scan_it->key();
-      if (m_use_full_key &&
-          m_key_def->cmp_full_keys(initial_pos_slice, rkey.data())) {
-        // We got a exact match
-        rocksdb_smart_next(reverse_seek, m_scan_it.get());
-      }
     } else {
-      txn->set_seek_mode(use_bloom_filter(m_key_index_tuples[i].to_eq_slice()));
+      // In forward order, both forward cf (SeekForPrev) and reverse cf
+      // (Seek) have the same matrix:
+      // PK, A >= n --> start at n
+      // PK, A >  n --> start at succ(n)
+      // SK, A >= n --> start at n
+      // SK, A >  n --> start at succ(n)
+      // >= Prefix n --> start at n
+      // Based on above, n = succ(n) in non-inclusive case
+      if (!m_start_inclusive) {
+        assert(start_key_slice.size() > eq_slice.size());
+        m_key_def->successor(initial_pos.data(), initial_pos.size());
+      }
+
+      // Adjust end key if needed
+      // In reverse order, both forward cf (SeekForPrev) and reverse cf
+      // (Seek) have the same matrix:
+      // PK, A <= n --> stop at A > n
+      // PK, A <  n --> stop at A > pred(n)
+      // SK, A <= n --> stop at A > succ(n)
+      // SK, A <  n --> stop at A > n
+      // <= Prefix n --> stop at A > succ(n)
+      if (!end_key_slice.empty()) {
+        if (m_index_is_pk) {
+          if (!m_end_inclusive) {
+            // PK A < n
+            m_key_def->predecessor(end_pos.data(), end_pos.size());
+          }
+        } else if (m_end_inclusive) {
+          // SK A <= n and prefix
+          m_key_def->successor(end_pos.data(), end_pos.size());
+        }
+      }
+
+      txn->set_seek_mode(
+          use_bloom_filter(rocksdb::Slice(eq_slice.data(), eq_slice.size())));
       m_scan_it.reset(txn->get_iterator(m_key_def->get_cf()));
       if (m_scan_it == nullptr) {
         return true;
       }
 
-      // HA_READ_KEY_OR_NEXT, aka, HA_READ_PREFIX_FIRST (I made this up)
       rocksdb_smart_seek(m_key_def->m_is_reverse_cf, m_scan_it.get(),
-                         key_slice);
+                         initial_pos_slice);
     }
 
     // Make sure the slice is alive as we'll point into the slice during
     // unpacking
     while (true) {
-      if (handle_killed()) {
+      if (unlikely(handle_killed())) {
         return true;
       }
 
-      if (!is_valid_iterator(m_scan_it.get())) {
+      if (unlikely(!is_valid_iterator(m_scan_it.get()))) {
         break;
       }
 
       const rocksdb::Slice rkey = m_scan_it->key();
-
-      if (rkey.size() < eq_len ||
-          memcmp(rkey.data(), key_slice.data(), eq_len) != 0) {
-        break;
+      if (end_key_slice.empty()) {
+        // No end - we stop when prefix no longer matches
+        if (!rkey.starts_with(eq_slice)) {
+          break;
+        }
+      } else {
+        // Range query (start, end)
+        // NOTE: To simplify the algorithm we always use non-inclusive
+        // check (> or <) and let the end slice handle the boundary
+        int diff = rkey.compare(end_pos_slice);
+        if (m_parser.is_order_desc()) {
+          if (diff < 0) {
+            break;
+          }
+        } else {
+          if (diff > 0) {
+            break;
+          }
+        }
       }
 
       const rocksdb::Slice rvalue = m_scan_it->value();
       if (m_index_is_pk) {
-        if (unpack_for_pk(rkey, rvalue)) {
+        if (unlikely(unpack_for_pk(rkey, rvalue))) {
           return true;
         }
       } else {
-        if (unpack_for_sk(txn, rkey, rvalue)) {
+        if (unlikely(unpack_for_sk(txn, rkey, rvalue))) {
           return true;
         }
       }
 
       int ret = eval_and_send();
-      if (ret > 0) {
+      if (unlikely(ret > 0)) {
         // failure
         return true;
-      } else if (ret < 0) {
+      } else if (unlikely(ret < 0)) {
         // no more items
         return false;
       }
