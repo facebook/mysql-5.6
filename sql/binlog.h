@@ -1543,7 +1543,7 @@ int rotate_relay_log_for_raft(RaftRotateInfo *raft_rotate_info);
 
   @returns true if a problem occurs, false otherwise.
  */
-int binlog_change_to_apply(THD *thd);
+int binlog_change_to_apply();
 
 /**
   This is used to change the mysql_bin_log global MYSQL_BIN_LOG file

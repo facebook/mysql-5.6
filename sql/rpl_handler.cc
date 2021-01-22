@@ -1438,7 +1438,7 @@ extern "C" void *process_raft_queue(void *) {
       }
 
       case RaftListenerCallbackType::BINLOG_CHANGE_TO_APPLY: {
-        result.error = binlog_change_to_apply(current_thd);
+        result.error = binlog_change_to_apply();
         break;
       }
       case RaftListenerCallbackType::BINLOG_CHANGE_TO_BINLOG: {
