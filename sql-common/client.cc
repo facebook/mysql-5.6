@@ -3353,8 +3353,18 @@ void mysql_extension_free(MYSQL_EXTENSION *ext) {
   if (ext->trace_data) my_free(ext->trace_data);
   if (ext->mysql_async_context) {
     if (ext->mysql_async_context->connect_context) {
-      if (ext->mysql_async_context->connect_context->auth_context)
-        my_free(ext->mysql_async_context->connect_context->auth_context);
+      mysql_async_connect *ctx = ext->mysql_async_context->connect_context;
+      if (ctx->auth_context) {
+        my_free(ctx->auth_context);
+      }
+      if (ctx->scramble_buffer_allocated) {
+        my_free(ctx->scramble_buffer);
+      }
+#ifdef HAVE_OPENSSL
+      if (ctx->ssl) {
+        SSL_free((SSL *)ctx->ssl);
+      }
+#endif
       my_free(ext->mysql_async_context->connect_context);
     }
     my_free(ext->mysql_async_context);

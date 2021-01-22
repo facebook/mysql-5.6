@@ -403,6 +403,11 @@ void vio_ssl_delete(Vio *vio) {
   if (vio->inactive == false)
     vio_ssl_shutdown(vio); /* Still open, close connection first */
 
+  if (vio->ssl_arg) {
+    SSL_free((SSL *)vio->ssl_arg);
+    vio->ssl_arg = 0;
+  }
+
 #ifndef HAVE_WOLFSSL
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
   ERR_remove_thread_state(0);

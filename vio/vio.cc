@@ -535,14 +535,6 @@ int vio_timeout(Vio *vio, uint which, timeout_t timeout) {
 void internal_vio_delete(Vio *vio) {
   if (!vio) return; /* It must be safe to delete null pointers. */
   if (vio->inactive == false) vio->vioshutdown(vio);
-
-#ifdef HAVE_OPENSSL
-  if (vio->ssl_arg) {
-    SSL_free((SSL *)vio->ssl_arg);
-    vio->ssl_arg = 0;
-  }
-#endif
-
   vio->~Vio();
   my_free(vio);
 }
