@@ -763,9 +763,8 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
                            bool trace_block_cache_access) {
   std::string trace_folder =
       trace_block_cache_access ? "/block_cache_traces" : "/queries_traces";
-  char buf[FN_REFLEN];
-  int len = sizeof(buf);
-  const char *const trace_opt_str_raw = value->val_str(value, buf, &len);
+  int len = 0;
+  const char *const trace_opt_str_raw = value->val_str(value, nullptr, &len);
   rocksdb::Status s;
   if (trace_opt_str_raw == nullptr || rdb == nullptr) {
     return HA_EXIT_FAILURE;
@@ -783,7 +782,7 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
       rc = ha_rocksdb::rdb_error_to_mysql(s);
       return HA_EXIT_FAILURE;
     }
-    *static_cast<const char **>(save) = my_strdup("", MYF(0));
+    *static_cast<const char **>(save) = trace_opt_str_raw;
     return HA_EXIT_SUCCESS;
   }
 
@@ -869,7 +868,7 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
       trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
       trace_file_path.c_str());
   // Save the trace option.
-  *static_cast<const char **>(save) = my_strdup(trace_opt_str_raw, MYF(0));
+  *static_cast<const char **>(save) = trace_opt_str_raw;
   return HA_EXIT_SUCCESS;
 }
 
@@ -2252,7 +2251,7 @@ static MYSQL_SYSVAR_BOOL(
 
 static MYSQL_SYSVAR_STR(
     trace_block_cache_access, rocksdb_block_cache_trace_options_str,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
     "Block cache trace option string. The format is "
     "sampling_frequency:max_trace_file_size:trace_file_name. "
     "sampling_frequency and max_trace_file_size are positive integers. The "
