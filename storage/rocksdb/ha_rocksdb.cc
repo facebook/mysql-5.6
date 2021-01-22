@@ -3356,7 +3356,6 @@ class Rdb_transaction {
                          rocksdb::Status *statuses,
                          const bool sorted_input) const = 0;
 
-
   rocksdb::Iterator *get_iterator(
       rocksdb::ColumnFamilyHandle *const column_family, bool skip_bloom_filter,
       bool fill_cache, const rocksdb::Slice &eq_cond_lower_bound,
@@ -14845,9 +14844,9 @@ bool ha_rocksdb::check_bloom_and_set_bounds(
   @param use_all_keys True if all key parts are set with equal conditions.
                       This is aware of extended keys.
 */
-bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
-                          const rocksdb::Slice &eq_cond,
-                          const bool use_all_keys) {
+bool ha_rocksdb::can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
+                                      const rocksdb::Slice &eq_cond,
+                                      const bool use_all_keys) {
   bool can_use = false;
 
   if (THDVAR(thd, skip_bloom_filter_on_read)) {
@@ -15813,9 +15812,14 @@ const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx) {
 }
 
 rocksdb::Iterator *rdb_tx_get_iterator(
-    Rdb_transaction *tx, const rocksdb::ReadOptions &options,
-    rocksdb::ColumnFamilyHandle *const column_family) {
-  return tx->get_iterator(options, column_family);
+    Rdb_transaction *tx, rocksdb::ColumnFamilyHandle *const column_family,
+    bool skip_bloom_filter, bool fill_cache,
+    const rocksdb::Slice &lower_bound_slice,
+    const rocksdb::Slice &upper_bound_slice, bool read_current,
+    bool create_snapshot) {
+  return tx->get_iterator(column_family, skip_bloom_filter, fill_cache,
+                          lower_bound_slice, upper_bound_slice, read_current,
+                          create_snapshot);
 }
 
 bool rdb_tx_started(Rdb_transaction *tx) { return tx->is_tx_started(); }
