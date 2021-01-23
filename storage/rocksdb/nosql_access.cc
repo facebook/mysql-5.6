@@ -1262,9 +1262,9 @@ void INLINE_ATTR select_exec::scan_value() {
   m_unpack_index = false;
   m_unpack_pk = false;
   m_unpack_value = false;
-  auto field_list = m_parser.get_field_list();
 
 #ifndef DBUG_OFF
+  const auto &field_list = m_parser.get_field_list();
   for (uint i = 0; i < m_parser.get_field_count(); i++) {
     DBUG_ASSERT(bitmap_is_set(m_table->read_set, field_list[i]->field_index()));
   }
@@ -1288,12 +1288,14 @@ void INLINE_ATTR select_exec::scan_value() {
     }
   }
 
-  for (uint i = 0; i < m_parser.get_field_count(); i++) {
-    if (index_cover_bitmap[field_list[i]->field_index()]) {
+  for (uint i = 0; i < m_table_share->fields; i++) {
+    if (!bitmap_is_set(m_table->read_set, i)) {
+      continue;
+    }
+    if (index_cover_bitmap[i]) {
       // We need to unpack secondary key
       m_unpack_index = true;
-    } else if (!m_index_is_pk &&
-               pk_cover_bitmap[field_list[i]->field_index()]) {
+    } else if (!m_index_is_pk && pk_cover_bitmap[i]) {
       // We need to unpack primary key
       m_unpack_pk = true;
     } else {
