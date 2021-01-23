@@ -722,6 +722,7 @@ static uint64_t rocksdb_select_bypass_policy =
 static my_bool rocksdb_select_bypass_fail_unsupported = TRUE;
 static my_bool rocksdb_select_bypass_log_rejected = TRUE;
 static my_bool rocksdb_select_bypass_log_failed = FALSE;
+static my_bool rocksdb_select_bypass_allow_filters = TRUE;
 static uint32_t rocksdb_select_bypass_rejected_query_history_size = 0;
 static uint32_t rocksdb_select_bypass_debug_row_delay = 0;
 static unsigned long long  // NOLINT(runtime/int)
@@ -2293,6 +2294,12 @@ static MYSQL_SYSVAR_BOOL(select_bypass_log_failed,
                          "Log failed SELECT bypass queries", nullptr, nullptr,
                          FALSE);
 
+static MYSQL_SYSVAR_BOOL(select_bypass_allow_filters,
+                         rocksdb_select_bypass_allow_filters,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Allow non-optimal filters in SELECT bypass queries",
+                         nullptr, nullptr, TRUE);
+
 static MYSQL_SYSVAR_UINT(
     select_bypass_rejected_query_history_size,
     rocksdb_select_bypass_rejected_query_history_size, PLUGIN_VAR_RQCMDARG,
@@ -2515,6 +2522,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(select_bypass_log_failed),
     MYSQL_SYSVAR(select_bypass_rejected_query_history_size),
     MYSQL_SYSVAR(select_bypass_log_rejected),
+    MYSQL_SYSVAR(select_bypass_allow_filters),
     MYSQL_SYSVAR(select_bypass_debug_row_delay),
     MYSQL_SYSVAR(select_bypass_multiget_min),
     MYSQL_SYSVAR(mrr_batch_size),
@@ -15791,6 +15799,10 @@ bool should_log_rejected_select_bypass() {
 
 bool should_log_failed_select_bypass() {
   return rocksdb_select_bypass_log_failed;
+}
+
+bool should_allow_filters_select_bypass() {
+  return rocksdb_select_bypass_allow_filters;
 }
 
 uint32_t get_select_bypass_rejected_query_history_size() {
