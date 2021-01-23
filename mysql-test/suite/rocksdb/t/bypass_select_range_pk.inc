@@ -41,6 +41,28 @@ WHERE link_type = 1 AND id1 = 2 AND visibility = 2
 ORDER BY id2 $query_order LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
+let bypass_query=
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
+FROM $query_table FORCE INDEX (PRIMARY)
+WHERE link_type = 1
+ORDER BY id1 $query_order, id2 $query_order LIMIT 1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data version
+FROM $query_table FORCE INDEX (PRIMARY)
+WHERE link_type = 1 AND time = 1
+ORDER BY id1 $query_order, id2 $query_order LIMIT 1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data version
+FROM $query_table FORCE INDEX (PRIMARY)
+WHERE time = 1
+ORDER BY link_type $query_order, id1 $query_order,
+id2 $query_order LIMIT 1000;
+--source ../include/verify_bypass_query.inc
+
 --echo # Range queries
 
 --echo # > and >=
