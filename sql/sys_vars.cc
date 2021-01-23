@@ -3937,7 +3937,7 @@ static void event_scheduler_restart(THD *thd) {
   }
 }
 
-static bool fix_read_only(sys_var *self, THD *thd, enum_var_type) {
+bool fix_read_only(sys_var *self, THD *thd, enum_var_type) {
   bool result = true;
   bool new_read_only = read_only;  // make a copy before releasing a mutex
   DBUG_TRACE;
@@ -4030,7 +4030,7 @@ end:
   return result;
 }
 
-static bool fix_super_read_only(sys_var *, THD *thd, enum_var_type type) {
+bool fix_super_read_only(sys_var *, THD *thd, enum_var_type type) {
   DBUG_TRACE;
 
   /* return if no changes: */
@@ -9289,3 +9289,9 @@ static Sys_var_enum Sys_sql_duplicate_executions_control(
     GLOBAL_VAR(sql_duplicate_executions_control), CMD_LINE(OPT_ARG),
     control_level_values, DEFAULT(CONTROL_LEVEL_OFF), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_set_read_only_on_shutdown(
+    "set_read_only_on_shutdown",
+    "Set read_only and super_read_only in shutdown path after trying to "
+    "kill connections but before shutting down plugins",
+    GLOBAL_VAR(set_read_only_on_shutdown), CMD_LINE(OPT_ARG), DEFAULT(false));

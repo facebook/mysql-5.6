@@ -2267,6 +2267,10 @@ The following options may be given as the first argument:
  characteristics (isolation level, read only/read write,
  snapshot - but not any work done / data modified within
  the transaction).
+ --set-read-only-on-shutdown 
+ Set read_only and super_read_only in shutdown path after
+ trying to kill connections but before shutting down
+ plugins
  --sha256-password-proxy-users 
  If set to FALSE (the default), then the sha256_password
  authentication plugin will not signal for authenticated
@@ -3339,6 +3343,7 @@ session-track-schema TRUE
 session-track-state-change FALSE
 session-track-system-variables time_zone,autocommit,character_set_client,character_set_results,character_set_connection
 session-track-transaction-info OFF
+set-read-only-on-shutdown FALSE
 sha256-password-proxy-users FALSE
 show-create-table-verbosity FALSE
 show-old-temporals FALSE

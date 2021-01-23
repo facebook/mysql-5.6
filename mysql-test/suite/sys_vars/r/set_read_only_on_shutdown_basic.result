@@ -1,0 +1,7 @@
+Default value of set_read_only_on_shutdown is 0
+SELECT @@global.set_read_only_on_shutdown;
+@@global.set_read_only_on_shutdown
+0
+SELECT @@session.set_read_only_on_shutdown;
+ERROR HY000: Variable 'set_read_only_on_shutdown' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'

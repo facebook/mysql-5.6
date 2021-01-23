@@ -1320,6 +1320,9 @@ uint default_password_lifetime = 0;
 bool password_require_current = false;
 std::atomic<bool> partial_revokes;
 bool opt_partial_revokes;  // Intialized through Sys_var
+bool set_read_only_on_shutdown = false;
+extern bool fix_read_only(sys_var *self, THD *thd, enum_var_type type);
+extern bool fix_super_read_only(sys_var *self, THD *thd, enum_var_type type);
 
 mysql_mutex_t LOCK_default_password_lifetime;
 mysql_mutex_t LOCK_mandatory_roles;
@@ -2562,6 +2565,35 @@ static void close_connections(void) {
   }
 
   (void)RUN_HOOK(server_state, before_server_shutdown, (nullptr));
+
+  // case: block all writes by setting read_only=1 and super_read_only=1
+  if (set_read_only_on_shutdown) {
+    THD *thd = new THD;
+    thd->thread_stack = reinterpret_cast<char *>(&(thd));
+    thd->store_globals();
+
+    // NO_LINT_DEBUG
+    sql_print_information("Setting read_only=1 during shutdown");
+    mysql_mutex_lock(&LOCK_global_system_variables);
+    read_only = super_read_only = true;
+    if (fix_read_only(nullptr, thd, OPT_GLOBAL) ||
+        fix_super_read_only(nullptr, thd, OPT_GLOBAL))
+      // NO_LINT_DEBUG
+      sql_print_error("Setting read_only=1 failed during shutdown");
+    else
+      // NO_LINT_DEBUG
+      sql_print_information("Successfully set read_only=1 during shutdown");
+    mysql_mutex_unlock(&LOCK_global_system_variables);
+
+    DBUG_EXECUTE_IF("after_shutdown_read_only", {
+      const char act[] = "now signal signal.reached wait_for signal.done";
+      assert(opt_debug_sync_timeout > 0);
+      assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+    });
+
+    thd->restore_globals();
+    delete thd;
+  }
 
   Per_thread_connection_handler::kill_blocked_pthreads();
 
