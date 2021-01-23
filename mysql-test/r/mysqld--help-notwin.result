@@ -1909,6 +1909,10 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-session-track-response-attributes to disable.)
  --session-track-state-change 
  Track changes to the 'session state'.
+ --set-read-only-on-shutdown 
+ Set read_only and super_read_only in shutdown path after
+ trying to kill connections but before shutting down
+ plugins
  --show-old-temporals 
  When this option is enabled, the pre-5.6.4 temporal types
  will be marked in the 'SHOW CREATE TABLE' and
@@ -2915,6 +2919,7 @@ server-id-bits 32
 session-track-gtids OFF
 session-track-response-attributes TRUE
 session-track-state-change FALSE
+set-read-only-on-shutdown FALSE
 show-old-temporals FALSE
 show-query-digest FALSE
 show-slave-auth-info FALSE

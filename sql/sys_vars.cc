@@ -2967,7 +2967,7 @@ static void log_read_only_change(THD *thd)
     host
     );
 }
-static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
+bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
 {
   bool result= true;
 
@@ -2999,7 +2999,7 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
     DBUG_RETURN(false);
   }
 
-  if (check_read_only(self, thd, 0)) // just in case
+  if (self && check_read_only(self, thd, 0)) // just in case
     goto end;
 
   if (thd->global_read_lock.is_acquired())
@@ -7476,4 +7476,11 @@ static Sys_var_mybool Sys_mt_tables_access_control(
        "PROCESS privilege is needed for accessing some tables when "
        "this is set to true.",
        GLOBAL_VAR(mt_tables_access_control),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_set_read_only_on_shutdown(
+       "set_read_only_on_shutdown",
+       "Set read_only and super_read_only in shutdown path after trying to "
+       "kill connections but before shutting down plugins",
+       GLOBAL_VAR(set_read_only_on_shutdown),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));

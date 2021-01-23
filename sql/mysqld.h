@@ -465,6 +465,7 @@ extern bool override_enable_raft_check;
 extern ulong opt_raft_signal_async_dump_threads;
 extern ulonglong apply_log_retention_num;
 extern ulonglong apply_log_retention_duration;
+extern bool set_read_only_on_shutdown;
 
 /* Enable query checksum validation for queries with a checksum sent */
 extern my_bool enable_query_checksum;
