@@ -1,0 +1,14 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 0
+####
+--echo Default value of set_read_only_on_shutdown is 0
+SELECT @@global.set_read_only_on_shutdown;
+
+####
+# Verify that this is not a session variable #
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.set_read_only_on_shutdown;
+--echo Expected error 'Variable is a GLOBAL variable'

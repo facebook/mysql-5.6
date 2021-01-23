@@ -1,0 +1,33 @@
+source include/have_debug_sync.inc;
+
+SET GLOBAL set_read_only_on_shutdown = 1;
+SET GLOBAL DEBUG = "+d,after_shutdown_read_only";
+
+CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE = INNODB;
+
+echo "Start the sql client and run shutdown sql command";
+exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+exec $MYSQL -e "shutdown;" 2>&1;
+
+echo "Reached the point just after setting read_only in the shutdown path";
+SET DEBUG_SYNC = "now wait_for signal.reached";
+
+echo "Try to execute a write";
+select @@global.read_only, @@global.super_read_only;
+error 1290;
+INSERT INTO t1 VALUES(1);
+
+echo "Continuing the shutdown";
+SET GLOBAL DEBUG = "-d,after_shutdown_read_only";
+SET DEBUG_SYNC = "now signal signal.done";
+source include/wait_until_disconnected.inc;
+
+echo "Starting the server again";
+exec echo "restart:" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+enable_reconnect;
+source include/wait_until_connected_again.inc;
+
+echo "Table contents (should be empty)";
+SELECT * FROM t1;
+
+DROP TABLE t1;

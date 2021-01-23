@@ -478,6 +478,7 @@ extern uint net_compression_level;
 extern long zstd_net_compression_level;
 extern long lz4f_net_compression_level;
 extern bool enable_blind_replace;
+extern bool set_read_only_on_shutdown;
 
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
