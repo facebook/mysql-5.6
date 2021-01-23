@@ -1906,6 +1906,9 @@ The following options may be given as the first argument:
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
+ --rocksdb-select-bypass-allow-filters 
+ Allow non-optimal filters in SELECT bypass queries
+ (Defaults to on; use --skip-rocksdb-select-bypass-allow-filters to disable.)
  --rocksdb-select-bypass-debug-row-delay=# 
  Test only to inject delays in bypass select to simulate
  long queries for each row sent
@@ -3073,6 +3076,7 @@ rocksdb-records-in-range 0
 rocksdb-reset-stats FALSE
 rocksdb-rollback-on-timeout FALSE
 rocksdb-seconds-between-stat-computes 3600
+rocksdb-select-bypass-allow-filters TRUE
 rocksdb-select-bypass-debug-row-delay 0
 rocksdb-select-bypass-fail-unsupported TRUE
 rocksdb-select-bypass-log-failed FALSE
