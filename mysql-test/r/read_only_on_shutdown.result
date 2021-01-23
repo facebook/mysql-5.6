@@ -1,0 +1,20 @@
+SET GLOBAL set_read_only_on_shutdown = 1;
+SET GLOBAL DEBUG = "+d,after_shutdown_read_only";
+CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE = INNODB;
+"Start the sql client and run shutdown sql command"
+"Reached the point just after setting read_only in the shutdown path"
+SET DEBUG_SYNC = "now wait_for signal.reached";
+"Try to execute a write"
+select @@global.read_only, @@global.super_read_only;
+@@global.read_only	@@global.super_read_only
+1	1
+INSERT INTO t1 VALUES(1);
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+"Continuing the shutdown"
+SET GLOBAL DEBUG = "-d,after_shutdown_read_only";
+SET DEBUG_SYNC = "now signal signal.done";
+"Starting the server again"
+"Table contents (should be empty)"
+SELECT * FROM t1;
+pk
+DROP TABLE t1;

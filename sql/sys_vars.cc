@@ -3742,7 +3742,7 @@ static bool check_require_secure_transport(
 #endif
 }
 
-static bool fix_read_only(sys_var *self, THD *thd, enum_var_type) {
+bool fix_read_only(sys_var *self, THD *thd, enum_var_type) {
   bool result = true;
   bool new_read_only = read_only;  // make a copy before releasing a mutex
   DBUG_TRACE;
@@ -3812,7 +3812,7 @@ end:
   return result;
 }
 
-static bool fix_super_read_only(sys_var *, THD *thd, enum_var_type type) {
+bool fix_super_read_only(sys_var *, THD *thd, enum_var_type type) {
   DBUG_TRACE;
 
   /* return if no changes: */
@@ -8798,6 +8798,12 @@ static Sys_var_uint Sys_response_attrs_contain_warnings_bytes(
     "comma. The default value is 0 which disables this feature",
     SESSION_VAR(response_attrs_contain_warnings_bytes), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_set_read_only_on_shutdown(
+    "set_read_only_on_shutdown",
+    "Set read_only and super_read_only in shutdown path after trying to "
+    "kill connections but before shutting down plugins",
+    GLOBAL_VAR(set_read_only_on_shutdown), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 #ifndef DBUG_OFF
 Debug_shutdown_actions Debug_shutdown_actions::instance;
