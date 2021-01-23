@@ -1113,6 +1113,9 @@ bool should_log_rejected_select_bypass();
 /* Whether we should log failed unsupported SELECT bypass */
 bool should_log_failed_select_bypass();
 
+/* Whether we should allow non-optimal filters in SELECT bypass */
+bool should_allow_filters_select_bypass();
+
 uint32_t get_select_bypass_rejected_query_history_size();
 
 uint32_t get_select_bypass_debug_row_delay();

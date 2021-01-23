@@ -1002,6 +1002,7 @@ rocksdb_records_in_range	50
 rocksdb_reset_stats	OFF
 rocksdb_rollback_on_timeout	OFF
 rocksdb_seconds_between_stat_computes	3600
+rocksdb_select_bypass_allow_filters	ON
 rocksdb_select_bypass_debug_row_delay	0
 rocksdb_select_bypass_fail_unsupported	ON
 rocksdb_select_bypass_log_failed	OFF

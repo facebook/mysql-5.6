@@ -10,8 +10,13 @@ SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=2;
 SELECT @@rocksdb_select_bypass_policy;
 
+SELECT @@rocksdb_select_bypass_allow_filters;
+SELECT @@rocksdb_select_bypass_allow_filters into
+@save_rocksdb_select_bypass_allow_filters;
+set global rocksdb_select_bypass_allow_filters=0;
+
 create table t1 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
-c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+c INT NOT NULL, d INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
 create table t2 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
 c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
 create table t3 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
@@ -94,6 +99,30 @@ SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND a = 1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+SELECT /*+ bypass */ pk from t1 WHERE pk = 1 AND a = 1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
+WHERE a = 1 AND b = 2 AND c = 3 AND d > 4;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
+WHERE a = 1 AND b = 2 AND c > 3 AND d > 4;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
+WHERE a = 1 AND b = 2 AND d > 4;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
+WHERE a = 1 AND b > 2 AND d > 4;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -131,6 +160,18 @@ SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HI
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0;
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b in (1, 2);
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0 and c > 0;
+
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
@@ -215,7 +256,7 @@ SELECT /*+ bypass */ a, b, c FROM t1 WHERE a=1 ORDER BY a;
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, a;
 
---error ER_BAD_FIELD_ERROR
+--error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1
 ORDER BY a, b, c, c, c, a, b, c, d;
 
@@ -303,6 +344,9 @@ SELECT @@rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
 SELECT @@rocksdb_select_bypass_policy;
 
+set global rocksdb_select_bypass_allow_filters=
+@save_rocksdb_select_bypass_allow_filters;
+
 # Fallback
 SELECT @@rocksdb_select_bypass_fail_unsupported;
 set global rocksdb_select_bypass_fail_unsupported=false;
@@ -322,12 +366,16 @@ SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk <= 2;
 SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk <= 2;
 SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2;
 
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0;
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b in (1, 2);
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0 and c > 0;
+
 SELECT @@rocksdb_select_bypass_fail_unsupported;
 set global rocksdb_select_bypass_fail_unsupported=@save_fail_unsupported;
 SELECT @@rocksdb_select_bypass_fail_unsupported;
 
-set global rocksdb_select_bypass_rejected_query_history_size=0;  
-SELECT @@rocksdb_select_bypass_rejected_query_history_size; 
+set global rocksdb_select_bypass_rejected_query_history_size=0;
+SELECT @@rocksdb_select_bypass_rejected_query_history_size;
 
 drop table t1;
 drop table t2;

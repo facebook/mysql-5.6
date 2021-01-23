@@ -1102,11 +1102,15 @@ bool INLINE_ATTR select_exec::scan_where() {
         if (cond.op_type == Item_func::GE_FUNC) {
           start_inclusive = true;
         }
-      } else {
+      } else if (cond.op_type == Item_func::LE_FUNC ||
+                 cond.op_type == Item_func::LT_FUNC) {
         end_id = index_pair.first;
         if (cond.op_type == Item_func::LE_FUNC) {
           end_inclusive = true;
         }
+      } else {
+        // Unsupported operator - go to filters
+        break;
       }
 
       if (index_pair.second >= 0) {
@@ -1123,7 +1127,8 @@ bool INLINE_ATTR select_exec::scan_where() {
               start_inclusive = true;
             }
           }
-        } else {
+        } else if (second_cond.op_type == Item_func::LE_FUNC ||
+                   second_cond.op_type == Item_func::LT_FUNC) {
           if (end_id != -1) {
             m_unsupported = true;
             m_error_msg = "Unsupported range query pattern";
@@ -1134,51 +1139,52 @@ bool INLINE_ATTR select_exec::scan_where() {
               end_inclusive = true;
             }
           }
+        } else {
+          // Unsupported operator - go to filters
+          break;
         }
       }
 
+      // Process the range
+      assert(start_id >= 0 || end_id >= 0);
       // This ensures we always go from start -> end regardless of ordering
       if (m_parser.is_order_desc()) {
         std::swap(start_id, end_id);
         std::swap(start_inclusive, end_inclusive);
       }
 
-      // Process the range
-      if (start_id >= 0 || end_id >= 0) {
-        if (end_id >= 0) {
-          // end key should start from prefix of start key, which is
-          // the current value of start key before appending the condition
-          for (auto &entry : m_key_index_tuples) {
-            if (entry.end.is_empty()) {
-              entry.end = entry.start;
-            }
-          }
-        }
-        if (start_id >= 0) {
-          // Mark the where condition as processed so that they don't go into
-          // filters - there is no point evaluating them since we already
-          // accounted for them in (start, end) range
-          where_list_processed[start_id] = true;
-          m_start_inclusive = start_inclusive;
-          if (pack_cond(key_part_no, where_list[start_id],
-                        true /* is_start */)) {
-            return true;
-          }
-        }
-        if (end_id >= 0) {
-          // Mark the where condition as processed so that they don't go into
-          // filters
-          where_list_processed[end_id] = true;
-          m_end_inclusive = end_inclusive;
-          if (pack_cond(key_part_no, where_list[end_id], false /* is_end */)) {
-            return true;
+      if (end_id >= 0) {
+        // end key should start from prefix of start key, which is
+        // the current value of start key before appending the condition
+        for (auto &entry : m_key_index_tuples) {
+          if (entry.end.is_empty()) {
+            entry.end = entry.start;
           }
         }
       }
+      if (start_id >= 0) {
+        // Mark the where condition as processed so that they don't go into
+        // filters - there is no point evaluating them since we already
+        // accounted for them in (start, end) range
+        where_list_processed[start_id] = true;
+        m_start_inclusive = start_inclusive;
+        if (pack_cond(key_part_no, where_list[start_id], true /* is_start */)) {
+          return true;
+        }
+      }
+      if (end_id >= 0) {
+        // Mark the where condition as processed so that they don't go into
+        // filters
+        where_list_processed[end_id] = true;
+        m_end_inclusive = end_inclusive;
+        if (pack_cond(key_part_no, where_list[end_id], false /* is_end */)) {
+          return true;
+        }
+      }
 
-      // Either we've seen a range already or this is a unsupported operator
-      // We stop building the KeyIndexTuple - all the remaining are going to
-      // be filters
+      // We already processed a range and we don't support cases like A >= 1 and
+      // B >= 2
+      key_part_no++;
       break;
     } else {
       // We stop building the KeyIndexTuple - all the remaining are going to be
@@ -1233,6 +1239,16 @@ bool INLINE_ATTR select_exec::scan_where() {
       }
       m_filter_list[m_filter_count++] = i;
     }
+  }
+
+  if (!should_allow_filters_select_bypass() && m_filter_count > 0 &&
+      key_part_no != m_index_info->user_defined_key_parts) {
+    // Only support filter usage in well supported cases such as point query
+    // or simple range query where key is fully specified with well defined
+    // (start, end) with only the last column is a range
+    m_unsupported = true;
+    m_error_msg = "Non-optimal queries with filters are not allowed";
+    return true;
   }
 
   return false;
