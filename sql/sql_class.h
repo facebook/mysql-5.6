@@ -255,6 +255,12 @@ enum class TDM { ANY, ON, ZERO, NOT_AVAILABLE };
 inline thread_local TDM expected_from_debug_flag = TDM::ANY;
 #endif /* not defined NDEBUG */
 
+/*
+  When the thread is killed, we store the reason why it is killed in this buffer
+  so that clients can understand why their queries fail
+*/
+constexpr size_t KILLED_REASON_MAX_LEN = 128;
+
 /**
   To be used for pool-of-threads (implemented differently on various OSs)
 */
@@ -3101,6 +3107,7 @@ class THD : public MDL_context_owner,
     KILLED_NO_VALUE /* means neither of the states */
   };
   std::atomic<killed_state> killed;
+  char *killed_reason;
 
   /**
     Whether we are currently in the execution phase of an EXPLAIN ANALYZE query.
@@ -3419,7 +3426,7 @@ class THD : public MDL_context_owner,
   enum_vio_type get_vio_type() const;
 
   void shutdown_active_vio();
-  void awake(THD::killed_state state_to_set);
+  void awake(THD::killed_state state_to_set, const char *reason = nullptr);
 
   /** Disconnect the associated communication endpoint. */
   void disconnect(bool server_shutdown = false);
