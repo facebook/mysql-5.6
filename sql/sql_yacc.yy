@@ -14388,7 +14388,7 @@ purge_option:
 /* kill threads */
 
 kill:
-          KILL_SYM ignore_option kill_option expr
+          KILL_SYM ignore_option kill_option expr opt_reason
           {
             ITEMIZE($4, &$4);
 
@@ -14409,6 +14409,9 @@ kill_option:
         | CONNECTION_SYM { Lex->type= 0; }
         | QUERY_SYM      { Lex->type= ONLY_KILL_QUERY; }
         ;
+opt_reason:
+          /* empty */ { Lex->kill_reason = NULL_STR; }
+        | TEXT_STRING { Lex->kill_reason = $1; }
 
 /* change database */
 
