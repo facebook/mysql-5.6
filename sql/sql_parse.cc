@@ -222,7 +222,8 @@ using std::max;
        ? "FUNCTION"                                        \
        : "PROCEDURE")
 
-static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query);
+static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
+                     const char *reason = nullptr);
 
 const std::string Command_names::m_names[COM_TOP_END] = {
     "Sleep",
@@ -4720,7 +4721,8 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       my_thread_id thread_id = static_cast<my_thread_id>(it->val_int());
       if (thd->is_error()) goto error;
 
-      sql_kill(thd, thread_id, lex->type & ONLY_KILL_QUERY);
+      sql_kill(thd, thread_id, lex->type & ONLY_KILL_QUERY,
+               lex->kill_reason.length > 0 ? lex->kill_reason.str : nullptr);
       break;
     }
     case SQLCOM_SHOW_CREATE_USER: {
@@ -7082,12 +7084,14 @@ const CHARSET_INFO *get_bin_collation(const CHARSET_INFO *cs) {
   @param thd			Thread class
   @param id			Thread id
   @param only_kill_query        Should it kill the query or the connection
+  @param reason The reason why this is killed
 
   @note
     This is written such that we have a short lock on LOCK_thd_list
 */
 
-static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query) {
+static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query,
+                            const char *reason) {
   uint error = ER_NO_SUCH_THREAD;
   Find_thd_with_id find_thd_with_id(id);
 
@@ -7126,7 +7130,8 @@ static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query) {
         if (tmp->is_system_user() && !thd->is_system_user()) {
           error = ER_KILL_DENIED_ERROR;
         } else {
-          tmp->awake(only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION);
+          tmp->awake(only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION,
+                     reason);
           error = 0;
         }
       } else
@@ -7147,11 +7152,13 @@ static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query) {
     thd			Thread class
     id			Thread id
     only_kill_query     Should it kill the query or the connection
+    reason  Description about the reason why it was killed
 */
 
-static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query) {
+static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
+                     const char *reason) {
   uint error;
-  if (!(error = kill_one_thread(thd, id, only_kill_query))) {
+  if (!(error = kill_one_thread(thd, id, only_kill_query, reason))) {
     if (!thd->killed) my_ok(thd);
   } else {
     if (error == ER_NO_SUCH_THREAD && thd->lex->is_ignore()) {

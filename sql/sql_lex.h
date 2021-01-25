@@ -3783,6 +3783,7 @@ struct LEX : public Query_tables_list {
 
   // KILL statement-specific fields:
   List<Item> kill_value_list;
+  LEX_STRING kill_reason;
 
   // other stuff:
   List<set_var_base> var_list;

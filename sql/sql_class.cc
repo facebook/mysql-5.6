@@ -734,6 +734,7 @@ THD::THD(bool enable_plugins, bool is_slave)
   query_start_usec_used = false;
   check_for_truncated_fields = CHECK_FIELD_IGNORE;
   killed = NOT_KILLED;
+  killed_reason = nullptr;
   is_slave_error = thread_specific_used = false;
   tmp_table = 0;
   num_truncated_fields = 0L;
@@ -1670,6 +1671,10 @@ THD::~THD() {
     my_free(m_token_array);
   }
 
+  if (killed_reason != nullptr) {
+    my_free(killed_reason);
+  }
+
   m_thd_life_cycle_stage = enum_thd_life_cycle_stages::DISPOSED;
   assert(mem_cnt == &thd_cnt_noop);
 }
@@ -1684,7 +1689,7 @@ THD::~THD() {
   @note Do always call this while holding LOCK_thd_data.
 */
 
-void THD::awake(THD::killed_state state_to_set) {
+void THD::awake(THD::killed_state state_to_set, const char *reason) {
   DBUG_TRACE;
   DBUG_PRINT("enter", ("this: %p current_thd: %p", this, current_thd));
   THD_CHECK_SENTRY(this);
@@ -1716,6 +1721,21 @@ void THD::awake(THD::killed_state state_to_set) {
   if (this->m_server_idle && state_to_set == KILL_QUERY) { /* nothing */
   } else {
     killed = state_to_set;
+    if (reason) {
+      static constexpr int len = KILLED_REASON_MAX_LEN;
+      if (!killed_reason) {
+        killed_reason = (char *)my_malloc(PSI_NOT_INSTRUMENTED, len, MYF(0));
+      }
+      if (killed_reason) {
+        strncpy(killed_reason, reason, len - 1);
+        killed_reason[len - 1] = '\0';
+      }
+    } else {
+      if (killed_reason && killed_reason[0] != '\0') {
+        // no reason is given, let's clean up previous killed_reason
+        killed_reason[0] = '\0';
+      }
+    }
   }
 
   if (state_to_set != THD::KILL_QUERY && state_to_set != THD::KILL_TIMEOUT) {
@@ -2375,7 +2395,17 @@ void THD::send_kill_message() const {
       can look at the execution plan and statistics so far.
     */
     if (!running_explain_analyze) {
-      my_error(err, MYF(ME_FATALERROR));
+      if (err == ER_QUERY_INTERRUPTED) {
+        std::string reason;
+        if (killed_reason && killed_reason[0] != '\0') {
+          reason.append(", reason: ");
+          reason.append(killed_reason);
+        }
+        my_printf_error(err, "%s%s", MYF(ME_FATALERROR), ER_THD(this, err),
+                        reason.c_str());
+      } else {
+        my_error(err, MYF(ME_FATALERROR));
+      }
     }
   }
 }
