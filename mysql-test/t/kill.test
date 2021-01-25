@@ -144,7 +144,7 @@ reap;
 SELECT 1;
 
 #
-# Test that KILL IGNORE called on valid thread works the same as KILL command. 
+# Test that KILL IGNORE called on valid thread works the same as KILL command.
 # This test is the same as the previous test, except using KILL IGNORE instead of KILL.
 #
 connection con1;
@@ -257,7 +257,7 @@ send EXECUTE stmt;
 
 connection con2;
 SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
-KILL QUERY @id;
+KILL QUERY @id 'killed by admin';
 SET DEBUG_SYNC= 'now SIGNAL continue';
 connection con1;
 --error 1317
@@ -325,7 +325,7 @@ SET DEBUG_SYNC= 'before_execute_sql_command SIGNAL waiting WAIT_FOR killed';
 --connection default
 SET DEBUG_SYNC= 'now WAIT_FOR waiting';
 --replace_result $con1_id <con1_id>
---eval KILL QUERY $con1_id
+--eval KILL QUERY $con1_id 'The reason for kill is described in this argument. This specific killed_reason is intentionally very long to test the correct truncation of long message when a reason goes very long'
 SET DEBUG_SYNC= 'now SIGNAL killed';
 
 --connection con1
