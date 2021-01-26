@@ -575,7 +575,8 @@ enum ib_file_suffix {
   CFP = 3,
   IBT = 4,
   IBU = 5,
-  DWR = 6
+  DWR = 6,
+  BWR = 7
 };
 
 extern const char *dot_ext[];
@@ -2248,8 +2249,8 @@ dberr_t fil_scan_for_tablespaces();
 /** Open the tabelspace and also get the tablespace filenames, space_id must
 already be known.
 @param[in]	space_id	Tablespace ID to lookup
-@return true if open was successful */
-bool fil_tablespace_open_for_recovery(space_id_t space_id)
+@return DB_SUCCESS if open was successful */
+dberr_t fil_tablespace_open_for_recovery(space_id_t space_id)
     MY_ATTRIBUTE((warn_unused_result));
 
 /** Replay a file rename operation for ddl replay.

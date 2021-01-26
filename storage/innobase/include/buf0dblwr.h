@@ -62,17 +62,33 @@ struct Buffer {
   /** Constructor
   @param[in]	n_pages		        Number of pages to create */
   explicit Buffer(size_t n_pages) noexcept
-      : m_n_bytes(n_pages * univ_page_size.physical()) {
+      : m_phy_size(univ_page_size.physical()), m_n_bytes(n_pages * m_phy_size) {
     ut_a(n_pages > 0);
 
-    auto n_bytes = m_n_bytes + univ_page_size.physical();
+    auto n_bytes = m_n_bytes + m_phy_size;
 
     m_ptr_unaligned = static_cast<byte *>(ut_zalloc_nokey(n_bytes));
 
-    m_ptr = static_cast<byte *>(ut_align(m_ptr_unaligned, UNIV_PAGE_SIZE));
+    m_ptr = static_cast<byte *>(ut_align(m_ptr_unaligned, m_phy_size));
 
-    ut_a(ptrdiff_t(m_ptr - m_ptr_unaligned) <=
-         (ssize_t)univ_page_size.physical());
+    ut_a(ptrdiff_t(m_ptr - m_ptr_unaligned) <= (ssize_t)m_phy_size);
+
+    m_next = m_ptr;
+  }
+
+  /** Constructor
+  @param[in]	n_pages		        Number of pages to create */
+  explicit Buffer(size_t n_pages, uint32_t phy_size) noexcept
+      : m_phy_size(phy_size), m_n_bytes(n_pages * m_phy_size) {
+    ut_a(n_pages > 0);
+
+    auto n_bytes = m_n_bytes + m_phy_size;
+
+    m_ptr_unaligned = static_cast<byte *>(ut_zalloc_nokey(n_bytes));
+
+    m_ptr = static_cast<byte *>(ut_align(m_ptr_unaligned, m_phy_size));
+
+    ut_a(ptrdiff_t(m_ptr - m_ptr_unaligned) <= (ssize_t)m_phy_size);
 
     m_next = m_ptr;
   }
@@ -90,12 +106,12 @@ struct Buffer {
   bool append(const void *ptr, size_t n_bytes) noexcept {
     ut_a(m_next >= m_ptr && m_next <= m_ptr + m_n_bytes);
 
-    if (m_next + univ_page_size.physical() > m_ptr + m_n_bytes) {
+    if (m_next + m_phy_size > m_ptr + m_n_bytes) {
       return false;
     }
 
     memcpy(m_next, ptr, n_bytes);
-    m_next += univ_page_size.physical();
+    m_next += m_phy_size;
 
     return true;
   }
@@ -120,6 +136,8 @@ struct Buffer {
 
   /** Empty the buffer. */
   void clear() noexcept { m_next = m_ptr; }
+
+  uint32_t m_phy_size;
 
   /** Write buffer used in writing to the doublewrite buffer,
   aligned to an address divisible by UNIV_PAGE_SIZE (which is
@@ -165,6 +183,19 @@ extern page_id_t Force_crash;
 @return DB_SUCCESS or error code */
 dberr_t open(bool create_new_db) noexcept MY_ATTRIBUTE((warn_unused_result));
 
+/** Enable the doublewrite reduced mode by creating the necessary dblwr files
+and in-memory structures
+@param[in]  create_new_db  true if db is bootstrapped
+@return DB_SUCCESS or error code */
+dberr_t enable_reduced(bool create_new_db) noexcept
+    MY_ATTRIBUTE((warn_unused_result));
+
+/** Check and open the reduced doublewrite files if necessary
+@param[in]  create_new_db  true if db is bootstrapped
+@return DB_SUCCESS or error code */
+dberr_t reduced_open(bool create_new_db) noexcept
+    MY_ATTRIBUTE((warn_unused_result));
+
 /** Shutdown the background thread and destroy the instance */
 void close() noexcept;
 
@@ -172,6 +203,10 @@ void close() noexcept;
 @param[in] flush_type           FLUSH LIST or LRU_LIST flush request.
 @param[in] buf_pool_index       Buffer pool instance for which called. */
 void force_flush(buf_flush_t flush_type, uint32_t buf_pool_index) noexcept;
+
+/** Force a write of all pages in all dblwr segments (reduced or regular)
+This is used only when switching the doublewrite mode dynamically */
+void force_flush_all() noexcept;
 
 /** Writes a page to the doublewrite buffer on disk, syncs it,
 then writes the page to the datafile.
@@ -224,8 +259,70 @@ namespace dblwr {
 /** Number of pages per doublewrite thread/segment */
 extern ulong n_pages;
 
-/** true if enabled. */
-extern bool enabled;
+const uint32_t REDUCED_BATCH_PAGE_SIZE = 8192;
+
+// 20-BYTE HEADER
+const uint32_t RB_BATCH_ID_SIZE = 4;
+const uint32_t RB_CHECKSUM_SIZE = 4;
+const uint32_t RB_DATA_LEN_SIZE = 2;
+const uint32_t RB_BATCH_TYPE_SIZE = 1;
+const uint32_t RB_UNUSED_BYTES_SIZE = 9;
+
+// Header Offsets
+constexpr const uint32_t RB_OFF_BATCH_ID = 0;
+constexpr const uint32_t RB_OFF_CHECKSUM = RB_OFF_BATCH_ID + RB_BATCH_ID_SIZE;
+constexpr const uint32_t RB_OFF_DATA_LEN = RB_OFF_CHECKSUM + RB_CHECKSUM_SIZE;
+constexpr const uint32_t RB_OFF_BATCH_TYPE = RB_OFF_DATA_LEN + RB_DATA_LEN_SIZE;
+
+constexpr const uint32_t REDUCED_HEADER_SIZE =
+    RB_BATCH_ID_SIZE     /* BATCH_ID */
+    + RB_CHECKSUM_SIZE   /* CHECKSUM */
+    + RB_DATA_LEN_SIZE   /* DATA_LEN */
+    + RB_BATCH_TYPE_SIZE /* BATCH_TYPE */
+    + 9 /* UNUSED BYTES */;
+
+constexpr const uint32_t REDUCED_ENTRY_SIZE =
+    sizeof(space_id_t) + sizeof(page_no_t) + sizeof(lsn_t);
+
+constexpr const uint32_t REDUCED_DATA_SIZE =
+    REDUCED_BATCH_PAGE_SIZE - REDUCED_HEADER_SIZE;
+
+constexpr const uint32_t REDUCED_MAX_ENTRIES =
+    REDUCED_DATA_SIZE / REDUCED_ENTRY_SIZE;
+
+/* intentional difference in FALSE and TRUE spellings. InnoDB
+#defines them to 0 & 1. So we cannot use as is.
+@note: If you change order or add new values, please update
+innodb_doublewrite_names enum in handler/ha_innodb.cc */
+enum mode_t { OFF, ON, REDUCED, FALSEE, TRUEE };
+
+/** 1 if enabled. */
+extern ulong enabled;
+
+/** true if reduced mode is inited */
+extern bool is_reduced_inited;
+
+/** @return true if dblwr mode is ON, TRUE or REDUCED */
+bool is_enabled();
+/** @return true if dblwr mode is ON, TRUE or REDUCED
+@param[in]	mode	dblwr ENUM */
+bool is_enabled_low(ulong mode);
+
+/** @return true if dblwr mode is REDUCED */
+bool is_reduced();
+/** @return true if dblwr mode is REDUCED
+@param[in]	mode	dblwr ENUM */
+bool is_reduced_low(ulong mode);
+
+/** @return true if dblwr mode is OFF, FALSE */
+bool is_disabled();
+/** @return true if dblwr mode is OFF, FALSE
+@param[in]	mode	dblwr ENUM */
+bool is_disabled_low(ulong mode);
+
+/** @return string version of dblwr numeric values
+@param[in]	mode	dblwr ENUM */
+const char *to_string(ulong mode);
 
 /** Number of files to use for the double write buffer. It must be <= than
 the number of buffer pool instances. */
@@ -251,11 +348,18 @@ void create(Pages *&pages) noexcept;
 @return DB_SUCCESS or error code */
 dberr_t load(Pages *pages) noexcept MY_ATTRIBUTE((warn_unused_result));
 
+/** Load the doublewrite buffer pages.
+@param[in,out] pages           For storing the doublewrite pages read
+                               from the double write buffer
+@return DB_SUCCESS or error code */
+dberr_t reduced_load(Pages *pages) noexcept MY_ATTRIBUTE((warn_unused_result));
+
 /** Restore pages from the double write buffer to the tablespace.
 @param[in,out]	pages		Pages from the doublewrite buffer
 @param[in]	space		Tablespace pages to restore, if set
-                                to nullptr then try and restore all. */
-void recover(Pages *pages, fil_space_t *space) noexcept;
+                                to nullptr then try and restore all.
+@return DB_SUCCESS on success, others on failure */
+dberr_t recover(Pages *pages, fil_space_t *space) noexcept;
 
 /** Find a doublewrite copy of a page.
 @param[in]	pages		Pages read from the doublewrite buffer
@@ -263,6 +367,15 @@ void recover(Pages *pages, fil_space_t *space) noexcept;
 @return	page frame
 @retval NULL if no page was found */
 const byte *find(const Pages *pages, const page_id_t &page_id) noexcept
+    MY_ATTRIBUTE((warn_unused_result));
+
+/** Find a doublewrite copy of a page.
+@param[in]	pages		Pages read from the doublewrite buffer
+@param[in]	page_id		Page number to lookup
+@return	page frame
+@retval NULL if no page was found */
+std::tuple<bool, lsn_t> find_entry(const Pages *pages,
+                                   const page_id_t &page_id) noexcept
     MY_ATTRIBUTE((warn_unused_result));
 
 /** Check if some pages from the double write buffer could not be
@@ -292,12 +405,18 @@ class DBLWR {
     return (dblwr::recv::load(m_pages));
   }
 
+  /** Load the doublewrite buffer pages. Doesn't create the doublewrite
+  @return DB_SUCCESS or error code */
+  dberr_t reduced_load() noexcept MY_ATTRIBUTE((warn_unused_result)) {
+    return (dblwr::recv::reduced_load(m_pages));
+  }
+
   /** Restore pages from the double write buffer to the tablespace.
   @param[in]	space		Tablespace pages to restore,
                                   if set to nullptr then try
                                   and restore all. */
-  void recover(fil_space_t *space = nullptr) noexcept {
-    dblwr::recv::recover(m_pages, space);
+  dberr_t recover(fil_space_t *space = nullptr) noexcept {
+    return (dblwr::recv::recover(m_pages, space));
   }
 
   // clang-format off
@@ -309,6 +428,12 @@ class DBLWR {
       MY_ATTRIBUTE((warn_unused_result)) {
     return (dblwr::recv::find(m_pages, page_id));
   }
+
+  std::tuple<bool, lsn_t>find_entry(const page_id_t &page_id) noexcept
+      MY_ATTRIBUTE((warn_unused_result)) {
+    return (dblwr::recv::find_entry(m_pages, page_id));
+  }
+
   // clang-format on
 
   /** Check if some pages from the double write buffer

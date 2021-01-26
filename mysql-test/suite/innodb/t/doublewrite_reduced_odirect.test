@@ -1,0 +1,11 @@
+--source include/not_valgrind.inc
+--source include/not_asan.inc
+--source include/have_debug.inc
+--source include/have_odirect.inc
+
+--echo ###########################################
+--echo # Test with O_DIRECT enabled
+--echo ###########################################
+
+--let $O_DIRECT=1
+--source ../include/doublewrite_reduced.inc
