@@ -1,0 +1,345 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+create table t1 (a int primary key);
+"Inserting rows into t1 on server_1"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select count(*) from t1;
+count(*)
+20
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying apply logs on follower: server_2"
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13001.000002	#	#
+apply-logs-13001.000003	#	#
+apply-logs-13001.000004	#	#
+apply-logs-13001.000005	#	#
+apply-logs-13001.000006	#	#
+apply-logs-13001.000007	#	#
+apply-logs-13001.000008	#	#
+apply-logs-13001.000009	#	#
+apply-logs-13001.000010	#	#
+apply-logs-13001.000011	#	#
+apply-logs-13001.000012	#	#
+apply-logs-13001.000013	#	#
+apply-logs-13001.000014	#	#
+apply-logs-13001.000015	#	#
+apply-logs-13001.000016	#	#
+apply-logs-13001.000017	#	#
+apply-logs-13001.000018	#	#
+apply-logs-13001.000019	#	#
+apply-logs-13001.000020	#	#
+apply-logs-13001.000021	#	#
+apply-logs-13001.000022	#	#
+apply-logs-13001.000023	#	#
+apply-logs-13001.000024	#	#
+"Verifying apply logs on follower: server_3"
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13002.000002	#	#
+apply-logs-13002.000003	#	#
+apply-logs-13002.000004	#	#
+apply-logs-13002.000005	#	#
+apply-logs-13002.000006	#	#
+apply-logs-13002.000007	#	#
+apply-logs-13002.000008	#	#
+apply-logs-13002.000009	#	#
+apply-logs-13002.000010	#	#
+apply-logs-13002.000011	#	#
+apply-logs-13002.000012	#	#
+apply-logs-13002.000013	#	#
+apply-logs-13002.000014	#	#
+apply-logs-13002.000015	#	#
+apply-logs-13002.000016	#	#
+apply-logs-13002.000017	#	#
+apply-logs-13002.000018	#	#
+apply-logs-13002.000019	#	#
+apply-logs-13002.000020	#	#
+apply-logs-13002.000021	#	#
+apply-logs-13002.000022	#	#
+apply-logs-13002.000023	#	#
+apply-logs-13002.000024	#	#
+"Sleep for 70s to expire the logs"
+select sleep(70);
+sleep(70)
+0
+"Inserting another row on leader: server_1. This will trigger auto purge on followers"
+insert into t1 values(21);
+select count(*) from t1;
+count(*)
+21
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying apply logs on follower: server_2"
+select count(*) from t1;
+count(*)
+21
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13001.000016	#	#
+apply-logs-13001.000017	#	#
+apply-logs-13001.000018	#	#
+apply-logs-13001.000019	#	#
+apply-logs-13001.000020	#	#
+apply-logs-13001.000021	#	#
+apply-logs-13001.000022	#	#
+apply-logs-13001.000023	#	#
+apply-logs-13001.000024	#	#
+apply-logs-13001.000025	#	#
+"Verifying apply logs on follower: server_3"
+select count(*) from t1;
+count(*)
+21
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13002.000016	#	#
+apply-logs-13002.000017	#	#
+apply-logs-13002.000018	#	#
+apply-logs-13002.000019	#	#
+apply-logs-13002.000020	#	#
+apply-logs-13002.000021	#	#
+apply-logs-13002.000022	#	#
+apply-logs-13002.000023	#	#
+apply-logs-13002.000024	#	#
+apply-logs-13002.000025	#	#
+"Transfering leadership: server_1 -> server_2"
+include/raft_promote_to_leader.inc
+select sleep(10);
+sleep(10)
+0
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+"Inserting some rows into t1 from leader: server_2"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Sleep for 70s to expire the logs"
+select sleep(70);
+sleep(70)
+0
+"Inserting another row on leader: server_2. This will trigger auto purge on followers"
+insert into t1 values(41);
+select count(*) from t1;
+count(*)
+41
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying apply logs on follower: server_1"
+select count(*) from t1;
+count(*)
+41
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13000.000012	#	#
+apply-logs-13000.000013	#	#
+apply-logs-13000.000014	#	#
+apply-logs-13000.000015	#	#
+apply-logs-13000.000016	#	#
+apply-logs-13000.000017	#	#
+apply-logs-13000.000018	#	#
+apply-logs-13000.000019	#	#
+apply-logs-13000.000020	#	#
+apply-logs-13000.000021	#	#
+"Verifying apply logs on follower: server_3"
+select count(*) from t1;
+count(*)
+41
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13002.000037	#	#
+apply-logs-13002.000038	#	#
+apply-logs-13002.000039	#	#
+apply-logs-13002.000040	#	#
+apply-logs-13002.000041	#	#
+apply-logs-13002.000042	#	#
+apply-logs-13002.000043	#	#
+apply-logs-13002.000044	#	#
+apply-logs-13002.000045	#	#
+apply-logs-13002.000046	#	#
+"Transfering leadership: server_2 -> server_1"
+include/raft_promote_to_leader.inc
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+"Inserting more rows into t1 from server_1"
+select sleep(10);
+sleep(10)
+0
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Sleep for 70s to expire the logs"
+select sleep(70);
+sleep(70)
+0
+"Inserting another row on leader: server_1. This will trigger auto purge on followers"
+insert into t1 values(61);
+select count(*) from t1;
+count(*)
+61
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying apply logs on follower: server_2"
+select count(*) from t1;
+count(*)
+61
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13001.000012	#	#
+apply-logs-13001.000013	#	#
+apply-logs-13001.000014	#	#
+apply-logs-13001.000015	#	#
+apply-logs-13001.000016	#	#
+apply-logs-13001.000017	#	#
+apply-logs-13001.000018	#	#
+apply-logs-13001.000019	#	#
+apply-logs-13001.000020	#	#
+apply-logs-13001.000021	#	#
+"Verifying apply logs on follower: server_3"
+select count(*) from t1;
+count(*)
+61
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13002.000058	#	#
+apply-logs-13002.000059	#	#
+apply-logs-13002.000060	#	#
+apply-logs-13002.000061	#	#
+apply-logs-13002.000062	#	#
+apply-logs-13002.000063	#	#
+apply-logs-13002.000064	#	#
+apply-logs-13002.000065	#	#
+apply-logs-13002.000066	#	#
+apply-logs-13002.000067	#	#
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
