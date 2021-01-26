@@ -1,0 +1,148 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+call mtr.add_suppression("Engine has seen trxs till file .*");
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+create table t1 (a int primary key) engine=innodb;
+"Inserting rows into t1 on server_1"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select count(*) from t1;
+count(*)
+12
+"Verifying apply logs on follower: server_2"
+select count(*) from t1;
+count(*)
+12
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13001.000002	#	#
+apply-logs-13001.000003	#	#
+apply-logs-13001.000004	#	#
+apply-logs-13001.000005	#	#
+apply-logs-13001.000006	#	#
+apply-logs-13001.000007	#	#
+apply-logs-13001.000008	#	#
+apply-logs-13001.000009	#	#
+apply-logs-13001.000010	#	#
+apply-logs-13001.000011	#	#
+apply-logs-13001.000012	#	#
+apply-logs-13001.000013	#	#
+apply-logs-13001.000014	#	#
+apply-logs-13001.000015	#	#
+apply-logs-13001.000016	#	#
+"Verifying apply logs on follower: server_3"
+select count(*) from t1;
+count(*)
+12
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13002.000002	#	#
+apply-logs-13002.000003	#	#
+apply-logs-13002.000004	#	#
+apply-logs-13002.000005	#	#
+apply-logs-13002.000006	#	#
+apply-logs-13002.000007	#	#
+apply-logs-13002.000008	#	#
+apply-logs-13002.000009	#	#
+apply-logs-13002.000010	#	#
+apply-logs-13002.000011	#	#
+apply-logs-13002.000012	#	#
+apply-logs-13002.000013	#	#
+apply-logs-13002.000014	#	#
+apply-logs-13002.000015	#	#
+apply-logs-13002.000016	#	#
+"Restarting follower: server_2"
+include/rpl_restart_server.inc [server_number=2 parameters: --skip-slave-start]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+select sleep(70);
+sleep(70)
+0
+include/start_slave_sql.inc
+Warnings:
+Note	3083	Replication thread(s) for channel '' are already runnning.
+"Verifying apply logs on follower: server_2"
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13001.000019	#	#
+select count(*) from t1;
+count(*)
+12
+"Sleep for 70s to expire apply logs on followers"
+select sleep(70);
+sleep(70)
+0
+"Inserting one row in leader: server_1. This should trigger auto purge of apply logs on followers"
+insert into t1 values(12);
+select count(*) from t1;
+count(*)
+13
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying apply logs on follower: server_2"
+select count(*) from t1;
+count(*)
+13
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13001.000019	#	#
+apply-logs-13001.000020	#	#
+"Verifying apply logs on follower: server_3"
+select count(*) from t1;
+count(*)
+13
+show binary logs;
+Log_name	File_size	Encrypted
+apply-logs-13002.000008	#	#
+apply-logs-13002.000009	#	#
+apply-logs-13002.000010	#	#
+apply-logs-13002.000011	#	#
+apply-logs-13002.000012	#	#
+apply-logs-13002.000013	#	#
+apply-logs-13002.000014	#	#
+apply-logs-13002.000015	#	#
+apply-logs-13002.000016	#	#
+apply-logs-13002.000017	#	#
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

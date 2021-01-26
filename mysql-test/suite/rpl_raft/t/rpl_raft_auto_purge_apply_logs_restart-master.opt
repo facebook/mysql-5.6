@@ -1,0 +1,2 @@
+--loose-debug=+d,force_rotate --apply_log_retention_num=10
+--apply_log_retention_duration=1
