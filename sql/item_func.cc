@@ -5257,9 +5257,10 @@ longlong Item_func_sleep::val_int() {
     if (is_timeout(error)) break;
     error = 0;
   }
-  thd_wait_end(thd);
   mysql_mutex_unlock(&LOCK_item_func_sleep);
   thd->EXIT_COND(NULL);
+
+  thd_wait_end(thd);
 
   mysql_cond_destroy(&cond);
 
