@@ -595,16 +595,7 @@ select @@rocksdb_select_bypass_debug_row_delay;
 set global rocksdb_select_bypass_debug_row_delay=0;
 select @@rocksdb_select_bypass_debug_row_delay;
 
-DROP TABLE count_table;
-DROP TABLE link_table;
-DROP TABLE link_table3;
-DROP TABLE link_table2;
-DROP TABLE id_table;
-DROP TABLE node_table;
-DROP TABLE link_table5;
-DROP TABLE link_table5_rev;
-DROP TABLE link_table6;
-DROP TABLE link_table4;
+--source ../include/bypass_drop_table.inc
 
 SELECT @@rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;

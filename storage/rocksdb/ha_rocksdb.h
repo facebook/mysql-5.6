@@ -1030,6 +1030,7 @@ class ha_rocksdb : public my_core::handler {
   int adjust_handler_stats_table_scan();
 
   void update_row_read(ulonglong count);
+  static void inc_covered_sk_lookup();
 
  public:
   virtual void rpl_before_delete_rows() override;

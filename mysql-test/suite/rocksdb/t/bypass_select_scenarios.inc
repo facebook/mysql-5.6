@@ -86,10 +86,9 @@ ORDER BY time DESC, id2 DESC LIMIT 0, 10000;
 --source ../include/verify_bypass_query.inc
 
 # Partial keys should not be unpacked
-# BUG: This is currently broken
-#let bypass_query=
-#SELECT /*+ bypass */ data from link_table6 FORCE INDEX (id1_type) where id1=1;
-#--source ../include/verify_bypass_query.inc
+let bypass_query=
+SELECT /*+ bypass */ data from link_table6 FORCE INDEX (id1_type) where id1=1;
+--source ../include/verify_bypass_query.inc
 
 # time >= ONLY crashes
 let bypass_query=
@@ -302,6 +301,29 @@ FORCE INDEX (PRIMARY) WHERE lvid = 100 AND id >= 3 ORDER BY id LIMIT 1000000;
 
 DROP TABLE meta_table;
 
+# Uncovered TEXT/VARCHAR in PK
+let bypass_query=
+SELECT /*+ bypass */ id2, version, data from link_text FORCE INDEX (PRIMARY)
+WHERE id1=1 and link_type=3 and id2 >= 1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id2, version, data from link_varchar FORCE INDEX (PRIMARY)
+WHERE id1=1 and link_type=3 and id2 >= 1;
+--source ../include/verify_bypass_query.inc
+
+# Uncovered TEXT/VARCHAR in SK
+let bypass_query=
+SELECT /*+ bypass */ id2, version, data from link_text FORCE INDEX (id1_type)
+WHERE id1=1 and link_type=3 and visibility=4 and time >= 10;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id2, version, data from link_varchar
+FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4
+and time >= 10;
+--source ../include/verify_bypass_query.inc
+
 # KILL
 --echo # Establish connection con1 (user=root)
 connect (con1,localhost,root,,);
@@ -329,13 +351,4 @@ variable_name="rocksdb_select_bypass_executed";
 
 SELECT @executed_end-@executed_start AS ROCKSDB_SELECT_BYPASS_EXECUTED;
 
-DROP TABLE count_table;
-DROP TABLE link_table;
-DROP TABLE link_table2;
-DROP TABLE id_table;
-DROP TABLE node_table;
-DROP TABLE link_table5;
-DROP TABLE link_table5_rev;
-DROP TABLE link_table3;
-DROP TABLE link_table6;
-DROP TABLE link_table4;
+--source ../include/bypass_drop_table.inc
