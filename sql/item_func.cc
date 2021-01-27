@@ -4352,7 +4352,6 @@ longlong Item_func_get_lock::val_int()
     }
     error= 0;
   }
-  thd_wait_end(thd);
 
   if (ull->locked)
   {
@@ -4382,6 +4381,8 @@ longlong Item_func_get_lock::val_int()
   thd->mysys_var->current_mutex= 0;
   thd->mysys_var->current_cond=  0;
   mysql_mutex_unlock(&thd->mysys_var->mutex);
+
+  thd_wait_end(thd);
 
   DBUG_RETURN(!error ? 1 : 0);
 }
@@ -4578,12 +4579,14 @@ longlong Item_func_sleep::val_int()
       break;
     error= 0;
   }
-  thd_wait_end(thd);
   mysql_mutex_unlock(&LOCK_user_locks);
+
   mysql_mutex_lock(&thd->mysys_var->mutex);
   thd->mysys_var->current_mutex= 0;
   thd->mysys_var->current_cond=  0;
   mysql_mutex_unlock(&thd->mysys_var->mutex);
+
+  thd_wait_end(thd);
 
   mysql_cond_destroy(&cond);
 
