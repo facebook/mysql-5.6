@@ -5,6 +5,8 @@
 # Parameters
 #   $bypass_query
 #     Bypass query to run
+#   $bypass_covering_sk
+#     Bypass query uses cover SK
 
 --disable_query_log
 SELECT @@rocksdb_select_bypass_policy INTO @__rocksdb_select_bypass_policy;
@@ -19,6 +21,9 @@ variable_name="rows_sent";
 SELECT variable_value INTO @bypass_executed_0 FROM
 performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
+SELECT variable_value INTO @bypass_covered_sk_0 FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_covered_secondary_key_lookups";
 
 --echo ========== Verifying Bypass Query ==========
 --echo WITH BYPASS:
@@ -38,9 +43,14 @@ variable_name="rows_sent";
 SELECT variable_value INTO @bypass_executed_1 FROM
 performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
+SELECT variable_value INTO @bypass_covered_sk_1 FROM
+performance_schema.global_status WHERE
+variable_name="rocksdb_covered_secondary_key_lookups";
 
 --let rows_read_bypass=`SELECT @bypass_rows_read_1 - @bypass_rows_read_0`
 SELECT @bypass_rows_read_1 - @bypass_rows_read_0 AS ROWS_READ;
+--let cover_sk_bypass=`SELECT @bypass_covered_sk_1 - @bypass_covered_sk_0`
+SELECT @bypass_covered_sk_1 - @bypass_covered_sk_0 AS COVERED_SK_LOOKUP;
 
 --let $assert_cond= @bypass_executed_1 - @bypass_executed_0 = 1
 --let $assert_text = Verify executed in bypass
@@ -97,5 +107,12 @@ let $assert_cond= @bypass_rows_sent_3 - @bypass_rows_sent_2 =
 --let $assert_cond= $ROWS_READ_BYPASS <= $ROWS_READ_NO_BYPASS;
 --let $assert_text = Verify bypass reads no more than regular query
 --source include/assert.inc
+
+if ($bypass_covering_sk == 1)
+{
+  --let $assert_cond= $cover_sk_bypass = $rows_read_bypass
+  --let $assert_text = Verify bypass query uses covering SK
+  --source include/assert.inc
+}
 
 --enable_query_log

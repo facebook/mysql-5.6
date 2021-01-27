@@ -5,6 +5,8 @@
 #  $query_table
 #    Which table
 
+--let bypass_covering_sk=1
+
 --echo # prefix
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version

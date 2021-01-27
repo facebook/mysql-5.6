@@ -228,6 +228,10 @@ void ha_rocksdb::update_row_read(ulonglong count) {
   update_row_stats(ROWS_READ, count);
 }
 
+void ha_rocksdb::inc_covered_sk_lookup() {
+  global_stats.covered_secondary_key_lookups.inc();
+}
+
 void dbug_dump_database(rocksdb::DB *db);
 static handler *rocksdb_create_handler(my_core::handlerton *hton,
                                        my_core::TABLE_SHARE *table_arg,
@@ -8957,7 +8961,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
     if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
       rc = kd.unpack_record(table, buf, &rkey, &value,
                             m_converter->get_verify_row_debug_checksums());
-      global_stats.covered_secondary_key_lookups.inc();
+      inc_covered_sk_lookup();
     } else {
       rc = get_row_by_rowid(buf, m_pk_packed_tuple, pk_size);
     }
@@ -9073,7 +9077,7 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
         rc = m_key_descr_arr[keyno]->unpack_record(
             table, buf, &key, &value,
             m_converter->get_verify_row_debug_checksums());
-        global_stats.covered_secondary_key_lookups.inc();
+        inc_covered_sk_lookup();
       } else {
         DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete_sk");
         rc = get_row_by_rowid(buf, m_pk_packed_tuple, size);
