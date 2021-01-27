@@ -41,6 +41,10 @@ def parse_args():
         '--weighted-queues',
         action="store_true",
         help='use weighted queues')
+    parser.add_argument(
+        '--wait-events',
+        action="store_true",
+        help='add wait event workload')
 
     return parser.parse_args()
 
@@ -63,22 +67,37 @@ def generate_load(args, worker_id):
         cursor.execute('set admission_control_queue = %d;' % queue_id)
         cursor.close()
 
+    op = 1
     for i in range(NUM_TRANSACTIONS):
         try:
-            print("WORKER %d: Executing iteration %d" % (worker_id, i))
-            cursor = con.cursor()
-            cursor.execute('begin;')
-            values = []
-            for j in range(3):
-                val = random.randrange(1, 10000)
-                values.append(val)
-            values = sorted(values)
-            for val in values:
-                insert_sql = 'insert into t1 values(%d, 1) on duplicate key ' \
-                'update b=greatest(b+1, 0);' % (val)
-                cursor.execute(insert_sql)
-            cursor.execute("commit;")
-            cursor.close()
+            if args.wait_events:
+                op = random.randint(1, 3)
+            if op == 1:
+                print("WORKER %d: Executing iteration %d" % (worker_id, i))
+                cursor = con.cursor()
+                cursor.execute('begin;')
+                values = []
+                for j in range(3):
+                    val = random.randrange(1, 10000)
+                    values.append(val)
+                values = sorted(values)
+                for val in values:
+                    insert_sql = 'insert into t1 values(%d, 1) on duplicate ' \
+                    'key update b=greatest(b+1, 0);' % (val)
+                    cursor.execute(insert_sql)
+                cursor.execute("commit;")
+                cursor.close()
+            elif op == 2:
+                print("WORKER %d: Executing GET_LOCK %d" % (worker_id, i))
+                cursor = con.cursor()
+                cursor.execute("select get_lock('testlock', -1)")
+                cursor.execute("select release_lock('testlock')")
+                cursor.close()
+            else:
+                print("WORKER %d: Executing SLEEP %d" % (worker_id, i))
+                cursor = con.cursor()
+                cursor.execute("select sleep(0.1)")
+                cursor.close()
         except (MySQLdb.OperationalError, MySQLdb.InternalError) as e:
             if not is_deadlock_error(e):
                 raise e
