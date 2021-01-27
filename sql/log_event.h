@@ -379,6 +379,17 @@ struct hash<Dependency_key> {
 */
 #define LOG_EVENT_MTS_ISOLATE_F 0x200
 
+/**
+ * Intermediate values from 0x400 to 0x4000 are unused and Oracle
+ * can use them.
+ */
+
+/**
+ * RAFT: These binlog files have been created by a MySQL Raft based
+ * binlog system.
+ */
+#define LOG_EVENT_RAFT_LOG_F 0x8000
+
 /** @}*/
 
 /**
@@ -908,6 +919,7 @@ class Log_event {
     common_header->log_pos = 0;
   }
   void set_relay_log_event() { common_header->flags |= LOG_EVENT_RELAY_LOG_F; }
+  void set_raft_log_event() { common_header->flags |= LOG_EVENT_RAFT_LOG_F; }
   bool is_artificial_event() const {
     return common_header->flags & LOG_EVENT_ARTIFICIAL_F;
   }
@@ -4129,6 +4141,16 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   bool write_raft_prev_opid(Basic_ostream *ostream);
 
   /**
+   * Write rotate event tag to metadata event previous to rotate event
+   * Central to raft correctness
+   *
+   * @param ostream - stream to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_rotate_tag(Basic_ostream *ostream);
+
+  /**
    * Write type and length to file
    *
    * @param ostream - stream to write to
@@ -4184,6 +4206,16 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - number of bytes written
    */
   uint32 write_raft_str(uchar *obuffer);
+
+  /**
+   * Write rotate event tag to metadata event previous to rotate event
+   * Central to raft correctness
+   *
+   * @param ostream - stream to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  uint32 write_rotate_tag(uchar *obuffer);
 
   /**
    * Write type and length to memory buffer

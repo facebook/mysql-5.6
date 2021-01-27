@@ -8077,16 +8077,24 @@ int MYSQL_BIN_LOG::new_file_impl(
                temp_binlog_cache->open(rotate_cache_size, rotate_cache_size)))
         goto end;
 
-      if (config_change_rotate) {
-        // write the metadata log event to the cache first
-        Metadata_log_event me(raft_rotate_info->config_change);
-        // checksum has to be turned off, because the raft plugin
-        // will patch the events and generate the final checksum.
-        me.common_footer->checksum_alg = binary_log::BINLOG_CHECKSUM_ALG_OFF;
-        if ((error = me.write(temp_binlog_cache.get()))) goto end;
-        add_bytes_written(me.common_header->data_written);
+      Metadata_log_event me;
+      if (no_op) {
+        me.set_raft_rotate_tag(Metadata_log_event::RRET_NOOP);
+      } else if (config_change_rotate) {
+        me.set_raft_rotate_tag(Metadata_log_event::RRET_CONFIG_CHANGE);
+        me.set_raft_str(raft_rotate_info->config_change);
+      } else {
+        me.set_raft_rotate_tag(Metadata_log_event::RRET_SIMPLE_ROTATE);
       }
-      // in raft mode checksums are calculated in plugin
+
+      // checksum has to be turned off, because the raft plugin
+      // will patch the events and generate the final checksum.
+      me.common_footer->checksum_alg = binary_log::BINLOG_CHECKSUM_ALG_OFF;
+      if ((error = me.write(temp_binlog_cache.get()))) goto end;
+      add_bytes_written(me.common_header->data_written);
+
+      // checksum has to be turned off, because the raft plugin
+      // will patch the events and generate the final checksum.
       r.common_footer->checksum_alg = binary_log::BINLOG_CHECKSUM_ALG_OFF;
       if ((error = r.write(temp_binlog_cache.get()))) goto end;
 
@@ -8110,7 +8118,10 @@ int MYSQL_BIN_LOG::new_file_impl(
     if (rotate_via_raft) {
       RaftReplicateMsgOpType op_type = RaftReplicateMsgOpType::OP_TYPE_ROTATE;
 
-      if (no_op) op_type = RaftReplicateMsgOpType::OP_TYPE_NOOP;
+      if (no_op)
+        op_type = RaftReplicateMsgOpType::OP_TYPE_NOOP;
+      else if (config_change_rotate)
+        op_type = RaftReplicateMsgOpType::OP_TYPE_CHANGE_CONFIG;
 
       DBUG_EXECUTE_IF("simulate_before_flush_error_on_new_file", error = 1;);
 
@@ -8221,13 +8232,6 @@ int MYSQL_BIN_LOG::new_file_impl(
     // pattern in most places of after_commit hook (TODO)
     (void)RUN_HOOK(raft_replication, after_commit, (current_thd));
   }
-  if (!error && enable_raft_plugin && (is_relay_log || rotate_via_raft)) {
-    // Register new log to raft
-    // Previous close(LOG_CLOSE_TO_BE_OPENED | LOG_CLOSE_INDEX,) will close
-    // binlog and its IO_CACHE.
-    register_log_entities(current_thd, /*context=*/0,
-                          /*need_lock=*/false, is_relay_log);
-  }
 end:
   if (error && close_on_error /* rotate, flush or reopen failed */) {
     /*
@@ -8265,6 +8269,16 @@ end:
   }
 
   mysql_mutex_unlock(&LOCK_index);
+
+  if (!error && enable_raft_plugin && !no_op &&
+      (is_relay_log || rotate_via_raft)) {
+    // Register new log to raft
+    // Previous close(LOG_CLOSE_TO_BE_OPENED | LOG_CLOSE_INDEX,) will close
+    // binlog and its IO_CACHE.
+    register_log_entities(current_thd, /*context=*/0,
+                          /*need_lock=*/false, is_relay_log);
+  }
+
   if (need_lock_log) mysql_mutex_unlock(&LOCK_log);
 
   DEBUG_SYNC(current_thd, "after_disable_binlog");

@@ -781,6 +781,31 @@ class Metadata_event : public Binary_log_event {
    */
   void set_raft_prev_opid(int64_t term, int64_t index);
 
+  enum RAFT_ROTATE_EVENT_TAG : int16_t {
+    RRET_SIMPLE_ROTATE = 0,  // Tag for a simple rotate event
+    RRET_NOOP = 1,           // Tag for a NO-OP event
+    RRET_CONFIG_CHANGE = 2,  // Tag for a config change event
+    // If new types are added make sure all assertions
+    // are checked for RRET_NOT_ROTATE
+    RRET_NOT_ROTATE = 999,  // Not a rotate event or invalid tag
+  };
+
+  /**
+   * Tag the rotate event before the metadata event with the
+   * appropriate tag
+   */
+  void set_raft_rotate_tag(RAFT_ROTATE_EVENT_TAG t);
+
+  /**
+   * Get the rotate event tag.
+   */
+  RAFT_ROTATE_EVENT_TAG get_rotate_tag() const;
+
+  /**
+   * Get the rotate tag as a human readable string.
+   */
+  std::string get_rotate_tag_string() const;
+
   /**
    * Get raft previous opid term
    *
@@ -814,6 +839,8 @@ class Metadata_event : public Binary_log_event {
     RAFT_GENERIC_STR_TYPE = 3,
     /* Raft term and index for the last file*/
     RAFT_PREV_OPID_TYPE = 4,
+    /* Raft Rotate Event Tag Type */
+    RAFT_ROTATE_TAG_TYPE = 5,
     METADATA_EVENT_TYPE_MAX,
   };
 
@@ -874,6 +901,10 @@ class Metadata_event : public Binary_log_event {
   int64_t prev_raft_index_ = -1;
   static const uint32_t ENCODED_RAFT_PREV_OPID_SIZE =
       sizeof(prev_raft_term_) + sizeof(prev_raft_index_);
+
+  RAFT_ROTATE_EVENT_TAG raft_rotate_tag_ = RRET_NOT_ROTATE;
+  // will write as uint16_t
+  static const uint32_t ENCODED_RAFT_ROTATE_TAG_SIZE = sizeof(uint16_t);
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;
