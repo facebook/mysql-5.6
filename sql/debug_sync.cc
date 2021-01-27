@@ -1871,6 +1871,7 @@ static void debug_sync_execute(THD *thd, st_debug_sync_action *action) {
                            error ? "timeout" : "resume", sig_wait, dsp_name)););
 
       /*
+        Restore current mutex/cond information to how it was before DEBUG_SYNC.
         We don't use enter_cond()/exit_cond(). They do not save old
         mutex and cond. This would prohibit the use of DEBUG_SYNC
         between other places of enter_cond() and exit_cond(). The
@@ -1878,14 +1879,11 @@ static void debug_sync_execute(THD *thd, st_debug_sync_action *action) {
         is locked. (See comment in THD::exit_cond().)
       */
       mysql_mutex_unlock(&debug_sync_global.ds_mutex);
-      if (old_mutex) {
-        mysql_mutex_lock(&thd->LOCK_current_cond);
-        thd->current_mutex = old_mutex;
-        thd->current_cond = old_cond;
-        mysql_mutex_unlock(&thd->LOCK_current_cond);
-        debug_sync_thd_proc_info(thd, old_proc_info);
-      } else
-        debug_sync_thd_proc_info(thd, old_proc_info);
+      mysql_mutex_lock(&thd->LOCK_current_cond);
+      thd->current_mutex = old_mutex;
+      thd->current_cond = old_cond;
+      mysql_mutex_unlock(&thd->LOCK_current_cond);
+      debug_sync_thd_proc_info(thd, old_proc_info);
     } else {
       /* In case we don't wait, we just release the mutex. */
       mysql_mutex_unlock(&debug_sync_global.ds_mutex);

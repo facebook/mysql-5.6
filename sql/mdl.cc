@@ -1859,7 +1859,6 @@ MDL_wait::enum_wait_status MDL_wait::timed_wait(
     wait_result = mysql_cond_timedwait(&m_COND_wait_status, &m_LOCK_wait_status,
                                        abs_timeout);
   }
-  thd_wait_end(owner->get_thd());
 
   if (m_wait_status == WS_EMPTY) {
     /*
@@ -1883,6 +1882,7 @@ MDL_wait::enum_wait_status MDL_wait::timed_wait(
 
   mysql_mutex_unlock(&m_LOCK_wait_status);
   owner->EXIT_COND(&old_stage);
+  thd_wait_end(owner->get_thd());
 
   return result;
 }

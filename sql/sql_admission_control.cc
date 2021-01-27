@@ -194,6 +194,10 @@ int multi_tenancy_admit_query(THD *thd,
                               enum_admission_control_request_mode mode) {
   bool admission_check = false;
 
+  // Waiting for admission while holding a mutex is prone to deadlocks
+  // if all threads holding AC slots wait for this mutex.
+  assert(!thd->current_mutex);
+
   // Return if THD is already in an admission control
   // (e.g. part of a multi query packet).
   if (thd->is_in_ac) return 0;
