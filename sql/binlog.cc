@@ -2915,9 +2915,9 @@ bool HybridLogicalClock::DatabaseEntry::wait_for_hlc(THD *thd,
 
       int error = mysql_cond_timedwait(&cond_, &mutex_, &timeout);
 
-      thd_wait_end(thd);
       mysql_mutex_unlock(&mutex_);
       thd->EXIT_COND(NULL);
+      thd_wait_end(thd);
 
       // When intentionally sleeping to stall, we expect a timeout
       if (is_timeout(error)) {
