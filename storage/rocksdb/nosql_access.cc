@@ -658,6 +658,8 @@ class select_exec {
     m_start_inclusive = m_end_inclusive = true;
   }
 
+  ~select_exec() { bitmap_free(&m_lookup_bitmap); }
+
   bool run();
 
   bool is_unsupported() { return m_unsupported; }
@@ -753,9 +755,9 @@ class select_exec {
   void scan_value();
   bool run_query();
   bool run_range_query(txn_wrapper *txn);
-  bool unpack_for_sk(txn_wrapper *txn, rocksdb::Slice rkey,
-                     rocksdb::Slice rvalue);
-  bool unpack_for_pk(rocksdb::Slice rkey, rocksdb::Slice rvalue);
+  bool unpack_for_sk(txn_wrapper *txn, const rocksdb::Slice &rkey,
+                     const rocksdb::Slice &rvalue);
+  bool unpack_for_pk(const rocksdb::Slice &rkey, const rocksdb::Slice &rvalue);
   bool eval_cond();
   int eval_and_send();
   bool run_pk_point_query(txn_wrapper *txn);
@@ -825,6 +827,9 @@ class select_exec {
   // We need to unpack the value
   bool m_unpack_value;
 
+  // We may need to only read keys
+  bool m_keyread_only;
+
   // If the given index is primary index
   bool m_index_is_pk;
 
@@ -858,6 +863,9 @@ class select_exec {
   // Whether the range query (begin, end) is inclusive in begin/end
   bool m_start_inclusive;
   bool m_end_inclusive;
+
+  // Lookup bitmap for covering check
+  MY_BITMAP m_lookup_bitmap;
 };
 
 bool select_exec::pack_index_tuple(uint key_part_no, Rdb_string_writer *writer,
@@ -1272,39 +1280,26 @@ void INLINE_ATTR select_exec::scan_value() {
   }
 #endif
 
-  // Scan the given index
   std::vector<bool> index_cover_bitmap(m_table_share->fields, false);
   for (uint i = 0; i < m_index_info->actual_key_parts; ++i) {
-    if (m_key_def->can_unpack(i)) {
+    if (m_key_def->get_pack_info(i)->m_covered == Rdb_key_def::KEY_COVERED) {
       index_cover_bitmap[m_index_info->key_part[i].field->field_index()] = true;
     }
   }
 
-  // Scan the secondary index in case of given index is primary index
-  std::vector<bool> pk_cover_bitmap(m_table_share->fields, false);
-  if (!m_index_is_pk) {
-    for (uint i = 0; i < m_pk_info->actual_key_parts; ++i) {
-      if (m_pk_def->can_unpack(i)) {
-        pk_cover_bitmap[m_pk_info->key_part[i].field->field_index()] = true;
-      }
+  m_keyread_only = true;
+  for (uint i = 0; i < m_table_share->fields; i++) {
+    if (bitmap_is_set(m_table->read_set, i) && !index_cover_bitmap[i]) {
+      m_keyread_only = false;
+      break;
     }
   }
 
-  for (uint i = 0; i < m_table_share->fields; i++) {
-    if (!bitmap_is_set(m_table->read_set, i)) {
-      continue;
-    }
-    if (index_cover_bitmap[i]) {
-      // We need to unpack secondary key
-      m_unpack_index = true;
-    } else if (!m_index_is_pk && pk_cover_bitmap[i]) {
-      // We need to unpack primary key
-      m_unpack_pk = true;
-    } else {
-      // We need to unpack value (not just the key)
-      m_unpack_value = true;
-    }
+  if (!m_keyread_only && !m_index_is_pk) {
+    m_key_def->get_lookup_bitmap(m_table, &m_lookup_bitmap);
   }
+
+  m_converter->setup_field_decoders(m_table->read_set, m_index);
 }
 
 bool INLINE_ATTR select_exec::run() {
@@ -1396,19 +1391,12 @@ bool INLINE_ATTR select_exec::run_query() {
 
   bool ret = false;
 
-  if (m_unpack_value) {
-    m_converter->setup_field_decoders(m_table->read_set);
-  }
-
   m_row_buf.clear();
 
   if (is_pk_point_query) {
     ret = run_pk_point_query(&txn);
   } else {
-    // Either secondary key query or range query
-    if (m_unpack_pk || m_unpack_value) {
-      m_pk_tuple_buf.resize(m_pk_def->max_storage_fmt_length());
-    }
+    m_pk_tuple_buf.resize(m_pk_def->max_storage_fmt_length());
 
     if (m_use_full_key && (m_index_info->flags & HA_NOSAME)) {
       // The index is fully covered and unique
@@ -1568,15 +1556,10 @@ bool INLINE_ATTR select_exec::eval_cond() {
   return true;
 }
 
-bool INLINE_ATTR select_exec::unpack_for_pk(rocksdb::Slice rkey,
-                                            rocksdb::Slice rvalue) {
-  // Always unpack pk
-  // NOTE since we don't necessarily call setup_field_decoders we need to
-  // always call set_is_key_requested. This needs further refactoring
-  m_converter->set_is_key_requested(true);
-
-  int rc = m_converter->decode(m_key_def, m_table->record[0], &rkey, &rvalue,
-                               m_unpack_value);
+bool INLINE_ATTR select_exec::unpack_for_pk(const rocksdb::Slice &rkey,
+                                            const rocksdb::Slice &rvalue) {
+  // decode will handle key/value decoding for PK
+  int rc = m_converter->decode(m_key_def, m_table->record[0], &rkey, &rvalue);
   if (rc) {
     m_handler->print_error(rc, 0);
     return true;
@@ -1586,14 +1569,17 @@ bool INLINE_ATTR select_exec::unpack_for_pk(rocksdb::Slice rkey,
 }
 
 bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
-                                            rocksdb::Slice rkey,
-                                            rocksdb::Slice rvalue) {
+                                            const rocksdb::Slice &rkey,
+                                            const rocksdb::Slice &rvalue) {
+  bool covers_lookup =
+      m_keyread_only || m_key_def->covers_lookup(&rvalue, &m_lookup_bitmap);
+
   // SECONDARY KEY - there are a few cases to take care of:
   // 1. Secondary index covers the entire look up
-  // 2. Secondary index + primary index covers the look up
-  // 3. We need the value as well
+  // 2. Unpack everything using PK index + value
   int rc = 0;
-  if (m_unpack_index) {
+  if (covers_lookup) {
+    // SK covers the entire lookup
     rc =
         m_key_def->unpack_record(m_table, m_table->record[0], &rkey, &rvalue,
                                  m_converter->get_verify_row_debug_checksums());
@@ -1601,39 +1587,35 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
       m_handler->print_error(rc, 0);
       return true;
     }
+
+    ha_rocksdb::inc_covered_sk_lookup();
+    return false;
   }
 
-  if (m_unpack_pk || m_unpack_value) {
-    // We need the pk and/or value if the secondary key isn't enough
-    uint pk_tuple_size = 0;
+  // Unpack PK index + value
+  uint pk_tuple_size = 0;
+  pk_tuple_size = m_key_def->get_primary_key_tuple(m_table, *m_pk_def, &rkey,
+                                                   m_pk_tuple_buf.data());
+  if (pk_tuple_size == RDB_INVALID_KEY_LEN) {
+    m_handler->print_error(HA_ERR_ROCKSDB_CORRUPT_DATA, 0);
+    return true;
+  }
 
-    pk_tuple_size = m_key_def->get_primary_key_tuple(m_table, *m_pk_def, &rkey,
-                                                     m_pk_tuple_buf.data());
-    if (pk_tuple_size == RDB_INVALID_KEY_LEN) {
-      m_handler->print_error(HA_ERR_ROCKSDB_CORRUPT_DATA, 0);
-      return true;
-    }
+  rocksdb::Slice pk_key(reinterpret_cast<const char *>(m_pk_tuple_buf.data()),
+                        pk_tuple_size);
 
-    rocksdb::Slice pk_key(reinterpret_cast<const char *>(m_pk_tuple_buf.data()),
-                          pk_tuple_size);
+  m_pk_value.Reset();
+  rocksdb::Status s = txn->get(m_pk_def->get_cf(), pk_key, &m_pk_value);
+  if (!s.ok()) {
+    txn->report_error(s);
+    return true;
+  }
 
-    m_pk_value.Reset();
-    rocksdb::Status s = txn->get(m_pk_def->get_cf(), pk_key, &m_pk_value);
-    if (!s.ok()) {
-      txn->report_error(s);
-      return true;
-    }
-
-    if (m_unpack_pk || m_unpack_value) {
-      m_converter->set_is_key_requested(m_unpack_pk);
-      rc = m_converter->decode(m_pk_def, m_table->record[0], &pk_key,
-                               &m_pk_value, m_unpack_value);
-      if (rc) {
-        m_handler->print_error(rc, 0);
-        return true;
-      }
-    }
-  }  // m_unpack_value || m_unpack_value
+  rc = m_converter->decode(m_pk_def, m_table->record[0], &pk_key, &m_pk_value);
+  if (rc) {
+    m_handler->print_error(rc, 0);
+    return true;
+  }
 
   return false;
 }
@@ -1882,7 +1864,6 @@ bool inline is_bypass_on(Query_block *select_lex) {
 
 std::deque<REJECTED_ITEM> rejected_bypass_queries;
 std::mutex rejected_bypass_query_lock;
-
 bool handle_unsupported_bypass(THD *thd, const char *error_msg) {
   rocksdb_select_bypass_rejected++;
 

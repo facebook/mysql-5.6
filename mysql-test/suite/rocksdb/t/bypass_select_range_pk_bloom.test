@@ -22,13 +22,4 @@
 --let query_table=link_table5_rev
 --source bypass_select_range_pk.inc
 
-DROP TABLE count_table;
-DROP TABLE link_table;
-DROP TABLE link_table2;
-DROP TABLE id_table;
-DROP TABLE node_table;
-DROP TABLE link_table5;
-DROP TABLE link_table5_rev;
-DROP TABLE link_table3;
-DROP TABLE link_table6;
-DROP TABLE link_table4;
+--source ../include/bypass_drop_table.inc

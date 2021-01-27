@@ -959,6 +959,7 @@ class ha_rocksdb : public my_core::handler {
   int adjust_handler_stats_table_scan();
 
   void update_row_read(ulonglong count);
+  static void inc_covered_sk_lookup();
 
  public:
   /* TODO(yzha) - 019a9fcd7f6 Add Tokutek's read-free replication api in mysqld

@@ -1,3 +1,4 @@
+--disable_query_log
 CREATE TABLE `link_table` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
@@ -344,3 +345,44 @@ insert into link_table4 values ('a1', "rk4", 5, 2, 1, 1, 'data15', 1, 1);
 insert into link_table4 values ('b1', "rk5", 1, 2, 1, 1, 'data21', 1, 1);
 insert into link_table4 values ('b1', "rk6", 2, 2, 1, 1, 'data22', 1, 1);
 insert into link_table4 values ('b1', "rk7", 3, 2, 1, 1, 'data32', 1, 1);
+
+CREATE TABLE `link_text` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(4) NOT NULL DEFAULT '0',
+  `data` text COLLATE latin1_bin NOT NULL,
+  `time` int(10) unsigned NOT NULL DEFAULT '0',
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`, `data`(255)) COMMENT 'cf_link',
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,
+    `data`(255))COMMENT 'rev:cf_link_id1_type'
+) ENGINE=RocksDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+
+insert into link_text values (1, 1, 1, 2, 3, 4, 'a', 10, 125);
+insert into link_text values (1, 1, 2, 2, 3, 4, 'aaaaaa', 10, 125);
+insert into link_text values (1, 1, 3, 2, 3, 4, repeat('a', 255), 10, 125);
+insert into link_text values (1, 1, 4, 2, 3, 4, repeat('a', 500), 10, 125);
+
+CREATE TABLE `link_varchar` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(4) NOT NULL DEFAULT '0',
+  `data` varchar(1000) COLLATE latin1_bin NOT NULL,
+  `time` int(10) unsigned NOT NULL DEFAULT '0',
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`, `data`(255)) COMMENT 'cf_link',
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,
+    `data`(255)) COMMENT 'rev:cf_link_id1_type'
+) ENGINE=RocksDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+
+insert into link_varchar select * from link_text;
+
+--enable_query_log
