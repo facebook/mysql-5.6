@@ -92,12 +92,12 @@ select * from information_schema.sql_text
 order by sql_id;
 
 ####################################################
-### Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=1.5KB.
+### Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=1300.
 ###         Stats hit the size limit.
 ####################################################
---echo Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=1.5KB. Stats hit the size limit.
+--echo Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=1300. Stats hit the size limit.
 set @@GLOBAL.max_sql_stats_count=100000;
-set @@GLOBAL.max_sql_stats_size=1536;
+set @@GLOBAL.max_sql_stats_size=1300;
 select @@sql_stats_control;
 select @@max_sql_stats_count;
 select @@max_sql_stats_size;

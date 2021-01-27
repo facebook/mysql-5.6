@@ -1582,6 +1582,8 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
   thd->mt_key_clear(THD::SQL_ID);
   thd->mt_key_clear(THD::PLAN_ID);
   thd->mt_key_clear(THD::SQL_HASH);
+
+  thd->reset_all_mt_table_filled();
 }
 
 /**

@@ -7443,6 +7443,12 @@ ER_HLC_WAIT_TIMEDOUT
 ER_INVALID_HLC_WAIT_TIMEOUT
   eng "Invalid HLC wait timeout supplied: `%s`"
 
+ER_IS_TABLE_REPEATED_READ
+  eng "Repeated read of information schema table %s protected by mutex %s is not permitted"
+
+ER_IS_TABLE_READ_DISABLED
+  eng "Reads are disabled on %s information schema table"
+
 #
 #  End of 5.6 error messages.
 #

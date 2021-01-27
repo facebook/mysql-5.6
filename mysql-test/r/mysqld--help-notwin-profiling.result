@@ -2145,6 +2145,10 @@ The following options may be given as the first argument:
  related data from memory. OFF_SOFT: Stop collecting the
  statistics, but retain any data collected so far. ON:
  Collect the statistics.
+ --sql-stats-read-control 
+ Controls reading from SQL_STATISTICS, SQL_TEXT and
+ CLIENT_ATTRIBUTES tables.
+ (Defaults to on; use --skip-sql-stats-read-control to disable.)
  --stored-program-cache=# 
  The soft upper limit for number of cached stored routines
  for one connection.
@@ -2574,7 +2578,7 @@ max-sort-length 1024
 max-sp-recursion-depth 0
 max-sql-stats-count 100000
 max-sql-stats-size 104857600
-max-sql-text-storage-size 1024
+max-sql-text-storage-size 4096
 max-tmp-disk-usage 0
 max-tmp-tables 32
 max-user-connections 0
@@ -2978,6 +2982,7 @@ sql-plans-capture-frequency 1
 sql-plans-capture-slow-query FALSE
 sql-plans-control OFF_HARD
 sql-stats-control OFF_HARD
+sql-stats-read-control TRUE
 stored-program-cache 256
 super-read-only FALSE
 symbolic-links FALSE

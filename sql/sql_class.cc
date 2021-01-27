@@ -1552,6 +1552,8 @@ void THD::init(void)
   mt_key_clear(THD::SQL_HASH);
   set_plan_capture(false);
   reset_stmt_stats();
+
+  reset_all_mt_table_filled();
 }
 
 
@@ -1615,6 +1617,16 @@ void THD::reset_stmt_stats()
   m_stmt_start_write_time_is_set = false;
 }
 
+/**
+  Reset the table-filled indicators before the next statement.
+ */
+void THD::reset_all_mt_table_filled()
+{
+  for (int i = 0; i < MT_TABLE_NAME_MAX; i++)
+  {
+    mt_table_filled[i] = false;
+  }
+}
 
 /*
   Do what's needed when one invokes change user

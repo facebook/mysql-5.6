@@ -1336,6 +1336,45 @@ set @@GLOBAL.mt_tables_access_control=0;
 drop user user211;
 drop user user212;
 
+#######################################
+### Case 22: Unit test for table read access
+#######################################
+--echo Case 22: Unit test for access control check
+
+connection default;
+set @@GLOBAL.sql_stats_control="ON";
+set sql_stats_read_control=false;
+select 1;
+--error ER_IS_TABLE_READ_DISABLED
+select * from information_schema.sql_statistics;
+--error ER_IS_TABLE_READ_DISABLED
+select * from information_schema.sql_text;
+--error ER_IS_TABLE_READ_DISABLED
+select * from information_schema.client_attributes;
+
+# Case 22 cleanup
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set sql_stats_read_control=true;
+
+#######################################
+### Case 23: Unit test to check protection against repeated reads
+#######################################
+--echo Case 23: Unit test to check protection against repeated reads
+
+connection default;
+set @@GLOBAL.sql_stats_control="ON";
+select 1;
+--error ER_IS_TABLE_REPEATED_READ
+select * from information_schema.sql_statistics a, information_schema.sql_statistics b;
+--error ER_IS_TABLE_REPEATED_READ
+select * from information_schema.sql_text a, information_schema.sql_text b;
+--error ER_IS_TABLE_REPEATED_READ
+select * from information_schema.client_attributes a, information_schema.client_attributes b;
+
+# Case 23 cleanup
+connection default;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+
 ##########################
 ### End of the test cleanup and checks
 ##########################

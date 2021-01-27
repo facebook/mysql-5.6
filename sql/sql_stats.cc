@@ -1809,23 +1809,23 @@ static bool set_sql_text_attributes(
 {
   sql_text_struct->sql_type = sql_type;
 
-  // Compute digest just to get length.
+  // Compute digest text. This is anyway needed to get the full length.
   String digest_text;
   compute_digest_text(digest_storage, &digest_text);
   sql_text_struct->sql_text_length = digest_text.length();
 
-  // Allocate just the minimum necessary token array storage.
-  uint token_array_len = std::min((uint)digest_storage->length(),
-                                  max_sql_text_storage_size);
-  if (!(sql_text_struct->token_array_storage =
-      (unsigned char *)my_malloc(token_array_len, MYF(MY_WME))))
+  // Store the digest text now instead of the token array.
+  // Compute the minimum necessary length and allocate the storage.
+  sql_text_struct->sql_text_arr_len = std::min(
+      sql_text_struct->sql_text_length,
+      (size_t)max_sql_text_storage_size);
+  if (!(sql_text_struct->sql_text=
+        ((char*)my_malloc(sql_text_struct->sql_text_arr_len, MYF(MY_WME)))))
   {
     return false;
   }
-  sql_text_struct->digest_storage.reset(sql_text_struct->token_array_storage,
-                                        token_array_len);
-
-  sql_text_struct->digest_storage.copy(digest_storage);
+  memcpy(sql_text_struct->sql_text, digest_text.c_ptr(),
+         sql_text_struct->sql_text_arr_len);
 
   return true;
 }
@@ -1901,7 +1901,7 @@ static void free_sql_stats_maps(Sql_stats_maps &stats_maps)
   {
     if (it->second)
     {
-      my_free(it->second->token_array_storage);
+      my_free(it->second->sql_text);
       my_free(it->second);
     }
   }
@@ -2207,7 +2207,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
     if (!ret.second)
     {
       sql_print_error("Failed to insert SQL_TEXT into the hash map.");
-      my_free((char*)sql_text->token_array_storage);
+      my_free((char*)sql_text->sql_text);
       my_free((char*)sql_text);
       mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
@@ -2562,120 +2562,159 @@ private:
   }
 };
 
+/*
+ Pre-conditions to check beefore filling SQL_STATISTICS, SQL_TEXT and
+ CLIENT_ATTRIBUTES tables.
+*/
+static int check_pre_fill_conditions(THD *thd, const char *table_name,
+                                     THD::enum_mt_table_name table_name_enum,
+                                     const char *mutex_name,
+                                     bool check_mt_access_control = true)
+{
+  int result = 0;
+
+  if (!thd->variables.sql_stats_read_control)
+  {
+    my_error(ER_IS_TABLE_READ_DISABLED, MYF(0), table_name);
+    result = -1;
+  }
+
+  if (!result &&
+      check_mt_access_control && mt_tables_access_control &&
+      check_global_access(thd, PROCESS_ACL))
+  {
+    result = -1;
+  }
+
+  if (!result && thd->get_mt_table_filled(table_name_enum))
+  {
+    my_error(ER_IS_TABLE_REPEATED_READ, MYF(0),
+        table_name, mutex_name);
+    result = -1;
+  } else {
+    thd->set_mt_table_filled(table_name_enum);
+  }
+
+  return result;
+}
+
 /* Fills the SQL_STATISTICS table. */
 int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_sql_stats");
-  TABLE* table= tables->table;
-  Stats_iterator<SQL_STATS *> iter(sql_stats_snapshot.stats,
-                                   global_sql_stats.stats, thd);
-  MYSQL_TIME time;
-  ID_NAME_MAP db_map;
-  ID_NAME_MAP user_map;
-  fill_invert_map(DB_MAP_NAME, &db_map);
-  fill_invert_map(USER_MAP_NAME, &user_map);
 
-  int result = 0;
-  if (mt_tables_access_control && check_global_access(thd, PROCESS_ACL))
-    result = -1;
+  int result = check_pre_fill_conditions(thd, "SQL_STATISTICS", THD::SQL_STATS,
+                                         "global_sql_stats");
 
-  for (; !result && iter.is_valid(); iter.move_to_next())
+  if (!result)
   {
-    int f= 0;
-    SQL_STATS *sql_stats = iter.get_value();
+    TABLE* table= tables->table;
+    Stats_iterator<SQL_STATS *> iter(sql_stats_snapshot.stats,
+                                     global_sql_stats.stats, thd);
+    MYSQL_TIME time;
+    ID_NAME_MAP db_map;
+    ID_NAME_MAP user_map;
+    fill_invert_map(DB_MAP_NAME, &db_map);
+    fill_invert_map(USER_MAP_NAME, &user_map);
 
-    /* skip this one if the statistics are not valid */
-    if (!valid_sql_stats(sql_stats))
-      continue;
-
-    restore_record(table, s->default_values);
-
-    char sql_id_hex_string[MD5_BUFF_LENGTH];
-    array_to_hex(sql_id_hex_string, sql_stats->sql_id, MD5_HASH_SIZE);
-
-    /* SQL ID */
-    table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
-                             system_charset_info);
-    /* PLAN ID */
-    if (sql_stats->plan_id_set)
+    for (; iter.is_valid(); iter.move_to_next())
     {
-      char plan_id_hex_string[MD5_BUFF_LENGTH];
-      array_to_hex(plan_id_hex_string, sql_stats->plan_id, MD5_HASH_SIZE);
+      int f= 0;
+      SQL_STATS *sql_stats = iter.get_value();
 
-      table->field[f]->set_notnull();
-      table->field[f++]->store(plan_id_hex_string, MD5_BUFF_LENGTH,
+      /* skip this one if the statistics are not valid */
+      if (!valid_sql_stats(sql_stats))
+        continue;
+
+      restore_record(table, s->default_values);
+
+      char sql_id_hex_string[MD5_BUFF_LENGTH];
+      array_to_hex(sql_id_hex_string, sql_stats->sql_id, MD5_HASH_SIZE);
+
+      /* SQL ID */
+      table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
                                system_charset_info);
+      /* PLAN ID */
+      if (sql_stats->plan_id_set)
+      {
+        char plan_id_hex_string[MD5_BUFF_LENGTH];
+        array_to_hex(plan_id_hex_string, sql_stats->plan_id, MD5_HASH_SIZE);
+
+        table->field[f]->set_notnull();
+        table->field[f++]->store(plan_id_hex_string, MD5_BUFF_LENGTH,
+                                 system_charset_info);
+      }
+      else
+        table->field[f++]->set_null();
+
+      char client_id_hex_string[MD5_BUFF_LENGTH];
+      array_to_hex(client_id_hex_string, sql_stats->client_id, MD5_HASH_SIZE);
+
+      /* CLIENT ID */
+      table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
+                               system_charset_info);
+
+      const char *a_name;
+      /* Table Schema */
+      if (!(a_name= get_name(&db_map, sql_stats->db_id)))
+        a_name= "UNKNOWN";
+      table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
+      /* User Name */
+      if (!(a_name= get_name(&user_map, sql_stats->user_id)))
+        a_name= "UNKNOWN";
+      table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
+      /* Query Sample Text */
+      table->field[f++]->store(sql_stats->query_sample_text,
+                              strlen(sql_stats->query_sample_text),
+                              system_charset_info);
+      /* Query Last Sample Timestamp */
+      if (sql_stats->query_sample_seen == 0) {
+        table->field[f++]->set_null();
+      } else {
+        thd->variables.time_zone->gmt_sec_to_TIME(
+            &time, (my_time_t)sql_stats->query_sample_seen);
+        table->field[f]->set_notnull();
+        table->field[f++]->store_time(&time);
+      }
+
+      /* Execution Count */
+      table->field[f++]->store(sql_stats->count, TRUE);
+      /* Skipped Count */
+      table->field[f++]->store(sql_stats->skipped_count, TRUE);
+      /* Rows inserted */
+      table->field[f++]->store(sql_stats->shared_stats.rows_inserted, TRUE);
+      /* Rows updated */
+      table->field[f++]->store(sql_stats->shared_stats.rows_updated, TRUE);
+      /* Rows deleted */
+      table->field[f++]->store(sql_stats->shared_stats.rows_deleted, TRUE);
+      /* Rows read */
+      table->field[f++]->store(sql_stats->shared_stats.rows_read, TRUE);
+      /* Rows returned to the client */
+      table->field[f++]->store(sql_stats->rows_sent, TRUE);
+      /* Total CPU in microseconds */
+      table->field[f++]->store(sql_stats->shared_stats.stmt_cpu_utime, TRUE);
+      /* Total Elapsed time in microseconds */
+      table->field[f++]->store(sql_stats->shared_stats.stmt_elapsed_utime, TRUE);
+      /* Bytes written to temp table space */
+      table->field[f++]->store(sql_stats->tmp_table_bytes_written, TRUE);
+      /* Bytes written to filesort space */
+      table->field[f++]->store(sql_stats->filesort_bytes_written, TRUE);
+      /* Index dive count */
+      table->field[f++]->store(sql_stats->index_dive_count, TRUE);
+      /* Index dive CPU */
+      table->field[f++]->store(sql_stats->index_dive_cpu, TRUE);
+      /* Compilation CPU */
+      table->field[f++]->store(sql_stats->compilation_cpu, TRUE);
+      /* Tmp table disk usage */
+      table->field[f++]->store(sql_stats->tmp_table_disk_usage, TRUE);
+      /* Filesort disk usage */
+      table->field[f++]->store(sql_stats->filesort_disk_usage, TRUE);
+
+      if (schema_table_store_record(thd, table))
+        result = -1;
     }
-    else
-      table->field[f++]->set_null();
-
-    char client_id_hex_string[MD5_BUFF_LENGTH];
-    array_to_hex(client_id_hex_string, sql_stats->client_id, MD5_HASH_SIZE);
-
-    /* CLIENT ID */
-    table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
-                             system_charset_info);
-
-    const char *a_name;
-    /* Table Schema */
-    if (!(a_name= get_name(&db_map, sql_stats->db_id)))
-      a_name= "UNKNOWN";
-    table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
-
-    /* User Name */
-    if (!(a_name= get_name(&user_map, sql_stats->user_id)))
-      a_name= "UNKNOWN";
-    table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
-
-    /* Query Sample Text */
-    table->field[f++]->store(sql_stats->query_sample_text,
-                             strlen(sql_stats->query_sample_text),
-                             system_charset_info);
-    /* Query Last Sample Timestamp */
-		if (sql_stats->query_sample_seen == 0) {
-			table->field[f++]->set_null();
-		} else {
-			thd->variables.time_zone->gmt_sec_to_TIME(
-	        &time, (my_time_t)sql_stats->query_sample_seen);
-			table->field[f]->set_notnull();
-	    table->field[f++]->store_time(&time);
-		}
-
-    /* Execution Count */
-    table->field[f++]->store(sql_stats->count, TRUE);
-    /* Skipped Count */
-    table->field[f++]->store(sql_stats->skipped_count, TRUE);
-    /* Rows inserted */
-    table->field[f++]->store(sql_stats->shared_stats.rows_inserted, TRUE);
-    /* Rows updated */
-    table->field[f++]->store(sql_stats->shared_stats.rows_updated, TRUE);
-    /* Rows deleted */
-    table->field[f++]->store(sql_stats->shared_stats.rows_deleted, TRUE);
-    /* Rows read */
-    table->field[f++]->store(sql_stats->shared_stats.rows_read, TRUE);
-    /* Rows returned to the client */
-    table->field[f++]->store(sql_stats->rows_sent, TRUE);
-    /* Total CPU in microseconds */
-    table->field[f++]->store(sql_stats->shared_stats.stmt_cpu_utime, TRUE);
-    /* Total Elapsed time in microseconds */
-    table->field[f++]->store(sql_stats->shared_stats.stmt_elapsed_utime, TRUE);
-    /* Bytes written to temp table space */
-    table->field[f++]->store(sql_stats->tmp_table_bytes_written, TRUE);
-    /* Bytes written to filesort space */
-    table->field[f++]->store(sql_stats->filesort_bytes_written, TRUE);
-    /* Index dive count */
-    table->field[f++]->store(sql_stats->index_dive_count, TRUE);
-    /* Index dive CPU */
-    table->field[f++]->store(sql_stats->index_dive_cpu, TRUE);
-    /* Compilation CPU */
-    table->field[f++]->store(sql_stats->compilation_cpu, TRUE);
-    /* Tmp table disk usage */
-    table->field[f++]->store(sql_stats->tmp_table_disk_usage, TRUE);
-    /* Filesort disk usage */
-    table->field[f++]->store(sql_stats->filesort_disk_usage, TRUE);
-
-    if (schema_table_store_record(thd, table))
-      result = -1;
   }
 
   DBUG_RETURN(result);
@@ -2685,45 +2724,47 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_sql_text");
-  TABLE* table= tables->table;
-  Stats_iterator<SQL_TEXT *> iter(sql_stats_snapshot.text,
-                                   global_sql_stats.text, thd);
 
-  int result = 0;
-  if (mt_tables_access_control && check_global_access(thd, PROCESS_ACL))
-    result = -1;
+  int result = check_pre_fill_conditions(thd, "SQL_TEXT", THD::SQL_TEXT,
+                                         "global_sql_stats");
 
-  for (; !result && iter.is_valid(); iter.move_to_next())
+  if (!result)
   {
-    int f= 0;
-    SQL_TEXT *sql_text = iter.get_value();
+    TABLE* table= tables->table;
+    Stats_iterator<SQL_TEXT *> iter(sql_stats_snapshot.text,
+                                    global_sql_stats.text, thd);
 
-    restore_record(table, s->default_values);
+    for (; iter.is_valid(); iter.move_to_next())
+    {
+      int f= 0;
+      SQL_TEXT *sql_text = iter.get_value();
 
-    char sql_id_hex_string[MD5_BUFF_LENGTH];
-    array_to_hex(sql_id_hex_string, iter.get_key().data(),
-                 iter.get_key().size());
+      restore_record(table, s->default_values);
 
-    /* SQL ID */
-    table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
-                             system_charset_info);
+      char sql_id_hex_string[MD5_BUFF_LENGTH];
+      array_to_hex(sql_id_hex_string, iter.get_key().data(),
+                   iter.get_key().size());
 
-    /* SQL Type */
-    std::string sql_type = sql_cmd_type(sql_text->sql_type);
-    table->field[f++]->store(sql_type.c_str(), sql_type.length(),
-                             system_charset_info);
-    /* SQL Text length */
+      /* SQL ID */
+      table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
+                               system_charset_info);
 
-    String digest_text;
-    compute_digest_text(&sql_text->digest_storage, &digest_text);
-    table->field[f++]->store(sql_text->sql_text_length, TRUE);
-    /* SQL Text */
-    table->field[f++]->store(digest_text.c_ptr(),
-                             std::min(digest_text.length(), SQL_TEXT_COL_SIZE),
-                             system_charset_info);
+      /* SQL Type */
+      std::string sql_type = sql_cmd_type(sql_text->sql_type);
+      table->field[f++]->store(sql_type.c_str(), sql_type.length(),
+                               system_charset_info);
 
-    if (schema_table_store_record(thd, table))
-      result = -1;
+      /* SQL Text length */
+      table->field[f++]->store(sql_text->sql_text_length, TRUE);
+
+      /* SQL Text */
+      table->field[f++]->store(sql_text->sql_text,
+                               sql_text->sql_text_arr_len,
+                               system_charset_info);
+
+      if (schema_table_store_record(thd, table))
+        result = -1;
+    }
   }
 
   DBUG_RETURN(result);
@@ -2732,34 +2773,41 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
 int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_client_attrs");
-  int result = 0;
-  TABLE* table= tables->table;
-  Stats_iterator<std::string> iter(sql_stats_snapshot.client_attrs,
-                                   global_sql_stats.client_attrs, thd);
 
-  for (; iter.is_valid(); iter.move_to_next())
+  int result = check_pre_fill_conditions(thd, "CLIENT_ATTRIBUTES",
+                                         THD::CLIENT_ATTRS,
+                                         "global_sql_stats", false);
+
+  if (!result)
   {
-    int f= 0;
+    TABLE* table= tables->table;
+    Stats_iterator<std::string> iter(sql_stats_snapshot.client_attrs,
+                                     global_sql_stats.client_attrs, thd);
 
-    restore_record(table, s->default_values);
-
-    char client_id_hex_string[MD5_BUFF_LENGTH];
-    array_to_hex(client_id_hex_string, iter.get_key().data(),
-                 iter.get_key().size());
-
-    /* CLIENT_ID */
-    table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
-                             system_charset_info);
-
-    /* CLIENT_ATTRIBUTES */
-    table->field[f++]->store(iter.get_value().c_str(),
-                             std::min(4096, (int)iter.get_value().size()),
-                             system_charset_info);
-
-    if (schema_table_store_record(thd, table))
+    for (; iter.is_valid(); iter.move_to_next())
     {
-      result = -1;
-      break;
+      int f= 0;
+
+      restore_record(table, s->default_values);
+
+      char client_id_hex_string[MD5_BUFF_LENGTH];
+      array_to_hex(client_id_hex_string, iter.get_key().data(),
+                   iter.get_key().size());
+
+      /* CLIENT_ID */
+      table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
+                               system_charset_info);
+
+      /* CLIENT_ATTRIBUTES */
+      table->field[f++]->store(iter.get_value().c_str(),
+                               std::min(4096, (int)iter.get_value().size()),
+                               system_charset_info);
+
+      if (schema_table_store_record(thd, table))
+      {
+        result = -1;
+        break;
+      }
     }
   }
 

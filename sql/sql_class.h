@@ -865,6 +865,8 @@ typedef struct system_variables
   my_bool reset_period_status_vars;
 
   my_bool write_throttle_tag_only;
+
+  my_bool sql_stats_read_control;
 } SV;
 
 
@@ -3744,6 +3746,28 @@ public:
     { DBUG_ASSERT(key_name < MT_KEY_MAX); return mt_key_val[key_name]; }
   void mt_key_clear(enum_mt_key key_name)
     { DBUG_ASSERT(key_name < MT_KEY_MAX); mt_key_val_set[key_name] = false; }
+
+  enum enum_mt_table_name
+  {
+    SQL_STATS    = 0,
+    SQL_TEXT     = 1,
+    CLIENT_ATTRS = 2,
+    MT_TABLE_NAME_MAX
+  };
+
+  bool mt_table_filled[MT_TABLE_NAME_MAX] = {false};
+
+  bool get_mt_table_filled(enum_mt_table_name table_name)
+  {
+    DBUG_ASSERT(table_name < MT_TABLE_NAME_MAX);
+    return mt_table_filled[table_name];
+  }
+  void set_mt_table_filled(enum_mt_table_name table_name)
+  {
+    DBUG_ASSERT(table_name < MT_TABLE_NAME_MAX);
+    mt_table_filled[table_name] = true;
+  }
+  void reset_all_mt_table_filled();
 
   /** Current statement instrumentation. */
   PSI_statement_locker *m_statement_psi;

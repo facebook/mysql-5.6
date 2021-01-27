@@ -6883,6 +6883,14 @@ static Sys_var_enum Sys_sql_stats_control(
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
        ON_UPDATE(set_sql_stats_control));
 
+static Sys_var_mybool Sys_sql_stats_read_control(
+       "sql_stats_read_control",
+       "Controls reading from SQL_STATISTICS, SQL_TEXT and "
+       "CLIENT_ATTRIBUTES tables.",
+       SESSION_VAR(sql_stats_read_control),
+       CMD_LINE(OPT_ARG),
+       DEFAULT(TRUE));
+
 static bool update_max_sql_stats_limits(sys_var *, THD *, enum_var_type type)
 {
   // This will clear out all the stats collected so far if the limits are
@@ -6915,7 +6923,7 @@ static Sys_var_uint Sys_max_sql_text_storage_size(
        "Maximum allowed memory to store each normalized SQL text (in bytes).",
        READ_ONLY GLOBAL_VAR(max_sql_text_storage_size),
        CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, SQL_TEXT_COL_SIZE),
-       DEFAULT(1024),
+       DEFAULT(SQL_TEXT_COL_SIZE),
        BLOCK_SIZE(1));
 
 static bool set_column_stats_control(sys_var *, THD *, enum_var_type type)
