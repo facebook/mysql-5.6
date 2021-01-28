@@ -1,0 +1,9 @@
+--source include/have_rocksdb.inc
+call mtr.add_suppression("RocksDB: Invalid db_num specified.*");
+
+--echo "Trying to set variable @@session.$sys_var to 444. It should fail because it is not session."
+--Error ER_GLOBAL_VARIABLE
+SET @@session.rocksdb_alter_current_db_num   = 444;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rocksdb_alter_current_db_num = 0;

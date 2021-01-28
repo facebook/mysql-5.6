@@ -1,0 +1,17 @@
+call mtr.add_suppression("RocksDB: Parse error.*");
+call mtr.add_suppression("RocksDB: .*rocksdb_alter_index_num=.*");
+"Trying to set variable @@session. to 444. It should fail because it is not session."
+SET @@session.rocksdb_alter_index_num   = 444;
+ERROR HY000: Variable 'rocksdb_alter_index_num' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@global.rocksdb_alter_index_num = 0;
+ERROR 42000: Incorrect argument type to variable 'rocksdb_alter_index_num'
+SET @@global.rocksdb_alter_index_num = '{"table":}';
+ERROR 42000: Variable 'rocksdb_alter_index_num' can't be set to the value of '{"table":}'
+SET @@global.rocksdb_alter_index_num = '{"table": "t1"}';
+ERROR 42000: Variable 'rocksdb_alter_index_num' can't be set to the value of '{"table": "t1"}'
+SET @@global.rocksdb_alter_index_num = '{"table": "t1", indexes : []}';
+ERROR 42000: Variable 'rocksdb_alter_index_num' can't be set to the value of '{"table": "t1", indexes : []}'
+SET @@global.rocksdb_alter_index_num = '{"table": "t1", "indexes" : [{}]}';
+ERROR 42000: Variable 'rocksdb_alter_index_num' can't be set to the value of '{"table": "t1", "indexes" : [{}]}'
+SET @@global.rocksdb_alter_index_num = '{"table": "t1", "indexes" : [{"idx_type":1}]}';
+ERROR 42000: Variable 'rocksdb_alter_index_num' can't be set to the value of '{"table": "t1", "indexes" : [{"idx_type":1}]}'

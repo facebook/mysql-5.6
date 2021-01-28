@@ -336,6 +336,50 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
   }
 }
 
+Rdb_key_def::Rdb_key_def(const Rdb_key_def &k, const INDEX_ID &index_id)
+    : m_index_id(index_id),
+      m_cf_handle(k.m_cf_handle),
+      m_index_dict_version(k.m_index_dict_version),
+      m_index_type(k.m_index_type),
+      m_kv_format_version(k.m_kv_format_version),
+      m_is_reverse_cf(k.m_is_reverse_cf),
+      m_is_per_partition_cf(k.m_is_per_partition_cf),
+      m_name(k.m_name),
+      m_stats(k.m_stats),
+      m_index_flags_bitmap(k.m_index_flags_bitmap),
+      m_ttl_rec_offset(k.m_ttl_rec_offset),
+      m_ttl_duration(k.m_ttl_duration),
+      m_ttl_column(k.m_ttl_column),
+      m_max_blob_length(k.m_max_blob_length),
+      m_pk_key_parts(k.m_pk_key_parts),
+      m_pk_part_no(k.m_pk_part_no),
+      m_pack_info(k.m_pack_info),
+      m_keyno(k.m_keyno),
+      m_key_parts(k.m_key_parts),
+      m_ttl_pk_key_part_offset(k.m_ttl_pk_key_part_offset),
+      m_ttl_field_index(k.m_ttl_field_index),
+      m_prefix_extractor(k.m_prefix_extractor),
+      m_maxlength(k.m_maxlength),
+      m_store_covered_bitmap(k.m_store_covered_bitmap) {
+  mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
+  rdb_netbuf_store_index_id(m_index_id_storage_form, m_index_id);
+  m_total_index_flags_length =
+      calculate_index_flag_offset(m_index_flags_bitmap, MAX_FLAG);
+  if (k.m_pack_info) {
+    const size_t size = sizeof(Rdb_field_packing) * k.m_key_parts;
+    m_pack_info = reinterpret_cast<Rdb_field_packing *>(
+        my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
+    memcpy(m_pack_info, k.m_pack_info, size);
+  }
+
+  if (k.m_pk_part_no) {
+    const size_t size = sizeof(uint) * m_key_parts;
+    m_pk_part_no =
+        reinterpret_cast<uint *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
+    memcpy(m_pk_part_no, k.m_pk_part_no, size);
+  }
+}
+
 Rdb_key_def::~Rdb_key_def() {
   mysql_mutex_destroy(&m_mutex);
 
@@ -6022,6 +6066,98 @@ bool Rdb_dict_manager::get_auto_incr_val(const GL_INDEX_ID &gl_index_id,
   return false;
 }
 
+/**
+   Checks if there is an index number conflict on the database.
+   This is possible due to one of the possible reasons.
+   1. The database already contains the table with index number.
+   2. Drop index is running on table with same index number.
+   3. Pending create index.
+   4. The table with same index number has been renamed to a
+      different database.
+
+   @param
+   params     [IN]     alter index number parameters.
+   db_num     [OUT]    db number of the database containing the table.
+
+   @return true when conflict is detected.
+           flase when no conlfict is detected.
+ */
+bool Rdb_ddl_manager::check_index_num_conflict(
+    const alter_index_num_params &params, uint32_t *db_num) {
+  if (get_db_num(params.dbname, db_num)) {
+    return true;
+  }
+
+  std::string tmp_tablename;
+  rdb_gen_normalized_tablename(&params.dbname, &params.table, nullptr,
+                               &tmp_tablename);
+
+  // Check all the ddl entries in ddl map and verify no
+  // no conflict is detected.
+  mysql_rwlock_rdlock(&m_rwlock);
+
+  for (const auto &it : m_ddl_map) {
+    for (uint i = 0; i < it.second->m_key_count; i++) {
+      const Rdb_key_def &kd = *it.second->m_key_descr_arr[i];
+      INDEX_ID index_id = kd.get_index_id();
+      for (const alter_index_num_entry &entry : params.index_entries) {
+        if (index_id.index_num == entry.index_number &&
+            index_id.db_num == *db_num &&
+            tmp_tablename != it.second->full_tablename()) {
+          // NO_LINT_DEBUG
+          sql_print_error(
+              "RocksDB: Conflict when changing index_number. "
+              "db_num=%u index_number=%u index=%s",
+              index_id.db_num, index_id.index_num, entry.index_name.c_str());
+
+          mysql_rwlock_unlock(&m_rwlock);
+          return true;
+        }
+      }
+    }
+  }
+
+  mysql_rwlock_unlock(&m_rwlock);
+
+  // Check pending drop indexes and verify no conflict.
+  std::unordered_set<GL_INDEX_ID> drop_indexes;
+  m_dict->get_ongoing_drop_indexes(&drop_indexes);
+  for (const GL_INDEX_ID &gl_index_id : drop_indexes) {
+    for (const alter_index_num_entry &entry : params.index_entries) {
+      if (gl_index_id.index_id.index_num == entry.index_number &&
+          gl_index_id.index_id.db_num == *db_num) {
+        // NO_LINT_DEBUG
+        sql_print_error(
+            "RocksDB: Conflict with drop index when changing "
+            "index_number. db_num=%u index_number=%u index=%s",
+            gl_index_id.index_id.db_num, gl_index_id.index_id.index_num,
+            entry.index_name.c_str());
+        return true;
+      }
+    }
+  }
+
+  // Check pending create index and verify no conflict.
+  std::unordered_set<GL_INDEX_ID> create_indexes;
+  m_dict->get_ongoing_create_indexes(&create_indexes);
+  for (const GL_INDEX_ID &gl_index_id : create_indexes) {
+    for (const alter_index_num_entry &entry : params.index_entries) {
+      if (gl_index_id.index_id.index_num == entry.index_number &&
+          gl_index_id.index_id.db_num == *db_num) {
+        // NO_LINT_DEBUG
+        sql_print_error(
+            "RocksDB: Conflict with create index when changing "
+            "index_number. db_num=%u index_number=%u index=%s",
+            gl_index_id.index_id.db_num, gl_index_id.index_id.index_num,
+            entry.index_name.c_str());
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 bool Rdb_ddl_manager::populate_db_nums() {
   std::unordered_map<uint32_t, std::string> db_entries;
   if (get_db_entries(&db_entries)) {
@@ -6032,8 +6168,8 @@ bool Rdb_ddl_manager::populate_db_nums() {
     uint32_t db_num = it.first;
     if (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
       // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Corruped DB_ENTRY duplicate db_id entries = %u",
-                      db_num);
+      sql_print_error(
+          "RocksDB: Corruped DB_ENTRY duplicate db_num entries = %u", db_num);
       return true;
     }
 
@@ -6042,7 +6178,7 @@ bool Rdb_ddl_manager::populate_db_nums() {
       // NO_LINT_DEBUG
       sql_print_error(
           "RocksDB: Missing DB_MAX_INDEX_NUM entry for "
-          "db_id entry = %u",
+          "db_num entry = %u",
           db_num);
       return true;
     }
@@ -6054,15 +6190,48 @@ bool Rdb_ddl_manager::populate_db_nums() {
   return false;
 }
 
-bool Rdb_ddl_manager::get_or_create_db_entry(const std::string &dbname,
-                                             uint32_t *dbnum) {
+uint32_t Rdb_ddl_manager::calculate_max_index_number(uint32_t db_num) {
+  uint32_t db_max_index_num = 0;
+  std::unordered_set<GL_INDEX_ID> drop_index_ids;
+
+  // Get ongoing drop indexes running so that we assign max index_num for new
+  // database correctly. It is possible the drop index is running for
+  // previous database of same db_num. So we need to account for index numbers
+  // present in drop indexes
+  m_dict->get_ongoing_drop_indexes(&drop_index_ids);
+  for (const auto &gl_index_id : drop_index_ids) {
+    if (gl_index_id.index_id.db_num == db_num) {
+      db_max_index_num =
+          std::max(db_max_index_num, gl_index_id.index_id.index_num);
+    }
+  }
+
+  return db_max_index_num;
+}
+
+void Rdb_ddl_manager::create_db_entry(rocksdb::WriteBatch *batch,
+                                      const std::string &dbname,
+                                      const uint32_t db_num) {
   Rdb_buf_writer<FN_LEN + Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
   key_writer.write_index(Rdb_key_def::DB_ENTRY);
   key_writer.write(dbname.c_str(), dbname.size());
 
-  uint32_t db_max_index_num = 0;
-  std::unordered_set<GL_INDEX_ID> drop_index_ids;
+  Rdb_buf_writer<Rdb_key_def::DB_NUMBER_SIZE + RDB_SIZEOF_DB_ENTRY_VERSION>
+      value_writer;
+  value_writer.write_uint16(Rdb_key_def::DB_ENTRY_VERSION);
+  value_writer.write_uint32(db_num);
 
+  uint32_t db_max_index_num = calculate_max_index_number(db_num);
+
+  m_dict->put_key(batch, key_writer.to_slice(), value_writer.to_slice());
+  m_dict->update_max_index_num(batch, db_num, db_max_index_num);
+
+  m_assigned_db_nums[db_num] = std::make_unique<Rdb_seq_generator>();
+  m_assigned_db_nums[db_num]->init(db_max_index_num + 1);
+}
+
+bool Rdb_ddl_manager::get_or_create_db_entry(const std::string &dbname,
+                                             uint32_t *dbnum) {
   mysql_rwlock_wrlock(&m_rwlock);
 
   if (!get_db_num(dbname, dbnum)) {
@@ -6082,35 +6251,49 @@ bool Rdb_ddl_manager::get_or_create_db_entry(const std::string &dbname,
                  : db_num + 1;
   }
 
-  // Get ongoing drop indexes running so that we assign max index_num for new
-  // database correctly. It is possible the drop index is running for
-  // previous database of same db_num. So we need to account for index numbers
-  // present in drop indexes
-  m_dict->get_ongoing_drop_indexes(&drop_index_ids);
-  for (const auto &gl_index_id : drop_index_ids) {
-    if (gl_index_id.index_id.db_num == db_num) {
-      db_max_index_num =
-          std::max(db_max_index_num, gl_index_id.index_id.index_num);
-    }
-  }
-
-  Rdb_buf_writer<Rdb_key_def::DB_NUMBER_SIZE + RDB_SIZEOF_DB_ENTRY_VERSION>
-      value_writer;
-  value_writer.write_uint16(Rdb_key_def::DB_ENTRY_VERSION);
-  value_writer.write_uint32(db_num);
-
   const std::unique_ptr<rocksdb::WriteBatch> wb = m_dict->begin();
-  rocksdb::WriteBatch *const batch = wb.get();
-  m_dict->put_key(batch, key_writer.to_slice(), value_writer.to_slice());
-  m_dict->update_max_index_num(batch, db_num, db_max_index_num);
-  m_dict->commit(batch);
-
-  m_assigned_db_nums[db_num] = std::make_unique<Rdb_seq_generator>();
-  m_assigned_db_nums[db_num]->init(db_max_index_num + 1);
+  create_db_entry(wb.get(), dbname, db_num);
+  m_dict->commit(wb.get());
 
   mysql_rwlock_unlock(&m_rwlock);
 
   *dbnum = db_num;
+  return false;
+}
+
+bool Rdb_ddl_manager::alter_db_entry(const std::string &dbname,
+                                     uint32_t db_num) {
+  uint32_t old_db_num;
+  mysql_rwlock_wrlock(&m_rwlock);
+
+  bool found = !get_db_num(dbname, &old_db_num);
+  // In case the db_num is same , nothing needs to be done.
+  if (found && old_db_num == db_num) {
+    mysql_rwlock_unlock(&m_rwlock);
+    return false;
+  }
+
+  if (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
+    mysql_rwlock_unlock(&m_rwlock);
+    // NO_LINT_DEBUG
+    sql_print_error(
+        "RocksDB: Conflict when changing db_num(%u). "
+        "for database %s",
+        db_num, dbname.c_str());
+    return true;
+  }
+
+  const std::unique_ptr<rocksdb::WriteBatch> wb = m_dict->begin();
+  rocksdb::WriteBatch *batch = wb.get();
+  // drop the old DB_ENTRY and DB_MAX_INDEX_NUM entry if this is an update.
+  if (found) {
+    delete_db_entry(batch, dbname, old_db_num);
+  }
+  // create the new db entries.
+  create_db_entry(batch, dbname, db_num);
+  m_dict->commit(batch);
+
+  mysql_rwlock_unlock(&m_rwlock);
   return false;
 }
 
@@ -6135,10 +6318,9 @@ bool Rdb_ddl_manager::get_db_num(const std::string &dbname,
   return true;
 }
 
-void Rdb_ddl_manager::delete_db_entry(const std::string &dbname) {
-  uint32_t db_num = 0;
-  if (get_db_num(dbname, &db_num)) return;
-
+void Rdb_ddl_manager::delete_db_entry(rocksdb::WriteBatch *batch,
+                                      const std::string &dbname,
+                                      uint32_t db_num) {
   Rdb_buf_writer<FN_LEN + Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
   key_writer.write_index(Rdb_key_def::DB_ENTRY);
   key_writer.write(dbname.c_str(), dbname.size());
@@ -6147,19 +6329,24 @@ void Rdb_ddl_manager::delete_db_entry(const std::string &dbname) {
   max_idx_key_writer.write_index(Rdb_key_def::DB_MAX_INDEX_NUM);
   max_idx_key_writer.write_uint32(db_num);
 
-  mysql_rwlock_wrlock(&m_rwlock);
-
-  const std::unique_ptr<rocksdb::WriteBatch> wb = m_dict->begin();
-  rocksdb::WriteBatch *const batch = wb.get();
   m_dict->delete_key(batch, key_writer.to_slice());
   m_dict->delete_key(batch, max_idx_key_writer.to_slice());
-  m_dict->commit(batch);
 
   if (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
     m_assigned_db_nums[db_num]->cleanup();
     m_assigned_db_nums.erase(db_num);
   }
+}
 
+void Rdb_ddl_manager::delete_db_entry(const std::string &dbname) {
+  uint32_t db_num = 0;
+  if (get_db_num(dbname, &db_num)) return;
+
+  const std::unique_ptr<rocksdb::WriteBatch> wb = m_dict->begin();
+  rocksdb::WriteBatch *batch = wb.get();
+  mysql_rwlock_wrlock(&m_rwlock);
+  delete_db_entry(batch, dbname, db_num);
+  m_dict->commit(batch);
   mysql_rwlock_unlock(&m_rwlock);
 }
 
@@ -6236,7 +6423,7 @@ bool Rdb_ddl_manager::get_db_entries(
       if (db_entries->find(db_num) != db_entries->end()) {
         // NO_LINT_DEBUG
         sql_print_error(
-            "RocksDB: Corruped DB_ENTRY duplicate db_id entries = %u", db_num);
+            "RocksDB: Corruped DB_ENTRY duplicate db_num entries = %u", db_num);
         return true;
       }
 
@@ -6277,6 +6464,22 @@ uint Rdb_seq_generator::get_next_number() {
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return res;
+}
+
+void Rdb_seq_generator::update_next_number(rocksdb::WriteBatch *const wb,
+                                           Rdb_dict_manager *const dict,
+                                           uint32_t db_num, uint max_number) {
+  DBUG_ASSERT(dict != nullptr);
+
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
+
+  uint32_t max_num = std::max(m_next_number, max_number + 1);
+  if (max_num != m_next_number) {
+    m_next_number = max_num;
+    dict->update_max_index_num(wb, db_num, m_next_number - 1);
+  }
+
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 }
 
 }  // namespace myrocks

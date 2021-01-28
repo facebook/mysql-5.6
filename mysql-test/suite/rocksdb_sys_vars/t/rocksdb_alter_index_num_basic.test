@@ -1,0 +1,26 @@
+--source include/have_rocksdb.inc
+call mtr.add_suppression("RocksDB: Parse error.*");
+call mtr.add_suppression("RocksDB: .*rocksdb_alter_index_num=.*");
+
+--echo "Trying to set variable @@session.$sys_var to 444. It should fail because it is not session."
+--Error ER_GLOBAL_VARIABLE
+SET @@session.rocksdb_alter_index_num   = 444;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.rocksdb_alter_index_num = 0;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rocksdb_alter_index_num = '{"table":}';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rocksdb_alter_index_num = '{"table": "t1"}';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rocksdb_alter_index_num = '{"table": "t1", indexes : []}';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rocksdb_alter_index_num = '{"table": "t1", "indexes" : [{}]}';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rocksdb_alter_index_num = '{"table": "t1", "indexes" : [{"idx_type":1}]}';
+

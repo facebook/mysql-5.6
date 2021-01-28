@@ -52,6 +52,7 @@
 #include "my_sys.h"
 #include "scope_guard.h"
 #include "sql/binlog.h"
+#include "sql/dd/dictionary.h"
 #include "sql/debug_sync.h"
 #include "sql/json_dom.h"
 #include "sql/sql_audit.h"
@@ -724,6 +725,8 @@ static char *rocksdb_strict_collation_exceptions;
 static bool rocksdb_collect_sst_properties = 1;
 static bool rocksdb_force_flush_memtable_now_var = 0;
 static bool rocksdb_force_flush_memtable_and_lzero_now_var = 0;
+static char *rocksdb_alter_index_num_var = 0;
+static uint32_t rocksdb_alter_cur_db_num_var = 0;
 static bool rocksdb_enable_ttl = 1;
 static bool rocksdb_enable_ttl_read_filtering = 1;
 static int rocksdb_debug_ttl_rec_ts = 0;
@@ -1298,6 +1301,30 @@ static void rocksdb_set_max_bottom_pri_background_compactions_internal(
         val);
   }
 }
+
+static void rocksdb_alter_index_num_stub(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    const void *const save MY_ATTRIBUTE((__unused__))) {}
+
+static int rocksdb_alter_index_num(THD *const thd, struct SYS_VAR *const var,
+                                   void *const var_ptr,
+                                   struct st_mysql_value *const value);
+
+static void rocksdb_alter_cur_db_num_stub(
+    THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
+    void *var_ptr MY_ATTRIBUTE((unused)),
+    const void *save MY_ATTRIBUTE((unused))) {}
+
+static int rocksdb_alter_cur_db_num(
+    THD *const thd,
+    /* in: pointer to system variable */
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    /* out: immediate result for update function */
+    void *var_ptr,
+    /* in: incoming value */
+    struct st_mysql_value *const value);
 
 static MYSQL_SYSVAR_STR(
     read_free_rpl_tables, rocksdb_read_free_rpl_tables,
@@ -2453,6 +2480,20 @@ static MYSQL_SYSVAR_BOOL(
     "Allow inplace alter for alter column default operation", nullptr, nullptr,
     true);
 
+static MYSQL_SYSVAR_STR(alter_index_num, rocksdb_alter_index_num_var,
+                        PLUGIN_VAR_RQCMDARG,
+                        "Alter all index numbers of a table "
+                        "including indexes",
+                        rocksdb_alter_index_num, rocksdb_alter_index_num_stub,
+                        "");
+
+static MYSQL_SYSVAR_UINT(alter_current_db_num, rocksdb_alter_cur_db_num_var,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Alter the db_num of the database in current session",
+                         rocksdb_alter_cur_db_num,
+                         rocksdb_alter_cur_db_num_stub, 0, 0,
+                         /* max */ UINT32_MAX, 0);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct SYS_VAR *rocksdb_system_variables[] = {
@@ -2586,6 +2627,8 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(collect_sst_properties),
     MYSQL_SYSVAR(force_flush_memtable_now),
     MYSQL_SYSVAR(force_flush_memtable_and_lzero_now),
+    MYSQL_SYSVAR(alter_index_num),
+    MYSQL_SYSVAR(alter_current_db_num),
     MYSQL_SYSVAR(enable_ttl),
     MYSQL_SYSVAR(enable_ttl_read_filtering),
     MYSQL_SYSVAR(debug_ttl_rec_ts),
@@ -8198,7 +8241,7 @@ int ha_rocksdb::create_key_def(uint32_t dbnum_arg, const TABLE *const table_arg,
 
   DBUG_ASSERT(*new_key_def == nullptr);
 
-  const uint index_id =
+  const uint index_num =
       ddl_manager.get_and_update_next_number(&dict_manager, dbnum_arg);
   const uint16_t index_dict_version = Rdb_key_def::INDEX_INFO_VERSION_LATEST;
   uchar index_type;
@@ -8227,9 +8270,10 @@ int ha_rocksdb::create_key_def(uint32_t dbnum_arg, const TABLE *const table_arg,
 
   const char *const key_name = get_key_name(i, table_arg, m_tbl_def);
   *new_key_def = std::make_shared<Rdb_key_def>(
-      dbnum_arg, index_id, i, cf_info.cf_handle, index_dict_version, index_type,
-      kv_version, cf_info.is_reverse_cf, cf_info.is_per_partition_cf, key_name,
-      Rdb_index_stats(), index_flags, ttl_rec_offset, ttl_duration);
+      dbnum_arg, index_num, i, cf_info.cf_handle, index_dict_version,
+      index_type, kv_version, cf_info.is_reverse_cf,
+      cf_info.is_per_partition_cf, key_name, Rdb_index_stats(), index_flags,
+      ttl_rec_offset, ttl_duration);
 
   if (!ttl_column.empty()) {
     (*new_key_def)->m_ttl_column = ttl_column;
@@ -8928,7 +8972,7 @@ int ha_rocksdb::calc_eq_cond_len(const Rdb_key_def &kd,
 
   /*
     On range scan without any end key condition, there is no
-    eq cond, and eq cond length is the same as index_id size (4 bytes).
+    eq cond, and eq cond length is the same as index_id size (8 bytes).
     Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
      WHERE id1>=1 AND id2 >= 2 and id2 <= 5 => eq_cond_len= 4
   */
@@ -17040,6 +17084,357 @@ static bool parse_fault_injection_params(
   }
 
   return false;
+}
+
+/**
+   Parse the argument to system variable rocksdb_alter_index_num
+   and populate contents of alter_index_num_params.
+
+   @param
+   thd         [IN]       thread context.
+   input_str   [IN]       strict that needs to be parsed.
+   parsed_params [OUT]    parse contents are populated in this struct.
+
+   @return
+   true if parsing failed, false on success.
+ */
+static bool parse_alter_index_num(THD *const thd, const std::string &input_str,
+                                  alter_index_num_params *parsed_params) {
+  rapidjson::Document doc;
+  rapidjson::ParseResult ok = doc.Parse(input_str.c_str());
+  if (!ok) {
+    // NO_LINT_DEBUG
+    sql_print_error(
+        "RocksDB: Parse error (errcode=%d offset=%d)  "
+        "rocksdb_alter_index_num=%s",
+        ok.Code(), ok.Offset(), input_str.c_str());
+    return true;
+  }
+
+  auto table_it = doc.FindMember("table");
+  auto autoinc_it = doc.FindMember("autoinc");
+  auto indexes_it = doc.FindMember("indexes");
+
+  if (table_it == doc.MemberEnd() || indexes_it == doc.MemberEnd()) {
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: schema not valid rocksdb_alter_index_num=%s",
+                    input_str.c_str());
+    return true;
+  }
+
+  if (!table_it->value.IsString() ||
+      (autoinc_it != doc.MemberEnd() && !autoinc_it->value.IsInt()) ||
+      !indexes_it->value.IsArray()) {
+    // NO_LINT_DEBUG
+    sql_print_error(
+        "RocksDB: schema not valid (wrong types) rocksdb_alter_index_num=%s",
+        input_str.c_str());
+    return true;
+  }
+
+  parsed_params->dbname = std::string(thd->db().str, thd->db().length);
+  parsed_params->table = table_it->value.GetString();
+  if (autoinc_it != doc.MemberEnd()) {
+    parsed_params->auto_incr = autoinc_it->value.GetInt();
+  }
+
+  for (rapidjson::SizeType i = 0; i < indexes_it->value.Size(); i++) {
+    if (!indexes_it->value[i].IsObject()) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: index entry type is not object rocksdb_alter_index_num=%s",
+          input_str.c_str());
+      return true;
+    }
+
+    auto idxtype_it = indexes_it->value[i].FindMember("idx_type");
+    auto idxname_it = indexes_it->value[i].FindMember("idx_name");
+    auto idxnum_it = indexes_it->value[i].FindMember("idx_num");
+
+    if (idxtype_it == indexes_it->value[i].MemberEnd() ||
+        idxname_it == indexes_it->value[i].MemberEnd() ||
+        idxnum_it == indexes_it->value[i].MemberEnd()) {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: invalid index entry rocksdb_alter_index_num=%s",
+                      input_str.c_str());
+      return true;
+    }
+
+    if (!idxtype_it->value.IsInt() || !idxname_it->value.IsString() ||
+        !idxnum_it->value.IsInt()) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: index entry types not valid rocksdb_alter_index_num=%s",
+          input_str.c_str());
+      return true;
+    }
+
+    int index_type = idxtype_it->value.GetInt();
+    std::string index_name = idxname_it->value.GetString();
+    uint32_t index_number = idxnum_it->value.GetInt();
+    parsed_params->max_index_num =
+        std::max(parsed_params->max_index_num, index_number);
+    parsed_params->index_entries.push_back(
+        {index_type, index_name, index_number});
+  }
+  return false;
+}
+
+/**
+   Iterate all the keys of the table and recreate new index definition
+   if the index number of key is different than the index number passed
+   are param to rocksdb_alter_index_num.
+
+   @params
+   parsed_params      [IN]     params to rocksdb_alter_index_num
+   old_tbl_def        [IN]     old schema of the table.
+   new_tbl_def        [IN/OUT] new schema of table with altered index numbers.
+   dropped_index_pos  [OUT]    key positions of indexes in old table schema that
+                               need to be dropped.
+
+   @return false on success.
+ */
+static bool create_key_defs_alter_index(
+    const alter_index_num_params &parsed_params, const Rdb_tbl_def *old_tbl_def,
+    Rdb_tbl_def *new_tbl_def, std::vector<int> *dropped_index_pos) {
+  if (old_tbl_def->m_key_count != parsed_params.index_entries.size()) {
+    // NO_LINT_DEBUG
+    sql_print_error(
+        "RocksDB: create_key_defs_alter_index key count inconsistency detected "
+        "params=%d index_keys=%d table=%s",
+        parsed_params.index_entries.size(), old_tbl_def->m_key_count,
+        old_tbl_def->full_tablename().c_str());
+    return true;
+  }
+
+  for (uint i = 0; i < old_tbl_def->m_key_count; i++) {
+    const Rdb_key_def &kd = *old_tbl_def->m_key_descr_arr[i];
+
+    for (const alter_index_num_entry &entry : parsed_params.index_entries) {
+      if (kd.m_name.compare(entry.index_name) == 0 &&
+          kd.m_index_type == entry.index_type) {
+        // Found the matching index. If index number is same, dont drop
+        // the index.
+        if (kd.get_index_id().index_num != entry.index_number) {
+          INDEX_ID index_id = {kd.get_index_id().db_num, entry.index_number};
+          new_tbl_def->m_key_descr_arr[i] = std::make_shared<Rdb_key_def>(
+              *old_tbl_def->m_key_descr_arr[i], index_id);
+          dropped_index_pos->push_back(i);
+        } else {
+          new_tbl_def->m_key_descr_arr[i] = std::make_shared<Rdb_key_def>(
+              *old_tbl_def->m_key_descr_arr[i],
+              old_tbl_def->m_key_descr_arr[i]->get_index_id());
+        }
+        break;
+      }
+    }
+
+    if (!new_tbl_def->m_key_descr_arr[i]) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: create_key_defs_alter_index missing index in params "
+          "table=%s",
+          old_tbl_def->full_tablename().c_str());
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/*
+  Return true if the data in schema is empty. Verifies that
+  there is no key value pair with db_id as prefix.
+ */
+static bool is_db_empty(uint32_t db_id) {
+  Rdb_buf_writer<Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
+  key_writer.write_uint32(db_id);
+  const rocksdb::Slice key_slice = key_writer.to_slice();
+  bool is_empty = true;
+
+  rocksdb::Iterator *it = rdb->NewIterator(rocksdb::ReadOptions());
+  it->Seek(key_slice);
+  if (it->Valid()) {
+    rocksdb::Slice key = it->key();
+    DBUG_ASSERT(key.size() >= Rdb_key_def::INDEX_NUMBER_SIZE);
+
+    const uchar *const ptr = (const uchar *)key.data();
+    if (rdb_netbuf_to_uint32(ptr) == db_id) {
+      is_empty = false;
+    }
+  }
+  delete it;
+  return is_empty;
+}
+
+static int rocksdb_alter_index_num(
+    THD *const thd, struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value) {
+  int length = 0;
+  const char *input_ptr = value->val_str(value, nullptr, &length);
+  if (input_ptr == nullptr) return HA_EXIT_SUCCESS;
+
+  std::string input_str(input_ptr, length);
+  alter_index_num_params params = {};
+  if (parse_alter_index_num(thd, input_str, &params)) {
+    return HA_EXIT_FAILURE;
+  }
+
+  std::string fullname;
+  rdb_gen_normalized_tablename(&params.dbname, &params.table, nullptr,
+                               &fullname);
+
+  {
+    MDL_ticket *mdl_ticket_schema;
+    MDL_ticket *mdl_ticket_table;
+    if (dd::acquire_exclusive_schema_mdl(thd, params.dbname.c_str(), false,
+                                         &mdl_ticket_schema)) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: rocksdb_alter_index_num Failed acquiring exclusive lock on "
+          "schema.");
+      return HA_EXIT_FAILURE;
+    }
+
+    auto mdl_schema_guard = create_scope_guard([thd, mdl_ticket_schema]() {
+      dd::release_mdl(thd, mdl_ticket_schema);
+    });
+
+    if (dd::acquire_exclusive_table_mdl_explicit(thd, params.dbname.c_str(),
+                                                 params.table.c_str(), false,
+                                                 &mdl_ticket_table)) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: rocksdb_alter_index_num Failed acquiring exclusive lock on "
+          "table.");
+      return HA_EXIT_FAILURE;
+    }
+
+    auto mdl_table_guard = create_scope_guard(
+        [thd, mdl_ticket_table]() { dd::release_mdl(thd, mdl_ticket_table); });
+
+    std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+
+    // First check if there is index number conflict on target database.
+    uint32_t db_num = 0;
+    if (ddl_manager.check_index_num_conflict(params, &db_num)) {
+      return HA_EXIT_FAILURE;
+    }
+
+    if (!is_db_empty(db_num)) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: rocksdb_alter_index_num database is not empty.");
+      return HA_EXIT_FAILURE;
+    }
+
+    Rdb_tbl_def *tbl_def = ddl_manager.find(fullname);
+
+    // Create new table from the old table schema.
+    Rdb_tbl_def *new_tdef = new Rdb_tbl_def(tbl_def->full_tablename());
+    new_tdef->m_key_count = tbl_def->m_key_count;
+    new_tdef->m_pk_index = tbl_def->m_pk_index;
+    new_tdef->m_key_descr_arr =
+        new std::shared_ptr<Rdb_key_def>[tbl_def->m_key_count];
+    // If the auto inc value is specified in the params, populaye
+    // the new table schema with the auto inc specificed in params.
+    if (params.auto_incr) {
+      new_tdef->m_auto_incr_val = params.auto_incr.get();
+    }
+    new_tdef->m_hidden_pk_val =
+        tbl_def->m_hidden_pk_val.load(std::memory_order_relaxed);
+
+    // Refresh the schema of new table with target index numbers.
+    std::vector<int> dropped_index_pos;
+    if (create_key_defs_alter_index(params, tbl_def, new_tdef,
+                                    &dropped_index_pos)) {
+      delete[] new_tdef->m_key_descr_arr;
+      new_tdef->m_key_descr_arr = nullptr;
+      delete new_tdef;
+
+      return HA_EXIT_FAILURE;
+    }
+
+    auto wb = dict_manager.begin();
+
+    // drop the indexes in old table schema.
+    for (int idx_pos : dropped_index_pos) {
+      dict_manager.delete_index_info(
+          wb.get(), tbl_def->m_key_descr_arr[idx_pos]->get_gl_index_id());
+    }
+
+    // write the new table schema in data dictionary.
+    int err = ddl_manager.put_and_write(new_tdef, wb.get());
+    if (err != HA_EXIT_SUCCESS) {
+      return err;
+    }
+
+    // write the new autoinc value in data dictionary.
+    GL_INDEX_ID new_auto_incr_index_id = new_tdef->get_autoincr_gl_index_id();
+    if (params.auto_incr) {
+      dict_manager.put_auto_incr_val(wb.get(), new_auto_incr_index_id,
+                                     params.auto_incr.get());
+    }
+
+    // update max index number of the database to be the maximum of all
+    // index numbers specified in the parameter.
+    ddl_manager.update_next_number(wb.get(), &dict_manager, db_num,
+                                   params.max_index_num);
+
+    dict_manager.commit(wb.get());
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+static int rocksdb_alter_cur_db_num(
+    THD *const thd, struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *var_ptr MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value) {
+  std::string dbname(thd->db().str, thd->db().length);
+  longlong new_value;
+  /* value is NULL */
+  if (value->val_int(value, &new_value)) {
+    return HA_EXIT_FAILURE;
+  }
+
+  uint32_t db_num = static_cast<uint32_t>(new_value);
+  if (db_num <= Rdb_key_def::END_DICT_INDEX_ID) {
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: Invalid db_num specified = %u", db_num);
+    return HA_EXIT_FAILURE;
+  }
+
+  {
+    MDL_ticket *mdl_ticket_schema;
+    if (dd::acquire_exclusive_schema_mdl(thd, dbname.c_str(), false,
+                                         &mdl_ticket_schema)) {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: Failed acquiring exclusive lock on schema.");
+      return HA_EXIT_FAILURE;
+    }
+
+    auto mdl_schema_guard = create_scope_guard([thd, mdl_ticket_schema]() {
+      dd::release_mdl(thd, mdl_ticket_schema);
+    });
+
+    if (!is_db_empty(db_num)) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: rocksdb_alter_cur_db_num database is not empty.");
+      return HA_EXIT_FAILURE;
+    }
+
+    if (ddl_manager.alter_db_entry(dbname, db_num)) {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: alter_db_entry failed dbname=%s db_num=%u",
+                      dbname.c_str(), db_num);
+      return HA_EXIT_FAILURE;
+    }
+  }
+
+  return HA_EXIT_SUCCESS;
 }
 
 }  // namespace myrocks

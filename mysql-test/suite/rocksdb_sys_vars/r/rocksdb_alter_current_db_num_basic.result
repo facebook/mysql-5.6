@@ -1,0 +1,6 @@
+call mtr.add_suppression("RocksDB: Invalid db_num specified.*");
+"Trying to set variable @@session. to 444. It should fail because it is not session."
+SET @@session.rocksdb_alter_current_db_num   = 444;
+ERROR HY000: Variable 'rocksdb_alter_current_db_num' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@global.rocksdb_alter_current_db_num = 0;
+ERROR 42000: Variable 'rocksdb_alter_current_db_num' can't be set to the value of '0'

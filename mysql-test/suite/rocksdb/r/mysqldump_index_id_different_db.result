@@ -1,0 +1,109 @@
+include/rpl_init.inc [topology=none]
+include/rpl_default_connections.inc
+create database db1;
+use db1;
+create table t1 (
+`id` int not null auto_increment,
+`k` int,
+`data` varchar(2048),
+primary key (`id`),
+key (`k`)
+) engine=rocksdb;
+insert into t1(k, data) values (999, 'hello');
+insert into t1(k, data) values (1000, 'world');
+select * from information_schema.rocksdb_ddl where table_schema = 'db1';
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	3	2809014792
+db1	t1	NULL	k	0	2	2	16	0	0	default	3	2809014792
+BEGIN;
+SELECT hex(id) FROM db1.t1 FOR UPDATE;
+hex(id)
+1
+2
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+a76e2a08	00000001
+a76e2a08	00000001
+ROLLBACK;
+Dump with rocksdb_dump_internal_id
+create database db1;
+create database db2;
+# Create table T1 on another database on server 2 that will have same index number as T1 on server 1.
+# The database number will be different, so mysqldump replay will not fail.
+create table db2.t1 (
+a int primary key,
+b int,
+key(b)
+) engine=rocksdb;
+insert into db2.t1 values(100, 101);
+insert into db2.t1 values(102, 103);
+select * from information_schema.rocksdb_ddl where table_schema = 'db1' or table_schema = 'db2';
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2454721479
+db2	t1	NULL	b	0	2	2	16	0	0	default	NULL	2454721479
+BEGIN;
+SELECT hex(a) FROM db2.t1 FOR UPDATE;
+hex(a)
+64
+66
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+925013c7	00000001
+925013c7	00000001
+ROLLBACK;
+# mysqldump replay will succeed on db1.
+select * from information_schema.rocksdb_ddl where table_schema = 'db1' or table_schema = 'db2';
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	3	2809014792
+db1	t1	NULL	k	0	2	2	16	0	0	default	3	2809014792
+db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2454721479
+db2	t1	NULL	b	0	2	2	16	0	0	default	NULL	2454721479
+BEGIN;
+SELECT hex(id) FROM db1.t1 FOR UPDATE;
+hex(id)
+1
+2
+SELECT hex(a) FROM db2.t1 FOR UPDATE;
+hex(a)
+64
+66
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+925013c7	00000001
+925013c7	00000001
+a76e2a08	00000001
+a76e2a08	00000001
+ROLLBACK;
+# Verify the tables in db1 and db2 by running DML and checking content.
+insert into db1.t1(k, data) values (1001, '!!!!!');
+insert into db2.t1 values(104, 105);
+select * from information_schema.rocksdb_ddl where table_schema = 'db1' or table_schema = 'db2';
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	4	2809014792
+db1	t1	NULL	k	0	2	2	16	0	0	default	4	2809014792
+db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2454721479
+db2	t1	NULL	b	0	2	2	16	0	0	default	NULL	2454721479
+BEGIN;
+SELECT hex(id) FROM db1.t1 FOR UPDATE;
+hex(id)
+1
+2
+3
+SELECT hex(a) FROM db2.t1 FOR UPDATE;
+hex(a)
+64
+66
+68
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+925013c7	00000001
+925013c7	00000001
+925013c7	00000001
+a76e2a08	00000001
+a76e2a08	00000001
+a76e2a08	00000001
+ROLLBACK;
+drop database db1;
+drop database db1;
+drop database db2;
+include/rpl_end.inc

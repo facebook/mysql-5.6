@@ -129,6 +129,7 @@ static bool verbose = false, opt_no_create_info = false, opt_no_data = false,
             opt_show_create_table_skip_secondary_engine = false;
 static bool opt_ignore_views = false, opt_rocksdb = false,
             opt_rocksdb_bulk_load_allow_sk = false,
+            opt_rocksdb_dump_internal_id = false,
             opt_order_by_primary_desc = false, opt_rocksdb_bulk_load = false,
             opt_innodb_stats_on_metadata = false, opt_set_minimum_hlc = false;
 static bool insert_pat_inited = false, debug_info_flag = false,
@@ -675,6 +676,11 @@ static struct my_option my_long_options[] = {
      "Set rocksdb_bulk_load_allow_sk option when --rocksdb_bulk_load is used.",
      &opt_rocksdb_bulk_load_allow_sk, &opt_rocksdb_bulk_load_allow_sk, 0,
      GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"rocksdb_dump_internal_id", 0,
+     "dump internal id of table as part of "
+     "schema dump.",
+     &opt_rocksdb_dump_internal_id, &opt_rocksdb_dump_internal_id, 0, GET_BOOL,
+     NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"verbose", 'v', "Print info about the various stages.", &verbose, &verbose,
      nullptr, GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"version", 'V', "Output version information and exit.", nullptr, nullptr,
@@ -3076,6 +3082,45 @@ static uint get_table_structure(const char *table, char *db, char *table_type,
 
       check_io(sql_file);
       mysql_free_result(result);
+
+      if (opt_rocksdb_dump_internal_id) {
+        const char *index_nums_stmt =
+            "SELECT `INDEX_TYPE`, "
+            "`INDEX_NAME`, "
+            "`INDEX_NUMBER`, "
+            "`AUTO_INCREMENT` "
+            "FROM `INFORMATION_SCHEMA`.`ROCKSDB_DDL` WHERE "
+            "TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'";
+
+        snprintf(query_buff, sizeof(query_buff), index_nums_stmt, db, table);
+        if (mysql_query_with_error_report(mysql, &result, query_buff)) {
+          return 0;
+        }
+
+        row = mysql_fetch_row(result);
+        if (row) {
+          fprintf(sql_file,
+                  "SET GLOBAL rocksdb_alter_index_num='{\"table\":\"%s\", ",
+                  table);
+          if (row[3]) {
+            fprintf(sql_file, "\"autoinc\":%s, ", row[3]);
+          }
+          fprintf(sql_file, "\"indexes\":[");
+          while (row) {
+            fprintf(sql_file,
+                    "{\"idx_type\":%s, \"idx_name\":\"%s\", \"idx_num\":%s}",
+                    row[0], row[1], row[2]);
+            row = mysql_fetch_row(result);
+            if (row) {
+              fprintf(sql_file, ", ");
+            }
+          }
+          fprintf(sql_file, "]}';\n");
+        }
+
+        check_io(sql_file);
+        mysql_free_result(result);
+      }
     }
     snprintf(query_buff, sizeof(query_buff), "show fields from %s",
              result_table);
@@ -4803,6 +4848,32 @@ static int init_dumping(char *database, int init_func(char *)) {
       check_io(md_result_file);
     }
   }
+
+  if (opt_rocksdb_dump_internal_id) {
+    MYSQL_RES *result;
+    char qbuf[256];
+    MYSQL_ROW row;
+
+    const char *db_num_stmt =
+        "SELECT "
+        "`DB_NUMBER` "
+        "FROM `INFORMATION_SCHEMA`.`ROCKSDB_DDL` WHERE "
+        "TABLE_SCHEMA = '%s' GROUP BY `DB_NUMBER`";
+
+    snprintf(qbuf, sizeof(qbuf), db_num_stmt, database);
+    if (mysql_query_with_error_report(mysql, &result, qbuf)) {
+      return 1;
+    }
+
+    row = mysql_fetch_row(result);
+    if (row) {
+      fprintf(md_result_file, "SET GLOBAL rocksdb_alter_current_db_num=%s;\n",
+              row[0]);
+    }
+
+    mysql_free_result(result);
+  }
+
   return 0;
 } /* init_dumping */
 

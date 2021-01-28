@@ -1,0 +1,118 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_rocksdb.inc
+
+--let $rpl_server_count= 2
+--let $rpl_topology= none
+--source include/rpl_init.inc
+--source include/rpl_default_connections.inc
+
+# Define mysqldumpfile here.  It is used to capture mysqldump output
+# in order to test the output's ability to restore an exact copy of the table
+let $mysqldumpfile = $MYSQL_TMP_DIR/mysqldumpfile.sql;
+
+connection server_1;
+--echo # Initialize the database on source server that will be dumped and populate some records.
+create database db1;
+use db1;
+create table t1 (
+  `id` int not null primary key,
+  `k` int,
+  `data` varchar(2048),
+  key (`k`)
+) engine=rocksdb;
+insert into t1(id, k, data) values (1, 999, 'hello');
+insert into t1(id, k, data) values (2, 1000, 'world');
+
+select * from information_schema.rocksdb_ddl where table_schema = 'db1';
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(id) FROM db1.t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+connection server_2;
+call mtr.add_suppression("RocksDB: Conflict when changing db_num.*");
+call mtr.add_suppression("RocksDB: alter_db_entry failed dbname.*");
+call mtr.add_suppression("RocksDB: rocksdb_alter_cur_db_num database is not empty.*");
+
+--echo # Initialize the database db1 and db2 on destination server.
+--echo # db1 will be assgined the same db_number as the one on source server
+create database db1;
+create database db2;
+--echo # Creating/dropping table will assign db number to db1
+create table db1.t2(a int primary key) engine=rocksdb;
+drop table db1.t2;
+
+--echo # Run mysqldump on source server.
+--exec $MYSQL_DUMP --skip-comments --single-transaction --master-data=2 --print-ordering-key --rocksdb --order-by-primary-desc --rocksdb_bulk_load --rocksdb_dump_internal_id db1 > $mysqldumpfile
+
+--echo # Verify that replaying mysqldump on db2 will fail. This is because it conflicts with db1 number
+--error 1
+--exec $MYSQL_SLAVE db2 < $mysqldumpfile
+
+--echo # Create the schema on destination server by mysqldump file
+--exec $MYSQL_SLAVE db1 < $mysqldumpfile
+select * from information_schema.rocksdb_ddl where table_schema = 'db1';
+select * from information_schema.rocksdb_ddl where table_schema = 'db2';
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(id) FROM db1.t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+--echo # Verify that replaying mysqldump on db2 will fail. This is because it conflicts with data in db1
+--error 1
+--exec $MYSQL_SLAVE db2 < $mysqldumpfile
+
+set @@global.debug = @old_debug;
+set @@global.debug = '+d,rocksdb_drop_idx';
+
+--echo # Drop db1 that will now allow replaying mysqldump file.
+drop database db1;
+
+--echo ## Wait for drop index thread to complete ##
+set debug_sync = "now wait_for drop_idx_waiting";
+set debug_sync = "now signal ready_to_drop_idx";
+set debug_sync = "now wait_for drop_idx_done";
+set @@global.debug = @old_debug;
+
+--exec $MYSQL_SLAVE db2 < $mysqldumpfile
+
+--echo # Verify that DML's on db2 will insert with correct db_number
+use db2;
+insert into t1(id, k, data) values (3, 1001, '!!!!!');
+select * from t1;
+
+select * from information_schema.rocksdb_ddl where table_schema = 'db1';
+select * from information_schema.rocksdb_ddl where table_schema = 'db2';
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(id) FROM db2.t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+--echo # Validate successive DDL's correctly assign index number
+SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_NUM';
+select * from information_schema.rocksdb_ddl;
+alter table t1 add column c int;
+SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_NUM';
+select * from information_schema.rocksdb_ddl;
+insert into t1(id, k, data, c) values (4, 1002, '$$$$$', 1);
+select * from t1;
+
+BEGIN;
+SELECT hex(id) FROM db2.t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+connection server_1;
+drop database db1;
+connection server_2;
+drop database db2;
+
+--remove_file $mysqldumpfile
+--source include/rpl_end.inc
