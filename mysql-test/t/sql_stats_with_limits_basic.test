@@ -166,7 +166,9 @@ select 1;
 --echo ## However snapshot merged on the fly from another connection will show 3 entries.
 connection default;
 select @@sql_stats_snapshot;
+set sql_stats_auto_snapshot=OFF;
 eval $sql_stats_query;
+set sql_stats_auto_snapshot=ON;
 --echo ## Turn off snapshot merges it with live stats which drops count to 3 entries. 1 more query will be recorded.
 connection con13;
 set sql_stats_snapshot=OFF;

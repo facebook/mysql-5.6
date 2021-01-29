@@ -2442,6 +2442,9 @@ public:
   Stats_iterator(Stats_map<T> *&snapshot_map, Stats_map<T> *&global_map,
                  THD *thd)
   {
+    /* Before starting iteration see if auto snapshot should be created. */
+    thd->auto_create_sql_stats_snapshot();
+
     /* Iterator always takes read lock on snapshot even if snapshot doesn't
        exist. Since in that case it will also take the global stats mutex,
        that would have blocked creation of new snapshot anyway. */

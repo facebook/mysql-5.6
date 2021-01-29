@@ -1546,6 +1546,11 @@ void THD::init(void)
   owned_gtid.sidno= 0;
   owned_gtid.gno= 0;
 
+  /* Auto created snapshot is released after stmt. If somehow it wasn't,
+     then any snapshot is released on connection close or change user so
+     reset the auto flag as well. */
+  m_created_auto_stats_snapshot = false;
+
   mt_key_clear(THD::SQL_ID);
   mt_key_clear(THD::CLIENT_ID);
   mt_key_clear(THD::PLAN_ID);
@@ -6641,4 +6646,34 @@ ulong THD::get_query_or_connect_attr_value(
   }
 
   return default_value;
+}
+
+/**
+  Create SQL stats snapshot if sql_stats_auto_snapshot is enabled.
+*/
+void THD::auto_create_sql_stats_snapshot()
+{
+  if (!variables.sql_stats_snapshot &&
+      variables.sql_stats_auto_snapshot &&
+      !toggle_sql_stats_snapshot(this))
+  {
+    variables.sql_stats_snapshot = TRUE;
+    m_created_auto_stats_snapshot = true;
+  }
+}
+
+/**
+  Release auto created SQL stats snapshot.
+*/
+void THD::release_auto_created_sql_stats_snapshot()
+{
+  if (m_created_auto_stats_snapshot)
+  {
+    DBUG_ASSERT(variables.sql_stats_snapshot);
+
+    /* Release cannot fail. */
+    toggle_sql_stats_snapshot(this);
+    variables.sql_stats_snapshot = FALSE;
+    m_created_auto_stats_snapshot = false;
+  }
 }

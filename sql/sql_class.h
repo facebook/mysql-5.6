@@ -861,6 +861,7 @@ typedef struct system_variables
   long thread_priority;
 
   my_bool sql_stats_snapshot;
+  my_bool sql_stats_auto_snapshot;
 
   my_bool reset_period_status_vars;
 
@@ -3682,6 +3683,15 @@ public:
   PROFILING  profiling;
 #endif
 
+  /* Auto SQL stats snapshot. */
+  void auto_create_sql_stats_snapshot();
+  void release_auto_created_sql_stats_snapshot();
+
+private:
+  /* Whether sql stats snapshot was auto created for this stmt. */
+  bool m_created_auto_stats_snapshot = false;
+
+public:
   /** Current statement digest. */
   sql_digest_state *m_digest;
   /** Current statement digest token array. */

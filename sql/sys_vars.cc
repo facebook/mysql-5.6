@@ -7276,6 +7276,11 @@ static Sys_var_mybool Sys_sql_stats_snapshot(
        DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_sql_stats_snapshot));
 
+static Sys_var_mybool Sys_sql_stats_auto_snapshot(
+       "sql_stats_auto_snapshot",
+       "Enable sql_statistics snapshot automatically for this session",
+       SESSION_VAR(sql_stats_auto_snapshot), NO_CMD_LINE, DEFAULT(TRUE));
+
 static const char *control_level_values[] =
 { "OFF", "NOTE", "WARN", "ERROR",
   /* Add new control before the following line */
