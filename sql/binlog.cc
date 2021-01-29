@@ -8132,8 +8132,22 @@ int MYSQL_BIN_LOG::new_file_impl(
 
       // time to safely readjust the cur_log_ext back to expected value
       if (!error) {
-        raft_cur_log_ext++;
         error = RUN_HOOK(raft_replication, before_commit, (current_thd));
+
+        if (!error) {
+          // If there was no error, there is a guarantee that this rotate
+          // event has reached consensus. Hence this file extension can now
+          // be extended. If we don't check for this error, before_commit
+          // hook could have failed and then a truncation request could arrive
+          // on the same rotate event/same file which would violate a raft
+          // plugin invariant. Lets say the rotate event was the last event in
+          // file 3. By incrementing the ext to 4, we would give the signal to
+          // MySQL Raft plugin that file 3 has been rotated and therefore can
+          // never be a candidate for trimming. However since we did not reach
+          // consensus the rotate message in file 3 could get a TruncateOpsAfter
+          // call which would trigger an assert
+          raft_cur_log_ext++;
+        }
       }
 
       if (error) {
