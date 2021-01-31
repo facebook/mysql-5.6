@@ -166,6 +166,11 @@ if ($mask_grant_as_events)
  --let $script= $script s{ AS .* WITH ROLE .*}{};
 }
 
+if ($mask_hlc_time)
+{
+  --let $script= $script s{HLC time: [0-9]+}{HLC_TIME: #}g;
+}
+
 if (!$keep_ddl_xid)
 {
   --let $script= $script s{ /\* XID # \*/}{};
