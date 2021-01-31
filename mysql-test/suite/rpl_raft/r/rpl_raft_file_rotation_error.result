@@ -1,0 +1,177 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+call mtr.add_suppression("Failed to rotate binary log");
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show variables like 'read_only';
+Variable_name	Value
+read_only	OFF
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+create table t1 (a int primary key) engine=innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000001	#
+binary-logs-13001.000002	#
+select * from t1;
+a
+1
+2
+show raft logs;
+Log_name	File_size
+binary-logs-13002.000001	#
+binary-logs-13002.000002	#
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000001	#	No
+binary-logs-13000.000002	#	No
+"Flushing binary logs on leader:server_1. This should fail"
+set session debug="+d,simulate_before_flush_error_on_new_file";
+flush binary logs;
+ERROR HY000: File rotation failed to reach consensus
+set session debug="-d,simulate_before_flush_error_on_new_file";
+"Verifying raft status in server_1"
+show variables like 'read_only';
+Variable_name	Value
+read_only	OFF
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000001	#	No
+binary-logs-13000.000002	#	No
+"Verifying raft status in server_2"
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000001	#
+binary-logs-13001.000002	#
+"Verifying raft status in server_3"
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show raft logs;
+Log_name	File_size
+binary-logs-13002.000001	#
+binary-logs-13002.000002	#
+"Flushing binary logs again on leader: server_1. This should go through"
+insert into t1 values(3);
+flush binary logs;
+insert into t1 values(4);
+show variables like 'read_only';
+Variable_name	Value
+read_only	OFF
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000001	#	No
+binary-logs-13000.000002	#	No
+binary-logs-13000.000003	#	No
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying raft status in server_2"
+select * from t1;
+a
+1
+2
+3
+4
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show raft logs;
+Log_name	File_size
+binary-logs-13001.000001	#
+binary-logs-13001.000002	#
+binary-logs-13001.000003	#
+"Verifying raft status in server_3"
+select * from t1;
+a
+1
+2
+3
+4
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show raft logs;
+Log_name	File_size
+binary-logs-13002.000001	#
+binary-logs-13002.000002	#
+binary-logs-13002.000003	#
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
