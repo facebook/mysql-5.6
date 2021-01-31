@@ -1,0 +1,61 @@
+source ../include/raft_3_node.inc;
+
+--disable_query_log
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Create connections to server 4 and 5 (these are not in the ring)
+let $rpl_server_number= 4;
+let $rpl_connection_name= server_4;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_4;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+let $rpl_server_number= 5;
+let $rpl_connection_name= server_5;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_5;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+connection server_1;
+let $uuid1= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_2;
+let $uuid2= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_3;
+let $uuid3= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+
+connection server_2;
+flush binary logs;
+
+echo "server_1 is the initial leader";
+echo "Writing data on leader";
+connection server_1;
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+create table t1 (a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+--let $binlog_file= LAST
+--let $binlog_start=
+--let $keep_gtid_events=1
+--let $mask_hlc_time=1
+--let $show_binlog_events_mask_columns=1,2,4,5
+--source include/show_binlog_events.inc
+
+# Cleanup
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
