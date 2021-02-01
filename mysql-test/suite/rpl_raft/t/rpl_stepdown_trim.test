@@ -1,0 +1,82 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+--disable_query_log
+call mtr.add_suppression("Run function 'before_commit' in plugin 'RPL_RAFT' failed");
+--enable_query_log
+
+connection server_1;
+--let $outfile1= `SELECT @@pid_file`
+connection server_2;
+--let $outfile2= `SELECT @@pid_file`
+connection server_3;
+--let $outfile3= `SELECT @@pid_file`
+
+connection server_1;
+# InnoDB explicitly so that rollbacks are supported
+create table t1 (a int primary key) engine=innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+insert into t1 values (3), (4), (5);
+
+# stop the 2 slaves so that they don't receive the last
+# trxs from the master.
+--exec kill -STOP `cat $outfile2`
+--exec kill -STOP `cat $outfile3`
+
+# This makes sure that the slaves have stopped
+--sleep 5
+
+connection server_1;
+SET net_write_timeout = 1;
+send insert into t1 values (6), (7), (8);
+--echo "Now triggering DMP by stopping current MASTER"
+--echo "Now triggering DMP by reenabling current SLAVES"
+
+# Now stop the master and reenable the slaves so that
+# the master stops and the slaves re-enable to start election
+--exec kill -STOP `cat $outfile1`
+--exec kill -CONT `cat $outfile2`
+--exec kill -CONT `cat $outfile3`
+
+--sleep 5
+--echo "Will restart previous master to trigger trimming in 15 seconds"
+--exec kill -CONT `cat $outfile1`
+
+--error 1180
+reap
+
+let $rpl_server_count= 3;
+--source ../include/raft_leadership.inc
+--sleep 5
+
+connection server_1;
+show status like 'rpl_raft_role';
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+show variables like 'read_only';
+
+connection server_2;
+select * from t1;
+
+connection server_3;
+select * from t1;
+
+connection server_1;
+select * from t1;
+
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
