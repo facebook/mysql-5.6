@@ -11341,6 +11341,16 @@ int change_master(THD *thd, Master_info *mi, LEX_MASTER_INFO *lex_mi,
   my_off_t saved_log_pos = 0;
 
   DBUG_TRACE;
+
+  if (enable_raft_plugin && !override_enable_raft_check) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Did not allow change_master as enable_raft_plugin is ON");
+    my_error(ER_RAFT_OPERATION_INCOMPATIBLE, MYF(0),
+             "change master not allowed when enable_raft_plugin is ON");
+    return 1;
+  }
+
   log_slave_command(thd);
 
   /*
