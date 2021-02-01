@@ -8084,6 +8084,9 @@ int MYSQL_BIN_LOG::new_file_impl(
   bool rotate_via_raft =
       enable_raft_plugin && (no_op || !is_relay_log) && (!is_apply_log);
 
+  bool config_change_rotate =
+      raft_rotate_info && raft_rotate_info->config_change_rotate;
+
   if (rotate_via_raft) {
     if (!raft_rotate_info) raft_rotate_info = &raft_rotate_info_tmp;
     raft_rotate_info->rotate_via_raft = rotate_via_raft; /* true */
@@ -8184,10 +8187,15 @@ int MYSQL_BIN_LOG::new_file_impl(
         goto end;
       }
 
-      if ((error = temp_binlog_cache->open(4000, 4000))) goto end;
+      /* 4000 buffer for Metadata and rest of payload */
+      my_off_t rotate_cache_size = 4000;
+      if (config_change_rotate) {
+        rotate_cache_size += raft_rotate_info->config_change.size();
+      }
+      if ((error =
+               temp_binlog_cache->open(rotate_cache_size, rotate_cache_size)))
+        goto end;
 
-      bool config_change_rotate =
-          raft_rotate_info && raft_rotate_info->config_change_rotate;
       if (config_change_rotate) {
         // write the metadata log event to the cache first
         Metadata_log_event me(raft_rotate_info->config_change);
