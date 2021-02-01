@@ -10828,16 +10828,9 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
   @param queue_head  Head of the queue
 */
 void MYSQL_BIN_LOG::set_commit_consensus_error(THD *queue_head) {
-  uint32 thread_count = 0;
-
   for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit) {
-    thread_count++;
     thd->commit_consensus_error = true;
   }
-
-  // NO_LINT_DEBUG
-  sql_print_error("Commit consensus error set for %u threads in the group",
-                  thread_count);
 }
 
 /**
@@ -11234,7 +11227,7 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
   arg.log_prefix = name;
   arg.log_name = log_file_name;
   arg.cur_log_ext = &raft_cur_log_ext;
-  arg.endpos_log_name = binlog_file_name;
+  arg.endpos_log_name = log_file_name;
   arg.endpos = &atomic_binlog_end_pos;
   arg.signal_cnt = &signal_cnt;
   arg.lock_log = &LOCK_log;

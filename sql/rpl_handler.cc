@@ -1392,7 +1392,6 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
 
   int ret = 0;
 
-  thd->set_trans_marker(-1, -1);
   FOREACH_OBSERVER_STRICT(ret, before_flush, (&param, io_cache, op_type));
 
   DBUG_PRINT("return",

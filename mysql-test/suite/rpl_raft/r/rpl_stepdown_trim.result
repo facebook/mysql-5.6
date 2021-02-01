@@ -1,0 +1,65 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+create table t1 (a int primary key) engine=innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+insert into t1 values (3), (4), (5);
+SET net_write_timeout = 1;
+insert into t1 values (6), (7), (8);
+"Now triggering DMP by stopping current MASTER"
+"Now triggering DMP by reenabling current SLAVES"
+"Will restart previous master to trigger trimming in 15 seconds"
+ERROR HY000: Got error 1 - 'Operation not permitted' during COMMIT
+include/raft_leadership.inc
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show variables like 'read_only';
+Variable_name	Value
+read_only	OFF
+select * from t1;
+a
+1
+2
+3
+4
+5
+select * from t1;
+a
+1
+2
+3
+4
+5
+select * from t1;
+a
+1
+2
+3
+4
+5
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
