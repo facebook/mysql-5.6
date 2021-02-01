@@ -1858,7 +1858,9 @@ int Relay_log_info::remove_logged_gtids(
       DBUG_PRINT("info",
                  ("Removing gtid(sidno:%d, gno:%lld) from rli logged gtids",
                   gtid.sidno, gtid.gno));
+      get_sid_lock()->wrlock();
       gtid_set->_remove_gtid(gtid);
+      get_sid_lock()->unlock();
     }
   }
 
