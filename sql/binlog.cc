@@ -6119,6 +6119,21 @@ bool MYSQL_BIN_LOG::open_binlog(
 
   bool write_file_name_to_index_file = false;
   bool raft_noop = raft_rotate_info && raft_rotate_info->noop;
+  /*
+
+   * Which rotates are initiated by the plugin and happen
+   * in the raft listener queue thread?
+   *
+   * 1. Any rotate which is a post_append (i.e. normal rotate)
+   * 2. Any rotate which the plugin asks the mysql to initiate
+   * via injecting an operation in the listener queue.
+   * i.e. 2.1 - No-Op messages
+   *      2.2 - Config Change messages.
+  */
+  bool rotate_in_listener_context =
+      raft_rotate_info &&
+      (raft_rotate_info->post_append || raft_rotate_info->noop ||
+       raft_rotate_info->config_change_rotate);
   /* This must be before goto err. */
 #ifndef NDEBUG
   binary_log_debug::debug_pretend_version_50034_in_binlog =
@@ -6162,6 +6177,10 @@ bool MYSQL_BIN_LOG::open_binlog(
 
   if (!s.is_valid()) goto err;
   s.dont_set_created = null_created_arg;
+  // Since start time of listener thread is not correct,
+  // we need to explicitly set event timestamp otherwise,
+  // the mysqlbinlog output will show UTC-0 for FD/PGTID/MD event
+  if (rotate_in_listener_context) s.common_header->when.tv_sec = time(0);
   /* Set LOG_EVENT_RELAY_LOG_F flag for relay log's FD */
   if (is_relay_log && !raft_noop) s.set_relay_log_event();
 
@@ -6246,6 +6265,9 @@ bool MYSQL_BIN_LOG::open_binlog(
     DBUG_PRINT("info", ("Generating PREVIOUS_GTIDS for %s file.",
                         is_relay_log ? "relaylog" : "binlog"));
     Previous_gtids_log_event prev_gtids_ev(previous_logged_gtids);
+
+    if (rotate_in_listener_context)
+      prev_gtids_ev.common_header->when.tv_sec = time(0);
     // TODO(pgl) : confirm if raft_noop check required here.
     if (!raft_noop && is_relay_log) prev_gtids_ev.set_relay_log_event();
     if (need_sid_lock) sid_lock->unlock();
@@ -6264,6 +6286,8 @@ bool MYSQL_BIN_LOG::open_binlog(
         current_hlc = mysql_bin_log.get_current_hlc();
       }
       Metadata_log_event metadata_ev(current_hlc);
+      if (rotate_in_listener_context)
+        metadata_ev.common_header->when.tv_sec = time(0);
       if (raft_rotate_info) {
         metadata_ev.set_raft_prev_opid(raft_rotate_info->rotate_opid.first,
                                        raft_rotate_info->rotate_opid.second);
@@ -8244,6 +8268,10 @@ int MYSQL_BIN_LOG::new_file_impl(
   // skip rotate event append implies rotate event has already
   // been appended to relay log by plugin
   bool skip_re_append = raft_rotate_info && raft_rotate_info->post_append;
+  bool rotate_in_listener_context =
+      raft_rotate_info &&
+      (raft_rotate_info->post_append || raft_rotate_info->noop ||
+       raft_rotate_info->config_change_rotate);
   if (skip_re_append) {
     assert(is_relay_log);
   }
@@ -8354,6 +8382,7 @@ int MYSQL_BIN_LOG::new_file_impl(
     Rotate_log_event r(
         new_name + dirname_length(new_name), 0, LOG_EVENT_OFFSET,
         is_relay_log && !no_op ? Rotate_log_event::RELAY_LOG : 0);
+    if (rotate_in_listener_context) r.common_header->when.tv_sec = time(0);
 
     if (rotate_via_raft) {
       temp_binlog_cache = std::make_unique<Binlog_cache_storage>();
@@ -8381,6 +8410,8 @@ int MYSQL_BIN_LOG::new_file_impl(
         me.set_raft_rotate_tag(Metadata_log_event::RRET_SIMPLE_ROTATE);
       }
 
+      if (rotate_in_listener_context)
+        me.common_header->when.tv_sec = time(0);
       // checksum has to be turned off, because the raft plugin
       // will patch the events and generate the final checksum.
       me.common_footer->checksum_alg = binary_log::BINLOG_CHECKSUM_ALG_OFF;
