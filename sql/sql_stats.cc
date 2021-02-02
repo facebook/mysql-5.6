@@ -1,9 +1,11 @@
 #include "column_statistics_dt.h"
+#include "mysqld.h"
 #include "sql_base.h"
 #include "sql_parse.h"
 #include "sql_show.h"
 #include "sql_string.h"
 #include "sql_stats.h"
+#include "structs.h"
 #include "tztime.h"                             // struct Time_zone
 #include "rpl_master.h"                         // get_current_replication_lag
 #include <mysql/plugin_rim.h>
@@ -905,6 +907,8 @@ ST_FIELD_INFO write_throttling_rules_fields_info[]=
     SKIP_OPEN_TABLE},
   {"TYPE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"VALUE", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"THROTTLE_RATE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+    0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
@@ -916,12 +920,31 @@ const std::string WRITE_THROTTLING_MODE_STRING[] = {"MANUAL", "AUTO"};
 
 /*
   free_global_write_throttling_rules
-    Frees global_write_throttling_rules data structure
+    Frees auto and manual rules from global_write_throttling_rules data structure
 */
 void free_global_write_throttling_rules() {
   bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
   for(uint i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++) {
     global_write_throttling_rules[i].clear();
+  }
+  mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
+}
+
+/*
+  free_global_write_auto_throttling_rules
+    Frees only auto rules from global_write_throttling_rules data structure
+*/
+void free_global_write_auto_throttling_rules() {
+  bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
+  for (auto &rules : global_write_throttling_rules) {
+    auto rules_iter = rules.begin();
+    while (rules_iter != rules.end()) {
+      if (rules_iter->second.mode == WTR_AUTO) {
+        rules_iter = rules.erase(rules_iter);
+      } else {
+        ++rules_iter;
+      }
+    }
   }
   mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
 }
@@ -967,20 +990,32 @@ bool store_write_throttling_rules(THD *thd) {
     WRITE_THROTTLING_RULE rule;
     rule.mode = WTR_MANUAL; // manual
     rule.create_time = my_time(0);
+    rule.throttle_rate = 100; // manual rules are fully throttled
 
     bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
     auto & rules_map = global_write_throttling_rules[wtr_dim];
     auto iter = rules_map.find(value_str);
+    bool remove_from_currently_throttled_entities = false;
     if (op == '+') {
-      if (iter != rules_map.end())
+      if (iter != rules_map.end()) {
+        // If manually overriding an auto rule, remove it from
+        // currently_throttled_entities queue
+        if (rules_map[value_str].mode == WTR_AUTO)
+          remove_from_currently_throttled_entities = true;
         rules_map[value_str] = rule;
+      }
       else
         rules_map.insert(std::make_pair(value_str, rule));
     } else { // op == '-'
       if (iter != rules_map.end()) {
+        // If manually overriding an auto rule, remove it from
+        // currently_throttled_entities queue
+        if (rules_map[value_str].mode == WTR_AUTO)
+          remove_from_currently_throttled_entities = true;
         rules_map.erase(iter);
       }
-      // also remove it from the currently_throttled_entities queue if present
+    }
+    if (remove_from_currently_throttled_entities) {
       for(auto q_iter = currently_throttled_entities.begin();
           q_iter != currently_throttled_entities.end(); q_iter++)
       {
@@ -1032,6 +1067,9 @@ int fill_write_throttling_rules(THD *thd, TABLE_LIST *tables, Item *cond)
 
       // value
       table->field[f++]->store(rules_iter->first.c_str(), rules_iter->first.length(), system_charset_info);
+
+      // throttle_rate
+      table->field[f++]->store(rules_iter->second.throttle_rate, TRUE);
 
       if (schema_table_store_record(thd, table))
       {
@@ -1289,17 +1327,17 @@ void static update_monitoring_status_for_entity(std::string name, enum_wtr_dimen
       WRITE_THROTTLING_RULE rule;
       rule.mode = WTR_AUTO; // auto
       rule.create_time = my_time(0);
+      rule.throttle_rate = write_throttle_rate_step;
 
       bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
       auto & rules_map = global_write_throttling_rules[dimension];
       auto iter = rules_map.find(name);
       if (iter == rules_map.end()) {
         rules_map.insert(std::make_pair(name, rule));
+        // insert the entity into currently_throttled_entities queue
+        currently_throttled_entities.push_back(std::make_pair(name, dimension));
       }
       mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
-
-      // insert the entity into currently_throttled_entities queue
-      currently_throttled_entities.push_back(std::make_pair(name, dimension));
 
       // reset currently_monitored_entity
       currently_monitored_entity.reset();
@@ -1354,26 +1392,51 @@ void check_lag_and_throttle() {
   ulong lag = get_current_replication_lag();
 
   if (lag < write_stop_throttle_lag_milliseconds) {
-    // Replication lag below safe threshold, release at most one throttled
-    // entity and erase corresponding throttling rule
+    // Replication lag below safe threshold, reduce throttle rate or release
+    // at most one throttled entity. If releasing, erase corresponding throttling rule.
     if (currently_throttled_entities.empty())
       return;
     auto throttled_entity = currently_throttled_entities.front();
-    currently_throttled_entities.pop_front();
 
     enum_wtr_dimension wtr_dim = throttled_entity.second;
     std::string name = throttled_entity.first;
 
     bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
-    auto rule_iter = global_write_throttling_rules[wtr_dim].find(name);
-    if (rule_iter != global_write_throttling_rules[wtr_dim].end()
-      && rule_iter->second.mode == WTR_AUTO) {
-      global_write_throttling_rules[wtr_dim].erase(rule_iter);
+    auto & rules_map = global_write_throttling_rules[wtr_dim];
+    auto iter = rules_map.find(name);
+    if (iter != rules_map.end()) {
+      if (iter->second.mode == WTR_MANUAL) {
+        // Safe guard. A manual rule should not end up in currently_throttled_entities
+        // But if it does, simply pop it out.
+        currently_throttled_entities.pop_front();
+      } else if (iter->second.throttle_rate > write_throttle_rate_step) {
+        iter->second.throttle_rate -= write_throttle_rate_step;
+      } else {
+        global_write_throttling_rules[wtr_dim].erase(iter);
+        currently_throttled_entities.pop_front();
+      }
     }
     mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
   }
 
   if (lag > write_start_throttle_lag_milliseconds) {
+    // Replication lag above threshold, Check if we can increase throttle rate for last throttled entity
+    if (!currently_throttled_entities.empty()) {
+      auto last_throttled_entity = currently_throttled_entities.back();
+      bool throttle_rate_increased = false;
+      bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
+      auto & rules_map = global_write_throttling_rules[last_throttled_entity.second];
+      auto iter = rules_map.find(last_throttled_entity.first);
+      if (iter != rules_map.end() && iter->second.throttle_rate < 100) {
+        iter->second.throttle_rate = std::min((uint)100,
+          iter->second.throttle_rate + write_throttle_rate_step);
+        throttle_rate_increased = true;
+      }
+      mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
+      if (throttle_rate_increased)
+        return;
+    }
+
     // Replication lag above threshold, find an entity to throttle
     if (global_write_statistics_map.size() == 0) {
       // no stats collected so far

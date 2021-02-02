@@ -1049,6 +1049,7 @@ extern double write_throttle_min_ratio;
 extern uint write_throttle_monitor_cycles;
 extern uint write_throttle_lag_pct_min_secondaries;
 extern ulong write_auto_throttle_frequency;
+extern uint write_throttle_rate_step;
 extern uint write_stats_count;
 extern char *latest_write_throttling_rule;
 extern GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;

@@ -634,6 +634,7 @@ enum enum_wtr_mode
 struct WRITE_THROTTLING_RULE {
   time_t create_time;         /* creation time */
   enum_wtr_mode mode;                  /* Auto or manual */
+  uint throttle_rate;       /* Rate between [0, 100] with which this entity is throttled */
 };
 
 /* WRITE_THROTTLING_LOG - Stores metadata for an event when a write query was throttled */

@@ -8242,31 +8242,34 @@ static bool mt_check_throttle_write_query(THD* thd)
     if (iter != global_write_throttling_rules[i].end())
     {
       WRITE_THROTTLING_RULE &rule = iter->second;
-      int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
 
-      if (iter->second.mode == WTR_MANUAL ||
-          (!thd->variables.write_throttle_tag_only &&
-           write_control_level == CONTROL_LEVEL_ERROR) ||
-          mt_throttle_tag_level == CONTROL_LEVEL_ERROR)
-      {
-        store_write_throttling_log(thd, i, iter->first, rule);
-        my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
-        mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
-        DBUG_RETURN(true);
-      }
-      else if ((!thd->variables.write_throttle_tag_only &&
-               (write_control_level == CONTROL_LEVEL_NOTE ||
-                write_control_level == CONTROL_LEVEL_WARN)) ||
-               mt_throttle_tag_level == CONTROL_LEVEL_WARN)
-      {
-        store_write_throttling_log(thd, i, iter->first, rule);
-        push_warning_printf(thd,
-                            (write_control_level == CONTROL_LEVEL_NOTE ||
-                             mt_throttle_tag_level != CONTROL_LEVEL_WARN) ?
-                              Sql_condition::WARN_LEVEL_NOTE :
-                              Sql_condition::WARN_LEVEL_WARN,
-                            ER_WRITE_QUERY_THROTTLED,
-                            ER(ER_WRITE_QUERY_THROTTLED));
+      uint coin_toss = rand() % 100; // 0 <= coin_toss < 100
+      if (coin_toss < rule.throttle_rate) {
+        int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
+        if (iter->second.mode == WTR_MANUAL ||
+            (!thd->variables.write_throttle_tag_only &&
+            write_control_level == CONTROL_LEVEL_ERROR) ||
+            mt_throttle_tag_level == CONTROL_LEVEL_ERROR)
+        {
+          store_write_throttling_log(thd, i, iter->first, rule);
+          my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
+          mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+          DBUG_RETURN(true);
+        }
+        else if ((!thd->variables.write_throttle_tag_only &&
+                (write_control_level == CONTROL_LEVEL_NOTE ||
+                  write_control_level == CONTROL_LEVEL_WARN)) ||
+                mt_throttle_tag_level == CONTROL_LEVEL_WARN)
+        {
+          store_write_throttling_log(thd, i, iter->first, rule);
+          push_warning_printf(thd,
+                              (write_control_level == CONTROL_LEVEL_NOTE ||
+                              mt_throttle_tag_level != CONTROL_LEVEL_WARN) ?
+                                Sql_condition::WARN_LEVEL_NOTE :
+                                Sql_condition::WARN_LEVEL_WARN,
+                              ER_WRITE_QUERY_THROTTLED,
+                              ER(ER_WRITE_QUERY_THROTTLED));
+        }
       }
     }
   }

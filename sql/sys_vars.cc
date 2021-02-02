@@ -7131,6 +7131,8 @@ static bool update_write_throttling_patterns(sys_var *self, THD *thd,
 
   if (strcmp(latest_write_throttling_rule, "OFF") == 0) {
        free_global_write_throttling_rules();
+       currently_throttled_entities.clear();
+       currently_monitored_entity.reset();
        return false; // success
   }
   return store_write_throttling_rules(thd);
@@ -7189,6 +7191,18 @@ static Sys_var_uint Sys_write_throttle_lag_pct_min_secondaries(
       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
       ON_UPDATE(nullptr));
 
+/* Free currently_throttled_entities if sys_var is set to 0 */
+static bool update_write_auto_throttle_frequency(sys_var *self, THD *thd,
+                                               enum_var_type type) {
+  if (write_auto_throttle_frequency == 0)
+  {
+    currently_throttled_entities.clear();
+    currently_monitored_entity.reset();
+    free_global_write_auto_throttling_rules();
+  }
+  return false; // success
+}
+
 static Sys_var_ulong Sys_write_auto_throttle_frequency(
        "write_auto_throttle_frequency",
        "The frequency (seconds) at which auto throttling checks are run on a primary. "
@@ -7196,6 +7210,16 @@ static Sys_var_ulong Sys_write_auto_throttle_frequency(
        GLOBAL_VAR(write_auto_throttle_frequency),
        CMD_LINE(OPT_ARG), VALID_RANGE(0, LONG_TIMEOUT),
        DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(nullptr), ON_UPDATE(update_write_auto_throttle_frequency));
+
+static Sys_var_uint Sys_write_throttle_rate_step(
+       "write_throttle_rate_step",
+       "This variable determines the step by which throttle rate probability is incremented "
+       "or decremented. Default value is 100 which means an entity is either fully throttled "
+       "or not throttled at all",
+       GLOBAL_VAR(write_throttle_rate_step),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, 100),
+       DEFAULT(100), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 static bool check_max_tmp_disk_usage(sys_var *self, THD *thd, set_var *var)

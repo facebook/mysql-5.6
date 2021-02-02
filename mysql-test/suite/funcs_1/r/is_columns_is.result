@@ -709,6 +709,7 @@ def	information_schema	WRITE_THROTTLING_LOG	TYPE	3		NO	varchar	16	48	NULL	NULL	N
 def	information_schema	WRITE_THROTTLING_LOG	VALUE	4		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	WRITE_THROTTLING_RULES	CREATION_TIME	2	0000-00-00 00:00:00	NO	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
 def	information_schema	WRITE_THROTTLING_RULES	MODE	1		NO	varchar	16	48	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(16)			select	
+def	information_schema	WRITE_THROTTLING_RULES	THROTTLE_RATE	5	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	WRITE_THROTTLING_RULES	TYPE	3		NO	varchar	16	48	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(16)			select	
 def	information_schema	WRITE_THROTTLING_RULES	VALUE	4		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 ##########################################################################
@@ -1481,3 +1482,4 @@ NULL	information_schema	WRITE_THROTTLING_LOG	COUNT	bigint	NULL	NULL	NULL	NULL	bi
 NULL	information_schema	WRITE_THROTTLING_RULES	CREATION_TIME	datetime	NULL	NULL	NULL	NULL	datetime
 3.0000	information_schema	WRITE_THROTTLING_RULES	TYPE	varchar	16	48	utf8	utf8_general_ci	varchar(16)
 3.0000	information_schema	WRITE_THROTTLING_RULES	VALUE	varchar	32	96	utf8	utf8_general_ci	varchar(32)
+NULL	information_schema	WRITE_THROTTLING_RULES	THROTTLE_RATE	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned

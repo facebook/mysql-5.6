@@ -422,6 +422,7 @@ extern ST_FIELD_INFO write_throttling_rules_fields_info[];
 extern mysql_mutex_t LOCK_global_write_throttling_rules;
 int  fill_write_throttling_rules(THD *thd, TABLE_LIST *tables, Item *cond);
 void free_global_write_throttling_rules(void);
+void free_global_write_auto_throttling_rules(void);
 bool store_write_throttling_rules(THD *thd);
 void check_lag_and_throttle();
 

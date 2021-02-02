@@ -745,6 +745,8 @@ uint write_throttle_monitor_cycles;
 uint write_throttle_lag_pct_min_secondaries;
 /* The frequency (seconds) at which auto throttling checks are run on a primary */
 ulong write_auto_throttle_frequency;
+/* Determines the step by which throttle rate probability is incremented or decremented */
+uint write_throttle_rate_step;
 /* Stores the (latest)value for sys_var write_throttle_patterns  */
 char *latest_write_throttling_rule;
 /* Patterns to throttle queries in case of replication lag */
