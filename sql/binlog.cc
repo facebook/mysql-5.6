@@ -3032,7 +3032,9 @@ end:
           Inform hook listeners that a XA ROLLBACK did commit, that
           is, did log a transaction to the binary log.
         */
-        (void)RUN_HOOK(transaction, after_commit, (thd, all));
+        // semi-sync plugin only called when raft is not enabled
+        if (!enable_raft_plugin)
+          (void)RUN_HOOK(transaction, after_commit, (thd, all));
       }
     }
   }
@@ -10058,7 +10060,9 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all) {
         Inform hook listeners that a XA PREPARE did commit, that
         is, did log a transaction to the binary log.
       */
-      (void)RUN_HOOK(transaction, after_commit, (thd, all));
+      // semi-sync plugin only called when raft is not enabled
+      if (!enable_raft_plugin)
+        (void)RUN_HOOK(transaction, after_commit, (thd, all));
     }
   } else if (!skip_commit) {
     /*
@@ -10455,9 +10459,11 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       */
       Thd_backup_and_restore switch_thd(thd, head);
       bool all = head->get_transaction()->m_flags.real_commit;
-      (void)RUN_HOOK(transaction, after_commit, (head, all));
 
-      if (enable_raft_plugin)
+      // Call semi-sync plugin only when raft is not enabled
+      if (!enable_raft_plugin)
+        (void)RUN_HOOK(transaction, after_commit, (head, all));
+      else
         (void)RUN_HOOK(raft_replication, after_commit, (head));
 
       my_off_t pos;
@@ -10679,7 +10685,11 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
   // If the transaction was committed successfully, run the after_commit
   if (committed_low && (thd->commit_error != THD::CE_COMMIT_ERROR) &&
       thd->get_transaction()->m_flags.run_hooks) {
-    (void)RUN_HOOK(transaction, after_commit, (thd, all));
+    // semi-sync plugin only called when raft is not enabled
+    if (!enable_raft_plugin)
+      (void)RUN_HOOK(transaction, after_commit, (thd, all));
+    else
+      (void)RUN_HOOK(raft_replication, after_commit, (thd));
     thd->get_transaction()->m_flags.run_hooks = false;
   }
 
@@ -10740,7 +10750,8 @@ static inline int call_after_sync_hook(THD *queue_head) {
       thd->get_trans_fixed_pos(&log_file, &pos);
 
   if (DBUG_EVALUATE_IF("simulate_after_sync_hook_error", 1, 0) ||
-      RUN_HOOK(binlog_storage, after_sync, (queue_head, log_file, pos))) {
+      (!enable_raft_plugin &&
+       RUN_HOOK(binlog_storage, after_sync, (queue_head, log_file, pos)))) {
     LogErr(ERROR_LEVEL, ER_BINLOG_FAILED_TO_RUN_AFTER_SYNC_HOOK);
     return ER_ERROR_ON_WRITE;
   }
@@ -11099,8 +11110,9 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
   if (flush_error == 0) {
     const char *file_name_ptr = log_file_name + dirname_length(log_file_name);
     assert(flush_end_pos != 0);
-    if (RUN_HOOK(binlog_storage, after_flush,
-                 (thd, file_name_ptr, flush_end_pos))) {
+    // semi-sync to be called only when raft is not enabled
+    if (!enable_raft_plugin && RUN_HOOK(binlog_storage, after_flush,
+                                        (thd, file_name_ptr, flush_end_pos))) {
       LogErr(ERROR_LEVEL, ER_BINLOG_FAILED_TO_RUN_AFTER_FLUSH_HOOK);
       flush_error = ER_ERROR_ON_WRITE;
     }
