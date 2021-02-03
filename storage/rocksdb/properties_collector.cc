@@ -184,7 +184,7 @@ void Rdb_tbl_prop_coll::CollectStatsForRow(const rocksdb::Slice &key,
   stats->m_actual_disk_size += file_size - m_file_size;
   m_file_size = file_size;
 
-  if (m_keydef != nullptr) {
+  if (m_keydef != nullptr && type == rocksdb::kEntryPut) {
     m_cardinality_collector.ProcessKey(key, m_keydef.get(), stats);
   }
 }
@@ -236,6 +236,20 @@ rocksdb::Status Rdb_tbl_prop_coll::Finish(
     for (Rdb_index_stats &stat : m_stats) {
       m_cardinality_collector.SetCardinality(&stat);
       m_cardinality_collector.AdjustStats(&stat);
+
+      // Adjust cardinality down if it exceeds total number of rows.
+      if (stat.m_distinct_keys_per_prefix.size()) {
+        int64_t max_distinct_keys = stat.m_distinct_keys_per_prefix.back();
+        if (max_distinct_keys > stat.m_rows) {
+          stat.adjust_cardinality(static_cast<double>(stat.m_rows) /
+                                  max_distinct_keys);
+        }
+      }
+#ifndef NDEBUG
+      for (size_t i = 0; i < stat.m_distinct_keys_per_prefix.size(); i++) {
+        assert(stat.m_distinct_keys_per_prefix[i] <= stat.m_rows);
+      }
+#endif
     }
     m_recorded = true;
   }
@@ -471,9 +485,10 @@ void Rdb_index_stats::merge(const Rdb_index_stats &s, const bool increment,
   }
 }
 
-void Rdb_index_stats::adjust_cardinality(uint64_t adjustment_factor) {
+void Rdb_index_stats::adjust_cardinality(double adjustment_factor) {
   for (int64_t &num_keys : m_distinct_keys_per_prefix) {
-    num_keys = num_keys * adjustment_factor;
+    num_keys = std::max<int64_t>(
+        1, static_cast<int64_t>(num_keys * adjustment_factor));
   }
 }
 
