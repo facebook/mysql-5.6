@@ -5,12 +5,12 @@ Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
 show indexes from t;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t	0	PRIMARY	1	a	A	100	NULL	NULL		LSMTREE		
-t	0	PRIMARY	2	b	A	500	NULL	NULL		LSMTREE		
-t	0	PRIMARY	3	c	A	2500	NULL	NULL		LSMTREE		
+t	0	PRIMARY	1	a	A	10	NULL	NULL		LSMTREE		
+t	0	PRIMARY	2	b	A	50	NULL	NULL		LSMTREE		
+t	0	PRIMARY	3	c	A	250	NULL	NULL		LSMTREE		
 t	0	PRIMARY	4	d	A	2500	NULL	NULL		LSMTREE		
-t	1	b	1	b	A	50	NULL	NULL		LSMTREE		
-t	1	b	2	d	A	500	NULL	NULL		LSMTREE		
+t	1	b	1	b	A	5	NULL	NULL		LSMTREE		
+t	1	b	2	d	A	50	NULL	NULL		LSMTREE		
 set optimizer_switch = 'skip_scan=off';
 explain select b, d from t where d < 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
