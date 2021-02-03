@@ -13014,6 +13014,11 @@ static void adjust_cardinality(
     if ((uint64_t)stat.m_rows > max_num_rows_scanned) {
       stat.adjust_cardinality(stat.m_rows / max_num_rows_scanned);
     }
+#ifndef DBUG_OFF
+    for (size_t i = 0; i < stat.m_distinct_keys_per_prefix.size(); i++) {
+      DBUG_ASSERT(stat.m_distinct_keys_per_prefix[i] <= stat.m_rows);
+    }
+#endif
   }
 }
 
