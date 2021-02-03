@@ -74,7 +74,7 @@ struct Rdb_index_stats {
   void merge(const Rdb_index_stats &s, const bool increment = true,
              const int64_t estimated_data_len = 0);
 
-  void adjust_cardinality(uint64_t adjustment_factor);
+  void adjust_cardinality(double adjustment_factor);
 
   void reset_cardinality();
 };
