@@ -92,7 +92,8 @@ CREATE TABLE `id_table` (
   `hash_key` varchar(255) NOT NULL DEFAULT '',
   `is_deleted` tinyint(4) DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `type_id` (`type`,`id`)
+  KEY `type_id` (`type`,`id`),
+  UNIQUE KEY `unique_type_id` (`type`,`id`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
 KEY_BLOCK_SIZE=8;
 

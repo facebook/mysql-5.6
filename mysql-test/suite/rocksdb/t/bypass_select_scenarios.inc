@@ -26,7 +26,7 @@ WHERE link_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
 ORDER BY time ASC, id2 ASC LIMIT 0, 1000;
 --source ../include/verify_bypass_query.inc
 
---echo # Point query, flag = 0
+--echo # Point query, with node_table
 let bypass_query=
 SELECT /*+ bypass */ id, type, version, update_time, data
 FROM node_table FORCE INDEX (PRIMARY)
@@ -47,7 +47,7 @@ WHERE id = 2 AND type = 1
 ORDER BY type, id;
 --source ../include/verify_bypass_query.inc
 
---echo # Point query, flag = 1
+--echo # Point query, with id_table
 let bypass_query=
 SELECT /*+ bypass */ id, type, row_created_time, is_deleted
 FROM id_table FORCE INDEX (PRIMARY)
@@ -67,12 +67,65 @@ FROM id_table FORCE INDEX (PRIMARY)
 WHERE id = 1;
 --source ../include/verify_bypass_query.inc
 
---echo # Point query, flag = 2
+--echo # Point query, with id_table SK
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=2;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=10;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=11;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=0;
+--source ../include/verify_bypass_query.inc
+
+--echo # Point query, with id_table unique SK
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=2;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=10;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=11;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=0;
+--source ../include/verify_bypass_query.inc
+
+--echo # Point query, with count_table
 let bypass_query=
 SELECT /*+ bypass */ id, type, link_type, count, TIME, version
 FROM count_table
 WHERE id = 2 AND link_type = 1;
 --source ../include/verify_bypass_query.inc
+
 
 --echo # Bugs found when debugging real production scenarios
 # pk_unpack_buf unassigned when unpack_pk=false and unpack_value=true
