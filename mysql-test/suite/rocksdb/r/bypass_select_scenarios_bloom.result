@@ -160,7 +160,7 @@ a1              	5	1	1	data15	1	1
 include/assert.inc [Verify not executed in bypass]
 include/assert.inc [Verify bypass and regular query return same number of rows]
 include/assert.inc [Verify bypass reads no more than regular query]
-# Point query, flag = 0
+# Point query, with node_table
 ========== Verifying Bypass Query ==========
 WITH BYPASS:
 SELECT /*+ bypass */ id, type, version, update_time, data
@@ -236,7 +236,7 @@ id	type	version	update_time	data
 include/assert.inc [Verify not executed in bypass]
 include/assert.inc [Verify bypass and regular query return same number of rows]
 include/assert.inc [Verify bypass reads no more than regular query]
-# Point query, flag = 1
+# Point query, with id_table
 ========== Verifying Bypass Query ==========
 WITH BYPASS:
 SELECT /*+ bypass */ id, type, row_created_time, is_deleted
@@ -310,7 +310,191 @@ id	type	row_created_time	is_deleted
 include/assert.inc [Verify not executed in bypass]
 include/assert.inc [Verify bypass and regular query return same number of rows]
 include/assert.inc [Verify bypass reads no more than regular query]
-# Point query, flag = 2
+# Point query, with id_table SK
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=2;
+id	type	row_created_time	is_deleted
+2	1	10	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=2;
+id	type	row_created_time	is_deleted
+2	1	10	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=10;
+id	type	row_created_time	is_deleted
+10	1	10	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=10;
+id	type	row_created_time	is_deleted
+10	1	10	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=11;
+id	type	row_created_time	is_deleted
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=11;
+id	type	row_created_time	is_deleted
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=0;
+id	type	row_created_time	is_deleted
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=0;
+id	type	row_created_time	is_deleted
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Point query, with id_table unique SK
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=2;
+id	type	row_created_time	is_deleted
+2	1	10	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=2;
+id	type	row_created_time	is_deleted
+2	1	10	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=10;
+id	type	row_created_time	is_deleted
+10	1	10	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=10;
+id	type	row_created_time	is_deleted
+10	1	10	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=11;
+id	type	row_created_time	is_deleted
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=11;
+id	type	row_created_time	is_deleted
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=0;
+id	type	row_created_time	is_deleted
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=0;
+id	type	row_created_time	is_deleted
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Point query, with count_table
 ========== Verifying Bypass Query ==========
 WITH BYPASS:
 SELECT /*+ bypass */ id, type, link_type, count, TIME, version
@@ -1125,4 +1309,4 @@ FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT @executed_end-@executed_start AS ROCKSDB_SELECT_BYPASS_EXECUTED;
 ROCKSDB_SELECT_BYPASS_EXECUTED
-33
+43

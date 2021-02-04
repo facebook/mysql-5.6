@@ -1223,7 +1223,8 @@ bool INLINE_ATTR select_exec::scan_where() {
     }
   }
 
-  m_use_full_key = (key_part_no == m_index_info->actual_key_parts && eq_only);
+  m_use_full_key =
+      (key_part_no == m_index_info->user_defined_key_parts && eq_only);
 
   // Build list of all filters
   // Any condition we haven't processed in prefix key are filters
@@ -1517,10 +1518,12 @@ bool INLINE_ATTR select_exec::run_sk_point_query(txn_wrapper *txn) {
     }
     m_scan_it->Seek(key_slice);
 
+    if (!is_valid_iterator(m_scan_it.get())) {
+      continue;
+    }
     auto rkey_slice = m_scan_it->key();
-    if (!is_valid_iterator(m_scan_it.get()) ||
-        memcmp(rkey_slice.data(), key_slice.data(),
-               std::min(rkey_slice.size(), key_slice.size())) != 0) {
+    if (rkey_slice.size() < key_slice.size() ||
+        memcmp(rkey_slice.data(), key_slice.data(), key_slice.size()) != 0) {
       continue;
     }
 
