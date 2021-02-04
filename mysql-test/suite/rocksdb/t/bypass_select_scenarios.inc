@@ -9,6 +9,66 @@ SELECT variable_value into @executed_start
 FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 
+--echo # Bloom filter with complete SK but shorter than bloom filter
+CREATE TABLE `id_table_bloom` (
+  `id1` bigint(20) NOT NULL DEFAULT '0',
+  `id2` bigint(20) NOT NULL DEFAULT '0',
+  `id3` bigint(11) NOT NULL DEFAULT '0',
+  `val` bigint(20) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id1`, `id2`),
+  KEY `id3` (`id3`) COMMENT 'cf_link',
+  UNIQUE KEY `unique_id3` (`id3`) COMMENT 'cf_link'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8;
+
+INSERT INTO id_table_bloom values (1, 1, 1, 101);
+INSERT INTO id_table_bloom values (1, 2, 2, 102);
+INSERT INTO id_table_bloom values (1, 3, 3, 103);
+INSERT INTO id_table_bloom values (1, 4, 4, 104);
+
+let bypass_query=
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1;
+--source ../include/verify_bypass_query.inc
+
+--echo # Range query with full PK+SK
+let bypass_query=
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1 AND id2=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1 AND id2>=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1 AND id2=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1 AND id2>=1;
+--source ../include/verify_bypass_query.inc
+
+DROP TABLE id_table_bloom;
+
 --echo # Range query, binary key
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
@@ -26,7 +86,7 @@ WHERE link_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
 ORDER BY time ASC, id2 ASC LIMIT 0, 1000;
 --source ../include/verify_bypass_query.inc
 
---echo # Point query, flag = 0
+--echo # Point query, with node_table
 let bypass_query=
 SELECT /*+ bypass */ id, type, version, update_time, data
 FROM node_table FORCE INDEX (PRIMARY)
@@ -47,7 +107,7 @@ WHERE id = 2 AND type = 1
 ORDER BY type, id;
 --source ../include/verify_bypass_query.inc
 
---echo # Point query, flag = 1
+--echo # Point query, with id_table
 let bypass_query=
 SELECT /*+ bypass */ id, type, row_created_time, is_deleted
 FROM id_table FORCE INDEX (PRIMARY)
@@ -67,12 +127,65 @@ FROM id_table FORCE INDEX (PRIMARY)
 WHERE id = 1;
 --source ../include/verify_bypass_query.inc
 
---echo # Point query, flag = 2
+--echo # Point query, with id_table SK
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=2;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=10;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=11;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=0;
+--source ../include/verify_bypass_query.inc
+
+--echo # Point query, with id_table unique SK
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=2;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=10;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=11;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=0;
+--source ../include/verify_bypass_query.inc
+
+--echo # Point query, with count_table
 let bypass_query=
 SELECT /*+ bypass */ id, type, link_type, count, TIME, version
 FROM count_table
 WHERE id = 2 AND link_type = 1;
 --source ../include/verify_bypass_query.inc
+
 
 --echo # Bugs found when debugging real production scenarios
 # pk_unpack_buf unassigned when unpack_pk=false and unpack_value=true
@@ -200,7 +313,7 @@ CREATE TABLE `link_table7` (
   `version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
   PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
   KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
-  COMMENT 'rev:cf_assoc_id1_type'
+  COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 insert into link_table7 values (9223372036854775807, 100, 9223372036854775801,
@@ -241,7 +354,7 @@ CREATE TABLE `link_table8` (
   `version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
   PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
   KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
-  COMMENT 'rev:cf_assoc_id1_type'
+  COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 insert into link_table8 values (1, 0x03030303, 1, 0, 100, 0, 'data1', 0, 0);

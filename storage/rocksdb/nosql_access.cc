@@ -1056,6 +1056,9 @@ bool INLINE_ATTR select_exec::scan_where() {
           break;
         }
 
+        // Remember number of prefix keys
+        m_prefix_key_count++;
+
         // In the IN case if we are building a prefix key we need to
         // multiply the key slices, so that A=1, B IN (2, 3) becomes
         // (1, 2) and (1, 3)
@@ -1231,7 +1234,15 @@ bool INLINE_ATTR select_exec::scan_where() {
     }
   }
 
-  m_use_full_key = (key_part_no == m_index_info->actual_key_parts && eq_only);
+  // This is TRICKY:
+  // actual_key_parts can be SK+PK in SQL layer if SK is non-unique,
+  // otherwise it is only SK in SQL layer if SK is unique.
+  // key_def->m_key_parts always has SK+PK
+  // For m_use_full_key check we need to see it has both SK+PK for
+  // SK point lookup and bloom filter check, since bloom filter
+  // has a special optimization that allows bloom filter use even if
+  // eq_cond length is less than prefix length
+  m_use_full_key = (m_prefix_key_count == m_key_def->get_key_parts());
 
   // Build list of all filters
   // Any condition we haven't processed in prefix key are filters
@@ -1248,7 +1259,7 @@ bool INLINE_ATTR select_exec::scan_where() {
   }
 
   if (!should_allow_filters_select_bypass() && m_filter_count > 0 &&
-      key_part_no != m_index_info->user_defined_key_parts) {
+      key_part_no < m_index_info->user_defined_key_parts) {
     // Only support filter usage in well supported cases such as point query
     // or simple range query where key is fully specified with well defined
     // (start, end) with only the last column is a range
@@ -1398,8 +1409,8 @@ bool INLINE_ATTR select_exec::run_query() {
   } else {
     m_pk_tuple_buf.resize(m_pk_def->max_storage_fmt_length());
 
-    if (m_use_full_key && (m_index_info->flags & HA_NOSAME)) {
-      // The index is fully covered and unique
+    if (m_use_full_key) {
+      // The index is fully covered including both SK+PK
       ret = run_sk_point_query(&txn);
     } else {
       ret = run_range_query(&txn);
@@ -1513,10 +1524,12 @@ bool INLINE_ATTR select_exec::run_sk_point_query(txn_wrapper *txn) {
 
     m_scan_it->Seek(key_slice);
 
+    if (!is_valid_iterator(m_scan_it.get())) {
+      continue;
+    }
     auto rkey_slice = m_scan_it->key();
-    if (!is_valid_iterator(m_scan_it.get()) ||
-        memcmp(rkey_slice.data(), key_slice.data(),
-               std::min(rkey_slice.size(), key_slice.size())) != 0) {
+    if (rkey_slice.size() < key_slice.size() ||
+        memcmp(rkey_slice.data(), key_slice.data(), key_slice.size()) != 0) {
       continue;
     }
 
