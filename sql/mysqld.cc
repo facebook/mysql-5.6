@@ -1060,7 +1060,7 @@ bool override_enable_raft_check = false;
 ulonglong apply_log_retention_num = 0;
 ulonglong apply_log_retention_duration = 0;
 bool disable_raft_log_repointing = 0;
-
+ulong opt_raft_signal_async_dump_threads = 0;
 /* Apply log related variables for raft */
 char *opt_apply_logname = 0;
 char *opt_applylog_index_name = 0;
@@ -9445,7 +9445,8 @@ static int show_slave_open_temp_tables(THD *, SHOW_VAR *var, char *buf) {
 
 static int show_last_acked_binlog_pos(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_UNDEF;
-  if (rpl_semi_sync_master_enabled && rpl_wait_for_semi_sync_ack) {
+  if ((rpl_semi_sync_master_enabled || enable_raft_plugin) &&
+      rpl_wait_for_semi_sync_ack) {
     std::string log_file;
     my_off_t log_pos;
     mysql_bin_log.get_semi_sync_last_acked(log_file, log_pos);
