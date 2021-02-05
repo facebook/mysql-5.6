@@ -122,6 +122,13 @@ enum enum_commit_consensus_error_actions {
   IGNORE_COMMIT_CONSENSUS_ERROR = 1,
   INVALID_COMMIT_CONSENSUS_ERROR_ACTION
 };
+
+enum enum_raft_signal_async_dump_threads_options {
+  AFTER_CONSENSUS = 0,
+  AFTER_ENGINE_COMMIT = 1,
+  INVALID_OPTION
+};
+
 /* log info errors */
 #define LOG_INFO_EOF -1
 #define LOG_INFO_IO -2

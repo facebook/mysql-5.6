@@ -1,0 +1,22 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 0
+####
+--echo Default value of disable_raft_log_repointing is 0
+SELECT @@global.disable_raft_log_repointing;
+
+####
+# Verify that this is not a session variable #
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.disable_raft_log_repointing;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is read only
+####
+--echo disable_raft_log_repointing is read-only
+error ER_INCORRECT_GLOBAL_LOCAL_VAR;
+SET @@global.disable_raft_log_repointing = 1;
+echo Expected error 'Read only variable';
