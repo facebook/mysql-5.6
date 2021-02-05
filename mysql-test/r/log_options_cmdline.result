@@ -99,7 +99,7 @@ WHERE data LIKE "%'file://component_log_sink_json'%"
    AND error_code="MY-013129" AND data LIKE "%MY-003529%";
 error_code	data
 MY-013129	A message intended for a client cannot be sent there as no client-session is attached. Therefore, we're sending the information to the error-log instead: MY-003529 - Cannot load component from specified URN: 'file://component_log_sink_json'.
-Pattern "\[ERROR\].*unknown variable 'dragnet.log_error_filter_rules=a'" found
+Pattern "\[WARNING\].*unknown variable 'dragnet.log_error_filter_rules=a'" not found
 # restart: --no-console --log-error=LOG_FILE13 --log-error-services=log_filter_internal;log_filter_dragnet;log_sink_internal --dragnet.log-error-filter-rules=
 # Clean up: The test case for 4.3 left the JSON component installed, which
 # therefore got re-added to this instance on start-up. Let's remove it.

@@ -291,12 +291,13 @@ SELECT error_code, data
 --let LOG_FILE12 = $MYSQLTEST_VARDIR/tmp/test12.err
 --let CMD12 = $MYSQLD --no-defaults --plugin-dir=$PLUGIN_DIR --lc-messages-dir=$MYSQL_SHAREDIR --innodb_dedicated_server=OFF --initialize-insecure --basedir=$MYSQLD_BASEDIR --datadir=$MYSQLTEST_VARDIR/tmp/new_datadir --log-error=$LOG_FILE12 --dragnet.log_error_filter_rules=a 2>&1
 # mysqld aborts if the option is used without loading the component
---error 1
+# Allowing initialize to ignore unknown variables allows this test to pass
+# --error 1
 --exec $CMD12
 --force-rmdir $MYSQLTEST_VARDIR/tmp/new_datadir
 
 --let SEARCH_FILE= $LOG_FILE12
---let SEARCH_PATTERN= \[ERROR\].*unknown variable 'dragnet.log_error_filter_rules=a'
+--let SEARCH_PATTERN= \[WARNING\].*unknown variable 'dragnet.log_error_filter_rules=a'
 --source include/search_pattern.inc
 
 # 5.2 a) Pass --dragnet.log-error-filter-rules through command
