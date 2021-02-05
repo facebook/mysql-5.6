@@ -1,0 +1,243 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+RESET MASTER;
+RESET SLAVE;
+SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
+CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = MASTER_PORT, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+START SLAVE;
+RESET MASTER;
+RESET SLAVE;
+SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
+CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = MASTER_PORT, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+START SLAVE;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	
+create table t1 (a int primary key) engine = innodb;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select @@global.raft_signal_async_dump_threads;
+@@global.raft_signal_async_dump_threads
+AFTER_CONSENSUS
+set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+insert into t1 values(1);
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+select * from t1;
+a
+1
+select * from t1;
+a
+select * from t1;
+a
+1
+set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point = '';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+select * from t1;
+a
+1
+select * from t1;
+a
+1
+select * from t1;
+a
+1
+select @@global.raft_signal_async_dump_threads;
+@@global.raft_signal_async_dump_threads
+AFTER_CONSENSUS
+set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+insert into t1 values(2);
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point = '';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
+set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
+insert into t1 values(3);
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+3
+set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point = '';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
+set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
+insert into t1 values(4);
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point = '';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+set @@global.raft_signal_async_dump_threads = AFTER_CONSENSUS;
+set @@global.raft_signal_async_dump_threads = AFTER_CONSENSUS;
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+stop slave;
+reset slave all;
+stop slave;
+reset slave all;
+include/rpl_end.inc

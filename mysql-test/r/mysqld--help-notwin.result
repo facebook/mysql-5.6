@@ -1333,6 +1333,9 @@ The following options may be given as the first argument:
  Allocation block size for query parsing and execution
  --query-prealloc-size=# 
  Persistent buffer for query parsing and execution
+ --raft-signal-async-dump-threads[=name] 
+ When should we signal async dump threads who are waiting
+ to send events
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
@@ -2972,6 +2975,7 @@ protocol-compression-algorithms zlib,zstd,zstd_stream,lz4f_stream,uncompressed
 protocol-mode 
 query-alloc-block-size 8192
 query-prealloc-size 8192
+raft-signal-async-dump-threads AFTER_CONSENSUS
 range-alloc-block-size 4096
 range-optimizer-max-mem-size 8388608
 rbr-column-type-mismatch-whitelist 

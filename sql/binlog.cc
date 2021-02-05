@@ -10108,7 +10108,10 @@ std::pair<int, my_off_t> MYSQL_BIN_LOG::flush_thread_caches(THD *thd) {
       Note that set_trans_pos does not copy the file name. See
       this function documentation for more info.
     */
-    thd->set_trans_pos(log_file_name, m_binlog_file->position());
+    if (enable_raft_plugin && !is_apply_log)
+      thd->set_trans_pos(log_file_name, atomic_binlog_end_pos.load());
+    else
+      thd->set_trans_pos(log_file_name, m_binlog_file->position());
     if (wrote_xid)
       inc_prep_xids(thd);
     else
@@ -10265,6 +10268,14 @@ void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
 
   if (!enable_raft_plugin) return;
 
+  DBUG_EXECUTE_IF("before_before_commit", {
+    const char act[] =
+        "now signal reached "
+        "wait_for continue";
+    assert(opt_debug_sync_timeout > 0);
+    assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+  });
+
   THD *last_thd = NULL;
   int error = 0;
   for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit)
@@ -10274,6 +10285,13 @@ void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
     error = RUN_HOOK(raft_replication, before_commit, (last_thd));
 
     if (error) set_commit_consensus_error(queue_head);
+    if (!error && opt_raft_signal_async_dump_threads == AFTER_CONSENSUS &&
+        enable_raft_plugin && rpl_wait_for_semi_sync_ack) {
+      const char *log_file = nullptr;
+      my_off_t log_pos = 0;
+      queue_head->get_trans_fixed_pos((const char **)&log_file, &log_pos);
+      signal_semi_sync_ack(log_file, log_pos);
+    }
   }
 }
 
@@ -10433,6 +10451,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
  */
 
 void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
+  int error = 0;
+  THD *last_thd = nullptr;
   for (THD *head = first; head; head = head->next_to_commit) {
     if (enable_binlog_hlc && maintain_database_hlc && head->hlc_time_ns_next) {
       if (likely(!head->databases.empty())) {
@@ -10459,23 +10479,32 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       */
       Thd_backup_and_restore switch_thd(thd, head);
       bool all = head->get_transaction()->m_flags.real_commit;
+      error = error || RUN_HOOK(transaction, after_commit, (head, all));
 
-      // Call semi-sync plugin only when raft is not enabled
-      if (!enable_raft_plugin)
-        (void)RUN_HOOK(transaction, after_commit, (head, all));
-      else
+      if (enable_raft_plugin)
         (void)RUN_HOOK(raft_replication, after_commit, (head));
-
-      my_off_t pos;
-      head->get_trans_pos(nullptr, &pos, nullptr, nullptr);
-      signal_semi_sync_ack(head->get_trans_fixed_log_path(), pos);
+      if (!enable_raft_plugin) {
+        my_off_t pos;
+        head->get_trans_pos(nullptr, &pos, nullptr, nullptr);
+        signal_semi_sync_ack(head->get_trans_fixed_log_path(), pos);
+      }
       /*
         When after_commit finished for the transaction, clear the run_hooks
         flag. This allow other parts of the system to check if after_commit was
         called.
       */
       head->get_transaction()->m_flags.run_hooks = false;
+      last_thd = thd;
     }
+  }
+
+  if (enable_raft_plugin && !error && last_thd &&
+      opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&
+      rpl_wait_for_semi_sync_ack) {
+    my_off_t log_pos;
+    const char *log_file = nullptr;
+    last_thd->get_trans_fixed_pos((const char **)&log_file, &log_pos);
+    signal_semi_sync_ack(log_file, log_pos);
   }
 }
 
@@ -10694,7 +10723,14 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
   }
 
   if (enable_raft_plugin && thd->commit_error == THD::CE_NONE) {
-    (void)RUN_HOOK(raft_replication, after_commit, (thd));
+    int error = RUN_HOOK(raft_replication, after_commit, (thd));
+    if (!error && opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&
+        enable_raft_plugin && rpl_wait_for_semi_sync_ack) {
+      const char *log_file = nullptr;
+      my_off_t log_pos = 0;
+      thd->get_trans_fixed_pos((const char **)&log_file, &log_pos);
+      signal_semi_sync_ack(log_file, log_pos);
+    }
     thd->get_transaction()->m_flags.run_hooks = false;
   }
 
@@ -11762,7 +11798,7 @@ my_off_t MYSQL_BIN_LOG::get_binlog_end_pos() const {
 my_off_t MYSQL_BIN_LOG::get_last_acked_pos(bool *wait_for_ack,
                                            const char *sender_log_name) {
   *wait_for_ack = *wait_for_ack && rpl_wait_for_semi_sync_ack &&
-                  rpl_semi_sync_source_enabled;
+                  (rpl_semi_sync_source_enabled || enable_raft_plugin);
 
   if (!*wait_for_ack) return atomic_binlog_end_pos;
 

@@ -443,6 +443,7 @@ extern ulonglong minimum_hlc_ns;
 extern ulonglong maximum_hlc_drift_ns;
 extern bool enable_raft_plugin;
 extern bool disable_raft_log_repointing;
+extern ulong opt_raft_signal_async_dump_threads;
 extern bool disallow_raft;
 extern bool override_enable_raft_check;
 extern ulonglong apply_log_retention_num;
