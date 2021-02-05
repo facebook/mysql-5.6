@@ -49,6 +49,7 @@
 #include "my_bit.h"
 #include "my_stacktrace.h"
 #include "my_sys.h"
+#include "scope_guard.h"
 #include "sql/binlog.h"
 #include "sql/debug_sync.h"
 #include "sql-common/json_dom.h"
@@ -6957,6 +6958,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_pack_buffer(nullptr),
       m_lock_rows(RDB_LOCK_NONE),
       m_keyread_only(false),
+      m_iteration_only(false),
       m_insert_with_update(false),
       m_dup_key_found(false),
       m_in_rpl_delete_rows(false),
@@ -8856,6 +8858,11 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
 
     /* Check if we've ran out of records of this index */
     if (m_key_descr_arr[keyno]->covers_key(key)) {
+      if (m_iteration_only) {
+        table->m_status = 0;
+        return 0;
+      }
+
       int rc = 0;
 
       // TODO: We could here check if we have ran out of range we're scanning
@@ -9598,6 +9605,22 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
   }
 
   DBUG_RETURN(rc);
+}
+
+int ha_rocksdb::records(ha_rows *num_rows) {
+  m_iteration_only = true;
+  auto iteration_guard =
+      create_scope_guard([this]() { m_iteration_only = false; });
+  int count = handler::records(num_rows);
+  return count;
+}
+
+int ha_rocksdb::records_from_index(ha_rows *num_rows, uint index) {
+  m_iteration_only = true;
+  auto iteration_guard =
+      create_scope_guard([this]() { m_iteration_only = false; });
+  int count = handler::records_from_index(num_rows, index);
+  return count;
 }
 
 /**
@@ -11128,7 +11151,7 @@ int ha_rocksdb::rnd_next(uchar *const buf) {
 int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
   DBUG_ENTER_FUNC();
 
-  int rc;
+  int rc = 0;
   THD *thd = ha_thd();
 
   table->m_status = STATUS_NOT_FOUND;
@@ -11173,6 +11196,11 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
     const rocksdb::Slice key = m_scan_it->key();
     if (!m_pk_descr->covers_key(key)) {
       rc = HA_ERR_END_OF_FILE;
+      break;
+    }
+
+    if (m_iteration_only) {
+      table->m_status = 0;
       break;
     }
 

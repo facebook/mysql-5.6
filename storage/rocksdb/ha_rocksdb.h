@@ -272,6 +272,9 @@ class ha_rocksdb : public my_core::handler {
   /* true means we're doing an index-only read. false means otherwise. */
   bool m_keyread_only;
 
+  /* We only iterate but don't need to decode anything */
+  bool m_iteration_only;
+
   bool m_skip_scan_it_next_call;
 
   /* true means we are accessing the first row after a snapshot was created */
@@ -960,6 +963,10 @@ class ha_rocksdb : public my_core::handler {
 
   void update_row_read(ulonglong count);
   static void inc_covered_sk_lookup();
+
+ protected:
+  int records(ha_rows *num_rows) override;
+  int records_from_index(ha_rows *num_rows, uint index) override;
 
  public:
   /* TODO(yzha) - 019a9fcd7f6 Add Tokutek's read-free replication api in mysqld
