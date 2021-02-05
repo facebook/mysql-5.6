@@ -1,0 +1,3 @@
+--source include/have_thread_pool_plugin.inc
+
+--echo === Success!
