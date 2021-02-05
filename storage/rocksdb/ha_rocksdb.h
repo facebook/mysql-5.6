@@ -272,6 +272,9 @@ class ha_rocksdb : public my_core::handler {
   /* true means we're doing an index-only read. false means otherwise. */
   bool m_keyread_only;
 
+  /* We only iterate but don't need to decode anything */
+  bool m_iteration_only;
+
   bool m_skip_scan_it_next_call;
 
   /* true means we are accessing the first row after a snapshot was created */
@@ -1004,6 +1007,10 @@ class ha_rocksdb : public my_core::handler {
 
   void build_decoder();
   void check_build_decoder();
+
+ protected:
+  int records(ha_rows *num_rows) override;
+  int records_from_index(ha_rows *num_rows, uint index) override;
 
  public:
   virtual void rpl_before_delete_rows() override;
