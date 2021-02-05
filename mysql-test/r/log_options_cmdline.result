@@ -41,7 +41,7 @@ connect(localhost,unknown_user,,,MASTER_PORT,MASTER_SOCKET);
 ERROR 28000: Access denied for user 'unknown_user'@'localhost' (using password: NO)
 SET GLOBAL log_error_services= default;
 UNINSTALL COMPONENT "file://component_log_sink_json";
-Pattern "\[ERROR\].*unknown variable 'dragnet.log_error_filter_rules=a'" found
+Pattern "\[WARNING\].*unknown variable 'dragnet.log_error_filter_rules=a'" not found
 INSTALL COMPONENT "file://component_log_filter_dragnet";
 # restart: --no-console --log-error=LOG_FILE13 --log-error-services=log_filter_internal;log_filter_dragnet;log_sink_internal --dragnet.log-error-filter-rules=
 SELECT @@log_error_services;

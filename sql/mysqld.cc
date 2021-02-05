@@ -7659,8 +7659,9 @@ int mysqld_main(int argc, char **argv)
     */
     my_getopt_skip_unknown = false;
 
-    if ((ho_error = handle_options(&remaining_argc, &remaining_argv, no_opts,
-                                   mysqld_get_one_option)))
+    if ((ho_error =
+             my_handle_options(&remaining_argc, &remaining_argv, no_opts,
+                               mysqld_get_one_option, nullptr, opt_initialize)))
       abort = true;
     else {
       /* Add back the program name handle_options removes */
