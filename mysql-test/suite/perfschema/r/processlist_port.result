@@ -82,14 +82,14 @@ ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 set @@global.performance_schema_show_processlist = off;
 
 SHOW FULL PROCESSLIST;
-Id	User	Host	db	Command	Time	State	Info
-<Id>	event_scheduler	<Host>	NULL	<Command>	<Time>	<State>	NULL
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user0	<Host>	test	Query	<Time>	<State>	SHOW FULL PROCESSLIST
-<Id>	user1	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user2	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user3	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user4	<Host>	test	<Command>	<Time>	<State>	NULL
+Id	User	Host	db	Command	Time	State	Info	Tid
+<Id>	event_scheduler	<Host>	NULL	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user0	<Host>	test	Query	<Time>	<State>	SHOW FULL PROCESSLIST	<Tid>
+<Id>	user1	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user2	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user3	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user4	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
 
 # Performance Schema processlist table
 

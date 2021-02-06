@@ -137,7 +137,7 @@ WHERE DB = 'information_schema' AND COMMAND = 'Sleep' AND USER = 'ddicttestuser1
 --source include/wait_condition.inc
 --replace_result InnoDB TMP_TABLE_ENGINE MyISAM TMP_TABLE_ENGINE 
 eval SHOW CREATE TABLE $table;
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 eval SHOW $table;
@@ -162,7 +162,7 @@ connection con100;
 # but "ddicttestuser1" must not see anything of the root session.
 --replace_result InnoDB TMP_TABLE_ENGINE MyISAM TMP_TABLE_ENGINE 
 eval SHOW CREATE TABLE $table;
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 eval SHOW $table;
@@ -194,7 +194,7 @@ GRANT PROCESS ON *.* TO ddicttestuser1@'localhost';
 --echo ####################################################################################
 connection con100;
 SHOW GRANTS;
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -210,7 +210,7 @@ SELECT * FROM information_schema.processlist;
 --echo ####################################################################################
 connect (con101,localhost,ddicttestuser1,ddictpass,information_schema);
 SHOW GRANTS;
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -237,7 +237,7 @@ GRANT PROCESS ON *.* TO ''@'localhost';
 --echo ####################################################################################
 connect (anonymous1,localhost,"''",,information_schema);
 SHOW GRANTS;
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -263,7 +263,7 @@ connect (con102,localhost,ddicttestuser1,ddictpass,information_schema);
 --echo     ddicttestuser1 are visible.
 --echo ####################################################################################
 SHOW GRANTS;
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -292,7 +292,7 @@ SHOW GRANTS FOR ''@'localhost';
 if ($fixed_bug_30395)
 {
 # Bug#30395 strange results after REVOKE PROCESS ON *.* FROM ...
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -318,7 +318,7 @@ connect (con103,localhost,ddicttestuser1,ddictpass,information_schema);
 --echo     Only the processes of ddicttestuser1 user are visible.
 --echo ####################################################################################
 SHOW GRANTS FOR 'ddicttestuser1'@'localhost';
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -344,7 +344,7 @@ connect (con104,localhost,ddicttestuser1,ddictpass,information_schema);
 --echo     Only the processes of ddicttestuser1 are visible.
 --echo ####################################################################################
 SHOW GRANTS FOR 'ddicttestuser1'@'localhost';
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -395,7 +395,7 @@ connect (con200,localhost,ddicttestuser2,ddictpass,information_schema);
 --echo      ddicttestuser2 has now the PROCESS privilege and sees all connections
 --echo ####################################################################################
 SHOW GRANTS FOR 'ddicttestuser2'@'localhost';
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -420,7 +420,7 @@ connect (con201,localhost,ddicttestuser2,ddictpass,information_schema);
 --echo      ddicttestuser2 has no more the PROCESS privilege and can only see own connects
 --echo ####################################################################################
 SHOW GRANTS;
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -447,7 +447,7 @@ connect (con107,localhost,ddicttestuser1,ddictpass,information_schema);
 SHOW GRANTS FOR 'ddicttestuser1'@'localhost';
 --error ER_ACCESS_DENIED_ERROR
 GRANT PROCESS ON *.* TO 'ddicttestuser2'@'localhost';
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
@@ -475,7 +475,7 @@ connect (con108,localhost,ddicttestuser1,ddictpass,information_schema);
 --echo      Therefore the missing SELECT privilege does not affect SELECTs on PROCESSLIST.
 --echo ####################################################################################
 SHOW GRANTS FOR 'ddicttestuser1'@'localhost';
---replace_column 1 ID 3 HOST_NAME 6 TIME
+--replace_column 1 ID 3 HOST_NAME 6 TIME 9 TID
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;

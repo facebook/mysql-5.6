@@ -119,17 +119,17 @@ ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 set @@global.performance_schema_show_processlist = off;
 
 SHOW FULL PROCESSLIST;
-Id	User	Host	db	Command	Time	State	Info
-<Id>	event_scheduler	<Host>	NULL	<Command>	<Time>	<State>	NULL
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user_00	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user_01	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user_all	<Host>	test	Query	<Time>	<State>	SHOW FULL PROCESSLIST
-<Id>	user_all	<Host>	test	Query	<Time>	<State>	insert into test.t1 values (0, 0, 0, 0)
-<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user_none	<Host>	test	Query	<Time>	<State>	update test.t1 set s1 = s1 + 1, s2 = s2 + 2
+Id	User	Host	db	Command	Time	State	Info	Tid
+<Id>	event_scheduler	<Host>	NULL	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user_00	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user_01	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user_all	<Host>	test	Query	<Time>	<State>	SHOW FULL PROCESSLIST	<Tid>
+<Id>	user_all	<Host>	test	Query	<Time>	<State>	insert into test.t1 values (0, 0, 0, 0)	<Tid>
+<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user_none	<Host>	test	Query	<Time>	<State>	update test.t1 set s1 = s1 + 1, s2 = s2 + 2	<Tid>
 
 # Performance Schema processlist table
 
@@ -208,11 +208,11 @@ set @@global.performance_schema_show_processlist = off;
 # Connection con_none_1
 
 SHOW FULL PROCESSLIST;
-Id	User	Host	db	Command	Time	State	Info
-<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL
-<Id>	user_none	<Host>	test	Query	<Time>	<State>	SHOW FULL PROCESSLIST
-<Id>	user_none	<Host>	test	Query	<Time>	<State>	update test.t1 set s1 = s1 + 1, s2 = s2 + 2
+Id	User	Host	db	Command	Time	State	Info	Tid
+<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user_none	<Host>	test	<Command>	<Time>	<State>	NULL	<Tid>
+<Id>	user_none	<Host>	test	Query	<Time>	<State>	SHOW FULL PROCESSLIST	<Tid>
+<Id>	user_none	<Host>	test	Query	<Time>	<State>	update test.t1 set s1 = s1 + 1, s2 = s2 + 2	<Tid>
 
 # Performance Schema processlist table
 

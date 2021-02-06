@@ -49,10 +49,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 alter table t1 modify i bigint;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -68,9 +68,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -123,10 +123,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 alter table t1 rename t1_new;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -142,9 +142,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -202,10 +202,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 rename table t1 to t1_new;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -221,9 +221,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -276,10 +276,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 drop table t1;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -295,10 +295,10 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -345,10 +345,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 drop table t1;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -364,9 +364,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -413,11 +413,11 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and con2 exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
-#	test_user2	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
+#	test_user2	#	test	#	#	#	#	#
 connection: con2
 alter table t1 modify i bigint;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -433,11 +433,11 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
-#	test_user2	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
+#	test_user2	#	test	#	#	#	#	#
 connection: con2
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -484,10 +484,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 create index idx1 on t1 (i);;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -503,9 +503,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -544,10 +544,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 drop index idx1 on t1;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -563,9 +563,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -612,10 +612,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 truncate t1;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -631,9 +631,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -681,10 +681,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 create trigger ins_sum before insert on t1
 for each row set @sum = @sum + new.i;
@@ -703,9 +703,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -744,10 +744,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 drop trigger ins_sum;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -763,9 +763,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -811,10 +811,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	menagerie	#	#	#	#
-#	test_user1	#	menagerie	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	menagerie	#	#	#	#	#
+#	test_user1	#	menagerie	#	#	#	#	#
 connection: default
 drop database menagerie;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: menagerie
@@ -830,9 +830,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	NULL	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	NULL	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -883,10 +883,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 optimize table t1;
 Table	Op	Msg_type	Msg_text
@@ -907,9 +907,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
@@ -956,10 +956,10 @@ should_be_non_zero
 connection: default (for show processlist)
 # both con1 and default exist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
-#	test_user1	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	test_user1	#	test	#	#	#	#	#
 connection: default
 lock tables t1 write;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
@@ -975,9 +975,9 @@ SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
 WHERE object_schema = "test" AND source <> ""
 connection: default (for show processlist)
 show processlist;
-Id	User	Host	db	Command	Time	State	Info
-#	event_scheduler	#	NULL	#	#	#	#
-#	root	#	test	#	#	#	#
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
 connection: default
 set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
 set @@lock_wait_timeout = @m_lock_wait_timeout;
