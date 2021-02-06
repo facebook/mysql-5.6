@@ -2380,6 +2380,8 @@ class THD : public MDL_context_owner,
   void set_status_no_index_used();
   void set_status_no_good_index_used();
 
+  void capture_system_thread_id();
+
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
   const CHARSET_INFO *db_charset;
   std::string db_metadata;
@@ -2445,6 +2447,11 @@ class THD : public MDL_context_owner,
                        */
  private:
   my_thread_id m_thread_id;
+#ifdef _WIN32
+  uint m_system_thread_id;
+#else
+  pid_t m_system_thread_id;
+#endif  // _WIN32
 
  public:
   /**
@@ -2453,6 +2460,7 @@ class THD : public MDL_context_owner,
   */
   void set_new_thread_id();
   my_thread_id thread_id() const { return m_thread_id; }
+  ulong system_thread_id() const { return m_system_thread_id; }
   uint tmp_table;
   uint server_status, open_options;
   enum enum_thread_type system_thread;

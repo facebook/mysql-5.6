@@ -2748,6 +2748,7 @@ class thread_info {
  public:
   thread_info()
       : thread_id(0),
+        tid(0),
         start_time_in_secs(0),
         command(0),
         user(nullptr),
@@ -2757,6 +2758,7 @@ class thread_info {
         state_info(nullptr) {}
 
   my_thread_id thread_id;
+  ulong tid;
   time_t start_time_in_secs;
   uint command;
   const char *user, *host, *db, *proc_info, *state_info;
@@ -3039,6 +3041,8 @@ class List_process_list : public Do_THD_Impl {
     /* MYSQL_TIME */
     thd_info->start_time_in_secs = inspect_thd->query_start_in_secs();
 
+    /* TID */
+    thd_info->tid = inspect_thd->system_thread_id();
     m_thread_infos->push_back(thd_info);
   }
 };
@@ -3077,6 +3081,8 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
   field->set_nullable(true);
   field_list.push_back(field = new Item_empty_string("Info", max_query_length));
   field->set_nullable(true);
+  field_list.push_back(
+      new Item_int(NAME_STRING("Tid"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return;
@@ -3111,6 +3117,7 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
     protocol->store(thd_info->state_info, system_charset_info);
     protocol->store(thd_info->query_string.str(),
                     thd_info->query_string.charset());
+    protocol->store((ulonglong)thd_info->tid);
     if (protocol->end_row()) break; /* purecov: inspected */
   }
   /*

@@ -14,7 +14,7 @@ CREATE TABLE t1 (i INT);
 SET lock_wait_timeout = 0.02;
 
 --echo # check both conn exist
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <Tid>
 SHOW PROCESSLIST;
 
 ## Check that operation is blocked without high_priority_cmd flag
@@ -23,7 +23,7 @@ SET GLOBAL read_only = 1;
 SELECT @@read_only;
 
 --echo # check other conn still exists
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <Tid>
 SHOW PROCESSLIST;
 
 ## Enable hi priority flag and check that operation is not blocked anymore
@@ -33,7 +33,7 @@ SET GLOBAL read_only = 1;
 SELECT @@read_only;
 
 --echo # check the other connection is gone
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <Tid>
 SHOW PROCESSLIST;
 
 ##
@@ -77,7 +77,7 @@ LOCK TABLES t1 WRITE;
 UNLOCK TABLES;
 
 --echo # check the other connection is gone
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <Tid>
 SHOW PROCESSLIST;
 
 ##

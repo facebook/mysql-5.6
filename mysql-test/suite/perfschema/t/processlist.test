@@ -115,7 +115,7 @@ SET DEBUG_SYNC='now SIGNAL continue';
 --echo
 --echo # Connection default, reap
 --connection default
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <Tid>
 --replace_regex /Waiting on empty queue/WAITING/ /Waiting for next activation/WAITING/ /Daemon/<Command>/ /Connect/<Command>/
 --sorted_result
 --reap
@@ -144,7 +144,7 @@ SET DEBUG_SYNC='now SIGNAL continue';
 --echo
 --echo # Connection default, reap
 --connection default
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <Tid>
 --replace_regex /Waiting on empty queue/WAITING/ /Waiting for next activation/WAITING/ /Daemon/<Command>/ /Connect/<Command>/
 --sorted_result
 --reap

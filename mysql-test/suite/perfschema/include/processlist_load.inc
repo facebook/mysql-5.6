@@ -18,7 +18,7 @@
 # Sort SHOW PROCESSLIST by User instead of Id because Id is not zero-padded
 # Unique usernames give best results
 --echo
---replace_column 1 <Id> 3 <Host> 6 <Time> 7 <State>
+--replace_column 1 <Id> 3 <Host> 6 <Time> 7 <State> 9 <Tid>
 --replace_regex /Daemon/<Command>/ /Connect/<Command>/ /Sleep/<Command>/
 --sorted_result
 SHOW FULL PROCESSLIST;
