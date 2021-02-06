@@ -1489,6 +1489,8 @@ The following options may be given as the first argument:
  Enable rocksdb iterator upper/lower bounds in read
  options.
  (Defaults to on; use --skip-rocksdb-enable-iterate-bounds to disable.)
+ --rocksdb-enable-pipelined-write 
+ DBOptions::enable_pipelined_write for RocksDB
  --rocksdb-enable-remove-orphaned-dropped-cfs 
  Enables removing dropped cfs from metadata if it doesn't
  exist in cf manager
@@ -1909,6 +1911,10 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-session-track-response-attributes to disable.)
  --session-track-state-change 
  Track changes to the 'session state'.
+ --set-read-only-on-shutdown 
+ Set read_only and super_read_only in shutdown path after
+ trying to kill connections but before shutting down
+ plugins
  --show-old-temporals 
  When this option is enabled, the pre-5.6.4 temporal types
  will be marked in the 'SHOW CREATE TABLE' and
@@ -2137,6 +2143,10 @@ The following options may be given as the first argument:
  related data from memory. OFF_SOFT: Stop collecting the
  statistics, but retain any data collected so far. ON:
  Collect the statistics.
+ --sql-stats-read-control 
+ Controls reading from SQL_STATISTICS, SQL_TEXT and
+ CLIENT_ATTRIBUTES tables.
+ (Defaults to on; use --skip-sql-stats-read-control to disable.)
  --stored-program-cache=# 
  The soft upper limit for number of cached stored routines
  for one connection.
@@ -2566,7 +2576,7 @@ max-sort-length 1024
 max-sp-recursion-depth 0
 max-sql-stats-count 100000
 max-sql-stats-size 104857600
-max-sql-text-storage-size 1024
+max-sql-text-storage-size 4096
 max-tmp-disk-usage 0
 max-tmp-tables 32
 max-user-connections 0
@@ -2774,6 +2784,7 @@ rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-insert-with-update-caching TRUE
 rocksdb-enable-iterate-bounds TRUE
+rocksdb-enable-pipelined-write FALSE
 rocksdb-enable-remove-orphaned-dropped-cfs TRUE
 rocksdb-enable-thread-tracking TRUE
 rocksdb-enable-ttl TRUE
@@ -2915,6 +2926,7 @@ server-id-bits 32
 session-track-gtids OFF
 session-track-response-attributes TRUE
 session-track-state-change FALSE
+set-read-only-on-shutdown FALSE
 show-old-temporals FALSE
 show-query-digest FALSE
 show-slave-auth-info FALSE
@@ -2967,6 +2979,7 @@ sql-plans-capture-frequency 1
 sql-plans-capture-slow-query FALSE
 sql-plans-control OFF_HARD
 sql-stats-control OFF_HARD
+sql-stats-read-control TRUE
 stored-program-cache 256
 super-read-only FALSE
 symbolic-links FALSE

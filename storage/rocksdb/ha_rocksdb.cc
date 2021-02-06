@@ -763,9 +763,8 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
                            bool trace_block_cache_access) {
   std::string trace_folder =
       trace_block_cache_access ? "/block_cache_traces" : "/queries_traces";
-  char buf[FN_REFLEN];
-  int len = sizeof(buf);
-  const char *const trace_opt_str_raw = value->val_str(value, buf, &len);
+  int len = 0;
+  const char *const trace_opt_str_raw = value->val_str(value, nullptr, &len);
   rocksdb::Status s;
   if (trace_opt_str_raw == nullptr || rdb == nullptr) {
     return HA_EXIT_FAILURE;
@@ -783,7 +782,7 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
       rc = ha_rocksdb::rdb_error_to_mysql(s);
       return HA_EXIT_FAILURE;
     }
-    *static_cast<const char **>(save) = my_strdup("", MYF(0));
+    *static_cast<const char **>(save) = trace_opt_str_raw;
     return HA_EXIT_SUCCESS;
   }
 
@@ -869,7 +868,7 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
       trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
       trace_file_path.c_str());
   // Save the trace option.
-  *static_cast<const char **>(save) = my_strdup(trace_opt_str_raw, MYF(0));
+  *static_cast<const char **>(save) = trace_opt_str_raw;
   return HA_EXIT_SUCCESS;
 }
 
@@ -1121,6 +1120,13 @@ static MYSQL_SYSVAR_BOOL(enable_bulk_load_api, rocksdb_enable_bulk_load_api,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Enables using SstFileWriter for bulk loading",
                          nullptr, nullptr, rocksdb_enable_bulk_load_api);
+
+static MYSQL_SYSVAR_BOOL(
+    enable_pipelined_write,
+    *reinterpret_cast<my_bool *>(&rocksdb_db_options->enable_pipelined_write),
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "DBOptions::enable_pipelined_write for RocksDB", nullptr, nullptr,
+    rocksdb_db_options->enable_pipelined_write);
 
 static MYSQL_SYSVAR_BOOL(enable_remove_orphaned_dropped_cfs,
                          rocksdb_enable_remove_orphaned_dropped_cfs,
@@ -2245,7 +2251,7 @@ static MYSQL_SYSVAR_BOOL(
 
 static MYSQL_SYSVAR_STR(
     trace_block_cache_access, rocksdb_block_cache_trace_options_str,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
     "Block cache trace option string. The format is "
     "sampling_frequency:max_trace_file_size:trace_file_name. "
     "sampling_frequency and max_trace_file_size are positive integers. The "
@@ -2353,6 +2359,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(bulk_load_size),
     MYSQL_SYSVAR(merge_buf_size),
     MYSQL_SYSVAR(enable_bulk_load_api),
+    MYSQL_SYSVAR(enable_pipelined_write),
     MYSQL_SYSVAR(enable_remove_orphaned_dropped_cfs),
     MYSQL_SYSVAR(tmpdir),
     MYSQL_SYSVAR(merge_combine_read_size),
@@ -6565,7 +6572,8 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       mrr_used_cpk(false),
       m_in_rpl_delete_rows(false),
       m_in_rpl_update_rows(false),
-      m_force_skip_unique_check(false) {}
+      m_force_skip_unique_check(false),
+      m_need_build_decoder(false) {}
 
 ha_rocksdb::~ha_rocksdb() {
   int err MY_ATTRIBUTE((__unused__));
@@ -8119,7 +8127,7 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
 */
-int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg, const TABLE *table_arg,
+int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg, TABLE *table_arg,
                                ulonglong auto_increment_value) {
   DBUG_ENTER_FUNC();
 
@@ -8205,6 +8213,7 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg, const TABLE *table_arg,
 
   /* Update the local m_tbl_def reference */
   m_tbl_def = ddl_manager.find(orig_tablename);
+  m_converter.reset(new Rdb_converter(ha_thd(), m_tbl_def, table_arg));
   DBUG_RETURN(err);
 }
 
@@ -8509,7 +8518,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   DBUG_EXECUTE_IF("dbug.rocksdb.HA_EXTRA_KEYREAD", { m_keyread_only = true; });
 
   bool covered_lookup = (m_keyread_only && kd.can_cover_lookup()) ||
-                        kd.covers_lookup(&value, &m_lookup_bitmap);
+      kd.covers_lookup(&value, m_converter->get_lookup_bitmap());
 
 #ifndef DBUG_OFF
   m_keyread_only = save_keyread_only;
@@ -8640,7 +8649,8 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
       rocksdb::Slice value = m_scan_it->value();
       bool covered_lookup =
           (m_keyread_only && m_key_descr_arr[keyno]->can_cover_lookup()) ||
-          m_key_descr_arr[keyno]->covers_lookup(&value, &m_lookup_bitmap);
+          m_key_descr_arr[keyno]->covers_lookup(
+              &value, m_converter->get_lookup_bitmap());
       if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
         rc = m_key_descr_arr[keyno]->unpack_record(
             table, buf, &key, &value,
@@ -8677,6 +8687,8 @@ int ha_rocksdb::read_range_first(const key_range *const start_key,
                                  const key_range *const end_key,
                                  bool eq_range_arg, bool sorted) {
   DBUG_ENTER_FUNC();
+
+  check_build_decoder();
 
   int result;
 
@@ -8727,6 +8739,8 @@ int ha_rocksdb::index_read_map(uchar *const buf, const uchar *const key,
                                key_part_map keypart_map,
                                enum ha_rkey_function find_flag) {
   DBUG_ENTER_FUNC();
+
+  check_build_decoder();
 
   DBUG_RETURN(index_read_map_impl(buf, key, keypart_map, find_flag, nullptr));
 }
@@ -9032,6 +9046,8 @@ int ha_rocksdb::find_icp_matching_index_rec(const bool move_forward,
 int ha_rocksdb::index_read_last_map(uchar *const buf, const uchar *const key,
                                     key_part_map keypart_map) {
   DBUG_ENTER_FUNC();
+
+  check_build_decoder();
 
   DBUG_RETURN(index_read_map(buf, key, keypart_map, HA_READ_PREFIX_LAST));
 }
@@ -9371,6 +9387,8 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
 int ha_rocksdb::index_next(uchar *const buf) {
   DBUG_ENTER_FUNC();
 
+  check_build_decoder();
+
   bool moves_forward = true;
   ha_statistic_increment(&SSV::ha_read_next_count);
   if (m_key_descr_arr[active_index]->m_is_reverse_cf) {
@@ -9390,6 +9408,8 @@ int ha_rocksdb::index_next(uchar *const buf) {
 */
 int ha_rocksdb::index_prev(uchar *const buf) {
   DBUG_ENTER_FUNC();
+
+  check_build_decoder();
 
   bool moves_forward = false;
   ha_statistic_increment(&SSV::ha_read_prev_count);
@@ -9451,6 +9471,8 @@ int ha_rocksdb::index_next_with_direction(uchar *const buf, bool move_forward) {
 int ha_rocksdb::index_first(uchar *const buf) {
   DBUG_ENTER_FUNC();
 
+  check_build_decoder();
+
   m_sk_match_prefix = nullptr;
   ha_statistic_increment(&SSV::ha_read_first_count);
   int rc = m_key_descr_arr[active_index]->m_is_reverse_cf
@@ -9468,6 +9490,8 @@ int ha_rocksdb::index_first(uchar *const buf) {
 */
 int ha_rocksdb::index_last(uchar *const buf) {
   DBUG_ENTER_FUNC();
+
+  check_build_decoder();
 
   m_sk_match_prefix = nullptr;
   ha_statistic_increment(&SSV::ha_read_last_count);
@@ -10894,16 +10918,15 @@ void ha_rocksdb::setup_iterator_for_rnd_scan() {
 int ha_rocksdb::rnd_init(bool scan) {
   DBUG_ENTER_FUNC();
 
+  m_need_build_decoder = true;
+  active_index = table->s->primary_key;
+
   THD *thd = ha_thd();
   if (thd && thd->killed) {
     DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
   }
 
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-
-  // when this table is being updated, decode all fields
-  m_converter->setup_field_decoders(table->read_set,
-                                    m_lock_rows == RDB_LOCK_WRITE);
 
   if (scan) {
     m_rnd_scan_is_new_snapshot = !tx->has_snapshot();
@@ -10927,6 +10950,8 @@ int ha_rocksdb::rnd_init(bool scan) {
 */
 int ha_rocksdb::rnd_next(uchar *const buf) {
   DBUG_ENTER_FUNC();
+
+  check_build_decoder();
 
   int rc;
   ha_statistic_increment(&SSV::ha_read_rnd_next_count);
@@ -11066,9 +11091,24 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
 int ha_rocksdb::rnd_end() {
   DBUG_ENTER_FUNC();
 
+  m_need_build_decoder = false;
+
   release_scan_iterator();
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
+}
+
+void ha_rocksdb::build_decoder() {
+  m_converter->setup_field_decoders(table->read_set, active_index,
+                                    m_keyread_only,
+                                    m_lock_rows == RDB_LOCK_WRITE);
+}
+
+void ha_rocksdb::check_build_decoder() {
+  if (m_need_build_decoder) {
+    build_decoder();
+    m_need_build_decoder = false;
+  }
 }
 
 /**
@@ -11079,6 +11119,9 @@ int ha_rocksdb::rnd_end() {
 int ha_rocksdb::index_init(uint idx, bool sorted) {
   DBUG_ENTER_FUNC();
 
+  m_need_build_decoder = true;
+  active_index = idx;
+
   THD *thd = ha_thd();
   if (thd && thd->killed) {
     DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
@@ -11087,20 +11130,10 @@ int ha_rocksdb::index_init(uint idx, bool sorted) {
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
   DBUG_ASSERT(tx != nullptr);
 
-  // when this table is being updated, decode all fields
-  m_converter->setup_field_decoders(table->read_set,
-                                    m_lock_rows == RDB_LOCK_WRITE);
-
-  if (!m_keyread_only) {
-    m_key_descr_arr[idx]->get_lookup_bitmap(table, &m_lookup_bitmap);
-  }
-
   // If m_lock_rows is not RDB_LOCK_NONE then we will be doing a get_for_update
   // when accessing the index, so don't acquire the snapshot right away.
   // Otherwise acquire the snapshot immediately.
   tx->acquire_snapshot(m_lock_rows == RDB_LOCK_NONE);
-
-  active_index = idx;
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -11112,9 +11145,9 @@ int ha_rocksdb::index_init(uint idx, bool sorted) {
 int ha_rocksdb::index_end() {
   DBUG_ENTER_FUNC();
 
-  release_scan_iterator();
+  m_need_build_decoder = false;
 
-  bitmap_free(&m_lookup_bitmap);
+  release_scan_iterator();
 
   active_index = MAX_KEY;
   in_range_check_pushed_down = FALSE;
@@ -11450,6 +11483,8 @@ void ha_rocksdb::position(const uchar *const record) {
 */
 int ha_rocksdb::rnd_pos(uchar *const buf, uchar *const pos) {
   DBUG_ENTER_FUNC();
+
+  check_build_decoder();
 
   int rc;
   size_t len;
@@ -12604,6 +12639,11 @@ static void adjust_cardinality(
     if ((uint64_t)stat.m_rows > max_num_rows_scanned) {
       stat.adjust_cardinality(stat.m_rows / max_num_rows_scanned);
     }
+#ifndef DBUG_OFF
+    for (size_t i = 0; i < stat.m_distinct_keys_per_prefix.size(); i++) {
+      DBUG_ASSERT(stat.m_distinct_keys_per_prefix[i] <= stat.m_rows);
+    }
+#endif
   }
 }
 
@@ -16023,6 +16063,8 @@ class Mrr_sec_key_rowid_source : public Mrr_rowid_source {
 int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
                                       uint n_ranges, uint mode,
                                       HANDLER_BUFFER *buf) {
+  m_need_build_decoder = true;
+
   int res;
 
   if (!current_thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) ||
@@ -16247,6 +16289,8 @@ void ha_rocksdb::mrr_free_rows() {
 }
 
 int ha_rocksdb::multi_range_read_next(char **range_info) {
+  check_build_decoder();
+
   if (mrr_uses_default_impl) {
     return handler::multi_range_read_next(range_info);
   }

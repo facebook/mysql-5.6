@@ -2967,7 +2967,7 @@ static void log_read_only_change(THD *thd)
     host
     );
 }
-static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
+bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
 {
   bool result= true;
 
@@ -2999,7 +2999,7 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
     DBUG_RETURN(false);
   }
 
-  if (check_read_only(self, thd, 0)) // just in case
+  if (self && check_read_only(self, thd, 0)) // just in case
     goto end;
 
   if (thd->global_read_lock.is_acquired())
@@ -6883,6 +6883,14 @@ static Sys_var_enum Sys_sql_stats_control(
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
        ON_UPDATE(set_sql_stats_control));
 
+static Sys_var_mybool Sys_sql_stats_read_control(
+       "sql_stats_read_control",
+       "Controls reading from SQL_STATISTICS, SQL_TEXT and "
+       "CLIENT_ATTRIBUTES tables.",
+       SESSION_VAR(sql_stats_read_control),
+       CMD_LINE(OPT_ARG),
+       DEFAULT(TRUE));
+
 static bool update_max_sql_stats_limits(sys_var *, THD *, enum_var_type type)
 {
   // This will clear out all the stats collected so far if the limits are
@@ -6915,7 +6923,7 @@ static Sys_var_uint Sys_max_sql_text_storage_size(
        "Maximum allowed memory to store each normalized SQL text (in bytes).",
        READ_ONLY GLOBAL_VAR(max_sql_text_storage_size),
        CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, SQL_TEXT_COL_SIZE),
-       DEFAULT(1024),
+       DEFAULT(SQL_TEXT_COL_SIZE),
        BLOCK_SIZE(1));
 
 static bool set_column_stats_control(sys_var *, THD *, enum_var_type type)
@@ -7268,6 +7276,11 @@ static Sys_var_mybool Sys_sql_stats_snapshot(
        DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_sql_stats_snapshot));
 
+static Sys_var_mybool Sys_sql_stats_auto_snapshot(
+       "sql_stats_auto_snapshot",
+       "Enable sql_statistics snapshot automatically for this session",
+       SESSION_VAR(sql_stats_auto_snapshot), NO_CMD_LINE, DEFAULT(TRUE));
+
 static const char *control_level_values[] =
 { "OFF", "NOTE", "WARN", "ERROR",
   /* Add new control before the following line */
@@ -7476,4 +7489,11 @@ static Sys_var_mybool Sys_mt_tables_access_control(
        "PROCESS privilege is needed for accessing some tables when "
        "this is set to true.",
        GLOBAL_VAR(mt_tables_access_control),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_set_read_only_on_shutdown(
+       "set_read_only_on_shutdown",
+       "Set read_only and super_read_only in shutdown path after trying to "
+       "kill connections but before shutting down plugins",
+       GLOBAL_VAR(set_read_only_on_shutdown),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));

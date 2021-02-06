@@ -1,0 +1,78 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is ON
+####
+--echo Default value of sql_stats_auto_snapshot is ON
+SELECT @@session.sql_stats_auto_snapshot;
+
+####
+# Verify that this is both global and session variable
+####
+SELECT @@global.sql_stats_auto_snapshot;
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_stats_auto_snapshot is a dynamic variable (change to "OFF")
+set @@session.sql_stats_auto_snapshot = off;
+SELECT @@session.sql_stats_auto_snapshot;
+set @@session.sql_stats_auto_snapshot = "off";
+SELECT @@session.sql_stats_auto_snapshot;
+set @@session.sql_stats_auto_snapshot = 0;
+SELECT @@session.sql_stats_auto_snapshot;
+
+####
+## Verify that on another connection it is still default
+####
+--echo Verify that on another connection it is still set to default
+connect(con1, localhost, root, , );
+SELECT @@session.sql_stats_auto_snapshot;
+disconnect con1;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+connection default;
+set @@session.sql_stats_auto_snapshot = on;
+SELECT @@session.sql_stats_auto_snapshot;
+set @@session.sql_stats_auto_snapshot = "on";
+SELECT @@session.sql_stats_auto_snapshot;
+set @@session.sql_stats_auto_snapshot = 1;
+SELECT @@session.sql_stats_auto_snapshot;
+
+####
+## Verify bool type
+####
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.sql_stats_auto_snapshot = offline;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.sql_stats_auto_snapshot = "offline";
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.sql_stats_auto_snapshot = 2;
+--error ER_WRONG_TYPE_FOR_VAR
+set @@session.sql_stats_auto_snapshot = 1.0;
+
+####
+## Change global value (default for new session)
+####
+--echo change global sql_stats_auto_snapshot
+set @@global.sql_stats_auto_snapshot = off;
+SELECT @@global.sql_stats_auto_snapshot;
+
+####
+## Verify that on another connection it has new value
+####
+--echo Verify that on another connection it has new value
+connect(con1, localhost, root, , );
+SELECT @@session.sql_stats_auto_snapshot;
+disconnect con1;
+
+####
+## Restore global value (default for new session)
+####
+--echo restore global sql_stats_auto_snapshot
+connection default;
+set @@global.sql_stats_auto_snapshot = on;
+SELECT @@global.sql_stats_auto_snapshot;

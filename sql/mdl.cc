@@ -1346,7 +1346,6 @@ MDL_wait::timed_wait(MDL_context_owner *owner, struct timespec *abs_timeout,
     wait_result= mysql_cond_timedwait(&m_COND_wait_status, &m_LOCK_wait_status,
                                       abs_timeout);
   }
-  thd_wait_end(NULL);
 
   if (m_wait_status == EMPTY)
   {
@@ -1369,7 +1368,8 @@ MDL_wait::timed_wait(MDL_context_owner *owner, struct timespec *abs_timeout,
   }
   result= m_wait_status;
 
-  owner->EXIT_COND(& old_stage);
+  owner->EXIT_COND(&old_stage);
+  thd_wait_end(NULL);
 
   return result;
 }

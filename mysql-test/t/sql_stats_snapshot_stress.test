@@ -1,0 +1,17 @@
+source include/big_test.inc;
+source include/not_valgrind.inc;
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+grant all on test to test_user@localhost;
+set global sql_stats_control = on;
+
+let $MYSQL_BASEDIR = `select @@basedir`;
+let $exec = /usr/bin/python3 $MYSQL_BASEDIR/mysql-test/t/sql_stats_snapshot_stress.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --database='test_db';
+exec $exec > $MYSQLTEST_VARDIR/tmp/sql_stats_snapshot_stress.output;
+
+set global sql_stats_control = off_hard;
+drop database test_db;
+drop user test_user@localhost;
+
+--remove_file $MYSQLTEST_VARDIR/tmp/sql_stats_snapshot_stress.output

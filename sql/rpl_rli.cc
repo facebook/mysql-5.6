@@ -1015,7 +1015,7 @@ int Relay_log_info::wait_for_pos(THD* thd, String* log_name,
     }
     else
       mysql_cond_wait(&data_cond, &data_lock);
-    thd_wait_end(thd);
+
     DBUG_PRINT("info",("Got signal of master update or timed out"));
     if (error == ETIMEDOUT || error == ETIME)
     {
@@ -1037,6 +1037,7 @@ int Relay_log_info::wait_for_pos(THD* thd, String* log_name,
 
 err:
   thd->EXIT_COND(&old_stage);
+  thd_wait_end(thd);
   DBUG_PRINT("exit",("killed: %d  abort: %d  slave_running: %d \
 improper_arguments: %d  timed_out: %d",
                      thd->killed_errno(),
@@ -1161,7 +1162,7 @@ int Relay_log_info::wait_for_gtid_set(THD* thd, String* gtid,
     }
     else
       mysql_cond_wait(&data_cond, &data_lock);
-    thd_wait_end(thd);
+
     DBUG_PRINT("info",("Got signal of master update or timed out"));
     if (error == ETIMEDOUT || error == ETIME)
     {
@@ -1183,6 +1184,7 @@ int Relay_log_info::wait_for_gtid_set(THD* thd, String* gtid,
 
 err:
   thd->EXIT_COND(&old_stage);
+  thd_wait_end(thd);
   DBUG_PRINT("exit",("killed: %d  abort: %d  slave_running: %d \
 improper_arguments: %d  timed_out: %d",
                      thd->killed_errno(),

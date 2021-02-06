@@ -592,13 +592,9 @@ typedef struct st_sql_stats {
 /* SQL text - stores the normalized text, type and Id for every SQL statement*/
 typedef struct st_sql_text {
   enum_sql_command sql_type;
-  size_t sql_text_length;
-  /*
-    We use sql_digest_storage but it contains fields that we don't need, that
-    we can remove if memory is a concern.
-  */
-  struct sql_digest_storage digest_storage;
-  unsigned char *token_array_storage;
+  size_t sql_text_length;  /* Stores length of the full normalized sql text. */
+  char *sql_text;          /* Array to store the normalized text */
+  size_t sql_text_arr_len; /* Stores the array length */
 } SQL_TEXT;
 
 /* SQL Finding - stores information about one SQL finding */

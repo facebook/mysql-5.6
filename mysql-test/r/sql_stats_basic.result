@@ -1465,3 +1465,29 @@ set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.mt_tables_access_control=0;
 drop user user211;
 drop user user212;
+Case 22: Unit test for access control check
+set @@GLOBAL.sql_stats_control="ON";
+set sql_stats_read_control=false;
+select 1;
+1
+1
+select * from information_schema.sql_statistics;
+ERROR HY000: Reads are disabled on SQL_STATISTICS information schema table
+select * from information_schema.sql_text;
+ERROR HY000: Reads are disabled on SQL_TEXT information schema table
+select * from information_schema.client_attributes;
+ERROR HY000: Reads are disabled on CLIENT_ATTRIBUTES information schema table
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set sql_stats_read_control=true;
+Case 23: Unit test to check protection against repeated reads
+set @@GLOBAL.sql_stats_control="ON";
+select 1;
+1
+1
+select * from information_schema.sql_statistics a, information_schema.sql_statistics b;
+ERROR HY000: Repeated read of information schema table SQL_STATISTICS protected by mutex global_sql_stats is not permitted
+select * from information_schema.sql_text a, information_schema.sql_text b;
+ERROR HY000: Repeated read of information schema table SQL_TEXT protected by mutex global_sql_stats is not permitted
+select * from information_schema.client_attributes a, information_schema.client_attributes b;
+ERROR HY000: Repeated read of information schema table CLIENT_ATTRIBUTES protected by mutex global_sql_stats is not permitted
+set @@GLOBAL.sql_stats_control="OFF_HARD";

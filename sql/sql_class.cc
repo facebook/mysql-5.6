@@ -1546,12 +1546,19 @@ void THD::init(void)
   owned_gtid.sidno= 0;
   owned_gtid.gno= 0;
 
+  /* Auto created snapshot is released after stmt. If somehow it wasn't,
+     then any snapshot is released on connection close or change user so
+     reset the auto flag as well. */
+  m_created_auto_stats_snapshot = false;
+
   mt_key_clear(THD::SQL_ID);
   mt_key_clear(THD::CLIENT_ID);
   mt_key_clear(THD::PLAN_ID);
   mt_key_clear(THD::SQL_HASH);
   set_plan_capture(false);
   reset_stmt_stats();
+
+  reset_all_mt_table_filled();
 }
 
 
@@ -1615,6 +1622,16 @@ void THD::reset_stmt_stats()
   m_stmt_start_write_time_is_set = false;
 }
 
+/**
+  Reset the table-filled indicators before the next statement.
+ */
+void THD::reset_all_mt_table_filled()
+{
+  for (int i = 0; i < MT_TABLE_NAME_MAX; i++)
+  {
+    mt_table_filled[i] = false;
+  }
+}
 
 /*
   Do what's needed when one invokes change user
@@ -6629,4 +6646,34 @@ ulong THD::get_query_or_connect_attr_value(
   }
 
   return default_value;
+}
+
+/**
+  Create SQL stats snapshot if sql_stats_auto_snapshot is enabled.
+*/
+void THD::auto_create_sql_stats_snapshot()
+{
+  if (!variables.sql_stats_snapshot &&
+      variables.sql_stats_auto_snapshot &&
+      !toggle_sql_stats_snapshot(this))
+  {
+    variables.sql_stats_snapshot = TRUE;
+    m_created_auto_stats_snapshot = true;
+  }
+}
+
+/**
+  Release auto created SQL stats snapshot.
+*/
+void THD::release_auto_created_sql_stats_snapshot()
+{
+  if (m_created_auto_stats_snapshot)
+  {
+    DBUG_ASSERT(variables.sql_stats_snapshot);
+
+    /* Release cannot fail. */
+    toggle_sql_stats_snapshot(this);
+    variables.sql_stats_snapshot = FALSE;
+    m_created_auto_stats_snapshot = false;
+  }
 }

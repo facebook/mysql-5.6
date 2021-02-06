@@ -6,6 +6,13 @@ select @@session.sql_stats_snapshot;
 show status like 'sql_stats_snapshot';
 Variable_name	Value
 sql_stats_snapshot	OFF
+### Validate that auto snapshot is enabled.
+select @@global.sql_stats_auto_snapshot;
+@@global.sql_stats_auto_snapshot
+1
+select @@session.sql_stats_auto_snapshot;
+@@session.sql_stats_auto_snapshot
+1
 ### Flush SQL stats.
 flush sql_statistics;
 ### Confirm that SQL stats are populated.
@@ -25,17 +32,22 @@ sql_stats_snapshot	ON
 execution_count	text
 2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 1	FLUSH SQL_STATISTICS 
-### Another connection should see snapshot + 2 statements.
+### Another connection should see the same with auto snapshot.
 execution_count	text
-3	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+1	FLUSH SQL_STATISTICS 
+### Another connection should see snapshot + 4 statements when auto snapshot is disabled.
+execution_count	text
+4	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 1	FLUSH SQL_STATISTICS 
 1	SELECT @@SESSION . `sql_stats_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 1	SET @@SESSION . `sql_stats_snapshot` = ON 
 1	SHOW STATUS LIKE ? 
 ### Insert 'tt' statements into SQL stats.
 ### Confirm that new statements are seen in stats.
 execution_count	text
-4	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+5	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 1	CREATE TEMPORARY TABLE `tt` ( `c1` INTEGER ) 
 1	DROP TABLE `tt` 
 1	FLUSH SQL_STATISTICS 
@@ -43,8 +55,13 @@ execution_count	text
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
 1	SELECT @@SESSION . `sql_stats_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 1	SET @@SESSION . `sql_stats_snapshot` = ON 
 1	SHOW STATUS LIKE ? 
+### Confirm that snapshot is seen if auto snapshot is reenabled.
+execution_count	text
+2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+1	FLUSH SQL_STATISTICS 
 ### First connection should still see the snapshot.
 execution_count	text
 2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
@@ -57,15 +74,24 @@ sql_stats_snapshot	ON
 execution_count	text
 2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 1	FLUSH SQL_STATISTICS 
-### Turn off snapshot on first connection and confirm that live stats are seen (+1 new statement).
+### Turn off snapshot on first connection and confirm that auto snapshot still shows snapshot.
 @@session.sql_stats_snapshot
 0
 Variable_name	Value
 sql_stats_snapshot	ON
 execution_count	text
-7	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+1	FLUSH SQL_STATISTICS 
+### Turn off auto snapshot on first connection and confirm that live stats are seen.
+@@session.sql_stats_auto_snapshot
+0
+Variable_name	Value
+sql_stats_snapshot	ON
+execution_count	text
+10	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+4	SHOW STATUS LIKE ? 
 3	SELECT @@SESSION . `sql_stats_snapshot` 
-3	SHOW STATUS LIKE ? 
+2	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
 1	CREATE TEMPORARY TABLE `tt` ( `c1` INTEGER ) 
 1	DROP TABLE `tt` 
@@ -73,20 +99,24 @@ execution_count	text
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? ) `t` WH
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
 1	SET @@SESSION . `sql_stats_snapshot` = `off` 
 ### Second connection should still see the snapshot.
 execution_count	text
 2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 1	FLUSH SQL_STATISTICS 
 ### Turn off snapshot on second connection and confirm that live stats are seen as well.
+### Auto snapshot will be created and released right after the query.
 @@session.sql_stats_snapshot
 0
 Variable_name	Value
 sql_stats_snapshot	OFF
 execution_count	text
-9	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+12	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+5	SHOW STATUS LIKE ? 
 4	SELECT @@SESSION . `sql_stats_snapshot` 
-4	SHOW STATUS LIKE ? 
+2	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
 2	SET @@SESSION . `sql_stats_snapshot` = `off` 
 1	CREATE TEMPORARY TABLE `tt` ( `c1` INTEGER ) 
@@ -95,6 +125,8 @@ execution_count	text
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? ) `t` WH
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
 ### 2. Test snapshot flush.
 ### Enable snapshot again on first connection and confirm that it incudes all new statements.
 @@session.sql_stats_snapshot
@@ -102,9 +134,10 @@ execution_count	text
 Variable_name	Value
 sql_stats_snapshot	ON
 execution_count	text
-10	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+13	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+5	SHOW STATUS LIKE ? 
 4	SELECT @@SESSION . `sql_stats_snapshot` 
-4	SHOW STATUS LIKE ? 
+2	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
 2	SET @@SESSION . `sql_stats_snapshot` = `off` 
 1	CREATE TEMPORARY TABLE `tt` ( `c1` INTEGER ) 
@@ -113,13 +146,16 @@ execution_count	text
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? ) `t` WH
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
 ### Insert 'tt1' statements into SQL stats to show up in live stats.
 ### Flush SQL stats on first connection to just drop the snapshot.
 ### Snapshot can still be seen on first connection because it's still in use.
 execution_count	text
-10	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+13	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+5	SHOW STATUS LIKE ? 
 4	SELECT @@SESSION . `sql_stats_snapshot` 
-4	SHOW STATUS LIKE ? 
+2	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
 2	SET @@SESSION . `sql_stats_snapshot` = `off` 
 1	CREATE TEMPORARY TABLE `tt` ( `c1` INTEGER ) 
@@ -128,13 +164,36 @@ execution_count	text
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? ) `t` WH
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
-### Second connection doesn't see snapshot but it sees tt1 statements so live stats were not flushed.
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
+### Second connection auto snapshot sees the flushed snapshot.
 execution_count	text
-2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+13	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+5	SHOW STATUS LIKE ? 
+4	SELECT @@SESSION . `sql_stats_snapshot` 
+2	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
+2	SET @@SESSION . `sql_stats_snapshot` = ON 
+2	SET @@SESSION . `sql_stats_snapshot` = `off` 
+1	CREATE TEMPORARY TABLE `tt` ( `c1` INTEGER ) 
+1	DROP TABLE `tt` 
+1	FLUSH SQL_STATISTICS 
+1	INSERT INTO `tt` SELECT * FROM ( SELECT ? ) `t` WH
+1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
+1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
+### Disable auto snapshot on second connection.
+### Second connection doesn't see snapshot but it sees tt1 statements so live stats were not flushed.
+@@session.sql_stats_auto_snapshot
+0
+execution_count	text
+3	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 1	CREATE TEMPORARY TABLE `tt1` ( `c1` INTEGER ) 
 1	DROP TABLE `tt1` 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
 1	SELECT @@SESSION . `sql_stats_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 1	SET @@SESSION . `sql_stats_snapshot` = ON 
 1	SHOW STATUS LIKE ? 
 ### Enable snapshot on second connection. It should now see the snapshot.
@@ -143,9 +202,10 @@ execution_count	text
 Variable_name	Value
 sql_stats_snapshot	ON
 execution_count	text
-10	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+13	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+5	SHOW STATUS LIKE ? 
 4	SELECT @@SESSION . `sql_stats_snapshot` 
-4	SHOW STATUS LIKE ? 
+2	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
 2	SET @@SESSION . `sql_stats_snapshot` = `off` 
 1	CREATE TEMPORARY TABLE `tt` ( `c1` INTEGER ) 
@@ -154,40 +214,29 @@ execution_count	text
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? ) `t` WH
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
 1	INSERT INTO `tt` SELECT * FROM ( SELECT ? UNION SE
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
 ### Disable snapshot on second connection. It should now be back to live stats.
 @@session.sql_stats_snapshot
 0
 Variable_name	Value
 sql_stats_snapshot	ON
 execution_count	text
-4	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+5	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 3	SELECT @@SESSION . `sql_stats_snapshot` 
 3	SHOW STATUS LIKE ? 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
 1	CREATE TEMPORARY TABLE `tt1` ( `c1` INTEGER ) 
 1	DROP TABLE `tt1` 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 1	SET @@SESSION . `sql_stats_snapshot` = `off` 
 ### Disable snapshot on first connection. It should now be back to live stats as well.
 @@session.sql_stats_snapshot
 0
 Variable_name	Value
 sql_stats_snapshot	OFF
-execution_count	text
-5	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
-4	SELECT @@SESSION . `sql_stats_snapshot` 
-4	SHOW STATUS LIKE ? 
-2	SET @@SESSION . `sql_stats_snapshot` = ON 
-2	SET @@SESSION . `sql_stats_snapshot` = `off` 
-1	CREATE TEMPORARY TABLE `tt1` ( `c1` INTEGER ) 
-1	DROP TABLE `tt1` 
-1	FLUSH SQL_STATISTICS 
-### 3. Test all stats flush.
-### Enable snapshot again on first connection and confirm that it incudes all new statements.
-@@session.sql_stats_snapshot
-1
-Variable_name	Value
-sql_stats_snapshot	ON
 execution_count	text
 6	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 4	SELECT @@SESSION . `sql_stats_snapshot` 
@@ -197,10 +246,29 @@ execution_count	text
 1	CREATE TEMPORARY TABLE `tt1` ( `c1` INTEGER ) 
 1	DROP TABLE `tt1` 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
+### 3. Test all stats flush.
+### Enable snapshot again on first connection and confirm that it incudes all new statements.
+@@session.sql_stats_snapshot
+1
+Variable_name	Value
+sql_stats_snapshot	ON
+execution_count	text
+7	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+4	SELECT @@SESSION . `sql_stats_snapshot` 
+4	SHOW STATUS LIKE ? 
+2	SET @@SESSION . `sql_stats_snapshot` = ON 
+2	SET @@SESSION . `sql_stats_snapshot` = `off` 
+1	CREATE TEMPORARY TABLE `tt1` ( `c1` INTEGER ) 
+1	DROP TABLE `tt1` 
+1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 ### Insert 'tt2' statements into SQL stats to show up in live stats.
 ### Second connection sees combined snapshot and new tt2 statements.
 execution_count	text
-7	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+8	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 5	SELECT @@SESSION . `sql_stats_snapshot` 
 5	SHOW STATUS LIKE ? 
 3	SET @@SESSION . `sql_stats_snapshot` = ON 
@@ -210,13 +278,15 @@ execution_count	text
 1	DROP TABLE `tt1` 
 1	DROP TABLE `tt2` 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
+### Reenable auto snapshot on second connection. It shouldn't prevent it from flushing all stats.
+@@session.sql_stats_auto_snapshot
+1
 ### Flush SQL stats on second connection to drop all stats.
-### Second connection now sees just the flush statement in stats.
+### Auto snapshot on second connection still sees snapshot marked for flush.
 execution_count	text
-1	FLUSH SQL_STATISTICS 
-### First connection still sees the snapshot.
-execution_count	text
-6	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+7	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 4	SELECT @@SESSION . `sql_stats_snapshot` 
 4	SHOW STATUS LIKE ? 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
@@ -224,14 +294,42 @@ execution_count	text
 1	CREATE TEMPORARY TABLE `tt1` ( `c1` INTEGER ) 
 1	DROP TABLE `tt1` 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
+### Second connection now sees just the flush, query and auto snapshot disable statements in stats.
+execution_count	text
+1	FLUSH SQL_STATISTICS 
+1	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
+### Flush SQL stats on second connection again.
+### Second connection now sees just the flush statement in stats.
+execution_count	text
+1	FLUSH SQL_STATISTICS 
+### Reenable auto snapshot on second connection.
+### First connection still sees the snapshot.
+execution_count	text
+7	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+4	SELECT @@SESSION . `sql_stats_snapshot` 
+4	SHOW STATUS LIKE ? 
+2	SET @@SESSION . `sql_stats_snapshot` = ON 
+2	SET @@SESSION . `sql_stats_snapshot` = `off` 
+1	CREATE TEMPORARY TABLE `tt1` ( `c1` INTEGER ) 
+1	DROP TABLE `tt1` 
+1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
+1	SET @@SESSION . `sql_stats_auto_snapshot` = `off` 
 ### Disable snapshot on first connection. It should now be back to live stats as well.
 @@session.sql_stats_snapshot
 0
+@@session.sql_stats_auto_snapshot
+1
 Variable_name	Value
 sql_stats_snapshot	OFF
 execution_count	text
 2	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+2	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
 1	SELECT @@SESSION . `sql_stats_snapshot` 
 1	SET @@SESSION . `sql_stats_snapshot` = `off` 
 1	SHOW STATUS LIKE ? 
@@ -243,7 +341,9 @@ Variable_name	Value
 sql_stats_snapshot	ON
 execution_count	text
 3	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+2	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
 1	SELECT @@SESSION . `sql_stats_snapshot` 
 1	SET @@SESSION . `sql_stats_snapshot` = `off` 
 1	SHOW STATUS LIKE ? 
@@ -265,11 +365,13 @@ execution_count	text
 5	SHOW STATUS LIKE ? 
 4	SELECT @@SESSION . `sql_stats_snapshot` 
 4	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
+2	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
 2	SET @@SESSION . `sql_stats_snapshot` = `off` 
 1	CREATE TEMPORARY TABLE `tt3` ( `c1` INTEGER ) 
 1	DROP TABLE `tt3` 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
 ### Enable snapshot again on first connection and confirm that it incudes all new statements.
 @@session.sql_stats_snapshot
 1
@@ -279,11 +381,13 @@ execution_count	text
 5	SELECT `s` . `execution_count` , LEFT ( `t` . `sql
 5	SHOW STATUS LIKE ? 
 4	SELECT @@SESSION . `sql_stats_snapshot` 
+2	SET @@SESSION . `sql_stats_auto_snapshot` = ON 
 2	SET @@SESSION . `sql_stats_snapshot` = ON 
 2	SET @@SESSION . `sql_stats_snapshot` = `off` 
 1	CREATE TEMPORARY TABLE `tt3` ( `c1` INTEGER ) 
 1	DROP TABLE `tt3` 
 1	FLUSH SQL_STATISTICS 
+1	SELECT @@SESSION . `sql_stats_auto_snapshot` 
 ### Cleanup
 @@session.sql_stats_snapshot
 0

@@ -683,4 +683,10 @@
 #cmakedefine DEFAULT_SECURE_FILE_PRIV_DIR @DEFAULT_SECURE_FILE_PRIV_DIR@
 #cmakedefine DEFAULT_SECURE_FILE_PRIV_EMBEDDED_DIR @DEFAULT_SECURE_FILE_PRIV_EMBEDDED_DIR@
 
+/* Builds */
+#cmakedefine HAVE_ASAN
+#cmakedefine HAVE_LSAN
+#cmakedefine HAVE_UBSAN
+#cmakedefine HAVE_TSAN
+
 #endif

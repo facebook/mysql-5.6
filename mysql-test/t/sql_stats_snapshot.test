@@ -4,6 +4,10 @@ set @@GLOBAL.sql_stats_control="ON";
 select @@session.sql_stats_snapshot;
 show status like 'sql_stats_snapshot';
 
+--echo ### Validate that auto snapshot is enabled.
+select @@global.sql_stats_auto_snapshot;
+select @@session.sql_stats_auto_snapshot;
+
 --echo ### Flush SQL stats.
 flush sql_statistics;
 
@@ -34,8 +38,12 @@ show status like 'sql_stats_snapshot';
 --echo ### Confirm that snapshot has all stats.
 eval $sql_stats_query;
 
---echo ### Another connection should see snapshot + 2 statements.
+--echo ### Another connection should see the same with auto snapshot.
 connection con1;
+eval $sql_stats_query;
+
+--echo ### Another connection should see snapshot + 4 statements when auto snapshot is disabled.
+set @@session.sql_stats_auto_snapshot = off;
 eval $sql_stats_query;
 
 --echo ### Insert 'tt' statements into SQL stats.
@@ -46,6 +54,10 @@ insert into tt select * from (select 3 union select 2 union select 1) t where 0=
 drop table tt;
 
 --echo ### Confirm that new statements are seen in stats.
+eval $sql_stats_query;
+
+--echo ### Confirm that snapshot is seen if auto snapshot is reenabled.
+set @@session.sql_stats_auto_snapshot = on;
 eval $sql_stats_query;
 
 --echo ### First connection should still see the snapshot.
@@ -59,10 +71,17 @@ select @@session.sql_stats_snapshot;
 show status like 'sql_stats_snapshot';
 eval $sql_stats_query;
 
---echo ### Turn off snapshot on first connection and confirm that live stats are seen (+1 new statement).
+--echo ### Turn off snapshot on first connection and confirm that auto snapshot still shows snapshot.
 connection default;
 set @@session.sql_stats_snapshot = off;
 select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Turn off auto snapshot on first connection and confirm that live stats are seen.
+connection default;
+set @@session.sql_stats_auto_snapshot = off;
+select @@session.sql_stats_auto_snapshot;
 show status like 'sql_stats_snapshot';
 eval $sql_stats_query;
 
@@ -71,6 +90,7 @@ connection con1;
 eval $sql_stats_query;
 
 --echo ### Turn off snapshot on second connection and confirm that live stats are seen as well.
+--echo ### Auto snapshot will be created and released right after the query.
 set @@session.sql_stats_snapshot = off;
 select @@session.sql_stats_snapshot;
 show status like 'sql_stats_snapshot';
@@ -94,8 +114,14 @@ flush sql_statistics;
 --echo ### Snapshot can still be seen on first connection because it's still in use.
 eval $sql_stats_query;
 
---echo ### Second connection doesn't see snapshot but it sees tt1 statements so live stats were not flushed.
+--echo ### Second connection auto snapshot sees the flushed snapshot.
 connection con1;
+eval $sql_stats_query;
+
+--echo ### Disable auto snapshot on second connection.
+--echo ### Second connection doesn't see snapshot but it sees tt1 statements so live stats were not flushed.
+set @@session.sql_stats_auto_snapshot = off;
+select @@session.sql_stats_auto_snapshot;
 eval $sql_stats_query;
 
 --echo ### Enable snapshot on second connection. It should now see the snapshot.
@@ -132,11 +158,28 @@ drop table tt2;
 connection con1;
 eval $sql_stats_query;
 
+--echo ### Reenable auto snapshot on second connection. It shouldn't prevent it from flushing all stats.
+set @@session.sql_stats_auto_snapshot = on;
+select @@session.sql_stats_auto_snapshot;
+
 --echo ### Flush SQL stats on second connection to drop all stats.
+flush sql_statistics;
+
+--echo ### Auto snapshot on second connection still sees snapshot marked for flush.
+eval $sql_stats_query;
+
+--echo ### Second connection now sees just the flush, query and auto snapshot disable statements in stats.
+set @@session.sql_stats_auto_snapshot = off;
+eval $sql_stats_query;
+
+--echo ### Flush SQL stats on second connection again.
 flush sql_statistics;
 
 --echo ### Second connection now sees just the flush statement in stats.
 eval $sql_stats_query;
+
+--echo ### Reenable auto snapshot on second connection.
+set @@session.sql_stats_auto_snapshot = on;
 
 --echo ### First connection still sees the snapshot.
 connection default;
@@ -145,6 +188,8 @@ eval $sql_stats_query;
 --echo ### Disable snapshot on first connection. It should now be back to live stats as well.
 set @@session.sql_stats_snapshot = off;
 select @@session.sql_stats_snapshot;
+set @@session.sql_stats_auto_snapshot = on;
+select @@session.sql_stats_auto_snapshot;
 show status like 'sql_stats_snapshot';
 eval $sql_stats_query;
 

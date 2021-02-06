@@ -1,0 +1,8 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+grant all on test to test_user@localhost;
+set global sql_stats_control = on;
+set global sql_stats_control = off_hard;
+drop database test_db;
+drop user test_user@localhost;

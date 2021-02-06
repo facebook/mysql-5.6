@@ -7,7 +7,7 @@ grant all on test_db to test_user@localhost;
 create user super_user@localhost;
 grant all on *.* to super_user@localhost with grant option;
 
-let $ac_entities_query=select * from information_schema.admission_control_entities where schema_name like 'test%';
+let $ac_entities_query=select * from information_schema.admission_control_entities where schema_name like 'test%' order by schema_name;
 
 let $start_rejected_connections = query_get_value(show global status like "Database_admission_control_rejected_connections", Value, 1);
 

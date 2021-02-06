@@ -1542,6 +1542,10 @@ static inline bool is_query(enum enum_server_command command) {
 */
 static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, char* sub_query)
 {
+  /* Release auto snapshot so that it doesn't have to be merged with
+     stats for this statement later. */
+  thd->release_auto_created_sql_stats_snapshot();
+
   if (sql_stats_control == SQL_INFO_CONTROL_ON)
   {
     SHARED_SQL_STATS sql_stats;
@@ -1582,6 +1586,8 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
   thd->mt_key_clear(THD::SQL_ID);
   thd->mt_key_clear(THD::PLAN_ID);
   thd->mt_key_clear(THD::SQL_HASH);
+
+  thd->reset_all_mt_table_filled();
 }
 
 /**

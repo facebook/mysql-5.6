@@ -320,7 +320,7 @@ extern bool opt_disable_networking, opt_skip_show_db;
 extern bool opt_skip_name_resolve;
 extern bool opt_ignore_builtin_innodb;
 extern my_bool opt_character_set_client_handshake;
-extern MYSQL_PLUGIN_IMPORT bool volatile abort_loop;
+extern bool volatile abort_loop;
 extern bool in_bootstrap;
 extern my_bool opt_bootstrap;
 extern char *opt_rbr_idempotent_tables;
@@ -465,6 +465,7 @@ extern bool override_enable_raft_check;
 extern ulong opt_raft_signal_async_dump_threads;
 extern ulonglong apply_log_retention_num;
 extern ulonglong apply_log_retention_duration;
+extern bool set_read_only_on_shutdown;
 
 /* Enable query checksum validation for queries with a checksum sent */
 extern my_bool enable_query_checksum;
