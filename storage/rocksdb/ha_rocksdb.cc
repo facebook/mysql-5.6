@@ -4303,7 +4303,7 @@ static int rocksdb_commit_by_xid(handlerton *const hton, XID *const xid) {
   DBUG_ASSERT(xid != nullptr);
   DBUG_ASSERT(commit_latency_stats != nullptr);
 
-  rocksdb::StopWatchNano timer(rocksdb::Env::Default(), true);
+  rocksdb::StopWatchNano timer(rocksdb::Env::Default()->GetSystemClock(), true);
 
   const auto name = rdb_xid_to_string(*xid);
   DBUG_ASSERT(!name.empty());
@@ -4440,7 +4440,7 @@ static int rocksdb_commit(handlerton *const hton, THD *const thd,
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(commit_latency_stats != nullptr);
 
-  rocksdb::StopWatchNano timer(rocksdb::Env::Default(), true);
+  rocksdb::StopWatchNano timer(rocksdb::Env::Default()->GetSystemClock(), true);
 
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
   Rdb_transaction *&tx = get_tx_from_thd(thd);
