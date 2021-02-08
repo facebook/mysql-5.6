@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# See level_repeatable_read-range_locking variant
+--source suite/rocksdb/include/not_range_locking.inc
+
 let $trx_isolation = REPEATABLE READ;
 --source transaction_isolation.inc
 

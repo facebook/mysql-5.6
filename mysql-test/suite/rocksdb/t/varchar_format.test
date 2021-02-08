@@ -1,6 +1,8 @@
 --source include/have_debug.inc
 --source include/have_rocksdb.inc
 
+--source suite/rocksdb/include/not_range_locking.inc
+
 ####################
 # Create a table with a varchar key with the current format and validate
 # that it sorts correctly

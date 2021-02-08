@@ -1,0 +1,12 @@
+#
+#  Range locking tests.
+#
+
+--source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_range_locking.inc
+
+--let pk_cf=rev:cf1
+--let PK_USES_REVERSE_CF=1
+
+--source range_locking.inc
+

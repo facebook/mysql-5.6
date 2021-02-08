@@ -1,7 +1,9 @@
 --source include/have_rocksdb.inc
 
-# See hermitage-range_locking variant
---source suite/rocksdb/include/not_range_locking.inc
+# Range locking uses InnoDB-like transaction isolation, which 
+# means the results differ from "true" Repeatable Read.
+--source suite/rocksdb/include/have_range_locking.inc
+
 
 # Hermitage is an attempt to test transaction isolation levels.
 # https://github.com/ept/hermitage

@@ -97,6 +97,9 @@
 #include "./ObjectFactory.h"
 #endif
 
+#include "./rdb_locking_iter.h"
+
+
 // Internal MySQL APIs not exposed in any header.
 extern "C" {
 /**
@@ -615,6 +618,10 @@ static void rocksdb_set_delayed_write_rate(THD *thd, struct SYS_VAR *var,
 static void rocksdb_set_max_latest_deadlocks(THD *thd, struct SYS_VAR *var,
                                              void *var_ptr, const void *save);
 
+static void rocksdb_set_max_lock_memory(THD *thd,
+                                        struct SYS_VAR *var,
+                                        void *var_ptr, const void *save);
+
 static void rdb_set_collation_exception_list(const char *exception_list);
 static void rocksdb_set_collation_exception_list(THD *thd, struct SYS_VAR *var,
                                                  void *var_ptr,
@@ -764,6 +771,14 @@ static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
 static bool rocksdb_skip_locks_if_skip_unique_check = false;
 static bool rocksdb_alter_column_default_inplace = false;
+// Range locking: how much memory to use.
+//  (note that this is different from rocksdb_max_row_locks as
+//   that one is a hard per-thread count limit, and this one is a
+//   global memory limit)
+static ulonglong rocksdb_max_lock_memory;
+
+static bool rocksdb_use_range_locking = 0;
+std::shared_ptr<rocksdb::RangeLockManagerHandle> range_lock_mgr;
 
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
@@ -1433,6 +1448,13 @@ static MYSQL_SYSVAR_UINT(max_latest_deadlocks, rocksdb_max_latest_deadlocks,
                          "deadlocks to store",
                          nullptr, rocksdb_set_max_latest_deadlocks,
                          rocksdb::kInitialMaxDeadlocks, 0, UINT32_MAX, 0);
+
+static MYSQL_SYSVAR_ULONGLONG(max_lock_memory, rocksdb_max_lock_memory,
+                              PLUGIN_VAR_RQCMDARG,
+                              "Range-locking mode: Maximum amount of memory "
+                              "that locks from all transactions can use at a time",
+                              nullptr, rocksdb_set_max_lock_memory,
+                              /*initial*/1073741824, 0, UINT64_MAX, 0);
 
 static MYSQL_SYSVAR_ENUM(
     info_log_level, rocksdb_info_log_level, PLUGIN_VAR_RQCMDARG,
@@ -2277,6 +2299,12 @@ static MYSQL_SYSVAR_BOOL(table_stats_use_table_scan,
                          rocksdb_update_table_stats_use_table_scan,
                          rocksdb_table_stats_use_table_scan);
 
+static MYSQL_SYSVAR_BOOL(use_range_locking, rocksdb_use_range_locking,
+                         PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+                         "Use Range Locking",
+                         nullptr, nullptr,
+                         rocksdb_use_range_locking);
+
 static MYSQL_SYSVAR_BOOL(
     large_prefix, rocksdb_large_prefix, PLUGIN_VAR_RQCMDARG,
     "Support large index prefix length of 3072 bytes. If off, the maximum "
@@ -2576,7 +2604,8 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(max_manual_compactions),
     MYSQL_SYSVAR(manual_compaction_threads),
     MYSQL_SYSVAR(rollback_on_timeout),
-
+    MYSQL_SYSVAR(use_range_locking),
+    MYSQL_SYSVAR(max_lock_memory),
     MYSQL_SYSVAR(enable_insert_with_update_caching),
     MYSQL_SYSVAR(trace_block_cache_access),
     MYSQL_SYSVAR(trace_queries),
@@ -2828,8 +2857,41 @@ class Rdb_transaction {
   virtual rocksdb::Status do_pop_savepoint() = 0;
   virtual void do_rollback_to_savepoint() = 0;
 
+ private:
+  /*
+    If true, the current statement should not use a snapshot for reading.
+    Note that in a multi-statement transaction, the snapshot may have been
+    allocated by another statement.
+  */
+  bool m_stmt_ignores_snapshot = false;
+
+  /* Snapshot-ignore mode will put away m_reads_opts.snapshot here: */
+  const rocksdb::Snapshot *m_saved_snapshot= nullptr;
+
  public:
+
+  void start_ignore_snapshot() {
+    // note: this may be called several times for the same statement
+    if (!m_stmt_ignores_snapshot) {
+      m_saved_snapshot = m_read_opts.snapshot;
+      m_read_opts.snapshot = nullptr;
+      m_stmt_ignores_snapshot= true;
+      if (!m_snapshot_timestamp)
+        rdb->GetEnv()->GetCurrentTime(&m_snapshot_timestamp);
+    }
+  }
+
+  void end_ignore_snapshot_if_needed() {
+    if (m_stmt_ignores_snapshot) {
+      m_stmt_ignores_snapshot = false;
+      m_read_opts.snapshot = m_saved_snapshot;
+      m_saved_snapshot = nullptr;
+    }
+  }
+  bool in_snapshot_ignore_mode() const { return m_stmt_ignores_snapshot; }
+
   rocksdb::ReadOptions m_read_opts;
+
   const char *m_mysql_log_file_name;
   my_off_t m_mysql_log_offset;
   const char *m_mysql_gtid;
@@ -3005,6 +3067,18 @@ class Rdb_transaction {
 
   virtual void release_lock(const Rdb_key_def &key_descr,
                             const std::string &rowkey) = 0;
+  virtual
+  rocksdb::Status lock_range(rocksdb::ColumnFamilyHandle *const cf,
+                             const rocksdb::Endpoint &start,
+                             const rocksdb::Endpoint &end) = 0;
+
+  rocksdb::Status lock_singlepoint_range(rocksdb::ColumnFamilyHandle *const cf,
+                                         const rocksdb::Slice &point) {
+    // Normally, one needs to "flip" the endpoint type for reverse-ordered CFs.
+    // But here we are locking just one point so this is not necessary.
+    rocksdb::Endpoint endp(point, false);
+    return lock_range(cf, endp, endp);
+  }
 
   virtual bool prepare() = 0;
 
@@ -3064,10 +3138,17 @@ class Rdb_transaction {
     m_is_delayed_snapshot = false;
   }
 
+  void locking_iter_created() {
+    if (!m_snapshot_timestamp)
+      rdb->GetEnv()->GetCurrentTime(&m_snapshot_timestamp);
+  }
+
   virtual void acquire_snapshot(bool acquire_now) = 0;
   virtual void release_snapshot() = 0;
 
-  bool has_snapshot() const { return m_read_opts.snapshot != nullptr; }
+  bool has_snapshot() const {
+    return m_read_opts.snapshot != nullptr || m_saved_snapshot;
+  }
 
  private:
   // The Rdb_sst_info structures we are currently loading.  In a partitioned
@@ -3423,13 +3504,17 @@ class Rdb_transaction {
 
   virtual rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
-      rocksdb::ColumnFamilyHandle *column_family) = 0;
+      rocksdb::ColumnFamilyHandle *column_family,
+      bool is_rev_cf,
+      bool use_locking_iterator=false) = 0;
 
   rocksdb::Iterator *get_iterator(
-      rocksdb::ColumnFamilyHandle *const column_family, bool skip_bloom_filter,
+      rocksdb::ColumnFamilyHandle *const column_family, bool is_rev_cf,
+      bool skip_bloom_filter,
       bool fill_cache, const rocksdb::Slice &eq_cond_lower_bound,
       const rocksdb::Slice &eq_cond_upper_bound, bool read_current = false,
-      bool create_snapshot = true) {
+      bool create_snapshot = true,
+      bool use_locking_iterator= false) {
     // Make sure we are not doing both read_current (which implies we don't
     // want a snapshot) and create_snapshot which makes sure we create
     // a snapshot
@@ -3458,12 +3543,13 @@ class Rdb_transaction {
     if (read_current) {
       options.snapshot = nullptr;
     }
-    return get_iterator(options, column_family);
+    return get_iterator(options, column_family, is_rev_cf, use_locking_iterator);
   }
 
   virtual bool is_tx_started() const = 0;
   virtual void start_tx() = 0;
-  virtual void start_stmt() = 0;
+  virtual void start_stmt(bool is_dml_statement) = 0;
+  virtual void start_autocommit_stmt(bool /*is_dml_statement*/){}
   virtual void set_name() = 0;
 
  protected:
@@ -3622,6 +3708,16 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
   virtual bool is_writebatch_trx() const override { return false; }
 
+  /*
+    Both start and end endpoint may be prefixes.
+    Both bounds are inclusive.
+  */
+  rocksdb::Status lock_range(rocksdb::ColumnFamilyHandle *const cf,
+                             const rocksdb::Endpoint &start_endp,
+                             const rocksdb::Endpoint &end_endp) override {
+    ++m_row_lock_count;
+    return m_rocksdb_tx->GetRangeLock(cf, start_endp, end_endp);
+  }
  private:
   void release_tx(void) {
     // We are done with the current active transaction object.  Preserve it
@@ -3707,7 +3803,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   void acquire_snapshot(bool acquire_now) override {
-    if (m_read_opts.snapshot == nullptr) {
+    if (m_read_opts.snapshot == nullptr && !in_snapshot_ignore_mode()) {
       const auto thd_ss = std::static_pointer_cast<Rdb_explicit_snapshot>(
           m_thd->get_explicit_snapshot());
       if (thd_ss) {
@@ -3850,9 +3946,17 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
   rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
-      rocksdb::ColumnFamilyHandle *const column_family) override {
+      rocksdb::ColumnFamilyHandle *const column_family,
+      bool is_rev_cf,
+      bool use_locking_iterator) override {
     global_stats.queries[QUERIES_RANGE].inc();
-    return m_rocksdb_tx->GetIterator(options, column_family);
+    if (use_locking_iterator) {
+      locking_iter_created();
+      return GetLockingIterator(m_rocksdb_tx, options, column_family,
+                                is_rev_cf, &m_row_lock_count);
+    }
+    else
+      return m_rocksdb_tx->GetIterator(options, column_family);
   }
 
   const rocksdb::Transaction *get_rdb_trx() const { return m_rocksdb_tx; }
@@ -3926,15 +4030,33 @@ class Rdb_transaction_impl : public Rdb_transaction {
   /*
     Start a statement inside a multi-statement transaction.
 
-    @todo: are we sure this is called once (and not several times) per
-    statement start?
+    @note: If a statement uses N tables, this function will be called N times,
+    for each TABLE object that is used.
 
     For hooking to start of statement that is its own transaction, see
     ha_rocksdb::external_lock().
   */
-  void start_stmt() override {
+  void start_stmt(bool is_dml_statement) override {
+
+    if (rocksdb_use_range_locking && is_dml_statement) {
+      /*
+        In Range Locking mode, RocksDB does not do "key tracking".
+        Use InnoDB-like concurrency mode: make the DML statements always read
+        the latest data (instead of using transaction's snapshot).
+        This "downgrades" the transaction isolation to READ-COMMITTED on the
+        master, but in return the actions can be replayed on the slave.
+      */
+      start_ignore_snapshot();
+    }
+
     // Set the snapshot to delayed acquisition (SetSnapshotOnNextOperation)
     acquire_snapshot(false);
+  }
+
+  void start_autocommit_stmt(bool is_dml_statement) override {
+    if (rocksdb_use_range_locking && is_dml_statement) {
+      start_ignore_snapshot();
+    }
   }
 
   /*
@@ -4060,6 +4182,12 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     // Nothing to do here since we don't hold any row locks.
   }
 
+  rocksdb::Status lock_range(rocksdb::ColumnFamilyHandle *const,
+                             const rocksdb::Endpoint&,
+                             const rocksdb::Endpoint&) override {
+    return rocksdb::Status::OK();
+  }
+
   void rollback() override {
     on_rollback();
     m_write_count = 0;
@@ -4158,7 +4286,10 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
   rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
-      rocksdb::ColumnFamilyHandle *const /* column_family */) override {
+      rocksdb::ColumnFamilyHandle *const /* column_family */,
+      bool /*is_rev_cf*/,
+      bool use_locking_iterator) override {
+    DBUG_ASSERT(!use_locking_iterator);
     const auto it = rdb->NewIterator(options);
     return m_batch->NewIteratorWithBase(it);
   }
@@ -4176,9 +4307,9 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     set_initial_savepoint();
   }
 
+  void start_stmt(bool /*is_dml_statement*/) override {}
   void set_name() override {}
 
-  void start_stmt() override {}
 
   void rollback_stmt() override {
     if (m_batch) rollback_to_stmt_savepoint();
@@ -4494,6 +4625,7 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
     DEBUG_SYNC(thd, "rocksdb.prepared");
   } else {
     tx->make_stmt_savepoint_permanent();
+    tx->end_ignore_snapshot_if_needed();
   }
 
   return HA_EXIT_SUCCESS;
@@ -4719,6 +4851,7 @@ static int rocksdb_commit(handlerton *const hton MY_ATTRIBUTE((__unused__)),
          - For a COMMIT statement that finishes a multi-statement transaction
          - For a statement that has its own transaction
       */
+      tx->end_ignore_snapshot_if_needed();
       if (tx->commit()) {
         DBUG_RETURN(HA_ERR_ROCKSDB_COMMIT_FAILED);
       }
@@ -4728,6 +4861,7 @@ static int rocksdb_commit(handlerton *const hton MY_ATTRIBUTE((__unused__)),
       */
       tx->set_tx_failed(false);
       tx->make_stmt_savepoint_permanent();
+      tx->end_ignore_snapshot_if_needed();
     }
 
     if (my_core::thd_tx_isolation(thd) <= ISO_READ_COMMITTED) {
@@ -4765,6 +4899,7 @@ static int rocksdb_rollback(handlerton *const hton MY_ATTRIBUTE((__unused__)),
         - a statement inside a transaction is rolled back
       */
 
+      tx->end_ignore_snapshot_if_needed();
       tx->rollback_stmt();
       tx->set_tx_failed(true);
     }
@@ -4869,8 +5004,9 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
            "=========================================\n";
   }
 
+  template<class PathStruct>
   static Rdb_deadlock_info::Rdb_dl_trx_info get_dl_txn_info(
-      const rocksdb::DeadlockInfo &txn, const GL_INDEX_ID &gl_index_id) {
+      const PathStruct &txn, const GL_INDEX_ID &gl_index_id) {
     Rdb_deadlock_info::Rdb_dl_trx_info txn_data;
 
     txn_data.trx_id = txn.m_txn_id;
@@ -4895,23 +5031,48 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
                            ? cfh->GetName()
                            : "NOT FOUND; CF_ID: " + std::to_string(txn.m_cf_id);
 
-    txn_data.waiting_key =
-        rdb_hexdump(txn.m_waiting_key.c_str(), txn.m_waiting_key.length());
+    txn_data.waiting_key = format_wait_key(txn);
 
     txn_data.exclusive_lock = txn.m_exclusive;
 
     return txn_data;
   }
 
+  // Get the key to use to find the index number (and then, index name)
+  //   Two functions with matching signatures so get_dl_path_trx_info() template
+  //   can be used with both point and range locking.
+  static const std::string& get_key_for_indexnr(
+      const rocksdb::DeadlockInfo& info) {
+    return info.m_waiting_key;
+  }
+  static const std::string& get_key_for_indexnr(
+      const rocksdb::RangeDeadlockInfo& info) {
+    // Range locks do not span across indexes, so take the left bound
+    return info.m_start.slice;
+  }
+
+  // Print the locked key (or range) in hex
+  //   Two functions with matching signatures so get_dl_path_trx_info() template
+  //   can be used with both point and range locking.
+  static std::string format_wait_key(const rocksdb::DeadlockInfo& info) {
+    return rdb_hexdump(info.m_waiting_key.c_str(), info.m_waiting_key.length());
+  }
+  static std::string format_wait_key(const rocksdb::RangeDeadlockInfo& info) {
+    return rdb_hexdump_range(info.m_start, info.m_end);
+  }
+
+  // Get deadlock path info. A templated function so one can use it with both
+  // point and range locking.
+  template<class PathStruct>
   static Rdb_deadlock_info get_dl_path_trx_info(
-      const rocksdb::DeadlockPath &path_entry) {
+      const PathStruct &path_entry) {
     Rdb_deadlock_info deadlock_info;
 
     for (auto it = path_entry.path.begin(); it != path_entry.path.end(); it++) {
       const auto &txn = *it;
       const GL_INDEX_ID gl_index_id = {
           txn.m_cf_id, rdb_netbuf_to_uint32(reinterpret_cast<const uchar *>(
-                           txn.m_waiting_key.c_str()))};
+                           get_key_for_indexnr(txn).c_str()))};
       deadlock_info.path.push_back(get_dl_txn_info(txn, gl_index_id));
     }
     DBUG_ASSERT_IFF(path_entry.limit_exceeded, path_entry.path.empty());
@@ -4936,7 +5097,7 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
 
     /* Calculate the duration the snapshot has existed */
     int64_t snapshot_timestamp = tx->m_snapshot_timestamp;
-    if (snapshot_timestamp != 0) {
+    if (snapshot_timestamp != 0 && tx->has_snapshot()) {
       int64_t curr_time;
       rdb->GetEnv()->GetCurrentTime(&curr_time);
 
@@ -4954,8 +5115,8 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
     }
   }
 
-  void populate_deadlock_buffer() {
-    auto dlock_buffer = rdb->GetDeadlockInfoBuffer();
+  template<class PathStruct>
+  void populate_deadlock_buffer_tmpl(PathStruct &dlock_buffer) {
     m_data += "----------LATEST DETECTED DEADLOCKS----------\n";
 
     for (const auto &path_entry : dlock_buffer) {
@@ -4995,12 +5156,32 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
     }
   }
 
+  void populate_deadlock_buffer() {
+    if (range_lock_mgr) {
+      auto dlock_buffer = range_lock_mgr->GetRangeDeadlockInfoBuffer();
+      populate_deadlock_buffer_tmpl(dlock_buffer);
+    } else {
+      auto dlock_buffer = rdb->GetDeadlockInfoBuffer();
+      populate_deadlock_buffer_tmpl(dlock_buffer);
+    }
+  }
+
   std::vector<Rdb_deadlock_info> get_deadlock_info() {
     std::vector<Rdb_deadlock_info> deadlock_info;
-    auto dlock_buffer = rdb->GetDeadlockInfoBuffer();
-    for (const auto &path_entry : dlock_buffer) {
-      if (!path_entry.limit_exceeded) {
-        deadlock_info.push_back(get_dl_path_trx_info(path_entry));
+
+    if (range_lock_mgr) {
+      auto dlock_buffer = range_lock_mgr->GetRangeDeadlockInfoBuffer();
+      for (const auto &path_entry : dlock_buffer) {
+        if (!path_entry.limit_exceeded) {
+          deadlock_info.push_back(get_dl_path_trx_info(path_entry));
+        }
+      }
+    } else {
+      auto dlock_buffer = rdb->GetDeadlockInfoBuffer();
+      for (const auto &path_entry : dlock_buffer) {
+        if (!path_entry.limit_exceeded) {
+          deadlock_info.push_back(get_dl_path_trx_info(path_entry));
+        }
       }
     }
     return deadlock_info;
@@ -5416,9 +5597,13 @@ static bool rocksdb_collect_hton_log_info(handlerton *const /* unused */,
   return ret_val;
 }
 
+/*
+  @param is_dml_statement   If true, we are is a DML statement
+*/
 static inline void rocksdb_register_tx(
     handlerton *const hton MY_ATTRIBUTE((__unused__)), THD *const thd,
-    Rdb_transaction *const tx) {
+    Rdb_transaction *const tx,
+    bool is_dml_stmt) {
   DBUG_ASSERT(tx != nullptr);
 
   trans_register_ha(thd, false, rocksdb_hton, NULL);
@@ -5433,8 +5618,10 @@ static inline void rocksdb_register_tx(
     }
   }
   if (my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)) {
-    tx->start_stmt();
+    tx->start_stmt(is_dml_stmt);
     trans_register_ha(thd, true, rocksdb_hton, NULL);
+  } else {
+    tx->start_autocommit_stmt(is_dml_stmt);
   }
 }
 
@@ -5519,7 +5706,7 @@ static int rocksdb_start_tx_and_assign_read_view(
 
   DBUG_ASSERT(!tx->has_snapshot());
   tx->set_tx_read_only(true);
-  rocksdb_register_tx(hton, thd, tx);
+  rocksdb_register_tx(hton, thd, tx, false);
   tx->acquire_snapshot(true);
 
   return HA_EXIT_SUCCESS;
@@ -5576,7 +5763,7 @@ static int rocksdb_start_tx_with_shared_read_view(
 
     DBUG_ASSERT(!tx->has_snapshot());
     tx->set_tx_read_only(true);
-    rocksdb_register_tx(hton, thd, tx);
+    rocksdb_register_tx(hton, thd, tx, false);
     tx->acquire_snapshot(true);
 
     // case: an explicit snapshot was not assigned to this transaction
@@ -6288,6 +6475,12 @@ static int rocksdb_init_internal(void *const p) {
   tx_db_options.write_policy =
       static_cast<rocksdb::TxnDBWritePolicy>(rocksdb_write_policy);
 
+  if (rocksdb_use_range_locking) {
+    range_lock_mgr.reset(
+      rocksdb::NewRangeLockManager(tx_db_options.custom_mutex_factory));
+    tx_db_options.lock_mgr_handle = range_lock_mgr;
+  }
+
   status =
       check_rocksdb_options_compatibility(rocksdb_datadir, main_opts, cf_descr);
 
@@ -6318,6 +6511,15 @@ static int rocksdb_init_internal(void *const p) {
     rdb_log_status_error(status, "Error opening instance");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
+
+  if (range_lock_mgr)
+  {
+    range_lock_mgr->SetMaxLockMemory(rocksdb_max_lock_memory);
+    sql_print_information("RocksDB: USING NEW RANGE LOCKING");
+    sql_print_information("RocksDB: Max lock memory=%llu", rocksdb_max_lock_memory);
+  }
+  else
+    sql_print_information("RocksDB: USING POINT LOCKING");
 
   cf_manager.init(std::move(cf_options_map), &cf_handles);
 
@@ -8722,6 +8924,21 @@ int ha_rocksdb::read_before_key(const Rdb_key_def &kd,
   return HA_ERR_KEY_NOT_FOUND;
 }
 
+
+int ha_rocksdb::iter_status_to_retval(rocksdb::Iterator *it,
+                                      const Rdb_key_def &kd,
+                                      int not_found_code) {
+  if (it->Valid())
+    return HA_EXIT_SUCCESS;
+
+  rocksdb::Status s= it->status();
+  if (s.ok() || s.IsNotFound())
+    return not_found_code;
+
+  Rdb_transaction *tx = get_tx_from_thd(table->in_use);
+  return tx->set_status_error(table->in_use, s, kd, m_tbl_def, m_table_handler);
+}
+
 int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
                                const rocksdb::Slice &key_slice,
                                const int64_t ttl_filter_ts) {
@@ -8749,7 +8966,9 @@ int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
     rocksdb_smart_next(kd.m_is_reverse_cf, m_scan_it);
   }
 
-  return is_valid_iterator(m_scan_it) ? HA_EXIT_SUCCESS : HA_ERR_KEY_NOT_FOUND;
+  return is_valid_iterator(m_scan_it) ?
+           HA_EXIT_SUCCESS :
+           iter_status_to_retval(m_scan_it, kd, HA_ERR_KEY_NOT_FOUND);
 }
 
 int ha_rocksdb::position_to_correct_key(
@@ -8881,7 +9100,7 @@ int ha_rocksdb::read_row_from_primary_key(uchar *const buf) {
   memcpy(m_pk_packed_tuple, pk_data, pk_size);
   m_last_rowkey.copy(pk_data, pk_size, &my_charset_bin);
 
-  if (m_lock_rows != RDB_LOCK_NONE) {
+  if (m_lock_rows != RDB_LOCK_NONE && !rocksdb_use_range_locking) {
     /* We need to put a lock and re-read */
     rc = get_row_by_rowid(buf, m_pk_packed_tuple, pk_size);
   } else {
@@ -9094,6 +9313,7 @@ int ha_rocksdb::read_range_first(const key_range *const start_key,
 
   if (!start_key) {
     // Read first record
+    // (range locking will set the lock inside the ha_index_first call)
     result = ha_index_first(table->record[0]);
   } else {
     if (is_using_prohibited_gap_locks(
@@ -9136,6 +9356,210 @@ int ha_rocksdb::index_read_map(uchar *const buf, const uchar *const key,
   DBUG_ENTER_FUNC();
 
   DBUG_RETURN(index_read_map_impl(buf, key, keypart_map, find_flag, nullptr));
+}
+
+
+int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
+                                const Rdb_key_def &kd,
+                                const enum ha_rkey_function &find_flag,
+                                const rocksdb::Slice &slice_arg,
+                                const key_range *const end_key,
+                                bool flip_rev_cf,
+                                bool *use_locking_iterator)
+{
+  rocksdb::Slice end_slice;
+  uchar end_slice_buf[MAX_KEY_LENGTH];
+  bool start_has_inf_suffix = false, end_has_inf_suffix = false;
+  rocksdb::Slice slice(slice_arg);
+  *use_locking_iterator= false;
+
+  if (m_lock_rows == RDB_LOCK_NONE || !rocksdb_use_range_locking) {
+    return 0;
+  }
+  bool no_end_endpoint= false;
+
+  /*
+    The 'slice' has the left endpoint of the range to lock.
+    Figure out the right endpoint.
+  */
+
+  if (find_flag == HA_READ_KEY_EXACT) {
+    /*
+      This is "key_part= const" interval
+    */
+    start_has_inf_suffix= false;
+    end_has_inf_suffix= true;
+    end_slice= slice;
+  }
+  else if (find_flag == HA_READ_PREFIX_LAST) {
+    /*
+       We get here for queries like:
+
+         select * from t1 where pk1=const order by pk1 desc for update
+
+       assuming this uses an index on (pk1, ...)
+       We get end_key=nullptr.
+
+       The range to lock is the same as with HA_READ_KEY_EXACT above.
+    */
+    end_slice= slice;
+    start_has_inf_suffix= false;
+    end_has_inf_suffix= true;
+  }
+  else if (find_flag == HA_READ_PREFIX_LAST_OR_PREV) {
+    /*
+       We get here for queries like:
+
+         select * from t1 where pk1=const1 and pk2 between const2 and const3
+         order by pk1 desc
+         for update
+
+       assuming this uses an index on (pk1, pk2).
+       The slice has the right endpoint: {const1, const3}
+       the end_key has the left endpoint: {const1, const2}.
+    */
+
+    // Move the right endpoint from slice to end_slice
+    end_slice= slice;
+
+    // Pack the left endpoint and make "slice" point to it
+    uchar pack_buffer[MAX_KEY_LENGTH];
+    uint end_slice_size=
+        kd.pack_index_tuple(table, pack_buffer, end_slice_buf,
+                            end_key->key, end_key->keypart_map);
+    slice= rocksdb::Slice(reinterpret_cast<char *>(end_slice_buf),
+                              end_slice_size);
+    start_has_inf_suffix= false;
+    end_has_inf_suffix= true;
+  }
+  else if (find_flag == HA_READ_BEFORE_KEY) {
+    /*
+      We get here for queris like
+        select * from t1
+        where              pk <1007 order by pk desc limit 2 for update
+        select * from t1
+        where pk >=800 and pk <1007 order by pk desc limit 2 for update
+    */
+
+    // Move the right endpoint from slice to end_slice
+    end_slice= slice;
+
+    if (end_key) {
+      uchar pack_buffer[MAX_KEY_LENGTH];
+      uint end_slice_size=
+          kd.pack_index_tuple(table, pack_buffer, end_slice_buf,
+                              end_key->key, end_key->keypart_map);
+
+      slice= rocksdb::Slice(reinterpret_cast<char *>(end_slice_buf),
+                            end_slice_size);
+
+      end_has_inf_suffix= false;
+      no_end_endpoint= false;
+    } else {
+      uint end_slice_size;
+      kd.get_infimum_key(end_slice_buf, &end_slice_size);
+      slice= rocksdb::Slice((char*)end_slice_buf, end_slice_size);
+
+      no_end_endpoint= true;
+    }
+
+  }
+  else if (end_key) {
+    // Known start range bounds: HA_READ_KEY_OR_NEXT, HA_READ_AFTER_KEY
+    if (find_flag == HA_READ_KEY_OR_NEXT)
+      start_has_inf_suffix= false;
+    else if (find_flag == HA_READ_AFTER_KEY)
+      start_has_inf_suffix= true;
+    else
+      DBUG_ASSERT(0);
+
+    // Known end range bounds: HA_READ_AFTER_KEY, HA_READ_BEFORE_KEY
+    if (end_key->flag == HA_READ_AFTER_KEY)
+    {
+      // this is "key_part <= const".
+      end_has_inf_suffix= true;
+    }
+    else if (end_key->flag == HA_READ_BEFORE_KEY)
+    {
+      // this is "key_part < const", non-inclusive.
+      end_has_inf_suffix= false;
+    }
+    else
+      DBUG_ASSERT(0);
+
+    uchar pack_buffer[MAX_KEY_LENGTH];
+    uint end_slice_size=
+        kd.pack_index_tuple(table, pack_buffer, end_slice_buf,
+                            end_key->key, end_key->keypart_map);
+
+    end_slice= rocksdb::Slice(reinterpret_cast<char *>(end_slice_buf),
+                              end_slice_size);
+  }
+  else
+  {
+    // Known start range bounds: HA_READ_KEY_OR_NEXT, HA_READ_AFTER_KEY
+    if (find_flag == HA_READ_KEY_OR_NEXT)
+      start_has_inf_suffix= false;
+    else if (find_flag == HA_READ_AFTER_KEY)
+      start_has_inf_suffix= true;
+    else
+      DBUG_ASSERT(0);
+
+    uint end_slice_size;
+    kd.get_infimum_key(end_slice_buf, &end_slice_size);
+    end_slice= rocksdb::Slice((char*)end_slice_buf, end_slice_size);
+    end_has_inf_suffix= true;
+    no_end_endpoint= true;
+  }
+  if (kd.m_is_reverse_cf) {
+    // Flip the endpoint flags
+    end_has_inf_suffix = !end_has_inf_suffix;
+    start_has_inf_suffix = !start_has_inf_suffix;
+  }
+
+  rocksdb::Endpoint start_endp;
+  rocksdb::Endpoint end_endp;
+
+  if (flip_rev_cf && kd.m_is_reverse_cf) {
+    // Flip the endpoints
+    start_endp =rocksdb::Endpoint(end_slice, end_has_inf_suffix);
+    end_endp  = rocksdb::Endpoint(slice, start_has_inf_suffix);
+  } else {
+    start_endp= rocksdb::Endpoint(slice, start_has_inf_suffix);
+    end_endp=   rocksdb::Endpoint(end_slice, end_has_inf_suffix);
+  }
+
+  if (no_end_endpoint)
+  {
+    *use_locking_iterator= true;
+    return 0;
+  }
+
+  /*
+    RocksDB's iterator is reading the snapshot of the data that was taken at
+    the time the iterator was created.
+
+    After we've got a lock on the range, we'll need to refresh the iterator
+    to read the latest contents. (If we use the iterator created before the
+    lock_range() call, we may miss the changes that were made/committed after
+    the iterator was created but before the lock_range() call was made).
+
+    RocksDB has Iterator::Refresh() method, but alas, it is not implemented for
+    the iterator returned by Transaction object (Transaction object returns
+    BaseDeltaIterator which allows one to see the transactions's own changes).
+
+    Our solution to this is to release the iterator and create the new one.
+    We release it here, it will be created as soon as there's a need to read
+    records.
+  */
+  release_scan_iterator();
+
+  auto s= tx->lock_range(kd.get_cf(), start_endp, end_endp);
+  if (!s.ok()) {
+    return (tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                 m_table_handler));
+  }
+  return 0;
 }
 
 /*
@@ -9263,6 +9687,16 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
     memcpy(m_sk_match_prefix, m_sk_packed_tuple, packed_size);
   }
 
+
+  Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+  const bool is_new_snapshot = !tx->has_snapshot();
+  bool use_locking_iterator;
+  rocksdb::Slice lock_slice(reinterpret_cast<const char *>(m_sk_packed_tuple),
+                                    packed_size);
+  if ((rc = set_range_lock(tx, kd, find_flag, lock_slice, end_key, true,
+                           &use_locking_iterator)))
+    DBUG_RETURN(rc);
+
   int bytes_changed_by_succ = 0;
   if (find_flag == HA_READ_PREFIX_LAST_OR_PREV ||
       find_flag == HA_READ_PREFIX_LAST || find_flag == HA_READ_AFTER_KEY) {
@@ -9283,9 +9717,6 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
       my_count_bits(keypart_map) == kd.get_key_parts()) {
     use_all_keys = true;
   }
-
-  Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-  const bool is_new_snapshot = !tx->has_snapshot();
   // Loop as long as we get a deadlock error AND we end up creating the
   // snapshot here (i.e. it did not exist prior to this)
   for (;;) {
@@ -9298,7 +9729,8 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
       This will open the iterator and position it at a record that's equal or
       greater than the lookup tuple.
     */
-    setup_scan_iterator(kd, &slice, use_all_keys, eq_cond_len);
+    setup_scan_iterator(kd, &slice, use_all_keys, eq_cond_len,
+                        use_locking_iterator);
 
     /*
       Once we are positioned on from above, move to the position we really
@@ -9942,11 +10374,17 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
   DBUG_ASSERT(tx != nullptr);
 
+  bool use_locking_iter;
+  if ((rc = set_range_lock(tx, kd, HA_READ_KEY_OR_NEXT, index_key,
+                           end_range, false, &use_locking_iter)))
+    DBUG_RETURN(rc);
+
   const bool is_new_snapshot = !tx->has_snapshot();
   // Loop as long as we get a deadlock error AND we end up creating the
   // snapshot here (i.e. it did not exist prior to this)
   for (;;) {
-    setup_scan_iterator(kd, &index_key, false, key_start_matching_bytes);
+    setup_scan_iterator(kd, &index_key, false, key_start_matching_bytes,
+                        use_locking_iter);
     m_scan_it->Seek(index_key);
     m_skip_scan_it_next_call = true;
 
@@ -10033,11 +10471,17 @@ int ha_rocksdb::index_last_intern(uchar *const buf) {
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
   DBUG_ASSERT(tx != nullptr);
 
+  bool use_locking_iter;
+  if ((rc = set_range_lock(tx, kd, HA_READ_BEFORE_KEY, index_key,
+                           end_range, false, &use_locking_iter)))
+    DBUG_RETURN(rc);
+
   bool is_new_snapshot = !tx->has_snapshot();
   // Loop as long as we get a deadlock error AND we end up creating the
   // snapshot here (i.e. it did not exist prior to this)
   for (;;) {
-    setup_scan_iterator(kd, &index_key, false, key_end_matching_bytes);
+    setup_scan_iterator(kd, &index_key, false, key_end_matching_bytes,
+                        use_locking_iter);
     m_scan_it->SeekForPrev(index_key);
     m_skip_scan_it_next_call = false;
 
@@ -10453,7 +10897,8 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
     If the pk key has ttl, we may need to pretend the row wasn't
     found if it is already expired.
   */
-  DBUG_ASSERT(row_info.tx->has_snapshot() &&
+  DBUG_ASSERT((row_info.tx->has_snapshot() ||
+               row_info.tx->in_snapshot_ignore_mode()) &&
               row_info.tx->m_snapshot_timestamp != 0);
   if (key_found && m_pk_descr->has_ttl() &&
       should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
@@ -10604,7 +11049,8 @@ int ha_rocksdb::check_and_lock_sk(
   }
 
   rocksdb::Iterator *const iter = row_info.tx->get_iterator(
-      kd.get_cf(), total_order_seek, fill_cache, lower_bound_slice,
+      kd.get_cf(), kd.m_is_reverse_cf, total_order_seek, fill_cache,
+      lower_bound_slice,
       upper_bound_slice, true /* read current data */,
       false /* acquire snapshot */);
   /*
@@ -10612,7 +11058,8 @@ int ha_rocksdb::check_and_lock_sk(
     Also need to scan RocksDB and verify the key has not been deleted
     in the transaction.
   */
-  DBUG_ASSERT(row_info.tx->has_snapshot() &&
+  DBUG_ASSERT((row_info.tx->has_snapshot() ||
+               row_info.tx->in_snapshot_ignore_mode()) &&
               row_info.tx->m_snapshot_timestamp != 0);
   *found = !read_key_exact(kd, iter, all_parts_used, new_slice,
                            row_info.tx->m_snapshot_timestamp);
@@ -10994,6 +11441,15 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
     old_key_slice = rocksdb::Slice(
         reinterpret_cast<const char *>(m_sk_packed_tuple_old), old_packed_size);
 
+    /* Range locking: lock the index tuple being deleted */
+    if (rocksdb_use_range_locking) {
+      auto s= row_info.tx->lock_singlepoint_range(kd.get_cf(), old_key_slice);
+      if (!s.ok()) {
+        return (row_info.tx->set_status_error(table->in_use, s, kd,
+                                              m_tbl_def, m_table_handler));
+      }
+    }
+
     row_info.tx->get_indexed_write_batch()->SingleDelete(kd.get_cf(),
                                                          old_key_slice);
 
@@ -11009,6 +11465,14 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
   if (bulk_load_sk && row_info.old_data == nullptr) {
     rc = bulk_load_key(row_info.tx, kd, new_key_slice, new_value_slice, true);
   } else {
+    /* Range locking: lock the index tuple being inserted */
+    if (rocksdb_use_range_locking) {
+      auto s= row_info.tx->lock_singlepoint_range(kd.get_cf(), new_key_slice);
+      if (!s.ok()) {
+        return (row_info.tx->set_status_error(table->in_use, s, kd,
+                                              m_tbl_def, m_table_handler));
+      }
+    }
     row_info.tx->get_indexed_write_batch()->Put(kd.get_cf(), new_key_slice,
                                                 new_value_slice);
   }
@@ -11105,6 +11569,10 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
   if (rc != HA_EXIT_SUCCESS) {
     DBUG_RETURN(rc);
   }
+
+  // Range Locking: do we have a lock on the old PK value here?
+  //  - we have read the row we are about to update, right? (except for some
+  //  RBR mode? (in which we won't want to acquire locks anyway?))
 
   /*
     For UPDATEs, if the key has changed, we need to obtain a lock. INSERTs
@@ -11207,7 +11675,8 @@ void ha_rocksdb::setup_iterator_bounds(
 void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
                                      rocksdb::Slice *const slice,
                                      const bool use_all_keys,
-                                     const uint eq_cond_len) {
+                                     const uint eq_cond_len,
+                                     bool use_locking_iterator) {
   DBUG_ASSERT(slice->size() >= eq_cond_len);
 
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
@@ -11248,7 +11717,7 @@ void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
     and
     re-create Iterator.
   */
-  if (m_scan_it_skips_bloom != skip_bloom) {
+  if (m_scan_it_skips_bloom != skip_bloom || use_locking_iterator) {
     release_scan_iterator();
   }
 
@@ -11268,9 +11737,13 @@ void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
       read_opts.snapshot = m_scan_it_snapshot;
       m_scan_it = rdb->NewIterator(read_opts, kd.get_cf());
     } else {
-      m_scan_it = tx->get_iterator(kd.get_cf(), skip_bloom, fill_cache,
+      m_scan_it = tx->get_iterator(kd.get_cf(), kd.m_is_reverse_cf,
+                                   skip_bloom, fill_cache,
                                    m_scan_it_lower_bound_slice,
-                                   m_scan_it_upper_bound_slice);
+                                   m_scan_it_upper_bound_slice,
+                                   /*read_current*/ false,
+                                   /*create_snapshot*/true,
+                                   use_locking_iterator);
     }
     m_scan_it_skips_bloom = skip_bloom;
   }
@@ -11294,7 +11767,9 @@ void ha_rocksdb::setup_iterator_for_rnd_scan() {
 
   rocksdb::Slice table_key((const char *)m_pk_packed_tuple, key_size);
 
-  setup_scan_iterator(*m_pk_descr, &table_key, false, key_start_matching_bytes);
+  setup_scan_iterator(*m_pk_descr, &table_key, false, key_start_matching_bytes,
+                      (m_lock_rows != RDB_LOCK_NONE) &&
+                      rocksdb_use_range_locking && !ha_thd()->rli_slave);
   m_scan_it->Seek(table_key);
   m_skip_scan_it_next_call = true;
 }
@@ -11384,7 +11859,8 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
 
       In this case, we should return EOF.
     */
-    DBUG_RETURN(HA_ERR_END_OF_FILE);
+    rc = HA_ERR_END_OF_FILE;
+    DBUG_RETURN(m_scan_it ? iter_status_to_retval(m_scan_it, *m_pk_descr, rc) : rc);
   }
 
   for (;;) {
@@ -11405,7 +11881,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
     }
 
     if (!is_valid_iterator(m_scan_it)) {
-      rc = HA_ERR_END_OF_FILE;
+      rc = iter_status_to_retval(m_scan_it, *m_pk_descr, HA_ERR_END_OF_FILE);
       break;
     }
 
@@ -11416,7 +11892,8 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
       break;
     }
 
-    if (m_lock_rows != RDB_LOCK_NONE) {
+    if (m_lock_rows != RDB_LOCK_NONE && (!rocksdb_use_range_locking ||
+                                         ha_thd()->rli_slave)) {
       /*
         Lock the row we've just read.
 
@@ -11637,6 +12114,21 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
                                    nullptr, false, hidden_pk_id);
       rocksdb::Slice secondary_key_slice(
           reinterpret_cast<const char *>(m_sk_packed_tuple), packed_size);
+
+      /*
+        For point locking, Deleting on secondary key doesn't need any locks.
+        Range locking must set locks
+        (TODO: don't get the lock here if we've got it in key_info->flags &
+        HA_NOSAME branch above?)
+      */
+      if (rocksdb_use_range_locking) {
+        auto s= tx->lock_singlepoint_range(kd.get_cf(), secondary_key_slice);
+        if (!s.ok()) {
+          DBUG_RETURN(tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                       m_table_handler));
+        }
+      }
+
       tx->get_indexed_write_batch()->SingleDelete(kd.get_cf(),
                                                   secondary_key_slice);
       bytes_written += secondary_key_slice.size();
@@ -12192,7 +12684,7 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
       }
     }
     tx->m_n_mysql_tables_in_use++;
-    rocksdb_register_tx(rocksdb_hton, thd, tx);
+    rocksdb_register_tx(rocksdb_hton, thd, tx, (lock_type == F_WRLCK));
     tx->io_perf_start(&m_io_perf);
   }
 
@@ -12220,7 +12712,7 @@ int ha_rocksdb::start_stmt(THD *const thd,
 
   Rdb_transaction *const tx = get_or_create_tx(thd);
   read_thd_vars(thd);
-  rocksdb_register_tx(ht, thd, tx);
+  rocksdb_register_tx(ht, thd, tx, (lock_type == F_WRLCK));
   tx->io_perf_start(&m_io_perf);
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
@@ -14599,6 +15091,36 @@ static int show_rocksdb_stall_vars(THD *thd MY_ATTRIBUTE((unused)),
   return 0;
 }
 
+//
+// Lock Tree Status variables
+//
+static longlong rocksdb_locktree_escalation_count=1234;
+static longlong rocksdb_locktree_current_lock_memory=0;
+
+static SHOW_VAR rocksdb_locktree_status_variables[] = {
+    DEF_STATUS_VAR_FUNC("escalation_count",
+                        &rocksdb_locktree_escalation_count, SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("current_lock_memory",
+                        &rocksdb_locktree_current_lock_memory, SHOW_LONGLONG),
+    // end of the array marker
+    {NullS, NullS, SHOW_LONG}};
+
+static SHOW_VAR rocksdb_empty_status_variables[] = {
+    {NullS, NullS, SHOW_LONG}};
+
+static void show_rocksdb_locktree_vars(THD*, SHOW_VAR *var, char*) {
+  var->type = SHOW_ARRAY;
+  if (range_lock_mgr)
+  {
+    auto status = range_lock_mgr->GetStatus();
+    rocksdb_locktree_escalation_count = status.escalation_count;
+    rocksdb_locktree_current_lock_memory = status.current_lock_memory;
+    var->value = reinterpret_cast<char *>(&rocksdb_locktree_status_variables);
+  }
+  else
+    var->value = reinterpret_cast<char *>(&rocksdb_empty_status_variables);
+}
+
 static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(block_cache_miss),
     DEF_STATUS_VAR(block_cache_hit),
@@ -14712,6 +15234,8 @@ static SHOW_VAR rocksdb_status_vars[] = {
     {"rocksdb", reinterpret_cast<char *>(&show_myrocks_vars), SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"rocksdb_stall", reinterpret_cast<char *>(&show_rocksdb_stall_vars),
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"rocksdb_locktree", reinterpret_cast<char *>(show_rocksdb_locktree_vars),
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
@@ -15585,6 +16109,23 @@ void rocksdb_set_delayed_write_rate(THD *thd MY_ATTRIBUTE((unused)),
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
+void rocksdb_set_max_lock_memory(THD *thd, struct SYS_VAR*,
+                                 void* /*var_ptr*/, const void *save) {
+  const uint64_t new_val = *static_cast<const uint64_t *>(save);
+  if (rocksdb_max_lock_memory != new_val) {
+    if (range_lock_mgr->SetMaxLockMemory(new_val)) {
+      /* NO_LINT_DEBUG */
+      sql_print_warning("MyRocks: failed to set max_lock_memory");
+      push_warning_printf(thd, Sql_condition::SL_WARNING,
+                          ER_ERROR_WHEN_EXECUTING_COMMAND,
+                          "Cannot set max_lock_memory to size below currently used");
+    } else {
+      // Succeeded
+      rocksdb_max_lock_memory = new_val;
+    }
+  }
+}
+
 void rocksdb_set_max_latest_deadlocks(
     THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
     void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
@@ -15592,7 +16133,13 @@ void rocksdb_set_max_latest_deadlocks(
   const uint32_t new_val = *static_cast<const uint32_t *>(save);
   if (rocksdb_max_latest_deadlocks != new_val) {
     rocksdb_max_latest_deadlocks = new_val;
-    rdb->SetDeadlockInfoBufferSize(rocksdb_max_latest_deadlocks);
+    if (range_lock_mgr) {
+      auto n= rocksdb_max_latest_deadlocks;
+      range_lock_mgr->SetRangeDeadlockInfoBufferSize(n);
+    }
+    else
+      rdb->SetDeadlockInfoBufferSize(rocksdb_max_latest_deadlocks);
+
   }
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
@@ -16295,7 +16842,7 @@ const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx) {
 rocksdb::Iterator *rdb_tx_get_iterator(
     Rdb_transaction *tx, const rocksdb::ReadOptions &options,
     rocksdb::ColumnFamilyHandle *const column_family) {
-  return tx->get_iterator(options, column_family);
+  return tx->get_iterator(options, column_family, false);
 }
 
 bool rdb_tx_started(Rdb_transaction *tx) { return tx->is_tx_started(); }
