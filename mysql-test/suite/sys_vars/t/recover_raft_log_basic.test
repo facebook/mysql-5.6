@@ -1,0 +1,32 @@
+SET @start_recover_raft_log = @@global.recover_raft_log;
+SELECT @start_recover_raft_log;
+
+SET @@global.recover_raft_log = DEFAULT;
+SELECT @@global.recover_raft_log;
+
+SET @@global.recover_raft_log = false;
+SELECT @@global.recover_raft_log;
+
+SET @@global.recover_raft_log = true;
+SELECT @@global.recover_raft_log;
+
+SET @@global.recover_raft_log = 1;
+SELECT @@global.recover_raft_log;
+
+SET @@global.recover_raft_log = 0;
+SELECT @@global.recover_raft_log;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.recover_raft_log = -1;
+SELECT @@global.recover_raft_log;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.recover_raft_log = 100;
+SELECT @@global.recover_raft_log;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.recover_raft_log = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.recover_raft_log;
+
+SET @@global.recover_raft_log = @start_recover_raft_log;
+SELECT @@global.recover_raft_log;

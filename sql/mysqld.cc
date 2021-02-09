@@ -1189,6 +1189,8 @@ ulonglong apply_log_retention_num = 0;
 ulonglong apply_log_retention_duration = 0;
 bool disable_raft_log_repointing = 0;
 ulong opt_raft_signal_async_dump_threads = 0;
+bool recover_raft_log = false;
+
 /* Apply log related variables for raft
    "_ptr" variables are system variables that should not be free by us */
 char *opt_apply_logname = nullptr, *opt_apply_logname_ptr = nullptr;
@@ -11657,8 +11659,11 @@ static int generate_apply_file_gvars() {
   }
 
   if (!opt_applylog_index_name_ptr && opt_apply_logname) {
-    opt_applylog_index_name = const_cast<char *>(rpl_make_log_name(
-        PSI_NOT_INSTRUMENTED, NULL, opt_apply_logname, ".index"));
+    // generate relate path for opt_applylog_index_name
+    char buff[FN_REFLEN];
+    fn_format(buff, opt_apply_logname, mysql_data_home, ".index",
+              MY_UNPACK_FILENAME | MY_REPLACE_EXT);
+    opt_applylog_index_name = my_strdup(PSI_NOT_INSTRUMENTED, buff, MYF(0));
   }
 
   DBUG_RETURN(0);

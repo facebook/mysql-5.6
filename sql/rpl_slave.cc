@@ -733,6 +733,12 @@ int init_slave() {
     goto err;
   }
 
+  for (mi_map::iterator it = channel_map.begin(); it != channel_map.end();
+       it++) {
+    Master_info *mi = it->second;
+    mi->rli->relay_log.raft_log_recover();
+  }
+
   /*
     Loop through the channel_map and start slave threads for each channel.
   */
@@ -1722,8 +1728,25 @@ int raft_change_master(
   mi->port = master_instance.second;
   mi->set_auto_position(true);
   mi->init_master_log_pos();
+
+  int thread_mask_stopped_threads;
+  /*
+    Before load_mi_and_rli_from_repositories() call, get a bit mask to indicate
+    stopped threads in thread_mask_stopped_threads. Since the third argguement
+    is 1, thread_mask when the function returns stands for stopped threads.
+  */
+  init_thread_mask(&thread_mask_stopped_threads, mi, 1);
+  mysql_mutex_lock(&mi->rli->data_lock);
+  // Call mi->init_info() and/or mi->rli->init_info() if itn't configured
+  if (load_mi_and_rli_from_repositories(mi, false, thread_mask_stopped_threads,
+                                        false, /*need_lock*/ false)) {
+    error = ER_MASTER_INFO;
+    my_error(ER_MASTER_INFO, MYF(0));
+    goto end;
+  }
   mi->inited = true;
   mi->flush_info(true);
+  mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
 
   // changing to a slave. set the is_slave flag
