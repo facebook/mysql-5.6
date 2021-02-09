@@ -742,7 +742,10 @@ unsigned int mysql_default_compression_level(
     case MYSQL_ZLIB:
       return 6;
     case MYSQL_ZSTD:
+    case MYSQL_ZSTD_STREAM:
       return 3;
+    case MYSQL_LZ4F_STREAM:
+      return 0;
     default:
       DBUG_ASSERT(0);  // should not reach here.
       return 0;        // To make compiler happy.
