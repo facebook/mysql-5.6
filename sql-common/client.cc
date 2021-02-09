@@ -5252,6 +5252,16 @@ static bool prep_client_reply_packet(MCPVIO_EXT *mpvio, const uchar *data,
     mysql->client_flag &= ~CLIENT_COMPRESS;
   if (!(mysql->server_capabilities & CLIENT_ZSTD_COMPRESSION_ALGORITHM))
     mysql->client_flag &= ~CLIENT_ZSTD_COMPRESSION_ALGORITHM;
+
+  /*
+   If the server does not support any compression, then remove the
+   compression_lib connection attribute.
+  */
+  if (!(mysql->server_capabilities &
+        (CLIENT_COMPRESS | CLIENT_ZSTD_COMPRESSION_ALGORITHM))) {
+    mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_DELETE, "compression_lib");
+  }
+
   /*
    If server and client have no compression algorithms in common, we must
    fall back to uncompressed. In that case, check that uncompressed is
@@ -7272,8 +7282,27 @@ static mysql_state_machine_status csm_prep_select_database(
   MYSQL_TRACE_STAGE(mysql, READY_FOR_COMMAND);
 
   /* We will use compression */
+
+  // If the compression_lib attribute is used (for backwards compatibility
+  // with older versions of mysqld, then the compression library specified
+  // should override any compression client flag set.
+  enum_compression_algorithm compression_lib_algorithm =
+      enum_compression_algorithm::MYSQL_INVALID;
+  if (mysql->options.extension &&
+      mysql->options.extension->connection_attributes) {
+    auto &connect_attrs = mysql->options.extension->connection_attributes->hash;
+    auto it = connect_attrs.find("compression_lib");
+    if (it != connect_attrs.end()) {
+      const string &value = it->second;
+      compression_lib_algorithm = get_compression_algorithm(value.c_str());
+    }
+  }
+
   if ((mysql->client_flag & CLIENT_COMPRESS) ||
-      (mysql->client_flag & CLIENT_ZSTD_COMPRESSION_ALGORITHM)) {
+      (mysql->client_flag & CLIENT_ZSTD_COMPRESSION_ALGORITHM) ||
+      (compression_lib_algorithm != enum_compression_algorithm::MYSQL_INVALID &&
+       compression_lib_algorithm !=
+           enum_compression_algorithm::MYSQL_UNCOMPRESSED)) {
     net->compress = true;
     uint compress_level;
     enum enum_compression_algorithm algorithm =
@@ -7284,6 +7313,15 @@ static mysql_state_machine_status csm_prep_select_database(
       compress_level = mysql->options.extension->zstd_compression_level;
     else
       compress_level = mysql_default_compression_level(algorithm);
+
+    /* compression_lib connection attribute overrides the flags */
+    if (compression_lib_algorithm !=
+            enum_compression_algorithm::MYSQL_INVALID &&
+        compression_lib_algorithm !=
+            enum_compression_algorithm::MYSQL_UNCOMPRESSED) {
+      algorithm = compression_lib_algorithm;
+      compress_level = mysql_default_compression_level(algorithm);
+    }
 #ifndef MYSQL_SERVER
     NET_EXTENSION *ext = NET_EXTENSION_PTR(net);
     assert(ext != nullptr);

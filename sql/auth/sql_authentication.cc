@@ -2245,9 +2245,31 @@ static bool find_mpvio_user(THD *thd, MPVIO_EXT *mpvio) {
   return false;
 }
 
-static bool read_client_connect_attrs(THD *thd, char **ptr,
-                                      size_t *max_bytes_available,
-                                      MPVIO_EXT *mpvio [[maybe_unused]]) {
+static enum_compression_algorithm parse_compression_connect_attr(char *ptr,
+                                                                 size_t len) {
+  const char *end = ptr + len;
+  const char *key, *value;
+  size_t klen, vlen;
+
+  while (ptr < end) {
+    klen = net_field_length((uchar **)&ptr);
+    key = ptr;
+    ptr += klen;
+    vlen = net_field_length((uchar **)&ptr);
+    value = ptr;
+    ptr += vlen;
+
+    if (strncmp("compression_lib", key, klen) == 0) {
+      return get_compression_algorithm(std::string(value, vlen).c_str());
+    }
+  }
+  return enum_compression_algorithm::MYSQL_INVALID;
+}
+
+static bool read_client_connect_attrs(
+    THD *thd, char **ptr, size_t *max_bytes_available,
+    MPVIO_EXT *mpvio [[maybe_unused]],
+    enum_compression_algorithm *algorithm = nullptr) {
   size_t length, length_length;
   char *ptr_save;
 
@@ -2268,6 +2290,9 @@ static bool read_client_connect_attrs(THD *thd, char **ptr,
   /* impose an artificial length limit of 64k */
   if (length > 65535) return true;
 
+  if (algorithm) {
+    *algorithm = parse_compression_connect_attr(*ptr, length);
+  }
   thd->set_connection_attrs(*ptr, length);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -3062,8 +3087,11 @@ skip_to_ssl:
     mpvio->status = MPVIO_EXT::SUCCESS;
   }
 
+  enum_compression_algorithm compression_lib_algorithm =
+      enum_compression_algorithm::MYSQL_INVALID;
   if (protocol->has_client_capability(CLIENT_CONNECT_ATTRS) &&
-      read_client_connect_attrs(thd, &end, &bytes_remaining_in_packet, mpvio))
+      read_client_connect_attrs(thd, &end, &bytes_remaining_in_packet, mpvio,
+                                &compression_lib_algorithm))
     return packet_error;
 
   NET_SERVER *ext = static_cast<NET_SERVER *>(protocol->get_net()->extension);
@@ -3073,7 +3101,46 @@ skip_to_ssl:
   bool is_client_supports_zstd =
       protocol->has_client_capability(CLIENT_ZSTD_COMPRESSION_ALGORITHM);
 
-  if (is_client_supports_zlib && is_server_supports_zlib) {
+  // FB: For backwards compatibility to 8.0.17 and 5.6.35, if
+  // the compression_lib connection attribute is specified,
+  // use it to determine the compression type instead of using
+  // the client flags.  Even if the server has disabled certain types of
+  // compression protocols for use, override those disabled settings.
+  if (compression_lib_algorithm != enum_compression_algorithm::MYSQL_INVALID &&
+      compression_lib_algorithm !=
+          enum_compression_algorithm::MYSQL_UNCOMPRESSED) {
+    bool is_client_supports_zstd_stream = false;
+    switch (compression_lib_algorithm) {
+      case enum_compression_algorithm::MYSQL_ZSTD:
+        strcpy(compression->compress_algorithm, COMPRESSION_ALGORITHM_ZSTD);
+        compression->compress_level = zstd_net_compression_level;
+        protocol->add_client_capability(CLIENT_ZSTD_COMPRESSION_ALGORITHM);
+        break;
+      case enum_compression_algorithm::MYSQL_ZSTD_STREAM:
+        strcpy(compression->compress_algorithm,
+               COMPRESSION_ALGORITHM_ZSTD_STREAM);
+        compression->compress_level = zstd_net_compression_level;
+        is_client_supports_zstd_stream = true;
+        break;
+      case enum_compression_algorithm::MYSQL_LZ4F_STREAM:
+        strcpy(compression->compress_algorithm,
+               COMPRESSION_ALGORITHM_LZ4F_STREAM);
+        compression->compress_level = lz4f_net_compression_level;
+        break;
+      case enum_compression_algorithm::MYSQL_ZLIB:
+      default:
+        strcpy(compression->compress_algorithm, COMPRESSION_ALGORITHM_ZLIB);
+        compression->compress_level = 6;
+        protocol->add_client_capability(CLIENT_COMPRESS);
+        break;
+    }
+    /* Consume the compression_level bit if zstd is specified */
+    if ((is_client_supports_zstd && is_server_supports_zstd) ||
+        (is_client_supports_zstd_stream)) {
+      end += 1;
+      bytes_remaining_in_packet -= 1;
+    }
+  } else if (is_client_supports_zlib && is_server_supports_zlib) {
     strcpy(compression->compress_algorithm, COMPRESSION_ALGORITHM_ZLIB);
     /*
       for zlib compression method client does not send any compression level,

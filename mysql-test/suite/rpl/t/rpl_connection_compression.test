@@ -80,10 +80,11 @@ CREATE TABLE levels (
 INSERT INTO levels(level, position) VALUES
 #  ('1', 1),
   #('2', 2),
-  ('default', 3),
+  ('default', 3);
   #('3', 3),
   #('13', 4),
-  ('22', 5);
+  # For backwards compatibility, compression level is determined by the source server, so skip testing anything other than the default level.
+  #('22', 5);
 --let $level_count = `SELECT COUNT(*) FROM levels`
 
 --delimiter |
@@ -401,17 +402,33 @@ while ($master_algorithm_it <= $algorithm_count) {
     while ($replica_compressed_protocol < $replica_compressed_protocol_iterations) {
       --source include/rpl_connection_slave.inc
       if ($replica_compressed_protocol) {
-        --let $slave_algorithm = zlib
+        # If slave_compressed_protocol is used, allow defaulting to uncompressed
+        # if compressed is not supported
+        --let $slave_algorithm = zlib,uncompressed
       }
 
+      # For backwards compatibility, if either zlib or zstd is selected, then
+      # compression is supported. The exact method is selected by the client,
+      # the assumption is that the server supports all of them.
+      let $primary_algorithm = `
+        SELECT REPLACE(REPLACE('$master_algorithm', 'zlib', 'compressed'), 'zstd', 'compressed')`;
+      let $secondary_algorithm = `
+        SELECT REPLACE(REPLACE('$slave_algorithm', 'zlib', 'compressed'),
+          'zstd', 'compressed')`;
+                                       
       --source include/rpl_connection_master.inc
-      --let $intersection = `SELECT set_intersection('$master_algorithm', '$slave_algorithm')`
+      --let $intersection = `SELECT set_intersection('$primary_algorithm', '$secondary_algorithm')`
 
       if ($intersection != '') {
-        let $expected_algorithm = `
-          SELECT IF(FIND_IN_SET('zlib', '$intersection'), 'zlib',
-                    IF(FIND_IN_SET('zstd', '$intersection'), 'zstd',
-                       'uncompressed'))`;
+        if ($intersection == uncompressed) {
+          let $expected_algorithm = uncompressed;
+        }
+        if ($intersection != uncompressed) {
+          let $expected_algorithm = `
+            SELECT IF(FIND_IN_SET('zlib', '$slave_algorithm'), 'zlib',
+                      IF(FIND_IN_SET('zstd', '$slave_algorithm'), 'zstd',
+                         'uncompressed'))`;
+        }
 
         if ($expected_algorithm == zstd) {
           # Iterate over levels.
