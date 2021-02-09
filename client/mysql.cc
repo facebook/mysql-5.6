@@ -4687,6 +4687,11 @@ static int sql_real_connect(char *host, char *database, char *user, char *,
 static bool init_connection_options(MYSQL *mysql) {
   bool handle_expired = (opt_connect_expired_password || !status.batch);
 
+  // Using the compression_lib connection attribute requires connection
+  // attributes be reset early. Parsing the command arguments could add a new
+  // connection attribute
+  mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_RESET, nullptr);
+
   if (opt_init_command)
     mysql_options(mysql, MYSQL_INIT_COMMAND, opt_init_command);
 
@@ -4758,7 +4763,6 @@ static bool init_connection_options(MYSQL *mysql) {
     mysql_options(mysql, MYSQL_ENABLE_CLEARTEXT_PLUGIN,
                   (char *)&opt_enable_cleartext_plugin);
 
-  mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_RESET, nullptr);
   mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD, "program_name", "mysql");
   if (current_os_user)
     mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD, "os_user",

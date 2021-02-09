@@ -238,7 +238,7 @@ Compression	ON
 Compression_algorithm	zstd
 Compression_context_reset	0
 Compression_input_bytes	0
-Compression_level	22
+Compression_level	3
 Compression_output_bytes	0
 FLUSH STATUS;
 SELECT * FROM t1;

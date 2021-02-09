@@ -2272,8 +2272,8 @@ Compression	ON
 Compression_algorithm	zstd
 Compression_context_reset	0
 Compression_input_bytes	0
-Compression_level	10
-Compression_output_bytes	64483
+Compression_level	3
+Compression_output_bytes	N_BYTES
 drop table if exists t1,t2,t3,t4;
 CREATE TABLE t1 (
 Period smallint(4) unsigned zerofill DEFAULT '0000' NOT NULL,

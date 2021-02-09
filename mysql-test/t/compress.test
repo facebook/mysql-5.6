@@ -22,6 +22,8 @@ disconnect comp_con;
 connect(zstd_con, localhost, root,,,,,,,zstd,10);
 
 # Check compression turned on
+# async client and non async client generate different output byte values
+--replace_regex /\d\d\d+/N_BYTES/
 SHOW STATUS LIKE 'Compression%';
 
 --source include/common-tests.inc

@@ -6724,7 +6724,6 @@ static int connect_n_handle_errors(struct st_command *command, MYSQL *con,
     dynstr_append_mem(ds, ";\n", 2);
   }
 
-  mysql_options(con, MYSQL_OPT_CONNECT_ATTR_RESET, nullptr);
   mysql_options4(con, MYSQL_OPT_CONNECT_ATTR_ADD, "program_name", "mysqltest");
   mysql_options(con, MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
                 &can_handle_expired_passwords);
@@ -6963,6 +6962,9 @@ static void do_connect(struct st_command *command) {
                 replace_utf8_utf8mb3(charset_info->csname));
   if (opt_charsets_dir)
     mysql_options(&con_slot->mysql, MYSQL_SET_CHARSET_DIR, opt_charsets_dir);
+
+  /* FB - reset the connection attrs before processing compression */
+  mysql_options(&con_slot->mysql, MYSQL_OPT_CONNECT_ATTR_RESET, nullptr);
 
   if (ds_compression_algorithm.length)
     mysql_options(&con_slot->mysql, MYSQL_OPT_COMPRESSION_ALGORITHMS,
