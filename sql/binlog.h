@@ -1150,6 +1150,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   int wait_for_update();
 
+  int raft_log_recover();
+
  public:
   /** register binlog/relay (its IO_CACHE) and mutexes to plugin.
       Sharing the pointers with the plugin enables the plugin to

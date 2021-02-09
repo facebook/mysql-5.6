@@ -1413,6 +1413,9 @@ The following options may be given as the first argument:
  --read-rnd-buffer-size=# 
  When reading rows in sorted order after a sort, the rows
  are read through this buffer to avoid a disk seeks
+ --recover-raft-log  Temprary variable to control recovery of raft log by
+ removing partial trxs. This should be removed later.
+ (Defaults to on; use --skip-recover-raft-log to disable.)
  --regexp-stack-limit=# 
  Stack size limit for regular expressions matches
  --regexp-time-limit=# 
@@ -3139,6 +3142,7 @@ read-only FALSE
 read-only-error-msg-extra 
 read-only-slave TRUE
 read-rnd-buffer-size 262144
+recover-raft-log TRUE
 regexp-stack-limit 8000000
 regexp-time-limit 32
 relay-log relaylog

@@ -12006,6 +12006,141 @@ void MYSQL_BIN_LOG::signal_update() {
   return;
 }
 
+/**
+ * Recover raft log. This is primarily for relay logs in the raft world since
+ * trx logs (binary logs or apply logs) are already recovered by mysqld as part
+ * of trx log recovery. This method tries to get rid of partial trxs in the tal
+ * of the raft log. Much has been borrowed from
+ * MYSQL_BIN_LOG::open_binlog(const char *opt_name) and
+ * binlog_recover(). Refactoring the components is rather hard and
+ * adds unnecessary complexity with additional params and if() {} else {}
+ * branches. Hence a separate method.
+ */
+int MYSQL_BIN_LOG::raft_log_recover() {
+  int error = 0;
+  Log_event *ev = 0;
+  char log_name[FN_REFLEN];
+  my_off_t valid_pos = 0;
+  my_off_t binlog_size = 0;
+  LOG_INFO log_info;
+  bool pending_gtid = false;
+  std::string error_message;
+  int status = 0;
+  bool in_transaction = false;
+  if (!mysql_bin_log.is_apply_log)
+    goto err;  // raft log already recovered as part of trx log recovery
+
+  if (!my_b_inited(&index_file)) {
+    error_message = "Index file is not inited in recover_raft_log";
+    error = 1;
+    goto err;
+  }
+
+  if ((status =
+           find_log_pos(&log_info, NullS, true /*need_lock_index=true*/))) {
+    if (status != LOG_INFO_EOF) {
+      error_message = "find_log_pos() failed in recover_raft_log with error: " +
+                      std::to_string(error);
+      error = 1;
+    }
+    goto err;
+  }
+
+  do {
+    strmake(log_name, log_info.log_file_name, sizeof(log_name) - 1);
+  } while (!(status = find_next_log(&log_info, true /*need_lock_index=true*/)));
+
+  if (status != LOG_INFO_EOF) {
+    error_message = "find_log_pos() failed in recover_raft_log with error: " +
+                    std::to_string(error);
+    error = 1;
+    goto err;
+  }
+
+  {
+    Binlog_file_reader binlog_file_reader(opt_source_verify_checksum);
+    if (binlog_file_reader.open(log_name)) {
+      error = 1;
+      error_message = "open_binlog_file() failed in recover_raft_log with ";
+      goto err;
+    }
+    binlog_size = binlog_file_reader.ifile()->length();
+    // This logic is borrowed from binlog_recover() which has to do
+    // additional things and refactoring it will simply add more branches. Hence
+    // the code duplication
+    while ((ev = binlog_file_reader.read_event_object())) {
+      if (ev->get_type_code() == binary_log::QUERY_EVENT &&
+          !strcmp(static_cast<Query_log_event *>(ev)->query, "BEGIN")) {
+        in_transaction = true;
+      } else if (ev->get_type_code() == binary_log::QUERY_EVENT &&
+                 !strcmp(static_cast<Query_log_event *>(ev)->query, "COMMIT")) {
+        assert(in_transaction == true);
+        in_transaction = false;
+      } else if (is_gtid_event(ev)) {
+        pending_gtid = true;
+      } else if (ev->get_type_code() == binary_log::XID_EVENT ||
+                 (ev->get_type_code() == binary_log::QUERY_EVENT &&
+                  !strcmp(static_cast<Query_log_event *>(ev)->query,
+                          "COMMIT"))) {
+        if (!in_transaction) {
+          // When we see a commit message, we should already be parsing a valid
+          // transaction
+          error_message =
+              "Saw a XID/COMMIT event without a begin. Corrupted log: " +
+              std::string(log_name);
+          error = 1;
+          delete ev;
+          break;
+        }
+        in_transaction = false;
+      }
+      if (!(ev->get_type_code() == binary_log::METADATA_EVENT &&
+            pending_gtid)) {
+        if (!in_transaction && !is_gtid_event(ev)) {
+          valid_pos = binlog_file_reader.position();
+          pending_gtid = false;
+        }
+      }
+
+      delete ev;
+    }
+  }
+
+  // No partial trxs found in the raft log or error parsing the log
+  if (error || (valid_pos == 0 || valid_pos >= binlog_size)) goto err;
+
+  // NO_LINT_DEBUG
+  sql_print_information(
+      "Raft log %s with a size of %llu will be trimmed to "
+      "%llu bytes based on valid transactions in the file",
+      log_name, binlog_size, valid_pos);
+
+  {
+    std::unique_ptr<Binlog_ofile> ofile(
+        Binlog_ofile::open_existing(key_file_binlog, log_name, MYF(MY_WME)));
+    if (!ofile) {
+      error_message =
+          "Failed to remove partial transactions from raft log file ";
+      error = 1;
+      goto err;
+    }
+    if (ofile->truncate(valid_pos)) {
+      error_message =
+          "Failed to remove partial transactions from raft log file " +
+          std::string(log_name);
+      error = 1;
+      goto err;
+    }
+  }
+
+err:
+  if (error && !error_message.empty())
+    // NO_LINT_DEBUG
+    sql_print_error("%s", error_message.c_str());
+
+  return error;
+}
+
 void MYSQL_BIN_LOG::update_binlog_end_pos(bool need_lock) {
   if (need_lock)
     lock_binlog_end_pos();

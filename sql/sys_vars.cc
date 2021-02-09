@@ -9084,6 +9084,13 @@ static Sys_var_ulonglong Sys_apply_log_retention_duration(
     GLOBAL_VAR(apply_log_retention_duration), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULLONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
 
+static Sys_var_bool Sys_recover_raft_log(
+    "recover_raft_log",
+    "Temprary variable to control recovery of raft log by removing partial "
+    "trxs. This should be removed later.",
+    GLOBAL_VAR(recover_raft_log), CMD_LINE(OPT_ARG), DEFAULT(true),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 /* Free global_write_statistics if sys_var is set to 0 */
 static bool update_write_stats_count(sys_var *, THD *, enum_var_type) {
   if (write_stats_count == 0) {

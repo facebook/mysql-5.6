@@ -458,6 +458,7 @@ extern bool disallow_raft;
 extern bool override_enable_raft_check;
 extern ulonglong apply_log_retention_num;
 extern ulonglong apply_log_retention_duration;
+extern bool recover_raft_log;
 /* Apply log related variables for raft */
 extern char *opt_apply_logname;
 extern char *opt_applylog_index_name;
