@@ -1947,10 +1947,35 @@ int Relay_log_info::rli_init_info(bool startup)
     if (!hot_log)
       mysql_mutex_unlock(log_lock);
 
-    my_b_seek(cur_log, (my_off_t) 0);
+    // In raft mode we re-init the IO_CACHE because the relay log (raft log)
+    // might be truncated later
+    if (enable_raft_plugin && hot_log)
+    {
+      File file= cur_log->file;
+      size_t len= cur_log->buffer_length;
+      enum cache_type type= cur_log->type;
+      myf flags= cur_log->myflags;
+      if (end_io_cache(cur_log) == 0 &&
+          init_io_cache(cur_log, file, len, type, 0, 0, flags) == 0)
+      {
+        sql_print_information(
+            "Reinited relay log to handle potential raft log truncation");
+      }
+      else
+      {
+        error= 1;
+        sql_print_error(
+            "Error while reiniting relay log to handle potential raft log "
+            "truncation");
+      }
+    }
+    else
+      my_b_seek(cur_log, (my_off_t) 0);
 
     if (hot_log)
       mysql_mutex_unlock(log_lock);
+    if (error)
+      DBUG_RETURN(1);
     DBUG_RETURN((gtid_mode == 0 && recovery_parallel_workers) ?
                 mts_recovery_groups(this) : 0);
   }

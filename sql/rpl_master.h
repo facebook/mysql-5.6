@@ -30,6 +30,7 @@ extern my_bool opt_show_slave_auth_info;
 /* Size for preallocated replication buffer size */
 extern ulong rpl_event_buffer_size;
 extern uint rpl_send_buffer_size;
+extern std::atomic<bool> block_dump_threads;
 
 /*
  * SlaveStats struct contains the statistics continuously sent by slaves to the

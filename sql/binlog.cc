@@ -21,6 +21,7 @@
 #include "rpl_filter.h"
 #include "rpl_rli.h"
 #include "rpl_slave_commit_order_manager.h" // Commit_order_manager
+#include "rpl_master.h"
 #include "sql_plugin.h"
 #include "rpl_handler.h"
 #include "rpl_info_factory.h"
@@ -7951,6 +7952,18 @@ int raft_config_change(THD *thd, std::string config_change)
   DBUG_RETURN(error);
 }
 
+int handle_dump_threads(bool block)
+{
+  DBUG_ENTER("handle_dump_threads");
+#ifdef HAVE_REPLICATION
+  if (block)
+    block_all_dump_threads();
+  else
+    unblock_all_dump_threads();
+#endif
+  DBUG_RETURN(0);
+}
+
 int binlog_change_to_apply()
 {
   DBUG_ENTER("binlog_change_to_apply");
@@ -13807,7 +13820,7 @@ bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
       (snapshot_last_acked.pos != st_filenum_pos::max_pos &&
        current == snapshot_last_acked))
   {
-    return true;
+    return !current_thd->killed;
   }
 
   ulonglong timeout= 1000000000ULL; // one sec in nanosecs
@@ -13895,6 +13908,19 @@ void reset_semi_sync_last_acked()
   mysql_cond_broadcast(&COND_last_acked);
   mysql_mutex_unlock(&LOCK_last_acked);
 }
+
+#ifdef HAVE_REPLICATION
+void block_all_dump_threads()
+{
+  block_dump_threads= true;
+  kill_all_dump_threads();
+}
+
+void unblock_all_dump_threads()
+{
+  block_dump_threads= false;
+}
+#endif
 
 int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids)
 {

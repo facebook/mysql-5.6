@@ -131,6 +131,7 @@ static comp_event_queue comp_event_queue_list[COMP_EVENT_CACHE_NUM_SHARDS];
 static std::atomic<size_t>
         comp_event_cache_size_list[COMP_EVENT_CACHE_NUM_SHARDS];
 
+std::atomic<bool> block_dump_threads{false};
 
 #ifndef DBUG_OFF
 static int binlog_dump_count = 0;
@@ -2006,6 +2007,12 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   }
 
   ulonglong dump_thread_wait_sleep_usec= get_dump_thread_wait_sleep(thd);
+
+  if (block_dump_threads)
+  {
+    sql_print_error("Binlog dump threads are blocked!");
+    GOTO_ERR;
+  }
 
 #ifndef DBUG_OFF
   if (opt_sporadic_binlog_dump_fail && (binlog_dump_count++ % 2))

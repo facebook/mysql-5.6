@@ -1532,6 +1532,8 @@ extern bool semi_sync_last_ack_inited;
 extern char rpl_semi_sync_master_enabled;
 
 extern "C" void signal_semi_sync_ack(const std::string &file_num, uint file_pos);
+extern "C" void block_all_dump_threads();
+extern "C" void unblock_all_dump_threads();
 
 void init_semi_sync_last_acked();
 void destroy_semi_sync_last_acked();
@@ -1550,6 +1552,11 @@ int get_executed_gtids(std::string* const gtids);
  * @param config_change - Has the committed Config and New Config
  */
 int raft_config_change(THD *thd, std::string config_change);
+
+/**
+ * Block/unblock dump threads
+ */
+int handle_dump_threads(bool block);
 
 int rotate_binlog_file(THD *thd);
 /* This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
