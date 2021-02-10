@@ -1504,6 +1504,8 @@ class Query_log_event : public virtual binary_log::Query_event,
   virtual void prepare_dep(Relay_log_info *rli,
                            std::shared_ptr<Log_event_wrapper> &ev) override;
   virtual int do_apply_event(Relay_log_info const *rli) override;
+  virtual int do_apply_event_worker(Slave_worker *w) override;
+
   virtual int do_update_pos(Relay_log_info *rli) override;
 
   int do_apply_event(Relay_log_info const *rli, const char *query_arg,
@@ -2313,6 +2315,7 @@ class Execute_load_query_log_event
  private:
 #if defined(MYSQL_SERVER)
   virtual int do_apply_event(Relay_log_info const *rli) override;
+  virtual int do_apply_event_worker(Slave_worker *w) override;
 #endif
 };
 
