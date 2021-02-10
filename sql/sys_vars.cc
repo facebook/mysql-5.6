@@ -4479,9 +4479,10 @@ static Sys_var_int32 Sys_regexp_stack_limit(
 
 static bool update_rpl_wait_for_semi_sync_ack(sys_var *, THD *, enum_var_type) {
   if (!rpl_wait_for_semi_sync_ack) {
-    mysql_bin_log.lock_binlog_end_pos();
-    mysql_bin_log.signal_update();
-    mysql_bin_log.unlock_binlog_end_pos();
+    auto raw_log = dump_log.get_log(/*should_lock*/ true);
+    raw_log->lock_binlog_end_pos();
+    raw_log->signal_update();
+    raw_log->unlock_binlog_end_pos();
   }
   return false;
 }

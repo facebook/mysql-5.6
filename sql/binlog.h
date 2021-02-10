@@ -157,13 +157,17 @@ struct LOG_INFO {
   bool fatal;       // if the purge happens to give us a negative offset
   int entry_index;  // used in purge_logs(), calculatd in find_log_pos().
   int encrypted_header_size;
-  LOG_INFO()
+  bool is_relay_log;         // is this info pointing to a relay log?
+  bool is_used_by_dump_thd;  // is this info being used by a dump thread?
+  LOG_INFO(bool relay_log = false, bool used_by_dump_thd = false)
       : index_file_offset(0),
         index_file_start_offset(0),
         pos(0),
         fatal(false),
         entry_index(0),
-        encrypted_header_size(0) {
+        encrypted_header_size(0),
+        is_relay_log(relay_log),
+        is_used_by_dump_thd(used_by_dump_thd) {
     memset(log_file_name, 0, FN_REFLEN);
   }
 };
@@ -788,6 +792,16 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   bool init_prev_gtid_sets_map();
 
+  void get_lost_gtids(Gtid_set *gtids) {
+    gtids->clear();
+    mysql_mutex_lock(&LOCK_index);
+    auto it = previous_gtid_set_map.begin();
+    if (it != previous_gtid_set_map.end())
+      gtids->add_gtid_encoding((const uchar *)it->second.c_str(),
+                               it->second.length());
+    mysql_mutex_unlock(&LOCK_index);
+  }
+
   enum_read_gtids_from_binlog_status read_gtids_from_binlog(
       const char *filename, Gtid_set *all_gtids, Gtid_set *prev_gtids,
       Gtid *first_gtid, Sid_map *sid_map, bool verify_checksum,
@@ -1123,7 +1137,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void set_max_size(ulong max_size_arg);
 
   void update_binlog_end_pos(bool need_lock = true);
-  void update_binlog_end_pos(const char *file, my_off_t pos);
+  void update_binlog_end_pos(const char *file, my_off_t pos,
+                             bool need_lock = true);
 
   /**
     Wait until we get a signal that the binary log has been updated.
@@ -1193,23 +1208,29 @@ class MYSQL_BIN_LOG : public TC_LOG {
     after the RESET MASTER TO command is called.
     @param raft_rotate_info rotate related information passed in by
     listener callbacks
+    @param need_end_log_pos_lock If true, LOCK_binlog_end_pos is acquired;
+    otherwise LOCK_binlog_end_pos must be taken by the caller.
   */
   bool open_binlog(const char *log_name, const char *new_name,
                    ulong max_size_arg, bool null_created_arg,
                    bool need_lock_index, bool need_sid_lock,
                    Format_description_log_event *extra_description_event,
                    uint32 new_index_number = 0,
-                   RaftRotateInfo *raft_rotate_info = nullptr);
+                   RaftRotateInfo *raft_rotate_info = nullptr,
+                   bool need_end_log_pos_lock = true);
 
   /**
     Open an existing binlog/relaylog file
 
     @param log_name Name of binlog
     @param max_size The size at which this binlog will be rotated.
+    @param need_end_log_pos_lock If true, LOCK_binlog_end_pos is acquired;
+    otherwise LOCK_binlog_end_pos must be taken by the caller.
 
     @retval false on success, true on error
   */
-  bool open_existing_binlog(const char *log_name, ulong max_size_arg);
+  bool open_existing_binlog(const char *log_name, ulong max_size_arg,
+                            bool need_end_log_pos_lock = true);
 
   bool open_index_file(const char *index_file_name_arg, const char *log_name,
                        bool need_lock_index);
@@ -1516,10 +1537,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
     This function will be called from mysql_binlog_send() function.
 
+    @param lost_gtid_set               GTID set of missing gtids
     @param slave_executed_gtid_set     GTID set executed by slave
     @param errmsg                      Pointer to the error message
   */
-  void report_missing_purged_gtids(const Gtid_set *slave_executed_gtid_set,
+  void report_missing_purged_gtids(const Gtid_set *lost_gtid_set,
+                                   const Gtid_set *slave_executed_gtid_set,
                                    std::string &errmsg);
 
   /**
@@ -1593,6 +1616,46 @@ struct LOAD_FILE_INFO {
 };
 
 extern MYSQL_PLUGIN_IMPORT MYSQL_BIN_LOG mysql_bin_log;
+
+/**
+ * Encapsulation over binlog or relay log for dumping raft logs during
+ * COM_BINLOG_DUMP and COM_BINLOG_DUMP_GTID.
+ */
+class Dump_log {
+ public:
+  Dump_log();
+
+  void init_pthread_objects();
+
+  void switch_log(bool relay_log, bool should_lock = true);
+
+  MYSQL_BIN_LOG *get_log(bool should_lock = true) {
+    if (should_lock) lock();
+    auto ret = log_;
+    if (should_lock) unlock();
+    return ret;
+  }
+
+  void signal_semi_sync_ack(const char *const log_file,
+                            const my_off_t log_pos) {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    log_->signal_semi_sync_ack(log_file, log_pos);
+  }
+
+  void reset_semi_sync_last_acked() {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    log_->reset_semi_sync_last_acked();
+  }
+
+  void lock() { log_mutex_.lock(); }
+
+  void unlock() { log_mutex_.unlock(); }
+
+ private:
+  MYSQL_BIN_LOG *log_;
+  std::mutex log_mutex_;
+};
+extern MYSQL_PLUGIN_IMPORT Dump_log dump_log;
 
 /**
   Check if the the transaction is empty.

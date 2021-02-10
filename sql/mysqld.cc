@@ -5472,7 +5472,6 @@ int init_common_variables() {
     inited before MY_INIT(). So we do it here.
   */
   mysql_bin_log.init_pthread_objects();
-
   /* TODO: remove this when my_time_t is 64 bit compatible */
   if (!is_time_t_valid_for_timestamp(server_start_time)) {
     LogErr(ERROR_LEVEL, ER_UNSUPPORTED_DATE);
@@ -7768,7 +7767,7 @@ static int init_server_components() {
   rpl_source_io_monitor = new Source_IO_monitor();
   udf_load_service.init();
 
-  mysql_bin_log.reset_semi_sync_last_acked();
+  dump_log.reset_semi_sync_last_acked();
 
   /* Initialize the optimizer cost module */
   init_optimizer_cost_module(true);

@@ -78,7 +78,7 @@ class Binlog_sender {
     Checks whether thread should continue awaiting new events
     @param log_pos Last processed (sent) event id
   */
-  bool stop_waiting_for_update(my_off_t log_pos) const;
+  bool stop_waiting_for_update(my_off_t log_pos, MYSQL_BIN_LOG *raw_log) const;
 
   THD *m_thd;
   String &m_packet;
@@ -421,8 +421,8 @@ class Binlog_sender {
     @return It returns 0 if succeeds, otherwise 1 is returned.
   */
   int wait_new_events(my_off_t log_pos);
-  int wait_with_heartbeat(my_off_t log_pos);
-  int wait_without_heartbeat(my_off_t log_pos);
+  int wait_with_heartbeat(MYSQL_BIN_LOG **raw_log, my_off_t log_pos);
+  int wait_without_heartbeat(MYSQL_BIN_LOG **raw_log, my_off_t log_pos);
 
 #ifndef NDEBUG
   /* It is used to count the events that have been sent. */

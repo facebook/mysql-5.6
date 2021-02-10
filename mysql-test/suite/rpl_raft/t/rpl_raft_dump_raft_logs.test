@@ -1,8 +1,5 @@
-# TODO(pgl) Excluding this test case till the time we have debug raft plugin in tools directory.
-source include/have_nodebug.inc;
-source include/have_debug.inc;
-
 source ../include/raft_3_node.inc;
+source include/have_debug_sync.inc;
 
 --disable_query_log
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
@@ -26,20 +23,21 @@ call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with
 --enable_query_log
 
 # Connect server 4 and 5 using COM_BINLOG_DUMP_GTID
+# server4 will tail the leader
 connection server_4;
 RESET MASTER;
 RESET SLAVE;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
-replace_result $SERVER_MYPORT_1 MASTER_PORT;
+replace_result $SERVER_MYPORT_1 SERVER_MYPORT_1;
 eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
 START SLAVE;
 
+# server5 will tail a follower
 connection server_5;
 RESET MASTER;
 RESET SLAVE;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
-replace_result $SERVER_MYPORT_2 MASTER_PORT;
-# server 5 is tailing server 2 (a follower)
+replace_result $SERVER_MYPORT_2 SERVER_MYPORT_2;
 eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_2, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
 START SLAVE;
 
@@ -54,6 +52,7 @@ connection server_4;
 show status like 'rpl_raft_role';
 connection server_5;
 show status like 'rpl_raft_role';
+
 # Create a schema and sync it across replicas
 connection server_1;
 create table t1 (a int primary key) engine = innodb;
@@ -67,30 +66,28 @@ source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
 
-# Case 1: Test AFTER_CONSENSUS on leader
+# Check if server 4 and 5 are tailing raft logs
+connection server_4;
+let $logname= query_get_value(SHOW SLAVE STATUS, Relay_Master_Log_File, 1);
+replace_result $logname LOGNAME;
+eval SELECT "$logname" LIKE "binary-logs%";
+connection server_5;
+let $logname= query_get_value(SHOW SLAVE STATUS, Relay_Master_Log_File, 1);
+replace_result $logname LOGNAME;
+eval SELECT "$logname" LIKE "binary-logs%";
 
+# Execute a regular DML (insert)
 connection server_1;
-# Should be AFTER_CONSENSUS
-select @@global.raft_signal_async_dump_threads;
-# Wait before executing replicationDone i.e. before commit hook
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
-
-# Execute a trx on the leader
-connection server_1_1;
-send insert into t1 values(1);
-
-# Wait till we've reached the beginning of replicationDone
-connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
-
-# Sync both raft nodes
+insert into t1 values(1);
 let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_5;
+source include/sync_slave_sql_with_master.inc;
 
-# Check the contents of the table in all servers, server 4 should not receive
-# the insert
 connection server_2;
 select * from t1;
 connection server_3;
@@ -100,167 +97,27 @@ select * from t1;
 connection server_5;
 select * from t1;
 
-# Continue replicationDone
-connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
-set @@global.rpl_raft_debug_sync_point = '';
+# Transfer leadership from server1 to server2
+let $rpl_raft_leader_number= 2;
+source ../include/raft_promote_to_leader.inc;
 
-connection server_1_1;
-reap;
-
-connection server_1;
-# Sync server 4 and 5
-let $sync_slave_connection = server_4;
-source include/sync_slave_sql_with_master.inc;
+# Execute some more trxs
 connection server_2;
-let $sync_slave_connection = server_5;
-source include/sync_slave_sql_with_master.inc;
-
-# Now all servers should have the inserted row
-connection server_2;
-select * from t1;
-connection server_3;
-select * from t1;
-connection server_4;
-select * from t1;
-connection server_5;
-select * from t1;
-
-# Case 2: Test AFTER_CONSENSUS on follower
-
-connection server_2;
-# Should be AFTER_CONSENSUS
-select @@global.raft_signal_async_dump_threads;
-# Wait before executing replicationDone
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
-
-# Execute a trx on the leader
-connection server_1;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
 insert into t1 values(2);
-
-# Wait till we've reached the beginning of replicationDone
-connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
-
-# Sync server3
-let $sync_slave_connection= server_3;
-source include/sync_slave_sql_with_master.inc;
-
-# Check the contents of the table in all servers, server5 should not receive the
-# insert
-connection server_2;
-select * from t1;
-connection server_3;
-select * from t1;
-connection server_4;
-select * from t1;
-connection server_5;
-select * from t1;
-
-# Continue replicationDone
-connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
-set @@global.rpl_raft_debug_sync_point = '';
-
-connection server_1;
-# Sync all servers
-let $sync_slave_connection= server_2;
-source include/sync_slave_sql_with_master.inc;
-let $sync_slave_connection= server_3;
-source include/sync_slave_sql_with_master.inc;
-let $sync_slave_connection= server_4;
-source include/sync_slave_sql_with_master.inc;
-let $sync_slave_connection= server_5;
-source include/sync_slave_sql_with_master.inc;
-
-# Now all servers should have the inserted row
-connection server_2;
-select * from t1;
-connection server_3;
-select * from t1;
-connection server_4;
-select * from t1;
-connection server_5;
-select * from t1;
-
-# Case 3: Test AFTER_ENGINE_COMMIT on leader
-
-connection server_1;
-set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
-# Wait before executing updateConsensusApplied i.e. after commit
-set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
-
-# Execute a trx on the leader
-connection server_1_1;
-send insert into t1 values(3);
-
-# Wait till we've reached the beginning of replicationDone
-connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
-
-# Sync both raft nodes
-let $sync_slave_connection= server_2;
-source include/sync_slave_sql_with_master.inc;
-let $sync_slave_connection= server_3;
-source include/sync_slave_sql_with_master.inc;
-
-# Check the contents of the table in all servers, server 4 should not receive
-# the insert
-connection server_2;
-select * from t1;
-connection server_3;
-select * from t1;
-connection server_4;
-select * from t1;
-connection server_5;
-select * from t1;
-
-# Continue replicationDone
-connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
-set @@global.rpl_raft_debug_sync_point = '';
-
-connection server_1_1;
-reap;
-
-# Sync server 4 and 5
-let $sync_slave_connection= server_4;
-source include/sync_slave_sql_with_master.inc;
-let $sync_slave_connection= server_5;
-source include/sync_slave_sql_with_master.inc;
-
-# Now all servers should have the inserted row
-connection server_2;
-select * from t1;
-connection server_3;
-select * from t1;
-connection server_4;
-select * from t1;
-connection server_5;
-select * from t1;
-
-# Case 4: Test AFTER_ENGINE_COMMIT on follower
-
-connection server_2;
-set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
-# Wait before executing updateConsensusApplied
-set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
-
-# Execute a trx on the leader
-connection server_1;
+insert into t1 values(3);
 insert into t1 values(4);
-
-# Wait till we've reached the beginning of replicationDone
-connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
-
-# Sync server3
+let $sync_slave_connection= server_1;
+source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_5;
+source include/sync_slave_sql_with_master.inc;
 
-# Check the contents of the table in all servers, server5 should not receive the
-# insert
-connection server_2;
+connection server_1;
 select * from t1;
 connection server_3;
 select * from t1;
@@ -269,13 +126,26 @@ select * from t1;
 connection server_5;
 select * from t1;
 
-# Continue replicationDone
-connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
-set @@global.rpl_raft_debug_sync_point = '';
+# Check if server 4 and 5 are still tailing raft logs post election
+connection server_4;
+let $logname= query_get_value(SHOW SLAVE STATUS, Relay_Master_Log_File, 1);
+replace_result $logname LOGNAME;
+eval SELECT "$logname" LIKE "binary-logs%";
+connection server_5;
+let $logname= query_get_value(SHOW SLAVE STATUS, Relay_Master_Log_File, 1);
+replace_result $logname LOGNAME;
+eval SELECT "$logname" LIKE "binary-logs%";
 
+# Transfer leadership from server2 to server1
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+# Check if binlog flushing works as expected
 connection server_1;
-# Sync all servers
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+flush binary logs;
+insert into t1 values(5);
 let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_3;
@@ -285,7 +155,6 @@ source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
 
-# Now all servers should have the inserted row
 connection server_2;
 select * from t1;
 connection server_3;
@@ -294,12 +163,93 @@ connection server_4;
 select * from t1;
 connection server_5;
 select * from t1;
+
+# Check interaction of dump logs with purge
+connection server_4;
+let $logname= query_get_value(SHOW SLAVE STATUS, Relay_Master_Log_File, 1);
+connection server_1;
+set @@global.debug='+d,dump_wait_before_find_next_log';
+insert into t1 values(6);
+insert into t1 values(7);
+flush binary logs;
+insert into t1 values(8);
+insert into t1 values(9);
+flush binary logs;
+insert into t1 values(10);
+insert into t1 values(11);
+set debug_sync= 'now wait_for signal.reached';
+replace_result $logname LOGNAME;
+eval purge raft logs to '$logname';
+set debug_sync= 'now signal signal.done';
+set @@global.debug='-d,dump_wait_before_find_next_log';
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_5;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+select * from t1;
+connection server_3;
+select * from t1;
+connection server_4;
+select * from t1;
+connection server_5;
+select * from t1;
+
+
+# Check if clean restart affects dump threads
+connection server_2;
+source include/stop_slave.inc;
+let $rpl_server_number= 2;
+source include/rpl_restart_server.inc;
+
+connection server_1;
+let $rpl_server_number= 1;
+source include/rpl_restart_server.inc;
+
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+disable_warnings;
+connection server_4;
+START SLAVE IO_THREAD;
+connection server_5;
+START SLAVE IO_THREAD;
+enable_warnings;
+
+connection server_1;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+insert into t1 values(12);
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_5;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+select * from t1;
+connection server_3;
+select * from t1;
+connection server_4;
+select * from t1;
+connection server_5;
+select * from t1;
+
+--disable_query_log
+connection server_1;
+call mtr.add_suppression("Slave has more GTIDs than the master has, using the master's SERVER_UUID");
+--enable_query_log
 
 # Cleanup
-connection server_2;
-set @@global.raft_signal_async_dump_threads = AFTER_CONSENSUS;
 connection server_1;
-set @@global.raft_signal_async_dump_threads = AFTER_CONSENSUS;
 drop table t1;
 
 let $sync_slave_connection= server_2;

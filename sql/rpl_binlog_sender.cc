@@ -49,6 +49,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/psi/mysql_socket.h"
 #include "scope_guard.h"
+#include "sql/binlog.h"
 #include "sql/binlog_reader.h"
 #include "sql/debug_sync.h"  // debug_sync_set_action
 #include "sql/derror.h"      // ER_THD
@@ -353,12 +354,13 @@ bool Binlog_sender::set_dscp(void) {
 void Binlog_sender::init() {
   DBUG_TRACE;
   THD *thd = m_thd;
-
+  auto raw_log = dump_log.get_log(false);
   thd->push_diagnostics_area(&m_diag_area);
   init_heartbeat_period();
   m_last_event_sent_ts = now_in_nanosecs();
 
   mysql_mutex_lock(&thd->LOCK_thd_data);
+  m_linfo = LOG_INFO(raw_log->is_relay_log, /* is_used_by_dump_thd = */ true);
   thd->current_linfo = &m_linfo;
   mysql_mutex_unlock(&thd->LOCK_thd_data);
 
@@ -371,7 +373,7 @@ void Binlog_sender::init() {
   /* Save original query. Will be unset in cleanup */
   m_orig_query = thd->query();
 
-  if (!mysql_bin_log.is_open()) {
+  if (!raw_log->is_open()) {
     set_fatal_error("Binary log is not open");
     return;
   }
@@ -507,8 +509,10 @@ bool is_semi_sync_slave() {
 
 void Binlog_sender::run() {
   DBUG_TRACE;
-  init();
 
+  dump_log.lock();
+  init();
+  dump_log.unlock();
   m_is_semi_sync_slave = is_semi_sync_slave();
 
   unsigned int max_event_size =
@@ -555,28 +559,47 @@ void Binlog_sender::run() {
           "wait_for continue_dump_thread no_clear_event";
       assert(!debug_sync_set_action(m_thd, STRING_WITH_LEN(act)));
     };);
-    mysql_bin_log.lock_index();
-    if (!mysql_bin_log.is_open()) {
-      if (mysql_bin_log.open_index_file(mysql_bin_log.get_index_fname(),
-                                        log_file, false)) {
+
+    // Note: This part is tricky and should be touched if you really know
+    // what you're doing. We're locking dump log to get the raw log
+    // pointer, then we're locking lock_index before unlocking the dump
+    // log. We're taking the lock in the same sequence as when log is
+    // switched in binlog_change_to_binlog() and binlog_change_to_apply()
+    // to avoid deadlocks. This locking pattern ensures that we're working
+    // with the correct raw log and that there is no race between getting
+    // the raw log and log switching. Log switching will be blocked until
+    // we release the binlog end pos lock before waiting for signal in
+    // wait_for_update_bin_log().
+    dump_log.lock();
+    MYSQL_BIN_LOG *raw_log = dump_log.get_log(false);
+    raw_log->lock_index();
+    dump_log.unlock();
+    if (!raw_log->is_open()) {
+      if (raw_log->open_index_file(raw_log->get_index_fname(), log_file,
+                                   false)) {
         set_fatal_error(
             "Binary log is not open and failed to open index file "
             "to retrieve next file.");
-        mysql_bin_log.unlock_index();
+        raw_log->unlock_index();
         break;
       }
       is_index_file_reopened_on_binlog_disable = true;
     }
-    int error = mysql_bin_log.find_next_log(&m_linfo, false);
-    mysql_bin_log.unlock_index();
+    DBUG_EXECUTE_IF("dump_wait_before_find_next_log", {
+      const char act[] = "now signal signal.reached wait_for signal.done";
+      assert(opt_debug_sync_timeout > 0);
+      assert(!debug_sync_set_action(m_thd, STRING_WITH_LEN(act)));
+    };);
+    int error = raw_log->find_next_log(&m_linfo, false);
+    raw_log->unlock_index();
     if (unlikely(error)) {
       DBUG_EXECUTE_IF("waiting_for_disable_binlog", {
         const char act[] = "now signal consumed_binlog";
         assert(!debug_sync_set_action(m_thd, STRING_WITH_LEN(act)));
       };);
       if (is_index_file_reopened_on_binlog_disable)
-        mysql_bin_log.close(LOG_CLOSE_INDEX, true /*need_lock_log=true*/,
-                            true /*need_lock_index=true*/);
+        raw_log->close(LOG_CLOSE_INDEX, true /*need_lock_log=true*/,
+                       true /*need_lock_index=true*/);
       set_fatal_error("could not find next log");
       break;
     }
@@ -688,16 +711,16 @@ std::pair<my_off_t, int> Binlog_sender::get_binlog_end_pos(
   }
 
   bool wait_for_ack = !m_is_semi_sync_slave;
+  MYSQL_BIN_LOG *raw_log = dump_log.get_log(true);
   result.first =
-      mysql_bin_log.get_last_acked_pos(&wait_for_ack, m_linfo.log_file_name);
+      raw_log->get_last_acked_pos(&wait_for_ack, m_linfo.log_file_name);
 
   DBUG_PRINT("info", ("Reading file %s, seek pos %llu, end_pos is %llu",
                       m_linfo.log_file_name, read_pos, result.first));
-  DBUG_PRINT("info", ("Active file is %s", mysql_bin_log.get_log_fname()));
+  DBUG_PRINT("info", ("Active file is %s", raw_log->get_log_fname()));
 
   /* If this is a cold binlog file, we are done getting the end pos */
-  if (unlikely(!wait_for_ack &&
-               !mysql_bin_log.is_active(m_linfo.log_file_name))) {
+  if (unlikely(!wait_for_ack && !raw_log->is_active(m_linfo.log_file_name))) {
     return std::make_pair(0, 0);
   }
   if (read_pos < result.first) {
@@ -932,55 +955,98 @@ int Binlog_sender::wait_new_events(my_off_t log_pos) {
     LOCK_binlog_end_pos if we reached the end of the hot log and are going
     to wait for updates on the binary log (Binlog_sender::wait_new_event()).
   */
-  if (stop_waiting_for_update(log_pos)) {
+  if (stop_waiting_for_update(log_pos, dump_log.get_log(false))) {
     return 0;
   }
 
   /* Some data may be in net buffer, it should be flushed before waiting */
   if (flush_net()) return 1;
 
-  mysql_bin_log.lock_binlog_end_pos();
+  // Note: This part is tricky and should be touched if you really know
+  // what you're doing. We're locking dump log to get the raw log
+  // pointer, then we're locking end log pos before unlocking the dump
+  // log. We're taking the lock in the same sequence as when log is
+  // switched in binlog_change_to_binlog() and binlog_change_to_apply()
+  // to avoid deadlocks. This locking pattern ensures that we're working
+  // with the correct raw log and that there is no race between getting
+  // the raw log and log switching. Log switching will be blocked until
+  // we release the binlog end pos lock before waiting for signal in
+  // wait_for_update_bin_log().
+  dump_log.lock();
+  MYSQL_BIN_LOG *raw_log = dump_log.get_log(false);
+  raw_log->lock_binlog_end_pos();
+  dump_log.unlock();
 
-  m_thd->ENTER_COND(mysql_bin_log.get_log_cond(),
-                    mysql_bin_log.get_binlog_end_pos_lock(),
+  m_thd->ENTER_COND(raw_log->get_log_cond(), raw_log->get_binlog_end_pos_lock(),
                     &stage_source_has_sent_all_binlog_to_replica, &old_stage);
 
+  // Note: upstream code rewrote wait_*_heartbeat, but because
+  // log switches can occur, wait_*_heartbeat needs to release
+  // and check for log switches too. Otherwise, we may never
+  // return from wait_*_heartbeat because stop_waiting_for_update()
+  // never returns true.
+  //
+  // Hence, the raw_log may change. The conditional wait metrics
+  // may not be accurate as a result of this, but that is probably fine.
   if (m_heartbeat_period.count() > 0)
-    ret = wait_with_heartbeat(log_pos);
+    ret = wait_with_heartbeat(&raw_log, log_pos);
   else
-    ret = wait_without_heartbeat(log_pos);
+    ret = wait_without_heartbeat(&raw_log, log_pos);
 
-  mysql_bin_log.unlock_binlog_end_pos();
+  raw_log->unlock_binlog_end_pos();
   m_thd->EXIT_COND(&old_stage);
 
   return ret;
 }
 
-bool Binlog_sender::stop_waiting_for_update(my_off_t log_pos) const {
+bool Binlog_sender::stop_waiting_for_update(my_off_t log_pos,
+                                            MYSQL_BIN_LOG *raw_log) const {
   bool wait_for_ack = !m_is_semi_sync_slave;
-  if (mysql_bin_log.get_last_acked_pos(&wait_for_ack, m_linfo.log_file_name) >
+  if (raw_log->get_last_acked_pos(&wait_for_ack, m_linfo.log_file_name) >
           log_pos ||
-      (!wait_for_ack && !mysql_bin_log.is_active(m_linfo.log_file_name)) ||
+      (!wait_for_ack && !raw_log->is_active(m_linfo.log_file_name)) ||
       m_thd->killed) {
     return true;
   }
   return false;
 }
 
-inline int Binlog_sender::wait_with_heartbeat(my_off_t log_pos) {
+static void swap_and_relock_log(MYSQL_BIN_LOG **raw_log) {
+  // Switch log within wait_*_heartbeat, see wait_new_events()
+  (*raw_log)->unlock_binlog_end_pos();
+  bool is_locked = dump_log.lock();
+  *raw_log = dump_log.get_log(false);
+  (*raw_log)->lock_binlog_end_pos();
+  dump_log.unlock(is_locked);
+}
+
+inline int Binlog_sender::wait_with_heartbeat(MYSQL_BIN_LOG **raw_log,
+                                              my_off_t log_pos) {
 #ifndef NDEBUG
   ulong hb_info_counter = 0;
 #endif
 
-  while (!stop_waiting_for_update(log_pos)) {
-    // ignoring timeout on conditional variable
-    mysql_bin_log.wait_for_update(m_heartbeat_period);
+  while (!stop_waiting_for_update(log_pos, *raw_log)) {
+    // Note: upstream code ignores the timeout on conditional variable
+    // but due to our implementation of having async readers wait,
+    // breaking out of wait_for_update early causes heartbeats
+    // to be sent, so use the return code to determine if
+    // heartbeats are needed.
+    int ret = (*raw_log)->wait_for_update(m_heartbeat_period);
 
-    if (stop_waiting_for_update(log_pos)) {
+    // Upstream unlocks binlog_end_pos, but we'll keep this locked
+    // through the heartbeat code as in 8.0.28. Unlocking the
+    // binlog_end_pos is fine too as long as we call get_log() before
+    // relocking it.
+    swap_and_relock_log(raw_log);
+
+    if (stop_waiting_for_update(log_pos, *raw_log)) {
       return 0;
     }
-    mysql_bin_log.unlock_binlog_end_pos();
-    Scope_guard lock([]() { mysql_bin_log.lock_binlog_end_pos(); });
+
+    if (!is_timeout(ret)) {
+      continue;
+    }
 #ifndef NDEBUG
     if (hb_info_counter < 3) {
       LogErr(INFORMATION_LEVEL, ER_RPL_BINLOG_MASTER_SENDS_HEARTBEAT);
@@ -996,10 +1062,14 @@ inline int Binlog_sender::wait_with_heartbeat(my_off_t log_pos) {
   return 0;
 }
 
-inline int Binlog_sender::wait_without_heartbeat(my_off_t log_pos) {
+inline int Binlog_sender::wait_without_heartbeat(MYSQL_BIN_LOG **raw_log,
+                                                 my_off_t log_pos) {
   int res = 0;
-  while (!stop_waiting_for_update(log_pos)) {
-    res = mysql_bin_log.wait_for_update();
+  while (!stop_waiting_for_update(log_pos, *raw_log)) {
+    res = (*raw_log)->wait_for_update();
+
+    // Check for log switches, see wait_new_events()
+    swap_and_relock_log(raw_log);
   }
   return res;
 }
@@ -1023,9 +1093,9 @@ int Binlog_sender::check_start_file() {
   char index_entry_name[FN_REFLEN];
   char *name_ptr = nullptr;
   std::string errmsg;
-
+  auto raw_log = dump_log.get_log(false);
   if (m_start_file[0] != '\0') {
-    mysql_bin_log.make_log_name(index_entry_name, m_start_file);
+    raw_log->make_log_name(index_entry_name, m_start_file);
     name_ptr = index_entry_name;
   } else if (m_using_gtid_protocol) {
     /*
@@ -1090,15 +1160,34 @@ int Binlog_sender::check_start_file() {
       will not find one and an error ER_MASTER_HAS_PURGED_REQUIRED_GTIDS
       is thrown from there.
     */
-    if (!gtid_state->get_lost_gtids()->is_subset(m_exclude_gtid)) {
-      mysql_bin_log.report_missing_purged_gtids(m_exclude_gtid, errmsg);
+    Gtid_set *lost_gtids = const_cast<Gtid_set *>(gtid_state->get_lost_gtids());
+
+    /** In raft mode we calculate lost gtids from the binlog/relaylog index
+     * file instead of using the global state that is always based on the
+     * apply side binlogs. Apply logs are purged on election so global state
+     * is currently incorrect wrt raft logs.
+     *
+     * TODO: Remove this hack after global gtid state is fixed wrt to raft
+     * logs
+     */
+    Sid_map gtids_lost_sid_map(nullptr);
+    Gtid_set gtids_lost(&gtids_lost_sid_map);
+    if (enable_raft_plugin) {
       global_sid_lock->unlock();
+      raw_log->get_lost_gtids(&gtids_lost);
+      lost_gtids = &gtids_lost;
+    }
+
+    if (!lost_gtids->is_subset(m_exclude_gtid)) {
+      mysql_bin_log.report_missing_purged_gtids(lost_gtids, m_exclude_gtid,
+                                                errmsg);
+      if (!enable_raft_plugin) global_sid_lock->unlock();
       set_fatal_error(errmsg.c_str());
       return 1;
     }
-    global_sid_lock->unlock();
+    if (!enable_raft_plugin) global_sid_lock->unlock();
     Gtid first_gtid = {0, 0};
-    if (mysql_bin_log.find_first_log_not_in_gtid_set(
+    if (raw_log->find_first_log_not_in_gtid_set(
             index_entry_name, m_exclude_gtid, &first_gtid, errmsg)) {
       set_fatal_error(errmsg.c_str());
       return 1;
@@ -1126,7 +1215,7 @@ int Binlog_sender::check_start_file() {
     then starts from the first file in index file.
   */
 
-  if (mysql_bin_log.find_log_pos(&m_linfo, name_ptr, true)) {
+  if (raw_log->find_log_pos(&m_linfo, name_ptr, true)) {
     set_fatal_error(
         "Could not find first log file name in binary log "
         "index file");

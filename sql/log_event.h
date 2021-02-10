@@ -1543,6 +1543,7 @@ class Query_log_event : public virtual binary_log::Query_event,
 #if defined(MYSQL_SERVER)
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
   int do_apply_event(Relay_log_info const *rli) override;
+  int do_apply_event_worker(Slave_worker *w) override;
   int do_update_pos(Relay_log_info *rli) override;
   void prepare_dep(Relay_log_info *rli,
                    std::shared_ptr<Log_event_wrapper> &ev) override;
@@ -2350,6 +2351,7 @@ class Execute_load_query_log_event
  private:
 #if defined(MYSQL_SERVER)
   int do_apply_event(Relay_log_info const *rli) override;
+  int do_apply_event_worker(Slave_worker *w) override;
 #endif
 };
 
