@@ -1757,7 +1757,6 @@ int raft_reset_slave(THD *) {
   mi->inited = false;
   mysql_mutex_lock(&mi->rli->data_lock);
   mi->rli->inited = false;
-  mi->flush_info(true);
   /**
     Clear the retrieved gtid set for this channel.
   */
@@ -1767,7 +1766,7 @@ int raft_reset_slave(THD *) {
 
   mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
-
+  remove_info(mi);
   // no longer a slave. will be set again during change master
   is_slave = false;
   channel_map.unlock();

@@ -5178,7 +5178,6 @@ int init_common_variables() {
     inited before MY_INIT(). So we do it here.
   */
   mysql_bin_log.init_pthread_objects();
-
   /* TODO: remove this when my_time_t is 64 bit compatible */
   if (!is_time_t_valid_for_timestamp(server_start_time)) {
     LogErr(ERROR_LEVEL, ER_UNSUPPORTED_DATE);
@@ -7244,7 +7243,7 @@ static int init_server_components() {
 
   udf_load_service.init();
 
-  mysql_bin_log.reset_semi_sync_last_acked();
+  dump_log.reset_semi_sync_last_acked();
 
   /* Initialize the optimizer cost module */
   init_optimizer_cost_module(true);
@@ -12618,7 +12617,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_rotate_binlog_master_key, "LOCK_rotate_binlog_master_key", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_monitor_info_run_lock, "Source_IO_monitor::run_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_ac_node, "st_ac_node::lock", 0, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_ac_info, "Ac_info::lock", 0, 0, PSI_DOCUMENT_ME}
+  { &key_LOCK_ac_info, "Ac_info::lock", 0, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 
