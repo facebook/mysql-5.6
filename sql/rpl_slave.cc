@@ -8782,6 +8782,7 @@ static int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi,
   mysql_options(mysql, MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
                 &rpl_receive_buffer_size);
 
+  mysql_extension_set_server_extn(mysql, &mi->server_extn);
   while (!(slave_was_killed = io_slave_killed(thd, mi)) &&
          (reconnect ? mysql_reconnect(mysql) != 0
                     : mysql_real_connect(mysql, mi->host, user, password,
@@ -8811,6 +8812,7 @@ static int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi,
       break;
     }
     slave_sleep(thd, mi->connect_retry, io_slave_killed, mi);
+    mysql_extension_set_server_extn(mysql, &mi->server_extn);
   }
 
   if (!slave_was_killed) {
