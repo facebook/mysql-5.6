@@ -9029,6 +9029,7 @@ int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi, bool reconnect,
   const char *tmp_host = host.empty() ? mi->host : host.c_str();
   uint tmp_port = (port == 0) ? mi->port : port;
 
+  mysql_extension_set_server_extn(mysql, &mi->server_extn);
   while (
       !(slave_was_killed = is_io_thread ? io_slave_killed(thd, mi)
                                         : monitor_io_replica_killed(thd, mi)) &&
@@ -9065,6 +9066,7 @@ int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi, bool reconnect,
     }
     slave_sleep(thd, mi->connect_retry,
                 is_io_thread ? io_slave_killed : monitor_io_replica_killed, mi);
+    mysql_extension_set_server_extn(mysql, &mi->server_extn);
   }
 
   if (!slave_was_killed) {
