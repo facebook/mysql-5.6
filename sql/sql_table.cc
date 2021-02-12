@@ -7822,7 +7822,8 @@ bool mysql_prepare_create_table(
     FOREIGN_KEY **fk_key_info_buffer, uint *fk_key_count,
     FOREIGN_KEY *existing_fks, uint existing_fks_count,
     const dd::Table *existing_fks_table, uint fk_max_generated_name_number,
-    int select_field_count, bool find_parent_keys) {
+    int select_field_count, bool find_parent_keys,
+    bool ignore_sql_require_primary_key) {
   DBUG_TRACE;
 
   /*
@@ -8078,7 +8079,7 @@ bool mysql_prepare_create_table(
   // been disabled and return error. Limit the effect of sql_require_primary_key
   // to only those SEs that can participate in replication.
   if (!primary_key && !thd->is_dd_system_thread() &&
-      !thd->is_initialize_system_thread() &&
+      !ignore_sql_require_primary_key && !thd->is_initialize_system_thread() &&
       (file->ha_table_flags() &
        (HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE)) != 0 &&
       thd->variables.sql_require_primary_key &&
@@ -8574,6 +8575,10 @@ static Table_exists_result check_if_table_exists(
                                for error reporting.
   @param[in] fk_max_generated_name_number  Max value of number component among
                                            existing generated foreign key names.
+
+  @param[in] ignore_sql_require_primary_key Set to true if we need to ignore
+                              sql_require_primary_key. This is set true
+                              from alter table if the previous table has no pk.
   @param[out] table_def      Data-dictionary object describing the table
                              created if do_not_store_in_dd option was
                              used or because the table is temporary and
@@ -8606,7 +8611,8 @@ static bool create_table_impl(
     Alter_info::enum_enable_or_disable keys_onoff, FOREIGN_KEY **fk_key_info,
     uint *fk_key_count, FOREIGN_KEY *existing_fk_info, uint existing_fk_count,
     const dd::Table *existing_fk_table, uint fk_max_generated_name_number,
-    std::unique_ptr<dd::Table> *table_def, handlerton **post_ddl_ht) {
+    bool ignore_sql_require_primary_key, std::unique_ptr<dd::Table> *table_def,
+    handlerton **post_ddl_ht) {
   DBUG_TRACE;
   DBUG_PRINT("enter", ("db: '%s'  table: '%s'  tmp: %d", db, table_name,
                        internal_tmp_table));
@@ -8809,7 +8815,8 @@ static bool create_table_impl(
       thd, db, error_table_name, create_info, alter_info, file.get(),
       (part_info != nullptr), key_info, key_count, fk_key_info, fk_key_count,
       existing_fk_info, existing_fk_count, existing_fk_table,
-      fk_max_generated_name_number, select_field_count, find_parent_keys);
+      fk_max_generated_name_number, select_field_count, find_parent_keys,
+      ignore_sql_require_primary_key);
 
   if (is_whitelisted_table) thd->pop_internal_handler();
 
@@ -9124,7 +9131,7 @@ bool mysql_create_table_no_lock(THD *thd, const char *db,
       thd, *schema, db, table_name, table_name, path, create_info, alter_info,
       false, select_field_count, find_parent_keys, no_ha_table, false, is_trans,
       &not_used_1, &not_used_2, Alter_info::ENABLE, &not_used_3, &not_used_4,
-      nullptr, 0, nullptr, 0, &not_used_5, post_ddl_ht);
+      nullptr, 0, nullptr, 0, false, &not_used_5, post_ddl_ht);
 }
 
 typedef std::set<std::pair<dd::String_type, dd::String_type>>
@@ -16793,6 +16800,12 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
   */
   std::unique_ptr<dd::Table> non_dd_table_def;
 
+  // If original table has no primary key, then sql_require_primary_key
+  // shouldn't affect any alter.
+  bool ignore_sql_require_primary_key = false;
+  if (table_list->table->s->primary_key == MAX_KEY)
+    ignore_sql_require_primary_key = true;
+
   {
     Disable_binlog_guard binlog_guard(thd);
     /* Prevent intermediate commits to invoke commit order */
@@ -16814,7 +16827,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
         (new_db_type->flags & HTON_SUPPORTS_ATOMIC_DDL), nullptr, &key_info,
         &key_count, keys_onoff, &fk_key_info, &fk_key_count, alter_ctx.fk_info,
         alter_ctx.fk_count, old_table_def,
-        alter_ctx.fk_max_generated_name_number, &non_dd_table_def, nullptr);
+        alter_ctx.fk_max_generated_name_number, ignore_sql_require_primary_key,
+        &non_dd_table_def, nullptr);
   }
 
   if (error) {
