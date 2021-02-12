@@ -559,6 +559,10 @@ bool prepare_create_field(THD *thd, const char *error_schema_name,
   @param find_parent_keys          Indicates whether we need to lookup name of
                                    unique constraint in parent table for foreign
                                    keys.
+  @param ignore_sql_require_primary_key Set to true if we need to ignore
+                                   block_create_no_pk_flag. This is set true
+                                   from alter table if the previous table has no
+  pk.
 
   @retval false   OK
   @retval true    error
@@ -571,7 +575,8 @@ bool mysql_prepare_create_table(
     FOREIGN_KEY **fk_key_info_buffer, uint *fk_key_count,
     FOREIGN_KEY *existing_fks, uint existing_fks_count,
     const dd::Table *existing_fks_table, uint fk_max_generated_name_number,
-    int select_field_count, bool find_parent_keys);
+    int select_field_count, bool find_parent_keys,
+    bool ignore_sql_require_primary_key = false);
 
 size_t explain_filename(THD *thd, const char *from, char *to, size_t to_length,
                         enum_explain_filename_mode explain_mode);

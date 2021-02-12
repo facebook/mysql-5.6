@@ -43,9 +43,16 @@ CREATE TABLE mysql_primkey5 LIKE mysql_primkey;
 
 SET @@session.sql_require_primary_key = false;
 CREATE TABLE mysql_no_primkey (a INT) ENGINE=ROCKSDB;
+CREATE TABLE mysql_no_primkey1 (a INT) ENGINE=ROCKSDB;
 SET @@session.sql_require_primary_key = true;
 -- error ER_TABLE_WITHOUT_PK
 CREATE TABLE mysql_require_primkey LIKE mysql_no_primkey;
+	
+ALTER TABLE mysql_no_primkey1 ADD column(c INT);
+ALTER TABLE mysql_no_primkey1 DROP column c;
+ALTER TABLE mysql_no_primkey1 ADD column(c INT PRIMARY KEY);
+-- error ER_TABLE_WITHOUT_PK
+ALTER TABLE mysql_no_primkey1 DROP column c;
 
 DROP TABLE mysql_primkey;
 DROP TABLE mysql_primkey2;
@@ -53,3 +60,4 @@ DROP TABLE mysql_primkey3;
 DROP TABLE mysql_primkey4;
 DROP TABLE mysql_primkey5;
 DROP TABLE mysql_no_primkey;
+DROP TABLE mysql_no_primkey1;
