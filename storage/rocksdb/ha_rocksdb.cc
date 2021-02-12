@@ -720,6 +720,7 @@ static long long rocksdb_compaction_sequential_deletes_window = 0l;
 static long long rocksdb_compaction_sequential_deletes_file_size = 0l;
 static uint32_t rocksdb_validate_tables = 1;
 static char *rocksdb_datadir;
+static char *rocksdb_fs_uri;
 static uint32_t rocksdb_max_bottom_pri_background_compactions = 0;
 static uint32_t rocksdb_table_stats_sampling_pct;
 static uint32_t rocksdb_table_stats_recalc_threshold_pct = 10;
@@ -933,6 +934,12 @@ static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
   o->two_write_queues = true;
   o->manual_wal_flush = true;
   return o;
+}
+
+static ROCKSDB_NAMESPACE::Env *GetCompositeEnv(std::shared_ptr<ROCKSDB_NAMESPACE::FileSystem> fs)
+{
+  static std::shared_ptr<ROCKSDB_NAMESPACE::Env> composite_env = ROCKSDB_NAMESPACE::NewCompositeEnv(fs);
+  return composite_env.get();
 }
 
 /* DBOptions contains Statistics and needs to be destructed last */
@@ -2202,6 +2209,11 @@ static MYSQL_SYSVAR_STR(datadir, rocksdb_datadir,
                         "RocksDB data directory", nullptr, nullptr,
                         "./.rocksdb");
 
+static MYSQL_SYSVAR_STR(fs_uri, rocksdb_fs_uri,
+                        PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+                        "Custom filesystem URI", nullptr,
+                        nullptr, nullptr);
+
 static MYSQL_SYSVAR_UINT(
     table_stats_sampling_pct, rocksdb_table_stats_sampling_pct,
     PLUGIN_VAR_RQCMDARG,
@@ -2551,6 +2563,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(print_snapshot_conflict_queries),
 
     MYSQL_SYSVAR(datadir),
+    MYSQL_SYSVAR(fs_uri),
     MYSQL_SYSVAR(create_checkpoint),
     MYSQL_SYSVAR(create_temporary_checkpoint),
     MYSQL_SYSVAR(disable_file_deletions),
@@ -6043,6 +6056,21 @@ static int rocksdb_init_internal(void *const p) {
         "RocksDB: Can't enable both use_direct_reads "
         "and allow_mmap_reads\n");
     DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
+  if (rocksdb_fs_uri) {
+          std::shared_ptr<ROCKSDB_NAMESPACE::FileSystem> fs;
+          sql_print_information(
+              "RocksDB: Setting up custom file system, URI: %s\n",
+              rocksdb_fs_uri);
+          s = ROCKSDB_NAMESPACE::FileSystem::Load(rocksdb_fs_uri, &fs);
+          if (fs == nullptr) {
+                 sql_print_error(
+                    "RocksDB: Setting up custom file system failed: %s\n",
+                    s.ToString().c_str());
+                 DBUG_RETURN(HA_EXIT_FAILURE);
+          }
+          rocksdb_db_options->env = GetCompositeEnv(fs);
   }
 
   // Check whether the filesystem backing rocksdb_datadir allows O_DIRECT
