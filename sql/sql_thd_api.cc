@@ -504,6 +504,13 @@ static size_t truncated_str_length(const CHARSET_INFO *cs, const char *start,
 
 char *thd_security_context(MYSQL_THD thd, char *buffer, size_t length,
                            size_t max_query_len) {
+  return thd_security_context_internal(thd, buffer, length, max_query_len,
+                                       false /* show_query_digest */);
+}
+
+char *thd_security_context_internal(THD *thd, char *buffer, size_t length,
+                                    size_t max_query_len,
+                                    bool show_query_digest) {
   String str(buffer, length, &my_charset_latin1);
   Security_context *sctx = &thd->m_main_security_ctx;
   char header[256];
@@ -548,14 +555,21 @@ char *thd_security_context(MYSQL_THD thd, char *buffer, size_t length,
   mysql_mutex_lock(&thd->LOCK_thd_query);
 
   if (thd->query().str) {
-    if (max_query_len < 1)
-      len = thd->query().length;
-    else
-      len = min(thd->query().length, max_query_len);
+    String digest_buffer;
+    const char *query_str;
+    const CHARSET_INFO *query_cs = NULL;
+    size_t query_len;
+    if (show_query_digest) {
+      thd->get_query_digest(&digest_buffer, &query_str, &query_len, &query_cs);
+    } else {
+      query_str = thd->query().str;
+      query_len = thd->query().length;
+    }
+
     str.append('\n');
-    str.append(thd->query().str,
-               truncated_str_length(thd->charset(), thd->query().str,
-                                    thd->query().length, len));
+    str.append(query_str, truncated_str_length(
+                              thd->charset(), query_str, query_len,
+                              (max_query_len < 1) ? query_len : max_query_len));
   }
 
   mysql_mutex_unlock(&thd->LOCK_thd_query);
