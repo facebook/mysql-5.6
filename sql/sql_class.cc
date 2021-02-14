@@ -789,10 +789,16 @@ void thd_store_lsn(THD* thd, ulonglong lsn, int engine_type)
 
   @return Pointer to string
 */
-
 extern "C"
 char *thd_security_context(THD *thd, char *buffer, unsigned int length,
-                           unsigned int max_query_len)
+                           unsigned int max_query_len) {
+  return thd_security_context_internal(thd, buffer, length, max_query_len,
+                                       false /* show_query_digest */);
+}
+
+char *thd_security_context_internal(
+  THD *thd, char *buffer, unsigned int length, unsigned int max_query_len,
+  my_bool show_query_digest)
 {
   String str(buffer, length, &my_charset_latin1);
   Security_context *sctx= &thd->main_security_ctx;
@@ -857,12 +863,23 @@ char *thd_security_context(THD *thd, char *buffer, unsigned int length,
   {
     if (thd->query())
     {
-      if (max_query_len < 1)
-        len= thd->query_length();
-      else
-        len= min(thd->query_length(), max_query_len);
+      String digest_buffer;
+      const char *query_str;
+      const CHARSET_INFO *query_cs = NULL;
+      uint32 query_len;
+      if (show_query_digest) {
+        thd->get_query_digest(&digest_buffer, &query_str, &query_len,
+                              &query_cs);
+      } else {
+        query_str = thd->query();
+        query_len = thd->query_length();
+      }
+
+      if (max_query_len >= 1) {
+        query_len= min(query_len, max_query_len);
+      }
       str.append('\n');
-      str.append(thd->query(), len);
+      str.append(query_str, query_len);
     }
 
     mysql_mutex_unlock(&thd->LOCK_thd_data);
@@ -889,7 +906,6 @@ char *thd_security_context(THD *thd, char *buffer, unsigned int length,
   buffer[length]= '\0';
   return buffer;
 }
-
 
 /**
   Implementation of Drop_table_error_handler::handle_condition().
@@ -6675,5 +6691,31 @@ void THD::release_auto_created_sql_stats_snapshot()
     toggle_sql_stats_snapshot(this);
     variables.sql_stats_snapshot = FALSE;
     m_created_auto_stats_snapshot = false;
+  }
+}
+
+static const char missing_digest_msg[] =
+  "<digest_missing: sql_stats_control required>";
+
+/**
+  Get query digest
+*/
+void THD::get_query_digest(String *digest_buffer, const char **str,
+                           uint32 *length, const CHARSET_INFO **cs) {
+  if (m_digest != NULL) {
+    compute_digest_text(&m_digest->m_digest_storage, digest_buffer);
+  }
+
+  if (digest_buffer->is_empty() ||
+      (digest_buffer->length() == 1 &&
+       digest_buffer->ptr()[0] == 0)) {
+    /* We couldn't compute digest - we need sql_stats_control */
+    *str = missing_digest_msg;
+    *length = sizeof(missing_digest_msg) / sizeof(char) - 1;
+    *cs = &my_charset_utf8_bin;
+  } else {
+    *str = digest_buffer->c_ptr_safe();
+    *length = digest_buffer->length();
+    *cs = digest_buffer->charset();
   }
 }

@@ -1,0 +1,67 @@
+SET @sql_stats_control_save = @@SQL_STATS_CONTROL;
+SET GLOBAL SQL_STATS_CONTROL='on';
+SET @show_query_digest_save = @@show_query_digest;
+SET show_query_digest=1;
+CREATE TABLE t1 (pk int primary key, a int, b int, c int) ENGINE=ROCKSDB;;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `pk` int(11) NOT NULL,
+  `a` int(11) DEFAULT NULL,
+  `b` int(11) DEFAULT NULL,
+  `c` int(11) DEFAULT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+INSERT INTO t1 values (1, 1, 1, 1), (2, 2, 2, 2), (3, 3, 3, 3);
+START TRANSACTION;
+SELECT * FROM t1 WHERE pk=3 FOR UPDATE;
+pk	a	b	c
+3	3	3	3
+START TRANSACTION;
+SELECT * FROM t1 WHERE pk=1;
+pk	a	b	c
+1	1	1	1
+SELECT 1+2, "abc", a, b, c FROM t1 WHERE PK = 3 FOR UPDATE;;
+SHOW PROCESSLIST;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+###	root	###	test	Query	###	Waiting for row lock	SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE 	###	###	###	###
+###	root	###	test	Query	###	init	SHOW PROCESSLIST 	###	###	###	###
+SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST WHERE ID != CONNECTION_ID();
+STATE	INFO
+Waiting for row lock	SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE 
+Searching for digest query in SHOW ENGINE ROCKSDB TRANSACTION STATUS;
+SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE 
+COMMIT;
+1+2	abc	a	b	c
+3	abc	3	3	3
+SET show_query_digest=@show_query_digest_save;
+SET GLOBAL SQL_STATS_CONTROL=@sql_stats_control_save;
+SET @sql_stats_control_save = @@SQL_STATS_CONTROL;
+SET GLOBAL SQL_STATS_CONTROL='off_hard';
+SET @show_query_digest_save = @@show_query_digest;
+SET show_query_digest=1;
+START TRANSACTION;
+SELECT * FROM t1 WHERE pk=3 FOR UPDATE;
+pk	a	b	c
+3	3	3	3
+START TRANSACTION;
+SELECT * FROM t1 WHERE pk=1;
+pk	a	b	c
+1	1	1	1
+SELECT 1+2, "abc", a, b, c FROM t1 WHERE PK = 3 FOR UPDATE;;
+SHOW PROCESSLIST;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+###	root	###	test	Query	###	Waiting for row lock	<digest_missing: sql_stats_control required>	###	###	###	###
+###	root	###	test	Query	###	init	<digest_missing: sql_stats_control required>	###	###	###	###
+SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST WHERE ID != CONNECTION_ID();
+STATE	INFO
+Waiting for row lock	<digest_missing: sql_stats_control required>
+Searching for digest query in SHOW ENGINE ROCKSDB TRANSACTION STATUS;
+<digest_missing: sql_stats_control required>
+<digest_missing: sql_stats_control required>
+COMMIT;
+1+2	abc	a	b	c
+3	abc	3	3	3
+DROP TABLE t1;
+SET show_query_digest=@show_query_digest_save;
+SET GLOBAL SQL_STATS_CONTROL=@sql_stats_control_save;

@@ -2252,27 +2252,6 @@ static bool thd_compare (const THD* p1, const THD* p2)
   return p1->thread_id() < p2->thread_id();
 }
 
-static const char* missing_digest =
-  "<digest_missing: sql_stats_control required>";
-
-static void get_query_digest(THD *thd, THD *tmp, String *digest_string,
-                             const char **str, const CHARSET_INFO **cs) {
-  if (tmp->m_digest != NULL) {
-    compute_digest_text(&tmp->m_digest->m_digest_storage, digest_string);
-  }
-
-  if (digest_string->is_empty() ||
-      (digest_string->length() == 1 &&
-       digest_string->ptr()[0] == 0)) {
-    /* We couldn't compute digest - we need sql_stats_control */
-    *str = missing_digest;
-    *cs = &my_charset_utf8_bin;
-  } else {
-    *str = digest_string->c_ptr_safe();
-    *cs = digest_string->charset();
-  }
-}
-
 // THD mutex and sys_var mutex is acquired when this function is called.
 static void set_thread_info_query_safe(thread_info *thd_info,
                               THD* thd, THD *tmp, ulong max_query_length)
@@ -2293,9 +2272,10 @@ static void set_thread_info_query_safe(thread_info *thd_info,
   }
   if (query) {
     if (thd->variables.show_query_digest) {
-      get_query_digest(thd, tmp, &thd_info->digest_string,
-                       &thd_info->query_string,
-                       &thd_info->query_string_charset);
+      tmp->get_query_digest(&thd_info->digest_string,
+                            &thd_info->query_string, &length,
+                            &thd_info->query_string_charset);
+      length= min<uint>(max_query_length, length);
     } else {
       length= min<uint>(max_query_length, length);
       char *q= thd->strmake(query,length);
@@ -2779,10 +2759,10 @@ static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
     String digest_string;
     const char *query_str;
     const CHARSET_INFO *query_cs;
-    size_t query_length;
+    uint32 query_length;
     if (thd->variables.show_query_digest) {
-      get_query_digest(thd, tmp, &digest_string, &query_str, &query_cs);
-      query_length = strlen(query_str);
+      tmp->get_query_digest(&digest_string, &query_str, &query_length,
+                            &query_cs);
     } else {
       query_str = tmp->query();
       query_cs = cs;

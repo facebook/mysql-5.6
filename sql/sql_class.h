@@ -3715,6 +3715,9 @@ public:
   /** Top level statement digest. */
   sql_digest_state m_digest_state;
 
+  void get_query_digest(String *digest_buffer, const char **str,
+                        uint32 *length, const CHARSET_INFO **cs);
+
   /** set to true when running in plan capture mode */
   bool    capture_sql_plan;
 
@@ -6811,5 +6814,9 @@ inline bool add_group_to_list(THD *thd, Item *item, bool asc)
   @retval >= 0	a file handle that can be passed to dup or my_close
 */
 int mysql_tmpfile_path(const char* path, const char* prefix);
+
+char *thd_security_context_internal(
+  THD *thd, char *buffer, unsigned int length, unsigned int max_query_len,
+  my_bool show_query_digest);
 
 #endif /* SQL_CLASS_INCLUDED */
