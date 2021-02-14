@@ -30,6 +30,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
  Created 5/30/1994 Heikki Tuuri
  *************************************************************************/
 
+#include "sql/sql_class.h"
+
 #include "rem0rec.h"
 
 #include <sys/types.h>
@@ -1348,6 +1350,13 @@ ibool rec_validate(
 @param[in] file File where to print
 @param[in] rec Physical record */
 void rec_print_old(FILE *file, const rec_t *rec) {
+  THD *this_thd = current_thd;
+  if (this_thd && this_thd->variables.show_query_digest) {
+    // If show_query_digest we should avoid show any records
+    fputs("<record skipped>", file);
+    return;
+  }
+
   const byte *data;
   ulint len;
   ulint n;
@@ -1396,6 +1405,13 @@ static void rec_print_comp(
     const rec_t *rec,     /*!< in: physical record */
     const ulint *offsets) /*!< in: array returned by rec_get_offsets() */
 {
+  THD *this_thd = current_thd;
+  if (this_thd && this_thd->variables.show_query_digest) {
+    // If show_query_digest we should avoid show any records
+    fputs("<record skipped>", file);
+    return;
+  }
+
   ulint i;
 
   for (i = 0; i < rec_offs_n_fields(offsets); i++) {

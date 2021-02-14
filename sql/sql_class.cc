@@ -4536,3 +4536,27 @@ std::list<std::pair<const char *, const char *>> THD::get_query_tables() {
   }
   return uniq_tables;
 }
+
+static const char missing_digest_msg[] = "<digest_missing>";
+
+/**
+  Get query digest
+*/
+void THD::get_query_digest(String *digest_buffer, const char **str,
+                           size_t *length, const CHARSET_INFO **cs) {
+  if (m_digest != NULL) {
+    compute_digest_text(&m_digest->m_digest_storage, digest_buffer);
+  }
+
+  if (digest_buffer->is_empty() ||
+      (digest_buffer->length() == 1 && digest_buffer->ptr()[0] == 0)) {
+    /* We couldn't compute digest for whatever reason */
+    *str = missing_digest_msg;
+    *length = sizeof(missing_digest_msg) / sizeof(char) - 1;
+    *cs = &my_charset_utf8_bin;
+  } else {
+    *str = digest_buffer->c_ptr_safe();
+    *length = digest_buffer->length();
+    *cs = digest_buffer->charset();
+  }
+}

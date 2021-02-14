@@ -361,6 +361,14 @@ const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key);
 const std::string &thd_get_connection_attr(THD *thd,
                                            const std::string &cattr_key);
 
+/*
+  Same as thd_security_context but with the ability to return query digest
+  instead of real query
+*/
+char *thd_security_context_internal(THD *thd, char *buffer, size_t length,
+                                    size_t max_query_len,
+                                    bool show_query_digest);
+
 void thd_add_response_attr(THD *thd, const std::string &rattr_key,
                            const std::string &rattr_val);
 

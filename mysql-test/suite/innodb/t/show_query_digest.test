@@ -1,0 +1,2 @@
+--let $engine=INNODB
+--source include/show_query_digest.inc

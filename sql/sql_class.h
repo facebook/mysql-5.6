@@ -2687,6 +2687,9 @@ class THD : public MDL_context_owner,
   /** Top level statement digest. */
   sql_digest_state m_digest_state;
 
+  void get_query_digest(String *digest_buffer, const char **str, size_t *length,
+                        const CHARSET_INFO **cs);
+
   /** Types of keys used to track various attributes of a query
       For each key we maintain an ID computed as a MD5 and a status
       of whether the ID has been set or not (i.e, valid for read).

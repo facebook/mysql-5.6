@@ -2922,25 +2922,6 @@ int fill_schema_authinfo(THD *thd, TABLE_LIST *tables, Item *) {
   DBUG_RETURN(0);
 }
 
-static const char *missing_digest = "<digest_missing>";
-
-static void get_query_digest(THD *tmp, String *digest_string, const char **str,
-                             const CHARSET_INFO **cs) {
-  if (tmp->m_digest != NULL) {
-    compute_digest_text(&tmp->m_digest->m_digest_storage, digest_string);
-  }
-
-  if (digest_string->is_empty() ||
-      (digest_string->length() == 1 && digest_string->ptr()[0] == 0)) {
-    /* We couldn't compute digest for whatever reason */
-    *str = missing_digest;
-    *cs = &my_charset_utf8_bin;
-  } else {
-    *str = digest_string->c_ptr_safe();
-    *cs = digest_string->charset();
-  }
-}
-
 /**
   This class implements callback function used by mysqld_list_processes() to
   list all the client process information.
@@ -3093,10 +3074,11 @@ class List_process_list : public Do_THD_Impl {
       /* No else. We need fall-through */
       /* If we managed to create query info, set a copy on thd_info. */
       if (query_str) {
+        size_t length;
         if (m_client_thd->variables.show_query_digest) {
-          get_query_digest(inspect_thd, &thd_info->digest_string,
-                           &thd_info->query_string,
-                           &thd_info->query_string_charset);
+          inspect_thd->get_query_digest(&thd_info->digest_string,
+                                        &thd_info->query_string, &length,
+                                        &thd_info->query_string_charset);
         } else {
           const size_t width = min<size_t>(m_max_query_length, query_length);
           const char *q = m_client_thd->strmake(query_str, width);

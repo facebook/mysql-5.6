@@ -4987,7 +4987,8 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
 
       THD *thd = tx->get_thd();
       char buffer[1024];
-      thd_security_context(thd, buffer, sizeof buffer, 0);
+      thd_security_context_internal(thd, buffer, sizeof buffer, 0,
+                                    current_thd->variables.show_query_digest);
       m_data += format_string(
           "---SNAPSHOT, ACTIVE %lld sec\n"
           "%s\n"

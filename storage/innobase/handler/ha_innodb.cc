@@ -2371,7 +2371,13 @@ void innobase_mysql_print_thd(
 {
   char buffer[1024];
 
-  fputs(thd_security_context(thd, buffer, sizeof buffer, max_query_len), f);
+  /* This may be called from monitor thread without THD */
+  THD *this_thd = current_thd;
+  bool show_query_digest =
+      this_thd ? this_thd->variables.show_query_digest : false;
+  char *msg = thd_security_context_internal(thd, buffer, sizeof buffer,
+                                            max_query_len, show_query_digest);
+  fputs(msg, f);
   putc('\n', f);
 }
 
