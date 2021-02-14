@@ -1,0 +1,41 @@
+SET @show_query_digest_save = @@show_query_digest;
+SET show_query_digest=1;
+CREATE TABLE t1 (pk int primary key, a int, b int, c int) ENGINE=INNODB;;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `pk` int NOT NULL,
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+INSERT INTO t1 values (1, 1, 1, 1), (2, 2, 2, 2), (3, 3, 3, 3);
+START TRANSACTION;
+SELECT * FROM t1 WHERE pk=3 FOR UPDATE;
+pk	a	b	c
+3	3	3	3
+START TRANSACTION;
+SELECT * FROM t1 WHERE pk=1;
+pk	a	b	c
+1	1	1	1
+SELECT 1+2, "abc", a, b, c FROM t1 WHERE PK = 3 FOR UPDATE;;
+SHOW PROCESSLIST;
+Id	User	Host	db	Command	Time	State	Info	Tid
+###	event_scheduler	###	NULL	Daemon	###	Waiting on empty queue	NULL	###
+###	root	###	test	Query	###	init	SHOW PROCESSLIST	###
+###	root	###	test	Query	###	statistics	SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE	###
+SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE ID != CONNECTION_ID();
+STATE	INFO
+statistics	SELECT 1+2, "abc", a, b, c FROM t1 WHERE PK = 3 FOR UPDATE
+Waiting on empty queue	NULL
+Searching for digest query in SHOW ENGINE INNODB TRANSACTION STATUS;
+SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE
+Search for skipped records
+<record skipped>
+COMMIT;
+1+2	abc	a	b	c
+3	abc	3	3	3
+DROP TABLE t1;
+SET show_query_digest=@show_query_digest_save;

@@ -340,4 +340,11 @@ mysql_mutex_t *thd_current_mutex(THD *thd);
 */
 void thd_set_priority(THD *thd);
 
+/*
+  Same as thd_security_context but with the ability to return query digest
+  instead of real query
+*/
+char *thd_security_context_internal(THD *thd, char *buffer, size_t length,
+                                    size_t max_query_len,
+                                    bool show_query_digest);
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
