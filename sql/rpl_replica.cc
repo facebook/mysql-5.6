@@ -1456,10 +1456,35 @@ int rli_relay_log_raft_reset(
   mysql_mutex_lock(&mi->data_lock);
   mysql_mutex_lock(&mi->rli->data_lock);
 
-  if (mi->rli->check_info() == REPOSITORY_DOES_NOT_EXIST) {
+  enum_return_check check_return_mi = mi->check_info();
+  enum_return_check check_return_rli = mi->rli->check_info();
+
+  // If the master.info file does not exist, or if it exists,
+  // but the inited has never happened (most likely due to an
+  // error), try mi_init_info
+  if (check_return_mi == REPOSITORY_DOES_NOT_EXIST || !mi->inited) {
     // NO_LINT_DEBUG
     sql_print_information(
-        "Relay log info repository doesn't exist, creating one now");
+        "rli_relay_log_raft_reset: Master info "
+        "repository doesn't exist or not inited."
+        " Calling mi_init_info");
+    if (mi->mi_init_info()) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "rli_relay_log_raft_reset: Failed to initialize "
+          "the master info structure");
+      error = 1;
+      goto end;
+    }
+  }
+
+  if (check_return_rli == REPOSITORY_DOES_NOT_EXIST) {
+    // NO_LINT_DEBUG
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "rli_relay_log_raft_reset: Relay log info repository"
+        " doesn't exist or not inited. Calling"
+        " load_mi_and_rli_from_repositories ");
     // TODO: Check these additional params (skip_received_gtid_set_recovery)
     if (load_mi_and_rli_from_repositories(
             mi,
@@ -1609,14 +1634,31 @@ int load_mi_and_rli_from_repositories(Master_info *mi, bool ignore_if_no_info,
   */
   check_return = mi->check_info();
   if (check_return == ERROR_CHECKING_REPOSITORY) {
+    if (enable_raft_plugin) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "load_mi_and_rli_from_repositories: mi repository "
+          "check returns ERROR_CHECKING_REPOSITORY");
+    }
     init_error = 1;
     goto end;
   }
 
   if (!ignore_if_no_info || check_return != REPOSITORY_DOES_NOT_EXIST) {
     if ((thread_mask & SLAVE_IO) != 0) {
+      if (enable_raft_plugin) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "load_mi_and_rli_from_repositories: mi_init_info called");
+      }
       if (!mi->inited || force_load) {
         if (mi->mi_init_info()) {
+          if (enable_raft_plugin) {
+            // NO_LINT_DEBUG
+            sql_print_error(
+                "load_mi_and_rli_from_repositories: mi_init_info returned "
+                "error");
+          }
           init_error = 1;
         }
       }
@@ -1625,13 +1667,30 @@ int load_mi_and_rli_from_repositories(Master_info *mi, bool ignore_if_no_info,
 
   check_return = mi->rli->check_info();
   if (check_return == ERROR_CHECKING_REPOSITORY) {
+    if (enable_raft_plugin) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "load_mi_and_rli_from_repositories: rli repository check returns"
+          " ERROR_CHECKING_REPOSITORY");
+    }
     init_error = 1;
     goto end;
   }
   if (!ignore_if_no_info || check_return != REPOSITORY_DOES_NOT_EXIST) {
     if ((thread_mask & SLAVE_SQL) != 0 || !(mi->rli->inited)) {
+      if (enable_raft_plugin) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "load_mi_and_rli_from_repositories: rli_init_info called");
+      }
       if (!mi->rli->inited || force_load) {
         if (mi->rli->rli_init_info(skip_received_gtid_set_recovery)) {
+          if (enable_raft_plugin) {
+            // NO_LINT_DEBUG
+            sql_print_error(
+                "load_mi_and_rli_from_repositories: rli_init_info returned "
+                "error");
+          }
           init_error = 1;
         } else {
           /*
@@ -2449,6 +2508,12 @@ bool start_slave_threads(bool need_lock_slave, bool wait_for_start,
   if (!mi->inited || !mi->rli->inited) {
     int error = (!mi->inited ? ER_SLAVE_MI_INIT_REPOSITORY
                              : ER_SLAVE_RLI_INIT_REPOSITORY);
+
+    if (enable_raft_plugin) {
+      // NO_LINT_DEBUG
+      sql_print_error("start_slave_threads: error: %d mi_inited: %d", error,
+                      mi->inited);
+    }
     Rpl_info *info = (!mi->inited ? mi : static_cast<Rpl_info *>(mi->rli));
     const char *prefix = current_thd ? ER_THD_NONCONST(current_thd, error)
                                      : ER_DEFAULT_NONCONST(error);
@@ -6642,6 +6707,10 @@ bool mts_recovery_groups(Relay_log_info *rli) {
     return false;
   }
 
+  // raft replication always have GTID_MODE=ON, thus ignore positions
+  if (enable_raft_plugin) {
+    return false;
+  }
   /*
     Save relay log position to compare with worker's position.
   */
@@ -9581,6 +9650,12 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
     if (load_mi_and_rli_from_repositories(mi, false, thread_mask)) {
       is_error = true;
       my_error(ER_MASTER_INFO, MYF(0));
+
+      if (enable_raft_plugin) {
+        // NO_LINT_DEBUG
+        sql_print_error(
+            "start_slave: error as load_mi_and_rli_from_repositories failed");
+      }
     } else if (*mi->host || !(thread_mask & SLAVE_IO)) {
       /*
         If we will start IO thread we need to take care of possible

@@ -1553,7 +1553,12 @@ int Relay_log_info::rli_init_info(bool skip_received_gtid_set_recovery) {
     stopped when there were replication initialization errors, now it is
     not and so init_info() must be aware of previous failures.
   */
-  if (error_on_rli_init_info) goto err;
+  if (error_on_rli_init_info) {
+    // In raft  mode, these error codes are critical. Hence we should
+    //     not chew them.
+    if (enable_raft_plugin) error = 1;
+    goto err;
+  }
 
   if (inited) {
     return recovery_parallel_workers ? mts_recovery_groups(this) : 0;
