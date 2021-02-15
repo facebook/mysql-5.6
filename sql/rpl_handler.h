@@ -497,6 +497,12 @@ extern Raft_replication_delegate *raft_replication_delegate;
 #define RUN_HOOK(group, hook, args) \
   (group##_delegate->is_empty() ? 0 : group##_delegate->hook args)
 
+/*
+  This is same as RUN_HOOK, but return 1 if there are no observers
+*/
+#define RUN_HOOK_STRICT(group, hook, args) \
+  (group##_delegate->is_empty() ? 1 : group##_delegate->hook args)
+
 #define NO_HOOK(group) (group##_delegate->is_empty())
 
 int launch_hook_trans_begin(THD *thd, Table_ref *table);

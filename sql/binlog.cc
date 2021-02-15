@@ -1927,9 +1927,9 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     thd->commit_consensus_error = false;
     // TODO(luqun): perf concern? merge in plugin?
     cache_data->get_cache()->copy_to(temp_binlog_cache.get());
-    ret = RUN_HOOK(raft_replication, before_flush,
-                   (thd, temp_binlog_cache->get_io_cache(),
-                    RaftReplicateMsgOpType::OP_TYPE_TRX));
+    ret = RUN_HOOK_STRICT(raft_replication, before_flush,
+                          (thd, temp_binlog_cache->get_io_cache(),
+                           RaftReplicateMsgOpType::OP_TYPE_TRX));
 
     DBUG_EXECUTE_IF("fail_binlog_flush_raft", { ret = 1; });
 
@@ -7486,8 +7486,8 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     // Nothing to purge if file index is 0
     if (!included && file_index_pair.second == 0) goto err;
 
-    error = RUN_HOOK(raft_replication, purge_logs,
-                     (current_thd, file_index_pair.second));
+    error = RUN_HOOK_STRICT(raft_replication, purge_logs,
+                            (current_thd, file_index_pair.second));
 
     if (error) {
       // NO_LINT_DEBUG
@@ -8420,13 +8420,13 @@ int MYSQL_BIN_LOG::new_file_impl(
       DBUG_EXECUTE_IF("simulate_before_flush_error_on_new_file", error = 1;);
 
       if (!error)
-        error =
-            RUN_HOOK(raft_replication, before_flush,
-                     (current_thd, temp_binlog_cache->get_io_cache(), op_type));
+        error = RUN_HOOK_STRICT(
+            raft_replication, before_flush,
+            (current_thd, temp_binlog_cache->get_io_cache(), op_type));
 
       // time to safely readjust the cur_log_ext back to expected value
       if (!error) {
-        error = RUN_HOOK(raft_replication, before_commit, (current_thd));
+        error = RUN_HOOK_STRICT(raft_replication, before_commit, (current_thd));
 
         if (!error) {
           // If there was no error, there is a guarantee that this rotate
@@ -8538,7 +8538,7 @@ int MYSQL_BIN_LOG::new_file_impl(
   if (!error && rotate_via_raft && !no_op) {
     // not trapping return code, because this is the existing
     // pattern in most places of after_commit hook (TODO)
-    (void)RUN_HOOK(raft_replication, after_commit, (current_thd));
+    (void)RUN_HOOK_STRICT(raft_replication, after_commit, (current_thd));
   }
 end:
   if (error && close_on_error /* rotate, flush or reopen failed */) {
@@ -10552,7 +10552,7 @@ void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
     if (thd->commit_error == THD::CE_NONE) last_thd = thd;
 
   if (last_thd) {
-    error = RUN_HOOK(raft_replication, before_commit, (last_thd));
+    error = RUN_HOOK_STRICT(raft_replication, before_commit, (last_thd));
 
     if (error) set_commit_consensus_error(queue_head);
     if (!error && opt_raft_signal_async_dump_threads == AFTER_CONSENSUS &&
@@ -10753,10 +10753,14 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       */
       Thd_backup_and_restore switch_thd(thd, head);
       bool all = head->get_transaction()->m_flags.real_commit;
-      error = error || RUN_HOOK(transaction, after_commit, (head, all));
 
-      if (enable_raft_plugin)
-        (void)RUN_HOOK(raft_replication, after_commit, (head));
+      // Call semi-sync plugin only when raft is not enabled
+      if (!enable_raft_plugin)
+        error = error || RUN_HOOK(transaction, after_commit, (head, all));
+      else
+        error =
+            error || RUN_HOOK_STRICT(raft_replication, after_commit, (head));
+
       if (!enable_raft_plugin) {
         my_off_t pos;
         head->get_trans_pos(nullptr, &pos, nullptr, nullptr);
@@ -10996,12 +11000,15 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     if (!enable_raft_plugin)
       (void)RUN_HOOK(transaction, after_commit, (thd, all));
     else
-      (void)RUN_HOOK(raft_replication, after_commit, (thd));
+      (void)RUN_HOOK_STRICT(raft_replication, after_commit, (thd));
     thd->get_transaction()->m_flags.run_hooks = false;
   }
 
   if (enable_raft_plugin && thd->commit_error == THD::CE_NONE) {
-    int error = RUN_HOOK(raft_replication, after_commit, (thd));
+    int error = 0;
+    if (thd->get_transaction()->m_flags.run_hooks) {
+      error = RUN_HOOK_STRICT(raft_replication, after_commit, (thd));
+    }
     if (!error && opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&
         enable_raft_plugin && rpl_wait_for_semi_sync_ack) {
       const char *log_file = nullptr;
@@ -11206,7 +11213,7 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
   arg.context = context;
   arg.is_relay_log = is_relay_log;
 
-  int err = RUN_HOOK(raft_replication, setup_flush, (thd, &arg));
+  int err = RUN_HOOK_STRICT(raft_replication, setup_flush, (thd, &arg));
 
   if (need_lock) mysql_mutex_unlock(&LOCK_log);
 
@@ -11323,9 +11330,10 @@ int ask_server_to_register_with_raft(Raft_Registration_Item item) {
       }
 
       THD *thd = current_thd;
-      err = RUN_HOOK(raft_replication, register_paths,
-                     (thd, server_uuid, s_wal_dir, s_log_dir, log_bin_basename,
-                      glob_hostname, (uint64_t)mysqld_port));
+      err = RUN_HOOK_STRICT(
+          raft_replication, register_paths,
+          (thd, server_uuid, s_wal_dir, s_log_dir, log_bin_basename,
+           glob_hostname, (uint64_t)mysqld_port));
       break;
     }
     default:
@@ -12539,8 +12547,10 @@ bool show_raft_status(THD *thd) {
   std::vector<std::pair<std::string, std::string>> var_value_pairs;
   std::vector<std::pair<std::string, std::string>>::const_iterator itr;
 
-  int error = RUN_HOOK(raft_replication, show_raft_status,
-                       (current_thd, &var_value_pairs));
+  mysql_mutex_lock(&LOCK_status);
+  int error = RUN_HOOK_STRICT(raft_replication, show_raft_status,
+                              (current_thd, &var_value_pairs));
+  mysql_mutex_unlock(&LOCK_status);
   if (error) {
     errmsg = "Failure to run plugin hook";
     goto err;

@@ -5944,8 +5944,7 @@ int Rotate_log_event::do_apply_event(Relay_log_info const *rli) {
                                future_event_relay_log_pos);
   int64_t term, index;
   thd->get_trans_marker(&term, &index);
-
-  return RUN_HOOK(raft_replication, after_commit, (thd));
+  return RUN_HOOK_STRICT(raft_replication, after_commit, (thd));
 }
 
 /*

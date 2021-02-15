@@ -480,6 +480,50 @@ void delegates_update_lock_type() {
 }
 
 /*
+  This macro is used by raft Delegate methods to call into raft plugin
+  The only difference is that this is a 'stricter' version which will return
+  failure if the plugin hooks were not called
+ */
+#define FOREACH_OBSERVER_STRICT(r, f, args)                            \
+  Prealloced_array<plugin_ref, 8> plugins(PSI_NOT_INSTRUMENTED);       \
+  read_lock();                                                         \
+  Observer_info_iterator iter = observer_info_iter();                  \
+  Observer_info *info = iter++;                                        \
+  for (; info; info = iter++) {                                        \
+    plugin_ref plugin = my_plugin_lock(0, &info->plugin);              \
+    if (!plugin) {                                                     \
+      /* plugin is not intialized or deleted, this is not an error */  \
+      enable_raft_plugin ? (r) = 1 : (r) = 0;                          \
+      break;                                                           \
+    }                                                                  \
+    plugins.push_back(plugin);                                         \
+    if (((Observer *)info->observer)->f &&                             \
+        ((Observer *)info->observer)->f args) {                        \
+      r = 1;                                                           \
+      LogEvent()                                                       \
+          .prio(ERROR_LEVEL)                                           \
+          .errcode(ER_RPL_PLUGIN_FUNCTION_FAILED)                      \
+          .subsys(LOG_SUBSYSTEM_TAG)                                   \
+          .function(#f)                                                \
+          .message("Run function '" #f "' in plugin '%s' failed",      \
+                   info->plugin_int->name.str);                        \
+      break;                                                           \
+    }                                                                  \
+    /* Plugin is successfully called, set return status to 0           \
+     * indicating success */                                           \
+    (r) = 0;                                                           \
+  }                                                                    \
+  unlock();                                                            \
+  /*                                                                   \
+     Unlock plugins should be done after we released the Delegate lock \
+     to avoid possible deadlock when this is the last user of the      \
+     plugin, and when we unlock the plugin, it will try to             \
+     deinitialize the plugin, which will try to lock the Delegate in   \
+     order to remove the observers.                                    \
+  */                                                                   \
+  if (!plugins.empty()) plugin_unlock_list(0, &plugins[0], plugins.size());
+
+/*
   This macro is used by almost all the Delegate methods to iterate
   over all the observers running given callback function of the
   delegate .
@@ -1349,7 +1393,7 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
   int ret = 0;
 
   thd->set_trans_marker(-1, -1);
-  FOREACH_OBSERVER(ret, before_flush, (&param, io_cache, op_type));
+  FOREACH_OBSERVER_STRICT(ret, before_flush, (&param, io_cache, op_type));
 
   DBUG_PRINT("return",
              ("term: %" PRId64 ", index: %" PRId64, param.term, param.index));
@@ -1371,7 +1415,7 @@ int Raft_replication_delegate::before_commit(THD *thd) {
              ("term: %" PRId64 ", index: %" PRId64, param.term, param.index));
 
   int ret = 0;
-  FOREACH_OBSERVER(ret, before_commit, (&param));
+  FOREACH_OBSERVER_STRICT(ret, before_commit, (&param));
 
   DEBUG_SYNC(thd, "after_call_after_sync_observer");
   DBUG_RETURN(ret);
@@ -1382,7 +1426,7 @@ int Raft_replication_delegate::setup_flush(
   DBUG_ENTER("Raft_replication_delegate::setup_flush");
   int ret = 0;
 
-  FOREACH_OBSERVER(ret, setup_flush, (arg));
+  FOREACH_OBSERVER_STRICT(ret, setup_flush, (arg));
 
   DBUG_RETURN(ret);
 }
@@ -1391,7 +1435,7 @@ int Raft_replication_delegate::before_shutdown(THD * /* thd */) {
   DBUG_ENTER("Raft_replication_delegate::before_shutdown");
   int ret = 0;
 
-  FOREACH_OBSERVER(ret, before_shutdown, ());
+  FOREACH_OBSERVER_STRICT(ret, before_shutdown, ());
 
   DBUG_RETURN(ret);
 }
@@ -1404,9 +1448,10 @@ int Raft_replication_delegate::register_paths(
   DBUG_ENTER("Raft_replication_delegate::register_paths");
   int ret = 0;
 
-  FOREACH_OBSERVER(ret, register_paths,
-                   (&raft_listener_queue, s_uuid, wal_dir_parent,
-                    log_dir_parent, raft_log_path_prefix, s_hostname, port));
+  FOREACH_OBSERVER_STRICT(
+      ret, register_paths,
+      (&raft_listener_queue, s_uuid, wal_dir_parent, log_dir_parent,
+       raft_log_path_prefix, s_hostname, port));
 
   DBUG_RETURN(ret);
 }
@@ -1425,7 +1470,7 @@ int Raft_replication_delegate::after_commit(THD *thd) {
     thd->get_trans_fixed_pos(&file, &pos);
 
   int ret = 0;
-  FOREACH_OBSERVER(ret, after_commit, (&param));
+  FOREACH_OBSERVER_STRICT(ret, after_commit, (&param));
   DBUG_RETURN(ret);
 }
 
@@ -1434,7 +1479,7 @@ int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext) {
   Raft_replication_param param;
   param.purge_file_ext = file_ext;
   int ret = 0;
-  FOREACH_OBSERVER(ret, purge_logs, (&param));
+  FOREACH_OBSERVER_STRICT(ret, purge_logs, (&param));
 
   // Set the safe purge file that was sent back by the plugin
   thd->set_safe_purge_file(param.purge_file);
@@ -1448,7 +1493,7 @@ int Raft_replication_delegate::show_raft_status(
   DBUG_ENTER("Raft_replication_delegate::show_raft_status");
   Raft_replication_param param;
   int ret = 0;
-  FOREACH_OBSERVER(ret, show_raft_status, (var_value_pairs));
+  FOREACH_OBSERVER_STRICT(ret, show_raft_status, (var_value_pairs));
   DBUG_RETURN(ret);
 }
 
