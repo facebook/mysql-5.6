@@ -3059,3 +3059,24 @@ INSERT INTO t VALUES(0,0);
 SELECT f1,f2 FROM t WHERE f1 NOT IN(-0.1,0.1);
 
 DROP TABLE t;
+
+--echo # BUG: Range optimizer loses keys when ORing identical ranges
+--echo #
+
+CREATE TABLE test_or (
+  a bigint unsigned NOT NULL,
+  b bigint unsigned NOT NULL,
+  c bigint unsigned NOT NULL,
+  d VARCHAR(10), PRIMARY KEY (a, b, c));
+
+INSERT INTO test_or VALUES (1, 1, 1, 'a'), (2, 2, 2, 'b'), (3, 3, 3, 'c');
+
+# This gives us range plan
+EXPLAIN SELECT * FROM test_or FORCE INDEX (PRIMARY) WHERE
+(a=1 and b=1 and c=1) OR (a=1 and b=2 and c=2);
+
+# Bug: this falls back to a ref plan
+EXPLAIN SELECT * FROM test_or FORCE INDEX (PRIMARY) WHERE
+(a=1 and b=1 and c=1) OR (a=1 and b=1 and c=1) OR (a=1 and b=2 and c=2);
+
+DROP TABLE test_or;

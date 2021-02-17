@@ -4471,5 +4471,28 @@ f1	f2
 Warnings:
 Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t;
+# BUG: Range optimizer loses keys when ORing identical ranges
+#
+CREATE TABLE test_or (
+a bigint unsigned NOT NULL,
+b bigint unsigned NOT NULL,
+c bigint unsigned NOT NULL,
+d VARCHAR(10), PRIMARY KEY (a, b, c));
+INSERT INTO test_or VALUES (1, 1, 1, 'a'), (2, 2, 2, 'b'), (3, 3, 3, 'c');
+EXPLAIN SELECT * FROM test_or FORCE INDEX (PRIMARY) WHERE
+(a=1 and b=1 and c=1) OR (a=1 and b=2 and c=2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	test_or	NULL	ref	PRIMARY	PRIMARY	8	const	1	33.33	Using index condition
+Warnings:
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select `test`.`test_or`.`a` AS `a`,`test`.`test_or`.`b` AS `b`,`test`.`test_or`.`c` AS `c`,`test`.`test_or`.`d` AS `d` from `test`.`test_or` FORCE INDEX (PRIMARY) where (((`test`.`test_or`.`c` = 1) and (`test`.`test_or`.`b` = 1) and (`test`.`test_or`.`a` = 1)) or ((`test`.`test_or`.`c` = 2) and (`test`.`test_or`.`b` = 2) and (`test`.`test_or`.`a` = 1)))
+EXPLAIN SELECT * FROM test_or FORCE INDEX (PRIMARY) WHERE
+(a=1 and b=1 and c=1) OR (a=1 and b=1 and c=1) OR (a=1 and b=2 and c=2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	test_or	NULL	ref	PRIMARY	PRIMARY	8	const	1	33.33	Using index condition
+Warnings:
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select `test`.`test_or`.`a` AS `a`,`test`.`test_or`.`b` AS `b`,`test`.`test_or`.`c` AS `c`,`test`.`test_or`.`d` AS `d` from `test`.`test_or` FORCE INDEX (PRIMARY) where (((`test`.`test_or`.`c` = 1) and (`test`.`test_or`.`b` = 1) and (`test`.`test_or`.`a` = 1)) or ((`test`.`test_or`.`c` = 1) and (`test`.`test_or`.`b` = 1) and (`test`.`test_or`.`a` = 1)) or ((`test`.`test_or`.`c` = 2) and (`test`.`test_or`.`b` = 2) and (`test`.`test_or`.`a` = 1)))
+DROP TABLE test_or;
 SET RANGE_OPTIMIZER_MAX_MEM_SIZE= DEFAULT;
 # End of test for Bug#17769777 and Bug#17413040
