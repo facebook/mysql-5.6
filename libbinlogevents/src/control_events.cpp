@@ -441,7 +441,7 @@ Metadata_event::Metadata_event(const char *buf,
   READER_TRY_INITIALIZATION;
   READER_ASSERT_POSITION(fde->common_header_len);
 
-  uint8_t read_len = fde->common_header_len;
+  uint32_t read_len = fde->common_header_len;
 
   /* Read and intialize every type in the stream for this event */
   while (READER_CALL(available_to_read) > 0) {
@@ -571,14 +571,14 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   using MET = Metadata_event_types;
 
   // Read the 'length' of the field's value
-  uint value_length = 0;
+  uint16_t value_length = 0;
   uint64_t hlc_time = 0;
   uint64_t prev_hlc_time = 0;
   int64_t term = -1, index = -1;
   const char *ptr_raft_str = nullptr;
   int64_t prev_term = -1, prev_index = -1;
   int16_t raft_rotate_tag = RRET_NOT_ROTATE;
-  READER_TRY_SET(value_length, read<uint16_t>);
+  READER_TRY_SET(value_length, read_and_letoh<uint16_t>);
 
   switch (type) {
     case MET::HLC_TYPE:
