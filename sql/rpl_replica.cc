@@ -11905,16 +11905,15 @@ std::string get_active_master_info() {
 /* counter for the number of BI inconsistencies found */
 ulong before_image_inconsistencies = 0;
 /* table_name -> last gtid for BI inconsistencies */
-std::unordered_map<std::string, std::string> bi_inconsistencies;
+std::unordered_map<std::string, before_image_mismatch> bi_inconsistencies;
 /* mutex for counter and map */
 std::mutex bi_inconsistency_lock;
 
-void update_before_image_inconsistencies(const char *db, const char *table,
-                                         const char *gtid) {
+void update_before_image_inconsistencies(
+    const before_image_mismatch &mismatch) {
   const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
   ++before_image_inconsistencies;
-  std::string fqtn = std::string(db) + "." + std::string(table);
-  bi_inconsistencies[fqtn] = gtid;
+  bi_inconsistencies[mismatch.table] = mismatch;
 }
 
 ulong get_num_before_image_inconsistencies() {

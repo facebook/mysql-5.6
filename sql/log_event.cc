@@ -8934,7 +8934,8 @@ bool Rows_log_event::is_trx_retryable_upon_engine_error(int error) {
 
   Returns true if different.
 */
-static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols) {
+static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols,
+                           bool bi_consistency_check = false) {
   DBUG_TRACE;
 
   /*
@@ -8991,47 +8992,82 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols) {
       values, depending on how each engine handles internally.
     - if all the bitmap is set (both are full rows)
     */
-  if ((table->s->blob_fields + table->s->varchar_fields +
-       table->s->null_fields) == 0 &&
-      bitmap_is_set_all(cols)) {
+  bool cmp_full_record = (table->s->blob_fields + table->s->varchar_fields +
+                          table->s->null_fields) == 0 &&
+                         bitmap_is_set_all(cols);
+  if (cmp_full_record) {
     result = cmp_record(table, record[1]);
   }
 
   /*
-    Fallback to field-by-field comparison:
+    Fallback to field-by-field comparison if we did not do binary comparison
+    of full record or if binary comparison of entire records fail:
     1. start by checking if the field is signaled:
     2. if it is, first compare the null bit if the field is nullable
     3. then compare the contents of the field, if it is not
        set to null
    */
-  else if (tabledef->use_column_names(table)) {
-    for (uint i = 0; i < tabledef->size() && !result; ++i) {
-      if (!bitmap_is_set(cols, i)) continue;
-      const char *col_name = tabledef->get_column_name(i);
-      Field *const field = find_field_in_table_sef(table, col_name);
-      if (field) {
-        /* compare null bit */
-        if (field->is_null() != field->is_null_in_record(table->record[1]))
-          result = true;
+  if (!cmp_full_record || (result && bi_consistency_check)) {
+    result = false;
+    if (tabledef->use_column_names(table)) {
+      for (uint i = 0; i < tabledef->size() && !result; ++i) {
+        if (!bitmap_is_set(cols, i)) continue;
+        const char *col_name = tabledef->get_column_name(i);
+        Field *const field = find_field_in_table_sef(table, col_name);
+        if (field) {
+          /* compare null bit */
+          if (field->is_null() != field->is_null_in_record(table->record[1]))
+            result = true;
 
-        /* compare content, only if fields are not set to NULL */
-        else if (!field->is_null())
-          result = field->cmp_binary_offset(table->s->rec_buff_length);
+          /* compare content, only if fields are not set to NULL */
+          else if (!field->is_null()) {
+            result = field->cmp_binary_offset(table->s->rec_buff_length);
+            if (result && bi_consistency_check &&
+                field->type() == MYSQL_TYPE_FLOAT) {
+              String str1, str2;
+              const ptrdiff_t offset = table->s->rec_buff_length;
+              field->val_str(&str1);
+#ifndef NDEBUG
+              const uchar *prev = field->field_ptr();
+#endif
+              field->move_field_offset(offset);
+              field->val_str(&str2);
+              field->move_field_offset(-offset);
+              assert(field->field_ptr() == prev);
+              result = (stringcmp(&str1, &str2) != 0);
+            }
+          }
+        }
       }
-    }
-  } else {
-    for (Field **ptr = table->field;
-         *ptr && ((*ptr)->field_index() < cols->n_bits) && !result; ptr++) {
-      Field *field = *ptr;
-      if (bitmap_is_set(cols, field->field_index()) &&
-          !field->is_virtual_gcol()) {
-        /* compare null bit */
-        if (field->is_null() != field->is_null_in_record(table->record[1]))
-          result = true;
+    } else {
+      for (Field **ptr = table->field;
+           *ptr && ((*ptr)->field_index() < cols->n_bits) && !result; ptr++) {
+        Field *field = *ptr;
+        if (bitmap_is_set(cols, field->field_index()) &&
+            !field->is_virtual_gcol()) {
+          /* compare null bit */
+          if (field->is_null() != field->is_null_in_record(table->record[1]))
+            result = true;
 
-        /* compare content, only if fields are not set to NULL */
-        else if (!field->is_null())
-          result = field->cmp_binary_offset(table->s->rec_buff_length);
+          /* compare content, only if fields are not set to NULL */
+          else if (!field->is_null()) {
+            result = field->cmp_binary_offset(table->s->rec_buff_length);
+            if (result && bi_consistency_check &&
+                field->type() == MYSQL_TYPE_FLOAT) {
+              String str1, str2;
+              const ptrdiff_t offset = table->s->rec_buff_length;
+              field->val_str(&str1);
+#ifndef NDEBUG
+              const uchar *prev = field->field_ptr();
+#endif
+              field->move_field_offset(offset);
+              field->val_str(&str2);
+              field->move_field_offset(-offset);
+              assert(field->field_ptr() == prev);
+              result = (stringcmp(&str1, &str2) != 0);
+            }
+          }
+        }
       }
     }
   }
@@ -9053,6 +9089,135 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols) {
   }
 
   return result;
+}
+
+/**
+ * Assumes that the relay log before image is stored in record[1] and the local
+ * image read from the storage engine is stored in record[0] and calculates the
+ * difference in column values
+ *
+ * @return A pair of strings where the 1st string is the column values in the
+ * source (i.e. relay log) and 2nd is the col values of the local DB. The
+ * strings are in col=val format, comma separated if multiple cols have
+ * mismatch. Only cols that have mismatch are recorded.
+ */
+static std::pair<std::string, std::string> calculate_diff(TABLE *table,
+                                                          table_def *tabledef,
+                                                          MY_BITMAP *cols) {
+  DBUG_ENTER("calculate_diff");
+  std::string source, local;
+
+  /*
+    Need to set the X bit and the filler bits in both records since
+    there are engines that do not set it correctly.
+
+    In addition, since MyISAM checks that one hasn't tampered with the
+    record, it is necessary to restore the old bytes into the record
+    after doing the comparison.
+
+    TODO[record format ndb]: Remove it once NDB returns correct
+    records. Check that the other engines also return correct records.
+   */
+  uchar saved_x[2] = {0, 0}, saved_filler[2] = {0, 0};
+  if (table->s->null_bytes > 0) {
+    for (int i = 0; i < 2; ++i) {
+      /*
+        If we have an X bit then we need to take care of it.
+      */
+      if (!(table->s->db_options_in_use & HA_OPTION_PACK_RECORD)) {
+        saved_x[i] = table->record[i][0];
+        table->record[i][0] |= 1U;
+      }
+
+      /*
+         If (last_null_bit_pos == 0 && null_bytes > 1), then:
+         X bit (if any) + N nullable fields + M Field_bit fields = 8 bits
+         Ie, the entire byte is used.
+      */
+      if (table->s->last_null_bit_pos > 0) {
+        saved_filler[i] = table->record[i][table->s->null_bytes - 1];
+        table->record[i][table->s->null_bytes - 1] |=
+            256U - (1U << table->s->last_null_bit_pos);
+      }
+    }
+  }
+
+  if (tabledef->use_column_names(table)) {
+    for (uint i = 0; i < tabledef->size(); ++i) {
+      if (!bitmap_is_set(cols, i)) continue;
+      const char *col_name = tabledef->get_column_name(i);
+      Field *const field = find_field_in_table_sef(table, col_name);
+      if (field) {
+        if ((field->is_null() != field->is_null_in_record(table->record[1])) ||
+            (!field->is_null() &&
+             field->cmp_binary_offset(table->s->rec_buff_length))) {
+          String str1, str2;
+          const ptrdiff_t offset = table->s->rec_buff_length;
+          field->val_str(&str1);
+          local +=
+              std::string(field->field_name) + "=" +
+              (field->is_null() ? "NULL" : std::string(str1.c_ptr_safe())) +
+              ",";
+#ifndef NDEBUG
+          const uchar *prev = field->field_ptr();
+#endif
+          field->move_field_offset(offset);
+          field->val_str(&str2);
+          source +=
+              std::string(field->field_name) + "=" +
+              (field->is_null() ? "NULL" : std::string(str2.c_ptr_safe())) +
+              ",";
+          field->move_field_offset(-offset);
+          assert(field->field_ptr() == prev);
+        }
+      }
+    }
+  } else {
+    for (Field **ptr = table->field;
+         *ptr && ((*ptr)->field_index() < cols->n_bits); ptr++) {
+      Field *field = *ptr;
+      if (bitmap_is_set(cols, field->field_index())) {
+        if ((field->is_null() != field->is_null_in_record(table->record[1])) ||
+            (!field->is_null() &&
+             field->cmp_binary_offset(table->s->rec_buff_length))) {
+          String str1, str2;
+          const ptrdiff_t offset = table->s->rec_buff_length;
+          field->val_str(&str1);
+          local +=
+              std::string(field->field_name) + "=" +
+              (field->is_null() ? "NULL" : std::string(str1.c_ptr_safe())) +
+              ",";
+#ifndef NDEBUG
+          const uchar *prev = field->field_ptr();
+#endif
+          field->move_field_offset(offset);
+          field->val_str(&str2);
+          source +=
+              std::string(field->field_name) + "=" +
+              (field->is_null() ? "NULL" : std::string(str2.c_ptr_safe())) +
+              ",";
+          field->move_field_offset(-offset);
+          assert(field->field_ptr() == prev);
+        }
+      }
+    }
+  }
+
+  if (table->s->null_bytes > 0) {
+    for (int i = 0; i < 2; ++i) {
+      if (!(table->s->db_options_in_use & HA_OPTION_PACK_RECORD))
+        table->record[i][0] = saved_x[i];
+
+      if (table->s->last_null_bit_pos > 0)
+        table->record[i][table->s->null_bytes - 1] = saved_filler[i];
+    }
+  }
+
+  // Remove trailing comma
+  if (source.size()) source.pop_back();
+  if (local.size()) local.pop_back();
+
+  DBUG_RETURN(std::make_pair(source, local));
 }
 
 void Rows_log_event::do_post_row_operations(Relay_log_info const *rli,
@@ -9524,19 +9689,39 @@ end:
   if (!error && opt_slave_check_before_image_consistency &&
       rbr_exec_mode != RBR_EXEC_MODE_IDEMPOTENT &&
       !(m_table->file->ha_table_flags() & HA_READ_BEFORE_WRITE_REMOVAL) &&
-      record_compare(m_table, tabledef, &m_cols)) {
+      record_compare(m_table, tabledef, &m_cols,
+                     true /* bi_consistency_check */)) {
+    before_image_mismatch mismatch_info;
     char gtid[Gtid_specification::MAX_TEXT_LENGTH];
     global_sid_lock->rdlock();
     thd->variables.gtid_next.to_string(global_sid_map, gtid);
     global_sid_lock->unlock();
+    mismatch_info.gtid = gtid;
 
-    update_before_image_inconsistencies(m_table->s->db.str,
-                                        m_table->s->table_name.str, gtid);
+    mismatch_info.table = std::string(m_table->s->db.str) + "." +
+                          std::string(m_table->s->table_name.str);
+    mismatch_info.log_pos = std::string(rli->get_rpl_log_name()) + ":" +
+                            std::to_string(common_header->log_pos);
+    std::tie(mismatch_info.source_img, mismatch_info.local_img) =
+        calculate_diff(m_table, tabledef, &m_cols);
+    update_before_image_inconsistencies(mismatch_info);
     if (log_error_verbosity > 1) {
+      std::string bi = mismatch_info.source_img;
+      std::string li = mismatch_info.local_img;
+      if (bi.length() > 256) {
+        bi.resize(253);
+        bi += "...";
+      }
+      if (li.length() > 256) {
+        li.resize(253);
+        li += "...";
+      }
       sql_print_warning(
           "Slave before-image consistency check failed at "
-          "position: %s:%llu (gtid: %s)",
-          rli->get_rpl_log_name(), common_header->log_pos, gtid);
+          "position: %s (gtid: %s). "
+          "Mismatch (table: %s): %s (source) vs. %s (local)",
+          mismatch_info.log_pos.c_str(), mismatch_info.gtid.c_str(),
+          mismatch_info.table.c_str(), bi.c_str(), li.c_str());
     }
     if (opt_slave_check_before_image_consistency ==
         Log_event::enum_check_before_image_consistency::BI_CHECK_ON) {

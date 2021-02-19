@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <atomic>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
 #include "m_string.h"
@@ -638,12 +639,18 @@ bool sql_slave_killed(THD *thd, Relay_log_info *rli);
 */
 bool is_network_error(uint errorno);
 
+struct before_image_mismatch {
+  std::string table;
+  std::string gtid;
+  std::string log_pos;
+  std::string source_img;
+  std::string local_img;
+};
 extern ulong before_image_inconsistencies;
-extern std::unordered_map<std::string, std::string> bi_inconsistencies;
+extern std::unordered_map<std::string, before_image_mismatch>
+    bi_inconsistencies;
 extern std::mutex bi_inconsistency_lock;
-extern void update_before_image_inconsistencies(const char *db,
-                                                const char *table,
-                                                const char *gtid);
+void update_before_image_inconsistencies(const before_image_mismatch &);
 extern ulong get_num_before_image_inconsistencies();
 
 int init_replica_thread(THD *thd, SLAVE_THD_TYPE thd_type);

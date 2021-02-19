@@ -3871,12 +3871,19 @@ int fill_rbr_bi_inconsistencies(THD *thd, TABLE_LIST *tables, Item *) {
 
   const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
   for (const auto &entry : bi_inconsistencies) {
+    const auto &info = entry.second;
     restore_record(table, s->default_values);
 
     /* Table name */
-    table->field[0]->store(entry.first.c_str(), entry.first.size(), cs);
+    table->field[0]->store(info.table.c_str(), info.table.size(), cs);
     /* Last inconsistent GTID */
-    table->field[1]->store(entry.second.c_str(), entry.second.size(), cs);
+    table->field[1]->store(info.gtid.c_str(), info.gtid.size(), cs);
+    /* Last inconsistent log pos */
+    table->field[2]->store(info.log_pos.c_str(), info.log_pos.size(), cs);
+    /* Column values from source */
+    table->field[3]->store(info.source_img.c_str(), info.source_img.size(), cs);
+    /* Column values from local DB */
+    table->field[4]->store(info.local_img.c_str(), info.local_img.size(), cs);
 
     if (schema_table_store_record(thd, table)) {
       error = 1;
@@ -5659,6 +5666,9 @@ ST_FIELD_INFO slave_db_load_fields_info[] = {
 ST_FIELD_INFO rbr_bi_inconsistencies_fields_info[] = {
     {"TABLE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Table", 0},
     {"LAST_GTID", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Last GTID", 0},
+    {"SOURCE_LOG_POS", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Source Log Pos", 0},
+    {"SOURCE_IMAGE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Source Image", 0},
+    {"LOCAL_IMAGE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Local Image", 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
 ST_FIELD_INFO plugin_fields_info[] = {
