@@ -1926,7 +1926,8 @@ void err_readonly(THD *thd) {
                        ->has_global_grant(STRING_WITH_LEN("CONNECTION_ADMIN"))
                        .first
                ? (opt_super_readonly ? "--super-read-only"
-                                     : "--sql_log_bin and --read-only")
+                                     : "--sql_log_bin, --read-only and "
+                                       "--enable_super_log_bin_read_only")
                : "--read-only",
            extra_info.c_str());
 }
