@@ -11147,7 +11147,7 @@ calculate_diff(TABLE *table, table_def *tabledef, MY_BITMAP *cols)
               (field->is_null() ? "NULL" : std::string(str1.c_ptr_safe())) +
               ",";
 #ifndef DBUG_OFF
-          const auto prev= field->ptr;
+          const uchar* prev= field->ptr;
 #endif
           field->move_field_offset(offset);
           field->val_str(&str2);
@@ -11179,7 +11179,9 @@ calculate_diff(TABLE *table, table_def *tabledef, MY_BITMAP *cols)
               std::string(field->field_name) + "=" +
               (field->is_null() ? "NULL" : std::string(str1.c_ptr_safe())) +
               ",";
+#ifndef DBUG_OFF
           const uchar* prev= field->ptr;
+#endif
           field->move_field_offset(offset);
           field->val_str(&str2);
           source+=
