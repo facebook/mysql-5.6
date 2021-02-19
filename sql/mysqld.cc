@@ -749,6 +749,10 @@ ulong write_auto_throttle_frequency;
 uint write_throttle_rate_step;
 /* Stores the (latest)value for sys_var write_throttle_patterns  */
 char *latest_write_throttling_rule;
+/* Stores the (latest)value for sys_var write_throttle_permissible_dimensions_in_order*/
+char *latest_write_throttle_permissible_dimensions_in_order;
+/* Vector of all dimensions that are permissible to be throttled in order by replication lag system*/
+std::vector<enum_wtr_dimension> write_throttle_permissible_dimensions_in_order;
 /* Patterns to throttle queries in case of replication lag */
 GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
 /* Controls the width of the histogram bucket (unit: kilo-bytes) */

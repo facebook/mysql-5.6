@@ -778,9 +778,16 @@ static void populate_write_statistics(
 */
 void store_write_statistics(THD *thd)
 {
+  // write_stats_frequency may be updated dynamically. Caching it for the
+  // logic below
+  ulong write_stats_frequency_cached = write_stats_frequency;
+  if (write_stats_frequency_cached == 0) {
+    return;
+  }
+
   bool lock_acquired = mt_lock(&LOCK_global_write_statistics);
   time_t timestamp = my_time(0);
-  int time_bucket_key = timestamp - (timestamp % write_stats_frequency);
+  int time_bucket_key = timestamp - (timestamp % write_stats_frequency_cached);
   auto time_bucket_iter = global_write_statistics_map.begin();
 
   DBUG_EXECUTE_IF("dbug.add_write_stats_to_most_recent_bucket", {
@@ -962,6 +969,50 @@ enum_wtr_dimension get_wtr_dimension_from_str(std::string type_str) {
     type--;
 
   return static_cast<enum_wtr_dimension>(type);
+}
+
+/*
+  Stores a user specified order in which throttling system should throttle
+  write throttling dimensions in case of replication lag
+*/
+bool store_write_throttle_permissible_dimensions_in_order(char *new_value) {
+  if (strcmp(new_value, "OFF") == 0) {
+    mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
+    write_throttle_permissible_dimensions_in_order.clear();
+    mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+    return false;
+  }
+
+  // copy the string to avoid mutating new var value.
+  char * new_value_copy = (char *)my_malloc(strlen(new_value)+ 1, MYF(MY_WME));
+  strcpy(new_value_copy, new_value);
+  char* wtr_dim_str;
+  enum_wtr_dimension wtr_dim;
+  std::vector<enum_wtr_dimension> new_dimensions;
+  bool result = false;
+
+  wtr_dim_str = strtok(new_value_copy, ",");
+  while (wtr_dim_str != nullptr) {
+    wtr_dim = get_wtr_dimension_from_str(wtr_dim_str);
+    if (wtr_dim == WTR_DIM_UNKNOWN) {
+      result = true; // not a valid dimension string, failure
+      break;
+    }
+    auto it = std::find(new_dimensions.begin(), new_dimensions.end(), wtr_dim);
+    if (it != new_dimensions.end()) {
+      result = true; // duplicate dimension, failure
+      break;
+    }
+    new_dimensions.push_back(wtr_dim);
+    wtr_dim_str = strtok(nullptr, ",");
+  }
+  if (!result) {
+    mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
+    write_throttle_permissible_dimensions_in_order = new_dimensions;
+    mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+  }
+  my_free(new_value_copy);
+  return result;
 }
 
 /*
@@ -1388,7 +1439,7 @@ std::pair<std::string, std::string> get_top_two_entities(
     releases one of the previously throttled entities if replication lag is below
     safe threshold.
 */
-void check_lag_and_throttle() {
+void check_lag_and_throttle(time_t time_now) {
   ulong lag = get_current_replication_lag();
 
   if (lag < write_stop_throttle_lag_milliseconds) {
@@ -1443,20 +1494,49 @@ void check_lag_and_throttle() {
       return;
     }
 
+    // write_stats_frequency may be updated dynamically. Caching it for the 
+    // logic below
+    ulong write_stats_frequency_cached = write_stats_frequency;
+    if (write_stats_frequency_cached == 0) {
+      return;
+    }
+
     bool lock_acquired = mt_lock(&LOCK_global_write_statistics);
 
-    TIME_BUCKET_STATS & latest_write_stats = global_write_statistics_map.front().second;
-    // Sort dimensions in order of cardinality. If the cardinality is the same,
-    // we want to throttle sql_id > shard > client > user
-    auto cardinality_cmp = [&latest_write_stats](const enum_wtr_dimension &a, const enum_wtr_dimension &b)
-    {
-      auto a_size = latest_write_stats[a].size();
-      auto b_size = latest_write_stats[b].size();
-      return  a_size > b_size || (a_size == b_size && a > b);
-    };
-    std::array<enum_wtr_dimension, WRITE_STATISTICS_DIMENSION_COUNT> dimensions =
-      { WTR_DIM_USER, WTR_DIM_CLIENT, WTR_DIM_SHARD, WTR_DIM_SQL_ID};
-    std::sort(dimensions.begin(), dimensions.end(), cardinality_cmp);
+    // Find latest write_statistics time bucket that is complete.
+    // Example - For write_stats_frequency=6s, At t=8s, this method should
+    // return write_stats bucket for stats between t=0 to t=6 i.e. bucket_key=0
+    // and not bucket_key=6 which is incomplete and only has 2s worth of 
+    // write_stats data;
+    int time_bucket_key = time_now - (time_now % write_stats_frequency_cached) - write_stats_frequency_cached;
+    auto latest_write_stats_iter = global_write_statistics_map.begin();
+
+    // For testing purpose, force use the latest write stats bucket for culprit
+    // analysis
+    bool dbug_skip_last_complete_bucket_check = false;
+    DBUG_EXECUTE_IF("dbug.skip_last_complete_bucket_check",
+      {dbug_skip_last_complete_bucket_check = true;});
+
+    if (!dbug_skip_last_complete_bucket_check) {
+      if (latest_write_stats_iter->first != time_bucket_key) {
+        // move to the second from front time bucket
+        latest_write_stats_iter++;
+      }
+      if(latest_write_stats_iter == global_write_statistics_map.end()
+        || latest_write_stats_iter->first != time_bucket_key) {
+        // no complete write statistics bucket for analysis
+        // reset currently monitored entity, if any, as there's been a 
+        // significant gap in time since we last did culprit analysis. It is 
+        // outdated.
+        currently_monitored_entity.reset();
+        mt_unlock(lock_acquired, &LOCK_global_write_statistics);
+        return;
+      }
+    }
+    TIME_BUCKET_STATS & latest_write_stats = latest_write_stats_iter->second;
+
+    std::vector<enum_wtr_dimension> & dimensions =
+      write_throttle_permissible_dimensions_in_order;
 
     bool is_fallback_entity_set = false;
     std::pair<std::string, enum_wtr_dimension> fallback_entity;

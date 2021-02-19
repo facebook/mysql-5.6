@@ -424,7 +424,8 @@ int  fill_write_throttling_rules(THD *thd, TABLE_LIST *tables, Item *cond);
 void free_global_write_throttling_rules(void);
 void free_global_write_auto_throttling_rules(void);
 bool store_write_throttling_rules(THD *thd);
-void check_lag_and_throttle();
+void check_lag_and_throttle(time_t time_now);
+bool store_write_throttle_permissible_dimensions_in_order(char *new_value);
 
 /* For information_schema.write_throttling_log */
 extern ST_FIELD_INFO write_throttling_log_fields_info[];

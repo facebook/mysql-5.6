@@ -8222,7 +8222,7 @@ static bool mt_check_throttle_write_query(THD* thd)
       if (time_now - last_replication_lag_check_time >= (long)write_auto_throttle_frequency)
       {
         // check replication lag and throttle, if needed
-        check_lag_and_throttle();
+        check_lag_and_throttle(time_now);
         // update last check time
         last_replication_lag_check_time = time_now;
       }

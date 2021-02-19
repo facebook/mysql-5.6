@@ -1052,6 +1052,8 @@ extern ulong write_auto_throttle_frequency;
 extern uint write_throttle_rate_step;
 extern uint write_stats_count;
 extern char *latest_write_throttling_rule;
+extern char *latest_write_throttle_permissible_dimensions_in_order;
+extern std::vector<enum_wtr_dimension> write_throttle_permissible_dimensions_in_order;
 extern GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
 extern uint transaction_size_histogram_width;
 extern uint write_statistics_histogram_width;
