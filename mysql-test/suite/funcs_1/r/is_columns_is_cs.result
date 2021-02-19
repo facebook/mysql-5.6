@@ -255,6 +255,9 @@ def	information_schema	QUERY_PERF_COUNTER	CPU	2		NO	bigint	NULL	NULL	NULL	NULL	N
 def	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	RBR_BI_INCONSISTENCIES	TABLE	1		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
 def	information_schema	RBR_BI_INCONSISTENCIES	LAST_GTID	2		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
+def	information_schema	RBR_BI_INCONSISTENCIES	SOURCE_LOG_POS	3		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
+def	information_schema	RBR_BI_INCONSISTENCIES	SOURCE_IMAGE	4		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
+def	information_schema	RBR_BI_INCONSISTENCIES	LOCAL_IMAGE	5		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_CATALOG	1	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA	2	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_NAME	3	NULL	YES	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8_bin	varchar(64)			select			NULL
@@ -965,6 +968,9 @@ NULL	information_schema	QUERY_PERF_COUNTER	CPU	bigint	NULL	NULL	NULL	NULL	bigint
 NULL	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint
 3.0000	information_schema	RBR_BI_INCONSISTENCIES	TABLE	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
 3.0000	information_schema	RBR_BI_INCONSISTENCIES	LAST_GTID	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+3.0000	information_schema	RBR_BI_INCONSISTENCIES	SOURCE_LOG_POS	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+3.0000	information_schema	RBR_BI_INCONSISTENCIES	SOURCE_IMAGE	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+3.0000	information_schema	RBR_BI_INCONSISTENCIES	LOCAL_IMAGE	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_CATALOG	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_NAME	varchar	64	192	utf8mb3	utf8_bin	varchar(64)
