@@ -428,7 +428,15 @@ class Rdb_string_writer {
   }
 
   bool operator==(const Rdb_string_writer &rhs) const {
-    return m_pos == rhs.m_pos && memcmp(ptr(), rhs.ptr(), m_pos) == 0;
+    if (m_pos == rhs.m_pos) {
+      if (m_pos == 0) {
+        // Both empty
+        return true;
+      }
+      return memcmp(ptr(), rhs.ptr(), m_pos) == 0;
+    }
+
+    return false;
   }
 
   bool operator>=(const Rdb_string_writer &rhs) const {
@@ -449,18 +457,22 @@ class Rdb_string_writer {
     size_t r_size = rhs.get_current_pos();
     size_t size = std::min(l_size, r_size);
 
-    int diff = memcmp(lhs.ptr(), rhs.ptr(), size);
-    if (diff == 0) {
-      if (l_size > r_size) {
-        return 1;
-      } else if (l_size < r_size) {
-        return -1;
-      } else {
-        return 0;
+    // Only compare if both of them are not empty
+    if (size > 0) {
+      int diff = memcmp(lhs.ptr(), rhs.ptr(), size);
+      if (diff) {
+        return diff;
       }
     }
 
-    return diff;
+    // The first min(l_size, r_size) bytes are equal, compare length
+    if (l_size > r_size) {
+      return 1;
+    } else if (l_size < r_size) {
+      return -1;
+    } else {
+      return 0;
+    }
   }
 };
 
