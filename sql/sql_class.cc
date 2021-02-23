@@ -3378,17 +3378,16 @@ void THD::set_time() {
   Records the CPU time spent since start_cputime, and records this into
   perfschema via MYSQL_SET_STATEMENT_CPU_TIME.
 */
-void THD::set_cpu_time() {
+ulonglong THD::set_cpu_time() {
   struct timespec end_cputime;
+  ulonglong cpu_time = 0;
   set_timespec(&end_cputime, 0);
   if (diff_timespec(&end_cputime, &start_cputime) != 0) {
-    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_cputime) == 0) {
-      MYSQL_SET_STATEMENT_CPU_TIME(
-          m_statement_psi, diff_timespec(&end_cputime, &start_cputime) / 1000);
-    } else {
-      MYSQL_SET_STATEMENT_CPU_TIME(m_statement_psi, 0);
-    }
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_cputime) == 0)
+      cpu_time = (ulonglong)diff_timespec(&end_cputime, &start_cputime) / 1000;
+    MYSQL_SET_STATEMENT_CPU_TIME(m_statement_psi, cpu_time);
   }
+  return cpu_time;
 }
 
 void THD::set_time_after_lock() {

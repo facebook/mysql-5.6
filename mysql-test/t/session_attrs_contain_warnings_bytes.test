@@ -1,0 +1,185 @@
+--source include/have_debug.inc
+
+-- echo
+-- echo # Test server_cpu query response attribute
+-- echo
+connection default;
+
+### Setup
+use test;
+create table mytbl (c1 char(8) PRIMARY KEY, c2 int);
+
+# Enable tracking response attribute
+SET @@session.session_track_response_attributes = on;
+
+--echo # Test 1: session level variable is default, i.e. 0
+--echo   There should be no warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = default;
+
+explain select * from mytbl;
+
+let $attr = get_response_attribute(warnings);
+if ($attr == "") {
+  echo [X] Did not find warnings in query response attributes;
+}
+if ($attr) {
+  echo [^] Warnings in query response attributes: $attr;
+}
+
+--echo # Test 2: session level variable is 1 MB
+--echo   There should be two warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = 1048576;
+
+explain select * from mytbl;
+
+let $attr = get_response_attribute(warnings);
+if ($attr == "") {
+  echo [X] Did not find warnings in query response attributes;
+}
+if ($attr) {
+  echo [^] Warnings in query response attributes: $attr;
+}
+
+## Uncomment this test after fixing task T70725359
+##--echo # Test 3: session level variable is 1 MB
+##--echo   There should be no warnings present in the response
+##--echo   since the query raises error
+##set @@session.response_attrs_contain_warnings_bytes = 1048576;
+
+##--error ER_DUP_ENTRY
+##explain select * from mytbl;
+
+##let $attr = get_response_attribute(warnings);
+##if ($attr == "") {
+##  echo [X] Did not find warnings in query response attributes;
+##}
+##if ($attr) {
+##  echo [^] Warnings in query response attributes: $attr;
+##}
+
+## Uncomment this test after fixing task T70725359
+##--echo # Test 4: session level variable is 1 MB
+##--echo   There should be no warnings present in the response
+##--echo   since the query raises error
+##set @@session.response_attrs_contain_warnings_bytes = 1048576;
+
+##--error ER_DUP_ENTRY
+##explain select * from mytbl;
+
+##let $attr = get_response_attribute(warnings);
+##if ($attr == "") {
+##  echo [X] Did not find warnings in query response attributes;
+##}
+##if ($attr) {
+##  echo [^] Warnings in query response attributes: $attr;
+##}
+
+--echo # Test 5: session level variable is 5 bytes
+--echo   Warnings should be truncated to just message codes in the
+--echo   response since they exceed the bytes limit
+set @@session.response_attrs_contain_warnings_bytes = 5;
+
+explain select * from mytbl;
+
+let $attr = get_response_attribute(warnings);
+if ($attr == "") {
+  echo [X] Did not find warnings in query response attributes;
+}
+if ($attr) {
+  echo [^] Warnings in query response attributes: $attr;
+}
+
+--echo # Test 6: session level variable is 0, i.e., disabled
+--echo   There should be no warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = 0;
+
+explain select * from mytbl;
+
+let $attr = get_response_attribute(warnings);
+if ($attr == "") {
+  echo [X] Did not find warnings in query response attributes;
+}
+if ($attr) {
+  echo [^] Warnings in query response attributes: $attr;
+}
+
+--echo Set variables to raise an additional warning for long running queries
+set @@GLOBAL.write_cpu_limit_milliseconds=1;
+set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_time_check_batch=3;
+set @@global.debug= '+d,dbug.force_long_running_query';
+
+--echo # Test 7: session level variable is default, i.e. 0
+--echo   There should be no warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = default;
+
+insert into mytbl values('a1a1', -1), ('a2a2', -1), ('a3a3', -1);
+
+let $attr = get_response_attribute(warnings);
+if ($attr == "") {
+  echo [X] Did not find warnings in query response attributes;
+}
+if ($attr) {
+  echo [^] Warnings in query response attributes: $attr;
+}
+
+--echo # Test 8: session level variable is 1 MB
+--echo   There should be two warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = 1048576;
+
+insert into mytbl values('b1b1', -1), ('b2b2', -1), ('b3b3', -1);
+
+let $attr = get_response_attribute(warnings);
+if ($attr == "") {
+  echo [X] Did not find warnings in query response attributes;
+}
+if ($attr) {
+  echo [^] Warnings in query response attributes: $attr;
+}
+
+--echo # Test 9: session level variable is 5 bytes
+--echo   Warnings should be truncated to just message codes in the
+--echo   response since they exceed the bytes limit
+set @@session.response_attrs_contain_warnings_bytes = 5;
+
+insert into mytbl values('c1c1', -1), ('c2c2', -1), ('c3c3', -1);
+
+let $attr = get_response_attribute(warnings);
+if ($attr == "") {
+  echo [X] Did not find warnings in query response attributes;
+}
+if ($attr) {
+  echo [^] Warnings in query response attributes: $attr;
+}
+
+--echo # Test 10: session level variable is 0, i.e., disabled
+--echo   There should be no warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = 0;
+
+insert into mytbl values('d1d1', -1), ('d2d2', -1), ('d3d3', -1);
+
+let $attr = get_response_attribute(warnings);
+if ($attr == "") {
+  echo [X] Did not find warnings in query response attributes;
+}
+if ($attr) {
+  echo [^] Warnings in query response attributes: $attr;
+}
+
+#Reset
+set @@global.debug= '-d,dbug.force_long_running_query';
+set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_cpu_limit_milliseconds=0;
+set @@GLOBAL.write_time_check_batch=0;
+
+####################################################
+### Clean Up
+####################################################
+
+# Reset to default
+set @@session.response_attrs_contain_warnings_bytes = default;
+
+# Cleanup
+connection default;
+use test;
+drop table if exists mytbl;

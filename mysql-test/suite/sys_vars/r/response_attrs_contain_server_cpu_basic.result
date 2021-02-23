@@ -1,0 +1,143 @@
+#
+# Variable name : response_attrs_contain_server_cpu
+# Scope         : Global & Session
+#
+# Global - default
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+# Session - default
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+
+# via performance_schema.global_variables
+select * from performance_schema.global_variables where variable_name like '%response_attrs_contain_server_cpu%';
+VARIABLE_NAME	VARIABLE_VALUE
+response_attrs_contain_server_cpu	OFF
+# via performance_schema.session_variables
+select * from performance_schema.session_variables where variable_name like '%response_attrs_contain_server_cpu%';
+VARIABLE_NAME	VARIABLE_VALUE
+response_attrs_contain_server_cpu	OFF
+SET @global_saved_tmp =  @@global.response_attrs_contain_server_cpu;
+
+# Altering global variable's value
+SET @@global.response_attrs_contain_server_cpu = 0;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+SET @@global.response_attrs_contain_server_cpu = TrUe;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+1
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+SET @@global.response_attrs_contain_server_cpu = FaLsE;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+
+# Altering session variable's value
+SET @@session.response_attrs_contain_server_cpu = 0;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+
+SET @@session.response_attrs_contain_server_cpu = TrUe;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+1
+
+SET @@session.response_attrs_contain_server_cpu = FaLsE;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+
+SET @@session.response_attrs_contain_server_cpu = TrUe;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+1
+
+# Variables' values in a new session.
+# Global - expect 0
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+
+# Session - expect 0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+
+# Switching to the default connection.
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+1
+
+# Test if DEFAULT is working as expected.
+SET @@global.response_attrs_contain_server_cpu = DEFAULT;
+SET @@session.response_attrs_contain_server_cpu = DEFAULT;
+
+# Global - expect 0
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+# Session - expect 0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+
+# Variables' values in a new session (con2).
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+
+# Altering session should not affect global.
+SET @@session.response_attrs_contain_server_cpu = TRUE;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+0
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+1
+
+# Variables' values in a new session (con3).
+# Altering global should not affect session.
+SET @@global.response_attrs_contain_server_cpu = ON;
+SELECT @@global.response_attrs_contain_server_cpu;
+@@global.response_attrs_contain_server_cpu
+1
+SELECT @@session.response_attrs_contain_server_cpu;
+@@session.response_attrs_contain_server_cpu
+0
+
+# Switching to the default connection.
+# Restoring the original values.
+SET @@global.response_attrs_contain_server_cpu = DEFAULT;
+SET @@session.response_attrs_contain_server_cpu = DEFAULT;
+# End of tests.
