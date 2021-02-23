@@ -1,0 +1,38 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: response_attrs_contain_warnings_bytes
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of response_attrs_contain_warnings_bytes
+SELECT @@global.response_attrs_contain_warnings_bytes;
+
+####
+## Verify that the variable is dynamic
+####
+--echo response_attrs_contain_warnings_bytes is set to 1 KB
+set @@global.response_attrs_contain_warnings_bytes = 1024;
+SELECT @@global.response_attrs_contain_warnings_bytes;
+
+--echo response_attrs_contain_warnings_bytes is set to 1 MB
+set @@global.response_attrs_contain_warnings_bytes = 1048576;
+SELECT @@global.response_attrs_contain_warnings_bytes;
+
+-- echo setting write_control to a negative number throws warning
+set @@global.response_attrs_contain_warnings_bytes = -10000;
+SELECT @@global.response_attrs_contain_warnings_bytes;
+
+-- echo setting write_control to a random string gives error
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.response_attrs_contain_warnings_bytes = 'XYZ';
+SELECT @@global.response_attrs_contain_warnings_bytes;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.response_attrs_contain_warnings_bytes = 0;
+SELECT @@global.response_attrs_contain_warnings_bytes;

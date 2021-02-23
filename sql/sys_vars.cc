@@ -8731,3 +8731,24 @@ static Sys_var_enum Sys_raft_signal_async_dump_threads(
     GLOBAL_VAR(opt_raft_signal_async_dump_threads), CMD_LINE(OPT_ARG),
     raft_signal_async_dump_threads_options, DEFAULT(AFTER_CONSENSUS),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_response_attrs_contain_server_cpu(
+    "response_attrs_contain_server_cpu",
+    "If this is enabled, then the server CPU time of the query is sent back "
+    "to clients as part of OK packet in session response attribute. Server "
+    "CPU time is sent as a key-value pair - 'server_cpu' is the key and the "
+    "value is the stringified server CPU time.",
+    SESSION_VAR(response_attrs_contain_server_cpu), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
+static Sys_var_uint Sys_response_attrs_contain_warnings_bytes(
+    "response_attrs_contain_warnings_bytes",
+    "Specifies the size of the warnings information (specified in bytes) "
+    " that can be included in the query response attributes. The warnings "
+    "are sent as a key-value pair - 'warnings' is the key and the "
+    "value is a list of pairs included with in brackets separated by commas."
+    " The first value of the pair is the error number (code) and the second "
+    " value of the pair is the message text and these are separated by a "
+    "comma. The default value is 0 which disables this feature",
+    SESSION_VAR(response_attrs_contain_warnings_bytes), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
