@@ -250,6 +250,7 @@ void lock_wait_suspend_thread(que_thr_t *thr) /*!< in: query thread associated
     start_time = ut_time_monotonic_us();
   }
 
+  const lock_t *wait_lock = trx->lock.wait_lock;
   lock_wait_mutex_exit();
 
   /* We hold trx->mutex here, which is required to call
@@ -258,7 +259,6 @@ void lock_wait_suspend_thread(que_thr_t *thr) /*!< in: query thread associated
   call to lock_set_lock_and_trx_wait before we obtained the trx->mutex, which is
   precisely what we want for our stats */
   auto lock_type = trx->lock.wait_lock_type;
-  const lock_t *wait_lock = trx->lock.wait_lock;
   trx_mutex_exit(trx);
 
   ulint had_dict_lock = trx->dict_operation_lock_mode;
@@ -358,13 +358,19 @@ void lock_wait_suspend_thread(que_thr_t *thr) /*!< in: query thread associated
 
     if (lock_type == LOCK_REC) {
       trx_set_detailed_error(
-          trx, timeout_message("record in index", wait_lock->index->table_name,
-                               wait_lock->index->name)
+          trx, timeout_message("record in index",
+                               wait_lock ? wait_lock->index->table_name
+                                         : "wait_lock_info_missing",
+                               wait_lock ? wait_lock->index->name
+                                         : "wait_lock_info_missing")
                    .c_ptr_safe());
     } else if (lock_type == LOCK_TABLE) {
       trx_set_detailed_error(
           trx,
-          timeout_message("table", wait_lock->tab_lock.table->name.m_name, "")
+          timeout_message("table",
+                          wait_lock ? wait_lock->tab_lock.table->name.m_name
+                                    : "wait_lock_info_missing",
+                          "")
               .c_ptr_safe());
     }
 
