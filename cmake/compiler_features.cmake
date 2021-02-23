@@ -194,7 +194,7 @@ MACRO(ROCKSDB_SET_DEFINTIONS)
 	  add_definitions(-DHAVE_PCLMUL)
 	ENDIF ()
 
-	if(HAVE_AVX2)
+	if(HAVE_AVX2 AND NOT ROCKSDB_DISABLE_AVX2)
 	  add_definitions(-DHAVE_AVX2)
 	endif()
 
