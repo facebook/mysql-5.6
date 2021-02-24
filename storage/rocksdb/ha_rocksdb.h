@@ -100,12 +100,6 @@ struct Rdb_table_handler {
   my_io_perf_atomic_t m_io_perf_read;
   my_io_perf_atomic_t m_io_perf_write;
   Rdb_atomic_perf_counters m_table_perf_context;
-
-  /* Stores cached memtable estimate statistics */
-  std::atomic_uint m_mtcache_lock;
-  uint64_t m_mtcache_count;
-  uint64_t m_mtcache_size;
-  uint64_t m_mtcache_last_update;
 };
 
 }  // namespace myrocks
@@ -397,12 +391,15 @@ class ha_rocksdb : public my_core::handler {
   */
   Rdb_io_perf m_io_perf;
 
+ public:
+  static rocksdb::Range get_range(const Rdb_key_def &kd, uchar buf[]);
+
   /*
     Update stats
   */
-  void update_stats(void);
+  static int update_stats(ha_statistics *ha_stats, Rdb_tbl_def *tbl_def,
+                          bool from_handler = false);
 
- public:
   /*
     Controls whether writes include checksums. This is updated from the session
     variable
@@ -999,8 +996,10 @@ class ha_rocksdb : public my_core::handler {
       dd::Table *new_table_def MY_ATTRIBUTE((unused))) override;
 
   bool is_read_free_rpl_table() const;
-  int adjust_handler_stats_sst_and_memtable();
-  int adjust_handler_stats_table_scan();
+  static int adjust_handler_stats_sst_and_memtable(ha_statistics *ha_stats,
+                                                   Rdb_tbl_def *tbl_def);
+  static int adjust_handler_stats_table_scan(ha_statistics *ha_stats,
+                                             Rdb_tbl_def *tbl_def);
 
   void update_row_read(ulonglong count);
   static void inc_covered_sk_lookup();

@@ -28,6 +28,14 @@ DROP TABLE t1;
 
 CREATE TABLE t1 (a INT KEY AUTO_INCREMENT, c CHAR(8)) ENGINE=RocksDB CHARSET=latin1;
 
+# NOTE: Before table open AUTO_INCREMENT will be NULL as table open updates it
+#--replace_column 2 # 3 # 4 # 5 # 6 # 7 # 8 # 9 # 10 # 12 # 13 # 14 # 15 # 16 # 17 # 18 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+
+# Force open the table to update autoinc number 
+SELECT COUNT(*) FROM t1;
+
 #--replace_column 2 # 3 # 4 # 5 # 6 # 7 # 8 # 9 # 10 # 12 # 13 # 14 # 15 # 16 # 17 # 18 #
 --replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
@@ -38,6 +46,15 @@ INSERT INTO t1 (c) VALUES ('a'),('b'),('c');
 SHOW TABLE STATUS LIKE 't1';
 
 TRUNCATE TABLE t1;
+
+# NOTE: Before table open AUTO_INCREMENT will be NULL as table open updates it
+#--replace_column 2 # 3 # 4 # 5 # 6 # 7 # 8 # 9 # 10 # 12 # 13 # 14 # 15 # 16 # 17 # 18 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
+
+SHOW TABLE STATUS LIKE 't1';
+# Force open the table to update autoinc number 
+SELECT COUNT(*) FROM t1;
+
 #--replace_column 2 # 3 # 4 # 5 # 6 # 7 # 8 # 9 # 10 # 12 # 13 # 14 # 15 # 16 # 17 # 18 #
 --replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
@@ -71,4 +88,3 @@ HANDLER h2 READ FIRST;
 --enable_testcase
 
 DROP TABLE t1;
-
