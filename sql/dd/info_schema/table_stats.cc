@@ -491,9 +491,15 @@ ulonglong Table_statistics::read_stat(
   plugin_ref tmp_plugin = ha_resolve_by_name_raw(
       thd, lex_cstring_handle(dd::String_type(engine_name_ptr.ptr())));
   handlerton *hton = nullptr;
-  const bool hton_implements_get_statistics =
-      (tmp_plugin && (hton = plugin_data<handlerton *>(tmp_plugin)) &&
-       hton->get_index_column_cardinality && hton->get_table_statistics);
+  bool hton_implements_get_statistics = false;
+  if (tmp_plugin && (hton = plugin_data<handlerton *>(tmp_plugin))) {
+    if (stype == enum_table_stats_type::INDEX_COLUMN_CARDINALITY) {
+      hton_implements_get_statistics =
+          hton->get_index_column_cardinality != nullptr;
+    } else {
+      hton_implements_get_statistics = hton->get_table_statistics != nullptr;
+    }
+  }
 
   // Try to get statistics without opening the table.
   if (!partition_name && hton_implements_get_statistics)

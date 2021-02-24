@@ -323,6 +323,7 @@ void Rdb_converter::get_storage_type(Rdb_field_encoder *const encoder,
                                      const uint kp) {
   auto pk_descr =
       m_tbl_def->m_key_descr_arr[ha_rocksdb::pk_index(m_table, m_tbl_def)];
+
   // STORE_SOME uses unpack_info.
   if (pk_descr->has_unpack_info(kp)) {
     assert(pk_descr->can_unpack(kp));
