@@ -1,0 +1,38 @@
+set @old_debug = @@global.debug;
+drop table if exists t1;
+set @@global.debug = '+d,rocksdb_before_delete_table';
+create table t1 (
+id1 int(10) unsigned not null default '0',
+primary key (id1) comment 'cf_primary_key'
+  ) engine=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+drop table t1;
+set debug_sync = "now wait_for ready_to_mark_cf_dropped_before_delete_table";
+SHOW TABLE STATUS LIKE 't1';
+set debug_sync = "now signal mark_cf_dropped_done_before_delete_table";
+show tables;
+Tables_in_test
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Fixed	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
+Warnings:
+Warning	155	No such table: 'Table is missing'
+set @@global.debug = @old_debug;
+set @@global.debug = '+d,rocksdb_after_delete_table';
+create table t1 (
+id1 int(10) unsigned not null default '0',
+primary key (id1) comment 'cf_primary_key'
+  ) engine=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+drop table t1;
+set debug_sync = "now wait_for ready_to_mark_cf_dropped_after_delete_table";
+SHOW TABLE STATUS LIKE 't1';
+set debug_sync = "now signal mark_cf_dropped_done_after_delete_table";
+show tables;
+Tables_in_test
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Fixed	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
+Warnings:
+Warning	155	No such table: 'Table is missing'
+set @@global.debug = @old_debug;
