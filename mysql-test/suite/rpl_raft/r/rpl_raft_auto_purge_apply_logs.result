@@ -14,9 +14,11 @@ Rpl_raft_role	LEADER
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
+reset master;
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
+reset master;
 create table t1 (a int primary key);
 "Inserting rows into t1 on server_1"
 include/sync_slave_sql_with_master.inc
@@ -67,6 +69,7 @@ include/sync_slave_sql_with_master.inc
 "Verifying apply logs on follower: server_2"
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13001.000001	#	#
 apply-logs-13001.000002	#	#
 apply-logs-13001.000003	#	#
 apply-logs-13001.000004	#	#
@@ -89,10 +92,10 @@ apply-logs-13001.000020	#	#
 apply-logs-13001.000021	#	#
 apply-logs-13001.000022	#	#
 apply-logs-13001.000023	#	#
-apply-logs-13001.000024	#	#
 "Verifying apply logs on follower: server_3"
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13002.000001	#	#
 apply-logs-13002.000002	#	#
 apply-logs-13002.000003	#	#
 apply-logs-13002.000004	#	#
@@ -115,7 +118,6 @@ apply-logs-13002.000020	#	#
 apply-logs-13002.000021	#	#
 apply-logs-13002.000022	#	#
 apply-logs-13002.000023	#	#
-apply-logs-13002.000024	#	#
 "Sleep for 70s to expire the logs"
 select sleep(70);
 sleep(70)
@@ -133,7 +135,6 @@ count(*)
 21
 show binary logs;
 Log_name	File_size	Encrypted
-apply-logs-13001.000016	#	#
 apply-logs-13001.000017	#	#
 apply-logs-13001.000018	#	#
 apply-logs-13001.000019	#	#
@@ -142,14 +143,12 @@ apply-logs-13001.000021	#	#
 apply-logs-13001.000022	#	#
 apply-logs-13001.000023	#	#
 apply-logs-13001.000024	#	#
-apply-logs-13001.000025	#	#
 "Verifying apply logs on follower: server_3"
 select count(*) from t1;
 count(*)
 21
 show binary logs;
 Log_name	File_size	Encrypted
-apply-logs-13002.000016	#	#
 apply-logs-13002.000017	#	#
 apply-logs-13002.000018	#	#
 apply-logs-13002.000019	#	#
@@ -158,7 +157,6 @@ apply-logs-13002.000021	#	#
 apply-logs-13002.000022	#	#
 apply-logs-13002.000023	#	#
 apply-logs-13002.000024	#	#
-apply-logs-13002.000025	#	#
 "Transfering leadership: server_1 -> server_2"
 include/raft_promote_to_leader.inc
 select sleep(10);
@@ -239,7 +237,6 @@ count(*)
 41
 show binary logs;
 Log_name	File_size	Encrypted
-apply-logs-13002.000037	#	#
 apply-logs-13002.000038	#	#
 apply-logs-13002.000039	#	#
 apply-logs-13002.000040	#	#
@@ -248,7 +245,6 @@ apply-logs-13002.000042	#	#
 apply-logs-13002.000043	#	#
 apply-logs-13002.000044	#	#
 apply-logs-13002.000045	#	#
-apply-logs-13002.000046	#	#
 "Transfering leadership: server_2 -> server_1"
 include/raft_promote_to_leader.inc
 show status like 'rpl_raft_role';
@@ -329,7 +325,6 @@ count(*)
 61
 show binary logs;
 Log_name	File_size	Encrypted
-apply-logs-13002.000058	#	#
 apply-logs-13002.000059	#	#
 apply-logs-13002.000060	#	#
 apply-logs-13002.000061	#	#
@@ -338,7 +333,6 @@ apply-logs-13002.000063	#	#
 apply-logs-13002.000064	#	#
 apply-logs-13002.000065	#	#
 apply-logs-13002.000066	#	#
-apply-logs-13002.000067	#	#
 drop table t1;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc

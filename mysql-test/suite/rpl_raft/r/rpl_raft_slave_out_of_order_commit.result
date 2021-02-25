@@ -8,6 +8,17 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 include/rpl_connect.inc [creating server_4]
 include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
 create database d1;
 create database d2;
 create table d1.t1(a int primary key) engine = innodb;
@@ -16,6 +27,7 @@ insert into d1.t1 values(1);
 insert into d2.t2 values(1);
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
 begin;
 update d1.t1 set a = a + 100;
 update d1.t1 set a = a + 1;
@@ -25,7 +37,7 @@ a
 1
 2
 rollback;
-set @@global.rpl_raft_new_leader_uuid = 's2_uuid';
+include/raft_promote_to_leader.inc
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
@@ -56,7 +68,7 @@ select * from d2.t2;
 a
 1
 2
-set @@global.rpl_raft_new_leader_uuid = 's1_uuid';
+include/raft_promote_to_leader.inc
 drop table d1.t1;
 drop table d2.t2;
 drop database d1;

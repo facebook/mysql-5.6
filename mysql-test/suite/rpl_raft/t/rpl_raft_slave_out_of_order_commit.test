@@ -1,27 +1,6 @@
 source ../include/raft_3_node.inc;
 source include/have_binlog_format_row.inc;
-source include/only_mts_slave_parallel_type_dependency.inc;
-
---disable_query_log
-call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
---enable_query_log
-
-# Create connections to server 4 and 5 (these are not in the ring)
-let $rpl_server_number= 4;
-let $rpl_connection_name= server_4;
-source include/rpl_connect.inc;
---disable_query_log
-connection server_4;
-call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
---enable_query_log
-
-let $rpl_server_number= 5;
-let $rpl_connection_name= server_5;
-source include/rpl_connect.inc;
---disable_query_log
-connection server_5;
-call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
---enable_query_log
+source include/only_mts_replica_parallel_type_dependency.inc;
 
 # create tables in two different databases
 connection server_1;
@@ -38,18 +17,17 @@ source include/sync_slave_sql_with_master.inc;
 
 # block writes on d1.t1 in server_2
 connection server_2;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
 begin;
 update d1.t1 set a = a + 100;
-let $s2_uuid= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
 
 connection server_1;
-update d1.t1 set a = a + 1; # this will be blocked on sever2
+update d1.t1 set a = a + 1; # this will be blocked on server2
 insert into d2.t2 values(2);
-let $s1_uuid= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
 
 # wait for 2nd insert for d2.t2 to go through
 connection server_2;
-let $wait_condition= select count(*) = 2 from d2.t2;
+let $wait_condition = select count(*) = 2 from d2.t2;
 let $wait_timeout= 120;
 source include/wait_condition.inc;
 select * from d2.t2;
@@ -59,8 +37,8 @@ rollback;
 
 # transfer leadership to server_2
 connection server_1;
-replace_result $s2_uuid s2_uuid;
-eval set @@global.rpl_raft_new_leader_uuid = '$s2_uuid';
+let $rpl_raft_leader_number= 2;
+source ../include/raft_promote_to_leader.inc;
 
 connection server_1;
 show status like 'rpl_raft_role';
@@ -77,12 +55,10 @@ select * from d2.t2;
 
 # cleanup
 connection server_2;
-replace_result $s1_uuid s1_uuid;
-eval set @@global.rpl_raft_new_leader_uuid = '$s1_uuid';
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
 
 connection server_1;
-let $wait_condition= select @@global.read_only = 0;
-source include/wait_condition.inc;
 drop table d1.t1;
 drop table d2.t2;
 drop database d1;

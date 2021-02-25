@@ -1,27 +1,6 @@
 source ../include/raft_3_node.inc;
 source include/have_debug_sync.inc;
 
---disable_query_log
-call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
---enable_query_log
-
-# Create connections to server 4 and 5 (these are not in the ring)
-let $rpl_server_number= 4;
-let $rpl_connection_name= server_4;
-source include/rpl_connect.inc;
---disable_query_log
-connection server_4;
-call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
---enable_query_log
-
-let $rpl_server_number= 5;
-let $rpl_connection_name= server_5;
-source include/rpl_connect.inc;
---disable_query_log
-connection server_5;
-call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
---enable_query_log
-
 # Connect server 4 and 5 using COM_BINLOG_DUMP_GTID
 # server4 will tail the leader
 connection server_4;
@@ -210,6 +189,12 @@ source include/rpl_restart_server.inc;
 connection server_1;
 let $rpl_server_number= 1;
 source include/rpl_restart_server.inc;
+
+# We need to sleep for at least one heartbeat interval after restarting the
+# server before we can promote to it because the leader would have failed
+# heartbeats while it's restarting and we will fail to promote if there are
+# recent failed rpcs.
+sleep 1;
 
 let $rpl_raft_leader_number= 1;
 source ../include/raft_promote_to_leader.inc;
