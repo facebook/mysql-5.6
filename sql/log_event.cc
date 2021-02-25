@@ -8697,7 +8697,8 @@ bool Rows_log_event::is_auto_inc_in_extra_columns() {
 
   Returns true if different.
 */
-static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols) {
+static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols,
+                           bool bi_consistency_check = false) {
   DBUG_ENTER("record_compare");
 
   /*
@@ -8778,8 +8779,23 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols) {
           result = true;
 
         /* compare content, only if fields are not set to NULL */
-        else if (!field->is_null())
+        else if (!field->is_null()) {
           result = field->cmp_binary_offset(table->s->rec_buff_length);
+          if (result && bi_consistency_check &&
+              field->type() == MYSQL_TYPE_FLOAT) {
+            String str1, str2;
+            const ptrdiff_t offset = table->s->rec_buff_length;
+            field->val_str(&str1);
+#ifndef DBUG_OFF
+            const uchar *prev = field->ptr;
+#endif
+            field->move_field_offset(offset);
+            field->val_str(&str2);
+            field->move_field_offset(-offset);
+            DBUG_ASSERT(field->ptr == prev);
+            result = (stringcmp(&str1, &str2) != 0);
+          }
+        }
       }
     }
   } else {
@@ -8793,8 +8809,23 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols) {
           result = true;
 
         /* compare content, only if fields are not set to NULL */
-        else if (!field->is_null())
+        else if (!field->is_null()) {
           result = field->cmp_binary_offset(table->s->rec_buff_length);
+          if (result && bi_consistency_check &&
+              field->type() == MYSQL_TYPE_FLOAT) {
+            String str1, str2;
+            const ptrdiff_t offset = table->s->rec_buff_length;
+            field->val_str(&str1);
+#ifndef DBUG_OFF
+            const uchar *prev = field->ptr;
+#endif
+            field->move_field_offset(offset);
+            field->val_str(&str2);
+            field->move_field_offset(-offset);
+            DBUG_ASSERT(field->ptr == prev);
+            result = (stringcmp(&str1, &str2) != 0);
+          }
+        }
       }
     }
   }
@@ -9425,7 +9456,8 @@ end:
   if (!error && opt_slave_check_before_image_consistency &&
       rbr_exec_mode != RBR_EXEC_MODE_IDEMPOTENT &&
       !(m_table->file->ha_table_flags() & HA_READ_BEFORE_WRITE_REMOVAL) &&
-      record_compare(m_table, tabledef, &m_cols)) {
+      record_compare(m_table, tabledef, &m_cols,
+                     true /* bi_consistency_check */)) {
     before_image_mismatch mismatch_info;
     char gtid[Gtid_specification::MAX_TEXT_LENGTH];
     global_sid_lock->rdlock();
