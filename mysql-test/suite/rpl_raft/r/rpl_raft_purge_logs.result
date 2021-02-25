@@ -14,9 +14,11 @@ Rpl_raft_role	LEADER
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
+reset master;
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
+reset master;
 create table t1 (a int primary key);
 "Inserting rows into t1 on server_1"
 select count(*) from t1;
@@ -78,6 +80,7 @@ binary-logs-13000.000005	#	#
 flush binary logs;
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13001.000001	#	#
 apply-logs-13001.000002	#	#
 apply-logs-13001.000003	#	#
 purge binary logs to 'apply-logs-13001.000002';
