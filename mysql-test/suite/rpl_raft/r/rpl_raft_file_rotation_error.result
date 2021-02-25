@@ -6,10 +6,20 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
-call mtr.add_suppression("Failed to rotate binary log");
 include/rpl_connect.inc [creating server_4]
 include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+call mtr.add_suppression("Failed to rotate binary log");
 show variables like 'read_only';
 Variable_name	Value
 read_only	OFF

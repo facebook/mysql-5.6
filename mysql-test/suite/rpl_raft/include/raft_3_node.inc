@@ -73,12 +73,54 @@ let $show_metadata_event= 1;
 # See: show_events.inc
 let $dont_decrement_filename= 1;
 
-
 --let $include_filename= raft_3_node.inc
 --source include/end_include_file.inc
-
 
 # Set the default connection to 'master'. Do this after
 # end_include_file.inc, so that it gets printed to the query log.
 --let $rpl_connection_name= master
 --source include/rpl_connection.inc
+
+# Suppress known warnings and reset binlogs on all raft followers.
+--disable_query_log
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Create connections to server 4 and 5 (these are not in the ring)
+let $rpl_server_number= 4;
+let $rpl_connection_name= server_4;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_4;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+let $rpl_server_number= 5;
+let $rpl_connection_name= server_5;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_5;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+connection server_1;
+show status like 'rpl_raft_role';
+
+connection server_2;
+show status like 'rpl_raft_role';
+let $exec_gtid_set= query_get_value(SHOW MASTER STATUS, Executed_Gtid_Set, 1);
+reset master;
+--disable_query_log
+eval set global gtid_purged='$exec_gtid_set';
+--enable_query_log
+
+connection server_3;
+show status like 'rpl_raft_role';
+let $exec_gtid_set= query_get_value(SHOW MASTER STATUS, Executed_Gtid_Set, 1);
+reset master;
+--disable_query_log
+eval set global gtid_purged='$exec_gtid_set';
+--enable_query_log
+
+# switch back to server_1
+connection server_1;

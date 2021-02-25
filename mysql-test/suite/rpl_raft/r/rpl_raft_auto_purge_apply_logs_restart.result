@@ -8,16 +8,17 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 include/rpl_connect.inc [creating server_4]
 include/rpl_connect.inc [creating server_5]
-call mtr.add_suppression("Engine has seen trxs till file .*");
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	LEADER
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
+reset master;
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
+reset master;
 create table t1 (a int primary key) engine=innodb;
 "Inserting rows into t1 on server_1"
 include/sync_slave_sql_with_master.inc
@@ -53,6 +54,7 @@ count(*)
 12
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13001.000001	#	#
 apply-logs-13001.000002	#	#
 apply-logs-13001.000003	#	#
 apply-logs-13001.000004	#	#
@@ -67,13 +69,13 @@ apply-logs-13001.000012	#	#
 apply-logs-13001.000013	#	#
 apply-logs-13001.000014	#	#
 apply-logs-13001.000015	#	#
-apply-logs-13001.000016	#	#
 "Verifying apply logs on follower: server_3"
 select count(*) from t1;
 count(*)
 12
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13002.000001	#	#
 apply-logs-13002.000002	#	#
 apply-logs-13002.000003	#	#
 apply-logs-13002.000004	#	#
@@ -88,7 +90,6 @@ apply-logs-13002.000012	#	#
 apply-logs-13002.000013	#	#
 apply-logs-13002.000014	#	#
 apply-logs-13002.000015	#	#
-apply-logs-13002.000016	#	#
 "Restarting follower: server_2"
 include/rpl_restart_server.inc [server_number=2 parameters: --skip-slave-start]
 show status like 'rpl_raft_role';
@@ -103,7 +104,7 @@ Note	3083	Replication thread(s) for channel '' are already runnning.
 "Verifying apply logs on follower: server_2"
 show binary logs;
 Log_name	File_size	Encrypted
-apply-logs-13001.000019	#	#
+apply-logs-13001.000018	#	#
 select count(*) from t1;
 count(*)
 12
@@ -124,15 +125,14 @@ count(*)
 13
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13001.000018	#	#
 apply-logs-13001.000019	#	#
-apply-logs-13001.000020	#	#
 "Verifying apply logs on follower: server_3"
 select count(*) from t1;
 count(*)
 13
 show binary logs;
 Log_name	File_size	Encrypted
-apply-logs-13002.000008	#	#
 apply-logs-13002.000009	#	#
 apply-logs-13002.000010	#	#
 apply-logs-13002.000011	#	#
@@ -141,7 +141,6 @@ apply-logs-13002.000013	#	#
 apply-logs-13002.000014	#	#
 apply-logs-13002.000015	#	#
 apply-logs-13002.000016	#	#
-apply-logs-13002.000017	#	#
 drop table t1;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
