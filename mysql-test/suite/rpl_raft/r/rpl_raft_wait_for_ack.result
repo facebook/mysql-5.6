@@ -8,6 +8,17 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 include/rpl_connect.inc [creating server_4]
 include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
 RESET MASTER;
 RESET SLAVE;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
