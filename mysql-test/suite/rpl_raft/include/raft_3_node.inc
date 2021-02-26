@@ -121,3 +121,6 @@ reset master;
 --disable_query_log
 eval set global gtid_purged='$exec_gtid_set';
 --enable_query_log
+
+# switch back to server_1
+connection server_1;
