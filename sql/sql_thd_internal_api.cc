@@ -320,3 +320,8 @@ bool thd_is_dd_update_stmt(const THD *thd) {
 }
 
 my_thread_id thd_thread_id(const THD *thd) { return (thd->thread_id()); }
+
+TABLE_LIST *thd_get_query_tables(THD *thd) {
+  DBUG_ASSERT(current_thd == thd);
+  return thd->lex->query_tables;
+}
