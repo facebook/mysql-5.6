@@ -10,7 +10,7 @@ SET @@global.max_db_connections = 10;
 SELECT @@global.max_db_connections;
 @@global.max_db_connections
 10
-select * from information_schema.admission_control_entities where schema_name like 'test%' order by schema_name and connections <> 0;
+select * from information_schema.admission_control_entities where schema_name like 'test%' and connections <> 0 order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 connection default;
 == Fill up max_db_connections
