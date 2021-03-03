@@ -6318,9 +6318,8 @@ bool mts_recovery_groups(Relay_log_info *rli) {
     LOG_POS_COORD w_last = {const_cast<char *>(w->get_group_master_log_name()),
                             w->get_group_master_log_pos()};
 
-    LogErr(INFORMATION_LEVEL,
-           ER_RPL_MTS_GROUP_RECOVERY_RELAY_LOG_INFO_FOR_WORKER, w->id,
-           w->get_group_relay_log_name(), w->get_group_relay_log_pos(),
+    LogErr(DEBUG_LEVEL, ER_RPL_MTS_GROUP_RECOVERY_RELAY_LOG_INFO_FOR_WORKER,
+           w->id, w->get_group_relay_log_name(), w->get_group_relay_log_pos(),
            w->get_group_master_log_name(), w->get_group_master_log_pos());
 
     recovery_group_cnt = 0;
