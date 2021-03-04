@@ -13885,7 +13885,8 @@ int ha_rocksdb::inplace_populate_sk(
     if ((res = finalize_bulk_load())) {
       DBUG_RETURN(res);
     }
-    tx->commit();
+    DBUG_ASSERT(tx->get_write_count() == 0);
+    tx->release_snapshot();
   }
 
   const ulonglong rdb_merge_buf_size = THDVAR(ha_thd(), merge_buf_size);
