@@ -2571,7 +2571,7 @@ sub set_build_thread_ports($) {
 
     # Calculate the upper limit value for build thread id
     my $build_thread_upper =
-      $max_parallel > 79 ? $max_parallel + int($max_parallel / 2) : 99;
+      $max_parallel > 79 ? $max_parallel + int($max_parallel / 2) : 199;
 
     # Check the number of available processors and accordingly set
     # the upper limit value for the build thread id.
