@@ -13406,45 +13406,82 @@ bool ha_rocksdb::inplace_alter_table(
   assert(ha_alter_info != nullptr);
   assert(ha_alter_info->handler_ctx != nullptr);
 
+  bool res = HA_EXIT_SUCCESS;
   Rdb_inplace_alter_ctx *const ctx =
       static_cast<Rdb_inplace_alter_ctx *>(ha_alter_info->handler_ctx);
 
-  if (ha_alter_info->handler_flags &
-      (my_core::Alter_inplace_info::ADD_INDEX |
-       my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)) {
-    /*
-      Buffers need to be set up again to account for new, possibly longer
-      secondary keys.
-    */
-    free_key_buffers();
+  if (!(ha_alter_info->handler_flags &
+        (my_core::Alter_inplace_info::ADD_INDEX |
+         my_core::Alter_inplace_info::ADD_UNIQUE_INDEX))) {
+    DBUG_RETURN(res);
+  }
 
-    assert(ctx != nullptr);
+  /*
+    Buffers need to be set up again to account for new, possibly longer
+    secondary keys.
+  */
+  free_key_buffers();
 
-    /*
-      If adding unique index, allocate special buffers for duplicate checking.
-    */
-    int err;
-    if ((err = alloc_key_buffers(
-             altered_table, ctx->m_new_tdef,
-             ha_alter_info->handler_flags &
-                 my_core::Alter_inplace_info::ADD_UNIQUE_INDEX))) {
-      my_error(ER_OUT_OF_RESOURCES, MYF(0));
-      DBUG_RETURN(err);
-    }
+  assert(ctx != nullptr);
 
-    /* Populate all new secondary keys by scanning the primary key. */
-    if ((err = inplace_populate_sk(altered_table, ctx->m_added_indexes))) {
-      my_error(ER_SK_POPULATE_DURING_ALTER, MYF(0));
-      DBUG_RETURN(HA_EXIT_FAILURE);
-    }
+  /*
+    If adding unique index, allocate special buffers for duplicate checking.
+  */
+  int err;
+  if ((err = alloc_key_buffers(
+           altered_table, ctx->m_new_tdef,
+           ha_alter_info->handler_flags &
+               my_core::Alter_inplace_info::ADD_UNIQUE_INDEX))) {
+    my_error(ER_OUT_OF_RESOURCES, MYF(0));
+    res = HA_EXIT_FAILURE;
+    goto end;
+  }
+
+  /* Populate all new secondary keys by scanning the primary key. */
+  if ((err = inplace_populate_sk(altered_table, ctx->m_added_indexes))) {
+    my_error(ER_SK_POPULATE_DURING_ALTER, MYF(0));
+    res = HA_EXIT_FAILURE;
+    goto end;
   }
 
   DBUG_EXECUTE_IF("myrocks_simulate_index_create_rollback", {
     dbug_create_err_inplace_alter();
-    DBUG_RETURN(HA_EXIT_FAILURE);
+    res = HA_EXIT_FAILURE;
   };);
 
-  DBUG_RETURN(HA_EXIT_SUCCESS);
+end:
+  // During inplace_populate_sk, we may perform duplicate key checking which
+  // involves calling unpack_record. However, blobs end up being unpacked
+  // using the buffer in altered_table->file, instead of the current handler
+  // object. This handler does not get cleaned up as it was never
+  // opened, so we end up leaking that buffer. To fix, we call free_key_buffers
+  // here.
+  //
+  // In the partitioned case, the altered_table->file is not only unopened, but
+  // also unintialized, but we only unpack on duplicate key errors, and the
+  // error is not possible on partitioned tables because indexes must include
+  // the partitioning key which must include the primary key.
+  //
+  // A better solution would be to pass in the blob buffer from the correct
+  // handler explicitly into the unpack functions, so that
+  // Rdb_key_def::unpack_record does not need to derive it from the TABLE
+  // object, since the Rdb_key_def class are generally unaware of handler
+  // classes anyway.
+  if (err == ER_DUP_ENTRY) {
+    assert(ha_alter_info->group_commit_ctx == nullptr);
+    reinterpret_cast<ha_rocksdb *>(altered_table->file)->free_key_buffers();
+  }
+
+  // Try to reallocate key buffers from the old schema.
+  //
+  // A better fix may to save the original buffers to avoid needing to
+  // reallocate here.
+  if (res == HA_EXIT_FAILURE) {
+    free_key_buffers();
+    err = alloc_key_buffers(table, m_tbl_def);
+  }
+
+  DBUG_RETURN(res);
 }
 
 /**
