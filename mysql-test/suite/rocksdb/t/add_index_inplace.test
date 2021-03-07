@@ -367,14 +367,14 @@ INSERT INTO t1 (a,b) VALUES (1,'1111122222');
 INSERT INTO t1 (a,b) VALUES (2,'2222233333');
 INSERT INTO t1 (a,b) VALUES (3,'3333344444');
 
---let $start_max_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1)
+--let $start_max_index_num = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_NUM', VALUE, 1)
 
 ALTER TABLE t1 DROP INDEX kb, ADD INDEX kb(b(8)), ALGORITHM=INPLACE;
 SELECT * FROM t1 FORCE INDEX(kb);
 
---let $end_max_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1)
+--let $end_max_index_num = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_NUM', VALUE, 1)
 
-if ($end_max_index_id <= $start_max_index_id) {
+if ($end_max_index_num <= $start_max_index_num) {
   echo Max index ID did not increase;
 }
 

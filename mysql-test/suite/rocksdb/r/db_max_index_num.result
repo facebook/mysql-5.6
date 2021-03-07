@@ -1,0 +1,187 @@
+## Test creating dropping database of same name while ##
+## keeping drop index thread suspended ##
+create database db1;
+use db1;
+create table t1(a int primary key, b int, key(b)) engine=rocksdb;
+insert into t1 values(999, 1), (1000, 2);
+select * from information_schema.rocksdb_ddl order by table_schema, table_name;
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	b	0	2	2	16	0	0	default	NULL	2809014792
+BEGIN;
+SELECT hex(a) FROM t1 FOR UPDATE;
+hex(a)
+3E7
+3E8
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+a76e2a08	00000001
+a76e2a08	00000001
+ROLLBACK;
+set @@global.debug = @old_debug;
+set @@global.debug = '+d,rocksdb_drop_idx';
+drop database db1;
+create database db1;
+use db1;
+create table t1(a int primary key, b int, key(b)) engine=rocksdb;
+insert into t1 values(999, 1), (1001, 3);
+select * from information_schema.rocksdb_ddl order by table_schema, table_name;
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db1	t1	NULL	PRIMARY	0	3	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	b	0	4	2	16	0	0	default	NULL	2809014792
+BEGIN;
+SELECT hex(a) FROM t1 FOR UPDATE;
+hex(a)
+3E7
+3E9
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+a76e2a08	00000003
+a76e2a08	00000003
+ROLLBACK;
+## Cleanup ##
+drop table t1;
+drop database db1;
+## Wait for drop index thread to complete ##
+set debug_sync = "now wait_for drop_idx_waiting";
+set debug_sync = "now signal ready_to_drop_idx";
+set debug_sync = "now wait_for drop_idx_done";
+set debug_sync = "now wait_for drop_idx_waiting";
+set debug_sync = "now signal ready_to_drop_idx";
+set debug_sync = "now wait_for drop_idx_done";
+set @@global.debug = @old_debug;
+## Test creating dropping table of same name in database ##
+create database db1;
+use db1;
+create table t1(a int primary key, b int, key(b)) engine=rocksdb;
+insert into t1 values(999, 1), (1000, 2);
+select * from information_schema.rocksdb_ddl order by table_schema, table_name;
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	b	0	2	2	16	0	0	default	NULL	2809014792
+BEGIN;
+SELECT hex(a) FROM t1 FOR UPDATE;
+hex(a)
+3E7
+3E8
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+a76e2a08	00000001
+a76e2a08	00000001
+ROLLBACK;
+drop table t1;
+create table t1(a int primary key, b int, key(b)) engine=rocksdb;
+insert into t1 values(999, 1), (1001, 3);
+select * from information_schema.rocksdb_ddl order by table_schema, table_name;
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db1	t1	NULL	PRIMARY	0	3	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	b	0	4	2	16	0	0	default	NULL	2809014792
+BEGIN;
+SELECT hex(a) FROM t1 FOR UPDATE;
+hex(a)
+3E7
+3E9
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+a76e2a08	00000003
+a76e2a08	00000003
+ROLLBACK;
+## Cleanup ##
+drop table t1;
+drop database db1;
+## Test index number reuse across different databases ##
+create database db2;
+use db2;
+create table t1(a int primary key, b int, key(b)) engine=rocksdb;
+insert into t1 values(999, 1), (1000, 2);
+create database db3;
+use db3;
+create table t1(a int primary key, b int, key(b)) engine=rocksdb;
+insert into t1 values(999, 1), (1000, 2);
+select * from information_schema.rocksdb_ddl order by table_schema, table_name;
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2454721479
+db2	t1	NULL	b	0	2	2	16	0	0	default	NULL	2454721479
+db3	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	3011622377
+db3	t1	NULL	b	0	2	2	16	0	0	default	NULL	3011622377
+## Cleanup ##
+drop database db2;
+drop database db3;
+## rename table having same index number to different database ##
+create database db4;
+use db4;
+create table t1(a int primary key, b int, key(b)) engine=rocksdb;
+insert into t1 values(999, 1), (1001, 3);
+select * from information_schema.rocksdb_ddl order by table_schema, table_name;
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db4	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	1705838886
+db4	t1	NULL	b	0	2	2	16	0	0	default	NULL	1705838886
+BEGIN;
+SELECT hex(a) FROM t1 FOR UPDATE;
+hex(a)
+3E7
+3E9
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+65ad0926	00000001
+65ad0926	00000001
+ROLLBACK;
+create database db5;
+use db5;
+create table t1(a int primary key, b int, key(b)) engine=rocksdb;
+insert into t1 values(999, 1), (1000, 2);
+select * from information_schema.rocksdb_ddl order by table_schema, table_name;
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db4	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	1705838886
+db4	t1	NULL	b	0	2	2	16	0	0	default	NULL	1705838886
+db5	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	698350864
+db5	t1	NULL	b	0	2	2	16	0	0	default	NULL	698350864
+BEGIN;
+SELECT hex(a) FROM t1 FOR UPDATE;
+hex(a)
+3E7
+3E8
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+299ffd10	00000001
+299ffd10	00000001
+ROLLBACK;
+rename table db5.t1 to db4.t2;
+select * from db4.t1;
+a	b
+999	1
+1001	3
+select * from db4.t2;
+a	b
+999	1
+1000	2
+select * from information_schema.rocksdb_ddl order by table_schema, table_name;
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
+db4	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	1705838886
+db4	t1	NULL	b	0	2	2	16	0	0	default	NULL	1705838886
+db4	t2	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	698350864
+db4	t2	NULL	b	0	2	2	16	0	0	default	NULL	698350864
+use db4;
+BEGIN;
+SELECT hex(a) FROM t1 FOR UPDATE;
+hex(a)
+3E7
+3E9
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+65ad0926	00000001
+65ad0926	00000001
+ROLLBACK;
+BEGIN;
+SELECT hex(a) FROM t2 FOR UPDATE;
+hex(a)
+3E7
+3E8
+SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
+299ffd10	00000001
+299ffd10	00000001
+ROLLBACK;
+## Cleanup ##
+drop database db4;
+drop database db5;

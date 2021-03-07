@@ -4484,8 +4484,9 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
   rocksdb::Iterator *it = m_dict->new_iterator();
   int i = 0;
 
-  uint max_index_num_in_dict = 0;
-  m_dict->get_max_index_num(&max_index_num_in_dict);
+  if (populate_db_nums()) {
+    return true;
+  }
 
   for (it->Seek(ddl_entry_slice); it->Valid(); it->Next()) {
     const uchar *ptr;
@@ -4535,22 +4536,34 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
       rdb_netbuf_read_gl_index(&ptr, &gl_index_id);
       uint flags = 0;
       struct Rdb_index_info index_info;
+      uint32_t db_num = gl_index_id.index_id.db_num;
+      uint32_t index_num = gl_index_id.index_id.index_num;
       if (!m_dict->get_index_info(gl_index_id, &index_info)) {
         // NO_LINT_DEBUG
         sql_print_error(
             "RocksDB: Could not get index information "
             "for Index Number (%u,%u,%u), table %s",
-            gl_index_id.cf_id, gl_index_id.index_id.db_num,
-            gl_index_id.index_id.index_num, tdef->full_tablename().c_str());
+            gl_index_id.cf_id, db_num, index_num,
+            tdef->full_tablename().c_str());
         return true;
       }
-      if (max_index_num_in_dict < gl_index_id.index_id.index_num) {
+      if (m_assigned_db_nums.find(db_num) == m_assigned_db_nums.end()) {
+        // NO_LINT_DEBUG
+        sql_print_error(
+            "RocksDB: Found DDL entry with db_num=%u index_num=%u from data "
+            "dictionary that does not have corresponding DB_ENTRY",
+            db_num, index_num);
+        return true;
+      }
+      uint32_t db_max_index_num =
+          m_assigned_db_nums[db_num]->get_next_number() - 1;
+      if (db_max_index_num < index_num) {
         // NO_LINT_DEBUG
         sql_print_error(
             "RocksDB: Found max index num %u from data dictionary "
             "but also found larger index num %u from dictionary. "
             "This should never happen and possibly a bug.",
-            max_index_num_in_dict, gl_index_id.index_id.index_num);
+            db_max_index_num, index_num);
         return true;
       }
       if (!m_dict->get_cf_flags(gl_index_id.cf_id, &flags)) {
@@ -4589,9 +4602,9 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
         look at Field* objects and set max_length and other attributes
       */
       tdef->m_key_descr_arr[keyno] = std::make_shared<Rdb_key_def>(
-          gl_index_id.index_id.db_num, gl_index_id.index_id.index_num, keyno,
-          cfh, index_info.m_index_dict_version, index_info.m_index_type,
-          index_info.m_kv_version, flags & Rdb_key_def::REVERSE_CF_FLAG,
+          db_num, index_num, keyno, cfh, index_info.m_index_dict_version,
+          index_info.m_index_type, index_info.m_kv_version,
+          flags & Rdb_key_def::REVERSE_CF_FLAG,
           flags & Rdb_key_def::PER_PARTITION_CF_FLAG, "",
           m_dict->get_stats(gl_index_id), index_info.m_index_flags,
           ttl_rec_offset, index_info.m_ttl_duration);
@@ -4629,14 +4642,6 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
       return true;
     }
   }
-
-  // index ids used by applications should not conflict with
-  // data dictionary index ids
-  if (max_index_num_in_dict < Rdb_key_def::END_DICT_INDEX_ID) {
-    max_index_num_in_dict = Rdb_key_def::END_DICT_INDEX_ID;
-  }
-
-  m_sequence.init(max_index_num_in_dict + 1);
 
   if (!it->status().ok()) {
     rdb_log_status_error(it->status(), "Table_store load error");
@@ -4999,7 +5004,9 @@ void Rdb_ddl_manager::cleanup() {
   m_ddl_map.clear();
 
   mysql_rwlock_destroy(&m_rwlock);
-  m_sequence.cleanup();
+  for (auto &it : m_assigned_db_nums) {
+    it.second->cleanup();
+  }
 }
 
 int Rdb_ddl_manager::scan_for_tables(Rdb_tables_scanner *const tables_scanner) {
@@ -5257,11 +5264,6 @@ bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
     return HA_EXIT_FAILURE;
   }
 
-  rdb_netbuf_store_uint32(m_key_buf_max_index_num, Rdb_key_def::MAX_INDEX_NUM);
-  m_key_slice_max_index_num =
-      rocksdb::Slice(reinterpret_cast<char *>(m_key_buf_max_index_num),
-                     Rdb_key_def::INDEX_NUMBER_SIZE);
-
   // Verify that version of all the DDL entries is compatible.
   if (check_ddl_entries()) {
     return HA_EXIT_FAILURE;
@@ -5284,10 +5286,6 @@ bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
 
   if (remove_orphaned_dropped_cfs(cf_manager,
                                   enable_remove_orphaned_dropped_cfs)) {
-    return HA_EXIT_FAILURE;
-  }
-
-  if (populate_db_nums()) {
     return HA_EXIT_FAILURE;
   }
 
@@ -5873,12 +5871,12 @@ void Rdb_dict_manager::resume_drop_indexes() const {
   std::unordered_set<GL_INDEX_ID> gl_index_ids;
   get_ongoing_drop_indexes(&gl_index_ids);
 
-  uint max_index_num_in_dict = 0;
-  get_max_index_num(&max_index_num_in_dict);
-
   for (const auto &gl_index_id : gl_index_ids) {
     log_start_drop_index(gl_index_id, "Resume");
-    if (max_index_num_in_dict < gl_index_id.index_id.index_num) {
+    uint max_index_num_in_dict = 0;
+    if (get_max_index_num(gl_index_id.index_id.db_num,
+                          &max_index_num_in_dict) &&
+        max_index_num_in_dict < gl_index_id.index_id.index_num) {
       // NO_LINT_DEBUG
       sql_print_error(
           "RocksDB: Found max index id %u from data dictionary "
@@ -5952,15 +5950,21 @@ void Rdb_dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
   }
 }
 
-bool Rdb_dict_manager::get_max_index_num(uint32_t *const index_num) const {
+bool Rdb_dict_manager::get_max_index_num(uint32_t db_num,
+                                         uint32_t *const index_num) const {
   bool found = false;
   std::string value;
 
-  const rocksdb::Status status = get_value(m_key_slice_max_index_num, &value);
+  Rdb_buf_writer<Rdb_key_def::DB_NUMBER_SIZE + Rdb_key_def::INDEX_NUMBER_SIZE>
+      key_writer;
+  key_writer.write_index(Rdb_key_def::DB_MAX_INDEX_NUM);
+  key_writer.write_uint32(db_num);
+
+  const rocksdb::Status status = get_value(key_writer.to_slice(), &value);
   if (status.ok()) {
     const uchar *const val = (const uchar *)value.c_str();
     const uint16_t version = rdb_netbuf_to_uint16(val);
-    if (version == Rdb_key_def::MAX_INDEX_NUM_VERSION) {
+    if (version == Rdb_key_def::DB_MAX_INDEX_NUM_VERSION) {
       *index_num = rdb_netbuf_to_uint32(val + Rdb_key_def::VERSION_SIZE);
       found = true;
     }
@@ -5969,11 +5973,12 @@ bool Rdb_dict_manager::get_max_index_num(uint32_t *const index_num) const {
 }
 
 bool Rdb_dict_manager::update_max_index_num(rocksdb::WriteBatch *const batch,
+                                            const uint32_t db_num,
                                             const uint32_t index_num) const {
   DBUG_ASSERT(batch != nullptr);
 
   uint32_t old_index_num = -1;
-  if (get_max_index_num(&old_index_num)) {
+  if (get_max_index_num(db_num, &old_index_num)) {
     if (old_index_num > index_num) {
       // NO_LINT_DEBUG
       sql_print_error(
@@ -5985,12 +5990,16 @@ bool Rdb_dict_manager::update_max_index_num(rocksdb::WriteBatch *const batch,
     }
   }
 
+  Rdb_buf_writer<Rdb_key_def::INDEX_ID_SIZE> key_writer;
+  key_writer.write_index(Rdb_key_def::DB_MAX_INDEX_NUM);
+  key_writer.write_uint32(db_num);
+
   Rdb_buf_writer<Rdb_key_def::VERSION_SIZE + Rdb_key_def::INDEX_NUMBER_SIZE>
       value_writer;
-  value_writer.write_uint16(Rdb_key_def::MAX_INDEX_NUM_VERSION);
+  value_writer.write_uint16(Rdb_key_def::DB_MAX_INDEX_NUM_VERSION);
   value_writer.write_uint32(index_num);
 
-  batch->Put(m_system_cfh, m_key_slice_max_index_num, value_writer.to_slice());
+  batch->Put(m_system_cfh, key_writer.to_slice(), value_writer.to_slice());
   return false;
 }
 
@@ -6075,13 +6084,190 @@ bool Rdb_dict_manager::get_auto_incr_val(const GL_INDEX_ID &gl_index_id,
   return false;
 }
 
-bool Rdb_dict_manager::populate_db_nums() {
+bool Rdb_ddl_manager::populate_db_nums() {
+  std::unordered_map<uint32_t, std::string> db_entries;
+  if (get_db_entries(&db_entries)) {
+    return true;
+  }
+
+  for (const auto it : db_entries) {
+    uint32_t db_num = it.first;
+    if (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: Corruped DB_ENTRY duplicate db_id entries = %u",
+                      db_num);
+      return true;
+    }
+
+    uint32_t max_index_num = 0;
+    if (!m_dict->get_max_index_num(db_num, &max_index_num)) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: Missing DB_MAX_INDEX_NUM entry for "
+          "db_id entry = %u",
+          db_num);
+      return true;
+    }
+
+    m_assigned_db_nums[db_num] = std::make_unique<Rdb_seq_generator>();
+    m_assigned_db_nums[db_num]->init(max_index_num + 1);
+  }
+
+  return false;
+}
+
+bool Rdb_ddl_manager::get_or_create_db_entry(const std::string &dbname,
+                                             uint32_t *dbnum) {
+  Rdb_buf_writer<FN_LEN + Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
+  key_writer.write_index(Rdb_key_def::DB_ENTRY);
+  key_writer.write(dbname.c_str(), dbname.size());
+
+  uint32_t db_max_index_num = 0;
+  std::unordered_set<GL_INDEX_ID> drop_index_ids;
+
+  mysql_rwlock_wrlock(&m_rwlock);
+
+  if (!get_db_num(dbname, dbnum)) {
+    mysql_rwlock_unlock(&m_rwlock);
+    return true;
+  }
+
+  // Calculate the db_num from hash of dbname. Also account for conflicts.
+  std::vector<uchar> dbname_vec(dbname.begin(), dbname.end());
+  uint32_t dbname_hash = murmur3_32(&dbname_vec[0], dbname_vec.size(), 0);
+  uint32_t db_num = dbname_hash <= Rdb_key_def::END_DICT_INDEX_ID
+                        ? (dbname_hash + Rdb_key_def::END_DICT_INDEX_ID + 1)
+                        : dbname_hash;
+  while (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
+    db_num = (db_num + 1) <= Rdb_key_def::END_DICT_INDEX_ID
+                 ? Rdb_key_def::END_DICT_INDEX_ID + 1
+                 : db_num + 1;
+  }
+
+  // Get ongoing drop indexes running so that we assign max index_num for new
+  // database correctly. It is possible the drop index is running for
+  // previous database of same db_num. So we need to account for index numbers
+  // present in drop indexes
+  m_dict->get_ongoing_drop_indexes(&drop_index_ids);
+  for (const auto &gl_index_id : drop_index_ids) {
+    if (gl_index_id.index_id.db_num == db_num) {
+      db_max_index_num =
+          std::max(db_max_index_num, gl_index_id.index_id.index_num);
+    }
+  }
+
+  Rdb_buf_writer<Rdb_key_def::DB_NUMBER_SIZE + RDB_SIZEOF_DB_ENTRY_VERSION>
+      value_writer;
+  value_writer.write_uint16(Rdb_key_def::DB_ENTRY_VERSION);
+  value_writer.write_uint32(db_num);
+
+  const std::unique_ptr<rocksdb::WriteBatch> wb = m_dict->begin();
+  rocksdb::WriteBatch *const batch = wb.get();
+  m_dict->put_key(batch, key_writer.to_slice(), value_writer.to_slice());
+  m_dict->update_max_index_num(batch, db_num, db_max_index_num);
+  m_dict->commit(batch);
+
+  m_assigned_db_nums[db_num] = std::make_unique<Rdb_seq_generator>();
+  m_assigned_db_nums[db_num]->init(db_max_index_num + 1);
+
+  mysql_rwlock_unlock(&m_rwlock);
+
+  *dbnum = db_num;
+  return false;
+}
+
+bool Rdb_ddl_manager::get_db_num(const std::string &dbname,
+                                 uint32_t *db_num) const {
+  Rdb_buf_writer<FN_LEN + Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
+  key_writer.write_index(Rdb_key_def::DB_ENTRY);
+  key_writer.write(dbname.c_str(), dbname.size());
+
+  std::string value;
+  const rocksdb::Status status =
+      m_dict->get_value(key_writer.to_slice(), &value);
+
+  if (status.ok()) {
+    const uchar *const val = reinterpret_cast<const uchar *>(value.data());
+
+    if (rdb_netbuf_to_uint16(val) >= Rdb_key_def::DB_ENTRY_VERSION) {
+      *db_num = rdb_netbuf_to_uint32(val + RDB_SIZEOF_DB_ENTRY_VERSION);
+      return false;
+    }
+  }
+  return true;
+}
+
+void Rdb_ddl_manager::delete_db_entry(const std::string &dbname) {
+  uint32_t db_num = 0;
+  if (get_db_num(dbname, &db_num)) return;
+
+  Rdb_buf_writer<FN_LEN + Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
+  key_writer.write_index(Rdb_key_def::DB_ENTRY);
+  key_writer.write(dbname.c_str(), dbname.size());
+
+  Rdb_buf_writer<Rdb_key_def::INDEX_ID_SIZE> max_idx_key_writer;
+  max_idx_key_writer.write_index(Rdb_key_def::DB_MAX_INDEX_NUM);
+  max_idx_key_writer.write_uint32(db_num);
+
+  mysql_rwlock_wrlock(&m_rwlock);
+
+  const std::unique_ptr<rocksdb::WriteBatch> wb = m_dict->begin();
+  rocksdb::WriteBatch *const batch = wb.get();
+  m_dict->delete_key(batch, key_writer.to_slice());
+  m_dict->delete_key(batch, max_idx_key_writer.to_slice());
+  m_dict->commit(batch);
+
+  if (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
+    m_assigned_db_nums[db_num]->cleanup();
+    m_assigned_db_nums.erase(db_num);
+  }
+
+  mysql_rwlock_unlock(&m_rwlock);
+}
+
+bool Rdb_ddl_manager::get_db_max_index_nums(
+    std::unordered_map<std::string, uint32_t> *db_max_index_num) {
+  std::unordered_map<uint32_t, std::string> db_entries;
+  mysql_rwlock_rdlock(&m_rwlock);
+  if (get_db_entries(&db_entries)) {
+    mysql_rwlock_unlock(&m_rwlock);
+    return true;
+  }
+
+  for (const auto &it : db_entries) {
+    const auto db_it = m_assigned_db_nums.find(it.first);
+    if (db_it == m_assigned_db_nums.end()) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "Missing DB_MAX_INDEX_NUM entry for database = %d db_num = %u",
+          it.second.c_str(), it.first);
+      mysql_rwlock_unlock(&m_rwlock);
+      return true;
+    }
+    (*db_max_index_num)[it.second] = db_it->second->get_next_number() - 1;
+  }
+
+  mysql_rwlock_unlock(&m_rwlock);
+  return false;
+}
+
+/**
+  Gets the list of DB_ENTRY keys in form of db_num->dbname mapping.
+
+  @param
+  db_entries OUT db number -> dbname mapping.
+
+  @return
+  true if failed to retrieved the keys. false on success.
+ */
+bool Rdb_ddl_manager::get_db_entries(
+    std::unordered_map<uint32_t, std::string> *db_entries) const {
   uchar db_entry[Rdb_key_def::INDEX_NUMBER_SIZE];
   rdb_netbuf_store_uint32(db_entry, Rdb_key_def::DB_ENTRY);
   const rocksdb::Slice db_entry_slice(reinterpret_cast<char *>(db_entry),
                                       Rdb_key_def::INDEX_NUMBER_SIZE);
 
-  rocksdb::Iterator *it = new_iterator();
+  rocksdb::Iterator *it = m_dict->new_iterator();
   for (it->Seek(db_entry_slice); it->Valid(); it->Next()) {
     rocksdb::Slice key = it->key();
     rocksdb::Slice value = it->value();
@@ -6109,13 +6295,16 @@ bool Rdb_dict_manager::populate_db_nums() {
 
     if (rdb_netbuf_to_uint16(val) >= Rdb_key_def::DB_ENTRY_VERSION) {
       uint32_t db_num = rdb_netbuf_to_uint32(val + RDB_SIZEOF_DB_ENTRY_VERSION);
-      if (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
+      if (db_entries->find(db_num) != db_entries->end()) {
         // NO_LINT_DEBUG
         sql_print_error(
             "RocksDB: Corruped DB_ENTRY duplicate db_id entries = %u", db_num);
         return true;
       }
-      m_assigned_db_nums.insert(db_num);
+
+      (*db_entries)[db_num] =
+          std::string((const char *)key.data() + Rdb_key_def::INDEX_NUMBER_SIZE,
+                      key.size() - Rdb_key_def::INDEX_NUMBER_SIZE);
     }
   }
 
@@ -6123,77 +6312,8 @@ bool Rdb_dict_manager::populate_db_nums() {
   return false;
 }
 
-bool Rdb_dict_manager::create_db_entry(const std::string &dbname) {
-  assert_lock_held();
-  Rdb_buf_writer<FN_LEN + Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
-  key_writer.write_index(Rdb_key_def::DB_ENTRY);
-  key_writer.write(dbname.c_str(), dbname.size());
-
-  // Calculate the db_num from hash of dbname. Also account for conflicts.
-  std::vector<uchar> dbname_vec(dbname.begin(), dbname.end());
-  uint32_t dbname_hash = murmur3_32(&dbname_vec[0], dbname_vec.size(), 0);
-  uint32_t db_num = dbname_hash <= Rdb_key_def::END_DICT_INDEX_ID
-                        ? (dbname_hash + Rdb_key_def::END_DICT_INDEX_ID + 1)
-                        : dbname_hash;
-  while (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
-    db_num = (db_num + 1) <= Rdb_key_def::END_DICT_INDEX_ID
-                 ? Rdb_key_def::END_DICT_INDEX_ID + 1
-                 : db_num + 1;
-  }
-
-  Rdb_buf_writer<Rdb_key_def::DB_NUMBER_SIZE + RDB_SIZEOF_DB_ENTRY_VERSION>
-      value_writer;
-  value_writer.write_uint16(Rdb_key_def::DB_ENTRY_VERSION);
-  value_writer.write_uint32(db_num);
-
-  const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
-  rocksdb::WriteBatch *const batch = wb.get();
-  batch->Put(m_system_cfh, key_writer.to_slice(), value_writer.to_slice());
-  commit(batch);
-  m_assigned_db_nums.insert(db_num);
-
-  return false;
-}
-
-bool Rdb_dict_manager::get_db_num(const std::string &dbname,
-                                  uint32_t *new_val) const {
-  assert_lock_held();
-  Rdb_buf_writer<FN_LEN + Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
-  key_writer.write_index(Rdb_key_def::DB_ENTRY);
-  key_writer.write(dbname.c_str(), dbname.size());
-
-  std::string value;
-  const rocksdb::Status status = get_value(key_writer.to_slice(), &value);
-
-  if (status.ok()) {
-    const uchar *const val = reinterpret_cast<const uchar *>(value.data());
-
-    if (rdb_netbuf_to_uint16(val) >= Rdb_key_def::DB_ENTRY_VERSION) {
-      *new_val = rdb_netbuf_to_uint32(val + RDB_SIZEOF_DB_ENTRY_VERSION);
-      return false;
-    }
-  }
-  return true;
-}
-
-void Rdb_dict_manager::delete_db_entry(const std::string &dbname) {
-  assert_lock_held();
-  uint32_t db_num = 0;
-  if (get_db_num(dbname, &db_num)) return;
-
-  Rdb_buf_writer<FN_LEN + Rdb_key_def::INDEX_NUMBER_SIZE> key_writer;
-  key_writer.write_index(Rdb_key_def::DB_ENTRY);
-  key_writer.write(dbname.c_str(), dbname.size());
-
-  const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
-  rocksdb::WriteBatch *const batch = wb.get();
-  delete_key(batch, key_writer.to_slice());
-  commit(batch);
-  m_assigned_db_nums.erase(db_num);
-}
-
-uint Rdb_seq_generator::get_and_update_next_number(
-    Rdb_dict_manager *const dict) {
+uint Rdb_seq_generator::get_and_update_next_number(Rdb_dict_manager *const dict,
+                                                   uint32_t db_num) {
   DBUG_ASSERT(dict != nullptr);
 
   uint res;
@@ -6205,9 +6325,17 @@ uint Rdb_seq_generator::get_and_update_next_number(
   rocksdb::WriteBatch *const batch = wb.get();
 
   DBUG_ASSERT(batch != nullptr);
-  dict->update_max_index_num(batch, res);
+  dict->update_max_index_num(batch, db_num, res);
   dict->commit(batch);
 
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
+
+  return res;
+}
+
+uint Rdb_seq_generator::get_next_number() {
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
+  uint res = m_next_number;
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return res;
