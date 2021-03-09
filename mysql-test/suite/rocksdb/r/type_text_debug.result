@@ -1,0 +1,19 @@
+SELECT @@rocksdb_block_cache_size INTO @save_rocksdb_block_cache_size;
+CREATE TABLE t1 (col1 INT, col2 INT, col3 INT, col4 TEXT, PRIMARY KEY(col2)) engine=rocksdb;
+INSERT INTO t1 VALUES (1, 1, 1, "1");
+SET GLOBAL rocksdb_force_flush_memtable_now = ON;
+SELECT * FROM t1;
+col1	col2	col3	col4
+1	1	1	1
+set debug = "+d,rocksdb_blob_crash";
+set debug_sync='rocksdb_after_unpin SIGNAL parked WAIT_FOR go';
+UPDATE t1 SET col2 = 3 LIMIT 2;
+set debug_sync='now WAIT_FOR parked';
+SET GLOBAL rocksdb_block_cache_size = 1024;
+SELECT * FROM t1;
+col1	col2	col3	col4
+1	1	1	1
+set debug_sync='now SIGNAL go';
+set debug = "-d,rocksdb_blob_crash";
+DROP TABLE t1;
+SET GLOBAL rocksdb_block_cache_size = @save_rocksdb_block_cache_size;
