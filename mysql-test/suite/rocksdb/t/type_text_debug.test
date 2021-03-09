@@ -1,0 +1,33 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+# Fix crash when updating rows with blobs.
+
+--source include/count_sessions.inc
+SELECT @@rocksdb_block_cache_size INTO @save_rocksdb_block_cache_size;
+
+CREATE TABLE t1 (col1 INT, col2 INT, col3 INT, col4 TEXT, PRIMARY KEY(col2)) engine=rocksdb;
+INSERT INTO t1 VALUES (1, 1, 1, "1");
+SET GLOBAL rocksdb_force_flush_memtable_now = ON;
+SELECT * FROM t1;
+set debug = "+d,rocksdb_blob_crash";
+set debug_sync='rocksdb_after_unpin SIGNAL parked WAIT_FOR go';
+send UPDATE t1 SET col2 = 3 LIMIT 2;
+
+connect (con1,localhost,root,,test,,);
+set debug_sync='now WAIT_FOR parked';
+
+# Reload block cache
+SET GLOBAL rocksdb_block_cache_size = 1024;
+SELECT * FROM t1;
+set debug_sync='now SIGNAL go';
+
+connection default;
+reap;
+set debug = "-d,rocksdb_blob_crash";
+
+disconnect con1;
+DROP TABLE t1;
+
+SET GLOBAL rocksdb_block_cache_size = @save_rocksdb_block_cache_size;
+--source include/wait_until_count_sessions.inc
