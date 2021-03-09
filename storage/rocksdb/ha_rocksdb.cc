@@ -3842,6 +3842,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
     if (value != nullptr) {
       value->Reset();
+      DBUG_EXECUTE_IF("rocksdb_check_uniqueness",
+                      DEBUG_SYNC(m_thd, "rocksdb_after_unpin"););
     }
     rocksdb::Status s;
     // If snapshot is null, pass it to GetForUpdate and snapshot is
@@ -9260,9 +9262,9 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
         Its rowid is saved in m_last_rowkey. Get the full record and return it.
       */
 
-      DBUG_ASSERT(m_dup_key_retrieved_record.length() >= packed_size);
-      DBUG_ASSERT(memcmp(m_dup_key_retrieved_record.ptr(), m_sk_packed_tuple,
-                         packed_size) == 0);
+      DBUG_ASSERT(m_dup_key_tuple.length() >= packed_size);
+      DBUG_ASSERT(
+          memcmp(m_dup_key_tuple.ptr(), m_sk_packed_tuple, packed_size) == 0);
 
       rc = get_row_by_rowid(buf, m_last_rowkey.ptr(), m_last_rowkey.length());
       DBUG_RETURN(rc);
@@ -9753,14 +9755,14 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
     s = tx->get(m_pk_descr->get_cf(), key_slice, &m_retrieved_record);
   } else if (m_insert_with_update && m_dup_key_found &&
              m_pk_descr->get_keyno() == m_dupp_errkey) {
-    DBUG_ASSERT(m_dup_key_retrieved_record.length() ==
-                m_retrieved_record.size());
-    DBUG_ASSERT(memcmp(m_dup_key_retrieved_record.ptr(),
-                       m_retrieved_record.data(),
-                       m_retrieved_record.size()) == 0);
+    DBUG_ASSERT(m_dup_key_tuple.length() == key_slice.size());
+    DBUG_ASSERT(
+        memcmp(m_dup_key_tuple.ptr(), key_slice.data(), key_slice.size()) == 0);
 
-    // do nothing - we already have the result in m_retrieved_record and
-    // already taken the lock
+    // We have stored the record with duplicate key in
+    // m_dup_key_retrieved_record during write_row already, so just move it
+    // over.
+    m_retrieved_record = std::move(m_dup_key_retrieved_record);
     s = rocksdb::Status::OK();
   } else {
     s = get_for_update(tx, *m_pk_descr, key_slice, &m_retrieved_record);
@@ -10448,6 +10450,9 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
   /* Ignore PK violations if this is a optimized 'replace into' */
   const bool ignore_pk_unique_check =
       ha_thd()->lex->blind_replace_into || skip_unique_check;
+  rocksdb::PinnableSlice value;
+  rocksdb::PinnableSlice *pslice =
+      m_insert_with_update ? &m_dup_key_retrieved_record : &value;
 
   /*
     Perform a read to determine if a duplicate entry exists. For primary
@@ -10470,7 +10475,7 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
   */
   const rocksdb::Status s =
       get_for_update(row_info.tx, *m_pk_descr, row_info.new_pk_slice,
-                     ignore_pk_unique_check ? nullptr : &m_retrieved_record);
+                     ignore_pk_unique_check ? nullptr : pslice);
   if (!s.ok() && !s.IsNotFound()) {
     return row_info.tx->set_status_error(
         table->in_use, s, *m_key_descr_arr[key_id], m_tbl_def, m_table_handler);
@@ -10485,7 +10490,7 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
   DBUG_ASSERT(row_info.tx->has_snapshot() &&
               row_info.tx->m_snapshot_timestamp != 0);
   if (key_found && m_pk_descr->has_ttl() &&
-      should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
+      should_hide_ttl_rec(*m_pk_descr, *pslice,
                           row_info.tx->m_snapshot_timestamp)) {
     key_found = false;
   }
@@ -10495,11 +10500,10 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
     // due to a duplicate key, remember the last key and skip the check
     // next time
     m_dup_key_found = true;
-
 #ifndef DBUG_OFF
     // save it for sanity checking later
-    m_dup_key_retrieved_record.copy(m_retrieved_record.data(),
-                                    m_retrieved_record.size(), &my_charset_bin);
+    m_dup_key_tuple.copy(row_info.new_pk_slice.data(),
+                         row_info.new_pk_slice.size(), &my_charset_bin);
 #endif
   }
 
@@ -10660,8 +10664,7 @@ int ha_rocksdb::check_and_lock_sk(
                          &my_charset_bin);
 #ifndef DBUG_OFF
       // save it for sanity checking later
-      m_dup_key_retrieved_record.copy(rkey.data(), rkey.size(),
-                                      &my_charset_bin);
+      m_dup_key_tuple.copy(rkey.data(), rkey.size(), &my_charset_bin);
 #endif
     }
   }
@@ -10696,6 +10699,8 @@ int ha_rocksdb::check_uniqueness_and_lock(
     bool found;
     int rc;
 
+    DBUG_EXECUTE_IF("rocksdb_blob_crash",
+                    DBUG_SET("+d,rocksdb_check_uniqueness"););
     if (is_pk(key_id, table, m_tbl_def)) {
       if (row_info.old_pk_slice.size() > 0 && !pk_changed) {
         found = false;
@@ -10709,6 +10714,8 @@ int ha_rocksdb::check_uniqueness_and_lock(
       rc = check_and_lock_sk(key_id, row_info, &found, skip_unique_check);
       DEBUG_SYNC(ha_thd(), "rocksdb.after_unique_sk_check");
     }
+    DBUG_EXECUTE_IF("rocksdb_blob_crash",
+                    DBUG_SET("-d,rocksdb_check_uniqueness"););
 
     if (rc != HA_EXIT_SUCCESS) {
       return rc;
@@ -12684,6 +12691,7 @@ int ha_rocksdb::extra(enum ha_extra_function operation) {
         This call invalidates them.
       */
       m_retrieved_record.Reset();
+      m_dup_key_retrieved_record.Reset();
       break;
     case HA_EXTRA_INSERT_WITH_UPDATE:
       // INSERT ON DUPLICATE KEY UPDATE
