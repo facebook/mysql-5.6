@@ -249,6 +249,15 @@ class ha_rocksdb : public my_core::handler {
   rocksdb::PinnableSlice m_retrieved_record;
 
   /*
+    For INSERT ON DUPLICATE KEY UPDATE, we store the duplicate record during
+    write_row here so that we don't have to re-read in the following
+    index_read.
+
+    See also m_insert_with_update.
+  */
+  rocksdb::PinnableSlice m_dup_key_retrieved_record;
+
+  /*
     In case blob indexes are covering, then this buffer will be used
     to store the unpacked blob values temporarily.
     Alocation of m_blob_buffer_start will be done as part of reset_blob_buffer()
@@ -294,10 +303,9 @@ class ha_rocksdb : public my_core::handler {
 
 #ifndef NDEBUG
   /*
-    Last retrieved record (for duplicate PK) or index tuple (for duplicate
-    unique SK). Used for sanity checking.
+    Index tuple (for duplicate PK/unique SK). Used for sanity checking.
   */
-  String m_dup_key_retrieved_record;
+  String m_dup_key_tuple;
 #endif
 
   /**
@@ -949,6 +957,7 @@ class ha_rocksdb : public my_core::handler {
 
     /* Free blob data */
     m_retrieved_record.Reset();
+    m_dup_key_retrieved_record.Reset();
     release_blob_buffer();
     DBUG_RETURN(HA_EXIT_SUCCESS);
   }
