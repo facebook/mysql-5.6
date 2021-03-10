@@ -110,6 +110,7 @@
 #include "sql/query_options.h"
 #include "sql/raii/sentry.h"  // raii::Sentry<>
 #include "sql/replication.h"
+#include "sql/rpl_binlog_sender.h"
 #include "sql/rpl_filter.h"
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_handler.h"  // RUN_HOOK
@@ -11714,6 +11715,22 @@ int rotate_binlog_file(THD *thd) {
   }
 
   DBUG_RETURN(error);
+}
+
+void block_all_dump_threads() {
+  block_dump_threads = true;
+  kill_all_dump_threads();
+}
+
+void unblock_all_dump_threads() { block_dump_threads = false; }
+
+int handle_dump_threads(bool block) {
+  DBUG_TRACE;
+  if (block)
+    block_all_dump_threads();
+  else
+    unblock_all_dump_threads();
+  return 0;
 }
 
 int binlog_change_to_apply() {

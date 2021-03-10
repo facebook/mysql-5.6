@@ -1328,6 +1328,26 @@ void kill_zombie_dump_threads(THD *thd) {
   }
 }
 
+class Kill_dump_thread : public Do_THD_Impl {
+ public:
+  virtual void operator()(THD *thd) override {
+    if (thd->get_command() == COM_BINLOG_DUMP ||
+        thd->get_command() == COM_BINLOG_DUMP_GTID) {
+      mysql_mutex_lock(&thd->LOCK_thd_data);
+      thd->awake(THD::KILL_CONNECTION);
+      mysql_mutex_unlock(&thd->LOCK_thd_data);
+    }
+  }
+};
+
+/*
+  Kill all Binlog_dump threads.
+*/
+void kill_all_dump_threads() {
+  Kill_dump_thread kill_dump_thread;
+  Global_THD_manager::get_instance()->do_for_all_thd_copy(&kill_dump_thread);
+}
+
 /**
   Execute a RESET MASTER statement.
 

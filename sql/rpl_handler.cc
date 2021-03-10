@@ -1915,6 +1915,10 @@ extern "C" void *process_raft_queue(void *) {
         result.error = raft_config_change(std::move(element.arg.val_str));
         break;
       }
+      case RaftListenerCallbackType::HANDLE_DUMP_THREADS: {
+        result.error = handle_dump_threads(element.arg.val_bool);
+        break;
+      }
       default:
         // placate the compiler
         result.error = 0;

@@ -87,6 +87,7 @@ bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok);
 bool show_master_status(THD *thd);
 bool show_binlogs(THD *thd, bool with_gtid = false);
 void kill_zombie_dump_threads(THD *thd);
+void kill_all_dump_threads();
 
 uint find_gtid_position_helper(const char *gtid_string, char *log_name,
                                my_off_t &gtid_pos);

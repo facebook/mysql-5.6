@@ -26,7 +26,7 @@ enum class RaftListenerCallbackType {
   GET_EXECUTED_GTIDS = 15,
   SET_BINLOG_DURABILITY = 16,
   RAFT_CONFIG_CHANGE = 17,
-
+  HANDLE_DUMP_THREADS = 18,
   // Note: Please update CallbackTypeToString() below when adding/removing elems
   // here
 };
@@ -154,6 +154,8 @@ class RaftListenerQueueIf {
         return "SET_BINLOG_DURABILITY";
       case RaftListenerCallbackType::RAFT_CONFIG_CHANGE:
         return "RAFT_CONFIG_CHANGE";
+      case RaftListenerCallbackType::HANDLE_DUMP_THREADS:
+        return "HANDLE_DUMP_THREADS";
       default:
         return {};
     }

@@ -1,0 +1,138 @@
+source ../include/raft_3_node.inc;
+connection server_1;
+call mtr.add_suppression("Run function 'before_flush' in plugin 'RPL_RAFT' failed");
+call mtr.add_suppression("Error writing file 'binary-logs-13000'.*");
+call mtr.add_suppression("Commit consensus error set for 1 threads in the group");
+call mtr.add_suppression(".*");
+
+
+# Connect server 4 and 5 using COM_BINLOG_DUMP_GTID
+# server4 will tail the leader
+connection server_4;
+RESET MASTER;
+RESET SLAVE;
+SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
+replace_result $SERVER_MYPORT_1 SERVER_MYPORT_1;
+eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+START SLAVE;
+
+# server5 will tail a follower
+connection server_5;
+RESET MASTER;
+RESET SLAVE;
+SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
+replace_result $SERVER_MYPORT_2 SERVER_MYPORT_2;
+eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_2, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+START SLAVE;
+
+# Create a schema and sync it across replicas
+connection server_1;
+create table t1 (a int primary key) engine = innodb;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_5;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Stopping followers";
+connection server_2;
+let $server2_pid_file= `select @@global.pid_file`;
+exec kill -STOP `cat $server2_pid_file`;
+connection server_3;
+let $server3_pid_file= `select @@global.pid_file`;
+exec kill -STOP `cat $server3_pid_file`;
+
+sleep 5;
+
+echo "Executing trx";
+connection server_1;
+send insert into t1 values(1);
+
+echo "Stopping leader";
+connection server_1_1;
+let $server1_pid_file= `select @@global.pid_file`;
+exec kill -STOP `cat $server1_pid_file`;
+
+sleep 5;
+
+echo "Resuming followers";
+exec kill -CONT `cat $server2_pid_file`;
+exec kill -CONT `cat $server3_pid_file`;
+
+echo "Waiting for leader election";
+connection server_2;
+let $server2_is_leader = `select variable_value = "LEADER" from performance_schema.global_status where variable_name = 'rpl_raft_role'`;
+connection server_3;
+let $server3_is_leader = `select variable_value = "LEADER" from performance_schema.global_status where variable_name = 'rpl_raft_role'`;
+let $election_done = `SELECT $server2_is_leader + $server3_is_leader`;
+while (!$election_done) {
+  sleep 1;
+  connection server_2;
+  let $server2_is_leader = `select variable_value = "LEADER" from performance_schema.global_status where variable_name = 'rpl_raft_role'`;
+  connection server_3;
+  let $server3_is_leader = `select variable_value = "LEADER" from performance_schema.global_status where variable_name = 'rpl_raft_role'`;
+  let $election_done = `SELECT $server2_is_leader + $server3_is_leader`;
+}
+
+connection server_2;
+select * from t1;
+connection server_3;
+select * from t1;
+
+echo "Resuming old leader";
+exec kill -CONT `cat $server1_pid_file`;
+
+connection server_1;
+error 1180;
+reap;
+
+let $rpl_raft_leader_number = 1;
+source ../include/raft_promote_to_leader.inc;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_5;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+select * from t1;
+connection server_2;
+select * from t1;
+connection server_3;
+select * from t1;
+connection server_4;
+select * from t1;
+connection server_5;
+select * from t1;
+
+# Cleanup
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_5;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_4;
+stop slave;
+reset slave all;
+connection server_5;
+stop slave;
+reset slave all;
+
+source include/rpl_end.inc;

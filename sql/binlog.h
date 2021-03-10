@@ -1582,6 +1582,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void signal_semi_sync_ack(const char *const log_file, const my_off_t log_pos);
   void reset_semi_sync_last_acked();
   void get_semi_sync_last_acked(std::string &log_file, my_off_t &log_pos);
+  void block_all_dump_threads();
+  void unblock_all_dump_threads();
 
   mysql_mutex_t *get_binlog_end_pos_lock() { return &LOCK_binlog_end_pos; }
   void lock_binlog_end_pos() { mysql_mutex_lock(&LOCK_binlog_end_pos); }
@@ -1745,6 +1747,11 @@ extern bool rpl_semi_sync_source_enabled;
  * @param config_change - Has the committed Config and New Config
  */
 int raft_config_change(std::string config_change);
+
+/**
+ * Block/unblock dump threads
+ */
+int handle_dump_threads(bool block);
 
 /**
   Rotates the binary log file. Helper method invoked by raft plugin through
