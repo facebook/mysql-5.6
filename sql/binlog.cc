@@ -98,6 +98,7 @@
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
 #include "sql/replication.h"
+#include "sql/rpl_binlog_sender.h"
 #include "sql/rpl_filter.h"
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_handler.h"  // RUN_HOOK
@@ -10617,9 +10618,9 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
   @param queue_head  Head of the queue
 */
 void MYSQL_BIN_LOG::set_commit_consensus_error(THD *queue_head) {
-   for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit) {
-     thd->commit_consensus_error = true;
-   }
+  for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit) {
+    thd->commit_consensus_error = true;
+  }
 }
 
 /**
@@ -11628,6 +11629,22 @@ int rotate_binlog_file(THD *thd) {
   }
 
   DBUG_RETURN(error);
+}
+
+void block_all_dump_threads() {
+  block_dump_threads = true;
+  kill_all_dump_threads();
+}
+
+void unblock_all_dump_threads() { block_dump_threads = false; }
+
+int handle_dump_threads(bool block) {
+  DBUG_ENTER("handle_dump_threads");
+  if (block)
+    block_all_dump_threads();
+  else
+    unblock_all_dump_threads();
+  DBUG_RETURN(0);
 }
 
 int binlog_change_to_apply() {
