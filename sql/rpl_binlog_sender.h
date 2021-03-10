@@ -41,6 +41,7 @@ class String;
 class THD;
 
 extern uint rpl_send_buffer_size;
+extern std::atomic<bool> block_dump_threads;
 
 /**
   The major logic of dump thread is implemented in this class. It sends
