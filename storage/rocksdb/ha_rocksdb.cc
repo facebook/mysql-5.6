@@ -13396,7 +13396,8 @@ int ha_rocksdb::inplace_populate_sk(
       keys.
     */
     const uint pk = pk_index(table, m_tbl_def);
-    ha_index_init(pk, true);
+    res = ha_index_init(pk, true);
+    if (res) DBUG_RETURN(res);
 
     /* Scan each record in the primary key in order */
     for (res = index_first(table->record[0]); res == 0;
