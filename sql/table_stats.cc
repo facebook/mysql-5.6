@@ -32,6 +32,11 @@ const std::array<uint, MAX_MAP_NAME> my_names_max_size =
    {(1024), (32*1024), (128*1024), (1024)};
 
 /*
+ * Maximum number of index stats to store per table.
+ */
+uint max_index_stats_entries_per_table;
+
+/*
 ** init_names
 **
 ** Initialize the name maps for all object names we care about
@@ -249,19 +254,8 @@ clear_table_stats(TABLE_STATS* table_stats)
 
   table_stats->last_admin.clear();
   table_stats->last_non_admin.clear();
+  table_stats->indexes->clear();
 
-  for (int x=0; x < MAX_INDEX_STATS; ++x)
-  {
-    table_stats->indexes[x].rows_inserted.clear();
-    table_stats->indexes[x].rows_updated.clear();
-    table_stats->indexes[x].rows_deleted.clear();
-    table_stats->indexes[x].rows_read.clear();
-    table_stats->indexes[x].rows_requested.clear();
-    table_stats->indexes[x].rows_index_first.clear();
-    table_stats->indexes[x].rows_index_next.clear();
-
-    table_stats->indexes[x].io_perf_read.init();
-  }
 
   table_stats->n_lock_wait.clear();
   table_stats->n_lock_wait_timeout.clear();
@@ -292,9 +286,6 @@ clear_table_stats(TABLE_STATS* table_stats)
  *     RETURN VALUE
  *      0 on success, !0 on failure
  *
- *    Stats are stored for at most MAX_INDEX_KEYS and when there are more than
- *    (MAX_INDEX_KEYS-1) indexes then use the last entry for the extra indexes
- *      which gets the name "STATS_OVERFLOW".
  */
 static int
 set_index_stats_names(TABLE_STATS *table_stats, TABLE *table)
@@ -302,18 +293,18 @@ set_index_stats_names(TABLE_STATS *table_stats, TABLE *table)
   uint idxIter;
   int  rc = 0;
 
-  table_stats->num_indexes= std::min(table->s->keys,(uint)MAX_INDEX_STATS);
+  uint max_idx_size =
+      std::min(table->s->keys, max_index_stats_entries_per_table);
+  table_stats->indexes->resize(max_idx_size);
 
-  for (idxIter = 0; idxIter < table_stats->num_indexes; ++idxIter)
+  for (idxIter = 0; idxIter < max_idx_size; ++idxIter)
   {
     uint index_id;
     char const *index_name = table->s->key_info[idxIter].name;
-
-    if (idxIter == (MAX_INDEX_STATS - 1) && table->s->keys > MAX_INDEX_STATS)
-      index_name = "STATS_OVERFLOW";
     if ((index_id = get_id(INDEX_MAP_NAME, index_name, strlen(index_name)))
-        != INVALID_NAME_ID)
-      table_stats->indexes[idxIter].index_id = index_id;
+        != INVALID_NAME_ID) {
+      (*table_stats->indexes)[idxIter].index_id = index_id;
+    }
     else
     {
       rc = -1;
@@ -441,8 +432,7 @@ get_table_stats_by_name(const char *db_name,
 
     set_table_stats_attributes(&(table_stats->shared_stats), db_id, table_id,
                                engine_name, hash_key);
-
-    table_stats->num_indexes= 0;
+    table_stats->indexes = new std::deque<INDEX_STATS>(0);
     if (tbl && set_index_stats_names(table_stats, tbl))
     {
       sql_print_error("Cannot generate name for index stats.");
@@ -470,8 +460,8 @@ get_table_stats_by_name(const char *db_name,
      * This does not notice create
      * followed by drop. "reset statistics" will fix that.
      */
-    if (tbl && table_stats->num_indexes != std::min(tbl->s->keys,
-                                                    (uint)MAX_INDEX_STATS))
+    if (tbl && (table_stats->indexes->size() !=
+        std::min(tbl->s->keys, max_index_stats_entries_per_table)))
     {
       if (set_index_stats_names(table_stats, tbl))
       {
@@ -526,6 +516,10 @@ extern "C" uchar *get_key_table_stats(TABLE_STATS *table_stats, size_t *length,
 
 extern "C" void free_table_stats(TABLE_STATS* table_stats)
 {
+  // Deleting index stats within the TABLE_STATS object.
+  delete table_stats->indexes;
+  table_stats->indexes = NULL;
+
   my_free((char*)table_stats);
 }
 
@@ -553,7 +547,6 @@ void reset_global_table_stats()
       (TABLE_STATS*)my_hash_element(&global_table_stats, i);
 
     clear_table_stats(table_stats);
-    table_stats->num_indexes= 0;
   }
 
   unlock_global_table_stats(table_stats_lock_acquired);
@@ -1033,9 +1026,9 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     SHARED_TABLE_STATS *sts = &(table_stats->shared_stats);
 
-    for (ix=0; ix < table_stats->num_indexes; ++ix)
+    for (ix=0; ix < table_stats->indexes->size(); ++ix)
     {
-      INDEX_STATS *index_stats= &(table_stats->indexes[ix]);
+      INDEX_STATS *index_stats= &((*table_stats->indexes)[ix]);
       int f= 0;
 
       if (index_stats->rows_inserted.load() == 0 &&

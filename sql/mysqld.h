@@ -1225,6 +1225,9 @@ extern ulong sql_duplicate_executions_control;
 /* Controls whether special privileges are needed for accessing MT tables */
 extern my_bool mt_tables_access_control;
 
+/* Maximum number of index stats to maintain for each table */
+extern uint max_index_stats_entries_per_table;
+
 enum enum_gtid_mode
 {
   /// Support only anonymous groups, not GTIDs.

@@ -1,0 +1,21 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify the default value
+####
+--echo Default value of max_index_stats_entries_per_table
+SELECT @@global.max_index_stats_entries_per_table;
+
+####
+## Verify that the variable is dynamic
+####
+--echo max_index_stats_entries_per_table is a dynamic variable
+set @@global.max_index_stats_entries_per_table = 64;
+SELECT @@global.max_index_stats_entries_per_table;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.max_index_stats_entries_per_table = 30;
+SELECT @@global.max_index_stats_entries_per_table;

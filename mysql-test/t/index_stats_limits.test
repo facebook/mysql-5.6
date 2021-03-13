@@ -1,0 +1,267 @@
+#
+# Test IS.index_statistics can grow with the number of indexes.
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--source include/have_innodb.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists indexstats;
+drop table if exists tbl_many_indexes;
+--enable_warnings
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+# Create a table with many indexes. The earlier limit on INDEX_STATISTICS was 10.
+CREATE TABLE tbl_many_indexes (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  col1 varchar(256) NOT NULL,
+  col2 int(11) NOT NULL,
+  col3 varchar(256) NOT NULL,
+  col4 varchar(256) NOT NULL,
+  col5 varchar(256) NOT NULL,
+  col6 varchar(256) NOT NULL,
+  col7 varchar(256) NOT NULL,
+  col8 text,
+  col9 bigint(20) DEFAULT NULL,
+  col10 int(11) DEFAULT NULL,
+  col11 int(11) DEFAULT NULL,
+  col12 int(11) DEFAULT NULL,
+  col13 int(11) DEFAULT NULL,
+  col14 int(11) DEFAULT NULL,
+  col15 varchar(256) DEFAULT NULL,
+  col16 bigint(20) DEFAULT NULL,
+  col17 int(11) DEFAULT '1',
+  col18 int(11) DEFAULT NULL,
+  col19 timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  col20 tinyint(1) NOT NULL DEFAULT '0',
+  col21 text,
+  col22 text,
+  col23 int(11) DEFAULT NULL,
+  col24 bigint(20) NOT NULL DEFAULT '0',
+  col25 smallint(6) DEFAULT '0',
+  col26 varchar(256) DEFAULT NULL,
+  col27 int(11) DEFAULT NULL,
+  col28 tinyint(1) NOT NULL DEFAULT '0',
+  col29 tinyint(1) NOT NULL DEFAULT '0',
+  col30 text,
+  col31 text,
+  col32 tinyint(1) DEFAULT NULL,
+  col33 timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  PRIMARY KEY (id),
+  UNIQUE KEY idx1 (col1, col2),
+  KEY idx2 (col14),
+  KEY idx3 (col14, col22(64), col15),
+  KEY idx4 (col14, col22(64), col9),
+  KEY idx5 (col9),
+  KEY idx6 (col26),
+  KEY idx7 (col4),
+  KEY idx8 (col4, col1, col2),
+  KEY idx9 (col24),
+  KEY idx10 (col3),
+  KEY idx11 (col19),
+  KEY idx12 (col14, col26),
+  KEY idx13 (col15),
+  KEY idx14 (col4, col9, col14),
+  KEY idx15 (col14, col24, col1, col2),
+  KEY idx16 (col26, col9, col14, col15, col24, col1, col2),
+  KEY idx17 (col9, col14, col15, col24, col1, col2)
+) engine=innodb;
+
+
+--echo
+--echo
+
+# Insert a few rows.
+
+INSERT INTO tbl_many_indexes(col1, col2, col3, col4, col5, col6, col7, col19)
+VALUES ('n1', 1, 'p1', 'u1', 'u1', 'u1', 'hg', '2021-03-15 01:00:00');
+
+INSERT INTO tbl_many_indexes(col1, col2, col3, col4, col5, col6, col7, col19)
+VALUES ('n2', 1, 'p1', 'u1', 'u1', 'u1', 'hg', '2021-03-15 04:00:00');
+
+INSERT INTO tbl_many_indexes(col1, col2, col3, col4, col5, col6, col7, col19)
+VALUES ('n3', 1, 'p1', 'u1', 'u1', 'u1', 'hg', '2021-03-18 04:00:00');
+
+--echo
+--echo Initial INDEX_STATISTICS dump
+--echo
+SELECT
+  TABLE_NAME,
+  INDEX_NAME,
+  ROWS_INSERTED,
+  ROWS_UPDATED,
+  ROWS_DELETED,
+  ROWS_READ,
+  ROWS_REQUESTED
+FROM
+  information_schema.INDEX_STATISTICS
+WHERE
+  TABLE_NAME = 'tbl_many_indexes';
+
+--echo
+--echo Initial INDEX_STATISTICS dump with no STATS_OVERFLOW
+--echo
+
+SELECT
+  TABLE_NAME,
+  INDEX_NAME,
+  ROWS_INSERTED,
+  ROWS_UPDATED,
+  ROWS_DELETED,
+  ROWS_READ,
+  ROWS_REQUESTED
+FROM
+  information_schema.INDEX_STATISTICS
+WHERE
+  INDEX_NAME = 'STATS_OVERFLOW';
+
+# Simple select
+
+--echo
+--echo
+SELECT col1, col2 FROM tbl_many_indexes WHERE col19 BETWEEN '2021-03-14' AND '2021-03-16';
+
+--echo
+--echo INDEX_STATISTICS dump after simple SELECT
+--echo
+
+SELECT
+  TABLE_NAME,
+  INDEX_NAME,
+  ROWS_INSERTED,
+  ROWS_UPDATED,
+  ROWS_DELETED,
+  ROWS_READ,
+  ROWS_REQUESTED
+FROM
+  information_schema.INDEX_STATISTICS
+WHERE
+  TABLE_NAME = 'tbl_many_indexes';
+
+--echo
+--echo Still no STATS_OVERFLOW
+--echo
+
+SELECT
+  TABLE_NAME,
+  INDEX_NAME,
+  ROWS_INSERTED,
+  ROWS_UPDATED,
+  ROWS_DELETED,
+  ROWS_READ,
+  ROWS_REQUESTED
+FROM
+  information_schema.INDEX_STATISTICS
+WHERE
+  INDEX_NAME = 'STATS_OVERFLOW';
+
+--echo Set max indexes per table to 5
+SET @@global.max_index_stats_entries_per_table = 5;
+SELECT @@global.max_index_stats_entries_per_table;
+
+--echo
+--echo
+
+--echo Checking INDEX_STATISTICS for tbl_many_indexes again. Expecting same results as before.
+
+SELECT
+  TABLE_NAME,
+  INDEX_NAME,
+  ROWS_INSERTED,
+  ROWS_UPDATED,
+  ROWS_DELETED,
+  ROWS_READ,
+  ROWS_REQUESTED
+FROM
+  information_schema.INDEX_STATISTICS
+WHERE
+  TABLE_NAME = 'tbl_many_indexes';
+
+--echo
+--echo
+
+--echo Running the same query again which uses idx11
+
+SELECT col1, col2 FROM tbl_many_indexes WHERE col19 BETWEEN '2021-03-14' AND '2021-03-16';
+
+--echo
+--echo
+
+--echo Expecting INDEX_STATISTICS to be truncated beyond 5 indexes.
+
+SELECT
+  TABLE_NAME,
+  INDEX_NAME,
+  ROWS_INSERTED,
+  ROWS_UPDATED,
+  ROWS_DELETED,
+  ROWS_READ,
+  ROWS_REQUESTED
+FROM
+  information_schema.INDEX_STATISTICS
+WHERE
+  TABLE_NAME = 'tbl_many_indexes';
+
+--echo
+--echo
+
+--echo Running a query which uses idx1
+
+SELECT col1, col2 FROM tbl_many_indexes WHERE col1 LIKE 'n%';
+
+--echo
+--echo
+
+--echo Expecting new entries in INDEX_STATISTICS
+
+SELECT
+  TABLE_NAME,
+  INDEX_NAME,
+  ROWS_INSERTED,
+  ROWS_UPDATED,
+  ROWS_DELETED,
+  ROWS_READ,
+  ROWS_REQUESTED
+FROM
+  information_schema.INDEX_STATISTICS
+WHERE
+  TABLE_NAME = 'tbl_many_indexes';
+
+--echo
+--echo
+
+# Cleanup
+SET @@global.max_index_stats_entries_per_table = 30;
+
+drop table tbl_many_indexes;
+connection default;
+
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc

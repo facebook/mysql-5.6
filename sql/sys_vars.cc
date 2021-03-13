@@ -7484,7 +7484,7 @@ static Sys_var_mybool Sys_reset_period_status_vars(
 static Sys_var_mybool Sys_show_query_digest(
        "show_query_digest",
        "Show query digest instead of full query in show process list."
-       "Requres sql_stats_control to be on.",
+       "Requires sql_stats_control to be on.",
        SESSION_VAR(show_query_digest),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
@@ -7544,3 +7544,9 @@ static Sys_var_mybool Sys_recover_raft_log(
        GLOBAL_VAR(recover_raft_log),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_uint Sys_max_index_stats_entries_per_table(
+      "max_index_stats_entries_per_table",
+      "Maximum number of entries in INDEX_STATISTICS per table",
+      GLOBAL_VAR(max_index_stats_entries_per_table), CMD_LINE(OPT_ARG),
+      VALID_RANGE(0, UINT_MAX), DEFAULT(30), BLOCK_SIZE(1));

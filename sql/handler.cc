@@ -7624,34 +7624,32 @@ void handler::update_global_table_stats(THD *thd)
     }
 
 
-    if (table_stats->num_indexes && last_active_index != MAX_KEY)
+    if (table_stats->indexes->size() > 0 &&
+        last_active_index < table_stats->indexes->size() &&
+        last_active_index != MAX_KEY)
     {
       /*
        * Assume all activity was done for the last active index.
        */
       uint ix = last_active_index;
 
-      if (ix >= table_stats->num_indexes)
-        ix = table_stats->num_indexes - 1;
+      (*table_stats->indexes)[ix].rows_inserted.inc(stats.rows_inserted);
+      (*table_stats->indexes)[ix].rows_updated.inc(stats.rows_updated);
+      (*table_stats->indexes)[ix].rows_deleted.inc(stats.rows_deleted);
+      (*table_stats->indexes)[ix].rows_read.inc(stats.rows_read);
+      (*table_stats->indexes)[ix].rows_requested.inc(stats.rows_requested);
 
-      table_stats->indexes[ix].rows_inserted.inc(stats.rows_inserted);
-      table_stats->indexes[ix].rows_updated.inc(stats.rows_updated);
-      table_stats->indexes[ix].rows_deleted.inc(stats.rows_deleted);
-      table_stats->indexes[ix].rows_read.inc(stats.rows_read);
-      table_stats->indexes[ix].rows_requested.inc(stats.rows_requested);
+      (*table_stats->indexes)[ix].io_perf_read.sum(stats.table_io_perf_read);
 
-      table_stats->indexes[ix].io_perf_read.sum(stats.table_io_perf_read);
-
-      table_stats->indexes[ix].rows_index_first.inc(stats.rows_index_first);
-      table_stats->indexes[ix].rows_index_next.inc(stats.rows_index_next);
-
-
-       /*
-        * If this instance is used for a table scan next
-        * then this prevents that work from being counted for an index.
-        */
-      last_active_index = MAX_KEY;
+      (*table_stats->indexes)[ix].rows_index_first.inc(stats.rows_index_first);
+      (*table_stats->indexes)[ix].rows_index_next.inc(stats.rows_index_next);
     }
+
+    /*
+     * If this instance is used for a table scan next
+     * then this prevents that work from being counted for an index.
+     */
+    last_active_index = MAX_KEY;
 
   }
 

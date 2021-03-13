@@ -30,6 +30,7 @@
 #include "atomic_stat.h"
 #include "hash.h"
 #include "sql_digest.h"
+#include <deque>
 #include <unordered_map>
 #include "sql_error.h"
 
@@ -419,13 +420,6 @@ typedef struct st_index_stats {
   my_io_perf_atomic_t io_perf_read;       /* Read IO performance counters */
 } INDEX_STATS;
 
-/*
- * Maximum number of indexes for which stats are collected.
- * Tables that have more use st_table_stats::indexes[MAX_INDEX_STATS-1]
- * for the extra indexes.
- */
-#define MAX_INDEX_STATS 10
-
 typedef struct st_shared_table_stats
 {
   uint32_t db_id;
@@ -459,8 +453,8 @@ typedef struct st_user_table_stats {
 typedef struct st_table_stats {
   SHARED_TABLE_STATS shared_stats;
 
-  INDEX_STATS indexes[MAX_INDEX_STATS];
-  uint num_indexes;         /* min(#indexes on table , MAX_INDEX_STATS) */
+  // Using a deque instead of a vector to avoid reallocation.
+  std::deque<INDEX_STATS>* indexes;
 
   atomic_stat<ulonglong> last_admin;   /* last admin use, seconds since epoch */
   atomic_stat<ulonglong> last_non_admin;   /* last non admin use, seconds ... */
@@ -490,7 +484,6 @@ typedef struct st_table_stats {
   bool should_update; /* Set for partitioned tables so later partitions will
                          increment the perf stats. Clear after collecting
                          table stats. */
-
 } TABLE_STATS;
 
 typedef struct st_db_stats {
@@ -653,11 +646,11 @@ struct WRITE_MONITORED_ENTITY {
     name = "";
     dimension = WTR_DIM_UNKNOWN;
     hits = 0;
-  } 
+  }
 
   WRITE_MONITORED_ENTITY() {
     reset();
-  }          
+  }
 };
 
 /*
