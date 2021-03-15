@@ -49,7 +49,7 @@ Warnings:
 Note	3084	Replication thread(s) for channel 'group_replication_applier' are already stopped.
 SET @@GLOBAL.SLAVE_PARALLEL_TYPE= "LOGICAL_CLOCK";
 SET GLOBAL SLAVE_PARALLEL_WORKERS= 4;
-SET GLOBAL SLAVE_PRESERVE_COMMIT_ORDER= ON;
+SET GLOBAL slave_preserve_commit_order= DB;
 START SLAVE SQL_THREAD FOR CHANNEL "group_replication_applier";
 
 ############################################################

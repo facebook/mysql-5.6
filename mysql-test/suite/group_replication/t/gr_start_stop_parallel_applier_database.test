@@ -39,7 +39,7 @@
 SET @slave_parallel_type_saved= @@GLOBAL.SLAVE_PARALLEL_TYPE;
 SET @slave_parallel_workers_saved= @@GLOBAL.SLAVE_PARALLEL_WORKERS;
 SET @slave_preserver_commit_order_saved= @@GLOBAL.SLAVE_PRESERVE_COMMIT_ORDER;
-SET GLOBAL SLAVE_PRESERVE_COMMIT_ORDER= OFF;
+SET GLOBAL slave_preserve_commit_order= NONE;
 
 --echo
 --echo ############################################################
@@ -78,7 +78,7 @@ START SLAVE SQL_THREAD FOR CHANNEL "group_replication_applier";
 STOP SLAVE SQL_THREAD FOR CHANNEL "group_replication_applier";
 SET @@GLOBAL.SLAVE_PARALLEL_TYPE= "LOGICAL_CLOCK";
 SET GLOBAL SLAVE_PARALLEL_WORKERS= 4;
-SET GLOBAL SLAVE_PRESERVE_COMMIT_ORDER= ON;
+SET GLOBAL slave_preserve_commit_order= DB;
 START SLAVE SQL_THREAD FOR CHANNEL "group_replication_applier";
 
 --echo

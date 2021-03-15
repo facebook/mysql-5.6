@@ -138,7 +138,7 @@ if (!$mts_spco_skip_init_statement)
   SET @save_slave_preserve_commit_order= @@global.slave_preserve_commit_order;
   SET GLOBAL slave_parallel_type = 'LOGICAL_CLOCK';
   --eval SET GLOBAL slave_parallel_workers= $mts_slave_parallel_workers
-  SET GLOBAL slave_preserve_commit_order= ON;
+  SET GLOBAL slave_preserve_commit_order= DB;
   --source include/start_slave.inc
 
   --source include/rpl_connection_master.inc

@@ -11,7 +11,7 @@ SET @save_slave_parallel_type= @@global.slave_parallel_type;
 SET @save_slave_preserve_commit_order= @@global.slave_preserve_commit_order;
 SET GLOBAL slave_parallel_type = 'LOGICAL_CLOCK';
 SET GLOBAL slave_parallel_workers= 10;
-SET GLOBAL slave_preserve_commit_order= ON;
+SET GLOBAL slave_preserve_commit_order= DB;
 include/start_slave.inc
 [connection master1]
 SET @save_binlog_transaction_dependency_tracking= @@global.binlog_transaction_dependency_tracking;

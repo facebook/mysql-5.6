@@ -11,7 +11,7 @@ SET @slave_parallel_workers_saved= @@GLOBAL.SLAVE_PARALLEL_WORKERS;
 SET @slave_preserver_commit_order_saved= @@GLOBAL.SLAVE_PRESERVE_COMMIT_ORDER;
 SET GLOBAL slave_parallel_type= 'LOGICAL_CLOCK';
 SET GLOBAL slave_parallel_workers= 4;
-SET GLOBAL slave_preserve_commit_order= ON;
+SET GLOBAL slave_preserve_commit_order= DB;
 CHANGE MASTER TO MASTER_USER='root', MASTER_PASSWORD='' FOR CHANNEL 'group_replication_recovery';
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
