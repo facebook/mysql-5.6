@@ -15,7 +15,7 @@ SELECT @@global.response_attrs_contain_warnings_bytes;
 setting write_control to a negative number throws warning
 set @@global.response_attrs_contain_warnings_bytes = -10000;
 Warnings:
-Warning	1292	Truncated incorrect response_attrs_contain_warnings_ value: '-10000'
+Warning	1292	Truncated incorrect response_attrs_contain_warnings_bytes value: '-10000'
 SELECT @@global.response_attrs_contain_warnings_bytes;
 @@global.response_attrs_contain_warnings_bytes
 0
