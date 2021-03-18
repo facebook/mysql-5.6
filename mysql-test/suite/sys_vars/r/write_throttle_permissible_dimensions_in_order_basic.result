@@ -1,0 +1,45 @@
+Default value of write_throttle_permissible_dimensions_in_order is OFF
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+OFF
+SELECT @@session.write_throttle_permissible_dimensions_in_order;
+ERROR HY000: Variable 'write_throttle_permissible_dimensions_in_order' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_throttle_permissible_dimensions_in_order is a dynamic variable (change to a valid value)
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT,USER';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+CLIENT,USER
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+CLIENT
+set @@global.write_throttle_permissible_dimensions_in_order = 'USER,SQL_ID,CLIENT,SHARD';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+USER,SQL_ID,CLIENT,SHARD
+write_throttle_permissible_dimensions_in_order is a dynamic variable (change to a valid value)
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT1';
+ERROR 42000: Variable 'write_throttle_permissible_dimensions_in_order' can't be set to the value of 'CLIENT1'
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT,SQL_ID,USER,SHARD1';
+ERROR 42000: Variable 'write_throttle_permissible_dimensions_in_order' can't be set to the value of 'CLIENT,SQL_ID,USER,SHARD1'
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT,SQL_ID,USER,CLIENT';
+ERROR 42000: Variable 'write_throttle_permissible_dimensions_in_order' can't be set to the value of 'CLIENT,SQL_ID,USER,CLIENT'
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+USER,SQL_ID,CLIENT,SHARD
+restore the default value
+SET @@global.write_throttle_permissible_dimensions_in_order = 'OFF';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+OFF
+restart the server with non default value ('SQL_ID,SHARD')
+# restart: --write_throttle_permissible_dimensions_in_order='SQL_ID,SHARD'
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+'SQL_ID,SHARD'
+restart the server with the default value ('OFF')
+# restart:
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+OFF

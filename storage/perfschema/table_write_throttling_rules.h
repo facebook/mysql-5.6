@@ -37,11 +37,13 @@ class write_throttling_rules_row {
  public:
   write_throttling_rules_row(const std::string mode,
                              const ulonglong creation_time,
-                             const std::string type, const std::string value)
+                             const std::string type, const std::string value,
+                             const uint throttle_rate)
       : m_mode(mode),
         m_creation_time(creation_time),
         m_type(type),
-        m_value(value) {}
+        m_value(value),
+        m_throttle_rate(throttle_rate) {}
 
   /* Disabled copy. */
   write_throttling_rules_row(write_throttling_rules_row &) = delete;
@@ -57,12 +59,14 @@ class write_throttling_rules_row {
   ulonglong creation_time() const { return m_creation_time; }
   std::string type() const { return m_type; }
   std::string value() const { return m_value; }
+  uint throttle_rate() const { return m_throttle_rate; }
 
  private:
   std::string m_mode;
   ulonglong m_creation_time;
   std::string m_type;
   std::string m_value;
+  uint m_throttle_rate;
 };
 
 class table_write_throttling_rules : public PFS_engine_table {
