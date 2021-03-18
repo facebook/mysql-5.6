@@ -2640,6 +2640,15 @@ The following options may be given as the first argument:
  manually mitigate replication lag related issues.Check
  out I_S.write_throttling_rules for all active rules.Valid
  values - OFF, [+-][CLIENT|USER|SHARD|SQL_ID]=<value>
+ --write-throttle-permissible-dimensions-in-order[=name] 
+ All the dimensions(SQL_ID, CLIENT, USER, SHARD) that are
+ permitted to beauto throttled in order in case of
+ replication lag.
+ --write-throttle-rate-step[=#] 
+ This variable determines the step by which throttle rate
+ probability is incremented or decremented. Default value
+ is 100 which means an entity is either fully throttled or
+ not throttled at all
  --write-throttle-tag-only 
  If set to true, replication lag throttling will only
  throttle queries with query attribute mt_throttle_okay.
@@ -3392,6 +3401,8 @@ write-throttle-lag-pct-min-secondaries 100
 write-throttle-min-ratio 1000
 write-throttle-monitor-cycles 1000
 write-throttle-patterns OFF
+write-throttle-permissible-dimensions-in-order OFF
+write-throttle-rate-step 100
 write-throttle-tag-only FALSE
 write-time-check-batch 0
 zstd-net-compression-level 3

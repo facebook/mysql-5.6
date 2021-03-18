@@ -5731,7 +5731,7 @@ static bool mt_check_throttle_write_query(THD *thd) {
       if (time_now - last_replication_lag_check_time >=
           (long)write_auto_throttle_frequency) {
         // check replication lag and throttle, if needed
-        check_lag_and_throttle();
+        check_lag_and_throttle(time_now);
         // update last check time
         last_replication_lag_check_time = time_now;
       }
@@ -5741,7 +5741,6 @@ static bool mt_check_throttle_write_query(THD *thd) {
 
   std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
   thd->get_mt_keys_for_write_query(keys);
-  int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
 
   mysql_mutex_lock(&LOCK_global_write_throttling_rules);
   // Check if any part of the key match any of the throttling rules
@@ -5749,26 +5748,31 @@ static bool mt_check_throttle_write_query(THD *thd) {
     auto iter = global_write_throttling_rules[i].find(keys[i]);
     if (iter != global_write_throttling_rules[i].end()) {
       WRITE_THROTTLING_RULE &rule = iter->second;
-      if (iter->second.mode == WTR_MANUAL ||
-          (!thd->variables.write_throttle_tag_only &&
-           write_control_level == CONTROL_LEVEL_ERROR) ||
-          mt_throttle_tag_level == CONTROL_LEVEL_ERROR) {
-        store_write_throttling_log(thd, i, iter->first, rule);
-        my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
-        mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
-        DBUG_RETURN(true);
-      } else if ((!thd->variables.write_throttle_tag_only &&
-                  (write_control_level == CONTROL_LEVEL_NOTE ||
-                   write_control_level == CONTROL_LEVEL_WARN)) ||
-                 mt_throttle_tag_level == CONTROL_LEVEL_WARN) {
-        store_write_throttling_log(thd, i, iter->first, rule);
-        push_warning(thd,
-                     (write_control_level == CONTROL_LEVEL_NOTE ||
-                      mt_throttle_tag_level != CONTROL_LEVEL_WARN)
-                         ? Sql_condition::SL_NOTE
-                         : Sql_condition::SL_WARNING,
-                     ER_WRITE_QUERY_THROTTLED,
-                     ER_THD(thd, ER_WRITE_QUERY_THROTTLED));
+
+      uint coin_toss = rand() % 100;  // 0 <= coin_toss < 100
+      if (coin_toss < rule.throttle_rate) {
+        int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
+        if (iter->second.mode == WTR_MANUAL ||
+            (!thd->variables.write_throttle_tag_only &&
+             write_control_level == CONTROL_LEVEL_ERROR) ||
+            mt_throttle_tag_level == CONTROL_LEVEL_ERROR) {
+          store_write_throttling_log(thd, i, iter->first, rule);
+          my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
+          mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+          DBUG_RETURN(true);
+        } else if ((!thd->variables.write_throttle_tag_only &&
+                    (write_control_level == CONTROL_LEVEL_NOTE ||
+                     write_control_level == CONTROL_LEVEL_WARN)) ||
+                   mt_throttle_tag_level == CONTROL_LEVEL_WARN) {
+          store_write_throttling_log(thd, i, iter->first, rule);
+          push_warning(thd,
+                       (write_control_level == CONTROL_LEVEL_NOTE ||
+                        mt_throttle_tag_level != CONTROL_LEVEL_WARN)
+                           ? Sql_condition::SL_NOTE
+                           : Sql_condition::SL_WARNING,
+                       ER_WRITE_QUERY_THROTTLED,
+                       ER_THD(thd, ER_WRITE_QUERY_THROTTLED));
+        }
       }
     }
   }

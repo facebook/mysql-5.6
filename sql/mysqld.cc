@@ -1534,6 +1534,12 @@ uint write_stats_count;
 ulong write_stats_frequency;
 /* Stores the (latest)value for sys_var write_throttle_patterns  */
 char *latest_write_throttling_rule;
+/* Stores the (latest)value for sys_var
+ * write_throttle_permissible_dimensions_in_order*/
+char *latest_write_throttle_permissible_dimensions_in_order;
+/* Vector of all dimensions that are permissible to be throttled in order by
+ * replication lag system*/
+std::vector<enum_wtr_dimension> write_throttle_permissible_dimensions_in_order;
 /* A replication lag higher than the value of this variable will enable
  * throttling of write workload */
 ulong write_start_throttle_lag_milliseconds;
@@ -1552,6 +1558,9 @@ uint write_throttle_lag_pct_min_secondaries;
 /* The frequency (seconds) at which auto throttling checks are run on a primary
  */
 ulong write_auto_throttle_frequency;
+/* Determines the step by which throttle rate probability is incremented or
+decremented */
+uint write_throttle_rate_step;
 /* Controls collecting column statistics for every SQL statement */
 ulong column_stats_control;
 /* Controls collecting MySQL findings (aka SQL conditions) */

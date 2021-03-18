@@ -8875,6 +8875,8 @@ static bool update_write_throttling_patterns(sys_var *, THD *, enum_var_type) {
 
   if (strcmp(latest_write_throttling_rule, "OFF") == 0) {
     free_global_write_throttling_rules();
+    currently_throttled_entities.clear();
+    currently_monitored_entity.reset();
     return false;  // success
   }
   return store_write_throttling_rules();
@@ -8914,6 +8916,22 @@ static Sys_var_bool Sys_write_throttle_tag_only(
     "If set to true, replication lag throttling will only throttle queries "
     "with query attribute mt_throttle_okay.",
     SESSION_VAR(write_throttle_tag_only), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static bool check_write_throttle_permissible_dimensions_in_order(sys_var *,
+                                                                 THD *,
+                                                                 set_var *var) {
+  return store_write_throttle_permissible_dimensions_in_order(
+      var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_write_throttle_permissible_dimensions_in_order(
+    "write_throttle_permissible_dimensions_in_order",
+    "All the dimensions(SQL_ID, CLIENT, USER, SHARD) that are permitted to be"
+    "auto throttled in order in case of replication lag.",
+    GLOBAL_VAR(latest_write_throttle_permissible_dimensions_in_order),
+    CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT("OFF"), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG,
+    ON_CHECK(check_write_throttle_permissible_dimensions_in_order));
 
 static Sys_var_ulong Sys_write_start_throttle_lag_milliseconds(
     "write_start_throttle_lag_milliseconds",
@@ -8958,6 +8976,17 @@ static Sys_var_uint Sys_write_throttle_lag_pct_min_secondaries(
     VALID_RANGE(0, 100), DEFAULT(100), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+/* Free currently_throttled_entities if sys_var is set to 0 */
+static bool update_write_auto_throttle_frequency(sys_var *, THD *,
+                                                 enum_var_type) {
+  if (write_auto_throttle_frequency == 0) {
+    currently_throttled_entities.clear();
+    currently_monitored_entity.reset();
+    free_global_write_auto_throttling_rules();
+  }
+  return false;  // success
+}
+
 static Sys_var_ulong Sys_write_auto_throttle_frequency(
     "write_auto_throttle_frequency",
     "The frequency (seconds) at which auto throttling checks are run on a "
@@ -8965,7 +8994,8 @@ static Sys_var_ulong Sys_write_auto_throttle_frequency(
     "Default value is 0 which means auto throttling is turned off.",
     GLOBAL_VAR(write_auto_throttle_frequency), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
-    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+    NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(update_write_auto_throttle_frequency));
 
 static Sys_var_uint Sys_write_cpu_limit_milliseconds(
     "write_cpu_limit_milliseconds",
@@ -9041,6 +9071,15 @@ static Sys_var_enum Sys_column_stats_control(
     GLOBAL_VAR(column_stats_control), CMD_LINE(REQUIRED_ARG),
     sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_column_stats_control));
+
+static Sys_var_uint Sys_write_throttle_rate_step(
+    "write_throttle_rate_step",
+    "This variable determines the step by which throttle rate probability "
+    "is incremented or decremented. Default value is 100 which means an entity "
+    "is either fully throttled or not throttled at all",
+    GLOBAL_VAR(write_throttle_rate_step), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 100), DEFAULT(100), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 static Sys_var_charptr Sys_sql_wsenv_tenant(
     "sql_wsenv_tenant", "warm storage environment tenant",
