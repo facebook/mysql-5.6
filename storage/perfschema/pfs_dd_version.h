@@ -228,10 +228,13 @@
   80020-015:
    - add SUM_FILESORT_DISK_USAGE to statements tables.
    - add SUM_TMP_TABLE_DISK_USAGE to statements tables.
+
+  80020-016:
+   - add throttle_rate column to write_throttling_rules table
 */
-/* Version published now is 80020-015. i.e. 8.0.20 Facebook schema change
- * no. 15.
+/* Version published now is 80020-016. i.e. 8.0.20 Facebook schema change
+ * no. 16.
  */
-static const uint PFS_DD_VERSION = 80020015;
+static const uint PFS_DD_VERSION = 80020016;
 
 #endif /* PFS_DD_VERSION_H */

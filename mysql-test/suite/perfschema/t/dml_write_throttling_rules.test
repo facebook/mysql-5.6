@@ -13,7 +13,7 @@ SELECT * FROM performance_schema.write_throttling_rules
 
 --error ER_TABLEACCESS_DENIED_ERROR
 INSERT INTO performance_schema.write_throttling_rules
-  VALUES(MANUAL, NOW(), SQL_ID, 123);
+  VALUES(MANUAL, NOW(), SQL_ID, 123, 25);
 
 --error ER_TABLEACCESS_DENIED_ERROR
 UPDATE performance_schema.write_throttling_rules

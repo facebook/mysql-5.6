@@ -1,0 +1,44 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 100
+####
+--echo Default value of write_throttle_rate_step is 100
+SELECT @@global.write_throttle_rate_step;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.write_throttle_rate_step;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_throttle_rate_step is a dynamic variable (change to 1)
+set @@global.write_throttle_rate_step = 1;
+SELECT @@global.write_throttle_rate_step;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.write_throttle_rate_step = 100;
+SELECT @@global.write_throttle_rate_step;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (1)
+--let $restart_parameters = restart: --write_throttle_rate_step=1
+--source include/restart_mysqld.inc
+
+SELECT @@global.write_throttle_rate_step;
+
+--echo restart the server with the default value (100)
+--let $restart_parameters = restart:
+--source include/restart_mysqld.inc
+
+# check value is default (100)
+SELECT @@global.write_throttle_rate_step;
