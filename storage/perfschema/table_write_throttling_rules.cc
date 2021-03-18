@@ -49,7 +49,8 @@ Plugin_table table_write_throttling_rules::m_table_def(
     "  MODE VARCHAR(16),\n"
     "  CREATION_TIME TIMESTAMP NOT NULL default 0,\n"
     "  TYPE VARCHAR(16),\n"
-    "  VALUE VARCHAR(64)\n",
+    "  VALUE VARCHAR(64),\n"
+    "  THROTTLE_RATE BIGINT unsigned NOT NULL\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
@@ -74,7 +75,8 @@ enum write_throttling_rules_field_offset {
   FO_MODE,
   FO_CREATION_TIME,
   FO_TYPE,
-  FO_VALUE
+  FO_VALUE,
+  FO_THROTTLE_RATE,
 };
 
 table_write_throttling_rules::table_write_throttling_rules()
@@ -148,6 +150,9 @@ int table_write_throttling_rules::read_row_values(TABLE *table,
         case FO_VALUE:
           set_field_varchar_utf8mb4(f, curr_row.value().c_str(),
                                  curr_row.value().length());
+          break;
+        case FO_THROTTLE_RATE:
+          set_field_ulonglong(f, curr_row.throttle_rate());
           break;
         default:
           assert(false);

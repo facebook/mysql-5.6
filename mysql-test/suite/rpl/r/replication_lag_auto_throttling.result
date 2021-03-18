@@ -13,6 +13,7 @@ SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=1000;
 SET @@GLOBAL.WRITE_THROTTLE_MIN_RATIO=1.5;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="SQL_ID,SHARD,CLIENT,USER";
 create table t(a int) engine=innodb;
 create database test1;
 create table test1.t(a int) engine=innodb;
@@ -21,6 +22,7 @@ select @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY into @wat_freq;
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
+set @@global.debug= '+d,dbug.skip_last_complete_bucket_check';
 ####################################################
 ### Test 1: Auto throttle start & stop based on sql_id
 ####################################################
@@ -706,6 +708,316 @@ select sleep(@wat_freq);
 sleep(@wat_freq)
 0
 ####################################################
+### Test 10: Gradual auto throttling
+####################################################
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
+SET @@GLOBAL.WRITE_THROTTLE_RATE_STEP=25;
+insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
+delete from test.t where a = 2;
+use test1;
+insert into test1.t values(2);
+delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+select type, value, write_data_bytes from performance_schema.write_statistics where timestamp = (select max(timestamp) from performance_schema.write_statistics) order by type, value;
+type	value	write_data_bytes
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
+SHARD	test	72
+SHARD	test1	72
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
+USER	root	144
+####### Next Cycle #######
+### Expectation - There is replication lag. Based on the write stats, there is no clear sql_id or shard as the culprit. Should identify client_id as the culprit and throttle it. ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	25
+####### Next Cycle #######
+### Expectation - Replication lag still persists. Should increase throttle_rate to 50% ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	50
+####### Next Cycle #######
+### Expectation - Replication lag still persists. Should increase throttle_rate to 75% ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	75
+####### Next Cycle #######
+### Expectation - Replication lag still persists. Should increase throttle_rate to 100% ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	100
+####### Next Cycle #######
+### Expectation - Replication lag still persists but it is between start and end threshold. Should keep throttle_rate to 100% ###
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+set @@global.debug= '+d,dbug.simulate_lag_between_start_end_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	100
+####### Next Cycle #######
+### Expectation - Replication lag is gone. Should drop throttle_rate to 75% ###
+set @@global.debug= '-d,dbug.simulate_lag_between_start_end_throttle_threshold';
+set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	75
+####### Next Cycle #######
+### Expectation - Replication lag is gone. Should drop throttle_rate to 50% ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	50
+####### Next Cycle #######
+### Expectation - Replication lag is gone. Should drop throttle_rate to 25% ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	25
+####### Next Cycle #######
+### Expectation - Replication lag is gone. Should remove the throttling rule ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test1.t values(2);
+select type, value, throttle_rate from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value	throttle_rate
+####### Reset #######
+use test;
+TRUNCATE test.t;
+TRUNCATE test1.t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
+SET @@GLOBAL.WRITE_THROTTLE_RATE_STEP=100;
+truncate table performance_schema.events_errors_summary_global_by_error;
+set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+####################################################
+### Test 11: Turning off auto_throttling clears auto throttling rules only
+####################################################
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
+# Add some manual throttling rules for sql_id
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='+SQL_ID=1234';
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='+SQL_ID=5678';
+insert into test.t values(2);
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+####### Next Cycle #######
+### Expectation - There is replication lag. The system should identity insert query sql_id as the culprit and throttle it ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+insert into test.t values(2);
+select type, value, mode from performance_schema.write_throttling_rules order by value desc;
+type	value	mode
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	AUTO
+SQL_ID	5678	MANUAL
+SQL_ID	1234	MANUAL
+# Setting WRITE_AUTO_THROTTLE_FREQUENCY=0 should clear auto throttling rules
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=0;
+select type, value, mode from performance_schema.write_throttling_rules order by value desc;
+type	value	mode
+SQL_ID	5678	MANUAL
+SQL_ID	1234	MANUAL
+####### Reset #######
+use test;
+TRUNCATE test.t;
+TRUNCATE test1.t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=@wat_freq;
+truncate table performance_schema.events_errors_summary_global_by_error;
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+####################################################################################################
+### Test 12: Auto throttle dimensions are configurable, No throttling if no permissible dimension is set
+####################################################################################################
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="OFF";
+insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
+delete from test.t where a = 2;
+use test1;
+insert into test1.t values(2);
+delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+select type, value, write_data_bytes from performance_schema.write_statistics where timestamp = (select max(timestamp) from performance_schema.write_statistics) order by type, value;
+type	value	write_data_bytes
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
+SHARD	test	72
+SHARD	test1	72
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
+USER	root	144
+####### Next Cycle #######
+### Expectation - There is replication lag. But since no permissible throttling dimension is set, no query should be throttled. ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into test1.t values(2);
+select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value
+####### Reset #######
+use test;
+TRUNCATE test.t;
+TRUNCATE test1.t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="SQL_ID,SHARD,CLIENT,USER";
+truncate table performance_schema.events_errors_summary_global_by_error;
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+####################################################################################################
+### Test 13: Auto throttle dimensions are configurable, only permissible dimensions are throttled
+####################################################################################################
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="SHARD,SQL_ID";
+insert into test.t values(2),(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
+delete from test.t where a = 2;
+use test1;
+insert into test1.t values(2);
+delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+select type, value, write_data_bytes from performance_schema.write_statistics where timestamp = (select max(timestamp) from performance_schema.write_statistics) order by type, value;
+type	value	write_data_bytes
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	154
+SHARD	test	82
+SHARD	test1	72
+SQL_ID	183f908b76eebd8c11d04e4afc8de481	41
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	41
+USER	root	154
+####### Next Cycle #######
+### Expectation - There is replication lag. Since there is no clear culprit among SHARD & SQL_ID dimensions, system should quarantine first SHARD. ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into test1.t values(2);
+select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value
+SHARD	test
+####### Reset #######
+use test;
+TRUNCATE test.t;
+TRUNCATE test1.t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="SQL_ID,SHARD,CLIENT,USER";
+truncate table performance_schema.events_errors_summary_global_by_error;
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+####################################################################################################
+### Test 14: Auto throttle dimensions are configurable, only permissible dimensions are throttled
+####################################################################################################
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="SQL_ID,SHARD";
+insert into test.t values(2),(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
+delete from test.t where a = 2;
+use test1;
+insert into test1.t values(2),(2);
+delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+select type, value, write_data_bytes from performance_schema.write_statistics where timestamp = (select max(timestamp) from performance_schema.write_statistics) order by type, value;
+type	value	write_data_bytes
+CLIENT	99914b932bd37a50b983c5e7c90ae93b	164
+SHARD	test	82
+SHARD	test1	82
+SQL_ID	183f908b76eebd8c11d04e4afc8de481	41
+SQL_ID	6aa03692f520126c3933940216180870	41
+SQL_ID	b013b60c29596dd5691e0a1acacb13c7	41
+SQL_ID	f66df89c2ca4535043dda3710def2e92	41
+USER	root	164
+####### Next Cycle #######
+### Expectation - There is replication lag. Since there is no clear culprit among SHARD & SQL_ID dimensions, system should quarantine first SQL_ID. ###
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into test1.t values(2);
+select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
+type	value
+SQL_ID	6aa03692f520126c3933940216180870
+####### Reset #######
+use test;
+TRUNCATE test.t;
+TRUNCATE test1.t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="SQL_ID,SHARD,CLIENT,USER";
+truncate table performance_schema.events_errors_summary_global_by_error;
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+####### Reset #######
+use test;
+TRUNCATE test.t;
+TRUNCATE test1.t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
+SET @@GLOBAL.WRITE_THROTTLE_RATE_STEP=100;
+truncate table performance_schema.events_errors_summary_global_by_error;
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+####################################################
 ### Test End: Full Reset
 ####################################################
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=0;
@@ -721,4 +1033,6 @@ SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=86400000;
 SET @@GLOBAL.WRITE_THROTTLE_MIN_RATIO=1000;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1000;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=OFF;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="OFF";
+set @@global.debug= '-d,dbug.skip_last_complete_bucket_check';
 include/rpl_end.inc

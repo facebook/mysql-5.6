@@ -106,9 +106,16 @@ static void populate_write_statistics(THD *thd,
     thd         in:  - THD
 */
 void store_write_statistics(THD *thd) {
+  // write_stats_frequency may be updated dynamically. Caching it for the
+  // logic below
+  ulong write_stats_frequency_cached = write_stats_frequency;
+  if (write_stats_frequency_cached == 0) {
+    return;
+  }
+
   mysql_mutex_lock(&LOCK_global_write_statistics);
   time_t timestamp = time(0);
-  int time_bucket_key = timestamp - (timestamp % write_stats_frequency);
+  int time_bucket_key = timestamp - (timestamp % write_stats_frequency_cached);
   auto time_bucket_iter = global_write_statistics_map.begin();
 
   DBUG_EXECUTE_IF("dbug.add_write_stats_to_most_recent_bucket", {
@@ -172,12 +179,32 @@ std::list<std::pair<std::string, enum_wtr_dimension>>
 
 /*
   free_global_write_throttling_rules
-    Frees global_write_throttling_rules data structure
+    Frees auto and manual rules from global_write_throttling_rules data
+    structure
 */
 void free_global_write_throttling_rules() {
   mysql_mutex_lock(&LOCK_global_write_throttling_rules);
   for (uint i = 0; i < WRITE_STATISTICS_DIMENSION_COUNT; i++) {
     global_write_throttling_rules[i].clear();
+  }
+  mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+}
+
+/*
+  free_global_write_auto_throttling_rules
+    Frees only auto rules from global_write_throttling_rules data structure
+*/
+void free_global_write_auto_throttling_rules() {
+  mysql_mutex_lock(&LOCK_global_write_throttling_rules);
+  for (auto &rules : global_write_throttling_rules) {
+    auto rules_iter = rules.begin();
+    while (rules_iter != rules.end()) {
+      if (rules_iter->second.mode == WTR_AUTO) {
+        rules_iter = rules.erase(rules_iter);
+      } else {
+        ++rules_iter;
+      }
+    }
   }
   mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
 }
@@ -194,6 +221,54 @@ enum_wtr_dimension get_wtr_dimension_from_str(std::string type_str) {
   while (type >= 0 && WRITE_STATS_TYPE_STRING[type] != type_str) type--;
 
   return static_cast<enum_wtr_dimension>(type);
+}
+
+/*
+  Stores a user specified order in which throttling system should throttle
+  write throttling dimensions in case of replication lag
+*/
+bool store_write_throttle_permissible_dimensions_in_order(char *new_value) {
+  if (strcmp(new_value, "OFF") == 0) {
+    mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
+    write_throttle_permissible_dimensions_in_order.clear();
+    mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+    return false;
+  }
+
+  // copy the string to avoid mutating new var value.
+  char *new_value_copy = (char *)my_malloc(PSI_NOT_INSTRUMENTED,
+                                           strlen(new_value) + 1, MYF(MY_WME));
+  if (new_value_copy == nullptr) {
+    return true;  // failure allocating memory
+  }
+  strcpy(new_value_copy, new_value);
+  char *wtr_dim_str;
+  enum_wtr_dimension wtr_dim;
+  std::vector<enum_wtr_dimension> new_dimensions;
+  bool result = false;
+
+  wtr_dim_str = strtok(new_value_copy, ",");
+  while (wtr_dim_str != nullptr) {
+    wtr_dim = get_wtr_dimension_from_str(wtr_dim_str);
+    if (wtr_dim == WTR_DIM_UNKNOWN) {
+      result = true;  // not a valid dimension string, failure
+      break;
+    }
+    auto it = std::find(new_dimensions.begin(), new_dimensions.end(), wtr_dim);
+    if (it != new_dimensions.end()) {
+      result = true;  // duplicate dimension, failure
+      break;
+    }
+    new_dimensions.push_back(wtr_dim);
+    wtr_dim_str = strtok(nullptr, ",");
+  }
+  if (!result) {
+    mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
+    write_throttle_permissible_dimensions_in_order = new_dimensions;
+    mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+  }
+  my_free(new_value_copy);
+  return result;
 }
 
 /*
@@ -222,20 +297,31 @@ bool store_write_throttling_rules() {
     WRITE_THROTTLING_RULE rule;
     rule.mode = WTR_MANUAL;  // manual
     rule.create_time = time(0);
+    rule.throttle_rate = 100;  // manual rules are fully throttled
 
     mysql_mutex_lock(&LOCK_global_write_throttling_rules);
     auto &rules_map = global_write_throttling_rules[wtr_dim];
     auto iter = rules_map.find(value_str);
+    bool remove_from_currently_throttled_entities = false;
     if (op == '+') {
-      if (iter != rules_map.end())
+      if (iter != rules_map.end()) {
+        // If manually overriding an auto rule, remove it from
+        // currently_throttled_entities queue
+        if (rules_map[value_str].mode == WTR_AUTO)
+          remove_from_currently_throttled_entities = true;
         rules_map[value_str] = rule;
-      else
+      } else
         rules_map.insert(std::make_pair(value_str, rule));
     } else {  // op == '-'
       if (iter != rules_map.end()) {
+        // If manually overriding an auto rule, remove it from
+        // currently_throttled_entities queue
+        if (rules_map[value_str].mode == WTR_AUTO)
+          remove_from_currently_throttled_entities = true;
         rules_map.erase(iter);
       }
-      // also remove it from the currently_throttled_entities queue if present
+    }
+    if (remove_from_currently_throttled_entities) {
       for (auto q_iter = currently_throttled_entities.begin();
            q_iter != currently_throttled_entities.end(); q_iter++) {
         if (q_iter->first == value_str) {
@@ -351,7 +437,7 @@ std::vector<write_throttling_rules_row> get_all_write_throttling_rules() {
       write_throttling_rules.emplace_back(
           WRITE_THROTTLING_MODE_STRING[rules_iter->second.mode],
           rules_iter->second.create_time, WRITE_STATS_TYPE_STRING[type],
-          rules_iter->first);
+          rules_iter->first, rules_iter->second.throttle_rate);
     }
   }
   mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
@@ -421,17 +507,17 @@ void static update_monitoring_status_for_entity(std::string name,
       WRITE_THROTTLING_RULE rule;
       rule.mode = WTR_AUTO;  // auto
       rule.create_time = time(0);
+      rule.throttle_rate = write_throttle_rate_step;
 
       mysql_mutex_lock(&LOCK_global_write_throttling_rules);
       auto &rules_map = global_write_throttling_rules[dimension];
       auto iter = rules_map.find(name);
       if (iter == rules_map.end()) {
         rules_map.insert(std::make_pair(name, rule));
+        // insert the entity into currently_throttled_entities queue
+        currently_throttled_entities.push_back(std::make_pair(name, dimension));
       }
       mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
-
-      // insert the entity into currently_throttled_entities queue
-      currently_throttled_entities.push_back(std::make_pair(name, dimension));
 
       // reset currently_monitored_entity
       currently_monitored_entity.reset();
@@ -481,29 +567,56 @@ std::pair<std::string, std::string> get_top_two_entities(
   optionally releases one of the previously throttled entities if replication
   lag is below safe threshold.
 */
-void check_lag_and_throttle() {
+void check_lag_and_throttle(time_t time_now) {
   ulong lag = get_current_replication_lag();
 
   if (lag < write_stop_throttle_lag_milliseconds) {
-    // Replication lag below safe threshold, release at most one throttled
-    // entity and erase corresponding throttling rule
+    // Replication lag below safe threshold, reduce throttle rate or release
+    // at most one throttled entity. If releasing, erase corresponding
+    // throttling rule.
     if (currently_throttled_entities.empty()) return;
     auto throttled_entity = currently_throttled_entities.front();
-    currently_throttled_entities.pop_front();
 
     enum_wtr_dimension wtr_dim = throttled_entity.second;
     std::string name = throttled_entity.first;
 
     mysql_mutex_lock(&LOCK_global_write_throttling_rules);
-    auto rule_iter = global_write_throttling_rules[wtr_dim].find(name);
-    if (rule_iter != global_write_throttling_rules[wtr_dim].end() &&
-        rule_iter->second.mode == WTR_AUTO) {
-      global_write_throttling_rules[wtr_dim].erase(rule_iter);
+    auto &rules_map = global_write_throttling_rules[wtr_dim];
+    auto iter = rules_map.find(name);
+    if (iter != rules_map.end()) {
+      if (iter->second.mode == WTR_MANUAL) {
+        // Safe guard. A manual rule should not end up in.
+        // currently_throttled_entities. But if it does, simply pop it out.
+        currently_throttled_entities.pop_front();
+      } else if (iter->second.throttle_rate > write_throttle_rate_step) {
+        iter->second.throttle_rate -= write_throttle_rate_step;
+      } else {
+        global_write_throttling_rules[wtr_dim].erase(iter);
+        currently_throttled_entities.pop_front();
+      }
     }
     mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
   }
 
   if (lag > write_start_throttle_lag_milliseconds) {
+    // Replication lag above threshold, Check if we can increase throttle rate
+    // for last throttled entity
+    if (!currently_throttled_entities.empty()) {
+      auto last_throttled_entity = currently_throttled_entities.back();
+      bool throttle_rate_increased = false;
+      mysql_mutex_lock(&LOCK_global_write_throttling_rules);
+      auto &rules_map =
+          global_write_throttling_rules[last_throttled_entity.second];
+      auto iter = rules_map.find(last_throttled_entity.first);
+      if (iter != rules_map.end() && iter->second.throttle_rate < 100) {
+        iter->second.throttle_rate = std::min(
+            (uint)100, iter->second.throttle_rate + write_throttle_rate_step);
+        throttle_rate_increased = true;
+      }
+      mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+      if (throttle_rate_increased) return;
+    }
+
     // Replication lag above threshold, find an entity to throttle
     mysql_mutex_lock(&LOCK_global_write_statistics);
     if (global_write_statistics_map.size() == 0) {
@@ -512,20 +625,48 @@ void check_lag_and_throttle() {
       return;
     }
 
-    TIME_BUCKET_STATS &latest_write_stats =
-        global_write_statistics_map.front().second;
-    // Sort dimensions in order of cardinality. If the cardinality is the same,
-    // we want to throttle sql_id > shard > client > user
-    auto cardinality_cmp = [&latest_write_stats](const enum_wtr_dimension &a,
-                                                 const enum_wtr_dimension &b) {
-      auto a_size = latest_write_stats[a].size();
-      auto b_size = latest_write_stats[b].size();
-      return a_size > b_size || (a_size == b_size && a > b);
-    };
-    std::array<enum_wtr_dimension, WRITE_STATISTICS_DIMENSION_COUNT>
-        dimensions = {WTR_DIM_USER, WTR_DIM_CLIENT, WTR_DIM_SHARD,
-                      WTR_DIM_SQL_ID};
-    std::sort(dimensions.begin(), dimensions.end(), cardinality_cmp);
+    // write_stats_frequency may be updated dynamically. Caching it for the
+    // logic below
+    ulong write_stats_frequency_cached = write_stats_frequency;
+    if (write_stats_frequency_cached == 0) {
+      return;
+    }
+
+    // Find latest write_statistics time bucket that is complete.
+    // Example - For write_stats_frequency=6s, At t=8s, this method should
+    // return write_stats bucket for stats between t=0 to t=6 i.e. bucket_key=0
+    // and not bucket_key=6 which is incomplete and only has 2s worth of
+    // write_stats data;
+    int time_bucket_key = time_now - (time_now % write_stats_frequency_cached) -
+                          write_stats_frequency_cached;
+    auto latest_write_stats_iter = global_write_statistics_map.begin();
+
+    // For testing purpose, force use the latest write stats bucket for culprit
+    // analysis
+    bool dbug_skip_last_complete_bucket_check = false;
+    DBUG_EXECUTE_IF("dbug.skip_last_complete_bucket_check",
+                    { dbug_skip_last_complete_bucket_check = true; });
+
+    if (!dbug_skip_last_complete_bucket_check) {
+      if (latest_write_stats_iter->first != time_bucket_key) {
+        // move to the second from front time bucket
+        latest_write_stats_iter++;
+      }
+      if (latest_write_stats_iter == global_write_statistics_map.end() ||
+          latest_write_stats_iter->first != time_bucket_key) {
+        // no complete write statistics bucket for analysis
+        // reset currently monitored entity, if any, as there's been a
+        // significant gap in time since we last did culprit analysis. It is
+        // outdated.
+        currently_monitored_entity.reset();
+        mysql_mutex_unlock(&LOCK_global_write_statistics);
+        return;
+      }
+    }
+    TIME_BUCKET_STATS &latest_write_stats = latest_write_stats_iter->second;
+
+    std::vector<enum_wtr_dimension> &dimensions =
+        write_throttle_permissible_dimensions_in_order;
 
     bool is_fallback_entity_set = false;
     std::pair<std::string, enum_wtr_dimension> fallback_entity;

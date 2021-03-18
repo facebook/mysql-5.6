@@ -541,12 +541,16 @@ extern std::atomic<int> slave_stats_daemon_thread_counter;
 extern uint write_stats_count;
 extern ulong write_stats_frequency;
 extern char *latest_write_throttling_rule;
+extern char *latest_write_throttle_permissible_dimensions_in_order;
+extern std::vector<enum_wtr_dimension>
+    write_throttle_permissible_dimensions_in_order;
 extern ulong write_start_throttle_lag_milliseconds;
 extern ulong write_stop_throttle_lag_milliseconds;
 extern double write_throttle_min_ratio;
 extern uint write_throttle_monitor_cycles;
 extern uint write_throttle_lag_pct_min_secondaries;
 extern ulong write_auto_throttle_frequency;
+extern uint write_throttle_rate_step;
 /* Controls collecting MySQL findings (aka SQL conditions) */
 extern ulong sql_findings_control;
 

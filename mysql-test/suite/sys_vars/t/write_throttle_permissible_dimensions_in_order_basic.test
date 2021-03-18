@@ -1,0 +1,60 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of write_throttle_permissible_dimensions_in_order is OFF
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.write_throttle_permissible_dimensions_in_order;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_throttle_permissible_dimensions_in_order is a dynamic variable (change to a valid value)
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT,USER';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+set @@global.write_throttle_permissible_dimensions_in_order = 'USER,SQL_ID,CLIENT,SHARD';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+
+####
+## Verify that rubbish values are not allowed
+####
+--echo write_throttle_permissible_dimensions_in_order is a dynamic variable (change to a valid value)
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT1';
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT,SQL_ID,USER,SHARD1';
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_throttle_permissible_dimensions_in_order = 'CLIENT,SQL_ID,USER,CLIENT';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.write_throttle_permissible_dimensions_in_order = 'OFF';
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value ('SQL_ID,SHARD')
+--let $restart_parameters = restart: --write_throttle_permissible_dimensions_in_order='SQL_ID,SHARD'
+--source include/restart_mysqld.inc
+
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+
+--echo restart the server with the default value ('OFF')
+--let $restart_parameters = restart:
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
+SELECT @@global.write_throttle_permissible_dimensions_in_order;

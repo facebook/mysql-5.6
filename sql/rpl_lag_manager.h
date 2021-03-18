@@ -104,6 +104,8 @@ enum enum_wtr_dimension {
 struct WRITE_THROTTLING_RULE {
   time_t create_time; /* creation time */
   enum_wtr_mode mode; /* Auto or manual */
+  uint throttle_rate; /* Rate between [0, 100] with which this entity is
+                        throttled */
 };
 
 typedef std::array<std::unordered_map<std::string, WRITE_THROTTLING_RULE>,
@@ -118,8 +120,10 @@ extern std::list<std::pair<std::string, enum_wtr_dimension>>
     currently_throttled_entities;
 
 void free_global_write_throttling_rules();
+void free_global_write_auto_throttling_rules();
 bool store_write_throttling_rules();
 std::vector<write_throttling_rules_row> get_all_write_throttling_rules();
+bool store_write_throttle_permissible_dimensions_in_order(char *new_value);
 
 /***********************************************************************
 OBJECTS & METHODS TO SUPPORT WRITE_THROTTLING_LOG
@@ -160,6 +164,6 @@ struct WRITE_MONITORED_ENTITY {
 extern WRITE_MONITORED_ENTITY currently_monitored_entity;
 extern std::atomic<time_t> last_replication_lag_check_time;
 
-void check_lag_and_throttle();
+void check_lag_and_throttle(time_t time_now);
 
 #endif
