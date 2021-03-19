@@ -482,7 +482,6 @@ CREATE TABLE t1 (i int primary key, j int, v text) CHARSET=latin1;
 INSERT INTO t1 VALUES (1, 1, "1"), (2, 1, "2");
 ALTER TABLE t1 ADD INDEX idx (v(10));
 ALTER TABLE t1 DROP INDEX idx, ADD UNIQUE KEY idx (j);
-ERROR 23000: Duplicate entry '1' for key '#sql-2bb7f2_8.idx'
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
