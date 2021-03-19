@@ -81,6 +81,7 @@
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 class Rpl_global_filter;
+class Source_IO_monitor;
 class THD;
 class Time_zone;
 struct MEM_ROOT;
@@ -199,6 +200,7 @@ extern bool rpl_wait_for_semi_sync_ack;
 extern ulong slave_exec_mode_options;
 extern ulong slave_use_idempotent_for_recovery_options;
 extern Rpl_global_filter rpl_global_filter;
+extern Source_IO_monitor *rpl_source_io_monitor;
 extern int32_t opt_regexp_time_limit;
 extern int32_t opt_regexp_stack_limit;
 #ifdef _WIN32

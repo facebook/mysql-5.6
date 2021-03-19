@@ -288,7 +288,7 @@ class Multisource_info {
     }
 
 #ifndef DBUG_OFF
-    if (Source_IO_monitor::get_instance().is_monitoring_process_running()) {
+    if (Source_IO_monitor::get_instance()->is_monitoring_process_running()) {
       DBUG_ASSERT(count > 0);
     }
 #endif
