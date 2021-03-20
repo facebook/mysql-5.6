@@ -52,5 +52,8 @@ bool check_schema_readonly(THD *thd, const char *schema_name,
                            TABLE_SHARE *share = nullptr);
 bool is_thd_db_read_only_by_name(THD *thd, const char *db);
 enum_db_read_only get_db_read_only(const dd::Schema &schema);
+
+using Change_db_callback = bool (*)(THD *, const LEX_CSTRING &, bool);
 bool set_session_db_helper(THD *thd, const LEX_CSTRING &new_db);
+void set_change_db_callback(Change_db_callback new_callback);
 #endif /* SQL_DB_INCLUDED */

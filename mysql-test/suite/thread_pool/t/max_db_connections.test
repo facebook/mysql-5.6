@@ -1,0 +1,269 @@
+--source include/have_thread_pool_plugin.inc
+
+--echo == Setup
+create database test_db;
+create user test_user@localhost;
+grant all on test.* to test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+use test_db;
+
+create user super_user@localhost;
+grant all on *.* to super_user@localhost with grant option;
+
+let $ac_entities_query=select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+
+let $start_rejected_connections = query_get_value(show global status like "Thread_pool_admission_control_rejected_connections", Value, 1);
+
+SET @start_value = @@global.thread_pool_max_db_connections;
+SET @@global.thread_pool_max_db_connections = 10;
+SELECT @@global.thread_pool_max_db_connections;
+# Ideally, we'd be able to avoid repeating most the query in ac_entities_query.
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' and connections <> 0 order by schema_name;
+
+enable_connect_log;
+connection default;
+
+--echo == Fill up thread_pool_max_db_connections
+let $i = 10;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test);
+  dec $i;
+}
+
+--echo == New non-admin connection will be rejected
+disable_query_log;
+--error ER_MULTI_TENANCY_MAX_CONNECTION
+connect (con11, localhost, test_user,,test);
+enable_query_log;
+
+--echo == Existing connection can switch to same db, another db or empty db
+connection con10;
+use test_db;
+eval $ac_entities_query;
+use test;
+eval $ac_entities_query;
+use test;
+eval $ac_entities_query;
+change_user test_user,,test_db;
+eval $ac_entities_query;
+change_user test_user,,test;
+eval $ac_entities_query;
+change_user test_user,,;
+eval $ac_entities_query;
+change_user test_user,,;
+eval $ac_entities_query;
+change_user test_user,,test;
+eval $ac_entities_query;
+change_user test_user,,test;
+eval $ac_entities_query;
+
+--echo == Admin user connection is not limited by thread_pool_max_db_connections
+connect (con_root, localhost, root,,test);
+connection con_root;
+SELECT @@global.thread_pool_max_db_connections;
+eval $ac_entities_query;
+
+disconnect con_root;
+connection default;
+
+--echo == Test another admin super_user
+connect (con_super, localhost, super_user,,test);
+connection con_super;
+SELECT @@global.thread_pool_max_db_connections;
+eval $ac_entities_query;
+
+--echo == Change admin user to regular user on new connection will fail
+--echo == because thread_pool_max_db_connections is already reached
+--error 1
+--exec echo "--change_user test_user,,test" | $MYSQL_TEST 2>&1
+
+--echo == Change user to root is OK
+change_user root,,test;
+eval $ac_entities_query;
+disconnect con_super;
+
+--echo == Change regular user to root will free up a connection
+--echo == so we will be able to connect another regular user
+connection con10;
+change_user root,,test;
+eval $ac_entities_query;
+connect (con11, localhost, test_user,,test);
+disconnect con11;
+
+--echo == Change con10 back to regular user
+connection con10;
+# wait for con11 to be disconnected
+let $wait_condition= select count(*)=9 from information_schema.processlist where user='test_user';
+source include/wait_condition.inc;
+# now change user in con10
+change_user test_user,,test;
+eval $ac_entities_query;
+disable_query_log;
+
+--echo == No new regular connection can be accepted
+--error ER_MULTI_TENANCY_MAX_CONNECTION
+connect (con11, localhost, test_user,,test);
+enable_query_log;
+
+--echo == Connections to test_db independently can reach thread_pool_max_db_connections
+let $i = 10;
+while ($i)
+{
+  connect (con2_$i, localhost, test_user,,test_db);
+  dec $i;
+}
+eval $ac_entities_query;
+
+--echo == New non-admin connection to test_db will be rejected
+disable_query_log;
+--error ER_MULTI_TENANCY_MAX_CONNECTION
+connect (con2_11, localhost, test_user,,test_db);
+enable_query_log;
+
+--echo == Use test_db that reached limit should fail
+connection con10;
+--error ER_MULTI_TENANCY_MAX_CONNECTION
+use test_db;
+eval $ac_entities_query;
+
+--echo == Change_user to test_db that reached limit should fail
+# The only way to test error of change_user is from external connection
+# otherwise it cannot be caught here with 'error' statement.
+# Free up con10 for it.
+connection default;
+disconnect con10;
+# Wait for con10 to go away
+let $wait_condition = select count(*) = 19 from information_schema.processlist where user = 'test_user';
+source include/wait_condition.inc;
+# Now create external connection. First change_user to test should succeed,
+# second one to test_db should fail.
+--error 1
+--exec echo "change_user test_user,,test; change_user test_user,,test_db;" | $MYSQL_TEST 2>&1
+# Reconnect con10
+connect (con10, localhost, test_user,,test);
+
+--echo == Connections with no db are not limited by thread_pool_max_db_connections
+connection default;
+let $i = 11;
+while ($i)
+{
+  connect (con3_$i, localhost, test_user,,*NO-ONE*);
+  dec $i;
+}
+eval $ac_entities_query;
+disconnect con3_11;
+
+--echo == Decrement user connection counts
+connection default;
+let $i = 10;
+while ($i)
+{
+  disconnect con$i;
+  disconnect con2_$i;
+  disconnect con3_$i;
+  dec $i;
+}
+# wait for connections to go away
+let $wait_condition = select count(*) = 0 from information_schema.processlist where user = 'test_user';
+source include/wait_condition.inc;
+eval $ac_entities_query;
+
+--echo == Verify that counter is not affected when db doesn't exist or access is denied
+disable_query_log;
+let $i = 5;
+while ($i)
+{
+  --error ER_DBACCESS_DENIED_ERROR
+  connect (con_denied_$i, localhost, test_user,,bogus_db);
+  dec $i;
+}
+enable_query_log;
+eval $ac_entities_query;
+
+--echo == Able to refill up thread_pool_max_db_connections
+connection default;
+let $i = 10;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test);
+  dec $i;
+}
+eval $ac_entities_query;
+disable_query_log;
+--error ER_MULTI_TENANCY_MAX_CONNECTION
+connect (con11, localhost, test_user,,test);
+enable_query_log;
+
+--echo == Increase thread_pool_max_db_connections
+connection default;
+SET @@global.thread_pool_max_db_connections = 15;
+SELECT @@global.thread_pool_max_db_connections;
+let $i = 15;
+while ($i > 10)
+{
+  connect (con$i, localhost, test_user,,test);
+  dec $i;
+}
+eval $ac_entities_query;
+disable_query_log;
+--error ER_MULTI_TENANCY_MAX_CONNECTION
+connect (con16, localhost, test_user,,test);
+enable_query_log;
+
+--echo == Decrease thread_pool_max_db_connections
+connection default;
+SET @@global.thread_pool_max_db_connections = 5;
+SELECT @@global.thread_pool_max_db_connections;
+let $i = 15;
+while ($i > 4)
+{
+  disconnect con$i;
+  dec $i;
+}
+# wait for connections to go away
+let $wait_condition = select count(*) = 4 from information_schema.processlist where user = 'test_user';
+source include/wait_condition.inc;
+eval $ac_entities_query;
+connect (con5, localhost, test_user,,test);
+disable_query_log;
+--error ER_MULTI_TENANCY_MAX_CONNECTION
+connect (con6, localhost, test_user,,test);
+enable_query_log;
+eval $ac_entities_query;
+# Release one slot on test for the test below.
+connection default;
+disconnect con5;
+let $wait_condition = select count(*) = 4 from information_schema.processlist where user = 'test_user';
+source include/wait_condition.inc;
+
+--echo == Drop database with connections
+connect (con2_1, localhost, test_user,,test_db);
+connect (con2_2, localhost, test_user,,test_db);
+drop database test_db;
+eval $ac_entities_query;
+use test;
+eval $ac_entities_query;
+connection default;
+disconnect con2_1;
+disconnect con2_2;
+let $wait_condition = select count(*) = 4 from information_schema.processlist where user = 'test_user';
+source include/wait_condition.inc;
+
+--echo == Cleanup
+connection default;
+SET @@global.thread_pool_max_db_connections = @start_value;
+SELECT @@global.thread_pool_max_db_connections;
+eval $ac_entities_query;
+let $rejected_connections = query_get_value(show global status like "Thread_pool_admission_control_rejected_connections", Value, 1);
+let $rejected_connections = `select $rejected_connections - $start_rejected_connections`;
+--echo rejected_connections = $rejected_connections
+
+drop user test_user@localhost;
+drop user super_user@localhost;
+let $i= 4;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}

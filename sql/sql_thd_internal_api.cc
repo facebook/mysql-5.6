@@ -47,6 +47,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/psi/mysql_socket.h"
 #include "mysql/thread_type.h"
+#include "sql/auth/auth_acls.h"  // SUPER_ACL
 #include "sql/binlog.h"       // mysql_bin_log
 #include "sql/current_thd.h"  // current_thd
 #include "sql/mysqld.h"
@@ -331,6 +332,14 @@ size_t thd_get_tmp_table_size(const THD *thd) {
 bool thd_is_strict_mode(const THD *thd) { return thd->is_strict_sql_mode(); }
 
 bool thd_is_error(const THD *thd) { return thd->is_error(); }
+
+bool thd_is_super(const THD *thd) {
+  return thd->security_context()->check_access(SUPER_ACL);
+}
+
+LEX_CSTRING thd_host_or_ip(THD *thd) {
+  return thd->security_context()->host_or_ip();
+}
 
 bool is_mysql_datadir_path(const char *path) {
   if (path == nullptr || strlen(path) >= FN_REFLEN) return false;
