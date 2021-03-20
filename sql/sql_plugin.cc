@@ -3675,14 +3675,22 @@ st_plugin_int *plugin_find_by_type(const LEX_CSTRING &plugin, int type) {
 }
 
 bool Sql_cmd_install_plugin::execute(THD *thd) {
+  // install plugin doesn't generate any binlog event
+  // Thus, it is safe to execute even in readonly
+  thd->set_skip_readonly_check();
   bool st = mysql_install_plugin(thd, m_comment, &m_ident);
+  thd->reset_skip_readonly_check();
   if (!st) my_ok(thd);
   mysql_audit_release(thd);
   return st;
 }
 
 bool Sql_cmd_uninstall_plugin::execute(THD *thd) {
+  // uninstall plugin doesn't generate any binlog event
+  // Thus, it is safe to execute even in readonly
+  thd->set_skip_readonly_check();
   bool st = mysql_uninstall_plugin(thd, m_comment);
+  thd->reset_skip_readonly_check();
   if (!st) my_ok(thd);
   return st;
 }

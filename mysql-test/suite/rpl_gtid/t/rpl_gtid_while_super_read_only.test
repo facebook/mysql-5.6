@@ -576,11 +576,12 @@ ALTER TABLE t_part DROP PARTITION p3;
 ########################################################################
 --source include/gtid_step_reset.inc
 
---error ER_OPTION_PREVENTS_STATEMENT
-INSTALL PLUGIN keyring_file SONAME 'keyring_file.so';
-
---error ER_OPTION_PREVENTS_STATEMENT
-UNINSTALL PLUGIN keyring_file;
+# behavior changed with "D27213990 allow install/uninstall plugin when enable_super_log_bin_read_only is enabled"
+#--error ER_OPTION_PREVENTS_STATEMENT
+#INSTALL PLUGIN keyring_file SONAME 'keyring_file.so';
+#
+#--error ER_OPTION_PREVENTS_STATEMENT
+#UNINSTALL PLUGIN keyring_file;
 
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc

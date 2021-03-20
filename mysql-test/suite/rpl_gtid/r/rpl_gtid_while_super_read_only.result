@@ -264,10 +264,6 @@ ALTER TABLE t_part DROP PARTITION p3;
 ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
 #### 10. [UN]INSTALL [PLUGIN | COMPONENT]
 include/gtid_step_reset.inc
-INSTALL PLUGIN keyring_file SONAME 'keyring_file.so';
-ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
-UNINSTALL PLUGIN keyring_file;
-ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
 include/gtid_step_assert.inc [count=0, only_count=0]
 #### 11. [OPTIMIZE | ANALYZE | REPAIR] TABLE
 REPAIR TABLE t1;
