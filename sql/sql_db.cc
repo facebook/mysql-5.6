@@ -112,6 +112,8 @@ const char *del_exts[] = {".frm", ".BAK", ".TMD", ".opt",
 static TYPELIB deletable_extentions = {array_elements(del_exts) - 1, "del_exts",
                                        del_exts, nullptr};
 
+static Change_db_callback change_db_callback{nullptr};
+
 static bool find_unknown_and_remove_deletable_files(THD *thd, MY_DIR *dirp,
                                                     const char *path);
 
@@ -1157,6 +1159,11 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
 
   if (!error) {
     db_ac->remove(db.str);
+
+    Change_db_callback callback = change_db_callback;
+    if (callback) {
+      callback(thd, db, true /*drop*/);
+    }
   }
 
   thd->server_status |= SERVER_STATUS_DB_DROPPED;
@@ -1779,6 +1786,15 @@ bool mysql_opt_change_db(THD *thd, const LEX_CSTRING &new_db_name,
 }
 
 /**
+  Set change_db_callback notified when db of connection is set or changed.
+
+  @param new_callback New callback to set.
+*/
+void set_change_db_callback(Change_db_callback new_callback) {
+  change_db_callback = new_callback;
+}
+
+/**
  * This function is called for the following commands to set
  * the session's default database: COM_INIT_DB, SQLCOM_CHANGE_DB,
  * COM_CONNECT, COM_CHANGE_USER. In this function, we will check the
@@ -1790,26 +1806,34 @@ bool mysql_opt_change_db(THD *thd, const LEX_CSTRING &new_db_name,
  *   1   failed to set session db
  */
 bool set_session_db_helper(THD *thd, const LEX_CSTRING &new_db) {
-  Ac_switch_guard switch_guard(thd);
-  bool error = switch_guard.add_connection(new_db.str);
+  bool error = false;
+  Change_db_callback callback = change_db_callback;
+  if (callback) {
+    error = callback(thd, new_db, false /*drop*/);
+  }
 
-  if (error) {
-    // Connection rejected/throttled. Push error message.
-    std::string entity(new_db.str);
-    if (thd->security_context()->host_or_ip().str) {
-      if (!entity.empty()) entity += " on ";
-      entity += thd->security_context()->host_or_ip().str;
+  if (!error) {
+    Ac_switch_guard switch_guard(thd);
+    error = switch_guard.add_connection(new_db.str);
+
+    if (error) {
+      // Connection rejected/throttled. Push error message.
+      std::string entity(new_db.str);
+      if (thd->security_context()->host_or_ip().str) {
+        if (!entity.empty()) entity += " on ";
+        entity += thd->security_context()->host_or_ip().str;
+      }
+
+      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), entity.c_str());
+    } else {
+      // Switch to new db if it is specified.
+      if (new_db.length)
+        error = mysql_change_db(thd, new_db, false);  // Do not force switch.
+
+      if (!error)
+        // No db, or successful switch, so mark guard to keep the changes.
+        switch_guard.commit();
     }
-
-    my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), entity.c_str());
-  } else {
-    // Switch to new db if it is specified.
-    if (new_db.length)
-      error = mysql_change_db(thd, new_db, false);  // Do not force switch.
-
-    if (!error)
-      // No db, or successful switch, so mark guard to keep the changes.
-      switch_guard.commit();
   }
 
   // Switch guard either commits or rolls back the switch operation.

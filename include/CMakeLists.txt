@@ -219,6 +219,7 @@ IF (INSTALL_EXTRA_HEADERS)
     ../sql/sql_bitmap.h
     ../sql/sql_cmd.h
     ../sql/sql_const.h
+    ../sql/sql_db.h
     ../sql/sql_error.h
     ../sql/sql_list.h
     ../sql/sql_plist.h

@@ -234,6 +234,22 @@ bool thd_is_strict_mode(const THD *thd);
 bool thd_is_error(const THD *thd);
 
 /**
+  Does current user have access of SUPER_ACL?
+
+  @param thd	Thread object
+  @return true if has access, false otherwise.
+*/
+bool thd_is_super(const THD *thd);
+
+/**
+  Client host or IP address.
+
+  @param thd	Thread object
+  @return String with host or IP info.
+*/
+LEX_CSTRING thd_host_or_ip(THD *thd);
+
+/**
   Test a file path whether it is same as mysql data directory path.
 
   @param path null terminated character string
