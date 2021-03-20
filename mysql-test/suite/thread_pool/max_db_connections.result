@@ -1,0 +1,306 @@
+== Setup
+create database test_db;
+create user test_user@localhost;
+grant all on test.* to test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+use test_db;
+create user super_user@localhost;
+grant all on *.* to super_user@localhost with grant option;
+SET @start_value = @@global.thread_pool_max_db_connections;
+SET @@global.thread_pool_max_db_connections = 10;
+SELECT @@global.thread_pool_max_db_connections;
+@@global.thread_pool_max_db_connections
+10
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' and connections <> 0 order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+connection default;
+== Fill up thread_pool_max_db_connections
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+== New non-admin connection will be rejected
+ERROR HY000: Maximum connections reached for `test on localhost`
+== Existing connection can switch to same db, another db or empty db
+connection con10;
+use test_db;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	9	1
+test_db	0	0	0	0	1	0
+use test;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	1
+test_db	0	0	0	0	0	0
+use test;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	1
+test_db	0	0	0	0	0	0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	9	1
+test_db	0	0	0	0	1	0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	1
+test_db	0	0	0	0	0	0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	9	1
+test_db	0	0	0	0	0	0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	9	1
+test_db	0	0	0	0	0	0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	1
+test_db	0	0	0	0	0	0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	1
+test_db	0	0	0	0	0	0
+== Admin user connection is not limited by thread_pool_max_db_connections
+connect  con_root, localhost, root,,test;
+connection con_root;
+SELECT @@global.thread_pool_max_db_connections;
+@@global.thread_pool_max_db_connections
+10
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	1
+test_db	0	0	0	0	0	0
+disconnect con_root;
+connection default;
+== Test another admin super_user
+connect  con_super, localhost, super_user,,test;
+connection con_super;
+SELECT @@global.thread_pool_max_db_connections;
+@@global.thread_pool_max_db_connections
+10
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	1
+test_db	0	0	0	0	0	0
+== Change admin user to regular user on new connection will fail
+== because thread_pool_max_db_connections is already reached
+mysqltest: At line 1: Query 'change_user test_user,,test' failed.
+ERROR 50039 (HY000): Maximum connections reached for `test on localhost`
+== Change user to root is OK
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	2
+test_db	0	0	0	0	0	0
+disconnect con_super;
+== Change regular user to root will free up a connection
+== so we will be able to connect another regular user
+connection con10;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	9	2
+test_db	0	0	0	0	0	0
+connect  con11, localhost, test_user,,test;
+disconnect con11;
+== Change con10 back to regular user
+connection con10;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	2
+test_db	0	0	0	0	0	0
+== No new regular connection can be accepted
+ERROR HY000: Maximum connections reached for `test on localhost`
+== Connections to test_db independently can reach thread_pool_max_db_connections
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+connect  con2_$i, localhost, test_user,,test_db;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	3
+test_db	0	0	0	0	10	0
+== New non-admin connection to test_db will be rejected
+ERROR HY000: Maximum connections reached for `test_db on localhost`
+== Use test_db that reached limit should fail
+connection con10;
+use test_db;
+ERROR HY000: Maximum connections reached for `test_db on localhost`
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	3
+test_db	0	0	0	0	10	2
+== Change_user to test_db that reached limit should fail
+connection default;
+disconnect con10;
+mysqltest: At line 1: Query 'change_user test_user,,test_db' failed.
+ERROR 50039 (HY000): Maximum connections reached for `test_db on localhost`
+connect  con10, localhost, test_user,,test;
+== Connections with no db are not limited by thread_pool_max_db_connections
+connection default;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+connect  con3_$i, localhost, test_user,,*NO-ONE*;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	3
+test_db	0	0	0	0	10	3
+disconnect con3_11;
+== Decrement user connection counts
+connection default;
+disconnect con10;
+disconnect con2_10;
+disconnect con3_10;
+disconnect con9;
+disconnect con2_9;
+disconnect con3_9;
+disconnect con8;
+disconnect con2_8;
+disconnect con3_8;
+disconnect con7;
+disconnect con2_7;
+disconnect con3_7;
+disconnect con6;
+disconnect con2_6;
+disconnect con3_6;
+disconnect con5;
+disconnect con2_5;
+disconnect con3_5;
+disconnect con4;
+disconnect con2_4;
+disconnect con3_4;
+disconnect con3;
+disconnect con2_3;
+disconnect con3_3;
+disconnect con2;
+disconnect con2_2;
+disconnect con3_2;
+disconnect con1;
+disconnect con2_1;
+disconnect con3_1;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	0	3
+test_db	0	0	0	0	0	3
+== Verify that counter is not affected when db doesn't exist or access is denied
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	0	3
+test_db	0	0	0	0	0	3
+== Able to refill up thread_pool_max_db_connections
+connection default;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	10	3
+test_db	0	0	0	0	0	3
+ERROR HY000: Maximum connections reached for `test on localhost`
+== Increase thread_pool_max_db_connections
+connection default;
+SET @@global.thread_pool_max_db_connections = 15;
+SELECT @@global.thread_pool_max_db_connections;
+@@global.thread_pool_max_db_connections
+15
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	15	4
+test_db	0	0	0	0	0	3
+ERROR HY000: Maximum connections reached for `test on localhost`
+== Decrease thread_pool_max_db_connections
+connection default;
+SET @@global.thread_pool_max_db_connections = 5;
+SELECT @@global.thread_pool_max_db_connections;
+@@global.thread_pool_max_db_connections
+5
+disconnect con15;
+disconnect con14;
+disconnect con13;
+disconnect con12;
+disconnect con11;
+disconnect con10;
+disconnect con9;
+disconnect con8;
+disconnect con7;
+disconnect con6;
+disconnect con5;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	4	5
+test_db	0	0	0	0	0	3
+connect  con5, localhost, test_user,,test;
+ERROR HY000: Maximum connections reached for `test on localhost`
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	5	6
+test_db	0	0	0	0	0	3
+connection default;
+disconnect con5;
+== Drop database with connections
+connect  con2_1, localhost, test_user,,test_db;
+connect  con2_2, localhost, test_user,,test_db;
+drop database test_db;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	4	6
+use test;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	5	6
+connection default;
+disconnect con2_1;
+disconnect con2_2;
+== Cleanup
+connection default;
+SET @@global.thread_pool_max_db_connections = @start_value;
+SELECT @@global.thread_pool_max_db_connections;
+@@global.thread_pool_max_db_connections
+0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test	0	0	0	0	4	6
+rejected_connections = 9
+drop user test_user@localhost;
+drop user super_user@localhost;
+disconnect con4;
+disconnect con3;
+disconnect con2;
+disconnect con1;
