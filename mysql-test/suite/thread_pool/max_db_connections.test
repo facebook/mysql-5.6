@@ -1,3 +1,5 @@
+--source include/have_thread_pool_plugin.inc
+
 --echo == Setup
 create database test_db;
 create user test_user@localhost;
@@ -8,20 +10,20 @@ use test_db;
 create user super_user@localhost;
 grant all on *.* to super_user@localhost with grant option;
 
-let $ac_entities_query=select * from information_schema.admission_control_entities where schema_name like 'test%' order by schema_name;
+let $ac_entities_query=select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
 
-let $start_rejected_connections = query_get_value(show global status like "Database_admission_control_rejected_connections", Value, 1);
+let $start_rejected_connections = query_get_value(show global status like "Thread_pool_admission_control_rejected_connections", Value, 1);
 
-SET @start_value = @@global.max_db_connections;
-SET @@global.max_db_connections = 10;
-SELECT @@global.max_db_connections;
+SET @start_value = @@global.thread_pool_max_db_connections;
+SET @@global.thread_pool_max_db_connections = 10;
+SELECT @@global.thread_pool_max_db_connections;
 # Ideally, we'd be able to avoid repeating most the query in ac_entities_query.
-select * from information_schema.admission_control_entities where schema_name like 'test%' and connections <> 0 order by schema_name;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test%' and connections <> 0 order by schema_name;
 
 enable_connect_log;
 connection default;
 
---echo == Fill up max_db_connections
+--echo == Fill up thread_pool_max_db_connections
 let $i = 10;
 while ($i)
 {
@@ -56,10 +58,10 @@ eval $ac_entities_query;
 change_user test_user,,test;
 eval $ac_entities_query;
 
---echo == Admin user connection is not limited by max_db_connections
+--echo == Admin user connection is not limited by thread_pool_max_db_connections
 connect (con_root, localhost, root,,test);
 connection con_root;
-SELECT @@global.max_db_connections;
+SELECT @@global.thread_pool_max_db_connections;
 eval $ac_entities_query;
 
 disconnect con_root;
@@ -68,11 +70,11 @@ connection default;
 --echo == Test another admin super_user
 connect (con_super, localhost, super_user,,test);
 connection con_super;
-SELECT @@global.max_db_connections;
+SELECT @@global.thread_pool_max_db_connections;
 eval $ac_entities_query;
 
 --echo == Change admin user to regular user on new connection will fail
---echo == because max_db_connections is already reached
+--echo == because thread_pool_max_db_connections is already reached
 --error 1
 --exec echo "--change_user test_user,,test" | $MYSQL_TEST 2>&1
 
@@ -104,7 +106,7 @@ disable_query_log;
 connect (con11, localhost, test_user,,test);
 enable_query_log;
 
---echo == Connections to test_db independently can reach max_db_connections
+--echo == Connections to test_db independently can reach thread_pool_max_db_connections
 let $i = 10;
 while ($i)
 {
@@ -141,7 +143,7 @@ source include/wait_condition.inc;
 # Reconnect con10
 connect (con10, localhost, test_user,,test);
 
---echo == Connections with no db are not limited by max_db_connections
+--echo == Connections with no db are not limited by thread_pool_max_db_connections
 connection default;
 let $i = 11;
 while ($i)
@@ -179,7 +181,7 @@ while ($i)
 enable_query_log;
 eval $ac_entities_query;
 
---echo == Able to refill up max_db_connections
+--echo == Able to refill up thread_pool_max_db_connections
 connection default;
 let $i = 10;
 while ($i)
@@ -193,10 +195,10 @@ disable_query_log;
 connect (con11, localhost, test_user,,test);
 enable_query_log;
 
---echo == Increase max_db_connections
+--echo == Increase thread_pool_max_db_connections
 connection default;
-SET @@global.max_db_connections = 15;
-SELECT @@global.max_db_connections;
+SET @@global.thread_pool_max_db_connections = 15;
+SELECT @@global.thread_pool_max_db_connections;
 let $i = 15;
 while ($i > 10)
 {
@@ -209,10 +211,10 @@ disable_query_log;
 connect (con16, localhost, test_user,,test);
 enable_query_log;
 
---echo == Decrease max_db_connections
+--echo == Decrease thread_pool_max_db_connections
 connection default;
-SET @@global.max_db_connections = 5;
-SELECT @@global.max_db_connections;
+SET @@global.thread_pool_max_db_connections = 5;
+SELECT @@global.thread_pool_max_db_connections;
 let $i = 15;
 while ($i > 4)
 {
@@ -250,10 +252,10 @@ source include/wait_condition.inc;
 
 --echo == Cleanup
 connection default;
-SET @@global.max_db_connections = @start_value;
-SELECT @@global.max_db_connections;
+SET @@global.thread_pool_max_db_connections = @start_value;
+SELECT @@global.thread_pool_max_db_connections;
 eval $ac_entities_query;
-let $rejected_connections = query_get_value(show global status like "Database_admission_control_rejected_connections", Value, 1);
+let $rejected_connections = query_get_value(show global status like "Thread_pool_admission_control_rejected_connections", Value, 1);
 let $rejected_connections = `select $rejected_connections - $start_rejected_connections`;
 --echo rejected_connections = $rejected_connections
 
