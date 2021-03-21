@@ -10923,6 +10923,8 @@ int MYSQL_BIN_LOG::recover_raft_log()
   MY_STAT s;
   LOG_INFO log_info;
   bool pending_gtid= FALSE;
+  bool pending_metadata= FALSE;
+  bool first_metadata_seen= FALSE;
   std::string error_message;
   int status= 0;
 
@@ -11008,10 +11010,14 @@ int MYSQL_BIN_LOG::recover_raft_log()
   {
     if (ev->get_type_code() == QUERY_EVENT &&
         !strcmp(((Query_log_event*)ev)->query, "BEGIN"))
+    {
+      pending_metadata= FALSE;
       in_operation= TRUE;
+    }
     else if (is_gtid_event(ev))
     {
       pending_gtid= TRUE;
+      pending_metadata= FALSE;
     }
     else if (ev->get_type_code() == XID_EVENT ||
         (ev->get_type_code() == QUERY_EVENT &&
@@ -11028,11 +11034,25 @@ int MYSQL_BIN_LOG::recover_raft_log()
         break;
       }
       in_operation= FALSE;
+      pending_metadata= FALSE;
     }
+    else if (ev->get_type_code() == METADATA_EVENT && !pending_gtid)
+    {
+      if (first_metadata_seen)
+        pending_metadata= FALSE;
+      else
+        first_metadata_seen= TRUE;
+    }
+    else if (ev->get_type_code() == ROTATE_EVENT)
+    {
+      pending_metadata= FALSE;
+    }
+
 
     if (!(ev->get_type_code() == METADATA_EVENT && pending_gtid))
     {
-      if (!log.error && !in_operation && !is_gtid_event(ev))
+      if (!log.error && !in_operation && !is_gtid_event(ev) &&
+          !pending_metadata)
       {
         valid_pos= my_b_tell(&log);
         pending_gtid= FALSE;
@@ -11120,6 +11140,14 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
    */
   bool pending_gtid= FALSE;
 
+  /*
+   * Flag to indicate if we have seen a metadata which is pending i.e the
+   * operation represented by this metadata has not yet ended. This is here to
+   * handle the scenario of a metadata added before a rotate event in raft
+   */
+  bool pending_metadata= FALSE;
+  bool first_metadata_seen= FALSE;
+
   my_off_t first_gtid_start= 0;
 
   if (! fdle->is_valid() ||
@@ -11134,12 +11162,15 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
   {
     if (ev->get_type_code() == QUERY_EVENT &&
         !strcmp(((Query_log_event*)ev)->query, "BEGIN"))
+    {
+      pending_metadata= FALSE;
       in_transaction= TRUE;
-
+    }
     else if (ev->get_type_code() == QUERY_EVENT &&
         !strcmp(((Query_log_event*)ev)->query, "COMMIT"))
     {
       DBUG_ASSERT(in_transaction == TRUE);
+      pending_metadata= FALSE;
       in_transaction= FALSE;
     }
     else if (is_gtid_event(ev))
@@ -11147,7 +11178,8 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
       xid_to_gtid.gtid.set(((Gtid_log_event*) ev)->get_sidno(true),
                            ((Gtid_log_event*) ev)->get_gno());
 
-      pending_gtid= true;
+      pending_gtid= TRUE;
+      pending_metadata= FALSE;
       if (first_gtid_start == 0)
       {
         first_gtid_start= ev->log_pos - ev->data_written;
@@ -11158,12 +11190,24 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
     {
       DBUG_ASSERT(in_transaction == TRUE);
       in_transaction= FALSE;
+      pending_metadata= FALSE;
       Xid_log_event *xev=(Xid_log_event *)ev;
       xid_to_gtid.x= xev->xid;
       uchar *x= (uchar *) memdup_root(&mem_root, (uchar*) &xid_to_gtid,
                                       sizeof(xid_to_gtid));
       if (!x || my_hash_insert(&xids, x))
         goto err2;
+    }
+    else if (ev->get_type_code() == METADATA_EVENT && !pending_gtid)
+    {
+      if (first_metadata_seen)
+        pending_metadata= FALSE;
+      else
+        first_metadata_seen= TRUE;
+    }
+    else if (ev->get_type_code() == ROTATE_EVENT)
+    {
+      pending_metadata= FALSE;
     }
 
     /*
@@ -11200,13 +11244,17 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
         BEGIN
         <---> HERE IS VALID <--->
         ...
+
+        In addition to the above, there is special handling for metadata event
+        added by after gtid event and/or before rotate event
     */
     if (!(ev->get_type_code() == METADATA_EVENT && pending_gtid))
     {
-      if (!log->error && !in_transaction && !is_gtid_event(ev))
+      if (!log->error && !in_transaction && !is_gtid_event(ev) &&
+          !pending_metadata)
       {
         *valid_pos= my_b_tell(log);
-        pending_gtid= false;
+        pending_gtid= FALSE;
       }
     }
 
