@@ -3059,14 +3059,19 @@ int handler::ha_sample_init(void *&scan_ctx, double sampling_percentage,
   assert(sampling_percentage >= 0.0);
   assert(sampling_percentage <= 100.0);
   assert(inited == NONE);
+  assert(m_random_number_engine == nullptr);
 
-  // Initialise the random number generator.
-  m_random_number_engine.seed(sampling_seed);
   m_sampling_percentage = sampling_percentage;
 
   int result = sample_init(scan_ctx, sampling_percentage, sampling_seed,
                            sampling_method, tablesample);
   inited = (result != 0) ? NONE : SAMPLING;
+
+  // Initialise the random number generator on successful initialization.
+  if (result == 0) {
+    m_random_number_engine = new std::mt19937();
+    m_random_number_engine->seed(sampling_seed);
+  }
   return result;
 }
 
@@ -3074,6 +3079,8 @@ int handler::ha_sample_end(void *scan_ctx) {
   DBUG_TRACE;
   assert(inited == SAMPLING);
   inited = NONE;
+  delete m_random_number_engine;
+  m_random_number_engine = nullptr;
   int result = sample_end(scan_ctx);
   return result;
 }
@@ -3111,7 +3118,8 @@ int handler::sample_next(void *scan_ctx [[maybe_unused]], uchar *buf) {
   int res = rnd_next(buf);
 
   std::uniform_real_distribution<double> rnd(0.0, 1.0);
-  while (!res && rnd(m_random_number_engine) > (m_sampling_percentage / 100.0))
+  assert(m_random_number_engine);
+  while (!res && rnd(*m_random_number_engine) > (m_sampling_percentage / 100.0))
     res = rnd_next(buf);
 
   return res;
