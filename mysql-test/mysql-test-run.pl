@@ -108,6 +108,7 @@ require "lib/mtr_io.pl";
 require "lib/mtr_gcov.pl";
 require "lib/mtr_gprof.pl";
 require "lib/mtr_misc.pl";
+require "lib/mtr_coverage.pl";
 
 $SIG{INT}= sub { mtr_error("Got ^C signal"); };
 
@@ -343,6 +344,12 @@ our %mysqld_variables;
 my $source_dist= 0;
 my $new_test_option = 0; # is '--new-tests' option specified
 
+my $coverage_on        = 0; # is coverage mode specified?
+my $coverage_scope     = "--coverage-scope=full"; # default coverage option
+my $coverage_src_path  = ""; # directory path for coverage source files
+my $coverage_llvm_path = ""; # directory path for llvm coverage binaries
+my $coverage_format    = "--coverage-format=text"; # default coverage format
+
 my $opt_max_save_core= env_or_val(MTR_MAX_SAVE_CORE => 5);
 my $opt_max_save_datadir= env_or_val(MTR_MAX_SAVE_DATADIR => 20);
 my $opt_max_test_fail= env_or_val(MTR_MAX_TEST_FAIL => 10);
@@ -380,6 +387,12 @@ sub main {
 
   if ( $opt_gcov ) {
     gcov_prepare($basedir);
+  }
+
+  # Prepare to collect code coverage information
+  if ($coverage_on) {
+    coverage_prepare($basedir, $coverage_scope, $coverage_src_path,
+                     $coverage_llvm_path, $coverage_format);
   }
 
   if (!$opt_suites) {
@@ -597,6 +610,17 @@ sub main {
   if ( $opt_gcov ) {
     gcov_collect($bindir, $opt_gcov_exe,
 		 $opt_gcov_msg, $opt_gcov_err);
+  }
+
+  # collect code coverage information
+  if ($coverage_on) {
+    # if directory for coverage source files is not specified then use $basedir
+    if (length($coverage_src_path) == 0) {
+      $coverage_src_path = $basedir;
+    }
+    coverage_collect($bindir, find_mysqld($basedir), $coverage_scope,
+                     $coverage_src_path, $coverage_llvm_path,
+                     $coverage_format);
   }
 
   if ($ctest_report) {
@@ -1418,6 +1442,51 @@ sub command_line_setup {
       # It is an effect of setting 'pass_through' in option processing
       # that the lone '--' separating options from arguments survives,
       # simply ignore it.
+    }
+    elsif ( $arg eq "--coverage")
+    {
+      # --coverage is specified
+      $coverage_on = 1;
+    }
+    elsif ( $arg =~ /^--coverage-scope=/) # --coverage-scope=<>
+    {
+      # coverage option can be specified only with '--coverage' option
+      if (!$coverage_on) {
+        print "**** ERROR **** ",
+              "Option $arg is specified without --coverage\n";
+        exit(1);
+      }
+      $coverage_scope = $arg;
+    }
+    elsif ( $arg =~ /^--coverage-src-path=/)
+    {
+      # coverage source directory
+      if (!$coverage_on) {
+        print "**** ERROR **** ",
+              "Option $arg is specified without --coverage\n";
+        exit(1);
+      }
+      $coverage_src_path = $arg;
+    }
+    elsif ( $arg =~ /^--coverage-llvm-path=/)
+    {
+      # coverage source directory
+      if (!$coverage_on) {
+        print "**** ERROR **** ",
+              "Option $arg is specified without --coverage\n";
+        exit(1);
+      }
+      $coverage_llvm_path = $arg;
+    }
+    elsif ( $arg =~ /^--coverage-format=/)
+    {
+      # coverage format
+      if (!$coverage_on) {
+        print "**** ERROR **** ",
+              "Option $arg is specified without --coverage\n";
+        exit(1);
+      }
+      $coverage_format = $arg;
     }
     elsif ( $arg eq "--new-tests")
     {
@@ -7019,4 +7088,3 @@ sub list_options ($) {
 
   exit(1);
 }
-

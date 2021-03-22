@@ -166,3 +166,6 @@ tests/mysql_client_test
 
 # Clangd code completion index.
 /.clangd
+
+# LLVM coverage files
+*.profraw
