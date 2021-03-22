@@ -41,3 +41,6 @@ source_downloads
 
 # Clangd code completion index.
 /.clangd
+
+# LLVM coverage files
+*.profraw
