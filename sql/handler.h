@@ -4286,7 +4286,7 @@ class handler {
   */
   PSI_table *m_psi;
 
-  std::mt19937 m_random_number_engine;
+  std::mt19937 *m_random_number_engine;
   double m_sampling_percentage;
 
   /* TODO(yzha) - we needed these to be public for MYSQL_TABLE_IO_WAIT */
@@ -4408,6 +4408,7 @@ class handler {
         insert_id_for_cur_row(0),
         auto_inc_intervals_count(0),
         m_psi(nullptr),
+        m_random_number_engine(nullptr),
         m_psi_batch_mode(PSI_BATCH_MODE_NONE),
         m_psi_numrows(0),
         m_psi_locker(nullptr),
@@ -4421,6 +4422,7 @@ class handler {
 
   virtual ~handler(void) {
     DBUG_ASSERT(m_psi == nullptr);
+    DBUG_ASSERT(m_random_number_engine == nullptr);
     DBUG_ASSERT(m_psi_batch_mode == PSI_BATCH_MODE_NONE);
     DBUG_ASSERT(m_psi_locker == nullptr);
     DBUG_ASSERT(m_lock_type == F_UNLCK);
