@@ -21,6 +21,9 @@ compile_commands.json
 # Clangd code completion index.
 /.clangd
 
+# LLVM coverage files
+*.profraw
+
 # emacs backup files
 *~
 
