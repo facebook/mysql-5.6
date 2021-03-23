@@ -532,9 +532,13 @@ bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
       }
       if (conv_field) {
         Copy_field copy;
+        actual_field->table->in_use->check_for_truncated_fields =
+            CHECK_FIELD_WARN;
         copy.set(actual_field, conv_field, true);
         const auto conv_status = copy.invoke_do_copy();
-        if (!slave_type_conversions_options && conv_status) {
+        if (!slave_type_conversions_options &&
+            (conv_status ||
+             actual_field->table->in_use->num_truncated_fields)) {
           const char *db_name = table->s->db.str;
           const char *tbl_name = table->s->table_name.str;
           char source_buf[MAX_FIELD_WIDTH];
