@@ -1,0 +1,1 @@
+--rocksdb_fault_injection_options="{"retry":true,"failure_ratio":1,"filetypes":["kTableFile"]}"

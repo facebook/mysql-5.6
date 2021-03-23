@@ -1,0 +1,14 @@
+call mtr.add_suppression("RocksDB: Error detected in background, Status Code: 5, Status: IO error: IO Error");
+call mtr.add_suppression("RocksDB: BackgroundErrorReason: 5");
+call mtr.add_suppression(".*Waiting after background flush error: IO error: IO ErrorAccumulated background error counts.*");
+CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE=rocksdb;
+select @@global.rocksdb_fault_injection_options;
+@@global.rocksdb_fault_injection_options
+{"retry":true,"failure_ratio":1,"filetypes":["kTableFile"]}
+set global rocksdb_force_flush_memtable_now = 1;
+# restart: --rocksdb_fault_injection_options=
+include/assert_grep.inc [Expect IO errors]
+select @@global.rocksdb_fault_injection_options;
+@@global.rocksdb_fault_injection_options
+
+drop table t1;
