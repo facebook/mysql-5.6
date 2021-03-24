@@ -357,6 +357,7 @@ extern ulonglong opt_mts_dependency_size;
 extern double opt_mts_dependency_refill_threshold;
 extern ulonglong opt_mts_dependency_max_keys;
 extern ulonglong opt_mts_pending_jobs_size_max;
+extern ulong opt_mts_dependency_order_commits;
 extern ulong rpl_stop_slave_timeout;
 extern bool rpl_skip_tx_api;
 extern bool log_bin_use_v1_row_events;
@@ -1225,7 +1226,7 @@ ulong get_mts_parallel_option();
 /**
    Returns whether slave commit order is preserved
 */
-ulong get_slave_preserve_commit_order();
+bool get_slave_preserve_commit_order();
 
 /**
  * Set the priority of an OS thread.

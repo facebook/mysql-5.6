@@ -1291,11 +1291,12 @@ bool opt_mts_dynamic_rebalance;
 double opt_mts_imbalance_threshold;
 ulonglong opt_mts_pending_jobs_size_max;
 ulonglong slave_rows_search_algorithms_options;
-ulong opt_slave_preserve_commit_order;
+bool opt_slave_preserve_commit_order;
 ulong opt_mts_dependency_replication;
 ulonglong opt_mts_dependency_size;
 double opt_mts_dependency_refill_threshold;
 ulonglong opt_mts_dependency_max_keys;
+ulong opt_mts_dependency_order_commits;
 #ifndef DBUG_OFF
 uint slave_rows_last_search_algorithm_used;
 #endif
@@ -1694,6 +1695,11 @@ bool opt_relay_logname_supplied = false;
 */
 bool log_slave_updates_supplied = false;
 
+/*
+  True if --slave-preserve-commit-order-supplied option is set explicitly
+  on command line or configuration file.
+*/
+bool slave_preserve_commit_order_supplied = false;
 char *opt_general_logname, *opt_slow_logname, *opt_bin_logname;
 char *opt_gap_lock_logname;
 
@@ -5109,6 +5115,13 @@ int init_common_variables() {
       line or configuration file.
     */
     if (!log_slave_updates_supplied) opt_log_slave_updates = false;
+    /*
+      The slave-preserve-commit-order should be disabled if binary log is
+      disabled and --slave-preserve-commit-order option is not set
+      explicitly on command line or configuration file.
+    */
+    if (!slave_preserve_commit_order_supplied)
+      opt_slave_preserve_commit_order = false;
   }
 
   if (opt_protocol_compression_algorithms) {
@@ -11158,6 +11171,9 @@ bool mysqld_get_one_option(int optid,
     case OPT_LOG_SLAVE_UPDATES:
       log_slave_updates_supplied = true;
       break;
+    case OPT_SLAVE_PRESERVE_COMMIT_ORDER:
+      slave_preserve_commit_order_supplied = true;
+      break;
     case OPT_ENFORCE_GTID_CONSISTENCY: {
       const char *wrong_value =
           fixup_enforce_gtid_consistency_command_line(argument);
@@ -12955,11 +12971,17 @@ ulong get_mts_parallel_option() {
   return mts_parallel_option;
 }
 
-ulong get_slave_preserve_commit_order() {
-  /* For compat with 5.6 so that you can turn off DP by setting to None */
-  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY &&
-      opt_mts_dependency_replication == DEP_RPL_NONE) {
-    return 0;
+bool get_slave_preserve_commit_order() {
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY) {
+    /* For compat with 5.6 so that you can turn off DP by setting to None */
+    if (opt_mts_dependency_replication == DEP_RPL_NONE) {
+      return false;
+    }
+
+    /* If DP is ON, then the order is fully controled by
+      opt_mts_dependency_order_commits, this ensures we preserve slave
+      commit order by default and also can be turned off */
+    return (opt_mts_dependency_order_commits != DEP_RPL_ORDER_NONE);
   }
 
   return opt_slave_preserve_commit_order;

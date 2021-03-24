@@ -42,7 +42,7 @@ SET @saved_slave_transaction_retries = @@GLOBAL.slave_transaction_retries;
 SET GLOBAL slave_transaction_retries = 2;
 SET GLOBAL slave_parallel_type = "LOGICAL_CLOCK";
 SET GLOBAL slave_parallel_workers = 3;
-SET GLOBAL slave_preserve_commit_order = DB;
+SET GLOBAL slave_preserve_commit_order = ON;
 # Set it a long time to guarantee it doens't report an timeout error
 SET GLOBAL innodb_lock_wait_timeout = 1000;
 
@@ -282,7 +282,7 @@ BEGIN;
 INSERT INTO t1 VALUES(53, 53);
 
 --source include/rpl_connection_slave1.inc
-SET GLOBAL slave_preserve_commit_order = NONE;
+SET GLOBAL slave_preserve_commit_order = OFF;
 # It will make slave to stop if order commit deadlock happens
 SET GLOBAL slave_transaction_retries = 0;
 --source include/start_slave_sql.inc

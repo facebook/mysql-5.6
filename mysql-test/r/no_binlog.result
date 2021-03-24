@@ -12,4 +12,4 @@ SELECT @@GLOBAL.log_slave_updates;
 0
 SELECT @@GLOBAL.slave_preserve_commit_order;
 @@GLOBAL.slave_preserve_commit_order
-DB
+0

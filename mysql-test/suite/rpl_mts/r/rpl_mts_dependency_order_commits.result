@@ -7,10 +7,10 @@ stop slave;
 set @save.slave_parallel_workers= @@global.slave_parallel_workers;
 set @@global.slave_parallel_workers= 8;
 start slave;
-select @@global.slave_preserve_commit_order;
-@@global.slave_preserve_commit_order
+select @@global.mts_dependency_order_commits;
+@@global.mts_dependency_order_commits
 DB
-set @save.slave_preserve_commit_order= @@global.slave_preserve_commit_order;
+set @save.mts_dependency_order_commits= @@global.mts_dependency_order_commits;
 create database d1;
 create database d2;
 create table d1.t1(a int primary key) engine=innodb;
@@ -54,7 +54,7 @@ a
 1
 10
 stop slave;
-set @@global.slave_preserve_commit_order = GLOBAL;
+set @@global.mts_dependency_order_commits = GLOBAL;
 start slave;
 delete from d1.t1;
 delete from d1.t2;
@@ -89,7 +89,7 @@ a
 10
 stop slave;
 set @@global.slave_parallel_workers= @save.slave_parallel_workers;
-set @@global.slave_preserve_commit_order= @save.slave_preserve_commit_order;
+set @@global.mts_dependency_order_commits= @save.mts_dependency_order_commits;
 start slave;
 drop database d1;
 drop database d2;

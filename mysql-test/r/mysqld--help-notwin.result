@@ -885,6 +885,9 @@ The following options may be given as the first argument:
  Max number of keys in a transaction after which it will
  be executed in isolation. This limits the amount of
  metadata we'll need to maintain.
+ --mts-dependency-order-commits[=name] 
+ Commit trxs in the same order as the master (per database
+ or globally)
  --mts-dependency-refill-threshold[=#] 
  Capacity in percentage at which to start refilling the
  dependency buffer
@@ -2191,10 +2194,9 @@ The following options may be given as the first argument:
  Max size of Slave Worker queues holding not yet applied
  events. The least possible value must be not less than
  the master side max_allowed_packet.
- --slave-preserve-commit-order[=name] 
+ --slave-preserve-commit-order 
  Force slave workers to make commits in the same order as
- on the master. by default preserve per database commit
- order.
+ on the master. Disabled by default.
  --slave-rows-search-algorithms=name 
  Set of searching algorithms that the slave will use while
  searching for records from the storage engine to either
@@ -2735,6 +2737,7 @@ memlock FALSE
 min-examined-row-limit 0
 minimum-hlc-ns 0
 mts-dependency-max-keys 100000
+mts-dependency-order-commits DB
 mts-dependency-refill-threshold 60
 mts-dependency-replication TBL
 mts-dependency-size 1000
@@ -3121,7 +3124,7 @@ slave-net-timeout 60
 slave-parallel-type DATABASE
 slave-parallel-workers 0
 slave-pending-jobs-size-max 134217728
-slave-preserve-commit-order DB
+slave-preserve-commit-order FALSE
 slave-rows-search-algorithms INDEX_SCAN,HASH_SCAN
 slave-run-triggers-for-rbr NO
 slave-skip-errors (No default value)

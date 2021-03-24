@@ -60,7 +60,6 @@
 #include "sql/mysqld.h"
 #include "sql/protocol.h"
 #include "sql/rpl_trx_tracking.h"
-#include "sql/sql_class.h"
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
@@ -4270,15 +4269,15 @@ static Sys_var_ulong Binlog_transaction_dependency_history_size(
     BLOCK_SIZE(1), &PLock_slave_trans_dep_tracker, NOT_IN_BINLOG,
     ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
-static const char *commit_order_type_names[] = {"NONE", "DB", "GLOBAL", NullS};
-extern ulong opt_slave_preserve_commit_order;
-static Sys_var_enum Sys_slave_preserve_commit_order(
+extern bool opt_slave_preserve_commit_order;
+static Sys_var_bool Sys_slave_preserve_commit_order(
     "slave_preserve_commit_order",
     "Force slave workers to make commits in the same order as on the master. "
-    "by default preserve per database commit order.",
-    GLOBAL_VAR(opt_slave_preserve_commit_order), CMD_LINE(OPT_ARG),
-    commit_order_type_names, DEFAULT(DEP_RPL_ORDER_DB), NO_MUTEX_GUARD,
-    NOT_IN_BINLOG, ON_CHECK(check_slave_stopped), ON_UPDATE(nullptr));
+    "Disabled by default.",
+    PERSIST_AS_READONLY GLOBAL_VAR(opt_slave_preserve_commit_order),
+    CMD_LINE(OPT_ARG, OPT_SLAVE_PRESERVE_COMMIT_ORDER), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_slave_stopped),
+    ON_UPDATE(nullptr));
 
 bool Sys_var_charptr::global_update(THD *, set_var *var) {
   char *new_val, *ptr = var->save_result.string_value.str;
@@ -6525,6 +6524,7 @@ static Sys_var_double Sys_mts_imbalance_threshold(
     VALID_RANGE(0, 100), DEFAULT(90));
 
 static const char *dep_rpl_type_names[] = {"NONE", "TBL", "STMT", NullS};
+static const char *commit_order_type_names[] = {"NONE", "DB", "GLOBAL", NullS};
 
 static Sys_var_enum Sys_mts_dependency_replication(
     "mts_dependency_replication", "Use dependency based replication",
@@ -6550,6 +6550,12 @@ static Sys_var_ulonglong Sys_mts_dependency_max_keys(
     "isolation. This limits the amount of metadata we'll need to maintain.",
     GLOBAL_VAR(opt_mts_dependency_max_keys), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULONG_MAX), DEFAULT(100000), BLOCK_SIZE(1));
+
+static Sys_var_enum Sys_mts_dependency_order_commits(
+    "mts_dependency_order_commits",
+    "Commit trxs in the same order as the master (per database or globally)",
+    GLOBAL_VAR(opt_mts_dependency_order_commits), CMD_LINE(OPT_ARG),
+    commit_order_type_names, DEFAULT(DEP_RPL_ORDER_DB));
 
 static Sys_var_ulonglong Sys_mts_pending_jobs_size_max(
     "slave_pending_jobs_size_max",

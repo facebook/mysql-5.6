@@ -11,8 +11,8 @@ set @@global.slave_parallel_workers= 8;
 start slave;
 
 # Case 1: Per DB commit ordering (default behavior)
-select @@global.slave_preserve_commit_order;
-set @save.slave_preserve_commit_order= @@global.slave_preserve_commit_order;
+select @@global.mts_dependency_order_commits;
+set @save.mts_dependency_order_commits= @@global.mts_dependency_order_commits;
 
 connection master;
 create database d1;
@@ -73,12 +73,11 @@ select * from d1.t1;
 select * from d1.t2;
 select * from d2.t1;
 
-	
 
 # Case 2: Global commit ordering
 connection slave;
 stop slave;
-set @@global.slave_preserve_commit_order = GLOBAL;
+set @@global.mts_dependency_order_commits = GLOBAL;
 start slave;
 connection master;
 delete from d1.t1;
@@ -133,7 +132,7 @@ select * from d2.t1;
 connection slave;
 stop slave;
 set @@global.slave_parallel_workers= @save.slave_parallel_workers;
-set @@global.slave_preserve_commit_order= @save.slave_preserve_commit_order;
+set @@global.mts_dependency_order_commits= @save.mts_dependency_order_commits;
 start slave;
 connection master;
 drop database d1;

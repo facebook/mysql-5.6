@@ -141,7 +141,7 @@ SET @slave_preserver_commit_order_saved= @@GLOBAL.SLAVE_PRESERVE_COMMIT_ORDER;
 --source include/stop_slave.inc
 SET GLOBAL slave_parallel_type= 'LOGICAL_CLOCK';
 SET GLOBAL slave_parallel_workers= 4;
-SET GLOBAL slave_preserve_commit_order= DB;
+SET GLOBAL slave_preserve_commit_order= ON;
 --source include/start_slave.inc
 CALL mtr.add_suppression("This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'");
 

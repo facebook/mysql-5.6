@@ -37,13 +37,13 @@ SELECT VARIABLE_VALUE FROM performance_schema.global_variables WHERE
   VARIABLE_NAME = 'slave_preserve_commit_order';
 --enable_warnings
 
-SET GLOBAL slave_preserve_commit_order= "NONE";
+SET GLOBAL slave_preserve_commit_order= false;
 SELECT @@global.slave_preserve_commit_order;
 
-SET GLOBAL slave_preserve_commit_order= "DB";
+SET GLOBAL slave_preserve_commit_order= TRUE;
 SELECT @@global.slave_preserve_commit_order;
 
-SET GLOBAL slave_preserve_commit_order= "GLOBAL";
+SET GLOBAL slave_preserve_commit_order= FALSE;
 SELECT @@global.slave_preserve_commit_order;
 
 SET GLOBAL slave_preserve_commit_order= DEFAULT;

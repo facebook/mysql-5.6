@@ -7403,6 +7403,7 @@ extern "C" void *handle_slave_sql(void *arg) {
     rli->mts_dependency_refill_threshold = opt_mts_dependency_refill_threshold;
     rli->mts_dependency_max_keys = opt_mts_dependency_max_keys;
     rli->slave_preserve_commit_order = slave_preserve_commit_order;
+    rli->mts_dependency_order_commits = opt_mts_dependency_order_commits;
 
     if (is_mts_parallel_type_dependency(rli) &&
         !slave_use_idempotent_for_recovery_options) {
@@ -11120,8 +11121,7 @@ static int check_slave_sql_config_conflict(const Relay_log_info *rli) {
 
   const auto slave_preserve_commit_order = get_slave_preserve_commit_order();
   if (slave_preserve_commit_order && slave_parallel_workers > 0) {
-    if (slave_preserve_commit_order != DEP_RPL_ORDER_DB &&
-        channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
+    if (channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
       my_error(ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER, MYF(0),
                "when slave_parallel_type is DATABASE");
       return ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER;

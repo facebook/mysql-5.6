@@ -4,14 +4,14 @@ SET @saved_value= @@GLOBAL.slave_preserve_commit_order;
 #
 SELECT @@GLOBAL.slave_preserve_commit_order;
 @@GLOBAL.slave_preserve_commit_order
-DB
+0
 SELECT VARIABLE_VALUE FROM performance_schema.global_variables WHERE
 VARIABLE_NAME = 'slave_preserve_commit_order';
 VARIABLE_VALUE
-DB
+OFF
 SHOW GLOBAL VARIABLES LIKE 'slave_preserve_commit_order';
 Variable_name	Value
-slave_preserve_commit_order	DB
+slave_preserve_commit_order	OFF
 #
 # Verify it is not a session variable
 #
@@ -20,42 +20,42 @@ ERROR HY000: Variable 'slave_preserve_commit_order' is a GLOBAL variable
 SELECT VARIABLE_VALUE FROM performance_schema.session_variables WHERE
 VARIABLE_NAME = 'slave_preserve_commit_order';
 VARIABLE_VALUE
-DB
+OFF
 SHOW SESSION VARIABLES LIKE 'slave_preserve_commit_order';
 Variable_name	Value
-slave_preserve_commit_order	DB
+slave_preserve_commit_order	OFF
 SET SESSION slave_preserve_commit_order= TRUE;
 ERROR HY000: Variable 'slave_preserve_commit_order' is a GLOBAL variable and should be set with SET GLOBAL
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-DB
+0
 #
 # Verify it can be set correctly
 #
 SET GLOBAL slave_preserve_commit_order= true;
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-DB
+1
 SELECT VARIABLE_VALUE FROM performance_schema.global_variables WHERE
 VARIABLE_NAME = 'slave_preserve_commit_order';
 VARIABLE_VALUE
-DB
-SET GLOBAL slave_preserve_commit_order= "NONE";
+ON
+SET GLOBAL slave_preserve_commit_order= false;
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-NONE
-SET GLOBAL slave_preserve_commit_order= "DB";
+0
+SET GLOBAL slave_preserve_commit_order= TRUE;
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-DB
-SET GLOBAL slave_preserve_commit_order= "GLOBAL";
+1
+SET GLOBAL slave_preserve_commit_order= FALSE;
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-GLOBAL
+0
 SET GLOBAL slave_preserve_commit_order= DEFAULT;
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-DB
+0
 #
 # It should throw an error when encountering invalid value
 #
@@ -63,15 +63,15 @@ SET GLOBAL slave_preserve_commit_order= NULL;
 ERROR 42000: Variable 'slave_preserve_commit_order' can't be set to the value of 'NULL'
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-DB
+0
 SET GLOBAL slave_preserve_commit_order= '';
 ERROR 42000: Variable 'slave_preserve_commit_order' can't be set to the value of ''
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-DB
+0
 SET GLOBAL slave_preserve_commit_order= 'GARBAGE';
 ERROR 42000: Variable 'slave_preserve_commit_order' can't be set to the value of 'GARBAGE'
 SELECT @@global.slave_preserve_commit_order;
 @@global.slave_preserve_commit_order
-DB
+0
 SET GLOBAL slave_preserve_commit_order = @saved_value;

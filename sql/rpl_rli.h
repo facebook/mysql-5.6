@@ -2048,7 +2048,8 @@ class Relay_log_info : public Rpl_info {
   ulonglong mts_dependency_size = 0;
   double mts_dependency_refill_threshold = 0;
   ulonglong mts_dependency_max_keys = 0;
-  ulong slave_preserve_commit_order = 0;
+  bool slave_preserve_commit_order = true;
+  ulong mts_dependency_order_commits = 0;
 };
 
 /**

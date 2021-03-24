@@ -73,7 +73,7 @@ SET @save_slave_preserve_commit_order= @@global.slave_preserve_commit_order;
 
 SET GLOBAL slave_parallel_type = 'LOGICAL_CLOCK';
 SET GLOBAL slave_parallel_workers= 4;
-SET GLOBAL slave_preserve_commit_order= DB;
+SET GLOBAL slave_preserve_commit_order= ON;
 --source include/start_slave.inc
 
 
@@ -300,7 +300,7 @@ RESET SLAVE;
 
 SET GLOBAL slave_parallel_type = 'LOGICAL_CLOCK';
 SET GLOBAL slave_parallel_workers= 4;
-SET GLOBAL slave_preserve_commit_order= DB;
+SET GLOBAL slave_preserve_commit_order= ON;
 --source include/start_slave.inc
 
 --source include/rpl_connection_master.inc

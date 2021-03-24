@@ -126,7 +126,7 @@ if (`select @@GLOBAL.binlog_transaction_dependency_tracking = 'WRITESET'`)
   # INSERT statements execute in commit order to make the following
   # SELECT statements output the consistent result even when
   # binlog_transaction_dependency_tracking is set to WRITESET.
-  SET GLOBAL slave_preserve_commit_order= DB;
+  SET GLOBAL slave_preserve_commit_order= ON;
   START SLAVE SQL_THREAD;
   --enable_query_log
 }
