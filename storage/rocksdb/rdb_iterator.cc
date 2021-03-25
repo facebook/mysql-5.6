@@ -425,7 +425,7 @@ int Rdb_iterator_partial::get_prefix_len(const rocksdb::Slice &start_key,
       return HA_EXIT_SUCCESS;
     }
 
-    if (m_kd->read_memcmp_key_part(m_table, &reader, i) > 0) {
+    if (m_kd->read_memcmp_key_part(&reader, i) > 0) {
       return HA_ERR_INTERNAL_ERROR;
     }
   }
@@ -915,7 +915,7 @@ int Rdb_iterator_partial::get(const rocksdb::Slice *key,
 
   if (rc == HA_ERR_KEY_NOT_FOUND) {
     const uint size =
-        m_kd->get_primary_key_tuple(m_table, *m_pkd, key, m_sk_packed_tuple);
+        m_kd->get_primary_key_tuple(*m_pkd, key, m_sk_packed_tuple);
     if (size == RDB_INVALID_KEY_LEN) {
       return HA_ERR_ROCKSDB_CORRUPT_DATA;
     }

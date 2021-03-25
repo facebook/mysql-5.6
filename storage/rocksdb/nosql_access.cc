@@ -1626,8 +1626,8 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
 
   // Unpack PK index + value
   uint pk_tuple_size = 0;
-  pk_tuple_size = m_key_def->get_primary_key_tuple(m_table, *m_pk_def, &rkey,
-                                                   m_pk_tuple_buf.data());
+  pk_tuple_size =
+      m_key_def->get_primary_key_tuple(*m_pk_def, &rkey, m_pk_tuple_buf.data());
   if (pk_tuple_size == RDB_INVALID_KEY_LEN) {
     m_handler->print_error(HA_ERR_ROCKSDB_CORRUPT_DATA, 0);
     return true;

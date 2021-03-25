@@ -365,12 +365,11 @@ class Rdb_key_def {
     return gl_index_id;
   }
 
-  int read_memcmp_key_part(const TABLE *table_arg, Rdb_string_reader *reader,
+  int read_memcmp_key_part(Rdb_string_reader *reader,
                            const uint part_num) const;
 
   /* Must only be called for secondary keys: */
-  uint get_primary_key_tuple(const TABLE *const tbl,
-                             const Rdb_key_def &pk_descr,
+  uint get_primary_key_tuple(const Rdb_key_def &pk_descr,
                              const rocksdb::Slice *const key,
                              uchar *const pk_buffer) const;
 
