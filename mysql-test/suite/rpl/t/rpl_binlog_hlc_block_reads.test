@@ -257,17 +257,17 @@ connection slave;
 USE a;
 
 query_attrs_add hlc_ts_lower_bound 0;
---error ER_INVALID_HLC_READ_BOUND
+--error ER_INVALID_HLC
 SELECT * FROM ta;
 query_attrs_reset;
 
 query_attrs_add hlc_ts_lower_bound 12a;
---error ER_INVALID_HLC_READ_BOUND
+--error ER_INVALID_HLC
 SELECT * FROM ta;
 query_attrs_reset;
 
 query_attrs_add hlc_ts_lower_bound abc;
---error ER_INVALID_HLC_READ_BOUND
+--error ER_INVALID_HLC
 SELECT * FROM ta;
 query_attrs_reset;
 

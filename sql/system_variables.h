@@ -458,6 +458,7 @@ struct System_variables {
   long admission_control_queue;
 
   bool enable_block_stale_hlc_read;
+  bool enable_hlc_bound;
 
   ulong dscp_on_socket;
 

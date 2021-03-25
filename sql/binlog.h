@@ -432,7 +432,7 @@ class HybridLogicalClock {
    * @return The HLC for the specified database, or 0 if not found
    */
   uint64_t get_selected_database_hlc(const std::string& database);
-  
+
   /**
    * Verify if the given HLC value is 'valid', by which it isn't 0 or intmax
    *
@@ -452,6 +452,12 @@ class HybridLogicalClock {
    * present in the engine according to database_applied_hlc_
    */
   bool wait_for_hlc_applied(THD *thd);
+
+  /**
+   * Check that lower HLC bound requirements are satisfied for
+   * insert/update/delete queries.
+   */
+  bool check_hlc_bound(THD *thd);
 
  private:
   // nanosecond precision internal clock
@@ -1030,6 +1036,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void clear_database_hlc() { hlc.clear_database_hlc(); }
 
   bool wait_for_hlc_applied(THD *thd) { return hlc.wait_for_hlc_applied(thd); }
+
+  bool check_hlc_bound(THD *thd) { return hlc.check_hlc_bound(thd); }
 
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};
