@@ -1364,6 +1364,11 @@ static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
                           /*min*/ 1,
                           /*max*/ RDB_MAX_BULK_LOAD_SIZE, 0);
 
+static MYSQL_THDVAR_BOOL(
+    bulk_load_partial_index, PLUGIN_VAR_RQCMDARG,
+    "Materialize partial index during bulk load, instead of leaving it empty.",
+    nullptr, nullptr, true);
+
 static MYSQL_THDVAR_ULONGLONG(
     merge_buf_size, PLUGIN_VAR_RQCMDARG,
     "Size to allocate for merge sort buffers written out to disk "
@@ -2480,6 +2485,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(read_free_rpl_tables),
     MYSQL_SYSVAR(read_free_rpl),
     MYSQL_SYSVAR(bulk_load_size),
+    MYSQL_SYSVAR(bulk_load_partial_index),
     MYSQL_SYSVAR(merge_buf_size),
     MYSQL_SYSVAR(enable_bulk_load_api),
     MYSQL_SYSVAR(enable_remove_orphaned_dropped_cfs),
@@ -3144,6 +3150,39 @@ class Rdb_transaction {
   /* External merge sorts for bulk load: key ID -> merge sort instance */
   std::unordered_map<GL_INDEX_ID, Rdb_index_merge> m_key_merge;
 
+  /*
+    Used to check for duplicate entries during fast unique secondary index
+    creation.
+  */
+  struct unique_sk_buf_info {
+    bool sk_buf_switch = false;
+    rocksdb::Slice sk_memcmp_key;
+    rocksdb::Slice sk_memcmp_key_old;
+    uchar *dup_sk_buf = nullptr;
+    uchar *dup_sk_buf_old = nullptr;
+
+    /*
+      This method is meant to be called back to back during inplace creation
+      of unique indexes.  It will switch between two buffers, which
+      will each store the memcmp form of secondary keys, which are then
+      converted to slices in sk_memcmp_key or sk_memcmp_key_old.
+
+      Switching buffers on each iteration allows us to retain the
+      sk_memcmp_key_old value for duplicate comparison.
+    */
+    inline uchar *swap_and_get_sk_buf() {
+      sk_buf_switch = !sk_buf_switch;
+      return sk_buf_switch ? dup_sk_buf : dup_sk_buf_old;
+    }
+
+    ~unique_sk_buf_info() {
+      my_free(dup_sk_buf);
+      dup_sk_buf = nullptr;
+      my_free(dup_sk_buf_old);
+      dup_sk_buf_old = nullptr;
+    }
+  };
+
  public:
   int get_key_merge(GL_INDEX_ID kd_gl_id, rocksdb::ColumnFamilyHandle *cf,
                     Rdb_index_merge **key_merge) {
@@ -3167,7 +3206,9 @@ class Rdb_transaction {
 
   /* Finish bulk loading for all table handlers belongs to one connection */
   int finish_bulk_load(bool *is_critical_error = nullptr,
-                       int print_client_error = true) {
+                       bool print_client_error = true,
+                       TABLE *table_arg = nullptr,
+                       char *table_name_arg = nullptr) {
     Ensure_cleanup cleanup([&]() {
       // Always clear everything regardless of success/failure
       m_curr_bulk_load.clear();
@@ -3227,7 +3268,22 @@ class Rdb_transaction {
         GL_INDEX_ID index_id = it->first;
         std::shared_ptr<const Rdb_key_def> keydef =
             ddl_manager.safe_find(index_id);
-        std::string table_name = ddl_manager.safe_get_table_name(index_id);
+        std::string table_name;
+        if (table_name_arg) {
+          table_name = table_name_arg;
+        } else {
+          table_name = ddl_manager.safe_get_table_name(index_id);
+          // Rdb_sst_info expects a denormalized table name in the form of
+          // "./database/table"
+          std::replace(table_name.begin(), table_name.end(), '.', '/');
+          table_name = "./" + table_name;
+        }
+
+        // Currently, unique indexes only checked in the inplace alter path,
+        // but not in allow_sk bulk load path.
+        bool is_unique_index =
+            table_arg &&
+            table_arg->key_info[keydef->get_keyno()].flags & HA_NOSAME;
 
         // Unable to find key definition or table name since the
         // table could have been dropped.
@@ -3255,25 +3311,140 @@ class Rdb_transaction {
         const std::string &index_name = keydef->get_name();
         Rdb_index_merge &rdb_merge = it->second;
 
-        // Rdb_sst_info expects a denormalized table name in the form of
-        // "./database/table"
-        std::replace(table_name.begin(), table_name.end(), '.', '/');
-        table_name = "./" + table_name;
         auto sst_info = std::make_shared<Rdb_sst_info>(
             rdb, table_name, index_name, rdb_merge.get_cf(),
             *rocksdb_db_options, THDVAR(get_thd(), trace_sst_api));
 
-        while ((rc2 = rdb_merge.next(&merge_key, &merge_val)) == 0) {
-          if ((rc2 = sst_info->put(merge_key, merge_val)) != 0) {
-            rc = rc2;
+        if (keydef->is_partial_index()) {
+          if (!THDVAR(m_thd, bulk_load_partial_index)) continue;
+          // For partial indexes, we only want to materialize groups that reach
+          // the materialization threshold. The idea is to buffer the rows up to
+          // the threshold, and only actually insert the keys once we break the
+          // threshold.
+          bool materialized = false;
+          rocksdb::Slice cur_prefix;
+          std::vector<std::pair<rocksdb::Slice, rocksdb::Slice>> keys;
+          MEM_ROOT mem_root;
+          init_sql_alloc(PSI_NOT_INSTRUMENTED, &mem_root, 4024, 0);
 
-            // Don't return yet - make sure we finish the sst_info
-            break;
+          while ((rc2 = rdb_merge.next(&merge_key, &merge_val)) == 0) {
+            if (cur_prefix.size() == 0 ||
+                !keydef->value_matches_prefix(merge_key, cur_prefix)) {
+              // This is a new group, so clear any rows buffered from a prior
+              // group.
+              mem_root.ClearForReuse();
+              keys.clear();
+              materialized = false;
+
+              // Determine the length of the new group prefix
+              Rdb_string_reader reader(&merge_key);
+              if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE))) {
+                rc2 = HA_ERR_ROCKSDB_CORRUPT_DATA;
+                break;
+              }
+              for (uint i = 0; i < keydef->partial_index_keyparts(); i++) {
+                if (keydef->read_memcmp_key_part(&reader, i) > 0) {
+                  rc2 = HA_ERR_ROCKSDB_CORRUPT_DATA;
+                  break;
+                }
+              }
+              if (rc2) break;
+
+              size_t cur_prefix_len =
+                  reader.get_current_ptr() - merge_key.data();
+
+              const char *key = (const char *)memdup_root(
+                  &mem_root, merge_key.data(), cur_prefix_len);
+
+              // Set the current prefix.
+              cur_prefix = rocksdb::Slice(key, cur_prefix_len);
+            }
+
+            if (!materialized) {
+              // Bulk load the keys if threshold is exceeded.
+              if (keys.size() >= keydef->partial_index_threshold()) {
+                for (const auto &k : keys) {
+                  if ((rc2 = sst_info->put(k.first, k.second) != 0)) {
+                    break;
+                  }
+                }
+
+                if (rc2 != 0) {
+                  break;
+                }
+
+                materialized = true;
+                keys.clear();
+              } else {
+                // Threshold not exceeded, just buffer the row in the keys
+                // vector.
+                const char *key = (const char *)memdup_root(
+                    &mem_root, merge_key.data(), merge_key.size());
+                const char *val = (const char *)memdup_root(
+                    &mem_root, merge_val.data(), merge_val.size());
+                keys.emplace_back(rocksdb::Slice(key, merge_key.size()),
+                                  rocksdb::Slice(val, merge_val.size()));
+              }
+            }
+
+            if (materialized) {
+              rc2 = sst_info->put(merge_key, merge_val);
+              if (rc != 0) {
+                rc = rc2;
+                break;
+              }
+            }
+
+            if (rc2) break;
+          }
+        } else {
+          struct unique_sk_buf_info sk_info;
+
+          if (is_unique_index) {
+            uint max_packed_sk_len = keydef->max_storage_fmt_length();
+            sk_info.dup_sk_buf = reinterpret_cast<uchar *>(
+                my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
+            sk_info.dup_sk_buf_old = reinterpret_cast<uchar *>(
+                my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
+          }
+
+          while ((rc2 = rdb_merge.next(&merge_key, &merge_val)) == 0) {
+            /* Perform uniqueness check if needed */
+            if (is_unique_index &&
+                check_duplicate_sk(table_arg, *keydef, &merge_key, &sk_info)) {
+              /*
+                Duplicate entry found when trying to create unique secondary
+                key. We need to unpack the record into new_table_arg->record[0]
+                as it is used inside print_keydup_error so that the error
+                message shows the duplicate record.
+                */
+              if (keydef->unpack_record(table_arg, table_arg->record[0],
+                                        &merge_key, &merge_val, false)) {
+                /* Should never reach here */
+                assert(0);
+              }
+
+              rc = ER_DUP_ENTRY;
+              if (is_critical_error) {
+                *is_critical_error = false;
+              }
+              break;
+            }
+
+            /*
+              Insert key and slice to SST via SSTFileWriter API.
+            */
+            if ((rc2 = sst_info->put(merge_key, merge_val)) != 0) {
+              rc = rc2;
+
+              // Don't return yet - make sure we finish the sst_info
+              break;
+            }
           }
         }
 
         // -1 => no more items
-        if (rc2 != -1 && rc != 0) {
+        if (rc2 > 0 && rc == 0) {
           rc = rc2;
         }
 
@@ -3361,6 +3532,44 @@ class Rdb_transaction {
     }
 
     return rc;
+  }
+
+  /**
+    Check whether secondary key value is duplicate or not
+
+    @param[in] table_arg         the table currently working on
+    @param[in  key_def           the key_def is being checked
+    @param[in] key               secondary key storage data
+    @param[out] sk_info          hold secondary key memcmp datas(new/old)
+    @return
+      HA_EXIT_SUCCESS  OK
+      other            HA_ERR error code (can be SE-specific)
+  */
+
+  int check_duplicate_sk(const TABLE *table_arg, const Rdb_key_def &key_def,
+                         const rocksdb::Slice *key,
+                         struct unique_sk_buf_info *sk_info) {
+    uint n_null_fields = 0;
+    const rocksdb::Comparator *index_comp = key_def.get_cf()->GetComparator();
+
+    /* Get proper SK buffer. */
+    uchar *sk_buf = sk_info->swap_and_get_sk_buf();
+
+    /* Get memcmp form of sk without extended pk tail */
+    uint sk_memcmp_size =
+        key_def.get_memcmp_sk_parts(table_arg, *key, sk_buf, &n_null_fields);
+
+    sk_info->sk_memcmp_key =
+        rocksdb::Slice(reinterpret_cast<char *>(sk_buf), sk_memcmp_size);
+
+    if (sk_info->sk_memcmp_key_old.size() > 0 && n_null_fields == 0 &&
+        index_comp->Compare(sk_info->sk_memcmp_key,
+                            sk_info->sk_memcmp_key_old) == 0) {
+      return 1;
+    }
+
+    sk_info->sk_memcmp_key_old = sk_info->sk_memcmp_key;
+    return 0;
   }
 
   int start_bulk_load(ha_rocksdb *const bulk_load,
@@ -7153,8 +7362,6 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_sk_packed_tuple(nullptr),
       m_end_key_packed_tuple(nullptr),
       m_sk_packed_tuple_old(nullptr),
-      m_dup_sk_packed_tuple(nullptr),
-      m_dup_sk_packed_tuple_old(nullptr),
       m_pack_buffer(nullptr),
       m_lock_rows(RDB_LOCK_NONE),
       m_keyread_only(false),
@@ -7361,8 +7568,7 @@ int ha_rocksdb::convert_record_from_storage_format(
 }
 
 int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
-                                  const Rdb_tbl_def *const tbl_def_arg,
-                                  bool alloc_alter_buffers) {
+                                  const Rdb_tbl_def *const tbl_def_arg) {
   DBUG_ENTER_FUNC();
 
   std::shared_ptr<Rdb_key_def> *const kd_arr = tbl_def_arg->m_key_descr_arr;
@@ -7403,22 +7609,9 @@ int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
   m_pack_buffer = reinterpret_cast<uchar *>(
       my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
 
-  /*
-    If inplace alter is happening, allocate special buffers for unique
-    secondary index duplicate checking.
-  */
-  if (alloc_alter_buffers) {
-    m_dup_sk_packed_tuple = reinterpret_cast<uchar *>(
-        my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
-    m_dup_sk_packed_tuple_old = reinterpret_cast<uchar *>(
-        my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
-  }
-
   if (m_pk_packed_tuple == nullptr || m_sk_packed_tuple == nullptr ||
       m_sk_packed_tuple_old == nullptr || m_end_key_packed_tuple == nullptr ||
-      m_pack_buffer == nullptr ||
-      (alloc_alter_buffers && (m_dup_sk_packed_tuple == nullptr ||
-                               m_dup_sk_packed_tuple_old == nullptr))) {
+      m_pack_buffer == nullptr) {
     // One or more of the above allocations failed.  Clean up and exit
     free_key_buffers();
 
@@ -7443,12 +7636,6 @@ void ha_rocksdb::free_key_buffers() {
 
   my_free(m_pack_buffer);
   m_pack_buffer = nullptr;
-
-  my_free(m_dup_sk_packed_tuple);
-  m_dup_sk_packed_tuple = nullptr;
-
-  my_free(m_dup_sk_packed_tuple_old);
-  m_dup_sk_packed_tuple_old = nullptr;
 
   release_blob_buffer();
 }
@@ -9447,7 +9634,7 @@ int ha_rocksdb::get_row_by_sk(uchar *buf, const Rdb_key_def &kd,
   if (rc) DBUG_RETURN(rc);
 
   const uint size =
-      kd.get_primary_key_tuple(table, *m_pk_descr, key, m_pk_packed_tuple);
+      kd.get_primary_key_tuple(*m_pk_descr, key, m_pk_packed_tuple);
   if (size == RDB_INVALID_KEY_LEN) {
     DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
   }
@@ -9610,7 +9797,7 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
       }
 
       const uint size =
-          kd.get_primary_key_tuple(table, *m_pk_descr, &key, m_pk_packed_tuple);
+          kd.get_primary_key_tuple(*m_pk_descr, &key, m_pk_packed_tuple);
       if (size == RDB_INVALID_KEY_LEN) {
         rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
         break;
@@ -10343,7 +10530,7 @@ int ha_rocksdb::check_and_lock_sk(
   if (*found && m_insert_with_update) {
     const rocksdb::Slice &rkey = all_parts_used ? new_slice : iter.key();
     uint pk_size =
-        kd.get_primary_key_tuple(table, *m_pk_descr, &rkey, m_pk_packed_tuple);
+        kd.get_primary_key_tuple(*m_pk_descr, &rkey, m_pk_packed_tuple);
     if (pk_size == RDB_INVALID_KEY_LEN) {
       rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
     } else {
@@ -10417,45 +10604,6 @@ int ha_rocksdb::check_uniqueness_and_lock(
   }
 
   return HA_EXIT_SUCCESS;
-}
-
-/**
-  Check whether secondary key value is duplicate or not
-
-  @param[in] table_arg         the table currently working on
-  @param[in  key_def           the key_def is being checked
-  @param[in] key               secondary key storage data
-  @param[out] sk_info          hold secondary key memcmp datas(new/old)
-  @return
-    HA_EXIT_SUCCESS  OK
-    other            HA_ERR error code (can be SE-specific)
-*/
-
-int ha_rocksdb::check_duplicate_sk(const TABLE *table_arg,
-                                   const Rdb_key_def &key_def,
-                                   const rocksdb::Slice *key,
-                                   struct unique_sk_buf_info *sk_info) {
-  uint n_null_fields = 0;
-  const rocksdb::Comparator *index_comp = key_def.get_cf()->GetComparator();
-
-  /* Get proper SK buffer. */
-  uchar *sk_buf = sk_info->swap_and_get_sk_buf();
-
-  /* Get memcmp form of sk without extended pk tail */
-  uint sk_memcmp_size =
-      key_def.get_memcmp_sk_parts(table_arg, *key, sk_buf, &n_null_fields);
-
-  sk_info->sk_memcmp_key =
-      rocksdb::Slice(reinterpret_cast<char *>(sk_buf), sk_memcmp_size);
-
-  if (sk_info->sk_memcmp_key_old.size() > 0 && n_null_fields == 0 &&
-      index_comp->Compare(sk_info->sk_memcmp_key, sk_info->sk_memcmp_key_old) ==
-          0) {
-    return 1;
-  }
-
-  sk_info->sk_memcmp_key_old = sk_info->sk_memcmp_key;
-  return 0;
 }
 
 int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
@@ -10731,7 +10879,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
     bytes_written = old_key_slice.size();
   }
 
-  if (kd.is_partial_index()) {
+  if (kd.is_partial_index() && !bulk_load_sk) {
     // TODO(mung) - We've already calculated prefix len when locking. If we
     // cache that value, we can avoid recalculating here.
     uint size = kd.pack_record(table, m_pack_buffer, row_info.new_data,
@@ -13373,10 +13521,7 @@ bool ha_rocksdb::inplace_alter_table(
     If adding unique index, allocate special buffers for duplicate checking.
   */
   int err;
-  if ((err = alloc_key_buffers(
-           altered_table, ctx->m_new_tdef,
-           ha_alter_info->handler_flags &
-               my_core::Alter_inplace_info::ADD_UNIQUE_INDEX))) {
+  if ((err = alloc_key_buffers(altered_table, ctx->m_new_tdef))) {
     my_error(ER_OUT_OF_RESOURCES, MYF(0));
     res = HA_EXIT_FAILURE;
     goto end;
@@ -13527,27 +13672,10 @@ int ha_rocksdb::inplace_populate_sk(
     tx->release_snapshot();
   }
 
-  const ulonglong rdb_merge_buf_size = THDVAR(ha_thd(), merge_buf_size);
-  const ulonglong rdb_merge_combine_read_size =
-      THDVAR(ha_thd(), merge_combine_read_size);
-  const ulonglong rdb_merge_tmp_file_removal_delay =
-      THDVAR(ha_thd(), merge_tmp_file_removal_delay_ms);
-
   for (const auto &index : indexes) {
-    // Skip populating partial indexes for now.
-    if (index->is_partial_index()) continue;
-
-    bool is_unique_index =
-        new_table_arg->key_info[index->get_keyno()].flags & HA_NOSAME;
-
-    Rdb_index_merge rdb_merge(tx->get_rocksdb_tmpdir(), rdb_merge_buf_size,
-                              rdb_merge_combine_read_size,
-                              rdb_merge_tmp_file_removal_delay,
-                              index->get_cf());
-
-    if ((res = rdb_merge.init())) {
-      DBUG_RETURN(res);
-    }
+    // Skip populating partial indexes.
+    if (index->is_partial_index() && !THDVAR(ha_thd(), bulk_load_partial_index))
+      continue;
 
     /*
       Note: We use the currently existing table + tbl_def object here,
@@ -13585,7 +13713,7 @@ int ha_rocksdb::inplace_populate_sk(
         Add record to offset tree in preparation for writing out to
         disk in sorted chunks.
       */
-      if ((res = rdb_merge.add(key, val))) {
+      if ((res = bulk_load_key(tx, *index, key, val, true))) {
         ha_rnd_end();
         DBUG_RETURN(res);
       }
@@ -13600,61 +13728,17 @@ int ha_rocksdb::inplace_populate_sk(
 
     ha_rnd_end();
 
-    /*
-      Perform an n-way merge of n sorted buffers on disk, then writes all
-      results to RocksDB via SSTFileWriter API.
-    */
-    rocksdb::Slice merge_key;
-    rocksdb::Slice merge_val;
-
-    struct unique_sk_buf_info sk_info;
-    sk_info.dup_sk_buf = m_dup_sk_packed_tuple;
-    sk_info.dup_sk_buf_old = m_dup_sk_packed_tuple_old;
-
-    while ((res = rdb_merge.next(&merge_key, &merge_val)) == 0) {
-      /* Perform uniqueness check if needed */
-      if (is_unique_index) {
-        if (check_duplicate_sk(new_table_arg, *index, &merge_key, &sk_info)) {
-          /*
-            Duplicate entry found when trying to create unique secondary key.
-            We need to unpack the record into new_table_arg->record[0] as it
-            is used inside print_keydup_error so that the error message shows
-            the duplicate record.
-          */
-          if (index->unpack_record(
-                  new_table_arg, new_table_arg->record[0], &merge_key,
-                  &merge_val, m_converter->get_verify_row_debug_checksums())) {
-            /* Should never reach here */
-            assert(0);
-          }
-
-          print_keydup_error(new_table_arg,
-                             &new_table_arg->key_info[index->get_keyno()],
-                             MYF(0), ha_thd());
-          DBUG_RETURN(ER_DUP_ENTRY);
-        }
-      }
-
-      /*
-        Insert key and slice to SST via SSTFileWriter API.
-      */
-      if ((res = bulk_load_key(tx, *index, merge_key, merge_val, false))) {
-        break;
-      }
-    }
-
-    /*
-      Here, res == -1 means that we are finished, while > 0 means an error
-      occurred.
-    */
-    if (res > 0) {
-      // NO_LINT_DEBUG
-      sql_print_error("Error while bulk loading keys in external merge sort.");
-      DBUG_RETURN(res);
-    }
-
     bool is_critical_error;
-    res = tx->finish_bulk_load(&is_critical_error);
+    res = tx->finish_bulk_load(&is_critical_error, true, new_table_arg,
+                               m_table_handler->m_table_name);
+
+    if (res == ER_DUP_ENTRY) {
+      assert(new_table_arg->key_info[index->get_keyno()].flags & HA_NOSAME);
+      print_keydup_error(new_table_arg,
+                         &new_table_arg->key_info[index->get_keyno()], MYF(0),
+                         ha_thd());
+    }
+
     if (res && is_critical_error) {
       // NO_LINT_DEBUG
       sql_print_error("Error finishing bulk load.");

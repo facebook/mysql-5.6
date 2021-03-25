@@ -1714,6 +1714,10 @@ The following options may be given as the first argument:
  --rocksdb-bulk-load-allow-unsorted 
  Allow unsorted input during bulk-load. Can be changed
  only when bulk load is disabled.
+ --rocksdb-bulk-load-partial-index 
+ Materialize partial index during bulk load, instead of
+ leaving it empty.
+ (Defaults to on; use --skip-rocksdb-bulk-load-partial-index to disable.)
  --rocksdb-bulk-load-size=# 
  Max #records in a batch for bulk-load mode
  --rocksdb-bypass-rejected-query-history[=name] 
@@ -3226,6 +3230,7 @@ rocksdb-block-size-deviation 10
 rocksdb-bulk-load FALSE
 rocksdb-bulk-load-allow-sk FALSE
 rocksdb-bulk-load-allow-unsorted FALSE
+rocksdb-bulk-load-partial-index TRUE
 rocksdb-bulk-load-size 1000
 rocksdb-bypass-rejected-query-history ON
 rocksdb-bytes-per-sync 0

@@ -878,7 +878,6 @@ const std::string Rdb_key_def::parse_comment_for_qualifier(
   Returns -1 if field was null, 1 if error, 0 otherwise.
 */
 int Rdb_key_def::read_memcmp_key_part(
-    const TABLE *table_arg MY_ATTRIBUTE((__unused__)),
     Rdb_string_reader *reader, const uint part_num) const {
   /* It is impossible to unpack the column. Skip it. */
   if (m_pack_info[part_num].m_field_is_nullable) {
@@ -925,11 +924,9 @@ int Rdb_key_def::read_memcmp_key_part(
     set of queries for which we would check the checksum twice.
 */
 
-uint Rdb_key_def::get_primary_key_tuple(const TABLE *const table,
-                                        const Rdb_key_def &pk_descr,
+uint Rdb_key_def::get_primary_key_tuple(const Rdb_key_def &pk_descr,
                                         const rocksdb::Slice *const key,
                                         uchar *const pk_buffer) const {
-  assert(table != nullptr);
   assert(key != nullptr);
   assert(m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY);
   assert(pk_buffer);
@@ -957,7 +954,7 @@ uint Rdb_key_def::get_primary_key_tuple(const TABLE *const table,
       start_offs[pk_key_part] = reader.get_current_ptr();
     }
 
-    if (read_memcmp_key_part(table, &reader, i) > 0) {
+    if (read_memcmp_key_part(&reader, i) > 0) {
       return RDB_INVALID_KEY_LEN;
     }
 
@@ -1004,7 +1001,7 @@ uint Rdb_key_def::get_memcmp_sk_parts(const TABLE *table,
   if ((!reader.read(INDEX_NUMBER_SIZE))) return RDB_INVALID_KEY_LEN;
 
   for (uint i = 0; i < table->key_info[m_keyno].user_defined_key_parts; i++) {
-    if ((res = read_memcmp_key_part(table, &reader, i)) > 0) {
+    if ((res = read_memcmp_key_part(&reader, i)) > 0) {
       return RDB_INVALID_KEY_LEN;
     } else if (res == -1) {
       (*n_null_fields)++;
