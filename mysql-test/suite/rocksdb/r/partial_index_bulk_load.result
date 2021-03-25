@@ -1,0 +1,149 @@
+SET rocksdb_bulk_load_size=10;
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+SET rocksdb_bulk_load=0;
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+ALTER TABLE t DROP INDEX ik1;
+ALTER TABLE t ADD INDEX ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5';
+Warnings:
+Warning	1831	Duplicate index 'ik1' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+DROP TABLE t;
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=rev:cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=rev:cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+SET rocksdb_bulk_load=0;
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+ALTER TABLE t DROP INDEX ik1;
+ALTER TABLE t ADD INDEX ik1 (i, k) COMMENT 'cfname=rev:cf;partial_group_keyparts=1;partial_group_threshold=5';
+Warnings:
+Warning	1831	Duplicate index 'ik1' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+DROP TABLE t;
+CREATE TABLE t (i int, j int, k int, l int,
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+SET rocksdb_bulk_load=0;
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+ALTER TABLE t DROP INDEX ik1;
+ALTER TABLE t ADD INDEX ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5';
+Warnings:
+Warning	1831	Duplicate index 'ik1' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+DROP TABLE t;
+CREATE TABLE t (i int, j int, k int, l int,
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+SET rocksdb_bulk_load=0;
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+ALTER TABLE t DROP INDEX ik1;
+ALTER TABLE t ADD INDEX ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5';
+Warnings:
+Warning	1831	Duplicate index 'ik1' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+DROP TABLE t;

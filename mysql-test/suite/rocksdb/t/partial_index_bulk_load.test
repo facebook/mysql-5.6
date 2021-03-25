@@ -1,0 +1,45 @@
+SET rocksdb_bulk_load_size=10;
+
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+  PRIMARY KEY (i, j),
+  KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+  KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+
+--let $varchar=1
+--source partial_index_bulk_load.inc
+
+DROP TABLE t;
+
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+  PRIMARY KEY (i, j),
+  KEY ik1 (i, k) COMMENT 'cfname=rev:cf;partial_group_keyparts=1;partial_group_threshold=5',
+  KEY ik2 (i, k) COMMENT 'cfname=rev:cf'
+) ENGINE=ROCKSDB;
+
+--let $varchar=1
+--source partial_index_bulk_load.inc
+
+DROP TABLE t;
+
+CREATE TABLE t (i int, j int, k int, l int,
+  PRIMARY KEY (i, j),
+  KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+  KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+
+--let $varchar=0
+--source partial_index_bulk_load.inc
+
+DROP TABLE t;
+
+CREATE TABLE t (i int, j int, k int, l int,
+  PRIMARY KEY (i, j),
+  KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+  KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB;
+
+--let $varchar=0
+--source partial_index_bulk_load.inc
+
+DROP TABLE t;
