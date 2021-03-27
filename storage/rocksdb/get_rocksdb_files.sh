@@ -14,14 +14,17 @@ rm $MKFILE
 # create build_version.cc file. Only create one if it doesn't exists or if it is different
 # this is so that we don't rebuild mysqld every time
 bv=rocksdb/util/build_version.cc
-date=$(date +%F)
-git_sha=$(pushd rocksdb >/dev/null && git rev-parse  HEAD 2>/dev/null && popd >/dev/null)
-if [ ! -f $bv ] || [ -z $git_sha ] || [ ! `grep $git_sha $bv` ]
+build_date=$(date +%F)
+pushd rocksdb>/dev/null
+git_sha=$(git rev-parse  HEAD 2>/dev/null)
+git_tag=$(git symbolic-ref -q --short HEAD || \
+  git describe --tags --exact-match 2>/dev/null)
+git_mod=$(git diff-index HEAD --quiet 2>/dev/null; echo $?)
+git_date=$(git log -1 --date=format:"%Y-%m-%d %T" --format="%ad" 2>/dev/null)
+popd>/dev/null
+if [ ! -f $bv ] || [ -z $git_sha ] || [ ! `grep -q $git_sha $bv` ]
 then
-echo "#include \"build_version.h\"
-const char* rocksdb_build_git_sha =
-\"rocksdb_build_git_sha:$git_sha\";
-const char* rocksdb_build_git_date =
-\"rocksdb_build_git_date:$date\";
-const char* rocksdb_build_compile_date = __DATE__;" > $bv
+sed -e s/@GIT_SHA@/$git_sha/ -e s:@GIT_TAG@:"$git_tag":  \
+    -e s/@GIT_MOD@/"$git_mod"/ -e s/@BUILD_DATE@/"$build_date"/  \
+    -e s/@GIT_DATE@/"$git_date"/ rocksdb/util/build_version.cc.in > $bv
 fi
