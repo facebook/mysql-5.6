@@ -4250,7 +4250,8 @@ static xa_status_code rocksdb_commit_by_xid(
   DBUG_ASSERT(xid != nullptr);
   DBUG_ASSERT(commit_latency_stats != nullptr);
 
-  rocksdb::StopWatchNano timer(rocksdb::Env::Default(), true);
+  auto clock = rocksdb::Env::Default()->GetSystemClock().get();
+  rocksdb::StopWatchNano timer(clock, true);
 
   const auto name = rdb_xid_to_string(*xid);
   DBUG_ASSERT(!name.empty());
@@ -4399,7 +4400,8 @@ static int rocksdb_commit(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(commit_latency_stats != nullptr);
 
-  rocksdb::StopWatchNano timer(rocksdb::Env::Default(), true);
+  auto clock = rocksdb::Env::Default()->GetSystemClock().get();
+  rocksdb::StopWatchNano timer(clock, true);
 
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
   Rdb_transaction *tx = get_tx_from_thd(thd);
@@ -4918,9 +4920,8 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
         std::string tf_name = table_factory->Name();
 
         if (tf_name.find("BlockBasedTable") != std::string::npos) {
-          const rocksdb::BlockBasedTableOptions *const bbt_opt =
-              reinterpret_cast<rocksdb::BlockBasedTableOptions *>(
-                  table_factory->GetOptions());
+          const auto bbt_opt =
+              table_factory->GetOptions<rocksdb::BlockBasedTableOptions>();
 
           if (bbt_opt != nullptr) {
             if (bbt_opt->block_cache.get() != nullptr) {
