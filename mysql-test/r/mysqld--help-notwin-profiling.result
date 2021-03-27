@@ -717,6 +717,8 @@ The following options may be given as the first argument:
  --max-error-count=# Max number of errors/warnings to store for a statement
  --max-heap-table-size=# 
  Don't allow creation of heap tables bigger than this
+ --max-index-stats-entries-per-table[=#] 
+ Maximum number of entries in INDEX_STATISTICS per table
  --max-join-size=#   Joins that are probably going to read more than
  max_join_size records return an error
  --max-length-for-sort-data=# 
@@ -1930,7 +1932,7 @@ The following options may be given as the first argument:
  COLUMN_TYPE field. This variable is deprecated and will
  be removed in a future release.
  --show-query-digest Show query digest instead of full query in show process
- list.Requres sql_stats_control to be on.
+ list.Requires sql_stats_control to be on.
  --show-slave-auth-info 
  Show user and password in SHOW SLAVE HOSTS on this
  master.
@@ -2580,6 +2582,7 @@ max-digest-length 1024
 max-digest-sample-age -1
 max-error-count 64
 max-heap-table-size 16777216
+max-index-stats-entries-per-table 30
 max-join-size 18446744073709551615
 max-length-for-sort-data 1024
 max-nonsuper-connections 0
