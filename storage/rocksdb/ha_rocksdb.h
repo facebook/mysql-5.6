@@ -1137,6 +1137,9 @@ rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
                                       rocksdb::PinnableSlice *const value,
                                       bool exclusive);
 
+void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
+                         const rocksdb::Slice &key);
+
 void rdb_tx_multi_get(Rdb_transaction *tx,
                       rocksdb::ColumnFamilyHandle *const column_family,
                       const size_t num_keys, const rocksdb::Slice *keys,
@@ -1188,5 +1191,10 @@ int rdb_tx_set_status_error(Rdb_transaction *tx, const rocksdb::Status &s,
 extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
 extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
+
+extern std::atomic<uint64_t> rocksdb_partial_index_groups_sorted;
+extern std::atomic<uint64_t> rocksdb_partial_index_groups_materialized;
+extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;
+extern std::atomic<uint64_t> rocksdb_partial_index_rows_materialized;
 
 }  // namespace myrocks
