@@ -25,18 +25,19 @@ sub coverage_extract_option {
 # Prepare to generate coverage data
 #
 # Arguments:
-#   $dir       basedir, normally the build directory
-#   $scope     coverage option which is of the form:
-#                * full : complete code coverage
-#                * diff : coverage of the git diff HEAD
-#                * diff:<commit_hash> : coverage of git diff commit_hash
-#   $src_path  directory path for coverage source files
-#   $llvm_path directory for llvm coverage binaries
-#   $format    format for coverage report which is of the form:
-#                * text : text format
-#                * html : html format
+#   $dir        basedir, normally the build directory
+#   $scope      coverage option which is of the form:
+#                 * full : complete code coverage
+#                 * diff : coverage of the git diff HEAD
+#                 * diff:<commit_hash> : coverage of git diff commit_hash
+#   $src_path   directory path for coverage source files
+#   $llvm_path  directory for llvm coverage binaries
+#   $format     format for coverage report which is of the form:
+#                 * text : text format
+#                 * html : html format
+#   $src_filter src filter directories
 sub coverage_prepare($$) {
-  my ($dir, $scope, $src_path, $llvm_path, $format) = @_;
+  my ($dir, $scope, $src_path, $llvm_path, $format, $src_filter) = @_;
 
   print "Purging coverage information from '$dir'...\n";
   system("find $dir -name \"code\*.profraw\" | xargs rm");
@@ -107,6 +108,22 @@ sub coverage_prepare($$) {
   }
 
   $_[4] = $format;
+
+  # process "--coverage-src-filter" arguments
+  $src_filter =~ s/^\s+//g;
+  my @filter_arr = split(/ /, $src_filter);
+  my $final_src_filter="";
+  my $f;
+  foreach $f (@filter_arr) {
+    my $filter_path = coverage_extract_option($f, "=", "coverage-src-filter");
+    if (length($final_src_filter) > 0) {
+        $final_src_filter .= ",";
+    }
+    $final_src_filter .= $filter_path;
+  }
+
+  # Update the coverage src filter
+  $_[5] = $final_src_filter;
 }
 
 # Get the files modified by a git diff
@@ -146,8 +163,11 @@ sub coverage_get_diff_files ($$) {
 #  $format      format for coverage report which is of the form:
 #                 * text : text format
 #                 * html : html format
+#  $src_filter  src filter directories
+#  $cov_comand  coverage command issued (used for logging)
 sub coverage_collect ($$$) {
-  my ($test_dir, $binary_path, $scope, $src_path, $llvm_path, $format) = @_;
+  my ($test_dir, $binary_path, $scope, $src_path, $llvm_path, $format,
+      $src_filter, $cov_command) = @_;
 
   my $files_modified=""; # list of files modified concatenated into one string
 
@@ -155,11 +175,8 @@ sub coverage_collect ($$$) {
     $files_modified = coverage_get_diff_files($src_path, $scope);
   }
 
-  print "Generating coverage information";
-  if ($scope eq "full") {
-    print "for complete source code ";
-  }
-  else {
+  print "Generating coverage information ";
+  if (length($files_modified) > 0) {
     print "for git commit hash $scope";
     if ($scope eq "HEAD") {
       # command to extract git commit hash of 'HEAD'
@@ -169,6 +186,18 @@ sub coverage_collect ($$$) {
       chomp($head_commit_hash);
       print " ($head_commit_hash)";
     }
+  }
+  elsif (length($src_filter) > 0) {
+    my @dir_paths = $src_filter =~ /,/g;
+    my $num_dirs = @dir_paths+1;
+    my $dir_str = "directory";
+    if ($num_dirs > 1) {
+        $dir_str = "directories";
+    }
+    print "for source files in $dir_str: $src_filter";
+  }
+  else {
+    print "for complete source code ";
   }
   print " ...\n";
 
@@ -184,6 +213,11 @@ sub coverage_collect ($$$) {
 
   my $create_link_cmd = "ln -s $result_dir $test_dir/reports/last";
   system($create_link_cmd);
+
+  # Log the command used for generating coverage in command.log
+  open(FP, ">$result_dir/command.log");
+  print FP "$cov_command\n";
+  close(FP);
 
   # Merge coverage reports using command
   # llvm-prof merge --output=file.profdata <list of code*.profraw>
@@ -203,7 +237,18 @@ sub coverage_collect ($$$) {
   # a specific git diff
   if (length($files_modified) > 0) {
       $generate_cov .= $files_modified;
+  } elsif (length($src_filter) > 0) {
+    # if files modified is empty then apply the coverage-src-filter
+    my @filter_paths = split(/,/, $src_filter);
+    my $single_filter;
+    foreach $single_filter (@filter_paths) {
+      my $find_cmd
+          = "`find $src_path/$single_filter -name \"*.cc\" -o -name \"*.h\"";
+      $find_cmd .= " -o -name \"*.c\" -o -name \"*.ic\"`";
+      $generate_cov .= " $find_cmd";
+    }
   }
+
   $generate_cov .= "--format $format"; # coverage report format
   $generate_cov .= " --output-dir=$result_dir 2>/dev/null";
   system($generate_cov);

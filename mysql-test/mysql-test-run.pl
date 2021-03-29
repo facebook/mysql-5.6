@@ -344,11 +344,13 @@ our %mysqld_variables;
 my $source_dist= 0;
 my $new_test_option = 0; # is '--new-tests' option specified
 
+my $full_command = ""; # full test coverage command. Used for coverage logging.
 my $coverage_on        = 0; # is coverage mode specified?
 my $coverage_scope     = "--coverage-scope=full"; # default coverage option
 my $coverage_src_path  = ""; # directory path for coverage source files
 my $coverage_llvm_path = ""; # directory path for llvm coverage binaries
 my $coverage_format    = "--coverage-format=text"; # default coverage format
+my $coverage_src_filter = ""; # default coverage src filter
 
 my $opt_max_save_core= env_or_val(MTR_MAX_SAVE_CORE => 5);
 my $opt_max_save_datadir= env_or_val(MTR_MAX_SAVE_DATADIR => 20);
@@ -365,6 +367,9 @@ main();
 sub main {
   # Default, verbosity on
   report_option('verbose', 0);
+
+  # Store the full mysqltest command. Used for coverage logging.
+  $full_command = $0." ".join(" ", @ARGV);
 
   # This is needed for test log evaluation in "gen-build-status-page"
   # in all cases where the calling tool does not log the commands
@@ -392,7 +397,8 @@ sub main {
   # Prepare to collect code coverage information
   if ($coverage_on) {
     coverage_prepare($basedir, $coverage_scope, $coverage_src_path,
-                     $coverage_llvm_path, $coverage_format);
+                     $coverage_llvm_path, $coverage_format,
+                     $coverage_src_filter);
   }
 
   if (!$opt_suites) {
@@ -620,7 +626,7 @@ sub main {
     }
     coverage_collect($bindir, find_mysqld($basedir), $coverage_scope,
                      $coverage_src_path, $coverage_llvm_path,
-                     $coverage_format);
+                     $coverage_format, $coverage_src_filter, $full_command);
   }
 
   if ($ctest_report) {
@@ -1487,6 +1493,16 @@ sub command_line_setup {
         exit(1);
       }
       $coverage_format = $arg;
+    }
+    elsif ( $arg =~ /^--coverage-src-filter=/)
+    {
+      # coverage src filter
+      if (!$coverage_on) {
+        print "**** ERROR **** ",
+              "Option $arg is specified without --coverage\n";
+        exit(1);
+      }
+      $coverage_src_filter .= " $arg";
     }
     elsif ( $arg eq "--new-tests")
     {
