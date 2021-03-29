@@ -187,3 +187,5 @@ call bloom_start();
 select count(*) from t2 force index (id3_id5) where id3='240' and id5=1200;
 call bloom_end();
 
+--remove_file $MYSQL_TMP_DIR/insert_t1.sql
+--remove_file $MYSQL_TMP_DIR/insert_t2.sql
