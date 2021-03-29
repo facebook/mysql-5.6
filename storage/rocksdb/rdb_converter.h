@@ -206,11 +206,11 @@ class Rdb_converter {
     return &m_decoders_vect;
   }
 
+ private:
   int decode_value_header_for_pk(Rdb_string_reader *reader,
                                  const std::shared_ptr<Rdb_key_def> &pk_def,
                                  rocksdb::Slice *unpack_slice);
 
- private:
   void setup_field_encoders();
 
   void get_storage_type(Rdb_field_encoder *const encoder, const uint kp);
