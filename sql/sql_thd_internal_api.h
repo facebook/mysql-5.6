@@ -310,4 +310,11 @@ const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key);
 const std::string &thd_get_connection_attr(THD *thd,
                                            const std::string &cattr_key);
 
+/**
+  Invoke yield_cond.
+
+  @return true if should yield, false otherwise.
+*/
+bool thd_yield_cond(THD *thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

@@ -56,7 +56,7 @@
 class THD;
 #define MYSQL_THD THD *
 
-/*
+/**
   One should only report wait events that could potentially block for a
   long time. A mutex wait is too short of an event to report. The reason
   is that an event which is reported leads to a new thread starts
@@ -69,9 +69,13 @@ class THD;
   holds true for global read locks, table locks and other meta data locks.
   Another event of interest is going to sleep for an extended time.
 
-  Note that user-level locks no longer use THD_WAIT_USER_LOCK wait type.
+  @note User-level locks no longer use THD_WAIT_USER_LOCK wait type.
   Since their implementation relies on metadata locks manager it uses
   THD_WAIT_META_DATA_LOCK instead.
+
+  @note THD_WAIT_ADMIT is a fake wait type communicating that query has been
+  parsed and is ready for execution. The query attributes and sql command
+  are available at this point.
 */
 typedef enum _thd_wait_type_e {
   THD_WAIT_SLEEP = 1,
@@ -80,14 +84,15 @@ typedef enum _thd_wait_type_e {
   THD_WAIT_GLOBAL_LOCK = 4,
   THD_WAIT_META_DATA_LOCK = 5,
   THD_WAIT_TABLE_LOCK = 6,
-  THD_WAIT_USER_LOCK = 7,
+  THD_WAIT_INNODB_CONC = 7,
   THD_WAIT_BINLOG = 8,
   THD_WAIT_GROUP_COMMIT = 9,
   THD_WAIT_SYNC = 10,
   THD_WAIT_FOR_HLC = 11,
   THD_WAIT_NET_IO = 12,
   THD_WAIT_YIELD = 13,
-  THD_WAIT_LAST = 14
+  THD_WAIT_ADMIT = 14,
+  THD_WAIT_LAST = 15
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {
