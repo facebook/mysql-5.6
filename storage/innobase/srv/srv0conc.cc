@@ -167,7 +167,7 @@ static void srv_conc_enter_innodb_with_atomics(
     if (!notified_mysql) {
       (void)os_atomic_increment_lint(&srv_conc.n_waiting, 1);
 
-      thd_wait_begin(trx->mysql_thd, THD_WAIT_USER_LOCK);
+      thd_wait_begin(trx->mysql_thd, THD_WAIT_INNODB_CONC);
 
       notified_mysql = TRUE;
     }

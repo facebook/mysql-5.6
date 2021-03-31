@@ -1,0 +1,160 @@
+create database test_db;
+create database test_db2;
+create user 'test_user'@'localhost';
+grant all on test_db.* to 'test_user'@'localhost';
+grant all on test_db2.* to 'test_user'@'localhost';
+grant all on test.* to 'test_user'@'localhost';
+use test_db2;
+use test_db;
+set @start_max_running_queries= @@global.thread_pool_max_running_queries;
+set @start_max_waiting_queries= @@global.thread_pool_max_waiting_queries;
+set @@global.thread_pool_max_running_queries=10;
+set @@global.thread_pool_max_waiting_queries=5;
+create table t1(a int) engine=InnoDB;
+lock table t1 write;
+Threads waiting for admission will have appropriate state set in processlist.
+Super user is exempted from admission control checks.
+select * from t1;
+a
+set @@global.thread_pool_admission_control_filter = 'USE';
+select @@global.thread_pool_admission_control_filter;
+@@global.thread_pool_admission_control_filter
+USE
+Maximum waiting queries reached. So this would hit an error.
+use test_db;
+select * from t1||||
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+Maximum waiting queries reached. So this would hit an error.
+use test_db2;
+create table t1_test(aaa int);
+insert into t1_test values (1);
+select aaa from t1_test;
+drop table t1_test;
+use test_db;
+select * from t1||||
+aaa
+1
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+use test_db;
+select * from t1;
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+set @@global.thread_pool_admission_control_filter = '';
+select @@global.thread_pool_admission_control_filter;
+@@global.thread_pool_admission_control_filter
+
+Check status variables
+aborted_queries = 3
+running_queries = 10
+waiting_queries = 5
+select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	5	10	3	0	15	0
+test_db2	0	0	0	0	0	0
+Filled up queues on one db doesn't affect queries on other db.
+use test_db2;
+select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	5	10	3	0	15	0
+test_db2	0	1	0	0	1	0
+set @@global.thread_pool_max_waiting_queries=6;
+Kill a thread that is waiting for admission.
+select count(*) from t1;
+kill ID;
+use test_db;
+unlock tables;
+Verify the waiting queries received wakeup signal.
+select count(*) from t1;
+count(*)
+15
+set @save_admission_control_by_trx = @@global.thread_pool_admission_control_by_trx;
+select @save_admission_control_by_trx;
+@save_admission_control_by_trx
+0
+set @@global.thread_pool_max_running_queries=5;
+set @@global.thread_pool_max_waiting_queries=10;
+# By default, open transaction has no effect on running queries
+select count(*) from t1;
+count(*)
+15
+# Test: open transactions will take slots in running queries,
+#       and will not be blocked
+set @@global.thread_pool_admission_control_filter = 'BEGIN,COMMIT,ROLLBACK';
+select @@global.thread_pool_admission_control_filter;
+@@global.thread_pool_admission_control_filter
+BEGIN,COMMIT,ROLLBACK
+set @@global.thread_pool_admission_control_by_trx = true;
+SELECT @@global.thread_pool_admission_control_by_trx;
+@@global.thread_pool_admission_control_by_trx
+1
+Open transaction is able to continue running queries
+connection con_max_wait;
+New queries will be rejected (waiting queue is full)
+select * from t1;
+ERROR HY000: Maximum waiting queries 10 reached for database `test_db`
+New transactions will be rejected (waiting queue is full)
+begin;
+select * from t1;
+ERROR HY000: Maximum waiting queries 10 reached for database `test_db`
+aborted_queries will increase by 2
+Committing a transaction will free up the running query slots
+The waiting queries will be unblocked
+Check status variables
+include/assert.inc [DB Admission control waiting queries should be zero]
+include/assert.inc [DB Admission control running queries should be zero]
+include/assert.inc [DB Admission control aborted queries should be five]
+select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	0	0	5	0	13	0
+test_db2	0	0	0	0	0	0
+set @@global.thread_pool_admission_control_by_trx = @save_admission_control_by_trx;
+select @@global.thread_pool_admission_control_by_trx;
+@@global.thread_pool_admission_control_by_trx
+0
+set @@global.thread_pool_admission_control_filter = '';
+select @@global.thread_pool_admission_control_filter;
+@@global.thread_pool_admission_control_filter
+
+# End of open transaction test
+# Test admission_control_queue_timeout
+use test_db;
+set @@global.thread_pool_max_running_queries=1;
+set @@global.thread_pool_max_waiting_queries=5;
+set @save_admission_control_filter = @@global.thread_pool_admission_control_filter;
+set @save_admission_control_queue_timeout = @@global.thread_pool_admission_control_queue_timeout;
+set @@global.thread_pool_admission_control_queue_timeout = 100;
+set @@global.thread_pool_admission_control_filter = 'BEGIN,COMMIT,ROLLBACK';
+create table t2(a int primary key) engine=InnoDB;
+begin;
+insert into t2 values (1);
+begin;
+insert into t2 values (1);
+insert into t2 values (2);
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+rollback;
+rollback;
+drop table t2;
+set @@global.thread_pool_admission_control_filter = @save_admission_control_filter;
+set @@global.thread_pool_admission_control_queue_timeout = @save_admission_control_queue_timeout;
+timeout_queries should be 1
+timeout_queries = 1
+waiting_queries should be 0
+waiting_queries = 0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	0	0	5	1	15	0
+test_db2	0	0	0	0	0	0
+reset global.thread_pool_max_running_queries and global.thread_pool_max_waiting_queries
+set @@global.thread_pool_max_running_queries=10;
+set @@global.thread_pool_max_waiting_queries=5;
+Run parallel load and drop the database.
+set @@global.thread_pool_max_waiting_queries=0;
+Cleanup.
+Verify there are no waiting threads.
+select count(*) from information_schema.processlist where state='waiting for admission';
+count(*)
+0
+select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+set @@global.thread_pool_max_running_queries=@start_max_running_queries;
+set @@global.thread_pool_max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;
