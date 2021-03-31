@@ -156,6 +156,38 @@ select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from
 less_than_1_sec_old_most_recent_stats
 1
 ########################################################################################################
+### Case 3.6: Test for 8.0.20 crashes. Make sure secondary does not crash when slave_compressed_protocol = 1 
+########################################################################################################
+set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+sleep(2)
+0
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+stats_samples_collected
+1
+include/stop_slave.inc
+set @@GLOBAL.slave_compressed_protocol=1;
+include/start_slave.inc
+select sleep(2);
+sleep(2)
+0
+select 1;
+1
+1
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+1
+create table t(a int) engine=innodb;
+insert into t values(1);
+drop table t;
+include/stop_slave.inc
+set @@GLOBAL.slave_compressed_protocol=0;
+include/start_slave.inc
+########################################################################################################
 ### Case 4: Promote slave to master and master to slave. Old master(new slave) should be able to send
 ### stats to new master(old slave)
 ########################################################################################################
