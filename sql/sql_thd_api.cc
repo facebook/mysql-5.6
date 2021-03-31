@@ -629,25 +629,6 @@ void *thd_memdup(MYSQL_THD thd, const void *str, size_t size) {
 //
 //////////////////////////////////////////////////////////
 
-static bool filter_wait_type(int wait_type) {
-  switch (wait_type) {
-    case THD_WAIT_SLEEP:
-      return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_SLEEP;
-    case THD_WAIT_ROW_LOCK:
-      return admission_control_wait_events &
-             ADMISSION_CONTROL_THD_WAIT_ROW_LOCK;
-    case THD_WAIT_META_DATA_LOCK:
-      return admission_control_wait_events &
-             ADMISSION_CONTROL_THD_WAIT_META_DATA_LOCK;
-    case THD_WAIT_NET_IO:
-      return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_NET_IO;
-    case THD_WAIT_YIELD:
-      return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_YIELD;
-    default:
-      return false;
-  }
-}
-
 /**
   Interface for MySQL Server, plugins and storage engines to report
   when they are going to sleep/stall.
@@ -667,14 +648,8 @@ static bool filter_wait_type(int wait_type) {
                    to preserve compatibility with exported service api.
 */
 void thd_wait_begin(MYSQL_THD thd, int wait_type) {
-  if (thd && thd->is_in_ac && filter_wait_type(wait_type)) {
-    multi_tenancy_exit_query(thd);
-    // For explicit yields, we want to send the query to the back of the queue
-    // to allow for other queries to run. For other yields, it's likely we
-    // want to finish the query as soon as possible.
-    thd->readmission_mode = (wait_type == THD_WAIT_YIELD)
-                                ? AC_REQUEST_QUERY_READMIT_LOPRI
-                                : AC_REQUEST_QUERY_READMIT_HIPRI;
+  if (thd) {
+    thd->wait_begin(wait_type);
   }
 
   MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_begin,
@@ -697,13 +672,9 @@ void thd_wait_begin(MYSQL_THD thd, int wait_type) {
 void thd_wait_end(MYSQL_THD thd) {
   MYSQL_CALLBACK(Connection_handler_manager::event_functions, thd_wait_end,
                  (thd));
-  if (thd && thd->readmission_mode > AC_REQUEST_NONE) {
-    if (++thd->readmission_count % 1000 == 0) {
-      thd->readmission_mode = AC_REQUEST_QUERY_READMIT_LOPRI;
-    }
 
-    multi_tenancy_admit_query(thd, thd->readmission_mode);
-    thd->readmission_mode = AC_REQUEST_NONE;
+  if (thd) {
+    thd->wait_end();
   }
 }
 

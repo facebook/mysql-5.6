@@ -339,6 +339,8 @@ static bool WriteRowsToChunks(
       return true;
     }
 
+    thd->check_yield();
+
     if (res == -1) {
       return false;  // EOF; success.
     }
@@ -457,6 +459,8 @@ bool HashJoinIterator::BuildHashTable() {
              thd()->killed);  // my_error should have been called.
       return true;
     }
+
+    thd()->check_yield();
 
     if (res == -1) {
       m_build_iterator_has_more_rows = false;

@@ -1780,6 +1780,8 @@ bool Query_expression::ExecuteIteratorQuery(THD *thd) {
         return true;
       }
 
+      thd->check_yield();
+
       ++*send_records_ptr;
 
       if (query_result->send_data(thd, *fields)) {

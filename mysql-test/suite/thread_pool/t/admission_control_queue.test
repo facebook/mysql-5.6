@@ -1,0 +1,221 @@
+--source include/have_thread_pool_plugin.inc
+
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+grant all on test.* to test_user@localhost;
+use test_db;
+
+--let $ac_entities_query=select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%'
+
+set @save_max_running_queries = @@thread_pool_max_running_queries;
+set @save_max_waiting_queries = @@thread_pool_max_waiting_queries;
+set @save_admission_control_weights = @@thread_pool_admission_control_weights;
+
+set global thread_pool_max_running_queries = 5;
+set global thread_pool_max_waiting_queries = 2000;
+
+--source include/count_sessions.inc
+
+--echo #
+--echo # Test admission_control_queue variable works
+--echo #
+
+select GET_LOCK('lock1', -1);
+
+--connect (con1,localhost,test_user,,test_db)
+--send select GET_LOCK('lock1', -1)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.tp_admission_control_queue
+    where schema_name = "test_db" and queue_id = 0 and waiting_queries = 0 and running_queries = 1;
+--source include/wait_condition.inc
+--eval $ac_entities_query
+select * from information_schema.tp_admission_control_queue;
+
+select RELEASE_LOCK('lock1');
+
+let $wait_condition =
+  select count(*) = 0 from information_schema.tp_admission_control_queue;
+--source include/wait_condition.inc
+--eval $ac_entities_query
+select * from information_schema.tp_admission_control_queue;
+
+--connection con1
+--reap
+
+--connection default
+--disconnect con1
+
+--echo #
+--echo # Test connection attribute overrides
+--echo #
+
+select GET_LOCK('lock1', -1);
+
+--connect (con1,localhost,test_user,,test_db)
+conn_attrs_add @@admission_control_queue 1;
+# change user command to re-send connection attributes
+change_user test_user;
+use test_db;
+
+--send select GET_LOCK('lock1', -1)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.tp_admission_control_queue
+    where schema_name = "test_db" and queue_id = 1 and waiting_queries = 0 and running_queries = 1;
+--source include/wait_condition.inc
+--eval $ac_entities_query
+select * from information_schema.tp_admission_control_queue;
+
+select RELEASE_LOCK('lock1');
+
+let $wait_condition =
+  select count(*) = 0 from information_schema.tp_admission_control_queue;
+--source include/wait_condition.inc
+select * from information_schema.tp_admission_control_queue;
+
+--connection con1
+--reap
+
+--connection default
+--disconnect con1
+
+--echo #
+--echo # Test connection and query attribute overrides
+--echo #
+
+select GET_LOCK('lock1', -1);
+
+--connect (con1,localhost,test_user,,test_db)
+conn_attrs_add @@admission_control_queue 1;
+# change user command to re-send connection attributes
+change_user test_user;
+use test_db;
+
+query_attrs_add @@admission_control_queue 2;
+--send select GET_LOCK('lock1', -1)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.tp_admission_control_queue
+    where schema_name = "test_db" and queue_id = 2 and waiting_queries = 0 and running_queries = 1;
+--source include/wait_condition.inc
+--eval $ac_entities_query
+select * from information_schema.tp_admission_control_queue;
+
+select RELEASE_LOCK('lock1');
+
+let $wait_condition =
+  select count(*) = 0 from information_schema.tp_admission_control_queue;
+--source include/wait_condition.inc
+--eval $ac_entities_query
+select * from information_schema.tp_admission_control_queue;
+
+--connection con1
+--reap
+
+--connection default
+--disconnect con1
+
+--echo #
+--echo # Test weights (2,3) on queue 1,2
+--echo #
+
+--connection default
+set global thread_pool_admission_control_weights = "1,2,3";
+select GET_LOCK('lock1', -1);
+
+# We need a different connnection for the second lock, because GET_LOCK will
+# unlock any previously locked locks in 5.6. This has been fixed in 5.7.
+connect (con_lock,localhost,root,,test_db);
+select GET_LOCK('lock2', -1);
+
+--echo # Set up 5 running queries
+let $i = 5;
+while ($i) {
+  connect (conA$i,localhost,test_user,,test_db);
+  --send select GET_LOCK('lock1', -1)
+  dec $i;
+}
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.tp_admission_control_queue
+    where schema_name = "test_db" and queue_id = 0 and waiting_queries = 0 and running_queries = 5;
+--source include/wait_condition.inc
+--eval $ac_entities_query
+select * from information_schema.tp_admission_control_queue;
+
+--echo # Set up 5 waiting queries each for queue 1 and 2
+let $i = 5;
+while ($i) {
+  connect (conB$i,localhost,test_user,,test_db);
+  query_attrs_add @@admission_control_queue 1;
+  --send select GET_LOCK('lock2', -1)
+  dec $i;
+}
+
+let $i = 5;
+while ($i) {
+  connect (conC$i,localhost,test_user,,test_db);
+  query_attrs_add @@admission_control_queue 2;
+  --send select GET_LOCK('lock2', -1)
+  dec $i;
+}
+
+--echo # Check that 10 queries are waiting
+--connection default
+let $wait_condition =
+  select sum(waiting_queries) = 10 from information_schema.tp_admission_control_queue
+    where schema_name = "test_db" and queue_id in (1, 2);
+--source include/wait_condition.inc
+--eval $ac_entities_query
+select * from information_schema.tp_admission_control_queue;
+
+--connection default
+select RELEASE_LOCK('lock1');
+let $i = 5;
+while ($i) {
+  disconnect conA$i;
+  dec $i;
+}
+
+--echo # Check that 5 of the 10 queries are now scheduled with 2-3 ratio.
+--connection default
+let $wait_condition =
+  select sum(running_queries) = 5 from information_schema.tp_admission_control_queue
+    where schema_name = "test_db" and queue_id in (1, 2);
+--source include/wait_condition.inc
+--eval $ac_entities_query
+select * from information_schema.tp_admission_control_queue;
+
+--echo # Cleanup
+--connection con_lock
+select RELEASE_LOCK('lock2');
+
+let $i = 5;
+while ($i) {
+  disconnect conB$i;
+  dec $i;
+}
+
+let $i = 5;
+while ($i) {
+  disconnect conC$i;
+  dec $i;
+}
+
+disconnect con_lock;
+--connection default
+
+--source include/wait_until_count_sessions.inc
+
+set global thread_pool_max_running_queries = @save_max_running_queries;
+set global thread_pool_max_waiting_queries = @save_max_waiting_queries;
+set global thread_pool_admission_control_weights = @save_admission_control_weights; 
+
+drop database test_db;
+drop user test_user@localhost;

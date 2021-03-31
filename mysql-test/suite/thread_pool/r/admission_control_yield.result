@@ -1,0 +1,101 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+use test_db;
+set @save_max_running_queries = @@thread_pool_max_running_queries;
+set @save_max_waiting_queries = @@thread_pool_max_waiting_queries;
+set @save_admission_control_wait_events = @@thread_pool_admission_control_wait_events;
+set @save_admission_control_filter = @@thread_pool_admission_control_filter;
+set @save_admission_control_yield_freq = @@thread_pool_admission_control_yield_freq;
+set global thread_pool_max_running_queries = 1;
+set global thread_pool_max_waiting_queries = 2000;
+set global thread_pool_admission_control_filter = 'SET';
+set thread_pool_admission_control_queue_timeout = 5000;
+#
+# Test admission_control_wait_events = SLEEP
+#
+set global thread_pool_admission_control_wait_events = '';
+select SLEEP(1000000);
+select 1;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+SLEEP(1000000)
+1
+set global thread_pool_admission_control_wait_events = 'SLEEP';
+select SLEEP(1000000);
+select 1;
+1
+1
+SLEEP(1000000)
+1
+#
+# Test admission_control_wait_events = ROW_LOCK
+#
+set global thread_pool_admission_control_wait_events = '';
+create table t (i int primary key) engine=innodb;
+insert into t values (1);
+begin;
+select * from t where i = 1 for update;
+i
+1
+select * from t where i = 1 for update;;
+select 1;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+ERROR 70100: Query execution was interrupted
+set global thread_pool_admission_control_wait_events = 'ROW_LOCK';
+select * from t where i = 1 for update;;
+select 1;
+1
+1
+rollback;
+drop table t;
+ERROR 70100: Query execution was interrupted
+#
+# Test admission_control_wait_events = META_DATA_LOCK
+#
+set global thread_pool_admission_control_wait_events = '';
+select GET_LOCK('lock', -1);
+GET_LOCK('lock', -1)
+1
+select GET_LOCK('lock', -1);
+select 1;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+ERROR 70100: Query execution was interrupted
+set global thread_pool_admission_control_wait_events = 'META_DATA_LOCK';
+select GET_LOCK('lock', -1);
+select 1;
+1
+1
+select RELEASE_LOCK('lock');
+RELEASE_LOCK('lock')
+1
+ERROR 70100: Query execution was interrupted
+#
+# Test admission_control_wait_events = YIELD
+#
+set global thread_pool_admission_control_wait_events = '';
+create table t1 (i int primary key) engine=innodb;
+insert into t1 values (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
+create table t2 (i int primary key) engine=innodb;
+insert into t2 select a.i + 10 * b.i + 100 * c.i + 1000 * d.i from t1 a, t1 b, t1 c, t1 d;
+select * from t2 a, t2 b, t2 c, t2 d, t2 e, t2 f, t2 g, t2 h limit 10000000000, 1;;
+Timeout in wait_condition.inc for select count(*) = 1 from information_schema.processlist where state = 'Sending data'
+select 1;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+ERROR 70100: Query execution was interrupted
+set global thread_pool_admission_control_wait_events = 'YIELD';
+set global thread_pool_admission_control_yield_freq = 1;
+select * from t2 a, t2 b, t2 c, t2 d, t2 e, t2 f, t2 g, t2 h limit 10000000000, 1;;
+Timeout in wait_condition.inc for select count(*) = 1 from information_schema.processlist where state = 'Sending data'
+select 1;
+1
+1
+drop table t1;
+drop table t2;
+ERROR 70100: Query execution was interrupted
+set global thread_pool_max_running_queries = @save_max_running_queries;
+set global thread_pool_max_waiting_queries = @save_max_waiting_queries;
+set global thread_pool_admission_control_wait_events = @save_admission_control_wait_events;
+set global thread_pool_admission_control_filter = @save_admission_control_filter;
+set global thread_pool_admission_control_yield_freq = @save_admission_control_yield_freq;
+drop database test_db;
+drop user test_user@localhost;

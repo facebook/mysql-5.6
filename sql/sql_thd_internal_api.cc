@@ -644,3 +644,10 @@ bool release_saved_thd_resource_group(void **saved_resource_grp,
                                   saved_resource_grp_version);
   return false;
 }
+
+/**
+  Invoke yield_cond.
+
+  @return true if should yield, false otherwise.
+*/
+bool thd_yield_cond(THD *thd) { return !thd->yield_cond || thd->yield_cond(); }

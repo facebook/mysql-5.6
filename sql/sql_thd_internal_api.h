@@ -389,4 +389,12 @@ bool unbind_system_thread_from_thd_resource_group(
 bool release_saved_thd_resource_group(void **saved_thd_resource_grp,
                                       uint *saved_thd_resource_group_version,
                                       bool only_if_defunct);
+
+/**
+  Invoke yield_cond.
+
+  @return true if should yield, false otherwise.
+*/
+bool thd_yield_cond(THD *thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

@@ -166,7 +166,7 @@ static dberr_t srv_conc_enter_innodb_with_atomics(
     if (!notified_mysql) {
       srv_conc.n_waiting.fetch_add(1, std::memory_order_relaxed);
 
-      thd_wait_begin(trx->mysql_thd, THD_WAIT_USER_LOCK);
+      thd_wait_begin(trx->mysql_thd, THD_WAIT_INNODB_CONC);
 
       notified_mysql = true;
     }

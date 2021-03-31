@@ -2823,7 +2823,7 @@ void handler::ha_statistic_increment(
     ulonglong System_status_var::*offset) const {
   if (table && table->in_use) {
     (table->in_use->status_var.*offset)++;
-    table->in_use->check_yield(std::bind(yield_condition, table));
+    table->in_use->check_yield([t = table] { return yield_condition(t); });
   }
 }
 
@@ -6441,7 +6441,7 @@ ha_rows handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   while (!seq->next(seq_it, &range)) {
     if (unlikely(thd->killed != 0)) return HA_POS_ERROR;
 
-    thd->check_yield(std::bind(yield_condition, table));
+    thd->check_yield([t = table] { return yield_condition(t); });
 
     n_ranges++;
     key_range *min_endp, *max_endp;
