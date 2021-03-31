@@ -1,0 +1,446 @@
+--source include/have_thread_pool_plugin.inc
+
+--source include/count_sessions.inc
+create database test_db;
+create database test_db2;
+create user 'test_user'@'localhost';
+grant all on test_db.* to 'test_user'@'localhost';
+grant all on test_db2.* to 'test_user'@'localhost';
+grant all on test.* to 'test_user'@'localhost';
+
+let $start_aborted_queries = query_get_value(show global status like "Thread_pool_admission_control_aborted_queries", Value, 1);
+let $start_running_queries = query_get_value(show global status like "Thread_pool_admission_control_running_queries", Value, 1);
+let $start_waiting_queries = query_get_value(show global status like "Thread_pool_admission_control_waiting_queries", Value, 1);
+
+let $ac_entities_query=select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+
+connection default;
+use test_db2;
+use test_db;
+set @start_max_running_queries= @@global.thread_pool_max_running_queries;
+set @start_max_waiting_queries= @@global.thread_pool_max_waiting_queries;
+set @@global.thread_pool_max_running_queries=10;
+set @@global.thread_pool_max_waiting_queries=5;
+create table t1(a int) engine=InnoDB;
+
+# Write lock here ensures the insert queries will block on row lock and be
+# in running queue until unlock tables is executed.
+lock table t1 write;
+
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test_db);
+  dec $i;
+}
+let $i= 10;
+while($i)
+{
+  connection con$i;
+  # These queries will be in running queue
+  send insert into t1 values(1);
+  dec $i;
+}
+let $i= 15;
+while ($i != 10)
+{
+  # These queries will be in waiting queue
+  connection con$i;
+  send insert into t1 values(1);
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+--echo Threads waiting for admission will have appropriate state set in processlist.
+let $wait_condition=
+  select count(*)=5 from information_schema.processlist where state='waiting for admission';
+source include/wait_condition.inc;
+--echo Super user is exempted from admission control checks.
+select * from t1;
+
+# set filter to bypass USE statement
+--let $saved_admission_control_filter = `SELECT @@global.thread_pool_admission_control_filter`
+set @@global.thread_pool_admission_control_filter = 'USE';
+select @@global.thread_pool_admission_control_filter;
+
+# Test failure case
+# Default db is intentionally not set when creating the connection
+connect (con_max_wait, localhost, test_user,,);
+connection con_max_wait;
+
+# Test multi-statement packet with use statement.
+delimiter ||||;
+--echo Maximum waiting queries reached. So this would hit an error.
+--error ER_DB_ADMISSION_CONTROL
+# switch the session's default db to test_db, which (the use statement) should
+# be bypassed in admission control. The select statement will fail.
+use test_db;
+select * from t1||||
+
+# Query will only fail on test_db, but not on test_db2
+--echo Maximum waiting queries reached. So this would hit an error.
+--error ER_DB_ADMISSION_CONTROL
+use test_db2;
+create table t1_test(aaa int);
+insert into t1_test values (1);
+select aaa from t1_test;
+drop table t1_test;
+use test_db;
+select * from t1||||
+
+delimiter ;||||
+
+# USE is ok
+use test_db;
+
+# Single statement
+--error ER_DB_ADMISSION_CONTROL
+select * from t1;
+
+disconnect con_max_wait;
+
+connection default;
+# reset admission_control_filter
+--eval set @@global.thread_pool_admission_control_filter = '$saved_admission_control_filter'
+select @@global.thread_pool_admission_control_filter;
+
+--echo Check status variables
+let $aborted_queries = query_get_value(show global status like "Thread_pool_admission_control_aborted_queries", Value, 1);
+let $running_queries = query_get_value(show global status like "Thread_pool_admission_control_running_queries", Value, 1);
+let $waiting_queries = query_get_value(show global status like "Thread_pool_admission_control_waiting_queries", Value, 1);
+let $aborted_queries = `select $aborted_queries - $start_aborted_queries`;
+let $running_queries = `select $running_queries - $start_running_queries`;
+let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
+--echo aborted_queries = $aborted_queries
+--echo running_queries = $running_queries
+--echo waiting_queries = $waiting_queries
+eval $ac_entities_query;
+
+--echo Filled up queues on one db doesn't affect queries on other db.
+connect (con_test, localhost, test_user,,test_db2);
+connection con_test;
+use test_db2;
+eval $ac_entities_query;
+disconnect con_test;
+
+connection default;
+set @@global.thread_pool_max_waiting_queries=6;
+
+--echo Kill a thread that is waiting for admission.
+connect (killed_connection, localhost, test_user,,test_db);
+connection killed_connection;
+send select count(*) from t1;
+connection default;
+# Need to first wait for the state in processlist, otherwise we run the risk
+# of a race condition and test will fail because $id would be empty.
+let $wait_timeout= 300;
+let $wait_condition=
+  select count(*) = 1 from information_schema.processlist where state='waiting for admission' and info='select count(*) from t1';
+source include/wait_condition.inc;
+let $id=
+  `select id from information_schema.processlist where state='waiting for admission' and info='select count(*) from t1'`;
+--replace_result $id ID
+eval kill $id;
+disconnect killed_connection;
+
+# Insert queries sent above will be unblocked by this.
+use test_db;
+unlock tables;
+
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while ($i)
+{
+  connection con$i;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+connection default;
+--echo Verify the waiting queries received wakeup signal.
+select count(*) from t1;
+
+set @save_admission_control_by_trx = @@global.thread_pool_admission_control_by_trx;
+select @save_admission_control_by_trx;
+set @@global.thread_pool_max_running_queries=5;
+set @@global.thread_pool_max_waiting_queries=10;
+--echo # By default, open transaction has no effect on running queries
+disable_query_log;
+disable_result_log;
+let $i= 5; # max_running_queries is 5
+while($i)
+{
+  connection con$i;
+  # 5 Open transactions
+  begin;
+  select count(*) from t1;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+# query will succeed
+connection con11;
+select count(*) from t1;
+
+--echo # Test: open transactions will take slots in running queries,
+--echo #       and will not be blocked
+connection default;
+--let $saved_admission_control_filter = `SELECT @@global.thread_pool_admission_control_filter`
+set @@global.thread_pool_admission_control_filter = 'BEGIN,COMMIT,ROLLBACK';
+select @@global.thread_pool_admission_control_filter;
+set @@global.thread_pool_admission_control_by_trx = true;
+SELECT @@global.thread_pool_admission_control_by_trx;
+disable_query_log;
+disable_result_log;
+let $i= 5; # max_running_queries is 5
+while($i)
+{
+  connection con$i;
+  # Open transactions will take up slots in running queue
+  begin;
+  select count(*) from t1;
+  dec $i;
+}
+let $i= 15; # max_waiting_queries is 10
+while ($i != 5)
+{
+  # These queries will be in waiting queue
+  connection con$i;
+  send select count(*) from t1;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+let $wait_timeout= 300;
+let $wait_condition=
+  select count(*)=10 from information_schema.processlist where state='waiting for admission';
+source include/wait_condition.inc;
+
+--echo Open transaction is able to continue running queries
+disable_query_log;
+disable_result_log;
+let $i= 5;
+while($i)
+{
+  connection con$i;
+  select count(*) from t1;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connect (con_max_wait, localhost, test_user,,test_db);
+--echo connection con_max_wait;
+connection con_max_wait;
+--echo New queries will be rejected (waiting queue is full)
+error ER_DB_ADMISSION_CONTROL;
+select * from t1;
+--echo New transactions will be rejected (waiting queue is full)
+begin;
+error ER_DB_ADMISSION_CONTROL;
+select * from t1;
+disconnect con_max_wait;
+--echo aborted_queries will increase by 2
+
+--echo Committing a transaction will free up the running query slots
+disable_query_log;
+let $i= 5;
+# commit con4 and con5
+while($i > 3)
+{
+  connection con$i;
+  commit;
+  dec $i;
+}
+# rollback con2 explicitly
+connection con2;
+rollback;
+# close con1 to rollback
+connection con1;
+disconnect con1;
+connection con3;
+# get connection id of con3
+let $con3_id = `select connection_id()`;
+# kill con3 to rollback
+connection default;
+eval kill $con3_id;
+enable_query_log;
+
+--echo The waiting queries will be unblocked
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while ($i != 5)
+{
+  connection con$i;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+let $wait_timeout= 300;
+
+# Total 15-2 = 13 test_user connections (con1 & con3 were closed)
+# wait for con1 and con3 to be killed or disconnected
+let $wait_condition=
+  select count(*)=13 from information_schema.processlist where user='test_user';
+source include/wait_condition.inc;
+
+# wait for all test_user connections becoming idle.
+let $wait_condition=
+  select count(*)=13 from information_schema.processlist where command='Sleep' and state='' and user='test_user';
+source include/wait_condition.inc;
+
+--echo Check status variables
+let $aborted_queries = query_get_value(show global status like "Thread_pool_admission_control_aborted_queries", Value, 1);
+let $running_queries = query_get_value(show global status like "Thread_pool_admission_control_running_queries", Value, 1);
+let $waiting_queries = query_get_value(show global status like "Thread_pool_admission_control_waiting_queries", Value, 1);
+let $aborted_queries = `select $aborted_queries - $start_aborted_queries`;
+let $running_queries = `select $running_queries - $start_running_queries`;
+let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
+
+--let $assert_text= DB Admission control waiting queries should be zero
+--let $assert_cond= $waiting_queries = 0
+--source include/assert.inc
+
+--let $assert_text= DB Admission control running queries should be zero
+--let $assert_cond= $running_queries = 0
+--source include/assert.inc
+
+--let $assert_text= DB Admission control aborted queries should be five
+--let $assert_cond= $aborted_queries = 5
+--source include/assert.inc
+
+eval $ac_entities_query;
+
+# restore admission_control_by_trx
+connection default;
+set @@global.thread_pool_admission_control_by_trx = @save_admission_control_by_trx;
+select @@global.thread_pool_admission_control_by_trx;
+# reset admission_control_filter
+--eval set @@global.thread_pool_admission_control_filter = '$saved_admission_control_filter'
+select @@global.thread_pool_admission_control_filter;
+# recreate con1 and con3
+disconnect con3;
+connect (con1, localhost, test_user,,test_db);
+connect (con3, localhost, test_user,,test_db);
+--echo # End of open transaction test
+
+--echo # Test admission_control_queue_timeout
+connection default;
+use test_db;
+set @@global.thread_pool_max_running_queries=1;
+set @@global.thread_pool_max_waiting_queries=5;
+
+set @save_admission_control_filter = @@global.thread_pool_admission_control_filter;
+set @save_admission_control_queue_timeout = @@global.thread_pool_admission_control_queue_timeout;
+set @@global.thread_pool_admission_control_queue_timeout = 100;
+set @@global.thread_pool_admission_control_filter = 'BEGIN,COMMIT,ROLLBACK';
+
+let $start_timeout_queries = query_get_value(show global status like "Thread_pool_admission_control_timeout_queries", Value, 1);
+
+create table t2(a int primary key) engine=InnoDB;
+
+connect (con_timeout1, localhost, test_user,,test_db);
+begin;
+insert into t2 values (1);
+
+connect (con_timeout2, localhost, test_user,,test_db);
+begin;
+send insert into t2 values (1);
+
+connection default;
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = "update" and info = "insert into t2 values (1)";
+--source include/wait_condition.inc
+
+connection con_timeout1;
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
+insert into t2 values (2);
+rollback;
+
+connection con_timeout2;
+reap;
+rollback;
+
+# Cleanup
+connection default;
+disconnect con_timeout1;
+disconnect con_timeout2;
+drop table t2;
+
+set @@global.thread_pool_admission_control_filter = @save_admission_control_filter;
+set @@global.thread_pool_admission_control_queue_timeout = @save_admission_control_queue_timeout;
+
+# Verify counters
+let $timeout_queries = query_get_value(show global status like "Thread_pool_admission_control_timeout_queries", Value, 1);
+let $timeout_queries = `select $timeout_queries - $start_timeout_queries`;
+--echo timeout_queries should be 1
+--echo timeout_queries = $timeout_queries
+let $waiting_queries = query_get_value(show global status like "Thread_pool_admission_control_waiting_queries", Value, 1);
+--echo waiting_queries should be 0
+--echo waiting_queries = $waiting_queries
+eval $ac_entities_query;
+
+connection default;
+--echo reset global.thread_pool_max_running_queries and global.thread_pool_max_waiting_queries
+set @@global.thread_pool_max_running_queries=10;
+set @@global.thread_pool_max_waiting_queries=5;
+--echo Run parallel load and drop the database.
+# Verify the waiting queries will receive the signal from DROP DATABASE
+# and exit with appropriate error ER_NO_SUCH_TABLE. max_waiting_queries=0
+# is used to not have a limit on number of waiting queries.
+set @@global.thread_pool_max_waiting_queries=0; # No limit on waiting queue.
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while($i)
+{
+  connection con$i;
+  # 10 queries (max_running_queries is 10) will be in running queue.
+  # Using sleep(10) in the insert ensures some queries end up in waiting queue.
+  send insert into t1(select sleep(10));
+  dec $i;
+}
+connection default;
+drop database test_db;
+drop database test_db2;
+let $i= 15;
+while($i)
+{
+  connection con$i;
+  error 0,ER_BAD_DB_ERROR,ER_LOCK_DEADLOCK;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+--echo Cleanup.
+connection default;
+--echo Verify there are no waiting threads.
+select count(*) from information_schema.processlist where state='waiting for admission';
+eval $ac_entities_query;
+set @@global.thread_pool_max_running_queries=@start_max_running_queries;
+set @@global.thread_pool_max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+--source include/wait_until_count_sessions.inc

@@ -6,10 +6,9 @@ import argparse
 import random
 import threading
 import traceback
-from MySQLdb.constants import ER
 
 NUM_WORKERS = 50
-NUM_TRANSACTIONS = 2500
+NUM_TRANSACTIONS = 2000
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -64,7 +63,8 @@ def generate_load(args, worker_id):
         queue_id = worker_id % 2
         print("WORKER %d: Using queue %d" % (worker_id, queue_id))
         cursor = con.cursor()
-        cursor.execute('set admission_control_queue = %d;' % queue_id)
+        cursor.execute('set thread_pool_admission_control_queue = %d;' % \
+            queue_id)
         cursor.close()
 
     op = 1
@@ -124,12 +124,13 @@ def run_admin_checks(args):
                           port=args.port,
                           db=args.database)
     cursor=con.cursor()
-    cursor.execute("select @@global.max_running_queries")
+    cursor.execute("select @@global.thread_pool_max_running_queries")
     rows = cursor.fetchone()
     max_running_queries = int(rows[0])
     for i in range(NUM_TRANSACTIONS):
         cursor=con.cursor()
-        cursor.execute("show status like 'Database_admission_control_running_queries'")
+        cursor.execute("show status like " \
+            "'Thread_pool_admission_control_running_queries'")
         rows = cursor.fetchall()
         if int(rows[0][1]) > max_running_queries:
             raise Exception('Current running queries %s is more than ' \

@@ -362,3 +362,10 @@ const std::string &thd_get_connection_attr(THD *thd,
   /* return empty result */
   return emptyStr;
 }
+
+/**
+  Invoke yield_cond.
+
+  @return true if should yield, false otherwise.
+*/
+bool thd_yield_cond(THD *thd) { return !thd->yield_cond || thd->yield_cond(); }
