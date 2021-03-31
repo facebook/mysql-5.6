@@ -56,9 +56,9 @@ struct compression_attributes {
 };
 
 typedef struct NET_SERVER {
-  before_header_callback_fn m_before_header;
-  after_header_callback_fn m_after_header;
-  void *m_user_data;
+  before_header_callback_fn m_before_header{nullptr};
+  after_header_callback_fn m_after_header{nullptr};
+  void *m_user_data{nullptr};
   struct compression_attributes compression;
   mysql_compress_context compress_ctx;
   bool timeout_on_full_packet;
