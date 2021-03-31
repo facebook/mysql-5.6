@@ -161,6 +161,45 @@ select sleep(2);
 select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
 
 --echo ########################################################################################################
+--echo ### Case 3.6: Test for 8.0.20 crashes. Make sure secondary does not crash when slave_compressed_protocol = 1 
+--echo ########################################################################################################
+connection slave;
+set @@GLOBAL.write_stats_frequency=1;
+
+connection master;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+connection slave;
+-- source include/stop_slave.inc
+set @@GLOBAL.slave_compressed_protocol=1;
+-- source include/start_slave.inc
+
+## make sure secondary does not crash
+select sleep(2);
+select 1;
+
+# Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+connection master;
+select sleep(2);
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+# Generate some traffic on primary to make sure replication I/O channel is fine
+create table t(a int) engine=innodb;
+insert into t values(1);
+
+
+# reset
+connection master;
+drop table t;
+--sync_slave_with_master
+connection slave;
+-- source include/stop_slave.inc
+set @@GLOBAL.slave_compressed_protocol=0;
+-- source include/start_slave.inc
+
+--echo ########################################################################################################
 --echo ### Case 4: Promote slave to master and master to slave. Old master(new slave) should be able to send
 --echo ### stats to new master(old slave)
 --echo ########################################################################################################
