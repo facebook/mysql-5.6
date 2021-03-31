@@ -398,3 +398,10 @@ bool thd_is_dd_update_stmt(const THD *thd) {
 }
 
 my_thread_id thd_thread_id(const THD *thd) { return (thd->thread_id()); }
+
+/**
+  Invoke yield_cond.
+
+  @return true if should yield, false otherwise.
+*/
+bool thd_yield_cond(THD *thd) { return !thd->yield_cond || thd->yield_cond(); }

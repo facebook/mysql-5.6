@@ -12,7 +12,11 @@ SELECT @@global.admission_control_wait_events;
 SET GLOBAL admission_control_wait_events='YIELD';
 SELECT @@global.admission_control_wait_events;
 
-SET GLOBAL admission_control_wait_events='SLEEP,NET_IO,META_DATA_LOCK,ROW_LOCK,YIELD';
+SET GLOBAL admission_control_wait_events='SLEEP,ROW_LOCK,META_DATA_LOCK,INNODB_CONC,NET_IO,YIELD';
+SELECT @@global.admission_control_wait_events;
+
+# check that repeating the same value is OK
+SET GLOBAL admission_control_wait_events='SLEEP,SLEEP';
 SELECT @@global.admission_control_wait_events;
 
 # checking that setting variable to a non existing value raises error

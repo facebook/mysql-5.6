@@ -5166,11 +5166,31 @@ class THD : public MDL_context_owner,
   ulonglong last_yield_counter = 0;
   ulonglong yield_counter = 0;
   ulonglong readmission_count = 0;
+  std::function<bool()> yield_cond;
 
   /**
     Check if we should exit and reenter admission control.
   */
   void check_yield(std::function<bool()> cond);
+
+  /**
+    Callback for thd_wait_begin.
+
+    @param wait_type Wait type.
+  */
+  void wait_begin(int wait_type);
+
+  /**
+    Callback for thd_wait_end.
+  */
+  void wait_end();
+
+  /**
+    Concurrency control for query.
+
+    @return 0 if the query is admitted, 1 otherwise
+   */
+  int admit_query();
 
  private:
   /**

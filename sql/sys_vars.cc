@@ -3158,7 +3158,7 @@ static Sys_var_charptr Sys_admission_control_weights(
     ON_CHECK(check_admission_control_weights));
 
 const char *admission_control_wait_events_names[] = {
-    "SLEEP", "ROW_LOCK", "META_DATA_LOCK", "NET_IO", "YIELD", 0};
+    "SLEEP", "ROW_LOCK", "META_DATA_LOCK", "INNODB_CONC", "NET_IO", "YIELD", 0};
 static Sys_var_set Sys_admission_control_wait_events(
     "admission_control_wait_events",
     "Determines events for which queries will exit admission control. After "

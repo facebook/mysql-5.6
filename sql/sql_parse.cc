@@ -5951,7 +5951,7 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state,
           bool switched = mgr_ptr->switch_resource_group_if_needed(
               thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
 
-          if (multi_tenancy_admit_query(thd)) {
+          if (thd->admit_query()) {
             error = 1;
           } else {
             error = mysql_execute_command(thd, true, last_timer);

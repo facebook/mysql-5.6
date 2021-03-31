@@ -1,0 +1,96 @@
+source include/have_thread_pool_plugin.inc;
+source include/big_test.inc;
+# valgrind is pretty slow with lot of threads.
+source include/not_valgrind.inc;
+source include/count_sessions.inc;
+
+
+--echo Test setup.
+
+let $num_databases = 2;
+let $num_connections = 100;
+let $num_connection_per_db = 50;
+let $num_iterations = 10000;
+
+--disable_query_log
+--disable_result_log
+
+set @start_max_connections = @@global.max_connections;
+eval set @@global.max_connections = $num_connections + 10;
+set @start_max_running_queries = @@global.thread_pool_max_running_queries;
+set global thread_pool_max_running_queries = 2;
+
+# Create databases and tables.
+connection default;
+let $i = $num_databases;
+while ($i) {
+  eval create database test_db$i;
+  eval use test_db$i;
+  eval create table test_table (a int auto_increment primary key, b text) engine=InnoDB;
+  dec $i;
+}
+
+# Create test user and connection pool.
+create user test_user@localhost;
+grant all on *.* to test_user@localhost;
+let $i = $num_connections;
+while ($i) {
+  let $db = `select ceiling($i/$num_connection_per_db)`;
+  connect (con$i, localhost, test_user,,test_db$db);
+  dec $i;
+}
+
+--echo Generate load. Toggle max_running_queries and randomly kill a query.
+let $j = $num_iterations;
+while ($j) {
+  let $i = $num_connections;
+  while ($i) {
+    connection con$i;
+    send insert into test_table values (NULL, uuid());
+    dec $i;
+  }
+
+  connection default;
+  let $i = 20;
+  while ($i) {
+    let $val = `select 5*floor(10*rand())`;
+    eval set global thread_pool_max_running_queries = $val;
+    let $id = `select id from information_schema.processlist where user='test_user' order by rand() limit 1;`;
+    eval kill query $id;
+    dec $i;
+  }
+
+  let $i = $num_connections;
+  while ($i) {
+    connection con$i;
+    error 0, ER_QUERY_INTERRUPTED; # Error may be caused by kill query.
+    reap;
+    dec $i;
+  }
+
+  dec $j;
+}
+
+--echo Cleanup
+connection default;
+let $i = $num_databases;
+while ($i) {
+  eval select count(*) from test_db$i.test_table;
+  eval drop database if exists test_db$i;
+  dec $i;
+}
+
+drop user test_user@localhost;
+
+let $i = $num_connections;
+while ($i) {
+  disconnect con$i;
+  dec $i;
+}
+
+--enable_result_log
+--enable_query_log
+
+set global max_connections = @start_max_connections;
+set global thread_pool_max_running_queries = @start_max_running_queries;
+--source include/wait_until_count_sessions.inc

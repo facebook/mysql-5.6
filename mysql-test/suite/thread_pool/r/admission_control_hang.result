@@ -1,0 +1,93 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+set @start_max_running_queries = @@global.max_running_queries;
+set @@global.max_running_queries = 4;
+set @start_innodb_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
+set @@global.innodb_lock_wait_timeout = 10000;
+set @start_admission_control_filter = @@global.admission_control_filter;
+set @@global.admission_control_filter = 'COMMIT';
+create table t1 (a int) engine=innodb;
+insert into t1 values(1);
+begin;
+update t1 set a=2 where a=1;
+update t1 set a=2 where a=1;
+update t1 set a=2 where a=1;
+update t1 set a=2 where a=1;
+update t1 set a=2 where a=1;
+set @@global.admission_control_filter = 'USE';
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+USE
+use test;
+use test_db;
+set @@global.admission_control_filter = 'ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE,SHOW,ROLLBACK';
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,ROLLBACK,TRUNCATE,UPDATE,SHOW
+create table t2(a int) engine=innodb;
+begin;
+insert into t2 values(1);
+update t2 set a=2 where a=1;
+commit;
+SHOW TABLES LIKE 't2';
+Tables_in_test_db (t2)
+t2
+begin;
+alter table t2 rename t3;
+select * from t3;
+a
+2
+delete from t3;
+set @val = 1;
+truncate table t3;
+rollback;
+drop table t3;
+set @save_admission_control_by_trx = @@global.admission_control_by_trx;
+select @save_admission_control_by_trx;
+@save_admission_control_by_trx
+0
+# Turn on admission_control_by_trx
+set @@global.admission_control_by_trx = true;
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+1
+create table t2(a int) engine=innodb;
+begin;
+insert into t2 values(1);
+update t2 set a=2 where a=1;
+commit;
+SHOW TABLES LIKE 't2';
+Tables_in_test_db (t2)
+t2
+begin;
+alter table t2 rename t3;
+select * from t3;
+a
+2
+delete from t3;
+set @val = 1;
+truncate table t3;
+rollback;
+drop table t3;
+set @@global.admission_control_filter = default;
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+
+select count(*) from t1;
+count(*)
+1
+set @@global.admission_control_by_trx = @save_admission_control_by_trx;
+select @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+0
+set @@global.admission_control_filter = 'COMMIT';
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+COMMIT
+commit;
+set @@global.max_running_queries = @start_max_running_queries;
+set @@global.innodb_lock_wait_timeout = @start_innodb_lock_wait_timeout;
+set @@global.admission_control_filter = @start_admission_control_filter;
+drop database test_db;
+drop user test_user@localhost;

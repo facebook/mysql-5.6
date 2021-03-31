@@ -292,4 +292,12 @@ bool thd_is_bootstrap_thread(THD *thd);
 bool thd_is_dd_update_stmt(const THD *thd);
 
 my_thread_id thd_thread_id(const THD *thd);
+
+/**
+  Invoke yield_cond.
+
+  @return true if should yield, false otherwise.
+*/
+bool thd_yield_cond(THD *thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
