@@ -25,6 +25,7 @@
 #include <mysql.h>
 #include <mysql/psi/mysql_thread.h>
 #include <mysql_com.h>
+#include <sql_common.h>
 #include <sql_string.h>
 
 #include "sql/log.h"
@@ -66,7 +67,8 @@ static bool connected_to_master = false;
   @retval false otherwise.
 */
 static bool safe_connect_slave_stats_thread_to_master(MYSQL *&mysql,
-                                                      Master_info *active_mi) {
+                                                      Master_info *active_mi,
+                                                      NET_SERVER *server_extn) {
   if (mysql != nullptr) {
     mysql_close(mysql);
   }
@@ -85,7 +87,7 @@ static bool safe_connect_slave_stats_thread_to_master(MYSQL *&mysql,
   if (active_mi->get_password(pass, &password_size)) {
     return false;
   }
-
+  mysql_extension_set_server_extn(mysql, server_extn);
   if (!mysql_real_connect(mysql, active_mi->host, active_mi->get_user(), pass,
                           0, active_mi->port, 0, 0)) {
     return false;
@@ -104,6 +106,13 @@ static void *handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused))) {
   slave_stats_daemon_thread = my_thread_self();
 
   MYSQL *mysql = nullptr;
+  // allocate server extension structure
+  NET_SERVER server_extn;
+  server_extn.m_user_data = nullptr;
+  server_extn.m_before_header = nullptr;
+  server_extn.m_after_header = nullptr;
+  server_extn.compress_ctx.algorithm = MYSQL_UNCOMPRESSED;
+
   Master_info *active_mi;
   while (true) {
     mysql_mutex_lock(&LOCK_slave_stats_daemon);
@@ -150,8 +159,8 @@ static void *handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused))) {
       // successful, try again in next cycle
 
       if (!connected_to_master) {
-        connected_to_master =
-            safe_connect_slave_stats_thread_to_master(mysql, active_mi);
+        connected_to_master = safe_connect_slave_stats_thread_to_master(
+            mysql, active_mi, &server_extn);
         if (connected_to_master) {
           DBUG_PRINT("info",
                      ("Slave Stats Daemon: connected to master '%s@%s:%d'",
