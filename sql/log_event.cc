@@ -14793,6 +14793,8 @@ bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
 
   if (write_raft_term_and_index(ostream)) DBUG_RETURN(1);
 
+  if (write_raft_str(ostream)) DBUG_RETURN(1);
+
   if (write_raft_prev_opid(ostream)) DBUG_RETURN(1);
 
   if (write_rotate_tag(ostream)) DBUG_RETURN(1);
@@ -14970,6 +14972,7 @@ uint32 Metadata_log_event::write_data_body(uchar *obuffer) {
   length += write_hlc_time(obuffer + length);
   length += write_prev_hlc_time(obuffer + length);
   length += write_raft_term_and_index(obuffer + length);
+  length += write_raft_str(obuffer + length);
   length += write_rotate_tag(obuffer + length);
   DBUG_RETURN(length);
 }
