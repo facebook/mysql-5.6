@@ -1,0 +1,21 @@
+#
+# only global
+#
+--source include/have_log_bin.inc
+select @@global.temptable_track_shared_block_ram;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.temptable_track_shared_block_ram;
+show global variables like 'temptable_track_shared_block_ram';
+show session variables like 'temptable_track_shared_block_ram';
+--disable_warnings
+select * from performance_schema.global_variables where variable_name='temptable_track_shared_block_ram';
+select * from performance_schema.session_variables where variable_name='temptable_track_shared_block_ram';
+--enable_warnings
+
+#
+# show that it's read-only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global temptable_track_shared_block_ram=1;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session temptable_track_shared_block_ram=1;

@@ -1,0 +1,21 @@
+select @@global.temptable_track_shared_block_ram;
+@@global.temptable_track_shared_block_ram
+1
+select @@session.temptable_track_shared_block_ram;
+ERROR HY000: Variable 'temptable_track_shared_block_ram' is a GLOBAL variable
+show global variables like 'temptable_track_shared_block_ram';
+Variable_name	Value
+temptable_track_shared_block_ram	ON
+show session variables like 'temptable_track_shared_block_ram';
+Variable_name	Value
+temptable_track_shared_block_ram	ON
+select * from performance_schema.global_variables where variable_name='temptable_track_shared_block_ram';
+VARIABLE_NAME	VARIABLE_VALUE
+temptable_track_shared_block_ram	ON
+select * from performance_schema.session_variables where variable_name='temptable_track_shared_block_ram';
+VARIABLE_NAME	VARIABLE_VALUE
+temptable_track_shared_block_ram	ON
+set global temptable_track_shared_block_ram=1;
+ERROR HY000: Variable 'temptable_track_shared_block_ram' is a read only variable
+set session temptable_track_shared_block_ram=1;
+ERROR HY000: Variable 'temptable_track_shared_block_ram' is a read only variable
