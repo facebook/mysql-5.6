@@ -13972,13 +13972,15 @@ void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
   // case: nothing to update so no signal needed, let's exit
   if (acked <= last_acked.load()) { return; }
 
-  mysql_mutex_lock(&LOCK_last_acked);
-  if (acked > last_acked.load())
-  {
-    last_acked= acked;
-    mysql_cond_broadcast(&COND_last_acked);
-  }
-  mysql_mutex_unlock(&LOCK_last_acked);
+  // On the wait side we wait in a loop for condition to become true
+  // Hence it should be OK to update the condition without a mutex.
+  // This mutex was identified as a performance bottleneck for the applier
+  // thread when many dump threads are active. Since the LOCK_semi_sync
+  // is already taken while calling signal_semi_sync_ack, it is a perf
+  // gain to get the critical applier threads to be unencumbered by the
+  // contention from the dump threads.
+  last_acked= acked;
+  mysql_cond_broadcast(&COND_last_acked);
 }
 
 void reset_semi_sync_last_acked()
