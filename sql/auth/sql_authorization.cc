@@ -1897,11 +1897,18 @@ bool check_readonly(THD *thd, bool err_if_readonly) {
   local binlog transactions on non-system threads. System threads,
   like InnoDB background threads that truncate the undo log, can commit
   changes to the data dictionary as needed. These changes are not binlogged.
+
+  Checks for analyze/optimize no_write_to_binlog commands in the
+  enable_super_log_bin_read_only case are needed here.
   */
   if (is_super && !opt_super_readonly &&
       !(enable_super_log_bin_read_only &&
         (thd->variables.option_bits & OPTION_BIN_LOG) &&
-        !thd->is_system_thread()))
+        !thd->is_system_thread() &&
+        !(thd->lex &&
+          (thd->lex->sql_command == SQLCOM_ANALYZE ||
+           thd->lex->sql_command == SQLCOM_OPTIMIZE) &&
+          thd->lex->no_write_to_binlog)))
     return false;
 
   /* throw error in standardized way if requested: */
