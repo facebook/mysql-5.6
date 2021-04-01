@@ -5384,6 +5384,12 @@ static Sys_var_ulonglong Sys_temptable_max_ram(
     VALID_RANGE(2 << 20 /* 2 MiB */, ULLONG_MAX), DEFAULT(1 << 30 /* 1 GiB */),
     BLOCK_SIZE(1));
 
+static Sys_var_bool Sys_temptable_track_shared_block_ram(
+    "temptable_track_shared_block_ram",
+    "Track memory consumption of TLS shared block in temptable",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(temptable_track_shared_block_ram),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
 static Sys_var_bool Sys_temptable_use_mmap("temptable_use_mmap",
                                            "Use mmap files for temptables",
                                            GLOBAL_VAR(temptable_use_mmap),

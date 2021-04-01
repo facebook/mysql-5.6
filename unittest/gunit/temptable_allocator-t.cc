@@ -51,6 +51,9 @@ TEST(temptable_allocator, basic) {
       std::array<uint8_t *, n_allocate> a;
       constexpr size_t n_elements = 16;
 
+      // RAM consumption is 0 at the start
+      EXPECT_EQ(MemoryMonitorReadOnlyProbe::ram_consumption(), 0);
+
       for (size_t i = 0; i < n_allocate; ++i) {
         a[i] = allocator.allocate(n_elements);
 
@@ -72,9 +75,14 @@ TEST(temptable_allocator, basic) {
 
 TEST(temptable_allocator, shared_block_is_kept_after_last_deallocation) {
   {
+    bool old_val = temptable_track_shared_block_ram;
+    temptable_track_shared_block_ram = false;
     EXPECT_TRUE(temptable::shared_block.is_empty());
     std::thread t([]() {
       temptable::Allocator<uint8_t> allocator;
+
+      // RAM consumption is 0 at the start
+      EXPECT_EQ(MemoryMonitorReadOnlyProbe::ram_consumption(), 0);
 
       uint8_t *ptr = allocator.allocate(16);
       EXPECT_FALSE(temptable::shared_block.is_empty());
@@ -84,11 +92,14 @@ TEST(temptable_allocator, shared_block_is_kept_after_last_deallocation) {
     });
     t.join();
     EXPECT_TRUE(temptable::shared_block.is_empty());
+    temptable_track_shared_block_ram = old_val;
   }
 }
 
 TEST(temptable_allocator, ram_consumption_is_not_monitored_for_shared_blocks) {
   {
+    bool old_val = temptable_track_shared_block_ram;
+    temptable_track_shared_block_ram = false;
     EXPECT_TRUE(temptable::shared_block.is_empty());
     std::thread t([]() {
       temptable::Allocator<uint8_t> allocator;
@@ -110,12 +121,15 @@ TEST(temptable_allocator, ram_consumption_is_not_monitored_for_shared_blocks) {
     });
     t.join();
     EXPECT_TRUE(temptable::shared_block.is_empty());
+    temptable_track_shared_block_ram = old_val;
   }
 }
 
 TEST(temptable_allocator,
      ram_consumption_drops_to_zero_when_non_shared_block_is_destroyed) {
   {
+    bool old_val = temptable_track_shared_block_ram;
+    temptable_track_shared_block_ram = false;
     EXPECT_TRUE(temptable::shared_block.is_empty());
     std::thread t([]() {
       temptable::Allocator<uint8_t> allocator;
@@ -155,6 +169,124 @@ TEST(temptable_allocator,
       // Deallocate the shared-block
       allocator.deallocate(shared_block, shared_block_n_elements);
       EXPECT_FALSE(temptable::shared_block.is_empty());
+    });
+    t.join();
+    EXPECT_TRUE(temptable::shared_block.is_empty());
+    temptable_track_shared_block_ram = old_val;
+  }
+}
+
+TEST(temptable_allocator, shared_block_is_destroyed_after_last_deallocation) {
+  {
+    EXPECT_TRUE(temptable::shared_block.is_empty());
+    std::thread t([]() {
+      temptable::Allocator<uint8_t> allocator;
+
+      // RAM consumption is 0 at the start
+      EXPECT_EQ(MemoryMonitorReadOnlyProbe::ram_consumption(), 0);
+
+      uint8_t *ptr = allocator.allocate(16);
+      EXPECT_FALSE(temptable::shared_block.is_empty());
+
+      allocator.deallocate(ptr, 16);
+      EXPECT_TRUE(temptable::shared_block.is_empty());
+    });
+    t.join();
+    EXPECT_TRUE(temptable::shared_block.is_empty());
+  }
+}
+
+TEST(temptable_allocator, ram_consumption_is_monitored_for_shared_blocks) {
+  {
+    EXPECT_TRUE(temptable::shared_block.is_empty());
+    std::thread t([]() {
+      temptable::Allocator<uint8_t> allocator;
+
+      // RAM consumption is 0 at the start
+      EXPECT_EQ(MemoryMonitorReadOnlyProbe::ram_consumption(), 0);
+
+      // First allocation is fed from shared-block
+      size_t shared_block_n_elements = 1024 * 1024;
+      uint8_t *shared_block = allocator.allocate(shared_block_n_elements);
+      EXPECT_FALSE(temptable::shared_block.is_empty());
+
+      // RAM consumption has increased.
+      EXPECT_GE(MemoryMonitorReadOnlyProbe::ram_consumption(),
+                shared_block_n_elements);
+
+      // Deallocate the shared-block
+      allocator.deallocate(shared_block, shared_block_n_elements);
+      EXPECT_TRUE(temptable::shared_block.is_empty());
+
+      // RAM consumption is 0 after deallocation from shared block
+      EXPECT_EQ(MemoryMonitorReadOnlyProbe::ram_consumption(), 0);
+
+      // Reallocate yet again
+      shared_block = allocator.allocate(shared_block_n_elements);
+      EXPECT_FALSE(temptable::shared_block.is_empty());
+
+      // RAM consumption has increased.
+      EXPECT_GE(MemoryMonitorReadOnlyProbe::ram_consumption(),
+                shared_block_n_elements);
+
+      // Deallocate the shared-block
+      allocator.deallocate(shared_block, shared_block_n_elements);
+      EXPECT_TRUE(temptable::shared_block.is_empty());
+
+      // RAM consumption is 0 after deallocation from shared block
+      EXPECT_EQ(MemoryMonitorReadOnlyProbe::ram_consumption(), 0);
+    });
+    t.join();
+    EXPECT_TRUE(temptable::shared_block.is_empty());
+  }
+}
+
+TEST(temptable_allocator, ram_consumption_for_all_blocks) {
+  {
+    EXPECT_TRUE(temptable::shared_block.is_empty());
+    std::thread t([]() {
+      temptable::Allocator<uint8_t> allocator;
+
+      // RAM consumption is 0 at the start
+      EXPECT_EQ(MemoryMonitorReadOnlyProbe::ram_consumption(), 0);
+
+      // Make sure we fill up the shared_block first
+      // nr of elements must be >= 1MiB in size
+      size_t shared_block_n_elements = 1024 * 1024 + 256;
+      uint8_t *shared_block = allocator.allocate(shared_block_n_elements);
+      EXPECT_FALSE(temptable::shared_block.is_empty());
+
+      // Not even 1-byte should be able to fit anymore
+      EXPECT_FALSE(temptable::shared_block.can_accommodate(1));
+
+      // Now our next allocation should result in new block allocation ...
+      size_t non_shared_block_n_elements = 2 * 1024;
+      uint8_t *non_shared_block =
+          allocator.allocate(non_shared_block_n_elements);
+
+      // Make sure that pointers (Chunk's) are from different blocks
+      EXPECT_NE(temptable::Block(temptable::Chunk(non_shared_block)),
+                temptable::Block(temptable::Chunk(shared_block)));
+
+      // RAM consumption should be greater or equal than
+      // both shared and non_shared_block_n_elements bytes at this point
+      EXPECT_GE(MemoryMonitorReadOnlyProbe::ram_consumption(),
+                shared_block_n_elements + non_shared_block_n_elements);
+
+      // Deallocate the shared-block
+      allocator.deallocate(shared_block, shared_block_n_elements);
+      EXPECT_TRUE(temptable::shared_block.is_empty());
+
+      // RAM consumption should be greater or equal than
+      // non_shared_block_n_elements bytes at this point
+      EXPECT_GE(MemoryMonitorReadOnlyProbe::ram_consumption(),
+                non_shared_block_n_elements);
+
+      // Deallocate the non-shared block
+      allocator.deallocate(non_shared_block, non_shared_block_n_elements);
+
+      // RAM consumption must drop to 0
+      EXPECT_EQ(MemoryMonitorReadOnlyProbe::ram_consumption(), 0);
     });
     t.join();
     EXPECT_TRUE(temptable::shared_block.is_empty());

@@ -199,6 +199,8 @@ class Allocator : private MemoryMonitor {
                 "Block::ALIGN_TO are not supported.");
   static_assert(sizeof(T) > 0, "Zero sized objects are not supported");
 
+  Source get_block_source(size_t block_size);
+
  public:
   typedef T *pointer;
   typedef const T *const_pointer;
@@ -329,6 +331,23 @@ inline bool Allocator<T, AllocationScheme>::operator!=(
 }
 
 template <class T, class AllocationScheme>
+inline Source Allocator<T, AllocationScheme>::get_block_source(
+    size_t block_size) {
+  // Decide whether to switch between RAM and MMAP-backed allocations.
+  if (MemoryMonitor::ram_consumption() >= MemoryMonitor::ram_threshold()) {
+    return Source::MMAP_FILE;
+  } else {
+    if (MemoryMonitor::ram_increase(block_size) <=
+        MemoryMonitor::ram_threshold()) {
+      return Source::RAM;
+    } else {
+      MemoryMonitor::ram_decrease(block_size);
+      return Source::MMAP_FILE;
+    }
+  }
+}
+
+template <class T, class AllocationScheme>
 inline T *Allocator<T, AllocationScheme>::allocate(size_t n_elements) {
   DBUG_ASSERT(n_elements <= std::numeric_limits<size_type>::max() / sizeof(T));
   DBUG_EXECUTE_IF("temptable_allocator_oom", throw Result::OUT_OF_MEM;);
@@ -341,11 +360,12 @@ inline T *Allocator<T, AllocationScheme>::allocate(size_t n_elements) {
   }
 
   Block *block;
-
   if (shared_block.is_empty()) {
-    shared_block = Block(AllocationScheme::block_size(m_state->number_of_blocks,
-                                                      n_bytes_requested),
-                         Source::RAM);
+    const size_t block_size = AllocationScheme::block_size(
+        m_state->number_of_blocks, n_bytes_requested);
+    shared_block = Block(block_size, temptable_track_shared_block_ram
+                                         ? get_block_source(block_size)
+                                         : Source::RAM);
     block = &shared_block;
     ++m_state->number_of_blocks;
   } else if (shared_block.can_accommodate(n_bytes_requested)) {
@@ -354,20 +374,7 @@ inline T *Allocator<T, AllocationScheme>::allocate(size_t n_elements) {
              !m_state->current_block.can_accommodate(n_bytes_requested)) {
     const size_t block_size = AllocationScheme::block_size(
         m_state->number_of_blocks, n_bytes_requested);
-    const Source block_source = [block_size]() {
-      // Decide whether to switch between RAM and MMAP-backed allocations.
-      if (MemoryMonitor::ram_consumption() >= MemoryMonitor::ram_threshold()) {
-        return Source::MMAP_FILE;
-      } else {
-        if (MemoryMonitor::ram_increase(block_size) <=
-            MemoryMonitor::ram_threshold()) {
-          return Source::RAM;
-        } else {
-          MemoryMonitor::ram_decrease(block_size);
-          return Source::MMAP_FILE;
-        }
-      }
-    }();
+    const Source block_source = get_block_source(block_size);
     m_state->current_block = Block(block_size, block_source);
     block = &m_state->current_block;
     ++m_state->number_of_blocks;
@@ -397,7 +404,14 @@ inline void Allocator<T, AllocationScheme>::deallocate(T *chunk_data,
       block.deallocate(Chunk(chunk_data), n_bytes_requested);
   if (remaining_chunks == 0) {
     if (block == shared_block) {
-      // Do nothing. Keep the last block alive.
+      // Do nothing. Keep the last block alive unless
+      // we are tracking RAM consumption of shared block.
+      if (temptable_track_shared_block_ram) {
+        if (block.type() == Source::RAM) {
+          MemoryMonitor::ram_decrease(block.size());
+        }
+        shared_block.destroy();
+      }
     } else {
       DBUG_ASSERT(m_state->number_of_blocks > 0);
       if (block.type() == Source::RAM) {
