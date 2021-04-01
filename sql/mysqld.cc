@@ -1158,6 +1158,7 @@ const char *default_storage_engine;
 const char *default_tmp_storage_engine;
 ulonglong temptable_max_ram;
 ulonglong temptable_max_mmap;
+bool temptable_track_shared_block_ram = false;
 bool temptable_use_mmap;
 static char compiled_default_collation_name[] = MYSQL_DEFAULT_COLLATION_NAME;
 static bool binlog_format_used = false;

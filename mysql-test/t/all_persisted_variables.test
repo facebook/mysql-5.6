@@ -66,6 +66,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'per_user_session_var_user_name_delimiter',
 'query_cache_size',
 'query_cache_type',
+'temptable_track_shared_block_ram',
 'tx_isolation',
 'tx_read_only',
 'sql_wsenv_tenant',

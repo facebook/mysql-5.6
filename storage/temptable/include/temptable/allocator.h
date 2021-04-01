@@ -552,13 +552,14 @@ inline T *Allocator<T, AllocationScheme>::allocate(size_t n_elements) {
   }
 
   Block *block;
-
   if (m_shared_block && m_shared_block->is_empty()) {
     const size_t block_size =
         AllocationScheme::block_size(0, n_bytes_requested);
-    *m_shared_block = Block(
-        block_size,
-        AllocationScheme::block_source(block_size, &m_table_resource_monitor));
+    *m_shared_block =
+        Block(block_size, temptable_track_shared_block_ram
+                              ? AllocationScheme::block_source(
+                                    block_size, &m_table_resource_monitor)
+                              : Source::RAM);
     block = m_shared_block;
   } else if (m_shared_block &&
              m_shared_block->can_accommodate(n_bytes_requested)) {
@@ -600,7 +601,14 @@ inline void Allocator<T, AllocationScheme>::deallocate(T *chunk_data,
       block.deallocate(Chunk(chunk_data), n_bytes_requested);
   if (remaining_chunks == 0) {
     if (m_shared_block && (block == *m_shared_block)) {
-      // Do nothing. Keep the last block alive.
+      // Do nothing. Keep the last block alive unless
+      // we are tracking RAM consumption of shared block.
+      if (temptable_track_shared_block_ram) {
+        if (block.type() == Source::RAM) {
+          MemoryMonitor::RAM::decrease(block.size());
+        }
+        m_shared_block->destroy();
+      }
     } else {
       assert(m_state->number_of_blocks > 0);
       if (block.type() == Source::RAM) {
