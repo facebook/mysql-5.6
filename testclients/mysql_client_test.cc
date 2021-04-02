@@ -8175,6 +8175,7 @@ static void test_ts() {
   ts.minute = 07;
   ts.second = 46;
   ts.second_part = 0;
+  ts.time_type = MYSQL_TIMESTAMP_DATETIME;
   length = (long)(my_stpcpy(strts, "2003-07-12 21:07:46") - strts);
 
   /*
@@ -14772,6 +14773,7 @@ static void test_bug20152() {
   tm.hour = 14;
   tm.minute = 9;
   tm.second = 42;
+  tm.time_type = MYSQL_TIMESTAMP_DATETIME;
 
   rc = mysql_query(mysql, "DROP TABLE IF EXISTS t1");
   myquery(rc);
@@ -16564,6 +16566,7 @@ static void test_wl4166_3() {
   tm[0].second = 1;
   tm[0].second_part = 0;
   tm[0].neg = false;
+  tm[0].time_type = MYSQL_TIMESTAMP_DATETIME;
 
   /* Cause a statement reprepare */
   rc = mysql_query(mysql, "alter table t1 add column c int");
