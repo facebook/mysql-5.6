@@ -1,0 +1,60 @@
+--source include/have_debug_sync.inc
+--source include/count_sessions.inc
+
+set global innodb_stats_locked_reads = on;
+
+CREATE TABLE t (a int,
+                b int,
+                c int,
+                d int,
+                e int,
+                PRIMARY KEY(a),
+                KEY innodb_index_lock_test (b, c, d)) ENGINE=InnoDB;
+
+insert into t values (1, 1, 1, 1, 1), (2, 2, 2, 2, 2), (3, 3, 3, 3, 3), (4, 4, 4, 4, 4);
+insert into t select a+4, b+4, c, d, e from t;
+insert into t select a+8, b+8, c, d, e from t;
+insert into t select a+16, b+16, c, d, e from t;
+insert into t select a+32, b+32, c, d, e from t;
+insert into t select a+64, b+64, c, d, e from t;
+insert into t select a+128, b+128, c, d, e from t;
+insert into t select a+256, b+256, c, d, e from t;
+insert into t select a+512, b+512, c, d, e from t;
+insert into t select a+1024, b+1024, c, d, e from t;
+
+analyze table t;
+flush tables;
+
+show indexes in t;
+
+set information_schema_stats_expiry = 0;
+
+set innodb_stats_on_metadata = on;
+set debug_sync = "after_empty_index SIGNAL parked WAIT_FOR go";
+send select * from information_schema.tables where table_name = 't';
+
+connect (con1,localhost,root,,);
+set information_schema_stats_expiry = 0;
+set debug_sync='now WAIT_FOR parked';
+send show indexes in t;
+
+connect (con2,localhost,root,,);
+set debug_sync='now SIGNAL go';
+disconnect con2;
+
+connection con1;
+reap;
+
+disconnect con1;
+
+connection default;
+--disable_result_log
+reap;
+--enable_result_log
+
+drop table t;
+set debug_sync = 'RESET';
+
+set global innodb_stats_locked_reads = default;
+
+--source include/wait_until_count_sessions.inc

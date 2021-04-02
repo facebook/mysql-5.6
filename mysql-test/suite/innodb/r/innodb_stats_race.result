@@ -1,0 +1,44 @@
+set global innodb_stats_locked_reads = on;
+CREATE TABLE t (a int,
+b int,
+c int,
+d int,
+e int,
+PRIMARY KEY(a),
+KEY innodb_index_lock_test (b, c, d)) ENGINE=InnoDB;
+insert into t values (1, 1, 1, 1, 1), (2, 2, 2, 2, 2), (3, 3, 3, 3, 3), (4, 4, 4, 4, 4);
+insert into t select a+4, b+4, c, d, e from t;
+insert into t select a+8, b+8, c, d, e from t;
+insert into t select a+16, b+16, c, d, e from t;
+insert into t select a+32, b+32, c, d, e from t;
+insert into t select a+64, b+64, c, d, e from t;
+insert into t select a+128, b+128, c, d, e from t;
+insert into t select a+256, b+256, c, d, e from t;
+insert into t select a+512, b+512, c, d, e from t;
+insert into t select a+1024, b+1024, c, d, e from t;
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+flush tables;
+show indexes in t;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	a	A	2048	NULL	NULL		BTREE			YES	NULL
+t	1	innodb_index_lock_test	1	b	A	2048	NULL	NULL	YES	BTREE			YES	NULL
+t	1	innodb_index_lock_test	2	c	A	2048	NULL	NULL	YES	BTREE			YES	NULL
+t	1	innodb_index_lock_test	3	d	A	2048	NULL	NULL	YES	BTREE			YES	NULL
+set information_schema_stats_expiry = 0;
+set innodb_stats_on_metadata = on;
+set debug_sync = "after_empty_index SIGNAL parked WAIT_FOR go";
+select * from information_schema.tables where table_name = 't';
+set information_schema_stats_expiry = 0;
+set debug_sync='now WAIT_FOR parked';
+show indexes in t;
+set debug_sync='now SIGNAL go';
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	a	A	2048	NULL	NULL		BTREE			YES	NULL
+t	1	innodb_index_lock_test	1	b	A	2048	NULL	NULL	YES	BTREE			YES	NULL
+t	1	innodb_index_lock_test	2	c	A	2048	NULL	NULL	YES	BTREE			YES	NULL
+t	1	innodb_index_lock_test	3	d	A	2048	NULL	NULL	YES	BTREE			YES	NULL
+drop table t;
+set debug_sync = 'RESET';
+set global innodb_stats_locked_reads = default;
