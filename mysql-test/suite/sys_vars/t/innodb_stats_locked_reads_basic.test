@@ -1,0 +1,30 @@
+#
+# innodb_stats_locked_reads
+#
+
+
+# show the default value
+SELECT @@innodb_stats_locked_reads;
+
+# check that it is writeable
+SET GLOBAL innodb_stats_locked_reads=ON;
+SELECT @@innodb_stats_locked_reads;
+
+SET GLOBAL innodb_stats_locked_reads=OFF;
+SELECT @@innodb_stats_locked_reads;
+
+SET GLOBAL innodb_stats_locked_reads=1;
+SELECT @@innodb_stats_locked_reads;
+
+SET GLOBAL innodb_stats_locked_reads=0;
+SELECT @@innodb_stats_locked_reads;
+
+# should be a boolean
+-- error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_stats_locked_reads=123;
+
+-- error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_stats_locked_reads='foo';
+
+# restore the environment
+SET GLOBAL innodb_stats_locked_reads=default;
