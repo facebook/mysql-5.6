@@ -285,6 +285,7 @@ static ulong innobase_commit_concurrency = 0;
 
 /* Boolean @@innodb_buffer_pool_in_core_file. */
 bool srv_buffer_pool_in_core_file = TRUE;
+bool srv_stats_locked_reads = FALSE;
 
 extern thread_local ulint ut_rnd_ulint_counter;
 
@@ -7647,7 +7648,9 @@ int ha_innobase::open(const char *name, int, uint open_flags,
     }
   }
 
-  info(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST);
+  uint flags = HA_STATUS_VARIABLE | HA_STATUS_CONST;
+  if (!srv_stats_locked_reads) flags |= HA_STATUS_NO_LOCK;
+  info(flags);
 
   dberr_t err =
       dict_set_compression(m_prebuilt->table, table->s->compress.str, false);
@@ -17744,6 +17747,11 @@ static bool innobase_get_index_column_cardinality(
       }
 
       DEBUG_SYNC(thd, "innodb.after_init_check");
+      bool need_unlock = false;
+      if (srv_stats_locked_reads) {
+        need_unlock = true;
+        dict_table_stats_lock(ib_table, RW_S_LATCH);
+      }
       if (index->type & (DICT_FTS | DICT_SPATIAL)) {
         /* For these indexes innodb_rec_per_key is
         fixed as 1.0 */
@@ -17755,6 +17763,8 @@ static bool innobase_get_index_column_cardinality(
              innodb_rec_per_key(index, (ulint)column_ordinal_position, n_rows));
         *cardinality = static_cast<ulonglong>(round(records));
       }
+
+      if (need_unlock) dict_table_stats_unlock(ib_table, RW_S_LATCH);
 
       failure = false;
       break;
@@ -22200,6 +22210,11 @@ static MYSQL_SYSVAR_ULONGLONG(
     " statistics (by ANALYZE, default 20)",
     nullptr, nullptr, 20, 1, ~0ULL, 0);
 
+static MYSQL_SYSVAR_BOOL(stats_locked_reads, srv_stats_locked_reads,
+                         PLUGIN_VAR_OPCMDARG,
+                         "Controls if InnoDB stats are locked for reading.",
+                         nullptr, nullptr, FALSE);
+
 static MYSQL_SYSVAR_BOOL(
     adaptive_hash_index, btr_search_enabled, PLUGIN_VAR_OPCMDARG,
     "Enable InnoDB adaptive hash index (enabled by default). "
@@ -23345,6 +23360,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(stats_persistent),
     MYSQL_SYSVAR(stats_persistent_sample_pages),
     MYSQL_SYSVAR(stats_auto_recalc),
+    MYSQL_SYSVAR(stats_locked_reads),
     MYSQL_SYSVAR(adaptive_hash_index),
     MYSQL_SYSVAR(adaptive_hash_index_parts),
     MYSQL_SYSVAR(stats_method),
