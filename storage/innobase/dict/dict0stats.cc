@@ -24,6 +24,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 *****************************************************************************/
 
+#include "current_thd.h"
+#include "debug_sync.h"
 #include "my_dbug.h"
 
 /** @file dict/dict0stats.cc
@@ -2057,6 +2059,11 @@ static dberr_t dict_stats_update_persistent(
     }
 
     dict_stats_empty_index(index);
+#ifndef NDEBUG
+    if (current_thd && strcmp(index->name, "innodb_index_lock_test") == 0) {
+      DEBUG_SYNC(current_thd, "after_empty_index");
+    }
+#endif
 
     if (dict_stats_should_ignore_index(index)) {
       continue;
