@@ -179,6 +179,9 @@ select 1;
 --disable_query_log
 --eval KILL QUERY $con1_id
 --enable_query_log
+let $wait_condition =
+  select count(*) = 0 from information_schema.processlist where state = 'User lock';
+--source include/wait_condition.inc
 select RELEASE_LOCK('lock');
 
 --connection con1
