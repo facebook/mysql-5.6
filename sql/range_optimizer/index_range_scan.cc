@@ -221,6 +221,11 @@ bool IndexRangeScanIterator::Init() {
     return true;
   }
 
+  // Insert a record in the book-keeping THD data structure that tracks
+  // rows_requested for each index.
+  ius_requested_rows =
+      get_or_add_index_stats_ptr(&(thd()->thd_ius), table(), index);
+
   // Set up a record buffer. Note that we don't use
   // table->m_record_buffer, since if we are part of a ROR scan, all range
   // selects in the scan share the same TABLE object (but not the same
@@ -353,6 +358,11 @@ int IndexRangeScanIterator::Read() {
   MY_BITMAP *const save_write_set = table()->write_set;
   DBUG_TRACE;
 
+  // Increment rows requested counter for the index.
+  if (ius_requested_rows != nullptr) {
+    ++*ius_requested_rows;
+  }
+
   if (in_ror_merged_scan) {
     /*
       We don't need to signal the bitmap change as the bitmap is always the
@@ -372,6 +382,7 @@ int IndexRangeScanIterator::Read() {
     }
   }
   if (result == 0) {
+    // Increment rows_examined counter.
     if (m_examined_rows != nullptr) {
       ++*m_examined_rows;
     }

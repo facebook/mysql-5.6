@@ -102,6 +102,7 @@
 #include "sql/discrete_interval.h"
 #include "sql/events.h"          // Events
 #include "sql/hostname_cache.h"  // host_cache_resize
+#include "sql/index_statistics.h"
 #include "sql/log.h"
 #include "sql/log_event.h"  // MAX_MAX_ALLOWED_PACKET
 #include "sql/mdl.h"
@@ -9071,6 +9072,28 @@ static Sys_var_enum Sys_column_stats_control(
     GLOBAL_VAR(column_stats_control), CMD_LINE(REQUIRED_ARG),
     sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_column_stats_control));
+
+static bool set_index_stats_control(sys_var *, THD *, enum_var_type) {
+  if (index_stats_control == SQL_INFO_CONTROL_OFF_HARD) {
+    free_index_stats();
+  }
+
+  return false;  // success
+}
+
+static Sys_var_enum Sys_index_stats_control(
+    "index_stats_control",
+    "Control the collection of index statistics. "
+    "The data is exposed via the index_statistics table in performance "
+    "schema. Takes the following values: "
+    "OFF_HARD: Default value. Stop collecting the statistics and flush "
+    "all index statistics data from memory. "
+    "OFF_SOFT: Stop collecting index statistics, but retain any data "
+    "collected so far. "
+    "ON: Collect the statistics.",
+    GLOBAL_VAR(index_stats_control), CMD_LINE(REQUIRED_ARG),
+    sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_index_stats_control));
 
 static Sys_var_uint Sys_write_throttle_rate_step(
     "write_throttle_rate_step",

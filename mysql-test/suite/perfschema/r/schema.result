@@ -65,6 +65,7 @@ global_status
 global_variables
 host_cache
 hosts
+index_statistics
 keyring_component_status
 keyring_keys
 log_status

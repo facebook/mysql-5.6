@@ -70,6 +70,7 @@
 #include "sql/field.h"
 #include "sql/filesort.h"  // filesort_free_buffers
 #include "sql/handler.h"
+#include "sql/index_statistics.h"
 #include "sql/intrusive_list_iterator.h"
 #include "sql/item.h"
 #include "sql/item_func.h"
@@ -604,6 +605,10 @@ bool Sql_cmd_dml::execute(THD *thd) {
 
   // Pop ignore / strict error handler
   if (error_handler_active) thd->pop_internal_handler();
+
+  // Aggregate and populate INDEX_STATISTICS into the global data
+  // structure.
+  aggregate_index_statistics(thd->thd_ius);
 
   THD_STAGE_INFO(thd, stage_end);
 

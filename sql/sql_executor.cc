@@ -3526,6 +3526,16 @@ int read_const(TABLE *table, TABLE_REF *ref) {
     else {
       error = table->file->ha_index_init(ref->key, false);
       if (!error) {
+        // Increment rows_requested for the corresponding index if `table` is
+        // associated with an index.
+        if (table->in_use) {
+          ulonglong *ius_requested_rows = get_or_add_index_stats_ptr(
+              &(table->in_use->thd_ius), table, ref->key);
+          if (ius_requested_rows != nullptr) {
+            ++*ius_requested_rows;
+          }
+        }
+
         error = table->file->ha_index_read_map(
             table->record[0], ref->key_buff,
             make_prev_keypart_map(ref->key_parts), HA_READ_KEY_EXACT);

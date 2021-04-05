@@ -1563,6 +1563,8 @@ decremented */
 uint write_throttle_rate_step;
 /* Controls collecting column statistics for every SQL statement */
 ulong column_stats_control;
+/* Controls collecting index statistics for every SQL statement */
+ulong index_stats_control;
 /* Controls collecting MySQL findings (aka SQL conditions) */
 ulong sql_findings_control;
 /* Controls whether MySQL send an error when running duplicate statements */
@@ -1831,6 +1833,7 @@ mysql_mutex_t LOCK_log_throttle_qni;
 mysql_mutex_t LOCK_log_throttle_ddl;
 mysql_rwlock_t LOCK_sys_init_connect, LOCK_sys_init_replica;
 mysql_rwlock_t LOCK_column_statistics;
+mysql_rwlock_t LOCK_index_statistics;
 mysql_rwlock_t LOCK_system_variables_hash;
 my_thread_handle signal_thread_id;
 sigset_t mysqld_signal_mask;
@@ -3002,6 +3005,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_crypt);
   mysql_mutex_destroy(&LOCK_user_conn);
   mysql_rwlock_destroy(&LOCK_column_statistics);
+  mysql_rwlock_destroy(&LOCK_index_statistics);
   mysql_rwlock_destroy(&LOCK_sys_init_connect);
   mysql_rwlock_destroy(&LOCK_sys_init_replica);
   mysql_mutex_destroy(&LOCK_global_system_variables);
@@ -5909,6 +5913,7 @@ static int init_thread_environment() {
   mysql_mutex_init(key_LOCK_global_system_variables,
                    &LOCK_global_system_variables, MY_MUTEX_INIT_FAST);
   mysql_rwlock_init(key_rwlock_LOCK_column_statistics, &LOCK_column_statistics);
+  mysql_rwlock_init(key_rwlock_LOCK_index_statistics, &LOCK_index_statistics);
   mysql_rwlock_init(key_rwlock_LOCK_system_variables_hash,
                     &LOCK_system_variables_hash);
   mysql_mutex_init(key_LOCK_prepared_stmt_count, &LOCK_prepared_stmt_count,
@@ -12989,6 +12994,7 @@ static PSI_mutex_info all_server_mutexes[]=
 /* clang-format on */
 
 PSI_rwlock_key key_rwlock_LOCK_column_statistics;
+PSI_rwlock_key key_rwlock_LOCK_index_statistics;
 PSI_rwlock_key key_rwlock_LOCK_logger;
 PSI_rwlock_key key_rwlock_channel_map_lock;
 PSI_rwlock_key key_rwlock_channel_lock;
@@ -13013,6 +13019,8 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_Binlog_transmit_delegate_lock, "Binlog_transmit_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_Binlog_relay_IO_delegate_lock, "Binlog_relay_IO_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_column_statistics, "LOCK_column_statistics",
+    PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_rwlock_LOCK_index_statistics, "LOCK_index_statistics",
     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_logger, "LOGGER::LOCK_logger", 0, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_sys_init_connect, "LOCK_sys_init_connect", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

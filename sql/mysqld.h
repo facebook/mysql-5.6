@@ -560,6 +560,9 @@ extern ulong sql_duplicate_executions_control;
 /* Global variable to control collecting column statistics */
 extern ulong column_stats_control;
 
+/* Global variable to control collecting index statistics */
+extern ulong index_stats_control;
+
 extern bool read_only_slave;
 extern bool flush_only_old_table_cache_entries;
 extern ulong stored_program_cache_size;
@@ -743,6 +746,7 @@ extern PSI_rwlock_key key_rwlock_receiver_sid_lock;
 extern PSI_rwlock_key key_rwlock_rpl_filter_lock;
 extern PSI_rwlock_key key_rwlock_channel_to_filter_lock;
 extern PSI_rwlock_key key_rwlock_LOCK_gap_lock_exceptions;
+extern PSI_rwlock_key key_rwlock_LOCK_index_statistics;
 extern PSI_rwlock_key key_rwlock_resource_group_mgr_map_lock;
 extern PSI_rwlock_key key_rwlock_commit_order_manager_lock;
 extern PSI_rwlock_key key_rwlock_LOCK_ac;
@@ -1025,6 +1029,7 @@ extern mysql_cond_t COND_manager;
 extern mysql_cond_t COND_slave_stats_daemon;
 
 extern mysql_rwlock_t LOCK_column_statistics;
+extern mysql_rwlock_t LOCK_index_statistics;
 extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_replica;
 extern mysql_rwlock_t LOCK_system_variables_hash;

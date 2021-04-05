@@ -601,6 +601,14 @@ The following options may be given as the first argument:
  Include the table name in the error text when receiving a
  duplicate key error and log the query into a new
  duplicate key query log file.
+ --index-stats-control=name 
+ Control the collection of index statistics. The data is
+ exposed via the index_statistics table in performance
+ schema. Takes the following values: OFF_HARD: Default
+ value. Stop collecting the statistics and flush all index
+ statistics data from memory. OFF_SOFT: Stop collecting
+ index statistics, but retain any data collected so far.
+ ON: Collect the statistics.
  --information-schema-engine[=name] 
  Specify information_schema engine
  --information-schema-stats-expiry=# 
@@ -2812,6 +2820,7 @@ high-priority-lock-wait-timeout 1
 histogram-generation-max-mem-size 20000000
 host-cache-size 279
 improved-dup-key-error FALSE
+index-stats-control OFF_HARD
 information-schema-engine TempTable
 information-schema-stats-expiry 86400
 init-connect 
