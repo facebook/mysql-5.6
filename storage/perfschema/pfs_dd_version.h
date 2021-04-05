@@ -231,10 +231,13 @@
 
   80020-016:
    - add throttle_rate column to write_throttling_rules table
+
+  80020-017:
+  add INDEX_STATISTICS table
 */
-/* Version published now is 80020-016. i.e. 8.0.20 Facebook schema change
- * no. 16.
+/* Version published now is 80020-017. i.e. 8.0.20 Facebook schema change
+ * no. 17.
  */
-static const uint PFS_DD_VERSION = 80020016;
+static const uint PFS_DD_VERSION = 80020017;
 
 #endif /* PFS_DD_VERSION_H */

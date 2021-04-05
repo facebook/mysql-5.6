@@ -37,10 +37,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <memory>
 #include <set>
 #include <string>
-
-#include <memory>
+#include <unordered_map>
 
 #include "m_ctype.h"
 #include "my_alloc.h"
@@ -107,7 +107,8 @@
 #include "sql/auth/sql_security_ctx.h"  // Security_context
 #include "sql/column_statistics_dt.h"
 #include "sql/current_thd.h"
-#include "sql/discrete_interval.h"   // Discrete_interval
+#include "sql/discrete_interval.h"  // Discrete_interval
+#include "sql/index_statistics.h"
 #include "sql/locked_tables_list.h"  // enum_locked_tables_mode
 #include "sql/mdl.h"
 #include "sql/opt_costmodel.h"
@@ -967,6 +968,10 @@ class THD : public MDL_context_owner,
 
   /* Column usage statistics for the SQL statements */
   std::set<ColumnUsageInfo> column_usage_info;
+
+  /* Index usage statistics. Only rows_requested is supported for now. */
+  std::unordered_map<IndexSpecification, ulonglong, IndexSpecificationHash>
+      thd_ius;
 
   /* Nonsuper_connections reference counting */
  private:

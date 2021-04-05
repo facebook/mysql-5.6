@@ -64,6 +64,7 @@ class RefIterator final : public TableRowIterator {
   QEP_TAB *const m_qep_tab;
   ha_rows *const m_examined_rows;
   bool m_first_record_since_init;
+  ulonglong *ius_requested_rows;
 };
 
 /**
@@ -86,6 +87,7 @@ class RefOrNullIterator final : public TableRowIterator {
   bool m_reading_first_row;
   QEP_TAB *const m_qep_tab;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
 };
 
 /**
@@ -118,6 +120,7 @@ class EQRefIterator final : public TableRowIterator {
   const bool m_use_order;
   bool m_first_record_since_init;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
 };
 
 /**
@@ -164,6 +167,7 @@ class FullTextSearchIterator final : public TableRowIterator {
   TABLE_REF *const m_ref;
   const bool m_use_order;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
 };
 
 /*
@@ -247,6 +251,7 @@ class PushedJoinRefIterator final : public TableRowIterator {
   const bool m_use_order;
   bool m_first_record_since_init;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
 };
 
 /**

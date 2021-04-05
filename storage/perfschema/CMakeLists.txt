@@ -126,6 +126,7 @@ table_socket_summary_by_event_name.h
 table_helper.h
 table_host_cache.h
 table_hosts.h
+table_index_statistics.h
 table_os_global_by_type.h
 table_performance_timers.h
 table_setup_actors.h
@@ -276,6 +277,7 @@ table_socket_summary_by_event_name.cc
 table_helper.cc
 table_host_cache.cc
 table_hosts.cc
+table_index_statistics.cc
 table_os_global_by_type.cc
 table_performance_timers.cc
 table_setup_actors.cc

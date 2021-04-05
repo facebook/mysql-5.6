@@ -109,6 +109,7 @@ class IndexScanIterator final : public TableRowIterator {
   const bool m_use_order;
   QEP_TAB *const m_qep_tab;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
   bool m_first = true;
 };
 
@@ -144,6 +145,7 @@ class IndexRangeScanIterator final : public TableRowIterator {
   QUICK_SELECT_I *const m_quick;
   QEP_TAB *const m_qep_tab;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
 
   // After m_quick has returned EOF, some of its members are destroyed, making
   // subsequent requests for new rows undefined. We flag EOF so that the

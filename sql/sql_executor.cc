@@ -3554,6 +3554,15 @@ static int read_const(TABLE *table, TABLE_REF *ref) {
         construct_lookup_ref(table->in_use, table, ref))
       error = HA_ERR_KEY_NOT_FOUND;
     else {
+      // Increment rows_requested for the corresponding index if `table` is
+      // associated with an index.
+      if (table->in_use) {
+        ulonglong *ius_requested_rows = get_or_add_index_stats_ptr(
+            &(table->in_use->thd_ius), table, ref->key);
+        if (ius_requested_rows != nullptr) {
+          ++*ius_requested_rows;
+        }
+      }
       error = table->file->ha_index_read_idx_map(
           table->record[0], ref->key, ref->key_buff,
           make_prev_keypart_map(ref->key_parts), HA_READ_KEY_EXACT);
@@ -3616,6 +3625,11 @@ bool EQRefIterator::Init() {
       PrintError(error);
       return true;
     }
+
+    // Insert a record in the book-keeping THD data structure that tracks
+    // rows_requested for each index.
+    ius_requested_rows =
+        get_or_add_index_stats_ptr(&(thd()->thd_ius), table(), m_ref->key);
   }
 
   m_first_record_since_init = true;
@@ -3691,6 +3705,11 @@ int EQRefIterator::Read() {
       return -1;
     }
 
+    // Increment rows_requested counter for the index.
+    if (ius_requested_rows != nullptr) {
+      ++*ius_requested_rows;
+    }
+
     pair<uchar *, key_part_map> key_buff_and_map = FindKeyBufferAndMap(m_ref);
     int error = table()->file->ha_index_read_map(
         table()->record[0], key_buff_and_map.first, key_buff_and_map.second,
@@ -3752,6 +3771,10 @@ bool PushedJoinRefIterator::Init() {
   DBUG_ASSERT(!m_use_order);  // Pushed child can't be sorted
 
   if (!table()->file->inited) {
+    // Insert a record in the book-keeping THD data structure that tracks
+    // rows_requested for each index.
+    ius_requested_rows =
+        get_or_add_index_stats_ptr(&(thd()->thd_ius), table(), m_ref->key);
     int error = table()->file->ha_index_init(m_ref->key, m_use_order);
     if (error) {
       PrintError(error);
@@ -3779,6 +3802,11 @@ int PushedJoinRefIterator::Read() {
       return -1;
     }
 
+    // Bump requested_rows counter for the index.
+    if (ius_requested_rows != nullptr) {
+      ++*ius_requested_rows;
+    }
+
     // 'read' itself is a NOOP:
     //  handler::ha_index_read_pushed() only unpack the prefetched row and
     //  set 'status'
@@ -3789,6 +3817,10 @@ int PushedJoinRefIterator::Read() {
       return HandleError(error);
     }
   } else {
+    // Bump requested_rows counter for the index.
+    if (ius_requested_rows != nullptr) {
+      ++*ius_requested_rows;
+    }
     int error = table()->file->ha_index_next_pushed(table()->record[0]);
     if (error) {
       return HandleError(error);
@@ -3811,6 +3843,12 @@ vector<string> PushedJoinRefIterator::DebugString() const {
 template <bool Reverse>
 bool RefIterator<Reverse>::Init() {
   m_first_record_since_init = true;
+
+  // Insert a record in the book-keeping THD data structure that tracks
+  // rows_requested for each index.
+  ius_requested_rows =
+      get_or_add_index_stats_ptr(&(thd()->thd_ius), table(), m_ref->key);
+
   return init_index_and_record_buffer(m_qep_tab, m_qep_tab->table()->file,
                                       m_ref->key, m_use_order);
 }
@@ -3859,6 +3897,11 @@ int RefIterator<false>::Read() {  // Forward read.
       return -1;
     }
 
+    // Bump rows_requested counter for the index.
+    if (ius_requested_rows != nullptr) {
+      ++*ius_requested_rows;
+    }
+
     pair<uchar *, key_part_map> key_buff_and_map = FindKeyBufferAndMap(m_ref);
     int error = table()->file->ha_index_read_map(
         table()->record[0], key_buff_and_map.first, key_buff_and_map.second,
@@ -3867,6 +3910,10 @@ int RefIterator<false>::Read() {  // Forward read.
       return HandleError(error);
     }
   } else {
+    // Bump rows_requested counter for the index.
+    if (ius_requested_rows != nullptr) {
+      ++*ius_requested_rows;
+    }
     int error = table()->file->ha_index_next_same(
         table()->record[0], m_ref->key_buff, m_ref->key_length);
     if (error) {
@@ -3907,6 +3954,12 @@ int RefIterator<true>::Read() {  // Reverse read.
       table()->set_no_row();
       return -1;
     }
+
+    // Bump rows_requested counter for the index.
+    if (ius_requested_rows != nullptr) {
+      ++*ius_requested_rows;
+    }
+
     int error = table()->file->ha_index_read_last_map(
         table()->record[0], m_ref->key_buff,
         make_prev_keypart_map(m_ref->key_parts));
@@ -3923,6 +3976,12 @@ int RefIterator<true>::Read() {  // Reverse read.
       found.
      */
     DBUG_ASSERT(table()->file->pushed_idx_cond == nullptr);
+
+    // Bump rows_requested counter for the index.
+    if (ius_requested_rows != nullptr) {
+      ++*ius_requested_rows;
+    }
+
     int error = table()->file->ha_index_prev(table()->record[0]);
     if (error) {
       return HandleError(error);
@@ -4097,6 +4156,11 @@ FullTextSearchIterator::~FullTextSearchIterator() {
 
 bool FullTextSearchIterator::Init() {
   if (!table()->file->inited) {
+    // Insert a record in the book-keeping THD data structure that tracks
+    // rows_requested for each index.
+    ius_requested_rows =
+        get_or_add_index_stats_ptr(&(thd()->thd_ius), table(), m_ref->key);
+
     int error = table()->file->ha_index_init(m_ref->key, m_use_order);
     if (error) {
       PrintError(error);
@@ -4108,6 +4172,11 @@ bool FullTextSearchIterator::Init() {
 }
 
 int FullTextSearchIterator::Read() {
+  // Increment rows_requested counter for the index.
+  if (ius_requested_rows != nullptr) {
+    ++*ius_requested_rows;
+  }
+
   int error = table()->file->ha_ft_read(table()->record[0]);
   if (error) {
     return HandleError(error);
@@ -4142,6 +4211,11 @@ RefOrNullIterator::RefOrNullIterator(THD *thd, TABLE *table, TABLE_REF *ref,
 bool RefOrNullIterator::Init() {
   m_reading_first_row = true;
   *m_ref->null_ref_key = false;
+
+  // Insert a record in the book-keeping THD data structure that tracks
+  // rows_requested for each index.
+  ius_requested_rows =
+      get_or_add_index_stats_ptr(&(thd()->thd_ius), table(), m_ref->key);
   return init_index_and_record_buffer(m_qep_tab, m_qep_tab->table()->file,
                                       m_ref->key, m_use_order);
 }
@@ -4158,6 +4232,11 @@ int RefOrNullIterator::Read() {
   }
 
   pair<uchar *, key_part_map> key_buff_and_map = FindKeyBufferAndMap(m_ref);
+
+  // Increment rows_requested counter for the index.
+  if (ius_requested_rows != nullptr) {
+    ++*ius_requested_rows;
+  }
 
   int error;
   if (m_reading_first_row) {
