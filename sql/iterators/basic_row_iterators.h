@@ -124,6 +124,7 @@ class IndexScanIterator final : public TableRowIterator {
   const bool m_use_order;
   const double m_expected_rows;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
   bool m_first = true;
 };
 

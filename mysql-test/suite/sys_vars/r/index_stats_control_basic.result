@@ -1,0 +1,18 @@
+SET @@global.index_stats_control = "on";
+SET @@global.index_stats_control = DEFAULT;
+SELECT @@global.index_stats_control;
+@@global.index_stats_control
+OFF_HARD
+SET @@global.index_stats_control = "off_hard";
+SELECT @@global.index_stats_control;
+@@global.index_stats_control
+OFF_HARD
+SET @@global.index_stats_control = "off_soft";
+SELECT @@global.index_stats_control;
+@@global.index_stats_control
+OFF_SOFT
+SET @@global.index_stats_control = "on";
+SELECT @@global.index_stats_control;
+@@global.index_stats_control
+ON
+SET @@global.index_stats_control = "off_hard";

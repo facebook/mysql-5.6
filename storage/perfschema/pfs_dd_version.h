@@ -306,10 +306,13 @@
   80032-016:
   - add throttle_rate column to write_throttling_rules table
 
+  80032-017:
+  - add INDEX_STATISTICS table
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80032-016. i.e. 8.0.32 Facebook schema change no. 16.
+  Version published is now 80032-017. i.e. 8.0.32 Facebook schema change no. 17.
 */
 
-static const uint PFS_DD_VERSION = 80032016;
+static const uint PFS_DD_VERSION = 80032017;
 
 #endif /* PFS_DD_VERSION_H */

@@ -1,0 +1,19 @@
+SELECT * FROM performance_schema.index_statistics
+LIMIT 1;
+INSERT INTO performance_schema.index_statistics
+VALUES('db_name', 'tab_name', 'idx1', 500);
+ERROR 42000: INSERT command denied to user 'root'@'localhost' for table 'index_statistics'
+UPDATE performance_schema.index_statistics
+SET TABLE_NAME='new_table' WHERE TABLE_NAME='tab1';
+ERROR 42000: UPDATE command denied to user 'root'@'localhost' for table 'index_statistics'
+DELETE FROM performance_schema.index_statistics
+WHERE TABLE_NAME='new_table';
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'index_statistics'
+DELETE FROM performance_schema.index_statistics;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'index_statistics'
+LOCK TABLES performance_schema.index_statistics READ;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'index_statistics'
+UNLOCK TABLES;
+LOCK TABLES performance_schema.index_statistics WRITE;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'index_statistics'
+UNLOCK TABLES;

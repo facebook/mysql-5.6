@@ -46,6 +46,7 @@
 #include "sql/sql_bitmap.h"
 #include "sql/sql_class.h"  // THD
 #include "sql/sql_executor.h"
+#include "sql/sql_info.h"
 #include "sql/sql_tmp_table.h"
 #include "sql/system_variables.h"
 #include "sql/table.h"
@@ -85,6 +86,11 @@ bool IndexScanIterator<Reverse>::Init() {
       return true;
     }
 
+    // Insert a record in the book-keeping THD data structure that tracks
+    // rows_requested for each index.
+    ius_requested_rows =
+        get_or_add_index_stats_ptr(&(thd()->thd_ius), table(), m_idx);
+
     if (set_record_buffer(table(), m_expected_rows)) {
       return true;
     }
@@ -99,6 +105,12 @@ bool IndexScanIterator<Reverse>::Init() {
 template <>
 int IndexScanIterator<false>::Read() {  // Forward read.
   int error;
+
+  // Increment rows_requested counter for the index.
+  if (ius_requested_rows != nullptr) {
+    ++*ius_requested_rows;
+  }
+
   if (m_first) {
     error = table()->file->ha_index_first(m_record);
     m_first = false;
@@ -106,15 +118,24 @@ int IndexScanIterator<false>::Read() {  // Forward read.
     error = table()->file->ha_index_next(m_record);
   }
   if (error) return HandleError(error);
+
+  // Increment rows_examined counter.
   if (m_examined_rows != nullptr) {
     ++*m_examined_rows;
   }
+
   return 0;
 }
 
 template <>
 int IndexScanIterator<true>::Read() {  // Backward read.
   int error;
+
+  // Increment rows_requested counter for the index.
+  if (ius_requested_rows != nullptr) {
+    ++*ius_requested_rows;
+  }
+
   if (m_first) {
     error = table()->file->ha_index_last(m_record);
     m_first = false;
@@ -122,9 +143,12 @@ int IndexScanIterator<true>::Read() {  // Backward read.
     error = table()->file->ha_index_prev(m_record);
   }
   if (error) return HandleError(error);
+
+  // Increment rows_examined counter.
   if (m_examined_rows != nullptr) {
     ++*m_examined_rows;
   }
+
   return 0;
 }
 //! @endcond

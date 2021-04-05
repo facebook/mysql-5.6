@@ -100,6 +100,7 @@ class IndexRangeScanIterator : public RowIDCapableRowIterator {
   bool inited = false;
   const bool m_expected_rows;
   ha_rows *m_examined_rows;
+  ulonglong *ius_requested_rows;
 
   int cmp_next(QUICK_RANGE *range);
   int cmp_prev(QUICK_RANGE *range);

@@ -1,0 +1,306 @@
+
+--disable_warnings
+DROP TABLE IF EXISTS tbl1;
+DROP DATABASE IF EXISTS is_test;
+CREATE DATABASE is_test;
+USE is_test;
+
+--echo
+--echo Turn index stats on.
+--echo
+
+SET GLOBAL index_stats_control = ON;
+
+--echo
+--echo Create INNODB table with lots of columns and indexes.
+--echo
+
+CREATE TABLE tbl1 (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  col1 varchar(256) NOT NULL,
+  col2 int(11) NOT NULL,
+  col3 varchar(256) NOT NULL,
+  col4 varchar(256) NOT NULL,
+  col5 varchar(256) NOT NULL,
+  col6 varchar(256) NOT NULL,
+  col7 varchar(256) NOT NULL,
+  col8 text,
+  col9 bigint(20) DEFAULT NULL,
+  col10 int(11) DEFAULT NULL,
+  col11 int(11) DEFAULT NULL,
+  col12 int(11) DEFAULT NULL,
+  col13 int(11) DEFAULT NULL,
+  col14 int(11) DEFAULT NULL,
+  col15 varchar(256) DEFAULT NULL,
+  col16 bigint(20) DEFAULT NULL,
+  col17 int(11) DEFAULT '1',
+  col18 int(11) DEFAULT NULL,
+  col19 timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  col20 tinyint(1) NOT NULL DEFAULT '0',
+  col21 text,
+  col22 text,
+  col23 int(11) DEFAULT NULL,
+  col24 bigint(20) NOT NULL DEFAULT '0',
+  col25 smallint(6) DEFAULT '0',
+  col26 varchar(256) DEFAULT NULL,
+  col27 int(11) DEFAULT NULL,
+  col28 tinyint(1) NOT NULL DEFAULT '0',
+  col29 tinyint(1) NOT NULL DEFAULT '0',
+  col30 text,
+  col31 text,
+  col32 tinyint(1) DEFAULT NULL,
+  col33 timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY idx1 (col1, col2),
+  KEY idx2 (col14),
+  KEY idx3 (col14, col22(64), col15),
+  KEY idx4 (col14, col22(64), col9),
+  KEY idx5 (col9),
+  KEY idx6 (col26),
+  KEY idx7 (col4),
+  KEY idx8 (col2, col4, col1),
+  KEY idx9 (col24),
+  KEY idx10 (col3, col2),
+  KEY idx11 (col19),
+  KEY idx12 (col14, col26),
+  KEY idx13 (col15),
+  KEY idx14 (col4, col9, col14),
+  KEY idx15 (col14, col24, col1, col2),
+  KEY idx17 (col9, col14, col15, col24, col1, col2)
+) engine=innodb;
+
+CREATE TABLE tbl2 (
+  id bigint unsigned NOT NULL AUTO_INCREMENT,
+  name varchar(256) NOT NULL,
+  zip int NOT NULL,
+  description varchar(256) NOT NULL,
+  PRIMARY KEY (id),
+  KEY n (name),
+  KEY zn (zip, name)
+) engine=innodb;
+
+SORTED_RESULT;
+
+--echo
+--echo Insert dummy data into tbl1.
+--echo
+
+INSERT INTO tbl1(col1, col2, col3, col4, col5, col6, col7, col19)
+VALUES ('n1', 1, 'p1', 'u1', 'u1', 'u1', 'hg', '2021-03-15 01:00:00');
+
+INSERT INTO tbl1(col1, col2, col3, col4, col5, col6, col7, col19)
+VALUES ('n2', 94025, 'p1', 'u1', 'u1', 'u1', 'hg', '2021-03-15 04:00:00');
+
+INSERT INTO tbl1(col1, col2, col3, col4, col5, col6, col7, col19)
+VALUES ('n3', 1, 'p1', 'u1', 'u1', 'u1', 'hg', '2021-03-18 04:00:00');
+
+INSERT INTO tbl1(col1, col2, col3, col4, col5, col6, col7, col19)
+VALUES ('m1', 94112, 'p7', 'u1', 'u1', 'u1', 'hg', '2021-03-20 04:00:00');
+
+INSERT INTO tbl2(name, zip, description)
+VALUES ('Mohandas', 94025, 'currency notes');
+
+INSERT INTO tbl2(name, zip, description)
+VALUES ('Battery', 94111, 'SF');
+
+INSERT INTO tbl2(name, zip, description)
+VALUES ('Battery2', 94112, 'SF');
+
+--echo
+--echo Index statistics has nothing in it.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+--echo
+--echo Simple select with no rows returned.
+--echo
+
+SELECT col1, col2, col3 FROM tbl1 WHERE col1 LIKE 'p%';
+
+--echo
+--echo One row was requested from idx1
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+--echo
+--echo Turning off index stats.
+--echo
+
+set global index_stats_control = OFF_HARD;
+
+--echo
+--echo All index stats must have been deleted.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+--echo
+--echo Executing same query again.
+--echo
+
+SELECT col1, col2, col3 FROM tbl1 WHERE col1 LIKE 'p%';
+
+--echo
+--echo No stats should have been collected.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+--echo
+--echo Turning index stats back on.
+--echo
+
+set global index_stats_control = ON;
+
+--echo
+--echo Executing a simple select which will return non-empty result.
+--echo
+
+SELECT col1, col2, col3 FROM tbl1 WHERE col1 LIKE 'n%';
+
+--echo
+--echo Check index stats. It should have the appropriate number of ROWS_REQUESTED.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+
+--echo
+--echo Executing an update that would match more than one row.
+--echo
+
+UPDATE tbl1 SET col5 = 'git' WHERE col19 < '2021-03-18';
+
+--echo
+--echo Check index stats. It should have the appropriate number of ROWS_REQUESTED for idx11.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+
+--echo
+--echo Executing a simple delete.
+--echo
+
+DELETE FROM tbl1 WHERE col5 = 'hg';
+
+--echo
+--echo Check index stats. Delete statement doesn't use index.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+--echo
+--echo Semijoin optimizations.
+--echo
+
+SELECT id, col1, col2, col3, col5, col7 FROM tbl1 WHERE col2 IN (SELECT id FROM tbl2 WHERE name = 'Mohandas');
+
+--echo
+--echo Check index stats.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+
+--echo
+SELECT id, col1, col2, col3, col5, col7 FROM tbl1 WHERE col2 IN (SELECT zip FROM tbl2 WHERE name = 'Mohandas');
+
+--echo
+--echo Check index stats.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+
+--echo
+SELECT id, col1, col2, col3, col5, col7 FROM tbl1 WHERE col2 IN (SELECT zip FROM tbl2 WHERE name LIKE 'Bat%');
+
+--echo
+--echo Check index stats.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+
+--echo
+--echo GROUP BY query.
+--echo
+
+SELECT col3, SUM(col2) FROM tbl1 GROUP BY col3;
+
+--echo
+--echo Check index stats.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+--echo
+--echo ORDER BY query covered by an index.
+--echo
+
+SELECT col2, col3 FROM tbl1 ORDER BY col3 DESC;
+
+--echo
+--echo Check index stats.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+
+--echo
+--echo Simple join using 2 indexes.
+--echo
+
+SELECT tbl1.col2, tbl1.col3, tbl2.name FROM tbl1 INNER JOIN tbl2 ON tbl1.col2 = tbl2.zip;
+
+--echo
+--echo Check index stats.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+--echo
+--echo Union of two queries.
+--echo
+
+SELECT col3, col2 FROM tbl1 WHERE col2 > 2 UNION ALL
+SELECT name, zip FROM tbl2 WHERE name LIKE 'Bat%';
+
+--echo
+--echo Check index stats.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+
+--echo
+--echo Cleanup phase.
+--echo
+
+set global index_stats_control = OFF_HARD;
+
+DROP TABLE tbl1;
+DROP TABLE tbl2;
+DROP DATABASE is_test;
+
+--enable_warnings

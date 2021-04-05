@@ -66,6 +66,7 @@ class RefIterator final : public TableRowIterator {
   ha_rows *const m_examined_rows;
   bool m_first_record_since_init;
   bool m_is_mvi_unique_filter_enabled;
+  ulonglong *ius_requested_rows;
 };
 
 /**
@@ -89,6 +90,7 @@ class RefOrNullIterator final : public TableRowIterator {
   const double m_expected_rows;
   ha_rows *const m_examined_rows;
   bool m_is_mvi_unique_filter_enabled;
+  ulonglong *ius_requested_rows;
 };
 
 /**
@@ -119,6 +121,7 @@ class EQRefIterator final : public TableRowIterator {
   Index_lookup *const m_ref;
   bool m_first_record_since_init;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
 };
 
 /**
@@ -165,6 +168,7 @@ class FullTextSearchIterator final : public TableRowIterator {
   const bool m_use_order;
   const bool m_use_limit;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
 };
 
 /*
@@ -266,6 +270,7 @@ class PushedJoinRefIterator final : public TableRowIterator {
   const bool m_is_unique;
   bool m_first_record_since_init;
   ha_rows *const m_examined_rows;
+  ulonglong *ius_requested_rows;
 };
 
 /**

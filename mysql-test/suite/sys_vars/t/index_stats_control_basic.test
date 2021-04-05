@@ -1,0 +1,14 @@
+-- source include/load_sysvars.inc
+
+SET @@global.index_stats_control = "on";
+SET @@global.index_stats_control = DEFAULT;
+SELECT @@global.index_stats_control;
+
+SET @@global.index_stats_control = "off_hard";
+SELECT @@global.index_stats_control;
+SET @@global.index_stats_control = "off_soft";
+SELECT @@global.index_stats_control;
+
+SET @@global.index_stats_control = "on";
+SELECT @@global.index_stats_control;
+SET @@global.index_stats_control = "off_hard";
