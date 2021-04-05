@@ -1,0 +1,35 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DMLs on the table index_statistics.
+#
+
+--disable_result_log
+SELECT * FROM performance_schema.index_statistics
+  LIMIT 1;
+--enable_result_log
+
+--error ER_TABLEACCESS_DENIED_ERROR
+INSERT INTO performance_schema.index_statistics
+  VALUES('db_name', 'tab_name', 'idx1', 500);
+
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.index_statistics
+  SET TABLE_NAME='new_table' WHERE TABLE_NAME='tab1';
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.index_statistics
+  WHERE TABLE_NAME='new_table';
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.index_statistics;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.index_statistics READ;
+UNLOCK TABLES;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.index_statistics WRITE;
+UNLOCK TABLES;

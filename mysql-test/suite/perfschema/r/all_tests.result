@@ -34,6 +34,7 @@ idx_binary_log_transaction_compression_stats.test
 idx_client_attributes.test
 idx_column_statistics.test
 idx_esms_by_all.test
+idx_index_statistics.test
 idx_log_status.test
 idx_replica_statistics.test
 idx_replication_applier_filters.test
