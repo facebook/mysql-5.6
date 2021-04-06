@@ -55,6 +55,9 @@ void PFS_connection_slice::reset_stages_stats() {
 
 void PFS_connection_slice::reset_statements_stats() {
   PFS_statement_stat *stat = m_instr_class_statements_stats;
+  if (stat == nullptr) {
+    return;
+  }
   PFS_statement_stat *stat_last = stat + statement_class_max;
   for (; stat < stat_last; stat++) {
     stat->reset();
