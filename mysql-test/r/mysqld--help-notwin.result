@@ -1185,6 +1185,10 @@ The following options may be given as the first argument:
  --performance-schema-esms-by-all 
  Enables the events_statements_summary_by_all and disables
  events_statements_summary_by_digest.
+ --performance-schema-esms-by-thread-by-event-name 
+ Enables the table
+ events_statements_summary_by_thread_by_event_name
+ (Defaults to on; use --skip-performance-schema-esms-by-thread-by-event-name to disable.)
  --performance-schema-events-stages-history-long-size=# 
  Number of rows in EVENTS_STAGES_HISTORY_LONG. Use 0 to
  disable, -1 for automated sizing.
@@ -3041,6 +3045,7 @@ performance-schema-consumer-thread-instrumentation TRUE
 performance-schema-digests-size -1
 performance-schema-error-size ####
 performance-schema-esms-by-all FALSE
+performance-schema-esms-by-thread-by-event-name TRUE
 performance-schema-events-stages-history-long-size -1
 performance-schema-events-stages-history-size -1
 performance-schema-events-statements-history-long-size -1

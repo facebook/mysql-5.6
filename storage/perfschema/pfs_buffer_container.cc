@@ -566,7 +566,7 @@ int PFS_thread_allocator::alloc_array(PFS_thread_array *array) {
     }
   }
 
-  if (statements_sizing > 0) {
+  if (statements_sizing > 0 && pfs_param.m_esms_by_thread_by_event_name) {
     array->m_instr_class_statements_array = PFS_MALLOC_ARRAY(
         &builtin_memory_thread_statements, statements_sizing,
         sizeof(PFS_statement_stat), PFS_statement_stat, MYF(MY_ZEROFILL));
@@ -716,8 +716,13 @@ int PFS_thread_allocator::alloc_array(PFS_thread_array *array) {
         &array->m_instr_class_waits_array[index * wait_class_max]);
     pfs->set_instr_class_stages_stats(
         &array->m_instr_class_stages_array[index * stage_class_max]);
-    pfs->set_instr_class_statements_stats(
-        &array->m_instr_class_statements_array[index * statement_class_max]);
+
+    if (array->m_instr_class_statements_array != nullptr) {
+      pfs->set_instr_class_statements_stats(
+          &array->m_instr_class_statements_array[index * statement_class_max]);
+    } else {
+      pfs->set_instr_class_statements_stats(nullptr);
+    }
     pfs->set_instr_class_transactions_stats(
         &array
              ->m_instr_class_transactions_array[index * transaction_class_max]);

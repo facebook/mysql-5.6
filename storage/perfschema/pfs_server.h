@@ -136,6 +136,9 @@ struct PFS_global_param {
   /** True if esms_by_all table is enabled. */
   bool m_esms_by_all_enabled;
 
+  /** True if esms_by_thread_by_event_name table is enabled */
+  bool m_esms_by_thread_by_event_name;
+
   /** Default instrument configuration option. */
   char *m_pfs_instrument;
 

@@ -6557,7 +6557,8 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
 
   PFS_statement_stat *event_name_array;
   uint index = klass->m_event_name_index;
-  PFS_statement_stat *stat;
+  PFS_statement_stat dummy_stat = {};
+  PFS_statement_stat *stat = &dummy_stat;
 
   /*
    Capture statement stats by digest.
@@ -6571,8 +6572,10 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
     PFS_thread *thread = reinterpret_cast<PFS_thread *>(state->m_thread);
     assert(thread != nullptr);
     event_name_array = thread->write_instr_class_statements_stats();
-    /* Aggregate to EVENTS_STATEMENTS_SUMMARY_BY_THREAD_BY_EVENT_NAME */
-    stat = &event_name_array[index];
+    if (event_name_array != nullptr) {
+      /* Aggregate to EVENTS_STATEMENTS_SUMMARY_BY_THREAD_BY_EVENT_NAME */
+      stat = &event_name_array[index];
+    }
 
     if (flags & STATE_FLAG_DIGEST) {
       digest_storage = state->m_digest;

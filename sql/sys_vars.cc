@@ -952,6 +952,14 @@ static Sys_var_bool Sys_pfs_esms_by_all(
     GLOBAL_VAR(pfs_param.m_esms_by_all_enabled), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(clear_digest_stats), NULL, sys_var::PARSE_EARLY);
+
+static Sys_var_bool Sys_pfs_esms_by_thread_by_event_name(
+    "performance_schema_esms_by_thread_by_event_name",
+    "Enables the table events_statements_summary_by_thread_by_event_name",
+    READ_ONLY GLOBAL_VAR(pfs_param.m_esms_by_thread_by_event_name),
+    CMD_LINE(OPT_ARG), DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
+
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 static Sys_var_ulong Sys_auto_increment_increment(
