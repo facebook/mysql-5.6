@@ -1782,7 +1782,10 @@ int raft_change_master(
   channel_map.rdlock();
   Master_info *mi = channel_map.get_default_channel_mi();
 
-  if (!mi) goto end;
+  if (!mi) {
+    channel_map.unlock();
+    DBUG_RETURN(error);
+  }
 
   mysql_mutex_lock(&mi->data_lock);
   strmake(mi->host, const_cast<char *>(master_instance.first.c_str()),
@@ -1808,12 +1811,12 @@ int raft_change_master(
   }
   mi->inited = true;
   mi->flush_info(true);
-  mysql_mutex_unlock(&mi->rli->data_lock);
-  mysql_mutex_unlock(&mi->data_lock);
 
   // changing to a slave. set the is_slave flag
   is_slave = true;
 end:
+  mysql_mutex_unlock(&mi->rli->data_lock);
+  mysql_mutex_unlock(&mi->data_lock);
   channel_map.unlock();
   DBUG_RETURN(error);
 }
