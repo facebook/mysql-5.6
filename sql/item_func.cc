@@ -29,6 +29,7 @@
 
 #include "sql/item_func.h"
 
+#include <scope_guard.h>  // Scope_guard
 #include <algorithm>
 #include <atomic>
 #include <cfloat>  // DBL_DIG
@@ -46,6 +47,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "field.h"
 #include "integer_digits.h"
 #include "m_string.h"
 #include "map_helpers.h"
@@ -9372,6 +9374,135 @@ static ulonglong get_table_statistics(
   return result;
 }
 
+/**
+  Get index size by key prefix passed.
+
+  @param      args       List of parameters in following order,
+
+                         - Schema_name
+                         - Table_name
+                         - Index_name
+                         - prefix_key
+
+  @param     function_name  Name of function to be used in error messages.
+
+
+  @param[out] index_size stores index size for prefix key passed.
+
+  @returns true if success or false otherwise
+*/
+static bool get_index_size_by_prefix(Item **args, const char *function_name,
+                                     ulonglong *index_size) {
+  DBUG_TRACE;
+
+  bool result = true;
+  // Read arguments
+  String schema_name;
+  String table_name;
+  String index_name;
+
+  String *schema_name_ptr = args[0]->val_str(&schema_name);
+  String *table_name_ptr = args[1]->val_str(&table_name);
+  String *index_name_ptr = args[2]->val_str(&index_name);
+
+  // Validate args
+  // All args should be non null and last args should be numeric
+  if (schema_name_ptr == nullptr || table_name_ptr == nullptr ||
+      index_name_ptr == nullptr) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), function_name);
+    return false;
+  }
+  if (!is_integer_type(args[3]->data_type())) {
+    auto msg = "GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric";
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), msg);
+    return false;
+  }
+
+  // Prepare temporary lex
+  THD *thd = current_thd;
+  LEX temp_lex, *lex;
+  LEX *old_lex = thd->lex;
+  thd->lex = lex = &temp_lex;
+  lex_start(thd);
+  LEX_CSTRING db_name_lex_cstr, table_name_lex_cstr;
+  db_name_lex_cstr.str = schema_name_ptr->c_ptr_safe();
+  db_name_lex_cstr.length = schema_name_ptr->length();
+  table_name_lex_cstr.str = table_name_ptr->c_ptr_safe();
+  table_name_lex_cstr.length = table_name_ptr->length();
+
+  if (make_table_list(thd, lex->query_block, db_name_lex_cstr,
+                      table_name_lex_cstr)) {
+    result = false;
+    goto end;
+  }
+
+  TABLE_LIST *table_list;
+  table_list = lex->query_block->table_list.first;
+  table_list->required_type = dd::enum_table_type::BASE_TABLE;
+  if (open_tables_for_query(thd, table_list, 0)) {
+    result = false;
+    goto end;
+  }
+
+  {
+    TABLE *table = table_list->table;
+    uint key_index = 0;
+
+    // Search for key with the index name.
+    while (key_index < table->s->keys) {
+      if (!my_strcasecmp(system_charset_info,
+                         (table->key_info + key_index)->name,
+                         index_name_ptr->c_ptr_safe()))
+        break;
+
+      key_index++;
+    }
+
+    if (key_index == table->s->keys) {
+      // index is not found
+      result = false;
+      my_error(ER_NO_SUCH_INDEX, MYF(0), table_name_ptr->c_ptr_safe());
+      goto end;
+    } else {
+      uchar key_buf[MAX_KEY_LENGTH + MAX_FIELD_WIDTH];
+      KEY *index_info = table->key_info + key_index;
+      auto field = index_info->key_part[0].field;
+      if (!is_integer_type(field->type())) {
+        result = false;
+        auto msg =
+            "GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric";
+        my_error(ER_WRONG_ARGUMENTS, MYF(0), msg);
+        goto end;
+      }
+      auto old_map = tmp_use_all_columns(table, table->write_set);
+      auto grd = create_scope_guard(
+          [&]() { tmp_restore_column_map(table->write_set, old_map); });
+      auto field_length = index_info->key_part[0].store_length;
+      if (args[3]->save_in_field(field, false) != TYPE_OK) {
+        result = false;
+        my_error(ER_WRONG_ARGUMENTS, MYF(0), function_name);
+        goto end;
+      }
+      key_copy(key_buf, table->record[0], index_info, field_length);
+      key_range min_range;
+      key_range max_range;
+      min_range.key = key_buf;
+      min_range.flag = HA_READ_KEY_EXACT;
+      max_range.key = key_buf;
+      max_range.flag = HA_READ_AFTER_KEY;
+      min_range.length = max_range.length = field_length;
+      min_range.keypart_map = max_range.keypart_map = 1;
+      *index_size =
+          table->file->records_size_in_range(key_index, &min_range, &max_range);
+    }
+  }
+end:
+  lex->unit->cleanup(thd, true);
+  lex_end(thd->lex);
+  thd->lex = old_lex;
+  return result;
+}
+
 longlong Item_func_internal_table_rows::val_int() {
   DBUG_TRACE;
 
@@ -9382,6 +9513,13 @@ longlong Item_func_internal_table_rows::val_int() {
   if (null_value == false && result == (ulonglong)-1) null_value = true;
 
   return result;
+}
+
+longlong Item_func_get_index_size_by_prefix::val_int() {
+  DBUG_TRACE;
+  ulonglong return_value;
+  bool result = get_index_size_by_prefix(args, func_name(), &return_value);
+  return result ? return_value : 0;
 }
 
 longlong Item_func_internal_avg_row_length::val_int() {

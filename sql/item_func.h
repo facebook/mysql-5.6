@@ -2592,6 +2592,20 @@ class Item_func_internal_table_rows : public Item_int_func {
   }
 };
 
+class Item_func_get_index_size_by_prefix : public Item_int_func {
+ public:
+  Item_func_get_index_size_by_prefix(const POS &pos, PT_item_list *list)
+      : Item_int_func(pos, list) {}
+  longlong val_int() override;
+  const char *func_name() const override { return "get_index_size_by_prefix"; }
+  bool resolve_type(THD *) override {
+    set_nullable(true);
+    unsigned_flag = true;
+    null_on_null = true;
+    return false;
+  }
+};
+
 class Item_func_internal_avg_row_length : public Item_int_func {
  public:
   Item_func_internal_avg_row_length(const POS &pos, PT_item_list *list)

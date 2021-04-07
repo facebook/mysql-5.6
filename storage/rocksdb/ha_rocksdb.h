@@ -386,6 +386,11 @@ class ha_rocksdb : public my_core::handler {
   // the buffer size should be at least 2*Rdb_key_def::INDEX_NUMBER_SIZE
   rocksdb::Range get_range(const int i, uchar buf[]) const;
 
+  void records_in_range_internal(uint inx, key_range *const min_key,
+                                 key_range *const max_key, int64 disk_size,
+                                 int64 rows, ulonglong *total_size,
+                                 ulonglong *row_count);
+
   /*
     Perf timers for data reads
   */
@@ -932,6 +937,10 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
   ha_rows records_in_range(uint inx, key_range *const min_key,
                            key_range *const max_key) override
+      MY_ATTRIBUTE((__warn_unused_result__));
+
+  ulonglong records_size_in_range(uint inx, key_range *const min_key,
+                                  key_range *const max_key) override
       MY_ATTRIBUTE((__warn_unused_result__));
 
   int delete_table(Rdb_tbl_def *const tbl);
