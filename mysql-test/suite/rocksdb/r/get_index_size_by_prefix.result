@@ -1,0 +1,129 @@
+CREATE TABLE t1 (i INT, j INT, l CHAR(30), k BIGINT, PRIMARY KEY(i,j) COMMENT "cf1", KEY sk(k), KEY sk1(k,l)) ENGINE = ROCKSDB;
+SET @@GLOBAL.ROCKSDB_UPDATE_CF_OPTIONS=
+'cf1={write_buffer_size=8m;target_file_size_base=1m};';
+SET rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+set rocksdb_bulk_load_size=100000;
+LOAD DATA INFILE <input_file> INTO TABLE t1;
+set rocksdb_bulk_load=0;
+include/assert.inc ['Expected prefix size > 70000']
+include/assert.inc ['Expected prefix size > 70000']
+include/assert.inc ['Expected prefix size > 70000']
+include/assert.inc ['Expected prefix size > 70000']
+include/assert.inc ['Expected prefix size > 70000']
+include/assert.inc ['Expected prefix size = 0']
+include/assert.inc ['Expected prefix size > 40000']
+include/assert.inc ['Expected prefix size > 40000']
+include/assert.inc ['Expected prefix size > 40000']
+include/assert.inc ['Expected prefix size > 40000']
+include/assert.inc ['Expected prefix size > 40000']
+include/assert.inc ['Expected prefix size > 40000']
+include/assert.inc ['Expected prefix size = 0']
+include/assert.inc ['Expected prefix size > 60000']
+include/assert.inc ['Expected prefix size > 60000']
+include/assert.inc ['Expected prefix size > 60000']
+include/assert.inc ['Expected prefix size > 60000']
+include/assert.inc ['Expected prefix size > 60000']
+include/assert.inc ['Expected prefix size = 0']
+SELECT GET_INDEX_SIZE_BY_PREFIX(null, null, null, null);
+ERROR HY000: Incorrect arguments to get_index_size_by_prefix
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", null, null, null);
+ERROR HY000: Incorrect arguments to get_index_size_by_prefix
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", null, null);
+ERROR HY000: Incorrect arguments to get_index_size_by_prefix
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "k", null);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("random", "t1", "PRIMARY", 1);
+ERROR 42000: Unknown database 'random'
+SELECT GET_INDEX_SIZE_BY_PREFIX("random", "random", "PRIMARY", 1);
+ERROR 42000: Unknown database 'random'
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "random", "PRIMARY", 1);
+ERROR 42S02: Table 'test.random' doesn't exist
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "random", 1);
+ERROR 42S12: Table 't1' has no index like the one used in CREATE INDEX; recreate the table
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", "random string");
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST("2007-07-18" AS DATE));
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST("2007-07-18" AS DATETIME));
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST(3.33333333 AS FLOAT));
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST(3.33333333 AS DOUBLE));
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST(3.33333333 AS REAL));
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST(3.33333333 AS DECIMAL));
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", TIME('2:59:58.999'));
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", TIMESTAMP(20000303000000));
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: 4th argument expected to be numeric
+CREATE TABLE t2 (
+f1 CHAR(20) PRIMARY KEY,
+f2 CHAR(20),
+f3 BLOB,
+f4 DATE,
+f5 FLOAT,
+f6 LONGTEXT,
+f7 REAL,
+f8 TIME,
+f9 BINARY(20),
+f10 BIT(64),
+f11 DOUBLE,
+f12 ENUM ('a', 'b', 'c') DEFAULT 'a',
+f13 NUMERIC(17, 9),
+f14
+SET ('a', 'b', 'c') default 'b',
+f15 VARBINARY(20),
+f16 VARCHAR(20),       
+KEY sk2(f2),
+KEY sk3(f3(10)),
+KEY sk4(f4),
+KEY sk5(f5),
+KEY sk6(f6(10)),
+KEY sk7(f7),
+KEY sk8(f8),
+KEY sk9(f9),
+KEY sk10(f10),
+KEY sk11(f11),
+KEY sk12(f12),
+KEY sk13(f13),
+KEY sk14(f14),
+KEY sk15(f15),
+KEY sk16(f16)) ENGINE = ROCKSDB;
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "PRIMARY", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk2", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk3", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk4", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk5", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk6", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk7", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk8", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk9", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk10", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk11", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk12", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk13", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk14", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk15", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk16", 1);
+ERROR HY000: Incorrect arguments to GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric
+DROP TABLE t1;
+DROP TABLE t2;
+set @@global.rocksdb_update_cf_options= '';
