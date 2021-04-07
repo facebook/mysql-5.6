@@ -1,0 +1,255 @@
+# Get Index Prefix size
+CREATE TABLE t1 (i INT, j INT, l CHAR(30), k BIGINT, PRIMARY KEY(i,j) COMMENT "cf1", KEY sk(k), KEY sk1(k,l)) ENGINE = ROCKSDB;
+
+# Dump all the insertion data in file
+--let $file = `SELECT CONCAT(@@datadir, "test_loadfile.txt")`
+--let MTR_DATA_ORDER_DESC = $data_order_desc;
+
+# Create a text file with data to import into the table.
+# The primary key is in sorted order and the secondary keys are randomly generated
+--let ROCKSDB_INFILE = $file
+perl;
+my $fn = $ENV{'ROCKSDB_INFILE'};
+open(my $fh, '>', $fn) || die "perl open($fn): $!";
+
+# Change back to 5000000 once perf issue is resolved
+my $max = 50;
+my $inner_max = 10000;
+my $inner_max_2 = 11000;
+my $inner_max_3 = 12000;
+my $tmp = "ABCD ABCD ABCD ABCD ABCD";
+my $space = $ENV{'SPACE'};
+for (my $ii = 0; $ii < $max; $ii++)
+{
+  for (my $jj = 0; $jj < $inner_max; $jj++)
+  {
+    print $fh "$ii\t$jj\t$tmp\t$ii\n";
+  }
+  # Insert NULL char values
+  for (my $jj = $inner_max; $jj < $inner_max_2; $jj++)
+  {
+    print $fh "$ii\t$jj\t$space\t$ii\n";
+  }
+  # Insert NULL int values
+  for (my $jj = $inner_max_2; $jj < $inner_max_3; $jj++)
+  {
+    print $fh "$ii\t$jj\t$space\t$space\n";
+  }
+}
+
+close($fh);
+EOF
+--file_exists $file
+
+# Update CF to smaller value to create multiple SST in ingestion
+eval SET @@GLOBAL.ROCKSDB_UPDATE_CF_OPTIONS=
+    'cf1={write_buffer_size=8m;target_file_size_base=1m};';
+
+SET rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+set rocksdb_bulk_load_size=100000;
+--disable_query_log
+--echo LOAD DATA INFILE <input_file> INTO TABLE t1;
+
+eval LOAD DATA INFILE '$file' 
+INTO TABLE t1
+FIELDS TERMINATED BY "\t"
+LINES TERMINATED BY "\n"
+(i, j, @vl, @vk)
+SET
+l = NULLIF(@vl,''),
+k = NULLIF(@vk,'')
+;
+
+--enable_query_log
+set rocksdb_bulk_load=0;
+--remove_file $file
+
+# Get index prefix size by primary key
+--let $assert_text= 'Expected prefix size > 70000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", 1)] > 70000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 70000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", 2)] > 70000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 70000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", 3)] > 70000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 70000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", 4)] > 70000;
+--source include/assert.inc
+
+
+--let $assert_text= 'Expected prefix size > 70000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", 5)] > 70000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size = 0'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", 2147483647)] = 0;
+--source include/assert.inc
+
+# Get index prefix size by sk
+--let $assert_text= 'Expected prefix size > 40000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk", 1)] > 40000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 40000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk", 2)] > 40000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 40000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk", 3)] > 40000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 40000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk", 4)] > 40000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 40000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk", 5)] > 40000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 40000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk", 5)] > 40000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size = 0'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk", 2147483647)] = 0;
+--source include/assert.inc
+
+# Get index prefix size by sk1
+--let $assert_text= 'Expected prefix size > 60000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk1", 1)] > 60000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 60000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk1", 2)] > 60000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 60000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk1", 3)] > 60000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 60000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk1", 4)] > 60000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size > 60000'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk1", 5)] > 60000;
+--source include/assert.inc
+
+--let $assert_text= 'Expected prefix size = 0'
+--let $assert_cond= [SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "sk1", 2147483647)] = 0;
+--source include/assert.inc
+
+# Test null params
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX(null, null, null, null);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", null, null, null);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", null, null);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "k", null);
+
+# Test on invalid params
+--error ER_BAD_DB_ERROR
+SELECT GET_INDEX_SIZE_BY_PREFIX("random", "t1", "PRIMARY", 1);
+--error ER_BAD_DB_ERROR
+SELECT GET_INDEX_SIZE_BY_PREFIX("random", "random", "PRIMARY", 1);
+--error ER_NO_SUCH_TABLE
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "random", "PRIMARY", 1);
+--error ER_NO_SUCH_INDEX
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "random", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", "random string");
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST("2007-07-18" AS DATE));
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST("2007-07-18" AS DATETIME));
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST(3.33333333 AS FLOAT));
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST(3.33333333 AS DOUBLE));
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST(3.33333333 AS REAL));
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", CAST(3.33333333 AS DECIMAL));
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", TIME('2:59:58.999'));
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t1", "PRIMARY", TIMESTAMP(20000303000000));
+
+# Index keys are not int
+CREATE TABLE t2 (
+    f1 CHAR(20) PRIMARY KEY,
+    f2 CHAR(20),
+    f3 BLOB,
+    f4 DATE,
+    f5 FLOAT,
+    f6 LONGTEXT,
+    f7 REAL,
+    f8 TIME,
+    f9 BINARY(20),
+    f10 BIT(64),
+    f11 DOUBLE,
+    f12 ENUM ('a', 'b', 'c') DEFAULT 'a',
+    f13 NUMERIC(17, 9),
+    f14
+    SET ('a', 'b', 'c') default 'b',
+		       f15 VARBINARY(20),
+		       f16 VARCHAR(20),       
+                       KEY sk2(f2),
+                       KEY sk3(f3(10)),
+                       KEY sk4(f4),
+                       KEY sk5(f5),
+                       KEY sk6(f6(10)),
+                       KEY sk7(f7),
+                       KEY sk8(f8),
+                       KEY sk9(f9),
+                       KEY sk10(f10),
+                       KEY sk11(f11),
+                       KEY sk12(f12),
+                       KEY sk13(f13),
+                       KEY sk14(f14),
+                       KEY sk15(f15),
+                       KEY sk16(f16)) ENGINE = ROCKSDB;
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "PRIMARY", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk2", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk3", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk4", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk5", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk6", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk7", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk8", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk9", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk10", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk11", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk12", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk13", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk14", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk15", 1);
+--error ER_WRONG_ARGUMENTS
+SELECT GET_INDEX_SIZE_BY_PREFIX("test", "t2", "sk16", 1);
+
+DROP TABLE t1;
+DROP TABLE t2;
+set @@global.rocksdb_update_cf_options= '';

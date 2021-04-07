@@ -1419,6 +1419,8 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"FROM_DAYS", SQL_FN(Item_func_from_days, 1)},
     {"FROM_UNIXTIME", SQL_FACTORY(From_unixtime_instantiator)},
     {"GET_LOCK", SQL_FN(Item_func_get_lock, 2)},
+    {"GET_INDEX_SIZE_BY_PREFIX",
+     SQL_FN_LIST(Item_func_get_index_size_by_prefix, 4)},
     {"GREATEST", SQL_FN_V(Item_func_max, 2, MAX_ARGLIST_SIZE)},
     {"GTID_SUBTRACT", SQL_FN(Item_func_gtid_subtract, 2)},
     {"GTID_SUBSET", SQL_FN(Item_func_gtid_subset, 2)},
