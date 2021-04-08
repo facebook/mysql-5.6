@@ -1901,6 +1901,9 @@ The following options may be given as the first argument:
  DBOptions::log_file_time_to_roll for RocksDB
  --rocksdb-manifest-preallocation-size=# 
  DBOptions::manifest_preallocation_size for RocksDB
+ --rocksdb-manual-compaction-bottommost-level=name 
+ Option for bottommost level compaction during manual
+ compaction
  --rocksdb-manual-compaction-threads=# 
  How many rocksdb threads to run for manual compactions
  --rocksdb-manual-wal-flush 
@@ -3224,6 +3227,7 @@ rocksdb-lock-wait-timeout 1
 rocksdb-locks ON
 rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
+rocksdb-manual-compaction-bottommost-level kForceOptimized
 rocksdb-manual-compaction-threads 0
 rocksdb-manual-wal-flush TRUE
 rocksdb-master-skip-tx-api FALSE
