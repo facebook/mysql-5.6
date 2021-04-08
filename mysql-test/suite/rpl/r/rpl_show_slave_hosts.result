@@ -18,7 +18,7 @@ INSERT INTO t1 (data) VALUES (repeat('a',1024*1024));
 DROP TABLE t1;
 SHOW SLAVE HOSTS;
 Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-2		SLAVE_PORT	1	SLAVE_UUID	0	REPL_STATUS_SEMISYNC
+2		SLAVE_PORT	1	SLAVE_UUID	1	REPL_STATUS_SEMISYNC
 3	slave2	SLAVE_PORT	1	SLAVE_UUID	0	REPL_STATUS_ASYNC
 [connection slave2]
 include/stop_slave_io.inc
@@ -27,5 +27,5 @@ CREATE TABLE t1(a int);
 DROP TABLE t1;
 SHOW SLAVE HOSTS;
 Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-2		SLAVE_PORT	1	SLAVE_UUID	0	REPL_STATUS_SEMISYNC
+2		SLAVE_PORT	1	SLAVE_UUID	1	REPL_STATUS_SEMISYNC
 include/rpl_end.inc

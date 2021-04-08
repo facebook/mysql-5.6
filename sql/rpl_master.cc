@@ -398,7 +398,7 @@ bool show_slave_hosts(THD *thd) {
     String slave_uuid;
     if (get_slave_uuid(si->thd, &slave_uuid))
       protocol->store(slave_uuid.c_ptr_safe(), &my_charset_bin);
-    protocol->store(is_semi_sync_slave());
+    protocol->store(is_semi_sync_slave(si->thd, /*need_lock*/ true));
     mysql_mutex_lock(&si->thd->LOCK_thd_query);
     LEX_CSTRING replication_status = si->thd->query();
     if (replication_status.length)
