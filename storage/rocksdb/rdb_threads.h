@@ -179,6 +179,8 @@ class Rdb_manual_compaction_thread : public Rdb_thread {
     rocksdb::Slice *start;
     rocksdb::Slice *limit;
     int concurrency = 0;
+    rocksdb::BottommostLevelCompaction bottommost_level_compaction =
+        rocksdb::BottommostLevelCompaction::kForceOptimized;
   };
 
   int m_latest_mc_id;
@@ -195,9 +197,11 @@ class Rdb_manual_compaction_thread : public Rdb_thread {
   virtual void on_uninit() override { mysql_mutex_destroy(&m_mc_mutex); }
 
   virtual void run() override;
-  int request_manual_compaction(std::shared_ptr<rocksdb::ColumnFamilyHandle> cf,
-                                rocksdb::Slice *start, rocksdb::Slice *limit,
-                                int concurrency = 0);
+  int request_manual_compaction(
+      std::shared_ptr<rocksdb::ColumnFamilyHandle> cf, rocksdb::Slice *start,
+      rocksdb::Slice *limit, int concurrency = 0,
+      rocksdb::BottommostLevelCompaction bottommost_level_compaction =
+          rocksdb::BottommostLevelCompaction::kForceOptimized);
   bool is_manual_compaction_finished(int mc_id);
   void clear_manual_compaction_request(int mc_id, bool init_only = false);
   void clear_all_manual_compaction_requests();

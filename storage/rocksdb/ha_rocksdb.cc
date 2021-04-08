@@ -269,10 +269,12 @@ static handler *rocksdb_create_handler(my_core::handlerton *hton,
                                        my_core::MEM_ROOT *mem_root);
 
 static rocksdb::CompactRangeOptions getCompactRangeOptions(
-    int concurrency = 0) {
+    int concurrency = 0,
+    rocksdb::BottommostLevelCompaction bottommost_level_compaction =
+        rocksdb::BottommostLevelCompaction::kForceOptimized) {
   rocksdb::CompactRangeOptions compact_range_options;
   compact_range_options.bottommost_level_compaction =
-      rocksdb::BottommostLevelCompaction::kForceOptimized;
+      bottommost_level_compaction;
   compact_range_options.exclusive_manual_compaction = false;
   if (concurrency > 0) {
     compact_range_options.max_subcompactions = concurrency;
@@ -1020,6 +1022,16 @@ static TYPELIB info_log_level_typelib = {
     array_elements(info_log_level_names) - 1, "info_log_level_typelib",
     info_log_level_names, nullptr};
 
+/* This enum needs to be kept up to date with rocksdb::BottommostLevelCompaction
+ */
+static const char *bottommost_level_compaction_names[] = {
+    "kSkip", "kIfHaveCompactionFilter", "kForce", "kForceOptimized", NullS};
+
+static TYPELIB bottommost_level_compaction_typelib = {
+    array_elements(bottommost_level_compaction_names) - 1,
+    "bottommost_level_compaction_typelib", bottommost_level_compaction_names,
+    nullptr};
+
 static void rocksdb_set_rocksdb_info_log_level(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -1385,6 +1397,15 @@ static MYSQL_THDVAR_INT(
     "How many rocksdb threads to run for manual compactions", nullptr, nullptr,
     /* default rocksdb.dboption max_subcompactions */ 0,
     /* min */ 0, /* max */ 128, 0);
+
+static MYSQL_THDVAR_ENUM(
+    manual_compaction_bottommost_level, PLUGIN_VAR_RQCMDARG,
+    "Option for bottommost level compaction during manual "
+    "compaction",
+    nullptr, nullptr,
+    /* default */
+    (ulong)rocksdb::BottommostLevelCompaction::kForceOptimized,
+    &bottommost_level_compaction_typelib);
 
 static MYSQL_SYSVAR_BOOL(
     create_if_missing,
@@ -2574,6 +2595,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(debug_manual_compaction_delay),
     MYSQL_SYSVAR(max_manual_compactions),
     MYSQL_SYSVAR(manual_compaction_threads),
+    MYSQL_SYSVAR(manual_compaction_bottommost_level),
     MYSQL_SYSVAR(rollback_on_timeout),
 
     MYSQL_SYSVAR(enable_insert_with_update_caching),
@@ -2613,8 +2635,13 @@ static int rocksdb_compact_column_family(
 
     auto cfh = cf_manager.get_cf(cf_name);
     if (cfh != nullptr && rdb != nullptr) {
+      rocksdb::BottommostLevelCompaction bottommost_level_compaction =
+          (rocksdb::BottommostLevelCompaction)THDVAR(
+              thd, manual_compaction_bottommost_level);
+
       int mc_id = rdb_mc_thread.request_manual_compaction(
-          cfh, nullptr, nullptr, THDVAR(thd, manual_compaction_threads));
+          cfh, nullptr, nullptr, THDVAR(thd, manual_compaction_threads),
+          bottommost_level_compaction);
       if (mc_id == -1) {
         my_error(ER_INTERNAL_ERROR, MYF(0),
                  "Can't schedule more manual compactions. "
@@ -14881,8 +14908,9 @@ void Rdb_manual_compaction_thread::run() {
     // it is cancelled by CancelAllBackgroundWork, then status is
     // set to shutdownInProgress.
     const rocksdb::Status s =
-        rdb->CompactRange(getCompactRangeOptions(mcr.concurrency), mcr.cf.get(),
-                          mcr.start, mcr.limit);
+        rdb->CompactRange(getCompactRangeOptions(
+                              mcr.concurrency, mcr.bottommost_level_compaction),
+                          mcr.cf.get(), mcr.start, mcr.limit);
 
     rocksdb_manual_compactions_running--;
     if (s.ok()) {
@@ -14944,7 +14972,8 @@ void Rdb_manual_compaction_thread::clear_manual_compaction_request(
 
 int Rdb_manual_compaction_thread::request_manual_compaction(
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cf, rocksdb::Slice *start,
-    rocksdb::Slice *limit, int concurrency) {
+    rocksdb::Slice *limit, int concurrency,
+    rocksdb::BottommostLevelCompaction bottommost_level_compaction) {
   int mc_id = -1;
   RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
   if (m_requests.size() >= rocksdb_max_manual_compactions) {
@@ -14958,6 +14987,7 @@ int Rdb_manual_compaction_thread::request_manual_compaction(
   mcr.start = start;
   mcr.limit = limit;
   mcr.concurrency = concurrency;
+  mcr.bottommost_level_compaction = bottommost_level_compaction;
   m_requests.insert(std::make_pair(mcr.mc_id, mcr));
   RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
   return mc_id;
