@@ -11755,7 +11755,9 @@ int binlog_change_to_binlog(THD *thd) {
   mysql_bin_log.close(LOG_CLOSE_INDEX, /*need_lock_log=*/false,
                       /*need_lock_index=*/false);
 
-  if (mysql_bin_log.open_index_file(opt_binlog_index_name, opt_bin_logname,
+  // Use opt_bin_logname to calculate index file full path
+  if (mysql_bin_log.open_index_file(/*index_file_name_arg*/ nullptr,
+                                    opt_bin_logname,
                                     /*need_lock_index=*/false)) {
     error = 1;
     goto err;
