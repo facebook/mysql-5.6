@@ -8881,6 +8881,12 @@ static Sys_var_bool Sys_enable_acl_fast_lookup(
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_enable_acl_fast_lookup));
 
+static Sys_var_bool Sys_enable_acl_cache_deadlock_detection(
+    "enable_acl_cache_deadlock_detection",
+    "Enable deadlock detection on ACL_CACHE MDL lock",
+    NON_PERSIST GLOBAL_VAR(enable_acl_cache_deadlock_detection),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
 static Sys_var_bool Sys_enable_acl_db_cache(
     "enable_acl_db_cache",
     "Enable ACL db_cache lookup on (ip, user, db). Please issue "

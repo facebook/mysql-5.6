@@ -412,6 +412,9 @@ The following options may be given as the first argument:
  before storage engine initialization, where each plugin
  is identified as name=library, where name is the plugin
  name and library is the plugin library in plugin_dir.
+ --enable-acl-cache-deadlock-detection 
+ Enable deadlock detection on ACL_CACHE MDL lock
+ (Defaults to on; use --skip-enable-acl-cache-deadlock-detection to disable.)
  --enable-acl-db-cache 
  Enable ACL db_cache lookup on (ip, user, db). Please
  issue FLUSH PRIVILEGES for the changes to take effect.
@@ -2812,6 +2815,7 @@ disallow-raft FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+enable-acl-cache-deadlock-detection TRUE
 enable-acl-db-cache TRUE
 enable-acl-fast-lookup FALSE
 enable-binlog-hlc FALSE

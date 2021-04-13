@@ -4019,6 +4019,30 @@ bool MDL_lock::visit_subgraph(MDL_ticket *waiting_ticket,
   MDL_context *src_ctx = waiting_ticket->get_ctx();
   bool result = true;
 
+#ifndef EXTRA_CODE_FOR_UNIT_TESTING
+  if (!enable_acl_cache_deadlock_detection &&
+      key.mdl_namespace() == MDL_key::ACL_CACHE) {
+    /*
+      Deadlock detection for ACL_CACHE may lead to bad contention problems
+      in the connection path. In particular taking rdlock on m_rwlock
+      while doing deadlock traversal takes longer with more granted and
+      waiting tickets, but the releasing of these granted tickets are
+      themselves blocked on taking wrlock on m_rwlock, meanwhile more
+      connections are trying to come in and grant more tickets and
+      taking wrlock as well, so this becomes a serious lock contention
+      that you can't get out of if you keep new connection come in at
+      a fast pace. A easy way to trigger this is to run FLUSH
+      PRIVILEGES on a server that has lots of incoming connections with
+      lots of connection from acl_check_host / has_global_grant.
+
+      For ACL_CACHE, the deadlock detection in most cases doesn't provide
+      a ton of value in production so this allows turning it off for
+      ACL_CACHE only.
+     */
+    return false;
+  }
+#endif
+
   mysql_prlock_rdlock(&m_rwlock);
 
   /*

@@ -1220,6 +1220,7 @@ double wait_for_hlc_sleep_scaling_factor = 0.75;
 char *default_collation_for_utf8mb4_init = nullptr;
 bool enable_blind_replace = false;
 bool enable_acl_fast_lookup = false;
+bool enable_acl_cache_deadlock_detection = false;
 bool enable_acl_db_cache = true;
 bool enable_super_log_bin_read_only = false;
 ulonglong max_tmp_disk_usage{0};
