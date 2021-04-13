@@ -293,10 +293,6 @@ our @DEFAULT_SUITES = qw(
 
   column_statistics
   grant
-  rocksdb
-  rocksdb_rpl
-  rocksdb_stress
-  rocksdb_sys_vars
   rpl_mts
   rpl_recovery
   thread_pool
