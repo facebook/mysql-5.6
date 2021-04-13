@@ -1,0 +1,75 @@
+################ mysql-test\t\enable_acl_cache_deadlock_detection.test ########
+#                                                                             #
+# Variable Name: enable_acl_cache_deadlock_detection                          #
+# Scope: Global                                                               #
+#                                                                             #
+# Creation Date: 2021-04-13                                                   #
+#                                                                             #
+#                                                                             #
+# Description:Test Cases of Dynamic System Variable                           #
+#             enable_acl_cache_deadlock_detection that checks the behavior of #
+#             this variable in the following ways                             #
+#              * Default Value                                                #
+#              * Valid Value                                                  #
+#              * Invalid value                                                #
+#                                                                             #
+###############################################################################
+SET @start_global_value = @@GLOBAL.enable_acl_cache_deadlock_detection;
+SELECT @start_global_value;
+
+########################################################################
+# Display the DEFAULT value of enable_acl_cache_deadlock_detection     #
+########################################################################
+
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = on;
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = DEFAULT;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+
+# FLUSH PRIVILEGES not required but just a quick check to see acl cache
+# is working properly
+FLUSH PRIVILEGES;
+
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = off;
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = DEFAULT;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+
+# FLUSH PRIVILEGES not required but just a quick check to see acl cache
+# is working properly
+FLUSH PRIVILEGES;
+
+###############################################################################
+# change the value of enable_acl_cache_deadlock_detection to a valid value    #
+###############################################################################
+
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = on;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+
+# FLUSH PRIVILEGES not required but just a quick check to see acl cache
+# is working properly
+FLUSH PRIVILEGES;
+
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = off;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+
+# FLUSH PRIVILEGES not required but just a quick check to see acl cache
+# is working properly
+FLUSH PRIVILEGES;
+
+###############################################################################
+# change the value of enable_acl_cache_deadlock_detection to an invalid value #
+###############################################################################
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = something;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = somethingelse;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+
+###############################
+# Restore initial value       #
+###############################
+
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = @start_global_value;
+SELECT @@GLOBAL.enable_acl_cache_deadlock_detection;

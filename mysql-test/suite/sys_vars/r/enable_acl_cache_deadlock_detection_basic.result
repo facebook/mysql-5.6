@@ -1,0 +1,40 @@
+SET @start_global_value = @@GLOBAL.enable_acl_cache_deadlock_detection;
+SELECT @start_global_value;
+@start_global_value
+1
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = on;
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = DEFAULT;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+@@GLOBAL.enable_acl_cache_deadlock_detection
+1
+FLUSH PRIVILEGES;
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = off;
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = DEFAULT;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+@@GLOBAL.enable_acl_cache_deadlock_detection
+1
+FLUSH PRIVILEGES;
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = on;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+@@GLOBAL.enable_acl_cache_deadlock_detection
+1
+FLUSH PRIVILEGES;
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = off;
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+@@GLOBAL.enable_acl_cache_deadlock_detection
+0
+FLUSH PRIVILEGES;
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = something;
+ERROR 42000: Variable 'enable_acl_cache_deadlock_detection' can't be set to the value of 'something'
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+@@GLOBAL.enable_acl_cache_deadlock_detection
+0
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = somethingelse;
+ERROR 42000: Variable 'enable_acl_cache_deadlock_detection' can't be set to the value of 'somethingelse'
+select @@GLOBAL.enable_acl_cache_deadlock_detection;
+@@GLOBAL.enable_acl_cache_deadlock_detection
+0
+SET @@GLOBAL.enable_acl_cache_deadlock_detection = @start_global_value;
+SELECT @@GLOBAL.enable_acl_cache_deadlock_detection;
+@@GLOBAL.enable_acl_cache_deadlock_detection
+1
