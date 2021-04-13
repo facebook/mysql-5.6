@@ -299,6 +299,7 @@ extern ulong wait_for_hlc_sleep_threshold_ms;
 extern double wait_for_hlc_sleep_scaling_factor;
 extern char *default_collation_for_utf8mb4_init;
 extern bool enable_acl_fast_lookup;
+extern bool enable_acl_cache_deadlock_detection;
 extern bool enable_acl_db_cache;
 extern bool enable_super_log_bin_read_only;
 
