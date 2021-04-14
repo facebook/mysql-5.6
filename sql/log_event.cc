@@ -11320,84 +11320,90 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols,
       values, depending on how each engine handles internally.
     - if all the bitmap is set (both are full rows)
     */
-  if ((table->s->blob_fields +
-       table->s->varchar_fields +
-       table->s->null_fields) == 0 &&
-      bitmap_is_set_all(cols))
+  bool cmp_full_record = (table->s->blob_fields + table->s->varchar_fields +
+                          table->s->null_fields) == 0 &&
+                         bitmap_is_set_all(cols);
+  if (cmp_full_record)
   {
-    result= cmp_record(table,record[1]);
+    result = cmp_record(table, record[1]);
   }
+
   /*
-    Fallback to field-by-field comparison:
+    Fallback to field-by-field comparison if we did not do binary comparison
+    of full record or if binary comparison of entire records fail:
     1. start by checking if the field is signaled:
     2. if it is, first compare the null bit if the field is nullable
     3. then compare the contents of the field, if it is not
        set to null
    */
-  else if (tabledef->use_column_names(table))
+  if (!cmp_full_record || (result && bi_consistency_check))
   {
-    for (uint i = 0; i < tabledef->size() && !result; ++i)
+    result = false;
+    if (tabledef->use_column_names(table))
     {
-      if (!bitmap_is_set(cols, i))
-        continue;
-      const char* col_name = tabledef->get_column_name(i);
-      Field *const field = find_field_in_table_sef(table, col_name);
-      if (field)
+      for (uint i = 0; i < tabledef->size() && !result; ++i)
       {
-        /* compare null bit */
-        if (field->is_null() != field->is_null_in_record(table->record[1]))
-          result= true;
+        if (!bitmap_is_set(cols, i))
+          continue;
+        const char *col_name = tabledef->get_column_name(i);
+        Field *const field = find_field_in_table_sef(table, col_name);
+        if (field)
+        {
+          /* compare null bit */
+          if (field->is_null() != field->is_null_in_record(table->record[1]))
+            result = true;
 
-        /* compare content, only if fields are not set to NULL */
-        else if (!field->is_null()) {
-          result = field->cmp_binary_offset(table->s->rec_buff_length);
-          if (result && bi_consistency_check &&
-              field->type() == MYSQL_TYPE_FLOAT) {
-            String str1, str2;
-            my_ptrdiff_t offset= table->s->rec_buff_length;
-            field->val_str(&str1);
+          /* compare content, only if fields are not set to NULL */
+          else if (!field->is_null()) {
+            result = field->cmp_binary_offset(table->s->rec_buff_length);
+            if (result && bi_consistency_check &&
+                field->type() == MYSQL_TYPE_FLOAT) {
+              String str1, str2;
+              my_ptrdiff_t offset= table->s->rec_buff_length;
+              field->val_str(&str1);
 #ifndef DBUG_OFF
-            const uchar* prev= field->ptr;
+              const uchar *prev = field->ptr;
 #endif
-            field->move_field_offset(offset);
-            field->val_str(&str2);
-            field->move_field_offset(-offset);
-            DBUG_ASSERT(field->ptr == prev);
-            result = (stringcmp(&str1, &str2) != 0);
+              field->move_field_offset(offset);
+              field->val_str(&str2);
+              field->move_field_offset(-offset);
+              DBUG_ASSERT(field->ptr == prev);
+              result = (stringcmp(&str1, &str2) != 0);
+            }
           }
         }
       }
     }
-  }
-  else
-  {
-    for (Field **ptr=table->field ;
-         *ptr && ((*ptr)->field_index < cols->n_bits) && !result;
-         ptr++)
+    else
     {
-      Field *field= *ptr;
-      if (bitmap_is_set(cols, field->field_index))
+      for (Field **ptr = table->field;
+           *ptr && ((*ptr)->field_index < cols->n_bits) && !result;
+           ptr++)
       {
-        /* compare null bit */
-        if (field->is_null() != field->is_null_in_record(table->record[1]))
-          result= true;
+        Field *field = *ptr;
+        if (bitmap_is_set(cols, field->field_index))
+        {
+          /* compare null bit */
+          if (field->is_null() != field->is_null_in_record(table->record[1]))
+            result = true;
 
-        /* compare content, only if fields are not set to NULL */
-        else if (!field->is_null()) {
-          result= field->cmp_binary_offset(table->s->rec_buff_length);
-          if (result && bi_consistency_check &&
-              field->type() == MYSQL_TYPE_FLOAT) {
-            String str1, str2;
-            my_ptrdiff_t offset= table->s->rec_buff_length;
-            field->val_str(&str1);
+          /* compare content, only if fields are not set to NULL */
+          else if (!field->is_null()) {
+            result = field->cmp_binary_offset(table->s->rec_buff_length);
+            if (result && bi_consistency_check &&
+                field->type() == MYSQL_TYPE_FLOAT) {
+              String str1, str2;
+              my_ptrdiff_t offset= table->s->rec_buff_length;
+              field->val_str(&str1);
 #ifndef DBUG_OFF
-            const uchar* prev= field->ptr;
+              const uchar *prev = field->ptr;
 #endif
-            field->move_field_offset(offset);
-            field->val_str(&str2);
-            field->move_field_offset(-offset);
-            DBUG_ASSERT(field->ptr == prev);
-            result = (stringcmp(&str1, &str2) != 0);
+              field->move_field_offset(offset);
+              field->val_str(&str2);
+              field->move_field_offset(-offset);
+              DBUG_ASSERT(field->ptr == prev);
+              result = (stringcmp(&str1, &str2) != 0);
+            }
           }
         }
       }
