@@ -16,20 +16,21 @@
 
 # Functions to detect features supported by compiler
 
-include(CheckCXXSourceCompiles)
+include(CheckCXXSourceRuns)
 
 set(CMAKE_REQUIRED_FLAGS "-msse4.2 --std=c++11 -Wno-error")
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <nmmintrin.h>
 int main() {
   auto x = _mm_crc32_u32(0, 0);
+  return 0;
 }
 " HAVE_SSE42)
 
 
 set(CMAKE_REQUIRED_FLAGS "-mpclmul --std=c++11 -Wno-error")
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <wmmintrin.h>
 int main() {
@@ -37,57 +38,62 @@ int main() {
   const auto b = _mm_set_epi64x(0, 0);
   const auto c = _mm_clmulepi64_si128(a, b, 0x00);
   auto d = _mm_cvtsi128_si64(c);
+  return 0;
 }
 " HAVE_PCLMUL)
 
 
 set(CMAKE_REQUIRED_FLAGS "-mavx2 --std=c++11 -Wno-error")
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <immintrin.h>
 int main() {
   const auto a = _mm256_setr_epi32(0, 1, 2, 3, 4, 7, 6, 5);
   const auto b = _mm256_permutevar8x32_epi32(a, a);
+  return 0;
 }
 " HAVE_AVX2)
 
 
 set(CMAKE_REQUIRED_FLAGS "-mbmi --std=c++11 -Wno-error")
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <immintrin.h>
 #include <cstdint>
 #include <immintrin.h>
 int main(int argc, char *argv[]) {
-  return (int)_tzcnt_u64((uint64_t)argc);
+  int a = (int)_tzcnt_u64((uint64_t)argc);
+  return 0;
 }
 " HAVE_BMI)
 
 
 set(CMAKE_REQUIRED_FLAGS "-mlzcnt --std=c++11 -Wno-error")
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <immintrin.h>
 int main(int argc, char *argv[]) {
-  return (int)_lzcnt_u64((uint64_t)argc);
+  int a = (int)_lzcnt_u64((uint64_t)argc);
+  return 0;
 }
 " HAVE_LZCNT)
 
 
 set(CMAKE_REQUIRED_FLAGS "-faligned-new -Wno-error")
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 struct alignas(1024) t {int a;};
-int main() {}
+int main() { return 0; }
 " HAVE_ALIGNED_NEW)
 
 
 set(CMAKE_REQUIRED_FLAGS "--std=c++11 -Wno-error")
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 int main() {
   uint64_t a = 0xffffFFFFffffFFFF;
   __uint128_t b = __uint128_t(a) * a;
   a = static_cast<uint64_t>(b >> 64);
+  return 0;
 }
 " HAVE_UINT128_EXTENSION)
 
@@ -96,7 +102,7 @@ set(CMAKE_REQUIRED_FLAGS "${CMAKE_CXX_LINK_FLAGS} -Wno-error")
 FIND_LIBRARY(URING_LIBRARY NAMES liburing.a)
 IF (URING_LIBRARY)
 	set(CMAKE_REQUIRED_LIBRARIES ${URING_LIBRARY})
-	CHECK_CXX_SOURCE_COMPILES("
+	CHECK_CXX_SOURCE_RUNS("
 	#include <liburing.h>
 	int main() {
 	  struct io_uring ring;
@@ -110,7 +116,7 @@ ENDIF()
 FIND_LIBRARY(MEMKIND_LIBRARY NAMES libmemkind.a)
 IF (MEMKIND_LIBRARY)
 	set(CMAKE_REQUIRED_LIBRARIES ${MEMKIND_LIBRARY} -ldl -lpthread -lnuma)
-	CHECK_CXX_SOURCE_COMPILES("
+	CHECK_CXX_SOURCE_RUNS("
 	#include <memkind.h>
 	int main() {
 	  memkind_malloc(MEMKIND_DAX_KMEM, 1024);
@@ -123,35 +129,38 @@ unset(CMAKE_REQUIRED_LIBRARIES)
 
 
 set(CMAKE_REQUIRED_FLAGS "-Wno-error")
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #if defined(_MSC_VER) && !defined(__thread)
 #define __thread __declspec(thread)
 #endif
 int main() {
   static __thread int tls;
+  return 0;
 }
 " HAVE_THREAD_LOCAL)
 
 
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <fcntl.h>
 #include <linux/falloc.h>
 int main() {
   int fd = open(\"/dev/null\", 0);
   fallocate(fd, FALLOC_FL_KEEP_SIZE, 0, 1024);
+  return 0;
 }
 " HAVE_FALLOCATE)
 
 
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <pthread.h>
 int main() {
   int x = PTHREAD_MUTEX_ADAPTIVE_NP;
+  return 0;
 }
 " HAVE_PTHREAD_MUTEX_ADAPTIVE_NP)
 
 
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <pthread.h>
 #include <execinfo.h>
 int main() {
@@ -162,11 +171,12 @@ int main() {
 " HAVE_BACKTRACE_SYMBOLS)
 
 
-CHECK_CXX_SOURCE_COMPILES("
+CHECK_CXX_SOURCE_RUNS("
 #include <fcntl.h>
 int main() {
   int fd = open(\"/dev/null\", 0);
   sync_file_range(fd, 0, 1024, SYNC_FILE_RANGE_WRITE);
+  return 0;
 }
 " HAVE_SYNC_FILE_RANGE_WRITE)
 

@@ -48,9 +48,12 @@ ENDIF()
 
 include(compiler_features)
 
-IF (HAVE_SSE42 AND HAVE_PCLMUL)
-  add_compile_flags(${ROCKSDB_ROOT}/util/crc32c.cc COMPILE_FLAGS "-msse4.2 -mpclmul")
+IF (HAVE_SSE42)
   MESSAGE(STATUS "MyRocks: SSE42 support found")
+  add_compile_flags(${ROCKSDB_ROOT}/util/crc32c.cc COMPILE_FLAGS "-msse4.2") # use Fast_CRC32
+  IF (HAVE_PCLMUL)
+    add_compile_flags(${ROCKSDB_ROOT}/util/crc32c.cc COMPILE_FLAGS "-mpclmul") # use crc32c_3way instead of Fast_CRC32
+  ENDIF()
 ELSE()
   MESSAGE(WARNING "No SSE42 support found, building MyRocks but without SSE42/FastCRC32 support")
 ENDIF()
