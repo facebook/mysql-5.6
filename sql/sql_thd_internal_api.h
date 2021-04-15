@@ -289,4 +289,25 @@ my_thread_id thd_thread_id(const THD *thd);
 */
 TABLE_LIST *thd_get_query_tables(THD *thd);
 
+/**
+  Get the value of the query attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param qattr_key Name of the query attribute
+
+  @return Value of the query attribute 'qattr_key'
+*/
+const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key);
+
+/**
+  Get the value of the connection attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param cattr_key Name of the connection attribute
+
+  @return Value of the query attribute 'cattr_key'
+*/
+const std::string &thd_get_connection_attr(THD *thd,
+                                           const std::string &cattr_key);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

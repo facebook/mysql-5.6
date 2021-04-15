@@ -28,6 +28,7 @@
 
 #include <fcntl.h>
 #include <string.h>
+#include <string>
 
 #include "m_string.h"
 #include "mysql/components/services/psi_stage_bits.h"
@@ -64,6 +65,9 @@
 
 struct mysql_cond_t;
 struct mysql_mutex_t;
+
+/* empty string */
+static const std::string emptyStr = "";
 
 void thd_init(THD *thd, char *stack_start, bool bound MY_ATTRIBUTE((unused)),
               PSI_thread_key psi_key MY_ATTRIBUTE((unused))) {
@@ -333,4 +337,28 @@ my_thread_id thd_thread_id(const THD *thd) { return (thd->thread_id()); }
 TABLE_LIST *thd_get_query_tables(THD *thd) {
   DBUG_ASSERT(current_thd == thd);
   return thd->lex->query_tables;
+}
+
+const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key) {
+  /* iterate through all the query attributes */
+  for (const auto &kvp : thd->query_attrs_list) {
+    /* look for qattr_key */
+    if (kvp.first == qattr_key) {
+      return kvp.second;
+    }
+  }
+
+  /* return empty result */
+  return emptyStr;
+}
+
+const std::string &thd_get_connection_attr(THD *thd,
+                                           const std::string &cattr_key) {
+  auto it = thd->connection_attrs_map.find(cattr_key);
+  if (it != thd->connection_attrs_map.end()) {
+    return it->second;
+  }
+
+  /* return empty result */
+  return emptyStr;
 }
