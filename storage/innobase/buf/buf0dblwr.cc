@@ -2383,7 +2383,7 @@ static dberr_t dblwr_file_open(const std::string &dir_name, int id,
       return DB_CANNOT_OPEN_FILE;
     }
 
-    mode = OS_FILE_OPEN;
+    mode = OS_FILE_OPEN | OS_FILE_OPEN_RETRY;
 
   } else {
     auto err = os_file_create_subdirs_if_needed(file.m_name.c_str());
