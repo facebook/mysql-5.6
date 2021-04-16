@@ -5713,6 +5713,11 @@ static void do_shutdown_server(struct st_command *command) {
 
   dynstr_free(&ds_timeout);
 
+  char *valgrind_env;
+  if ((valgrind_env = getenv("VALGRIND_TEST")) && strcmp(valgrind_env, "0")) {
+    timeout *= 10;
+  }
+
   MYSQL *mysql = &cur_con->mysql;
   std::string ds_file_name;
 
