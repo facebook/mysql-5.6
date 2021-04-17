@@ -2,6 +2,11 @@
 --source include/have_debug_sync.inc
 --source include/have_rocksdb.inc
 
+# Does SELECT...FOR UPDATE; SELECT ... FROM I_S.ROCKSDB_LOCKS which produces
+#   different output in range locking mode.
+--source suite/rocksdb/include/not_range_locking.inc
+
+
 --echo ## Test creating dropping database of same name while ##
 --echo ## keeping drop index thread suspended ##
 

@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Range locking only supports exclusive locks currently.
+--source suite/rocksdb/include/not_range_locking.inc
+
 #
 # SELECT .. LOCK IN SHARE MODE 
 #

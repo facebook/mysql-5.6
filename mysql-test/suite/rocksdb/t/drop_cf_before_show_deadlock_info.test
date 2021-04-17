@@ -3,6 +3,10 @@
 --source include/have_rocksdb.inc
 --source include/count_sessions.inc
 
+# Doesn't work with range locking because range locking
+# does not provide info in rocksdb_deadlock.
+--source suite/rocksdb/include/not_range_locking.inc
+
 --disable_query_log
 call mtr.add_suppression("Column family '[a-z_]+' not found");
 --enable_query_log

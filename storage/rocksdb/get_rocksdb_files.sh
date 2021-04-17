@@ -16,12 +16,11 @@ rm $MKFILE
 bv=rocksdb/util/build_version.cc
 date=$(date +%F)
 git_sha=$(pushd rocksdb >/dev/null && git rev-parse  HEAD 2>/dev/null && popd >/dev/null)
+git_mod=$(pushd rocksdb >/dev/null && git diff-index HEAD --quiet && echo $? && popd >/dev/null)
+
 if [ ! -f $bv ] || [ -z $git_sha ] || [ ! `grep $git_sha $bv` ]
 then
-echo "#include \"build_version.h\"
-const char* rocksdb_build_git_sha =
-\"rocksdb_build_git_sha:$git_sha\";
-const char* rocksdb_build_git_date =
-\"rocksdb_build_git_date:$date\";
-const char* rocksdb_build_compile_date = __DATE__;" > $bv
+sed -e "s/@GIT_SHA@/$git_sha/" \
+    -e "s/@GIT_DATE@/$date/" \
+    -e "s/@GIT_MOD@/$git_mod/" < $bv.in > $bv
 fi

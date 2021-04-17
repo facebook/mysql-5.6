@@ -1,0 +1,251 @@
+select @@rocksdb_use_range_locking;
+@@rocksdb_use_range_locking
+1
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+pk int primary key,
+a int
+) engine=rocksdb;
+insert into t1 select a,a from t0;
+# A basic test for shared locks
+begin;
+select * from t1 where pk=3 for update;
+pk	a
+3	3
+select * from t1 where pk=5 lock in share mode;
+pk	a
+5	5
+connect  con1,localhost,root,,;
+connection con1;
+begin;
+select * from t1 where pk=5 lock in share mode;
+pk	a
+5	5
+# Now for pk=5 we should see two locks by TRX1 and TRX2 with mode=S:
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$TRX1_ID	${indexnr}80000003	X
+$cf_id	$TRX1_ID	${indexnr}80000005	S
+$cf_id	$TRX2_ID	${indexnr}80000005	S
+rollback;
+# Now, TRX2_ID should be gone:
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$TRX1_ID	${indexnr}80000003	X
+$cf_id	$TRX1_ID	${indexnr}80000005	S
+connection default;
+# Get a read lock on pk=3 (where we have a write lock).
+#  The result should be that we will still have a write lock
+select * from t1 where pk=3 for update;
+pk	a
+3	3
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$TRX1_ID	${indexnr}80000003	X
+$cf_id	$TRX1_ID	${indexnr}80000005	S
+# Get a write lock on pk=5 (where we have a read lock).
+#  The result should be that we will have a write lock.
+select * from t1 where pk=5 for update;
+pk	a
+5	5
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$TRX1_ID	${indexnr}80000003	X
+$cf_id	$TRX1_ID	${indexnr}80000005	X
+connection default;
+rollback;
+#
+# Test if a read lock inhibits write locks
+#
+begin;
+select * from t1 where pk=2 lock in share mode;
+pk	a
+2	2
+select * from t1 where pk=8 for update;
+pk	a
+8	8
+connection con1;
+begin;
+select * from t1 where pk=2 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+select * from t1 where pk between 0 and 4 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+delete from t1 where pk=2;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+# Get a shared lock
+select * from t1 where pk=2 lock in share mode;
+pk	a
+2	2
+# But this should still prevent us from acquiring a write lock on that value: 
+select * from t1 where pk=2 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+rollback;
+connection default;
+rollback;
+drop table t1;
+create table t1 (
+pk int not null primary key,
+a int not null,
+key(a)
+) engine=rocksdb;
+insert into t1
+select
+A.a+10*B.a+100*C.a+1000*D.a, A.a+10*B.a+100*C.a+1000*D.a
+from
+t0 A, t0 B, t0 C, t0 D;
+set global rocksdb_force_flush_memtable_now=1;
+connection con1;
+begin;
+select * from t1 where pk=900 for update;
+pk	a
+900	900
+connection default;
+begin;
+explain
+select * from t1 where a between 2 and 5 lock in share mode;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	a	a	4	NULL	#	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`a` between 2 and 5)
+select * from t1 where a between 2 and 5 lock in share mode;
+pk	a
+2	2
+3	3
+4	4
+5	5
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$TRX1_ID	${indexnr+1}80000002-${indexnr+1}80000005:1	X
+$cf_id	$TRX1_ID	${indexnr}80000002	S
+$cf_id	$TRX1_ID	${indexnr}80000003	S
+$cf_id	$TRX1_ID	${indexnr}80000004	S
+$cf_id	$TRX1_ID	${indexnr}80000005	S
+$cf_id	$TRX1_ID	${indexnr}80000006	S
+$cf_id	$TRX2_ID	${indexnr}80000384	X
+rollback;
+disconnect con1;
+drop table t0,t1;
+#
+# Test shared point locks and lock escalation
+#
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+pk int primary key,
+a int
+) engine=rocksdb;
+insert into t1 
+select 1000 + 100*A.a + 10*B.a + C.a, 12345 from t0 A, t0 B, t0 C;
+show status like 'rocksdb_locktree_current_lock_memory';
+Variable_name	Value
+rocksdb_locktree_current_lock_memory	0
+connect  con1,localhost,root,,;
+connection con1;
+begin;
+# CON1: get some shared locks
+select * from t1 where pk=1001 lock in share mode;
+pk	a
+1001	12345
+select * from t1 where pk=1100 lock in share mode;
+pk	a
+1100	12345
+select * from t1 where pk=1200 lock in share mode;
+pk	a
+1200	12345
+select * from t1 where pk=2500 lock in share mode;
+pk	a
+connection default;
+begin;
+# DEFAULT: get the same locks so we have locks with multiple owners
+select * from t1 where pk=1001 lock in share mode;
+pk	a
+1001	12345
+select * from t1 where pk=1100 lock in share mode;
+pk	a
+1100	12345
+select * from t1 where pk=1200 lock in share mode;
+pk	a
+1200	12345
+# DEFAULT: get shared locks with one owner:
+select * from t1 where pk=2510 lock in share mode;
+pk	a
+# DEFAULT: exclusive locks on 0-10:
+insert into t1 select A.a, 0 from t0 A;
+connection con1;
+# CON1: exclusive locks on 2000-2010:
+insert into t1 select 2000+A.a, 0 from t0 A;
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$TRX2_ID	${indexnr}80000000	X
+$cf_id	$TRX2_ID	${indexnr}80000001	X
+$cf_id	$TRX2_ID	${indexnr}80000002	X
+$cf_id	$TRX2_ID	${indexnr}80000003	X
+$cf_id	$TRX2_ID	${indexnr}80000004	X
+$cf_id	$TRX2_ID	${indexnr}80000005	X
+$cf_id	$TRX2_ID	${indexnr}80000006	X
+$cf_id	$TRX2_ID	${indexnr}80000007	X
+$cf_id	$TRX2_ID	${indexnr}80000008	X
+$cf_id	$TRX2_ID	${indexnr}80000009	X
+$cf_id	$TRX1_ID	${indexnr}800003e9	S
+$cf_id	$TRX2_ID	${indexnr}800003e9	S
+$cf_id	$TRX1_ID	${indexnr}8000044c	S
+$cf_id	$TRX2_ID	${indexnr}8000044c	S
+$cf_id	$TRX1_ID	${indexnr}800004b0	S
+$cf_id	$TRX2_ID	${indexnr}800004b0	S
+$cf_id	$TRX1_ID	${indexnr}800007d0	X
+$cf_id	$TRX1_ID	${indexnr}800007d1	X
+$cf_id	$TRX1_ID	${indexnr}800007d2	X
+$cf_id	$TRX1_ID	${indexnr}800007d3	X
+$cf_id	$TRX1_ID	${indexnr}800007d4	X
+$cf_id	$TRX1_ID	${indexnr}800007d5	X
+$cf_id	$TRX1_ID	${indexnr}800007d6	X
+$cf_id	$TRX1_ID	${indexnr}800007d7	X
+$cf_id	$TRX1_ID	${indexnr}800007d8	X
+$cf_id	$TRX1_ID	${indexnr}800007d9	X
+$cf_id	$TRX1_ID	${indexnr}800009c4	S
+$cf_id	$TRX2_ID	${indexnr}800009ce	S
+connection default;
+show status like 'rocksdb_locktree_current_lock_memory';
+Variable_name	Value
+rocksdb_locktree_current_lock_memory	9016
+set @save_mlm= @@rocksdb_max_lock_memory;
+# Set the limit to cause lock escalation:
+set @cur_mem_usage= (select 
+variable_value 
+from 
+performance_schema.global_status 
+where 
+variable_name='rocksdb_locktree_current_lock_memory');
+set global rocksdb_max_lock_memory = cast(@cur_mem_usage+4 as SIGNED);
+connection con1;
+insert into t1 select 3000+A.a, 0 from t0 A;
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$TRX2_ID	${indexnr}80000000-${indexnr}80000009	X
+$cf_id	$TRX1_ID	${indexnr}800003e9	S
+$cf_id	$TRX2_ID	${indexnr}800003e9	S
+$cf_id	$TRX1_ID	${indexnr}8000044c	S
+$cf_id	$TRX2_ID	${indexnr}8000044c	S
+$cf_id	$TRX1_ID	${indexnr}800004b0	S
+$cf_id	$TRX2_ID	${indexnr}800004b0	S
+$cf_id	$TRX1_ID	${indexnr}800007d0-${indexnr}800007d9	X
+$cf_id	$TRX1_ID	${indexnr}800009c4	S
+$cf_id	$TRX2_ID	${indexnr}800009ce	S
+$cf_id	$TRX1_ID	${indexnr}80000bb8	X
+$cf_id	$TRX1_ID	${indexnr}80000bb9	X
+$cf_id	$TRX1_ID	${indexnr}80000bba	X
+$cf_id	$TRX1_ID	${indexnr}80000bbb	X
+$cf_id	$TRX1_ID	${indexnr}80000bbc	X
+$cf_id	$TRX1_ID	${indexnr}80000bbd	X
+$cf_id	$TRX1_ID	${indexnr}80000bbe	X
+$cf_id	$TRX1_ID	${indexnr}80000bbf	X
+$cf_id	$TRX1_ID	${indexnr}80000bc0	X
+$cf_id	$TRX1_ID	${indexnr}80000bc1	X
+connection con1;
+rollback;
+connection default;
+rollback;
+disconnect con1;
+set global rocksdb_max_lock_memory= cast(@save_mlm as SIGNED);
+drop table t0, t1;

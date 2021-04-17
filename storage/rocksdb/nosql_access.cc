@@ -675,10 +675,11 @@ class select_exec {
     }
 
     rocksdb::Iterator *get_iterator(rocksdb::ColumnFamilyHandle *cf,
+                                    bool is_rev_cf,
                                     bool use_bloom,
                                     const rocksdb::Slice &lower_bound,
                                     const rocksdb::Slice &upper_bound) {
-      return rdb_tx_get_iterator(m_tx, cf, !use_bloom, lower_bound,
+      return rdb_tx_get_iterator(m_tx, cf, is_rev_cf, !use_bloom, lower_bound,
                                  upper_bound);
     }
 
@@ -1498,7 +1499,8 @@ bool INLINE_ATTR select_exec::setup_iterator(txn_wrapper *txn,
       m_thd, *m_key_def, eq_slice, bound_len, m_lower_bound_buf.data(),
       m_upper_bound_buf.data(), &m_lower_bound_slice, &m_upper_bound_slice);
   rocksdb::Iterator *it = txn->get_iterator(
-      m_key_def->get_cf(), use_bloom, m_lower_bound_slice, m_upper_bound_slice);
+      m_key_def->get_cf(), m_key_def->m_is_reverse_cf, use_bloom,
+      m_lower_bound_slice, m_upper_bound_slice);
   if (it == nullptr) {
     return true;
   }

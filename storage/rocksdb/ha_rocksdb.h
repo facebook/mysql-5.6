@@ -318,6 +318,14 @@ class ha_rocksdb : public my_core::handler {
                                  const rocksdb::Slice &key,
                                  rocksdb::PinnableSlice *value) const;
 
+  int set_range_lock(Rdb_transaction *tx,
+                      const Rdb_key_def &kd,
+                      const enum ha_rkey_function &find_flag,
+                      const rocksdb::Slice &slice,
+                      const key_range *const end_key,
+                      bool flip_rev_cf,
+                      bool *use_locking_iterator);
+
   int get_row_by_rowid(uchar *const buf, const char *const rowid,
                        const uint rowid_size, const bool skip_lookup = false,
                        const bool skip_ttl_check = true)
@@ -982,6 +990,8 @@ class ha_rocksdb : public my_core::handler {
   /* Flags tracking if we are inside different replication operation */
   bool m_in_rpl_delete_rows;
   bool m_in_rpl_update_rows;
+
+  int iter_status_to_retval(rocksdb::Iterator *it, const Rdb_key_def &kd, int not_found_code);
 };
 
 /*
@@ -1115,16 +1125,20 @@ const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
 
 rocksdb::Iterator *rdb_tx_get_iterator(
     Rdb_transaction *tx, rocksdb::ColumnFamilyHandle *const column_family,
+    bool is_rev_cf,
     bool skip_bloom, const rocksdb::Slice &lower_bound_slice,
     const rocksdb::Slice &upper_bound_slice, bool read_current = false,
     bool create_snapshot = true);
 
 rocksdb::Iterator *rdb_tx_get_iterator(
-    THD *thd, rocksdb::ColumnFamilyHandle *const cf, bool skip_bloom_filter,
+    THD *thd, rocksdb::ColumnFamilyHandle *const cf,
+    bool is_rev_cf,
+    bool skip_bloom_filter,
     const rocksdb::Slice &eq_cond_lower_bound,
     const rocksdb::Slice &eq_cond_upper_bound,
     const rocksdb::Snapshot **snapshot, bool read_current = false,
-    bool create_snapshot = true);
+    bool create_snapshot = true,
+    bool use_locking_iter= false);
 
 rocksdb::Status rdb_tx_get(Rdb_transaction *tx,
                            rocksdb::ColumnFamilyHandle *const column_family,
@@ -1196,5 +1210,7 @@ extern std::atomic<uint64_t> rocksdb_partial_index_groups_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_groups_materialized;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_materialized;
+
+extern std::shared_ptr<rocksdb::RangeLockManagerHandle> range_lock_mgr;
 
 }  // namespace myrocks

@@ -1,6 +1,10 @@
 --source include/have_debug.inc
 --source include/have_rocksdb.inc
 
+# The test uses SELECT .. FOR UPDATE and examines which locks it acquires
+#  Range Locking will use different locks from point locking
+--source suite/rocksdb/include/not_range_locking.inc
+
 # Create a table with a varbinary key with the current format and validate
 # that it sorts correctly
 CREATE TABLE t1(

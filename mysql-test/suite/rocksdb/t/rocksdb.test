@@ -2,6 +2,9 @@
 --source suite/rocksdb/include/have_write_committed.inc
 --source include/count_sessions.inc
 
+# Does SHOW WARNINGS and SHOW STATUS which change in Range Locking mode
+--source suite/rocksdb/include/not_range_locking.inc
+
 #
 # RocksDB Storage Engine tests
 #

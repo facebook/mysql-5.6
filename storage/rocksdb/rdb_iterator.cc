@@ -34,6 +34,7 @@ Rdb_iterator_base::Rdb_iterator_base(THD *thd,
       m_tbl_def(tbl_def),
       m_thd(thd),
       m_scan_it(nullptr),
+      m_use_locking_iter(false),
       m_scan_it_skips_bloom(false),
       m_scan_it_snapshot(nullptr),
       m_scan_it_lower_bound(nullptr),
@@ -81,7 +82,7 @@ int Rdb_iterator_base::read_before_key(const bool full_key_match,
     return HA_EXIT_SUCCESS;
   }
 
-  return HA_ERR_END_OF_FILE;
+  return iter_status_to_retval(m_scan_it, m_kd, HA_ERR_END_OF_FILE);
 }
 
 int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
@@ -96,12 +97,15 @@ int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
   */
   rocksdb_smart_seek(m_kd->m_is_reverse_cf, m_scan_it, key_slice);
 
-  return is_valid_iterator(m_scan_it) ? HA_EXIT_SUCCESS : HA_ERR_END_OF_FILE;
+  return is_valid_iterator(m_scan_it) ?
+             HA_EXIT_SUCCESS : 
+             iter_status_to_retval(m_scan_it, m_kd, HA_ERR_END_OF_FILE);
 }
 
 void Rdb_iterator_base::release_scan_iterator() {
   delete m_scan_it;
   m_scan_it = nullptr;
+  m_use_locking_iter = false;
 
   if (m_scan_it_snapshot) {
     auto rdb = rdb_get_rocksdb_db();
@@ -134,7 +138,7 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
           &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice)) {
     skip_bloom = false;
   }
-
+  bool use_locking_iter= m_use_locking_iter;
   /*
     In some cases, setup_scan_iterator() is called multiple times from
     the same query but bloom filter can not always be used.
@@ -155,16 +159,18 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
   if (m_scan_it_skips_bloom != skip_bloom) {
     release_scan_iterator();
   }
-
+  //psergey-todo: can it happen that there is a lock/non-lock mismatch here and
+  //we try to reuse the wrong iterator?
   /*
     SQL layer can call rnd_init() multiple times in a row.
     In that case, re-use the iterator, but re-position it at the table start.
     */
   if (!m_scan_it) {
     m_scan_it = rdb_tx_get_iterator(
-        m_thd, m_kd->get_cf(), skip_bloom, m_scan_it_lower_bound_slice,
+        m_thd, m_kd->get_cf(), m_kd->m_is_reverse_cf, skip_bloom, 
+        m_scan_it_lower_bound_slice,
         m_scan_it_upper_bound_slice, &m_scan_it_snapshot, read_current,
-        !read_current);
+        !read_current, use_locking_iter);
     m_scan_it_skips_bloom = skip_bloom;
   }
 }
@@ -206,6 +212,23 @@ int Rdb_iterator_base::calc_eq_cond_len(enum ha_rkey_function find_flag,
   return Rdb_key_def::INDEX_ID_SIZE;
 }
 
+int Rdb_iterator_base::iter_status_to_retval(rocksdb::Iterator *it,
+                                      const std::shared_ptr<Rdb_key_def> kd,
+                                      int not_found_code) {
+  if (it->Valid())
+    return HA_EXIT_SUCCESS;
+
+  rocksdb::Status s= it->status();
+  if (s.ok() || s.IsNotFound())
+    return not_found_code;
+
+  Rdb_transaction *tx = get_tx_from_thd(m_thd);
+  //return tx->set_status_error(m_thd, s, m_kd, m_tbl_def, m_table_handler);
+  return 
+    rdb_tx_set_status_error(tx, s, *kd, m_tbl_def);
+
+}
+
 int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
   int rc = 0;
   const auto &kd = *m_kd;
@@ -235,7 +258,7 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
     }
 
     if (!is_valid_iterator(m_scan_it)) {
-      rc = HA_ERR_END_OF_FILE;
+      rc = iter_status_to_retval(m_scan_it, m_kd, HA_ERR_END_OF_FILE);
       break;
     }
 

@@ -50,6 +50,8 @@ class Rdb_iterator {
   virtual rocksdb::Slice key() = 0;
   virtual rocksdb::Slice value() = 0;
   virtual void reset() = 0;
+
+  virtual void set_use_locking()=0;
 };
 
 class Rdb_iterator_base : public Rdb_iterator {
@@ -89,6 +91,7 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   void reset() override { release_scan_iterator(); }
 
+  void set_use_locking() override { m_use_locking_iter = true; }
  protected:
   friend class Rdb_iterator;
   const std::shared_ptr<Rdb_key_def> m_kd;
@@ -103,6 +106,8 @@ class Rdb_iterator_base : public Rdb_iterator {
   /* Iterator used for range scans and for full table/index scans */
   rocksdb::Iterator *m_scan_it;
 
+  bool m_use_locking_iter;
+
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;
 
@@ -116,6 +121,10 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   uchar *m_prefix_buf;
   rocksdb::Slice m_prefix_tuple;
+
+  int iter_status_to_retval(rocksdb::Iterator *it,
+                            const std::shared_ptr<Rdb_key_def> kd,
+                            int not_found_code);
 };
 
 class Rdb_iterator_partial : public Rdb_iterator_base {
