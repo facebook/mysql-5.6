@@ -3923,4 +3923,23 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select `test`.`test_or`.`a` AS `a`,`test`.`test_or`.`b` AS `b`,`test`.`test_or`.`c` AS `c`,`test`.`test_or`.`d` AS `d` from `test`.`test_or` FORCE INDEX (PRIMARY) where (((`test`.`test_or`.`c` = 1) and (`test`.`test_or`.`b` = 1) and (`test`.`test_or`.`a` = 1)) or ((`test`.`test_or`.`c` = 1) and (`test`.`test_or`.`b` = 1) and (`test`.`test_or`.`a` = 1)) or ((`test`.`test_or`.`c` = 2) and (`test`.`test_or`.`b` = 2) and (`test`.`test_or`.`a` = 1)))
 DROP TABLE test_or;
+#
+# Bug #31870920: WRONG RESULT WHEN SELECT INT COLUMN WITH RANGE
+#
+CREATE TABLE t1(f1 INTEGER, KEY(f1));
+INSERT INTO t1 VALUES(0),(0),(0);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN SELECT f1 FROM t1 WHERE f1 NOT IN (0.1, -0.1);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	f1	f1	5	NULL	3	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`f1` AS `f1` from `test`.`t1` where (`test`.`t1`.`f1` not in (0.1,<cache>(-(0.1))))
+SELECT f1 FROM t1 WHERE f1 NOT IN (0.1, -0.1);
+f1
+0
+0
+0
+DROP TABLE t1;
 set optimizer_switch=default;
