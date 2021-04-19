@@ -148,6 +148,7 @@ static long innobase_buffer_pool_instances = 1;
 /* Boolean config knobs that tell Linux kernel whether to dump core without
 large memory buffer, e.g. InnoDB buffer pool, when core-file is enabled. */
 my_bool srv_dump_core_without_large_mem_buf = TRUE;
+my_bool srv_stats_locked_reads = FALSE;
 
 long long innobase_buffer_pool_size;
 static long long innobase_log_file_size;
@@ -6192,8 +6193,9 @@ table_opened:
 	handle. */
 	update_thd(ha_thd());
 
-	info_low(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST,
-		 false /* not ANALYZE */);
+	uint flags = HA_STATUS_VARIABLE | HA_STATUS_CONST;
+	if (!srv_stats_locked_reads) flags |= HA_STATUS_NO_LOCK;
+	info_low(flags, false /* not ANALYZE */);
 
 	if (no_trx) {
 		buf_pool_reference_end(trx);
@@ -18088,6 +18090,11 @@ static MYSQL_SYSVAR_ULONGLONG(stats_persistent_sample_pages,
   "statistics (by ANALYZE, default 20)",
   NULL, NULL, 20, 1, ~0ULL, 0);
 
+static MYSQL_SYSVAR_BOOL(stats_locked_reads, srv_stats_locked_reads,
+  PLUGIN_VAR_OPCMDARG,
+  "Controls if InnoDB stats are locked for reading.",
+  nullptr, nullptr, FALSE);
+
 static MYSQL_SYSVAR_BOOL(adaptive_hash_index, btr_search_enabled,
   PLUGIN_VAR_OPCMDARG,
   "Enable InnoDB adaptive hash index (enabled by default).  "
@@ -19074,6 +19081,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(stats_persistent_sample_pages),
   MYSQL_SYSVAR(stats_auto_recalc),
   MYSQL_SYSVAR(stats_recalc_threshold),
+  MYSQL_SYSVAR(stats_locked_reads),
   MYSQL_SYSVAR(adaptive_hash_index),
   MYSQL_SYSVAR(stats_method),
   MYSQL_SYSVAR(replication_delay),

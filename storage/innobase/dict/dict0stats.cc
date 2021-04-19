@@ -2300,6 +2300,12 @@ dict_stats_update_persistent(
 
 		dict_stats_empty_index(index, false);
 
+#ifndef DBUG_OFF
+		if (current_thd && strcmp(index->name, "innodb_index_lock_test") == 0) {
+			DEBUG_SYNC(current_thd, "after_empty_index");
+		}
+#endif
+
 		if (dict_stats_should_ignore_index(index)) {
 			continue;
 		}
