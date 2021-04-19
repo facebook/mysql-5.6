@@ -9147,7 +9147,7 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
   bool use_locking_iter= false;
 
   if ((rc = set_range_lock(tx, kd, find_flag, slice,
-                           end_range, false, &use_locking_iter)))
+                           end_range, true, &use_locking_iter)))
     DBUG_RETURN(rc);
   if (use_locking_iter)
     m_iterator->set_use_locking();
@@ -9214,7 +9214,8 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
   bool start_has_inf_suffix = false, end_has_inf_suffix = false;
   rocksdb::Slice slice(slice_arg);
   *use_locking_iterator= false;
-
+  flip_rev_cf= true;
+  // psergey-todo: add !ha_thd()->rli_slave under some conditions?
   if (m_lock_rows == RDB_LOCK_NONE || !rocksdb_use_range_locking) {
     return 0;
   }
@@ -9229,19 +9230,14 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
   if (find_flag == HA_READ_KEY_EXACT && 
       slice.size() > Rdb_key_def::INDEX_ID_SIZE) {
     /*
-      This is "key_part= const" interval
+      This is "key_part= const" interval. We need to lock this range:
+      (lookup_value, -inf) < key < (lookup_value, +inf)
     */
     start_has_inf_suffix= false;
     end_has_inf_suffix= true;
     end_slice= slice;
-    //psergey-todo: if this is a full scan, use range locking under this
-    //condition:
-    //if (slice.size() == Rdb_key_def::INDEX_ID_SIZE)
-    //  no_start_endpoint= true;
-    //if (end_slice.size() == Rdb_key_def::INDEX_ID_SIZE)
-    //psergey-todo: && !ha_thd()->rli_slave ?
   }
-  else if (find_flag == HA_READ_PREFIX_LAST && 
+  else if (find_flag == HA_READ_PREFIX_LAST &&
            slice.size() > Rdb_key_def::INDEX_ID_SIZE) {
     /*
        We get here for queries like:
@@ -9879,7 +9875,7 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
       }
     }
 
-    if (rc == HA_ERR_END_OF_FILE) {
+    if (rc != HA_EXIT_SUCCESS) {
       break;
     }
 
