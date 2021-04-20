@@ -4735,7 +4735,7 @@ end_with_restore_list:
       /* db ops requested that this work for non-super */
       /* if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL))
 	goto error; */
-      res = show_raft_logs(thd);
+      res = show_raft_logs(thd, lex->with_gtid);
       break;
     }
 #endif

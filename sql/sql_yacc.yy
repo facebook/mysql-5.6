@@ -13439,7 +13439,7 @@ show_param:
           {
             Lex->sql_command = SQLCOM_SHOW_BINLOGS;
           }
-        | RAFT_SYM LOGS_SYM
+        | RAFT_SYM LOGS_SYM gtid_bool
           {
             Lex->sql_command = SQLCOM_SHOW_RAFT_LOGS;
           }

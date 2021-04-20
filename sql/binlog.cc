@@ -3019,7 +3019,7 @@ err:
   @retval FALSE success
   @retval TRUE failure
 */
-bool show_raft_logs(THD* thd)
+bool show_raft_logs(THD* thd, bool with_gtid)
 {
   uint length;
   char file_name_and_gtid_set_length[FN_REFLEN + 22];
@@ -3030,7 +3030,7 @@ bool show_raft_logs(THD* thd)
 
   // Redirect to show_binlog() on leader instances
   if (!mysql_bin_log.is_apply_log)
-    return show_binlogs(thd);
+    return show_binlogs(thd, with_gtid);
 
   if (active_mi == NULL || active_mi->rli == NULL)
   {
@@ -3066,6 +3066,8 @@ bool show_raft_logs(THD* thd)
   field_list.push_back(new Item_empty_string("Log_name", 255));
   field_list.push_back(
       new Item_return_int("File_size", 20, MYSQL_TYPE_LONGLONG));
+   if (with_gtid)
+     field_list.push_back(new Item_empty_string("Prev_gtid_set", 0));
 
   int error= 0;
   if (protocol->send_result_set_metadata(
@@ -3123,6 +3125,28 @@ bool show_raft_logs(THD* thd)
       }
     }
     protocol->store(file_length);
+
+    if (with_gtid)
+    {
+      // Protected by relay_log.LOCK_index
+      auto previous_gtid_set_map = rli->relay_log.get_previous_gtid_set_map();
+      Sid_map sid_map(NULL);
+      Gtid_set gtid_set(&sid_map, NULL);
+      auto gtid_str = previous_gtid_set_map->at(std::string(fname));
+      if (!gtid_str.empty())
+      {
+        gtid_set.add_gtid_encoding((const uchar*)gtid_str.c_str(),
+                                 gtid_str.length(), NULL);
+        char *buf;
+        gtid_set.to_string(&buf, &Gtid_set::commented_string_format);
+        protocol->store(buf, strlen(buf), &my_charset_bin);
+        free(buf);
+      }
+      else
+      {
+        protocol->store("", 0, &my_charset_bin);
+      }
+    }
 
     if (protocol->write())
     {
