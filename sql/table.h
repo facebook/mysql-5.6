@@ -107,6 +107,7 @@ struct TABLE;
 struct TABLE_LIST;
 struct TABLE_SHARE;
 struct handlerton;
+struct Name_resolution_context;
 typedef int8 plan_idx;
 
 namespace dd {
@@ -3051,8 +3052,10 @@ struct TABLE_LIST {
   /// Get derived table expression
   Item *get_derived_expr(uint expr_index);
 
-  /// Get cloned item for a derived table column. This creates the clone.
-  Item *get_clone_for_derived_expr(THD *thd, Item *item);
+  /// Get cloned item for a derived table column. This creates the clone
+  /// and resolves it in the context provided.
+  Item *get_clone_for_derived_expr(THD *thd, Item *item,
+                                   Name_resolution_context *context);
 
   /// Clean up the query expression for a materialized derived table
   void cleanup_derived(THD *thd);
