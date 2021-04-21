@@ -28,7 +28,9 @@
 
 #include <fcntl.h>
 #include <string.h>
+#include <list>
 #include <string>
+#include <utility>
 
 #include "m_string.h"
 #include "mysql/components/services/psi_stage_bits.h"
@@ -65,9 +67,6 @@
 
 struct mysql_cond_t;
 struct mysql_mutex_t;
-
-/* empty string */
-static const std::string emptyStr = "";
 
 void thd_init(THD *thd, char *stack_start, bool bound MY_ATTRIBUTE((unused)),
               PSI_thread_key psi_key MY_ATTRIBUTE((unused))) {
@@ -334,33 +333,43 @@ bool thd_is_dd_update_stmt(const THD *thd) {
 
 my_thread_id thd_thread_id(const THD *thd) { return (thd->thread_id()); }
 
-TABLE_LIST *thd_get_query_tables(THD *thd) {
+/**
+  Get tables in the query. The tables are returned as a list of pairs
+  where the first value is the dbname and the second value is the table name.
+
+  @param thd       The MySQL internal thread pointer
+
+  @return List of pairs: dbname, table name
+ */
+std::list<std::pair<const char *, const char *>> thd_get_query_tables(
+    THD *thd) {
   DBUG_ASSERT(current_thd == thd);
-  return thd->lex->query_tables;
+  return thd->get_query_tables();
 }
 
+/**
+  Get the value of the query attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param qattr_key Name of the query attribute
+
+  @return Value of the query attribute 'qattr_key'
+*/
 const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key) {
-  /* iterate through all the query attributes */
-  for (const auto &kvp : thd->query_attrs_list) {
-    /* look for qattr_key */
-    if (kvp.first == qattr_key) {
-      return kvp.second;
-    }
-  }
-
-  /* return empty result */
-  return emptyStr;
+  return thd->get_query_attr(qattr_key);
 }
 
+/**
+  Get the value of the connection attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param cattr_key Name of the connection attribute
+
+  @return Value of the query attribute 'cattr_key'
+*/
 const std::string &thd_get_connection_attr(THD *thd,
                                            const std::string &cattr_key) {
-  auto it = thd->connection_attrs_map.find(cattr_key);
-  if (it != thd->connection_attrs_map.end()) {
-    return it->second;
-  }
-
-  /* return empty result */
-  return emptyStr;
+  return thd->get_connection_attr(cattr_key);
 }
 
 /**
