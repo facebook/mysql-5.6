@@ -32,7 +32,9 @@
 #include <stddef.h>
 #include <sys/types.h>
 
+#include <list>
 #include <string>
+#include <utility>
 
 #include "dur_prop.h"  // durability_properties
 #include "lex_string.h"
@@ -281,13 +283,14 @@ bool thd_is_dd_update_stmt(const THD *thd);
 my_thread_id thd_thread_id(const THD *thd);
 
 /**
-  Get the tables involved in the query
+  Get tables in the query. The tables are returned as a list of pairs
+  where the first value is the dbname and the second value is the table name.
 
-  @param thd   The MySQL internal thread pointer
+  @param  thd  Thread pointer
 
-  @return table list that indicates the tables of the query
-*/
-TABLE_LIST *thd_get_query_tables(THD *thd);
+  @return List of pairs: dbname, table name
+ */
+std::list<std::pair<const char *, const char *>> thd_get_query_tables(THD *thd);
 
 /**
   Get the value of the query attribute
