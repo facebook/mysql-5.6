@@ -74,6 +74,7 @@
 #include "rapidjson/writer.h"
 #endif
 #include <sstream>
+#include <list>
 
 #ifdef TARGET_OS_LINUX
 #include <sys/syscall.h>
@@ -92,6 +93,9 @@ char empty_c_string[1]= {0};    /* used for not defined db */
 
 LEX_STRING EMPTY_STR= { (char *) "", 0 };
 LEX_STRING NULL_STR=  { NULL, 0 };
+
+/* empty string */
+static const std::string emptyStr = "";
 
 const char * const THD::DEFAULT_WHERE= "field list";
 
@@ -6718,4 +6722,114 @@ void THD::get_query_digest(String *digest_buffer, const char **str,
     *length = digest_buffer->length();
     *cs = digest_buffer->charset();
   }
+}
+
+/**
+  Get tables in the query. The tables are returned as a list of pairs
+  where the first value is the dbname and the second value is the table name.
+
+  @return List of pairs: dbname, table name
+ */
+std::list<std::pair<const char*, const char*> > THD::get_query_tables()
+{
+  std::list<std::pair<const char*, const char*>> uniq_tables;
+  std::list<std::string> uniq_tables_str;
+
+  /* iterate through the list of tables */
+  for (const TABLE_LIST* table = lex->query_tables; table != nullptr;
+       table = table->next_global) {
+    if (table->is_view_or_derived()) {
+      continue;
+    }
+
+    const char* dbname = table->get_db_name();
+    const char* tname = table->get_table_name();
+    std::string full_tname = dbname;
+    full_tname.append(".");
+    full_tname.append(tname);
+
+    /* skip duplicate entries */
+    if (find(uniq_tables_str.begin(), uniq_tables_str.end(), full_tname) !=
+        uniq_tables_str.end()) {
+      continue;
+    }
+
+    uniq_tables_str.emplace_back(full_tname);
+    uniq_tables.emplace_back(dbname, tname);
+  }
+  return uniq_tables;
+}
+
+/**
+  Get tables in the query. The tables are returned as a list of pairs
+  where the first value is the dbname and the second value is the table name.
+
+  @param  thd  Thread pointer
+
+  @return List of pairs: dbname, table name
+ */
+std::list<std::pair<const char*, const char*> > thd_get_query_tables(
+    THD *thd) {
+  return thd->get_query_tables();
+}
+
+/**
+  Get the value of the query attribute
+
+  @param qattr_key Name of the query attribute
+
+  @return Value of the query attribute 'qattr_key'
+*/
+const std::string &THD::get_query_attr(const std::string &qattr_key) {
+  /* find the key in the query attributes */
+  auto it = query_attrs_map.find(qattr_key);
+  if (it != query_attrs_map.end()) {
+    return it->second;
+  }
+
+  /* return empty result */
+  return emptyStr;
+}
+
+/**
+  Get the value of the connection attribute
+
+  @param cattr_key Name of the connection attribute
+
+  @return Value of the query attribute 'cattr_key'
+*/
+const std::string &THD::get_connection_attr(const std::string &cattr_key) {
+  /* find the key in the connection attributes */
+  auto it = connection_attrs_map.find(cattr_key);
+  if (it != connection_attrs_map.end()) {
+    return it->second;
+  }
+
+  /* return empty result */
+  return emptyStr;
+}
+
+/**
+  Get the value of the query attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param qattr_key Name of the query attribute
+
+  @return Value of the query attribute 'qattr_key'
+*/
+const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key) {
+  return thd->get_query_attr(qattr_key);
+}
+
+/**
+  Get the value of the connection attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param cattr_key Name of the connection attribute
+
+  @return Value of the query attribute 'cattr_key'
+*/
+const std::string &thd_get_connection_attr(THD *thd,
+                                           const std::string &cattr_key) {
+  return thd->get_connection_attr(cattr_key);
 }

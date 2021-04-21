@@ -117,4 +117,36 @@ struct st_mysql_multi_tenancy
     (MYSQL_THD, MT_RESOURCE_TYPE, const char *, int *);
 };
 
+/**
+  Get tables in the query. The tables are returned as a list of pairs
+  where the first value is the dbname and the second value is the table name.
+
+  @param  thd  Thread pointer
+
+  @return List of pairs: dbname, table name
+ */
+std::list<std::pair<const char*, const char*> > thd_get_query_tables(
+    THD *thd);
+
+/**
+  Get the value of the query attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param qattr_key Name of the query attribute
+
+  @return Value of the query attribute 'qattr_key'
+*/
+const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key);
+
+/**
+  Get the value of the connection attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param cattr_key Name of the connection attribute
+
+  @return Value of the query attribute 'cattr_key'
+*/
+const std::string &thd_get_connection_attr(THD *thd,
+                                           const std::string &cattr_key);
+
 #endif
