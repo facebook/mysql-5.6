@@ -2621,10 +2621,32 @@ public:
   */
   virtual int restart_rnd_next(uchar *buf, uchar *pos)
     { return HA_ERR_WRONG_COMMAND; }
-  virtual int rnd_same(uchar *buf, uint inx)
-    { return HA_ERR_WRONG_COMMAND; }
-  virtual ha_rows records_in_range(uint inx, key_range *min_key, key_range *max_key)
-    { return (ha_rows) 10; }
+  virtual int rnd_same(uchar *buf, uint inx) { return HA_ERR_WRONG_COMMAND; }
+  virtual ha_rows records_in_range(uint inx, key_range *min_key,
+                                   key_range *max_key) {
+    return (ha_rows)10;
+  }
+
+  /**
+    Find total size of the records in range.
+
+    Given a starting key, and an ending key estimate the total size of the rows
+    that will exist between the two. max_key may be empty which in case
+    determine if start_key matches any rows.
+
+    @param inx      Index number
+    @param min_key  Start of range
+    @param max_key  End of range
+
+    @return Number of rows in range.
+  */
+  virtual ulonglong
+  records_size_in_range(uint inx MY_ATTRIBUTE((unused)),
+                        key_range *min_key MY_ATTRIBUTE((unused)),
+                        key_range *max_key MY_ATTRIBUTE((unused))) {
+    return 0;
+  }
+
   /*
     If HA_PRIMARY_KEY_REQUIRED_FOR_POSITION is set, then it sets ref
     (reference to the row, aka position, with the primary key given in

@@ -1206,6 +1206,36 @@ protected:
   virtual ~Create_func_get_lock() {}
 };
 
+class Create_func_get_index_size_by_prefix : public Create_native_func
+{
+public:
+  virtual Item *create_native(THD *thd, LEX_STRING name, List<Item> *item_list);
+
+  static Create_func_get_index_size_by_prefix s_singleton;
+
+protected:
+  Create_func_get_index_size_by_prefix() {}
+  virtual ~Create_func_get_index_size_by_prefix() {}
+};
+Create_func_get_index_size_by_prefix Create_func_get_index_size_by_prefix::s_singleton;
+
+Item*
+Create_func_get_index_size_by_prefix::create_native(THD *thd, LEX_STRING name,
+                                        List<Item> *item_list)
+{
+  int arg_count= 0;
+  /* Unsafe for SBR since result depends on a session variable */
+  thd->lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_SYSTEM_FUNCTION);
+  if (item_list != NULL)
+    arg_count= item_list->elements;
+
+  if (arg_count != 4)
+  {
+    my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
+    return NULL;
+  }
+  return new (thd->mem_root) Item_func_get_index_size_by_prefix(*item_list);
+}
 
 #if defined(HAVE_SPATIAL) && !defined(DBUG_OFF)
 class Create_func_gis_debug : public Create_func_arg1
@@ -5727,6 +5757,7 @@ static Native_func_registry func_array[] =
   { { C_STRING_WITH_LEN("GEOMFROMTEXT") }, GEOM_BUILDER(Create_func_geometry_from_text)},
   { { C_STRING_WITH_LEN("GEOMFROMWKB") }, GEOM_BUILDER(Create_func_geometry_from_wkb)},
   { { C_STRING_WITH_LEN("GET_LOCK") }, BUILDER(Create_func_get_lock)},
+  { { C_STRING_WITH_LEN("GET_INDEX_SIZE_BY_PREFIX") }, BUILDER(Create_func_get_index_size_by_prefix)},
   { { C_STRING_WITH_LEN("GLENGTH") }, GEOM_BUILDER(Create_func_glength)},
   { { C_STRING_WITH_LEN("GREATEST") }, BUILDER(Create_func_greatest)},
   { { C_STRING_WITH_LEN("GTID_SUBTRACT") }, BUILDER(Create_func_gtid_subtract) },

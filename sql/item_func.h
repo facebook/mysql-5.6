@@ -2228,7 +2228,14 @@ public:
   longlong val_int();
   void fix_length_and_dec()
   { max_length= 21; unsigned_flag=1; }
-  bool check_partition_func_processor(uchar *int_arg) {return FALSE;}
+  bool check_partition_func_processor(uchar *int_arg) { return FALSE; }
+};
+
+class Item_func_get_index_size_by_prefix : public Item_int_func {
+public:
+  Item_func_get_index_size_by_prefix(List<Item> &list) : Item_int_func(list) {}
+  longlong val_int() override;
+  const char *func_name() const override { return "get_index_size_by_prefix"; }
 };
 
 Item *get_system_var(THD *thd, enum_var_type var_type, LEX_STRING name,

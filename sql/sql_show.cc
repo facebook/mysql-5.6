@@ -4616,18 +4616,6 @@ bool schema_table_store_record(THD *thd, TABLE *table)
   return 0;
 }
 
-
-static int make_table_list(THD *thd, SELECT_LEX *sel,
-                           LEX_STRING *db_name, LEX_STRING *table_name)
-{
-  Table_ident *table_ident;
-  table_ident= new Table_ident(thd, *db_name, *table_name, 1);
-  if (!sel->add_table_to_list(thd, table_ident, 0, 0, TL_READ, MDL_SHARED_READ))
-    return 1;
-  return 0;
-}
-
-
 /**
   @brief    Get lookup value from the part of 'WHERE' condition
 
