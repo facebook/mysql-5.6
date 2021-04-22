@@ -8,14 +8,14 @@ call mtr.add_suppression("Slave SQL.*Could not execute Delete_rows event on tabl
 call mtr.add_suppression("Slave SQL.*Could not execute Update_rows event on table test.t.* Error_code: 1032");
 call mtr.add_suppression("Slave SQL.*Could not execute Update_rows event on table test.t.* Error_code: 1062");
 
+let $use_gtids=1;
+
 # Case 1: Different datatypes
 --source include/rpl_connection_master.inc
 SET @@SQL_LOG_BIN = 0;
 CREATE TABLE t1(a INT PRIMARY KEY, b TINYINT) ENGINE = InnoDB;
 SET @@SQL_LOG_BIN = 1;
-let $use_gtids=1;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
 
 --source include/rpl_connection_slave.inc
 SET @@SQL_LOG_BIN = 0;
@@ -25,9 +25,7 @@ SET @@SQL_LOG_BIN = 1;
 # start with a fresh binlog
 --source include/rpl_connection_master.inc
 FLUSH LOGS;
-let $use_gtids=1;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
 
 --source include/rpl_connection_master.inc
 let $binlog = query_get_value(SHOW MASTER STATUS, File, 1);
@@ -47,22 +45,33 @@ INSERT INTO t1 VALUES(2, 20);
 INSERT INTO t1 VALUES(3, 30);
 INSERT INTO t1 VALUES(4, 40);
 INSERT INTO t1 VALUES(5, 50);
-UPDATE t1 SET a = a + 5;
-DELETE FROM t1 WHERE b < 30;
-let $use_gtids=1;
+INSERT INTO t1 VALUES(6, 60);
+INSERT INTO t1 VALUES(7, 70);
+DELETE FROM t1 WHERE a = 6;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
+--source include/rpl_connection_slave.inc
+let $offset= query_get_value(SHOW MASTER STATUS, Position, 1);
+--source include/rpl_connection_master.inc
+INSERT INTO t1 VALUES(6, 60);
+DELETE FROM t1 WHERE a = 7;
+INSERT INTO t1 VALUES(7, 70);
+UPDATE t1 SET a = 50 WHERE a = 5;
+UPDATE t1 SET a = 5 WHERE a = 50;
+UPDATE t1 SET a = 40 WHERE a = 4;
+DELETE FROM t1 WHERE a = 3;
+INSERT INTO t1 VALUES(3, 30);
+DELETE FROM t1 WHERE a = 2;
+source include/sync_slave_sql_with_master.inc;
 
 --source include/rpl_connection_master.inc
 let $MASTER_MYSQLD_DATADIR = `select @@datadir`;
 
 # Truncate the slave binlog
 --source include/rpl_connection_slave.inc
+flush engine logs;
 let $SLAVE_MYSQLD_DATADIR = `select @@datadir`;
 let $slave_binlog_file = query_get_value("SHOW MASTER STATUS", "File", 1);
-let $slave_binlog_size = query_get_value("SHOW MASTER STATUS", "Position", 1);
-let $half = `select ROUND($slave_binlog_size / 2)`;
-exec truncate -s $half $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
+exec truncate -s $offset $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
 
 let $rpl_server_number = 2;
 let $rpl_start_with_gtids = 1;
@@ -76,9 +85,16 @@ source include/start_slave.inc;
 --source include/rpl_connection_master.inc
 source include/sync_slave_sql_with_master.inc;
 
+--source include/rpl_connection_master.inc
+let $file = query_get_value("SHOW MASTER STATUS", "File", 1);
+let $master_log_prefix= `SELECT SUBSTRING_INDEX('$file', '.', 1)`;
+--source include/rpl_connection_slave.inc
+let $file = query_get_value("SHOW MASTER STATUS", "File", 1);
+let $slave_log_prefix= `SELECT SUBSTRING_INDEX('$file', '.', 1)`;
+
 # Check if the binlogs have corrupted events
-exec $MYSQL_BINLOG -v -v $MASTER_MYSQLD_DATADIR/master-bin.0* > $MYSQLTEST_VARDIR/tmp/source_fulldump.sql;
-exec $MYSQL_BINLOG -v -v $SLAVE_MYSQLD_DATADIR/slave-bin.0* > $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
+exec $MYSQL_BINLOG -v -v $MASTER_MYSQLD_DATADIR/$master_log_prefix.0* > $MYSQLTEST_VARDIR/tmp/source_fulldump.sql;
+exec $MYSQL_BINLOG -v -v $SLAVE_MYSQLD_DATADIR/$slave_log_prefix.0* > $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
 exec egrep -c "(Write_rows|Update_rows|Delete_rows)" $MYSQLTEST_VARDIR/tmp/source_fulldump.sql || true;
 exec egrep -c "(Write_rows|Update_rows|Delete_rows)" $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql || true;
 exec egrep -c "**Corrupt" $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql || true;
@@ -116,9 +132,7 @@ RESET REPLICA;
 SET @@SQL_LOG_BIN = 0;
 CREATE TABLE t1(a INT PRIMARY KEY, b TINYINT) ENGINE = InnoDB;
 SET @@SQL_LOG_BIN = 1;
-let $use_gtids=1;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
 
 --source include/rpl_connection_slave.inc
 SET @@SQL_LOG_BIN = 0;
@@ -128,9 +142,7 @@ SET @@SQL_LOG_BIN = 1;
 # start with a fresh binlog
 --source include/rpl_connection_master.inc
 FLUSH LOGS;
-let $use_gtids=1;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
 
 --source include/rpl_connection_master.inc
 let $binlog = query_get_value(SHOW MASTER STATUS, File, 1);
@@ -150,22 +162,33 @@ INSERT INTO t1 VALUES(2, 20);
 INSERT INTO t1 VALUES(3, 30);
 INSERT INTO t1 VALUES(4, 40);
 INSERT INTO t1 VALUES(5, 50);
-UPDATE t1 SET a = a + 5;
-DELETE FROM t1 WHERE b < 30;
-let $use_gtids=1;
+INSERT INTO t1 VALUES(6, 60);
+INSERT INTO t1 VALUES(7, 70);
+DELETE FROM t1 WHERE a = 6;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
+--source include/rpl_connection_slave.inc
+let $offset= query_get_value(SHOW MASTER STATUS, Position, 1);
+--source include/rpl_connection_master.inc
+INSERT INTO t1 VALUES(6, 60);
+DELETE FROM t1 WHERE a = 7;
+INSERT INTO t1 VALUES(7, 70);
+UPDATE t1 SET a = 50 WHERE a = 5;
+UPDATE t1 SET a = 5 WHERE a = 50;
+UPDATE t1 SET a = 40 WHERE a = 4;
+DELETE FROM t1 WHERE a = 3;
+INSERT INTO t1 VALUES(3, 30);
+DELETE FROM t1 WHERE a = 2;
+source include/sync_slave_sql_with_master.inc;
 
 --source include/rpl_connection_master.inc
 let $MASTER_MYSQLD_DATADIR = `select @@datadir`;
 
 # Truncate the slave binlog
 --source include/rpl_connection_slave.inc
+flush engine logs;
 let $SLAVE_MYSQLD_DATADIR = `select @@datadir`;
 let $slave_binlog_file = query_get_value("SHOW MASTER STATUS", "File", 1);
-let $slave_binlog_size = query_get_value("SHOW MASTER STATUS", "Position", 1);
-let $half = `select ROUND($slave_binlog_size / 2)`;
-exec truncate -s $half $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
+exec truncate -s $offset $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
 
 let $rpl_server_number = 2;
 let $rpl_start_with_gtids = 1;
@@ -177,13 +200,11 @@ change replication source to source_auto_position=1, source_heartbeat_period=0.2
 source include/start_slave.inc;
 
 --source include/rpl_connection_master.inc
-let $use_gtids=1;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
 
 # Check if the binlogs have corrupted events
-exec $MYSQL_BINLOG -v -v $MASTER_MYSQLD_DATADIR/master-bin.0* > $MYSQLTEST_VARDIR/tmp/source_fulldump.sql;
-exec $MYSQL_BINLOG -v -v $SLAVE_MYSQLD_DATADIR/slave-bin.0* > $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
+exec $MYSQL_BINLOG -v -v $MASTER_MYSQLD_DATADIR/$master_log_prefix.0* > $MYSQLTEST_VARDIR/tmp/source_fulldump.sql;
+exec $MYSQL_BINLOG -v -v $SLAVE_MYSQLD_DATADIR/$slave_log_prefix.0* > $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
 exec egrep -c "(Write_rows|Update_rows|Delete_rows)" $MYSQLTEST_VARDIR/tmp/source_fulldump.sql || true;
 exec egrep -c "(Write_rows|Update_rows|Delete_rows)" $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql || true;
 exec egrep -c "**Corrupt" $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql || true;
@@ -226,9 +247,7 @@ RESET REPLICA;
 SET @@SQL_LOG_BIN = 0;
 CREATE TABLE t1(a INT, b TINYINT, PRIMARY KEY(a, b)) ENGINE = InnoDB;
 SET @@SQL_LOG_BIN = 1;
-let $use_gtids=1;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
 
 --source include/rpl_connection_slave.inc
 SET @@SQL_LOG_BIN = 0;
@@ -238,9 +257,7 @@ SET @@SQL_LOG_BIN = 1;
 # start with a fresh binlog
 --source include/rpl_connection_master.inc
 FLUSH LOGS;
-let $use_gtids=1;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
 
 --source include/rpl_connection_master.inc
 let $binlog = query_get_value(SHOW MASTER STATUS, File, 1);
@@ -260,22 +277,33 @@ INSERT INTO t1 VALUES(2, 20);
 INSERT INTO t1 VALUES(3, 30);
 INSERT INTO t1 VALUES(4, 40);
 INSERT INTO t1 VALUES(5, 50);
-UPDATE t1 SET a = a + 5;
-DELETE FROM t1 WHERE b < 30;
-let $use_gtids=1;
+INSERT INTO t1 VALUES(6, 60);
+INSERT INTO t1 VALUES(7, 70);
+DELETE FROM t1 WHERE a = 6;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
+--source include/rpl_connection_slave.inc
+let $offset= query_get_value(SHOW MASTER STATUS, Position, 1);
+--source include/rpl_connection_master.inc
+INSERT INTO t1 VALUES(6, 60);
+DELETE FROM t1 WHERE a = 7;
+INSERT INTO t1 VALUES(7, 70);
+UPDATE t1 SET a = 50 WHERE a = 5;
+UPDATE t1 SET a = 5 WHERE a = 50;
+UPDATE t1 SET a = 40 WHERE a = 4;
+DELETE FROM t1 WHERE a = 3;
+INSERT INTO t1 VALUES(3, 30);
+DELETE FROM t1 WHERE a = 2;
+source include/sync_slave_sql_with_master.inc;
 
 --source include/rpl_connection_master.inc
 let $MASTER_MYSQLD_DATADIR = `select @@datadir`;
 
 # Truncate the slave binlog
 --source include/rpl_connection_slave.inc
+flush engine logs;
 let $SLAVE_MYSQLD_DATADIR = `select @@datadir`;
 let $slave_binlog_file = query_get_value("SHOW MASTER STATUS", "File", 1);
-let $slave_binlog_size = query_get_value("SHOW MASTER STATUS", "Position", 1);
-let $half = `select ROUND($slave_binlog_size / 2)`;
-exec truncate -s $half $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
+exec truncate -s $offset $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
 
 let $rpl_server_number = 2;
 let $rpl_start_with_gtids = 1;
@@ -287,13 +315,11 @@ change replication source to source_auto_position=1, source_heartbeat_period=0.2
 source include/start_slave.inc;
 
 --source include/rpl_connection_master.inc
-let $use_gtids=1;
 source include/sync_slave_sql_with_master.inc;
-let $use_gtids=0;
 
 # Check if the binlogs have corrupted events
-exec $MYSQL_BINLOG -v -v $MASTER_MYSQLD_DATADIR/master-bin.0* > $MYSQLTEST_VARDIR/tmp/source_fulldump.sql;
-exec $MYSQL_BINLOG -v -v $SLAVE_MYSQLD_DATADIR/slave-bin.0* > $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
+exec $MYSQL_BINLOG -v -v $MASTER_MYSQLD_DATADIR/$master_log_prefix.0* > $MYSQLTEST_VARDIR/tmp/source_fulldump.sql;
+exec $MYSQL_BINLOG -v -v $SLAVE_MYSQLD_DATADIR/$slave_log_prefix.0* > $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
 exec egrep -c "(Write_rows|Update_rows|Delete_rows)" $MYSQLTEST_VARDIR/tmp/source_fulldump.sql || true;
 exec egrep -c "(Write_rows|Update_rows|Delete_rows)" $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql || true;
 exec egrep -c "**Corrupt" $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql || true;
