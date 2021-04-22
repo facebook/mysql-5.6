@@ -12711,6 +12711,9 @@ int Rows_log_event::force_write_to_binlog(Relay_log_info *rli)
   bool const has_trans= thd->lex->sql_command == SQLCOM_CREATE_TABLE ||
                         m_table->file->has_transactions();
 
+  m_table->mark_columns_per_binlog_row_image(get_type_code() ==
+                                             WRITE_ROWS_EVENT);
+
   uchar *curr_row= NULL, *curr_row_end= NULL;
   uint i= 0;
   for (i= 0, curr_row= m_rows_buf;

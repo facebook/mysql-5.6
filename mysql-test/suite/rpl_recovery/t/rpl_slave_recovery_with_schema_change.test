@@ -41,8 +41,22 @@ INSERT INTO t1 VALUES(2, 20);
 INSERT INTO t1 VALUES(3, 30);
 INSERT INTO t1 VALUES(4, 40);
 INSERT INTO t1 VALUES(5, 50);
-UPDATE t1 SET a = a + 5;
-DELETE FROM t1 WHERE b < 30;
+INSERT INTO t1 VALUES(6, 60);
+INSERT INTO t1 VALUES(7, 70);
+DELETE FROM t1 WHERE a = 6;
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+let $offset= query_get_value(SHOW MASTER STATUS, Position, 1);
+connection master;
+INSERT INTO t1 VALUES(6, 60);
+DELETE FROM t1 WHERE a = 7;
+INSERT INTO t1 VALUES(7, 70);
+UPDATE t1 SET a = 50 WHERE a = 5;
+UPDATE t1 SET a = 5 WHERE a = 50;
+UPDATE t1 SET a = 40 WHERE a = 4;
+DELETE FROM t1 WHERE a = 3;
+INSERT INTO t1 VALUES(3, 30);
+DELETE FROM t1 WHERE a = 2;
 source include/sync_slave_sql_with_master.inc;
 
 connection master;
@@ -50,11 +64,10 @@ let $MASTER_MYSQLD_DATADIR = `select @@datadir`;
 
 # Truncate the slave binlog
 connection slave;
+flush engine logs;
 let $SLAVE_MYSQLD_DATADIR = `select @@datadir`;
 let $slave_binlog_file = query_get_value("SHOW MASTER STATUS", "File", 1);
-let $slave_binlog_size = query_get_value("SHOW MASTER STATUS", "Position", 1);
-let $half = `select ROUND($slave_binlog_size / 2)`;
-exec truncate -s $half $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
+exec truncate -s $offset $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
 
 let $rpl_server_number = 2;
 let $rpl_start_with_gtids = 1;
@@ -147,8 +160,22 @@ INSERT INTO t1 VALUES(2, 20);
 INSERT INTO t1 VALUES(3, 30);
 INSERT INTO t1 VALUES(4, 40);
 INSERT INTO t1 VALUES(5, 50);
-UPDATE t1 SET a = a + 5;
-DELETE FROM t1 WHERE b < 30;
+INSERT INTO t1 VALUES(6, 60);
+INSERT INTO t1 VALUES(7, 70);
+DELETE FROM t1 WHERE a = 6;
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+let $offset= query_get_value(SHOW MASTER STATUS, Position, 1);
+connection master;
+INSERT INTO t1 VALUES(6, 60);
+DELETE FROM t1 WHERE a = 7;
+INSERT INTO t1 VALUES(7, 70);
+UPDATE t1 SET a = 50 WHERE a = 5;
+UPDATE t1 SET a = 5 WHERE a = 50;
+UPDATE t1 SET a = 40 WHERE a = 4;
+DELETE FROM t1 WHERE a = 3;
+INSERT INTO t1 VALUES(3, 30);
+DELETE FROM t1 WHERE a = 2;
 source include/sync_slave_sql_with_master.inc;
 
 connection master;
@@ -156,11 +183,10 @@ let $MASTER_MYSQLD_DATADIR = `select @@datadir`;
 
 # Truncate the slave binlog
 connection slave;
+flush engine logs;
 let $SLAVE_MYSQLD_DATADIR = `select @@datadir`;
 let $slave_binlog_file = query_get_value("SHOW MASTER STATUS", "File", 1);
-let $slave_binlog_size = query_get_value("SHOW MASTER STATUS", "Position", 1);
-let $half = `select ROUND($slave_binlog_size / 2)`;
-exec truncate -s $half $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
+exec truncate -s $offset $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
 
 let $rpl_server_number = 2;
 let $rpl_start_with_gtids = 1;
@@ -252,8 +278,22 @@ INSERT INTO t1 VALUES(2, 20);
 INSERT INTO t1 VALUES(3, 30);
 INSERT INTO t1 VALUES(4, 40);
 INSERT INTO t1 VALUES(5, 50);
-UPDATE t1 SET a = a + 5;
-DELETE FROM t1 WHERE b < 30;
+INSERT INTO t1 VALUES(6, 60);
+INSERT INTO t1 VALUES(7, 70);
+DELETE FROM t1 WHERE a = 6;
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+let $offset= query_get_value(SHOW MASTER STATUS, Position, 1);
+connection master;
+INSERT INTO t1 VALUES(6, 60);
+DELETE FROM t1 WHERE a = 7;
+INSERT INTO t1 VALUES(7, 70);
+UPDATE t1 SET a = 50 WHERE a = 5;
+UPDATE t1 SET a = 5 WHERE a = 50;
+UPDATE t1 SET a = 40 WHERE a = 4;
+DELETE FROM t1 WHERE a = 3;
+INSERT INTO t1 VALUES(3, 30);
+DELETE FROM t1 WHERE a = 2;
 source include/sync_slave_sql_with_master.inc;
 
 connection master;
@@ -261,11 +301,10 @@ let $MASTER_MYSQLD_DATADIR = `select @@datadir`;
 
 # Truncate the slave binlog
 connection slave;
+flush engine logs;
 let $SLAVE_MYSQLD_DATADIR = `select @@datadir`;
 let $slave_binlog_file = query_get_value("SHOW MASTER STATUS", "File", 1);
-let $slave_binlog_size = query_get_value("SHOW MASTER STATUS", "Position", 1);
-let $half = `select ROUND($slave_binlog_size / 2)`;
-exec truncate -s $half $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
+exec truncate -s $offset $SLAVE_MYSQLD_DATADIR/$slave_binlog_file;
 
 let $rpl_server_number = 2;
 let $rpl_start_with_gtids = 1;
