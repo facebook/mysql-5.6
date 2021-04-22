@@ -10247,6 +10247,9 @@ int Rows_log_event::force_write_to_binlog(Relay_log_info *rli) {
 
   rli->tables_to_lock->m_conv_table = conv_table;
 
+  m_table->mark_columns_per_binlog_row_image(
+      thd, get_general_type_code() == binary_log::WRITE_ROWS_EVENT);
+
   m_curr_row = m_rows_buf;
   m_curr_row_end = NULL;
   uint i = 0;  // update event count
