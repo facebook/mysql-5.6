@@ -20023,7 +20023,10 @@ start-error-number 50300
 ER_HLC_ABOVE_MAX_DRIFT
   eng "Can't advance HLC value to `%s` because it's too far from the current time"
 
-ER_PLACEHOLDER_50301
+ER_HLC_STALE_UPPER_BOUND
+  eng "Requested upper HLC bound is lower than current HLC: %lu"
+
+ER_PLACEHOLDER_50302
   eng "Placeholder"
 
 #
