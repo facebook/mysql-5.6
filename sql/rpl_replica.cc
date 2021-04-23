@@ -5256,6 +5256,16 @@ static bool coord_handle_partial_binlogged_transaction(Relay_log_info *rli,
     begin_event->common_header->log_pos = ev->common_header->log_pos;
     begin_event->future_event_relay_log_pos = ev->future_event_relay_log_pos;
 
+    /*
+      The timestamp of this event needs to be adjusted so that it does not
+      interfere with the SBM calculated based on the timestamps from the
+      primary's binlog events.  Setting to 0 will have the event inherit the
+      current time, so use the current last_master_timestamp, or 1, if
+      last_master_timestamp is not yet set.
+    */
+    begin_event->common_header->when.tv_sec =
+        rli->last_master_timestamp > 0 ? rli->last_master_timestamp : 1;
+
     if (apply_event_and_update_pos(&begin_event, thd, rli) !=
         SLAVE_APPLY_EVENT_AND_UPDATE_POS_OK) {
       delete begin_event;
@@ -5280,6 +5290,16 @@ static bool coord_handle_partial_binlogged_transaction(Relay_log_info *rli,
   */
   rollback_event->common_header->log_pos = ev->common_header->log_pos;
   rollback_event->future_event_relay_log_pos = ev->future_event_relay_log_pos;
+
+  /*
+    The timestamp of this event needs to be adjusted so that it does not
+    interfere with the SBM calculated based on the timestamps from the
+    primary's binlog events.  Setting to 0 will have the event inherit the
+    current time, so use the current last_master_timestamp, or 1, if
+    last_master_timestamp is not yet set.
+  */
+  rollback_event->common_header->when.tv_sec =
+      rli->last_master_timestamp > 0 ? rli->last_master_timestamp : 1;
 
   ((Query_log_event *)rollback_event)->rollback_injected_by_coord = true;
 
