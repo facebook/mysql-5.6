@@ -52,7 +52,7 @@ Plugin_table table_sql_findings::m_table_def(
     "  MESSAGE       VARCHAR(256),\n"
     "  QUERY_TEXT    VARCHAR(1024),\n"
     "  COUNT         BIGINT unsigned NOT NULL,\n"
-    "  LAST_RECORDED TIMESTAMP NOT NULL default 0\n",
+    "  LAST_RECORDED BIGINT unsigned NOT NULL \n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
@@ -159,7 +159,7 @@ int table_sql_findings::read_row_values(TABLE *table, unsigned char *buf,
           set_field_ulonglong(f, curr_row.count());
           break;
         case FO_LAST_RECORDED:
-          set_field_timestamp(f, curr_row.last_recorded());
+          set_field_ulonglong(f, curr_row.last_recorded());
           break;
         default:
           DBUG_ASSERT(false);

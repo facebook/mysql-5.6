@@ -3,6 +3,16 @@ grant alter, create, insert, select, drop on test.* to user1@localhost;
 GRANT SELECT ON performance_schema.* TO user1@localhost;
 create user user_super@localhost identified by 'su';
 grant all on *.* to user_super@localhost with grant option;
+-> Case 0: show the sql_findings definition
+describe performance_schema.sql_findings;
+Field	Type	Null	Key	Default	Extra
+SQL_ID	varchar(64)	YES		NULL	
+CODE	bigint unsigned	NO		NULL	
+LEVEL	varchar(64)	YES		NULL	
+MESSAGE	varchar(256)	YES		NULL	
+QUERY_TEXT	varchar(1024)	YES		NULL	
+COUNT	bigint unsigned	NO		NULL	
+LAST_RECORDED	bigint unsigned	NO		NULL	
 -> Case 1: sql findings is default (OFF_HARD)
 select @@sql_findings_control;
 @@sql_findings_control

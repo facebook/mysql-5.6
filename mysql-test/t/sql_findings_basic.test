@@ -11,6 +11,13 @@ create user user_super@localhost identified by 'su';
 grant all on *.* to user_super@localhost with grant option;
 
 #################################################
+### Case 0: show the sql_findings definition
+#################################################
+--echo -> Case 0: show the sql_findings definition
+
+describe performance_schema.sql_findings;
+
+#################################################
 ### Case 1: both variables are default (OFF_HARD)
 #################################################
 --echo -> Case 1: sql findings is default (OFF_HARD)

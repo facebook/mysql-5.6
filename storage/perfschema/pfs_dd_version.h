@@ -234,10 +234,13 @@
 
   80020-017:
   add INDEX_STATISTICS table
+
+  80020-018:
+  - change type of SQL_FINDINGS.LAST_RECORDED to bigint
 */
-/* Version published now is 80020-017. i.e. 8.0.20 Facebook schema change
- * no. 17.
+/* Version published now is 80020-018. i.e. 8.0.20 Facebook schema change
+ * no. 18.
  */
-static const uint PFS_DD_VERSION = 80020017;
+static const uint PFS_DD_VERSION = 80020018;
 
 #endif /* PFS_DD_VERSION_H */
