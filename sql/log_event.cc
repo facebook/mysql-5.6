@@ -3024,7 +3024,7 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       assert(ptr_group->group_relay_log_name == nullptr);
 
       ptr_group->group_relay_log_name = (char *)my_malloc(
-          key_memory_log_event, strlen(rli->get_group_relay_log_name()) + 1,
+          key_memory_log_event, strlen(rli->get_event_relay_log_name()) + 1,
           MYF(MY_WME));
       strcpy(ptr_group->group_relay_log_name, rli->get_event_relay_log_name());
 
