@@ -64,6 +64,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #endif /* !UNIV_HOTBACKUP */
 #include "ibuf0ibuf.h"
 #ifndef UNIV_HOTBACKUP
+#include "fts0fts.h"
 #include "lock0lock.h"
 #include "log0recv.h"
 #include "mem0mem.h"
@@ -1727,6 +1728,8 @@ void srv_export_innodb_status(void) {
   export_vars.innodb_dblwr_pages_written = srv_stats.dblwr_pages_written;
 
   export_vars.innodb_dblwr_writes = srv_stats.dblwr_writes;
+
+  export_vars.innodb_ft_optimize_queue_count = fts_optimize_get_queue_count();
 
   export_vars.innodb_pages_created = stat.n_pages_created;
 

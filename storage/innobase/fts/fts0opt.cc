@@ -239,6 +239,9 @@ struct fts_msg_t {
 /** The number of words to read and optimize in a single pass. */
 ulong fts_num_word_optimize;
 
+/* Queue size limit */
+ulong fts_max_optimize_queue_size;
+
 // FIXME
 bool fts_enable_diag_print;
 
@@ -2418,6 +2421,13 @@ static fts_msg_t *fts_optimize_create_msg(
   return (msg);
 }
 
+ulong fts_optimize_get_queue_count(void) {
+  if (!fts_optimize_wq) {
+    return -1;
+  }
+  return ib_wqueue_get_count(fts_optimize_wq);
+}
+
 /** Add the table to add to the OPTIMIZER's list. */
 void fts_optimize_add_table(dict_table_t *table) /*!< in: table to add */
 {
@@ -2507,6 +2517,20 @@ void fts_optimize_request_sync_table(dict_table_t *table) {
   if (fts_opt_start_shutdown) {
     ib::info(ER_IB_MSG_502) << "Try to sync table " << table->name
                             << " after FTS optimize thread exiting.";
+    return;
+  }
+
+  /*
+    Check and see if the queue count is higher than our threshold, if so don't
+    queue additional sync messages. This check isn't exact and the queue size
+    can rise above the max, but this is a soft limit anyway.
+
+    Tradeoff here would be acquiring the mutex and additional time vs. freeing
+    the allocated memory if the queue is full vs. allocating the memory while
+    holding the lock. The first solution generates the least amount of code.
+  */
+  if (fts_max_optimize_queue_size > 0 &&
+      ib_wqueue_get_count(fts_optimize_wq) > fts_max_optimize_queue_size) {
     return;
   }
 

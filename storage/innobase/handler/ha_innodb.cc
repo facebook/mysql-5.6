@@ -1265,6 +1265,9 @@ static SHOW_VAR innodb_status_variables[] = {
      SHOW_SCOPE_GLOBAL},
     {"ibuf_size", (char *)&export_vars.innodb_ibuf_size, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
+    {"ft_optimize_queue_count",
+     (char *)&export_vars.innodb_ft_optimize_queue_count, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
     {"log_waits", (char *)&export_vars.innodb_log_waits, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {"log_write_requests", (char *)&export_vars.innodb_log_write_requests,
@@ -22528,6 +22531,11 @@ static MYSQL_SYSVAR_ULONG(
     "InnoDB Fulltext search maximum token size in characters", nullptr, nullptr,
     FTS_MAX_WORD_LEN_IN_CHAR, 10, FTS_MAX_WORD_LEN_IN_CHAR, 0);
 
+static MYSQL_SYSVAR_ULONG(ft_max_optimize_queue_size,
+                          fts_max_optimize_queue_size, PLUGIN_VAR_RQCMDARG,
+                          "InnoDB Fulltext optimize msg queue size", nullptr,
+                          nullptr, 0, 0, 1024 * 1024, 0);
+
 static MYSQL_SYSVAR_ULONG(ft_num_word_optimize, fts_num_word_optimize,
                           PLUGIN_VAR_OPCMDARG,
                           "InnoDB Fulltext search number of words to optimize "
@@ -23301,6 +23309,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(ft_total_cache_size),
     MYSQL_SYSVAR(ft_result_cache_limit),
     MYSQL_SYSVAR(ft_enable_stopword),
+    MYSQL_SYSVAR(ft_max_optimize_queue_size),
     MYSQL_SYSVAR(ft_max_token_size),
     MYSQL_SYSVAR(ft_min_token_size),
     MYSQL_SYSVAR(ft_num_word_optimize),

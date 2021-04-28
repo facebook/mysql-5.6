@@ -1199,6 +1199,7 @@ struct export_var_t {
   ulint innodb_buffer_pool_read_ahead_evicted; /*!< srv_read_ahead evicted*/
   ulint innodb_dblwr_pages_written;            /*!< srv_dblwr_pages_written */
   ulint innodb_dblwr_writes;                   /*!< srv_dblwr_writes */
+  ulint innodb_ft_optimize_queue_count;        /*!< ft_optimize_queue_count */
   ulint innodb_hash_nonsearches;               /*!< btr_cur_n_sea */
   ulint innodb_hash_searches;                  /*!< btr_cur_n_non_sea */
   ulint innodb_ibuf_inserts;                   /*!< ibuf->n_inserts */
