@@ -240,7 +240,7 @@ connection con1;
 send INSERT INTO t1 VALUES (bug27563());
 connection con2;
 SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
-KILL QUERY @id;
+KILL QUERY @id 'killed by admin';
 connection con1;
 --error 1317
 reap;
@@ -254,7 +254,7 @@ connection con1;
 send UPDATE t1 SET f1= bug27563();
 connection con2;
 SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
-KILL QUERY @id;
+KILL QUERY @id 'The reason for kill is described in this argument. This specific killed_reason is intentionally very long to test the correct truncation of long message when a reason goes very long';
 connection con1;
 --error 1317
 reap;

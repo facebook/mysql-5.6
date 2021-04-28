@@ -108,16 +108,16 @@ RETURN 1;
 END|
 INSERT INTO t1 VALUES (bug27563());
 SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
-KILL QUERY @id;
-ERROR 70100: Query execution was interrupted
+KILL QUERY @id 'killed by admin';
+ERROR 70100: Query execution was interrupted, reason: killed by admin
 SELECT * FROM t1;
 f1
 SET DEBUG_SYNC = 'RESET';
 INSERT INTO t1 VALUES(0);
 UPDATE t1 SET f1= bug27563();
 SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
-KILL QUERY @id;
-ERROR 70100: Query execution was interrupted
+KILL QUERY @id 'The reason for kill is described in this argument. This specific killed_reason is intentionally very long to test the correct truncation of long message when a reason goes very long';
+ERROR 70100: Query execution was interrupted, reason: The reason for kill is described in this argument. This specific killed_reason is intentionally very long to test the correct t
 SELECT * FROM t1;
 f1
 0

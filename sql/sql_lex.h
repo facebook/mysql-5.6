@@ -2398,6 +2398,9 @@ struct LEX: public Query_tables_list
   */
   List<Name_resolution_context> context_stack;
 
+  /* KILL statement-specific fields */
+  LEX_STRING kill_reason;
+
   /**
     Argument values for PROCEDURE ANALYSE(); is NULL for other queries
   */

@@ -3975,6 +3975,7 @@ public:
     KILLED_NO_VALUE      /* means neither of the states */
   };
   std::atomic<killed_state> killed;
+  char *killed_reason;
 
   /* scramble - random string sent to client on handshake */
   char	     scramble[SCRAMBLE_LENGTH+1];
@@ -4212,7 +4213,7 @@ public:
   }
   void shutdown_active_vio();
 #endif
-  void awake(THD::killed_state state_to_set);
+  void awake(THD::killed_state state_to_set, const char *reason = nullptr);
 
   /** Disconnect the associated communication endpoint. */
   void disconnect();
@@ -4323,9 +4324,10 @@ public:
    */
   virtual bool kill_shared_locks(MDL_context_owner *in_use);
 
-  uint kill_one_thread(my_thread_id id, bool only_kill_query);
+  uint kill_one_thread(my_thread_id id, bool only_kill_query,
+                       const char *reason);
   uint kill_one_thread(THD* other, bool only_kill_query) {
-    return kill_one_thread(other->thread_id(), only_kill_query);
+    return kill_one_thread(other->thread_id(), only_kill_query, nullptr);
   }
 
   // End implementation of MDL_context_owner interface.
@@ -4671,7 +4673,16 @@ public:
         JOIN::optimize(), statement cannot possibly run as its caller expected
         => "OK" would be misleading the caller.
       */
-      my_message(err, ER(err), MYF(ME_FATALERROR));
+      if (err == ER_QUERY_INTERRUPTED) {
+        std::string msg = ER(err);
+        if (killed_reason && killed_reason[0] != '\0') {
+          msg.append(", reason: ");
+          msg.append(killed_reason);
+        }
+        my_message(err, msg.c_str(), MYF(ME_FATALERROR));
+      } else {
+        my_message(err, ER(err), MYF(ME_FATALERROR));
+      }
     }
   }
   /* return TRUE if we will abort query if we make a warning now */

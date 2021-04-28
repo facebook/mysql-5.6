@@ -99,6 +99,12 @@ static const std::string emptyStr = "";
 
 const char * const THD::DEFAULT_WHERE= "field list";
 
+/*
+  When the thread is killed, we store the reason why it is killed in this buffer
+  so that clients can understand why their query fails
+*/
+constexpr size_t KILLED_REASON_MAX_LEN = 128;
+
 /****************************************************************************
 ** User variables
 ****************************************************************************/
@@ -1041,6 +1047,7 @@ THD::THD(bool enable_plugins)
   query_start_used= query_start_usec_used= 0;
   count_cuted_fields= CHECK_FIELD_IGNORE;
   killed= NOT_KILLED;
+  killed_reason = NULL;
   col_access=0;
   is_slave_error= thread_specific_used= FALSE;
   my_hash_clear(&handler_tables_hash);
@@ -1954,6 +1961,10 @@ THD::~THD()
   {
     my_free(m_token_array);
   }
+  if (killed_reason != NULL)
+  {
+    my_free(killed_reason);
+  }
   DBUG_VOID_RETURN;
 }
 
@@ -2033,7 +2044,7 @@ void add_diff_to_status(STATUS_VAR *to_var, STATUS_VAR *from_var,
   @note Do always call this while holding LOCK_thd_data.
 */
 
-void THD::awake(THD::killed_state state_to_set)
+void THD::awake(THD::killed_state state_to_set, const char *reason)
 {
   DBUG_ENTER("THD::awake");
   DBUG_PRINT("enter", ("this: %p current_thd: %p", this, current_thd));
@@ -2042,6 +2053,21 @@ void THD::awake(THD::killed_state state_to_set)
 
   /* Set the 'killed' flag of 'this', which is the target THD object. */
   killed= state_to_set;
+  if (reason) {
+    static constexpr int len = KILLED_REASON_MAX_LEN;
+    if (!killed_reason) {
+      killed_reason = (char *)my_malloc(len, MYF(0));
+    }
+    if (killed_reason) {
+      strncpy(killed_reason, reason, len - 1);
+      killed_reason[len - 1] = '\0';
+    }
+  } else {
+    if (killed_reason && killed_reason[0] != '\0') {
+      // no reason is given, let's clean up previous killed_reason
+      killed_reason[0] = '\0';
+    }
+  }
 
   if (state_to_set != THD::KILL_QUERY && state_to_set != THD::KILL_TIMEOUT)
   {
@@ -2259,12 +2285,14 @@ static void kill_one_srv_session(
   @param thd			Thread class
   @param id			Thread id
   @param only_kill_query        Should it kill the query or the connection
+  @param reason The reason why this is killed
 
   @note
     This is written such that we have a short lock on LOCK_thread_count
 */
 
-uint THD::kill_one_thread(my_thread_id id, bool only_kill_query)
+uint THD::kill_one_thread(my_thread_id id, bool only_kill_query,
+                          const char *reason)
 {
   uint error=ER_NO_SUCH_THREAD;
   DBUG_ENTER("kill_one_thread");
@@ -2334,7 +2362,8 @@ uint THD::kill_one_thread(my_thread_id id, bool only_kill_query)
         }
 #endif
 
-        other->awake(only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION);
+        other->awake(only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION,
+                     reason);
       }
       error= 0;
     }

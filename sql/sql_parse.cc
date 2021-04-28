@@ -171,7 +171,8 @@ using std::min;
 static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
 	ulonglong *last_timer);
 static bool check_show_access(THD *thd, TABLE_LIST *table);
-static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query);
+static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
+                     const char *reason = nullptr);
 static bool lock_tables_precheck(THD *thd, TABLE_LIST *tables);
 static void store_warnings_in_resp_attrs(THD *thd);
 
@@ -5888,7 +5889,8 @@ end_with_restore_list:
       goto error;
     }
     sql_kill(thd, static_cast<my_thread_id>(it->val_int()),
-             lex->type & ONLY_KILL_QUERY);
+             lex->type & ONLY_KILL_QUERY,
+             lex->kill_reason.length > 0 ? lex->kill_reason.str : nullptr);
     break;
   }
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
@@ -9360,13 +9362,15 @@ void add_join_natural(TABLE_LIST *a, TABLE_LIST *b, List<String> *using_fields,
     thd			Thread class
     id			Thread id
     only_kill_query     Should it kill the query or the connection
+    reason  Description about the reason why it was killed
 */
 
 static
-void sql_kill(THD *thd, my_thread_id id, bool only_kill_query)
+void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
+              const char *reason)
 {
   uint error;
-  if (!(error= thd->kill_one_thread(id, only_kill_query)))
+  if (!(error= thd->kill_one_thread(id, only_kill_query, reason)))
   {
     if (! thd->killed)
       my_ok(thd);
