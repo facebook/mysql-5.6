@@ -5465,6 +5465,32 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
   }
 
   if (ev) {
+    if (enable_raft_plugin &&
+        ev->get_type_code() == binary_log::METADATA_EVENT) {
+      Metadata_log_event *mev = static_cast<Metadata_log_event *>(ev);
+      if (mev->does_exist(binary_log::Metadata_event::Metadata_event_types::
+                              RAFT_TERM_INDEX_TYPE)) {
+        const int64_t term = mev->get_raft_term();
+        const int64_t index = mev->get_raft_index();
+        if (rli->last_opid.first != -1 && rli->last_opid.second != -1 &&
+            (index != rli->last_opid.second + 1 ||
+             term < rli->last_opid.first)) {
+          char msg[1024];
+          snprintf(
+              msg, sizeof(msg),
+              "Out of order opid found last opid=%ld:%ld, current opid=%ld:%ld",
+              rli->last_opid.first, rli->last_opid.second, term, index);
+          rli->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_READ_FAILURE,
+                      ER_THD(thd, ER_SLAVE_RELAY_LOG_READ_FAILURE), msg);
+          rli->abort_slave = 1;
+          mysql_mutex_unlock(&rli->data_lock);
+          delete ev;
+          return 1;
+        }
+        rli->last_opid = std::make_pair(term, index);
+      }
+    }
+
     if (rli->is_row_format_required()) {
       bool info_error{false};
       binary_log::Log_event_basic_info log_event_info;
@@ -7582,6 +7608,8 @@ extern "C" void *handle_slave_sql(void *arg) {
       rli->current_mts_submode = new Mts_submode_database();
     else
       rli->current_mts_submode = new Mts_submode_dependency();
+
+    rli->last_opid = std::make_pair(-1, -1);
 
     const auto slave_preserve_commit_order = get_slave_preserve_commit_order();
     if (slave_preserve_commit_order && !rli->is_parallel_exec())
