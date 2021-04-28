@@ -204,6 +204,8 @@ public:
   // next available id for new gtid info
   uint gtid_info_next_id;
 
+  std::pair<int64_t, int64_t> last_opid= std::make_pair(-1, -1);
+
   /* The following variables are safe to read any time */
 
   /*

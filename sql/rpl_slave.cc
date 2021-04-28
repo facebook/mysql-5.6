@@ -5008,6 +5008,29 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
 
   Log_event *ev = next_event(rli), **ptr_ev;
 
+  if (enable_raft_plugin && ev && ev->get_type_code() == METADATA_EVENT) {
+    Metadata_log_event *mev = static_cast<Metadata_log_event *>(ev);
+    if (mev->does_exist(Metadata_log_event::Metadata_log_event_types::
+                            RAFT_TERM_INDEX_TYPE)) {
+      const int64_t term = mev->get_raft_term();
+      const int64_t index = mev->get_raft_index();
+      if (rli->last_opid.first != -1 && rli->last_opid.second != -1 &&
+          (index != rli->last_opid.second + 1 || term < rli->last_opid.first)) {
+        char msg[1024];
+        snprintf(
+            msg, sizeof(msg),
+            "Out of order opid found last opid=%ld:%ld, current opid=%ld:%ld",
+            rli->last_opid.first, rli->last_opid.second, term, index);
+        rli->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_READ_FAILURE,
+                    ER(ER_SLAVE_RELAY_LOG_READ_FAILURE), msg);
+        rli->abort_slave = 1;
+        mysql_mutex_unlock(&rli->data_lock);
+        DBUG_RETURN(1);
+      }
+      rli->last_opid = std::make_pair(term, index);
+    }
+  }
+
   DBUG_ASSERT(rli->info_thd==thd);
 
   if (sql_slave_killed(thd,rli))
@@ -7025,6 +7048,8 @@ pthread_handler_t handle_slave_sql(void *arg)
   mysql_mutex_lock(&rli->info_thd_lock);
   rli->info_thd= thd;
   mysql_mutex_unlock(&rli->info_thd_lock);
+
+  rli->last_opid= std::make_pair(-1, -1);
 
   rli->mts_dependency_replication= opt_mts_dependency_replication;
   rli->mts_dependency_size= opt_mts_dependency_size;

@@ -1,0 +1,36 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Slave SQL: Relay log read failure: Out of order opid found");
+create table t1(a int primary key) engine = innodb;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+stop slave sql_thread;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+flush binary logs;
+set @sql_log_bin=0;
+create table offsets(a int);
+load data local infile '/data/users/abhinavsharma/mysql/mysql-fork/_build-5.6-Debug/mysql-test/var/mysqld.2/data//offsets' into table offsets FIELDS TERMINATED BY '\t' LINES TERMINATED BY '\n';
+set @sql_log_bin=1;
+set @sql_log_bin=0;
+drop table offsets;
+set @sql_log_bin=1;
+include/start_slave_sql.inc
+include/wait_for_slave_sql_error.inc [errno=1594]
+include/rpl_stop_server.inc [server_number=2]
+flush binary logs;
+include/rpl_start_server.inc [server_number=2]
+"Starting sql thread"
+include/start_slave_sql.inc
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
