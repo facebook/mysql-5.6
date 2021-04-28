@@ -154,6 +154,9 @@ extern const char *FTS_SUFFIX_CONFIG_5_7;
 call */
 extern ulong fts_num_word_optimize;
 
+/* Queue size limit */
+extern ulong fts_max_optimize_queue_size;
+
 /** Variable specifying whether we do additional FTS diagnostic printout
 in the log */
 extern bool fts_enable_diag_print;
@@ -677,6 +680,8 @@ void fts_free(dict_table_t *table); /*!< in/out: table with
 /** Run OPTIMIZE on the given table.
  @return DB_SUCCESS if all OK */
 dberr_t fts_optimize_table(dict_table_t *table); /*!< in: table to optimiza */
+
+ulong fts_optimize_get_queue_count(void);
 
 /** Startup the optimize thread and create the work queue. */
 void fts_optimize_init(void);

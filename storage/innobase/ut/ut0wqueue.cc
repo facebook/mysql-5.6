@@ -83,6 +83,7 @@ void ib_wqueue_add(ib_wqueue_t *wq, void *item, mem_heap_t *heap) {
 
   ib_list_add_last(wq->items, item, heap);
   wq->count++;
+  assert(wq->count != 0);
   os_event_set(wq->event);
 
   mutex_exit(&wq->mutex);
@@ -115,6 +116,7 @@ void *ib_wqueue_timedwait(
 
     if (node) {
       ib_list_remove(wq->items, node);
+      assert(wq->count != 0);
       wq->count--;
 
       mutex_exit(&wq->mutex);
