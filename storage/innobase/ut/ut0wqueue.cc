@@ -42,6 +42,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 struct ib_wqueue_t {
   ib_mutex_t mutex; /*!< mutex protecting everything */
   ib_list_t *items; /*!< work item list */
+  ulong count;
   os_event_t event; /*!< event we use to signal additions to list */
 };
 
@@ -57,6 +58,7 @@ ib_wqueue_t *ib_wqueue_create(void) {
 
   wq->items = ib_list_create();
   wq->event = os_event_create();
+  wq->count = 0;
 
   return (wq);
 }
@@ -79,9 +81,19 @@ void ib_wqueue_add(ib_wqueue_t *wq, void *item, mem_heap_t *heap) {
   mutex_enter(&wq->mutex);
 
   ib_list_add_last(wq->items, item, heap);
+  wq->count++;
+  DBUG_ASSERT(wq->count != 0);
   os_event_set(wq->event);
 
   mutex_exit(&wq->mutex);
+}
+
+ulong ib_wqueue_get_count(ib_wqueue_t *wq) {
+  ulong count;
+  mutex_enter(&wq->mutex);
+  count = wq->count;
+  mutex_exit(&wq->mutex);
+  return count;
 }
 
 /********************************************************************
@@ -103,6 +115,8 @@ void *ib_wqueue_timedwait(
 
     if (node) {
       ib_list_remove(wq->items, node);
+      DBUG_ASSERT(wq->count != 0);
+      wq->count--;
 
       mutex_exit(&wq->mutex);
       break;
