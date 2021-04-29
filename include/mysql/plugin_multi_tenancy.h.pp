@@ -306,3 +306,8 @@ struct st_mysql_multi_tenancy
   int (*get_resource_counter)
     (void*, MT_RESOURCE_TYPE, const char *, int *);
 };
+std::list<std::pair<const char*, const char*> > thd_get_query_tables(
+    THD *thd);
+const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key);
+const std::string &thd_get_connection_attr(THD *thd,
+                                           const std::string &cattr_key);
