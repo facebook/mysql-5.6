@@ -6307,6 +6307,16 @@ int main(int argc, char **argv) {
     exit(exit_code);
   }
 
+  if (opt_rocksdb_bulk_load) {
+    if (!opt_order_by_primary && !opt_order_by_primary_desc) {
+      opt_order_by_primary = true;
+      fprintf(stderr,
+              "-- Warning: --rocksdb-bulk-load requires either "
+              "--order-by-primary or "
+              "--order-by-primary-desc. "
+              "Continuing with --order-by-primary-desc as default option.");
+    }
+  }
   /*
     Disable comments in xml mode if 'comments' option is not explicitly used.
   */
