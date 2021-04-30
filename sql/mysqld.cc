@@ -1151,6 +1151,7 @@ bool opt_partial_revokes;
 bool set_read_only_on_shutdown = false;
 extern bool fix_read_only(sys_var *self, THD *thd, enum_var_type type);
 extern bool fix_super_read_only(sys_var *self, THD *thd, enum_var_type type);
+bool show_binlogs_encryption = true;
 
 mysql_mutex_t LOCK_default_password_lifetime;
 mysql_mutex_t LOCK_mandatory_roles;

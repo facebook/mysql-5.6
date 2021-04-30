@@ -8631,3 +8631,8 @@ static Sys_var_bool Sys_set_read_only_on_shutdown(
     "Set read_only and super_read_only in shutdown path after trying to "
     "kill connections but before shutting down plugins",
     GLOBAL_VAR(set_read_only_on_shutdown), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_show_binlogs_encryption(
+    "show_binlogs_encryption",
+    "Scan binlogs to determine encryption property during show binlogs",
+    GLOBAL_VAR(show_binlogs_encryption), CMD_LINE(OPT_ARG), DEFAULT(true));
