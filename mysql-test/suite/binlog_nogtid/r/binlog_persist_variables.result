@@ -175,6 +175,7 @@ Warning	1287	'@@rpl_stop_slave_timeout' is deprecated and will be removed in a f
 Warning	1287	'@@rpl_stop_slave_timeout' is deprecated and will be removed in a future release. Please use rpl_stop_replica_timeout instead.
 SET PERSIST rpl_wait_for_semi_sync_ack = @@GLOBAL.rpl_wait_for_semi_sync_ack;
 SET PERSIST session_track_gtids = @@GLOBAL.session_track_gtids;
+SET PERSIST show_binlogs_encryption = @@GLOBAL.show_binlogs_encryption;
 SET PERSIST skip_master_info_check_for_read_only_error_msg_extra = @@GLOBAL.skip_master_info_check_for_read_only_error_msg_extra;
 SET PERSIST skip_replica_start = @@GLOBAL.skip_replica_start;
 ERROR HY000: Variable 'skip_replica_start' is a read only variable
@@ -428,6 +429,7 @@ Warnings:
 Warning	3615	Variable rpl_stop_slave_timeout does not exist in persisted config file
 RESET PERSIST IF EXISTS rpl_wait_for_semi_sync_ack;
 RESET PERSIST IF EXISTS session_track_gtids;
+RESET PERSIST IF EXISTS show_binlogs_encryption;
 RESET PERSIST IF EXISTS skip_master_info_check_for_read_only_error_msg_extra;
 RESET PERSIST IF EXISTS skip_replica_start;
 Warnings:

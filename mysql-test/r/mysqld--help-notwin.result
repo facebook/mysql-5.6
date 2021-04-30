@@ -2306,6 +2306,10 @@ The following options may be given as the first argument:
  to TRUE, the plugin will flag associated authenticated
  accounts to be mapped to proxy users when the server
  option check_proxy_users is enabled.
+ --show-binlogs-encryption 
+ Scan binlogs to determine encryption property during show
+ binlogs
+ (Defaults to on; use --skip-show-binlogs-encryption to disable.)
  --show-create-table-verbosity 
  When this option is enabled, it increases the verbosity
  of 'SHOW CREATE TABLE'.
@@ -3382,6 +3386,7 @@ session-track-system-variables time_zone,autocommit,character_set_client,charact
 session-track-transaction-info OFF
 set-read-only-on-shutdown FALSE
 sha256-password-proxy-users FALSE
+show-binlogs-encryption TRUE
 show-create-table-verbosity FALSE
 show-old-temporals FALSE
 show-replica-auth-info FALSE

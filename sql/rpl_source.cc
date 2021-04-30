@@ -1640,19 +1640,27 @@ bool show_binlogs(THD *thd, bool with_gtid) {
       /* this is an old log, open it and find the size */
       if ((file = mysql_file_open(key_file_binlog, fname, O_RDONLY, MYF(0))) >=
           0) {
-        unsigned char magic[Rpl_encryption_header::ENCRYPTION_MAGIC_SIZE];
-        if (mysql_file_read(file, magic, BINLOG_MAGIC_SIZE, MYF(0)) == 4 &&
-            memcmp(magic, Rpl_encryption_header::ENCRYPTION_MAGIC,
-                   Rpl_encryption_header::ENCRYPTION_MAGIC_SIZE) == 0) {
-          /* Encryption header size is already accounted in the file_length */
-          encrypted_header_size = 1;
+        /* Skip the encryption check to improve performance */
+        if (!show_binlogs_encryption) {
+          encrypted_header_size = -1;
+        } else {
+          unsigned char magic[Rpl_encryption_header::ENCRYPTION_MAGIC_SIZE];
+          if (mysql_file_read(file, magic, BINLOG_MAGIC_SIZE, MYF(0)) == 4 &&
+              memcmp(magic, Rpl_encryption_header::ENCRYPTION_MAGIC,
+                     Rpl_encryption_header::ENCRYPTION_MAGIC_SIZE) == 0) {
+            /* Encryption header size is already accounted in the file_length */
+            encrypted_header_size = 1;
+          }
         }
         file_length = (ulonglong)mysql_file_seek(file, 0L, MY_SEEK_END, MYF(0));
         mysql_file_close(file, MYF(0));
       }
     }
     protocol->store(file_length);
-    protocol->store(encrypted_header_size ? "Yes" : "No", &my_charset_bin);
+    protocol->store(encrypted_header_size < 0
+                        ? "NULL"
+                        : encrypted_header_size ? "Yes" : "No",
+                    &my_charset_bin);
 
     if (with_gtid) {
       const auto previous_gtid_set_map =

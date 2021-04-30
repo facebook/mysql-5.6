@@ -1,0 +1,64 @@
+-- source include/load_sysvars.inc
+
+SET @start_global_value = @@global.show_binlogs_encryption;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.show_binlogs_encryption;
+
+#
+# correct types
+#
+SET GLOBAL show_binlogs_encryption=1;
+SET GLOBAL show_binlogs_encryption=0;
+SET GLOBAL show_binlogs_encryption=true;
+SET GLOBAL show_binlogs_encryption=false;
+SET GLOBAL show_binlogs_encryption=on;
+SET GLOBAL show_binlogs_encryption=off;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL show_binlogs_encryption=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL show_binlogs_encryption="foo";
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL show_binlogs_encryption=-1;
+
+RESET MASTER;
+
+CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1);
+FLUSH LOGS;
+INSERT INTO t1 VALUES (2);
+FLUSH LOGS;
+
+SET GLOBAL show_binlogs_encryption=1;
+let $master_uuid=`select @@server_uuid;`;
+replace_result $master_uuid uuid; replace_column 2 #;
+SHOW MASTER LOGS;
+
+let $master_uuid=`select @@server_uuid;`;
+replace_result $master_uuid uuid; replace_column 2 #;
+SHOW MASTER LOGS WITH GTID;
+
+SET GLOBAL show_binlogs_encryption=0;
+let $master_uuid=`select @@server_uuid;`;
+replace_result $master_uuid uuid; replace_column 2 #;
+SHOW MASTER LOGS;
+
+let $master_uuid=`select @@server_uuid;`;
+replace_result $master_uuid uuid; replace_column 2 #;
+SHOW MASTER LOGS WITH GTID;
+
+DROP TABLE t1;
+
+RESET MASTER;
+#
+# cleanup
+#
+SET GLOBAL show_binlogs_encryption = @start_global_value;

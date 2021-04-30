@@ -9343,3 +9343,7 @@ static Sys_var_uint Sys_response_attrs_contain_warnings_bytes(
     "comma. The default value is 0 which disables this feature",
     SESSION_VAR(response_attrs_contain_warnings_bytes), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+static Sys_var_bool Sys_show_binlogs_encryption(
+    "show_binlogs_encryption",
+    "Scan binlogs to determine encryption property during show binlogs",
+    GLOBAL_VAR(show_binlogs_encryption), CMD_LINE(OPT_ARG), DEFAULT(true));
