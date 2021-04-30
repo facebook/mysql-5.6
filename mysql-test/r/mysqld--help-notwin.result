@@ -2340,6 +2340,10 @@ The following options may be given as the first argument:
  to TRUE, the plugin will flag associated authenticated
  accounts to be mapped to proxy users when the server
  option check_proxy_users is enabled.
+ --show-binlogs-encryption 
+ Scan binlogs to determine encryption property during show
+ binlogs
+ (Defaults to on; use --skip-show-binlogs-encryption to disable.)
  --show-create-table-contain-privacy-policy 
  Controls if the the SHOW CREATE TABLE command should
  display the PRIVACY_POLICY of the table
@@ -3447,6 +3451,7 @@ session-track-system-variables time_zone,autocommit,character_set_client,charact
 session-track-transaction-info OFF
 set-read-only-on-shutdown FALSE
 sha256-password-proxy-users FALSE
+show-binlogs-encryption TRUE
 show-create-table-contain-privacy-policy FALSE
 show-create-table-verbosity FALSE
 show-gipk-in-create-table-and-information-schema TRUE
