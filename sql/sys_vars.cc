@@ -8855,6 +8855,11 @@ static Sys_var_bool Sys_set_read_only_on_shutdown(
     "kill connections but before shutting down plugins",
     GLOBAL_VAR(set_read_only_on_shutdown), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_show_binlogs_encryption(
+    "show_binlogs_encryption",
+    "Scan binlogs to determine encryption property during show binlogs",
+    GLOBAL_VAR(show_binlogs_encryption), CMD_LINE(OPT_ARG), DEFAULT(true));
+
 #ifndef DBUG_OFF
 Debug_shutdown_actions Debug_shutdown_actions::instance;
 #endif
