@@ -126,11 +126,10 @@ a	b
 select COUNT_STAR from performance_schema.table_io_waits_summary_by_table
 where OBJECT_SCHEMA='db1' and OBJECT_NAME='t1';
 COUNT_STAR
-3
+0
 select COUNT_STAR from performance_schema.table_io_waits_summary_by_index_usage
 where INDEX_NAME!='NULL';
 COUNT_STAR
-1
 FLUSH TABLES;
 select COUNT_STAR from performance_schema.table_io_waits_summary_by_table
 where OBJECT_SCHEMA='db1' and OBJECT_NAME='t1';

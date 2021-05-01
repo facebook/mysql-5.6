@@ -84,6 +84,11 @@ PFS_buffer_default_allocator<PFS_table_share_index>
 PFS_table_share_index_container global_table_share_index_container(
     &default_table_share_index_allocator);
 
+PFS_buffer_default_allocator<PFS_table_io_stat> default_table_io_stat_allocator(
+    &builtin_memory_table);
+PFS_table_io_stat_container global_table_io_stat_container(
+    &default_table_io_stat_allocator);
+
 PFS_buffer_default_allocator<PFS_table_share_lock>
     default_table_share_lock_allocator(&builtin_memory_table_share_lock);
 PFS_table_share_lock_container global_table_share_lock_container(
