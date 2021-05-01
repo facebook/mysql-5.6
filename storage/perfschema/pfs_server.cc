@@ -139,6 +139,7 @@ int initialize_performance_schema(
       init_table_share_query_stat(param->m_table_share_sizing) ||
       init_table_share_lock_stat(param->m_table_lock_stat_sizing) ||
       init_table_share_index_stat(param->m_index_stat_sizing) ||
+      init_table_index_stat(param->m_index_stat_sizing) ||
       init_file_class(param->m_file_class_sizing) ||
       init_stage_class(param->m_stage_class_sizing) ||
       init_statement_class(param->m_statement_class_sizing) ||
@@ -339,6 +340,7 @@ static void cleanup_performance_schema(void) {
   cleanup_sql_text();
   cleanup_sync_class();
   cleanup_thread_class();
+  cleanup_table_index_stat();
   cleanup_table_share();
   cleanup_table_share_lock_stat();
   cleanup_table_share_index_stat();

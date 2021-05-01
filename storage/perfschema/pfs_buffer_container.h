@@ -1305,6 +1305,15 @@ typedef PFS_table_container::iterator_type PFS_table_iterator;
 extern PFS_table_container global_table_container;
 
 #ifdef USE_SCALABLE
+typedef PFS_buffer_scalable_container<PFS_table_io_stat, 8 * 1024, 8 * 1024>
+    PFS_table_io_stat_container;
+#else
+typedef PFS_buffer_container<PFS_table_io_stat> PFS_table_io_stat_container;
+#endif
+typedef PFS_table_io_stat_container::iterator_type PFS_table_io_stat_iterator;
+extern PFS_table_io_stat_container global_table_io_stat_container;
+
+#ifdef USE_SCALABLE
 typedef PFS_buffer_scalable_container<PFS_table_share, 4 * 1024, 4 * 1024>
     PFS_table_share_container;
 #else

@@ -357,6 +357,7 @@ static void test_with_instances() {
 
   dummy_table_share.m_enabled = true;
   dummy_table_share.m_timed = true;
+  dummy_table_share.m_key_count = MAX_INDEXES;
 
   mutex_1 = create_mutex(&dummy_mutex_class, nullptr);
   ok(mutex_1 != nullptr, "mutex");
