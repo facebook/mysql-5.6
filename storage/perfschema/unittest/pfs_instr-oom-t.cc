@@ -198,6 +198,7 @@ static void test_oom() {
   dummy_socket_class.m_volatility = PSI_VOLATILITY_UNKNOWN;
   dummy_table_share.m_enabled = true;
   dummy_table_share.m_timed = true;
+  dummy_table_share.m_key_count = MAX_INDEXES;
 
   /* Create mutex. */
   stub_alloc_always_fails = false;
