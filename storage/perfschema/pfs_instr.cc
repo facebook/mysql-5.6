@@ -1298,10 +1298,104 @@ PFS_table *create_table(PFS_table_share *share, PFS_thread *opening_thread,
     pfs->m_table_stat.fast_reset();
     pfs->m_thread_owner = opening_thread;
     pfs->m_owner_event_id = opening_thread->m_event_id;
+    /* Create table index stats. */
+    for (uint index = 0; index < share->m_key_count; index++) {
+      (void)pfs->m_table_stat.find_or_create_index_stat(index);
+    }
+    (void)pfs->m_table_stat.find_or_create_index_stat(MAX_INDEXES);
     pfs->m_lock.dirty_to_allocated(&dirty_state);
   }
 
   return pfs;
+}
+
+/**
+  Initialize table index stat buffer.
+  @param index_stat_sizing           max number of index statistics
+  @return 0 on success
+*/
+int init_table_index_stat(uint index_stat_sizing) {
+  if (global_table_io_stat_container.init(index_stat_sizing)) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/**
+  Create a table index instrumentation.
+  @return table index instrumentation, or NULL
+*/
+PFS_table_io_stat *create_table_index_stat() {
+  PFS_table_io_stat *pfs = nullptr;
+  pfs_dirty_state dirty_state;
+
+  /* Create a new record in index stat array. */
+  pfs = global_table_io_stat_container.allocate(&dirty_state);
+  if (pfs != nullptr) {
+    /* Reset the stats. */
+    pfs->reset();
+
+    /* Use this stat buffer. */
+    pfs->m_lock.dirty_to_allocated(&dirty_state);
+  }
+
+  return pfs;
+}
+
+/** Release a table index instrumentation. */
+void release_table_index_stat(PFS_table_io_stat *pfs) {
+  global_table_io_stat_container.deallocate(pfs);
+  return;
+}
+
+/** Cleanup the table stat buffers. */
+void cleanup_table_index_stat(void) {
+  global_table_io_stat_container.cleanup();
+}
+
+/**
+  Find or create a table index instrumentation.
+  @param index the index
+  @return a table stat index, or NULL
+*/
+PFS_table_io_stat *PFS_table_stat::find_or_create_index_stat(uint index) {
+  assert(index <= MAX_INDEXES);
+
+  /* (1) Atomic Load */
+  PFS_table_io_stat *pfs = this->m_index_stat[index].load();
+  if (pfs != nullptr) {
+    return pfs;
+  }
+
+  /* (2) Create an index stat */
+  PFS_table_io_stat *new_pfs = create_table_index_stat();
+  if (new_pfs == nullptr) {
+    return nullptr;
+  }
+
+  /* (3) Atomic CAS */
+  if (atomic_compare_exchange_strong(&this->m_index_stat[index], &pfs,
+                                     new_pfs)) {
+    /* Ok. */
+    return new_pfs;
+  }
+
+  /* Collision with another thread that also executed (2) and (3). */
+  release_table_index_stat(new_pfs);
+
+  return pfs;
+}
+
+/** Destroy table index instrumentation. */
+void PFS_table_stat::destroy_index_stats() {
+  for (uint index = 0; index <= MAX_INDEXES; index++) {
+    PFS_table_io_stat *new_ptr = nullptr;
+    PFS_table_io_stat *old_ptr = this->m_index_stat[index].exchange(new_ptr);
+    if (old_ptr != nullptr) {
+      release_table_index_stat(old_ptr);
+    }
+  }
 }
 
 void PFS_table::sanitized_aggregate(void) {
@@ -1376,15 +1470,14 @@ void PFS_table::safe_aggregate_io(const TABLE_SHARE *optional_server_share,
   uint key_count = sanitize_index_count(table_share->m_key_count);
 
   PFS_table_share_index *to_stat;
-  PFS_table_io_stat *from_stat;
   uint index;
 
   assert(key_count <= MAX_INDEXES);
 
   /* Aggregate stats for each index, if any */
   for (index = 0; index < key_count; index++) {
-    from_stat = &table_stat->m_index_stat[index];
-    if (from_stat->m_has_data) {
+    auto *from_stat = table_stat->find_index_stat(index);
+    if (from_stat && from_stat->m_has_data) {
       if (optional_server_share != nullptr) {
         /*
           An instrumented thread is closing a table,
@@ -1411,8 +1504,8 @@ void PFS_table::safe_aggregate_io(const TABLE_SHARE *optional_server_share,
   }
 
   /* Aggregate stats for the table */
-  from_stat = &table_stat->m_index_stat[MAX_INDEXES];
-  if (from_stat->m_has_data) {
+  auto *from_stat = table_stat->find_index_stat(MAX_INDEXES);
+  if (from_stat && from_stat->m_has_data) {
     to_stat = table_share->find_or_create_index_stat(nullptr, MAX_INDEXES);
     if (to_stat != nullptr) {
       /* Aggregate to TABLE_IO_SUMMARY */
@@ -1420,7 +1513,7 @@ void PFS_table::safe_aggregate_io(const TABLE_SHARE *optional_server_share,
     }
   }
 
-  table_stat->fast_reset_io();
+  table_stat->reset_io();
 }
 
 void PFS_table::safe_aggregate_lock(PFS_table_stat *table_stat,
@@ -1448,6 +1541,7 @@ void PFS_table::safe_aggregate_lock(PFS_table_stat *table_stat,
 void destroy_table(PFS_table *pfs) {
   assert(pfs != nullptr);
   pfs->m_share->dec_refcount();
+  pfs->m_table_stat.destroy_index_stats();
   global_table_container.deallocate(pfs);
 }
 

@@ -779,6 +779,11 @@ PFS_file *sanitize_file(PFS_file *unsafe);
 PFS_socket *sanitize_socket(PFS_socket *unsafe);
 PFS_metadata_lock *sanitize_metadata_lock(PFS_metadata_lock *unsafe);
 
+int init_table_index_stat(uint index_stat_sizing);
+void cleanup_table_index_stat();
+PFS_table_io_stat *create_table_index_stat();
+void release_table_index_stat(PFS_table_share_index *pfs);
+
 int init_instruments(const PFS_global_param *param);
 void cleanup_instruments();
 int init_file_hash(const PFS_global_param *param);

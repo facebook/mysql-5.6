@@ -32,10 +32,12 @@
 #include "sql/sql_const.h"
 #include "storage/perfschema/pfs_error.h"
 #include "storage/perfschema/pfs_global.h"
+#include "storage/perfschema/pfs_lock.h"
 /* memcpy */
 #include "string.h"
 
 struct PFS_builtin_memory_class;
+class PFS_opaque_container_page;
 
 /**
   @file storage/perfschema/pfs_stat.h
@@ -648,6 +650,8 @@ struct PFS_error_stat {
 
 /** Single table I/O statistic. */
 struct PFS_table_io_stat {
+  pfs_lock m_lock;
+
   bool m_has_data;
   /** FETCH statistics */
   PFS_single_stat m_fetch;
@@ -657,6 +661,9 @@ struct PFS_table_io_stat {
   PFS_single_stat m_update;
   /** DELETE statistics */
   PFS_single_stat m_delete;
+
+  /** Container page. */
+  PFS_opaque_container_page *m_page;
 
   PFS_table_io_stat() { m_has_data = false; }
 
@@ -775,7 +782,7 @@ struct PFS_table_stat {
     Each index stat is in [0, MAX_INDEXES-1],
     stats when using no index are in [MAX_INDEXES].
   */
-  PFS_table_io_stat m_index_stat[MAX_INDEXES + 1];
+  std::atomic<PFS_table_io_stat *> m_index_stat[MAX_INDEXES + 1];
 
   /**
     Statistics, per lock type.
@@ -787,12 +794,24 @@ struct PFS_table_stat {
   */
   PFS_table_query_stat m_query_stat;
 
+  PFS_table_io_stat *find_index_stat(uint index) const {
+    assert(index <= MAX_INDEXES);
+
+    return this->m_index_stat[index].load();
+  }
+
+  PFS_table_io_stat *find_or_create_index_stat(uint index);
+  void destroy_index_stats();
+
   /** Reset table I/O statistic. */
   inline void reset_io(void) {
-    PFS_table_io_stat *stat = &m_index_stat[0];
-    PFS_table_io_stat *stat_last = &m_index_stat[MAX_INDEXES + 1];
+    auto *stat = &m_index_stat[0];
+    auto *stat_last = &m_index_stat[MAX_INDEXES + 1];
     for (; stat < stat_last; stat++) {
-      stat->reset();
+      auto io_stat = stat->load();
+      if (io_stat != nullptr) {
+        io_stat->reset();
+      }
     }
   }
 
@@ -809,10 +828,6 @@ struct PFS_table_stat {
     reset_query();
   }
 
-  inline void fast_reset_io(void) {
-    memcpy(&m_index_stat, &g_reset_template.m_index_stat, sizeof(m_index_stat));
-  }
-
   inline void fast_reset_lock(void) {
     memcpy(&m_lock_stat, &g_reset_template.m_lock_stat, sizeof(m_lock_stat));
   }
@@ -821,29 +836,30 @@ struct PFS_table_stat {
     memcpy(&m_query_stat, &g_reset_template.m_query_stat, sizeof(m_query_stat));
   }
 
-  inline void fast_reset(void) {
-    memcpy(this, &g_reset_template, sizeof(*this));
-  }
+  inline void fast_reset(void) { new (this) PFS_table_stat(); }
 
   inline void aggregate_io(const PFS_table_stat *stat, uint key_count) {
-    PFS_table_io_stat *to_stat;
-    PFS_table_io_stat *to_stat_last;
-    const PFS_table_io_stat *from_stat;
-
     assert(key_count <= MAX_INDEXES);
 
     /* Aggregate stats for each index, if any */
-    to_stat = &m_index_stat[0];
-    to_stat_last = to_stat + key_count;
-    from_stat = &stat->m_index_stat[0];
-    for (; to_stat < to_stat_last; from_stat++, to_stat++) {
-      to_stat->aggregate(from_stat);
+    for (uint i = 0; i < key_count; ++i) {
+      auto *from_stat = stat->find_index_stat(i);
+      if (from_stat) {
+        auto *to_stat = find_or_create_index_stat(i);
+        if (to_stat) {
+          to_stat->aggregate(from_stat);
+        }
+      }
     }
 
     /* Aggregate stats for the table */
-    to_stat = &m_index_stat[MAX_INDEXES];
-    from_stat = &stat->m_index_stat[MAX_INDEXES];
-    to_stat->aggregate(from_stat);
+    auto *from_stat = stat->find_index_stat(MAX_INDEXES);
+    if (from_stat) {
+      auto *to_stat = find_or_create_index_stat(MAX_INDEXES);
+      if (to_stat) {
+        to_stat->aggregate(from_stat);
+      }
+    }
   }
 
   inline void aggregate_lock(const PFS_table_stat *stat) {
@@ -861,20 +877,21 @@ struct PFS_table_stat {
   }
 
   inline void sum_io(PFS_single_stat *result, uint key_count) {
-    PFS_table_io_stat *stat;
-    PFS_table_io_stat *stat_last;
-
     assert(key_count <= MAX_INDEXES);
 
     /* Sum stats for each index, if any */
-    stat = &m_index_stat[0];
-    stat_last = stat + key_count;
-    for (; stat < stat_last; stat++) {
-      stat->sum(result);
+    for (uint i = 0; i < key_count; i++) {
+      auto *stat = find_index_stat(i);
+      if (stat) {
+        stat->sum(result);
+      }
     }
 
     /* Sum stats for the table */
-    m_index_stat[MAX_INDEXES].sum(result);
+    auto *stat = find_index_stat(MAX_INDEXES);
+    if (stat) {
+      stat->sum(result);
+    }
   }
 
   inline void sum_lock(PFS_single_stat *result) { m_lock_stat.sum(result); }

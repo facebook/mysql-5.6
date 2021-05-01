@@ -5285,43 +5285,45 @@ void pfs_end_table_io_wait_v1(PSI_table_locker *locker, ulonglong numrows) {
   PFS_table *table = reinterpret_cast<PFS_table *>(state->m_table);
   assert(table != nullptr);
 
-  PFS_single_stat *stat;
-  PFS_table_io_stat *table_io_stat;
-
   assert((state->m_index < table->m_share->m_key_count) ||
          (state->m_index == MAX_INDEXES));
 
-  table_io_stat = &table->m_table_stat.m_index_stat[state->m_index];
-  table_io_stat->m_has_data = true;
-  table->m_has_queries_happened = true;
-
-  switch (state->m_io_operation) {
-    case PSI_TABLE_FETCH_ROW:
-      stat = &table_io_stat->m_fetch;
-      break;
-    case PSI_TABLE_WRITE_ROW:
-      stat = &table_io_stat->m_insert;
-      break;
-    case PSI_TABLE_UPDATE_ROW:
-      stat = &table_io_stat->m_update;
-      break;
-    case PSI_TABLE_DELETE_ROW:
-      stat = &table_io_stat->m_delete;
-      break;
-    default:
-      assert(false);
-      stat = nullptr;
-      break;
-  }
-
   uint flags = state->m_flags;
 
-  if (flags & STATE_FLAG_TIMED) {
-    timer_end = get_wait_timer();
-    wait_time = timer_end - state->m_timer_start;
-    stat->aggregate_many_value(wait_time, numrows);
-  } else {
-    stat->aggregate_counted(numrows);
+  auto *table_io_stat =
+      table->m_table_stat.find_or_create_index_stat(state->m_index);
+  if (table_io_stat) {
+    PFS_single_stat *stat = nullptr;
+
+    table_io_stat->m_has_data = true;
+    table->m_has_queries_happened = true;
+
+    switch (state->m_io_operation) {
+      case PSI_TABLE_FETCH_ROW:
+        stat = &table_io_stat->m_fetch;
+        break;
+      case PSI_TABLE_WRITE_ROW:
+        stat = &table_io_stat->m_insert;
+        break;
+      case PSI_TABLE_UPDATE_ROW:
+        stat = &table_io_stat->m_update;
+        break;
+      case PSI_TABLE_DELETE_ROW:
+        stat = &table_io_stat->m_delete;
+        break;
+      default:
+        assert(false);
+        stat = nullptr;
+        break;
+    }
+
+    if (flags & STATE_FLAG_TIMED) {
+      timer_end = get_wait_timer();
+      wait_time = timer_end - state->m_timer_start;
+      stat->aggregate_many_value(wait_time, numrows);
+    } else {
+      stat->aggregate_counted(numrows);
+    }
   }
 
   if (flags & STATE_FLAG_THREAD) {

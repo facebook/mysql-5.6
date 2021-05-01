@@ -1311,11 +1311,17 @@ void PFS_table_io_wait_visitor::visit_table(PFS_table *pfs) {
 
     /* Aggregate index stats */
     for (index = 0; index < safe_key_count; index++) {
-      io_stat.aggregate(&pfs->m_table_stat.m_index_stat[index]);
+      auto *index_stat = pfs->m_table_stat.find_index_stat(index);
+      if (index_stat) {
+        io_stat.aggregate(index_stat);
+      }
     }
 
     /* Aggregate global stats */
-    io_stat.aggregate(&pfs->m_table_stat.m_index_stat[MAX_INDEXES]);
+    auto *index_stat = pfs->m_table_stat.find_index_stat(MAX_INDEXES);
+    if (index_stat) {
+      io_stat.aggregate(index_stat);
+    }
 
     io_stat.sum(&m_stat);
   }
@@ -1356,11 +1362,17 @@ void PFS_table_io_stat_visitor::visit_table(PFS_table *pfs) {
 
     /* Aggregate index stats */
     for (index = 0; index < safe_key_count; index++) {
-      m_stat.aggregate(&pfs->m_table_stat.m_index_stat[index]);
+      auto *index_stat = pfs->m_table_stat.find_index_stat(index);
+      if (index_stat) {
+        m_stat.aggregate(index_stat);
+      }
     }
 
     /* Aggregate global stats */
-    m_stat.aggregate(&pfs->m_table_stat.m_index_stat[MAX_INDEXES]);
+    auto *index_stat = pfs->m_table_stat.find_index_stat(MAX_INDEXES);
+    if (index_stat) {
+      m_stat.aggregate(index_stat);
+    }
   }
 }
 
@@ -1381,7 +1393,10 @@ void PFS_index_io_stat_visitor::visit_table_share_index(PFS_table_share *pfs,
 }
 
 void PFS_index_io_stat_visitor::visit_table_index(PFS_table *pfs, uint index) {
-  m_stat.aggregate(&pfs->m_table_stat.m_index_stat[index]);
+  auto *index_stat = pfs->m_table_stat.find_index_stat(index);
+  if (index_stat) {
+    m_stat.aggregate(index_stat);
+  }
 }
 
 /** Table lock wait visitor */

@@ -23,12 +23,10 @@ select * from db1.t1 where a='1';
 #####################################################
 # Run few queries on Performance Schema stats tables.
 #####################################################
-# There should be 3 entries in following table. 2 for insert and 1 for select.
-# This is because lock stats are still in the table handles
+# Stats are missing due to performance_schema_max_index_stat=0
 select COUNT_STAR from performance_schema.table_io_waits_summary_by_table
        where OBJECT_SCHEMA='db1' and OBJECT_NAME='t1';
-# There should be 1 entry in following table. Thats is for select.
-# This is because lock stats are still in the table handles
+# Stats are missing due to performance_schema_max_index_stat=0
 select COUNT_STAR from performance_schema.table_io_waits_summary_by_index_usage
        where INDEX_NAME!='NULL';
 
