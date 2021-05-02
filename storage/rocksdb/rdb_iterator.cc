@@ -636,6 +636,7 @@ int Rdb_iterator_partial::materialize_prefix() {
   rocksdb_partial_index_rows_materialized += num_rows;
 
 exit:
+  m_kd->get_infimum_key(m_cur_prefix_key, &tmp);
   rdb_tx_release_lock(tx, *m_kd, cur_prefix_key);
   return rc;
 }
