@@ -26,7 +26,7 @@ def get_query(table_name, binary_id1):
     return """INSERT INTO %s VALUES (%d, 0, %d, 0, %d, 1, 'abc', 100, 1) ON DUPLICATE KEY UPDATE time=time+10, version=version+1""" % (table_name, id1, id2, assoc_type)
 
 class Worker(threading.Thread):
-  def __init__(self, con, table_name, num_iters, check, event):
+  def __init__(self, con, table_name, num_iters, check, event, binary_id1):
     threading.Thread.__init__(self)
     self.con = con
     self.table_name = table_name
@@ -47,8 +47,8 @@ class Worker(threading.Thread):
 
   def run_write(self):
     cur = self.con.cursor()
-    cur.execute("select data_type from information_schema.columns where table_schema = database() and table_name = '%s' and column_name = 'id1'" % self.table_name);
-    binary_id1 = cur.fetchone()[0] == "binary"
+#    cur.execute("select data_type from information_schema.columns where table_schema = database() and table_name = '%s' and column_name = 'id1'" % self.table_name);
+#    binary_id1 = cur.fetchone()[0] == "binary"
     cur.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
     for x in range(self.num_iters):
       try:
@@ -74,7 +74,7 @@ class Worker(threading.Thread):
         raise e
 
 if __name__ == '__main__':
-  if len(sys.argv) != 8:
+  if len(sys.argv) != 9:
     print("Usage: partial_index_stress.py user host port db_name " \
           "table_name num_iters num_threads")
     sys.exit(1)
@@ -86,6 +86,7 @@ if __name__ == '__main__':
   table_name = sys.argv[5]
   num_iters = int(sys.argv[6])
   num_workers = int(sys.argv[7])
+  binary_id1 = int(sys.argv[8])
 
   done_event = threading.Event();
 
@@ -94,12 +95,12 @@ if __name__ == '__main__':
   for i in range(num_workers):
     w = Worker(
       MySQLdb.connect(user=user, host=host, port=port, db=db), table_name,
-      num_iters, False, None)
+      num_iters, False, None, binary_id1)
     workers.append(w)
 
   checker = Worker(
     MySQLdb.connect(user=user, host=host, port=port, db=db), table_name,
-    num_iters, True, done_event)
+    num_iters, True, done_event, binary_id1)
 
   for w in workers:
     w.join()

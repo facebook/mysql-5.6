@@ -1,6 +1,6 @@
 set @save_rocksdb_lock_wait_timeout = @@rocksdb_lock_wait_timeout;
 set global rocksdb_lock_wait_timeout = 100000;
-CREATE TABLE `assoc_table` (
+CREATE TABLE `assoc_table1` (
 `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
 `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
 `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
@@ -11,7 +11,7 @@ CREATE TABLE `assoc_table` (
 `time` int(10) unsigned NOT NULL DEFAULT '0',
 `version` bigint(20) unsigned NOT NULL DEFAULT '0',
 PRIMARY KEY (`assoc_type`,`id1`,`id2`) COMMENT 'cf_assoc',
-KEY `id1_type` (`assoc_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
+KEY `id1_type` (`assoc_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_assoc_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -22,8 +22,8 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-DROP TABLE assoc_table;
-CREATE TABLE `assoc_table` (
+DROP TABLE assoc_table1;
+CREATE TABLE `assoc_table2` (
 `id1` binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
 `raw_key` text COLLATE latin1_bin,
 `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
@@ -35,7 +35,7 @@ CREATE TABLE `assoc_table` (
 `version` bigint(20) unsigned NOT NULL DEFAULT '0',
 PRIMARY KEY (`assoc_type`,`id1`,`id2`) COMMENT 'cf_assoc',
 KEY `id1_type` (`assoc_type`,`id1`,`visibility`,`time`,`id2`,`version`,`data`) COMMENT 'rev:cf_assoc_id1_type',
-KEY `id1_type2` (`assoc_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
+KEY `id1_type2` (`assoc_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_assoc_id1_type;'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -44,9 +44,9 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-Warning	1831	Duplicate index 'id1_type2' defined on the table 'test.assoc_table'. This is deprecated and will be disallowed in a future release.
-DROP TABLE assoc_table;
-CREATE TABLE `assoc_table` (
+Warning	1831	Duplicate index 'id1_type2' defined on the table 'test.assoc_table2'. This is deprecated and will be disallowed in a future release.
+DROP TABLE assoc_table2;
+CREATE TABLE `assoc_table3` (
 `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
 `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
 `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
@@ -58,7 +58,7 @@ CREATE TABLE `assoc_table` (
 `version` bigint(20) unsigned NOT NULL DEFAULT '0',
 PRIMARY KEY (`assoc_type`,`id1`,`id2`) COMMENT 'cf_assoc',
 KEY `id1_type` (`assoc_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`(255)) COMMENT 'rev:cf_assoc_id1_type',
-KEY `id1_type2` (`assoc_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`(255)) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
+KEY `id1_type2` (`assoc_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`(255)) COMMENT 'cfname=rev:cf_assoc_id1_type;'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -69,6 +69,6 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-Warning	1831	Duplicate index 'id1_type2' defined on the table 'test.assoc_table'. This is deprecated and will be disallowed in a future release.
-DROP TABLE assoc_table;
+Warning	1831	Duplicate index 'id1_type2' defined on the table 'test.assoc_table3'. This is deprecated and will be disallowed in a future release.
+DROP TABLE assoc_table3;
 set global rocksdb_lock_wait_timeout = @save_rocksdb_lock_wait_timeout;
