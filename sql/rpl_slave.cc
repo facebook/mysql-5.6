@@ -99,6 +99,15 @@ uint unique_check_lag_reset_threshold;
 const char *relay_log_index= 0;
 const char *relay_log_basename= 0;
 
+/* When raft has done a TermAdvancement, it starts
+ * the SQL thread. During the receive of No-Ops it
+ * does the log repointing and then starts the SQL
+ * thread. During this phase, no external actor should
+ * be able to start the SQL thread. This boolean is
+ * set to true when raft has stopped the SQL thread.
+ */
+std::atomic<bool> sql_thread_stopped_by_raft(false);
+
 /*
   MTS load-ballancing parameter.
   Max length of one MTS Worker queue. The value also determines the size
@@ -9593,7 +9602,7 @@ uint sql_slave_skip_counter;
   @retval 0 success
   @retval 1 error
 */
-int start_slave(THD* thd , Master_info* mi,  bool net_report)
+int start_slave(THD* thd , Master_info* mi,  bool net_report, bool invoked_by_raft)
 {
   int slave_errno= 0;
   int thread_mask;
@@ -9638,6 +9647,21 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
 
   if (thread_mask) //some threads are stopped, start them
   {
+    // If raft is doing some critical operations to block out threads,
+    // we disallow slave sql start till raft has restarted the slave
+    // thread.
+    if (enable_raft_plugin && !invoked_by_raft && sql_thread_stopped_by_raft)
+    {
+      unlock_slave_threads(mi);
+
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Did not allow start_slave as raft has stopped SQL threads");
+      my_error(ER_RAFT_OPERATION_INCOMPATIBLE, MYF(0),
+          "start slave not allowed when raft has stopped SQL threads");
+      DBUG_RETURN(1);
+    }
+
     if (global_init_info(mi, false, thread_mask))
     {
       slave_errno=ER_MASTER_INFO;
@@ -9863,6 +9887,12 @@ int raft_stop_sql_thread(THD *thd)
   }
 
   res= stop_slave(thd, active_mi, false);
+  if (!res)
+  {
+    // set this flag to prevent other non-raft actors from
+    // starting sql thread during critical raft operations
+    sql_thread_stopped_by_raft= true;
+  }
 
 end:
   mysql_mutex_unlock(&LOCK_active_mi);
@@ -9879,7 +9909,13 @@ int raft_start_sql_thread(THD *thd)
     goto end;
   }
 
-  res= start_slave(thd, active_mi, false);
+  res= start_slave(thd, active_mi, false, true);
+  if (!res)
+  {
+    // reset this flag to let other non-raft actors
+    // to stop and start sql threads.
+    sql_thread_stopped_by_raft= false;
+  }
 
 end:
   mysql_mutex_unlock(&LOCK_active_mi);

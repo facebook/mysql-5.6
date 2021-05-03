@@ -275,7 +275,7 @@ extern uint rpl_receive_buffer_size;
 */
 #define SLAVE_FORCE_ALL 4
 
-int start_slave(THD* thd, Master_info* mi, bool net_report);
+int start_slave(THD* thd, Master_info* mi, bool net_report, bool invoked_by_raft= false);
 int stop_slave(THD* thd, Master_info* mi, bool net_report);
 bool change_master(THD* thd, Master_info* mi);
 int reset_slave(THD *thd, Master_info* mi, bool purge=true);
