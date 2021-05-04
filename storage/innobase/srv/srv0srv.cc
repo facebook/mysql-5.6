@@ -1375,6 +1375,8 @@ ibool srv_printf_innodb_monitor(
 
   mutex_exit(&dict_foreign_err_mutex);
 
+  DBUG_EXECUTE_IF("force_wait_mutex_during_print_for_tests",
+                  { nowait = false; });
   ret = true;
   if (nowait) {
     locksys::Global_exclusive_try_latch guard{};
