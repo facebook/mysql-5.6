@@ -4542,16 +4542,12 @@ class TrxLockIterator {
   ulint m_index;
 };
 
-/** This iterates over both the RW and RO trx_sys lists. We need to keep
+/** This iterates over trx_sys mysql trx lists. We need to keep
 track where the iterator was up to and we do that using an ordinal value. */
 
 class TrxListIterator {
  public:
-  TrxListIterator() : m_index() {
-    /* We iterate over the RW trx list first. */
-
-    m_trx_list = &trx_sys->rw_trx_list;
-  }
+  TrxListIterator() : m_index() { m_trx_list = &trx_sys->mysql_trx_list; }
 
   /** Get the current transaction whose ordinality is m_index.
   @return current transaction or 0 */
@@ -4582,8 +4578,11 @@ class TrxListIterator {
     the current transaction. ie. reposition/restore */
 
     for (i = 0, trx = UT_LIST_GET_FIRST(*m_trx_list);
-         trx != nullptr && (i < m_index);
-         trx = UT_LIST_GET_NEXT(trx_list, trx), ++i) {
+         trx != nullptr && ((i < m_index) || !trx_is_started(trx));
+         trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+      if (!trx_is_started(trx)) continue;
+
+      ++i;  // i record num of started trx
       check_trx_state(trx);
     }
 
