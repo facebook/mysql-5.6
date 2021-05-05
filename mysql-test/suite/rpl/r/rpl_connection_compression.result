@@ -221,11 +221,10 @@ uncompressed
 SET @@global.slave_compressed_protocol = 0;
 START SLAVE IO_THREAD
 include/assert.inc [More than 1000000 bytes should be sent uncompressed]
----- master:uncompressed slave:default slave_option:1 expect:error ----
+---- master:uncompressed slave:default slave_option:1 expected:uncompressed ----
 SET @@global.slave_compressed_protocol = 1;
-START SLAVE IO_THREAD;
-got error
-RESET SLAVE ALL;
+START SLAVE IO_THREAD
+include/assert.inc [More than 1000000 bytes should be sent uncompressed]
 ---- master:uncompressed slave:zlib slave_option:0 expect:error ----
 CHANGE MASTER TO MASTER_COMPRESSION_ALGORITHMS = 'zlib';
 SET @@global.slave_compressed_protocol = 0;
@@ -243,12 +242,11 @@ CHANGE MASTER TO MASTER_COMPRESSION_ALGORITHMS = 'uncompressed';
 SET @@global.slave_compressed_protocol = 0;
 START SLAVE IO_THREAD
 include/assert.inc [More than 1000000 bytes should be sent uncompressed]
----- master:uncompressed slave:uncompressed slave_option:1 expect:error ----
+---- master:uncompressed slave:uncompressed slave_option:1 expected:uncompressed ----
 CHANGE MASTER TO MASTER_COMPRESSION_ALGORITHMS = 'uncompressed';
 SET @@global.slave_compressed_protocol = 1;
-START SLAVE IO_THREAD;
-got error
-RESET SLAVE ALL;
+START SLAVE IO_THREAD
+include/assert.inc [More than 1000000 bytes should be sent uncompressed]
 ---- master:uncompressed slave:zlib,zstd slave_option:0 expect:error ----
 CHANGE MASTER TO MASTER_COMPRESSION_ALGORITHMS = 'zlib,zstd';
 SET @@global.slave_compressed_protocol = 0;
