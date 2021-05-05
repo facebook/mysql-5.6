@@ -7443,6 +7443,11 @@ ER_HLC_WAIT_TIMEDOUT
 ER_INVALID_HLC_WAIT_TIMEOUT
   eng "Invalid HLC wait timeout supplied: `%s`"
 
+# Error codes starting 50100 are allocated for 8.0 error messages.
+# So use the new range starting 50300 for the new 5.6.35 error messages.
+#
+start-error-number 50300
+
 ER_IS_TABLE_REPEATED_READ
   eng "Repeated read of information schema table %s protected by mutex %s is not permitted"
 
