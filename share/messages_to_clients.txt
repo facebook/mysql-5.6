@@ -9918,3 +9918,21 @@ ER_REDUCED_DBLWR_PAGE_FOUND
 # (Please read comments from the header of this section before adding error
 #  message here)
 #
+
+#
+# The allocated range for 5.6.35 error codes 50000-50099 is already exhausted.
+# So use the new range starting 50300 for the new 5.6.35 error messages.
+#
+start-error-number 50300
+
+ER_PLACEHOLDER_50300
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50301
+  eng "Placeholder"
+
+#
+# End of new range for 5.6.35 FB MySQL error messages.
+# (Please read comments from the header of this section before adding error
+#  message here)
+#
