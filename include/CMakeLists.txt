@@ -104,9 +104,11 @@ IF (INSTALL_EXTRA_HEADERS)
     map_helpers.h
     m_ctype.h
     memory_debugging.h
+    mem_root_deque.h
     my_alloc.h
     my_base.h
     my_bitmap.h
+    my_dir.h
     my_double2ulonglong.h
     my_pointer_arithmetic.h
     my_systime.h
@@ -114,6 +116,8 @@ IF (INSTALL_EXTRA_HEADERS)
     my_thread_local.h
     my_time.h
     nullable.h
+    pfs_socket_provider.h
+    pfs_stage_provider.h
     prealloced_array.h
     sql_string.h
     thr_lock.h
@@ -128,6 +132,9 @@ IF (INSTALL_EXTRA_HEADERS)
     ../libbinlogevents/include/table_id.h
     ../libbinlogevents/include/uuid.h
     ../libbinlogevents/include/wrapper_functions.h
+  )
+  SET(HEADERS_LIBBINLOGEVENTS_INCLUDE_COMPRESSION_DIR
+    ../libbinlogevents/include/compression/base.h
   )
   SET(HEADERS_MYSQL_DIR
     ${HEADERS_MYSQL_DIR}
@@ -145,6 +152,7 @@ IF (INSTALL_EXTRA_HEADERS)
     mysql/service_rules_table.h
     mysql/service_security_context.h
     mysql/service_srv_session.h
+    mysql/service_srv_session_bits.h
     mysql/service_srv_session_info.h
     mysql/service_ssl_wrapper.h
     mysql/service_thd_alloc.h
@@ -164,6 +172,7 @@ IF (INSTALL_EXTRA_HEADERS)
     mysql/components/services/page_track_service.h
     mysql/components/services/psi_mdl_bits.h
     mysql/components/services/psi_rwlock_bits.h
+    mysql/components/services/psi_socket_bits.h
     mysql/components/services/psi_table_bits.h
     mysql/components/services/psi_thread_bits.h
     mysql/components/services/registry.h
@@ -172,8 +181,14 @@ IF (INSTALL_EXTRA_HEADERS)
   SET(HEADERS_MYSQL_PSI_DIR
     ${HEADERS_MYSQL_PSI_DIR}
     mysql/psi/mysql_rwlock.h
+    mysql/psi/mysql_socket.h
+    mysql/psi/mysql_stage.h
+    mysql/psi/mysql_thread.h
     mysql/psi/psi_memory.h
     mysql/psi/psi_rwlock.h
+    mysql/psi/psi_socket.h
+    mysql/psi/psi_stage.h
+    mysql/psi/psi_thread.h
   )
   SET(HEADERS_SQL_DIR
     ${HEADERS_SQL_DIR}
@@ -211,6 +226,7 @@ IF (INSTALL_EXTRA_HEADERS)
     ../sql/sql_plugin.h
     ../sql/sql_plugin_ref.h
     ../sql/sql_profile.h
+    ../sql/sql_show.h
     ../sql/sql_sort.h
     ../sql/sql_thd_internal_api.h
     ../sql/stateless_allocator.h
@@ -244,6 +260,7 @@ ENDIF()
 INSTALL(FILES ${HEADERS} DESTINATION ${INSTALL_INCLUDEDIR} COMPONENT Development)
 INSTALL(FILES ${HEADERS_LIBBINLOGEVENTS_EXPORT_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/libbinlogevents/export COMPONENT Development)
 INSTALL(FILES ${HEADERS_LIBBINLOGEVENTS_INCLUDE_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/libbinlogevents/include COMPONENT Development)
+INSTALL(FILES ${HEADERS_LIBBINLOGEVENTS_INCLUDE_COMPRESSION_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/libbinlogevents/include/compression COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_SERVICES_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components/services COMPONENT Development)
