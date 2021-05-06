@@ -314,6 +314,15 @@ const std::string &thd_get_connection_attr(THD *thd,
                                            const std::string &cattr_key);
 
 /**
+  Get the query SQL ID
+
+  @param thd       The MySQL internal thread pointer
+
+  @return the SQL ID of the query
+*/
+const std::string thd_get_sql_id(THD *thd);
+
+/**
   Invoke yield_cond.
 
   @return true if should yield, false otherwise.
