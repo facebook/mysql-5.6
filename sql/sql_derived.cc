@@ -558,6 +558,11 @@ Item *TABLE_LIST::get_clone_for_derived_expr(THD *thd, Item *item,
   bool parsing_system_view_saved = thd->parsing_system_view;
   thd->parsing_system_view = is_system_view;
 
+  // Set the correct query block to parse the item. In some cases, like
+  // fulltext functions, parser needs to add them to ftfunc_list of the
+  // query block.
+  thd->lex->unit = context->select_lex->master_unit();
+  thd->lex->set_current_select(context->select_lex);
   bool result = parse_sql(thd, &parser_state, nullptr);
 
   // End of parsing.
@@ -1139,6 +1144,7 @@ bool Condition_pushdown::replace_columns_in_cond(Item **cond, bool is_having) {
   if (view_ref) {
     (*cond) = (*cond)->transform(&Item::replace_view_refs_with_clone,
                                  pointer_cast<uchar *>(m_derived_table));
+    if (cond == nullptr) return true;
   }
   Item *new_cond =
       is_having ? (*cond)->transform(&Item::replace_with_derived_expr_ref,

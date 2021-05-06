@@ -1157,3 +1157,31 @@ SELECT g, ROW_NUMBER() OVER (PARTITION BY g) AS r FROM t1
 ) w ON w.g=t1.g AND w.r=1 WHERE w.g IS NULL;
 g
 DROP TABLE t1;
+#
+# BUG#32863713: CTE CRASH IN QUERY_BLOCK::MASTER_QUERY_EXPRESSION
+#
+CREATE TABLE t(f1 INTEGER);
+EXPLAIN SELECT a1, a2
+FROM (SELECT MAX(2) AS a1 FROM t) as dt1,
+(SELECT @a AS a2 FROM t) as dt2
+WHERE dt1.a1 <= dt2.a2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	no matching row in const table
+2	DERIVED	t	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select NULL AS `a1`,(@`a`) AS `a2` from (/* select#2 */ select max(2) AS `a1` from `test`.`t` having (max(2) <= <cache>((@`a`)))) `dt1` join `test`.`t`
+SELECT a1, a2
+FROM (SELECT MAX(f1) AS a1 FROM t) as dt1,
+(SELECT @a AS a2 FROM t) as dt2
+WHERE dt1.a1 <= dt2.a2;
+a1	a2
+DROP TABLE t;
+#
+# Bug#32905044: CRASH AT CONDITION_PUSHDOWN::REPLACE_COLUMNS_IN_COND
+#	       DURIN RQG CONCURRENCY RUNS
+CREATE TABLE t(f1 INTEGER);
+CREATE ALGORITHM=temptable VIEW v AS SELECT f1 FROM t;
+SELECT f1 FROM (SELECT f1 FROM v) AS dt1 NATURAL JOIN v dt2 WHERE f1 > 5;
+f1
+DROP TABLE t;
+DROP VIEW v;
