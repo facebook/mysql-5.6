@@ -128,7 +128,7 @@ IF (INSTALL_EXTRA_HEADERS)
     ../libbinlogevents/export/binary_log_funcs.h
   )
   SET(HEADERS_LIBBINLOGEVENTS_INCLUDE_DIR
-    ../libbinlogevents/include/binlog_config.h
+    ${CMAKE_CURRENT_BINARY_DIR}/binlog_config.h
     ../libbinlogevents/include/table_id.h
     ../libbinlogevents/include/uuid.h
     ../libbinlogevents/include/wrapper_functions.h
@@ -204,7 +204,7 @@ IF (INSTALL_EXTRA_HEADERS)
     ../sql/key_spec.h
     ../sql/malloc_allocator.h
     ../sql/mdl.h
-    ../sql/memroot_allocator.h
+    ../sql/mem_root_allocator.h
     ../sql/mem_root_array.h
     ../sql/my_decimal.h
     ../sql/opt_costconstants.h
