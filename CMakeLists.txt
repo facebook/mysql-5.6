@@ -452,10 +452,16 @@ ENDIF()
 
 # Add safemutex for debug configurations, except on Windows
 # (safemutex has never worked on Windows)
+# In Raft mode we have plugin .so's compiled.
+# if we turn on safe mutex in debug, we will have to
+# have the same mutex on plugin side, which would need
+# SAFE MUTEX there as well. Hence the DISABLE_SAFE_MUTEX option.
 IF(NOT WIN32 AND NOT WITH_INNODB_MEMCACHED)
   FOREACH(LANG C CXX)
+    IF (NOT DISABLE_SAFE_MUTEX)
       SET(CMAKE_${LANG}_FLAGS_DEBUG
           "${CMAKE_${LANG}_FLAGS_DEBUG} -DSAFE_MUTEX")
+    ENDIF()
   ENDFOREACH()
 ENDIF()
 
