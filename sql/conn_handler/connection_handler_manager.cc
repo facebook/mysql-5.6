@@ -249,7 +249,6 @@ void Connection_handler_manager::load_connection_handler(
 bool Connection_handler_manager::unload_connection_handler() {
   DBUG_ASSERT(m_saved_connection_handler != nullptr);
   if (m_saved_connection_handler == nullptr) return true;
-  delete m_connection_handler;
   m_connection_handler = m_saved_connection_handler;
   Connection_handler_manager::thread_handling = m_saved_thread_handling;
   m_saved_connection_handler = nullptr;
@@ -296,9 +295,16 @@ int my_connection_handler_set(Connection_handler_functions *chf,
   DBUG_ASSERT(chf != nullptr && tef != nullptr);
   if (chf == nullptr || tef == nullptr) return 1;
 
-  Plugin_connection_handler *conn_handler =
-      new (std::nothrow) Plugin_connection_handler(chf);
-  if (conn_handler == nullptr) return 1;
+  // conn_handler is reused between set/reset calls. A thread could already
+  // be in process_new_connection and load m_connection_handler so deleting
+  // it would cause a segfault.
+  static Plugin_connection_handler *conn_handler = nullptr;
+  if (conn_handler == nullptr) {
+    conn_handler = new (std::nothrow) Plugin_connection_handler;
+    if (conn_handler == nullptr) return 1;
+  }
+
+  conn_handler->set_functions(chf);
 
   Connection_handler_manager::get_instance()->load_connection_handler(
       conn_handler);

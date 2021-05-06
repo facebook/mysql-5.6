@@ -47,8 +47,11 @@ class Plugin_connection_handler : public Connection_handler {
   Plugin_connection_handler &operator=(const Plugin_connection_handler &);
 
  public:
-  Plugin_connection_handler(Connection_handler_functions *functions)
-      : m_functions(functions) {}
+  Plugin_connection_handler() : m_functions(nullptr) {}
+
+  void set_functions(Connection_handler_functions *functions) {
+    m_functions = functions;
+  }
 
   virtual ~Plugin_connection_handler() { m_functions->end(); }
 

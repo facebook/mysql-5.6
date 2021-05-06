@@ -336,4 +336,24 @@ bool thd_yield_cond(THD *thd);
 char *thd_security_context_internal(THD *thd, char *buffer, size_t length,
                                     size_t max_query_len,
                                     bool show_query_digest);
+
+/**
+  Get currently held mutex (for cond wait).
+
+  @return current mutex if held, nullptr otherwise.
+*/
+mysql_mutex_t *thd_current_mutex(THD *thd);
+
+/**
+  Get currently held mutex (for cond wait).
+
+  @return current mutex if held, nullptr otherwise.
+*/
+mysql_mutex_t *thd_current_mutex(THD *thd);
+
+/**
+  Set thread priority.
+*/
+void thd_set_priority(THD *thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
