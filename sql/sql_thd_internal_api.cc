@@ -369,3 +369,15 @@ const std::string &thd_get_connection_attr(THD *thd,
   @return true if should yield, false otherwise.
 */
 bool thd_yield_cond(THD *thd) { return !thd->yield_cond || thd->yield_cond(); }
+
+/**
+  Get currently held mutex (for cond wait).
+
+  @return current mutex if held, nullptr otherwise.
+*/
+mysql_mutex_t *thd_current_mutex(THD *thd) { return thd->current_mutex; }
+
+/**
+  Set thread priority.
+*/
+void thd_set_priority(THD *thd) { thd->set_thread_priority(); }

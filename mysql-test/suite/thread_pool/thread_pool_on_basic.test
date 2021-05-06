@@ -1,0 +1,109 @@
+--source include/have_thread_pool_plugin.inc
+
+####
+# Verify default value is ON
+####
+--echo Default value of thread_pool_on is ON
+set global thread_pool_on = default;
+SELECT @@global.thread_pool_on;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.thread_pool_on;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+# Test valid values
+####
+SET @@global.thread_pool_on = 1;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = 0;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = ON;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = OFF;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = on;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = oN;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = off;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = oFf;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = true;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = false;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on =    ON    ;
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = "OFF";
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = "ON";
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = 'off';
+SELECT @@global.thread_pool_on;
+SET @@global.thread_pool_on = -1000;
+SELECT @@global.thread_pool_on;
+
+
+####
+# Test invalid values
+####
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.thread_pool_on = 65530.34;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.thread_pool_on = 1.0;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.thread_pool_on = 9223372036854775808298374120938471234;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = 2;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = "Test";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = "onTest";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = " ON";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = "  ON  ";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = "ON  ";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = "true";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = "false";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = "0";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = "1";
+
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (OFF)
+--let $restart_parameters="restart: --thread_pool_on=0"
+--source include/restart_mysqld.inc
+
+SELECT @@global.thread_pool_on;
+
+--echo restart the server with the default value (ON)
+--let $restart_parameters="restart: "
+--source include/restart_mysqld.inc
+
+# check value is default (ON)
+SELECT @@global.thread_pool_on;

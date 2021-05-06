@@ -6,9 +6,16 @@ import argparse
 import random
 import threading
 import traceback
+import enum
 
 NUM_WORKERS = 50
 NUM_TRANSACTIONS = 2000
+
+class Workload(enum.Enum):
+    User = 1
+    AdminChecks = 2
+    Read = 3
+    ThreadPoolOnOff = 4
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -28,6 +35,10 @@ def parse_args():
         type=str,
         help='user name')
     parser.add_argument(
+        '--admin',
+        type=str,
+        help='admin user name')
+    parser.add_argument(
         '--password',
         default='',
         type=str,
@@ -44,6 +55,10 @@ def parse_args():
         '--wait-events',
         action="store_true",
         help='add wait event workload')
+    parser.add_argument(
+        '--thread-pool-on-off',
+        action="store_true",
+        help='add concurrent enabling/disabling of thread pool')
 
     return parser.parse_args()
 
@@ -98,6 +113,15 @@ def generate_load(args, worker_id):
                 cursor = con.cursor()
                 cursor.execute("select sleep(0.1)")
                 cursor.close()
+
+            if args.thread_pool_on_off:
+                con.close()
+                con = MySQLdb.connect(user=args.user,
+                                    passwd=args.password,
+                                    host=args.host,
+                                    port=args.port,
+                                    db=args.database)
+
         except (MySQLdb.OperationalError, MySQLdb.InternalError) as e:
             if not is_deadlock_error(e):
                 raise e
@@ -137,22 +161,45 @@ def run_admin_checks(args):
                             'max_running_queries %d' % (rows[1][1],
                              max_running_queries))
 
+def run_tp_on_off(worker):
+    con = MySQLdb.connect(user=worker.args.admin,
+                          passwd=worker.args.password,
+                          host=worker.args.host,
+                          port=worker.args.port,
+                          db=worker.args.database)
+    while not worker.stop:
+        print("TP ON/OFF: set global thread_pool_on = 0")
+        cursor=con.cursor()
+        cursor.execute("set global thread_pool_on = 0")
+        cursor.close()
+        time.sleep(0.01)
+
+        print("TP ON/OFF: set global thread_pool_on = 1")
+        cursor=con.cursor()
+        cursor.execute("set global thread_pool_on = 1")
+        cursor.close()
+        time.sleep(0.01)
+
+    con.close()
+
 class worker_thread(threading.Thread):
-    def __init__(self, args, worker_id, admin, readonly):
+    def __init__(self, args, worker_id, workload):
         threading.Thread.__init__(self)
         self.args = args
         self.exception = None
-        self.admin = admin
-        self.readonly = readonly
+        self.workload = workload
         self.worker_id = worker_id
+        self.stop = False
         self.start()
 
     def run(self):
         try:
-            if self.admin:
+            if self.workload == Workload.AdminChecks:
                 run_admin_checks(self.args)
-            elif self.readonly:
+            elif self.workload == Workload.Read:
                 run_reads(self.args)
+            elif self.workload == Workload.ThreadPoolOnOff:
+                run_tp_on_off(self)
             else:
                 generate_load(self.args, self.worker_id)
         except Exception as e:
@@ -162,20 +209,30 @@ def main():
     args = parse_args()
     workers = []
     for i in range(NUM_WORKERS):
-        worker = worker_thread(args, i, False, False)
+        worker = worker_thread(args, i, Workload.User)
         workers.append(worker)
 
-    admin_worker = worker_thread(args, NUM_WORKERS, True, False)
+    admin_worker = worker_thread(args, NUM_WORKERS, Workload.AdminChecks)
     workers.append(admin_worker)
 
-    readonly_worker = worker_thread(args, NUM_WORKERS, False, True)
+    readonly_worker = worker_thread(args, NUM_WORKERS, Workload.Read)
     workers.append(readonly_worker)
+
+    if args.thread_pool_on_off:
+        tp_worker = worker_thread(args, NUM_WORKERS, Workload.ThreadPoolOnOff)
 
     worker_failed = False
     for w in workers:
         w.join()
         if w.exception:
             print("worker hit an exception:\n%s\n'" % w.exception)
+            worker_failed = True
+
+    if args.thread_pool_on_off:
+        tp_worker.stop = True
+        tp_worker.join()
+        if tp_worker.exception:
+            print("tp_worker hit an exception:\n%s\n'" % tp_worker.exception)
             worker_failed = True
 
     if worker_failed:

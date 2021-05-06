@@ -127,6 +127,50 @@ use test_db2;
 eval $ac_entities_query;
 disconnect con_test;
 
+--echo Dynamically disable/enable thread pool plugin.
+connect (con_disabled0, localhost, test_user,,test_db);
+connection con_disabled0;
+--error ER_DB_ADMISSION_CONTROL
+select * from t1;
+
+connection default;
+set @@global.thread_pool_on=false;
+
+--echo Query on existing thread pool connection succeeds now.
+connection con_disabled0;
+select 1;
+
+--echo Query on new connection will wait on the table lock.
+connect (con_disabled1, localhost, test_user,,test_db);
+connection con_disabled1;
+send select * from t1;
+
+--echo Query on another new connection will succeed.
+connect (con_disabled2, localhost, test_user,,test_db);
+connection con_disabled2;
+eval $ac_entities_query;
+
+connection default;
+set @@global.thread_pool_on=true;
+
+--echo Query on the second connection will still run even with thread pool enabled.
+connection con_disabled2;
+eval $ac_entities_query;
+disconnect con_disabled2;
+
+--echo After thread pool is enabled query on new connection will be rejected.
+connect (con_enabled, localhost, test_user,,test_db);
+connection con_enabled;
+--error ER_DB_ADMISSION_CONTROL
+select * from t1;
+disconnect con_enabled;
+
+--echo Query on existing thread pool connection is also rejected.
+connection con_disabled0;
+--error ER_DB_ADMISSION_CONTROL
+select * from t1;
+disconnect con_disabled0;
+
 connection default;
 set @@global.thread_pool_max_waiting_queries=6;
 
@@ -160,6 +204,9 @@ while ($i)
   reap;
   dec $i;
 }
+connection con_disabled1;
+reap;
+disconnect con_disabled1;
 enable_query_log;
 enable_result_log;
 connection default;
@@ -317,8 +364,8 @@ let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
 --let $assert_cond= $running_queries = 0
 --source include/assert.inc
 
---let $assert_text= DB Admission control aborted queries should be five
---let $assert_cond= $aborted_queries = 5
+--let $assert_text= DB Admission control aborted queries should be eight
+--let $assert_cond= $aborted_queries = 8
 --source include/assert.inc
 
 eval $ac_entities_query;

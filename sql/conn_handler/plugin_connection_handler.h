@@ -47,10 +47,25 @@ class Plugin_connection_handler : public Connection_handler {
   Plugin_connection_handler &operator=(const Plugin_connection_handler &);
 
  public:
-  Plugin_connection_handler(Connection_handler_functions *functions)
-      : m_functions(functions) {}
+  Plugin_connection_handler() : m_functions(nullptr) {}
 
-  ~Plugin_connection_handler() override { m_functions->end(); }
+  void set_functions(Connection_handler_functions *functions) {
+    m_functions = functions;
+  }
+
+  // The function is mostly useless as it doesn't signal the end of usage of
+  // functions. The listener thread could still be already in the process of
+  // callinng add_connection(), having loaded the connection handler pointer
+  // (so it cannot be released and m_functions cannot be reset) and having
+  // loaded the functions pointer (so functions also cannot be released). So
+  // realistically the end() callback could only do something at shutdown after
+  // the listener stopped.
+  void end_functions() {
+    auto functions = m_functions;
+    if (functions) {
+      functions->end();
+    }
+  }
 
  protected:
   bool add_connection(Channel_info *channel_info) override {

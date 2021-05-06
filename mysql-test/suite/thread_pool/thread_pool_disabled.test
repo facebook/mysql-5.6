@@ -1,0 +1,3 @@
+--source include/have_thread_pool_plugin.inc
+
+select @@global.thread_pool_on;
