@@ -9931,6 +9931,9 @@ ER_PLACEHOLDER_50300
 ER_PLACEHOLDER_50301
   eng "Placeholder"
 
+ER_PURPOSE_POLICY_CHECK_FAILED
+  eng "Purpose policy check `%s` (query policy: `%s`) failed in %s mode"
+
 #
 # End of new range for 5.6.35 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error
