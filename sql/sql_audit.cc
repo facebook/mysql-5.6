@@ -509,16 +509,46 @@ static void event_class_dispatch(THD *thd, unsigned int event_class,
   }
   else
   {
+    /* Release the mutex lock after making a copy of the plugin references.
+     * This is required to raise error from the plugin code which generates
+     * an audit event. The generated audit plugin encounters mutex lock already
+     * held by the previous audit event.
+     */
+    DYNAMIC_ARRAY plugins_copy;
+    my_init_dynamic_array(&plugins_copy,
+                          sizeof(plugin_ref),
+                          thd->audit_class_plugins.elements,
+                          thd->audit_class_plugins.elements);
     mysql_mutex_lock(&thd->LOCK_thd_audit_data);
+
     plugin_ref *plugins, *plugins_last;
 
-    /* Use the cached set of audit plugins */
-    plugins= (plugin_ref*) thd->audit_class_plugins.buffer;
-    plugins_last= plugins + thd->audit_class_plugins.elements;
+    /* make a copy of the dynamic array. thd->audit_class_plugins array is never
+     * released until the end of THD. So it is safe to use the references to
+     * entries in the array outside of the mutex lock withtout adding additional
+     * reference counts.
+     */
+    plugins = (plugin_ref*) thd->audit_class_plugins.buffer;
+    plugins_last = plugins + thd->audit_class_plugins.elements;
+    bool copy_fail = false;
+    for (; plugins < plugins_last; plugins++) {
+      if (insert_dynamic(&plugins_copy, plugins)) {
+        copy_fail = true;
+        break;
+      }
+    }
 
-    for (; plugins < plugins_last; plugins++)
-      plugins_dispatch(thd, *plugins, &event_generic);
     mysql_mutex_unlock(&thd->LOCK_thd_audit_data);
+    if (!copy_fail) {
+      /* Use the cached set of audit plugins */
+      plugins = (plugin_ref*) plugins_copy.buffer;
+      plugins_last = plugins + plugins_copy.elements;
+
+      for (; plugins < plugins_last; plugins++)
+        plugins_dispatch(thd, *plugins, &event_generic);
+    }
+    /* free the dynamic array allocated */
+    delete_dynamic(&plugins_copy);
   }
 }
 

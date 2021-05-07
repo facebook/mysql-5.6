@@ -7454,6 +7454,9 @@ ER_IS_TABLE_REPEATED_READ
 ER_IS_TABLE_READ_DISABLED
   eng "Reads are disabled on %s information schema table"
 
+ER_PURPOSE_POLICY_CHECK_FAILED
+  eng "Purpose policy check `%s` (query policy: `%s`) failed in %s mode"
+
 #
 #  End of 5.6 error messages.
 #
