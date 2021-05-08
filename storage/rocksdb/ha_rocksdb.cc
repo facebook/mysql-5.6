@@ -9216,42 +9216,52 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
   *use_locking_iterator= false;
   flip_rev_cf= true;
   // psergey-todo: add !ha_thd()->rli_slave under some conditions?
-  if (m_lock_rows == RDB_LOCK_NONE || !rocksdb_use_range_locking) {
+  if (m_lock_rows == RDB_LOCK_NONE || !rocksdb_use_range_locking || 
+      ha_thd()->rli_slave) {
     return 0;
   }
   bool big_range= false;
-  //bool no_start_endpoint= false;
 
   /*
     The 'slice' has the left endpoint of the range to lock.
     Figure out the right endpoint.
   */
 
-  if (find_flag == HA_READ_KEY_EXACT && 
-      slice.size() > Rdb_key_def::INDEX_ID_SIZE) {
-    /*
-      This is "key_part= const" interval. We need to lock this range:
-      (lookup_value, -inf) < key < (lookup_value, +inf)
-    */
-    start_has_inf_suffix= false;
-    end_has_inf_suffix= true;
-    end_slice= slice;
+  if (find_flag == HA_READ_KEY_EXACT) {
+    if (slice.size() == Rdb_key_def::INDEX_ID_SIZE) {
+      // This is a full scan
+      start_has_inf_suffix= false;
+      big_range = true;
+    } else {
+      /*
+        This is "key_part= const" interval. We need to lock this range:
+        (lookup_value, -inf) < key < (lookup_value, +inf)
+      */
+      start_has_inf_suffix= false;
+      end_has_inf_suffix= true;
+      end_slice= slice;
+    }
   }
-  else if (find_flag == HA_READ_PREFIX_LAST &&
-           slice.size() > Rdb_key_def::INDEX_ID_SIZE) {
-    /*
-       We get here for queries like:
+  else if (find_flag == HA_READ_PREFIX_LAST) {
+    if (slice.size() == Rdb_key_def::INDEX_ID_SIZE) {
+      /* Reverse-ordered full index scan */
+      start_has_inf_suffix= true;
+      big_range = true;
+    } else {
+      /*
+         We get here for queries like:
 
-         select * from t1 where pk1=const order by pk1 desc for update
+           select * from t1 where pk1=const order by pk1 desc for update
 
-       assuming this uses an index on (pk1, ...)
-       We get end_key=nullptr.
+         assuming this uses an index on (pk1, ...)
+         We get end_key=nullptr.
 
-       The range to lock is the same as with HA_READ_KEY_EXACT above.
-    */
-    end_slice= slice;
-    start_has_inf_suffix= false;
-    end_has_inf_suffix= true;
+         The range to lock is the same as with HA_READ_KEY_EXACT above.
+      */
+      end_slice= slice;
+      start_has_inf_suffix= false;
+      end_has_inf_suffix= true;
+    }
   }
   else if (find_flag == HA_READ_PREFIX_LAST_OR_PREV) {
     /*
@@ -9316,19 +9326,6 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
       start_has_inf_suffix= false;
     else if (find_flag == HA_READ_AFTER_KEY)
       start_has_inf_suffix= true;
-    else if (find_flag == HA_READ_KEY_EXACT && 
-             slice.size() == Rdb_key_def::INDEX_ID_SIZE)
-    {
-      // full scan!
-      start_has_inf_suffix= false;
-      big_range = true;
-    }
-    else if (find_flag == HA_READ_PREFIX_LAST && 
-             slice.size() == Rdb_key_def::INDEX_ID_SIZE)
-    {
-      // full scan again
-      big_range= true;
-    }
     else
       DBUG_ASSERT(0);
 
@@ -9359,13 +9356,15 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
   }
   else
   {
-    // Known start range bounds: HA_READ_KEY_OR_NEXT, HA_READ_AFTER_KEY
+    // No end key // Known start range bounds: HA_READ_KEY_OR_NEXT, HA_READ_AFTER_KEY
     if (find_flag == HA_READ_KEY_OR_NEXT)
       start_has_inf_suffix= false;
     else if (find_flag == HA_READ_AFTER_KEY)
       start_has_inf_suffix= true;
-    else if (find_flag == HA_READ_KEY_EXACT)
-      start_has_inf_suffix= false;
+    else if (find_flag == HA_READ_KEY_EXACT) {
+      DBUG_ASSERT("CANNOT HAPPEN" == NULL);
+      start_has_inf_suffix= false; //TODO: does this hold??
+    }
     else
       DBUG_ASSERT(0);
 
@@ -9375,13 +9374,14 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
     end_has_inf_suffix= true;
     big_range= true; // psergey-todo: why the above, then?
   }
+
   if (kd.m_is_reverse_cf) {
     // Flip the endpoint flags
     end_has_inf_suffix = !end_has_inf_suffix;
     start_has_inf_suffix = !start_has_inf_suffix;
   }
 
-  if (big_range /*|| no_start_endpoint*/)
+  if (big_range)
   {
     *use_locking_iterator= true;
     return 0;

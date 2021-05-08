@@ -16,7 +16,7 @@ insert into t1 select a+100, a+100 from one_k;
 delete from t1 where pk=44;
 set global rocksdb_force_flush_memtable_and_lzero_now=1;
 begin;
-set debug_sync='rocksdb.check_flags_rmi SIGNAL con1_stopped WAIT_FOR con1_cont';
+set debug_sync='rocksdb.check_flags_iri SIGNAL con1_stopped WAIT_FOR con1_cont';
 update t1 set a=a+100 where pk < 3 or pk between 10 and 50;
 set debug_sync='now WAIT_FOR con1_stopped';
 insert into t1 values (44,5000);

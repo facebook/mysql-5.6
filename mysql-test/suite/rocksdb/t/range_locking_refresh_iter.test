@@ -35,7 +35,7 @@ connect (con2,localhost,root,,);
 
 connection con1;
 begin;
-set debug_sync='rocksdb.check_flags_rmi SIGNAL con1_stopped WAIT_FOR con1_cont';
+set debug_sync='rocksdb.check_flags_iri SIGNAL con1_stopped WAIT_FOR con1_cont';
 send
 update t1 set a=a+100 where pk < 3 or pk between 10 and 50;
 
