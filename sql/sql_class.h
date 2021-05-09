@@ -3624,6 +3624,7 @@ public:
 
   const std::string &get_query_attr(const std::string &qattr_key);
   const std::string &get_connection_attr(const std::string &cattr_key);
+  const std::string thd_get_sql_id(THD *thd);
 
   std::list<std::pair<const char*, const char*> > get_query_tables();
 

@@ -6862,3 +6862,23 @@ const std::string &thd_get_connection_attr(THD *thd,
                                            const std::string &cattr_key) {
   return thd->get_connection_attr(cattr_key);
 }
+
+/**
+  Get the query SQL ID
+
+  @param thd       The MySQL internal thread pointer
+
+  @return the SQL ID of the query
+*/
+const std::string thd_get_sql_id(THD *thd) {
+  char sql_id_string[MD5_BUFF_LENGTH+1];
+
+  if (thd->mt_key_is_set(THD::SQL_ID)) {
+    array_to_hex(sql_id_string, thd->mt_key_value(THD::SQL_ID).data(),
+                 MD5_HASH_SIZE),
+    sql_id_string[MD5_BUFF_LENGTH] = '\0';
+  } else {
+    sql_id_string[0] = '\0';
+  }
+  return std::string(sql_id_string);
+}
