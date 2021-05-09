@@ -5,13 +5,31 @@
 //
 #include "../rdb_comparator.h"
 #include "rocksdb/ldb_tool.h"
+#include "rocksdb/utilities/object_registry.h"
 
 int main(int argc, char **argv) {
-  rocksdb::Options db_options;
-  const myrocks::Rdb_pk_comparator pk_comparator;
-  db_options.comparator = &pk_comparator;
+  // Register the comparators so they can be loaded from OPTIONS file when
+  // `--try_load_options` is provided.
+  rocksdb::ObjectLibrary::Default()->Register(
+      myrocks::Rdb_pk_comparator().Name(),
+      rocksdb::FactoryFunc<rocksdb::Comparator>(
+          [](const std::string & /* uri */,
+             std::unique_ptr<rocksdb::Comparator> * /* res_guard */,
+             std::string * /* err_msg */) {
+            static myrocks::Rdb_pk_comparator cmp;
+            return &cmp;
+          }));
+  rocksdb::ObjectLibrary::Default()->Register(
+      myrocks::Rdb_rev_comparator().Name(),
+      rocksdb::FactoryFunc<rocksdb::Comparator>(
+          [](const std::string & /* uri */,
+             std::unique_ptr<rocksdb::Comparator> * /* res_guard */,
+             std::string * /* err_msg */) {
+            static myrocks::Rdb_rev_comparator cmp;
+            return &cmp;
+          }));
 
   rocksdb::LDBTool tool;
-  tool.Run(argc, argv, db_options);
+  tool.Run(argc, argv);
   return 0;
 }
