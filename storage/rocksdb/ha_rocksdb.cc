@@ -787,7 +787,10 @@ static bool rocksdb_alter_column_default_inplace = false;
 static ulonglong rocksdb_max_lock_memory;
 
 static bool rocksdb_use_range_locking = 0;
+static bool rocksdb_use_range_lock_manager_as_point = 0;
 std::shared_ptr<rocksdb::RangeLockManagerHandle> range_lock_mgr;
+
+std::shared_ptr<rocksdb::RangeLockManagerHandle> range_lock_mgr_used_as_point;
 
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
@@ -2319,6 +2322,13 @@ static MYSQL_SYSVAR_BOOL(use_range_locking, rocksdb_use_range_locking,
                          nullptr, nullptr,
                          rocksdb_use_range_locking);
 
+static MYSQL_SYSVAR_BOOL(use_range_lock_manager_as_point,
+                         rocksdb_use_range_lock_manager_as_point,
+                         PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+                         "Use Range Lock Manager as point",
+                         nullptr, nullptr,
+                         rocksdb_use_range_lock_manager_as_point);
+
 static MYSQL_SYSVAR_BOOL(
     large_prefix, rocksdb_large_prefix, PLUGIN_VAR_RQCMDARG,
     "Support large index prefix length of 3072 bytes. If off, the maximum "
@@ -2625,6 +2635,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(manual_compaction_threads),
     MYSQL_SYSVAR(rollback_on_timeout),
     MYSQL_SYSVAR(use_range_locking),
+    MYSQL_SYSVAR(use_range_lock_manager_as_point),
     MYSQL_SYSVAR(max_lock_memory),
     MYSQL_SYSVAR(enable_insert_with_update_caching),
     MYSQL_SYSVAR(trace_block_cache_access),
@@ -6531,11 +6542,24 @@ static int rocksdb_init_internal(void *const p) {
   tx_db_options.custom_mutex_factory = std::make_shared<Rdb_mutex_factory>();
   tx_db_options.write_policy =
       static_cast<rocksdb::TxnDBWritePolicy>(rocksdb_write_policy);
+  
+  if (rocksdb_use_range_locking && rocksdb_use_range_lock_manager_as_point) {
+    //rdb_log_status_error(
+    //    status, "Can't have both range_locking and range_lock_manager_as_point");
+    //DBUG_RETURN(HA_EXIT_FAILURE);
+    rocksdb_use_range_lock_manager_as_point= 0;
+  }
+
 
   if (rocksdb_use_range_locking) {
     range_lock_mgr.reset(
       rocksdb::NewRangeLockManager(tx_db_options.custom_mutex_factory));
     tx_db_options.lock_mgr_handle = range_lock_mgr;
+  }
+  if (rocksdb_use_range_lock_manager_as_point) {
+    range_lock_mgr_used_as_point.reset(
+      rocksdb::NewRangeLockManager(tx_db_options.custom_mutex_factory));
+    tx_db_options.lock_mgr_handle = range_lock_mgr_used_as_point;
   }
 
   status =
