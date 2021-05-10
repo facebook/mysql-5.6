@@ -8763,6 +8763,7 @@ static bool get_index_size_by_prefix(Item **args, const char *function_name,
       KEY *index_info = table->key_info + key_index;
       auto field = index_info->key_part[0].field;
       if (!is_integer_type(field->type())) {
+        result = false;
         auto msg =
             "GET_INDEX_SIZE_BY_PREFIX: Index keypart expected to be numeric";
         my_error(ER_WRONG_ARGUMENTS, MYF(0), msg);
