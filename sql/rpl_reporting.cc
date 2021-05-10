@@ -63,7 +63,7 @@ int Slave_reporting_capability::has_temporary_error(THD *thd,
     error or not. This is currently the case for Incident_log_event,
     which sets no message.
   */
-  if (is_fatal_error || !thd->is_error())
+  if (is_fatal_error || (!thd->is_error() && error_arg == 0))
     DBUG_RETURN(0);
 
   error= (error_arg == 0)? thd->get_stmt_da()->sql_errno() : error_arg;

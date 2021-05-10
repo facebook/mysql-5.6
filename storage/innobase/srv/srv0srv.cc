@@ -140,6 +140,8 @@ UNIV_INTERN my_bool	high_level_read_only;
 /** Place locks to records only i.e. do not use next-key locking except
 on duplicate key checking and foreign key checking */
 UNIV_INTERN ibool	srv_locks_unsafe_for_binlog = FALSE;
+/** Should we call thd_report_row_lock_wait() when a lock request is queued? */
+UNIV_INTERN ibool	srv_enable_row_lock_wait_callback = FALSE;
 /** Sort buffer size in index creation */
 UNIV_INTERN ulong	srv_sort_buf_size = 1048576;
 /** Maximum modification log file size for online index creation */

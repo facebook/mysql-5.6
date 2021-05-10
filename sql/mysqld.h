@@ -338,6 +338,7 @@ extern ulonglong opt_slave_dump_thread_wait_sleep_usec;
 extern my_bool rpl_wait_for_semi_sync_ack;
 extern std::atomic<ulonglong> slave_lag_sla_misses;
 extern ulonglong opt_slave_lag_sla_seconds;
+extern std::atomic<ulonglong> slave_commit_order_deadlocks;
 extern ulong slave_exec_mode_options;
 extern ulong slave_use_idempotent_for_recovery_options;
 extern ulong slave_run_triggers_for_rbr;

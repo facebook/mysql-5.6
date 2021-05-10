@@ -24,6 +24,7 @@ Created 5/7/1996 Heikki Tuuri
 *******************************************************/
 
 #define LOCK_MODULE_IMPLEMENTATION
+#include <mysql/service_thd_engine_lock.h>
 
 #include "lock0lock.h"
 #include "lock0priv.h"
@@ -2313,7 +2314,7 @@ lock_rec_lock_slow(
 		/* The trx already has a strong enough lock on rec: do
 		nothing */
 
-	} else if (lock_rec_other_has_conflicting(
+	} else if (const lock_t* wait_for = lock_rec_other_has_conflicting(
 			static_cast<enum lock_mode>(mode),
 			block, heap_no, trx)) {
 
@@ -2326,9 +2327,13 @@ lock_rec_lock_slow(
 			err = DB_FAILED_TO_LOCK_REC_NOWAIT;
 		else if (x_mode == LOCK_X_SKIP_LOCKED)
 			err = DB_FAILED_TO_LOCK_REC_SKIP_LOCKED;
-		else
+		else {
 			err = lock_rec_enqueue_waiting(
 				mode, block, heap_no, index, thr);
+			if (likely(srv_enable_row_lock_wait_callback))
+				thd_report_row_lock_wait(current_thd,
+					wait_for->trx->mysql_thd);
+		}
 
 	} else if (!impl) {
 		/* Set the requested lock on the record, note that
@@ -6183,7 +6188,7 @@ lock_rec_insert_check_and_lock(
 	had to wait for their insert. Both had waiting gap type lock requests
 	on the successor, which produced an unnecessary deadlock. */
 
-	if (lock_rec_other_has_conflicting(
+	if (const lock_t* wait_for = lock_rec_other_has_conflicting(
 		    static_cast<enum lock_mode>(
 			    LOCK_X | LOCK_GAP | LOCK_INSERT_INTENTION),
 		    block, next_rec_heap_no, trx)) {
@@ -6194,6 +6199,9 @@ lock_rec_insert_check_and_lock(
 		err = lock_rec_enqueue_waiting(
 			LOCK_X | LOCK_GAP | LOCK_INSERT_INTENTION,
 			block, next_rec_heap_no, index, thr);
+		if (likely(srv_enable_row_lock_wait_callback))
+			thd_report_row_lock_wait(current_thd,
+				wait_for->trx->mysql_thd);
 
 		trx_mutex_exit(trx);
 	} else {

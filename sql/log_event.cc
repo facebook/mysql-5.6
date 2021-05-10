@@ -930,7 +930,7 @@ void Log_event::prepare_dep(Relay_log_info *rli,
           get_type_str(), rli->get_group_master_log_name(),
           rli->get_group_master_log_pos());
 
-      rli->dep_sync_group= true;
+      rli->set_dep_sync_group(true);
       ev->is_begin_event= true;
     }
   }
@@ -3307,9 +3307,9 @@ bool Log_event::schedule_dep(Relay_log_info *rli)
 
     // we execute the trx in isolation if num_dbs is greater than one and if
     // OVER_MAX_DBS_IN_EVENT_MTS is set
-    rli->dep_sync_group= rli->dep_sync_group ||
-                         num_dbs == OVER_MAX_DBS_IN_EVENT_MTS ||
-                         (rli->dbs_accessed_by_group.size() > 1);
+    rli->set_dep_sync_group(
+        rli->dep_sync_group || num_dbs == OVER_MAX_DBS_IN_EVENT_MTS ||
+        (rli->dbs_accessed_by_group.size() > 1));
   }
 
   // when the number of events in a group is greater than max worker queue
@@ -3320,7 +3320,7 @@ bool Log_event::schedule_dep(Relay_log_info *rli)
   if (unlikely(
        rli->num_events_in_current_group >= rli->mts_slave_worker_queue_len_max))
   {
-    rli->dep_sync_group= true;
+    rli->set_dep_sync_group(true);
   }
 
   if (unlikely(rli->dep_sync_group))
@@ -3397,7 +3397,7 @@ bool Log_event::schedule_dep(Relay_log_info *rli)
   {
     if (wait_for_workers_to_finish(rli) == -1)
       DBUG_RETURN(false);
-    rli->dep_sync_group= false;
+    rli->set_dep_sync_group(false);
   }
 
 #ifndef DBUG_OFF
@@ -3459,11 +3459,12 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
 
   if (ev->is_end_event)
   {
-    // Populate key->last trx penultimate event in the key lookup
+    // Populate key->last trx penultimate/end event in the key lookup
     //
-    // NOTE: We store the end event for a single event trx
+    // NOTE: We store the end event in STMT mode and penultimate event in TBL
+    // mode. We always store end event for single event trxs.
     //
-    // Why store penultimate event instead of end event?
+    // Why store penultimate event instead of end event in TBL mode?
     // This is to improve perf for TBL mode. When we depend on the end event of
     // trx we basically wait for it to commit. In TBL mode we might end up
     // waiting for a trx that we don't have any row conflits with. That's why we
@@ -3472,13 +3473,19 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
     // If there are conflicts we expect row locks to kick in and in that case
     // we'll automatically wait for the conflicting trx to commit.
     //
+    // Note that this is not required for STMT mode since we'll already be
+    // depending on trxs based on actual row conflicts. So we depend on the end
+    // event directly.
+    //
     // Why penultimate though? Why not just depend on the conflicting row event?
     // This is done to support trx retries. On secondaries we're allowed to
     // retry trx on temprary errors like lock wait timeouts. Depending on
     // penultimate event allows the trx we depend on to retry execution,
     // otherwise we'll end up taking the row lock as soon as the row we depend
     // on is executed which can create deadlock if commit ordering is enabled.
-    auto to_add= rli->prev_event ? rli->prev_event : ev;
+    auto to_add=
+      rli->mts_dependency_replication == DEP_RPL_TABLE && rli->prev_event ?
+      rli->prev_event : ev;
     mysql_mutex_lock(&rli->dep_key_lookup_mutex);
     if (!to_add->finalized())
     {
@@ -5313,7 +5320,7 @@ void Query_log_event::prepare_dep(Relay_log_info *rli,
       }
     }
 
-    rli->dep_sync_group= true;
+    rli->set_dep_sync_group(true);
   }
 
   DBUG_VOID_RETURN;
@@ -12654,7 +12661,7 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
         m_keylist.size() + rli->keys_accessed_by_group.size() >
                 rli->mts_dependency_max_keys))
   {
-    rli->dep_sync_group= true;
+    rli->set_dep_sync_group(true);
     m_keylist.clear();
     rli->keys_accessed_by_group.clear();
   }

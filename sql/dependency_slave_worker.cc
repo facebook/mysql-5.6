@@ -3,6 +3,7 @@
 #include "dependency_slave_worker.h"
 #include "log_event_wrapper.h"
 #include "rpl_slave_commit_order_manager.h"
+#include <../include/mysql/service_thd_engine_lock.h>
 
 
 bool append_item_to_jobs(slave_job_item *job_item,
@@ -89,15 +90,49 @@ bool Dependency_slave_worker::execute_group()
       c_rli->dependency_worker_error= true;
       break;
     }
+
+    DBUG_EXECUTE_IF("dbug.dep_fake_gap_lock_on_insert", {
+      if (!ev->is_end_event && ev->raw_event() &&
+          ev->raw_event()->get_type_code() == WRITE_ROWS_EVENT)
+      {
+        if (!c_rli->dep_fake_gap_lock.try_lock())
+        {
+          thd_report_row_lock_wait(
+              info_thd, c_rli->dep_fake_gap_lock_worker->info_thd);
+          c_rli->dep_fake_gap_lock.lock();
+          c_rli->dep_fake_gap_lock_worker= this;
+        }
+        else
+        {
+          c_rli->dep_fake_gap_lock_worker= this;
+        }
+      }
+    };);
+
     // case: restart trx if temporary error, see @slave_worker_ends_group
     if (unlikely(trans_retries && current_event_index == 0))
     {
+      DBUG_EXECUTE_IF("dbug.dep_fake_gap_lock_on_insert", {
+        if (this == c_rli->dep_fake_gap_lock_worker)
+        {
+          c_rli->dep_fake_gap_lock_worker= nullptr;
+          c_rli->dep_fake_gap_lock.unlock();
+        }
+      };);
       ev= begin_event;
       continue;
     }
     finalize_event(ev);
     ev= ev->next();
   }
+
+  DBUG_EXECUTE_IF("dbug.dep_fake_gap_lock_on_insert", {
+    if (this == c_rli->dep_fake_gap_lock_worker)
+    {
+      c_rli->dep_fake_gap_lock_worker= nullptr;
+      c_rli->dep_fake_gap_lock.unlock();
+    }
+  };);
 
   // case: in case of error rollback if commit ordering is enabled
   if (unlikely(err && commit_order_mngr))

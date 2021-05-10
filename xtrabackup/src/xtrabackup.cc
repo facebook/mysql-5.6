@@ -443,6 +443,7 @@ my_bool innobase_use_checksums      = TRUE;
 my_bool innobase_use_large_pages    = FALSE;
 my_bool	innobase_file_per_table			= FALSE;
 my_bool innobase_locks_unsafe_for_binlog        = FALSE;
+my_bool innobase_enable_row_lock_wait_callback  = FALSE;
 my_bool innobase_rollback_on_timeout		= FALSE;
 my_bool innobase_create_status_file		= FALSE;
 my_bool innobase_adaptive_hash_index		= TRUE;

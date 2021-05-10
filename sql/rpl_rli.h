@@ -1016,6 +1016,13 @@ public:
   {
     commit_order_mngr= mngr;
   }
+
+  bool found_order_commit_deadlock() const
+  {
+    return m_order_commit_deadlock.load();
+  }
+  void report_order_commit_deadlock() { m_order_commit_deadlock= true; }
+  void reset_order_commit_deadlock() { m_order_commit_deadlock= false; }
 #endif
 
   virtual bool get_skip_unique_check()
@@ -1050,6 +1057,7 @@ private:
     corrdinator's order manager.
    */
   Commit_order_manager* commit_order_mngr;
+  std::atomic<bool> m_order_commit_deadlock{false};
 
   /**
     Delay slave SQL thread by this amount, compared to master (in
@@ -1185,6 +1193,19 @@ public:
   // Statistics
   std::atomic<ulonglong> begin_event_waits{0};
   std::atomic<ulonglong> next_event_waits{0};
+  std::atomic<ulonglong> num_syncs{0};
+
+#ifndef DBUG_OFF
+  std::mutex dep_fake_gap_lock;
+  Slave_worker* dep_fake_gap_lock_worker = nullptr;
+#endif
+
+  void set_dep_sync_group(bool val)
+  {
+    dep_sync_group= val;
+    if (dep_sync_group)
+      ++num_syncs;
+  }
 
   bool enqueue_dep(
       const std::shared_ptr<Log_event_wrapper> &begin_event)

@@ -197,6 +197,7 @@ static char*	innobase_log_arch_dir			= NULL;
 #endif /* UNIV_LOG_ARCHIVE */
 static my_bool	innobase_use_checksums			= TRUE;
 static my_bool	innobase_locks_unsafe_for_binlog	= FALSE;
+static my_bool	innobase_enable_row_lock_wait_callback	= FALSE;
 static my_bool	innobase_rollback_on_timeout		= FALSE;
 static my_bool	innobase_create_status_file		= FALSE;
 static my_bool	innobase_large_prefix			= FALSE;
@@ -4181,6 +4182,8 @@ innobase_change_buffering_inited_ok:
 	row_rollback_on_timeout = (ibool) innobase_rollback_on_timeout;
 
 	srv_locks_unsafe_for_binlog = (ibool) innobase_locks_unsafe_for_binlog;
+	srv_enable_row_lock_wait_callback =
+		(ibool) innobase_enable_row_lock_wait_callback;
 	if (innobase_locks_unsafe_for_binlog) {
 		ut_print_timestamp(stderr);
 		fprintf(stderr,
@@ -17986,6 +17989,11 @@ static MYSQL_SYSVAR_BOOL(locks_unsafe_for_binlog, innobase_locks_unsafe_for_binl
   "Force InnoDB to not use next-key locking, to use only row-level locking.",
   NULL, NULL, FALSE);
 
+static MYSQL_SYSVAR_BOOL(enable_row_lock_wait_callback, innobase_enable_row_lock_wait_callback,
+  PLUGIN_VAR_OPCMDARG,
+  "Enables a callback which fires when locks are enqueued (thd_report_row_lock_wait)",
+  NULL, NULL, TRUE);
+
 #ifdef UNIV_LOG_ARCHIVE
 static MYSQL_SYSVAR_STR(log_arch_dir, innobase_log_arch_dir,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -19046,6 +19054,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(large_prefix),
   MYSQL_SYSVAR(force_load_corrupted),
   MYSQL_SYSVAR(locks_unsafe_for_binlog),
+  MYSQL_SYSVAR(enable_row_lock_wait_callback),
   MYSQL_SYSVAR(lock_wait_timeout),
 #ifdef UNIV_LOG_ARCHIVE
   MYSQL_SYSVAR(log_arch_dir),

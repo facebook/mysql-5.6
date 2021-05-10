@@ -75,6 +75,10 @@
 #endif
 #include <sstream>
 #include <list>
+#ifdef HAVE_REPLICATION
+#include "rpl_rli_pdb.h"                     // Slave_worker
+#include "rpl_slave_commit_order_manager.h"
+#endif
 
 #ifdef TARGET_OS_LINUX
 #include <sys/syscall.h>
@@ -6895,3 +6899,34 @@ void thd_add_response_attr(
       tracker->mark_as_changed(thd, &key, &value);
     }
 }
+
+#ifndef EMBEDDED_LIBRARY
+/**
+   Interface for Engine to report row lock conflict.
+   The caller should guarantee thd_wait_for does not be freed, when it is
+   called.
+*/
+extern "C"
+void thd_report_row_lock_wait(THD* self, THD *wait_for)
+{
+  DBUG_ENTER("thd_report_row_lock_wait");
+
+  DBUG_EXECUTE_IF("report_row_lock_wait", {
+     const char act[]= "now signal signal.reached wait_for signal.done";
+     DBUG_ASSERT(opt_debug_sync_timeout > 0);
+     DBUG_ASSERT(!debug_sync_set_action(self, STRING_WITH_LEN(act)));
+  };);
+
+  if (unlikely(self != NULL && wait_for != NULL &&
+      is_mts_worker(self) && is_mts_worker(wait_for)))
+    commit_order_manager_check_deadlock(self, wait_for);
+
+  DBUG_VOID_RETURN;
+}
+#else
+extern "C"
+void thd_report_row_lock_wait(THD* self, THD *thd_wait_for)
+{
+  return;
+}
+#endif

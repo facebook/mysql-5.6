@@ -15,6 +15,8 @@
 
 #include "rpl_slave_commit_order_manager.h"
 
+#include "rpl_mi.h"
+#include "rpl_rli.h"
 #include "rpl_rli_pdb.h"     // Slave_worker
 #include "mysqld.h"          // key_commit_order_manager_mutex ..
 
@@ -83,7 +85,14 @@ bool Commit_order_manager::wait_for_its_turn(Slave_worker *worker,
                     &old_stage);
 
     while (queue_front(db) != worker->id)
+    {
+      if (unlikely(worker->found_order_commit_deadlock()))
+      {
+        thd->EXIT_COND(&old_stage);
+        DBUG_RETURN(true);
+      }
       mysql_cond_wait(cond, &m_queue_mutex);
+    }
 
     m_workers[worker->id].status= OCS_SIGNAL;
 
@@ -137,6 +146,17 @@ void Commit_order_manager::report_rollback(Slave_worker *worker)
   m_rollback_trx.store(true);
   unregister_trx(worker);
 
+  DBUG_VOID_RETURN;
+}
+
+void Commit_order_manager::report_deadlock(Slave_worker *worker)
+{
+  DBUG_ENTER("Commit_order_manager::report_deadlock");
+  mysql_mutex_lock(&m_queue_mutex);
+  ++slave_commit_order_deadlocks;
+  worker->report_order_commit_deadlock();
+  mysql_cond_signal(&m_workers[worker->id].cond);
+  mysql_mutex_unlock(&m_queue_mutex);
   DBUG_VOID_RETURN;
 }
 

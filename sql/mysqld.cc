@@ -582,6 +582,7 @@ ulonglong opt_slave_dump_thread_wait_sleep_usec;
 my_bool rpl_wait_for_semi_sync_ack;
 std::atomic<ulonglong> slave_lag_sla_misses{0};
 ulonglong opt_slave_lag_sla_seconds;
+std::atomic<ulonglong> slave_commit_order_deadlocks{0};
 my_bool opt_safe_user_create = 0;
 my_bool opt_show_slave_auth_info;
 my_bool opt_log_slave_updates= 0;
@@ -10410,6 +10411,19 @@ static int show_slave_dependency_next_waits(THD *thd, SHOW_VAR *var, char *buff)
   return 0;
 }
 
+static int show_slave_dependency_num_syncs(THD *thd, SHOW_VAR *var, char *buff)
+{
+  if (active_mi && active_mi->rli && active_mi->rli->mts_dependency_replication)
+  {
+    var->type= SHOW_LONGLONG;
+    var->value= buff;
+    *((ulonglong *)buff)= (ulonglong) active_mi->rli->num_syncs.load();
+  }
+  else
+    var->type= SHOW_UNDEF;
+  return 0;
+}
+
 static int show_slave_before_image_inconsistencies(THD *thd, SHOW_VAR *var,
                                                    char *buff)
 {
@@ -10435,6 +10449,19 @@ static int show_slave_retried_trans(THD *thd, SHOW_VAR *var, char *buff)
     var->type= SHOW_LONG;
     var->value= buff;
     *((long *)buff)= (long)active_mi->rli->retried_trans;
+  }
+  else
+    var->type= SHOW_UNDEF;
+  return 0;
+}
+
+static int show_slave_commit_order_deadlocks(THD *thd, SHOW_VAR *var, char *buf)
+{
+  if (active_mi && active_mi->rli)
+  {
+    var->type= SHOW_LONGLONG;
+    var->value= buf;
+    *((longlong *)buf)= slave_commit_order_deadlocks.load();
   }
   else
     var->type= SHOW_UNDEF;
@@ -11299,6 +11326,7 @@ SHOW_VAR status_vars[]= {
   {"Slave_open_temp_tables",   (char*) &slave_open_temp_tables, SHOW_INT},
 #ifdef HAVE_REPLICATION
   {"Slave_retried_transactions",(char*) &show_slave_retried_trans, SHOW_FUNC},
+  {"Slave_Commit_order_deadlocks",(char*) &show_slave_commit_order_deadlocks, SHOW_FUNC},
   {"Slave_heartbeat_period",   (char*) &show_heartbeat_period, SHOW_FUNC},
   {"Slave_received_heartbeats",(char*) &show_slave_received_heartbeats, SHOW_FUNC},
   {"Slave_lag_sla_misses",     (char*) &show_slave_lag_sla_misses, SHOW_FUNC},
@@ -11311,6 +11339,7 @@ SHOW_VAR status_vars[]= {
   {"Slave_dependency_in_flight", (char*) &show_slave_dependency_in_flight, SHOW_FUNC},
   {"Slave_dependency_begin_waits", (char*) &show_slave_dependency_begin_waits, SHOW_FUNC},
   {"Slave_dependency_next_waits", (char*) &show_slave_dependency_next_waits, SHOW_FUNC},
+  {"Slave_dependency_num_syncs", (char*) &show_slave_dependency_num_syncs, SHOW_FUNC},
   {"Slave_before_image_inconsistencies", (char*) &show_slave_before_image_inconsistencies, SHOW_FUNC},
 	{"Slave_high_priority_ddl_executed", (char *)&slave_high_priority_ddl_executed, SHOW_LONGLONG},
 	{"Slave_high_priority_ddl_killed_connections", (char *)&slave_high_priority_ddl_killed_connections, SHOW_LONGLONG},

@@ -1,0 +1,2 @@
+--slave_check_before_image_consistency=ON
+--slave_parallel_workers=8

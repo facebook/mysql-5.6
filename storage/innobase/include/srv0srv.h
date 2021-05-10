@@ -284,6 +284,9 @@ extern ulint	srv_max_file_format_at_startup;
 on duplicate key checking and foreign key checking */
 extern ibool	srv_locks_unsafe_for_binlog;
 
+/** Should we call thd_report_row_lock_wait() when a lock request is queued? */
+extern ibool	srv_enable_row_lock_wait_callback;
+
 /** Sort buffer size in index creation */
 extern ulong	srv_sort_buf_size;
 /** Maximum modification log file size for online index creation */

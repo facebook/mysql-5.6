@@ -518,6 +518,12 @@ public:
     return c_rli ? c_rli->get_rbr_column_type_mismatch_whitelist() : nullptr;
   }
 
+  ulonglong sequence_number()
+  {
+    Slave_job_group* ptr_g= c_rli->gaq->get_job_group(gaq_index);
+    return ptr_g->total_seqno;
+  }
+
 protected:
 
   virtual void do_report(loglevel level, int err_code,
@@ -526,6 +532,7 @@ protected:
 private:
   ulong gaq_index;          // GAQ index of the current assignment 
   ulonglong master_log_pos; // event's cached log_pos for possibile error report
+  bool m_order_commit_deadlock = false;
   void end_info();
   bool read_info(Rpl_info_handler *from) override;
   bool write_info(Rpl_info_handler *to) override;

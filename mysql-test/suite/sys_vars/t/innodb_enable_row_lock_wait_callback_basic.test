@@ -1,0 +1,17 @@
+--source include/have_innodb.inc
+
+# Can only be set from the command line.
+# show the global and session values;
+
+--echo Valid values are 'ON' and 'OFF'
+select @@global.innodb_enable_row_lock_wait_callback;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_enable_row_lock_wait_callback;
+show global variables like 'innodb_enable_row_lock_wait_callback';
+show session variables like 'innodb_enable_row_lock_wait_callback';
+select * from information_schema.global_variables where variable_name='innodb_enable_row_lock_wait_callback';
+select * from information_schema.session_variables where variable_name='innodb_enable_row_lock_wait_callback';
+
+--error 1229
+set session innodb_enable_row_lock_wait_callback=1;
+

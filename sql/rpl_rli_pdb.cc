@@ -269,6 +269,7 @@ int Slave_worker::init_worker(Relay_log_info * rli, ulong i)
   Slave_job_item empty= {NULL};
 
   c_rli= rli;
+  reset_order_commit_deadlock();
   set_commit_order_manager(c_rli->get_commit_order_manager());
 
   if (rli_init_info(false) ||
@@ -1430,7 +1431,8 @@ void Slave_worker::slave_worker_ends_group(Log_event* ev, int &error,
   else
   {
     bool silent = false;
-    if (has_temporary_error(info_thd, 0, &silent) &&
+    int err = found_order_commit_deadlock() ? ER_LOCK_DEADLOCK : 0;
+    if (has_temporary_error(info_thd, err, &silent) &&
         trans_retries < slave_trans_retries)
     {
       if (last_current_event_index < current_event_index)
@@ -1442,6 +1444,7 @@ void Slave_worker::slave_worker_ends_group(Log_event* ev, int &error,
       trans_retries++;
       error = 0; // Reset the error to avoid worker thread reporting an error.
       temporary_error = true;
+      reset_order_commit_deadlock();
       cleanup_context(info_thd, 1);
       DBUG_VOID_RETURN;
     }
