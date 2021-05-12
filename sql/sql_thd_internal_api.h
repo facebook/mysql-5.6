@@ -356,4 +356,7 @@ mysql_mutex_t *thd_current_mutex(THD *thd);
 */
 void thd_set_priority(THD *thd);
 
+void thd_add_response_attr(THD *thd, const std::string &rattr_key,
+                           const std::string &rattr_val);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

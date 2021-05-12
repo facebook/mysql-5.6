@@ -409,3 +409,14 @@ mysql_mutex_t *thd_current_mutex(THD *thd) { return thd->current_mutex; }
   Set thread priority.
 */
 void thd_set_priority(THD *thd) { thd->set_thread_priority(); }
+
+void thd_add_response_attr(THD *thd, const std::string &rattr_key,
+                           const std::string &rattr_val) {
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+
+  if (tracker->is_enabled()) {
+    LEX_CSTRING key = {rattr_key.c_str(), rattr_key.length()};
+    LEX_CSTRING value = {rattr_val.c_str(), rattr_val.length()};
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+}
