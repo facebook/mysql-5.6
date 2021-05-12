@@ -356,4 +356,8 @@ void thd_set_priority(THD *thd);
 char *thd_security_context_internal(THD *thd, char *buffer, size_t length,
                                     size_t max_query_len,
                                     bool show_query_digest);
+
+void thd_add_response_attr(THD *thd, const std::string &rattr_key,
+                           const std::string &rattr_val);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
