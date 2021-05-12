@@ -6882,3 +6882,16 @@ const std::string thd_get_sql_id(THD *thd) {
   }
   return std::string(sql_id_string);
 }
+
+void thd_add_response_attr(
+    THD *thd, const std::string &rattr_key, const std::string &rattr_val)
+{
+    auto tracker= thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+
+    if (tracker->is_enabled())
+    {
+      LEX_CSTRING key= { rattr_key.c_str(), rattr_key.length() };
+      LEX_CSTRING value= { rattr_val.c_str(), rattr_val.length() };
+      tracker->mark_as_changed(thd, &key, &value);
+    }
+}

@@ -311,3 +311,5 @@ std::list<std::pair<const char*, const char*> > thd_get_query_tables(
 const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key);
 const std::string &thd_get_connection_attr(THD *thd,
                                            const std::string &cattr_key);
+void thd_add_response_attr(
+    THD *thd, const std::string &rattr_key, const std::string &rattr_val);
