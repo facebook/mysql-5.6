@@ -4187,8 +4187,12 @@ static int com_resp_attr(String *buffer MY_ATTRIBUTE((unused)), char *line) {
   const char *value;
   size_t len;
   if (!mysql_resp_attr_find(&mysql, key, &value, &len)) {
-    put_info(value, INFO_INFO);
+    char *tmp = strndup(value, len);
+    put_info(tmp, INFO_INFO);
+    free(tmp);
   }
+
+  free(buf);
   return 0;
 }
 
