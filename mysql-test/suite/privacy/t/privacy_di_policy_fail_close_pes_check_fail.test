@@ -1,0 +1,31 @@
+--source ../include/privacy_init.inc
+
+CREATE TABLE privacy_research (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_research VALUES(1, "User1");
+
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_close;
+
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add query_policy xyz;
+
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select * from privacy_research;
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select * from privacy_research where id >= 1;
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select name, count(id) from privacy_research group by name;
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select name, count(id) from privacy_research group by name order by 1;
+
+# Cleanup
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+query_attrs_delete shard;
+query_attrs_delete query_policy;
+drop table privacy_research;
+
+--source ../include/privacy_end.inc
