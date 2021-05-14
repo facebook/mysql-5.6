@@ -1,0 +1,34 @@
+CREATE TABLE privacy_blood_donation_table (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_blood_donation_table VALUES(1, "User1");
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_close;
+select * from privacy_blood_donation_table;
+id	name
+1	User1
+select * from privacy_blood_donation_table;
+id	name
+1	User1
+select * from privacy_blood_donation_table where id>= 1;
+id	name
+1	User1
+select * from privacy_blood_donation_table where id>= 1;
+id	name
+1	User1
+select name, count(id) from privacy_blood_donation_table group by name;
+name	count(id)
+User1	1
+select name, count(id) from privacy_blood_donation_table group by name;
+name	count(id)
+User1	1
+select name, count(id) from privacy_blood_donation_table group by name order by 1;
+name	count(id)
+User1	1
+select name, count(id) from privacy_blood_donation_table group by name order by 1;
+name	count(id)
+User1	1
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+drop table privacy_blood_donation_table;
