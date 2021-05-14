@@ -1,5 +1,6 @@
 
 let $gap_lock_log_file=`select @@gap_lock_log_file`;
+--let $warning_or_error= ERROR
 --source include/gap_lock_raise_error_init.inc
 
 --source include/gap_lock_raise_error_log.inc

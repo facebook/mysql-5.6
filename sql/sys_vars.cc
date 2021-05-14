@@ -130,6 +130,7 @@
 #include "sql/sp_head.h"  // SP_PSI_STATEMENT_INFO_COUNT
 #include "sql/sql_admission_control.h"
 #include "sql/sql_backup_lock.h"  // is_instance_backup_locked
+#include "sql/sql_class.h"        // gap_lock_write_log
 #include "sql/sql_lex.h"
 #include "sql/sql_locale.h"            // my_locale_by_number
 #include "sql/sql_parse.h"             // killall_non_super_threads
@@ -6454,11 +6455,21 @@ static Sys_var_charptr Sys_gap_lock_log_path(
     DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_log_path),
     ON_UPDATE(fix_gap_lock_log_file));
 
-static Sys_var_bool Sys_gap_lock_raise_error(
+static const char *gap_lock_raise_values[] = {
+    "OFF", "WARNING", "ERROR",
+    /* Add new control before the following line */
+    0};
+
+static Sys_var_enum Sys_gap_lock_raise_error(
     "gap_lock_raise_error",
-    "Raising an error when executing queries "
-    "relying on Gap Lock. Default is false.",
-    SESSION_VAR(gap_lock_raise_error), CMD_LINE(OPT_ARG), DEFAULT(false));
+    "Controls raising a warning or an error when executing queries that "
+    "rely on Gap Lock. It can take the following values: "
+    "OFF: no error is raised "
+    "WARNING: a warning is raised "
+    "ERROR: an error is raised. "
+    "Default is OFF",
+    SESSION_VAR(gap_lock_raise_error), CMD_LINE(OPT_ARG), gap_lock_raise_values,
+    DEFAULT(GAP_LOCK_RAISE_OFF));
 
 static Sys_var_bool Sys_gap_lock_write_log(
     "gap_lock_write_log",

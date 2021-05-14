@@ -8642,26 +8642,24 @@ bool handler::is_using_prohibited_gap_locks(TABLE *table,
       !thd->is_system_thread() && ht &&
       (ht->db_type == DB_TYPE_INNODB || ht->db_type == DB_TYPE_ROCKSDB) &&
       !thd->rli_slave &&
-      (thd->variables.gap_lock_raise_error ||
-       thd->variables.gap_lock_write_log) &&
+      (thd->gap_lock_raise_allowed() || thd->variables.gap_lock_write_log) &&
       !is_acl_ddl_query(thd->lex->sql_command) &&
       (thd->lex->table_count >= 2 || thd->in_multi_stmt_transaction_mode()) &&
       can_hold_locks_on_trans(thd, lock_type) &&
       !gap_lock_exceptions->matches(table_name)) {
-    query_logger.gap_lock_log_write(thd, COM_QUERY, thd->query().str,
-                                    thd->query().length);
-    if (thd->variables.gap_lock_raise_error) {
-      my_printf_error(ER_UNKNOWN_ERROR,
-                      "Using Gap Lock without full unique key in multi-table "
-                      "or multi-statement transactions is not "
-                      "allowed. You need either 1: Execute 'SET SESSION "
-                      "gap_lock_raise_error=0' if you are sure that "
-                      "your application does not rely on Gap Lock. "
-                      "2: Rewrite queries to use "
-                      "all unique key columns in WHERE equal conditions. "
-                      "3: Rewrite to single-table, single-statement "
-                      "transaction.  Query: %s",
-                      MYF(0), thd->query().str);
+    if (thd->variables.gap_lock_write_log) {
+      // log to file
+      query_logger.gap_lock_log_write(thd, COM_QUERY, thd->query().str,
+                                      thd->query().length);
+    }
+    if (thd->gap_lock_raise_warning()) {
+      // raise a warning
+      push_warning(thd, Sql_condition::SL_WARNING, ER_GAP_LOCK_USED,
+                   ER_THD(thd, ER_GAP_LOCK_USED));
+    } else if (thd->gap_lock_raise_error()) {
+      std::string msg(ER_THD(thd, ER_GAP_LOCK_USED));
+      msg.append(" Query: %s");
+      my_printf_error(ER_UNKNOWN_ERROR, msg.c_str(), MYF(0), thd->query().str);
       return true;
     }
   }

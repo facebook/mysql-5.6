@@ -517,9 +517,11 @@ The following options may be given as the first argument:
  --gap-lock-log-file=name 
  Log file path where queries using Gap Lock are written.
  gap_lock_write_log needs to be turned on to write logs
- --gap-lock-raise-error 
- Raising an error when executing queries relying on Gap
- Lock. Default is false.
+ --gap-lock-raise-error[=name] 
+ Controls raising a warning or an error when executing
+ queries that rely on Gap Lock. It can take the following
+ values: OFF: no error is raised WARNING: a warning is
+ raised ERROR: an error is raised. Default is OFF
  --gap-lock-write-log 
  Writing to gap_lock_log_file when executing queries
  relying on Gap Lock. Default is false.
@@ -2801,7 +2803,7 @@ ft-min-word-len 4
 ft-query-expansion-limit 20
 ft-stopword-file (No default value)
 gap-lock-exceptions (No default value)
-gap-lock-raise-error FALSE
+gap-lock-raise-error OFF
 gap-lock-write-log FALSE
 gdb FALSE
 general-log FALSE

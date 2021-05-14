@@ -127,6 +127,7 @@
 #include "sql/sql_const.h"
 #include "sql/sql_digest_stream.h"  // sql_digest_state
 #include "sql/sql_error.h"
+#include "sql/sql_info.h"
 #include "sql/sql_list.h"
 #include "sql/sql_plugin_ref.h"
 #include "sql/sys_vars_resource_mgr.h"  // Session_sysvar_resource_manager
@@ -2719,6 +2720,33 @@ class THD : public MDL_context_owner,
   void mt_key_clear(enum_mt_key key_name) {
     assert(key_name < MT_KEY_MAX);
     mt_key_val_set[key_name] = false;
+  }
+
+  /**
+    Check whether we can raise warning/error when gap locks are used in a query
+    @return true if we can raise one, false otherwise.
+  */
+  bool gap_lock_raise_allowed() {
+    return (variables.gap_lock_raise_error != GAP_LOCK_RAISE_OFF ? true
+                                                                 : false);
+  }
+
+  /**
+    Check whether we can raise a warning when gap locks are used in a query
+    @return true if we can raise a warning, false otherwise.
+  */
+  bool gap_lock_raise_warning() {
+    return (variables.gap_lock_raise_error == GAP_LOCK_RAISE_WARNING ? true
+                                                                     : false);
+  }
+
+  /**
+    Check whether we can raise am error when gap locks are used in a query
+    @return true if we can raise an error, false otherwise.
+  */
+  bool gap_lock_raise_error() {
+    return (variables.gap_lock_raise_error == GAP_LOCK_RAISE_ERROR ? true
+                                                                   : false);
   }
 
   /** Current statement instrumentation. */
