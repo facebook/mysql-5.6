@@ -19,18 +19,17 @@ set global innodb_deadlock_detect=1;
 set global innodb_max_deadlock_detection_steps=1;
 SELECT @@global.innodb_max_deadlock_detection_steps;
 SET @start_innodb_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
-SET GLOBAL innodb_lock_wait_timeout = 200;
+SET GLOBAL innodb_lock_wait_timeout = 20000;
 SELECT @@global.innodb_lock_wait_timeout;
-
 
 --echo
 --echo Deadlock Detection bailed out early
 --echo
 
-let $d1=query_get_value(SHOW STATUS like "Innodb_row_lock_wait_timeouts", Value, 1);
 let $d11=query_get_value(select count as Value from information_schema.innodb_metrics where name = 'lock_deadlocks_too_many_steps', Value, 1);
 
 connection con1;
+let $conn_id = `select connection_id()`;
 begin;
 select * from lockt where i=1 for update;
 
@@ -40,22 +39,23 @@ select * from lockt where i=2 for update;
 send select * from lockt where i=1 for update;
 
 connection con1;
---error ER_LOCK_WAIT_TIMEOUT
-select * from lockt where i=2 for update;
-rollback;
+send select * from lockt where i=2 for update;
 
-connection con2;
---error ER_LOCK_WAIT_TIMEOUT
+connection default;
+let $wait_condition = select count - $d11 = 2 from information_schema.innodb_metrics where name = 'lock_deadlocks_too_many_steps'; 
+--source include/wait_condition.inc
+
+--replace_result $conn_id ID
+eval kill query $conn_id;
+
+connection con1;
+--error ER_QUERY_INTERRUPTED
 reap;
 rollback;
 
-let $d2=query_get_value(SHOW STATUS like "Innodb_row_lock_wait_timeouts", Value, 1);
-let $d22=query_get_value(select count as Value from information_schema.innodb_metrics where name = 'lock_deadlocks_too_many_steps', Value, 1);
-
---disable_query_log
-eval select $d2 - $d1 as lock_time_outs, 'must be 2';
-eval select $d22 - $d11 as deadlocks_too_many_steps, 'must be 2';
---enable_query_log
+connection con2;
+reap;
+rollback;
 
 --echo
 --echo Deadlock detection triggered
