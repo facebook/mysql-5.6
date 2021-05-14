@@ -306,6 +306,31 @@ void psi_set_socket_thread_owner(THD *thd) {
       thd->get_protocol_classic()->get_vio()->mysql_socket);
 }
 
+/**
+  Send connection timeout error.
+
+  @param thd THD of timed out connection.
+*/
+void net_send_conn_timeout_error(THD *thd) {
+  if (send_error_before_closing_timed_out_connection) {
+    Protocol_classic *proto = thd->get_protocol_classic();
+    char msg[256];
+    msg[0] = 0;
+    proto->gen_conn_timeout_err(msg);
+    if (msg[0]) {
+      /* Force the packet serial number to 1 for client compatibility */
+      proto->set_output_pkt_nr(1);
+
+      /*
+        255 or 0xff indicates error packet. This mirrors how
+        net_send_error_packet is implemented.
+      */
+      net_write_command(proto->get_net(), uchar{255}, pointer_cast<const uchar *>(""), 0,
+                        pointer_cast<const uchar *>(msg), strlen(msg));
+    }
+  }
+}
+
 //////////////////////////////////////////////////////////
 //
 //  Definitions of functions declared in plugin.h
