@@ -1,0 +1,18 @@
+CREATE TABLE privacy_research (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_research VALUES(1, "User1");
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_close;
+select * from privacy_research;
+ERROR HY000: Purpose policy check `fbig::research or fbig::safety_security_integrity` (query policy: `xyz`) failed in FAIL_CLOSE mode
+select * from privacy_research where id >= 1;
+ERROR HY000: Purpose policy check `fbig::research or fbig::safety_security_integrity` (query policy: `xyz`) failed in FAIL_CLOSE mode
+select name, count(id) from privacy_research group by name;
+ERROR HY000: Purpose policy check `fbig::research or fbig::safety_security_integrity` (query policy: `xyz`) failed in FAIL_CLOSE mode
+select name, count(id) from privacy_research group by name order by 1;
+ERROR HY000: Purpose policy check `fbig::research or fbig::safety_security_integrity` (query policy: `xyz`) failed in FAIL_CLOSE mode
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+drop table privacy_research;

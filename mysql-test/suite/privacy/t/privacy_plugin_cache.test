@@ -1,0 +1,67 @@
+--source ../include/privacy_init.inc
+--source ../include/have_privacy_plugin.inc
+
+### Check if MySQL version > 8.0
+--let $ver_8_0= `select version() >= '8.0'`
+if (!$ver_8_0)
+{
+  --skip Privacy cache only ready in MySQL 8.0
+}
+
+### Backup original values
+set @original_privacy_plugin_purpose_policy_check = @@session.privacy_plugin_purpose_policy_check;
+set @original_privacy_plugin_purpose_policy_cache_control = @@global.privacy_plugin_purpose_policy_cache_control;
+set @original_privacy_plugin_purpose_policy_cache_retention = @@global.privacy_plugin_purpose_policy_cache_retention;
+set @original_performance_schema_esms_by_all = @@global.performance_schema_esms_by_all;
+set @original_sql_findings_control = @@global.sql_findings_control;
+
+### setup system/session
+use test;
+set session privacy_plugin_purpose_policy_check=fail_open;
+set global privacy_plugin_purpose_policy_cache_control=on;
+set global privacy_plugin_purpose_policy_cache_retention=15;
+set global performance_schema_esms_by_all=on;
+set global sql_findings_control=on;
+
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add query_policy fbig::research;
+
+### check system/session setup
+show variables like 'privacy_plugin%';
+
+### setup test (table, ...)
+CREATE TABLE privacy_research (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_research VALUES(1, "User1");
+
+### check cache and log
+select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count
+from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b
+where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
+
+select * from privacy_research;
+select * from privacy_research;
+select * from privacy_research;
+select * from privacy_research;
+select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
+
+select * from privacy_research where id>0;
+select * from privacy_research where id>0;
+select * from privacy_research where id>0;
+select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
+
+## Cleanup
+use test;
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+set global privacy_plugin_purpose_policy_cache_control=@original_privacy_plugin_purpose_policy_cache_control;
+set global privacy_plugin_purpose_policy_cache_retention=@original_privacy_plugin_purpose_policy_cache_retention;
+set global performance_schema_esms_by_all=@original_performance_schema_esms_by_all;
+set global sql_findings_control=@original_sql_findings_control;
+query_attrs_delete shard;
+query_attrs_delete query_policy;
+drop table privacy_research;
+
+--source ../include/privacy_end.inc

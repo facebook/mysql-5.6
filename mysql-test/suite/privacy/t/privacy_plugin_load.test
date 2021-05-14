@@ -1,0 +1,6 @@
+--source ../include/privacy_init.inc
+--source ../include/have_privacy_plugin.inc
+
+--echo === Success!
+
+--source ../include/privacy_end.inc
