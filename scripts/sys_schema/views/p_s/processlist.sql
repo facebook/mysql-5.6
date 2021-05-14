@@ -92,7 +92,7 @@ VIEW processlist (
 ) AS
 SELECT pps.thread_id AS thd_id,
        pps.processlist_id AS conn_id,
-       IF(pps.name IN ('thread/sql/one_connection', 'thread/thread_pool/tp_one_connection'),
+       IF(pps.name IN ('thread/sql/one_connection', 'thread/thread_pool/tp_one_connection', 'thread/thread_pool/worker'),
           CONCAT(pps.processlist_user, '@', pps.processlist_host),
           REPLACE(pps.name, 'thread/', '')) user,
        pps.processlist_db AS db,

@@ -138,6 +138,9 @@ ERROR HY000: Maximum connections reached for `test_db on localhost`
 connection con10;
 use test_db;
 ERROR HY000: Maximum connections reached for `test_db on localhost`
+select database();
+database()
+test
 select * from information_schema.admission_control_entities where schema_name like 'test%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test	0	0	0	0	10	3

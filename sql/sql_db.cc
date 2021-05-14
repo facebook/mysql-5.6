@@ -1807,8 +1807,17 @@ void set_change_db_callback(Change_db_callback new_callback) {
  */
 bool set_session_db_helper(THD *thd, const LEX_CSTRING &new_db) {
   bool error = false;
+  bool is_max_db_conn_enabled = opt_max_db_connections != 0;
   Change_db_callback callback = change_db_callback;
-  if (callback) {
+
+  // Order callback and server db changes: if max_db_connections is enabled on
+  // server then server goes first; otherwise callback goes first. This is
+  // needed to avoid the case when the callback switches to the new db but
+  // later the server fails the call due to MT limit but the switch is already
+  // done. If the callback always goes last then the same scenario is possible
+  // with the roles reversed. So whoever can fail should go first, and the
+  // other would see the error and avoid the switch.
+  if (callback && !is_max_db_conn_enabled) {
     error = callback(thd, new_db, false /*drop*/);
   }
 
@@ -1834,6 +1843,10 @@ bool set_session_db_helper(THD *thd, const LEX_CSTRING &new_db) {
         // No db, or successful switch, so mark guard to keep the changes.
         switch_guard.commit();
     }
+  }
+
+  if (!error && callback && is_max_db_conn_enabled) {
+    error = callback(thd, new_db, false /*drop*/);
   }
 
   // Switch guard either commits or rolls back the switch operation.

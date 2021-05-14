@@ -123,6 +123,7 @@ enable_query_log;
 connection con10;
 --error ER_MULTI_TENANCY_MAX_CONNECTION
 use test_db;
+select database();
 eval $ac_entities_query;
 
 --echo == Change_user to test_db that reached limit should fail

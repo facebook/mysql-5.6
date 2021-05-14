@@ -174,4 +174,11 @@ void psi_set_thread(PSI_thread *psi MY_ATTRIBUTE((unused)));
 */
 void psi_set_socket_thread_owner(THD *thd);
 
+/**
+  Send connection timeout error.
+
+  @param thd THD of timed out connection.
+*/
+void net_send_conn_timeout_error(THD *thd);
+
 #endif  // THREAD_POOL_PRIV_INCLUDED
