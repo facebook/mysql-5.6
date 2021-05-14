@@ -9,7 +9,7 @@ let $restart_file= $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
 --source include/wait_until_connected_again.inc
 
 show variables where variable_name = 'gap_lock_exceptions';
-set session gap_lock_raise_error=1;
+set session gap_lock_raise_error=error;
 begin;
 delete from t1 where id=1;
 commit;
@@ -23,7 +23,7 @@ let $restart_file= $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
 --source include/wait_until_connected_again.inc
 
 show variables where variable_name = 'gap_lock_exceptions';
-set session gap_lock_raise_error=1;
+set session gap_lock_raise_error=error;
 begin;
 --error ER_UNKNOWN_ERROR
 delete from t1 where id=1;

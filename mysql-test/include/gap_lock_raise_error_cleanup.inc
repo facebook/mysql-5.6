@@ -1,6 +1,6 @@
 
 set global gap_lock_write_log= 0;
-set global gap_lock_raise_error= 0;
+set global gap_lock_raise_error= off;
 
 drop table if exists gap1, gap2, gap3, gap4, gap5;
 DROP DATABASE mysqlslap;

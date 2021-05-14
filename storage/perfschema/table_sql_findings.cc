@@ -49,7 +49,7 @@ Plugin_table table_sql_findings::m_table_def(
     "  SQL_ID        VARCHAR(64),\n"
     "  CODE          BIGINT unsigned NOT NULL,\n"
     "  LEVEL         VARCHAR(64),\n"
-    "  MESSAGE       VARCHAR(256),\n"
+    "  MESSAGE       VARCHAR(512),\n"
     "  QUERY_TEXT    VARCHAR(1024),\n"
     "  COUNT         BIGINT unsigned NOT NULL,\n"
     "  LAST_RECORDED BIGINT unsigned NOT NULL \n",

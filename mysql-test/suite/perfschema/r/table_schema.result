@@ -1474,7 +1474,7 @@ def	performance_schema	socket_summary_by_instance	MAX_TIMER_MISC	24	NULL	NO	bigi
 def	performance_schema	sql_findings	SQL_ID	1	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
 def	performance_schema	sql_findings	CODE	2	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
 def	performance_schema	sql_findings	LEVEL	3	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
-def	performance_schema	sql_findings	MESSAGE	4	NULL	YES	varchar	256	1024	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)			select,insert,update,references			NULL
+def	performance_schema	sql_findings	MESSAGE	4	NULL	YES	varchar	512	2048	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(512)			select,insert,update,references			NULL
 def	performance_schema	sql_findings	QUERY_TEXT	5	NULL	YES	varchar	1024	4096	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(1024)			select,insert,update,references			NULL
 def	performance_schema	sql_findings	COUNT	6	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
 def	performance_schema	sql_findings	LAST_RECORDED	7	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL

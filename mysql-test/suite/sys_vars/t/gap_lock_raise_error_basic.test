@@ -8,13 +8,13 @@ SET @@global.gap_lock_raise_error = DEFAULT;
 SELECT @@global.gap_lock_raise_error = TRUE;
 
 
-SET @@global.gap_lock_raise_error = ON;
+SET @@global.gap_lock_raise_error = WARNING;
 SELECT @@global.gap_lock_raise_error;
 SET @@global.gap_lock_raise_error = OFF;
 SELECT @@global.gap_lock_raise_error;
 
 --Error ER_WRONG_VALUE_FOR_VAR
-SET @@global.gap_lock_raise_error = 2;
+SET @@global.gap_lock_raise_error = 3;
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.gap_lock_raise_error = -1;
 --Error ER_WRONG_VALUE_FOR_VAR
@@ -43,25 +43,15 @@ SET @@session.gap_lock_raise_error = OFF;
 SELECT @@session.gap_lock_raise_error;
 
 
-SELECT IF(@@global.gap_lock_raise_error, "ON", "OFF") = VARIABLE_VALUE 
-FROM performance_schema.global_variables 
-WHERE VARIABLE_NAME='gap_lock_raise_error';
-
-
-SET @@global.gap_lock_raise_error = 0;
+SET @@global.gap_lock_raise_error = OFF;
 SELECT @@global.gap_lock_raise_error;
-SET @@global.gap_lock_raise_error = 1;
+SET @@global.gap_lock_raise_error = ERROR;
 SELECT @@global.gap_lock_raise_error;
 
-SET @@global.gap_lock_raise_error = TRUE;
-SELECT @@global.gap_lock_raise_error;
-SET @@global.gap_lock_raise_error = FALSE;
-SELECT @@global.gap_lock_raise_error;
-
-SET @@global.gap_lock_raise_error = ON;
+SET @@global.gap_lock_raise_error = WARNING;
 SELECT @@gap_lock_raise_error = @@global.gap_lock_raise_error;
 
-SET gap_lock_raise_error = ON;
+SET gap_lock_raise_error = ERROR;
 --Error ER_PARSE_ERROR
 SET local.gap_lock_raise_error = OFF;
 --Error ER_UNKNOWN_TABLE

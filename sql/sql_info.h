@@ -30,6 +30,20 @@
 #include "storage/perfschema/table_sql_findings.h"
 
 /*
+  Possible values used for gap_lock_raise_error session variable
+  - OFF: silent
+  - WARNING: raise a warning
+  - ERROR: raise an error
+*/
+enum enum_gap_lock_raise_values {
+  GAP_LOCK_RAISE_OFF = 0,
+  GAP_LOCK_RAISE_WARNING = 1,
+  GAP_LOCK_RAISE_ERROR = 2,
+  /* Add new control before the following line */
+  GAP_LOCK_RAISE_INVALID
+};
+
+/*
   Possible values used for variables to control collection of MySQL stats
   - sql_findings_control,
   - sql_plans_control,
