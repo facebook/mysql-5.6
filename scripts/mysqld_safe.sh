@@ -80,6 +80,7 @@ Usage: $0 [OPTIONS]
   --core-file-size=LIMIT     Limit core files to the specified size
   --timezone=TZ              Set the system timezone
   --malloc-lib=LIB           Preload shared library LIB if available
+  --malloc-conf=OPTIONS      MALLOC_CONF env options
   --ld-preload-lib=LIB       Preload shared library LIB
   --mysqld=FILE              Use the specified file as mysqld
   --mysqld-version=VERSION   Use "mysqld-VERSION" as mysqld
@@ -260,6 +261,7 @@ parse_arguments() {
           exit 1
         fi
         add_mysqld_ld_preload "$val" ;;
+      --malloc-conf=*) malloc_conf_options="$val" ;;
       --mysqld=*)
         if [ -z "$pick_args" ]; then
           log_error "--mysqld option can only be used as command line option, found in config file"
@@ -886,6 +888,11 @@ do
   cmd="$cmd "`shell_quote_string "$i"`
 done
 cmd="$cmd $args"
+if [ -n "$malloc_conf_options" ]
+then
+  cmd="MALLOC_CONF=$malloc_conf_options $cmd"
+fi
+
 # Avoid 'nohup: ignoring input' warning
 test -n "$NOHUP_NICENESS" && cmd="$cmd < /dev/null"
 
