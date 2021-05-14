@@ -10159,6 +10159,15 @@ static int show_jemalloc_metadata(THD *thd, SHOW_VAR *var, char *buff)
   return show_jemalloc_sizet(thd, var, buff, "stats.metadata");
 }
 
+#define JEMALLOC_STRINGIFY_HELPER(x) #x
+#define JEMALLOC_STRINGIFY(x) JEMALLOC_STRINGIFY_HELPER(x)
+static int show_jemalloc_tcache_bytes(THD *thd, SHOW_VAR *var, char *buff)
+{
+  update_malloc_status();
+  return show_jemalloc_sizet(thd, var, buff, "stats.arenas." \
+           JEMALLOC_STRINGIFY(MALLCTL_ARENAS_ALL) ".tcache_bytes");
+}
+
 bool enable_jemalloc_hppfunc(char *enable_profiling_ptr)
 {
   std::string epp(enable_profiling_ptr);
@@ -11140,6 +11149,7 @@ SHOW_VAR status_vars[]= {
   {"Jemalloc_stats_allocated", (char*) &show_jemalloc_allocated,        SHOW_FUNC},
   {"Jemalloc_stats_mapped",    (char*) &show_jemalloc_mapped,           SHOW_FUNC},
   {"Jemalloc_stats_metadata",  (char*) &show_jemalloc_metadata,         SHOW_FUNC},
+  {"Jemalloc_tcache_bytes",    (char*) &show_jemalloc_tcache_bytes,     SHOW_FUNC},
 #endif
 #endif
   {"Json_contains_count",      (char*) &json_contains_count,            SHOW_LONGLONG},
