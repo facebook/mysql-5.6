@@ -1,21 +1,23 @@
 SET @start_value = @@global.gap_lock_raise_error;
 SELECT @start_value;
 @start_value
-0
+OFF
 SET @@global.gap_lock_raise_error = DEFAULT;
 SELECT @@global.gap_lock_raise_error = TRUE;
 @@global.gap_lock_raise_error = TRUE
 0
-SET @@global.gap_lock_raise_error = ON;
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SET @@global.gap_lock_raise_error = WARNING;
 SELECT @@global.gap_lock_raise_error;
 @@global.gap_lock_raise_error
-1
+WARNING
 SET @@global.gap_lock_raise_error = OFF;
 SELECT @@global.gap_lock_raise_error;
 @@global.gap_lock_raise_error
-0
-SET @@global.gap_lock_raise_error = 2;
-ERROR 42000: Variable 'gap_lock_raise_error' can't be set to the value of '2'
+OFF
+SET @@global.gap_lock_raise_error = 3;
+ERROR 42000: Variable 'gap_lock_raise_error' can't be set to the value of '3'
 SET @@global.gap_lock_raise_error = -1;
 ERROR 42000: Variable 'gap_lock_raise_error' can't be set to the value of '-1'
 SET @@global.gap_lock_raise_error = TRUEF;
@@ -41,33 +43,20 @@ ERROR 42000: Variable 'gap_lock_raise_error' can't be set to the value of ''
 SET @@session.gap_lock_raise_error = OFF;
 SELECT @@session.gap_lock_raise_error;
 @@session.gap_lock_raise_error
-0
-SELECT IF(@@global.gap_lock_raise_error, "ON", "OFF") = VARIABLE_VALUE 
-FROM performance_schema.global_variables 
-WHERE VARIABLE_NAME='gap_lock_raise_error';
-IF(@@global.gap_lock_raise_error, "ON", "OFF") = VARIABLE_VALUE
-1
-SET @@global.gap_lock_raise_error = 0;
+OFF
+SET @@global.gap_lock_raise_error = OFF;
 SELECT @@global.gap_lock_raise_error;
 @@global.gap_lock_raise_error
-0
-SET @@global.gap_lock_raise_error = 1;
+OFF
+SET @@global.gap_lock_raise_error = ERROR;
 SELECT @@global.gap_lock_raise_error;
 @@global.gap_lock_raise_error
-1
-SET @@global.gap_lock_raise_error = TRUE;
-SELECT @@global.gap_lock_raise_error;
-@@global.gap_lock_raise_error
-1
-SET @@global.gap_lock_raise_error = FALSE;
-SELECT @@global.gap_lock_raise_error;
-@@global.gap_lock_raise_error
-0
-SET @@global.gap_lock_raise_error = ON;
+ERROR
+SET @@global.gap_lock_raise_error = WARNING;
 SELECT @@gap_lock_raise_error = @@global.gap_lock_raise_error;
 @@gap_lock_raise_error = @@global.gap_lock_raise_error
 0
-SET gap_lock_raise_error = ON;
+SET gap_lock_raise_error = ERROR;
 SET local.gap_lock_raise_error = OFF;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.gap_lock_raise_error = OFF' at line 1
 SELECT local.gap_lock_raise_error;
@@ -81,4 +70,4 @@ ERROR 42S22: Unknown column 'gap_lock_raise_error' in 'field list'
 SET @@global.gap_lock_raise_error = @start_value;
 SELECT @@global.gap_lock_raise_error;
 @@global.gap_lock_raise_error
-0
+OFF

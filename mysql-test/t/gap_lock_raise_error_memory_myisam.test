@@ -2,6 +2,7 @@
 
 let $gap_lock_log_file=`select @@gap_lock_log_file`;
 let $engine=memory;
+--let $warning_or_error= ERROR
 --source include/gap_lock_raise_error_init.inc
 select sum(value) from gap1;
 update gap1 set gap1.value= (select count(*) from gap2);
@@ -9,6 +10,7 @@ select sum(value) from gap1;
 --source include/gap_lock_raise_error_cleanup.inc
 
 let $engine=myisam;
+--let $warning_or_error= ERROR
 --source include/gap_lock_raise_error_init.inc
 select sum(value) from gap1;
 update gap1 set gap1.value= (select count(*) from gap2);

@@ -237,10 +237,13 @@
 
   80020-018:
   - change type of SQL_FINDINGS.LAST_RECORDED to bigint
+
+  80020-019:
+  - support longer messages by changing SQL_FINDINGS.MESSAGE from 256 to 512
 */
 /* Version published now is 80020-018. i.e. 8.0.20 Facebook schema change
  * no. 18.
  */
-static const uint PFS_DD_VERSION = 80020018;
+static const uint PFS_DD_VERSION = 80020019;
 
 #endif /* PFS_DD_VERSION_H */

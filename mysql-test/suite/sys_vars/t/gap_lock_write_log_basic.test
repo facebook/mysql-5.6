@@ -43,7 +43,7 @@ SET @@session.gap_lock_write_log = OFF;
 SELECT @@session.gap_lock_write_log;
 
 
-SELECT IF(@@global.gap_lock_write_log, "ON", "OFF") = VARIABLE_VALUE 
+SELECT IF(@@global.gap_lock_write_log, "ON", "OFF") = VARIABLE_VALUE
 FROM performance_schema.global_variables 
 WHERE VARIABLE_NAME='gap_lock_write_log';
 

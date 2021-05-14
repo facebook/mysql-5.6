@@ -3,7 +3,7 @@ set @save_gap_lock_write_log = @@gap_lock_write_log;
 set @save_gap_lock_raise_error = @@gap_lock_raise_error;
 
 set gap_lock_write_log = 1;
-set gap_lock_raise_error = 0;
+set gap_lock_raise_error = off;
 
 begin;
 # log should be written exactly once
