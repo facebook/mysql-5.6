@@ -9,7 +9,7 @@ Field	Type	Null	Key	Default	Extra
 SQL_ID	varchar(64)	YES		NULL	
 CODE	bigint unsigned	NO		NULL	
 LEVEL	varchar(64)	YES		NULL	
-MESSAGE	varchar(256)	YES		NULL	
+MESSAGE	varchar(512)	YES		NULL	
 QUERY_TEXT	varchar(1024)	YES		NULL	
 COUNT	bigint unsigned	NO		NULL	
 LAST_RECORDED	bigint unsigned	NO		NULL	

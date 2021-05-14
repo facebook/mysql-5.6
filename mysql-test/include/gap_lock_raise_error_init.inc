@@ -1,3 +1,14 @@
+# ==== Usage ====
+#
+# [--let $warning_or_error= WARNING | ERROR ]
+# --source include/assert_no_warnings.inc
+#
+# Parameters:
+#
+#   $warning_or_error
+#     Whether we are expected to raise warning or error.
+#
+
 --disable_warnings
 drop table if exists gap1,gap2,gap3;
 --enable_warnings
@@ -34,5 +45,5 @@ insert into gap4 values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
 create table gap5 like gap4;
 insert into gap5 values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
 
-set session gap_lock_raise_error=1;
+eval set session gap_lock_raise_error= $warning_or_error;
 set session gap_lock_write_log=1;

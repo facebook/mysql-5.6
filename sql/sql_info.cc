@@ -292,12 +292,13 @@ void remove_active_sql(THD *thd) {
 /***********************************************************************
               Begin - Functions to support SQL findings
 ************************************************************************/
+
 /*
   SQL_FINDINGS
 
   Associates a SQL ID with its findings (aka SQL conditions).
 */
-const uint sf_max_message_size = 256;  // max message text size
+const uint sf_max_message_size = 512;  // max message text size
 const uint sf_max_query_size = 1024;   // max query text size
 
 /* Global SQL findings map to track findings for all SQL statements */

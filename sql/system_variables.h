@@ -468,7 +468,7 @@ struct System_variables {
 
   ulong protocol_mode;
 
-  bool gap_lock_raise_error;
+  ulong gap_lock_raise_error;
   bool gap_lock_write_log;
 
   /*
