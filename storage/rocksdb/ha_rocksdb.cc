@@ -9239,9 +9239,8 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
   rocksdb::Slice slice(slice_arg);
   *use_locking_iterator= false;
   flip_rev_cf= true;
-  // psergey-todo: add !ha_thd()->rli_slave under some conditions?
-  if (m_lock_rows == RDB_LOCK_NONE || !rocksdb_use_range_locking || 
-      ha_thd()->rli_slave) {
+
+  if (m_lock_rows == RDB_LOCK_NONE || !rocksdb_use_range_locking) {
     return 0;
   }
   bool big_range= false;
