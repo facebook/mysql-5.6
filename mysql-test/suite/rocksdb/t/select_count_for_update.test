@@ -1,0 +1,73 @@
+--source include/have_rocksdb.inc
+
+#
+# SELECT COUNT(*) FOR UPDATE as COUNT(*) has its own separate code path
+#
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--enable_connect_log
+
+--source include/count_sessions.inc
+
+CREATE TABLE t1 (pk int PRIMARY KEY, a int, key sk(a)) ENGINE=rocksdb;
+INSERT INTO t1 values (1, 1), (2, 2), (3, 3);
+
+# PRIMARY KEY
+--connect (con1,localhost,root,,)
+BEGIN;
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY) FOR UPDATE;
+
+--connection default
+SET lock_wait_timeout = 1;
+
+# Should still be able to select 
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY);
+# ... but not with LOCK IN SHARE MODE / FOR UPDATE
+
+--error ER_LOCK_WAIT_TIMEOUT
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY) LOCK IN SHARE MODE;
+
+--error ER_LOCK_WAIT_TIMEOUT
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY) FOR UPDATE;
+
+--connection con1
+COMMIT;
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY);
+
+--connection default
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY);
+
+# SECONDARY KEY
+--connection con1
+BEGIN;
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk) FOR UPDATE;
+
+--connection default
+SET lock_wait_timeout = 1;
+
+# Should still be able to select 
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk);
+# ... but not with LOCK IN SHARE MODE / FOR UPDATE
+
+--error ER_LOCK_WAIT_TIMEOUT
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk) LOCK IN SHARE MODE;
+
+--error ER_LOCK_WAIT_TIMEOUT
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk) FOR UPDATE;
+
+--connection con1
+COMMIT;
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk);
+
+--disconnect con1
+--connection default
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk);
+
+# Cleanup
+
+DROP TABLE t1;
+
+--source include/wait_until_count_sessions.inc

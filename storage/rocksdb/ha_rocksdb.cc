@@ -9635,19 +9635,29 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
 }
 
 int ha_rocksdb::records(ha_rows *num_rows) {
-  m_iteration_only = true;
-  auto iteration_guard =
-      create_scope_guard([this]() { m_iteration_only = false; });
-  int count = handler::records(num_rows);
-  return count;
+  if (m_lock_rows == RDB_LOCK_NONE) {
+    // SELECT COUNT(*) without locking, fast path
+    m_iteration_only = true;
+    auto iteration_guard =
+        create_scope_guard([this]() { m_iteration_only = false; });
+    return handler::records(num_rows);
+  } else {
+    // SELECT COUNT(*) with locking, slow path
+    return handler::records(num_rows);
+  }
 }
 
 int ha_rocksdb::records_from_index(ha_rows *num_rows, uint index) {
-  m_iteration_only = true;
-  auto iteration_guard =
-      create_scope_guard([this]() { m_iteration_only = false; });
-  int count = handler::records_from_index(num_rows, index);
-  return count;
+  if (m_lock_rows == RDB_LOCK_NONE) {
+    // SELECT COUNT(*) without locking, fast path
+    m_iteration_only = true;
+    auto iteration_guard =
+        create_scope_guard([this]() { m_iteration_only = false; });
+    return handler::records_from_index(num_rows, index);
+  } else {
+    // SELECT COUNT(*) with locking, slow path
+    return handler::records_from_index(num_rows, index);
+  }
 }
 
 /**
