@@ -1,0 +1,51 @@
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (pk int PRIMARY KEY, a int, key sk(a)) ENGINE=rocksdb;
+INSERT INTO t1 values (1, 1), (2, 2), (3, 3);
+connect  con1,localhost,root,,;
+BEGIN;
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY) FOR UPDATE;
+COUNT(*)
+3
+connection default;
+SET lock_wait_timeout = 1;
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY);
+COUNT(*)
+3
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY) LOCK IN SHARE MODE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY) FOR UPDATE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+connection con1;
+COMMIT;
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY);
+COUNT(*)
+3
+connection default;
+SELECT COUNT(*) FROM t1 FORCE INDEX (PRIMARY);
+COUNT(*)
+3
+connection con1;
+BEGIN;
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk) FOR UPDATE;
+COUNT(*)
+3
+connection default;
+SET lock_wait_timeout = 1;
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk);
+COUNT(*)
+3
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk) LOCK IN SHARE MODE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk) FOR UPDATE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+connection con1;
+COMMIT;
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk);
+COUNT(*)
+3
+disconnect con1;
+connection default;
+SELECT COUNT(*) FROM t1 FORCE INDEX (sk);
+COUNT(*)
+3
+DROP TABLE t1;
