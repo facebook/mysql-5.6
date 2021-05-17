@@ -1,0 +1,288 @@
+#
+# Range Locking : tests for SeekForUpdate feature
+#
+
+--source include/have_rocksdb.inc
+--source include/have_debug_sync.inc
+--source suite/rocksdb/include/have_range_locking.inc
+--enable_connect_log
+show variables like 'rocksdb_use_range_locking';
+
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (
+  pk int,
+  a int,
+  primary key (pk)
+) engine=rocksdb;
+
+insert into t1 select
+  A.a + B.a*10 + C.a*100,
+  A.a + B.a*10 + C.a*100
+from 
+  t0 A, t0 B, t0 C;
+
+--echo # Make another connection to get the lock tree out of the STO-mode
+connect (con1,localhost,root,,);
+connection con1;
+begin;
+select * from t1 where pk=10 for update;
+
+connection default;
+begin;
+select * from t1 where pk=11 for update;
+
+let $select_from_is_rowlocks_current_trx_only=1;
+--echo # Now, we will just see locks on 10=0xA and 11=0xB:
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+--echo #
+--echo #  SeekForUpdate Test #1: A query with type=range (without upper bound) and LIMIT 
+--echo #
+--replace_column 10 #
+explain
+select * from t1 where pk>=500 order by pk limit 3 for update;
+select * from t1 where pk>=500 order by pk limit 3 for update;
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+rollback;
+
+
+begin;
+select * from t1 where pk=11 for update;
+explain
+select * from t1 order by pk limit 3 for update;
+select * from t1 order by pk limit 3 for update;
+
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+rollback;
+connection con1;
+rollback;
+disconnect con1;
+connection default;
+drop table t0, t1;
+
+
+--echo #
+--echo #  Concurrent tests: let one thread do SeekForUpdate and the other
+--echo #   interfere by committing modifications
+--echo #
+
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (
+  pk int,
+  a int,
+  primary key (pk)
+) engine=rocksdb;
+
+insert into t1 select
+  A.a + B.a*10 + C.a*100,
+  A.a + B.a*10 + C.a*100
+from 
+  t0 A, t0 B, t0 C;
+
+select * from t1 where pk<10;
+delete from t1 where pk<10;
+select * from t1 where pk<10;
+
+
+--echo # Test what happens when another transaction commits a row
+--echo # right before the range we are about to lock (nothing)
+
+--replace_column 10 #
+explain 
+select * from t1 where pk >=5 order by pk limit 3 for update;
+
+begin;
+
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR spoiler_inserted';
+send select * from t1 where pk >=5 order by pk limit 3 for update;
+
+connect (con1,localhost,root,,);
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+insert into t1 values (3,3);
+set debug_sync='now SIGNAL spoiler_inserted';
+
+connection default;
+reap;
+rollback;
+
+delete from t1 where pk=3;
+
+--echo #
+--echo # Now, repeat the test but let the other transaction insert the row into
+--echo # the range we are locking
+
+--replace_column 10 #
+explain 
+select * from t1 where pk >=5 order by pk limit 1 for update;
+
+begin;
+
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR spoiler_inserted';
+send 
+select * from t1 where pk >=5 order by pk limit 1 for update;
+
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+insert into t1 values (8,8);
+set debug_sync='now SIGNAL spoiler_inserted';
+
+connection default;
+reap;
+
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+rollback;
+delete from t1 where pk=8;
+
+--echo #
+--echo # Repeat the third time, this time deleting the row that SeekForUpdate saw
+--echo #
+insert into t1 values (7,7);
+
+begin;
+
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR spoiler_inserted';
+send 
+select * from t1 where pk >=5 order by pk limit 1 for update;
+
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+delete from t1 where pk=7;
+set debug_sync='now SIGNAL spoiler_inserted';
+
+connection default;
+reap;
+
+rollback;
+
+--echo #
+--echo # Repeat the above test, but let the read fail with ER_LOCK_WAIT_TIMEOUT
+--echo # error. MyRocks code should now be prepared that data reads cause this
+--echo # error
+--echo #
+insert into t1 values (7,7);
+
+begin;
+
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR spoiler_inserted';
+send 
+select * from t1 where pk >=5 order by pk limit 1 for update;
+
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+begin;
+delete from t1 where pk=7;
+set debug_sync='now SIGNAL spoiler_inserted';
+
+connection default;
+--error ER_LOCK_WAIT_TIMEOUT
+reap;
+
+rollback;
+
+connection con1;
+rollback;
+connection default;
+
+--echo #
+--echo # Backward scan test
+--echo #
+connection con1;
+begin;
+select * from t1 where pk=500 for update;
+connection default;
+
+insert into t1 values 
+  (1001, 1001),
+  (1005, 1005),
+  (1007, 1007),
+  (1010, 1010);
+
+begin;
+select * from t1 order by pk desc limit 2 for update;
+
+let $select_from_is_rowlocks_current_trx_only=1;
+
+--echo #  The below will lock from pk=1007 (0x3ef) till the end of the table:
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+rollback;
+
+begin;
+select * from t1 where pk <1007 order by pk desc limit 2 for update;
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+connection con1;
+rollback;
+
+connection default;
+rollback;
+
+--echo #
+--echo # Backward scan test 2: error condition
+--echo #
+connection con1;
+begin;
+select * from t1 where pk=1010 for update;
+
+connection default;
+begin;
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t1 order by pk desc limit 2 for update;
+rollback;
+
+connection con1;
+rollback;
+begin;
+select * from t1 where pk=1007 for update;
+
+connection default;
+begin;
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t1 order by pk desc limit 2 for update;
+rollback;
+
+connection con1;
+rollback;
+
+disconnect con1;
+connection default;
+drop table t0,t1;
+
+--echo #
+--echo # A test: full table scan doesn't lock gaps
+--echo #
+
+create table t1 (
+  pk int primary key,
+  a int
+) engine=rocksdb;
+
+insert into t1 values (10,10),(20,20),(30,30);
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+connection con1;
+begin;
+
+select * from t1 for update;
+
+connection con2;
+
+--error ER_LOCK_WAIT_TIMEOUT
+insert into t1 values (5,5);
+
+connection con1;
+rollback;
+
+disconnect con1;
+disconnect con2;
+connection default;
+drop table t1;

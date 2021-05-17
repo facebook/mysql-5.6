@@ -677,10 +677,11 @@ class select_exec {
     }
 
     rocksdb::Iterator *get_iterator(rocksdb::ColumnFamilyHandle *cf,
+                                    bool is_rev_cf,
                                     bool use_bloom,
                                     const rocksdb::Slice &lower_bound,
                                     const rocksdb::Slice &upper_bound) {
-      return rdb_tx_get_iterator(m_thd, cf, !use_bloom, lower_bound,
+      return rdb_tx_get_iterator(m_thd, cf, is_rev_cf, !use_bloom, lower_bound, //psergey-mergey-todo: or m_tx ?
                                  upper_bound, nullptr);
     }
 
@@ -1518,6 +1519,7 @@ bool INLINE_ATTR select_exec::setup_iterator(THD *thd) {
   } else {
     m_iterator.reset(
         new Rdb_iterator_base(thd, m_key_def, m_pk_def, m_tbl_def));
+      m_lower_bound_slice, m_upper_bound_slice);
   }
 
   return m_iterator == nullptr;

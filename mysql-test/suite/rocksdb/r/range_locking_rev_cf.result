@@ -1,0 +1,482 @@
+show variables like 'rocksdb_use_range_locking';
+Variable_name	Value
+rocksdb_use_range_locking	ON
+create table t1 (
+pk int,
+a int,
+primary key (pk) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t1 values
+(10,10),(20,20),(30,30);
+connect  con1,localhost,root,,;
+connect  con2,localhost,root,,;
+### Test: check that range lock inhibits a point lock
+connection con1;
+begin;
+select * from t1 where pk between 5 and 25 for update;
+pk	a
+10	10
+20	20
+connection con2;
+insert into t1 values (15,15);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+connection con1;
+rollback;
+## Test: check that range lock inhibits another range lock
+connection con1;
+begin;
+select * from t1 where pk between 5 and 25 for update;
+pk	a
+10	10
+20	20
+connection con2;
+begin;
+select * from t1 where pk between 15 and 35 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+rollback;
+connection con1;
+rollback;
+## Test: check that regular read does not get a range lock
+connection con1;
+begin;
+select * from t1 where pk between 5 and 25;
+pk	a
+10	10
+20	20
+connection con2;
+begin;
+select * from t1 where pk between 15 and 35 for update;
+pk	a
+20	20
+30	30
+rollback;
+connection con1;
+rollback;
+## Test that locks are not released when a statement inside 
+## a transaction is rolled back
+create table t2 (
+pk int,
+a int,
+primary key (pk) comment 'rev:cf1',
+unique key(a) comment ''
+) engine=rocksdb;
+insert into t2 values (1,1),(2,2);
+begin;
+insert into t2 values (3,3);
+insert into t2 values (10,2);
+ERROR 23000: Duplicate entry '2' for key 't2.a'
+connection con2;
+begin;
+select * from t2 where pk=3 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t2.PRIMARY
+rollback;
+connection con1;
+rollback;
+drop table t2;
+connection default;
+disconnect con1;
+disconnect con2;
+drop table t1;
+#
+# Test INFORMATION_SCHEMA.lock_info in range-locking mode
+#
+connect  con1,localhost,root,,;
+connection con1;
+create table t0 (a int primary key);
+begin;
+insert into t0 values (1);
+connection default;
+create table t1 (
+pk int,
+a int,
+primary key (pk) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t1 values
+(10,10),(20,20),(30,30);
+begin;
+select * from t1 where pk=10 for update;
+pk	a
+10	10
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}8000000a	X
+delete from t1 where pk between 25 and 40;
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}8000000a	X
+$cf_id	$trx_id	${indexnr}80000028-${indexnr}80000019:1	X
+rollback;
+begin;
+# The following will show a range lock on 2-9 and also a point lock on 10.
+# This is how things currently work. (after MDEV-21314, not anymore)
+select * from t1 where pk between 2 and 9 for update;
+pk	a
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}80000009-${indexnr}80000002:1	X
+rollback;
+drop table t1;
+connection con1;
+rollback;
+drop table t0;
+connection default;
+disconnect con1;
+#
+# MDEV-18104: MyRocks-Gap-Lock: range locking bounds are incorrect for multi-part keys
+#
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+kp1 int not null,
+kp2 int not null,
+a int,
+primary key(kp1, kp2) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t1 select 1, a, 1234 from t0;
+insert into t1 select 2, a, 1234 from t0;
+insert into t1 select 3, a, 1234 from t0;
+connect  con1,localhost,root,,;
+connection con1;
+begin;
+select * from t1 where kp1=2 for update;
+kp1	kp2	a
+2	0	1234
+2	1	1234
+2	2	1234
+2	3	1234
+2	4	1234
+2	5	1234
+2	6	1234
+2	7	1234
+2	8	1234
+2	9	1234
+connection default;
+# The lock on kp1=2 should inhibit the following INSERT:
+insert into t1 values ( 2,5,9999);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+rollback;
+connection con1;
+rollback;
+connection default;
+disconnect con1;
+drop table t0,t1;
+#
+# Test that locks on ranges on non-unique secondary keys inhibit
+# modifications of the contents of these ranges
+#
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+kp1 int not null,
+kp2 int not null,
+a int,
+key(kp1, kp2) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t1 select  1, a, 1234 from t0;
+insert into t1 values (2, 3, 1234);
+insert into t1 values (2, 5, 1234);
+insert into t1 values (2, 7, 1234);
+insert into t1 select  3, a, 1234 from t0;
+connect  con1,localhost,root,,;
+connection con1;
+begin;
+explain
+select * from t1 where kp1=2 for update;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	kp1	kp1	4	const	#	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`kp1` AS `kp1`,`test`.`t1`.`kp2` AS `kp2`,`test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`kp1` = 2)
+select * from t1 where kp1=2 for update;
+kp1	kp2	a
+2	3	1234
+2	5	1234
+2	7	1234
+connection default;
+begin;
+insert into t1 values (2, 9, 9999);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.kp1
+delete from t1 where kp1=2 and kp2=5;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.kp1
+update t1 set kp1=333 where kp1=2 and kp2=3;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.kp1
+update t1 set kp1=2 where kp1=1 and kp2=8;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.kp1
+rollback;
+connection con1;
+rollback;
+disconnect con1;
+connection default;
+drop table t0,t1;
+#
+# Transaction isolation test
+#
+create table t1 (pk int primary key, a int) engine=rocksdb;
+insert into t1 values (1,1),(2,2),(3,3);
+connect  con1,localhost,root,,;
+# TRX1: Start, Allocate a snapshot
+connection con1;
+begin;
+select * from t1;
+pk	a
+1	1
+2	2
+3	3
+# TRX2: Make a change that TRX1 will not see
+connection default;
+update t1 set a=2222 where pk=2;
+# TRX1: Now, make a change that would overwrite TRX2'x change and commit
+connection con1;
+update t1 set a=a+1 where pk=2;
+commit;
+# Examine the result:
+#   pk=2, a=2223 means UPDATE in TRX1 used "read committed" (InnoDB-like isolation)
+#   pk=2, a=3 means UPDATE in TRX1 silently overwrote TRX2
+#   (and with key tracking, one would get an error on the second UPDATE)
+connection default;
+select * from t1;
+pk	a
+1	1
+2	2223
+3	3
+disconnect con1;
+connection default;
+drop table t1;
+#
+# Same test as above, but check the range scan
+#
+create table t1 (
+pk int,
+a int,
+primary key (pk) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t1 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6);
+connect  con1,localhost,root,,;
+# TRX1: Start, Allocate a snapshot
+connection con1;
+begin;
+select * from t1;
+pk	a
+6	6
+5	5
+4	4
+3	3
+2	2
+1	1
+# TRX2: Make a change that TRX1 will not see
+connection default;
+update t1 set a=2222 where pk between 3 and 5;
+# TRX1: Now, make a change that would overwrite TRX2'x change and commit
+connection con1;
+update t1 set a=a+1 where pk between 3 and 5;
+commit;
+# Examine the result:
+#   pk={3,4,5} a=2223 means UPDATE in TRX1 used "read committed" (InnoDB-like isolation)
+connection default;
+select * from t1;
+pk	a
+6	6
+5	2223
+4	2223
+3	2223
+2	2
+1	1
+disconnect con1;
+connection default;
+drop table t1;
+#
+# Same as above, but test SELECT FOR UPDATE.
+#
+create table t1 (
+pk int,
+a int,
+primary key (pk) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t1 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6);
+connect  con1,localhost,root,,;
+# TRX1: Start, Allocate a snapshot
+connection con1;
+begin;
+select * from t1;
+pk	a
+6	6
+5	5
+4	4
+3	3
+2	2
+1	1
+# TRX2: Make a change that TRX1 will not see
+connection default;
+update t1 set a=222 where pk=2;
+update t1 set a=333 where pk=3;
+# TRX1: Check what select [FOR UPDATE] sees
+connection con1;
+select * from t1 where pk in (2,3);
+pk	a
+2	2
+3	3
+select * from t1 where pk=2 for update;
+pk	a
+2	222
+select * from t1 where pk=2;
+pk	a
+2	2
+commit;
+disconnect con1;
+connection default;
+drop table t1;
+#
+# Check that I_S.processlist.state is set correctly now.
+#
+create table t1(
+pk int,
+a int,
+primary key(pk) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t1 values (1,1),(2,2),(3,3);
+begin;
+select * from t1 where pk=2 for update;
+pk	a
+2	2
+connect  con1,localhost,root,,;
+begin;
+set rocksdb_lock_wait_timeout=300;
+select * from t1 where pk=2 for update;
+connection default;
+# Now, will wait until we see con1 have state="Waiting for row lock"
+rollback;
+connection con1;
+pk	a
+2	2
+rollback;
+disconnect con1;
+connection default;
+drop table t1;
+#
+# Test range locking for ranges with HA_READ_PREFIX_LAST
+#
+create table t0(a int) engine=rocksdb;
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+pk1 int,
+pk2 int,
+a int,
+primary key(pk1, pk2) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t1 
+select 
+A.a, B.a, A.a*10+B.a
+from
+t0 A, t0 B;
+connect  con1,localhost,root,,;
+connection con1;
+begin;
+insert into t1 values (0x1112222,0x1112222,0);
+connection default;
+begin;
+# Should use ref access w/o filesort:
+explain
+select * from t1
+where pk1=3
+order by pk1 desc, pk2 desc
+for update;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	PRIMARY	PRIMARY	4	const	#	100.00	Backward index scan
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk1` AS `pk1`,`test`.`t1`.`pk2` AS `pk2`,`test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`pk1` = 3) order by `test`.`t1`.`pk1` desc,`test`.`t1`.`pk2` desc
+select * from t1
+where pk1=3
+order by pk1 desc, pk2 desc
+for update;
+pk1	pk2	a
+3	9	39
+3	8	38
+3	7	37
+3	6	36
+3	5	35
+3	4	34
+3	3	33
+3	2	32
+3	1	31
+3	0	30
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}80000003-${indexnr}80000003:1	X
+rollback;
+#
+# Test range locking for ranges with HA_READ_PREFIX_LAST_OR_PREV
+#
+begin;
+# Should use range access with 2 keyparts and w/o filesort:
+explain 
+select * from t1 
+where pk1=4 and pk2 between 5 and 8 
+order by pk1 desc, pk2 desc
+for update;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	8	NULL	#	100.00	Using where; Backward index scan
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk1` AS `pk1`,`test`.`t1`.`pk2` AS `pk2`,`test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`pk1` = 4) and (`test`.`t1`.`pk2` between 5 and 8)) order by `test`.`t1`.`pk1` desc,`test`.`t1`.`pk2` desc
+select * from t1
+where pk1=4  and pk2 between 5 and 8 
+order by pk1 desc, pk2 desc
+for update;
+pk1	pk2	a
+4	8	48
+4	7	47
+4	6	46
+4	5	45
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}8000000480000008-${indexnr}8000000480000005:1	X
+rollback;
+connection con1;
+rollback;
+connection default;
+drop table t0, t1;
+#
+# A bug: range locking was not used when scan started at table start or end
+#
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t10(a int);
+insert into t10 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
+create table t1 (
+pk int not null,
+a int,
+primary key(pk)
+) engine=rocksdb;
+insert into t1 select a*2,a*2 from t10;
+connection con1;
+begin;
+select * from t1 where pk=500 for update;
+pk	a
+500	500
+connection default;
+begin;
+select * from t1 where pk<10 order by pk limit 10 for update;
+pk	a
+0	0
+2	2
+4	4
+6	6
+8	8
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}-${indexnr}8000000a	X
+rollback;
+begin;
+select * from t1 where pk>1990 order by pk desc limit 10 for update;
+pk	a
+1998	1998
+1996	1996
+1994	1994
+1992	1992
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}800007c6-${indexnr+1}	X
+rollback;
+connection con1;
+rollback;
+disconnect con1;
+connection default;
+drop table t0,t10,t1;

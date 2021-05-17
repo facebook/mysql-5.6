@@ -1,0 +1,39 @@
+#
+# Range Locking - Lock Escalation Tests.
+#
+
+--source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_range_locking.inc
+--enable_connect_log
+
+
+show variables like 'rocksdb_use_range_locking';
+show variables like 'rocksdb_max_lock_memory';
+show status like 'rocksdb_locktree_escalation_count';
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (
+  pk int primary key,
+  a int
+) engine=rocksdb;
+
+#begin;
+#insert into t1 values (1000111,100011);
+#connect (con1,localhost,root,,);
+#connection con1;
+
+insert into t1 
+select 
+  A.a + B.a*10 + C.a*100 + D.a*1000,
+  12345
+from t0 A, t0 B, t0 C, t0 D;
+
+select count(*) from t1;
+
+#connection default;
+#disconnect con1;
+show status like 'rocksdb_locktree_escalation_count';
+
+drop table t0,t1;
+
