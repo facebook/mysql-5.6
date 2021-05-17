@@ -323,7 +323,6 @@ class ha_rocksdb : public my_core::handler {
                       const enum ha_rkey_function &find_flag,
                       const rocksdb::Slice &slice,
                       const key_range *const end_key,
-                      bool flip_rev_cf,
                       bool *use_locking_iterator);
 
   int get_row_by_rowid(uchar *const buf, const char *const rowid,

@@ -780,10 +780,9 @@ static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
 static bool rocksdb_skip_locks_if_skip_unique_check = false;
 static bool rocksdb_alter_column_default_inplace = false;
-// Range locking: how much memory to use.
-//  (note that this is different from rocksdb_max_row_locks as
-//   that one is a hard per-thread count limit, and this one is a
-//   global memory limit)
+
+// Range Locking: how much memory can be used used for the lock data structure
+//  (which hold the locks acquired by all clients).
 static ulonglong rocksdb_max_lock_memory;
 
 static bool rocksdb_use_range_locking = 0;
@@ -3582,7 +3581,8 @@ class Rdb_transaction {
     if (read_current) {
       options.snapshot = nullptr;
     }
-    return get_iterator(options, column_family, is_rev_cf, use_locking_iterator);
+    return get_iterator(options, column_family, is_rev_cf,
+                        use_locking_iterator);
   }
 
   virtual bool is_tx_started() const = 0;
@@ -3747,10 +3747,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
   virtual bool is_writebatch_trx() const override { return false; }
 
-  /*
-    Both start and end endpoint may be prefixes.
-    Both bounds are inclusive.
-  */
+  // Lock the range between two specified endpoints
   rocksdb::Status lock_range(rocksdb::ColumnFamilyHandle *const cf,
                              const rocksdb::Endpoint &start_endp,
                              const rocksdb::Endpoint &end_endp) override {
@@ -4330,8 +4327,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle *const /* column_family */,
       bool /*is_rev_cf*/,
-      bool use_locking_iterator) override {
-    DBUG_ASSERT(!use_locking_iterator);
+      bool /*use_locking_iterator*/) override {
     const auto it = rdb->NewIterator(options);
     return m_batch->NewIteratorWithBase(it);
   }
@@ -5133,13 +5129,6 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
            rdb_netbuf_to_uint32(
                reinterpret_cast<const uchar *>(waiting_key.c_str()) +
                Rdb_key_def::DB_NUMBER_SIZE)}};
-          /*
-          {rdb_netbuf_to_uint32(
-               reinterpret_cast<const uchar *>(txn.m_waiting_key.c_str())),
-           rdb_netbuf_to_uint32(
-               reinterpret_cast<const uchar *>(txn.m_waiting_key.c_str()) +
-               Rdb_key_def::DB_NUMBER_SIZE)}};
-          */
       deadlock_info.path.push_back(get_dl_txn_info(txn, gl_index_id));
     }
     DBUG_ASSERT_IFF(path_entry.limit_exceeded, path_entry.path.empty());
@@ -9164,14 +9153,12 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
         rocksdb::Slice((char *)m_end_key_packed_tuple, end_key_packed_size);
   }
 
-
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
 
-  // psergey_range_locking:
   bool use_locking_iter= false;
 
-  if ((rc = set_range_lock(tx, kd, find_flag, slice,
-                           end_range, true, &use_locking_iter)))
+  if ((rc = set_range_lock(tx, kd, find_flag, slice, end_range, 
+                           &use_locking_iter)))
     DBUG_RETURN(rc);
   if (use_locking_iter)
     m_iterator->set_use_locking();
@@ -9225,12 +9212,28 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
 }
 
 
+/*
+  @brief
+    Compute the range lock endpoints and set the range lock, if necessary
+   
+  @param  use_locking_iter OUT  If true, locks are not set and LockingIterator
+                                should be used instead
+
+  @detail
+    If the scanned range doesn't have the endpoint we're scanning towards,
+    don't set the lock, it will be too coarse. Indicate that LockingIterator
+    should be used, instead.
+
+  @return
+     0      Ok
+     Other  Error acquiring the lock (wait timeout, deadlock, etc)
+*/
+
 int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
                                const Rdb_key_def &kd,
                                const enum ha_rkey_function &find_flag,
                                const rocksdb::Slice &slice_arg,
                                const key_range *const end_key,
-                               bool flip_rev_cf,
                                bool *use_locking_iterator)
 {
   rocksdb::Slice end_slice;
@@ -9238,7 +9241,6 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
   bool start_has_inf_suffix = false, end_has_inf_suffix = false;
   rocksdb::Slice slice(slice_arg);
   *use_locking_iterator= false;
-  flip_rev_cf= true;
 
   if (m_lock_rows == RDB_LOCK_NONE || !rocksdb_use_range_locking) {
     return 0;
@@ -9252,7 +9254,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
 
   if (find_flag == HA_READ_KEY_EXACT) {
     if (slice.size() == Rdb_key_def::INDEX_ID_SIZE) {
-      // This is a full scan
+      // This is a full table/index scan
       start_has_inf_suffix= false;
       big_range = true;
     } else {
@@ -9314,7 +9316,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
   }
   else if (find_flag == HA_READ_BEFORE_KEY) {
     /*
-      We get here for queris like
+      We get here for queries like
         select * from t1
         where              pk <1007 order by pk desc limit 2 for update
         select * from t1
@@ -9352,42 +9354,35 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
     else
       DBUG_ASSERT(0);
 
-    if (!big_range) {
+    // Known end range bounds: HA_READ_AFTER_KEY, HA_READ_BEFORE_KEY
+    if (end_key->flag == HA_READ_AFTER_KEY) {
+      // this is "key_part <= const".
+      end_has_inf_suffix= true;
+    } else if (end_key->flag == HA_READ_BEFORE_KEY) {
+      // this is "key_part < const", non-inclusive.
+      end_has_inf_suffix= false;
+    } else
+      DBUG_ASSERT(0);
 
-      // Known end range bounds: HA_READ_AFTER_KEY, HA_READ_BEFORE_KEY
-      if (end_key->flag == HA_READ_AFTER_KEY)
-      {
-        // this is "key_part <= const".
-        end_has_inf_suffix= true;
-      }
-      else if (end_key->flag == HA_READ_BEFORE_KEY)
-      {
-        // this is "key_part < const", non-inclusive.
-        end_has_inf_suffix= false;
-      }
-      else
-        DBUG_ASSERT(0);
+    uchar pack_buffer[MAX_KEY_LENGTH];
+    uint end_slice_size= kd.pack_index_tuple(table, pack_buffer, end_slice_buf,
+                                             end_key->key,
+                                             end_key->keypart_map);
 
-      uchar pack_buffer[MAX_KEY_LENGTH];
-      uint end_slice_size=
-          kd.pack_index_tuple(table, pack_buffer, end_slice_buf,
-                              end_key->key, end_key->keypart_map);
-
-      end_slice= rocksdb::Slice(reinterpret_cast<char *>(end_slice_buf),
-                                end_slice_size);
-    }
+    end_slice= rocksdb::Slice(reinterpret_cast<char *>(end_slice_buf),
+                              end_slice_size);
   }
   else
   {
-    // No end key // Known start range bounds: HA_READ_KEY_OR_NEXT, HA_READ_AFTER_KEY
+    big_range= true;
+#if 0
+    // The below is code to handle this without LockingIterator:
+    // No end key
+    // Known start range bounds: HA_READ_KEY_OR_NEXT, HA_READ_AFTER_KEY
     if (find_flag == HA_READ_KEY_OR_NEXT)
       start_has_inf_suffix= false;
     else if (find_flag == HA_READ_AFTER_KEY)
       start_has_inf_suffix= true;
-    else if (find_flag == HA_READ_KEY_EXACT) {
-      DBUG_ASSERT("CANNOT HAPPEN" == NULL);
-      start_has_inf_suffix= false; //TODO: does this hold??
-    }
     else
       DBUG_ASSERT(0);
 
@@ -9395,13 +9390,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
     kd.get_infimum_key(end_slice_buf, &end_slice_size);
     end_slice= rocksdb::Slice((char*)end_slice_buf, end_slice_size);
     end_has_inf_suffix= true;
-    big_range= true; // psergey-todo: why the above, then?
-  }
-
-  if (kd.m_is_reverse_cf) {
-    // Flip the endpoint flags
-    end_has_inf_suffix = !end_has_inf_suffix;
-    start_has_inf_suffix = !start_has_inf_suffix;
+#endif
   }
 
   if (big_range)
@@ -9409,18 +9398,18 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
     *use_locking_iterator= true;
     return 0;
   }
+
   rocksdb::Endpoint start_endp;
   rocksdb::Endpoint end_endp;
 
-  if (flip_rev_cf && kd.m_is_reverse_cf) {
+  if (kd.m_is_reverse_cf) {
     // Flip the endpoints
-    start_endp =rocksdb::Endpoint(end_slice, end_has_inf_suffix);
-    end_endp  = rocksdb::Endpoint(slice, start_has_inf_suffix);
+    start_endp =rocksdb::Endpoint(end_slice, !end_has_inf_suffix);
+    end_endp  = rocksdb::Endpoint(slice, !start_has_inf_suffix);
   } else {
     start_endp= rocksdb::Endpoint(slice, start_has_inf_suffix);
     end_endp=   rocksdb::Endpoint(end_slice, end_has_inf_suffix);
   }
-
 
   /*
     RocksDB's iterator is reading the snapshot of the data that was taken at
@@ -11141,10 +11130,6 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
     DBUG_RETURN(rc);
   }
 
-  // Range Locking: do we have a lock on the old PK value here?
-  //  - we have read the row we are about to update, right? (except for some
-  //  RBR mode? (in which we won't want to acquire locks anyway?))
-
   /*
     For UPDATEs, if the key has changed, we need to obtain a lock. INSERTs
     always require locking.
@@ -11453,9 +11438,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
 
       /*
         For point locking, Deleting on secondary key doesn't need any locks.
-        Range locking must set locks
-        (TODO: don't get the lock here if we've got it in key_info->flags &
-        HA_NOSAME branch above?)
+        Range locking must get a lock.
       */
       if (rocksdb_use_range_locking) {
         auto s= tx->lock_singlepoint_range(kd.get_cf(), secondary_key_slice);

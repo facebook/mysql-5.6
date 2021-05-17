@@ -138,7 +138,11 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
           &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice)) {
     skip_bloom = false;
   }
+
+  // Save the value of m_use_locking_iter because release_scan_iterator()
+  // will set it to false.
   bool use_locking_iter= m_use_locking_iter;
+
   /*
     In some cases, setup_scan_iterator() is called multiple times from
     the same query but bloom filter can not always be used.
@@ -159,8 +163,7 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
   if (m_scan_it_skips_bloom != skip_bloom) {
     release_scan_iterator();
   }
-  //psergey-todo: can it happen that there is a lock/non-lock mismatch here and
-  //we try to reuse the wrong iterator?
+
   /*
     SQL layer can call rnd_init() multiple times in a row.
     In that case, re-use the iterator, but re-position it at the table start.
@@ -223,10 +226,7 @@ int Rdb_iterator_base::iter_status_to_retval(rocksdb::Iterator *it,
     return not_found_code;
 
   Rdb_transaction *tx = get_tx_from_thd(m_thd);
-  //return tx->set_status_error(m_thd, s, m_kd, m_tbl_def, m_table_handler);
-  return 
-    rdb_tx_set_status_error(tx, s, *kd, m_tbl_def);
-
+  return rdb_tx_set_status_error(tx, s, *kd, m_tbl_def);
 }
 
 int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
