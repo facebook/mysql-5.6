@@ -7,4 +7,5 @@ Jemalloc_stats_active
 Jemalloc_stats_allocated
 Jemalloc_stats_mapped
 Jemalloc_stats_metadata
+Jemalloc_tcache_bytes
 SHOW MEMORY STATUS;

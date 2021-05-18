@@ -9167,6 +9167,15 @@ static int show_jemalloc_metadata(THD *thd, SHOW_VAR *var, char *buff) {
   update_malloc_status();
   return show_jemalloc_sizet(thd, var, buff, "stats.metadata");
 }
+
+#define JEMALLOC_STRINGIFY_HELPER(x) #x
+#define JEMALLOC_STRINGIFY(x) JEMALLOC_STRINGIFY_HELPER(x)
+static int show_jemalloc_tcache_bytes(THD *thd, SHOW_VAR *var, char *buff) {
+  update_malloc_status();
+  return show_jemalloc_sizet(
+      thd, var, buff,
+      "stats.arenas." JEMALLOC_STRINGIFY(MALLCTL_ARENAS_ALL) ".tcache_bytes");
+}
 #endif /* EMBEDDED_LIBRARY */
 #endif /* HAVE_JEMALLOC */
 
@@ -9635,6 +9644,8 @@ SHOW_VAR status_vars[] = {
     {"Jemalloc_stats_mapped", (char *)&show_jemalloc_mapped, SHOW_FUNC,
      SHOW_SCOPE_ALL},
     {"Jemalloc_stats_metadata", (char *)&show_jemalloc_metadata, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+    {"Jemalloc_tcache_bytes", (char *)&show_jemalloc_tcache_bytes, SHOW_FUNC,
      SHOW_SCOPE_ALL},
 #endif
     {"Key_blocks_not_flushed",
