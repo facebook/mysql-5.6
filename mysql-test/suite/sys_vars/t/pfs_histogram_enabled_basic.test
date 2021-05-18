@@ -1,0 +1,31 @@
+#
+# Only global
+#
+
+select @@global.performance_schema_histogram_enabled;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.performance_schema_histogram_enabled;
+
+show global variables like 'performance_schema_histogram_enabled';
+
+show session variables like 'performance_schema_histogram_enabled';
+
+--disable_warnings
+select * from performance_schema.global_variables
+  where variable_name='performance_schema_histogram_enabled';
+
+select * from performance_schema.session_variables
+  where variable_name='performance_schema_histogram_enabled';
+--enable_warnings
+
+#
+# Read-only
+#
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global performance_schema_histogram_enabled = 1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session performance_schema_histogram_enabled = 1;
+
