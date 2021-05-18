@@ -51,6 +51,7 @@ ulong digest_lost = 0;
 
 /** EVENTS_STATEMENTS_SUMMARY_BY_DIGEST buffer. */
 PFS_statements_digest_stat *statements_digest_stat_array = nullptr;
+PFS_histogram *statements_digest_histogram_array = nullptr;
 static char *statements_digest_query_sample_text_array = nullptr;
 /** Consumer flag for table EVENTS_STATEMENTS_SUMMARY_BY_DIGEST. */
 bool flag_statements_digest = true;
@@ -91,6 +92,17 @@ int init_digest(const PFS_global_param *param) {
     return 1;
   }
 
+  if (param->m_histogram_enabled) {
+    statements_digest_histogram_array = PFS_MALLOC_ARRAY(
+        &builtin_memory_digest, digest_max, sizeof(PFS_histogram),
+        PFS_histogram, MYF(MY_ZEROFILL));
+
+    if (unlikely(statements_digest_histogram_array == nullptr)) {
+      cleanup_digest();
+      return 1;
+    }
+  }
+
   if (pfs_max_sqltext > 0) {
     /* Size of each query sample text array. */
     size_t sqltext_size = pfs_max_sqltext * sizeof(char);
@@ -122,11 +134,15 @@ void cleanup_digest(void) {
                  sizeof(PFS_statements_digest_stat),
                  statements_digest_stat_array);
 
+  PFS_FREE_ARRAY(&builtin_memory_digest, digest_max, sizeof(PFS_histogram),
+                 statements_digest_histogram_array);
+
   PFS_FREE_ARRAY(&builtin_memory_digest_sample_sqltext, digest_max,
                  (pfs_max_sqltext * sizeof(char)),
                  statements_digest_query_sample_text_array);
 
   statements_digest_stat_array = nullptr;
+  statements_digest_histogram_array = nullptr;
   statements_digest_query_sample_text_array = nullptr;
 }
 
@@ -278,7 +294,10 @@ search:
 
         pfs->m_query_sample_refs = 0;
 
-        pfs->m_histogram.reset();
+        auto histogram = pfs->get_histogram();
+        if (histogram) {
+          histogram->reset();
+        }
 
         res = lf_hash_insert(&digest_hash, pins, &pfs);
         if (likely(res == 0)) {
@@ -335,6 +354,16 @@ static void purge_digest(PFS_thread *thread, PFS_digest_key *hash_key) {
   return;
 }
 
+PFS_histogram *PFS_statements_digest_stat::get_histogram() {
+  assert(statements_digest_stat_array != nullptr);
+  if (statements_digest_histogram_array) {
+    size_t index = this - statements_digest_stat_array;
+    return &statements_digest_histogram_array[index];
+  }
+
+  return nullptr;
+}
+
 void PFS_statements_digest_stat::reset_data(char *query_sample_array) {
   pfs_dirty_state dirty_state;
   m_lock.set_dirty(&dirty_state);
@@ -387,11 +416,11 @@ void reset_esms_by_digest() {
 void reset_histogram_by_digest() {
   uint index;
 
-  if (statements_digest_stat_array == nullptr) {
+  if (statements_digest_histogram_array == nullptr) {
     return;
   }
 
   for (index = 0; index < digest_max; index++) {
-    statements_digest_stat_array[index].m_histogram.reset();
+    statements_digest_histogram_array[index].reset();
   }
 }

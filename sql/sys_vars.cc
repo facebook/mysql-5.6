@@ -960,6 +960,13 @@ static Sys_var_bool Sys_pfs_esms_by_thread_by_event_name(
     CMD_LINE(OPT_ARG), DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
 
+static Sys_var_bool Sys_pfs_enable_histogram(
+    "performance_schema_histogram_enabled",
+    "Enables the histogram for events_statements_summary_by_all / by_digest",
+    READ_ONLY GLOBAL_VAR(pfs_param.m_histogram_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
+
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 static Sys_var_ulong Sys_auto_increment_increment(

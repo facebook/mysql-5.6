@@ -126,7 +126,7 @@ int table_esmh_by_digest::rnd_next(void) {
   PFS_statements_digest_stat *digest_stat;
 
   if (statements_digest_stat_array == nullptr ||
-      pfs_param.m_esms_by_all_enabled) {
+      !pfs_param.m_histogram_enabled || pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -151,7 +151,7 @@ int table_esmh_by_digest::rnd_pos(const void *pos) {
   PFS_statements_digest_stat *digest_stat;
 
   if (statements_digest_stat_array == nullptr ||
-      pfs_param.m_esms_by_all_enabled) {
+      !pfs_param.m_histogram_enabled || pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -180,7 +180,7 @@ int table_esmh_by_digest::index_next(void) {
   PFS_statements_digest_stat *digest_stat;
 
   if (statements_digest_stat_array == nullptr ||
-      pfs_param.m_esms_by_all_enabled) {
+      !pfs_param.m_histogram_enabled || pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -212,20 +212,22 @@ void table_esmh_by_digest::materialize(
   if (digest_stat != m_materialized_digest) {
     m_materialized_histogram.m_digest.make_row(digest_stat);
 
-    PFS_histogram *histogram = &digest_stat->m_histogram;
+    PFS_histogram *histogram = digest_stat->get_histogram();
+    if (histogram) {
+      ulong index;
+      ulonglong count = 0;
+      ulonglong count_and_lower = 0;
 
-    ulong index;
-    ulonglong count = 0;
-    ulonglong count_and_lower = 0;
+      for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
+        count = histogram->read_bucket(index);
+        count_and_lower += count;
 
-    for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
-      count = histogram->read_bucket(index);
-      count_and_lower += count;
+        PFS_esmh_by_digest_bucket &b =
+            m_materialized_histogram.m_buckets[index];
 
-      PFS_esmh_by_digest_bucket &b = m_materialized_histogram.m_buckets[index];
-
-      b.m_count_bucket = count;
-      b.m_count_bucket_and_lower = count_and_lower;
+        b.m_count_bucket = count;
+        b.m_count_bucket_and_lower = count_and_lower;
+      }
     }
 
     /* Cache this histogram. */

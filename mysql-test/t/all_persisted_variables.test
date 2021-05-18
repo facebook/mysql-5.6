@@ -63,6 +63,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'innodb_sync_pool_size',
 'override_enable_raft_check',
 'performance_schema_esms_by_thread_by_event_name',
+'performance_schema_histogram_enabled',
 'performance_schema_max_client_attrs',
 'performance_schema_sql_text_size',
 'per_user_session_var_user_name_delimiter',
