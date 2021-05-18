@@ -256,61 +256,62 @@ int table_esms_by_all::make_row(PFS_statements_digest_stat *digest_stat) {
   */
   m_row.m_stat.set(m_normalizer, &digest_stat->m_stat);
 
-  PFS_histogram *histogram = &digest_stat->m_histogram;
+  m_row.m_p95 = 0;
+  m_row.m_p99 = 0;
+  m_row.m_p999 = 0;
 
-  ulong index;
-  ulonglong count_star = 0;
-
-  for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
-    count_star += histogram->read_bucket(index);
-  }
-
-  if (count_star == 0) {
-    m_row.m_p95 = 0;
-    m_row.m_p99 = 0;
-    m_row.m_p999 = 0;
-  } else {
-    ulonglong count_95 = ((count_star * 95) + 99) / 100;
-    ulonglong count_99 = ((count_star * 99) + 99) / 100;
-    ulonglong count_999 = ((count_star * 999) + 999) / 1000;
-
-    assert(count_95 != 0);
-    assert(count_95 <= count_star);
-    assert(count_99 != 0);
-    assert(count_99 <= count_star);
-    assert(count_999 != 0);
-    assert(count_999 <= count_star);
-
-    ulong index_95 = 0;
-    ulong index_99 = 0;
-    ulong index_999 = 0;
-    bool index_95_set = false;
-    bool index_99_set = false;
-    bool index_999_set = false;
-    ulonglong count = 0;
+  PFS_histogram *histogram = digest_stat->get_histogram();
+  if (histogram) {
+    ulong index;
+    ulonglong count_star = 0;
 
     for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
-      count += histogram->read_bucket(index);
-
-      if ((count >= count_95) && !index_95_set) {
-        index_95 = index;
-        index_95_set = true;
-      }
-
-      if ((count >= count_99) && !index_99_set) {
-        index_99 = index;
-        index_99_set = true;
-      }
-
-      if ((count >= count_999) && !index_999_set) {
-        index_999 = index;
-        index_999_set = true;
-      }
+      count_star += histogram->read_bucket(index);
     }
 
-    m_row.m_p95 = g_histogram_pico_timers.m_bucket_timer[index_95 + 1];
-    m_row.m_p99 = g_histogram_pico_timers.m_bucket_timer[index_99 + 1];
-    m_row.m_p999 = g_histogram_pico_timers.m_bucket_timer[index_999 + 1];
+    if (count_star > 0) {
+      ulonglong count_95 = ((count_star * 95) + 99) / 100;
+      ulonglong count_99 = ((count_star * 99) + 99) / 100;
+      ulonglong count_999 = ((count_star * 999) + 999) / 1000;
+
+      assert(count_95 != 0);
+      assert(count_95 <= count_star);
+      assert(count_99 != 0);
+      assert(count_99 <= count_star);
+      assert(count_999 != 0);
+      assert(count_999 <= count_star);
+
+      ulong index_95 = 0;
+      ulong index_99 = 0;
+      ulong index_999 = 0;
+      bool index_95_set = false;
+      bool index_99_set = false;
+      bool index_999_set = false;
+      ulonglong count = 0;
+
+      for (index = 0; index < NUMBER_OF_BUCKETS; index++) {
+        count += histogram->read_bucket(index);
+
+        if ((count >= count_95) && !index_95_set) {
+          index_95 = index;
+          index_95_set = true;
+        }
+
+        if ((count >= count_99) && !index_99_set) {
+          index_99 = index;
+          index_99_set = true;
+        }
+
+        if ((count >= count_999) && !index_999_set) {
+          index_999 = index;
+          index_999_set = true;
+        }
+      }
+
+      m_row.m_p95 = g_histogram_pico_timers.m_bucket_timer[index_95 + 1];
+      m_row.m_p99 = g_histogram_pico_timers.m_bucket_timer[index_99 + 1];
+      m_row.m_p999 = g_histogram_pico_timers.m_bucket_timer[index_999 + 1];
+    }
   }
 
   /* Format the query sample sqltext string for output. */

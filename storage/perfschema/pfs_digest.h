@@ -101,8 +101,7 @@ struct PFS_ALIGNED PFS_statements_digest_stat {
   ulonglong m_first_seen;
   ulonglong m_last_seen;
 
-  // FIXME : allocate in separate buffer
-  PFS_histogram m_histogram;
+  PFS_histogram *get_histogram();
 
   /** Reset data for this record. */
   void reset_data(char *query_sample_array);

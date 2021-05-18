@@ -6808,7 +6808,10 @@ void pfs_end_statement_vc(PSI_statement_locker *locker, void *stmt_da) {
       ulong bucket_index = normalizer->bucket_index(wait_time);
 
       /* Update digest histogram. */
-      digest_stat->m_histogram.increment_bucket(bucket_index);
+      auto histogram = digest_stat->get_histogram();
+      if (histogram) {
+        histogram->increment_bucket(bucket_index);
+      }
 
       /* Update global histogram. */
       global_statements_histogram.increment_bucket(bucket_index);

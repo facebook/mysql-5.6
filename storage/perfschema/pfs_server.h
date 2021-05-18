@@ -136,6 +136,9 @@ struct PFS_global_param {
   /** True if esms_by_all table is enabled. */
   bool m_esms_by_all_enabled;
 
+  /** True if histogram is enabled */
+  bool m_histogram_enabled;
+
   /** True if esms_by_thread_by_event_name table is enabled */
   bool m_esms_by_thread_by_event_name;
 
