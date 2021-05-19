@@ -1,0 +1,76 @@
+create table t (i int primary key, name mediumtext);
+#
+# Test with JSON_EXTRACT, serialize_fb_json_raise_error = off
+#
+insert into t values (1, '["abc", "123"]');
+select json_extract(name, 0) from t;
+json_extract(name, 0)
+"abc"
+select json_extract(name, 0) from t group by 1;
+json_extract(name, 0)
+"abc"
+Warnings:
+Warning	3142	Serializing FB json values can lead to unexpected results
+select json_extract(name, 0) from t order by rand();
+json_extract(name, 0)
+"abc"
+Warnings:
+Warning	3142	Serializing FB json values can lead to unexpected results
+select /*+NO_MERGE(x) */ * from (select json_extract(name, 0) from t) x;
+json_extract(name, 0)
+"abc"
+Warnings:
+Warning	3142	Serializing FB json values can lead to unexpected results
+create temporary table tmp (j json);
+insert into tmp select json_extract(name, 0) from t;
+Warnings:
+Warning	3142	Serializing FB json values can lead to unexpected results
+drop table tmp;
+#
+# Test with JSON_EXTRACT_VALUE, serialize_fb_json_raise_error = off
+# JSON_EXTRACT_VALUE returns type string, so no error should occur.
+#
+select json_extract_value(name, 0) from t;
+json_extract_value(name, 0)
+abc
+select json_extract_value(name, 0) from t group by 1;
+json_extract_value(name, 0)
+abc
+select json_extract_value(name, 0) from t order by rand();
+json_extract_value(name, 0)
+abc
+set serialize_fb_json_raise_error = on;
+#
+# Test with JSON_EXTRACT, serialize_fb_json_raise_error = on
+#
+select json_extract(name, 0) from t;
+json_extract(name, 0)
+"abc"
+select json_extract(name, 0) from t group by 1;
+ERROR HY000: Serializing FB json values can lead to unexpected results
+select json_extract(name, 0) from t order by rand();
+ERROR HY000: Serializing FB json values can lead to unexpected results
+select /*+NO_MERGE(x) */ * from (select json_extract(name, 0) from t) x;
+ERROR HY000: Serializing FB json values can lead to unexpected results
+create temporary table tmp (j json);
+insert into tmp select json_extract(name, 0) from t;
+ERROR HY000: Serializing FB json values can lead to unexpected results
+drop table tmp;
+#
+# Test with JSON_EXTRACT_VALUE, serialize_fb_json_raise_error = on
+# JSON_EXTRACT_VALUE returns type string, so no error should occur.
+#
+select json_extract_value(name, 0) from t;
+json_extract_value(name, 0)
+abc
+select json_extract_value(name, 0) from t group by 1;
+json_extract_value(name, 0)
+abc
+select json_extract_value(name, 0) from t order by rand();
+json_extract_value(name, 0)
+abc
+select /*+NO_MERGE(x) */ * from (select json_extract_value(name, 0) from t) x;
+json_extract_value(name, 0)
+abc
+set serialize_fb_json_raise_error = off;
+drop table t;

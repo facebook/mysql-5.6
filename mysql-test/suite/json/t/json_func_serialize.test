@@ -1,0 +1,55 @@
+create table t (i int primary key, name mediumtext);
+
+--echo #
+--echo # Test with JSON_EXTRACT, serialize_fb_json_raise_error = off
+--echo #
+insert into t values (1, '["abc", "123"]');
+
+select json_extract(name, 0) from t;
+select json_extract(name, 0) from t group by 1;
+select json_extract(name, 0) from t order by rand();
+select /*+NO_MERGE(x) */ * from (select json_extract(name, 0) from t) x;
+
+create temporary table tmp (j json);
+insert into tmp select json_extract(name, 0) from t;
+drop table tmp;
+
+--echo #
+--echo # Test with JSON_EXTRACT_VALUE, serialize_fb_json_raise_error = off
+--echo # JSON_EXTRACT_VALUE returns type string, so no error should occur.
+--echo #
+select json_extract_value(name, 0) from t;
+select json_extract_value(name, 0) from t group by 1;
+select json_extract_value(name, 0) from t order by rand();
+
+set serialize_fb_json_raise_error = on;
+
+--echo #
+--echo # Test with JSON_EXTRACT, serialize_fb_json_raise_error = on
+--echo #
+select json_extract(name, 0) from t;
+--error ER_INVALID_JSON_BINARY_DATA
+select json_extract(name, 0) from t group by 1;
+--error ER_INVALID_JSON_BINARY_DATA
+select json_extract(name, 0) from t order by rand();
+--error ER_INVALID_JSON_BINARY_DATA
+select /*+NO_MERGE(x) */ * from (select json_extract(name, 0) from t) x;
+
+create temporary table tmp (j json);
+--error ER_INVALID_JSON_BINARY_DATA
+insert into tmp select json_extract(name, 0) from t;
+drop table tmp;
+
+--echo #
+--echo # Test with JSON_EXTRACT_VALUE, serialize_fb_json_raise_error = on
+--echo # JSON_EXTRACT_VALUE returns type string, so no error should occur.
+--echo #
+select json_extract_value(name, 0) from t;
+select json_extract_value(name, 0) from t group by 1;
+select json_extract_value(name, 0) from t order by rand();
+select /*+NO_MERGE(x) */ * from (select json_extract_value(name, 0) from t) x;
+
+set serialize_fb_json_raise_error = off;
+
+
+drop table t;
