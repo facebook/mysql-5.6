@@ -1,0 +1,93 @@
+SET @session_start_value = @@session.serialize_fb_json_raise_error;
+SELECT @session_start_value;
+@session_start_value
+0
+SET @global_start_value = @@global.serialize_fb_json_raise_error;
+SELECT @global_start_value;
+@global_start_value
+0
+SET @@session.serialize_fb_json_raise_error = 0;
+SET @@session.serialize_fb_json_raise_error = DEFAULT;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+0
+SET @@session.serialize_fb_json_raise_error = 1;
+SET @@session.serialize_fb_json_raise_error = DEFAULT;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+0
+SET serialize_fb_json_raise_error = 1;
+SELECT @@serialize_fb_json_raise_error;
+@@serialize_fb_json_raise_error
+1
+SELECT session.serialize_fb_json_raise_error;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT local.serialize_fb_json_raise_error;
+ERROR 42S02: Unknown table 'local' in field list
+SET session serialize_fb_json_raise_error = 0;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+0
+SET @@session.serialize_fb_json_raise_error = 0;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+0
+SET @@session.serialize_fb_json_raise_error = 1;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+1
+SET @@session.serialize_fb_json_raise_error = -1;
+ERROR 42000: Variable 'serialize_fb_json_raise_error' can't be set to the value of '-1'
+SET @@session.serialize_fb_json_raise_error = 2;
+ERROR 42000: Variable 'serialize_fb_json_raise_error' can't be set to the value of '2'
+SET @@session.serialize_fb_json_raise_error = "T";
+ERROR 42000: Variable 'serialize_fb_json_raise_error' can't be set to the value of 'T'
+SET @@session.serialize_fb_json_raise_error = "Y";
+ERROR 42000: Variable 'serialize_fb_json_raise_error' can't be set to the value of 'Y'
+SET @@session.serialize_fb_json_raise_error = NO;
+ERROR 42000: Variable 'serialize_fb_json_raise_error' can't be set to the value of 'NO'
+SET @@global.serialize_fb_json_raise_error = 1;
+SELECT @@global.serialize_fb_json_raise_error;
+@@global.serialize_fb_json_raise_error
+1
+SET @@global.serialize_fb_json_raise_error = 0;
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='serialize_fb_json_raise_error';
+count(VARIABLE_VALUE)
+1
+SELECT IF(@@session.serialize_fb_json_raise_error, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='serialize_fb_json_raise_error';
+IF(@@session.serialize_fb_json_raise_error, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+1
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='serialize_fb_json_raise_error';
+VARIABLE_VALUE
+ON
+SET @@session.serialize_fb_json_raise_error = OFF;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+0
+SET @@session.serialize_fb_json_raise_error = ON;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+1
+SET @@session.serialize_fb_json_raise_error = TRUE;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+1
+SET @@session.serialize_fb_json_raise_error = FALSE;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+0
+SET @@session.serialize_fb_json_raise_error = @session_start_value;
+SELECT @@session.serialize_fb_json_raise_error;
+@@session.serialize_fb_json_raise_error
+0
+SET @@global.serialize_fb_json_raise_error = @global_start_value;
+SELECT @@global.serialize_fb_json_raise_error;
+@@global.serialize_fb_json_raise_error
+0

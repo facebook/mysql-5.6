@@ -1430,6 +1430,18 @@ bool Json_wrapper::to_binary(const THD *thd, String *str) const {
     /* purecov: end */
   }
 
+  if (is_legacy_json()) {
+    const char *msg =
+        "Serializing FB json values can lead to unexpected results";
+    if (thd->variables.serialize_fb_json_raise_error) {
+      my_printf_error(ER_INVALID_JSON_BINARY_DATA, "%s", MYF(0), msg);
+      return true;
+    } else {
+      push_warning_printf(current_thd, Sql_condition::SL_WARNING,
+                          ER_INVALID_JSON_BINARY_DATA, "%s", msg);
+    }
+  }
+
   if (m_is_dom) return json_binary::serialize(thd, m_dom.m_value, str);
 
   return m_value.raw_binary(thd, str);

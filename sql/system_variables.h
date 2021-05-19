@@ -509,6 +509,7 @@ struct System_variables {
 
   /* A bitmap for switching 5.6 fb json functions behavior on/off */
   ulonglong use_fb_json_functions;
+  bool serialize_fb_json_raise_error;
 
   /**
     @sa Sys_select_into_buffer_size

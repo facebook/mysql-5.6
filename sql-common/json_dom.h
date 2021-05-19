@@ -1840,6 +1840,8 @@ class Json_wrapper {
   void set_legacy_json(legacy_json_print_behavior legacy_json) {
     m_legacy_json = legacy_json;
   }
+
+  bool is_legacy_json() const { return m_legacy_json != LEGACY_JSON_DISABLED; }
 };
 
 /**
