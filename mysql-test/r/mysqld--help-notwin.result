@@ -2154,6 +2154,9 @@ The following options may be given as the first argument:
  --send-error-before-closing-timed-out-connection 
  Send error before closing connections due to timeout.
  (Defaults to on; use --skip-send-error-before-closing-timed-out-connection to disable.)
+ --serialize-fb-json-raise-error 
+ Raise an error if the query tries to serialize legacy
+ json values from FB json functions.
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
@@ -3111,6 +3114,7 @@ select-into-disk-sync-delay 0
 select-into-file-fsync-size 0
 select-into-file-fsync-timeout 0
 send-error-before-closing-timed-out-connection TRUE
+serialize-fb-json-raise-error FALSE
 server-id 1
 server-id-bits 32
 session-track-gtids OFF

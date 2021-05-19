@@ -8664,6 +8664,13 @@ static Sys_var_flagset Sys_use_fb_json_functions(
     SESSION_VAR(use_fb_json_functions), CMD_LINE(REQUIRED_ARG),
     use_fb_json_functions_names, DEFAULT(0));
 
+static Sys_var_bool Sys_serialize_fb_json_raise_error(
+    "serialize_fb_json_raise_error",
+    "Raise an error if the query tries to serialize legacy json values from FB "
+    "json functions.",
+    SESSION_VAR(serialize_fb_json_raise_error), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static Sys_var_bool Sys_parthandler_allow_drop_partition(
     "parthandler_allow_drop_partition",
     "If set, partition handler allows partitions to be dropped",
