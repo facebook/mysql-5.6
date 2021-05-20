@@ -6983,3 +6983,64 @@ Thd_wait_scope::Thd_wait_scope(THD *thd, int wait_type) : m_thd(thd) {
 Thd_wait_scope::~Thd_wait_scope() {
   thd_wait_end(m_thd);
 }
+
+bool THD::set_dscp_on_socket() {
+  int dscp_val = variables.dscp_on_socket;
+
+  if (dscp_val < 0 || dscp_val >= 64) {
+    // NO_LINT_DEBUG
+    sql_print_warning("Invalid DSCP_QOS value in global var: %d",
+                        dscp_val);
+    return false;
+  }
+
+  if (dscp_val == 0) {
+    // Default unset value
+    return true;
+  }
+
+  const NET* net = get_net();
+
+  int tos= dscp_val << 2;
+
+  // figure out what domain is the socket in
+  uint16_t test_family;
+  socklen_t len= sizeof(test_family);
+  int res= mysql_socket_getsockopt(net->vio->mysql_socket, SOL_SOCKET,
+      SO_DOMAIN, (void*)&test_family, &len);
+
+  // Lets fail, if we can't determine IPV6 vs IPV4
+  if (res != 0) {
+    // NO_LINT_DEBUG
+    sql_print_warning("Failed to get socket domain "
+        "while adjusting DSCP_QOS (error: %s)",
+        strerror(errno));
+    return false;
+  }
+
+#ifdef HAVE_IPV6
+  if (test_family == AF_INET6) {
+    res= mysql_socket_setsockopt(net->vio->mysql_socket, IPPROTO_IPV6,
+        IPV6_TCLASS, &tos, sizeof(tos));
+  }
+  else
+#endif
+  if (test_family == AF_INET) {
+    res= mysql_socket_setsockopt(net->vio->mysql_socket, IPPROTO_IP,
+        IP_TOS, &tos, sizeof(tos));
+  } else {
+    // NO_LINT_DEBUG
+    sql_print_warning("Failed to get socket family %d", test_family);
+    return false;
+  }
+
+  if (res != 0) {
+    // NO_LINT_DEBUG
+    sql_print_warning("Failed to set TOS/TCLASS "
+        "with (error: %s) DSCP: %d.",
+        strerror(errno), tos);
+    return false;
+  }
+
+  return true;
+}

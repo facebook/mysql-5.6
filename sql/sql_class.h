@@ -847,7 +847,7 @@ typedef struct system_variables
   my_bool session_track_state_change;
   my_bool session_track_response_attributes;
 
-  ulong dscp_on_socket;
+  ulong rpl_dscp_on_socket;
 
   my_bool innodb_stats_on_metadata;
 
@@ -871,6 +871,8 @@ typedef struct system_variables
   my_bool write_throttle_tag_only;
 
   my_bool sql_stats_read_control;
+
+  ulong dscp_on_socket;
 } SV;
 
 
@@ -5419,6 +5421,8 @@ public:
   {
     return set_thread_priority(variables.thread_priority);
   }
+
+  bool set_dscp_on_socket();
 };
 
 /*

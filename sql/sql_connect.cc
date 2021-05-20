@@ -20,6 +20,7 @@
 */
 
 #include "my_global.h"
+#include "mysqld.h"
 #include "sql_priv.h"
 #include "sql_base.h"
 #include "sql_audit.h"
@@ -1452,6 +1453,8 @@ void do_handle_one_connection(THD *thd_arg)
 
     // set correct thread priority
     thd->set_thread_priority();
+
+    thd->set_dscp_on_socket();
 
     conn_timeout = thd->variables.net_wait_timeout_seconds;
     set_conn_timeout_err(thd, timeout_error_msg_buf);

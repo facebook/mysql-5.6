@@ -308,12 +308,12 @@ int store_replica_stats(THD *thd, uchar *packet, uint packet_length)
 
   if (si != nullptr)
   {
-    if (si->slave_stats == nullptr) 
+    if (si->slave_stats == nullptr)
     {
       si->slave_stats = new std::list<SLAVE_STATS>();
     }
-    // We are over the configured size. Erase older entries first. 
-    while (!si->slave_stats->empty() && si->slave_stats->size() >= write_stats_count) 
+    // We are over the configured size. Erase older entries first.
+    while (!si->slave_stats->empty() && si->slave_stats->size() >= write_stats_count)
     {
       si->slave_stats->pop_back();
     }
@@ -325,10 +325,10 @@ int store_replica_stats(THD *thd, uchar *packet, uint packet_length)
 }
 
 /**
-  Scans through the replication lag reported by individual secondaries and 
-  returns replication lag for the entire topology. Replication lag for the 
-  topology is defined as kth largest replication lag reported by individual 
-  secondaries where k = write_throttle_lag_min_secondaries. 
+  Scans through the replication lag reported by individual secondaries and
+  returns replication lag for the entire topology. Replication lag for the
+  topology is defined as kth largest replication lag reported by individual
+  secondaries where k = write_throttle_lag_min_secondaries.
   This method is used for auto throttling write workload to avoid replication lag
 
   @retval replication_lag
@@ -336,7 +336,7 @@ int store_replica_stats(THD *thd, uchar *packet, uint packet_length)
 int get_current_replication_lag() {
   if (write_throttle_lag_pct_min_secondaries == 0)
     return 0;
-  
+
   // find the lag
   std::vector<int> replica_lags;
   mysql_mutex_lock(&LOCK_slave_list);
@@ -359,7 +359,7 @@ int get_current_replication_lag() {
 
   int min_secondaries_to_lag = ceil(replica_lags.size() * (double)write_throttle_lag_pct_min_secondaries / 100);
   if (min_secondaries_to_lag == 0) {
-    // not enough secondaries(registered so far) in replication topology to qualify for lag 
+    // not enough secondaries(registered so far) in replication topology to qualify for lag
     return 0;
   }
 
@@ -385,12 +385,12 @@ int fill_replica_statistics(THD *thd, TABLE_LIST *tables, Item *cond)
   for (uint slaveIter = 0; slaveIter < slave_list.records; ++slaveIter)
   {
     SLAVE_INFO* si = (SLAVE_INFO*) my_hash_element(&slave_list, slaveIter);
-    if (si->slave_stats == nullptr) 
+    if (si->slave_stats == nullptr)
     {
       // No stats collected for this slave so far, continue
       continue;
     }
-    for (const SLAVE_STATS &stats : *(si->slave_stats)) 
+    for (const SLAVE_STATS &stats : *(si->slave_stats))
     {
       int fieldPos= 0;
       MYSQL_TIME time;
@@ -398,10 +398,10 @@ int fill_replica_statistics(THD *thd, TABLE_LIST *tables, Item *cond)
       // slave id
       table->field[fieldPos++]->store(si->server_id, TRUE);
       // timestamp
-      if (stats.timestamp == 0) 
+      if (stats.timestamp == 0)
       {
         table->field[fieldPos++]->set_null();
-      } else 
+      } else
       {
         thd->variables.time_zone->gmt_sec_to_TIME(
             &time, (my_time_t)stats.timestamp);
@@ -456,9 +456,9 @@ int register_slave(THD* thd, uchar* packet, uint packet_length)
     goto err;
   si->port= uint2korr(p);
   p += 2;
-  /* 
+  /*
      We need to by pass the bytes used in the fake rpl_recovery_rank
-     variable. It was removed in patch for BUG#13963. But this would 
+     variable. It was removed in patch for BUG#13963. But this would
      make a server with that patch unable to connect to an old master.
      See: BUG#49259
   */
@@ -617,7 +617,7 @@ inline void fix_checksum(String *packet, ulong ev_offset)
   /* recalculate the crc for this event */
   uint data_len = uint4korr(packet->ptr() + ev_offset + EVENT_LEN_OFFSET);
   ha_checksum crc= my_checksum(0L, NULL, 0);
-  DBUG_ASSERT(data_len == 
+  DBUG_ASSERT(data_len ==
               LOG_EVENT_MINIMAL_HEADER_LEN + FORMAT_DESCRIPTION_HEADER_LEN +
               BINLOG_CHECKSUM_ALG_DESC_LEN + BINLOG_CHECKSUM_LEN);
   crc= my_checksum(crc, (uchar *)packet->ptr() + ev_offset, data_len -
@@ -629,7 +629,7 @@ inline void fix_checksum(String *packet, ulong ev_offset)
 static user_var_entry * get_binlog_checksum_uservar(THD * thd)
 {
   LEX_STRING name=  { C_STRING_WITH_LEN("master_binlog_checksum")};
-  user_var_entry *entry= 
+  user_var_entry *entry=
     (user_var_entry*) my_hash_search(&thd->user_vars, (uchar*) name.str,
                                   name.length);
   return entry;
@@ -1076,7 +1076,7 @@ static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
 
   /*
     this Rotate is to be sent with checksum if and only if
-    slave's get_master_version_and_clock time handshake value 
+    slave's get_master_version_and_clock time handshake value
     of master's @@global.binlog_checksum was TRUE
   */
 
@@ -1281,12 +1281,12 @@ Increase max_allowed_packet on master";
 
   @return        heartbeat period an ulonglong of nanoseconds
                  or zero if heartbeat was not demanded by slave
-*/ 
+*/
 static ulonglong get_heartbeat_period(THD * thd)
 {
   my_bool null_value;
   LEX_STRING name=  { C_STRING_WITH_LEN("master_heartbeat_period")};
-  user_var_entry *entry= 
+  user_var_entry *entry=
     (user_var_entry*) my_hash_search(&thd->user_vars, (uchar*) name.str,
                                   name.length);
   return entry? entry->val_int(&null_value) : 0;
@@ -1778,13 +1778,13 @@ static int counting_read_function(IO_CACHE *info, uchar *buffer, size_t count) {
 
 static bool get_dscp_value(THD *thd, int& ret_val) {
   ret_val = 0;
-  auto dscp_it= thd->connection_attrs_map.find("dscp_on_socket");
-  if (thd->variables.dscp_on_socket == 0 &&
+  auto dscp_it= thd->connection_attrs_map.find("rpl_dscp_on_socket");
+  if (thd->variables.rpl_dscp_on_socket == 0 &&
       dscp_it == thd->connection_attrs_map.end())
     return false;
 
   int dscp_val;
-  if ((dscp_val= thd->variables.dscp_on_socket) != 0) {
+  if ((dscp_val= thd->variables.rpl_dscp_on_socket) != 0) {
     if (dscp_val >= 64 || dscp_val < 0) {
       // NO_LINT_DEBUG
       sql_print_warning("Invalid DSCP_QOS value in session var: %d",
@@ -1975,7 +1975,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   DBUG_PRINT("enter",("log_ident: '%s'  pos: %ld", log_ident, (long) pos));
 
   memset(&log, 0, sizeof(log));
-  /* 
+  /*
      heartbeat_period from @master_heartbeat_period user variable
   */
   ulonglong heartbeat_period= get_heartbeat_period(thd);
@@ -2263,7 +2263,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
   /*
     Adding MAX_LOG_EVENT_HEADER_LEN, since a binlog event can become
-    this larger than the corresponding packet (query) sent 
+    this larger than the corresponding packet (query) sent
     from client to master.
   */
   thd->variables.max_allowed_packet= MAX_MAX_ALLOWED_PACKET;
@@ -2285,7 +2285,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
      */
     if (!(error = Log_event::read_log_event(&log, packet, 0,
                                             log_file_name)))
-    { 
+    {
       DBUG_PRINT("info", ("read_log_event returned 0 on line %d", __LINE__));
       /*
         The packet has offsets equal to the normal offsets in a
@@ -2803,7 +2803,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                   packet, packet_buffer, packet_buffer_size,
                                   semi_sync_slave))
           GOTO_ERR;
-        
+
 	/*
 	  No one will update the log while we are reading
 	  now, but we'll be quick and just read one record
@@ -3034,7 +3034,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           thd->EXIT_COND(&old_stage);
         }
         break;
-            
+
         default:
           test_for_non_eof_log_read_errors(error, &errmsg);
           GOTO_ERR;
@@ -3242,7 +3242,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                 packet, packet_buffer, packet_buffer_size,
                                 semi_sync_slave))
         GOTO_ERR;
-      
+
       /*
         Call fake_rotate_event() in case the previous log (the one which
         we have just finished reading) did not contain a Rotate event.
@@ -3322,7 +3322,7 @@ err:
   THD_STAGE_INFO(thd, stage_waiting_to_finalize_termination);
   if (my_errno == ER_MASTER_FATAL_ERROR_READING_BINLOG && my_b_inited(&log))
   {
-    /* 
+    /*
        detailing the fatal error message with coordinates
        of the last position read.
     */
@@ -3743,14 +3743,14 @@ bool show_binlogs(THD* thd, bool with_gtid)
   if (protocol->send_result_set_metadata(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_RETURN(TRUE);
-  
+
   mysql_mutex_lock(mysql_bin_log.get_binlog_end_pos_lock());
   DEBUG_SYNC(thd, "show_binlogs_after_lock_log_before_lock_index");
   mysql_bin_log.get_current_log_without_lock_log(&cur);
   mysql_mutex_unlock(mysql_bin_log.get_binlog_end_pos_lock());
   mysql_bin_log.lock_index();
   index_file=mysql_bin_log.get_index_file();
-  
+
   cur_dir_len= dirname_length(cur.log_file_name);
 
   reinit_io_cache(index_file, READ_CACHE, (my_off_t) 0, 0, 0);
