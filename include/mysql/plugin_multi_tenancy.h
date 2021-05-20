@@ -152,4 +152,7 @@ const std::string &thd_get_connection_attr(THD *thd,
 void thd_add_response_attr(
     THD *thd, const std::string &rattr_key, const std::string &rattr_val);
 
+const std::string thd_get_sql_id(THD *thd);
+
+extern "C" LEX_STRING * thd_query_string (MYSQL_THD thd);
 #endif

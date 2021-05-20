@@ -131,9 +131,11 @@ struct st_mysql_show_var {
   char *value;
   enum enum_mysql_show_type type;
 };
+typedef struct st_mysql_show_var SHOW_VAR;
 typedef int (*mysql_show_var_func)(void*, struct st_mysql_show_var*, char *);
 struct st_mysql_sys_var;
 struct st_mysql_value;
+typedef struct st_mysql_sys_var SYS_VAR;
 typedef int (*mysql_var_check_func)(void* thd,
                                     struct st_mysql_sys_var *var,
                                     void *save, struct st_mysql_value *value);
@@ -313,3 +315,5 @@ const std::string &thd_get_connection_attr(THD *thd,
                                            const std::string &cattr_key);
 void thd_add_response_attr(
     THD *thd, const std::string &rattr_key, const std::string &rattr_val);
+const std::string thd_get_sql_id(THD *thd);
+extern "C" LEX_STRING * thd_query_string (void* thd);

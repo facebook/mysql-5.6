@@ -257,7 +257,6 @@ extern MYSQL_PLUGIN_IMPORT const char **errmesg;
 
 extern bool volatile shutdown_in_progress;
 
-extern "C" LEX_STRING * thd_query_string (MYSQL_THD thd);
 extern "C" ulong thd_thread_id(MYSQL_THD thd);
 extern "C" char **thd_query(MYSQL_THD thd);
 
@@ -3624,7 +3623,6 @@ public:
 
   const std::string &get_query_attr(const std::string &qattr_key);
   const std::string &get_connection_attr(const std::string &cattr_key);
-  const std::string thd_get_sql_id(THD *thd);
 
   std::list<std::pair<const char*, const char*> > get_query_tables();
 

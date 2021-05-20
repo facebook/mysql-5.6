@@ -34,10 +34,6 @@ void sql_print_warning(const char *format, ...);
 void sql_print_error(const char *format, ...);
 #endif /* MYSQL_CLIENT */
 
-typedef struct st_mysql_show_var SHOW_VAR;
-typedef struct st_mysql_sys_var SYS_VAR;
-
-
 /**
    This class is used to trace function calls and other process
    information

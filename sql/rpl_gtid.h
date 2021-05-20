@@ -26,7 +26,7 @@
 #include <mysqld_error.h>
 #include <my_global.h>
 #ifdef MYSQL_SERVER
-#include <mysqld.h>
+#include "mysqld.h"
 #endif
 /**
   Report an error from code that can be linked into either the server

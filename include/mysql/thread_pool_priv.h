@@ -31,11 +31,11 @@
 */
 #include <mysqld_error.h> /* To get ER_ERROR_ON_READ */
 #define MYSQL_SERVER 1
-#include <scheduler.h>
-#include <debug_sync.h>
-#include <thread_iterator.h>
-#include <sql_profile.h>
-#include <table.h>
+#include "scheduler.h"
+#include "debug_sync.h"
+#include "thread_iterator.h"
+#include "sql_profile.h"
+#include "table.h"
 #include "field.h"
 #include <set>
 

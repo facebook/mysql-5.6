@@ -27,11 +27,6 @@ SET(HEADERS_ABI
   my_list.h
   my_alloc.h
   typelib.h 
-  mysql/plugin.h
-  mysql/plugin_audit.h
-  mysql/plugin_ftparser.h
-  mysql/plugin_validate_password.h
-  mysql/plugin_multi_tenancy.h
 )
 
 SET(HEADERS 
@@ -68,10 +63,101 @@ SET(HEADERS
   ${HEADERS_GEN_CONFIGURE}
 )
 
+OPTION(INSTALL_EXTRA_HEADERS "Install additional headers" OFF)
+IF (INSTALL_EXTRA_HEADERS)
+  SET(HEADERS
+    ${HEADERS}
+    atomic_stat.h
+    ft_global.h
+    hash.h
+    lf.h
+    my_atomic.h
+    my_bitmap.h
+    my_compare.h
+    my_io_perf.h
+    my_md5.h
+    my_rdtsc.h
+    my_stacktrace.h
+    my_time.h
+    my_timer.h
+    myisampack.h
+    thr_lock.h
+  )
+  SET(HEADERS_MYSQL_DIR
+    mysql/plugin.h
+    mysql/plugin_audit.h
+    mysql/plugin_ftparser.h
+    mysql/plugin_validate_password.h
+    mysql/plugin_multi_tenancy.h
+    mysql/thread_pool_priv.h
+  )
+  SET(HEADERS_ATOMIC_DIR
+    atomic/gcc_builtins.h
+    atomic/generic-msvc.h
+    atomic/nolock.h
+    atomic/rwlock.h
+    atomic/solaris.h
+  )
+  SET(HEADERS_SQL_DIR
+    ../sql/datadict.h
+    ../sql/debug_sync.h
+    ../sql/field.h
+    ../sql/filesort_utils.h
+    ../sql/handler.h
+    ../sql/hh_wheel_timer.h
+    ../sql/log.h
+    ../sql/mdl.h
+    ../sql/my_decimal.h
+    ../sql/mysqld.h
+    ../sql/parse_file.h
+    ../sql/rpl_gtid.h
+    ../sql/scheduler.h
+    ../sql/sql_alloc.h
+    ../sql/sql_array.h
+    ../sql/sql_bitmap.h
+    ../sql/sql_cache.h
+    ../sql/sql_cmd.h
+    ../sql/sql_const.h
+    ../sql/sql_digest.h
+    ../sql/sql_error.h
+    ../sql/sql_list.h
+    ../sql/sql_plist.h
+    ../sql/sql_plugin.h
+    ../sql/sql_priv.h
+    ../sql/sql_profile.h
+    ../sql/sql_show.h
+    ../sql/sql_string.h
+    ../sql/sql_table.h
+    ../sql/structs.h
+    ../sql/table.h
+    ../sql/table_id.h
+    ../sql/thread_iterator.h
+    ../sql/thr_malloc.h
+    ../sql/timer.h
+    ../sql/unireg.h
+  )
+  SET(HEADERS_FBSON_DIR
+    ../fbson/FbsonDocument.h
+    ../fbson/FbsonJsonParser.h
+    ../fbson/FbsonUpdater.h
+    ../fbson/FbsonUtil.h
+    ../fbson/FbsonError.h
+    ../fbson/FbsonJsonParser.h
+    ../fbson/FbsonStream.h
+    ../fbson/FbsonWriter.h
+  )
+ENDIF()
+
 INSTALL(FILES ${HEADERS} DESTINATION ${INSTALL_INCLUDEDIR} COMPONENT Development)
 INSTALL(DIRECTORY mysql/ DESTINATION ${INSTALL_INCLUDEDIR}/mysql COMPONENT Development 
  PATTERN "*.h"
  PATTERN "psi_abi*" EXCLUDE
 )
-
-
+INSTALL(FILES ${HEADERS_ATOMIC_DIR}
+        DESTINATION ${INSTALL_INCLUDEDIR}/atomic COMPONENT Development)
+INSTALL(FILES ${HEADERS_MYSQL_DIR}
+        DESTINATION ${INSTALL_INCLUDEDIR}/mysql COMPONENT Development)
+INSTALL(FILES ${HEADERS_SQL_DIR}
+        DESTINATION ${INSTALL_INCLUDEDIR}/sql COMPONENT Development)
+INSTALL(FILES ${HEADERS_FBSON_DIR}
+        DESTINATION ${INSTALL_INCLUDEDIR}/fbson COMPONENT Development)

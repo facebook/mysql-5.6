@@ -39,7 +39,7 @@
 #include <regex>
 #include <vector>
 #include <unordered_set>
-#include <sql_string.h>
+#include "sql_string.h"
 
 class Alter_info;
 class st_select_lex;

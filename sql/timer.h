@@ -34,7 +34,7 @@ public:
     notify_function = Timer::callback;
   }
 
-  ~Timer() {
+  virtual ~Timer() {
     my_timer_delete(this);
 
     // It is possible that a trigger started executing (and blocked on the
