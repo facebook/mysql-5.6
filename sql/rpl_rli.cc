@@ -453,7 +453,14 @@ bool Relay_log_info::cannot_safely_rollback()
   {
     worker= *dynamic_element(&workers, i, Slave_worker**);
     mysql_mutex_lock(&worker->jobs_lock);
-    ret= ret || worker->info_thd->transaction.all.cannot_safely_rollback();
+    // workers could have been killed and in that case
+    // the state is NOT_RUNNING. The info_thd would be
+    // destroyed soon/already and hence it would be an
+    // illegal memory read to look at info_thd
+    if (worker->running_status != Slave_worker::NOT_RUNNING)
+    {
+      ret= ret || worker->info_thd->transaction.all.cannot_safely_rollback();
+    }
     mysql_mutex_unlock(&worker->jobs_lock);
   }
   return ret;

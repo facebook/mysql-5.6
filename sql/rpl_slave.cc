@@ -6070,6 +6070,12 @@ pthread_handler_t handle_slave_worker(void *arg)
 
   mysql_mutex_unlock(&w->jobs_lock);
 
+  // Additional cleanup since the worker object is yet to
+  // destroyed
+  mysql_mutex_lock(&w->info_thd_lock);
+  w->info_thd= NULL;
+  mysql_mutex_unlock(&w->info_thd_lock);
+
 err:
 
   if (thd)
