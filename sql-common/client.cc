@@ -5771,7 +5771,15 @@ mysql_state_machine_status run_plugin_auth_nonblocking(MYSQL *mysql, char *data,
     }
   }
 
-  mysql_state_machine_status ret = ctx->state_function(ctx);
+  mysql_state_machine_status ret;
+  if (called_from_stdcall) {
+    do {
+      ret = ctx->state_function(ctx);
+    } while (ret == STATE_MACHINE_CONTINUE);
+  } else {
+    ret = ctx->state_function(ctx);
+  }
+
   if (ret == STATE_MACHINE_FAILED || ret == STATE_MACHINE_DONE) {
     if (called_from_stdcall) {
       if (ret == STATE_MACHINE_DONE) {
@@ -5826,6 +5834,13 @@ net_async_status run_plugin_auth_nonblocking_wrapper(MYSQL *mysql,
   mysql_state_machine_status ret =
       run_plugin_auth_nonblocking(mysql, 0, 0, 0, db, user, passwd, true);
 
+  if (ret == STATE_MACHINE_CONTINUE) {
+    mysql_async_auth *ctx = ASYNC_DATA(mysql)->connect_context->auth_context;
+    do {
+      ret = ctx->state_function(ctx);
+    } while (ret == STATE_MACHINE_CONTINUE);
+  }
+
   if (ret == STATE_MACHINE_FAILED || ret == STATE_MACHINE_DONE) {
     my_free(ASYNC_DATA(mysql)->connect_context);
     ASYNC_DATA(mysql)->connect_context = nullptr;
@@ -5835,7 +5850,7 @@ net_async_status run_plugin_auth_nonblocking_wrapper(MYSQL *mysql,
     DBUG_RETURN(NET_ASYNC_COMPLETE);
   } else if (ret == STATE_MACHINE_FAILED) {
     DBUG_RETURN(NET_ASYNC_ERROR);
-  } else {  // STATE_MACHINE_WOULD_BLOCK or STATE_MACHINE_CONTINUE
+  } else {  // STATE_MACHINE_WOULD_BLOCK
     DBUG_RETURN(NET_ASYNC_NOT_READY);
   }
 }
