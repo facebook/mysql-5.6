@@ -1470,8 +1470,10 @@ static void handle_command_error(struct st_command *command,
   DBUG_PRINT("enter", ("error: %d", error));
 
   if (error != 0 && command->abort_on_error) {
-    die("Command \"%s\" failed with error %d. my_errno=%d.",
-        command_names[command->type - 1], error, my_errno());
+    die("Command \"%s\" failed with error %d. my_errno=%d. "
+        "net.last_errno=%d socket_errno=%d",
+        command_names[command->type - 1], error, my_errno(),
+        cur_con->mysql.net.last_errno, socket_errno);
   }
 
   if (expected_errors->count()) {
