@@ -5134,9 +5134,9 @@ sub run_testcase ($) {
     # bootstrap_master_opt will already be set, so do not call
     # find_bootstrap_opts again.
     $tinfo->{bootstrap_master_opt} = find_bootstrap_opts($tinfo->{master_opt})
-      if (!$tinfo->{bootstrap_master_opt});
+      if (!defined $tinfo->{bootstrap_master_opt});
     $tinfo->{bootstrap_slave_opt} = find_bootstrap_opts($tinfo->{slave_opt})
-      if (!$tinfo->{bootstrap_slave_opt});
+      if (!defined $tinfo->{bootstrap_slave_opt});
 
     # Check if servers need to be reinitialized for the test.
     my $server_need_reinit = servers_need_reinitialization($tinfo);
