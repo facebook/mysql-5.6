@@ -3614,6 +3614,19 @@ class Rdb_transaction {
   }
 };
 
+#ifndef NDEBUG
+// simulate that RocksDB has reported corrupted data
+static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
+  *status = rocksdb::Status::Corruption();
+}
+static void dbug_change_status_to_io_error(rocksdb::Status *status) {
+  *status = rocksdb::Status::IOError();
+}
+static void dbug_change_status_to_incomplete(rocksdb::Status *status) {
+  *status = rocksdb::Status::Incomplete();
+}
+#endif
+
 /*
   This is a rocksdb transaction. Its members represent the current transaction,
   which consists of:
@@ -3664,14 +3677,23 @@ class Rdb_transaction_impl : public Rdb_transaction {
     rocksdb::Status s;
 
     s = merge_auto_incr_map(m_rocksdb_tx->GetWriteBatch()->GetWriteBatch());
+#ifndef NDEBUG
+    DBUG_EXECUTE_IF("myrocks_prepare_io_error",
+                    dbug_change_status_to_io_error(&s););
+    DBUG_EXECUTE_IF("myrocks_prepare_incomplete",
+                    dbug_change_status_to_incomplete(&s););
+#endif
     if (!s.ok()) {
-      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      std::string msg =
+          "RocksDB error on COMMIT (Prepare/merge): " + s.ToString();
+      my_error(ER_INTERNAL_ERROR, MYF(0), msg.c_str());
       return false;
     }
 
     s = m_rocksdb_tx->Prepare();
     if (!s.ok()) {
-      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      std::string msg = "RocksDB error on COMMIT (Prepare): " + s.ToString();
+      my_error(ER_INTERNAL_ERROR, MYF(0), msg.c_str());
       return false;
     }
     return true;
@@ -3682,6 +3704,12 @@ class Rdb_transaction_impl : public Rdb_transaction {
     rocksdb::Status s;
 
     s = merge_auto_incr_map(m_rocksdb_tx->GetWriteBatch()->GetWriteBatch());
+#ifndef NDEBUG
+    DBUG_EXECUTE_IF("myrocks_commit_merge_io_error",
+                    dbug_change_status_to_io_error(&s););
+    DBUG_EXECUTE_IF("myrocks_commit_merge_incomplete",
+                    dbug_change_status_to_incomplete(&s););
+#endif
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
       res = true;
@@ -3690,6 +3718,12 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
     release_snapshot();
     s = m_rocksdb_tx->Commit();
+#ifndef NDEBUG
+    DBUG_EXECUTE_IF("myrocks_commit_io_error",
+                    dbug_change_status_to_io_error(&s););
+    DBUG_EXECUTE_IF("myrocks_commit_incomplete",
+                    dbug_change_status_to_incomplete(&s););
+#endif
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
       res = true;
@@ -6624,13 +6658,6 @@ static int rocksdb_init_func(void *const p) {
   }
   return ret;
 }
-
-#ifndef NDEBUG
-// simulate that RocksDB has reported corrupted data
-static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
-  *status = rocksdb::Status::Corruption();
-}
-#endif
 
 // If the iterator is not valid it might be because of EOF but might be due
 // to IOError or corruption. The good practice is always check it.
@@ -15263,8 +15290,9 @@ void rdb_handle_io_error(const rocksdb::Status status,
     abort();
   } else if (!status.ok()) {
     switch (err_type) {
+      case RDB_IO_ERROR_TX_COMMIT:
       case RDB_IO_ERROR_DICT_COMMIT: {
-        rdb_log_status_error(status, "Failed to write to WAL (dictionary)");
+        rdb_log_status_error(status, "Failed to write to WAL (non kIOError)");
         /* NO_LINT_DEBUG */
         sql_print_error("MyRocks: aborting on WAL write error.");
         abort();
