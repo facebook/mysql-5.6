@@ -3968,12 +3968,13 @@ void THD::serialize_client_attrs() {
 
   std::vector<std::pair<String, String>> client_attrs;
 
-  // Populate caller, async_id
-  for (const auto &s : {"caller", "async_id"}) {
+  mysql_mutex_lock(&LOCK_global_sql_findings);
+  // Populate caller, original_caller, async_id, etc
+  for (const std::string &name_iter : client_attribute_names) {
     bool found_query_attrs = false;
     for (auto it = query_attrs_list.begin(); it != query_attrs_list.end();
          ++it) {
-      if (it->first == s) {
+      if (it->first == name_iter) {
         client_attrs.emplace_back(
             String(it->first.data(), it->first.size(), &my_charset_bin),
             String(it->second.data(), it->second.size(), &my_charset_bin));
@@ -3982,7 +3983,7 @@ void THD::serialize_client_attrs() {
     }
 
     if (!found_query_attrs) {
-      auto it = connection_attrs_map.find(s);
+      auto it = connection_attrs_map.find(name_iter);
       if (it != connection_attrs_map.end()) {
         client_attrs.emplace_back(
             String(it->first.data(), it->first.size(), &my_charset_bin),
@@ -3990,6 +3991,7 @@ void THD::serialize_client_attrs() {
       }
     }
   }
+  mysql_mutex_unlock(&LOCK_global_sql_findings);
 
   // Serialize into JSON
   auto &buf = client_attrs_string;

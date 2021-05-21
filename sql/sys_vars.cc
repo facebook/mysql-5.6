@@ -9358,3 +9358,18 @@ static Sys_var_bool Sys_show_query_digest(
     "show_query_digest",
     "Show query digest instead of full query in show process list.",
     SESSION_VAR(show_query_digest), CMD_LINE(OPT_ARG), DEFAULT(false));
+static bool check_client_attribute_names(sys_var *self MY_ATTRIBUTE((unused)),
+                                         THD *thd MY_ATTRIBUTE((unused)),
+                                         set_var *var) {
+  store_client_attribute_names(var->save_result.string_value.str);
+
+  return false;  // success
+}
+
+static Sys_var_charptr Sys_client_attribute_names(
+    "client_attribute_names",
+    "List of supported query/connection attributes to use for "
+    "client_attributes (default: caller,async_id).",
+    GLOBAL_VAR(latest_client_attribute_names), CMD_LINE(OPT_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT("caller,async_id"), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_client_attribute_names));

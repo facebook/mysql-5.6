@@ -18,6 +18,7 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 digest	count_star	client_id	client_attributes
 #
 # Verify with query attrs caller = qa_test1
+#   original_caller QA = oc_qa_test1 (not allowed yet)
 #
 select 1;
 1
@@ -25,7 +26,19 @@ select 1;
 select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
 digest	count_star	client_id	client_attributes
 #
+# Verify with query attrs caller = qa_test1
+#   original_caller QA = oc_qa_test1 (allowed)
+#
+set @saved_client_attribute_names=@@GLOBAL.client_attribute_names;
+set global client_attribute_names='caller,original_caller,async_id';
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+#
 # Verify with query attrs caller = qa_test1 and async id = 12345
+#   query attrs original_caller = oc_qa_test1
 #
 select 1;
 1
@@ -37,6 +50,7 @@ grant all on *.* to user@localhost with grant option;
 use performance_schema;
 #
 # Verify with conn attrs caller = ca_test2 and async_id = 56789
+#  and original_caller CA = oc_ca_test2
 #
 select 1;
 1
@@ -53,6 +67,14 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 digest	count_star	client_id	client_attributes
 #
 # Verify with query attrs overriding caller = qa_test3
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+#
+# Verify with query attrs overriding original caller = oc_qa_test3
 #
 select 1;
 1
@@ -83,5 +105,6 @@ select 1; select 2;
 2
 select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
 digest	count_star	client_id	client_attributes
+set global client_attribute_names=@saved_client_attribute_names;
 drop user user@localhost;
 set global performance_schema_esms_by_all = DEFAULT;

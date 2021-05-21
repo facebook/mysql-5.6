@@ -413,7 +413,7 @@ const std::string thd_get_sql_id(THD *thd) {
   char sql_id_string[DIGEST_HASH_TO_STRING_LENGTH + 1];
 
   if (thd->mt_key_is_set(THD::SQL_ID)) {
-    DIGEST_HASH_TO_STRING(thd->mt_key_value(THD::SQL_ID), sql_id_string);
+    DIGEST_HASH_TO_STRING(thd->mt_key_value(THD::SQL_ID).data(), sql_id_string);
     sql_id_string[DIGEST_HASH_TO_STRING_LENGTH] = '\0';
   } else {
     sql_id_string[0] = '\0';

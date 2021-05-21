@@ -317,6 +317,9 @@ The following options may be given as the first argument:
  proxy user mapping should be done according to GRANT
  PROXY privilege definition.
  -r, --chroot=name   Chroot mysqld daemon during startup.
+ --client-attribute-names[=name] 
+ List of supported query/connection attributes to use for
+ client_attributes (default: caller,async_id).
  --collation-server=name 
  Set the default collation.
  --column-stats-control=name 
@@ -2818,6 +2821,7 @@ character-set-server utf8mb4
 character-sets-dir MYSQL_CHARSETSDIR/
 check-proxy-users FALSE
 chroot (No default value)
+client-attribute-names caller,async_id
 collation-server utf8mb4_0900_ai_ci
 column-stats-control OFF_HARD
 commit-consensus-error-action ROLLBACK_TRXS_IN_GROUP

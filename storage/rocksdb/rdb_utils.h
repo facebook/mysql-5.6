@@ -245,7 +245,7 @@ void rdb_log_status_error(const rocksdb::Status &s, const char *msg = nullptr);
 
 // return true if the marker file exists which indicates that the corruption
 // has been detected
-bool rdb_check_rocksdb_corruption();
+bool rdb_has_rocksdb_corruption();
 
 // stores a marker file in the data directory so that after restart server
 // is still aware that rocksdb data is corrupted

@@ -1581,6 +1581,12 @@ ulong column_stats_control;
 ulong index_stats_control;
 /* Controls collecting MySQL findings (aka SQL conditions) */
 ulong sql_findings_control;
+
+/* Vector of the client attribute names */
+std::vector<std::string> client_attribute_names;
+/* Stores the latest value for sys_var client_attribute_names */
+char *latest_client_attribute_names = nullptr;
+
 /* Controls whether MySQL send an error when running duplicate statements */
 uint sql_maximum_duplicate_executions;
 /* Controls the mode of enforcement of duplicate executions of the same stmt */
@@ -8766,6 +8772,11 @@ int mysqld_main(int argc, char **argv)
           " from command line params.");
       unireg_abort(MYSQLD_SUCCESS_EXIT);
     }
+  }
+
+  // initialize client attribute names
+  if (latest_client_attribute_names != nullptr) {
+    store_client_attribute_names(latest_client_attribute_names);
   }
 
   update_cached_slave_high_priority_lock_wait_timeout(nullptr, nullptr,
