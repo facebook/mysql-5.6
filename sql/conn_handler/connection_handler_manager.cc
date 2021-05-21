@@ -298,16 +298,12 @@ int my_connection_handler_set(Connection_handler_functions *chf,
   // conn_handler is reused between set/reset calls. A thread could already
   // be in process_new_connection and load m_connection_handler so deleting
   // it would cause a segfault.
-  static Plugin_connection_handler *conn_handler = nullptr;
-  if (conn_handler == nullptr) {
-    conn_handler = new (std::nothrow) Plugin_connection_handler;
-    if (conn_handler == nullptr) return 1;
-  }
+  static Plugin_connection_handler conn_handler;
 
-  conn_handler->set_functions(chf);
+  conn_handler.set_functions(chf);
 
   Connection_handler_manager::get_instance()->load_connection_handler(
-      conn_handler);
+      &conn_handler);
   Connection_handler_manager::saved_event_functions =
       Connection_handler_manager::event_functions;
   Connection_handler_manager::event_functions = tef;
