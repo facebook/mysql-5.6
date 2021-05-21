@@ -23,6 +23,7 @@
 #include "sql_string.h"
 
 #include <algorithm>
+#include <limits>  // std::numeric_limits
 
 #include "my_dbug.h"
 #include "my_macros.h"

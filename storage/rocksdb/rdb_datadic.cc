@@ -6164,7 +6164,7 @@ bool Rdb_ddl_manager::populate_db_nums() {
     return true;
   }
 
-  for (const auto it : db_entries) {
+  for (const auto &it : db_entries) {
     uint32_t db_num = it.first;
     if (m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end()) {
       // NO_LINT_DEBUG
