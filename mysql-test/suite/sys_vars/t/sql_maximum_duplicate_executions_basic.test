@@ -31,12 +31,13 @@ SELECT @@global.sql_maximum_duplicate_executions;
 ## Restart the server with a non default value of the variable
 ####
 --echo restart the server with non default value (5)
---let $_mysqld_option=--sql_maximum_duplicate_executions=5
+--let $restart_parameters = restart: --sql_maximum_duplicate_executions=5
 --source include/restart_mysqld.inc
 
 SELECT @@global.sql_maximum_duplicate_executions;
 
 --echo restart the server with the default value (0)
+--let $restart_parameters = restart:
 --source include/restart_mysqld.inc
 
 # check value is default (0)

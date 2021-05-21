@@ -473,3 +473,14 @@ std::vector<sql_findings_row> get_all_sql_findings() {
 /***********************************************************************
                 End - Functions to support SQL findings
 ************************************************************************/
+
+/*
+  Stores the client attribute names
+*/
+void store_client_attribute_names(char *new_value) {
+  std::vector<std::string> new_attr_names = split_into_vector(new_value, ',');
+
+  mysql_mutex_lock(&LOCK_global_sql_findings);
+  client_attribute_names = new_attr_names;
+  mysql_mutex_unlock(&LOCK_global_sql_findings);
+}

@@ -67,6 +67,7 @@
 #ifdef _WIN32
 #include "sql/nt_servc.h"
 #endif  // _WIN32
+#include <vector>
 #include "sql/rpl_lag_manager.h"
 #include "sql/set_var.h"  // enum_var_type
 #include "sql/sql_bitmap.h"
@@ -561,6 +562,9 @@ extern ulong write_auto_throttle_frequency;
 extern uint write_throttle_rate_step;
 /* Controls collecting MySQL findings (aka SQL conditions) */
 extern ulong sql_findings_control;
+// client attributes names system variable
+extern std::vector<std::string> client_attribute_names;
+extern char *latest_client_attribute_names;
 
 /* Controls whether MySQL send an error when running duplicate statements */
 extern uint sql_maximum_duplicate_executions;
