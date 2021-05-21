@@ -1065,10 +1065,20 @@ do
   then
     log_notice "Throttling restart after 10 restarts: Sleep 1 day"
     sleep 86400
+    if [ $? = 137 ];
+    then
+      log_notice "Sleep was likely interrupted from outside. Will exit loop"
+      break
+    fi
   else
     sleep_time=$((1<<${cur_retry_times}))
     log_notice "Throttling restart after $cur_retry_times restarts: Sleep $sleep_time seconds"
     sleep $sleep_time
+    if [ $? = 137 ];
+    then
+      log_notice "Sleep was likely interrupted from outside. Will exit loop"
+      break
+    fi
   fi
 
   # Note: the following code is not needed after exponential backoff
