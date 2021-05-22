@@ -2,10 +2,10 @@
 # Only global
 #
 
-select @@global.performance_schema_esms_by_thread_by_event_name ;
+select @@global.performance_schema_esms_by_thread_by_event_name;
 
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
-select @@session.performance_schema_esms_by_thread_by_event_name ;
+select @@session.performance_schema_esms_by_thread_by_event_name;
 
 show global variables like 'performance_schema_esms_by_thread_by_event_name';
 
