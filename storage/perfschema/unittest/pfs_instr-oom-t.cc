@@ -53,6 +53,7 @@ static PSI_thread_service_t *initialize_performance_schema_helper(
   param->m_enabled = true;
   param->m_thread_class_sizing = 10;
   param->m_thread_sizing = 1000;
+  param->m_ews_by_thread_by_event_name = true;
 
   pre_initialize_performance_schema();
 

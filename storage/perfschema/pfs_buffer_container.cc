@@ -545,7 +545,7 @@ int PFS_thread_allocator::alloc_array(PFS_thread_array *array) {
     }
   }
 
-  if (waits_sizing > 0) {
+  if (waits_sizing > 0 && flag_ews_by_thread_by_event_name) {
     array->m_instr_class_waits_array = PFS_MALLOC_ARRAY(
         &builtin_memory_thread_waits, waits_sizing, sizeof(PFS_single_stat),
         PFS_single_stat, MYF(MY_ZEROFILL));
@@ -571,7 +571,7 @@ int PFS_thread_allocator::alloc_array(PFS_thread_array *array) {
     }
   }
 
-  if (statements_sizing > 0 && pfs_param.m_esms_by_thread_by_event_name) {
+  if (statements_sizing > 0 && flag_esms_by_thread_by_event_name) {
     array->m_instr_class_statements_array = PFS_MALLOC_ARRAY(
         &builtin_memory_thread_statements, statements_sizing,
         sizeof(PFS_statement_stat), PFS_statement_stat, MYF(MY_ZEROFILL));
@@ -717,8 +717,13 @@ int PFS_thread_allocator::alloc_array(PFS_thread_array *array) {
   for (index = 0; index < size; index++) {
     pfs = &array->m_ptr[index];
 
-    pfs->set_instr_class_waits_stats(
-        &array->m_instr_class_waits_array[index * wait_class_max]);
+    if (array->m_instr_class_waits_array) {
+      pfs->set_instr_class_waits_stats(
+          &array->m_instr_class_waits_array[index * wait_class_max]);
+    } else {
+      pfs->set_instr_class_waits_stats(nullptr);
+    }
+
     pfs->set_instr_class_stages_stats(
         &array->m_instr_class_stages_array[index * stage_class_max]);
 

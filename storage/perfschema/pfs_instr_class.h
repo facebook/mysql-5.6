@@ -149,6 +149,8 @@ extern uint cond_class_start;
 extern uint file_class_start;
 extern uint socket_class_start;
 extern uint wait_class_max;
+extern bool flag_ews_by_thread_by_event_name;
+extern bool flag_esms_by_thread_by_event_name;
 
 /**
   Encapsulates the name of an instrumented entity.
