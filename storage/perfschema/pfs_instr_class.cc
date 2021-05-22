@@ -221,6 +221,8 @@ uint cond_class_start = 0;
 uint file_class_start = 0;
 uint wait_class_max = 0;
 uint socket_class_start = 0;
+bool flag_ews_by_thread_by_event_name = false;
+bool flag_esms_by_thread_by_event_name = false;
 
 const char *PFS_instr_name::str() const {
   DBUG_TRACE;
@@ -285,6 +287,8 @@ void init_event_name_sizing(const PFS_global_param *param) {
   file_class_start = cond_class_start + param->m_cond_class_sizing;
   socket_class_start = file_class_start + param->m_file_class_sizing;
   wait_class_max = socket_class_start + param->m_socket_class_sizing;
+  flag_ews_by_thread_by_event_name = param->m_ews_by_thread_by_event_name;
+  flag_esms_by_thread_by_event_name = param->m_esms_by_thread_by_event_name;
 }
 
 void register_global_classes() {

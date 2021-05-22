@@ -1,7 +1,7 @@
-select @@global.performance_schema_esms_by_thread_by_event_name ;
+select @@global.performance_schema_esms_by_thread_by_event_name;
 @@global.performance_schema_esms_by_thread_by_event_name
 1
-select @@session.performance_schema_esms_by_thread_by_event_name ;
+select @@session.performance_schema_esms_by_thread_by_event_name;
 ERROR HY000: Variable 'performance_schema_esms_by_thread_by_event_name' is a GLOBAL variable
 show global variables like 'performance_schema_esms_by_thread_by_event_name';
 Variable_name	Value

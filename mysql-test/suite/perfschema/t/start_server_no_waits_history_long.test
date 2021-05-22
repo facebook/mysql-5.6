@@ -8,4 +8,3 @@ select count(*) from performance_schema.events_waits_history_long;
 
 # Valid operation, edge case
 truncate table performance_schema.events_waits_history_long;
-

@@ -1223,6 +1223,10 @@ The following options may be given as the first argument:
  --performance-schema-events-waits-history-size=# 
  Number of rows per thread in EVENTS_WAITS_HISTORY. Use 0
  to disable, -1 for automated sizing.
+ --performance-schema-ews-by-thread-by-event-name 
+ Enables the table
+ events_waits_summary_by_thread_by_event_name
+ (Defaults to on; use --skip-performance-schema-ews-by-thread-by-event-name to disable.)
  --performance-schema-histogram-enabled 
  Enables the histogram for
  events_statements_summary_by_all / by_digest
@@ -3094,6 +3098,7 @@ performance-schema-events-transactions-history-long-size -1
 performance-schema-events-transactions-history-size -1
 performance-schema-events-waits-history-long-size -1
 performance-schema-events-waits-history-size -1
+performance-schema-ews-by-thread-by-event-name TRUE
 performance-schema-histogram-enabled TRUE
 performance-schema-hosts-size -1
 performance-schema-instrument 

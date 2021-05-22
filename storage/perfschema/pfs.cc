@@ -4947,12 +4947,15 @@ void pfs_end_idle_wait_v1(PSI_idle_locker *locker) {
     PFS_single_stat *event_name_array;
     event_name_array = thread->write_instr_class_waits_stats();
 
-    if (flags & STATE_FLAG_TIMED) {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
-      event_name_array[GLOBAL_IDLE_EVENT_INDEX].aggregate_value(wait_time);
-    } else {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted) */
-      event_name_array[GLOBAL_IDLE_EVENT_INDEX].aggregate_counted();
+    if (event_name_array) {
+      if (flags & STATE_FLAG_TIMED) {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
+        event_name_array[GLOBAL_IDLE_EVENT_INDEX].aggregate_value(wait_time);
+      } else {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted)
+         */
+        event_name_array[GLOBAL_IDLE_EVENT_INDEX].aggregate_counted();
+      }
     }
 
     if (flags & STATE_FLAG_EVENT) {
@@ -5027,12 +5030,15 @@ void pfs_end_mutex_wait_v1(PSI_mutex_locker *locker, int rc) {
     assert(index <= wait_class_max);
     assert(sanitize_thread(thread) != nullptr);
 
-    if (flags & STATE_FLAG_TIMED) {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
-      event_name_array[index].aggregate_value(wait_time);
-    } else {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted) */
-      event_name_array[index].aggregate_counted();
+    if (event_name_array) {
+      if (flags & STATE_FLAG_TIMED) {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
+        event_name_array[index].aggregate_value(wait_time);
+      } else {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted)
+         */
+        event_name_array[index].aggregate_counted();
+      }
     }
 
     if (flags & STATE_FLAG_EVENT) {
@@ -5105,12 +5111,15 @@ void pfs_end_rwlock_rdwait_v2(PSI_rwlock_locker *locker, int rc) {
     event_name_array = thread->write_instr_class_waits_stats();
     uint index = rwlock->m_class->m_event_name_index;
 
-    if (state->m_flags & STATE_FLAG_TIMED) {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
-      event_name_array[index].aggregate_value(wait_time);
-    } else {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted) */
-      event_name_array[index].aggregate_counted();
+    if (event_name_array) {
+      if (state->m_flags & STATE_FLAG_TIMED) {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
+        event_name_array[index].aggregate_value(wait_time);
+      } else {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted)
+         */
+        event_name_array[index].aggregate_counted();
+      }
     }
 
     if (state->m_flags & STATE_FLAG_EVENT) {
@@ -5181,12 +5190,15 @@ void pfs_end_rwlock_wrwait_v2(PSI_rwlock_locker *locker, int rc) {
     event_name_array = thread->write_instr_class_waits_stats();
     uint index = rwlock->m_class->m_event_name_index;
 
-    if (state->m_flags & STATE_FLAG_TIMED) {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
-      event_name_array[index].aggregate_value(wait_time);
-    } else {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted) */
-      event_name_array[index].aggregate_counted();
+    if (event_name_array) {
+      if (state->m_flags & STATE_FLAG_TIMED) {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
+        event_name_array[index].aggregate_value(wait_time);
+      } else {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted)
+         */
+        event_name_array[index].aggregate_counted();
+      }
     }
 
     if (state->m_flags & STATE_FLAG_EVENT) {
@@ -5242,12 +5254,15 @@ void pfs_end_cond_wait_v1(PSI_cond_locker *locker, int) {
     event_name_array = thread->write_instr_class_waits_stats();
     uint index = cond->m_class->m_event_name_index;
 
-    if (state->m_flags & STATE_FLAG_TIMED) {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
-      event_name_array[index].aggregate_value(wait_time);
-    } else {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted) */
-      event_name_array[index].aggregate_counted();
+    if (event_name_array) {
+      if (state->m_flags & STATE_FLAG_TIMED) {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
+        event_name_array[index].aggregate_value(wait_time);
+      } else {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted)
+         */
+        event_name_array[index].aggregate_counted();
+      }
     }
 
     if (state->m_flags & STATE_FLAG_EVENT) {
@@ -5337,11 +5352,14 @@ void pfs_end_table_io_wait_v1(PSI_table_locker *locker, ulonglong numrows) {
       Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME
       (for wait/io/table/sql/handler)
     */
-    if (flags & STATE_FLAG_TIMED) {
-      event_name_array[GLOBAL_TABLE_IO_EVENT_INDEX].aggregate_many_value(
-          wait_time, numrows);
-    } else {
-      event_name_array[GLOBAL_TABLE_IO_EVENT_INDEX].aggregate_counted(numrows);
+    if (event_name_array) {
+      if (flags & STATE_FLAG_TIMED) {
+        event_name_array[GLOBAL_TABLE_IO_EVENT_INDEX].aggregate_many_value(
+            wait_time, numrows);
+      } else {
+        event_name_array[GLOBAL_TABLE_IO_EVENT_INDEX].aggregate_counted(
+            numrows);
+      }
     }
 
     if (flags & STATE_FLAG_EVENT) {
@@ -5406,11 +5424,13 @@ void pfs_end_table_lock_wait_v1(PSI_table_locker *locker) {
       Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME
       (for wait/lock/table/sql/handler)
     */
-    if (flags & STATE_FLAG_TIMED) {
-      event_name_array[GLOBAL_TABLE_LOCK_EVENT_INDEX].aggregate_value(
-          wait_time);
-    } else {
-      event_name_array[GLOBAL_TABLE_LOCK_EVENT_INDEX].aggregate_counted();
+    if (event_name_array) {
+      if (flags & STATE_FLAG_TIMED) {
+        event_name_array[GLOBAL_TABLE_LOCK_EVENT_INDEX].aggregate_value(
+            wait_time);
+      } else {
+        event_name_array[GLOBAL_TABLE_LOCK_EVENT_INDEX].aggregate_counted();
+      }
     }
 
     if (flags & STATE_FLAG_EVENT) {
@@ -5651,12 +5671,15 @@ void pfs_end_file_wait_vc(PSI_file_locker *locker, size_t byte_count) {
     event_name_array = thread->write_instr_class_waits_stats();
     uint index = klass->m_event_name_index;
 
-    if (flags & STATE_FLAG_TIMED) {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
-      event_name_array[index].aggregate_value(wait_time);
-    } else {
-      /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted) */
-      event_name_array[index].aggregate_counted();
+    if (event_name_array) {
+      if (flags & STATE_FLAG_TIMED) {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
+        event_name_array[index].aggregate_value(wait_time);
+      } else {
+        /* Aggregate to EVENTS_WAITS_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted)
+         */
+        event_name_array[index].aggregate_counted();
+      }
     }
 
     if (state->m_flags & STATE_FLAG_EVENT) {
@@ -5843,17 +5866,20 @@ PSI_stage_progress *pfs_start_stage_v1(PSI_stage_key key, const char *src_file,
     event_name_array = pfs_thread->write_instr_class_stages_stats();
     uint index = old_class->m_event_name_index;
 
-    /* Finish old event */
-    if (old_class->m_timed) {
-      timer_value = get_stage_timer();
-      pfs->m_timer_end = timer_value;
+    if (event_name_array) {
+      /* Finish old event */
+      if (old_class->m_timed) {
+        timer_value = get_stage_timer();
+        pfs->m_timer_end = timer_value;
 
-      /* Aggregate to EVENTS_STAGES_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
-      ulonglong stage_time = timer_value - pfs->m_timer_start;
-      event_name_array[index].aggregate_value(stage_time);
-    } else {
-      /* Aggregate to EVENTS_STAGES_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted) */
-      event_name_array[index].aggregate_counted();
+        /* Aggregate to EVENTS_STAGES_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
+        ulonglong stage_time = timer_value - pfs->m_timer_start;
+        event_name_array[index].aggregate_value(stage_time);
+      } else {
+        /* Aggregate to EVENTS_STAGES_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted)
+         */
+        event_name_array[index].aggregate_counted();
+      }
     }
 
     if (flag_events_stages_current) {
@@ -5958,17 +5984,20 @@ void pfs_end_stage_v1() {
     event_name_array = pfs_thread->write_instr_class_stages_stats();
     uint index = old_class->m_event_name_index;
 
-    /* Finish old event */
-    if (old_class->m_timed) {
-      timer_value = get_stage_timer();
-      pfs->m_timer_end = timer_value;
+    if (event_name_array) {
+      /* Finish old event */
+      if (old_class->m_timed) {
+        timer_value = get_stage_timer();
+        pfs->m_timer_end = timer_value;
 
-      /* Aggregate to EVENTS_STAGES_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
-      ulonglong stage_time = timer_value - pfs->m_timer_start;
-      event_name_array[index].aggregate_value(stage_time);
-    } else {
-      /* Aggregate to EVENTS_STAGES_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted) */
-      event_name_array[index].aggregate_counted();
+        /* Aggregate to EVENTS_STAGES_SUMMARY_BY_THREAD_BY_EVENT_NAME (timed) */
+        ulonglong stage_time = timer_value - pfs->m_timer_start;
+        event_name_array[index].aggregate_value(stage_time);
+      } else {
+        /* Aggregate to EVENTS_STAGES_SUMMARY_BY_THREAD_BY_EVENT_NAME (counted)
+         */
+        event_name_array[index].aggregate_counted();
+      }
     }
 
     if (flag_events_stages_current) {

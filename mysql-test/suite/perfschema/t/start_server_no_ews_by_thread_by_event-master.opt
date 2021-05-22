@@ -1,0 +1,2 @@
+--loose-enable-performance-schema
+--loose-performance_schema_ews_by_thread_by_event_name=0

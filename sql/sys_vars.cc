@@ -960,6 +960,13 @@ static Sys_var_bool Sys_pfs_esms_by_thread_by_event_name(
     CMD_LINE(OPT_ARG), DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
 
+static Sys_var_bool Sys_pfs_ews_by_thread_by_event_name(
+    "performance_schema_ews_by_thread_by_event_name",
+    "Enables the table events_waits_summary_by_thread_by_event_name",
+    READ_ONLY GLOBAL_VAR(pfs_param.m_ews_by_thread_by_event_name),
+    CMD_LINE(OPT_ARG), DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
+
 static Sys_var_bool Sys_pfs_enable_histogram(
     "performance_schema_histogram_enabled",
     "Enables the histogram for events_statements_summary_by_all / by_digest",

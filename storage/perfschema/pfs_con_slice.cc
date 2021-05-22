@@ -38,6 +38,10 @@
 */
 
 void PFS_connection_slice::reset_waits_stats() {
+  if (!m_instr_class_waits_stats) {
+    return;
+  }
+
   PFS_single_stat *stat = m_instr_class_waits_stats;
   PFS_single_stat *stat_last = stat + wait_class_max;
   for (; stat < stat_last; stat++) {

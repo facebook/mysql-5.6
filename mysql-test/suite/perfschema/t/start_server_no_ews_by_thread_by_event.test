@@ -1,0 +1,12 @@
+# Tests for PERFORMANCE_SCHEMA
+
+--source ../include/start_server_common.inc
+
+# Expect no history
+show global variables like "performance_schema_ews_by_thread_by_event_name";
+
+# Sockets wait are counted separately so exclude them
+select sum(COUNT_STAR) from performance_schema.events_waits_summary_by_thread_by_event_name where event_name not like 'wait/io/socket%';
+
+# Valid operation, edge case
+truncate table performance_schema.events_waits_summary_by_thread_by_event_name;
