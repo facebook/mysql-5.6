@@ -407,7 +407,6 @@ class Rdb_key_def {
 
   Rdb_key_def &operator=(const Rdb_key_def &) = delete;
   Rdb_key_def(const Rdb_key_def &k);
-  Rdb_key_def(const Rdb_key_def &k, const INDEX_ID &index_id);
   Rdb_key_def(uint32_t dbnum_arg, uint indexnr_arg, uint keyno_arg,
               std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle_arg,
               uint16_t index_dict_version_arg, uchar index_type_arg,
@@ -1350,10 +1349,6 @@ class Rdb_seq_generator {
 
   uint get_next_number();
 
-  void update_next_number(rocksdb::WriteBatch *const wb,
-                          Rdb_dict_manager *const dict, uint32_t db_num,
-                          uint max_number);
-
   void cleanup() { mysql_mutex_destroy(&m_mutex); }
 };
 
@@ -1441,16 +1436,6 @@ class Rdb_ddl_manager : public Ensure_initialized {
     return index_num;
   }
 
-  void update_next_number(rocksdb::WriteBatch *const wb,
-                          Rdb_dict_manager *const dict, uint32_t db_num,
-                          uint max_number) {
-    mysql_rwlock_rdlock(&m_rwlock);
-    DBUG_ASSERT(m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end());
-    m_assigned_db_nums[db_num]->update_next_number(wb, dict, db_num,
-                                                   max_number);
-    mysql_rwlock_unlock(&m_rwlock);
-  }
-
   const std::string safe_get_table_name(const GL_INDEX_ID &gl_index_id);
 
   /* Walk the data dictionary */
@@ -1468,13 +1453,8 @@ class Rdb_ddl_manager : public Ensure_initialized {
 
   void delete_db_entry(const std::string &dbname);
 
-  bool alter_db_entry(const std::string &dbname, uint32_t db_num);
-
   bool get_db_max_index_nums(
       std::unordered_map<std::string, uint32_t> *db_max_idx_nums);
-
-  bool check_index_num_conflict(const alter_index_num_params &params,
-                                uint32_t *db_num);
 
  private:
   /* Put the data into in-memory table (only) */
@@ -1493,14 +1473,6 @@ class Rdb_ddl_manager : public Ensure_initialized {
 
   bool get_db_entries(
       std::unordered_map<uint32_t, std::string> *db_entries) const;
-
-  void create_db_entry(rocksdb::WriteBatch *batch, const std::string &dbname,
-                       const uint32_t db_num);
-
-  void delete_db_entry(rocksdb::WriteBatch *batch, const std::string &dbname,
-                       const uint32_t db_num);
-
-  uint32_t calculate_max_index_number(uint32_t db_num);
 };
 
 /*

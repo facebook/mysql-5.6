@@ -28,9 +28,6 @@
 #include <unordered_set>
 #include <vector>
 
-/* Boost */
-#include <boost/optional.hpp>
-
 /* MySQL header files */
 #include <mysql/components/services/log_builtins.h>
 #include "my_dbug.h"
@@ -1150,20 +1147,6 @@ class Rdb_compaction_stats {
 };
 
 extern Rdb_compaction_stats compaction_stats;
-
-struct alter_index_num_entry {
-  int index_type;
-  std::string index_name;
-  uint32_t index_number;
-};
-
-struct alter_index_num_params {
-  std::string dbname;
-  std::string table;
-  boost::optional<ulonglong> auto_incr;
-  std::vector<alter_index_num_entry> index_entries;
-  uint32_t max_index_num;
-};
 
 /* Whether ROCKSDB_ENABLE_SELECT_BYPASS is enabled */
 select_bypass_policy_type get_select_bypass_policy();

@@ -549,14 +549,6 @@ bool acquire_exclusive_table_mdl(THD *thd, const char *schema_name,
                           MDL_TRANSACTION, out_mdl_ticket);
 }
 
-bool acquire_exclusive_table_mdl_explicit(THD *thd, const char *schema_name,
-                                          const char *table_name, bool no_wait,
-                                          MDL_ticket **out_mdl_ticket) {
-  return acquire_mdl_nsec(thd, MDL_key::TABLE, schema_name, table_name, no_wait,
-                          thd->variables.lock_wait_timeout_nsec, MDL_EXCLUSIVE,
-                          MDL_EXPLICIT, out_mdl_ticket);
-}
-
 bool acquire_exclusive_table_mdl(THD *thd, const char *schema_name,
                                  const char *table_name,
                                  unsigned long int lock_wait_timeout_nsec,

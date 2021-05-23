@@ -1498,10 +1498,6 @@ The following options may be given as the first argument:
  --rocksdb-alter-column-default-inplace 
  Allow inplace alter for alter column default operation
  (Defaults to on; use --skip-rocksdb-alter-column-default-inplace to disable.)
- --rocksdb-alter-current-db-num=# 
- Alter the db_num of the database in current session
- --rocksdb-alter-index-num=name 
- Alter all index numbers of a table including indexes
  --rocksdb-blind-delete-primary-key 
  Deleting rows by primary key lookup, without reading rows
  (Blind Deletes). Blind delete is disabled if the table
@@ -2945,8 +2941,6 @@ rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
 rocksdb-allow-to-start-after-corruption FALSE
 rocksdb-alter-column-default-inplace TRUE
-rocksdb-alter-current-db-num 0
-rocksdb-alter-index-num 
 rocksdb-blind-delete-primary-key FALSE
 rocksdb-block-cache-size 536870912
 rocksdb-block-restart-interval 16
