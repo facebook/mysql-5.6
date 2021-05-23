@@ -53,7 +53,19 @@ class Plugin_connection_handler : public Connection_handler {
     m_functions = functions;
   }
 
-  virtual ~Plugin_connection_handler() { m_functions->end(); }
+  // The function is mostly useless as it doesn't signal the end of usage of
+  // functions. The listener thread could still be already in the process of
+  // callinng add_connection(), having loaded the connection handler pointer
+  // (so it cannot be released and m_functions cannot be reset) and having
+  // loaded the functions pointer (so functions also cannot be released). So
+  // realistically the end() callback could only do something at shutdown after
+  // the listener stopped.
+  void end_functions() {
+    auto functions = m_functions;
+    if (functions) {
+      functions->end();
+    }
+  }
 
  protected:
   virtual bool add_connection(Channel_info *channel_info) {

@@ -62,6 +62,11 @@ ulong Connection_handler_manager::thread_handling =
     SCHEDULER_ONE_THREAD_PER_CONNECTION;
 uint Connection_handler_manager::max_threads = 0;
 
+// conn_handler is reused between set/reset calls. A thread could already
+// be in process_new_connection and load m_connection_handler so deleting
+// it would cause a segfault.
+static Plugin_connection_handler plugin_conn_handler;
+
 /**
   Helper functions to allow mysys to call the thread scheduler when
   waiting for locks.
@@ -295,15 +300,9 @@ int my_connection_handler_set(Connection_handler_functions *chf,
   DBUG_ASSERT(chf != nullptr && tef != nullptr);
   if (chf == nullptr || tef == nullptr) return 1;
 
-  // conn_handler is reused between set/reset calls. A thread could already
-  // be in process_new_connection and load m_connection_handler so deleting
-  // it would cause a segfault.
-  static Plugin_connection_handler conn_handler;
-
-  conn_handler.set_functions(chf);
-
+  plugin_conn_handler.set_functions(chf);
   Connection_handler_manager::get_instance()->load_connection_handler(
-      &conn_handler);
+      &plugin_conn_handler);
   Connection_handler_manager::saved_event_functions =
       Connection_handler_manager::event_functions;
   Connection_handler_manager::event_functions = tef;
@@ -313,6 +312,10 @@ int my_connection_handler_set(Connection_handler_functions *chf,
 int my_connection_handler_reset() {
   Connection_handler_manager::event_functions =
       Connection_handler_manager::saved_event_functions;
-  return Connection_handler_manager::get_instance()
-      ->unload_connection_handler();
+  bool error =
+      Connection_handler_manager::get_instance()->unload_connection_handler();
+  if (!error) {
+    plugin_conn_handler.end_functions();
+  }
+  return error;
 }
