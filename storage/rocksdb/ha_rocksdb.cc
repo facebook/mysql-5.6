@@ -4566,7 +4566,8 @@ static bool rocksdb_user_table_blocked(legacy_db_type db_type) {
 static void rocksdb_drop_database(handlerton *const hton
                                       MY_ATTRIBUTE((__unused__)),
                                   const char *dbname, char *) {
-  ddl_manager.delete_db_entry(dbname);
+  std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+  dict_manager.delete_db_entry(dbname);
 }
 
 /**
@@ -7809,7 +7810,15 @@ int ha_rocksdb::create_key_defs(
     Retrieve the db_num for the new table entries.
    */
   uint32_t dbnr_arg = 0;
-  ddl_manager.get_or_create_db_entry(tbl_def_arg->base_dbname(), &dbnr_arg);
+  {
+    std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+    if (dict_manager.get_db_num(tbl_def_arg->base_dbname(), &dbnr_arg)) {
+      dict_manager.create_db_entry(tbl_def_arg->base_dbname());
+      if (dict_manager.get_db_num(tbl_def_arg->base_dbname(), &dbnr_arg)) {
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
+    }
+  }
 
   if (!old_tbl_def_arg) {
     /*
@@ -8205,8 +8214,7 @@ int ha_rocksdb::create_key_def(uint32_t dbnum_arg, const TABLE *const table_arg,
 
   DBUG_ASSERT(*new_key_def == nullptr);
 
-  const uint index_id =
-      ddl_manager.get_and_update_next_number(&dict_manager, dbnum_arg);
+  const uint index_id = ddl_manager.get_and_update_next_number(&dict_manager);
   const uint16_t index_dict_version = Rdb_key_def::INDEX_INFO_VERSION_LATEST;
   uchar index_type;
   uint16_t kv_version;
@@ -12047,34 +12055,7 @@ void Rdb_drop_index_thread::run() {
       }
 
       if (!finished.empty()) {
-        DBUG_EXECUTE_IF("rocksdb_drop_idx", {
-          THD *thd = new THD();
-          thd->thread_stack = reinterpret_cast<char *>(&(thd));
-          thd->store_globals();
-
-          const char act[] = "now signal drop_idx_waiting";
-          DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
-
-          const char act2[] = "now wait_for ready_to_drop_idx";
-          DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act2)));
-
-          thd->restore_globals();
-          delete thd;
-        });
-
         dict_manager.finish_drop_indexes(finished);
-
-        DBUG_EXECUTE_IF("rocksdb_drop_idx", {
-          THD *thd = new THD();
-          thd->thread_stack = reinterpret_cast<char *>(&(thd));
-          thd->store_globals();
-
-          const char act[] = "now signal drop_idx_done";
-          DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
-
-          thd->restore_globals();
-          delete thd;
-        });
       }
     }
 

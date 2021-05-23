@@ -14,13 +14,12 @@ use db2;
 create table t1(a int primary key, b int, key(b));
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
-db1	t1	NULL	b	0	2	2	16	0	0	default	NULL	2809014792
-db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2454721479
-db2	t1	NULL	b	0	2	2	16	0	0	default	NULL	2454721479
+db1	t1	NULL	PRIMARY	0	256	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	b	0	257	2	16	0	0	default	NULL	2809014792
+db2	t1	NULL	PRIMARY	0	258	1	15	0	0	default	NULL	2454721479
+db2	t1	NULL	b	0	259	2	16	0	0	default	NULL	2454721479
 drop database db1;
 drop database db2;
-include/sync_slave_sql_with_master.inc
 ################################################
 # Recreate the database with the same name
 ################################################
@@ -29,10 +28,9 @@ use db1;
 create table t1(a int primary key, b int, key(b));
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
-db1	t1	NULL	b	0	2	2	16	0	0	default	NULL	2809014792
+db1	t1	NULL	PRIMARY	0	260	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	b	0	261	2	16	0	0	default	NULL	2809014792
 drop database db1;
-include/sync_slave_sql_with_master.inc
 ################################################
 # Verify the key composition of the row 
 ################################################
@@ -46,10 +44,9 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-a76e2a08	00000001
+a76e2a08	00000106
 ROLLBACK;
 drop database db1;
-include/sync_slave_sql_with_master.inc
 ####################################################
 # Verify database entry is preserved across restart 
 ####################################################
@@ -66,17 +63,17 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-a76e2a08	00000001
+a76e2a08	00000107
 ROLLBACK;
 select * from information_schema.rocksdb_ddl where table_schema='db1';
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	PRIMARY	0	263	1	15	0	0	default	NULL	2809014792
 include/rpl_restart_server.inc [server_number=1]
 include/rpl_restart_server.inc [server_number=2]
 include/start_slave.inc
 select * from information_schema.rocksdb_ddl where table_schema='db1';
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL		0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL		0	263	1	15	0	0	default	NULL	2809014792
 BEGIN;
 SELECT * from t1;
 a
@@ -86,10 +83,9 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-a76e2a08	00000001
+a76e2a08	00000107
 ROLLBACK;
 drop database db1;
-include/sync_slave_sql_with_master.inc
 ################################################
 # Verify drop database drops the table 
 ################################################
@@ -106,13 +102,12 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-a76e2a08	00000001
+a76e2a08	00000108
 ROLLBACK;
 select * from information_schema.rocksdb_ddl where table_schema='db1';
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	PRIMARY	0	264	1	15	0	0	default	NULL	2809014792
 drop database db1;
-include/sync_slave_sql_with_master.inc
 select * from information_schema.rocksdb_ddl where table_schema='db1';
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
 SELECT * from db1.t1;
@@ -130,7 +125,7 @@ create table t1(a int primary key);
 insert into t1 values(1000);
 select * from information_schema.rocksdb_ddl where table_schema='db1';
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	PRIMARY	0	265	1	15	0	0	default	NULL	2809014792
 BEGIN;
 SELECT * from t1;
 a
@@ -140,10 +135,9 @@ hex(a)
 3E8
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-a76e2a08	00000001
+a76e2a08	00000109
 ROLLBACK;
 drop database db1;
-include/sync_slave_sql_with_master.inc
 ################################################
 # Test db prefix content on secondary
 ################################################
@@ -152,13 +146,12 @@ use db1;
 create table t1(a int primary key);
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	PRIMARY	0	266	1	15	0	0	default	NULL	2809014792
 include/sync_slave_sql_with_master.inc
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	PRIMARY	0	266	1	15	0	0	default	NULL	2809014792
 drop database db1;
-include/sync_slave_sql_with_master.inc
 ################################################
 # Test db rename scenario
 ################################################
@@ -173,22 +166,22 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-a76e2a08	00000001
+a76e2a08	0000010b
 ROLLBACK;
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	PRIMARY	0	267	1	15	0	0	default	NULL	2809014792
 rename table db1.t1 to db2.t1;
 use db2;
 create table t2(a int primary key);
 insert into t2 values(999);
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db2	t1	NULL	PRIMARY	0	267	1	15	0	0	default	NULL	2809014792
 select * from information_schema.rocksdb_ddl where table_schema='db2' order by table_name;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
-db2	t2	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2454721479
+db2	t1	NULL	PRIMARY	0	267	1	15	0	0	default	NULL	2809014792
+db2	t2	NULL	PRIMARY	0	268	1	15	0	0	default	NULL	2454721479
 BEGIN;
 SELECT hex(a) FROM t1 FOR UPDATE;
 hex(a)
@@ -198,8 +191,8 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-925013c7	00000001
-a76e2a08	00000001
+925013c7	0000010c
+a76e2a08	0000010b
 ROLLBACK;
 insert into t1 values(1000);
 BEGIN;
@@ -212,13 +205,12 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-925013c7	00000001
-a76e2a08	00000001
-a76e2a08	00000001
+925013c7	0000010c
+a76e2a08	0000010b
+a76e2a08	0000010b
 ROLLBACK;
 drop database db1;
 drop database db2;
-include/sync_slave_sql_with_master.inc
 ################################################
 # Test db rename scenario on secondaries
 ################################################
@@ -235,11 +227,11 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-a76e2a08	00000001
+a76e2a08	0000010d
 ROLLBACK;
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db1	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db1	t1	NULL	PRIMARY	0	269	1	15	0	0	default	NULL	2809014792
 rename table db1.t1 to db2.t1;
 use db2;
 create table t2(a int primary key);
@@ -247,11 +239,11 @@ insert into t2 values(999);
 include/sync_slave_sql_with_master.inc
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
+db2	t1	NULL	PRIMARY	0	269	1	15	0	0	default	NULL	2809014792
 select * from information_schema.rocksdb_ddl where table_schema='db2' order by table_name;
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	DB_NUMBER
-db2	t1	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2809014792
-db2	t2	NULL	PRIMARY	0	1	1	15	0	0	default	NULL	2454721479
+db2	t1	NULL	PRIMARY	0	269	1	15	0	0	default	NULL	2809014792
+db2	t2	NULL	PRIMARY	0	270	1	15	0	0	default	NULL	2454721479
 use db2;
 BEGIN;
 SELECT hex(a) FROM t1 FOR UPDATE;
@@ -262,8 +254,8 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-925013c7	00000001
-a76e2a08	00000001
+925013c7	0000010e
+a76e2a08	0000010d
 ROLLBACK;
 insert into t1 values(1000);
 BEGIN;
@@ -276,13 +268,12 @@ hex(a)
 3E7
 SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 SUBSTRING(a.key,1,8)	SUBSTRING(a.key,9,8)
-925013c7	00000001
-a76e2a08	00000001
-a76e2a08	00000001
+925013c7	0000010e
+a76e2a08	0000010d
+a76e2a08	0000010d
 ROLLBACK;
 drop database db1;
 drop database db2;
-include/sync_slave_sql_with_master.inc
 ################################################
 # Cleanup
 ################################################

@@ -456,12 +456,11 @@ class Rdb_key_def {
     BINLOG_INFO_INDEX_NUMBER = 4,
     DDL_DROP_INDEX_ONGOING = 5,
     INDEX_STATISTICS = 6,
-    // MAX_INDEX_NUM = 7,
+    MAX_INDEX_NUM = 7,
     DDL_CREATE_INDEX_ONGOING = 8,
     AUTO_INC = 9,
     DROPPED_CF = 10,
     DB_ENTRY = 11,
-    DB_MAX_INDEX_NUM = 12,
     END_DICT_INDEX_ID = 255
   };
 
@@ -472,7 +471,7 @@ class Rdb_key_def {
     CF_DEFINITION_VERSION = 1,
     BINLOG_INFO_INDEX_NUMBER_VERSION = 1,
     DDL_DROP_INDEX_ONGOING_VERSION = 1,
-    DB_MAX_INDEX_NUM_VERSION = 1,
+    MAX_INDEX_NUM_VERSION = 1,
     DDL_CREATE_INDEX_ONGOING_VERSION = 1,
     AUTO_INCREMENT_VERSION = 1,
     DROPPED_CF_VERSION = 1,
@@ -1345,9 +1344,7 @@ class Rdb_seq_generator {
     m_next_number = initial_number;
   }
 
-  uint get_and_update_next_number(Rdb_dict_manager *const dict, uint32 db_num);
-
-  uint get_next_number();
+  uint get_and_update_next_number(Rdb_dict_manager *const dict);
 
   void cleanup() { mysql_mutex_destroy(&m_mutex); }
 };
@@ -1381,17 +1378,13 @@ class Rdb_ddl_manager : public Ensure_initialized {
       m_gl_index_id_to_uncommitted_keydef;
   mysql_rwlock_t m_rwlock;
 
-  std::unordered_map<uint32_t, std::unique_ptr<Rdb_seq_generator>>
-      m_assigned_db_nums;
-
+  Rdb_seq_generator m_sequence;
   // A queue of table stats to write into data dictionary
   // It is produced by event listener (ie compaction and flush threads)
   // and consumed by the rocksdb background thread
   std::map<GL_INDEX_ID, Rdb_index_stats> m_stats2store;
 
   const std::shared_ptr<Rdb_key_def> &find(GL_INDEX_ID gl_index_id);
-
-  bool populate_db_nums();
 
  public:
   Rdb_ddl_manager(const Rdb_ddl_manager &) = delete;
@@ -1426,14 +1419,8 @@ class Rdb_ddl_manager : public Ensure_initialized {
   bool rename(const std::string &from, const std::string &to,
               rocksdb::WriteBatch *const batch);
 
-  uint get_and_update_next_number(Rdb_dict_manager *const dict,
-                                  uint32_t db_num) {
-    mysql_rwlock_rdlock(&m_rwlock);
-    DBUG_ASSERT(m_assigned_db_nums.find(db_num) != m_assigned_db_nums.end());
-    uint index_num =
-        m_assigned_db_nums[db_num]->get_and_update_next_number(dict, db_num);
-    mysql_rwlock_unlock(&m_rwlock);
-    return index_num;
+  uint get_and_update_next_number(Rdb_dict_manager *const dict) {
+    return m_sequence.get_and_update_next_number(dict);
   }
 
   const std::string safe_get_table_name(const GL_INDEX_ID &gl_index_id);
@@ -1448,14 +1435,6 @@ class Rdb_ddl_manager : public Ensure_initialized {
       const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
   int find_in_uncommitted_keydef(const uint32_t &cf_id);
 
-  /* Methods to manage DB_ENTRY */
-  bool get_or_create_db_entry(const std::string &dbname, uint32_t *db_num);
-
-  void delete_db_entry(const std::string &dbname);
-
-  bool get_db_max_index_nums(
-      std::unordered_map<std::string, uint32_t> *db_max_idx_nums);
-
  private:
   /* Put the data into in-memory table (only) */
   int put(Rdb_tbl_def *const key_descr, const bool lock = true);
@@ -1468,11 +1447,6 @@ class Rdb_ddl_manager : public Ensure_initialized {
   bool validate_schemas();
 
   bool validate_auto_incr();
-
-  bool get_db_num(const std::string &dbname, uint32_t *db_num) const;
-
-  bool get_db_entries(
-      std::unordered_map<uint32_t, std::string> *db_entries) const;
 };
 
 /*
@@ -1553,8 +1527,8 @@ class Rdb_binlog_manager {
   key: Rdb_key_def::INDEX_STATISTICS(0x6) + cf_id + db_num + index_num
   value: version, {materialized PropertiesCollector::IndexStats}
 
-  7. maximum index number for a database
-  key: Rdb_key_def::DB_MAX_INDEX_NUM(0x7) + db_num
+  7. maximum index number
+  key: Rdb_key_def::MAX_INDEX_NUM(0x7)
   value: index_num
   index_num is 4 bytes
 
@@ -1587,6 +1561,11 @@ class Rdb_dict_manager : public Ensure_initialized {
   rocksdb::TransactionDB *m_db = nullptr;
   rocksdb::ColumnFamilyHandle *m_system_cfh = nullptr;
   /* Utility to put INDEX_INFO and CF_DEFINITION */
+
+  uchar m_key_buf_max_index_num[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
+  rocksdb::Slice m_key_slice_max_index_num;
+
+  std::unordered_set<uint32_t> m_assigned_db_nums;
 
   static void dump_gl_index_id(uchar *const netbuf,
                                Rdb_key_def::DATA_DICT_TYPE dict_type,
@@ -1743,11 +1722,9 @@ class Rdb_dict_manager : public Ensure_initialized {
                                       Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
   }
 
-  bool get_max_index_num(uint32_t db_num, uint32_t *const index_num) const;
+  bool get_max_index_num(uint32_t *const index_num) const;
   bool update_max_index_num(rocksdb::WriteBatch *const batch,
-                            const uint32_t db_num,
                             const uint32_t index_num) const;
-
   void add_stats(rocksdb::WriteBatch *const batch,
                  const std::vector<Rdb_index_stats> &stats) const;
   Rdb_index_stats get_stats(GL_INDEX_ID gl_index_id) const;
@@ -1758,6 +1735,15 @@ class Rdb_dict_manager : public Ensure_initialized {
                                     bool overwrite = false) const;
   bool get_auto_incr_val(const GL_INDEX_ID &gl_index_id,
                          ulonglong *new_val) const;
+
+  /* Methods to manage DB_ENTRY */
+  bool create_db_entry(const std::string &dbname);
+
+  bool get_db_num(const std::string &dbname, uint32_t *new_val) const;
+
+  void delete_db_entry(const std::string &dbname);
+
+  bool populate_db_nums();
 
  private:
   /* dropped cf flags */

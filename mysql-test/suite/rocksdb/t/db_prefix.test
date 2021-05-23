@@ -16,7 +16,6 @@ select * from information_schema.rocksdb_ddl where table_name='t1' order by tabl
 
 drop database db1;
 drop database db2;
---source wait_pending_drop_indexes.inc
 
 --echo ################################################
 --echo # Recreate the database with the same name
@@ -28,7 +27,6 @@ create table t1(a int primary key, b int, key(b));
 select * from information_schema.rocksdb_ddl where table_name='t1' order by table_schema;
 
 drop database db1;
---source wait_pending_drop_indexes.inc
 
 --echo ################################################
 --echo # Verify the key composition of the row 
@@ -46,7 +44,6 @@ SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksd
 ROLLBACK;
 
 drop database db1;
---source wait_pending_drop_indexes.inc
 
 --echo ####################################################
 --echo # Verify database entry is preserved across restart 
@@ -82,7 +79,6 @@ SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksd
 ROLLBACK;
 
 drop database db1;
---source wait_pending_drop_indexes.inc
 
 --echo ################################################
 --echo # Verify drop database drops the table 
@@ -100,7 +96,6 @@ ROLLBACK;
 
 select * from information_schema.rocksdb_ddl where table_schema='db1';
 drop database db1;
---source wait_pending_drop_indexes.inc
 select * from information_schema.rocksdb_ddl where table_schema='db1';
 
 --error 1049
@@ -132,7 +127,6 @@ SELECT SUBSTRING(a.key,1,8), SUBSTRING(a.key,9,8) FROM information_schema.rocksd
 ROLLBACK;
 
 drop database db1;
---source wait_pending_drop_indexes.inc
 
 --echo ################################################
 --echo # Test db prefix content on secondary
@@ -152,7 +146,6 @@ select * from information_schema.rocksdb_ddl where table_name='t1' order by tabl
 
 connection default;
 drop database db1;
---source wait_pending_drop_indexes.inc
 
 --echo ################################################
 --echo # Test db rename scenario
@@ -203,7 +196,6 @@ ROLLBACK;
 
 drop database db1;
 drop database db2;
---source wait_pending_drop_indexes.inc
 
 --echo ################################################
 --echo # Test db rename scenario on secondaries
@@ -265,7 +257,6 @@ ROLLBACK;
 connection default;
 drop database db1;
 drop database db2;
---source wait_pending_drop_indexes.inc
 
 --echo ################################################
 --echo # Cleanup

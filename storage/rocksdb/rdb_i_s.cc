@@ -778,14 +778,14 @@ static int rdb_i_s_global_info_fill_table(
   Rdb_dict_manager *const dict_manager = rdb_get_dict_manager();
   DBUG_ASSERT(dict_manager != nullptr);
 
+  uint32_t max_index_num;
   char max_index_num_buf[INT_BUF_LEN] = {0};
-  std::unordered_map<std::string, uint32_t> db_max_index_num;
-  if (!rdb_get_ddl_manager()->get_db_max_index_nums(&db_max_index_num)) {
-    for (const auto &it : db_max_index_num) {
-      snprintf(max_index_num_buf, INT_BUF_LEN, "%u", it.second);
-      ret |= rdb_global_info_fill_row(thd, tables, "MAX_INDEX_NUM",
-                                      it.first.c_str(), max_index_num_buf);
-    }
+
+  if (dict_manager->get_max_index_num(&max_index_num)) {
+    snprintf(max_index_num_buf, INT_BUF_LEN, "%u", max_index_num);
+
+    ret |= rdb_global_info_fill_row(thd, tables, "MAX_INDEX_ID", "MAX_INDEX_ID",
+                                    max_index_num_buf);
   }
 
   /* cf_id -> cf_flags */
@@ -1672,6 +1672,7 @@ static int rdb_i_s_index_file_map_fill_table(
 
       if (stats.empty()) {
         field[RDB_INDEX_FILE_MAP_FIELD::COLUMN_FAMILY]->store(-1, true);
+        field[RDB_INDEX_FILE_MAP_FIELD::DB_NUMBER]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::INDEX_NUMBER]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::NUM_ROWS]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::DATA_SIZE]->store(-1, true);
@@ -1679,13 +1680,14 @@ static int rdb_i_s_index_file_map_fill_table(
         field[RDB_INDEX_FILE_MAP_FIELD::ENTRY_SINGLEDELETES]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::ENTRY_MERGES]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::ENTRY_OTHERS]->store(-1, true);
-        field[RDB_INDEX_FILE_MAP_FIELD::DB_NUMBER]->store(-1, true);
       } else {
         for (const auto &it : stats) {
           /* Add the index number, the number of rows, and data size to the
            * output */
           field[RDB_INDEX_FILE_MAP_FIELD::COLUMN_FAMILY]->store(
               it.m_gl_index_id.cf_id, true);
+          field[RDB_INDEX_FILE_MAP_FIELD::DB_NUMBER]->store(
+              it.m_gl_index_id.index_id.db_num, true);
           field[RDB_INDEX_FILE_MAP_FIELD::INDEX_NUMBER]->store(
               it.m_gl_index_id.index_id.index_num, true);
           field[RDB_INDEX_FILE_MAP_FIELD::NUM_ROWS]->store(it.m_rows, true);
@@ -1714,8 +1716,6 @@ static int rdb_i_s_index_file_map_fill_table(
           field[RDB_INDEX_FILE_MAP_FIELD::DISTINCT_KEYS_PREFIX]->store(
               distinct_keys_prefix.data(), distinct_keys_prefix.size(),
               system_charset_info);
-          field[RDB_INDEX_FILE_MAP_FIELD::DB_NUMBER]->store(
-              it.m_gl_index_id.index_id.db_num, true);
 
           /* Tell MySQL about this row in the virtual table */
           ret = static_cast<int>(
