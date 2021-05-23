@@ -38,9 +38,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
   Rdb_compact_filter(const Rdb_compact_filter &) = delete;
   Rdb_compact_filter &operator=(const Rdb_compact_filter &) = delete;
 
-  explicit Rdb_compact_filter(uint32_t _cf_id)
-      : m_cf_id(_cf_id),
-        m_system_cf_id(rdb_get_dict_manager()->get_system_cf()->GetID()) {}
+  explicit Rdb_compact_filter(uint32_t _cf_id) : m_cf_id(_cf_id) {}
   ~Rdb_compact_filter() {
     // Increment stats by num expired at the end of compaction
     rdb_update_global_stats(ROWS_EXPIRED, m_num_expired);
@@ -55,16 +53,12 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
       const rocksdb::Slice &existing_value,
       std::string *new_value MY_ATTRIBUTE((unused)),
       bool *value_changed MY_ATTRIBUTE((unused))) const override {
-    if (m_cf_id == m_system_cf_id) {
-      return false;
-    }
-    DBUG_ASSERT(key.size() >= 2 * sizeof(uint32));
+    DBUG_ASSERT(key.size() >= sizeof(uint32));
 
     GL_INDEX_ID gl_index_id;
     gl_index_id.cf_id = m_cf_id;
-    gl_index_id.index_id = {rdb_netbuf_to_uint32((const uchar *)key.data()),
-                            rdb_netbuf_to_uint32((const uchar *)key.data() +
-                                                 Rdb_key_def::DB_NUMBER_SIZE)};
+    gl_index_id.index_id = rdb_netbuf_to_uint32((const uchar *)key.data());
+    DBUG_ASSERT(gl_index_id.index_id >= 1);
 
     if (gl_index_id != m_prev_index) {
       m_should_delete =
@@ -190,10 +184,8 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
  private:
   // Column family for this compaction filter
   const uint32_t m_cf_id;
-  // Column family for system column family
-  const uint32_t m_system_cf_id;
   // Index id of the previous record
-  mutable GL_INDEX_ID m_prev_index = {0, {0, 0}};
+  mutable GL_INDEX_ID m_prev_index = {0, 0};
   // Number of rows deleted for the same index id
   mutable uint64 m_num_deleted = 0;
   // Number of rows expired for the TTL index

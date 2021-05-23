@@ -27,7 +27,7 @@ SELECT hex(vb) FROM t1;
 # validate that the keys were encoded as expected
 BEGIN;
 SELECT hex(vb) FROM t1 FOR UPDATE;
-SELECT SUBSTRING(a.key,17) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SELECT SUBSTRING(a.key,9) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 ROLLBACK;
 
 DROP TABLE t1;
@@ -58,7 +58,7 @@ SELECT * FROM t1;
 # validate that the keys were encoded as expected
 BEGIN;
 SELECT * FROM t1 FOR UPDATE;
-SELECT SUBSTRING(a.key,17) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+SELECT SUBSTRING(a.key,9) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
 ROLLBACK;
 
 DROP TABLE t1;

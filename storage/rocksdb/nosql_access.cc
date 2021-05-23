@@ -993,9 +993,7 @@ bool INLINE_ATTR select_exec::scan_where() {
   // We start with just one KeyIndexTuple to pack
   m_key_index_tuples.emplace_back();
   m_key_index_tuples[0].start.reserve(m_key_def->max_storage_fmt_length());
-  INDEX_ID index_id = m_key_def->get_index_id();
-  m_key_index_tuples[0].start.write_uint32(index_id.db_num);
-  m_key_index_tuples[0].start.write_uint32(index_id.index_num);
+  m_key_index_tuples[0].start.write_uint32(m_key_def->get_index_number());
 
   // Scan the index sequentially, and pack the prefix key as we go
   // We stop building the the key if we see a gap, rest become filters.
@@ -1500,9 +1498,9 @@ bool INLINE_ATTR select_exec::run_pk_point_query(txn_wrapper *txn) {
 
 bool INLINE_ATTR select_exec::setup_iterator(txn_wrapper *txn,
                                              const rocksdb::Slice &eq_slice) {
-  // Bounds needs to be least Rdb_key_def::INDEX_ID_SIZE
+  // Bounds needs to be least Rdb_key_def::INDEX_NUMBER_SIZE
   size_t bound_len =
-      std::max<size_t>(eq_slice.size(), Rdb_key_def::INDEX_ID_SIZE);
+      std::max<size_t>(eq_slice.size(), Rdb_key_def::INDEX_NUMBER_SIZE);
   m_lower_bound_buf.reserve(bound_len);
   m_upper_bound_buf.reserve(bound_len);
   bool use_bloom = ha_rocksdb::check_bloom_and_set_bounds(

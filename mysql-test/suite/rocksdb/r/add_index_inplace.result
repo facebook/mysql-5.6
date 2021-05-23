@@ -340,7 +340,7 @@ SET @prior_rocksdb_strict_collation_check= @@rocksdb_strict_collation_check;
 SET @prior_rocksdb_merge_buf_size = @@rocksdb_merge_buf_size;
 SET global rocksdb_strict_collation_check = off;
 SET session rocksdb_merge_combine_read_size = 566;
-SET session rocksdb_merge_buf_size = 344;
+SET session rocksdb_merge_buf_size = 340;
 show variables like 'rocksdb_bulk_load%';
 Variable_name	Value
 rocksdb_bulk_load	OFF
@@ -407,7 +407,7 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
-select 1700 < 1700 * 1.5 as "same";
+select 1300 < 1300 * 1.5 as "same";
 same
 1
 DROP TABLE t1;

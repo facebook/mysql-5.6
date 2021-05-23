@@ -854,22 +854,15 @@ void ha_end() {
   my_free(handler_errmsgs);
 }
 
-struct dropdb_st {
-  const char *dbname;
-  char *path;
-};
-
-static bool dropdb_handlerton(THD *, plugin_ref plugin, void *arg) {
-  dropdb_st *dropdb = reinterpret_cast<dropdb_st *>(arg);
+static bool dropdb_handlerton(THD *, plugin_ref plugin, void *path) {
   handlerton *hton = plugin_data<handlerton *>(plugin);
   if (hton->state == SHOW_OPTION_YES && hton->drop_database)
-    hton->drop_database(hton, dropdb->dbname, dropdb->path);
+    hton->drop_database(hton, (char *)path);
   return false;
 }
 
-void ha_drop_database(const char *dbname, char *path) {
-  dropdb_st arg = {dbname, path};
-  plugin_foreach(nullptr, dropdb_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, &arg);
+void ha_drop_database(char *path) {
+  plugin_foreach(nullptr, dropdb_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, path);
 }
 
 static bool closecon_handlerton(THD *thd, plugin_ref plugin, void *) {

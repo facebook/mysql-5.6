@@ -29,7 +29,6 @@
 #include "sql/sql_array.h"
 
 /* MyRocks header files */
-#include "./ha_rocksdb_proto.h"
 #include "./rdb_datadic.h"
 #include "./rdb_utils.h"
 
@@ -115,20 +114,9 @@ void Rdb_tbl_prop_coll::AdjustDeletedRows(rocksdb::EntryType type) {
 }
 
 Rdb_index_stats *Rdb_tbl_prop_coll::AccessStats(const rocksdb::Slice &key) {
-  GL_INDEX_ID gl_index_id;
-  uint32_t lead_prefix =
-      rdb_netbuf_to_uint32(reinterpret_cast<const uchar *>(key.data()));
-  if (lead_prefix <= Rdb_key_def::END_DICT_INDEX_ID) {
-    gl_index_id = {.cf_id = m_cf_id,
-                   .index_id = {.db_num = 0, .index_num = lead_prefix}};
-  } else {
-    gl_index_id = {
-        .cf_id = m_cf_id,
-        .index_id = {.db_num = lead_prefix,
-                     .index_num = rdb_netbuf_to_uint32(
-                         reinterpret_cast<const uchar *>(key.data()) +
-                         Rdb_key_def::DB_NUMBER_SIZE)}};
-  }
+  GL_INDEX_ID gl_index_id = {.cf_id = m_cf_id,
+                             .index_id = rdb_netbuf_to_uint32(
+                                 reinterpret_cast<const uchar *>(key.data()))};
 
   if (m_last_stats == nullptr || m_last_stats->m_gl_index_id != gl_index_id) {
     m_keydef = nullptr;
@@ -326,9 +314,7 @@ std::string Rdb_tbl_prop_coll::GetReadableStats(const Rdb_index_stats &it) {
   s.append("(");
   s.append(std::to_string(it.m_gl_index_id.cf_id));
   s.append(", ");
-  s.append(std::to_string(it.m_gl_index_id.index_id.db_num));
-  s.append(", ");
-  s.append(std::to_string(it.m_gl_index_id.index_id.index_num));
+  s.append(std::to_string(it.m_gl_index_id.index_id));
   s.append("):{name:");
   s.append(it.m_name);
   s.append(", size:");
@@ -380,8 +366,7 @@ std::string Rdb_index_stats::materialize(
   rdb_netstr_append_uint16(&ret, INDEX_STATS_VERSION_ENTRY_TYPES);
   for (const auto &i : stats) {
     rdb_netstr_append_uint32(&ret, i.m_gl_index_id.cf_id);
-    rdb_netstr_append_uint32(&ret, i.m_gl_index_id.index_id.db_num);
-    rdb_netstr_append_uint32(&ret, i.m_gl_index_id.index_id.index_num);
+    rdb_netstr_append_uint32(&ret, i.m_gl_index_id.index_id);
     DBUG_ASSERT(sizeof i.m_data_size <= 8);
     rdb_netstr_append_uint64(&ret, i.m_data_size);
     rdb_netstr_append_uint64(&ret, i.m_rows);

@@ -61,7 +61,7 @@ struct Rdb_index_stats {
   static int unmaterialize(const std::string &s,
                            std::vector<Rdb_index_stats> *const ret);
 
-  Rdb_index_stats() : Rdb_index_stats({0, {0, 0}}) {}
+  Rdb_index_stats() : Rdb_index_stats({0, 0}) {}
   explicit Rdb_index_stats(GL_INDEX_ID gl_index_id)
       : m_gl_index_id(gl_index_id),
         m_data_size(0),
