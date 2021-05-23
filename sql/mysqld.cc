@@ -8393,6 +8393,7 @@ int mysqld_main(int argc, char **argv)
   db_ac->update_max_running_queries(opt_max_running_queries);
   db_ac->update_max_waiting_queries(opt_max_waiting_queries);
   db_ac->update_queue_weights(admission_control_weights);
+  db_ac->update_max_connections(opt_max_db_connections);
 
   if (init_server_components()) unireg_abort(MYSQLD_ABORT_EXIT);
 
