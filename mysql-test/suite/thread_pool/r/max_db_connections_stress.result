@@ -30,7 +30,6 @@ use test_db2;
 create database test_db1;
 grant all on test_db1.* to test_user@localhost;
 use test_db1;
-set global thread_pool_max_db_connections = 8;
 drop database test_db10;
 drop database test_db9;
 drop database test_db8;
@@ -43,4 +42,4 @@ drop database test_db2;
 drop database test_db1;
 drop user test_user@localhost;
 errors present
-0
+1
