@@ -52,8 +52,8 @@ a	b
 1	a
 2	b
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000002
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000002	0
 include/sync_slave_sql_with_master.inc
 [connection slave]
 include/show_binlog_events.inc
@@ -78,8 +78,8 @@ a	b
 1	a
 2	b
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000002
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000002	0
 Case 2: Multi statement txn
 [connection master]
 SET autocommit = OFF;
@@ -116,8 +116,8 @@ a	b
 3	c
 4	d
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000003
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000003	0
 include/sync_slave_sql_with_master.inc
 [connection slave]
 include/show_binlog_events.inc
@@ -149,8 +149,8 @@ a	b
 3	c
 4	d
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000003
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000003	0
 Case 3: Multi statement txn spanning multiple database
 [connection master]
 SET autocommit = OFF;
@@ -195,9 +195,9 @@ SELECT * FROM test2.t1;
 a	b
 5	e
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000004
-test2	2538630000000000004
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000004	0
+test2	2538630000000000004	0
 include/sync_slave_sql_with_master.inc
 [connection slave]
 include/show_binlog_events.inc
@@ -238,9 +238,9 @@ SELECT * FROM test2.t1;
 a	b
 5	e
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000004
-test2	2538630000000000004
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000004	0
+test2	2538630000000000004	0
 Case 4: Multiple single stmt txns txn spanning multiple database
 [connection master]
 SET autocommit = OFF;
@@ -296,9 +296,9 @@ a	b
 5	e
 8	g
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000005
-test2	2538630000000000006
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000005	0
+test2	2538630000000000006	0
 include/sync_slave_sql_with_master.inc
 [connection slave]
 include/show_binlog_events.inc
@@ -349,9 +349,9 @@ a	b
 5	e
 8	g
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000005
-test2	2538630000000000006
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000005	0
+test2	2538630000000000006	0
 Case 5: Pure DDL should also update and maintain per database HLC
 [connection master]
 SET autocommit = OFF;
@@ -359,60 +359,60 @@ CREATE TABLE test1.t2(a INT);
 CREATE TABLE test2.t2(a INT);
 CREATE DATABASE test3;
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000007
-test2	2538630000000000008
-test3	2538630000000000009
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000007	0
+test2	2538630000000000008	0
+test3	2538630000000000009	0
 include/sync_slave_sql_with_master.inc
 [connection slave]
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000007
-test2	2538630000000000008
-test3	2538630000000000009
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000007	0
+test2	2538630000000000008	0
+test3	2538630000000000009	0
 Case 6: Duplicate enabling of maintain_database_hlc should not clear the map
 [connection master]
 SET @@global.maintain_database_hlc = ON;
 SET @@global.maintain_database_hlc = ON;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000007
-test2	2538630000000000008
-test3	2538630000000000009
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000007	0
+test2	2538630000000000008	0
+test3	2538630000000000009	0
 [connection slave]
 SET @@global.maintain_database_hlc = ON;
 SET @@global.maintain_database_hlc = ON;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000007
-test2	2538630000000000008
-test3	2538630000000000009
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000007	0
+test2	2538630000000000008	0
+test3	2538630000000000009	0
 Case 7: Duplicate enabling of binlog_hlc should not clear the map
 [connection master]
 SET @@global.enable_binlog_hlc = ON;
 SET @@global.enable_binlog_hlc = ON;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000007
-test2	2538630000000000008
-test3	2538630000000000009
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000007	0
+test2	2538630000000000008	0
+test3	2538630000000000009	0
 [connection slave]
 SET @@global.enable_binlog_hlc = ON;
 SET @@global.enable_binlog_hlc = ON;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000007
-test2	2538630000000000008
-test3	2538630000000000009
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000007	0
+test2	2538630000000000008	0
+test3	2538630000000000009	0
 Case 8: Disabling maintain_database_hlc should clear the map
 [connection master]
 SET @@global.maintain_database_hlc = OFF;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
 [connection slave]
 SET @@global.maintain_database_hlc = OFF;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
 Case 9: Disabling enable_binlog_hlc should clear the map
 [connection master]
 SET @@global.maintain_database_hlc = ON;
@@ -422,19 +422,19 @@ SET @@global.maintain_database_hlc = ON;
 insert into test1.t2 values(100);
 commit;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000010
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000010	0
 SET @@global.enable_binlog_hlc = OFF;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
 include/sync_slave_sql_with_master.inc
 [connection slave]
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
-test1	2538630000000000010
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
+test1	2538630000000000010	0
 SET @@global.enable_binlog_hlc = OFF;
 select * from information_schema.database_applied_hlc order by 2, 1;
-DATABASE_NAME	APPLIED_HLC
+DATABASE_NAME	APPLIED_HLC	NUM_OUT_OF_ORDER_HLC
 [connection master]
 DROP TABLE test1.t1;
 DROP TABLE test2.t1;
