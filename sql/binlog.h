@@ -84,7 +84,8 @@ struct RaftRotateInfo;
 typedef int64 query_id_t;
 
 using log_file_name_container = std::list<std::string>;
-using database_hlc_container = std::unordered_map<std::string, uint64_t>;
+using database_hlc_container =
+    std::unordered_map<std::string, std::pair<uint64_t, uint64_t>>;
 
 /*
   Maximum unique log filename extension.
@@ -305,11 +306,13 @@ class HybridLogicalClock {
     bool wait_for_hlc(THD *thd, uint64_t requested_hlc, uint64_t timeout_ms);
 
     uint64_t max_applied_hlc() const { return max_applied_hlc_; }
+    uint64_t num_out_of_order_hlc() const { return num_out_of_order_hlc_; }
 
    private:
     mysql_mutex_t mutex_;
     mysql_cond_t cond_;
     std::atomic<uint64_t> max_applied_hlc_{0};
+    std::atomic<uint64_t> num_out_of_order_hlc_{0};
   };
 
   std::shared_ptr<DatabaseEntry> getEntry(const std::string &database) {
