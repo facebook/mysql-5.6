@@ -35,6 +35,7 @@
 #include <new>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <linux/inet_diag.h>
@@ -5572,7 +5573,11 @@ int fill_db_applied_hlc(THD *thd, TABLE_LIST *tables, Item *) {
   for (const auto &hlc : mysql_bin_log.get_database_hlc()) {
     table->field[0]->store(hlc.first.c_str(), hlc.first.length(),
                            system_charset_info);
-    table->field[1]->store(static_cast<ulonglong>(hlc.second), true);
+    std::pair<uint64_t, uint64_t> values = hlc.second;
+    // APPLIED_HLC Field
+    table->field[1]->store(static_cast<ulonglong>(values.first), true);
+    // NUM_OUT_OF_ORDER_HLC Field
+    table->field[2]->store(static_cast<ulonglong>(values.second), true);
     schema_table_store_record(thd, table);
   }
 
@@ -5744,6 +5749,7 @@ ST_FIELD_INFO tmp_table_columns_fields_info[] = {
 ST_FIELD_INFO db_applied_hlc_fields_info[] = {
     {"DATABASE_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
     {"APPLIED_HLC", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"NUM_OUT_OF_ORDER_HLC", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
 #define LIST_PROCESS_HOST_LEN 64

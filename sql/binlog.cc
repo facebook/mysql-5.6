@@ -35,6 +35,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "lex_string.h"
 #include "map_helpers.h"
@@ -2748,7 +2749,9 @@ database_hlc_container HybridLogicalClock::get_database_hlc() const {
   database_hlc_container container;
   std::unique_lock<std::mutex> lock(database_map_lock_);
   for (const auto &record : database_map_) {
-    container.emplace(record.first, record.second->max_applied_hlc());
+    container.emplace(record.first,
+                      std::make_pair(record.second->max_applied_hlc(),
+                                     record.second->num_out_of_order_hlc()));
   }
   return container;
 }
@@ -2916,6 +2919,10 @@ bool HybridLogicalClock::check_hlc_bound(THD *thd) {
 void HybridLogicalClock::DatabaseEntry::update_hlc(uint64_t applied_hlc) {
   // CAS loop to update max_applied_hlc if less than the new applied HLC
   uint64_t original = max_applied_hlc_;
+  // Track num of out of order hlc value
+  if (original > applied_hlc) {
+    num_out_of_order_hlc_++;
+  }
   while (original < applied_hlc &&
          !max_applied_hlc_.compare_exchange_strong(original, applied_hlc)) {
   }

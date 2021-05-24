@@ -1,0 +1,98 @@
+--source include/have_debug.inc
+--source include/have_binlog_format_row.inc
+--source include/not_parallel.inc
+--source include/master-slave.inc
+
+# Cleanup old binlog
+--source include/rpl_connection_master.inc
+FLUSH LOGS;
+--let $binlog= query_get_value(SHOW MASTER STATUS, File, 1)
+--replace_result $binlog binlog
+--eval purge binary logs to '$binlog'
+
+--source include/rpl_connection_slave.inc
+FLUSH LOGS;
+--let $binlog= query_get_value(SHOW MASTER STATUS, File, 1)
+--replace_result $binlog binlog
+--eval purge binary logs to '$binlog'
+
+# Setup
+--source include/rpl_connection_master.inc
+SET SESSION DEBUG = "+d,allow_long_hlc_drift_for_tests";
+--let $saved_minimum_hlc_ns = `SELECT @@global.minimum_hlc_ns`
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+--let $saved_master_enable_binlog_hlc = `SELECT @@global.enable_binlog_hlc`
+--let $saved_master_maintain_database_hlc = `SELECT @@global.maintain_database_hlc`
+CREATE TABLE t1(a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+CREATE TABLE t2(a INT PRIMARY KEY);
+INSERT INTO t1 VALUES(6, '6');
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_slave.inc
+--source include/stop_slave.inc
+--let $saved_slave_use_idempotent_for_recovery = `SELECT @@global.slave_use_idempotent_for_recovery`
+set @@global.slave_use_idempotent_for_recovery=YES;
+--let $saved_slave_enable_binlog_hlc= `SELECT @@global.enable_binlog_hlc`
+SET @@global.enable_binlog_hlc = ON;
+--let $saved_slave_maintain_database_hlc = `SELECT @@global.maintain_database_hlc`
+SET @@global.maintain_database_hlc = ON;
+--let $saved_replica_parallel_workers= `SELECT @@global.replica_parallel_workers`
+SET @@global.replica_parallel_workers=4;
+SET @save_replica_parallel_type= @@global.replica_parallel_type;
+SET @@global.replica_parallel_type=DEPENDENCY;
+--let $saved_replica_preserve_commit_order= `SELECT @@global.replica_preserve_commit_order`
+SET @@global.replica_preserve_commit_order=OFF;
+--let $saved_mts_dependency_order_commits = `SELECT @@global.mts_dependency_order_commits`
+set @@global.mts_dependency_order_commits=None;
+--source include/start_slave.inc
+begin;
+# hold row lock
+update t1 set b='y' where a = 6;
+
+--source include/rpl_connection_master.inc
+SET @@global.enable_binlog_hlc = ON;
+SET @@global.maintain_database_hlc = ON;
+begin;
+update t1 set b='z' where a = 6;
+commit;
+begin;
+INSERT INTO t2 VALUES(101);
+commit;
+
+connection slave1;
+let $wait_condition = select count(*) = 1 from t2 where a = 101;
+let $wait_timeout= 300;
+source include/wait_condition.inc;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+--source include/rpl_connection_slave.inc
+rollback;
+let $wait_condition = select count(*) = 1 from t1 where a = 6 and b = 'z';
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+# clean up
+--source include/rpl_connection_master.inc
+DROP TABLE t1;
+DROP TABLE t2;
+--eval SET SESSION DEBUG = "-d,allow_long_hlc_drift_for_tests"
+--eval SET GLOBAL minimum_hlc_ns = $saved_minimum_hlc_ns
+--eval SET GLOBAL enable_binlog_hlc = $saved_master_enable_binlog_hlc
+--eval SET GLOBAL maintain_database_hlc = $saved_master_maintain_database_hlc
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_slave.inc
+--disable_query_log
+--source include/stop_slave.inc
+--eval SET GLOBAL enable_binlog_hlc = $saved_slave_enable_binlog_hlc
+--eval SET GLOBAL maintain_database_hlc = $saved_slave_maintain_database_hlc
+--eval SET GLOBAL replica_parallel_workers = $saved_replica_parallel_workers
+SET GLOBAL replica_parallel_type=@save_replica_parallel_type;
+--eval SET GLOBAL replica_preserve_commit_order = $saved_replica_preserve_commit_order
+--eval SET GLOBAL mts_dependency_order_commits = $saved_mts_dependency_order_commits
+--source include/start_slave.inc
+--enable_query_log
+
+--eval set GLOBAL slave_use_idempotent_for_recovery = $saved_slave_use_idempotent_for_recovery
+--source include/rpl_end.inc
