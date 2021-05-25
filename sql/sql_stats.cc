@@ -982,9 +982,11 @@ bool store_write_throttle_permissible_dimensions_in_order(char *new_value) {
     mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
     return false;
   }
-
   // copy the string to avoid mutating new var value.
   char * new_value_copy = (char *)my_malloc(strlen(new_value)+ 1, MYF(MY_WME));
+  if(new_value_copy == nullptr) {
+    return true; // failure allocating memory
+  }
   strcpy(new_value_copy, new_value);
   char* wtr_dim_str;
   enum_wtr_dimension wtr_dim;
