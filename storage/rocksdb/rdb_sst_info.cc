@@ -31,6 +31,8 @@
 
 /* RocksDB header files */
 #include "rocksdb/db.h"
+#include "rocksdb/file_system.h"
+#include "rocksdb/io_status.h"
 #include "rocksdb/options.h"
 
 /* MyRocks header files */
@@ -524,35 +526,29 @@ void Rdb_sst_info::report_error_msg(const rocksdb::Status &s,
 }
 
 void Rdb_sst_info::init(const rocksdb::DB *const db) {
-  const std::string path = db->GetName() + FN_DIRSEP;
+  const std::string dir = db->GetName();
+  const auto &fs = db->GetEnv()->GetFileSystem();
+  std::vector<std::string> files_in_dir;
 
-  // Skip temp SST cleanup in WSEnv for now
-  if (!rdb_has_wsenv()) {
-    struct MY_DIR *const dir_info = my_dir(path.c_str(), MYF(MY_DONT_SORT));
+  // Get the files in the specified directory
+  rocksdb::IOStatus s =
+      fs->GetChildren(dir, rocksdb::IOOptions(), &files_in_dir, nullptr);
+  if (!s.ok()) {
+    // NO_LINT_DEBUG
+    sql_print_warning("RocksDB: Could not access database directory: %s",
+                      dir.c_str());
+    return;
+  }
 
-    // Access the directory
-    if (dir_info == nullptr) {
-      // NO_LINT_DEBUG
-      sql_print_warning("RocksDB: Could not access database directory: %s",
-                        path.c_str());
-      return;
+  // Scan through the files in the directory
+  for (const auto &file : files_in_dir) {
+    // Find any files ending with m_suffix ...
+    const size_t pos = file.find(m_suffix);
+    if (pos != std::string::npos && file.size() - pos == m_suffix.size()) {
+      // Remove
+      const std::string fullname = dir + FN_DIRSEP + file;
+      fs->DeleteFile(fullname, rocksdb::IOOptions(), nullptr);
     }
-
-    // Scan through the files in the directory
-    const struct fileinfo *file_info = dir_info->dir_entry;
-    for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
-      // find any files ending with m_suffix ...
-      const std::string name = file_info->name;
-      const size_t pos = name.find(m_suffix);
-      if (pos != std::string::npos && name.size() - pos == m_suffix.size()) {
-        // ... and remove them
-        const std::string fullname = path + name;
-        my_delete(fullname.c_str(), MYF(0));
-      }
-    }
-
-    // Release the directory entry
-    my_dirend(dir_info);
   }
 }
 
