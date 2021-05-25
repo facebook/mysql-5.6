@@ -1296,6 +1296,7 @@ static uchar *net_store_length_fast(uchar *packet, size_t length) {
 /* The following will only be used for short strings < 65K */
 
 uchar *net_store_data(uchar *to, const uchar *from, size_t length) {
+  DBUG_ASSERT(length <= 65535);
   to = net_store_length_fast(to, length);
   if (length > 0) memcpy(to, from, length);
   return to + length;
