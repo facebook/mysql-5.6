@@ -2732,6 +2732,17 @@
 }
 
 {
+   TLS data on main thread is not cleaned up properly (mysql_client_test)
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:RAND_bytes
+   ...
+   fun:_ZL14client_connectmjb
+}
+
+{
    BoringSSL does not support freeing SSL_get_ex_new_index, leaks only once per type
    Memcheck:Leak
    match-leak-kinds: reachable
