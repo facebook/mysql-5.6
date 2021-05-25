@@ -961,10 +961,24 @@ sleep(@wat_freq)
 0
 ####################################################################################################
 ### Test 14: Auto throttle dimensions are configurable, only permissible dimensions are throttled
+### Also, configuration is applied properly when set via command line params
 ####################################################################################################
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
-SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="SQL_ID,SHARD";
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="OFF";
+include/sync_slave_sql_with_master.inc
+include/stop_slave_io.inc
+include/rpl_restart_server.inc [server_number=1 parameters: --write_stats_count=10 --write_auto_throttle_frequency=1 --write_stats_frequency=1 --write_throttle_lag_pct_min_secondaries=10 --write_start_throttle_lag_milliseconds=3000 --write_stop_throttle_lag_milliseconds=1000 --write_throttle_min_ratio=1.5 --write_throttle_monitor_cycles=0 --write_control_level=WARN --write_throttle_permissible_dimensions_in_order=SQL_ID,SHARD]
+[connection slave]
+include/start_slave_io.inc
+[connection master]
+include/sync_slave_io_with_master.inc
+set @@global.debug= '+d,dbug.skip_last_complete_bucket_check';
+select @@GLOBAL.WRITE_STATS_FREQUENCY into @ws_freq;
+select @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY into @wat_freq;
+SELECT @@global.write_throttle_permissible_dimensions_in_order;
+@@global.write_throttle_permissible_dimensions_in_order
+SQL_ID,SHARD
 insert into test.t values(2),(2);
 set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test.t where a = 2;
