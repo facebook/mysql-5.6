@@ -60,6 +60,8 @@
 #include "sql_string.h"
 #include "template_utils.h"
 
+constexpr size_t Session_resp_attr_tracker::MAX_RESP_ATTR_LEN;
+
 static void store_lenenc_string(String &to, const char *from, size_t length);
 
 /**
@@ -1332,6 +1334,8 @@ bool Session_resp_attr_tracker::store(THD *thd MY_ATTRIBUTE((unused)),
 
   size_t len = net_length_size(attrs_.size());
   for (const auto &attr : attrs_) {
+    DBUG_ASSERT(attr.first.size() <= MAX_RESP_ATTR_LEN);
+    DBUG_ASSERT(attr.second.size() <= MAX_RESP_ATTR_LEN);
     len += net_length_size(attr.first.size()) + attr.first.size();
     len += net_length_size(attr.second.size()) + attr.second.size();
   }
@@ -1380,9 +1384,13 @@ void Session_resp_attr_tracker::mark_as_changed(THD *thd MY_ATTRIBUTE((unused)),
                                                 LEX_CSTRING *key,
                                                 const LEX_CSTRING *value) {
   DBUG_ASSERT(key->length > 0);
-  std::string k(key->str, key->length);
+  DBUG_ASSERT(key->length <= MAX_RESP_ATTR_LEN);
+  DBUG_ASSERT(value->length > 0);
+  DBUG_ASSERT(value->length <= MAX_RESP_ATTR_LEN);
 
-  attrs_[k] = std::string(value->str, value->length);
+  std::string k(key->str, std::min(key->length, MAX_RESP_ATTR_LEN));
+  std::string val(value->str, std::min(value->length, MAX_RESP_ATTR_LEN));
+  attrs_[std::move(k)] = std::move(val);
   m_changed = true;
 }
 

@@ -327,6 +327,9 @@ class Session_resp_attr_tracker : public State_tracker {
     m_changed = false;
     m_enabled = false;
   }
+  // 65535 is the HARD LIMIT. Realistically we should need nothing
+  // close to this
+  static constexpr size_t MAX_RESP_ATTR_LEN = 60000;
 
   bool enable(THD *thd) override;
   bool check(THD *, set_var *) override { return false; }
