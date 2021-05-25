@@ -5612,6 +5612,11 @@ void Format_description_log_event::print(
                   "closed properly.\n");
   }
 
+  if (is_raft_log_event()) {
+    my_b_printf(
+        head, "# This binlog was generated when this host was in raft mode.\n");
+  }
+
   if (is_relay_log_event()) {
     my_b_printf(head,
                 "# This Format_description_event appears in a relay log "

@@ -920,6 +920,9 @@ class Log_event {
   }
   void set_relay_log_event() { common_header->flags |= LOG_EVENT_RELAY_LOG_F; }
   void set_raft_log_event() { common_header->flags |= LOG_EVENT_RAFT_LOG_F; }
+  bool is_raft_log_event() const {
+    return common_header->flags & LOG_EVENT_RAFT_LOG_F;
+  }
   bool is_artificial_event() const {
     return common_header->flags & LOG_EVENT_ARTIFICIAL_F;
   }
