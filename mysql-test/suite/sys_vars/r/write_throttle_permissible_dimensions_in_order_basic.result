@@ -33,11 +33,11 @@ SET @@global.write_throttle_permissible_dimensions_in_order = 'OFF';
 SELECT @@global.write_throttle_permissible_dimensions_in_order;
 @@global.write_throttle_permissible_dimensions_in_order
 OFF
-restart the server with non default value ('SQL_ID,SHARD')
-# restart: --write_throttle_permissible_dimensions_in_order='SQL_ID,SHARD'
+restart the server with non default value (SQL_ID,SHARD)
+# restart: --write_throttle_permissible_dimensions_in_order=SQL_ID,SHARD
 SELECT @@global.write_throttle_permissible_dimensions_in_order;
 @@global.write_throttle_permissible_dimensions_in_order
-'SQL_ID,SHARD'
+SQL_ID,SHARD
 restart the server with the default value ('OFF')
 # restart:
 SELECT @@global.write_throttle_permissible_dimensions_in_order;

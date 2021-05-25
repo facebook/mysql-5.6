@@ -1550,7 +1550,7 @@ ulong write_stats_frequency;
 char *latest_write_throttling_rule;
 /* Stores the (latest)value for sys_var
  * write_throttle_permissible_dimensions_in_order*/
-char *latest_write_throttle_permissible_dimensions_in_order;
+char *latest_write_throttle_permissible_dimensions_in_order = nullptr;
 /* Vector of all dimensions that are permissible to be throttled in order by
  * replication lag system*/
 std::vector<enum_wtr_dimension> write_throttle_permissible_dimensions_in_order;
@@ -8755,6 +8755,18 @@ int mysqld_main(int argc, char **argv)
   }
 
   start_handle_manager();
+
+  // initialize write throttling dimensions at server start
+  if (latest_write_throttle_permissible_dimensions_in_order != nullptr) {
+    bool result = store_write_throttle_permissible_dimensions_in_order(
+        latest_write_throttle_permissible_dimensions_in_order);
+    if (result) {
+      sql_print_error(
+          "Could not initialize write_throttle_permissible_dimensions_in_order"
+          " from command line params.");
+      unireg_abort(MYSQLD_SUCCESS_EXIT);
+    }
+  }
 
   update_cached_slave_high_priority_lock_wait_timeout(nullptr, nullptr,
                                                       OPT_GLOBAL);
