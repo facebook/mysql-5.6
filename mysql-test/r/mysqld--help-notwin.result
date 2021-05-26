@@ -945,6 +945,8 @@ The following options may be given as the first argument:
  Maximum allowed cumulated size of stored optimizer traces
  --optimizer-trace-offset=# 
  Offset of first optimizer trace to show; see manual
+ --original-caller-in-client-attributes 
+ support original caller in client attributes
  --override-enable-raft-check 
  Disable some strict raft checks. Use with caution
  --part-scan-max=#   The optimizer will scan up to this many partitions for
@@ -2653,6 +2655,7 @@ optimizer-trace-features greedy_search=on,range_optimizer=on,dynamic_range=on,re
 optimizer-trace-limit 1
 optimizer-trace-max-mem-size 16384
 optimizer-trace-offset -1
+original-caller-in-client-attributes FALSE
 override-enable-raft-check FALSE
 part-scan-max 10
 peak-lag-sample-rate 100

@@ -6160,7 +6160,12 @@ void THD::serialize_client_attrs()
     bool found_async_id = false;
 
     // Populate caller, async_id
-    for (const auto& s : { "caller", "async_id" }) {
+    for (const auto& s : { "original_caller", "caller", "async_id" }) {
+      // skip original_caller if not allowed
+      if (!original_caller_in_client_attributes &&
+          strcmp(s,"original_caller")==0)
+        continue;
+
       bool found = false;
       auto it = query_attrs_map.find(s);
 

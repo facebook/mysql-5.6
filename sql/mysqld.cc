@@ -769,6 +769,8 @@ std::list<std::pair<std::string, enum_wtr_dimension>> currently_throttled_entiti
 WRITE_MONITORED_ENTITY currently_monitored_entity;
 /* Controls whether special privileges are needed for accessing some MT tables */
 my_bool mt_tables_access_control;
+// original caller in client attributes
+my_bool original_caller_in_client_attributes;
 
 ulong gtid_mode;
 ulong slave_gtid_info;

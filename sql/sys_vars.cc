@@ -7550,3 +7550,9 @@ static Sys_var_uint Sys_max_index_stats_entries_per_table(
       "Maximum number of entries in INDEX_STATISTICS per table",
       GLOBAL_VAR(max_index_stats_entries_per_table), CMD_LINE(OPT_ARG),
       VALID_RANGE(0, UINT_MAX), DEFAULT(30), BLOCK_SIZE(1));
+
+static Sys_var_mybool Sys_original_caller_in_client_attributes(
+       "original_caller_in_client_attributes",
+       "support original caller in client attributes",
+       GLOBAL_VAR(original_caller_in_client_attributes),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));

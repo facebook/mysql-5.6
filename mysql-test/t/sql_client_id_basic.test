@@ -30,8 +30,23 @@ order by client_id;
 
 --echo #
 --echo # Verify with query attrs = qa_test1
+--echo #   original_caller QA = oc_qa_test1 (not allowed yet)
 --echo #
 query_attrs_add caller qa_test1;
+query_attrs_add original_caller oc_qa_test1;
+select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
+order by client_id;
+
+--echo #
+--echo # Verify with query attrs = qa_test1
+--echo #   original_caller QA = oc_qa_test1 (allowed)
+--echo #
+set global original_caller_in_client_attributes=on;
 select 1;
 
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
@@ -42,6 +57,7 @@ order by client_id;
 
 --echo #
 --echo # Verify with query attrs = qa_test1 and async id
+--echo #   original_caller QA = oc_qa_test1
 --echo #
 /* async-12345 */ select 1;
 
@@ -53,6 +69,7 @@ order by client_id;
 
 --echo #
 --echo # Verify with query attrs = qa_test1 and async id using query attrs
+--echo #   original_caller QA = oc_qa_test1
 --echo #
 query_attrs_add async_id 56789;
 select 1;
@@ -65,6 +82,7 @@ order by client_id;
 
 --echo #
 --echo # Verify with query attrs = qa_test1 and async id using query attrs (and query comments)
+--echo #   original_caller QA = oc_qa_test1
 --echo #
 /* async-12345 */ select 1;
 
@@ -80,13 +98,14 @@ grant all on *.* to user@localhost with grant option;
 
 connect (con1, localhost, user, su, test);
 conn_attrs_add caller ca_test2;
+conn_attrs_add original_caller oc_ca_test2;
 conn_attrs_add async_id 56789;
 # change_user is needed just to set the correct connection attributes.
 change_user user,su,test;
 use information_schema;
 
 --echo #
---echo # Verify with just conn attrs = ca_test2
+--echo # Verify with just conn attrs = ca_test2 and original_caller CA = oc_ca_test2
 --echo #
 select 1;
 
@@ -98,6 +117,7 @@ order by client_id;
 
 --echo #
 --echo # Verify with conn attrs = ca_test2 and async id
+--echo #  original_caller CA = oc_ca_test2
 --echo #
 /* async-12345 */ select 1;
 
@@ -109,8 +129,10 @@ order by client_id;
 
 --echo #
 --echo # Verify with just conn attrs = ca_test2 and query attrs = qa_test3
+--echo #  original_caller CA = oc_ca_test2 and original_caller QA = oc_qa_test3
 --echo #
 query_attrs_add caller qa_test3;
+query_attrs_add original_caller oc_qa_test3;
 select 1;
 
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
@@ -121,6 +143,7 @@ order by client_id;
 
 --echo #
 --echo # Verify with just conn attrs = ca_test2 and query attrs = qa_test3 and async id
+--echo #  original_caller CA = oc_ca_test2 and original_caller QA = oc_qa_test3
 --echo #
 /* async-12345 */ select 1;
 
@@ -131,7 +154,7 @@ and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 
 --echo #
---echo # Verify with just conn attrs = ca_test2 again
+--echo # Verify with just conn attrs = ca_test2 and original_caller CA = oc_ca_test2 again
 --echo #
 query_attrs_reset;
 select 1;
@@ -167,6 +190,7 @@ and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 
 query_attrs_add caller qa_test3;
+query_attrs_add original_caller oc_qa_test3;
 delimiter ||||;
 /* async-12345 */ select 1; select 2;
 ||||
@@ -183,6 +207,7 @@ query_attrs_reset;
 connection default;
 
 # Cleanup
+set global original_caller_in_client_attributes=off;
 conn_attrs_reset;
 set global sql_stats_control = DEFAULT;
 drop user user@localhost;

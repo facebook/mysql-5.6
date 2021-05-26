@@ -1226,6 +1226,9 @@ extern ulong sql_duplicate_executions_control;
 /* Controls whether special privileges are needed for accessing MT tables */
 extern my_bool mt_tables_access_control;
 
+// original caller in client attributes
+extern my_bool original_caller_in_client_attributes;
+
 /* Maximum number of index stats to maintain for each table */
 extern uint max_index_stats_entries_per_table;
 
