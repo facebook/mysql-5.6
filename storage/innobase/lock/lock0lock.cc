@@ -4583,7 +4583,7 @@ class TrxListIterator {
       if (!trx_is_started(trx)) continue;
 
       ++i;  // i record num of started trx
-      check_trx_state(trx);
+      assert_trx_nonlocking_or_in_list(trx);
     }
 
     return (trx);
@@ -4774,7 +4774,7 @@ void lock_print_info_all_transactions(
   bool monitor = srv_print_innodb_lock_monitor;
 
   while ((trx = trx_iter.current()) != nullptr) {
-    check_trx_state(trx);
+    assert_trx_nonlocking_or_in_list(trx);
 
     if (trx != prev_trx) {
       lock_trx_print_wait_and_mvcc_state(file, trx);
