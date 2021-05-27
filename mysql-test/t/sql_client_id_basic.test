@@ -46,7 +46,8 @@ order by client_id;
 --echo # Verify with query attrs = qa_test1
 --echo #   original_caller QA = oc_qa_test1 (allowed)
 --echo #
-set global original_caller_in_client_attributes=on;
+set @saved_client_attribute_names=@@GLOBAL.client_attribute_names;
+set global client_attribute_names='caller,original_caller,async_id';
 select 1;
 
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
@@ -207,7 +208,7 @@ query_attrs_reset;
 connection default;
 
 # Cleanup
-set global original_caller_in_client_attributes=off;
+set global client_attribute_names=@saved_client_attribute_names;
 conn_attrs_reset;
 set global sql_stats_control = DEFAULT;
 drop user user@localhost;

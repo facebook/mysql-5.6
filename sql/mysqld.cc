@@ -769,8 +769,11 @@ std::list<std::pair<std::string, enum_wtr_dimension>> currently_throttled_entiti
 WRITE_MONITORED_ENTITY currently_monitored_entity;
 /* Controls whether special privileges are needed for accessing some MT tables */
 my_bool mt_tables_access_control;
-// original caller in client attributes
-my_bool original_caller_in_client_attributes;
+/* Vector of the client attribute names */
+std::vector<std::string> client_attribute_names;
+/* Stores the latest value for sys_var client_attribute_names */
+char *latest_client_attribute_names = nullptr;
+
 
 ulong gtid_mode;
 ulong slave_gtid_info;
@@ -8091,6 +8094,11 @@ int mysqld_main(int argc, char **argv)
                       " from command line params.");
       unireg_abort(1);
     }
+  }
+
+  // initialize client attribute names
+  if (latest_client_attribute_names != nullptr) {
+    store_client_attribute_names(latest_client_attribute_names);
   }
 
   // NO_LINT_DEBUG

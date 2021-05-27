@@ -225,6 +225,9 @@ The following options may be given as the first argument:
  --character-sets-dir=name 
  Directory where character sets are
  -r, --chroot=name   Chroot mysqld daemon during startup.
+ --client-attribute-names[=name] 
+ List of supported query/connection attributes to use for
+ for client_attributes (default: caller,async_id).
  --collation-server=name 
  Set the default collation.
  --column-stats-control=name 
@@ -945,8 +948,6 @@ The following options may be given as the first argument:
  Maximum allowed cumulated size of stored optimizer traces
  --optimizer-trace-offset=# 
  Offset of first optimizer trace to show; see manual
- --original-caller-in-client-attributes 
- support original caller in client attributes
  --override-enable-raft-check 
  Disable some strict raft checks. Use with caution
  --part-scan-max=#   The optimizer will scan up to this many partitions for
@@ -2430,6 +2431,7 @@ character-set-filesystem binary
 character-set-server latin1
 character-sets-dir MYSQL_CHARSETSDIR/
 chroot (No default value)
+client-attribute-names caller,async_id
 collation-server latin1_swedish_ci
 column-stats-control OFF_HARD
 commit-consensus-error-action ROLLBACK_TRXS_IN_GROUP
@@ -2657,7 +2659,6 @@ optimizer-trace-features greedy_search=on,range_optimizer=on,dynamic_range=on,re
 optimizer-trace-limit 1
 optimizer-trace-max-mem-size 16384
 optimizer-trace-offset -1
-original-caller-in-client-attributes FALSE
 override-enable-raft-check FALSE
 part-scan-max 10
 peak-lag-sample-rate 100

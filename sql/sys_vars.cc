@@ -7551,8 +7551,18 @@ static Sys_var_uint Sys_max_index_stats_entries_per_table(
       GLOBAL_VAR(max_index_stats_entries_per_table), CMD_LINE(OPT_ARG),
       VALID_RANGE(0, UINT_MAX), DEFAULT(30), BLOCK_SIZE(1));
 
-static Sys_var_mybool Sys_original_caller_in_client_attributes(
-       "original_caller_in_client_attributes",
-       "support original caller in client attributes",
-       GLOBAL_VAR(original_caller_in_client_attributes),
-       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+static bool check_client_attribute_names(sys_var *self, THD *thd, set_var *var)
+{
+  store_client_attribute_names(var->save_result.string_value.str);
+
+  return false; // success
+}
+
+static Sys_var_charptr Sys_client_attribute_names(
+      "client_attribute_names",
+      "List of supported query/connection attributes to use for "
+      "for client_attributes (default: caller,async_id).",
+      GLOBAL_VAR(latest_client_attribute_names),
+      CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT("caller,async_id"),
+      NO_MUTEX_GUARD, NOT_IN_BINLOG,
+      ON_CHECK(check_client_attribute_names));

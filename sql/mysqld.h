@@ -1062,6 +1062,8 @@ extern uint write_statistics_histogram_width;
 extern std::list<std::pair<std::string, enum_wtr_dimension>> currently_throttled_entities;
 extern WRITE_MONITORED_ENTITY currently_monitored_entity;
 extern std::atomic<time_t> last_replication_lag_check_time;
+extern std::vector<std::string> client_attribute_names;
+extern char *latest_client_attribute_names;
 
 /* This field dictates the maximum number of entries in the
    information_schema.DB_STATISTICS table */
@@ -1225,9 +1227,6 @@ extern ulong sql_duplicate_executions_control;
 
 /* Controls whether special privileges are needed for accessing MT tables */
 extern my_bool mt_tables_access_control;
-
-// original caller in client attributes
-extern my_bool original_caller_in_client_attributes;
 
 /* Maximum number of index stats to maintain for each table */
 extern uint max_index_stats_entries_per_table;

@@ -9,6 +9,7 @@
 #include "tztime.h"                             // struct Time_zone
 #include "rpl_master.h"                         // get_current_replication_lag
 #include <mysql/plugin_rim.h>
+#include <handler.h>
 
 /* Global map to track the number of active identical sql statements */
 static std::unordered_map<md5_key, uint> global_active_sql;
@@ -1496,7 +1497,7 @@ void check_lag_and_throttle(time_t time_now) {
       return;
     }
 
-    // write_stats_frequency may be updated dynamically. Caching it for the 
+    // write_stats_frequency may be updated dynamically. Caching it for the
     // logic below
     ulong write_stats_frequency_cached = write_stats_frequency;
     if (write_stats_frequency_cached == 0) {
@@ -1508,7 +1509,7 @@ void check_lag_and_throttle(time_t time_now) {
     // Find latest write_statistics time bucket that is complete.
     // Example - For write_stats_frequency=6s, At t=8s, this method should
     // return write_stats bucket for stats between t=0 to t=6 i.e. bucket_key=0
-    // and not bucket_key=6 which is incomplete and only has 2s worth of 
+    // and not bucket_key=6 which is incomplete and only has 2s worth of
     // write_stats data;
     int time_bucket_key = time_now - (time_now % write_stats_frequency_cached) - write_stats_frequency_cached;
     auto latest_write_stats_iter = global_write_statistics_map.begin();
@@ -1527,8 +1528,8 @@ void check_lag_and_throttle(time_t time_now) {
       if(latest_write_stats_iter == global_write_statistics_map.end()
         || latest_write_stats_iter->first != time_bucket_key) {
         // no complete write statistics bucket for analysis
-        // reset currently monitored entity, if any, as there's been a 
-        // significant gap in time since we last did culprit analysis. It is 
+        // reset currently monitored entity, if any, as there's been a
+        // significant gap in time since we last did culprit analysis. It is
         // outdated.
         currently_monitored_entity.reset();
         mt_unlock(lock_acquired, &LOCK_global_write_statistics);
@@ -3255,4 +3256,15 @@ void Sql_stats_maps::move_maps(Sql_stats_maps &other)
   count = other.count;
 
   other.reset_maps();
+}
+
+/*
+  Stores the client attribute names
+*/
+void store_client_attribute_names(char *new_value) {
+  std::vector<std::string> new_attr_names = split_into_vector(new_value, ',');
+
+  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
+  client_attribute_names = new_attr_names;
+  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 }

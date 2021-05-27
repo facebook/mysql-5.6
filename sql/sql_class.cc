@@ -6159,24 +6159,21 @@ void THD::serialize_client_attrs()
     std::vector<std::pair<String, String>> client_attrs;
     bool found_async_id = false;
 
-    // Populate caller, async_id
-    for (const auto& s : { "original_caller", "caller", "async_id" }) {
-      // skip original_caller if not allowed
-      if (!original_caller_in_client_attributes &&
-          strcmp(s,"original_caller")==0)
-        continue;
-
+    mysql_mutex_lock(&LOCK_global_sql_stats);
+    // Populate caller, origina_caller, async_id, etc
+    for(const std::string& name_iter : client_attribute_names) {
       bool found = false;
-      auto it = query_attrs_map.find(s);
+      auto it = query_attrs_map.find(name_iter);
 
       if (it != query_attrs_map.end()) {
         found = true;
-      } else if ((it = connection_attrs_map.find(s)) != connection_attrs_map.end()) {
+      } else if ((it = connection_attrs_map.find(name_iter))
+                 != connection_attrs_map.end()) {
         found = true;
       }
 
       if (found) {
-        if (strcmp(s, "async_id") == 0) {
+        if (name_iter == "async_id") {
           found_async_id = true;
         }
 
@@ -6186,6 +6183,7 @@ void THD::serialize_client_attrs()
                                          &my_charset_bin));
       }
     }
+    mysql_mutex_unlock(&LOCK_global_sql_stats);
 
     // Populate async id (inspired from find_async_tag)
     //

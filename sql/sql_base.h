@@ -396,6 +396,9 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond);
 extern ST_FIELD_INFO client_attrs_fields_info[];
 int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond);
 
+/* Stores the client attribute names */
+void store_client_attribute_names(char *new_value);
+
 /* For information_schema.sql_plans */
 extern ST_FIELD_INFO sql_plan_fields_info[];
 extern mysql_mutex_t LOCK_global_sql_plans;

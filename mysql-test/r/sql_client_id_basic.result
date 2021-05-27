@@ -51,7 +51,8 @@ client_id	table_schema	user_name	execution_count	sql_id	client_attributes
 # Verify with query attrs = qa_test1
 #   original_caller QA = oc_qa_test1 (allowed)
 #
-set global original_caller_in_client_attributes=on;
+set @saved_client_attribute_names=@@GLOBAL.client_attribute_names;
+set global client_attribute_names='caller,original_caller,async_id';
 select 1;
 1
 1
@@ -61,8 +62,8 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
 #
@@ -78,9 +79,9 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
-8ea1073e1f5fca20c6f0621cda79a968	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '12345'}
+70e7785b1e52423f531f3899d707055c	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
 #
@@ -96,12 +97,12 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
-6b4210c41003cbfa6be78f0c1e83aee2	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '56789'}
-8ea1073e1f5fca20c6f0621cda79a968	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '12345'}
+70e7785b1e52423f531f3899d707055c	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
+c097f475453d675d0d92669a32311f47	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '56789'}
 #
 # Verify with query attrs = qa_test1 and async id using query attrs (and query comments)
 #   original_caller QA = oc_qa_test1
@@ -115,12 +116,12 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
-6b4210c41003cbfa6be78f0c1e83aee2	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '56789'}
-8ea1073e1f5fca20c6f0621cda79a968	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '12345'}
+70e7785b1e52423f531f3899d707055c	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
+c097f475453d675d0d92669a32311f47	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '56789'}
 create user user@localhost identified by 'su';
 grant all on *.* to user@localhost with grant option;
 use information_schema;
@@ -136,13 +137,13 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
+23af960d50f4082d1693fec287ca38d5	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
-6b4210c41003cbfa6be78f0c1e83aee2	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '56789'}
-8ea1073e1f5fca20c6f0621cda79a968	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '12345'}
+70e7785b1e52423f531f3899d707055c	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
-bbe286d6f2ed0c7dacd20e9a07a52060	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_ca_test2', 'caller' : 'ca_test2', 'async_id' : '56789'}
+c097f475453d675d0d92669a32311f47	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '56789'}
 #
 # Verify with conn attrs = ca_test2 and async id
 #  original_caller CA = oc_ca_test2
@@ -156,13 +157,13 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
+23af960d50f4082d1693fec287ca38d5	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
-6b4210c41003cbfa6be78f0c1e83aee2	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '56789'}
-8ea1073e1f5fca20c6f0621cda79a968	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '12345'}
+70e7785b1e52423f531f3899d707055c	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
-bbe286d6f2ed0c7dacd20e9a07a52060	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_ca_test2', 'caller' : 'ca_test2', 'async_id' : '56789'}
+c097f475453d675d0d92669a32311f47	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '56789'}
 #
 # Verify with just conn attrs = ca_test2 and query attrs = qa_test3
 #  original_caller CA = oc_ca_test2 and original_caller QA = oc_qa_test3
@@ -176,14 +177,14 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
+23af960d50f4082d1693fec287ca38d5	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
-6b4210c41003cbfa6be78f0c1e83aee2	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '56789'}
-8ea1073e1f5fca20c6f0621cda79a968	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '12345'}
+2c75a842092397eef0fe269615bff151	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test3', 'original_caller' : 'oc_qa_test3', 'async_id' : '56789'}
+70e7785b1e52423f531f3899d707055c	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
-bbe286d6f2ed0c7dacd20e9a07a52060	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_ca_test2', 'caller' : 'ca_test2', 'async_id' : '56789'}
-dae96c1c6f278f6bb917953f184a5f1b	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test3', 'caller' : 'qa_test3', 'async_id' : '56789'}
+c097f475453d675d0d92669a32311f47	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '56789'}
 #
 # Verify with just conn attrs = ca_test2 and query attrs = qa_test3 and async id
 #  original_caller CA = oc_ca_test2 and original_caller QA = oc_qa_test3
@@ -197,14 +198,14 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
+23af960d50f4082d1693fec287ca38d5	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
-6b4210c41003cbfa6be78f0c1e83aee2	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '56789'}
-8ea1073e1f5fca20c6f0621cda79a968	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '12345'}
+2c75a842092397eef0fe269615bff151	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test3', 'original_caller' : 'oc_qa_test3', 'async_id' : '56789'}
+70e7785b1e52423f531f3899d707055c	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
-bbe286d6f2ed0c7dacd20e9a07a52060	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_ca_test2', 'caller' : 'ca_test2', 'async_id' : '56789'}
-dae96c1c6f278f6bb917953f184a5f1b	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test3', 'caller' : 'qa_test3', 'async_id' : '56789'}
+c097f475453d675d0d92669a32311f47	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '56789'}
 #
 # Verify with just conn attrs = ca_test2 and original_caller CA = oc_ca_test2 again
 #
@@ -217,14 +218,14 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-01cbb601901347627cf6789bdc8de2e6	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1'}
+23af960d50f4082d1693fec287ca38d5	information_schema	user	3	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 28b1c55c76dad7360f14f3d9f1823864	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1'}
-6b4210c41003cbfa6be78f0c1e83aee2	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '56789'}
-8ea1073e1f5fca20c6f0621cda79a968	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test1', 'caller' : 'qa_test1', 'async_id' : '12345'}
+2c75a842092397eef0fe269615bff151	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test3', 'original_caller' : 'oc_qa_test3', 'async_id' : '56789'}
+70e7785b1e52423f531f3899d707055c	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+7c15419e499cc3fb461c2f7563d152da	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
 92c0acc6261bcb114a857e42acb41812	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{'async_id' : '12345'}
 99914b932bd37a50b983c5e7c90ae93b	information_schema	root	1	db1589f429c8f6fbba750f47fbc7c130	{}
-bbe286d6f2ed0c7dacd20e9a07a52060	information_schema	user	3	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_ca_test2', 'caller' : 'ca_test2', 'async_id' : '56789'}
-dae96c1c6f278f6bb917953f184a5f1b	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test3', 'caller' : 'qa_test3', 'async_id' : '56789'}
+c097f475453d675d0d92669a32311f47	information_schema	root	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '56789'}
 set global sql_stats_control = OFF_HARD;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
@@ -248,7 +249,7 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-bbe286d6f2ed0c7dacd20e9a07a52060	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_ca_test2', 'caller' : 'ca_test2', 'async_id' : '56789'}
+23af960d50f4082d1693fec287ca38d5	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 /* async-12345 */ select 1; select 2;
 ||||
 1
@@ -261,8 +262,8 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
-bbe286d6f2ed0c7dacd20e9a07a52060	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_ca_test2', 'caller' : 'ca_test2', 'async_id' : '56789'}
-dae96c1c6f278f6bb917953f184a5f1b	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'original_caller' : 'oc_qa_test3', 'caller' : 'qa_test3', 'async_id' : '56789'}
-set global original_caller_in_client_attributes=off;
+23af960d50f4082d1693fec287ca38d5	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
+2c75a842092397eef0fe269615bff151	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test3', 'original_caller' : 'oc_qa_test3', 'async_id' : '56789'}
+set global client_attribute_names=@saved_client_attribute_names;
 set global sql_stats_control = DEFAULT;
 drop user user@localhost;
