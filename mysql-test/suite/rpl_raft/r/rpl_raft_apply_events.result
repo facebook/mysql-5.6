@@ -30,13 +30,13 @@ insert into t1 values();
 include/sync_slave_sql_with_master.inc
 include/show_binlog_events.inc
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
-#	#	Previous_gtids	#	#	Gtid_set
+#	#	Previous_gtids	#	#	
 #	#	Metadata	#	#	Prev HLC_TIME: #
 #	#	Gtid	#	#	SET @@SESSION.GTID_NEXT= 'Gtid_set'
-#	#	Metadata	#	#	HLC_TIME: # Raft term: 1 Raft Index: 3
+#	#	Metadata	#	#	HLC_TIME: # Raft term: 1 Raft Index: 2
 #	#	Query	#	#	use `test`; create table t1 (a int primary key auto_increment) engine = innodb
 #	#	Gtid	#	#	SET @@SESSION.GTID_NEXT= 'Gtid_set'
-#	#	Metadata	#	#	HLC_TIME: # Raft term: 1 Raft Index: 4
+#	#	Metadata	#	#	HLC_TIME: # Raft term: 1 Raft Index: 3
 #	#	Query	#	#	BEGIN
 #	#	Table_map	#	#	table_id: # (test.t1)
 #	#	Write_rows	#	#	table_id: # flags: STMT_END_F

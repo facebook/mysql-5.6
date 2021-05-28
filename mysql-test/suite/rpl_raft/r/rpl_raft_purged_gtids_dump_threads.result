@@ -22,7 +22,9 @@ reset master;
 create table t1 (a int) engine = innodb;
 insert into t1 values(1);
 insert into t1 values(2);
-set @@global.rpl_raft_new_leader_uuid = 'uuid2';
+include/raft_promote_to_leader.inc
+RESET MASTER;
+RESET SLAVE ALL;
 change master to master_host='localhost', master_port=port2, master_auto_position=1, master_user='root';
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
@@ -35,7 +37,7 @@ a
 1
 2
 3
-set @@global.rpl_raft_new_leader_uuid = 'uuid1';
+include/raft_promote_to_leader.inc
 drop table t1;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc

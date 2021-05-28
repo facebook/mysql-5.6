@@ -1,7 +1,5 @@
 source include/have_debug.inc;
 source ../include/raft_3_node.inc;
-connection server_1;
-call mtr.add_suppression("Failed to rotate binary log");
 
 connection server_1;
 show variables like 'read_only';
@@ -104,5 +102,10 @@ let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
+
+--disable_query_log
+connection server_1;
+call mtr.add_suppression("Failed to rotate binary log");
+--enable_query_log
 
 source include/rpl_end.inc;
