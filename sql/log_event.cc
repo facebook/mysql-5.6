@@ -4731,15 +4731,17 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli) {
 }
 
 int Query_log_event::do_apply_event_worker(Slave_worker *w) {
-  // Note: We're using event's future_event_relay_log_pos instead of
-  // rli->get_event_relay_log_pos() because rli is only updated in
-  // do_update_pos() which is called after applying the event and we might need
-  // to use this pos during application (e.g. during commit)
-  Slave_job_group *ptr_g = w->c_rli->gaq->get_job_group(mts_group_idx);
-  thd->set_trans_relay_log_pos(ptr_g->group_relay_log_name
-                                   ? ptr_g->group_relay_log_name
-                                   : w->get_group_relay_log_name(),
-                               future_event_relay_log_pos);
+  if (ends_group()) {
+    // Note: We're using event's future_event_relay_log_pos instead of
+    // rli->get_event_relay_log_pos() because rli is only updated in
+    // do_update_pos() which is called after applying the event and we might
+    // need to use this pos during application (e.g. during commit)
+    Slave_job_group *ptr_g = w->c_rli->gaq->get_job_group(mts_group_idx);
+    thd->set_trans_relay_log_pos(ptr_g->group_relay_log_name
+                                     ? ptr_g->group_relay_log_name
+                                     : w->get_group_relay_log_name(),
+                                 future_event_relay_log_pos);
+  }
   return do_apply_event(w, query, q_len);
 }
 
