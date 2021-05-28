@@ -43,14 +43,13 @@ binary-logs-13000.000005	#	No
 binary-logs-13000.000006	#	No
 binary-logs-13000.000007	#	No
 binary-logs-13000.000008	#	No
-binary-logs-13000.000009	#	No
-purge raft logs to 'binary-logs-13000.000009';
+purge raft logs to 'binary-logs-13000.000008';
 Warnings:
-Warning	1868	file ./binary-logs-13000.000008 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000007 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size	Encrypted
+binary-logs-13000.000007	#	No
 binary-logs-13000.000008	#	No
-binary-logs-13000.000009	#	No
 "Verifying table on leader: server_1"
 select count(*) from t1;
 count(*)
@@ -66,14 +65,13 @@ binary-logs-13001.000005	#
 binary-logs-13001.000006	#
 binary-logs-13001.000007	#
 binary-logs-13001.000008	#
-binary-logs-13001.000009	#
-purge raft logs to 'binary-logs-13001.000009';
+purge raft logs to 'binary-logs-13001.000008';
 Warnings:
-Warning	1868	file ./binary-logs-13001.000008 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000007 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size
+binary-logs-13001.000007	#
 binary-logs-13001.000008	#
-binary-logs-13001.000009	#
 "Verifying table on follower: server_2"
 select count(*) from t1;
 count(*)
@@ -93,20 +91,20 @@ include/sync_slave_sql_with_master.inc
 "Purging raft logs on leader: server_1"
 show raft logs;
 Log_name	File_size	Encrypted
+binary-logs-13000.000007	#	No
 binary-logs-13000.000008	#	No
 binary-logs-13000.000009	#	No
 binary-logs-13000.000010	#	No
 binary-logs-13000.000011	#	No
 binary-logs-13000.000012	#	No
 binary-logs-13000.000013	#	No
-binary-logs-13000.000014	#	No
-purge raft logs to 'binary-logs-13000.000014';
+purge raft logs to 'binary-logs-13000.000013';
 Warnings:
-Warning	1868	file ./binary-logs-13000.000013 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000012 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size	Encrypted
+binary-logs-13000.000012	#	No
 binary-logs-13000.000013	#	No
-binary-logs-13000.000014	#	No
 "Verifying table on leader: server_1"
 select count(*) from t1;
 count(*)
@@ -114,20 +112,20 @@ count(*)
 "Purging raft logs on follower: server_2"
 show raft logs;
 Log_name	File_size
+binary-logs-13001.000007	#
 binary-logs-13001.000008	#
 binary-logs-13001.000009	#
 binary-logs-13001.000010	#
 binary-logs-13001.000011	#
 binary-logs-13001.000012	#
 binary-logs-13001.000013	#
-binary-logs-13001.000014	#
-purge raft logs to 'binary-logs-13001.000014';
+purge raft logs to 'binary-logs-13001.000013';
 Warnings:
-Warning	1868	file ./binary-logs-13001.000013 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000012 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size
+binary-logs-13001.000012	#
 binary-logs-13001.000013	#
-binary-logs-13001.000014	#
 "Verifying table on follower: server_2"
 select count(*) from t1;
 count(*)
@@ -155,6 +153,7 @@ sleep(10)
 "Purging raft logs on leader: server_1"
 show raft logs;
 Log_name	File_size	Encrypted
+binary-logs-13000.000012	#	No
 binary-logs-13000.000013	#	No
 binary-logs-13000.000014	#	No
 binary-logs-13000.000015	#	No
@@ -166,14 +165,13 @@ binary-logs-13000.000020	#	No
 binary-logs-13000.000021	#	No
 binary-logs-13000.000022	#	No
 binary-logs-13000.000023	#	No
-binary-logs-13000.000024	#	No
-purge raft logs to 'binary-logs-13000.000024';
+purge raft logs to 'binary-logs-13000.000023';
 Warnings:
-Warning	1868	file ./binary-logs-13000.000023 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000022 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size	Encrypted
+binary-logs-13000.000022	#	No
 binary-logs-13000.000023	#	No
-binary-logs-13000.000024	#	No
 "Verifying table on leader: server_1"
 select count(*) from t1;
 count(*)
@@ -184,6 +182,7 @@ sleep(10)
 "Purging raft logs on follower: server_2. This should not purge all logs and include a warning"
 show raft logs;
 Log_name	File_size
+binary-logs-13001.000012	#
 binary-logs-13001.000013	#
 binary-logs-13001.000014	#
 binary-logs-13001.000015	#
@@ -195,18 +194,17 @@ binary-logs-13001.000020	#
 binary-logs-13001.000021	#
 binary-logs-13001.000022	#
 binary-logs-13001.000023	#
-binary-logs-13001.000024	#
 purge raft logs to 'binary-logs-13001.000023';
 Warnings:
-Warning	1868	file ./binary-logs-13001.000019 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000018 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size
+binary-logs-13001.000018	#
 binary-logs-13001.000019	#
 binary-logs-13001.000020	#
 binary-logs-13001.000021	#
 binary-logs-13001.000022	#
 binary-logs-13001.000023	#
-binary-logs-13001.000024	#
 "Verifying table on follower: server_2"
 select count(*) from t1;
 count(*)
@@ -216,13 +214,13 @@ start slave sql_thread;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 "Purging raft logs on follower: server_2"
-purge raft logs to 'binary-logs-13001.000024';
+purge raft logs to 'binary-logs-13001.000023';
 Warnings:
-Warning	1868	file ./binary-logs-13001.000023 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000022 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size
+binary-logs-13001.000022	#
 binary-logs-13001.000023	#
-binary-logs-13001.000024	#
 "Verifying table on follower: server_2 after starting sql_thread"
 select count(*) from t1;
 count(*)
@@ -256,6 +254,7 @@ include/sync_slave_sql_with_master.inc
 "Purging raft logs on leader: server_2"
 show raft logs;
 Log_name	File_size	Encrypted
+binary-logs-13001.000022	#	No
 binary-logs-13001.000023	#	No
 binary-logs-13001.000024	#	No
 binary-logs-13001.000025	#	No
@@ -264,16 +263,15 @@ binary-logs-13001.000027	#	No
 binary-logs-13001.000028	#	No
 binary-logs-13001.000029	#	No
 binary-logs-13001.000030	#	No
-binary-logs-13001.000031	#	No
-purge raft logs to 'binary-logs-13001.000030';
+purge raft logs to 'binary-logs-13001.000029';
 show raft logs;
 Log_name	File_size	Encrypted
+binary-logs-13001.000029	#	No
 binary-logs-13001.000030	#	No
-binary-logs-13001.000031	#	No
 show binary logs;
 Log_name	File_size	Encrypted
+binary-logs-13001.000029	#	#
 binary-logs-13001.000030	#	#
-binary-logs-13001.000031	#	#
 "Verifying table on leader: server_1"
 select count(*) from t1;
 count(*)
@@ -281,6 +279,7 @@ count(*)
 "Purging raft logs on follower: server_1"
 show raft logs;
 Log_name	File_size
+binary-logs-13000.000022	#
 binary-logs-13000.000023	#
 binary-logs-13000.000024	#
 binary-logs-13000.000025	#
@@ -289,26 +288,25 @@ binary-logs-13000.000027	#
 binary-logs-13000.000028	#
 binary-logs-13000.000029	#
 binary-logs-13000.000030	#
-binary-logs-13000.000031	#
-purge raft logs to 'binary-logs-13000.000031';
+purge raft logs to 'binary-logs-13000.000030';
 Warnings:
-Warning	1868	file ./binary-logs-13000.000030 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000029 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size
+binary-logs-13000.000029	#
 binary-logs-13000.000030	#
-binary-logs-13000.000031	#
 "Verifying table on follower: server_1"
 select count(*) from t1;
 count(*)
 26
 "Purging raft logs on follower: server_3"
-purge raft logs to 'binary-logs-13002.000031';
+purge raft logs to 'binary-logs-13002.000030';
 Warnings:
-Warning	1868	file ./binary-logs-13002.000030 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13002.000029 was not purged because it is the active log file.
 show raft logs;
 Log_name	File_size
+binary-logs-13002.000029	#
 binary-logs-13002.000030	#
-binary-logs-13002.000031	#
 "Verifying table on follower: server_3"
 select count(*) from t1;
 count(*)

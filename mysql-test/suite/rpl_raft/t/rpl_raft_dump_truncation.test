@@ -1,10 +1,5 @@
 source ../include/raft_3_node.inc;
 connection server_1;
-call mtr.add_suppression("Run function 'before_flush' in plugin 'RPL_RAFT' failed");
-call mtr.add_suppression("Error writing file 'binary-logs-13000'.*");
-call mtr.add_suppression("Commit consensus error set for 1 threads in the group");
-call mtr.add_suppression(".*");
-
 
 # Connect server 4 and 5 using COM_BINLOG_DUMP_GTID
 # server4 will tail the leader
@@ -28,6 +23,9 @@ START SLAVE;
 # Create a schema and sync it across replicas
 connection server_1;
 create table t1 (a int primary key) engine = innodb;
+insert into t1 values(0);
+insert into t1 values(1);
+insert into t1 values(2);
 
 let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
@@ -50,7 +48,7 @@ sleep 5;
 
 echo "Executing trx";
 connection server_1;
-send insert into t1 values(1);
+send insert into t1 values(3);
 
 echo "Stopping leader";
 connection server_1_1;
@@ -127,6 +125,15 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+# Suppress known warnings.
+--disable_query_log
+connection server_1;
+call mtr.add_suppression("Run function 'before_flush' in plugin 'RPL_RAFT' failed");
+call mtr.add_suppression("Error writing file 'binary-logs-13000'.*");
+call mtr.add_suppression("Commit consensus error set for 1 threads in the group");
+call mtr.add_suppression("Run function 'before_commit' in plugin 'RPL_RAFT' failed");
+--enable_query_log
 
 connection server_4;
 stop slave;

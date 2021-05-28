@@ -18,16 +18,20 @@ insert into t1 values(2);
 connection server_2;
 let $uuid2= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
 let $port2= `select @@global.port`;
+
 connection server_1;
-replace_result $uuid2 uuid2;
-eval set @@global.rpl_raft_new_leader_uuid = '$uuid2';
+let $rpl_raft_leader_number= 2;
+source ../include/raft_promote_to_leader.inc;
 
 # Make server_4 tail server_2
 connection server_4;
+RESET MASTER;
+RESET SLAVE ALL;
 replace_result $port2 port2;
 eval change master to master_host='localhost', master_port=$port2, master_auto_position=1, master_user='root';
 source include/start_slave.inc;
 --let $uuid4= `SELECT @@GLOBAL.SERVER_UUID`
+
 connection server_2;
 # Note: This insert statement is required to move the last_acked to correct position.
 insert into t1 values(3);
@@ -39,11 +43,10 @@ select * from t1;
 
 # Cleanup
 connection server_2;
-replace_result $uuid1 uuid1;
-eval set @@global.rpl_raft_new_leader_uuid = '$uuid1';
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
 connection server_1;
-let $wait_condition= select @@global.read_only = 0;
-source include/wait_condition.inc;
 drop table t1;
 
 let $sync_slave_connection= server_2;
