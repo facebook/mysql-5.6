@@ -361,7 +361,7 @@ void Binlog_sender::init() {
   init_heartbeat_period();
   m_last_event_sent_ts = now_in_nanosecs();
   if (block_dump_threads) {
-    set_fatal_error("Binlog dump threads are blocked!");
+    set_unknown_error("Binlog dump threads are blocked!");
     return;
   }
   mysql_mutex_lock(&thd->LOCK_thd_data);

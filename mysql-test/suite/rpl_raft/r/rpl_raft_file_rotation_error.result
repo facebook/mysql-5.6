@@ -19,7 +19,6 @@ show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
-call mtr.add_suppression("Failed to rotate binary log");
 show variables like 'read_only';
 Variable_name	Value
 read_only	OFF

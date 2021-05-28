@@ -135,6 +135,7 @@ count(*)
 21
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13001.000016	#	#
 apply-logs-13001.000017	#	#
 apply-logs-13001.000018	#	#
 apply-logs-13001.000019	#	#
@@ -149,6 +150,7 @@ count(*)
 21
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13002.000016	#	#
 apply-logs-13002.000017	#	#
 apply-logs-13002.000018	#	#
 apply-logs-13002.000019	#	#
@@ -237,6 +239,7 @@ count(*)
 41
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13002.000037	#	#
 apply-logs-13002.000038	#	#
 apply-logs-13002.000039	#	#
 apply-logs-13002.000040	#	#
@@ -325,6 +328,7 @@ count(*)
 61
 show binary logs;
 Log_name	File_size	Encrypted
+apply-logs-13002.000058	#	#
 apply-logs-13002.000059	#	#
 apply-logs-13002.000060	#	#
 apply-logs-13002.000061	#	#

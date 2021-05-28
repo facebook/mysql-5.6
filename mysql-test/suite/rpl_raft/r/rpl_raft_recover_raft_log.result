@@ -19,7 +19,6 @@ show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
-call mtr.add_suppression(".*");
 create table t1 (a int primary key) engine = innodb;
 insert into t1 values(1);
 insert into t1 values(2);
@@ -37,13 +36,22 @@ select sleep(10);
 sleep(10)
 0
 "raft file: binary-logs-13001.000002"
-"raft file pos: 1886"
+"raft file pos: 1132"
 "Restarting server_2"
 include/rpl_restart_server.inc [server_number=2]
 start slave sql_thread;
 Warnings:
 Note	3083	Replication thread(s) for channel '' are already runnning.
 insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+insert into t1 values(6);
+insert into t1 values(7);
+insert into t1 values(8);
+insert into t1 values(9);
+insert into t1 values(10);
+insert into t1 values(11);
+insert into t1 values(12);
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 select * from t1;
@@ -51,11 +59,29 @@ a
 1
 2
 3
+4
+5
+6
+7
+8
+9
+10
+11
+12
 select * from t1;
 a
 1
 2
 3
+4
+5
+6
+7
+8
+9
+10
+11
+12
 drop table t1;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc

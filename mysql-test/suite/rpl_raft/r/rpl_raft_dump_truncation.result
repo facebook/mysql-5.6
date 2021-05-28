@@ -19,10 +19,6 @@ show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
-call mtr.add_suppression("Run function 'before_flush' in plugin 'RPL_RAFT' failed");
-call mtr.add_suppression("Error writing file 'binary-logs-13000'.*");
-call mtr.add_suppression("Commit consensus error set for 1 threads in the group");
-call mtr.add_suppression(".*");
 RESET MASTER;
 RESET SLAVE;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
@@ -40,20 +36,29 @@ Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 START SLAVE;
 create table t1 (a int primary key) engine = innodb;
+insert into t1 values(0);
+insert into t1 values(1);
+insert into t1 values(2);
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 "Stopping followers"
 "Executing trx"
-insert into t1 values(1);
+insert into t1 values(3);
 "Stopping leader"
 "Resuming followers"
 "Waiting for leader election"
 select * from t1;
 a
+0
+1
+2
 select * from t1;
 a
+0
+1
+2
 "Resuming old leader"
 ERROR HY000: Got error 1 - 'Operation not permitted' during COMMIT
 include/raft_promote_to_leader.inc
@@ -63,14 +68,29 @@ include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 select * from t1;
 a
+0
+1
+2
 select * from t1;
 a
+0
+1
+2
 select * from t1;
 a
+0
+1
+2
 select * from t1;
 a
+0
+1
+2
 select * from t1;
 a
+0
+1
+2
 drop table t1;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
