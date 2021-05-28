@@ -1,0 +1,48 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of client_attribute_names is caller,async_id
+SELECT @@global.client_attribute_names;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.client_attribute_names;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo client_attribute_names is a dynamic variable (change to a valid value)
+set @@global.client_attribute_names = 'caller,original_caller,async_id';
+SELECT @@global.client_attribute_names;
+set @@global.client_attribute_names = 'caller,original_caller';
+SELECT @@global.client_attribute_names;
+set @@global.client_attribute_names = 'original_caller,async_id';
+SELECT @@global.client_attribute_names;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.client_attribute_names = 'caller,async_id';
+SELECT @@global.client_attribute_names;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (caller,original_caller)
+--let $restart_parameters = restart: --client_attribute_names=caller,original_caller
+--source include/restart_mysqld.inc
+
+SELECT @@global.client_attribute_names;
+
+--echo restart the server with the default value (caller,async_id)
+--let $restart_parameters = restart:
+--source include/restart_mysqld.inc
+
+# check value is default (caller,async_id)
+SELECT @@global.client_attribute_names;

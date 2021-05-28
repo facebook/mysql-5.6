@@ -1,0 +1,35 @@
+Default value of client_attribute_names is caller,async_id
+SELECT @@global.client_attribute_names;
+@@global.client_attribute_names
+caller,async_id
+SELECT @@session.client_attribute_names;
+ERROR HY000: Variable 'client_attribute_names' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+client_attribute_names is a dynamic variable (change to a valid value)
+set @@global.client_attribute_names = 'caller,original_caller,async_id';
+SELECT @@global.client_attribute_names;
+@@global.client_attribute_names
+caller,original_caller,async_id
+set @@global.client_attribute_names = 'caller,original_caller';
+SELECT @@global.client_attribute_names;
+@@global.client_attribute_names
+caller,original_caller
+set @@global.client_attribute_names = 'original_caller,async_id';
+SELECT @@global.client_attribute_names;
+@@global.client_attribute_names
+original_caller,async_id
+restore the default value
+SET @@global.client_attribute_names = 'caller,async_id';
+SELECT @@global.client_attribute_names;
+@@global.client_attribute_names
+caller,async_id
+restart the server with non default value (caller,original_caller)
+# restart: --client_attribute_names=caller,original_caller
+SELECT @@global.client_attribute_names;
+@@global.client_attribute_names
+caller,original_caller
+restart the server with the default value (caller,async_id)
+# restart:
+SELECT @@global.client_attribute_names;
+@@global.client_attribute_names
+caller,async_id

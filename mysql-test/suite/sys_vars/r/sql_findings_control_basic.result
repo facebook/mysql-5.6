@@ -16,12 +16,12 @@ SELECT @@global.sql_findings_control;
 @@global.sql_findings_control
 OFF_HARD
 restart the server with non default value (OFF_SOFT)
-# restart
+# restart: --sql_findings_control=off_soft
 SELECT @@global.sql_findings_control;
 @@global.sql_findings_control
-OFF_HARD
+OFF_SOFT
 restart the server with the default value (OFF_HARD)
-# restart
+# restart:
 SELECT @@global.sql_findings_control;
 @@global.sql_findings_control
 OFF_HARD
