@@ -103,4 +103,7 @@ void remove_active_sql(THD *thd);
  End - Functions to support capping the number of duplicate executions
 **********************************************************************/
 
+/* Stores the client attribute names */
+void store_client_attribute_names(char *new_value);
+
 #endif

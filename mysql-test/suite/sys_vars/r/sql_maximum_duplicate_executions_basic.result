@@ -16,12 +16,12 @@ SELECT @@global.sql_maximum_duplicate_executions;
 @@global.sql_maximum_duplicate_executions
 0
 restart the server with non default value (5)
-# restart
+# restart: --sql_maximum_duplicate_executions=5
 SELECT @@global.sql_maximum_duplicate_executions;
 @@global.sql_maximum_duplicate_executions
-0
+5
 restart the server with the default value (0)
-# restart
+# restart:
 SELECT @@global.sql_maximum_duplicate_executions;
 @@global.sql_maximum_duplicate_executions
 0
