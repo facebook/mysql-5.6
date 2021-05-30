@@ -1169,6 +1169,9 @@ public:
   /* Set of all DBs accessed by the current group */
   std::unordered_set<std::string> dbs_accessed_by_group;
 
+  /* Set of tables that'll run in TBL mode */
+  std::unordered_set<std::string> tbl_mode_tables;
+
   // Mutex-condition pair to notify when queue is/is not full
   mysql_cond_t dep_full_cond;
   bool dep_full= false;
@@ -1275,6 +1278,8 @@ public:
 
     trx_queued= false;
     num_events_in_current_group= 0;
+
+    tbl_mode_tables.clear();
 
     if (need_dep_lock)
       mysql_mutex_unlock(&dep_lock);

@@ -12529,7 +12529,8 @@ bool Rows_log_event::get_keys(Relay_log_info *rli,
   DBUG_ASSERT(rli->mts_dependency_replication);
 
   // case: table level dependency, just add the table key and return
-  if (rli->mts_dependency_replication == DEP_RPL_TABLE)
+  if (rli->mts_dependency_replication == DEP_RPL_TABLE ||
+      rli->tbl_mode_tables.count(m_table_name))
   {
     Dependency_key table_key;
     table_key.table_id= m_table_name;
@@ -12574,6 +12575,16 @@ bool Rows_log_event::get_keys(Relay_log_info *rli,
   m_table= NULL;
   m_curr_row_end= NULL;
   m_curr_row= m_rows_buf;
+
+  if (!success)
+  {
+    const auto tbe= rli->table_map_events.at(get_table_id());
+    sql_print_information("Error while parsing keys for table %s.%s, will "
+                          "schedule trxs for this table using table "
+                          "dependencies", tbe->get_db_name(),
+                          tbe->get_table_name());
+    rli->tbl_mode_tables.insert(m_table_name);
+  }
 
   DBUG_RETURN(success);
 }
