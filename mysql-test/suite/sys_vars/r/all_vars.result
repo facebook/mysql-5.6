@@ -34,6 +34,8 @@ disabled_storage_engines
 disabled_storage_engines
 enable_acl_db_cache
 enable_acl_db_cache
+enable_hlc_bound
+enable_hlc_bound
 generated_random_password_length
 generated_random_password_length
 group_replication_consistency

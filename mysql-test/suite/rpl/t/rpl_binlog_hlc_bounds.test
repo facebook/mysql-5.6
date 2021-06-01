@@ -1,0 +1,150 @@
+--let $rpl_server_count= 1
+--let $rpl_topology= none
+--source include/rpl_init.inc
+--source include/have_binlog_format_row.inc
+--source include/have_debug.inc
+--source include/not_parallel.inc
+
+# Cleanup old binlog
+connection default;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
+
+# Set minimum_hlc_ns to a high value. Subsequent txn's should see monotonically
+# increasing timestamp from this point
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+
+# Enable binlog_hlc
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.enable_hlc_bound = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+SET @@global.wait_for_hlc_timeout_ms = 100;
+
+CREATE DATABASE a;
+USE a;
+CREATE TABLE ta (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+INSERT INTO ta (a, b) VALUES (1, 'foo');
+
+# =============================================================================
+# Specifying low HLC bound for transactional queries should advance HLC
+# to the requested boundary
+# =============================================================================
+
+--echo Low HLC bounds in transactions
+
+# Perform a transactional write with lower HLC bound specified
+# Advance HLC by 4 sec for the next operation
+--let $hlc = 2538630004000000000
+query_attrs_add hlc_ts_lower_bound $hlc;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (16, 'bar');
+COMMIT;
+let $hlc = get_response_attribute(hlc_ts);
+--let $assert_text = Check if HLC was updated by the INSERT
+--let $assert_cond = $hlc >= 2538630004000000000
+--source include/assert.inc
+query_attrs_reset;
+
+--echo Testing max drift limit
+
+# Set the limit to 1 sec
+SET @@global.maximum_hlc_drift_ns = 1000000000; # 1 sec
+--let $hlc = 2538630009000000000
+query_attrs_add hlc_ts_lower_bound $hlc;
+--disable_result_log
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (17, 'bir');
+--error ER_HLC_ABOVE_MAX_DRIFT
+COMMIT;
+query_attrs_reset;
+--enable_result_log
+
+--echo Setting lower bound HLC for inserts outside of transactions
+
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+
+--echo INSERT with lower HLC bound from the past
+--let $hlc = 2538630000000000000
+query_attrs_add hlc_ts_lower_bound $hlc;
+USE a;
+INSERT INTO ta (a, b) VALUES (18, 'bir');
+let $hlc = get_response_attribute(hlc_ts);
+query_attrs_reset;
+
+--let $assert_text = Check if HLC was not updated by the INSERT
+--let $assert_cond = $hlc >= 2538630004000000000
+--source include/assert.inc
+
+--let $assert_text = Check if HLC was not updated by the previous insert since it failed
+--let $assert_cond = $hlc < 2538630009000000000
+--source include/assert.inc
+
+--echo INSERT with lower HLC bound a little bit ahead
+--let $hlc = 2538630005000000000
+query_attrs_add hlc_ts_lower_bound $hlc;
+USE a;
+INSERT INTO ta (a, b) VALUES (19, 'bur');
+let $hlc = get_response_attribute(hlc_ts);
+--let $assert_text = Check if HLC was updated by the INSERT
+--let $assert_cond = $hlc >= 2538630005000000000
+--source include/assert.inc
+query_attrs_reset;
+
+--echo INSERT with lower HLC bound far ahead
+SET @@global.maximum_hlc_drift_ns = 1000000000; # 1 sec
+--let $hlc = 2538630090000000000
+query_attrs_add hlc_ts_lower_bound $hlc;
+--disable_result_log
+USE a;
+--error ER_HLC_ABOVE_MAX_DRIFT
+INSERT INTO ta (a, b) VALUES (20, 'byr');
+--enable_result_log
+query_attrs_reset;
+
+--echo Perform a single write to get an HLC timstamp from the write
+USE a;
+INSERT INTO ta (a, b) VALUES (21, 'bam');
+let $hlc = get_response_attribute(hlc_ts);
+--let $assert_text = Check if HLC was not updated by the last INSERT since it failed
+--let $assert_cond = $hlc < 2538630009000000000
+--source include/assert.inc
+query_attrs_reset;
+
+--echo Perform write with lower HLC bound below the current HLC
+
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+
+--let $hlc = 2538630000000000000
+query_attrs_add hlc_ts_lower_bound $hlc;
+USE a;
+INSERT INTO ta (a, b) VALUES (22, 'bup');
+let $hlc = get_response_attribute(hlc_ts);
+# HLC shouldn't drop down to 2538630000000000000
+--let $assert_text = Check if HLC hasn't decrease after INSERT
+--let $assert_cond = $hlc >= 2538630005000000000
+--source include/assert.inc
+query_attrs_reset;
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+--echo Cleanup
+
+DROP DATABASE a;
+
+SET @@global.enable_binlog_hlc = default;
+SET @@global.maintain_database_hlc = default;
+SET @@global.wait_for_hlc_timeout_ms = default;
+SET @@global.enable_hlc_bound = default;
+SET @@global.minimum_hlc_ns = 0;
+SET @@global.maximum_hlc_drift_ns = default;
+
+source include/rpl_end.inc;

@@ -9990,11 +9990,11 @@ ER_RESULTSET_CHECKSUM_FAILED
 ER_HLC_READ_BOUND_IN_TRANSACTION
   eng "HLC read bound for read inside transaction is not supported"
 
-ER_INVALID_HLC_READ_BOUND
-  eng "Invalid HLC read bound timestamp supplied: `%s`"
+ER_INVALID_HLC
+  eng "Invalid HLC bound timestamp supplied: `%s`"
 
 ER_STALE_HLC_READ
-  eng "Requested HLC timestamp %llu not present in engine for database `%s`"
+  eng "Requested HLC timestamp %llu is higher than current engine HLC of %llu for database `%s`"
 
 ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND
   eng "Requested HLC read bound when allow_noncurrent_db_rw set to %d != 3"
@@ -10124,6 +10124,9 @@ ER_PLACEHOLDER_50301
 
 ER_PURPOSE_POLICY_CHECK_FAILED
   eng "Purpose policy check `%s` (query policy: `%s`) failed in %s mode"
+
+ER_HLC_ABOVE_MAX_DRIFT
+  eng "Can't advance HLC value to `%s` because it's too far from the current time"
 
 #
 # End of new range for 5.6.35 FB MySQL error messages.

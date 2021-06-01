@@ -8617,6 +8617,12 @@ static Sys_var_bool Sys_enable_block_stale_hlc_read(
     SESSION_VAR(enable_block_stale_hlc_read), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_block_stale_hlc_read));
 
+static Sys_var_bool Sys_enable_hlc_bound(
+    "enable_hlc_bound",
+    "Enable HLC bound enforcement for transactional operations",
+    SESSION_VAR(enable_hlc_bound), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static Sys_var_ulong Sys_wait_for_hlc_timeout_ms(
     "wait_for_hlc_timeout_ms",
     "How long to wait for the specified HLC to be applied to the engine before "

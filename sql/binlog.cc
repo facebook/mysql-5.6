@@ -2810,7 +2810,7 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd) {
   uint64_t requested_hlc = strtoull(hlc_ts_str, &endptr, 10);
   if (!endptr || *endptr != '\0' ||
       !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
-    my_error(ER_INVALID_HLC_READ_BOUND, MYF(0), hlc_ts_str);
+    my_error(ER_INVALID_HLC, MYF(0), hlc_ts_str);
     return true;
   }
 
@@ -2830,7 +2830,7 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd) {
   uint64_t applied_hlc = mysql_bin_log.get_selected_database_hlc(db);
   if (requested_hlc > applied_hlc &&
       (timeout_ms == 0 || !wait_for_hlc_timeout_ms)) {
-    my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, db.c_str());
+    my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, applied_hlc, db.c_str());
     return true;
   }
 
@@ -2844,6 +2844,53 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd) {
   }
 
   return entry->wait_for_hlc(thd, requested_hlc, timeout_ms);
+}
+
+bool HybridLogicalClock::check_hlc_bound(THD *thd) {
+  if (!thd->variables.enable_hlc_bound || thd->slave_thread) {
+    return false;
+  }
+
+  const char *hlc_lower_bound_ts_str = nullptr;
+  for (const auto &p : thd->query_attrs_list) {
+    if (p.first == hlc_ts_lower_bound) {
+      hlc_lower_bound_ts_str = p.second.c_str();
+      break;
+    }
+  }
+
+  // No lower bound HLC ts specified, skip early
+  if (!hlc_lower_bound_ts_str) {
+    return false;
+  }
+
+  char *endptr = nullptr;
+  uint64_t requested_hlc = strtoull(hlc_lower_bound_ts_str, &endptr, 10);
+  if (!endptr || *endptr != '\0' ||
+      !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+    my_error(ER_INVALID_HLC, MYF(0), hlc_lower_bound_ts_str);
+    return true;
+  }
+
+  // There is a limit on how far we can jump HLC value. In case if the
+  // requested HLC value is too far ahead of the current wallclock time
+  // we fail the request with ER_HLC_ABOVE_MAX_DRIFT error.
+
+  // Get current wall clock
+  uint64_t cur_wall_clock_ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::high_resolution_clock::now().time_since_epoch())
+          .count();
+
+  // Updating the HLC cannot be allowed if HLC drifts forward by more than
+  // 'maximum_hlc_drift_ns' as compared to wall clock
+  if (requested_hlc > cur_wall_clock_ns &&
+      (requested_hlc - cur_wall_clock_ns) > maximum_hlc_drift_ns) {
+    my_error(ER_HLC_ABOVE_MAX_DRIFT, MYF(0), hlc_lower_bound_ts_str);
+    return true;
+  }
+  update(requested_hlc);
+  return false;
 }
 
 void HybridLogicalClock::DatabaseEntry::update_hlc(uint64_t applied_hlc) {
@@ -10347,6 +10394,10 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all) {
       if (thd->get_stmt_da()->is_ok())
         thd->get_stmt_da()->reset_diagnostics_area();
       my_error(ER_TRANSACTION_ROLLBACK_DURING_COMMIT, MYF(0));
+      return RESULT_ABORTED;
+    }
+
+    if (check_hlc_bound(thd)) {
       return RESULT_ABORTED;
     }
 

@@ -272,6 +272,12 @@ class HybridLogicalClock {
    */
   bool wait_for_hlc_applied(THD *thd);
 
+  /**
+   * Check that lower HLC bound requirements are satisfied for
+   * insert/update/delete queries.
+   */
+  bool check_hlc_bound(THD *thd);
+
  private:
   // nanosecond precision internal clock
   std::atomic<uint64_t> current_;
@@ -883,6 +889,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void clear_database_hlc() { hlc.clear_database_hlc(); }
 
   bool wait_for_hlc_applied(THD *thd) { return hlc.wait_for_hlc_applied(thd); }
+
+  bool check_hlc_bound(THD *thd) { return hlc.check_hlc_bound(thd); }
 
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};
