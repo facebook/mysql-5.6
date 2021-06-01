@@ -132,6 +132,9 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
 %token NO_DERIVED_CONDITION_PUSHDOWN_HINT 1048
 %token HINT_ARG_FLOATING_POINT_NUMBER 1049
 
+%token GROUP_BY_LIS_HINT 1050
+%token NO_GROUP_BY_LIS_HINT 1051
+
 /*
   YYUNDEF in internal to Bison. Please don't change its number, or change
   it in sync with YYUNDEF in sql_yacc.yy.
@@ -557,6 +560,10 @@ key_level_hint_type_on:
           {
             $$= SKIP_SCAN_HINT_ENUM;
           }
+        | GROUP_BY_LIS_HINT
+          {
+            $$= GROUP_BY_LIS_HINT_ENUM;
+          }
         | INDEX_HINT
           {
             $$= INDEX_HINT_ENUM;
@@ -591,6 +598,10 @@ key_level_hint_type_off:
         | NO_SKIP_SCAN_HINT
           {
             $$= SKIP_SCAN_HINT_ENUM;
+          }
+        | NO_GROUP_BY_LIS_HINT
+          {
+            $$= GROUP_BY_LIS_HINT_ENUM;
           }
         | NO_INDEX_HINT
           {

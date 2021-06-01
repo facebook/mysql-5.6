@@ -78,6 +78,7 @@ enum opt_hints_enum {
   INDEX_MERGE_HINT_ENUM,
   RESOURCE_GROUP_HINT_ENUM,
   SKIP_SCAN_HINT_ENUM,
+  GROUP_BY_LIS_HINT_ENUM,
   HASH_JOIN_HINT_ENUM,
   INDEX_HINT_ENUM,
   JOIN_INDEX_HINT_ENUM,
@@ -550,6 +551,7 @@ class Opt_hints_table : public Opt_hints {
   Mem_root_array<Opt_hints_key *> keyinfo_array;
   Compound_key_hint index_merge;
   Compound_key_hint skip_scan;
+  Compound_key_hint lis_group_by;
   Glob_index_key_hint index;
   Index_key_hint join_index;
   Index_key_hint group_index;
@@ -583,6 +585,7 @@ class Opt_hints_table : public Opt_hints {
     Opt_hints::set_resolved();
     if (is_specified(INDEX_MERGE_HINT_ENUM)) index_merge.set_resolved(true);
     if (is_specified(SKIP_SCAN_HINT_ENUM)) skip_scan.set_resolved(true);
+    if (is_specified(GROUP_BY_LIS_HINT_ENUM)) lis_group_by.set_resolved(true);
     if (is_specified(INDEX_HINT_ENUM)) index.set_resolved(true);
     if (is_specified(JOIN_INDEX_HINT_ENUM)) join_index.set_resolved(true);
     if (is_specified(GROUP_INDEX_HINT_ENUM)) group_index.set_resolved(true);
@@ -604,6 +607,8 @@ class Opt_hints_table : public Opt_hints {
   void set_compound_key_hint_map(Opt_hints *hint, uint arg) {
     if (hint->is_specified(INDEX_MERGE_HINT_ENUM)) index_merge.set_key_map(arg);
     if (hint->is_specified(SKIP_SCAN_HINT_ENUM)) skip_scan.set_key_map(arg);
+    if (hint->is_specified(GROUP_BY_LIS_HINT_ENUM))
+      lis_group_by.set_key_map(arg);
     if (hint->is_specified(INDEX_HINT_ENUM)) index.set_key_map(arg);
     if (hint->is_specified(JOIN_INDEX_HINT_ENUM)) join_index.set_key_map(arg);
     if (hint->is_specified(GROUP_INDEX_HINT_ENUM)) group_index.set_key_map(arg);
@@ -613,6 +618,7 @@ class Opt_hints_table : public Opt_hints {
   Compound_key_hint *get_compound_key_hint(opt_hints_enum type_arg) {
     if (type_arg == INDEX_MERGE_HINT_ENUM) return &index_merge;
     if (type_arg == SKIP_SCAN_HINT_ENUM) return &skip_scan;
+    if (type_arg == GROUP_BY_LIS_HINT_ENUM) return &lis_group_by;
     if (type_arg == INDEX_HINT_ENUM) return &index;
     if (type_arg == JOIN_INDEX_HINT_ENUM) return &join_index;
     if (type_arg == GROUP_INDEX_HINT_ENUM) return &group_index;

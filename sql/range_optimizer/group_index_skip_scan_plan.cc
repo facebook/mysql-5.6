@@ -284,8 +284,8 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
 
 AccessPath *get_best_group_min_max(THD *thd, RANGE_OPT_PARAM *param,
                                    SEL_TREE *tree, enum_order order_direction,
-                                   bool skip_records_in_range,
-                                   double cost_est) {
+                                   bool skip_records_in_range, double cost_est,
+                                   bool force_group_by) {
   JOIN *join = param->query_block->join;
   TABLE *table = param->table;
   bool have_min = false; /* true if there is a MIN function. */
@@ -476,6 +476,12 @@ AccessPath *get_best_group_min_max(THD *thd, RANGE_OPT_PARAM *param,
     /* Check (B1) - if current index is covering. */
     if (!table->covering_keys.is_set(cur_index)) {
       cause = "not_covering";
+      goto next_index;
+    }
+
+    if (!compound_hint_key_enabled(param->table, cur_index,
+                                   GROUP_BY_LIS_HINT_ENUM)) {
+      cause = "group_by_lis_hint";
       goto next_index;
     }
 
@@ -1038,6 +1044,7 @@ AccessPath *get_best_group_min_max(THD *thd, RANGE_OPT_PARAM *param,
   path->group_index_skip_scan().index = index;
   path->group_index_skip_scan().num_used_key_parts = used_key_parts;
   path->group_index_skip_scan().param = p;
+  path->group_index_skip_scan().forced_by_hint = force_group_by;
   return path;
 }
 

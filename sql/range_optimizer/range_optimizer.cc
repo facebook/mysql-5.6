@@ -680,8 +680,11 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
     Try to construct a GroupIndexSkipScanIterator.
     Notice that it can be constructed no matter if there is a range tree.
   */
-  AccessPath *group_path = get_best_group_min_max(
-      thd, &param, tree, interesting_order, skip_records_in_range, best_cost);
+  force_group_by = hint_table_state(thd, param.table->pos_in_table_list,
+                                    GROUP_BY_LIS_HINT_ENUM, 0);
+  AccessPath *group_path =
+      get_best_group_min_max(thd, &param, tree, interesting_order,
+                             skip_records_in_range, best_cost, force_group_by);
   bool force_skip_scan;
   if (group_path) {
     DBUG_EXECUTE_IF("force_lis_for_group_by", group_path->cost = 0.0;);
@@ -702,27 +705,29 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
       grp_summary.add("chosen", false).add_alnum("cause", "cost");
   }
 
-  force_skip_scan = hint_table_state(thd, param.table->pos_in_table_list,
-                                     SKIP_SCAN_HINT_ENUM, 0);
+  if (!best_path || !get_forced_by_hint(best_path)) {
+    force_skip_scan = hint_table_state(thd, param.table->pos_in_table_list,
+                                       SKIP_SCAN_HINT_ENUM, 0);
 
-  if (thd->optimizer_switch_flag(OPTIMIZER_SKIP_SCAN) || force_skip_scan) {
-    AccessPath *skip_scan_path =
-        get_best_skip_scan(thd, &param, tree, interesting_order,
-                           skip_records_in_range, force_skip_scan);
-    if (skip_scan_path) {
-      param.table->quick_condition_rows = min<double>(
-          skip_scan_path->num_output_rows(), table->file->stats.records);
-      Opt_trace_object summary(trace, "best_skip_scan_summary",
-                               Opt_trace_context::RANGE_OPTIMIZER);
-      if (unlikely(trace->is_started()))
-        trace_basic_info(thd, skip_scan_path, &param, &summary);
+    if (thd->optimizer_switch_flag(OPTIMIZER_SKIP_SCAN) || force_skip_scan) {
+      AccessPath *skip_scan_path =
+          get_best_skip_scan(thd, &param, tree, interesting_order,
+                             skip_records_in_range, force_skip_scan);
+      if (skip_scan_path) {
+        param.table->quick_condition_rows = min<double>(
+            skip_scan_path->num_output_rows(), table->file->stats.records);
+        Opt_trace_object summary(trace, "best_skip_scan_summary",
+                                 Opt_trace_context::RANGE_OPTIMIZER);
+        if (unlikely(trace->is_started()))
+          trace_basic_info(thd, skip_scan_path, &param, &summary);
 
-      if (skip_scan_path->cost < best_cost || force_skip_scan) {
-        summary.add("chosen", true);
-        best_path = skip_scan_path;
-        best_cost = best_path->cost;
-      } else
-        summary.add("chosen", false).add_alnum("cause", "cost");
+        if (skip_scan_path->cost < best_cost || force_skip_scan) {
+          summary.add("chosen", true);
+          best_path = skip_scan_path;
+          best_cost = best_path->cost;
+        } else
+          summary.add("chosen", false).add_alnum("cause", "cost");
+      }
     }
   }
 
