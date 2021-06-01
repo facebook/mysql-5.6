@@ -38,6 +38,8 @@ disabled_storage_engines
 disabled_storage_engines
 enable_acl_db_cache
 enable_acl_db_cache
+enable_hlc_bound
+enable_hlc_bound
 explain_format
 explain_format
 generated_random_password_length

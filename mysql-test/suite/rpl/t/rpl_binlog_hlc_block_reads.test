@@ -64,7 +64,7 @@ BEGIN;
 INSERT INTO ta (a, b) VALUES (3, 'baz');
 COMMIT;
 let $hlc = get_response_attribute(hlc_ts);
---echo HLC: $hlc
+# --echo HLC: $hlc
 
 # Wait for the slave to catch up
 --source include/sync_slave_sql_with_master.inc
@@ -86,18 +86,21 @@ BEGIN;
 INSERT INTO ta (a, b) VALUES (4, 'bah');
 COMMIT;
 let $hlc = get_response_attribute(hlc_ts);
---echo HLC: $hlc
+# --echo HLC: $hlc
 
 # Now perform a read that should fail since the binlog hasn't applied to the slave
 connection slave;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc;
+--replace_regex /253863[0-9]*\d\d\d\d/HLCVALUE/
 --error ER_STALE_HLC_READ
 SELECT * FROM ta;
 
 # Check more reads against the information_schema and mysql tables
+--replace_regex /253863[0-9]*\d\d\d\d/HLCVALUE/
 --error ER_STALE_HLC_READ
 SELECT * FROM mysql.slow_log;
+--replace_regex /253863[0-9]*\d\d\d\d/HLCVALUE/
 --error ER_STALE_HLC_READ
 SELECT * FROM information_schema.database_applied_hlc;
 query_attrs_reset;
@@ -193,7 +196,7 @@ BEGIN;
 INSERT INTO tc (a, b) VALUES (1, 'bar');
 COMMIT;
 let $hlc = get_response_attribute(hlc_ts);
---echo HLC: $hlc
+# --echo HLC: $hlc
 
 # Wait for the slave to catch up
 --source include/sync_slave_sql_with_master.inc
@@ -235,6 +238,7 @@ SELECT * FROM tb;
 query_attrs_reset;
 
 query_attrs_add hlc_ts_lower_bound $hlc_c;
+--replace_regex /253863[0-9]*\d\d\d\d/HLCVALUE/
 --error ER_STALE_HLC_READ
 SELECT * FROM tb;
 query_attrs_reset;
@@ -257,17 +261,17 @@ connection slave;
 USE a;
 
 query_attrs_add hlc_ts_lower_bound 0;
---error ER_INVALID_HLC_READ_BOUND
+--error ER_INVALID_HLC
 SELECT * FROM ta;
 query_attrs_reset;
 
 query_attrs_add hlc_ts_lower_bound 12a;
---error ER_INVALID_HLC_READ_BOUND
+--error ER_INVALID_HLC
 SELECT * FROM ta;
 query_attrs_reset;
 
 query_attrs_add hlc_ts_lower_bound abc;
---error ER_INVALID_HLC_READ_BOUND
+--error ER_INVALID_HLC
 SELECT * FROM ta;
 query_attrs_reset;
 
@@ -296,21 +300,21 @@ BEGIN;
 UPDATE ta SET b = 'bar' WHERE a = 3;
 COMMIT;
 let $hlc_a = get_response_attribute(hlc_ts);
---echo HLC: $hlc_a
+# --echo HLC: $hlc_a
 
 USE b;
 BEGIN;
 INSERT INTO tb (a, b) VALUES (7, 'baz');
 COMMIT;
 let $hlc_b = get_response_attribute(hlc_ts);
---echo HLC: $hlc_b
+# --echo HLC: $hlc_b
 
 USE c;
 BEGIN;
 INSERT INTO tc (a, b) VALUES (7, 'baz');
 COMMIT;
 let $hlc_c = get_response_attribute(hlc_ts);
---echo HLC: $hlc_c
+# --echo HLC: $hlc_c
 
 connection slave;
 
@@ -330,6 +334,7 @@ source include/wait_condition.inc;
 
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc_a;
+--replace_regex /253863[0-9]*\d\d\d\d/HLCVALUE/
 --error ER_STALE_HLC_READ
 SELECT * FROM ta;
 query_attrs_reset;
