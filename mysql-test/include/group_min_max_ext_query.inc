@@ -1,6 +1,8 @@
 # This query uses loose index scan.
 let $hint = ;
-let $check_query = $query $hint $cond;
+let $orig_query = $query $hint $cond;
+let $check_query = `select replace('$orig_query', 'SELECT', 'SELECT /*+ GROUP_BY_LIS(t) */')`;
+
 eval EXPLAIN $check_query;
 FLUSH STATUS;
 --sorted_result
@@ -13,8 +15,7 @@ eval create table group_query $check_query;
 --enable_query_log
 
 # This query doesn't use loose index scan.
-let $hint= IGNORE INDEX(k1) ;
-let $check_query = $query $hint $cond;
+let $check_query = `select replace('$orig_query', 'SELECT', 'SELECT /*+ NO_GROUP_BY_LIS(t) */')`;
 --disable_query_log
 eval create table no_group_query $check_query;
 --enable_query_log

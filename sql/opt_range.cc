@@ -1429,7 +1429,8 @@ static TABLE_READ_PLAN *get_best_disjunct_quick(PARAM *param,
                                                 SEL_IMERGE *imerge,
                                                 const Cost_estimate *cost_est);
 static TRP_GROUP_MIN_MAX *get_best_group_min_max(PARAM *param, SEL_TREE *tree,
-                                                 const Cost_estimate *cost_est);
+                                                 const Cost_estimate *cost_est,
+                                                 bool force_group_by);
 static TRP_SKIP_SCAN *get_best_skip_scan(PARAM *param, SEL_TREE *tree,
                                          bool force_skip_scan);
 #ifndef DBUG_OFF
@@ -2830,6 +2831,7 @@ class TRP_GROUP_MIN_MAX : public TABLE_READ_PLAN {
   SEL_ROOT *index_tree;  ///< The sub-tree corresponding to index_info
   uint param_idx;        ///< Index of used key in param->key
   bool is_index_scan;    ///< Use index_next() instead of random read
+  bool forced_by_hint;   ///< TRUE if group by is forced by optimizer hint
  public:
   /** Number of records selected by the ranges in index_tree. */
   ha_rows quick_prefix_records;
@@ -2845,7 +2847,7 @@ class TRP_GROUP_MIN_MAX : public TABLE_READ_PLAN {
                     uint group_key_parts_arg, KEY *index_info_arg,
                     uint index_arg, uint key_infix_len_arg, SEL_TREE *tree_arg,
                     SEL_ROOT *index_tree_arg, uint param_idx_arg,
-                    ha_rows quick_prefix_records_arg)
+                    ha_rows quick_prefix_records_arg, bool force_group_by)
       : have_min(have_min_arg),
         have_max(have_max_arg),
         have_agg_distinct(have_agg_distinct_arg),
@@ -2860,10 +2862,12 @@ class TRP_GROUP_MIN_MAX : public TABLE_READ_PLAN {
         index_tree(index_tree_arg),
         param_idx(param_idx_arg),
         is_index_scan(false),
+        forced_by_hint(force_group_by),
         quick_prefix_records(quick_prefix_records_arg) {}
 
   QUICK_SELECT_I *make_quick(PARAM *param, bool retrieve_full_rows,
                              MEM_ROOT *parent_alloc) override;
+  virtual bool is_forced_by_hint() override { return forced_by_hint; }
   void use_index_scan() { is_index_scan = true; }
 };
 
@@ -3366,7 +3370,11 @@ int test_quick_select(THD *thd, Key_map keys_to_use, table_map prev_tables,
       Try to construct a QUICK_GROUP_MIN_MAX_SELECT.
       Notice that it can be constructed no matter if there is a range tree.
     */
-    group_trp = get_best_group_min_max(&param, tree, &best_cost);
+    force_group_by = hint_table_state(param.thd, param.table->pos_in_table_list,
+                                      GROUP_BY_LIS_HINT_ENUM, 0);
+
+    group_trp =
+        get_best_group_min_max(&param, tree, &best_cost, force_group_by);
     if (group_trp) {
       DBUG_EXECUTE_IF("force_lis_for_group_by", group_trp->cost_est.reset(););
       param.table->quick_condition_rows =
@@ -3386,25 +3394,27 @@ int test_quick_select(THD *thd, Key_map keys_to_use, table_map prev_tables,
         grp_summary.add("chosen", false).add_alnum("cause", "cost");
     }
 
-    force_skip_scan = hint_table_state(
-        param.thd, param.table->pos_in_table_list, SKIP_SCAN_HINT_ENUM, 0);
+    if (!best_trp || !best_trp->is_forced_by_hint()) {
+      force_skip_scan = hint_table_state(
+          param.thd, param.table->pos_in_table_list, SKIP_SCAN_HINT_ENUM, 0);
 
-    if (thd->optimizer_switch_flag(OPTIMIZER_SKIP_SCAN) || force_skip_scan) {
-      skip_scan_trp = get_best_skip_scan(&param, tree, force_skip_scan);
-      if (skip_scan_trp) {
-        param.table->quick_condition_rows =
-            min(skip_scan_trp->records, head->file->stats.records);
-        Opt_trace_object summary(trace, "best_skip_scan_summary",
-                                 Opt_trace_context::RANGE_OPTIMIZER);
-        if (unlikely(trace->is_started()))
-          skip_scan_trp->trace_basic_info(&param, &summary);
+      if (thd->optimizer_switch_flag(OPTIMIZER_SKIP_SCAN) || force_skip_scan) {
+        skip_scan_trp = get_best_skip_scan(&param, tree, force_skip_scan);
+        if (skip_scan_trp) {
+          param.table->quick_condition_rows =
+              min(skip_scan_trp->records, head->file->stats.records);
+          Opt_trace_object summary(trace, "best_skip_scan_summary",
+                                   Opt_trace_context::RANGE_OPTIMIZER);
+          if (unlikely(trace->is_started()))
+            skip_scan_trp->trace_basic_info(&param, &summary);
 
-        if (skip_scan_trp->cost_est < best_cost || force_skip_scan) {
-          summary.add("chosen", true);
-          best_trp = skip_scan_trp;
-          best_cost = best_trp->cost_est;
-        } else
-          summary.add("chosen", false).add_alnum("cause", "cost");
+          if (skip_scan_trp->cost_est < best_cost || force_skip_scan) {
+            summary.add("chosen", true);
+            best_trp = skip_scan_trp;
+            best_cost = best_trp->cost_est;
+          } else
+            summary.add("chosen", false).add_alnum("cause", "cost");
+        }
       }
     }
 
@@ -11727,13 +11737,15 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
  @param  param     Parameter from test_quick_select
  @param  tree      Range tree generated by get_mm_tree
  @param  cost_est  Best cost so far (=table/index scan time)
+ @param  force_group_by TRUE if group by is forced by optimizer hint
  @return table read plan
    @retval NULL  Loose index scan not applicable or mem_root == NULL
    @retval !NULL Loose index scan table read plan
 */
 
-static TRP_GROUP_MIN_MAX *get_best_group_min_max(
-    PARAM *param, SEL_TREE *tree, const Cost_estimate *cost_est) {
+static TRP_GROUP_MIN_MAX *get_best_group_min_max(PARAM *param, SEL_TREE *tree,
+                                                 const Cost_estimate *cost_est,
+                                                 bool force_group_by) {
   THD *thd = param->thd;
   JOIN *join = param->select_lex->join;
   TABLE *table = param->table;
@@ -11923,6 +11935,12 @@ static TRP_GROUP_MIN_MAX *get_best_group_min_max(
     /* Check (B1) - if current index is covering. */
     if (!table->covering_keys.is_set(cur_index)) {
       cause = "not_covering";
+      goto next_index;
+    }
+
+    if (!compound_hint_key_enabled(param->table, cur_index,
+                                   GROUP_BY_LIS_HINT_ENUM)) {
+      cause = "group_by_lis_hint";
       goto next_index;
     }
 
@@ -12251,7 +12269,8 @@ static TRP_GROUP_MIN_MAX *get_best_group_min_max(
   read_plan = new (param->mem_root) TRP_GROUP_MIN_MAX(
       have_min, have_max, is_agg_distinct, min_max_arg_part, group_prefix_len,
       used_key_parts, group_key_parts, index_info, index, key_infix_len, tree,
-      best_index_tree, best_param_idx, best_quick_prefix_records);
+      best_index_tree, best_param_idx, best_quick_prefix_records,
+      force_group_by);
   if (read_plan) {
     if (tree && read_plan->quick_prefix_records == 0) return nullptr;
 
@@ -13095,6 +13114,7 @@ QUICK_SELECT_I *TRP_GROUP_MIN_MAX::make_quick(PARAM *param, bool,
 
   quick->update_key_stat();
   quick->adjust_prefix_ranges();
+  quick->forced_by_hint = forced_by_hint;
 
   return quick;
 }
