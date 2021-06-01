@@ -137,11 +137,11 @@ a	b
 include/start_slave.inc
 USE a;
 SELECT * FROM ta;
-ERROR HY000: Invalid HLC read bound timestamp supplied: `0`
+ERROR HY000: Invalid HLC bound timestamp supplied: `0`
 SELECT * FROM ta;
-ERROR HY000: Invalid HLC read bound timestamp supplied: `12a`
+ERROR HY000: Invalid HLC bound timestamp supplied: `12a`
 SELECT * FROM ta;
-ERROR HY000: Invalid HLC read bound timestamp supplied: `abc`
+ERROR HY000: Invalid HLC bound timestamp supplied: `abc`
 STOP SLAVE;
 SET @@global.slave_parallel_workers = 8;
 SET @@global.slave_use_idempotent_for_recovery= YES;
