@@ -5025,6 +5025,7 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
                     ER(ER_SLAVE_RELAY_LOG_READ_FAILURE), msg);
         rli->abort_slave = 1;
         mysql_mutex_unlock(&rli->data_lock);
+        delete ev;
         DBUG_RETURN(1);
       }
       rli->last_opid = std::make_pair(term, index);

@@ -27,10 +27,11 @@ let $MYSQLD_DATADIR = `select @@datadir`;
 let $raft_log = query_get_value("SHOW SLAVE STATUS", "Relay_Log_File", 1);
 
 # store offsets of last 3 Xid events in a file
-exec $MYSQL_BINLOG -vvv $MYSQLD_DATADIR/$raft_log | grep Xid | cut -d' ' -f8 | tail -n3 > $MYSQLD_DATADIR/offsets;
+exec $MYSQL_BINLOG -vvv $MYSQLD_DATADIR/$raft_log | grep Xid | cut -d' ' -f9 | tail -n3 > $MYSQLD_DATADIR/offsets;
 
 set @sql_log_bin=0;
 create table offsets(a int);
+replace_result $MYSQLD_DATADIR MYSQLD_DATADIR;
 eval load data local infile '$MYSQLD_DATADIR/offsets' into table offsets FIELDS TERMINATED BY '\t' LINES TERMINATED BY '\n';
 set @sql_log_bin=1;
 
@@ -53,7 +54,7 @@ exec dd if=$MYSQLD_DATADIR/$raft_log of=$MYSQLD_DATADIR/last_trx_raft_log skip=$
 exec cat $MYSQLD_DATADIR/prefix_raft_log $MYSQLD_DATADIR/last_trx_raft_log $MYSQLD_DATADIR/penultimate_trx_raft_log > $MYSQLD_DATADIR/$raft_log;
 
 # start sql thread
-source include/start_slave_sql.inc;
+start slave;
 
 # sql thread should fail
 let $slave_sql_errno= convert_error(ER_SLAVE_RELAY_LOG_READ_FAILURE);
