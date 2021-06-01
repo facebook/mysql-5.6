@@ -1692,18 +1692,15 @@ static int set_durability(
 }
 
 extern "C" void *process_raft_queue(void *) {
-  THD *thd;
   bool thd_added = false;
 
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   /* Setup this thread */
   my_thread_init();
-  thd = new THD;
+  THD *thd = new THD;
   thd->thread_stack = (char *)&thd;
   thd->store_globals();
-  // thd->thr_create_utime = thd->start_utime = my_micro_time();
-  thd->m_security_ctx->skip_grants();
-
+  thd->security_context()->skip_grants();
   thd->set_new_thread_id();
   thd_manager->add_thd(thd);
   thd_added = true;

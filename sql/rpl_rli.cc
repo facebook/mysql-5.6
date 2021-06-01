@@ -1908,7 +1908,7 @@ err:
 
 int Relay_log_info::remove_logged_gtids(
     const std::vector<std::string> &trimmed_gtids) {
-  DBUG_ENTER("Relay_log_info::remove_logged_gtid");
+  DBUG_TRACE;
   global_sid_lock->assert_some_lock();
 
   if (trimmed_gtids.empty()) RETURN_OK;

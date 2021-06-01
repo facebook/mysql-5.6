@@ -965,7 +965,7 @@ error:
 
 enum_return_status Gtid_state::remove_logged_gtid_on_trim(
     const std::vector<std::string> &trimmed_gtids) {
-  DBUG_ENTER("Gtid_state::remove_logged_gtid_on_trim");
+  DBUG_TRACE;
   global_sid_lock->assert_some_lock();
 
   if (trimmed_gtids.empty()) RETURN_OK;
