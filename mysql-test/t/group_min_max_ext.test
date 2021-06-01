@@ -9,6 +9,8 @@ ALTER TABLE t ADD KEY k2(a DESC, b, c DESC, d);
 ANALYZE TABLE t;
 EXPLAIN SELECT a, b, MIN(d) FROM t
 WHERE (a > 4) AND (c = 3 or c = 40) AND (d > 7)  GROUP BY a, b;
+EXPLAIN SELECT /*+ NO_GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t
+WHERE (a > 4) AND (c = 3 or c = 40) AND (d > 7)  GROUP BY a, b;
 --sorted_result
 SELECT a, b, MIN(d) FROM t
 WHERE (a > 4) AND (c = 3 or c = 40) AND (d > 7)  GROUP BY a, b;

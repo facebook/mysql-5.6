@@ -115,6 +115,9 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
 %token ORDER_INDEX_HINT 1045
 %token NO_ORDER_INDEX_HINT 1046
 
+%token GROUP_BY_LIS_HINT 1047
+%token NO_GROUP_BY_LIS_HINT 1048
+
 /*
   Please add new tokens right above this line.
 
@@ -525,6 +528,10 @@ key_level_hint_type_on:
           {
             $$= SKIP_SCAN_HINT_ENUM;
           }
+        | GROUP_BY_LIS_HINT
+          {
+            $$= GROUP_BY_LIS_HINT_ENUM;
+          }
         | INDEX_HINT
           {
             $$= INDEX_HINT_ENUM;
@@ -559,6 +566,10 @@ key_level_hint_type_off:
         | NO_SKIP_SCAN_HINT
           {
             $$= SKIP_SCAN_HINT_ENUM;
+          }
+        | NO_GROUP_BY_LIS_HINT
+          {
+            $$= GROUP_BY_LIS_HINT_ENUM;
           }
         | NO_INDEX_HINT
           {

@@ -2,13 +2,13 @@ CREATE TABLE t (a INT, b INT, c INT, d INT, KEY k1(a, b, c, d)) ENGINE=innodb;
 ANALYZE TABLE t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	78	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -33,13 +33,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -64,13 +64,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` is null))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` is null))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -95,13 +95,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 11	30	30
 12	-15	-20
@@ -116,13 +116,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 2)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 2)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -147,13 +147,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	78	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 a
 1
 2
@@ -178,13 +178,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
 2	2	10	1
@@ -210,14 +210,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
@@ -255,13 +255,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
 FLUSH STATUS;
-SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 a
 1
 SHOW STATUS LIKE 'handler_read%';
@@ -275,14 +275,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
 GROUP BY a, b;
 a	MAX(d)	MIN(d)
 1	9	1
@@ -301,14 +301,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
@@ -325,14 +325,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` < 2) or (`test`.`t`.`a` > 11)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` < 2) or (`test`.`t`.`a` > 11)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
@@ -349,13 +349,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 a	b
 1	2
 12	2
@@ -371,13 +371,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
 FLUSH STATUS;
-SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 a
 1
 12
@@ -392,14 +392,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` < 4) or (`test`.`t`.`b` > 10)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` < 4) or (`test`.`t`.`b` > 10)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	1	10	1
@@ -418,14 +418,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	4	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` > 9)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` > 9)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
@@ -443,13 +443,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select count(distinct `test`.`t`.`a`,`test`.`t`.`b`) AS `COUNT(DISTINCT a, b)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ count(distinct `test`.`t`.`a`,`test`.`t`.`b`) AS `COUNT(DISTINCT a, b)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 COUNT(DISTINCT a, b)
 3
 SHOW STATUS LIKE 'handler_read%';
@@ -463,13 +463,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)
 78	6.5000
 SHOW STATUS LIKE 'handler_read%';
@@ -483,13 +483,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)`,count(distinct `test`.`t`.`a`) AS `COUNT(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)`,count(distinct `test`.`t`.`a`) AS `COUNT(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)	COUNT(DISTINCT a)
 78	6.5000	12
 SHOW STATUS LIKE 'handler_read%';
@@ -503,15 +503,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 (c = 3 OR c = 1 OR c = 2 OR c = 4)
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t	NULL	range	k1	k1	5	NULL	4	6.53	Using where; Using index
+1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 (c = 3 OR c = 1 OR c = 2 OR c = 4)
 GROUP BY a;
 a	MAX(d)	MIN(d)
@@ -519,21 +519,21 @@ a	MAX(d)	MIN(d)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	1
-Handler_read_last	0
-Handler_read_next	4
+Handler_read_key	14
+Handler_read_last	1
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	1	10	2
 1	2	10	2
@@ -598,14 +598,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	1	10	2
@@ -672,15 +672,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
 (d  < -24 OR d = 3 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	58	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < <cache>(-(24))) or (`test`.`t`.`d` = 3) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < <cache>(-(24))) or (`test`.`t`.`d` = 3) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
 (d  < -24 OR d = 3 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)
@@ -721,14 +721,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	58	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 6	1	9	9
@@ -770,15 +770,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  1 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  1 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
@@ -799,15 +799,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  0 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 0) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 0) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  0 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)	MAX(d)
@@ -828,15 +828,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  > 0 AND d < 2 OR d > 3 AND d < 5 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (((`test`.`t`.`d` > 0) and (`test`.`t`.`d` < 2)) or ((`test`.`t`.`d` > 3) and (`test`.`t`.`d` < 5)) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (((`test`.`t`.`d` > 0) and (`test`.`t`.`d` < 2)) or ((`test`.`t`.`d` > 3) and (`test`.`t`.`d` < 5)) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  > 0 AND d < 2 OR d > 3 AND d < 5 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)	MAX(d)
@@ -857,15 +857,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d < 2 OR d > 5 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 2) or (`test`.`t`.`d` > 5) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 2) or (`test`.`t`.`d` > 5) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d < 2 OR d > 5 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)
@@ -890,15 +890,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `max(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `max(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 a	b	max(d)
@@ -915,15 +915,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `min(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `min(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 a	b	min(d)
@@ -940,13 +940,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	1	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,min(`test`.`t`.`b`) AS `MIN(b)`,max(`test`.`t`.`b`) AS `MAX(b)` from `test`.`t` where (`test`.`t`.`a` > 9) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,min(`test`.`t`.`b`) AS `MIN(b)`,max(`test`.`t`.`b`) AS `MAX(b)` from `test`.`t` where (`test`.`t`.`a` > 9) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
 a	MIN(b)	MAX(b)
 10	1	5
 11	2	15
@@ -972,6 +972,12 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t	NULL	range	k1,k2	k1	20	NULL	68	100.00	Using where; Using index for group-by
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 4) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (`test`.`t`.`d` > 7)) group by `test`.`t`.`a`,`test`.`t`.`b`
+EXPLAIN SELECT /*+ NO_GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t
+WHERE (a > 4) AND (c = 3 or c = 40) AND (d > 7)  GROUP BY a, b;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	range	k1,k2	k1	5	NULL	1508	6.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ NO_GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 4) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (`test`.`t`.`d` > 7)) group by `test`.`t`.`a`,`test`.`t`.`b`
 SELECT a, b, MIN(d) FROM t
 WHERE (a > 4) AND (c = 3 or c = 40) AND (d > 7)  GROUP BY a, b;
 a	b	MIN(d)
@@ -1061,13 +1067,13 @@ ALTER TABLE t ADD KEY k1(a DESC, b, c DESC, d);
 ANALYZE TABLE t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	78	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-23
 11	20	-10
@@ -1092,13 +1098,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-23
 11	-10	-10
@@ -1123,13 +1129,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` is null))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` is null))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-15
 11	-10	-20
@@ -1154,13 +1160,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-20
 11	30	30
@@ -1175,13 +1181,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 2)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 2)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-23	-23
 11	30	-10
@@ -1206,13 +1212,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	78	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 a
 12
 11
@@ -1237,13 +1243,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 12	2	-23	-23
 12	15	-15	-20
@@ -1269,14 +1275,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 12	2	-23	-23
@@ -1314,13 +1320,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
 FLUSH STATUS;
-SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 a
 1
 SHOW STATUS LIKE 'handler_read%';
@@ -1334,14 +1340,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
 GROUP BY a, b;
 a	MAX(d)	MIN(d)
 1	9	1
@@ -1360,14 +1366,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 12	2	-23	-23
@@ -1384,14 +1390,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` < 2) or (`test`.`t`.`a` > 11)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` < 2) or (`test`.`t`.`a` > 11)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 12	2	-23	-23
@@ -1408,13 +1414,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 a	b
 12	2
 12	15
@@ -1430,13 +1436,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
 FLUSH STATUS;
-SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 a
 12
 1
@@ -1451,14 +1457,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` < 4) or (`test`.`t`.`b` > 10)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` < 4) or (`test`.`t`.`b` > 10)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 12	2	-23	-23
@@ -1477,14 +1483,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	4	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` > 9)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` > 9)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a;
 a	MAX(d)	MIN(d)
 12	-15	-23
@@ -1502,13 +1508,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select count(distinct `test`.`t`.`a`,`test`.`t`.`b`) AS `COUNT(DISTINCT a, b)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ count(distinct `test`.`t`.`a`,`test`.`t`.`b`) AS `COUNT(DISTINCT a, b)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 COUNT(DISTINCT a, b)
 3
 SHOW STATUS LIKE 'handler_read%';
@@ -1522,13 +1528,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)
 78	6.5000
 SHOW STATUS LIKE 'handler_read%';
@@ -1542,13 +1548,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)`,count(distinct `test`.`t`.`a`) AS `COUNT(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)`,count(distinct `test`.`t`.`a`) AS `COUNT(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)	COUNT(DISTINCT a)
 78	6.5000	12
 SHOW STATUS LIKE 'handler_read%';
@@ -1562,15 +1568,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 (c = 3 OR c = 1 OR c = 2 OR c = 4)
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t	NULL	range	k1	k1	5	NULL	4	6.53	Using where; Using index
+1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 (c = 3 OR c = 1 OR c = 2 OR c = 4)
 GROUP BY a;
 a	MAX(d)	MIN(d)
@@ -1578,21 +1584,21 @@ a	MAX(d)	MIN(d)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	1
-Handler_read_key	1
-Handler_read_last	0
-Handler_read_next	4
+Handler_read_key	14
+Handler_read_last	1
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 11	NULL	30	30
 11	3	20	20
@@ -1657,14 +1663,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 12	2	NULL	NULL
@@ -1731,15 +1737,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
 (d  < -24 OR d = 3 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	58	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < <cache>(-(24))) or (`test`.`t`.`d` = 3) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < <cache>(-(24))) or (`test`.`t`.`d` = 3) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
 (d  < -24 OR d = 3 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)
@@ -1780,14 +1786,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	58	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 12	2	-23	-23
@@ -1829,15 +1835,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  1 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  1 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
@@ -1858,15 +1864,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  0 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 0) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 0) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  0 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)	MAX(d)
@@ -1887,15 +1893,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  > 0 AND d < 2 OR d > 3 AND d < 5 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (((`test`.`t`.`d` > 0) and (`test`.`t`.`d` < 2)) or ((`test`.`t`.`d` > 3) and (`test`.`t`.`d` < 5)) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (((`test`.`t`.`d` > 0) and (`test`.`t`.`d` < 2)) or ((`test`.`t`.`d` > 3) and (`test`.`t`.`d` < 5)) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  > 0 AND d < 2 OR d > 3 AND d < 5 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)	MAX(d)
@@ -1916,15 +1922,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d < 2 OR d > 5 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 2) or (`test`.`t`.`d` > 5) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 2) or (`test`.`t`.`d` > 5) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d < 2 OR d > 5 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)
@@ -1949,15 +1955,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `max(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `max(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 a	b	max(d)
@@ -1974,15 +1980,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `min(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `min(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 a	b	min(d)
@@ -1999,13 +2005,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	1	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,min(`test`.`t`.`b`) AS `MIN(b)`,max(`test`.`t`.`b`) AS `MAX(b)` from `test`.`t` where (`test`.`t`.`a` > 9) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,min(`test`.`t`.`b`) AS `MIN(b)`,max(`test`.`t`.`b`) AS `MAX(b)` from `test`.`t` where (`test`.`t`.`a` > 9) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
 a	MIN(b)	MAX(b)
 12	2	15
 11	2	15
@@ -2026,13 +2032,13 @@ ALTER TABLE t ADD KEY k1(a, b DESC, c, d DESC);
 ANALYZE TABLE t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	78	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -2057,13 +2063,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -2088,13 +2094,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` is null))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` is null))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -2119,13 +2125,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 11	30	30
 12	-15	-20
@@ -2140,13 +2146,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 2)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 2)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -2171,13 +2177,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	78	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 a
 1
 2
@@ -2202,13 +2208,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
 2	2	10	1
@@ -2234,14 +2240,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	3	10	1
@@ -2279,13 +2285,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
 FLUSH STATUS;
-SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 a
 1
 SHOW STATUS LIKE 'handler_read%';
@@ -2299,14 +2305,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
 GROUP BY a, b;
 a	MAX(d)	MIN(d)
 1	9	1
@@ -2325,14 +2331,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
@@ -2349,14 +2355,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` < 2) or (`test`.`t`.`a` > 11)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` < 2) or (`test`.`t`.`a` > 11)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
@@ -2373,13 +2379,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 a	b
 1	2
 12	15
@@ -2395,13 +2401,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
 FLUSH STATUS;
-SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 a
 1
 12
@@ -2416,14 +2422,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` < 4) or (`test`.`t`.`b` > 10)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` < 4) or (`test`.`t`.`b` > 10)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	3	10	1
@@ -2442,14 +2448,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	4	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` > 9)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` > 9)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
@@ -2467,13 +2473,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select count(distinct `test`.`t`.`a`,`test`.`t`.`b`) AS `COUNT(DISTINCT a, b)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ count(distinct `test`.`t`.`a`,`test`.`t`.`b`) AS `COUNT(DISTINCT a, b)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 COUNT(DISTINCT a, b)
 3
 SHOW STATUS LIKE 'handler_read%';
@@ -2487,13 +2493,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)
 78	6.5000
 SHOW STATUS LIKE 'handler_read%';
@@ -2507,13 +2513,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)`,count(distinct `test`.`t`.`a`) AS `COUNT(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)`,count(distinct `test`.`t`.`a`) AS `COUNT(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)	COUNT(DISTINCT a)
 78	6.5000	12
 SHOW STATUS LIKE 'handler_read%';
@@ -2527,15 +2533,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 (c = 3 OR c = 1 OR c = 2 OR c = 4)
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t	NULL	range	k1	k1	5	NULL	4	6.53	Using where; Using index
+1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 (c = 3 OR c = 1 OR c = 2 OR c = 4)
 GROUP BY a;
 a	MAX(d)	MIN(d)
@@ -2543,21 +2549,21 @@ a	MAX(d)	MIN(d)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	1
-Handler_read_last	0
-Handler_read_next	4
+Handler_read_key	14
+Handler_read_last	1
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	5	10	2
 1	4	10	2
@@ -2622,14 +2628,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	114	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	5	10	2
@@ -2696,15 +2702,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
 (d  < -24 OR d = 3 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	58	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < <cache>(-(24))) or (`test`.`t`.`d` = 3) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < <cache>(-(24))) or (`test`.`t`.`d` = 3) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
 (d  < -24 OR d = 3 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)
@@ -2745,14 +2751,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	58	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 6	5	9	9
@@ -2794,15 +2800,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  1 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  1 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
@@ -2823,15 +2829,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  0 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 0) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 0) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  0 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)	MAX(d)
@@ -2852,15 +2858,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  > 0 AND d < 2 OR d > 3 AND d < 5 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (((`test`.`t`.`d` > 0) and (`test`.`t`.`d` < 2)) or ((`test`.`t`.`d` > 3) and (`test`.`t`.`d` < 5)) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (((`test`.`t`.`d` > 0) and (`test`.`t`.`d` < 2)) or ((`test`.`t`.`d` > 3) and (`test`.`t`.`d` < 5)) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  > 0 AND d < 2 OR d > 3 AND d < 5 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)	MAX(d)
@@ -2881,15 +2887,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d < 2 OR d > 5 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 2) or (`test`.`t`.`d` > 5) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 2) or (`test`.`t`.`d` > 5) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d < 2 OR d > 5 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)
@@ -2914,15 +2920,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `max(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `max(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 a	b	max(d)
@@ -2939,15 +2945,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `min(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `min(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 a	b	min(d)
@@ -2964,13 +2970,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	1	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,min(`test`.`t`.`b`) AS `MIN(b)`,max(`test`.`t`.`b`) AS `MAX(b)` from `test`.`t` where (`test`.`t`.`a` > 9) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,min(`test`.`t`.`b`) AS `MIN(b)`,max(`test`.`t`.`b`) AS `MAX(b)` from `test`.`t` where (`test`.`t`.`a` > 9) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
 a	MIN(b)	MAX(b)
 10	1	5
 11	2	15
@@ -2991,13 +2997,13 @@ CREATE TABLE t (a INT, b INT, c INT, d INT, KEY k1(a, b, c, d)) ENGINE=myisam;
 ANALYZE TABLE t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	78	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -3022,13 +3028,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -3053,13 +3059,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` is null))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` is null))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c IS NULL) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -3084,13 +3090,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 15) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 11	30	30
 12	-15	-20
@@ -3105,13 +3111,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 2)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` is null) or (`test`.`t`.`b` = 2)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (b IS NULL OR b = 2) AND (c = 3 OR c = 40) GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
 2	10	1
@@ -3136,13 +3142,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	78	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY a;
 a
 1
 2
@@ -3167,13 +3173,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	112	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40) GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
 2	2	10	1
@@ -3199,14 +3205,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	112	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15) or (`test`.`t`.`b` = 3)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
@@ -3244,13 +3250,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
 FLUSH STATUS;
-SELECT DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE a = 1 AND (b = 2 OR b = 15);
 a
 1
 SHOW STATUS LIKE 'handler_read%';
@@ -3264,14 +3270,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` = 1) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE a = 1 AND (c = 3 OR c = 40) AND (d = 1 OR d = 9)
 GROUP BY a, b;
 a	MAX(d)	MIN(d)
 1	9	1
@@ -3290,14 +3296,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
@@ -3314,14 +3320,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` < 2) or (`test`.`t`.`a` > 11)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` < 2) or (`test`.`t`.`a` > 11)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a < 2 OR a > 11) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	2	10	1
@@ -3338,13 +3344,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a, b FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 a	b
 1	2
 12	2
@@ -3360,13 +3366,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select distinct `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ distinct `test`.`t`.`a` AS `a` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)))
 FLUSH STATUS;
-SELECT DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
+SELECT /*+ GROUP_BY_LIS(t) */ DISTINCT a FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15);
 a
 1
 12
@@ -3381,14 +3387,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` < 4) or (`test`.`t`.`b` > 10)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` < 4) or (`test`.`t`.`b` > 10)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a = 12) AND (b < 4 OR b > 10) AND (c = 3 OR c = 40)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	1	10	1
@@ -3407,14 +3413,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` > 9)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` > 9)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a = 1 OR a > 9) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40)
 GROUP BY a;
 a	MAX(d)	MIN(d)
 1	10	1
@@ -3432,13 +3438,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	2	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select count(distinct `test`.`t`.`a`,`test`.`t`.`b`) AS `COUNT(DISTINCT a, b)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ count(distinct `test`.`t`.`a`,`test`.`t`.`b`) AS `COUNT(DISTINCT a, b)` from `test`.`t` where (((`test`.`t`.`a` = 1) or (`test`.`t`.`a` = 12)) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ COUNT(DISTINCT a, b) FROM t  WHERE (a = 1 OR a = 12) AND (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 COUNT(DISTINCT a, b)
 3
 SHOW STATUS LIKE 'handler_read%';
@@ -3452,13 +3458,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)
 78	6.5000
 SHOW STATUS LIKE 'handler_read%';
@@ -3472,13 +3478,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	15	NULL	52	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)`,count(distinct `test`.`t`.`a`) AS `COUNT(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ sum(distinct `test`.`t`.`a`) AS `SUM(DISTINCT a)`,avg(distinct `test`.`t`.`a`) AS `AVG(DISTINCT a)`,count(distinct `test`.`t`.`a`) AS `COUNT(DISTINCT a)` from `test`.`t` where (((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)))
 FLUSH STATUS;
-SELECT SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
+SELECT /*+ GROUP_BY_LIS(t) */ SUM(DISTINCT a), AVG(DISTINCT a), COUNT(DISTINCT a) FROM t  WHERE (b = 2 OR b = 15) AND (c = 3 OR c = 40);
 SUM(DISTINCT a)	AVG(DISTINCT a)	COUNT(DISTINCT a)
 78	6.5000	12
 SHOW STATUS LIKE 'handler_read%';
@@ -3492,15 +3498,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 (c = 3 OR c = 1 OR c = 2 OR c = 4)
 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t	NULL	range	k1	k1	5	NULL	13	6.53	Using where; Using index
+1	SIMPLE	t	NULL	range	k1	k1	20	NULL	8	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 11) and ((`test`.`t`.`b` = 2) or (`test`.`t`.`b` = 15)) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 1) or (`test`.`t`.`c` = 2) or (`test`.`t`.`c` = 4))) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, MAX(d), MIN(d) FROM t  WHERE (a > 11) AND (b = 2 OR b = 15) AND
 (c = 3 OR c = 1 OR c = 2 OR c = 4)
 GROUP BY a;
 a	MAX(d)	MIN(d)
@@ -3508,21 +3514,21 @@ a	MAX(d)	MIN(d)
 SHOW STATUS LIKE 'handler_read%';
 Variable_name	Value
 Handler_read_first	0
-Handler_read_key	1
-Handler_read_last	0
-Handler_read_next	4
+Handler_read_key	13
+Handler_read_last	1
+Handler_read_next	0
 Handler_read_prev	0
 Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	112	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2) GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	1	10	2
 1	2	10	2
@@ -3587,14 +3593,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	112	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where (((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` > 7) or (`test`.`t`.`d` = 2) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (c = 3 OR c = 40) AND (d  > 7 OR d =2 OR d IS NULL)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 1	1	10	2
@@ -3661,15 +3667,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
 (d  < -24 OR d = 3 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	56	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < <cache>(-(24))) or (`test`.`t`.`d` = 3) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < <cache>(-(24))) or (`test`.`t`.`d` = 3) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND
 (d  < -24 OR d = 3 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)
@@ -3710,14 +3716,14 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	56	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 5) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 1) or (`test`.`t`.`d` = 9))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 5) AND (c = 3 OR c = 40) AND (d  <  1 OR d = 9)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
 6	1	9	9
@@ -3759,15 +3765,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  1 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `MAX(d)`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 1) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MAX(d), MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  1 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 a	b	MAX(d)	MIN(d)
@@ -3788,15 +3794,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  0 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 0) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` = 0) or (`test`.`t`.`d` = 9) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  =  0 OR d = 9 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)	MAX(d)
@@ -3817,15 +3823,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  > 0 AND d < 2 OR d > 3 AND d < 5 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (((`test`.`t`.`d` > 0) and (`test`.`t`.`d` < 2)) or ((`test`.`t`.`d` > 3) and (`test`.`t`.`d` < 5)) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)`,max(`test`.`t`.`d`) AS `MAX(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and (((`test`.`t`.`d` > 0) and (`test`.`t`.`d` < 2)) or ((`test`.`t`.`d` > 3) and (`test`.`t`.`d` < 5)) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d), MAX(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d  > 0 AND d < 2 OR d > 3 AND d < 5 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)	MAX(d)
@@ -3846,15 +3852,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d < 2 OR d > 5 OR d IS NULL)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 2) or (`test`.`t`.`d` > 5) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `MIN(d)` from `test`.`t` where ((`test`.`t`.`a` > 9) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` < 2) or (`test`.`t`.`d` > 5) or (`test`.`t`.`d` is null))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b, MIN(d) FROM t  WHERE (a > 9) AND (c = 3 OR c = 40) AND
 (d < 2 OR d > 5 OR d IS NULL)
 GROUP BY a, b;
 a	b	MIN(d)
@@ -3879,15 +3885,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `max(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,max(`test`.`t`.`d`) AS `max(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b , max(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 a	b	max(d)
@@ -3904,15 +3910,15 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	20	NULL	12	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `min(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,min(`test`.`t`.`d`) AS `min(d)` from `test`.`t` where ((`test`.`t`.`a` >= 10) and ((`test`.`t`.`c` = 3) or (`test`.`t`.`c` = 40)) and ((`test`.`t`.`d` is null) or (`test`.`t`.`d` = <cache>(-(10))) or (`test`.`t`.`d` = <cache>(-(23))))) group by `test`.`t`.`a`,`test`.`t`.`b`
 FLUSH STATUS;
-SELECT a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
+SELECT /*+ GROUP_BY_LIS(t) */ a, b , min(d) FROM t  WHERE (a >= 10) AND (c = 3 or c=40) AND
 (d is NULL or d = -10 or d = -23)
 GROUP BY a, b;
 a	b	min(d)
@@ -3929,13 +3935,13 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 include/diff_tables.inc [test.group_query, test.no_group_query]
 drop tables test.group_query, test.no_group_query;
-EXPLAIN SELECT a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
+EXPLAIN SELECT /*+ GROUP_BY_LIS(t) */ a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	range	k1	k1	10	NULL	1	100.00	Using where; Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,min(`test`.`t`.`b`) AS `MIN(b)`,max(`test`.`t`.`b`) AS `MAX(b)` from `test`.`t` where (`test`.`t`.`a` > 9) group by `test`.`t`.`a`
+Note	1003	/* select#1 */ select /*+ GROUP_BY_LIS(`t`@`select#1`) */ `test`.`t`.`a` AS `a`,min(`test`.`t`.`b`) AS `MIN(b)`,max(`test`.`t`.`b`) AS `MAX(b)` from `test`.`t` where (`test`.`t`.`a` > 9) group by `test`.`t`.`a`
 FLUSH STATUS;
-SELECT a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
+SELECT /*+ GROUP_BY_LIS(t) */ a, MIN(b), MAX(b) FROM t  WHERE a > 9 GROUP BY a;
 a	MIN(b)	MAX(b)
 10	1	5
 11	2	15
