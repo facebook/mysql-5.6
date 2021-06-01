@@ -1,4 +1,4 @@
-set global debug="+d,force_group_by";
+set global debug="+d,force_lis_for_group_by";
 drop table if exists t1;
 create table t1 (
 a1 char(64), a2 char(64), b char(16), c char(16) not null, d char(16), dummy char(248) default ' '
@@ -2679,12 +2679,12 @@ a
 BB
 EXPLAIN SELECT a FROM t1 WHERE a='AA' GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	PRIMARY	PRIMARY	7	const	1000	100.00	Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	7	NULL	501	100.00	Using where; Using index for group-by
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`a` = 'AA') group by `test`.`t1`.`a`
 EXPLAIN SELECT a FROM t1 WHERE a='BB' GROUP BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ref	PRIMARY	PRIMARY	7	const	1000	100.00	Using index
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	7	NULL	501	100.00	Using where; Using index for group-by
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`a` = 'BB') group by `test`.`t1`.`a`
 SELECT DISTINCT a FROM t1 WHERE a='BB';
@@ -4042,4 +4042,4 @@ Handler_read_rnd	0
 Handler_read_rnd_next	0
 DROP TABLE t1;
 # End of test for Bug#18109609
-set global debug="-d,force_group_by";
+set global debug="-d,force_lis_for_group_by";
