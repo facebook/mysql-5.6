@@ -821,6 +821,7 @@ char *opt_rbr_column_type_mismatch_whitelist= nullptr;
 ulonglong admission_control_filter;
 ulonglong admission_control_wait_events;
 ulonglong admission_control_yield_freq;
+my_bool admission_control_multiquery_filter;
 ulong opt_mts_slave_parallel_workers;
 ulong opt_mts_dependency_replication;
 ulonglong opt_mts_dependency_size;

@@ -230,8 +230,13 @@ int multi_tenancy_admit_query(THD *thd,
 
   // Return if THD is already in an admission control
   // (e.g. part of a multi query packet).
-  if (thd->is_in_ac)
+  if (thd->is_in_ac) {
+    if (admission_control_multiquery_filter &&
+        filter_command(thd->lex->sql_command)) {
+      multi_tenancy_exit_query(thd);
+    }
     return 0;
+  }
 
   /*
    * Admission control check will be enforced if ALL of the following

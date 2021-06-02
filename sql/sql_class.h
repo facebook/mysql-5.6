@@ -197,6 +197,8 @@ enum enum_admission_control_wait_events {
   ADMISSION_CONTROL_THD_WAIT_USER_LOCK = (1U << 2),
   ADMISSION_CONTROL_THD_WAIT_NET_IO = (1U << 3),
   ADMISSION_CONTROL_THD_WAIT_YIELD = (1U << 4),
+  ADMISSION_CONTROL_THD_WAIT_META_DATA_LOCK = (1U << 5),
+  ADMISSION_CONTROL_THD_WAIT_COMMIT = (1U << 6),
 };
 
 enum enum_session_track_gtids {
@@ -2592,7 +2594,11 @@ public:
   /* whether the session is already in admission control for queries */
   bool is_in_ac = false;
 
+  /* Whether next thd_wait_end() should readmit query. */
   enum enum_admission_control_request_mode readmission_mode = AC_REQUEST_NONE;
+
+  /* Level of nested thd_wait_begin/thd_wait_end calls. */
+  int readmission_nest_level = 0;
 
   /**
     @note
@@ -6665,6 +6671,16 @@ public:
   bool send_eof();
   virtual bool check_simple_select() const;
   void cleanup();
+};
+
+/**
+  Mark a scope as thd_wait_begin/thd_wait_end.
+*/
+class Thd_wait_scope {
+  THD *m_thd;
+public:
+  Thd_wait_scope(THD *thd, int wait_type);
+  ~Thd_wait_scope();
 };
 
 /* Bits in sql_command_flags */

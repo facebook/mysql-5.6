@@ -6825,6 +6825,11 @@ finish:
       trans_rollback_stmt(thd);
     else
     {
+      // Mark this scope as a commit wait. It is done here instead of
+      // ordered_commit to limit the scope just to auto commit after a single
+      // statement.
+      Thd_wait_scope wait_scope(thd, THD_WAIT_COMMIT);
+
       /* If commit fails, we should be able to reset the OK status. */
       thd->get_stmt_da()->set_overwrite_status(true);
       trans_commit_stmt(thd, lex->async_commit);

@@ -5035,9 +5035,22 @@ static bool filter_wait_type(int wait_type) {
     return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_NET_IO;
   case THD_WAIT_YIELD:
     return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_YIELD;
+  case THD_WAIT_META_DATA_LOCK:
+    return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_META_DATA_LOCK;
+  case THD_WAIT_COMMIT:
+    return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_COMMIT;
   default:
     return false;
   }
+}
+
+/**
+  Some wait types cannot tolerate readmission timeout error.
+
+  @return true if wait type needs readmission when done, false otherwise.
+*/
+static bool readmit_wait_type(int wait_type) {
+  return wait_type != THD_WAIT_COMMIT;
 }
 
 /*
@@ -5063,13 +5076,30 @@ static bool filter_wait_type(int wait_type) {
 */
 extern "C" void thd_wait_begin(MYSQL_THD thd, int wait_type)
 {
-  if (thd && thd->is_in_ac && filter_wait_type(wait_type)) {
-    multi_tenancy_exit_query(thd);
-    // For explicit yields, we want to send the query to the back of the queue
-    // to allow for other queries to run. For other yields, it's likely we
-    // want to finish the query as soon as possible.
-    thd->readmission_mode = (wait_type == THD_WAIT_YIELD)
-      ? AC_REQUEST_QUERY_READMIT_LOPRI : AC_REQUEST_QUERY_READMIT_HIPRI;
+  if (thd) {
+    if (thd->is_in_ac) {
+      if (filter_wait_type(wait_type)) {
+        multi_tenancy_exit_query(thd);
+
+        if (!readmit_wait_type(wait_type)) {
+          thd->readmission_mode = AC_REQUEST_NONE;
+        } else {
+          // For explicit yields, we want to send the query to the back of the
+          // queue to allow for other queries to run. For other yields, it's
+          // likely we want to finish the query as soon as possible.
+          thd->readmission_mode = (wait_type == THD_WAIT_YIELD)
+            ? AC_REQUEST_QUERY_READMIT_LOPRI : AC_REQUEST_QUERY_READMIT_HIPRI;
+        }
+
+        // Assert that thd_wait_begin/thd_wait_end calls should match.
+        // In case they do not, reset the nesting level in release.
+        DBUG_ASSERT(thd->readmission_nest_level == 0);
+        thd->readmission_nest_level = 0;
+      }
+    } else if (thd->readmission_mode > AC_REQUEST_NONE) {
+      // Nested thd_wait_begin so need to skip thd_wait_end.
+      ++thd->readmission_nest_level;
+    }
   }
   MYSQL_CALLBACK(thread_scheduler, thd_wait_begin, (thd, wait_type));
 }
@@ -5084,12 +5114,17 @@ extern "C" void thd_wait_end(MYSQL_THD thd)
 {
   MYSQL_CALLBACK(thread_scheduler, thd_wait_end, (thd));
   if (thd && thd->readmission_mode > AC_REQUEST_NONE) {
-    if (++thd->readmission_count % 1000 == 0) {
-      thd->readmission_mode = AC_REQUEST_QUERY_READMIT_LOPRI;
-    }
+    if (thd->readmission_nest_level > 0) {
+      // Skip this nested thd_wait_end call.
+      --thd->readmission_nest_level;
+    } else {
+      if (++thd->readmission_count % 1000 == 0) {
+        thd->readmission_mode = AC_REQUEST_QUERY_READMIT_LOPRI;
+      }
 
-    multi_tenancy_admit_query(thd, thd->readmission_mode);
-    thd->readmission_mode = AC_REQUEST_NONE;
+      multi_tenancy_admit_query(thd, thd->readmission_mode);
+      thd->readmission_mode = AC_REQUEST_NONE;
+    }
   }
 }
 #else
@@ -6933,3 +6968,17 @@ void thd_report_row_lock_wait(THD* self, THD *thd_wait_for)
   return;
 }
 #endif
+
+/**
+  Call thd_wait_begin to mark the wait start.
+*/
+Thd_wait_scope::Thd_wait_scope(THD *thd, int wait_type) : m_thd(thd) {
+  thd_wait_begin(m_thd, wait_type);
+}
+
+/**
+  Call thd_wait_end to mark the wait end.
+*/
+Thd_wait_scope::~Thd_wait_scope() {
+  thd_wait_end(m_thd);
+}

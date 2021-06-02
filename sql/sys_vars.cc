@@ -3622,7 +3622,7 @@ static Sys_var_charptr Sys_admission_control_weights(
        ON_CHECK(check_admission_control_weights));
 
 const char *admission_control_wait_events_names[]=
-       {"SLEEP", "ROW_LOCK", "USER_LOCK", "NET_IO", "YIELD", 0};
+       {"SLEEP", "ROW_LOCK", "USER_LOCK", "NET_IO", "YIELD", "META_DATA_LOCK", "COMMIT", 0};
 static Sys_var_set Sys_admission_control_wait_events(
        "admission_control_wait_events",
        "Determines events for which queries will exit admission control. After the wait event completes, the query will have to re-enter admission control.",
@@ -3637,6 +3637,11 @@ static Sys_var_ulonglong Sys_admission_control_yield_freq(
        GLOBAL_VAR(admission_control_yield_freq),
        CMD_LINE(OPT_ARG), VALID_RANGE(1, ULONGLONG_MAX), DEFAULT(1000),
        BLOCK_SIZE(1));
+
+static Sys_var_mybool Sys_admission_control_multiquery_filter(
+       "admission_control_multiquery_filter",
+       "Run filter on subsequent queries in multi-query statement",
+       GLOBAL_VAR(admission_control_multiquery_filter), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
 static Sys_var_mybool Sys_slave_sql_verify_checksum(
        "slave_sql_verify_checksum",
