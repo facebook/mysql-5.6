@@ -737,12 +737,26 @@ inline my_ulonglong net_field_length_ll_safe(MYSQL *mysql, uchar **packet,
   return net_field_length_ll(packet);
 }
 
-static LIST *read_resp_attr_entry(uchar **pos) {
+/*
+ * Reads a single entry out of the response attributes field
+ * Returns NULL on error
+ */
+static LIST *read_resp_attr_entry(MYSQL *mysql, uchar **pos,
+                                  ulong packet_length) {
+  bool is_error;
   LIST *element = NULL;
   LEX_STRING *data = NULL;
   char *data_str;
   /* Get the length of the data */
-  size_t len = (size_t)net_field_length(pos);
+  size_t len =
+      (size_t)net_field_length_ll_safe(mysql, pos, packet_length, &is_error);
+  if (is_error) {
+    return NULL;
+  }
+
+  if (!buffer_check_remaining(mysql, *pos, packet_length, len)) {
+    return NULL;
+  }
 
   if (!my_multi_malloc(key_memory_MYSQL_state_change_info, MYF(0), &element,
                        sizeof(LIST), &data, sizeof(LEX_STRING), &data_str, len,
@@ -759,20 +773,30 @@ static LIST *read_resp_attr_entry(uchar **pos) {
   return element;
 }
 
-static int read_resp_attrs(MYSQL *mysql, STATE_INFO *info, uchar **pos) {
-  (void)net_field_length(pos);  // Length is included so it can be skipped
-  size_t count = (size_t)net_field_length(pos);
+static int read_resp_attrs(MYSQL *mysql, STATE_INFO *info, uchar **pos,
+                           ulong packet_length) {
+  bool is_error;
+  // Length is included so it can be skipped
+  (void)net_field_length_ll_safe(mysql, pos, packet_length, &is_error);
+  if (is_error) {
+    return 1;
+  }
+  size_t count =
+      (size_t)net_field_length_ll_safe(mysql, pos, packet_length, &is_error);
+  if (is_error) {
+    return 1;
+  }
   LIST *element_key = NULL;
   LIST *element_value = NULL;
 
   // The response attributes come in key/value pairs
   for (size_t ii = 0; ii < count; ii++) {
-    element_key = read_resp_attr_entry(pos);
+    element_key = read_resp_attr_entry(mysql, pos, packet_length);
     if (element_key == NULL) {
       return 1;
     }
 
-    element_value = read_resp_attr_entry(pos);
+    element_value = read_resp_attr_entry(mysql, pos, packet_length);
     if (element_value == NULL) {
       my_free(element_key);
       return 1;
@@ -1084,8 +1108,8 @@ void read_ok_ex(MYSQL *mysql, ulong length) {
 
               break;
             case SESSION_TRACK_RESP_ATTR:
-              if (read_resp_attrs(mysql, info, &pos)) {
-                set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+              if (read_resp_attrs(mysql, info, &pos, length)) {
+                set_mysql_error(mysql, CR_MALFORMED_PACKET, unknown_sqlstate);
                 return;
               }
 
@@ -1100,6 +1124,9 @@ void read_ok_ex(MYSQL *mysql, ulong length) {
               len = (size_t)net_field_length_ll_safe(mysql, &pos, length,
                                                      &is_error);
               if (is_error) return;
+              if (!buffer_check_remaining(mysql, pos, length, len)) {
+                return;
+              }
               pos += len;
               break;
           }
