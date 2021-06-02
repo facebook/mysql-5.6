@@ -90,9 +90,33 @@ drop table t1_test;
 use test_db;
 select * from t1||||
 
+# Add SELECT to filter.
+connection default||||
+set @@global.admission_control_filter = 'USE,SELECT'||||
+select @@global.admission_control_filter||||
+
+# Even though by default sub-statements are not filtered once multiquery
+# statement is admitted, USE forces to exit AC, so subsequent SELECT is
+# filtered.
+--echo Sub-statement SELECT after USE is filtered so it should succeed.
+connection con_max_wait||||
+use test;
+create table t2_test(aaa int);
+insert into t2_test values (1);
+select aaa from t2_test;
+drop table t2_test;
+use test_db;
+select 1||||
+
 delimiter ;||||
 
+# Restore filters
+connection default;
+set @@global.admission_control_filter = 'USE';
+select @@global.admission_control_filter;
+
 # USE is ok
+connection con_max_wait;
 use test_db;
 
 # Single statement
@@ -376,9 +400,6 @@ disconnect con_timeout1;
 disconnect con_timeout2;
 drop table t2;
 
-set @@global.admission_control_filter = @save_admission_control_filter;
-set @@global.admission_control_queue_timeout = @save_admission_control_queue_timeout;
-
 # Verify counters
 let $timeout_queries = query_get_value(show global status like "Database_admission_control_timeout_queries", Value, 1);
 let $timeout_queries = `select $timeout_queries - $start_timeout_queries`;
@@ -389,7 +410,73 @@ let $waiting_queries = query_get_value(show global status like "Database_admissi
 --echo waiting_queries = $waiting_queries
 eval $ac_entities_query;
 
+# Test filtering sub-statements once multiquery statement is admitted.
+set @@global.admission_control_filter = 'ROLLBACK,INSERT';
+create table t3(a int primary key) engine=InnoDB;
+
+connect (con_mq1, localhost, test_user,,test_db);
+begin;
+insert into t3 values (1);
+
+connect (con_mq2, localhost, test_user,,test_db);
+# By default INSERT will not be filtered in multiquery statement after admission.
+delimiter ||||;
+send begin;
+insert into t3 values (1)||||
+delimiter ;||||
+
 connection default;
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = "update" and info = "insert into t3 values (1)";
+--source include/wait_condition.inc
+eval $ac_entities_query;
+
+connection con_mq1;
+-- echo SELECT should timeout
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
+select * from t3;
+rollback;
+
+connection con_mq2;
+reap;
+rollback;
+
+# Now enable multiquery filtering.
+connection default;
+set @@global.admission_control_multiquery_filter = ON;
+
+# Start transaction again.
+connection con_mq1;
+begin;
+insert into t3 values (1);
+
+connection con_mq2;
+# Now INSERT will be filtered and release AC slot.
+delimiter ||||;
+send begin;
+insert into t3 values (1)||||
+delimiter ;||||
+
+connection default;
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = "update" and info = "insert into t3 values (1)";
+--source include/wait_condition.inc
+eval $ac_entities_query;
+
+connection con_mq1;
+-- echo SELECT should succeed
+select * from t3;
+rollback;
+
+connection con_mq2;
+reap;
+rollback;
+
+connection default;
+set @@global.admission_control_filter = @save_admission_control_filter;
+set @@global.admission_control_queue_timeout = @save_admission_control_queue_timeout;
+set @@global.admission_control_multiquery_filter = OFF;
+disconnect con_mq1;
+disconnect con_mq2;
+
 --echo reset global.max_running_queries and global.max_waiting_queries
 set @@global.max_running_queries=10;
 set @@global.max_waiting_queries=5;

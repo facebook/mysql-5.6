@@ -181,11 +181,12 @@ select 1;
 --disable_query_log
 --eval KILL QUERY $con1_id
 --enable_query_log
-select RELEASE_LOCK('lock');
-
 --connection con1
 --error ER_QUERY_INTERRUPTED
 --reap
+
+--connection default
+select RELEASE_LOCK('lock');
 
 --echo #
 --echo # Test admission_control_wait_events = YIELD

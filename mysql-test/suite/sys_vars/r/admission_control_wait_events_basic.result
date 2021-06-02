@@ -18,10 +18,10 @@ SET GLOBAL admission_control_wait_events='YIELD';
 SELECT @@global.admission_control_wait_events;
 @@global.admission_control_wait_events
 YIELD
-SET GLOBAL admission_control_wait_events='SLEEP,ROW_LOCK,META_DATA_LOCK,INNODB_CONC,NET_IO,YIELD';
+SET GLOBAL admission_control_wait_events='SLEEP,ROW_LOCK,META_DATA_LOCK,INNODB_CONC,NET_IO,YIELD,COMMIT';
 SELECT @@global.admission_control_wait_events;
 @@global.admission_control_wait_events
-SLEEP,ROW_LOCK,META_DATA_LOCK,INNODB_CONC,NET_IO,YIELD
+SLEEP,ROW_LOCK,META_DATA_LOCK,INNODB_CONC,NET_IO,YIELD,COMMIT
 SET GLOBAL admission_control_wait_events='SLEEP,SLEEP';
 SELECT @@global.admission_control_wait_events;
 @@global.admission_control_wait_events
