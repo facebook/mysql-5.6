@@ -57,9 +57,9 @@ SELECT * FROM mysql.slow_log;
 start_time	user_host	query_time	lock_time	rows_sent	rows_examined	db	last_insert_id	insert_id	server_id	sql_text	thread_id
 SELECT * FROM information_schema.database_applied_hlc;
 DATABASE_NAME	APPLIED_HLC
+b	2538630000000000006
 c	2538630000000000008
 a	2538630000000000009
-b	2538630000000000006
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 USE a;
@@ -131,6 +131,13 @@ a	b
 1	bar
 6	baz
 include/start_slave.inc
+USE a;
+SELECT * FROM ta;
+ERROR HY000: Invalid HLC bound timestamp supplied: `0`
+SELECT * FROM ta;
+ERROR HY000: Invalid HLC bound timestamp supplied: `12a`
+SELECT * FROM ta;
+ERROR HY000: Invalid HLC bound timestamp supplied: `abc`
 USE a;
 SET @@session.allow_noncurrent_db_rw = ON;
 SELECT * FROM c.tc;

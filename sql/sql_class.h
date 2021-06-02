@@ -853,6 +853,7 @@ typedef struct system_variables
   my_bool high_precision_processlist;
 
   my_bool enable_block_stale_hlc_read;
+  my_bool enable_hlc_bound;
 
   long admission_control_queue_timeout;
   long admission_control_queue;

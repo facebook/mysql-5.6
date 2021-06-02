@@ -323,6 +323,7 @@ The following options may be given as the first argument:
  This should be used only for testing purposes. This
  option allows enabling gtid_mode on new slave replicating
  from a old master which is not gtid compatible
+ --enable-hlc-bound  Enable HLC bound enforcement for transactional operations
  --enable-jemalloc-hpp[=name] 
  This will provide options for Jemalloc heap profiling.On:
  Activates profilingOff: Deactivate profilingDump: Dump a
@@ -2465,6 +2466,7 @@ enable-binlog-hlc FALSE
 enable-blind-replace FALSE
 enable-block-stale-hlc-read FALSE
 enable-gtid-mode-on-new-slave-with-old-master FALSE
+enable-hlc-bound FALSE
 enable-jemalloc-hpp OFF
 enable-query-checksum FALSE
 enable-raft-plugin FALSE

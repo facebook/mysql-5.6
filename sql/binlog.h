@@ -370,6 +370,12 @@ class HybridLogicalClock {
   bool wait_for_hlc_applied(THD *thd, TABLE_LIST *all_tables);
 
   /**
+   * Check that lower HLC bound requirements are satisfied for
+   * insert/update/delete queries.
+   */
+  bool check_hlc_bound(THD *thd);
+
+  /**
    * Verify if the given HLC value is 'valid', by which it isn't 0 or intmax
    *
    * @param [in] The HLC value to validate
@@ -694,7 +700,7 @@ public:
     the very first Relay-Log file. In the following the value may change
     with each received master's FD_m.
     Besides to be used in verification events that IO thread receives
-    (except the 1st fake Rotate, see @c Master_info:: checksum_alg_before_fd), 
+    (except the 1st fake Rotate, see @c Master_info:: checksum_alg_before_fd),
     the value specifies if/how to compute checksum for slave's local events
     and the first fake Rotate (R_f^1) coming from the master.
     R_f^1 needs logging checksum-compatibly with the RL's heading FD_s.
@@ -896,6 +902,8 @@ public:
   bool wait_for_hlc_applied(THD *thd, TABLE_LIST *all_tables) {
     return hlc.wait_for_hlc_applied(thd, all_tables);
   }
+
+  bool check_hlc_bound(THD *thd) { return hlc.check_hlc_bound(thd); }
 
   /*
    * @param raft_rotate_info
@@ -1454,7 +1462,7 @@ extern bool opt_gtid_precommit;
   opt_bin_logname or opt_relay_logname.
 
   @param from         The log name we want to make into an absolute path.
-  @param to           The buffer where to put the results of the 
+  @param to           The buffer where to put the results of the
                       normalization.
   @param is_relay_log Switch that makes is used inside to choose which
                       option (opt_bin_logname or opt_relay_logname) to
@@ -1477,13 +1485,13 @@ inline bool normalize_binlog_name(char *to, const char *from, bool is_relay_log)
   if (opt_name && opt_name[0] && from && !test_if_hard_path(from))
   {
     // take the path from opt_name
-    // take the filename from from 
+    // take the filename from from
     char log_dirpart[FN_REFLEN], log_dirname[FN_REFLEN];
     size_t log_dirpart_len, log_dirname_len;
     dirname_part(log_dirpart, opt_name, &log_dirpart_len);
     dirname_part(log_dirname, from, &log_dirname_len);
 
-    /* log may be empty => relay-log or log-bin did not 
+    /* log may be empty => relay-log or log-bin did not
         hold paths, just filename pattern */
     if (log_dirpart_len > 0)
     {
