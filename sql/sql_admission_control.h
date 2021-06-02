@@ -34,6 +34,7 @@
 #ifndef _sql_admission_control_h
 #define _sql_admission_control_h
 
+#include "my_sqlcommand.h"
 #include "mysql/components/services/bits/mysql_cond_bits.h"
 #include "mysql/components/services/bits/mysql_rwlock_bits.h"
 #include "mysql/components/services/bits/psi_cond_bits.h"
@@ -59,6 +60,7 @@ extern ulonglong admission_control_filter;
 extern char *admission_control_weights;
 extern ulonglong admission_control_wait_events;
 extern ulonglong admission_control_yield_freq;
+extern bool admission_control_multiquery_filter;
 
 class AC;
 class THD;
@@ -102,6 +104,7 @@ enum enum_admission_control_wait_events {
   ADMISSION_CONTROL_THD_WAIT_INNODB_CONC = (1U << 3),
   ADMISSION_CONTROL_THD_WAIT_NET_IO = (1U << 4),
   ADMISSION_CONTROL_THD_WAIT_YIELD = (1U << 5),
+  ADMISSION_CONTROL_THD_WAIT_COMMIT = (1U << 6),
 };
 
 enum enum_admission_control_request_mode {
@@ -118,6 +121,7 @@ int multi_tenancy_admit_query(
 int multi_tenancy_exit_query(THD *);
 int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
 int fill_ac_entities(THD *thd, Table_ref *tables, Item *cond);
+bool filter_command(enum_sql_command sql_command);
 
 /**
   Per-thread information used in admission control.

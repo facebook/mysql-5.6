@@ -35,6 +35,26 @@ select * from t1||||
 aaa
 1
 ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+set @@global.admission_control_filter = 'USE,SELECT'||||
+select @@global.admission_control_filter||||
+@@global.admission_control_filter
+SELECT,USE
+Sub-statement SELECT after USE is filtered so it should succeed.
+use test;
+create table t2_test(aaa int);
+insert into t2_test values (1);
+select aaa from t2_test;
+drop table t2_test;
+use test_db;
+select 1||||
+aaa
+1
+1
+1
+set @@global.admission_control_filter = 'USE';
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+USE
 use test_db;
 select * from t1;
 ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
@@ -133,8 +153,6 @@ ERROR HY000: Got timeout while waiting on admission control queue for database `
 rollback;
 rollback;
 drop table t2;
-set @@global.admission_control_filter = @save_admission_control_filter;
-set @@global.admission_control_queue_timeout = @save_admission_control_queue_timeout;
 timeout_queries should be 1
 timeout_queries = 1
 waiting_queries should be 0
@@ -143,6 +161,39 @@ select * from information_schema.admission_control_entities where schema_name li
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	0	0	5	1	15	0
 test_db2	0	0	0	0	0	0
+set @@global.admission_control_filter = 'ROLLBACK,INSERT';
+create table t3(a int primary key) engine=InnoDB;
+begin;
+insert into t3 values (1);
+begin;
+insert into t3 values (1)||||
+select * from information_schema.admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	0	1	5	1	17	0
+test_db2	0	0	0	0	0	0
+SELECT should timeout
+select * from t3;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+rollback;
+rollback;
+set @@global.admission_control_multiquery_filter = ON;
+begin;
+insert into t3 values (1);
+begin;
+insert into t3 values (1)||||
+select * from information_schema.admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	0	0	5	2	17	0
+test_db2	0	0	0	0	0	0
+SELECT should succeed
+select * from t3;
+a
+1
+rollback;
+rollback;
+set @@global.admission_control_filter = @save_admission_control_filter;
+set @@global.admission_control_queue_timeout = @save_admission_control_queue_timeout;
+set @@global.admission_control_multiquery_filter = OFF;
 reset global.max_running_queries and global.max_waiting_queries
 set @@global.max_running_queries=10;
 set @@global.max_waiting_queries=5;

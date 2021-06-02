@@ -27,6 +27,7 @@ ulonglong admission_control_filter;
 char *admission_control_weights;
 ulonglong admission_control_wait_events;
 ulonglong admission_control_yield_freq;
+bool admission_control_multiquery_filter;
 
 AC *db_ac;
 #ifdef HAVE_PSI_INTERFACE
@@ -40,13 +41,13 @@ PSI_stage_info stage_waiting_for_readmission = {0, "waiting for readmission", 0,
                                                 PSI_DOCUMENT_ME};
 #endif
 
-/*
+/**
   @param sql_command command the thread is currently executing
 
   @return true Skips the current query in admission control
           false Admission control checks are applied for this query
 */
-static bool filter_command(enum_sql_command sql_command) {
+bool filter_command(enum_sql_command sql_command) {
   switch (sql_command) {
     case SQLCOM_ALTER_TABLE:
     case SQLCOM_ALTER_DB:

@@ -1,0 +1,46 @@
+Default value of admission_control_multiquery_filter is OFF
+SELECT @@global.admission_control_multiquery_filter;
+@@global.admission_control_multiquery_filter
+0
+SELECT @@session.admission_control_multiquery_filter;
+ERROR HY000: Variable 'admission_control_multiquery_filter' is a GLOBAL variable
+SET session admission_control_multiquery_filter = 0;
+ERROR HY000: Variable 'admission_control_multiquery_filter' is a GLOBAL variable and should be set with SET GLOBAL
+admission_control_multiquery_filter is a dynamic variable (change to "ON")
+set @@global.admission_control_multiquery_filter = on;
+SELECT @@global.admission_control_multiquery_filter;
+@@global.admission_control_multiquery_filter
+1
+set @@global.admission_control_multiquery_filter = "on";
+SELECT @@global.admission_control_multiquery_filter;
+@@global.admission_control_multiquery_filter
+1
+set @@global.admission_control_multiquery_filter = 1;
+SELECT @@global.admission_control_multiquery_filter;
+@@global.admission_control_multiquery_filter
+1
+restore the default value
+set @@global.admission_control_multiquery_filter = off;
+SELECT @@global.admission_control_multiquery_filter;
+@@global.admission_control_multiquery_filter
+0
+set @@global.admission_control_multiquery_filter = "off";
+SELECT @@global.admission_control_multiquery_filter;
+@@global.admission_control_multiquery_filter
+0
+set @@global.admission_control_multiquery_filter = 0;
+SELECT @@global.admission_control_multiquery_filter;
+@@global.admission_control_multiquery_filter
+0
+set @@global.admission_control_multiquery_filter = default;
+SELECT @@global.admission_control_multiquery_filter;
+@@global.admission_control_multiquery_filter
+0
+set @@global.admission_control_multiquery_filter = offline;
+ERROR 42000: Variable 'admission_control_multiquery_filter' can't be set to the value of 'offline'
+set @@global.admission_control_multiquery_filter = "offline";
+ERROR 42000: Variable 'admission_control_multiquery_filter' can't be set to the value of 'offline'
+set @@global.admission_control_multiquery_filter = 2;
+ERROR 42000: Variable 'admission_control_multiquery_filter' can't be set to the value of '2'
+set @@global.admission_control_multiquery_filter = 1.0;
+ERROR 42000: Incorrect argument type to variable 'admission_control_multiquery_filter'
