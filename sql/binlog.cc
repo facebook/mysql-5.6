@@ -6342,8 +6342,8 @@ bool MYSQL_BIN_LOG::open_existing_binlog(const char *log_name,
     DBUG_RETURN(1);
   }
 
-  if (!(this->name =
-            my_strdup(key_memory_MYSQL_LOG_name, log_name, MYF(MY_WME)))) {
+  my_free(name);
+  if (!(name = my_strdup(key_memory_MYSQL_LOG_name, log_name, MYF(MY_WME)))) {
     // NO_LINT_DEBUG
     sql_print_error("Could not allocate name %s (error %d)", log_name, errno);
     DBUG_RETURN(1);
@@ -6353,6 +6353,8 @@ bool MYSQL_BIN_LOG::open_existing_binlog(const char *log_name,
       Binlog_ofile::open_existing(m_key_file_log, existing_file, MYF(MY_WME));
   if (!binlog_file) goto err;
 
+  // release current point before assign
+  delete m_binlog_file;
   m_binlog_file = binlog_file.release();
 
   file = mysql_file_open(m_key_file_log, existing_file, O_CREAT | O_WRONLY,
