@@ -145,6 +145,7 @@ SET(TESTS
   my_bitmap
   my_error
   my_fileutils
+  my_gcvt
   my_murmur3
   my_thread
   mysys_base64
