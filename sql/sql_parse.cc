@@ -5410,6 +5410,13 @@ finish:
         (thd->variables.option_bits & OPTION_MASTER_SQL_ERROR))
       trans_rollback_stmt(thd);
     else {
+      // Mark this scope as a commit wait. It is done here at the end of the
+      // statement because for now THD_WAIT_COMMIT is not going to re-enter AC
+      // due to the possibility of AC timeout error returned to client after
+      // successful commit. ordered_commit is called in many other places
+      // where it should re-enter AC, so for now it's not done at that level.
+      Thd_wait_scope wait_scope(thd, THD_WAIT_COMMIT);
+
       /* If commit fails, we should be able to reset the OK status. */
       thd->get_stmt_da()->set_overwrite_status(true);
       trans_commit_stmt(thd);

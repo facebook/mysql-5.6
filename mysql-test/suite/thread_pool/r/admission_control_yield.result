@@ -65,10 +65,10 @@ select GET_LOCK('lock', -1);
 select 1;
 1
 1
+ERROR 70100: Query execution was interrupted
 select RELEASE_LOCK('lock');
 RELEASE_LOCK('lock')
 1
-ERROR 70100: Query execution was interrupted
 #
 # Test admission_control_wait_events = YIELD
 #

@@ -50,6 +50,8 @@ The following options may be given as the first argument:
  The legal values are: ALTER, BEGIN, COMMIT, CREATE,
  DELETE, DROP, INSERT, LOAD, SELECT, SET, REPLACE,
  ROLLBACK, TRUNCATE, UPDATE, SHOW and empty string
+ --admission-control-multiquery-filter 
+ Run filter on subsequent queries in multi-query statement
  --admission-control-queue[=#] 
  Determines which queue this request goes to during
  admission control. Allowed values are 0-9, since only 10
@@ -2728,6 +2730,7 @@ admin-ssl-key (No default value)
 admin-tls-ciphersuites (No default value)
 admission-control-by-trx FALSE
 admission-control-filter 
+admission-control-multiquery-filter FALSE
 admission-control-queue 0
 admission-control-queue-timeout -1
 admission-control-wait-events 

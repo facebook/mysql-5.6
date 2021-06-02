@@ -92,7 +92,8 @@ typedef enum _thd_wait_type_e {
   THD_WAIT_NET_IO = 12,
   THD_WAIT_YIELD = 13,
   THD_WAIT_ADMIT = 14,
-  THD_WAIT_LAST = 15
+  THD_WAIT_COMMIT = 15,
+  THD_WAIT_LAST = 16
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {

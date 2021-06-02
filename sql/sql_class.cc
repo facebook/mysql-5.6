@@ -2664,9 +2664,13 @@ int THD::admit_query() {
 /**
   Check if wait type should release AC slot.
 
+  @param wait_type Wait type to check.
+  @param new_mode New AC request mode if AC slot is released.
   @return true if should release, false otherwise.
 */
-static bool filter_wait_type(int wait_type) {
+bool THD::filter_wait_type(int wait_type,
+                           enum_admission_control_request_mode &new_mode) {
+  new_mode = AC_REQUEST_QUERY_READMIT_HIPRI;
   switch (wait_type) {
     case THD_WAIT_SLEEP:
       return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_SLEEP;
@@ -2682,10 +2686,32 @@ static bool filter_wait_type(int wait_type) {
     case THD_WAIT_NET_IO:
       return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_NET_IO;
     case THD_WAIT_YIELD:
-      return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_YIELD;
-    // THD_WAIT_ADMIT never releases AC slot so multi-query batch is not
-    // readmitted between queries.
+      if (admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_YIELD) {
+        assert(last_yield_counter <= yield_counter);
+        yield_counter++;
+
+        // yield_cond() could be expensive, so it should only be called after
+        // we've determined that we are eligible for yielding.
+        // Hence, we call yield_cond() after checking yield counters here.
+        if (last_yield_counter + admission_control_yield_freq < yield_counter &&
+            thd_yield_cond(this)) {
+          // For explicit yields, we want to send the query to the back of the
+          // queue to allow for other queries to run. For other yields, it's
+          // likely we want to finish the query as soon as possible.
+          new_mode = AC_REQUEST_QUERY_READMIT_LOPRI;
+          return true;
+        }
+      }
+      return false;
+    case THD_WAIT_COMMIT:
+      // For now do not readmit after commit because of possibility of AC
+      // timeout error returned to client after successful commit.
+      new_mode = AC_REQUEST_NONE;
+      return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_COMMIT;
     case THD_WAIT_ADMIT:
+      // If filter is enabled, and command is filtered, then release AC.
+      return admission_control_multiquery_filter &&
+             filter_command(lex->sql_command);
     default:
       return false;
   }
@@ -2697,39 +2723,33 @@ static bool filter_wait_type(int wait_type) {
   @param wait_type Wait type.
 */
 void THD::wait_begin(int wait_type) {
-  // Confirm that thd_wait_end() has been called.
-  assert(readmission_mode == AC_REQUEST_NONE);
-
   if (is_in_ac) {
-    if (filter_wait_type(wait_type)) {
-      bool exit = true;
-      if (wait_type == THD_WAIT_YIELD) {
-        assert(last_yield_counter <= yield_counter);
-        yield_counter++;
+    // Confirm that thd_wait_end() has been called.
+    assert(readmission_mode == AC_REQUEST_NONE);
 
-        // yield_cond() could be expensive, so it should only be called after
-        // we've determined that we are eligible for yielding.
-        // Hence, we call yield_cond() after checking yield counters here.
-        exit =
-            last_yield_counter + admission_control_yield_freq < yield_counter &&
-            thd_yield_cond(this);
-      }
+    enum_admission_control_request_mode new_mode;
+    if (filter_wait_type(wait_type, new_mode)) {
+      multi_tenancy_exit_query(this);
 
-      if (exit) {
-        multi_tenancy_exit_query(this);
+      readmission_mode = new_mode;
 
-        // For explicit yields, we want to send the query to the back of the
-        // queue to allow for other queries to run. For other yields, it's
-        // likely we want to finish the query as soon as possible.
-        readmission_mode = (wait_type == THD_WAIT_YIELD)
-                               ? AC_REQUEST_QUERY_READMIT_LOPRI
-                               : AC_REQUEST_QUERY_READMIT_HIPRI;
-      }
+      // Assert that thd_wait_begin/thd_wait_end calls should match.
+      // In case they do not, reset the nesting level in release.
+      assert(readmission_nest_level == 0);
+      readmission_nest_level = 0;
     }
   } else if (wait_type == THD_WAIT_ADMIT) {
+    // Confirm that thd_wait_end() has been called.
+    assert(readmission_mode == AC_REQUEST_NONE);
+    assert(readmission_nest_level == 0);
+    readmission_nest_level = 0;
+
     // This is a signal to admit query. Multi-query batch only gets here for
     // the first query, subsequently THD_WAIT_ADMIT is filtered out.
     readmission_mode = AC_REQUEST_QUERY;
+  } else if (readmission_mode > AC_REQUEST_NONE) {
+    // Nested thd_wait_begin so need to skip thd_wait_end.
+    ++readmission_nest_level;
   }
 }
 
@@ -2738,13 +2758,18 @@ void THD::wait_begin(int wait_type) {
 */
 void THD::wait_end() {
   if (readmission_mode > AC_REQUEST_NONE) {
-    if (readmission_mode == AC_REQUEST_QUERY_READMIT_HIPRI &&
-        ++readmission_count % 1000 == 0) {
-      readmission_mode = AC_REQUEST_QUERY_READMIT_LOPRI;
-    }
+    if (readmission_nest_level > 0) {
+      // Skip this nested thd_wait_end call.
+      --readmission_nest_level;
+    } else {
+      if (readmission_mode == AC_REQUEST_QUERY_READMIT_HIPRI &&
+          ++readmission_count % 1000 == 0) {
+        readmission_mode = AC_REQUEST_QUERY_READMIT_LOPRI;
+      }
 
-    multi_tenancy_admit_query(this, readmission_mode);
-    readmission_mode = AC_REQUEST_NONE;
+      multi_tenancy_admit_query(this, readmission_mode);
+      readmission_mode = AC_REQUEST_NONE;
+    }
   }
 }
 
@@ -4409,3 +4434,15 @@ ulong THD::get_query_or_connect_attr_value(const char *attr_name,
 
   return default_value;
 }
+
+/**
+  Call thd_wait_begin to mark the wait start.
+*/
+Thd_wait_scope::Thd_wait_scope(THD *thd, int wait_type) : m_thd(thd) {
+  thd_wait_begin(m_thd, wait_type);
+}
+
+/**
+  Call thd_wait_end to mark the wait end.
+*/
+Thd_wait_scope::~Thd_wait_scope() { thd_wait_end(m_thd); }
