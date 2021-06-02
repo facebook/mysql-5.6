@@ -7981,13 +7981,14 @@ int raft_config_change(THD *thd, std::string config_change)
 int handle_dump_threads(bool block)
 {
   DBUG_ENTER("handle_dump_threads");
+  int err= 0;
 #ifdef HAVE_REPLICATION
   if (block)
-    block_all_dump_threads();
+    err= block_all_dump_threads() ? 0 : 1;
   else
     unblock_all_dump_threads();
 #endif
-  DBUG_RETURN(0);
+  DBUG_RETURN(err);
 }
 
 int binlog_change_to_apply()
@@ -8004,7 +8005,7 @@ int binlog_change_to_apply()
   LOG_INFO linfo;
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
-  dump_log.lock();
+  const bool is_dump_log_locked= dump_log.lock();
   mysql_bin_log.lock_index();
   mysql_bin_log.lock_binlog_end_pos();
 
@@ -8073,7 +8074,7 @@ err:
 
   mysql_bin_log.unlock_binlog_end_pos();
   mysql_bin_log.unlock_index();
-  dump_log.unlock();
+  dump_log.unlock(is_dump_log_locked);
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_RETURN(error);
@@ -8099,7 +8100,7 @@ int binlog_change_to_binlog()
  ha_flush_logs(NULL);
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
-  dump_log.lock();
+  const bool is_dump_log_locked= dump_log.lock();
   mysql_bin_log.lock_index();
 #ifdef HAVE_REPLICATION
   active_mi->rli->relay_log.lock_binlog_end_pos();
@@ -8214,7 +8215,7 @@ err:
   active_mi->rli->relay_log.unlock_binlog_end_pos();
 #endif // HAVE_REPLICATION
   mysql_bin_log.unlock_index();
-  dump_log.unlock();
+  dump_log.unlock(is_dump_log_locked);
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_EXECUTE_IF("crash_after_point_binlog_to_binlog", DBUG_SUICIDE(););
@@ -11426,7 +11427,8 @@ Dump_log::Dump_log()
 void Dump_log::switch_log(bool relay_log, bool should_lock)
 {
 #ifdef HAVE_REPLICATION
-  if (should_lock) log_mutex_.lock();
+  bool is_locked= false;
+  if (should_lock) is_locked= lock();
   mysql_mutex_assert_owner(&log_->LOCK_binlog_end_pos);
   log_->update_binlog_end_pos(/* need_lock= */false);
   DBUG_ASSERT(active_mi && active_mi->rli);
@@ -11450,7 +11452,7 @@ void Dump_log::switch_log(bool relay_log, bool should_lock)
     }
   }
   mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
-  if (should_lock) log_mutex_.unlock();
+  if (should_lock) unlock(is_locked);
 #endif
 }
 
@@ -13994,10 +13996,24 @@ void reset_semi_sync_last_acked()
 }
 
 #ifdef HAVE_REPLICATION
-void block_all_dump_threads()
+bool block_all_dump_threads()
 {
   block_dump_threads= true;
   kill_all_dump_threads();
+
+  uint count= 50;
+  while (thread_binlog_client && count--)
+    std::this_thread::sleep_for(std::chrono::milliseconds{100});
+
+  if (thread_binlog_client)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Dump thread count did not reach 0 after 5 secs!");
+    block_dump_threads= false;
+    return false;
+  }
+
+  return true;
 }
 
 void unblock_all_dump_threads()

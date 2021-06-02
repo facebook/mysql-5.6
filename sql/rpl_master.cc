@@ -2866,10 +2866,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           // the raw log and log switching. Log switching will be blocked until
           // we release the binlog end pos lock before waiting for signal in
           // wait_for_update_bin_log().
-          dump_log.lock();
+          const bool is_dump_log_locked= dump_log.lock();
           MYSQL_BIN_LOG* raw_log= dump_log.get_log(false);
           raw_log->lock_binlog_end_pos();
-          dump_log.unlock();
+          dump_log.unlock(is_dump_log_locked);
 
           /*
             No need to wait if the the current log is not active or

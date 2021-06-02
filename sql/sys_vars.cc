@@ -5475,9 +5475,16 @@ static Sys_var_uint Sys_checkpoint_mts_group(
 #endif /* DBUG_OFF */
 #endif /* HAVE_REPLICATION */
 
-static bool log_enable_raft_change(sys_var *self, THD *thd, enum_var_type type)
+static bool update_enable_raft_change(
+    sys_var *self, THD *thd, enum_var_type type)
 {
   const char *user = "unknown";  const char *host = "unknown";
+
+#ifdef HAVE_REPLICATION
+  // NO_LINT_DEBUG
+  sql_print_information("Unblocking binlog dump threads");
+  unblock_all_dump_threads();
+#endif
 
   if (thd)
   {
@@ -6629,6 +6636,13 @@ static bool validate_enable_raft(sys_var *self, THD *thd, set_var *var)
     // as flush failures can be common during leader change.
     err= true;
   }
+
+  if (!err)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("Killing and blocking binlog dump threads");
+    err= !block_all_dump_threads();
+  }
 #endif
   return err;
 }
@@ -7427,7 +7441,7 @@ static Sys_var_mybool Sys_enable_raft_plugin(
        GLOBAL_VAR(enable_raft_plugin),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
-       ON_CHECK(validate_enable_raft), ON_UPDATE(log_enable_raft_change));
+       ON_CHECK(validate_enable_raft), ON_UPDATE(update_enable_raft_change));
 
 static Sys_var_mybool Sys_disable_raft_log_repointing(
        "disable_raft_log_repointing", "Enable/Disable repointing for raft logs",

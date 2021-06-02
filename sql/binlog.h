@@ -1289,45 +1289,67 @@ extern MYSQL_PLUGIN_IMPORT MYSQL_BIN_LOG mysql_bin_log;
 class Dump_log
 {
 public:
+
+  // RAII class to handle locking for Dump_log
+  class Locker
+  {
+  public:
+    Locker(Dump_log* dump_log)
+    {
+      dump_log_= dump_log;
+      should_lock_= dump_log_->lock();
+    }
+
+    ~Locker()
+    {
+      if (should_lock_)
+        dump_log_->unlock(should_lock_);
+    }
+  private:
+    bool should_lock_= false;
+    Dump_log* dump_log_= nullptr;
+  };
+
   Dump_log();
 
   void switch_log(bool relay_log, bool should_lock= true);
 
   MYSQL_BIN_LOG* get_log(bool should_lock= true)
   {
-    if (should_lock) log_mutex_.lock();
+    bool is_locked= false;
+    if (should_lock) is_locked= lock();
     auto ret= log_;
-    if (should_lock) log_mutex_.unlock();
+    if (should_lock) unlock(is_locked);
     return ret;
   }
 
   bool is_relay_log()
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     return !(log_ == &mysql_bin_log);
   }
 
   bool is_open()
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     return log_->is_open();
   }
 
   bool is_active(const char* log_file_name)
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     return log_->is_active(log_file_name);
   }
 
   my_off_t get_binlog_end_pos_without_lock()
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     return log_->get_binlog_end_pos_without_lock();
   }
 
   void make_log_name(char* buf, const char* log_ident)
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     log_->make_log_name(buf, log_ident);
   }
 
@@ -1336,7 +1358,7 @@ public:
                                       Gtid *first_gtid,
                                       const char **errmsg)
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     return log_->find_first_log_not_in_gtid_set(binlog_file_name, gtid_set,
                                                 first_gtid, errmsg);
   }
@@ -1345,31 +1367,40 @@ public:
                    const char* log_name,
                    bool need_lock_index)
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     return log_->find_log_pos(linfo, log_name, need_lock_index);
   }
 
   int find_next_log(LOG_INFO* linfo,
                     bool need_lock_index)
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     return log_->find_next_log(linfo, need_lock_index);
   }
 
   void get_lost_gtids(Gtid_set *gtids)
   {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     log_->get_lost_gtids(gtids);
   }
 
-  void lock()
+  // Avoid using this and try to use Dump_log::Locker class instead
+  bool lock()
   {
-    log_mutex_.lock();
+    // NOTE: we lock only when we're in raft mode. That's why we're returning a
+    // bool to indicate wheather we locked or not. We pass this bool to unlock
+    // method to unlock only then the mutex was actually locked.
+    const bool should_lock= enable_raft_plugin;
+    if (should_lock)
+      log_mutex_.lock();
+    return should_lock;
   }
 
-  void unlock()
+  // Avoid using this and try to use Dump_log::Locker class instead
+  void unlock(bool is_locked)
   {
-    log_mutex_.unlock();
+    if (is_locked)
+      log_mutex_.unlock();
   }
 
 private:
@@ -1532,8 +1563,9 @@ extern bool semi_sync_last_ack_inited;
 extern char rpl_semi_sync_master_enabled;
 
 extern "C" void signal_semi_sync_ack(const std::string &file_num, uint file_pos);
-extern "C" void block_all_dump_threads();
-extern "C" void unblock_all_dump_threads();
+
+bool block_all_dump_threads();
+void unblock_all_dump_threads();
 
 void init_semi_sync_last_acked();
 void destroy_semi_sync_last_acked();
