@@ -65,6 +65,14 @@ if ($VALGRIND_TEST)
   --expr $ss_timeout= $ss_timeout * $timeout_multiplier
 }
 
+if ($ASAN_OPTIONS)
+{
+  if(!$VALGRIND_TEST)
+  {
+     --expr $ss_timeout= $ss_timeout * $timeout_multiplier
+  }
+}
+
 let $have_sparc = `select convert(@@version_compile_machine using latin1) IN ('sparc')`;
 if ($have_sparc)
 {
