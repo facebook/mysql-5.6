@@ -7460,6 +7460,9 @@ ER_PURPOSE_POLICY_CHECK_FAILED
 ER_HLC_ABOVE_MAX_DRIFT
   eng "Can't advance HLC value to `%s` because it's too far from the current time"
 
+ER_HLC_STALE_UPPER_BOUND
+  eng "Requested upper HLC bound is lower than current HLC: %lu"
+
 #
 #  End of 5.6 error messages.
 #

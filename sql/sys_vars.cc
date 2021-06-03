@@ -6773,6 +6773,14 @@ static Sys_var_ulong Sys_wait_for_hlc_sleep_threshold_ms(
     VALID_RANGE(0, 10000), DEFAULT(50), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG);
 
+static Sys_var_ulonglong Sys_hlc_upper_bound_delta(
+    "hlc_upper_bound_delta",
+    "Min acceptable difference between current HLC value and upper HLC "
+    "boundary specified for the query",
+    GLOBAL_VAR(hlc_upper_bound_delta), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG);
+
 /*
   Global variable to control the implementation to get statistics per
   user-table pair

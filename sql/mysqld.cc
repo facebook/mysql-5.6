@@ -503,6 +503,7 @@ bool maintain_database_hlc= 0;
 ulong wait_for_hlc_timeout_ms = 0;
 ulong wait_for_hlc_sleep_threshold_ms = 0;
 double wait_for_hlc_sleep_scaling_factor = 0.75;
+ulonglong hlc_upper_bound_delta = 0;
 my_bool async_query_counter_enabled = 0;
 ulong opt_commit_consensus_error_action= 0;
 my_bool enable_acl_fast_lookup= 0;

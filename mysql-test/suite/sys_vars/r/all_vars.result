@@ -14,6 +14,8 @@ left join t1 on variable_name=test_name where test_name is null ORDER BY variabl
 There should be *no* variables listed below:
 ENABLE_HLC_BOUND
 ENABLE_HLC_BOUND
+HLC_UPPER_BOUND_DELTA
+HLC_UPPER_BOUND_DELTA
 RECOVER_RAFT_LOG
 RECOVER_RAFT_LOG
 WAIT_FOR_HLC_SLEEP_SCALING_FACTOR

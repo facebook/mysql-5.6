@@ -101,6 +101,7 @@ counter_histogram histogram_binlog_group_commit;
 extern my_bool opt_core_file;
 
 const char *hlc_ts_lower_bound = "hlc_ts_lower_bound";
+const char *hlc_ts_upper_bound = "hlc_ts_upper_bound";
 const char *hlc_wait_timeout_ms = "hlc_wait_timeout_ms";
 
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
@@ -2103,9 +2104,14 @@ bool HybridLogicalClock::check_hlc_bound(THD *thd) {
   }
 
   const char *hlc_lower_bound_ts_str = nullptr;
+  const char *hlc_upper_bound_ts_str = nullptr;
   for (const auto &p : thd->query_attrs_map) {
     if (p.first == hlc_ts_lower_bound) {
       hlc_lower_bound_ts_str = p.second.c_str();
+    } else if (p.first == hlc_ts_upper_bound) {
+      hlc_upper_bound_ts_str = p.second.c_str();
+    }
+    if (hlc_lower_bound_ts_str && hlc_upper_bound_ts_str) {
       break;
     }
   }
@@ -2137,6 +2143,22 @@ bool HybridLogicalClock::check_hlc_bound(THD *thd) {
       return true;
     }
     update(requested_hlc);
+  }
+
+  if (hlc_upper_bound_ts_str) {
+    char *endptr = nullptr;
+    uint64_t requested_hlc = strtoull(hlc_upper_bound_ts_str, &endptr, 10);
+    if (!endptr || *endptr != '\0' ||
+        !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+      my_error(ER_INVALID_HLC, MYF(0), hlc_upper_bound_ts_str);
+      return true;
+    }
+
+    uint64_t current_hlc = get_current();
+    if (requested_hlc <= current_hlc + hlc_upper_bound_delta) {
+      my_error(ER_HLC_STALE_UPPER_BOUND, MYF(0), current_hlc);
+      return true;
+    }
   }
 
   return false;

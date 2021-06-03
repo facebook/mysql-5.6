@@ -450,6 +450,7 @@ extern bool maintain_database_hlc;
 extern ulong wait_for_hlc_timeout_ms;
 extern ulong wait_for_hlc_sleep_threshold_ms;
 extern double wait_for_hlc_sleep_scaling_factor;
+extern ulonglong hlc_upper_bound_delta;
 extern my_bool async_query_counter_enabled;
 extern my_bool enable_acl_fast_lookup;
 extern my_bool use_cached_table_stats_ptr;
