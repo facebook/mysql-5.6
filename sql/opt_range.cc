@@ -1430,6 +1430,7 @@ static TABLE_READ_PLAN *get_best_disjunct_quick(PARAM *param,
                                                 const Cost_estimate *cost_est);
 static TRP_GROUP_MIN_MAX *get_best_group_min_max(PARAM *param, SEL_TREE *tree,
                                                  const Cost_estimate *cost_est,
+                                                 ha_rows limit,
                                                  bool force_group_by);
 static TRP_SKIP_SCAN *get_best_skip_scan(PARAM *param, SEL_TREE *tree,
                                          bool force_skip_scan);
@@ -3374,7 +3375,7 @@ int test_quick_select(THD *thd, Key_map keys_to_use, table_map prev_tables,
                                       GROUP_BY_LIS_HINT_ENUM, 0);
 
     group_trp =
-        get_best_group_min_max(&param, tree, &best_cost, force_group_by);
+        get_best_group_min_max(&param, tree, &best_cost, limit, force_group_by);
     if (group_trp) {
       DBUG_EXECUTE_IF("force_lis_for_group_by", group_trp->cost_est.reset(););
       param.table->quick_condition_rows =
@@ -11601,6 +11602,7 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
                                uint group_key_parts, SEL_TREE *range_tree,
                                ha_rows quick_prefix_records, bool have_min,
                                bool have_max, uint infix_factor,
+                               Item *where_cond, ha_rows limit,
                                Cost_estimate *cost_est, ha_rows *records);
 
 /**
@@ -11745,6 +11747,7 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
 
 static TRP_GROUP_MIN_MAX *get_best_group_min_max(PARAM *param, SEL_TREE *tree,
                                                  const Cost_estimate *cost_est,
+                                                 ha_rows limit,
                                                  bool force_group_by) {
   THD *thd = param->thd;
   JOIN *join = param->select_lex->join;
@@ -11931,6 +11934,15 @@ static TRP_GROUP_MIN_MAX *get_best_group_min_max(PARAM *param, SEL_TREE *tree,
     uint cur_key_infix_len = 0;
     uint cur_used_key_parts;
     KEY_PART_INFO *cur_min_max_arg_part = nullptr;
+
+    bool provides_order = false;
+    if (table->in_use->optimizer_switch_flag(OPTIMIZER_SWITCH_GROUP_BY_LIMIT)) {
+      uint order_used_key_parts;
+      bool skip_quick;
+      provides_order =
+          test_if_order_by_key(&join->order, table, cur_index,
+                               &order_used_key_parts, &skip_quick) == 1;
+    }
 
     /* Check (B1) - if current index is covering. */
     if (!table->covering_keys.is_set(cur_index)) {
@@ -12215,9 +12227,11 @@ static TRP_GROUP_MIN_MAX *get_best_group_min_max(PARAM *param, SEL_TREE *tree,
                                   cur_index_tree, key_part, false);
       }
     }
+
     cost_group_min_max(table, cur_index, cur_used_key_parts,
                        cur_group_key_parts, tree, cur_quick_prefix_records,
-                       have_min, have_max, cur_infix_factor, &cur_read_cost,
+                       have_min, have_max, cur_infix_factor, join->where_cond,
+                       provides_order ? limit : HA_POS_ERROR, &cur_read_cost,
                        &cur_records);
     /*
       If cur_read_cost is lower than best_read_cost use cur_index.
@@ -12820,6 +12834,8 @@ SEL_ROOT *get_index_range_tree(uint index, SEL_TREE *range_tree, PARAM *param) {
     have_max             [in] True if there is a MAX function
     infix_factor         [in] The number of combinations of infix ranges that
                               can be possible (increases the number of groups).
+    where_cond           [in] WHERE condition
+    limit                [in] Query limit
     cost_est            [out] The cost to retrieve rows via this quick select
     records             [out] The number of rows retrieved
 
@@ -12880,6 +12896,7 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
                                uint group_key_parts, SEL_TREE *range_tree,
                                ha_rows quick_prefix_records, bool have_min,
                                bool have_max, uint infix_factor,
+                               Item *where_cond, ha_rows limit,
                                Cost_estimate *cost_est, ha_rows *records) {
   ha_rows table_records;
   uint num_groups;
@@ -12957,6 +12974,44 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
 
   /* Infix factor increases the number of groups (rows) examined. */
   num_groups *= infix_factor;
+
+  /* Calculate filtering effect for the infix condition */
+  if (table->in_use->optimizer_switch_flag(OPTIMIZER_SWITCH_GROUP_BY_LIMIT)) {
+    float filtering_effect = 1.0f;
+    if (where_cond) {
+      table_map used_tables = 0;
+      char buf[MAX_FIELDS / 8];
+      my_bitmap_map *bitbuf =
+          static_cast<my_bitmap_map *>(static_cast<void *>(&buf));
+      MY_BITMAP ignored_fields;
+      bitmap_init(&ignored_fields, bitbuf, table->s->fields);
+      bitmap_set_all(&ignored_fields);
+
+      for (uint i = group_key_parts; i < used_key_parts; i++) {
+        bitmap_clear_bit(&ignored_fields,
+                         index_info->key_part[i].field->field_index());
+      }
+
+      /*
+        TODO: Maybe it is better to use rec_per_key(group_key_parts) /
+        rec_per_key(used_key_parts) instead of table_records.
+      */
+      filtering_effect = where_cond->get_filtering_effect(
+          table->in_use, table->pos_in_table_list->map(), used_tables,
+          &ignored_fields, table_records);
+    }
+
+    /*
+      The following tries to calculate limit / filtering_effect without
+      overflowing uint.
+    */
+    num_groups = std::min<uint>(
+        limit < ((double)std::numeric_limits<uint>::max() * filtering_effect)
+            ? (uint)(limit / filtering_effect)
+            : std::numeric_limits<uint>::max(),
+        num_groups);
+  }
+
   /*
     CPU cost must be comparable to that of an index scan as computed
     in test_quick_select(). When the groups are small,
@@ -12984,6 +13039,7 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
         num_groups * (tree_traversal_cost + cost_model->row_evaluate_cost(1.0));
     cost_est->add_cpu(cpu_cost);
   }
+  cost_est->multiply(table->in_use->variables.optimizer_group_by_cost_adjust);
   *records = num_groups;
 
   DBUG_PRINT("info", ("table rows: %lu  keys/block: %u  keys/group: %.1f  "
