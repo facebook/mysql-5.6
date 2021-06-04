@@ -1,0 +1,103 @@
+SET @start_value = @@session.optimizer_group_by_cost_adjust;
+SELECT @start_value;
+@start_value
+1
+SET @start_value_global = @@global.optimizer_group_by_cost_adjust;
+SELECT @start_value_global;
+@start_value_global
+1
+SET @@session.optimizer_group_by_cost_adjust = 8734635;
+SET @@session.optimizer_group_by_cost_adjust = DEFAULT;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+1.000000
+SET @@session.optimizer_group_by_cost_adjust = 0;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+0.000000
+SET @@session.optimizer_group_by_cost_adjust = 99;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+99.000000
+SET @@session.optimizer_group_by_cost_adjust = 10;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+10.000000
+SET @@session.optimizer_group_by_cost_adjust = 10000.01;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+10000.010000
+SET @@session.optimizer_group_by_cost_adjust = 21;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+21.000000
+SET @@session.optimizer_group_by_cost_adjust = -1;
+Warnings:
+Warning	1292	Truncated incorrect optimizer_group_by_cost_adjust value: '-1'
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+0.000000
+SET @@session.optimizer_group_by_cost_adjust = -1024;
+Warnings:
+Warning	1292	Truncated incorrect optimizer_group_by_cost_adjust value: '-1024'
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+0.000000
+SET @@session.optimizer_group_by_cost_adjust = 42949672950;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+42949672950.000000
+SET @@session.optimizer_group_by_cost_adjust = ON;
+ERROR 42000: Incorrect argument type to variable 'optimizer_group_by_cost_adjust'
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+42949672950.000000
+SET @@session.optimizer_group_by_cost_adjust = 'test';
+ERROR 42000: Incorrect argument type to variable 'optimizer_group_by_cost_adjust'
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+42949672950.000000
+SELECT @@global.optimizer_group_by_cost_adjust,@@session.optimizer_group_by_cost_adjust;
+@@global.optimizer_group_by_cost_adjust	@@session.optimizer_group_by_cost_adjust
+1.000000	42949672950.000000
+SET @@global.optimizer_group_by_cost_adjust = 0;
+SELECT @@global.optimizer_group_by_cost_adjust,@@session.optimizer_group_by_cost_adjust;
+@@global.optimizer_group_by_cost_adjust	@@session.optimizer_group_by_cost_adjust
+0.000000	42949672950.000000
+SELECT @@session.optimizer_group_by_cost_adjust = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_group_by_cost_adjust';
+@@session.optimizer_group_by_cost_adjust = VARIABLE_VALUE
+1
+SELECT @@global.optimizer_group_by_cost_adjust = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='optimizer_group_by_cost_adjust';
+@@global.optimizer_group_by_cost_adjust = VARIABLE_VALUE
+1
+SET @@session.optimizer_group_by_cost_adjust = TRUE;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+1.000000
+SET @@session.optimizer_group_by_cost_adjust = FALSE;
+SELECT @@session.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust
+0.000000
+SET @@session.optimizer_group_by_cost_adjust = 1;
+SELECT @@optimizer_group_by_cost_adjust = @@session.optimizer_group_by_cost_adjust;
+@@optimizer_group_by_cost_adjust = @@session.optimizer_group_by_cost_adjust
+1
+SET local.optimizer_group_by_cost_adjust = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.optimizer_group_by_cost_adjust = 1' at line 1
+SELECT local.optimizer_group_by_cost_adjust;
+ERROR 42S02: Unknown table 'local' in field list
+SET session.optimizer_group_by_cost_adjust = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'session.optimizer_group_by_cost_adjust = 1' at line 1
+SELECT session.optimizer_group_by_cost_adjust;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT optimizer_group_by_cost_adjust = @@session.binlog_expire_logs_seconds;
+ERROR HY000: Variable 'binlog_expire_logs_seconds' is a GLOBAL variable
+SET @@session.optimizer_group_by_cost_adjust = @start_value;
+SET @@global.optimizer_group_by_cost_adjust = @start_value_global;
+SELECT @@session.optimizer_group_by_cost_adjust,@@global.optimizer_group_by_cost_adjust;
+@@session.optimizer_group_by_cost_adjust	@@global.optimizer_group_by_cost_adjust
+1.000000	1.000000

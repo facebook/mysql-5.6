@@ -1,0 +1,134 @@
+############## mysql-test\t\optimizer_group_by_cost_adjust_basic.test ############
+#                                                                                #
+# Variable Name: optimizer_group_by_cost_adjust                                  #
+# Scope: GLOBAL/SESSION                                                          #
+# Access Type: Dynamic                                                           #
+# Data Type: numeric                                                             #
+# Default Value:0                                                                #
+#                                                                                #
+#                                                                                #
+#                                                                                #
+# Description: Test Cases of Dynamic System Variable                             #
+#              test checks the behavior of this variable in the following ways   #
+#              * Default Value                                                   #
+#              * Valid & Invalid values                                          #
+#              * Scope & Access method                                           #
+#              * Data Integrity                                                  #
+#                                                                                #
+# Reference: https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#
+#                                                                                #
+##################################################################################
+
+--source include/load_sysvars.inc
+
+########################################################################
+
+SET @start_value = @@session.optimizer_group_by_cost_adjust;
+SELECT @start_value;
+SET @start_value_global = @@global.optimizer_group_by_cost_adjust;
+SELECT @start_value_global;
+
+########################################################################
+#      Display the DEFAULT value of optimizer_group_by_cost_adjust         #
+########################################################################
+
+SET @@session.optimizer_group_by_cost_adjust = 8734635;
+SET @@session.optimizer_group_by_cost_adjust = DEFAULT;
+SELECT @@session.optimizer_group_by_cost_adjust;
+
+
+##################################################################################
+#        Change the value of optimizer_group_by_cost_adjust to a valid value         #
+##################################################################################
+
+SET @@session.optimizer_group_by_cost_adjust = 0;
+SELECT @@session.optimizer_group_by_cost_adjust;
+SET @@session.optimizer_group_by_cost_adjust = 99;
+SELECT @@session.optimizer_group_by_cost_adjust;
+SET @@session.optimizer_group_by_cost_adjust = 10;
+SELECT @@session.optimizer_group_by_cost_adjust;
+SET @@session.optimizer_group_by_cost_adjust = 10000.01;
+SELECT @@session.optimizer_group_by_cost_adjust;
+SET @@session.optimizer_group_by_cost_adjust = 21;
+SELECT @@session.optimizer_group_by_cost_adjust;
+
+#####################################################################################
+#         Change the value of optimizer_group_by_cost_adjust to invalid value           #
+#####################################################################################
+
+SET @@session.optimizer_group_by_cost_adjust = -1;
+SELECT @@session.optimizer_group_by_cost_adjust;
+SET @@session.optimizer_group_by_cost_adjust = -1024;
+SELECT @@session.optimizer_group_by_cost_adjust;
+SET @@session.optimizer_group_by_cost_adjust = 42949672950;
+SELECT @@session.optimizer_group_by_cost_adjust;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.optimizer_group_by_cost_adjust = ON;
+SELECT @@session.optimizer_group_by_cost_adjust;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.optimizer_group_by_cost_adjust = 'test';
+SELECT @@session.optimizer_group_by_cost_adjust;
+
+
+#####################################################################################
+#       Test if accessing global optimizer_group_by_cost_adjust works              #
+#####################################################################################
+
+SELECT @@global.optimizer_group_by_cost_adjust,@@session.optimizer_group_by_cost_adjust;
+SET @@global.optimizer_group_by_cost_adjust = 0;
+SELECT @@global.optimizer_group_by_cost_adjust,@@session.optimizer_group_by_cost_adjust;
+
+##############################################################################
+# Check if the value in session & SESSION Tables matches values in variable   #
+##############################################################################
+
+--disable_warnings
+SELECT @@session.optimizer_group_by_cost_adjust = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_group_by_cost_adjust';
+
+SELECT @@global.optimizer_group_by_cost_adjust = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='optimizer_group_by_cost_adjust';
+--enable_warnings
+
+###################################################################
+#      Check if TRUE and FALSE values can be used on variable     #
+###################################################################
+
+SET @@session.optimizer_group_by_cost_adjust = TRUE;
+SELECT @@session.optimizer_group_by_cost_adjust;
+SET @@session.optimizer_group_by_cost_adjust = FALSE;
+SELECT @@session.optimizer_group_by_cost_adjust;
+
+########################################################################################################
+#    Check if accessing variable with SESSION,LOCAL and without SCOPE points to same session variable  #
+########################################################################################################
+
+SET @@session.optimizer_group_by_cost_adjust = 1;
+SELECT @@optimizer_group_by_cost_adjust = @@session.optimizer_group_by_cost_adjust;
+
+####################################################################################
+#   Check if optimizer_group_by_cost_adjust can be accessed with and without @@ sign   #
+####################################################################################
+
+--Error ER_PARSE_ERROR
+SET local.optimizer_group_by_cost_adjust = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT local.optimizer_group_by_cost_adjust;
+--Error ER_PARSE_ERROR
+SET session.optimizer_group_by_cost_adjust = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT session.optimizer_group_by_cost_adjust;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT optimizer_group_by_cost_adjust = @@session.binlog_expire_logs_seconds;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@session.optimizer_group_by_cost_adjust = @start_value;
+SET @@global.optimizer_group_by_cost_adjust = @start_value_global;
+SELECT @@session.optimizer_group_by_cost_adjust,@@global.optimizer_group_by_cost_adjust;
+

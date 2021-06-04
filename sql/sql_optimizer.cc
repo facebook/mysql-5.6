@@ -457,9 +457,14 @@ bool JOIN::optimize(bool finalize_access_paths) {
 
   /* dump_TABLE_LIST_graph(query_block, query_block->leaf_tables); */
 
-  row_limit = ((select_distinct || !order.empty() || !group_list.empty())
-                   ? HA_POS_ERROR
-                   : query_expression()->select_limit_cnt);
+  if (thd->optimizer_switch_flag(OPTIMIZER_SWITCH_GROUP_BY_LIMIT)) {
+    row_limit = query_expression()->select_limit_cnt;
+  } else {
+    row_limit = ((select_distinct || !order.empty() || !group_list.empty())
+                     ? HA_POS_ERROR
+                     : query_expression()->select_limit_cnt);
+  }
+
   // m_select_limit is used to decide if we are likely to scan the whole table.
   m_select_limit = query_expression()->select_limit_cnt;
 

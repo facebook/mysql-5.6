@@ -1067,6 +1067,9 @@ The following options may be given as the first argument:
  --optimizer-full-scan 
  Enable full table and index scans.
  (Defaults to on; use --skip-optimizer-full-scan to disable.)
+ --optimizer-group-by-cost-adjust[=#] 
+ Adjust cost of loose index scan group-by plan by this
+ factor.
  --optimizer-max-subgraph-pairs=# 
  Maximum depth of subgraph pairs a query can have before
  the hypergraph join optimizer starts reducing the search
@@ -1101,8 +1104,8 @@ The following options may be given as the first argument:
  block_nested_loop, batched_key_access,
  use_index_extensions, condition_fanout_filter,
  derived_merge, hash_join, subquery_to_derived,
- prefer_ordering_index, derived_condition_pushdown} and
- val is one of {on, off, default}
+ prefer_ordering_index, derived_condition_pushdown,
+ group_by_limit} and val is one of {on, off, default}
  --optimizer-trace=name 
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option
@@ -3103,6 +3106,7 @@ old-alter-table FALSE
 old-style-user-limits FALSE
 optimizer-force-index-for-range FALSE
 optimizer-full-scan TRUE
+optimizer-group-by-cost-adjust 1
 optimizer-max-subgraph-pairs 100000
 optimizer-prune-level 1
 optimizer-search-depth 62

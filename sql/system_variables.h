@@ -256,6 +256,7 @@ struct System_variables {
   ulong optimizer_trace_max_mem_size;
   bool optimizer_force_index_for_range;
   bool optimizer_full_scan;
+  double optimizer_group_by_cost_adjust;
   sql_mode_t sql_mode;  ///< which non-standard SQL behaviour should be enabled
   bool error_partial_strict;
   ulong audit_instrumented_event;

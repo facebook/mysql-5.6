@@ -682,9 +682,9 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
   */
   force_group_by = hint_table_state(thd, param.table->pos_in_table_list,
                                     GROUP_BY_LIS_HINT_ENUM, 0);
-  AccessPath *group_path =
-      get_best_group_min_max(thd, &param, tree, interesting_order,
-                             skip_records_in_range, best_cost, force_group_by);
+  AccessPath *group_path = get_best_group_min_max(
+      thd, &param, tree, interesting_order, skip_records_in_range, best_cost,
+      limit, force_group_by);
   bool force_skip_scan;
   if (group_path) {
     DBUG_EXECUTE_IF("force_lis_for_group_by", group_path->cost = 0.0;);
