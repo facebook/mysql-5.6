@@ -145,6 +145,9 @@ enum enum_raft_signal_async_dump_threads_options {
 #define LOG_CLOSE_TO_BE_OPENED 2
 #define LOG_CLOSE_STOP_EVENT 4
 
+bool block_all_dump_threads();
+void unblock_all_dump_threads();
+
 /*
   Note that we destroy the lock mutex in the destructor here.
   This means that object instances cannot be destroyed/go out of scope
@@ -1582,8 +1585,6 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void signal_semi_sync_ack(const char *const log_file, const my_off_t log_pos);
   void reset_semi_sync_last_acked();
   void get_semi_sync_last_acked(std::string &log_file, my_off_t &log_pos);
-  void block_all_dump_threads();
-  void unblock_all_dump_threads();
 
   mysql_mutex_t *get_binlog_end_pos_lock() { return &LOCK_binlog_end_pos; }
   void lock_binlog_end_pos() { mysql_mutex_lock(&LOCK_binlog_end_pos); }
@@ -1625,33 +1626,60 @@ extern MYSQL_PLUGIN_IMPORT MYSQL_BIN_LOG mysql_bin_log;
  */
 class Dump_log {
  public:
-  Dump_log();
+  // RAII class to handle locking for Dump_log
+  class Locker {
+   public:
+    explicit Locker(Dump_log *dump_log) {
+      dump_log_ = dump_log;
+      should_lock_ = dump_log_->lock();
+    }
 
-  void init_pthread_objects();
+    ~Locker() {
+      if (should_lock_) dump_log_->unlock(should_lock_);
+    }
+
+   private:
+    bool should_lock_ = false;
+    Dump_log *dump_log_ = nullptr;
+  };
+
+  Dump_log();
 
   void switch_log(bool relay_log, bool should_lock = true);
 
   MYSQL_BIN_LOG *get_log(bool should_lock = true) {
-    if (should_lock) lock();
+    bool is_locked = false;
+    if (should_lock) is_locked = lock();
     auto ret = log_;
-    if (should_lock) unlock();
+    if (should_lock) unlock(is_locked);
     return ret;
   }
 
   void signal_semi_sync_ack(const char *const log_file,
                             const my_off_t log_pos) {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     log_->signal_semi_sync_ack(log_file, log_pos);
   }
 
   void reset_semi_sync_last_acked() {
-    std::lock_guard<std::mutex> guard(log_mutex_);
+    Locker lock(this);
     log_->reset_semi_sync_last_acked();
   }
 
-  void lock() { log_mutex_.lock(); }
+  // Avoid using this and try to use Dump_log::Locker class instead
+  bool lock() {
+    // NOTE: we lock only when we're in raft mode. That's why we're returning a
+    // bool to indicate whether we locked or not. We pass this bool to unlock
+    // method to unlock only then the mutex was actually locked.
+    const bool should_lock = enable_raft_plugin;
+    if (should_lock) log_mutex_.lock();
+    return should_lock;
+  }
 
-  void unlock() { log_mutex_.unlock(); }
+  // Avoid using this and try to use Dump_log::Locker class instead
+  void unlock(bool is_locked) {
+    if (is_locked) log_mutex_.unlock();
+  }
 
  private:
   MYSQL_BIN_LOG *log_;

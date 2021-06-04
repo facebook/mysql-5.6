@@ -11717,20 +11717,35 @@ int rotate_binlog_file(THD *thd) {
   DBUG_RETURN(error);
 }
 
-void block_all_dump_threads() {
+bool block_all_dump_threads() {
   block_dump_threads = true;
   kill_all_dump_threads();
+
+  uint count = 50;
+  while (count-- &&
+         Global_THD_manager::get_instance()->get_num_thread_binlog_client())
+    std::this_thread::sleep_for(std::chrono::milliseconds{100});
+
+  if (Global_THD_manager::get_instance()->get_num_thread_binlog_client()) {
+    // NO_LINT_DEBUG
+    sql_print_error("Dump thread count did not reach 0 after 5 secs!");
+    block_dump_threads = false;
+    return false;
+  }
+
+  return true;
 }
 
 void unblock_all_dump_threads() { block_dump_threads = false; }
 
 int handle_dump_threads(bool block) {
   DBUG_TRACE;
+  int err = 0;
   if (block)
-    block_all_dump_threads();
+    err = block_all_dump_threads() ? 0 : 1;
   else
     unblock_all_dump_threads();
-  return 0;
+  return err;
 }
 
 int binlog_change_to_apply() {
@@ -11745,7 +11760,7 @@ int binlog_change_to_apply() {
   int error = 0;
   LOG_INFO linfo;
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
-  dump_log.lock();
+  const bool is_locked = dump_log.lock();
   mysql_bin_log.lock_index();
   mysql_bin_log.lock_binlog_end_pos();
   mysql_bin_log.close(LOG_CLOSE_INDEX, /*need_lock_log=*/false,
@@ -11803,7 +11818,7 @@ int binlog_change_to_apply() {
 err:
   mysql_bin_log.unlock_binlog_end_pos();
   mysql_bin_log.unlock_index();
-  dump_log.unlock();
+  dump_log.unlock(is_locked);
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_RETURN(error);
@@ -11823,7 +11838,7 @@ int binlog_change_to_binlog(THD *thd) {
   std::vector<std::string> lognames;
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
-  dump_log.lock();
+  const bool is_locked = dump_log.lock();
   mysql_bin_log.lock_index();
 
   Master_info *active_mi;
@@ -11832,7 +11847,7 @@ int binlog_change_to_binlog(THD *thd) {
     // NO_LINT_DEBUG
     sql_print_error("active_mi or rli is not set");
     mysql_bin_log.unlock_index();
-    dump_log.unlock();
+    dump_log.unlock(is_locked);
     mysql_mutex_unlock(mysql_bin_log.get_log_lock());
     return error;
   }
@@ -11940,7 +11955,7 @@ err:
   active_mi->rli->relay_log.unlock_binlog_end_pos();
   unlock_master_info(active_mi);
   mysql_bin_log.unlock_index();
-  dump_log.unlock();
+  dump_log.unlock(is_locked);
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_RETURN(error);
@@ -11992,7 +12007,8 @@ Dump_log::Dump_log() {
 }
 
 void Dump_log::switch_log(bool relay_log, bool should_lock) {
-  if (should_lock) lock();
+  bool is_locked = false;
+  if (should_lock) is_locked = lock();
   mysql_mutex_assert_owner(log_->get_binlog_end_pos_lock());
   log_->update_binlog_end_pos(/* need_lock= */ false);
   Master_info *active_mi = nullptr;
@@ -12006,7 +12022,7 @@ void Dump_log::switch_log(bool relay_log, bool should_lock) {
   // Now let's update the dump thread's linfos
   log_->reset_semi_sync_last_acked();
   adjust_linfo_in_dump_threads(relay_log);
-  if (should_lock) unlock();
+  if (should_lock) unlock(is_locked);
 }
 
 // Given a file name of the form 'binlog-file-name.index', it extracts the

@@ -8902,13 +8902,23 @@ static bool validate_enable_raft(sys_var * /*self */, THD *, set_var *var) {
     err = true;
   }
 
+  if (!err) {
+    // NO_LINT_DEBUG
+    sql_print_information("Killing and blocking binlog dump threads");
+    err = !block_all_dump_threads();
+  }
+
   return err;
 }
 
-static bool log_enable_raft_change(sys_var * /*self */, THD *thd,
-                                   enum_var_type) {
+static bool update_enable_raft_change(sys_var * /*self */, THD *thd,
+                                      enum_var_type) {
   const char *user = "unknown";
   const char *host = "unknown";
+
+  // NO_LINT_DEBUG
+  sql_print_information("Unblocking dump threads");
+  unblock_all_dump_threads();
 
   if (thd && thd->get_user_connect()) {
     user = (const_cast<USER_CONN *>(thd->get_user_connect()))->user;
@@ -8930,7 +8940,7 @@ static Sys_var_bool Sys_enable_raft_plugin(
     "plugin when it is enabled",
     GLOBAL_VAR(enable_raft_plugin), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(validate_enable_raft),
-    ON_UPDATE(log_enable_raft_change));
+    ON_UPDATE(update_enable_raft_change));
 
 static Sys_var_bool Sys_disallow_raft(
     "disallow_raft",
