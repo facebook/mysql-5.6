@@ -1056,6 +1056,9 @@ The following options may be given as the first argument:
  --optimizer-full-scan 
  Enable full table and index scans.
  (Defaults to on; use --skip-optimizer-full-scan to disable.)
+ --optimizer-group-by-cost-adjust[=#] 
+ Adjust cost of loose index scan group-by plan by this
+ factor.
  --optimizer-prune-level=# 
  Controls the heuristic(s) applied during query
  optimization to prune less-promising partial plans from
@@ -1081,8 +1084,8 @@ The following options may be given as the first argument:
  block_nested_loop, batched_key_access,
  use_index_extensions, condition_fanout_filter,
  derived_merge, hash_join, subquery_to_derived,
- prefer_ordering_index, derived_condition_pushdown} and
- val is one of {on, off, default}
+ prefer_ordering_index, derived_condition_pushdown,
+ group_by_limit} and val is one of {on, off, default}
  --optimizer-trace=name 
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option
@@ -3043,6 +3046,7 @@ old-alter-table FALSE
 old-style-user-limits FALSE
 optimizer-force-index-for-range FALSE
 optimizer-full-scan TRUE
+optimizer-group-by-cost-adjust 1
 optimizer-prune-level 1
 optimizer-search-depth 62
 optimizer-switch index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on,hypergraph_optimizer=off,derived_condition_pushdown=on
