@@ -6537,10 +6537,11 @@ bool THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
    * - write_control_level is set to 'OFF' or
    * - write_cpu_limit_milliseconds is set to 0 or
    * - write_time_check_batch is set to 0
+   * - sql_log_bin is set to 0
    */
   if (write_control_level == CONTROL_LEVEL_OFF ||
       write_cpu_limit_milliseconds == 0 ||
-      write_time_check_batch == 0)
+      write_time_check_batch == 0 || variables.sql_log_bin == 0)
     return false;
 
   /* if the variable 'write_control_level' is set to 'NOTE' or 'WARN'
