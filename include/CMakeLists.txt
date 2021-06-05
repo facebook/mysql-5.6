@@ -101,6 +101,7 @@ IF (INSTALL_EXTRA_HEADERS)
     decimal.h
     dur_prop.h
     ft_global.h
+    integer_digits.h
     map_helpers.h
     m_ctype.h
     memory_debugging.h
