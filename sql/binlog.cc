@@ -11837,6 +11837,12 @@ int binlog_change_to_binlog(THD *thd) {
   uint64_t prev_hlc = 0;
   std::vector<std::string> lognames;
 
+  // Flush logs to ensure that storage engine has flushed and fsynced the last
+  // batch of transactions. This is important because the act of switching trx
+  // logs from "apply-logs-*" to "binary-logs-*" looks like a rotation to other
+  // parts of the system and rotation is always a 'sync' point
+  ha_flush_logs(NULL);
+
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
   const bool is_locked = dump_log.lock();
   mysql_bin_log.lock_index();
@@ -11957,6 +11963,8 @@ err:
   mysql_bin_log.unlock_index();
   dump_log.unlock(is_locked);
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
+
+  DBUG_EXECUTE_IF("crash_after_point_binlog_to_binlog", DBUG_SUICIDE(););
 
   DBUG_RETURN(error);
 }

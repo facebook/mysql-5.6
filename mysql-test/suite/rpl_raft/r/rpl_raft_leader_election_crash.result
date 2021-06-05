@@ -1,0 +1,87 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+"server_1 is the initial leader"
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+"Stopping slave applier on all peers"
+stop slave sql_thread;
+stop slave sql_thread;
+stop slave sql_thread;
+"Writing data on leader"
+create table t1 (a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+insert into t1 values();
+insert into t1 values();
+select * from t1;
+a
+1
+2
+3
+"Setting debug symbol so that server_2 crashed on becoming a leader after switching logs"
+set global debug="+d,crash_after_point_binlog_to_binlog";
+"Stopping sql appliers on server_2"
+stop slave sql_thread
+insert into t1 values();
+insert into t1 values();
+insert into t1 values();
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+"Transfering leadership: server_1 -> server_2"
+set @@global.rpl_raft_new_leader_uuid = 'uuid2';
+select sleep(1);
+sleep(1)
+0
+"Restarting server_2"
+include/rpl_start_server.inc [server_number=2]
+"Checking table values in server_2"
+connection server_2
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+select sleep(20);
+sleep(20)
+0
+"Make server_1 the leader"
+connection server_1
+sleep(10)
+0
+sleep(10)
+0
+Warnings:
+Note	3083	Replication thread(s) for channel '' are already runnning.
+Warnings:
+Note	3083	Replication thread(s) for channel '' are already runnning.
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
