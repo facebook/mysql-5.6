@@ -85,7 +85,9 @@ SET @@global.enable_binlog_hlc = default;
 SET @@global.maintain_database_hlc = default;
 SET @@global.wait_for_hlc_timeout_ms = default;
 SET @@global.enable_hlc_bound = default;
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = 0;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";
 SET @@global.maximum_hlc_drift_ns = default;
 SET @@global.hlc_upper_bound_delta = default;
 include/rpl_end.inc
