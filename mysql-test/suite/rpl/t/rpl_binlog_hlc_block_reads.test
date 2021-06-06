@@ -374,7 +374,9 @@ DROP DATABASE c;
 SET @@global.enable_binlog_hlc = default;
 SET @@global.enable_block_stale_hlc_read = default;
 SET @@global.maintain_database_hlc = default;
+--eval SET SESSION DEBUG = "+d,reset_hlc_for_tests"
 SET @@global.minimum_hlc_ns = 0;
+--eval SET SESSION DEBUG = "-d,reset_hlc_for_tests"
 
 --source include/sync_slave_sql_with_master.inc
 

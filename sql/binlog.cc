@@ -2720,6 +2720,8 @@ uint64_t HybridLogicalClock::update(uint64_t minimum_hlc) {
 
     // Next HLC timestamp is max of current-hlc, minimum-hlc
     new_min_hlc = std::max(minimum_hlc, current_hlc);
+    // only used for MTR to reset HLC
+    DBUG_EXECUTE_IF("reset_hlc_for_tests", { new_min_hlc = minimum_hlc; });
 
     // Conditionally update the internal hlc
     done = current_.compare_exchange_strong(current_hlc, new_min_hlc);
