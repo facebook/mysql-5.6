@@ -284,6 +284,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   /* Type of locking to apply to rows */
   enum { RDB_LOCK_NONE, RDB_LOCK_READ, RDB_LOCK_WRITE } m_lock_rows;
 
+  thr_locked_row_action m_locked_row_action;
+
   /* true means we're doing an index-only read. false means otherwise. */
   bool m_keyread_only;
 
@@ -336,7 +338,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                       const TABLE *const old_table_arg = nullptr,
                       const Rdb_tbl_def *const old_tbl_def_arg = nullptr) const
       MY_ATTRIBUTE((__nonnull__(2, 3), __warn_unused_result__));
-  int secondary_index_read(const int keyno, uchar *const buf)
+  int secondary_index_read(const int keyno, uchar *const buf, bool *skip_row)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   static void setup_iterator_bounds(const Rdb_key_def &kd,
                                     const rocksdb::Slice &eq_cond,
@@ -360,15 +362,17 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   int fill_virtual_columns();
 
   int get_row_by_rowid(uchar *const buf, const char *const rowid,
-                       const uint rowid_size, const bool skip_lookup = false,
+                       const uint rowid_size, bool *skip_row = nullptr,
+                       const bool skip_lookup = false,
                        const bool skip_ttl_check = true)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+      MY_ATTRIBUTE((__warn_unused_result__));
   int get_row_by_rowid(uchar *const buf, const uchar *const rowid,
-                       const uint rowid_size, const bool skip_lookup = false,
+                       const uint rowid_size, bool *skip_row = nullptr,
+                       const bool skip_lookup = false,
                        const bool skip_ttl_check = true)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__)) {
+      MY_ATTRIBUTE((__warn_unused_result__)) {
     return get_row_by_rowid(buf, reinterpret_cast<const char *>(rowid),
-                            rowid_size, skip_lookup, skip_ttl_check);
+                            rowid_size, skip_row, skip_lookup, skip_ttl_check);
   }
 
   void load_auto_incr_value();
@@ -888,6 +892,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   void dec_table_n_rows();
 
   bool should_skip_invalidated_record(const int rc);
+  bool should_skip_locked_record(rocksdb::Status s);
   bool should_recreate_snapshot(const int rc, const bool is_new_snapshot);
   bool can_assume_tracked(THD *thd);
 
