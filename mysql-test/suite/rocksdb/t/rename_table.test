@@ -1,0 +1,64 @@
+# RENAME table across database test
+
+CREATE DATABASE db1;
+
+USE db1;
+
+CREATE TABLE t1 (pk int primary key);
+INSERT INTO t1 values (1), (2), (3);
+
+CREATE TABLE t2 (pk int primary key);
+INSERT INTO t2 values (4), (5), (6);
+
+CREATE DATABASE db2;
+
+USE db2;
+
+RENAME TABLE db1.t1 TO db2.t1;
+
+# Restart to trigger validation and make sure dictionary data is intact
+--source include/restart_mysqld.inc
+
+SELECT * from db2.t1 ORDER BY pk;
+SELECT * from db1.t2 ORDER BY pk;
+
+RENAME TABLE db1.t2 TO db2.t2;
+DROP DATABASE db1;
+
+SELECT * from db2.t2 ORDER BY pk;
+
+# Recreate db1
+CREATE DATABASE db1;
+USE db1;
+
+CREATE TABLE t3 (pk int primary key);
+INSERT INTO t3 values (7), (8), (9);
+
+SELECT * from db2.t1 ORDER BY pk;
+SELECT * from db2.t2 ORDER BY pk;
+SELECT * from db1.t3 ORDER BY pk;
+
+# Restart to trigger validation and make sure dictionary data is intact
+--source include/restart_mysqld.inc
+
+SELECT * from db2.t1 ORDER BY pk;
+SELECT * from db2.t2 ORDER BY pk;
+SELECT * from db1.t3 ORDER BY pk;
+
+RENAME TABLE db2.t1 TO db1.t1;
+RENAME TABLE db2.t2 TO db1.t2;
+
+DROP DATABASE db2;
+
+SELECT * from db1.t1 ORDER BY pk;
+SELECT * from db1.t2 ORDER BY pk;
+SELECT * from db1.t3 ORDER BY pk;
+
+# Restart to trigger validation and make sure dictionary data is intact
+--source include/restart_mysqld.inc
+
+SELECT * from db1.t1 ORDER BY pk;
+SELECT * from db1.t2 ORDER BY pk;
+SELECT * from db1.t3 ORDER BY pk;
+
+DROP DATABASE db1;
