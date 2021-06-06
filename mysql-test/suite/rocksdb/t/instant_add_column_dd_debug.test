@@ -1,0 +1,242 @@
+# Check DD tables during debug execution
+--source include/have_debug.inc
+--let $check_dd = 1
+set @saved_rocksd_instant_ddl=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
+--echo #
+--echo # Scenario 1:
+--echo # Create a small table, and add all kinds of new columns and verify
+--echo #
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+
+
+# ADD COLUMN INT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN c1 INT, ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN INT DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN c2 INT NOT NULL DEFAULT 10;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN BIGINT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN d1 BIGINT, ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN BIGINT DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN d2 BIGINT NOT NULL DEFAULT 1234567890;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN SMALLINT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN e1 SMALLINT, ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN SMALLINT DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN e2 SMALLINT NOT NULL DEFAULT 10;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN TINYINT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN f1 TINYINT, ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN TINYINT DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN f2 TINYINT NOT NULL DEFAULT 123;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN MEDIUMINT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN g1 MEDIUMINT, ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN MEDIUMINT DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN g2 MEDIUMINT NOT NULL DEFAULT 12345;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN FLOAT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN h1 FLOAT, ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN FLOAT DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN h2 FLOAT NOT NULL DEFAULT 12.34;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN DECIMAL & DOUBLE
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN i1 DECIMAL(5, 2), ADD COLUMN i2 double, ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN DECIMAL & DOUBLE DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN j1 DECIMAL(5, 2) NOT NULL DEFAULT 100.00, ADD COLUMN j2 double NOT NULL DEFAULT 1000.5678;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN BIT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN k1 BIT(8), ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN BIT DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN k2 BIT(8) NOT NULL DEFAULT b'101010';
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN CHAR & VARCHAR
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN l1 CHAR(50), ADD COLUMN l2 VARCHAR(100), ALGORITHM=DEFAULT;
+
+# ADD COLUMN CHAR & VARCHAR DEFAULT
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN m1 CHAR(50) default 'The fox jumps over', ADD COLUMN m2 VARCHAR(50) DEFAULT 'The fox jumps over the lazy dog.';
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN BINARY & VARBINARY
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN n1 BINARY(10), ADD COLUMN n2 VARBINARY(10), ALGORITHM=DEFAULT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN BINARY & VARBINARY DEFAULT
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN o1 BINARY(10) DEFAULT 0x11223344, ADD COLUMN o2 VARBINARY(10) DEFAULT 0x55667788;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN DATETIME
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN p1 DATETIME, ALGORITHM=DEFAULT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN DATETIME DEFAULT
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN p2 DATETIME NOT NULL DEFAULT '2017-12-31 01:02:03';
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN ENUM
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN q1 ENUM ('value1','value2','value3'), ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN SET
+let $new_cols = 1;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN r1 SET ('a','b','c'), ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN BLOB & TEXT
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN s1 BLOB, ADD COLUMN s2 TEXT, ALGORITHM=INSTANT;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# ADD COLUMN BLOB & TEXT NOT NULL
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN u1 BLOB NOT NULL, ADD COLUMN u2 TEXT NOT NULL;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+# BLOB/TEXT/JSON doesn't support default value
+--error ER_BLOB_CANT_HAVE_DEFAULT
+ALTER TABLE t1 ADD COLUMN u1 BLOB NOT NULL DEFAULT "ABCD";
+--error ER_BLOB_CANT_HAVE_DEFAULT
+ALTER TABLE t1 ADD COLUMN u2 TEXT NOT NULL DEFAULT "ABCD";
+--error ER_BLOB_CANT_HAVE_DEFAULT
+ALTER TABLE t1 ADD COLUMN u3 TEXT NOT NULL DEFAULT '{"k1": "value", "k2": 10}';
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+DROP TABLE t1;
+
+--echo #
+--echo # Scenario 2:
+--echo # Create a small table, add some columns instantly, then
+--echo # execute non-instant ddl, check dd should be cleared 
+--echo #
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 100, ADD COLUMN d VARCHAR(100) DEFAULT 'Hello world';
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 DROP COLUMN c;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+let $new_cols = 3;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 101;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+DROP TABLE t1;
+
+--echo #
+--echo # Scenario 3:
+--echo # Create a small table, add some columns instantly, then
+--echo # execute truncate table, check dd should be cleared 
+--echo #
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 100, ADD COLUMN d VARCHAR(100) DEFAULT 'Hello world';
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+let $new_cols = 2;
+let $instant_add_column = TRUNCATE TABLE t1;
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+DROP TABLE t1;
+
+--echo #
+--echo # Scenario 4:
+--echo # Create a small table, add some columns instantly, then change
+--echo # their default values, check original default values are correct
+--echo #
+
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+
+let $new_cols = 2;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 100, ADD COLUMN e VARCHAR(100) DEFAULT 'Hello world';
+--source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
+
+ALTER TABLE t1 ALTER COLUMN c SET DEFAULT 500;
+
+--disable_query_log ONCE
+SET SESSION debug='+d,skip_dd_table_access_check';
+# instant info should be cleared
+SELECT count(*) FROM mysql.columns WHERE name = 'c' AND se_private_data is not NULL;
+SELECT count(*) FROM mysql.columns WHERE name = 'e' AND se_private_data is not NULL;
+--disable_query_log ONCE
+SET SESSION debug= '-d,skip_dd_table_access_check';
+
+ALTER TABLE t1 ALTER COLUMN e SET DEFAULT 'HELLO MySQL!';
+
+--disable_query_log ONCE
+SET SESSION debug='+d,skip_dd_table_access_check';
+# instant info should be cleared
+SELECT count(*) FROM mysql.columns WHERE name = 'e' AND se_private_data is not NULL;
+--disable_query_log ONCE
+SET SESSION debug= '-d,skip_dd_table_access_check';
+
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+DROP TABLE t1;
+
+set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;

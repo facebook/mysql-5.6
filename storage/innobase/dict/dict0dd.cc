@@ -1667,6 +1667,7 @@ bool dd_instant_columns_exist(const dd::Table &dd_table) {
                                  &n_cols);
 
   for (auto col : dd_table.columns()) {
+    // virtual cols aren't stored in records
     if (col->is_virtual() || col->is_se_hidden()) {
       continue;
     }

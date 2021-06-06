@@ -154,6 +154,7 @@ SET(ROCKSDB_SOURCES
   ha_rockspart.cc ha_rockspart.h
   ../../sql/partitioning/partition_base.cc
   nosql_access.cc nosql_access.h
+  sql_dd.cc sql_dd.h
   ${ROCKSDB_LIB_SOURCES}
 )
 
