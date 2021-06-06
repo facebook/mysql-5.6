@@ -2,5 +2,5 @@
 # wl#8919  Implement NOWAIT and SKIP LOCKED
 #
 
---let $engine=INNODB
+--let $engine=ROCKSDB
 --source include/skip_locked_nowait.inc

@@ -541,9 +541,9 @@ rocksdb_select_bypass_rejected	38
 SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE;
 ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
 SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE SKIP LOCKED;
-ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
+ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
 SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE NOWAIT;
-ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
+ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
 SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 LOCK IN SHARE MODE;
 ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
