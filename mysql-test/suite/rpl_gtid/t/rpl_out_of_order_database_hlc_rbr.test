@@ -77,7 +77,9 @@ select * from information_schema.database_applied_hlc order by 2, 1;
 DROP TABLE t1;
 DROP TABLE t2;
 --eval SET SESSION DEBUG = "-d,allow_long_hlc_drift_for_tests"
+--eval SET SESSION DEBUG = "+d,reset_hlc_for_tests"
 --eval SET GLOBAL minimum_hlc_ns = $saved_minimum_hlc_ns
+--eval SET SESSION DEBUG = "-d,reset_hlc_for_tests"
 --eval SET GLOBAL enable_binlog_hlc = $saved_master_enable_binlog_hlc
 --eval SET GLOBAL maintain_database_hlc = $saved_master_maintain_database_hlc
 --source include/sync_slave_sql_with_master.inc
