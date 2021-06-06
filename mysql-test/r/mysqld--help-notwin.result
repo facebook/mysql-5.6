@@ -1966,6 +1966,9 @@ The following options may be given as the first argument:
  RocksDB
  --rocksdb-disable-file-deletions 
  Prevent file deletions
+ --rocksdb-disable-instant-ddl 
+ Disable instant ddl during alter table
+ (Defaults to on; use --skip-rocksdb-disable-instant-ddl to disable.)
  --rocksdb-enable-2pc 
  Enable two phase commit for MyRocks
  (Defaults to on; use --skip-rocksdb-enable-2pc to disable.)
@@ -2049,8 +2052,6 @@ The following options may be given as the first argument:
  Filter level for info logs to be written mysqld error
  log. Valid values include 'debug_level', 'info_level',
  'warn_level''error_level' and 'fatal_level'.
- --rocksdb-instant-ddl 
- Allow instant ddl during alter table
  --rocksdb-io-write-timeout=# 
  Timeout for experimental I/O watchdog.
  --rocksdb-is-fd-close-on-exec 
@@ -3464,6 +3465,7 @@ rocksdb-delayed-write-rate 0
 rocksdb-delete-cf 
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-disable-file-deletions FALSE
+rocksdb-disable-instant-ddl TRUE
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-delete-range-for-drop-index FALSE
@@ -3489,7 +3491,6 @@ rocksdb-ignore-unknown-options TRUE
 rocksdb-index-file-map ON
 rocksdb-index-type kBinarySearch
 rocksdb-info-log-level error_level
-rocksdb-instant-ddl FALSE
 rocksdb-io-write-timeout 0
 rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000

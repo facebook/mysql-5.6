@@ -961,8 +961,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   bool commit_inplace_alter_table(
       TABLE *const altered_table,
       my_core::Alter_inplace_info *const ha_alter_info, bool commit,
-      const dd::Table *old_table_def MY_ATTRIBUTE((unused)),
-      dd::Table *new_table_def MY_ATTRIBUTE((unused))) override;
+      const dd::Table *old_dd_tab, dd::Table *new_dd_tab) override;
+
+  /* Determine if this is an instant ALTER TABLE. */
+  static inline bool is_instant(const Alter_inplace_info *ha_alter_info);
 
   bool is_read_free_rpl_table() const;
   static int adjust_handler_stats_sst_and_memtable(ha_statistics *ha_stats,

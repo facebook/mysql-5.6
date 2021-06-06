@@ -82,6 +82,7 @@
 #include "util/stop_watch.h"
 
 /* MyRocks includes */
+#include <rapidjson/document.h>
 #include "./event_listener.h"
 #include "./ha_rocksdb_proto.h"
 #include "./ha_rockspart.h"
@@ -97,10 +98,9 @@
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_psi.h"
 #include "./rdb_threads.h"
-
+#include "./sql_dd.h"
 #include "my_rapidjson_size_t.h"
 
-#include <rapidjson/document.h>
 
 #ifdef FB_HAVE_WSENV
 #include "./ObjectFactory.h"
@@ -821,7 +821,7 @@ static unsigned long long  // NOLINT(runtime/int)
 static bool rocksdb_skip_locks_if_skip_unique_check = false;
 static bool rocksdb_alter_column_default_inplace = false;
 static bool rocksdb_alter_table_comment_inplace = false;
-static bool rocksdb_instant_ddl = false;
+static bool rocksdb_disable_instant_ddl = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
 
@@ -2505,9 +2505,10 @@ static MYSQL_THDVAR_ULONGLONG(
     nullptr, nullptr,
     /* default */ 0, /* min */ 0, /* max */ SIZE_T_MAX, 1);
 
-static MYSQL_SYSVAR_BOOL(instant_ddl, rocksdb_instant_ddl, PLUGIN_VAR_RQCMDARG,
-                         "Allow instant ddl during alter table", nullptr,
-                         nullptr, false);
+static MYSQL_SYSVAR_BOOL(disable_instant_ddl, rocksdb_disable_instant_ddl,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Disable instant ddl during alter table", nullptr,
+                         nullptr, true);
 
 static MYSQL_SYSVAR_BOOL(enable_tmp_table, rocksdb_enable_tmp_table,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -2725,7 +2726,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(skip_locks_if_skip_unique_check),
     MYSQL_SYSVAR(alter_column_default_inplace),
     MYSQL_SYSVAR(partial_index_sort_max_mem),
-    MYSQL_SYSVAR(instant_ddl),
+    MYSQL_SYSVAR(disable_instant_ddl),
     MYSQL_SYSVAR(enable_tmp_table),
     MYSQL_SYSVAR(alter_table_comment_inplace),
     MYSQL_SYSVAR(column_default_value_as_expression),
@@ -13820,7 +13821,7 @@ ha_rocksdb::Instant_Type ha_rocksdb::rocksdb_support_instant(
     my_core::Alter_inplace_info *const ha_alter_info MY_ATTRIBUTE((unused)),
     const TABLE *old_table MY_ATTRIBUTE((unused)),
     const TABLE *altered_table MY_ATTRIBUTE((unused))) const {
-  if (rocksdb_instant_ddl) {
+  if (rocksdb_disable_instant_ddl) {
     return Instant_Type::INSTANT_IMPOSSIBLE;
   }
 
@@ -13839,11 +13840,13 @@ ha_rocksdb::Instant_Type ha_rocksdb::rocksdb_support_instant(
     return (Instant_Type::INSTANT_IMPOSSIBLE);
   }
 
+  if (m_tbl_def->m_is_mysql_system_table) {
+    return (Instant_Type::INSTANT_IMPOSSIBLE);
+  }
+
   /* If it's an ADD COLUMN without changing existing column orders */
   if (alter_inplace_flags == Alter_inplace_info::ADD_STORED_BASE_COLUMN) {
-    /* after add col instant support, return Instant_Type::INSTANT_ADD_COLUMN
-     * */
-    return (Instant_Type::INSTANT_IMPOSSIBLE);
+    return (Instant_Type::INSTANT_ADD_COLUMN);
   }
 
   // by default, impossible to do instant ddl
@@ -14160,6 +14163,13 @@ bool ha_rocksdb::inplace_alter_table(
   bool res = HA_EXIT_SUCCESS;
   Rdb_inplace_alter_ctx *const ctx =
       static_cast<Rdb_inplace_alter_ctx *>(ha_alter_info->handler_ctx);
+
+  // dothing for instant DDL during inplace_alter_table
+  if (is_instant(ha_alter_info)) {
+    // ok_exit:
+    DEBUG_SYNC(ha_thd(), "rocksdb_after_inplace_alter_table");
+    DBUG_RETURN(res);
+  }
 
   if (!(ha_alter_info->handler_flags &
         (my_core::Alter_inplace_info::ADD_INDEX |
@@ -14484,8 +14494,7 @@ int ha_rocksdb::inplace_populate_sk(
 bool ha_rocksdb::commit_inplace_alter_table(
     my_core::TABLE *const altered_table,
     my_core::Alter_inplace_info *const ha_alter_info, bool commit,
-    const dd::Table *old_table_def MY_ATTRIBUTE((unused)),
-    dd::Table *new_table_def MY_ATTRIBUTE((unused))) {
+    const dd::Table *old_dd_tab, dd::Table *new_dd_tab) {
   DBUG_ENTER_FUNC();
 
   assert(altered_table != nullptr);
@@ -14579,6 +14588,12 @@ bool ha_rocksdb::commit_inplace_alter_table(
 
   assert(ctx0 == ctx_array[0]);
   ha_alter_info->group_commit_ctx = nullptr;
+
+  if (is_instant(ha_alter_info)) {
+    /* update dd data  */
+    dd_commit_instant_table(table, altered_table, old_dd_tab, new_dd_tab);
+  }
+
   uint table_default_cf_id =
       m_tbl_def->m_key_descr_arr[0]->get_gl_index_id().cf_id;
   if (ha_alter_info->handler_flags &
@@ -14735,6 +14750,16 @@ bool ha_rocksdb::commit_inplace_alter_table(
     }
   }
   DBUG_RETURN(HA_EXIT_SUCCESS);
+}
+
+/** Determine if this is an instant ALTER TABLE.
+This can be checked in inplace_alter_table() functions, which are called
+after check_if_supported_inplace_alter()
+@param[in]   ha_alter_info   The DDL operation
+@return whether it's an instant ALTER TABLE */
+inline bool ha_rocksdb::is_instant(const Alter_inplace_info *ha_alter_info) {
+  return (ha_alter_info->handler_trivial_ctx !=
+          static_cast<uint8_t>(Instant_Type::INSTANT_IMPOSSIBLE));
 }
 
 #define SHOW_FNAME(name) rocksdb_show_##name
