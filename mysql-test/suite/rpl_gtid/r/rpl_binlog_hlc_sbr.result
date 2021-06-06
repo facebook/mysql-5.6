@@ -311,7 +311,9 @@ slave-bin.000002	#	Query	#	#	BEGIN
 slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(13, 'k')
 slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
 drop table if exists t1;
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";
 SET @@global.enable_binlog_hlc = default;
 include/sync_slave_sql_with_master.inc
 SET @@global.enable_binlog_hlc = default;

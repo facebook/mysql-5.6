@@ -54,7 +54,9 @@ test	2538630000000000002	1
 DROP TABLE t1;
 DROP TABLE t2;
 SET SESSION DEBUG = "-d,allow_long_hlc_drift_for_tests";
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET GLOBAL minimum_hlc_ns = 0;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";
 SET GLOBAL enable_binlog_hlc = 0;
 SET GLOBAL maintain_database_hlc = 0;
 include/sync_slave_sql_with_master.inc
