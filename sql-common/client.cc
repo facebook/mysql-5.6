@@ -3385,6 +3385,10 @@ void mysql_extension_free(MYSQL_EXTENSION *ext) {
     if (ext->mysql_async_context->connect_context) {
       mysql_async_connect *ctx = ext->mysql_async_context->connect_context;
       if (ctx->auth_context) {
+        mysql_async_auth *auth_context = ctx->auth_context;
+        if (auth_context->saved_user) my_free(auth_context->saved_user);
+        if (auth_context->saved_passwd) my_free(auth_context->saved_passwd);
+        if (auth_context->saved_db) my_free(auth_context->saved_db);
         my_free(ctx->auth_context);
       }
       if (ctx->scramble_buffer_allocated) {
