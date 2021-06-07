@@ -1,0 +1,51 @@
+--source include/have_thread_pool_plugin.inc
+
+####
+# Verify default value is ON
+####
+--echo Default value of thread_pool_admission_control_multiquery_filter is OFF
+SELECT @@global.thread_pool_admission_control_multiquery_filter;
+
+####
+# Verify that this is not a session variable
+####
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.thread_pool_admission_control_multiquery_filter;
+--error ER_GLOBAL_VARIABLE
+SET session thread_pool_admission_control_multiquery_filter = 0;
+
+####
+## Verify that the variable is dynamic
+####
+--echo thread_pool_admission_control_multiquery_filter is a dynamic variable (change to "ON")
+set @@global.thread_pool_admission_control_multiquery_filter = on;
+SELECT @@global.thread_pool_admission_control_multiquery_filter;
+set @@global.thread_pool_admission_control_multiquery_filter = "on";
+SELECT @@global.thread_pool_admission_control_multiquery_filter;
+set @@global.thread_pool_admission_control_multiquery_filter = 1;
+SELECT @@global.thread_pool_admission_control_multiquery_filter;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+set @@global.thread_pool_admission_control_multiquery_filter = off;
+SELECT @@global.thread_pool_admission_control_multiquery_filter;
+set @@global.thread_pool_admission_control_multiquery_filter = "off";
+SELECT @@global.thread_pool_admission_control_multiquery_filter;
+set @@global.thread_pool_admission_control_multiquery_filter = 0;
+SELECT @@global.thread_pool_admission_control_multiquery_filter;
+set @@global.thread_pool_admission_control_multiquery_filter = default;
+SELECT @@global.thread_pool_admission_control_multiquery_filter;
+
+####
+## Verify bool type
+####
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.thread_pool_admission_control_multiquery_filter = offline;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.thread_pool_admission_control_multiquery_filter = "offline";
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.thread_pool_admission_control_multiquery_filter = 2;
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.thread_pool_admission_control_multiquery_filter = 1.0;
