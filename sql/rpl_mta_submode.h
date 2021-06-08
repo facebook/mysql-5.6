@@ -138,8 +138,6 @@ class Mts_submode_dependency : public Mts_submode {
   /* Set of keys accessed by the group */
   std::unordered_set<Dependency_key> keys_accessed_by_group;
 
-  bool dep_sync_group = false;
-
   std::shared_ptr<Log_event_wrapper> prev_event;
   std::shared_ptr<Log_event_wrapper> current_begin_event;
   std::unordered_map<ulonglong, Table_map_log_event *> table_map_events;
@@ -148,6 +146,14 @@ class Mts_submode_dependency : public Mts_submode {
   std::atomic<ulonglong> begin_event_waits{0};
   std::atomic<ulonglong> next_event_waits{0};
   std::atomic<ulonglong> num_in_flight_trx{0};
+  std::atomic<ulonglong> num_syncs{0};
+
+  bool dep_sync_group = false;
+
+#ifndef NDEBUG
+  std::mutex dep_fake_gap_lock;
+  Slave_worker *dep_fake_gap_lock_worker = nullptr;
+#endif
 
   Mts_submode_dependency() {
     type = MTS_PARALLEL_TYPE_DEPENDENCY;
@@ -182,6 +188,11 @@ class Mts_submode_dependency : public Mts_submode {
                                           Log_event *) override {
     assert(false);
     return nullptr;
+  }
+
+  void set_dep_sync_group(bool val) {
+    dep_sync_group = val;
+    if (dep_sync_group) ++num_syncs;
   }
 
   int wait_for_workers_to_finish(Relay_log_info *rli,

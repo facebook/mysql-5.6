@@ -37,6 +37,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include <../include/mysql/service_thd_engine_lock.h>
 #include "lex_string.h"
 #include "m_string.h"
 #include "map_helpers.h"
@@ -2913,10 +2914,37 @@ int slave_worker_exec_single_job(Slave_worker *worker, Relay_log_info *rli,
   error = worker->slave_worker_exec_event(ev);
   ev_wrap->set_slave_worker(worker);
 
+  DBUG_EXECUTE_IF("dbug.dep_fake_gap_lock_on_insert", {
+    auto scheduler =
+        static_cast<Mts_submode_dependency *>(rli->current_mts_submode);
+    if (ev->get_type_code() == binary_log::WRITE_ROWS_EVENT) {
+      if (!scheduler->dep_fake_gap_lock.try_lock()) {
+        thd_report_row_lock_wait(thd,
+                                 scheduler->dep_fake_gap_lock_worker->info_thd);
+        scheduler->dep_fake_gap_lock.lock();
+        scheduler->dep_fake_gap_lock_worker = worker;
+      } else {
+        scheduler->dep_fake_gap_lock_worker = worker;
+      }
+    } else if (ev->ends_group() &&
+               worker == scheduler->dep_fake_gap_lock_worker) {
+      scheduler->dep_fake_gap_lock_worker = nullptr;
+      scheduler->dep_fake_gap_lock.unlock();
+    }
+  };);
+
   set_timespec_nsec(&worker->ts_exec[1], 0);  // pre-exec
   worker->stats_exec_time +=
       diff_timespec(&worker->ts_exec[1], &worker->ts_exec[0]);
   if (error || worker->found_commit_order_deadlock()) {
+    DBUG_EXECUTE_IF("dbug.dep_fake_gap_lock_on_insert", {
+      auto scheduler =
+          static_cast<Mts_submode_dependency *>(rli->current_mts_submode);
+      if (worker == scheduler->dep_fake_gap_lock_worker) {
+        scheduler->dep_fake_gap_lock_worker = nullptr;
+        scheduler->dep_fake_gap_lock.unlock();
+      }
+    };);
     error = worker->retry_transaction(start_relay_number, start_relay_pos,
                                       ev_wrap->get_event_relay_log_number(),
                                       ev_wrap->get_event_start_pos());

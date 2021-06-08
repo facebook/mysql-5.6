@@ -16212,7 +16212,7 @@ void Log_event::prepare_dep(Relay_log_info *rli,
           get_type_str(), rli->get_group_master_log_name(),
           rli->get_group_master_log_pos());
 
-      submode->dep_sync_group = true;
+      submode->set_dep_sync_group(true);
       ev->is_begin_event = true;
     }
   }
@@ -16265,7 +16265,7 @@ void Query_log_event::prepare_dep(Relay_log_info *rli,
       }
     }
 
-    submode->dep_sync_group = true;
+    submode->set_dep_sync_group(true);
   }
 
   DBUG_VOID_RETURN;

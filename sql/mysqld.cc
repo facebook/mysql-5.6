@@ -1596,6 +1596,7 @@ ulong sql_duplicate_executions_control;
 bool slave_high_priority_ddl = false;
 double slave_high_priority_lock_wait_timeout_double = 1.0;
 ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
+std::atomic<ulonglong> slave_commit_order_deadlocks(0);
 std::atomic<ulonglong> slave_high_priority_ddl_executed(0);
 std::atomic<ulonglong> slave_high_priority_ddl_killed_connections(0);
 
@@ -10344,6 +10345,24 @@ static int show_slave_dependency_next_waits(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+static int show_slave_dependency_num_syncs(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->num_syncs.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
 static int show_slave_before_image_inconsistencies(THD *, SHOW_VAR *var,
                                                    char *buff) {
   channel_map.rdlock();
@@ -10355,6 +10374,21 @@ static int show_slave_before_image_inconsistencies(THD *, SHOW_VAR *var,
   } else {
     var->type = SHOW_UNDEF;
   }
+
+  channel_map.unlock();
+  return 0;
+}
+
+static int show_slave_commit_order_deadlocks(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((longlong *)buff) = slave_commit_order_deadlocks.load();
+  } else
+    var->type = SHOW_UNDEF;
 
   channel_map.unlock();
   return 0;
@@ -10951,6 +10985,8 @@ SHOW_VAR status_vars[] = {
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
     {"Select_scan", (char *)offsetof(System_status_var, select_scan_count),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
+    {"Slave_commit_order_deadlocks", (char *)&show_slave_commit_order_deadlocks,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slave_open_temp_tables", (char *)&show_replica_open_temp_tables,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
 #ifndef NDEBUG
@@ -10968,6 +11004,8 @@ SHOW_VAR status_vars[] = {
     {"Slave_dependency_begin_waits", (char *)&show_slave_dependency_begin_waits,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slave_dependency_next_waits", (char *)&show_slave_dependency_next_waits,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_num_syncs", (char *)&show_slave_dependency_num_syncs,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slave_high_priority_ddl_executed",
      (char *)&slave_high_priority_ddl_executed, SHOW_LONGLONG, SHOW_SCOPE_ALL},

@@ -1119,7 +1119,7 @@ void Mts_submode_dependency::add_row_event(
   if (unlikely(!rle->get_keys(rli, keylist) ||
                keylist.size() + keys_accessed_by_group.size() >
                    rli->mts_dependency_max_keys)) {
-    dep_sync_group = true;
+    set_dep_sync_group(true);
     keylist.clear();
     keys_accessed_by_group.clear();
     return;
@@ -1292,8 +1292,8 @@ bool Mts_submode_dependency::schedule_dep(Relay_log_info *rli, Log_event *ev) {
 
     // we execute the trx in isolation if num_dbs is greater than one and if
     // OVER_MAX_DBS_IN_EVENT_MTS is set
-    dep_sync_group = dep_sync_group || num_dbs == OVER_MAX_DBS_IN_EVENT_MTS ||
-                     (dbs_accessed_by_group.size() > 1);
+    set_dep_sync_group(dep_sync_group || num_dbs == OVER_MAX_DBS_IN_EVENT_MTS ||
+                       (dbs_accessed_by_group.size() > 1));
   }
 
   if (unlikely(dep_sync_group)) {
@@ -1334,7 +1334,7 @@ bool Mts_submode_dependency::schedule_dep(Relay_log_info *rli, Log_event *ev) {
   // case: this group needs to be executed in isolation
   if (unlikely(dep_sync_group && evw->is_end_event)) {
     if (wait_for_workers_to_finish(rli) == -1) DBUG_RETURN(false);
-    dep_sync_group = false;
+    set_dep_sync_group(false);
   }
 
   DBUG_RETURN(true);
@@ -1389,13 +1389,19 @@ void Mts_submode_dependency::handle_terminal_event(
     // If there are conflicts we expect row locks to kick in and in that case
     // we'll automatically wait for the conflicting trx to commit.
     //
+    // Note that this is not required for STMT mode since we'll already be
+    // depending on trxs based on actual row conflicts. So we depend on the end
+    // event directly.
+    //
     // Why penultimate though? Why not just depend on the conflicting row event?
     // This is done to support trx retries. On secondaries we're allowed to
     // retry trx on temprary errors like lock wait timeouts. Depending on
     // penultimate event allows the trx we depend on to retry execution,
     // otherwise we'll end up taking the row lock as soon as the row we depend
     // on is executed which can create deadlock if commit ordering is enabled.
-    auto to_add = prev_event ? prev_event : evw;
+    auto to_add = rli->mts_dependency_replication == DEP_RPL_TABLE && prev_event
+                      ? prev_event
+                      : evw;
     register_keys(to_add);
 
     // update rli state

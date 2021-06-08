@@ -1,0 +1,30 @@
+source include/have_debug.inc;
+#source include/have_innodb.inc;
+source include/have_debug_sync.inc;
+
+create table t1 (a int primary key, b int unique, c int) engine = innodb;
+insert into t1 values(1, 1, 1);
+insert into t1 values(10, 10, 10);
+set @@global.debug = "+d,report_row_lock_wait";
+
+select @@tx_isolation;
+
+connect (con1, localhost, root);
+begin;
+delete from t1 where a > 5; # this will take a gap lock
+
+connection default;
+begin;
+send insert into t1 values(6, 6, 6); # this will block on gap lock
+
+connection con1;
+set debug_sync="now wait_for signal.reached"; # callback was fired
+set debug_sync="now signal signal.done";
+set @@global.debug = "-d,report_row_lock_wait";
+rollback;
+disconnect con1;
+
+connection default;
+reap;
+select * from t1;
+drop table t1;
