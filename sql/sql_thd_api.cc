@@ -714,6 +714,12 @@ void thd_wait_end(MYSQL_THD thd) {
 void thd_report_row_lock_wait(THD *self, THD *wait_for) {
   DBUG_TRACE;
 
+  DBUG_EXECUTE_IF("report_row_lock_wait", {
+    const char act[] = "now signal signal.reached wait_for signal.done";
+    DBUG_ASSERT(opt_debug_sync_timeout > 0);
+    DBUG_ASSERT(!debug_sync_set_action(self, STRING_WITH_LEN(act)));
+  };);
+
   if (self != nullptr && wait_for != nullptr && is_mts_worker(self) &&
       is_mts_worker(wait_for))
     Commit_order_manager::check_and_report_deadlock(self, wait_for);

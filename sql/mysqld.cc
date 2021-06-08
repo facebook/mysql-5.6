@@ -1545,6 +1545,7 @@ double slave_high_priority_lock_wait_timeout_double = 1.0;
 ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
 std::atomic<ulonglong> slave_high_priority_ddl_executed(0);
 std::atomic<ulonglong> slave_high_priority_ddl_killed_connections(0);
+std::atomic<ulonglong> slave_commit_order_deadlocks(0);
 bool log_datagram = false;
 ulong log_datagram_usecs = 0;
 int log_datagram_sock = -1;
@@ -9906,6 +9907,24 @@ static int show_slave_dependency_next_waits(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+static int show_slave_dependency_num_syncs(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->num_syncs.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
 /**
   After Multisource replication, this function only shows the value
   of default channel.
@@ -10007,6 +10026,21 @@ static int show_slave_last_heartbeat(THD *thd, SHOW_VAR *var, char *buff) {
           static_cast<my_time_t>(mi->last_heartbeat / 1000000));
       my_datetime_to_str(received_heartbeat_time, buff, 0);
     }
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
+static int show_slave_commit_order_deadlocks(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((longlong *)buff) = slave_commit_order_deadlocks.load();
   } else
     var->type = SHOW_UNDEF;
 
@@ -10610,6 +10644,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Slave_retried_transactions", (char *)&show_slave_retried_trans, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Slave_commit_order_deadlocks", (char *)&show_slave_commit_order_deadlocks,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slave_heartbeat_period", (char *)&show_heartbeat_period, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Slave_received_heartbeats", (char *)&show_slave_received_heartbeats,
@@ -10633,6 +10669,8 @@ SHOW_VAR status_vars[] = {
     {"Slave_dependency_begin_waits", (char *)&show_slave_dependency_begin_waits,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slave_dependency_next_waits", (char *)&show_slave_dependency_next_waits,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_num_syncs", (char *)&show_slave_dependency_num_syncs,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slave_high_priority_ddl_executed",
      (char *)&slave_high_priority_ddl_executed, SHOW_LONGLONG, SHOW_SCOPE_ALL},
