@@ -269,6 +269,7 @@ void Commit_order_manager::check_and_report_deadlock(THD *thd_self,
 void Commit_order_manager::report_deadlock(Slave_worker *worker) {
   DBUG_TRACE;
   mysql_mutex_lock(&m_mutex);
+  ++slave_commit_order_deadlocks;
   worker->report_commit_order_deadlock();
   DBUG_EXECUTE_IF("rpl_fake_cod_deadlock", {
     const char act[] = "now signal reported_deadlock";

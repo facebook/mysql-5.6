@@ -1,0 +1,21 @@
+create table t1 (a int primary key, b int unique, c int) engine = innodb;
+insert into t1 values(1, 1, 1);
+insert into t1 values(10, 10, 10);
+set @@global.debug = "+d,report_row_lock_wait";
+select @@tx_isolation;
+@@tx_isolation
+REPEATABLE-READ
+begin;
+delete from t1 where a > 5;
+begin;
+insert into t1 values(6, 6, 6);
+set debug_sync="now wait_for signal.reached";
+set debug_sync="now signal signal.done";
+set @@global.debug = "-d,report_row_lock_wait";
+rollback;
+select * from t1;
+a	b	c
+1	1	1
+6	6	6
+10	10	10
+drop table t1;
