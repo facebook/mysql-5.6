@@ -1,0 +1,129 @@
+source include/master-slave.inc;
+source include/have_mts_dependency_replication_stmt.inc;
+
+# Restart the secondary to clear out the sync trx counter
+let $rpl_server_number=2;
+let $rpl_server_parameters=--skip-slave-start=0
+source include/rpl_restart_server.inc;
+
+echo "Case 1: Primary and Secondary has the same schema";
+connection master;
+set @@sql_log_bin = 0;
+create table t1(a int primary key) engine = innodb;
+set @@sql_log_bin = 1;
+
+connection slave;
+set @@sql_log_bin = 0;
+create table t1(a int primary key) engine = innodb;
+set @@sql_log_bin = 1;
+
+connection master;
+echo "Insert a row on the primary";
+insert into t1 values(1);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+echo "The sync tranasction counter should not increment";
+show status like 'Slave_dependency_num_syncs';
+
+connection master;
+set @@sql_log_bin = 0;
+drop table t1;
+set @@sql_log_bin = 1;
+
+connection slave;
+set @@sql_log_bin = 0;
+drop table t1;
+set @@sql_log_bin = 1;
+
+
+echo "Case 2: Primary has an extra unique key";
+connection master;
+set @@sql_log_bin = 0;
+create table t1(a int primary key, b int unique) engine = innodb;
+set @@sql_log_bin = 1;
+
+connection slave;
+set @@sql_log_bin = 0;
+create table t1(a int primary key) engine = innodb;
+set @@sql_log_bin = 1;
+
+connection master;
+echo "Insert a row on the primary";
+insert into t1 values(1, 1);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+echo "The sync tranasction counter should not increment";
+show status like 'Slave_dependency_num_syncs';
+
+connection master;
+set @@sql_log_bin = 0;
+drop table t1;
+set @@sql_log_bin = 1;
+
+connection slave;
+set @@sql_log_bin = 0;
+drop table t1;
+set @@sql_log_bin = 1;
+
+
+echo "Case 3: Secondary has extra unique key";
+connection master;
+set @@sql_log_bin = 0;
+create table t1(a int primary key) engine = innodb;
+set @@sql_log_bin = 1;
+
+connection slave;
+set @@sql_log_bin = 0;
+create table t1(a int primary key, b int unique) engine = innodb;
+set @@sql_log_bin = 1;
+
+connection master;
+echo "Insert a row on the primary";
+insert into t1 values(1);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+echo "Check if the transaction was executed in sync mode because all keys were not found on the secondary";
+show status like 'Slave_dependency_num_syncs';
+echo "We should have registered t1 as a table which should use table deps now";
+
+begin;
+echo "Start a trx on the secondary to block an incoming trx from the primary";
+insert into t1 values(2, 2);
+
+connection master;
+echo "The 1st insert will block on the applier because of the trx we started on the secondary";
+insert into t1 values(2);
+echo "The 2nd insert will go thru but should be waiting for the 1st trx due to TBL dependency";
+insert into t1 values(3);
+
+connection slave1;
+echo "Check if 2nd trx is indeed waiting for dependencies";
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = 'Waiting for dependencies to be satisfied';
+source include/wait_condition.inc;
+
+connection slave;
+echo "Unblock the 1st trx by rolling back trx on secondary";
+rollback;
+
+connection slave;
+echo "Check if stop slave command clears the table dependency tables";
+stop replica;
+start replica;
+
+connection master;
+echo "Insert another row on the primary, since table dependency tables have been cleared, this trx should be applied in sync mode on the secondary";
+insert into t1 values(4);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+echo "Check if the transaction was executed in sync mode";
+show status like 'Slave_dependency_num_syncs';
+
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
