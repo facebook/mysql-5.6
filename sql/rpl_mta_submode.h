@@ -138,6 +138,9 @@ class Mts_submode_dependency : public Mts_submode {
   /* Set of keys accessed by the group */
   std::unordered_set<Dependency_key> keys_accessed_by_group;
 
+  /* Set of tables that'll run in TBL mode */
+  std::unordered_set<std::string> tbl_mode_tables;
+
   std::shared_ptr<Log_event_wrapper> prev_event;
   std::shared_ptr<Log_event_wrapper> current_begin_event;
   std::unordered_map<ulonglong, Table_map_log_event *> table_map_events;
@@ -254,6 +257,8 @@ class Mts_submode_dependency : public Mts_submode {
     mysql_mutex_unlock(&dep_key_lookup_mutex);
 
     trx_queued = false;
+
+    tbl_mode_tables.clear();
 
     if (need_dep_lock) mysql_mutex_unlock(&dep_lock);
   }
