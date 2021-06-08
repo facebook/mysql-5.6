@@ -914,6 +914,8 @@ class Slave_worker : public Relay_log_info {
 
   longlong sequence_number() {
     Slave_job_group *ptr_g = c_rli->gaq->get_job_group(gaq_index);
+    if (current_mts_submode->get_type() == MTS_PARALLEL_TYPE_DEPENDENCY)
+      return ptr_g->total_seqno;
     return ptr_g->sequence_number;
   }
   const std::unordered_set<std::string>

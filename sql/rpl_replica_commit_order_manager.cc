@@ -386,6 +386,7 @@ void Commit_order_manager::report_deadlock(Slave_worker *worker,
                                            std::string db) {
   DBUG_TRACE;
   auto &worker_db = get_workers(worker, db);
+  ++slave_commit_order_deadlocks;
   worker->report_commit_order_deadlock();
   DBUG_EXECUTE_IF("rpl_fake_cod_deadlock", {
     const char act[] = "now signal reported_deadlock";

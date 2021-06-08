@@ -1,0 +1,68 @@
+source include/master-slave.inc;
+source include/have_mts_dependency_replication_stmt.inc;
+source include/have_debug.inc;
+
+call mtr.add_suppression("Commit order deadlock between");
+
+connection master;
+create table t1 (a int primary key, b int) engine = innodb;
+insert into t1 values(3, 3);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+stop replica;
+# We'll take a fake gap lock after execution of every insert event
+set @@global.debug = "+d,dbug.dep_fake_gap_lock_on_insert";
+
+# Start a trx to block the 1st insert that primary will send to create a gap in
+# commit order
+begin;
+insert into t1 values(1, 1);
+
+connection master;
+insert into t1 values(1, 1); # this will be blocked by trx above
+insert into t1 values(2, 2); # this will take the fake gap lock and wait for commit order
+update t1 set b = 20 where a = 2; # this will wait for above trx due to deps
+update t1 set b = 200 where a = 2; # this will wait for above trx due to deps
+update t1 set b = 30 where a = 3; # this will wait for commit order
+update t1 set b = 300 where a = 3; # this will wait for above trx due to deps
+
+connection slave1;
+start replica;
+# Wait for the 2nd and 5th trx to start waiting for commit ordering
+let $wait_condition= SELECT COUNT(*) = 2 FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE STATE LIKE "%Waiting for preceding transaction to commit%";
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+
+# Wait for the 3rd, 4th and 6th trx to wait for dependencies
+let $wait_condition= SELECT COUNT(*) = 3 FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE STATE LIKE "%Waiting for dependencies to be satisfied%";
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+
+connection slave;
+# unblock 1st insert trx, it'll try to lock fake gap and fire the callback
+rollback;
+
+# Wait for 2nd transcation to be retried after receiving the commit order
+# deadlock signal
+let $wait_condition= SELECT VARIABLE_VALUE = 1 FROM performance_schema.global_status WHERE VARIABLE_NAME = 'Slave_commit_order_deadlocks';
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+select * from t1;
+
+stop replica;
+set @@global.debug = "-d,dbug.dep_fake_gap_lock_on_insert";
+start replica;
+
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
