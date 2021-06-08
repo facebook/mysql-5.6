@@ -6929,15 +6929,15 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
         new Item_int((ulonglong) thd->variables.select_limit);
   }
 
+  if (mysql_bin_log.wait_for_hlc_applied(thd, all_tables)) {
+    return 1;
+  }
+
 #ifdef HAVE_MY_TIMER
   //check if timer is applicable to statement, if applicable then set timer.
   if (is_timer_applicable_to_statement(thd))
     statement_timer_armed= set_statement_timer(thd);
 #endif
-
-  if (mysql_bin_log.wait_for_hlc_applied(thd, all_tables)) {
-    return 1;
-  }
 
   res = open_normal_and_derived_tables(thd, all_tables, 0);
 
