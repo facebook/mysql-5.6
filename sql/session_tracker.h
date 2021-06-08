@@ -242,6 +242,8 @@ public:
   Session_resp_attr_tracker()
   { m_forced_enabled = false; m_changed = false; m_enabled = false; }
 
+  static constexpr size_t MAX_RESP_ATTR_LEN = 60000;
+
   bool enable(THD *thd) override;
   bool force_enable() override { m_forced_enabled = true; return false; }
   bool check(THD *thd, set_var *var) override { return false; }

@@ -23,6 +23,7 @@
 
 /* To be used in expanding the buffer. */
 static const unsigned int EXTRA_ALLOC= 1024;
+constexpr size_t Session_resp_attr_tracker::MAX_RESP_ATTR_LEN;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -373,9 +374,13 @@ void Session_resp_attr_tracker::mark_as_changed(THD *thd,
                                                 LEX_CSTRING *value)
 {
   DBUG_ASSERT(key->length > 0);
-  std::string k(key->str, key->length);
+  DBUG_ASSERT(key->length <= MAX_RESP_ATTR_LEN);
+  DBUG_ASSERT(value->length > 0);
+  DBUG_ASSERT(value->length <= MAX_RESP_ATTR_LEN);
 
-  attrs_[k] = std::string(value->str, value->length);
+  std::string k(key->str, std::min(key->length, MAX_RESP_ATTR_LEN));
+  std::string val(value->str, std::min(value->length, MAX_RESP_ATTR_LEN));
+  attrs_[std::move(k)] = std::move(val);
   m_changed= true;
 }
 
