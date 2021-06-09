@@ -27,7 +27,7 @@ let $MYSQLD_DATADIR = `select @@datadir`;
 let $raft_log = query_get_value("SHOW SLAVE STATUS", "Relay_Log_File", 1);
 
 # store offsets of last 3 Xid events in a file
-exec $MYSQL_BINLOG -vvv $MYSQLD_DATADIR/$raft_log | grep Xid | cut -d' ' -f9 | tail -n3 > $MYSQLD_DATADIR/offsets;
+exec $MYSQL_BINLOG -vvv $MYSQLD_DATADIR/$raft_log | grep Xid | tr -s [:blank:] | cut -d' ' -f7 | tail -n3 > $MYSQLD_DATADIR/offsets;
 
 set @sql_log_bin=0;
 create table offsets(a int);
