@@ -909,6 +909,9 @@ The following options may be given as the first argument:
  --optimizer-full-scan 
  Enable full table and index scans.
  (Defaults to on; use --skip-optimizer-full-scan to disable.)
+ --optimizer-group-by-cost-adjust[=#] 
+ Adjust cost of loose index scan group-by plan by this
+ factor.
  --optimizer-low-limit-heuristic 
  Enable low limit heuristic.
  (Defaults to on; use --skip-optimizer-low-limit-heuristic to disable.)
@@ -2657,6 +2660,7 @@ old-passwords 0
 old-style-user-limits FALSE
 optimizer-force-index-for-range FALSE
 optimizer-full-scan TRUE
+optimizer-group-by-cost-adjust 1
 optimizer-low-limit-heuristic TRUE
 optimizer-prune-level 1
 optimizer-search-depth 62

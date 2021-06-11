@@ -189,8 +189,13 @@ JOIN::optimize()
 
   /* dump_TABLE_LIST_graph(select_lex, select_lex->leaf_tables); */
 
-  row_limit= ((select_distinct || order || group_list) ? HA_POS_ERROR :
-	      unit->select_limit_cnt);
+  if (thd->optimizer_switch_flag(OPTIMIZER_GROUP_BY_LIMIT)) {
+    row_limit = unit->select_limit_cnt;
+  } else {
+    row_limit =
+        ((select_distinct || order || group_list) ? HA_POS_ERROR
+                                                  : unit->select_limit_cnt);
+  }
   // m_select_limit is used to decide if we are likely to scan the whole table.
   m_select_limit= unit->select_limit_cnt;
   if (having || (select_options & OPTION_FOUND_ROWS))

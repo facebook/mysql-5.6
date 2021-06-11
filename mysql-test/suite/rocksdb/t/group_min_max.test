@@ -1,8 +1,5 @@
 --source include/have_debug.inc
-set global debug="+d,force_group_by";
 
+let $force_group_by=1;
 let $engine=RocksDB;
 --source include/group_min_max.inc
-
-set global debug="-d,force_group_by";
-

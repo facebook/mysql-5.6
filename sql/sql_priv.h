@@ -243,7 +243,8 @@ template <class T> bool valid_buffer_range(T jump,
 #define OPTIMIZER_SKIP_SCAN                        (1ULL << 16)
 #define OPTIMIZER_SKIP_SCAN_COST_BASED             (1ULL << 17)
 #define OPTIMIZER_MULTI_RANGE_GROUPBY              (1ULL << 18)
-#define OPTIMIZER_SWITCH_LAST                      (1ULL << 19)
+#define OPTIMIZER_GROUP_BY_LIMIT                   (1ULL << 19)
+#define OPTIMIZER_SWITCH_LAST                      (1ULL << 20)
 
 /**
    If OPTIMIZER_SWITCH_ALL is defined, optimizer_switch flags for newer 

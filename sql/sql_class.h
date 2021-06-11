@@ -664,6 +664,7 @@ typedef struct system_variables
   my_bool   optimizer_low_limit_heuristic;
   my_bool   optimizer_force_index_for_range;
   my_bool   optimizer_full_scan;
+  double    optimizer_group_by_cost_adjust;
   sql_mode_t sql_mode; ///< which non-standard SQL behaviour should be enabled
   my_bool   error_partial_strict;
   ulong audit_instrumented_event;

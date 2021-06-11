@@ -10,6 +10,10 @@
 # - C IS NOT NULL
 # - HAVING clause
 
+if ($force_group_by) {
+  set global debug="+d,force_group_by";
+}
+
 --disable_warnings
 drop table if exists t1;
 --enable_warnings
@@ -1423,3 +1427,61 @@ SHOW SESSION STATUS LIKE 'Handler_read%';
 DROP TABLE t1;
 
 --echo # End of test for Bug#18109609
+
+if ($force_group_by) {
+  set global debug="-d,force_group_by";
+}
+
+eval CREATE TABLE t1 (id INT AUTO_INCREMENT PRIMARY KEY, c1 INT, c2 INT, KEY(c1,c2)) engine=$engine;
+
+INSERT INTO t1 (c1,c2) VALUES
+(1, 1), (1,2), (2,1), (2,2), (3,1), (3,2), (3,3), (4,1), (4,2), (4,3),
+(4,4), (4,5), (4,6), (4,7), (4,8), (4,9), (4,10), (4,11), (4,12), (4,13),
+(4,14), (4,15), (4,16), (4,17), (4,18), (4,19), (4,20),(5,5);
+ANALYZE TABLE t1;
+
+set optimizer_group_by_cost_adjust = 0.1;
+EXPLAIN SELECT MAX(c2), c1 FROM t1 WHERE c1 = 4 GROUP BY c1;
+set optimizer_group_by_cost_adjust = 10;
+EXPLAIN SELECT MAX(c2), c1 FROM t1 WHERE c1 = 4 GROUP BY c1;
+set optimizer_group_by_cost_adjust = DEFAULT;
+EXPLAIN SELECT MAX(c2), c1 FROM t1 WHERE c1 = 4 GROUP BY c1;
+
+
+TRUNCATE TABLE t1;
+
+--disable_query_log
+--disable_result_log
+CREATE TABLE t10(i int);
+INSERT INTO t10 VALUES (0), (1), (2), (3), (4), (5), (6), (7), (8), (9);
+INSERT INTO t1 SELECT NULL, a.i + 10 * b.i + 100 * c.i + 1000 * d.i, a.i + 10 * b.i + 100 * c.i + 1000 * d.i from t10 a, t10 b, t10 c, t10 d;
+DROP TABLE t10;
+ANALYZE TABLE t1;
+--enable_query_log
+--enable_result_log
+
+set optimizer_switch='group_by_limit=on';
+EXPLAIN SELECT MAX(c2), c1 FROM t1 GROUP BY c1 LIMIT 1;
+SELECT MAX(c2), c1 FROM t1 GROUP BY c1 LIMIT 1;
+set optimizer_switch='group_by_limit=off';
+EXPLAIN SELECT MAX(c2), c1 FROM t1 GROUP BY c1 LIMIT 1;
+SELECT MAX(c2), c1 FROM t1 GROUP BY c1 LIMIT 1;
+
+set optimizer_switch='group_by_limit=on';
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c1 LIMIT 1;
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c1 ASC LIMIT 1;
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c1 DESC LIMIT 1;
+
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c1, c2 LIMIT 1;
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c1 ASC, c2 ASC LIMIT 1;
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c1 DESC, c2 ASC LIMIT 1;
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c1 ASC , c2 DESC LIMIT 1;
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c1 DESC , c2 DESC LIMIT 1;
+
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY c2 LIMIT 1;
+EXPLAIN SELECT c2, c1 FROM t1 GROUP BY c1, c2 ORDER BY RAND() LIMIT 1;
+
+set optimizer_switch='group_by_limit=off';
+
+DROP TABLE t1;
+

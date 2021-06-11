@@ -2761,6 +2761,12 @@ static Sys_var_mybool Sys_optimizer_full_scan(
       SESSION_VAR(optimizer_full_scan),
       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
+static Sys_var_double Sys_optimizer_group_by_cost_adjust(
+    "optimizer_group_by_cost_adjust",
+    "Adjust cost of loose index scan group-by plan by this factor.",
+    SESSION_VAR(optimizer_group_by_cost_adjust), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, DBL_MAX), DEFAULT(1));
+
 static const char *optimizer_switch_names[]=
 {
   "index_merge", "index_merge_union", "index_merge_sort_union",
@@ -2772,7 +2778,7 @@ static const char *optimizer_switch_names[]=
   "subquery_materialization_cost_based",
 #endif
   "use_index_extensions", "skip_scan", "skip_scan_cost_based",
-  "multi_range_groupby",
+  "multi_range_groupby", "group_by_limit",
   "default", NullS
 };
 /** propagates changes to @@engine_condition_pushdown */
