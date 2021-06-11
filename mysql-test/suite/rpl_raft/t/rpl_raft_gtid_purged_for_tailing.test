@@ -1,0 +1,28 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+let $uuid1= `select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+
+create table t1 (a int primary key);
+insert into t1 values (1);
+flush logs;
+flush logs;
+
+sleep 5;
+
+purge raft logs before now();
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged_for_tailing;
+
+
+connection server_2;
+purge raft logs before now();
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged_for_tailing;
+
+
+connection server_1;
+drop table t1;
+reset master;
+
+source include/rpl_end.inc;

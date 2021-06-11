@@ -2440,6 +2440,78 @@ end:
 };
 
 
+/**
+  Class for @@global.gtid_purged_for_tailing.
+*/
+class Sys_var_gtid_purged_for_tailing : public sys_var
+{
+public:
+  Sys_var_gtid_purged_for_tailing(const char *name_arg,
+          const char *comment, int flag_args, ptrdiff_t off, size_t size,
+          CMD_LINE getopt,
+          const char *def_val,
+          PolyLock *lock= 0,
+          enum binlog_status_enum binlog_status_arg=VARIABLE_NOT_IN_BINLOG,
+          on_check_function on_check_func=0,
+          on_update_function on_update_func=0,
+          const char *substitute=0,
+          int parse_flag= PARSE_NORMAL)
+    : sys_var(&all_sys_vars, name_arg, comment, flag_args, off, getopt.id,
+              getopt.arg_type, SHOW_CHAR, (intptr)def_val,
+              lock, binlog_status_arg, on_check_func, on_update_func,
+              substitute, parse_flag)
+  {}
+
+  bool session_update(THD *thd, set_var *var)
+  {
+    DBUG_ASSERT(FALSE);
+    return true;
+  }
+
+  void session_save_default(THD *thd, set_var *var)
+  { my_error(ER_NO_DEFAULT, MYF(0), var->var->name.str); }
+
+  bool global_update(THD *thd, set_var *var)
+  {
+    DBUG_ASSERT(FALSE);
+    return true;
+  }
+
+  void global_save_default(THD *thd, set_var *var)
+  {
+    /* gtid_purged does not have default value */
+    my_error(ER_NO_DEFAULT, MYF(0), var->var->name.str);
+  }
+
+  bool check_update_type(Item_result type)
+  {
+    DBUG_ASSERT(FALSE);
+    return true;
+  }
+
+  bool do_check(THD *thd, set_var *var)
+  {
+    DBUG_ASSERT(FALSE);
+    return true;
+  }
+
+  uchar *global_value_ptr(THD *thd, LEX_STRING *base)
+  {
+    DBUG_ENTER("Sys_var_gtid_purged_for_tailing::global_value_ptr");
+    global_sid_lock->wrlock();
+    Sid_map gtids_lost_sid_map(nullptr);
+    Gtid_set gtids_lost(&gtids_lost_sid_map);
+    dump_log.get_lost_gtids(&gtids_lost);
+    char *buf= (char *)thd->alloc(gtids_lost.get_string_length() + 1);
+    if (buf == NULL)
+      my_error(ER_OUT_OF_RESOURCES, MYF(0));
+    else
+      gtids_lost.to_string(buf);
+    global_sid_lock->unlock();
+    DBUG_RETURN((uchar *)buf);
+  }
+};
+
 class Sys_var_gtid_owned : Sys_var_gtid_set_func
 {
 public:
@@ -2466,7 +2538,7 @@ public:
       else
         my_error(ER_OUT_OF_RESOURCES, MYF(0));
 #else
-     DBUG_ASSERT(0); 
+     DBUG_ASSERT(0);
 #endif
     }
     else
