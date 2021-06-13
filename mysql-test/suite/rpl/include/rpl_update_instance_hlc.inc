@@ -98,6 +98,8 @@ reset master;
 connection master;
 use test;
 drop table if exists t1;
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";
 --source include/sync_slave_sql_with_master.inc
 source include/rpl_end.inc;

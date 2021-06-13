@@ -25,4 +25,6 @@ SELECT @@global.maximum_hlc_drift_ns;
 3154000000000000000
 SET @@global.minimum_hlc_ns= 2538630000000000000;
 SET @@global.maximum_hlc_drift_ns = default;
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";

@@ -40,4 +40,6 @@ SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
 SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
 SELECT @@global.minimum_hlc_ns;
 
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";

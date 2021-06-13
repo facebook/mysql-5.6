@@ -109,7 +109,9 @@ SET @@global.enable_binlog_hlc = default;
 
 --source include/sync_slave_sql_with_master.inc
 connection slave;
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";
 SET @@global.enable_binlog_hlc = default;
 SET @@global.maximum_hlc_drift_ns = default;
 

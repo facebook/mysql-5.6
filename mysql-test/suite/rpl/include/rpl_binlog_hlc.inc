@@ -92,7 +92,9 @@ connection slave;
 # Cleanup
 connection master;
 drop table if exists t1;
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";
 SET @@global.enable_binlog_hlc = default;
 
 connection slave;

@@ -43,4 +43,6 @@ let $binlog_file= query_get_value(SHOW MASTER STATUS, File, 1);
 
 # Cleanup
 drop table t1;
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 set @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";

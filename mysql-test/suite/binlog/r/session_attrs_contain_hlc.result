@@ -27,14 +27,11 @@ insert into t1 values(2, 'b');
 
 include/show_binlog_events.inc
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
 master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
 master-bin.000002	#	Xid	#	#	COMMIT /* XID */
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
@@ -56,19 +53,15 @@ a	b
 4	d
 include/show_binlog_events.inc
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
 master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
 master-bin.000002	#	Xid	#	#	COMMIT /* XID */
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
 master-bin.000002	#	Xid	#	#	COMMIT /* XID */
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
@@ -82,19 +75,15 @@ insert into t1 values(5, 'e');
 commit;
 include/show_binlog_events.inc
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
 master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
 master-bin.000002	#	Xid	#	#	COMMIT /* XID */
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
 master-bin.000002	#	Xid	#	#	COMMIT /* XID */
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
@@ -112,19 +101,15 @@ insert into t1 values(6, 'f');
 commit;
 include/show_binlog_events.inc
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
 master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
 master-bin.000002	#	Xid	#	#	COMMIT /* XID */
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
 master-bin.000002	#	Xid	#	#	COMMIT /* XID */
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
@@ -135,7 +120,6 @@ master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
 master-bin.000002	#	Xid	#	#	COMMIT /* XID */
-master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
 master-bin.000002	#	Query	#	#	BEGIN
 master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
 master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
@@ -146,6 +130,8 @@ use test;
 -- test
 
 drop table if exists t1;
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";
 SET @@global.enable_binlog_hlc = default;
 SET @@session.response_attrs_contain_hlc = default;

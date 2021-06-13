@@ -24,4 +24,6 @@ SET @@global.minimum_hlc_ns = 2538630000000000000;
 SELECT @@global.minimum_hlc_ns;
 @@global.minimum_hlc_ns
 2538630000000000000
+SET SESSION DEBUG = "+d,reset_hlc_for_tests";
 SET @@global.minimum_hlc_ns = default;
+SET SESSION DEBUG = "-d,reset_hlc_for_tests";
