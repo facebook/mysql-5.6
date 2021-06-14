@@ -3444,17 +3444,43 @@ class Rdb_transaction {
 
   void set_tx_read_only(bool val) { m_tx_read_only = val; }
 
-  explicit Rdb_transaction(THD *const thd)
-      : m_thd(thd), m_tbl_io_perf(nullptr) {
+  /*
+    Add or remove from the global list of active transactions
+    needed by information_schema queries.
+  */
+  void add_to_global_trx_list() {
     RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
     s_tx_list.insert(this);
     RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
   }
 
-  virtual ~Rdb_transaction() {
+  void remove_from_global_trx_list(void) {
+    DBUG_EXECUTE_IF("rocksdb_trx_list_crash", {
+      THD *thd = new THD();
+      thd->thread_stack = reinterpret_cast<char *>(&(thd));
+      thd->store_globals();
+
+      const char act[] =
+          "now signal destructor_started wait_for trx_list_query";
+      assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+
+      thd->restore_globals();
+      delete thd;
+    });
     RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
     s_tx_list.erase(this);
     RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
+  }
+
+  explicit Rdb_transaction(THD *const thd)
+      : m_thd(thd), m_tbl_io_perf(nullptr) {}
+
+  virtual ~Rdb_transaction() {
+#ifndef DEBUG_OFF
+    RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
+    assert(s_tx_list.find(this) == s_tx_list.end());
+    RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
+#endif
   }
 };
 
@@ -3839,6 +3865,10 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   virtual ~Rdb_transaction_impl() override {
+    // Remove from the global list before all other processing is started.
+    // Otherwise, information_schema.rocksdb_trx can crash on this object.
+    Rdb_transaction::remove_from_global_trx_list();
+
     rollback();
 
     // Theoretically the notifier could outlive the Rdb_transaction_impl
@@ -4051,6 +4081,10 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   virtual ~Rdb_writebatch_impl() override {
+    // Remove from the global list before all other processing is started.
+    // Otherwise, information_schema.rocksdb_trx can crash on this object.
+    Rdb_transaction::remove_from_global_trx_list();
+
     rollback();
     delete m_batch;
   }
@@ -4183,6 +4217,10 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
     tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
     tx->start_tx();
     set_tx_on_thd(thd, tx);
+
+    // Add the transaction to the global list of transactions
+    // once it is fully constructed.
+    tx->add_to_global_trx_list();
   } else {
     tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
     if (!tx->is_tx_started()) {
