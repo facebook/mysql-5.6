@@ -4399,6 +4399,8 @@ bool lock_print_info_summary(
     FILE *file,   /*!< in: file where to print */
     ibool nowait) /*!< in: whether to wait for the lock mutex */
 {
+  DBUG_EXECUTE_IF("force_wait_mutex_during_print_for_tests",
+                  { nowait = false; });
   /* if nowait is false, wait on the lock mutex,
   otherwise return immediately if fail to obtain the
   mutex. */
