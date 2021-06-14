@@ -1,0 +1,15 @@
+create table t1 (a int) engine=rocksdb;
+set @@global.debug = '+d,rocksdb_trx_list_crash';
+insert into t1 values (1);
+insert into t1 values (2);
+set debug_sync = 'now WAIT_FOR destructor_started';
+select count(*) from information_schema.rocksdb_trx;
+count(*)
+0
+set debug_sync = 'now SIGNAL trx_list_query';
+set @@global.debug = '-d,rocksdb_trx_list_crash';
+SELECT a from t1;
+a
+1
+2
+DROP TABLE t1;
