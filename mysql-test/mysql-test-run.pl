@@ -299,6 +299,7 @@ our @DEFAULT_SUITES = qw(
   rocksdb_sys_vars
   rpl_mts
   rpl_recovery
+  thread_pool
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;

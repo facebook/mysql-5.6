@@ -1,0 +1,5 @@
+Test setup.
+Generate load. Toggle max_running_queries and randomly kill a query.
+Cleanup
+set global max_connections = @start_max_connections;
+set global thread_pool_max_running_queries = @start_max_running_queries;
