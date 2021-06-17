@@ -1,0 +1,268 @@
+--source include/have_thread_pool_plugin.inc
+
+# Tests for PERFORMANCE_SCHEMA
+
+#
+# Important note:
+# this test is extremely sensitive to how threads are running inside the server,
+# so it has its own -master.opt file, to enforce it runs alone in mysqld
+#
+
+# X plugin might increase counter thread_id_increment below
+source include/xplugin_wait_for_interfaces.inc;
+
+# Setup
+
+flush status;
+
+SET @saved_thread_cache_size = @@global.thread_pool_thread_cache_size;
+
+set global thread_pool_thread_cache_size = 0;
+
+show global variables like "thread_pool_thread_cache_size";
+show status like "Thread_pool_total_workers";
+show status like "Thread_pool_idle_workers";
+
+connect (con1, localhost, root, , );
+
+let $con1_ID=`select connection_id()`;
+
+let $con1_THREAD_ID=`select thread_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+connect (con2, localhost, root, , );
+
+let $con2_ID=`select connection_id()`;
+
+let $con2_THREAD_ID=`select thread_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+let $con2_THREAD_OS_ID=`select thread_os_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+--connection default
+show status like "Thread_pool_total_workers";
+show status like "Thread_pool_idle_workers";
+
+--disable_query_log
+eval select ($con2_ID - $con1_ID) into @id_increment;
+eval select ($con2_THREAD_ID - $con1_THREAD_ID) into @thread_id_increment;
+--enable_query_log
+
+# Expect 1, connection_id() is incremented for each new connection
+select @id_increment;
+# Expect 1, THREAD_ID is incremented for each new connection
+select @thread_id_increment;
+
+--disconnect con2
+
+--connection default
+
+# Debug
+# select * from performance_schema.threads
+#   where name like "thread/thread_pool/connection";
+
+# Wait for the disconnect con2 to complete
+let $wait_condition=
+  select count(*) = 2 from performance_schema.threads
+  where name like "thread/thread_pool/connection";
+--source include/wait_condition.inc
+
+connect (con3, localhost, root, , );
+
+let $con3_ID=`select connection_id()`;
+
+let $con3_THREAD_ID=`select thread_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+let $con3_THREAD_OS_ID=`select thread_os_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+--disconnect con3
+--disconnect con1
+
+--connection default
+
+# Debug
+# select * from performance_schema.threads
+#   where name like "thread/thread_pool/connection";
+
+# Wait for the disconnect con1 and con3 to complete
+let $wait_condition=
+  select count(*) = 1 from performance_schema.threads
+  where name like "thread/thread_pool/connection";
+--source include/wait_condition.inc
+
+show status like "Thread_pool_total_workers";
+show status like "Thread_pool_idle_workers";
+
+--disable_query_log
+eval select ($con3_ID - $con2_ID) into @id_increment;
+eval select ($con3_THREAD_ID - $con2_THREAD_ID) into @thread_id_increment;
+eval select ($con3_THREAD_OS_ID = $con2_THREAD_OS_ID) into @thread_os_id_cmp;
+--enable_query_log
+
+select @id_increment;
+select @thread_id_increment;
+
+# Expect 0 as every connection should get a new thread.
+select @thread_os_id_cmp;
+
+set global thread_pool_thread_cache_size = 100;
+
+show global variables like "thread_pool_thread_cache_size";
+show global variables like "thread_pool_idle_worker_timeout";
+
+connect (con1, localhost, root, , );
+
+let $con1_ID=`select connection_id()`;
+
+let $con1_THREAD_ID=`select thread_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+connect (con2, localhost, root, , );
+
+let $con2_ID=`select connection_id()`;
+
+let $con2_THREAD_ID=`select thread_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+let $con2_THREAD_OS_ID=`select thread_os_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+--connection default
+
+--disable_query_log
+eval select ($con2_ID - $con1_ID) into @id_increment;
+eval select ($con2_THREAD_ID - $con1_THREAD_ID) into @thread_id_increment;
+--enable_query_log
+
+select @id_increment;
+select @thread_id_increment;
+
+--disconnect con2
+
+--connection default
+
+# Debug
+# select * from performance_schema.threads
+#   where name like "thread/thread_pool/connection";
+
+# Wait for the disconnect con2 to complete
+let $wait_condition=
+  select count(*) = 2 from performance_schema.threads
+  where name like "thread/thread_pool/connection";
+--source include/wait_condition.inc
+
+show status like "Thread_pool_total_workers";
+show status like "Thread_pool_idle_workers";
+
+connect (con3, localhost, root, , );
+
+let $con3_ID=`select connection_id()`;
+
+let $con3_THREAD_ID=`select thread_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+let $con3_THREAD_OS_ID=`select thread_os_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+show status like "Thread_pool_idle_workers";
+
+--disconnect con3
+--disconnect con1
+
+--connection default
+
+# Debug
+# select * from performance_schema.threads
+#   where name like "thread/thread_pool/connection";
+
+# Wait for the disconnect con1 and con3 to complete
+let $wait_condition=
+  select count(*) = 1 from performance_schema.threads
+  where name like "thread/thread_pool/connection";
+--source include/wait_condition.inc
+
+show status like "Thread_pool_total_workers";
+show status like "Thread_pool_idle_workers";
+
+--disable_query_log
+eval select ($con3_ID - $con2_ID) into @id_increment;
+eval select ($con3_THREAD_ID - $con2_THREAD_ID) into @thread_id_increment;
+eval select ($con3_THREAD_OS_ID = $con2_THREAD_OS_ID) into @thread_os_id_cmp;
+--enable_query_log
+
+# When caching threads, the pthread that executed con2 was parked in the
+# cache on disconnect, and then picked up con3.
+
+# Still expect a new connection_id()
+select @id_increment;
+
+# And expect a new instrumentation: the THREAD_ID of old connections should not be reused.
+select @thread_id_increment;
+
+# Expect 1 as thread for con2 should be reused for con3.
+select @thread_os_id_cmp;
+
+#
+# Now test thread_pool_idle_worker_timeout.
+#
+set global thread_pool_idle_worker_timeout=500;
+
+# Wait for the idle workers to exit.
+let $wait_condition=
+  select variable_value = 0 from performance_schema.global_status
+  where variable_name = "Thread_pool_idle_workers";
+--source include/wait_condition.inc
+
+connect (con2, localhost, root, , );
+
+let $con2_THREAD_OS_ID=`select thread_os_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+--connection default
+--disconnect con2
+
+# Wait for the disconnect con2 to complete
+let $wait_condition=
+  select count(*) = 1 from performance_schema.threads
+  where name like "thread/thread_pool/connection";
+--source include/wait_condition.inc
+
+show status like "Thread_pool_idle_workers";
+
+# Wait for the idle timeout to reclaim the idle worker.
+let $wait_condition=
+  select variable_value = 0 from performance_schema.global_status
+  where variable_name = "Thread_pool_idle_workers";
+--source include/wait_condition.inc
+
+connect (con3, localhost, root, , );
+
+let $con3_THREAD_OS_ID=`select thread_os_id from performance_schema.threads
+  where PROCESSLIST_ID = connection_id()`;
+
+--connection default
+--disconnect con3
+
+# Wait for the disconnect con3 to complete
+let $wait_condition=
+  select count(*) = 1 from performance_schema.threads
+  where name like "thread/thread_pool/connection";
+--source include/wait_condition.inc
+
+--disable_query_log
+eval select ($con3_THREAD_OS_ID = $con2_THREAD_OS_ID) into @thread_os_id_cmp;
+--enable_query_log
+
+# Expect 0 since new thread is created for con3.
+select @thread_os_id_cmp;
+
+#
+# Cleanup.
+#
+set global thread_pool_thread_cache_size = @saved_thread_cache_size;
+set global thread_pool_idle_worker_timeout = default;
+
+show global status like "performance_schema_thread%";

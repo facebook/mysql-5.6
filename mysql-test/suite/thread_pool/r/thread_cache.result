@@ -1,0 +1,89 @@
+flush status;
+SET @saved_thread_cache_size = @@global.thread_pool_thread_cache_size;
+set global thread_pool_thread_cache_size = 0;
+show global variables like "thread_pool_thread_cache_size";
+Variable_name	Value
+thread_pool_thread_cache_size	0
+show status like "Thread_pool_total_workers";
+Variable_name	Value
+Thread_pool_total_workers	1
+show status like "Thread_pool_idle_workers";
+Variable_name	Value
+Thread_pool_idle_workers	0
+show status like "Thread_pool_total_workers";
+Variable_name	Value
+Thread_pool_total_workers	3
+show status like "Thread_pool_idle_workers";
+Variable_name	Value
+Thread_pool_idle_workers	0
+select @id_increment;
+@id_increment
+1
+select @thread_id_increment;
+@thread_id_increment
+2
+show status like "Thread_pool_total_workers";
+Variable_name	Value
+Thread_pool_total_workers	1
+show status like "Thread_pool_idle_workers";
+Variable_name	Value
+Thread_pool_idle_workers	0
+select @id_increment;
+@id_increment
+1
+select @thread_id_increment;
+@thread_id_increment
+2
+select @thread_os_id_cmp;
+@thread_os_id_cmp
+0
+set global thread_pool_thread_cache_size = 100;
+show global variables like "thread_pool_thread_cache_size";
+Variable_name	Value
+thread_pool_thread_cache_size	100
+show global variables like "thread_pool_idle_worker_timeout";
+Variable_name	Value
+thread_pool_idle_worker_timeout	-1
+select @id_increment;
+@id_increment
+1
+select @thread_id_increment;
+@thread_id_increment
+2
+show status like "Thread_pool_total_workers";
+Variable_name	Value
+Thread_pool_total_workers	3
+show status like "Thread_pool_idle_workers";
+Variable_name	Value
+Thread_pool_idle_workers	1
+show status like "Thread_pool_idle_workers";
+Variable_name	Value
+Thread_pool_idle_workers	0
+show status like "Thread_pool_total_workers";
+Variable_name	Value
+Thread_pool_total_workers	3
+show status like "Thread_pool_idle_workers";
+Variable_name	Value
+Thread_pool_idle_workers	2
+select @id_increment;
+@id_increment
+1
+select @thread_id_increment;
+@thread_id_increment
+1
+select @thread_os_id_cmp;
+@thread_os_id_cmp
+1
+set global thread_pool_idle_worker_timeout=500;
+show status like "Thread_pool_idle_workers";
+Variable_name	Value
+Thread_pool_idle_workers	1
+select @thread_os_id_cmp;
+@thread_os_id_cmp
+0
+set global thread_pool_thread_cache_size = @saved_thread_cache_size;
+set global thread_pool_idle_worker_timeout = default;
+show global status like "performance_schema_thread%";
+Variable_name	Value
+Performance_schema_thread_classes_lost	0
+Performance_schema_thread_instances_lost	0

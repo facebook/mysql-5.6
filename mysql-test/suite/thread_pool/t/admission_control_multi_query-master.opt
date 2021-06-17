@@ -1,0 +1,1 @@
+--innodb_lock_wait_timeout=4 --innodb_deadlock_detect=0 --loose-thread_pool_max_running_queries=5 --loose-thread_pool_max_waiting_queries=2000
