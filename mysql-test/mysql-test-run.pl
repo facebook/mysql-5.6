@@ -523,7 +523,7 @@ sub main {
 
   # Prepare to collect code coverage information
   if ($coverage_on) {
-    coverage_prepare($basedir, $coverage_scope, $coverage_src_path,
+    coverage_prepare($bindir, $basedir, $coverage_scope, $coverage_src_path,
                      $coverage_llvm_path, $coverage_format,
                      $coverage_src_filter);
   }
@@ -964,7 +964,7 @@ sub main {
     if (length($coverage_src_path) == 0) {
       $coverage_src_path = $basedir;
     }
-    coverage_collect($bindir, find_mysqld($basedir), $coverage_scope,
+    coverage_collect($bindir, $basedir, find_mysqld($basedir), $coverage_scope,
                      $coverage_src_path, $coverage_llvm_path,
                      $coverage_format, $coverage_src_filter, $full_command);
   }
@@ -2175,6 +2175,12 @@ sub command_line_setup {
     if (IS_WINDOWS) {
       mtr_report("Turning off '--mem' option since it is not supported " .
                  "on Windows.");
+      $opt_mem = undef;
+    }
+    # Disable '--mem' option in coverage mode
+    elsif ($coverage_on) {
+      mtr_report("Turning off '--mem' option since it is not supported " .
+                 "in code coverage mode.");
       $opt_mem = undef;
     }
     # Disable '--mem' option on MacOS
@@ -6147,6 +6153,19 @@ sub clean_datadir {
         !$mysqld->{need_reinitialization} and
         !$bootstrap_opts) {
       mtr_verbose(" - removing '$mysqld_dir'");
+      # if coverage mode is enabled then copy the coverage profile files
+      # generated before they are purged
+      if ($coverage_on) {
+        my $cov_dir = "$bindir/coverage_files/".time();
+        # create the directory to move the files
+        mkpath("$cov_dir");
+        my @proffiles = `find $mysqld_dir/data -name \"code*.profraw\"`;
+        for my $pfile (@proffiles) {
+          chomp($pfile);
+          my @pfile_parts = split("/", $pfile);
+          rename($pfile, $cov_dir."/".$pfile_parts[$#pfile_parts]);
+        }
+      }
       rmtree($mysqld_dir);
     }
   }
