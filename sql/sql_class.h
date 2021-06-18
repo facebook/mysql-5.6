@@ -5017,6 +5017,8 @@ class THD : public MDL_context_owner,
   PS_PARAM *bind_parameter_values;
   /** the number of elements in parameters */
   unsigned long bind_parameter_values_count;
+
+  bool set_dscp_on_socket();
 };
 
 /**

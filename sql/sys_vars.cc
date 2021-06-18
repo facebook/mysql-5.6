@@ -8399,11 +8399,26 @@ static Sys_var_enum Sys_commit_consensus_error_action(
     commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_ulong Sys_session_set_rpl_dscp_on_socket(
+    "rpl_dscp_on_socket",
+    "DSCP value for socket/connection to control binlog downloads",
+    SESSION_ONLY(rpl_dscp_on_socket), NO_CMD_LINE, VALID_RANGE(0, 63),
+    DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static bool update_session_dscp_on_socket(sys_var *, THD *thd, enum_var_type)
+
+{
+  return !thd->set_dscp_on_socket();
+}
+
 static Sys_var_ulong Sys_session_set_dscp_on_socket(
     "dscp_on_socket",
-    "DSCP value for socket/connection to control binlog downloads",
-    SESSION_ONLY(dscp_on_socket), NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0),
-    BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+    "DSCP value for socket/connection to control out-bound packages. "
+    "0 means unset, and it will use default value. To overrides, use number"
+    " from 1 to 63",
+    SESSION_VAR(dscp_on_socket), NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0),
+    BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(update_session_dscp_on_socket));
 
 static Sys_var_bool Sys_enable_group_replication_plugin_hooks(
     "group_replication_plugin_hooks",

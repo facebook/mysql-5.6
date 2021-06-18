@@ -265,13 +265,13 @@ Binlog_sender::Binlog_sender(THD *thd, const char *start_file,
 
 bool Binlog_sender::get_dscp_value(int &ret_val) {
   ret_val = 0;
-  auto dscp_it = m_thd->connection_attrs_map.find("dscp_on_socket");
-  if (m_thd->variables.dscp_on_socket == 0 &&
+  auto dscp_it = m_thd->connection_attrs_map.find("rpl_dscp_on_socket");
+  if (m_thd->variables.rpl_dscp_on_socket == 0 &&
       dscp_it == m_thd->connection_attrs_map.end())
     return false;
 
   int dscp_val;
-  if ((dscp_val = m_thd->variables.dscp_on_socket) != 0) {
+  if ((dscp_val = m_thd->variables.rpl_dscp_on_socket) != 0) {
     if (dscp_val >= 64 || dscp_val < 0) {
       // NO_LINT_DEBUG
       sql_print_warning("Invalid DSCP_QOS value in session var: %d", dscp_val);
