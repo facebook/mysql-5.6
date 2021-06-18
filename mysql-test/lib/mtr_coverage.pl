@@ -25,7 +25,8 @@ sub coverage_extract_option {
 # Prepare to generate coverage data
 #
 # Arguments:
-#   $dir        basedir, normally the build directory
+#   $build_dir  build directory
+#   $base_dir   basedir, normally the home directory
 #   $scope      coverage option which is of the form:
 #                 * full : complete code coverage
 #                 * diff : coverage of the git diff HEAD
@@ -36,11 +37,12 @@ sub coverage_extract_option {
 #                 * text : text format
 #                 * html : html format
 #   $src_filter src filter directories
-sub coverage_prepare($$) {
-  my ($dir, $scope, $src_path, $llvm_path, $format, $src_filter) = @_;
+sub coverage_prepare($$$) {
+  my ($build_dir, $base_dir, $scope, $src_path, $llvm_path, $format,
+      $src_filter) = @_;
 
-  print "Purging coverage information from '$dir'...\n";
-  system("find $dir -name \"code\*.profraw\" | xargs rm");
+  print "Purging coverage information from '$base_dir'...\n";
+  system("find $base_dir -name \"code\*.profraw\" | xargs rm");
 
   my $scope = coverage_extract_option($scope, "=", "coverage-scope");
 
@@ -76,17 +78,17 @@ sub coverage_prepare($$) {
 
   # Update the scope of the coverage
   if ($scope eq "full") {
-    $_[1] = $scope;
+    $_[2] = $scope;
   }
   else {
-    $_[1] = $commit_hash;
+    $_[2] = $commit_hash;
   }
 
   # extract directory for coverage source files
   $src_path = coverage_extract_option($src_path, "=", "coverage-src-path")."/";
 
   # Update the coverage src path
-  $_[2] = $src_path;
+  $_[3] = $src_path;
 
   $llvm_path = coverage_extract_option($llvm_path, "=", "coverage-llvm-path");
 
@@ -96,7 +98,7 @@ sub coverage_prepare($$) {
   }
 
   # Update the coverage llvm path
-  $_[3] = $llvm_path;
+  $_[4] = $llvm_path;
 
   # extract format for coverage report
   $format = coverage_extract_option($format, "=", "coverage-format");
@@ -107,7 +109,7 @@ sub coverage_prepare($$) {
       exit(1);
   }
 
-  $_[4] = $format;
+  $_[5] = $format;
 
   # process "--coverage-src-filter" arguments
   $src_filter =~ s/^\s+//g;
@@ -123,7 +125,11 @@ sub coverage_prepare($$) {
   }
 
   # Update the coverage src filter
-  $_[5] = $final_src_filter;
+  $_[6] = $final_src_filter;
+
+  # create the directory to store the generated coverage files
+  my $mkdir_cmd = "$build_dir/coverage_files";
+  mkpath($mkdir_cmd);
 }
 
 # Get the files modified by a git diff
@@ -149,10 +155,44 @@ sub coverage_get_diff_files ($$) {
   return $commit_hash_files;
 }
 
+# Merge coverage profile files
+#
+# Arguments:
+#   $merge_com   command for merging the coverage profile files
+#   $results_dir directory that contains coverage results
+sub coverage_merge_prof_files($$) {
+  my ($merge_com, $result_dir) = @_;
+
+  my $err_file = "$result_dir/err";
+  my $merge_com_err = "$merge_com 2>$err_file";
+  # If the merge command fails due to corrupted profile files
+  # then repeat merging the files by deleting the corrupt files
+  while (1) {
+    system($merge_com_err);
+    open(FP, "<", $err_file) or dir $!;
+    my $got_error = 0; # did we see an error
+    my $line;
+    while($line = <FP>) {
+      $got_error = 1;
+      chomp($line);
+      my @files_list = split(":", $line);
+      my $corrupt_file = $files_list[1];
+      $corrupt_file =~ s/ //g;
+      # delete the corrupt file
+      rmtree($corrupt_file);
+    }
+    # there is no error, bail out
+    if ($got_error == 0) {
+      last;
+    }
+  }
+}
+
 # Collect coverage information
 #
 # Arguments:
-#  $test_dir    directory of the tests
+#  $build_dir   build directory
+#  $base_dir    basedir, normally the home directory
 #  $binary_path path to mysqld binary
 #  $scope       coverage option which is of the form:
 #                 * full : complete code coverage
@@ -166,8 +206,8 @@ sub coverage_get_diff_files ($$) {
 #  $src_filter  src filter directories
 #  $cov_comand  coverage command issued (used for logging)
 sub coverage_collect ($$$) {
-  my ($test_dir, $binary_path, $scope, $src_path, $llvm_path, $format,
-      $src_filter, $cov_command) = @_;
+  my ($build_dir, $base_dir, $binary_path, $scope, $src_path, $llvm_path,
+      $format, $src_filter, $cov_command) = @_;
 
   my $files_modified=""; # list of files modified concatenated into one string
 
@@ -202,17 +242,14 @@ sub coverage_collect ($$$) {
   print " ...\n";
 
   # Create directory to store the coverage results
-  my $result_dir = "$test_dir/reports/".time();
-  my $mkdir_cmd = "mkdir -p $result_dir";
-  system($mkdir_cmd);
+  my $result_dir = "$build_dir/reports/".time();
+  mkpath($result_dir);
 
   # Recreate the 'last' directory to point to the latest coverage
   # results directory
-  my $rm_link_cmd = "rm -f $test_dir/reports/last";
-  system($rm_link_cmd);
-
-  my $create_link_cmd = "ln -s $result_dir $test_dir/reports/last";
-  system($create_link_cmd);
+  my $last_dir = "$build_dir/reports/last";
+  rmtree($last_dir);
+  symlink($result_dir, $last_dir);
 
   # Log the command used for generating coverage in command.log
   open(FP, ">$result_dir/command.log");
@@ -223,8 +260,8 @@ sub coverage_collect ($$$) {
   # llvm-prof merge --output=file.profdata <list of code*.profraw>
   my $merge_cov = $llvm_path."llvm-profdata merge --output=";
   $merge_cov .= $result_dir."/combined.profdata ";
-  $merge_cov .= "`find $test_dir -name \"code*.profraw\"`";
-  system("$merge_cov");
+  $merge_cov .= "`find $build_dir -name \"code*.profraw\"`";
+  coverage_merge_prof_files($merge_cov, $result_dir);
 
   # Generate coverage report using command
   # llvm-cov show <binary_path> --instr-profile=file.profdata \
@@ -245,7 +282,7 @@ sub coverage_collect ($$$) {
       my $find_cmd
           = "`find $src_path/$single_filter -name \"*.cc\" -o -name \"*.h\"";
       $find_cmd .= " -o -name \"*.c\" -o -name \"*.ic\"`";
-      $generate_cov .= " $find_cmd";
+      $generate_cov .= " $find_cmd ";
     }
   }
 
@@ -254,12 +291,16 @@ sub coverage_collect ($$$) {
   system($generate_cov);
 
   # Delete profdata file
-  my $rm_profdata = "rm -f ".$result_dir."/combined.profdata";
-  system($rm_profdata);
+  print "Purging coverage related files...\n";
+  my $rm_profdata = $result_dir."/combined.profdata";
+  rmtree($rm_profdata);
+  my $rm_coverage_files = "$build_dir/coverage_files";
+  rmtree($rm_coverage_files);
+  system("find $base_dir -name \"code\*.profraw\" | xargs rm");
 
   print "Completed generating coverage information in ",
         "$format format.\n";
-  print "Coverage results directory: $test_dir/reports/last\n";
+  print "Coverage results directory: $build_dir/reports/last\n";
 }
 
 1;
