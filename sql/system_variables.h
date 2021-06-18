@@ -480,7 +480,7 @@ struct System_variables {
   ulong kill_conflicting_connections_timeout;
   long admission_control_queue_timeout;
   long admission_control_queue;
-  ulong dscp_on_socket;
+  ulong rpl_dscp_on_socket;
 
   bool enable_block_stale_hlc_read;
   bool enable_hlc_bound;
@@ -494,6 +494,8 @@ struct System_variables {
   bool reset_period_status_vars;
 
   long thread_priority;
+
+  ulong dscp_on_socket;
 };
 
 /**

@@ -4960,6 +4960,8 @@ class THD : public MDL_context_owner,
   bool set_thread_priority() {
     return set_thread_priority(variables.thread_priority);
   }
+
+  bool set_dscp_on_socket();
 };
 
 /**
