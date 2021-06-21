@@ -35,12 +35,28 @@ class Rdb_iterator {
   virtual ~Rdb_iterator() = 0;
 
   /*
-    direction specifies which logical direction the table is scanned in.
-    start_key is inclusive if scanning forwards, but exclusive when scanning
-    backwards. full_key_match indicates whether the seek key may match the full
+    find_flag has the same semantics as the SQL layer and current accepts 6
+    different values.
+                   direction
+      seek method  ASC                   DESC
+      prefix       HA_READ_KEY_EXACT     HA_READ_PREFIX_LAST
+      inclusive    HA_READ_KEY_OR_NEXT   HA_READ_PREFIX_LAST_OR_PREV
+      exclusive    HA_READ_AFTER_KEY     HA_READ_BEFORE_KEY
 
-    Once rocksdb supports prefix seeks, the API can be simplified since
-    full_key_match is no longer needed.
+    - Inclusive vs exclusive seek means exactly that, whether the seek key is
+       included or not in the resultset.
+    - Prefix seek is essentially the same as inclusive seek, except that the
+      iterator will return EOF once outside the prefix, whereas inclusive seek
+      will continue iterating until end of the table.
+    - For each flag, there is a corresponding ascending vs descending version.
+      In addition to the seek direction, it also specifies whether to start
+      from the upper or lower end of a prefix. For descending scans, we seek
+      to the upper end and vice versa for ascending scans.
+
+    full_key_match indicates whether the seek key is a full key or not, and is
+    needed for now to do the correct seek internally. Ideally, we wouldn't
+    need this flag, and once rocksdb supports prefix seeks, the API can be
+    simplified to remove this parameter.
   */
   virtual int seek(enum ha_rkey_function find_flag,
                    const rocksdb::Slice start_key, bool full_key_match,
