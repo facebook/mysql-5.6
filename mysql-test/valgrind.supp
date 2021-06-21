@@ -2772,3 +2772,21 @@
    fun:_Z41__static_initialization_and_destruction_0ii
    ...
 }
+
+{
+   Still reachable for once-per-process initializations
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN10my_rocksdb24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   ...
+}
+
+{
+   Still reachable for once-per-process initializations
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN10my_rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
+   ...
+}
