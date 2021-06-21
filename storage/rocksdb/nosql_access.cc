@@ -679,7 +679,8 @@ class select_exec {
     m_index = parser.get_index();
     m_index_info = &m_table->key_info[m_index];
     m_pk_info = &m_table->key_info[m_table_share->primary_key];
-    m_use_full_key = true;
+    m_is_point_query = true;
+    m_start_full_key = m_end_full_key = true;
     m_ddl_manager = rdb_get_ddl_manager();
     m_index_is_pk = (m_index == m_table_share->primary_key);
     m_handler = static_cast<ha_rocksdb *>(m_table->file);
@@ -841,14 +842,18 @@ class select_exec {
   // map from field_index to where_list
   std::vector<std::pair<int, int>> m_field_index_to_where;
 
-  // Number of fields (columns) that are prefix of index
-  uint m_prefix_key_count;
-
   // The iterator used in secondary index query or range query
   std::unique_ptr<rocksdb::Iterator> m_scan_it;
 
-  // The entire index is used in query - meaning it is a point query
-  bool m_use_full_key;
+  // The entire index (including extended keyparts) is used in query in equality
+  // predicates - meaning it is a point query
+  bool m_is_point_query;
+
+  // The start key uses full key (including extended keyparts)
+  bool m_start_full_key;
+
+  // The end key uses full key (including extended keyparts)
+  bool m_end_full_key;
 
   // We need to unpack the given index (primary or secondary) as indicated
   // in WHERE clause
@@ -1064,7 +1069,9 @@ bool INLINE_ATTR select_exec::scan_where() {
   // WHERE A=1 AND B=2 AND C>3:
   //   KeyIndexTuples = {(1, 2, 3)}, Filters = {C>3}, prefix_key_count = 2
   bool eq_only = true;
-  m_prefix_key_count = 0;
+  uint prefix_key_count = 0;
+  uint start_key_count = 0;
+  uint end_key_count = 0;
   uint key_part_no = 0;
   for (; key_part_no < m_index_info->actual_key_parts; ++key_part_no) {
     auto &key_part = m_index_info->key_part[key_part_no];
@@ -1082,7 +1089,7 @@ bool INLINE_ATTR select_exec::scan_where() {
 
         if (eq_only) {
           // Remember how many key part in where eq(prefix)
-          m_prefix_key_count++;
+          prefix_key_count++;
 
           // Remember we've processed this condition already
           // Anything we haven't processed here become filters
@@ -1097,7 +1104,7 @@ bool INLINE_ATTR select_exec::scan_where() {
         }
 
         // Remember number of prefix keys
-        m_prefix_key_count++;
+        prefix_key_count++;
 
         // In the IN case if we are building a prefix key we need to
         // multiply the key slices, so that A=1, B IN (2, 3) becomes
@@ -1172,7 +1179,7 @@ bool INLINE_ATTR select_exec::scan_where() {
             return true;
           } else {
             start_id = index_pair.second;
-            if (cond.op_type == Item_func::GE_FUNC) {
+            if (second_cond.op_type == Item_func::GE_FUNC) {
               start_inclusive = true;
             }
           }
@@ -1202,6 +1209,8 @@ bool INLINE_ATTR select_exec::scan_where() {
         std::swap(start_inclusive, end_inclusive);
       }
 
+      start_key_count = end_key_count = prefix_key_count;
+
       if (end_id >= 0) {
         // end key should start from prefix of start key, which is
         // the current value of start key before appending the condition
@@ -1220,6 +1229,7 @@ bool INLINE_ATTR select_exec::scan_where() {
         if (pack_cond(key_part_no, where_list[start_id], true /* is_start */)) {
           return true;
         }
+        start_key_count++;
       }
       if (end_id >= 0) {
         // Mark the where condition as processed so that they don't go into
@@ -1229,6 +1239,7 @@ bool INLINE_ATTR select_exec::scan_where() {
         if (pack_cond(key_part_no, where_list[end_id], false /* is_end */)) {
           return true;
         }
+        end_key_count++;
       }
 
       // We already processed a range and we don't support cases like A >= 1 and
@@ -1272,17 +1283,22 @@ bool INLINE_ATTR select_exec::scan_where() {
       m_key_index_tuples[i].eq_len =
           m_key_index_tuples[i].start.get_current_pos();
     }
+    start_key_count = prefix_key_count;
+    end_key_count = prefix_key_count;
   }
 
   // This is TRICKY:
   // actual_key_parts can be SK+PK in SQL layer if SK is non-unique,
   // otherwise it is only SK in SQL layer if SK is unique.
   // key_def->m_key_parts always has SK+PK
-  // For m_use_full_key check we need to see it has both SK+PK for
+  // For m_is_point_query check we need to see it has both SK+PK for
   // SK point lookup and bloom filter check, since bloom filter
   // has a special optimization that allows bloom filter use even if
   // eq_cond length is less than prefix length
-  m_use_full_key = (m_prefix_key_count == m_key_def->get_key_parts());
+  m_is_point_query = (prefix_key_count == m_key_def->get_key_parts());
+  assert_IMP(m_is_point_query, eq_only);
+  m_start_full_key = (start_key_count == m_key_def->get_key_parts());
+  m_end_full_key = (end_key_count == m_key_def->get_key_parts());
 
   // Build list of all filters
   // Any condition we haven't processed in prefix key are filters
@@ -1422,7 +1438,7 @@ bool inline select_exec::send_row() {
 }
 
 bool INLINE_ATTR select_exec::run_query() {
-  bool is_pk_point_query = m_index_is_pk && m_use_full_key;
+  bool is_pk_point_query = m_index_is_pk && m_is_point_query;
 
   // Initialize Rdb_transaction as needed
   txn_wrapper txn(m_thd);
@@ -1441,7 +1457,7 @@ bool INLINE_ATTR select_exec::run_query() {
   } else {
     m_pk_tuple_buf.resize(m_pk_def->max_storage_fmt_length());
 
-    if (m_use_full_key) {
+    if (m_is_point_query) {
       // The index is fully covered including both SK+PK
       ret = run_sk_point_query(&txn);
     } else {
@@ -1719,12 +1735,6 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
     rocksdb::Slice end_key_slice = m_key_index_tuples[i].get_end_key_slice();
     rocksdb::Slice eq_slice = m_key_index_tuples[i].get_eq_slice();
 
-    // If the start key is not full key - either it is missing some columns
-    // or it is a secondary key (which by definition is never full as it
-    // has PK at the end). This impacts the seeking behavior below
-    bool is_start_prefix_key = start_key_slice.size() == eq_slice.size();
-    bool partial_start_key = !m_index_is_pk || is_start_prefix_key;
-
     // Range query need to support 4 combinations
     // * forward cf, ascending order
     // * forward cf, desending order
@@ -1748,19 +1758,20 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
                                end_key_slice.data() + end_key_slice.size());
     rocksdb::Slice end_pos_slice(reinterpret_cast<char *>(end_pos.data()),
                                  end_key_slice.size());
+
     if (m_parser.is_order_desc()) {
+      // Adjust start key if needed
       // In reverse order, both forward cf (SeekForPrev) and reverse cf
       // (Seek) have the same matrix:
-      // PK, A >= n --> start at n
-      // PK, A >  n --> start at pred(n)
-      // SK, A >= n --> start at succ(n)
-      // SK, A >  n --> start at n
-      // >= Prefix n --> start at succ(n)
-      if (m_start_inclusive && partial_start_key) {
-        // SK A >= n and prefix
+      // Full     A <= n --> start at n
+      // Full     A <  n --> start at pred(n)
+      // Partial  A <= n --> start at succ(n)
+      // Partial  A <  n --> start at n
+      if (m_start_inclusive && !m_start_full_key) {
+        // Partial A <= n
         m_key_def->successor(initial_pos.data(), initial_pos.size());
-      } else if (m_index_is_pk && !m_start_inclusive) {
-        // PK A > n
+      } else if (!m_start_inclusive && m_start_full_key) {
+        // Full A <  n
         m_key_def->predecessor(initial_pos.data(), initial_pos.size());
       }
 
@@ -1768,46 +1779,42 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
         // Adjust end key if needed
         // In reverse order, both forward cf (SeekForPrev) and reverse cf
         // (Seek) have the same matrix:
-        // PK, A >= n --> stop at A < n
-        // PK, A >  n --> stop at A < succ(n)
-        // SK, A >= n --> stop at A < n
-        // SK, A >  n --> stop at A < succ(n)
-        // >= Prefix n --> stop at A < n
+        // Full     A >= n --> stop at A < n
+        // Full     A >  n --> stop at A < succ(n)
+        // Partial  A >= n --> stop at A < n
+        // Partial  A >  n --> stop at A < succ(n)
         if (!m_end_inclusive) {
+          assert(end_key_slice.size() > eq_slice.size());
           m_key_def->successor(end_pos.data(), end_pos.size());
         }
       }
     } else {
+      // Adjust start key if needed
       // In forward order, both forward cf (SeekForPrev) and reverse cf
       // (Seek) have the same matrix:
-      // PK, A >= n --> start at n
-      // PK, A >  n --> start at succ(n)
-      // SK, A >= n --> start at n
-      // SK, A >  n --> start at succ(n)
-      // >= Prefix n --> start at n
-      // Based on above, n = succ(n) in non-inclusive case
+      // Full     A >= n --> start at n
+      // Full     A >  n --> start at succ(n)
+      // Partial  A >= n --> start at n
+      // Partial  A >  n --> start at succ(n)
       if (!m_start_inclusive) {
         assert(start_key_slice.size() > eq_slice.size());
         m_key_def->successor(initial_pos.data(), initial_pos.size());
       }
 
       // Adjust end key if needed
-      // In reverse order, both forward cf (SeekForPrev) and reverse cf
+      // In forward order, both forward cf (SeekForPrev) and reverse cf
       // (Seek) have the same matrix:
-      // PK, A <= n --> stop at A > n
-      // PK, A <  n --> stop at A > pred(n)
-      // SK, A <= n --> stop at A > succ(n)
-      // SK, A <  n --> stop at A > n
-      // <= Prefix n --> stop at A > succ(n)
+      // Full     A <= n --> stop at A > n
+      // Full     A <  n --> stop at A > pred(n)
+      // Partial  A <= n --> stop at A > succ(n)
+      // Partial  A <  n --> stop at A > n
       if (!end_key_slice.empty()) {
-        if (m_index_is_pk) {
-          if (!m_end_inclusive) {
-            // PK A < n
-            m_key_def->predecessor(end_pos.data(), end_pos.size());
-          }
-        } else if (m_end_inclusive) {
-          // SK A <= n and prefix
+        if (m_end_inclusive && !m_end_full_key) {
+          // Partial A <= n
           m_key_def->successor(end_pos.data(), end_pos.size());
+        } else if (!m_end_inclusive && m_end_full_key) {
+          // Full A < n
+          m_key_def->predecessor(end_pos.data(), end_pos.size());
         }
       }
     }
