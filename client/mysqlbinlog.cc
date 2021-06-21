@@ -3007,7 +3007,7 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
 
   if ((retval = check_master_version()) != OK_CONTINUE) return retval;
 
-  if (opt_use_dscp && mysql_query(mysql, "SET SESSION rpl_dscp_on_socket=9")) {
+  if (opt_use_dscp && mysql_query(mysql, "SET SESSION dscp_on_socket=9")) {
     error(
         "Could not notify master about DSCP."
         "Master returned '%s'",

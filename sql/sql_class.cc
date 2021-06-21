@@ -4268,6 +4268,9 @@ bool THD::set_dscp_on_socket() {
   } else if (test_family == AF_INET) {
     res = mysql_socket_setsockopt(net->vio->mysql_socket, IPPROTO_IP, IP_TOS,
                                   &tos, sizeof(tos));
+  } else if (test_family == PF_LOCAL) {
+    // skip setting socket TOS/TCLASS when access from local to host
+    return true;
   } else {
     // NO_LINT_DEBUG
     sql_print_warning("Failed to get socket family %d", test_family);
