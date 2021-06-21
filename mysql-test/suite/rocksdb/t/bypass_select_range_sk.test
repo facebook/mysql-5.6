@@ -1,29 +1,33 @@
 --source include/have_rocksdb.inc
---source ../include/bypass_create_table.inc
+--let use_partial_index=0
+while ($use_partial_index <= 1) {
+  --source ../include/bypass_create_table.inc
 
---echo # Range query, SECONDARY KEY
---echo # Reverse Column family + ascending
+  --echo # Range query, SECONDARY KEY
+  --echo # Reverse Column family + ascending
 
---let query_order=ASC
---let query_table=link_table
---source bypass_select_range_sk.inc
+  --let query_order=ASC
+  --let query_table=link_table
+  --source bypass_select_range_sk.inc
 
---echo # Reverse Column family + descending
+  --echo # Reverse Column family + descending
 
---let query_order=DESC
---let query_table=link_table
---source bypass_select_range_sk.inc
+  --let query_order=DESC
+  --let query_table=link_table
+  --source bypass_select_range_sk.inc
 
---echo # forward column family + ascending
+  --echo # forward column family + ascending
 
---let query_order=ASC
---let query_table=link_table2
---source bypass_select_range_sk.inc
+  --let query_order=ASC
+  --let query_table=link_table2
+  --source bypass_select_range_sk.inc
 
---echo # forward column family + descending
+  --echo # forward column family + descending
 
---let query_order=DESC
---let query_table=link_table2
---source bypass_select_range_sk.inc
+  --let query_order=DESC
+  --let query_table=link_table2
+  --source bypass_select_range_sk.inc
 
---source ../include/bypass_drop_table.inc
+  --source ../include/bypass_drop_table.inc
+  --inc $use_partial_index
+}

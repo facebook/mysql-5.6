@@ -1,4 +1,23 @@
 --disable_query_log
+
+if ($use_partial_index) {
+CREATE TABLE `link_table` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+  `time` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+  KEY `id1_type` (`link_type` , `id1` , `visibility` , `time` , `id2` ,
+    `version` , `data`) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=5'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+}
+if (!$use_partial_index) {
 CREATE TABLE `link_table` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
@@ -14,7 +33,27 @@ CREATE TABLE `link_table` (
     `version` , `data`) COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+}
 
+if ($use_partial_index) {
+CREATE TABLE `link_table2` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+  `time` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  PRIMARY KEY (`link_type` , `id1` , `id2`)
+    COMMENT 'cf_link' ,
+  KEY `id1_type` (`link_type` , `id1` , `visibility` , `time` , `id2` ,
+    `version` , `data`) COMMENT 'cfname=cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=5'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=9;
+}
+if (!$use_partial_index) {
 CREATE TABLE `link_table2` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
@@ -31,6 +70,7 @@ CREATE TABLE `link_table2` (
     `version` , `data`) COMMENT 'cf_link_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=9;
+}
 
 insert into link_table values (1, 1, 1, 2, 3, 4, 'a10', 10, 125);
 insert into link_table values (1, 1, 2, 2, 3, 3, 'a10', 10, 125);
@@ -240,6 +280,24 @@ ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 
 insert into link_table5_rev SELECT * FROM link_table5;
 
+if ($use_partial_index) {
+CREATE TABLE `link_table3` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(4) NOT NULL DEFAULT '0',
+  `data` text COLLATE latin1_bin NOT NULL,
+  `time` int(10) unsigned NOT NULL DEFAULT '0',
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`,`id1`,`visibility`,`time`,`id2`,`version`)
+    COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=3'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+}
+if (!$use_partial_index) {
 CREATE TABLE `link_table3` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
@@ -255,6 +313,7 @@ CREATE TABLE `link_table3` (
     COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+}
 
 insert into link_table3 values (1, 1, 2, 2, 1, 1, 'data12', 1, 1);
 insert into link_table3 values (1, 1, 3, 2, 1, 2, 'data13', 1, 1);
@@ -264,6 +323,24 @@ insert into link_table3 values (2, 1, 1, 2, 1, 1, 'data21', 1, 1);
 insert into link_table3 values (2, 1, 2, 2, 1, 1, 'data22', 1, 1);
 insert into link_table3 values (2, 1, 3, 2, 1, 1, 'data32', 1, 1);
 
+if ($use_partial_index) {
+CREATE TABLE `link_table6` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(4) NOT NULL DEFAULT '0',
+  `data` text COLLATE latin1_bin NOT NULL,
+  `time` int(10) unsigned NOT NULL DEFAULT '0',
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`,`id1`,`visibility`,`time`,`id2`,`version`,
+                  `data`(255)) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=3'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+}
+if (!$use_partial_index) {
 CREATE TABLE `link_table6` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
@@ -279,6 +356,7 @@ CREATE TABLE `link_table6` (
                   `data`(255)) COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+}
 
 insert into link_table6 values (1, 1, 2, 2, 1, 1,
   'data12_12345678901234567890123456789012345678901234567890123456789'
@@ -323,6 +401,24 @@ insert into link_table6 values (2, 1, 3, 2, 1, 1,
   '0123456789012345678901234567890123456789012345678901234567890123456789'
   '0123456789012345678901234567890', 1, 1);
 
+if ($use_partial_index) {
+CREATE TABLE `link_table4` (
+  `id1` binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  `raw_key` text COLLATE latin1_bin,
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(3) NOT NULL DEFAULT '0',
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `time` int(10) unsigned NOT NULL DEFAULT '0',
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`,`id1`,`visibility`,`time`,`id2`,`version`,`data`)
+      COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=3'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+}
+if (!$use_partial_index) {
 CREATE TABLE `link_table4` (
   `id1` binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
   `raw_key` text COLLATE latin1_bin,
@@ -338,6 +434,7 @@ CREATE TABLE `link_table4` (
       COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+}
 
 insert into link_table4 values ('a1', "rk1", 2, 2, 1, 1, 'data12', 1, 1);
 insert into link_table4 values ('a1', "rk2", 3, 2, 1, 2, 'data13', 1, 1);
@@ -347,6 +444,24 @@ insert into link_table4 values ('b1', "rk5", 1, 2, 1, 1, 'data21', 1, 1);
 insert into link_table4 values ('b1', "rk6", 2, 2, 1, 1, 'data22', 1, 1);
 insert into link_table4 values ('b1', "rk7", 3, 2, 1, 1, 'data32', 1, 1);
 
+if ($use_partial_index) {
+CREATE TABLE `link_text` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(4) NOT NULL DEFAULT '0',
+  `data` text COLLATE latin1_bin NOT NULL,
+  `time` int(10) unsigned NOT NULL DEFAULT '0',
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`, `data`(255)) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`,`id1`,`visibility`,`time`,`id2`,`version`,
+    `data`(255))COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=3'
+) ENGINE=RocksDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+}
+if (!$use_partial_index) {
 CREATE TABLE `link_text` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
@@ -362,12 +477,31 @@ CREATE TABLE `link_text` (
     `data`(255))COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=RocksDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+}
 
 insert into link_text values (1, 1, 1, 2, 3, 4, 'a', 10, 125);
 insert into link_text values (1, 1, 2, 2, 3, 4, 'aaaaaa', 10, 125);
 insert into link_text values (1, 1, 3, 2, 3, 4, repeat('a', 255), 10, 125);
 insert into link_text values (1, 1, 4, 2, 3, 4, repeat('a', 500), 10, 125);
 
+if ($use_partial_index) {
+CREATE TABLE `link_varchar` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(4) NOT NULL DEFAULT '0',
+  `data` varchar(1000) COLLATE latin1_bin NOT NULL,
+  `time` int(10) unsigned NOT NULL DEFAULT '0',
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`, `data`(255)) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`,`id1`,`visibility`,`time`,`id2`,`version`,
+    `data`(255)) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=3'
+) ENGINE=RocksDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+}
+if (!$use_partial_index) {
 CREATE TABLE `link_varchar` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
@@ -383,6 +517,7 @@ CREATE TABLE `link_varchar` (
     `data`(255)) COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=RocksDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+}
 
 insert into link_varchar select * from link_text;
 
