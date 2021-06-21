@@ -47,6 +47,7 @@
 #include "./rdb_buff.h"
 #include "./rdb_converter.h"
 #include "./rdb_datadic.h"
+#include "./rdb_iterator.h"
 
 static const size_t DEFAULT_FIELD_LIST_SIZE = 16;
 static const size_t MAX_NOSQL_COND_COUNT = 16;
@@ -801,7 +802,7 @@ class select_exec {
   bool pack_cond(uint key_part_no, const sql_cond &cond, bool is_start = true);
   bool send_row();
 
-  bool setup_iterator(txn_wrapper *txn, const rocksdb::Slice &eq_slice);
+  bool setup_iterator(THD *thd);
 
   bool handle_killed() {
     if (m_thd->killed) {
@@ -843,7 +844,7 @@ class select_exec {
   std::vector<std::pair<int, int>> m_field_index_to_where;
 
   // The iterator used in secondary index query or range query
-  std::unique_ptr<rocksdb::Iterator> m_scan_it;
+  std::unique_ptr<Rdb_iterator> m_iterator;
 
   // The entire index (including extended keyparts) is used in query in equality
   // predicates - meaning it is a point query
@@ -905,12 +906,6 @@ class select_exec {
 
   // Lookup bitmap for covering check
   MY_BITMAP m_lookup_bitmap;
-
-  // Upper and lower bounds for iterators
-  std::vector<uchar> m_lower_bound_buf;
-  std::vector<uchar> m_upper_bound_buf;
-  rocksdb::Slice m_lower_bound_slice;
-  rocksdb::Slice m_upper_bound_slice;
 };
 
 bool select_exec::pack_index_tuple(uint key_part_no, Rdb_string_writer *writer,
@@ -1452,6 +1447,10 @@ bool INLINE_ATTR select_exec::run_query() {
 
   m_row_buf.clear();
 
+  if (setup_iterator(m_thd)) {
+    return true;
+  }
+
   if (is_pk_point_query) {
     ret = run_pk_point_query(&txn);
   } else {
@@ -1556,23 +1555,16 @@ bool INLINE_ATTR select_exec::run_pk_point_query(txn_wrapper *txn) {
   return false;
 }
 
-bool INLINE_ATTR select_exec::setup_iterator(txn_wrapper *txn,
-                                             const rocksdb::Slice &eq_slice) {
-  // Bounds needs to be least Rdb_key_def::INDEX_NUMBER_SIZE
-  size_t bound_len =
-      std::max<size_t>(eq_slice.size(), Rdb_key_def::INDEX_NUMBER_SIZE);
-  m_lower_bound_buf.reserve(bound_len);
-  m_upper_bound_buf.reserve(bound_len);
-  bool use_bloom = ha_rocksdb::check_bloom_and_set_bounds(
-      m_thd, *m_key_def, eq_slice, bound_len, m_lower_bound_buf.data(),
-      m_upper_bound_buf.data(), &m_lower_bound_slice, &m_upper_bound_slice);
-  rocksdb::Iterator *it = txn->get_iterator(
-      m_key_def->get_cf(), use_bloom, m_lower_bound_slice, m_upper_bound_slice);
-  if (it == nullptr) {
-    return true;
+bool INLINE_ATTR select_exec::setup_iterator(THD *thd) {
+  if (m_key_def->is_partial_index()) {
+    m_iterator.reset(
+        new Rdb_iterator_partial(thd, m_key_def, m_pk_def, m_tbl_def, m_table));
+  } else {
+    m_iterator.reset(
+        new Rdb_iterator_base(thd, m_key_def, m_pk_def, m_tbl_def));
   }
-  m_scan_it.reset(it);
-  return false;
+
+  return m_iterator == nullptr;
 }
 
 bool INLINE_ATTR select_exec::run_sk_point_query(txn_wrapper *txn) {
@@ -1581,22 +1573,20 @@ bool INLINE_ATTR select_exec::run_sk_point_query(txn_wrapper *txn) {
       return true;
     }
 
+    rocksdb::PinnableSlice value;
     rocksdb::Slice key_slice = writer.get_key_slice();
-    if (unlikely(setup_iterator(txn, key_slice))) {
+    int rc = m_iterator->get(&key_slice, &value, RDB_LOCK_NONE);
+
+    if (rc == HA_ERR_KEY_NOT_FOUND) {
+      continue;
+    }
+
+    if (rc) {
+      m_handler->print_error(rc, 0);
       return true;
     }
-    m_scan_it->Seek(key_slice);
 
-    if (!is_valid_iterator(m_scan_it.get())) {
-      continue;
-    }
-    auto rkey_slice = m_scan_it->key();
-    if (rkey_slice.size() < key_slice.size() ||
-        memcmp(rkey_slice.data(), key_slice.data(), key_slice.size()) != 0) {
-      continue;
-    }
-
-    if (unpack_for_sk(txn, rkey_slice, m_scan_it->value())) {
+    if (unpack_for_sk(txn, key_slice, value)) {
       return true;
     }
 
@@ -1722,9 +1712,6 @@ int INLINE_ATTR select_exec::eval_and_send() {
 }
 
 bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
-  // Determine seek direction - forward (Seek) or reverse (SeekForPrev)
-  bool reverse_seek = m_key_def->m_is_reverse_cf ^ m_parser.is_order_desc();
-
   for (uint i = 0; i < m_key_index_tuples.size(); ++i) {
     if (unlikely(handle_killed())) {
       return true;
@@ -1735,6 +1722,34 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
     rocksdb::Slice end_key_slice = m_key_index_tuples[i].get_end_key_slice();
     rocksdb::Slice eq_slice = m_key_index_tuples[i].get_eq_slice();
 
+    // There are 6 flags to consider:
+    //              direction
+    // seek method  ASC                   DESC
+    // prefix       HA_READ_KEY_EXACT     HA_READ_PREFIX_LAST
+    // inclusive    HA_READ_KEY_OR_NEXT   HA_READ_PREFIX_LAST_OR_PREV
+    // exclusive    HA_READ_AFTER_KEY     HA_READ_BEFORE_KEY
+    enum ha_rkey_function find_flag;
+    if (eq_slice.size() == start_key_slice.size()) {
+      find_flag =
+          m_parser.is_order_desc() ? HA_READ_PREFIX_LAST : HA_READ_KEY_EXACT;
+    } else if (m_start_inclusive) {
+      find_flag = m_parser.is_order_desc() ? HA_READ_PREFIX_LAST_OR_PREV
+                                           : HA_READ_KEY_OR_NEXT;
+    } else {
+      find_flag =
+          m_parser.is_order_desc() ? HA_READ_BEFORE_KEY : HA_READ_AFTER_KEY;
+    }
+
+    int rc = m_iterator->seek(find_flag, start_key_slice, m_start_full_key,
+                              end_key_slice);
+    if (rc == HA_ERR_END_OF_FILE) {
+      continue;
+    }
+    if (rc) {
+      m_handler->print_error(rc, 0);
+      return true;
+    }
+
     // Range query need to support 4 combinations
     // * forward cf, ascending order
     // * forward cf, desending order
@@ -1743,38 +1758,17 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
     // By look at the different combinations, one is able to infer
     // * (Start, end) vs (end, start) is determined by order
     // * End condition is determined by order
-    // * Seek direction is determined by reverse_seek
     //
     // Note we have already swapped start/end in case of descending order in
     // scan_where, so we always start at start_key_slice and end at
     // end_key_slice regardless. The more challenging / confusing part is to
     // determine the exact (start, end) based on cf, order, and prefix
-    std::vector<uchar> initial_pos(
-        start_key_slice.data(),
-        start_key_slice.data() + start_key_slice.size());
-    rocksdb::Slice initial_pos_slice(
-        reinterpret_cast<char *>(initial_pos.data()), start_key_slice.size());
     std::vector<uchar> end_pos(end_key_slice.data(),
                                end_key_slice.data() + end_key_slice.size());
     rocksdb::Slice end_pos_slice(reinterpret_cast<char *>(end_pos.data()),
                                  end_key_slice.size());
 
     if (m_parser.is_order_desc()) {
-      // Adjust start key if needed
-      // In reverse order, both forward cf (SeekForPrev) and reverse cf
-      // (Seek) have the same matrix:
-      // Full     A <= n --> start at n
-      // Full     A <  n --> start at pred(n)
-      // Partial  A <= n --> start at succ(n)
-      // Partial  A <  n --> start at n
-      if (m_start_inclusive && !m_start_full_key) {
-        // Partial A <= n
-        m_key_def->successor(initial_pos.data(), initial_pos.size());
-      } else if (!m_start_inclusive && m_start_full_key) {
-        // Full A <  n
-        m_key_def->predecessor(initial_pos.data(), initial_pos.size());
-      }
-
       if (!end_key_slice.empty()) {
         // Adjust end key if needed
         // In reverse order, both forward cf (SeekForPrev) and reverse cf
@@ -1789,18 +1783,6 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
         }
       }
     } else {
-      // Adjust start key if needed
-      // In forward order, both forward cf (SeekForPrev) and reverse cf
-      // (Seek) have the same matrix:
-      // Full     A >= n --> start at n
-      // Full     A >  n --> start at succ(n)
-      // Partial  A >= n --> start at n
-      // Partial  A >  n --> start at succ(n)
-      if (!m_start_inclusive) {
-        assert(start_key_slice.size() > eq_slice.size());
-        m_key_def->successor(initial_pos.data(), initial_pos.size());
-      }
-
       // Adjust end key if needed
       // In forward order, both forward cf (SeekForPrev) and reverse cf
       // (Seek) have the same matrix:
@@ -1819,28 +1801,6 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
       }
     }
 
-    // During seek, if we were to use bloom filter, we need to find the
-    // largest common prefix between start / eq (prefix). This is needed
-    // to ensure seek w/ bloom filter can correctly locate the key in
-    // a descending scan. For example, for such a query on SK where we
-    // need to issue SeekForPrev('a-c'):
-    // SELECT * WHERE A = a and B = b ORDER BY C DESC
-    // (a-b)          <--- eq / prefix
-    // a-b-a-PK
-    // ...
-    // a-b-z
-    // a-b-z-PK      <--- SeekForPrev('a-c') lands here
-    // (a-c)         <--- start slice
-    // So in order to seek correctly, prefix bloom filter can only use 'a'
-    // but not 'ac' since we want to actuall land on largest 'a-b'
-    rocksdb::Slice prefix_slice(initial_pos_slice.data(),
-                                initial_pos_slice.difference_offset(eq_slice));
-    if (unlikely(setup_iterator(txn, prefix_slice))) {
-      return true;
-    }
-
-    rocksdb_smart_seek(reverse_seek, m_scan_it.get(), initial_pos_slice);
-
     // Make sure the slice is alive as we'll point into the slice during
     // unpacking
     while (true) {
@@ -1848,11 +1808,7 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
         return true;
       }
 
-      if (unlikely(!is_valid_iterator(m_scan_it.get()))) {
-        break;
-      }
-
-      const rocksdb::Slice rkey = m_scan_it->key();
+      const rocksdb::Slice rkey = m_iterator->key();
       if (end_key_slice.empty()) {
         // No end - we stop when prefix no longer matches
         if (!rkey.starts_with(eq_slice)) {
@@ -1874,7 +1830,7 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
         }
       }
 
-      const rocksdb::Slice rvalue = m_scan_it->value();
+      const rocksdb::Slice rvalue = m_iterator->value();
       if (m_index_is_pk) {
         if (unlikely(unpack_for_pk(rkey, rvalue))) {
           return true;
@@ -1894,7 +1850,14 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
         return false;
       }
 
-      rocksdb_smart_next(reverse_seek, m_scan_it.get());
+      rc = m_parser.is_order_desc() ? m_iterator->prev() : m_iterator->next();
+      if (rc == HA_ERR_END_OF_FILE) {
+        break;
+      }
+      if (rc) {
+        m_handler->print_error(rc, 0);
+        return true;
+      }
     }  // while (true)
   }    // for m_key_index_tuples
 
