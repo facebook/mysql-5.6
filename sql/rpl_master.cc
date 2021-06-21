@@ -1778,13 +1778,13 @@ static int counting_read_function(IO_CACHE *info, uchar *buffer, size_t count) {
 
 static bool get_dscp_value(THD *thd, int& ret_val) {
   ret_val = 0;
-  auto dscp_it= thd->connection_attrs_map.find("rpl_dscp_on_socket");
-  if (thd->variables.rpl_dscp_on_socket == 0 &&
+  auto dscp_it= thd->connection_attrs_map.find("dscp_on_socket");
+  if (thd->variables.dscp_on_socket == 0 &&
       dscp_it == thd->connection_attrs_map.end())
     return false;
 
   int dscp_val;
-  if ((dscp_val= thd->variables.rpl_dscp_on_socket) != 0) {
+  if ((dscp_val= thd->variables.dscp_on_socket) != 0) {
     if (dscp_val >= 64 || dscp_val < 0) {
       // NO_LINT_DEBUG
       sql_print_warning("Invalid DSCP_QOS value in session var: %d",
