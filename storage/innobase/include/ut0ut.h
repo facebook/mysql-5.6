@@ -155,6 +155,23 @@ performance. */
 #define UT_RELAX_CPU() /* No op */
 #endif                 /* !UNIV_HOTBACKUP */
 
+namespace ut {
+struct Location {
+  const char *filename;
+  size_t line;
+  std::ostream &print(std::ostream &out) const {
+    out << "[Location: file=" << filename << ", line=" << line << "]";
+    return out;
+  }
+};
+}  // namespace ut
+
+inline std::ostream &operator<<(std::ostream &out, const ut::Location &obj) {
+  return obj.print(out);
+}
+
+#define UT_LOCATION_HERE (ut::Location{__FILE__, __LINE__})
+
 #define ut_max std::max
 #define ut_min std::min
 
