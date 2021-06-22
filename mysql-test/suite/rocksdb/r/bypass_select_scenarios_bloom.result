@@ -1106,6 +1106,29 @@ id2
 include/assert.inc [Verify not executed in bypass]
 include/assert.inc [Verify bypass and regular query return same number of rows]
 include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1 >= 2 ORDER BY id1 ASC;
+id2
+1
+2
+3
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1 >= 2 ORDER BY id1 ASC;
+id2
+1
+2
+3
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
 # Range query with PK key only with filters
 ========== Verifying Bypass Query ==========
 WITH BYPASS:
@@ -1483,4 +1506,4 @@ FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT @executed_end-@executed_start AS ROCKSDB_SELECT_BYPASS_EXECUTED;
 ROCKSDB_SELECT_BYPASS_EXECUTED
-51
+52
