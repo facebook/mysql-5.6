@@ -1,0 +1,70 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+create table t1 (a int primary key);
+insert into t1 values (1);
+flush logs;
+flush logs;
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13000.000004 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13000.000003 was not purged because it is the active log file.
+"Verifying gtid_purged_for_tailing and gtid_purged is same in leader"
+select @@global.gtid_purged_for_tailing;
+@@global.gtid_purged_for_tailing
+uuid1:1-2
+select @@global.gtid_purged;
+@@global.gtid_purged
+uuid1:1-2
+purge raft logs before now();
+Warnings:
+Warning	1868	file ./binary-logs-13001.000004 was not purged because it is the active log file.
+Warning	1868	file ./binary-logs-13001.000003 was not purged because it is the active log file.
+"Verifying table gtid_purged_for_tailing is not empty and gtid_purged is empty"
+select @@global.gtid_purged_for_tailing;
+@@global.gtid_purged_for_tailing
+uuid1:1-2
+select @@global.gtid_purged;
+@@global.gtid_purged
+
+SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID="uuid2";
+[connection server_2]
+"Check gtid_purged_for_tailing again after follower becoming leader"
+select @@global.gtid_purged_for_tailing;
+@@global.gtid_purged_for_tailing
+uuid1:1-2
+select @@global.gtid_purged;
+@@global.gtid_purged
+uuid1:1-2
+"Check gtid_purged_for_tailing again after leader becoming follower"
+select @@global.gtid_purged_for_tailing;
+@@global.gtid_purged_for_tailing
+uuid1:1-2
+select @@global.gtid_purged_for_tailing;
+@@global.gtid_purged_for_tailing
+uuid1:1-2
+SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID="uuid1";
+[connection server_1]
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
+reset master;

@@ -4423,6 +4423,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       m_binlog_file(new Binlog_ofile()),
       m_key_LOCK_log(key_LOG_LOCK_log),
       bytes_written(0),
+      lost_gtid_for_tailing(""),
       file_id(1),
       sync_period_ptr(sync_period),
       sync_counter(0),
@@ -4467,6 +4468,7 @@ void MYSQL_BIN_LOG::cleanup() {
     mysql_mutex_destroy(&LOCK_binlog_end_pos);
     mysql_mutex_destroy(&LOCK_xids);
     mysql_mutex_destroy(&LOCK_non_xid_trxs);
+    mysql_mutex_destroy(&LOCK_lost_gtids_for_tailing);
     mysql_cond_destroy(&update_cond);
     mysql_cond_destroy(&m_prep_xids_cond);
     mysql_cond_destroy(&non_xid_trxs_cond);
@@ -4494,6 +4496,8 @@ void MYSQL_BIN_LOG::init_pthread_objects() {
   mysql_mutex_init(m_key_LOCK_binlog_end_pos, &LOCK_binlog_end_pos,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_xids, &LOCK_xids, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(m_key_LOCK_lost_gtids_for_tailing,
+                   &LOCK_lost_gtids_for_tailing, MY_MUTEX_INIT_FAST);
   mysql_cond_init(m_key_update_cond, &update_cond);
   mysql_cond_init(m_key_prep_xids_cond, &m_prep_xids_cond);
   mysql_cond_init(m_key_non_xid_trxs_cond, &non_xid_trxs_cond);
@@ -5664,6 +5668,7 @@ bool MYSQL_BIN_LOG::init_prev_gtid_sets_map() {
   }
 
 end:
+  update_lost_gtid_for_tailing();
   DBUG_PRINT("info", ("returning %d", error));
   DBUG_RETURN(error != 0 ? true : false);
 }
@@ -6009,7 +6014,9 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
       }
     }
   }
+
 end:
+  update_lost_gtid_for_tailing();
   if (all_gtids) all_gtids->dbug_print("all_gtids");
   if (lost_gtids) lost_gtids->dbug_print("lost_gtids");
   if (need_lock) {
@@ -7268,6 +7275,7 @@ bool MYSQL_BIN_LOG::reset_logs(THD *thd, bool delete_only) {
   }
 
 err:
+  update_lost_gtid_for_tailing();
   if (name == nullptr)
     name = const_cast<char *>(save_name);  // restore old file-name
   sid_lock->unlock();

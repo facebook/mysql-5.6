@@ -24,7 +24,7 @@ VARIABLE_NAME LIKE '%slave%') AND
 'read_only_slave', 'rpl_semi_sync_master_crash_if_active_trxs',
 'reset_seconds_behind_master', 'skip_flush_master_info',
 'skip_flush_relay_worker_info',
-'rpl_skip_tx_api')) AND
+'rpl_skip_tx_api', 'gtid_purged_for_tailing')) AND
 (VARIABLE_NAME NOT LIKE 'rocksdb%')
 ORDER BY VARIABLE_NAME;
 

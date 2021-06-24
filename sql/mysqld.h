@@ -717,6 +717,7 @@ extern PSI_mutex_key key_RELAYLOG_LOCK_sync;
 extern PSI_mutex_key key_RELAYLOG_LOCK_sync_queue;
 extern PSI_mutex_key key_RELAYLOG_LOCK_non_xid_trxs;
 extern PSI_mutex_key key_RELAYLOG_LOCK_xids;
+extern PSI_mutex_key key_RELAYLOG_LOCK_lost_gtids_for_tailing;
 extern PSI_mutex_key key_gtid_ensure_index_mutex;
 extern PSI_mutex_key key_hlc_wait_mutex;
 extern PSI_mutex_key key_mts_temp_table_LOCK;
