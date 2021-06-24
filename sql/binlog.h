@@ -411,6 +411,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   /** The instrumentation key to use for @ LOCK_xids. */
   PSI_mutex_key m_key_LOCK_xids;
   PSI_mutex_key m_key_LOCK_non_xid_trxs;
+  PSI_mutex_key m_key_LOCK_lost_gtids_for_tailing;
   /** The instrumentation key to use for @ update_cond. */
   PSI_cond_key m_key_update_cond;
   /** The instrumentation key to use for @ prep_xids_cond. */
@@ -435,6 +436,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   mysql_mutex_t LOCK_binlog_end_pos;
   mysql_mutex_t LOCK_xids;
   mysql_mutex_t LOCK_non_xid_trxs;
+  mysql_mutex_t LOCK_lost_gtids_for_tailing;
   mysql_cond_t update_cond;
 
   std::atomic<my_off_t> atomic_binlog_end_pos;
@@ -468,6 +470,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
      directories change.
   */
   Gtid_set_map previous_gtid_set_map;
+  /*
+    Used by sys_var gtid_purged_for_tailing
+  */
+  std::string lost_gtid_for_tailing;
   /*
     crash_safe_index_file is temp file used for guaranteeing
     index file crash safe when master server restarts.
@@ -688,7 +694,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
       PSI_mutex_key key_LOCK_binlog_end_pos, PSI_mutex_key key_LOCK_sync,
       PSI_mutex_key key_LOCK_sync_queue, PSI_mutex_key key_LOCK_xids,
       PSI_mutex_key key_LOCK_non_xid_trxs,
-      PSI_mutex_key key_LOCK_wait_for_group_turn, PSI_cond_key key_COND_done,
+      PSI_mutex_key key_LOCK_wait_for_group_turn,
+      PSI_mutex_key key_LOCK_lost_gtids_for_tailing, PSI_cond_key key_COND_done,
       PSI_cond_key key_COND_flush_queue, PSI_cond_key key_update_cond,
       PSI_cond_key key_prep_xids_cond, PSI_cond_key key_non_xid_trxs_cond,
       PSI_cond_key key_COND_wait_for_group_turn, PSI_file_key key_file_log,
@@ -709,6 +716,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
     m_key_LOCK_sync = key_LOCK_sync;
     m_key_LOCK_xids = key_LOCK_xids;
     m_key_LOCK_non_xid_trxs = key_LOCK_non_xid_trxs;
+    m_key_LOCK_lost_gtids_for_tailing = key_LOCK_lost_gtids_for_tailing;
     m_key_update_cond = key_update_cond;
     m_key_prep_xids_cond = key_prep_xids_cond;
     m_key_non_xid_trxs_cond = key_non_xid_trxs_cond;
@@ -798,11 +806,20 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void get_lost_gtids(Gtid_set *gtids) {
     gtids->clear();
     mysql_mutex_lock(&LOCK_index);
-    auto it = previous_gtid_set_map.begin();
-    if (it != previous_gtid_set_map.end())
+    const auto it = previous_gtid_set_map.begin();
+    if (it != previous_gtid_set_map.end() && !it->second.empty())
       gtids->add_gtid_encoding((const uchar *)it->second.c_str(),
                                it->second.length());
     mysql_mutex_unlock(&LOCK_index);
+  }
+
+  void update_lost_gtid_for_tailing() {
+    mysql_mutex_assert_owner(&LOCK_index);
+    mysql_mutex_lock(&LOCK_lost_gtids_for_tailing);
+    lost_gtid_for_tailing = "";
+    const auto it = previous_gtid_set_map.begin();
+    if (it != previous_gtid_set_map.end()) lost_gtid_for_tailing = it->second;
+    mysql_mutex_unlock(&LOCK_lost_gtids_for_tailing);
   }
 
   enum_read_gtids_from_binlog_status read_gtids_from_binlog(
@@ -1576,6 +1593,15 @@ class MYSQL_BIN_LOG : public TC_LOG {
     return &previous_gtid_set_map;
   }
 
+  void get_lost_gtid_for_tailing(Gtid_set *gtids) {
+    gtids->clear();
+    mysql_mutex_lock(&LOCK_lost_gtids_for_tailing);
+    if (!lost_gtid_for_tailing.empty())
+      gtids->add_gtid_encoding((const uchar *)lost_gtid_for_tailing.c_str(),
+                               lost_gtid_for_tailing.length());
+    mysql_mutex_unlock(&LOCK_lost_gtids_for_tailing);
+  }
+
   /*
     It is called by the threads (e.g. dump thread, applier thread) which want
     to read hot log without LOCK_log protection.
@@ -1664,6 +1690,11 @@ class Dump_log {
   void reset_semi_sync_last_acked() {
     Locker lock(this);
     log_->reset_semi_sync_last_acked();
+  }
+
+  void get_lost_gtids(Gtid_set *gtid_set) {
+    Locker lock(this);
+    log_->get_lost_gtid_for_tailing(gtid_set);
   }
 
   // Avoid using this and try to use Dump_log::Locker class instead

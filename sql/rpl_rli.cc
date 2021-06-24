@@ -211,10 +211,11 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
       key_RELAYLOG_LOCK_log_end_pos, key_RELAYLOG_LOCK_sync,
       PSI_NOT_INSTRUMENTED, key_RELAYLOG_LOCK_xids,
       key_RELAYLOG_LOCK_non_xid_trxs, PSI_NOT_INSTRUMENTED,
-      PSI_NOT_INSTRUMENTED, PSI_NOT_INSTRUMENTED, key_RELAYLOG_update_cond,
-      PSI_NOT_INSTRUMENTED, key_RELAYLOG_non_xid_trxs_cond,
-      PSI_NOT_INSTRUMENTED, key_file_relaylog, key_file_relaylog_index,
-      key_file_relaylog_cache, key_file_relaylog_index_cache);
+      key_RELAYLOG_LOCK_lost_gtids_for_tailing, PSI_NOT_INSTRUMENTED,
+      PSI_NOT_INSTRUMENTED, key_RELAYLOG_update_cond, PSI_NOT_INSTRUMENTED,
+      key_RELAYLOG_non_xid_trxs_cond, PSI_NOT_INSTRUMENTED, key_file_relaylog,
+      key_file_relaylog_index, key_file_relaylog_cache,
+      key_file_relaylog_index_cache);
 #endif
 
   group_relay_log_name[0] = event_relay_log_name[0] = group_master_log_name[0] =

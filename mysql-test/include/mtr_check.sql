@@ -113,6 +113,7 @@ BEGIN
   SELECT /*+SET_VAR(use_secondary_engine=OFF)*/ * FROM performance_schema.global_variables
     WHERE variable_name NOT IN ('timestamp', 'server_uuid',
                                 'gtid_executed', 'gtid_purged',
+                                'gtid_purged_for_tailing',
                                 'gtid_committed',
                                 'group_replication_group_name',
                                 'keyring_file_data',
@@ -252,4 +253,3 @@ BEGIN
 END$$
 
 DELIMITER ;
-

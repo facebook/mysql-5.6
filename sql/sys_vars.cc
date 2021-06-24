@@ -7555,6 +7555,15 @@ static Sys_var_gtid_purged Sys_gtid_purged(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_gtid_purged));
 export sys_var *Sys_gtid_purged_ptr = &Sys_gtid_purged;
 
+Gtid_set *gtid_purged_for_tailing;
+static Sys_var_gtid_purged_for_tailing Sys_gtid_purged_for_tailing(
+    "gtid_purged_for_tailing",
+    "The set of GTIDs that existed in previous, purged binary logs in "
+    "non-raft mode. The set of GTIDs that existed in previous, purged "
+    "raft logs in raft mode; ",
+    READ_ONLY GLOBAL_VAR(gtid_purged_for_tailing), NO_CMD_LINE, DEFAULT(NULL),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static Sys_var_gtid_owned Sys_gtid_owned(
     "gtid_owned",
     "The global variable lists all GTIDs owned by all threads. "

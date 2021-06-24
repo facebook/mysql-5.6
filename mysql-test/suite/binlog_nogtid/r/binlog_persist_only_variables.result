@@ -23,6 +23,7 @@ VARIABLE_NAME LIKE '%semi_sync%' OR
 VARIABLE_NAME LIKE '%slave%' OR
 VARIABLE_NAME LIKE '%source%') AND
 (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
+'gtid_purged_for_tailing',
 'binlog_file_basedir', 'binlog_index_basedir',
 'skip_flush_master_info', 'skip_flush_relay_worker_info',
 'read_only_slave', 'rpl_semi_sync_source_crash_if_active_trxs',

@@ -1168,30 +1168,20 @@ int Binlog_sender::check_start_file() {
     */
     Gtid_set *lost_gtids = const_cast<Gtid_set *>(gtid_state->get_lost_gtids());
 
-    /** In raft mode we calculate lost gtids from the binlog/relaylog index
-     * file instead of using the global state that is always based on the
-     * apply side binlogs. Apply logs are purged on election so global state
-     * is currently incorrect wrt raft logs.
-     *
-     * TODO: Remove this hack after global gtid state is fixed wrt to raft
-     * logs
-     */
     Sid_map gtids_lost_sid_map(nullptr);
-    Gtid_set gtids_lost(&gtids_lost_sid_map);
+    Gtid_set gtids(&gtids_lost_sid_map, nullptr);
     if (enable_raft_plugin) {
-      global_sid_lock->unlock();
-      raw_log->get_lost_gtids(&gtids_lost);
-      lost_gtids = &gtids_lost;
+      lost_gtids = &gtids;
+      raw_log->get_lost_gtid_for_tailing(lost_gtids);
     }
-
     if (!lost_gtids->is_subset(m_exclude_gtid)) {
       mysql_bin_log.report_missing_purged_gtids(lost_gtids, m_exclude_gtid,
                                                 errmsg);
-      if (!enable_raft_plugin) global_sid_lock->unlock();
+      global_sid_lock->unlock();
       set_fatal_error(errmsg.c_str());
       return 1;
     }
-    if (!enable_raft_plugin) global_sid_lock->unlock();
+    global_sid_lock->unlock();
     Gtid first_gtid = {0, 0};
     if (raw_log->find_first_log_not_in_gtid_set(
             index_entry_name, m_exclude_gtid, &first_gtid, errmsg)) {
