@@ -1,0 +1,98 @@
+
+source ../include/raft_3_node.inc;
+
+connection server_1;
+let $uuid1= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+create table t1 (a int primary key);
+insert into t1 values (1);
+flush logs;
+flush logs;
+
+sleep 5;
+
+purge raft logs before now();
+
+echo "Verifying gtid_purged_for_tailing and gtid_purged is same in leader";
+
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged_for_tailing;
+
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged;
+
+connection server_2;
+purge raft logs before now();
+
+echo "Verifying table gtid_purged_for_tailing is not empty and gtid_purged is empty";
+
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged_for_tailing;
+
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged;
+
+let $uuid2 = `select @@server_uuid`;
+
+connection server_1;
+replace_result $uuid2 uuid2;
+eval SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID="$uuid2";
+
+connection server_2;
+# wait for new leader to become writable
+let $rpl_connection_name = server_2;
+source include/rpl_connection.inc;
+let $max_sleep = 300;
+while (!$_leader_writeable) {
+  let $_leader_writeable = `SELECT @@GLOBAL.READ_ONLY =
+      0 AND @@GLOBAL.SUPER_READ_ONLY = 0`;
+  sleep 1;
+  let $max_sleep = $max_sleep - 1;
+  if ($max_sleep == 0) {
+    die "Timeout while waiting for read_only = 0 on leader";
+  }
+}
+
+echo "Check gtid_purged_for_tailing again after follower becoming leader";
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged_for_tailing;
+
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged;
+
+connection server_1;
+echo "Check gtid_purged_for_tailing again after leader becoming follower";
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged_for_tailing;
+
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged_for_tailing;
+
+# clear and reset
+connection server_2;
+replace_result $uuid1 uuid1;
+eval SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID="$uuid1";
+
+connection server_1;
+# wait for new leader to become writable
+let $rpl_connection_name = server_1;
+source include/rpl_connection.inc;
+let $max_sleep = 300;
+while (!$_leader_writeable2) {
+  let $_leader_writeable2 = `SELECT @@GLOBAL.READ_ONLY =
+      0 AND @@GLOBAL.SUPER_READ_ONLY = 0`;
+  sleep 1;
+  let $max_sleep = $max_sleep - 1;
+  if ($max_sleep == 0) {
+    die "Timeout while waiting for read_only = 0 on leader";
+  }
+}
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
+
+reset master;

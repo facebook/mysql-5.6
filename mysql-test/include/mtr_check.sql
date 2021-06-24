@@ -80,7 +80,8 @@ BEGIN
                                 'gtid_executed', 'gtid_purged',
                                 'gtid_committed',
                                 'group_replication_group_name',
-                                'keyring_file_data')
+                                'keyring_file_data',
+                                'gtid_purged_for_tailing')
   ORDER BY VARIABLE_NAME;
 
   -- Dump all persisted variables, those that may change.
@@ -206,4 +207,3 @@ BEGIN
 END$$
 
 DELIMITER ;
-
