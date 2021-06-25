@@ -849,7 +849,7 @@ public:
     gtids->clear();
     mysql_mutex_lock(&LOCK_index);
     auto it = previous_gtid_set_map.begin();
-    if (it != previous_gtid_set_map.end())
+    if (it != previous_gtid_set_map.end() && !it->second.empty())
       gtids->add_gtid_encoding(
           (const uchar*)it->second.c_str(), it->second.length());
     mysql_mutex_unlock(&LOCK_index);
