@@ -15,6 +15,10 @@ def get_query(table_name, binary_id1):
   id1 = random.randint(1, 5)
   id2 = random.randint(1, 20)
 
+  r = random.randint(1, 1000)
+  if r == 1:
+    return """TRUNCATE TABLE %s""" % table_name
+
   r = random.randint(1, 3)
 
   if r == 1:
@@ -33,7 +37,6 @@ class Worker(threading.Thread):
     self.num_iters = num_iters
     self.check = check
     self.event = event
-    self.exception = None
     self.start()
 
   def run(self):
@@ -43,14 +46,17 @@ class Worker(threading.Thread):
       else:
         self.run_write()
     except Exception as e:
-      self.exception = traceback.format_exc()
+      print("Worker hit an exception:\n%s" % traceback.format_exc())
+      self.event.set()
 
   def run_write(self):
     cur = self.con.cursor()
-    cur.execute("select data_type = 'binary' from information_schema.columns where table_schema = database() and table_name = '%s' and column_name = 'id1'" % self.table_name);
+    cur.execute("select data_type = 'binary' from information_schema.columns where table_schema = database() and table_name = '%s' and column_name = 'id1'" % self.table_name)
     binary_id1 = cur.fetchone()[0] == 1
     cur.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
     for x in range(self.num_iters):
+      if self.event.is_set():
+        break
       try:
         cur.execute(get_query(self.table_name, binary_id1))
         self.con.commit()
@@ -68,9 +74,8 @@ class Worker(threading.Thread):
         sk_count = cur.fetchone()[0]
         assert pk_count == sk_count, "Count mismatch %d != %d" % (pk_count, sk_count)
         self.con.commit()
-      except MySQLdb.OperationalError as e:
+      except Exception as e:
         self.con.rollback()
-        cur = self.con.cursor()
         raise e
 
 if __name__ == '__main__':
@@ -87,14 +92,14 @@ if __name__ == '__main__':
   num_iters = int(sys.argv[6])
   num_workers = int(sys.argv[7])
 
-  done_event = threading.Event();
+  done_event = threading.Event()
 
   worker_failed = False
   workers = []
   for i in range(num_workers):
     w = Worker(
       MySQLdb.connect(user=user, host=host, port=port, db=db), table_name,
-      num_iters, False, None)
+      num_iters, False, done_event)
     workers.append(w)
 
   checker = Worker(
@@ -103,9 +108,6 @@ if __name__ == '__main__':
 
   for w in workers:
     w.join()
-    if w.exception:
-      print("Worker hit an exception:\n%s\n" % w.exception)
-      worker_failed = True
 
   done_event.set()
   checker.join()

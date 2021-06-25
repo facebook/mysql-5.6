@@ -10378,6 +10378,26 @@ int ha_rocksdb::check_and_lock_unique_pk(const struct update_row_info &row_info,
   return HA_EXIT_SUCCESS;
 }
 
+int ha_rocksdb::acquire_prefix_lock(const Rdb_key_def &kd, Rdb_transaction *tx,
+                                    const uchar *data) {
+  DBUG_ASSERT(kd.is_partial_index());
+  // Obtain shared lock on prefix.
+  uint size = kd.pack_record(table, m_pack_buffer, data, m_sk_packed_tuple,
+                             nullptr, false, 0, kd.partial_index_keyparts());
+  const rocksdb::Slice prefix_slice =
+      rocksdb::Slice((const char *)m_sk_packed_tuple, size);
+
+  const rocksdb::Status s =
+      tx->get_for_update(kd, prefix_slice, nullptr, false /* exclusive */,
+                         false /* do validate */, false /* no_wait */);
+  if (!s.ok()) {
+    return tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                m_table_handler);
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
 /**
    Check the specified secondary key value is unique and also lock the row
 
@@ -10406,9 +10426,24 @@ int ha_rocksdb::check_and_lock_sk(
   KEY *key_info = nullptr;
   uint n_null_fields = 0;
   uint user_defined_key_parts = 1;
+  int rc = HA_EXIT_SUCCESS;
 
   key_info = &table->key_info[key_id];
   user_defined_key_parts = key_info->user_defined_key_parts;
+  const Rdb_key_def &kd = *m_key_descr_arr[key_id];
+
+  if (kd.is_partial_index()) {
+    // Obtain shared lock on new/old prefix.
+    if (row_info.old_data != nullptr) {
+      rc = acquire_prefix_lock(kd, row_info.tx, row_info.old_data);
+      if (rc) return rc;
+    }
+
+    DBUG_ASSERT(row_info.new_data != nullptr);
+    rc = acquire_prefix_lock(kd, row_info.tx, row_info.new_data);
+    if (rc) return rc;
+  }
+
   /*
     If there are no uniqueness requirements, there's no need to obtain a
     lock for this key.
@@ -10416,8 +10451,6 @@ int ha_rocksdb::check_and_lock_sk(
   if (!(key_info->flags & HA_NOSAME)) {
     return HA_EXIT_SUCCESS;
   }
-
-  const Rdb_key_def &kd = *m_key_descr_arr[key_id];
 
   /*
     Calculate the new key for obtaining the lock
@@ -10488,7 +10521,6 @@ int ha_rocksdb::check_and_lock_sk(
   DBUG_ASSERT(!m_key_descr_arr[key_id]->is_partial_index());
   Rdb_iterator_base iter(ha_thd(), m_key_descr_arr[key_id], m_pk_descr,
                          m_tbl_def);
-  int rc = HA_EXIT_SUCCESS;
 
   /*
     If all_parts_used is true, then PK uniqueness check/lock would already
@@ -10850,38 +10882,31 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
     old_key_slice = rocksdb::Slice(
         reinterpret_cast<const char *>(m_sk_packed_tuple_old), old_packed_size);
 
+    // TODO(mung) - If the new_data and old_data below to the same partial index
+    // group (ie. have the same prefix), we can make use of the read below to
+    // determine whether to issue SingleDelete or not.
+    //
+    // Currently we unconditionally issue SingleDelete, meaning that it is
+    // possible for SD to be compacted out without meeting any Puts. This bumps
+    // the num_single_delete_fallthrough counter in rocksdb, but is otherwise
+    // fine as the SD markers just get compacted out. We will have to revisit
+    // this if we want stronger consistency checks though.
     row_info.tx->get_indexed_write_batch()->SingleDelete(kd.get_cf(),
                                                          old_key_slice);
 
     bytes_written = old_key_slice.size();
   }
 
-  // TODO(mung) - If the new_data and old_data below to the same partial index
-  // group (ie. have the same prefix), we can make use of the read below to
-  // determine whether to issue SingleDelete or not.
-  //
-  // Currently we unconditionally issue SingleDelete, meaning that it is
-  // possible for SD to be compacted out without meeting any Puts. This bumps
-  // the num_single_delete_fallthrough counter in rocksdb, but is otherwise
-  // fine as the SD markers just get compacted out. We will have to revisit
-  // this if we want stronger consistency checks though.
   if (kd.is_partial_index() && !bulk_load_sk) {
-    // Obtain shared lock on prefix.
-    int size = kd.pack_record(table_arg, m_pack_buffer, row_info.new_data,
-                              m_sk_packed_tuple, nullptr, false, 0,
-                              kd.partial_index_keyparts());
-    const rocksdb::Slice prefix_slice =
-        rocksdb::Slice((const char *)m_sk_packed_tuple, size);
-
-    const rocksdb::Status s = row_info.tx->get_for_update(
-        kd, prefix_slice, nullptr, false /* exclusive */,
-        false /* do validate */, false /* no_wait */);
-    if (!s.ok()) {
-      return row_info.tx->set_status_error(table_arg->in_use, s, kd, m_tbl_def,
-                                           m_table_handler);
-    }
-
-    // Check if this prefix has been materialized.
+    // TODO(mung) - We've already calculated prefix len when locking. If we
+    // cache that value, we can avoid recalculating here.
+    uint size = kd.pack_record(table, m_pack_buffer, row_info.new_data,
+                               m_sk_packed_tuple, nullptr, false, 0,
+                               kd.partial_index_keyparts());
+    rocksdb::Slice prefix_slice(
+        reinterpret_cast<const char *>(m_sk_packed_tuple), size);
+    // Shared lock on prefix should have already been acquired in
+    // check_and_lock_sk. Check if this prefix has been materialized.
     Rdb_iterator_base iter(ha_thd(), m_key_descr_arr[kd.get_keyno()],
                            m_pk_descr, m_tbl_def);
     rc = iter.seek(kd.m_is_reverse_cf ? HA_READ_PREFIX_LAST : HA_READ_KEY_EXACT,
@@ -11321,6 +11346,12 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
                                              m_table_handler));
           }
         }
+      }
+
+      if (kd.is_partial_index()) {
+        // Obtain shared lock on prefix.
+        int rc = acquire_prefix_lock(kd, tx, buf);
+        if (rc) DBUG_RETURN(rc);
       }
 
       packed_size = kd.pack_record(table, m_pack_buffer, buf, m_sk_packed_tuple,

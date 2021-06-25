@@ -612,8 +612,9 @@ int Rdb_iterator_partial::materialize_prefix() {
 
   auto wb = std::unique_ptr<rocksdb::WriteBatch>(new rocksdb::WriteBatch);
   m_pkd->get_infimum_key(m_cur_prefix_key, &tmp);
-  rc = m_iterator_pk.seek(HA_READ_KEY_EXACT, cur_prefix_key, false,
-                          cur_prefix_key, true /* read current */);
+  Rdb_iterator_base iter_pk(m_thd, m_pkd, m_pkd, m_tbl_def);
+  rc = iter_pk.seek(HA_READ_KEY_EXACT, cur_prefix_key, false, cur_prefix_key,
+                    true /* read current */);
   size_t num_rows = 0;
 
   while (!rc) {
@@ -622,8 +623,8 @@ int Rdb_iterator_partial::materialize_prefix() {
       goto exit;
     }
 
-    const rocksdb::Slice &rkey = m_iterator_pk.key();
-    const rocksdb::Slice &rval = m_iterator_pk.value();
+    const rocksdb::Slice &rkey = iter_pk.key();
+    const rocksdb::Slice &rval = iter_pk.value();
 
     // Unpack from PK format
     rc = m_converter.decode(m_pkd, m_record_buf, &rkey, &rval);
@@ -647,7 +648,7 @@ int Rdb_iterator_partial::materialize_prefix() {
     }
 
     num_rows++;
-    rc = m_iterator_pk.next();
+    rc = iter_pk.next();
   }
 
   if (rc != HA_ERR_END_OF_FILE) goto exit;

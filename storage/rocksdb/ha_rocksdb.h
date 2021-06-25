@@ -681,7 +681,6 @@ class ha_rocksdb : public my_core::handler {
     const uchar *old_data;
     rocksdb::Slice new_pk_slice;
     rocksdb::Slice old_pk_slice;
-    rocksdb::Slice old_pk_rec;
 
     // "unpack_info" data for the new PK value
     Rdb_string_writer *new_pk_unpack_info;
@@ -742,6 +741,9 @@ class ha_rocksdb : public my_core::handler {
   int get_pk_for_update(struct update_row_info *const row_info);
   int check_and_lock_unique_pk(const struct update_row_info &row_info,
                                bool *const found, const bool skip_unique_check)
+      MY_ATTRIBUTE((__warn_unused_result__));
+  int acquire_prefix_lock(const Rdb_key_def &kd, Rdb_transaction *tx,
+                          const uchar *data)
       MY_ATTRIBUTE((__warn_unused_result__));
   int check_and_lock_sk(const uint key_id,
                         const struct update_row_info &row_info,
