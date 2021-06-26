@@ -9770,7 +9770,7 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
       }
     }
 
-    if (rc == HA_ERR_END_OF_FILE) {
+    if (rc) {
       break;
     }
 
