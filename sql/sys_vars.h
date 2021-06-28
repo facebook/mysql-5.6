@@ -2498,7 +2498,6 @@ public:
   uchar *global_value_ptr(THD *thd, LEX_STRING *base)
   {
     DBUG_ENTER("Sys_var_gtid_purged_for_tailing::global_value_ptr");
-    global_sid_lock->wrlock();
     Sid_map gtids_lost_sid_map(nullptr);
     Gtid_set gtids_lost(&gtids_lost_sid_map);
     dump_log.get_lost_gtids(&gtids_lost);
@@ -2507,7 +2506,6 @@ public:
       my_error(ER_OUT_OF_RESOURCES, MYF(0));
     else
       gtids_lost.to_string(buf);
-    global_sid_lock->unlock();
     DBUG_RETURN((uchar *)buf);
   }
 };
