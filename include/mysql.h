@@ -492,6 +492,10 @@ bool STDCALL mysql_get_ssl_session_reused(MYSQL *mysql);
 void *STDCALL mysql_take_ssl_context_ownership(MYSQL *mysql);
 bool STDCALL mysql_change_user(MYSQL *mysql, const char *user,
                                const char *passwd, const char *db);
+enum net_async_status STDCALL mysql_change_user_nonblocking(MYSQL *mysql,
+                                                            const char *user,
+                                                            const char *passwd,
+                                                            const char *db);
 MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
                                   const char *user, const char *passwd,
                                   const char *db, unsigned int port,

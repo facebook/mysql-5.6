@@ -260,6 +260,24 @@ void STDCALL mysql_debug(const char *debug [[maybe_unused]]) {
 }
 
 /**************************************************************************
+  Change user and database, nonblocking
+**************************************************************************/
+
+net_async_status STDCALL mysql_change_user_nonblocking(MYSQL *mysql,
+                                                       const char *user,
+                                                       const char *passwd,
+                                                       const char *db) {
+  net_async_status status =
+      run_plugin_auth_nonblocking_wrapper(mysql, user, passwd, db);
+
+  if (status == NET_ASYNC_COMPLETE || status == NET_ASYNC_ERROR) {
+    mysql_detach_stmt_list(&mysql->stmts, "mysql_change_user");
+  }
+
+  return status;
+}
+
+/**************************************************************************
   Change user and database
 **************************************************************************/
 

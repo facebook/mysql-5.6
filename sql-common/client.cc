@@ -3425,6 +3425,10 @@ void mysql_extension_free(MYSQL_EXTENSION *ext) {
         ctx->ssl = nullptr;
       }
       if (ctx->auth_context) {
+        mysql_async_auth *auth_context = ctx->auth_context;
+        if (auth_context->saved_user) my_free(auth_context->saved_user);
+        if (auth_context->saved_passwd) my_free(auth_context->saved_passwd);
+        if (auth_context->saved_db) my_free(auth_context->saved_db);
         my_free(ctx->auth_context);
         ctx->auth_context = nullptr;
       }
@@ -4339,27 +4343,33 @@ static char *write_string(char *dest, char *dest_end, const uchar *src,
   memcpy(to, src, src_len);
   return (char *)(to + src_len);
 }
-/**
-  Sends a @ref page_protocol_com_change_user
-  with a caller provided payload
 
-  @retval 0 ok
-  @retval 1 error
+/**
+  Generate com_change_user packet.
+  Return 0 if successful, otherwise return 1
+  In case of returning 0(successful), caller is responsible for freeing buff_out
+
 */
-static int send_change_user_packet(MCPVIO_EXT *mpvio, const uchar *data,
-                                   int data_len) {
+static bool prep_change_user_packet(MCPVIO_EXT *mpvio, const uchar *data,
+                                    int data_len, char **buff_out,
+                                    int *buff_len) {
+  DBUG_TRACE;
   MYSQL *mysql = mpvio->mysql;
-  char *buff, *end;
-  int res = 1;
   size_t connect_attrs_len =
       (mysql->server_capabilities & CLIENT_CONNECT_ATTRS &&
        mysql->options.extension)
           ? mysql->options.extension->connection_attributes_length
           : 0;
+  char *buff, *end;
 
-  buff = static_cast<char *>(
-      my_alloca(USERNAME_LENGTH + data_len + 1 + NAME_LEN + 2 + NAME_LEN +
-                connect_attrs_len + 9 /* for the length of the attrs */));
+  *buff_out = nullptr;
+  *buff_len = 0;
+
+  buff =
+      static_cast<char *>(my_malloc(PSI_NOT_INSTRUMENTED,
+                                    USERNAME_LENGTH + data_len + 1 + NAME_LEN +
+                                        2 + NAME_LEN + connect_attrs_len + 9,
+                                    MYF(MY_WME | MY_ZEROFILL)));
 
   end = strmake(buff, mysql->user, USERNAME_LENGTH) + 1;
 
@@ -4369,7 +4379,8 @@ static int send_change_user_packet(MCPVIO_EXT *mpvio, const uchar *data,
     assert(data_len <= 255);
     if (data_len > 255) {
       set_mysql_error(mysql, CR_MALFORMED_PACKET, unknown_sqlstate);
-      goto error;
+      my_free(buff);
+      return true;
     }
     *end++ = data_len;
     memcpy(end, data, data_len);
@@ -4386,12 +4397,62 @@ static int send_change_user_packet(MCPVIO_EXT *mpvio, const uchar *data,
     end = strmake(end, mpvio->plugin->name, NAME_LEN) + 1;
 
   end = (char *)send_client_connect_attrs(mysql, (uchar *)end);
+  *buff_out = buff;
+  *buff_len = end - buff;
 
-  res = simple_command(mysql, COM_CHANGE_USER, (uchar *)buff,
-                       (ulong)(end - buff), 1);
+  return false;
+}
 
-error:
+/**
+  Sends a @ref page_protocol_com_change_user
+  with a caller provided payload
+
+  @retval 0 ok
+  @retval 1 error
+*/
+static int send_change_user_packet(MCPVIO_EXT *mpvio, const uchar *data,
+                                   int data_len) {
+  char *buff = nullptr;
+  int buff_len;
+  if (prep_change_user_packet(mpvio, data, data_len, &buff, &buff_len)) {
+    return 1;
+  }
+
+  int res = simple_command(mpvio->mysql, COM_CHANGE_USER, (uchar *)buff,
+                           (ulong)buff_len, 1);
+  if (buff) my_free(buff);  // buff is allocated in prep_change_user_packet()
   return res;
+}
+
+static net_async_status send_change_user_packet_nonblocking(MCPVIO_EXT *mpvio,
+                                                            const uchar *data,
+                                                            int data_len) {
+  MYSQL *mysql = mpvio->mysql;
+  mysql_async_auth *ctx = ASYNC_DATA(mysql)->connect_context->auth_context;
+  net_async_status status;
+
+  if (!ctx->change_user_buff) {
+    if (prep_change_user_packet(mpvio, data, data_len, &ctx->change_user_buff,
+                                &ctx->change_user_buff_len)) {
+      // no need to free change_user_buff
+      ctx->change_user_buff = nullptr;
+      return NET_ASYNC_ERROR;
+    }
+  }
+
+  bool err;
+  status = simple_command_nonblocking(
+      mpvio->mysql, COM_CHANGE_USER, (uchar *)ctx->change_user_buff,
+      (ulong)ctx->change_user_buff_len, 1, &err);
+  if (status == NET_ASYNC_NOT_READY) {
+    return status;
+  }
+  if (err) status = NET_ASYNC_ERROR;
+
+  my_free(ctx->change_user_buff);
+  ctx->change_user_buff = nullptr;
+
+  return status;
 }
 
 /* clang-format off */
@@ -5650,13 +5711,13 @@ static net_async_status client_mpvio_write_packet_nonblocking(
   bool error = false;
 
   if (mpvio->packets_written == 0) {
-    /* mysql_change_user_nonblocking not implemented yet. */
-    assert(!mpvio->mysql_change_user);
-    net_async_status status =
-        send_client_reply_packet_nonblocking(mpvio, pkt, pkt_len, &error);
-    if (status == NET_ASYNC_NOT_READY) {
-      return NET_ASYNC_NOT_READY;
-    }
+    net_async_status status;
+    if (mpvio->mysql_change_user)
+      status = send_change_user_packet_nonblocking(mpvio, pkt, pkt_len);
+    else
+      status =
+          send_client_reply_packet_nonblocking(mpvio, pkt, pkt_len, &error);
+    if (status == NET_ASYNC_NOT_READY) return NET_ASYNC_NOT_READY;
   } else {
     NET *net = &mpvio->mysql->net;
 
@@ -5818,14 +5879,23 @@ int run_plugin_auth(MYSQL *mysql, char *data, uint data_len,
   @param data_plugin a plugin that data were prepared for
                      or 0 if it's mysql_change_user()
   @param db          initial db to use, can be 0
+  @param user        username (used only when called_from_stdcall is true)
+  @param passwd      password (used only when called_from_stdcall is true)
+  @param called_from_stdcall  true if called from mysql_change_user_nonblocking
 
   @retval     NET_ASYNC_NOT_READY  authentication not yet complete
   @retval     NET_ASYNC_COMPLETE   authentication done
+
+  If called_from_stdcall is true, it means the function is called by
+  mysql_change_user_nonblocking stdcall. In that case, to keep the behavior of
+  mysql_change_user_nonblocking and mysql_change_user stdcall the same, this
+  function does extra work, saving current states and restoring saved states
+  if change_user fails, etc.
 */
-mysql_state_machine_status run_plugin_auth_nonblocking(MYSQL *mysql, char *data,
-                                                       uint data_len,
-                                                       const char *data_plugin,
-                                                       const char *db) {
+mysql_state_machine_status run_plugin_auth_nonblocking(
+    MYSQL *mysql, char *data, uint data_len, const char *data_plugin,
+    const char *db, const char *user = nullptr, const char *passwd = nullptr,
+    bool called_from_stdcall = false) {
   DBUG_TRACE;
   mysql_async_auth *ctx = ASYNC_DATA(mysql)->connect_context->auth_context;
   if (!ctx) {
@@ -5840,16 +5910,111 @@ mysql_state_machine_status run_plugin_auth_nonblocking(MYSQL *mysql, char *data,
     ctx->non_blocking = true;
     ctx->current_factor_index = 0;
     ctx->state_function = authsm_begin_plugin_auth;
+
     ASYNC_DATA(mysql)->connect_context->auth_context = ctx;
+
+    if (called_from_stdcall) {
+      ctx->saved_cs = mysql->charset;
+      ctx->saved_user = mysql->user;
+      ctx->saved_passwd = mysql->passwd;
+      ctx->saved_db = mysql->db;
+
+      if (mysql_init_character_set(mysql)) {
+        mysql->charset = ctx->saved_cs;
+        my_free(ctx);
+        ASYNC_DATA(mysql)->connect_context->auth_context = nullptr;
+        return STATE_MACHINE_FAILED;
+      }
+      mysql->user =
+          my_strdup(PSI_NOT_INSTRUMENTED, user ? user : "", MYF(MY_WME));
+      mysql->passwd =
+          my_strdup(PSI_NOT_INSTRUMENTED, passwd ? passwd : "", MYF(MY_WME));
+      mysql->db = 0;
+    }
   }
 
-  mysql_state_machine_status ret = ctx->state_function(ctx);
+  mysql_state_machine_status ret;
+  if (called_from_stdcall) {
+    do {
+      ret = ctx->state_function(ctx);
+    } while (ret == STATE_MACHINE_CONTINUE);
+  } else {
+    ret = ctx->state_function(ctx);
+  }
+
   if (ret == STATE_MACHINE_FAILED || ret == STATE_MACHINE_DONE) {
+    if (called_from_stdcall) {
+      if (ret == STATE_MACHINE_DONE) {
+        // free old connection information
+        my_free(ctx->saved_user);
+        my_free(ctx->saved_passwd);
+        my_free(ctx->saved_db);
+
+        // alloc new connect information
+        mysql->db = db ? my_strdup(PSI_NOT_INSTRUMENTED, db, MYF(MY_WME)) : 0;
+      } else {  // STATE_MACHINE_FAILED
+        // free temporary connect information
+        my_free(mysql->user);
+        my_free(mysql->passwd);
+        my_free(mysql->db);
+
+        // restore saved states
+        mysql->charset = ctx->saved_cs;
+        mysql->user = ctx->saved_user;
+        mysql->passwd = ctx->saved_passwd;
+        mysql->db = ctx->saved_db;
+      }
+    }
     my_free(ctx);
     ASYNC_DATA(mysql)->connect_context->auth_context = nullptr;
   }
 
   return ret;
+}
+
+net_async_status run_plugin_auth_nonblocking_wrapper(MYSQL *mysql,
+                                                     const char *user,
+                                                     const char *passwd,
+                                                     const char *db) {
+  DBUG_TRACE;
+
+  if (!mysql) {
+    return NET_ASYNC_ERROR;
+  }
+
+  mysql_async_connect *conn_ctx = ASYNC_DATA(mysql)->connect_context;
+
+  if (!conn_ctx) {
+    conn_ctx = static_cast<mysql_async_connect *>(my_malloc(
+        key_memory_MYSQL, sizeof(*conn_ctx), MYF(MY_WME | MY_ZEROFILL)));
+    // full connect_context is not necessary
+    conn_ctx->mysql = mysql;
+    conn_ctx->non_blocking = true;
+    ASYNC_DATA(mysql)->connect_context = conn_ctx;
+  }
+
+  mysql_state_machine_status ret =
+      run_plugin_auth_nonblocking(mysql, 0, 0, 0, db, user, passwd, true);
+
+  if (ret == STATE_MACHINE_CONTINUE) {
+    mysql_async_auth *ctx = ASYNC_DATA(mysql)->connect_context->auth_context;
+    do {
+      ret = ctx->state_function(ctx);
+    } while (ret == STATE_MACHINE_CONTINUE);
+  }
+
+  if (ret == STATE_MACHINE_FAILED || ret == STATE_MACHINE_DONE) {
+    my_free(ASYNC_DATA(mysql)->connect_context);
+    ASYNC_DATA(mysql)->connect_context = nullptr;
+  }
+
+  if (ret == STATE_MACHINE_DONE) {
+    return NET_ASYNC_COMPLETE;
+  } else if (ret == STATE_MACHINE_FAILED) {
+    return NET_ASYNC_ERROR;
+  } else {  // STATE_MACHINE_WOULD_BLOCK
+    return NET_ASYNC_NOT_READY;
+  }
 }
 
 /**
@@ -9933,35 +10098,30 @@ static net_async_status native_password_auth_client_nonblocking(
 
   switch (static_cast<client_auth_native_password_plugin_status>(
       ctx->client_auth_plugin_state)) {
-    case client_auth_native_password_plugin_status::NATIVE_READING_PASSWORD:
-      if (((MCPVIO_EXT *)vio)->mysql_change_user) {
-        /* mysql_change_user_nonblocking not implemented yet. */
-        assert(false);
-      } else {
-        /* read the scramble */
-        net_async_status status =
-            vio->read_packet_nonblocking(vio, &pkt, &io_result);
-        if (status == NET_ASYNC_NOT_READY) {
-          return NET_ASYNC_NOT_READY;
-        }
-
-        if (io_result < 0) {
-          *result = CR_ERROR;
-          return NET_ASYNC_COMPLETE;
-        }
-
-        if (io_result != SCRAMBLE_LENGTH + 1) {
-          *result = CR_SERVER_HANDSHAKE_ERR;
-          return NET_ASYNC_COMPLETE;
-        }
-
-        /* save it in MYSQL */
-        memcpy(mysql->scramble, pkt, SCRAMBLE_LENGTH);
-        mysql->scramble[SCRAMBLE_LENGTH] = 0;
+    case client_auth_native_password_plugin_status::NATIVE_READING_PASSWORD: {
+      /* read the scramble */
+      net_async_status status =
+          vio->read_packet_nonblocking(vio, &pkt, &io_result);
+      if (status == NET_ASYNC_NOT_READY) {
+        return NET_ASYNC_NOT_READY;
       }
+
+      if (io_result < 0) {
+        *result = CR_ERROR;
+        return NET_ASYNC_COMPLETE;
+      }
+
+      if (io_result != SCRAMBLE_LENGTH + 1) {
+        *result = CR_SERVER_HANDSHAKE_ERR;
+        return NET_ASYNC_COMPLETE;
+      }
+
+      /* save it in MYSQL */
+      memcpy(mysql->scramble, pkt, SCRAMBLE_LENGTH);
+      mysql->scramble[SCRAMBLE_LENGTH] = 0;
       ctx->client_auth_plugin_state = (int)
           client_auth_native_password_plugin_status::NATIVE_WRITING_RESPONSE;
-
+    }
       [[fallthrough]];
 
     case client_auth_native_password_plugin_status::NATIVE_WRITING_RESPONSE:

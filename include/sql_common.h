@@ -320,6 +320,10 @@ struct MYSQL_PLUGIN_VIO_INFO;
 void mpvio_info(MYSQL_VIO vio, MYSQL_PLUGIN_VIO_INFO *info);
 int run_plugin_auth(MYSQL *mysql, char *data, uint data_len,
                     const char *data_plugin, const char *db);
+enum net_async_status run_plugin_auth_nonblocking_wrapper(MYSQL *mysql,
+                                                          const char *user,
+                                                          const char *passwd,
+                                                          const char *db);
 int mysql_client_plugin_init();
 void mysql_client_plugin_deinit();
 

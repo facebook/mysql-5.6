@@ -109,6 +109,12 @@ struct mysql_async_auth {
   int client_auth_plugin_state;
   authsm_function state_function;
   uint current_factor_index;
+
+  // to be used for mysql_change_user_nonblocking
+  CHARSET_INFO *saved_cs;
+  char *saved_user;
+  char *saved_passwd;
+  char *saved_db;
 };
 
 /*
