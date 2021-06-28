@@ -683,6 +683,10 @@ bool mysql_free_ssl_session_data(MYSQL *mysql, void *data);
 void * mysql_take_ssl_context_ownership(MYSQL *mysql);
 bool mysql_change_user(MYSQL *mysql, const char *user,
                                const char *passwd, const char *db);
+enum net_async_status mysql_change_user_nonblocking(MYSQL *mysql,
+                                                    const char *user,
+                                                    const char *passwd,
+                                                    const char *db);
 MYSQL * mysql_real_connect(MYSQL *mysql, const char *host,
                                   const char *user, const char *passwd,
                                   const char *db, unsigned int port,

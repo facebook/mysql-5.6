@@ -761,6 +761,22 @@ static int socket_event_listen(my_socket fd) {
 }
 #endif
 
+static int async_mysql_change_user_wrapper(MYSQL *mysql, const char *user,
+                                           const char *passwd, const char *db) {
+  net_async_status status;
+  AsyncTimer t(__func__);
+  while ((status = mysql_change_user_nonblocking(mysql, user, passwd, db)) ==
+         NET_ASYNC_NOT_READY) {
+    t.check();
+    int result = socket_event_listen(mysql_get_socket_descriptor(mysql));
+    if (result == -1) return 1;
+  }
+  if (status == NET_ASYNC_ERROR) {
+    return 1;
+  }
+  return 0;
+}
+
 /*
   Below async_mysql_*_wrapper functions are used to measure how much time
   each nonblocking call spends before completing the operations.
@@ -1004,6 +1020,14 @@ static int mysql_reset_connection_wrapper(MYSQL *mysql) {
     return async_mysql_reset_connection_wrapper(mysql);
   else
     return mysql_reset_connection(mysql);
+}
+
+static int mysql_change_user_wrapper(MYSQL *mysql, const char *user,
+                                     const char *passwd, const char *db) {
+  if (enable_async_client)
+    return async_mysql_change_user_wrapper(mysql, user, passwd, db);
+  else
+    return mysql_change_user(mysql, user, passwd, db);
 }
 
 /* async client test code (end) */
@@ -5017,7 +5041,7 @@ static void do_change_user(struct st_command *command) {
              ("connection: '%s' user: '%s' password: '%s' database: '%s'",
               cur_con->name, ds_user.str, ds_passwd.str, ds_db.str));
 
-  if (mysql_change_user(mysql, ds_user.str, ds_passwd.str, ds_db.str)) {
+  if (mysql_change_user_wrapper(mysql, ds_user.str, ds_passwd.str, ds_db.str)) {
     handle_error(curr_command, mysql_errno(mysql), mysql_error(mysql),
                  mysql_sqlstate(mysql), &ds_res);
     mysql->reconnect = true;
