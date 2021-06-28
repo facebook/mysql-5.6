@@ -2263,6 +2263,10 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         */
         update_mt_stmt_stats(thd, sub_query);
 
+        /* store CPU time as part of the query response attributes */
+        cpu_time = thd->set_cpu_time();
+        store_server_cpu_in_resp_attrs(thd, cpu_time);
+
         /* Finalize server status flags after executing a statement. */
         thd->finalize_session_trackers();
         thd->update_slow_query_status();
@@ -2291,7 +2295,6 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         }
 
         /* PSI end */
-        cpu_time = thd->set_cpu_time();
         MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
         thd->m_statement_psi = nullptr;
         thd->m_digest = nullptr;
@@ -2335,8 +2338,6 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
         thd->set_secondary_engine_optimization(saved_secondary_engine);
       }
-
-      store_server_cpu_in_resp_attrs(thd, cpu_time);
 
       sub_query_byte_length =
           static_cast<int>(packet_end - beginning_of_current_stmt);
@@ -2644,6 +2645,10 @@ done:
   DBUG_ASSERT(thd->open_tables == nullptr ||
               (thd->locked_tables_mode == LTM_LOCK_TABLES));
 
+  /* store CPU time as part of the query response attributes */
+  cpu_time = thd->set_cpu_time();
+  store_server_cpu_in_resp_attrs(thd, cpu_time);
+
   /* Finalize server status flags after executing a command. */
   thd->finalize_session_trackers();
   thd->update_slow_query_status();
@@ -2719,8 +2724,6 @@ done:
 
   /* Freeing the memroot will leave the THD::work_part_info invalid. */
   thd->work_part_info = nullptr;
-
-  store_server_cpu_in_resp_attrs(thd, cpu_time);
 
   /*
     If we've allocated a lot of memory (compared to the user's desired
