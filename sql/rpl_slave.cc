@@ -6779,6 +6779,10 @@ bool mts_recovery_groups(Relay_log_info *rli) {
     return false;
   }
 
+  // raft replication always have GTID_MODE=ON, thus ignore positions
+  if (enable_raft_plugin) {
+    return false;
+  }
   /*
     Save relay log position to compare with worker's position.
   */
