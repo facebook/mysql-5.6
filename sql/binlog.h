@@ -1650,6 +1650,8 @@ bool show_raft_status(THD *thd);
 bool get_and_lock_master_info(Master_info **master_info);
 void unlock_master_info(Master_info *master_info);
 int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids);
+int get_committed_gtids(const std::vector<std::string> &gtids,
+                        std::vector<std::string> *committed_gtids);
 
 extern const char *log_bin_index;
 extern const char *log_bin_basename;

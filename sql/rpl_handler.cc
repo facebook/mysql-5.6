@@ -1796,6 +1796,13 @@ extern "C" void *process_raft_queue(void *) {
         }
         break;
       }
+
+      case RaftListenerCallbackType::GET_COMMITTED_GTIDS: {
+        result.error =
+            get_committed_gtids(element.arg.trim_gtids, &result.gtids);
+        break;
+      }
+
       case RaftListenerCallbackType::GET_EXECUTED_GTIDS: {
         char *buffer;
         global_sid_lock->wrlock();
