@@ -14137,8 +14137,10 @@ int get_committed_gtids(const std::vector<std::string>& gtids,
 
     Gtid gtid;
     enum_return_status st= gtid.parse(global_sid_map, gtid_s.c_str());
-    if (st != RETURN_STATUS_OK)
+    if (st != RETURN_STATUS_OK) {
+      global_sid_lock->unlock();
       return st;
+    }
 
     if (gtid_state->get_logged_gtids()->contains_gtid(gtid))
       committed_gtids->push_back(gtid_s);
