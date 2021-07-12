@@ -62,11 +62,15 @@ John	Doe	john@example.com
 SELECT firstname, email FROM MyGuests WHERE id NOT IN (1, 2);
 firstname	email
 Mohandas	NULL
+SELECT email, lastname AS ln FROM MyGuests MyGuestsAlias WHERE lastname LIKE 'Do%';
+email	ln
+john@example.com	Doe
+john2@example.com	Doe
 SELECT email FROM MyGuests WHERE fake_column = 1;
 ERROR 42S22: Unknown column 'fake_column' in 'where clause'
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 COUNT(DISTINCT SQL_ID)
-12
+13
 SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM performance_schema.column_statistics;
 SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
@@ -90,6 +94,7 @@ SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
 8d8e76cb09279ec64c6a65c640295118f6961d3a8cee08e6c477a705913513b6	cus_test	MyGuests	id	FILTER	BETWEEN
 a98537124a693590457d2cf2432bfcfbb1c3913f98fb15366a979c442f37aa25	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
 e48f7768025a58738c19abeeb7f304a8b898f49ff5d6debed1515a60a00d3943	cus_test	MyGuests	email	FILTER	PATTERN_MATCH
+ed732482a605a3987aaa97cc8cc1e65a08c0cc0ffc7cdf28a4d8db2530594ecf	cus_test	MyGuests	lastname	FILTER	PATTERN_MATCH
 fe2f9785260cd64f476c0dd344c2429e4ea5771a73d7b07caea2ba2b8ae9a317	cus_test	MyGuests	id	FILTER	BETWEEN
 set global column_stats_control = OFF_HARD;
 DROP TABLE MyGuests;

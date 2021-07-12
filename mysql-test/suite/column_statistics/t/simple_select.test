@@ -54,6 +54,8 @@ SELECT firstname, lastname, email FROM MyGuests WHERE id NOT BETWEEN 2 AND 5;
 
 SELECT firstname, email FROM MyGuests WHERE id NOT IN (1, 2);
 
+SELECT email, lastname AS ln FROM MyGuests MyGuestsAlias WHERE lastname LIKE 'Do%';
+
 --error 1054
 SELECT email FROM MyGuests WHERE fake_column = 1;
 

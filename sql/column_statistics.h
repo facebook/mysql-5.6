@@ -78,6 +78,19 @@ operator_type match_op(Item_func::Functype fitem_type);
 operator_type match_op(enum_order direction);
 
 /*
+  fetch_table_name
+    Helper to fetch the name of the base table to which the field belongs.
+  Input:
+    field_arg     in: Item_field
+                      The field argument to parse the column usage info
+                      struct from.
+  Output:
+    std::string   Name of the original base table to which the field belongs.
+                  Empty, if field doesn't belong to base table.
+*/
+std::string fetch_table_name(Item_field *field_arg);
+
+/*
   populate_field_info
     Helper to parse column usage information corresponding to a single
     function item.

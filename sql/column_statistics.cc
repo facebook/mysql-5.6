@@ -166,6 +166,19 @@ operator_type match_op(enum_order direction) {
   }
 }
 
+std::string fetch_table_name(Item_field *field_arg) {
+  DBUG_ENTER("fetch_table_name");
+  DBUG_ASSERT(field_arg);
+
+  // `orig_table` and associated parameters maybe absent for
+  // derived / temp tables.
+  if (field_arg->field && field_arg->field->table &&
+      field_arg->field->table->pos_in_table_list) {
+    DBUG_RETURN(field_arg->field->table->pos_in_table_list->get_table_name());
+  }
+  DBUG_RETURN("");
+}
+
 void populate_field_info(const sql_operation &op, const operator_type &op_type,
                          Item_field *field_arg,
                          std::set<ColumnUsageInfo> &out_cus) {
@@ -188,8 +201,17 @@ void populate_field_info(const sql_operation &op, const operator_type &op_type,
   cui.sql_op = op;
   cui.op_type = op_type;
   cui.table_schema = db_name;
-  cui.table_name = (field_arg->table_name) ? field_arg->table_name : "";
+  cui.table_name = fetch_table_name(field_arg);
   cui.column_name = (field_arg->field_name) ? field_arg->field_name : "";
+
+  // This condition should never trigger because for non-base tables, db_name
+  // would be empty as well. However, adding this check to be absolutely
+  // certain.
+  if (cui.table_name == "") {
+    DBUG_ASSERT(false);
+    DBUG_VOID_RETURN;
+  }
+
   out_cus.insert(cui);
 
   DBUG_VOID_RETURN;
