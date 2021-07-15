@@ -1,1 +1,1 @@
---binlog-format=mixed
+--binlog-format=mixed --slave_parallel_workers=0
