@@ -24,12 +24,15 @@
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_binlog_format_statement.inc
+--source include/master-slave.inc
+
+--source include/rpl_connection_slave.inc
 # This test case generates a situation that should not happen
 # in normal slave operation (there is no retrieval of the transaction
 # from the begin when MASTER_AUTO_POSITION = 0). Enabling this test
 # case on MTS may hit some MTS asserts.
 --source include/not_mts_replica_parallel_workers.inc
---source include/master-slave.inc
+--source include/rpl_connection_master.inc
 
 --let $master_uuid=`SELECT @@SERVER_UUID`
 CREATE TABLE t1 (c1 INT PRIMARY KEY);

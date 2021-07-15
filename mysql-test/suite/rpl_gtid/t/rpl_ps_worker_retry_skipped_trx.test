@@ -21,13 +21,14 @@
 # WL#9131 Add RETRIES field to replication_applier_status_by_worker P_S table
 # BUG#28177448 SKIPPED TRANSACTION WHICH FAILED EARLIER, POPULATES LAST_APPLIED_TRANSACTION_*
 
-# the table performance_schema.replication_applier_status_by_worker can only
-# have one row for this test to work correctly
---source include/not_mts_replica_parallel_workers.inc
 # the test is binlog format agnostic
 --source include/have_binlog_format_row.inc
 --source include/master-slave.inc
 --source include/rpl_connection_slave.inc
+# the table performance_schema.replication_applier_status_by_worker can only
+# have one row for this test to work correctly
+--source include/not_mts_replica_parallel_workers.inc
+
 CALL mtr.add_suppression(".* Could not execute Write_rows event on table test.*");
 SET @saved_innodb_lock_wait_timeout = @@GLOBAL.innodb_lock_wait_timeout;
 SET @saved_replica_transaction_retries = @@GLOBAL.replica_transaction_retries;

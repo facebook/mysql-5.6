@@ -4,6 +4,8 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 [connection slave]
+[connection master]
+[connection slave]
 CALL mtr.add_suppression("Error reading relay log configuration");
 CALL mtr.add_suppression("Failed to create or recover replication info repositories");
 CALL mtr.add_suppression("Slave SQL for channel '': Invalid, corrupted PRIVILEGE_CHECKS_USER was found in the replication configuration repository");

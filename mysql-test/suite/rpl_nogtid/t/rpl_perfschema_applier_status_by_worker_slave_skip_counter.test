@@ -13,12 +13,15 @@
 #
 # WL#7374 Performance schema tables to monitor replication lags and queue
 
-# there is a specific test for mts
---source include/not_mts_replica_parallel_workers.inc
 # the test is binlog-format agnostic
 --source include/have_binlog_format_row.inc
 
 --source include/master-slave.inc
+
+--source include/rpl_connection_slave.inc
+# there is a specific test for mts
+--source include/not_mts_replica_parallel_workers.inc
+--source include/rpl_connection_master.inc
 
 --let $is_mts= 0
 

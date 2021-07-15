@@ -1,1 +1,2 @@
 $EXAMPLE_PLUGIN_OPT
+--replica-parallel-workers=0

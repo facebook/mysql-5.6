@@ -20,9 +20,11 @@
 # WL#9556: Writeset-based MTS dependency tracking on master
 ################################################################################
 
---source include/master-slave.inc
 --source include/have_binlog_format_row.inc
 --source include/have_transaction_write_set_extraction.inc
+--source include/master-slave.inc
+
+--source include/rpl_connection_slave.inc
 --source include/not_mts_replica_parallel_workers.inc
 
 --source include/rpl_connection_master.inc

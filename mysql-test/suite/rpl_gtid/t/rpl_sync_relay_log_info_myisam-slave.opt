@@ -1,1 +1,2 @@
 --log-replica-updates=off
+--replica-parallel-workers=0

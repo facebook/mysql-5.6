@@ -39,7 +39,6 @@
 --source include/no_valgrind_without_big.inc
 --source include/have_debug.inc
 --source include/have_binlog_format_row.inc
---source include/not_mts_replica_parallel_workers.inc
 
 --echo #
 --echo # TC1. Upgrade from FILE to TABLE with PRIVILEGE_CHECKS_USER configured
@@ -53,6 +52,7 @@
 --source include/master-slave.inc
 
 --source include/rpl_connection_slave.inc
+--source include/not_mts_replica_parallel_workers.inc
 --eval GRANT CREATE,INSERT,DROP ON *.* TO $applier_user
 --source include/start_slave.inc
 
