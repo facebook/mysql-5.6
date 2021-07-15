@@ -37,7 +37,6 @@
 
 --source include/no_valgrind_without_big.inc
 --source include/have_binlog_format_row.inc
---source include/not_mts_replica_parallel_workers.inc
 
 --echo #
 --echo # TC1. Upgrade from FILE to TABLE with PRIVILEGE_CHECKS_USER not
@@ -47,6 +46,9 @@
 
 --source include/not_have_privilege_checks_user.inc
 --source include/master-slave.inc
+
+--source include/rpl_connection_slave.inc
+--source include/not_mts_replica_parallel_workers.inc
 
 # 1) Create a table and insert a record on the master.
 --source include/rpl_connection_master.inc

@@ -73,7 +73,6 @@
 # This test is unrelated to log format
 --source include/have_binlog_format_row.inc
 --source include/not_master_info_file.inc
---source include/not_mts_replica_parallel_workers.inc
 --source include/master-slave.inc
 
 --echo
@@ -86,6 +85,7 @@
 # can be skipped depending upon the scenario.
 
 --source include/rpl_connection_slave.inc
+--source include/not_mts_replica_parallel_workers.inc
 
 --write_file $MYSQL_TMP_DIR/check_assign_gtids_to_anonymous_transactions_in_file_repo.inc END_OF_PROCEDURE
 

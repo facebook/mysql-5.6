@@ -1,1 +1,2 @@
 --relay-log-info-repository=FILE
+--replica-parallel-workers=0
