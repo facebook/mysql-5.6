@@ -154,6 +154,21 @@ SET GLOBAL per_user_session_var_default_val = "u1:optimizer_switch=index_merge=o
 --error ER_WRONG_VALUE_FOR_VAR
 SET GLOBAL per_user_session_var_default_val = "u1:optimizer_switch=xyz";
 
+--echo ## Read-Only
+SET GLOBAL per_user_session_var_default_val = "usr1:tx_isolation=READ-COMMITTED";
+connect (con_usr1,localhost,usr1,,);
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+--disconnect con_usr1
+
+--connection default
+--let $assert_file=$MYSQLTEST_VARDIR/log/mysqld.1.err
+--let $assert_select=Failed to set per-user session variables for user usr1:tx_isolation=READ-COMMITTED
+--let $assert_text= Found the expected warning line in the server log.
+--let $assert_count=1
+--source include/assert_grep.inc
+
+call mtr.add_suppression("Failed to set per-user session variables for user usr1:tx_isolation=READ-COMMITTED");
+
 --echo ##
 --echo ## root privilege is required to set session variable binglog_format
 --echo ## root privilege will be granted to usr1 temporarily to get this done

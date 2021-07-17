@@ -1490,9 +1490,12 @@ bool Per_user_session_variables::set_val_do(sys_var *var, Item *item,
                                             THD *thd) {
   LEX_CSTRING tmp;
   set_var set_v(OPT_SESSION, var, tmp, item);
+
   /* validate and update */
-  if (!set_v.check(thd) && !thd->is_error() && !set_v.update(thd)) return true;
-  return false;
+  if (set_v.resolve(thd) || thd->is_error()) return false;
+  if (set_v.check(thd) || thd->is_error()) return false;
+  if (set_v.update(thd)) return false;
+  return true;
 }
 /**
   Static method
