@@ -109,9 +109,12 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   rocksdb::Slice value() override { return m_scan_it->value(); }
 
-  void reset() override { release_scan_iterator(); }
+  void reset() override {
+    m_iter_should_use_locking = false;
+    release_scan_iterator();
+  }
 
-  void set_use_locking() override { m_use_locking_iter = true; }
+  void set_use_locking() override { m_iter_should_use_locking = true; }
  protected:
   friend class Rdb_iterator;
   const std::shared_ptr<Rdb_key_def> m_kd;
@@ -126,7 +129,17 @@ class Rdb_iterator_base : public Rdb_iterator {
   /* Iterator used for range scans and for full table/index scans */
   rocksdb::Iterator *m_scan_it;
 
-  bool m_use_locking_iter;
+  /* Whether m_scan_it is a locking iterator */
+  bool m_iter_uses_locking;
+  
+  /*
+    Whether the iterator should use locking. The intended workflow is:
+    
+      iter.set_use_locking() // sets m_iter_should_use_locking=true 
+      iter.seek() // this will re-create m_scan_it to be the right kind
+                  // of iterator
+    */
+  bool m_iter_should_use_locking;
 
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;

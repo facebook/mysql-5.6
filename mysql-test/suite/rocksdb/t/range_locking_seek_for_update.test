@@ -201,8 +201,10 @@ select * from t1 where pk >=5 order by pk limit 1 for update;
 
 connection con1;
 set debug_sync='now WAIT_FOR about_to_lock_range';
+--disable_query_log
 eval kill query $conn_id;
-
+--enable_query_log
+--echo kill query CONN_ID;
 connection default;
 --error ER_GET_ERRMSG
 reap;

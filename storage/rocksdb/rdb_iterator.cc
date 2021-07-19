@@ -36,7 +36,8 @@ Rdb_iterator_base::Rdb_iterator_base(THD *thd,
       m_tbl_def(tbl_def),
       m_thd(thd),
       m_scan_it(nullptr),
-      m_use_locking_iter(false),
+      m_iter_uses_locking(false),
+      m_iter_should_use_locking(false),
       m_scan_it_skips_bloom(false),
       m_scan_it_snapshot(nullptr),
       m_scan_it_lower_bound(nullptr),
@@ -107,7 +108,7 @@ int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
 void Rdb_iterator_base::release_scan_iterator() {
   delete m_scan_it;
   m_scan_it = nullptr;
-  m_use_locking_iter = false;
+  m_iter_uses_locking = false;
 
   if (m_scan_it_snapshot) {
     auto rdb = rdb_get_rocksdb_db();
@@ -141,10 +142,6 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
     skip_bloom = false;
   }
 
-  // Save the value of m_use_locking_iter because release_scan_iterator()
-  // will set it to false.
-  bool use_locking_iter= m_use_locking_iter;
-
   /*
     In some cases, setup_scan_iterator() is called multiple times from
     the same query but bloom filter can not always be used.
@@ -162,7 +159,8 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
     and
     re-create Iterator.
     */
-  if (m_scan_it_skips_bloom != skip_bloom) {
+  if (m_scan_it_skips_bloom != skip_bloom || 
+      m_iter_uses_locking != m_iter_should_use_locking) {
     release_scan_iterator();
   }
 
@@ -175,8 +173,9 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
         m_thd, m_kd->get_cf(), m_kd->m_is_reverse_cf, skip_bloom, 
         m_scan_it_lower_bound_slice,
         m_scan_it_upper_bound_slice, &m_scan_it_snapshot, read_current,
-        !read_current, use_locking_iter);
+        !read_current, m_iter_should_use_locking);
     m_scan_it_skips_bloom = skip_bloom;
+    m_iter_uses_locking = m_iter_should_use_locking;
   }
 }
 
