@@ -607,6 +607,27 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
   return num_errors == 0 ? HA_EXIT_SUCCESS : HA_EXIT_FAILURE;
 }
 
+static void rocksdb_cancel_manual_compactions_stub(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    const void *const save MY_ATTRIBUTE((__unused__))) {}
+
+static int rocksdb_cancel_manual_compactions(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value MY_ATTRIBUTE((__unused__))) {
+  rdb_mc_thread.cancel_all_pending_manual_compaction_requests();
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: Stopping all Manual Compactions.");
+  rdb->GetBaseDB()->DisableManualCompaction();
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: Enabling Manual Compactions.");
+  rdb->GetBaseDB()->EnableManualCompaction();
+  return HA_EXIT_SUCCESS;
+}
+
 static void rocksdb_drop_index_wakeup_thread(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -749,6 +770,7 @@ static char *rocksdb_strict_collation_exceptions;
 static bool rocksdb_collect_sst_properties = 1;
 static bool rocksdb_force_flush_memtable_now_var = 1;
 static bool rocksdb_force_flush_memtable_and_lzero_now_var = 0;
+static bool rocksdb_cancel_manual_compactions_var = 0;
 static bool rocksdb_enable_ttl = 1;
 static bool rocksdb_enable_ttl_read_filtering = 1;
 static int rocksdb_debug_ttl_rec_ts = 0;
@@ -814,7 +836,9 @@ std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
 std::atomic<uint64_t> rocksdb_manual_compactions_processed(0);
+std::atomic<uint64_t> rocksdb_manual_compactions_cancelled(0);
 std::atomic<uint64_t> rocksdb_manual_compactions_running(0);
+std::atomic<uint64_t> rocksdb_manual_compactions_pending(0);
 #ifndef NDEBUG
 std::atomic<uint64_t> rocksdb_num_get_for_update_calls(0);
 #endif
@@ -2152,6 +2176,13 @@ static MYSQL_SYSVAR_BOOL(
     rocksdb_force_flush_memtable_and_lzero_now,
     rocksdb_force_flush_memtable_and_lzero_now_stub, false);
 
+static MYSQL_SYSVAR_BOOL(cancel_manual_compactions,
+                         rocksdb_cancel_manual_compactions_var,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Cancelling all ongoing manual compactions.",
+                         rocksdb_cancel_manual_compactions,
+                         rocksdb_cancel_manual_compactions_stub, false);
+
 static MYSQL_SYSVAR_UINT(
     seconds_between_stat_computes, rocksdb_seconds_between_stat_computes,
     PLUGIN_VAR_RQCMDARG,
@@ -2552,6 +2583,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(collect_sst_properties),
     MYSQL_SYSVAR(force_flush_memtable_now),
     MYSQL_SYSVAR(force_flush_memtable_and_lzero_now),
+    MYSQL_SYSVAR(cancel_manual_compactions),
     MYSQL_SYSVAR(enable_ttl),
     MYSQL_SYSVAR(enable_ttl_read_filtering),
     MYSQL_SYSVAR(debug_ttl_rec_ts),
@@ -2651,21 +2683,48 @@ static int rocksdb_compact_column_family(
       } else if (mc_id < 0) {
         return HA_EXIT_FAILURE;
       }
+
+      auto grd =
+          create_scope_guard([&]() { rdb_mc_thread.set_client_done(mc_id); });
       // NO_LINT_DEBUG
       sql_print_information("RocksDB: Manual compaction of column family: %s\n",
                             cf);
       // Checking thd state every short cycle (100ms). This is for allowing to
       // exiting this function without waiting for CompactRange to finish.
+      Rdb_manual_compaction_thread::Manual_compaction_request::mc_state
+          mc_status;
       do {
         my_sleep(100000);
+        mc_status = rdb_mc_thread.manual_compaction_state(mc_id);
       } while (!thd->killed &&
-               !rdb_mc_thread.is_manual_compaction_finished(mc_id));
+               (mc_status == Rdb_manual_compaction_thread::
+                                 Manual_compaction_request::PENDING ||
+                mc_status == Rdb_manual_compaction_thread::
+                                 Manual_compaction_request::RUNNING));
 
+      bool mc_timeout = false;
       if (thd->killed) {
-        // This cancels if requested compaction state is INITED.
-        // TODO(yoshinorim): Cancel running compaction as well once
-        // it is supported in RocksDB.
-        rdb_mc_thread.clear_manual_compaction_request(mc_id, true);
+        // Cancelling pending or running manual compaction with 60s timeout
+        mc_timeout = rdb_mc_thread.cancel_manual_compaction_request(mc_id, 600);
+      }
+
+      mc_status = rdb_mc_thread.manual_compaction_state(mc_id);
+      if (mc_status !=
+          Rdb_manual_compaction_thread::Manual_compaction_request::SUCCESS) {
+        std::string msg = "Manual Compaction Failed. Reason: ";
+        if (thd->killed) {
+          msg += "Cancelled by client.";
+        } else if (mc_status == Rdb_manual_compaction_thread::
+                                    Manual_compaction_request::CANCEL) {
+          msg += "Cancelled by server.";
+        } else {
+          msg += "General failures.";
+        }
+        if (mc_timeout) {
+          msg += " (timeout)";
+        }
+        my_error(ER_INTERNAL_ERROR, MYF(0), msg.c_str());
+        return HA_EXIT_FAILURE;
       }
     }
   }
@@ -12211,7 +12270,9 @@ void Rdb_drop_index_thread::run() {
         rocksdb::Status status = DeleteFilesInRange(rdb->GetBaseDB(), cfh.get(),
                                                     &range.start, &range.limit);
         if (!status.ok()) {
-          if (status.IsShutdownInProgress()) {
+          if (status.IsIncomplete()) {
+            continue;
+          } else if (status.IsShutdownInProgress()) {
             break;
           }
           rdb_handle_io_error(status, RDB_IO_ERROR_BG_THREAD);
@@ -12220,7 +12281,9 @@ void Rdb_drop_index_thread::run() {
         status = rdb->CompactRange(getCompactRangeOptions(), cfh.get(),
                                    &range.start, &range.limit);
         if (!status.ok()) {
-          if (status.IsShutdownInProgress()) {
+          if (status.IsIncomplete()) {
+            continue;
+          } else if (status.IsShutdownInProgress()) {
             break;
           }
           rdb_handle_io_error(status, RDB_IO_ERROR_BG_THREAD);
@@ -14559,8 +14622,12 @@ static SHOW_VAR rocksdb_status_vars[] = {
                        SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("manual_compactions_processed",
                        &rocksdb_manual_compactions_processed, SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("manual_compactions_cancelled",
+                       &rocksdb_manual_compactions_cancelled, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("manual_compactions_running",
                        &rocksdb_manual_compactions_running, SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("manual_compactions_pending",
+                       &rocksdb_manual_compactions_pending, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("number_sst_entry_put", &rocksdb_num_sst_entry_put,
                        SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("number_sst_entry_delete", &rocksdb_num_sst_entry_delete,
@@ -14900,23 +14967,52 @@ void Rdb_manual_compaction_thread::run() {
     RDB_MUTEX_UNLOCK_CHECK(m_signal_mutex);
 
     RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
-    // Grab the first item and proceed, if not empty.
+    // Grab the first PENDING state item and proceed, if not empty.
     if (m_requests.empty()) {
       RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
       RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
       continue;
     }
-    Manual_compaction_request &mcr = m_requests.begin()->second;
+    auto it = m_requests.begin();
+    auto pending_it = m_requests.end();
+    // Remove all items with client_done. client_done means
+    // caller no longer uses the mcr object so it is safe to erase.
+    // Pick first PENDING state item
+    it = m_requests.begin();
+    while (it != m_requests.end()) {
+      if (it->second.client_done) {
+        // If state is PENDING, decrement counter
+        if (it->second.state == Manual_compaction_request::PENDING) {
+          rocksdb_manual_compactions_pending--;
+        }
+        m_requests.erase(it++);
+      } else if (it->second.state == Manual_compaction_request::PENDING &&
+                 pending_it == m_requests.end()) {
+        // found
+        pending_it = it;
+        it++;
+      } else {
+        it++;
+      }
+    }
+    if (pending_it == m_requests.end()) {
+      RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+      RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
+      continue;
+    }
+
+    Manual_compaction_request &mcr = pending_it->second;
     assert(mcr.cf);
-    assert(mcr.state == Manual_compaction_request::INITED);
+    assert(mcr.state == Manual_compaction_request::PENDING);
     mcr.state = Manual_compaction_request::RUNNING;
+    rocksdb_manual_compactions_running++;
+    rocksdb_manual_compactions_pending--;
     RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
 
     assert(mcr.state == Manual_compaction_request::RUNNING);
     // NO_LINT_DEBUG
     sql_print_information("Manual Compaction id %d cf %s started.", mcr.mc_id,
                           mcr.cf->GetName().c_str());
-    rocksdb_manual_compactions_running++;
     if (rocksdb_debug_manual_compaction_delay > 0) {
       uint32 delay = rocksdb_debug_manual_compaction_delay;
       for (uint32 i = 0; i < delay; ++i) {
@@ -14945,31 +15041,42 @@ void Rdb_manual_compaction_thread::run() {
     // it is cancelled by CancelAllBackgroundWork, then status is
     // set to shutdownInProgress.
     const rocksdb::Status s =
-        rdb->CompactRange(getCompactRangeOptions(
-                              mcr.concurrency, mcr.bottommost_level_compaction),
-                          mcr.cf.get(), mcr.start, mcr.limit);
+        rdb->CompactRange(mcr.option, mcr.cf.get(), mcr.start, mcr.limit);
 
     rocksdb_manual_compactions_running--;
     if (s.ok()) {
+      rocksdb_manual_compactions_processed++;
       // NO_LINT_DEBUG
       sql_print_information("Manual Compaction id %d cf %s ended.", mcr.mc_id,
                             mcr.cf->GetName().c_str());
+      set_state(&mcr, Manual_compaction_request::SUCCESS);
     } else {
-      // NO_LINT_DEBUG
-      sql_print_information("Manual Compaction id %d cf %s aborted. %s",
-                            mcr.mc_id, mcr.cf->GetName().c_str(), s.getState());
       if (!cf_manager.get_cf(mcr.cf->GetID())) {
         // NO_LINT_DEBUG
         sql_print_information("cf %s has been dropped",
                               mcr.cf->GetName().c_str());
-      } else if (!s.IsShutdownInProgress()) {
-        rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
+        set_state(&mcr, Manual_compaction_request::SUCCESS);
+      } else if (s.IsIncomplete()) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "Manual Compaction id %d cf %s cancelled. (%d:%d, %s)", mcr.mc_id,
+            mcr.cf->GetName().c_str(), s.code(), s.subcode(), s.getState());
+        // Cancelled
+        set_state(&mcr, Manual_compaction_request::CANCEL);
+        rocksdb_manual_compactions_cancelled++;
       } else {
-        assert(m_requests.size() == 1);
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "Manual Compaction id %d cf %s aborted. (%d:%d, %s)", mcr.mc_id,
+            mcr.cf->GetName().c_str(), s.code(), s.subcode(), s.getState());
+        set_state(&mcr, Manual_compaction_request::FAILURE);
+        if (!s.IsShutdownInProgress()) {
+          rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
+        } else {
+          assert(m_requests.size() == 1);
+        }
       }
     }
-    rocksdb_manual_compactions_processed++;
-    clear_manual_compaction_request(mcr.mc_id, false);
     RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
   }
   clear_all_manual_compaction_requests();
@@ -14979,38 +15086,84 @@ void Rdb_manual_compaction_thread::run() {
 
 void Rdb_manual_compaction_thread::clear_all_manual_compaction_requests() {
   RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+  assert(rocksdb_manual_compactions_pending == 0);
   m_requests.clear();
   RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
 }
 
-void Rdb_manual_compaction_thread::clear_manual_compaction_request(
-    int mc_id, bool init_only) {
-  bool erase = true;
+void Rdb_manual_compaction_thread::
+    cancel_all_pending_manual_compaction_requests() {
   RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
-  auto it = m_requests.find(mc_id);
-  if (it != m_requests.end()) {
-    if (init_only) {
-      Manual_compaction_request mcr = it->second;
-      if (mcr.state != Manual_compaction_request::INITED) {
-        erase = false;
-      }
+  auto it = m_requests.begin();
+  while (it != m_requests.end()) {
+    Manual_compaction_request &mcr = it->second;
+    if (mcr.state == Manual_compaction_request::PENDING) {
+      mcr.state = Manual_compaction_request::CANCEL;
+      rocksdb_manual_compactions_cancelled++;
+      rocksdb_manual_compactions_pending--;
     }
-    if (erase) {
-      m_requests.erase(it);
-    }
-  } else {
-    // Current code path guarantees that erasing by the same mc_id happens
-    // at most once. INITED state may be erased by a thread that requested
-    // the compaction. RUNNING state is erased by mc thread only.
-    assert(0);
+    it++;
   }
+  assert(rocksdb_manual_compactions_pending == 0);
   RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
 }
 
+/**
+ *  Requesting to cancel a Manual Compaction job with mc_id.
+ *  Only PENDING or RUNNING states need cancellation.
+ *  This function may take a while if state is RUNNING.
+ *  Returning true if hitting timeout and state is RUNNING.
+ */
+bool Rdb_manual_compaction_thread::cancel_manual_compaction_request(
+    const int mc_id, const int timeout_100ms) {
+  Manual_compaction_request::mc_state state =
+      Manual_compaction_request::PENDING;
+
+  RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+  auto it = m_requests.find(mc_id);
+  if (it != m_requests.end()) {
+    Manual_compaction_request &mcr = it->second;
+    if (mcr.state == Manual_compaction_request::PENDING) {
+      mcr.state = Manual_compaction_request::CANCEL;
+      rocksdb_manual_compactions_cancelled++;
+      rocksdb_manual_compactions_pending--;
+      RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+      return false;
+    } else if (mcr.state == Manual_compaction_request::RUNNING) {
+      // explicitly requesting to cancel compaction (cancellation happens in
+      // background may take time)
+      mcr.option.canceled->store(true, std::memory_order_release);
+      state = mcr.state;
+    }
+  }
+  RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+
+  // Waiting to get manual compaction to get cancelled.
+  // Even if returning timeouts to clients, manual compaction
+  // is still running so further compactions can remain
+  // in pending state until the compaction completes cancellation.
+  uint64_t retry = timeout_100ms;
+  while (retry > 0 && state == Manual_compaction_request::RUNNING) {
+    my_sleep(100000);
+    retry--;
+    state = manual_compaction_state(mc_id);
+  }
+
+  return retry <= 0 && state == Manual_compaction_request::RUNNING;
+}
+
+/**
+ * This function is for clients to request for Manual Compaction.
+ * This function adds mcr (Manual Compaction Request) in a queue
+ * as PENDING state then returns. Worker Thread then later picks it up
+ * and processes compaction.
+ * Clients should call set_client_done() when the clients are done with
+ * the status of the requests.
+ */
 int Rdb_manual_compaction_thread::request_manual_compaction(
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cf, rocksdb::Slice *start,
-    rocksdb::Slice *limit, int concurrency,
-    rocksdb::BottommostLevelCompaction bottommost_level_compaction) {
+    rocksdb::Slice *limit, const uint manual_compaction_threads,
+    const rocksdb::BottommostLevelCompaction bottommost_level_compaction) {
   int mc_id = -1;
   RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
   if (m_requests.size() >= rocksdb_max_manual_compactions) {
@@ -15019,25 +15172,54 @@ int Rdb_manual_compaction_thread::request_manual_compaction(
   }
   Manual_compaction_request mcr;
   mc_id = mcr.mc_id = ++m_latest_mc_id;
-  mcr.state = Manual_compaction_request::INITED;
+  mcr.state = Manual_compaction_request::PENDING;
   mcr.cf = cf;
   mcr.start = start;
   mcr.limit = limit;
-  mcr.concurrency = concurrency;
-  mcr.bottommost_level_compaction = bottommost_level_compaction;
+  mcr.option = getCompactRangeOptions(manual_compaction_threads,
+                                      bottommost_level_compaction);
+  mcr.canceled =
+      std::shared_ptr<std::atomic<bool>>(new std::atomic<bool>(false));
+  mcr.option.canceled = mcr.canceled.get();
+  mcr.client_done = false;
+  rocksdb_manual_compactions_pending++;
   m_requests.insert(std::make_pair(mcr.mc_id, mcr));
   RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
   return mc_id;
 }
 
-bool Rdb_manual_compaction_thread::is_manual_compaction_finished(int mc_id) {
-  bool finished = false;
+Rdb_manual_compaction_thread::Manual_compaction_request::mc_state
+Rdb_manual_compaction_thread::manual_compaction_state(const int mc_id) {
+  Manual_compaction_request::mc_state state =
+      Manual_compaction_request::SUCCESS;
   RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
-  if (m_requests.count(mc_id) == 0) {
-    finished = true;
+  auto it = m_requests.find(mc_id);
+  if (it != m_requests.end()) {
+    state = it->second.state;
   }
   RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
-  return finished;
+  return state;
+}
+
+void Rdb_manual_compaction_thread::set_state(
+    Manual_compaction_request *mcr,
+    const Manual_compaction_request::mc_state new_state) {
+  RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+  mcr->state = new_state;
+  RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+}
+
+bool Rdb_manual_compaction_thread::set_client_done(const int mc_id) {
+  bool rc = false;
+  RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+  auto it = m_requests.find(mc_id);
+  if (it != m_requests.end()) {
+    Manual_compaction_request &mcr = it->second;
+    mcr.client_done = true;
+    rc = true;
+  }
+  RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+  return rc;
 }
 
 /**

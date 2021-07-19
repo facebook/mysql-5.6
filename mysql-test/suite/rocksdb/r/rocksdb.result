@@ -910,6 +910,7 @@ rocksdb_cache_dump	ON
 rocksdb_cache_high_pri_pool_ratio	0.000000
 rocksdb_cache_index_and_filter_blocks	ON
 rocksdb_cache_index_and_filter_with_high_priority	ON
+rocksdb_cancel_manual_compactions	OFF
 rocksdb_checksums_pct	100
 rocksdb_collect_sst_properties	ON
 rocksdb_commit_in_the_middle	OFF
@@ -1607,6 +1608,8 @@ rocksdb_get_hit_l1	#
 rocksdb_get_hit_l2_and_up	#
 rocksdb_getupdatessince_calls	#
 rocksdb_iter_bytes_read	#
+rocksdb_manual_compactions_cancelled	#
+rocksdb_manual_compactions_pending	#
 rocksdb_manual_compactions_processed	#
 rocksdb_manual_compactions_running	#
 rocksdb_memtable_hit	#
@@ -1701,6 +1704,8 @@ ROCKSDB_GET_HIT_L2_AND_UP
 ROCKSDB_GIT_DATE
 ROCKSDB_GIT_HASH
 ROCKSDB_ITER_BYTES_READ
+ROCKSDB_MANUAL_COMPACTIONS_CANCELLED
+ROCKSDB_MANUAL_COMPACTIONS_PENDING
 ROCKSDB_MANUAL_COMPACTIONS_PROCESSED
 ROCKSDB_MANUAL_COMPACTIONS_RUNNING
 ROCKSDB_MEMTABLE_HIT
@@ -1815,6 +1820,8 @@ ROCKSDB_GET_HIT_L2_AND_UP
 ROCKSDB_GIT_DATE
 ROCKSDB_GIT_HASH
 ROCKSDB_ITER_BYTES_READ
+ROCKSDB_MANUAL_COMPACTIONS_CANCELLED
+ROCKSDB_MANUAL_COMPACTIONS_PENDING
 ROCKSDB_MANUAL_COMPACTIONS_PROCESSED
 ROCKSDB_MANUAL_COMPACTIONS_RUNNING
 ROCKSDB_MEMTABLE_HIT
