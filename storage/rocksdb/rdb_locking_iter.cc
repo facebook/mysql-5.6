@@ -27,14 +27,14 @@ rocksdb::Iterator* GetLockingIterator(
 */
 
 void LockingIterator::Seek(const rocksdb::Slice& target) {
-  iter_ = txn_->GetIterator(read_opts_, cfh_);
-  iter_->Seek(target);
+  m_iter = m_txn->GetIterator(m_read_opts, m_cfh);
+  m_iter->Seek(target);
   ScanForward(target, false);
 }
 
 void LockingIterator::SeekForPrev(const rocksdb::Slice& target) {
-  iter_ = txn_->GetIterator(read_opts_, cfh_);
-  iter_->SeekForPrev(target);
+  m_iter = m_txn->GetIterator(m_read_opts, m_cfh);
+  m_iter->SeekForPrev(target);
   ScanBackward(target, false);
 }
 
@@ -52,9 +52,9 @@ void LockingIterator::Next() {
   assert(Valid());
   // Save the current key value. We need it as the left endpoint
   // of the range lock we're going to acquire
-  std::string current_key = iter_->key().ToString();
+  std::string current_key = m_iter->key().ToString();
 
-  iter_->Next();
+  m_iter->Next();
   ScanForward(rocksdb::Slice(current_key), true);
 }
 
@@ -67,8 +67,8 @@ void LockingIterator::Next() {
 void LockingIterator::Prev() {
   assert(Valid());
 
-  std::string current_key = iter_->key().ToString();
-  iter_->Prev();
+  std::string current_key = m_iter->key().ToString();
+  m_iter->Prev();
   ScanBackward(rocksdb::Slice(current_key), true);
 }
 
@@ -89,8 +89,8 @@ void LockingIterator::Prev() {
 
 void LockingIterator::SeekToFirst() {
   DBUG_ASSERT(0);
-  status_ = rocksdb::Status::NotSupported("Not implemented");
-  valid_ = false;
+  m_status = rocksdb::Status::NotSupported("Not implemented");
+  m_valid = false;
 }
 
 /*
@@ -100,8 +100,8 @@ void LockingIterator::SeekToFirst() {
 
 void LockingIterator::SeekToLast() {
   DBUG_ASSERT(0);
-  status_ = rocksdb::Status::NotSupported("Not implemented");
-  valid_ = false;
+  m_status = rocksdb::Status::NotSupported("Not implemented");
+  m_valid = false;
 }
 
 } // namespace myrocks

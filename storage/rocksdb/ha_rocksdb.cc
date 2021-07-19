@@ -14922,10 +14922,10 @@ static SHOW_VAR rocksdb_locktree_status_variables[] = {
     DEF_STATUS_VAR_FUNC("current_lock_memory",
                         &rocksdb_locktree_current_lock_memory, SHOW_LONGLONG),
     // end of the array marker
-    {NullS, NullS, SHOW_LONG}};
+    {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
 static SHOW_VAR rocksdb_empty_status_variables[] = {
-    {NullS, NullS, SHOW_LONG}};
+    {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
 static void show_rocksdb_locktree_vars(THD*, SHOW_VAR *var, char*) {
   var->type = SHOW_ARRAY;

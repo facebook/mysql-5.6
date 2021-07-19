@@ -187,6 +187,18 @@ connection con1;
 rollback;
 connection default;
 #
+# Test the thd_killed check in the iterator
+#
+begin;
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR go_get_killed';
+select * from t1 where pk >=5 order by pk limit 1 for update;
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+kill query 9;
+connection default;
+ERROR HY000: Got error 10 'Operation aborted: ' from ROCKSDB
+rollback;
+#
 # Backward scan test
 #
 connection con1;

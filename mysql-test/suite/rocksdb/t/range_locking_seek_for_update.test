@@ -191,6 +191,24 @@ rollback;
 connection default;
 
 --echo #
+--echo # Test the thd_killed check in the iterator
+--echo #
+let $conn_id=`select connection_id()`;
+begin;
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR go_get_killed';
+send 
+select * from t1 where pk >=5 order by pk limit 1 for update;
+
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+eval kill query $conn_id;
+
+connection default;
+--error ER_GET_ERRMSG
+reap;
+rollback;
+
+--echo #
 --echo # Backward scan test
 --echo #
 connection con1;

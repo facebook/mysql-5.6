@@ -28,22 +28,22 @@ namespace myrocks {
 //    lock_iter->Next();
 //    lock_iter->Valid()==true && lock_iter->key() == 'efg'
 //
-//   Now, the range ['bcd'.. 'efg'] (bounds incluive) is also locked, and there are no
+//   Now, the range ['bcd'.. 'efg'] (bounds inclusive) is also locked, and there are no
 //   records between 'bcd'  and 'efg'.
 //
 class LockingIterator : public rocksdb::Iterator {
 
-  rocksdb::Transaction *txn_;
-  rocksdb::ColumnFamilyHandle* cfh_;
+  rocksdb::Transaction *m_txn;
+  rocksdb::ColumnFamilyHandle* m_cfh;
   bool m_is_rev_cf;
-  rocksdb::ReadOptions read_opts_;
-  rocksdb::Iterator *iter_;
-  rocksdb::Status status_;
+  rocksdb::ReadOptions m_read_opts;
+  rocksdb::Iterator *m_iter;
+  rocksdb::Status m_status;
 
-  // note: an iterator that has reached EOF has status()==OK && valid_==false
-  bool  valid_;
+  // note: an iterator that has reached EOF has status()==OK && m_valid==false
+  bool  m_valid;
 
-  ulonglong *lock_count_;
+  ulonglong *m_lock_count;
  public:
   LockingIterator(rocksdb::Transaction *txn,
                   rocksdb::ColumnFamilyHandle *cfh,
@@ -51,15 +51,15 @@ class LockingIterator : public rocksdb::Iterator {
                   const rocksdb::ReadOptions& opts,
                   ulonglong *lock_count=nullptr
                   ) :
-    txn_(txn), cfh_(cfh), m_is_rev_cf(is_rev_cf), read_opts_(opts), iter_(nullptr),
-    status_(rocksdb::Status::InvalidArgument()), valid_(false),
-    lock_count_(lock_count) {}
+    m_txn(txn), m_cfh(cfh), m_is_rev_cf(is_rev_cf), m_read_opts(opts), m_iter(nullptr),
+    m_status(rocksdb::Status::InvalidArgument()), m_valid(false),
+    m_lock_count(lock_count) {}
 
   ~LockingIterator() {
-    delete iter_;
+    delete m_iter;
   }
 
-  virtual bool Valid() const override { return valid_; }
+  virtual bool Valid() const override { return m_valid; }
 
   // Note: MyRocks doesn't ever call these:
   virtual void SeekToFirst() override;
@@ -77,24 +77,24 @@ class LockingIterator : public rocksdb::Iterator {
 
   virtual rocksdb::Slice key() const override {
     assert(Valid());
-    return iter_->key();
+    return m_iter->key();
   }
 
   virtual rocksdb::Slice value() const override {
     assert(Valid());
-    return iter_->value();
+    return m_iter->value();
   }
 
   virtual rocksdb::Status status() const override {
-    return status_;
+    return m_status;
   }
 
  private:
   template <bool forward> void Scan(const rocksdb::Slice& target,
                                     bool call_next) {
-    if (!iter_->Valid()) {
-      status_ = iter_->status();
-      valid_ = false;
+    if (!m_iter->Valid()) {
+      m_status = m_iter->status();
+      m_valid = false;
       return;
     }
 
@@ -104,24 +104,31 @@ class LockingIterator : public rocksdb::Iterator {
         to check them here
       */
       DEBUG_SYNC(my_core::thd_get_current_thd(), "rocksdb.locking_iter_scan");
-      auto end_key = iter_->key();
+
+      if (my_core::thd_killed(current_thd)) {
+        m_status = rocksdb::Status::Aborted();
+        m_valid  = false; 
+        return;
+      }
+
+      auto end_key = m_iter->key();
       bool endp_arg= m_is_rev_cf;
       if (forward) {
-        status_ = txn_->GetRangeLock(cfh_,
+        m_status = m_txn->GetRangeLock(m_cfh,
                                      rocksdb::Endpoint(target, endp_arg),
                                      rocksdb::Endpoint(end_key, endp_arg));
       } else {
-        status_ = txn_->GetRangeLock(cfh_,
+        m_status = m_txn->GetRangeLock(m_cfh,
                                      rocksdb::Endpoint(end_key, endp_arg),
                                      rocksdb::Endpoint(target, endp_arg));
       }
 
-      if (!status_.ok()) {
+      if (!m_status.ok()) {
         // Failed to get a lock (most likely lock wait timeout)
-        valid_ = false;
+        m_valid = false;
         return;
       }
-      if (lock_count_)  (*lock_count_)++;
+      if (m_lock_count)  (*m_lock_count)++;
       std::string end_key_copy= end_key.ToString();
 
       //Ok, now we have a lock which is inhibiting modifications in the range
@@ -130,30 +137,30 @@ class LockingIterator : public rocksdb::Iterator {
       //  - added a key before that key.
 
       // First, refresh the iterator:
-      delete iter_;
-      iter_ = txn_->GetIterator(read_opts_, cfh_);
+      delete m_iter;
+      m_iter = m_txn->GetIterator(m_read_opts, m_cfh);
 
       // Then, try seeking to the same row
       if (forward)
-        iter_->Seek(target);
+        m_iter->Seek(target);
       else
-        iter_->SeekForPrev(target);
+        m_iter->SeekForPrev(target);
 
-      auto cmp= cfh_->GetComparator();
+      auto cmp= m_cfh->GetComparator();
 
-      if (call_next && iter_->Valid() && !cmp->Compare(iter_->key(), target)) {
+      if (call_next && m_iter->Valid() && !cmp->Compare(m_iter->key(), target)) {
         if (forward)
-          iter_->Next();
+          m_iter->Next();
         else
-          iter_->Prev();
+          m_iter->Prev();
       }
 
-      if (iter_->Valid()) {
+      if (m_iter->Valid()) {
         int inv = forward ? 1 : -1;
-        if (cmp->Compare(iter_->key(), rocksdb::Slice(end_key_copy))*inv <= 0) {
+        if (cmp->Compare(m_iter->key(), rocksdb::Slice(end_key_copy))*inv <= 0) {
           // Ok, the found key is within the range.
-          status_ = rocksdb::Status::OK();
-          valid_= true;
+          m_status = rocksdb::Status::OK();
+          m_valid= true;
           break;
         } else {
           // We've got a key but it is outside the range we've locked.
@@ -164,8 +171,8 @@ class LockingIterator : public rocksdb::Iterator {
         // There's no row (within the iterator bounds perhaps). Exit now.
         // (we might already have locked a range in this function but there's
         // nothing we can do about it)
-        valid_ = false;
-        status_ = iter_->status();
+        m_valid = false;
+        m_status = m_iter->status();
         break;
       }
     }
