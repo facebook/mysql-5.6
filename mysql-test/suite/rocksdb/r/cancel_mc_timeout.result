@@ -1,0 +1,8 @@
+set global rocksdb_debug_manual_compaction_delay=80;
+SET GLOBAL rocksdb_compact_cf='default';
+set session rocksdb_manual_compaction_threads=2;
+SET GLOBAL rocksdb_compact_cf='default';
+ERROR HY000: Internal error: Manual Compaction Failed. Reason: Cancelled by client.
+ERROR HY000: Internal error: Manual Compaction Failed. Reason: Cancelled by client. (timeout)
+set global rocksdb_debug_manual_compaction_delay=0;
+SET GLOBAL rocksdb_compact_cf='default';
