@@ -2,5 +2,8 @@
 # wl#8919  Implement NOWAIT and SKIP LOCKED
 #
 
+# Range locking cannot support SKIP LOCKED? (TODO: but can support NOWAIT)
+--source suite/rocksdb/include/not_range_locking.inc
+
 --let $engine=ROCKSDB
 --source include/skip_locked_nowait.inc
