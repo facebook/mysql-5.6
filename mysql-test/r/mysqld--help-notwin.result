@@ -1739,6 +1739,8 @@ The following options may be given as the first argument:
  cache_index_and_filter_blocks_with_high_priority for
  RocksDB
  (Defaults to on; use --skip-rocksdb-cache-index-and-filter-with-high-priority to disable.)
+ --rocksdb-cancel-manual-compactions 
+ Cancelling all ongoing manual compactions.
  --rocksdb-cf-options[=name] 
  Enable or disable ROCKSDB_CF_OPTIONS plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
@@ -3238,6 +3240,7 @@ rocksdb-cache-dump TRUE
 rocksdb-cache-high-pri-pool-ratio 0
 rocksdb-cache-index-and-filter-blocks TRUE
 rocksdb-cache-index-and-filter-with-high-priority TRUE
+rocksdb-cancel-manual-compactions FALSE
 rocksdb-cf-options ON
 rocksdb-cfstats ON
 rocksdb-checksums-pct 100
