@@ -1,0 +1,68 @@
+CREATE FUNCTION is_compaction_stopped() RETURNS INT
+BEGIN
+SELECT variable_value INTO @cwb_1 FROM performance_schema.global_status WHERE variable_name="rocksdb_compact_write_bytes";
+SELECT SLEEP(3) INTO @a;
+SELECT variable_value INTO @cwb_2 FROM performance_schema.global_status WHERE variable_name="rocksdb_compact_write_bytes";
+IF @cwb_2 > @cwb_1 THEN
+RETURN 0;
+END IF;
+RETURN 1;
+END//
+DROP TABLE IF EXISTS t1;
+create table t1 (id int auto_increment, value int, value2 varchar(500), primary key (id), index(value2) comment 'cf_i') default charset=latin1 engine=rocksdb;
+SET SESSION rocksdb_bulk_load_allow_sk=1;
+SET SESSION rocksdb_bulk_load=1;
+LOAD DATA INFILE '<DATADIR>/se_loaddata.dat' INTO TABLE t1
+FIELDS TERMINATED BY ',' (id, value, value2);
+SET SESSION rocksdb_bulk_load=0;
+SET SESSION rocksdb_bulk_load_allow_sk=0;
+# 
+# Cancelling MC, including pending MCs, by KILL statements
+# 
+SELECT variable_value into @executed_start FROM performance_schema.global_status WHERE variable_name="rocksdb_manual_compactions_cancelled";
+SET GLOBAL rocksdb_compact_cf='default';
+set session rocksdb_manual_compaction_threads=2;
+SET GLOBAL rocksdb_compact_cf='cf_i';
+ERROR HY000: Internal error: Manual Compaction Failed. Reason: Cancelled by client.
+ERROR HY000: Internal error: Manual Compaction Failed. Reason: Cancelled by client.
+SELECT variable_value into @executed_end FROM performance_schema.global_status WHERE variable_name="rocksdb_manual_compactions_cancelled";
+SELECT @executed_end-@executed_start AS CANCELLED_MC;
+CANCELLED_MC
+2
+# 
+# Cancelling MC by global opt
+# 
+SELECT variable_value into @executed_start FROM performance_schema.global_status WHERE variable_name="rocksdb_manual_compactions_cancelled";
+set session rocksdb_manual_compaction_threads=2;
+SET GLOBAL rocksdb_compact_cf='default';
+SET GLOBAL rocksdb_compact_cf='cf_i';
+set global rocksdb_cancel_manual_compactions=ON;
+ERROR HY000: Internal error: Manual Compaction Failed. Reason: Cancelled by server.
+ERROR HY000: Internal error: Manual Compaction Failed. Reason: Cancelled by server.
+SELECT variable_value into @executed_end FROM performance_schema.global_status WHERE variable_name="rocksdb_manual_compactions_cancelled";
+SELECT @executed_end-@executed_start AS CANCELLED_MC;
+CANCELLED_MC
+2
+# 
+# Cancelling OPTIMIZE TABLE by global opt
+# 
+OPTIMIZE TABLE t1;
+SELECT variable_value into @current_cwb FROM performance_schema.global_status WHERE variable_name="rocksdb_compact_write_bytes";
+set global rocksdb_cancel_manual_compactions=ON;
+Table	Op	Msg_type	Msg_text
+test.t1	optimize	Error	Got error 7 'Result incomplete: Manual compaction paused' from ROCKSDB
+test.t1	optimize	error	Unknown - internal error 517 during operation
+select 'PRIMARY' as idx, COUNT(*) as cnt FROM t1 FORCE INDEX (PRIMARY)
+UNION ALL SELECT 'value2' as idx, COUNT(*) as cnt FROM t1 FORCE INDEX (value2);
+idx	cnt
+PRIMARY	500000
+value2	500000
+# 
+# Dropping Indexes complete even after cancelling MC
+# 
+INSERT INTO t1 (id) VALUES (null);
+set global rocksdb_force_flush_memtable_now=ON;
+SELECT variable_value into @current_cwb FROM performance_schema.global_status WHERE variable_name="rocksdb_compact_write_bytes";
+DROP TABLE t1;
+set global rocksdb_cancel_manual_compactions=ON;
+DROP FUNCTION is_compaction_stopped;
