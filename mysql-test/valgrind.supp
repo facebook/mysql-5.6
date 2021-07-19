@@ -948,11 +948,13 @@
    Memcheck:Leak
    fun:malloc
    fun:_dl_close_worker*
+   ...
    fun:_dl_close
    fun:_dl_catch_exception
+   ...
    fun:_dlerror_run
    fun:dlclose
-   fun:free_plugin_mem
+   fun:_ZL15free_plugin_memP12st_plugin_dl
    ...
 }
 
