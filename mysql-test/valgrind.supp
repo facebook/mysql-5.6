@@ -991,6 +991,21 @@
    fun:_Z*8clean_upb*
 }
 
+{
+   Another variant of plugin unload warning.
+   Memcheck:Leak
+   fun:malloc
+   fun:_dl_close_worker*
+   ...
+   fun:_dl_close
+   fun:_dl_catch_exception
+   ...
+   fun:_dlerror_run
+   fun:dlclose
+   fun:_ZL15free_plugin_memP12st_plugin_dl
+   ...
+}
+
 #Suppress warnings from glibc implementation of 'malloc_info'
 {
    Malloc_info uninitialised value of size 8
