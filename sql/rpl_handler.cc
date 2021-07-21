@@ -36,7 +36,8 @@ extern int rli_relay_log_raft_reset(
     std::pair<std::string, unsigned long long> log_file_pos);
 extern int raft_reset_slave(THD *thd);
 extern int raft_change_master(THD *thd,
-    const std::pair<const std::string, uint>& master_instance);
+    const std::pair<const std::string, uint>& master_instance,
+    const std::string& master_uuid);
 extern int raft_stop_sql_thread(THD *thd);
 extern int raft_stop_io_thread(THD *thd);
 extern int raft_start_sql_thread(THD *thd);
@@ -1007,7 +1008,8 @@ pthread_handler_t process_raft_queue(void *arg)
       {
 #ifdef HAVE_REPLICATION
         result.error=
-          raft_change_master(current_thd, element.arg.master_instance);
+          raft_change_master(current_thd, element.arg.master_instance,
+            element.arg.master_uuid);
         if (!result.error && !element.arg.val_str.empty())
         {
           Item_string item(element.arg.val_str.c_str(),

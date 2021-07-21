@@ -1077,7 +1077,8 @@ int raft_reset_slave(THD *thd)
 // TODO: currently we're only setting host port
 int raft_change_master(
     THD *thd,
-    const std::pair<const std::string, uint>& master_instance)
+    const std::pair<const std::string, uint>& master_instance,
+    const std::string& master_uuid)
 {
   DBUG_ENTER("raft_change_master");
   int error= 0;
@@ -1088,6 +1089,7 @@ int raft_change_master(
   strmake(active_mi->host, const_cast<char*>(master_instance.first.c_str()),
           sizeof(active_mi->host)-1);
   active_mi->port= master_instance.second;
+  strncpy(active_mi->master_uuid, master_uuid.c_str(), UUID_LENGTH);
   active_mi->set_auto_position(true);
   active_mi->inited= true;
   active_mi->flush_info(true);
@@ -5601,7 +5603,7 @@ connected:
       });
   }
   if (!slave_stats_daemon_created) {
-    // start sending secondary lag stats to primary 
+    // start sending secondary lag stats to primary
     slave_stats_daemon_created = start_handle_slave_stats_daemon();
   }
 
@@ -5819,7 +5821,7 @@ log space");
   // error = 0;
 err:
   if (slave_stats_daemon_created) {
-    // stop sending secondary lag stats to primary 
+    // stop sending secondary lag stats to primary
     stop_handle_slave_stats_daemon();
   }
 
