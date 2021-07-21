@@ -8374,6 +8374,9 @@ int mysqld_main(int argc, char **argv)
     store_client_attribute_names(latest_client_attribute_names);
   }
 
+  update_cached_slave_high_priority_lock_wait_timeout(nullptr, nullptr,
+                                                      OPT_GLOBAL);
+
   create_compress_gtid_table_thread();
 
   // NO_LINT_DEBUG

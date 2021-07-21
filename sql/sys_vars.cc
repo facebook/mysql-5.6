@@ -2393,7 +2393,7 @@ static bool update_cached_high_priority_lock_wait_timeout(
   return false;
 }
 
-static bool update_cached_slave_high_priority_lock_wait_timeout(
+bool update_cached_slave_high_priority_lock_wait_timeout(
     sys_var * /* unused */, THD * /* unused */, enum_var_type /* unused */) {
   update_cached_timeout_var(slave_high_priority_lock_wait_timeout_nsec,
                             slave_high_priority_lock_wait_timeout_double);
