@@ -6305,7 +6305,8 @@ static int rocksdb_init_internal(void *const p) {
         "RocksDB: Initializing fault injection with params (retry=%d, "
         "failure_ratio=%d, seed=%d)",
         retryable, failure_ratio, seed);
-    fs->SetRandomWriteError(seed, failure_ratio, error_msg, types);
+    fs->SetRandomWriteError(seed, failure_ratio, error_msg,
+                            /* inject_for_all_file_types */ false, types);
     fs->EnableWriteErrorInjection();
 
     static auto fault_env_guard =
