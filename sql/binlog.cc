@@ -96,6 +96,7 @@ const char *log_bin_basename= 0;
 char *histogram_step_size_binlog_fsync = NULL;
 int opt_histogram_step_size_binlog_group_commit = 1;
 latency_histogram histogram_binlog_fsync;
+latency_histogram histogram_raft_trx_wait;
 counter_histogram histogram_binlog_group_commit;
 
 extern my_bool opt_core_file;
@@ -1019,6 +1020,7 @@ static int binlog_init(void *p)
 
   latency_histogram_init(&histogram_binlog_fsync,
                          histogram_step_size_binlog_fsync);
+  latency_histogram_init(&histogram_raft_trx_wait, "125us");
   counter_histogram_init(&histogram_binlog_group_commit,
                          opt_histogram_step_size_binlog_group_commit);
   return 0;
@@ -7306,6 +7308,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     {
       error= RUN_HOOK_STRICT(
           raft_replication, before_commit, (current_thd, false));
+
       if (!error)
       {
         // If there was no error, there is a guarantee that this rotate
@@ -10031,9 +10034,15 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
      }
      else
      {
+       auto start_time= my_timer_now();
+
        error= RUN_HOOK_STRICT(
            raft_replication, before_commit,
            (last_thd, last_thd->transaction.flags.real_commit));
+
+       auto wait_time= my_timer_since(start_time);
+       latency_histogram_increment(&histogram_raft_trx_wait,
+                                   wait_time, 1);
      }
      DBUG_EXECUTE_IF("simulate_before_commit_error", {error= 1;});
 

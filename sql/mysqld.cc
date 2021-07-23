@@ -659,6 +659,10 @@ ulonglong repl_semi_sync_master_ack_waits= 0;
 SHOW_VAR latency_histogram_binlog_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
 ulonglong histogram_binlog_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
 
+/* status variables for raft trx wait times */
+SHOW_VAR latency_histogram_raft_trx_wait[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_raft_trx_wait_values[NUMBER_OF_HISTOGRAM_BINS];
+
 SHOW_VAR
   histogram_binlog_group_commit_var[NUMBER_OF_COUNTER_HISTOGRAM_BINS + 1];
 ulonglong
@@ -2561,6 +2565,7 @@ void clean_up(bool print_message)
   memcached_shutdown();
 
   free_latency_histogram_sysvars(latency_histogram_binlog_fsync);
+  free_latency_histogram_sysvars(latency_histogram_raft_trx_wait);
   free_counter_histogram_sysvars(histogram_binlog_group_commit_var);
 
   /*
@@ -10619,6 +10624,23 @@ static int show_latency_histogram_binlog_fsync(THD *thd, SHOW_VAR *var,
   return 0;
 }
 
+static int show_latency_histogram_raft_trx_wait(THD *thd, SHOW_VAR *var,
+                                                char *buff)
+{
+  size_t i;
+  for (i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+    histogram_raft_trx_wait_values[i] =
+      latency_histogram_get_count(&histogram_raft_trx_wait, i);
+
+  prepare_latency_histogram_vars(&histogram_raft_trx_wait,
+                                 latency_histogram_raft_trx_wait,
+                                 histogram_raft_trx_wait_values);
+  var->type= SHOW_ARRAY;
+  var->value = (char*) &latency_histogram_raft_trx_wait;
+
+  return 0;
+}
+
 static int show_histogram_binlog_group_commit(THD *thd, SHOW_VAR* var,
                                               char *buff)
 {
@@ -11429,6 +11451,8 @@ SHOW_VAR status_vars[]= {
   {"Write_queries",            (char*) &write_queries,          SHOW_LONG},
   {"Write_queries_rejected",   (char*) &write_query_rejected,   SHOW_LONG},
   {"Write_queries_running",    (char*) &write_query_running,    SHOW_INT},
+  {"Rpl_raft_trx_wait_histogram",
+   (char*) &show_latency_histogram_raft_trx_wait, SHOW_FUNC},
   {NullS, NullS, SHOW_LONG}
 };
 
