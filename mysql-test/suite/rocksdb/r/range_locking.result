@@ -520,3 +520,45 @@ rollback;
 disconnect con1;
 connection default;
 drop table t0,t10,t1;
+#
+# Range locking and READ-COMMITTED isolation level
+#
+connect  con1,localhost,root,,;
+connection con1;
+set session transaction isolation level read committed;
+create table t1 (
+pk int not null,
+a int,
+primary key(pk)
+) engine=rocksdb;
+insert into t1(pk) values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+begin;
+select * from t1 where pk between 2 and 5 for update;
+pk	a
+2	NULL
+3	NULL
+4	NULL
+5	NULL
+# Below should show individual row locks, not locked range:
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}80000002	X
+$cf_id	$trx_id	${indexnr}80000003	X
+$cf_id	$trx_id	${indexnr}80000004	X
+$cf_id	$trx_id	${indexnr}80000005	X
+$cf_id	$trx_id	${indexnr}80000006	X
+rollback;
+begin;
+update t1 set a=a+1 where pk between 2 and 5;
+# Below should show individual row locks, not locked range:
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}80000002	X
+$cf_id	$trx_id	${indexnr}80000003	X
+$cf_id	$trx_id	${indexnr}80000004	X
+$cf_id	$trx_id	${indexnr}80000005	X
+$cf_id	$trx_id	${indexnr}80000006	X
+rollback;
+drop table t1;
+disconnect con1;
+connection default;

@@ -249,6 +249,8 @@ class ha_rocksdb : public my_core::handler {
   /* Type of locking to apply to rows */
   Rdb_lock_type m_lock_rows;
 
+  bool m_use_range_locking;
+
   thr_locked_row_action m_locked_row_action;
 
   /* true means we're doing an index-only read. false means otherwise. */

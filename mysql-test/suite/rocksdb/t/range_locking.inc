@@ -542,3 +542,36 @@ disconnect con1;
 
 connection default;
 drop table t0,t10,t1;
+
+--echo #
+--echo # Range locking and READ-COMMITTED isolation level
+--echo #
+connect (con1,localhost,root,,);
+connection con1;
+set session transaction isolation level read committed;
+create table t1 (
+  pk int not null,
+  a int,
+  primary key(pk)
+) engine=rocksdb;
+
+insert into t1(pk) values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+begin;
+select * from t1 where pk between 2 and 5 for update;
+let $select_from_is_rowlocks_current_trx_only=1;
+--echo # Below should show individual row locks, not locked range:
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+rollback;
+
+begin;
+update t1 set a=a+1 where pk between 2 and 5;
+let $select_from_is_rowlocks_current_trx_only=1;
+--echo # Below should show individual row locks, not locked range:
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+rollback;
+
+drop table t1;
+disconnect con1;
+connection default;
+
