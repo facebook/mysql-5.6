@@ -44,6 +44,14 @@ class LockingIterator : public rocksdb::Iterator {
   bool  m_valid;
 
   ulonglong *m_lock_count;
+
+  // If true, m_locked_until has a valid key value.
+  bool m_have_locked_until;
+
+  // The key value until we've locked the range. That is, we have a range lock
+  // on [current_position ... m_locked_until].
+  // This is used to avoid making extra GetRangeLock() calls.
+  std::string m_locked_until;
  public:
   LockingIterator(rocksdb::Transaction *txn,
                   rocksdb::ColumnFamilyHandle *cfh,
@@ -53,7 +61,7 @@ class LockingIterator : public rocksdb::Iterator {
                   ) :
     m_txn(txn), m_cfh(cfh), m_is_rev_cf(is_rev_cf), m_read_opts(opts), m_iter(nullptr),
     m_status(rocksdb::Status::InvalidArgument()), m_valid(false),
-    m_lock_count(lock_count) {}
+    m_lock_count(lock_count), m_have_locked_until(false) {}
 
   ~LockingIterator() {
     delete m_iter;
@@ -111,24 +119,43 @@ class LockingIterator : public rocksdb::Iterator {
         return;
       }
 
+      const int inv = forward ? 1 : -1;
+      auto cmp= m_cfh->GetComparator();
+
       auto end_key = m_iter->key();
       bool endp_arg= m_is_rev_cf;
-      if (forward) {
-        m_status = m_txn->GetRangeLock(m_cfh,
-                                     rocksdb::Endpoint(target, endp_arg),
-                                     rocksdb::Endpoint(end_key, endp_arg));
+
+      if (m_have_locked_until &&
+          cmp->Compare(end_key, rocksdb::Slice(m_locked_until))*inv <= 0) {
+        // We've already locked this range. The following has happened:
+        // - m_iter->key() returned $KEY
+        // - we got a range lock on [range_start, $KEY]
+        // - other transaction(s) have inserted row $ROW before the $KEY.
+        // - we've read $ROW and returned.
+        // Now, we're looking to lock [$ROW, $KEY] but we don't need to,
+        // we already have a lock on this range.
       } else {
-        m_status = m_txn->GetRangeLock(m_cfh,
-                                     rocksdb::Endpoint(end_key, endp_arg),
-                                     rocksdb::Endpoint(target, endp_arg));
+        if (forward) {
+          m_status = m_txn->GetRangeLock(m_cfh,
+                                       rocksdb::Endpoint(target, endp_arg),
+                                       rocksdb::Endpoint(end_key, endp_arg));
+        } else {
+          m_status = m_txn->GetRangeLock(m_cfh,
+                                       rocksdb::Endpoint(end_key, endp_arg),
+                                       rocksdb::Endpoint(target, endp_arg));
+        }
+
+        // Save the bound where we locked until:
+        m_have_locked_until= true;
+        m_locked_until.assign(end_key.data(), end_key.size());
+        if (!m_status.ok()) {
+          // Failed to get a lock (most likely lock wait timeout)
+          m_valid = false;
+          return;
+        }
+        if (m_lock_count)  (*m_lock_count)++;
       }
 
-      if (!m_status.ok()) {
-        // Failed to get a lock (most likely lock wait timeout)
-        m_valid = false;
-        return;
-      }
-      if (m_lock_count)  (*m_lock_count)++;
       std::string end_key_copy= end_key.ToString();
 
       //Ok, now we have a lock which is inhibiting modifications in the range
@@ -146,7 +173,6 @@ class LockingIterator : public rocksdb::Iterator {
       else
         m_iter->SeekForPrev(target);
 
-      auto cmp= m_cfh->GetComparator();
 
       if (call_next && m_iter->Valid() && !cmp->Compare(m_iter->key(), target)) {
         if (forward)
@@ -156,7 +182,6 @@ class LockingIterator : public rocksdb::Iterator {
       }
 
       if (m_iter->Valid()) {
-        int inv = forward ? 1 : -1;
         if (cmp->Compare(m_iter->key(), rocksdb::Slice(end_key_copy))*inv <= 0) {
           // Ok, the found key is within the range.
           m_status = rocksdb::Status::OK();

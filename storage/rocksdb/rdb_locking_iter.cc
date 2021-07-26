@@ -27,12 +27,14 @@ rocksdb::Iterator* GetLockingIterator(
 */
 
 void LockingIterator::Seek(const rocksdb::Slice& target) {
+  m_have_locked_until = false;
   m_iter = m_txn->GetIterator(m_read_opts, m_cfh);
   m_iter->Seek(target);
   ScanForward(target, false);
 }
 
 void LockingIterator::SeekForPrev(const rocksdb::Slice& target) {
+  m_have_locked_until = false;
   m_iter = m_txn->GetIterator(m_read_opts, m_cfh);
   m_iter->SeekForPrev(target);
   ScanBackward(target, false);
