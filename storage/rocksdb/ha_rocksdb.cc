@@ -9562,6 +9562,37 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
     don't set the lock, it will be too coarse. Indicate that LockingIterator
     should be used, instead.
 
+    == RangeFlagsShouldBeFlippedForRevCF ==
+    When using reverse column families, the value of Endpoint::inf_suffix has
+    the reverse meaning.
+
+    Let's consider a forward-ordered CF and some keys and endpoints in it:
+
+      key=a, inf_suffix=false
+      key=ab
+      key=az
+      key=a, inf_suffix=true
+
+    Now, let's put the same data and endpoints into a reverse-ordered CF. The
+    physical order of the data will be the reverse of the above:
+
+      key=a, inf_suffix=true
+      key=az
+      key=ab
+      key=a, inf_suffix=false
+
+    Note that inf_suffix=false comes *before* any values with the same prefix.
+    And inf_suffix=true comes *after* all values with the same prefix.
+
+    The Endpoint comparison function in RocksDB doesn't "know" if the CF is
+    reverse-ordered or not. It uses the Key Comparator for key values, and
+    then it assumes that Endpoint(key=$VAL, inf_suffix=false) comes before
+    the row with key=$VAL.
+
+    The only way to achieve the required ordering is to flip the endpoint
+    flag value before passing class Endpoint to RocksDB. This function does
+    it before the lock_range() call.
+
   @return
      0      Ok
      Other  Error acquiring the lock (wait timeout, deadlock, etc)
@@ -9614,8 +9645,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
       end_has_inf_suffix= true;
       end_slice= slice;
     }
-  }
-  else if (find_flag == HA_READ_PREFIX_LAST_OR_PREV) {
+  } else if (find_flag == HA_READ_PREFIX_LAST_OR_PREV) {
     /*
        We get here for queries like:
 
@@ -9640,8 +9670,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
                               end_slice_size);
     start_has_inf_suffix= false;
     end_has_inf_suffix= true;
-  }
-  else if (find_flag == HA_READ_BEFORE_KEY) {
+  } else if (find_flag == HA_READ_BEFORE_KEY) {
     /*
       We get here for queries like
         select * from t1
@@ -9662,8 +9691,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
       slice= rocksdb::Slice(reinterpret_cast<char *>(end_slice_buf),
                             end_slice_size);
 
-      end_has_inf_suffix= false;
-      big_range= false;
+      // end_has_inf_suffix is false, because we're looking key<const
     } else {
       uint end_slice_size;
       kd.get_infimum_key(end_slice_buf, &end_slice_size);
@@ -9671,8 +9699,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
 
      big_range= true;
     }
-  }
-  else if (end_key) {
+  } else if (end_key) {
     // Known start range bounds: HA_READ_KEY_OR_NEXT, HA_READ_AFTER_KEY
     if (find_flag == HA_READ_KEY_OR_NEXT)
       start_has_inf_suffix= false;
@@ -9704,9 +9731,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
 
     end_slice= rocksdb::Slice(reinterpret_cast<char *>(end_slice_buf),
                               end_slice_size);
-  }
-  else
-  {
+  } else {
     big_range= true;
 #if 0
     // The below is code to handle this without LockingIterator:
@@ -9726,8 +9751,7 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
 #endif
   }
 
-  if (big_range)
-  {
+  if (big_range) {
     *use_locking_iterator= true;
     return 0;
   }
@@ -9736,7 +9760,8 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
   rocksdb::Endpoint end_endp;
 
   if (kd.m_is_reverse_cf) {
-    // Flip the endpoints
+    // Flip the endpoint flag values, as explained in the
+    // RangeFlagsShouldBeFlippedForRevCF comment above.
     start_endp =rocksdb::Endpoint(end_slice, !end_has_inf_suffix);
     end_endp  = rocksdb::Endpoint(slice, !start_has_inf_suffix);
   } else {
