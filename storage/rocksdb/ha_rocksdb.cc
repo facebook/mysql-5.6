@@ -9590,40 +9590,29 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
     Figure out the right endpoint.
   */
 
-  if (find_flag == HA_READ_KEY_EXACT) {
+  if (find_flag == HA_READ_KEY_EXACT ||
+      find_flag == HA_READ_PREFIX_LAST) {
     if (slice.size() == Rdb_key_def::INDEX_NUMBER_SIZE) {
       // This is a full table/index scan
+      // (in case of HA_READ_PREFIX_LAST, a reverse-ordered one)
       start_has_inf_suffix= false;
       big_range = true;
     } else {
       /*
-        This is "key_part= const" interval. We need to lock this range:
-        (lookup_value, -inf) < key < (lookup_value, +inf)
+        HA_READ_KEY_EXACT: 
+          This is "key_part= const" interval. We need to lock this range:
+          (lookup_value, -inf) < key < (lookup_value, +inf)
+        HA_READ_PREFIX_LAST:
+          We get here for queries like:
+
+            select * from t1 where pk1=const order by pk1 desc for update
+
+          assuming this uses an index on (pk1, ...).
+          We get end_key=nullptr.
       */
       start_has_inf_suffix= false;
       end_has_inf_suffix= true;
       end_slice= slice;
-    }
-  }
-  else if (find_flag == HA_READ_PREFIX_LAST) {
-    if (slice.size() == Rdb_key_def::INDEX_NUMBER_SIZE) {
-      /* Reverse-ordered full index scan */
-      start_has_inf_suffix= true;
-      big_range = true;
-    } else {
-      /*
-         We get here for queries like:
-
-           select * from t1 where pk1=const order by pk1 desc for update
-
-         assuming this uses an index on (pk1, ...)
-         We get end_key=nullptr.
-
-         The range to lock is the same as with HA_READ_KEY_EXACT above.
-      */
-      end_slice= slice;
-      start_has_inf_suffix= false;
-      end_has_inf_suffix= true;
     }
   }
   else if (find_flag == HA_READ_PREFIX_LAST_OR_PREV) {
@@ -9689,8 +9678,11 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
       start_has_inf_suffix= false;
     else if (find_flag == HA_READ_AFTER_KEY)
       start_has_inf_suffix= true;
-    else
+    else {
+      // Unknown type of range, shouldn't happen
       DBUG_ASSERT(0);
+      big_range = true;
+    }
 
     // Known end range bounds: HA_READ_AFTER_KEY, HA_READ_BEFORE_KEY
     if (end_key->flag == HA_READ_AFTER_KEY) {
@@ -9699,8 +9691,11 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
     } else if (end_key->flag == HA_READ_BEFORE_KEY) {
       // this is "key_part < const", non-inclusive.
       end_has_inf_suffix= false;
-    } else
+    } else {
+      // Unknown type of range, shouldn't happen
       DBUG_ASSERT(0);
+      big_range = true;
+    }
 
     uchar pack_buffer[MAX_KEY_LENGTH];
     uint end_slice_size= kd.pack_index_tuple(table, pack_buffer, end_slice_buf,
