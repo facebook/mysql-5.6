@@ -1,0 +1,143 @@
+#
+# Variable name : validate_schema_from_attributes
+# Scope         : Global & Session
+#
+# Global - default
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+# Session - default
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+
+# via performance_schema.global_variables
+select * from performance_schema.global_variables where variable_name like '%validate_schema_from_attributes%';
+VARIABLE_NAME	VARIABLE_VALUE
+validate_schema_from_attributes	OFF
+# via performance_schema.session_variables
+select * from performance_schema.session_variables where variable_name like '%validate_schema_from_attributes%';
+VARIABLE_NAME	VARIABLE_VALUE
+validate_schema_from_attributes	OFF
+SET @global_saved_tmp =  @@global.validate_schema_from_attributes;
+
+# Altering global variable's value
+SET @@global.validate_schema_from_attributes = 0;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+SET @@global.validate_schema_from_attributes = TrUe;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+1
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+SET @@global.validate_schema_from_attributes = FaLsE;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+
+# Altering session variable's value
+SET @@session.validate_schema_from_attributes = 0;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+
+SET @@session.validate_schema_from_attributes = TrUe;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+1
+
+SET @@session.validate_schema_from_attributes = FaLsE;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+
+SET @@session.validate_schema_from_attributes = TrUe;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+1
+
+# Variables' values in a new session.
+# Global - expect 0
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+
+# Session - expect 0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+
+# Switching to the default connection.
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+1
+
+# Test if DEFAULT is working as expected.
+SET @@global.validate_schema_from_attributes = DEFAULT;
+SET @@session.validate_schema_from_attributes = DEFAULT;
+
+# Global - expect 0
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+# Session - expect 0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+
+# Variables' values in a new session (con2).
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+
+# Altering session should not affect global.
+SET @@session.validate_schema_from_attributes = TRUE;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+0
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+1
+
+# Variables' values in a new session (con3).
+# Altering global should not affect session.
+SET @@global.validate_schema_from_attributes = ON;
+SELECT @@global.validate_schema_from_attributes;
+@@global.validate_schema_from_attributes
+1
+SELECT @@session.validate_schema_from_attributes;
+@@session.validate_schema_from_attributes
+0
+
+# Switching to the default connection.
+# Restoring the original values.
+SET @@global.validate_schema_from_attributes = DEFAULT;
+SET @@session.validate_schema_from_attributes = DEFAULT;
+# End of tests.

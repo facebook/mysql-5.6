@@ -8951,6 +8951,12 @@ static Sys_var_charptr Sys_client_attribute_names(
     IN_SYSTEM_CHARSET, DEFAULT("caller,async_id"), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_client_attribute_names));
 
+static Sys_var_bool Sys_schema_check_attrs(
+    "validate_schema_from_attributes",
+    "Check if server schema matches client expected schema.",
+    SESSION_VAR(validate_schema_from_attributes), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 #ifndef DBUG_OFF
 Debug_shutdown_actions Debug_shutdown_actions::instance;
 #endif
