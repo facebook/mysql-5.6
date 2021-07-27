@@ -571,6 +571,8 @@ bool Sql_cmd_dml::execute(THD *thd) {
   // tag joins properly.
   parse_column_usage_info(thd);
 
+  thd->validate_schema_info(lex->query_tables);
+
   if (validate_use_secondary_engine(lex)) goto err;
 
   lex->set_exec_started();

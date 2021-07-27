@@ -2688,6 +2688,8 @@ The following options may be given as the first argument:
  5.6
  -u, --user=name     Run mysqld daemon as user.
  --validate-config   Validate the server configuration specified by the user.
+ --validate-schema-from-attributes 
+ Check if server schema matches client expected schema.
  --validate-user-plugins 
  Turns on additional validation of authentication plugins
  assigned to user accounts. 
@@ -3529,6 +3531,7 @@ update-binlog-pos-threshold 5242880
 upgrade AUTO
 use-fb-json-functions 
 validate-config FALSE
+validate-schema-from-attributes FALSE
 validate-user-plugins TRUE
 verbose TRUE
 wait-for-hlc-sleep-scaling-factor 0.75

@@ -3875,6 +3875,7 @@ void THD::set_query_attrs(const char *attrs, size_t length) {
 }
 
 static const std::string query_info_key{"query_info"};
+static const std::string schema_info_key{"schema_info"};
 static const std::string traceid_key{"traceid"};
 static const std::string query_type_key{"query_type"};
 static const std::string num_queries_key{"num_queries"};
@@ -3886,6 +3887,7 @@ int THD::parse_query_info_attr() {
     } else if (kvp.first == query_info_key) {
       rapidjson::Document root;
       if (root.Parse(kvp.second.c_str()).HasParseError()) {
+        my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
         return -1;
       }
 
@@ -3901,6 +3903,7 @@ int THD::parse_query_info_attr() {
         if (iter != root.MemberEnd()) {
           this->query_type = iter->value.GetString();
         } else {
+          my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
           return -1;
         }
       }
@@ -3910,12 +3913,128 @@ int THD::parse_query_info_attr() {
         if (iter != root.MemberEnd()) {
           this->num_queries = iter->value.GetUint64();
         } else {
+          my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
           return -1;
         }
       }
       return 0;
+    } else if (kvp.first == schema_info_key) {
+      if (!variables.validate_schema_from_attributes) {
+        continue;
+      }
+
+      rapidjson::Document root;
+      if (root.Parse(kvp.second.c_str()).HasParseError()) {
+        my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
+        return -1;
+      }
+
+      if (!root.IsArray()) {
+        my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
+        return -1;
+      }
+      for (auto &obj : root.GetArray()) {
+        if (!obj.IsArray() || obj.Size() != 3) {
+          my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
+          return -1;
+        }
+        const auto &db = obj[0].GetString();
+        const auto &table = obj[1].GetString();
+        const auto &cols = obj[2];
+
+        Column_type_info column_info;
+        for (auto &c : cols.GetObject()) {
+          const auto &col_name = c.name.GetString();
+          if (!c.value.IsArray() || c.value.Size() != 2) {
+            my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
+            return -1;
+          }
+          const auto &type_name = c.value[0].GetUint64();
+          if (MYSQL_TYPE_TYPED_ARRAY < type_name &&
+              type_name < MYSQL_TYPE_JSON) {
+            my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
+            return -1;
+          }
+          const auto &type_len = c.value[1].GetUint64();
+
+          column_info[col_name] =
+              std::make_pair((enum_field_types)type_name, type_len);
+        }
+
+        schema_info_attrs.emplace(
+            std::make_pair(std::string(db), std::string(table)), column_info);
+      }
     }
   }
+  return 0;
+}
+
+/**
+  Validates the tables passed in to see if the actual schema matches what the
+  client expects. At the moment, this only checks to see if the types match
+  exactly.
+
+  @param tl The list of tables to check.
+*/
+int THD::validate_schema_info(TABLE_LIST *tl) {
+  if (!variables.validate_schema_from_attributes) {
+    return 0;
+  }
+
+  for (const TABLE_LIST *table = tl; table != nullptr;
+       table = table->next_global) {
+    if (table->is_view_or_derived()) {
+      continue;
+    }
+
+    const TABLE_SHARE *share = table->table->s;
+
+    const char *db_name = share->db.str;
+    const char *tbl_name = share->table_name.str;
+
+    const auto &attrs_it = schema_info_attrs.find(
+        std::make_pair(std::string(db_name), std::string(tbl_name)));
+    if (attrs_it != schema_info_attrs.end()) {
+      for (const auto &col_info : attrs_it->second) {
+        const auto &col_name = col_info.first;
+        const auto &col_type = col_info.second.first;
+        const auto &col_len = col_info.second.second;
+        const Field *field = nullptr;
+
+        if (share->field) {
+          for (uint i = 0; i < share->fields; ++i) {
+            if (share->field[i] &&
+                !my_strcasecmp(system_charset_info, share->field[i]->field_name,
+                               col_name.c_str())) {
+              // Found a matching column.
+              field = share->field[i];
+            }
+          }
+        }
+
+        if (field == nullptr) {
+          my_error(ER_SCHEMA_COLUMN_CHECK_FAILED, MYF(0), "missing column",
+                   col_name.c_str());
+          return -1;
+        }
+
+        if (col_type != field->type()) {
+          my_error(ER_SCHEMA_COLUMN_CHECK_FAILED, MYF(0), "type mismatch",
+                   col_name.c_str());
+          return -1;
+        }
+
+        if ((col_type == MYSQL_TYPE_VARCHAR || col_type == MYSQL_TYPE_STRING ||
+             col_type == MYSQL_TYPE_BLOB) &&
+            col_len < field->char_length()) {
+          my_error(ER_SCHEMA_COLUMN_CHECK_FAILED, MYF(0), "type too narrow",
+                   col_name.c_str());
+          return -1;
+        }
+      }
+    }
+  }
+
   return 0;
 }
 

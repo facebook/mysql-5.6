@@ -4846,6 +4846,14 @@ class THD : public MDL_context_owner,
 
   void mark_transaction_to_rollback(bool all);
 
+  // Maps column name to col type info (type and length).
+  using Column_type_info =
+      std::map<std::string, std::pair<enum_field_types, uint>>;
+  // Maps (schema, table) to column type information
+  std::map<std::pair<std::string, std::string>, Column_type_info>
+      schema_info_attrs;
+  int validate_schema_info(TABLE_LIST *tl);
+
   void set_connection_attrs(const char *attrs, size_t length);
   void set_query_attrs(const char *attrs, size_t length);
   int parse_query_info_attr();
@@ -4858,6 +4866,7 @@ class THD : public MDL_context_owner,
     trace_id.clear();
     num_queries = 0;
     query_type.clear();
+    schema_info_attrs.clear();
   }
   inline const char *query_attrs() const { return query_attrs_string.c_str(); }
   inline uint32 query_attrs_length() const {

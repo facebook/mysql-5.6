@@ -2299,7 +2299,9 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       const char *attrs = com_data->com_query.query_attrs;
       const unsigned int attrslen = com_data->com_query.query_attrs_length;
       thd->set_query_attrs(attrs, attrslen);
-      thd->parse_query_info_attr();
+      if (thd->parse_query_info_attr()) {
+        break;
+      }
       thd->serialize_client_attrs();
 
       if (!thd->trace_id.empty()) {

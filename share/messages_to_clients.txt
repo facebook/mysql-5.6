@@ -10094,15 +10094,14 @@ ER_REDUCED_DBLWR_FILE_CORRUPTED
 ER_REDUCED_DBLWR_PAGE_FOUND
   eng "Database page corruption of tablespace %s space_id: %u page_num: %u. Cannot recover it from the doublewrite buffer because it was written in reduced-doublewrite mode."
 
-ER_PLACEHOLDER_50117
-  eng "Placeholder"
+ER_SCHEMA_COLUMN_CHECK_FAILED
+  eng "Schema on server is different from schema expected from client: %s for column '%s'"
 
-ER_PLACEHOLDER_50118
-  eng "Placeholder"
+ER_MALFORMED_QUERY_ATTRS
+  eng "Malformed query attributes '%s'"
 
 ER_GAP_LOCK_USED
   eng "Using Gap Lock without full unique key in multi-table or multi-statement transactions is not allowed. You need to either 1: Execute 'SET SESSION gap_lock_raise_error=off' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all unique key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction."
-
 
 #
 # End of 8.0 FB MySQL error messages.

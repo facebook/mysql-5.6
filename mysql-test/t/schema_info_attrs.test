@@ -1,0 +1,175 @@
+
+create database db1;
+use db1;
+
+create table abc (a varchar(25), b int);
+
+set validate_schema_from_attributes = on;
+
+query_attrs_add schema_info [];
+select * from abc;
+query_attrs_reset;
+
+query_attrs_add schema_info [["db1","abc",{"d":[15,25],"c":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+query_attrs_add schema_info [["db1","abc",{"a":[15,35],"b":[3,0]}]];
+select * from abc;
+query_attrs_reset;
+
+query_attrs_add schema_info [["db1","abc",{"a":[15,15],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_TINY
+query_attrs_add schema_info [["db1","abc",{"a":[1,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_SHORT
+query_attrs_add schema_info [["db1","abc",{"a":[2,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_LONG
+query_attrs_add schema_info [["db1","abc",{"a":[3,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_FLOAT
+query_attrs_add schema_info [["db1","abc",{"a":[4,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_DOUBLE
+query_attrs_add schema_info [["db1","abc",{"a":[5,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_NULL
+query_attrs_add schema_info [["db1","abc",{"a":[6,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_TIMESTAMP
+query_attrs_add schema_info [["db1","abc",{"a":[7,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_LONGLONG
+query_attrs_add schema_info [["db1","abc",{"a":[8,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_INT24
+query_attrs_add schema_info [["db1","abc",{"a":[9,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_DATE
+query_attrs_add schema_info [["db1","abc",{"a":[10,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_TIME
+query_attrs_add schema_info [["db1","abc",{"a":[11,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_DATETIME
+query_attrs_add schema_info [["db1","abc",{"a":[12,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_YEAR
+query_attrs_add schema_info [["db1","abc",{"a":[13,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_NEWDATE
+query_attrs_add schema_info [["db1","abc",{"a":[14,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_VARCHAR
+query_attrs_add schema_info [["db1","abc",{"a":[15,25],"b":[3,0]}]];
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_BIT
+query_attrs_add schema_info [["db1","abc",{"a":[16,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_JSON
+query_attrs_add schema_info [["db1","abc",{"a":[245,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_NEWDECIMAL
+query_attrs_add schema_info [["db1","abc",{"a":[246,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_BLOB
+query_attrs_add schema_info [["db1","abc",{"a":[252,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_STRING
+query_attrs_add schema_info [["db1","abc",{"a":[254,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is MYSQL_TYPE_GEOMETRY
+query_attrs_add schema_info [["db1","abc",{"a":[255,25],"b":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abc;
+query_attrs_reset;
+
+# a is an invalid type
+query_attrs_add schema_info [["db1","abc",{"a":[200,25],"b":[3,0]}]];
+--error ER_MALFORMED_QUERY_ATTRS
+select * from abc;
+query_attrs_reset;
+
+# Test with wide tables
+create table abcd (a int, b int, c int, d int, e int, f int, g int, h int, i int, j int, k int, l int, m int, n int, o int, p int, q int, r int, s int, t int, u int, v int, w int, x int, y int, z int, aa int, ab int, ac int, ad int, ae int, af int, ag int);
+query_attrs_add schema_info [["db1","abcd",{"ag":[3,0],"c":[3,0]}]];
+select * from abcd;
+query_attrs_reset;
+
+query_attrs_add schema_info [["db1","abcd",{"ah":[3,0],"c":[3,0]}]];
+--error ER_SCHEMA_COLUMN_CHECK_FAILED
+select * from abcd;
+query_attrs_reset;
+
+# Test without validation, with different column names
+set validate_schema_from_attributes = off;
+query_attrs_reset;
+query_attrs_add schema_info [["db1","abc",{"d":[15,25],"c":[3,0]}]];
+select * from abc;
+
+drop database db1;
