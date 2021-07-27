@@ -561,6 +561,8 @@ bool Sql_cmd_dml::execute(THD *thd) {
   mysql_audit_notify(thd, MYSQL_AUDIT_QUERY_STMT_PREPARED,
                      "MYSQL_AUDIT_QUERY_STMT_PREPARED");
 
+  thd->validate_schema_info(lex->query_tables);
+
   if (validate_use_secondary_engine(lex)) goto err;
 
   lex->set_exec_started();
