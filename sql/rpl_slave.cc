@@ -1350,7 +1350,8 @@ int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask,
       if (enable_raft_plugin)
       {
         // NO_LINT_DEBUG
-        sql_print_information("global_init_info: rli_init_info called");
+        sql_print_information("global_init_info: rli_init_info called."
+                              " inited: %d", mi->rli->inited);
       }
       if (mi->rli->rli_init_info(startup))
       {
@@ -9227,8 +9228,12 @@ static Log_event* next_event(Relay_log_info* rli)
           According to Sasha, the only time this code will ever be executed
           is if we are recovering from a bug.
         */
-        if (rli->relay_log.find_next_log(&rli->linfo, !hot_log))
+        int retc= 0;
+        if ((retc= rli->relay_log.find_next_log(&rli->linfo, !hot_log)))
         {
+          // NO_LINT_DEBUG
+          sql_print_error("Unable to find_next_log when current "
+                          "applier log is not hot: %d", retc);
           errmsg = "error switching to the next log";
           goto err;
         }
