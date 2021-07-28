@@ -458,6 +458,7 @@ public:
   int flush_info(bool force= FALSE);
   static size_t get_number_worker_fields();
   void slave_worker_ends_group(Log_event*, int&, bool&);
+  bool worker_sleep(ulong);
   const char *get_master_log_name();
   ulonglong get_master_log_pos() { return master_log_pos; };
   ulonglong set_master_log_pos(ulong val) { return master_log_pos= val; };

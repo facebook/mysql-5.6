@@ -25,9 +25,14 @@ bool Log_event_wrapper::wait(Slave_worker *worker)
                        &old_stage);
   while (!info_thd->killed &&
          worker->running_status == Slave_worker::RUNNING &&
-         dependencies)
+         dependencies &&
+         !worker->found_order_commit_deadlock())
   {
-    mysql_cond_wait(&cond, &mutex);
+    const auto timeout_nsec=
+      worker->c_rli->mts_dependency_cond_wait_timeout * 1000000;
+    struct timespec abstime;
+    set_timespec_nsec(abstime, timeout_nsec);
+    mysql_cond_timedwait(&cond, &mutex, &abstime);
   }
   info_thd->EXIT_COND(&old_stage);
   return !info_thd->killed && worker->running_status == Slave_worker::RUNNING;
@@ -50,7 +55,11 @@ std::shared_ptr<Log_event_wrapper> Log_event_wrapper::next()
          !next_ev)
   {
     ++worker->c_rli->next_event_waits;
-    mysql_cond_wait(&next_event_cond, &mutex);
+    const auto timeout_nsec=
+      worker->c_rli->mts_dependency_cond_wait_timeout * 1000000;
+    struct timespec abstime;
+    set_timespec_nsec(abstime, timeout_nsec);
+    mysql_cond_timedwait(&next_event_cond, &mutex, &abstime);
   }
   info_thd->EXIT_COND(&old_stage);
   return next_ev;

@@ -1368,6 +1368,29 @@ Slave_worker *get_least_occupied_worker(DYNAMIC_ARRAY *ws)
   DBUG_RETURN(worker);
 }
 
+bool Slave_worker::worker_sleep(ulong secs)
+{
+  bool ret= false;
+  struct timespec abstime;
+  mysql_mutex_t *lock= &jobs_lock;
+  mysql_cond_t *cond= &jobs_cond;
+
+  /* Absolute system time at which the sleep time expires. */
+  set_timespec(abstime, secs);
+
+  mysql_mutex_lock(lock);
+  info_thd->ENTER_COND(cond, lock, nullptr, nullptr);
+
+  while (!(ret = info_thd->killed || running_status != RUNNING))
+  {
+    int error= mysql_cond_timedwait(cond, lock, &abstime);
+    if (error == ETIMEDOUT || error == ETIME) break;
+  }
+
+  info_thd->EXIT_COND(nullptr);
+  return ret;
+}
+
 /**
    Deallocation routine to cancel out few effects of
    @c map_db_to_worker().
@@ -1444,8 +1467,14 @@ void Slave_worker::slave_worker_ends_group(Log_event* ev, int &error,
       trans_retries++;
       error = 0; // Reset the error to avoid worker thread reporting an error.
       temporary_error = true;
-      reset_order_commit_deadlock();
       cleanup_context(info_thd, 1);
+      // slightly more sleep when commit order deadlock is found so that the
+      // earlier trx can race forward
+      ulong sleep_sec=
+        found_order_commit_deadlock() ? trans_retries + 1 : trans_retries;
+      sleep_sec= min<ulong>(sleep_sec, MAX_SLAVE_RETRY_PAUSE);
+      reset_order_commit_deadlock();
+      worker_sleep(sleep_sec);
       DBUG_VOID_RETURN;
     }
     else if (running_status != STOP_ACCEPTED)
@@ -2491,6 +2520,13 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
     error= -1;
     goto err;
   }
+
+  if (worker->found_order_commit_deadlock())
+  {
+    error= ER_LOCK_DEADLOCK;
+    goto err;
+  }
+
   worker->current_event_index++;
   ev= static_cast<Log_event*>(job_item->data);
 
