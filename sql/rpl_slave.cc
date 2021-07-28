@@ -1751,6 +1751,10 @@ int raft_reset_slave(THD *) {
   channel_map.rdlock();
   Master_info *mi = channel_map.get_default_channel_mi();
 
+  if (!mi) {
+    channel_map.unlock();
+    DBUG_RETURN(error);
+  }
   mysql_mutex_lock(&mi->data_lock);
   strmake(mi->host, "\0", sizeof(mi->host) - 1);
   mi->port = 0;
