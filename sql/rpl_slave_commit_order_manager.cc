@@ -141,6 +141,11 @@ void Commit_order_manager::report_rollback(Slave_worker *worker)
 {
   DBUG_ENTER("Commit_order_manager::report_rollback");
 
+  // Without resetting order commit deadlock flag wait_for_its_turn will return
+  // immediately without changing state and due to that unregister_trx() will be
+  // a no-op.
+  worker->reset_order_commit_deadlock();
+
   (void) wait_for_its_turn(worker, true);
   /* No worker can set m_rollback_trx unless it is its turn to commit */
   m_rollback_trx.store(true);
@@ -152,11 +157,16 @@ void Commit_order_manager::report_rollback(Slave_worker *worker)
 void Commit_order_manager::report_deadlock(Slave_worker *worker)
 {
   DBUG_ENTER("Commit_order_manager::report_deadlock");
-  mysql_mutex_lock(&m_queue_mutex);
+  THD *thd= worker->info_thd;
+  mysql_mutex_lock(&thd->LOCK_thd_data);
   ++slave_commit_order_deadlocks;
   worker->report_order_commit_deadlock();
-  mysql_cond_signal(&m_workers[worker->id].cond);
-  mysql_mutex_unlock(&m_queue_mutex);
+  /* Let's signal to any wait loop this worker is executing, this will also
+   * cover the wait loop in wait_for_its_turn() above.
+   * NOTE: we just want to send a signal without changing the killed flag
+   */
+  thd->awake(thd->killed);
+  mysql_mutex_unlock(&thd->LOCK_thd_data);
   DBUG_VOID_RETURN;
 }
 
