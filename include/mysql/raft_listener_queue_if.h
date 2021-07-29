@@ -41,6 +41,7 @@ class RaftListenerCallbackArg {
   bool val_bool;
   uint32_t val_uint;
   std::pair<std::string, unsigned int> master_instance;
+  std::string master_uuid;
   std::string val_str;
   std::map<std::string, unsigned int> val_sys_var_uint;
   std::pair<int64_t, int64_t> val_opid;
