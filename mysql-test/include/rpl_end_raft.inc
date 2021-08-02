@@ -2,6 +2,10 @@
 --disable_query_log
 connection server_1;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+connection server_2;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+connection server_3;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
 connection server_4;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
 connection server_5;

@@ -169,11 +169,6 @@ if ($rpl_group_replication)
   }
 }
 
-if ($rpl_enable_raft)
-{
-  --source include/rpl_end_raft.inc
-}
-
 if (!$rpl_group_replication)
 {
   if (!$rpl_skip_stop_slave)
@@ -221,6 +216,11 @@ if (!$rpl_group_replication)
   }
   --let $rpl_privilege_checks_user=
   --let $rpl_change_topology_user_created=
+}
+
+if ($rpl_enable_raft)
+{
+  --source include/rpl_end_raft.inc
 }
 
 # Restore the server state by deleting all channels
