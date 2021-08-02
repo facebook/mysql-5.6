@@ -2,10 +2,19 @@
 --disable_query_log
 connection server_1;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
+connection server_2;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
+connection server_3;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
 connection server_4;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
 connection server_5;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
 --enable_query_log
 
 let $_rpl_server= $rpl_server_count;
