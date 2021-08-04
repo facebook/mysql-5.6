@@ -42,6 +42,31 @@ SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
 id	firstname	lastname	email
 1	John	Doe	john@example.com
 2	Johnny	Doe	john2@example.com
+SELECT firstname FROM MyGuests WHERE email LIKE 'john%';
+firstname
+John
+Johnny
+SELECT lastname FROM MyGuests WHERE email LIKE '_john%';
+lastname
+SELECT COUNT(*) FROM MyGuests WHERE firstname LIKE '%Mohan%';
+COUNT(*)
+1
+SELECT lastname FROM MyGuests WHERE '%Mohan%' LIKE firstname;
+lastname
+SELECT COUNT(*) FROM MyGuests WHERE 'John' LIKE firstname;
+COUNT(*)
+1
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email REGEXP '^[jo]{2}h.*';
+id	firstname	lastname	email
+1	John	Doe	john@example.com
+2	Johnny	Doe	john2@example.com
+SELECT id, firstname, lastname, email FROM MyGuests WHERE REGEXP_LIKE(email, '^[jo]{2}h.*');
+id	firstname	lastname	email
+1	John	Doe	john@example.com
+2	Johnny	Doe	john2@example.com
+SELECT lastname, email FROM MyGuests WHERE firstname REGEXP '^Mohan.*';
+lastname	email
+Gandhi	NULL
 SELECT id, firstname, lastname, email FROM MyGuests WHERE email NOT LIKE 'john2%';
 id	firstname	lastname	email
 1	John	Doe	john@example.com
@@ -70,7 +95,7 @@ SELECT email FROM MyGuests WHERE fake_column = 1;
 ERROR 42S22: Unknown column 'fake_column' in 'where clause'
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 COUNT(DISTINCT SQL_ID)
-13
+14
 SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM performance_schema.column_statistics;
 SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
@@ -93,6 +118,7 @@ SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
 897425c9bd7eb83a224903e118e2e8a0849f5ed9ac19ecaf3d2a7d0a263c9d0b	cus_test	MyGuests	lastname	ORDER_BY	SORT_ASCENDING
 8d8e76cb09279ec64c6a65c640295118f6961d3a8cee08e6c477a705913513b6	cus_test	MyGuests	id	FILTER	BETWEEN
 a98537124a693590457d2cf2432bfcfbb1c3913f98fb15366a979c442f37aa25	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+b3b5aa23dc2b04b532e5c58a743eebc892dfe1797775e0c3228963ff64888912	cus_test	MyGuests	email	FILTER	PATTERN_MATCH
 e48f7768025a58738c19abeeb7f304a8b898f49ff5d6debed1515a60a00d3943	cus_test	MyGuests	email	FILTER	PATTERN_MATCH
 ed732482a605a3987aaa97cc8cc1e65a08c0cc0ffc7cdf28a4d8db2530594ecf	cus_test	MyGuests	lastname	FILTER	PATTERN_MATCH
 fe2f9785260cd64f476c0dd344c2429e4ea5771a73d7b07caea2ba2b8ae9a317	cus_test	MyGuests	id	FILTER	BETWEEN

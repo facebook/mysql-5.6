@@ -40,6 +40,19 @@ SELECT firstname, lastname, email FROM MyGuests WHERE email <=> 'john@example.co
 
 SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
 
+# Only the first one out of the next three will show up in COLUMN_STATISTICS.
+SELECT firstname FROM MyGuests WHERE email LIKE 'john%';
+SELECT lastname FROM MyGuests WHERE email LIKE '_john%';
+SELECT COUNT(*) FROM MyGuests WHERE firstname LIKE '%Mohan%';
+SELECT lastname FROM MyGuests WHERE '%Mohan%' LIKE firstname;
+SELECT COUNT(*) FROM MyGuests WHERE 'John' LIKE firstname;
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email REGEXP '^[jo]{2}h.*';
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE REGEXP_LIKE(email, '^[jo]{2}h.*');
+
+SELECT lastname, email FROM MyGuests WHERE firstname REGEXP '^Mohan.*';
+
 # NOT LIKE is treated as a combination of two operators NOT and LIKE and is not expected to show up in
 # column_statistics.
 SELECT id, firstname, lastname, email FROM MyGuests WHERE email NOT LIKE 'john2%';

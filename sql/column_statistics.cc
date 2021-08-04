@@ -268,7 +268,6 @@ int parse_column_from_func_item(sql_operation op, Item_func *fitem,
     case Item_func::EQUAL_FUNC:
     case Item_func::ISNULL_FUNC:
     case Item_func::ISNOTNULL_FUNC:
-    case Item_func::LIKE_FUNC:
     case Item_func::LT_FUNC:
     case Item_func::LE_FUNC:
     case Item_func::GE_FUNC:
@@ -280,6 +279,31 @@ int parse_column_from_func_item(sql_operation op, Item_func *fitem,
       for (uint i = 0; i < fitem->argument_count(); i++) {
         if (args[i]->type() == Item::FIELD_ITEM) {
           Item_field *field_arg = static_cast<Item_field *>(args[i]);
+          populate_field_info(op, match_op(type), field_arg, out_cus);
+        }
+      }
+
+      break;
+    }
+    case Item_func::LIKE_FUNC: {
+      DBUG_ASSERT(fitem->argument_count() == 2);
+      const auto args = fitem->arguments();
+
+      // Populating ColumnUsageInfo structs
+      // Clause col1 LIKE 'pr%' uses an index but 'prn' LIKE col1 doesn't.
+      if (fitem->argument_count() == 2 && args[0]->type() == Item::FIELD_ITEM &&
+          args[1]->type() == Item::STRING_ITEM) {
+        Item_field *field_arg = static_cast<Item_field *>(args[0]);
+        Item_string *string_arg = static_cast<Item_string *>(args[1]);
+
+        // The passed in argument isn't really used but following the
+        // convention seen elsewhere. The lifetime semantics of String objects
+        // seem dangerous for anything non-trivial.
+        // More details in sql_string.h
+        String tmp1, *tmp2;
+        tmp2 = string_arg->val_str(&tmp1);
+        if (!tmp2->is_empty() && tmp2->ptr()[0] != '%' &&
+            tmp2->ptr()[0] != '_') {
           populate_field_info(op, match_op(type), field_arg, out_cus);
         }
       }
