@@ -6762,7 +6762,13 @@ void MYSQL_BIN_LOG::get_current_log_without_lock_log(LOG_INFO *linfo) {
 int MYSQL_BIN_LOG::raw_get_current_log(LOG_INFO *linfo) {
   strmake(linfo->log_file_name, log_file_name,
           sizeof(linfo->log_file_name) - 1);
-  linfo->pos = m_binlog_file->position();
+  // raft write data directly into IO_CACHE, thus
+  // Binlog_ofile's m_position member isn't updated.
+  if (enable_raft_plugin && !is_apply_log)
+    linfo->pos = atomic_binlog_end_pos.load();
+  else
+    linfo->pos = m_binlog_file->position();
+
   linfo->encrypted_header_size = m_binlog_file->get_encrypted_header_size();
   return 0;
 }
@@ -10926,7 +10932,13 @@ int MYSQL_BIN_LOG::flush_cache_to_file(my_off_t *end_pos_var) {
     thd->commit_error = THD::CE_FLUSH_ERROR;
     return ER_ERROR_ON_WRITE;
   }
-  *end_pos_var = m_binlog_file->position();
+
+  // raft write data directly into IO_CACHE, thus
+  // Binlog_ofile's m_position member isn't updated.
+  if (enable_raft_plugin && !is_apply_log)
+    *end_pos_var = atomic_binlog_end_pos.load();
+  else
+    *end_pos_var = m_binlog_file->position();
   return 0;
 }
 
