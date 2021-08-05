@@ -6334,7 +6334,9 @@ net_async_status STDCALL mysql_real_connect_nonblocking(
     ASYNC_DATA(mysql)->async_op_status = ASYNC_OP_CONNECT;
   }
 
-  status = ctx->state_function(ctx);
+  do {
+    status = ctx->state_function(ctx);
+  } while (status == STATE_MACHINE_CONTINUE);
 
   if (status == STATE_MACHINE_DONE) {
     my_free(ASYNC_DATA(mysql)->connect_context);
@@ -6815,7 +6817,7 @@ static mysql_state_machine_status csm_wait_connect(mysql_async_connect *ctx) {
       }
     }
   }
-  return STATE_MACHINE_CONTINUE;
+  return STATE_MACHINE_WOULD_BLOCK;
 }
 
 /**
