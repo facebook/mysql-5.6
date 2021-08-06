@@ -162,7 +162,9 @@ extern "C" void thd_enter_stage(void *opaque_thd,
   THD *thd = static_cast<THD *>(opaque_thd);
   if (!thd) thd = current_thd;
 
-  thd->enter_stage(new_stage, old_stage, src_function, src_file, src_line);
+  if (thd) {
+    thd->enter_stage(new_stage, old_stage, src_function, src_file, src_line);
+  }
 }
 
 extern "C" void thd_set_waiting_for_disk_space(void *opaque_thd,
