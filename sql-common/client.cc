@@ -4988,6 +4988,7 @@ int STDCALL mysql_get_socket_descriptor(MYSQL *mysql) {
 
 static const std::vector<std::pair<csm_function, connect_stage>> stages = {
     {csm_begin_connect, CONNECT_STAGE_NET_BEGIN_CONNECT},
+    {csm_wait_connect, CONNECT_STAGE_NET_WAIT_CONNECT},
     {csm_complete_connect, CONNECT_STAGE_NET_COMPLETE_CONNECT},
     {csm_read_greeting, CONNECT_STAGE_READ_GREETING},
     {csm_parse_handshake, CONNECT_STAGE_PARSE_HANDSHAKE},
