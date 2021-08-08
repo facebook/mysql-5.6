@@ -4473,7 +4473,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
         Use InnoDB-like concurrency mode: make the DML statements always read
         the latest data (instead of using transaction's snapshot).
         This "downgrades" the transaction isolation to READ-COMMITTED on the
-        master, but in return the actions can be replayed on the slave.
+        primary, but in return the actions can be replayed on the replica.
       */
       start_ignore_snapshot();
     }
@@ -6945,7 +6945,7 @@ static int rocksdb_init_internal(void *const p) {
   if (range_lock_mgr)
   {
     range_lock_mgr->SetMaxLockMemory(rocksdb_max_lock_memory);
-    sql_print_information("RocksDB: USING NEW RANGE LOCKING");
+    sql_print_information("RocksDB: USING RANGE LOCKING");
     sql_print_information("RocksDB: Max lock memory=%llu", rocksdb_max_lock_memory);
   }
   else
