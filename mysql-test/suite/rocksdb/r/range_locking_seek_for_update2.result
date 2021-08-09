@@ -40,3 +40,52 @@ rollback;
 disconnect con1;
 connection default;
 drop table t0, t1;
+#
+# A testcase for locking at the end of the scan
+#
+create table t1 (
+pk int,
+primary key (pk) comment 'rlsfu_test'
+) engine=rocksdb;
+connect  con1,localhost,root,,;
+connection con1;
+insert into t1 values (1), (10), (100);
+begin;
+select * from t1 for update;
+pk
+1
+10
+100
+connection default;
+select * from t1;
+pk
+1
+10
+100
+insert into t1 values (150);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+connection con1;
+rollback;
+begin;
+explain
+select * from t1 order by pk desc for update;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	4	NULL	#	100.00	Backward index scan; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk` from `test`.`t1` order by `test`.`t1`.`pk` desc
+select * from t1 order by pk desc for update;
+pk
+100
+10
+1
+connection default;
+select * from t1;
+pk
+1
+10
+100
+insert into t1 values (0);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+disconnect con1;
+connection default;
+drop table t1;
