@@ -10041,8 +10041,12 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
            (last_thd, last_thd->transaction.flags.real_commit));
 
        auto wait_time= my_timer_since(start_time);
-       latency_histogram_increment(&histogram_raft_trx_wait,
-                                   wait_time, 1);
+
+       if (!this->is_apply_log)
+       {
+         latency_histogram_increment(&histogram_raft_trx_wait,
+                                     wait_time, 1);
+       }
      }
      DBUG_EXECUTE_IF("simulate_before_commit_error", {error= 1;});
 
