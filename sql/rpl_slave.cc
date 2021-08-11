@@ -1779,7 +1779,8 @@ int raft_reset_slave(THD *) {
 
 // TODO: currently we're only setting host port
 int raft_change_master(
-    THD *, const std::pair<const std::string, uint> &master_instance) {
+    THD *, const std::pair<const std::string, uint> &master_instance,
+    const std::string &master_uuid) {
   DBUG_ENTER("raft_change_master");
   int error = 0;
 
@@ -1795,6 +1796,9 @@ int raft_change_master(
   strmake(mi->host, const_cast<char *>(master_instance.first.c_str()),
           sizeof(mi->host) - 1);
   mi->port = master_instance.second;
+  DBUG_ASSERT(master_uuid.length() == UUID_LENGTH);
+  strncpy(mi->master_uuid, master_uuid.c_str(), UUID_LENGTH);
+  mi->master_uuid[UUID_LENGTH] = 0;
   mi->set_auto_position(true);
   mi->init_master_log_pos();
 
