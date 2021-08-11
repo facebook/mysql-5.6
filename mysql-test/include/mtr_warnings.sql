@@ -285,6 +285,11 @@ INSERT INTO global_suppressions VALUES
  */
  ("The transaction owned GTID is already in the gtid_executed table"),
 
+ /*
+   Setting SO_SNDBUF can fail if the connection disconnected
+ */
+ ("Failed to set SO_SNDBUF with (error: Bad file descriptor)"),
+
  ("THE_LAST_SUPPRESSION");
 
 
