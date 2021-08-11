@@ -9324,6 +9324,15 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
     my_stat(log_name, &s, MYF(0));
     binlog_size= s.st_size;
 
+    // We found atleast one binlog file in the binlog index file
+    // Note that this is useful only when raft is enabled - even during clean
+    // shutdown, raft plugin can rollback last batch of trxs from the engine
+    // (after writing to binlog). hence on restart, this binlog file can have
+    // uncommitted trxs and should not be marked as 'cleanly closed'. In other
+    // words, 'LOG_EVENT_BINLOG_IN_USE_F' is not a reliable indicator anymore
+    // that a binlog file does not contain uncommitted trxs.
+    open_binlog_found= true;
+
     if ((ev= Log_event::read_log_event(&log, 0, &fdle,
                                        opt_master_verify_checksum, NULL)) &&
         ev->get_type_code() == FORMAT_DESCRIPTION_EVENT &&
@@ -9336,7 +9345,6 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
       const std::string cur_log_file= log_name + dirname_length(log_name);
       error= recover(
           &log, (Format_description_log_event *)ev, &valid_pos, cur_log_file);
-      open_binlog_found= true;
     }
     else
     {
@@ -9360,7 +9368,6 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
       error= ha_recover(&xids, engine_binlog_file, &engine_binlog_pos,
                         &engine_binlog_max_gtid);
       my_hash_free(&xids);
-      open_binlog_found= false;
     }
 
     delete ev;

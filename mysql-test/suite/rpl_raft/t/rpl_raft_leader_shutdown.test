@@ -1,0 +1,52 @@
+source ../include/raft_3_node.inc;
+
+call mtr.add_suppression("Run function 'before_commit' in plugin 'RPL_RAFT' failed");
+call mtr.add_suppression("Error while waiting for semi-sync ACK on dump thread");
+
+# Create a schema and sync it across replicas
+connection server_1;
+create table t1 (a int primary key) engine = innodb;
+insert into t1 values (1);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Restarting leader: server_1";
+connection server_1;
+
+# Get the current raft log name
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+let $rpl_server_number = 1;
+source include/rpl_restart_server.inc;
+
+sleep 5;
+
+# After the restart, this instance should recieve rotate event from the current
+# leader and write it to the same raft log. This ensures that the old leader did
+# not open a new binlog file on restart (even after a clean shutdown)
+connection server_1;
+echo "Verify that there is at least one rotate event in the raft log";
+let $datadir = `SELECT @@datadir`;
+exec $MYSQL_BINLOG -v -v $datadir/$binlog | grep "Rotate to" | wc -l;
+
+connection server_1;
+let $rpl_raft_leader_number = 1;
+source ../include/raft_promote_to_leader.inc;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+# Cleanup
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
