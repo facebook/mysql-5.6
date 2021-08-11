@@ -76,7 +76,8 @@
 
 extern int raft_reset_slave(THD *thd);
 extern int raft_change_master(
-    THD *thd, const std::pair<const std::string, uint> &master_instance);
+    THD *thd, const std::pair<const std::string, uint> &master_instance,
+    const std::string &master_uuid);
 extern int rotate_binlog_file(THD *thd);
 extern int raft_stop_sql_thread(THD *thd);
 extern int raft_stop_io_thread(THD *thd);
@@ -1886,8 +1887,8 @@ extern "C" void *process_raft_queue(void *) {
         break;
       }
       case RaftListenerCallbackType::CHANGE_MASTER: {
-        result.error =
-            raft_change_master(current_thd, element.arg.master_instance);
+        result.error = raft_change_master(
+            current_thd, element.arg.master_instance, element.arg.master_uuid);
         if (!result.error && !element.arg.val_str.empty()) {
           Item_string item(element.arg.val_str.c_str(),
                            element.arg.val_str.length(),
