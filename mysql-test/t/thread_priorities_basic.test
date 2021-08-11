@@ -1,4 +1,5 @@
 --source include/count_sessions.inc
+let $saved_count_sessions = $count_sessions;
 
 create user user_super@localhost identified by 'su';
 grant all on *.* to user_super@localhost with grant option;
@@ -26,6 +27,7 @@ select @priority;
 --echo Case 2: Change current thread's priority.
 set @@global.thread_cache_size = 100;
 
+--source include/count_sessions.inc
 --echo connect con21
 connect (con21, localhost, user_super, su, test);
 let $con21_id = `select connection_id()`;
@@ -44,6 +46,7 @@ disconnect con21;
 # check that there are no threads remaining with priority 5 (from previous connection)
 --echo connect default
 connection default;
+--source include/wait_until_count_sessions.inc
 select count(*) from performance_schema.threads where thread_priority = 5;
 
 # Create a new connection to check that the previous thread is not cached, and
@@ -159,4 +162,5 @@ set @@global.thread_priority = @saved_thread_priority;
 set @@global.thread_priority_str = @saved_thread_priority_str;
 drop user user_super@localhost;
 
+let $count_sessions = $saved_count_sessions;
 --source include/wait_until_count_sessions.inc
