@@ -104,7 +104,7 @@ explain select * from performance_schema.threads
 
 select thread_id = @tid, name, processlist_state, processlist_info
   from performance_schema.threads
-  where PROCESSLIST_USER = "root";
+  where PROCESSLIST_USER = "root" and NAME != 'thread/sql/event_scheduler';
 
 explain select THREAD_ID from performance_schema.threads
   where PROCESSLIST_USER = "impossible" and PROCESSLIST_HOST = "impossible";
@@ -123,7 +123,8 @@ explain select * from performance_schema.threads
 
 select thread_id = @tid, name, processlist_state, processlist_info
   from performance_schema.threads
-  where PROCESSLIST_USER = "root" and PROCESSLIST_HOST = "localhost";
+  where PROCESSLIST_USER = "root" and PROCESSLIST_HOST = "localhost"
+  and name != 'thread/sql/event_scheduler';
 
 # Test index on PROCESSLIST_HOST
 
@@ -144,4 +145,4 @@ explain select * from performance_schema.threads
 
 select thread_id = @tid, name, processlist_state, processlist_info
   from performance_schema.threads
-  where PROCESSLIST_HOST = "localhost";
+  where PROCESSLIST_HOST = "localhost" and name != 'thread/sql/event_scheduler';
