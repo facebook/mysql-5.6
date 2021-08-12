@@ -3549,7 +3549,7 @@ int reset_master(THD* thd, bool force)
 {
   if (enable_raft_plugin)
   {
-    if (!force)
+    if (!force && !override_enable_raft_check)
     {
       // NO_LINT_DEBUG
       sql_print_information(
