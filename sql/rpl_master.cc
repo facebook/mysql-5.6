@@ -3545,8 +3545,27 @@ void kill_all_dump_threads()
   @retval 0 success
   @retval 1 error
 */
-int reset_master(THD* thd)
+int reset_master(THD* thd, bool force)
 {
+  if (enable_raft_plugin)
+  {
+    if (!force)
+    {
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Did not allow reset_master as enable_raft_plugin is ON");
+      my_error(ER_RAFT_OPERATION_INCOMPATIBLE, MYF(0),
+          "reset master not allowed when enable_raft_plugin is ON");
+      return 1;
+    }
+    else
+    {
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Allow reset_master in enable_raft_plugin mode as force is set");
+    }
+  }
+
   if (!mysql_bin_log.is_open())
   {
     my_message(ER_FLUSH_MASTER_BINLOG_CLOSED,

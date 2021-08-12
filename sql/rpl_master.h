@@ -144,7 +144,7 @@ bool com_binlog_dump(THD *thd, char *packet, uint packet_length);
 void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                        const Gtid_set* gtid_set, int flags);
 
-int reset_master(THD* thd);
+int reset_master(THD* thd, bool force= false);
 
 /*
   fill_replica_statistics
