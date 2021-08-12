@@ -8,15 +8,14 @@ connection server_1;
 let $uuid1 = `select @@server_uuid`;
 if ($master_uuid2 != $uuid1)
 {
-  source ../include/show_rpl_debug_info.inc;
   echo 'Master_UUID: $master_uuid2' <> 'server_uuid: $uuid1';
   die Failed because Master_UUID is not equal to server_uuid;
 }
 replace_result $uuid2 uuid2;
 eval SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID="$uuid2";
 
-#sleep 5;
-#wait for leader to become writable
+# wait for new leader to become writable
+connection server_2;
 let $rpl_connection_name = server_2;
 source include/rpl_connection.inc;
 let $max_sleep = 300;
@@ -30,11 +29,11 @@ while (!$_leader_writeable) {
   }
 }
 
+connection server_1;
 let $master_uuid1 = query_get_value(SHOW SLAVE STATUS, Master_UUID, 1);
 if ($master_uuid1 != $uuid2)
 {
-  source ../include/show_rpl_debug_info.inc;
-  echo 'Master_UUID: $master_uuid2' <> 'server_uuid: $uuid1';
+  echo 'Master_UUID: $master_uuid1' <> 'server_uuid: $uuid2';
   die Failed because Master_UUID is not equal to server_uuid;
 }
 
