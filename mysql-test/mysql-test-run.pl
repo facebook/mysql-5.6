@@ -203,6 +203,7 @@ our $opt_client_debugger;
 our $opt_client_gdb;
 our $opt_client_lldb;
 our $opt_ctest_exclude;
+our $opt_ctest_preload;
 our $opt_ctest_path;
 our $opt_ctest_report;
 our $opt_dbx;
@@ -1623,6 +1624,7 @@ sub command_line_setup {
     'comment=s'             => \$opt_comment,
     'ctest_exclude=s'       => \$opt_ctest_exclude,
     'ctest_path=s'          => \$opt_ctest_path,
+    'ctest_preload=s'       => \$opt_ctest_preload,
     'default-myisam!'       => \&collect_option,
     'disk-usage!'           => \&report_option,
     'enable-disabled'       => \&collect_option,
@@ -7517,6 +7519,10 @@ sub run_ctest() {
   if ($opt_ctest_exclude) {
     $ctest_options = $ctest_options . "-E $opt_ctest_exclude ";
   }
+  my $old_ld_preload = $ENV{'LD_PRELOAD'};
+  if ($opt_ctest_preload) {
+    $ENV{'LD_PRELOAD'} = $ENV{'LD_PRELOAD'} . ":$opt_ctest_preload";
+  }
 
   my $asan_symbolizer_path = "";
   if ($opt_symbolizer_path) {
@@ -7531,6 +7537,7 @@ sub run_ctest() {
   if ($? == $no_ctest && ($opt_ctest == -1 || defined $ENV{PB2WORKDIR})) {
     chdir($olddir);
     $ENV{'ASAN_OPTIONS'} = $old_asan_options;
+    $ENV{'LD_PRELOAD'} = $old_ld_preload;
     return;
   }
 
@@ -7581,6 +7588,7 @@ sub run_ctest() {
   mtr_report_test($tinfo);
   chdir($olddir);
   $ENV{'ASAN_OPTIONS'} = $old_asan_options;
+  $ENV{'LD_PRELOAD'} = $old_ld_preload;
   return $tinfo;
 }
 
