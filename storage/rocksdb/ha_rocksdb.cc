@@ -2933,6 +2933,7 @@ class Rdb_transaction {
   ulonglong m_update_count = 0;
   ulonglong m_delete_count = 0;
   // per row data
+  // (with range locking, each locked range is counted here, too)
   ulonglong m_row_lock_count = 0;
   std::unordered_map<GL_INDEX_ID, ulonglong> m_auto_incr_map;
 
@@ -10518,7 +10519,9 @@ int ha_rocksdb::index_read_intern(uchar *const buf, bool first) {
 void ha_rocksdb::unlock_row() {
   DBUG_ENTER_FUNC();
 
-  if (m_lock_rows != RDB_LOCK_NONE) {
+  // Don't release the lock when using range locking.
+  // This breaks m_row_lock_count
+  if (m_lock_rows != RDB_LOCK_NONE && !m_use_range_locking) {
     Rdb_transaction *const tx = get_or_create_tx(table->in_use);
     tx->release_lock(*m_pk_descr,
                      std::string(m_last_rowkey.ptr(), m_last_rowkey.length()));
