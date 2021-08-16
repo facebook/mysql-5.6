@@ -3857,7 +3857,7 @@ class Rdb_transaction {
   virtual rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle *column_family,
-      bool is_rev_cf,
+      const std::shared_ptr<Rdb_key_def>&,
       bool use_locking_iterator=false) = 0;
 
   virtual void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
@@ -3867,7 +3867,8 @@ class Rdb_transaction {
                          const bool sorted_input) const = 0;
 
   rocksdb::Iterator *get_iterator(
-      rocksdb::ColumnFamilyHandle *const column_family, bool is_rev_cf,
+      rocksdb::ColumnFamilyHandle *const column_family, 
+      const std::shared_ptr<Rdb_key_def>& kd,
       bool skip_bloom_filter,
       const rocksdb::Slice &eq_cond_lower_bound,
       const rocksdb::Slice &eq_cond_upper_bound, bool read_current = false,
@@ -3902,8 +3903,7 @@ class Rdb_transaction {
     if (read_current) {
       options.snapshot = nullptr;
     }
-    return get_iterator(options, column_family, is_rev_cf,
-                        use_locking_iterator);
+    return get_iterator(options, column_family, kd, use_locking_iterator);
   }
 
   virtual bool is_tx_started() const = 0;
@@ -4377,13 +4377,13 @@ class Rdb_transaction_impl : public Rdb_transaction {
   rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle *const column_family,
-      bool is_rev_cf,
+      const std::shared_ptr<Rdb_key_def>& kd,
       bool use_locking_iterator) override {
     global_stats.queries[QUERIES_RANGE].inc();
     if (use_locking_iterator) {
       locking_iter_created();
       return GetLockingIterator(m_rocksdb_tx, options, column_family,
-                                is_rev_cf, &m_row_lock_count);
+                                kd, &m_row_lock_count);
     }
     else
       return m_rocksdb_tx->GetIterator(options, column_family);
@@ -4723,7 +4723,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle *const /* column_family */,
-      bool /*is_rev_cf*/,
+      const std::shared_ptr<Rdb_key_def>&,
       bool /*use_locking_iterator*/) override {
     const auto it = rdb->NewIterator(options);
     return m_batch->NewIteratorWithBase(it);
@@ -16839,17 +16839,19 @@ const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx) {
 
 rocksdb::Iterator *rdb_tx_get_iterator(
    Rdb_transaction *tx, rocksdb::ColumnFamilyHandle *const column_family,
-    bool is_rev_cf,
+    const std::shared_ptr<Rdb_key_def> &kd,
     bool skip_bloom_filter, const rocksdb::Slice &lower_bound_slice,
     const rocksdb::Slice &upper_bound_slice, bool read_current,
     bool create_snapshot) {
-  return tx->get_iterator(column_family, is_rev_cf, skip_bloom_filter, lower_bound_slice,
+  return tx->get_iterator(column_family, kd, skip_bloom_filter, lower_bound_slice,
                           upper_bound_slice, read_current, create_snapshot);
 }
 
 
 rocksdb::Iterator *rdb_tx_get_iterator(
-    THD *thd, rocksdb::ColumnFamilyHandle *const cf, bool is_rev_cf, bool skip_bloom_filter,
+    THD *thd, rocksdb::ColumnFamilyHandle *const cf, 
+    const std::shared_ptr<Rdb_key_def> &kd, 
+    bool skip_bloom_filter,
     const rocksdb::Slice &eq_cond_lower_bound,
     const rocksdb::Slice &eq_cond_upper_bound,
     const rocksdb::Snapshot **snapshot, bool read_current,
@@ -16868,7 +16870,7 @@ rocksdb::Iterator *rdb_tx_get_iterator(
     }
   } else {
     Rdb_transaction *tx = get_tx_from_thd(thd);
-    return tx->get_iterator(cf, is_rev_cf, skip_bloom_filter, eq_cond_lower_bound,
+    return tx->get_iterator(cf, kd, skip_bloom_filter, eq_cond_lower_bound,
                             eq_cond_upper_bound, read_current, create_snapshot, use_locking_iter);
   }
 }

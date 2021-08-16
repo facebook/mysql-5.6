@@ -170,7 +170,7 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
     */
   if (!m_scan_it) {
     m_scan_it = rdb_tx_get_iterator(
-        m_thd, m_kd->get_cf(), m_kd->m_is_reverse_cf, skip_bloom, 
+        m_thd, m_kd->get_cf(), m_kd, skip_bloom,
         m_scan_it_lower_bound_slice,
         m_scan_it_upper_bound_slice, &m_scan_it_snapshot, read_current,
         !read_current, m_iter_should_use_locking);

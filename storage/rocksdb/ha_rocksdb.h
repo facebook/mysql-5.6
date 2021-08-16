@@ -1109,7 +1109,7 @@ const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
 
 rocksdb::Iterator *rdb_tx_get_iterator(
     THD *thd, rocksdb::ColumnFamilyHandle *const cf,
-    bool is_rev_cf,
+    const std::shared_ptr<Rdb_key_def> &kd,
     bool skip_bloom_filter,
     const rocksdb::Slice &eq_cond_lower_bound,
     const rocksdb::Slice &eq_cond_upper_bound,

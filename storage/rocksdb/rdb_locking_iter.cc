@@ -14,9 +14,9 @@ rocksdb::Iterator* GetLockingIterator(
     rocksdb::Transaction *trx,
     const rocksdb::ReadOptions& read_options,
     rocksdb::ColumnFamilyHandle* column_family,
-    bool is_rev_cf,
+    const std::shared_ptr<Rdb_key_def> &kd,
     ulonglong *counter) {
-  return new LockingIterator(trx, column_family, is_rev_cf, read_options,
+  return new LockingIterator(trx, column_family, kd, read_options,
                              counter);
 }
 

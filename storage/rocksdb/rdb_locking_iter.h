@@ -6,6 +6,7 @@
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
+#include "./rdb_datadic.h"
 
 namespace myrocks {
 
@@ -35,7 +36,8 @@ class LockingIterator : public rocksdb::Iterator {
 
   rocksdb::Transaction *m_txn;
   rocksdb::ColumnFamilyHandle* m_cfh;
-  bool m_is_rev_cf;
+  const std::shared_ptr<Rdb_key_def> &m_kd;
+
   rocksdb::ReadOptions m_read_opts;
   rocksdb::Iterator *m_iter;
   rocksdb::Status m_status;
@@ -55,11 +57,11 @@ class LockingIterator : public rocksdb::Iterator {
  public:
   LockingIterator(rocksdb::Transaction *txn,
                   rocksdb::ColumnFamilyHandle *cfh,
-                  bool is_rev_cf,
+                  const std::shared_ptr<Rdb_key_def> &kd,
                   const rocksdb::ReadOptions& opts,
                   ulonglong *lock_count=nullptr
                   ) :
-    m_txn(txn), m_cfh(cfh), m_is_rev_cf(is_rev_cf), m_read_opts(opts), m_iter(nullptr),
+    m_txn(txn), m_cfh(cfh), m_kd(kd), m_read_opts(opts), m_iter(nullptr),
     m_status(rocksdb::Status::InvalidArgument()), m_valid(false),
     m_lock_count(lock_count), m_have_locked_until(false) {}
 
@@ -113,7 +115,7 @@ class LockingIterator : public rocksdb::Iterator {
                                           const rocksdb::Slice& end_key) {
     const int inv = forward ? 1 : -1;
     auto cmp= m_cfh->GetComparator();
-    bool endp_arg= m_is_rev_cf;
+    bool endp_arg= m_kd->m_is_reverse_cf;
 
     if (m_have_locked_until &&
         cmp->Compare(end_key, rocksdb::Slice(m_locked_until))*inv <= 0) {
@@ -147,8 +149,32 @@ class LockingIterator : public rocksdb::Iterator {
 
   template <bool forward>
   void lock_till_iterator_end(const rocksdb::Slice& target) {
-    const rocksdb::Slice& end(*(forward ? m_read_opts.iterate_upper_bound:
-                                          m_read_opts.iterate_lower_bound));
+    rocksdb::Slice end;
+    uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE];
+    uint size;
+        end = *m_read_opts.iterate_upper_bound;
+      else {
+        if (m_kd->m_is_reverse_cf)
+          m_kd->get_infimum_key(buf, &size);
+        else
+          m_kd->get_supremum_key(buf, &size);
+
+        DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
+        end = rocksdb::Slice((const char*)buf, size);
+      }
+    } else {
+      if (m_read_opts.iterate_lower_bound)
+        end = *m_read_opts.iterate_lower_bound;
+      else {
+        if (m_kd->m_is_reverse_cf)
+          m_kd->get_supremum_key(buf, &size);
+        else
+          m_kd->get_infimum_key(buf, &size);
+
+        DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
+        end = rocksdb::Slice((const char*)buf, size);
+      }
+    }
     // This will set m_status accordingly
     lock_up_to<forward>(target, end);
   }
@@ -256,7 +282,7 @@ rocksdb::Iterator*
 GetLockingIterator(rocksdb::Transaction *trx,
                    const rocksdb::ReadOptions& read_options,
                    rocksdb::ColumnFamilyHandle* column_family,
-                   bool is_rev_cf,
+                   const std::shared_ptr<Rdb_key_def>& kd,
                    ulonglong *counter);
 
 } // namespace myrocks
