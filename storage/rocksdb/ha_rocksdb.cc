@@ -7668,6 +7668,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_sk_packed_tuple_old(nullptr),
       m_pack_buffer(nullptr),
       m_lock_rows(RDB_LOCK_NONE),
+      m_use_range_locking(false),
       m_keyread_only(false),
       m_iteration_only(false),
       m_insert_with_update(false),
@@ -7990,6 +7991,7 @@ int ha_rocksdb::open(const char *const name,
   }
 
   m_lock_rows = RDB_LOCK_NONE;
+  m_use_range_locking = false;
   m_locked_row_action = THR_WAIT;
   m_key_descr_arr = m_tbl_def->m_key_descr_arr;
 
