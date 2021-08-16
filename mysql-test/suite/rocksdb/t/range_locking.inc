@@ -575,3 +575,37 @@ drop table t1;
 disconnect con1;
 connection default;
 
+--echo #
+--echo # Range Locking and READ-COMMITTED, another test
+--echo #
+create table t1 (
+  pk int,
+  a int,
+  b int,
+  primary key (pk),
+  key(a)
+) engine=rocksdb;
+
+insert into t1 values
+(1, 100, 1000),
+(2, 200, 2000),
+(3, 300, 3000);
+
+set transaction isolation level repeatable read;
+begin;
+update t1 set b = b + 1 where a > 200;
+
+connect (con1,localhost,root,,);
+connection con1;
+set transaction isolation level read committed;
+begin;
+insert into t1 values (4, 150, 1500);
+--error ER_LOCK_WAIT_TIMEOUT
+insert into t1 values (5, 250, 1500);
+
+rollback;
+
+disconnect con1;
+connection default;
+rollback;
+drop table t1;
