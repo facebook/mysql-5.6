@@ -152,6 +152,8 @@ class LockingIterator : public rocksdb::Iterator {
     rocksdb::Slice end;
     uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE];
     uint size;
+    if (forward)  {
+      if (m_read_opts.iterate_upper_bound)
         end = *m_read_opts.iterate_upper_bound;
       else {
         if (m_kd->m_is_reverse_cf)
