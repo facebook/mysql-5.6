@@ -68,7 +68,7 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, uint *offset,
                                                 bool decode, bool is_null) {
   int err = HA_EXIT_SUCCESS;
 
-  uint field_offset = field->ptr - table->record[0];
+  uint field_offset = field->field_ptr() - table->record[0];
   *offset = field_offset;
   uint null_offset = field->null_offset();
   bool maybe_null = field->real_maybe_null();
@@ -83,7 +83,7 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, uint *offset,
         Besides that, set the field value to default value. CHECKSUM TABLE
         depends on this.
       */
-      memcpy(field->ptr, table->s->default_values + field_offset,
+      memcpy(field->field_ptr(), table->s->default_values + field_offset,
              field->pack_length());
     }
   } else {
@@ -101,7 +101,7 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, uint *offset,
     }
   }
 
-  // Restore field->ptr and field->null_ptr
+  // Restore field->field_ptr() and field->null_ptr
   field->move_field(table->record[0] + field_offset,
                     maybe_null ? table->record[0] + null_offset : nullptr,
                     field->null_bit);
@@ -119,9 +119,9 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, uint *offset,
     0      OK
     other  HA_ERR error code (can be SE-specific)
 */
-int Rdb_convert_to_record_value_decoder::decode_blob(TABLE *table, Field *field,
-                                                     Rdb_string_reader *reader,
-                                                     bool decode) {
+int Rdb_convert_to_record_value_decoder::decode_blob(
+    TABLE *table MY_ATTRIBUTE((__unused__)), Field *field,
+    Rdb_string_reader *reader, bool decode) {
   my_core::Field_blob *blob = (my_core::Field_blob *)field;
 
   // Get the number of bytes needed to store length
@@ -132,10 +132,9 @@ int Rdb_convert_to_record_value_decoder::decode_blob(TABLE *table, Field *field,
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
-  memcpy(blob->ptr, data_len_str, length_bytes);
-  uint32 data_len =
-      blob->get_length(reinterpret_cast<const uchar *>(data_len_str),
-                       length_bytes, table->s->db_low_byte_first);
+  memcpy(blob->field_ptr(), data_len_str, length_bytes);
+  uint32 data_len = blob->get_length(
+      reinterpret_cast<const uchar *>(data_len_str), length_bytes);
   const char *blob_ptr;
   if (!(blob_ptr = reader->read(data_len))) {
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
@@ -144,8 +143,8 @@ int Rdb_convert_to_record_value_decoder::decode_blob(TABLE *table, Field *field,
   if (decode) {
     // set 8-byte pointer to 0, like innodb does (relevant for 32-bit
     // platforms)
-    memset(blob->ptr + length_bytes, 0, 8);
-    memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar **));
+    memset(blob->field_ptr() + length_bytes, 0, 8);
+    memcpy(blob->field_ptr() + length_bytes, &blob_ptr, sizeof(uchar **));
   }
 
   return HA_EXIT_SUCCESS;
@@ -173,7 +172,7 @@ int Rdb_convert_to_record_value_decoder::decode_fixed_length_field(
     }
 
     if (decode) {
-      memcpy(field->ptr, data_bytes, len);
+      memcpy(field->field_ptr(), data_bytes, len);
     }
   }
 
@@ -195,16 +194,16 @@ int Rdb_convert_to_record_value_decoder::decode_varchar(
   my_core::Field_varstring *const field_var = (my_core::Field_varstring *)field;
 
   const char *data_len_str;
-  if (!(data_len_str = reader->read(field_var->length_bytes))) {
+  if (!(data_len_str = reader->read(field_var->get_length_bytes()))) {
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
   uint data_len;
-  // field_var->length_bytes is 1 or 2
-  if (field_var->length_bytes == 1) {
+  // field_var->get_length_bytes() is 1 or 2
+  if (field_var->get_length_bytes() == 1) {
     data_len = (uchar)data_len_str[0];
   } else {
-    DBUG_ASSERT(field_var->length_bytes == 2);
+    DBUG_ASSERT(field_var->get_length_bytes() == 2);
     data_len = uint2korr(data_len_str);
   }
 
@@ -218,7 +217,8 @@ int Rdb_convert_to_record_value_decoder::decode_varchar(
   }
 
   if (decode) {
-    memcpy(field_var->ptr, data_len_str, field_var->length_bytes + data_len);
+    memcpy(field_var->field_ptr(), data_len_str,
+           field_var->get_length_bytes() + data_len);
   }
 
   return HA_EXIT_SUCCESS;
@@ -386,7 +386,7 @@ void Rdb_converter::setup_field_decoders(const MY_BITMAP *field_map,
     bool field_requested =
         decode_all_fields || m_verify_row_debug_checksums ||
         bitmap_is_clear_all(field_map) ||
-        bitmap_is_set(field_map, m_table->field[i]->field_index);
+        bitmap_is_set(field_map, m_table->field[i]->field_index());
 
     // We only need the decoder if the whole record is stored.
     if (m_encoder_arr[i].m_storage_type != Rdb_field_encoder::STORE_ALL) {
@@ -451,7 +451,7 @@ void Rdb_converter::setup_field_encoders() {
       KEY *const pk_info = &m_table->key_info[m_table->s->primary_key];
       for (uint kp = 0; kp < pk_info->user_defined_key_parts; kp++) {
         // key_part->fieldnr is counted from 1
-        if (field->field_index + 1 == pk_info->key_part[kp].fieldnr) {
+        if (field->field_index() + 1 == pk_info->key_part[kp].fieldnr) {
           get_storage_type(&m_encoder_arr[i], kp);
           break;
         }
@@ -709,7 +709,7 @@ int Rdb_converter::encode_value_slice(
       DBUG_ASSERT(field->pack_length_in_rec() == ROCKSDB_SIZEOF_TTL_RECORD);
       DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
 
-      uint64 ts = uint8korr(field->ptr);
+      uint64 ts = uint8korr(field->field_ptr());
 #ifndef DBUG_OFF
       ts += rdb_dbug_set_ttl_rec_ts();
 #endif
@@ -780,30 +780,31 @@ int Rdb_converter::encode_value_slice(
       const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
 
       /* Store the length of the value */
-      m_storage_record.append(reinterpret_cast<char *>(blob->ptr),
+      m_storage_record.append(reinterpret_cast<char *>(blob->field_ptr()),
                               length_bytes);
 
       /* Store the blob value itself */
       char *data_ptr;
-      memcpy(&data_ptr, blob->ptr + length_bytes, sizeof(uchar **));
+      memcpy(&data_ptr, blob->field_ptr() + length_bytes, sizeof(uchar **));
       m_storage_record.append(data_ptr, blob->get_length());
     } else if (encoder.m_field_type == MYSQL_TYPE_VARCHAR) {
       Field_varstring *const field_var =
           reinterpret_cast<Field_varstring *>(field);
       uint data_len;
-      /* field_var->length_bytes is 1 or 2 */
-      if (field_var->length_bytes == 1) {
-        data_len = field_var->ptr[0];
+      /* field_var->get_length_bytes() is 1 or 2 */
+      if (field_var->get_length_bytes() == 1) {
+        data_len = field_var->field_ptr()[0];
       } else {
-        DBUG_ASSERT(field_var->length_bytes == 2);
-        data_len = uint2korr(field_var->ptr);
+        DBUG_ASSERT(field_var->get_length_bytes() == 2);
+        data_len = uint2korr(field_var->field_ptr());
       }
-      m_storage_record.append(reinterpret_cast<char *>(field_var->ptr),
-                              field_var->length_bytes + data_len);
+      m_storage_record.append(reinterpret_cast<char *>(field_var->field_ptr()),
+                              field_var->get_length_bytes() + data_len);
     } else {
       /* Copy the field data */
       const uint len = field->pack_length_in_rec();
-      m_storage_record.append(reinterpret_cast<char *>(field->ptr), len);
+      m_storage_record.append(reinterpret_cast<char *>(field->field_ptr()),
+                              len);
     }
   }
 

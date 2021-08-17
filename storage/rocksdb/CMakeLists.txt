@@ -55,15 +55,40 @@ INCLUDE_DIRECTORIES(
 )
 
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-conditional-uninitialized")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-undefined-reinterpret-cast")
-# TODO(yzha): Fix warnings in RocksDB
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-extra-semi")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-destructor-override")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shadow-field")
-# platform007 (tbb, etc) has throw() which is deprecated
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-dynamic-exception-spec")
+# Suppress warnings for all compilers
+remove_compile_flags(-Wcast-qual)
+
+# Suppress warnings for all clang versions
+IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  remove_compile_flags(-Winconsistent-missing-destructor-override -Wdeprecated -Wextra-semi)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-shadow-field FILES ../../rocksdb/memtable/hash_skiplist_rep.cc)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-conditional-uninitialized FILES ../../rocksdb/env/fs_posix.cc)
+
+  # platform007 (tbb, etc) has throw() which is deprecated
+  append_cflags_if_supported(-Wno-deprecated-dynamic-exception-spec)
+ENDIF()
+
+# Suppress warnings for clang-10 or newer
+IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-range-loop-construct FILES ../../rocksdb/options/options_helper.cc)
+ENDIF()
+
+# Suppress warnings for all gcc versions
+IF(CMAKE_COMPILER_IS_GNUCXX)
+  # "cmake/maintainer.cmake" sets "-Wmissing-format-attribute" which cause warnings with RocksDB
+  remove_compile_flags(-Wmissing-format-attribute)
+ENDIF()
+
+# Suppress warnings for gcc-6.x or newer
+IF(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 6)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-logical-op FILES ../../rocksdb/file/filename.cc)
+ENDIF()
+
+# Suppress warnings for gcc-9 or newer
+IF(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-maybe-uninitialized FILES ../../rocksdb/env/env.cc)
+ENDIF()
+
 
 IF(UNIX)
   IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
