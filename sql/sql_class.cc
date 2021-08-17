@@ -4004,7 +4004,7 @@ void THD::mt_hex_value(enum_mt_key key_name, char *hex_val, uint len) {
   if (mt_key_is_set(key_name)) {
     if (key_name == SQL_ID) {
       DBUG_ASSERT(len == DIGEST_HASH_TO_STRING_LENGTH + 1);
-      DIGEST_HASH_TO_STRING(mt_key_value(key_name), hex_val);
+      array_to_hex(hex_val, mt_key_value(key_name).data(), DIGEST_HASH_SIZE);
       hex_val[len - 1] = '\0';
     } else {
       DBUG_ASSERT(len == MD5_HASH_TO_STRING_LENGTH + 1);
