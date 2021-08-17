@@ -7,7 +7,7 @@ connection master;
 call mtr.add_suppression(".*");
 sync_slave_with_master;
 -- source include/stop_slave.inc
-change master to master_auto_position=1;
+change replication source to source_auto_position=1;
 -- source include/start_slave.inc
 
 -- let $iter=100
@@ -19,7 +19,7 @@ change master to master_auto_position=1;
 -- let $include_silent=0
 
 -- source include/stop_slave.inc
-change master to master_auto_position=0;
+change replication source to source_auto_position=0;
 -- source include/start_slave.inc
 
 -- source include/rpl_end.inc

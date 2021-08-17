@@ -32,3 +32,4 @@ EOF
 SHOW CREATE TABLE a1;
 
 DROP DATABASE mysqlslap;
+--remove_file $MYSQL_TMP_DIR/concurrent_alter.sh

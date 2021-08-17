@@ -24,6 +24,7 @@ default_roles	USER	NULL	NULL
 engine_cost	cost_name	NULL	NULL
 engine_cost	device_type	NULL	NULL
 engine_cost	engine_name	NULL	NULL
+error_log	LOGGED	NULL	NULL
 events_errors_summary_by_account_by_error	ERROR_NUMBER	NULL	NULL
 events_errors_summary_by_account_by_error	HOST	NULL	NULL
 events_errors_summary_by_account_by_error	USER	NULL	NULL
@@ -150,6 +151,7 @@ plugin	name	NULL	NULL
 prepared_statements_instances	OBJECT_INSTANCE_BEGIN	NULL	NULL
 prepared_statements_instances	OWNER_EVENT_ID	NULL	NULL
 prepared_statements_instances	OWNER_THREAD_ID	NULL	NULL
+processlist	ID	NULL	NULL
 procs_priv	Db	NULL	NULL
 procs_priv	Host	NULL	NULL
 procs_priv	Routine_name	NULL	NULL
@@ -164,6 +166,20 @@ replication_applier_status	CHANNEL_NAME	NULL	NULL
 replication_applier_status_by_coordinator	CHANNEL_NAME	NULL	NULL
 replication_applier_status_by_worker	CHANNEL_NAME	NULL	NULL
 replication_applier_status_by_worker	WORKER_ID	NULL	NULL
+replication_asynchronous_connection_failover	CHANNEL_NAME	NULL	NULL
+replication_asynchronous_connection_failover	Channel_name	NULL	NULL
+replication_asynchronous_connection_failover	HOST	NULL	NULL
+replication_asynchronous_connection_failover	Host	NULL	NULL
+replication_asynchronous_connection_failover	MANAGED_NAME	NULL	NULL
+replication_asynchronous_connection_failover	Managed_name	NULL	NULL
+replication_asynchronous_connection_failover	NETWORK_NAMESPACE	NULL	NULL
+replication_asynchronous_connection_failover	Network_namespace	NULL	NULL
+replication_asynchronous_connection_failover	PORT	NULL	NULL
+replication_asynchronous_connection_failover	Port	NULL	NULL
+replication_asynchronous_connection_failover_managed	CHANNEL_NAME	NULL	NULL
+replication_asynchronous_connection_failover_managed	Channel_name	NULL	NULL
+replication_asynchronous_connection_failover_managed	MANAGED_NAME	NULL	NULL
+replication_asynchronous_connection_failover_managed	Managed_name	NULL	NULL
 replication_connection_configuration	CHANNEL_NAME	NULL	NULL
 replication_connection_status	CHANNEL_NAME	NULL	NULL
 role_edges	FROM_HOST	NULL	NULL

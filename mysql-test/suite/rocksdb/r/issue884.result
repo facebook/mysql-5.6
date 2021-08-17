@@ -29,7 +29,7 @@ explain
 select /*+ INDEX_MERGE(test d, PRIMARY) */ * from test
 where d = 10 and a = 10 and b = 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	test	NULL	index_merge	PRIMARY,d	d,PRIMARY	24,16	NULL	#	#	Using intersect(d,PRIMARY); Using where
+1	SIMPLE	test	NULL	index_merge	PRIMARY,d	d,PRIMARY	16,16	NULL	#	#	Using intersect(d,PRIMARY); Using where
 Warnings:
 Note	1003	/* select#1 */ select /*+ INDEX_MERGE(`test`@`select#1` `d`, `PRIMARY`) */ `test`.`test`.`a` AS `a`,`test`.`test`.`b` AS `b`,`test`.`test`.`c` AS `c`,`test`.`test`.`d` AS `d`,`test`.`test`.`e` AS `e`,`test`.`test`.`f` AS `f`,`test`.`test`.`g` AS `g`,`test`.`test`.`h` AS `h`,`test`.`test`.`i` AS `i`,`test`.`test`.`j` AS `j`,`test`.`test`.`k` AS `k`,`test`.`test`.`l` AS `l`,`test`.`test`.`m` AS `m`,`test`.`test`.`n` AS `n` from `test`.`test` where ((`test`.`test`.`b` = 2) and (`test`.`test`.`a` = 10) and (`test`.`test`.`d` = 10))
 select /*+ INDEX_MERGE(test d, PRIMARY) */ * from test
