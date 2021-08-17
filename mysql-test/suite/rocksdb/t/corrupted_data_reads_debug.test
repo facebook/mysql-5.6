@@ -7,6 +7,8 @@
 
 --source include/have_debug.inc
 
+call mtr.add_suppression("Got error 505 when reading table");
+
 
 --echo #
 --echo #  A test for case when data in the table *record* is longer

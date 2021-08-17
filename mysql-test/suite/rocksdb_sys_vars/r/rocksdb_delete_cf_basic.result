@@ -2,9 +2,6 @@ SET @@global.ROCKSDB_DELETE_CF = 'nonexistent_cf';
 ERROR HY000: Cannot drop Column family ('nonexistent_cf') because it is in use or does not exist.
 SET @@global.ROCKSDB_DELETE_CF = '__system__';
 ERROR HY000: Cannot drop Column family ('__system__') because it is in use or does not exist.
-alter table mysql.slave_worker_info engine = MyISAM;
-alter table mysql.slave_relay_log_info engine = MyISAM;
-alter table mysql.slave_master_info engine = MyISAM;
 select count(*) from information_schema.rocksdb_ddl where cf = 'default';
 count(*)
 0
@@ -38,6 +35,3 @@ ERROR HY000: Cannot drop Column family ('cf_primary_key') because it is in use o
 SET @@global.ROCKSDB_DELETE_CF = 'cf_secondary_key';
 DROP TABLE cf_deletion_test_table2;
 SET @@global.ROCKSDB_DELETE_CF = 'cf_primary_key';
-alter table mysql.slave_worker_info engine = ROCKSDB;
-alter table mysql.slave_relay_log_info engine = ROCKSDB;
-alter table mysql.slave_master_info engine = ROCKSDB;

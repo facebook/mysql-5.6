@@ -1,19 +1,15 @@
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb 
-DEFAULT CHARACTER SET = utf8
-COLLATE = utf8_general_ci
+DEFAULT CHARACTER SET = utf8mb4
 COMMENT = 'standard table options'
 ;
-Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int NOT NULL,
   `b` char(8) DEFAULT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COMMENT='standard table options'
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='standard table options'
 ALTER TABLE t1 COMMENT = 'table altered';
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -21,7 +17,7 @@ t1	CREATE TABLE `t1` (
   `a` int NOT NULL,
   `b` char(8) DEFAULT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COMMENT='table altered'
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='table altered'
 ALTER TABLE t1 ENGINE=MEMORY;
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -29,7 +25,7 @@ t1	CREATE TABLE `t1` (
   `a` int NOT NULL,
   `b` char(8) DEFAULT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=MEMORY DEFAULT CHARSET=utf8 COMMENT='table altered'
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='table altered'
 ALTER TABLE t1 ENGINE=rocksdb;
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -37,13 +33,13 @@ t1	CREATE TABLE `t1` (
   `a` int NOT NULL,
   `b` char(8) DEFAULT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COMMENT='table altered'
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='table altered'
 ALTER TABLE t1 CHARACTER SET = latin1 COLLATE = latin1_swedish_ci;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int NOT NULL,
-  `b` char(8) CHARACTER SET utf8 DEFAULT NULL,
+  `b` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COMMENT='table altered'
 DROP TABLE t1;

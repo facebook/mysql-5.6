@@ -13,10 +13,6 @@ call mtr.add_suppression("Column family '[a-z_]+' not found");
 --error ER_CANT_DROP_CF
 --eval SET @@global.ROCKSDB_DELETE_CF = '__system__'
 
-alter table mysql.slave_worker_info engine = MyISAM;
-alter table mysql.slave_relay_log_info engine = MyISAM;
-alter table mysql.slave_master_info engine = MyISAM;
-
 select count(*) from information_schema.rocksdb_ddl where cf = 'default';
 
 # should fail for default cf
@@ -61,7 +57,3 @@ DROP TABLE cf_deletion_test_table2;
 
 # should succeed now
 --eval SET @@global.ROCKSDB_DELETE_CF = 'cf_primary_key'
-
-alter table mysql.slave_worker_info engine = ROCKSDB;
-alter table mysql.slave_relay_log_info engine = ROCKSDB;
-alter table mysql.slave_master_info engine = ROCKSDB;

@@ -7,9 +7,9 @@ Note	####	Storing MySQL user name or password information in the master info rep
 CREATE TABLE t1 (C1 CHAR(1) primary key, C2 CHAR(1));
 SELECT * FROM t1;
 C1	C2
-SET @old_slave_exec_mode= @@global.slave_exec_mode;
+SET @old_replica_exec_mode= @@global.replica_exec_mode;
 SET @old_slave_run_triggers_for_rbr= @@global.slave_run_triggers_for_rbr;
-SET @@global.slave_exec_mode= IDEMPOTENT;
+SET @@global.replica_exec_mode= IDEMPOTENT;
 SET @@global.slave_run_triggers_for_rbr= YES;
 SELECT * FROM t1;
 C1	C2
@@ -91,7 +91,7 @@ u1	2	0	0
 # (insert duplicate row in table referenced by foreign key)
 insert into t1 values ('1','1');
 drop table if exists t1;
-SET @@global.slave_exec_mode= @old_slave_exec_mode;
+SET @@global.replica_exec_mode= @old_replica_exec_mode;
 SET @@global.slave_run_triggers_for_rbr= @old_slave_run_triggers_for_rbr;
 drop table t2;
 CREATE TABLE t1 (i INT);
@@ -116,9 +116,9 @@ SELECT * FROM t1;
 C1	C2
 create trigger t1_dummy before delete on t1 for each row
 set @dummy= 1;
-SET @old_slave_exec_mode= @@global.slave_exec_mode;
+SET @old_replica_exec_mode= @@global.replica_exec_mode;
 SET @old_slave_run_triggers_for_rbr= @@global.slave_run_triggers_for_rbr;
-SET @@global.slave_exec_mode= IDEMPOTENT;
+SET @@global.replica_exec_mode= IDEMPOTENT;
 SET @@global.slave_run_triggers_for_rbr= YES;
 SELECT * FROM t1;
 C1	C2
@@ -198,7 +198,7 @@ u1	0
 # (insert duplicate row in table referenced by foreign key)
 insert into t1 values ('1','1');
 drop table if exists t1;
-SET @@global.slave_exec_mode= @old_slave_exec_mode;
+SET @@global.replica_exec_mode= @old_replica_exec_mode;
 SET @@global.slave_run_triggers_for_rbr= @old_slave_run_triggers_for_rbr;
 drop table t2;
 #

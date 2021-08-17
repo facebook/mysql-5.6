@@ -296,6 +296,10 @@ our @DEFAULT_SUITES = qw(
   component_keyring_file
 
   funcs_1
+  rocksdb
+  rocksdb_rpl
+  rocksdb_stress
+  rocksdb_sys_vars
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;

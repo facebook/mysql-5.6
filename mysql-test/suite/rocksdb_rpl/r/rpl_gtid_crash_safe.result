@@ -26,7 +26,7 @@ SELECT * FROM t1;
 a
 1
 2
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
 include/start_slave.inc
 [connection master]
 RENAME TABLE t1 TO test1;
@@ -45,7 +45,7 @@ a
 DROP TABLE test1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_AUTO_POSITION = 0;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
 include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
@@ -73,7 +73,7 @@ SELECT * FROM t1;
 a
 1
 2
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
 include/start_slave.inc
 [connection master]
 RENAME TABLE t1 TO test1;
@@ -92,7 +92,7 @@ a
 DROP TABLE test1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_AUTO_POSITION = 0;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
 include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
@@ -120,7 +120,7 @@ SELECT * FROM t1;
 a
 1
 2
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
 include/start_slave.inc
 [connection master]
 RENAME TABLE t1 TO test1;
@@ -139,7 +139,7 @@ a
 DROP TABLE test1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_AUTO_POSITION = 0;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
 include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
@@ -167,7 +167,7 @@ SELECT * FROM t1;
 a
 1
 2
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
 include/start_slave.inc
 [connection master]
 RENAME TABLE t1 TO test1;
@@ -186,7 +186,7 @@ a
 DROP TABLE test1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_AUTO_POSITION = 0;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
 include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
@@ -214,7 +214,7 @@ SELECT * FROM t1;
 a
 1
 2
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
 include/start_slave.inc
 [connection master]
 RENAME TABLE t1 TO test1;
@@ -233,7 +233,7 @@ a
 DROP TABLE test1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_AUTO_POSITION = 0;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
 include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
@@ -261,7 +261,7 @@ SELECT * FROM t1;
 a
 1
 2
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
 include/start_slave.inc
 [connection master]
 RENAME TABLE t1 TO test1;
@@ -280,7 +280,7 @@ a
 DROP TABLE test1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_AUTO_POSITION = 0;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
 include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
@@ -308,7 +308,7 @@ SELECT * FROM t1;
 a
 1
 2
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
 include/start_slave.inc
 [connection master]
 RENAME TABLE t1 TO test1;
@@ -327,7 +327,7 @@ a
 DROP TABLE test1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_AUTO_POSITION = 0;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
 include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
@@ -355,7 +355,7 @@ SELECT * FROM t1;
 a
 1
 2
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
 include/start_slave.inc
 [connection master]
 RENAME TABLE t1 TO test1;
@@ -374,7 +374,7 @@ a
 DROP TABLE test1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO MASTER_AUTO_POSITION = 0;
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
 include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
