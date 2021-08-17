@@ -11413,7 +11413,7 @@ void ha_rocksdb::calc_updated_indexes() {
       if (has_hidden_pk(table) && kp + 1 == key_parts) break;
 
       Field *const field = kd.get_table_field_for_part_no(table, kp);
-      if (bitmap_is_set(table->write_set, field->field_index)) {
+      if (bitmap_is_set(table->write_set, field->field_index())) {
         m_update_scope.set_bit(keynr);
         break;
       }
