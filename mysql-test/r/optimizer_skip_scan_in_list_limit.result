@@ -1,0 +1,96 @@
+create table t (a int, b int, c int, d int, e int, f int, g int, h int, i int, j int, k int,
+primary key(a),
+key(b, c),
+key(b, d),
+key(b, e),
+key(b, f),
+key(b, g),
+key(b, h),
+key(b, i),
+key(b, j),
+key(b, k),
+key(c, d),
+key(c, e),
+key(c, f),
+key(c, g),
+key(c, h),
+key(c, i),
+key(c, j),
+key(c, k));
+set range_optimizer_max_mem_size = 50000;
+#
+# Test cases for when limit is 0
+#
+set optimizer_skip_scan_in_list_limit = 0;
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	ALL	PRIMARY	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Warning	3170	Memory capacity of 50000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,`test`.`t`.`c` AS `c`,`test`.`t`.`d` AS `d`,`test`.`t`.`e` AS `e`,`test`.`t`.`f` AS `f`,`test`.`t`.`g` AS `g`,`test`.`t`.`h` AS `h`,`test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j`,`test`.`t`.`k` AS `k` from `test`.`t` where (`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50))
+explain select /*+ SKIP_SCAN(t b) */ b from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	PRIMARY	b	10	NULL	1	100.00	Using where; Using index
+Warnings:
+Warning	3170	Memory capacity of 50000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select /*+ SKIP_SCAN(`t`@`select#1` `b`) */ `test`.`t`.`b` AS `b` from `test`.`t` where (`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50))
+explain select * from t force index(primary) where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	range	PRIMARY	PRIMARY	4	NULL	50	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,`test`.`t`.`c` AS `c`,`test`.`t`.`d` AS `d`,`test`.`t`.`e` AS `e`,`test`.`t`.`f` AS `f`,`test`.`t`.`g` AS `g`,`test`.`t`.`h` AS `h`,`test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j`,`test`.`t`.`k` AS `k` from `test`.`t` FORCE INDEX (PRIMARY) where (`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50))
+#
+# Test cases for when limit is 20
+#
+set optimizer_skip_scan_in_list_limit = 20;
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	ALL	PRIMARY	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Warning	50120	Skip scan was not considered due to large IN list of size 50
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,`test`.`t`.`c` AS `c`,`test`.`t`.`d` AS `d`,`test`.`t`.`e` AS `e`,`test`.`t`.`f` AS `f`,`test`.`t`.`g` AS `g`,`test`.`t`.`h` AS `h`,`test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j`,`test`.`t`.`k` AS `k` from `test`.`t` where (`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50))
+explain select /*+ SKIP_SCAN(t b) */ b from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	PRIMARY	b	10	NULL	1	100.00	Using where; Using index
+Warnings:
+Warning	50120	Skip scan was not considered due to large IN list of size 50
+Note	1003	/* select#1 */ select /*+ SKIP_SCAN(`t`@`select#1` `b`) */ `test`.`t`.`b` AS `b` from `test`.`t` where (`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50))
+explain select * from t where b in (1,2,3) and a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	ALL	PRIMARY,b,b_2,b_3,b_4,b_5,b_6,b_7,b_8,b_9	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Warning	50120	Skip scan was not considered due to large IN list of size 50
+Warning	3170	Memory capacity of 50000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,`test`.`t`.`c` AS `c`,`test`.`t`.`d` AS `d`,`test`.`t`.`e` AS `e`,`test`.`t`.`f` AS `f`,`test`.`t`.`g` AS `g`,`test`.`t`.`h` AS `h`,`test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j`,`test`.`t`.`k` AS `k` from `test`.`t` where ((`test`.`t`.`b` in (1,2,3)) and (`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50)))
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50) and b in (1,2,3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	ALL	PRIMARY,b,b_2,b_3,b_4,b_5,b_6,b_7,b_8,b_9	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Warning	50120	Skip scan was not considered due to large IN list of size 50
+Warning	3170	Memory capacity of 50000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,`test`.`t`.`c` AS `c`,`test`.`t`.`d` AS `d`,`test`.`t`.`e` AS `e`,`test`.`t`.`f` AS `f`,`test`.`t`.`g` AS `g`,`test`.`t`.`h` AS `h`,`test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j`,`test`.`t`.`k` AS `k` from `test`.`t` where ((`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50)) and (`test`.`t`.`b` in (1,2,3)))
+#
+# Test cases for when limit is 100
+#
+set optimizer_skip_scan_in_list_limit = 100;
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	ALL	PRIMARY	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Warning	3170	Memory capacity of 50000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,`test`.`t`.`c` AS `c`,`test`.`t`.`d` AS `d`,`test`.`t`.`e` AS `e`,`test`.`t`.`f` AS `f`,`test`.`t`.`g` AS `g`,`test`.`t`.`h` AS `h`,`test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j`,`test`.`t`.`k` AS `k` from `test`.`t` where (`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50))
+explain select * from t where b in (1,2,3) and a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	ALL	PRIMARY,b,b_2,b_3,b_4,b_5,b_6,b_7,b_8,b_9	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Warning	3170	Memory capacity of 50000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,`test`.`t`.`c` AS `c`,`test`.`t`.`d` AS `d`,`test`.`t`.`e` AS `e`,`test`.`t`.`f` AS `f`,`test`.`t`.`g` AS `g`,`test`.`t`.`h` AS `h`,`test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j`,`test`.`t`.`k` AS `k` from `test`.`t` where ((`test`.`t`.`b` in (1,2,3)) and (`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50)))
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50) and b in (1,2,3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	ALL	PRIMARY,b,b_2,b_3,b_4,b_5,b_6,b_7,b_8,b_9	NULL	NULL	NULL	1	100.00	Using where
+Warnings:
+Warning	3170	Memory capacity of 50000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Note	1003	/* select#1 */ select `test`.`t`.`a` AS `a`,`test`.`t`.`b` AS `b`,`test`.`t`.`c` AS `c`,`test`.`t`.`d` AS `d`,`test`.`t`.`e` AS `e`,`test`.`t`.`f` AS `f`,`test`.`t`.`g` AS `g`,`test`.`t`.`h` AS `h`,`test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j`,`test`.`t`.`k` AS `k` from `test`.`t` where ((`test`.`t`.`a` in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50)) and (`test`.`t`.`b` in (1,2,3)))
+set range_optimizer_max_mem_size = DEFAULT;
+set optimizer_skip_scan_in_list_limit = DEFAULT;
+drop table t;
