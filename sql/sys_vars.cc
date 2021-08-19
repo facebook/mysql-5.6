@@ -8968,3 +8968,11 @@ static Sys_var_bool Sys_schema_check_attrs(
 #ifndef DBUG_OFF
 Debug_shutdown_actions Debug_shutdown_actions::instance;
 #endif
+
+static Sys_var_bool Sys_force_pk_for_equality_preds_on_pk(
+    "force_pk_for_equality_preds_on_pk",
+    "Force primary index if there is only one key range and if the range is "
+    "marked as unique (the query contains equality predicates on all the keys "
+    "of the primary index)",
+    SESSION_VAR(force_pk_for_equality_preds_on_pk), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
