@@ -1,0 +1,187 @@
+#
+--echo Optimize Index Dives For Primary Key Scans
+#
+
+create table idx_dive_tbl(a1 int, a2 int, a3 int, a4 int, a5 int,
+                          a6 int, a7 int, a8 int, a9 int, a10 int,
+                          primary key(a1, a2));
+
+delimiter //;
+
+create procedure populate()
+begin
+  declare i int default 0;
+  while i < 100 do
+    insert into idx_dive_tbl values(i, i+1, i+2, i+3, i+4,
+                                    i, i+1, i+2, i+3, i+4);
+    set i = i + 1;
+  end while;
+end //
+
+delimiter ;//
+
+call populate();
+
+create index idx_dive_tbl_idx_a3 on idx_dive_tbl(a3);
+create index idx_dive_tbl_idx_a4 on idx_dive_tbl(a4);
+create index idx_dive_tbl_idx_a56 on idx_dive_tbl(a5, a6);
+
+set optimizer_trace_max_mem_size=1048576; # 1MB
+
+SET end_markers_in_json=off;
+
+#####
+--echo 'Test 1: # index dives without optimization=3'
+--echo '        # index dives with optimization=0'
+#####
+
+let query = update idx_dive_tbl set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+
+--echo 'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+eval EXPLAIN $query;
+
+--echo 'Possible Keys=PRIMARY'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+eval EXPLAIN $query;
+
+--let $sql = $query;
+
+SET force_pk_for_equality_preds_on_pk = FALSE;
+--let $expected_sum_index_dive_count = 3;
+--source ../include/statements_index_dives.inc
+
+SET force_pk_for_equality_preds_on_pk = TRUE;
+--let $expected_sum_index_dive_count = 0;
+--source ../include/statements_index_dives.inc
+
+#####
+--echo 'Test 2: # index dives without optimization=4'
+--echo '        # index dives with optimization=4'
+#####
+
+let query = update idx_dive_tbl set a10 = 200 where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+
+--echo 'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+eval EXPLAIN $query;
+
+--echo 'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+eval EXPLAIN $query;
+
+--let $sql = $query;
+
+SET force_pk_for_equality_preds_on_pk = FALSE;
+--let $expected_sum_index_dive_count = 4;
+--source ../include/statements_index_dives.inc
+
+SET force_pk_for_equality_preds_on_pk = TRUE;
+--let $expected_sum_index_dive_count = 4;
+--source ../include/statements_index_dives.inc
+
+#####
+--echo 'Test 3: # index dives without optimization=3'
+--echo '        # index dives with optimization=0'
+#####
+
+let query = delete from idx_dive_tbl where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+
+--echo 'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+eval EXPLAIN $query;
+
+--echo 'Possible Keys=PRIMARY'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+eval EXPLAIN $query;
+
+--let $sql = $query;
+
+SET force_pk_for_equality_preds_on_pk = FALSE;
+--let $expected_sum_index_dive_count = 3;
+--source ../include/statements_index_dives.inc
+
+SET force_pk_for_equality_preds_on_pk = TRUE;
+--let $expected_sum_index_dive_count = 0;
+--source ../include/statements_index_dives.inc
+
+#####
+--echo 'Test 4: # index dives without optimization=4'
+--echo '        # index dives with optimization=4'
+#####
+
+let query = delete from idx_dive_tbl where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+
+--echo 'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+eval EXPLAIN $query;
+
+--echo 'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+eval EXPLAIN $query;
+
+--let $sql = $query;
+
+SET force_pk_for_equality_preds_on_pk = FALSE;
+--let $expected_sum_index_dive_count = 4;
+--source ../include/statements_index_dives.inc
+
+SET force_pk_for_equality_preds_on_pk = TRUE;
+--let $expected_sum_index_dive_count = 4;
+--source ../include/statements_index_dives.inc
+
+#####
+--echo 'Test 5: Force secondary index
+--echo '        # index dives without optimization=1'
+--echo '        # index dives with optimization=1'
+#####
+
+let query = update idx_dive_tbl force index(idx_dive_tbl_idx_a3) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+
+--echo 'Possible Keys=idx_dive_tbl_idx_a3'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+eval EXPLAIN $query;
+
+--echo 'Possible Keys=idx_dive_tbl_idx_a3'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+eval EXPLAIN $query;
+
+--let $sql = $query;
+
+SET force_pk_for_equality_preds_on_pk = FALSE;
+--let $expected_sum_index_dive_count = 1;
+--source ../include/statements_index_dives.inc
+
+SET force_pk_for_equality_preds_on_pk = TRUE;
+--let $expected_sum_index_dive_count = 1;
+--source ../include/statements_index_dives.inc
+
+#####
+--echo 'Test 6: Force secondary index
+--echo '        # index dives without optimization=1'
+--echo '        # index dives with optimization=1'
+#####
+
+let query = update idx_dive_tbl force index(idx_dive_tbl_idx_a4) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+
+--echo 'Possible Keys=idx_dive_tbl_idx_a4'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+eval EXPLAIN $query;
+
+--echo 'Possible Keys=idx_dive_tbl_idx_a4'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+eval EXPLAIN $query;
+
+--let $sql = $query;
+
+SET force_pk_for_equality_preds_on_pk = FALSE;
+--let $expected_sum_index_dive_count = 1;
+--source ../include/statements_index_dives.inc
+
+SET force_pk_for_equality_preds_on_pk = TRUE;
+--let $expected_sum_index_dive_count = 1;
+--source ../include/statements_index_dives.inc
+
+## Clean up
+drop table idx_dive_tbl;
+drop procedure populate;
