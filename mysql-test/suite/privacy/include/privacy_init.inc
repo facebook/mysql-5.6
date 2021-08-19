@@ -17,3 +17,7 @@ if (!$sql_privacy_log_early_installed)
   INSTALL PLUGIN SQL_PRIVACY_LOG SONAME 'mysql_privacy_plugin.so';
 }
 enable_query_log;
+
+# Enable session_track_response_attributes to enable using response attributes
+set @original_session_track_response_attributes=@@session.session_track_response_attributes;
+set session session_track_response_attributes = 1;
