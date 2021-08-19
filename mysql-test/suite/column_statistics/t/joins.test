@@ -1,6 +1,7 @@
 --disable_warnings
 DROP TABLE IF EXISTS tbl1;
 DROP TABLE IF EXISTS tbl2;
+DROP TABLE IF EXISTS tbl3;
 DROP DATABASE IF EXISTS cus_test;
 CREATE DATABASE cus_test;
 USE cus_test;
@@ -29,6 +30,11 @@ INSERT INTO tbl3 (col1_2, col3_3) VALUES (3, 84);
 INSERT INTO tbl3 (col1_2, col3_3) VALUES (4, 85);
 
 set global column_stats_control = ON;
+
+# performance_schema_esms_by_all is OFF by default.
+# enable it to populate performance_schema.events_statements_summary_by_all
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
 
 # Executing queries that would populate column_statistics
 
@@ -65,11 +71,17 @@ WHERE t1.col1_1 = t2.col1_1 AND t1.col1_2 > 10 AND t2.col1_2 <= 5;
 
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 
-SORTED_RESULT;
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics;
+--vertical_results
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
+
 
 set global column_stats_control = OFF_HARD;
+
+# set performance_schema_esms_by_all to original value
+SET @@global.performance_schema_esms_by_all = @start_value;
 
 DROP TABLE tbl1;
 DROP TABLE tbl2;

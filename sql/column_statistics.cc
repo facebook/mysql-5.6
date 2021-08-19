@@ -23,6 +23,7 @@
 #include "sql/column_statistics.h"
 
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -45,7 +46,14 @@
 std::unordered_map<digest_key, std::set<ColumnUsageInfo>> col_statistics_map;
 
 // Operator definition for strict weak ordering. Should be a function of all
-// constituents of the struct.
+// constituents of the struct. The ordering is done for ColumnUsageInfo structs
+// in lexicographic fashion on the following elements.
+// TABLE_SCHEMA, TABLE_NAME, TABLE_INSTANCE, COLUMN_NAME, SQL_OPERATION,
+// OPERATOR_TYPE
+// For eg. (xdb_mzait, tab1, instance1, col1, FILTER, GREATER_THAN) comes
+// before (xdb_ritwik, tab1, instance2, col1, FILTER, GREATER_THAN)
+// because the table schema `xdb_mzait` is lexicographically ordered before
+// `xdb_ritwik`.
 bool ColumnUsageInfo::operator<(const ColumnUsageInfo &other) const {
   if (table_schema.compare(other.table_schema) < 0) {
     return true;
@@ -53,13 +61,17 @@ bool ColumnUsageInfo::operator<(const ColumnUsageInfo &other) const {
     if (table_name.compare(other.table_name) < 0) {
       return true;
     } else if (table_name.compare(other.table_name) == 0) {
-      if (column_name.compare(other.column_name) < 0) {
+      if (table_instance.compare(other.table_instance) < 0) {
         return true;
-      } else if (column_name.compare(other.column_name) == 0) {
-        if (sql_op < other.sql_op) {
+      } else if (table_instance.compare(other.table_instance) == 0) {
+        if (column_name.compare(other.column_name) < 0) {
           return true;
-        } else if (sql_op == other.sql_op) {
-          return op_type < other.op_type;
+        } else if (column_name.compare(other.column_name) == 0) {
+          if (sql_op < other.sql_op) {
+            return true;
+          } else if (sql_op == other.sql_op) {
+            return op_type < other.op_type;
+          }
         }
       }
     }
@@ -166,17 +178,29 @@ operator_type match_op(enum_order direction) {
   }
 }
 
-std::string fetch_table_name(Item_field *field_arg) {
-  DBUG_ENTER("fetch_table_name");
+void fetch_table_info(Item_field *field_arg, ColumnUsageInfo *cui) {
+  DBUG_ENTER("fetch_table_info");
   DBUG_ASSERT(field_arg);
+  DBUG_ASSERT(cui);
 
   // `orig_table` and associated parameters maybe absent for
   // derived / temp tables.
   if (field_arg->field && field_arg->field->table &&
       field_arg->field->table->pos_in_table_list) {
-    DBUG_RETURN(field_arg->field->table->pos_in_table_list->get_table_name());
+    TABLE_LIST *tl = field_arg->field->table->pos_in_table_list;
+    cui->table_name = tl->get_table_name();
+
+    // Table instance in column statistics is just a string representation
+    // of the TABLE_LIST object corresponding to the table instance. We could
+    // have used an integer to represent it but the order is immaterial.
+    // The only property that matters is distinctness of the following tuple.
+    // sql_id, table_schema, table_name, table_instance
+    std::stringstream tl_addr;
+    tl_addr << (void const *)tl;
+    cui->table_instance = tl_addr.str();
   }
-  DBUG_RETURN("");
+
+  DBUG_VOID_RETURN;
 }
 
 void populate_field_info(const sql_operation &op, const operator_type &op_type,
@@ -201,7 +225,7 @@ void populate_field_info(const sql_operation &op, const operator_type &op_type,
   cui.sql_op = op;
   cui.op_type = op_type;
   cui.table_schema = db_name;
-  cui.table_name = fetch_table_name(field_arg);
+  fetch_table_info(field_arg, &cui);
   cui.column_name = (field_arg->field_name) ? field_arg->field_name : "";
 
   // This condition should never trigger because for non-base tables, db_name
@@ -528,6 +552,7 @@ std::vector<column_statistics_row> get_all_column_statistics() {
           sql_id_string,                       // SQL_ID
           cui.table_schema,                    // TABLE_SCHEMA
           cui.table_name,                      // TABLE_NAME
+          cui.table_instance,                  // TABLE_INSTANCE
           cui.column_name,                     // COLUMN_NAME
           sql_operation_string(cui.sql_op),    // SQL_OPERATION
           operator_type_string(cui.op_type));  // OPERATOR_TYPE

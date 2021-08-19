@@ -283,10 +283,14 @@
 
   - support longer messages by changing SQL_FINDINGS.MESSAGE from 256 to 512
 
+  80023-020:
+
+  - add TABLE_INSTANCE to COLUMN_STATISTICS
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-019. i.e. 8.0.23 Facebook schema change no. 19.
+  Version published is now 80023-020. i.e. 8.0.23 Facebook schema change no. 20.
 */
 
-static const uint PFS_DD_VERSION = 80023019;
+static const uint PFS_DD_VERSION = 80023020;
 
 #endif /* PFS_DD_VERSION_H */
