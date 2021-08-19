@@ -60,6 +60,7 @@ enum operator_type : int {
 struct ColumnUsageInfo {
   std::string table_schema;
   std::string table_name;
+  std::string table_instance;
   std::string column_name;
   sql_operation sql_op;
   operator_type op_type;

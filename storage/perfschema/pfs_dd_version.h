@@ -240,10 +240,13 @@
 
   80020-019:
   - support longer messages by changing SQL_FINDINGS.MESSAGE from 256 to 512
+
+  80020-020:
+  - Add TABLE_INSTANCE to COLUMN_STATISTICS
 */
 /* Version published now is 80020-018. i.e. 8.0.20 Facebook schema change
  * no. 18.
  */
-static const uint PFS_DD_VERSION = 80020019;
+static const uint PFS_DD_VERSION = 80020020;
 
 #endif /* PFS_DD_VERSION_H */

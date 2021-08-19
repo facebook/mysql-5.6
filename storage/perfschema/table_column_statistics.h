@@ -38,11 +38,13 @@ class column_statistics_row {
   column_statistics_row(const std::string sql_id,
                         const std::string table_schema,
                         const std::string table_name,
+                        const std::string table_instance,
                         const std::string column_name, const std::string sql_op,
                         const std::string op_type)
       : m_sql_id(sql_id),
         m_table_schema(table_schema),
         m_table_name(table_name),
+        m_table_instance(table_instance),
         m_column_name(column_name),
         m_sql_op(sql_op),
         m_op_type(op_type) {}
@@ -59,6 +61,7 @@ class column_statistics_row {
   std::string sql_id() const { return m_sql_id; }
   std::string table_schema() const { return m_table_schema; }
   std::string table_name() const { return m_table_name; }
+  std::string table_instance() const { return m_table_instance; }
   std::string column_name() const { return m_column_name; }
   std::string sql_op() const { return m_sql_op; }
   std::string op_type() const { return m_op_type; }
@@ -67,6 +70,7 @@ class column_statistics_row {
   std::string m_sql_id;
   std::string m_table_schema;
   std::string m_table_name;
+  std::string m_table_instance;
   std::string m_column_name;
   std::string m_sql_op;
   std::string m_op_type;

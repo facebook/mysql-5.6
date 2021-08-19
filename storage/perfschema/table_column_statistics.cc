@@ -47,12 +47,13 @@ Plugin_table table_column_statistics::m_table_def(
     /* Name */
     "column_statistics",
     /* Definition */
-    "  SQL_ID        VARCHAR(192),\n"
-    "  TABLE_SCHEMA  VARCHAR(192),\n"
-    "  TABLE_NAME    VARCHAR(192),\n"
-    "  COLUMN_NAME   VARCHAR(192),\n"
-    "  SQL_OPERATION VARCHAR(192),\n"
-    "  OPERATOR_TYPE VARCHAR(192)\n",
+    "  SQL_ID         VARCHAR(192),\n"
+    "  TABLE_SCHEMA   VARCHAR(192),\n"
+    "  TABLE_NAME     VARCHAR(192),\n"
+    "  TABLE_INSTANCE VARCHAR(192),\n"
+    "  COLUMN_NAME    VARCHAR(192),\n"
+    "  SQL_OPERATION  VARCHAR(192),\n"
+    "  OPERATOR_TYPE  VARCHAR(192)\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
@@ -77,6 +78,7 @@ enum column_statistics_field_offset {
   FO_SQL_ID,
   FO_TABLE_SCHEMA,
   FO_TABLE_NAME,
+  FO_TABLE_INSTANCE,
   FO_COLUMN_NAME,
   FO_SQL_OPERATION,
   FO_OPERATOR_TYPE
@@ -146,6 +148,10 @@ int table_column_statistics::read_row_values(TABLE *table, unsigned char *buf,
         case FO_TABLE_NAME:
           set_field_varchar_utf8(f, curr_row.table_name().c_str(),
                                  curr_row.table_name().length());
+          break;
+        case FO_TABLE_INSTANCE:
+          set_field_varchar_utf8(f, curr_row.table_instance().c_str(),
+                                 curr_row.table_instance().length());
           break;
         case FO_COLUMN_NAME:
           set_field_varchar_utf8(f, curr_row.column_name().c_str(),
