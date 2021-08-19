@@ -2059,6 +2059,13 @@ class Item_func_in final : public Item_func_opt_neg {
                              const MY_BITMAP *fields_to_ignore,
                              double rows_in_table) override;
 
+  virtual bool collect_item_field_with_item_func_in(uchar *arg) override {
+    auto *info = pointer_cast<Collect_item_fields_with_item_func_in *>(arg);
+    info->m_item_func_in_max_args =
+        std::max(info->m_item_func_in_max_args, arg_count - 1);
+    return false;
+  }
+
   void update_not_null_tables() {
     // not_null_tables_cache == union(T1(e),union(T1(ei)))
     if (pred_level && negated) return;

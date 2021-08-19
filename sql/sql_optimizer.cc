@@ -7993,8 +7993,28 @@ static void add_loose_index_scan_and_skip_scan_keys(JOIN *join,
       join->group_list.empty() &&
       !is_indexed_agg_distinct(join, &indexed_fields) &&
       !join->select_distinct) {
-    join->where_cond->walk(&Item::collect_item_field_processor,
-                           enum_walk::POSTFIX, (uchar *)&indexed_fields);
+    Item::Collect_item_fields_with_item_func_in info(&indexed_fields);
+    join->where_cond->walk(&Item::collect_item_field_with_item_func_in,
+                           enum_walk::POSTFIX, (uchar *)&info);
+
+    /*
+      Skip scan considers all keys that containing any fields found in the WHERE
+      clause, meaning that range analysis will examine a lot more keys due to
+      skip scan. This can cause it to run out memory, and fall back to full
+      table scan. To help mitigate this, do not consider skip scan keys if we
+      find large IN lists.
+    */
+    if (join->thd->variables.optimizer_skip_scan_in_list_limit != 0 &&
+        info.m_item_func_in_max_args >
+            join->thd->variables.optimizer_skip_scan_in_list_limit) {
+      push_warning_printf(
+          join->thd, Sql_condition::SL_WARNING,
+          ER_WARN_SKIP_SCAN_KEYS_NOT_CONSIDERED,
+          ER_THD(join->thd, ER_WARN_SKIP_SCAN_KEYS_NOT_CONSIDERED),
+          info.m_item_func_in_max_args);
+      return;
+    }
+
     Key_map possible_keys;
     possible_keys.set_all();
     join_tab->skip_scan_keys.clear_all();
@@ -8003,7 +8023,7 @@ static void add_loose_index_scan_and_skip_scan_keys(JOIN *join,
       possible_keys.intersect(cur_item->field->part_of_key);
     }
     join_tab->skip_scan_keys.merge(possible_keys);
-    cause = "skip_scan";
+
     return;
   }
 

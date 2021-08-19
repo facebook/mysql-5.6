@@ -10103,6 +10103,9 @@ ER_MALFORMED_QUERY_ATTRS
 ER_GAP_LOCK_USED
   eng "Using Gap Lock without full unique key in multi-table or multi-statement transactions is not allowed. You need to either 1: Execute 'SET SESSION gap_lock_raise_error=off' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all unique key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction."
 
+ER_WARN_SKIP_SCAN_KEYS_NOT_CONSIDERED
+  eng "Skip scan was not considered due to large IN list of size %lu"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

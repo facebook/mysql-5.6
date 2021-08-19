@@ -3622,6 +3622,14 @@ static Sys_var_ulong Sys_optimizer_search_depth(
     HINT_UPDATEABLE SESSION_VAR(optimizer_search_depth), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, MAX_TABLES + 1), DEFAULT(MAX_TABLES + 1), BLOCK_SIZE(1));
 
+static Sys_var_ulong Sys_optimizer_skip_scan_in_list_limit(
+    "optimizer_skip_scan_in_list_limit",
+    "Avoid considering extra keys for skip scan plans if an IN list exceeds "
+    "this number. If set to 0, then always consider extra keys.",
+    HINT_UPDATEABLE SESSION_VAR(optimizer_skip_scan_in_list_limit),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, ULONG_MAX), DEFAULT(0),
+    BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_range_optimizer_max_mem_size(
     "range_optimizer_max_mem_size",
     "Maximum amount of memory used by the range optimizer "
