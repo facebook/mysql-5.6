@@ -1,0 +1,51 @@
+create table t (a int, b int, c int, d int, e int, f int, g int, h int, i int, j int, k int,
+                primary key(a),
+                key(b, c),
+                key(b, d),
+                key(b, e),
+                key(b, f),
+                key(b, g),
+                key(b, h),
+                key(b, i),
+                key(b, j),
+                key(b, k),
+                key(c, d),
+                key(c, e),
+                key(c, f),
+                key(c, g),
+                key(c, h),
+                key(c, i),
+                key(c, j),
+                key(c, k));
+
+set range_optimizer_max_mem_size = 50000;
+
+--echo #
+--echo # Test cases for when limit is 0
+--echo #
+set optimizer_skip_scan_in_list_limit = 0;
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+explain select /*+ SKIP_SCAN(t b) */ b from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+explain select * from t force index(primary) where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+
+
+--echo #
+--echo # Test cases for when limit is 20
+--echo #
+set optimizer_skip_scan_in_list_limit = 20;
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+explain select /*+ SKIP_SCAN(t b) */ b from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+explain select * from t where b in (1,2,3) and a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50) and b in (1,2,3);
+
+--echo #
+--echo # Test cases for when limit is 100
+--echo #
+set optimizer_skip_scan_in_list_limit = 100;
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+explain select * from t where b in (1,2,3) and a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50);
+explain select * from t where a in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50) and b in (1,2,3);
+
+set range_optimizer_max_mem_size = DEFAULT;
+set optimizer_skip_scan_in_list_limit = DEFAULT;
+drop table t;

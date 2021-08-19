@@ -2183,6 +2183,21 @@ class Item : public Parse_tree_node {
     return false;
   }
 
+  class Collect_item_fields_with_item_func_in : public Item_tree_walker {
+   public:
+    List<Item_field> *m_item_fields;
+    // Maximum number of arguments found in Item_func_in
+    uint m_item_func_in_max_args;
+    Collect_item_fields_with_item_func_in(List<Item_field> *fields)
+        : m_item_fields(fields), m_item_func_in_max_args(0) {}
+    FORBID_COPY_CTOR_AND_ASSIGN_OP(Collect_item_fields_with_item_func_in);
+  };
+
+  virtual bool collect_item_field_with_item_func_in(uchar *arg) {
+    auto *info = pointer_cast<Collect_item_fields_with_item_func_in *>(arg);
+    return collect_item_field_processor((uchar *)info->m_item_fields);
+  }
+
   /**
     Item::walk function. Set bit in table->tmp_set for all fields in
     table 'arg' that are referred to by the Item.
