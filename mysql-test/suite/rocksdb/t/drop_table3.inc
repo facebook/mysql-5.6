@@ -7,11 +7,6 @@ DROP TABLE IF EXISTS t1;
 call mtr.add_suppression("Column family 'cf1' not found");
 call mtr.add_suppression("Column family 'rev:cf2' not found");
 
-# Start from clean slate
-set global rocksdb_compact_cf = 'cf1';
-set global rocksdb_compact_cf = 'rev:cf2';
-set global rocksdb_signal_drop_index_thread = 1;
---source include/restart_mysqld.inc
 
 CREATE TABLE t1 (
   a int not null,
@@ -25,6 +20,12 @@ CREATE TABLE t1 (
 let $max = 50000;
 let $table = t1;
 --source drop_table3_repopulate_table.inc
+
+# Start from clean slate
+set global rocksdb_compact_cf = 'cf1';
+set global rocksdb_compact_cf = 'rev:cf2';
+set global rocksdb_signal_drop_index_thread = 1;
+--source include/restart_mysqld.inc
 
 select variable_value into @a from performance_schema.global_status where variable_name='rocksdb_compact_read_bytes';
 if ($truncate_table)
