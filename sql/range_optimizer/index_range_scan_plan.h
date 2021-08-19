@@ -108,6 +108,8 @@ AccessPath *get_key_scans_params(THD *thd, RANGE_OPT_PARAM *param,
                         (see is_key_scan_ror function for more info)
       is_imerge_scan OUT  Set to reflect if the key scan can be used for
                         index-merge-scan
+      unique_range OUT  TRUE if there is only one key range and is marked as
+                        unique
 
   NOTES
     param->table->quick_*, param->range_count (and maybe others) are
@@ -122,7 +124,8 @@ ha_rows check_quick_select(THD *thd, RANGE_OPT_PARAM *param, uint idx,
                            bool update_tbl_stats, enum_order order_direction,
                            bool skip_records_in_range, uint *mrr_flags,
                            uint *bufsize, Cost_estimate *cost,
-                           bool *is_ror_scan, bool *is_imerge_scan);
+                           bool *is_ror_scan, bool *is_imerge_scan,
+                           bool *unique_range);
 
 #ifndef NDEBUG
 void dbug_dump_range(int indent, bool verbose, TABLE *table, int index,

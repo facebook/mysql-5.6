@@ -565,12 +565,39 @@ static uint sel_arg_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range) {
   return 0;
 }
 
+/*
+  This function checks if there is only one key range and if the range is
+  marked as unique (the flag UNIQUE_RANGE is set).
+  @param seq             Range sequence to be traversed
+  @param seq_init_param  First parameter for seq->init()
+  @param flags           A combination of HA_MRR_* flags
+  RETURN
+    TRUE if all there is only one key range and it is marked as unique.
+*/
+bool check_for_unique_range(RANGE_SEQ_IF *seq, void *seq_init_param,
+                            uint *flags) {
+  KEY_MULTI_RANGE range;
+  range_seq_t seq_it;
+  uint n_ranges = 0;
+
+  seq_it = seq->init(seq_init_param, n_ranges, *flags);
+  /* get the first range and check if it is marked as UNIQUE_RANGE */
+  if (!seq->next(seq_it, &range) && (range.range_flag & UNIQUE_RANGE)) {
+    /* make sure that there is only one range */
+    if (seq->next(seq_it, &range)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 ha_rows check_quick_select(THD *thd, RANGE_OPT_PARAM *param, uint idx,
                            bool index_only, SEL_ROOT *tree,
                            bool update_tbl_stats, enum_order order_direction,
                            bool skip_records_in_range, uint *mrr_flags,
                            uint *bufsize, Cost_estimate *cost,
-                           bool *is_ror_scan, bool *is_imerge_scan) {
+                           bool *is_ror_scan, bool *is_imerge_scan,
+                           bool *unique_range) {
   uchar min_key[MAX_KEY_LENGTH + MAX_FIELD_WIDTH];
   uchar max_key[MAX_KEY_LENGTH + MAX_FIELD_WIDTH];
 
@@ -639,6 +666,11 @@ ha_rows check_quick_select(THD *thd, RANGE_OPT_PARAM *param, uint idx,
           min(param->table->quick_condition_rows, rows);
     }
     param->table->possible_quick_keys.set_bit(keynr);
+    if (unique_range) {
+      /* check if there is only one key range and is marked as unique */
+      (*unique_range) =
+          check_for_unique_range(&seq_if, (void *)&seq, mrr_flags);
+    }
   }
   /*
     Check whether ROR scan could be used. It cannot be used if
@@ -872,10 +904,11 @@ AccessPath *get_key_scans_params(THD *thd, RANGE_OPT_PARAM *param,
       Opt_trace_object trace_idx(trace);
       trace_idx.add_utf8("index", param->table->key_info[keynr].name);
       bool is_ror_scan, is_imerge_scan;
+      bool unique_range = false;
       found_records = check_quick_select(
           thd, param, idx, read_index_only, key, update_tbl_stats,
           order_direction, skip_records_in_range, &mrr_flags, &buf_size, &cost,
-          &is_ror_scan, &is_imerge_scan);
+          &is_ror_scan, &is_imerge_scan, &unique_range);
 
       if (!compound_hint_key_enabled(param->table, keynr,
                                      INDEX_MERGE_HINT_ENUM)) {
@@ -949,6 +982,20 @@ AccessPath *get_key_scans_params(THD *thd, RANGE_OPT_PARAM *param,
             trace_idx.add_alnum("cause", "no_valid_range_for_this_index");
         else
           trace_idx.add_alnum("cause", "cost");
+      }
+      /* consider only primary index if:
+         (1) variable that controls the feature to force primary index if
+             all the keys of the primary index have equality predicates is
+             enabled
+         (2) the function 'check_quick_select()' did not return an error
+         (3) current index is a primary key index
+         (4) if there is only one key range and it is marked as unique
+      */
+      if (thd->variables.force_pk_for_equality_preds_on_pk &&  // (1)
+          found_records != HA_POS_ERROR &&                     // (2)
+          keynr == param->table->s->primary_key &&             // (3)
+          unique_range) {                                      // (4)
+        break;
       }
     }
   }

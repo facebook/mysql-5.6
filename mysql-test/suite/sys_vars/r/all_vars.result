@@ -36,6 +36,8 @@ enable_acl_db_cache
 enable_acl_db_cache
 enable_hlc_bound
 enable_hlc_bound
+force_pk_for_equality_preds_on_pk
+force_pk_for_equality_preds_on_pk
 generated_random_password_length
 generated_random_password_length
 group_replication_consistency

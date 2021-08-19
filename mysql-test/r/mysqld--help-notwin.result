@@ -514,6 +514,10 @@ The following options may be given as the first argument:
  entries policy based on TTL specified by flush_time.
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
+ --force-pk-for-equality-preds-on-pk 
+ Force primary index if there is only one key range and if
+ the range is marked as unique (the query contains
+ equality predicates on all the keys of the primary index)
  --ft-boolean-syntax=name 
  List of operators for MATCH ... AGAINST ( ... IN BOOLEAN
  MODE)
@@ -2915,6 +2919,7 @@ filesort-max-file-size 0
 flush FALSE
 flush-only-old-table-cache-entries FALSE
 flush-time 0
+force-pk-for-equality-preds-on-pk FALSE
 ft-boolean-syntax + -><()~*:""&|
 ft-max-word-len 84
 ft-min-word-len 4

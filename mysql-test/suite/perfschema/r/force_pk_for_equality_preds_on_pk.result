@@ -1,0 +1,419 @@
+Optimize Index Dives For Primary Key Scans
+create table idx_dive_tbl(a1 int, a2 int, a3 int, a4 int, a5 int,
+a6 int, a7 int, a8 int, a9 int, a10 int,
+primary key(a1, a2));
+create procedure populate()
+begin
+declare i int default 0;
+while i < 100 do
+insert into idx_dive_tbl values(i, i+1, i+2, i+3, i+4,
+i, i+1, i+2, i+3, i+4);
+set i = i + 1;
+end while;
+end //
+call populate();
+create index idx_dive_tbl_idx_a3 on idx_dive_tbl(a3);
+create index idx_dive_tbl_idx_a4 on idx_dive_tbl(a4);
+create index idx_dive_tbl_idx_a56 on idx_dive_tbl(a5, a6);
+set optimizer_trace_max_mem_size=1048576;
+SET end_markers_in_json=off;
+'Test 1: # index dives without optimization=3'
+'        # index dives with optimization=0'
+'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+EXPLAIN update idx_dive_tbl set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	idx_dive_tbl	NULL	range	PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56	PRIMARY	8	const,const	1	100.00	Using where
+Warnings:
+Note	1003	update `test`.`idx_dive_tbl` set `test`.`idx_dive_tbl`.`a10` = 200 where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` = 1))
+'Possible Keys=PRIMARY'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+EXPLAIN update idx_dive_tbl set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	idx_dive_tbl	NULL	range	PRIMARY	PRIMARY	8	const,const	1	100.00	Using where
+Warnings:
+Note	1003	update `test`.`idx_dive_tbl` set `test`.`idx_dive_tbl`.`a10` = 200 where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` = 1))
+SET force_pk_for_equality_preds_on_pk = FALSE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+update idx_dive_tbl set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+4.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+SET force_pk_for_equality_preds_on_pk = TRUE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+update idx_dive_tbl set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+1.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 2: # index dives without optimization=4'
+'        # index dives with optimization=4'
+'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+EXPLAIN update idx_dive_tbl set a10 = 200 where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	idx_dive_tbl	NULL	range	PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56	idx_dive_tbl_idx_a3	13	const,const	1	100.00	Using where
+Warnings:
+Note	1003	update `test`.`idx_dive_tbl` set `test`.`idx_dive_tbl`.`a10` = 200 where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` >= 1))
+'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+EXPLAIN update idx_dive_tbl set a10 = 200 where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	idx_dive_tbl	NULL	range	PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56	idx_dive_tbl_idx_a3	13	const,const	1	100.00	Using where
+Warnings:
+Note	1003	update `test`.`idx_dive_tbl` set `test`.`idx_dive_tbl`.`a10` = 200 where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` >= 1))
+SET force_pk_for_equality_preds_on_pk = FALSE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+update idx_dive_tbl set a10 = 200 where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+4.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+SET force_pk_for_equality_preds_on_pk = TRUE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+update idx_dive_tbl set a10 = 200 where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+4.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 3: # index dives without optimization=3'
+'        # index dives with optimization=0'
+'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+EXPLAIN delete from idx_dive_tbl where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	DELETE	idx_dive_tbl	NULL	range	PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56	PRIMARY	8	const,const	1	100.00	Using where
+Warnings:
+Note	1003	delete from `test`.`idx_dive_tbl` where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` = 1))
+'Possible Keys=PRIMARY'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+EXPLAIN delete from idx_dive_tbl where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	DELETE	idx_dive_tbl	NULL	range	PRIMARY	PRIMARY	8	const,const	1	100.00	Using where
+Warnings:
+Note	1003	delete from `test`.`idx_dive_tbl` where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` = 1))
+SET force_pk_for_equality_preds_on_pk = FALSE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+delete from idx_dive_tbl where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+4.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 3;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+SET force_pk_for_equality_preds_on_pk = TRUE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+delete from idx_dive_tbl where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+1.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 0;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 4: # index dives without optimization=4'
+'        # index dives with optimization=4'
+'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+EXPLAIN delete from idx_dive_tbl where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	DELETE	idx_dive_tbl	NULL	range	PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56	idx_dive_tbl_idx_a3	13	const,const	1	100.00	Using where
+Warnings:
+Note	1003	delete from `test`.`idx_dive_tbl` where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` >= 1))
+'Possible Keys=PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+EXPLAIN delete from idx_dive_tbl where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	DELETE	idx_dive_tbl	NULL	range	PRIMARY,idx_dive_tbl_idx_a3,idx_dive_tbl_idx_a4,idx_dive_tbl_idx_a56	idx_dive_tbl_idx_a3	13	const,const	1	100.00	Using where
+Warnings:
+Note	1003	delete from `test`.`idx_dive_tbl` where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` >= 1))
+SET force_pk_for_equality_preds_on_pk = FALSE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+delete from idx_dive_tbl where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+4.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+SET force_pk_for_equality_preds_on_pk = TRUE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+delete from idx_dive_tbl where a1 >= 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+4.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 4;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 5: Force secondary index
+'        # index dives without optimization=1'
+'        # index dives with optimization=1'
+'Possible Keys=idx_dive_tbl_idx_a3'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+EXPLAIN update idx_dive_tbl force index(idx_dive_tbl_idx_a3) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	idx_dive_tbl	NULL	range	idx_dive_tbl_idx_a3	idx_dive_tbl_idx_a3	13	const,const,const	1	100.00	Using where
+Warnings:
+Note	1003	update `test`.`idx_dive_tbl` FORCE INDEX (`idx_dive_tbl_idx_a3`) set `test`.`idx_dive_tbl`.`a10` = 200 where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` = 1))
+'Possible Keys=idx_dive_tbl_idx_a3'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+EXPLAIN update idx_dive_tbl force index(idx_dive_tbl_idx_a3) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	idx_dive_tbl	NULL	range	idx_dive_tbl_idx_a3	idx_dive_tbl_idx_a3	13	const,const,const	1	100.00	Using where
+Warnings:
+Note	1003	update `test`.`idx_dive_tbl` FORCE INDEX (`idx_dive_tbl_idx_a3`) set `test`.`idx_dive_tbl`.`a10` = 200 where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` = 1))
+SET force_pk_for_equality_preds_on_pk = FALSE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+update idx_dive_tbl force index(idx_dive_tbl_idx_a3) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+1.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+SET force_pk_for_equality_preds_on_pk = TRUE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+update idx_dive_tbl force index(idx_dive_tbl_idx_a3) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+1.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 6: Force secondary index
+'        # index dives without optimization=1'
+'        # index dives with optimization=1'
+'Possible Keys=idx_dive_tbl_idx_a4'
+SET force_pk_for_equality_preds_on_pk = FALSE;
+EXPLAIN update idx_dive_tbl force index(idx_dive_tbl_idx_a4) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	idx_dive_tbl	NULL	range	idx_dive_tbl_idx_a4	idx_dive_tbl_idx_a4	13	const,const,const	1	100.00	Using where
+Warnings:
+Note	1003	update `test`.`idx_dive_tbl` FORCE INDEX (`idx_dive_tbl_idx_a4`) set `test`.`idx_dive_tbl`.`a10` = 200 where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` = 1))
+'Possible Keys=idx_dive_tbl_idx_a4'
+SET force_pk_for_equality_preds_on_pk = TRUE;
+EXPLAIN update idx_dive_tbl force index(idx_dive_tbl_idx_a4) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	UPDATE	idx_dive_tbl	NULL	range	idx_dive_tbl_idx_a4	idx_dive_tbl_idx_a4	13	const,const,const	1	100.00	Using where
+Warnings:
+Note	1003	update `test`.`idx_dive_tbl` FORCE INDEX (`idx_dive_tbl_idx_a4`) set `test`.`idx_dive_tbl`.`a10` = 200 where ((`test`.`idx_dive_tbl`.`a6` = 6) and (`test`.`idx_dive_tbl`.`a5` = 5) and (`test`.`idx_dive_tbl`.`a4` = 4) and (`test`.`idx_dive_tbl`.`a3` = 3) and (`test`.`idx_dive_tbl`.`a2` = 2) and (`test`.`idx_dive_tbl`.`a1` = 1))
+SET force_pk_for_equality_preds_on_pk = FALSE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+update idx_dive_tbl force index(idx_dive_tbl_idx_a4) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+1.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+SET force_pk_for_equality_preds_on_pk = TRUE;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+update idx_dive_tbl force index(idx_dive_tbl_idx_a4) set a10 = 200 where a1 = 1 and a2 = 2 and a3 = 3 and a4 = 4 and a5 = 5 and a6 = 6;;
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+1.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 1;.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+drop table idx_dive_tbl;
+drop procedure populate;
