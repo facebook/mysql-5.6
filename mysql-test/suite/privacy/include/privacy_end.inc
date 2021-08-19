@@ -19,3 +19,6 @@ if (!$sql_privacy_log_was_early_installed)
 }
 enable_warnings;
 enable_query_log;
+
+# Restore session_track_response_attributes
+set session session_track_response_attributes=@original_session_track_response_attributes;

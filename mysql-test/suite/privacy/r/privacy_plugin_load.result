@@ -1,1 +1,4 @@
+set @original_session_track_response_attributes=@@session.session_track_response_attributes;
+set session session_track_response_attributes = 1;
 === Success!
+set session session_track_response_attributes=@original_session_track_response_attributes;

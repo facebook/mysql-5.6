@@ -1,3 +1,5 @@
+set @original_session_track_response_attributes=@@session.session_track_response_attributes;
+set session session_track_response_attributes = 1;
 CREATE TABLE privacy_blood_donation_table (
 id int NOT NULL,
 name VARCHAR(30)   NOT NULL DEFAULT '',
@@ -43,3 +45,4 @@ ERROR HY000: Purpose policy check `fbig::consumer_products::core_products::blood
 set session privacy_plugin_response_attrs_contain_policy_status=@original_privacy_plugin_response_attrs_contain_policy_status;
 set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
 drop table privacy_blood_donation_table;
+set session session_track_response_attributes=@original_session_track_response_attributes;

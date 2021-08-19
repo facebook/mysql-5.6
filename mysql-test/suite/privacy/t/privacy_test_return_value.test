@@ -1,0 +1,55 @@
+--source ../include/privacy_init.inc
+
+CREATE TABLE privacy_blood_donation_table (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_blood_donation_table VALUES(1, "User1");
+
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_open;
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add cipp_context {"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}};
+
+
+# Verify sending response is disabled, its not set
+select * from privacy_blood_donation_table;
+# Needs session_track_response_attributes enabled
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenNotSendingResponse: $result
+
+set @original_privacy_plugin_response_attrs_contain_policy_status=@@session.privacy_plugin_response_attrs_contain_policy_status;
+set session privacy_plugin_response_attrs_contain_policy_status=on;
+
+# When sending response is enabled we should set to pass for query
+select * from privacy_blood_donation_table;
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenEnabledAndQUery: $result
+
+# When no tables affected, we should pass
+select 23;
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenNoTables: $result
+
+
+# When having unsupported query, send SKIPPED
+INSERT INTO privacy_blood_donation_table VALUES(2, "User2");
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenUnsupported: $result
+
+# When privacy check is disabled, send SKIPPED
+set session privacy_plugin_purpose_policy_check=off;
+set session privacy_plugin_purpose_policy_check_debug_dump=on;
+select * from privacy_blood_donation_table;
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenOff: $result
+
+
+# Cleanup
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+set session privacy_plugin_response_attrs_contain_policy_status=@original_privacy_plugin_response_attrs_contain_policy_status;
+query_attrs_delete shard;
+drop table privacy_blood_donation_table;
+
+--source ../include/privacy_end.inc
