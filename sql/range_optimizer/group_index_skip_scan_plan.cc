@@ -781,7 +781,7 @@ AccessPath *get_best_group_min_max(THD *thd, RANGE_OPT_PARAM *param,
       cur_quick_prefix_records = check_quick_select(
           thd, param, cur_param_idx, false /*don't care*/, cur_index_tree, true,
           order_direction, skip_records_in_range, &mrr_flags, &mrr_bufsize,
-          &dummy_cost, &is_ror_scan, &is_imerge_scan);
+          &dummy_cost, &is_ror_scan, &is_imerge_scan, nullptr);
       if (unlikely(cur_index_tree && trace->is_started())) {
         trace_idx.add("index_dives_for_eq_ranges",
                       !param->use_index_statistics);

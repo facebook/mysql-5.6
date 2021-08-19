@@ -964,7 +964,7 @@ bool CollectPossibleRangeScans(
     ha_rows num_rows = check_quick_select(
         thd, param, idx, covering_index, root, /*update_tbl_stats=*/true,
         ORDER_NOT_RELEVANT, /*skip_records_in_range=*/false, &mrr_flags,
-        &buf_size, &cost, &is_ror_scan, &is_imerge_scan);
+        &buf_size, &cost, &is_ror_scan, &is_imerge_scan, nullptr);
     if (num_rows == HA_POS_ERROR) {
       continue;
     }
@@ -1177,11 +1177,11 @@ AccessPath *FindCheapestIndexRangeScan(THD *thd, SEL_TREE *tree,
     Cost_estimate cost;
     bool is_ror_scan, is_imerge_scan;
 
-    ha_rows num_rows =
-        check_quick_select(thd, param, idx, /*index_only=*/true, root,
-                           /*update_tbl_stats=*/true, ORDER_NOT_RELEVANT,
-                           /*skip_records_in_range=*/false, &mrr_flags,
-                           &buf_size, &cost, &is_ror_scan, &is_imerge_scan);
+    ha_rows num_rows = check_quick_select(
+        thd, param, idx, /*index_only=*/true, root,
+        /*update_tbl_stats=*/true, ORDER_NOT_RELEVANT,
+        /*skip_records_in_range=*/false, &mrr_flags, &buf_size, &cost,
+        &is_ror_scan, &is_imerge_scan, nullptr);
     if (num_rows == HA_POS_ERROR || !is_imerge_scan) {
       continue;
     }
@@ -1496,7 +1496,7 @@ bool CostingReceiver::FindIndexRangeScans(
           /*update_tbl_stats=*/true, order_direction,
           /*skip_records_in_range=*/false, &path.index_range_scan().mrr_flags,
           &path.index_range_scan().mrr_buf_size, &cost, &is_ror_scan,
-          &is_imerge_scan);
+          &is_imerge_scan, nullptr);
       // NOTE: num_rows may be different from scan.num_rows, if the statistics
       // changed in the meantime. If so, we keep the old estimate, in order to
       // get consistent values.

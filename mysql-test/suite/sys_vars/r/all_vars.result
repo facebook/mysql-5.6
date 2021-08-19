@@ -42,6 +42,8 @@ enable_hlc_bound
 enable_hlc_bound
 explain_format
 explain_format
+force_pk_for_equality_preds_on_pk
+force_pk_for_equality_preds_on_pk
 generated_random_password_length
 generated_random_password_length
 group_replication_consistency

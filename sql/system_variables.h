@@ -415,6 +415,12 @@ struct System_variables {
   bool show_create_table_contain_privacy_policy;
 
   /*
+    Force primary index if all the keys of primary index have equality
+    predicates on them
+  */
+  bool force_pk_for_equality_preds_on_pk;
+
+  /*
     Time in seconds, after which the statistics in mysql.table/index_stats
     get invalid
   */
