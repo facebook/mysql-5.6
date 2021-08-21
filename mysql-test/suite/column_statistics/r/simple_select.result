@@ -40,6 +40,31 @@ SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
 id	firstname	lastname	email
 1	John	Doe	john@example.com
 2	Johnny	Doe	john2@example.com
+SELECT firstname FROM MyGuests WHERE email LIKE 'john%';
+firstname
+John
+Johnny
+SELECT lastname FROM MyGuests WHERE email LIKE '_john%';
+lastname
+SELECT COUNT(*) FROM MyGuests WHERE firstname LIKE '%Mohan%';
+COUNT(*)
+1
+SELECT lastname FROM MyGuests WHERE '%Mohan%' LIKE firstname;
+lastname
+SELECT COUNT(*) FROM MyGuests WHERE 'John' LIKE firstname;
+COUNT(*)
+1
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email REGEXP '^[jo]{2}h.*';
+id	firstname	lastname	email
+1	John	Doe	john@example.com
+2	Johnny	Doe	john2@example.com
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email RLIKE '^[jo]{2}h.*';
+id	firstname	lastname	email
+1	John	Doe	john@example.com
+2	Johnny	Doe	john2@example.com
+SELECT lastname, email FROM MyGuests WHERE firstname REGEXP '^Mohan.*';
+lastname	email
+Gandhi	NULL
 SELECT id, firstname, lastname, email FROM MyGuests WHERE email NOT LIKE 'john2%';
 id	firstname	lastname	email
 1	John	Doe	john@example.com
@@ -68,7 +93,7 @@ SELECT email FROM MyGuests WHERE fake_column = 1;
 ERROR 42S22: Unknown column 'fake_column' in 'where clause'
 SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS;
 COUNT(DISTINCT SQL_ID)
-13
+14
 SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM information_schema.COLUMN_STATISTICS;
 SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
@@ -78,6 +103,7 @@ SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
 10582630af76192f8c76240216ca2705	cus_test	MyGuests	id	ORDER_BY	SORT_ASCENDING
 10582630af76192f8c76240216ca2705	cus_test	MyGuests	lastname	FILTER	EQUAL
 10582630af76192f8c76240216ca2705	cus_test	MyGuests	lastname	ORDER_BY	SORT_ASCENDING
+1a6b537933f8739086711d8db556240d	cus_test	MyGuests	email	FILTER	PATTERN_MATCH
 23e8ac3ea01563a195a20da584189d6b	cus_test	MyGuests	lastname	FILTER	PATTERN_MATCH
 2e62e4d83d74013b531a5208c96c9446	cus_test	MyGuests	email	FILTER	NULL_CHECK
 33f0ec14946d677892d8cfe699bddc91	cus_test	MyGuests	email	FILTER	NULL_CHECK
