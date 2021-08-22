@@ -331,6 +331,7 @@ update t1 set a=333 where pk=3;
 connection con1;
 select * from t1 where pk in (2,3);
 select * from t1 where pk=2 for update;
+select * from t1 where pk=2 lock in share mode;
 select * from t1 where pk=2;
 
 commit;

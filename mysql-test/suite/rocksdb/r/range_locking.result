@@ -317,6 +317,9 @@ pk	a
 select * from t1 where pk=2 for update;
 pk	a
 2	222
+select * from t1 where pk=2 lock in share mode;
+pk	a
+2	222
 select * from t1 where pk=2;
 pk	a
 2	2

@@ -12507,7 +12507,7 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
       }
     }
     tx->m_n_mysql_tables_in_use++;
-    rocksdb_register_tx(rocksdb_hton, thd, tx, (lock_type == F_WRLCK));
+    rocksdb_register_tx(rocksdb_hton, thd, tx, (m_lock_rows != RDB_LOCK_NONE));
     tx->io_perf_start(&m_io_perf);
 
     m_use_range_locking= false;
@@ -12542,7 +12542,7 @@ int ha_rocksdb::start_stmt(THD *const thd,
 
   Rdb_transaction *const tx = get_or_create_tx(thd);
   read_thd_vars(thd);
-  rocksdb_register_tx(ht, thd, tx, (lock_type == F_WRLCK));
+  rocksdb_register_tx(ht, thd, tx, (m_lock_rows != RDB_LOCK_NONE));
   tx->io_perf_start(&m_io_perf);
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
