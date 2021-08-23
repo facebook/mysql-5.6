@@ -758,6 +758,10 @@ class ha_rocksdb : public my_core::handler {
                         const struct update_row_info &row_info,
                         bool *const found, const bool skip_unique_check)
       MY_ATTRIBUTE((__warn_unused_result__));
+
+  int check_and_lock_non_unique_sk(const uint key_id,
+                                   const struct update_row_info &row_info)
+      MY_ATTRIBUTE((__warn_unused_result__));
   int check_uniqueness_and_lock(const struct update_row_info &row_info,
                                 bool pk_changed, const bool skip_unique_check)
       MY_ATTRIBUTE((__warn_unused_result__));
