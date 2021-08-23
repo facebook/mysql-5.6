@@ -10,12 +10,10 @@ PRIMARY KEY (`id`)
 INSERT INTO privacy_blood_donation_table VALUES(1, "User1");
 set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
 set session privacy_plugin_purpose_policy_check=fail_open;
-select * from privacy_blood_donation_table;
-id	name
-1	User1
-ResultWhenNotSendingResponse: 
 set @original_privacy_plugin_response_attrs_contain_policy_status=@@session.privacy_plugin_response_attrs_contain_policy_status;
 set session privacy_plugin_response_attrs_contain_policy_status=on;
+set global privacy_plugin_on = 1;
+# Test 1: Plugin enabled we should do evaluations and get the results
 select * from privacy_blood_donation_table;
 id	name
 1	User1
@@ -24,15 +22,28 @@ select 23;
 23
 23
 ResultWhenNoTables: PASS
-INSERT INTO privacy_blood_donation_table VALUES(2, "User2");
-ResultWhenUnsupported: SKIPPED
-set session privacy_plugin_purpose_policy_check=off;
-set session privacy_plugin_purpose_policy_check_debug_dump=on;
+# Test 2: Plugin disable and we shouldn't do evaluations and result would be missing
+set global privacy_plugin_on = 0;
 select * from privacy_blood_donation_table;
 id	name
 1	User1
-2	User2
-ResultWhenOff: SKIPPED
+ResultWhenEnabledAndQUery: 
+select 23;
+23
+23
+ResultWhenNoTables: 
+# Test 3: Plugin re-enabled and we should again do evaluations and populate results
+set global privacy_plugin_on = 1;
+# Test 3: set gloabl
+select * from privacy_blood_donation_table;
+id	name
+1	User1
+# Test 3: ran query
+ResultWhenEnabledAndQUery: PASS
+select 23;
+23
+23
+ResultWhenNoTables: PASS
 set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
 set session privacy_plugin_response_attrs_contain_policy_status=@original_privacy_plugin_response_attrs_contain_policy_status;
 drop table privacy_blood_donation_table;
