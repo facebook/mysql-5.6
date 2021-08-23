@@ -1305,6 +1305,13 @@ The following options may be given as the first argument:
  pair - 'hlc_ts' is the key and the value is the
  stringified HLC timestamp. Note that HLC should be
  enabled by setting enable_binlog_hlc
+ --response-attrs-contain-read-tables-bytes[=#] 
+ Specifies the size of the tables information (specified
+ in bytes) that can be included in the query response
+ attributes. The tables are sent as a key-value pair -
+ 'read_tables' is the key and the value is a list of table
+ names separated by commas. The default value is 0 which
+ disables this feature
  --response-attrs-contain-server-cpu 
  If this is enabled, then the server CPU time of the query
  is sent back to clients as part of OK packet in session
@@ -1321,6 +1328,13 @@ The following options may be given as the first argument:
  second value  of the pair is the message text and these
  are separated by a comma. The default value is 0 which
  disables this feature
+ --response-attrs-contain-write-tables-bytes[=#] 
+ Specifies the size of the tables information (specified
+ in bytes) that can be included in the query response
+ attributes. The tables are sent as a key-value pair -
+ 'write_tables' is the key and the value is a list of
+ table names separated by commas. The default value is 0
+ which disables this feature
  --rocksdb[=name]    Enable or disable ROCKSDB plugin. Possible values are ON,
  OFF, FORCE (don't start if the plugin fails to load).
  --rocksdb-access-hint-on-compaction-start=# 
@@ -2764,8 +2778,10 @@ report-user (No default value)
 reset-period-status-vars FALSE
 reset-seconds-behind-master TRUE
 response-attrs-contain-hlc FALSE
+response-attrs-contain-read-tables-bytes 0
 response-attrs-contain-server-cpu FALSE
 response-attrs-contain-warnings-bytes 0
+response-attrs-contain-write-tables-bytes 0
 rocksdb ON
 rocksdb-access-hint-on-compaction-start 1
 rocksdb-advise-random-on-open TRUE

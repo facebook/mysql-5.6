@@ -812,6 +812,16 @@ typedef struct system_variables
   uint response_attrs_contain_warnings_bytes;
 
   /*
+    Size of the read tables that can be included in response attribute
+  */
+  uint response_attrs_contain_read_tables_bytes;
+
+  /*
+    Size of the write tables that can be included in response attribute
+  */
+  uint response_attrs_contain_write_tables_bytes;
+
+  /*
     Show query digest in SHOW PROCESS LIST
   */
   my_bool show_query_digest;
@@ -3633,7 +3643,12 @@ public:
   const std::string &get_query_attr(const std::string &qattr_key);
   const std::string &get_connection_attr(const std::string &cattr_key);
 
+  // return all the query tables
   std::list<std::pair<const char*, const char*> > get_query_tables();
+  // return all the query tables into two separate lists: read and write resp
+  std::pair<std::list<std::pair<const char*, const char*>>,
+    std::list<std::pair<const char*, const char*>>>
+  get_read_write_tables();
 
   void get_mt_keys_for_write_query(std::array<std::string,
                                    WRITE_STATISTICS_DIMENSION_COUNT> & keys);

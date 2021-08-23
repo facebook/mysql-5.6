@@ -7632,3 +7632,23 @@ static Sys_var_charptr Sys_client_attribute_names(
       CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT("caller,async_id"),
       NO_MUTEX_GUARD, NOT_IN_BINLOG,
       ON_CHECK(check_client_attribute_names));
+
+static Sys_var_uint Sys_response_attrs_contain_read_tables_bytes(
+    "response_attrs_contain_read_tables_bytes",
+    "Specifies the size of the tables information (specified in bytes) "
+    "that can be included in the query response attributes. The tables "
+    "are sent as a key-value pair - 'read_tables' is the key and the "
+    "value is a list of table names separated by commas. "
+    "The default value is 0 which disables this feature",
+    SESSION_VAR(response_attrs_contain_read_tables_bytes), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_response_attrs_contain_write_tables_bytes(
+    "response_attrs_contain_write_tables_bytes",
+    "Specifies the size of the tables information (specified in bytes) "
+    "that can be included in the query response attributes. The tables "
+    "are sent as a key-value pair - 'write_tables' is the key and the "
+    "value is a list of table names separated by commas. "
+    "The default value is 0 which disables this feature",
+    SESSION_VAR(response_attrs_contain_write_tables_bytes), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));

@@ -6797,6 +6797,51 @@ void THD::get_query_digest(String *digest_buffer, const char **str,
 }
 
 /**
+  Get read and write tables in the query. The tables are returned as a list
+  of pairs where the first value is the DB name and the second value is the
+  table name.
+  The read and writes are paired together
+
+  @return List of pairs (dbname, table name) for each of read or write tables
+ */
+std::pair<std::list<std::pair<const char*, const char*>>,
+          std::list<std::pair<const char*, const char*>>>
+THD::get_read_write_tables()
+{
+  std::list<std::pair<const char*, const char*>> read_tables, write_tables;
+
+  switch (lex->sql_command) {
+    case SQLCOM_INSERT:
+    case SQLCOM_REPLACE:
+    case SQLCOM_LOAD:
+    case SQLCOM_SELECT:
+    case SQLCOM_INSERT_SELECT:
+    case SQLCOM_REPLACE_SELECT:
+    case SQLCOM_DELETE:
+    case SQLCOM_UPDATE:
+    case SQLCOM_DELETE_MULTI:
+    case SQLCOM_UPDATE_MULTI:
+    {
+      for (const TABLE_LIST *table_iter = lex->query_tables; table_iter;
+           table_iter = table_iter->next_global) {
+        if (table_iter->is_view_or_derived())
+          continue;
+        if (table_iter->updating)
+          write_tables.emplace_back(table_iter->get_db_name(),
+                                    table_iter->get_table_name());
+        else
+          read_tables.emplace_back(table_iter->get_db_name(),
+                                   table_iter->get_table_name());
+      }
+      break;
+    }
+    default:
+      ;
+  }
+  return std::make_pair(read_tables, write_tables);
+}
+
+/**
   Get tables in the query. The tables are returned as a list of pairs
   where the first value is the dbname and the second value is the table name.
 
