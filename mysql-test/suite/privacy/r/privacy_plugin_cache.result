@@ -1,5 +1,7 @@
 set @original_session_track_response_attributes=@@session.session_track_response_attributes;
 set session session_track_response_attributes = 1;
+set @original_privacy_plugin_on=@@privacy_plugin_on;
+set global privacy_plugin_on = 1;
 set @original_privacy_plugin_purpose_policy_check = @@session.privacy_plugin_purpose_policy_check;
 set @original_privacy_plugin_purpose_policy_cache_control = @@global.privacy_plugin_purpose_policy_cache_control;
 set @original_privacy_plugin_purpose_policy_cache_retention = @@global.privacy_plugin_purpose_policy_cache_retention;
@@ -66,3 +68,4 @@ set global performance_schema_esms_by_all=@original_performance_schema_esms_by_a
 set global sql_findings_control=@original_sql_findings_control;
 drop table privacy_research;
 set session session_track_response_attributes=@original_session_track_response_attributes;
+set global privacy_plugin_on=@original_privacy_plugin_on;
