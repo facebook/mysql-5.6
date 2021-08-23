@@ -1,5 +1,7 @@
 set @original_session_track_response_attributes=@@session.session_track_response_attributes;
 set session session_track_response_attributes = 1;
+set @original_privacy_plugin_on=@@privacy_plugin_on;
+set global privacy_plugin_on = 1;
 CREATE TABLE privacy_blood_donation_table (
 id int NOT NULL,
 name VARCHAR(30)   NOT NULL DEFAULT '',
@@ -29,3 +31,4 @@ set session privacy_plugin_purpose_policy_check_bypass_evaluator=@original_priva
 set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
 drop table privacy_blood_donation_table;
 set session session_track_response_attributes=@original_session_track_response_attributes;
+set global privacy_plugin_on=@original_privacy_plugin_on;

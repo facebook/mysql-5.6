@@ -22,3 +22,6 @@ enable_query_log;
 
 # Restore session_track_response_attributes
 set session session_track_response_attributes=@original_session_track_response_attributes;
+
+#Restore privacy_plugin_on setting
+set global privacy_plugin_on=@original_privacy_plugin_on;

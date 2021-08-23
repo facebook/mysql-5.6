@@ -1,0 +1,62 @@
+--source ../include/privacy_init.inc
+
+CREATE TABLE privacy_blood_donation_table (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_blood_donation_table VALUES(1, "User1");
+
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_open;
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add cipp_context {"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}};
+set @original_privacy_plugin_response_attrs_contain_policy_status=@@session.privacy_plugin_response_attrs_contain_policy_status;
+set session privacy_plugin_response_attrs_contain_policy_status=on;
+
+# When sending response is enabled we should set to pass for query
+set global privacy_plugin_on = 1;
+--echo # Test 1: Plugin enabled we should do evaluations and get the results
+select * from privacy_blood_donation_table;
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenEnabledAndQUery: $result
+select 23;
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenNoTables: $result
+
+
+--echo # Test 2: Plugin disable and we shouldn't do evaluations and result would be missing
+# Disable the plugin and we should do the checks anymore
+set global privacy_plugin_on = 0;
+
+#policies should be empty
+select * from privacy_blood_donation_table;
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenEnabledAndQUery: $result
+select 23;
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenNoTables: $result
+
+
+--echo # Test 3: Plugin re-enabled and we should again do evaluations and populate results
+# restore policy check on
+set global privacy_plugin_on = 1;
+--echo # Test 3: set gloabl
+
+#policies shouldn't be empty anymore
+select * from privacy_blood_donation_table;
+--echo # Test 3: ran query
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenEnabledAndQUery: $result
+select 23;
+let $result = get_response_attribute(purpose_policy_check_result);
+--echo ResultWhenNoTables: $result
+
+
+# Cleanup
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+set session privacy_plugin_response_attrs_contain_policy_status=@original_privacy_plugin_response_attrs_contain_policy_status;
+query_attrs_delete shard;
+drop table privacy_blood_donation_table;
+
+--source ../include/privacy_end.inc

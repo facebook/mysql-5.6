@@ -21,3 +21,7 @@ enable_query_log;
 # Enable session_track_response_attributes to enable using response attributes
 set @original_session_track_response_attributes=@@session.session_track_response_attributes;
 set session session_track_response_attributes = 1;
+
+# Enable plugin
+set @original_privacy_plugin_on=@@privacy_plugin_on;
+set global privacy_plugin_on = 1;
