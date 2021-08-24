@@ -1,0 +1,164 @@
+
+# Test read_tables and write_tables query response attributes
+
+use test;
+create table tab1 (c1 int PRIMARY KEY, c2 int unsigned);
+create table tab2 (c1 int PRIMARY KEY, c2 int unsigned);
+create table tab3 (c1 int PRIMARY KEY, c2 int unsigned);
+create view view1 as select tab1.c1, tab2.c2 from tab1, tab2;
+create view view2 as select * from tab1 union select * from tab2;
+# Test 1: session level variables are default, i.e. 0
+Expected read=<empty>, write=<empty>
+set @@session.response_attrs_contain_read_tables_bytes = default;
+set @@session.response_attrs_contain_write_tables_bytes = default;
+select * from tab1;
+c1	c2
+[^] Read tables in query response attributes: 
+# set session level variables to 1KB
+set @@session.response_attrs_contain_read_tables_bytes = 1024;
+set @@session.response_attrs_contain_write_tables_bytes = 1024;
+# Test 2: read from a join
+Expected read=tab1,tab2, write=<empty>
+select * from tab1, tab2;
+c1	c2	c1	c2
+[^] Read tables in query response attributes: tab1,tab2
+# Test 3: no tables in the query
+Expected read=<empty>, write=<empty>
+select 'no tables in this query' alias;
+alias
+no tables in this query
+[^] Read tables in query response attributes: 
+# Test 4: read from a join view
+Expected read=tab1,tab2, write=<empty>
+select * from view1;
+c1	c2
+[^] Read tables in query response attributes: tab1,tab2
+# Test 5: read from a union view
+Expected read=tab1,tab2, write=<empty>
+select * from view2;
+c1	c2
+[^] Read tables in query response attributes: tab1,tab2
+# Test 6: insert-select with the same table
+Expected read=tab1, write=tab1
+insert into tab1 select * from tab1;
+[^] Read tables in query response attributes: tab1
+[^] Write tables in query response attributes: tab1
+# Test 7: insert-select with different tables
+Expected read=tab1, write=tab2
+insert into tab2 select * from tab1;
+[^] Read tables in query response attributes: tab1
+[^] Write tables in query response attributes: tab2
+# Test 8: replace-select with different tables
+Expected read=tab1, write=tab2
+replace into tab2 select * from tab1;
+[^] Read tables in query response attributes: tab1
+[^] Write tables in query response attributes: tab2
+# Test 9: insert-values
+Expected read=<empty>, write=tab1
+insert into tab1 values(1, 1);
+[^] Read tables in query response attributes: 
+[^] Write tables in query response attributes: tab1
+# Test 10: replace-values
+Expected read=<empty>, write=tab1
+replace into tab1 values(1, 1);
+[^] Read tables in query response attributes: 
+[^] Write tables in query response attributes: tab1
+# Test 11: single table delete
+Expected write=tab1
+DELETE FROM tab1
+WHERE
+tab1.c1 > 1;
+[^] Read tables in query response attributes: 
+[^] Write tables in query response attributes: tab1
+# Test 12: single table delete with sub-query
+Expected read=tab3, write=tab2
+DELETE FROM tab1
+WHERE
+tab1.c1 in (select c1 from tab3);
+[^] Read tables in query response attributes: tab3
+[^] Write tables in query response attributes: tab1
+# Test 13: multi-table delete
+Expected read=<empty>, write=tab1,tab2
+DELETE tab1,tab2 FROM tab1
+INNER JOIN
+tab2 ON tab2.c2 = tab1.c2 
+WHERE
+tab1.c1 > 1;
+[^] Read tables in query response attributes: 
+[^] Write tables in query response attributes: tab1,tab2
+# Test 14: multi-table delete with sub-query
+Expected read=tab3, write=tab1,tab2
+DELETE tab1,tab2 FROM tab1
+INNER JOIN
+tab2 ON tab2.c2 = tab1.c2 
+WHERE
+tab1.c1 in (select c1 from tab3);
+[^] Read tables in query response attributes: tab3
+[^] Write tables in query response attributes: tab1,tab2
+# Test 15: single table update
+Expected read=<empty>, write=tab1
+UPDATE tab1
+SET tab1.c1=1
+WHERE tab1.c1>2;
+[^] Read tables in query response attributes: 
+[^] Write tables in query response attributes: tab1
+# Test 16: single table update with sub-query
+Expected read=tab3, write=tab1
+UPDATE tab1
+SET tab1.c1=1
+WHERE tab1.c1 in (select c1 from tab3);
+[^] Read tables in query response attributes: tab3
+[^] Write tables in query response attributes: tab1
+# Test 17: multi-table update
+Expected read=<empty>, write=tab1,tab2
+UPDATE tab1, tab2
+SET tab1.c1=1, tab2.c1=2
+WHERE tab1.c1>2 AND tab2.c1 > 1;
+[^] Read tables in query response attributes: 
+[^] Write tables in query response attributes: tab1,tab2
+# Test 18: multi-table update with sub-query
+Expected read=tab3, write=tab1,tab2
+UPDATE tab1, tab2
+SET tab1.c1=1, tab2.c1=2
+WHERE tab1.c1>2 AND tab2.c1 in (select c1 from tab3);
+[^] Read tables in query response attributes: tab3
+[^] Write tables in query response attributes: tab1,tab2
+# Test 19: LOAD into table
+Expected read=<empty> write=tab1
+[^] Read tables in query response attributes: 
+[^] Write tables in query response attributes: tab1
+# Test 20: multi-query
+Expected read=tab2 write=<empty>
+Shows the tables from the last query
+(the session tracker is reset between queries)
+select * from tab1;
+select * from tab2;
+|||
+c1	c2
+1	1
+c1	c2
+[^] Read tables in query response attributes: tab2
+# Test 21: SELECT with duplicate table names
+Expected read=tab1,tab2,tab3 write=<empty>
+show unique table names
+select * from tab1 t11, tab2 t21, tab1 t12, tab2 t22, tab3, tab2 t23;
+c1	c2	c1	c2	c1	c2	c1	c2	c1	c2	c1	c2
+[^] Read tables in query response attributes: tab1,tab2,tab3
+# Test 22: SELECT with a very long table
+Expected read=tab1,... write=<empty>
+the long table name is ommited
+create table averyveryveryveryveryveryverylongtablename
+(c1 int PRIMARY KEY, c2 int unsigned);
+set @@session.response_attrs_contain_read_tables_bytes = 20;
+select * from tab1, averyveryveryveryveryveryverylongtablename;
+c1	c2	c1	c2
+[^] Read tables in query response attributes: tab1,...
+[^] Write tables in query response attributes: 
+set @@session.response_attrs_contain_read_tables_bytes = default;
+use test;
+drop table tab1;
+drop table tab2;
+drop table tab3;
+drop table averyveryveryveryveryveryverylongtablename;
+drop view  view1;
+drop view  view2;

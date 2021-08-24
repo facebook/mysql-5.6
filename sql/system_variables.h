@@ -208,7 +208,7 @@ struct System_variables {
     They both should have the same 'version' and 'size'.
     When attempting to access a dynamic variable, if the session version
     is out of date, then the session version is updated and realloced if
-    neccessary and bytes copied from global to make up for missing data.
+    necessary and bytes copied from global to make up for missing data.
   */
   ulong dynamic_variables_version;
   char *dynamic_variables_ptr;
@@ -375,6 +375,16 @@ struct System_variables {
     Size of the warnings that can be included in response attribute
   */
   uint response_attrs_contain_warnings_bytes;
+
+  /*
+    Size of the read tables that can be included in response attribute
+  */
+  uint response_attrs_contain_read_tables_bytes;
+
+  /*
+    Size of the write tables that can be included in response attribute
+  */
+  uint response_attrs_contain_write_tables_bytes;
 
   ulong max_execution_time;
 
