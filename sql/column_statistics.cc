@@ -15,6 +15,7 @@ ST_FIELD_INFO column_statistics_fields_info[]=
   {"SQL_ID", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"TABLE_SCHEMA", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"TABLE_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"TABLE_INSTANCE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COLUMN_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"SQL_OPERATION", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"OPERATOR_TYPE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -25,7 +26,14 @@ ST_FIELD_INFO column_statistics_fields_info[]=
 std::unordered_map<md5_key, std::set<ColumnUsageInfo> > col_statistics_map;
 
 // Operator definition for strict weak ordering. Should be a function of all
-// constituents of the struct.
+// constituents of the struct. The ordering is done for ColumnUsageInfo structs
+// in lexicographic fashion on the following elements.
+// TABLE_SCHEMA, TABLE_NAME, TABLE_INSTANCE, COLUMN_NAME, SQL_OPERATION,
+// OPERATOR_TYPE
+// For eg. (xdb_mzait, tab1, instance1, col1, FILTER, GREATER_THAN) comes
+// before (xdb_ritwik, tab1, instance2, col1, FILTER, GREATER_THAN)
+// because the table schema `xdb_mzait` is lexicographically ordered before
+// `xdb_ritwik`.
 bool ColumnUsageInfo::operator<(const ColumnUsageInfo& other) const {
   if (table_schema.compare(other.table_schema) < 0) {
     return true;
@@ -33,13 +41,17 @@ bool ColumnUsageInfo::operator<(const ColumnUsageInfo& other) const {
     if (table_name.compare(other.table_name) < 0) {
       return true;
     } else if (table_name.compare(other.table_name) == 0) {
-      if (column_name.compare(other.column_name) < 0) {
+      if (table_instance.compare(other.table_instance) < 0) {
         return true;
-      } else if (column_name.compare(other.column_name) == 0) {
-        if (sql_op < other.sql_op) {
+      } else if (table_instance.compare(other.table_instance) == 0) {
+        if (column_name.compare(other.column_name) < 0) {
           return true;
-        } else if (sql_op == other.sql_op) {
-          return op_type < other.op_type;
+        } else if (column_name.compare(other.column_name) == 0) {
+          if (sql_op < other.sql_op) {
+            return true;
+          } else if (sql_op == other.sql_op) {
+            return op_type < other.op_type;
+          }
         }
       }
     }
@@ -146,18 +158,29 @@ operator_type match_op(ORDER::enum_order direction) {
   }
 }
 
-std::string fetch_table_name(Item_field *field_arg) {
-  DBUG_ENTER("fetch_table_name");
+void fetch_table_info(Item_field *field_arg, ColumnUsageInfo *cui) {
+  DBUG_ENTER("fetch_table_info");
   DBUG_ASSERT(field_arg);
+  DBUG_ASSERT(cui);
 
   // `orig_table` and associated parameters maybe absent for
   // derived / temp tables.
   if (field_arg->field && field_arg->field->orig_table &&
       field_arg->field->orig_table->pos_in_table_list) {
-    DBUG_RETURN(
-        field_arg->field->orig_table->pos_in_table_list->get_table_name());
+    TABLE_LIST *tl = field_arg->field->orig_table->pos_in_table_list;
+    cui->table_name = tl->get_table_name();
+
+    // Table instance in column statistics is just a string representation
+    // of the TABLE_LIST object corresponding to the table instance. We could
+    // have used an integer to represent it but the order is immaterial.
+    // The only property that matters is distinctness of the following tuple.
+    // sql_id, table_schema, table_name, table_instance
+    std::stringstream tl_addr;
+    tl_addr << (void const *)tl;
+    cui->table_instance = tl_addr.str();
   }
-  DBUG_RETURN("");
+
+  DBUG_VOID_RETURN;
 }
 
 void populate_field_info(
@@ -183,7 +206,7 @@ void populate_field_info(
   cui.sql_op = op;
   cui.op_type = op_type;
   cui.table_schema = db_name;
-  cui.table_name = fetch_table_name(field_arg);
+  fetch_table_info(field_arg, &cui);
   cui.column_name = (field_arg->field_name) ? field_arg->field_name : "";
 
   // This condition should never trigger because for non-base tables, db_name
@@ -509,6 +532,7 @@ void populate_column_usage_info(THD *thd) {
   // Column usage statistics are not updated in this case.
   if (thd->is_error() || (thd->variables.option_bits & OPTION_MASTER_SQL_ERROR))
   {
+    thd->column_usage_info.clear();
     DBUG_VOID_RETURN;
   }
 
@@ -518,6 +542,7 @@ void populate_column_usage_info(THD *thd) {
   */
   if (thd->column_usage_info.empty() || !thd->mt_key_is_set(THD::SQL_ID))
   {
+    thd->column_usage_info.clear();
     DBUG_VOID_RETURN;
   }
 
@@ -529,6 +554,7 @@ void populate_column_usage_info(THD *thd) {
         std::make_pair(thd->mt_key_value(THD::SQL_ID), thd->column_usage_info));
   }
   mysql_rwlock_unlock(&LOCK_column_statistics);
+  thd->column_usage_info.clear();
   DBUG_VOID_RETURN;
 }
 
@@ -577,6 +603,11 @@ int fill_column_statistics(THD *thd, TABLE_LIST *tables, Item *cond)
       // TABLE_NAME
       table->field[f++]->store(
           cui.table_name.c_str(), cui.table_name.size(), system_charset_info);
+
+      // TABLE_INSTANCE
+      table->field[f++]->store(
+          cui.table_instance.c_str(), cui.table_instance.size(),
+          system_charset_info);
 
       // COLUMN_NAME
       table->field[f++]->store(

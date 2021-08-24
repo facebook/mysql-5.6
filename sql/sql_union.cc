@@ -41,7 +41,6 @@ bool mysql_union(THD *thd, LEX *lex, select_result *result,
   if (res)
     goto err;
 
-
   /*
     Tables are not locked at this point, it means that we have delayed
     this step until after prepare stage (i.e. this moment). This allows to
@@ -100,7 +99,7 @@ bool select_union::send_data(List<Item> &values)
   {
     /* create_myisam_from_heap will generate error if needed */
     if (table->file->is_fatal_error(error, HA_CHECK_DUP) &&
-        create_myisam_from_heap(thd, table, tmp_table_param.start_recinfo, 
+        create_myisam_from_heap(thd, table, tmp_table_param.start_recinfo,
                                 &tmp_table_param.recinfo, error, TRUE, NULL))
       return 1;
   }
@@ -301,8 +300,8 @@ st_select_lex_unit::init_prepare_fake_select_lex(THD *thd_arg,
   thd_arg->lex->current_select= fake_select_lex;
   fake_select_lex->table_list.link_in_list(&result_table_list,
                                            &result_table_list.next_local);
-  fake_select_lex->context.table_list= 
-    fake_select_lex->context.first_name_resolution_table= 
+  fake_select_lex->context.table_list=
+    fake_select_lex->context.first_name_resolution_table=
     fake_select_lex->get_table_list();
   if (!fake_select_lex->first_execution)
   {
@@ -399,7 +398,7 @@ bool st_select_lex_unit::prepare(THD *thd_arg, select_result *sel_result,
   }
   prepared= 1;
   saved_error= FALSE;
-  
+
   thd_arg->lex->current_select= sl= first_sl;
   found_rows_for_union= first_sl->options & OPTION_FOUND_ROWS;
   is_union_select= is_union() || fake_select_lex;
@@ -440,7 +439,7 @@ bool st_select_lex_unit::prepare(THD *thd_arg, select_result *sel_result,
   {
     bool can_skip_order_by;
     sl->options|=  SELECT_NO_UNLOCK;
-    JOIN *join= new JOIN(thd_arg, sl->item_list, 
+    JOIN *join= new JOIN(thd_arg, sl->item_list,
 			 sl->options | thd_arg->variables.option_bits | additional_options,
 			 tmp_result);
     /*
@@ -502,7 +501,7 @@ bool st_select_lex_unit::prepare(THD *thd_arg, select_result *sel_result,
 	goto err;
       }
       List_iterator_fast<Item> it(sl->item_list);
-      List_iterator_fast<Item> tp(types);	
+      List_iterator_fast<Item> tp(types);
       Item *type, *item_tmp;
       while ((type= tp++, item_tmp= it++))
       {
@@ -541,28 +540,28 @@ bool st_select_lex_unit::prepare(THD *thd_arg, select_result *sel_result,
         goto err;
       }
     }
-    
+
     /*
       Disable the usage of fulltext searches in the last union branch.
       This is a temporary 5.x limitation because of the way the fulltext
       search functions are handled by the optimizer.
       This is manifestation of the more general problems of "taking away"
       parts of a SELECT statement post-fix_fields(). This is generally not
-      doable since various flags are collected in various places (e.g. 
-      SELECT_LEX) that carry information about the presence of certain 
+      doable since various flags are collected in various places (e.g.
+      SELECT_LEX) that carry information about the presence of certain
       expressions or constructs in the parts of the query.
-      When part of the query is taken away it's not clear how to "divide" 
+      When part of the query is taken away it's not clear how to "divide"
       the meaning of these accumulated flags and what to carry over to the
       recipient query (SELECT_LEX).
     */
-    if (global_parameters->ftfunc_list->elements && 
+    if (global_parameters->ftfunc_list->elements &&
         global_parameters->order_list.elements &&
         global_parameters != fake_select_lex)
     {
       ORDER *ord;
       Item_func::Functype ft=  Item_func::FT_FUNC;
       for (ord= global_parameters->order_list.first; ord; ord= ord->next)
-        if ((*ord->item)->walk (&Item::find_function_processor, FALSE, 
+        if ((*ord->item)->walk (&Item::find_function_processor, FALSE,
                                 (uchar *) &ft))
         {
           my_error (ER_CANT_USE_OPTION_HERE, MYF(0), "MATCH()");
@@ -576,7 +575,7 @@ bool st_select_lex_unit::prepare(THD *thd_arg, select_result *sel_result,
     /*
       Force the temporary table to be a MyISAM table if we're going to use
       fullext functions (MATCH ... AGAINST .. IN BOOLEAN MODE) when reading
-      from it (this should be removed in 5.2 when fulltext search is moved 
+      from it (this should be removed in 5.2 when fulltext search is moved
       out of MyISAM).
     */
     if (global_parameters->ftfunc_list->elements)
@@ -685,7 +684,7 @@ bool st_select_lex_unit::optimize()
         we don't calculate found_rows() per union part.
         Otherwise, SQL_CALC_FOUND_ROWS should be done on all sub parts.
       */
-      sl->join->select_options= 
+      sl->join->select_options=
         (select_limit_cnt == HA_POS_ERROR || sl->braces) ?
         sl->options & ~OPTION_FOUND_ROWS : sl->options | found_rows_for_union;
 
@@ -761,7 +760,7 @@ bool st_select_lex_unit::explain()
       1st execution sets certain members (e.g.
       select_result) to perform
       subquery execution rather than EXPLAIN
-      line production. In order 
+      line production. In order
       to reset them back, we re-do all of the
       actions (yes it is ugly).
      */
@@ -804,7 +803,7 @@ bool st_select_lex_unit::exec()
   if (executed && !uncacheable)
     DBUG_RETURN(false);
   executed= true;
-  
+
   if (uncacheable || !item || !item->assigned())
   {
     if (item)
@@ -865,7 +864,7 @@ bool st_select_lex_unit::exec()
             counter, so that we can accumulate the number of evaluated rows for
             the current query block.
           */
-	  examined_rows+= thd->get_examined_row_count();
+	        examined_rows+= thd->get_examined_row_count();
           thd->set_examined_row_count(0);
 
           if (union_result->flush())
@@ -890,7 +889,7 @@ bool st_select_lex_unit::exec()
           DBUG_RETURN(true); /* purecov: inspected */
         }
       }
-      if (found_rows_for_union && !sl->braces && 
+      if (found_rows_for_union && !sl->braces &&
           select_limit_cnt != HA_POS_ERROR)
       {
         /*

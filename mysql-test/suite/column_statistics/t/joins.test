@@ -1,6 +1,7 @@
 --disable_warnings
 DROP TABLE IF EXISTS tbl1;
 DROP TABLE IF EXISTS tbl2;
+DROP TABLE IF EXISTS tbl3;
 DROP DATABASE IF EXISTS cus_test;
 CREATE DATABASE cus_test;
 USE cus_test;
@@ -29,6 +30,7 @@ INSERT INTO tbl3 (col1_2, col3_3) VALUES (3, 84);
 INSERT INTO tbl3 (col1_2, col3_3) VALUES (4, 85);
 
 set global column_stats_control = ON;
+set global sql_stats_control = ON;
 
 # Executing queries that would populate COLUMN_STATISTICS
 
@@ -63,13 +65,17 @@ WHERE t1.col1_1 = t2.col1_1 AND t1.col1_2 > 10 AND t2.col1_2 <= 5;
 
 # Verification of stats accumulated
 
-SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS;
+SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS cs
+WHERE cs.TABLE_SCHEMA <> 'information_schema';
 
-SORTED_RESULT;
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM information_schema.COLUMN_STATISTICS;
+--vertical_results
+SELECT cs.SQL_ID, SQL_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM information_schema.COLUMN_STATISTICS cs, information_schema.SQL_TEXT st
+WHERE cs.TABLE_SCHEMA <> 'information_schema' AND cs.SQL_ID = st.SQL_ID
+ORDER BY cs.SQL_ID, SQL_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
 
 set global column_stats_control = OFF_HARD;
+set global sql_stats_control = OFF_HARD;
 
 DROP TABLE tbl1;
 DROP TABLE tbl2;
