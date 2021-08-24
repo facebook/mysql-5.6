@@ -1,0 +1,32 @@
+Default value of response_attrs_contain_read_tables_bytes
+SELECT @@global.response_attrs_contain_read_tables_bytes;
+@@global.response_attrs_contain_read_tables_bytes
+0
+response_attrs_contain_read_tables_bytes is set to 1 KB
+set @@global.response_attrs_contain_read_tables_bytes = 1024;
+SELECT @@global.response_attrs_contain_read_tables_bytes;
+@@global.response_attrs_contain_read_tables_bytes
+1024
+response_attrs_contain_read_tables_bytes is set to 1 MB
+set @@global.response_attrs_contain_read_tables_bytes = 1048576;
+SELECT @@global.response_attrs_contain_read_tables_bytes;
+@@global.response_attrs_contain_read_tables_bytes
+1048576
+setting read_control to a negative number throws warning
+set @@global.response_attrs_contain_read_tables_bytes = -10000;
+Warnings:
+Warning	1292	Truncated incorrect response_attrs_contain_read_tables_bytes value: '-10000'
+SELECT @@global.response_attrs_contain_read_tables_bytes;
+@@global.response_attrs_contain_read_tables_bytes
+0
+setting read_control to a random string gives error
+set @@global.response_attrs_contain_read_tables_bytes = 'XYZ';
+ERROR 42000: Incorrect argument type to variable 'response_attrs_contain_read_tables_bytes'
+SELECT @@global.response_attrs_contain_read_tables_bytes;
+@@global.response_attrs_contain_read_tables_bytes
+0
+restore the default value
+SET @@global.response_attrs_contain_read_tables_bytes = 0;
+SELECT @@global.response_attrs_contain_read_tables_bytes;
+@@global.response_attrs_contain_read_tables_bytes
+0
