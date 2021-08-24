@@ -3,6 +3,7 @@ SET @ORIG_PCT = @@ROCKSDB_TABLE_STATS_SAMPLING_PCT;
 SET @@global.ROCKSDB_TABLE_STATS_SAMPLING_PCT = 100;
 create table t1 (pk int primary key) engine=rocksdb;
 set global rocksdb_force_flush_memtable_now = true;
+set global rocksdb_compact_cf='default';
 select table_rows from information_schema.tables
 where table_schema = database() and table_name = 't1';
 TABLE_ROWS
@@ -12,6 +13,7 @@ drop table if exists t2;
 SET @@global.ROCKSDB_TABLE_STATS_SAMPLING_PCT = 10;
 create table t2 (pk int primary key) engine=rocksdb;
 set global rocksdb_force_flush_memtable_now = true;
+set global rocksdb_compact_cf='default';
 select table_rows from information_schema.tables
 where table_schema = database() and table_name = 't2';
 TABLE_ROWS
