@@ -3544,13 +3544,21 @@ static Sys_var_mybool sql_log_bin_triggers(
        "binlog if this option is FALSE. Default is TRUE.",
        SESSION_VAR(sql_log_bin_triggers), CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
-const char *slave_type_conversions_name[]=
-       {"ALL_LOSSY", "ALL_NON_LOSSY", "ALL_UNSIGNED", "ALL_SIGNED", 0};
+const char *slave_type_conversions_name[]= {
+  "ALL_LOSSY",
+  "ALL_NON_LOSSY",
+  "ALL_UNSIGNED",
+  "ALL_SIGNED",
+  "ALL_NON_TRUNCATION",
+  0
+};
 static Sys_var_set Slave_type_conversions(
        "slave_type_conversions",
        "Set of slave type conversions that are enabled. Legal values are:"
        " ALL_LOSSY to enable lossy conversions,"
        " ALL_NON_LOSSY to enable non-lossy conversions,"
+       " ALL_NON_TRUNCATION to enable conversions between compatible types as"
+       " long as there is no truncation in value,"
        " ALL_UNSIGNED to treat all integer column type data to be unsigned values, and"
        " ALL_SIGNED to treat all integer column type data to be signed values."
        " Default treatment is ALL_SIGNED. If ALL_SIGNED and ALL_UNSIGNED both are"

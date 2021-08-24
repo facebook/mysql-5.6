@@ -225,7 +225,9 @@ static void insert_row_fields(std::string* row_query, TABLE* table)
    A generic, internal, error caused the unpacking to fail.
 
 */
-int unpack_row_with_column_info(TABLE *table, uint const colcnt,
+int unpack_row_with_column_info(const Relay_log_info *rli,
+                                TABLE *table,
+                                uint const colcnt,
                                 uchar const *const row_data,
                                 MY_BITMAP const *cols,
                                 uchar const **const current_row_end,
@@ -292,7 +294,13 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
         actual_field->table->in_use->count_cuted_fields= CHECK_FIELD_WARN;
         copy.set(actual_field, conv_field, TRUE);
         const auto conv_status= (*copy.do_copy)(&copy);
-        if (!slave_type_conversions_options &&
+
+        const bool check_conv=
+          (slave_type_conversions_options &
+           (ULL(1) << SLAVE_TYPE_CONVERSIONS_ALL_NON_TRUNCATION)) ||
+          !rli->get_rbr_column_type_mismatch_whitelist()->empty();
+
+        if (check_conv &&
             (conv_status || actual_field->table->in_use->cuted_fields))
         {
           const char *db_name= table->s->db.str;
@@ -303,8 +311,8 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
           String source_type(source_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
           String target_type(target_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
           show_sql_type(tabledef->type(i), tabledef->field_metadata(i),
-                        &source_type, actual_field->charset());
-          conv_field->sql_type(target_type);
+                        &source_type, conv_field->charset());
+          actual_field->sql_type(target_type);
           my_error(ER_SLAVE_CONVERSION_FAILED, MYF(0), i, db_name, tbl_name,
                    source_type.c_ptr_safe(), target_type.c_ptr_safe());
           DBUG_RETURN(ER_SLAVE_CONVERSION_FAILED);
@@ -444,7 +452,7 @@ unpack_row(Relay_log_info const *rli,
 
   if (tabledef->use_column_names(table))
   {
-    DBUG_RETURN(unpack_row_with_column_info(table, colcnt, row_data, cols,
+    DBUG_RETURN(unpack_row_with_column_info(rli, table, colcnt, row_data, cols,
                                             current_row_end, master_reclength,
                                             row_end, tabledef, conv_table,
                                             row_query));
@@ -582,7 +590,13 @@ unpack_row(Relay_log_info const *rli,
         (*field_ptr)->table->in_use->count_cuted_fields= CHECK_FIELD_WARN;
         copy.set(*field_ptr, f, TRUE);
         const auto conv_status= (*copy.do_copy)(&copy);
-        if (!slave_type_conversions_options &&
+
+        const bool check_conv=
+          (slave_type_conversions_options &
+           (ULL(1) << SLAVE_TYPE_CONVERSIONS_ALL_NON_TRUNCATION)) ||
+          !rli->get_rbr_column_type_mismatch_whitelist()->empty();
+
+        if (check_conv &&
             (conv_status || (*field_ptr)->table->in_use->cuted_fields))
         {
           const ulong col= field_ptr - begin_ptr;
@@ -594,8 +608,8 @@ unpack_row(Relay_log_info const *rli,
           String source_type(source_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
           String target_type(target_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
           show_sql_type(tabledef->type(col), tabledef->field_metadata(i),
-                        &source_type, (*field_ptr)->charset());
-          f->sql_type(target_type);
+                        &source_type, f->charset());
+          (*field_ptr)->sql_type(target_type);
           my_error(ER_SLAVE_CONVERSION_FAILED, MYF(0), col, db_name, tbl_name,
                    source_type.c_ptr_safe(), target_type.c_ptr_safe());
           DBUG_RETURN(ER_SLAVE_CONVERSION_FAILED);

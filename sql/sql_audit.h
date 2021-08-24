@@ -229,7 +229,12 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       sql_command.length= sql_statement_names[thd->lex->sql_command].length;
       database= thd->db;
       databaselen= thd->db_length;
-      get_query_attributes_from_thd(thd, query_attrs);
+      // this method causes deadlock involving LOCK_thd_data when my_error() is
+      // called while holding LOCK_thd_data e.g. in
+      // Rows_log_event::unpack_current_row(). @abalsara says that it's okay to
+      // comment out this method since we're not consuming the query attrs from
+      // the audit side
+      //get_query_attributes_from_thd(thd, query_attrs);
       get_audit_attributes_from_thd(thd, audit_attrs);
 			shard= thd->shard_id.c_str();
 			shardlen= thd->shard_id.length();

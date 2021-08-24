@@ -4,19 +4,19 @@ INSTALL PLUGIN null_audit SONAME 'adt_null.<expected_extension>';
 SET @my_var = 1;
 show status like 'Audit_null_%_attributes';
 Variable_name	Value
-Audit_null_query_attributes	rpc_db=db_rpc,rpc_role=root,
+Audit_null_query_attributes	No attributes
 Audit_null_response_attributes	rpc_id=my_rpc_id,
 use db_rpc;
 show status like 'Audit_null_%_attributes';
 Variable_name	Value
-Audit_null_query_attributes	rpc_id=my_rpc_id,
+Audit_null_query_attributes	No attributes
 Audit_null_response_attributes	change_db=db_rpc,rpc_id=my_rpc_id,
 SELECT @my_var;
 @my_var
 1
 show status like 'Audit_null_%_attributes';
 Variable_name	Value
-Audit_null_query_attributes	rpc_id=my_rpc_id,
+Audit_null_query_attributes	No attributes
 Audit_null_response_attributes	No attributes
 SELECT 23;
 23

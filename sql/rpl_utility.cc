@@ -535,6 +535,12 @@ bool is_conversion_ok(int order, Relay_log_info *rli)
   DBUG_ENTER("is_conversion_ok");
   bool allow_non_lossy, allow_lossy;
 
+  const bool allow_non_truncation = slave_type_conversions_options &
+               (ULL(1) << SLAVE_TYPE_CONVERSIONS_ALL_NON_TRUNCATION);
+
+  if (allow_non_truncation)
+    DBUG_RETURN(true);
+
   allow_non_lossy = slave_type_conversions_options &
                     (ULL(1) << SLAVE_TYPE_CONVERSIONS_ALL_NON_LOSSY);
   allow_lossy= slave_type_conversions_options &
@@ -1053,16 +1059,21 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
   uint const cols_to_create = have_column_names() ? size() :
     min<ulong>(target_table->s->fields, size());
 
-  // Default value : treat all values signed
-  bool unsigned_flag= FALSE;
+  int unsigned_override= -1;
 
   // Check if slave_type_conversions contains ALL_UNSIGNED
-  unsigned_flag= slave_type_conversions_options &
-                  (ULL(1) << SLAVE_TYPE_CONVERSIONS_ALL_UNSIGNED);
+  if (slave_type_conversions_options &
+      (ULL(1) << SLAVE_TYPE_CONVERSIONS_ALL_UNSIGNED))
+  {
+    unsigned_override= 1;
+  }
 
   // Check if slave_type_conversions contains ALL_SIGNED
-  unsigned_flag= unsigned_flag && !(slave_type_conversions_options &
-                 (ULL(1) << SLAVE_TYPE_CONVERSIONS_ALL_SIGNED));
+  if (slave_type_conversions_options &
+      (ULL(1) << SLAVE_TYPE_CONVERSIONS_ALL_SIGNED))
+  {
+    unsigned_override= 0;
+  }
 
   for (uint col= 0 ; col < cols_to_create; ++col)
   {
@@ -1129,6 +1140,9 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
     default:
       break;
     }
+
+    const bool unsigned_flag=
+      unsigned_override != -1 ? unsigned_override : is_unsigned(col);
 
     DBUG_PRINT("debug", ("sql_type: %d, target_field: '%s', max_length: %d, decimals: %d,"
                          " maybe_null: %d, unsigned_flag: %d, pack_length: %u",
