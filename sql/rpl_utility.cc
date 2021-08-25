@@ -145,6 +145,14 @@ static bool is_conversion_ok(int order) {
   DBUG_TRACE;
   bool allow_non_lossy, allow_lossy;
 
+  const bool allow_non_truncation =
+      replica_type_conversions_options &
+      (1ULL << REPLICA_TYPE_CONVERSIONS_ALL_NON_TRUNCATION);
+
+  if (allow_non_truncation) {
+    return true;
+  }
+
   allow_non_lossy = replica_type_conversions_options &
                     (1ULL << REPLICA_TYPE_CONVERSIONS_ALL_NON_LOSSY);
   allow_lossy = replica_type_conversions_options &
@@ -640,17 +648,19 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli,
                                   ? size()
                                   : min<ulong>(target_table->s->fields, size());
 
-  // Default value : treat all values signed
-  bool unsigned_flag = false;
+  int unsigned_override = -1;
 
   // Check if replica_type_conversions contains ALL_UNSIGNED
-  unsigned_flag = replica_type_conversions_options &
-                  (1ULL << REPLICA_TYPE_CONVERSIONS_ALL_UNSIGNED);
+  if (replica_type_conversions_options &
+      (1ULL << REPLICA_TYPE_CONVERSIONS_ALL_UNSIGNED)) {
+    unsigned_override = 1;
+  }
 
   // Check if replica_type_conversions contains ALL_SIGNED
-  unsigned_flag =
-      unsigned_flag && !(replica_type_conversions_options &
-                         (1ULL << REPLICA_TYPE_CONVERSIONS_ALL_SIGNED));
+  if ((replica_type_conversions_options &
+       (1ULL << REPLICA_TYPE_CONVERSIONS_ALL_SIGNED))) {
+    unsigned_override = 0;
+  }
 
   for (uint col = 0; col < cols_to_create; ++col) {
     Field *const slave_field =
@@ -718,6 +728,9 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli,
       default:
         break;
     }
+
+    const bool unsigned_flag =
+        unsigned_override != -1 ? unsigned_override : is_unsigned(col);
 
     DBUG_PRINT(
         "debug",

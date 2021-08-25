@@ -1540,7 +1540,9 @@ The following options may be given as the first argument:
  Set of type conversions that may be used by the
  replication applier thread for row events. Allowed values
  are: ALL_LOSSY to enable lossy conversions, ALL_NON_LOSSY
- to enable non-lossy conversions, ALL_UNSIGNED to treat
+ to enable non-lossy conversions, ALL_NON_TRUNCATION to
+ enable conversions between compatible types as long as
+ there is no truncation in value, ALL_UNSIGNED to treat
  all integer column type data to be unsigned values, and
  ALL_SIGNED to treat all integer column type data to be
  signed values. Default treatment is ALL_SIGNED. If

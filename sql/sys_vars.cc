@@ -4523,13 +4523,16 @@ static Sys_var_enum Slave_use_idempotent_for_recovery(
     DEFAULT(SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO));
 
 const char *replica_type_conversions_name[] = {
-    "ALL_LOSSY", "ALL_NON_LOSSY", "ALL_UNSIGNED", "ALL_SIGNED", nullptr};
+    "ALL_LOSSY",  "ALL_NON_LOSSY",      "ALL_UNSIGNED",
+    "ALL_SIGNED", "ALL_NON_TRUNCATION", nullptr};
 static Sys_var_set Sys_replica_type_conversions(
     "replica_type_conversions",
     "Set of type conversions that may be used by the replication applier "
     "thread for row events. Allowed values are:"
     " ALL_LOSSY to enable lossy conversions,"
     " ALL_NON_LOSSY to enable non-lossy conversions,"
+    " ALL_NON_TRUNCATION to enable conversions between compatible types as"
+    " long as there is no truncation in value,"
     " ALL_UNSIGNED to treat all integer column type data to be unsigned "
     "values, and"
     " ALL_SIGNED to treat all integer column type data to be signed values."

@@ -481,7 +481,8 @@ static const uchar *start_partial_bit_reader(const uchar *pack_ptr,
    MAX_FIELDS_BEFORE_HASH. We will use this hash for lookup when available (see
    find_field_in_table_sef).
  */
-bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
+bool unpack_row_with_column_info(const Relay_log_info *rli, TABLE *table,
+                                 uchar const *const row_data,
                                  MY_BITMAP const *column_image,
                                  uchar const **const row_image_end_p,
                                  uchar const *const event_end, bool only_seek,
@@ -538,9 +539,12 @@ bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
             CHECK_FIELD_WARN;
         copy.set(actual_field, conv_field);
         const auto conv_status = copy.invoke_do_copy();
-        if (!replica_type_conversions_options &&
-            (conv_status ||
-             actual_field->table->in_use->num_truncated_fields)) {
+        const bool check_conv =
+            (replica_type_conversions_options &
+             (1ULL << REPLICA_TYPE_CONVERSIONS_ALL_NON_TRUNCATION)) ||
+            !rli->get_rbr_column_type_mismatch_whitelist()->empty();
+        if (check_conv && (conv_status ||
+                           actual_field->table->in_use->num_truncated_fields)) {
           const char *db_name = table->s->db.str;
           const char *tbl_name = table->s->table_name.str;
           char source_buf[MAX_FIELD_WIDTH];
@@ -549,8 +553,8 @@ bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
           String source_type(source_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
           String target_type(target_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
           show_sql_type(tabledef->type(i), false, tabledef->field_metadata(i),
-                        &source_type, actual_field->charset());
-          conv_field->sql_type(target_type);
+                        &source_type, conv_field->charset());
+          actual_field->sql_type(target_type);
           my_error(ER_SLAVE_CONVERSION_FAILED, MYF(0), i, db_name, tbl_name,
                    source_type.c_ptr_safe(), target_type.c_ptr_safe());
           DBUG_RETURN(true);
@@ -736,7 +740,7 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
       my_error(ER_SLAVE_CORRUPT_EVENT, MYF(0));
       return true;
     }
-    return unpack_row_with_column_info(table, row_data, column_image,
+    return unpack_row_with_column_info(rli, table, row_data, column_image,
                                        row_image_end_p, event_end, only_seek,
                                        tabledef, conv_table, row_query);
   }
@@ -959,7 +963,11 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
         field_ptr->table->in_use->check_for_truncated_fields = CHECK_FIELD_WARN;
         copy.set(field_ptr, f);
         const auto conv_status = copy.invoke_do_copy();
-        if (!replica_type_conversions_options &&
+        const bool check_conv =
+            (replica_type_conversions_options &
+             (1ULL << REPLICA_TYPE_CONVERSIONS_ALL_NON_TRUNCATION)) ||
+            !rli->get_rbr_column_type_mismatch_whitelist()->empty();
+        if (check_conv &&
             (conv_status || field_ptr->table->in_use->num_truncated_fields)) {
           const char *db_name = table->s->db.str;
           const char *tbl_name = table->s->table_name.str;
@@ -970,8 +978,8 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
           String target_type2(target_buf2, MAX_FIELD_WIDTH, &my_charset_latin1);
           show_sql_type(tabledef->type(col_i), false,
                         tabledef->field_metadata(col_i), &source_type2,
-                        field_ptr->charset());
-          f->sql_type(target_type2);
+                        f->charset());
+          field_ptr->sql_type(target_type2);
           my_error(ER_SLAVE_CONVERSION_FAILED, MYF(0), col_i, db_name, tbl_name,
                    source_type2.c_ptr_safe(), target_type2.c_ptr_safe());
           return true;

@@ -3097,7 +3097,7 @@ SET PERSIST_ONLY replica_transaction_retries = 99;
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
@@ -3106,7 +3106,21 @@ sysvar:
 - dynamic=1
 ---- replica_type_conversions ----
 # R1. SET <new> when variable was previously unset
-SET @@PERSIST.replica_type_conversions = ALL_LOSSY;
+SET @@PERSIST.replica_type_conversions = ALL_NON_TRUNCATION;
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [replica_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
+include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
+include/assert.inc [replica_type_conversions should be ALL_NON_TRUNCATION in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should have value ALL_NON_TRUNCATION in the persist file]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [slave_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
+include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
+include/assert.inc [slave_type_conversions should be ALL_NON_TRUNCATION in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should have value ALL_NON_TRUNCATION in the persist file]
+# R1. SET <old> when variable was previously set through <new>
+SET @@PERSIST.slave_type_conversions = ALL_LOSSY;
+Warnings:
+Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
 include/assert.inc [@@global.replica_type_conversions should be ALL_LOSSY]
 include/assert.inc [replica_type_conversions should be ALL_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
@@ -3117,20 +3131,6 @@ include/assert.inc [slave_type_conversions should be ALL_LOSSY in P_S.global_var
 include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
 include/assert.inc [slave_type_conversions should be ALL_LOSSY in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should have value ALL_LOSSY in the persist file]
-# R1. SET <old> when variable was previously set through <new>
-SET @@PERSIST.slave_type_conversions = 'ALL_NON_LOSSY';
-Warnings:
-Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
-include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
-include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
-include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
-include/assert.inc [replica_type_conversions should have value ALL_NON_LOSSY in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
-include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
-include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
-include/assert.inc [slave_type_conversions should have value ALL_NON_LOSSY in the persist file]
 # R1. SET <old>  = DEFAULT
 SET @@PERSIST.slave_type_conversions = DEFAULT;
 Warnings:
@@ -3158,9 +3158,21 @@ include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.var
 include/assert.inc [slave_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should not exist in the persist file]
 # R1. SET <old> when variable was previously unset
-SET PERSIST slave_type_conversions = 'ALL_NON_LOSSY';
+SET PERSIST slave_type_conversions = ALL_LOSSY;
 Warnings:
 Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
+include/assert.inc [@@global.replica_type_conversions should be ALL_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_LOSSY in P_S.global_variables]
+include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
+include/assert.inc [replica_type_conversions should be ALL_LOSSY in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should have value ALL_LOSSY in the persist file]
+include/assert.inc [@@global.slave_type_conversions should be ALL_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_LOSSY in P_S.global_variables]
+include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
+include/assert.inc [slave_type_conversions should be ALL_LOSSY in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should have value ALL_LOSSY in the persist file]
+# R1. SET <new> when variable was previously set through <old>
+SET PERSIST replica_type_conversions = 'ALL_NON_LOSSY';
 include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
 include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
@@ -3171,33 +3183,35 @@ include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global
 include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
 include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should have value ALL_NON_LOSSY in the persist file]
-# R1. SET <new> when variable was previously set through <old>
-SET PERSIST replica_type_conversions = '';
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
-include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [replica_type_conversions should have value  in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
-include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [slave_type_conversions should have value  in the persist file]
 # R1. RESET <new>
 RESET PERSIST replica_type_conversions;
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
 include/assert.inc [replica_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [replica_type_conversions should not exist in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
 include/assert.inc [slave_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should not exist in the persist file]
 SET GLOBAL replica_type_conversions = DEFAULT;
 # R1. SET <new> when variable was previously unset
-SET @@PERSIST_ONLY.replica_type_conversions = ALL_LOSSY;
+SET @@PERSIST_ONLY.replica_type_conversions = ALL_NON_TRUNCATION;
+include/assert.inc [@@global.replica_type_conversions should be ]
+include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
+include/assert.inc [replica_type_conversions should be ALL_NON_TRUNCATION in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should have value ALL_NON_TRUNCATION in the persist file]
+include/assert.inc [@@global.slave_type_conversions should be ]
+include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
+include/assert.inc [slave_type_conversions should be ALL_NON_TRUNCATION in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should have value ALL_NON_TRUNCATION in the persist file]
+# R1. SET <old> when variable was previously set through <new>
+SET @@PERSIST_ONLY.slave_type_conversions = ALL_LOSSY;
+Warnings:
+Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
 include/assert.inc [@@global.replica_type_conversions should be ]
 include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
@@ -3208,20 +3222,6 @@ include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
 include/assert.inc [slave_type_conversions should be ALL_LOSSY in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should have value ALL_LOSSY in the persist file]
-# R1. SET <old> when variable was previously set through <new>
-SET @@PERSIST_ONLY.slave_type_conversions = 'ALL_NON_LOSSY';
-Warnings:
-Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
-include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
-include/assert.inc [replica_type_conversions should have value ALL_NON_LOSSY in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
-include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
-include/assert.inc [slave_type_conversions should have value ALL_NON_LOSSY in the persist file]
 # R1. SET <old>  = DEFAULT
 # R1. RESET <old>
 RESET PERSIST slave_type_conversions;
@@ -3236,9 +3236,21 @@ include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.var
 include/assert.inc [slave_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should not exist in the persist file]
 # R1. SET <old> when variable was previously unset
-SET PERSIST_ONLY slave_type_conversions = 'ALL_NON_LOSSY';
+SET PERSIST_ONLY slave_type_conversions = ALL_LOSSY;
 Warnings:
 Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
+include/assert.inc [@@global.replica_type_conversions should be ]
+include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
+include/assert.inc [replica_type_conversions should be ALL_LOSSY in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should have value ALL_LOSSY in the persist file]
+include/assert.inc [@@global.slave_type_conversions should be ]
+include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
+include/assert.inc [slave_type_conversions should be ALL_LOSSY in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should have value ALL_LOSSY in the persist file]
+# R1. SET <new> when variable was previously set through <old>
+SET PERSIST_ONLY replica_type_conversions = 'ALL_NON_LOSSY';
 include/assert.inc [@@global.replica_type_conversions should be ]
 include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
@@ -3249,18 +3261,6 @@ include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
 include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should have value ALL_NON_LOSSY in the persist file]
-# R1. SET <new> when variable was previously set through <old>
-SET PERSIST_ONLY replica_type_conversions = '';
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
-include/assert.inc [replica_type_conversions should have source DYNAMIC in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [replica_type_conversions should have value  in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
-include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [slave_type_conversions should have value  in the persist file]
 # R1. RESET <new>
 RESET PERSIST replica_type_conversions;
 include/assert.inc [@@global.replica_type_conversions should be ]
@@ -3274,7 +3274,7 @@ include/assert.inc [slave_type_conversions should have source DYNAMIC in P_S.var
 include/assert.inc [slave_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should not exist in the persist file]
 SET GLOBAL replica_type_conversions = DEFAULT;
-SET PERSIST_ONLY replica_type_conversions = '';
+SET PERSIST_ONLY replica_type_conversions = 'ALL_NON_LOSSY';
 sysvar:
 - name=rpl_stop_replica_timeout
 - alias=rpl_stop_slave_timeout
@@ -4409,23 +4409,23 @@ include/assert.inc [slave_transaction_retries should have value 99 in the persis
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
 - persist=1
 - persist_as_readonly=0
 - dynamic=1
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [replica_type_conversions should have value  in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should have value ALL_NON_LOSSY in the persist file]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [slave_type_conversions should have value  in the persist file]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should have value ALL_NON_LOSSY in the persist file]
 sysvar:
 - name=rpl_stop_replica_timeout
 - alias=rpl_stop_slave_timeout
@@ -4824,22 +4824,22 @@ include/assert.inc [slave_transaction_retries should not exist in the persist fi
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
 - persist=1
 - persist_as_readonly=0
 - dynamic=1
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [replica_type_conversions should have value  in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should have value ALL_NON_LOSSY in the persist file]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be  in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should not exist in the persist file]
 sysvar:
 - name=rpl_stop_replica_timeout
@@ -5236,23 +5236,23 @@ include/assert.inc [slave_transaction_retries should have value 99 in the persis
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
 - persist=1
 - persist_as_readonly=0
 - dynamic=1
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [replica_type_conversions should have value  in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should have value ALL_NON_LOSSY in the persist file]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [slave_type_conversions should have value  in the persist file]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should have value ALL_NON_LOSSY in the persist file]
 sysvar:
 - name=rpl_stop_replica_timeout
 - alias=rpl_stop_slave_timeout
@@ -5675,23 +5675,23 @@ include/assert.inc [slave_transaction_retries should have value 99 in the persis
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
 - persist=1
 - persist_as_readonly=0
 - dynamic=1
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be  in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
 include/assert.inc [replica_type_conversions should not exist in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [slave_type_conversions should have value  in the persist file]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should have value ALL_NON_LOSSY in the persist file]
 sysvar:
 - name=rpl_stop_replica_timeout
 - alias=rpl_stop_slave_timeout
@@ -6087,23 +6087,23 @@ include/assert.inc [slave_transaction_retries should have value 99 in the persis
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
 - persist=1
 - persist_as_readonly=0
 - dynamic=1
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [replica_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [replica_type_conversions should have value  in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
+include/assert.inc [replica_type_conversions should have value ALL_NON_LOSSY in the persist file]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source PERSISTED in P_S.variables_info]
-include/assert.inc [slave_type_conversions should be  in P_S.persisted_variables]
-include/assert.inc [slave_type_conversions should have value  in the persist file]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.persisted_variables]
+include/assert.inc [slave_type_conversions should have value ALL_NON_LOSSY in the persist file]
 sysvar:
 - name=rpl_stop_replica_timeout
 - alias=rpl_stop_slave_timeout
@@ -6537,20 +6537,20 @@ include/assert.inc [slave_transaction_retries should not exist in the persist fi
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
 - persist=1
 - persist_as_readonly=0
 - dynamic=1
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source COMMAND_LINE in P_S.variables_info]
 include/assert.inc [replica_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [replica_type_conversions should not exist in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source COMMAND_LINE in P_S.variables_info]
 include/assert.inc [slave_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should not exist in the persist file]
@@ -6953,20 +6953,20 @@ include/assert.inc [slave_transaction_retries should not exist in the persist fi
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
 - persist=1
 - persist_as_readonly=0
 - dynamic=1
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source COMMAND_LINE in P_S.variables_info]
 include/assert.inc [replica_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [replica_type_conversions should not exist in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source COMMAND_LINE in P_S.variables_info]
 include/assert.inc [slave_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should not exist in the persist file]
@@ -7393,20 +7393,20 @@ include/assert.inc [slave_transaction_retries should not exist in the persist fi
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
 - persist=1
 - persist_as_readonly=0
 - dynamic=1
-include/assert.inc [@@global.replica_type_conversions should be ]
-include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [replica_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [replica_type_conversions should have source COMMAND_LINE in P_S.variables_info]
 include/assert.inc [replica_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [replica_type_conversions should not exist in the persist file]
-include/assert.inc [@@global.slave_type_conversions should be ]
-include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_LOSSY]
+include/assert.inc [slave_type_conversions should be ALL_NON_LOSSY in P_S.global_variables]
 include/assert.inc [slave_type_conversions should have source COMMAND_LINE in P_S.variables_info]
 include/assert.inc [slave_type_conversions should not exist in P_S.persisted_variables]
 include/assert.inc [slave_type_conversions should not exist in the persist file]
