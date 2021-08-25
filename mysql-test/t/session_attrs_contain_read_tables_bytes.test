@@ -229,7 +229,15 @@ echo [^] Write tables in query response attributes: $w_attr;
 #let $attr = get_response_attribute read_tables;
 #echo [^] Read tables in query response attributes: $attr;
 #
-#--echo # Test 21: SELECT with a very long table
+#--echo # Test 21: SELECT with duplicate table names
+#--echo   Expected read=tab1,tab2,tab3 write=<empty>
+#--echo   show unique table names
+#select * from tab1 t11, tab2 t21, tab1 t12, tab2 t22, tab3, tab2 t23;
+#
+#let $attr = get_response_attribute read_tables ;
+#echo [^] Read tables in query response attributes: $attr;
+#
+#--echo # Test 22: SELECT with a very long table
 #--echo   Expected read=tab1,... write=<empty>
 #--echo   the long table name is ommited
 create table averyveryveryveryveryveryverylongtablename

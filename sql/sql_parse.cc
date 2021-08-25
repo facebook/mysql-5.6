@@ -175,11 +175,10 @@ static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
                      const char *reason = nullptr);
 static bool lock_tables_precheck(THD *thd, TABLE_LIST *tables);
 static void store_warnings_in_resp_attrs(THD *thd);
+using Table_List = std::list<std::pair<const char *, const char *>>;
 static void store_query_tables_in_response_attributes(
-    THD *thd,
-    const std::list<std::pair<const char*, const char*> > &the_tables,
-    unsigned long max_tables_len,
-    const char R_or_W);
+    THD *thd, const Table_List &the_tables, ulong max_tables_len,
+    char read_or_write);
 
 const char *any_db="*any*";	// Special symbol for check_access
 
@@ -2269,25 +2268,22 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       tracker->mark_as_changed(thd, &key, &value);
     }
 
-    const unsigned long
-      read_tab_max_len=thd->variables.response_attrs_contain_read_tables_bytes,
-      write_tab_max_len=thd->variables.response_attrs_contain_read_tables_bytes;
-    if (read_tab_max_len > 0 || write_tab_max_len)
-    {
-      std::pair<std::list<std::pair<const char*, const char*>>,
-              std::list<std::pair<const char*, const char*>>> read_write_tables;
-
-      read_write_tables = thd->get_read_write_tables();
+    /* include read and write tables in the response attributes if allow */
+    const ulong read_tab_max_len =
+        thd->variables.response_attrs_contain_read_tables_bytes;
+    const ulong write_tab_max_len =
+        thd->variables.response_attrs_contain_read_tables_bytes;
+    if (read_tab_max_len > 0 || write_tab_max_len > 0) {
+      std::pair<Table_List, Table_List> read_write_tables =
+          thd->get_read_write_tables();
 
       if (read_tab_max_len > 0)
         store_query_tables_in_response_attributes(thd, read_write_tables.first,
-                                                  read_tab_max_len,
-                                                  static_cast<const char>('R'));
+                                                  read_tab_max_len, 'R');
 
       if (write_tab_max_len > 0)
         store_query_tables_in_response_attributes(thd, read_write_tables.second,
-                                                  write_tab_max_len,
-                                                  static_cast<const char>('W'));
+                                                  write_tab_max_len, 'W');
     }
 
     /*
@@ -10813,21 +10809,18 @@ static bool is_user_table(const char* db, const char* table) {
   * "write_tables" for write tables
 */
 static void store_query_tables_in_response_attributes(
-    THD *thd,
-    const std::list<std::pair<const char*, const char*> > &the_tables,
-    unsigned long max_tables_len,
-    const char    R_or_W)
-{
-  if (max_tables_len > 0)
-  {
-    std::string   tables_val; // tables text
+    THD *thd, const Table_List &the_tables, ulong max_tables_len,
+    char read_or_write) {
+  if (max_tables_len > 0) {
+    std::string tables_val;                                     // tables text
+    DBUG_ASSERT(read_or_write == 'R' || read_or_write == 'W');  // check value
 
-    for (const auto& one_table : the_tables) {
+    for (const auto &one_table : the_tables) {
       if (is_user_table(one_table.first, one_table.second)) {
-        if (tables_val.length() > 0) // not the first table
+        if (tables_val.length() > 0)  // if not the first table then add ','
           tables_val.append(",");
-        // check the new item does not cause the value to exceed the limit
-        if (tables_val.length() + strlen(one_table.second)+3 > max_tables_len) {
+        // check the new table does not cause the value to exceed the limit
+        if (tables_val.length() + strlen(one_table.second) > max_tables_len) {
           tables_val.append("...");
           break;
         }
@@ -10835,16 +10828,16 @@ static void store_query_tables_in_response_attributes(
       }
     }
 
-    if (tables_val.length() > 0)
-    {
+    if (tables_val.length() > 0) {
       /* add the read_tables to response attributes */
-      auto tracker= thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+      auto tracker =
+          thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
       static LEX_CSTRING key;
-      if (R_or_W == static_cast<const char>('R'))
-        key = { STRING_WITH_LEN("read_tables") };
+      if (read_or_write == 'R')
+        key = {STRING_WITH_LEN("read_tables")};
       else
-        key = { STRING_WITH_LEN("write_tables") };
-      LEX_CSTRING value= { tables_val.c_str(), tables_val.length() };
+        key = {STRING_WITH_LEN("write_tables")};
+      LEX_CSTRING value = {tables_val.c_str(), tables_val.length()};
       tracker->mark_as_changed(thd, &key, &value);
     }
   }
