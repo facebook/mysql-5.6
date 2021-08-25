@@ -3898,7 +3898,7 @@ include/assert.inc [Variable slave_transaction_retries should exist in performan
 sysvar:
 - name=replica_type_conversions
 - alias=slave_type_conversions
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 16]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 32]
 - global=1
 - session=0
 - cmdline=1
@@ -3909,7 +3909,7 @@ sysvar:
 - max=
 - block_size=1
 - default=
-- values=["ALL_LOSSY", "'ALL_NON_LOSSY'", "''", "'ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED'", 0, 8, 15]
+- values=["ALL_NON_TRUNCATION", "ALL_LOSSY", "'ALL_NON_LOSSY'", "''", "'ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED'", 0, 8, 15, 16]
 ==== Testing SET @@global.replica_type_conversions [allowed values, range, invalid values] ====
 # Initial value is default
 include/assert.inc [@@global.replica_type_conversions should be ]
@@ -3917,6 +3917,11 @@ include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
 include/assert.inc [@@global.slave_type_conversions should be ]
 include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
 # Valid values for variable
+SET @@global.replica_type_conversions=ALL_NON_TRUNCATION;
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [replica_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [slave_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
 SET @@global.replica_type_conversions=ALL_LOSSY;
 include/assert.inc [@@global.replica_type_conversions should be ALL_LOSSY]
 include/assert.inc [replica_type_conversions should be ALL_LOSSY in P_S.global_variables]
@@ -3952,6 +3957,11 @@ include/assert.inc [@@global.replica_type_conversions should be ALL_LOSSY,ALL_NO
 include/assert.inc [replica_type_conversions should be ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED in P_S.global_variables]
 include/assert.inc [@@global.slave_type_conversions should be ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED]
 include/assert.inc [slave_type_conversions should be ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED in P_S.global_variables]
+SET @@global.replica_type_conversions=16;
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [replica_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [slave_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
 # Setting default value for variable
 SET @@global.replica_type_conversions = DEFAULT;
 include/assert.inc [@@global.replica_type_conversions should be ]
@@ -3971,7 +3981,7 @@ SET @@global.replica_type_conversions = 'FOO_BAR';
 Got one of the listed errors
 SET @@global.replica_type_conversions = -1;
 Got one of the listed errors
-SET @@global.replica_type_conversions = 16;
+SET @@global.replica_type_conversions = 32;
 Got one of the listed errors
 # Restore default
 SET @@global.replica_type_conversions = DEFAULT;
@@ -3983,6 +3993,10 @@ include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
 SET @@session.replica_type_conversions = DEFAULT;
 ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@replica_type_conversions = DEFAULT;
+ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.replica_type_conversions = ALL_NON_TRUNCATION;
+ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@replica_type_conversions = ALL_NON_TRUNCATION;
 ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@session.replica_type_conversions = ALL_LOSSY;
 ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
@@ -4012,6 +4026,10 @@ SET @@session.replica_type_conversions = 15;
 ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@replica_type_conversions = 15;
 ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.replica_type_conversions = 16;
+ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@replica_type_conversions = 16;
+ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
 SELECT @@session.replica_type_conversions;
 ERROR HY000: Variable 'replica_type_conversions' is a GLOBAL variable
 SELECT @@replica_type_conversions;
@@ -4025,6 +4043,13 @@ include/assert.inc [slave_type_conversions should be  in P_S.global_variables]
 include/assert.inc [@@global.replica_type_conversions should be ]
 include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
 # Valid values for variable
+SET @@global.slave_type_conversions=ALL_NON_TRUNCATION;
+Warnings:
+Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [slave_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [replica_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
 SET @@global.slave_type_conversions=ALL_LOSSY;
 Warnings:
 Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
@@ -4074,6 +4099,13 @@ include/assert.inc [@@global.slave_type_conversions should be ALL_LOSSY,ALL_NON_
 include/assert.inc [slave_type_conversions should be ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED in P_S.global_variables]
 include/assert.inc [@@global.replica_type_conversions should be ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED]
 include/assert.inc [replica_type_conversions should be ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED in P_S.global_variables]
+SET @@global.slave_type_conversions=16;
+Warnings:
+Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
+include/assert.inc [@@global.slave_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [slave_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
+include/assert.inc [@@global.replica_type_conversions should be ALL_NON_TRUNCATION]
+include/assert.inc [replica_type_conversions should be ALL_NON_TRUNCATION in P_S.global_variables]
 # Setting default value for variable
 SET @@global.slave_type_conversions = DEFAULT;
 Warnings:
@@ -4095,7 +4127,7 @@ SET @@global.slave_type_conversions = 'FOO_BAR';
 Got one of the listed errors
 SET @@global.slave_type_conversions = -1;
 Got one of the listed errors
-SET @@global.slave_type_conversions = 16;
+SET @@global.slave_type_conversions = 32;
 Got one of the listed errors
 # Restore default
 SET @@global.slave_type_conversions = DEFAULT;
@@ -4109,6 +4141,10 @@ include/assert.inc [replica_type_conversions should be  in P_S.global_variables]
 SET @@session.slave_type_conversions = DEFAULT;
 ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@slave_type_conversions = DEFAULT;
+ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slave_type_conversions = ALL_NON_TRUNCATION;
+ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@slave_type_conversions = ALL_NON_TRUNCATION;
 ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@session.slave_type_conversions = ALL_LOSSY;
 ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
@@ -4137,6 +4173,10 @@ ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should b
 SET @@session.slave_type_conversions = 15;
 ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@slave_type_conversions = 15;
+ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slave_type_conversions = 16;
+ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@slave_type_conversions = 16;
 ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable and should be set with SET GLOBAL
 SELECT @@session.slave_type_conversions;
 ERROR HY000: Variable 'slave_type_conversions' is a GLOBAL variable

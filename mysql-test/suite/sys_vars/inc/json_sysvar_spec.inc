@@ -376,15 +376,16 @@ let $sysvar_specs =
     "name": "replica_type_conversions",
     "alias": "slave_type_conversions",
     "default": "",
-    "values": ["ALL_LOSSY", "'ALL_NON_LOSSY'", "''", "'ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED'", 0, 8, 15],
-    "invalid": [$enum_invalid, -1, 16],
+    "values": ["ALL_NON_TRUNCATION", "ALL_LOSSY", "'ALL_NON_LOSSY'", "''", "'ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED'", 0, 8, 15, 16],
+    "invalid": [$enum_invalid, -1, 32],
     "value_map": {
       "'ALL_NON_LOSSY'": "ALL_NON_LOSSY",
       "'ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED'": "ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED",
       "''": "",
       "0": "",
       "8": "ALL_SIGNED",
-      "15": "ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED"
+      "15": "ALL_LOSSY,ALL_NON_LOSSY,ALL_UNSIGNED,ALL_SIGNED",
+      "16": "ALL_NON_TRUNCATION"
     },
     "skip_set_persist_only_default": 1
   },
