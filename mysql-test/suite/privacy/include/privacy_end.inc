@@ -19,3 +19,6 @@ if (!$sql_privacy_log_was_early_installed)
 }
 enable_warnings;
 enable_query_log;
+
+#Restore privacy_plugin_on setting
+set global privacy_plugin_on=@original_privacy_plugin_on;

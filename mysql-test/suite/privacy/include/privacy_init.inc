@@ -17,3 +17,7 @@ if (!$sql_privacy_log_early_installed)
   INSTALL PLUGIN SQL_PRIVACY_LOG SONAME 'mysql_privacy_plugin.so';
 }
 enable_query_log;
+
+# Enable plugin
+set @original_privacy_plugin_on=@@privacy_plugin_on;
+set global privacy_plugin_on = 1;
