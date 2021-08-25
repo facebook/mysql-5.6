@@ -288,6 +288,11 @@ SELECT /*+ bypass */ id2 FROM link_table5
 WHERE link_type=1 and id1=2 and id2=1;
 --source ../include/verify_bypass_query.inc
 
+let bypass_query=
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1 >= 2 ORDER BY id1 ASC;
+--source ../include/verify_bypass_query.inc
+
 --echo # Range query with PK key only with filters
 let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
