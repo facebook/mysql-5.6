@@ -2356,14 +2356,16 @@ The following options may be given as the first argument:
  Set of slave type conversions that are enabled. Legal
  values are: ALL_LOSSY to enable lossy conversions,
  ALL_NON_LOSSY to enable non-lossy conversions,
- ALL_UNSIGNED to treat all integer column type data to be
- unsigned values, and ALL_SIGNED to treat all integer
- column type data to be signed values. Default treatment
- is ALL_SIGNED. If ALL_SIGNED and ALL_UNSIGNED both are
- specified, ALL_SIGNED will take higher priority than
- ALL_UNSIGNED. If the variable is assigned the empty set,
- no conversions are allowed and it is expected that the
- types match exactly.
+ ALL_NON_TRUNCATION to enable conversions between
+ compatible types as long as there is no truncation in
+ value, ALL_UNSIGNED to treat all integer column type data
+ to be unsigned values, and ALL_SIGNED to treat all
+ integer column type data to be signed values. Default
+ treatment is ALL_SIGNED. If ALL_SIGNED and ALL_UNSIGNED
+ both are specified, ALL_SIGNED will take higher priority
+ than ALL_UNSIGNED. If the variable is assigned the empty
+ set, no conversions are allowed and it is expected that
+ the types match exactly.
  --slave-use-idempotent-for-recovery=name 
  Modes for how replication events should be executed
  during recovery. Legal values are NO (default) and YES.

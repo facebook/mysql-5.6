@@ -12,6 +12,9 @@ SELECT @@global.slave_type_conversions;
 SET GLOBAL SLAVE_TYPE_CONVERSIONS='ALL_LOSSY';
 SELECT @@global.slave_type_conversions;
 
+SET GLOBAL SLAVE_TYPE_CONVERSIONS='ALL_NON_TRUNCATION';
+SELECT @@global.slave_type_conversions;
+
 SET GLOBAL SLAVE_TYPE_CONVERSIONS='ALL_LOSSY,ALL_NON_LOSSY';
 SELECT @@global.slave_type_conversions;
 

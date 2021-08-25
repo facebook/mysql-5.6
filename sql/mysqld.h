@@ -211,7 +211,8 @@ enum enum_slave_type_conversions {
   SLAVE_TYPE_CONVERSIONS_ALL_LOSSY,
   SLAVE_TYPE_CONVERSIONS_ALL_NON_LOSSY,
   SLAVE_TYPE_CONVERSIONS_ALL_UNSIGNED,
-  SLAVE_TYPE_CONVERSIONS_ALL_SIGNED
+  SLAVE_TYPE_CONVERSIONS_ALL_SIGNED,
+  SLAVE_TYPE_CONVERSIONS_ALL_NON_TRUNCATION
 };
 extern ulong slave_run_triggers_for_rbr;
 extern ulonglong slave_type_conversions_options;
