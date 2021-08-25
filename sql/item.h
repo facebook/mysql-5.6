@@ -2125,6 +2125,13 @@ class Item : public Parse_tree_node {
   bool may_evaluate_const(const THD *thd) const;
 
   /**
+    @returns true if this item is non-deterministic, which means that a
+             has a component that must be evaluated once per row in
+             execution of a JOIN query.
+  */
+  bool is_non_deterministic() const { return used_tables() & RAND_TABLE_BIT; }
+
+  /**
     This method is used for to:
       - to generate a view definition query (SELECT-statement);
       - to generate a SQL-query for EXPLAIN EXTENDED;
