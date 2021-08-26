@@ -3,6 +3,7 @@
 #
 
 -- source include/have_binlog_format_row.inc
+-- source include/have_debug_sync.inc
 
 #######################################
 
@@ -220,6 +221,7 @@ SET @@GLOBAL.WRITE_STATS_COUNT=0;
 ### Case 8: Manual Throttling - SQL_ID 
 ########################################################################################################
 --echo Case 8: Manual Throttling - SQL_ID 
+set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
 SET @@GLOBAL.WRITE_STATS_COUNT=2;
 
@@ -249,11 +251,13 @@ select * from t;
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
 
 ########################################################################################################
 ### Case 9: Manual Throttling - CLIENT 
 ########################################################################################################
 --echo Case 9: Manual Throttling - CLIENT 
+set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
 SET @@GLOBAL.WRITE_STATS_COUNT=2;
 
@@ -291,11 +295,13 @@ select * from t;
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
 
 ########################################################################################################
 ### Case 10: Manual Throttling - SHARD 
 ########################################################################################################
 --echo Case 10: Manual Throttling - SHARD 
+set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
 SET @@GLOBAL.WRITE_STATS_COUNT=2;
 
@@ -333,11 +339,13 @@ select * from t;
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
 
 ########################################################################################################
 ### Case 11: Manual Throttling - USER 
 ########################################################################################################
 --echo Case 11: Manual Throttling - USER 
+set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
 SET @@GLOBAL.WRITE_STATS_COUNT=2;
 
@@ -385,6 +393,44 @@ select * from t;
 TRUNCATE t;
 drop user user_super1@localhost;
 disconnect con14;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
+
+--echo ####################################################################################################
+--echo ### Test 12: Super/repl_slave/binlog_admin privileged users are not throttled
+--echo ####################################################################################################
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+
+create user no_super_user;
+grant SELECT, INSERT, UPDATE, DELETE, CREATE on *.* to no_super_user;
+create user super_user;
+grant SELECT, INSERT, UPDATE, DELETE, CREATE, SUPER on *.* to super_user;
+
+insert into t values(1);
+
+select value from performance_schema.write_statistics where type = 'SQL_ID' into @sql_id;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('+SQL_ID=', @sql_id);
+select mode, value from performance_schema.write_throttling_rules where type = 'SQL_ID';
+
+connect (con_no_super_user, localhost, no_super_user,,);
+
+--echo Should throttle insert queries by non super user
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+
+--echo Should not throttle insert queries by super privilege user
+connect (con_super_user, localhost, super_user,,);
+insert into t values(1);
+
+--echo reset 
+connection default;
+drop user no_super_user;
+drop user super_user;
+disconnect con_no_super_user;
+disconnect con_super_user;
+TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 
