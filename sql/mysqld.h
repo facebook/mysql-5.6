@@ -479,6 +479,8 @@ extern bool enable_query_checksum;
 /* Enable resultset checksums */
 extern bool enable_resultset_checksum;
 
+extern char *optimizer_force_index_rewrite;
+
 extern uint net_compression_level;
 extern long zstd_net_compression_level;
 extern long lz4f_net_compression_level;
@@ -1329,6 +1331,22 @@ bool set_current_thread_priority();
  * @return     true on success, false otherwise.
  */
 bool set_system_thread_priority(pid_t tid, int pri);
+
+/**
+ * Check if we should be using another index for FORCE INDEX.
+ *
+ * @param lookup The current index used in FORCE IDNEX.
+ * @param out    The new index to use, only populated when true is returned
+ * @return       true if a different index should be used
+ */
+bool lookup_optimizer_force_index_rewrite(const std::string &lookup,
+                                          std::string *out);
+/**
+ * Update optimizer_force_index_rewrite_map based on current value of optimizer_force_index_rewrite.
+ *
+ * @return       false for success, true otherwise
+ */
+bool update_optimizer_force_index_rewrite();
 
 extern bool opt_persist_sensitive_variables_in_plaintext;
 

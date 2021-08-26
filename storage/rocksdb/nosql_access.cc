@@ -295,12 +295,19 @@ class sql_select_parser : public base_select_parser {
           m_error_msg = "Index hint must be FORCE INDEX";
           return true;
         }
-        uint pos = find_type(&m_table->s->keynames, hint->key_name.str,
-                             hint->key_name.length, true);
+        std::string rewritten_index;
+        bool is_rewritten = lookup_optimizer_force_index_rewrite(
+            to_string(hint->key_name), &rewritten_index);
+        LEX_CSTRING index_to_use =
+            is_rewritten
+                ? LEX_CSTRING{rewritten_index.c_str(), rewritten_index.size()}
+                : hint->key_name;
+        uint pos = find_type(&m_table->s->keynames, index_to_use.str,
+                             index_to_use.length, true);
         if (!pos) {
           // Unrecognized index
           snprintf(m_error_msg_buf, sizeof(m_error_msg_buf) / sizeof(char),
-                   "Unrecognized index: '%s'", hint->key_name.str);
+                   "Unrecognized index: '%s'", index_to_use.str);
           m_error_msg = m_error_msg_buf;
           return true;
         }
