@@ -1,6 +1,7 @@
 --disable_warnings
 DROP TABLE IF EXISTS tbl1;
 DROP TABLE IF EXISTS tbl2;
+DROP TABLE IF EXISTS tbl3;
 DROP DATABASE IF EXISTS cus_test;
 CREATE DATABASE cus_test;
 USE cus_test;
@@ -29,10 +30,21 @@ INSERT INTO tbl3 (col1_2, col3_3) VALUES (3, 84);
 INSERT INTO tbl3 (col1_2, col3_3) VALUES (4, 85);
 
 set global column_stats_control = ON;
+set global sql_stats_control = ON;
 
 # Executing queries that would populate COLUMN_STATISTICS
 
-SELECT col1_1, col1_2 FROM tbl1 WHERE col1_2 IN (1, 4, 3) UNION SELECT col2_1, col2_2 FROM tbl2 WHERE col2_1 > 4 AND col2_2 <= 5;
+SELECT col1_1, col1_2 FROM tbl1 WHERE col1_2 IN (1, 4, 3) UNION
+SELECT col2_1, col2_2 FROM tbl2 WHERE col2_1 > 4 AND col2_2 <= 5;
+
+SELECT col1_1, col1_2 FROM tbl1 WHERE col1_2 IN (1, 4, 3) UNION
+SELECT col2_1, col2_2 FROM tbl2 WHERE col2_1 > 4 AND col2_2 <= 5 LIMIT 1;
+
+SELECT col1_1, col1_2 FROM tbl1 WHERE col1_2 IN (1, 4, 3) UNION ALL
+SELECT col2_1, col2_2 FROM tbl2 WHERE col2_1 < 4 AND col2_2 >= 5;
+
+SELECT col1_1, col1_2 FROM tbl1 WHERE col1_2 IN (1, 4, 3) UNION ALL
+SELECT col2_1, col2_2 FROM tbl2 WHERE col2_1 < 4 AND col2_2 >= 5 LIMIT 1;
 
 SELECT col1_1, col1_2 FROM tbl1 WHERE col1_2 NOT IN (81, 4, 7) UNION
 SELECT col2_1, col2_2 FROM tbl2 WHERE col2_1 > 4 AND col2_2 <= 5 UNION ALL
@@ -40,13 +52,17 @@ SELECT col1_2, col3_3 FROM tbl3 WHERE col1_1 IS NOT NULL;
 
 # Verification of stats accumulated
 
-SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS;
+SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS
+WHERE TABLE_SCHEMA <> 'information_schema';
 
-SORTED_RESULT;
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM information_schema.COLUMN_STATISTICS;
+--vertical_results
+SELECT cs.SQL_ID, SQL_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM information_schema.COLUMN_STATISTICS cs, information_schema.SQL_TEXT mt
+WHERE TABLE_SCHEMA <> 'information_schema' AND cs.SQL_ID = mt.SQL_ID
+ORDER BY cs.SQL_ID, SQL_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
 
 set global column_stats_control = OFF_HARD;
+set global sql_stats_control = OFF_HARD;
 
 DROP TABLE tbl1;
 DROP TABLE tbl2;

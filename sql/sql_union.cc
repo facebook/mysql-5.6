@@ -29,6 +29,7 @@
 #include "sql_tmp_table.h"                      // tmp tables
 #include "sql_optimizer.h"                      // JOIN
 #include "opt_explain_format.h"
+#include "column_statistics.h"
 
 bool mysql_union(THD *thd, LEX *lex, select_result *result,
                  SELECT_LEX_UNIT *unit, ulong setup_tables_done_option)
@@ -40,6 +41,16 @@ bool mysql_union(THD *thd, LEX *lex, select_result *result,
 		     SELECT_NO_UNLOCK | setup_tables_done_option);
   if (res)
     goto err;
+
+  // Parse column usage statistics and store it into THD.
+  // A fake select LEX object is used in case of union to store global
+  // parameters. However, with certain cases like UNION ALL,
+  // a fake_select_lex might be absent since deduplication is not necessary.
+  // When a fake_select_lex is present, the execution path is the same as
+  // that of mysql_select which collects COLUMN_STATISTICS.
+  if (unit->fake_select_lex == NULL) {
+    parse_column_usage_info(thd);
+  }
 
   /*
     Tables are not locked at this point, it means that we have delayed
