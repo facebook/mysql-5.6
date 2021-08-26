@@ -1057,6 +1057,12 @@ The following options may be given as the first argument:
  --optimizer-force-index-for-range 
  If enabled, FORCE INDEX will also try to force a range
  plan.
+ --optimizer-force-index-rewrite=name 
+ Searches and replaces index name used in FORCE INDEX
+ hints. Format is comma separated list of pairs with each
+ pair separated by colon. eg.
+ search1:replace1,search2:replace2 will replace search1
+ with replace1 and search2 with replace2.
  --optimizer-full-scan 
  Enable full table and index scans.
  (Defaults to on; use --skip-optimizer-full-scan to disable.)
@@ -3057,6 +3063,7 @@ old FALSE
 old-alter-table FALSE
 old-style-user-limits FALSE
 optimizer-force-index-for-range FALSE
+optimizer-force-index-rewrite (No default value)
 optimizer-full-scan TRUE
 optimizer-group-by-cost-adjust 1
 optimizer-prune-level 1

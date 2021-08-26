@@ -6444,13 +6444,21 @@ bool TABLE_LIST::process_index_hints(const THD *thd, TABLE *tbl) {
         Check if an index with the given name exists and get his offset in
         the keys bitmask for the table
       */
+      std::string rewritten_index;
+      bool is_rewritten = tbl->s->keynames.type_names != nullptr &&
+                          lookup_optimizer_force_index_rewrite(
+                              to_string(hint->key_name), &rewritten_index);
+      LEX_CSTRING index_to_use =
+          is_rewritten
+              ? LEX_CSTRING{rewritten_index.c_str(), rewritten_index.size()}
+              : hint->key_name;
       if (tbl->s->keynames.type_names == nullptr ||
-          (pos = find_type(&tbl->s->keynames, hint->key_name.str,
-                           hint->key_name.length, true)) <= 0 ||
+          (pos = find_type(&tbl->s->keynames, index_to_use.str,
+                           index_to_use.length, true)) <= 0 ||
           (!tbl->s->key_info[pos - 1].is_visible &&
            !thd->optimizer_switch_flag(
                OPTIMIZER_SWITCH_USE_INVISIBLE_INDEXES))) {
-        my_error(ER_KEY_DOES_NOT_EXITS, MYF(0), hint->key_name.str, alias);
+        my_error(ER_KEY_DOES_NOT_EXITS, MYF(0), index_to_use.str, alias);
         return true;
       }
 

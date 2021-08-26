@@ -1125,6 +1125,7 @@ static PSI_mutex_key key_LOCK_rotate_binlog_master_key;
 static PSI_mutex_key key_LOCK_partial_revokes;
 static PSI_mutex_key key_LOCK_authentication_policy;
 static PSI_mutex_key key_LOCK_global_conn_mem_limit;
+static PSI_mutex_key key_LOCK_optimizer_force_index_rewrite_map;
 #endif /* HAVE_PSI_INTERFACE */
 
 /**
@@ -1389,6 +1390,10 @@ bool enable_query_checksum = false;
  * query attr set
  */
 bool enable_resultset_checksum = false;
+
+char *optimizer_force_index_rewrite;
+mysql_mutex_t LOCK_optimizer_force_index_rewrite_map;
+std::unordered_map<std::string, std::string> optimizer_force_index_rewrite_map;
 
 #if defined(ENABLED_DEBUG_SYNC)
 MYSQL_PLUGIN_IMPORT uint opt_debug_sync_timeout = 0;
@@ -3112,6 +3117,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_partial_revokes);
   mysql_mutex_destroy(&LOCK_authentication_policy);
   mysql_mutex_destroy(&LOCK_global_conn_mem_limit);
+  mysql_mutex_destroy(&LOCK_optimizer_force_index_rewrite_map);
 }
 
 /****************************************************************************
@@ -6070,6 +6076,8 @@ static int init_thread_environment() {
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_conn_mem_limit, &LOCK_global_conn_mem_limit,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_optimizer_force_index_rewrite_map,
+                   &LOCK_optimizer_force_index_rewrite_map, MY_MUTEX_INIT_FAST);
   return 0;
 }
 
@@ -13137,6 +13145,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_delegate_connection_mutex, "LOCK_delegate_connection_mutex", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_group_replication_connection_mutex, "LOCK_group_replication_connection_mutex", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 { &key_LOCK_authentication_policy, "LOCK_authentication_policy", PSI_FLAG_SINGLETON, 0, "A lock to ensure execution of CREATE USER or ALTER USER sql and SET @@global.authentication_policy variable are serialized"},
+  { &key_LOCK_optimizer_force_index_rewrite_map, "LOCK_optimizer_force_index_rewrite_map", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_ac_node, "st_ac_node::lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_ac_info, "Ac_info::lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_global_conn_mem_limit, "LOCK_global_conn_mem_limit", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}
@@ -14061,4 +14070,16 @@ bool set_system_thread_priority(pid_t tid, int pri) {
 
 bool set_current_thread_priority() {
   return current_thd->set_thread_priority();
+}
+
+bool lookup_optimizer_force_index_rewrite(const std::string &lookup,
+                                          std::string *out) {
+  MUTEX_LOCK(lock, &LOCK_optimizer_force_index_rewrite_map);
+  const auto &it = optimizer_force_index_rewrite_map.find(lookup);
+
+  if (it != optimizer_force_index_rewrite_map.end()) {
+    *out = it->second;
+    return true;
+  }
+  return false;
 }
