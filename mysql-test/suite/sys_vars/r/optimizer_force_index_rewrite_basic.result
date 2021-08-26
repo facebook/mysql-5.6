@@ -1,0 +1,22 @@
+SET @start_value = @@global.optimizer_force_index_rewrite;
+SELECT @start_value;
+@start_value
+NULL
+'#---------------------FN_DYNVARS_004_01-------------------------#'
+SET @@global.optimizer_force_index_rewrite = DEFAULT;
+SET @a=concat(left(@@hostname, instr(concat(@@hostname, '.'), '.')-1), '.log');
+SELECT RIGHT(@@global.optimizer_force_index_rewrite, length(@a)) = @a;
+RIGHT(@@global.optimizer_force_index_rewrite, length(@a)) = @a
+NULL
+'#--------------------FN_DYNVARS_004_02------------------------#'
+SET @@global.optimizer_force_index_rewrite = mytest.log;
+ERROR 42000: Incorrect argument type to variable 'optimizer_force_index_rewrite'
+SET @@global.optimizer_force_index_rewrite = 12;
+ERROR 42000: Incorrect argument type to variable 'optimizer_force_index_rewrite'
+'#----------------------FN_DYNVARS_004_03------------------------#'
+SELECT @@global.optimizer_force_index_rewrite = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='optimizer_force_index_rewrite';
+@@global.optimizer_force_index_rewrite = VARIABLE_VALUE
+NULL
+SET @@global.optimizer_force_index_rewrite= @start_value;

@@ -1,0 +1,75 @@
+################### mysql-test\t\optimizer_force_index_rewrite_basic.test ###################
+#                                                                                           #
+# Variable Name: optimizer_force_index_rewrite                                              #
+# Scope: GLOBAL                                                                             #
+# Access Type: Dynamic                                                                      #
+# Data Type: Filename                                                                       #
+# Default Value: host_name.log                                                              #
+# Valid Values:                                                                             #
+#                                                                                           #
+#                                                                                           #
+# Description: Test Cases of Dynamic System Variable "optimizer_force_index_rewrite"        #
+#              that checks behavior of this variable in the following ways                  #
+#              * Default Value                                                              #
+#              * Valid & Invalid values                                                     #
+#              * Scope & Access method                                                      #
+#              * Data Integrity                                                             #
+#                                                                                           #
+# Reference:                                                                                #
+# http://dev.mysql.com/doc/refman/5.1/en/server-system-variables.html                       #
+#                                                                                           #
+#############################################################################################
+
+--source include/load_sysvars.inc
+
+########################################################################
+#           START OF optimizer_force_index_rewrite TESTS               #
+########################################################################
+
+
+#####################################################################################
+#   Saving initial value of optimizer_force_index_rewrite in a temporary variable   #
+#####################################################################################
+
+SET @start_value = @@global.optimizer_force_index_rewrite;
+SELECT @start_value;
+
+
+--echo '#---------------------FN_DYNVARS_004_01-------------------------#'
+############################################### 
+#     Verify default value of variable        #
+############################################### 
+
+SET @@global.optimizer_force_index_rewrite = DEFAULT;
+SET @a=concat(left(@@hostname, instr(concat(@@hostname, '.'), '.')-1), '.log');
+SELECT RIGHT(@@global.optimizer_force_index_rewrite, length(@a)) = @a;
+
+
+--echo '#--------------------FN_DYNVARS_004_02------------------------#'
+####################################################################################
+#        Change the value of optimizer_force_index_rewrite to a invalid value      #
+####################################################################################
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.optimizer_force_index_rewrite = mytest.log;
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.optimizer_force_index_rewrite = 12;
+
+
+--echo '#----------------------FN_DYNVARS_004_03------------------------#'
+############################################################################## 
+# Check if the value in GLOBAL Tables matches values in variable             #
+##############################################################################
+
+--disable_warnings
+SELECT @@global.optimizer_force_index_rewrite = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='optimizer_force_index_rewrite';
+--enable_warnings
+
+SET @@global.optimizer_force_index_rewrite= @start_value;
+
+##################################################################
+#       END OF optimizer_force_index_rewrite TESTS               #
+##################################################################
+

@@ -1,0 +1,45 @@
+CREATE TABLE t (i int, j int, k int, primary key(i, j, k), key j1 (j, i), key j2 (j, k)) engine=RocksDB;
+INSERT INTO t VALUES (1, 2, 3);
+INSERT INTO t VALUES (1, 3, 2);
+INSERT INTO t VALUES (3, 2, 1);
+
+--replace_column 10 # 11 #
+EXPLAIN SELECT * FROM t FORCE INDEX(PRIMARY) WHERE i = 1 and j = 2;
+--replace_column 10 # 11 #
+EXPLAIN SELECT * FROM t FORCE INDEX(j1) WHERE i = 1 and j = 2;
+--replace_column 10 # 11 #
+EXPLAIN SELECT * FROM t FORCE INDEX(j2) WHERE i = 1 and j = 2;
+
+set global optimizer_force_index_rewrite = "PRIMARY:j1,j1:j2";
+
+--replace_column 10 # 11 #
+EXPLAIN SELECT * FROM t FORCE INDEX(PRIMARY) WHERE i = 1 and j = 2;
+--replace_column 10 # 11 #
+EXPLAIN SELECT * FROM t FORCE INDEX(j1) WHERE i = 1 and j = 2;
+--replace_column 10 # 11 #
+EXPLAIN SELECT * FROM t FORCE INDEX(j2) WHERE i = 1 and j = 2;
+
+set global optimizer_force_index_rewrite = "PRIMARY:asdf,j1:asdf";
+
+--error ER_KEY_DOES_NOT_EXITS
+EXPLAIN SELECT * FROM t FORCE INDEX(PRIMARY) WHERE i = 1 and j = 2;
+--error ER_KEY_DOES_NOT_EXITS
+EXPLAIN SELECT * FROM t FORCE INDEX(j1) WHERE i = 1 and j = 2;
+--replace_column 10 # 11 #
+EXPLAIN SELECT * FROM t FORCE INDEX(j2) WHERE i = 1 and j = 2;
+
+#
+# Test bypass codepath.
+#
+set global rocksdb_select_bypass_policy = always_on;
+set global optimizer_force_index_rewrite = "PRIMARY:asdf,j1:j2,j2:PRIMARY";
+
+--error ER_KEY_DOES_NOT_EXITS
+SELECT * FROM t FORCE INDEX(PRIMARY) WHERE i > 0;
+SELECT * FROM t FORCE INDEX(j1) WHERE j > 0;
+SELECT * FROM t FORCE INDEX(j2) WHERE j > 0;
+
+set global optimizer_force_index_rewrite = DEFAULT;
+set global rocksdb_select_bypass_policy = DEFAULT;
+
+DROP TABLE t;
