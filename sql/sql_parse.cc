@@ -8240,6 +8240,20 @@ static bool mt_check_throttle_write_query(THD* thd)
     DBUG_RETURN(false);
   }
 
+  bool debug_skip_write_throttle_super_check = false;
+  DBUG_EXECUTE_IF("dbug.skip_write_throttle_super_check",
+                  { debug_skip_write_throttle_super_check = true; });
+
+  if (!debug_skip_write_throttle_super_check) {
+    // exclude automation & super queries
+    ulong master_access = thd->security_context()->master_access;
+    if ((master_access & ADMIN_PORT_ACL) ||
+        (master_access & SUPER_ACL) || 
+        (master_access & REPL_SLAVE_ACL)) {
+      DBUG_RETURN(false);
+    }
+  }
+
 // check if its time to check replication lag
 #ifdef HAVE_REPLICATION
   bool debug_skip_auto_throttle_check = false;
