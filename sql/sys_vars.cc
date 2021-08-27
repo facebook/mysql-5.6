@@ -6552,7 +6552,7 @@ static Sys_var_ulong Sys_session_set_dscp_on_socket(
        "0 means unset, and it will use default value. To overrides, use number"
        " from 1 to 63",
        SESSION_VAR(dscp_on_socket),
-       NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0), BLOCK_SIZE(1),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, 63), DEFAULT(0), BLOCK_SIZE(1),
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(NULL), ON_UPDATE(update_session_dscp_on_socket));
 

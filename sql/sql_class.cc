@@ -7039,11 +7039,6 @@ bool THD::set_dscp_on_socket() {
     return false;
   }
 
-  if (dscp_val == 0) {
-    // Default unset value
-    return true;
-  }
-
   const NET* net = get_net();
 
   int tos= dscp_val << 2;
