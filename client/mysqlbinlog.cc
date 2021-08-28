@@ -807,6 +807,8 @@ enum Exit_status {
   Options that will be used to filter out events.
 */
 static char *opt_include_gtids_str = nullptr, *opt_exclude_gtids_str = nullptr,
+            *opt_include_gtids_from_file_str = nullptr,
+            *opt_exclude_gtids_from_file_str = nullptr,
             *opt_start_gtid_str = nullptr, *opt_find_gtid_str = nullptr,
             *opt_stop_gtid_str = nullptr;
 static char *opt_index_file_str = nullptr;
@@ -2391,11 +2393,21 @@ static struct my_option my_long_options[] = {
      "were provided.",
      &opt_include_gtids_str, &opt_include_gtids_str, nullptr, GET_STR_ALLOC,
      REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"include-gtids-from-file", OPT_MYSQLBINLOG_INCLUDE_GTIDS_FROM_FILE,
+     "Print events whose Global Transaction Identifiers "
+     "were provided.",
+     &opt_include_gtids_from_file_str, &opt_include_gtids_from_file_str,
+     nullptr, GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"exclude-gtids", OPT_MYSQLBINLOG_EXCLUDE_GTIDS,
      "Print all events but those whose Global Transaction "
      "Identifiers were provided.",
      &opt_exclude_gtids_str, &opt_exclude_gtids_str, nullptr, GET_STR_ALLOC,
      REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"exclude-gtids-from-file", OPT_MYSQLBINLOG_EXCLUDE_GTIDS_FROM_FILE,
+     "Print all events but those whose Global Transaction "
+     "Identifiers were provided.",
+     &opt_exclude_gtids_from_file_str, &opt_exclude_gtids_from_file_str,
+     nullptr, GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"print-table-metadata", OPT_PRINT_TABLE_METADATA,
      "Print metadata stored in Table_map_log_event", &opt_print_table_metadata,
      &opt_print_table_metadata, nullptr, GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0,
@@ -3523,6 +3535,41 @@ static Exit_status dump_local_log_entries(PRINT_EVENT_INFO *print_event_info,
   return retval;
 }
 
+/* Read gtids file and store the value in the argument 'buffer'.
+ *
+ * @params gtids_file  name of the gtids file
+ * @params buffer[OUT] output buffer to store the gtids string
+ *
+ * @returns FALSE if the reading of the gtids file is successful.
+ *          TRUE  otherwise.
+ */
+static bool read_gtids_file(char *gtids_file, char **buffer) {
+  MY_STAT stat_arg;
+  int fd;
+  /* get the size of the gtids file in bytes */
+  if (!my_stat(gtids_file, &stat_arg, MYF(MY_WME))) return true;
+
+  /* open the gtids file */
+  if ((fd = my_open(gtids_file, O_RDONLY, MYF(MY_WME))) < 0) return true;
+
+  /* allocate buffer */
+  if (!((*buffer) = (char *)my_malloc(
+            PSI_NOT_INSTRUMENTED, (size_t)stat_arg.st_size + 1, MYF(MY_WME)))) {
+    return true;
+  }
+
+  /* read the contents of the file and store in buffer */
+  if (my_read(fd, (uchar *)(*buffer), (size_t)stat_arg.st_size,
+              MYF(MY_FNABP))) {
+    return true;
+  }
+
+  (*buffer)[stat_arg.st_size] = '\0';
+  (void)my_close(fd, MYF(0));
+
+  return false;
+}
+
 /* Post processing of arguments to check for conflicts and other setups */
 static int args_post_process(void) {
   DBUG_TRACE;
@@ -3546,17 +3593,21 @@ static int args_post_process(void) {
       return ERROR_STOP;
     }
 
-    if (opt_include_gtids_str != nullptr) {
-      error("You cannot use --include-gtids and --raw together.");
+    if (opt_include_gtids_str != nullptr ||
+        opt_include_gtids_from_file_str != nullptr) {
+      error("You cannot use --include-gtids%s and --raw together.",
+            opt_include_gtids_from_file_str ? "-from-file" : "");
       return ERROR_STOP;
     }
 
     if (opt_remote_proto == BINLOG_DUMP_NON_GTID &&
-        opt_exclude_gtids_str != nullptr) {
+        (opt_exclude_gtids_str != nullptr ||
+         opt_exclude_gtids_from_file_str != nullptr)) {
       error(
-          "You cannot use both of --exclude-gtids and --raw together "
+          "You cannot use both of --exclude-gtids%s and --raw together "
           "with one of --read-from-remote-server or "
-          "--read-from-remote-source=BINLOG-DUMP-NON-GTID.");
+          "--read-from-remote-source=BINLOG-DUMP-NON-GTID.",
+          opt_exclude_gtids_from_file_str ? "-from-file" : "");
       return ERROR_STOP;
     }
 
@@ -3573,8 +3624,11 @@ static int args_post_process(void) {
     }
   }
 
-  if (opt_start_gtid_str != nullptr && opt_exclude_gtids_str != nullptr) {
-    error("--start-gtid and --exclude-gtids should not be used together");
+  if (opt_start_gtid_str != nullptr &&
+      (opt_exclude_gtids_str != nullptr ||
+       opt_exclude_gtids_from_file_str != nullptr)) {
+    error("--start-gtid and --exclude-gtids%s should not be used together",
+          opt_exclude_gtids_from_file_str ? "-from-file" : "");
     return ERROR_STOP;
   }
 
@@ -3583,7 +3637,10 @@ static int args_post_process(void) {
   if (opt_include_gtids_str != nullptr) {
     if (gtid_set_included->add_gtid_text(opt_include_gtids_str) !=
         RETURN_STATUS_OK) {
-      error("Could not configure --include-gtids '%s'", opt_include_gtids_str);
+      error("Could not configure --include-gtids%s '%s'",
+            opt_include_gtids_from_file_str ? "-from-file" : "",
+            opt_include_gtids_from_file_str ? opt_include_gtids_from_file_str
+                                            : opt_include_gtids_str);
       global_sid_lock->unlock();
       return ERROR_STOP;
     }
@@ -3592,7 +3649,10 @@ static int args_post_process(void) {
   if (opt_exclude_gtids_str != nullptr) {
     if (gtid_set_excluded->add_gtid_text(opt_exclude_gtids_str) !=
         RETURN_STATUS_OK) {
-      error("Could not configure --exclude-gtids '%s'", opt_exclude_gtids_str);
+      error("Could not configure --exclude-gtids%s '%s'",
+            opt_exclude_gtids_from_file_str ? "-from-file" : "",
+            opt_exclude_gtids_from_file_str ? opt_exclude_gtids_from_file_str
+                                            : opt_exclude_gtids_str);
       global_sid_lock->unlock();
       return ERROR_STOP;
     }
@@ -3908,7 +3968,8 @@ int main(int argc, char **argv) {
   parse_args(&argc, &argv);
 
   if (!argc && opt_find_gtid_str == nullptr && opt_start_gtid_str == nullptr &&
-      opt_exclude_gtids_str == nullptr) {
+      (opt_exclude_gtids_str == nullptr ||
+       opt_exclude_gtids_from_file_str != NULL)) {
     usage();
     my_end(my_end_arg);
     return EXIT_FAILURE;
@@ -3924,6 +3985,50 @@ int main(int argc, char **argv) {
       (!strcmp(argv[0], "-"))) {
     error("stop_position not allowed when input is STDIN");
     return EXIT_FAILURE;
+  }
+
+  if (opt_include_gtids_str != nullptr &&
+      opt_include_gtids_from_file_str != nullptr) {
+    error(
+        "--include-gtids and --include-gtids-from-file should not be used "
+        "together");
+    return EXIT_FAILURE;
+  }
+
+  /* if '--include-gtids-from-file' is specified then read the gtids string
+   * value from the file and store it in 'opt_include_gtids_str'
+   */
+  if (opt_include_gtids_str == nullptr &&
+      opt_include_gtids_from_file_str != nullptr) {
+    if (strlen(opt_include_gtids_from_file_str) > 0 &&
+        read_gtids_file(opt_include_gtids_from_file_str,
+                        &opt_include_gtids_str)) {
+      error("Could not read include-gtids-from-file %s",
+            opt_include_gtids_from_file_str);
+      return EXIT_FAILURE;
+    }
+  }
+
+  if (opt_exclude_gtids_str != nullptr &&
+      opt_exclude_gtids_from_file_str != nullptr) {
+    error(
+        "--exclude-gtids and --exclude-gtids-from-file should not be used "
+        "together");
+    return ERROR_STOP;
+  }
+
+  /* if '--exclude-gtids-from-file' is specified then read the gtids string
+   * value from the file and store it in 'opt_exclude_gtids_str'
+   */
+  if (opt_exclude_gtids_str == nullptr &&
+      opt_exclude_gtids_from_file_str != nullptr) {
+    if (strlen(opt_exclude_gtids_from_file_str) > 0 &&
+        read_gtids_file(opt_exclude_gtids_from_file_str,
+                        &opt_exclude_gtids_str)) {
+      error("Could not read exclude-gtids-from-file %s",
+            opt_exclude_gtids_from_file_str);
+      return EXIT_FAILURE;
+    }
   }
 
   umask(((~my_umask) & 0666));
