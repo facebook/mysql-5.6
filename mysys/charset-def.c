@@ -296,6 +296,7 @@ my_bool init_compiled_charsets(myf flags MY_ATTRIBUTE((unused)))
 #ifdef HAVE_CHARSET_utf8mb4
   add_compiled_collation(&my_charset_utf8mb4_general_ci);
   add_compiled_collation(&my_charset_utf8mb4_bin);
+  add_compiled_collation(&my_charset_utf8mb4_general_ci2);
 #ifdef HAVE_UCA_COLLATIONS
   add_compiled_collation(&my_charset_utf8mb4_unicode_ci);
   add_compiled_collation(&my_charset_utf8mb4_german2_uca_ci);

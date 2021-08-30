@@ -73,6 +73,12 @@ DELETE FROM t1;
 DROP TABLE IF EXISTS t1;
 --enable_warnings
 
+#==============================================================================
+--echo '---verify that character set value 255 is valid----'
+#==============================================================================
+SET @@session.character_set_client = 255;
+SET @@global.character_set_client = 255;
+
 # restore
 SET @@global.character_set_client = @global_character_set_client;
 SET @@session.character_set_client = @session_character_set_client;
