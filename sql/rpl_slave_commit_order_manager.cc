@@ -268,15 +268,20 @@ void Commit_order_manager::check_and_report_deadlock(THD *thd_self,
 
 void Commit_order_manager::report_deadlock(Slave_worker *worker) {
   DBUG_TRACE;
-  mysql_mutex_lock(&m_mutex);
+  THD *thd = worker->info_thd;
+  mysql_mutex_lock(&thd->LOCK_thd_data);
   ++slave_commit_order_deadlocks;
   worker->report_commit_order_deadlock();
   DBUG_EXECUTE_IF("rpl_fake_cod_deadlock", {
     const char act[] = "now signal reported_deadlock";
     DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
   });
-  mysql_cond_signal(&m_workers[worker->id].cond);
-  mysql_mutex_unlock(&m_mutex);
+  /* Let's signal to any wait loop this worker is executing, this will also
+   * cover the wait loop in Commit_order_manager::wait().
+   * NOTE: we just want to send a signal without changing the killed flag
+   */
+  thd->awake(thd->killed);
+  mysql_mutex_unlock(&thd->LOCK_thd_data);
 }
 
 bool Commit_order_manager::wait(THD *thd) {
@@ -317,6 +322,7 @@ void Commit_order_manager::wait_and_finish(THD *thd, bool error) {
       std::tie(ret, std::ignore, std::ignore) =
           worker->check_and_report_end_of_retries(thd);
       if (ret) {
+        worker->reset_commit_order_deadlock();
         /*
           worker can set m_rollback_trx when it is its turn to commit,
           so need to call wait() before updating m_rollback_trx.
