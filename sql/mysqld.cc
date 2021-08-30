@@ -1437,6 +1437,7 @@ ulonglong opt_mts_dependency_size;
 double opt_mts_dependency_refill_threshold;
 ulonglong opt_mts_dependency_max_keys;
 ulong opt_mts_dependency_order_commits;
+ulonglong opt_mts_dependency_cond_wait_timeout;
 #ifndef DBUG_OFF
 uint slave_rows_last_search_algorithm_used;
 #endif

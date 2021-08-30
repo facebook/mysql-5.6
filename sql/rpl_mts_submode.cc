@@ -1192,7 +1192,11 @@ std::shared_ptr<Log_event_wrapper> Mts_submode_dependency::dequeue(
          worker->running_status == Slave_worker::RUNNING && dep_queue.empty()) {
     ++begin_event_waits;
     ++num_workers_waiting;
-    mysql_cond_wait(&dep_empty_cond, &dep_lock);
+    const auto timeout_nsec =
+        worker->c_rli->mts_dependency_cond_wait_timeout * 1000000;
+    struct timespec abstime;
+    set_timespec_nsec(&abstime, timeout_nsec);
+    mysql_cond_timedwait(&dep_empty_cond, &dep_lock, &abstime);
     --num_workers_waiting;
   }
 
@@ -1236,7 +1240,10 @@ void Mts_submode_dependency::enqueue(
 
   // wait if queue has reached full capacity
   while (unlikely(dep_full)) {
-    mysql_cond_wait(&dep_full_cond, &dep_lock);
+    const auto timeout_nsec = rli->mts_dependency_cond_wait_timeout * 1000000;
+    struct timespec abstime;
+    set_timespec_nsec(&abstime, timeout_nsec);
+    mysql_cond_timedwait(&dep_full_cond, &dep_lock, &abstime);
   }
 
   dep_queue.push_back(begin_event);
