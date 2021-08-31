@@ -372,11 +372,12 @@ Rdb_iterator_partial::Rdb_iterator_partial(
       m_converter(thd, tbl_def, table),
       m_valid(false),
       m_materialized(false),
+      m_iterator_pk_position(Iterator_position::UNKNOWN),
       m_threshold(kd->partial_index_threshold()),
       m_prefix_keyparts(kd->partial_index_keyparts()),
       m_cur_prefix_key_len(0),
-      m_records(slice_comparator(m_kd->get_cf()->GetComparator())),
-      m_records_it(m_records.end()) {
+      m_records_it(m_records.end()),
+      m_comparator(slice_comparator(m_kd->get_cf()->GetComparator())) {
   init_sql_alloc(PSI_NOT_INSTRUMENTED, &m_mem_root, 4096, 0);
   auto max_mem = get_partial_index_sort_max_mem(thd);
   if (max_mem) {
@@ -458,6 +459,7 @@ int Rdb_iterator_partial::get_prefix_from_start(
   // 1. There are not enough keyparts in the start_key.
   // 2. An exclusive seek key is provided, meaning that we need to read the next
   // prefix.
+  m_iterator_pk_position = Iterator_position::UNKNOWN;
   if (prefix_cnt < m_prefix_keyparts ||
       (prefix_len == start_key.size() &&
        (find_flag == HA_READ_AFTER_KEY || find_flag == HA_READ_BEFORE_KEY))) {
@@ -498,9 +500,29 @@ int Rdb_iterator_partial::get_next_prefix(bool direction) {
   rocksdb::Slice cur_prefix_key((const char *)m_cur_prefix_key,
                                 m_cur_prefix_key_len);
   uint tmp;
+  int rc = 0;
 
-  int rc = get_prefix_from_start(
-      direction ? HA_READ_AFTER_KEY : HA_READ_BEFORE_KEY, cur_prefix_key);
+  if (direction && m_iterator_pk_position != Iterator_position::UNKNOWN &&
+      m_iterator_pk_position != Iterator_position::START_CUR_PREFIX) {
+    if (m_iterator_pk_position == Iterator_position::END_OF_FILE) {
+      return HA_ERR_END_OF_FILE;
+    } else if (m_iterator_pk_position == Iterator_position::START_NEXT_PREFIX) {
+      uint prefix_cnt = 0;
+      uint prefix_len = 0;
+      rc = get_prefix_len(m_iterator_pk.key(), &prefix_cnt, &prefix_len);
+      if (rc) {
+        m_iterator_pk_position = Iterator_position::UNKNOWN;
+        return rc;
+      }
+      memcpy(m_cur_prefix_key, m_iterator_pk.key().data(), prefix_len);
+      m_cur_prefix_key_len = prefix_len;
+      m_iterator_pk_position = Iterator_position::START_CUR_PREFIX;
+    }
+  } else {
+    m_iterator_pk_position = Iterator_position::UNKNOWN;
+    rc = get_prefix_from_start(
+        direction ? HA_READ_AFTER_KEY : HA_READ_BEFORE_KEY, cur_prefix_key);
+  }
   m_kd->get_infimum_key(m_cur_prefix_key, &tmp);
 
   cur_prefix_key =
@@ -693,13 +715,27 @@ int Rdb_iterator_partial::read_prefix_from_pk() {
   // the forwards direction (even PK is a reverse cf). This ensures that we can
   // make good use of bloom filters.
   //
-  rc = m_iterator_pk.seek(HA_READ_KEY_EXACT, cur_prefix_key, false,
-                          cur_prefix_key);
+  DBUG_ASSERT(m_iterator_pk_position != Iterator_position::END_OF_FILE);
+  if (m_iterator_pk_position != Iterator_position::START_CUR_PREFIX) {
+    rocksdb::Slice empty_end_key;
+    rc = m_iterator_pk.seek(HA_READ_KEY_OR_NEXT, cur_prefix_key, false,
+                            empty_end_key);
+  }
 
-  while (!rc) {
+  while (true) {
     if (thd_killed(m_thd)) {
       rc = HA_ERR_QUERY_INTERRUPTED;
       goto exit;
+    }
+
+    if (rc == HA_ERR_END_OF_FILE) {
+      m_iterator_pk_position = Iterator_position::END_OF_FILE;
+      break;
+    } else if (!m_pkd->value_matches_prefix(m_iterator_pk.key(),
+                                            cur_prefix_key)) {
+      rc = HA_ERR_END_OF_FILE;
+      m_iterator_pk_position = Iterator_position::START_NEXT_PREFIX;
+      break;
     }
 
     const rocksdb::Slice &rkey = m_iterator_pk.key();
@@ -725,8 +761,8 @@ int Rdb_iterator_partial::read_prefix_from_pk() {
       goto exit;
     }
 
-    m_records.emplace(rocksdb::Slice(key, sk_packed_size),
-                      rocksdb::Slice(val, m_sk_tails.get_current_pos()));
+    m_records.emplace_back(rocksdb::Slice(key, sk_packed_size),
+                           rocksdb::Slice(val, m_sk_tails.get_current_pos()));
 
     num_rows++;
     rc = m_iterator_pk.next();
@@ -735,6 +771,7 @@ int Rdb_iterator_partial::read_prefix_from_pk() {
   if (rc != HA_ERR_END_OF_FILE) goto exit;
   rc = HA_EXIT_SUCCESS;
 
+  std::sort(m_records.begin(), m_records.end(), m_comparator);
   rocksdb_partial_index_groups_sorted++;
   rocksdb_partial_index_rows_sorted += num_rows;
 
@@ -819,27 +856,31 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
       if (direction) {
         if (m_kd->m_is_reverse_cf) {
           // Emulate "SeekForPrev" behaviour.
-          m_records_it = m_records.upper_bound(start_key);
+          m_records_it = std::upper_bound(m_records.begin(), m_records.end(),
+                                          start_key, m_comparator);
           if (m_records_it == m_records.begin()) {
             next_prefix = true;
           } else {
             m_records_it--;
           }
         } else {
-          m_records_it = m_records.lower_bound(start_key);
+          m_records_it = std::lower_bound(m_records.begin(), m_records.end(),
+                                          start_key, m_comparator);
           if (m_records_it == m_records.end()) {
             next_prefix = true;
           }
         }
       } else {
         if (m_kd->m_is_reverse_cf) {
-          m_records_it = m_records.upper_bound(start_key);
+          m_records_it = std::upper_bound(m_records.begin(), m_records.end(),
+                                          start_key, m_comparator);
           if (m_records_it == m_records.end()) {
             next_prefix = true;
           }
         } else {
           // Emulate "SeekForPrev" behaviour.
-          m_records_it = m_records.lower_bound(start_key);
+          m_records_it = std::lower_bound(m_records.begin(), m_records.end(),
+                                          start_key, m_comparator);
           if (m_records_it == m_records.begin()) {
             next_prefix = true;
           } else {
@@ -976,6 +1017,7 @@ int Rdb_iterator_partial::prev() {
 void Rdb_iterator_partial::reset() {
   m_valid = false;
   m_materialized = false;
+  m_iterator_pk_position = Iterator_position::UNKNOWN;
   free_root(&m_mem_root, MYF(MY_KEEP_PREALLOC));
   m_records.clear();
   m_iterator_pk.reset();
