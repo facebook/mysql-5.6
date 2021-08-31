@@ -777,6 +777,9 @@ constexpr uint32_t SRV_MAX_N_IO_THREADS = 130;
 /** Number of deadlocks */
 extern ulint srv_lock_deadlocks;
 
+/** Number of times concurrency ticket is skipped */
+extern ulint srv_concurrency_ticket_skip_count;
+
 /** Number of lock wait timeouts */
 extern ulint srv_lock_wait_timeouts;
 
@@ -1198,6 +1201,9 @@ struct export_var_t {
   ulint innodb_dblwr_pages_written;            /*!< srv_dblwr_pages_written */
   ulint innodb_dblwr_writes;                   /*!< srv_dblwr_writes */
   ulint innodb_ft_optimize_queue_count;        /*!< ft_optimize_queue_count */
+  ulint innodb_concurrency_ticket_skip_count;  /*!<
+                                              srv_concurrency_ticket_skip_count
+                                                */
   char innodb_redo_log_resize_status[512];     /*!< Redo log resize status */
   bool innodb_redo_log_read_only;              /*!< Is redo log read-only ? */
   ulonglong innodb_redo_log_uuid;              /*!< Redo log UUID */

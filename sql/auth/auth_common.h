@@ -716,6 +716,10 @@ void acl_log_connect(const char *user, const char *host, const char *auth_as,
 int acl_authenticate(THD *thd, enum_server_command command);
 bool acl_check_host(THD *thd, const char *host, const char *ip);
 
+/* sql_auth_cache */
+bool assert_acl_cache_read_lock(THD *thd);
+bool assert_acl_cache_write_lock(THD *thd);
+
 /*
   User Attributes are the once which are defined during CREATE/ALTER/GRANT
   statement. These attributes are divided into following categories.

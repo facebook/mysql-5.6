@@ -117,8 +117,6 @@ const ACL_internal_table_access *get_cached_table_access(
 
 /* sql_auth_cache */
 ulong get_sort(uint count, ...);
-bool assert_acl_cache_read_lock(THD *thd);
-bool assert_acl_cache_write_lock(THD *thd);
 
 /*sql_authentication */
 bool sha256_rsa_auth_status();
