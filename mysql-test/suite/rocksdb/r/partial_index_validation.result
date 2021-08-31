@@ -28,6 +28,16 @@ ERROR 42000: Partial indexes not supported for partitioned tables.
 CREATE TABLE t (
 c1 INT,
 c2 INT,
+c3 INT,
+c4 INT,
+c5 INT,
+PRIMARY KEY (c1, c2, c5),
+KEY (c1, c2, c4) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000;'
+) ENGINE=ROCKSDB COMMENT='ttl_duration=1';
+ERROR HY000: Partial index cannot have TTL.
+CREATE TABLE t (
+c1 INT,
+c2 INT,
 PRIMARY KEY (c1) COMMENT 'partial_group_keyparts=2;partial_group_threshold=10000'
 ) ENGINE=ROCKSDB;
 ERROR HY000: Primary key cannot be a partial index.
