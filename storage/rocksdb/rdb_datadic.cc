@@ -675,6 +675,8 @@ uint Rdb_key_def::extract_partial_index_info(
 
   std::string key_comment(table_arg->key_info[m_keyno].comment.str,
                           table_arg->key_info[m_keyno].comment.length);
+  std::string table_comment(table_arg->s->comment.str,
+                            table_arg->s->comment.length);
 
   bool per_part_match = false;
   std::string keyparts_str = Rdb_key_def::parse_comment_for_qualifier(
@@ -762,6 +764,17 @@ uint Rdb_key_def::extract_partial_index_info(
     }
     key_part_sk++;
     key_part_pk++;
+  }
+
+  bool ttl_duration_per_part_match_found;
+  std::string ttl_duration_str = Rdb_key_def::parse_comment_for_qualifier(
+      table_comment, table_arg, tbl_def_arg, &ttl_duration_per_part_match_found,
+      RDB_TTL_DURATION_QUALIFIER);
+
+  if (!ttl_duration_str.empty()) {
+    my_printf_error(ER_WRONG_ARGUMENTS, "Partial index cannot have TTL.",
+                    MYF(0));
+    return HA_EXIT_FAILURE;
   }
 
   return HA_EXIT_SUCCESS;
