@@ -34,6 +34,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <debug_sync.h>
 #include <gstream.h>
 #include <spatial.h>
+#include <sql_acl.h>
 #include <sql_class.h>
 #include <sql_const.h>
 #include <sys/types.h>
@@ -4802,6 +4803,13 @@ bool row_prebuilt_t::skip_concurrency_ticket() const {
         thd->is_operating_gtid_table_implicitly) {
       return true;
     }
+  }
+  /** Skip concurrency ticket if a thread is already holding
+  ACL CACHE lock in MDL_EXCLUSIVE mode.
+  */
+  if (thd != nullptr && assert_acl_cache_write_lock(thd)) {
+    srv_concurrency_ticket_skip_count++;
+    return true;
   }
   return false;
 }

@@ -1,0 +1,36 @@
+# Check concurrency ticket is not skipped with regular inserts
+
+let $old_concurrency_ticket_skip_count= query_get_value(show status like "Innodb_concurrency_ticket_skip_count", Value, 1);
+CREATE TABLE tbl1 (
+  col1_1 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  col1_2 INT NOT NULL,
+  col1_3 INT NOT NULL,
+  col1_4 INT NOT NULL);
+
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (2, 3, 4);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (3, 4, 5);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (4, 5, 6);
+let $new_concurrency_ticket_skip_count= query_get_value(show status like "Innodb_concurrency_ticket_skip_count", Value, 1);
+--let $assert_cond= $new_concurrency_ticket_skip_count - $old_concurrency_ticket_skip_count = 0
+--let $assert_text= Increase in Innodb_concurrency_ticket_skip_count should be 0
+--source include/assert.inc
+
+
+# Check concurrency ticket is skipped with commands 
+# which acquire ACL_CACHE_LOCK with EXCLUSIVE MODE
+
+let $old_concurrency_ticket_skip_count= query_get_value(show status like "Innodb_concurrency_ticket_skip_count", Value, 1);
+CREATE USER user1;
+let $new_concurrency_ticket_skip_count= query_get_value(show status like "Innodb_concurrency_ticket_skip_count", Value, 1);
+--let $assert_cond= $new_concurrency_ticket_skip_count - $old_concurrency_ticket_skip_count > 0
+--let $assert_text= Increase in Innodb_concurrency_ticket_skip_count should be > 0
+--source include/assert.inc
+
+let $old_concurrency_ticket_skip_count= query_get_value(show status like "Innodb_concurrency_ticket_skip_count", Value, 1);
+DROP USER user1;
+let $new_concurrency_ticket_skip_count= query_get_value(show status like "Innodb_concurrency_ticket_skip_count", Value, 1);
+--let $assert_cond= $new_concurrency_ticket_skip_count - $old_concurrency_ticket_skip_count > 0
+--let $assert_text= Increase in Innodb_concurrency_ticket_skip_count should be > 0
+--source include/assert.inc
+
+DROP TABLE tbl1;

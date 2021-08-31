@@ -769,6 +769,9 @@ extern ulint srv_dml_needed_delay;
 /** Number of deadlocks */
 extern ulint srv_lock_deadlocks;
 
+/** Number of times concurrency ticket is skipped */
+extern ulint srv_concurrency_ticket_skip_count;
+
 /** Number of lock wait timeouts */
 extern ulint srv_lock_wait_timeouts;
 
@@ -1208,6 +1211,9 @@ struct export_var_t {
   ulint innodb_ibuf_merges;                    /*!< ibuf->n_merges */
   ulint innodb_ibuf_size;                      /*!< ibuf->size */
   ulint innodb_lock_deadlocks;                 /*!< srv_lock_deadlocks */
+  ulint innodb_concurrency_ticket_skip_count;  /*!<
+                                              srv_concurrency_ticket_skip_count
+                                                */
   ulint innodb_lock_wait_timeouts;             /*!< srv_lock_wait_timeouts */
   ulint innodb_log_waits;                      /*!< srv_log_waits */
   ulint innodb_log_write_requests;             /*!< srv_log_write_requests */
