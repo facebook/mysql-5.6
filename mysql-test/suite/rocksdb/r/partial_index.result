@@ -159,4 +159,77 @@ SELECT i, j, k FROM t FORCE INDEX (ik1) WHERE i = 1 ORDER BY i DESC , k DESC;
 ERROR HY000: Out of memory; check if mysqld or some other process uses all available memory; if not, you may have to use 'ulimit' to allow mysqld to use more memory or you can add more swap space
 set rocksdb_partial_index_sort_max_mem = DEFAULT;
 DROP TABLE t;
+CREATE TABLE sentinel (c1 int NOT NULL,
+c2 int NOT NULL,
+c3 int NOT NULL,
+c4 int DEFAULT NULL,
+c5 int DEFAULT NULL,
+PRIMARY KEY (c1,c2,c3),
+KEY c1 (c1,c2) COMMENT 'partial_group_keyparts=2;partial_group_threshold=1'
+) ENGINE=ROCKSDB;
+INSERT INTO sentinel VALUES (1, 1, 1, 1, 1);
+INSERT INTO sentinel VALUES (1, 2, 1, 1, 1);
+INSERT INTO sentinel VALUES (1, 2, 2, 1, 1);
+INSERT INTO sentinel VALUES (1, 3, 1, 1, 1);
+INSERT INTO sentinel VALUES (1, 3, 2, 1, 1);
+INSERT INTO sentinel VALUES (1, 3, 3, 1, 1);
+INSERT INTO sentinel VALUES (1, 4, 1, 1, 1);
+INSERT INTO sentinel VALUES (1, 4, 2, 1, 1);
+INSERT INTO sentinel VALUES (1, 4, 3, 1, 1);
+INSERT INTO sentinel VALUES (1, 4, 4, 1, 1);
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+SELECT c1, c2, c3 FROM sentinel FORCE INDEX (c1);
+c1	c2	c3
+1	1	1
+1	2	1
+1	2	2
+1	3	1
+1	3	2
+1	3	3
+1	4	1
+1	4	2
+1	4	3
+1	4	4
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+SELECT variable_name, t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name);
+variable_name	diff
+rocksdb_partial_index_groups_materialized	3
+rocksdb_partial_index_groups_sorted	4
+rocksdb_partial_index_rows_materialized	9
+rocksdb_partial_index_rows_sorted	10
+include/assert.inc [Check that materialized groups are non-zero.]
+include/assert.inc [Check that materialized rows are non-zero.]
+DROP TABLE t1, t2;
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+SELECT c1, c2, c3 FROM sentinel FORCE INDEX (c1);
+c1	c2	c3
+1	1	1
+1	2	1
+1	2	2
+1	3	1
+1	3	2
+1	3	3
+1	4	1
+1	4	2
+1	4	3
+1	4	4
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+SELECT variable_name, t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name);
+variable_name	diff
+rocksdb_partial_index_groups_materialized	0
+rocksdb_partial_index_groups_sorted	1
+rocksdb_partial_index_rows_materialized	0
+rocksdb_partial_index_rows_sorted	1
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+DROP TABLE t1, t2;
+DROP TABLE sentinel;
 set optimizer_force_index_for_range = off;

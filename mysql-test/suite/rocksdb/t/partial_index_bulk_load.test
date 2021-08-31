@@ -43,3 +43,36 @@ CREATE TABLE t (i int, j int, k int, l int,
 --source partial_index_bulk_load.inc
 
 DROP TABLE t;
+
+# Test case for missing sentinel value during bulk loading
+
+CREATE TABLE `link_table` (
+  `id1` bigint unsigned NOT NULL DEFAULT '0',
+  `id1_type` int unsigned NOT NULL DEFAULT '0',
+  `id2` bigint unsigned NOT NULL DEFAULT '0',
+  `id2_type` int unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint NOT NULL DEFAULT '0',
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `time` int unsigned NOT NULL DEFAULT '0',
+  `version` bigint unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link',
+  KEY `id1_type` (`link_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'rev:cf_link_id1_type',
+  KEY `type_id1` (`link_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=3'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+
+set rocksdb_bulk_load = on, rocksdb_bulk_load_allow_sk = on;
+insert into link_table values (1, 1, 1, 1, 1, 1, "1", 123, 1),
+                              (1, 1, 2, 1, 1, 1, "1", 123, 1),
+                              (1, 1, 3, 1, 1, 1, "1", 123, 1),
+                              (1, 1, 4, 1, 1, 1, "1", 123, 1),
+                              (2, 1, 1, 1, 1, 1, "1", 123, 1);
+set rocksdb_bulk_load = off;
+
+insert into link_table values (1, 1, 5, 1, 1, 1, "1", 123, 1);
+
+select * from link_table force index(primary) where link_type = 1 and id1 = 1;
+select * from link_table force index(id1_type) where link_type = 1 and id1 = 1;
+select * from link_table force index(type_id1) where link_type = 1 and id1 = 1;
+
+drop table link_table;

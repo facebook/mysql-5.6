@@ -159,3 +159,4 @@ set rocksdb_partial_index_sort_max_mem = 1;
 set rocksdb_partial_index_sort_max_mem = DEFAULT;
 
 DROP TABLE t;
+

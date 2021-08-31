@@ -3502,6 +3502,14 @@ class Rdb_transaction {
           while ((rc2 = rdb_merge.next(&merge_key, &merge_val)) == 0) {
             if (cur_prefix.size() == 0 ||
                 !keydef->value_matches_prefix(merge_key, cur_prefix)) {
+              if (keydef->m_is_reverse_cf && materialized) {
+                // Write sentinel before moving to next prefix.
+                rc2 = sst_info->put(cur_prefix, rocksdb::Slice());
+                if (rc2 != 0) {
+                  break;
+                }
+              }
+
               // This is a new group, so clear any rows buffered from a prior
               // group.
               mem_root.ClearForReuse();
@@ -3535,6 +3543,14 @@ class Rdb_transaction {
             if (!materialized) {
               // Bulk load the keys if threshold is exceeded.
               if (keys.size() >= keydef->partial_index_threshold()) {
+                if (!keydef->m_is_reverse_cf) {
+                  // Write sentinel
+                  rc2 = sst_info->put(cur_prefix, rocksdb::Slice());
+                  if (rc2 != 0) {
+                    break;
+                  }
+                }
+
                 for (const auto &k : keys) {
                   if ((rc2 = sst_info->put(k.first, k.second) != 0)) {
                     break;
@@ -3561,13 +3577,18 @@ class Rdb_transaction {
 
             if (materialized) {
               rc2 = sst_info->put(merge_key, merge_val);
-              if (rc != 0) {
-                rc = rc2;
+              if (rc2 != 0) {
                 break;
               }
             }
+          }
 
-            if (rc2) break;
+          // Either we finished iterating through all keys (rc2 == -1) or we hit
+          // an error (rc2 > 0)
+          assert(rc2 != 0);
+          if (rc2 <= 0 && keydef->m_is_reverse_cf && materialized) {
+            // Write sentinel before moving to next prefix.
+            rc2 = sst_info->put(cur_prefix, rocksdb::Slice());
           }
         } else {
           struct unique_sk_buf_info sk_info;
@@ -11186,20 +11207,23 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
   if (kd.is_partial_index() && !bulk_load_sk) {
     // TODO(mung) - We've already calculated prefix len when locking. If we
     // cache that value, we can avoid recalculating here.
-    uint size = kd.pack_record(table, m_pack_buffer, row_info.new_data,
-                               m_sk_packed_tuple, nullptr, false, 0,
-                               kd.partial_index_keyparts());
-    rocksdb::Slice prefix_slice(
-        reinterpret_cast<const char *>(m_sk_packed_tuple), size);
-    // Shared lock on prefix should have already been acquired in
-    // check_and_lock_sk. Check if this prefix has been materialized.
-    Rdb_iterator_base iter(ha_thd(), m_key_descr_arr[kd.get_keyno()],
-                           m_pk_descr, m_tbl_def);
-    rc = iter.seek(kd.m_is_reverse_cf ? HA_READ_PREFIX_LAST : HA_READ_KEY_EXACT,
-                   prefix_slice, false, prefix_slice, true /* read current */);
+    int size = kd.pack_record(table_arg, m_pack_buffer, row_info.new_data,
+                              m_sk_packed_tuple, nullptr, false, 0,
+                              kd.partial_index_keyparts());
+    const rocksdb::Slice prefix_slice =
+        rocksdb::Slice((const char *)m_sk_packed_tuple, size);
+
+    rocksdb::PinnableSlice value;
+    const rocksdb::Status s = row_info.tx->get_for_update(
+        kd, prefix_slice, &value, false /* exclusive */,
+        false /* do validate */, false /* no_wait */);
+    if (!s.ok() && !s.IsNotFound()) {
+      return row_info.tx->set_status_error(table_arg->in_use, s, kd, m_tbl_def,
+                                           m_table_handler);
+    }
 
     // We can skip updating the index, if the prefix is not materialized.
-    if (rc == HA_ERR_END_OF_FILE || rc == HA_ERR_KEY_NOT_FOUND) {
+    if (s.IsNotFound()) {
       return 0;
     }
   }
