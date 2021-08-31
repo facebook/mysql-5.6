@@ -1,0 +1,14 @@
+CREATE TABLE tbl1 (
+col1_1 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+col1_2 INT NOT NULL,
+col1_3 INT NOT NULL,
+col1_4 INT NOT NULL);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (2, 3, 4);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (3, 4, 5);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (4, 5, 6);
+include/assert.inc [Increase in Innodb_concurrency_ticket_skip_count should be 0]
+CREATE USER user1;
+include/assert.inc [Increase in Innodb_concurrency_ticket_skip_count should be > 0]
+DROP USER user1;
+include/assert.inc [Increase in Innodb_concurrency_ticket_skip_count should be > 0]
+DROP TABLE tbl1;
