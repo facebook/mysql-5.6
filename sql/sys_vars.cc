@@ -6543,6 +6543,7 @@ static Sys_var_mybool Sys_improved_dup_key_error(
 static bool update_session_dscp_on_socket(sys_var *self, THD *thd,
                                                      enum_var_type type)
 {
+  if (type == OPT_GLOBAL) return false;
   return !thd->set_dscp_on_socket();
 }
 
