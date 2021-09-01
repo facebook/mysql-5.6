@@ -318,6 +318,8 @@ static void *handle_connection(void *arg) {
 
     thd->set_thread_priority();
 
+    thd->set_dscp_on_socket();
+
     thd_manager->add_thd(thd);
 
     if (thd_prepare_connection(thd))
