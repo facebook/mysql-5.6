@@ -1,3 +1,11 @@
+source include/have_debug.inc;
+
+# resetting the counter by disabling and then enabling
+connection slave;
+set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
+
 # create schema and insert rows
 connection master;
 eval create table t1 (a int primary key, b int, c int) engine = $engine; # pk
@@ -87,6 +95,27 @@ source include/stop_slave.inc;
 source include/start_slave.inc;
 connection master;
 source include/sync_slave_sql_with_master.inc;
+
+# check if we detect false positive inconsistencies from record_compare()
+connection slave;
+# resetting the counter by disabling and then enabling
+set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
+set @@global.debug = "+d,dbg.fire_bi_inconsistency";
+
+connection master;
+update t1 set c = 3;
+update t2 set c = 3;
+update t3 set c = 3;
+update t4 set c = 3;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+show status like 'Slave_before_image_inconsistencies';
+replace_result $uuid uuid;
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+set @@global.debug = "-d,dbg.fire_bi_inconsistency";
 
 connection master;
 select * from t1;

@@ -5,6 +5,9 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 include/rpl_set_gtid_mode.inc [ON on servers 1,2]
 call mtr.add_suppression("Error_code: 1032");
+set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
 create table t1 (a int primary key, b int, c int) engine = innodb;
 create table t2 (a int unique, b int, c int) engine = innodb;
 create table t3 (a int, b int, c int, key(a)) engine = innodb;
@@ -76,30 +79,45 @@ set @@sql_log_bin = 1;
 include/stop_slave.inc
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
+set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
+set @@global.debug = "+d,dbg.fire_bi_inconsistency";
+update t1 set c = 3;
+update t2 set c = 3;
+update t3 set c = 3;
+update t4 set c = 3;
+include/sync_slave_sql_with_master.inc
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	0
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
+set @@global.debug = "-d,dbg.fire_bi_inconsistency";
 select * from t1;
 a	b	c
-1	2	1
+1	2	3
 select * from t2;
 a	b	c
-1	2	1
+1	2	3
 select * from t3;
 a	b	c
-1	2	1
+1	2	3
 select * from t4;
 a	b	c
-1	2	1
+1	2	3
 select * from t1;
 a	b	c
-1	2	1
+1	2	3
 select * from t2;
 a	b	c
-1	2	1
+1	2	3
 select * from t3;
 a	b	c
-1	2	1
+1	2	3
 select * from t4;
 a	b	c
-1	2	1
+1	2	3
 drop table t1;
 drop table t2;
 drop table t3;
@@ -110,6 +128,9 @@ set @@global.slave_rows_search_algorithms = 'INDEX_SCAN,TABLE_SCAN,HASH_SCAN';
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
 include/start_slave.inc
+set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
 create table t1 (a int primary key, b int, c int) engine = innodb;
 create table t2 (a int unique, b int, c int) engine = innodb;
 create table t3 (a int, b int, c int, key(a)) engine = innodb;
@@ -129,10 +150,10 @@ update t1 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
-Slave_before_image_inconsistencies	2
+Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:26	master-bin.000001:6830	c=1	c=2
+test.t1	uuid:30	master-bin.000001:8052	c=1	c=2
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -143,10 +164,10 @@ update t2 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
-Slave_before_image_inconsistencies	2
+Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:26	master-bin.000001:6830	c=1	c=2
+test.t1	uuid:30	master-bin.000001:8052	c=1	c=2
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -157,10 +178,10 @@ update t3 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
-Slave_before_image_inconsistencies	2
+Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:26	master-bin.000001:6830	c=1	c=2
+test.t1	uuid:30	master-bin.000001:8052	c=1	c=2
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -170,10 +191,10 @@ include/sync_slave_sql_with_master.inc
 update t4 set b = 2;
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
-Slave_before_image_inconsistencies	2
+Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:26	master-bin.000001:6830	c=1	c=2
+test.t1	uuid:30	master-bin.000001:8052	c=1	c=2
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;
@@ -181,30 +202,45 @@ set @@sql_log_bin = 1;
 include/stop_slave.inc
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
+set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
+set @@global.debug = "+d,dbg.fire_bi_inconsistency";
+update t1 set c = 3;
+update t2 set c = 3;
+update t3 set c = 3;
+update t4 set c = 3;
+include/sync_slave_sql_with_master.inc
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	0
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
+set @@global.debug = "-d,dbg.fire_bi_inconsistency";
 select * from t1;
 a	b	c
-1	2	1
+1	2	3
 select * from t2;
 a	b	c
-1	2	1
+1	2	3
 select * from t3;
 a	b	c
-1	2	1
+1	2	3
 select * from t4;
 a	b	c
-1	2	1
+1	2	3
 select * from t1;
 a	b	c
-1	2	1
+1	2	3
 select * from t2;
 a	b	c
-1	2	1
+1	2	3
 select * from t3;
 a	b	c
-1	2	1
+1	2	3
 select * from t4;
 a	b	c
-1	2	1
+1	2	3
 drop table t1;
 drop table t2;
 drop table t3;
