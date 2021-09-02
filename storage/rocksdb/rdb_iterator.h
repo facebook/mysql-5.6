@@ -181,17 +181,17 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
   int next_with_direction_in_group(bool direction);
   int next_with_direction(bool direction);
 
-  using Slice_pair = std::pair<my_rocksdb::Slice, my_rocksdb::Slice>;
+  using Slice_pair = std::pair<rocksdb::Slice, rocksdb::Slice>;
   using Records = std::vector<Slice_pair>;
 
   struct slice_comparator {
     explicit slice_comparator(const rocksdb::Comparator *c) : m_comparator(c) {}
     const rocksdb::Comparator *const m_comparator;
 
-    bool operator()(const my_rocksdb::Slice &lhs, const Slice_pair &rhs) {
+    bool operator()(const rocksdb::Slice &lhs, const Slice_pair &rhs) {
       return m_comparator->Compare(lhs, rhs.first) < 0;
     }
-    bool operator()(const Slice_pair &lhs, const my_rocksdb::Slice &rhs) {
+    bool operator()(const Slice_pair &lhs, const rocksdb::Slice &rhs) {
       return m_comparator->Compare(lhs.first, rhs) < 0;
     }
     bool operator()(const Slice_pair &lhs, const Slice_pair &rhs) {
