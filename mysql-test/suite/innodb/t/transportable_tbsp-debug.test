@@ -1040,6 +1040,7 @@ require 'include/innodb-util.inc';
 ib_restore_tablespaces("test_wl5522", "t1");
 EOF
 
+# Test innodb page corruption without crash
 SET SESSION debug="+d,buf_page_import_corrupt_failure";
 
 --replace_regex /'.*t1.cfg'/'t1.cfg'/
@@ -1048,6 +1049,28 @@ SET SESSION debug="+d,buf_page_import_corrupt_failure";
 ALTER TABLE test_wl5522.t1 IMPORT TABLESPACE;
 
 SET SESSION debug="-d,buf_page_import_corrupt_failure";
+
+# Test innodb page courrption with crash
+--disable_query_log
+call mtr.add_suppression(".*");
+--enable_query_log
+
+SET SESSION debug="+d,buf_page_import_corrupt_abort";
+# CASE1: innodb_abort_on_page_corruption as TRUE
+SET GLOBAL innodb_abort_on_page_corruption = TRUE;
+--replace_regex /'.*t1.cfg'/'t1.cfg'/
+--error 0,CR_SERVER_LOST,ER_INTERNAL_ERROR
+ALTER TABLE test_wl5522.t1 IMPORT TABLESPACE;
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+let $WAIT_COUNT=6000;
+--source include/wait_time_until_connected_again.inc
+
+# CASE2: innodb_abort_on_page_corruption as FALSE
+SET GLOBAL innodb_abort_on_page_corruption = FALSE;
+ALTER TABLE test_wl5522.t1 IMPORT TABLESPACE;
+SET GLOBAL innodb_abort_on_page_corruption = TRUE;
+SET SESSION debug="-d,buf_page_import_corrupt_abort";
 
 DROP TABLE test_wl5522.t1;
 
