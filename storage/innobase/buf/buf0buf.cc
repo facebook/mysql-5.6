@@ -37,14 +37,14 @@ this program; if not, write to the Free Software Foundation, Inc.,
  Created 11/5/1995 Heikki Tuuri
  *******************************************************/
 
-#include "my_config.h"
-
-#include "btr0btr.h"
 #include "buf0buf.h"
+#include "btr0btr.h"
 #include "fil0fil.h"
 #include "fsp0sysspace.h"
+#include "ha_innodb.h"
 #include "ha_prototypes.h"
 #include "mem0mem.h"
+#include "my_config.h"
 #include "my_dbug.h"
 #include "page0size.h"
 #ifndef UNIV_HOTBACKUP
@@ -5622,6 +5622,7 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict) {
                                   " You can use CHECK TABLE to scan"
                                   " your table for corruption. "
                                << FORCE_RECOVERY_MSG;
+        if (srv_abort_on_page_corruption) abort();
       }
 
       if (srv_force_recovery < SRV_FORCE_IGNORE_CORRUPT) {

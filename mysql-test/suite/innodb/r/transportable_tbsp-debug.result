@@ -774,6 +774,13 @@ SET SESSION debug="+d,buf_page_import_corrupt_failure";
 ALTER TABLE test_wl5522.t1 IMPORT TABLESPACE;
 ERROR HY000: Internal error: Cannot reset LSNs in table `test_wl5522`.`t1` : Data structure corruption
 SET SESSION debug="-d,buf_page_import_corrupt_failure";
+SET SESSION debug="+d,buf_page_import_corrupt_abort";
+SET GLOBAL innodb_abort_on_page_corruption = TRUE;
+ALTER TABLE test_wl5522.t1 IMPORT TABLESPACE;
+SET GLOBAL innodb_abort_on_page_corruption = FALSE;
+ALTER TABLE test_wl5522.t1 IMPORT TABLESPACE;
+SET GLOBAL innodb_abort_on_page_corruption = TRUE;
+SET SESSION debug="-d,buf_page_import_corrupt_abort";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
 unlink: t1.cfg

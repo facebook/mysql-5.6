@@ -570,6 +570,9 @@ bool srv_print_all_deadlocks = FALSE;
 /** Print all DDL logs to mysqld stderr */
 bool srv_print_ddl_logs = false;
 
+/** Abort innodb on page corruption */
+bool srv_abort_on_page_corruption = false;
+
 /** Enable INFORMATION_SCHEMA.innodb_cmp_per_index */
 bool srv_cmp_per_index_enabled = FALSE;
 

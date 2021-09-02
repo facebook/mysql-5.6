@@ -800,7 +800,7 @@ extern bool srv_print_all_deadlocks;
 
 /** Print all DDL logs to mysqld stderr */
 extern bool srv_print_ddl_logs;
-
+extern bool srv_abort_on_page_corruption;
 extern bool srv_cmp_per_index_enabled;
 
 extern bool srv_redo_log;
