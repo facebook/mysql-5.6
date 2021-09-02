@@ -342,6 +342,7 @@ bool BlockReporter::is_corrupted() const {
                           mach_read_from_4(m_read_buf + FIL_PAGE_OFFSET));
 
   DBUG_EXECUTE_IF("buf_page_import_corrupt_failure", return (true););
+  DBUG_EXECUTE_IF("buf_page_import_corrupt_abort", return (true););
   const srv_checksum_algorithm_t curr_algo =
       static_cast<srv_checksum_algorithm_t>(srv_checksum_algorithm);
 

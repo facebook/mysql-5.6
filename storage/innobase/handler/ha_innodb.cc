@@ -23252,6 +23252,11 @@ static MYSQL_SYSVAR_BOOL(
     "Print all DDl logs to MySQL error log (off by default)", nullptr, nullptr,
     false);
 
+static MYSQL_SYSVAR_BOOL(abort_on_page_corruption, srv_abort_on_page_corruption,
+                         PLUGIN_VAR_OPCMDARG,
+                         "Enable or disable innodb abort on page corruption",
+                         nullptr, nullptr, true);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_UINT(trx_rseg_n_slots_debug, trx_rseg_n_slots_debug,
                          PLUGIN_VAR_RQCMDARG,
@@ -23581,6 +23586,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(redo_log_archive_dirs),
     MYSQL_SYSVAR(redo_log_encrypt),
     MYSQL_SYSVAR(print_ddl_logs),
+    MYSQL_SYSVAR(abort_on_page_corruption),
 #ifdef UNIV_DEBUG
     MYSQL_SYSVAR(trx_rseg_n_slots_debug),
     MYSQL_SYSVAR(limit_optimistic_insert_debug),
