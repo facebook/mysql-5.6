@@ -1,12 +1,16 @@
 --source ../include/privacy_init.inc
 
+if ($ASYNC_CLIENT)
+{
+  --skip Not supported on ASYNC_CLIENT for 5.6
+}
+
 CREATE TABLE privacy_blood_donation_table (
     id int NOT NULL,
     name VARCHAR(30)   NOT NULL DEFAULT '',
     PRIMARY KEY (`id`)
 );
 INSERT INTO privacy_blood_donation_table VALUES(1, "User1");
-
 
 set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
 set session privacy_plugin_purpose_policy_check=fail_open;

@@ -6285,6 +6285,7 @@ sub start_mysqltest ($) {
   if ( $opt_async_client )
   {
     mtr_add_arg($args, "--async-client");
+    $ENV{'ASYNC_CLIENT'}= 1;
   }
 
   if ( $opt_sleep )
