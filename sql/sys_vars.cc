@@ -6993,6 +6993,14 @@ static Sys_var_uint Sys_max_sql_text_storage_size(
        DEFAULT(SQL_TEXT_COL_SIZE),
        BLOCK_SIZE(1));
 
+static Sys_var_uint Sys_max_sql_query_sample_text_size(
+       "max_sql_query_sample_text_size",
+       "Maximum allowed memory to store each sample SQL query (in bytes).",
+       GLOBAL_VAR(max_sql_query_sample_text_size),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, SQL_TEXT_COL_SIZE),
+       DEFAULT(SQL_QUERY_SAMPLE_TEXT_SIZE),
+       BLOCK_SIZE(1));
+
 static bool set_column_stats_control(sys_var *, THD *, enum_var_type type)
 {
   if (column_stats_control == SQL_INFO_CONTROL_OFF_HARD) {

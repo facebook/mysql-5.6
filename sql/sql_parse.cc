@@ -1735,6 +1735,8 @@ static int validate_checksum(THD* thd, const char* packet, uint packet_length)
   return 0;
 }
 
+uint max_sql_query_sample_text_size = 1024;
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -2127,7 +2129,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     my_query_len = thd->query_length();
 
     char *beginning_of_current_stmt= (char*) thd->query();
-    char sub_query[1025]; // 1024 bytes + '\0'
+    char* sub_query;
     int sub_query_byte_length;
 
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
@@ -2138,7 +2140,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       */
       char *beginning_of_next_stmt= (char*) parser_state.m_lip.found_semicolon;
       sub_query_byte_length=(int)(beginning_of_next_stmt - beginning_of_current_stmt);
-      sub_query_byte_length = min(sub_query_byte_length, 1024);
+
+      sub_query_byte_length = min(
+        sub_query_byte_length,
+        static_cast<int>(max_sql_query_sample_text_size));
+      sub_query =
+          (char *)my_malloc(sub_query_byte_length + 1, MYF(MY_FAE|MY_WME));
       memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
       sub_query[sub_query_byte_length] = '\0';
 
@@ -2152,6 +2159,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         multi-query set.
       */
       update_sql_stats(thd, &cumulative_sql_stats, sub_query);
+      my_free(sub_query);
 
       /* update transaction DML row count */
       update_thd_dml_row_count(thd, &cumulative_sql_stats);
@@ -2293,13 +2301,19 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       If not multi-query: The stats updated here will be fore the entire
         statement.
     */
-    char * query_end = thd->query() + thd->query_length();
+    char *query_end = thd->query() + thd->query_length();
     sub_query_byte_length = (int)(query_end - beginning_of_current_stmt);
-    sub_query_byte_length = min(sub_query_byte_length, 1024);
+
+    sub_query_byte_length = min(
+      sub_query_byte_length,
+      static_cast<int>(max_sql_query_sample_text_size));
+    sub_query =
+        (char *)my_malloc(sub_query_byte_length + 1, MYF(MY_FAE|MY_WME));
     memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
     sub_query[sub_query_byte_length] = '\0';
 
     update_sql_stats(thd, &cumulative_sql_stats, sub_query);
+    my_free(sub_query);
 
     /* update transaction DML row count */
     update_thd_dml_row_count(thd, &cumulative_sql_stats);
@@ -8244,7 +8258,7 @@ static bool mt_check_throttle_write_query(THD* thd)
     // exclude automation & super queries
     ulong master_access = thd->security_context()->master_access;
     if ((master_access & ADMIN_PORT_ACL) ||
-        (master_access & SUPER_ACL) || 
+        (master_access & SUPER_ACL) ||
         (master_access & REPL_SLAVE_ACL)) {
       DBUG_RETURN(false);
     }

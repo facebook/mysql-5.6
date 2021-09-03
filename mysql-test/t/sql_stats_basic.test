@@ -272,6 +272,33 @@ where sql_id = 'ea1a18bec5a37513f7a0720e73526477'
 order by sql_id;
 
 ####################################################
+### Case 9.1: Query Sampling max size support
+####################################################
+--echo Case 9.1: Query sampling max size support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.max_digest_sample_age=1;
+set @@GLOBAL.max_sql_query_sample_text_size=3124;
+select @@sql_stats_control;
+select @@max_digest_sample_age;
+select @@max_sql_query_sample_text_size;
+
+select sleep(4);
+create table t24 (i int, c char(255))
+ COMMENT='ABCDEFGHIJabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdABCDEFGHIJabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcd';
+
+insert into t24 values (0, lpad('a', 250, 'b'));
+
+# 72dcfa65ecd837b10ef8de5d4d341c9b corresponds to the create table statement for t24
+select sql_id, plan_id, table_schema, user_name, char_length(query_sample_text),
+  (query_sample_seen > 0 && CURRENT_TIMESTAMP - query_sample_seen < 4)
+	as is_query_sample_seen_valid
+from information_schema.sql_statistics
+where sql_id = '72dcfa65ecd837b10ef8de5d4d341c9b'
+order by sql_id;
+
+drop table t24;
+####################################################
 ### Case 10: Multi-query support
 ####################################################
 --echo Case 10: Multi-query support
@@ -1152,6 +1179,7 @@ connection default;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.max_digest_sample_age=-1;
+set @@GLOBAL.max_sql_query_sample_text_size=1024;
 drop table t1;
 drop user user_super@localhost;
 disconnect con13;

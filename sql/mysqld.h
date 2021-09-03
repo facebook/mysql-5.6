@@ -1163,6 +1163,9 @@ extern ulonglong sql_stats_size;
 const uint SQL_TEXT_COL_SIZE = 4096;
 extern uint max_sql_text_storage_size;
 
+const uint SQL_QUERY_SAMPLE_TEXT_SIZE = 1024;
+extern uint max_sql_query_sample_text_size;
+
 /* Global variable to control collecting column statistics */
 extern ulong column_stats_control;
 

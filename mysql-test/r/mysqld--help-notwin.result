@@ -306,6 +306,10 @@ The following options may be given as the first argument:
  --div-precision-increment=# 
  Precision of the result of '/' operator will be increased
  on that value
+ --dscp-on-socket[=#] 
+ DSCP value for socket/connection to control out-bound
+ packages. 0 means unset, and it will use default value.
+ To overrides, use number from 1 to 63
  --enable-acl-fast-lookup 
  Enable ACL fast lookup on exact user/db pairs. Please
  issue FLUSH PRIVILEGES for the changes to take effect.
@@ -761,6 +765,9 @@ The following options may be given as the first argument:
  value are used; the rest are ignored)
  --max-sp-recursion-depth[=#] 
  Maximum stored procedure recursion depth
+ --max-sql-query-sample-text-size[=#] 
+ Maximum allowed memory to store each sample SQL query (in
+ bytes).
  --max-sql-stats-count[=#] 
  Maximum allowed number of SQL statistics
  --max-sql-stats-size[=#] 
@@ -2483,6 +2490,7 @@ disable-working-set-size FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+dscp-on-socket 0
 enable-acl-fast-lookup FALSE
 enable-binlog-hlc FALSE
 enable-blind-replace FALSE
@@ -2629,6 +2637,7 @@ max-slowlog-files 0
 max-slowlog-size 0
 max-sort-length 1024
 max-sp-recursion-depth 0
+max-sql-query-sample-text-size 1024
 max-sql-stats-count 100000
 max-sql-stats-size 104857600
 max-sql-text-storage-size 4096

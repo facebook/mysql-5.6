@@ -1,0 +1,14 @@
+Default value of max_sql_query_sample_text_size
+SELECT @@global.max_sql_query_sample_text_size;
+@@global.max_sql_query_sample_text_size
+1024
+max_sql_query_sample_text_size is a dynamic variable
+set @@global.max_sql_query_sample_text_size = 2096;
+SELECT @@global.max_sql_query_sample_text_size;
+@@global.max_sql_query_sample_text_size
+2096
+restore the default value
+SET @@global.max_sql_query_sample_text_size = 1024;
+SELECT @@global.max_sql_query_sample_text_size;
+@@global.max_sql_query_sample_text_size
+1024
