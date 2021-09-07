@@ -39,6 +39,7 @@
 #include "m_ctype.h"
 #include "mysql/components/services/bits/psi_thread_bits.h"
 #include "sql/handler.h"  // enum_tx_isolation
+#include "sql/select_lex_visitor.h"
 
 class THD;
 class partition_info;
@@ -124,6 +125,14 @@ partition_info *thd_get_work_part_info(THD *thd);
 enum_tx_isolation thd_get_trx_isolation(const THD *thd);
 
 const CHARSET_INFO *thd_charset(THD *thd);
+
+/**
+ Accept the visitor to traverse the LEX in THD object
+
+ @param thd      The MySQL internal thread pointer
+ @param visitor  The select lex visitor to traverse the LEX in THD object
+ */
+void thd_process_select_lex_visitor(THD *thd, Select_lex_visitor *visitor);
 
 /**
   Get the current query string for the thread.

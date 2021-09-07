@@ -543,7 +543,8 @@ typedef enum {
   MYSQL_AUDIT_QUERY_START = 1 << 0,
   MYSQL_AUDIT_QUERY_NESTED_START = 1 << 1,
   MYSQL_AUDIT_QUERY_STATUS_END = 1 << 2,
-  MYSQL_AUDIT_QUERY_NESTED_STATUS_END = 1 << 3
+  MYSQL_AUDIT_QUERY_NESTED_STATUS_END = 1 << 3,
+  MYSQL_AUDIT_QUERY_STMT_PREPARED = 1 << 4
 } mysql_event_query_subclass_t;
 struct mysql_event_query {
   mysql_event_query_subclass_t event_subclass;

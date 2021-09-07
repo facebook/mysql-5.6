@@ -57,7 +57,8 @@
 #include "sql/resourcegroups/resource_group.h"
 #include "sql/resourcegroups/resource_group_mgr.h"
 #include "sql/rpl_filter.h"  // binlog_filter
-#include "sql/sql_class.h"   // THD
+#include "sql/select_lex_visitor.h"
+#include "sql/sql_class.h"  // THD
 #include "sql/sql_lex.h"
 #include "sql/sql_parse.h"  // sqlcom_can_generate_row_events
 #include "sql/system_variables.h"
@@ -275,6 +276,10 @@ const CHARSET_INFO *thd_charset(THD *thd) { return (thd->charset()); }
 LEX_CSTRING thd_query_unsafe(THD *thd) {
   assert(current_thd == thd);
   return thd->query();
+}
+
+void thd_process_select_lex_visitor(THD *thd, Select_lex_visitor *visitor) {
+  thd->lex->unit->accept(visitor);
 }
 
 size_t thd_query_safe(THD *thd, char *buf, size_t buflen) {
