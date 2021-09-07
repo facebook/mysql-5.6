@@ -96,6 +96,7 @@
 #include "sql/row_iterator.h"
 #include "sql/set_var.h"
 #include "sql/sorting_iterator.h"
+#include "sql/sql_audit.h"
 #include "sql/sql_base.h"
 #include "sql/sql_class.h"
 #include "sql/sql_cmd.h"
@@ -601,6 +602,9 @@ bool Sql_cmd_dml::execute(THD *thd) {
   // slightly different from 5.6 and would need a little more investment to
   // tag joins properly.
   parse_column_usage_info(thd);
+
+  mysql_audit_notify(thd, MYSQL_AUDIT_QUERY_STMT_PREPARED,
+                     "MYSQL_AUDIT_QUERY_STMT_PREPARED");
 
   thd->validate_schema_info(lex->query_tables);
 
@@ -1686,8 +1690,9 @@ void JOIN::reset() {
 
   if (!executed) return;
 
-  unit->offset_limit_cnt = (ha_rows)(
-      select_lex->offset_limit ? select_lex->offset_limit->val_uint() : 0ULL);
+  unit->offset_limit_cnt =
+      (ha_rows)(select_lex->offset_limit ? select_lex->offset_limit->val_uint()
+                                         : 0ULL);
 
   group_sent = false;
   recursive_iteration_count = 0;
