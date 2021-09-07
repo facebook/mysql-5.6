@@ -36,7 +36,6 @@ USE a;
 BEGIN;
 INSERT INTO ta (a, b) VALUES (3, 'baz');
 COMMIT;
-HLC: 2538630000000000009
 include/sync_slave_sql_with_master.inc
 USE a;
 SELECT * FROM ta;
@@ -49,17 +48,16 @@ USE a;
 BEGIN;
 INSERT INTO ta (a, b) VALUES (4, 'bah');
 COMMIT;
-HLC: 2538630000000000010
 USE a;
 SELECT * FROM ta;
-ERROR HY000: Requested HLC timestamp 2538630000000000010 not present in engine for database `a`
+ERROR HY000: Requested HLC timestamp HLCVALUE is higher than current engine HLC of HLCVALUE for database `a`
 SELECT * FROM mysql.slow_log;
 start_time	user_host	query_time	lock_time	rows_sent	rows_examined	db	last_insert_id	insert_id	server_id	sql_text	thread_id
 SELECT * FROM information_schema.database_applied_hlc;
 DATABASE_NAME	APPLIED_HLC
-b	2538630000000000006
-c	2538630000000000008
-a	2538630000000000009
+b	HLCVALUE
+c	HLCVALUE
+a	HLCVALUE
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 USE a;
@@ -98,7 +96,6 @@ USE c;
 BEGIN;
 INSERT INTO tc (a, b) VALUES (1, 'bar');
 COMMIT;
-HLC: 2538630000000000011
 include/sync_slave_sql_with_master.inc
 USE c;
 SELECT * FROM tc;
@@ -120,7 +117,7 @@ a	b
 2	bar
 6	baz
 SELECT * FROM tb;
-ERROR HY000: Requested HLC timestamp 2538630000000000013 not present in engine for database `b`
+ERROR HY000: Requested HLC timestamp HLCVALUE is higher than current engine HLC of HLCVALUE for database `b`
 USE c;
 SELECT * FROM tc;
 a	b
@@ -155,22 +152,19 @@ USE a;
 BEGIN;
 UPDATE ta SET b = 'bar' WHERE a = 3;
 COMMIT;
-HLC: 2538630000000000014
 USE b;
 BEGIN;
 INSERT INTO tb (a, b) VALUES (7, 'baz');
 COMMIT;
-HLC: 2538630000000000015
 USE c;
 BEGIN;
 INSERT INTO tc (a, b) VALUES (7, 'baz');
 COMMIT;
-HLC: 2538630000000000016
 USE b;
 USE c;
 USE a;
 SELECT * FROM ta;
-ERROR HY000: Requested HLC timestamp 2538630000000000014 not present in engine for database `a`
+ERROR HY000: Requested HLC timestamp HLCVALUE is higher than current engine HLC of HLCVALUE for database `a`
 USE b;
 SELECT * FROM tb;
 a	b

@@ -2081,7 +2081,7 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd,
   uint64_t applied_hlc = mysql_bin_log.get_selected_database_hlc(db);
   if (requested_hlc > applied_hlc &&
       (timeout_ms == 0 || !wait_for_hlc_timeout_ms)) {
-    my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, db.c_str());
+    my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, applied_hlc, db.c_str());
     return true;
   }
 
