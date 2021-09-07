@@ -101,6 +101,7 @@
 #include "sql/range_optimizer/path_helpers.h"
 #include "sql/range_optimizer/range_optimizer.h"
 #include "sql/set_var.h"
+#include "sql/sql_audit.h"
 #include "sql/sql_base.h"
 #include "sql/sql_class.h"
 #include "sql/sql_cmd.h"
@@ -570,6 +571,9 @@ bool Sql_cmd_dml::execute(THD *thd) {
   // slightly different from 5.6 and would need a little more investment to
   // tag joins properly.
   parse_column_usage_info(thd);
+
+  mysql_audit_notify(thd, MYSQL_AUDIT_QUERY_STMT_PREPARED,
+                     "MYSQL_AUDIT_QUERY_STMT_PREPARED");
 
   thd->validate_schema_info(lex->query_tables);
 

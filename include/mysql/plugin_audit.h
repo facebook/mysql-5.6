@@ -489,12 +489,15 @@ typedef enum {
   /** Query post parse event. */
   MYSQL_AUDIT_QUERY_STATUS_END = 1 << 2,
   /** Nested query status end event. */
-  MYSQL_AUDIT_QUERY_NESTED_STATUS_END = 1 << 3
+  MYSQL_AUDIT_QUERY_NESTED_STATUS_END = 1 << 3,
+  /** Query statement prepared event. */
+  MYSQL_AUDIT_QUERY_STMT_PREPARED = 1 << 4
 } mysql_event_query_subclass_t;
 
-#define MYSQL_AUDIT_QUERY_ALL                                 \
-  (MYSQL_AUDIT_QUERY_START | MYSQL_AUDIT_QUERY_NESTED_START | \
-   MYSQL_AUDIT_QUERY_STATUS_END | MYSQL_AUDIT_QUERY_NESTED_STATUS_END)
+#define MYSQL_AUDIT_QUERY_ALL                                           \
+  (MYSQL_AUDIT_QUERY_START | MYSQL_AUDIT_QUERY_NESTED_START |           \
+   MYSQL_AUDIT_QUERY_STATUS_END | MYSQL_AUDIT_QUERY_NESTED_STATUS_END | \
+   MYSQL_AUDIT_QUERY_STMT_PREPARED)
 /**
   @struct mysql_event_command
 

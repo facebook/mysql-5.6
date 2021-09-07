@@ -51,14 +51,15 @@
 #include "mysql/psi/mysql_socket.h"
 #include "mysql/thread_type.h"
 #include "sql/auth/auth_acls.h"  // SUPER_ACL
-#include "sql/binlog.h"       // mysql_bin_log
-#include "sql/current_thd.h"  // current_thd
+#include "sql/binlog.h"          // mysql_bin_log
+#include "sql/current_thd.h"     // current_thd
 #include "sql/mysqld.h"
 #include "sql/mysqld_thd_manager.h"  // Global_THD_manager
 #include "sql/protocol_classic.h"
 #include "sql/query_options.h"
 #include "sql/rpl_filter.h"  // binlog_filter
-#include "sql/sql_class.h"   // THD
+#include "sql/select_lex_visitor.h"
+#include "sql/sql_class.h"  // THD
 #include "sql/sql_lex.h"
 #include "sql/sql_parse.h"  // sqlcom_can_generate_row_events
 #include "sql/system_variables.h"
@@ -260,6 +261,10 @@ const CHARSET_INFO *thd_charset(THD *thd) { return (thd->charset()); }
 LEX_CSTRING thd_query_unsafe(THD *thd) {
   assert(current_thd == thd);
   return thd->query();
+}
+
+void thd_process_select_lex_visitor(THD *thd, Select_lex_visitor *visitor) {
+  thd->lex->unit->accept(visitor);
 }
 
 size_t thd_query_safe(THD *thd, char *buf, size_t buflen) {
