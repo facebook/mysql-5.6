@@ -1,3 +1,5 @@
+source include/have_debug.inc;
+
 # resetting the counter by disabling and then enabling
 connection slave;
 set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
