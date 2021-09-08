@@ -572,7 +572,6 @@ struct PFS_digest_row {
   uint m_digest_length;
   /** Column DIGEST_TEXT. */
   String m_digest_text;
-
   /** Build a row from a memory buffer. */
   int make_row(PFS_statements_digest_stat *);
   /** Set a table field from the row. */

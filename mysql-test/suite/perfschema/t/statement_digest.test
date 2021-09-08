@@ -7,6 +7,8 @@ SET sql_mode='NO_ENGINE_SUBSTITUTION';
 --source ../include/digest_setup.inc
 
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
+
 
 # Executing queries
 --source ../include/digest_execution.inc
@@ -14,8 +16,9 @@ TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
 --echo ####################################
 --echo # QUERYING PS STATEMENT DIGEST
 --echo ####################################
-SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
-       SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest;
+SELECT SCHEMA_NAME, a.DIGEST, b.DIGEST_TEXT, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
+       SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest as a,
+       performance_schema.sql_text as b where a.digest = b.digest;
 
 # Cleanup for Digest
 --source ../include/digest_cleanup.inc

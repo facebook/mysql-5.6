@@ -752,17 +752,17 @@ SET sql_mode = DEFAULT;
 --echo # Bug #29512067: STATEMENT_DIGEST() AND STATEMENT_DIGEST_TEXT() CORRUPT
 --echo # OUTER STATEMENT DIGEST
 --echo #
-TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
 
 SELECT DIGEST_TEXT
-FROM performance_schema.events_statements_summary_by_digest
+FROM performance_schema.sql_text
 WHERE DIGEST_TEXT LIKE 'SELECT ?%';
 
 SELECT statement_digest_text('SELECT 1 + 1');
 
 --echo # "SELECT ? + ?" should not be here
 SELECT DIGEST_TEXT
-FROM performance_schema.events_statements_summary_by_digest
+FROM performance_schema.sql_text
 WHERE DIGEST_TEXT LIKE 'SELECT ?%';
 
 --echo #

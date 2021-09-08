@@ -326,8 +326,12 @@ int table_esms_by_digest::read_row_values(TABLE *table, unsigned char *buf,
       switch (f->field_index()) {
         case 0: /* SCHEMA_NAME */
         case 1: /* DIGEST */
-        case 2: /* DIGEST_TEXT */
           m_row.m_digest.set_field(f->field_index(), f);
+          break;
+        case 2: /* DIGEST_TEXT */
+          // DIGEST_TEXT is deprecated field. This can be retrieved from
+          // sql_text table.
+          f->set_null();
           break;
         case 43: /* FIRST_SEEN */
           set_field_timestamp(f, m_row.m_first_seen);

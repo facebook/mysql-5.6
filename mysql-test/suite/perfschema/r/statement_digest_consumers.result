@@ -30,6 +30,7 @@ global_instrumentation	YES
 thread_instrumentation	YES
 statements_digest	YES
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
 ####################################
 # EXECUTION
 ####################################
@@ -189,9 +190,12 @@ SELECT 2, cte.*, cte2.* FROM cte, cte AS cte2;
 ####################################
 # QUERYING PS STATEMENT DIGEST
 ####################################
-SELECT schema_name, digest, digest_text, count_star FROM performance_schema.events_statements_summary_by_digest WHERE schema_name IS NOT NULL;
+SELECT schema_name, a.digest, b.digest_text, count_star 
+FROM performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b
+WHERE a.schema_name IS NOT NULL and a.digest = b.digest;
 schema_name	digest	digest_text	count_star
-statements_digest	e6628a0d51a41865a2ac8de78a8be09d	TRUNCATE TABLE `performance_schema` . `events_statements_summary_by_digest`	1
+statements_digest	0daeec57dddba79524b3f5fa378012d4	TRUNCATE TABLE `performance_schema` . `sql_text`	1
 statements_digest	bbb8746fdb4780c39d16a1f8f8ef27aa	SELECT ? FROM `t1`	2
 statements_digest	8760c151410d8d641763ba4025ed6e1a	SELECT ?, ... FROM `t1`	2
 statements_digest	5b9a10b5160adc68e91647486ac38b82	SELECT ? FROM `t2`	1
@@ -232,7 +236,10 @@ statements_digest	3774fb4ea7432ecb5ae40f98603be691	SELECT * FROM ( SELECT `a` , 
 statements_digest	8d49c17d1c5cf9e486f9f5c319532051	WITH `cte` ( `x` , `y` , `z` ) AS ( SELECT `a` , ?, ... FROM `t1` ) SELECT ? , `cte` . * FROM `cte`	2
 statements_digest	08cbb4b08c8fa4d63ec24080263695e3	WITH `cte` ( `x` , `y` , `z` ) AS ( SELECT `a` , ?, ... FROM `t1` ) SELECT ? , `cte` . * , `cte2` . * FROM `cte` , `cte` AS `cte2`	2
 statements_digest	a81592f17dbf3cd0e97da27687b95751	WITH RECURSIVE `cte` ( `x` , `y` , `z` ) AS ( SELECT `a` , ?, ... FROM `t1` UNION ALL SELECT `a` + ? , `a` * ?, ... FROM `t1` WHERE ? ) SELECT ? , `cte` . * , `cte2` . * FROM `cte` , `cte` AS `cte2`	2
-SELECT digest, digest_text FROM performance_schema.events_statements_current;
+SELECT a.digest, b.digest_text
+FROM performance_schema.events_statements_current as a,
+performance_schema.sql_text as b
+WHERE a.digest = b.digest;
 digest	digest_text
 ####################################
 # CLEANUP

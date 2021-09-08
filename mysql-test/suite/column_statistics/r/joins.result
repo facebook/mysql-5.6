@@ -77,8 +77,8 @@ SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 COUNT(DISTINCT SQL_ID)
 13
 SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt
-WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND  cs.SQL_ID = st.DIGEST
 ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
 SQL_ID	0d3d1a8c023ff6daffb735c03abd343b
 DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` WHERE `tbl1` . `col1_2` IN (...)

@@ -77,9 +77,6 @@ struct PFS_ALIGNED PFS_statements_digest_stat {
   /** Digest Schema + Digest Hash. */
   PFS_digest_key m_digest_key;
 
-  /** Digest Storage. */
-  sql_digest_storage m_digest_storage;
-
   /** Statement stat. */
   PFS_statement_stat m_stat;
 
@@ -89,6 +86,8 @@ struct PFS_ALIGNED PFS_statements_digest_stat {
   size_t m_query_sample_length;
   /** True if @c m_query_sample was truncated. */
   bool m_query_sample_truncated;
+  /** True if digest is non null */
+  bool m_has_data;
   /** Statement character set number. */
   uint m_query_sample_cs_number;
   /** Query sample seen timestamp.*/
@@ -106,8 +105,7 @@ struct PFS_ALIGNED PFS_statements_digest_stat {
   PFS_histogram m_histogram;
 
   /** Reset data for this record. */
-  void reset_data(unsigned char *token_array, size_t token_array_length,
-                  char *query_sample_array);
+  void reset_data(char *query_sample_array);
   /** Reset data and remove index for this record. */
   void reset_index(PFS_thread *thread);
 

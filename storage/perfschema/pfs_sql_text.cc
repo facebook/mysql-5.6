@@ -56,7 +56,7 @@ int init_sql_text(const PFS_global_param *param) {
     size_t digest_memory_size = pfs_max_digest_length * sizeof(unsigned char);
 
     statements_digest_token_array =
-        PFS_MALLOC_ARRAY(&builtin_memory_digest_tokens_v1, sql_text_size,
+        PFS_MALLOC_ARRAY(&builtin_memory_digest_tokens, sql_text_size,
                          digest_memory_size, unsigned char, MYF(MY_ZEROFILL));
 
     if (unlikely(statements_digest_token_array == nullptr)) {
@@ -72,7 +72,7 @@ int init_sql_text(const PFS_global_param *param) {
 void cleanup_sql_text(void) {
   if (sql_text_size == 0) return;
   if (pfs_max_digest_length > 0)
-    PFS_FREE_ARRAY(&builtin_memory_digest_tokens_v1, sql_text_size,
+    PFS_FREE_ARRAY(&builtin_memory_digest_tokens, sql_text_size,
                    (pfs_max_digest_length * sizeof(unsigned char)),
                    statements_digest_token_array);
   global_sql_text_container.cleanup();

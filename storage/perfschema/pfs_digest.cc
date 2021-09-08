@@ -52,7 +52,6 @@ ulong digest_lost = 0;
 
 /** EVENTS_STATEMENTS_SUMMARY_BY_DIGEST buffer. */
 PFS_statements_digest_stat *statements_digest_stat_array = nullptr;
-static unsigned char *statements_digest_token_array = nullptr;
 static char *statements_digest_query_sample_text_array = nullptr;
 /** Consumer flag for table EVENTS_STATEMENTS_SUMMARY_BY_DIGEST. */
 bool flag_statements_digest = true;
@@ -93,20 +92,6 @@ int init_digest(const PFS_global_param *param) {
     return 1;
   }
 
-  if (pfs_max_digest_length > 0) {
-    /* Size of each digest array. */
-    size_t digest_memory_size = pfs_max_digest_length * sizeof(unsigned char);
-
-    statements_digest_token_array =
-        PFS_MALLOC_ARRAY(&builtin_memory_digest_tokens, digest_max,
-                         digest_memory_size, unsigned char, MYF(MY_ZEROFILL));
-
-    if (unlikely(statements_digest_token_array == nullptr)) {
-      cleanup_digest();
-      return 1;
-    }
-  }
-
   if (pfs_max_sqltext > 0) {
     /* Size of each query sample text array. */
     size_t sqltext_size = pfs_max_sqltext * sizeof(char);
@@ -123,8 +108,6 @@ int init_digest(const PFS_global_param *param) {
 
   for (size_t index = 0; index < digest_max; index++) {
     statements_digest_stat_array[index].reset_data(
-        statements_digest_token_array + index * pfs_max_digest_length,
-        pfs_max_digest_length,
         statements_digest_query_sample_text_array + index * pfs_max_sqltext);
   }
 
@@ -140,16 +123,11 @@ void cleanup_digest(void) {
                  sizeof(PFS_statements_digest_stat),
                  statements_digest_stat_array);
 
-  PFS_FREE_ARRAY(&builtin_memory_digest_tokens, digest_max,
-                 (pfs_max_digest_length * sizeof(unsigned char)),
-                 statements_digest_token_array);
-
   PFS_FREE_ARRAY(&builtin_memory_digest_sample_sqltext, digest_max,
                  (pfs_max_sqltext * sizeof(char)),
                  statements_digest_query_sample_text_array);
 
   statements_digest_stat_array = nullptr;
-  statements_digest_token_array = nullptr;
   statements_digest_query_sample_text_array = nullptr;
 }
 
@@ -250,7 +228,6 @@ PFS_statements_digest_stat *find_or_create_digest(
   if (statements_digest_stat_array == nullptr) {
     return nullptr;
   }
-
   if (digest_storage->m_byte_count <= 0) {
     return nullptr;
   }
@@ -332,13 +309,7 @@ search:
       if (pfs->m_lock.free_to_dirty(&dirty_state)) {
         /* Copy digest hash/LF Hash search key. */
         pfs->m_digest_key = hash_key;
-
-        /*
-          Copy digest storage to statement_digest_stat_array so that it could be
-          used later to generate digest text.
-        */
-        pfs->m_digest_storage.copy(digest_storage);
-
+        pfs->m_has_data = true;
         pfs->m_first_seen = now;
         pfs->m_last_seen = now;
 
@@ -401,12 +372,9 @@ static void purge_digest(PFS_thread *thread, PFS_digest_key *hash_key) {
   return;
 }
 
-void PFS_statements_digest_stat::reset_data(unsigned char *token_array,
-                                            size_t token_array_length,
-                                            char *query_sample_array) {
+void PFS_statements_digest_stat::reset_data(char *query_sample_array) {
   pfs_dirty_state dirty_state;
   m_lock.set_dirty(&dirty_state);
-  m_digest_storage.reset(token_array, token_array_length);
   m_stat.reset();
   m_first_seen = 0;
   m_last_seen = 0;
@@ -420,10 +388,7 @@ void PFS_statements_digest_stat::reset_data(unsigned char *token_array,
 }
 
 void PFS_statements_digest_stat::reset_index(PFS_thread *thread) {
-  /* Only remove entries that exists in the HASH index. */
-  if (m_digest_storage.m_byte_count > 0) {
-    purge_digest(thread, &m_digest_key);
-  }
+  purge_digest(thread, &m_digest_key);
 }
 
 void reset_esms_by_digest() {
@@ -442,8 +407,6 @@ void reset_esms_by_digest() {
   for (index = 0; index < digest_max; index++) {
     statements_digest_stat_array[index].reset_index(thread);
     statements_digest_stat_array[index].reset_data(
-        statements_digest_token_array + index * pfs_max_digest_length,
-        pfs_max_digest_length,
         statements_digest_query_sample_text_array + index * pfs_max_sqltext);
   }
 

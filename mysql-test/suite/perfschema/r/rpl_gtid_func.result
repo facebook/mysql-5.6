@@ -52,9 +52,10 @@ TRIGGER	%	%	YES	YES
 TRIGGER	information_schema	%	NO	NO
 TRIGGER	mysql	%	NO	NO
 TRIGGER	performance_schema	%	NO	NO
-select digest, digest_text, count_star
-from performance_schema.events_statements_summary_by_digest
-where digest_text like "%in_%_digest%";
+select st.digest, st.digest_text, count_star
+from performance_schema.events_statements_summary_by_digest as esms,
+performance_schema.sql_text as st
+where st.digest_text like "%in_%_digest%" and st.digest = esms.digest;
 digest	digest_text	count_star
 118c102a2859ecc2dd6a01c683818b83	SELECT ? AS `in_master_digest`	1
 insert into test.marker values (2);
@@ -95,9 +96,10 @@ TRIGGER	%	%	YES	YES
 TRIGGER	information_schema	%	NO	NO
 TRIGGER	mysql	%	NO	NO
 TRIGGER	performance_schema	%	NO	NO
-select digest, digest_text, count_star
-from performance_schema.events_statements_summary_by_digest
-where digest_text like "%in_%_digest%";
+select st.digest, st.digest_text, count_star
+from performance_schema.events_statements_summary_by_digest as esms,
+performance_schema.sql_text as st
+where st.digest_text like "%in_%_digest%" and st.digest = esms.digest;
 digest	digest_text	count_star
 2d28db4a1ab09c641aab7f4d48b10480	SELECT ? AS `in_slave_digest`	1
 **** On Master ****

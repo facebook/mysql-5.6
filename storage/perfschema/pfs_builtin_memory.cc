@@ -102,7 +102,6 @@ PFS_builtin_memory_class builtin_memory_setup_object;
 
 PFS_builtin_memory_class builtin_memory_digest;
 PFS_builtin_memory_class builtin_memory_digest_tokens;
-PFS_builtin_memory_class builtin_memory_digest_tokens_v1;
 PFS_builtin_memory_class builtin_memory_digest_sample_sqltext;
 
 PFS_builtin_memory_class builtin_memory_stages_history_long;
@@ -336,9 +335,6 @@ init_all_builtin_memory_class()
                             TABLE_DOC("events_statements_summary_by_digest"));
 
   init_builtin_memory_class(&builtin_memory_digest_tokens,
-                            COL_DOC("events_statements_summary_by_digest", "digest_text"));
-
-  init_builtin_memory_class(&builtin_memory_digest_tokens_v1,
                             COL_DOC("sql_text", "digest_text"));
 
   init_builtin_memory_class(&builtin_memory_stages_history_long,
@@ -460,7 +456,6 @@ static PFS_builtin_memory_class* all_builtin_memory[] = {
 
   &builtin_memory_digest,
   &builtin_memory_digest_tokens,
-  &builtin_memory_digest_tokens_v1,
 
   &builtin_memory_stages_history_long,
   &builtin_memory_statements_history_long,
