@@ -54,8 +54,8 @@ COUNT(DISTINCT SQL_ID)
 5
 Number of distinct table instances per table for each query
 SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COUNT(DISTINCT TABLE_INSTANCE) AS NUM_INSTANCES
-FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt
-WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST 
 GROUP BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME
 ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, NUM_INSTANCES DESC;
 SQL_ID	07708782a5a9cd42c0c264c8c7c24c6b4325e3fa436f8523a5c3e0e9cbb29200
@@ -102,8 +102,8 @@ Distinct column accesses per table instance per query.
 SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_USAGE_COUNT FROM (
 SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, TABLE_INSTANCE, COUNT(*) AS COLUMN_USAGE_COUNT
 FROM performance_schema.column_statistics cs,
-performance_schema.events_statements_summary_by_all mt
-WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST
+performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
 GROUP BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, TABLE_INSTANCE
 ) t ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_USAGE_COUNT DESC;
 SQL_ID	07708782a5a9cd42c0c264c8c7c24c6b4325e3fa436f8523a5c3e0e9cbb29200
@@ -183,8 +183,8 @@ TABLE_NAME	tbl1
 COLUMN_USAGE_COUNT	1
 Unique column accesses per table instance per SQL_ID
 SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt
-WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
 ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
 SQL_ID	07708782a5a9cd42c0c264c8c7c24c6b4325e3fa436f8523a5c3e0e9cbb29200
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?

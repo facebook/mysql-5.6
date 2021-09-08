@@ -22,6 +22,7 @@ DROP TABLE IF EXISTS t1;
 --enable_warnings
 CREATE TABLE t1 (s1 int);
 INSERT INTO t1 values (100), (200), (300);
+TRUNCATE TABLE performance_schema.sql_text;
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
 UPDATE t1 SET s1 = 400;
 
@@ -29,8 +30,9 @@ UPDATE t1 SET s1 = 400;
 --echo ## 1.3 Verify that QUERY_SAMPLE_TEXT has zero length
 --echo
 SELECT query_sample_text
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 --echo
 --echo #### CLEANUP

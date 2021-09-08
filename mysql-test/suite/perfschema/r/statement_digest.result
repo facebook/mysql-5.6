@@ -13,6 +13,7 @@ CREATE TABLE t6(a int, b int, c int, d int);
 CREATE TABLE t11 (c CHAR(4));
 CREATE TABLE t12 (c CHAR(4));
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
 ####################################
 # EXECUTION
 ####################################
@@ -172,10 +173,11 @@ SELECT 2, cte.*, cte2.* FROM cte, cte AS cte2;
 ####################################
 # QUERYING PS STATEMENT DIGEST
 ####################################
-SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
-SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest;
+SELECT SCHEMA_NAME, a.DIGEST, b.DIGEST_TEXT, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
+SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b where a.digest = b.digest;
 SCHEMA_NAME	DIGEST	DIGEST_TEXT	COUNT_STAR	SUM_ROWS_AFFECTED	SUM_WARNINGS	SUM_ERRORS
-statements_digest	5e18b503343466373cc0ce1922b04a77902f0cce5386ce599cb95b682d29415e	TRUNCATE TABLE `performance_schema` . `events_statements_summary_by_digest`	1	0	0	0
+statements_digest	354a4ca5fdc0c8244c727c21f128d139b53f03f09d871929744dacb9958ce480	TRUNCATE TABLE `performance_schema` . `sql_text`	1	0	0	0
 statements_digest	6234405961c90550fa353e725e66b1a3f6636c837aa8be33d0c02d787cbb4e30	SELECT ? FROM `t1`	2	0	0	0
 statements_digest	13340eb12b11a4dc5ad207455ace28dfb18518f0be7ca9c52ea512b829acc4bb	SELECT ?, ... FROM `t1`	2	0	0	0
 statements_digest	80b7b03ea7ad60fdaaf4c83b3848075c5b8e18a725b2b8684a5648e3e5a67b2d	SELECT ? FROM `t2`	1	0	0	0

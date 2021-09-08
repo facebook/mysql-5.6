@@ -29,7 +29,7 @@ CREATE TABLE ДОЛЕН_регистър_утф8 (s1 INT);
 # Incorrectly converted statement identifiers will result in a warning.
 #
 SET NAMES latin1;
-SELECT * FROM performance_schema.events_statements_summary_by_digest
-  WHERE digest_text LIKE 'XXXYYY%' LIMIT 1;
-
+SELECT * FROM performance_schema.events_statements_summary_by_digest as esms,
+  performance_schema.sql_text as st
+    WHERE st.digest_text LIKE 'XXXYYY%' and st.digest = esms.digest LIMIT 1;
 DROP DATABASE pfs_charset_test;

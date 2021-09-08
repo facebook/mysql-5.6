@@ -9,6 +9,7 @@
 --source include/no_protocol.inc
 
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
 
 --disable_query_log
 
@@ -92,6 +93,6 @@ select a-b, a+b, -a, -b, +a, +b from expect_unchanged;
 
 --enable_query_log
 
-SELECT SCHEMA_NAME, DIGEST_TEXT, COUNT_STAR
-  FROM performance_schema.events_statements_summary_by_digest;
-
+SELECT SCHEMA_NAME, b.DIGEST_TEXT, COUNT_STAR
+  FROM performance_schema.events_statements_summary_by_digest as a,
+  performance_schema.sql_text as b where a.digest = b.digest;

@@ -29,6 +29,7 @@ global_instrumentation	YES
 thread_instrumentation	YES
 statements_digest	YES
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
 ####################################
 # EXECUTION
 ####################################
@@ -188,9 +189,12 @@ SELECT 2, cte.*, cte2.* FROM cte, cte AS cte2;
 ####################################
 # QUERYING PS STATEMENT DIGEST
 ####################################
-SELECT schema_name, digest, digest_text, count_star FROM performance_schema.events_statements_summary_by_digest WHERE schema_name IS NOT NULL;
+SELECT schema_name, a.digest, b.digest_text, count_star 
+FROM performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b
+WHERE a.schema_name IS NOT NULL and a.digest = b.digest;
 schema_name	digest	digest_text	count_star
-statements_digest	5e18b503343466373cc0ce1922b04a77902f0cce5386ce599cb95b682d29415e	TRUNCATE TABLE `performance_schema` . `events_statements_summary_by_digest`	1
+statements_digest	354a4ca5fdc0c8244c727c21f128d139b53f03f09d871929744dacb9958ce480	TRUNCATE TABLE `performance_schema` . `sql_text`	1
 statements_digest	6234405961c90550fa353e725e66b1a3f6636c837aa8be33d0c02d787cbb4e30	SELECT ? FROM `t1`	2
 statements_digest	13340eb12b11a4dc5ad207455ace28dfb18518f0be7ca9c52ea512b829acc4bb	SELECT ?, ... FROM `t1`	2
 statements_digest	80b7b03ea7ad60fdaaf4c83b3848075c5b8e18a725b2b8684a5648e3e5a67b2d	SELECT ? FROM `t2`	1
@@ -231,7 +235,10 @@ statements_digest	432e0ca37d8ec0d5aa35531d2f57667b6b9a6d846a40595be20395d02b5f6c
 statements_digest	43cac6c54084dd66cecd8cfc12f7b405c17d8b4073e5845f086895daced248d9	WITH `cte` ( `x` , `y` , `z` ) AS ( SELECT `a` , ?, ... FROM `t1` ) SELECT ? , `cte` . * FROM `cte`	2
 statements_digest	85e633d824b5f672f8f09af17a9c5f6fc197431e24e5fdb14ef794a0c349e61f	WITH `cte` ( `x` , `y` , `z` ) AS ( SELECT `a` , ?, ... FROM `t1` ) SELECT ? , `cte` . * , `cte2` . * FROM `cte` , `cte` AS `cte2`	2
 statements_digest	ee9c0d5a3c0f2e813620c8c67ddb6e6dbd7138c7e54dc27b2ccaf3398f32f11f	WITH RECURSIVE `cte` ( `x` , `y` , `z` ) AS ( SELECT `a` , ?, ... FROM `t1` UNION ALL SELECT `a` + ? , `a` * ?, ... FROM `t1` WHERE ? ) SELECT ? , `cte` . * , `cte2` . * FROM `cte` , `cte` AS `cte2`	2
-SELECT digest, digest_text FROM performance_schema.events_statements_current;
+SELECT a.digest, b.digest_text
+FROM performance_schema.events_statements_current as a,
+performance_schema.sql_text as b
+WHERE a.digest = b.digest;
 digest	digest_text
 ####################################
 # CLEANUP
