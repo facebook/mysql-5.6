@@ -39,19 +39,19 @@ INSERT INTO privacy_research VALUES(1, "User1");
 
 ### check cache and log
 select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count
-from performance_schema.events_statements_summary_by_all a, information_schema.SQL_PRIVACY_LOG b
+from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b
 where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
 
 select * from privacy_research;
 select * from privacy_research;
 select * from privacy_research;
 select * from privacy_research;
-select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count from performance_schema.events_statements_summary_by_all a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
+select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
 
 select * from privacy_research where id>0;
 select * from privacy_research where id>0;
 select * from privacy_research where id>0;
-select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count from performance_schema.events_statements_summary_by_all a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
+select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
 
 ## Cleanup
 use test;

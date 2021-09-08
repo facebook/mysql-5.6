@@ -29,7 +29,7 @@ PRIMARY KEY (`id`)
 );
 INSERT INTO privacy_research VALUES(1, "User1");
 select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count
-from performance_schema.events_statements_summary_by_all a, information_schema.SQL_PRIVACY_LOG b
+from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b
 where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
 digest_text	policy_value	policy_type	result_policy	status	pass_count	fail_count	eval_count
 select * from privacy_research;
@@ -44,7 +44,7 @@ id	name
 select * from privacy_research;
 id	name
 1	User1
-select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count from performance_schema.events_statements_summary_by_all a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
+select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
 digest_text	policy_value	policy_type	result_policy	status	pass_count	fail_count
 SELECT * FROM `privacy_research`	fbig::research	DI	fbig::research or fbig::safety_security_integrity	PASS	4	0
 select * from privacy_research where id>0;
@@ -56,10 +56,10 @@ id	name
 select * from privacy_research where id>0;
 id	name
 1	User1
-select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count from performance_schema.events_statements_summary_by_all a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
+select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
 digest_text	policy_value	policy_type	result_policy	status	pass_count	fail_count	eval_count
-SELECT * FROM `privacy_research`	fbig::research	DI	fbig::research or fbig::safety_security_integrity	PASS	4	0	1
 SELECT * FROM `privacy_research` WHERE `id` > ?	fbig::research	DI	fbig::research or fbig::safety_security_integrity	PASS	3	0	1
+SELECT * FROM `privacy_research`	fbig::research	DI	fbig::research or fbig::safety_security_integrity	PASS	4	0	1
 use test;
 set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
 set global privacy_plugin_purpose_policy_cache_control=@original_privacy_plugin_purpose_policy_cache_control;

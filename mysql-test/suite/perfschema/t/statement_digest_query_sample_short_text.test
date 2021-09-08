@@ -22,6 +22,7 @@ DROP TABLE IF EXISTS t1;
 --enable_warnings
 CREATE TABLE t1 (s1 int);
 INSERT INTO t1 values (100), (200), (300);
+TRUNCATE TABLE performance_schema.sql_text;
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
 UPDATE t1 SET s1 = 500;
 
@@ -29,8 +30,9 @@ UPDATE t1 SET s1 = 500;
 --echo ## 1.2 Verify that QUERY_SAMPLE_TEXT is truncated to 10 bytes
 --echo
 SELECT length(query_sample_text) = 10 AS 'Expect 1 as QUERY_SAMPLE_TEXT is 10'
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 --echo
 --echo ## CLEANUP

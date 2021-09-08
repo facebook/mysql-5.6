@@ -21,12 +21,12 @@
 
 --source include/no_protocol.inc
 
-let $query_select = digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait;
+let $query_select = a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait;
 let $query_into_1 = @digest_1, @max_timer_wait_1, @last_seen_1, @query_sample_text_1, @query_sample_seen_1, @query_sample_timer_wait_1;
 let $query_into_2 = @digest_2, @max_timer_wait_2, @last_seen_2, @query_sample_text_2, @query_sample_seen_2, @query_sample_timer_wait_2;
 let $query_into_3 = @digest_3, @max_timer_wait_3, @last_seen_3, @query_sample_text_3, @query_sample_seen_3, @query_sample_timer_wait_3;
-let $query_from   = performance_schema.events_statements_summary_by_digest;
-let $query_where  = digest_text = "UPDATE `t1` SET `s1` = ?";
+let $query_from   = performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b;
+let $query_where  = b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 let $query_sample_1 =
 SELECT $query_select
@@ -68,6 +68,7 @@ INSERT INTO t1 VALUES (100), (200), (300);
 let $max_age_save = `SELECT @@global.performance_schema_max_digest_sample_age`;
 SET @@global.performance_schema_max_digest_sample_age = 0;
 
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 
 --echo
@@ -176,6 +177,7 @@ SELECT @query_sample_text_3 AS 'Expect UPDATE t1 SET s1 = 500';
 --echo
 --echo ## 2.1 SET MAX SAMPLE AGE TO 3 SECONDS
 SET @@global.performance_schema_max_digest_sample_age = 3;
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 --echo
 TRUNCATE t1;
@@ -278,6 +280,7 @@ INSERT INTO t1 SELECT * FROM t1;
 INSERT INTO t1 SELECT * FROM t1;
 INSERT INTO t1 SELECT * FROM t1;
 FLUSH TABLE test.t1;
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 
 --echo
@@ -345,6 +348,7 @@ DROP TABLE IF EXISTS t1;
 --enable_warnings
 CREATE TABLE t1 (s1 int);
 INSERT INTO t1 values (100),(200),(300);
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 
 --echo
@@ -410,6 +414,7 @@ CREATE TABLE t1 (s1 int);
 
 --echo ## 5.1 SET MAX SAMPLE AGE TO 2 SECONDS
 SET @@global.performance_schema_max_digest_sample_age = 2;
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 TRUNCATE performance_schema.events_statements_history;
 --echo

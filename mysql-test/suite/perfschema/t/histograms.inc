@@ -6,6 +6,7 @@ update performance_schema.threads
   set INSTRUMENTED='NO'
   where PROCESSLIST_ID = connection_id();
 
+TRUNCATE TABLE performance_schema.sql_text;
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
 TRUNCATE TABLE performance_schema.events_statements_histogram_by_digest;
 TRUNCATE TABLE performance_schema.events_statements_histogram_global;
@@ -15,6 +16,7 @@ TRUNCATE TABLE performance_schema.events_statements_histogram_global;
 #
 
 # empty
+select count(*) from performance_schema.sql_text;
 select count(*) from performance_schema.events_statements_summary_by_digest;
 select count(*) from performance_schema.events_statements_histogram_by_digest;
 # 450 rows
@@ -54,7 +56,7 @@ select count(*)
   where COUNT_BUCKET > 0;
 
 select DIGEST
-  from performance_schema.events_statements_summary_by_digest
+  from performance_schema.sql_text
   where DIGEST_TEXT like "%marker_one%"
   into @digest_one;
 
@@ -123,7 +125,7 @@ select "A 2nd statement" as marker_two;
 --connection mon
 
 select DIGEST
-  from performance_schema.events_statements_summary_by_digest
+  from performance_schema.sql_text
   where DIGEST_TEXT like "%marker_two%"
   into @digest_two;
 
@@ -175,21 +177,24 @@ select BUCKET_TIMER_HIGH
   limit 1
   into @max_digest_one;
 
-select DIGEST_TEXT,
+select b.DIGEST_TEXT,
   "Check quantile relative values" as check_title,
   (0 <= QUANTILE_95) as check_1,
   (QUANTILE_95 <= QUANTILE_99) as check_2,
   (QUANTILE_99 <= QUANTILE_999) as check_3
-  from performance_schema.events_statements_summary_by_digest;
+  from performance_schema.events_statements_summary_by_digest as a,
+  performance_schema.sql_text as b
+  where a.DIGEST = b.DIGEST;
 
 select
-  DIGEST_TEXT,
+  b.DIGEST_TEXT,
   "Check quantile values within bounds" as check_title,
   (0 <= @min_digest_one) as check_1,
   (@min_digest_one <= QUANTILE_95) as check_2,
   (QUANTILE_999 <= @max_digest_one) as check_3
-  from performance_schema.events_statements_summary_by_digest
-  where DIGEST = @digest_one;
+  from performance_schema.events_statements_summary_by_digest as a,
+  performance_schema.sql_text as b
+  where a.DIGEST = @digest_one and b.DIGEST = @digest_one;
 
 #
 # Truncate
@@ -221,8 +226,9 @@ select sum(COUNT_BUCKET)
 select sum(COUNT_BUCKET)
   from performance_schema.events_statements_histogram_global;
 
-select DIGEST_TEXT, COUNT_STAR
-  from performance_schema.events_statements_summary_by_digest;
+select b.DIGEST_TEXT, COUNT_STAR
+  from performance_schema.events_statements_summary_by_digest as a,
+  performance_schema.sql_text as b where a.digest = b.digest;
 
 --connection default
 
@@ -259,8 +265,9 @@ select sum(COUNT_BUCKET)
 select sum(COUNT_BUCKET)
   from performance_schema.events_statements_histogram_global;
 
-select DIGEST_TEXT, COUNT_STAR
-  from performance_schema.events_statements_summary_by_digest;
+select b.DIGEST_TEXT, COUNT_STAR
+  from performance_schema.events_statements_summary_by_digest as a,
+  performance_schema.sql_text as b where a.digest = b.digest;
 
 --connection default
 
@@ -331,5 +338,3 @@ select sum(COUNT_BUCKET)
 
 --disconnect mon
 --source include/wait_until_disconnected.inc
-
-
