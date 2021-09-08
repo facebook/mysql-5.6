@@ -19,12 +19,20 @@ show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
+RESET MASTER;
+RESET SLAVE;
+SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
+CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+START SLAVE;
 create table t1 (a int) engine = innodb;
 insert into t1 values(1);
 insert into t1 values(2);
+include/sync_slave_sql_with_master.inc
 include/raft_promote_to_leader.inc
-RESET MASTER;
-RESET SLAVE ALL;
+STOP SLAVE;
 change master to master_host='localhost', master_port=port2, master_auto_position=1, master_user='root';
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
