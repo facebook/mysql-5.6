@@ -2089,6 +2089,13 @@ bool PFS_key_client_id::match(PFS_client_attrs *pfs) {
   return do_match(false, hash_string, MD5_HASH_SIZE * 2);
 }
 
+bool PFS_key_digest::match(PFS_sql_text *pfs) {
+  bool record_null = (pfs->m_digest_storage.is_empty());
+  char hash_string[DIGEST_HASH_TO_STRING_LENGTH + 1];
+  DIGEST_HASH_TO_STRING(pfs->m_key.m_hash_key, hash_string);
+  return do_match(record_null, hash_string, DIGEST_HASH_TO_STRING_LENGTH);
+}
+
 bool PFS_key_bucket_number::match(ulong value) {
   return do_match(false, value);
 }

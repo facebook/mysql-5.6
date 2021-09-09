@@ -110,6 +110,7 @@ socket_instances
 socket_summary_by_event_name
 socket_summary_by_instance
 sql_findings
+sql_text
 status_by_account
 status_by_host
 status_by_thread

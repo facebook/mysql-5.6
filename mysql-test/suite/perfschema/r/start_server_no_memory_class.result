@@ -187,6 +187,8 @@ memory/performance_schema/setup_actors
 memory/performance_schema/setup_objects
 memory/performance_schema/socket_class
 memory/performance_schema/socket_instances
+memory/performance_schema/sql_text
+memory/performance_schema/sql_text.digest_text
 memory/performance_schema/stage_class
 memory/performance_schema/statement_class
 memory/performance_schema/table_handles

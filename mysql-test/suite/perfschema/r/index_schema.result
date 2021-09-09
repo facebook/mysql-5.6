@@ -120,6 +120,7 @@ socket_instances	1	performance_schema	THREAD_ID	HASH
 socket_summary_by_event_name	0	performance_schema	PRIMARY	HASH	
 socket_summary_by_instance	1	performance_schema	EVENT_NAME	HASH	
 socket_summary_by_instance	0	performance_schema	PRIMARY	HASH	
+sql_text	0	performance_schema	DIGEST	HASH	
 status_by_account	0	performance_schema	ACCOUNT	HASH	
 status_by_host	0	performance_schema	HOST	HASH	
 status_by_thread	0	performance_schema	PRIMARY	HASH	
@@ -341,6 +342,7 @@ socket_instances	1	performance_schema	THREAD_ID	1	THREAD_ID	NULL	YES
 socket_summary_by_event_name	0	performance_schema	PRIMARY	1	EVENT_NAME	NULL	
 socket_summary_by_instance	1	performance_schema	EVENT_NAME	1	EVENT_NAME	NULL	
 socket_summary_by_instance	0	performance_schema	PRIMARY	1	OBJECT_INSTANCE_BEGIN	NULL	
+sql_text	0	performance_schema	DIGEST	1	DIGEST	NULL	YES
 status_by_account	0	performance_schema	ACCOUNT	1	USER	NULL	YES
 status_by_account	0	performance_schema	ACCOUNT	2	HOST	NULL	YES
 status_by_account	0	performance_schema	ACCOUNT	3	VARIABLE_NAME	NULL	

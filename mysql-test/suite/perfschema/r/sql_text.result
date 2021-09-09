@@ -1,0 +1,124 @@
+TRUNCATE TABLE performance_schema.sql_text;
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+Case 1: performance_schema_esms_by_all=off
+set global performance_schema_esms_by_all = off;
+select @@performance_schema_esms_by_all;
+@@performance_schema_esms_by_all
+0
+select 42;
+42
+42
+select * from performance_schema.sql_text order by digest;
+DIGEST	DIGEST_TEXT
+a532c6f3e890282b7eee77f35ee85ae9	SELECT ?
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+ceffef89a77026913c52137e9c7a3615	SET GLOBAL `performance_schema_esms_by_all` = OFF
+Case 2: sql_stats_control=ON
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+@@performance_schema_esms_by_all
+1
+select * from performance_schema.sql_text order by digest;
+DIGEST	DIGEST_TEXT
+1bdaf02b6c6dd4f5bfc3045555865597	SET GLOBAL `performance_schema_esms_by_all` = ON
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+select 1;
+1
+1
+select 2;
+2
+2
+select 100;
+100
+100
+select * from performance_schema.sql_text order by digest;
+DIGEST	DIGEST_TEXT
+1a2a0fcf86097e8f663cac44c2984cf8	SELECT * FROM `performance_schema` . `sql_text` ORDER BY `digest`
+1bdaf02b6c6dd4f5bfc3045555865597	SET GLOBAL `performance_schema_esms_by_all` = ON
+a532c6f3e890282b7eee77f35ee85ae9	SELECT ?
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+create table t1(c int);
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+update t1 set c=c+100;
+update t1 set c=c+300;
+update t1 set c=c+500;
+delete from t1 where c=905;
+delete from t1 where c=903;
+select * from performance_schema.sql_text order by digest;
+DIGEST	DIGEST_TEXT
+1a2a0fcf86097e8f663cac44c2984cf8	SELECT * FROM `performance_schema` . `sql_text` ORDER BY `digest`
+1bdaf02b6c6dd4f5bfc3045555865597	SET GLOBAL `performance_schema_esms_by_all` = ON
+3379f8d08c8ef1406d99c65ff9b6b097	DELETE FROM `t1` WHERE `c` = ?
+437f75e69680d60cca3e8a82393fa4f1	UPDATE `t1` SET `c` = `c` + ?
+a532c6f3e890282b7eee77f35ee85ae9	SELECT ?
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+d210d88fff8eeea1393763fdcc68c999	CREATE TABLE `t1` ( `c` INTEGER )
+de4ac3f385e51f51f081f37368d6e55f	INSERT INTO `t1` VALUES (?)
+Case 3: TRUNCATE TABLE
+TRUNCATE TABLE performance_schema.sql_text;
+select 1 union select 2;
+1
+1
+2
+select 1 union select 2 union select 3;
+1
+1
+2
+3
+select * from performance_schema.sql_text order by digest;
+DIGEST	DIGEST_TEXT
+0daeec57dddba79524b3f5fa378012d4	TRUNCATE TABLE `performance_schema` . `sql_text`
+351069bf91b28ffff52fb54d89de9e45	SELECT ? UNION SELECT ? UNION SELECT ?
+7e393507a197a79395cb5c88376cb2d3	SELECT ? UNION SELECT ?
+Case 4: performance_schema_esms_by_all=off.
+set global performance_schema_esms_by_all = off;
+select @@performance_schema_esms_by_all;
+@@performance_schema_esms_by_all
+0
+select * from performance_schema.sql_text order by digest;
+DIGEST	DIGEST_TEXT
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+ceffef89a77026913c52137e9c7a3615	SET GLOBAL `performance_schema_esms_by_all` = OFF
+Case 5: Multi-query support
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+@@performance_schema_esms_by_all
+1
+select 1;
+select 2;
+select 3;
+create table t2(c int);
+insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2;
+||||
+1
+1
+2
+2
+3
+3
+c
+100
+select * from performance_schema.sql_text order by digest;
+DIGEST	DIGEST_TEXT
+0092392cb59149e0726b0b82c62d3b73	DROP TABLE `t2`
+08eb447c2908ae85dbf2389bb755a47c	CREATE TABLE `t2` ( `c` INTEGER )
+1bdaf02b6c6dd4f5bfc3045555865597	SET GLOBAL `performance_schema_esms_by_all` = ON
+37a4ab3f20bfa2cadc339f81a225a3ea	UPDATE `t2` SET `c` = `c` + ?
+9355f873b85ca62c15f9c76c7d577a46	SELECT * FROM `t2`
+a532c6f3e890282b7eee77f35ee85ae9	SELECT ?
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+c6b47f584c3c723a695af80568462861	DELETE FROM `t2` WHERE `c` = ?
+ea8d7221939e31cd79bb5a0800f1c421	INSERT INTO `t2` VALUES (?)
+Cleanup
+set global performance_schema_esms_by_all = DEFAULT;
+drop table t1;
+drop user user_super@localhost;

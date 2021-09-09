@@ -312,10 +312,13 @@
   80032-018:
   - support longer messages by changing SQL_FINDINGS.MESSAGE from 256 to 512
 
+  80032-019:
+  - add SQL_TEXT table
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80032-018. i.e. 8.0.32 Facebook schema change no. 18.
+  Version published is now 80032-019. i.e. 8.0.32 Facebook schema change no. 19.
 */
 
-static const uint PFS_DD_VERSION = 80032018;
+static const uint PFS_DD_VERSION = 80032019;
 
 #endif /* PFS_DD_VERSION_H */

@@ -145,6 +145,7 @@
 #include "storage/perfschema/table_socket_summary_by_event_name.h"
 #include "storage/perfschema/table_socket_summary_by_instance.h"
 #include "storage/perfschema/table_sql_findings.h"
+#include "storage/perfschema/table_sql_text.h"
 #include "storage/perfschema/table_statistics_by_table.h"
 #include "storage/perfschema/table_status_by_account.h"
 #include "storage/perfschema/table_status_by_host.h"
@@ -573,6 +574,7 @@ static PFS_engine_table_share *all_shares[] = {
     &table_session_account_connect_attrs::m_share,
     &table_session_query_attrs::m_share,
     &table_client_attrs::m_share,
+    &table_sql_text::m_share,
     &table_replica_statistics::m_share,
     &table_write_statistics::m_share,
     &table_write_throttling_rules::m_share,

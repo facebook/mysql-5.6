@@ -74,6 +74,8 @@ memory/performance_schema/setup_actors	NULL
 memory/performance_schema/setup_objects	NULL
 memory/performance_schema/socket_class	NULL
 memory/performance_schema/socket_instances	NULL
+memory/performance_schema/sql_text	NULL
+memory/performance_schema/sql_text.digest_text	NULL
 memory/performance_schema/stage_class	NULL
 memory/performance_schema/statement_class	NULL
 memory/performance_schema/table_handles	NULL

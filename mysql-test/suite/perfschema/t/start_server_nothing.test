@@ -57,3 +57,4 @@ select * from performance_schema.socket_summary_by_instance;
 select * from performance_schema.table_handles;
 select * from performance_schema.threads;
 select * from performance_schema.users;
+select * from performance_schema.sql_text;

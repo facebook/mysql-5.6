@@ -44,6 +44,7 @@
 #include "storage/perfschema/pfs_program.h"
 #include "storage/perfschema/pfs_setup_actor.h"
 #include "storage/perfschema/pfs_setup_object.h"
+#include "storage/perfschema/pfs_sql_text.h"
 #include "storage/perfschema/pfs_user.h"
 
 #define USE_SCALABLE
@@ -1371,6 +1372,15 @@ typedef PFS_buffer_container<PFS_client_attrs> PFS_client_attrs_container;
 #endif
 typedef PFS_client_attrs_container::iterator_type PFS_client_attrs_iterator;
 extern PFS_client_attrs_container global_client_attrs_container;
+
+#ifdef USE_SCALABLE
+typedef PFS_buffer_scalable_container<PFS_sql_text, 1024, 1024>
+    PFS_sql_text_container;
+#else
+typedef PFS_buffer_container<PFS_sql_text> PFS_sql_text_container;
+#endif
+typedef PFS_sql_text_container::iterator_type PFS_sql_text_iterator;
+extern PFS_sql_text_container global_sql_text_container;
 
 class PFS_account_array : public PFS_buffer_default_array<PFS_account> {
  public:

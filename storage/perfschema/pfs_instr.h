@@ -492,6 +492,8 @@ struct PFS_ALIGNED PFS_thread : PFS_connection_slice {
   LF_PINS *m_program_hash_pins;
   /** Pins for client_attrs_hash. */
   LF_PINS *m_client_attrs_hash_pins;
+  /** Pins for sql_text_hash. */
+  LF_PINS *m_sql_text_hash_pins;
   /** Internal thread identifier, unique. */
   ulonglong m_thread_internal_id;
   /** Parent internal thread identifier. */

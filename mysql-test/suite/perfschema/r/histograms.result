@@ -1,9 +1,13 @@
 update performance_schema.threads
 set INSTRUMENTED='NO'
   where PROCESSLIST_ID = connection_id();
+TRUNCATE TABLE performance_schema.sql_text;
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
 TRUNCATE TABLE performance_schema.events_statements_histogram_by_digest;
 TRUNCATE TABLE performance_schema.events_statements_histogram_global;
+select count(*) from performance_schema.sql_text;
+count(*)
+0
 select count(*) from performance_schema.events_statements_summary_by_digest;
 count(*)
 0
@@ -66,7 +70,7 @@ where COUNT_BUCKET > 0;
 count(*)
 1
 select DIGEST
-from performance_schema.events_statements_summary_by_digest
+from performance_schema.sql_text
 where DIGEST_TEXT like "%marker_one%"
   into @digest_one;
 select count(*)
@@ -151,7 +155,7 @@ select "A 2nd statement" as marker_two;
 marker_two
 A 2nd statement
 select DIGEST
-from performance_schema.events_statements_summary_by_digest
+from performance_schema.sql_text
 where DIGEST_TEXT like "%marker_two%"
   into @digest_two;
 select sum(COUNT_BUCKET)
@@ -201,23 +205,26 @@ and (COUNT_BUCKET_AND_LOWER = @sum_digest_one)
 order by BUCKET_NUMBER
 limit 1
 into @max_digest_one;
-select DIGEST_TEXT,
+select b.DIGEST_TEXT,
 "Check quantile relative values" as check_title,
 (0 <= QUANTILE_95) as check_1,
 (QUANTILE_95 <= QUANTILE_99) as check_2,
 (QUANTILE_99 <= QUANTILE_999) as check_3
-from performance_schema.events_statements_summary_by_digest;
+from performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b
+where a.DIGEST = b.DIGEST;
 DIGEST_TEXT	check_title	check_1	check_2	check_3
 SELECT ? AS `marker_one`	Check quantile relative values	1	1	1
 SELECT ? AS `marker_two`	Check quantile relative values	1	1	1
 select
-DIGEST_TEXT,
+b.DIGEST_TEXT,
 "Check quantile values within bounds" as check_title,
 (0 <= @min_digest_one) as check_1,
 (@min_digest_one <= QUANTILE_95) as check_2,
 (QUANTILE_999 <= @max_digest_one) as check_3
-from performance_schema.events_statements_summary_by_digest
-where DIGEST = @digest_one;
+from performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b
+where a.DIGEST = @digest_one and b.DIGEST = @digest_one;
 DIGEST_TEXT	check_title	check_1	check_2	check_3
 SELECT ? AS `marker_one`	Check quantile values within bounds	1	1	1
 truncate table performance_schema.events_statements_histogram_by_digest;
@@ -245,8 +252,9 @@ select sum(COUNT_BUCKET)
 from performance_schema.events_statements_histogram_global;
 sum(COUNT_BUCKET)
 5
-select DIGEST_TEXT, COUNT_STAR
-from performance_schema.events_statements_summary_by_digest;
+select b.DIGEST_TEXT, COUNT_STAR
+from performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b where a.digest = b.digest;
 DIGEST_TEXT	COUNT_STAR
 SELECT ? AS `marker_one`	3
 SELECT ? AS `marker_two`	2
@@ -282,8 +290,9 @@ select sum(COUNT_BUCKET)
 from performance_schema.events_statements_histogram_global;
 sum(COUNT_BUCKET)
 0
-select DIGEST_TEXT, COUNT_STAR
-from performance_schema.events_statements_summary_by_digest;
+select b.DIGEST_TEXT, COUNT_STAR
+from performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b where a.digest = b.digest;
 DIGEST_TEXT	COUNT_STAR
 SELECT ? AS `marker_one`	3
 SELECT ? AS `marker_two`	3

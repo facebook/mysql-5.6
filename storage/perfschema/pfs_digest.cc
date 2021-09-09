@@ -288,7 +288,7 @@ PFS_statements_digest_stat *find_or_create_digest(
   pfs_dirty_state dirty_state;
 
   ulonglong now = my_micro_time();
-
+  find_or_create_sql_text(thread, digest_storage);
 search:
 
   /* Lookup LF_HASH using this new key. */
