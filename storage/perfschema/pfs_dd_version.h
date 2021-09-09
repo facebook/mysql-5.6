@@ -243,10 +243,13 @@
 
   80020-020:
   - Add TABLE_INSTANCE to COLUMN_STATISTICS
+
+  80020-021:
+  - Add SQL_TEXT table
 */
 /* Version published now is 80020-018. i.e. 8.0.20 Facebook schema change
  * no. 18.
  */
-static const uint PFS_DD_VERSION = 80020020;
+static const uint PFS_DD_VERSION = 80020021;
 
 #endif /* PFS_DD_VERSION_H */

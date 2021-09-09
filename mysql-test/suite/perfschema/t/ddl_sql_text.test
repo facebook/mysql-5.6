@@ -1,0 +1,20 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DDLs on the table sql_text
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.sql_text
+  ADD COLUMN foo integer;
+
+TRUNCATE TABLE performance_schema.sql_text;
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.sql_text
+   ADD INDEX test_index(sql_text);
+
+-- error ER_DBACCESS_DENIED_ERROR
+CREATE UNIQUE INDEX test_index ON
+  performance_schema.sql_text(sql_text);

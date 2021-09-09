@@ -64,6 +64,7 @@ pfs_program.h
 pfs_server.h
 pfs_setup_actor.h
 pfs_setup_object.h
+pfs_sql_text.h
 pfs_stat.h
 pfs_status.h
 pfs_timer.h
@@ -161,6 +162,7 @@ table_session_connect_attrs.h
 table_session_account_connect_attrs.h
 table_session_query_attrs.h
 table_client_attrs.h
+table_sql_text.h
 table_replica_statistics.h
 table_write_statistics.h
 table_write_throttling_rules.h
@@ -213,6 +215,7 @@ pfs_program.cc
 pfs_server.cc
 pfs_setup_actor.cc
 pfs_setup_object.cc
+pfs_sql_text.cc
 pfs_status.cc
 pfs_timer.cc
 pfs_user.cc
@@ -312,6 +315,7 @@ table_session_connect_attrs.cc
 table_session_account_connect_attrs.cc
 table_session_query_attrs.cc
 table_client_attrs.cc
+table_sql_text.cc
 table_replica_statistics.cc
 table_write_statistics.cc
 table_write_throttling_rules.cc
