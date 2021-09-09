@@ -587,38 +587,12 @@ int PFS_digest_row::make_row(PFS_statements_digest_stat *pfs) {
   if (m_schema_name_length > 0)
     memcpy(m_schema_name, pfs->m_digest_key.m_schema_name,
            m_schema_name_length);
-
-  size_t safe_byte_count = pfs->m_digest_storage.m_byte_count;
-  if (safe_byte_count > pfs_max_digest_length) {
-    safe_byte_count = 0;
-  }
-
-  /*
-    "0" value for byte_count indicates special entry i.e. aggregated
-    stats at index 0 of statements_digest_stat_array. So do not calculate
-    digest/digest_text as it should always be "NULL".
-  */
-  if (safe_byte_count > 0) {
-    /*
-      Calculate digest from HASH collected to be shown as
-      DIGEST in this row.
-    */
-    DIGEST_HASH_TO_STRING(pfs->m_digest_storage.m_hash, m_digest);
-    m_digest_length = DIGEST_HASH_TO_STRING_LENGTH;
-
-    /*
-      Calculate digest_text information from the token array collected
-      to be shown as DIGEST_TEXT column.
-    */
-    compute_digest_text(&pfs->m_digest_storage, &m_digest_text);
-
-    if (m_digest_text.length() == 0) {
-      m_digest_length = 0;
-    }
-  } else {
+  if (!pfs->m_has_data) {
     m_digest_length = 0;
+  } else {
+    DIGEST_HASH_TO_STRING(pfs->m_digest_key.m_hash, m_digest);
+    m_digest_length = DIGEST_HASH_TO_STRING_LENGTH;
   }
-
   return 0;
 }
 
@@ -634,13 +608,6 @@ void PFS_digest_row::set_field(uint index, Field *f) {
     case 1: /* DIGEST */
       if (m_digest_length > 0) {
         set_field_varchar_utf8(f, m_digest, m_digest_length);
-      } else {
-        f->set_null();
-      }
-      break;
-    case 2: /* DIGEST_TEXT */
-      if (m_digest_text.length() > 0) {
-        set_field_blob(f, m_digest_text.ptr(), (uint)m_digest_text.length());
       } else {
         f->set_null();
       }
@@ -2003,11 +1970,11 @@ bool PFS_key_schema::match(const PFS_statements_digest_stat *pfs) {
 }
 
 bool PFS_key_digest::match(PFS_statements_digest_stat *pfs) {
-  bool record_null = (pfs->m_digest_storage.is_empty());
+  bool record_null = !pfs->m_has_data;
   char hash_string[DIGEST_HASH_TO_STRING_LENGTH + 1];
-
-  DIGEST_HASH_TO_STRING(pfs->m_digest_storage.m_hash, hash_string);
-
+  if (!record_null) {
+    DIGEST_HASH_TO_STRING(pfs->m_digest_key.m_hash, hash_string);
+  }
   return do_match(record_null, hash_string, DIGEST_HASH_TO_STRING_LENGTH);
 }
 
@@ -2018,6 +1985,13 @@ bool PFS_key_client_id::match(PFS_client_attrs *pfs) {
   array_to_hex(hash_string, pfs->m_key.m_hash_key, MD5_HASH_SIZE);
 
   return do_match(false, hash_string, MD5_HASH_SIZE * 2);
+}
+
+bool PFS_key_digest::match(PFS_sql_text *pfs) {
+  bool record_null = (pfs->m_digest_storage.is_empty());
+  char hash_string[DIGEST_HASH_TO_STRING_LENGTH + 1];
+  DIGEST_HASH_TO_STRING(pfs->m_key.m_hash_key, hash_string);
+  return do_match(record_null, hash_string, DIGEST_HASH_TO_STRING_LENGTH);
 }
 
 bool PFS_key_bucket_number::match(ulong value) {

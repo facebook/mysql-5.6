@@ -610,6 +610,7 @@ PFS_thread *create_thread(PFS_thread_class *klass, PSI_thread_seqnum seqnum,
     pfs->m_digest_hash_pins = nullptr;
     pfs->m_program_hash_pins = nullptr;
     pfs->m_client_attrs_hash_pins = nullptr;
+    pfs->m_sql_text_hash_pins = nullptr;
 
     pfs->m_username_length = 0;
     pfs->m_hostname_length = 0;
@@ -874,6 +875,10 @@ void destroy_thread(PFS_thread *pfs) {
   if (pfs->m_client_attrs_hash_pins) {
     lf_hash_put_pins(pfs->m_client_attrs_hash_pins);
     pfs->m_client_attrs_hash_pins = NULL;
+  }
+  if (pfs->m_sql_text_hash_pins) {
+    lf_hash_put_pins(pfs->m_sql_text_hash_pins);
+    pfs->m_sql_text_hash_pins = NULL;
   }
   global_thread_container.deallocate(pfs);
 }

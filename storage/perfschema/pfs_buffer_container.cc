@@ -108,6 +108,10 @@ PFS_buffer_default_allocator<PFS_client_attrs> default_client_attrs_allocator(
 PFS_client_attrs_container global_client_attrs_container(
     &default_client_attrs_allocator);
 
+PFS_buffer_default_allocator<PFS_sql_text> default_sql_text_allocator(
+    &builtin_memory_sql_text);
+PFS_sql_text_container global_sql_text_container(&default_sql_text_allocator);
+
 int PFS_account_allocator::alloc_array(PFS_account_array *array) {
   PFS_account *pfs;
   size_t size = array->m_max;

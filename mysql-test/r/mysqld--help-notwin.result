@@ -1287,6 +1287,9 @@ The following options may be given as the first argument:
  --performance-schema-show-processlist 
  Default startup value to enable SHOW PROCESSLIST in the
  performance schema.
+ --performance-schema-sql-text-size=# 
+ Size of the sql text table. Use 0 to disable, -1 for
+ automated sizing.
  --performance-schema-users-size=# 
  Maximum number of instrumented users. Use 0 to disable,
  -1 for automated scaling.
@@ -3035,6 +3038,7 @@ performance-schema-session-connect-attrs-size -1
 performance-schema-setup-actors-size -1
 performance-schema-setup-objects-size -1
 performance-schema-show-processlist FALSE
+performance-schema-sql-text-size 5000
 performance-schema-users-size -1
 persist-only-admin-x509-subject 
 persisted-globals-load TRUE

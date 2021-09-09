@@ -258,6 +258,8 @@ struct PFS_global_param {
   long m_events_statements_history_long_sizing;
   /** Maximum number of digests to be captured */
   long m_digest_sizing;
+  /** Maximum number of sql_text entries to be captured */
+  long m_sql_text_sizing;
   /** Maximum number of programs to be captured */
   long m_program_sizing;
   /** Maximum number of prepared statements to be captured */

@@ -57,7 +57,6 @@ Plugin_table table_esms_by_all::m_table_def(
     /* Definition */
     "  SCHEMA_NAME VARCHAR(64),\n"
     "  DIGEST VARCHAR(64),\n"
-    "  DIGEST_TEXT LONGTEXT,\n"
     "  USER VARCHAR(80),\n"
     "  CLIENT_ID VARCHAR(32),\n"
     "  PLAN_ID VARCHAR(32),\n"
@@ -339,10 +338,9 @@ int table_esms_by_all::read_row_values(TABLE *table, unsigned char *buf,
       switch (f->field_index()) {
         case 0: /* SCHEMA_NAME */
         case 1: /* DIGEST */
-        case 2: /* DIGEST_TEXT */
           m_row.m_digest.set_field(f->field_index(), f);
           break;
-        case 3: /* USER */
+        case 2: /* USER */
           if (m_row.m_user_name_length > 0) {
             set_field_varchar_utf8(f, m_row.m_user_name,
                                    m_row.m_user_name_length);
@@ -350,36 +348,36 @@ int table_esms_by_all::read_row_values(TABLE *table, unsigned char *buf,
             f->set_null();
           }
           break;
-        case 4: /* CLIENT_ID */
+        case 3: /* CLIENT_ID */
           if (strlen(m_row.client_id) > 0) {
             set_field_varchar_utf8(f, m_row.client_id, strlen(m_row.client_id));
           } else {
             f->set_null();
           }
           break;
-        case 5: /* PLAN_ID */
+        case 4: /* PLAN_ID */
           if (strlen(m_row.plan_id) > 0) {
             set_field_varchar_utf8(f, m_row.plan_id, strlen(m_row.plan_id));
           } else {
             f->set_null();
           }
           break;
-        case 43: /* FIRST_SEEN */
+        case 42: /* FIRST_SEEN */
           set_field_timestamp(f, m_row.m_first_seen);
           break;
-        case 44: /* LAST_SEEN */
+        case 43: /* LAST_SEEN */
           set_field_timestamp(f, m_row.m_last_seen);
           break;
-        case 45: /* QUANTILE_95 */
+        case 44: /* QUANTILE_95 */
           set_field_ulonglong(f, m_row.m_p95);
           break;
-        case 46: /* QUANTILE_99 */
+        case 45: /* QUANTILE_99 */
           set_field_ulonglong(f, m_row.m_p99);
           break;
-        case 47: /* QUANTILE_999 */
+        case 46: /* QUANTILE_999 */
           set_field_ulonglong(f, m_row.m_p999);
           break;
-        case 48: /* QUERY_SAMPLE_TEXT */
+        case 47: /* QUERY_SAMPLE_TEXT */
           if (m_row.m_query_sample.length())
             set_field_text(f, m_row.m_query_sample.ptr(),
                            m_row.m_query_sample.length(),
@@ -388,14 +386,14 @@ int table_esms_by_all::read_row_values(TABLE *table, unsigned char *buf,
             f->set_null();
           }
           break;
-        case 49: /* QUERY_SAMPLE_SEEN */
+        case 48: /* QUERY_SAMPLE_SEEN */
           set_field_timestamp(f, m_row.m_query_sample_seen);
           break;
-        case 50: /* QUERY_SAMPLE_TIMER_WAIT */
+        case 49: /* QUERY_SAMPLE_TIMER_WAIT */
           set_field_ulonglong(f, m_row.m_query_sample_timer_wait);
           break;
         default: /* 3, ... COUNT/SUM/MIN/AVG/MAX */
-          m_row.m_stat.set_field(f->field_index() - 6, f);
+          m_row.m_stat.set_field(f->field_index() - 5, f);
           break;
       }
     }

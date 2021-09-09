@@ -20,16 +20,17 @@ INSERT INTO t1 VALUES (100), (200), (300);
 
 ## 1.2 DISABLE MAX SAMPLE AGE
 SET @@global.performance_schema_max_digest_sample_age = 0;
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 
 ## 1.3 QUERY_1: UPDATE 3 ROWS
 UPDATE t1 SET s1 = 400;
 
 ## 1.4 COLLECT DIGEST, MAX WAIT, QUERY SAMPLE
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_1, @max_timer_wait_1, @last_seen_1, @query_sample_text_1, @query_sample_seen_1, @query_sample_timer_wait_1
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 1.5 ADD 48K ROWS
 
@@ -54,10 +55,10 @@ FLUSH TABLE test.t1;
 UPDATE t1 SET s1 = 500;
 
 ## 1.7 COLLECT DIGEST, MAX WAIT, QUERY SAMPLE
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_2, @max_timer_wait_2, @last_seen_2, @query_sample_text_2, @query_sample_seen_2, @query_sample_timer_wait_2
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 1.8 TRUNCATE, ADD 24 ROWS
 
@@ -71,10 +72,10 @@ INSERT INTO t1 SELECT * FROM t1;
 UPDATE t1 SET s1 = 600;
 
 ## 1.10 COLLECT DIGEST, MAX WAIT, QUERY SAMPLE
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_3, @max_timer_wait_3, @last_seen_3, @query_sample_text_3, @query_sample_seen_3, @query_sample_timer_wait_3
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 1.11 VERIFY THAT DIGESTS MATCH
 
@@ -119,6 +120,7 @@ UPDATE t1 SET s1 = 500
 
 ## 2.1 SET MAX SAMPLE AGE TO 3 SECONDS
 SET @@global.performance_schema_max_digest_sample_age = 3;
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 
 TRUNCATE t1;
@@ -147,10 +149,10 @@ UPDATE t1 SET s1 = 700;
 
 ## 2.5 COLLECT DIGEST, MAX WAIT, QUERY SAMPLE, QUERY SEEN
 
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_1, @max_timer_wait_1, @last_seen_1, @query_sample_text_1, @query_sample_seen_1, @query_sample_timer_wait_1
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 2.6 QUERY_2: UPDATE 3 ROWS AGAIN, QUERY SHOULD BE SAMPLED
 TRUNCATE t1;
@@ -158,10 +160,10 @@ INSERT INTO t1 VALUES (100), (200), (300);
 UPDATE t1 SET s1 = 800;
 
 ## 2.7 COLLECT DIGEST, MAX WAIT, QUERY SAMPLE, QUERY SEEN
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_2, @max_timer_wait_2, @last_seen_2, @query_sample_text_2, @query_sample_seen_2, @query_sample_timer_wait_2
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 2.8 VERIFY THAT DIGESTS MATCH
 
@@ -215,16 +217,17 @@ INSERT INTO t1 SELECT * FROM t1;
 INSERT INTO t1 SELECT * FROM t1;
 INSERT INTO t1 SELECT * FROM t1;
 FLUSH TABLE test.t1;
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 
 ## 3.2 QUERY_1: UPDATE 12K ROWS TO SET MAX_TIMER_WAIT
 UPDATE t1 SET s1 = 700;
 
 ## 3.3 COLLECT DIGEST, MAX WAIT, query_sample_timer_wait, QUERY SAMPLE, QUERY SEEN, LAST SEEN
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_1, @max_timer_wait_1, @last_seen_1, @query_sample_text_1, @query_sample_seen_1, @query_sample_timer_wait_1
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 3.4 WAIT 10 SECONDS
 
@@ -235,10 +238,10 @@ INSERT INTO t1 VALUES (100), (200), (300);
 UPDATE t1 SET s1 = 800;
 
 ## 3.6 COLLECT DIGEST, MAX WAIT, query_sample_timer_wait, QUERY SAMPLE, QUERY SEEN, LAST SEEN
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_2, @max_timer_wait_2, @last_seen_2, @query_sample_text_2, @query_sample_seen_2, @query_sample_timer_wait_2
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 3.7 VERIFY THAT DIGESTS MATCH
 
@@ -280,16 +283,17 @@ SET @@global.performance_schema_max_digest_sample_age = 10000;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (s1 int);
 INSERT INTO t1 values (100),(200),(300);
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 
 ## 4.1 Query 1 to test
 
 UPDATE t1 SET s1 = 400;
 
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_1, @max_timer_wait_1, @last_seen_1, @query_sample_text_1, @query_sample_seen_1, @query_sample_timer_wait_1
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 INSERT INTO t1 SELECT * FROM t1;
 INSERT INTO t1 SELECT * FROM t1;
 INSERT INTO t1 SELECT * FROM t1;
@@ -305,10 +309,10 @@ INSERT INTO t1 SELECT * FROM t1;
 
 UPDATE t1 SET s1 = 500;
 
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_2, @max_timer_wait_2, @last_seen_2, @query_sample_text_2, @query_sample_seen_2, @query_sample_timer_wait_2
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## Verify: Digests should be the same
 SELECT @digest_1 = @digest_2 AS "check_digest";
@@ -336,6 +340,7 @@ DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (s1 int);
 ## 5.1 SET MAX SAMPLE AGE TO 2 SECONDS
 SET @@global.performance_schema_max_digest_sample_age = 2;
+TRUNCATE performance_schema.sql_text;
 TRUNCATE performance_schema.events_statements_summary_by_digest;
 TRUNCATE performance_schema.events_statements_history;
 
@@ -361,10 +366,10 @@ FLUSH TABLE test.t1;
 UPDATE t1 SET s1 = 1000;
 
 ## 5.3a COLLECT DIGEST, MAX WAIT, QUERY SAMPLE, QUERY SEEN
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_1, @max_timer_wait_1, @last_seen_1, @query_sample_text_1, @query_sample_seen_1, @query_sample_timer_wait_1
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 5.4. WAIT 10 SECONDS, FORCE AGE
 
@@ -374,10 +379,10 @@ INSERT INTO t1 VALUES (100), (200), (300);
 UPDATE t1 SET s1 = 1100;
 
 ## 5.5a COLLECT DIGEST, MAX WAIT, QUERY SAMPLE, QUERY SEEN
-SELECT digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
+SELECT a.digest, max_timer_wait, last_seen, query_sample_text, query_sample_seen, query_sample_timer_wait
 INTO @digest_2, @max_timer_wait_2, @last_seen_2, @query_sample_text_2, @query_sample_seen_2, @query_sample_timer_wait_2
-FROM performance_schema.events_statements_summary_by_digest
-WHERE digest_text = "UPDATE `t1` SET `s1` = ?";
+FROM performance_schema.events_statements_summary_by_digest as a, performance_schema.sql_text as b
+WHERE b.digest_text = "UPDATE `t1` SET `s1` = ?" and a.digest = b.digest;
 
 ## 5.6 VERIFY MAX_TIMER_WAIT VS QUERY_SAMPLE_TIMER_WAIT
 

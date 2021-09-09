@@ -176,6 +176,7 @@ def	performance_schema	PRIMARY	performance_schema	setup_threads
 def	performance_schema	PRIMARY	performance_schema	socket_instances
 def	performance_schema	PRIMARY	performance_schema	socket_summary_by_event_name
 def	performance_schema	PRIMARY	performance_schema	socket_summary_by_instance
+def	performance_schema	DIGEST	performance_schema	sql_text
 def	performance_schema	ACCOUNT	performance_schema	status_by_account
 def	performance_schema	HOST	performance_schema	status_by_host
 def	performance_schema	PRIMARY	performance_schema	status_by_thread

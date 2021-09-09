@@ -96,7 +96,6 @@ memory/performance_schema/events_statements_history.digest_text	NULL
 memory/performance_schema/events_statements_history.sql_text	NULL
 memory/performance_schema/events_statements_summary_by_account_by_event_name	NULL
 memory/performance_schema/events_statements_summary_by_digest	NULL
-memory/performance_schema/events_statements_summary_by_digest.digest_text	NULL
 memory/performance_schema/events_statements_summary_by_host_by_event_name	NULL
 memory/performance_schema/events_statements_summary_by_program	NULL
 memory/performance_schema/events_statements_summary_by_thread_by_event_name	NULL
@@ -136,6 +135,8 @@ memory/performance_schema/setup_actors	NULL
 memory/performance_schema/setup_objects	NULL
 memory/performance_schema/socket_class	NULL
 memory/performance_schema/socket_instances	NULL
+memory/performance_schema/sql_text	NULL
+memory/performance_schema/sql_text.digest_text	NULL
 memory/performance_schema/stage_class	NULL
 memory/performance_schema/statement_class	NULL
 memory/performance_schema/table_handles	NULL
@@ -329,7 +330,6 @@ memory/performance_schema/events_statements_history.digest_text	NULL
 memory/performance_schema/events_statements_history.sql_text	NULL
 memory/performance_schema/events_statements_summary_by_account_by_event_name	NULL
 memory/performance_schema/events_statements_summary_by_digest	NULL
-memory/performance_schema/events_statements_summary_by_digest.digest_text	NULL
 memory/performance_schema/events_statements_summary_by_host_by_event_name	NULL
 memory/performance_schema/events_statements_summary_by_program	NULL
 memory/performance_schema/events_statements_summary_by_thread_by_event_name	NULL
@@ -369,6 +369,8 @@ memory/performance_schema/setup_actors	NULL
 memory/performance_schema/setup_objects	NULL
 memory/performance_schema/socket_class	NULL
 memory/performance_schema/socket_instances	NULL
+memory/performance_schema/sql_text	NULL
+memory/performance_schema/sql_text.digest_text	NULL
 memory/performance_schema/stage_class	NULL
 memory/performance_schema/statement_class	NULL
 memory/performance_schema/table_handles	NULL

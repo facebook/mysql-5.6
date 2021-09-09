@@ -1,4 +1,5 @@
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
 ERROR 42S02: Table 'test.expect_unary' doesn't exist
 ERROR 42S02: Table 'test.expect_unary' doesn't exist
 ERROR 42S02: Table 'test.expect_unary' doesn't exist
@@ -36,10 +37,11 @@ ERROR 42S02: Table 'test.expect_full_reduce' doesn't exist
 ERROR 42S02: Table 'test.expect_full_reduce' doesn't exist
 ERROR 42S02: Table 'test.expect_full_reduce' doesn't exist
 ERROR 42S02: Table 'test.expect_unchanged' doesn't exist
-SELECT SCHEMA_NAME, DIGEST_TEXT, COUNT_STAR
-FROM performance_schema.events_statements_summary_by_digest;
+SELECT SCHEMA_NAME, b.DIGEST_TEXT, COUNT_STAR
+FROM performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b where a.digest = b.digest;
 SCHEMA_NAME	DIGEST_TEXT	COUNT_STAR
-test	TRUNCATE TABLE `performance_schema` . `events_statements_summary_by_digest`	1
+test	TRUNCATE TABLE `performance_schema` . `sql_text`	1
 test	SELECT ? FROM `expect_unary`	5
 test	SELECT ? + ? FROM `expect_binary`	2
 test	SELECT ? - ? FROM `expect_binary`	2

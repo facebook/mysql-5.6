@@ -12,6 +12,7 @@ CREATE TABLE t6(a int, b int, c int, d int);
 CREATE TABLE t11 (c CHAR(4));
 CREATE TABLE t12 (c CHAR(4));
 TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
 ####################################
 # EXECUTION
 ####################################
@@ -171,11 +172,10 @@ SELECT 2, cte.*, cte2.* FROM cte, cte AS cte2;
 ####################################
 # QUERYING PS STATEMENT DIGEST
 ####################################
-SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
-SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest;
+SELECT SCHEMA_NAME, a.DIGEST, b.DIGEST_TEXT, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
+SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest as a,
+performance_schema.sql_text as b where a.digest = b.digest;
 SCHEMA_NAME	DIGEST	DIGEST_TEXT	COUNT_STAR	SUM_ROWS_AFFECTED	SUM_WARNINGS	SUM_ERRORS
-NULL	NULL	NULL	68	43	2	2
-statements_digest	e6628a0d51a41865a2ac8de78a8be09d	TRUNCATE TABLE `performance_schema` . `events_statements_summary_by_digest`	1	0	0	0
 SHOW GLOBAL VARIABLES LIKE "performance_schema_digests_size";
 Variable_name	Value
 performance_schema_digests_size	2

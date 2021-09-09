@@ -213,6 +213,7 @@ slave_worker_info	Id	NULL	NULL
 socket_instances	OBJECT_INSTANCE_BEGIN	NULL	NULL
 socket_summary_by_event_name	EVENT_NAME	NULL	NULL
 socket_summary_by_instance	OBJECT_INSTANCE_BEGIN	NULL	NULL
+sql_text	DIGEST	NULL	NULL
 status_by_account	HOST	NULL	NULL
 status_by_account	USER	NULL	NULL
 status_by_account	VARIABLE_NAME	NULL	NULL

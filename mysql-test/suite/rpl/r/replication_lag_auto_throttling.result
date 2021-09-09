@@ -725,10 +725,10 @@ type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
 SHARD	test	72
 SHARD	test1	72
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	36
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	36
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
 USER	root	144
 ####### Next Cycle #######
 ### Expectation - There is replication lag. Based on the write stats, there is no clear sql_id or shard as the culprit. Should identify client_id as the culprit and throttle it. ###
@@ -846,7 +846,7 @@ sleep(@wat_freq)
 insert into test.t values(2);
 select type, value, mode from performance_schema.write_throttling_rules order by value desc;
 type	value	mode
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	AUTO
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	AUTO
 SQL_ID	5678	MANUAL
 SQL_ID	1234	MANUAL
 # Setting WRITE_AUTO_THROTTLE_FREQUENCY=0 should clear auto throttling rules
@@ -886,10 +886,10 @@ type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
 SHARD	test	72
 SHARD	test1	72
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	36
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	36
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
 USER	root	144
 ####### Next Cycle #######
 ### Expectation - There is replication lag. But since no permissible throttling dimension is set, no query should be throttled. ###
@@ -931,10 +931,10 @@ type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	154
 SHARD	test	82
 SHARD	test1	72
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	41
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	db9c32a2123622b766490ad9fa6bd511b8aef2fbf51ce61ae6b36c9f0380610f	41
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	183f908b76eebd8c11d04e4afc8de481	41
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	41
 USER	root	154
 ####### Next Cycle #######
 ### Expectation - There is replication lag. Since there is no clear culprit among SHARD & SQL_ID dimensions, system should quarantine first SHARD. ###
@@ -977,10 +977,10 @@ type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	164
 SHARD	test	82
 SHARD	test1	82
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	41
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	41
-SQL_ID	db9c32a2123622b766490ad9fa6bd511b8aef2fbf51ce61ae6b36c9f0380610f	41
-SQL_ID	eb4198a1dcdd8fe2273e0311638961c82b4f58a17862c9945c1a253a9dd510a9	41
+SQL_ID	183f908b76eebd8c11d04e4afc8de481	41
+SQL_ID	6aa03692f520126c3933940216180870	41
+SQL_ID	b013b60c29596dd5691e0a1acacb13c7	41
+SQL_ID	f66df89c2ca4535043dda3710def2e92	41
 USER	root	164
 ####### Next Cycle #######
 ### Expectation - There is replication lag. Since there is no clear culprit among SHARD & SQL_ID dimensions, system should quarantine first SQL_ID. ###
@@ -991,7 +991,7 @@ set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into test1.t values(2);
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a
+SQL_ID	6aa03692f520126c3933940216180870
 ####### Reset #######
 use test;
 TRUNCATE test.t;

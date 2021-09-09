@@ -121,6 +121,8 @@ PFS_builtin_memory_class builtin_memory_prepared_stmt;
 
 PFS_builtin_memory_class builtin_memory_client_attrs;
 
+PFS_builtin_memory_class builtin_memory_sql_text;
+
 PFS_builtin_memory_class builtin_memory_scalable_buffer;
 
 static void init_builtin_memory_class(PFS_builtin_memory_class *klass,
@@ -333,7 +335,7 @@ init_all_builtin_memory_class()
                             TABLE_DOC("events_statements_summary_by_digest"));
 
   init_builtin_memory_class(&builtin_memory_digest_tokens,
-                            COL_DOC("events_statements_summary_by_digest", "digest_text"));
+                            COL_DOC("sql_text", "digest_text"));
 
   init_builtin_memory_class(&builtin_memory_stages_history_long,
                             TABLE_DOC("events_stages_history_long"));
@@ -373,6 +375,9 @@ init_all_builtin_memory_class()
 
   init_builtin_memory_class(&builtin_memory_client_attrs,
                             TABLE_DOC("client_attributes"));
+
+  init_builtin_memory_class(&builtin_memory_sql_text,
+                            TABLE_DOC("sql_text"));
 
   init_builtin_memory_class(&builtin_memory_scalable_buffer,
                             GEN_DOC("scalable_buffer", "scalable buffers"));
@@ -468,6 +473,8 @@ static PFS_builtin_memory_class* all_builtin_memory[] = {
   &builtin_memory_prepared_stmt,
 
   &builtin_memory_client_attrs,
+
+  &builtin_memory_sql_text,
 
   &builtin_memory_scalable_buffer,
 

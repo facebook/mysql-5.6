@@ -45,9 +45,11 @@ SELECT b, a from test.v1;
 --echo # DIGESTS SEEN ON TABLE
 --echo #
 
-SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, QUERY_SAMPLE_TEXT
-  FROM performance_schema.events_statements_summary_by_digest
-  ORDER BY DIGEST_TEXT;
+SELECT SCHEMA_NAME, a.DIGEST, b.DIGEST_TEXT, COUNT_STAR, QUERY_SAMPLE_TEXT
+    FROM performance_schema.events_statements_summary_by_digest as a,
+         performance_schema.sql_text as b
+    WHERE a.DIGEST = b.DIGEST
+    ORDER BY b.DIGEST_TEXT;
 
 DROP TABLE test.v1;
 CREATE VIEW test.v1 AS SELECT * FROM test.t1;
@@ -75,9 +77,11 @@ SELECT b, a from test.v1;
 --echo # DIGESTS SEEN ON VIEW
 --echo #
 
-SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, QUERY_SAMPLE_TEXT
-  FROM performance_schema.events_statements_summary_by_digest
-  ORDER BY DIGEST_TEXT;
+SELECT SCHEMA_NAME, a.DIGEST, b.DIGEST_TEXT, COUNT_STAR, QUERY_SAMPLE_TEXT
+    FROM performance_schema.events_statements_summary_by_digest as a,
+         performance_schema.sql_text as b
+    WHERE a.DIGEST = b.DIGEST
+    ORDER BY b.DIGEST_TEXT;
 
 DROP VIEW test.v1;
 DROP TABLE test.t1;

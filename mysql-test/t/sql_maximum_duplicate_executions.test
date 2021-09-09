@@ -12,6 +12,7 @@ grant all on test to test_user@localhost;
 --connection default
 
 truncate table performance_schema.events_statements_summary_by_digest;
+truncate table performance_schema.sql_text;
 truncate table performance_schema.events_errors_summary_by_user_by_error;
 
 #############
@@ -133,9 +134,10 @@ set @@GLOBAL.sql_duplicate_executions_control=error;
 --connection default
 --echo
 --echo "execution_count=6 (Q1) 2 (Q2/Q3) and skipped_count=1 for all queries"
-select digest, digest_text, count_star, sum_skipped
-from performance_schema.events_statements_summary_by_digest
-where digest_text like 'SELECT %skip_dup_tab%'
+select a.digest, b.digest_text, count_star, sum_skipped
+from performance_schema.events_statements_summary_by_digest as a, 
+performance_schema.sql_text as b
+where b.digest_text like 'SELECT %skip_dup_tab%' and a.digest = b.digest
 order by digest;
 
 select ERROR_NUMBER, ERROR_NAME, SUM_ERROR_RAISED

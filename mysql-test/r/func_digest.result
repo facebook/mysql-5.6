@@ -1961,9 +1961,9 @@ SET sql_mode = DEFAULT;
 # Bug #29512067: STATEMENT_DIGEST() AND STATEMENT_DIGEST_TEXT() CORRUPT
 # OUTER STATEMENT DIGEST
 #
-TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.sql_text;
 SELECT DIGEST_TEXT
-FROM performance_schema.events_statements_summary_by_digest
+FROM performance_schema.sql_text
 WHERE DIGEST_TEXT LIKE 'SELECT ?%';
 DIGEST_TEXT
 SELECT statement_digest_text('SELECT 1 + 1');
@@ -1971,7 +1971,7 @@ statement_digest_text('SELECT 1 + 1')
 SELECT ? + ?
 # "SELECT ? + ?" should not be here
 SELECT DIGEST_TEXT
-FROM performance_schema.events_statements_summary_by_digest
+FROM performance_schema.sql_text
 WHERE DIGEST_TEXT LIKE 'SELECT ?%';
 DIGEST_TEXT
 #
