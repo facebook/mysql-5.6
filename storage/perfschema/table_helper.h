@@ -43,6 +43,7 @@
 #include "storage/perfschema/pfs_events.h"
 #include "storage/perfschema/pfs_instr_class.h"
 #include "storage/perfschema/pfs_setup_actor.h"
+#include "storage/perfschema/pfs_sql_text.h"
 #include "storage/perfschema/pfs_stat.h"
 #include "storage/perfschema/pfs_timer.h"
 
@@ -1536,6 +1537,7 @@ class PFS_key_digest : public PFS_key_string<MAX_KEY_LENGTH> {
   ~PFS_key_digest() override {}
 
   bool match(PFS_statements_digest_stat *pfs);
+  bool match(PFS_sql_text *pfs);
 };
 
 class PFS_key_client_id : public PFS_key_string<MAX_KEY_LENGTH> {

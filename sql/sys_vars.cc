@@ -160,6 +160,7 @@
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_digest.h"
 #include "storage/perfschema/pfs_server.h"
+#include "storage/perfschema/pfs_sql_text.h"
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 TYPELIB bool_typelib = {array_elements(bool_values) - 1, "", bool_values,
@@ -816,6 +817,14 @@ static Sys_var_long Sys_pfs_digest_size(
     VALID_RANGE(-1, 1024 * 1024), DEFAULT(PFS_AUTOSIZE_VALUE), BLOCK_SIZE(1),
     PFS_TRAILING_PROPERTIES);
 
+static Sys_var_long Sys_pfs_sql_text_size(
+    "performance_schema_sql_text_size",
+    "Size of the sql text table."
+    " Use 0 to disable, -1 for automated sizing.",
+    READ_ONLY GLOBAL_VAR(pfs_param.m_sql_text_sizing), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(-1, 1024 * 1024), DEFAULT(5000), BLOCK_SIZE(1),
+    PFS_TRAILING_PROPERTIES);
+
 static Sys_var_long Sys_pfs_events_transactions_history_long_size(
     "performance_schema_events_transactions_history_long_size",
     "Number of rows in EVENTS_TRANSACTIONS_HISTORY_LONG."
@@ -882,6 +891,7 @@ static Sys_var_long Sys_pfs_error_size(
 
 static bool clear_digest_stats(sys_var *, THD *, enum_var_type) {
   reset_esms_by_digest();
+  reset_sql_text();
   return false;
 }
 

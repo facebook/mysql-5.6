@@ -90,7 +90,7 @@
 */
 
 static_assert((PFS_DD_VERSION <= MYSQL_VERSION_ID) ||
-                  ((PFS_DD_VERSION == 80023020) && (MYSQL_VERSION_ID == 80023)),
+                  ((PFS_DD_VERSION == 80023021) && (MYSQL_VERSION_ID == 80023)),
               "This release can not use a version number from the future");
 
 class KEY;
@@ -1271,11 +1271,24 @@ static bool pfs_show_status(handlerton *, THD *thd, stat_print_fn *print,
         size = global_client_attrs_container.get_memory();
         total_memory += size;
         break;
+      case 245:
+        name = "sql_text.size";
+        size = global_sql_text_container.get_row_size();
+        break;
+      case 246:
+        name = "sql_text.count";
+        size = global_sql_text_container.get_row_count();
+        break;
+      case 247:
+        name = "sql_text.memory";
+        size = global_sql_text_container.get_memory();
+        total_memory += size;
+        break;
       /*
         This case must be last,
         for aggregation in total_memory.
       */
-      case 245:
+      case 248:
         name = "performance_schema.memory";
         size = total_memory;
         break;
@@ -1486,6 +1499,8 @@ static SHOW_VAR pfs_status_vars[] = {
     {"Performance_schema_client_attrs_lost",
      (char *)&global_client_attrs_container.m_lost, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
+    {"Performance_schema_sql_text_lost",
+     (char *)&global_sql_text_container.m_lost, SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {"Performance_schema_metadata_lock_lost",
      (char *)&global_mdl_container.m_lost, SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};

@@ -101,6 +101,7 @@ PFS_builtin_memory_class builtin_memory_setup_object;
 
 PFS_builtin_memory_class builtin_memory_digest;
 PFS_builtin_memory_class builtin_memory_digest_tokens;
+PFS_builtin_memory_class builtin_memory_digest_tokens_v1;
 PFS_builtin_memory_class builtin_memory_digest_sample_sqltext;
 
 PFS_builtin_memory_class builtin_memory_stages_history_long;
@@ -120,6 +121,8 @@ PFS_builtin_memory_class builtin_memory_program;
 PFS_builtin_memory_class builtin_memory_prepared_stmt;
 
 PFS_builtin_memory_class builtin_memory_client_attrs;
+
+PFS_builtin_memory_class builtin_memory_sql_text;
 
 PFS_builtin_memory_class builtin_memory_scalable_buffer;
 
@@ -337,6 +340,9 @@ init_all_builtin_memory_class()
   init_builtin_memory_class(&builtin_memory_digest_tokens,
                             COL_DOC("events_statements_summary_by_digest", "digest_text"));
 
+  init_builtin_memory_class(&builtin_memory_digest_tokens_v1,
+                            COL_DOC("sql_text", "digest_text"));
+
   init_builtin_memory_class(&builtin_memory_digest_sample_sqltext,
                             COL_DOC("events_statements_summary_by_digest", "sample_sqltext"));
 
@@ -378,6 +384,9 @@ init_all_builtin_memory_class()
 
   init_builtin_memory_class(&builtin_memory_client_attrs,
                             TABLE_DOC("client_attributes"));
+
+  init_builtin_memory_class(&builtin_memory_sql_text,
+                            TABLE_DOC("sql_text"));
 
   init_builtin_memory_class(&builtin_memory_scalable_buffer,
                             GEN_DOC("scalable_buffer", "scalable buffers"));
@@ -456,6 +465,7 @@ static PFS_builtin_memory_class* all_builtin_memory[] = {
 
   &builtin_memory_digest,
   &builtin_memory_digest_tokens,
+  &builtin_memory_digest_tokens_v1,
   &builtin_memory_digest_sample_sqltext,
 
   &builtin_memory_stages_history_long,
@@ -474,6 +484,8 @@ static PFS_builtin_memory_class* all_builtin_memory[] = {
   &builtin_memory_prepared_stmt,
 
   &builtin_memory_client_attrs,
+
+  &builtin_memory_sql_text,
 
   &builtin_memory_scalable_buffer,
 

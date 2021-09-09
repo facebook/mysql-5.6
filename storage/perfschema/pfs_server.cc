@@ -54,6 +54,7 @@
 #include "storage/perfschema/pfs_program.h"
 #include "storage/perfschema/pfs_setup_actor.h"
 #include "storage/perfschema/pfs_setup_object.h"
+#include "storage/perfschema/pfs_sql_text.h"
 #include "storage/perfschema/pfs_timer.h"
 #include "storage/perfschema/pfs_tls_channel.h"
 #include "storage/perfschema/pfs_user.h"
@@ -163,7 +164,7 @@ int initialize_performance_schema(
       init_digest_hash(param) || init_program(param) ||
       init_program_hash(param) || init_prepared_stmt(param) ||
       init_client_attrs(param) || init_client_attrs_hash(param) ||
-      init_error(param)) {
+      init_sql_text(param) || init_sql_text_hash(param) || init_error(param)) {
     /*
       The performance schema initialization failed.
       Free the memory used, and disable the instrumentation.
@@ -295,6 +296,7 @@ static void cleanup_performance_schema(void) {
   cleanup_file_hash();
   cleanup_digest_hash();
   cleanup_client_attrs_hash();
+  cleanup_sql_text_hash();
 
   /*
     Then the lookup tables
@@ -333,6 +335,7 @@ static void cleanup_performance_schema(void) {
   cleanup_program();
   cleanup_prepared_stmt();
   cleanup_client_attrs();
+  cleanup_sql_text();
   cleanup_sync_class();
   cleanup_thread_class();
   cleanup_table_index_stat();

@@ -287,10 +287,14 @@
 
   - add TABLE_INSTANCE to COLUMN_STATISTICS
 
+  80023-021:
+
+  - add SQL_TEXT table
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-020. i.e. 8.0.23 Facebook schema change no. 20.
+  Version published is now 80023-021. i.e. 8.0.23 Facebook schema change no. 21.
 */
 
-static const uint PFS_DD_VERSION = 80023020;
+static const uint PFS_DD_VERSION = 80023021;
 
 #endif /* PFS_DD_VERSION_H */

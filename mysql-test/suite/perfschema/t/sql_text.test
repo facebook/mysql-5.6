@@ -1,0 +1,102 @@
+--source include/count_sessions.inc
+TRUNCATE TABLE performance_schema.sql_text;
+
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+
+connect (con13, localhost, user_super,su,test);
+
+
+####################################################
+### Case 1: performance_schema_esms_by_all=off.
+####################################################
+--echo Case 1: performance_schema_esms_by_all=off
+set global performance_schema_esms_by_all = off;
+select @@performance_schema_esms_by_all;
+select 42;
+select * from performance_schema.sql_text order by digest;
+
+####################################################
+### Case 2: sql_stats_control=ON, Data will be stored in sql_statistics.
+####################################################
+--echo Case 2: sql_stats_control=ON
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+
+# Check that all data was cleared.
+select * from performance_schema.sql_text order by digest;
+select 1;
+select 2;
+select 100;
+
+select * from performance_schema.sql_text order by digest;
+
+create table t1(c int);
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+update t1 set c=c+100;
+update t1 set c=c+300;
+update t1 set c=c+500;
+delete from t1 where c=905;
+delete from t1 where c=903;
+
+select * from performance_schema.sql_text order by digest;
+
+####################################################
+### Case 3: TRUNCATE TABLE.
+####################################################
+--echo Case 3: TRUNCATE TABLE
+TRUNCATE TABLE performance_schema.sql_text;
+select 1 union select 2;
+select 1 union select 2 union select 3;
+
+select * from performance_schema.sql_text order by digest;
+
+####################################################
+### Case 4: performance_schema_esms_by_all=off.
+####################################################
+--echo Case 4: performance_schema_esms_by_all=off.
+set global performance_schema_esms_by_all = off;
+select @@performance_schema_esms_by_all;
+
+select * from performance_schema.sql_text order by digest;
+
+####################################################
+### Case 5: Multi-query support
+####################################################
+--echo Case 5: Multi-query support
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t2(c int);
+insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+select * from performance_schema.sql_text order by digest;
+
+###########
+### Cleanup
+###########
+--echo Cleanup
+connection default;
+set global performance_schema_esms_by_all = DEFAULT;
+drop table t1;
+drop user user_super@localhost;
+disconnect con13;
+
+--source include/wait_until_count_sessions.inc

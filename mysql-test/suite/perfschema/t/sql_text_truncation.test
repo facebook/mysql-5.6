@@ -1,0 +1,14 @@
+TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+TRUNCATE TABLE performance_schema.events_statements_summary_by_all;
+TRUNCATE TABLE performance_schema.sql_text;
+SELECT * FROM performance_schema.sql_text;
+let $before_count= query_get_value(SHOW GLOBAL STATUS LIKE 'Performance_schema_sql_text_lost', Value, 1);
+CREATE TABLE foo(a INT);
+INSERT INTO foo VALUES(1);
+DROP TABLE foo;
+SELECT * FROM performance_schema.sql_text;
+let $after_count= query_get_value(SHOW GLOBAL STATUS LIKE 'Performance_schema_sql_text_lost', Value, 1);
+
+--let $assert_text= Number of commands dropped from sql_text table is 5
+--let $assert_cond= $after_count - $before_count = 5
+--source include/assert.inc

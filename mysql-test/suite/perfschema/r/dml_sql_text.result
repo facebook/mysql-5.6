@@ -1,0 +1,18 @@
+SELECT * FROM performance_schema.sql_text LIMIT 1;
+INSERT INTO performance_schema.sql_text
+SET USER="abc";
+ERROR 42000: INSERT command denied to user 'root'@'localhost' for table 'sql_text'
+UPDATE performance_schema.sql_text
+SET USER="abc" WHERE USER=root;
+ERROR 42000: UPDATE command denied to user 'root'@'localhost' for table 'sql_text'
+DELETE FROM performance_schema.sql_text
+WHERE USER=root;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'sql_text'
+DELETE FROM performance_schema.sql_text;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'sql_text'
+LOCK TABLES performance_schema.sql_text READ;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'sql_text'
+UNLOCK TABLES;
+LOCK TABLES performance_schema.sql_text WRITE;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'sql_text'
+UNLOCK TABLES;

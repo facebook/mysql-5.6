@@ -58,6 +58,8 @@ struct PFS_sizing_data {
   ulong m_events_transactions_history_long_sizing;
   /** Default value for @c PFS_param.m_digest_sizing. */
   ulong m_digest_sizing;
+  /** Default value for @c PFS_param.m_sql_text_sizing. */
+  ulong m_sql_text_sizing;
   /** Default value for @c PFS_param.m_session_connect_attrs_sizing. */
   ulong m_session_connect_attrs_sizing;
 };
@@ -67,6 +69,8 @@ PFS_sizing_data small_data = {
     5, 100, 5, 100, 5, 100, 5, 100,
     /* Digests */
     1000,
+    /* sql text */
+    100,
     /* Session connect attrs. */
     512};
 
@@ -75,6 +79,8 @@ PFS_sizing_data medium_data = {
     10, 1000, 10, 1000, 10, 1000, 10, 1000,
     /* Digests */
     5000,
+    /* sql text */
+    500,
     /* Session connect attrs. */
     512};
 
@@ -83,6 +89,8 @@ PFS_sizing_data large_data = {
     10, 10000, 10, 10000, 10, 10000, 10, 10000,
     /* Digests */
     10000,
+    /* sql text */
+    1000,
     /* Session connect attrs. */
     512};
 
@@ -137,6 +145,10 @@ static void apply_heuristic(PFS_global_param *p, PFS_sizing_data *h) {
 
   if (p->m_digest_sizing < 0) {
     p->m_digest_sizing = h->m_digest_sizing;
+  }
+
+  if (p->m_sql_text_sizing < 0) {
+    p->m_sql_text_sizing = h->m_sql_text_sizing;
   }
 
   if (p->m_events_transactions_history_sizing < 0) {
@@ -214,6 +226,7 @@ void pfs_automated_sizing(PFS_global_param *param) {
 
 #ifndef HAVE_PSI_STATEMENT_DIGEST_INTERFACE
     param->m_digest_sizing = 0;
+    param->m_sql_text_sizing = 0;
 #endif
 
 #ifndef HAVE_PSI_METADATA_INTERFACE
@@ -274,6 +287,7 @@ void pfs_automated_sizing(PFS_global_param *param) {
     param->m_events_statements_history_sizing = 0;
     param->m_events_statements_history_long_sizing = 0;
     param->m_digest_sizing = 0;
+    param->m_sql_text_sizing = 0;
     param->m_program_sizing = 0;
     param->m_prepared_stmt_sizing = 0;
     param->m_events_transactions_history_sizing = 0;
