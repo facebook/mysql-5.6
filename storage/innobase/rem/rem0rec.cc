@@ -1836,10 +1836,12 @@ rec_print_comp(
 /*===========*/
 	FILE*		file,	/*!< in: file where to print */
 	const rec_t*	rec,	/*!< in: physical record */
-	const ulint*	offsets)/*!< in: array returned by rec_get_offsets() */
+	const ulint*	offsets, /*!< in: array returned by rec_get_offsets() */
+	my_bool force_digest) /*!< in: always show query digest */
 {
 	THD *this_thd = current_thd;
-	if (this_thd && this_thd->variables.show_query_digest) {
+	if (force_digest ||
+	    (this_thd && this_thd->variables.show_query_digest)) {
 		// If show_query_digest we should avoid show any records
 		fputs("<record skipped>", file);
 		return;
@@ -1888,7 +1890,8 @@ rec_print_new(
 /*==========*/
 	FILE*		file,	/*!< in: file where to print */
 	const rec_t*	rec,	/*!< in: physical record */
-	const ulint*	offsets)/*!< in: array returned by rec_get_offsets() */
+	const ulint*	offsets, /*!< in: array returned by rec_get_offsets() */
+	my_bool force_digest) /*!< in: always show query digest */
 {
 	ut_ad(rec);
 	ut_ad(offsets);
@@ -1904,7 +1907,7 @@ rec_print_new(
 		(ulong) rec_offs_n_fields(offsets),
 		(ulong) rec_get_info_bits(rec, TRUE));
 
-	rec_print_comp(file, rec, offsets);
+	rec_print_comp(file, rec, offsets, force_digest);
 	rec_validate(rec, offsets);
 }
 

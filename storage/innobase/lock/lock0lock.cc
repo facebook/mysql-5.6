@@ -24,6 +24,9 @@ Created 5/7/1996 Heikki Tuuri
 *******************************************************/
 
 #define LOCK_MODULE_IMPLEMENTATION
+#define MYSQL_SERVER
+#include "sql_class.h"
+
 #include <mysql/service_thd_engine_lock.h>
 
 #include "lock0lock.h"
@@ -427,6 +430,11 @@ UNIV_INTERN ibool	lock_deadlock_found = FALSE;
 /** Only created if !srv_read_only_mode */
 static FILE*		lock_latest_err_file;
 
+/** Same as lock_latest_err_file but for show_query_digest - we double
+write a digest version of lock_latest_err_file and show one of the two
+based on show_query_digest setting at the time of SHOW ENGINE STATUS */
+static FILE*		lock_latest_digest_err_file;
+
 /********************************************************************//**
 Checks if a joining lock request results in a deadlock. If a deadlock is
 found this function will resolve the dadlock by choosing a victim transaction
@@ -625,7 +633,9 @@ lock_sys_create(
 
 	if (!srv_read_only_mode) {
 		lock_latest_err_file = os_file_create_tmpfile(NULL);
+		lock_latest_digest_err_file = os_file_create_tmpfile(NULL);
 		ut_a(lock_latest_err_file);
+		ut_a(lock_latest_digest_err_file);
 	}
 }
 
@@ -666,6 +676,10 @@ lock_sys_close(void)
 	if (lock_latest_err_file != NULL) {
 		fclose(lock_latest_err_file);
 		lock_latest_err_file = NULL;
+	}
+	if (lock_latest_digest_err_file != NULL) {
+		fclose(lock_latest_digest_err_file);
+		lock_latest_digest_err_file = NULL;
 	}
 
 	hash_table_free(lock_sys->rec_hash);
@@ -3630,7 +3644,9 @@ lock_deadlock_start_print()
 	srv_lock_deadlocks++;
 
 	rewind(lock_latest_err_file);
+	rewind(lock_latest_digest_err_file);
 	ut_print_timestamp(lock_latest_err_file);
+	ut_print_timestamp(lock_latest_digest_err_file);
 
 	if (srv_print_all_deadlocks) {
 		ut_print_timestamp(stderr);
@@ -3650,6 +3666,7 @@ lock_deadlock_fputs(
 {
 	if (!srv_read_only_mode) {
 		fputs(msg, lock_latest_err_file);
+		fputs(msg, lock_latest_digest_err_file);
 
 		if (srv_print_all_deadlocks) {
 			fputs(msg, stderr);
@@ -3678,6 +3695,9 @@ lock_deadlock_trx_print(
 
 	trx_print_low(lock_latest_err_file, trx, max_query_len,
 		      n_rec_locks, n_trx_locks, heap_size);
+	trx_print_low(lock_latest_digest_err_file, trx, max_query_len,
+		      n_rec_locks, n_trx_locks, heap_size,
+			  /* force_digest = */ TRUE);
 
 	if (srv_print_all_deadlocks) {
 		trx_print_low(stderr, trx, max_query_len,
@@ -3700,12 +3720,15 @@ lock_deadlock_lock_print(
 
 	if (lock_get_type_low(lock) == LOCK_REC) {
 		lock_rec_print(lock_latest_err_file, lock);
+		lock_rec_print(lock_latest_digest_err_file, lock,
+			       /* force_digest = */ TRUE);
 
 		if (srv_print_all_deadlocks) {
 			lock_rec_print(stderr, lock);
 		}
 	} else {
 		lock_table_print(lock_latest_err_file, lock);
+		lock_table_print(lock_latest_digest_err_file, lock);
 
 		if (srv_print_all_deadlocks) {
 			lock_table_print(stderr, lock);
@@ -5198,7 +5221,8 @@ void
 lock_rec_print(
 /*===========*/
 	FILE*		file,	/*!< in: file where to print */
-	const lock_t*	lock)	/*!< in: record type lock */
+	const lock_t*	lock,	/*!< in: record type lock */
+	my_bool force_digest)
 {
 	const buf_block_t*	block;
 	ulint			space;
@@ -5271,7 +5295,7 @@ lock_rec_print(
 				ULINT_UNDEFINED, &heap);
 
 			putc(' ', file);
-			rec_print_new(file, rec, offsets);
+			rec_print_new(file, rec, offsets, force_digest);
 		}
 
 		putc('\n', file);
@@ -5349,7 +5373,17 @@ lock_print_info_summary(
 		      "------------------------\n", file);
 
 		if (!srv_read_only_mode) {
-			ut_copy_file(file, lock_latest_err_file);
+			THD *this_thd = current_thd;
+			my_bool show_query_digest =
+				this_thd ?
+				this_thd->variables.show_query_digest : FALSE;
+			if (show_query_digest) {
+				/* hand out the error file with digest only */
+				ut_copy_file(file, lock_latest_digest_err_file);
+			} else {
+				/* hand out the error file with full query */
+				ut_copy_file(file, lock_latest_err_file);
+			}
 		}
 	}
 

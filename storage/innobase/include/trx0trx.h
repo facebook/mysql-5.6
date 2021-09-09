@@ -335,8 +335,10 @@ trx_print_low(
 			/*!< in: lock_number_of_rows_locked(&trx->lock) */
 	ulint		n_trx_locks,
 			/*!< in: length of trx->lock.trx_locks */
-	ulint		heap_size)
+	ulint		heap_size,
 			/*!< in: mem_heap_get_size(trx->lock.lock_heap) */
+	my_bool force_digest = FALSE)
+		/*!< in: always show query digest */
 	MY_ATTRIBUTE((nonnull));
 
 /**********************************************************************//**

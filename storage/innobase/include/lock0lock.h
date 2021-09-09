@@ -635,7 +635,8 @@ void
 lock_rec_print(
 /*===========*/
 	FILE*		file,	/*!< in: file where to print */
-	const lock_t*	lock);	/*!< in: record type lock */
+	const lock_t*	lock,	/*!< in: record type lock */
+	my_bool force_digest = FALSE); /*!< in: always show query digest */
 /*********************************************************************//**
 Prints info of locks for all transactions.
 @return FALSE if not able to obtain lock mutex and exits without

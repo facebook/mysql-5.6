@@ -935,7 +935,8 @@ rec_print_comp(
 /*===========*/
 	FILE*		file,	/*!< in: file where to print */
 	const rec_t*	rec,	/*!< in: physical record */
-	const ulint*	offsets)/*!< in: array returned by rec_get_offsets() */
+	const ulint*	offsets, /*!< in: array returned by rec_get_offsets() */
+	my_bool force_digest = FALSE) /*!< in: always show query digest */
 	MY_ATTRIBUTE((nonnull));
 /***************************************************************//**
 Prints a physical record. */
@@ -945,7 +946,8 @@ rec_print_new(
 /*==========*/
 	FILE*		file,	/*!< in: file where to print */
 	const rec_t*	rec,	/*!< in: physical record */
-	const ulint*	offsets)/*!< in: array returned by rec_get_offsets() */
+	const ulint*	offsets, /*!< in: array returned by rec_get_offsets() */
+	my_bool force_digest = FALSE) /*!< in: always show query digest */
 	MY_ATTRIBUTE((nonnull));
 /***************************************************************//**
 Prints a physical record. */
