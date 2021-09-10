@@ -641,6 +641,7 @@ class ha_rocksdb : public my_core::handler {
                                    const rocksdb::Slice &eq_cond);
 
  private:
+  bool mrr_sorted_mode;  // true <=> we are in ordered-keys, ordered-results
   // RANGE_SEQ_IF is stored in handler::mrr_funcs
   HANDLER_BUFFER mrr_buf;
 
