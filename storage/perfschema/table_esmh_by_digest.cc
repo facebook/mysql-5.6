@@ -78,9 +78,10 @@ PFS_engine_table_share table_esmh_by_digest::m_share = {
     false /* m_in_purgatory */
 };
 
-bool PFS_index_esmh_by_digest::match_digest(PFS_statements_digest_stat *pfs) {
+bool PFS_index_esmh_by_digest::match_digest(PFS_statements_digest_stat *pfs,
+                                            const char *schema_name) {
   if (m_fields >= 1) {
-    if (!m_key_1.match(pfs)) {
+    if (!m_key_1.match(schema_name)) {
       return false;
     }
   }
@@ -115,7 +116,9 @@ table_esmh_by_digest::table_esmh_by_digest()
     : PFS_engine_table(&m_share, &m_pos),
       m_materialized_digest(nullptr),
       m_pos(),
-      m_next_pos() {}
+      m_next_pos() {
+  pfs_digest_id_name_map.fill_invert_map(DB_MAP_NAME, &m_db_map);
+}
 
 void table_esmh_by_digest::reset_position(void) {
   m_pos.reset();
@@ -188,7 +191,9 @@ int table_esmh_by_digest::index_next(void) {
        m_pos.next_digest()) {
     digest_stat = &statements_digest_stat_array[m_pos.m_index_1];
     if (digest_stat->m_first_seen != 0) {
-      if (!m_opened_index->match_digest(digest_stat)) {
+      if (!m_opened_index->match_digest(
+              digest_stat, pfs_digest_id_name_map.get_name(
+                               &m_db_map, digest_stat->m_digest_key.db_id))) {
         continue;
       }
 
@@ -210,7 +215,9 @@ int table_esmh_by_digest::index_next(void) {
 void table_esmh_by_digest::materialize(
     PFS_statements_digest_stat *digest_stat) {
   if (digest_stat != m_materialized_digest) {
-    m_materialized_histogram.m_digest.make_row(digest_stat);
+    m_materialized_histogram.m_digest.make_row(
+        digest_stat, pfs_digest_id_name_map.get_name(
+                         &m_db_map, digest_stat->m_digest_key.db_id));
 
     PFS_histogram *histogram = digest_stat->get_histogram();
     if (histogram) {

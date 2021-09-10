@@ -52,13 +52,14 @@ class PFS_index_esms_by_all : public PFS_engine_index {
 
   ~PFS_index_esms_by_all() {}
 
-  virtual bool match(PFS_statements_digest_stat *pfs);
+  virtual bool match(PFS_statements_digest_stat *pfs, const char *schema_name,
+                     const char *user_name);
 
  private:
   PFS_key_schema m_key_1;
   PFS_key_digest m_key_2;
   PFS_key_user m_key_3;
-  PFS_key_name m_key_4;
+  PFS_key_client_id m_key_4;
 };
 
 /**
@@ -141,6 +142,9 @@ class table_esms_by_all : public PFS_engine_table {
   PFS_simple_index m_next_pos;
 
   PFS_index_esms_by_all *m_opened_index;
+
+  ID_NAME_MAP m_db_map;
+  ID_NAME_MAP m_user_map;
 };
 
 /** @} */

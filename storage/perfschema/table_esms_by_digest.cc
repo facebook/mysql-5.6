@@ -121,9 +121,10 @@ PFS_engine_table_share table_esms_by_digest::m_share = {
     false /* m_in_purgatory */
 };
 
-bool PFS_index_esms_by_digest::match(PFS_statements_digest_stat *pfs) {
+bool PFS_index_esms_by_digest::match(PFS_statements_digest_stat *pfs,
+                                     const char *schema_name) {
   if (m_fields >= 1) {
-    if (!m_key_1.match(pfs)) {
+    if (!m_key_1.match(schema_name)) {
       return false;
     }
   }
@@ -148,6 +149,7 @@ ha_rows table_esms_by_digest::get_row_count(void) { return digest_max; }
 table_esms_by_digest::table_esms_by_digest()
     : PFS_engine_table(&m_share, &m_pos), m_pos(0), m_next_pos(0) {
   m_normalizer = time_normalizer::get_statement();
+  pfs_digest_id_name_map.fill_invert_map(DB_MAP_NAME, &m_db_map);
 }
 
 void table_esms_by_digest::reset_position(void) {
@@ -216,7 +218,9 @@ int table_esms_by_digest::index_next(void) {
   for (m_pos.set_at(&m_next_pos); m_pos.m_index < digest_max; m_pos.next()) {
     digest_stat = &statements_digest_stat_array[m_pos.m_index];
     if (digest_stat->m_first_seen != 0) {
-      if (m_opened_index->match(digest_stat)) {
+      if (m_opened_index->match(
+              digest_stat, pfs_digest_id_name_map.get_name(
+                               &m_db_map, digest_stat->m_digest_key.db_id))) {
         if (!make_row(digest_stat)) {
           m_next_pos.set_after(&m_pos);
           return 0;
@@ -231,7 +235,9 @@ int table_esms_by_digest::index_next(void) {
 int table_esms_by_digest::make_row(PFS_statements_digest_stat *digest_stat) {
   m_row.m_first_seen = digest_stat->m_first_seen;
   m_row.m_last_seen = digest_stat->m_last_seen;
-  m_row.m_digest.make_row(digest_stat);
+  m_row.m_digest.make_row(digest_stat,
+                          pfs_digest_id_name_map.get_name(
+                              &m_db_map, digest_stat->m_digest_key.db_id));
 
   /*
     Get statements stats.
