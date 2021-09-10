@@ -33,7 +33,8 @@
       },
       "capabilities": {
         "type": "mysql",
-        "vcs": "mysql-int-git"
+        "vcs": "mysql-int-git",
+        "unicastle_size": "I2_LARGE"
       }
     }
   ]
