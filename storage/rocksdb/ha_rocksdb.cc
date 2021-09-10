@@ -16531,6 +16531,16 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
     ++table->in_use->status_var.ha_multi_range_read_init_count;
   }
 
+  // HA_MRR_NO_ASSOCIATION is only set for range plans, and not for BKA. We
+  // make use of this fact to determine whether the keys we obtain are sorted
+  // or not.
+  //
+  // TODO: For reverse cf, we just have to pass in the keys to MultiGet in
+  // reverse order. Doing this allows to save an std::sort on the rocksdb side.
+  mrr_sorted_mode = (mode & HA_MRR_NO_ASSOCIATION) &&
+                    active_index == table->s->primary_key &&
+                    !m_pk_descr->m_is_reverse_cf;
+
   if (active_index == table->s->primary_key) {
     // ICP is not supported for PK, so we don't expect that BKA's variant
     // of ICP would be used:
@@ -16699,7 +16709,7 @@ int ha_rocksdb::mrr_fill_buffer() {
   */
 
   tx->multi_get(m_pk_descr->get_cf(), mrr_n_elements, mrr_keys, mrr_values,
-                mrr_statuses, active_index == table->s->primary_key);
+                mrr_statuses, mrr_sorted_mode);
 
   return 0;
 }
