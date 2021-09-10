@@ -37,34 +37,25 @@
 #include "mysql_com.h"
 #include "sql/sql_digest.h"
 #include "storage/perfschema/pfs_column_types.h"
+#include "storage/perfschema/pfs_error.h"
 #include "storage/perfschema/pfs_histogram.h"
 #include "storage/perfschema/pfs_lock.h"
 #include "storage/perfschema/pfs_name.h"
 #include "storage/perfschema/pfs_stat.h"
-
+#include "storage/perfschema/pfs_struct.h"
 extern bool flag_statements_digest;
 extern size_t digest_max;
 extern ulong digest_lost;
+extern PFS_id_name_map pfs_digest_id_name_map;
 struct PFS_thread;
 
 /**
   Structure to store a hash value (digest) for a statement.
 */
-class PFS_digest_key {
- public:
-  void reset() {
-    m_schema_name.reset();
-    m_user_name_length = 0;
-    memset(&m_hash, 0, sizeof(m_hash));
-    memset(&m_user_name, 0, sizeof(m_user_name));
-    memset(&client_id, 0, sizeof(client_id));
-    memset(&plan_id, 0, sizeof(plan_id));
-  }
-
-  PFS_schema_name m_schema_name;
+struct PFS_digest_key {
   unsigned char m_hash[DIGEST_HASH_SIZE];
-  char m_user_name[NAME_LEN];
-  uint m_user_name_length;
+  uint32_t db_id;
+  uint32_t user_id;
   unsigned char client_id[MD5_HASH_SIZE];
   unsigned char plan_id[MD5_HASH_SIZE];
 };

@@ -101,7 +101,7 @@ schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_update
 test	ceffef89a77026913c52137e9c7a3615	1	0	0	0
 test	aaee6b4d5f9c26d4d43d3967f53cd8c7	1	0	0	0
 test	ee539b147b1561c36bd9e7ad53e5fb38	1	0	0	0
-Case 6: Multi-query support
+Case 5: Multi-query support
 set global performance_schema_esms_by_all = on;
 select @@performance_schema_esms_by_all;
 @@performance_schema_esms_by_all
@@ -118,19 +118,39 @@ drop table t2;
 1
 c
 100
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all;
-schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
-test	1bdaf02b6c6dd4f5bfc3045555865597	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
-test	aaee6b4d5f9c26d4d43d3967f53cd8c7	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
-test	a532c6f3e890282b7eee77f35ee85ae9	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
-test	08eb447c2908ae85dbf2389bb755a47c	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	12	6
-test	ea8d7221939e31cd79bb5a0800f1c421	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	1	0
-test	9355f873b85ca62c15f9c76c7d577a46	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
-test	37a4ab3f20bfa2cadc339f81a225a3ea	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	1
-test	c6b47f584c3c723a695af80568462861	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	1	0	0
-test	0092392cb59149e0726b0b82c62d3b73	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	12	0	0
+CREATE TABLE test.t11(a int) ||||
+set @query= 'SELECT * FROM test.t11 WHERE a > 5 and a < 10 and a <> 9' ||||
+PREPARE STMT FROM @query; EXECUTE STMT; ||||
+a
+DROP TABLE test.t11 ||||
+select schema_name, query_sample_text, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all order by digest;
+schema_name	query_sample_text	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
+test	drop table t2	0092392cb59149e0726b0b82c62d3b73	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	12	0	0
+test	create table t2(c int)	08eb447c2908ae85dbf2389bb755a47c	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	12	6
+test	set global performance_schema_esms_by_all = on	1bdaf02b6c6dd4f5bfc3045555865597	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	set @query= 'SELECT * FROM test.t11 WHERE a > 5 and a < 10 and a <> 9'	2e8c4504c4ed8aefa4a0601d8983caf2	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	update t2 set c=c+7	37a4ab3f20bfa2cadc339f81a225a3ea	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	1
+test	EXECUTE STMT	6c3a3828b4683176bf5613bf50781aff	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	DROP TABLE test.t11	8fa792b76e7a194c5f7335c9064b77a2	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	12	0	0
+test	select * from t2	9355f873b85ca62c15f9c76c7d577a46	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	select 1	a532c6f3e890282b7eee77f35ee85ae9	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	select @@performance_schema_esms_by_all	aaee6b4d5f9c26d4d43d3967f53cd8c7	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	CREATE TABLE test.t11(a int)	b90de024eac53b1869f604d5e84bf832	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	12	6
+test	delete from t2 where c=107	c6b47f584c3c723a695af80568462861	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	1	0	0
+test	PREPARE STMT FROM @query	e6e3e2d3faddc5b422a8775cd7c37755	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	insert into t2 values(100)	ea8d7221939e31cd79bb5a0800f1c421	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	1	0
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
+Verify index working properly
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'fake';
+schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'user_super' and client_id = 'fake';
+schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'user_super' and client_id = '99914b932bd37a50b983c5e7c90ae93b';
+schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
 Cleanup
 set global performance_schema_esms_by_all = DEFAULT;
 drop table t1;

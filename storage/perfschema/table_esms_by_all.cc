@@ -129,15 +129,29 @@ PFS_engine_table_share table_esms_by_all::m_share = {
     false /* m_in_purgatory */
 };
 
-bool PFS_index_esms_by_all::match(PFS_statements_digest_stat *pfs) {
+bool PFS_index_esms_by_all::match(PFS_statements_digest_stat *pfs,
+                                  const char *schema_name,
+                                  const char *user_name) {
   if (m_fields >= 1) {
-    if (!m_key_1.match(pfs)) {
+    if (!m_key_1.match(schema_name)) {
       return false;
     }
   }
 
   if (m_fields >= 2) {
-    return m_key_2.match(pfs);
+    if (!m_key_2.match(pfs)) {
+      return false;
+    }
+  }
+
+  if (m_fields >= 3) {
+    if (!m_key_3.match(user_name)) {
+      return false;
+    }
+  }
+
+  if (m_fields >= 4) {
+    return m_key_4.match(pfs);
   }
   return true;
 }
@@ -156,6 +170,8 @@ ha_rows table_esms_by_all::get_row_count(void) { return digest_max; }
 table_esms_by_all::table_esms_by_all()
     : PFS_engine_table(&m_share, &m_pos), m_pos(0), m_next_pos(0) {
   m_normalizer = time_normalizer::get_statement();
+  pfs_digest_id_name_map.fill_invert_map(DB_MAP_NAME, &m_db_map);
+  pfs_digest_id_name_map.fill_invert_map(USER_MAP_NAME, &m_user_map);
 }
 
 void table_esms_by_all::reset_position(void) {
@@ -224,7 +240,12 @@ int table_esms_by_all::index_next(void) {
   for (m_pos.set_at(&m_next_pos); m_pos.m_index < digest_max; m_pos.next()) {
     digest_stat = &statements_digest_stat_array[m_pos.m_index];
     if (digest_stat->m_first_seen != 0) {
-      if (m_opened_index->match(digest_stat)) {
+      if (m_opened_index->match(
+              digest_stat,
+              pfs_digest_id_name_map.get_name(&m_db_map,
+                                              digest_stat->m_digest_key.db_id),
+              pfs_digest_id_name_map.get_name(
+                  &m_user_map, digest_stat->m_digest_key.user_id))) {
         if (!make_row(digest_stat)) {
           m_next_pos.set_after(&m_pos);
           return 0;
@@ -239,12 +260,14 @@ int table_esms_by_all::index_next(void) {
 int table_esms_by_all::make_row(PFS_statements_digest_stat *digest_stat) {
   m_row.m_first_seen = digest_stat->m_first_seen;
   m_row.m_last_seen = digest_stat->m_last_seen;
-  m_row.m_digest.make_row(digest_stat);
-
-  m_row.m_user_name_length = digest_stat->m_digest_key.m_user_name_length;
+  m_row.m_digest.make_row(digest_stat,
+                          pfs_digest_id_name_map.get_name(
+                              &m_db_map, digest_stat->m_digest_key.db_id));
+  auto user_name = pfs_digest_id_name_map.get_name(
+      &m_user_map, digest_stat->m_digest_key.user_id);
+  m_row.m_user_name_length = user_name ? strlen(user_name) : 0;
   if (m_row.m_user_name_length > 0)
-    memcpy(m_row.m_user_name, digest_stat->m_digest_key.m_user_name,
-           m_row.m_user_name_length);
+    memcpy(m_row.m_user_name, user_name, m_row.m_user_name_length);
   array_to_hex(m_row.client_id, digest_stat->m_digest_key.client_id,
                MD5_HASH_SIZE);
   m_row.client_id[MD5_HASH_TO_STRING_LENGTH] = '\0';

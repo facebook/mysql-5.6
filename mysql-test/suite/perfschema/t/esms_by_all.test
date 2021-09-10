@@ -75,7 +75,7 @@ select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum
 ####################################################
 ### Case 5: Multi-query support
 ####################################################
---echo Case 6: Multi-query support
+--echo Case 5: Multi-query support
 set global performance_schema_esms_by_all = on;
 select @@performance_schema_esms_by_all;
 
@@ -90,12 +90,23 @@ delete from t2 where c=107;
 drop table t2;
 ||||
 
+CREATE TABLE test.t11(a int) ||||
+set @query= 'SELECT * FROM test.t11 WHERE a > 5 and a < 10 and a <> 9' ||||
+PREPARE STMT FROM @query; EXECUTE STMT; ||||
+DROP TABLE test.t11 ||||
+
 # reset delimiter
 delimiter ;||||
-
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all;
+select schema_name, query_sample_text, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all order by digest;
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest;
 
+--echo Verify index working properly
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'fake';
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'user_super' and client_id = 'fake';
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'user_super' and client_id = '99914b932bd37a50b983c5e7c90ae93b';
 ###########
 ### Cleanup
 ###########

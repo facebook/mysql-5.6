@@ -49,6 +49,7 @@
 
 size_t digest_max = 0;
 ulong digest_lost = 0;
+PFS_id_name_map pfs_digest_id_name_map;
 
 /** EVENTS_STATEMENTS_SUMMARY_BY_DIGEST buffer. */
 PFS_statements_digest_stat *statements_digest_stat_array = nullptr;
@@ -118,6 +119,8 @@ int init_digest(const PFS_global_param *param) {
     }
   }
 
+  pfs_digest_id_name_map.init_names();
+
   for (size_t index = 0; index < digest_max; index++) {
     statements_digest_stat_array[index].reset_data(
         statements_digest_query_sample_text_array + index * pfs_max_sqltext);
@@ -141,7 +144,7 @@ void cleanup_digest(void) {
   PFS_FREE_ARRAY(&builtin_memory_digest_sample_sqltext, digest_max,
                  (pfs_max_sqltext * sizeof(char)),
                  statements_digest_query_sample_text_array);
-
+  pfs_digest_id_name_map.destroy_names();
   statements_digest_stat_array = nullptr;
   statements_digest_histogram_array = nullptr;
   statements_digest_query_sample_text_array = nullptr;
@@ -161,58 +164,14 @@ static const uchar *digest_hash_get_key(const uchar *entry, size_t *length) {
   return reinterpret_cast<const uchar *>(result);
 }
 
-static uint digest_hash_func(const LF_HASH *, const uchar *key,
-                             size_t key_len [[maybe_unused]]) {
-  const PFS_digest_key *digest_key;
-  uint64 nr1;
-  uint64 nr2;
-
-  assert(key_len == sizeof(PFS_digest_key));
-  digest_key = reinterpret_cast<const PFS_digest_key *>(key);
-  assert(digest_key != nullptr);
-
-  nr1 = 0;
-  nr2 = murmur3_32(digest_key->client_id, MD5_HASH_SIZE, nr1); // make hash dependent on digest_key->client_id
-
-  nr1 = murmur3_32(digest_key->m_hash, DIGEST_HASH_SIZE, nr2);
-  digest_key->m_schema_name.hash(&nr1, &nr2);
-
-  return nr1;
-}
-
-static int digest_hash_cmp_func(const uchar *key1,
-                                size_t key_len1 [[maybe_unused]],
-                                const uchar *key2,
-                                size_t key_len2 [[maybe_unused]]) {
-  const PFS_digest_key *digest_key1;
-  const PFS_digest_key *digest_key2;
-  int cmp;
-
-  assert(key_len1 == sizeof(PFS_digest_key));
-  assert(key_len2 == sizeof(PFS_digest_key));
-  digest_key1 = reinterpret_cast<const PFS_digest_key *>(key1);
-  digest_key2 = reinterpret_cast<const PFS_digest_key *>(key2);
-  assert(digest_key1 != nullptr);
-  assert(digest_key2 != nullptr);
-
-  cmp = memcmp(digest_key1->m_hash, &digest_key2->m_hash, DIGEST_HASH_SIZE);
-  if (cmp != 0) {
-    return cmp;
-  }
-  cmp = digest_key1->m_schema_name.sort(&digest_key2->m_schema_name);
-  return cmp;
-}
-
 /**
   Initialize the digest hash.
   @return 0 on success
 */
 int init_digest_hash(const PFS_global_param *param) {
   if ((!digest_hash_inited) && (param->m_digest_sizing != 0)) {
-    lf_hash_init3(&digest_hash, sizeof(PFS_statements_digest_stat *),
-                  LF_HASH_UNIQUE, digest_hash_get_key, digest_hash_func,
-                  digest_hash_cmp_func, nullptr /* ctor */, nullptr /* dtor */,
-                  nullptr /* init */);
+    lf_hash_init(&digest_hash, sizeof(PFS_statements_digest_stat *),
+                 LF_HASH_UNIQUE, 0, 0, digest_hash_get_key, &my_charset_bin);
     digest_hash_inited = true;
   }
   return 0;
@@ -254,18 +213,23 @@ PFS_statements_digest_stat *find_or_create_digest(
   }
 
   PFS_digest_key hash_key;
-  hash_key.reset();
+  memset(&hash_key, 0, sizeof(hash_key));
   /* Copy digest hash of the tokens received. */
   memcpy(&hash_key.m_hash, digest_storage->m_hash, DIGEST_HASH_SIZE);
   /* Add the current schema to the key */
-  hash_key.m_schema_name.set(schema_name, schema_name_length);
+  hash_key.db_id = INVALID_NAME_ID;
+  if (schema_name_length > 0) {
+    hash_key.db_id = pfs_digest_id_name_map.get_id(DB_MAP_NAME, schema_name,
+                                                   schema_name_length);
+  }
 
+  hash_key.user_id = INVALID_NAME_ID;
   if (pfs_param.m_esms_by_all_enabled) {
     /* Add the current username to the key */
-    hash_key.m_user_name_length = thread->m_user_name.length();
     if (thread->m_user_name.length() > 0) {
-      memcpy(hash_key.m_user_name, thread->m_user_name.ptr(),
-             thread->m_user_name.length());
+      hash_key.user_id = pfs_digest_id_name_map.get_id(
+          USER_MAP_NAME, thread->m_user_name.ptr(),
+          thread->m_user_name.length());
     }
 
     memcpy(&hash_key.client_id, client_id, MD5_HASH_SIZE);
@@ -448,6 +412,7 @@ void reset_esms_by_digest() {
   */
   digest_monotonic_index.m_u32.store(1);
   digest_full = false;
+  pfs_digest_id_name_map.cleanup_names();
 }
 
 void reset_histogram_by_digest() {
