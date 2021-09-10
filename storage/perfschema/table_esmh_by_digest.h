@@ -73,7 +73,7 @@ class PFS_index_esmh_by_digest : public PFS_engine_index {
 
   ~PFS_index_esmh_by_digest() override = default;
 
-  bool match_digest(PFS_statements_digest_stat *pfs);
+  bool match_digest(PFS_statements_digest_stat *pfs, const char *schema_name);
   bool match_bucket(ulong bucket_index);
 
  private:
@@ -169,6 +169,8 @@ class table_esmh_by_digest : public PFS_engine_table {
   pos_t m_next_pos;
 
   PFS_index_esmh_by_digest *m_opened_index;
+
+  ID_NAME_MAP m_db_map;
 };
 
 /** @} */

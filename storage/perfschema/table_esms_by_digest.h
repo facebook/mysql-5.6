@@ -49,7 +49,7 @@ class PFS_index_esms_by_digest : public PFS_engine_index {
 
   ~PFS_index_esms_by_digest() override = default;
 
-  virtual bool match(PFS_statements_digest_stat *pfs);
+  virtual bool match(PFS_statements_digest_stat *pfs, const char *schema_name);
 
  private:
   PFS_key_schema m_key_1;
@@ -130,6 +130,8 @@ class table_esms_by_digest : public PFS_engine_table {
   PFS_simple_index m_next_pos;
 
   PFS_index_esms_by_digest *m_opened_index;
+
+  ID_NAME_MAP m_db_map;
 };
 
 /** @} */

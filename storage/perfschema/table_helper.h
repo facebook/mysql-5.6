@@ -592,7 +592,7 @@ struct PFS_digest_row {
   /** Column DIGEST_TEXT. */
   String m_digest_text;
   /** Build a row from a memory buffer. */
-  int make_row(PFS_statements_digest_stat *);
+  int make_row(PFS_statements_digest_stat *, const char *schema_name);
   /** Set a table field from the row. */
   void set_field(uint index, Field *f);
 };
@@ -1510,6 +1510,7 @@ class PFS_key_user : public PFS_key_string<USERNAME_LENGTH> {
   bool match(const PFS_user *pfs);
   bool match(const PFS_account *pfs);
   bool match(const PFS_setup_actor *pfs);
+  bool match(const char *user);
 };
 
 class PFS_key_host : public PFS_key_string<HOSTNAME_LENGTH> {
@@ -1540,7 +1541,7 @@ class PFS_key_schema : public PFS_key_string<NAME_CHAR_LEN> {
 
   ~PFS_key_schema() override = default;
 
-  bool match(const PFS_statements_digest_stat *pfs);
+  bool match(const char *schema);
 };
 
 class PFS_key_digest : public PFS_key_string<MAX_KEY_LENGTH> {
@@ -1560,6 +1561,7 @@ class PFS_key_client_id : public PFS_key_string<MAX_KEY_LENGTH> {
   ~PFS_key_client_id() {}
 
   bool match(PFS_client_attrs *pfs);
+  bool match(PFS_statements_digest_stat *pfs);
 };
 
 class PFS_key_bucket_number : public PFS_key_ulong {

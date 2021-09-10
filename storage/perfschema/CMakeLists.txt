@@ -73,6 +73,7 @@ pfs_sql_text.h
 pfs_stat.h
 pfs_stat.cc
 pfs_status.h
+pfs_struct.h
 pfs_timer.h
 pfs_tls_channel.h
 pfs_user.h
@@ -256,6 +257,7 @@ pfs_setup_actor.cc
 pfs_setup_object.cc
 pfs_sql_text.cc
 pfs_status.cc
+pfs_struct.cc
 pfs_timer.cc
 pfs_tls_channel.cc
 pfs_user.cc

@@ -101,7 +101,7 @@ schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_update
 test	ceffef89a77026913c52137e9c7a3615	1	0	0	0
 test	aaee6b4d5f9c26d4d43d3967f53cd8c7	1	0	0	0
 test	ee539b147b1561c36bd9e7ad53e5fb38	1	0	0	0
-Case 6: Multi-query support
+Case 5: Multi-query support
 set global performance_schema_esms_by_all = on;
 select @@performance_schema_esms_by_all;
 @@performance_schema_esms_by_all
@@ -131,6 +131,16 @@ test	c6b47f584c3c723a695af80568462861	user_super	99914b932bd37a50b983c5e7c90ae93
 test	0092392cb59149e0726b0b82c62d3b73	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	12	0	0
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
+Verify index working properly
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'fake';
+schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'user_super' and client_id = 'fake';
+schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+where schema_name = 'test' and digest = '13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9' and user = 'user_super' and client_id = '99914b932bd37a50b983c5e7c90ae93b';
+schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
 Cleanup
 set global performance_schema_esms_by_all = DEFAULT;
 drop table t1;
