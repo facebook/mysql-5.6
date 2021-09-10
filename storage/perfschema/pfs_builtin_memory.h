@@ -143,5 +143,7 @@ extern PFS_builtin_memory_class builtin_memory_sql_text;
 
 extern PFS_builtin_memory_class builtin_memory_scalable_buffer;
 
+extern PFS_builtin_memory_class builtin_memory_id_name_map;
+
 /** @} */
 #endif

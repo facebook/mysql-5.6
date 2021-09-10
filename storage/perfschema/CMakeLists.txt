@@ -67,6 +67,7 @@ pfs_setup_object.h
 pfs_sql_text.h
 pfs_stat.h
 pfs_status.h
+pfs_struct.h
 pfs_timer.h
 pfs_user.h
 pfs_variable.h
@@ -217,6 +218,7 @@ pfs_setup_actor.cc
 pfs_setup_object.cc
 pfs_sql_text.cc
 pfs_status.cc
+pfs_struct.cc
 pfs_timer.cc
 pfs_user.cc
 pfs_variable.cc
