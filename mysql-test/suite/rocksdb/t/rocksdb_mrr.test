@@ -62,6 +62,23 @@ select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12
 # 5 refills * 5 rowids per pass >= 21
 select variable_value-@val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
 
+--echo # Test MRR with point lookup on rev cf index
+create table t2_rev(
+  pk int,
+  col1 int,
+  filler char(32),
+  primary key (pk) comment 'rev:cf'
+) engine=rocksdb default charset=latin1;
+insert into t2_rev select * from t2;
+set global rocksdb_force_flush_memtable_now=1;
+
+--replace_column 11 #
+explain select * from t2_rev force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+
+select * from t2_rev force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+
+drop table t2_rev;
+
 --echo # Check rocksdb_mrr_batch_size use BKA
 create table hundred(a int primary key);
 insert into hundred select A.a + B.a* 10 from t0 A, t0 B;
@@ -310,7 +327,19 @@ explain
 select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.filler)<30);
 select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.filler)<30);
 
-drop table t0,t1,t2,t3,t4;
+--echo #
+--echo # A BKA query where MultiGet gets unsorted keys.
+--echo #
+create table t5(a int primary key, b int);
+insert into t5 values (1, 9),(2, 8),(3, 7);
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t5;
+--replace_column 10 # 11 #
+explain
+select * from t5 left join t4 on t5.b = t4.a where t5.a > 0;
+select * from t5 left join t4 on t5.b = t4.a where t5.a > 0;
+
+drop table t0,t1,t2,t3,t4,t5;
 
 --echo #
 --echo # Multi-keypart testcase
