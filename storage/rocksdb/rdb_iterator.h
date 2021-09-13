@@ -160,6 +160,11 @@ class Rdb_iterator_base : public Rdb_iterator {
                             int not_found_code);
 };
 
+/*
+  Iterator for reading partial secondary indexes
+
+  It can do locking reads, see locking_iterator_partial_index.txt for details.
+*/
 class Rdb_iterator_partial : public Rdb_iterator_base {
  private:
   TABLE *m_table;

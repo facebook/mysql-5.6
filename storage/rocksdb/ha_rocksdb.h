@@ -89,6 +89,8 @@ extern PSI_rwlock_key key_rwlock_read_free_rpl_tables;
 #endif
 extern Regex_list_handler rdb_read_free_regex_handler;
 
+extern bool rocksdb_use_range_locking;
+
 /**
   @brief
   Rdb_table_handler is a reference-counted structure storing information for
@@ -1131,6 +1133,11 @@ rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
                                       const rocksdb::Slice &key,
                                       rocksdb::PinnableSlice *const value,
                                       bool exclusive, bool skip_wait);
+
+rocksdb::Status rdb_tx_lock_range(Rdb_transaction *tx,
+                                  const Rdb_key_def &kd,
+                                  const rocksdb::Endpoint &start_key,
+                                  const rocksdb::Endpoint &end_key);
 
 void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
                          const rocksdb::Slice &key, bool force);

@@ -556,6 +556,15 @@ int Rdb_iterator_partial::seek_next_prefix(bool direction) {
                                 m_cur_prefix_key_len);
   m_kd->get_infimum_key(m_cur_prefix_key, &tmp);
 
+  //
+  // Range Locking note: When using a locking iterator (i.e.
+  // m_iter_should_use_locking=true), this will read (and lock)
+  // and the value space up to the next prefix.
+  // If the next prefix is not materialized, it will lock the whole
+  // prefix in the secondary key. It will not lock more than that,
+  // because the iterator use the iterator bounds to limit the scan
+  // to the prefix specified.
+  //
   rc = Rdb_iterator_base::seek(
       direction ? HA_READ_KEY_EXACT : HA_READ_PREFIX_LAST, cur_prefix_key,
       false, empty_end_key);
@@ -607,9 +616,17 @@ int Rdb_iterator_partial::materialize_prefix() {
 
   const char *old_proc_info = m_thd->get_proc_info();
   thd_proc_info(m_thd, "Materializing group in partial index");
-
-  auto s = rdb_tx_get_for_update(tx, *m_kd, cur_prefix_key, nullptr,
-                                 RDB_LOCK_WRITE, false);
+  rocksdb::Status s;
+  if (rocksdb_use_range_locking) {
+    // See RangeFlagsShouldBeFlippedForRevCF for explanation:
+    bool inf_suffix = m_kd->m_is_reverse_cf;
+    rocksdb::Endpoint start_endp(cur_prefix_key, inf_suffix);
+    rocksdb::Endpoint end_endp(cur_prefix_key, !inf_suffix);
+    s = rdb_tx_lock_range(tx, *m_kd, start_endp, end_endp);
+  } else {
+    s = rdb_tx_get_for_update(tx, *m_kd, cur_prefix_key, nullptr,
+                              RDB_LOCK_WRITE, false);
+  }
   if (!s.ok()) {
     thd_proc_info(m_thd, old_proc_info);
     return rdb_tx_set_status_error(tx, s, *m_kd, m_tbl_def);
@@ -783,7 +800,14 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
     return HA_ERR_INTERNAL_ERROR;
   }
 
+  // Save the value because reset() clears it:
+  auto save_iter_should_use_locking= m_iter_should_use_locking;
   reset();
+  m_iter_should_use_locking= save_iter_should_use_locking;
+  // Range Locking: when the iterator does a locking read,
+  // both secondary and primary key iterators should use locking reads.
+  if (m_iter_should_use_locking)
+    m_iterator_pk.set_use_locking();
 
   bool direction = (find_flag == HA_READ_KEY_EXACT) ||
                    (find_flag == HA_READ_AFTER_KEY) ||

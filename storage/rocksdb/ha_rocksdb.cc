@@ -819,7 +819,7 @@ static bool rocksdb_alter_column_default_inplace = false;
 //  (which hold the locks acquired by all clients).
 static ulonglong rocksdb_max_lock_memory;
 
-static bool rocksdb_use_range_locking = 0;
+bool rocksdb_use_range_locking = 0;
 static bool rocksdb_use_range_lock_manager_as_point = 0;
 std::shared_ptr<rocksdb::RangeLockManagerHandle> range_lock_mgr;
 
@@ -9789,7 +9789,6 @@ int ha_rocksdb::set_range_lock(Rdb_transaction *tx,
     We release it here, it will be created as soon as there's a need to read
     records.
   */
-  //release_scan_iterator();
   m_iterator->reset();
 
   auto s= tx->lock_range(kd.get_cf(), start_endp, end_endp);
@@ -16939,6 +16938,15 @@ rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
 void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
                          const rocksdb::Slice &key, bool force) {
   tx->release_lock(kd, std::string(key.data(), key.size()), force);
+}
+
+
+rocksdb::Status rdb_tx_lock_range(Rdb_transaction *tx,
+                                  const Rdb_key_def &kd,
+                                  const rocksdb::Endpoint &start_key,
+                                  const rocksdb::Endpoint &end_key)
+{
+  return tx->lock_range(kd.get_cf(), start_key, end_key);
 }
 
 void rdb_tx_multi_get(Rdb_transaction *tx,

@@ -11,6 +11,8 @@
 # 
 #     - $select_from_is_rowlocks_current_trx_only
 #     - $order_by_rowkey
+#
+#     - $SECOND_INDEX_NAME
 
 --disable_query_log
 set @cf_id=(select column_family from information_schema.rocksdb_ddl
@@ -31,6 +33,8 @@ if ($select_from_is_rowlocks_current_trx_only)
   let $extra_where = where transaction_id=(select transaction_id from information_schema.rocksdb_trx where connection_id()=thread_id);
 }
 
+## transaction column 
+
 # If TRX1_ID is not specified, get the current transaction:
 let $transaction_col= replace(transaction_id, @rtrx_id, "\$trx_id");
 if ($TRX1_ID)
@@ -43,6 +47,38 @@ if ($TRX2_ID)
   let $transaction_col = replace($transaction_col, '$TRX2_ID', "\$TRX2_ID");
 }
 
+## CF_ID column
+let $cf_id_col= column_family_id;
+
+if ($SECOND_INDEX_NAME)
+{
+  eval set @cf2_id=(select column_family from information_schema.rocksdb_ddl
+                    where table_name='t1' and index_name='$SECOND_INDEX_NAME');
+
+  let $cf_id_col= replace($cf_id_col, @cf2_id, "\$cf2_id");
+}
+let $cf_id_col= replace($cf_id_col, @cf_id, "\$cf_id");
+
+## KEY column
+let $key_col= (`key`);
+if ($SECOND_INDEX_NAME)
+{
+  eval set @indexnr2= (select lower(lpad(hex(index_number),8,'0'))
+                       from information_schema.rocksdb_ddl
+                       where table_name='t1' and index_name='$SECOND_INDEX_NAME');
+
+  eval set @indexnr2_next= (select lower(lpad(hex(index_number+1),8,'0'))
+                            from information_schema.rocksdb_ddl
+                            where table_name='t1' and index_name='$SECOND_INDEX_NAME');
+
+  let $key_col = replace($key_col, @indexnr2, '\${indexnr2}');
+  let $key_col = replace($key_col, @indexnr2_next, '\${indexnr2+1}');
+}
+
+let $key_col = replace($key_col, @indexnr, '\${indexnr}');
+let $key_col = replace($key_col, @indexnr_next, '\${indexnr+1}');
+
+## ORDER BY
 if ($order_by_rowkey)
 {
   let $extra_order_by = ORDER BY 3,2;
@@ -54,12 +90,9 @@ if (!$order_by_rowkey)
 }
 
 eval select 
-  replace(column_family_id, @cf_id, "\$cf_id") as COLUMN_FAMILY_ID,
+  $cf_id_col as COLUMN_FAMILY_ID,
   $transaction_col as TRANSACTION_ID,
-  replace(
-     replace(`key`, @indexnr, '\${indexnr}'),
-     @indexnr_next, '\${indexnr+1}'
-  ) as `KEY`,
+  $key_col as `KEY`,
   mode
 from information_schema.rocksdb_locks $extra_where $extra_order_by;
 
