@@ -11190,19 +11190,22 @@ calculate_diff(TABLE *table, table_def *tabledef, MY_BITMAP *cols)
           String str1, str2;
           my_ptrdiff_t offset= table->s->rec_buff_length;
           field->val_str(&str1);
-          local+=
-              std::string(field->field_name) + "=" +
-              (field->is_null() ? "NULL" : std::string(str1.c_ptr_safe())) +
-              ",";
+          const std::string local_val=
+              field->is_null() ? "NULL" : std::string(str1.c_ptr_safe());
 #ifndef DBUG_OFF
           const uchar* prev= field->ptr;
 #endif
           field->move_field_offset(offset);
           field->val_str(&str2);
-          source+=
-              std::string(field->field_name) + "=" +
-              (field->is_null() ? "NULL" : std::string(str2.c_ptr_safe())) +
-              ",";
+          const std::string source_val=
+              field->is_null() ? "NULL" : std::string(str2.c_ptr_safe());
+
+          if (source_val != local_val)
+          {
+            local+= std::string(field->field_name) + "=" + local_val + ",";
+            source+= std::string(field->field_name) + "=" + source_val + ",";
+          }
+
           field->move_field_offset(-offset);
           DBUG_ASSERT(field->ptr == prev);
         }
@@ -11223,19 +11226,22 @@ calculate_diff(TABLE *table, table_def *tabledef, MY_BITMAP *cols)
           String str1, str2;
           my_ptrdiff_t offset= table->s->rec_buff_length;
           field->val_str(&str1);
-          local+=
-              std::string(field->field_name) + "=" +
-              (field->is_null() ? "NULL" : std::string(str1.c_ptr_safe())) +
-              ",";
+          const std::string local_val=
+              field->is_null() ? "NULL" : std::string(str1.c_ptr_safe());
 #ifndef DBUG_OFF
           const uchar* prev= field->ptr;
 #endif
           field->move_field_offset(offset);
           field->val_str(&str2);
-          source+=
-              std::string(field->field_name) + "=" +
-              (field->is_null() ? "NULL" : std::string(str2.c_ptr_safe())) +
-              ",";
+          const std::string source_val=
+              field->is_null() ? "NULL" : std::string(str2.c_ptr_safe());
+
+          if (source_val != local_val)
+          {
+            local+= std::string(field->field_name) + "=" + local_val + ",";
+            source+= std::string(field->field_name) + "=" + source_val + ",";
+          }
+
           field->move_field_offset(-offset);
           DBUG_ASSERT(field->ptr == prev);
         }
@@ -11267,8 +11273,7 @@ calculate_diff(TABLE *table, table_def *tabledef, MY_BITMAP *cols)
 
   Returns TRUE if different.
 */
-static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols,
-                           bool bi_consistency_check = false)
+static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols)
 {
   DBUG_ENTER("record_compare");
 
@@ -11337,18 +11342,16 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols,
   {
     result = cmp_record(table, record[1]);
   }
-
-  /*
-    Fallback to field-by-field comparison if we did not do binary comparison
-    of full record or if binary comparison of entire records fail:
-    1. start by checking if the field is signaled:
-    2. if it is, first compare the null bit if the field is nullable
-    3. then compare the contents of the field, if it is not
-       set to null
-   */
-  if (!cmp_full_record || (result && bi_consistency_check))
+  else
   {
-    result = false;
+    /*
+      Fallback to field-by-field comparison if we did not do binary comparison
+      of full record or if binary comparison of entire records fail:
+      1. start by checking if the field is signaled:
+      2. if it is, first compare the null bit if the field is nullable
+      3. then compare the contents of the field, if it is not
+         set to null
+     */
     if (tabledef->use_column_names(table))
     {
       for (uint i = 0; i < tabledef->size() && !result; ++i)
@@ -11366,20 +11369,6 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols,
           /* compare content, only if fields are not set to NULL */
           else if (!field->is_null()) {
             result = field->cmp_binary_offset(table->s->rec_buff_length);
-            if (result && bi_consistency_check &&
-                field->type() == MYSQL_TYPE_FLOAT) {
-              String str1, str2;
-              my_ptrdiff_t offset= table->s->rec_buff_length;
-              field->val_str(&str1);
-#ifndef DBUG_OFF
-              const uchar *prev = field->ptr;
-#endif
-              field->move_field_offset(offset);
-              field->val_str(&str2);
-              field->move_field_offset(-offset);
-              DBUG_ASSERT(field->ptr == prev);
-              result = (stringcmp(&str1, &str2) != 0);
-            }
           }
         }
       }
@@ -11400,20 +11389,6 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols,
           /* compare content, only if fields are not set to NULL */
           else if (!field->is_null()) {
             result = field->cmp_binary_offset(table->s->rec_buff_length);
-            if (result && bi_consistency_check &&
-                field->type() == MYSQL_TYPE_FLOAT) {
-              String str1, str2;
-              my_ptrdiff_t offset= table->s->rec_buff_length;
-              field->val_str(&str1);
-#ifndef DBUG_OFF
-              const uchar *prev = field->ptr;
-#endif
-              field->move_field_offset(offset);
-              field->val_str(&str2);
-              field->move_field_offset(-offset);
-              DBUG_ASSERT(field->ptr == prev);
-              result = (stringcmp(&str1, &str2) != 0);
-            }
           }
         }
       }
@@ -11922,12 +11897,18 @@ end:
 
   DBUG_ASSERT(error != HA_ERR_RECORD_DELETED);
 
+  bool potential_bi_inconsistency=
+    (!error && opt_slave_check_before_image_consistency &&
+     slave_exec_mode != SLAVE_EXEC_MODE_IDEMPOTENT &&
+     !(m_table->file->ha_table_flags() & HA_READ_BEFORE_WRITE_REMOVAL) &&
+     !m_table->file->last_part_has_ttl_column() &&
+     record_compare(m_table, tabledef, &m_cols));
+
+  DBUG_EXECUTE_IF("dbg.fire_bi_inconsistency",
+                  potential_bi_inconsistency = true;);
+
   // Compare with BI of the relay log (which we stored in record[1])
-  if (!error && opt_slave_check_before_image_consistency &&
-      slave_exec_mode != SLAVE_EXEC_MODE_IDEMPOTENT &&
-      !(m_table->file->ha_table_flags() & HA_READ_BEFORE_WRITE_REMOVAL) &&
-      record_compare(m_table, tabledef, &m_cols,
-                     true /* bi_consistency_check */))
+  if (unlikely(potential_bi_inconsistency))
   {
     before_image_mismatch mismatch_info;
 
@@ -11941,36 +11922,42 @@ end:
                          std::string(m_table->s->table_name.str);
     mismatch_info.log_pos= std::string(rli->get_rpl_log_name()) + ":" +
                            std::to_string(log_pos);
+
     std::tie(mismatch_info.source_img, mismatch_info.local_img)=
       calculate_diff(m_table, tabledef, &m_cols);
-    update_before_image_inconsistencies(mismatch_info);
-    if (log_warnings > 1)
+
+    if (likely(!mismatch_info.source_img.empty() &&
+               !mismatch_info.local_img.empty()))
     {
-      std::string bi = mismatch_info.source_img;
-      std::string li = mismatch_info.local_img;
-      if (bi.length() > 256)
+      update_before_image_inconsistencies(mismatch_info);
+      if (log_warnings > 1)
       {
-        bi.resize(253);
-        bi+= "...";
+        std::string bi = mismatch_info.source_img;
+        std::string li = mismatch_info.local_img;
+        if (bi.length() > 256)
+        {
+          bi.resize(253);
+          bi+= "...";
+        }
+        if (li.length() > 256)
+        {
+          li.resize(253);
+          li+= "...";
+        }
+        sql_print_warning("Slave before-image consistency check failed at "
+                          "position: %s (gtid: %s). "
+                          "Mismatch (table: %s): %s (source) vs. %s (local)",
+                          mismatch_info.log_pos.c_str(),
+                          mismatch_info.gtid.c_str(),
+                          mismatch_info.table.c_str(),
+                          bi.c_str(),
+                          li.c_str());
       }
-      if (li.length() > 256)
+      if (opt_slave_check_before_image_consistency ==
+          Log_event::enum_check_before_image_consistency::BI_CHECK_ON)
       {
-        li.resize(253);
-        li+= "...";
+        error= HA_ERR_END_OF_FILE;
       }
-      sql_print_warning("Slave before-image consistency check failed at "
-                        "position: %s (gtid: %s). "
-                        "Mismatch (table: %s): %s (source) vs. %s (local)",
-                        mismatch_info.log_pos.c_str(),
-                        mismatch_info.gtid.c_str(),
-                        mismatch_info.table.c_str(),
-                        bi.c_str(),
-                        li.c_str());
-    }
-    if (opt_slave_check_before_image_consistency ==
-        Log_event::enum_check_before_image_consistency::BI_CHECK_ON)
-    {
-      error= HA_ERR_END_OF_FILE;
     }
   }
 
