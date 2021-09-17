@@ -645,8 +645,11 @@ bool Json_path_cache::parse_key_parts_and_cache_path(Item **args, uint arg_idx,
     cell.m_status = enum_path_status::OK_NULL;
     return false;
   }
-
-  m_arg_idx_to_vector_idx.resize(paths.size());
+  // Resize m_arg_idx_to_vector_idx only if the new size is higher.
+  // m_arg_idx_to_vector_idx is used in parse_and_cache_path in non legacy mode
+  // which breaks some of assertions there.
+  if (m_arg_idx_to_vector_idx.size() < paths.size())
+    m_arg_idx_to_vector_idx.resize(paths.size());
   for (size_t i = 0; i < paths.size(); i++) {
     Json_path path;
     if (!parse_path_chars(paths[i].c_str(), paths[i].size(), true, &path)) {

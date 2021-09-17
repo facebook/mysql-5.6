@@ -1049,4 +1049,19 @@ select json_contains(true, 'k');
 ERROR 22032: Invalid data type for JSON data in argument 1 to function json_contains; a JSON string or JSON type is required.
 select json_contains(null, 'k');
 ERROR 22032: Invalid data type for JSON data in argument 1 to function json_contains; a JSON string or JSON type is required.
+CREATE TABLE `t1` (
+`col1` varchar(512) NOT NULL,
+`col2` json NOT NULL,
+`col3` varchar(255) GENERATED ALWAYS AS (json_unquote(json_extract(`col2`,_latin1'$.name'))) STORED NOT NULL,
+PRIMARY KEY (`col1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+set use_fb_json_functions='use_fb_json_extract=on,use_fb_json_contains=on';
+INSERT INTO t1 (col1, col2) VALUES ("test_name", "{\"name\":\"test_name\"}");
+ERROR 23000: Column 'col3' cannot be null
+set use_fb_json_functions='use_fb_json_extract=off,use_fb_json_contains=off';
+INSERT INTO t1 (col1, col2) VALUES ("test_name", "{\"name\":\"test_name\"}");
+SELECT * FROM t1;
+col1	col2	col3
+test_name	{"name": "test_name"}	test_name
+DROP TABLE t1;
 set session use_fb_json_functions='default';
