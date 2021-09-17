@@ -587,11 +587,16 @@ bool Json_path_cache::generate_paths_from_key_parts(
     std::string check_str(path_chars, path_length);
     if (!check_str.empty() &&
         std::all_of(check_str.begin(), check_str.end(), ::isdigit)) {
-      for (int i = 0; i < old_vec_len; i++) {
-        json_paths.push_back(json_paths[i]);
-        json_paths.back().append("[");
-        json_paths.back().append(check_str);
-        json_paths.back().append("]");
+      long val;
+      // Paths where the integer index is too large are automatically
+      // failed, so skip if they're out of bounds
+      if (str2int(check_str.c_str(), 10, 0, INT_MAX, &val)) {
+        for (int i = 0; i < old_vec_len; i++) {
+          json_paths.push_back(json_paths[i]);
+          json_paths.back().append("[");
+          json_paths.back().append(check_str);
+          json_paths.back().append("]");
+        }
       }
     } else {
       // Add escape sequence to escape sequence and double quotes
