@@ -497,4 +497,20 @@ select json_contains(2, 'k');
 select json_contains(true, 'k');
 --error ER_INVALID_TYPE_FOR_JSON
 select json_contains(null, 'k');
+
+# crash in json_extract
+CREATE TABLE `t1` (
+  `col1` varchar(512) NOT NULL,
+  `col2` json NOT NULL,
+  `col3` varchar(255) GENERATED ALWAYS AS (json_unquote(json_extract(`col2`,_latin1'$.name'))) STORED NOT NULL,
+  PRIMARY KEY (`col1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+set use_fb_json_functions='use_fb_json_extract=on,use_fb_json_contains=on';
+--error 1048
+INSERT INTO t1 (col1, col2) VALUES ("test_name", "{\"name\":\"test_name\"}");
+set use_fb_json_functions='use_fb_json_extract=off,use_fb_json_contains=off';
+INSERT INTO t1 (col1, col2) VALUES ("test_name", "{\"name\":\"test_name\"}");
+SELECT * FROM t1;
+DROP TABLE t1;
 set session use_fb_json_functions='default';
