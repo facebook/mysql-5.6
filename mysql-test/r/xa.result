@@ -231,3 +231,15 @@ XA PREPARE 'xid1';
 XA ROLLBACK 'xid1';
 # Connection default
 DROP TABLE t1, t2;
+# Test disabling XA transactions
+set @enable_xa_transaction_saved=@@global.enable_xa_transaction;
+set global enable_xa_transaction=0;
+XA START 'xid1';
+ERROR XAE05: XAER_INVAL: Invalid arguments (or unsupported command)
+XA END 'xid1';
+ERROR XAE05: XAER_INVAL: Invalid arguments (or unsupported command)
+XA PREPARE 'xid1';
+ERROR XAE05: XAER_INVAL: Invalid arguments (or unsupported command)
+XA ROLLBACK 'xid1';
+ERROR XAE05: XAER_INVAL: Invalid arguments (or unsupported command)
+set global enable_xa_transaction=@enable_xa_transaction_saved;

@@ -1350,6 +1350,7 @@ extern int32 write_query_running;
 extern my_atomic_rwlock_t write_query_running_lock;
 extern ulonglong tmp_table_rpl_max_file_size;
 extern ulong slave_tx_isolation;
+extern my_bool enable_xa_transaction;
 extern ulonglong object_stats_misses;
 extern ulonglong json_contains_count;
 extern ulonglong json_extract_count;

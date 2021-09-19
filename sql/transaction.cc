@@ -755,6 +755,11 @@ bool trans_xa_start(THD *thd)
   enum xa_states xa_state= thd->transaction.xid_state.xa_state;
   DBUG_ENTER("trans_xa_start");
 
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    DBUG_RETURN(true);
+  }
+
   if (xa_state == XA_IDLE && thd->lex->xa_opt == XA_RESUME)
   {
     bool not_equal= !thd->transaction.xid_state.xid.eq(thd->lex->xid);
@@ -805,6 +810,11 @@ bool trans_xa_end(THD *thd)
 {
   DBUG_ENTER("trans_xa_end");
 
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    DBUG_RETURN(true);
+  }
+
   /* TODO: SUSPEND and FOR MIGRATE are not supported yet. */
   if (thd->lex->xa_opt != XA_NONE)
     my_error(ER_XAER_INVAL, MYF(0));
@@ -833,6 +843,11 @@ bool trans_xa_end(THD *thd)
 bool trans_xa_prepare(THD *thd)
 {
   DBUG_ENTER("trans_xa_prepare");
+
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    DBUG_RETURN(true);
+  }
 
   if (thd->transaction.xid_state.xa_state != XA_IDLE)
     my_error(ER_XAER_RMFAIL, MYF(0),
@@ -867,6 +882,11 @@ bool trans_xa_commit(THD *thd)
   bool res= TRUE;
   enum xa_states xa_state= thd->transaction.xid_state.xa_state;
   DBUG_ENTER("trans_xa_commit");
+
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    DBUG_RETURN(true);
+  }
 
   if (!thd->transaction.xid_state.xid.eq(thd->lex->xid))
   {
@@ -969,6 +989,11 @@ bool trans_xa_rollback(THD *thd)
   bool res= TRUE;
   enum xa_states xa_state= thd->transaction.xid_state.xa_state;
   DBUG_ENTER("trans_xa_rollback");
+
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    DBUG_RETURN(true);
+  }
 
   if (!thd->transaction.xid_state.xid.eq(thd->lex->xid))
   {

@@ -4231,6 +4231,9 @@ static Sys_var_tx_isolation Sys_slave_tx_isolation(
        tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, NULL);
 
+static Sys_var_mybool Sys_enable_xa_transaction(
+       "enable_xa_transaction", "Enable XA transactions",
+       GLOBAL_VAR(enable_xa_transaction), CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
 /**
   Can't change the tx_read_only state if we are already in a

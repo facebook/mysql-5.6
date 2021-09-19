@@ -497,6 +497,7 @@ ulong log_warnings;
 uint host_cache_size;
 ulonglong tmp_table_rpl_max_file_size;
 ulong slave_tx_isolation;
+my_bool enable_xa_transaction;
 bool enable_blind_replace= 0;
 bool enable_binlog_hlc= 0;
 bool maintain_database_hlc= 0;
