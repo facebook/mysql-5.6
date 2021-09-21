@@ -109,6 +109,8 @@ struct Binlog_user_var_event {
   bool unsigned_flag;
 };
 
+extern latency_histogram histogram_raft_trx_wait;
+
 /* The enum defining the server's action when a trx fails inside ordered commit
  * due to an error related to consensus (raft plugin) */
 enum enum_commit_consensus_error_actions {

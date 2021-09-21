@@ -188,6 +188,8 @@ const char *hlc_wait_timeout_ms = "hlc_wait_timeout_ms";
 ulong rpl_read_size;
 bool rpl_semi_sync_master_enabled = false;
 
+latency_histogram histogram_raft_trx_wait;
+
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 Dump_log dump_log;
 
@@ -1438,6 +1440,9 @@ static int binlog_init(void *p) {
   binlog_hton->recover_binlog_pos = binlog_dummy_recover_binlog_pos;
   binlog_hton->recover = binlog_dummy_recover;
   binlog_hton->flags = HTON_NOT_USER_SELECTABLE | HTON_HIDDEN;
+
+  latency_histogram_init(&histogram_raft_trx_wait, "125us");
+
   return 0;
 }
 
@@ -10564,7 +10569,14 @@ void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
     if (thd->commit_error == THD::CE_NONE) last_thd = thd;
 
   if (last_thd) {
+    auto start_time = my_timer_now();
+
     error = RUN_HOOK_STRICT(raft_replication, before_commit, (last_thd));
+
+    if (!this->is_apply_log) {
+      auto wait_time = my_timer_since(start_time);
+      latency_histogram_increment(&histogram_raft_trx_wait, wait_time, 1);
+    }
 
     if (error) set_commit_consensus_error(queue_head);
     if (!error && opt_raft_signal_async_dump_threads == AFTER_CONSENSUS &&
