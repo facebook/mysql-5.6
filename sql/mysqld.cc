@@ -1939,6 +1939,10 @@ bool replica_preserve_commit_order_supplied = false;
 char *opt_general_logname, *opt_slow_logname, *opt_bin_logname;
 char *opt_gap_lock_logname;
 
+/* status variables for raft trx wait times */
+SHOW_VAR latency_histogram_raft_trx_wait[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_raft_trx_wait_values[NUMBER_OF_HISTOGRAM_BINS];
+
 /*
   True if expire_logs_days and binlog_expire_logs_seconds are set
   explicitly.
@@ -2880,6 +2884,8 @@ static void clean_up(bool print_message) {
 
   release_keyring_handles();
   keyring_lockable_deinit();
+
+  free_latency_histogram_sysvars(latency_histogram_raft_trx_wait);
 
   /*
     make sure that handlers finish up
@@ -10231,6 +10237,22 @@ static int show_jemalloc_tcache_bytes(THD *thd, SHOW_VAR *var, char *buff) {
 }
 #endif /* HAVE_JEMALLOC */
 
+static int show_latency_histogram_raft_trx_wait(THD * /*thd*/, SHOW_VAR *var,
+                                                char * /*buff*/) {
+  size_t i;
+  for (i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+    histogram_raft_trx_wait_values[i] =
+        latency_histogram_get_count(&histogram_raft_trx_wait, i);
+
+  prepare_latency_histogram_vars(&histogram_raft_trx_wait,
+                                 latency_histogram_raft_trx_wait,
+                                 histogram_raft_trx_wait_values);
+  var->type = SHOW_ARRAY;
+  var->value = (char *)&latency_histogram_raft_trx_wait;
+
+  return 0;
+}
+
 static int show_queries(THD *thd, SHOW_VAR *var, char *) {
   var->type = SHOW_LONGLONG;
   var->value = (char *)&thd->query_id;
@@ -11377,7 +11399,9 @@ SHOW_VAR status_vars[] = {
      SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"Json_contains_legacy_count", (char *)&json_contains_legacy_count,
      SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
-
+    {"Rpl_raft_trx_wait_histogram",
+     (char *)&show_latency_histogram_raft_trx_wait, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {
