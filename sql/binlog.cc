@@ -9867,6 +9867,15 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       goto err;
     }
 
+    // We found atleast one binlog file in the binlog index file
+    // Note that this is useful only when raft is enabled - even during clean
+    // shutdown, raft plugin can rollback last batch of trxs from the engine
+    // (after writing to binlog). hence on restart, this binlog file can have
+    // uncommitted trxs and should not be marked as 'cleanly closed'. In other
+    // words, 'LOG_EVENT_BINLOG_IN_USE_F' is not a reliable indicator anymore
+    // that a binlog file does not contain uncommitted trxs.
+    open_binlog_found = true;
+
     /*
       If the binary log was not properly closed it means that the server
       may have crashed. In that case, we need to call
@@ -9894,7 +9903,6 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
                              &engine_binlog_max_gtid, engine_binlog_file,
                              &engine_binlog_pos, cur_log_file);
       binlog_size = binlog_file_reader.ifile()->length();
-      open_binlog_found = true;
     } else {
       /*
        * If we are here, it implies either mysqld was shutdown cleanly or
@@ -9921,7 +9929,6 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       */
       error = ha_recover(&xids, &engine_binlog_max_gtid, tmp_binlog_file,
                          &tmp_binlog_pos);
-      open_binlog_found = false;
     }
 
     delete ev;
