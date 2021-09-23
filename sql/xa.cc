@@ -812,6 +812,11 @@ find_trn_for_recover_and_check_its_state(THD *thd,
 */
 
 bool Sql_cmd_xa_commit::trans_xa_commit(THD *thd) {
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
+
   XID_STATE *xid_state = thd->get_transaction()->xid_state();
   bool res = true;
 
@@ -1145,6 +1150,11 @@ bool Sql_cmd_xa_commit::execute(THD *thd) {
 */
 
 bool Sql_cmd_xa_rollback::trans_xa_rollback(THD *thd) {
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
+
   XID_STATE *xid_state = thd->get_transaction()->xid_state();
   bool res = true;
 
@@ -1375,6 +1385,11 @@ bool Sql_cmd_xa_start::trans_xa_start(THD *thd) {
   XID_STATE *xid_state = thd->get_transaction()->xid_state();
   DBUG_TRACE;
 
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
+
   if (xid_state->has_state(XID_STATE::XA_IDLE) && m_xa_opt == XA_RESUME) {
     bool not_equal = !xid_state->has_same_xid(m_xid);
     if (not_equal)
@@ -1433,6 +1448,11 @@ bool Sql_cmd_xa_end::trans_xa_end(THD *thd) {
   XID_STATE *xid_state = thd->get_transaction()->xid_state();
   DBUG_TRACE;
 
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
+
   /* TODO: SUSPEND and FOR MIGRATE are not supported yet. */
   if (m_xa_opt != XA_NONE)
     my_error(ER_XAER_INVAL, MYF(0));
@@ -1473,6 +1493,11 @@ bool Sql_cmd_xa_end::execute(THD *thd) {
 bool Sql_cmd_xa_prepare::trans_xa_prepare(THD *thd) {
   XID_STATE *xid_state = thd->get_transaction()->xid_state();
   DBUG_TRACE;
+
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
 
   if (!xid_state->has_state(XID_STATE::XA_IDLE))
     my_error(ER_XAER_RMFAIL, MYF(0), xid_state->state_name());

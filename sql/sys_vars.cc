@@ -5742,6 +5742,11 @@ static Sys_var_transaction_isolation Sys_slave_tx_isolation(
     GLOBAL_VAR(slave_tx_isolation), CMD_LINE(REQUIRED_ARG), tx_isolation_names,
     DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD, NOT_IN_BINLOG, nullptr);
 
+static Sys_var_bool Sys_enable_xa_transaction("enable_xa_transaction",
+                                              "Enable XA transactions",
+                                              GLOBAL_VAR(enable_xa_transaction),
+                                              CMD_LINE(OPT_ARG), DEFAULT(true));
+
 /**
   Function to check if the state of 'transaction_read_only' can be changed.
   The state cannot be changed if there is already a transaction in progress.

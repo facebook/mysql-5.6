@@ -464,6 +464,9 @@ The following options may be given as the first argument:
  --enable-user-tables-engine-check 
  Enable checking storage engine compatibility of user
  table creation DDL.
+ --enable-xa-transaction 
+ Enable XA transactions
+ (Defaults to on; use --skip-enable-xa-transaction to disable.)
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -2931,6 +2934,7 @@ enable-resultset-checksum FALSE
 enable-sql-wsenv FALSE
 enable-super-log-bin-read-only FALSE
 enable-user-tables-engine-check FALSE
+enable-xa-transaction TRUE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 200

@@ -665,6 +665,7 @@ ulonglong reset_peak(std::atomic<ulonglong> *peak,
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
 extern ulong slave_tx_isolation;
+extern bool enable_xa_transaction;
 
 /* Enable logging queries to a unix local datagram socket */
 extern bool log_datagram;
