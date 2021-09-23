@@ -24,6 +24,7 @@
 #include "mysql/psi/mysql_transaction.h"  // MYSQL_SET_TRANSACTION_XA_STATE
 #include "mysqld_error.h"                 // Error codes
 #include "sql/debug_sync.h"               // DEBUG_SYNC
+#include "sql/mysqld.h"                   // enable_xa_transaction
 #include "sql/sql_class.h"                // THD
 #include "sql/transaction_info.h"         // Transaction_ctx
 
@@ -45,6 +46,11 @@ bool Sql_cmd_xa_end::execute(THD *thd) {
 bool Sql_cmd_xa_end::trans_xa_end(THD *thd) {
   XID_STATE *xid_state = thd->get_transaction()->xid_state();
   DBUG_TRACE;
+
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
 
   /* TODO: SUSPEND and FOR MIGRATE are not supported yet. */
   if (m_xa_opt != XA_NONE)

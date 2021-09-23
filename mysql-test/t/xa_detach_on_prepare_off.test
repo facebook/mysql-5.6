@@ -824,6 +824,25 @@ XA RECOVER;
 # executed when global transaction is in the  NON-EXISTING state
 XA ROLLBACK 'xid1';
 
+--echo # Test disabling XA transactions
+
+set @enable_xa_transaction_saved=@@global.enable_xa_transaction;
+set global enable_xa_transaction=0;
+
+--error ER_XAER_INVAL
+XA START 'xid1';
+
+--error ER_XAER_INVAL
+XA END 'xid1';
+
+--error ER_XAER_INVAL
+XA PREPARE 'xid1';
+
+--error ER_XAER_INVAL
+XA ROLLBACK 'xid1';
+
+set global enable_xa_transaction=@enable_xa_transaction_saved;
+
 --echo #
 --echo # BUG 31030205 - XA PREPARED TXN WILL STAY AS "RECOVERED TRX" IF ROLLBACK
 --echo #                XID HAS WRONG FORMATID

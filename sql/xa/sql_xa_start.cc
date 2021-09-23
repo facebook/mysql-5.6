@@ -24,6 +24,7 @@
 #include "mysql/psi/mysql_transaction.h"  // MYSQL_SET_TRANSACTION_XA_STATE
 #include "mysqld_error.h"                 // Error codes
 #include "sql/debug_sync.h"               // DEBUG_SYNC
+#include "sql/mysqld.h"                   // enable_xa_transaction
 #include "sql/sql_class.h"                // THD
 #include "sql/transaction.h"              // trans_begin, trans_rollback
 #include "sql/transaction_info.h"         // Transaction_ctx
@@ -51,6 +52,11 @@ bool Sql_cmd_xa_start::execute(THD *thd) {
 bool Sql_cmd_xa_start::trans_xa_start(THD *thd) {
   XID_STATE *xid_state = thd->get_transaction()->xid_state();
   DBUG_TRACE;
+
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
 
   if (xid_state->has_state(XID_STATE::XA_IDLE) && m_xa_opt == XA_RESUME) {
     bool not_equal = !xid_state->has_same_xid(m_xid);

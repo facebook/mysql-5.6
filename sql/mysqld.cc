@@ -1226,6 +1226,7 @@ ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool opt_keyring_migration_to_component = false;
 bool opt_persist_sensitive_variables_in_plaintext{true};
 ulong slave_tx_isolation;
+bool enable_xa_transaction;
 bool enable_binlog_hlc = 0;
 bool maintain_database_hlc = false;
 ulong wait_for_hlc_timeout_ms = 0;

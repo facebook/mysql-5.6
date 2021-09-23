@@ -25,6 +25,7 @@
 #include "sql/clone_handler.h"       // Clone_handler::XA_Operation
 #include "sql/debug_sync.h"          // DEBUG_SYNC
 #include "sql/handler.h"             // commit_owned_gtids
+#include "sql/mysqld.h"              // enable_xa_transaction
 #include "sql/raii/sentry.h"         // raii::Sentry<>
 #include "sql/rpl_gtid.h"            // gtid_state_commit_or_rollback
 #include "sql/sql_class.h"           // THD
@@ -58,6 +59,11 @@ bool Sql_cmd_xa_rollback::execute(THD *thd) {
 }
 
 bool Sql_cmd_xa_rollback::trans_xa_rollback(THD *thd) {
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
+
   auto xid_state = thd->get_transaction()->xid_state();
 
   /* Inform clone handler of XA operation. */

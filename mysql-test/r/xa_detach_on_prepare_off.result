@@ -517,6 +517,18 @@ XA RECOVER;
 formatID	gtrid_length	bqual_length	data
 1	4	0	xid1
 XA ROLLBACK 'xid1';
+# Test disabling XA transactions
+set @enable_xa_transaction_saved=@@global.enable_xa_transaction;
+set global enable_xa_transaction=0;
+XA START 'xid1';
+ERROR XAE05: XAER_INVAL: Invalid arguments (or unsupported command)
+XA END 'xid1';
+ERROR XAE05: XAER_INVAL: Invalid arguments (or unsupported command)
+XA PREPARE 'xid1';
+ERROR XAE05: XAER_INVAL: Invalid arguments (or unsupported command)
+XA ROLLBACK 'xid1';
+ERROR XAE05: XAER_INVAL: Invalid arguments (or unsupported command)
+set global enable_xa_transaction=@enable_xa_transaction_saved;
 #
 # BUG 31030205 - XA PREPARED TXN WILL STAY AS "RECOVERED TRX" IF ROLLBACK
 #                XID HAS WRONG FORMATID

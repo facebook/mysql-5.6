@@ -30,6 +30,7 @@
 #include "sql/debug_sync.h"               // DEBUG_SYNC
 #include "sql/handler.h"                  // ha_rollback_trans
 #include "sql/mdl_context_backup.h"       // MDL_context_backup_manager
+#include "sql/mysqld.h"                   // enable_xa_transaction
 #include "sql/rpl_replica_commit_order_manager.h"  // Commit_order_manager
 #include "sql/sql_class.h"                         // THD
 #include "sql/transaction.h"  // trans_reset_one_shot_chistics, trans_track_end_trx
@@ -111,6 +112,11 @@ bool Sql_cmd_xa_prepare::execute(THD *thd) {
 
 bool Sql_cmd_xa_prepare::trans_xa_prepare(THD *thd) {
   DBUG_TRACE;
+
+  if (!enable_xa_transaction) {
+    my_error(ER_XAER_INVAL, MYF(0));
+    return true;
+  }
 
   auto tran = thd->get_transaction();
   auto xid_state = tran->xid_state();
