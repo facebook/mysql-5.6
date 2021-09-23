@@ -1,0 +1,105 @@
+SET @start_global_value = @@global.enable_xa_transaction;
+SELECT @start_global_value;
+@start_global_value
+1
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+1
+select @@session.enable_xa_transaction;
+ERROR HY000: Variable 'enable_xa_transaction' is a GLOBAL variable
+show global variables like 'enable_xa_transaction';
+Variable_name	Value
+enable_xa_transaction	ON
+show session variables like 'enable_xa_transaction';
+Variable_name	Value
+enable_xa_transaction	ON
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	ON
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	ON
+set global enable_xa_transaction=0;
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+0
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	OFF
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	OFF
+set @@global.enable_xa_transaction=TRUE;
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+1
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	ON
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	ON
+set global enable_xa_transaction=0;
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+0
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	OFF
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	OFF
+set @@global.enable_xa_transaction=DEFAULT;
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+1
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	ON
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	ON
+set global enable_xa_transaction='OFF';
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+0
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	OFF
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	OFF
+set global enable_xa_transaction='ON';
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+1
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	ON
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_xa_transaction	ON
+set session enable_xa_transaction=0;
+ERROR HY000: Variable 'enable_xa_transaction' is a GLOBAL variable and should be set with SET GLOBAL
+set @@session.enable_xa_transaction=1;
+ERROR HY000: Variable 'enable_xa_transaction' is a GLOBAL variable and should be set with SET GLOBAL
+set global enable_xa_transaction=1.1;
+ERROR 42000: Incorrect argument type to variable 'enable_xa_transaction'
+set global enable_xa_transaction=1e1;
+ERROR 42000: Incorrect argument type to variable 'enable_xa_transaction'
+set global enable_xa_transaction=3;
+ERROR 42000: Variable 'enable_xa_transaction' can't be set to the value of '3'
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+1
+set global enable_xa_transaction=-3;
+ERROR 42000: Variable 'enable_xa_transaction' can't be set to the value of '-3'
+select @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+1
+set global enable_xa_transaction='AUTO';
+ERROR 42000: Variable 'enable_xa_transaction' can't be set to the value of 'AUTO'
+SET @@global.enable_xa_transaction = @start_global_value;
+SELECT @@global.enable_xa_transaction;
+@@global.enable_xa_transaction
+1

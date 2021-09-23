@@ -1,0 +1,68 @@
+SET @start_global_value = @@global.enable_xa_transaction;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+select @@global.enable_xa_transaction;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.enable_xa_transaction;
+show global variables like 'enable_xa_transaction';
+show session variables like 'enable_xa_transaction';
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+
+#
+# show that it's writable
+#
+set global enable_xa_transaction=0;
+select @@global.enable_xa_transaction;
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+set @@global.enable_xa_transaction=TRUE;
+select @@global.enable_xa_transaction;
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+set global enable_xa_transaction=0;
+select @@global.enable_xa_transaction;
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+set @@global.enable_xa_transaction=DEFAULT;
+select @@global.enable_xa_transaction;
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+set global enable_xa_transaction='OFF';
+select @@global.enable_xa_transaction;
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+set global enable_xa_transaction='ON';
+select @@global.enable_xa_transaction;
+select * from performance_schema.global_variables where variable_name='enable_xa_transaction';
+select * from performance_schema.session_variables where variable_name='enable_xa_transaction';
+--error ER_GLOBAL_VARIABLE
+set session enable_xa_transaction=0;
+--error ER_GLOBAL_VARIABLE
+set @@session.enable_xa_transaction=1;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set global enable_xa_transaction=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global enable_xa_transaction=1e1;
+--error ER_WRONG_VALUE_FOR_VAR  
+set global enable_xa_transaction=3;
+select @@global.enable_xa_transaction;
+--error ER_WRONG_VALUE_FOR_VAR  
+set global enable_xa_transaction=-3;
+select @@global.enable_xa_transaction;
+--error ER_WRONG_VALUE_FOR_VAR  
+set global enable_xa_transaction='AUTO';
+
+#
+# Cleanup
+#
+
+SET @@global.enable_xa_transaction = @start_global_value;
+SELECT @@global.enable_xa_transaction;
