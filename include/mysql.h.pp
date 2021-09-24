@@ -520,6 +520,7 @@ enum mysql_option {
   MYSQL_OPT_TLS_SNI_SERVERNAME,
   MYSQL_OPT_TLS_CERT_CALLBACK,
   MYSQL_OPT_TLS_CERT_CALLBACK_CONTEXT,
+  MYSQL_OPT_TOS,
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {

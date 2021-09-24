@@ -6982,6 +6982,22 @@ static mysql_state_machine_status csm_begin_connect(mysql_async_connect *ctx) {
                      sizeof(net->receive_buffer_size)) == -1)
         DBUG_PRINT("error", ("Failed to set SO_RCVBUF with (error: %s).",
                              strerror(errno)));
+      if (mysql->options.extension && mysql->options.extension->tos < 256) {
+        const auto tos = mysql->options.extension->tos;
+        const auto ip_proto =
+            t_res->ai_family == AF_INET ? IPPROTO_IP : IPPROTO_IPV6;
+        const auto opt_name =
+            t_res->ai_family == AF_INET ? IP_TOS : IPV6_TCLASS;
+        DBUG_PRINT("info", ("TOS to %d", tos));
+        DBUG_PRINT("info",
+                   ("Protocol: %s",
+                    ip_proto == IPPROTO_IP ? "IPPROTO_IP" : "IPPROTO_IPV6"));
+        if (setsockopt(net->vio->mysql_socket.fd, ip_proto, opt_name, &tos,
+                       sizeof(tos)) == -1) {
+          DBUG_PRINT("error", ("Failed to set TOS to %d with error: %s.",
+                               mysql->options.extension->tos, strerror(errno)));
+        }
+      }
 
       DBUG_PRINT("info", ("Connect socket"));
 
@@ -9200,6 +9216,12 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
       ENSURE_EXTENSIONS_PRESENT(&mysql->options);
       mysql->options.extension->retry_count = *static_cast<const uint *>(arg);
       break;
+    case MYSQL_OPT_TOS:
+      if (*static_cast<const uint *>(arg) >= 256)
+        return 1; /* invalid TOS value */
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+      mysql->options.extension->tos = *static_cast<const uint *>(arg);
+      break;
     case MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS:
       if (*static_cast<const bool *>(arg))
         mysql->options.client_flag |= CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS;
@@ -9348,7 +9370,7 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
 
   uint
     MYSQL_OPT_CONNECT_TIMEOUT, MYSQL_OPT_READ_TIMEOUT, MYSQL_OPT_WRITE_TIMEOUT,
-    MYSQL_OPT_PROTOCOL, MYSQL_OPT_SSL_MODE, MYSQL_OPT_RETRY_COUNT
+    MYSQL_OPT_PROTOCOL, MYSQL_OPT_SSL_MODE, MYSQL_OPT_RETRY_COUNT, MYSQL_OPT_TOS
 
   bool
     MYSQL_OPT_COMPRESS, MYSQL_OPT_LOCAL_INFILE,
@@ -9529,6 +9551,11 @@ int STDCALL mysql_get_option(MYSQL *mysql, enum mysql_option option,
     case MYSQL_OPT_RETRY_COUNT:
       *(const_cast<uint *>(static_cast<const uint *>(arg))) =
           mysql->options.extension ? mysql->options.extension->retry_count : 1;
+      break;
+    case MYSQL_OPT_TOS:
+      if (!mysql->options.extension) return 1; /* TOS value is not set */
+      *(const_cast<uint *>(static_cast<const uint *>(arg))) =
+          mysql->options.extension->tos;
       break;
     case MYSQL_OPT_TLS_VERSION:
       *(static_cast<char **>(const_cast<void *>(arg))) =

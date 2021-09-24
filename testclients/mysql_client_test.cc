@@ -18639,7 +18639,8 @@ static void test_wl6791() {
   enum mysql_option
       uint_opts[] = {MYSQL_OPT_CONNECT_TIMEOUT, MYSQL_OPT_READ_TIMEOUT,
                      MYSQL_OPT_WRITE_TIMEOUT,   MYSQL_OPT_PROTOCOL,
-                     MYSQL_OPT_LOCAL_INFILE,    MYSQL_OPT_SSL_MODE},
+                     MYSQL_OPT_LOCAL_INFILE,    MYSQL_OPT_SSL_MODE,
+                     MYSQL_OPT_TOS},
       bool_opts[] = {MYSQL_OPT_COMPRESS,
                      MYSQL_REPORT_DATA_TRUNCATION,
                      MYSQL_OPT_RECONNECT,
@@ -22875,6 +22876,119 @@ static void test_ssl_connect_ctx() {
   DBUG_VOID_RETURN;
 }
 
+static void test_option_tos() {
+  MYSQL conn;
+  auto ip_proto = IPPROTO_IPV6;
+  auto opt_name = IPV6_TCLASS;
+  uint mysql_proto_tcp = MYSQL_PROTOCOL_TCP;
+  int tos = 0;
+  uint tos_len = sizeof(tos);
+
+  DBUG_ENTER("test_option_tos");
+  myheader("test_option_tos");
+
+  /* 1. Check the initial ToS = 0 */
+  if (!mysql_client_init(&conn)) {
+    fprintf(stdout, "mysql_client_init() failed\n");
+    DIE_UNLESS(0);
+  }
+  mysql_options(&conn, MYSQL_OPT_PROTOCOL, &mysql_proto_tcp);
+  if (!(mysql_real_connect(&conn, opt_host, opt_user, opt_password,
+                           opt_db ? opt_db : "test", opt_port, opt_unix_socket,
+                           0))) {
+    fprintf(stderr, "\n connection failed(%s)", mysql_error(&conn));
+    exit(1);
+  }
+
+  // Verify the ToS is 0 from getsockopt
+  int fd = conn.net.vio->mysql_socket.fd;
+  int rc = getsockopt(fd, ip_proto, opt_name, &tos, &tos_len);
+  fprintf(stdout, "ToS is set to %d\n", tos);
+  DIE_UNLESS(rc == 0);
+  DIE_UNLESS(tos == 0);
+  mysql_close(&conn);
+
+  /* 2. Check the ToS is updated after mysql_option */
+  if (!mysql_client_init(&conn)) {
+    fprintf(stdout, "mysql_client_init() failed\n");
+    DIE_UNLESS(0);
+  }
+  mysql_options(&conn, MYSQL_OPT_PROTOCOL, &mysql_proto_tcp);
+
+  // Set ToS to 140
+  uint input_tos = 140;
+  mysql_options(&conn, MYSQL_OPT_TOS, &input_tos);
+
+  if (!(mysql_real_connect(&conn, opt_host, opt_user, opt_password,
+                           opt_db ? opt_db : "test", opt_port, opt_unix_socket,
+                           0))) {
+    fprintf(stderr, "\n connection failed(%s)", mysql_error(&conn));
+    exit(1);
+  }
+
+  // Verify the ToS is set to 140 from getsockopt
+  fd = conn.net.vio->mysql_socket.fd;
+  rc = getsockopt(fd, ip_proto, opt_name, &tos, &tos_len);
+  fprintf(stdout, "ToS is set to %d\n", tos);
+  DIE_UNLESS(rc == 0);
+  DIE_UNLESS(tos == 140);
+  mysql_close(&conn);
+
+  /* 3. Check the max allowed ToS is accepted */
+  if (!mysql_client_init(&conn)) {
+    fprintf(stdout, "mysql_client_init() failed\n");
+    DIE_UNLESS(0);
+  }
+  mysql_options(&conn, MYSQL_OPT_PROTOCOL, &mysql_proto_tcp);
+
+  // Set ToS to 252
+  input_tos = 252;
+  mysql_options(&conn, MYSQL_OPT_TOS, &input_tos);
+
+  if (!(mysql_real_connect(&conn, opt_host, opt_user, opt_password,
+                           opt_db ? opt_db : "test", opt_port, opt_unix_socket,
+                           0))) {
+    fprintf(stderr, "\n connection failed(%s)", mysql_error(&conn));
+    exit(1);
+  }
+
+  // Verify the ToS is set to 252 from getsockopt
+  fd = conn.net.vio->mysql_socket.fd;
+  rc = getsockopt(fd, ip_proto, opt_name, &tos, &tos_len);
+  fprintf(stdout, "ToS is set to %d\n", tos);
+  DIE_UNLESS(rc == 0);
+  DIE_UNLESS(tos == 252);
+  mysql_close(&conn);
+
+  /* 4. Check an invalid ToS is ignored */
+  if (!mysql_client_init(&conn)) {
+    fprintf(stdout, "mysql_client_init() failed\n");
+    DIE_UNLESS(0);
+  }
+  mysql_options(&conn, MYSQL_OPT_PROTOCOL, &mysql_proto_tcp);
+
+  // Set ToS to 256
+  input_tos = 256;
+  mysql_options(&conn, MYSQL_OPT_TOS, &input_tos);
+
+  if (!(mysql_real_connect(&conn, opt_host, opt_user, opt_password,
+                           opt_db ? opt_db : "test", opt_port, opt_unix_socket,
+                           0))) {
+    fprintf(stderr, "\n connection failed(%s)", mysql_error(&conn));
+    exit(1);
+  }
+
+  // Verify the ToS is set to 0 from getsockopt
+  fd = conn.net.vio->mysql_socket.fd;
+  rc = getsockopt(fd, ip_proto, opt_name, &tos, &tos_len);
+  fprintf(stdout, "ToS is set to %d\n", tos);
+  DIE_UNLESS(rc == 0);
+  DIE_UNLESS(tos == 0);
+  mysql_close(&conn);
+
+  DBUG_VOID_RETURN;
+}
+
 static struct my_tests_st my_tests[] = {
     {"test_bug5194", test_bug5194},
     {"disable_query_logs", disable_query_logs},
@@ -23186,6 +23300,7 @@ static struct my_tests_st my_tests[] = {
     {"test_get_connect_stage", test_get_connect_stage},
     {"test_ssl_connect", test_ssl_connect},
     {"test_ssl_connect_ctx", test_ssl_connect_ctx},
+    {"test_option_tos", test_option_tos},
     {nullptr, nullptr}};
 
 static struct my_tests_st *get_my_tests() { return my_tests; }
