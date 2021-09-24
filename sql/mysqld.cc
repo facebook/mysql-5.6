@@ -664,6 +664,14 @@ ulonglong histogram_binlog_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
 SHOW_VAR latency_histogram_raft_trx_wait[NUMBER_OF_HISTOGRAM_BINS + 1];
 ulonglong histogram_raft_trx_wait_values[NUMBER_OF_HISTOGRAM_BINS];
 
+/* status variables for group commit trx wait times */
+SHOW_VAR latency_histogram_group_commit_trx[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_group_commit_trx_values[NUMBER_OF_HISTOGRAM_BINS];
+
+/* status variables for engine commit trx wait times */
+SHOW_VAR latency_histogram_engine_commit_trx[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_engine_commit_trx_values[NUMBER_OF_HISTOGRAM_BINS];
+
 SHOW_VAR
   histogram_binlog_group_commit_var[NUMBER_OF_COUNTER_HISTOGRAM_BINS + 1];
 ulonglong
@@ -2567,6 +2575,8 @@ void clean_up(bool print_message)
 
   free_latency_histogram_sysvars(latency_histogram_binlog_fsync);
   free_latency_histogram_sysvars(latency_histogram_raft_trx_wait);
+  free_latency_histogram_sysvars(latency_histogram_group_commit_trx);
+  free_latency_histogram_sysvars(latency_histogram_engine_commit_trx);
   free_counter_histogram_sysvars(histogram_binlog_group_commit_var);
 
   /*
@@ -10657,6 +10667,43 @@ static int show_histogram_binlog_group_commit(THD *thd, SHOW_VAR* var,
   var->value = (char*) &histogram_binlog_group_commit_var;
   return 0;
 }
+
+static int show_latency_histogram_group_commit_trx(THD *thd, SHOW_VAR *var,
+                                                   char *buffIgnored)
+{
+  for (int i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+  {
+    histogram_group_commit_trx_values[i] =
+      latency_histogram_get_count(&histogram_binlog_group_commit_trx, i);
+  }
+
+  prepare_latency_histogram_vars(&histogram_binlog_group_commit_trx,
+                                 latency_histogram_group_commit_trx,
+                                 histogram_group_commit_trx_values);
+  var->type= SHOW_ARRAY;
+  var->value = (char*) &latency_histogram_group_commit_trx;
+
+  return 0;
+}
+
+static int show_latency_histogram_engine_commit_trx(
+  THD *thd, SHOW_VAR *var, char *buffIgnored)
+{
+  for (int i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+  {
+    histogram_engine_commit_trx_values[i] =
+      latency_histogram_get_count(&histogram_binlog_engine_commit_trx, i);
+  }
+
+  prepare_latency_histogram_vars(&histogram_binlog_engine_commit_trx,
+                                 latency_histogram_engine_commit_trx,
+                                 histogram_engine_commit_trx_values);
+  var->type= SHOW_ARRAY;
+  var->value = (char*) &latency_histogram_engine_commit_trx;
+
+  return 0;
+}
+
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /* Functions relying on CTX */
 static int show_ssl_ctx_sess_accept(THD *thd, SHOW_VAR *var, char *buff)
@@ -11454,6 +11501,10 @@ SHOW_VAR status_vars[]= {
   {"Write_queries_running",    (char*) &write_query_running,    SHOW_INT},
   {"Rpl_raft_trx_wait_histogram",
    (char*) &show_latency_histogram_raft_trx_wait, SHOW_FUNC},
+  {"group_commit_trx_histogram",
+   (char*) &show_latency_histogram_group_commit_trx, SHOW_FUNC},
+  {"engine_commit_trx_histogram",
+   (char*) &show_latency_histogram_engine_commit_trx, SHOW_FUNC},
   {NullS, NullS, SHOW_LONG}
 };
 

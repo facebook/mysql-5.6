@@ -27,8 +27,11 @@
 extern ulong rpl_read_size;
 extern char *histogram_step_size_binlog_fsync;
 extern int opt_histogram_step_size_binlog_group_commit;
+extern char* opt_histogram_binlog_commit_time_step_size;
 extern latency_histogram histogram_binlog_fsync;
 extern latency_histogram histogram_raft_trx_wait;
+extern latency_histogram histogram_binlog_group_commit_trx;
+extern latency_histogram histogram_binlog_engine_commit_trx;
 extern counter_histogram histogram_binlog_group_commit;
 extern Slow_log_throttle log_throttle_sbr_unsafe_query;
 class Relay_log_info;
@@ -1264,6 +1267,16 @@ public:
     mysql_mutex_lock(&LOCK_log);
     counter_histogram_init(&histogram_binlog_group_commit,
                            opt_histogram_step_size_binlog_group_commit);
+    mysql_mutex_unlock(&LOCK_log);
+  }
+  void update_binlog_group_and_engine_commit_step_size() {
+    mysql_mutex_lock(&LOCK_log);
+    if (opt_histogram_binlog_commit_time_step_size) {
+      latency_histogram_init(&histogram_binlog_engine_commit_trx,
+                            opt_histogram_binlog_commit_time_step_size);
+      latency_histogram_init(&histogram_binlog_group_commit_trx,
+                            opt_histogram_binlog_commit_time_step_size);
+    }
     mysql_mutex_unlock(&LOCK_log);
   }
   static const int MAX_RETRIES_FOR_DELETE_RENAME_FAILURE = 5;

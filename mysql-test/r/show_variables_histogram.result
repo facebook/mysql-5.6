@@ -17,8 +17,10 @@ SET @start_global_value_step_size_transaction_command = @@GLOBAL.histogram_step_
 SET @start_global_value_step_size_handler_command = @@GLOBAL.histogram_step_size_handler_command;
 SET @start_global_value_step_size_other_command = @@GLOBAL.histogram_step_size_other_command;
 SET @start_global_value_step_size_semisync_trx_wait = @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size;
+SET @start_global_value_binlog_commit_step_size = @@GLOBAL.histogram_step_size_binlog_commit_time;
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
+histogram_step_size_binlog_commit_time	125us
 histogram_step_size_binlog_fsync	16ms
 histogram_step_size_binlog_group_commit	1
 histogram_step_size_connection_create	16ms
@@ -60,8 +62,10 @@ SET @@GLOBAL.histogram_step_size_transaction_command='16s';
 SET @@GLOBAL.histogram_step_size_handler_command='16s';
 SET @@GLOBAL.histogram_step_size_other_command='16s';
 SET @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size='128us';
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='100us';
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
+histogram_step_size_binlog_commit_time	100us
 histogram_step_size_binlog_fsync	16s
 histogram_step_size_binlog_group_commit	1
 histogram_step_size_connection_create	16s
@@ -103,8 +107,10 @@ SET @@GLOBAL.histogram_step_size_transaction_command = @start_global_value_step_
 SET @@GLOBAL.histogram_step_size_handler_command = @start_global_value_step_size_handler_command;
 SET @@GLOBAL.histogram_step_size_other_command = @start_global_value_step_size_other_command;
 SET @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size = @start_global_value_step_size_semisync_trx_wait;
+SET @@GLOBAL.histogram_step_size_binlog_commit_time = @start_global_value_binlog_commit_step_size;
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
+histogram_step_size_binlog_commit_time	125us
 histogram_step_size_binlog_fsync	16ms
 histogram_step_size_binlog_group_commit	1
 histogram_step_size_connection_create	16ms

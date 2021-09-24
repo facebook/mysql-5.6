@@ -98,6 +98,9 @@ int opt_histogram_step_size_binlog_group_commit = 1;
 latency_histogram histogram_binlog_fsync;
 latency_histogram histogram_raft_trx_wait;
 counter_histogram histogram_binlog_group_commit;
+latency_histogram histogram_binlog_group_commit_trx;
+latency_histogram histogram_binlog_engine_commit_trx;
+char* opt_histogram_binlog_commit_time_step_size = NULL;
 
 extern my_bool opt_core_file;
 
@@ -1021,6 +1024,11 @@ static int binlog_init(void *p)
   latency_histogram_init(&histogram_binlog_fsync,
                          histogram_step_size_binlog_fsync);
   latency_histogram_init(&histogram_raft_trx_wait, "125us");
+  latency_histogram_init(&histogram_binlog_group_commit_trx,
+                         opt_histogram_binlog_commit_time_step_size);
+  latency_histogram_init(&histogram_binlog_engine_commit_trx,
+                         opt_histogram_binlog_commit_time_step_size);
+
   counter_histogram_init(&histogram_binlog_group_commit,
                          opt_histogram_step_size_binlog_group_commit);
   return 0;
@@ -10760,6 +10768,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     - Everything in the transaction structure is reset when calling
       ha_commit_low since that calls st_transaction::cleanup.
   */
+  auto group_commit_start_time = my_timer_now();
   thd->transaction.flags.pending= true;
   thd->commit_error= THD::CE_NONE;
   thd->next_to_commit= NULL;
@@ -10961,7 +10970,8 @@ commit_stage:
     THD *commit_queue= stage_manager.fetch_queue_for(Stage_manager::COMMIT_STAGE);
     start_time = my_timer_now();
     process_commit_stage_queue(thd, commit_queue, async);
-    thd->engine_commit_time = my_timer_since(start_time);
+    auto engine_commit_time = my_timer_since(start_time);
+    thd->engine_commit_time = engine_commit_time;
     mysql_mutex_unlock(&LOCK_commit);
     /*
       Process after_commit after LOCK_commit is released for avoiding
@@ -10969,6 +10979,12 @@ commit_stage:
     */
     process_after_commit_stage_queue(thd, commit_queue, async);
     final_queue= commit_queue;
+   /*
+    * Since this is not protected by LOCK_LOG, there will be some
+    * inaccuracy in histogram reporting, if the step size changes.
+    */
+    latency_histogram_increment(&histogram_binlog_engine_commit_trx,
+                                engine_commit_time, 1);
   }
   else if (leave_mutex_before_commit_stage)
     mysql_mutex_unlock(leave_mutex_before_commit_stage);
@@ -10988,6 +11004,13 @@ commit_stage:
     thd->commit_error, which is returned below.
   */
   (void) finish_commit(thd, async);
+  /*
+   * Since this is not protected by LOCK_LOG, there will be some
+   * inaccuracy in histogram reporting, if the step size changes.
+   */
+  auto group_commit_time = my_timer_since(group_commit_start_time);
+  latency_histogram_increment(&histogram_binlog_group_commit_trx,
+                              group_commit_time, 1);
 
   /*
     If we need to rotate, we do it without commit error.

@@ -1154,12 +1154,29 @@ static bool check_histogram_step_size_syntax(sys_var *self, THD *thd,
   return histogram_validate_step_size_string(var->save_result.string_value.str);
 }
 
+static bool update_histogram_step_size_for_commit(sys_var *self, THD *thd,
+                                                  enum_var_type type)
+{
+  mysql_bin_log.update_binlog_group_and_engine_commit_step_size();
+  return false;
+}
+
 static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
        "histogram_step_size_binlog_fsync", "Step size of the Histogram which "
        "is used to track binlog fsync latencies.",
        GLOBAL_VAR(histogram_step_size_binlog_fsync), CMD_LINE(REQUIRED_ARG),
        IN_FS_CHARSET, DEFAULT("16ms"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_binlog_commit_time(
+       "histogram_step_size_binlog_commit_time",
+       "Step size of the Histogram which "
+       "is used to track binlog group/engine commit latencies.",
+       GLOBAL_VAR(opt_histogram_binlog_commit_time_step_size),
+       CMD_LINE(OPT_ARG),
+       IN_FS_CHARSET, DEFAULT("125us"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax),
+       ON_UPDATE(update_histogram_step_size_for_commit));
 
 static bool update_thread_priority_str(sys_var *self, THD *thd,
                                        set_var *var)
