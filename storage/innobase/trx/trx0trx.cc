@@ -2523,8 +2523,10 @@ void trx_print_low(FILE *f,
                    /*!< in: lock_number_of_rows_locked(&trx->lock) */
                    ulint n_trx_locks,
                    /*!< in: length of trx->lock.trx_locks */
-                   ulint heap_size)
-/*!< in: mem_heap_get_size(trx->lock.lock_heap) */
+                   ulint heap_size,
+                   /*!< in: mem_heap_get_size(trx->lock.lock_heap) */
+                   bool force_digest)
+/*!< in: always show query digest */
 {
   ibool newline;
   const char *op_info;
@@ -2632,7 +2634,7 @@ state_ok:
 
   if (trx->state != TRX_STATE_NOT_STARTED && trx->mysql_thd != nullptr) {
     innobase_mysql_print_thd(f, trx->mysql_thd,
-                             static_cast<uint>(max_query_len));
+                             static_cast<uint>(max_query_len), force_digest);
   }
 }
 
