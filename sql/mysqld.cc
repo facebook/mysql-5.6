@@ -1557,6 +1557,7 @@ bool log_datagram = false;
 ulong log_datagram_usecs = 0;
 int log_datagram_sock = -1;
 bool opt_parthandler_allow_drop_partition = true;
+bool disable_instant_ddl = false;
 
 /**
    Number of times JSON functions are called that emulate
