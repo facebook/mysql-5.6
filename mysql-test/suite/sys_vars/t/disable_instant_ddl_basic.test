@@ -1,0 +1,98 @@
+--source include/load_sysvars.inc
+
+
+# Saving initial value of disable_instant_ddl in a temporary variable
+
+SET @session_start_value = @@session.disable_instant_ddl;
+SELECT @session_start_value;
+
+# Display the DEFAULT value of disable_instant_ddl
+
+SET @@session.disable_instant_ddl = 0;
+SET @@session.disable_instant_ddl = DEFAULT;
+SELECT @@session.disable_instant_ddl;
+
+SET @@session.disable_instant_ddl = 1;
+SET @@session.disable_instant_ddl = DEFAULT;
+SELECT @@session.disable_instant_ddl;
+
+
+# Check if disable_instant_ddl can be accessed with and without @@ sign
+
+SET disable_instant_ddl = 1;
+SELECT @@disable_instant_ddl;
+
+--Error ER_UNKNOWN_TABLE
+SELECT session.disable_instant_ddl;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.disable_instant_ddl;
+
+SET session disable_instant_ddl = 0;
+SELECT @@session.disable_instant_ddl;
+
+# change the value of disable_instant_ddl to a valid value
+
+SET @@session.disable_instant_ddl = 0;
+SELECT @@session.disable_instant_ddl;
+SET @@session.disable_instant_ddl = 1;
+SELECT @@session.disable_instant_ddl;
+
+
+# Change the value of disable_instant_ddl to invalid value
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_instant_ddl = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_instant_ddl = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_instant_ddl = "T";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_instant_ddl = "Y";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_instant_ddl = NO;
+
+
+# Test if accessing global disable_instant_ddl gives error
+
+SET @@global.disable_instant_ddl = 1;
+SELECT @@global.disable_instant_ddl;
+SET @@global.disable_instant_ddl = 0;
+
+
+# Check if the value in GLOBAL Table contains variable value
+
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='disable_instant_ddl';
+
+
+# Check if the value in GLOBAL Table matches value in variable
+
+SELECT IF(@@session.disable_instant_ddl, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='disable_instant_ddl';
+SELECT @@session.disable_instant_ddl;
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='disable_instant_ddl';
+
+
+# Check if ON and OFF values can be used on variable
+
+SET @@session.disable_instant_ddl = OFF;
+SELECT @@session.disable_instant_ddl;
+SET @@session.disable_instant_ddl = ON;
+SELECT @@session.disable_instant_ddl;
+
+
+# Check if TRUE and FALSE values can be used on variable
+
+SET @@session.disable_instant_ddl = TRUE;
+SELECT @@session.disable_instant_ddl;
+SET @@session.disable_instant_ddl = FALSE;
+SELECT @@session.disable_instant_ddl;
+
+
+# Restore initial value
+
+SET @@session.disable_instant_ddl = @session_start_value;
+SELECT @@session.disable_instant_ddl;
