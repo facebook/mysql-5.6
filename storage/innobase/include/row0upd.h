@@ -586,6 +586,11 @@ struct upd_t {
   /** Determine if the given field_no is modified.
   @return true if modified, false otherwise.  */
   bool is_modified(const ulint field_no) const {
+    if (table == nullptr) {
+      ut_ad(false);
+      return false;
+    }
+
     return (get_field_by_field_no(field_no, table->first_index()) != nullptr);
   }
 

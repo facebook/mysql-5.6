@@ -628,6 +628,34 @@ bool dict_index_t::is_usable(const trx_t *trx) const {
 }
 #endif /* !UNIV_HOTBACKUP */
 
+bool dict_index_t::is_tuple_instant_format(
+    const uint16_t n_fields_in_tuple) const {
+  ut_ad(n_fields_in_tuple <= n_fields);
+
+  if (!has_instant_cols()) {
+    return false;
+  }
+
+  /* For instant index, if the tuple comes from UPDATE, its fields could be less
+  than index definition */
+  if (n_fields_in_tuple < n_fields) {
+    /* If PK is not specified, DB_ROW_ID will be part of tuple */
+    uint16_t sys_fields_in_tuple = 0;
+    if (innobase_strcasecmp(name, innobase_index_reserve_name) == 0) {
+      sys_fields_in_tuple = table->get_n_sys_cols();
+    } else {
+      sys_fields_in_tuple = table->get_n_sys_cols() - 1;
+    }
+
+    uint16_t fields_in_tuple = n_fields_in_tuple - sys_fields_in_tuple;
+    if (fields_in_tuple == table->get_instant_cols()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /** Gets the column number the nth field in an index.
 @param[in] pos	position of the field
 @return column number */
