@@ -111,6 +111,36 @@ delimiter ;||||
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
+###########################
+### Case 4: with size limit
+###########################
+--echo -> Case 4: with size limit
+
+connect (con41, localhost, user_super,su,test);
+
+## reduce the memory size limit (10MB -> 150 B)
+select @@max_sql_findings_size;
+set @@GLOBAL.max_sql_findings_size=150;
+select @@max_sql_findings_size;
+
+## all sql findings are gone
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+connect (con42, localhost, user1,u1,test);
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+
+create table t5(c1 char(2) PRIMARY KEY)
+ engine=myisam;
+--disable_warnings
+insert into t5 values('case4');
+select * from t5 where c1=1;
+--enable_warnings
+
+## only one sql finding reported (hit the size limit)
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
 ###########
 ### Cleanup
 ###########
@@ -119,10 +149,12 @@ order by sql_id, code, query_text;
 connection default;
 
 set @@GLOBAL.sql_findings_control=DEFAULT;
+set @@GLOBAL.max_sql_findings_size=DEFAULT;
 
 drop table t1;
 drop table t2;
 drop table t3;
+drop table t5;
 drop user user1@localhost;
 drop user user_super@localhost;
 
@@ -132,6 +164,9 @@ disconnect con21;
 disconnect con22;
 
 disconnect con31;
+
+disconnect con41;
+disconnect con42;
 
 # Check that all connections opened by test cases in this file are gone
 --source include/wait_until_count_sessions.inc

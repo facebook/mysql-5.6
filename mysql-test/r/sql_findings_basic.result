@@ -95,10 +95,33 @@ sql_id	code	message	query_text	count
 c239c52b0a88981e0ac3e51c3467c68ae084d5e38d874b8991ed7af09b2c35c1	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
 d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
 d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+-> Case 4: with size limit
+select @@max_sql_findings_size;
+@@max_sql_findings_size
+10485760
+set @@GLOBAL.max_sql_findings_size=150;
+select @@max_sql_findings_size;
+@@max_sql_findings_size
+150
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+create table t5(c1 char(2) PRIMARY KEY)
+engine=myisam;
+insert into t5 values('case4');
+select * from t5 where c1=1;
+c1
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+e501fc476bd07e70a3498586acd2392c21838879ab38595b9c865d74fa453bbe	1265	Data truncated for column 'c1' at row 1	insert into t5 values('case4')	1
 -> Cleanup
 set @@GLOBAL.sql_findings_control=DEFAULT;
+set @@GLOBAL.max_sql_findings_size=DEFAULT;
 drop table t1;
 drop table t2;
 drop table t3;
+drop table t5;
 drop user user1@localhost;
 drop user user_super@localhost;

@@ -1,0 +1,27 @@
+Default value of max_sql_findings_size is 10485760
+SELECT @@global.max_sql_findings_size;
+@@global.max_sql_findings_size
+10485760
+SELECT @@session.max_sql_findings_size;
+ERROR HY000: Variable 'max_sql_findings_size' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+max_sql_findings_size is a dynamic variable
+set @@global.max_sql_findings_size = 17;
+SELECT @@global.max_sql_findings_size;
+@@global.max_sql_findings_size
+17
+restore the default value
+SET @@global.max_sql_findings_size = 10485760;
+SELECT @@global.max_sql_findings_size;
+@@global.max_sql_findings_size
+10485760
+restart the server with non default value (103)
+# restart: --max_sql_findings_size=103
+SELECT @@global.max_sql_findings_size;
+@@global.max_sql_findings_size
+103
+restart the server with the default value (10485760)
+# restart: --max_sql_findings_size=103
+SELECT @@global.max_sql_findings_size;
+@@global.max_sql_findings_size
+103
