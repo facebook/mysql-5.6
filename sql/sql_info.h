@@ -83,9 +83,12 @@ typedef struct st_sql_finding {
  */
 typedef std::vector<SQL_FINDING> SQL_FINDING_VEC;
 
-void free_global_sql_findings();
+void free_global_sql_findings(bool limits_updated);
 void store_sql_findings(THD *thd, char *query_text);
 std::vector<sql_findings_row> get_all_sql_findings();
+
+/* initializes sql info related variables/structures at instance start */
+void init_sql_info();
 
 /***********************************************************************
                 End - Functions to support SQL findings
