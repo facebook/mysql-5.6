@@ -9246,7 +9246,7 @@ static const char *sql_info_control_values[] = {
 
 static bool set_sql_findings_control(sys_var *, THD *, enum_var_type) {
   if (sql_findings_control == SQL_INFO_CONTROL_OFF_HARD) {
-    free_global_sql_findings();
+    free_global_sql_findings(false);
   }
 
   return false;  // success
@@ -9511,3 +9511,21 @@ static Sys_var_uint Sys_response_attrs_contain_write_tables_bytes(
     "The default value is 0 which disables this feature",
     SESSION_VAR(response_attrs_contain_write_tables_bytes), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static bool update_max_sql_findings_limits(sys_var *, THD *, enum_var_type) {
+  // This will clear out all the findings collected so far if new limit is
+  // less than the current limit
+  if (sql_findings_control != SQL_INFO_CONTROL_OFF_HARD) {
+    free_global_sql_findings(true /*limits_updated*/);
+  }
+
+  return false;  // success
+}
+
+static Sys_var_ulonglong Sys_max_sql_findings_size(
+    "max_sql_findings_size",
+    "Maximum allowed memory for SQL findings (in bytes)",
+    GLOBAL_VAR(max_sql_findings_size), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(10 * 1024 * 1024), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(update_max_sql_findings_limits));

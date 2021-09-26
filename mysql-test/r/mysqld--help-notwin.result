@@ -939,6 +939,8 @@ The following options may be given as the first argument:
  bytes of each value are used; the rest are ignored)
  --max-sp-recursion-depth[=#] 
  Maximum stored procedure recursion depth
+ --max-sql-findings-size[=#] 
+ Maximum allowed memory for SQL findings (in bytes)
  --max-statement-time=# 
  redirects to max_execution_time
  --max-tmp-disk-usage[=#] 
@@ -3061,6 +3063,7 @@ max-seeks-for-key 18446744073709551615
 max-slowlog-size 0
 max-sort-length 1024
 max-sp-recursion-depth 0
+max-sql-findings-size 10485760
 max-statement-time 0
 max-tmp-disk-usage 0
 max-user-connections 0
