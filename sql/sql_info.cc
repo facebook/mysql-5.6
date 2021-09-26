@@ -34,8 +34,6 @@
 #include "sql/sql_lex.h"
 #include "unordered_map"
 
-inline bool is_sql_stats_collection_above_limit() { return false; }
-
 /***********************************************************************
  Begin - Functions to support capping the number of duplicate executions
 ************************************************************************/
@@ -303,20 +301,47 @@ const uint sf_max_message_size = 512;  // max message text size
 /* Global SQL findings map to track findings for all SQL statements */
 static std::unordered_map<digest_key, SQL_FINDING_VEC> global_sql_findings_map;
 
+/* System variable to control the maximum size of the sql findings map */
+ulonglong max_sql_findings_size;
+/* Stores the current maximum size
+   Used to determine whether we need to flush the findings map, i.e when
+   the new maximum size is lower then the current maximum size.
+*/
+ulonglong current_max_sql_findings_size;
+/* Stores the memory size currently in use */
 ulonglong sql_findings_size = 0;
+
+/*
+  is_sql_stats_collection_above_limit
+    Checks whether we reached the counter and size limits for the all the
+    SQL metrics we collect (sql findings)
+*/
+bool is_sql_stats_collection_above_limit() {
+  return sql_findings_size >= current_max_sql_findings_size;
+}
 
 /*
   free_global_sql_findings
     Frees global_sql_findings
 */
-void free_global_sql_findings(void) {
+void free_global_sql_findings(bool limits_updated) {
   mysql_mutex_lock(&LOCK_global_sql_findings);
+
+  if (limits_updated) {
+    if (sql_findings_size <= max_sql_findings_size) {
+      current_max_sql_findings_size = max_sql_findings_size;
+      mysql_mutex_unlock(&LOCK_global_sql_findings);
+      return;
+    }
+  }
 
   for (auto &finding_iter : global_sql_findings_map)
     finding_iter.second.clear();
 
   global_sql_findings_map.clear();
   sql_findings_size = 0;
+
+  current_max_sql_findings_size = max_sql_findings_size;
 
   mysql_mutex_unlock(&LOCK_global_sql_findings);
 }
@@ -483,4 +508,12 @@ void store_client_attribute_names(char *new_value) {
   mysql_mutex_lock(&LOCK_global_sql_findings);
   client_attribute_names = new_attr_names;
   mysql_mutex_unlock(&LOCK_global_sql_findings);
+}
+
+/*
+  Initializes sql info related variables/structures at instance start
+*/
+void init_sql_info() {
+  // set the current sql findings size limit
+  current_max_sql_findings_size = max_sql_findings_size;
 }

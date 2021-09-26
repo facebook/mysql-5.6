@@ -568,6 +568,8 @@ extern ulong write_auto_throttle_frequency;
 extern uint write_throttle_rate_step;
 /* Controls collecting MySQL findings (aka SQL conditions) */
 extern ulong sql_findings_control;
+/* The maximum size of the memory to store SQL findings */
+extern ulonglong max_sql_findings_size;
 // client attributes names system variable
 extern std::vector<std::string> client_attribute_names;
 extern char *latest_client_attribute_names;

@@ -95,10 +95,33 @@ sql_id	code	message	query_text	count
 65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
 7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
 cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
+-> Case 4: with size limit
+select @@max_sql_findings_size;
+@@max_sql_findings_size
+10485760
+set @@GLOBAL.max_sql_findings_size=150;
+select @@max_sql_findings_size;
+@@max_sql_findings_size
+150
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+create table t5(c1 char(2) PRIMARY KEY)
+engine=myisam;
+insert into t5 values('case4');
+select * from t5 where c1=1;
+c1
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+9b0b6882ba54fc1549afcd3109e18aa5	1265	Data truncated for column 'c1' at row 1	insert into t5 values('case4')	1
 -> Cleanup
 set @@GLOBAL.sql_findings_control=DEFAULT;
+set @@GLOBAL.max_sql_findings_size=DEFAULT;
 drop table t1;
 drop table t2;
 drop table t3;
+drop table t5;
 drop user user1@localhost;
 drop user user_super@localhost;
