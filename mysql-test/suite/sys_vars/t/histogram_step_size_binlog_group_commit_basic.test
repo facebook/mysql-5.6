@@ -1,0 +1,20 @@
+#
+# only global
+#
+set @old_var = @@global.histogram_step_size_binlog_group_commit;
+select @@global.histogram_step_size_binlog_group_commit = 1;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.histogram_step_size_binlog_group_commit;
+--replace_column 2 #
+show global variables like 'histogram_step_size_binlog_group_commit';
+--replace_column 2 #
+show session variables like 'histogram_step_size_binlog_group_commit';
+--replace_column 2 #
+select * from performance_schema.global_variables where variable_name='histogram_step_size_binlog_group_commit';
+--replace_column 2 #
+select * from performance_schema.session_variables where variable_name='histogram_step_size_binlog_group_commit';
+
+set global histogram_step_size_binlog_group_commit=10;
+--error ER_GLOBAL_VARIABLE
+set session histogram_step_size_binlog_group_commit=1;
+set @@global.histogram_step_size_binlog_group_commit = @old_var;

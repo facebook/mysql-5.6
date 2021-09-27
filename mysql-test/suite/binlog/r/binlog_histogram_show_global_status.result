@@ -1,0 +1,27 @@
+SHOW GLOBAL STATUS LIKE "%histogram%binlog%";
+Variable_name	Value
+Latency_histogram_binlog_fsync_0-1200ms	COUNT
+Latency_histogram_binlog_fsync_1200-3600ms	COUNT
+Latency_histogram_binlog_fsync_3600-8400ms	COUNT
+Latency_histogram_binlog_fsync_8400-18000ms	COUNT
+Latency_histogram_binlog_fsync_18000-37200ms	COUNT
+Latency_histogram_binlog_fsync_37200-75600ms	COUNT
+Latency_histogram_binlog_fsync_75600-152400ms	COUNT
+Latency_histogram_binlog_fsync_152400-306000ms	COUNT
+Latency_histogram_binlog_fsync_306000-613200ms	COUNT
+Latency_histogram_binlog_fsync_613200-MAXms	COUNT
+histogram_binlog_group_commit_0-1	COUNT
+histogram_binlog_group_commit_1-2	COUNT
+histogram_binlog_group_commit_2-3	COUNT
+histogram_binlog_group_commit_3-4	COUNT
+histogram_binlog_group_commit_4-5	COUNT
+histogram_binlog_group_commit_5-6	COUNT
+histogram_binlog_group_commit_6-7	COUNT
+histogram_binlog_group_commit_7-8	COUNT
+histogram_binlog_group_commit_8-9	COUNT
+histogram_binlog_group_commit_9-10	COUNT
+SHOW VARIABLES LIKE "%histogram%binlog%";
+Variable_name	Value
+histogram_step_size_binlog_fsync	1200ms
+histogram_step_size_binlog_group_commit	1
+Done
