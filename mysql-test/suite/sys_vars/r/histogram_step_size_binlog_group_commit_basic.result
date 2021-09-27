@@ -1,0 +1,22 @@
+set @old_var = @@global.histogram_step_size_binlog_group_commit;
+select @@global.histogram_step_size_binlog_group_commit = 1;
+@@global.histogram_step_size_binlog_group_commit = 1
+1
+select @@session.histogram_step_size_binlog_group_commit;
+ERROR HY000: Variable 'histogram_step_size_binlog_group_commit' is a GLOBAL variable
+show global variables like 'histogram_step_size_binlog_group_commit';
+Variable_name	Value
+histogram_step_size_binlog_group_commit	#
+show session variables like 'histogram_step_size_binlog_group_commit';
+Variable_name	Value
+histogram_step_size_binlog_group_commit	#
+select * from performance_schema.global_variables where variable_name='histogram_step_size_binlog_group_commit';
+VARIABLE_NAME	VARIABLE_VALUE
+histogram_step_size_binlog_group_commit	#
+select * from performance_schema.session_variables where variable_name='histogram_step_size_binlog_group_commit';
+VARIABLE_NAME	VARIABLE_VALUE
+histogram_step_size_binlog_group_commit	#
+set global histogram_step_size_binlog_group_commit=10;
+set session histogram_step_size_binlog_group_commit=1;
+ERROR HY000: Variable 'histogram_step_size_binlog_group_commit' is a GLOBAL variable and should be set with SET GLOBAL
+set @@global.histogram_step_size_binlog_group_commit = @old_var;
