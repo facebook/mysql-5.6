@@ -3668,6 +3668,34 @@ static Sys_var_ulonglong Sys_histogram_generation_max_mem_size(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_session_admin),
     ON_UPDATE(nullptr));
 
+static bool check_histogram_step_size_syntax(sys_var * /*self*/, THD * /*thd*/,
+                                             set_var *var) {
+  return histogram_validate_step_size_string(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
+    "histogram_step_size_binlog_fsync",
+    "Step size of the Histogram which "
+    "is used to track binlog fsync latencies.",
+    GLOBAL_VAR(histogram_step_size_binlog_fsync), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT("16ms"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_histogram_step_size_syntax));
+
+static bool update_binlog_group_commit_step(sys_var * /*self*/, THD * /*thd*/,
+                                            enum_var_type /*type*/) {
+  mysql_bin_log.update_binlog_group_commit_step();
+  return false;
+}
+
+static Sys_var_uint Sys_histogram_step_size_binlog_group_commit(
+    "histogram_step_size_binlog_group_commit",
+    "Step size of the histogram used in tracking number of threads "
+    "involved in the binlog group commit",
+    GLOBAL_VAR(opt_histogram_step_size_binlog_group_commit),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 1024), DEFAULT(1), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+    ON_UPDATE(update_binlog_group_commit_step));
+
 /*
   Need at least 400Kb to get through bootstrap.
   Need at least 8Mb to get through mtr check testcase, which does

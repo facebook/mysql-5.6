@@ -1948,6 +1948,12 @@ char *opt_gap_lock_logname;
 SHOW_VAR latency_histogram_raft_trx_wait[NUMBER_OF_HISTOGRAM_BINS + 1];
 ulonglong histogram_raft_trx_wait_values[NUMBER_OF_HISTOGRAM_BINS];
 
+/* status variables for binlog fsync histogram */
+SHOW_VAR latency_histogram_binlog_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_binlog_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
+SHOW_VAR histogram_binlog_group_commit_var[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_binlog_group_commit_values[NUMBER_OF_HISTOGRAM_BINS];
+
 /*
   True if expire_logs_days and binlog_expire_logs_seconds is set
   explictly.
@@ -2915,6 +2921,9 @@ static void clean_up(bool print_message) {
   release_keyring_handles();
   keyring_lockable_deinit();
   free_latency_histogram_sysvars(latency_histogram_raft_trx_wait);
+
+  free_latency_histogram_sysvars(latency_histogram_binlog_fsync);
+  free_latency_histogram_sysvars(histogram_binlog_group_commit_var);
 
   /*
     make sure that handlers finish up
@@ -4416,6 +4425,18 @@ void latency_histogram_init(latency_histogram *current_histogram,
 }
 
 /**
+  @param current_histogram    The histogram being initialized.
+  @param step_size            Step size
+*/
+void counter_histogram_init(counter_histogram *current_histogram,
+                            ulonglong step_size) {
+  current_histogram->num_bins = NUMBER_OF_HISTOGRAM_BINS;
+  current_histogram->step_size = step_size;
+  for (size_t i = 0; i < current_histogram->num_bins; ++i)
+    (current_histogram->count_per_bin)[i] = 0;
+}
+
+/**
   Search a value in the histogram bins.
 
   @param current_histogram  The current histogram.
@@ -4453,6 +4474,18 @@ void latency_histogram_increment(latency_histogram *current_histogram,
   int index = latency_histogram_bin_search(current_histogram, value);
   if (index < 0) return;
   current_histogram->count_per_bin[index] += count;
+}
+
+/**
+  Increment the count of a bin in counter histogram.
+
+  @param current_histogram  The current histogram.
+  @param value              Current counter value.
+*/
+void counter_histogram_increment(counter_histogram *current_histogram,
+                                 ulonglong value) {
+  int index = latency_histogram_bin_search(current_histogram, value);
+  if (index >= 0) (current_histogram->count_per_bin)[index] += 1;
 }
 
 /**
@@ -4597,6 +4630,35 @@ void prepare_latency_histogram_vars(latency_histogram *current_histogram,
     itr_step_size *= current_histogram->step_ratio;
   }
   latency_histogram_data[NUMBER_OF_HISTOGRAM_BINS] = temp_last;
+}
+
+/**
+  Prepares counter histogram to display in SHOW STATUS
+
+  @param current_histogram current histogram
+  @param counter_histogram_data
+*/
+void prepare_counter_histogram_vars(counter_histogram *current_histogram,
+                                    SHOW_VAR *counter_histogram_data,
+                                    ulonglong *histogram_values) {
+  ulonglong bucket_lower_display = 0, bucket_upper_display;
+  free_latency_histogram_sysvars(counter_histogram_data);
+  const SHOW_VAR temp_last = {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL};
+
+  for (size_t i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i) {
+    bucket_upper_display = current_histogram->step_size + bucket_lower_display;
+
+    struct histogram_display_string histogram_bucket_name;
+    snprintf(histogram_bucket_name.name, HISTOGRAM_BUCKET_NAME_MAX_SIZE,
+             "%llu-%llu", bucket_lower_display, bucket_upper_display);
+
+    const SHOW_VAR temp = {
+        my_strdup(PSI_NOT_INSTRUMENTED, histogram_bucket_name.name, MYF(0)),
+        (char *)&(histogram_values[i]), SHOW_LONGLONG, SHOW_SCOPE_GLOBAL};
+    counter_histogram_data[i] = temp;
+    bucket_lower_display = bucket_upper_display;
+  }
+  counter_histogram_data[NUMBER_OF_HISTOGRAM_BINS] = temp_last;
 }
 
 /**
@@ -10023,6 +10085,37 @@ static int show_latency_histogram_raft_trx_wait(THD * /*thd*/, SHOW_VAR *var,
   return 0;
 }
 
+static int show_latency_histogram_binlog_fsync(THD * /*thd*/, SHOW_VAR *var,
+                                               char * /*buff*/) {
+  size_t i;
+  for (i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+    histogram_binlog_fsync_values[i] =
+        latency_histogram_get_count(&histogram_binlog_fsync, i);
+
+  prepare_latency_histogram_vars(&histogram_binlog_fsync,
+                                 latency_histogram_binlog_fsync,
+                                 histogram_binlog_fsync_values);
+
+  var->type = SHOW_ARRAY;
+  var->value = (char *)&latency_histogram_binlog_fsync;
+
+  return 0;
+}
+
+static int show_histogram_binlog_group_commit(THD * /*thd*/, SHOW_VAR *var,
+                                              char * /*buff*/) {
+  for (int i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i) {
+    histogram_binlog_group_commit_values[i] =
+        (histogram_binlog_group_commit.count_per_bin)[i];
+  }
+  prepare_counter_histogram_vars(&histogram_binlog_group_commit,
+                                 histogram_binlog_group_commit_var,
+                                 histogram_binlog_group_commit_values);
+  var->type = SHOW_ARRAY;
+  var->value = (char *)&histogram_binlog_group_commit_var;
+  return 0;
+}
+
 static int show_queries(THD *thd, SHOW_VAR *var, char *) {
   var->type = SHOW_LONGLONG;
   var->value = (char *)&thd->query_id;
@@ -11185,6 +11278,11 @@ SHOW_VAR status_vars[] = {
     {"Rpl_raft_trx_wait_histogram",
      (char *)&show_latency_histogram_raft_trx_wait, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Latency_histogram_binlog_fsync",
+     (char *)&show_latency_histogram_binlog_fsync, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"histogram_binlog_group_commit",
+     (char *)&show_histogram_binlog_group_commit, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {

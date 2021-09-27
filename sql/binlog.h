@@ -111,6 +111,11 @@ struct Binlog_user_var_event {
 
 extern latency_histogram histogram_raft_trx_wait;
 
+extern char *histogram_step_size_binlog_fsync;
+extern int opt_histogram_step_size_binlog_group_commit;
+extern latency_histogram histogram_binlog_fsync;
+extern counter_histogram histogram_binlog_group_commit;
+
 /* The enum defining the server's action when a trx fails inside ordered commit
  * due to an error related to consensus (raft plugin) */
 enum enum_commit_consensus_error_actions {
@@ -1541,6 +1546,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
   mysql_mutex_t *get_binlog_end_pos_lock() { return &LOCK_binlog_end_pos; }
   void lock_binlog_end_pos() { mysql_mutex_lock(&LOCK_binlog_end_pos); }
   void unlock_binlog_end_pos() { mysql_mutex_unlock(&LOCK_binlog_end_pos); }
+  inline void update_binlog_group_commit_step() {
+    mysql_mutex_lock(&LOCK_log);
+    counter_histogram_init(&histogram_binlog_group_commit,
+                           opt_histogram_step_size_binlog_group_commit);
+    mysql_mutex_unlock(&LOCK_log);
+  }
 
   /**
     Deep copy global_sid_map and gtid_executed.

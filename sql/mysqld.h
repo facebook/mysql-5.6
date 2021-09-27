@@ -1196,6 +1196,8 @@ struct latency_histogram {
   std::atomic<ulonglong> count_per_bin[NUMBER_OF_HISTOGRAM_BINS];
 };
 
+typedef latency_histogram counter_histogram;
+
 /* Convert native timer units in a ulonglong into microseconds in a ulonglong */
 inline ulonglong my_timer_to_microseconds_ulonglong(ulonglong when) {
   ulonglong ret = (ulonglong)(when);
@@ -1215,6 +1217,9 @@ inline ulonglong my_timer_to_microseconds_ulonglong(ulonglong when) {
 void latency_histogram_init(latency_histogram *current_histogram,
                             const char *step_size_with_unit);
 
+void counter_histogram_init(latency_histogram *current_histogram,
+                            ulonglong step_value);
+
 /**
   Increment the count of a bin in Histogram.
 
@@ -1226,6 +1231,9 @@ void latency_histogram_init(latency_histogram *current_histogram,
 */
 void latency_histogram_increment(latency_histogram *current_histogram,
                                  ulonglong value, ulonglong count);
+
+void counter_histogram_increment(latency_histogram *current_histogram,
+                                 ulonglong value);
 
 /**
   Get the count corresponding to a bin of the Histogram.
@@ -1295,6 +1303,10 @@ histogram_display_string histogram_bucket_to_display_string(
                                  respective Histograms.
 */
 void prepare_latency_histogram_vars(latency_histogram *current_histogram,
+                                    SHOW_VAR *latency_histogram_data,
+                                    ulonglong *histogram_values);
+
+void prepare_counter_histogram_vars(latency_histogram *current_histogram,
                                     SHOW_VAR *latency_histogram_data,
                                     ulonglong *histogram_values);
 

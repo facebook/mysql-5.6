@@ -627,6 +627,12 @@ The following options may be given as the first argument:
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
+ --histogram-step-size-binlog-fsync=name 
+ Step size of the Histogram which is used to track binlog
+ fsync latencies.
+ --histogram-step-size-binlog-group-commit=# 
+ Step size of the histogram used in tracking number of
+ threads involved in the binlog group commit
  --hlc-upper-bound-delta[=#] 
  Min acceptable difference between current HLC value and
  upper HLC boundary specified for the query
@@ -2976,6 +2982,8 @@ high-precision-processlist FALSE
 high-priority-ddl FALSE
 high-priority-lock-wait-timeout 1
 histogram-generation-max-mem-size 20000000
+histogram-step-size-binlog-fsync 16ms
+histogram-step-size-binlog-group-commit 1
 hlc-upper-bound-delta 0
 host-cache-size 279
 improved-dup-key-error FALSE

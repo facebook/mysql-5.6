@@ -190,6 +190,11 @@ bool rpl_semi_sync_source_enabled = false;
 
 latency_histogram histogram_raft_trx_wait;
 
+char *histogram_step_size_binlog_fsync = NULL;
+int opt_histogram_step_size_binlog_group_commit = 1;
+latency_histogram histogram_binlog_fsync;
+counter_histogram histogram_binlog_group_commit;
+
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 Dump_log dump_log;
 
@@ -1450,6 +1455,11 @@ static int binlog_init(void *p) {
   binlog_hton->flags = HTON_NOT_USER_SELECTABLE | HTON_HIDDEN;
 
   latency_histogram_init(&histogram_raft_trx_wait, "125us");
+
+  latency_histogram_init(&histogram_binlog_fsync,
+                         histogram_step_size_binlog_fsync);
+  counter_histogram_init(&histogram_binlog_group_commit,
+                         opt_histogram_step_size_binlog_group_commit);
 
   return 0;
 }
@@ -10602,6 +10612,8 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   THD *first_seen = fetch_and_process_flush_stage_queue();
   DBUG_EXECUTE_IF("crash_after_flush_engine_log", DBUG_SUICIDE(););
   assign_automatic_gtids_to_flush_group(first_seen);
+
+  ulonglong thd_count = 0;
   /* Flush thread caches to binary log. */
   for (THD *head = first_seen; head; head = head->next_to_commit) {
     Thd_backup_and_restore switch_thd(current_thd, head);
@@ -10622,7 +10634,13 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
      * This will subsequently fail the entire group
      */
     if (head->commit_consensus_error) commit_consensus_error = 1;
+
+    ++thd_count;
   }
+
+  assert(thd_count > 0);
+  DBUG_PRINT("info", ("Number of threads in group commit %llu", thd_count));
+  counter_histogram_increment(&histogram_binlog_group_commit, thd_count);
 
   *out_queue_var = first_seen;
   *total_bytes_var = total_bytes;
@@ -11043,6 +11061,7 @@ int MYSQL_BIN_LOG::flush_cache_to_file(my_off_t *end_pos_var) {
 */
 std::pair<bool, bool> MYSQL_BIN_LOG::sync_binlog_file(bool force) {
   bool synced = false;
+  ulonglong start_time, binlog_fsync_time;
   unsigned int sync_period = get_sync_period();
   if (force || (sync_period && ++sync_counter >= sync_period)) {
     sync_counter = 0;
@@ -11052,8 +11071,17 @@ std::pair<bool, bool> MYSQL_BIN_LOG::sync_binlog_file(bool force) {
       or 'FLUSH LOGS' just after the leader releases LOCK_log and before it
       acquires LOCK_sync log. So it should check if m_binlog_file is opened.
     */
-    if (DBUG_EVALUATE_IF("simulate_error_during_sync_binlog_file", 1,
-                         m_binlog_file->is_open() && m_binlog_file->sync())) {
+    start_time = my_timer_now();
+    int ret =
+        DBUG_EVALUATE_IF("simulate_error_during_sync_binlog_file", 1,
+                         m_binlog_file->is_open() && m_binlog_file->sync());
+
+    binlog_fsync_time = my_timer_since(start_time);
+    if (histogram_step_size_binlog_fsync)
+      latency_histogram_increment(&histogram_binlog_fsync, binlog_fsync_time,
+                                  1);
+
+    if (ret) {
       THD *thd = current_thd;
       thd->commit_error = THD::CE_SYNC_ERROR;
       return std::make_pair(true, synced);
