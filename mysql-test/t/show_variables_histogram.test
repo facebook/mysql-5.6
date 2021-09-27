@@ -1,0 +1,16 @@
+#
+# This is to show the configurable histogram_step_size variables
+#
+SET @start_global_value_step_size_binlog_fsync = @@GLOBAL.histogram_step_size_binlog_fsync;
+
+SHOW VARIABLES LIKE "%histogram%" ;
+
+SET @@GLOBAL.histogram_step_size_binlog_fsync='16s';
+
+SHOW VARIABLES LIKE "%histogram%" ;
+
+SET @@GLOBAL.histogram_step_size_binlog_fsync = @start_global_value_step_size_binlog_fsync;
+
+SHOW VARIABLES LIKE "%histogram%" ;
+
+--echo Done
