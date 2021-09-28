@@ -677,10 +677,8 @@ static st_plugin_dl *plugin_dl_add(const LEX_STRING *dl, int report,
   }
   memset(&plugin_dl, 0, sizeof(plugin_dl));
   /* Compile dll path */
-  dlpathlen = strxnmov(dlpath, sizeof(dlpath) - 1, opt_plugin_dir, "/", dl->str,
-                       NullS) -
-              dlpath;
-  (void)unpack_filename(dlpath, dlpath);
+  strxnmov(dlpath, sizeof(dlpath) - 1, opt_plugin_dir, "/", dl->str, NullS);
+  dlpathlen = unpack_filename(dlpath, dlpath);
   plugin_dl.ref_count = 1;
   /* Open new dll handle */
   mysql_mutex_assert_owner(&LOCK_plugin);
