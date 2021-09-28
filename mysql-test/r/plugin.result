@@ -213,7 +213,7 @@ COUNT(*)
 #
 SET DEBUG_SYNC='RESET';
 connection default;
-ERROR HY000: Can't open shared library
+ERROR HY000: Can't open shared library (cannot open shared object file: No such file or directory)
 SET DEBUG_SYNC='RESET';
 # Case 18008907_2: Deadlock situation caused by
 #                  default: has LOCK_system_variables_hash and waits on LOCK_global_system_variables,
@@ -228,7 +228,7 @@ call p_install();;
 connect con2, localhost, root,,;
 SET DEBUG_SYNC='now WAIT_FOR create_connection';
 connection con1;
-ERROR HY000: Can't open shared library
+ERROR HY000: Can't open shared library (cannot open shared object file: No such file or directory)
 connection default;
 COUNT(*)
 #
