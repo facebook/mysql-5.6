@@ -56,7 +56,6 @@ memory/performance_schema/file_class	NULL
 memory/performance_schema/file_handle	NULL
 memory/performance_schema/file_instances	NULL
 memory/performance_schema/hosts	NULL
-memory/performance_schema/id_name_map	NULL
 memory/performance_schema/memory_class	NULL
 memory/performance_schema/memory_summary_by_account_by_event_name	NULL
 memory/performance_schema/memory_summary_by_host_by_event_name	NULL
@@ -66,6 +65,7 @@ memory/performance_schema/memory_summary_global_by_event_name	NULL
 memory/performance_schema/metadata_locks	NULL
 memory/performance_schema/mutex_class	NULL
 memory/performance_schema/mutex_instances	NULL
+memory/performance_schema/name_id_map	NULL
 memory/performance_schema/prepared_statements_instances	NULL
 memory/performance_schema/rwlock_class	NULL
 memory/performance_schema/rwlock_instances	NULL
