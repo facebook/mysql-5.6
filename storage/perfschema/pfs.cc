@@ -6774,7 +6774,7 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
          - The wait time is a new maximum, or
          - The last query sample age exceeds the maximum age.
       */
-      bool get_sample_query = (digest_stat->m_query_sample_length == 0);
+      bool get_sample_query = (digest_stat->m_query_sample_id == 0);
 
       if (!get_sample_query) {
         get_sample_query = new_max_wait;
@@ -6794,10 +6794,20 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
         /* Get exclusive access otherwise abort. */
         if (digest_stat->inc_sample_ref() == 0) {
           digest_stat->set_sample_timer_wait(wait_time);
-          assert(digest_stat->m_query_sample != nullptr);
-          memcpy(digest_stat->m_query_sample, state->m_query_sample,
-                 state->m_query_sample_length);
-          digest_stat->m_query_sample_length = state->m_query_sample_length;
+          if (digest_stat->m_query_sample_id == 0) {
+            digest_stat->m_query_sample_id =
+                pfs_digest_sample_query_text_map.create_id(
+                    QUERY_TEXT_MAP_NAME, state->m_query_sample,
+                    state->m_query_sample_length);
+          } else {
+            digest_stat->m_query_sample_id =
+                pfs_digest_sample_query_text_map.update_id(
+                    QUERY_TEXT_MAP_NAME, state->m_query_sample,
+                    state->m_query_sample_length,
+                    digest_stat->m_query_sample_id);
+          }
+          assert(digest_stat->m_query_sample_id > 0);
+
           digest_stat->m_query_sample_cs_number = state->m_cs_number;
           digest_stat->m_query_sample_truncated =
               state->m_query_sample_truncated;

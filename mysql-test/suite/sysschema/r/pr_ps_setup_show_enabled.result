@@ -96,7 +96,6 @@ memory/performance_schema/events_statements_history.digest_text	NULL
 memory/performance_schema/events_statements_history.sql_text	NULL
 memory/performance_schema/events_statements_summary_by_account_by_event_name	NULL
 memory/performance_schema/events_statements_summary_by_digest	NULL
-memory/performance_schema/events_statements_summary_by_digest.sample_sqltext	NULL
 memory/performance_schema/events_statements_summary_by_host_by_event_name	NULL
 memory/performance_schema/events_statements_summary_by_program	NULL
 memory/performance_schema/events_statements_summary_by_thread_by_event_name	NULL
@@ -118,6 +117,7 @@ memory/performance_schema/file_class	NULL
 memory/performance_schema/file_handle	NULL
 memory/performance_schema/file_instances	NULL
 memory/performance_schema/hosts	NULL
+memory/performance_schema/id_name_map	NULL
 memory/performance_schema/memory_class	NULL
 memory/performance_schema/memory_summary_by_account_by_event_name	NULL
 memory/performance_schema/memory_summary_by_host_by_event_name	NULL
@@ -332,7 +332,6 @@ memory/performance_schema/events_statements_history.digest_text	NULL
 memory/performance_schema/events_statements_history.sql_text	NULL
 memory/performance_schema/events_statements_summary_by_account_by_event_name	NULL
 memory/performance_schema/events_statements_summary_by_digest	NULL
-memory/performance_schema/events_statements_summary_by_digest.sample_sqltext	NULL
 memory/performance_schema/events_statements_summary_by_host_by_event_name	NULL
 memory/performance_schema/events_statements_summary_by_program	NULL
 memory/performance_schema/events_statements_summary_by_thread_by_event_name	NULL
@@ -354,6 +353,7 @@ memory/performance_schema/file_class	NULL
 memory/performance_schema/file_handle	NULL
 memory/performance_schema/file_instances	NULL
 memory/performance_schema/hosts	NULL
+memory/performance_schema/id_name_map	NULL
 memory/performance_schema/memory_class	NULL
 memory/performance_schema/memory_summary_by_account_by_event_name	NULL
 memory/performance_schema/memory_summary_by_host_by_event_name	NULL

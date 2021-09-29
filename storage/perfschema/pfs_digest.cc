@@ -49,11 +49,11 @@
 size_t digest_max = 0;
 ulong digest_lost = 0;
 PFS_name_id_map pfs_digest_name_id_map;
+PFS_id_name_map pfs_digest_sample_query_text_map;
 
 /** EVENTS_STATEMENTS_SUMMARY_BY_DIGEST buffer. */
 PFS_statements_digest_stat *statements_digest_stat_array = nullptr;
 PFS_histogram *statements_digest_histogram_array = nullptr;
-static char *statements_digest_query_sample_text_array = nullptr;
 /** Consumer flag for table EVENTS_STATEMENTS_SUMMARY_BY_DIGEST. */
 bool flag_statements_digest = true;
 /**
@@ -104,25 +104,11 @@ int init_digest(const PFS_global_param *param) {
     }
   }
 
-  if (pfs_max_sqltext > 0) {
-    /* Size of each query sample text array. */
-    size_t sqltext_size = pfs_max_sqltext * sizeof(char);
-
-    statements_digest_query_sample_text_array =
-        PFS_MALLOC_ARRAY(&builtin_memory_digest_sample_sqltext, digest_max,
-                         sqltext_size, char, MYF(MY_ZEROFILL));
-
-    if (unlikely(statements_digest_query_sample_text_array == nullptr)) {
-      cleanup_digest();
-      return 1;
-    }
-  }
-
   pfs_digest_name_id_map.init_names();
+  pfs_digest_sample_query_text_map.init_names();
 
   for (size_t index = 0; index < digest_max; index++) {
-    statements_digest_stat_array[index].reset_data(
-        statements_digest_query_sample_text_array + index * pfs_max_sqltext);
+    statements_digest_stat_array[index].reset_data();
   }
 
   /* Set record[0] as allocated. */
@@ -140,13 +126,10 @@ void cleanup_digest(void) {
   PFS_FREE_ARRAY(&builtin_memory_digest, digest_max, sizeof(PFS_histogram),
                  statements_digest_histogram_array);
 
-  PFS_FREE_ARRAY(&builtin_memory_digest_sample_sqltext, digest_max,
-                 (pfs_max_sqltext * sizeof(char)),
-                 statements_digest_query_sample_text_array);
   pfs_digest_name_id_map.destroy_names();
+  pfs_digest_sample_query_text_map.destroy_names();
   statements_digest_stat_array = nullptr;
   statements_digest_histogram_array = nullptr;
-  statements_digest_query_sample_text_array = nullptr;
 }
 
 static const uchar *digest_hash_get_key(const uchar *entry, size_t *length) {
@@ -368,14 +351,13 @@ PFS_histogram *PFS_statements_digest_stat::get_histogram() {
   return nullptr;
 }
 
-void PFS_statements_digest_stat::reset_data(char *query_sample_array) {
+void PFS_statements_digest_stat::reset_data() {
   pfs_dirty_state dirty_state;
   m_lock.set_dirty(&dirty_state);
   m_stat.reset();
   m_first_seen = 0;
   m_last_seen = 0;
-  m_query_sample = query_sample_array;
-  m_query_sample_length = 0;
+  m_query_sample_id = 0;
   m_query_sample_truncated = false;
   m_query_sample_seen = 0;
   m_query_sample_timer_wait = 0;
@@ -402,8 +384,7 @@ void reset_esms_by_digest() {
   /* Reset statements_digest_stat_array. */
   for (index = 0; index < digest_max; index++) {
     statements_digest_stat_array[index].reset_index(thread);
-    statements_digest_stat_array[index].reset_data(
-        statements_digest_query_sample_text_array + index * pfs_max_sqltext);
+    statements_digest_stat_array[index].reset_data();
   }
 
   /* Mark record[0] as allocated again. */
@@ -416,6 +397,7 @@ void reset_esms_by_digest() {
   digest_monotonic_index.m_u32.store(1);
   digest_full = false;
   pfs_digest_name_id_map.cleanup_names();
+  pfs_digest_sample_query_text_map.cleanup_names();
 }
 
 void reset_histogram_by_digest() {
