@@ -169,3 +169,6 @@ tests/mysql_client_test
 
 # LLVM coverage files
 *.profraw
+
+# This is where we store plugins for testing purposes
+/lib64/*
