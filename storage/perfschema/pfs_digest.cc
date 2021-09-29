@@ -48,7 +48,7 @@
 
 size_t digest_max = 0;
 ulong digest_lost = 0;
-PFS_id_name_map pfs_digest_id_name_map;
+PFS_name_id_map pfs_digest_name_id_map;
 
 /** EVENTS_STATEMENTS_SUMMARY_BY_DIGEST buffer. */
 PFS_statements_digest_stat *statements_digest_stat_array = nullptr;
@@ -118,7 +118,7 @@ int init_digest(const PFS_global_param *param) {
     }
   }
 
-  pfs_digest_id_name_map.init_names();
+  pfs_digest_name_id_map.init_names();
 
   for (size_t index = 0; index < digest_max; index++) {
     statements_digest_stat_array[index].reset_data(
@@ -143,7 +143,7 @@ void cleanup_digest(void) {
   PFS_FREE_ARRAY(&builtin_memory_digest_sample_sqltext, digest_max,
                  (pfs_max_sqltext * sizeof(char)),
                  statements_digest_query_sample_text_array);
-  pfs_digest_id_name_map.destroy_names();
+  pfs_digest_name_id_map.destroy_names();
   statements_digest_stat_array = nullptr;
   statements_digest_histogram_array = nullptr;
   statements_digest_query_sample_text_array = nullptr;
@@ -223,7 +223,7 @@ PFS_statements_digest_stat *find_or_create_digest(
   /* Add the current schema to the key */
   hash_key.db_id = INVALID_NAME_ID;
   if (schema_name_length > 0) {
-    hash_key.db_id = pfs_digest_id_name_map.get_id(DB_MAP_NAME, schema_name,
+    hash_key.db_id = pfs_digest_name_id_map.get_id(DB_MAP_NAME, schema_name,
                                                    schema_name_length);
   }
 
@@ -231,7 +231,7 @@ PFS_statements_digest_stat *find_or_create_digest(
   if (pfs_param.m_esms_by_all_enabled) {
     /* Add the current username to the key */
     if (thread->m_username_length > 0) {
-      hash_key.user_id = pfs_digest_id_name_map.get_id(
+      hash_key.user_id = pfs_digest_name_id_map.get_id(
           USER_MAP_NAME, thread->m_username, thread->m_username_length);
     }
 
@@ -415,7 +415,7 @@ void reset_esms_by_digest() {
   */
   digest_monotonic_index.m_u32.store(1);
   digest_full = false;
-  pfs_digest_id_name_map.cleanup_names();
+  pfs_digest_name_id_map.cleanup_names();
 }
 
 void reset_histogram_by_digest() {

@@ -36,7 +36,7 @@ static PSI_rwlock_info all_rwlocks[] = {
     {&key_rwlock_NAME_ID_MAP_LOCK_name_id_map, "NAME_ID_MAP::LOCK_name_id_map",
      0, 0, PSI_DOCUMENT_ME}};
 
-void PFS_id_name_map::init_names() {
+void PFS_name_id_map::init_names() {
   if (names_map_initialized) return;
   int count = array_elements(all_rwlocks);
   const char *category = "pfs";
@@ -49,13 +49,13 @@ void PFS_id_name_map::init_names() {
   names_map_initialized = true;
 }
 
-void PFS_id_name_map::destroy_names() {
+void PFS_name_id_map::destroy_names() {
   if (!names_map_initialized) return;
 
   names_map_initialized = false;
   for (auto &map : my_names) {
     /* free the names in the array then clear it */
-    for (char *elt : map.names) pfs_free(&builtin_memory_id_name_map, 1, elt);
+    for (char *elt : map.names) pfs_free(&builtin_memory_name_id_map, 1, elt);
     map.names.clear();
 
     map.map.clear();
@@ -65,10 +65,10 @@ void PFS_id_name_map::destroy_names() {
   }
 }
 
-void PFS_id_name_map::cleanup_names() {
+void PFS_name_id_map::cleanup_names() {
   for (auto &map : my_names) {
     mysql_rwlock_wrlock(&(map.LOCK_name_id_map));
-    for (char *elt : map.names) pfs_free(&builtin_memory_id_name_map, 1, elt);
+    for (char *elt : map.names) pfs_free(&builtin_memory_name_id_map, 1, elt);
     map.names.clear();
 
     map.map.clear();
@@ -77,7 +77,7 @@ void PFS_id_name_map::cleanup_names() {
   }
 }
 
-bool PFS_id_name_map::check_name_maps_valid() {
+bool PFS_name_id_map::check_name_maps_valid() {
   if (!names_map_initialized) return false;
 
   int map_name = DB_MAP_NAME;
@@ -89,8 +89,8 @@ bool PFS_id_name_map::check_name_maps_valid() {
   return true;
 }
 
-bool PFS_id_name_map::fill_invert_map(enum_map_name map_name,
-                                      ID_NAME_MAP *id_map) {
+bool PFS_name_id_map::fill_invert_map(enum_name_id_map_name map_name,
+                                      ID_NAME_WITHOUT_LOCK_MAP *id_map) {
   assert(map_name < MAX_MAP_NAME);
   NAME_ID_MAP *name_map = &(my_names[map_name]);
 
@@ -104,7 +104,7 @@ bool PFS_id_name_map::fill_invert_map(enum_map_name map_name,
   return true;
 }
 
-uint PFS_id_name_map::get_id(enum_map_name map_name, const char *name,
+uint PFS_name_id_map::get_id(enum_name_id_map_name map_name, const char *name,
                              uint length) {
   assert(map_name < MAX_MAP_NAME);
   NAME_ID_MAP *map = &(my_names[map_name]);
@@ -133,7 +133,7 @@ uint PFS_id_name_map::get_id(enum_map_name map_name, const char *name,
     } else if (write_lock) {
       /* enter a new entry of we have a write lock */
       assert(length <= 256);
-      char *str = (char *)pfs_malloc(&builtin_memory_id_name_map, length + 1,
+      char *str = (char *)pfs_malloc(&builtin_memory_name_id_map, length + 1,
                                      MYF(MY_WME | MY_ZEROFILL));
       memcpy(str, name, length);
       str[length] = '\0';
@@ -154,7 +154,8 @@ uint PFS_id_name_map::get_id(enum_map_name map_name, const char *name,
   return table_id;
 }
 
-const char *PFS_id_name_map::get_name(ID_NAME_MAP *id_map, uint id) {
+const char *PFS_name_id_map::get_name(ID_NAME_WITHOUT_LOCK_MAP *id_map,
+                                      uint id) {
   auto elt = id_map->find(id);
   if (elt == id_map->end())
     return nullptr;

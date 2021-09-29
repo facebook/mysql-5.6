@@ -117,7 +117,7 @@ table_esmh_by_digest::table_esmh_by_digest()
       m_materialized_digest(nullptr),
       m_pos(),
       m_next_pos() {
-  pfs_digest_id_name_map.fill_invert_map(DB_MAP_NAME, &m_db_map);
+  pfs_digest_name_id_map.fill_invert_map(DB_MAP_NAME, &m_db_map);
 }
 
 void table_esmh_by_digest::reset_position(void) {
@@ -192,7 +192,7 @@ int table_esmh_by_digest::index_next(void) {
     digest_stat = &statements_digest_stat_array[m_pos.m_index_1];
     if (digest_stat->m_first_seen != 0) {
       if (!m_opened_index->match_digest(
-              digest_stat, pfs_digest_id_name_map.get_name(
+              digest_stat, pfs_digest_name_id_map.get_name(
                                &m_db_map, digest_stat->m_digest_key.db_id))) {
         continue;
       }
@@ -216,7 +216,7 @@ void table_esmh_by_digest::materialize(
     PFS_statements_digest_stat *digest_stat) {
   if (digest_stat != m_materialized_digest) {
     m_materialized_histogram.m_digest.make_row(
-        digest_stat, pfs_digest_id_name_map.get_name(
+        digest_stat, pfs_digest_name_id_map.get_name(
                          &m_db_map, digest_stat->m_digest_key.db_id));
 
     PFS_histogram *histogram = digest_stat->get_histogram();
