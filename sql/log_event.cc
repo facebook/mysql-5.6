@@ -5331,29 +5331,13 @@ void Query_log_event::prepare_dep(Relay_log_info *rli,
 */
 int Query_log_event::do_apply_event(Relay_log_info const *rli)
 {
-  // Note: We're using event's future_event_relay_log_pos instead of
-  // rli->get_event_relay_log_pos() because rli is only updated in
-  // do_update_pos() which is called after applying the event and we might need
-  // to use this pos during application (e.g. during commit)
-  thd->set_trans_relay_log_pos(rli->get_event_relay_log_name(),
-                               future_event_relay_log_pos);
+  thd->set_trans_relay_log_pos(relay_log_coords);
   return do_apply_event(rli, query, q_len);
 }
 
 int Query_log_event::do_apply_event_worker(Slave_worker *w)
 {
-  if (ends_group())
-  {
-    // Note: We're using event's future_event_relay_log_pos instead of
-    // rli->get_event_relay_log_pos() because rli is only updated in
-    // do_update_pos() which is called after applying the event and we might
-    // need to use this pos during application (e.g. during commit)
-    Slave_job_group *ptr_g= w->c_rli->gaq->get_job_group(mts_group_idx);
-    thd->set_trans_relay_log_pos(ptr_g->group_relay_log_name ?
-                                 ptr_g->group_relay_log_name :
-                                 w->get_group_relay_log_name(),
-                                 future_event_relay_log_pos);
-  }
+  thd->set_trans_relay_log_pos(relay_log_coords);
   return do_apply_event(w, query, q_len);
 }
 
@@ -7740,12 +7724,6 @@ bool Rotate_log_event::write(IO_CACHE* file)
 
 int Rotate_log_event::do_apply_event(Relay_log_info const *rli)
 {
-  // Note: We're using event's future_event_relay_log_pos instead of
-  // rli->get_event_relay_log_pos() because rli is only updated in
-  // do_update_pos() which is called after applying the event and we might need
-  // to use this pos during application (e.g. during commit)
-  thd->set_trans_relay_log_pos(rli->get_event_relay_log_name(),
-                               future_event_relay_log_pos);
   if (enable_raft_plugin)
     return RUN_HOOK_STRICT(raft_replication, after_commit, (thd, false));
   return 0;
@@ -8323,8 +8301,7 @@ int Xid_log_event::do_apply_event_worker(Slave_worker *w)
                                   w->c_rli->is_transactional())))
     goto err;
 
-  thd->set_trans_relay_log_pos(w->get_group_relay_log_name(),
-                               w->get_group_relay_log_pos());
+  thd->set_trans_relay_log_pos(relay_log_coords);
 
   DBUG_PRINT("mts", ("do_apply group master %s %llu  group relay %s %llu event %s %llu.",
                      w->get_group_master_log_name(),
@@ -8445,8 +8422,7 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
   strmake(new_group_relay_log_name, rli_ptr->get_group_relay_log_name(),
           FN_REFLEN - 1);
   new_group_relay_log_pos= rli_ptr->get_group_relay_log_pos();
-  thd->set_trans_relay_log_pos(rli_ptr->get_group_relay_log_name(),
-                               rli_ptr->get_group_relay_log_pos());
+  thd->set_trans_relay_log_pos(relay_log_coords);
   /*
     Rollback positions in memory just before commit. Position values will be
     reset to their new values only on successful commit operation.

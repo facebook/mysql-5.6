@@ -8937,7 +8937,11 @@ static Log_event* next_event(Relay_log_info* rli)
         read it while we have a lock, to avoid a mutex lock in
         inc_event_relay_log_pos()
       */
-      rli->set_future_event_relay_log_pos(my_b_tell(cur_log));
+      const my_off_t& relay_event_end_log_pos= my_b_tell(cur_log);
+      ev->relay_log_coords= {rli->get_event_relay_log_name(),
+                             relay_event_end_log_pos};
+
+      rli->set_future_event_relay_log_pos(relay_event_end_log_pos);
       ev->future_event_relay_log_pos= rli->get_future_event_relay_log_pos();
 
       if (hot_log)

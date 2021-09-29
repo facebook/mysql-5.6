@@ -326,10 +326,7 @@ int Trans_delegate::before_commit(THD *thd, bool all)
   if (is_real_trans)
     param.flags = true;
 
-  if (mysql_bin_log.is_apply_log)
-    thd->get_trans_relay_log_pos(&param.log_file, &param.log_pos);
-  else
-    thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
 
   DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu",
                        param.log_file, param.log_pos));
@@ -367,10 +364,7 @@ int Trans_delegate::after_rollback(THD *thd, bool all)
 
   if (is_real_trans)
     param.flags|= TRANS_IS_REAL_TRANS;
-  if (mysql_bin_log.is_apply_log)
-    thd->get_trans_relay_log_pos(&param.log_file, &param.log_pos);
-  else
-    thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
   int ret= 0;
   FOREACH_OBSERVER(ret, after_rollback, thd, (&param));
   return ret;
@@ -705,13 +699,6 @@ int Raft_replication_delegate::after_commit(THD *thd, bool all)
   Raft_replication_param param;
 
   thd->get_trans_marker(&param.term, &param.index);
-
-  const char* file = nullptr;
-  unsigned long long pos = 0;
-  if (mysql_bin_log.is_apply_log)
-    thd->get_trans_relay_log_pos(&file, &pos);
-  else
-    thd->get_trans_fixed_pos(&file, &pos);
 
   int ret= 0;
   FOREACH_OBSERVER_STRICT(ret, after_commit, thd, (&param));
