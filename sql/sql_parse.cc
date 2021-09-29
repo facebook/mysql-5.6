@@ -4262,7 +4262,7 @@ case SQLCOM_PREPARE:
   {
     if (check_global_access(thd, REPL_SLAVE_ACL))
       goto error;
-    res= show_slave_hosts(thd);
+    res= show_slave_hosts(thd, lex->with_raft);
     break;
   }
   case SQLCOM_SHOW_RELAYLOG_EVENTS:

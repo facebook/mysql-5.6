@@ -289,12 +289,11 @@ public:
   int setup_flush(THD *thd, Observer::st_setup_flush_arg *arg);
 
   int before_shutdown(THD *thd);
-  int register_paths(THD *thd, const std::string& s_uuid,
-                     const std::string& wal_dir_parent,
-                     const std::string& log_dir_parent,
-                     const std::string& raft_log_path_prefix,
-                     const std::string& s_hostname,
-                     uint64_t port);
+  int register_paths(THD *thd, const std::string &s_uuid, uint32_t server_id,
+                     const std::string &wal_dir_parent,
+                     const std::string &log_dir_parent,
+                     const std::string &raft_log_path_prefix,
+                     const std::string &s_hostname, uint64_t port);
   int after_commit(THD *thd, bool all);
 
   int purge_logs(THD *thd, uint64_t file_ext);

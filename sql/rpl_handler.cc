@@ -675,20 +675,19 @@ int Raft_replication_delegate::before_shutdown(THD *thd)
 }
 
 int Raft_replication_delegate::register_paths(
-    THD *thd, const std::string& s_uuid,
-    const std::string& wal_dir_parent,
-    const std::string& log_dir_parent,
-    const std::string& raft_log_path_prefix,
-    const std::string& s_hostname, uint64_t port)
+    THD *thd, const std::string &s_uuid, uint32_t server_id,
+    const std::string &wal_dir_parent, const std::string &log_dir_parent,
+    const std::string &raft_log_path_prefix, const std::string &s_hostname,
+    uint64_t port)
 {
   DBUG_ENTER("Raft_replication_delegate::register_paths");
   int ret= 0;
   Raft_replication_param param;
 
   FOREACH_OBSERVER_STRICT(ret, register_paths, thd,
-                  (&raft_listener_queue, s_uuid, wal_dir_parent,
-                   log_dir_parent, raft_log_path_prefix,
-                   s_hostname, port));
+                          (&raft_listener_queue, s_uuid, server_id,
+                           wal_dir_parent, log_dir_parent, raft_log_path_prefix,
+                           s_hostname, port));
 
   DBUG_RETURN(ret);
 }
@@ -1058,6 +1057,13 @@ pthread_handler_t process_raft_queue(void *arg)
       {
         result.error= raft_config_change(current_thd,
                                          std::move(element.arg.val_str));
+        break;
+      }
+      case RaftListenerCallbackType::RAFT_UPDATE_FOLLOWER_INFO:
+      {
+        result.error= raft_update_follower_info(element.arg.val_str_map,
+                                                element.arg.val_bool,
+                                                element.arg.is_shutdown);
         break;
       }
       case RaftListenerCallbackType::HANDLE_DUMP_THREADS:

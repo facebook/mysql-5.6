@@ -521,7 +521,7 @@ typedef struct Raft_replication_observer {
    */
   int (*before_shutdown)();
 
-   /**
+  /**
    * @param raft_listener_queue - the listener queue in which to add requests
    * @param s_uuid - the uuid of the server to be used as the INSTANCE UUID
    *                 in Raft
@@ -530,17 +530,17 @@ typedef struct Raft_replication_observer {
    * @param log_dir_parent - the parent directory under which raft will create
    * metric logs
    * @param raft_log_path_prefix - the prefix with the dirname path which tells
-   * @param s_hostname - the proper hostname of server which can be used in plugin
+   * @param s_hostname - the proper hostname of server which can be used in
+   * plugin
    * @param port - the port of the server
    * raft where to find raft binlogs.
    */
-  int (*register_paths)(RaftListenerQueueIf* raft_listener_queue,
-                        const std::string& s_uuid,
-                        const std::string& wal_dir_parent,
-                        const std::string& log_dir_parent,
-                        const std::string & raft_log_path_prefix,
-                        const std::string& s_hostname,
-                        uint64_t port);
+  int (*register_paths)(RaftListenerQueueIf *raft_listener_queue,
+                        const std::string &s_uuid, uint32_t server_id,
+                        const std::string &wal_dir_parent,
+                        const std::string &log_dir_parent,
+                        const std::string &raft_log_path_prefix,
+                        const std::string &s_hostname, uint64_t port);
 
   /**
      This callback is called after transaction commit to engine

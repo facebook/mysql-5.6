@@ -64,6 +64,8 @@ typedef struct st_slave_info
   uint16 port;
   std::list<SLAVE_STATS> *slave_stats;
   THD* thd;
+  bool is_raft = false;
+  char server_uuid[64];
 } SLAVE_INFO;
 
 void init_slave_list();
@@ -76,7 +78,9 @@ int store_replica_stats(THD *thd, uchar *packet, uint packet_length);
 int get_current_replication_lag();
 int register_slave(THD* thd, uchar* packet, uint packet_length);
 void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list);
-bool show_slave_hosts(THD* thd);
+int register_raft_followers(
+    const std::unordered_map<std::string, std::string>&, bool, bool);
+bool show_slave_hosts(THD* thd, bool with_raft);
 void copy_slave_map(THD* thd, std::map<THD *, SLAVE_INFO> *slaves);
 String *get_slave_uuid(THD *thd, String *value);
 bool show_master_offset(THD* thd, snapshot_info_st &ss_info,

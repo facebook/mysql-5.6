@@ -1745,6 +1745,11 @@ public:
   */
   bool with_gtid;
 
+  /**
+   * for SHOW SLAVE HOSTS WITH RAFT, true iff WITH RAFT is specified
+   */
+  bool with_raft;
+
 private:
 
   /**

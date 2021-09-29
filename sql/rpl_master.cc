@@ -36,6 +36,8 @@
 #include "sql_show.h" // schema_table_store_record
 #include "tztime.h" // struct Time_zone
 
+#include <boost/algorithm/string.hpp>
+
 #ifdef HAVE_JUNCTION
 #pragma GCC diagnostic ignored "-Wunused-value"
 #include <junction/ConcurrentMap_Grampa.h>
@@ -467,6 +469,7 @@ int register_slave(THD* thd, uchar* packet, uint packet_length)
     si->master_id= server_id;
   si->slave_stats= nullptr;
   si->thd= thd;
+  si->is_raft= false;
 
   mysql_mutex_lock(&LOCK_slave_list);
   unregister_slave(thd, false, false/*need_lock_slave_list=false*/);
@@ -501,6 +504,96 @@ void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list)
   }
 }
 
+/**
+ * Register raft followers in the slave_list data-structure
+ *
+ * @param follower_info This is a map from uuid -> host:port:server_id
+ * @param is_leader     Are we the leader?
+ * @param is_leader     Are we shutting down?
+ */
+int register_raft_followers(
+    const std::unordered_map<std::string, std::string> &follower_info,
+    bool /*is_leader*/,
+    bool /*is_shutdown*/)
+{
+  int error= 0;
+
+  mysql_mutex_lock(&LOCK_slave_list);
+
+  // remove all raft entries, we'll repopulate again
+  std::unordered_set<SLAVE_INFO*> raft_slave_infos;
+  for (ulong i= 0; i < slave_list.records; ++i)
+  {
+    SLAVE_INFO* info= (SLAVE_INFO*) my_hash_element(&slave_list, i);
+    if (info->is_raft)
+      raft_slave_infos.insert(info);
+  }
+
+  for (const auto& info : raft_slave_infos)
+  {
+    DBUG_ASSERT(info->is_raft);
+    my_hash_delete(&slave_list, (uchar*) info);
+  }
+
+  for (const std::pair<std::string, std::string> &info : follower_info)
+  {
+    SLAVE_INFO *si= nullptr;
+
+    if (!(si= (SLAVE_INFO *)my_malloc(sizeof(SLAVE_INFO), MYF(MY_WME))))
+    {
+      error= 1;
+      break;
+    }
+
+    std::vector<std::string> splits;
+    boost::split(splits, info.second, boost::is_any_of(":"));
+
+    if (splits.size() != 3)
+    {
+      error= 1;
+      my_free(si);
+      break;
+    }
+
+    const std::string &uuid= info.first;
+    const std::string &host= splits[0];
+    const std::string &port_str= splits[1];
+    const std::string &server_id_str= splits[2];
+
+    try
+    {
+      si->server_id= std::stoull(server_id_str);
+      si->port= std::stoull(port_str);
+    }
+    catch (...)
+    {
+      error= 1;
+      my_free(si);
+      break;
+    }
+    strcpy(si->host, host.c_str());
+    strcpy(si->user, "");
+    strcpy(si->password, "");
+    si->master_id= server_id;
+    si->slave_stats= nullptr;
+    si->thd= nullptr;
+    si->is_raft= true;
+    strcpy(si->server_uuid, uuid.c_str());
+
+    error= my_hash_insert(&slave_list, (uchar *)si);
+
+    if (error)
+    {
+      my_free(si);
+      break;
+    }
+  }
+
+  mysql_mutex_unlock(&LOCK_slave_list);
+
+  return error;
+}
+
 bool is_semi_sync_slave(THD *thd)
 {
   uchar name[] = "rpl_semi_sync_slave";
@@ -520,7 +613,7 @@ bool is_semi_sync_slave(THD *thd)
   @retval FALSE success
   @retval TRUE failure
 */
-bool show_slave_hosts(THD* thd)
+bool show_slave_hosts(THD* thd, bool with_raft)
 {
   List<Item> field_list;
   Protocol *protocol= thd->protocol;
@@ -551,6 +644,10 @@ bool show_slave_hosts(THD* thd)
   for (uint i = 0; i < slave_list.records; ++i)
   {
     SLAVE_INFO* si = (SLAVE_INFO*) my_hash_element(&slave_list, i);
+
+    if (si->is_raft && !with_raft)
+      continue;
+
     protocol->prepare_for_resend();
     protocol->store((uint32) si->server_id);
     protocol->store(si->host, &my_charset_bin);
@@ -564,11 +661,17 @@ bool show_slave_hosts(THD* thd)
 
     /* get slave's UUID */
     String slave_uuid;
-    if (get_slave_uuid(si->thd, &slave_uuid))
+    if (si->is_raft)
+      protocol->store(si->server_uuid, &my_charset_bin);
+    else if (si->thd && get_slave_uuid(si->thd, &slave_uuid))
       protocol->store(slave_uuid.c_ptr_safe(), &my_charset_bin);
 
-    protocol->store(is_semi_sync_slave(si->thd));
-    char *replication_status = si->thd->query();
+    if (si->is_raft)
+      protocol->store(false);
+    else
+      protocol->store(is_semi_sync_slave(si->thd));
+
+    const char *replication_status = si->is_raft ? "RAFT" : si->thd->query();
     if (replication_status)
       protocol->store(replication_status, &my_charset_bin);
     else

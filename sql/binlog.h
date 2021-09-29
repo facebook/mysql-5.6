@@ -1612,6 +1612,14 @@ int raft_config_change(THD *thd, std::string config_change);
  */
 int handle_dump_threads(bool block);
 
+/**
+ * Updates slave_list datastructure with raft follower information
+ */
+int raft_update_follower_info(
+    const std::unordered_map<std::string, std::string> &follower_info,
+    bool is_leader,
+    bool is_shutdown);
+
 int rotate_binlog_file(THD *thd);
 /* This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
    to point to the apply binlog/reopen new one. Apply binlogs are binlog

@@ -27,6 +27,7 @@ enum class RaftListenerCallbackType
   SET_BINLOG_DURABILITY = 16,
   RAFT_CONFIG_CHANGE = 17,
   HANDLE_DUMP_THREADS = 18,
+  RAFT_UPDATE_FOLLOWER_INFO = 19,
   // Note: Please update CallbackTypeToString() below when adding/removing elems
   // here
 };
@@ -48,6 +49,8 @@ class RaftListenerCallbackArg
     std::string val_str;
     std::map<std::string, unsigned int> val_sys_var_uint;
     std::pair<int64_t, int64_t> val_opid;
+    std::unordered_map<std::string, std::string> val_str_map;
+    bool is_shutdown;
 };
 
 /* Result of the callback execution in the server. This will be set in the
@@ -161,6 +164,8 @@ class RaftListenerQueueIf {
         return "RAFT_CONFIG_CHANGE";
       case RaftListenerCallbackType::HANDLE_DUMP_THREADS:
         return "HANDLE_DUMP_THREADS";
+      case RaftListenerCallbackType::RAFT_UPDATE_FOLLOWER_INFO:
+        return "RAFT_UPDATE_FOLLOWER_INFO";
       default:
         return {};
     }

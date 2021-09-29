@@ -8036,15 +8036,15 @@ int raft_config_change(THD *thd, std::string config_change)
 {
   int error= 0;
   DBUG_ENTER("raft_config_change");
-  if (mysql_bin_log.is_open())
-  {
-    error= mysql_bin_log.config_change_rotate(thd, std::move(config_change));
-  }
-  else
+
+  if (!mysql_bin_log.is_open())
   {
     // TODO - add throttled messaging here if present in 8.0
-    error= 1;
+    DBUG_RETURN(1);
   }
+
+  error= mysql_bin_log.config_change_rotate(thd, std::move(config_change));
+
   DBUG_RETURN(error);
 }
 
@@ -8059,6 +8059,20 @@ int handle_dump_threads(bool block)
     unblock_all_dump_threads();
 #endif
   DBUG_RETURN(err);
+}
+
+int raft_update_follower_info(
+    const std::unordered_map<std::string, std::string> &follower_info,
+    bool is_leader,
+    bool is_shutdown)
+{
+  int error = 0;
+  DBUG_ENTER("raft_update_follower_info");
+#ifdef HAVE_REPLICATION
+  error= register_raft_followers(follower_info, is_leader, is_shutdown);
+#endif
+  DBUG_RETURN(error);
+
 }
 
 int binlog_change_to_apply()
@@ -10675,8 +10689,8 @@ int ask_server_to_register_with_raft(Raft_Registration_Item item)
 
       THD *thd = current_thd;
       err = RUN_HOOK_STRICT(raft_replication, register_paths,
-                            (thd, server_uuid, s_wal_dir, s_log_dir,
-                             log_bin_basename, glob_hostname,
+                            (thd, server_uuid, ::server_id, s_wal_dir,
+                             s_log_dir, log_bin_basename, glob_hostname,
                              (uint64_t)mysqld_port));
       break;
     }
