@@ -53,7 +53,9 @@ struct st_test_statement {
   const char *query;
 };
 
-static struct st_test_statement test_query_plan[] = {
+using StatementList = std::vector<struct st_test_statement>;
+
+static StatementList test_query_plan = {
     /* DB    RESULT                    QUERY   */
     {nullptr, true, "SELECT 'first complex command' as a"},
     {nullptr, false, "CREATE DATABASE test1"},
@@ -137,6 +139,10 @@ static struct st_test_statement test_query_plan[] = {
     {"test1", false, "DROP TABLE tbl"},
     {"test1", false, "DROP TABLE tbld"},
     {"test1", false, "DROP DATABASE test1"},
+};
+
+static StatementList test_fb_statements = {
+    {nullptr, false, "set session dscp_on_socket=18"},
 };
 
 #define STRING_BUFFER_SIZE 512
@@ -832,23 +838,23 @@ void static change_current_db(MYSQL_SESSION session, const char *db,
                     fail);
 }
 
-static void test_selects(MYSQL_SESSION session, void *p) {
+static void test_selects(MYSQL_SESSION session, void *p,
+                         const StatementList &statements) {
   DBUG_TRACE;
   char buffer[STRING_BUFFER_SIZE];
 
   struct st_plugin_ctx *plugin_ctx = new st_plugin_ctx();
 
   const char *last_db = nullptr;
-  size_t stmt_count = sizeof(test_query_plan) / sizeof(test_query_plan[0]);
-  for (size_t i = 0; i < stmt_count; i++) {
+  for (const auto &statement : statements) {
     /* Change current DB if needed */
-    if (last_db != test_query_plan[i].db) {
-      last_db = test_query_plan[i].db;
+    if (last_db != statement.db) {
+      last_db = statement.db;
 
       change_current_db(session, last_db ? last_db : "", plugin_ctx, p);
     }
-    run_statement(session, test_query_plan[i].query, plugin_ctx,
-                  test_query_plan[i].generates_result_set, p);
+    run_statement(session, statement.query, plugin_ctx,
+                  statement.generates_result_set, p);
   }
 
   WRITE_DASHED_LINE();
@@ -868,7 +874,7 @@ static void switch_user(MYSQL_SESSION session, const char *user) {
   security_context_lookup(sc, user, user_localhost, user_local, user_db);
 }
 
-static void test_sql(void *p) {
+static void test_sql(void *p, const StatementList &statements) {
   DBUG_TRACE;
 
   char buffer[STRING_BUFFER_SIZE];
@@ -886,7 +892,7 @@ static void test_sql(void *p) {
 
   switch_user(session, user_privileged);
 
-  test_selects(session, p);
+  test_selects(session, p, statements);
 
   /* close session 1: Must pass */
   WRITE_STR("[srv_session_close]\n");
@@ -900,8 +906,9 @@ end:
 struct test_thread_context {
   my_thread_handle thread;
   void *p;
+  const StatementList &statements;
   bool thread_finished;
-  void (*test_function)(void *);
+  void (*test_function)(void *, const StatementList &);
 };
 
 static void *test_sql_threaded_wrapper(void *param) {
@@ -914,7 +921,7 @@ static void *test_sql_threaded_wrapper(void *param) {
     LogPluginErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                  "srv_session_init_thread failed.");
 
-  context->test_function(context->p);
+  context->test_function(context->p, context->statements);
 
   WRITE_STR("deinit thread\n");
   srv_session_deinit_thread();
@@ -932,7 +939,9 @@ static void create_log_file(const char *log_name) {
   outfile = my_open(filename, O_CREAT | O_RDWR, MYF(0));
 }
 
-static void test_in_spawned_thread(void *p, void (*test_function)(void *)) {
+static void test_in_spawned_thread(
+    void *p, const StatementList &statements,
+    void (*test_function)(void *, const StatementList &)) {
   my_thread_attr_t attr; /* Thread attributes */
   my_thread_attr_init(&attr);
   (void)my_thread_attr_setdetachstate(&attr, MY_THREAD_CREATE_JOINABLE);
@@ -943,11 +952,9 @@ static void test_in_spawned_thread(void *p, void (*test_function)(void *)) {
   if (stacksize < my_thread_stack_size)
     my_thread_attr_setstacksize(&attr, my_thread_stack_size);
 
-  struct test_thread_context context;
-
-  context.p = p;
-  context.thread_finished = false;
-  context.test_function = test_function;
+  struct test_thread_context context {
+    {0}, p, statements, false, test_function
+  };
 
   /* now create the thread and call test_session within the thread. */
   if (my_thread_create(&(context.thread), &attr, test_sql_threaded_wrapper,
@@ -968,11 +975,18 @@ static int test_sql_service_plugin_init(void *p) {
 
   WRITE_SEP();
   WRITE_STR("Test in a server thread\n");
-  test_sql(p);
+  test_sql(p, test_query_plan);
 
   /* Test in a new thread */
   WRITE_STR("Follows threaded run\n");
-  test_in_spawned_thread(p, test_sql);
+  test_in_spawned_thread(p, test_query_plan, test_sql);
+
+  WRITE_SEP();
+  WRITE_STR("Test fb statements in server thread\n");
+  test_sql(p, test_fb_statements);
+
+  WRITE_STR("Test fb statements in spawned thread\n");
+  test_in_spawned_thread(p, test_fb_statements, test_sql);
 
   my_close(outfile, MYF(0));
 
