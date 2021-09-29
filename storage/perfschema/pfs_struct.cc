@@ -32,15 +32,21 @@
 #include "storage/perfschema/pfs_instr.h"
 
 static PSI_rwlock_key key_rwlock_NAME_ID_MAP_LOCK_name_id_map;
-static PSI_rwlock_info all_rwlocks[] = {
+static PSI_rwlock_key key_rwlock_ID_NAME_MAP_LOCK_id_name_map;
+
+static PSI_rwlock_info name_id_rw_locks[] = {
     {&key_rwlock_NAME_ID_MAP_LOCK_name_id_map, "NAME_ID_MAP::LOCK_name_id_map",
+     0, 0, PSI_DOCUMENT_ME}};
+
+static PSI_rwlock_info id_name_rw_locks[] = {
+    {&key_rwlock_ID_NAME_MAP_LOCK_id_name_map, "ID_NAME_MAP::LOCK_id_name_map",
      0, 0, PSI_DOCUMENT_ME}};
 
 void PFS_name_id_map::init_names() {
   if (names_map_initialized) return;
-  int count = array_elements(all_rwlocks);
+  int count = array_elements(name_id_rw_locks);
   const char *category = "pfs";
-  mysql_rwlock_register(category, all_rwlocks, count);
+  mysql_rwlock_register(category, name_id_rw_locks, count);
   for (auto &map : my_names) {
     map.current_id = 1;
     mysql_rwlock_init(key_rwlock_NAME_ID_MAP_LOCK_name_id_map,
@@ -161,4 +167,105 @@ const char *PFS_name_id_map::get_name(ID_NAME_WITHOUT_LOCK_MAP *id_map,
     return nullptr;
   else
     return elt->second.c_str();
+}
+
+void PFS_id_name_map::init_names() {
+  if (names_map_initialized) return;
+  int count = array_elements(id_name_rw_locks);
+  const char *category = "pfs";
+  mysql_rwlock_register(category, id_name_rw_locks, count);
+  for (auto &map : my_names) {
+    map.current_id = 1;
+    mysql_rwlock_init(key_rwlock_ID_NAME_MAP_LOCK_id_name_map,
+                      &(map.LOCK_id_name_map));
+  }
+  names_map_initialized = true;
+}
+
+void PFS_id_name_map::destroy_names() {
+  if (!names_map_initialized) return;
+
+  names_map_initialized = false;
+  for (auto &map : my_names) {
+    for (const auto &it : map.map) {
+      pfs_free(&builtin_memory_id_name_map, it.second.second,
+               (void *)it.second.first);
+    }
+    map.map.clear();
+    map.current_id = 1;
+    mysql_rwlock_destroy(&(map.LOCK_id_name_map));
+  }
+}
+
+void PFS_id_name_map::cleanup_names() {
+  for (auto &map : my_names) {
+    mysql_rwlock_wrlock(&(map.LOCK_id_name_map));
+    for (const auto &it : map.map)
+      pfs_free(&builtin_memory_id_name_map, it.second.second,
+               (void *)it.second.first);
+    map.map.clear();
+    map.current_id = 1;
+    mysql_rwlock_unlock(&(map.LOCK_id_name_map));
+  }
+}
+
+bool PFS_id_name_map::check_name_maps_valid() {
+  if (!names_map_initialized) return false;
+  int map_name = QUERY_TEXT_MAP_NAME;
+  for (const auto &map : my_names) {
+    assert(map_name < MAX_ID_NAME_MAP_NAME);
+    if (map.current_id >= my_names_max_size[map_name]) return false;
+    map_name++;
+  }
+  return true;
+}
+
+bool PFS_id_name_map::copy_map(enum_id_name_map_name map_name,
+                               ID_NAME_WITHOUT_LOCK_MAP *id_map) {
+  assert(map_name < MAX_ID_NAME_MAP_NAME);
+  ID_NAME_MAP *name_map = &(my_names[map_name]);
+  mysql_rwlock_rdlock(&(name_map->LOCK_id_name_map)); /* read */
+  for (auto it = name_map->map.begin(); it != name_map->map.end(); it++)
+    id_map->insert(std::make_pair(
+        it->first, std::string(it->second.first, it->second.second)));
+  mysql_rwlock_unlock(&(name_map->LOCK_id_name_map));
+  return true;
+}
+
+uint PFS_id_name_map::create_id(enum_id_name_map_name map_name,
+                                const char *name, uint length) {
+  assert(map_name < MAX_ID_NAME_MAP_NAME);
+  ID_NAME_MAP *map = &(my_names[map_name]);
+  uint table_id = INVALID_NAME_ID;
+  mysql_rwlock_wrlock(&(map->LOCK_id_name_map)); /* write */
+  if (check_name_maps_valid()) {
+    char *str = (char *)pfs_malloc(&builtin_memory_id_name_map, length,
+                                   MYF(MY_WME | MY_ZEROFILL));
+    memcpy(str, name, length);
+    map->map.emplace(map->current_id, std::make_pair(str, length));
+    table_id = map->current_id++;
+  }
+  mysql_rwlock_unlock(&(map->LOCK_id_name_map));
+  return table_id;
+}
+
+uint PFS_id_name_map::update_id(enum_id_name_map_name map_name,
+                                const char *name, uint length, uint input_id) {
+  assert(map_name < MAX_ID_NAME_MAP_NAME);
+  ID_NAME_MAP *map = &(my_names[map_name]);
+  mysql_rwlock_wrlock(&(map->LOCK_id_name_map));
+  if (check_name_maps_valid()) {
+    // check and clear the string for existing id.
+    if (map->map.find(input_id) != map->map.end()) {
+      pfs_free(&builtin_memory_id_name_map, map->map[input_id].second,
+               map->map[input_id].first);
+      map->map.erase(input_id);
+    }
+    char *str = (char *)pfs_malloc(&builtin_memory_id_name_map, length,
+                                   MYF(MY_WME | MY_ZEROFILL));
+    memcpy(str, name, length);
+    map->map.emplace(input_id, std::make_pair(str, length));
+  }
+  mysql_rwlock_unlock(&(map->LOCK_id_name_map));
+  return input_id;
 }

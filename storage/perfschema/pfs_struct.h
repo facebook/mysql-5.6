@@ -157,4 +157,87 @@ class PFS_name_id_map {
   const std::array<uint, MAX_MAP_NAME> my_names_max_size = {
       {(1024 * 1024), (1024 * 1024)}};
 };
+
+enum enum_id_name_map_name { QUERY_TEXT_MAP_NAME = 0, MAX_ID_NAME_MAP_NAME };
+
+/*
+** ID_NAME_MAP
+**
+** Used to store names for auto incremented id.
+**
+*/
+typedef struct st_id_name_map {
+  std::unordered_map<uint, std::pair<char *, uint>> map;
+  uint current_id; /* ID sequence, starting from 1 */
+
+  /* Mutex to control access or modification to the array and map */
+  mysql_rwlock_t LOCK_id_name_map;
+} ID_NAME_MAP;
+
+class PFS_id_name_map {
+ public:
+  /*
+  ** init_names
+  **
+  ** Initialize the name maps for all object names we care about.
+  ** Called when we start tracking stats for pfs tables.
+  */
+  void init_names();
+
+  /*
+  ** destroy_names
+  **
+  ** Destroy the name maps. Called when we stop tracking stats for pfs tables.
+  */
+  void destroy_names();
+
+  /*
+  ** cleanup_names
+  **
+  ** Cleanup the name maps.
+  */
+  void cleanup_names();
+
+  /*
+  ** copy_map
+  **
+  ** This is required for lock free access to underlying map
+  ** while poplulating data in pfs* tables.
+  */
+  bool copy_map(enum_id_name_map_name map_name,
+                ID_NAME_WITHOUT_LOCK_MAP *id_map);
+  /*
+  ** create_id
+  **
+  ** Creates a new id for a given name. It returns INVALID_NAME_ID in case
+  ** of an exception, e.g, if we reach the maximum capacity of the map.
+  */
+  uint create_id(enum_id_name_map_name map_name, const char *name, uint length);
+
+  /*
+  ** update_id
+  **
+  ** Updates the existing row for given id. It also cleans up the previous
+  ** string stored for given id.
+  */
+  uint update_id(enum_id_name_map_name map_name, const char *name, uint length,
+                 uint id);
+
+ private:
+  bool names_map_initialized = false;
+
+  std::array<ID_NAME_MAP, MAX_ID_NAME_MAP_NAME> my_names;
+
+  const std::array<uint, MAX_ID_NAME_MAP_NAME> my_names_max_size = {
+      {(1024 * 1024)}};
+
+  /*
+  ** check_name_maps_valid
+  **
+  ** Check that the name maps are valid, i.e, new names can be added
+  ** It is called in create_id() and update_id() which returns INVALID_NAME_ID
+  ** if this function returns false.
+  */
+  bool check_name_maps_valid();
+};
 #endif

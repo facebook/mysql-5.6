@@ -172,6 +172,8 @@ table_esms_by_all::table_esms_by_all()
   m_normalizer = time_normalizer::get_statement();
   pfs_digest_name_id_map.fill_invert_map(DB_MAP_NAME, &m_db_map);
   pfs_digest_name_id_map.fill_invert_map(USER_MAP_NAME, &m_user_map);
+  pfs_digest_sample_query_text_map.copy_map(QUERY_TEXT_MAP_NAME,
+                                            &m_query_text_map);
 }
 
 void table_esms_by_all::reset_position(void) {
@@ -338,8 +340,8 @@ int table_esms_by_all::make_row(PFS_statements_digest_stat *digest_stat) {
   }
 
   /* Format the query sample sqltext string for output. */
-  format_sqltext(digest_stat->m_query_sample,
-                 digest_stat->m_query_sample_length,
+  format_sqltext(m_query_text_map[digest_stat->m_query_sample_id].c_str(),
+                 m_query_text_map[digest_stat->m_query_sample_id].length(),
                  get_charset(digest_stat->m_query_sample_cs_number, MYF(0)),
                  digest_stat->m_query_sample_truncated, m_row.m_query_sample);
 

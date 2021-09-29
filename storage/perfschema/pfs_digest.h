@@ -47,6 +47,7 @@ extern bool flag_statements_digest;
 extern size_t digest_max;
 extern ulong digest_lost;
 extern PFS_name_id_map pfs_digest_name_id_map;
+extern PFS_id_name_map pfs_digest_sample_query_text_map;
 struct PFS_thread;
 
 /**
@@ -72,9 +73,7 @@ struct PFS_ALIGNED PFS_statements_digest_stat {
   PFS_statement_stat m_stat;
 
   /** Query sample SQL text. */
-  char *m_query_sample;
-  /** Length of @c m_query_sample. */
-  size_t m_query_sample_length;
+  uint m_query_sample_id;
   /** True if @c m_query_sample was truncated. */
   bool m_query_sample_truncated;
   /** True if digest is non null */
@@ -95,7 +94,7 @@ struct PFS_ALIGNED PFS_statements_digest_stat {
   PFS_histogram *get_histogram();
 
   /** Reset data for this record. */
-  void reset_data(char *query_sample_array);
+  void reset_data();
   /** Reset data and remove index for this record. */
   void reset_index(PFS_thread *thread);
 
