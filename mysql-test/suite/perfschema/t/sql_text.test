@@ -14,7 +14,7 @@ connect (con13, localhost, user_super,su,test);
 set global performance_schema_esms_by_all = off;
 select @@performance_schema_esms_by_all;
 select 42;
-select * from performance_schema.sql_text;
+select * from performance_schema.sql_text order by digest;
 
 ####################################################
 ### Case 2: sql_stats_control=ON, Data will be stored in sql_statistics.
@@ -24,12 +24,12 @@ set global performance_schema_esms_by_all = on;
 select @@performance_schema_esms_by_all;
 
 # Check that all data was cleared.
-select * from performance_schema.sql_text;
+select * from performance_schema.sql_text order by digest;
 select 1;
 select 2;
 select 100;
 
-select * from performance_schema.sql_text;
+select * from performance_schema.sql_text order by digest;
 
 create table t1(c int);
 insert into t1 values(1);
@@ -43,7 +43,7 @@ update t1 set c=c+500;
 delete from t1 where c=905;
 delete from t1 where c=903;
 
-select * from performance_schema.sql_text;
+select * from performance_schema.sql_text order by digest;
 
 ####################################################
 ### Case 3: TRUNCATE TABLE.
@@ -53,7 +53,7 @@ TRUNCATE TABLE performance_schema.sql_text;
 select 1 union select 2;
 select 1 union select 2 union select 3;
 
-select * from performance_schema.sql_text;
+select * from performance_schema.sql_text order by digest;
 
 ####################################################
 ### Case 4: performance_schema_esms_by_all=off.
@@ -62,7 +62,7 @@ select * from performance_schema.sql_text;
 set global performance_schema_esms_by_all = off;
 select @@performance_schema_esms_by_all;
 
-select * from performance_schema.sql_text;
+select * from performance_schema.sql_text order by digest;
 
 ####################################################
 ### Case 5: Multi-query support
@@ -87,7 +87,7 @@ drop table t2;
 # reset delimiter
 delimiter ;||||
 
-select * from performance_schema.sql_text;
+select * from performance_schema.sql_text order by digest;
 
 ###########
 ### Cleanup
