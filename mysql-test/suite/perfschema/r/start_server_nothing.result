@@ -221,7 +221,6 @@ memory/performance_schema/file_class	YES	NULL	global_statistics	1	Memory used fo
 memory/performance_schema/file_handle	YES	NULL	global_statistics	1	Memory used for table performance_schema.file_handle
 memory/performance_schema/file_instances	YES	NULL	global_statistics	1	Memory used for table performance_schema.file_instances
 memory/performance_schema/hosts	YES	NULL	global_statistics	1	Memory used for table performance_schema.hosts
-memory/performance_schema/id_name_map	YES	NULL	global_statistics	1	Memory used for table performance_schema.id_name_map
 memory/performance_schema/memory_class	YES	NULL	global_statistics	1	Memory used for memory instrument classes
 memory/performance_schema/memory_summary_by_account_by_event_name	YES	NULL	global_statistics	1	Memory used for table performance_schema.memory_summary_by_account_by_event_name
 memory/performance_schema/memory_summary_by_host_by_event_name	YES	NULL	global_statistics	1	Memory used for table performance_schema.memory_summary_by_host_by_event_name
@@ -231,6 +230,7 @@ memory/performance_schema/memory_summary_global_by_event_name	YES	NULL	global_st
 memory/performance_schema/metadata_locks	YES	NULL	global_statistics	1	Memory used for table performance_schema.metadata_locks
 memory/performance_schema/mutex_class	YES	NULL	global_statistics	1	Memory used for mutex instrument classes
 memory/performance_schema/mutex_instances	YES	NULL	global_statistics	1	Memory used for table performance_schema.mutex_instances
+memory/performance_schema/name_id_map	YES	NULL	global_statistics	1	Memory used for table performance_schema.name_id_map
 memory/performance_schema/prepared_statements_instances	YES	NULL	global_statistics	1	Memory used for table performance_schema.prepared_statements_instances
 memory/performance_schema/rwlock_class	YES	NULL	global_statistics	1	Memory used for rwlock instrument classes
 memory/performance_schema/rwlock_instances	YES	NULL	global_statistics	1	Memory used for table performance_schema.rwlock_instances

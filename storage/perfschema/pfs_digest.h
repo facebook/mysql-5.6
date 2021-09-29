@@ -46,7 +46,7 @@
 extern bool flag_statements_digest;
 extern size_t digest_max;
 extern ulong digest_lost;
-extern PFS_id_name_map pfs_digest_id_name_map;
+extern PFS_name_id_map pfs_digest_name_id_map;
 struct PFS_thread;
 
 /**

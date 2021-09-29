@@ -37,12 +37,12 @@
 #include "mysql/components/services/bits/mysql_rwlock_bits.h"
 
 /*
-** enum_map_name
+** enum_name_id_map_name
 **
 ** Types of names that we encode using an ID in the statistics structures
 ** The enum is used to index into array of maps
 */
-enum enum_map_name { DB_MAP_NAME = 0, USER_MAP_NAME = 1, MAX_MAP_NAME };
+enum enum_name_id_map_name { DB_MAP_NAME = 0, USER_MAP_NAME = 1, MAX_MAP_NAME };
 
 /*
 ** NAME_ID_MAP
@@ -64,7 +64,7 @@ typedef struct st_name_id_map {
 } NAME_ID_MAP;
 
 /*
-** ID_NAME_MAP
+** ID_NAME_WITHOUT_LOCK_MAP
 **
 ** Stores the inverse mapping of the data stored in NAME_ID_MAP. Used
 ** only when returning rows for *_pfs tables where we fetch a
@@ -72,11 +72,11 @@ typedef struct st_name_id_map {
 ** It is built in the constructor of pfs tables then freed
 ** when pfs tables are destructed.
 */
-typedef std::unordered_map<uint, std::string> ID_NAME_MAP;
+typedef std::unordered_map<uint, std::string> ID_NAME_WITHOUT_LOCK_MAP;
 
 #define INVALID_NAME_ID UINT_MAX
 
-class PFS_id_name_map {
+class PFS_name_id_map {
  public:
   /*
   ** init_names
@@ -105,7 +105,8 @@ class PFS_id_name_map {
   ** Populate id-to-name map from name-to-id map to allow efficient
   ** lookup of names based on an ID when fetching data for pfs tables
   */
-  bool fill_invert_map(enum_map_name map_name, ID_NAME_MAP *id_map);
+  bool fill_invert_map(enum_name_id_map_name map_name,
+                       ID_NAME_WITHOUT_LOCK_MAP *id_map);
 
   /*
   ** get_id
@@ -116,7 +117,7 @@ class PFS_id_name_map {
   ** It returns INVALID_NAME_ID in case of an exception, e.g, if we
   ** reach the maximum capacity of the map
   */
-  uint get_id(enum_map_name map_name, const char *name, uint length);
+  uint get_id(enum_name_id_map_name map_name, const char *name, uint length);
 
   /*
   ** check_name_maps_valid
@@ -133,7 +134,7 @@ class PFS_id_name_map {
   **  The inverted map is built for every query to return the stats
   **  at the beginning of the associated pfs table.
   */
-  const char *get_name(ID_NAME_MAP *id_map, uint id);
+  const char *get_name(ID_NAME_WITHOUT_LOCK_MAP *id_map, uint id);
 
  private:
   bool names_map_initialized = false;
