@@ -4774,6 +4774,10 @@ bool THD::set_dscp_on_socket() {
     return false;
   }
 
+  if (!is_classic_protocol()) {
+    return false;
+  }
+
   NET *net = get_protocol_classic()->get_net();
 
   int tos = dscp_val << 2;
