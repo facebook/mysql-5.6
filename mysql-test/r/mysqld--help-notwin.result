@@ -455,6 +455,9 @@ The following options may be given as the first argument:
  specified, or the high_priority_ddl variable is turned
  on. The argument will be treated as a decimal value with
  nanosecond precision.
+ --histogram-step-size-binlog-commit-time[=name] 
+ Step size of the Histogram which is used to track binlog
+ group/engine commit latencies.
  --histogram-step-size-binlog-fsync=name 
  Step size of the Histogram which is used to track binlog
  fsync latencies.
@@ -2538,6 +2541,7 @@ help TRUE
 high-precision-processlist FALSE
 high-priority-ddl FALSE
 high-priority-lock-wait-timeout 1
+histogram-step-size-binlog-commit-time 125us
 histogram-step-size-binlog-fsync 16ms
 histogram-step-size-binlog-group-commit 1
 histogram-step-size-connection-create 16ms
