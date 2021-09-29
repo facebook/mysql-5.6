@@ -145,6 +145,7 @@ class table_esms_by_all : public PFS_engine_table {
 
   ID_NAME_WITHOUT_LOCK_MAP m_db_map;
   ID_NAME_WITHOUT_LOCK_MAP m_user_map;
+  ID_NAME_WITHOUT_LOCK_MAP m_query_text_map;
 };
 
 /** @} */

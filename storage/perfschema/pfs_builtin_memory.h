@@ -120,7 +120,6 @@ extern PFS_builtin_memory_class builtin_memory_setup_object;
 
 extern PFS_builtin_memory_class builtin_memory_digest;
 extern PFS_builtin_memory_class builtin_memory_digest_tokens;
-extern PFS_builtin_memory_class builtin_memory_digest_sample_sqltext;
 
 extern PFS_builtin_memory_class builtin_memory_stages_history_long;
 extern PFS_builtin_memory_class builtin_memory_statements_history_long;
@@ -144,5 +143,7 @@ extern PFS_builtin_memory_class builtin_memory_sql_text;
 extern PFS_builtin_memory_class builtin_memory_scalable_buffer;
 
 extern PFS_builtin_memory_class builtin_memory_name_id_map;
+
+extern PFS_builtin_memory_class builtin_memory_id_name_map;
 
 #endif

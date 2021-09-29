@@ -132,6 +132,7 @@ class table_esms_by_digest : public PFS_engine_table {
   PFS_index_esms_by_digest *m_opened_index;
 
   ID_NAME_WITHOUT_LOCK_MAP m_db_map;
+  ID_NAME_WITHOUT_LOCK_MAP m_query_text_map;
 };
 
 /** @} */
