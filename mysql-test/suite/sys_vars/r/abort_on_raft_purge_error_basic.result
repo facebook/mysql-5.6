@@ -1,0 +1,19 @@
+Default value of abort_on_raft_purge_error is false
+SELECT @@global.abort_on_raft_purge_error;
+@@global.abort_on_raft_purge_error
+0
+SELECT @@session.abort_on_raft_purge_error;
+ERROR HY000: Variable 'abort_on_raft_purge_error' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.abort_on_raft_purge_error = true;
+SELECT @@global.abort_on_raft_purge_error;
+@@global.abort_on_raft_purge_error
+1
+SET @@global.abort_on_raft_purge_error = false;
+SELECT @@global.abort_on_raft_purge_error;
+@@global.abort_on_raft_purge_error
+0
+SET @@global.abort_on_raft_purge_error = default;
+SELECT @@global.abort_on_raft_purge_error;
+@@global.abort_on_raft_purge_error
+0
