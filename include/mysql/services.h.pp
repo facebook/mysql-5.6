@@ -159,6 +159,7 @@ struct st_send_field {
   unsigned int decimals;
   enum_field_types type;
 };
+struct st_ok_metadata {};
 typedef int (*start_result_metadata_t)(void *ctx, uint num_cols, uint flags,
                                        const CHARSET_INFO *resultcs);
 typedef int (*field_metadata_t)(void *ctx, struct st_send_field *field,
@@ -182,7 +183,8 @@ typedef int (*get_string_t)(void *ctx, const char *value, size_t length,
                             const CHARSET_INFO *valuecs);
 typedef void (*handle_ok_t)(void *ctx, uint server_status,
                             uint statement_warn_count, ulonglong affected_rows,
-                            ulonglong last_insert_id, const char *message);
+                            ulonglong last_insert_id, const char *message,
+                            struct st_ok_metadata *trackers);
 typedef void (*handle_error_t)(void *ctx, uint sql_errno, const char *err_msg,
                                const char *sqlstate);
 typedef void (*shutdown_t)(void *ctx, int server_shutdown);

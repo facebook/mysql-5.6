@@ -284,7 +284,8 @@ uint sql_warn_count = 0;
 ulonglong sql_affected_rows = 0;
 static void sql_handle_ok(void *ctx, uint server_status,
                           uint statement_warn_count, ulonglong affected_rows,
-                          ulonglong last_insert_id, const char *const message) {
+                          ulonglong last_insert_id, const char *const message,
+                          struct st_ok_metadata *) {
   DBUG_TRACE;
   sql_server_status = server_status;
   //  strcpy(msg,(char*)message);

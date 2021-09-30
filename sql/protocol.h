@@ -306,7 +306,8 @@ class Protocol {
   */
   virtual bool send_ok(uint server_status, uint statement_warn_count,
                        ulonglong affected_rows, ulonglong last_insert_id,
-                       const char *message) = 0;
+                       const char *message,
+                       struct st_ok_metadata *metadata) = 0;
   /**
     Send eof message to the client.
 

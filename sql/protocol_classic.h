@@ -76,7 +76,7 @@ class Protocol_classic : public Protocol {
 
   bool send_ok(uint server_status, uint statement_warn_count,
                ulonglong affected_rows, ulonglong last_insert_id,
-               const char *message) override;
+               const char *message, struct st_ok_metadata *metadata) override;
 
   bool send_eof(uint server_status, uint statement_warn_count) override;
 

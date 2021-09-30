@@ -359,7 +359,8 @@ class Protocol_callback final : public Protocol {
     @retval false success
   */
   bool send_ok(uint server_status, uint warn_count, ulonglong affected_rows,
-               ulonglong last_insert_id, const char *message) override;
+               ulonglong last_insert_id, const char *message,
+               struct st_ok_metadata *metadata) override;
 
   /**
     Sends end of file.
