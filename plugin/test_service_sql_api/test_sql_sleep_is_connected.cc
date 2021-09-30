@@ -181,7 +181,7 @@ static int sql_get_string(void *, const char *const, size_t,
 }
 
 static void sql_handle_ok(void *ctx, uint, uint, ulonglong, ulonglong,
-                          const char *const) {
+                          const char *const, struct st_ok_metadata *) {
   DBUG_ENTER("sql_handle_ok");
   Callback_data *cbd = static_cast<Callback_data *>(ctx);
   cbd->handle_ok_calls++;

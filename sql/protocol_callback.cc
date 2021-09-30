@@ -389,10 +389,11 @@ bool Protocol_callback::end_result_metadata() {
 */
 bool Protocol_callback::send_ok(uint server_status, uint warn_count,
                                 ulonglong affected_rows,
-                                ulonglong last_insert_id, const char *message) {
+                                ulonglong last_insert_id, const char *message,
+                                struct st_ok_metadata *metadata) {
   if (callbacks.handle_ok)
     callbacks.handle_ok(callbacks_ctx, server_status, warn_count, affected_rows,
-                        last_insert_id, message);
+                        last_insert_id, message, metadata);
   return false;
 }
 
@@ -407,7 +408,7 @@ bool Protocol_callback::flush() { return false; }
 */
 bool Protocol_callback::send_eof(uint server_status, uint warn_count) {
   if (callbacks.handle_ok)
-    callbacks.handle_ok(callbacks_ctx, server_status, warn_count, 0, 0,
+    callbacks.handle_ok(callbacks_ctx, server_status, warn_count, 0, 0, nullptr,
                         nullptr);
   return false;
 }
@@ -493,7 +494,8 @@ bool Protocol_callback::send_parameters(List<Item_param> *parameters,
 
   return send_ok(
       (thd->server_status | SERVER_PS_OUT_PARAMS | SERVER_MORE_RESULTS_EXISTS),
-      thd->get_stmt_da()->current_statement_cond_count(), 0, 0, nullptr);
+      thd->get_stmt_da()->current_statement_cond_count(), 0, 0, nullptr,
+      nullptr);
 }
 
 bool Protocol_callback::set_variables_from_parameters(

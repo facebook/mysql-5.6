@@ -3106,6 +3106,7 @@ void THD::send_statement_status() {
   /* Can not be true, but do not take chances in production. */
   if (da->is_sent()) return;
 
+  struct st_ok_metadata meta;
   switch (da->status()) {
     case Diagnostics_area::DA_ERROR:
       /* The query failed, send error to log and abort bootstrap. */
@@ -3119,14 +3120,14 @@ void THD::send_statement_status() {
     case Diagnostics_area::DA_OK:
       error = m_protocol->send_ok(
           server_status, da->last_statement_cond_count(), da->affected_rows(),
-          da->last_insert_id(), da->message_text());
+          da->last_insert_id(), da->message_text(), &meta);
       break;
     case Diagnostics_area::DA_DISABLED:
       break;
     case Diagnostics_area::DA_EMPTY:
     default:
       DBUG_ASSERT(0);
-      error = m_protocol->send_ok(server_status, 0, 0, 0, nullptr);
+      error = m_protocol->send_ok(server_status, 0, 0, 0, nullptr, nullptr);
       break;
   }
   if (!error) da->set_is_sent(true);
