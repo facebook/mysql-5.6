@@ -573,7 +573,8 @@ bool start_slave(THD *thd);
 int stop_slave(THD *thd);
 bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
                  LEX_MASTER_INFO *master_param, int thread_mask_input,
-                 Master_info *mi, bool set_mts_settings);
+                 Master_info *mi, bool set_mts_settings,
+                 bool invoked_by_raft = false);
 int stop_slave(THD *thd, Master_info *mi, bool net_report, bool for_one_channel,
                bool *push_temp_table_warning);
 /*

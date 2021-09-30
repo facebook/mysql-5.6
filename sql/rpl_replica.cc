@@ -199,6 +199,16 @@ bool reset_seconds_behind_master = true;
 
 const char *relay_log_index = nullptr;
 const char *relay_log_basename = nullptr;
+
+/* When raft has done a TermAdvancement, it starts
+ * the SQL thread. During the receive of No-Ops it
+ * does the log repointing and then starts the SQL
+ * thread. During this phase, no external actor should
+ * be able to start the SQL thread. This boolean is
+ * set to true when raft has stopped the SQL thread.
+ */
+std::atomic<bool> sql_thread_stopped_by_raft(false);
+
 std::weak_ptr<Rpl_applier_reader> global_applier_reader;
 /*
   MTS load-ballancing parameter.
@@ -9632,7 +9642,7 @@ uint sql_replica_skip_counter;
 */
 bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
                  LEX_MASTER_INFO *master_param, int thread_mask_input,
-                 Master_info *mi, bool set_mts_settings) {
+                 Master_info *mi, bool set_mts_settings, bool invoked_by_raft) {
   bool is_error = false;
   int thread_mask;
 
@@ -9679,6 +9689,24 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
 
   if (thread_mask)  // some threads are stopped, start them
   {
+    // If raft is doing some critical operations to block out threads,
+    // we disallow slave sql start till raft has restarted the slave
+    // thread.
+    if (enable_raft_plugin && !override_enable_raft_check && !invoked_by_raft &&
+        sql_thread_stopped_by_raft) {
+      unlock_slave_threads(mi);
+
+      mi->channel_unlock();
+
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Did not allow start_slave as raft has stopped SQL threads");
+      my_error(ER_RAFT_OPERATION_INCOMPATIBLE, MYF(0),
+               "start slave not allowed when raft has stopped SQL threads");
+      return true;
+    }
+
+    (void)invoked_by_raft;
     if (load_mi_and_rli_from_repositories(mi, false, thread_mask)) {
       is_error = true;
       my_error(ER_MASTER_INFO, MYF(0));
@@ -9868,6 +9896,11 @@ int raft_stop_sql_thread(THD *thd) {
   res = stop_slave(thd, mi,
                    /*net_report=*/0,
                    /*for_one_channel=*/true, &push_temp_table_warning);
+  if (!res) {
+    // set this flag to prevent other non-raft actors from
+    // starting sql thread during critical raft operations
+    sql_thread_stopped_by_raft = true;
+  }
 
 end:
   channel_map.unlock();
@@ -9893,7 +9926,12 @@ int raft_start_sql_thread(THD *thd) {
   }
 
   res = start_slave(thd, &lex_connection, &lex_mi, thd->lex->slave_thd_opt, mi,
-                    /*set_mts_settings=*/true);
+                    /*set_mts_settings=*/true, true /*invoked_by_raft*/);
+  if (!res) {
+    // reset this flag to let other non-raft actors
+    // to stop and start sql threads.
+    sql_thread_stopped_by_raft = false;
+  }
 
 end:
   channel_map.unlock();
