@@ -54,6 +54,8 @@ struct st_send_field {
   enum_field_types type;
 };
 
+struct st_ok_metadata {};
+
 /**
   Indicates beginning of metadata for the result set
 
@@ -292,7 +294,8 @@ typedef int (*get_string_t)(void *ctx, const char *value, size_t length,
 */
 typedef void (*handle_ok_t)(void *ctx, uint server_status,
                             uint statement_warn_count, ulonglong affected_rows,
-                            ulonglong last_insert_id, const char *message);
+                            ulonglong last_insert_id, const char *message,
+                            struct st_ok_metadata *trackers);
 
 /**
   Command ended with ERROR

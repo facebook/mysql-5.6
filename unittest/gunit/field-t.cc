@@ -123,7 +123,8 @@ class Mock_protocol : public Protocol {
   bool send_field_metadata(Send_field *, const CHARSET_INFO *) override {
     return false;
   }
-  bool send_ok(uint, uint, ulonglong, ulonglong, const char *) override {
+  bool send_ok(uint, uint, ulonglong, ulonglong, const char *,
+               struct st_ok_metadata *) override {
     return false;
   }
 

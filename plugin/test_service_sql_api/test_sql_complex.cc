@@ -480,7 +480,8 @@ static int sql_get_string(void *ctx, const char *const value, size_t length,
 
 static void sql_handle_ok(void *ctx, uint server_status,
                           uint statement_warn_count, ulonglong affected_rows,
-                          ulonglong last_insert_id, const char *const message) {
+                          ulonglong last_insert_id, const char *const message,
+                          struct st_ok_metadata *) {
   struct st_plugin_ctx *pctx = (struct st_plugin_ctx *)ctx;
   //  WRITE_STR("sql_handle_ok\n");
   DBUG_TRACE;
