@@ -1,6 +1,9 @@
 source include/have_debug.inc;
 source ../include/raft_3_node.inc;
 
+CALL mtr.add_suppression(".*MYSQL_BIN_LOG::purge_logs was called with file *");
+CALL mtr.add_suppression(".*MYSQL_BIN_LOG::purge_logs raft plugin failed *");
+
 connection server_1;
 create table t1 (a int primary key);
 
@@ -234,6 +237,16 @@ source include/show_raft_logs.inc;
 
 echo "Verifying table on follower: server_3";
 select count(*) from t1;
+
+echo "Purging non existing file on leader: server_2";
+connection server_2;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+flush logs;
+select sleep(10);
+set session debug="+d,simulate_raft_plugin_purge_error";
+--error ER_LOG_PURGE_UNKNOWN_ERR
+eval purge raft logs to '$binlog';
 
 connection server_2;
 echo "Transfering leadership: server_2 -> server_1";

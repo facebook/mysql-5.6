@@ -1,0 +1,26 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value false
+####
+--echo Default value of abort_on_raft_purge_error is false
+SELECT @@global.abort_on_raft_purge_error;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.abort_on_raft_purge_error;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable can be updated correctly
+####
+SET @@global.abort_on_raft_purge_error = true;
+SELECT @@global.abort_on_raft_purge_error;
+
+SET @@global.abort_on_raft_purge_error = false;
+SELECT @@global.abort_on_raft_purge_error;
+
+SET @@global.abort_on_raft_purge_error = default;
+SELECT @@global.abort_on_raft_purge_error;
