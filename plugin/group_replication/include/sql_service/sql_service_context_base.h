@@ -327,8 +327,8 @@ class Sql_service_context_base {
 
   static void sql_handle_ok(void *ctx, uint server_status,
                             uint statement_warn_count, ulonglong affected_rows,
-                            ulonglong last_insert_id,
-                            const char *const message) {
+                            ulonglong last_insert_id, const char *const message,
+                            struct st_ok_metadata *) {
     return ((Sql_service_context_base *)ctx)
         ->handle_ok(server_status, statement_warn_count, affected_rows,
                     last_insert_id, message);

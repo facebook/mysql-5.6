@@ -553,7 +553,7 @@ static int err_get_string(void *, const char *, size_t, const CHARSET_INFO *) {
 
 static void err_handle_ok(void *ctx, uint server_status, uint warn_count,
                           ulonglong affected_rows, ulonglong last_insert_id,
-                          const char *const) {
+                          const char *const, struct st_ok_metadata *) {
   Srv_session::st_err_protocol_ctx *pctx =
       static_cast<Srv_session::st_err_protocol_ctx *>(ctx);
   if (pctx && pctx->handler) {

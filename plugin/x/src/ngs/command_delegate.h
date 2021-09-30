@@ -506,7 +506,8 @@ class Command_delegate {
   static void call_handle_ok(void *ctx, uint server_status,
                              uint statement_warn_count, ulonglong affected_rows,
                              ulonglong last_insert_id,
-                             const char *const message) {
+                             const char *const message,
+                             struct st_ok_metadata *) {
     auto context = static_cast<Command_delegate *>(ctx);
 
     if (!context->m_got_eof) {

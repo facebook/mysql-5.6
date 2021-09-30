@@ -1299,7 +1299,8 @@ bool Protocol_classic::store_field(const Field *field) {
 
 bool Protocol_classic::send_ok(uint server_status, uint statement_warn_count,
                                ulonglong affected_rows,
-                               ulonglong last_insert_id, const char *message) {
+                               ulonglong last_insert_id, const char *message,
+                               struct st_ok_metadata *) {
   DBUG_TRACE;
   record_checksum();
   const bool retval =

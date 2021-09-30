@@ -544,7 +544,7 @@ static int handle_store_string(void *pctx, const char *const value,
 
 static void handle_ok(void *pctx, uint server_status, uint statement_warn_count,
                       ulonglong affected_rows, ulonglong last_insert_id,
-                      const char *const message) {
+                      const char *const message, struct st_ok_metadata *) {
   Server_context *ctx = (Server_context *)pctx;
   char buffer[STRING_BUFFER_SIZE];
   WRITE_STR("handle_ok\n");
