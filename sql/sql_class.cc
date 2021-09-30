@@ -3408,6 +3408,62 @@ bool THD::send_result_set_row(const mem_root_deque<Item *> &row_items) {
   return false;
 }
 
+bool THD::fillMetadata(struct st_ok_metadata &metadata) {
+  if (get_protocol()->type() != Protocol::PROTOCOL_PLUGIN ||
+      !get_protocol()->has_client_capability(CLIENT_SESSION_TRACK)) {
+    return false;
+  }
+
+  bool hasMetadata = false;
+
+  State_tracker *tracker =
+      session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  if (tracker && tracker->is_enabled() && tracker->is_changed()) {
+    assert(dynamic_cast<Session_resp_attr_tracker *>(tracker));
+    auto resp_attr_tracker = static_cast<Session_resp_attr_tracker *>(tracker);
+    if (resp_attr_tracker) {
+      metadata.response_attributes = resp_attr_tracker->attributes();
+      hasMetadata = true;
+    }
+  }
+
+  tracker = session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER);
+  if (tracker && tracker->is_enabled() && tracker->is_changed()) {
+    assert(dynamic_cast<Session_state_change_tracker *>(tracker));
+    auto state_tracker = static_cast<Session_state_change_tracker *>(tracker);
+    if (state_tracker) {
+      metadata.has_state_changed = true;
+      metadata.state_changed = state_tracker->is_state_changed();
+      hasMetadata = true;
+    }
+  }
+
+  tracker = session_tracker.get_tracker(SESSION_GTIDS_TRACKER);
+  if (tracker && tracker->is_enabled() && tracker->is_changed()) {
+    assert(dynamic_cast<Session_gtids_tracker *>(tracker));
+    auto gtid_tracker = static_cast<Session_gtids_tracker *>(tracker);
+    std::string gtidStr;
+    if (gtid_tracker) {
+      gtid_tracker->storeToStdString(this, metadata.gtid);
+      hasMetadata = true;
+    }
+  }
+
+  tracker = session_tracker.get_tracker(CURRENT_SCHEMA_TRACKER);
+  if (tracker && tracker->is_enabled() && tracker->is_changed()) {
+    metadata.current_schema = to_string(db());
+    hasMetadata = true;
+  }
+
+  // We need to explicitly call reset() on the tracker because reset()
+  // is called by all store() functions, but plugins can't use store since
+  // it's tied tightly to MySQL Classic Protocol. If we don't call this
+  // on each statement the trackers might not be cleared and leak into
+  // the next statement
+  session_tracker.reset();
+  return hasMetadata;
+}
+
 void THD::send_statement_status() {
   DBUG_TRACE;
   assert(!get_stmt_da()->is_sent());
@@ -3418,6 +3474,7 @@ void THD::send_statement_status() {
   if (da->is_sent()) return;
 
   struct st_ok_metadata meta;
+  bool sendMetadata = fillMetadata(meta);
   switch (da->status()) {
     case Diagnostics_area::DA_ERROR:
       assert(!is_mem_cnt_error_issued || is_mem_cnt_error());
@@ -3432,7 +3489,8 @@ void THD::send_statement_status() {
     case Diagnostics_area::DA_OK:
       error = m_protocol->send_ok(
           server_status, da->last_statement_cond_count(), da->affected_rows(),
-          da->last_insert_id(), da->message_text(), &meta);
+          da->last_insert_id(), da->message_text(),
+          sendMetadata ? &meta : nullptr);
       break;
     case Diagnostics_area::DA_DISABLED:
       break;

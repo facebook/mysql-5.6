@@ -48,7 +48,6 @@
 #include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
-#include "sql/rpl_context.h"
 #include "sql/rpl_gtid.h"
 #include "sql/set_var.h"
 #include "sql/sql_class.h"
@@ -180,7 +179,7 @@ class Session_sysvars_tracker : public State_tracker {
     return result;
   }
 
-  void reset();
+  void reset() override;
   bool enable(THD *thd) override;
   bool check(THD *thd, set_var *var) override;
   bool update(THD *thd) override;
@@ -207,7 +206,7 @@ class Session_sysvars_tracker : public State_tracker {
 class Current_schema_tracker : public State_tracker {
  private:
   bool schema_track_inited;
-  void reset();
+  void reset() override;
 
  public:
   /** Constructor */
@@ -253,6 +252,13 @@ class Session_gtids_ctx_encoder {
            undefined.
    */
   virtual bool encode(THD *thd, String &buf) = 0;
+  /*
+   * Store the gtid only into a std::string buffer
+   * @param thd The session context.
+   * @param buf The buffer to contain the gtid string
+   * @return false if contents successfully written, true otherwise
+   */
+  virtual bool encodeToStdString(THD *thd, std::string &buf) = 0;
 
   /*
    This function SHALL return the encoding specification used in the
@@ -326,6 +332,23 @@ class Session_gtids_ctx_encoder_string : public Session_gtids_ctx_encoder {
     return false;
   }
 
+  bool encodeToStdString(THD *thd, std::string &buf) override {
+    const Gtid_set *state = thd->rpl_thd_ctx.session_gtids_ctx().state();
+
+    if (!state->is_empty()) {
+      ulonglong gtids_string_len =
+          state->get_string_length(&Gtid_set::default_string_format);
+
+      // get_string_length doesn't cover the null byte
+      buf.resize(gtids_string_len + 1);
+      /* the actual gtid set string */
+      state->to_string(&buf[0]);
+      // chop off the null byte because std::string doesn't need it
+      buf.resize(gtids_string_len);
+    }
+    return false;
+  }
+
  private:
   // not implemented
   Session_gtids_ctx_encoder_string(const Session_gtids_ctx_encoder_string &rsc);
@@ -333,51 +356,6 @@ class Session_gtids_ctx_encoder_string : public Session_gtids_ctx_encoder {
       const Session_gtids_ctx_encoder_string &rsc);
 };
 
-/**
-  Session_gtids_tracker
-  ---------------------------------
-  This is a tracker class that enables & manages the tracking of gtids for
-  relaying to the connectors the information needed to handle session
-  consistency.
-*/
-
-class Session_gtids_tracker
-    : public State_tracker,
-      Session_consistency_gtids_ctx::Ctx_change_listener {
- private:
-  void reset();
-  Session_gtids_ctx_encoder *m_encoder;
-
- public:
-  /** Constructor */
-  Session_gtids_tracker()
-      : Session_consistency_gtids_ctx::Ctx_change_listener(),
-        m_encoder(nullptr) {}
-
-  ~Session_gtids_tracker() override {
-    /*
-     Unregister the listener if the tracker is being freed. This is needed
-     since this may happen after a change user command.
-     */
-    if (m_enabled && current_thd)
-      current_thd->rpl_thd_ctx.session_gtids_ctx()
-          .unregister_ctx_change_listener(this);
-    if (m_encoder) delete m_encoder;
-  }
-
-  bool enable(THD *thd) override { return update(thd); }
-  bool check(THD *, set_var *) override { return false; }
-  bool update(THD *thd) override;
-  bool store(THD *thd, String &buf) override;
-  void mark_as_changed(
-      THD *thd, LEX_CSTRING *tracked_item_name,
-      const LEX_CSTRING *tracked_item_value = nullptr) override;
-
-  // implementation of the Session_gtids_ctx::Ctx_change_listener
-  void notify_session_gtids_ctx_change() override {
-    mark_as_changed(nullptr, nullptr);
-  }
-};
 
 void Session_sysvars_tracker::vars_list::reset() {
   if (m_registered_sysvars != nullptr) m_registered_sysvars->clear();
@@ -1364,10 +1342,13 @@ bool Session_resp_attr_tracker::store(THD *thd MY_ATTRIBUTE((unused)),
     DBUG_PRINT("info", ("   %s = %s", attr.first.data(), attr.second.data()));
   }
 
+  reset();
+  return false;
+}
+
+void Session_resp_attr_tracker::reset() {
   m_changed = false;
   attrs_.clear();
-
-  return false;
 }
 
 /**
@@ -1520,6 +1501,7 @@ class Session_transaction_state : public State_tracker {
   bool update(THD *) override { return false; }
   bool store(THD *, String &) override { return false; }
   void mark_as_changed(THD *, LEX_CSTRING *, const LEX_CSTRING *) override {}
+  void reset() override {}
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1674,6 +1656,17 @@ static void store_lenenc_string(String &to, const char *from, size_t length) {
   to.append(from, length);
 }
 
+Session_gtids_tracker::~Session_gtids_tracker() {
+  /*
+   Unregister the listener if the tracker is being freed. This is needed
+   since this may happen after a change user command.
+   */
+  if (m_enabled && current_thd)
+    current_thd->rpl_thd_ctx.session_gtids_ctx().unregister_ctx_change_listener(
+        this);
+  delete m_encoder;
+}
+
 /**
   @brief Enable/disable the tracker based on @@session_track_gtids's value.
 
@@ -1735,6 +1728,12 @@ bool Session_gtids_tracker::update(THD *thd) {
 bool Session_gtids_tracker::store(THD *thd, String &buf) {
   if (m_encoder && m_encoder->encode(thd, buf)) return true;
   reset();
+  return false;
+}
+
+bool Session_gtids_tracker::storeToStdString(THD *thd, std::string &buf) {
+  if (m_encoder && m_encoder->encodeToStdString(thd, buf)) return true;
+
   return false;
 }
 
