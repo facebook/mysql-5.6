@@ -7497,6 +7497,8 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   log_file_name_container delete_list;
   std::pair<std::string, uint> file_index_pair;
   std::string safe_purge_file;
+  int raft_plugin_error = 0;
+
   DBUG_TRACE;
   DBUG_PRINT("info", ("to_log= %s", to_log));
 
@@ -7534,12 +7536,15 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     error = RUN_HOOK_STRICT(raft_replication, purge_logs,
                             (current_thd, file_index_pair.second));
 
+    DBUG_EXECUTE_IF("simulate_raft_plugin_purge_error", error = 1;);
+
     if (error) {
       // NO_LINT_DEBUG
       sql_print_error(
           "MYSQL_BIN_LOG::purge_logs raft plugin failed in "
           "purge_logs(). file-name: %s",
           to_log);
+      raft_plugin_error = 1;
       goto err;
     }
 
@@ -7655,10 +7660,12 @@ err:
   */
   error = error ? error : error_index;
   if (error && should_abort_on_binlog_error()) {
-    exec_binlog_error_action_abort(
-        "Either disk is full, file system is read only or "
-        "there was an encryption error while opening the binlog. "
-        "Aborting the server.");
+    if (!raft_plugin_error || abort_on_raft_purge_error) {
+      exec_binlog_error_action_abort(
+          "Either disk is full, file system is read only or "
+          "there was an encryption error while opening the binlog. "
+          "Aborting the server.");
+    }
   }
   return error;
 }

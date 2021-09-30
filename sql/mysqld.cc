@@ -1246,6 +1246,7 @@ ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;
 bool disallow_raft = 1;  // raft is not allowed by default
 bool override_enable_raft_check = false;
+bool abort_on_raft_purge_error = false;
 ulonglong apply_log_retention_num = 0;
 ulonglong apply_log_retention_duration = 0;
 bool disable_raft_log_repointing = 0;

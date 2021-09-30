@@ -456,6 +456,7 @@ extern bool disable_raft_log_repointing;
 extern ulong opt_raft_signal_async_dump_threads;
 extern bool disallow_raft;
 extern bool override_enable_raft_check;
+extern bool abort_on_raft_purge_error;
 extern ulonglong apply_log_retention_num;
 extern ulonglong apply_log_retention_duration;
 extern bool recover_raft_log;

@@ -8,6 +8,9 @@ The following options may be given as the first argument:
  Also read groups with concat(group, suffix)
 --login-path=# Read this path from the login file.
 
+ --abort-on-raft-purge-error 
+ Any error in raft plugin to purge files will abort the
+ server
  --abort-slave-event-count=# 
  Option used by mysql-test for debugging and testing of
  replication.This option is deprecated and will be removed
@@ -2752,6 +2755,7 @@ The following options may be given as the first argument:
  library is selected.
 
 Variables (--variable-name=value)
+abort-on-raft-purge-error FALSE
 abort-slave-event-count 0
 activate-all-roles-on-login FALSE
 admin-address (No default value)

@@ -8951,6 +8951,12 @@ static Sys_var_bool Sys_enable_raft_plugin(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(validate_enable_raft),
     ON_UPDATE(update_enable_raft_change));
 
+static Sys_var_bool Sys_abort_on_raft_purge_error(
+    "abort_on_raft_purge_error",
+    "Any error in raft plugin to purge files will abort the server",
+    GLOBAL_VAR(abort_on_raft_purge_error), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static Sys_var_bool Sys_disallow_raft(
     "disallow_raft",
     "Temporary variable wich blocks turning on raft. Will be removed later "
