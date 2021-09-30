@@ -5182,6 +5182,8 @@ class THD : public MDL_context_owner,
   */
   bool is_a_srv_session_thd;
 
+  bool fillMetadata(struct st_ok_metadata &metadata);
+
   /// Stores the plugin id it is attached to (if any).
   const st_plugin_int *m_plugin{nullptr};
 

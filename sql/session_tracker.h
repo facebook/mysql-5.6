@@ -29,6 +29,7 @@
 #include <map>
 
 #include "lex_string.h"
+#include "sql/rpl_context.h"
 #include "thr_lock.h"  // thr_lock_type
 
 class String;
@@ -114,6 +115,9 @@ class State_tracker {
   /** Store changed data into the given buffer. */
   virtual bool store(THD *thd, String &buf) = 0;
 
+  /** Reset any internal state at the end of statement. */
+  virtual void reset() = 0;
+
   /** Mark the entity as changed. */
   virtual void mark_as_changed(THD *thd, LEX_CSTRING name,
                                const LEX_CSTRING *value = nullptr) = 0;
@@ -170,6 +174,12 @@ class Session_tracker {
     for (int i = 0; i <= SESSION_TRACKER_END; i++) delete m_trackers[i];
   }
 
+  void reset() {
+    for (int i = 0; i <= SESSION_TRACKER_END; i++) {
+      m_trackers[i]->reset();
+    }
+  }
+
   void claim_memory_ownership(bool claim);
 };
 
@@ -187,9 +197,6 @@ class Session_tracker {
 */
 
 class Session_state_change_tracker : public State_tracker {
- private:
-  void reset();
-
  public:
   Session_state_change_tracker();
   bool enable(THD *thd) override;
@@ -200,6 +207,7 @@ class Session_state_change_tracker : public State_tracker {
       THD *thd, LEX_CSTRING tracked_item_name,
       const LEX_CSTRING *tracked_item_value = nullptr) override;
   bool is_state_changed();
+  void reset() override;
 };
 
 /**
@@ -284,6 +292,8 @@ class Transaction_state_tracker : public State_tracker {
   /** Get (possibly still incomplete) state */
   uint get_trx_state() const { return tx_curr_state; }
 
+  void reset() override;
+
  private:
   enum enum_tx_changed {
     TX_CHG_NONE = 0,     ///< no changes from previous stmt
@@ -302,8 +312,6 @@ class Transaction_state_tracker : public State_tracker {
 
   /**  isolation level */
   enum enum_tx_isol_level tx_isol_level;
-
-  void reset();
 
   inline void update_change_flags(THD *thd) {
     tx_changed &= ~TX_CHG_STATE;
@@ -324,7 +332,6 @@ class Transaction_state_tracker : public State_tracker {
 
 class Session_resp_attr_tracker : public State_tracker {
  private:
-  void reset();
   Session_resp_attr_tracker(const Session_resp_attr_tracker &) = delete;
   Session_resp_attr_tracker &operator=(const Session_resp_attr_tracker &) =
       delete;
@@ -346,6 +353,46 @@ class Session_resp_attr_tracker : public State_tracker {
   bool store(THD *thd, String &buf) override;
   void mark_as_changed(THD *thd, LEX_CSTRING key,
                        const LEX_CSTRING *value) override;
+  const std::map<std::string, std::string> &attributes() { return attrs_; }
+  void reset() override;
+};
+
+/**
+  Session_gtids_tracker
+  ---------------------------------
+  This is a tracker class that enables & manages the tracking of gtids for
+  relaying to the connectors the information needed to handle session
+  consistency.
+*/
+class Session_gtids_ctx_encoder;
+class Session_gtids_tracker
+    : public State_tracker,
+      Session_consistency_gtids_ctx::Ctx_change_listener {
+ private:
+  Session_gtids_ctx_encoder *m_encoder;
+
+ public:
+  /** Constructor */
+  Session_gtids_tracker()
+      : Session_consistency_gtids_ctx::Ctx_change_listener(),
+        m_encoder(nullptr) {}
+
+  ~Session_gtids_tracker() override;
+
+  bool enable(THD *thd) override { return update(thd); }
+  bool check(THD *, set_var *) override { return false; }
+  bool update(THD *thd) override;
+  bool store(THD *thd, String &buf) override;
+  bool storeToStdString(THD *thd, std::string &buf);
+  void mark_as_changed(
+      THD *thd, LEX_CSTRING tracked_item_name,
+      const LEX_CSTRING *tracked_item_value = nullptr) override;
+
+  // implementation of the Session_gtids_ctx::Ctx_change_listener
+  void notify_session_gtids_ctx_change() override {
+    mark_as_changed(nullptr, {});
+  }
+  void reset() override;
 };
 
 #endif /* SESSION_TRACKER_INCLUDED */
