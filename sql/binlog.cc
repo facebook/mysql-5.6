@@ -12839,8 +12839,10 @@ bool show_raft_status(THD *thd) {
   std::vector<std::pair<std::string, std::string>> var_value_pairs;
   std::vector<std::pair<std::string, std::string>>::const_iterator itr;
 
+  mysql_mutex_lock(&LOCK_status);
   int error = RUN_HOOK_STRICT(raft_replication, show_raft_status,
                               (current_thd, &var_value_pairs));
+  mysql_mutex_unlock(&LOCK_status);
   if (error) {
     errmsg = "Failure to run plugin hook";
     goto err;
