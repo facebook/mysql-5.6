@@ -159,7 +159,13 @@ struct st_send_field {
   unsigned int decimals;
   enum_field_types type;
 };
-struct st_ok_metadata {};
+struct st_ok_metadata {
+  bool has_state_changed = false;
+  bool state_changed = false;
+  std::string gtid;
+  std::string current_schema;
+  std::map<std::string, std::string> response_attributes;
+};
 typedef int (*start_result_metadata_t)(void *ctx, uint num_cols, uint flags,
                                        const CHARSET_INFO *resultcs);
 typedef int (*field_metadata_t)(void *ctx, struct st_send_field *field,

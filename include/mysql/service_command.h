@@ -36,6 +36,7 @@
 #include "mysql_time.h"
 #ifndef MYSQL_ABI_CHECK
 #include <stdint.h> /* uint32_t */
+#include <map>
 #include "field_types.h"
 #include "m_ctype.h"
 #endif
@@ -54,7 +55,22 @@ struct st_send_field {
   enum_field_types type;
 };
 
-struct st_ok_metadata {};
+struct st_ok_metadata {
+  // Flag to indicate whether state_changed was set
+  bool has_state_changed = false;
+  // Whether the current statement triggered a state change according to
+  // SESSION_TRACK_STATE_CHANGE
+  bool state_changed = false;
+  // Contains the gtid returned with the current statement. Empty string
+  // if no gtid was generated
+  std::string gtid;
+  // Contains the name of the new schema if the schema was changed by
+  // the current statement, empty otherwise
+  std::string current_schema;
+  // An arbitrary key/value map of metadata returned by the server for the
+  // current statement
+  std::map<std::string, std::string> response_attributes;
+};
 
 /**
   Indicates beginning of metadata for the result set

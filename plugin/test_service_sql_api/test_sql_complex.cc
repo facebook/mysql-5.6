@@ -143,6 +143,18 @@ static StatementList test_query_plan = {
 
 static StatementList test_fb_statements = {
     {nullptr, false, "set session dscp_on_socket=18"},
+    {nullptr, false, "set session session_track_response_attributes = on"},
+    {nullptr, false, "set wait_timeout=86400"},
+    {nullptr, false, "set session session_track_response_attributes = off"},
+    {nullptr, false, "set session session_track_state_change=ON"},
+    {nullptr, false, "set wait_timeout=86400"},
+    {nullptr, false, "set session session_track_state_change=OFF"},
+    {nullptr, false, "set session session_track_schema=ON"},
+    {nullptr, false, "CREATE DATABASE test1"},
+    {nullptr, false, "use test1"},
+    {nullptr, true, "set @a='expect no schema tracker'"},
+    {nullptr, false, "set session session_track_schema=OFF"},
+    {nullptr, false, "DROP DATABASE test1"},
 };
 
 #define STRING_BUFFER_SIZE 512
@@ -209,6 +221,12 @@ struct st_plugin_ctx {
   uint affected_rows;
   uint last_insert_id;
   char message[1024];
+  bool received_metadata;
+  bool has_state_changed;
+  bool state_changed;
+  std::string gtid;
+  std::string current_schema;
+  std::map<std::string, std::string> response_attributes;
 
   uint sql_errno;
   char err_msg[1024];
@@ -235,6 +253,12 @@ struct st_plugin_ctx {
     affected_rows = 0;
     last_insert_id = 0;
     memset(&message, 0, sizeof(message));
+    received_metadata = false;
+    has_state_changed = false;
+    state_changed = false;
+    gtid = "";
+    current_schema = "";
+    response_attributes.clear();
 
     sql_errno = 0;
     memset(&err_msg, 0, sizeof(err_msg));
@@ -323,6 +347,11 @@ static void sql_abort_row(void *) { DBUG_TRACE; }
 static ulong sql_get_client_capabilities(void *) {
   DBUG_TRACE;
   return 0;
+}
+
+static ulong sql_get_alternate_capabilities(void *) {
+  DBUG_TRACE;
+  return CLIENT_SESSION_TRACK;
 }
 
 static int sql_get_null(void *ctx) {
@@ -481,7 +510,7 @@ static int sql_get_string(void *ctx, const char *const value, size_t length,
 static void sql_handle_ok(void *ctx, uint server_status,
                           uint statement_warn_count, ulonglong affected_rows,
                           ulonglong last_insert_id, const char *const message,
-                          struct st_ok_metadata *) {
+                          struct st_ok_metadata *metadata) {
   struct st_plugin_ctx *pctx = (struct st_plugin_ctx *)ctx;
   //  WRITE_STR("sql_handle_ok\n");
   DBUG_TRACE;
@@ -491,6 +520,14 @@ static void sql_handle_ok(void *ctx, uint server_status,
   pctx->warn_count = statement_warn_count;
   pctx->affected_rows = affected_rows;
   pctx->last_insert_id = last_insert_id;
+  if (metadata) {
+    pctx->received_metadata = true;
+    pctx->has_state_changed = metadata->has_state_changed;
+    pctx->state_changed = metadata->state_changed;
+    pctx->gtid = metadata->gtid;
+    pctx->current_schema = metadata->current_schema;
+    pctx->response_attributes = metadata->response_attributes;
+  }
   if (message) strncpy(pctx->message, message, sizeof(pctx->message) - 1);
   pctx->message[sizeof(pctx->message) - 1] = '\0';
 }
@@ -509,7 +546,7 @@ static void sql_handle_error(void *ctx, uint sql_errno,
 
 static void sql_shutdown(void *, int) { DBUG_TRACE; }
 
-const struct st_command_service_cbs protocol_callbacks = {
+struct st_command_service_cbs protocol_callbacks = {
     sql_start_result_metadata,
     sql_field_metadata,
     sql_end_result_metadata,
@@ -774,6 +811,21 @@ static void dump_closing_ok(struct st_plugin_ctx *ctx) {
   WRITE_VAL("\t\t[end] affected rows:  %u\n", ctx->affected_rows);
   WRITE_VAL("\t\t[end] last insert id: %u\n", ctx->last_insert_id);
   WRITE_VAL("\t\t[end] message: %s\n", ctx->message);
+  if (ctx->received_metadata) {
+    if (ctx->has_state_changed) {
+      WRITE_VAL("\t\t[end] state_changed: %d\n", ctx->state_changed);
+    }
+    if (ctx->gtid.size()) {
+      WRITE_VAL("\t\t[end] gtid_set: %s\n", ctx->gtid.c_str());
+    }
+    if (ctx->current_schema.size()) {
+      WRITE_VAL("\t\t[end] schema: %s\n", ctx->current_schema.c_str());
+    }
+    for (const auto &kv : ctx->response_attributes) {
+      WRITE_VAL2("\t\t[end] response attribute: '%s' = '%s'\n",
+                 kv.first.c_str(), kv.second.c_str());
+    }
+  }
 }
 
 static void set_query_in_com_data(const char *query, union COM_DATA *cmd) {
@@ -981,6 +1033,8 @@ static int test_sql_service_plugin_init(void *p) {
   /* Test in a new thread */
   WRITE_STR("Follows threaded run\n");
   test_in_spawned_thread(p, test_query_plan, test_sql);
+
+  protocol_callbacks.get_client_capabilities = sql_get_alternate_capabilities;
 
   WRITE_SEP();
   WRITE_STR("Test fb statements in server thread\n");
