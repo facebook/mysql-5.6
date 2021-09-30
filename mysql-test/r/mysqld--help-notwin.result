@@ -365,8 +365,8 @@ The following options may be given as the first argument:
  room in the queue again. This variable is deprecated
  along with INSERT DELAYED.
  --disable-instant-ddl 
- always don't use instant ddl for alter table. used for
- rolling out
+ Setting to true to disable instant ddl support for alter
+ table
  --disable-raft-log-repointing 
  Enable/Disable repointing for raft logs
  --disabled-storage-engines=name 
