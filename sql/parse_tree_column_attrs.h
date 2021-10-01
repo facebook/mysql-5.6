@@ -47,6 +47,7 @@
 #include "sql/item.h"
 #include "sql/item_timefunc.h"
 #include "sql/mem_root_array.h"
+#include "sql/mysqld.h"
 #include "sql/parse_location.h"
 #include "sql/parse_tree_helpers.h"  // move_cf_appliers
 #include "sql/parse_tree_node_base.h"
@@ -589,7 +590,7 @@ class PT_numeric_type : public PT_type {
         options(options) {
     assert((options & ~(UNSIGNED_FLAG | ZEROFILL_FLAG)) == 0);
 
-    if (length != nullptr) {
+    if (length != nullptr && enable_deprecation_warning) {
       push_warning(thd, Sql_condition::SL_WARNING,
                    ER_WARN_DEPRECATED_SYNTAX_NO_REPLACEMENT,
                    ER_THD(thd, ER_WARN_DEPRECATED_INTEGER_DISPLAY_WIDTH));

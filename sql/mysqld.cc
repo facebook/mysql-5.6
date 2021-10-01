@@ -1612,6 +1612,7 @@ ulong log_datagram_usecs = 0;
 int log_datagram_sock = -1;
 bool opt_parthandler_allow_drop_partition = true;
 bool disable_instant_ddl = false;
+bool enable_deprecation_warning = true;
 
 /**
   This variable holds handle to the object that's responsible

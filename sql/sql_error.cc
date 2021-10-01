@@ -64,6 +64,7 @@ This file contains the implementation of error and warnings related
 #include "mysql/components/services/log_builtins.h"
 #include "mysql/components/services/log_shared.h"
 #include "mysql_time.h"
+#include "mysqld.h"
 #include "mysqld_error.h"
 #include "sql/derror.h"  // ER_THD
 #include "sql/item.h"
@@ -695,6 +696,8 @@ void push_warning_printf(THD *thd, Sql_condition::enum_severity_level severity,
 
 void push_deprecated_warn(THD *thd, const char *old_syntax,
                           const char *new_syntax) {
+  if (!enable_deprecation_warning) return;
+
   if (thd != nullptr)
     push_warning_printf(
         thd, Sql_condition::SL_WARNING, ER_WARN_DEPRECATED_SYNTAX,
@@ -705,6 +708,8 @@ void push_deprecated_warn(THD *thd, const char *old_syntax,
 }
 
 void push_deprecated_warn_no_replacement(THD *thd, const char *old_syntax) {
+  if (!enable_deprecation_warning) return;
+
   if (thd != nullptr)
     push_warning_printf(thd, Sql_condition::SL_WARNING,
                         ER_WARN_DEPRECATED_SYNTAX_NO_REPLACEMENT,

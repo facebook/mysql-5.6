@@ -444,6 +444,9 @@ The following options may be given as the first argument:
  --enable-block-stale-hlc-read 
  Enable blocking reads with a requested HLC timestamp
  ahead of the engine HLC
+ --enable-deprecation-warning 
+ If set to false, will not show deprecation warnings 
+ (Defaults to on; use --skip-enable-deprecation-warning to disable.)
  --enable-hlc-bound  Enable HLC bound enforcement for transactional operations
  --enable-query-checksum 
  Enable query checksums for queries that have the checksum
@@ -2927,6 +2930,7 @@ enable-acl-fast-lookup FALSE
 enable-binlog-hlc FALSE
 enable-blind-replace FALSE
 enable-block-stale-hlc-read FALSE
+enable-deprecation-warning TRUE
 enable-hlc-bound FALSE
 enable-query-checksum FALSE
 enable-raft-plugin FALSE

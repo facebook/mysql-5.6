@@ -9539,3 +9539,8 @@ static Sys_var_ulonglong Sys_max_sql_findings_size(
     VALID_RANGE(0, ULONG_MAX), DEFAULT(10 * 1024 * 1024), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(update_max_sql_findings_limits));
+
+static Sys_var_bool Sys_enable_deprecation_warning(
+    "enable_deprecation_warning",
+    "If set to false, will not show deprecation warnings ",
+    GLOBAL_VAR(enable_deprecation_warning), CMD_LINE(OPT_ARG), DEFAULT(true));
