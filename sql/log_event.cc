@@ -8262,7 +8262,7 @@ int Rows_log_event::unpack_current_row(const Relay_log_info *const rli,
   } else {
     ret = ::unpack_row(rli, m_table, m_width, m_curr_row, cols, &m_curr_row_end,
                        m_rows_end, row_image_type, has_value_options, only_seek,
-                       thd->row_query);
+                       &thd->row_query);
   }
   if (ret) {
     if (m_curr_row <= m_rows_end) {
@@ -13583,15 +13583,14 @@ int Update_rows_log_event::force_update(Relay_log_info const *rli,
   // unpack BI into record[0]
   error = unpack_row(rli, m_table, m_width, row_start, &m_cols,
                      const_cast<const uchar **>(&row_end), m_rows_end,
-                     enum_row_image_type::UPDATE_BI, has_value_options, false,
-                     thd->row_query);
+                     enum_row_image_type::UPDATE_BI, has_value_options, false);
   row_start = row_end;
   // unpack AI into record[0] (if binlog_row_image is FULL we overwrite all
   // cols, if it's COMPLETE we overwrite only changed cols)
-  error = error || unpack_row(rli, m_table, m_width, row_start, &m_cols_ai,
-                              const_cast<const uchar **>(&row_end), m_rows_end,
-                              enum_row_image_type::UPDATE_AI, has_value_options,
-                              false, thd->row_query);
+  error = error ||
+          unpack_row(rli, m_table, m_width, row_start, &m_cols_ai,
+                     const_cast<const uchar **>(&row_end), m_rows_end,
+                     enum_row_image_type::UPDATE_AI, has_value_options, false);
 
   char *key = nullptr;
   while (!error && (error = m_table->file->ha_write_row(m_table->record[0]))) {
@@ -16156,8 +16155,7 @@ bool Rows_log_event::parse_keys(Relay_log_info *rli, TABLE *table,
     DBUG_ASSERT(is_mts_parallel_type_dependency(rli));
     if (::unpack_row(rli, table, m_width, curr_row, cols,
                      const_cast<const uchar **>(&curr_row_end), m_rows_end,
-                     row_image_type, has_value_options, false, thd->row_query,
-                     /* skip logging to row_query */ false)) {
+                     row_image_type, has_value_options, false)) {
       /* We were unable to unpack the row. This is a serious error. */
       sql_print_error("Unable to unpack row at pos %s:%llu, syncing group",
                       rli->get_rpl_log_name(), common_header->log_pos);
