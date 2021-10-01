@@ -193,7 +193,19 @@ PFS_statements_digest_stat *find_or_create_digest(
   if (unlikely(pins == nullptr)) {
     return nullptr;
   }
-
+  /**
+    If digest hash is full, then avoid hash look ups.
+    After that we expect stats to be flushed. This is added
+    to avoid cpu cycles for hash lookups once we reached the
+    steady state.
+  */
+  PFS_statements_digest_stat *pfs = nullptr;
+  if (digest_full) {
+    /* digest_stat array is full. Add stat at index 0 and return. */
+    pfs = &statements_digest_stat_array[0];
+    digest_lost++;
+    return pfs;
+  }
   /*
     Note: the LF_HASH key is a block of memory,
     make sure to clean unused bytes,
@@ -227,10 +239,9 @@ PFS_statements_digest_stat *find_or_create_digest(
   size_t safe_index;
   size_t attempts = 0;
   PFS_statements_digest_stat **entry;
-  PFS_statements_digest_stat *pfs = nullptr;
   pfs_dirty_state dirty_state;
-
   ulonglong now = my_micro_time();
+
   find_or_create_sql_text(thread, digest_storage);
 search:
 
@@ -247,18 +258,6 @@ search:
   }
 
   lf_hash_search_unpin(pins);
-
-  if (digest_full) {
-    /* digest_stat array is full. Add stat at index 0 and return. */
-    pfs = &statements_digest_stat_array[0];
-    digest_lost++;
-
-    if (pfs->m_first_seen == 0) {
-      pfs->m_first_seen = now;
-    }
-    pfs->m_last_seen = now;
-    return pfs;
-  }
 
   while (++attempts <= digest_max) {
     safe_index = digest_monotonic_index.m_u32++ % digest_max;
