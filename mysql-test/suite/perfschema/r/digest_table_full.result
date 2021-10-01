@@ -193,6 +193,28 @@ SCHEMA_NAME	DIGEST IS NULL	BUCKET_NUMBER
 NULL	1	1
 statements_digest	0	1
 ####################################
+# PS STATEMENT DIGEST GETS FULL 
+# IF WE RUN SAME QUERY IN LOOP
+####################################
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+use test;
+TRUNCATE TABLE performance_schema.sql_text;
+TRUNCATE TABLE performance_schema.events_statements_summary_by_digest;
+SELECT count(*) from performance_schema.events_statements_summary_by_digest;
+count(*)
+1
+SELECT count(*) from performance_schema.events_statements_summary_by_digest;
+count(*)
+2
+include/assert.inc [Counter for Performance_schema_digest_lost should be 2 ]
+SELECT SCHEMA_NAME, DIGEST, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
+SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest;
+SCHEMA_NAME	DIGEST	COUNT_STAR	SUM_ROWS_AFFECTED	SUM_WARNINGS	SUM_ERRORS
+NULL	NULL	29	0	0	0
+test	e6628a0d51a41865a2ac8de78a8be09d	1	0	0	0
+drop user user_super@localhost;
+####################################
 # CLEANUP
 ####################################
 DROP TABLE IF EXISTS t1;
