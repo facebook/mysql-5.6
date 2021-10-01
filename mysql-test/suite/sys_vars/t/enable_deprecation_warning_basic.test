@@ -1,0 +1,65 @@
+-- source include/load_sysvars.inc
+
+SET @start_global_value = @@global.enable_deprecation_warning;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_deprecation_warning;
+
+#
+# correct types
+#
+SET GLOBAL enable_deprecation_warning=1;
+SET GLOBAL enable_deprecation_warning=0;
+SET GLOBAL enable_deprecation_warning=true;
+SET GLOBAL enable_deprecation_warning=false;
+SET GLOBAL enable_deprecation_warning=on;
+SET GLOBAL enable_deprecation_warning=off;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL enable_deprecation_warning=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL enable_deprecation_warning="foo";
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL enable_deprecation_warning=-1;
+
+#
+# Verify warnings are suppressed
+#
+
+SET GLOBAL enable_deprecation_warning=0;
+
+# ! -> NOT
+SELECT !0;
+SHOW WARNINGS;
+
+# SQL_NO_CACHE and SQL_NO_FCACHE
+SELECT SQL_NO_CACHE !0;
+SHOW WARNINGS;
+
+SELECT SQL_NO_FCACHE !0;
+SHOW WARNINGS;
+
+# Integer display width
+CREATE TABLE t1 (pk int (10) primary key);
+SHOW WARNINGS;
+
+# VALUES function
+UPDATE t1 SET pk=VALUES(pk) WHERE pk=1;
+SHOW WARNINGS;
+
+# Setting user variables within expressions
+select @foo1 := COUNT(*) FROM t1;
+SHOW WARNINGS; 
+
+#
+# cleanup
+#
+DROP TABLE t1;
+SET GLOBAL enable_deprecation_warning = @start_global_value;

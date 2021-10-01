@@ -11682,9 +11682,11 @@ grouping_operation:
 in_expression_user_variable_assignment:
           '@' ident_or_text SET_VAR expr
           {
-            push_warning(YYTHD, Sql_condition::SL_WARNING,
-                         ER_WARN_DEPRECATED_SYNTAX,
-                         ER_THD(YYTHD, ER_WARN_DEPRECATED_USER_SET_EXPR));
+            if (enable_deprecation_warning) {
+              push_warning(YYTHD, Sql_condition::SL_WARNING,
+                          ER_WARN_DEPRECATED_SYNTAX,
+                          ER_THD(YYTHD, ER_WARN_DEPRECATED_USER_SET_EXPR));
+            }
             $$ = NEW_PTN PTI_variable_aux_set_var(@$, $2, $4);
           }
         ;
