@@ -1,85 +1,38 @@
-SET @session_start_value = @@session.disable_instant_ddl;
-SELECT @session_start_value;
-@session_start_value
+SET @disable_instant_ddl_saved = @@global.disable_instant_ddl;
+SELECT @disable_instant_ddl_saved;
+@disable_instant_ddl_saved
 0
-SET @@session.disable_instant_ddl = 0;
-SET @@session.disable_instant_ddl = DEFAULT;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
-0
-SET @@session.disable_instant_ddl = 1;
-SET @@session.disable_instant_ddl = DEFAULT;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
-0
-SET disable_instant_ddl = 1;
-SELECT @@disable_instant_ddl;
-@@disable_instant_ddl
-1
-SELECT session.disable_instant_ddl;
-ERROR 42S02: Unknown table 'session' in field list
-SELECT local.disable_instant_ddl;
-ERROR 42S02: Unknown table 'local' in field list
-SET session disable_instant_ddl = 0;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
-0
-SET @@session.disable_instant_ddl = 0;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
-0
-SET @@session.disable_instant_ddl = 1;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
-1
-SET @@session.disable_instant_ddl = -1;
-ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of '-1'
-SET @@session.disable_instant_ddl = 2;
-ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of '2'
-SET @@session.disable_instant_ddl = "T";
-ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of 'T'
-SET @@session.disable_instant_ddl = "Y";
-ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of 'Y'
-SET @@session.disable_instant_ddl = NO;
-ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of 'NO'
-SET @@global.disable_instant_ddl = 1;
+set global disable_instant_ddl = True;
 SELECT @@global.disable_instant_ddl;
 @@global.disable_instant_ddl
 1
-SET @@global.disable_instant_ddl = 0;
-SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='disable_instant_ddl';
-count(VARIABLE_VALUE)
-1
-SELECT IF(@@session.disable_instant_ddl, "ON", "OFF") = VARIABLE_VALUE
-FROM performance_schema.session_variables
-WHERE VARIABLE_NAME='disable_instant_ddl';
-IF(@@session.disable_instant_ddl, "ON", "OFF") = VARIABLE_VALUE
-1
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
-1
-SELECT VARIABLE_VALUE
-FROM performance_schema.session_variables
-WHERE VARIABLE_NAME='disable_instant_ddl';
-VARIABLE_VALUE
-ON
-SET @@session.disable_instant_ddl = OFF;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
+set global disable_instant_ddl = False;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
 0
-SET @@session.disable_instant_ddl = ON;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
-1
-SET @@session.disable_instant_ddl = TRUE;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
-1
-SET @@session.disable_instant_ddl = FALSE;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
+SET @@global.disable_instant_ddl= DEFAULT;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
 0
-SET @@session.disable_instant_ddl = @session_start_value;
-SELECT @@session.disable_instant_ddl;
-@@session.disable_instant_ddl
+SET @@global.disable_instant_ddl= 1000;
+ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of '1000'
+SET @@global.disable_instant_ddl= -1;
+ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of '-1'
+SET @@global.disable_instant_ddl= 5;
+ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of '5'
+SET @@global.disable_instant_ddl= OFF;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
+0
+SET @@global.disable_instant_ddl= ON;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
+1
+SET GLOBAL disable_instant_ddl= 0.01;
+ERROR 42000: Incorrect argument type to variable 'disable_instant_ddl'
+select @@session.disable_instant_ddl;
+ERROR HY000: Variable 'disable_instant_ddl' is a GLOBAL variable
+SET @@global.disable_instant_ddl = @disable_instant_ddl_saved;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
 0

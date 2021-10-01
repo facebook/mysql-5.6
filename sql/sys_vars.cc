@@ -8194,7 +8194,7 @@ static Sys_var_bool Sys_slave_high_priority_ddl(
 static Sys_var_bool Sys_disable_instant_ddl(
     "disable_instant_ddl",
     "Setting to true to disable instant ddl support for alter table",
-    SESSION_VAR(disable_instant_ddl), CMD_LINE(OPT_ARG), DEFAULT(false));
+    GLOBAL_VAR(disable_instant_ddl), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 static Sys_var_ulonglong Sys_maximum_hlc_drift_ns(
     "maximum_hlc_drift_ns",
