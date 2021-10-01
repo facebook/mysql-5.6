@@ -2324,7 +2324,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       if (thd->parse_query_info_attr()) {
         break;
       }
-      thd->serialize_client_attrs();
+      thd->serialize_client_attrs(com_data->com_query.query,
+                                  com_data->com_query.length);
 
       if (!thd->trace_id.empty()) {
         if (!thd->query_perf) {

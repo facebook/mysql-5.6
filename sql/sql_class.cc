@@ -4081,36 +4081,70 @@ void THD::remove_db_metadata(const char *db_name) {
     and cleared at the end of the command. This is because attributes are
     attached commands, not statements.
 */
-void THD::serialize_client_attrs() {
+void THD::serialize_client_attrs(const char *query, size_t query_length) {
   StringBuffer<256> client_attrs_string;
   std::array<unsigned char, MD5_HASH_SIZE> client_id;
 
   std::vector<std::pair<String, String>> client_attrs;
+  bool found_async_id = false;
 
   mysql_mutex_lock(&LOCK_global_sql_findings);
   // Populate caller, original_caller, async_id, etc
   for (const std::string &name_iter : client_attribute_names) {
-    bool found_query_attrs = false;
+    bool found = false;
     for (auto it = query_attrs_list.begin(); it != query_attrs_list.end();
          ++it) {
       if (it->first == name_iter) {
         client_attrs.emplace_back(
             String(it->first.data(), it->first.size(), &my_charset_bin),
             String(it->second.data(), it->second.size(), &my_charset_bin));
-        found_query_attrs = true;
+        found = true;
       }
     }
 
-    if (!found_query_attrs) {
+    if (!found) {
       auto it = connection_attrs_map.find(name_iter);
       if (it != connection_attrs_map.end()) {
         client_attrs.emplace_back(
             String(it->first.data(), it->first.size(), &my_charset_bin),
             String(it->second.data(), it->second.size(), &my_charset_bin));
+        found = true;
+      }
+    }
+
+    if (found) {
+      if (name_iter == "async_id") {
+        found_async_id = true;
       }
     }
   }
   mysql_mutex_unlock(&LOCK_global_sql_findings);
+
+  // Populate async id (inspired from find_async_tag)
+  //
+  // Search only in first 100 characters to avoid scanning the whole query.
+  // The async id is usually near the beginning.
+  //
+  // Only look if async_id was not passed down.
+  if (!found_async_id) {
+    String query100(query, std::min<size_t>(100, query_length),
+                    &my_charset_bin);
+    String async_word(STRING_WITH_LEN("async-"), &my_charset_bin);
+
+    int pos = query100.strstr(async_word);
+
+    if (pos != -1) {
+      pos += async_word.length();
+      int epos = pos;
+
+      while (epos < (int)query100.length() && std::isdigit(query100[epos])) {
+        epos++;
+      }
+      client_attrs.emplace_back(
+          String("async_id", &my_charset_bin),
+          String(&query100[pos], epos - pos, &my_charset_bin));
+    }
+  }
 
   // Serialize into JSON
   auto &buf = client_attrs_string;
