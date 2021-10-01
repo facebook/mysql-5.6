@@ -43,6 +43,14 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 --echo # Verify with query attrs caller = qa_test1 and async id = 12345
 --echo #   query attrs original_caller = oc_qa_test1
 --echo #
+/* async-12345 */ select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
+
+--echo #
+--echo # Verify with query attrs caller = qa_test1 and async id = 12345
+--echo #   query attrs original_caller = oc_qa_test1
+--echo #
 query_attrs_add async_id 12345;
 select 1;
 
@@ -65,6 +73,14 @@ use performance_schema;
 --echo #  and original_caller CA = oc_ca_test2
 --echo #
 select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
+
+--echo #
+--echo # Verify with conn attrs = ca_test2 and async id
+--echo #  original_caller CA = oc_ca_test2
+--echo #
+/* async-12345 */ select 1;
 
 select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
@@ -94,6 +110,12 @@ select 1;
 
 select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
+--echo #
+--echo # Verify with query attrs overriding original caller = oc_qa_test3
+--echo #
+/* async-12345 */ select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with just conn attrs again
@@ -119,7 +141,7 @@ select * from client_attributes;
 query_attrs_add caller qa_multiquery;
 query_attrs_add original_caller oc_multiquery;
 delimiter ||||;
- select 1; select 2;
+/* async-12345 */ select 1; select 2;
 ||||
 delimiter ;||||
 
