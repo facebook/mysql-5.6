@@ -549,7 +549,7 @@ class PT_numeric_type : public PT_type {
         options(options) {
     DBUG_ASSERT((options & ~(UNSIGNED_FLAG | ZEROFILL_FLAG)) == 0);
 
-    if (length != nullptr) {
+    if (length != nullptr && enable_deprecation_warning) {
       push_warning(thd, Sql_condition::SL_WARNING,
                    ER_WARN_DEPRECATED_SYNTAX_NO_REPLACEMENT,
                    ER_THD(thd, ER_WARN_DEPRECATED_INTEGER_DISPLAY_WIDTH));
