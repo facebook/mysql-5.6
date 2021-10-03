@@ -378,7 +378,8 @@ class ha_rocksdb : public my_core::handler {
   /*
     Update stats
   */
-  static int update_stats(ha_statistics *ha_stats, Rdb_tbl_def *tbl_def);
+  static int update_stats(ha_statistics *ha_stats, Rdb_tbl_def *tbl_def,
+                          bool from_handler = false);
 
   /*
     Controls whether writes include checksums. This is updated from the session

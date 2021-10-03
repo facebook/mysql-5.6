@@ -11482,7 +11482,8 @@ int ha_rocksdb::adjust_handler_stats_table_scan(ha_statistics *ha_stats,
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
-int ha_rocksdb::update_stats(ha_statistics *ha_stats, Rdb_tbl_def *tbl_def) {
+int ha_rocksdb::update_stats(ha_statistics *ha_stats, Rdb_tbl_def *tbl_def,
+                             bool from_handler) {
   /*
     Test only to simulate corrupted stats
   */
@@ -11512,25 +11513,32 @@ int ha_rocksdb::update_stats(ha_statistics *ha_stats, Rdb_tbl_def *tbl_def) {
     ha_stats->mean_rec_length = ha_stats->data_file_length / ha_stats->records;
   }
 
-  // HA_STATUS_TIME - we always update it as it's cheap
-  ha_stats->update_time = tbl_def->m_update_time;
+  // Skip the rest if we are called from ha_rocksdb::info which will perform
+  // following updates based on flag. Alawys update auto_inc_val is expensive
+  // from ha_rocksdb::info as it involves a DBImpl::Get so we don't want to
+  // do that in steady state. When called from rocksdb_get_table_statistics
+  // it is fine as it is much less frequent
+  if (!from_handler) {
+    // HA_STATUS_TIME
+    ha_stats->update_time = tbl_def->m_update_time;
 
-  // HA_STATUS_AUTO - we always update it as it's cheap
-  // Because we haven't opened the table yet, we need to load auto incr
-  // value here. Note we won't know if the table actually has auto incr
-  // without opening the table, so there is a corner case it'll end up
-  // being NULL if the table has just been created and haven't been
-  // opened yet - InnoDB has the same issue
-  if (tbl_def->m_auto_incr_val == 0) {
-    // Unfortunately in this case we don't know if we actually have auto
-    // increment without opening the table, so we'd have to load the value
-    // always even if the table doesn't have auto increment
-    if (!dict_manager.get_auto_incr_val(tbl_def->get_autoincr_gl_index_id(),
-                                        &ha_stats->auto_increment_value)) {
-      ha_stats->auto_increment_value = 0;
+    // HA_STATUS_AUTO
+    // Because we haven't opened the table yet, we need to load auto incr
+    // value here. Note we won't know if the table actually has auto incr
+    // without opening the table, so there is a corner case it'll end up
+    // being NULL if the table has just been created and haven't been
+    // opened yet - InnoDB has the same issue
+    if (tbl_def->m_auto_incr_val == 0) {
+      // Unfortunately in this case we don't know if we actually have auto
+      // increment without opening the table, so we'd have to load the value
+      // always even if the table doesn't have auto increment
+      if (!dict_manager.get_auto_incr_val(tbl_def->get_autoincr_gl_index_id(),
+                                          &ha_stats->auto_increment_value)) {
+        ha_stats->auto_increment_value = 0;
+      }
+    } else {
+      ha_stats->auto_increment_value = tbl_def->m_auto_incr_val;
     }
-  } else {
-    ha_stats->auto_increment_value = tbl_def->m_auto_incr_val;
   }
 
   return HA_EXIT_SUCCESS;
@@ -11549,7 +11557,7 @@ int ha_rocksdb::info(uint flag) {
   }
 
   if (flag & HA_STATUS_VARIABLE) {
-    int ret = update_stats(&stats, m_tbl_def);
+    int ret = update_stats(&stats, m_tbl_def, /* from_handler */ true);
     if (ret != HA_EXIT_SUCCESS) {
       return ret;
     }
