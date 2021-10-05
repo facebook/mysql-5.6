@@ -246,10 +246,13 @@
 
   80020-021:
   - Add SQL_TEXT table
+
+  80020-022:
+  - change type of SQL_FINDINGS.QUERY_TEXT to longtext
 */
-/* Version published now is 80020-018. i.e. 8.0.20 Facebook schema change
- * no. 18.
+/* Version published now is 80020-022. i.e. 8.0.20 Facebook schema change
+ * no. 22.
  */
-static const uint PFS_DD_VERSION = 80020021;
+static const uint PFS_DD_VERSION = 80020022;
 
 #endif /* PFS_DD_VERSION_H */
