@@ -12939,7 +12939,7 @@ select TRACE into dumpfile 'MYSQLTEST_VARDIR/tmp/optimizer_trace.txt' from infor
     }
   ]
 }set optimizer_switch='default,index_merge=on,index_merge=off,default';
-ERROR 42000: Variable 'optimizer_switch' can't be set to the value of 'index_merge=off,default'
+ERROR 42000: Variable 'optimizer_switch' can't be set to the value of 'default'
 select @@optimizer_switch=@old_opt_switch;
 @@optimizer_switch=@old_opt_switch
 1

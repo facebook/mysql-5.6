@@ -272,6 +272,8 @@ static int parse_name(const TYPELIB *lib, const char **strpos,
   @param err_pos      OUT  If error, set to point to start of wrong set string
                            NULL on success
   @param err_len      OUT  If error, set to the length of wrong set string
+  @param dedup             Should duplicate entries be considered as valid and
+                           deduplicated? Default is false.
 
   @details
   Parse a set of flag assignments, that is, parse a string in form:
@@ -280,7 +282,7 @@ static int parse_name(const TYPELIB *lib, const char **strpos,
 
   where the names are specified in the TYPELIB, and each value can be
   either 'on','off', or 'default'. Setting the same name twice is not
-  allowed.
+  allowed (unless dedup argument is set to true, see note below).
 
   Besides param=val assignments, we support the "default" keyword (keyword
   default_name in the typelib). It can be used one time, if specified it
@@ -290,6 +292,10 @@ static int parse_name(const TYPELIB *lib, const char **strpos,
   @note
   it's not charset aware
 
+  if the argument 'dedup' is set to true then duplicate entries can be specified
+  for the same parameter. The duplicate entries will be de-duplicated and the
+  latest entry will be given the precedence.
+
   @retval
     Parsed set value if (*errpos == NULL), otherwise undefined
 */
@@ -297,7 +303,7 @@ static int parse_name(const TYPELIB *lib, const char **strpos,
 uint64_t find_set_from_flags(const TYPELIB *lib, int default_name,
                              uint64_t cur_set, uint64_t default_set,
                              const char *str, uint length, const char **err_pos,
-                             uint *err_len) {
+                             uint *err_len, bool dedup) {
   const char *end = str + length;
   uint64_t flags_to_set = 0, flags_to_clear = 0, res;
   bool set_defaults = false;
@@ -318,6 +324,17 @@ uint64_t find_set_from_flags(const TYPELIB *lib, int default_name,
         set_defaults = true;
       } else {
         uint64_t bit = (1ULL << (flag_no - 1));
+
+        /* if duplicate entries need to be allowed then clear the values
+         * set for the previous entries before setting the latest entry. This
+         * will lead to the latest entry taking precedence over the previous
+         * entries.
+         */
+        if (dedup) {
+          if (flags_to_set & bit) flags_to_set &= ~bit;
+          if (flags_to_clear & bit) flags_to_clear &= ~bit;
+        }
+
         /* parse the '=on|off|default' */
         if ((flags_to_clear | flags_to_set) & bit || pos >= end ||
             *pos++ != '=' ||
