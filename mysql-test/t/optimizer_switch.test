@@ -404,3 +404,49 @@ DROP TABLE t1, t2, t3, t4;
 set @@optimizer_switch='default';
 
 --echo # End of BUG#31480
+
+--echo # 
+--echo # Allow duplicate setting in optimizer_switch
+--echo # 
+
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=off,semijoin=off';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=on,skip_scan=on';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=on,skip_scan=off';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=off,skip_scan=on';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=off,skip_scan=off';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=default,skip_scan=default';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=default,skip_scan=off';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=off,skip_scan=default';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=default,skip_scan=off';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=default,skip_scan=off,skip_scan=on';
+select @@optimizer_switch;
+
+set @@optimizer_switch='skip_scan=on,skip_scan=off,semijoin=off,semijoin=on';
+select @@optimizer_switch;
+
+set @@optimizer_switch='semijoin=on,skip_scan=off,semijoin=off,skip_scan=off';
+select @@optimizer_switch;
+
+set @@optimizer_switch='default';
+
+--echo # End of tests for allow duplicate setting in optimizer_switch

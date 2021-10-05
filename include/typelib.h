@@ -61,6 +61,7 @@ extern TYPELIB sql_protocol_typelib;
 uint64_t find_set_from_flags(const TYPELIB *lib, int default_name,
                              uint64_t cur_set, uint64_t default_set,
                              const char *str, unsigned int length,
-                             const char **err_pos, unsigned int *err_len);
+                             const char **err_pos, unsigned int *err_len,
+                             bool dedup = false);
 
 #endif /* _typelib_h */
