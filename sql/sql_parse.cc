@@ -5608,9 +5608,7 @@ static bool mt_check_throttle_write_query(THD *thd) {
     // exclude automation & super queries
     Security_context *sctx = thd->security_context();
     ulong master_access = sctx->master_access();
-    if ((sctx->has_global_grant(STRING_WITH_LEN("BINLOG_ADMIN")).first) ||
-        (master_access & SUPER_ACL) || 
-        (master_access & REPL_SLAVE_ACL)) {
+    if ((master_access & SUPER_ACL) || (master_access & REPL_SLAVE_ACL)) {
       DBUG_RETURN(false);
     }
   }
