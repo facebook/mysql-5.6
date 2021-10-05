@@ -34,6 +34,7 @@
 class Server_ids;
 
 extern bool skip_flush_master_info;
+extern bool skip_flush_relay_worker_info;
 
 /**
   Defines a file hander.

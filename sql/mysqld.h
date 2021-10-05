@@ -965,6 +965,7 @@ extern MYSQL_PLUGIN_IMPORT char pidfile_name[];
 extern ulonglong command_slave_seconds;
 
 extern bool skip_flush_master_info;
+extern bool skip_flush_relay_worker_info;
 
 /*
   Server mutex locks and condition variables.

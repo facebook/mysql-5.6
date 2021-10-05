@@ -2234,7 +2234,10 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-skip-core-dump-on-error to disable.)
  --skip-flush-master-info 
  Increase performance by not flushing the master info on
- each slave transaction
+ each replica event
+ --skip-flush-relay-worker-info 
+ Increase performance by not flushing the relay/worker
+ info on each replica transaction
  --skip-grant-tables Start without grant tables. This gives all users FULL
  ACCESS to all tables.
  --skip-host-cache   Don't cache host names.
@@ -3258,6 +3261,7 @@ show-query-digest FALSE
 show-slave-auth-info FALSE
 skip-core-dump-on-error TRUE
 skip-flush-master-info FALSE
+skip-flush-relay-worker-info FALSE
 skip-grant-tables TRUE
 skip-master-info-check-for-read-only-error-msg-extra FALSE
 skip-name-resolve FALSE

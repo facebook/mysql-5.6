@@ -345,6 +345,18 @@ class Rpl_info_handler {
   void set_sync_period(uint period);
 
   /**
+    Increments sync_counter.
+  */
+  void inc_sync_counter() { sync_counter++; }
+
+  /**
+    Returns sync_counter.
+
+    @return sync_counter
+  */
+  uint get_sync_counter() { return sync_counter; }
+
+  /**
     Returns a string describing the repository. For instance, if the
     repository is a file, the returned string is path where data is
     stored.

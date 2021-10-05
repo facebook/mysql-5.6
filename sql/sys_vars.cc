@@ -3979,8 +3979,15 @@ static Sys_var_bool Sys_skip_external_locking(
 static Sys_var_bool Sys_skip_flush_master_info(
     "skip_flush_master_info",
     "Increase performance by not flushing the master info on each "
-    "slave transaction",
+    "replica event",
     GLOBAL_VAR(skip_flush_master_info), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_skip_flush_relay_worker_info(
+    "skip_flush_relay_worker_info",
+    "Increase performance by not flushing the relay/worker info on each "
+    "replica transaction",
+    GLOBAL_VAR(skip_flush_relay_worker_info), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
 
 static Sys_var_bool Sys_skip_networking(
     "skip_networking", "Don't allow connection with TCP/IP",

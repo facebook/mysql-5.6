@@ -490,6 +490,19 @@ int Slave_worker::flush_info(const bool force) {
   */
   handler->set_sync_period(sync_relayloginfo_period);
 
+  handler->inc_sync_counter();
+
+  bool do_flush = sync_relayloginfo_period &&
+                  handler->get_sync_counter() >= sync_relayloginfo_period;
+  /*
+    Check whether a write is actually necessary. If not checked,
+    write_info() causes unnecessary code path which copies (sprintf),
+    writes to file cache and flush_info() causes unnecessary flush of the
+    file cache which are anyway completely useless in recovery since
+    they are not transactional if we are using FILE based repository.
+  */
+  if (skip_flush_relay_worker_info && !(force || do_flush)) return 0;
+
   /*
     This only fails on out-of-memory errors, which are reported (using
     the MY_WME flag to my_malloc).

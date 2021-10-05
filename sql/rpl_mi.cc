@@ -377,6 +377,20 @@ int Master_info::flush_info(bool force) {
   */
   if (inited) handler->set_sync_period(sync_masterinfo_period);
 
+  handler->inc_sync_counter();
+
+  bool do_flush = sync_masterinfo_period &&
+                  handler->get_sync_counter() >= sync_masterinfo_period;
+
+  /*
+    Check whether a write is actually necessary. If not checked,
+    write_info() causes unnecessary code path which copies (sprintf),
+    writes to file cache and flush_info() causes unnecessary flush of the
+    file cache which are anyway completely useless in recovery since
+    they are not transactional if we are using FILE based repository.
+  */
+  if (skip_flush_master_info && !(force || do_flush)) return 0;
+
   if (write_info(handler)) goto err;
 
   if (handler->flush_info(force)) goto err;

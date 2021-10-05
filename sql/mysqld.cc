@@ -1106,6 +1106,7 @@ bool opt_slave_allow_batching = false;
 bool rpl_wait_for_semi_sync_ack = false;
 
 bool skip_flush_master_info = false;
+bool skip_flush_relay_worker_info = false;
 
 /**
   compatibility option:
