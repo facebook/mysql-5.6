@@ -1034,6 +1034,8 @@ extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_replica;
 extern mysql_rwlock_t LOCK_system_variables_hash;
 
+extern uint performance_schema_max_sql_text_length;
+
 extern ulong opt_ssl_fips_mode;
 
 extern char *opt_disabled_storage_engines;

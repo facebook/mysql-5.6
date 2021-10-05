@@ -287,10 +287,13 @@
   80028-020:
   - remove sql storage from PFS_statements_digest_stat
 
+  80028-021:
+  - change type of SQL_FINDINGS.QUERY_TEXT to longtext
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80028-020. i.e. 8.0.28 Facebook schema change no. 20.
+  Version published is now 80028-021. i.e. 8.0.28 Facebook schema change no. 21.
 */
 
-static const uint PFS_DD_VERSION = 80028020;
+static const uint PFS_DD_VERSION = 80028021;
 
 #endif /* PFS_DD_VERSION_H */
