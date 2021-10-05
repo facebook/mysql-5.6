@@ -1878,6 +1878,8 @@ static void update_mt_stmt_stats(THD *thd, char *sub_query) {
   thd->mt_key_clear(THD::SQL_HASH);
 }
 
+uint performance_schema_max_sql_text_length = 1024;
+
 /**
   Deep copy the name and value of named parameters into the THD memory.
 
@@ -2299,7 +2301,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
           Secondary_engine_optimization::PRIMARY_TENTATIVELY);
 
       const char *beginning_of_current_stmt = thd->query().str;
-      char sub_query[1025];  // 1024 bytes + '\0'
+      char *sub_query;
       int sub_query_byte_length;
 
       copy_bind_parameter_values(thd, com_data->com_query.parameters,
@@ -2330,7 +2332,12 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
         sub_query_byte_length = static_cast<int>(beginning_of_next_stmt -
                                                  beginning_of_current_stmt);
-        sub_query_byte_length = std::min(sub_query_byte_length, 1024);
+        sub_query_byte_length =
+            std::min(sub_query_byte_length,
+                     static_cast<int>(performance_schema_max_sql_text_length));
+        sub_query =
+            (char *)my_malloc(key_memory_custom_log_message,
+                              sub_query_byte_length + 1, MYF(MY_FAE | MY_WME));
         memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
         sub_query[sub_query_byte_length] = '\0';
 
@@ -2344,6 +2351,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
           multi-query set.
         */
         update_mt_stmt_stats(thd, sub_query);
+        my_free(sub_query);
 
         /* store CPU time as part of the query response attributes */
         cpu_time = thd->get_cpu_time();
@@ -2424,9 +2432,15 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       sub_query_byte_length =
           static_cast<int>(packet_end - beginning_of_current_stmt);
-      sub_query_byte_length = std::min(sub_query_byte_length, 1024);
+      sub_query_byte_length =
+          std::min(sub_query_byte_length,
+                   static_cast<int>(performance_schema_max_sql_text_length));
+      sub_query =
+          (char *)my_malloc(key_memory_custom_log_message,
+                            sub_query_byte_length + 1, MYF(MY_FAE | MY_WME));
       memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
       sub_query[sub_query_byte_length] = '\0';
+
       /*
         Update MT stats.
         If multi-query: The stats updated here will be for the last statement
@@ -2435,6 +2449,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
           statement.
       */
       update_mt_stmt_stats(thd, sub_query);
+      my_free(sub_query);
 
       if (thd->is_in_ac &&
           (!opt_admission_control_by_trx ||

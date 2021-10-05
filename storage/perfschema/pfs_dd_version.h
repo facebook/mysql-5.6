@@ -291,10 +291,14 @@
 
   - add SQL_TEXT table
 
+  80023-022:
+ 
+ - change type of SQL_FINDINGS.QUERY_TEXT to longtext
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-021. i.e. 8.0.23 Facebook schema change no. 21.
+  Version published is now 80023-022. i.e. 8.0.23 Facebook schema change no. 22.
 */
 
-static const uint PFS_DD_VERSION = 80023021;
+static const uint PFS_DD_VERSION = 80023022;
 
 #endif /* PFS_DD_VERSION_H */
