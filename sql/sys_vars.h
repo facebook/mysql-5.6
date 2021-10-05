@@ -1623,7 +1623,7 @@ class Sys_var_flagset : public Sys_var_typelib {
 
         var->save_result.ulonglong_value = find_set_from_flags(
             &typelib, typelib.count, current_value, default_value, res->ptr(),
-            static_cast<uint>(res->length()), &error, &error_len);
+            static_cast<uint>(res->length()), &error, &error_len, true);
         if (error) {
           ErrConvString err(error, error_len, res->charset());
           my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), name.str, err.ptr());

@@ -2137,11 +2137,9 @@ ERROR 42000: Variable 'optimizer_switch' can't be set to the value of 'index_mer
 set optimizer_switch='on';
 ERROR 42000: Variable 'optimizer_switch' can't be set to the value of 'on'
 set optimizer_switch='index_merge=on,index_merge=off';
-ERROR 42000: Variable 'optimizer_switch' can't be set to the value of 'index_merge=off'
 set optimizer_switch='index_merge_union=on,index_merge_union=default';
-ERROR 42000: Variable 'optimizer_switch' can't be set to the value of 'index_merge_union=default'
 set optimizer_switch='default,index_merge=on,index_merge=off,default';
-ERROR 42000: Variable 'optimizer_switch' can't be set to the value of 'index_merge=off,default'
+ERROR 42000: Variable 'optimizer_switch' can't be set to the value of 'default'
 set optimizer_switch=default;
 set optimizer_switch='index_merge=off,index_merge_union=off,default';
 select @@optimizer_switch;
