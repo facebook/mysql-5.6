@@ -50,7 +50,7 @@ Plugin_table table_sql_findings::m_table_def(
     "  CODE          BIGINT unsigned NOT NULL,\n"
     "  LEVEL         VARCHAR(64),\n"
     "  MESSAGE       VARCHAR(512),\n"
-    "  QUERY_TEXT    VARCHAR(1024),\n"
+    "  QUERY_TEXT    LONGTEXT,\n"
     "  COUNT         BIGINT unsigned NOT NULL,\n"
     "  LAST_RECORDED BIGINT unsigned NOT NULL \n",
     /* Options */
@@ -84,7 +84,7 @@ enum sql_findings_field_offset {
 };
 
 table_sql_findings::table_sql_findings()
-    : PFS_engine_table(&m_share, &m_pos), m_pos(0) {
+    : PFS_engine_table(&m_share, &m_pos), m_pos(0), m_next_pos(0) {
   m_all_rows = get_all_sql_findings();
   table_sql_findings::m_most_recent_size = m_all_rows.size();
   m_current_row = nullptr;
@@ -102,15 +102,19 @@ ha_rows table_sql_findings::get_row_count(void) {
   return m_most_recent_size;
 }
 
-void table_sql_findings::reset_position(void) { m_pos.set_at(0u); }
+void table_sql_findings::reset_position(void) {
+  m_pos.set_at(0u);
+  m_next_pos.set_at(0u);
+}
 
 int table_sql_findings::rnd_next(void) {
+  m_pos.set_at(&m_next_pos);
   if (m_pos.m_index >= m_all_rows.size()) {
     m_current_row = nullptr;
     return HA_ERR_END_OF_FILE;
   }
   m_current_row = &m_all_rows[m_pos.m_index];
-  m_pos.next();
+  m_next_pos.set_after(&m_pos);
   return 0;
 }
 
@@ -152,8 +156,8 @@ int table_sql_findings::read_row_values(TABLE *table, unsigned char *buf,
                                  curr_row.message().length());
           break;
         case FO_QUERY_TEXT:
-          set_field_varchar_utf8mb4(f, curr_row.query_text().c_str(),
-                                 curr_row.query_text().length());
+          set_field_longtext_utf8mb4(f, curr_row.query_text().c_str(),
+                                     curr_row.query_text().length());
           break;
         case FO_COUNT:
           set_field_ulonglong(f, curr_row.count());

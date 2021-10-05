@@ -293,6 +293,13 @@ void set_field_text(Field *f, const char *val, size_t len,
   f2->store(val, len, cs);
 }
 
+/* LONGTEXT TYPE */
+void set_field_longtext_utf8mb4(Field *f, const char *val, size_t len) {
+  assert(f->real_type() == MYSQL_TYPE_BLOB);
+  Field_blob *f2 = (Field_blob *)f;
+  f2->store(val, len, &my_charset_utf8mb4_bin);
+}
+
 char *get_field_blob(Field *f, char *val, uint *len) {
   assert(f->real_type() == MYSQL_TYPE_BLOB);
   String temp;

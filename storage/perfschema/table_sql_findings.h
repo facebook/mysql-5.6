@@ -101,6 +101,9 @@ class table_sql_findings : public PFS_engine_table {
   /** Current position. */
   PFS_simple_index m_pos;
 
+  /** Next position */
+  PFS_simple_index m_next_pos;
+
   std::vector<sql_findings_row> m_all_rows;
   const sql_findings_row *m_current_row;
 

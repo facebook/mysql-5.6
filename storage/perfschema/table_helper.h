@@ -318,6 +318,15 @@ void set_field_blob(Field *f, const char *val, size_t len);
 */
 void set_field_text(Field *f, const char *val, size_t len,
                     const CHARSET_INFO *cs);
+
+/**
+  Helper, assign a value to a longtext field.
+  @param f the field to set
+  @param val the value to assign
+  @param len the length of the string to assign
+*/
+void set_field_longtext_utf8mb4(Field *f, const char *val, size_t len);
+
 /**
   Helper, read a value from a @c blob field.
   @param f the field to read

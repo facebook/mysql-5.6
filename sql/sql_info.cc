@@ -299,7 +299,6 @@ void remove_active_sql(THD *thd) {
   Associates a SQL ID with its findings (aka SQL conditions).
 */
 const uint sf_max_message_size = 512;  // max message text size
-const uint sf_max_query_size = 1024;   // max query text size
 
 /* Global SQL findings map to track findings for all SQL statements */
 static std::unordered_map<digest_key, SQL_FINDING_VEC> global_sql_findings_map;
@@ -361,7 +360,8 @@ static void populate_sql_findings(THD *thd, char *query_text,
           err->message_text(),
           std::min((uint)err->message_octet_length(), sf_max_message_size));
       sql_find.query_text.append(
-          query_text, std::min((uint)strlen(query_text), sf_max_query_size));
+          query_text, std::min((uint)strlen(query_text),
+                               performance_schema_max_sql_text_length));
       sql_find.count = 1;
       sql_find.last_recorded = now;
       finding_vec.push_back(sql_find);
