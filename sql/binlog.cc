@@ -6503,7 +6503,7 @@ err:
     mysql_mutex_unlock(&LOCK_index);
 
   error = error ? error : error_index;
-  if (error && binlog_error_action == ABORT_SERVER)
+  if (error && error != LOG_INFO_EOF && binlog_error_action == ABORT_SERVER)
   {
     exec_binlog_error_action_abort("Either disk is full or file system is read "
                                    "only while opening the binlog. Aborting the"

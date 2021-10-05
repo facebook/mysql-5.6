@@ -1,0 +1,6 @@
+call mtr.add_suppression('MYSQL_BIN_LOG::purge_logs was called with file .*');
+set global binlog_error_action=ABORT_SERVER;
+flush logs;
+purge binary logs to 'abc';
+ERROR HY000: Target log not found in binlog index
+set global binlog_error_action=default;

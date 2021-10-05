@@ -1,0 +1,11 @@
+source include/have_log_bin.inc;
+source include/not_embedded.inc;
+source include/have_debug.inc;
+
+call mtr.add_suppression('MYSQL_BIN_LOG::purge_logs was called with file .*');
+
+set global binlog_error_action=ABORT_SERVER;
+flush logs;
+--error ER_UNKNOWN_TARGET_BINLOG
+purge binary logs to 'abc';
+set global binlog_error_action=default;
