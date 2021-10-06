@@ -59,10 +59,10 @@ Plugin_table table_sql_findings::m_table_def(
     nullptr);
 
 PFS_engine_table_share table_sql_findings::m_share = {
-    &pfs_readonly_acl,
+    &pfs_truncatable_acl,
     table_sql_findings::create,
     NULL, /* write_row */
-    NULL, /* delete_all_rows */
+    table_sql_findings::delete_all_rows,
     table_sql_findings::get_row_count,
     sizeof(PFS_simple_index),
     &table_sql_findings::m_table_lock,
@@ -100,6 +100,11 @@ ha_rows table_sql_findings::get_row_count(void) {
     the table when we last loaded the stats
   */
   return m_most_recent_size;
+}
+
+int table_sql_findings::delete_all_rows(void) {
+  free_global_sql_findings(false);
+  return 0;
 }
 
 void table_sql_findings::reset_position(void) {
