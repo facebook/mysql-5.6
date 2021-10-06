@@ -141,6 +141,33 @@ select * from t5 where c1=1;
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
+###########################
+### Case 5: table truncate
+###########################
+--echo -> Case 5: table truncate
+
+connect (con43, localhost, user_super,su,test);
+
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+set @@GLOBAL.sql_findings_control=ON;
+select @@sql_findings_control;
+
+create table t6(c1 char(2) PRIMARY KEY)
+ engine=myisam;
+--disable_warnings
+insert into t6 values('case4');
+select * from t6 where c1=1;
+--enable_warnings
+
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+# truncate table
+truncate performance_schema.sql_findings;
+
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
 ###########
 ### Cleanup
 ###########
@@ -155,6 +182,7 @@ drop table t1;
 drop table t2;
 drop table t3;
 drop table t5;
+drop table t6;
 drop user user1@localhost;
 drop user user_super@localhost;
 
@@ -167,6 +195,7 @@ disconnect con31;
 
 disconnect con41;
 disconnect con42;
+disconnect con43;
 
 # Check that all connections opened by test cases in this file are gone
 --source include/wait_until_count_sessions.inc

@@ -1,8 +1,6 @@
 ALTER TABLE performance_schema.sql_findings
 ADD COLUMN foo integer;
 ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
-TRUNCATE TABLE performance_schema.sql_findings;
-ERROR 42000: DROP command denied to user 'root'@'localhost' for table 'sql_findings'
 ALTER TABLE performance_schema.sql_findings
 ADD INDEX test_index(VALUE);
 ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
