@@ -1319,6 +1319,13 @@ bool INLINE_ATTR select_exec::scan_where() {
     return true;
   }
 
+  for (uint i = 0; i < m_filter_count; ++i) {
+    Field *field = where_list[m_filter_list[i]].field;
+
+    // Since we bypassed prepare function, read_set might not be set.
+    // Let's set it before calling eval_cond().
+    bitmap_set_bit(m_table->read_set, field->field_index());
+  }
   return false;
 }
 
@@ -1331,12 +1338,11 @@ void INLINE_ATTR select_exec::scan_value() {
   m_unpack_pk = false;
   m_unpack_value = false;
 
-#ifndef NDEBUG
   const auto &field_list = m_parser.get_field_list();
   for (uint i = 0; i < field_list.size(); i++) {
-    assert(bitmap_is_set(m_table->read_set, field_list[i]->field_index()));
+    // bitmap is not set yet because we skips prepare function
+    bitmap_set_bit(m_table->read_set, field_list[i]->field_index());
   }
-#endif
 
   std::vector<bool> index_cover_bitmap(m_table_share->fields, false);
   for (uint i = 0; i < m_index_info->actual_key_parts; ++i) {
