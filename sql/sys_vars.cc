@@ -814,7 +814,7 @@ static Sys_var_long Sys_pfs_sql_text_size(
     "Size of the sql text table."
     " Use 0 to disable, -1 for automated sizing.",
     READ_ONLY GLOBAL_VAR(pfs_param.m_sql_text_sizing), CMD_LINE(REQUIRED_ARG),
-    VALID_RANGE(-1, 1024 * 1024), DEFAULT(2000), BLOCK_SIZE(1),
+    VALID_RANGE(-1, 1024 * 1024), DEFAULT(5000), BLOCK_SIZE(1),
     PFS_TRAILING_PROPERTIES);
 
 static Sys_var_long Sys_pfs_events_transactions_history_long_size(
