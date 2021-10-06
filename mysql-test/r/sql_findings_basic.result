@@ -64,6 +64,7 @@ sql_id	code	message	query_text	count
 4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
 65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
 65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1
 cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
 select * from t3 where c1=2;
 c1
@@ -74,6 +75,7 @@ sql_id	code	message	query_text	count
 65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
 65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
 7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
+7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1
 cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
 -> Case 3: multi-query scenario
 set session sql_mode=NO_ENGINE_SUBSTITUTION;
@@ -94,15 +96,16 @@ sql_id	code	message	query_text	count
 65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
 65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
 7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
+7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1
 cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
 -> Case 4: with size limit
 select @@max_sql_findings_size;
 @@max_sql_findings_size
 10485760
-set @@GLOBAL.max_sql_findings_size=150;
+set @@GLOBAL.max_sql_findings_size=333;
 select @@max_sql_findings_size;
 @@max_sql_findings_size
-150
+333
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 sql_id	code	message	query_text	count
@@ -115,7 +118,38 @@ c1
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 sql_id	code	message	query_text	count
+36459a163c517e235f28d25dc42a0a82	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t5 where c1=1	1
 9b0b6882ba54fc1549afcd3109e18aa5	1265	Data truncated for column 'c1' at row 1	insert into t5 values('case4')	1
+-> Case 5: table truncate
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+set @@GLOBAL.sql_findings_control=ON;
+select @@sql_findings_control;
+@@sql_findings_control
+ON
+create table t6(c1 char(2) PRIMARY KEY)
+engine=myisam;
+insert into t6 values('case4');
+select * from t6 where c1=1;
+c1
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+36459a163c517e235f28d25dc42a0a82	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t5 where c1=1	1
+9b0b6882ba54fc1549afcd3109e18aa5	1265	Data truncated for column 'c1' at row 1	insert into t5 values('case4')	1
+truncate performance_schema.sql_findings;
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+select GET_LOCK("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 3);
+ERROR 42000: Incorrect user-level lock name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+6f4e2c51c95e6a28d18797e7fcf0c6c6	3057	Incorrect user-level lock name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.	select GET_LOCK("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 3)	1
+truncate performance_schema.sql_findings;
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
 -> Cleanup
 set @@GLOBAL.sql_findings_control=DEFAULT;
 set @@GLOBAL.max_sql_findings_size=DEFAULT;
@@ -123,5 +157,6 @@ drop table t1;
 drop table t2;
 drop table t3;
 drop table t5;
+drop table t6;
 drop user user1@localhost;
 drop user user_super@localhost;

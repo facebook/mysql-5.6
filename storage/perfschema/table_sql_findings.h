@@ -81,6 +81,7 @@ class table_sql_findings : public PFS_engine_table {
   static PFS_engine_table_share m_share;
   static PFS_engine_table *create(PFS_engine_table_share *);
   static ha_rows get_row_count();
+  static int delete_all_rows(void);
 
   void reset_position(void) override;
   int rnd_next() override;

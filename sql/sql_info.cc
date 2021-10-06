@@ -402,30 +402,6 @@ static void populate_sql_findings(THD *thd, char *query_text,
   }
 }
 
-bool should_store_findings(enum_sql_command sql_command) {
-  switch (sql_command) {
-    case SQLCOM_SELECT:
-    case SQLCOM_CREATE_TABLE:
-    case SQLCOM_CREATE_INDEX:
-    case SQLCOM_UPDATE:
-    case SQLCOM_UPDATE_MULTI:
-    case SQLCOM_ALTER_TABLE:
-    case SQLCOM_DELETE:
-    case SQLCOM_DELETE_MULTI:
-    case SQLCOM_DROP_TABLE:
-    case SQLCOM_DROP_INDEX:
-    case SQLCOM_INSERT:
-    case SQLCOM_INSERT_SELECT:
-    case SQLCOM_REPLACE:
-    case SQLCOM_REPLACE_SELECT:
-    case SQLCOM_LOAD:
-    case SQLCOM_TRUNCATE:
-      return true;
-    default:
-      return false;
-  }
-}
-
 /*
   store_sql_findings
     Store the findings for the SQL statement that just ended into
@@ -439,9 +415,7 @@ bool should_store_findings(enum_sql_command sql_command) {
 */
 void store_sql_findings(THD *thd, char *query_text) {
   if (sql_findings_control == SQL_INFO_CONTROL_ON &&
-      thd->mt_key_is_set(THD::SQL_ID) && 
-      (thd->get_stmt_da()->cond_count() > 0) &&
-      should_store_findings(thd->lex->sql_command)) {
+      thd->mt_key_is_set(THD::SQL_ID) && thd->get_stmt_da()->cond_count() > 0) {
     mysql_mutex_lock(&LOCK_global_sql_findings);
 
     // Lookup finding map for this statement
