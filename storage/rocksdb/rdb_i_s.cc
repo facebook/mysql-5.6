@@ -1056,6 +1056,17 @@ static int rdb_i_s_compact_history_fill_table(
     field[7]->store(record.start_timestamp, false /* unsigned_val */);
     field[8]->store(record.end_timestamp, false /* unsigned_val */);
 
+    // Input and output compaction bytes.
+    field[9]->store(record.info.stats.total_input_bytes, false);
+    field[10]->store(record.info.stats.total_output_bytes, false);
+
+    // Input files count and output files count.
+    field[11]->store(record.info.input_files.size(), false);
+    field[12]->store(record.info.output_files.size(), false);
+
+    // CPU micros.
+    field[13]->store(record.info.stats.cpu_micros, false);
+
     int ret = static_cast<int>(
         my_core::schema_table_store_record(thd, tables->table));
     if (ret != 0) {
@@ -1129,6 +1140,13 @@ static ST_FIELD_INFO rdb_i_s_compact_history_fields_info[] = {
     ROCKSDB_FIELD_INFO("START_TIMESTAMP", sizeof(uint64), MYSQL_TYPE_LONGLONG,
                        0),
     ROCKSDB_FIELD_INFO("END_TIMESTAMP", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("INPUT_COMPACTION_BYTES", sizeof(uint64),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("OUTPUT_COMPACTION_BYTES", sizeof(uint64),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("INPUT_FILE_COUNT", sizeof(uint32), MYSQL_TYPE_LONG, 0),
+    ROCKSDB_FIELD_INFO("OUTPUT_FILE_COUNT", sizeof(uint32), MYSQL_TYPE_LONG, 0),
+    ROCKSDB_FIELD_INFO("CPU_MICROS", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO_END};
 
 static ST_FIELD_INFO rdb_i_s_bypass_rejected_query_history_fields_info[] = {
