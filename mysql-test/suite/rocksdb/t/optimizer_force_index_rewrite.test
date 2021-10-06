@@ -34,10 +34,10 @@ EXPLAIN SELECT * FROM t FORCE INDEX(j2) WHERE i = 1 and j = 2;
 set global rocksdb_select_bypass_policy = always_on;
 set global optimizer_force_index_rewrite = "PRIMARY:asdf,j1:j2,j2:PRIMARY";
 
---error ER_KEY_DOES_NOT_EXITS
-SELECT * FROM t FORCE INDEX(PRIMARY) WHERE i > 0;
-SELECT * FROM t FORCE INDEX(j1) WHERE j > 0;
-SELECT * FROM t FORCE INDEX(j2) WHERE j > 0;
+--error ER_NOT_SUPPORTED_YET
+SELECT i,j,k FROM t FORCE INDEX(PRIMARY) WHERE i > 0;
+SELECT i,j,k FROM t FORCE INDEX(j1) WHERE j > 0;
+SELECT i,j,k FROM t FORCE INDEX(j2) WHERE j > 0;
 
 set global optimizer_force_index_rewrite = DEFAULT;
 set global rocksdb_select_bypass_policy = DEFAULT;

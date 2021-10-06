@@ -313,6 +313,8 @@ bool validate_use_secondary_engine(const LEX *lex) {
   return false;
 }
 
+bool ha_handle_single_table_select(THD *thd, Query_expression *unit);
+
 bool Sql_cmd_dml::prepare(THD *thd) {
   DBUG_TRACE;
 
@@ -383,13 +385,22 @@ bool Sql_cmd_dml::prepare(THD *thd) {
   if (lex->set_var_list.elements && resolve_var_assignments(thd, lex))
     goto err; /* purecov: inspected */
 
+  if (ha_handle_single_table_select(thd, lex->unit)) {
+    // We've handled the query
+    if (thd->is_error()) goto err;
+    m_bypassed = true;
+  }
+
   {
     Prepare_error_tracker tracker(thd);
     Prepared_stmt_arena_holder ps_arena_holder(thd);
     Enable_derived_merge_guard derived_merge_guard(
         thd, is_show_cmd_using_system_view(thd));
 
-    if (prepare_inner(thd)) goto err;
+    // If bypass sql is already executed, skip calling prepare_inner()
+    if (!m_bypassed) {
+      if (prepare_inner(thd)) goto err;
+    }
     if (needs_explicit_preparation() && result != nullptr) {
       result->cleanup(thd);
     }
@@ -577,21 +588,27 @@ bool Sql_cmd_dml::execute(THD *thd) {
   // Revertable changes are not supported during preparation
   assert(thd->change_list.is_empty());
 
-  assert(!lex->is_query_tables_locked());
+  assert(m_bypassed || !lex->is_query_tables_locked());
   /*
     Locking of tables is done after preparation but before optimization.
     This allows to do better partition pruning and avoid locking unused
     partitions. As a consequence, in such a case, prepare stage can rely only
     on metadata about tables used and not data from them.
+
+    Note that if m_bypassed is set, the query is already executed with
+    locking the table, so locking again is not necessary.
   */
-  if (!is_empty_query()) {
+  if (!m_bypassed && !is_empty_query()) {
     if (lock_tables(thd, lex->query_tables, lex->table_count, 0)) goto err;
   }
 
   thd->pre_exec_time = my_timer_now();
 
   // Perform statement-specific execution
-  if (execute_inner(thd)) goto err;
+  if (!m_bypassed) {  // no need to run execute_inner() since the query is
+                      // already executed
+    if (execute_inner(thd)) goto err;
+  }
 
   // Count the number of statements offloaded to a secondary storage engine.
   if (using_secondary_storage_engine() && lex->unit->is_executed())
@@ -636,9 +653,12 @@ bool Sql_cmd_dml::execute(THD *thd) {
   */
   DEBUG_SYNC(thd, "before_reset_query_plan");
 
+  m_bypassed = false;
+
   return false;
 
 err:
+  m_bypassed = false;
   assert(thd->is_error() || thd->killed);
   DBUG_PRINT("info", ("report_error: %d", thd->is_error()));
   THD_STAGE_INFO(thd, stage_end);
@@ -774,6 +794,13 @@ bool optimize_secondary_engine(THD *thd) {
 
 /* Call out to handler to handle this select command */
 bool ha_handle_single_table_select(THD *thd, Query_expression *unit) {
+  // This can be called by non-SELECT query, like INSERT or UPDATE, so
+  // we double check whether the current command is SELECT
+  if (thd != NULL && thd->lex != NULL &&
+      thd->lex->sql_command != SQLCOM_SELECT) {
+    return false;
+  }
+
   /* Simple non-UNION non-NESTED query only */
   if (!unit->is_simple()) {
     return false;
@@ -812,11 +839,6 @@ bool ha_handle_single_table_select(THD *thd, Query_expression *unit) {
 
 bool Sql_cmd_dml::execute_inner(THD *thd) {
   Query_expression *unit = lex->unit;
-
-  if (ha_handle_single_table_select(thd, unit)) {
-    // We've handled the query
-    return thd->is_error();
-  }
 
   if (unit->optimize(thd, /*materialize_destination=*/nullptr,
                      /*create_iterators=*/true, /*finalize_access_paths=*/true))

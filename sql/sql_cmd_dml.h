@@ -213,6 +213,7 @@ class Sql_cmd_dml : public Sql_cmd {
   Query_result *result;  ///< Pointer to object for handling of the result
   bool m_empty_query;    ///< True if query will produce no rows
   bool m_lazy_result;    ///< True: prepare query result on next execution
+  bool m_bypassed{false};  // Is the query already executed with bypass sql
 };
 
 #endif /* SQL_CMD_DML_INCLUDED */
