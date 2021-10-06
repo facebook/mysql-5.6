@@ -47,7 +47,8 @@ SELECT /*+ bypass */ pk from t1 WHERE pk=1 group by pk;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
-# * is supported in 8.0 through PT_query_specification::contextualize
+# Unsupported select *
+--error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ * from t1 WHERE pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
@@ -180,7 +181,7 @@ SELECT /*+ bypass */ pk from t1 WHERE pk<=>1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
---error ER_OPERAND_COLUMNS
+--error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk=(1,2,3);
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
@@ -203,6 +204,7 @@ SELECT /*+ bypass */ pk from t1 WHERE pk=TIMESTAMP '2019-03-25 18:01:00';
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
+--error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk=ANY (SELECT pk FROM t1);
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
@@ -280,7 +282,7 @@ SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Unrecognized index
---error ER_KEY_DOES_NOT_EXITS
+--error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`abc`) WHERE a=1 ORDER BY b, a;
 
 # INTO @var
