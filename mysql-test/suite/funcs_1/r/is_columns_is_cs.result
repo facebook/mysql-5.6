@@ -94,6 +94,7 @@ def	information_schema	COLUMN_STATISTICS	COLUMN_NAME	3	NULL	NO	varchar	64	192	NU
 def	information_schema	COLUMN_STATISTICS	HISTOGRAM	4	NULL	NO	json	NULL	NULL	NULL	NULL	NULL	NULL	NULL	json			select			NULL
 def	information_schema	DATABASE_APPLIED_HLC	DATABASE_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL
 def	information_schema	DATABASE_APPLIED_HLC	APPLIED_HLC	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	DATABASE_APPLIED_HLC	NUM_OUT_OF_ORDER_HLC	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
 def	information_schema	ENABLED_ROLES	ROLE_NAME	1	NULL	YES	varchar	255	1020	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(255)			select			NULL
 def	information_schema	ENABLED_ROLES	ROLE_HOST	2	NULL	YES	varchar	255	1020	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(255)			select			NULL
 def	information_schema	ENABLED_ROLES	IS_DEFAULT	3	NULL	YES	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select			NULL
@@ -291,6 +292,11 @@ def	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_FILES	6		NO	varchar	171
 def	information_schema	ROCKSDB_COMPACTION_HISTORY	COMPACTION_REASON	7		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
 def	information_schema	ROCKSDB_COMPACTION_HISTORY	START_TIMESTAMP	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	ROCKSDB_COMPACTION_HISTORY	END_TIMESTAMP	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_COMPACTION_BYTES	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_COMPACTION_BYTES	11		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_FILE_COUNT	12		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_FILE_COUNT	13		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	CPU_MICROS	14		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	ROCKSDB_COMPACTION_STATS	CF_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL
 def	information_schema	ROCKSDB_COMPACTION_STATS	LEVEL	2		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
 def	information_schema	ROCKSDB_COMPACTION_STATS	TYPE	3		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
@@ -777,6 +783,7 @@ NULL	information_schema	COLUMNS	SRS_ID	int	NULL	NULL	NULL	NULL	int unsigned
 NULL	information_schema	COLUMN_STATISTICS	HISTOGRAM	json	NULL	NULL	NULL	NULL	json
 3.0000	information_schema	DATABASE_APPLIED_HLC	DATABASE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(192)
 NULL	information_schema	DATABASE_APPLIED_HLC	APPLIED_HLC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	DATABASE_APPLIED_HLC	NUM_OUT_OF_ORDER_HLC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 4.0000	information_schema	ENABLED_ROLES	ROLE_NAME	varchar	255	1020	utf8mb4	utf8mb4_0900_ai_ci	varchar(255)
 4.0000	information_schema	ENABLED_ROLES	ROLE_HOST	varchar	255	1020	utf8mb4	utf8mb4_0900_ai_ci	varchar(255)
 3.0000	information_schema	ENABLED_ROLES	IS_DEFAULT	varchar	3	9	utf8	utf8_general_ci	varchar(3)
@@ -974,6 +981,11 @@ NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_LEVEL	int	NULL	NULL	NU
 3.0000	information_schema	ROCKSDB_COMPACTION_HISTORY	COMPACTION_REASON	varchar	171	513	utf8	utf8_general_ci	varchar(513)
 NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	START_TIMESTAMP	bigint	NULL	NULL	NULL	NULL	bigint
 NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	END_TIMESTAMP	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_COMPACTION_BYTES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_COMPACTION_BYTES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_FILE_COUNT	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_FILE_COUNT	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	CPU_MICROS	bigint	NULL	NULL	NULL	NULL	bigint
 3.0156	information_schema	ROCKSDB_COMPACTION_STATS	CF_NAME	varchar	64	193	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_COMPACTION_STATS	LEVEL	varchar	171	513	utf8	utf8_general_ci	varchar(513)
 3.0000	information_schema	ROCKSDB_COMPACTION_STATS	TYPE	varchar	171	513	utf8	utf8_general_ci	varchar(513)
