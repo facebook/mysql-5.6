@@ -1403,6 +1403,27 @@ select * from information_schema.client_attributes a, information_schema.client_
 connection default;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 
+#######################################
+### Case 24: Multi-query prepared statement
+#######################################
+--echo Case 24: Multi-query prepared statement
+
+connection default;
+set @@GLOBAL.sql_stats_control="ON";
+CREATE TABLE test.t1(a int);
+
+delimiter ||||;
+set @query= 'SELECT * FROM test.t1 WHERE a > 5 and a < 10 and a <> 9' ||||
+PREPARE STMT FROM @query; EXECUTE STMT; ||||
+# reset delimiter
+delimiter ;||||
+select b.sql_text from information_schema.sql_statistics as a ,information_schema.sql_text as b where a.sql_id = b.sql_id;
+DROP TABLE test.t1;
+
+# Case 24 cleanup
+connection default;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+
 ##########################
 ### End of the test cleanup and checks
 ##########################

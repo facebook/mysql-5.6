@@ -2301,15 +2301,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       If not multi-query: The stats updated here will be fore the entire
         statement.
     */
-    char *query_end = thd->query() + thd->query_length();
-    sub_query_byte_length = (int)(query_end - beginning_of_current_stmt);
-
     sub_query_byte_length = min(
-      sub_query_byte_length,
+      static_cast<int>(my_query_len),
       static_cast<int>(max_sql_query_sample_text_size));
     sub_query =
         (char *)my_malloc(sub_query_byte_length + 1, MYF(MY_FAE|MY_WME));
-    memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
+    memcpy(sub_query, my_query_txt, sub_query_byte_length);
     sub_query[sub_query_byte_length] = '\0';
 
     update_sql_stats(thd, &cumulative_sql_stats, sub_query);

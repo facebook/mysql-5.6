@@ -1521,3 +1521,17 @@ ERROR HY000: Repeated read of information schema table SQL_TEXT protected by mut
 select * from information_schema.client_attributes a, information_schema.client_attributes b;
 ERROR HY000: Repeated read of information schema table CLIENT_ATTRIBUTES protected by mutex global_sql_stats is not permitted
 set @@GLOBAL.sql_stats_control="OFF_HARD";
+Case 24: Multi-query prepared statement
+set @@GLOBAL.sql_stats_control="ON";
+CREATE TABLE test.t1(a int);
+set @query= 'SELECT * FROM test.t1 WHERE a > 5 and a < 10 and a <> 9' ||||
+PREPARE STMT FROM @query; EXECUTE STMT; ||||
+a
+select b.sql_text from information_schema.sql_statistics as a ,information_schema.sql_text as b where a.sql_id = b.sql_id;
+sql_text
+EXECUTE `STMT` 
+PREPARE `STMT` FROM @? 
+SET @? = ? 
+CREATE TABLE `test` . `t1` ( `a` INTEGER ) 
+DROP TABLE test.t1;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
