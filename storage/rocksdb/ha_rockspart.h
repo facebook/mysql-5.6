@@ -17,8 +17,11 @@
 
 #include "sql/partitioning/partition_base.h"
 
+#include "./ha_rocksdb.h"
+
 /* This class must contain engine-specific functions for partitioning */
-class ha_rockspart : public native_part::Partition_base {
+class ha_rockspart : public native_part::Partition_base,
+                     public myrocks::blob_buffer {
  public:
   ha_rockspart(handlerton *hton, TABLE_SHARE *table_arg)
       : Partition_base(hton, table_arg){};

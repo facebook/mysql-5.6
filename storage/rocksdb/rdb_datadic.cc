@@ -1576,10 +1576,10 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   }
 
   // Reset the blob buffer required for unpacking.
-  auto handler = (ha_rocksdb *)table->file;
   if (this->m_max_blob_length) {
-    auto handler = (ha_rocksdb *)table->file;
-    if (handler->reset_blob_buffer(this->m_max_blob_length)) {
+    auto bb = dynamic_cast<blob_buffer *>(table->file);
+    assert(bb);
+    if (bb->reset_blob_buffer(this->m_max_blob_length)) {
       return HA_ERR_OUT_OF_MEM;
     }
   }
@@ -1638,7 +1638,8 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
     } else {
       /* The checksums are present but we are not checking checksums */
     }
-    handler->m_validated_checksums++;
+    auto handler = dynamic_cast<ha_rocksdb *>(table->file);
+    if (handler) handler->m_validated_checksums++;
   }
 
   if (unlikely(reader.remaining_bytes())) return HA_ERR_ROCKSDB_CORRUPT_DATA;
@@ -2842,8 +2843,9 @@ uchar *Rdb_key_def::get_data_start_ptr(Rdb_field_packing *const fpi, uchar *dst,
   if (fpi->m_field_real_type == MYSQL_TYPE_VARCHAR) {
     data_start = dst + fpi->m_varlength_bytes;
   } else if (is_blob(fpi->m_field_real_type)) {
-    auto handler = static_cast<ha_rocksdb *>(ctx->table->file);
-    data_start = handler->get_blob_buffer(fpi->m_max_field_bytes);
+    auto bb = dynamic_cast<blob_buffer *>(ctx->table->file);
+    assert(bb);
+    data_start = bb->get_blob_buffer(fpi->m_max_field_bytes);
   } else {
     assert(false);
   }
