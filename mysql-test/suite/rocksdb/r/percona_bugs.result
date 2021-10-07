@@ -1,0 +1,27 @@
+#
+# PS-7827: partition table created with RocksDB engine crashes on a select query
+# https://jira.percona.com/browse/PS-7827
+#
+CREATE TABLE t (
+ip_col INT,
+i0 INT AUTO_INCREMENT,
+v1 VARCHAR(28),
+v2 VARCHAR(11),
+b3 BLOB,
+d4 DOUBLE,
+g5 BLOB,
+INDEX ti0(i0 ASC, v1 ASC, ip_col ASC, g5(3) ASC, v2),
+INDEX ti1(g5(7), v2, ip_col, v1),
+INDEX ti2(v2, v1, i0 ASC, ip_col, b3(1), d4, g5(9)),
+INDEX ti3(v1, i0),
+INDEX ti4(v2, b3(6), g5(16) ASC, d4, v1, i0 ASC),
+INDEX ti5(g5(23), v1, d4 ASC, b3(27), v2),
+INDEX ti6(v1)
+) ROW_FORMAT=REDUNDANT ENGINE=RocksDB
+PARTITION BY LIST (ip_col)(
+PARTITION p0 VALUES IN (81, 39, 95, 75),
+PARTITION p1 VALUES IN (33, 44, 7, 10, 68, 78, 72, 2, 24, 73, 50, 56, 83,
+26, 32, 18, 23, 14, 27, 55, 66, 58, 15, 16),
+PARTITION p2 VALUES IN (90, 11, 87, 25, 97, 93, 47, 41, 92, 37, 67, 20, 43,
+42, 53, 62, 13));
+DROP TABLE t;
