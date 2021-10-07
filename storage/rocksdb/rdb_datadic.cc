@@ -1612,10 +1612,10 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   }
 
   // Reset the blob buffer required for unpacking.
-  auto handler = (ha_rocksdb *)table->file;
   if (this->m_max_blob_length) {
-    auto handler = (ha_rocksdb *)table->file;
-    if (handler->reset_blob_buffer(this->m_max_blob_length)) {
+    auto bb = dynamic_cast<blob_buffer *>(table->file);
+    assert(bb);
+    if (bb->reset_blob_buffer(this->m_max_blob_length)) {
       return HA_ERR_OUT_OF_MEM;
     }
   }
@@ -1674,7 +1674,8 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
     } else {
       /* The checksums are present but we are not checking checksums */
     }
-    handler->m_validated_checksums++;
+    auto handler = dynamic_cast<ha_rocksdb *>(table->file);
+    if (handler) handler->m_validated_checksums++;
   }
 
   if (reader.remaining_bytes()) return HA_ERR_ROCKSDB_CORRUPT_DATA;
@@ -2908,8 +2909,9 @@ uchar *Rdb_key_def::get_data_start_ptr(const Field *field,
     const auto field_var = static_cast<const Field_varstring *>(field);
     data_start = field_var->ptr + field_var->length_bytes;
   } else if (is_blob(field->real_type())) {
-    auto handler = (ha_rocksdb *)field->table->file;
-    data_start = handler->get_blob_buffer(max_field_length);
+    auto bb = dynamic_cast<blob_buffer *>(field->table->file);
+    assert(bb);
+    data_start = bb->get_blob_buffer(max_field_length);
   } else {
     DBUG_ASSERT(false);
   }
