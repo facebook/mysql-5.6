@@ -124,17 +124,50 @@ drop table t2;
 3
 c
 100
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all;
-schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
-test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
-test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
-test	d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	3	0	0	0
-test	b7e68175beeb3b5eeb3f06618915a3b14e51f01be582dd9fa618bd31bd0148f2	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	12	6
-test	55c0e5a4110056fcbf2654778c977a2e91ce65785504832368e2c3443a35ec2b	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	1	0
-test	c74f7ac2e7520fcbd10db5df148c439167b387c3a0f64d4980a9f549dbbf2119	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
-test	5e6ff6446802c23df53586b85788505b42a1de938d5ae5fd7a1d42b38636d3da	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	1
-test	9a90ab323c21e1fec8e95df1fd6b7fd724d0ec2cd50ba46a928c0449183d14d3	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	1	0	0
-test	c12e1a1889c32b0c8875538e7ba911240df47d93ed298c03374e9497b0910c5b	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	12	0	0
+CREATE TABLE test.t11(a int) ||||
+set @query= 'SELECT * FROM test.t11 WHERE a > 5 and a < 10 and a <> 9' ||||
+PREPARE STMT FROM @query; EXECUTE STMT; ||||
+a
+DROP TABLE test.t11 ||||
+select schema_name, query_sample_text, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all order by digest;
+schema_name	query_sample_text	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
+test	set global performance_schema_esms_by_all = on	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	set @query= 'SELECT * FROM test.t11 WHERE a > 5 and a < 10 and a <> 9'	278bea020d972dea724b65bf9354d996c6f6fb219ce84bf93319a96206d119e6	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	select @@performance_schema_esms_by_all	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2	55c0e5a4110056fcbf2654778c977a2e91ce65785504832368e2c3443a35ec2b	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	1	0
+test	CREATE TABLE test.t11(a int)	5c999c09951de9d491f6a6e3f2886239f86bf384e74922dc91f932d2c2e488f6	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	12	6
+test	update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2	5e6ff6446802c23df53586b85788505b42a1de938d5ae5fd7a1d42b38636d3da	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	1
+test	DROP TABLE test.t11	673e2373ca17bd7a982aa51b8ed87cd8c3aa329a85dfef627d426a919de5fd6b	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	12	0	0
+test	EXECUTE STMT	9748e63a3d9297f351abbc5210913ce24b1ef8d6da67572ec04978e155e56a71	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	delete from t2 where c=107;
+drop table t2	9a90ab323c21e1fec8e95df1fd6b7fd724d0ec2cd50ba46a928c0449183d14d3	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	1	0	0
+test	create table t2(c int);
+insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2	b7e68175beeb3b5eeb3f06618915a3b14e51f01be582dd9fa618bd31bd0148f2	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	12	6
+test	drop table t2	c12e1a1889c32b0c8875538e7ba911240df47d93ed298c03374e9497b0910c5b	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	12	0	0
+test	select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2	c74f7ac2e7520fcbd10db5df148c439167b387c3a0f64d4980a9f549dbbf2119	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
+test	select 1;
+select 2;
+select 3;
+create table t2(c int);
+insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2	d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	3	0	0	0
+test	PREPARE STMT FROM @query; EXECUTE STMT	e54f31f4ae4d3f6c71cd097da391f651be7f742a2fe894149d903ce00040fb2e	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
 Verify index working properly
