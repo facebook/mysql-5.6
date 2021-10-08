@@ -1833,6 +1833,26 @@ static bool check_not_null(sys_var *, THD *, set_var *var) {
   return var->value && var->value->is_null();
 }
 
+static bool check_histogram_step_size_syntax(sys_var * /*sys_var*/,
+                                             THD * /*thd*/, set_var *var) {
+  return histogram_validate_step_size_string(var->save_result.string_value.str);
+}
+
+static bool update_histogram_step_size_for_commit(
+    sys_var * /*self*/, THD * /*thd*/, enum_var_type /*enum_var_type*/) {
+  mysql_bin_log.update_binlog_group_and_engine_commit_step_size();
+  return false;
+}
+
+static Sys_var_charptr Sys_histogram_step_size_binlog_commit_time(
+    "histogram_step_size_binlog_commit_time",
+    "Step size of the Histogram which "
+    "is used to track binlog group/engine commit latencies.",
+    GLOBAL_VAR(opt_histogram_binlog_commit_time_step_size), CMD_LINE(OPT_ARG),
+    IN_FS_CHARSET, DEFAULT("125us"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_histogram_step_size_syntax),
+    ON_UPDATE(update_histogram_step_size_for_commit));
+
 /**
   Check storage engine is not empty and log warning.
 
@@ -3667,11 +3687,6 @@ static Sys_var_ulonglong Sys_histogram_generation_max_mem_size(
     VALID_RANGE(1000000, max_mem_sz), DEFAULT(20000000), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_session_admin),
     ON_UPDATE(nullptr));
-
-static bool check_histogram_step_size_syntax(sys_var * /*self*/, THD * /*thd*/,
-                                             set_var *var) {
-  return histogram_validate_step_size_string(var->save_result.string_value.str);
-}
 
 static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
     "histogram_step_size_binlog_fsync",

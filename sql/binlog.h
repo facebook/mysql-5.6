@@ -109,12 +109,15 @@ struct Binlog_user_var_event {
   bool unsigned_flag;
 };
 
+extern char *opt_histogram_binlog_commit_time_step_size;
 extern latency_histogram histogram_raft_trx_wait;
 
 extern char *histogram_step_size_binlog_fsync;
 extern int opt_histogram_step_size_binlog_group_commit;
 extern latency_histogram histogram_binlog_fsync;
 extern counter_histogram histogram_binlog_group_commit;
+extern latency_histogram histogram_binlog_group_commit_trx;
+extern latency_histogram histogram_binlog_engine_commit_trx;
 
 /* The enum defining the server's action when a trx fails inside ordered commit
  * due to an error related to consensus (raft plugin) */
@@ -1519,6 +1522,16 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void report_missing_gtids(const Gtid_set *previous_gtid_set,
                             const Gtid_set *slave_executed_gtid_set,
                             std::string &errmsg);
+  void update_binlog_group_and_engine_commit_step_size() {
+    mysql_mutex_lock(&LOCK_log);
+    if (opt_histogram_binlog_commit_time_step_size) {
+      latency_histogram_init(&histogram_binlog_engine_commit_trx,
+                             opt_histogram_binlog_commit_time_step_size);
+      latency_histogram_init(&histogram_binlog_group_commit_trx,
+                             opt_histogram_binlog_commit_time_step_size);
+    }
+    mysql_mutex_unlock(&LOCK_log);
+  }
   static const int MAX_RETRIES_FOR_DELETE_RENAME_FAILURE = 5;
   inline const Gtid_set_map *get_previous_gtid_set_map() const {
     return &previous_gtid_set_map;

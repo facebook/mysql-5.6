@@ -1,0 +1,60 @@
+SELECT COUNT(@@GLOBAL.histogram_step_size_binlog_commit_time);
+COUNT(@@GLOBAL.histogram_step_size_binlog_commit_time)
+1
+1 Expected
+SET @start_global_value = @@GLOBAL.histogram_step_size_binlog_commit_time;
+SELECT @start_global_value;
+@start_global_value
+125us
+125us Expected
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='16us';
+select @@GLOBAL.histogram_step_size_binlog_commit_time;
+@@GLOBAL.histogram_step_size_binlog_commit_time
+16us
+16us Expected
+SELECT COUNT(@@GLOBAL.histogram_step_size_binlog_commit_time);
+COUNT(@@GLOBAL.histogram_step_size_binlog_commit_time)
+1
+1 Expected
+SELECT COUNT(@@local.histogram_step_size_binlog_commit_time);
+ERROR HY000: Variable 'histogram_step_size_binlog_commit_time' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.histogram_step_size_binlog_commit_time);
+ERROR HY000: Variable 'histogram_step_size_binlog_commit_time' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='32';
+ERROR 42000: Variable 'histogram_step_size_binlog_commit_time' can't be set to the value of '32'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='0';
+select @@GLOBAL.histogram_step_size_binlog_commit_time;
+@@GLOBAL.histogram_step_size_binlog_commit_time
+0
+0 Expected
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='ms32';
+ERROR 42000: Variable 'histogram_step_size_binlog_commit_time' can't be set to the value of 'ms32'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='32ps';
+ERROR 42000: Variable 'histogram_step_size_binlog_commit_time' can't be set to the value of '32ps'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='3s2';
+ERROR 42000: Variable 'histogram_step_size_binlog_commit_time' can't be set to the value of '3s2'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='32@s';
+ERROR 42000: Variable 'histogram_step_size_binlog_commit_time' can't be set to the value of '32@s'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='32s.';
+ERROR 42000: Variable 'histogram_step_size_binlog_commit_time' can't be set to the value of '32s.'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='s';
+ERROR 42000: Variable 'histogram_step_size_binlog_commit_time' can't be set to the value of 's'
+Expected error 'Variable cannot be set to this value'
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='16.5us';
+select @@GLOBAL.histogram_step_size_binlog_commit_time;
+@@GLOBAL.histogram_step_size_binlog_commit_time
+16.5us
+16.5us Expected
+SET @@GLOBAL.histogram_step_size_binlog_commit_time = @start_global_value;
+SELECT @@GLOBAL.histogram_step_size_binlog_commit_time;
+@@GLOBAL.histogram_step_size_binlog_commit_time
+125us
+125us Expected

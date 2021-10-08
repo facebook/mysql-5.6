@@ -1,0 +1,63 @@
+-- source include/load_sysvars.inc
+
+SELECT COUNT(@@GLOBAL.histogram_step_size_binlog_commit_time);
+--echo 1 Expected
+
+SET @start_global_value = @@GLOBAL.histogram_step_size_binlog_commit_time;
+SELECT @start_global_value;
+--echo 125us Expected
+
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='16us';
+select @@GLOBAL.histogram_step_size_binlog_commit_time;
+--echo 16us Expected
+
+SELECT COUNT(@@GLOBAL.histogram_step_size_binlog_commit_time);
+--echo 1 Expected
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.histogram_step_size_binlog_commit_time);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.histogram_step_size_binlog_commit_time);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='32';
+--echo Expected error 'Variable cannot be set to this value';
+
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='0';
+select @@GLOBAL.histogram_step_size_binlog_commit_time;
+--echo 0 Expected
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='ms32';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='32ps';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='3s2';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='32@s';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='32s.';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='s';
+--echo Expected error 'Variable cannot be set to this value'
+
+SET @@GLOBAL.histogram_step_size_binlog_commit_time='16.5us';
+select @@GLOBAL.histogram_step_size_binlog_commit_time;
+--echo 16.5us Expected
+
+SET @@GLOBAL.histogram_step_size_binlog_commit_time = @start_global_value;
+SELECT @@GLOBAL.histogram_step_size_binlog_commit_time;
+--echo 125us Expected

@@ -627,6 +627,9 @@ The following options may be given as the first argument:
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
+ --histogram-step-size-binlog-commit-time[=name] 
+ Step size of the Histogram which is used to track binlog
+ group/engine commit latencies.
  --histogram-step-size-binlog-fsync=name 
  Step size of the Histogram which is used to track binlog
  fsync latencies.
@@ -2987,6 +2990,7 @@ high-precision-processlist FALSE
 high-priority-ddl FALSE
 high-priority-lock-wait-timeout 1
 histogram-generation-max-mem-size 20000000
+histogram-step-size-binlog-commit-time 125us
 histogram-step-size-binlog-fsync 16ms
 histogram-step-size-binlog-group-commit 1
 hlc-upper-bound-delta 0
