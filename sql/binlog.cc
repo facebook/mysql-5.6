@@ -201,6 +201,9 @@ char *histogram_step_size_binlog_fsync = NULL;
 int opt_histogram_step_size_binlog_group_commit = 1;
 latency_histogram histogram_binlog_fsync;
 counter_histogram histogram_binlog_group_commit;
+latency_histogram histogram_binlog_group_commit_trx;
+latency_histogram histogram_binlog_engine_commit_trx;
+char *opt_histogram_binlog_commit_time_step_size = nullptr;
 
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 Dump_log dump_log;
@@ -1567,6 +1570,10 @@ static int binlog_init(void *p) {
   counter_histogram_init(&histogram_binlog_group_commit,
                          opt_histogram_step_size_binlog_group_commit);
 
+  latency_histogram_init(&histogram_binlog_group_commit_trx,
+                         opt_histogram_binlog_commit_time_step_size);
+  latency_histogram_init(&histogram_binlog_engine_commit_trx,
+                         opt_histogram_binlog_commit_time_step_size);
   return 0;
 }
 
@@ -11627,6 +11634,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
   int flush_error = 0, sync_error = 0;
   my_off_t total_bytes = 0;
   bool do_rotate = false;
+  auto group_commit_start_time = my_timer_now();
 
   CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP("before_assign_session_to_bgc_ticket");
   thd->rpl_thd_ctx.binlog_group_commit_ctx().assign_ticket();
@@ -11860,7 +11868,8 @@ commit_stage:
     */
     start_time = my_timer_now();
     process_commit_stage_queue(thd, commit_queue);
-    thd->engine_commit_time = my_timer_since(start_time);
+    auto engine_commit_time = my_timer_since(start_time);
+    thd->engine_commit_time = engine_commit_time;
     mysql_mutex_unlock(&LOCK_commit);
     /*
       Process after_commit after LOCK_commit is released for avoiding
@@ -11868,6 +11877,12 @@ commit_stage:
     */
     process_after_commit_stage_queue(thd, commit_queue);
     final_queue = commit_queue;
+    /*
+     * Since this is not protected by LOCK_LOG, there will be some
+     * inaccuracy in histogram reporting, if the step size changes.
+     */
+    latency_histogram_increment(&histogram_binlog_engine_commit_trx,
+                                engine_commit_time, 1);
   } else {
     if (leave_mutex_before_commit_stage)
       mysql_mutex_unlock(leave_mutex_before_commit_stage);
@@ -11895,6 +11910,13 @@ commit_stage:
     thd->commit_error, which is returned below.
   */
   (void)finish_commit(thd);
+  /*
+   * Since this is not protected by LOCK_LOG, there will be some
+   * inaccuracy in histogram reporting, if the step size changes.
+   */
+  auto group_commit_time = my_timer_since(group_commit_start_time);
+  latency_histogram_increment(&histogram_binlog_group_commit_trx,
+                              group_commit_time, 1);
   DEBUG_SYNC(thd, "bgc_after_commit_stage_before_rotation");
 
   /*

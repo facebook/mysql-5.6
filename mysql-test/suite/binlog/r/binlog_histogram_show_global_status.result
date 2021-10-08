@@ -22,6 +22,31 @@ histogram_binlog_group_commit_8-9	COUNT
 histogram_binlog_group_commit_9-10	COUNT
 SHOW VARIABLES LIKE "%histogram%binlog%";
 Variable_name	Value
+histogram_step_size_binlog_commit_time	125us
 histogram_step_size_binlog_fsync	1200ms
 histogram_step_size_binlog_group_commit	1
+SHOW GLOBAL STATUS LIKE "%engine_commit_trx%";
+Variable_name	Value
+engine_commit_trx_histogram_0-125us	COUNT
+engine_commit_trx_histogram_125-375us	COUNT
+engine_commit_trx_histogram_375-875us	COUNT
+engine_commit_trx_histogram_875-1875us	COUNT
+engine_commit_trx_histogram_1875-3875us	COUNT
+engine_commit_trx_histogram_3875-7875us	COUNT
+engine_commit_trx_histogram_7875-15875us	COUNT
+engine_commit_trx_histogram_15875-31875us	COUNT
+engine_commit_trx_histogram_31875-63875us	COUNT
+engine_commit_trx_histogram_63875-MAXus	COUNT
+SHOW GLOBAL STATUS LIKE "%group_commit_trx%";
+Variable_name	Value
+group_commit_trx_histogram_0-125us	COUNT
+group_commit_trx_histogram_125-375us	COUNT
+group_commit_trx_histogram_375-875us	COUNT
+group_commit_trx_histogram_875-1875us	COUNT
+group_commit_trx_histogram_1875-3875us	COUNT
+group_commit_trx_histogram_3875-7875us	COUNT
+group_commit_trx_histogram_7875-15875us	COUNT
+group_commit_trx_histogram_15875-31875us	COUNT
+group_commit_trx_histogram_31875-63875us	COUNT
+group_commit_trx_histogram_63875-MAXus	COUNT
 Done

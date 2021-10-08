@@ -1977,6 +1977,13 @@ SHOW_VAR latency_histogram_binlog_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
 ulonglong histogram_binlog_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
 SHOW_VAR histogram_binlog_group_commit_var[NUMBER_OF_HISTOGRAM_BINS + 1];
 ulonglong histogram_binlog_group_commit_values[NUMBER_OF_HISTOGRAM_BINS];
+/* status variables for group commit trx wait times */
+SHOW_VAR latency_histogram_group_commit_trx[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_group_commit_trx_values[NUMBER_OF_HISTOGRAM_BINS];
+
+/* status variables for engine commit trx wait times */
+SHOW_VAR latency_histogram_engine_commit_trx[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_engine_commit_trx_values[NUMBER_OF_HISTOGRAM_BINS];
 
 /*
   True if expire_logs_days and binlog_expire_logs_seconds are set
@@ -2952,6 +2959,8 @@ static void clean_up(bool print_message) {
   keyring_lockable_deinit();
 
   free_latency_histogram_sysvars(latency_histogram_raft_trx_wait);
+  free_latency_histogram_sysvars(latency_histogram_group_commit_trx);
+  free_latency_histogram_sysvars(latency_histogram_engine_commit_trx);
 
   free_latency_histogram_sysvars(latency_histogram_binlog_fsync);
   free_latency_histogram_sysvars(histogram_binlog_group_commit_var);
@@ -11194,6 +11203,36 @@ static int show_tmp_table_disk_usage_period_peak(THD *thd, SHOW_VAR *var,
                               tmp_table_disk_usage);
 }
 
+static int show_latency_histogram_commit_trx_helper(
+    SHOW_VAR *var, ulonglong commit_trx_values[], SHOW_VAR *show_var_commit_trx,
+    latency_histogram *histogram) {
+  for (int i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i) {
+    commit_trx_values[i] = latency_histogram_get_count(histogram, i);
+  }
+
+  prepare_latency_histogram_vars(histogram, show_var_commit_trx,
+                                 commit_trx_values);
+  var->type = SHOW_ARRAY;
+  var->value = (char *)show_var_commit_trx;
+
+  return 0;
+}
+
+static int show_latency_histogram_group_commit_trx(THD * /*thd*/, SHOW_VAR *var,
+                                                   char * /*buf*/) {
+  return show_latency_histogram_commit_trx_helper(
+      var, histogram_group_commit_trx_values,
+      latency_histogram_group_commit_trx, &histogram_binlog_group_commit_trx);
+}
+
+static int show_latency_histogram_engine_commit_trx(THD * /*thd*/,
+                                                    SHOW_VAR *var,
+                                                    char * /*buf*/) {
+  return show_latency_histogram_commit_trx_helper(
+      var, histogram_engine_commit_trx_values,
+      latency_histogram_engine_commit_trx, &histogram_binlog_engine_commit_trx);
+}
+
 
 SHOW_VAR status_vars[] = {
 
@@ -11716,6 +11755,12 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"histogram_binlog_group_commit",
      (char *)&show_histogram_binlog_group_commit, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"group_commit_trx_histogram",
+     (char *)&show_latency_histogram_group_commit_trx, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"engine_commit_trx_histogram",
+     (char *)&show_latency_histogram_engine_commit_trx, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {
