@@ -2,6 +2,7 @@ SET @start_global_value_step_size_binlog_fsync = @@GLOBAL.histogram_step_size_bi
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_generation_max_mem_size	20000000
+histogram_step_size_binlog_commit_time	125us
 histogram_step_size_binlog_fsync	16ms
 histogram_step_size_binlog_group_commit	1
 performance_schema_histogram_enabled	ON
@@ -9,6 +10,7 @@ SET @@GLOBAL.histogram_step_size_binlog_fsync='16s';
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_generation_max_mem_size	20000000
+histogram_step_size_binlog_commit_time	125us
 histogram_step_size_binlog_fsync	16s
 histogram_step_size_binlog_group_commit	1
 performance_schema_histogram_enabled	ON
@@ -16,6 +18,7 @@ SET @@GLOBAL.histogram_step_size_binlog_fsync = @start_global_value_step_size_bi
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_generation_max_mem_size	20000000
+histogram_step_size_binlog_commit_time	125us
 histogram_step_size_binlog_fsync	16ms
 histogram_step_size_binlog_group_commit	1
 performance_schema_histogram_enabled	ON
