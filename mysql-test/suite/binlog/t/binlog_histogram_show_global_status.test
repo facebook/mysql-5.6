@@ -4,6 +4,12 @@
 SHOW GLOBAL STATUS LIKE "%histogram%binlog%";
 SHOW VARIABLES LIKE "%histogram%binlog%";
 
+--replace_column 2 COUNT
+SHOW GLOBAL STATUS LIKE "%engine_commit_trx%";
+
+--replace_column 2 COUNT
+SHOW GLOBAL STATUS LIKE "%group_commit_trx%";
+
 #
 # Must produce output
 #
