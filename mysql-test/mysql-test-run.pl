@@ -2713,7 +2713,7 @@ sub set_build_thread_ports($) {
               "($baseport - $baseport + $ports_per_thread - 1)");
   }
 
-  mtr_verbose("Using MTR_BUILD_THREAD $build_thread,",
+  mtr_report("Using MTR_BUILD_THREAD $build_thread,",
        "with reserved ports $baseport.." . ($baseport + $ports_per_thread - 1));
 }
 
