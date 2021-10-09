@@ -7649,7 +7649,7 @@ static int init_server_components() {
     if (mysql_bin_log.init_gtid_sets(
             executed_gtids, NULL /* lost_gtid */, opt_source_verify_checksum,
             true /*true=need lock*/, NULL /*trx_parser*/, NULL /*partial_trx*/,
-            &prev_hlc))
+            &prev_hlc, /*startup=*/true))
       unireg_abort(1);
 
     /*
@@ -8741,7 +8741,8 @@ int mysqld_main(int argc, char **argv)
     if (mysql_bin_log.init_gtid_sets(
             &gtids_in_binlog, &purged_gtids_from_binlog,
             opt_source_verify_checksum, true /*true=need lock*/,
-            nullptr /*trx_parser*/, nullptr /*partial_trx*/, &prev_hlc))
+            nullptr /*trx_parser*/, nullptr /*partial_trx*/, &prev_hlc,
+            /*startup=*/true))
       unireg_abort(MYSQLD_ABORT_EXIT);
 
     // Update the instance's HLC clock to be greater than or equal to the HLC

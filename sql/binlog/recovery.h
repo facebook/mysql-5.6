@@ -146,7 +146,8 @@ class Binlog_recovery {
    */
   Binlog_recovery &recover(Gtid *binlog_max_gtid, char *engine_binlog_file,
                            my_off_t *engine_binlog_pos,
-                           const std::string &cur_binlog_file);
+                           const std::string &cur_binlog_file,
+                           my_off_t *first_gtid_start_pos);
 
  private:
   /** File reader for the last available binary log file */

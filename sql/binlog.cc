@@ -5899,8 +5899,16 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
             "Could not get the transaction log file name from the engine. "
             "Using the latest for initializing mysqld state");
 
-        log_file_to_read.assign(last_binlog_file_with_gtids);
-        max_pos = this->engine_binlog_pos;
+        // In innodb, engine_binlog_file is populated _only_ when there are
+        // trxs to recover (i.e trxs are in prepared state) during startup
+        // and engine recovery. Hence, engine_binlog_file being empty indicates
+        // that engine's state is up-to-date with the latest binlog file and we
+        // can include all gtids in the latest binlog file for calculating
+        // executed-gtid-set
+        if (strlen(engine_binlog_file) == 0)
+          max_pos = ULLONG_MAX;
+        else
+          max_pos = this->first_gtid_start_pos;
       } else {
         // Initializing gtid_sets based on engine binlog position is fine since
         // idempotent recovery will fill in the holes
@@ -9920,7 +9928,8 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       binlog::Binlog_recovery bl_recovery{binlog_file_reader};
       error = bl_recovery  //
                   .recover(&engine_binlog_max_gtid, engine_binlog_file,
-                           &engine_binlog_pos, cur_log_file)  //
+                           &engine_binlog_pos, cur_log_file,
+                           &this->first_gtid_start_pos)
                   .has_failures();
       valid_pos = bl_recovery.get_valid_pos();
       binlog_size = binlog_file_reader.ifile()->length();

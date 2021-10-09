@@ -57,7 +57,8 @@ std::string const &binlog::Binlog_recovery::get_failure_message() const {
 
 binlog::Binlog_recovery &binlog::Binlog_recovery::recover(
     Gtid *binlog_max_gtid, char *engine_binlog_file,
-    my_off_t *engine_binlog_pos, const std::string &cur_binlog_file) {
+    my_off_t *engine_binlog_pos, const std::string &cur_binlog_file,
+    my_off_t *first_gtid_start_pos) {
   /*
     Flag to indicate if we have seen a gtid which is pending i.e the trx
     represented by this gtid has not yet ended
@@ -93,9 +94,11 @@ binlog::Binlog_recovery &binlog::Binlog_recovery::recover(
           m_current_gtid.set(gev->get_sidno(true), gev->get_gno());
         else
           m_current_gtid.clear();
-        if (first_gtid_start == 0)
+        if (first_gtid_start == 0) {
           first_gtid_start =
               ev->common_header->log_pos - ev->common_header->data_written;
+          *first_gtid_start_pos = first_gtid_start;
+        }
       }
       default: {
         break;
@@ -137,8 +140,12 @@ binlog::Binlog_recovery &binlog::Binlog_recovery::recover(
         2. A binlog rotation ensures that the previous binlogs and engine's
            transaction logs are flushed and made durable. Hence all previous
            transactions are made durable.
+
+        If enable_raft_plugin is set, then we skip trimming binlog. This is
+        because the trim is handled inside the raft plugin when this node
+        rejoins the raft ring
       */
-      if (opt_trim_binlog) {
+      if (opt_trim_binlog && !enable_raft_plugin) {
         set_valid_pos(&this->m_valid_pos, cur_binlog_file, first_gtid_start,
                       engine_binlog_file, *engine_binlog_pos);
       }
