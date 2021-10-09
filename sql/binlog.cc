@@ -210,7 +210,8 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
                            my_off_t *valid_pos, Gtid *binlog_max_gtid,
                            char *engine_binlog_file,
                            my_off_t *engine_binlog_pos,
-                           const std::string &cur_binlog_file);
+                           const std::string &cur_binlog_file,
+                           my_off_t *first_gtid_start_pos);
 static void binlog_prepare_row_images(const THD *thd, TABLE *table,
                                       bool is_update);
 static bool is_loggable_xa_prepare(THD *thd);
@@ -5879,8 +5880,16 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
             "Could not get the transaction log file name from the engine. "
             "Using the latest for initializing mysqld state");
 
-        log_file_to_read.assign(last_binlog_file_with_gtids);
-        max_pos = this->engine_binlog_pos;
+        // In innodb, engine_binlog_file is populated _only_ when there are
+        // trxs to recover (i.e trxs are in prepared state) during startup
+        // and engine recovery. Hence, engine_binlog_file being empty indicates
+        // that engine's state is up-to-date with the latest binlog file and we
+        // can include all gtids in the latest binlog file for calculating
+        // executed-gtid-set
+        if (strlen(engine_binlog_file) == 0)
+          max_pos = ULLONG_MAX;
+        else
+          max_pos = this->first_gtid_start_pos;
       } else {
         // Initializing gtid_sets based on engine binlog position is fine since
         // idempotent recovery will fill in the holes
@@ -9908,7 +9917,8 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       const std::string cur_log_file = log_name + dirname_length(log_name);
       error = binlog_recover(&binlog_file_reader, &valid_pos,
                              &engine_binlog_max_gtid, engine_binlog_file,
-                             &engine_binlog_pos, cur_log_file);
+                             &engine_binlog_pos, cur_log_file,
+                             &this->first_gtid_start_pos);
       binlog_size = binlog_file_reader.ifile()->length();
     } else {
       /*
@@ -12180,7 +12190,8 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
                            my_off_t *valid_pos, Gtid *binlog_max_gtid,
                            char *engine_binlog_file,
                            my_off_t *engine_binlog_pos,
-                           const std::string &cur_binlog_file) {
+                           const std::string &cur_binlog_file,
+                           my_off_t *first_gtid_start_pos) {
   bool res = false;
   binlog::tools::Iterator it(binlog_file_reader);
   it.set_copy_event_buffer();
@@ -12254,9 +12265,11 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
             current_gtid.set(gev->get_sidno(true), gev->get_gno());
           else
             current_gtid.clear();
-          if (first_gtid_start == 0)
+          if (first_gtid_start == 0) {
             first_gtid_start =
                 ev->common_header->log_pos - ev->common_header->data_written;
+            *first_gtid_start_pos = first_gtid_start;
+          }
         }
         default: {
           break;
@@ -12332,8 +12345,12 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
         2. A binlog rotation ensures that the previous binlogs and engine's
            transaction logs are flushed and made durable. Hence all previous
            transactions are made durable.
+
+         If enable_raft_plugin is set, then we skip trimming binlog. This is
+         because the trim is handled inside the raft plugin when this node
+         rejoins the raft ring
        */
-      if (opt_trim_binlog) {
+      if (opt_trim_binlog && !enable_raft_plugin) {
         set_valid_pos(valid_pos, cur_binlog_file, first_gtid_start,
                       engine_binlog_file, *engine_binlog_pos);
       }
