@@ -151,6 +151,16 @@ bool get_default_db_collation(const dd::Schema &schema,
 
 bool get_default_db_collation(THD *thd, const char *db_name,
                               const CHARSET_INFO **collation) {
+  // Check cached info in THD first.
+  mysql_mutex_lock(&thd->LOCK_thd_db_default_collation_hash);
+  auto it = thd->m_db_default_collation.find(db_name);
+  if (it != thd->m_db_default_collation.end()) {
+    *collation = it->second;
+    mysql_mutex_unlock(&thd->LOCK_thd_db_default_collation_hash);
+    return false;
+  }
+  mysql_mutex_unlock(&thd->LOCK_thd_db_default_collation_hash);
+
   // We must make sure the schema is released and unlocked in the right order.
   dd::Schema_MDL_locker mdl_handler(thd);
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
@@ -160,7 +170,16 @@ bool get_default_db_collation(THD *thd, const char *db_name,
       thd->dd_client()->acquire(db_name, &sch_obj))
     return true;
 
-  if (sch_obj) return get_default_db_collation(*sch_obj, collation);
+  if (sch_obj) {
+    bool result = get_default_db_collation(*sch_obj, collation);
+    if (!result) {
+      // Cache value in THD.
+      mysql_mutex_lock(&thd->LOCK_thd_db_default_collation_hash);
+      thd->m_db_default_collation.emplace(db_name, *collation);
+      mysql_mutex_unlock(&thd->LOCK_thd_db_default_collation_hash);
+    }
+    return result;
+  }
   return false;
 }
 
@@ -323,6 +342,50 @@ static void del_thd_db_read_only(const char *db) {
       mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
       thd->m_db_read_only_hash.erase(m_db);
       mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
+    }
+  } update_thd(db);
+
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  thd_manager->do_for_all_thd(&update_thd);
+
+  DBUG_VOID_RETURN;
+}
+
+/* Update db read only flag in all threads' local hash map */
+static void update_thd_db_default_collation(const char *db,
+                                            const CHARSET_INFO *collation) {
+  DBUG_ENTER("update_thd_db_default_collation");
+
+  struct Update_THD_DB_Default_Collation : public Do_THD_Impl {
+    const char *m_db;
+    const CHARSET_INFO *m_collation;
+    Update_THD_DB_Default_Collation(const char *db,
+                                    const CHARSET_INFO *collation)
+        : m_db(db), m_collation(collation) {}
+    virtual void operator()(THD *thd) override {
+      mysql_mutex_lock(&thd->LOCK_thd_db_default_collation_hash);
+      thd->m_db_default_collation[m_db] = m_collation;
+      mysql_mutex_unlock(&thd->LOCK_thd_db_default_collation_hash);
+    }
+  } update_thd(db, collation);
+
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  thd_manager->do_for_all_thd(&update_thd);
+
+  DBUG_VOID_RETURN;
+}
+
+/* Delete db read only flag in all threads' local hash map */
+static void del_thd_db_default_collation(const char *db) {
+  DBUG_ENTER("del_thd_db_default_collation");
+
+  struct Delete_THD_DB_Default_Collation : public Do_THD_Impl {
+    const char *m_db;
+    Delete_THD_DB_Default_Collation(const char *db) : m_db(db) {}
+    virtual void operator()(THD *thd) override {
+      mysql_mutex_lock(&thd->LOCK_thd_db_default_collation_hash);
+      thd->m_db_default_collation.erase(m_db);
+      mysql_mutex_unlock(&thd->LOCK_thd_db_default_collation_hash);
     }
   } update_thd(db);
 
@@ -857,6 +920,11 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
   /* If db_metadata is changed, update it in all threads using this database */
   if (create_info->db_metadata.ptr()) update_thd_db_metadata(db, create_info);
 
+  /* If db_metadata is changed, update it in all threads using this database */
+  if (create_info->used_fields & HA_CREATE_USED_DEFAULT_CHARSET) {
+    update_thd_db_default_collation(db, create_info->default_table_charset);
+  }
+
   my_ok(thd, 1);
   return false;
 }
@@ -1136,6 +1204,7 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
     }
 
     del_thd_db_read_only(db.str);
+    del_thd_db_default_collation(db.str);
   }
 
   /*
