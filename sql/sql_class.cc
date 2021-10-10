@@ -788,6 +788,7 @@ THD::THD(bool enable_plugins, bool is_slave)
   m_safe_to_display.store(false);
 
   m_db_read_only_hash.clear();
+  m_db_default_collation.clear();
 
   mysql_mutex_init(key_LOCK_thd_data, &LOCK_thd_data, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_query, &LOCK_thd_query, MY_MUTEX_INIT_FAST);
@@ -803,6 +804,8 @@ THD::THD(bool enable_plugins, bool is_slave)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_db_context, &LOCK_thd_db_context,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_thd_db_default_collation_hash,
+                   &LOCK_thd_db_default_collation_hash, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thr_lock, &COND_thr_lock);
 
   /*Initialize connection delegation mutex and cond*/
@@ -1630,6 +1633,10 @@ THD::~THD() {
   m_db_read_only_hash.clear();
   mysql_mutex_unlock(&LOCK_thd_db_read_only_hash);
 
+  mysql_mutex_lock(&LOCK_thd_db_default_collation_hash);
+  m_db_default_collation.clear();
+  mysql_mutex_unlock(&LOCK_thd_db_default_collation_hash);
+
   assert(!m_attachable_trx);
 
   my_free(const_cast<char *>(m_db.str));
@@ -1647,6 +1654,7 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_thd_db_context);
   mysql_mutex_destroy(&LOCK_thd_audit_data);
 
+  mysql_mutex_destroy(&LOCK_thd_db_default_collation_hash);
   mysql_cond_destroy(&COND_thr_lock);
   mysql_cond_destroy(&COND_group_replication_connection_cond_var);
 #ifndef NDEBUG

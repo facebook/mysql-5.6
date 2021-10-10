@@ -1303,7 +1303,7 @@ class THD : public MDL_context_owner,
   mysql_mutex_t LOCK_thd_db_read_only_hash;
   mysql_mutex_t LOCK_thd_db_context;
   mysql_mutex_t LOCK_thd_audit_data;
-
+  mysql_mutex_t LOCK_thd_db_default_collation_hash;
   /**
     Protects query plan (SELECT/UPDATE/DELETE's) from being freed/changed
     while another thread explains it. Following structures are protected by
@@ -2678,6 +2678,7 @@ class THD : public MDL_context_owner,
 
  public:
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
+  std::unordered_map<std::string, const CHARSET_INFO *> m_db_default_collation;
   const CHARSET_INFO *db_charset;
 
   void update_db_metadata(const char *db_name, const std::string &metadata);
