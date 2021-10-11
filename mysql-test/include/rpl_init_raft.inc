@@ -34,10 +34,23 @@ while ($_rpl_server)
   --let $ipv6_host_port= `SELECT CONCAT('[::1]', ':', (SELECT @@GLOBAL.PORT), ',')`
   --let $instances= `SELECT CONCAT('$instances', '$ipv6_host_port')`
 
+  let $date= `SELECT DATE_FORMAT(NOW(), '%m-%d-%Y')`;
+
+  eval SET @@GLOBAL.RPL_RAFT_SKIP_SMC_UPDATES= 'ON,$date';
+
   --dec $_rpl_server
 }
 --let $instances= `SELECT TRIM(TRAILING ',' FROM '$instances')`
 --let $instances= `SELECT CONCAT('$instances', '"')`
+
+let $socket_dir= `SELECT SUBSTRING(VARIABLE_VALUE, 1,
+                                   LOCATE(SUBSTRING_INDEX(
+                                          VARIABLE_VALUE, '/', -1),
+                                          VARIABLE_VALUE) - 2)
+                 FROM performance_schema.global_variables
+                 WHERE VARIABLE_NAME = 'socket'`;
+
+exec ./include/raft_config.py $rpl_server_count $socket_dir;
 
 --let $_rpl_server= $rpl_server_count
 while ($_rpl_server)
