@@ -239,7 +239,6 @@ void LockingIterator::Scan(bool scan_forward,
         continue;
       }
     } else {
-      // Some error
       m_valid = false;
       m_status = m_iter->status();
       if (m_status.ok()) {
