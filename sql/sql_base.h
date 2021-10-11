@@ -374,8 +374,10 @@ extern ST_FIELD_INFO sql_stats_fields_info[];
 extern mysql_mutex_t LOCK_global_sql_stats;
 void init_global_sql_stats();
 void free_global_sql_stats(bool limits_updated);
-int  fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond);
-void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char *sub_query);
+int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond);
+void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats,
+                                      const char *sub_query,
+                                      uint sub_query_length);
 void reset_sql_stats_from_thd(THD *thd, SHARED_SQL_STATS *stats);
 void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
                                SHARED_SQL_STATS *stats);
@@ -409,9 +411,9 @@ void insert_sql_plan(THD *thd, String *json_plan);
 /* For information_schema.sql_findings */
 extern ST_FIELD_INFO sql_findings_fields_info[];
 extern mysql_mutex_t LOCK_global_sql_findings;
-int  fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond);
+int fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond);
 void free_global_sql_findings(void);
-void store_sql_findings(THD *thd, char *query_text);
+void store_sql_findings(THD *thd, const char *query_text, int query_length);
 
 /* For information_schema.write_statistics */
 extern ST_FIELD_INFO write_statistics_fields_info[];

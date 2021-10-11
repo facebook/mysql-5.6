@@ -1545,14 +1545,14 @@ static inline bool is_query(enum enum_server_command command) {
     A helper/wrapper around update_sql_stats_after_statement to keep track of
     some internal state.
 */
-static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, char* sub_query)
-{
+static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats,
+                             const char *sub_query, uint input_length) {
   /* Release auto snapshot so that it doesn't have to be merged with
      stats for this statement later. */
   thd->release_auto_created_sql_stats_snapshot();
+  uint query_length = min(input_length, max_sql_query_sample_text_size);
 
-  if (sql_stats_control == SQL_INFO_CONTROL_ON)
-  {
+  if (sql_stats_control == SQL_INFO_CONTROL_ON) {
     SHARED_SQL_STATS sql_stats;
     /*
       THD will contain the cumulative stats for the multi-query statement
@@ -1563,7 +1563,7 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
     */
     reset_sql_stats_from_diff(thd, cumulative_sql_stats, &sql_stats);
 
-    update_sql_stats_after_statement(thd, &sql_stats, sub_query);
+    update_sql_stats_after_statement(thd, &sql_stats, sub_query, query_length);
 
     /* Update the cumulative_sql_stats with the stats from THD */
     reset_sql_stats_from_thd(thd, cumulative_sql_stats);
@@ -1579,11 +1579,11 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
   }
 
   if (sql_findings_control == SQL_INFO_CONTROL_ON)
-    store_sql_findings(thd, sub_query);
+    store_sql_findings(thd, sub_query, query_length);
 
   /* check if should we include warnings in the response attributes */
   if (thd->variables.response_attrs_contain_warnings_bytes > 0 &&
-      !thd->is_error() && /* there is no error generated */
+      !thd->is_error() &&                     /* there is no error generated */
       thd->get_stmt_da()->cond_count() > 0 && /* # errors, warnings & notes */
       thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->is_enabled())
     store_warnings_in_resp_attrs(thd);
@@ -2128,27 +2128,14 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     my_query_txt = thd->query();
     my_query_len = thd->query_length();
 
-    char *beginning_of_current_stmt= (char*) thd->query();
-    char* sub_query;
-    int sub_query_byte_length;
+    char *beginning_of_current_stmt = (char *)thd->query();
 
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
-           ! thd->is_error())
-    {
+           !thd->is_error()) {
       /*
         Multiple queries exits, execute them individually
       */
-      char *beginning_of_next_stmt= (char*) parser_state.m_lip.found_semicolon;
-      sub_query_byte_length=(int)(beginning_of_next_stmt - beginning_of_current_stmt);
-
-      sub_query_byte_length = min(
-        sub_query_byte_length,
-        static_cast<int>(max_sql_query_sample_text_size));
-      sub_query =
-          (char *)my_malloc(sub_query_byte_length + 1, MYF(MY_FAE|MY_WME));
-      memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
-      sub_query[sub_query_byte_length] = '\0';
-
+      char *beginning_of_next_stmt = (char *)parser_state.m_lip.found_semicolon;
       /*
         Update SQL stats.
         For multi-query statements, SQL stats should be updated after every
@@ -2158,8 +2145,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         The stats updated here will be for the first statement of the
         multi-query set.
       */
-      update_sql_stats(thd, &cumulative_sql_stats, sub_query);
-      my_free(sub_query);
+      update_sql_stats(thd, &cumulative_sql_stats, beginning_of_current_stmt,
+                       beginning_of_next_stmt - beginning_of_current_stmt);
 
       /* update transaction DML row count */
       update_thd_dml_row_count(thd, &cumulative_sql_stats);
@@ -2169,7 +2156,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         state_changed = srv_session->session_state_changed();
       }
 
-    /* Finalize server status flags after executing a statement. */
+      /* Finalize server status flags after executing a statement. */
       thd->update_server_status();
       thd->protocol->end_statement(thd);
       query_cache_end_of_result(thd);
@@ -2300,37 +2287,30 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         out of the multi-query set.
       If not multi-query: The stats updated here will be fore the entire
         statement.
+      my_query_len is the length of the remaining query for multi-query,
+      otherwise it will be length of entire query.
     */
-    sub_query_byte_length = min(
-      static_cast<int>(my_query_len),
-      static_cast<int>(max_sql_query_sample_text_size));
-    sub_query =
-        (char *)my_malloc(sub_query_byte_length + 1, MYF(MY_FAE|MY_WME));
-    memcpy(sub_query, my_query_txt, sub_query_byte_length);
-    sub_query[sub_query_byte_length] = '\0';
-
-    update_sql_stats(thd, &cumulative_sql_stats, sub_query);
-    my_free(sub_query);
+    update_sql_stats(thd, &cumulative_sql_stats, my_query_txt, my_query_len);
 
     /* update transaction DML row count */
     update_thd_dml_row_count(thd, &cumulative_sql_stats);
 
-    if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
-    {
+    if (thd->is_in_ac &&
+        (!opt_admission_control_by_trx || thd->is_real_trans)) {
       multi_tenancy_exit_query(thd);
     }
     /* Need to set error to true for graceful shutdown */
-    if((thd->lex->sql_command == SQLCOM_SHUTDOWN)
-        && (thd->get_stmt_da()->is_ok()))
-      error= TRUE;
+    if ((thd->lex->sql_command == SQLCOM_SHUTDOWN) &&
+        (thd->get_stmt_da()->is_ok()))
+      error = TRUE;
 
-    DBUG_PRINT("info",("query ready"));
+    DBUG_PRINT("info", ("query ready"));
     break;
   }
-  case COM_FIELD_LIST:				// This isn't actually needed
+  case COM_FIELD_LIST: // This isn't actually needed
 #ifdef DONT_ALLOW_SHOW_COMMANDS
     my_message(ER_NOT_ALLOWED_COMMAND, ER(ER_NOT_ALLOWED_COMMAND),
-               MYF(0));	/* purecov: inspected */
+               MYF(0)); /* purecov: inspected */
     break;
 #else
   {

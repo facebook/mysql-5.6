@@ -2163,16 +2163,15 @@ void free_global_sql_findings(void)
   Input:
     thd         in:  - THD
     query_text  in:  - text of the SQL statement
+    query_length  in:  - length of the SQL statement
     finding_vec out: - vector that stores the findings of the statement
                        (key is the warning code)
 */
-static void populate_sql_findings(
-    THD                    *thd,
-    char                   *query_text,
-    SQL_FINDING_VEC&        finding_vec)
-{
-  Diagnostics_area::Sql_condition_iterator it=
-    thd->get_stmt_da()->sql_conditions();
+static void populate_sql_findings(THD *thd, const char *query_text,
+                                  uint query_length,
+                                  SQL_FINDING_VEC &finding_vec) {
+  Diagnostics_area::Sql_condition_iterator it =
+      thd->get_stmt_da()->sql_conditions();
 
   const Sql_condition *err;
   while ((err= it++))
@@ -2197,20 +2196,17 @@ static void populate_sql_findings(
       SQL_FINDING sql_find;
       sql_find.code          = err_no;
       sql_find.level         = err->get_level();
-      sql_find.message.append(err->get_message_text(),
-                              std::min((uint)err->get_message_octet_length(),
-                                       sf_max_message_size));
+      sql_find.message.append(
+          err->get_message_text(),
+          std::min((uint)err->get_message_octet_length(), sf_max_message_size));
       sql_find.query_text.append(query_text,
-                                 std::min((uint)strlen(query_text),
-                                          sf_max_query_size));
-      sql_find.count         = 1;
+                                 std::min(query_length, sf_max_query_size));
+      sql_find.count = 1;
       sql_find.last_recorded = now;
       finding_vec.push_back(sql_find);
 
       sql_findings_size += sizeof(SQL_FINDING);
-    }
-    else
-    {
+    } else {
       // Increment the count and update the time
       iter->count++;
       iter->last_recorded = now;
@@ -2229,11 +2225,11 @@ static void populate_sql_findings(
     thd         in:  - THD
     query_text  in:  - text of the SQL statement
 */
-void store_sql_findings(THD *thd, char *query_text)
-{
+void store_sql_findings(THD *thd, const char *query_text, int query_length) {
   if (sql_findings_control == SQL_INFO_CONTROL_ON &&
       thd->mt_key_is_set(THD::SQL_ID) &&
-      thd->lex->select_lex.table_list.elements > 0) // contains at least one table
+      thd->lex->select_lex.table_list.elements >
+          0) // contains at least one table
   {
     bool lock_acquired = mt_lock(&LOCK_global_sql_findings);
 
@@ -2242,20 +2238,18 @@ void store_sql_findings(THD *thd, char *query_text)
     if (sql_find_it == global_sql_findings_map.end())
     {
       /* Check whether we reached the SQL stats limits  */
-      if (!is_sql_stats_collection_above_limit())
-      {
+      if (!is_sql_stats_collection_above_limit()) {
         // First time a finding is reported for this statement
         SQL_FINDING_VEC finding_vec;
-        populate_sql_findings(thd, query_text, finding_vec);
+        populate_sql_findings(thd, query_text, query_length, finding_vec);
 
         global_sql_findings_map.insert(
-          std::make_pair(thd->mt_key_value(THD::SQL_ID), finding_vec));
+            std::make_pair(thd->mt_key_value(THD::SQL_ID), finding_vec));
 
-        sql_findings_size += MD5_HASH_SIZE;     // for SQL_ID
+        sql_findings_size += MD5_HASH_SIZE; // for SQL_ID
       }
-    }
-    else
-      populate_sql_findings(thd, query_text, sql_find_it->second);
+    } else
+      populate_sql_findings(thd, query_text, query_length, sql_find_it->second);
 
     mt_unlock(lock_acquired, &LOCK_global_sql_findings);
   }
@@ -2274,15 +2268,17 @@ void store_sql_findings(THD *thd, char *query_text)
     thd    in: - THD
     stats  in: - stats for the current SQL statement execution
 */
-void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* sub_query)
-{
+void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats,
+                                      const char *sub_query,
+                                      uint sub_query_length) {
   // Do a light weight limit check without acquiring the lock.
   // There will be another check later while holding the lock.
-  if (is_sql_stats_collection_above_limit()) return;
+  if (is_sql_stats_collection_above_limit())
+    return;
 
   /* Get the schema and the user name */
-  const char *schema= thd->get_db_name();
-  const char *user= thd->get_user_name();
+  const char *schema = thd->get_db_name();
+  const char *user = thd->get_user_name();
 
   uint32_t db_id= get_id(DB_MAP_NAME, schema, strlen(schema));
   uint32_t user_id= get_id(USER_MAP_NAME, user, strlen(user));
@@ -2415,10 +2411,11 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
       get_sample_query = sample_age > max_digest_sample_age ? true : false;
   }
   if (get_sample_query) {
-		my_free((char *)sql_stats->query_sample_text);
+    my_free((char *)sql_stats->query_sample_text);
     sql_stats->query_sample_text =
-        (char *)my_malloc(strlen(sub_query) + 1, MYF(MY_WME));
-    memcpy(sql_stats->query_sample_text, sub_query, strlen(sub_query) + 1);
+        (char *)my_malloc(sub_query_length + 1, MYF(MY_WME));
+    memcpy(sql_stats->query_sample_text, sub_query, sub_query_length);
+    sql_stats->query_sample_text[sub_query_length] = '\0';
     sql_stats->query_sample_seen = time_now;
   }
   /* Update stats */
@@ -2426,7 +2423,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   if (thd->get_stmt_da()->is_error() &&
       thd->get_stmt_da()->sql_errno() == ER_DUPLICATE_STATEMENT_EXECUTION)
     sql_stats->skipped_count++;
-  sql_stats->rows_sent += (ulonglong) thd->get_sent_row_count();
+  sql_stats->rows_sent += (ulonglong)thd->get_sent_row_count();
   sql_stats->tmp_table_bytes_written += thd->get_tmp_table_bytes_written();
   sql_stats->filesort_bytes_written += thd->get_filesort_bytes_written();
   sql_stats->index_dive_count += thd->get_index_dive_count();
