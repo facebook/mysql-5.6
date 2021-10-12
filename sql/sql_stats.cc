@@ -1858,14 +1858,14 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
   /* check statistics that are specific to SQL_STATISTICS */
   if (sql_stats->count == 0 &&
       sql_stats->skipped_count == 0 &&
-      sql_stats->rows_sent == 0 &&
-      sql_stats->tmp_table_bytes_written == 0 &&
-      sql_stats->filesort_bytes_written == 0 &&
-      sql_stats->index_dive_count == 0 &&
-      sql_stats->index_dive_cpu == 0 &&
-      sql_stats->compilation_cpu == 0 &&
-      sql_stats->tmp_table_disk_usage == 0 &&
-      sql_stats->filesort_disk_usage == 0 &&
+      sql_stats->shared_stats.rows_sent == 0 &&
+      sql_stats->shared_stats.tmp_table_bytes_written == 0 &&
+      sql_stats->shared_stats.filesort_bytes_written == 0 &&
+      sql_stats->shared_stats.index_dive_count == 0 &&
+      sql_stats->shared_stats.index_dive_cpu == 0 &&
+      sql_stats->shared_stats.compilation_cpu == 0 &&
+      sql_stats->shared_stats.tmp_table_disk_usage == 0 &&
+      sql_stats->shared_stats.filesort_disk_usage == 0 &&
       sql_stats->shared_stats.rows_inserted == 0 &&
       sql_stats->shared_stats.rows_updated == 0 &&
       sql_stats->shared_stats.rows_deleted == 0 &&
@@ -1991,6 +1991,15 @@ void reset_sql_stats_from_thd(THD *thd, SHARED_SQL_STATS *stats)
   stats->rows_read= thd->rows_read;
   stats->stmt_cpu_utime = thd->sql_cpu;
   stats->stmt_elapsed_utime = thd->stmt_elapsed_utime;
+
+  stats->rows_sent = static_cast<ulonglong>(thd->get_sent_row_count());
+  stats->tmp_table_bytes_written = thd->get_tmp_table_bytes_written();
+  stats->filesort_bytes_written = thd->get_filesort_bytes_written();
+  stats->index_dive_count = thd->get_index_dive_count();
+  stats->index_dive_cpu = thd->get_index_dive_cpu();
+  stats->compilation_cpu = thd->get_compilation_cpu();
+  stats->tmp_table_disk_usage = thd->get_stmt_tmp_table_disk_usage_peak();
+  stats->filesort_disk_usage = thd->get_stmt_filesort_disk_usage_peak();
 }
 
 /*
@@ -2014,17 +2023,31 @@ void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
   stats->rows_updated= thd->rows_updated - prev_stats->rows_updated;
   stats->rows_deleted= thd->rows_deleted - prev_stats->rows_deleted;
   stats->rows_read= thd->rows_read - prev_stats->rows_read;
-  /*
-    thd->sql_cpu is per individual (sub-)query, and is not cumulative.
-    So it does not need to be subtracted.
-  */
-  stats->stmt_cpu_utime = thd->sql_cpu;
+  stats->stmt_cpu_utime = thd->sql_cpu - prev_stats->stmt_cpu_utime;
+  stats->stmt_elapsed_utime = thd->stmt_elapsed_utime - prev_stats->stmt_elapsed_utime;
 
-  /*
-    thd->stmt_elapsed_utime is per individual (sub-query), and is not
-    cumulative. So it does not need to be subtracted.
-  */
-  stats->stmt_elapsed_utime = thd->stmt_elapsed_utime;
+  stats->rows_sent =
+    static_cast<ulonglong>(thd->get_sent_row_count()) - prev_stats->rows_sent;
+  stats->tmp_table_bytes_written =
+    thd->get_tmp_table_bytes_written() - prev_stats->tmp_table_bytes_written;
+  stats->filesort_bytes_written =
+    thd->get_filesort_bytes_written() - prev_stats->filesort_bytes_written;
+  stats->index_dive_count =
+    thd->get_index_dive_count() - prev_stats->index_dive_count;
+  stats->index_dive_cpu =
+    thd->get_index_dive_cpu() - prev_stats->index_dive_cpu;
+  stats->compilation_cpu =
+    thd->get_compilation_cpu() - prev_stats->compilation_cpu;
+  if (thd->get_stmt_tmp_table_disk_usage_peak() > prev_stats->tmp_table_disk_usage) {
+    stats->tmp_table_disk_usage = thd->get_stmt_tmp_table_disk_usage_peak() - prev_stats->tmp_table_disk_usage;
+  } else {
+    stats->tmp_table_disk_usage = 0;
+  }
+  if (thd->get_stmt_filesort_disk_usage_peak() > prev_stats->filesort_disk_usage) {
+    stats->filesort_disk_usage = thd->get_stmt_filesort_disk_usage_peak() - prev_stats->filesort_disk_usage;
+  } else {
+    stats->filesort_disk_usage = 0;
+  }
 }
 
 /*
@@ -2260,17 +2283,19 @@ void store_sql_findings(THD *thd, const char *query_text, int query_length) {
 ************************************************************************/
 
 /*
-  update_sql_stats_after_statement
-    Updates the SQL stats after every SQL statement.
+  update_sql_stats_for_statement
+    Updates the SQL stats for every SQL statement. The function is invoked
+    multiple times during the execution.
     It is responsible for getting the SQL digest, storing and updating the
     underlying in-memory structures for SQL_TEXT and SQL_STATISTICS IS tables.
   Input:
     thd    in: - THD
     stats  in: - stats for the current SQL statement execution
 */
-void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats,
+void update_sql_stats_for_statement(THD *thd, SHARED_SQL_STATS *stats,
                                       const char *sub_query,
-                                      uint sub_query_length) {
+                                      uint sub_query_length,
+                                      bool statement_completed) {
   // Do a light weight limit check without acquiring the lock.
   // There will be another check later while holding the lock.
   if (is_sql_stats_collection_above_limit())
@@ -2290,7 +2315,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats,
 
     m_digest_storage could be empty if sql_stats_control was turned on in the
     current statement. Since the variable was OFF during parse, but ON when
-    update_sql_stats_after_statement is called, we won't have the digest
+    update_sql_stats_for_statement is called, we won't have the digest
     available. In that case, just skip text and stats collection.
   */
   DBUG_ASSERT(thd->m_digest);
@@ -2419,18 +2444,20 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats,
     sql_stats->query_sample_seen = time_now;
   }
   /* Update stats */
-  sql_stats->count++;
-  if (thd->get_stmt_da()->is_error() &&
-      thd->get_stmt_da()->sql_errno() == ER_DUPLICATE_STATEMENT_EXECUTION)
-    sql_stats->skipped_count++;
-  sql_stats->rows_sent += (ulonglong)thd->get_sent_row_count();
-  sql_stats->tmp_table_bytes_written += thd->get_tmp_table_bytes_written();
-  sql_stats->filesort_bytes_written += thd->get_filesort_bytes_written();
-  sql_stats->index_dive_count += thd->get_index_dive_count();
-  sql_stats->index_dive_cpu += thd->get_index_dive_cpu();
-  sql_stats->compilation_cpu += thd->get_compilation_cpu();
-  sql_stats->tmp_table_disk_usage += thd->get_stmt_tmp_table_disk_usage_peak();
-  sql_stats->filesort_disk_usage += thd->get_stmt_filesort_disk_usage_peak();
+  sql_stats->shared_stats.rows_sent += stats->rows_sent;
+  sql_stats->shared_stats.tmp_table_bytes_written += stats->tmp_table_bytes_written;
+  sql_stats->shared_stats.filesort_bytes_written += stats->filesort_bytes_written;
+  sql_stats->shared_stats.index_dive_count += stats->index_dive_count;
+  sql_stats->shared_stats.index_dive_cpu += stats->index_dive_cpu;
+  sql_stats->shared_stats.compilation_cpu += stats->compilation_cpu;
+  sql_stats->shared_stats.tmp_table_disk_usage += stats->tmp_table_disk_usage;
+  sql_stats->shared_stats.filesort_disk_usage += stats->filesort_disk_usage;
+
+  // Update CPU stats
+  sql_stats->shared_stats.stmt_cpu_utime += stats->stmt_cpu_utime;
+
+  // Update elapsed time
+  sql_stats->shared_stats.stmt_elapsed_utime += stats->stmt_elapsed_utime;
 
   // Update Row counts
   sql_stats->shared_stats.rows_inserted += stats->rows_inserted;
@@ -2438,11 +2465,12 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats,
   sql_stats->shared_stats.rows_deleted += stats->rows_deleted;
   sql_stats->shared_stats.rows_read += stats->rows_read;
 
-  // Update CPU stats
-  sql_stats->shared_stats.stmt_cpu_utime += stats->stmt_cpu_utime;
-
-  // Update elapsed time
-  sql_stats->shared_stats.stmt_elapsed_utime += stats->stmt_elapsed_utime;
+  if (statement_completed) {
+    sql_stats->count++;
+    if (thd->get_stmt_da()->is_error() &&
+        thd->get_stmt_da()->sql_errno() == ER_DUPLICATE_STATEMENT_EXECUTION)
+      sql_stats->skipped_count++;
+  }
 
   mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 }
@@ -2470,14 +2498,14 @@ static void sql_stats_merge(SQL_STATS *base, SQL_STATS *update, SQL_STATS **out,
 
   storage->count += update->count;
   storage->skipped_count += update->skipped_count;
-  storage->rows_sent += update->rows_sent;
-  storage->tmp_table_bytes_written += update->tmp_table_bytes_written;
-  storage->filesort_bytes_written += update->filesort_bytes_written;
-  storage->index_dive_count += update->index_dive_count;
-  storage->index_dive_cpu += update->index_dive_cpu;
-  storage->compilation_cpu += update->compilation_cpu;
-  storage->tmp_table_disk_usage += update->tmp_table_disk_usage;
-  storage->filesort_disk_usage += update->filesort_disk_usage;
+  storage->shared_stats.rows_sent += update->shared_stats.rows_sent;
+  storage->shared_stats.tmp_table_bytes_written += update->shared_stats.tmp_table_bytes_written;
+  storage->shared_stats.filesort_bytes_written += update->shared_stats.filesort_bytes_written;
+  storage->shared_stats.index_dive_count += update->shared_stats.index_dive_count;
+  storage->shared_stats.index_dive_cpu += update->shared_stats.index_dive_cpu;
+  storage->shared_stats.compilation_cpu += update->shared_stats.compilation_cpu;
+  storage->shared_stats.tmp_table_disk_usage += update->shared_stats.tmp_table_disk_usage;
+  storage->shared_stats.filesort_disk_usage += update->shared_stats.filesort_disk_usage;
   storage->shared_stats.rows_inserted += update->shared_stats.rows_inserted;
   storage->shared_stats.rows_updated += update->shared_stats.rows_updated;
   storage->shared_stats.rows_deleted += update->shared_stats.rows_deleted;
@@ -2741,6 +2769,11 @@ static int check_pre_fill_conditions(THD *thd, const char *table_name,
     thd->set_mt_table_filled(table_name_enum);
   }
 
+  /* Ugly - but prevent query from updating stats intermittently and causing a deadlock*/
+  if (thd->should_update_stats) {
+    thd->should_update_stats = false;
+  }
+
   return result;
 }
 
@@ -2838,25 +2871,25 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
       /* Rows read */
       table->field[f++]->store(sql_stats->shared_stats.rows_read, TRUE);
       /* Rows returned to the client */
-      table->field[f++]->store(sql_stats->rows_sent, TRUE);
+      table->field[f++]->store(sql_stats->shared_stats.rows_sent, TRUE);
       /* Total CPU in microseconds */
       table->field[f++]->store(sql_stats->shared_stats.stmt_cpu_utime, TRUE);
       /* Total Elapsed time in microseconds */
       table->field[f++]->store(sql_stats->shared_stats.stmt_elapsed_utime, TRUE);
       /* Bytes written to temp table space */
-      table->field[f++]->store(sql_stats->tmp_table_bytes_written, TRUE);
+      table->field[f++]->store(sql_stats->shared_stats.tmp_table_bytes_written, TRUE);
       /* Bytes written to filesort space */
-      table->field[f++]->store(sql_stats->filesort_bytes_written, TRUE);
+      table->field[f++]->store(sql_stats->shared_stats.filesort_bytes_written, TRUE);
       /* Index dive count */
-      table->field[f++]->store(sql_stats->index_dive_count, TRUE);
+      table->field[f++]->store(sql_stats->shared_stats.index_dive_count, TRUE);
       /* Index dive CPU */
-      table->field[f++]->store(sql_stats->index_dive_cpu, TRUE);
+      table->field[f++]->store(sql_stats->shared_stats.index_dive_cpu, TRUE);
       /* Compilation CPU */
-      table->field[f++]->store(sql_stats->compilation_cpu, TRUE);
+      table->field[f++]->store(sql_stats->shared_stats.compilation_cpu, TRUE);
       /* Tmp table disk usage */
-      table->field[f++]->store(sql_stats->tmp_table_disk_usage, TRUE);
+      table->field[f++]->store(sql_stats->shared_stats.tmp_table_disk_usage, TRUE);
       /* Filesort disk usage */
-      table->field[f++]->store(sql_stats->filesort_disk_usage, TRUE);
+      table->field[f++]->store(sql_stats->shared_stats.filesort_disk_usage, TRUE);
 
       if (schema_table_store_record(thd, table))
         result = -1;

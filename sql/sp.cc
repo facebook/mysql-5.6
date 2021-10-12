@@ -414,7 +414,7 @@ TABLE *open_proc_table_for_read(THD *thd, Open_tables_backup *backup)
 
   if (open_system_tables_for_read(thd, &table, backup))
     DBUG_RETURN(NULL);
-   
+
   if (!table.table->key_info)
   {
     my_error(ER_TABLE_CORRUPT, MYF(0), table.table->s->db.str,
@@ -625,7 +625,7 @@ db_find_routine(THD *thd, enum_sp_type type, sp_name *name, sp_head **sphp)
     ret= SP_GET_FIELD_FAILED;
     goto done;
   }
-  chistics.detistic= (ptr[0] == 'N' ? FALSE : TRUE);    
+  chistics.detistic= (ptr[0] == 'N' ? FALSE : TRUE);
 
   if ((ptr= get_field(thd->mem_root,
 		      table->field[MYSQL_PROC_FIELD_SECURITY_TYPE])) == NULL)
@@ -687,10 +687,10 @@ db_find_routine(THD *thd, enum_sp_type type, sp_name *name, sp_head **sphp)
                        sql_mode, params, returns, body, chistics,
                        definer, created, modified, creation_ctx);
  done:
-  /* 
+  /*
     Restore the time zone flag as the timezone usage in proc table
     does not affect replication.
-  */  
+  */
   thd->time_zone_used= saved_time_zone_used;
   if (table)
     close_system_tables(thd, &open_tables_state_backup);
@@ -739,7 +739,7 @@ Silence_deprecated_warning::handle_condition(
   @param[in]      defstr            CREATE... string
   @param[in]      sql_mode          SQL mode
   @param[in]      creation_ctx      Creation context of stored routines
-                                    
+
   @return     Pointer on sp_head struct
     @retval   #                     Pointer on sp_head struct
     @retval   0                     error
@@ -1217,8 +1217,8 @@ int sp_create_routine(THD *thd, sp_head *sp)
 
       if (!create_string(thd, &log_query,
                          sp->m_type,
-                         (sp->m_explicit_name ? sp->m_db.str : NULL), 
-                         (sp->m_explicit_name ? sp->m_db.length : 0), 
+                         (sp->m_explicit_name ? sp->m_db.str : NULL),
+                         (sp->m_explicit_name ? sp->m_db.length : 0),
                          sp->m_name.str, sp->m_name.length,
                          sp->m_params.str, sp->m_params.length,
                          retstr.c_ptr(), retstr.length(),
@@ -1959,7 +1959,7 @@ void sp_remove_not_own_routines(Query_tables_list *prelocking_ctx)
 
   *prelocking_ctx->sroutines_list_own_last= NULL;
   prelocking_ctx->sroutines_list.next= prelocking_ctx->sroutines_list_own_last;
-  prelocking_ctx->sroutines_list.elements= 
+  prelocking_ctx->sroutines_list.elements=
                     prelocking_ctx->sroutines_list_own_elements;
 }
 
@@ -2224,7 +2224,7 @@ static bool create_string(THD *thd, String *buf,
   @param[in]      params            parameters definition string
   @param[out]     free_sp_head      returns 1 if we need to free sp_head struct
                                     otherwise returns 0
-                                    
+
   @return     Pointer on sp_head struct
     @retval   #                     Pointer on sp_head struct
     @retval   0                     error
@@ -2241,7 +2241,7 @@ sp_load_for_information_schema(THD *thd, TABLE *proc_table, String *db,
   String defstr;
   struct st_sp_chistics sp_chistics;
   const LEX_STRING definer_user= {(char*)STRING_WITH_LEN("")};
-  const LEX_STRING definer_host= {(char*)STRING_WITH_LEN("")}; 
+  const LEX_STRING definer_host= {(char*)STRING_WITH_LEN("")};
   LEX_STRING sp_db_str;
   LEX_STRING sp_name_str;
   sp_head *sp;
@@ -2260,22 +2260,22 @@ sp_load_for_information_schema(THD *thd, TABLE *proc_table, String *db,
   }
 
   LEX *old_lex= thd->lex, newlex;
-  Stored_program_creation_ctx *creation_ctx= 
+  Stored_program_creation_ctx *creation_ctx=
     Stored_routine_creation_ctx::load_from_db(thd, &sp_name_obj, proc_table);
   sp_body= (type == SP_TYPE_FUNCTION) ? "RETURN NULL" : "BEGIN END";
   memset(&sp_chistics, 0, sizeof(sp_chistics));
   defstr.set_charset(creation_ctx->get_client_cs());
-  if (!create_string(thd, &defstr, type, 
-                     sp_db_str.str, sp_db_str.length, 
-                     sp_name_obj.m_name.str, sp_name_obj.m_name.length, 
+  if (!create_string(thd, &defstr, type,
+                     sp_db_str.str, sp_db_str.length,
+                     sp_name_obj.m_name.str, sp_name_obj.m_name.length,
                      params, strlen(params),
-                     returns, strlen(returns), 
+                     returns, strlen(returns),
                      sp_body, strlen(sp_body),
                      &sp_chistics, &definer_user, &definer_host, sql_mode))
     return 0;
 
   thd->lex= &newlex;
-  newlex.current_select= NULL; 
+  newlex.current_select= NULL;
   sp= sp_compile(thd, &defstr, sql_mode, creation_ctx);
   *free_sp_head= 1;
   thd->lex->sphead= NULL;
@@ -2685,8 +2685,8 @@ bool sp_eval_expr(THD *thd, Field *result_field, Item **expr_item_ptr)
 error:
   /*
     In case of error during evaluation, leave the result field set to NULL.
-    Sic: we can't do it in the beginning of the function because the 
-    result field might be needed for its own re-evaluation, e.g. case of 
+    Sic: we can't do it in the beginning of the function because the
+    result field might be needed for its own re-evaluation, e.g. case of
     set x = x + 1;
   */
   result_field->set_null();

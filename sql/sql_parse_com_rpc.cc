@@ -326,5 +326,3 @@ std::pair<bool, std::shared_ptr<Srv_session>> handle_com_rpc(THD *conn_thd) {
 }
 
 #endif // #ifndef EMBEDDED_LIBRARY
-
-

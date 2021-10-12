@@ -1,0 +1,103 @@
+--source include/load_sysvars.inc
+
+SET @start_global_value = @@global.min_examined_row_limit_sql_stats;
+SELECT @start_global_value;
+
+
+--echo '#--------------------FN_DYNVARS_089_01-------------------------#'
+######################################################################
+#     Display the DEFAULT value of min_examined_row_limit_sql_stats            #
+######################################################################
+
+SET @@global.min_examined_row_limit_sql_stats = 100;
+SET @@global.min_examined_row_limit_sql_stats = DEFAULT;
+SELECT @@global.min_examined_row_limit_sql_stats;
+
+--echo '#--------------------FN_DYNVARS_089_02-------------------------#'
+######################################################################
+#     min_examined_row_limit_sql_stats is not a session variable
+######################################################################
+--error ER_GLOBAL_VARIABLE
+set SESSION min_examined_row_limit_sql_stats=10000;
+
+--echo '#--------------------FN_DYNVARS_089_03-------------------------#'
+################################################################################
+# Change the value of min_examined_row_limit_sql_stats to a valid value for GLOBAL Scope #
+################################################################################
+
+SET @@global.min_examined_row_limit_sql_stats = 0;
+SELECT @@global.min_examined_row_limit_sql_stats;
+SET @@global.min_examined_row_limit_sql_stats = 1;
+SELECT @@global.min_examined_row_limit_sql_stats;
+SET @@global.min_examined_row_limit_sql_stats = 60020;
+SELECT @@global.min_examined_row_limit_sql_stats;
+SET @@global.min_examined_row_limit_sql_stats = 65535;
+SELECT @@global.min_examined_row_limit_sql_stats;
+SET @@global.min_examined_row_limit_sql_stats = 4294967295;
+SELECT @@global.min_examined_row_limit_sql_stats;
+SET @@global.min_examined_row_limit_sql_stats = 4294967294;
+SELECT @@global.min_examined_row_limit_sql_stats;
+
+
+--echo '#------------------FN_DYNVARS_089_05-----------------------#'
+####################################################################
+# Change the value of min_examined_row_limit_sql_stats to an invalid value #
+####################################################################
+
+SET @@global.min_examined_row_limit_sql_stats = 429496726;
+SELECT @@global.min_examined_row_limit_sql_stats;
+SET @@global.min_examined_row_limit_sql_stats = -1024;
+SELECT @@global.min_examined_row_limit_sql_stats;
+SET @@global.min_examined_row_limit_sql_stats = 429496729500;
+SELECT @@global.min_examined_row_limit_sql_stats;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.min_examined_row_limit_sql_stats = 65530.34;
+SELECT @@global.min_examined_row_limit_sql_stats;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.min_examined_row_limit_sql_stats = test;
+SELECT @@global.min_examined_row_limit_sql_stats;
+
+
+--echo '#------------------FN_DYNVARS_089_06-----------------------#'
+####################################################################
+#   Check if the value in GLOBAL Table matches value in variable   #
+####################################################################
+
+
+SELECT @@global.min_examined_row_limit_sql_stats = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='min_examined_row_limit_sql_stats';
+
+
+--echo '#------------------FN_DYNVARS_089_08-----------------------#'
+####################################################################
+#     Check if TRUE and FALSE values can be used on variable       #
+####################################################################
+
+SET @@global.min_examined_row_limit_sql_stats = TRUE;
+SELECT @@global.min_examined_row_limit_sql_stats;
+SET @@global.min_examined_row_limit_sql_stats = FALSE;
+SELECT @@global.min_examined_row_limit_sql_stats;
+
+
+--echo '#---------------------FN_DYNVARS_089_09----------------------#'
+#################################################################################### 
+#  Check if accessing variable with and without GLOBAL point to same variable   #
+#################################################################################### 
+
+SET @@global.min_examined_row_limit_sql_stats = 10;
+SELECT @@min_examined_row_limit_sql_stats = @@global.min_examined_row_limit_sql_stats;
+
+
+####################################
+#     Restore initial value        #
+####################################
+
+SET @@global.min_examined_row_limit_sql_stats = @start_global_value;
+SELECT @@global.min_examined_row_limit_sql_stats;
+
+
+#############################################################
+#                 END OF min_examined_row_limit_sql_stats TESTS     #
+#############################################################
+

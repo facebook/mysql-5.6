@@ -316,7 +316,7 @@ private:
   Also, if possible, grabs name of the trigger being parsed so it can be
   used to correctly drop problematic trigger.
 */
-class Deprecated_trigger_syntax_handler : public Internal_error_handler 
+class Deprecated_trigger_syntax_handler : public Internal_error_handler
 {
 private:
 
@@ -707,7 +707,7 @@ bool Table_triggers_list::create_trigger(THD *thd, TABLE_LIST *tables,
     that the current user has SUPER privilege (in order to create trigger
     under another user one must have SUPER privilege).
   */
-  
+
   if (lex->definer &&
       (strcmp(lex->definer->user.str, thd->security_ctx->priv_user) ||
        my_strcasecmp(system_charset_info,
@@ -1476,7 +1476,7 @@ bool Table_triggers_list::check_n_load(THD *thd, const char *db,
           }
           else
           {
-            /* 
+            /*
                The Table_triggers_list is not constructed as a list of
                trigger objects as one would expect, but rather of lists of
                properties of equal length. Thus, even if we don't get the
@@ -1556,7 +1556,7 @@ bool Table_triggers_list::check_n_load(THD *thd, const char *db,
         /*
           Let us check that we correctly update trigger definitions when we
           rename tables with triggers.
-          
+
           In special cases like "RENAME TABLE `#mysql50#somename` TO `somename`"
           or "ALTER DATABASE `#mysql50#somename` UPGRADE DATA DIRECTORY NAME"
           we might be given table or database name with "#mysql50#" prefix (and
@@ -2003,7 +2003,7 @@ Table_triggers_list::change_table_name_in_trignames(const char *old_db_name,
     if (sql_create_definition_file(NULL, &trigname_file, &trigname_file_type,
                                    (uchar*)&trigname, trigname_file_parameters))
       return trigger;
-      
+
     /* Remove stale .TRN file in case of database upgrade */
     if (old_db_name)
     {
@@ -2048,7 +2048,7 @@ bool Table_triggers_list::change_table_name(THD *thd, const char *db,
 {
   TABLE table;
   bool result= 0;
-  bool upgrading50to51= FALSE; 
+  bool upgrading50to51= FALSE;
   LEX_STRING *err_trigname;
   DBUG_ENTER("change_table_name");
 
@@ -2084,7 +2084,7 @@ bool Table_triggers_list::change_table_name(THD *thd, const char *db,
       moving table with them between two schemas raises too many questions.
       (E.g. what should happen if in new schema we already have trigger
        with same name ?).
-       
+
       In case of "ALTER DATABASE `#mysql50#db1` UPGRADE DATA DIRECTORY NAME"
       we will be given table name with "#mysql50#" prefix
       To remove this prefix we use check_n_cut_mysql50_prefix().
@@ -2092,7 +2092,7 @@ bool Table_triggers_list::change_table_name(THD *thd, const char *db,
     if (my_strcasecmp(table_alias_charset, db, new_db))
     {
       char dbname[NAME_LEN + 1];
-      if (check_n_cut_mysql50_prefix(db, dbname, sizeof(dbname)) && 
+      if (check_n_cut_mysql50_prefix(db, dbname, sizeof(dbname)) &&
           !my_strcasecmp(table_alias_charset, dbname, new_db))
       {
         upgrading50to51= TRUE;
@@ -2131,7 +2131,7 @@ bool Table_triggers_list::change_table_name(THD *thd, const char *db,
       goto end;
     }
   }
-  
+
 end:
   delete table.triggers;
   free_root(&table.mem_root, MYF(0));

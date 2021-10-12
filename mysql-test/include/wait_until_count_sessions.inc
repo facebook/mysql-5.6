@@ -124,4 +124,3 @@ if (!$success)
    SHOW PROCESSLIST;
    --die Timeout in wait_until_count_sessions.inc
 }
-

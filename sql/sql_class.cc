@@ -103,6 +103,10 @@ static const std::string emptyStr = "";
 
 const char * const THD::DEFAULT_WHERE= "field list";
 
+extern void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats,
+                             const char *sub_query, uint input_length,
+                             bool statement_completed);
+
 /*
   When the thread is killed, we store the reason why it is killed in this buffer
   so that clients can understand why their query fails
@@ -1051,11 +1055,11 @@ THD::THD(bool enable_plugins)
   query_start_used= query_start_usec_used= 0;
   count_cuted_fields= CHECK_FIELD_IGNORE;
   killed= NOT_KILLED;
-  killed_reason = NULL;
-  col_access=0;
+  killed_reason= NULL;
+  col_access= 0;
   is_slave_error= thread_specific_used= FALSE;
   my_hash_clear(&handler_tables_hash);
-  tmp_table=0;
+  tmp_table= 0;
   cuted_fields= 0L;
   m_sent_row_count= 0L;
   limit_found_rows= 0;
@@ -1067,25 +1071,29 @@ THD::THD(bool enable_plugins)
   user_time.tv_usec= 0;
   start_time.tv_sec= 0;
   start_time.tv_usec= 0;
-  start_utime= prior_thr_create_utime= 0L;
+  start_utime= prior_thr_create_utime = 0L;
   utime_after_lock= 0L;
-  current_linfo =  0;
-  slave_thread = 0;
+  current_linfo=  0;
+  slave_thread= 0;
   memset(&variables, 0, sizeof(variables));
   m_thread_id= 0;
   system_thread_id= 0;
   one_shot_set= 0;
-  file_id = 0;
+  file_id= 0;
   query_id= 0;
   query_name_consts= 0;
   db_charset= global_system_variables.collation_database;
   my_hash_clear(&db_read_only_hash);
   memset(ha_data, 0, sizeof(ha_data));
-  mysys_var=0;
+  mysys_var= 0;
   binlog_evt_union.do_union= FALSE;
   enable_slow_log= 0;
   commit_error= CE_NONE;
   commit_consensus_error= false;
+  last_cpu_info_result = -1;
+  cumulative_sql_stats = nullptr;
+  cpu_start_timespec = {};
+  should_update_stats = false;
 
   durability_property= HA_REGULAR_DURABILITY;
 #ifndef DBUG_OFF
@@ -5459,6 +5467,11 @@ void THD::check_limit_rows_examined()
     killed= ABORT_QUERY;
 }
 
+ulonglong THD::get_rows_examined()
+{
+  return m_accessed_rows_and_keys;
+}
+
 void THD::check_yield()
 {
   DBUG_ASSERT(last_yield_counter <= yield_counter);
@@ -7090,4 +7103,103 @@ bool THD::set_dscp_on_socket() {
   }
 
   return true;
+}
+
+void THD::set_query_cumulative_stats(SHARED_SQL_STATS* cumulative_sql_stats) {
+  this->cumulative_sql_stats = cumulative_sql_stats;
+  should_update_stats = true;
+}
+
+void THD::reset_counters_for_query() {
+  init_sql_cpu_capture();
+  set_last_examined_row_count();
+}
+
+void THD::reset_counters_for_next_subquery_stats() {
+  set_last_examined_row_count();
+}
+
+void THD::init_sql_cpu_capture() {
+  #if HAVE_CLOCK_GETTIME
+      last_cpu_info_result = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu_start_timespec.time_begin_cpu_capture);
+  #elif HAVE_GETRUSAGE
+      last_cpu_info_result = getrusage(RUSAGE_THREAD, &cpu_start_timespec.rusage_begin_cpu_capture);
+  #endif
+}
+
+void THD::set_last_examined_row_count() {
+  last_examined_row_count = get_accessed_rows_and_keys();
+}
+
+void THD::update_sql_stats_periodic() {
+  if (!cumulative_sql_stats ||
+      !should_update_stats ||
+      !m_digest ||
+      (stmt_start == 0) ||
+      (min_examined_row_limit_for_sql_stats == 0)) {
+    return;
+  }
+
+  if (min_examined_row_limit_for_sql_stats >
+      (get_accessed_rows_and_keys() - last_examined_row_count)) {
+    return;
+  }
+
+  update_sql_cpu_for_query(true /*update_stats*/);
+}
+
+void THD::update_sql_cpu_for_query(bool update_stats) {
+  DB_STATS *dbstats = db_stats;
+  int cpu_res = -1;
+  bool can_update_stats = false;
+  THD *thd = current_thd;
+  USER_STATS *us = thd_get_user_stats(thd);
+  #if HAVE_CLOCK_GETTIME
+      timespec time_end;
+      if (((cpu_res = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end)) == 0) &&
+          last_cpu_info_result == 0) {
+        ulonglong diff = diff_timespec(time_end, cpu_start_timespec.time_begin_cpu_capture);
+        // convert to microseconds
+        diff /= 1000;
+        if (dbstats)
+          dbstats->update_cpu_stats_tot(diff);
+        us->microseconds_cpu.inc(diff);
+
+        sql_cpu += diff;
+        cpu_start_timespec.time_begin_cpu_capture = time_end;
+        can_update_stats = true;
+      }
+  #elif HAVE_GETRUSAGE
+      struct rusage rusage_end;
+      if (((cpu_res = getrusage(RUSAGE_THREAD, &rusage_end)) == 0) &&
+          last_cpu_info_result == 0) {
+        ulonglong diffu =
+          RUSAGE_DIFF_USEC(rusage_end.ru_utime, cpu_start_timespec.rusage_begin_cpu_capture.ru_utime);
+        ulonglong diffs =
+          RUSAGE_DIFF_USEC(rusage_end.ru_stime, cpu_start_timespec.rusage_begin_cpu_capture.ru_stime);
+        if (dbstats)
+          dbstats->update_cpu_stats(diffu, diffs);
+        us->microseconds_cpu.inc(diffu + diffs);
+        us->microseconds_cpu_user.inc(diffu);
+        us->microseconds_cpu_sys.inc(diffs);
+
+        sql_cpu += diffu + diffs;
+        cpu_start_timespec.rusage_begin_cpu_capture = rusage_end;
+        can_update_stats = true;
+      }
+  #endif
+
+  if (can_update_stats && update_stats && should_update_stats) {
+      DBUG_ASSERT(stmt_start > 0);
+      stmt_elapsed_utime = (ulonglong)my_timer_to_microseconds(my_timer_since(stmt_start));
+      update_sql_stats(
+        current_thd,
+        cumulative_sql_stats,
+        query(),
+        query_length(),
+        false /*statement_completed*/);
+      DEBUG_SYNC(thd, "update_sql_stats_periodic");
+      reset_counters_for_next_subquery_stats();
+  }
+  last_cpu_info_result = cpu_res;
 }

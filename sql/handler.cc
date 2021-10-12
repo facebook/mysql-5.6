@@ -2822,6 +2822,7 @@ void handler::ha_statistic_increment(ulonglong SSV::*offset) const
   {
     status_var_increment(table->in_use->status_var.*offset);
     table->in_use->check_limit_rows_examined();
+    table->in_use->update_sql_stats_periodic();
     table->in_use->check_yield();
   }
 }

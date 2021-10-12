@@ -530,14 +530,36 @@ typedef struct st_shared_sql_stats {
 
   ulonglong stmt_elapsed_utime; /* Statement elapsed time in microseconds */
 
+  ulonglong rows_sent; /* rows sent back to the client */
+  ulonglong tmp_table_bytes_written; /* bytes written to temp table space */
+  ulonglong filesort_bytes_written; /* bytes written to filesort space */
+  uint      index_dive_count; /* index dive count */
+  ulonglong index_dive_cpu; /* index dive CPU time in microseconds */
+  ulonglong compilation_cpu; /* plan compilation CPU time in microseconds */
+  ulonglong tmp_table_disk_usage; /* peak disk usage by temp tables */
+  ulonglong filesort_disk_usage; /* peak disk usage by filesort */
+
+  void reset_reusable_metrics()
+  {
+    stmt_cpu_utime = 0;
+    stmt_elapsed_utime = 0;
+    rows_sent = 0;
+    tmp_table_bytes_written = 0;
+    filesort_bytes_written = 0;
+    index_dive_count = 0;
+    index_dive_cpu = 0;
+    compilation_cpu = 0;
+    tmp_table_disk_usage = 0;
+    filesort_disk_usage = 0;
+  }
+
   void reset()
   {
     rows_inserted= 0;
     rows_updated= 0;
     rows_deleted= 0;
     rows_read= 0;
-    stmt_cpu_utime = 0;
-    stmt_elapsed_utime = 0;
+    reset_reusable_metrics();
   }
 } SHARED_SQL_STATS;
 
@@ -556,28 +578,11 @@ typedef struct st_sql_stats {
                                   /* statement */
   ulonglong skipped_count;     /* count of skipped executions */
 
-  ulonglong rows_sent; /* rows sent back to the client */
-  ulonglong tmp_table_bytes_written; /* bytes written to temp table space */
-  ulonglong filesort_bytes_written; /* bytes written to filesort space */
-  uint      index_dive_count; /* index dive count */
-  ulonglong index_dive_cpu; /* index dive CPU time in microseconds */
-  ulonglong compilation_cpu; /* plan compilation CPU time in microseconds */
-  ulonglong tmp_table_disk_usage; /* peak disk usage by temp tables */
-  ulonglong filesort_disk_usage; /* peak disk usage by filesort */
-
   SHARED_SQL_STATS shared_stats;
 
   void reset() {
     count= 0;
     skipped_count= 0;
-    rows_sent = 0;
-    tmp_table_bytes_written = 0;
-    filesort_bytes_written = 0;
-    index_dive_count = 0;
-    index_dive_cpu = 0;
-    compilation_cpu = 0;
-    tmp_table_disk_usage = 0;
-    filesort_disk_usage = 0;
     shared_stats.reset();
   }
 } SQL_STATS;

@@ -1,0 +1,43 @@
+--source include/no_perfschema.inc
+--source include/have_debug_sync.inc
+
+####################################################
+### Case 1: Query with periodic sampling
+####################################################
+
+--echo Case 1: Query with periodic sampling
+flush sql_statistics;
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.max_digest_sample_age=1;
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+select @@sql_stats_control;
+
+connect (con25, localhost, root,,test);
+
+connection con25;
+create table t71 (i int);
+insert into t71 values(1);
+insert into t71 values(3);
+insert into t71 values(4);
+
+# The first hit is due to incrementing stat due to external lock
+# Next 3 are related to rows examined. Hence, the number 4.
+SET DEBUG_SYNC = "update_sql_stats_periodic HIT_LIMIT 4";
+--error ER_DEBUG_SYNC_HIT_LIMIT
+select * from t71;
+
+select sql_id, plan_id, table_schema, user_name, query_sample_text,
+  execution_count, rows_inserted, rows_updated,
+	rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
+from information_schema.sql_statistics
+order by sql_id;
+
+drop table t71;
+set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.max_digest_sample_age=DEFAULT;
+disconnect con25;

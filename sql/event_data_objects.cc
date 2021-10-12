@@ -560,7 +560,7 @@ Event_queue_element::load_from_row(THD *thd, TABLE *table)
   }
   if ((ptr= get_field(&mem_root, table->field[ET_FIELD_ORIGINATOR])) == NullS)
     DBUG_RETURN(TRUE);
-  originator = table->field[ET_FIELD_ORIGINATOR]->val_int(); 
+  originator = table->field[ET_FIELD_ORIGINATOR]->val_int();
 
   /* ToDo : Andrey . Find a way not to allocate ptr on event_mem_root */
   if ((ptr= get_field(&mem_root,
@@ -1344,7 +1344,7 @@ Event_job_data::execute(THD *thd, bool drop)
   /*
     MySQL parser currently assumes that current database is either
     present in THD or all names in all statements are fully specified.
-    And yet not fully specified names inside stored programs must be 
+    And yet not fully specified names inside stored programs must be
     be supported, even if the current database is not set:
     CREATE PROCEDURE db1.p1() BEGIN CREATE TABLE t1; END//
     -- in this example t1 should be always created in db1 and the statement

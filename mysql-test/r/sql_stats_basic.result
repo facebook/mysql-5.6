@@ -286,6 +286,61 @@ ba1090d799fb93c155a3fb2f7cfb2a55	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	popula
 db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
 e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
 faca5788f5e48b7a41c386beb1f3da25	3735d0563cc8e7df82f25be86d592dc1	test	user_super	1	0	1	0	1	0	0	0	0	0	populated
+Case 6.1: Multi-query support with GLOBAL.min_examined_row_limit_sql_stats
+flush sql_statistics;
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+set @@GLOBAL.max_digest_sample_age=1;
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select 1;
+select 2;
+select 3;
+create table t2(c int);
+insert into t2 values(100);
+insert into t2 values(101);
+insert into t2 values(102);
+insert into t2 values(103);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2;
+||||
+1
+1
+2
+2
+3
+3
+c
+100
+101
+102
+103
+select sql_id, plan_id, table_schema, user_name, execution_count,
+rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+tmp_table_bytes_written, filesort_bytes_written,
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time,
+case when total_cpu > 0 then "cpu recorded" else "not recorded"
+        end total_cpu
+from information_schema.sql_statistics
+order by sql_id, plan_id||||
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time	total_cpu
+139dd37d45cdf132ea1ad78f5cccbc7f	f343b9befca0a2e2d56935211139703e	test	user_super	1	0	0	1	4	0	0	0	0	0	populated	cpu recorded
+16b4b893067fc211fff92b1b100a49fa	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated	cpu recorded
+38e82fbb61896ae245f55ffb653a654a	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated	cpu recorded
+5b11e48a826ef2c149f75cfa7894a20d	ad4dd9037a9a857e220f18a568e95dbe	test	user_super	1	0	0	0	4	4	0	0	0	0	populated	cpu recorded
+61cfba98c189b9a58e74e5e68b093c7b	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated	cpu recorded
+b1cf248bbe9c0f226de01543a95800d5	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated	cpu recorded
+b5d74033813edd43b779ba064ef58e0e	c63aca0e3e2270468eaadb4364351527	test	user_super	4	4	0	0	0	0	0	0	0	0	populated	cpu recorded
+ba1090d799fb93c155a3fb2f7cfb2a55	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated	cpu recorded
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated	cpu recorded
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated	cpu recorded
+faca5788f5e48b7a41c386beb1f3da25	3735d0563cc8e7df82f25be86d592dc1	test	user_super	1	0	4	0	4	0	0	0	0	0	populated	cpu recorded
+set @@GLOBAL.max_digest_sample_age=DEFAULT;
+set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
 Case 7: Query no sampling by default
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -1451,6 +1506,35 @@ unlock tables;
 "*** Test Succeeded!!!***"
 drop database test_db;
 Case 20 Cleanup
+Verify there are no waiting threads.
+select count(*) from information_schema.processlist where state='waiting for admission';
+count(*)
+0
+select count(*) from information_schema.admission_control_entities where schema_name = 'test_db';
+count(*)
+0
+set @@global.max_running_queries=@start_max_running_queries;
+set @@global.max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;
+Case 20.1: Unit test for sql_statistics.elapsed_time with min_examined_row_limit_sql_stats = 1
+create database test_db_row_limit;
+create user test_user@localhost;
+use test_db_row_limit;
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+set @@GLOBAL.max_digest_sample_age=1;
+set @start_max_running_queries= @@global.max_running_queries;
+set @start_max_waiting_queries= @@global.max_waiting_queries;
+set @@global.max_running_queries=2;
+set @@global.max_waiting_queries=2;
+create table t1(a int) engine=InnoDB;
+create table t2(a int) engine=InnoDB;
+lock table t2 write;
+use test_db_row_limit;
+unlock tables;
+"*** Test Succeeded!!!***"
+drop database test_db_row_limit;
+Case 20.1 Cleanup
 Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
 count(*)

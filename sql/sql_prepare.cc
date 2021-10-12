@@ -226,7 +226,7 @@ class Ed_connection;
 
 /**
   Protocol_local: a helper class to intercept the result
-  of the data written to the network. 
+  of the data written to the network.
 */
 
 class Protocol_local :public Protocol
@@ -1537,7 +1537,7 @@ static int mysql_test_select(Prepared_statement *stmt,
 
   if (!lex->result && !(lex->result= new (stmt->mem_root) select_send))
   {
-    my_error(ER_OUTOFMEMORY, MYF(ME_FATALERROR), 
+    my_error(ER_OUTOFMEMORY, MYF(ME_FATALERROR),
              static_cast<int>(sizeof(select_send)));
     goto error;
   }
@@ -3683,7 +3683,7 @@ Prepared_statement::execute_loop(String *expanded_query,
   if (set_parameters(expanded_query, packet, packet_end))
     return TRUE;
 
-  if (unlikely(thd->security_ctx->password_expired && 
+  if (unlikely(thd->security_ctx->password_expired &&
                !lex->is_change_password))
   {
     my_error(ER_MUST_CHANGE_PASSWORD, MYF(0));
@@ -3989,7 +3989,7 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor)
   */
   DBUG_ASSERT(thd->change_list.is_empty());
 
-  /* 
+  /*
    The only case where we should have items in the thd->free_list is
    after stmt->set_params_from_vars(), which may in some cases create
    Item_null objects.

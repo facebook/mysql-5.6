@@ -1224,6 +1224,9 @@ extern uint sql_plans_capture_frequency;
 /* Controls collecting execution plans based on a filter on query text */
 extern my_bool sql_plans_capture_apply_filter;
 
+/* Controls the row count after which we capture sql stats */
+extern ulong min_examined_row_limit_for_sql_stats;
+
 /* Controls whether the plan ID is computed from normalized execution plan */
 extern my_bool normalized_plan_id;
 

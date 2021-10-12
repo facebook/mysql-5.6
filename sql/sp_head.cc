@@ -1144,7 +1144,7 @@ err_with_cleanup:
     If not inside a procedure and a function printing warning
     messages.
   */
-  if (need_binlog_call && 
+  if (need_binlog_call &&
       thd->sp_runtime_ctx == NULL && !thd->binlog_evt_union.do_union)
     thd->issue_unsafe_warnings();
 
@@ -1290,7 +1290,7 @@ bool sp_head::execute_procedure(THD *thd, List<Item> *args)
 
     thd->rollback_item_tree_changes();
 
-    DBUG_PRINT("info",(" %.*s: eval args done", (int) m_name.length, 
+    DBUG_PRINT("info",(" %.*s: eval args done", (int) m_name.length,
                        m_name.str));
   }
   if (!(m_flags & LOG_SLOW_STATEMENTS) && thd->enable_slow_log)
@@ -1389,7 +1389,7 @@ bool sp_head::execute_procedure(THD *thd, List<Item> *args)
   /*
     If not insided a procedure and a function printing warning
     messages.
-  */ 
+  */
   bool need_binlog_call= mysql_bin_log.is_open() &&
                          (thd->variables.option_bits & OPTION_BIN_LOG) &&
                          !thd->is_current_stmt_binlog_format_row();

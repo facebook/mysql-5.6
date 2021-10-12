@@ -1,0 +1,36 @@
+Case 1: Query with periodic sampling
+flush sql_statistics;
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.max_digest_sample_age=1;
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+create table t71 (i int);
+insert into t71 values(1);
+insert into t71 values(3);
+insert into t71 values(4);
+SET DEBUG_SYNC = "update_sql_stats_periodic HIT_LIMIT 4";
+select * from t71;
+ERROR HY000: debug sync point hit limit reached
+select sql_id, plan_id, table_schema, user_name, query_sample_text,
+execution_count, rows_inserted, rows_updated,
+rows_deleted, rows_read, rows_sent,
+tmp_table_bytes_written, filesort_bytes_written,
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
+from information_schema.sql_statistics
+order by sql_id;
+sql_id	plan_id	table_schema	user_name	query_sample_text	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+0e1fe47ebd3474b48b987c5e1b5082c7	NULL	test	root	select * from t71	1	0	0	0	3	2	0	0	0	0	populated
+15cb839cade515dc3decca4b2afa8533	NULL	test	root	create table t71 (i int)	1	0	0	0	0	0	0	0	0	0	populated
+16b4b893067fc211fff92b1b100a49fa	NULL	test	root	set @@GLOBAL.max_digest_sample_age=1	1	0	0	0	0	0	0	0	0	0	populated
+4c7be91f372c4d39df17e4a184adb753	NULL	test	root	SET DEBUG_SYNC = "update_sql_stats_periodic HIT_LIMIT 4"	1	0	0	0	0	0	0	0	0	0	populated
+61cfba98c189b9a58e74e5e68b093c7b	NULL	test	root	set @@GLOBAL.min_examined_row_limit_sql_stats=1	1	0	0	0	0	0	0	0	0	0	populated
+6ebe982ce3657d9b77d223c6c62eccfc	NULL	test	root	insert into t71 values(1)	3	3	0	0	0	0	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	root	select @@sql_stats_control	1	0	0	0	0	1	0	0	0	0	populated
+drop table t71;
+set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.max_digest_sample_age=DEFAULT;

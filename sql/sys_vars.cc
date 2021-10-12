@@ -2566,6 +2566,12 @@ static Sys_var_ulong Sys_min_examined_row_limit(
        SESSION_VAR(min_examined_row_limit), CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
+static Sys_var_ulong Sys_min_examined_row_limit_for_sql_stats(
+       "min_examined_row_limit_sql_stats",
+       "Write to sql stats after examining a defined number of rows ",
+       GLOBAL_VAR(min_examined_row_limit_for_sql_stats), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_slow_log_if_rows_examined_exceed(
        "slow_log_if_rows_examined_exceed",
        "Log queries that examine more than slow_log_if_rows_examined_exceed "

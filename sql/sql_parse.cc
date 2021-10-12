@@ -1540,61 +1540,6 @@ static inline bool is_query(enum enum_server_command command) {
   return command == COM_QUERY || command == COM_QUERY_ATTRS;
 }
 
-/*
-  update_sql_stats
-    A helper/wrapper around update_sql_stats_after_statement to keep track of
-    some internal state.
-*/
-static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats,
-                             const char *sub_query, uint input_length) {
-  /* Release auto snapshot so that it doesn't have to be merged with
-     stats for this statement later. */
-  thd->release_auto_created_sql_stats_snapshot();
-  uint query_length = min(input_length, max_sql_query_sample_text_size);
-
-  if (sql_stats_control == SQL_INFO_CONTROL_ON) {
-    SHARED_SQL_STATS sql_stats;
-    /*
-      THD will contain the cumulative stats for the multi-query statement
-      executed so far. To get the stats only for the current SQL statement,
-      previous cumulative stats should be subtracted from the current THD
-      stats.
-      sql_stats = thd-stats - cumulative_sql_stats
-    */
-    reset_sql_stats_from_diff(thd, cumulative_sql_stats, &sql_stats);
-
-    update_sql_stats_after_statement(thd, &sql_stats, sub_query, query_length);
-
-    /* Update the cumulative_sql_stats with the stats from THD */
-    reset_sql_stats_from_thd(thd, cumulative_sql_stats);
-
-    /* Update write statistics if stats collection is turned on and
-      this stmt wrote binlog bytes
-    */
-    if (write_stats_capture_enabled() &&
-        thd->get_row_binlog_bytes_written() > 0) {
-      thd->set_stmt_total_write_time();
-      store_write_statistics(thd);
-    }
-  }
-
-  if (sql_findings_control == SQL_INFO_CONTROL_ON)
-    store_sql_findings(thd, sub_query, query_length);
-
-  /* check if should we include warnings in the response attributes */
-  if (thd->variables.response_attrs_contain_warnings_bytes > 0 &&
-      !thd->is_error() &&                     /* there is no error generated */
-      thd->get_stmt_da()->cond_count() > 0 && /* # errors, warnings & notes */
-      thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->is_enabled())
-    store_warnings_in_resp_attrs(thd);
-
-  thd->mt_key_clear(THD::SQL_ID);
-  thd->mt_key_clear(THD::PLAN_ID);
-  thd->mt_key_clear(THD::SQL_HASH);
-
-  thd->reset_all_mt_table_filled();
-}
-
 /**
   update_thd_dml_row_count
     Update thread DML row count. The function updates the dml row count
@@ -1604,8 +1549,7 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats,
   @param  cumulative_sql_stats      Cumulative stats for the multi-query
                                     statement executed so far
 */
-static void update_thd_dml_row_count(THD *thd,
-                                     SHARED_SQL_STATS *cumulative_sql_stats)
+static void update_thd_dml_row_count(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats)
 {
   if (!thd->is_real_trans)
   {
@@ -1622,6 +1566,69 @@ static void update_thd_dml_row_count(THD *thd,
     /* increment the dml row count for the thread */
     thd->trx_dml_row_count += sql_stats.rows_deleted + sql_stats.rows_updated
                               + sql_stats.rows_inserted;
+  }
+}
+
+/*
+  update_sql_stats
+    A helper/wrapper around update_sql_stats_for_statement to keep track of
+    some internal state.
+*/
+void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats,
+                      const char *sub_query, uint input_length,
+                      bool statement_completed) {
+  /* Release auto snapshot so that it doesn't have to be merged with
+     stats for this statement later. */
+  if (statement_completed) {
+    thd->release_auto_created_sql_stats_snapshot();
+  }
+  uint query_length = min(input_length, max_sql_query_sample_text_size);
+
+  if (sql_stats_control == SQL_INFO_CONTROL_ON) {
+    SHARED_SQL_STATS sql_stats = {};
+    /*
+      THD will contain the cumulative stats for the multi-query statement
+      executed so far. To get the stats only for the current SQL statement,
+      previous cumulative stats should be subtracted from the current THD
+      stats.
+      sql_stats = thd-stats - cumulative_sql_stats
+    */
+    reset_sql_stats_from_diff(thd, cumulative_sql_stats, &sql_stats);
+
+    update_sql_stats_for_statement(thd, &sql_stats, sub_query, query_length, statement_completed);
+
+    /* Update the cumulative_sql_stats with the stats from THD */
+    reset_sql_stats_from_thd(thd, cumulative_sql_stats);
+
+    /* Update write statistics if stats collection is turned on and
+      this stmt wrote binlog bytes
+    */
+    if (write_stats_capture_enabled() &&
+        thd->get_row_binlog_bytes_written() > 0) {
+      thd->set_stmt_total_write_time();
+      store_write_statistics(thd);
+    }
+  }
+
+  if (statement_completed) {
+    if (sql_findings_control == SQL_INFO_CONTROL_ON)
+      store_sql_findings(thd, sub_query, query_length);
+
+    /* check if should we include warnings in the response attributes */
+    if (thd->variables.response_attrs_contain_warnings_bytes > 0 &&
+        !thd->is_error() &&                     /* there is no error generated */
+        thd->get_stmt_da()->cond_count() > 0 && /* # errors, warnings & notes */
+        thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->is_enabled())
+      store_warnings_in_resp_attrs(thd);
+
+    update_thd_dml_row_count(thd, cumulative_sql_stats);
+
+    thd->mt_key_clear(THD::SQL_ID);
+    thd->mt_key_clear(THD::PLAN_ID);
+    thd->mt_key_clear(THD::SQL_HASH);
+
+    thd->reset_all_mt_table_filled();
+    cumulative_sql_stats->reset_reusable_metrics();
   }
 }
 
@@ -1738,6 +1745,20 @@ static int validate_checksum(THD* thd, const char* packet, uint packet_length)
 uint max_sql_query_sample_text_size = 1024;
 
 /**
+ * Clean up the thread structure which may have reference to a
+ * stack variable: cumulative_sql_stats.
+*/
+class cumulative_sql_stats_cleanup {
+public:
+   cumulative_sql_stats_cleanup(THD *thd) {this->thd = thd;}
+  ~cumulative_sql_stats_cleanup() {
+    thd->clear_cumulative_sql_stats();
+  }
+
+  THD* thd;
+};
+
+/**
   Perform one connection-level (COM_XXXX) command.
 
   @param command         type of command to perform
@@ -1767,8 +1788,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   /* for USER_STATISTICS */
   my_io_perf_t start_perf_read, start_perf_read_blob;
   my_io_perf_t start_perf_read_primary, start_perf_read_secondary;
+
   /* for SQL_STATISTICS */
   SHARED_SQL_STATS cumulative_sql_stats = {};
+  cumulative_sql_stats_cleanup cleanup(thd);
+
   my_bool async_commit = FALSE;
   /* For per-query performance counters with log_slow_statement */
   struct system_status_var query_start_status;
@@ -2122,6 +2146,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     if (parser_state.init(thd, thd->query(), thd->query_length()))
       break;
 
+    thd->set_query_cumulative_stats(&cumulative_sql_stats);
+
     mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
                 &last_timer, &async_commit);
 
@@ -2129,27 +2155,24 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     my_query_len = thd->query_length();
 
     char *beginning_of_current_stmt = (char *)thd->query();
-
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            !thd->is_error()) {
       /*
         Multiple queries exits, execute them individually
       */
+
       char *beginning_of_next_stmt = (char *)parser_state.m_lip.found_semicolon;
       /*
         Update SQL stats.
         For multi-query statements, SQL stats should be updated after every
-        individual SQL query. An `update_sql_stats_after_statement` will
+        individual SQL query. An `update_sql_stats_for_statement` will
         follow every `mysql_parse` to update the statistics right after the
         execution of the query.
         The stats updated here will be for the first statement of the
         multi-query set.
       */
       update_sql_stats(thd, &cumulative_sql_stats, beginning_of_current_stmt,
-                       beginning_of_next_stmt - beginning_of_current_stmt);
-
-      /* update transaction DML row count */
-      update_thd_dml_row_count(thd, &cumulative_sql_stats);
+                       beginning_of_next_stmt - beginning_of_current_stmt, true /*statement_completed*/);
 
       /* Check to see if any state changed */
       if (!state_changed && srv_session) {
@@ -2290,10 +2313,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       my_query_len is the length of the remaining query for multi-query,
       otherwise it will be length of entire query.
     */
-    update_sql_stats(thd, &cumulative_sql_stats, my_query_txt, my_query_len);
-
-    /* update transaction DML row count */
-    update_thd_dml_row_count(thd, &cumulative_sql_stats);
+    update_sql_stats(thd, &cumulative_sql_stats, my_query_txt, my_query_len, true /*statement_completed*/);
+    thd->should_update_stats = false;
 
     if (thd->is_in_ac &&
         (!opt_admission_control_by_trx || thd->is_real_trans)) {
@@ -3610,14 +3631,7 @@ mysql_execute_command(THD *thd,
   DBUG_ASSERT(!lex->describe || is_explainable_query(lex->sql_command));
 
   thd->stmt_start = *statement_start_time;
-
-#if HAVE_CLOCK_GETTIME
-    timespec time_beg;
-    int cpu_res= clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
-#elif HAVE_GETRUSAGE
-    struct rusage rusage_beg;
-    int cpu_res= getrusage(RUSAGE_THREAD, &rusage_beg);
-#endif
+  thd->reset_counters_for_query();
 
   if (unlikely(lex->is_broken()))
   {
@@ -6711,39 +6725,7 @@ finish:
   if (thd)
   {
     USER_STATS *us= thd_get_user_stats(thd);
-#if HAVE_CLOCK_GETTIME
-    DB_STATS *dbstats= thd->db_stats;
-    timespec time_end;
-    if (cpu_res == 0 &&
-        (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
-      ulonglong diff= diff_timespec(time_end, time_beg);
-      // convert to microseconds
-      diff /= 1000;
-      if (dbstats)
-        dbstats->update_cpu_stats_tot(diff);
-      us->microseconds_cpu.inc(diff);
-
-      thd->sql_cpu = diff;
-    }
-#elif HAVE_GETRUSAGE
-    DB_STATS *dbstats= thd->db_stats;
-    struct rusage rusage_end;
-    if (cpu_res == 0 &&
-        (getrusage(RUSAGE_THREAD, &rusage_end) == 0)) {
-      ulonglong diffu=
-        RUSAGE_DIFF_USEC(rusage_end.ru_utime, rusage_beg.ru_utime);
-      ulonglong diffs=
-        RUSAGE_DIFF_USEC(rusage_end.ru_stime, rusage_beg.ru_stime);
-      if (dbstats)
-        dbstats->update_cpu_stats(diffu, diffs);
-      us->microseconds_cpu.inc(diffu+diffs);
-      us->microseconds_cpu_user.inc(diffu);
-      us->microseconds_cpu_sys.inc(diffs);
-
-      thd->sql_cpu = diffu+diffs;
-    }
-#endif
-
+    thd->update_sql_cpu_for_query(false /*update_stats*/);
     ulonglong latency = my_timer_since(*statement_start_time);
     ulonglong microsecs= (ulonglong)
       my_timer_to_microseconds(latency);

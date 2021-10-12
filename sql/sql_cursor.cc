@@ -432,4 +432,3 @@ bool Select_materialize::send_result_set_metadata(List<Item> &list, uint flags)
 
   return FALSE;
 }
-

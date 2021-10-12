@@ -2496,6 +2496,11 @@ public:
   static const char * const DEFAULT_WHERE;
 
   /*
+    Track if stats need to be updated
+  */
+  bool should_update_stats;
+
+  /*
      Raw query buffer for saving the raw query string (prefix).
      This buffer is set right after the socket I/O and will be
      used in fatal signal handler. This query string can be the
@@ -2726,11 +2731,32 @@ private:
   enum enum_server_command m_command;
 
 private:
-  bool       is_admin_conn;
+  bool               is_admin_conn;
 
 public:
   void       set_admin_connection(bool admin = true) { is_admin_conn = admin; }
   bool       is_admin_connection() { return is_admin_conn; }
+
+/* stats tracking start */
+private:
+  SHARED_SQL_STATS   *cumulative_sql_stats;
+  struct {
+#if HAVE_CLOCK_GETTIME
+    timespec time_begin_cpu_capture;
+#elif HAVE_GETRUSAGE
+    struct rusage rusage_begin_cpu_capture;
+#endif
+  } cpu_start_timespec;
+  int last_cpu_info_result;
+  ulonglong last_examined_row_count;
+
+public:
+  void clear_cumulative_sql_stats() {
+    cumulative_sql_stats = nullptr;
+    should_update_stats = false;
+  }
+
+/*end stats tracking*/
 
 public:
   uint32     unmasked_server_id;
@@ -3676,6 +3702,8 @@ public:
     LIMIT ROWS EXAMINED. If so, signal the query engine to stop execution.
   */
   void check_limit_rows_examined();
+
+  ulonglong get_rows_examined();
 
   ulonglong last_yield_counter = 0;
   ulonglong yield_counter = 0;
@@ -5091,6 +5119,9 @@ private:
                   Sql_condition::enum_warning_level level,
                   const char* msg);
 
+  void set_last_examined_row_count();
+  void init_sql_cpu_capture();
+
 public:
   /** Overloaded to guard query/query_length fields */
   virtual void set_statement(Statement *stmt);
@@ -5120,6 +5151,13 @@ public:
   void set_query_and_id(char *query_arg, uint32 query_length_arg,
                         const CHARSET_INFO *cs, query_id_t new_query_id);
   void set_query_id(query_id_t new_query_id);
+
+  void set_query_cumulative_stats(SHARED_SQL_STATS *cumulative_sql_stats);
+  void update_sql_stats_periodic();
+  void update_sql_cpu_for_query(bool update_stats);
+  void reset_counters_for_query();
+  void reset_counters_for_next_subquery_stats();
+
   void set_open_tables(TABLE *open_tables_arg)
   {
     mysql_mutex_lock(&LOCK_thd_data);

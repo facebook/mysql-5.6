@@ -177,7 +177,7 @@ static bool subst_spvars(THD *thd, sp_instr *instr, LEX_STRING *query_str)
   prev_pos= res= 0;
   thd->query_name_consts= 0;
 
-  for (Item_splocal **splocal= sp_vars_uses.front(); 
+  for (Item_splocal **splocal= sp_vars_uses.front();
        splocal <= sp_vars_uses.back(); splocal++)
   {
     Item *val;
@@ -239,7 +239,7 @@ static bool subst_spvars(THD *thd, sp_instr *instr, LEX_STRING *query_str)
             <db_name>     Name of current database
             <flags>       Flags struct
   */
-  buf_len= qbuf.length() + 1 + sizeof(size_t) + thd->db_length + 
+  buf_len= qbuf.length() + 1 + sizeof(size_t) + thd->db_length +
            QUERY_CACHE_FLAGS_SIZE + 1;
   if ((pbuf= (char *) alloc_root(thd->mem_root, buf_len)))
   {
@@ -575,7 +575,7 @@ LEX *sp_lex_instr::parse_expr(THD *thd, sp_head *sp)
       {
         trg_field->setup_field(thd, ttl->trigger_table, grant_table);
       }
-     
+
       /**
         Move Item_trigger_field's list to instruction's Item_trigger_field
         list.

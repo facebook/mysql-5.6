@@ -198,6 +198,47 @@ order by sql_id||||
 # reset delimiter
 delimiter ;||||
 
+###############################################################################
+### Case 6.1: Multi-query support with GLOBAL.min_examined_row_limit_sql_stats
+#############################################################################
+--echo Case 6.1: Multi-query support with GLOBAL.min_examined_row_limit_sql_stats
+flush sql_statistics;
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+set @@GLOBAL.max_digest_sample_age=1;
+select @@sql_stats_control;
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t2(c int);
+insert into t2 values(100);
+insert into t2 values(101);
+insert into t2 values(102);
+insert into t2 values(103);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2;
+||||
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time,
+        case when total_cpu > 0 then "cpu recorded" else "not recorded"
+        end total_cpu
+from information_schema.sql_statistics
+order by sql_id, plan_id||||
+
+# reset delimiter
+delimiter ;||||
+
+set @@GLOBAL.max_digest_sample_age=DEFAULT;
+set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
+
 ####################################################
 ### Case 7: Query no sampling by default
 ####################################################
@@ -1216,43 +1257,28 @@ while ($i)
   connect (con$i, localhost, test_user,,test_db);
   dec $i;
 }
-let $i= 2;
-while($i)
-{
-  connection con$i;
-  if ($i == 2)
-  {
-    send insert into t1 values(1);
-  }
-  if ($i == 1)
-  {
-    # This query will be in running queue
-    send insert into t2 values(1);
-  }
-  dec $i;
-}
-let $i= 4;
-while ($i != 2)
-{
-  connection con$i;
-  if ($i == 4)
-  {
-    send update t1 set a = a+1;
-  }
-  if ($i == 3)
-  {
-    # This query will be in running queue
-    send update t2 set a = a+1;
-  }
-  dec $i;
-}
+
+connection con2;
+send insert into t1 values(1);
+
+connection con1;
+# This query will be in running queue
+send insert into t2 values(1);
+
+connection con4;
+send update t1 set a = a+1;
+
+connection con3;
+# This query will be in running queue
+send update t2 set a = a+1;
+
 enable_query_log;
 enable_result_log;
 
 connection default;
 
-## Sleep for 5 seconds
-sleep 5;
+## Sleep for 6 seconds
+sleep 6;
 
 # Insert queries sent above will be unblocked by this.
 use test_db;
@@ -1307,6 +1333,7 @@ if (!$success)
 {
   echo "*** Test Failed!!!***";
 }
+
 drop database test_db;
 
 # Case 20 Cleanup
@@ -1327,6 +1354,142 @@ while ($i)
   dec $i;
 }
 set @@GLOBAL.sql_stats_control="OFF_HARD";
+enable_query_log;
+enable_result_log;
+
+#######################################
+### Case 20.1: Unit test for elapsed time with min_examined_row_limit_sql_stats = 1
+#######################################
+--echo Case 20.1: Unit test for sql_statistics.elapsed_time with min_examined_row_limit_sql_stats = 1
+create database test_db_row_limit;
+create user test_user@localhost;
+# grant all on test_db_row_limit to test_user@localhost;
+# grant all on test to test_user@localhost;
+
+connection default;
+use test_db_row_limit;
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+set @@GLOBAL.max_digest_sample_age=1;
+set @start_max_running_queries= @@global.max_running_queries;
+set @start_max_waiting_queries= @@global.max_waiting_queries;
+set @@global.max_running_queries=2;
+set @@global.max_waiting_queries=2;
+## Create two tables
+create table t1(a int) engine=InnoDB;
+create table t2(a int) engine=InnoDB;
+
+# Write lock here ensures the insert queries will block on row lock and be
+# in running queue until unlock tables is executed. Lock only table 't2'
+lock table t2 write;
+
+disable_query_log;
+disable_result_log;
+let $i= 4;
+while ($i)
+{
+  connect (con$i, localhost, test_user, ,test_db_row_limit);
+  dec $i;
+}
+let $i= 2;
+
+connection con2;
+send insert into t1 values(1);
+
+connection con1;
+# This query will be in running queue
+send insert into t2 values(1);
+
+connection con4;
+send update t1 set a = a+1;
+
+connection con3;
+# This query will be in running queue
+send update t2 set a = a+1;
+
+enable_query_log;
+enable_result_log;
+
+connection default;
+
+## Sleep for 6 seconds
+sleep 6;
+
+# Insert queries sent above will be unblocked by this.
+use test_db_row_limit;
+unlock tables;
+
+disable_query_log;
+disable_result_log;
+let $i= 4;
+while ($i)
+{
+  connection con$i;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+
+### Get the elapsed time for two insert queries and the two update queries
+let $query_ins1 = "select elapsed_time
+                     from information_schema.sql_statistics s, information_schema.sql_text t
+                    where s.sql_id = t.sql_id and sql_text like 'INSERT INTO%t1%'";
+let $time_ins1 = query_get_value($query_ins1, elapsed_time, 1);
+
+let $query_ins2 = "select elapsed_time
+                     from information_schema.sql_statistics s, information_schema.sql_text t
+                    where s.sql_id = t.sql_id and sql_text like 'INSERT INTO%t2%'";
+let $time_ins2 = query_get_value($query_ins2, elapsed_time, 1);
+
+let $query_upd1 = "select elapsed_time
+                     from information_schema.sql_statistics s, information_schema.sql_text t
+                    where s.sql_id = t.sql_id and sql_text like 'UPDATE%t1%'";
+let $time_upd1 = query_get_value($query_upd1, elapsed_time, 1);
+
+let $query_upd2 = "select elapsed_time
+                     from information_schema.sql_statistics s, information_schema.sql_text t
+                    where s.sql_id = t.sql_id and sql_text like 'UPDATE%t2%'";
+let $time_upd2 = query_get_value($query_upd2, elapsed_time, 1);
+
+let $success = 0;
+## The insert and update queries on t1 should finish in a few micro seconds
+## But the insert and update queries on t2 should take more than 5 seconds
+## (due to sleep above)
+if ($time_ins1 < 1000000 and $time_ins2 > 5000000
+    and $time_upd1 < 1000000 and $time_upd2 > 5000000) {
+  echo "*** Test Succeeded!!!***";
+  let $success = 1;
+}
+
+if (!$success)
+{
+  echo "*** Test Failed!!!***";
+}
+drop database test_db_row_limit;
+
+# Case 20.1 Cleanup
+--echo Case 20.1 Cleanup
+connection default;
+--echo Verify there are no waiting threads.
+select count(*) from information_schema.processlist where state='waiting for admission';
+select count(*) from information_schema.admission_control_entities where schema_name = 'test_db';
+set @@global.max_running_queries=@start_max_running_queries;
+set @@global.max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;
+disable_query_log;
+disable_result_log;
+let $i= 4;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
+set @@GLOBAL.max_digest_sample_age=DEFAULT;
 enable_query_log;
 enable_result_log;
 
