@@ -3042,6 +3042,10 @@ class Query_tables_list {
     for SHOW BINARY|MASTER LOGS, true if WITH GTID specified
   */
   bool with_gtid;
+  /**
+   * for SHOW SLAVE HOSTS WITH RAFT, true iff WITH RAFT is specified
+   */
+  bool with_raft;
 
   void set_stmt_unsafe_with_mixed_mode() { stmt_unsafe_with_mixed_mode = true; }
   bool is_stmt_unsafe_with_mixed_mode() const {

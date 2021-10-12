@@ -6,16 +6,19 @@ use performance_schema;
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 #
 # Verify with query attrs async_id
 #
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 #
 # Verify with query attrs caller = qa_test1
 #   original_caller QA = oc_qa_test1 (not allowed yet)
@@ -23,8 +26,11 @@ digest	count_star	client_id	client_attributes
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 #
 # Verify with query attrs caller = qa_test1
 #   original_caller QA = oc_qa_test1 (allowed)
@@ -34,8 +40,12 @@ set global client_attribute_names='caller,original_caller,async_id';
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 #
 # Verify with query attrs caller = qa_test1 and async id = 12345
 #   query attrs original_caller = oc_qa_test1
@@ -43,8 +53,13 @@ digest	count_star	client_id	client_attributes
 /* async-12345 */ select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 #
 # Verify with query attrs caller = qa_test1 and async id = 12345
 #   query attrs original_caller = oc_qa_test1
@@ -52,8 +67,13 @@ digest	count_star	client_id	client_attributes
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	2	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 create user user@localhost identified by 'su';
 grant all on *.* to user@localhost with grant option;
 use performance_schema;
@@ -64,8 +84,14 @@ use performance_schema;
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	23af960d50f4082d1693fec287ca38d5	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	2	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 #
 # Verify with conn attrs = ca_test2 and async id
 #  original_caller CA = oc_ca_test2
@@ -73,48 +99,96 @@ digest	count_star	client_id	client_attributes
 /* async-12345 */ select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	2	23af960d50f4082d1693fec287ca38d5	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	2	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 #
 # Verify with query attrs overriding async_id = 12345
 #
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	2	23af960d50f4082d1693fec287ca38d5	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	3b5d439992eb9afdf758682481730bf7	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	2	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
 #
 # Verify with query attrs overriding caller = qa_test3
 #
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	2	23af960d50f4082d1693fec287ca38d5	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	3b5d439992eb9afdf758682481730bf7	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	2	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
+a532c6f3e890282b7eee77f35ee85ae9	1	e0e39521171bfe83b6d120922ecbdec7	{'caller' : 'qa_test3', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 #
 # Verify with query attrs overriding original caller = oc_qa_test3
 #
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	00ba20da7a5e884afeebf2b1537ddf1e	{'caller' : 'ca_test2', 'original_caller' : 'oc_qa_test3', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	2	23af960d50f4082d1693fec287ca38d5	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	3b5d439992eb9afdf758682481730bf7	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	2	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
+a532c6f3e890282b7eee77f35ee85ae9	1	e0e39521171bfe83b6d120922ecbdec7	{'caller' : 'qa_test3', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 #
 # Verify with query attrs overriding original caller = oc_qa_test3
 #
 /* async-12345 */ select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	2	00ba20da7a5e884afeebf2b1537ddf1e	{'caller' : 'ca_test2', 'original_caller' : 'oc_qa_test3', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	2	23af960d50f4082d1693fec287ca38d5	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	3b5d439992eb9afdf758682481730bf7	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	2	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
+a532c6f3e890282b7eee77f35ee85ae9	1	e0e39521171bfe83b6d120922ecbdec7	{'caller' : 'qa_test3', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 #
 # Verify with just conn attrs again
 #
 select 1;
 1
 1
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	2	00ba20da7a5e884afeebf2b1537ddf1e	{'caller' : 'ca_test2', 'original_caller' : 'oc_qa_test3', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	3	23af960d50f4082d1693fec287ca38d5	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
+a532c6f3e890282b7eee77f35ee85ae9	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	3b5d439992eb9afdf758682481730bf7	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	2	70e7785b1e52423f531f3899d707055c	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1', 'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	7c15419e499cc3fb461c2f7563d152da	{'caller' : 'qa_test1', 'original_caller' : 'oc_qa_test1'}
+a532c6f3e890282b7eee77f35ee85ae9	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
+a532c6f3e890282b7eee77f35ee85ae9	1	e0e39521171bfe83b6d120922ecbdec7	{'caller' : 'qa_test3', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 use performance_schema;
 truncate table client_attributes;
 select * from client_attributes;
@@ -129,8 +203,10 @@ CLIENT_ID	CLIENT_ATTRIBUTES
 1
 2
 2
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 digest	count_star	client_id	client_attributes
+a532c6f3e890282b7eee77f35ee85ae9	1	99914b932bd37a50b983c5e7c90ae93b	{}
+a532c6f3e890282b7eee77f35ee85ae9	2	cfa171e4109f19ad2e2f108f4c85eca5	{'caller' : 'qa_multiquery', 'original_caller' : 'oc_multiquery', 'async_id' : '12345'}
 set global client_attribute_names=@saved_client_attribute_names;
 drop user user@localhost;
 set global performance_schema_esms_by_all = DEFAULT;

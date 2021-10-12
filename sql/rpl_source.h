@@ -72,6 +72,8 @@ struct REPLICA_INFO {
   THD *thd;
   binary_log::Uuid replica_uuid;
   bool valid_replica_uuid;
+  bool is_raft = false;
+  char server_uuid[64];
 };
 
 using thd_to_slave_info_container = malloc_unordered_map<THD *, REPLICA_INFO>;
@@ -79,9 +81,11 @@ thd_to_slave_info_container copy_slaves();
 
 bool is_semi_sync_slave(THD *thd, bool need_lock = true);
 int store_replica_stats(THD *thd, uchar *packet, uint packet_length);
+int register_raft_followers(
+    const std::unordered_map<std::string, std::string> &, bool, bool);
 int register_replica(THD *thd, uchar *packet, size_t packet_length);
 void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list);
-bool show_replicas(THD *thd);
+bool show_replicas(THD *thd, bool with_raft);
 String *get_replica_uuid(THD *thd, String *value, bool need_lock = true);
 bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok);
 bool show_master_status(THD *thd);

@@ -11513,8 +11513,8 @@ int ask_server_to_register_with_raft(Raft_Registration_Item item) {
       THD *thd = current_thd;
       err = RUN_HOOK_STRICT(
           raft_replication, register_paths,
-          (thd, server_uuid, s_wal_dir, s_log_dir, log_bin_basename,
-           glob_hostname, (uint64_t)mysqld_port));
+          (thd, server_uuid, ::server_id, s_wal_dir, s_log_dir,
+           log_bin_basename, glob_hostname, (uint64_t)mysqld_port));
       break;
     }
     default:
@@ -11846,6 +11846,15 @@ int raft_config_change(std::string config_change) {
     // TODO(luqun) - add throttled messaging here if present in 8.0
     error = 1;
   }
+  DBUG_RETURN(error);
+}
+
+int raft_update_follower_info(
+    const std::unordered_map<std::string, std::string> &follower_info,
+    bool is_leader, bool is_shutdown) {
+  int error = 0;
+  DBUG_ENTER("raft_update_follower_info");
+  error = register_raft_followers(follower_info, is_leader, is_shutdown);
   DBUG_RETURN(error);
 }
 

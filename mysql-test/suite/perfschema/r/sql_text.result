@@ -11,9 +11,9 @@ select 42;
 42
 select * from performance_schema.sql_text order by digest;
 DIGEST	DIGEST_TEXT
-4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	SELECT @@`performance_schema_esms_by_all`
-b81bc23a6fdee437758885afdf75cdca685830c3a84e73906292ec451361d315	SET GLOBAL `performance_schema_esms_by_all` = OFF
-d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	SELECT ?
+a532c6f3e890282b7eee77f35ee85ae9	SELECT ?
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+ceffef89a77026913c52137e9c7a3615	SET GLOBAL `performance_schema_esms_by_all` = OFF
 Case 2: sql_stats_control=ON
 set global performance_schema_esms_by_all = on;
 select @@performance_schema_esms_by_all;
@@ -21,8 +21,8 @@ select @@performance_schema_esms_by_all;
 1
 select * from performance_schema.sql_text order by digest;
 DIGEST	DIGEST_TEXT
-13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	SET GLOBAL `performance_schema_esms_by_all` = ON
-4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	SELECT @@`performance_schema_esms_by_all`
+1bdaf02b6c6dd4f5bfc3045555865597	SET GLOBAL `performance_schema_esms_by_all` = ON
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
 select 1;
 1
 1
@@ -34,10 +34,10 @@ select 100;
 100
 select * from performance_schema.sql_text order by digest;
 DIGEST	DIGEST_TEXT
-13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	SET GLOBAL `performance_schema_esms_by_all` = ON
-4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	SELECT @@`performance_schema_esms_by_all`
-9172102b0e536a3da7811a13a21cbf6452957a34c2d541ff73482d7207b1b6b9	SELECT * FROM `performance_schema` . `sql_text` ORDER BY `digest`
-d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	SELECT ?
+1a2a0fcf86097e8f663cac44c2984cf8	SELECT * FROM `performance_schema` . `sql_text` ORDER BY `digest`
+1bdaf02b6c6dd4f5bfc3045555865597	SET GLOBAL `performance_schema_esms_by_all` = ON
+a532c6f3e890282b7eee77f35ee85ae9	SELECT ?
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
 create table t1(c int);
 insert into t1 values(1);
 insert into t1 values(2);
@@ -51,14 +51,14 @@ delete from t1 where c=905;
 delete from t1 where c=903;
 select * from performance_schema.sql_text order by digest;
 DIGEST	DIGEST_TEXT
-13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	SET GLOBAL `performance_schema_esms_by_all` = ON
-1ae73e9f43205c143f0d611bc50a29b586522aa3832832a0b50e83fc1db1b114	CREATE TABLE `t1` ( `c` INTEGER )
-4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	SELECT @@`performance_schema_esms_by_all`
-9172102b0e536a3da7811a13a21cbf6452957a34c2d541ff73482d7207b1b6b9	SELECT * FROM `performance_schema` . `sql_text` ORDER BY `digest`
-a396ed29c843938b1081b5fbd28e50780d1ff6f250f2f35448836473e7d01961	DELETE FROM `t1` WHERE `c` = ?
-d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	SELECT ?
-d567f4319a6017dcde073c7824e3184e9922f0d930441604fec9ed0a748ac616	UPDATE `t1` SET `c` = `c` + ?
-f19c00f38783fc93a3b043787b0eb19055052c2e8cee8be072139d2ee4bcabec	INSERT INTO `t1` VALUES (?)
+1a2a0fcf86097e8f663cac44c2984cf8	SELECT * FROM `performance_schema` . `sql_text` ORDER BY `digest`
+1bdaf02b6c6dd4f5bfc3045555865597	SET GLOBAL `performance_schema_esms_by_all` = ON
+3379f8d08c8ef1406d99c65ff9b6b097	DELETE FROM `t1` WHERE `c` = ?
+437f75e69680d60cca3e8a82393fa4f1	UPDATE `t1` SET `c` = `c` + ?
+a532c6f3e890282b7eee77f35ee85ae9	SELECT ?
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+d210d88fff8eeea1393763fdcc68c999	CREATE TABLE `t1` ( `c` INTEGER )
+de4ac3f385e51f51f081f37368d6e55f	INSERT INTO `t1` VALUES (?)
 Case 3: TRUNCATE TABLE
 TRUNCATE TABLE performance_schema.sql_text;
 select 1 union select 2;
@@ -72,9 +72,9 @@ select 1 union select 2 union select 3;
 3
 select * from performance_schema.sql_text order by digest;
 DIGEST	DIGEST_TEXT
-2c8b7a48784434a3273e58b27d0c2096fda8918c2af649e46b6d44fd5efe8bb7	SELECT ? UNION SELECT ? UNION SELECT ?
-354a4ca5fdc0c8244c727c21f128d139b53f03f09d871929744dacb9958ce480	TRUNCATE TABLE `performance_schema` . `sql_text`
-5b0c2dd723154b19b1bb3d60eec1dbb57c24994dbbb8cf91675292a508e8bde1	SELECT ? UNION SELECT ?
+0daeec57dddba79524b3f5fa378012d4	TRUNCATE TABLE `performance_schema` . `sql_text`
+351069bf91b28ffff52fb54d89de9e45	SELECT ? UNION SELECT ? UNION SELECT ?
+7e393507a197a79395cb5c88376cb2d3	SELECT ? UNION SELECT ?
 Case 4: performance_schema_esms_by_all=off.
 set global performance_schema_esms_by_all = off;
 select @@performance_schema_esms_by_all;
@@ -82,8 +82,8 @@ select @@performance_schema_esms_by_all;
 0
 select * from performance_schema.sql_text order by digest;
 DIGEST	DIGEST_TEXT
-4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	SELECT @@`performance_schema_esms_by_all`
-b81bc23a6fdee437758885afdf75cdca685830c3a84e73906292ec451361d315	SET GLOBAL `performance_schema_esms_by_all` = OFF
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+ceffef89a77026913c52137e9c7a3615	SET GLOBAL `performance_schema_esms_by_all` = OFF
 Case 5: Multi-query support
 set global performance_schema_esms_by_all = on;
 select @@performance_schema_esms_by_all;
@@ -109,15 +109,15 @@ c
 100
 select * from performance_schema.sql_text order by digest;
 DIGEST	DIGEST_TEXT
-13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	SET GLOBAL `performance_schema_esms_by_all` = ON
-4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	SELECT @@`performance_schema_esms_by_all`
-55c0e5a4110056fcbf2654778c977a2e91ce65785504832368e2c3443a35ec2b	INSERT INTO `t2` VALUES (?)
-5e6ff6446802c23df53586b85788505b42a1de938d5ae5fd7a1d42b38636d3da	UPDATE `t2` SET `c` = `c` + ?
-9a90ab323c21e1fec8e95df1fd6b7fd724d0ec2cd50ba46a928c0449183d14d3	DELETE FROM `t2` WHERE `c` = ?
-b7e68175beeb3b5eeb3f06618915a3b14e51f01be582dd9fa618bd31bd0148f2	CREATE TABLE `t2` ( `c` INTEGER )
-c12e1a1889c32b0c8875538e7ba911240df47d93ed298c03374e9497b0910c5b	DROP TABLE `t2`
-c74f7ac2e7520fcbd10db5df148c439167b387c3a0f64d4980a9f549dbbf2119	SELECT * FROM `t2`
-d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	SELECT ?
+0092392cb59149e0726b0b82c62d3b73	DROP TABLE `t2`
+08eb447c2908ae85dbf2389bb755a47c	CREATE TABLE `t2` ( `c` INTEGER )
+1bdaf02b6c6dd4f5bfc3045555865597	SET GLOBAL `performance_schema_esms_by_all` = ON
+37a4ab3f20bfa2cadc339f81a225a3ea	UPDATE `t2` SET `c` = `c` + ?
+9355f873b85ca62c15f9c76c7d577a46	SELECT * FROM `t2`
+a532c6f3e890282b7eee77f35ee85ae9	SELECT ?
+aaee6b4d5f9c26d4d43d3967f53cd8c7	SELECT @@`performance_schema_esms_by_all`
+c6b47f584c3c723a695af80568462861	DELETE FROM `t2` WHERE `c` = ?
+ea8d7221939e31cd79bb5a0800f1c421	INSERT INTO `t2` VALUES (?)
 Cleanup
 set global performance_schema_esms_by_all = DEFAULT;
 drop table t1;

@@ -13876,15 +13876,25 @@ show_raft_status_stmt:
           }
         ;
 
+raft_bool:
+         /* empty */
+         {
+           Lex->with_raft = false;
+         }
+         | WITH RAFT_SYM
+         {
+           Lex->with_raft = true;
+         }
+
 show_replicas_stmt:
-          SHOW SLAVE HOSTS_SYM
+          SHOW SLAVE HOSTS_SYM raft_bool
           {
             Lex->set_replication_deprecated_syntax_used();
             push_deprecated_warn(YYTHD, "SHOW SLAVE HOSTS", "SHOW REPLICAS");
 
             $$ = NEW_PTN PT_show_replicas(@$);
           }
-        | SHOW REPLICAS_SYM
+        | SHOW REPLICAS_SYM raft_bool
           {
             $$ = NEW_PTN PT_show_replicas(@$);
           }

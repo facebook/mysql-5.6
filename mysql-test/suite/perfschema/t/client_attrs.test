@@ -8,7 +8,7 @@ use performance_schema;
 --echo #
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs async_id
@@ -16,7 +16,7 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 query_attrs_add async_id 12345;
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs caller = qa_test1
@@ -27,7 +27,7 @@ query_attrs_add caller qa_test1;
 query_attrs_add original_caller oc_qa_test1;
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs caller = qa_test1
@@ -37,7 +37,7 @@ set @saved_client_attribute_names=@@GLOBAL.client_attribute_names;
 set global client_attribute_names='caller,original_caller,async_id';
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs caller = qa_test1 and async id = 12345
@@ -45,7 +45,7 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 --echo #
 /* async-12345 */ select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs caller = qa_test1 and async id = 12345
@@ -54,7 +54,7 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 query_attrs_add async_id 12345;
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 # change user command to re-send connection attributes
 create user user@localhost identified by 'su';
@@ -74,7 +74,7 @@ use performance_schema;
 --echo #
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with conn attrs = ca_test2 and async id
@@ -82,7 +82,7 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 --echo #
 /* async-12345 */ select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs overriding async_id = 12345
@@ -90,7 +90,7 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 query_attrs_add async_id 12345;
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs overriding caller = qa_test3
@@ -99,7 +99,7 @@ query_attrs_reset;
 query_attrs_add caller qa_test3;
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs overriding original caller = oc_qa_test3
@@ -108,14 +108,14 @@ query_attrs_reset;
 query_attrs_add original_caller oc_qa_test3;
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with query attrs overriding original caller = oc_qa_test3
 --echo #
 /* async-12345 */ select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 --echo #
 --echo # Verify with just conn attrs again
@@ -123,7 +123,7 @@ select s.digest, s.count_star, c.client_id, c.client_attributes from events_stat
 query_attrs_reset;
 select 1;
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 conn_attrs_reset;
 query_attrs_reset;
@@ -145,7 +145,7 @@ delimiter ||||;
 ||||
 delimiter ;||||
 
-select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.client_id = c.client_id and s.digest = 'a532c6f3e890282b7eee77f35ee85ae9' order by s.client_id;
 
 connection default;
 

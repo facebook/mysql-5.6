@@ -1738,6 +1738,13 @@ int raft_config_change(std::string config_change);
 int handle_dump_threads(bool block);
 
 /**
+ * Updates slave_list datastructure with raft follower information
+ */
+int raft_update_follower_info(
+    const std::unordered_map<std::string, std::string> &follower_info,
+    bool is_leader, bool is_shutdown);
+
+/**
   Rotates the binary log file. Helper method invoked by raft plugin through
   raft listener queue.
 
