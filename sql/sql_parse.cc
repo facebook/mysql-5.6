@@ -3893,7 +3893,7 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
     }
     case SQLCOM_SHOW_SLAVE_HOSTS: {
       if (check_global_access(thd, REPL_SLAVE_ACL)) goto error;
-      res = show_slave_hosts(thd);
+      res = show_slave_hosts(thd, lex->with_raft);
       break;
     }
     case SQLCOM_SHOW_RELAYLOG_EVENTS: {

@@ -152,6 +152,7 @@ typedef struct Raft_replication_observer {
    * @param raft_listener_queue - the listener queue in which to add requests
    * @param s_uuid - the uuid of the server to be used as the INSTANCE UUID
    *                 in Raft
+   * @param server_id - mysqld server id
    * @param wal_dir_parent - the parent directory under which raft will create
    * config metadata
    * @param log_dir_parent - the parent directory under which raft will create
@@ -163,7 +164,7 @@ typedef struct Raft_replication_observer {
    * raft where to find raft binlogs.
    */
   int (*register_paths)(RaftListenerQueueIf *raft_listener_queue,
-                        const std::string &s_uuid,
+                        const std::string &s_uuid, uint32_t server_id,
                         const std::string &wal_dir_parent,
                         const std::string &log_dir_parent,
                         const std::string &raft_log_path_prefix,

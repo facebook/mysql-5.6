@@ -13021,7 +13021,7 @@ show_param:
           {
             Lex->sql_command = SQLCOM_SHOW_RAFT_STATUS;
           }
-        | SLAVE HOSTS_SYM
+        | SLAVE HOSTS_SYM raft_bool
           {
             Lex->sql_command = SQLCOM_SHOW_SLAVE_HOSTS;
           }
@@ -13317,6 +13317,16 @@ gtid_bool:
          | WITH GTID_SYM
          {
            Lex->with_gtid = true;
+         }
+
+raft_bool:
+         /* empty */
+         {
+           Lex->with_raft = false;
+         }
+         | WITH RAFT_SYM
+         {
+           Lex->with_raft = true;
          }
 
 show_engine_param:
