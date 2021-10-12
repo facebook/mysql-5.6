@@ -1635,7 +1635,7 @@ CREATE TABLE t1 AS SELECT statement_digest( 'select 1, 2, 3' ) AS digest;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `digest` varchar(64) DEFAULT NULL
+  `digest` varchar(32) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE t1;
 #
@@ -1985,7 +1985,7 @@ statement_digest_text(CONVERT(@v USING latin1))
 SELECT ? AS `Ã…`
 SELECT statement_digest(CONVERT(@v USING latin1));
 statement_digest(CONVERT(@v USING latin1))
-0ccda2949946c24efb22d29e2daf034b2835b25ad2689011f810ab515fa36ca9
+a4b100ed360a38a73e860aeb83744718
 # Angstrom sign is 0xC385 in UTF-8.
 SELECT substr(hex(statement_digest_text(CONVERT(@v USING latin1))), -6, 4);
 substr(hex(statement_digest_text(CONVERT(@v USING latin1))), -6, 4)
@@ -1999,7 +1999,7 @@ statement_digest_text(CONVERT(@v USING latin1))
 SELECT ? AS `Å`
 SELECT statement_digest(CONVERT(@v USING latin1));
 statement_digest(CONVERT(@v USING latin1))
-0ccda2949946c24efb22d29e2daf034b2835b25ad2689011f810ab515fa36ca9
+a4b100ed360a38a73e860aeb83744718
 # Angstrom sign is 0xC385 in UTF-8.
 SELECT substr(hex(statement_digest_text(CONVERT(@v USING latin1))), -6, 4);
 substr(hex(statement_digest_text(CONVERT(@v USING latin1))), -6, 4)

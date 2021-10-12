@@ -32,26 +32,6 @@ class String;
 
 #define MAX_DIGEST_STORAGE_SIZE (1024 * 1024)
 
-/**
-  Write SHA-256 hash value in a string to be used
-  as DIGEST for the statement.
-*/
-#define DIGEST_HASH_TO_STRING(_hash, _str)                                  \
-  sprintf(_str,                                                             \
-          "%02x%02x%02x%02x%02x%02x%02x%02x"                                \
-          "%02x%02x%02x%02x%02x%02x%02x%02x"                                \
-          "%02x%02x%02x%02x%02x%02x%02x%02x"                                \
-          "%02x%02x%02x%02x%02x%02x%02x%02x",                               \
-          _hash[0], _hash[1], _hash[2], _hash[3], _hash[4], _hash[5],       \
-          _hash[6], _hash[7], _hash[8], _hash[9], _hash[10], _hash[11],     \
-          _hash[12], _hash[13], _hash[14], _hash[15], _hash[16], _hash[17], \
-          _hash[18], _hash[19], _hash[20], _hash[21], _hash[22], _hash[23], \
-          _hash[24], _hash[25], _hash[26], _hash[27], _hash[28], _hash[29], \
-          _hash[30], _hash[31])
-
-/// SHA-256 = 32 bytes of binary = 64 printable characters.
-#define DIGEST_HASH_TO_STRING_LENGTH 64
-
 /*
   Various hashes considered for digests.
 
@@ -59,6 +39,7 @@ class String;
   - 128 bits
   - used up to MySQL 5.7
   - abandoned in MySQL 8.0, non FIPS compliant.
+  - used on FB MySQL 8.0, with x509 auth.
 
   SHA1:
   - 160 bits
@@ -85,10 +66,19 @@ class String;
 /**
   DIGEST hash size, in bytes.
   256 bits, for SHA256.
+  128 bits, for MD5
 */
-#define DIGEST_HASH_SIZE 32
+#define DIGEST_HASH_SIZE 16
 
 ulong get_max_digest_length();
+
+#include "my_md5.h"
+#define DIGEST_HASH_TO_STRING_LENGTH 32
+#define DIGEST_HASH_TO_STRING(_hash, _str)     \
+  do {                                         \
+    array_to_hex(_str, _hash, MD5_HASH_SIZE);  \
+    _str[DIGEST_HASH_TO_STRING_LENGTH] = '\0'; \
+  } while (0)
 
 /**
   Structure to store token count/array for a statement

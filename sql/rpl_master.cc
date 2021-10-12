@@ -27,6 +27,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -187,6 +188,7 @@ int register_slave(THD *thd, uchar *packet, size_t packet_length) {
   p += 4;
   if (!(si->master_id = uint4korr(p))) si->master_id = server_id;
   si->thd = thd;
+  si->is_raft = false;
 
   mysql_mutex_lock(&LOCK_slave_list);
   unregister_slave(thd, false, false /*need_lock_slave_list=false*/);
@@ -197,6 +199,79 @@ int register_slave(THD *thd, uchar *packet, size_t packet_length) {
 err:
   my_message(ER_UNKNOWN_ERROR, errmsg, MYF(0)); /* purecov: inspected */
   return 1;
+}
+
+/**
+ * Register raft followers in the slave_list data-structure
+ *
+ * @param follower_info This is a map from uuid -> host:port:server_id
+ * @param is_leader     Are we the leader?
+ * @param is_shutdown   Are we shutting down?
+ */
+int register_raft_followers(
+    const std::unordered_map<std::string, std::string> &follower_info,
+    bool /*is_leader*/, bool /*is_shutdown*/) {
+  int error = 0;
+
+  mysql_mutex_lock(&LOCK_slave_list);
+
+  // remove all raft entries, we'll repopulate again
+  for (auto it = slave_list.cbegin(); it != slave_list.cend();) {
+    const SLAVE_INFO *si = it->second.get();
+    if (si->is_raft)
+      slave_list.erase(it++);
+    else
+      ++it;
+  }
+
+  for (const std::pair<std::string, std::string> info : follower_info) {
+    unique_ptr_my_free<SLAVE_INFO> si((SLAVE_INFO *)my_malloc(
+        key_memory_SLAVE_INFO, sizeof(SLAVE_INFO), MYF(MY_WME)));
+
+    if (!si) {
+      error = 1;
+      break;
+    }
+
+    new (si.get()) SLAVE_INFO;
+    std::vector<std::string> splits;
+    boost::split(splits, info.second, boost::is_any_of(":"));
+
+    if (splits.size() != 3) {
+      error = 1;
+      break;
+    }
+
+    const std::string &uuid = info.first;
+    const std::string &host = splits[0];
+    const std::string &port_str = splits[1];
+    const std::string &server_id_str = splits[2];
+
+    try {
+      si->server_id = std::stoull(server_id_str);
+      si->port = std::stoull(port_str);
+    } catch (...) {
+      error = 1;
+      break;
+    }
+    strcpy(si->host, host.c_str());
+    strcpy(si->user, "");
+    strcpy(si->password, "");
+    si->master_id = server_id;
+    si->thd = nullptr;
+    si->is_raft = true;
+    strcpy(si->server_uuid, uuid.c_str());
+
+    error = !slave_list.emplace(si->server_id, std::move(si)).second;
+
+    if (error) {
+      break;
+    }
+  }
+
+  mysql_mutex_unlock(&LOCK_slave_list);
+
+  return error;
 }
 
 SLAVE_STATS::SLAVE_STATS(uchar *packet) {
@@ -360,7 +435,7 @@ bool is_semi_sync_slave(THD *thd, bool need_lock) {
   @retval false success
   @retval true failure
 */
-bool show_slave_hosts(THD *thd) {
+bool show_slave_hosts(THD *thd, bool with_raft) {
   mem_root_deque<Item *> field_list(thd->mem_root);
   Protocol *protocol = thd->get_protocol();
   DBUG_TRACE;
@@ -390,6 +465,12 @@ bool show_slave_hosts(THD *thd) {
 
   for (const auto &key_and_value : slave_list) {
     SLAVE_INFO *si = key_and_value.second.get();
+
+    // We don't show raft members unless "WITH RAFT" is specified in the cmd
+    if (si->is_raft && !with_raft) {
+      continue;
+    }
+
     protocol->start_row();
     protocol->store((uint32)si->server_id);
     protocol->store(si->host, &my_charset_bin);
@@ -402,16 +483,29 @@ bool show_slave_hosts(THD *thd) {
 
     /* get slave's UUID */
     String slave_uuid;
-    if (get_slave_uuid(si->thd, &slave_uuid))
+    if (si->is_raft) {
+      protocol->store(si->server_uuid, &my_charset_bin);
+    } else if (si->thd && get_slave_uuid(si->thd, &slave_uuid)) {
       protocol->store(slave_uuid.c_ptr_safe(), &my_charset_bin);
-    protocol->store(is_semi_sync_slave(si->thd, /*need_lock*/ true));
-    mysql_mutex_lock(&si->thd->LOCK_thd_query);
-    LEX_CSTRING replication_status = si->thd->query();
-    if (replication_status.length)
-      protocol->store(replication_status.str, &my_charset_bin);
-    else
-      protocol->store("", &my_charset_bin);
-    mysql_mutex_unlock(&si->thd->LOCK_thd_query);
+    }
+    if (si->is_raft) {
+      protocol->store(false);
+    } else {
+      protocol->store(is_semi_sync_slave(si->thd, /*need_lock*/ true));
+    }
+
+    if (!si->is_raft) {
+      mysql_mutex_lock(&si->thd->LOCK_thd_query);
+      LEX_CSTRING replication_status = si->thd->query();
+      if (replication_status.length)
+        protocol->store(replication_status.str, &my_charset_bin);
+      else
+        protocol->store("", &my_charset_bin);
+      mysql_mutex_unlock(&si->thd->LOCK_thd_query);
+    } else {
+      protocol->store("RAFT", &my_charset_bin);
+    }
+
     if (protocol->end_row()) {
       mysql_mutex_unlock(&LOCK_slave_list);
       return true;

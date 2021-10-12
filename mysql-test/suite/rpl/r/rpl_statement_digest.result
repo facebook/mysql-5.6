@@ -16,7 +16,7 @@ include/diff_tables.inc [master:test.t1,slave:test.t1]
 include/diff_tables.inc [master:test.t2,slave:test.t2]
 SELECT * FROM test.t1;
 a
-fc86ab9f4e4275ef861733844e3b2710313376a3a632204f99eecf8ce0855f4d
+243765b033d950f199522587e4d1cd06
 SELECT * FROM test.t2;
 a
 SELECT * FROM `foo`

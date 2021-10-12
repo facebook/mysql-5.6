@@ -3,11 +3,11 @@ TRUNCATE TABLE performance_schema.events_statements_summary_by_all;
 TRUNCATE TABLE performance_schema.sql_text;
 SELECT * FROM performance_schema.sql_text;
 DIGEST	DIGEST_TEXT
-354a4ca5fdc0c8244c727c21f128d139b53f03f09d871929744dacb9958ce480	TRUNCATE TABLE `performance_schema` . `sql_text`
+0daeec57dddba79524b3f5fa378012d4	TRUNCATE TABLE `performance_schema` . `sql_text`
 CREATE TABLE foo(a INT);
 INSERT INTO foo VALUES(1);
 DROP TABLE foo;
 SELECT * FROM performance_schema.sql_text;
 DIGEST	DIGEST_TEXT
-354a4ca5fdc0c8244c727c21f128d139b53f03f09d871929744dacb9958ce480	TRUNCATE TABLE `performance_schema` . `sql_text`
+0daeec57dddba79524b3f5fa378012d4	TRUNCATE TABLE `performance_schema` . `sql_text`
 include/assert.inc [Number of commands dropped from sql_text table is 5]

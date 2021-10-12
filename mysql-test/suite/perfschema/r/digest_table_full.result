@@ -212,7 +212,7 @@ SELECT SCHEMA_NAME, DIGEST, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
 SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest;
 SCHEMA_NAME	DIGEST	COUNT_STAR	SUM_ROWS_AFFECTED	SUM_WARNINGS	SUM_ERRORS
 NULL	NULL	29	0	0	0
-test	5e18b503343466373cc0ce1922b04a77902f0cce5386ce599cb95b682d29415e	1	0	0	0
+test	e6628a0d51a41865a2ac8de78a8be09d	1	0	0	0
 drop user user_super@localhost;
 ####################################
 # CLEANUP

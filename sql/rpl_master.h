@@ -67,6 +67,8 @@ struct SLAVE_INFO {
   uint16 port;
   std::list<SLAVE_STATS> slave_stats;
   THD *thd;
+  bool is_raft = false;
+  char server_uuid[64];
 };
 
 void init_slave_list();
@@ -75,7 +77,9 @@ bool is_semi_sync_slave(THD *thd, bool need_lock = true);
 int store_replica_stats(THD *thd, uchar *packet, uint packet_length);
 int register_slave(THD *thd, uchar *packet, size_t packet_length);
 void unregister_slave(THD *thd, bool only_mine, bool need_lock_slave_list);
-bool show_slave_hosts(THD *thd);
+int register_raft_followers(
+    const std::unordered_map<std::string, std::string> &, bool, bool);
+bool show_slave_hosts(THD *thd, bool with_raft);
 
 using thd_to_slave_info_container = malloc_unordered_map<THD *, SLAVE_INFO>;
 thd_to_slave_info_container copy_slaves();

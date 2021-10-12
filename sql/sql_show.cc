@@ -759,7 +759,7 @@ bool Sql_cmd_show_replicas::check_privileges(THD *thd) {
 }
 
 bool Sql_cmd_show_replicas::execute_inner(THD *thd) {
-  return show_slave_hosts(thd);
+  return show_slave_hosts(thd, lex->with_raft);
 }
 
 bool Sql_cmd_show_replica_status::check_privileges(THD *thd) {
