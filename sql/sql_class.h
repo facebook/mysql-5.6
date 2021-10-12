@@ -3250,7 +3250,8 @@ class THD : public MDL_context_owner,
   time_t query_start_in_secs() const { return start_time.tv_sec; }
   timeval query_start_timeval_trunc(uint decimals);
   void set_time();
-  ulonglong set_cpu_time();
+  void set_start_cputime();
+  ulonglong get_cpu_time();
   void set_time(const struct timeval *t) {
     user_time = *t;
     set_time();

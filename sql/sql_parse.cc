@@ -1930,6 +1930,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   */
   if (thd->killed == THD::KILL_QUERY) thd->killed = THD::NOT_KILLED;
   thd->set_time();
+  thd->set_start_cputime();
   if (is_time_t_valid_for_timestamp(thd->query_start_in_secs()) == false) {
     /*
       If the time has gone past 2038 we need to shutdown the server. But
@@ -2297,7 +2298,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         my_free(sub_query);
 
         /* store CPU time as part of the query response attributes */
-        cpu_time = thd->set_cpu_time();
+        cpu_time = thd->get_cpu_time();
         store_server_cpu_in_resp_attrs(thd, cpu_time);
 
         /* Finalize server status flags after executing a statement. */
@@ -2359,6 +2360,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         */
         thd->status_var.questions++;
         thd->set_time(); /* Reset the query start time. */
+        thd->set_start_cputime();
         parser_state.reset(beginning_of_next_stmt, length);
         thd->set_secondary_engine_optimization(
             Secondary_engine_optimization::PRIMARY_TENTATIVELY);
@@ -2686,7 +2688,7 @@ done:
               (thd->locked_tables_mode == LTM_LOCK_TABLES));
 
   /* store CPU time as part of the query response attributes */
-  cpu_time = thd->set_cpu_time();
+  cpu_time = thd->get_cpu_time();
   store_server_cpu_in_resp_attrs(thd, cpu_time);
 
   /* Finalize server status flags after executing a command. */
@@ -2752,7 +2754,6 @@ done:
   thd->propagate_pending_global_disk_usage();
 
   /* Performance Schema Interface instrumentation, end */
-  cpu_time = thd->set_cpu_time();
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
   thd->m_statement_psi = nullptr;
   thd->m_digest = nullptr;

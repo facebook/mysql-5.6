@@ -3500,9 +3500,6 @@ void THD::set_time() {
   else
     my_micro_time_to_timeval(start_utime, &start_time);
 
-  if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_cputime) != 0) {
-    set_timespec(&start_cputime, 0);
-  }
 #ifdef HAVE_PSI_THREAD_INTERFACE
   PSI_THREAD_CALL(set_thread_start_time)(query_start_in_secs());
 #endif
@@ -3512,7 +3509,7 @@ void THD::set_time() {
   Records the CPU time spent since start_cputime, and records this into
   perfschema via MYSQL_SET_STATEMENT_CPU_TIME.
 */
-ulonglong THD::set_cpu_time() {
+ulonglong THD::get_cpu_time() {
   struct timespec end_cputime;
   ulonglong cpu_time = 0;
   set_timespec(&end_cputime, 0);
@@ -3522,6 +3519,12 @@ ulonglong THD::set_cpu_time() {
     MYSQL_SET_STATEMENT_CPU_TIME(m_statement_psi, cpu_time);
   }
   return cpu_time;
+}
+
+void THD::set_start_cputime() {
+  if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_cputime) != 0) {
+    set_timespec(&start_cputime, 0);
+  }
 }
 
 void THD::set_time_after_lock() {
