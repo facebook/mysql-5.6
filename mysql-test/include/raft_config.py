@@ -13,12 +13,6 @@ def execute_sql(server_id, query):
     )
     return stream.read().strip()
 
-def ip():
-    stream = os.popen(
-        f'hostname -i'
-    )
-    return stream.read().strip()
-
 num_servers = int(sys.argv[1])
 socket_path = sys.argv[2]
 
@@ -26,7 +20,7 @@ hostname = socket.gethostname()
 hostname = hostname.replace('.facebook.com', '')
 dc = hostname.split(".")[-1]
 region = re.sub('[0-9]+$', '', dc)
-ip = ip()
+ip = "0000:0000:0000:0000:0000:0000:0000:0001"
 
 config={}
 

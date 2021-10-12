@@ -3,8 +3,6 @@ let $slave_io_running_check_disable= 1;
 
 # TODO: check if the topology is supported in raft
 
---let $instances= "instances": "
-
 --let $_rpl_server= $rpl_server_count
 while ($_rpl_server)
 {
@@ -32,7 +30,6 @@ while ($_rpl_server)
   --source include/rpl_connection.inc
 
   --let $ipv6_host_port= `SELECT CONCAT('[::1]', ':', (SELECT @@GLOBAL.PORT), ',')`
-  --let $instances= `SELECT CONCAT('$instances', '$ipv6_host_port')`
 
   let $date= `SELECT DATE_FORMAT(NOW(), '%m-%d-%Y')`;
 
@@ -40,8 +37,6 @@ while ($_rpl_server)
 
   --dec $_rpl_server
 }
---let $instances= `SELECT TRIM(TRAILING ',' FROM '$instances')`
---let $instances= `SELECT CONCAT('$instances', '"')`
 
 let $socket_dir= `SELECT SUBSTRING(VARIABLE_VALUE, 1,
                                    LOCATE(SUBSTRING_INDEX(
@@ -65,13 +60,6 @@ while ($_rpl_server)
   exec rm -fr $fs_wal_path;
   exec mkdir -p $fs_wal_path;
 
-  --let $config_json= `SELECT CONCAT('{', '$instances', '}')`
-
-  if ($rpl_debug)
-  {
-    --echo raft config json: '$config_json'
-  }
-
   --let $raft_plugin_early_installed= `SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`
 
   # Install plugin
@@ -79,9 +67,6 @@ while ($_rpl_server)
   {
     INSTALL PLUGIN RPL_RAFT SONAME 'mysql_raft_repl.so';
   }
-
-  # Set config
-  eval SET GLOBAL RPL_RAFT_CONFIG_JSON= '$config_json';
 
   if ($_rpl_server != $_rpl_master)
   {

@@ -451,7 +451,7 @@ class Raft_replication_delegate : public Delegate {
   int setup_flush(THD *thd, Observer::st_setup_flush_arg *arg);
 
   int before_shutdown(THD *thd);
-  int register_paths(THD *thd, const std::string &s_uuid,
+  int register_paths(THD *thd, const std::string &s_uuid, uint32_t server_id,
                      const std::string &wal_dir_parent,
                      const std::string &log_dir_parent,
                      const std::string &raft_log_path_prefix,
