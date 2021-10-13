@@ -32,6 +32,12 @@ set @@global.response_attrs_contain_server_cpu = true;
 select a,b from mytbl;
 Did not find server_cpu in query response attributes
 set @@global.response_attrs_contain_server_cpu = default;
+# Case 5: specify query attribute 'response_attrs_contain_server_cpu' to 1
+select a,b from mytbl;
+Found valid value for server_cpu in query response attributes
+# Case 6: specify query attribute 'response_attrs_contain_server_cpu' to 0
+select a,b from mytbl;
+Did not find server_cpu in query response attributes
 
 # Test multistatement query
 
@@ -65,5 +71,21 @@ select * from mytbl where e > 1;
 ||||
 Did not find server_cpu in query response attributes
 set @@global.response_attrs_contain_server_cpu = default;
+# Case 5: specify query attribute 'response_attrs_contain_server_cpu' to 1
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+Found valid value for server_cpu in query response attributes
+# Case 6: specify query attribute 'response_attrs_contain_server_cpu' to 0
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+Did not find server_cpu in query response attributes
 use test;
 drop table if exists mytbl;

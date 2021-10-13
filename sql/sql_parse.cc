@@ -7911,11 +7911,19 @@ static void store_warnings_in_resp_attrs(THD *thd) {
 }
 
 static void store_server_cpu_in_resp_attrs(THD *thd, ulonglong cpu_time) {
-  /* Update session tracker with server CPU time */
   auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
 
-  if (thd->variables.response_attrs_contain_server_cpu &&
-      tracker->is_enabled()) {
+  std::string attr_key = "response_attrs_contain_server_cpu";
+  if (tracker->is_enabled() && /* check if session tracker is not enabled */
+      /* check if the variable is enabled */
+      (thd->variables.response_attrs_contain_server_cpu ||
+       /* check if query attribute is set to '1'
+        * the argument type of the query attribute is changed to int
+        * to avoid type conversions. The query attribute will be considered
+        * enabled only if its value is set "1".
+        */
+       thd->get_query_attr(attr_key) == "1")) {
+    /* Update session tracker with server CPU time */
     static LEX_CSTRING key = {STRING_WITH_LEN("server_cpu")};
     std::string value_str = std::to_string(cpu_time);
     LEX_CSTRING value = {value_str.c_str(), value_str.length()};
