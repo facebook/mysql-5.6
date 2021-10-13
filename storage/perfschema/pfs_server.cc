@@ -183,7 +183,8 @@ int initialize_performance_schema(
     flag_events_statements_cpu =
         param->m_consumer_events_statements_cpu_enabled;
     flag_events_statements_current =
-        param->m_consumer_events_statements_current_enabled;
+        param->m_consumer_events_statements_current_enabled &&
+        param->m_statement_stack_sizing > 0;
     flag_events_statements_history =
         param->m_consumer_events_statements_history_enabled;
     flag_events_statements_history_long =

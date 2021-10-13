@@ -5856,6 +5856,10 @@ PSI_stage_progress *pfs_start_stage_v1(PSI_stage_key key, const char *src_file,
     return nullptr;
   }
 
+  if (!flag_events_statements_current) {
+    return nullptr;
+  }
+
   PFS_events_stages *pfs = &pfs_thread->m_stage_current;
   PFS_events_waits *child_wait = &pfs_thread->m_events_waits_stack[0];
   PFS_events_statements *parent_statement = &pfs_thread->m_statement_stack[0];
@@ -5973,6 +5977,10 @@ void pfs_end_stage_v1() {
   }
 
   if (flag_thread_instrumentation && !pfs_thread->m_enabled) {
+    return;
+  }
+
+  if (!flag_events_statements_current) {
     return;
   }
 

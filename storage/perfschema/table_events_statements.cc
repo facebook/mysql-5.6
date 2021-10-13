@@ -764,6 +764,11 @@ int table_events_statements_current::rnd_init(bool) { return 0; }
 int table_events_statements_current::rnd_next(void) {
   PFS_thread *pfs_thread;
   PFS_events_statements *statement;
+
+  if (statement_stack_max == 0) {
+    return HA_ERR_END_OF_FILE;
+  }
+
   bool has_more_thread = true;
 
   for (m_pos.set_at(&m_next_pos); has_more_thread; m_pos.next_thread()) {
@@ -830,6 +835,11 @@ int table_events_statements_current::rnd_pos(const void *pos) {
 int table_events_statements_current::index_next(void) {
   PFS_thread *pfs_thread;
   PFS_events_statements *statement;
+
+  if (statement_stack_max == 0) {
+    return HA_ERR_END_OF_FILE;
+  }
+
   bool has_more_thread = true;
 
   for (m_pos.set_at(&m_next_pos); has_more_thread; m_pos.next_thread()) {

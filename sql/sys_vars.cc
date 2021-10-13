@@ -850,7 +850,7 @@ static Sys_var_ulong Sys_pfs_statement_stack_size(
     "performance_schema_max_statement_stack",
     "Number of rows per thread in EVENTS_STATEMENTS_CURRENT.",
     READ_ONLY GLOBAL_VAR(pfs_param.m_statement_stack_sizing),
-    CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 256),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, 256),
     DEFAULT(PFS_STATEMENTS_STACK_SIZE), BLOCK_SIZE(1), PFS_TRAILING_PROPERTIES);
 
 static Sys_var_ulong Sys_pfs_max_memory_classes(
