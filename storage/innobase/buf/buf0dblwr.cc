@@ -68,9 +68,6 @@ constexpr ulint DBLWR_V1 = 536853855;
 /** Contents of DBLWR_V1_SPACE_ID_STORED. */
 constexpr ulint DBLWR_V1_SPACE_ID_STORED_N = 1783657386;
 
-/** DBLWR file pages reserved per instance for single page flushes. */
-constexpr uint32_t SYNC_PAGE_FLUSH_SLOTS = 512;
-
 namespace dblwr {
 
 std::string dir{"."};
@@ -78,6 +75,9 @@ std::string dir{"."};
 ulong n_files{1};
 
 ulong batch_size{};
+
+/** DBLWR file pages reserved per instance for single page flushes. */
+ulong sync_page_flush_slots = 512;
 
 ulong n_pages{64};
 
@@ -1709,9 +1709,9 @@ void Double_write::reset_file(dblwr::File &file, bool truncate) noexcept {
   auto new_size = dblwr::File::s_n_pages * univ_page_size.physical();
 
   if (s_files.size() == 1) {
-    new_size += SYNC_PAGE_FLUSH_SLOTS * univ_page_size.physical();
+    new_size += dblwr::sync_page_flush_slots * univ_page_size.physical();
   } else if (file.is_for_lru()) {
-    const auto n_bytes = (SYNC_PAGE_FLUSH_SLOTS / (s_files.size() / 2)) *
+    const auto n_bytes = (dblwr::sync_page_flush_slots / (s_files.size() / 2)) *
                          univ_page_size.physical();
     new_size += n_bytes;
   }
@@ -2383,7 +2383,7 @@ dberr_t Double_write::create_single_segments() noexcept {
 
   /* This needs to be a power of 2. */
   const auto max_queue_size =
-      std::max(ulint{2}, ut_2_power_up(SYNC_PAGE_FLUSH_SLOTS));
+      std::max(ulint{2}, ut_2_power_up(dblwr::sync_page_flush_slots));
 
   s_single_segments =
       ut::new_withkey<Segments>(UT_NEW_THIS_FILE_PSI_KEY, max_queue_size);
@@ -2395,9 +2395,9 @@ dberr_t Double_write::create_single_segments() noexcept {
   uint32_t n_pages{};
 
   if (s_files.size() == 1) {
-    n_pages = SYNC_PAGE_FLUSH_SLOTS;
+    n_pages = dblwr::sync_page_flush_slots;
   } else {
-    n_pages = SYNC_PAGE_FLUSH_SLOTS / (s_files.size() / 2);
+    n_pages = dblwr::sync_page_flush_slots / (s_files.size() / 2);
   }
 
   for (auto &file : s_files) {
@@ -2809,10 +2809,10 @@ dberr_t dblwr::open() noexcept {
     auto pages_per_file = dblwr::n_pages * segments_per_file;
 
     if (Double_write::s_files.size() == 1) {
-      pages_per_file += SYNC_PAGE_FLUSH_SLOTS;
+      pages_per_file += dblwr::sync_page_flush_slots;
     } else if ((file.m_id & 1)) {
       pages_per_file +=
-          SYNC_PAGE_FLUSH_SLOTS / (Double_write::s_files.size() / 2);
+          dblwr::sync_page_flush_slots / (Double_write::s_files.size() / 2);
     }
 
     err = Double_write::init_file(file, pages_per_file);

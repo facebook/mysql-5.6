@@ -413,6 +413,9 @@ extern ulong n_files;
 /** Maximum number of pages to write in one batch. */
 extern ulong batch_size;
 
+/** DBLWR file pages reserved per instance for single page flushes. */
+extern ulong sync_page_flush_slots;
+
 /** Toggle the doublewrite buffer. */
 void set();
 

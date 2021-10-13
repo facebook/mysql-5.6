@@ -1,0 +1,79 @@
+--echo '#---------------------BS_STVARS_035_01----------------------#'
+####################################################################
+#   Displaying default value                                       #
+####################################################################
+SELECT @@GLOBAL.innodb_doublewrite_sync_page_flush_slots;
+--echo 512 Expected
+
+
+--echo '#---------------------BS_STVARS_035_02----------------------#'
+####################################################################
+#   Check if Value can set                                         #
+####################################################################
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@GLOBAL.innodb_doublewrite_sync_page_flush_slots=1;
+--echo Expected error 'Read only variable'
+
+SELECT COUNT(@@GLOBAL.innodb_doublewrite_sync_page_flush_slots);
+--echo 1 Expected
+
+
+
+
+--echo '#---------------------BS_STVARS_035_03----------------------#'
+#################################################################
+# Check if the value in GLOBAL Table matches value in variable  #
+#################################################################
+
+--disable_warnings
+SELECT @@GLOBAL.innodb_doublewrite_sync_page_flush_slots = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='innodb_doublewrite_sync_page_flush_slots';
+--enable_warnings
+--echo 1 Expected
+
+SELECT COUNT(@@GLOBAL.innodb_doublewrite_sync_page_flush_slots);
+--echo 1 Expected
+
+--disable_warnings
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='innodb_doublewrite_sync_page_flush_slots';
+--enable_warnings
+--echo 1 Expected
+
+
+
+--echo '#---------------------BS_STVARS_035_04----------------------#'
+################################################################################
+#  Check if accessing variable with and without GLOBAL point to same variable  #
+################################################################################
+SELECT @@innodb_doublewrite_sync_page_flush_slots = @@GLOBAL.innodb_doublewrite_sync_page_flush_slots;
+--echo 1 Expected
+
+
+
+--echo '#---------------------BS_STVARS_035_05----------------------#'
+################################################################################
+#   Check if innodb_doublewrite_sync_page_flush_slots can be accessed with and without @@ sign     #
+################################################################################
+
+SELECT COUNT(@@innodb_doublewrite_sync_page_flush_slots);
+--echo 1 Expected
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.innodb_doublewrite_sync_page_flush_slots);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.innodb_doublewrite_sync_page_flush_slots);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+SELECT COUNT(@@GLOBAL.innodb_doublewrite_sync_page_flush_slots);
+--echo 1 Expected
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT innodb_doublewrite_sync_page_flush_slots = @@SESSION.innodb_doublewrite_sync_page_flush_slots;
+--echo Expected error 'Readonly variable'
+
