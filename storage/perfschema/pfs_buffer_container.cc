@@ -752,8 +752,10 @@ int PFS_thread_allocator::alloc_array(PFS_thread_array *array) {
         &array
              ->m_statements_history_array[index *
                                           events_statements_history_per_thread];
-    pfs->m_statement_stack =
-        &array->m_statements_stack_array[index * statement_stack_max];
+    if (array->m_statements_stack_array) {
+      pfs->m_statement_stack =
+          &array->m_statements_stack_array[index * statement_stack_max];
+    }
     pfs->m_transactions_history =
         &array->m_transactions_history_array
              [index * events_transactions_history_per_thread];
