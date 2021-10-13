@@ -59,6 +59,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'gtid_committed',
 'gtid_purged_for_tailing',
 'have_boringssl',
+'innodb_doublewrite_sync_page_flush_slots',
 'innodb_buffer_pool_populate',
 'innodb_sync_pool_size',
 'override_enable_raft_check',

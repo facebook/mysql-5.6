@@ -22368,6 +22368,13 @@ static MYSQL_SYSVAR_ULONG(
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
     "Number of double write pages to write in a batch", NULL, NULL,
     0, 0, 256, 0);
+
+static MYSQL_SYSVAR_ULONG(
+    doublewrite_sync_page_flush_slots, dblwr::sync_page_flush_slots,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "Number of double write LRU flush slots", NULL, NULL,
+    512, 8, 1024, 0);
+
 // clang-format on
 
 static MYSQL_SYSVAR_BOOL(
@@ -23299,6 +23306,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(doublewrite_batch_size),
     MYSQL_SYSVAR(doublewrite_files),
     MYSQL_SYSVAR(doublewrite_pages),
+    MYSQL_SYSVAR(doublewrite_sync_page_flush_slots),
     MYSQL_SYSVAR(stats_include_delete_marked),
     MYSQL_SYSVAR(api_enable_binlog),
     MYSQL_SYSVAR(api_enable_mdl),
