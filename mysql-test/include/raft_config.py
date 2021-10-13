@@ -18,7 +18,7 @@ socket_path = sys.argv[2]
 
 hostname = socket.gethostname()
 hostname = hostname.replace('.facebook.com', '')
-dc = hostname.split(".")[1]
+dc = hostname.split(".")[-1]
 region = re.sub('[0-9]+$', '', dc)
 ip = "0000:0000:0000:0000:0000:0000:0000:0001"
 
