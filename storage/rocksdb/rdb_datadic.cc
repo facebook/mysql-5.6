@@ -500,8 +500,9 @@ void Rdb_key_def::setup(const TABLE *const tbl,
         */
         if (!m_ttl_column.empty() &&
             field->check_field_name_match(m_ttl_column.c_str())) {
-          DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
-          DBUG_ASSERT(field->key_type() == HA_KEYTYPE_ULONGLONG);
+          DBUG_ASSERT((field->real_type() == MYSQL_TYPE_LONGLONG &&
+                       field->key_type() == HA_KEYTYPE_ULONGLONG) ||
+                      field->type() == MYSQL_TYPE_TIMESTAMP);
           DBUG_ASSERT(!field->real_maybe_null());
           m_ttl_pk_key_part_offset = dst_i;
         }
@@ -628,8 +629,9 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
     for (uint i = 0; i < table_arg->s->fields; i++) {
       Field *const field = table_arg->field[i];
       if (field->check_field_name_match(ttl_col_str.c_str()) &&
-          field->real_type() == MYSQL_TYPE_LONGLONG &&
-          field->key_type() == HA_KEYTYPE_ULONGLONG &&
+          (field->type() == MYSQL_TYPE_TIMESTAMP ||
+           (field->real_type() == MYSQL_TYPE_LONGLONG &&
+            field->key_type() == HA_KEYTYPE_ULONGLONG)) &&
           !field->real_maybe_null()) {
         *ttl_column = ttl_col_str;
         *ttl_field_index = i;
