@@ -285,6 +285,9 @@ The following options may be given as the first argument:
  --bulk-insert-buffer-size=# 
  Size of tree cache used in bulk insert optimisation. Note
  that this is a limit per thread!
+ --bypass-write-throttle-admin-check 
+ Bypass the check to avoid throttling write queries from
+ admin users to prevent replication lag
  --caching-sha2-password-private-key-path=name 
  A fully qualified path to the private RSA key used for
  authentication.
@@ -2754,6 +2757,7 @@ binlog-transaction-dependency-tracking COMMIT_ORDER
 binlog-trx-meta-data FALSE
 block-encryption-mode aes-128-ecb
 bulk-insert-buffer-size 8388608
+bypass-write-throttle-admin-check FALSE
 caching-sha2-password-private-key-path private_key.pem
 caching-sha2-password-public-key-path public_key.pem
 character-set-client-handshake TRUE

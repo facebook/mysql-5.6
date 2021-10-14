@@ -5615,11 +5615,7 @@ static bool mt_check_throttle_write_query(THD *thd) {
     DBUG_RETURN(false);
   }
 
-  bool debug_skip_write_throttle_super_check = false;
-  DBUG_EXECUTE_IF("dbug.skip_write_throttle_super_check",
-                  { debug_skip_write_throttle_super_check = true; });
-
-  if (!debug_skip_write_throttle_super_check) {
+  if (!bypass_write_throttle_admin_check) {
     // exclude automation & super queries
     Security_context *sctx = thd->security_context();
     ulong master_access = sctx->master_access();
