@@ -1046,6 +1046,7 @@ extern my_bool separate_conn_handling_thread;
 extern uint num_sharded_sockets;
 extern uint num_conn_handling_threads;
 extern my_bool gl_socket_sharding;
+extern bool bypass_write_throttle_admin_check;
 extern ulong write_stats_frequency;
 extern ulong write_start_throttle_lag_milliseconds;
 extern ulong write_stop_throttle_lag_milliseconds;

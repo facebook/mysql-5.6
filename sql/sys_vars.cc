@@ -7681,3 +7681,10 @@ static Sys_var_uint Sys_response_attrs_contain_write_tables_bytes(
     "The default value is 0 which disables this feature",
     SESSION_VAR(response_attrs_contain_write_tables_bytes), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_mybool Sys_bypass_write_throttle_admin_check(
+       "bypass_write_throttle_admin_check",
+       "Bypass the check to avoid throttling write queries from admin users "
+       "to prevent replication lag",
+       GLOBAL_VAR(bypass_write_throttle_admin_check),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));

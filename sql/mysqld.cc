@@ -745,6 +745,8 @@ my_bool normalized_plan_id;
 uint sql_maximum_duplicate_executions;
 /* Controls the mode of enforcement of duplicate executions of the same stmt */
 ulong sql_duplicate_executions_control;
+/* Controls whether write queries from admin users are throttled to avoid replication lag */
+bool bypass_write_throttle_admin_check;
 /* Controls num most recent data points to collect for information_schema.write_statistics */
 uint write_stats_count;
 /* Controls the frequency(seconds) at which write stats and replica lag stats are collected*/
