@@ -1,0 +1,3 @@
+# Test that skips itself.
+--skip expected to be skipped
+--echo OK

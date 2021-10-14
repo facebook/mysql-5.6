@@ -1,0 +1,26 @@
+# Fails every second time.
+
+--source include/have_debug.inc
+
+--perl
+use strict;
+use warnings;
+
+my $fname = "$ENV{MYSQLTEST_VARDIR}/junit-15_fail_every_second_time-state.txt";
+my $newval = "tick";
+
+if (open my $f, "<", $fname) {
+    if (defined(my $val = <$f>)) {
+        chomp $val;
+        close $f;
+        $newval = $val eq "tock" ? "tick" : "tock";
+    }
+}
+
+open my $f2, ">", $fname or die("open>");
+print $f2 "$newval\n";
+close $f2;
+
+EOF
+
+--cat_file $MYSQLTEST_VARDIR/junit-15_fail_every_second_time-state.txt

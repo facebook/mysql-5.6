@@ -8759,3 +8759,7 @@ static Sys_var_uint Sys_response_attrs_contain_warnings_bytes(
     "comma. The default value is 0 which disables this feature",
     SESSION_VAR(response_attrs_contain_warnings_bytes), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+#ifndef DBUG_OFF
+Debug_shutdown_actions Debug_shutdown_actions::instance;
+#endif

@@ -1,0 +1,4 @@
+# Result mismatch.
+
+# '.result' file expects "OK".
+--echo Not OK

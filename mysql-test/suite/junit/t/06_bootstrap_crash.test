@@ -1,0 +1,4 @@
+# Crashing in the bootstrap stage. See '.opt' file.
+--source include/have_debug.inc
+
+--echo OK
