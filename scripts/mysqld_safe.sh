@@ -1058,13 +1058,13 @@ do
   fi
 
   # 2. Sleep 2,4,8,16... seconds between restart
-  #    Sleep 24 hours if reaching 10 retries in a day
+  #    Sleep 30 mins if reaching 10 retries in a day
   cur_retry_times=`expr $cur_retry_times + 1`
   if test ! -f /tmp/disable_mysqld_restart_throttle \
     && test "$cur_retry_times" -gt "$max_restart_a_day"
   then
-    log_notice "Throttling restart after 10 restarts: Sleep 1 day"
-    sleep 86400
+    log_notice "Throttling restart after 10 restarts: Sleep 30 mins"
+    sleep 1800
     if [ $? = 137 ];
     then
       log_notice "Sleep was likely interrupted from outside. Will exit loop"
