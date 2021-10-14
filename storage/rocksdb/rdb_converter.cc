@@ -729,10 +729,30 @@ int Rdb_converter::encode_value_slice(
     if (has_ttl_column) {
       DBUG_ASSERT(pk_def->get_ttl_field_index() != UINT_MAX);
       Field *const field = m_table->field[pk_def->get_ttl_field_index()];
-      DBUG_ASSERT(field->pack_length_in_rec() == ROCKSDB_SIZEOF_TTL_RECORD);
-      DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
+      DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG ||
+                  field->type() == MYSQL_TYPE_TIMESTAMP);
 
-      uint64 ts = uint8korr(field->field_ptr());
+      uint64 ts;
+
+      if (field->type() == MYSQL_TYPE_TIMESTAMP) {
+        /*
+          Timestamp packed length can be 4 to 7 bytes depending on precision.
+          The first four bytes is the unix time network byte order and is used
+          for MYSQL_TYPE_TIMESTAMP and MYSQL_TYPE_TIMESTAMP2. The optional
+          remaining bytes are for fractional seconds. Only the first four bytes
+          are needed.
+         */
+        DBUG_ASSERT(field->real_type() == MYSQL_TYPE_TIMESTAMP ||
+                    field->real_type() == MYSQL_TYPE_TIMESTAMP2);
+        DBUG_ASSERT(field->pack_length_in_rec() >= 4);
+        DBUG_ASSERT(field->key_type() == HA_KEYTYPE_BINARY);
+        ts = (uint64)rdb_netbuf_to_uint32(field->field_ptr());
+      } else {
+        DBUG_ASSERT(field->key_type() == HA_KEYTYPE_ULONGLONG);
+        DBUG_ASSERT(field->pack_length_in_rec() == ROCKSDB_SIZEOF_TTL_RECORD);
+        ts = uint8korr(field->field_ptr());
+      }
+
 #ifndef DBUG_OFF
       ts += rdb_dbug_set_ttl_rec_ts();
 #endif
