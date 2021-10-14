@@ -782,6 +782,25 @@ LOCK TABLES test.t READ;select 2|
 -- 1
 
 # reset the session.
+# CASE8: savepoints autocommit
+SET @@session.session_track_state_change=ON;
+SAVEPOINT abc;
+# reset the session.
+# CASE9: savepoints no autocommit
+SET @@session.session_track_state_change=ON, @@session.autocommit=OFF;
+-- Tracker : SESSION_TRACK_SYSTEM_VARIABLES
+-- autocommit
+-- OFF
+
+-- Tracker : SESSION_TRACK_STATE_CHANGE
+-- 1
+
+# expect 1
+SAVEPOINT abc;
+-- Tracker : SESSION_TRACK_STATE_CHANGE
+-- 1
+
+# reset the session.
 
 # Test for all valid values
 
