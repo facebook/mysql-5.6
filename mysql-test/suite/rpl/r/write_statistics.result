@@ -209,7 +209,7 @@ TRUNCATE t;
 drop user user_super1@localhost;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 Case 8: Manual Throttling - SQL_ID 
-set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=1;
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
 SET @@GLOBAL.WRITE_STATS_COUNT=2;
 insert into t values(1);
@@ -239,9 +239,9 @@ reset
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
-set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=0;
 Case 9: Manual Throttling - CLIENT 
-set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=1;
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
 SET @@GLOBAL.WRITE_STATS_COUNT=2;
 insert into t values(1);
@@ -282,9 +282,9 @@ reset
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
-set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=0;
 Case 10: Manual Throttling - SHARD 
-set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=1;
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
 SET @@GLOBAL.WRITE_STATS_COUNT=2;
 insert into t values(1);
@@ -325,9 +325,9 @@ reset
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
-set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=0;
 Case 11: Manual Throttling - USER 
-set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=1;
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
 SET @@GLOBAL.WRITE_STATS_COUNT=2;
 insert into t values(1);
@@ -378,7 +378,7 @@ TRUNCATE t;
 drop user user_super1@localhost;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
-set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=0;
 ####################################################################################################
 ### Test 12: Super/repl_slave/binlog_admin privileged users are not throttled
 ####################################################################################################
@@ -401,12 +401,17 @@ insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
 Should not throttle insert queries by super privilege user
 insert into t values(1);
+Should throttle insert queries by super privilege user when check is bypassed
+SET @@GLOBAL.bypass_write_throttle_admin_check=1;
+insert into t values(1);
+ERROR HY000: Exceeded write workload limit. Try again later
 reset 
 drop user no_super_user;
 drop user super_user;
 TRUNCATE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.bypass_write_throttle_admin_check=0;
 Cleanup
 DROP TABLE t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
