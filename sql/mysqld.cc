@@ -1564,7 +1564,7 @@ int log_datagram_sock = -1;
 bool opt_parthandler_allow_drop_partition = true;
 bool disable_instant_ddl = false;
 bool enable_deprecation_warning = true;
-
+bool enable_optimizer_cputime_with_wallclock = true;
 /**
    Number of times JSON functions are called that emulate
    5.6 fb json functions behavior
