@@ -1,3 +1,5 @@
+SET @start_global_value = @@global.enable_optimizer_cputime_with_wallclock;
+SET GLOBAL enable_optimizer_cputime_with_wallclock=0;
 Compilation CPU Metric: Setup
 create table comp_cpu_tbl(a1 int, a2 int, a3 int, a4 int, a5 int,
 a6 int, a7 int, a8 int, a9 int, a10 int);
@@ -101,3 +103,108 @@ include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all shou
 SET @@global.performance_schema_esms_by_all = @start_value;
 drop table comp_cpu_tbl;
 drop procedure populate;
+SET GLOBAL enable_optimizer_cputime_with_wallclock=1;
+Compilation CPU Metric: Setup
+create table comp_cpu_tbl(a1 int, a2 int, a3 int, a4 int, a5 int,
+a6 int, a7 int, a8 int, a9 int, a10 int);
+create procedure populate()
+begin
+declare i int default 0;
+while i < 1000 do
+insert into comp_cpu_tbl values(i, i+1, i+2, i+3, i+4,
+i, i+1, i+2, i+3, i+4);
+set i = i + 1;
+end while;
+end //
+call populate();
+Test 1: Single table select query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+select * from comp_cpu_tbl where a2 > 10 and a6 < 100;;
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 2: Select query with join
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+select t1.*, t2.* from comp_cpu_tbl t1, comp_cpu_tbl t2 where t1.a1 = t2.a1 and t1.a2 > 10 and t2.a6 < 100;;
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 3: Select query with join and group by
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+select t1.a3, t2.a4, sum(t1.a5), max(t2.a8) from comp_cpu_tbl t1, comp_cpu_tbl t2 where t1.a1 = t2.a1 and t1.a2 > 10 and t2.a6 < 100 group by t1.a3, t2.a4;;
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 4: Select query with join, group by and order by
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+select t1.a3, t2.a4, sum(t1.a5), max(t2.a8) from comp_cpu_tbl t1, comp_cpu_tbl t2 where t1.a1 = t2.a1 and t1.a2 > 10 and t2.a6 < 100 group by t1.a3, t2.a4 order by 1, 2;;
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 5: Insert query with values
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+insert into comp_cpu_tbl values(1, 1, 1, 1, 1, 1, 1, 1, 1, 1);;
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 6: Insert query with sub-query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+insert into comp_cpu_tbl select * from comp_cpu_tbl where a2>100 and a8 > 200;;
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 7: Update query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+update comp_cpu_tbl set a2 = a2+a4 where a2>100 and a8 > 200;;
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+Test 8: Delete query
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+delete from comp_cpu_tbl where a2>100 and a8 > 200;;
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_COMPILATION_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+drop table comp_cpu_tbl;
+drop procedure populate;
+SET GLOBAL enable_optimizer_cputime_with_wallclock = @start_global_value;
