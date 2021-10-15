@@ -448,6 +448,7 @@ extern std::atomic<ulonglong> slave_high_priority_ddl_executed;
 extern std::atomic<ulonglong> slave_commit_order_deadlocks;
 extern bool disable_instant_ddl;
 extern bool enable_deprecation_warning;
+extern bool enable_optimizer_cputime_with_wallclock;
 
 extern ulonglong rbr_unsafe_queries;
 extern ulong relay_io_connected;

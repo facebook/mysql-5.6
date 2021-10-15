@@ -9837,6 +9837,18 @@ static Sys_var_bool Sys_bypass_write_throttle_admin_check(
     GLOBAL_VAR(bypass_write_throttle_admin_check), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_bool Sys_enable_optimizer_cputime_with_wallclock(
+    "enable_optimizer_cputime_with_wallclock",
+    "This will control how we track optimizer cputime i.e compliation "
+    "cputime, index dive cputime. If false then we use "
+    "clock_gettime(CLOCK_THREAD_CPUTIME_ID) which will track actual execution "
+    "time when the thread was active but this will consume more cpu cycles for "
+    "making system call to track the exact time. Else we "
+    "track wallclock time elapsed which is less accurate but performant(avoids "
+    "system calls).",
+    GLOBAL_VAR(enable_optimizer_cputime_with_wallclock), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static Sys_var_bool Sys_raft_high_priority_read_only(
     "raft_high_priority_read_only",
     "Set high_priority_ddl and kill_conflicting_connections before set "
