@@ -7949,9 +7949,14 @@ bool parse_sql(THD *thd, Parser_state *parser_state,
   */
   if (ret_value == 0 && sql_id_is_needed() && thd->m_digest &&
       !thd->m_digest->m_digest_storage.is_empty()) {
-    digest_key sql_id;
-    compute_digest_hash(&thd->m_digest->m_digest_storage, sql_id.data());
-    thd->mt_key_set(THD::SQL_ID, sql_id.data(), DIGEST_HASH_SIZE);
+    if (thd->m_digest->m_digest_storage.m_hash_computed) {
+      thd->mt_key_set(THD::SQL_ID, thd->m_digest->m_digest_storage.m_hash,
+                      DIGEST_HASH_SIZE);
+    } else {
+      digest_key sql_id;
+      compute_digest_hash(&thd->m_digest->m_digest_storage, sql_id.data());
+      thd->mt_key_set(THD::SQL_ID, sql_id.data(), DIGEST_HASH_SIZE);
+    }
   }
 
   return ret_value;

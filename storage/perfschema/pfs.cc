@@ -7633,6 +7633,14 @@ struct PSI_digest_locker *pfs_digest_start_v2(PSI_statement_locker *locker) {
   return nullptr;
 }
 
+void update_digest_storage_with_hash(const sql_digest_storage *digest) {
+  sql_digest_storage *update_digest = const_cast<sql_digest_storage *>(digest);
+
+  /* Compute digest hash of the tokens received. */
+  compute_digest_hash(digest, update_digest->m_hash);
+  update_digest->m_hash_computed = true;
+}
+
 void pfs_digest_end_v2(PSI_digest_locker *locker,
                        const sql_digest_storage *digest) {
   PSI_statement_locker_state *state;
@@ -7646,11 +7654,7 @@ void pfs_digest_end_v2(PSI_digest_locker *locker,
 
   if (state->m_flags & STATE_FLAG_DIGEST) {
     /* TODO: pfs_digest_end_v1() has side effects here, to document better */
-    sql_digest_storage *update_digest =
-        const_cast<sql_digest_storage *>(digest);
-
-    /* Compute digest hash of the tokens received. */
-    compute_digest_hash(digest, update_digest->m_hash);
+    update_digest_storage_with_hash(digest);
 
     state->m_digest = digest;
 

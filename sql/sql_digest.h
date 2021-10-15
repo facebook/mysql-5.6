@@ -87,7 +87,11 @@ ulong get_max_digest_length();
 struct sql_digest_storage {
   bool m_full;
   size_t m_byte_count;
+
+  /** !!!!Do not leave these 2 uninitialized.!!! */
   unsigned char m_hash[DIGEST_HASH_SIZE];
+  bool m_hash_computed;
+
   /** Character set number. */
   uint m_charset_number;
   /**
@@ -119,6 +123,7 @@ struct sql_digest_storage {
     m_byte_count = 0;
     m_charset_number = 0;
     memset(m_hash, 0, DIGEST_HASH_SIZE);
+    m_hash_computed = false;
   }
 
   inline bool is_empty() { return (m_byte_count == 0); }
@@ -138,7 +143,10 @@ struct sql_digest_storage {
       m_byte_count = byte_count_copy;
       m_charset_number = from->m_charset_number;
       memcpy(m_token_array, from->m_token_array, m_byte_count);
+
+      /** These two are to be updated together. */
       memcpy(m_hash, from->m_hash, DIGEST_HASH_SIZE);
+      m_hash_computed = from->m_hash_computed;
     } else {
       m_full = false;
       m_byte_count = 0;
