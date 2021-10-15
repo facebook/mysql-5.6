@@ -1,3 +1,5 @@
+SET @start_global_value = @@global.enable_optimizer_cputime_with_wallclock;
+SET GLOBAL enable_optimizer_cputime_with_wallclock=0;
 Index Dive Metrics: Setup
 create table idx_dive_tbl(a1 int, a2 int, a3 int, a4 int, a5 int,
 a6 int, a7 int, a8 int, a9 int, a10 int);
@@ -282,3 +284,289 @@ include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_
 include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 220.]
 drop table idx_dive_tbl;
 drop procedure populate;
+SET GLOBAL enable_optimizer_cputime_with_wallclock=1;
+Index Dive Metrics: Setup
+create table idx_dive_tbl(a1 int, a2 int, a3 int, a4 int, a5 int,
+a6 int, a7 int, a8 int, a9 int, a10 int);
+create procedure populate()
+begin
+declare i int default 0;
+while i < 100 do
+insert into idx_dive_tbl values(i, i+1, i+2, i+3, i+4,
+i, i+1, i+2, i+3, i+4);
+set i = i + 1;
+end while;
+end //
+call populate();
+create index idx_dive_tbl_idx_a1 on idx_dive_tbl(a1);
+create index idx_dive_tbl_idx_a2 on idx_dive_tbl(a2);
+create index idx_dive_tbl_idx_a3 on idx_dive_tbl(a3);
+create index idx_dive_tbl_idx_a4 on idx_dive_tbl(a4);
+create index idx_dive_tbl_idx_a5 on idx_dive_tbl(a5);
+create index idx_dive_tbl_idx_a6 on idx_dive_tbl(a6);
+create index idx_dive_tbl_idx_a7 on idx_dive_tbl(a7);
+create index idx_dive_tbl_idx_a8 on idx_dive_tbl(a8);
+create index idx_dive_tbl_idx_a9 on idx_dive_tbl(a9);
+create index idx_dive_tbl_idx_a10 on idx_dive_tbl(a10);
+set optimizer_trace_max_mem_size=1048576;
+SET end_markers_in_json=off;
+'Test 1: Default value of eq_range_index_dive_limit (10)'
+'        Index dives on 9 indexes is expected'
+SET eq_range_index_dive_limit=10;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+select count(*) from idx_dive_tbl where idx_dive_tbl.a1  in (10) and idx_dive_tbl.a2  in (10, 20) and idx_dive_tbl.a3  in (10, 20, 30) and idx_dive_tbl.a4  in (10, 20, 30, 40) and idx_dive_tbl.a5  in (10, 20, 30, 40, 50) and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60) and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70) and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80) and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90) and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);;
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+9.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 45.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 45.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 45.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 45.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 45.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 2: Value of eq_range_index_dive_limit is 5'
+'        Index dives on 4 indexes is expected'
+SET eq_range_index_dive_limit=5;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+select count(*) from idx_dive_tbl where idx_dive_tbl.a1  in (10) and idx_dive_tbl.a2  in (10, 20) and idx_dive_tbl.a3  in (10, 20, 30) and idx_dive_tbl.a4  in (10, 20, 30, 40) and idx_dive_tbl.a5  in (10, 20, 30, 40, 50) and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60) and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70) and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80) and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90) and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);;
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+4.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 10.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 10.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 10.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 10.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 10.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 3: Value of eq_range_index_dive_limit is 11'
+'        Index dives on 10 indexes is expected'
+SET eq_range_index_dive_limit=11;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+select count(*) from idx_dive_tbl where idx_dive_tbl.a1  in (10) and idx_dive_tbl.a2  in (10, 20) and idx_dive_tbl.a3  in (10, 20, 30) and idx_dive_tbl.a4  in (10, 20, 30, 40) and idx_dive_tbl.a5  in (10, 20, 30, 40, 50) and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60) and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70) and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80) and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90) and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);;
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+10.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 55.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 55.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 55.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 55.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 55.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 4: Value of eq_range_index_dive_limit is 2'
+'        Index dives on 1 index is expected'
+SET eq_range_index_dive_limit=2;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+select count(*) from idx_dive_tbl where idx_dive_tbl.a1  in (10) and idx_dive_tbl.a2  in (10, 20) and idx_dive_tbl.a3  in (10, 20, 30) and idx_dive_tbl.a4  in (10, 20, 30, 40) and idx_dive_tbl.a5  in (10, 20, 30, 40, 50) and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60) and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70) and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80) and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90) and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);;
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+1.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 1.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 1.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 1.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 1.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 1.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 5: Value of eq_range_index_dive_limit is 7'
+'        Index dives on 6 indexes is expected'
+SET eq_range_index_dive_limit=7;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+SET optimizer_trace="enabled=on,one_line=off";
+select count(*) from idx_dive_tbl where idx_dive_tbl.a1  in (10) and idx_dive_tbl.a2  in (10, 20) and idx_dive_tbl.a3  in (10, 20, 30) and idx_dive_tbl.a4  in (10, 20, 30, 40) and idx_dive_tbl.a5  in (10, 20, 30, 40, 50) and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60) and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70) and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80) and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90) and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);;
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+6.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 21.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 21.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 21.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 21.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_all should increase by 21.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_user_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_host_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_thread_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_global_by_event_name should increase by a non-zero value.]
+include/assert.inc [SUM_INDEX_DIVE_CPU on events_statements_summary_by_all should increase by a non-zero value.]
+SET @@global.performance_schema_esms_by_all = @start_value;
+'Test 6: Multi-statement query
+'        Index dives on 10 indexes is expected'
+SET eq_range_index_dive_limit=11;
+SET optimizer_trace="enabled=on,one_line=off";
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
+||||
+count(*)
+1
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") Num_Indexes_Used_For_Dives
+from information_schema.optimizer_trace;
+Num_Indexes_Used_For_Dives
+10.0000
+SET optimizer_trace="enabled=off";
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_user_by_event_name should increase by 220.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_host_by_event_name should increase by 220.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_by_thread_by_event_name should increase by 220.]
+include/assert.inc [SUM_INDEX_DIVE_COUNT on events_statements_summary_global_by_event_name should increase by 220.]
+drop table idx_dive_tbl;
+drop procedure populate;
+SET GLOBAL enable_optimizer_cputime_with_wallclock = @start_global_value;

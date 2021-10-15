@@ -451,6 +451,15 @@ The following options may be given as the first argument:
  If set to false, will not show deprecation warnings 
  (Defaults to on; use --skip-enable-deprecation-warning to disable.)
  --enable-hlc-bound  Enable HLC bound enforcement for transactional operations
+ --enable-optimizer-cputime-with-wallclock 
+ This will control how we track optimizer cputime i.e
+ compliation cputime, index dive cputime. If false then we
+ use clock_gettime(CLOCK_THREAD_CPUTIME_ID) which will
+ track actual execution time when the thread was active
+ but this will consume more cpu cycles for making system
+ call to track the exact time. Else we track wallclock
+ time elapsed which is less accurate but performant(avoids
+ system calls).
  --enable-query-checksum 
  Enable query checksums for queries that have the checksum
  query attribute set. Uses a CRC32 checksum of the query
@@ -2950,6 +2959,7 @@ enable-blind-replace FALSE
 enable-block-stale-hlc-read FALSE
 enable-deprecation-warning TRUE
 enable-hlc-bound FALSE
+enable-optimizer-cputime-with-wallclock FALSE
 enable-query-checksum FALSE
 enable-raft-plugin FALSE
 enable-resultset-checksum FALSE

@@ -156,7 +156,8 @@ static const char *can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
 
 static bool has_not_null_predicate(Item *cond, Item_field *not_null_item);
 static void measure_compilation_cpu(THD *thd, int cpu_res,
-                                    timespec *beginning_id);
+                                    timespec *beginning_id,
+                                    ulonglong time_begin_wallclock);
 
 JOIN::JOIN(THD *thd_arg, Query_block *select)
     : query_block(select),
@@ -304,10 +305,16 @@ bool JOIN::optimize(bool finalize_access_paths) {
            the compilation CPU is tracked correctly.
    */
   timespec time_beg;
-  int cpu_res = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
-
-  auto compilation_cpu_guard = create_scope_guard(
-      [&]() { measure_compilation_cpu(thd, cpu_res, &time_beg); });
+  int cpu_res = -1;
+  ulonglong time_begin_wallclock = 0;
+  if (enable_optimizer_cputime_with_wallclock) {
+    time_begin_wallclock = my_micro_time();
+  } else {
+    cpu_res = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
+  }
+  auto compilation_cpu_guard = create_scope_guard([&]() {
+    measure_compilation_cpu(thd, cpu_res, &time_beg, time_begin_wallclock);
+  });
 
   DEBUG_SYNC(thd, "before_join_optimize");
 
@@ -11153,16 +11160,27 @@ const Cost_model_server *JOIN::cost_model() const {
   @param thd          thread handle
   @param cpu_res      CPU resource usage return code
   @param beginning_id timespec of the beginning of the clock
+  @param time_begin_wallclock wallclock time of the beginning
 */
 
 static void measure_compilation_cpu(THD *thd, int cpu_res,
-                                    timespec *beginning_id) {
-  timespec time_end;
-  if (cpu_res == 0 &&
-      (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
-    ulonglong diff = diff_timespec(&time_end, beginning_id);
-    diff *= 1000; /* convert to picoseconds */
-    MYSQL_INC_STATEMENT_COMPILATION_CPU(thd->m_statement_psi, (ulonglong)diff);
+                                    timespec *beginning_id,
+                                    ulonglong time_begin_wallclock) {
+  if (time_begin_wallclock > 0) {
+    ulonglong time_end = my_micro_time();
+    if (time_end > time_begin_wallclock) {
+      ulonglong diff = time_end - time_begin_wallclock;
+      diff *= 1000000; /* convert to picoseconds */
+      MYSQL_INC_STATEMENT_COMPILATION_CPU(thd->m_statement_psi, diff);
+    }
+  } else {
+    timespec time_end;
+    if (cpu_res == 0 &&
+        (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
+      ulonglong diff = diff_timespec(&time_end, beginning_id);
+      diff *= 1000; /* convert to picoseconds */
+      MYSQL_INC_STATEMENT_COMPILATION_CPU(thd->m_statement_psi, diff);
+    }
   }
 }
 

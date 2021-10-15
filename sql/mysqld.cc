@@ -1617,7 +1617,7 @@ int log_datagram_sock = -1;
 bool opt_parthandler_allow_drop_partition = true;
 bool disable_instant_ddl = false;
 bool enable_deprecation_warning = true;
-
+bool enable_optimizer_cputime_with_wallclock = true;
 /**
   This variable holds handle to the object that's responsible
   for loading/unloading components from manifest file
