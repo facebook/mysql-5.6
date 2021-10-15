@@ -599,6 +599,13 @@ bool trans_savepoint(THD *thd, LEX_STRING name)
   thd->transaction.savepoints= newsv;
 
   /*
+    savepoints are session state and it's not safe to switch sessions with
+    savepoints set
+   */
+  auto tracker = thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER);
+  if (tracker->is_enabled()) tracker->mark_as_changed(thd, NULL);
+
+  /*
     Remember locks acquired before the savepoint was set.
     They are used as a marker to only release locks acquired after
     the setting of this savepoint.
@@ -662,10 +669,10 @@ bool trans_rollback_to_savepoint(THD *thd, LEX_STRING name)
   /**
     Checking whether it is safe to release metadata locks acquired after
     savepoint, if rollback to savepoint is successful.
-  
+
     Whether it is safe to release MDL after rollback to savepoint depends
     on storage engines participating in transaction:
-  
+
     - InnoDB doesn't release any row-locks on rollback to savepoint so it
       is probably a bad idea to release MDL as well.
     - Binary log implementation in some cases (e.g when non-transactional
@@ -677,7 +684,7 @@ bool trans_rollback_to_savepoint(THD *thd, LEX_STRING name)
       rollback ot it) can break replication, as concurrent DROP TABLES
       statements will be able to drop these tables before events will get
       into binary log,
-  
+
     For backward-compatibility reasons we always release MDL if binary
     logging is off.
   */

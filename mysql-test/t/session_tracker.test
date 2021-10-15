@@ -258,6 +258,21 @@ delimiter ;|
 --echo # reset the session.
 --resetconnection
 
+--echo # CASE8: savepoints autocommit
+SET @@session.session_track_state_change=ON;
+SAVEPOINT abc;
+
+--echo # reset the session.
+--resetconnection
+
+--echo # CASE9: savepoints no autocommit
+SET @@session.session_track_state_change=ON, @@session.autocommit=OFF;
+--echo # expect 1
+SAVEPOINT abc;
+
+--echo # reset the session.
+--resetconnection
+
 --echo
 --echo # Test for all valid values
 --echo
@@ -311,4 +326,3 @@ connection default;
 
 --echo
 --echo # End of tests
-
