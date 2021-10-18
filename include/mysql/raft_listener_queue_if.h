@@ -33,6 +33,32 @@ enum class RaftListenerCallbackType {
   // here
 };
 
+struct MysqlPrimaryAuthInfo {
+  // SSL CA file
+  std::string ssl_ca;
+  // SSL certificate
+  std::string ssl_cert;
+  // SSL key
+  std::string ssl_key;
+  // Mysql user i.e. one created on mysql side using `CREATE USER`
+  std::string user;
+  // Mysql password (should be empty for most cases)
+  std::string password;
+
+  bool use_ssl() const {
+    return !(ssl_ca.empty() || ssl_cert.empty() || ssl_key.empty());
+  }
+};
+
+struct MysqlPrimaryInfo {
+  // Primary host and port
+  std::pair<std::string, unsigned int> hostport;
+  // Primary's uuid
+  std::string uuid;
+  // Auth info to connect to primary
+  MysqlPrimaryAuthInfo auth_info;
+};
+
 /* Callback argument, each type would just populate the fields needed for its
  * callback */
 class RaftListenerCallbackArg {
@@ -42,8 +68,7 @@ class RaftListenerCallbackArg {
   std::pair<std::string, unsigned long long> log_file_pos = {};
   bool val_bool;
   uint32_t val_uint;
-  std::pair<std::string, unsigned int> master_instance;
-  std::string master_uuid;
+  MysqlPrimaryInfo primary_info;
   std::string val_str;
   std::map<std::string, unsigned int> val_sys_var_uint;
   std::pair<int64_t, int64_t> val_opid;
