@@ -268,10 +268,12 @@ Binlog_sender::Binlog_sender(THD *thd, const char *start_file,
 
 bool Binlog_sender::get_dscp_value(int &ret_val) {
   ret_val = 0;
-  auto dscp_it = m_thd->connection_attrs_map.find("dscp_on_socket");
-  if (m_thd->variables.dscp_on_socket == 0 &&
-      dscp_it == m_thd->connection_attrs_map.end())
+  bool found_conn = false;
+  const std::string &conn_attr =
+      m_thd->found_connection_attr("dscp_on_socket", &found_conn);
+  if (m_thd->variables.dscp_on_socket == 0 && !found_conn) {
     return false;
+  }
 
   int dscp_val;
   if ((dscp_val = m_thd->variables.dscp_on_socket) != 0) {
@@ -284,11 +286,10 @@ bool Binlog_sender::get_dscp_value(int &ret_val) {
     return true;
   }
 
-  assert(dscp_it != m_thd->connection_attrs_map.end());
-
-  const char *dscp_str = dscp_it->second.c_str();
+  assert(found_conn == true);
+  const char *dscp_str = conn_attr.c_str();
   const char *tmp =
-      (const char *)(dscp_str + std::min((size_t)3, dscp_it->second.length()));
+      (const char *)(dscp_str + std::min((size_t)3, conn_attr.length()));
   int res = 0;
   dscp_val = (int)my_strtoll10(dscp_str, &tmp, &res);
   if (res != 0 || dscp_val < 0 || dscp_val >= 64) {
