@@ -33,7 +33,11 @@ while ($_rpl_server)
 
   let $date= `SELECT DATE_FORMAT(NOW(), '%m-%d-%Y')`;
 
-  eval SET @@GLOBAL.RPL_RAFT_SKIP_SMC_UPDATES= 'ON,$date';
+  eval SET @@GLOBAL.RPL_RAFT_SKIP_SMC_UPDATES = 'ON,$date';
+
+  SET @@GLOBAL.RPL_RAFT_MYSQL_REPL_USER = "root";
+
+  SET @@GLOBAL.RPL_RAFT_VALIDATE_RAFT_LOGS_TO_BOOTSTRAP = OFF;
 
   --dec $_rpl_server
 }

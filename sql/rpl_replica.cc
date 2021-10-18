@@ -101,6 +101,7 @@
 #include "mysql/psi/mysql_file.h"
 #include "mysql/psi/mysql_memory.h"
 #include "mysql/psi/mysql_thread.h"
+#include "mysql/raft_listener_queue_if.h"  // class MysqlPrimaryInfo
 #include "mysql/service_mysql_alloc.h"
 #include "mysql/thread_type.h"
 #include "mysql_com.h"
@@ -1765,8 +1766,16 @@ int raft_reset_slave(THD *) {
     DBUG_RETURN(error);
   }
   mysql_mutex_lock(&mi->data_lock);
-  strmake(mi->host, "\0", sizeof(mi->host) - 1);
+  strmake(mi->host, "", sizeof(mi->host) - 1);
   mi->port = 0;
+  strmake(mi->master_uuid, "", UUID_LENGTH);
+  strmake(mi->ssl_ca, "", sizeof(mi->ssl_ca) - 1);
+  strmake(mi->ssl_cert, "", sizeof(mi->ssl_cert) - 1);
+  strmake(mi->ssl_key, "", sizeof(mi->ssl_key) - 1);
+  mi->set_user("");
+  mi->set_password("");
+  mi->ssl = false;
+
   mi->inited = false;
   mysql_mutex_lock(&mi->rli->data_lock);
   mi->rli->inited = false;
@@ -1786,10 +1795,7 @@ int raft_reset_slave(THD *) {
   DBUG_RETURN(error);
 }
 
-// TODO: currently we're only setting host port
-int raft_change_master(
-    THD *, const std::pair<const std::string, uint> &master_instance,
-    const std::string &master_uuid) {
+int raft_change_master(THD *, const MysqlPrimaryInfo &info) {
   DBUG_ENTER("raft_change_master");
   int error = 0;
 
@@ -1802,12 +1808,36 @@ int raft_change_master(
   }
 
   mysql_mutex_lock(&mi->data_lock);
-  strmake(mi->host, const_cast<char *>(master_instance.first.c_str()),
-          sizeof(mi->host) - 1);
-  mi->port = master_instance.second;
-  assert(master_uuid.length() == UUID_LENGTH);
-  strncpy(mi->master_uuid, master_uuid.c_str(), UUID_LENGTH);
-  mi->master_uuid[UUID_LENGTH] = 0;
+  if (!info.hostport.first.empty()) {
+    strmake(mi->host, const_cast<char *>(info.hostport.first.c_str()),
+            sizeof(mi->host) - 1);
+  }
+  if (info.hostport.second > 0) {
+    mi->port = info.hostport.second;
+  }
+  if (!info.uuid.empty()) {
+    assert(info.uuid.length() == UUID_LENGTH);
+    strncpy(mi->master_uuid, info.uuid.c_str(), UUID_LENGTH);
+    mi->master_uuid[UUID_LENGTH] = 0;
+  }
+  if (!info.auth_info.user.empty()) {
+    mi->set_user(info.auth_info.user.c_str());
+  }
+  if (!info.auth_info.password.empty()) {
+    mi->set_password(info.auth_info.password.c_str());
+  }
+  if (!info.auth_info.ssl_ca.empty()) {
+    strmake(mi->ssl_ca, info.auth_info.ssl_ca.c_str(), sizeof(mi->ssl_ca) - 1);
+  }
+  if (!info.auth_info.ssl_cert.empty()) {
+    strmake(mi->ssl_cert, info.auth_info.ssl_cert.c_str(),
+            sizeof(mi->ssl_cert) - 1);
+  }
+  if (!info.auth_info.ssl_key.empty()) {
+    strmake(mi->ssl_key, info.auth_info.ssl_key.c_str(),
+            sizeof(mi->ssl_key) - 1);
+  }
+  mi->ssl = info.auth_info.use_ssl();
   mi->set_auto_position(true);
   mi->init_master_log_pos();
 
