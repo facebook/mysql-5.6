@@ -92,9 +92,9 @@ if ($attr) {
 # Reset to default
 set @@global.response_attrs_contain_server_cpu = default;
 
--- echo # Case 5: specify query attribute 'response_attrs_contain_server_cpu' to ON
+-- echo # Case 5: specify query attribute 'response_attrs_contain_server_cpu' to 1
 
-query_attrs_add response_attrs_contain_server_cpu ON;
+query_attrs_add response_attrs_contain_server_cpu 1;
 --disable_result_log
 select a,b from mytbl;
 --enable_result_log
@@ -109,9 +109,9 @@ if ($attr) {
 
 query_attrs_reset;
 
--- echo # Case 6: specify query attribute 'response_attrs_contain_server_cpu' to OFF
+-- echo # Case 6: specify query attribute 'response_attrs_contain_server_cpu' to 0
 
-query_attrs_add response_attrs_contain_server_cpu OFF;
+query_attrs_add response_attrs_contain_server_cpu 0;
 --disable_result_log
 select a,b from mytbl;
 --enable_result_log
@@ -239,9 +239,9 @@ if ($attr) {
 # Reset to default
 set @@global.response_attrs_contain_server_cpu = default;
 
--- echo # Case 5: specify query attribute 'response_attrs_contain_server_cpu' to ON
+-- echo # Case 5: specify query attribute 'response_attrs_contain_server_cpu' to 1
 
-query_attrs_add response_attrs_contain_server_cpu ON;
+query_attrs_add response_attrs_contain_server_cpu 1;
 --disable_result_log
 delimiter ||||;
 
@@ -267,9 +267,9 @@ if ($attr) {
 
 query_attrs_reset;
 
--- echo # Case 6: specify query attribute 'response_attrs_contain_server_cpu' to OFF
+-- echo # Case 6: specify query attribute 'response_attrs_contain_server_cpu' to 0
 
-query_attrs_add response_attrs_contain_server_cpu OFF;
+query_attrs_add response_attrs_contain_server_cpu 0;
 --disable_result_log
 delimiter ||||;
 
