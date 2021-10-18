@@ -168,8 +168,7 @@ THD *create_thd(bool enable_plugins, bool background_thread, bool bound,
 void destroy_thd(THD *thd, bool clear_pfs_events [[maybe_unused]]) {
   thd->release_resources();
 #ifdef HAVE_PSI_THREAD_INTERFACE
-  if (clear_pfs_events) PSI_THREAD_CALL(delete_thread)(thd->get_psi());
-  thd->set_psi(nullptr);
+  PSI_thread *psi = thd->get_psi();
 #endif /* HAVE_PSI_THREAD_INTERFACE */
 
   // TODO: Purge threads currently terminate too late for them to be added.
@@ -178,6 +177,14 @@ void destroy_thd(THD *thd, bool clear_pfs_events [[maybe_unused]]) {
     thd_manager->remove_thd(thd);
   }
   delete thd;
+
+#ifdef HAVE_PSI_THREAD_INTERFACE
+  PSI_THREAD_CALL(set_thread_THD)(psi, nullptr);
+  PSI_THREAD_CALL(delete_thread)(psi);
+  if (PSI_THREAD_CALL(get_thread)() == psi) {
+    PSI_THREAD_CALL(set_thread)(nullptr);
+  }
+#endif /* HAVE_PSI_THREAD_INTERFACE */
 }
 
 void destroy_thd(THD *thd) { return destroy_thd(thd, true); }
