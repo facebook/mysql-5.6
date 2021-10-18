@@ -1376,13 +1376,13 @@ out:
 static bool deny_updates_if_read_only_option(THD *thd, TABLE_LIST *all_tables) {
   DBUG_TRACE;
 
-  if (!check_readonly(thd, false)) return false;
-
   LEX *lex = thd->lex;
   if (!(sql_command_flags[lex->sql_command] & CF_CHANGES_DATA)) return false;
 
   /* Multi update is an exception and is dealt with later. */
   if (lex->sql_command == SQLCOM_UPDATE_MULTI) return false;
+
+  if (!check_readonly(thd, false)) return false;
 
   const bool create_temp_tables =
       (lex->sql_command == SQLCOM_CREATE_TABLE) &&
