@@ -1354,6 +1354,9 @@ mysql_mutex_t LOCK_replication_lag_auto_throttling;
 /* Lock to protect global_sql_findings map structure */
 mysql_mutex_t LOCK_global_sql_findings;
 
+/* Lock to protect client attribute names */
+mysql_mutex_t LOCK_client_attribute_names;
+
 /* Lock to protect global_active_sql map structure */
 mysql_mutex_t LOCK_global_active_sql;
 
@@ -3114,6 +3117,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_global_write_throttling_log);
   mysql_mutex_destroy(&LOCK_replication_lag_auto_throttling);
   mysql_mutex_destroy(&LOCK_global_sql_findings);
+  mysql_mutex_destroy(&LOCK_client_attribute_names);
   mysql_mutex_destroy(&LOCK_global_active_sql);
   mysql_mutex_destroy(&LOCK_default_password_lifetime);
   mysql_mutex_destroy(&LOCK_mandatory_roles);
@@ -6110,6 +6114,8 @@ static int init_thread_environment() {
                    &LOCK_replication_lag_auto_throttling, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_sql_findings, &LOCK_global_sql_findings,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_client_attribute_names,
+                   &LOCK_client_attribute_names, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_active_sql, &LOCK_global_active_sql,
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_server_started, &COND_server_started);
@@ -13188,6 +13194,7 @@ PSI_mutex_key key_LOCK_global_write_throttling_log;
 PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
 PSI_mutex_key key_LOCK_global_sql_findings;
 PSI_mutex_key key_LOCK_global_active_sql;
+PSI_mutex_key key_LOCK_client_attribute_names;
 PSI_mutex_key key_LOCK_ac_node;
 PSI_mutex_key key_LOCK_ac_info;
 PSI_mutex_key key_LOCK_thd_db_default_collation_hash;
@@ -13261,6 +13268,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_global_write_throttling_log, "LOCK_global_write_throttling_log", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_replication_lag_auto_throttling, "LOCK_replication_lag_auto_throttling", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_global_sql_findings, "LOCK_global_sql_findings",
+    PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_client_attribute_names, "LOCK_client_attribute_names",
     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_relay_log_info_data_lock, "Relay_log_info::data_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_relay_log_info_sleep_lock, "Relay_log_info::sleep_lock", 0, 0, PSI_DOCUMENT_ME},

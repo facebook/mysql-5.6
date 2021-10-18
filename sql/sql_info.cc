@@ -479,9 +479,9 @@ std::vector<sql_findings_row> get_all_sql_findings() {
 void store_client_attribute_names(char *new_value) {
   std::vector<std::string> new_attr_names = split_into_vector(new_value, ',');
 
-  mysql_mutex_lock(&LOCK_global_sql_findings);
+  mysql_mutex_lock(&LOCK_client_attribute_names);
   client_attribute_names = new_attr_names;
-  mysql_mutex_unlock(&LOCK_global_sql_findings);
+  mysql_mutex_unlock(&LOCK_client_attribute_names);
 }
 
 /*

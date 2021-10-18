@@ -38,6 +38,7 @@
 
 #include <rapidjson/document.h>
 
+#include "extra/lz4/my_xxhash.h"
 #include "field_types.h"
 #include "m_ctype.h"
 #include "m_string.h"
@@ -3898,46 +3899,32 @@ static std::string net_read_str(const char **ptr) {
   return std::string(str, len);
 }
 
-static void set_attrs_map(
+static void set_attrs_list(
     const char *ptr, size_t length,
-    std::unordered_map<std::string, std::string> &attrs_map) {
+    std::vector<std::pair<std::string, std::string>> &attrs_list) {
   const char *end = ptr + length;
 
-  attrs_map.clear();
+  attrs_list.clear();
   while (ptr < end) {
     std::string key = net_read_str(&ptr);
     std::string value = net_read_str(&ptr);
-    attrs_map[key] = value;
+    attrs_list.emplace_back(std::make_pair<std::string, std::string>(
+        std::move(key), std::move(value)));
   }
 }
 
 void THD::set_connection_attrs(const char *attrs, size_t length) {
   mysql_mutex_lock(&LOCK_thd_data);
-  set_attrs_map(attrs, length, connection_attrs_map);
+  set_attrs_list(attrs, length, connection_attrs_list);
   mysql_mutex_unlock(&LOCK_thd_data);
-}
-
-static void set_attrs(
-    const char *ptr, size_t length,
-    std::vector<std::pair<std::string, std::string>> &query_attrs_list) {
-  const char *end = ptr + length;
-
-  query_attrs_list.clear();
-  while (ptr < end) {
-    std::string key = net_read_str(&ptr);
-    std::string value = net_read_str(&ptr);
-    auto kvp = std::make_pair<std::string, std::string>(std::move(key),
-                                                        std::move(value));
-    query_attrs_list.emplace_back(std::move(kvp));
-  }
 }
 
 void THD::set_query_attrs(const char *attrs, size_t length) {
   query_attrs_string = std::string(attrs, length);
 
   mysql_mutex_lock(&LOCK_thd_data);
-  set_attrs(query_attrs_string.c_str(), query_attrs_string.length(),
-            query_attrs_list);
+  set_attrs_list(query_attrs_string.c_str(), query_attrs_string.length(),
+                 query_attrs_list);
   mysql_mutex_unlock(&LOCK_thd_data);
 }
 
@@ -4140,6 +4127,18 @@ void THD::remove_db_metadata(const char *db_name) {
 }
 
 /*
+ * XXH3 is unavailable due to outdated library. Keeping clientId as
+ * MD5_HASH_SIZE to reduce upstream changes and since the hash is not for
+ * reconversion but for a UUID.
+ */
+void alter_client_id_to_MD5_size(const uint64_t client_id_hash,
+                                 unsigned char *client_id_hash_as_char) {
+  std::memset(client_id_hash_as_char, 0, MD5_HASH_SIZE - sizeof(uint64_t));
+  std::memcpy(client_id_hash_as_char + sizeof(uint64_t), &client_id_hash,
+              sizeof(uint64_t));
+}
+
+/*
   serialize_client_attrs
     Extracts and serializes client attributes into the buffer
     THD::client_attrs_string.
@@ -4150,13 +4149,12 @@ void THD::remove_db_metadata(const char *db_name) {
 */
 void THD::serialize_client_attrs(const char *query, size_t query_length) {
   StringBuffer<256> client_attrs_string;
-  std::array<unsigned char, MD5_HASH_SIZE> client_id;
 
   std::vector<std::pair<String, String>> client_attrs;
   bool found_async_id = false;
 
-  mysql_mutex_lock(&LOCK_global_sql_findings);
   // Populate caller, original_caller, async_id, etc
+  mysql_mutex_lock(&LOCK_client_attribute_names);
   for (const std::string &name_iter : client_attribute_names) {
     bool found = false;
     for (auto it = query_attrs_list.begin(); it != query_attrs_list.end();
@@ -4170,12 +4168,15 @@ void THD::serialize_client_attrs(const char *query, size_t query_length) {
     }
 
     if (!found) {
-      auto it = connection_attrs_map.find(name_iter);
-      if (it != connection_attrs_map.end()) {
-        client_attrs.emplace_back(
-            String(it->first.data(), it->first.size(), &my_charset_bin),
-            String(it->second.data(), it->second.size(), &my_charset_bin));
-        found = true;
+      for (auto it = connection_attrs_list.begin();
+           it != connection_attrs_list.end(); ++it) {
+        if (it->first == name_iter) {
+          client_attrs.emplace_back(
+              String(it->first.data(), it->first.size(), &my_charset_bin),
+              String(it->second.data(), it->second.size(), &my_charset_bin));
+          found = true;
+          break;
+        }
       }
     }
 
@@ -4185,7 +4186,7 @@ void THD::serialize_client_attrs(const char *query, size_t query_length) {
       }
     }
   }
-  mysql_mutex_unlock(&LOCK_global_sql_findings);
+  mysql_mutex_unlock(&LOCK_client_attribute_names);
 
   // Populate async id (inspired from find_async_tag)
   //
@@ -4231,14 +4232,19 @@ void THD::serialize_client_attrs(const char *query, size_t query_length) {
   }
   q_append('}', &buf);
 
-  compute_md5_hash((char *)client_id.data(), client_attrs_string.ptr(),
-                   client_attrs_string.length());
+  const uint64_t client_id_hash =
+      MY_XXH64((const uchar *)client_attrs_string.ptr(),
+               client_attrs_string.length(), 0);
 
-  int bytes_lost MY_ATTRIBUTE((unused)) = PSI_THREAD_CALL(
-      set_thread_client_attrs)(client_id.data(), client_attrs_string.ptr(),
-                               client_attrs_string.length());
+  unsigned char client_id_hash_as_char[MD5_HASH_SIZE];
+  alter_client_id_to_MD5_size(client_id_hash, client_id_hash_as_char);
+  int bytes_lost MY_ATTRIBUTE((unused)) =
+      PSI_THREAD_CALL(set_thread_client_attrs)(client_id_hash_as_char,
+                                               client_attrs_string.ptr(),
+                                               client_attrs_string.length());
 
-  memcpy(mt_key_val[THD::CLIENT_ID].data(), client_id.data(), MD5_HASH_SIZE);
+  memcpy(mt_key_val[THD::CLIENT_ID].data(), client_id_hash_as_char,
+         MD5_HASH_SIZE);
   mt_key_val_set[THD::CLIENT_ID] = true;
 
   assert(bytes_lost == 0);
@@ -4638,7 +4644,7 @@ bool THD::set_thread_priority(int pri) {
 
 /*
   Returns the (integer) value of the specified attribute from the
-  query attribute map or connection attribute map, in this order.
+  query attribute list or connection attribute list, in this order.
   In case the attribute is not found or its value exceeds the max
   value passed in then return the specified default value
  */
@@ -4654,11 +4660,13 @@ ulong THD::get_query_or_connect_attr_value(const char *attr_name,
     }
   }
 
-  auto it = connection_attrs_map.find(attr_name);
-  if (it != connection_attrs_map.end()) {
-    if (!stoul_noexcept(it->second.c_str(), &attr_value) &&
-        attr_value < max_value)
-      return attr_value;
+  for (const auto &it : connection_attrs_list) {
+    /* look for connection_attr_key */
+    if (it.first == attr_name) {
+      if (!stoul_noexcept(it.second.c_str(), &attr_value) &&
+          attr_value < max_value)
+        return attr_value;
+    }
   }
 
   return default_value;
@@ -4710,10 +4718,23 @@ const std::string &THD::get_connection_attr(const std::string &cattr_key) {
    */
   assert(this == current_thd);
 
-  auto it = connection_attrs_map.find(cattr_key);
-  if (it != connection_attrs_map.end()) {
-    return it->second;
+  bool found_ignored = false;
+  return found_connection_attr(cattr_key, &found_ignored);
+}
+
+const std::string &THD::found_connection_attr(const std::string &cattr_key,
+                                              bool *found) {
+  assert(found != nullptr);
+
+  for (const auto &kvp : connection_attrs_list) {
+    /* look for cattr_key */
+    if (kvp.first == cattr_key) {
+      *found = true;
+      return kvp.second;
+    }
   }
+
+  *found = false;
 
   /* return empty result */
   return emptyStr;

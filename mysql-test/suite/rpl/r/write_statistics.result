@@ -249,7 +249,7 @@ select value from performance_schema.write_statistics where type = 'CLIENT' into
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('+CLIENT=', @client);
 select mode, value from performance_schema.write_throttling_rules where type = 'CLIENT';
 mode	value
-MANUAL	99914b932bd37a50b983c5e7c90ae93b
+MANUAL	0000000000000000d194f27ab572142e
 Should throttle insert queries
 insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later

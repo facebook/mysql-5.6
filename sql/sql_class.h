@@ -2593,6 +2593,8 @@ class THD : public MDL_context_owner,
 
   const std::string &get_query_attr(const std::string &qattr_key);
   const std::string &get_connection_attr(const std::string &cattr_key);
+  const std::string &found_connection_attr(const std::string &cattr_key,
+                                           bool *found);
 
   std::list<std::pair<const char *, const char *>> get_query_tables();
   std::pair<std::list<std::pair<const char *, const char *>>,
@@ -4890,7 +4892,7 @@ class THD : public MDL_context_owner,
   // serialize client attributes and compute CLIENT_ID
   void serialize_client_attrs(const char *query, size_t query_length);
   std::vector<std::pair<std::string, std::string>> query_attrs_list;
-  std::unordered_map<std::string, std::string> connection_attrs_map;
+  std::vector<std::pair<std::string, std::string>> connection_attrs_list;
   uint64_t num_queries;
   std::string query_type;
   std::string trace_id;
