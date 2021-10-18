@@ -31,7 +31,9 @@ while ($_rpl_server)
 
   let $date= `SELECT DATE_FORMAT(NOW(), '%m-%d-%Y')`;
 
-  eval SET @@GLOBAL.RPL_RAFT_SKIP_SMC_UPDATES= 'ON,$date';
+  eval SET @@GLOBAL.RPL_RAFT_SKIP_SMC_UPDATES = 'ON,$date';
+
+  SET @@GLOBAL.RPL_RAFT_MYSQL_REPL_USER = "root";
 
   --dec $_rpl_server
 }

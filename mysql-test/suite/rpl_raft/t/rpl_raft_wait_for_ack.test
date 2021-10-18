@@ -1,6 +1,8 @@
 source include/have_debug.inc;
 source ../include/raft_3_node.inc;
 
+let $use_gtids=1;
+
 # Connect server 4 and 5 using COM_BINLOG_DUMP_GTID
 connection server_4;
 RESET MASTER;
