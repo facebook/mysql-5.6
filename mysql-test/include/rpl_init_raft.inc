@@ -33,6 +33,8 @@ while ($_rpl_server)
 
   eval SET @@GLOBAL.RPL_RAFT_SKIP_SMC_UPDATES= 'ON,$date';
 
+  eval SET @@GLOBAL.RPL_RAFT_MYSQL_REPL_USER= "root";
+
   --dec $_rpl_server
 }
 

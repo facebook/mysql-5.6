@@ -65,6 +65,7 @@
 #include "rpl_slave_commit_order_manager.h"    // Commit_order_manager
 #include <chrono>
 #include "slave_stats_daemon.h"  // stop_handle_slave_stats_daemon, start_handle_slave_stats_daemon
+#include "raft_listener_queue_if.h" // class MysqlPrimaryInfo
 
 using std::min;
 using std::max;
@@ -1060,8 +1061,16 @@ int raft_reset_slave(THD *thd)
   int error= 0;
   mysql_mutex_lock(&LOCK_active_mi);
 
-  strmake(active_mi->host, "\0", sizeof(active_mi->host)-1);
+  strmake(active_mi->host, "", sizeof(active_mi->host) - 1);
   active_mi->port = 0;
+  strmake(active_mi->master_uuid, "", UUID_LENGTH);
+  strmake(active_mi->ssl_ca, "", sizeof(active_mi->ssl_ca) - 1);
+  strmake(active_mi->ssl_cert, "", sizeof(active_mi->ssl_cert) - 1);
+  strmake(active_mi->ssl_key, "", sizeof(active_mi->ssl_key) - 1);
+  active_mi->set_user("");
+  active_mi->set_password("", 0);
+  active_mi->ssl= false;
+
   active_mi->inited= false;
   active_mi->rli->inited= false;
 
@@ -1074,28 +1083,71 @@ int raft_reset_slave(THD *thd)
   DBUG_RETURN(error);
 }
 
-// TODO: currently we're only setting host port
-int raft_change_master(
-    THD *thd,
-    const std::pair<const std::string, uint>& master_instance,
-    const std::string& master_uuid)
+int raft_change_master(THD *thd, const MysqlPrimaryInfo &info)
 {
   DBUG_ENTER("raft_change_master");
   int error= 0;
 
   mysql_mutex_lock(&LOCK_active_mi);
 
-  if (!active_mi) goto end;
-  strmake(active_mi->host, const_cast<char*>(master_instance.first.c_str()),
-          sizeof(active_mi->host)-1);
-  active_mi->port= master_instance.second;
-  strncpy(active_mi->master_uuid, master_uuid.c_str(), UUID_LENGTH);
+  if (!active_mi)
+  {
+    goto end;
+  }
+
+  if (!info.hostport.first.empty())
+  {
+    strmake(active_mi->host, const_cast<char *>(info.hostport.first.c_str()),
+            sizeof(active_mi->host) - 1);
+  }
+
+  if (info.hostport.second > 0)
+  {
+    active_mi->port= info.hostport.second;
+  }
+
+  if (!info.uuid.empty())
+  {
+    strmake(active_mi->master_uuid, info.uuid.c_str(), UUID_LENGTH);
+    active_mi->master_uuid[UUID_LENGTH]= '\0';
+  }
+
+  if (!info.auth_info.ssl_ca.empty())
+  {
+    strmake(active_mi->ssl_ca, info.auth_info.ssl_ca.c_str(),
+            sizeof(active_mi->ssl_ca) - 1);
+  }
+
+  if (!info.auth_info.ssl_cert.empty())
+  {
+    strmake(active_mi->ssl_cert, info.auth_info.ssl_cert.c_str(),
+            sizeof(active_mi->ssl_cert) - 1);
+  }
+
+  if (!info.auth_info.ssl_key.empty())
+  {
+    strmake(active_mi->ssl_key, info.auth_info.ssl_key.c_str(),
+            sizeof(active_mi->ssl_key) - 1);
+  }
+
+  if (!info.auth_info.user.empty())
+  {
+    active_mi->set_user(info.auth_info.user.c_str());
+  }
+
+  if (!info.auth_info.password.empty())
+  {
+    active_mi->set_password(info.auth_info.password.c_str(),
+                            info.auth_info.password.length());
+  }
+
+  active_mi->ssl= info.auth_info.use_ssl();
   active_mi->set_auto_position(true);
   active_mi->inited= true;
   active_mi->flush_info(true);
 
   // changing to a slave. set the is_slave flag
-  is_slave = true;
+  is_slave= true;
 
 end:
   mysql_mutex_unlock(&LOCK_active_mi);
