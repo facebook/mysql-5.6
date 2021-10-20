@@ -3543,19 +3543,26 @@ class Adjust_offset : public Do_THD_Impl {
       : m_purge_offset(value), m_relay_log(is_relay_log) {}
   void operator()(THD *thd) override {
     LOG_INFO *linfo = thd->current_linfo;
-    mysql_mutex_lock(&thd->LOCK_thd_data);
-    if (linfo && (!enable_raft_plugin || linfo->is_relay_log == m_relay_log)) {
-      /*
-        Index file offset can be less that purge offset only if
-        we just started reading the index file. In that case
-        we have nothing to adjust.
-      */
-      if (linfo->index_file_offset < m_purge_offset)
-        linfo->fatal = (linfo->index_file_offset != 0);
-      else
-        linfo->index_file_offset -= m_purge_offset;
+    if (linfo) {
+      // COMMENT TAG: @LINFO_DOUBLE_CHECK_PATTERN
+      // Double check pattern, because linfo is often created on
+      // stack and it can go out of scope. Holding the expensive
+      // lock only if we find a linfo to guarantee lifetime.
+      mysql_mutex_lock(&thd->LOCK_thd_data);
+      if ((linfo = thd->current_linfo) &&
+          (!enable_raft_plugin || linfo->is_relay_log == m_relay_log)) {
+        /*
+          Index file offset can be less that purge offset only if
+          we just started reading the index file. In that case
+          we have nothing to adjust.
+        */
+        if (linfo->index_file_offset < m_purge_offset)
+          linfo->fatal = (linfo->index_file_offset != 0);
+        else
+          linfo->index_file_offset -= m_purge_offset;
+      }
+      mysql_mutex_unlock(&thd->LOCK_thd_data);
     }
-    mysql_mutex_unlock(&thd->LOCK_thd_data);
   }
 
  private:
@@ -3570,9 +3577,12 @@ class Adjust_linfo_in_dump_thread : public Do_THD_Impl {
   }
   virtual void operator()(THD *thd) override {
     LOG_INFO *linfo = thd->current_linfo;
-    if (linfo && linfo->is_used_by_dump_thd) {
+    if (linfo) {
+      // Double check pattern. See comment above: @LINFO_DOUBLE_CHECK_PATTERN
       mysql_mutex_lock(&thd->LOCK_thd_data);
-      linfo->is_relay_log = m_relay_log;
+      if ((linfo = thd->current_linfo) && linfo->is_used_by_dump_thd) {
+        linfo->is_relay_log = m_relay_log;
+      }
       mysql_mutex_unlock(&thd->LOCK_thd_data);
     }
   }
@@ -3624,16 +3634,25 @@ class Log_in_use : public Do_THD_Impl {
     m_log_name_len = strlen(m_log_name) + 1;
   }
   void operator()(THD *thd) override {
-    LOG_INFO *linfo;
-    mysql_mutex_lock(&thd->LOCK_thd_data);
-    if ((linfo = thd->current_linfo)) {
-      if (!strncmp(m_log_name, linfo->log_file_name, m_log_name_len)) {
+    LOG_INFO *linfo = thd->current_linfo;
+    if (linfo) {
+      // Double check pattern. See comment above: @LINFO_DOUBLE_CHECK_PATTERN
+      //
+      // This also prevents a deadlock in Raft with the assumption
+      // that a SHOW status command which takes Raft consensus lock
+      // will not have a linfo and will never need to take LOCK_thd_data
+      // Otherwise there is a very frequent deadlock between purge
+      // thread doing Log_in_use check and kuduraft thread trying to
+      // update master_info
+      mysql_mutex_lock(&thd->LOCK_thd_data);
+      if ((linfo = thd->current_linfo) &&
+          (!strncmp(m_log_name, linfo->log_file_name, m_log_name_len))) {
         LogErr(WARNING_LEVEL, ER_BINLOG_FILE_BEING_READ_NOT_PURGED, m_log_name,
                thd->thread_id());
         m_count++;
       }
+      mysql_mutex_unlock(&thd->LOCK_thd_data);
     }
-    mysql_mutex_unlock(&thd->LOCK_thd_data);
   }
   int get_count() { return m_count; }
 
@@ -7640,6 +7659,9 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   /*
     File name exists in index file; delete until we find this file
     or a file that is used.
+
+    We start from the lowest(oldest) binlog file -> log_info is
+    reset here.
   */
   if ((error = find_log_pos(&log_info, NullS, false /*need_lock_index=false*/)))
     goto err;
@@ -7650,7 +7672,9 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     // This will also allow plugin to clean up its index files and other states
     // (if any)
     file_index_pair = extract_file_index(std::string(to_log));
-    if (!included && file_index_pair.second > 0) file_index_pair.second -= 1;
+    if (!included && file_index_pair.second > 0) {
+      file_index_pair.second -= 1;
+    }
 
     // Nothing to purge if file index is 0
     if (!included && file_index_pair.second == 0) goto err;
@@ -7673,6 +7697,14 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     safe_purge_file = thd->get_safe_purge_file();
   }
 
+  // We iterate from lowest binlog file to "to_log" and
+  // check if a certain file is allowed to be purged
+  // 1. is it active or currently in use by some THD(linfo)
+  // 2. is it below the max_log for raft
+  // 3. is it <= the safe_purge_file blessed by Raft dense index
+  // Once we reach the first unpurgable file, we break out of loop.
+  // Purging is best effort, and next time purging gets called again,
+  // hopefully this time the files will be safe to purge
   while ((compare_log_name(to_log, log_info.log_file_name) ||
           (exit_loop = included))) {
     if (enable_raft_plugin && found_last_safe_file) {
@@ -7699,6 +7731,21 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
       break;
     }
 
+    // Caution: On potential deadlocks in Raft
+    // Since we are holding rli->data_lock and going through all
+    // threads in the server, we can block on LOCK_thd_data of another
+    // THD which is currently doing a SHOW STATUS command and trying
+    // to wait for Raft Consensus lock. Hence this ugly "log_in_use"
+    // mechanism needs to be improved so that it can satisfy the following
+    // invariant
+    // 1. We don't take LOCK_thd_data on any thread which can potentially
+    // got to Raft and take a LOCK
+    // 2. The threads which actually have a linfo, e.g. dump log threads
+    // and SHOW BINLOG EVENTS thread, don't ever go to Raft
+    // 1 we have now solved by making current_linfo an atomic, so that
+    // we don't have to take LOCK_thd_data. This should also make purging
+    // much faster, because we were taking 1000's of locks and releasing
+    // them each time.
     if ((no_of_threads_locking_log = log_in_use(log_info.log_file_name))) {
       if (!auto_purge)
         push_warning_printf(thd, Sql_condition::SL_WARNING,
@@ -7712,8 +7759,9 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     delete_list.emplace_back(log_info.log_file_name);
 
     if (enable_raft_plugin && !is_apply_log && safe_purge_file.length() > 0 &&
-        !strcmp(safe_purge_file.c_str(), log_info.log_file_name))
+        !strcmp(safe_purge_file.c_str(), log_info.log_file_name)) {
       found_last_safe_file = true;
+    }
 
     if (find_next_log(&log_info, false /*need_lock_index=false*/) || exit_loop)
       break;

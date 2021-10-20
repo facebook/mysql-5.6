@@ -3242,8 +3242,13 @@ class THD : public MDL_context_owner,
     If we do a purge of binary logs, log index info of the threads
     that are currently reading it needs to be adjusted. To do that
     each thread that is using LOG_INFO needs to adjust the pointer to it
+
+    Why is this atomic? In order to avoid taking LOCK_thd_data, on the
+    read path. we check the presence of current_linfo and in the common
+    case linfo is not present. LOCK_thd_data only needs to be taken
+    while linfo is being adjusted inside.
   */
-  LOG_INFO *current_linfo;
+  std::atomic<LOG_INFO *> current_linfo;
   /* Used by the sys_var class to store temporary values */
   union {
     bool bool_value;
