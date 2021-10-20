@@ -24,7 +24,7 @@ meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts]}*/	31
 [connection slave]
 meta	count(*)
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	31
+# /*::TRX_META_DATA::{"ts":[ts]}*/	31
 [connection master]
 drop table t1;
 [connection master]

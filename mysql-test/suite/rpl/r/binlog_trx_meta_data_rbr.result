@@ -30,7 +30,7 @@ meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts]}*/	31
 [connection slave]
 meta	count(*)
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	31
+# /*::TRX_META_DATA::{"ts":[ts]}*/	31
 [connection master]
 drop table t1;
 [connection master]
@@ -61,10 +61,10 @@ meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/delete from t1	10
 [connection slave]
 meta	count(*)
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	1
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*insert { hello:  { world } }*/insert into t1 values()	10
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*update { { hello : world } }*/update t1 set a= a + 1	10
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete { }*/delete from t1	10
+# /*::TRX_META_DATA::{"ts":[ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert { hello:  { world } }*/insert into t1 values()	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update { { hello : world } }*/update t1 set a= a + 1	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/delete from t1	10
 [connection master]
 drop table t1;
 create table test_multi_stmt_query (a int primary key, b char(32));
@@ -106,10 +106,10 @@ meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/	10
 [connection slave]
 meta	count(*)
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	1
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*insert { hello:  { world } }*/	10
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*update { { hello : world } }*/	10
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete { }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert { hello:  { world } }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update { { hello : world } }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/	10
 [connection master]
 drop table t1;
 [connection master]
