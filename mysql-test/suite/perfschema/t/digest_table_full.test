@@ -55,7 +55,7 @@ let $after = query_get_value(show global status like 'Performance_schema_digest_
 --let $assert_cond= $after - $before = 2
 --source include/assert.inc
 
-SELECT SCHEMA_NAME, DIGEST, QUERY_SAMPLE_TEXT, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
+SELECT SCHEMA_NAME, DIGEST, COUNT_STAR, SUM_ROWS_AFFECTED, SUM_WARNINGS,
        SUM_ERRORS FROM performance_schema.events_statements_summary_by_digest;
 
 drop user user_super@localhost;
