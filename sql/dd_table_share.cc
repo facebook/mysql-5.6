@@ -323,6 +323,16 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
       share->primary_key = MAX_KEY;
     }
 
+  restart:
+    /*
+      The next call is here for MyRocks:  Now, we have filled in field and key
+      definitions, give the storage engine a chance to adjust its properties.
+      MyRocks may (and typically does) adjust HA_PRIMARY_KEY_IN_READ_INDEX
+      flag in this call.
+    */
+    if (handler_file->init_with_fields()) return true;
+    ha_option = handler_file->ha_table_flags();
+
     dd::Table::Index_collection::const_iterator idx_it(
         table_def->indexes().begin());
 
@@ -372,6 +382,13 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
         */
         if (primary_key < MAX_KEY && share->keys_in_use.is_set(primary_key)) {
           share->primary_key = primary_key;
+          /*
+            OK, we decided to use it as primary key, but that may have impact on
+            HA_PRIMARY_KEY_IN_READ_INDEX flag, which is set by MyRocks basing on
+            the information about PK. Restart the iteration, but with PK already
+            set.
+          */
+          goto restart;
         }
       }
 
@@ -491,14 +508,6 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
 
       ++idx_it;
     }
-
-    /*
-      The next call is here for MyRocks:  Now, we have filled in field and key
-      definitions, give the storage engine a chance to adjust its properties.
-      MyRocks may (and typically does) adjust HA_PRIMARY_KEY_IN_READ_INDEX
-      flag in this call.
-    */
-    if (handler_file->init_with_fields()) return true;
 
     if (primary_key < MAX_KEY &&
         (handler_file->ha_table_flags() & HA_PRIMARY_KEY_IN_READ_INDEX)) {
