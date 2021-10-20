@@ -13043,6 +13043,7 @@ std::string THD::gen_trx_metadata() {
   doc.SetObject();
 
   // case: read existing meta data received from the master
+  bool should_add_ts = true;
   if (rli_slave && !rli_slave->trx_meta_data_json.empty()) {
     if (doc.Parse(rli_slave->trx_meta_data_json.c_str()).HasParseError()) {
       // NO_LINT_DEBUG
@@ -13052,10 +13053,19 @@ std::string THD::gen_trx_metadata() {
     }
     // clear existing data
     rli_slave->trx_meta_data_json.clear();
+
+    // No need to add another timestamp on the secondary
+    should_add_ts = false;
   }
 
   // add things to the meta data
-  if (!add_db_metadata(doc) || !add_time_metadata(doc)) {
+  if (!add_db_metadata(doc)) {
+    // NO_LINT_DEBUG
+    sql_print_error("Exception while adding meta data");
+    DBUG_RETURN("");
+  }
+
+  if (should_add_ts && !add_time_metadata(doc)) {
     // NO_LINT_DEBUG
     sql_print_error("Exception while adding meta data");
     DBUG_RETURN("");
@@ -13079,8 +13089,12 @@ std::string THD::gen_trx_metadata() {
     DBUG_RETURN("");
   }
 
-  std::string comment_str =
-      std::string("/*").append(TRX_META_DATA_HEADER).append(json).append("*/");
+  std::string comment_str;
+  // Reserve space upfront to avoid copies. The '10' here is just a buffer
+  // for the start and the end comments ("/*" and "*/")
+  comment_str.reserve(10 + TRX_META_DATA_HEADER.length() + json.length());
+  comment_str = "/*";
+  comment_str.append(TRX_META_DATA_HEADER).append(json).append("*/");
 
   DBUG_RETURN(comment_str);
 }
@@ -13192,7 +13206,10 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
 
   if (binlog_rows_query) {
     std::string query;
-    if (opt_binlog_trx_meta_data) query.append(gen_trx_metadata());
+    if (opt_binlog_trx_meta_data) {
+      query = gen_trx_metadata();
+    }
+
     if (variables.binlog_rows_query_log_events && this->query().str)
       query.append(this->query().str, this->query().length);
     /* Write the Rows_query_log_event into binlog before the table map */

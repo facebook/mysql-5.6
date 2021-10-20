@@ -41,9 +41,9 @@ include/sync_slave_sql_with_master.inc
 # /*::TRX_META_DATA::{"ts":[ts]}*/
 # /*::TRX_META_DATA::{"ts":[ts]}*/
 # /*::TRX_META_DATA::{"ts":[ts]}*/
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
 # /*::TRX_META_DATA::{"ts":[ts]}*/
 # /*::TRX_META_DATA::{"ts":[ts]}*/
 # /*::TRX_META_DATA::{"ts":[ts]}*/

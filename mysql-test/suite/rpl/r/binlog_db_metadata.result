@@ -51,22 +51,22 @@ insert into t1 values(2, 'b');
 # /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts]}*/
 # /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts]}*/
 include/sync_slave_sql_with_master.inc
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts]}*/
 use test;
 drop table if exists t1;
 drop database if exists test2;
