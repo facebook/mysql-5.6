@@ -113,7 +113,7 @@ query_attrs_reset;
 
 # Otherwise block and wait for the HLC to be applied
 query_attrs_add hlc_ts_lower_bound $hlc;
-query_attrs_add hlc_wait_timeout_ms 4000;
+query_attrs_add hlc_wait_timeout_ms 10000;
 send SELECT * FROM ta;
 query_attrs_reset;
 
@@ -165,14 +165,14 @@ let $hlc = get_response_attribute(hlc_ts);
 connection slave1;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc;
-query_attrs_add hlc_wait_timeout_ms 1000;
+query_attrs_add hlc_wait_timeout_ms 10000;
 send SELECT * FROM ta;
 query_attrs_reset;
 
 connection slave2;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc;
-query_attrs_add hlc_wait_timeout_ms 1000;
+query_attrs_add hlc_wait_timeout_ms 10000;
 send SELECT * FROM ta;
 query_attrs_reset;
 
@@ -226,29 +226,29 @@ let $hlc4 = get_response_attribute(hlc_ts);
 connection slave1;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc1;
-query_attrs_add hlc_wait_timeout_ms 1000;
-send SELECT * FROM ta;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 5;
 query_attrs_reset;
 
 connection slave2;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc4;
-query_attrs_add hlc_wait_timeout_ms 1000;
+query_attrs_add hlc_wait_timeout_ms 10000;
 send SELECT * FROM ta;
 query_attrs_reset;
 
 connection slave3;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc2;
-query_attrs_add hlc_wait_timeout_ms 1000;
-send SELECT * FROM ta;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 6;
 query_attrs_reset;
 
 connection slave4;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc3;
-query_attrs_add hlc_wait_timeout_ms 1000;
-send SELECT * FROM ta;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 7;
 query_attrs_reset;
 
 # Restart replication and re-sync
@@ -310,29 +310,29 @@ let $hlc4 = get_response_attribute(hlc_ts);
 connection slave1;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc1;
-query_attrs_add hlc_wait_timeout_ms 1000;
-send SELECT * FROM ta;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 9;
 query_attrs_reset;
 
 # Wait for an HLC from the other database
 connection slave2;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc2;
-query_attrs_add hlc_wait_timeout_ms 1000;
-send SELECT * FROM ta;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 10;
 query_attrs_reset;
 
 connection slave3;
 USE b;
 query_attrs_add hlc_ts_lower_bound $hlc3;
-query_attrs_add hlc_wait_timeout_ms 1000;
-send SELECT * FROM tb;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM tb WHERE a <= 11;
 query_attrs_reset;
 
 connection slave4;
 USE b;
 query_attrs_add hlc_ts_lower_bound $hlc4;
-query_attrs_add hlc_wait_timeout_ms 1000;
+query_attrs_add hlc_wait_timeout_ms 10000;
 send SELECT * FROM tb;
 query_attrs_reset;
 
@@ -378,7 +378,7 @@ connection slave1;
 let $conn_id = `SELECT CONNECTION_ID()`;
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc;
-query_attrs_add hlc_wait_timeout_ms 1000;
+query_attrs_add hlc_wait_timeout_ms 10000;
 send SELECT * FROM ta;
 query_attrs_reset;
 

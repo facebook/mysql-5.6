@@ -94,13 +94,13 @@ BEGIN;
 INSERT INTO ta (a, b) VALUES (8, 'foo');
 COMMIT;
 USE a;
-SELECT * FROM ta;
+SELECT * FROM ta WHERE a <= 5;
 USE a;
 SELECT * FROM ta;
 USE a;
-SELECT * FROM ta;
+SELECT * FROM ta WHERE a <= 6;
 USE a;
-SELECT * FROM ta;
+SELECT * FROM ta WHERE a <= 7;
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 a	b
@@ -149,11 +149,11 @@ BEGIN;
 INSERT INTO tb (a, b) VALUES (12, 'foo');
 COMMIT;
 USE a;
-SELECT * FROM ta;
+SELECT * FROM ta WHERE a <= 9;
 USE a;
-SELECT * FROM ta;
+SELECT * FROM ta WHERE a <= 10;
 USE b;
-SELECT * FROM tb;
+SELECT * FROM tb WHERE a <= 11;
 USE b;
 SELECT * FROM tb;
 include/start_slave.inc
@@ -176,11 +176,9 @@ a	b
 7	baz
 8	foo
 9	meh
-11	baz
 a	b
 2	bar
 10	bar
-12	foo
 a	b
 2	bar
 10	bar
