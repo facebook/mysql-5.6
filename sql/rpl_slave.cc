@@ -5656,6 +5656,8 @@ connected:
       });
   }
   if (!slave_stats_daemon_created) {
+    // clean up - stop previous run of slave_stats_daemon, if any
+    stop_handle_slave_stats_daemon();
     // start sending secondary lag stats to primary
     slave_stats_daemon_created = start_handle_slave_stats_daemon();
   }

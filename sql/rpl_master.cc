@@ -31,6 +31,8 @@
 #include <sys/socket.h>
 #include "binlog.h"
 #include "rpl_slave.h"
+// stop_handle_slave_stats_daemon, start_handle_slave_stats_daemon
+#include "slave_stats_daemon.h"
 #include <queue>
 
 #include "sql_show.h" // schema_table_store_record
@@ -509,12 +511,12 @@ void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list)
  *
  * @param follower_info This is a map from uuid -> host:port:server_id
  * @param is_leader     Are we the leader?
- * @param is_leader     Are we shutting down?
+ * @param is_shutdown   Are we shutting down?
  */
 int register_raft_followers(
     const std::unordered_map<std::string, std::string> &follower_info,
-    bool /*is_leader*/,
-    bool /*is_shutdown*/)
+    bool is_leader,
+    bool is_shutdown)
 {
   int error= 0;
 
@@ -590,6 +592,15 @@ int register_raft_followers(
   }
 
   mysql_mutex_unlock(&LOCK_slave_list);
+
+  // clean up - stop previous run of slave_stats_daemon, if any.
+  stop_handle_slave_stats_daemon();
+
+  if (!is_shutdown && !is_leader) {
+    // Spawn slave_stats_daemon thread only for followers and we are not
+    // shutting down raft.
+    start_handle_slave_stats_daemon();
+  }
 
   return error;
 }

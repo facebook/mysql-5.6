@@ -7640,6 +7640,14 @@ static Sys_var_mybool Sys_recover_raft_log(
        CMD_LINE(OPT_ARG), DEFAULT(TRUE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_mybool Sys_raft_send_replica_statistics(
+       "raft_send_replica_statistics",
+       "Variable to control sending replication lag statistics from followers "
+       "to leaders in raft replication.",
+       GLOBAL_VAR(raft_send_replica_statistics),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static Sys_var_uint Sys_max_index_stats_entries_per_table(
       "max_index_stats_entries_per_table",
       "Maximum number of entries in INDEX_STATISTICS per table",

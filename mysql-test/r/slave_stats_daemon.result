@@ -94,6 +94,7 @@ Note	1760	Storing MySQL user name or password information in the master info rep
 include/start_slave.inc
 Master_User = 'root'
 Master_Host = '127.0.0.1'
+select now() into @t;
 select sleep(2);
 sleep(2)
 0
@@ -113,6 +114,7 @@ stats_samples_collected
 1
 select id from information_schema.processlist where command='Binlog Dump' into @id;
 kill @id;
+select now() into @t;
 select sleep(2);
 sleep(2)
 0
@@ -132,6 +134,7 @@ stats_samples_collected
 1
 include/stop_slave.inc
 include/start_slave.inc
+select now() into @t;
 select sleep(2);
 sleep(2)
 0

@@ -1158,6 +1158,9 @@ The following options may be given as the first argument:
  Invalidate queries in query cache on LOCK for write
  --query-prealloc-size=# 
  Persistent buffer for query parsing and execution
+ --raft-send-replica-statistics 
+ Variable to control sending replication lag statistics
+ from followers to leaders in raft replication.
  --raft-signal-async-dump-threads[=name] 
  When should we signal async dump threads who are waiting
  to send events
@@ -2772,6 +2775,7 @@ query-cache-size 1048576
 query-cache-type OFF
 query-cache-wlock-invalidate FALSE
 query-prealloc-size 8192
+raft-send-replica-statistics FALSE
 raft-signal-async-dump-threads AFTER_CONSENSUS
 range-alloc-block-size 4096
 range-optimizer-fail-mode WARN
