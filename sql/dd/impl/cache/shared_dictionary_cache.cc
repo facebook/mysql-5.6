@@ -45,10 +45,15 @@ void Shared_dictionary_cache::init() {
   instance()->m_map<Collation>()->set_capacity(collation_capacity);
   instance()->m_map<Charset>()->set_capacity(charset_capacity);
 
-  // Set capacity to have room for all connections to leave an element
-  // unused in the cache to avoid frequent cache misses while e.g.
-  // opening a table.
-  instance()->m_map<Abstract_table>()->set_capacity(max_connections);
+  int abstract_table_capacity = table_dd_cache_size;
+  if (abstract_table_capacity == 0) {
+    // Set capacity to have room for all connections to leave an element
+    // unused in the cache to avoid frequent cache misses while e.g.
+    // opening a table.
+    abstract_table_capacity = max_connections;
+  }
+
+  instance()->m_map<Abstract_table>()->set_capacity(abstract_table_capacity);
   instance()->m_map<Event>()->set_capacity(event_capacity);
   instance()->m_map<Routine>()->set_capacity(stored_program_def_size);
   instance()->m_map<Schema>()->set_capacity(schema_def_size);
