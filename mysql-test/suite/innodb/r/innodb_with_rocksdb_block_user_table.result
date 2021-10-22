@@ -2,7 +2,7 @@ SELECT @@GLOBAL.enable_user_tables_engine_check;
 @@GLOBAL.enable_user_tables_engine_check
 1
 SET @start_value= @@global.enable_user_tables_engine_check;
-set @@session.sql_mode='NO_UNSIGNED_SUBTRACTION,NO_ENGINE_SUBSTITUTION';
+set @@session.sql_mode=NO_UNSIGNED_SUBTRACTION;
 SET @@session.enable_user_tables_engine_check=ON;
 create table t1(a int primary key) engine=Rocksdb;
 show create table t1;

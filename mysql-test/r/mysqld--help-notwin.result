@@ -1958,6 +1958,8 @@ The following options may be given as the first argument:
  --rocksdb-enable-thread-tracking 
  DBOptions::enable_thread_tracking for RocksDB
  (Defaults to on; use --skip-rocksdb-enable-thread-tracking to disable.)
+ --rocksdb-enable-tmp-table 
+ Allow rocksdb tmp tables
  --rocksdb-enable-ttl 
  Enable expired TTL records to be dropped during
  compaction.
@@ -3386,6 +3388,7 @@ rocksdb-enable-insert-with-update-caching TRUE
 rocksdb-enable-iterate-bounds TRUE
 rocksdb-enable-remove-orphaned-dropped-cfs TRUE
 rocksdb-enable-thread-tracking TRUE
+rocksdb-enable-tmp-table FALSE
 rocksdb-enable-ttl TRUE
 rocksdb-enable-ttl-read-filtering TRUE
 rocksdb-enable-write-thread-adaptive-yield FALSE

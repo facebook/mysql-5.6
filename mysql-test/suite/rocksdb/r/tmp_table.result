@@ -1,0 +1,213 @@
+Case 1: tmp table create/drop
+use test;
+create temporary table tmp1(a int primary key) engine = "ROCKSDB";
+insert into tmp1 values(1);
+insert into tmp1 values(2);
+select * from tmp1;
+a
+1
+2
+select table_schema, substring(table_name, 1, 4), index_name from information_schema.rocksdb_ddl where CF = "__tmp__";
+table_schema	substring(table_name, 1, 4)	index_name
+#sqltmp	#sql	PRIMARY
+drop table tmp1;
+create temporary table tmp1(a int) engine = "ROCKSDB";
+insert into tmp1 values(1);
+select table_schema, substring(table_name, 1, 4), index_name from information_schema.rocksdb_ddl where CF = "__tmp__";
+table_schema	substring(table_name, 1, 4)	index_name
+#sqltmp	#sql	HIDDEN_PK_ID
+select table_schema, substring(table_name, 1, 4), index_name from information_schema.rocksdb_ddl where CF = "__tmp__";
+table_schema	substring(table_name, 1, 4)	index_name
+Case 2: Verify tmp tables index numbers are different from regular tables
+create temporary table tmp1(a int primary key) engine = "ROCKSDB";
+create table t1(a int primary key) engine = "ROCKSDB";
+create temporary table tmp2(a int primary key) engine = "ROCKSDB";
+create temporary table tmp3(a int primary key, b int, index (b)) engine = "ROCKSDB";
+create table t2(a int primary key) engine = "ROCKSDB";
+create table t3(a int primary key, b int, index (b) COMMENT 'test_cf') engine = "ROCKSDB";
+create table t4(a int primary key, b int, index (b)) engine = "ROCKSDB";
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table tmp1;
+drop table tmp2;
+drop table tmp3;
+include/assert.inc [Number of indexes created in tmp column family should be 3]
+include/assert.inc [Number of indexes created in default column family should be 5]
+Case 3: Verify tmp table index number start again after server restart
+create temporary table tmp1(a int primary key) engine = "ROCKSDB";
+create table t1(a int primary key) engine = "ROCKSDB";
+# restart
+create temporary table tmp2(a int primary key) engine = "ROCKSDB";
+create table t2(a int primary key) engine = "ROCKSDB";
+include/assert.inc [Index number for tmp column family should start again after restart]
+include/assert.inc [Number of indexes created in default column family should be 1]
+drop table t1;
+drop table t2;
+drop table tmp2;
+Case 4: Verify tmp tables across different session
+use test;
+create temporary table tmp1(a int primary key) engine = "ROCKSDB";
+create temporary table tmp1(a int primary key) engine = "ROCKSDB";
+create temporary table tmp1(a int primary key) engine = "ROCKSDB";
+Case 5: Verify alter tables for regular tables are not landing in tmp column family
+use test;
+create temporary table tmp1(a int primary key) engine = "ROCKSDB";
+create table t1 (pk int primary key, a int, c char(8)) engine=rocksdb charset=latin1;
+insert into t1 values (1,1,'a'),(2,5,'z');
+alter table t1 add column b int;
+alter table t1 alter column a set default '0';
+alter table t1 alter a drop default;
+alter table t1 change column b b1 char(8) first;
+alter table t1 change b1 b int after c;
+alter table t1 change b b char(8);
+alter table t1 modify column b int;
+alter table t1 modify column b char(8) first;
+alter table t1 modify column b int after a;
+alter table t1 drop column b;
+alter table t1 rename to t2;
+include/assert.inc [Number of indexes created in tmp column family should be 0]
+include/assert.inc [Number of indexes created in default column family should be > 0]
+drop table t2;
+drop table tmp1;
+Case 6: Verify alter tables for tmp tables are not landing in default column family
+use test;
+create temporary table tmp1 (pk int primary key, a int, c char(8)) engine=rocksdb charset=latin1;
+create table t1 (pk int primary key, a int, c char(8)) engine=rocksdb charset=latin1;
+alter table tmp1 add column b int;
+show create table tmp1;
+Table	Create Table
+tmp1	CREATE TEMPORARY TABLE `tmp1` (
+  `pk` int NOT NULL,
+  `a` int DEFAULT NULL,
+  `c` char(8) DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+alter table tmp1 alter column a set default '0';
+show create table tmp1;
+Table	Create Table
+tmp1	CREATE TEMPORARY TABLE `tmp1` (
+  `pk` int NOT NULL,
+  `a` int DEFAULT '0',
+  `c` char(8) DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+alter table tmp1 alter a drop default;
+show create table tmp1;
+Table	Create Table
+tmp1	CREATE TEMPORARY TABLE `tmp1` (
+  `pk` int NOT NULL,
+  `a` int,
+  `c` char(8) DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+alter table tmp1 change column b b1 char(8) first;
+show create table tmp1;
+Table	Create Table
+tmp1	CREATE TEMPORARY TABLE `tmp1` (
+  `b1` char(8) DEFAULT NULL,
+  `pk` int NOT NULL,
+  `a` int,
+  `c` char(8) DEFAULT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+alter table tmp1 change b1 b int after c;
+show create table tmp1;
+Table	Create Table
+tmp1	CREATE TEMPORARY TABLE `tmp1` (
+  `pk` int NOT NULL,
+  `a` int,
+  `c` char(8) DEFAULT NULL,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+alter table tmp1 change b b char(8);
+alter table tmp1 modify column b int;
+alter table tmp1 modify column b char(8) first;
+alter table tmp1 modify column b int after a;
+alter table tmp1 drop column b;
+alter table tmp1 rename to tmp2;
+include/assert.inc [Number of indexes created in tmp column family should be  > 0]
+include/assert.inc [Number of indexes created in default column family should be = 0]
+drop table t1;
+drop table tmp2;
+Case 7:  Create temp table and regular table with same name
+create temporary table t1 (pk int primary key) engine=rocksdb charset=latin1;
+insert into t1 values(1);
+create table t1 (pk int primary key) engine=rocksdb charset=latin1;
+insert into t1 values(2);
+select * from t1;
+pk
+1
+2
+show create table t1;
+Table	Create Table
+t1	CREATE TEMPORARY TABLE `t1` (
+  `pk` int NOT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop temporary table t1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `pk` int NOT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+select * from t1;
+pk
+drop table t1;
+create temporary table t1 (pk int primary key) engine=rocksdb charset=latin1;
+create table t1 (pk int primary key) engine=rocksdb charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TEMPORARY TABLE `t1` (
+  `pk` int NOT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `pk` int NOT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+create temporary table t1 (pk int primary key) engine=rocksdb charset=latin1;
+create table t1 (pk int primary key) engine=rocksdb charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TEMPORARY TABLE `t1` (
+  `pk` int NOT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `pk` int NOT NULL,
+  PRIMARY KEY (`pk`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+Case 8: Validate all names used for tmp tables are restricted
+create table t1(a int primary key, b int, index (b) COMMENT '__system__') engine = "ROCKSDB";
+ERROR HY000: Incorrect arguments to column family not valid for storing index data.
+create table t1(a int primary key, b int, index (b) COMMENT '__tmp__') engine = "ROCKSDB";
+ERROR HY000: Incorrect arguments to reserved column family for storing temporary table data.
+create table t1(a int primary key, b int, index (b) COMMENT '__tmp_system__') engine = "ROCKSDB";
+ERROR HY000: Incorrect arguments to column family not valid for storing index data.
+create temporary table t1(a int primary key, b int, index (b) COMMENT '__system__') engine = "ROCKSDB";
+ERROR HY000: Incorrect arguments to column family not valid for storing index data.
+create temporary table t1(a int primary key, b int, index (b) COMMENT '__tmp__') engine = "ROCKSDB";
+ERROR HY000: Incorrect arguments to reserved column family for storing temporary table data.
+create temporary table t1(a int primary key, b int, index (b) COMMENT '__tmp_system__') engine = "ROCKSDB";
+ERROR HY000: Incorrect arguments to column family not valid for storing index data.
+create temporary table t1(a int primary key, b int, index (b) COMMENT 'test_cf') engine = "ROCKSDB";
+ERROR HY000: Incorrect arguments to custom column family for temporary table is not allowed.
+create database #sqltmp;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+create table #sql_1 (pk int primary key) engine=rocksdb charset=latin1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1

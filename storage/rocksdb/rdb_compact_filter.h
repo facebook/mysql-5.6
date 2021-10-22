@@ -61,8 +61,9 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
     assert(gl_index_id.index_id >= 1);
 
     if (gl_index_id != m_prev_index) {
-      m_should_delete =
-          rdb_get_dict_manager()->is_drop_index_ongoing(gl_index_id);
+      m_should_delete = rdb_get_dict_manager()
+                            ->get_dict_manager_selector_const(gl_index_id.cf_id)
+                            ->is_drop_index_ongoing(gl_index_id);
 
       if (!m_should_delete) {
         get_ttl_duration_and_offset(gl_index_id, &m_ttl_duration,
@@ -125,14 +126,19 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
     /*
       If key is part of system column family, it's definitely not a TTL key.
     */
-    rocksdb::ColumnFamilyHandle *s_cf = rdb_get_dict_manager()->get_system_cf();
+    rocksdb::ColumnFamilyHandle *s_cf =
+        rdb_get_dict_manager()
+            ->get_dict_manager_selector_const(gl_index_id.cf_id)
+            ->get_system_cf();
     if (s_cf == nullptr || gl_index_id.cf_id == s_cf->GetID()) {
       *ttl_duration = 0;
       return;
     }
 
     struct Rdb_index_info index_info;
-    if (!rdb_get_dict_manager()->get_index_info(gl_index_id, &index_info)) {
+    if (!rdb_get_dict_manager()
+             ->get_dict_manager_selector_const(gl_index_id.cf_id)
+             ->get_index_info(gl_index_id, &index_info)) {
       // NO_LINT_DEBUG
       sql_print_error(
           "RocksDB: Could not get index information "

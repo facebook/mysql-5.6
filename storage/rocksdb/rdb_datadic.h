@@ -41,6 +41,7 @@
 namespace myrocks {
 
 class Rdb_dict_manager;
+class Rdb_dict_manager_selector;
 class Rdb_key_def;
 class Rdb_field_packing;
 class Rdb_cf_manager;
@@ -1366,7 +1367,7 @@ interface Rdb_tables_scanner {
 */
 
 class Rdb_ddl_manager : public Ensure_initialized {
-  Rdb_dict_manager *m_dict = nullptr;
+  Rdb_dict_manager_selector *m_dict = nullptr;
   Rdb_cf_manager *m_cf_manager = nullptr;
 
   // Contains Rdb_tbl_def elements
@@ -1381,7 +1382,8 @@ class Rdb_ddl_manager : public Ensure_initialized {
       m_index_num_to_uncommitted_keydef;
   mysql_rwlock_t m_rwlock;
 
-  Rdb_seq_generator m_sequence;
+  Rdb_seq_generator m_user_table_sequence;
+  Rdb_seq_generator m_tmp_table_sequence;
   // A queue of table stats to write into data dictionary
   // It is produced by event listener (ie compaction and flush threads)
   // and consumed by the rocksdb background thread
@@ -1395,8 +1397,8 @@ class Rdb_ddl_manager : public Ensure_initialized {
   Rdb_ddl_manager() {}
 
   /* Load the data dictionary from on-disk storage */
-  bool init(Rdb_dict_manager *const dict_arg, Rdb_cf_manager *const cf_manager,
-            const uint32_t validate_tables);
+  bool init(Rdb_dict_manager_selector *const dict_arg,
+            Rdb_cf_manager *const cf_manager, const uint32_t validate_tables);
 
   void cleanup();
 
@@ -1418,13 +1420,11 @@ class Rdb_ddl_manager : public Ensure_initialized {
   int put_and_write(Rdb_tbl_def *const key_descr,
                     rocksdb::WriteBatch *const batch);
   void remove(Rdb_tbl_def *const rec, rocksdb::WriteBatch *const batch,
-              const bool lock = true);
+              const uint table_default_cf_id, const bool lock = true);
   bool rename(const std::string &from, const std::string &to,
               rocksdb::WriteBatch *const batch);
 
-  uint get_and_update_next_number(Rdb_dict_manager *const dict) {
-    return m_sequence.get_and_update_next_number(dict);
-  }
+  uint get_and_update_next_number(uint cf_id);
 
   const std::string safe_get_table_name(const GL_INDEX_ID &gl_index_id);
 
@@ -1436,7 +1436,7 @@ class Rdb_ddl_manager : public Ensure_initialized {
       const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
   void remove_uncommitted_keydefs(
       const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
-  int find_in_uncommitted_keydef(const uint32_t &cf_id);
+  int find_in_uncommitted_keydef(const uint32_t cf_id);
 
  private:
   /* Put the data into in-memory table (only) */
@@ -1594,7 +1594,9 @@ class Rdb_dict_manager : public Ensure_initialized {
 
   bool init(rocksdb::TransactionDB *const rdb_dict,
             Rdb_cf_manager *const cf_manager,
-            const bool enable_remove_orphaned_cf_flags);
+            const bool enable_remove_orphaned_cf_flags,
+            const std::string &system_cf_name,
+            const std::string &default_cf_name);
 
   inline void cleanup() {
     if (!initialized) return;
@@ -1636,21 +1638,14 @@ class Rdb_dict_manager : public Ensure_initialized {
                     const uint cf_flags) const;
   bool get_cf_flags(const uint cf_id, uint *const cf_flags) const;
 
-  void add_dropped_cf(rocksdb::WriteBatch *const batch,
-                      const uint &cf_id) const;
+  void add_dropped_cf(rocksdb::WriteBatch *const batch, const uint cf_id) const;
   void delete_dropped_cf(rocksdb::WriteBatch *const batch,
-                         const uint &cf_id) const;
-  bool get_dropped_cf(const uint &cf_id) const;
+                         const uint cf_id) const;
+  bool get_dropped_cf(const uint cf_id) const;
   void get_all_dropped_cfs(std::unordered_set<uint32> *dropped_cf_ids) const;
 
-  int add_missing_cf_flags(Rdb_cf_manager *const cf_manager) const;
-
-  int remove_orphaned_dropped_cfs(
-      Rdb_cf_manager *const cf_manager,
-      const bool &enable_remove_orphaned_dropped_cfs) const;
-
   void delete_dropped_cf_and_flags(rocksdb::WriteBatch *const batch,
-                                   const uint &cf_id) const;
+                                   const uint cf_id) const;
 
   /* Functions for fast CREATE/DROP TABLE/INDEX */
   void get_ongoing_index_operation(
@@ -1675,7 +1670,6 @@ class Rdb_dict_manager : public Ensure_initialized {
   void finish_indexes_operation(
       const std::unordered_set<GL_INDEX_ID> &gl_index_ids,
       Rdb_key_def::DATA_DICT_TYPE dd_type) const;
-  void rollback_ongoing_index_creation() const;
   void rollback_ongoing_index_creation(
       const std::unordered_set<GL_INDEX_ID> &gl_index_ids) const;
 
@@ -1703,11 +1697,7 @@ class Rdb_dict_manager : public Ensure_initialized {
       const std::unordered_set<GL_INDEX_ID> &gl_index_ids) const {
     finish_indexes_operation(gl_index_ids, Rdb_key_def::DDL_DROP_INDEX_ONGOING);
   }
-  inline void finish_create_indexes(
-      const std::unordered_set<GL_INDEX_ID> &gl_index_ids) const {
-    finish_indexes_operation(gl_index_ids,
-                             Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
-  }
+
   inline bool is_drop_index_ongoing(const GL_INDEX_ID &gl_index_id) const {
     return is_index_operation_ongoing(gl_index_id,
                                       Rdb_key_def::DDL_DROP_INDEX_ONGOING);
@@ -1734,7 +1724,15 @@ class Rdb_dict_manager : public Ensure_initialized {
  private:
   /* dropped cf flags */
   void delete_cf_flags(rocksdb::WriteBatch *const batch,
-                       const uint &cf_id) const;
+                       const uint cf_id) const;
+
+  int add_missing_cf_flags(Rdb_cf_manager *const cf_manager) const;
+
+  int remove_orphaned_dropped_cfs(
+      Rdb_cf_manager *const cf_manager,
+      const bool &enable_remove_orphaned_dropped_cfs) const;
+
+  void rollback_ongoing_index_creation() const;
 };
 
 struct Rdb_index_info {
@@ -1847,6 +1845,41 @@ class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
   uint16_t GetVersion(const rocksdb::Slice &s) const {
     return rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(s.data()));
   }
+};
+
+class Rdb_dict_manager_selector {
+ private:
+  Rdb_dict_manager m_user_table_dict_manager;
+  Rdb_dict_manager m_tmp_dict_manager;
+  Rdb_cf_manager *m_cf_manager = nullptr;
+
+ public:
+  Rdb_dict_manager_selector(const Rdb_dict_manager_selector &) = delete;
+  Rdb_dict_manager_selector &operator=(const Rdb_dict_manager_selector &) =
+      delete;
+  Rdb_dict_manager_selector() = default;
+
+  const Rdb_dict_manager *get_dict_manager_selector_const(
+      const uint cf_id) const;
+
+  Rdb_dict_manager *get_dict_manager_selector_non_const(const uint cf_id);
+
+  Rdb_dict_manager *get_dict_manager_selector_non_const(
+      const std::string &cf_name);
+
+  Rdb_dict_manager *get_dict_manager_selector_non_const(
+      bool fetch_tmp_dict_manager);
+
+  std::vector<Rdb_dict_manager *> get_all_dict_manager_selector();
+
+  const Rdb_dict_manager *get_dict_manager_selector_const(
+      bool fetch_tmp_dict_manager) const;
+
+  bool init(rocksdb::TransactionDB *const rdb_dict,
+            Rdb_cf_manager *const cf_manager,
+            const bool enable_remove_orphaned_cf_flags);
+
+  void cleanup();
 };
 
 }  // namespace myrocks
