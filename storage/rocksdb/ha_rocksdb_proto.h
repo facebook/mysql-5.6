@@ -107,8 +107,8 @@ enum operation_type : int;
 void rdb_update_global_stats(const operation_type &type, uint count,
                              Rdb_tbl_def *td = nullptr);
 
-class Rdb_dict_manager;
-Rdb_dict_manager *rdb_get_dict_manager(void)
+class Rdb_dict_manager_selector;
+Rdb_dict_manager_selector *rdb_get_dict_manager(void)
     MY_ATTRIBUTE((__warn_unused_result__));
 
 class Rdb_ddl_manager;

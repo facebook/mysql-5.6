@@ -1,0 +1,1 @@
+--rocksdb_enable_tmp_table=1
