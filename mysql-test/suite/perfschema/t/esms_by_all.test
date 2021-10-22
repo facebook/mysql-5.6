@@ -107,6 +107,29 @@ select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_delet
 where schema_name = 'test' and digest = '1bdaf02b6c6dd4f5bfc3045555865597' and user = 'user_super' and client_id = 'fake';
 select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
 where schema_name = 'test' and digest = '1bdaf02b6c6dd4f5bfc3045555865597' and user = 'user_super' and client_id = '99914b932bd37a50b983c5e7c90ae93b';
+
+####################################################
+### Case 6: Verify SUM_CPU_TIME
+####################################################
+--echo Case 6: Verify SUM_CPU_TIME
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+
+set global enable_cputime_with_wallclock = 1;
+SELECT SLEEP(1);
+--let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(1)', Value, 1)
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should increase by a non-zero value.
+--let $assert_cond= $sum_cpu_time > 0
+--source include/assert.inc
+truncate performance_schema.events_statements_summary_by_all;
+set global enable_cputime_with_wallclock = 0;
+SELECT SLEEP(1);
+--let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(1)', Value, 1)
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should increase by a non-zero value.
+--let $assert_cond= $sum_cpu_time > 0
+--source include/assert.inc
+set global enable_cputime_with_wallclock = DEFAULT;
+
 ###########
 ### Cleanup
 ###########
