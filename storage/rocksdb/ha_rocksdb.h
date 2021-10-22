@@ -1199,5 +1199,6 @@ extern std::atomic<uint64_t> rocksdb_partial_index_groups_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_groups_materialized;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_materialized;
+extern bool rocksdb_enable_tmp_table;
 
 }  // namespace myrocks

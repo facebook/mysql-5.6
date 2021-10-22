@@ -96,6 +96,18 @@ std::vector<Rdb_deadlock_info> rdb_get_deadlock_info();
 extern const std::string DEFAULT_CF_NAME;
 
 /*
+  This is the name of the default tmp column family (the CF which stores tmp
+  tables)
+*/
+extern const std::string DEFAULT_TMP_CF_NAME;
+
+/*
+  This is the name of the tmp system column family which stores the tmp table
+  meta-data
+*/
+extern const std::string DEFAULT_TMP_SYSTEM_CF_NAME;
+
+/*
   This is the name of the Column Family used for storing the data dictionary.
 */
 extern const std::string DEFAULT_SYSTEM_CF_NAME;

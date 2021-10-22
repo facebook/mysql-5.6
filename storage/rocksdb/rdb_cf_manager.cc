@@ -42,9 +42,9 @@ bool Rdb_cf_manager::is_cf_name_reverse(const char *const name) {
   return (name && !strncmp(name, "rev:", 4));
 }
 
-void Rdb_cf_manager::init(
-    std::unique_ptr<Rdb_cf_options> &&cf_options,
-    std::vector<rocksdb::ColumnFamilyHandle *> *const handles) {
+bool Rdb_cf_manager::init(rocksdb::DB *const rdb,
+                          std::unique_ptr<Rdb_cf_options> &&cf_options,
+                          std::vector<rocksdb::ColumnFamilyHandle *> *handles) {
   mysql_mutex_init(rdb_cfm_mutex_key, &m_mutex, MY_MUTEX_INIT_FAST);
 
   assert(cf_options != nullptr);
@@ -52,16 +52,79 @@ void Rdb_cf_manager::init(
   assert(handles->size() > 0);
 
   m_cf_options = std::move(cf_options);
-
+  std::vector<std::string> tmp_cfs = {DEFAULT_TMP_CF_NAME,
+                                      DEFAULT_TMP_SYSTEM_CF_NAME};
+  std::vector<std::string> default_cfs = {DEFAULT_CF_NAME,
+                                          DEFAULT_SYSTEM_CF_NAME};
+  tmp_column_family_id = UINT_MAX;
+  tmp_system_column_family_id = UINT_MAX;
+  // Step1 : Drop existing tmp cfs and populate the other existing cfs.
   for (auto cfh_ptr : *handles) {
     assert(cfh_ptr != nullptr);
+    auto cf_name = cfh_ptr->GetName();
+    // Drop the tmp column families.
+    if (std::find(tmp_cfs.begin(), tmp_cfs.end(), cf_name) != tmp_cfs.end()) {
+      uint cf_id = cfh_ptr->GetID();
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "RocksDB: Dropping column family %s with id %u on RocksDB for temp "
+          "table",
+          cf_name.c_str(), cf_id);
+      auto status = rdb->DropColumnFamily(cfh_ptr);
+      if (status.ok()) {
+        delete (cfh_ptr);
+        continue;
+      }
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: Dropping column family %s with id %u on RocksDB failed for "
+          "temp table",
+          cf_name.c_str(), cf_id);
+      if (rocksdb_enable_tmp_table) {
+        return HA_EXIT_FAILURE;
+      }
+    } else {
+      // Otherwise populate existing cf.
+      std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh(cfh_ptr);
+      m_cf_name_map[cfh_ptr->GetName()] = cfh;
+      m_cf_id_map[cfh_ptr->GetID()] = cfh;
+    }
+  }
 
-    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh(cfh_ptr);
-    m_cf_name_map[cfh_ptr->GetName()] = cfh;
-    m_cf_id_map[cfh_ptr->GetID()] = cfh;
+  // Step2 : Create the hardcoded default column families.
+  for (const auto &cf_name : default_cfs) {
+    if (m_cf_name_map.find(cf_name) == m_cf_name_map.end()) {
+      get_or_create_cf(rdb, cf_name);
+    }
+    // verify cf is created
+    if (m_cf_name_map.find(cf_name) == m_cf_name_map.end()) {
+      return HA_EXIT_FAILURE;
+    }
+  }
+
+  // Step3 : Create the hardcoded tmp column families.
+  if (rocksdb_enable_tmp_table) {
+    for (const auto &cf_name : tmp_cfs) {
+      get_or_create_cf(rdb, cf_name);
+      // verify cf is created
+      if (m_cf_name_map.find(cf_name) == m_cf_name_map.end()) {
+        return HA_EXIT_FAILURE;
+      }
+    }
+    // cache tmp column family ids
+    tmp_column_family_id = m_cf_name_map[DEFAULT_TMP_CF_NAME]->GetID();
+    tmp_system_column_family_id =
+        m_cf_name_map[DEFAULT_TMP_SYSTEM_CF_NAME]->GetID();
+  }
+
+  // Step4 : Reset the handlers passed.
+  handles->clear();
+  for (auto &it : m_cf_name_map) {
+    handles->push_back(it.second.get());
   }
 
   initialized = true;
+  return HA_EXIT_SUCCESS;
 }
 
 void Rdb_cf_manager::cleanup() {
@@ -413,6 +476,14 @@ int Rdb_cf_manager::create_cf_flags_if_needed(
   }
 
   return HA_EXIT_SUCCESS;
+}
+
+bool Rdb_cf_manager::is_tmp_column_family(const uint cf_id) const {
+  if (rocksdb_enable_tmp_table &&
+      (cf_id == tmp_column_family_id || cf_id == tmp_system_column_family_id)) {
+    return true;
+  }
+  return false;
 }
 
 }  // namespace myrocks
