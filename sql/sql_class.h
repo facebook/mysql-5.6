@@ -1449,6 +1449,7 @@ class THD : public MDL_context_owner,
   struct timeval user_time;
   ulonglong start_utime, utime_after_lock, pre_exec_time;
   struct timespec start_cputime;
+  ulonglong start_cputime_wallclock;
   /* record the semisync ack time */
   ulonglong semisync_ack_time = 0;
   /* record the engine commit time */

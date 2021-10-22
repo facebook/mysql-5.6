@@ -9178,3 +9178,14 @@ static Sys_var_bool Sys_enable_optimizer_cputime_with_wallclock(
     "system calls).",
     GLOBAL_VAR(enable_optimizer_cputime_with_wallclock), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static Sys_var_bool Sys_enable_cputime_with_wallclock(
+    "enable_cputime_with_wallclock",
+    "This will control how we track cputime spend in command execution. "
+    "If false then we use clock_gettime(CLOCK_THREAD_CPUTIME_ID) which will "
+    "track actual execution time when the thread was active but this will "
+    "consume more cpu cycles for making system call to track the exact time. "
+    "Else we track wallclock time elapsed which is less accurate but "
+    "performant(avoids system calls).",
+    GLOBAL_VAR(enable_cputime_with_wallclock), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
