@@ -975,6 +975,17 @@ static Sys_var_bool Sys_pfs_enable_histogram(
     DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
 
+static Sys_var_bool Sys_enable_cputime_with_wallclock(
+    "enable_cputime_with_wallclock",
+    "This will control how we track cputime spend in command execution. "
+    "If false then we use clock_gettime(CLOCK_THREAD_CPUTIME_ID) which will "
+    "track actual execution time when the thread was active but this will "
+    "consume more cpu cycles for making system call to track the exact time. "
+    "Else we track wallclock time elapsed which is less accurate but "
+    "performant(avoids system calls).",
+    GLOBAL_VAR(pfs_param.m_enable_cputime_with_wallclock), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 static Sys_var_ulong Sys_auto_increment_increment(

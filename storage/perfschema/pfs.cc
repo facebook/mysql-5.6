@@ -6305,7 +6305,6 @@ void pfs_start_statement_v2(PSI_statement_locker *locker, const char *db,
 
   uint flags = state->m_flags;
   ulonglong timer_start = 0;
-  ulonglong cpu_time_start = 0;
 
   if (flags & STATE_FLAG_TIMED) {
     timer_start = get_statement_timer();
@@ -6313,8 +6312,12 @@ void pfs_start_statement_v2(PSI_statement_locker *locker, const char *db,
   }
 
   if (flags & STATE_FLAG_CPU) {
-    cpu_time_start = get_thread_cpu_timer();
-    state->m_cpu_time_start = cpu_time_start;
+    state->m_start_cputime_wallclock = 0;
+    if (pfs_param.m_enable_cputime_with_wallclock) {
+      state->m_start_cputime_wallclock = my_micro_time();
+    } else {
+      state->m_cpu_time_start = get_thread_cpu_timer();
+    }
   }
 
   static_assert(PSI_SCHEMA_NAME_LEN == NAME_LEN, "");
@@ -6575,15 +6578,20 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
       reinterpret_cast<PFS_statement_class *>(state->m_class);
   assert(klass != nullptr);
 
-  ulonglong cpu_time_end;
   ulonglong timer_end = 0;
   ulonglong cpu_time = 0;
   ulonglong wait_time = 0;
   uint flags = state->m_flags;
 
   if (flags & STATE_FLAG_CPU) {
-    cpu_time_end = get_thread_cpu_timer();
-    cpu_time = cpu_time_end - state->m_cpu_time_start;
+    if (state->m_start_cputime_wallclock > 0) {
+      ulonglong time_end = my_micro_time();
+      if (time_end > state->m_start_cputime_wallclock) {
+        cpu_time = time_end - state->m_start_cputime_wallclock;
+      }
+    } else {
+      cpu_time = get_thread_cpu_timer() - state->m_cpu_time_start;
+    }
   }
 
   if (flags & STATE_FLAG_TIMED) {
@@ -7076,6 +7084,13 @@ unsigned long long pfs_get_statement_cpu_time_v2(PSI_statement_locker *locker) {
 
   uint flags = state->m_flags;
   if (!(flags & STATE_FLAG_CPU)) return 0;
+
+  if (state->m_start_cputime_wallclock > 0) {
+    ulonglong time_end = my_micro_time();
+    if (time_end > state->m_start_cputime_wallclock) {
+      return time_end - state->m_start_cputime_wallclock;
+    }
+  }
 
   return get_thread_cpu_timer() - state->m_cpu_time_start;
 }

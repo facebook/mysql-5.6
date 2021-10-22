@@ -447,6 +447,15 @@ The following options may be given as the first argument:
  --enable-block-stale-hlc-read 
  Enable blocking reads with a requested HLC timestamp
  ahead of the engine HLC
+ --enable-cputime-with-wallclock 
+ This will control how we track cputime spend in command
+ execution. If false then we use
+ clock_gettime(CLOCK_THREAD_CPUTIME_ID) which will track
+ actual execution time when the thread was active but this
+ will consume more cpu cycles for making system call to
+ track the exact time. Else we track wallclock time
+ elapsed which is less accurate but performant(avoids
+ system calls).
  --enable-deprecation-warning 
  If set to false, will not show deprecation warnings 
  (Defaults to on; use --skip-enable-deprecation-warning to disable.)
@@ -2957,6 +2966,7 @@ enable-acl-fast-lookup FALSE
 enable-binlog-hlc FALSE
 enable-blind-replace FALSE
 enable-block-stale-hlc-read FALSE
+enable-cputime-with-wallclock FALSE
 enable-deprecation-warning TRUE
 enable-hlc-bound FALSE
 enable-optimizer-cputime-with-wallclock FALSE
