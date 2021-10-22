@@ -5645,6 +5645,11 @@ static Sys_var_ulong Sys_table_def_size(
        schema. */
     sys_var::PARSE_EARLY);
 
+static Sys_var_ulong Sys_table_dd_cache_size(
+    "table_dd_cache_size", "The number of cached table data dictionary objects",
+    GLOBAL_VAR(table_dd_cache_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 1024 * 1024), DEFAULT(0), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_schema_def_size(
     "schema_definition_cache", "The number of cached schema definitions",
     GLOBAL_VAR(schema_def_size), CMD_LINE(REQUIRED_ARG),

@@ -1463,6 +1463,7 @@ ulong table_cache_size_per_instance;
 ulong schema_def_size;
 ulong stored_program_def_size;
 ulong table_def_size;
+ulong table_dd_cache_size;
 ulong tablespace_def_size;
 ulong what_to_log;
 ulong slow_launch_time;
