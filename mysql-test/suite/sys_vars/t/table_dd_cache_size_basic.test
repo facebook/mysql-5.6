@@ -1,0 +1,134 @@
+--source include/load_sysvars.inc
+
+###############################################################
+#           START OF table_dd_cache_size TESTS             #
+###############################################################
+
+##############################################################################
+# Saving initial value of table_dd_cache_size in a temporary variable     #
+##############################################################################
+
+SET @start_value = @@global.table_dd_cache_size;
+SELECT @start_value;
+
+--echo '#--------------------FN_DYNVARS_019_01------------------------#'
+#######################################################################
+#       Display the DEFAULT value of table_dd_cache_size           #
+#######################################################################
+
+SET @@global.table_dd_cache_size = 100;
+SET @@global.table_dd_cache_size = DEFAULT;
+SELECT @@global.table_dd_cache_size;
+
+
+--echo '#---------------------FN_DYNVARS_019_02-------------------------#'
+############################################### 
+#     Verify default value of variable        #
+###############################################
+
+SET @@global.table_dd_cache_size = DEFAULT;
+SELECT @@global.table_dd_cache_size = 0;
+
+
+--echo '#--------------------FN_DYNVARS_019_03------------------------#'
+##############################################################################
+#        Change the value of table_dd_cache_size to a valid value         #
+##############################################################################
+
+SET @@global.table_dd_cache_size = 1;
+SELECT @@global.table_dd_cache_size;
+SET @@global.table_dd_cache_size = 2;
+SELECT @@global.table_dd_cache_size;
+SET @@global.table_dd_cache_size = 524287;
+SELECT @@global.table_dd_cache_size;
+SET @@global.table_dd_cache_size = 524288;
+SELECT @@global.table_dd_cache_size;
+
+
+--echo '#--------------------FN_DYNVARS_019_04-------------------------#'
+#################################################################################
+#         Change the value of table_dd_cache_size to invalid value           #
+#################################################################################
+
+SET @@global.table_dd_cache_size = 0;
+SELECT @@global.table_dd_cache_size;
+SET @@global.table_dd_cache_size = -1024;
+SELECT @@global.table_dd_cache_size;
+SET @@global.table_dd_cache_size = 524289;
+SELECT @@global.table_dd_cache_size;
+SET @@global.table_dd_cache_size = 42949672950;
+SELECT @@global.table_dd_cache_size;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.table_dd_cache_size = 21221204.10;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.table_dd_cache_size = ON;
+
+
+--echo '#-------------------FN_DYNVARS_019_05----------------------------#'
+#################################################################################
+#       Test if accessing session table_dd_cache_size gives error            #
+#################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.table_dd_cache_size = 0;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.table_dd_cache_size;
+
+
+--echo '#----------------------FN_DYNVARS_019_06------------------------#'
+####################################################################
+# Check if the value in GLOBAL Tables matches values in variable   #
+####################################################################
+
+--disable_warnings
+SELECT @@global.table_dd_cache_size = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='table_dd_cache_size';
+--enable_warnings
+
+--echo '#---------------------FN_DYNVARS_019_07----------------------#'
+################################################################### 
+#      Check if TRUE and FALSE values can be used on variable     #
+################################################################### 
+
+SET @@global.table_dd_cache_size = TRUE;
+SELECT @@global.table_dd_cache_size;
+SET @@global.table_dd_cache_size = FALSE;
+SELECT @@global.table_dd_cache_size;
+
+
+--echo '#---------------------FN_DYNVARS_019_08----------------------#'
+###############################################################################
+#    Check if accessing variable without SCOPE points to same global variable #
+###############################################################################
+
+SET @@global.table_dd_cache_size = 5;
+SELECT @@table_dd_cache_size = @@global.table_dd_cache_size;
+
+--echo '#---------------------FN_DYNVARS_019_09----------------------#'
+################################################################################
+#   Check if table_dd_cache_size can be accessed with and without @@ sign   #
+################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET table_dd_cache_size = 1;
+--Error ER_PARSE_ERROR
+SET global.table_dd_cache_size = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT global.table_dd_cache_size;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT table_dd_cache_size = @@session.table_dd_cache_size;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.table_dd_cache_size = @start_value;
+SELECT @@global.table_dd_cache_size;
+
+
+################################################################
+#              END OF table_dd_cache_size TESTS             #
+################################################################
+

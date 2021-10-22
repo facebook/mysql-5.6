@@ -1,0 +1,95 @@
+SET @start_value = @@global.table_dd_cache_size;
+SELECT @start_value;
+@start_value
+0
+'#--------------------FN_DYNVARS_019_01------------------------#'
+SET @@global.table_dd_cache_size = 100;
+SET @@global.table_dd_cache_size = DEFAULT;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+0
+'#---------------------FN_DYNVARS_019_02-------------------------#'
+SET @@global.table_dd_cache_size = DEFAULT;
+SELECT @@global.table_dd_cache_size = 0;
+@@global.table_dd_cache_size = 0
+1
+'#--------------------FN_DYNVARS_019_03------------------------#'
+SET @@global.table_dd_cache_size = 1;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+1
+SET @@global.table_dd_cache_size = 2;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+2
+SET @@global.table_dd_cache_size = 524287;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+524287
+SET @@global.table_dd_cache_size = 524288;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+524288
+'#--------------------FN_DYNVARS_019_04-------------------------#'
+SET @@global.table_dd_cache_size = 0;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+0
+SET @@global.table_dd_cache_size = -1024;
+Warnings:
+Warning	1292	Truncated incorrect table_dd_cache_size value: '-1024'
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+0
+SET @@global.table_dd_cache_size = 524289;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+524289
+SET @@global.table_dd_cache_size = 42949672950;
+Warnings:
+Warning	1292	Truncated incorrect table_dd_cache_size value: '42949672950'
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+1048576
+SET @@global.table_dd_cache_size = 21221204.10;
+ERROR 42000: Incorrect argument type to variable 'table_dd_cache_size'
+SET @@global.table_dd_cache_size = ON;
+ERROR 42000: Incorrect argument type to variable 'table_dd_cache_size'
+'#-------------------FN_DYNVARS_019_05----------------------------#'
+SET @@session.table_dd_cache_size = 0;
+ERROR HY000: Variable 'table_dd_cache_size' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.table_dd_cache_size;
+ERROR HY000: Variable 'table_dd_cache_size' is a GLOBAL variable
+'#----------------------FN_DYNVARS_019_06------------------------#'
+SELECT @@global.table_dd_cache_size = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='table_dd_cache_size';
+@@global.table_dd_cache_size = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_019_07----------------------#'
+SET @@global.table_dd_cache_size = TRUE;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+1
+SET @@global.table_dd_cache_size = FALSE;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+0
+'#---------------------FN_DYNVARS_019_08----------------------#'
+SET @@global.table_dd_cache_size = 5;
+SELECT @@table_dd_cache_size = @@global.table_dd_cache_size;
+@@table_dd_cache_size = @@global.table_dd_cache_size
+1
+'#---------------------FN_DYNVARS_019_09----------------------#'
+SET table_dd_cache_size = 1;
+ERROR HY000: Variable 'table_dd_cache_size' is a GLOBAL variable and should be set with SET GLOBAL
+SET global.table_dd_cache_size = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.table_dd_cache_size = 1' at line 1
+SELECT global.table_dd_cache_size;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT table_dd_cache_size = @@session.table_dd_cache_size;
+ERROR HY000: Variable 'table_dd_cache_size' is a GLOBAL variable
+SET @@global.table_dd_cache_size = @start_value;
+SELECT @@global.table_dd_cache_size;
+@@global.table_dd_cache_size
+0

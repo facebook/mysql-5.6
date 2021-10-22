@@ -365,6 +365,7 @@ extern ulong table_cache_size;
 extern ulong schema_def_size;
 extern ulong stored_program_def_size;
 extern ulong table_def_size;
+extern ulong table_dd_cache_size;
 extern ulong tablespace_def_size;
 extern MYSQL_PLUGIN_IMPORT ulong max_connections;
 extern ulong opt_max_running_queries, opt_max_waiting_queries;
