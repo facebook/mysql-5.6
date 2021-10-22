@@ -92,13 +92,44 @@ struct sql_cond {
   sql_cond() = default;
 };
 
+class base_select_parser {
+ public:
+  base_select_parser(THD *thd, SELECT_LEX *select_lex)
+      : m_thd(thd), m_select_lex(select_lex) {}
+  virtual ~base_select_parser() = default;
+
+  THD *get_thd() const { return m_thd; }
+  TABLE *get_table() const { return m_table; }
+  SELECT_LEX *get_select_lex() const { return m_select_lex; }
+  uint get_index() const { return m_index; }
+  bool is_order_desc() const { return m_is_order_desc; }
+  const std::vector<Field *> &get_field_list() const { return m_field_list; }
+  const sql_cond *get_cond_list() const { return m_cond_list; }
+  uint get_cond_count() const { return m_cond_count; }
+  uint64_t get_select_limit() const { return m_select_limit; }
+  uint64_t get_offset_limit() const { return m_offset_limit; }
+
+ protected:
+  THD *m_thd;
+  TABLE *m_table;
+  TABLE_LIST *m_table_list;
+  SELECT_LEX *m_select_lex;
+  uint m_index;
+  bool m_is_order_desc;
+  std::vector<Field *> m_field_list;
+  sql_cond m_cond_list[MAX_NOSQL_COND_COUNT];
+  uint m_cond_count = 0;
+  uint64_t m_select_limit;
+  uint64_t m_offset_limit;
+};
+
 /*
   Extract necessary information from SELECT statements
  */
-class select_parser {
+class sql_select_parser : public base_select_parser {
  public:
-  select_parser(THD *thd, SELECT_LEX *select_lex)
-      : m_thd(thd), m_select_lex(select_lex) {
+  sql_select_parser(THD *thd, SELECT_LEX *select_lex)
+      : base_select_parser(thd, select_lex) {
     // Single table only
     DBUG_ASSERT(select_lex->table_list.elements == 1);
     m_table_list = select_lex->table_list.first;
@@ -247,31 +278,9 @@ class select_parser {
     return str;
   }
 
-  THD *get_thd() const { return m_thd; }
-  TABLE *get_table() const { return m_table; }
-  SELECT_LEX *get_select_lex() const { return m_select_lex; }
-  uint get_index() const { return m_index; }
-  bool is_order_desc() const { return m_is_order_desc; }
-  const std::vector<Field *> &get_field_list() const { return m_field_list; }
-  const sql_cond *get_cond_list() const { return m_cond_list; }
-  size_t get_cond_count() const { return m_cond_count; }
-  uint64_t get_select_limit() const { return m_select_limit; }
-  uint64_t get_offset_limit() const { return m_offset_limit; }
   const char *get_error_msg() const { return m_error_msg; }
 
  private:
-  THD *m_thd;
-  TABLE *m_table;
-  TABLE_LIST *m_table_list;
-  SELECT_LEX *m_select_lex;
-
-  uint m_index;
-  bool m_is_order_desc;
-  std::vector<Field *> m_field_list;
-  sql_cond m_cond_list[MAX_NOSQL_COND_COUNT];
-  uint m_cond_count = 0;
-  uint64_t m_select_limit;
-  uint64_t m_offset_limit;
   const char *m_error_msg;
 
   // Buffer to store snprintf-ed error messages
@@ -632,7 +641,7 @@ class select_parser {
  */
 class select_exec {
  public:
-  explicit select_exec(const select_parser &parser) : m_parser(parser) {
+  explicit select_exec(const base_select_parser &parser) : m_parser(parser) {
     m_table = parser.get_table();
     m_table_share = m_table->s;
     m_index = parser.get_index();
@@ -773,7 +782,7 @@ class select_exec {
   }
 
  private:
-  const select_parser &m_parser;
+  const base_select_parser &m_parser;
   TABLE *m_table;
   TABLE_SHARE *m_table_share;
   Rdb_ddl_manager *m_ddl_manager;
@@ -1911,7 +1920,7 @@ bool rocksdb_handle_single_table_select(THD *thd, SELECT_LEX *select_lex) {
   }
 
   // Parse the SELECT statement
-  select_parser select_stmt(thd, select_lex);
+  sql_select_parser select_stmt(thd, select_lex);
   if (select_stmt.parse()) {
     return handle_unsupported_bypass(thd, select_stmt.get_error_msg());
   }
