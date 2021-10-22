@@ -1,0 +1,35 @@
+-- source include/load_sysvars.inc
+
+SET @start_global_value = @@global.enable_cputime_with_wallclock;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_cputime_with_wallclock;
+
+#
+# correct types
+#
+SET GLOBAL enable_cputime_with_wallclock=1;
+SET GLOBAL enable_cputime_with_wallclock=0;
+SET GLOBAL enable_cputime_with_wallclock=true;
+SET GLOBAL enable_cputime_with_wallclock=false;
+SET GLOBAL enable_cputime_with_wallclock=on;
+SET GLOBAL enable_cputime_with_wallclock=off;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL enable_cputime_with_wallclock=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL enable_cputime_with_wallclock="foo";
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL enable_cputime_with_wallclock=-1;
+
+#
+# cleanup
+#
+SET GLOBAL enable_cputime_with_wallclock = @start_global_value;
