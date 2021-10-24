@@ -91,6 +91,38 @@ struct sql_cond {
   sql_cond() = default;
 };
 
+/*
+  base class covering both MySQL protocol and RPC protocol
+ */
+class base_protocol {
+ public:
+  virtual ~base_protocol() = default;
+  virtual void start_row() const = 0;
+  virtual bool end_row() const = 0;
+  virtual bool send_result_metadata() const = 0;
+  virtual bool send_result_set_row() const = 0;
+};
+
+class sql_protocol : public base_protocol {
+ public:
+  explicit sql_protocol(THD *thd, const mem_root_deque<Item *> &item_list)
+      : m_thd(thd), m_protocol(thd->get_protocol()), m_item_list(item_list) {}
+  void start_row() const override { m_protocol->start_row(); }
+  bool end_row() const override { return m_protocol->end_row(); }
+  bool send_result_metadata() const override {
+    return m_thd->send_result_metadata(
+        m_item_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+  }
+  bool send_result_set_row() const override {
+    return m_thd->send_result_set_row(m_item_list);
+  }
+
+ private:
+  THD *m_thd;
+  Protocol *m_protocol;
+  const mem_root_deque<Item *> &m_item_list;
+};
+
 class base_select_parser {
  public:
   base_select_parser(THD *thd, Query_block *select_lex)
@@ -639,7 +671,9 @@ class sql_select_parser : public base_select_parser {
  */
 class select_exec {
  public:
-  explicit select_exec(const base_select_parser &parser) : m_parser(parser) {
+  explicit select_exec(const base_select_parser &parser,
+                       const base_protocol &protocol)
+      : m_parser(parser), m_protocol(protocol) {
     m_table = parser.get_table();
     m_table_share = m_table->s;
     m_index = parser.get_index();
@@ -650,7 +684,6 @@ class select_exec {
     m_index_is_pk = (m_index == m_table_share->primary_key);
     m_handler = static_cast<ha_rocksdb *>(m_table->file);
     m_thd = parser.get_thd();
-    m_protocol = m_thd->get_protocol();
     m_examined_rows = 0;
     m_rows_sent = 0;
     m_row_count = 0;
@@ -780,6 +813,7 @@ class select_exec {
 
  private:
   const base_select_parser &m_parser;
+  const base_protocol &m_protocol;
   TABLE *m_table;
   TABLE_SHARE *m_table_share;
   Rdb_ddl_manager *m_ddl_manager;
@@ -788,7 +822,6 @@ class select_exec {
   std::shared_ptr<Rdb_key_def> m_pk_def;
   ha_rocksdb *m_handler;
   THD *m_thd;
-  Protocol *m_protocol;
   std::unique_ptr<Rdb_converter> m_converter;
   uint m_index;
   KEY *m_index_info;
@@ -1359,9 +1392,7 @@ bool INLINE_ATTR select_exec::run() {
   scan_value();
 
   // Prepare to send
-  if (m_thd->send_result_metadata(
-          *m_parser.get_select_lex()->get_fields_list(),
-          Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
+  if (m_protocol.send_result_metadata()) {
     return true;
   }
 
@@ -1376,15 +1407,12 @@ bool INLINE_ATTR select_exec::run() {
   Send the entire row in select_lex->item_list and record[0]
  */
 bool inline select_exec::send_row() {
-  m_protocol->start_row();
-
-  auto select_lex = m_parser.get_select_lex();
+  m_protocol.start_row();
 
   // This works because we read everything into record and all the items
   // are pointing into the record[0]
   // This is the slow path as we need to unpack everything into record[0]
-  if (m_thd->send_result_set_row(*select_lex->get_fields_list()) ||
-      m_protocol->end_row()) {
+  if (m_protocol.send_result_set_row() || m_protocol.end_row()) {
     return true;
   }
 
@@ -1949,7 +1977,8 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
   }
 
   // Execute SELECT statement
-  select_exec exec(select_stmt);
+  sql_protocol protocol(thd, *select_stmt.get_select_lex()->get_fields_list());
+  select_exec exec(select_stmt, protocol);
   if (exec.run()) {
     if (exec.is_unsupported()) {
       return handle_unsupported_bypass(thd, exec.get_error_msg());
