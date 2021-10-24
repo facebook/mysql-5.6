@@ -6004,6 +6004,8 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
             "Could not get the transaction log file name from the engine. "
             "Using the latest for initializing mysqld state");
 
+        log_file_to_read.assign(last_binlog_file_with_gtids);
+
         // In innodb, engine_binlog_file is populated _only_ when there are
         // trxs to recover (i.e trxs are in prepared state) during startup
         // and engine recovery. Hence, engine_binlog_file being empty indicates
@@ -6026,11 +6028,12 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
           "in file %s",
           max_pos, log_file_to_read.c_str());
     } else {
-      log_file_to_read.assign(last_binlog_file_with_gtids);
+      log_file_to_read.assign(full_log_name);
       max_pos = ULLONG_MAX;
     }
-    if (read_gtids_from_binlog(full_log_name, all_gtids, NULL, NULL, sid_map,
-                               verify_checksum, is_relay_log, max_pos,
+
+    if (read_gtids_from_binlog(log_file_to_read.c_str(), all_gtids, NULL, NULL,
+                               sid_map, verify_checksum, is_relay_log, max_pos,
                                max_prev_hlc) == ERROR) {
       error = 1;
       goto end;
@@ -10081,7 +10084,8 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
     */
     if ((ev = binlog_file_reader.read_event_object()) &&
         ev->get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT &&
-        (ev->common_header->flags & LOG_EVENT_BINLOG_IN_USE_F ||
+        (enable_raft_plugin ||
+         (ev->common_header->flags & LOG_EVENT_BINLOG_IN_USE_F) ||
          DBUG_EVALUATE_IF("eval_force_bin_log_recovery", true, false))) {
       LogErr(INFORMATION_LEVEL, ER_BINLOG_RECOVERING_AFTER_CRASH_USING,
              opt_name);
@@ -10119,16 +10123,21 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
        * coordinates in init_slave().
        */
       int memory_page_size = my_getpagesize();
-      char tmp_binlog_file[FN_REFLEN + 1] = {0};
-      my_off_t tmp_binlog_pos = 0;
       MEM_ROOT mem_root(key_memory_binlog_recover_exec, memory_page_size);
       xid_to_gtid_container xids(&mem_root);
-      /*
-        Temp variables help trigger fetching the file/offset info even
-        during a clean recovery.
-      */
-      error = ha_recover(&xids, nullptr, &engine_binlog_max_gtid,
-                         tmp_binlog_file, &tmp_binlog_pos);
+      if (!enable_raft_plugin) {
+        /*
+          Temp variables help trigger fetching the file/offset info even
+          during a clean recovery.
+        */
+        char tmp_binlog_file[FN_REFLEN + 1] = {0};
+        my_off_t tmp_binlog_pos = 0;
+        error = ha_recover(&xids, nullptr, &engine_binlog_max_gtid,
+                           tmp_binlog_file, &tmp_binlog_pos);
+      } else {
+        error = ha_recover(&xids, nullptr, &engine_binlog_max_gtid,
+                           engine_binlog_file, &engine_binlog_pos);
+      }
     }
 
     delete ev;
