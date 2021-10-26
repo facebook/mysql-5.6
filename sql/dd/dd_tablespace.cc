@@ -64,7 +64,7 @@ bool get_and_store_tablespace_name(THD *thd, const T *obj,
   }
 
   if (tablespace_name) {
-    tablespace_set->insert(tablespace_name);
+    tablespace_set->insert_unique(tablespace_name);
   }
 
   return false;
