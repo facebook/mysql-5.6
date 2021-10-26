@@ -3736,6 +3736,7 @@ Item_field *get_best_field(Item_field *item_field, COND_EQUAL *cond_equal) {
 static bool check_simple_equality(THD *thd, Item *left_item, Item *right_item,
                                   Item *item, COND_EQUAL *cond_equal,
                                   bool *simple_equality) {
+  assert(*THR_MALLOC == thd->mem_root);
   *simple_equality = false;
 
   if (left_item->type() == Item::REF_ITEM &&
@@ -3791,13 +3792,13 @@ static bool check_simple_equality(THD *thd, Item *left_item, Item *right_item,
     /* Copy the found multiple equalities at the current level if needed */
     if (left_copyfl) {
       /* left_item_equal of an upper level contains left_item */
-      left_item_equal = new Item_equal(left_item_equal);
+      left_item_equal = new (thd->mem_root) Item_equal(left_item_equal);
       if (left_item_equal == nullptr) return true;
       cond_equal->current_level.push_back(left_item_equal);
     }
     if (right_copyfl) {
       /* right_item_equal of an upper level contains right_item */
-      right_item_equal = new Item_equal(right_item_equal);
+      right_item_equal = new (thd->mem_root) Item_equal(right_item_equal);
       if (right_item_equal == nullptr) return true;
       cond_equal->current_level.push_back(right_item_equal);
     }
@@ -3822,8 +3823,8 @@ static bool check_simple_equality(THD *thd, Item *left_item, Item *right_item,
       } else {
         /* None of the fields was found in multiple equalities */
         Item_equal *item_equal =
-            new Item_equal(down_cast<Item_field *>(left_item),
-                           down_cast<Item_field *>(right_item));
+            new (thd->mem_root) Item_equal(down_cast<Item_field *>(left_item),
+                                           down_cast<Item_field *>(right_item));
         if (item_equal == nullptr) return true;
         cond_equal->current_level.push_back(item_equal);
       }
@@ -3869,7 +3870,8 @@ static bool check_simple_equality(THD *thd, Item *left_item, Item *right_item,
       if (field_item->result_type() == STRING_RESULT) {
         const CHARSET_INFO *cs = field_item->field->charset();
         if (!item) {
-          Item_func_eq *const eq_item = new Item_func_eq(left_item, right_item);
+          Item_func_eq *const eq_item =
+              new (thd->mem_root) Item_func_eq(left_item, right_item);
           if (eq_item == nullptr || eq_item->set_cmp_func()) return true;
           eq_item->quick_fix_field();
           item = eq_item;
@@ -3882,7 +3884,7 @@ static bool check_simple_equality(THD *thd, Item *left_item, Item *right_item,
       bool copyfl;
       Item_equal *item_equal = find_item_equal(cond_equal, field_item, &copyfl);
       if (copyfl) {
-        item_equal = new Item_equal(item_equal);
+        item_equal = new (thd->mem_root) Item_equal(item_equal);
         if (item_equal == nullptr) return true;
         cond_equal->current_level.push_back(item_equal);
       }
@@ -3894,7 +3896,7 @@ static bool check_simple_equality(THD *thd, Item *left_item, Item *right_item,
         */
         if (item_equal->add(thd, const_item, field_item)) return true;
       } else {
-        item_equal = new Item_equal(const_item, field_item);
+        item_equal = new (thd->mem_root) Item_equal(const_item, field_item);
         if (item_equal == nullptr) return true;
         cond_equal->current_level.push_back(item_equal);
       }

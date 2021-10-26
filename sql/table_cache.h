@@ -49,6 +49,17 @@ class Table_cache_element;
 
 extern ulong table_cache_size_per_instance, table_cache_instances;
 
+struct Lex_cstring_hash {
+  std::size_t operator()(const LEX_CSTRING &k) const {
+    return murmur3_32(reinterpret_cast<const uchar *>(k.str), k.length, 0);
+  }
+
+  bool operator()(const LEX_CSTRING &lhs, const LEX_CSTRING &rhs) const {
+    return lhs.length == rhs.length &&
+           memcmp(lhs.str, rhs.str, lhs.length) == 0;
+  }
+};
+
 /**
   Cache for open TABLE objects.
 
@@ -98,7 +109,9 @@ class Table_cache {
     of used TABLE objects in this table cache is stored.
     We use Table_cache_element::share::table_cache_key as key for this hash.
   */
-  std::unordered_map<std::string, std::unique_ptr<Table_cache_element>> m_cache;
+  std::unordered_map<LEX_CSTRING, std::unique_ptr<Table_cache_element>,
+                     Lex_cstring_hash, Lex_cstring_hash>
+      m_cache;
 
   /**
     List that contains all TABLE instances for tables in this particular
@@ -366,12 +379,11 @@ bool Table_cache::add_used_table(THD *thd, TABLE *table, bool acquire_lock) {
       Allocate new Table_cache_element object and add it to the cache
       and array in TABLE_SHARE.
     */
-    std::string key(table->s->table_cache_key.str,
-                    table->s->table_cache_key.length);
-    assert(m_cache.count(key) == 0);
+    assert(m_cache.count(table->s->table_cache_key) == 0);
 
     el = new Table_cache_element(table->s);
-    m_cache.emplace(key, std::unique_ptr<Table_cache_element>(el));
+    m_cache.emplace(table->s->table_cache_key,
+                    std::unique_ptr<Table_cache_element>(el));
     table->s->cache_element[table_cache_manager.cache_index(this)] = el;
   }
 
@@ -412,9 +424,7 @@ void Table_cache::remove_table(TABLE *table) {
   m_table_count--;
 
   if (el->used_tables.is_empty() && el->free_tables.is_empty()) {
-    std::string key(table->s->table_cache_key.str,
-                    table->s->table_cache_key.length);
-    m_cache.erase(key);
+    m_cache.erase(table->s->table_cache_key);
     /*
       Remove reference to deleted cache element from array
       in the TABLE_SHARE.
@@ -452,7 +462,7 @@ TABLE *Table_cache::get_table(THD *thd, const char *key, size_t key_length,
 
   *share = nullptr;
 
-  std::string key_str(key, key_length);
+  LEX_CSTRING key_str{key, key_length};
   const auto el_it = m_cache.find(key_str);
   if (el_it == m_cache.end()) return nullptr;
   Table_cache_element *el = el_it->second.get();
