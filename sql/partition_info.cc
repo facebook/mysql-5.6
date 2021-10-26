@@ -2797,7 +2797,7 @@ bool fill_partition_tablespace_names(partition_info *part_info,
   while ((part_elem = part_it++)) {
     // Add tablespace name from partition elements, if used.
     if (part_elem->tablespace_name && strlen(part_elem->tablespace_name)) {
-      tablespace_set->insert(part_elem->tablespace_name);
+      tablespace_set->insert_unique(part_elem->tablespace_name);
     }
 
     // Traverse through all subpartitions.
@@ -2806,7 +2806,7 @@ bool fill_partition_tablespace_names(partition_info *part_info,
     while ((sub_elem = sub_it++)) {
       // Add tablespace name from sub-partition elements, if used.
       if (sub_elem->tablespace_name && strlen(sub_elem->tablespace_name)) {
-        tablespace_set->insert(sub_elem->tablespace_name);
+        tablespace_set->insert_unique(sub_elem->tablespace_name);
       }
     }
   }

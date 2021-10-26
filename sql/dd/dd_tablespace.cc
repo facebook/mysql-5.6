@@ -64,7 +64,7 @@ bool get_and_store_tablespace_name(THD *thd, const T *obj,
   }
 
   if (!tablespace_name.empty()) {
-    tablespace_set->insert(tablespace_name.c_str());
+    tablespace_set->insert_unique(tablespace_name.c_str());
   }
 
   return false;

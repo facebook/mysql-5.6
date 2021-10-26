@@ -891,11 +891,14 @@ class Opt_trace_disable_I_S {
 @endverbatim
   */
   Opt_trace_disable_I_S(Opt_trace_context *ctx_arg, bool disable_arg) {
-    if (disable_arg) {
-      ctx = ctx_arg;
-      ctx->disable_I_S_for_this_and_children();
-    } else
-      ctx = nullptr;
+    if (unlikely(ctx_arg->is_started())) {
+      if (disable_arg) {
+        ctx = ctx_arg;
+        ctx->disable_I_S_for_this_and_children();
+        return;
+      }
+    }
+    ctx = nullptr;
   }
 
   /// Destructor. Restores trace's "enabled" property to its previous value.

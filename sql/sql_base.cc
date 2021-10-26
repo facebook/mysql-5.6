@@ -5378,23 +5378,6 @@ end:
   return error;
 }
 
-namespace {
-
-struct schema_hash {
-  size_t operator()(const Table_ref *table) const {
-    return std::hash<std::string>()(std::string(table->db, table->db_length));
-  }
-};
-
-struct schema_key_equal {
-  bool operator()(const Table_ref *a, const Table_ref *b) const {
-    return a->db_length == b->db_length &&
-           memcmp(a->db, b->db, a->db_length) == 0;
-  }
-};
-
-}  // namespace
-
 /**
   Run the server hook called "before_dml". This is a hook originated from
   replication that allow server plugins to execute code before any DML
@@ -5519,7 +5502,7 @@ bool get_and_lock_tablespace_names_nsec(THD *thd, Table_ref *tables_start,
       //    ALTER TABLE t TABLESPACE s2, where t is defined in
       //    some tablespace s)
       if (table->target_tablespace_name.length > 0) {
-        tablespace_set.insert(table->target_tablespace_name.str);
+        tablespace_set.insert_unique(table->target_tablespace_name.str);
       }
 
       // No need to try this for tables to be created since they are not
@@ -5601,8 +5584,7 @@ bool lock_table_names_nsec(THD *thd, Table_ref *tables_start,
   Table_ref *table;
   MDL_request global_request;
   MDL_request backup_lock_request;
-  malloc_unordered_set<Table_ref *, schema_hash, schema_key_equal> schema_set(
-      PSI_INSTRUMENT_ME);
+  Prealloced_array<std::string, 4> schema_set(PSI_NOT_INSTRUMENTED);
   bool need_global_read_lock_protection = false;
   bool acquire_backup_lock = false;
 
@@ -5655,7 +5637,7 @@ bool lock_table_names_nsec(THD *thd, Table_ref *tables_start,
       }
 
       if (!(flags & MYSQL_OPEN_SKIP_SCOPED_MDL_LOCK)) {
-        schema_set.insert(table);
+        schema_set.insert_unique(std::string(table->db, table->db_length));
       }
       need_global_read_lock_protection = true;
     }
@@ -5670,10 +5652,10 @@ bool lock_table_names_nsec(THD *thd, Table_ref *tables_start,
       Scoped locks: Take intention exclusive locks on all involved
       schemas.
     */
-    for (const Table_ref *table_l : schema_set) {
+    for (const auto &db : schema_set) {
       MDL_request *schema_request = new (thd->mem_root) MDL_request;
       if (schema_request == nullptr) return true;
-      MDL_REQUEST_INIT(schema_request, MDL_key::SCHEMA, table_l->db, "",
+      MDL_REQUEST_INIT(schema_request, MDL_key::SCHEMA, db.c_str(), "",
                        MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
       mdl_requests.push_front(schema_request);
       if (schema_reqs) schema_reqs->push_back(schema_request);
@@ -5716,8 +5698,8 @@ bool lock_table_names_nsec(THD *thd, Table_ref *tables_start,
     return true;
 
   // Check schema read only for all schemas.
-  for (const Table_ref *table_l : schema_set)
-    if (check_schema_readonly(thd, table_l->db)) return true;
+  for (const auto &db : schema_set)
+    if (check_schema_readonly(thd, db.c_str())) return true;
 
   /*
     Phase 4: Lock tablespace names. This cannot be done as part
