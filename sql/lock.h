@@ -28,6 +28,7 @@
 #include <string>
 
 #include "map_helpers.h"
+#include "prealloced_array.h"
 #include "sql/mdl.h"
 
 class THD;
@@ -53,7 +54,7 @@ MYSQL_LOCK *mysql_lock_merge(MYSQL_LOCK *a, MYSQL_LOCK *b);
 bool lock_schema_name(THD *thd, const char *db);
 
 // Hash set to hold set of tablespace names.
-typedef malloc_unordered_set<std::string> Tablespace_hash_set;
+using Tablespace_hash_set = Prealloced_array<std::string, 4>;
 
 // Lock tablespace names.
 bool lock_tablespace_names_nsec(THD *thd, Tablespace_hash_set *tablespace_set,
