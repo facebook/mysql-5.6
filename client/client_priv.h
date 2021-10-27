@@ -208,6 +208,7 @@ enum options_client {
   OPT_THREAD_PRIORITY,
   OPT_COMPRESS_DATA,
   OPT_COMPRESS_DATA_CHUNK_SIZE,
+  OPT_ORDER_BY_PRIMARY_FORCE_INDEX,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
