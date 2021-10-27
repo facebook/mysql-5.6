@@ -130,7 +130,8 @@ static bool verbose = false, opt_no_create_info = false, opt_no_data = false,
 static bool opt_ignore_views = false, opt_rocksdb = false,
             opt_rocksdb_bulk_load_allow_sk = false,
             opt_order_by_primary_desc = false, opt_rocksdb_bulk_load = false,
-            opt_innodb_stats_on_metadata = false, opt_set_minimum_hlc = false;
+            opt_innodb_stats_on_metadata = false, opt_set_minimum_hlc = false,
+            opt_order_by_primary_force_index = false;
 static bool insert_pat_inited = false, debug_info_flag = false,
             debug_check_flag = false;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
@@ -582,6 +583,16 @@ static struct my_option my_long_options[] = {
      "Taking backup ORDER BY primary key DESC.", &opt_order_by_primary_desc,
      &opt_order_by_primary_desc, 0, GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0,
      nullptr},
+    {"order-by-primary-force-index", OPT_ORDER_BY_PRIMARY_FORCE_INDEX,
+     "Use force index when ordering data by primary key. Requires "
+     "--order-by-primary to take effect.",
+     &opt_order_by_primary_force_index, &opt_order_by_primary_force_index, 0,
+     GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"password", 'p',
+     "Password to use when connecting to server. If password is not given it's "
+     "solicited on the tty.",
+     nullptr, nullptr, nullptr, GET_PASSWORD, OPT_ARG, 0, 0, 0, nullptr, 0,
+     nullptr},
 #include "multi_factor_passwordopt-longopts.h"
 #ifdef _WIN32
     {"pipe", 'W', "Use named pipes to connect to server.", 0, 0, 0, GET_NO_ARG,
@@ -777,6 +788,7 @@ static char *quote_name(char *name, char *buff, bool force);
 static const char *quote_name(const char *name, char *buff, bool force);
 char check_if_ignore_table(const char *table_name, char *table_type);
 bool is_infoschema_db(const char *db);
+static bool has_useable_primary_key(const char *db, const char *table);
 static char *primary_key_fields(const char *table_name, const bool desc);
 static bool get_view_structure(char *table, char *db);
 static bool dump_all_views_in_db(char *database);
@@ -1269,6 +1281,15 @@ static int get_options(int *argc, char ***argv) {
             "%s: --compress-data-chunk-size > 0 must be used with "
             "--compress-data.\n",
             my_progname);
+    return (EX_USAGE);
+  }
+
+  if (opt_order_by_primary_force_index &&
+      !(opt_order_by_primary || opt_order_by_primary_desc ||
+        opt_rocksdb_bulk_load)) {
+    fprintf(stderr,
+            "--opt-order-by-primary-force-index requires either "
+            "-- order-by-primary or --order-by-primary-desc. ");
     return (EX_USAGE);
   }
 
@@ -3886,6 +3907,7 @@ static void dump_table(char *table, char *db) {
   bool real_columns[MAX_FIELDS];
   DBUG_TRACE;
   char *order_by = nullptr;
+  const char *force_index = nullptr;
 
   /*
     Make sure you get the create table info before the following check for
@@ -3975,9 +3997,13 @@ static void dump_table(char *table, char *db) {
   init_dynamic_string_checked(&query_string, "", 1024);
   if (extended_insert) init_dynamic_string_checked(&extended_row, "", 1024);
 
-  if (opt_order_by_primary || opt_order_by_primary_desc)
+  if (opt_order_by_primary || opt_order_by_primary_desc) {
+    if (opt_order_by_primary_force_index && has_useable_primary_key(db, table))
+      force_index = " FORCE INDEX(PRIMARY) ";
+
     order_by = primary_key_fields(result_table,
                                   opt_order_by_primary_desc ? true : false);
+  }
 
   if (path) {
     char filename[FN_REFLEN], tmp_path[FN_REFLEN];
@@ -4035,14 +4061,21 @@ static void dump_table(char *table, char *db) {
     dynstr_append_checked(&query_string, " FROM ");
     dynstr_append_checked(&query_string, result_table);
 
+    if (force_index) {
+      dynstr_append_checked(&query_string, force_index);
+    }
+
     if (where) {
       dynstr_append_checked(&query_string, " WHERE ");
       dynstr_append_checked(&query_string, where);
     }
 
     if (order_by) {
-      dynstr_append_checked(&query_string, " ORDER BY ");
-      dynstr_append_checked(&query_string, order_by);
+      /* If force index is used, then skip the order by */
+      if (force_index == nullptr) {
+        dynstr_append_checked(&query_string, " ORDER BY ");
+        dynstr_append_checked(&query_string, order_by);
+      }
       my_free(order_by);
       order_by = nullptr;
     }
@@ -4068,6 +4101,8 @@ static void dump_table(char *table, char *db) {
     dynstr_append_checked(&query_string, " FROM ");
     dynstr_append_checked(&query_string, result_table);
 
+    if (force_index) dynstr_append_checked(&query_string, force_index);
+
     if (where) {
       bool where_freemem = false;
       char const *where_text =
@@ -4082,11 +4117,24 @@ static void dump_table(char *table, char *db) {
       bool order_by_freemem = false;
       char const *order_by_text =
           fix_identifier_with_newline(order_by, &order_by_freemem);
-      print_comment(md_result_file, false, "-- ORDER BY:  %s\n", order_by_text);
+      if (force_index != nullptr) {
+        print_comment(md_result_file, false, "-- FORCE INDEX PRIMARY KEY\n");
+        print_comment(md_result_file, false, "-- ORDER BY PRIMARY KEY:  %s\n",
+                      order_by_text);
+      } else {
+        print_comment(md_result_file, false, "-- ORDER BY:  %s\n",
+                      order_by_text);
+      }
       if (order_by_freemem) my_free(const_cast<char *>(order_by_text));
 
-      dynstr_append_checked(&query_string, " ORDER BY ");
-      dynstr_append_checked(&query_string, order_by_text);
+      /*
+        If force index is used, then skip the order by, but allow order_by
+        information to be logged to the dump.
+       */
+      if (force_index == nullptr) {
+        dynstr_append_checked(&query_string, " ORDER BY ");
+        dynstr_append_checked(&query_string, order_by_text);
+      }
       my_free(order_by);
       order_by = nullptr;
     }
@@ -5781,6 +5829,65 @@ bool is_infoschema_db(const char *db) {
   }
 
   return false;
+}
+
+/*
+  Checks whether the table has a PRIMARY key and uses INNODB/ROCKSDB.
+
+  SYNOPSIS
+    bool has_usable_primary_key(const char *db, const char *table)
+    RETURNS     bool table has a PRIMARY key and is INNODB or ROCKSDB
+    db          database name
+    table       table name
+
+  DESCRIPTION
+    Use information_schema.table_constraints and information_schema.tables to
+    determine if table has a PRIMARY key and runs on either INNODB or ROCKSDB.
+*/
+
+static bool has_useable_primary_key(const char *db, const char *table) {
+  MYSQL_RES *res = nullptr;
+  bool result = false;
+
+  const char query[] =
+      "SELECT CONSTRAINT_NAME FROM "
+      "INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS t1 "
+      "JOIN INFORMATION_SCHEMA.TABLES as t2 "
+      "WHERE t1.CONSTRAINT_NAME = 'PRIMARY' "
+      "AND t1.TABLE_SCHEMA = '%s' AND t1.TABLE_NAME = '%s' "
+      "AND t1.TABLE_SCHEMA = t2.TABLE_SCHEMA "
+      "AND t1.TABLE_NAME = t2.TABLE_NAME "
+      "AND t2.ENGINE IN ('ROCKSDB', 'INNODB') "
+      "LIMIT 1";
+  /* Buffer to store query with escaped table schema/name and \0 */
+  char sql[sizeof(query) + NAME_LEN * 2 * 2 + 1];
+
+  char db_buf[NAME_LEN * 2 + 3];
+  char table_buf[NAME_LEN * 2 + 3];
+
+  if (mysql_real_escape_string_quote(mysql, db_buf, db, strlen(db), '\'') ==
+          (ulong)-1 ||
+      mysql_real_escape_string_quote(mysql, table_buf, table, strlen(table),
+                                     '\'') == (ulong)-1) {
+    goto cleanup;
+  }
+
+  snprintf(sql, sizeof(sql), query, db_buf, table_buf);
+  if (mysql_query(mysql, sql) || !(res = mysql_store_result(mysql))) {
+    fprintf(stderr,
+            "Warning: Couldn't determine if table %s.%s "
+            "has a PRIMARY key; error (%s) returned\n",
+            db, table, mysql_error(mysql));
+    goto cleanup;
+  }
+
+  /* If no data was returned, then no primary key was found */
+  if (mysql_fetch_row(res) != nullptr) result = true;
+
+cleanup:
+  if (res) mysql_free_result(res);
+
+  return result;
 }
 
 /*
