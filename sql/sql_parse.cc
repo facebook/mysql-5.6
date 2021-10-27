@@ -7910,10 +7910,12 @@ static void store_warnings_in_resp_attrs(THD *thd) {
   }
 }
 
+static std::string response_attrs_contain_server_cpu_key =
+    "response_attrs_contain_server_cpu";
+
 static void store_server_cpu_in_resp_attrs(THD *thd, ulonglong cpu_time) {
   auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
 
-  std::string attr_key = "response_attrs_contain_server_cpu";
   if (tracker->is_enabled() && /* check if session tracker is not enabled */
       /* check if the variable is enabled */
       (thd->variables.response_attrs_contain_server_cpu ||
@@ -7922,7 +7924,7 @@ static void store_server_cpu_in_resp_attrs(THD *thd, ulonglong cpu_time) {
         * to avoid type conversions. The query attribute will be considered
         * enabled only if its value is set "1".
         */
-       thd->get_query_attr(attr_key) == "1")) {
+       thd->get_query_attr(response_attrs_contain_server_cpu_key) == "1")) {
     /* Update session tracker with server CPU time */
     static LEX_CSTRING key = {STRING_WITH_LEN("server_cpu")};
     std::string value_str = std::to_string(cpu_time);
