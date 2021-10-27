@@ -85,6 +85,8 @@
 #include "sql_string.h"
 #include "thr_mutex.h"
 #include "typelib.h"
+// stop_handle_slave_stats_daemon, start_handle_slave_stats_daemon
+#include "slave_stats_daemon.h"
 
 int max_binlog_dump_events = 0;  // unlimited
 bool opt_sporadic_binlog_dump_fail = false;
@@ -210,7 +212,7 @@ err:
  */
 int register_raft_followers(
     const std::unordered_map<std::string, std::string> &follower_info,
-    bool /*is_leader*/, bool /*is_shutdown*/) {
+    bool is_leader, bool is_shutdown) {
   int error = 0;
 
   mysql_mutex_lock(&LOCK_slave_list);
@@ -270,6 +272,15 @@ int register_raft_followers(
   }
 
   mysql_mutex_unlock(&LOCK_slave_list);
+
+  // clean up - stop previous run of slave_stats_daemon, if any.
+  stop_handle_slave_stats_daemon();
+
+  if (!is_shutdown && !is_leader) {
+    // Spawn slave_stats_daemon thread only for followers and we are not
+    // shutting down raft.
+    start_handle_slave_stats_daemon();
+  }
 
   return error;
 }

@@ -1,0 +1,161 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+set @@GLOBAL.raft_send_replica_statistics=1;
+set @@GLOBAL.raft_send_replica_statistics=1;
+select @@write_stats_frequency;
+@@write_stats_frequency
+0
+select @@write_stats_count;
+@@write_stats_count
+0
+select sleep(2);
+sleep(2)
+0
+select count(*) = 0 as stats_samples_collected from performance_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+@@write_stats_frequency
+1
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+sleep(2)
+0
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.raft_send_replica_statistics=0;
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) > 1 as more_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+more_than_1_sec_old_most_recent_stats
+1
+set @@GLOBAL.raft_send_replica_statistics=1;
+select now() into @t;
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+1
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+@@write_stats_frequency
+1
+set @@GLOBAL.write_stats_count=1;
+select sleep(2);
+sleep(2)
+0
+select count(*) = 1 as stats_samples_collected from performance_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.write_stats_count=0;
+select sleep(2);
+sleep(2)
+0
+select count(*) = 0 as stats_samples_collected from performance_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.write_stats_count=2;
+select sleep(3);
+sleep(3)
+0
+select count(*) = 2 as stats_samples_collected from performance_schema.replica_statistics;
+stats_samples_collected
+1
+"Transferring leadership from SERVER 1 to SERVER 2"
+include/raft_promote_to_leader.inc
+set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
+set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
+select now() into @t;
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+1
+"Transferring leadership back to SERVER 1"
+include/raft_promote_to_leader.inc
+set @@GLOBAL.rpl_raft_allow_start_election=OFF;
+set @@GLOBAL.rpl_raft_allow_start_election=OFF;
+set @@GLOBAL.rpl_raft_allow_start_election=OFF;
+select @@write_stats_frequency;
+@@write_stats_frequency
+1
+set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+sleep(2)
+0
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+stats_samples_collected
+1
+select sleep(2);
+sleep(2)
+0
+select now() into @t;
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+1
+set @@GLOBAL.rpl_raft_allow_start_election=ON;
+set @@GLOBAL.rpl_raft_allow_start_election=ON;
+set @@GLOBAL.rpl_raft_allow_start_election=ON;
+select @@write_stats_frequency;
+@@write_stats_frequency
+1
+set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+sleep(2)
+0
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+stats_samples_collected
+1
+set @@global.debug= '+d,dbug.replica_stats_force_disconnet_primary';
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) > 1 as more_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+more_than_1_sec_old_most_recent_stats
+1
+set @@global.debug= '-d,dbug.replica_stats_force_disconnet_primary';
+select now() into @t;
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+1
+set @@GLOBAL.write_stats_count=0;
+set @@GLOBAL.write_stats_frequency=0;
+set @@GLOBAL.raft_send_replica_statistics=0;
+set @@GLOBAL.write_stats_count=0;
+set @@GLOBAL.write_stats_frequency=0;
+set @@GLOBAL.raft_send_replica_statistics=0;
+include/rpl_end.inc

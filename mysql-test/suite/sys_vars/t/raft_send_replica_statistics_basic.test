@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of raft_send_replica_statistics is OFF
+SELECT @@global.raft_send_replica_statistics;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.raft_send_replica_statistics;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo raft_send_replica_statistics is a dynamic variable (change to ON)
+set @@global.raft_send_replica_statistics = ON;
+SELECT @@global.raft_send_replica_statistics;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.raft_send_replica_statistics = OFF;
+SELECT @@global.raft_send_replica_statistics;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (1)
+--let restart_parameters=restart: --raft_send_replica_statistics=ON
+--source include/restart_mysqld.inc
+
+SELECT @@global.raft_send_replica_statistics;
+
+--echo restart the server with the default value (OFF)
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
+SELECT @@global.raft_send_replica_statistics;

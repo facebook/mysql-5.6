@@ -1,0 +1,27 @@
+Default value of raft_send_replica_statistics is OFF
+SELECT @@global.raft_send_replica_statistics;
+@@global.raft_send_replica_statistics
+0
+SELECT @@session.raft_send_replica_statistics;
+ERROR HY000: Variable 'raft_send_replica_statistics' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+raft_send_replica_statistics is a dynamic variable (change to ON)
+set @@global.raft_send_replica_statistics = ON;
+SELECT @@global.raft_send_replica_statistics;
+@@global.raft_send_replica_statistics
+1
+restore the default value
+SET @@global.raft_send_replica_statistics = OFF;
+SELECT @@global.raft_send_replica_statistics;
+@@global.raft_send_replica_statistics
+0
+restart the server with non default value (1)
+# restart: --raft_send_replica_statistics=ON
+SELECT @@global.raft_send_replica_statistics;
+@@global.raft_send_replica_statistics
+1
+restart the server with the default value (OFF)
+# restart: --raft_send_replica_statistics=ON
+SELECT @@global.raft_send_replica_statistics;
+@@global.raft_send_replica_statistics
+1
