@@ -98,6 +98,11 @@ change master to master_user='root';
 -- source include/show_slave_status.inc
 
 connection master;
+select now() into @t;
+# wait until we start receiving replica_statistics again and there's at least
+# one newer entry
+let $wait_condition= select timediff(max(timestamp), @t) > 0 from performance_schema.replica_statistics;
+--source include/wait_condition.inc
 select sleep(2);
 
 # Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old
@@ -125,6 +130,11 @@ connection slave;
 sync_with_master;
 
 connection master;
+select now() into @t;
+# wait until we start receiving replica_statistics again and there's at least
+# one newer entry
+let $wait_condition= select timediff(max(timestamp), @t) > 0 from performance_schema.replica_statistics;
+--source include/wait_condition.inc
 select sleep(2);
 
 # Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old
@@ -155,6 +165,11 @@ exec kill -18 `head -1 $master_pid_file`;
 -- source include/start_slave.inc
 
 connection master;
+select now() into @t;
+# wait until we start receiving replica_statistics again and there's at least
+# one newer entry
+let $wait_condition= select timediff(max(timestamp), @t) > 0 from performance_schema.replica_statistics;
+--source include/wait_condition.inc
 select sleep(2);
 
 # Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old

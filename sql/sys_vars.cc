@@ -9288,6 +9288,13 @@ static Sys_var_bool Sys_recover_raft_log(
     GLOBAL_VAR(recover_raft_log), CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_bool Sys_raft_send_replica_statistics(
+    "raft_send_replica_statistics",
+    "Variable to control sending replication lag statistics from followers "
+    "to leaders in raft replication.",
+    GLOBAL_VAR(raft_send_replica_statistics), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 /* Free global_write_statistics if sys_var is set to 0 */
 static bool update_write_stats_count(sys_var *, THD *, enum_var_type) {
   if (write_stats_count == 0) {

@@ -1257,6 +1257,7 @@ ulonglong apply_log_retention_duration = 0;
 bool disable_raft_log_repointing = 0;
 ulong opt_raft_signal_async_dump_threads = 0;
 bool recover_raft_log = false;
+bool raft_send_replica_statistics = false;
 
 // Apply log related variables for raft
 char *opt_apply_logname = nullptr;

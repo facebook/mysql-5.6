@@ -1,0 +1,199 @@
+source ../include/raft_3_node.inc;
+source include/have_debug.inc;
+
+let $use_gtids=1;
+
+connection server_1;
+set @@GLOBAL.raft_send_replica_statistics=1;
+connection server_2;
+set @@GLOBAL.raft_send_replica_statistics=1;
+
+########################################################################################################
+### Case 1: Stats are not sent by default i.e. interval value set to 0
+########################################################################################################
+connection server_2;
+select @@write_stats_frequency;
+select @@write_stats_count;
+
+connection server_1;
+select sleep(2);
+select count(*) = 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+########################################################################################################
+### Case 2: Stats are sent when interval value is set > 0 on followers and Stats are paused when 
+### raft_send_replica_statistics=0;
+########################################################################################################
+connection server_2;
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+
+connection server_1;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+connection server_2;
+set @@GLOBAL.raft_send_replica_statistics=0;
+
+connection server_1;
+select sleep(2);
+select now() - max(timestamp) > 1 as more_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+connection server_2;
+set @@GLOBAL.raft_send_replica_statistics=1;
+
+connection server_1;
+select now() into @t;
+# wait until we start receiving replica_statistics again and there's at least one newer entry
+let $wait_condition= select timediff(max(timestamp), @t) > 0 from performance_schema.replica_statistics;
+--source include/wait_condition.inc
+select sleep(2);
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+########################################################################################################
+### Case 2: Dynamically updating write_stats_count updates the number of data points in replica_statistics
+########################################################################################################
+connection server_2;
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+
+connection server_1;
+set @@GLOBAL.write_stats_count=1;
+select sleep(2);
+select count(*) = 1 as stats_samples_collected from performance_schema.replica_statistics;
+
+set @@GLOBAL.write_stats_count=0;
+select sleep(2);
+select count(*) = 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+set @@GLOBAL.write_stats_count=2;
+select sleep(3);
+select count(*) = 2 as stats_samples_collected from performance_schema.replica_statistics;
+
+########################################################################################################
+### Case 3: In case of leader promotions, follower thread is able to reconnet to new leader.
+########################################################################################################
+echo "Transferring leadership from SERVER 1 to SERVER 2";
+let $rpl_raft_leader_number= 2;
+source ../include/raft_promote_to_leader.inc;
+
+connection server_1;
+set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
+
+connection server_2;
+set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
+select now() into @t;
+# wait until we start receiving replica_statistics again and there's at least one newer entry
+let $wait_condition= select timediff(max(timestamp), @t) > 0 from performance_schema.replica_statistics;
+--source include/wait_condition.inc
+select sleep(2);
+
+# New leader should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+echo "Transferring leadership back to SERVER 1";
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+########################################################################################################
+### Case 4: Follower is not stuck waiting for leader to send OK packet in case something goes wrong
+### It should timeout and move on. 
+########################################################################################################
+## block leader election on leader & followers
+connection server_1;
+set @@GLOBAL.rpl_raft_allow_start_election=OFF;
+connection server_2;
+set @@GLOBAL.rpl_raft_allow_start_election=OFF;
+connection server_3;
+set @@GLOBAL.rpl_raft_allow_start_election=OFF;
+
+connection server_2;
+select @@write_stats_frequency;
+
+set @@GLOBAL.write_stats_frequency=1;
+
+connection server_1;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+let $leader_pid_file=`SELECT @@pid_file;`;
+exec kill -19 `head -1 $leader_pid_file`;
+
+connection server_2;
+select sleep(2);
+
+## continue leader process
+exec kill -18 `head -1 $leader_pid_file`;
+
+connection server_1;
+select now() into @t;
+# wait until we start receiving replica_statistics again and there's at least one newer entry
+let $wait_condition= select timediff(max(timestamp), @t) > 0 from performance_schema.replica_statistics;
+--source include/wait_condition.inc
+select sleep(2);
+
+# Leader should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+## reset
+connection server_1;
+set @@GLOBAL.rpl_raft_allow_start_election=ON;
+connection server_2;
+set @@GLOBAL.rpl_raft_allow_start_election=ON;
+connection server_3;
+set @@GLOBAL.rpl_raft_allow_start_election=ON;
+
+########################################################################################################
+### Case 5: Followers should be able to handle reconnections to Leader. It should reuse the existing 
+### thread for sending replica stats and should not spawn a new one.
+########################################################################################################
+connection server_2;
+select @@write_stats_frequency;
+
+set @@GLOBAL.write_stats_frequency=1;
+
+connection server_1;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+connection server_2;
+# to stimulate broken connection
+set @@global.debug= '+d,dbug.replica_stats_force_disconnet_primary';
+
+connection server_1;
+select sleep(2);
+# Leader should not have received stats in last few seconds
+select now() - max(timestamp) > 1 as more_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+connection server_2;
+set @@global.debug= '-d,dbug.replica_stats_force_disconnet_primary';
+
+connection server_1;
+select now() into @t;
+# wait until we start receiving replica_statistics again and there's at least one newer entry
+let $wait_condition= select timediff(max(timestamp), @t) > 0 from performance_schema.replica_statistics;
+--source include/wait_condition.inc
+select sleep(2);
+# Leader should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+########################################################################################################
+### Cleanup
+########################################################################################################
+# reset original server_1
+connection server_1;
+set @@GLOBAL.write_stats_count=0;
+set @@GLOBAL.write_stats_frequency=0;
+set @@GLOBAL.raft_send_replica_statistics=0;
+
+# reset original server_2
+connection server_2;
+set @@GLOBAL.write_stats_count=0;
+set @@GLOBAL.write_stats_frequency=0;
+set @@GLOBAL.raft_send_replica_statistics=0;
+
+-- source include/rpl_end.inc
