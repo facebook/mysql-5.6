@@ -4703,12 +4703,13 @@ end:
 
   @retval 1 on error, 0 on success
 */
-static int find_existing_last_file(char *new_name, const char *log_name) {
+static int find_existing_last_file(char *new_name, const char *log_name,
+                                   ulong *cur_log_ext) {
   fn_format(new_name, log_name, mysql_data_home, "", 4);
   if (fn_ext(log_name)[0]) return 0;
 
-  if (find_uniq_filename(new_name, /*new_index_number=*/0,
-                         /*need_next=*/false)) {
+  if (find_uniq_filename(new_name, /*new_index_number=*/0, /*need_next=*/false,
+                         cur_log_ext)) {
     my_printf_error(ER_NO_UNIQUE_LOGFILE,
                     ER_THD(current_thd, ER_NO_UNIQUE_LOGFILE),
                     MYF(ME_FATALERROR), log_name);
@@ -6463,7 +6464,7 @@ bool MYSQL_BIN_LOG::open_existing_binlog(const char *log_name,
   // RLI initialization has happened.
   // i.e. cur_log_ext != (ulong)-1
   char existing_file[FN_REFLEN];
-  if (find_existing_last_file(existing_file, log_name)) {
+  if (find_existing_last_file(existing_file, log_name, &raft_cur_log_ext)) {
     // NO_LINT_DEBUG
     sql_print_error(
         "MYSQL_BIN_LOG::open_existing_binlog failed to locate last file");
