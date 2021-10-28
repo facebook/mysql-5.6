@@ -41,6 +41,10 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 drop table t1;
+create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+ERROR HY000: User table creation [test.t1] is blocked on Storage engine InnoDB
+create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+ERROR HY000: User table creation [test.t1] is blocked on Storage engine InnoDB
 SET @@session.enable_user_tables_engine_check=OFF;
 create table t1(a int primary key) engine=InnoDB charset=latin1;
 show create table t1;
@@ -150,5 +154,34 @@ t1	CREATE TABLE `t1` (
   `a` int NOT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+Warnings:
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES LESS THAN (20) ENGINE = ROCKSDB) */
+drop table t1;
+create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+Warnings:
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES LESS THAN (20) ENGINE = ROCKSDB) */
 drop table t1;
 SET @@global.enable_user_tables_engine_check=@start_value;

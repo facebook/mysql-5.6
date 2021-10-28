@@ -30,6 +30,11 @@ alter table t1 engine=InnoDB;
 show create table t1;
 drop table t1;
 
+--error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+--error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+
 SET @@session.enable_user_tables_engine_check=OFF;
 
 create table t1(a int primary key) engine=InnoDB charset=latin1;
@@ -79,6 +84,13 @@ drop table mysql.enable_user_tables_engine_check_test;
 create table t1(a int primary key) engine=Rocksdb charset=latin1;
 show create table t1;
 alter table t1 engine=InnoDB;
+show create table t1;
+drop table t1;
+
+create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+show create table t1;
+drop table t1;
+create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
 show create table t1;
 drop table t1;
 
