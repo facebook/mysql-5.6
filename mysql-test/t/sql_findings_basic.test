@@ -118,9 +118,9 @@ order by sql_id, code, query_text;
 
 connect (con41, localhost, user_super,su,test);
 
-## reduce the memory size limit (10MB -> 150 B)
+## reduce the memory size limit (10MB -> 200 B)
 select @@max_sql_findings_size;
-set @@GLOBAL.max_sql_findings_size=150;
+set @@GLOBAL.max_sql_findings_size=200;
 select @@max_sql_findings_size;
 
 ## all sql findings are gone
@@ -159,6 +159,21 @@ insert into t6 values('case4');
 select * from t6 where c1=1;
 --enable_warnings
 
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+# truncate table
+truncate performance_schema.sql_findings;
+
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+
+###########################
+### Case 6: When no table is passed
+###########################
+--error ER_USER_LOCK_WRONG_NAME
+select GET_LOCK("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 3);
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 

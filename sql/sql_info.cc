@@ -414,9 +414,7 @@ static void populate_sql_findings(THD *thd, char *query_text,
 */
 void store_sql_findings(THD *thd, char *query_text) {
   if (sql_findings_control == SQL_INFO_CONTROL_ON &&
-      thd->mt_key_is_set(THD::SQL_ID) &&
-      thd->lex->select_lex->table_list.elements > 0)  // at least one table
-  {
+      thd->mt_key_is_set(THD::SQL_ID)) {
     mysql_mutex_lock(&LOCK_global_sql_findings);
 
     // Lookup finding map for this statement
