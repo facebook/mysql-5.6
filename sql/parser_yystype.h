@@ -53,6 +53,7 @@
 #include "sql/sql_exchange.h"  // Line_separators, enum_filetype
 #include "sql/sql_get_diagnostics.h"  // Diagnostics_information::Which_area
 #include "sql/sql_signal.h"           // enum_condition_item_name
+#include "sql/system_variables.h"     // Explain_format_type
 #include "sql/table.h"                // index_hint_type
 #include "sql/trigger_def.h"          // enum_trigger_order_type
 #include "sql/window_lex.h"           // enum_window_frame_unit

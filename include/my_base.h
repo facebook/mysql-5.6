@@ -30,6 +30,7 @@
 
 #include <limits.h>
 #include <sys/types.h>
+#include <cstdint>  // std::uint32_t
 
 #include "my_config.h"
 #include "my_double2ulonglong.h"
@@ -1137,6 +1138,8 @@ struct KEY_MULTI_RANGE {
   char *ptr;       /* Free to use by caller (ptr to row etc) */
   uint range_flag; /* key range flags see above */
 };
+
+using ha_checksum = std::uint32_t;
 
 /* For number of records */
 #define rows2double(A) ulonglong2double(A)

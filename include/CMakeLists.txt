@@ -72,19 +72,6 @@ SET(HEADERS_MYSQL_DIR
   mysql/udf_registration_types.h
   mysql/service_mysql_alloc.h
 )
-SET(HEADERS_MYSQL_COMPONENTS_SERVICES_DIR
-  mysql/components/services/bits/my_io_bits.h
-  mysql/components/services/bits/mysql_cond_bits.h
-  mysql/components/services/bits/mysql_mutex_bits.h
-  mysql/components/services/bits/psi_file_bits.h
-  mysql/components/services/bits/psi_memory_bits.h
-  mysql/components/services/bits/psi_stage_bits.h
-  mysql/components/services/bits/thr_cond_bits.h
-  mysql/components/services/bits/thr_mutex_bits.h
-  mysql/components/services/bits/psi_mutex_bits.h
-  mysql/components/services/bits/my_thread_bits.h
-  mysql/components/services/bits/psi_cond_bits.h
-)
 SET(HEADERS_MYSQL_PSI_DIR
   mysql/psi/mysql_mutex.h
   mysql/psi/psi_mutex.h
@@ -112,14 +99,20 @@ IF (INSTALL_EXTRA_HEADERS)
     my_bitmap.h
     my_dir.h
     my_double2ulonglong.h
+    my_hostname.h
+    my_getopt.h
     my_pointer_arithmetic.h
     my_systime.h
     my_table_map.h
     my_thread_local.h
     my_time.h
-    nullable.h
+    my_time_t.h
+    pfs_cond_provider.h
+    pfs_mutex_provider.h
+    pfs_rwlock_provider.h
     pfs_socket_provider.h
     pfs_stage_provider.h
+    pfs_thread_provider.h
     prealloced_array.h
     sql_string.h
     thr_lock.h
@@ -137,6 +130,9 @@ IF (INSTALL_EXTRA_HEADERS)
   )
   SET(HEADERS_LIBBINLOGEVENTS_INCLUDE_COMPRESSION_DIR
     ../libbinlogevents/include/compression/base.h
+  )
+  SET(HEADERS_LIBBINLOGEVENTS_INCLUDE_GTIDS_DIR
+    ../libbinlogevents/include/gtids/global.h
   )
   SET(HEADERS_MYSQL_DIR
     ${HEADERS_MYSQL_DIR}
@@ -167,19 +163,43 @@ IF (INSTALL_EXTRA_HEADERS)
     mysql/thread_pool_priv.h
   )
   SET(HEADERS_MYSQL_COMPONENTS_DIR
+    mysql/components/component_implementation.h
     mysql/components/service.h
+    mysql/components/service_implementation.h
   )
   SET(HEADERS_MYSQL_COMPONENTS_SERVICES_DIR
-    ${HEADERS_MYSQL_COMPONENTS_SERVICES_DIR}
+    mysql/components/services/dynamic_loader.h
+    mysql/components/services/mysql_current_thread_reader.h
+    mysql/components/services/mysql_string.h
+    mysql/components/services/page_track_service.h
+    mysql/components/services/registry.h
+    mysql/components/services/system_variable_source_type.h
+    mysql/components/services/table_access_service.h
+  )
+  SET(HEADERS_MYSQL_COMPONENTS_SERVICES_BITS_DIR
+    mysql/components/services/bits/my_io_bits.h
+    mysql/components/services/bits/mysql_cond_bits.h
+    mysql/components/services/bits/mysql_mutex_bits.h
     mysql/components/services/bits/mysql_rwlock_bits.h
     mysql/components/services/bits/mysql_socket_bits.h
-    mysql/components/services/bits/page_track_service.h
+    mysql/components/services/bits/my_thread_bits.h
+    mysql/components/services/bits/plugin_audit_connection_types.h
+    mysql/components/services/bits/psi_bits.h
+    mysql/components/services/bits/psi_cond_bits.h
+    mysql/components/services/bits/psi_file_bits.h
     mysql/components/services/bits/psi_mdl_bits.h
+    mysql/components/services/bits/psi_memory_bits.h
+    mysql/components/services/bits/psi_mutex_bits.h
     mysql/components/services/bits/psi_rwlock_bits.h
     mysql/components/services/bits/psi_socket_bits.h
+    mysql/components/services/bits/psi_stage_bits.h
+    mysql/components/services/bits/psi_statement_bits.h
     mysql/components/services/bits/psi_table_bits.h
     mysql/components/services/bits/psi_thread_bits.h
-    mysql/components/services/bits/registry.h
+    mysql/components/services/bits/system_variables_bits.h
+    mysql/components/services/bits/table_access_bits.h
+    mysql/components/services/bits/thr_cond_bits.h
+    mysql/components/services/bits/thr_mutex_bits.h
     mysql/components/services/bits/thr_rwlock_bits.h
   )
   SET(HEADERS_MYSQL_PSI_DIR
@@ -196,12 +216,18 @@ IF (INSTALL_EXTRA_HEADERS)
   )
   SET(HEADERS_SQL_DIR
     ${HEADERS_SQL_DIR}
+    ../sql/check_stack.h
     ../sql/debug_sync.h
     ../sql/discrete_interval.h
     ../sql/enum_query_type.h
     ../sql/field.h
+    ../sql/field_common_properties.h
     ../sql/filesort_utils.h
     ../sql/handler.h
+    ../sql/item.h
+    ../sql/item_cmpfunc.h
+    ../sql/item_func.h
+    ../sql/item_row.h
     ../sql/key.h
     ../sql/key_spec.h
     ../sql/malloc_allocator.h
@@ -211,29 +237,41 @@ IF (INSTALL_EXTRA_HEADERS)
     ../sql/my_decimal.h
     ../sql/opt_costconstants.h
     ../sql/opt_costmodel.h
+    ../sql/parse_location.h
+    ../sql/parse_tree_node_base.h
     ../sql/psi_memory_key.h
+    ../sql/query_arena.h
+    ../sql/query_result.h
     ../sql/record_buffer.h
     ../sql/rpl_gtid.h
     ../sql/rpl_reporting.h
     ../sql/select_lex_visitor.h
     ../sql/snapshot.h
+    ../sql/set_var.h
     ../sql/sql_array.h
     ../sql/sql_bitmap.h
     ../sql/sql_cmd.h
+    ../sql/sql_cmd_dml.h
     ../sql/sql_const.h
     ../sql/sql_db.h
     ../sql/sql_error.h
     ../sql/sql_list.h
+    ../sql/sql_opt_exec_shared.h
     ../sql/sql_plist.h
     ../sql/sql_plugin.h
     ../sql/sql_plugin_ref.h
+    ../sql/sql_prepare.h
     ../sql/sql_profile.h
+    ../sql/sql_select.h
     ../sql/sql_show.h
     ../sql/sql_sort.h
     ../sql/sql_thd_internal_api.h
+    ../sql/sql_udf.h
     ../sql/stateless_allocator.h
     ../sql/table.h
+    ../sql/table_trigger_field_support.h
     ../sql/thr_malloc.h
+    ../sql/trigger_def.h
   )
   SET(HEADERS_SQL_COMMON_DIR
     ../sql-common/json_binary.h
@@ -262,14 +300,21 @@ IF (INSTALL_EXTRA_HEADERS)
     ../sql/gis/srid.h
   )
 ENDIF()
+SET(HEADERS_INSTALL_LIST
+  ${HEADERS}
+  big_endian.h
+  little_endian.h
+)
 
-INSTALL(FILES ${HEADERS} DESTINATION ${INSTALL_INCLUDEDIR} COMPONENT Development)
+INSTALL(FILES ${HEADERS_INSTALL_LIST} DESTINATION ${INSTALL_INCLUDEDIR} COMPONENT Development)
 INSTALL(FILES ${HEADERS_LIBBINLOGEVENTS_EXPORT_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/libbinlogevents/export COMPONENT Development)
 INSTALL(FILES ${HEADERS_LIBBINLOGEVENTS_INCLUDE_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/libbinlogevents/include COMPONENT Development)
 INSTALL(FILES ${HEADERS_LIBBINLOGEVENTS_INCLUDE_COMPRESSION_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/libbinlogevents/include/compression COMPONENT Development)
+INSTALL(FILES ${HEADERS_LIBBINLOGEVENTS_INCLUDE_GTIDS_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/libbinlogevents/include/gtids COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_SERVICES_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components/services COMPONENT Development)
+INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_SERVICES_BITS_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components/services/bits COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_PSI_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/psi COMPONENT Development)
 INSTALL(FILES ${HEADERS_SQL_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/sql COMPONENT Development)
 INSTALL(FILES ${HEADERS_SQL_COMMON_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/sql-common COMPONENT Development)

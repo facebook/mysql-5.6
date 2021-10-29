@@ -52,7 +52,6 @@
 #include "my_alloc.h"
 #include "my_base.h"
 #include "my_bitmap.h"
-#include "my_checksum.h"  // ha_checksum
 #include "my_compiler.h"
 #include "my_dbug.h"
 #include "my_double2ulonglong.h"
