@@ -12,3 +12,20 @@ CREATE TEMPORARY TABLE t0(ID INT);
 ALTER TABLE t0 ENGINE=RocksDB;
 ERROR HY000: Table storage engine 'ROCKSDB' does not support the create option 'TEMPORARY'
 DROP TABLE t0;
+#
+# PS-7882: Assertion `m_output_buf->m_curr_offset <= m_output_buf->m_total_size' failed
+#
+call mtr.add_suppression("Current value of rocksdb_merge_buf_size=\\d+ is too small. At least \\d+ bytes required.");
+SET @@session.rocksdb_merge_buf_size = 100;
+CREATE TABLE t (
+id INT,
+a VARCHAR(100)
+) ENGINE=RocksDB;
+INSERT INTO t (id, a) VALUES (1, '1');
+INSERT INTO t (id, a) VALUES (2, '123456789012345678901234567890');
+include/assert.inc ["Expected @@rocksdb_merge_buf_size to be set to 100"]
+# Current merge buffer size is too small to fit all key-value pairs.
+ALTER TABLE t ADD INDEX k1 (a, id);
+ERROR HY000: MyRocks failed populating secondary key during alter.
+DROP TABLE t;
+SET @@session.rocksdb_merge_buf_size = DEFAULT;
