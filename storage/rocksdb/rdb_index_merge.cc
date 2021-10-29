@@ -141,16 +141,15 @@ int Rdb_index_merge::add(const rocksdb::Slice &key, const rocksdb::Slice &val) {
     Check if sort buffer is going to be out of space, if so write it
     out to disk in sorted order using offset tree.
   */
-  const uint total_offset = RDB_MERGE_CHUNK_LEN +
-                            m_rec_buf_unsorted->m_curr_offset +
-                            RDB_MERGE_KEY_DELIMITER + RDB_MERGE_VAL_DELIMITER +
-                            key.size() + val.size();
+  const uint data_size = RDB_MERGE_CHUNK_LEN + RDB_MERGE_KEY_DELIMITER +
+                         RDB_MERGE_VAL_DELIMITER + key.size() + val.size();
+  const uint total_offset = data_size + m_rec_buf_unsorted->m_curr_offset;
   if (total_offset >= m_rec_buf_unsorted->m_total_size) {
     /*
       If the offset tree is empty here, that means that the proposed key to
       add is too large for the buffer.
     */
-    if (m_offset_tree.empty()) {
+    if (data_size > m_rec_buf_unsorted->m_total_size || m_offset_tree.empty()) {
       // NO_LINT_DEBUG
       sql_print_error(
           "Sort buffer size is too small to process merge. "
