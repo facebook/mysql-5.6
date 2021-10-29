@@ -35,7 +35,7 @@
 #include "my_psi_config.h"
 #include "mysql/components/services/psi_statement_bits.h"
 #include "mysql_com.h"
-#include "sql/sql_class.h"  // Query_arena
+#include "sql/query_arena.h"
 #include "sql/sql_error.h"
 #include "sql/sql_list.h"
 
@@ -48,6 +48,7 @@ struct LEX;
 struct PS_PARAM;
 struct TABLE_LIST;
 union COM_DATA;
+class Protocol;
 
 /**
   An interface that is used to take an action when

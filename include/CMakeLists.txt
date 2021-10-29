@@ -112,14 +112,20 @@ IF (INSTALL_EXTRA_HEADERS)
     my_bitmap.h
     my_dir.h
     my_double2ulonglong.h
+    my_hostname.h
+    my_getopt.h
     my_pointer_arithmetic.h
     my_systime.h
     my_table_map.h
     my_thread_local.h
     my_time.h
     nullable.h
+    pfs_cond_provider.h
+    pfs_mutex_provider.h
+    pfs_rwlock_provider.h
     pfs_socket_provider.h
     pfs_stage_provider.h
+    pfs_thread_provider.h
     prealloced_array.h
     sql_string.h
     thr_lock.h
@@ -176,10 +182,16 @@ IF (INSTALL_EXTRA_HEADERS)
     mysql/components/services/psi_mdl_bits.h
     mysql/components/services/psi_rwlock_bits.h
     mysql/components/services/psi_socket_bits.h
+    mysql/components/services/psi_statement_bits.h
     mysql/components/services/psi_table_bits.h
     mysql/components/services/psi_thread_bits.h
     mysql/components/services/registry.h
+    mysql/components/services/system_variable_source_type.h
     mysql/components/services/thr_rwlock_bits.h
+  )
+  SET(HEADERS_MYSQL_COMPONENTS_SERVICES_BITS_DIR
+    mysql/components/services/bits/plugin_audit_connection_types.h
+    mysql/components/services/bits/psi_bits.h
   )
   SET(HEADERS_MYSQL_PSI_DIR
     ${HEADERS_MYSQL_PSI_DIR}
@@ -195,12 +207,18 @@ IF (INSTALL_EXTRA_HEADERS)
   )
   SET(HEADERS_SQL_DIR
     ${HEADERS_SQL_DIR}
+    ../sql/check_stack.h
     ../sql/debug_sync.h
     ../sql/discrete_interval.h
     ../sql/enum_query_type.h
     ../sql/field.h
+    ../sql/field_common_properties.h
     ../sql/filesort_utils.h
     ../sql/handler.h
+    ../sql/item.h
+    ../sql/item_cmpfunc.h
+    ../sql/item_func.h
+    ../sql/item_row.h
     ../sql/json_binary.h
     ../sql/json_dom.h
     ../sql/key.h
@@ -212,29 +230,40 @@ IF (INSTALL_EXTRA_HEADERS)
     ../sql/my_decimal.h
     ../sql/opt_costconstants.h
     ../sql/opt_costmodel.h
+    ../sql/parse_location.h
+    ../sql/parse_tree_node_base.h
     ../sql/psi_memory_key.h
+    ../sql/query_arena.h
     ../sql/record_buffer.h
     ../sql/rpl_gtid.h
     ../sql/rpl_reporting.h
     ../sql/select_lex_visitor.h
     ../sql/snapshot.h
+    ../sql/set_var.h
     ../sql/sql_array.h
     ../sql/sql_bitmap.h
     ../sql/sql_cmd.h
+    ../sql/sql_cmd_dml.h
     ../sql/sql_const.h
     ../sql/sql_db.h
     ../sql/sql_error.h
     ../sql/sql_list.h
+    ../sql/sql_opt_exec_shared.h
     ../sql/sql_plist.h
     ../sql/sql_plugin.h
     ../sql/sql_plugin_ref.h
+    ../sql/sql_prepare.h
     ../sql/sql_profile.h
+    ../sql/sql_select.h
     ../sql/sql_show.h
     ../sql/sql_sort.h
     ../sql/sql_thd_internal_api.h
+    ../sql/sql_udf.h
     ../sql/stateless_allocator.h
     ../sql/table.h
+    ../sql/table_trigger_field_support.h
     ../sql/thr_malloc.h
+    ../sql/trigger_def.h
   )
   SET(HEADERS_SQL_CONN_HANDLER_DIR
     ../sql/conn_handler/channel_info.h
@@ -267,6 +296,7 @@ INSTALL(FILES ${HEADERS_LIBBINLOGEVENTS_INCLUDE_COMPRESSION_DIR} DESTINATION ${I
 INSTALL(FILES ${HEADERS_MYSQL_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_SERVICES_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components/services COMPONENT Development)
+INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_SERVICES_BITS_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components/services/bits COMPONENT Development)
 INSTALL(FILES ${HEADERS_MYSQL_PSI_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/mysql/psi COMPONENT Development)
 INSTALL(FILES ${HEADERS_SQL_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/sql COMPONENT Development)
 INSTALL(FILES ${HEADERS_SQL_CONN_HANDLER_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/sql/conn_handler COMPONENT Development)

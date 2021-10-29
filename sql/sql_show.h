@@ -176,12 +176,7 @@ class Sql_cmd_show_noplan : public Sql_cmd_show {
  protected:
   Sql_cmd_show_noplan(enum_sql_command sql_command)
       : Sql_cmd_show(sql_command) {}
-  bool execute(THD *thd) override {
-    lex = thd->lex;
-    if (check_privileges(thd)) return true;
-    if (execute_inner(thd)) return true;
-    return false;
-  }
+  bool execute(THD *thd) override;
 };
 
 /// Common base class: Represents commands that operate on a schema (database)

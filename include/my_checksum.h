@@ -30,12 +30,12 @@
 */
 
 #include <cassert>
-#include <cstdint>      // std::uint32_t
 #include <limits>       // std::numeric_limits
 #include <type_traits>  // std::is_convertible
 
 #include <zlib.h>  // crc32_z
 
+#include "my_base.h"      // ha_checksum
 #include "my_compiler.h"  // My_ATTRIBUTE
 #include "my_config.h"
 
@@ -101,8 +101,6 @@ inline std::uint32_t PunnedCrc32(std::uint32_t crc, const unsigned char *buf,
   return (~crc);
 }
 }  // namespace mycrc32
-
-using ha_checksum = std::uint32_t;
 
 /**
    Calculate a CRC32 checksum for a memoryblock.
