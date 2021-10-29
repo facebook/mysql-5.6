@@ -29,6 +29,7 @@
 
 #include "my_base.h"
 #include "my_sqlcommand.h"
+#include "my_table_map.h"
 #include "sql/query_result.h"  // Query_result_interceptor
 #include "sql/sql_cmd_dml.h"   // Sql_cmd_dml
 #include "sql/sql_list.h"

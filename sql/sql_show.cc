@@ -229,6 +229,13 @@ bool Sql_cmd_show::execute(THD *thd) {
   return Sql_cmd_select::execute(thd);
 }
 
+bool Sql_cmd_show_noplan::execute(THD *thd) {
+  lex = thd->lex;
+  if (check_privileges(thd)) return true;
+  if (execute_inner(thd)) return true;
+  return false;
+}
+
 bool Sql_cmd_show_schema_base::set_metadata_lock(THD *thd) {
   LEX_STRING lex_str_db;
   LEX *lex = thd->lex;
