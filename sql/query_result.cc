@@ -244,7 +244,7 @@ static File create_file(THD *thd, char *path, const char *file_name,
     return -1;
   }
 
-  if (!access(path, F_OK)) {
+  if (!my_access(path, F_OK)) {
     my_error(ER_FILE_EXISTS_ERROR, MYF(0), file_name);
     return -1;
   }

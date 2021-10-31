@@ -645,11 +645,7 @@ extern int my_closelog();
 extern int my_syslog(const CHARSET_INFO *cs, enum loglevel level,
                      const char *msg);
 
-#ifdef _WIN32
 extern int my_access(const char *path, int amode);
-#else
-#define my_access access
-#endif
 
 extern int check_if_legal_filename(const char *path);
 extern int check_if_legal_tablename(const char *path);
