@@ -437,6 +437,7 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
 
   size_t tot_length = 0;
   bool use_blobs = false, use_vars = false;
+  bool load_from_wsenv = false;
 
   for (Item *item : m_opt_fields_or_vars) {
     const Item *real_item = item->real_item();
@@ -468,7 +469,13 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
                            m_exchange.file_name);
     file = -1;
   } else {
-    if (!dirname_length(m_exchange.file_name)) {
+    if (unlikely(thd->variables.enable_sql_wsenv) &&
+        (sql_wsenv_uri_prefix != nullptr) &&
+        (0 == strncmp(m_exchange.file_name, sql_wsenv_uri_prefix,
+                      strlen(sql_wsenv_uri_prefix)))) {
+      strncpy(name, m_exchange.file_name, FN_REFLEN - 1);
+      load_from_wsenv = true;
+    } else if (!dirname_length(m_exchange.file_name)) {
       strxnmov(name, FN_REFLEN - 1, mysql_real_data_home, tdb, NullS);
       (void)fn_format(name, m_exchange.file_name, name, "",
                       MY_RELATIVE_PATH | MY_UNPACK_FILENAME);
@@ -494,29 +501,33 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
                  "");
         return true;
       }
-    } else if (!is_secure_file_path(name)) {
+    } else if (!load_from_wsenv && !is_secure_file_path(name)) {
       /* Read only allowed from within dir specified by secure_file_priv */
       my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv", "");
       return true;
     }
 
 #if !defined(_WIN32)
-    MY_STAT stat_info;
-    if (!my_stat(name, &stat_info, MYF(MY_WME))) return true;
+    if (!load_from_wsenv) {
+      MY_STAT stat_info;
+      if (!my_stat(name, &stat_info, MYF(MY_WME))) return true;
 
-    // if we are not in slave thread, the file must be:
-    if (!thd->slave_thread &&
-        !((stat_info.st_mode & S_IFLNK) != S_IFLNK &&   // symlink
-          ((stat_info.st_mode & S_IFREG) == S_IFREG ||  // regular file
-           (stat_info.st_mode & S_IFIFO) == S_IFIFO)))  // named pipe
-    {
-      my_error(ER_TEXTFILE_NOT_READABLE, MYF(0), name);
-      return true;
+      // if we are not in slave thread, the file must be:
+      if (!thd->slave_thread &&
+          !((stat_info.st_mode & S_IFLNK) != S_IFLNK &&   // symlink
+            ((stat_info.st_mode & S_IFREG) == S_IFREG ||  // regular file
+             (stat_info.st_mode & S_IFIFO) == S_IFIFO)))  // named pipe
+      {
+        my_error(ER_TEXTFILE_NOT_READABLE, MYF(0), name);
+        return true;
+      }
+      if ((stat_info.st_mode & S_IFIFO) == S_IFIFO) is_fifo = true;
     }
-    if ((stat_info.st_mode & S_IFIFO) == S_IFIFO) is_fifo = true;
 #endif
-    if ((file = mysql_file_open(key_file_load, name, O_RDONLY, MYF(MY_WME))) <
-        0)
+
+    int flag = O_RDONLY;
+    if (load_from_wsenv) flag |= WS_RNDRD;
+    if ((file = mysql_file_open(key_file_load, name, flag, MYF(MY_WME))) < 0)
 
       return true;
   }
