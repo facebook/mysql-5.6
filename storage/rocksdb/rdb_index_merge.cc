@@ -163,6 +163,18 @@ int Rdb_index_merge::add(const rocksdb::Slice &key, const rocksdb::Slice &val) {
       sql_print_error("Error writing sort buffer to disk.");
       return HA_ERR_ROCKSDB_MERGE_FILE_ERR;
     }
+
+    /*
+      The unsorted buffer may be too small for the key-value pair.
+    */
+    const uint data_size = RDB_MERGE_CHUNK_LEN + RDB_MERGE_KEY_DELIMITER +
+                           RDB_MERGE_VAL_DELIMITER + key.size() + val.size();
+    if (data_size > m_rec_buf_unsorted->m_total_size) {
+      sql_print_error(
+          "Sort buffer size is too small to process merge. "
+          "Please set merge buffer size to a higher value.");
+      return HA_ERR_ROCKSDB_MERGE_FILE_ERR;
+    }
   }
 
   const ulonglong rec_offset = m_rec_buf_unsorted->m_curr_offset;
