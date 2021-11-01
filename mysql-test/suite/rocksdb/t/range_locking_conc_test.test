@@ -1,0 +1,26 @@
+
+#
+# Tests concurrent inserts for tables with no primary key.
+#
+
+--source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_range_locking.inc
+--source include/have_debug.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+# create the actual table
+create table t1 (
+  pk bigint primary key,
+  group_list varchar(128),
+  parent_id bigint
+) engine=rocksdb;
+
+set global rocksdb_lock_wait_timeout=10;
+let $exec = /usr/bin/python3 suite/rocksdb/t/range_locking_conc_test.py root 127.0.0.1 $MASTER_MYPORT test t1 1000 10 5000 5
+exec $exec;
+
+#SELECT COUNT(*) from t1;
+DROP TABLE t1;
