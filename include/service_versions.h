@@ -48,3 +48,4 @@
 #define VERSION_mysql_keyring_service 0x0100
 #define VERSION_plugin_registry_service 0x100
 #define VERSION_clone_protocol_service 0x100
+#define VERSION_mysql_privacy_service 0x100

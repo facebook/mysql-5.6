@@ -1,5 +1,5 @@
 # Copyright (c) 2006, 2021, Oracle and/or its affiliates.
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
@@ -149,6 +149,7 @@ IF (INSTALL_EXTRA_HEADERS)
     mysql/service_mysql_string.h
     mysql/service_parser.h
     mysql/service_plugin_registry.h
+    mysql/service_privacy.h
     mysql/service_rpl_transaction_ctx.h
     mysql/service_rpl_transaction_write_set.h
     mysql/service_rules_table.h
