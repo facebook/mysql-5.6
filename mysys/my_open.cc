@@ -66,13 +66,16 @@ File my_open(const char *filename, int Flags, myf MyFlags) {
   DBUG_TRACE;
 
   File fd = -1;
+  if (Flags & WS_RNDRD) {
+    fd = my_ws_open(filename, Flags);
+  } else {
 #if defined(_WIN32)
   fd = my_win_open(filename, Flags);
 #else
   fd = mysys_priv::RetryOnEintr(
       [&]() { return open(filename, Flags, my_umask); }, -1);
 #endif
-
+  }
   if (fd < 0) {
     set_my_errno(errno);
     DBUG_PRINT("error", ("Got error %d on open", my_errno()));
@@ -81,7 +84,9 @@ File my_open(const char *filename, int Flags, myf MyFlags) {
     }
     return fd;
   }
-  RegisterFilename(fd, filename, file_info::OpenType::FILE_BY_OPEN);
+  if ((Flags & WS_RNDRD) == 0) {
+    RegisterFilename(fd, filename, file_info::OpenType::FILE_BY_OPEN);
+  }
   return fd;
 }
 
