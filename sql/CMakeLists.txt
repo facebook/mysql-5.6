@@ -440,6 +440,7 @@ SET(SQL_SHARED_SOURCES
   partition_info.cc
   partitioning/partition_handler.cc
   persisted_variable.cc
+  privacy_service.cc
   protocol_classic.cc
   psi_memory_key.cc
   query_result.cc
@@ -928,7 +929,7 @@ SET (SLAVE_SOURCE
   rpl_slave_commit_order_manager.cc
   rpl_slave_until_options.cc
   rpl_trx_boundary_parser.cc
-  log_event_wrapper.cc 
+  log_event_wrapper.cc
   dependency_slave_worker.cc
   )
 ADD_LIBRARY(slave STATIC ${SLAVE_SOURCE})
@@ -955,7 +956,7 @@ LIST(APPEND MYSQLD_SOURCE partitioning/partition_base.cc)
 
 MYSQL_ADD_EXECUTABLE(mysqld
   ${MYSQLD_SOURCE} DESTINATION ${INSTALL_SBINDIR} COMPONENT Server
-  ) 
+  )
 
 # We depend on protobuf because of the mysqlx plugin.
 IF(UNIX_INSTALL_RPATH_ORIGIN_PRIV_LIBDIR)
