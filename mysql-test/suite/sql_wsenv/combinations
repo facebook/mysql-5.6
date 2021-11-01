@@ -1,0 +1,5 @@
+[rocksdb]
+default-storage-engine=rocksdb
+
+[innodb]
+default-storage-engine=innodb

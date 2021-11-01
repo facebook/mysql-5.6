@@ -1,0 +1,16 @@
+set enable_sql_wsenv=1;
+CREATE TABLE t1(x VARCHAR(100));
+SET SESSION debug='d,simulate_wsenv_dlopen_error';
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+ERROR HY000: Can't open shared library
+SET SESSION debug=DEFAULT;
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+ERROR HY000: Can't create/write to file 'OUTPUT_FILE' (OS errno 22 - Invalid argument)
+# restart
+set enable_sql_wsenv=1;
+SET SESSION debug='d,simulate_wsenv_dlsym_error';
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+ERROR HY000: Can't find symbol 'GetOrCreateWSEnvironment' in library 'librocks_object_factory.so'
+SET SESSION debug=DEFAULT;
+SET enable_sql_wsenv=DEFAULT;
+DROP TABLE t1;

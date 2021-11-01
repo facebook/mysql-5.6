@@ -1,0 +1,58 @@
+set enable_sql_wsenv=1;
+CREATE TABLE t1(x VARCHAR(100));
+CREATE TABLE t2(x VARCHAR(100));
+CREATE TABLE t3(x VARCHAR(100));
+CREATE TABLE t4(x VARCHAR(1000));
+insert into t4 values (concat("<<<", REPLACE(REPEAT("abc.", 100), ".", "\n"), ">>>"));
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+  20000   20000 1620000
+ 200000  200000 16200000
+LOAD DATA INFILE 'INPUT_FILE' INTO TABLE t1;
+LOAD DATA INFILE 'INPUT_FILE' INTO TABLE t3;
+select count(*) from t1;
+count(*)
+20000
+select count(*) from t2;
+count(*)
+0
+select count(*) from t3;
+count(*)
+200000
+select count(*) from t4;
+count(*)
+104994
+SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(-1000);
+ERROR HY000: Incorrect arguments to COMPRESSED
+SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED('hello');
+ERROR HY000: Incorrect arguments to COMPRESSED
+SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(NULL);
+ERROR HY000: Incorrect arguments to COMPRESSED
+SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(100000000);
+ERROR HY000: Incorrect arguments to COMPRESSED
+SELECT * FROM t1 INTO OUTFILE 'SQL_WSENV_MTR_PATH/t1.txt' COMPRESSED(1);
+SELECT * FROM t2 INTO OUTFILE 'TMP_DIR/t2.txt' COMPRESSED(1);
+SELECT * FROM t3 INTO OUTFILE 'TMP_DIR/t3.txt' COMPRESSED(1);
+SELECT * FROM t4 INTO OUTFILE 'TMP_DIR/t4.txt' COMPRESSED(1);
+  20000   20000 1620000
+      0       0       0
+ 200000  200000 16200000
+DROP TABLE t1;
+CREATE TABLE t1(x VARCHAR(100));
+LOAD DATA INFILE 'TMP_DIR/t1.txt.0.zst' INTO TABLE t1 COMPRESSED;;
+LOAD DATA INFILE 'TMP_DIR/t1.txt.1.zst' INTO TABLE t1 COMPRESSED;;
+DROP TABLE t2;
+CREATE TABLE t2(x VARCHAR(100));
+LOAD DATA INFILE 'TMP_DIR/t2.txt.0.zst' INTO TABLE t2 COMPRESSED;;
+DROP TABLE t3;
+CREATE TABLE t3(x VARCHAR(100));
+LOAD DATA INFILE 'INPUT_FILE' INTO TABLE t3;;
+<<<abc\
+>>>
+SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(1);
+ERROR HY000: File 'TMP_DIR/t1.txt.0.zst' already exists
+SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(1);
+ERROR HY000: File 'TMP_DIR/t1.txt.0.zst' already exists
+set enable_sql_wsenv=0;
+DROP TABLE t1, t2, t3, t4;

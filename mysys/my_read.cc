@@ -48,6 +48,7 @@
 #ifdef _WIN32
 #include "mysys/mysys_priv.h"
 #endif
+#include "mysys/my_wsfile.h"
 
 #ifndef _WIN32
 // Mock away read() for unit testing.
@@ -75,17 +76,22 @@ size_t my_read(File fd, uchar *Buffer, size_t Count, myf MyFlags) {
 
   for (;;) {
     errno = 0; /* Linux, Windows don't reset this on EOF/success */
-    int64_t readbytes =
+    int64_t readbytes = 0;
+    if (fd >= WS_START_FD) {
+      readbytes = my_ws_read(fd, Buffer, Count);
+    } else {
+      readbytes =
 #ifdef _WIN32
-        // Using my_win_pread() with offset -1 which will cause
-        // ReadFile() to be called with nullptr for the OVERLAPPED
-        // argument. This way we avoid having both my_win_read()
-        // my_win_pread() which were identical except for the OVERLAPPED
-        // arg passed to ReadFile().
-        my_win_pread(fd, Buffer, Count, -1);
+          // Using my_win_pread() with offset -1 which will cause
+          // ReadFile() to be called with nullptr for the OVERLAPPED
+          // argument. This way we avoid having both my_win_read()
+          // my_win_pread() which were identical except for the OVERLAPPED
+          // arg passed to ReadFile().
+          my_win_pread(fd, Buffer, Count, -1);
 #else
-        (mock_read ? mock_read(fd, Buffer, Count) : read(fd, Buffer, Count));
+          (mock_read ? mock_read(fd, Buffer, Count) : read(fd, Buffer, Count));
 #endif
+    }
     DBUG_EXECUTE_IF("simulate_file_read_error", {
       errno = ENOSPC;
       readbytes = -1;

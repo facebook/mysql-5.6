@@ -1,0 +1,36 @@
+--source include/have_debug.inc
+
+set enable_sql_wsenv=1;
+CREATE TABLE t1(x VARCHAR(100));
+
+# first time, fail with Can't open shared library
+SET SESSION debug='d,simulate_wsenv_dlopen_error';
+--let $output_file=$SQL_WSENV_MTR_PATH/t1.txt
+--replace_result $output_file OUTPUT_FILE
+--replace_regex /.*Can\'t open shared library.*/Can't open shared library/
+--error 110
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+SET SESSION debug=DEFAULT;
+
+# second time, fail with invalid arguemtn
+--let $output_file=$SQL_WSENV_MTR_PATH/t1.txt
+--replace_result $output_file OUTPUT_FILE
+--error 1 
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+
+
+# restart mysqld to re-init-wsenv
+--source include/restart_mysqld.inc
+
+set enable_sql_wsenv=1;
+
+
+SET SESSION debug='d,simulate_wsenv_dlsym_error';
+--let $output_file=$SQL_WSENV_MTR_PATH/t1.txt
+--replace_result $output_file OUTPUT_FILE
+--error 111 
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+SET SESSION debug=DEFAULT;
+
+SET enable_sql_wsenv=DEFAULT;
+DROP TABLE t1;

@@ -1,0 +1,107 @@
+# scenario1: basic
+create table t1 (pk int primary key,col1 varchar(10));
+insert into t1 values (1,"aaa"),(2,"bbb"),(3,"ccc"),(4,"ddd"),(5,"eee");
+set enable_sql_wsenv=1;
+# dump data into file
+--let $output_file=$SQL_WSENV_MTR_PATH/s1_t1.txt
+--replace_result $output_file OUTPUT_FILE
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+set enable_sql_wsenv=0;
+
+create table t2 (pk int primary key,col1 varchar(10));
+set enable_sql_wsenv=1;
+--replace_result $output_file OUTPUT_FILE
+--eval load data infile '$output_file' into table t2;
+set enable_sql_wsenv=0;
+select * from t2;
+drop table t1;
+drop table t2;
+
+# scenario2: contains subdir
+create table t1 (pk int primary key,col1 varchar(10));
+insert into t1 values (1,"aaa"),(2,"bbb"),(3,"ccc"),(4,"ddd"),(5,"eee");
+insert into t1 values (6,"666");
+set enable_sql_wsenv=1;
+--let $output_file=$SQL_WSENV_MTR_PATH/a/b/c/s2_t1.txt
+--replace_result $output_file OUTPUT_FILE
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+set enable_sql_wsenv=0;
+create table t3 (pk int primary key,col1 varchar(10));
+set enable_sql_wsenv=1;
+--replace_result $output_file OUTPUT_FILE
+--eval load data infile '$output_file' into table t3;
+set enable_sql_wsenv=0;
+select * from t3;
+drop table t1;
+drop table t3;
+
+# scenario3: select into file fsync
+set @saved_select_into_file_fsync_size = @@select_into_file_fsync_size;
+set @@session.select_into_file_fsync_size = 1024;
+create table t1(a int);
+insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t2(a int primary key);
+insert into t2 select A.a + 10*(B.a + 10*C.a) from t1 A, t1 B, t1 C;
+create table t4(a int);
+create table t3 (a char(8) not null, b char(8) not null, filler char(200), key(a));
+insert into t3 select @a:=concat('c-', 1000+ A.a, '=w'), @a, 'filler' from t2 A;
+create table t5 (a char(8) not null, b char(8) not null, filler char(200), key(a));
+set enable_sql_wsenv=1;
+# dump from t2 and load to t4
+--let $output_file=$SQL_WSENV_MTR_PATH/a/s3_t2.txt
+--replace_result $output_file OUTPUT_FILE
+--eval SELECT * FROM t2 INTO OUTFILE '$output_file';
+
+--replace_result $output_file OUTPUT_FILE
+--eval load data infile '$output_file' into table t4;
+# compare data in t2 and t4
+checksum table t2, t4;
+select a from (select a from t2 union all  select a from t4) t
+GROUP BY a HAVING COUNT(*) = 1 ORDER BY a; 
+#
+# dump from t3 and load to t5
+--let $output_file=$SQL_WSENV_MTR_PATH/b/s3_t3.txt
+--replace_result $output_file OUTPUT_FILE
+--eval SELECT * FROM t3 INTO OUTFILE '$output_file';
+
+--replace_result $output_file OUTPUT_FILE
+--eval load data infile '$output_file' into table t5;
+# compare data in t3 and t5
+checksum table t3, t5;
+select a, b,filler  from (select a,b,filler from t3 union all  select a,b,filler from t5) t
+GROUP BY a,b,filler HAVING COUNT(*) = 1 ORDER BY a,b,filler; 
+set enable_sql_wsenv=0;
+set @@session.select_into_file_fsync_size = @saved_select_into_file_fsync_size;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+
+# scenario4: error case
+create table t1(a int);
+insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+set enable_sql_wsenv=1;
+# dump from t1
+--let $output_file=$SQL_WSENV_MTR_PATH/a/s4_t1.txt
+--replace_result $output_file OUTPUT_FILE
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+
+# dump to existing file 
+--let $output_file=$SQL_WSENV_MTR_PATH/a/s4_t1.txt
+--replace_result $output_file OUTPUT_FILE
+--error ER_FILE_EXISTS_ERROR
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+
+# dump to directory 
+--let $output_file=$SQL_WSENV_MTR_PATH/z/
+--replace_result $output_file OUTPUT_FILE
+--error 1 
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+
+# dump path contains //
+--let $output_file=$SQL_WSENV_MTR_PATH//a//s4_t2.txt
+--replace_result $output_file OUTPUT_FILE
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+
+drop table t1;
