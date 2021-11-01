@@ -1,0 +1,86 @@
+create table t1 (pk int primary key,col1 varchar(10));
+insert into t1 values (1,"aaa"),(2,"bbb"),(3,"ccc"),(4,"ddd"),(5,"eee");
+set enable_sql_wsenv=1;
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+set enable_sql_wsenv=0;
+create table t2 (pk int primary key,col1 varchar(10));
+set enable_sql_wsenv=1;
+load data infile 'OUTPUT_FILE' into table t2;;
+set enable_sql_wsenv=0;
+select * from t2;
+pk	col1
+1	aaa
+2	bbb
+3	ccc
+4	ddd
+5	eee
+drop table t1;
+drop table t2;
+create table t1 (pk int primary key,col1 varchar(10));
+insert into t1 values (1,"aaa"),(2,"bbb"),(3,"ccc"),(4,"ddd"),(5,"eee");
+insert into t1 values (6,"666");
+set enable_sql_wsenv=1;
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+set enable_sql_wsenv=0;
+create table t3 (pk int primary key,col1 varchar(10));
+set enable_sql_wsenv=1;
+load data infile 'OUTPUT_FILE' into table t3;;
+set enable_sql_wsenv=0;
+select * from t3;
+pk	col1
+1	aaa
+2	bbb
+3	ccc
+4	ddd
+5	eee
+6	666
+drop table t1;
+drop table t3;
+set @saved_select_into_file_fsync_size = @@select_into_file_fsync_size;
+set @@session.select_into_file_fsync_size = 1024;
+create table t1(a int);
+insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t2(a int primary key);
+insert into t2 select A.a + 10*(B.a + 10*C.a) from t1 A, t1 B, t1 C;
+create table t4(a int);
+create table t3 (a char(8) not null, b char(8) not null, filler char(200), key(a));
+insert into t3 select @a:=concat('c-', 1000+ A.a, '=w'), @a, 'filler' from t2 A;
+Warnings:
+Warning	1287	Setting user variables within expressions is deprecated and will be removed in a future release. Consider alternatives: 'SET variable=expression, ...', or 'SELECT expression(s) INTO variables(s)'.
+create table t5 (a char(8) not null, b char(8) not null, filler char(200), key(a));
+set enable_sql_wsenv=1;
+SELECT * FROM t2 INTO OUTFILE 'OUTPUT_FILE';;
+load data infile 'OUTPUT_FILE' into table t4;;
+checksum table t2, t4;
+Table	Checksum
+test.t2	4294966796
+test.t4	4294966796
+select a from (select a from t2 union all  select a from t4) t
+GROUP BY a HAVING COUNT(*) = 1 ORDER BY a;
+a
+SELECT * FROM t3 INTO OUTFILE 'OUTPUT_FILE';;
+load data infile 'OUTPUT_FILE' into table t5;;
+checksum table t3, t5;
+Table	Checksum
+test.t3	4294147596
+test.t5	4294147596
+select a, b,filler  from (select a,b,filler from t3 union all  select a,b,filler from t5) t
+GROUP BY a,b,filler HAVING COUNT(*) = 1 ORDER BY a,b,filler;
+a	b	filler
+set enable_sql_wsenv=0;
+set @@session.select_into_file_fsync_size = @saved_select_into_file_fsync_size;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+drop table t5;
+create table t1(a int);
+insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+set enable_sql_wsenv=1;
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+ERROR HY000: File 'OUTPUT_FILE' already exists
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+ERROR HY000: Can't create/write to file 'OUTPUT_FILE' (OS errno 21 - Is a directory)
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+drop table t1;
