@@ -34,6 +34,8 @@ drop table t1;
 create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
 --error ER_USER_TABLE_BLOCKED_ENGINE
 create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+--error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1 (a int, b int, primary key(a, b)) engine=innodb partition by range(a) subpartition by key(b) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
 
 SET @@session.enable_user_tables_engine_check=OFF;
 
@@ -91,6 +93,9 @@ create table t1 (a int primary key) engine=rocksdb partition by range (a) (parti
 show create table t1;
 drop table t1;
 create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+show create table t1;
+drop table t1;
+create table t1 (a int, b int, primary key(a, b)) engine=innodb partition by range(a) subpartition by key(b) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
 show create table t1;
 drop table t1;
 
