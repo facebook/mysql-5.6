@@ -2242,7 +2242,7 @@ class Sys_var_gtid_set : public sys_var {
     global_sid_lock->unlock();
     return (uchar *)buf;
   }
-  uchar *global_value_ptr(THD *thd, LEX_STRING *base) {
+  const uchar *global_value_ptr(THD *thd, LEX_STRING *base) {
     DBUG_ASSERT(false);
     return NULL;
   }
@@ -2455,7 +2455,7 @@ class Sys_var_gtid_purged_for_tailing : public sys_var {
     return true;
   }
 
-  uchar *global_value_ptr(THD *thd, LEX_STRING *) {
+  const uchar *global_value_ptr(THD *thd, LEX_STRING *) {
     DBUG_TRACE;
     char *buf = nullptr;
     if (opt_bin_log) {
