@@ -9760,7 +9760,8 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
     // If raft is doing some critical operations to block out threads,
     // we disallow slave sql start till raft has restarted the slave
     // thread.
-    if (enable_raft_plugin && !invoked_by_raft && sql_thread_stopped_by_raft) {
+    if (enable_raft_plugin && !override_enable_raft_check && !invoked_by_raft &&
+        sql_thread_stopped_by_raft) {
       unlock_slave_threads(mi);
 
       mi->channel_unlock();
