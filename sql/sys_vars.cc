@@ -9201,3 +9201,18 @@ static Sys_var_bool Sys_enable_cputime_with_wallclock(
     "performant(avoids system calls).",
     GLOBAL_VAR(enable_cputime_with_wallclock), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static Sys_var_charptr Sys_sql_wsenv_tenant(
+    "sql_wsenv_tenant", "warm storage environment tenant",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_tenant), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(nullptr));
+
+static Sys_var_charptr Sys_sql_wsenv_uri_prefix(
+    "sql_wsenv_uri_prefix", "warm storage uri path prefix",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_uri_prefix),
+    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(nullptr));
+
+static Sys_var_charptr Sys_sql_wsenv_lib_name(
+    "sql_wsenv_lib_name", "warm storage library name for dynamic load",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_lib_name),
+    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(nullptr));

@@ -2504,6 +2504,12 @@ The following options may be given as the first argument:
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
  TABLE'. Attempts to do so will result in an error.
+ --sql-wsenv-lib-name=name 
+ warm storage library name for dynamic load
+ --sql-wsenv-tenant=name 
+ warm storage environment tenant
+ --sql-wsenv-uri-prefix=name 
+ warm storage uri path prefix
  --stored-program-cache=# 
  The soft upper limit for number of cached stored routines
  for one connection.
@@ -3416,6 +3422,9 @@ sql-log-bin-triggers TRUE
 sql-maximum-duplicate-executions 0
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
+sql-wsenv-lib-name 
+sql-wsenv-tenant 
+sql-wsenv-uri-prefix 
 stored-program-cache 256
 stored-program-definition-cache 256
 super-read-only FALSE
