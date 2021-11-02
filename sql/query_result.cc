@@ -23,6 +23,7 @@
 #include "sql/query_result.h"
 
 #include "my_config.h"
+#include "my_sys.h"
 
 #include <fcntl.h>
 #include <limits.h>
@@ -210,6 +211,15 @@ static File create_file(THD *thd, char *path, const char *file_name,
                         bool compressed, IO_CACHE *cache) {
   File file;
   uint option = MY_UNPACK_FILENAME | MY_RELATIVE_PATH;
+
+  bool output_to_ws = false;
+  // only support output data to ws if the file_name contains correct uri
+  // prefix
+  if (file_name != nullptr && sql_wsenv_uri_prefix != nullptr &&
+      strncmp(file_name, sql_wsenv_uri_prefix, strlen(sql_wsenv_uri_prefix)) ==
+          0) {
+    output_to_ws = true;
+  }
 
   if (!dirname_length(file_name)) {
     strxnmov(path, FN_REFLEN - 1, mysql_real_data_home,

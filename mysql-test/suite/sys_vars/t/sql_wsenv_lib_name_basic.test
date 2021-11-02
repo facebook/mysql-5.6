@@ -1,0 +1,4 @@
+--let $sys_var=SQL_WSENV_LIB_NAME
+--let $read_only=1
+--let $session=0
+--source ../inc/sys_var.inc
