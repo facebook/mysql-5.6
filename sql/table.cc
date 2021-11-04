@@ -2143,9 +2143,20 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share,
         if (key == primary_key) {
           field->set_flag(PRI_KEY_FLAG);
           /*
-            "if (ha_option & HA_PRIMARY_KEY_IN_READ_INDEX)" ... was moved below
-            for MyRocks
+            We need to set field->part_of_key before add_pk_parts_to_sk()
+            as calling it may clean key maps that exceed sizes.
           */
+          /*
+            If this field is part of the primary key and all keys contains
+            the primary key, then we can use any key to find this column
+          */
+          if (ha_option & HA_PRIMARY_KEY_IN_READ_INDEX) {
+            if (field->key_length() == key_part->length &&
+                !field->is_flag_set(BLOB_FLAG))
+              field->part_of_key = share->keys_in_use;
+            if (field->part_of_sortkey.is_set(key))
+              field->part_of_sortkey = share->keys_in_use;
+          }
         }
         if (field->key_length() != key_part->length) {
           if (field->type() == MYSQL_TYPE_NEWDECIMAL) {
@@ -2198,24 +2209,6 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share,
           (ha_option & HA_ANY_INDEX_MAY_BE_UNIQUE))
         share->max_unique_length =
             std::max(share->max_unique_length, keyinfo->key_length);
-    }
-
-    if (primary_key < MAX_KEY &&
-        (handler_file->ha_table_flags() & HA_PRIMARY_KEY_IN_READ_INDEX)) {
-      keyinfo = &share->key_info[primary_key];
-      key_part = keyinfo->key_part;
-      for (i = 0; i < keyinfo->user_defined_key_parts; key_part++, i++) {
-        Field *field = key_part->field;
-        /*
-          If this field is part of the primary key and all keys contains
-          the primary key, then we can use any key to find this column
-        */
-        if (field->key_length() == key_part->length &&
-            !field->is_flag_set(BLOB_FLAG))
-          field->part_of_key = share->keys_in_use;
-        if (field->part_of_sortkey.is_set(primary_key))
-          field->part_of_sortkey = share->keys_in_use;
-      }
     }
 
     if (share->primary_key != MAX_KEY) {

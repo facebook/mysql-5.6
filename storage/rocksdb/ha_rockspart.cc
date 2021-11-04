@@ -21,6 +21,24 @@ namespace myrocks {
 extern handlerton *rocksdb_hton;
 }
 
+bool ha_rockspart::init_with_fields() {
+  /*
+    MySql layer calls this before initializing actual partitions and then makes
+    decisions basing on the result of updated table_flags.
+    As RocksDB enables HA_PRIMARY_KEY_IN_READ_INDEX flag if PK is present and
+    disables it otherwise, we can cache this flag earlier, even if partitions
+    handlers are not created yet.
+  */
+  const uint pk = table_share->primary_key;
+  if (pk != MAX_KEY) {
+    cached_table_flags |= HA_PRIMARY_KEY_IN_READ_INDEX;
+  } else {
+    cached_table_flags &= ~HA_PRIMARY_KEY_IN_READ_INDEX;
+  }
+
+  return Partition_base::init_with_fields();
+}
+
 handler *ha_rockspart::get_file_handler(TABLE_SHARE *share,
                                         MEM_ROOT *alloc) const {
   ha_rocksdb *file = new (alloc) ha_rocksdb(myrocks::rocksdb_hton, share);

@@ -42,6 +42,8 @@ class ha_rockspart : public native_part::Partition_base {
     return ROW_TYPE_NOT_USED;
   }
 
+  bool init_with_fields() override;
+
  private:
   handler *get_file_handler(TABLE_SHARE *share, MEM_ROOT *alloc) const override;
   handler *clone(const char *name, MEM_ROOT *mem_root) override;
