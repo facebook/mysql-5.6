@@ -25,7 +25,7 @@ DELETE IGNORE FROM t1 WHERE b IS NOT NULL ORDER BY a LIMIT 1;
 --sorted_result
 SELECT a,b FROM t1;
 
-DELETE IGNORE t1.*, t2.* FROM t1, t2 WHERE c < b OR a != ( SELECT 1 UNION SELECT 2 );
+DELETE IGNORE t1.*, t2.* FROM t1, t2 WHERE c < b OR a NOT IN ( SELECT 1 UNION SELECT 2 );
 --sorted_result
 SELECT a,b FROM t1;
 --sorted_result

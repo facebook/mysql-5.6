@@ -46,14 +46,10 @@ a	b
 4	d
 5	e
 5	e
-DELETE IGNORE t1.*, t2.* FROM t1, t2 WHERE c < b OR a != ( SELECT 1 UNION SELECT 2 );
-Warnings:
-Warning	1242	Subquery returns more than 1 row
+DELETE IGNORE t1.*, t2.* FROM t1, t2 WHERE c < b OR a NOT IN ( SELECT 1 UNION SELECT 2 );
 SELECT a,b FROM t1;
 a	b
 1	a
 SELECT c,d FROM t2;
 c	d
-foobar	10000
-foobar	10000
 DROP TABLE t1, t2;
