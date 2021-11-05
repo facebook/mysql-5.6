@@ -25,7 +25,7 @@ UPDATE t1, t2 SET b = 'upd2a', c = 'upd2b'
   WHERE c < b OR a != ( SELECT 1 UNION SELECT 2 );
 
 UPDATE IGNORE t1, t2 SET b = 'upd2a', c = 'upd2b' 
-  WHERE c < b OR a != ( SELECT 1 UNION SELECT 2 );
+  WHERE c < b OR a NOT IN ( SELECT 1 UNION SELECT 2 );
 
 SELECT a,b FROM t1 ORDER BY pk;
 SELECT c,d FROM t2 ORDER BY pk;
