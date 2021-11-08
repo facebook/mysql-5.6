@@ -1,13 +1,21 @@
 """
-This script tests Range Locking
+This script tests Range Locking.
+Usage:
 
-  CREATE TABLE t1 (a INT) ENGINE=rocksdb;
+  create table t1 (
+    pk bigint primary key,
+    group_list varchar(128),
+    parent_id bigint
+  ) engine=rocksdb;
 
   let $exec = python3 suite/rocksdb/t/range_locking_conc_test.py \
-                      root 127.0.0.1 $MASTER_MYPORT test t1 100 4;
+                      root 127.0.0.1 $MASTER_MYPORT test t1 \
+                      num_inserts   num_insert_threads \
+                      num_group_ops num_group_threads
   exec $exec;
 
 """
+
 import hashlib
 import MySQLdb
 import os
@@ -21,6 +29,7 @@ import string
 MAX_PK_VAL = 1000*1000*1000
 
 counter_n_inserted = 0
+counter_n_insert_failed = 0
 counter_n_groups_created = 0
 counter_n_group_create_fails = 0
 counter_n_groups_verified = 0
@@ -57,6 +66,7 @@ class Worker(threading.Thread):
 
   def run_one_insert(self):
     global counter_n_inserted
+    global counter_n_insert_failed
     cur = self.cur
     pk = self.rand.randint(1, MAX_PK_VAL)
     
@@ -68,11 +78,13 @@ class Worker(threading.Thread):
       cur.execute("insert into t1 (pk) values(%s)", (pk+1000*1000,));
       do_commit = True
     else:
-      if ((row[0] - pk)>100 and row[1] is None):
+      if ((row[0] - pk)>10 and row[1] is None):
         #print("Row found, inserting into gap, %d" % pk)
         cur.execute("insert into t1 (pk) values(%s)", (pk,));
         do_commit = True
       else:
+        #print(row)
+        #print("Insert: found row[1]=" + str(row[1]))
         #print("Row found, grouped or too tight")
         do_commit = False
 
@@ -81,6 +93,7 @@ class Worker(threading.Thread):
       counter_n_inserted += 1
     else:
       cur.execute("rollback")
+      counter_n_insert_failed += 1
       
   def run_one_create_group(self):
     global counter_n_groups_created
@@ -201,6 +214,9 @@ if __name__ == '__main__':
   num_group_ops = int(sys.argv[8])
   num_group_workers = int(sys.argv[9])
 
+  con= MySQLdb.connect(user=user, host=host, port=port, db=db)
+  con.cursor().execute("truncate table t1")
+
   worker_failed = False
   workers = []
   worker_type = "insert"
@@ -222,6 +238,7 @@ if __name__ == '__main__':
 
   print("")
   print("rows_inserted: %d" % counter_n_inserted)
+  print("rows_insert_failed: %d" % counter_n_insert_failed)
   print("groups_created:  %d" % counter_n_groups_created)
   print("groups_verified: %d" % counter_n_groups_verified)
   print("groups_deleted:  %d" % counter_n_groups_deleted)

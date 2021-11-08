@@ -11,7 +11,7 @@
 drop table if exists t1;
 --enable_warnings
 
-# create the actual table
+# create the test table
 create table t1 (
   pk bigint primary key,
   group_list varchar(128),
