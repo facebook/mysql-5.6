@@ -90,9 +90,11 @@ class Worker(threading.Thread):
     if (do_commit):
       cur.execute("commit")
       counter_n_inserted += 1
+      return 1
     else:
       cur.execute("rollback")
       counter_n_insert_failed += 1
+      return 0
       
   def run_one_create_group(self):
     global counter_n_groups_created
@@ -142,10 +144,12 @@ class Worker(threading.Thread):
       cur.execute("commit")
       counter_n_groups_created += 1
       counter_n_groups_deleted += n_groups_deleted;
+      return 1
     else:
       # print("Failed to join a group")
       counter_n_group_create_fails += 1
       cur.execute("rollback")
+      return 0
   
   # Verify and delete the group
   #   @return  An array listing the deleted PKs (basically, group_list_base
@@ -195,14 +199,15 @@ class Worker(threading.Thread):
 
   def run_inserts(self):
     #print("Worker.run_inserts")
-    for i in range(self.num_inserts):
-      self.run_one_insert()
+    i = 0
+    while (i < self.num_inserts):
+      i += self.run_one_insert()
 
   def run_create_groups(self):
     #print("Worker.run_create_groups")
-    for i in range(self.num_inserts):
-      self.run_one_create_group()
-
+    i = 0
+    while (i < self.num_inserts):
+      i += self.run_one_create_group()
 
   def finish(self):
     self.finished = True
