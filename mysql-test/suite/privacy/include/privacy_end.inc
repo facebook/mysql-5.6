@@ -22,3 +22,12 @@ enable_query_log;
 
 #Restore privacy_plugin_on setting
 set global privacy_plugin_on=@original_privacy_plugin_on;
+
+# Restore privacy_plugin_pes_overall_timeout setting
+disable_query_log;
+let $value = query_get_value(SHOW VARIABLES LIKE 'privacy_plugin_pes_overall_timeout', Value, 1);
+if ($value != No such row)
+{
+  set global privacy_plugin_pes_overall_timeout = @original_privacy_plugin_pes_overall_timeout;
+}
+enable_query_log;
