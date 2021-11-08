@@ -36,36 +36,46 @@ source include/sync_slave_sql_with_master.inc;
 echo "SERVER 1";
 connection server_1;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "SERVER 2";
 connection server_2;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "SERVER 3";
 connection server_3;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "SERVER 4";
 connection server_4;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "SERVER 5";
 connection server_5;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "Transferring leadership from SERVER 1 to SERVER 2";
@@ -75,36 +85,46 @@ source ../include/raft_promote_to_leader.inc;
 echo "SERVER 1";
 connection server_1;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "SERVER 2";
 connection server_2;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "SERVER 3";
 connection server_3;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "SERVER 4";
 connection server_4;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "SERVER 5";
 connection server_5;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS;
 replace_column 2 HOST 3 PORT 5 UUID;
+sorted_result;
 SHOW SLAVE HOSTS WITH RAFT;
 
 echo "Transferring leadership back to SERVER 1";

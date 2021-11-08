@@ -47,9 +47,9 @@ Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
 4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
 SHOW SLAVE HOSTS WITH RAFT;
 Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
 2	HOST	PORT	1	UUID	0	RAFT
 3	HOST	PORT	1	UUID	0	RAFT
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
 "SERVER 2"
 SHOW SLAVE HOSTS;
 Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
