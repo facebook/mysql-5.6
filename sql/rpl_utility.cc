@@ -1236,6 +1236,8 @@ table_def::table_def(unsigned char *types, ulong size,
                                      NULL);
 
   memset(m_field_metadata, 0, size * sizeof(uint16));
+  memset(m_sign_bits, 0, (size + 7) / 8);
+  memset(m_null_bits, 0, (size + 7) / 8);
 
   // -1 means that we haven't computed the value yet
   // see @table_def::use_column_names()
