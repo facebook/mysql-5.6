@@ -25,3 +25,13 @@ set session session_track_response_attributes = 1;
 # Enable plugin
 set @original_privacy_plugin_on=@@privacy_plugin_on;
 set global privacy_plugin_on = 1;
+
+# Increase PES Timeout
+disable_query_log;
+let $value = query_get_value(SHOW VARIABLES LIKE 'privacy_plugin_pes_overall_timeout', Value, 1);
+if ($value !=  No such row)
+{
+  set @original_privacy_plugin_pes_overall_timeout=@@privacy_plugin_pes_overall_timeout;
+  set global privacy_plugin_pes_overall_timeout = 60000;
+}
+enable_query_log;
