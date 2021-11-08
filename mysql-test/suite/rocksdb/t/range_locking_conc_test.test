@@ -19,7 +19,7 @@ create table t1 (
 ) engine=rocksdb;
 
 set global rocksdb_lock_wait_timeout=10;
-let $exec = /usr/bin/python3 suite/rocksdb/t/range_locking_conc_test.py root 127.0.0.1 $MASTER_MYPORT test t1 1000 10 5000 5
+let $exec = /usr/bin/python3 suite/rocksdb/t/range_locking_conc_test.py root 127.0.0.1 $MASTER_MYPORT test t1 2000 20 30000 10
 exec $exec;
 
 #SELECT COUNT(*) from t1;
