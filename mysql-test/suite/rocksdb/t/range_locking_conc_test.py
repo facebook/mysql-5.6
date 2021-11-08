@@ -84,7 +84,6 @@ class Worker(threading.Thread):
         do_commit = True
       else:
         #print(row)
-        #print("Insert: found row[1]=" + str(row[1]))
         #print("Row found, grouped or too tight")
         do_commit = False
 
@@ -113,19 +112,27 @@ class Worker(threading.Thread):
         group_list= str(first_pk)
       else:
         group_list = group_list + "," + str(row[0])
+
       last_pk = row[0]
       if row[1] is not None:
         # Found a row in a group
         break;
       if row[2] is not None:
         # Found a group leader row.
-        self.delete_group(row[0], row[2])
+        ungrouped_ids = self.delete_group(row[0], row[2])
         n_groups_deleted += 1;
+        i = 1
+        n_rows += 1
+        while (n_rows < 5):
+          group_list = group_list + "," + str(ungrouped_ids[i])
+          last_pk= ungrouped_ids[i];
+          i+= 1
+          n_rows += 1
         break;
       n_rows += 1
       row = cur.fetchone()
 
-    if (n_rows == 5):
+    if (n_rows == 5 or n_groups_deleted>0):
       # Ok we got 5 rows in a row and they are all standalone
       # Create a group.
       # print("Creating group %d" % first_pk)
@@ -141,6 +148,8 @@ class Worker(threading.Thread):
       cur.execute("rollback")
   
   # Verify and delete the group
+  #   @return  An array listing the deleted PKs (basically, group_list_base
+  #                                              parameter in the array form)
   def delete_group(self, group_id, group_list_base):
     global counter_n_groups_verified
     cur = self.con.cursor();
@@ -153,10 +162,14 @@ class Worker(threading.Thread):
       if (first_pk is None):
         first_pk = row[0]
         group_list= str(first_pk)
+        group_arr= [];
+        group_arr.append(first_pk)
         if (first_pk != group_id): 
           self.raise_error("First row is not the group leader!");
       else:
         group_list = group_list + "," + str(row[0])
+        group_arr.append(row[0])
+
       last_pk = row[0]
       if (row[0] != first_pk and row[1] != first_pk):
         self.raise_error("Row in group has wrong parent_id (expect %s got %s)" % (first_pk, row[1]))
@@ -174,6 +187,7 @@ class Worker(threading.Thread):
     # Ok, everything seems to be in order.
     cur.execute("update t1 set parent_id=NULL, group_list=NULL where pk>=%s and pk<=%s", (group_id,last_pk,));
     counter_n_groups_verified += 1
+    return group_arr
 
   def raise_error(self, msg):
     print("Data corruption detected: " + msg)
