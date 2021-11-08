@@ -384,8 +384,8 @@ class Binlog_sender : Gtid_mode_copy {
     @return It returns 0 if succeeds, otherwise 1 is returned.
   */
   inline int wait_new_events(my_off_t log_pos);
-  inline int wait_with_heartbeat(my_off_t log_pos);
-  inline int wait_without_heartbeat();
+  inline int wait_with_heartbeat(MYSQL_BIN_LOG *raw_log, my_off_t log_pos);
+  inline int wait_without_heartbeat(MYSQL_BIN_LOG *raw_log);
 
 #ifndef DBUG_OFF
   /* It is used to count the events that have been sent. */
