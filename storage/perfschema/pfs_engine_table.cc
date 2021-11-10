@@ -966,8 +966,8 @@ static bool allow_drop_schema_privilege() {
   return true;
 }
 
-ACL_internal_access_result PFS_internal_schema_access::check(ulong want_access,
-                                                             ulong *) const {
+ACL_internal_access_result PFS_internal_schema_access::check(
+    ulong want_access, ulong *save_priv) const {
   const ulong always_forbidden =
       CREATE_ACL | REFERENCES_ACL | INDEX_ACL | ALTER_ACL | CREATE_TMP_ACL |
       EXECUTE_ACL | CREATE_VIEW_ACL | SHOW_VIEW_ACL | CREATE_PROC_ACL |
@@ -981,6 +981,12 @@ ACL_internal_access_result PFS_internal_schema_access::check(ulong want_access,
     if (!allow_drop_schema_privilege()) {
       return ACL_INTERNAL_ACCESS_DENIED;
     }
+  }
+
+  /* If SELECT_ACL is requested, always grant it */
+  if (enable_pfs_global_select && want_access == SELECT_ACL) {
+    *save_priv |= SELECT_ACL;
+    return ACL_INTERNAL_ACCESS_GRANTED;
   }
 
   /*

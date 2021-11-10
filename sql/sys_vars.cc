@@ -9712,3 +9712,8 @@ static Sys_var_charptr Sys_failure_injection_points(
     DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(validate_failure_injection_points),
     ON_UPDATE(update_failure_injection_points));
+
+static Sys_var_bool Sys_enable_pfs_global_select(
+    "enable_pfs_global_select",
+    "This allows any user to perform select on performance_schema tables.",
+    GLOBAL_VAR(enable_pfs_global_select), CMD_LINE(OPT_ARG), DEFAULT(false));
