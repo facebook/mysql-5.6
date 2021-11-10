@@ -30,7 +30,7 @@ include/rpl_restart_server.inc [server_number=2 gtids=on]
 include/stop_slave.inc
 Warnings:
 Note	3084	Replication thread(s) for channel '' are already stopped.
-CHANGE MASTER TO MASTER_AUTO_POSITION = 1, MASTER_RETRY_COUNT = 100;
+CHANGE MASTER TO MASTER_AUTO_POSITION = 1, MASTER_RETRY_COUNT = 1000;
 include/start_slave.inc
 include/rpl_restart_server.inc [server_number=1 gtids=on]
 INSERT INTO t1 VALUES(6, 6);
