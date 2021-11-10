@@ -1575,6 +1575,7 @@ bool disable_instant_ddl = false;
 bool enable_deprecation_warning = true;
 bool enable_optimizer_cputime_with_wallclock = true;
 bool enable_cputime_with_wallclock = true;
+bool enable_pfs_global_select = false;
 
 /**
    Number of times JSON functions are called that emulate

@@ -429,6 +429,7 @@ extern bool disable_instant_ddl;
 extern bool enable_deprecation_warning;
 extern bool enable_optimizer_cputime_with_wallclock;
 extern bool enable_cputime_with_wallclock;
+extern bool enable_pfs_global_select;
 
 extern ulonglong rbr_unsafe_queries;
 extern ulong relay_io_connected;
