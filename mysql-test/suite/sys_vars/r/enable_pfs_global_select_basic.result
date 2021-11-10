@@ -1,0 +1,54 @@
+SET @start_global_value = @@global.enable_pfs_global_select;
+SELECT @start_global_value;
+@start_global_value
+0
+SELECT @@session.enable_pfs_global_select;
+ERROR HY000: Variable 'enable_pfs_global_select' is a GLOBAL variable
+SET GLOBAL enable_pfs_global_select=1;
+SET GLOBAL enable_pfs_global_select=0;
+SET GLOBAL enable_pfs_global_select=true;
+SET GLOBAL enable_pfs_global_select=false;
+SET GLOBAL enable_pfs_global_select=on;
+SET GLOBAL enable_pfs_global_select=off;
+SET GLOBAL enable_pfs_global_select=1.1;
+ERROR 42000: Incorrect argument type to variable 'enable_pfs_global_select'
+SET GLOBAL enable_pfs_global_select="foo";
+ERROR 42000: Variable 'enable_pfs_global_select' can't be set to the value of 'foo'
+SET GLOBAL enable_pfs_global_select=-1;
+ERROR 42000: Variable 'enable_pfs_global_select' can't be set to the value of '-1'
+SET GLOBAL enable_pfs_global_select=1;
+USE performance_schema;
+SELECT * FROM users;
+SELECT * FROM global_variables;
+SELECT * FROM global_status;
+SELECT * FROM performance_schema.events_statements_history;
+SELECT * FROM performance_schema.index_statistics;
+SET GLOBAL enable_pfs_global_select=0;
+CREATE USER 'testuser'@'localhost';
+USE performance_schema;
+ERROR 42000: Access denied for user 'testuser'@'localhost' to database 'performance_schema'
+SELECT * from performance_schema.users;
+ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for table 'users'
+UPDATE performance_schema.setup_instruments SET enabled='INVALID';
+ERROR 42000: UPDATE command denied to user 'testuser'@'localhost' for table 'setup_instruments'
+SET GLOBAL enable_pfs_global_select=1;
+use performance_schema;
+SELECT * FROM users;
+SELECT * FROM global_variables;
+SELECT * FROM global_status;
+SELECT * FROM performance_schema.events_statements_history;
+SELECT * FROM performance_schema.index_statistics;
+UPDATE performance_schema.setup_instruments SET enabled='INVALID';
+ERROR 42000: UPDATE command denied to user 'testuser'@'localhost' for table 'setup_instruments'
+SET GLOBAL enable_pfs_global_select=0;
+USE test;
+SET GLOBAL enable_pfs_global_select=1;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+USE performance_schema;
+ERROR 42000: Access denied for user 'testuser'@'localhost' to database 'performance_schema'
+SELECT COUNT(*) from performance_schema.users LIMIT 1;
+ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for table 'users'
+UPDATE performance_schema.setup_instruments SET enabled='INVALID';
+ERROR 42000: UPDATE command denied to user 'testuser'@'localhost' for table 'setup_instruments'
+DROP user 'testuser'@'localhost';
+SET GLOBAL enable_pfs_global_select = @start_global_value;

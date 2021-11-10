@@ -1743,13 +1743,19 @@ bool mysql_change_db(THD *thd, const LEX_CSTRING &new_db_name,
 
   if (!force_switch && !(db_access & DB_OP_ACLS) &&
       check_grant_db(thd, new_db_file_name.str, true)) {
-    my_error(ER_DBACCESS_DENIED_ERROR, MYF(0), sctx->priv_user().str,
-             sctx->priv_host().str, new_db_file_name.str);
-    query_logger.general_log_print(
-        thd, COM_INIT_DB, ER_DEFAULT(ER_DBACCESS_DENIED_ERROR),
-        sctx->priv_user().str, sctx->priv_host().str, new_db_file_name.str);
-    my_free(new_db_file_name.str);
-    return true;
+    /* Allow select access to performance_schema */
+    if (enable_pfs_global_select &&
+        is_perfschema_db(new_db_name.str, new_db_name.length)) {
+      db_access = SELECT_ACL;
+    } else {
+      my_error(ER_DBACCESS_DENIED_ERROR, MYF(0), sctx->priv_user().str,
+               sctx->priv_host().str, new_db_file_name.str);
+      query_logger.general_log_print(
+          thd, COM_INIT_DB, ER_DEFAULT(ER_DBACCESS_DENIED_ERROR),
+          sctx->priv_user().str, sctx->priv_host().str, new_db_file_name.str);
+      my_free(new_db_file_name.str);
+      return true;
+    }
   }
 
   if (mdl_handler.ensure_locked(new_db_file_name.str) ||

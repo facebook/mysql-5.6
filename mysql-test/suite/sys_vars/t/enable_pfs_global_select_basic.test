@@ -1,0 +1,93 @@
+-- source include/load_sysvars.inc
+
+SET @start_global_value = @@global.enable_pfs_global_select;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_pfs_global_select;
+
+#
+# correct types
+#
+SET GLOBAL enable_pfs_global_select=1;
+SET GLOBAL enable_pfs_global_select=0;
+SET GLOBAL enable_pfs_global_select=true;
+SET GLOBAL enable_pfs_global_select=false;
+SET GLOBAL enable_pfs_global_select=on;
+SET GLOBAL enable_pfs_global_select=off;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL enable_pfs_global_select=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL enable_pfs_global_select="foo";
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL enable_pfs_global_select=-1;
+
+SET GLOBAL enable_pfs_global_select=1;
+USE performance_schema;
+--disable_result_log
+SELECT * FROM users;
+SELECT * FROM global_variables;
+SELECT * FROM global_status;
+SELECT * FROM performance_schema.events_statements_history;
+SELECT * FROM performance_schema.index_statistics;
+--enable_result_log
+
+SET GLOBAL enable_pfs_global_select=0;
+#
+# Create a user and connect
+#
+CREATE USER 'testuser'@'localhost';
+connect (con1,localhost,testuser,,test);
+
+--error ER_DBACCESS_DENIED_ERROR
+USE performance_schema;
+--error ER_TABLEACCESS_DENIED_ERROR
+SELECT * from performance_schema.users;
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.setup_instruments SET enabled='INVALID';
+
+connection default;
+SET GLOBAL enable_pfs_global_select=1;
+
+connection con1;
+use performance_schema;
+--disable_result_log
+SELECT * FROM users;
+SELECT * FROM global_variables;
+SELECT * FROM global_status;
+SELECT * FROM performance_schema.events_statements_history;
+SELECT * FROM performance_schema.index_statistics;
+--enable_result_log
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.setup_instruments SET enabled='INVALID';
+
+connection default;
+SET GLOBAL enable_pfs_global_select=0;
+
+connection con1;
+USE test;
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET GLOBAL enable_pfs_global_select=1;
+--error ER_DBACCESS_DENIED_ERROR
+USE performance_schema;
+--error ER_TABLEACCESS_DENIED_ERROR
+SELECT COUNT(*) from performance_schema.users LIMIT 1;
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.setup_instruments SET enabled='INVALID';
+
+connection default;
+disconnect con1;
+
+DROP user 'testuser'@'localhost';
+
+#
+# cleanup
+#
+SET GLOBAL enable_pfs_global_select = @start_global_value;
