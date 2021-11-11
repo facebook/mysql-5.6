@@ -185,7 +185,11 @@ const struct my_glob_errors globerrs[GLOBERRS] = {
     {"EE_RESET_CHAR_OUT_OF_RANGE", "Reset character out of range: %s."},
     {"EE_UNKNOWN_LDML_TAG", "Unknown LDML tag: '%.*s'."},
     {"EE_FAILED_TO_RESET_BEFORE_SECONDARY_IGNORABLE_CHAR",
-     "Failed to reset before a secondary ignorable character %s."}};
+     "Failed to reset before a secondary ignorable character %s."},
+    {"ER_WSENV_CANT_OPEN_LIBRARY",
+     "Can't open shared library '%-.192s' (errno: %d %-.128s)"},
+    {"ER_WSENV_CANT_FIND_DL_ENTRY",
+     "Can't find symbol '%-.128s' in library '%-.192s'"}};
 
 /*
  We cannot call my_error/my_printf_error here in this function.
