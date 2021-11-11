@@ -223,34 +223,44 @@ static File create_file(THD *thd, char *path, const char *file_name,
   uint option = MY_UNPACK_FILENAME | MY_RELATIVE_PATH;
 
   bool output_to_ws = false;
-  // only support output data to ws if the file_name contains correct uri
-  // prefix
-  if (file_name != nullptr && sql_wsenv_uri_prefix != nullptr &&
+  /* Only support output file to ws if the file_name contains correct uri
+   prefix and enable_sql_wsenv = 1 */
+  if (unlikely(thd->variables.enable_sql_wsenv) && file_name != nullptr &&
+      sql_wsenv_uri_prefix != nullptr &&
       strncmp(file_name, sql_wsenv_uri_prefix, strlen(sql_wsenv_uri_prefix)) ==
           0) {
     output_to_ws = true;
+    strmake(path, file_name, FN_REFLEN - 1);
+  } else {
+    if (!dirname_length(file_name)) {
+      strxnmov(path, FN_REFLEN - 1, mysql_real_data_home,
+               thd->db().str ? thd->db().str : "", NullS);
+      (void)fn_format(path, file_name, path, "", option);
+    } else
+      (void)fn_format(path, file_name, mysql_real_data_home, "", option);
   }
 
-  if (!dirname_length(file_name)) {
-    strxnmov(path, FN_REFLEN - 1, mysql_real_data_home,
-             thd->db().str ? thd->db().str : "", NullS);
-    (void)fn_format(path, file_name, path, "", option);
-  } else
-    (void)fn_format(path, file_name, mysql_real_data_home, "", option);
-
-  if (!is_secure_file_path(path)) {
+  /* When output to WS, WS check its permission during creating WS file */
+  if (!output_to_ws && !is_secure_file_path(path)) {
     /* Write only allowed to dir or subdir specified by secure_file_priv */
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv", "");
     return -1;
   }
 
-  if (!my_access(path, F_OK)) {
+  int amode = F_OK;
+  if (output_to_ws) amode |= WS_ACCESS_MODE;
+  if (!my_access(path, amode)) {
     my_error(ER_FILE_EXISTS_ERROR, MYF(0), file_name);
     return -1;
   }
+
+  /* Append WS_SEQWRT for WS file */
+  int oflag = O_WRONLY | O_EXCL;
+  if (output_to_ws) oflag |= WS_SEQWRT;
+
   /* Create the file world readable */
   if ((file = mysql_file_create(key_select_to_file, path,
-                                S_IRUSR | S_IWUSR | S_IRGRP, O_WRONLY | O_EXCL,
+                                S_IRUSR | S_IWUSR | S_IRGRP, oflag,
                                 MYF(MY_WME))) < 0)
     return file;
 #ifdef HAVE_FCHMOD

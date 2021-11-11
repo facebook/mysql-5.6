@@ -46,6 +46,7 @@
 #if defined(_WIN32)
 #include "mysys/mysys_priv.h"
 #endif
+#include "mysys/my_wsfile.h"
 
 /**
    Create a new file.
@@ -65,6 +66,7 @@ File my_create(const char *FileName, int CreateFlags, int AccessFlags,
   DBUG_TRACE;
 
   File fd = -1;
+  if ((AccessFlags & WS_SEQWRT) == 0) {
 #if defined(_WIN32)
   fd = my_win_open(FileName, AccessFlags | O_CREAT);
 #else
@@ -75,6 +77,10 @@ File my_create(const char *FileName, int CreateFlags, int AccessFlags,
       },
       -1);
 #endif
+  } else {
+    fd = my_ws_create(FileName, AccessFlags);
+    DBUG_ASSERT(fd < 0 || fd >= WS_START_FD);
+  }
   if (fd < 0) {
     set_my_errno(errno);
     if (MyFlags & (MY_FAE | MY_WME)) {
@@ -83,7 +89,11 @@ File my_create(const char *FileName, int CreateFlags, int AccessFlags,
     return -1;
   }
 
-  file_info::RegisterFilename(fd, FileName,
-                              file_info::OpenType::FILE_BY_CREATE);
+  // WS File are managed by ws_file_map in my_wsfile.cc
+  // also avoid RegisterFilename() expand vector size to WS_START_FD
+  if ((AccessFlags & WS_SEQWRT) == 0) {
+    file_info::RegisterFilename(fd, FileName,
+                                file_info::OpenType::FILE_BY_CREATE);
+  }
   return fd;
 }

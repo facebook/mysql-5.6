@@ -36,6 +36,7 @@
 #include "my_dbug.h"
 #include "my_inttypes.h"
 #include "my_sys.h"  // IWYU pragma: keep
+#include "mysys/my_wsfile.h"
 
 #ifdef _WIN32
 
@@ -86,7 +87,10 @@ int my_access(const char *path, int amode) {
    0    ok
    -1   error
 */
-int my_access(const char *path, int amode) { return access(path, amode); }
+int my_access(const char *path, int amode) {
+  if (amode & WS_ACCESS_MODE) return my_ws_access(path, amode);
+  return access(path, amode);
+}
 #endif
 
 /*
