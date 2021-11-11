@@ -5798,7 +5798,8 @@ restart:
     metadata locks are acquired without waiting).
   */
   if (!(flags & (MYSQL_OPEN_HAS_MDL_LOCK | MYSQL_OPEN_FORCE_SHARED_MDL |
-                 MYSQL_OPEN_FORCE_SHARED_HIGH_PRIO_MDL))) {
+                 MYSQL_OPEN_FORCE_SHARED_HIGH_PRIO_MDL)) &&
+      thd->lex->sql_command != SQLCOM_SELECT) {
     if (thd->locked_tables_mode) {
       /*
         Under LOCK TABLES, we can't acquire new locks, so we instead
