@@ -178,6 +178,16 @@ struct MEM_ROOT;
 #define MY_ERRNO_EDOM 33
 #define MY_ERRNO_ERANGE 34
 
+/* Warm storage file flags */
+#define WS_SEQWRT 0x00100000
+#define WS_RNDRD 0x00200000
+/* The start file descriptor for warm storage files
+   Use big fd number to avoid conflict with local system file descriptors
+*/
+#define WS_START_FD (1 << 30)
+/* Warm storage access mode */
+#define WS_ACCESS_MODE 0x8
+
 /* defines when allocating data */
 extern void *my_multi_malloc(PSI_memory_key key, myf flags, ...);
 
