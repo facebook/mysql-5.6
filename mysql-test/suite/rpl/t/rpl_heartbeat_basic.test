@@ -24,7 +24,7 @@ call mtr.add_suppression("The slave coordinator and worker threads are stopped, 
 --echo
 
 # Set number of retries to connect to master
-let $connect_retry= 20;
+let $connect_retry= 200;
 
 --echo *** Preparing ***
 --source include/sync_slave_sql_with_master.inc
