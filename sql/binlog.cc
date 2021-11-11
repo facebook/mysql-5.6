@@ -8673,14 +8673,6 @@ int MYSQL_BIN_LOG::new_file_impl(
     // pattern in most places of after_commit hook (TODO)
     (void)RUN_HOOK_STRICT(raft_replication, after_commit, (current_thd));
   }
-  if (!error && enable_raft_plugin && !no_op &&
-      (is_relay_log || rotate_via_raft)) {
-    // Register new log to raft
-    // Previous close(LOG_CLOSE_TO_BE_OPENED | LOG_CLOSE_INDEX,) will close
-    // binlog and its IO_CACHE.
-    register_log_entities(current_thd, /*context=*/0,
-                          /*need_lock=*/false, is_relay_log);
-  }
 end:
   if (error && close_on_error /* rotate, flush or reopen failed */) {
     /*
@@ -8718,6 +8710,16 @@ end:
   }
 
   mysql_mutex_unlock(&LOCK_index);
+
+  if (!error && enable_raft_plugin && !no_op &&
+      (is_relay_log || rotate_via_raft)) {
+    // Register new log to raft
+    // Previous close(LOG_CLOSE_TO_BE_OPENED | LOG_CLOSE_INDEX,) will close
+    // binlog and its IO_CACHE.
+    register_log_entities(current_thd, /*context=*/0,
+                          /*need_lock=*/false, is_relay_log);
+  }
+
   if (need_lock_log) mysql_mutex_unlock(&LOCK_log);
 
   DEBUG_SYNC(current_thd, "after_disable_binlog");
