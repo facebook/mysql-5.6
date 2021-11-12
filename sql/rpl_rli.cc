@@ -2280,6 +2280,23 @@ err:
   DBUG_RETURN(error);
 }
 
+int Relay_log_info::add_logged_gtid(const std::string &logged_gtid)
+{
+  Gtid gtid;
+  global_sid_lock->assert_some_lock();
+  auto status = gtid.parse(global_sid_map, logged_gtid.c_str());
+  if (status != RETURN_STATUS_OK)
+  {
+    return 1;
+  }
+
+  gtid_set.ensure_sidno(gtid.sidno);
+  gtid_set._add_gtid(gtid.sidno, gtid.gno);
+
+  return 0;
+}
+
+
 int Relay_log_info::remove_logged_gtids(
     const std::vector<std::string>& trimmed_gtids)
 {
@@ -2289,11 +2306,11 @@ int Relay_log_info::remove_logged_gtids(
   if (trimmed_gtids.empty())
     RETURN_OK;
 
-
   Gtid gtid;
   for (const auto& trimmed_gtid : trimmed_gtids)
   {
-    if (gtid.parse(global_sid_map, trimmed_gtid.c_str()) != RETURN_STATUS_OK)
+    auto status = gtid.parse(gtid_set.get_sid_map(), trimmed_gtid.c_str());
+    if (status != RETURN_STATUS_OK)
     {
       // NO_LINT_DEBUG
       sql_print_error("Failed to parse gtid %s", trimmed_gtid.c_str());

@@ -7950,28 +7950,8 @@ int update_rli_and_mi(
     return 0;
   }
 
-  global_sid_lock->rdlock();
-  const char *buf = gtid_s.c_str();
-  size_t event_len = gtid_s.length();
-
-  Gtid_log_event gtid_ev(buf, event_len, &s_fdle);
-  Gtid gtid = {0, 0};
-  gtid.sidno= gtid_ev.get_sidno(false);
-  if (gtid.sidno < 0)
-  {
-    global_sid_lock->unlock();
-    mysql_mutex_unlock(&mi->data_lock);
-    sql_print_information("could not get proper sid: %s", buf);
-    return 1;
-  }
-
-  gtid.gno= gtid_ev.get_gno();
-
-  // old_retrieved_gtid= *(mi->rli->get_last_retrieved_gtid());
-  int ret= rli->add_logged_gtid(gtid.sidno, gtid.gno);
-  if (!ret)
-    rli->set_last_retrieved_gtid(gtid);
-
+  global_sid_lock->wrlock();
+  int ret= rli->add_logged_gtid(gtid_s);
   global_sid_lock->unlock();
   mysql_mutex_unlock(&mi->data_lock);
 
