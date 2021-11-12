@@ -2309,7 +2309,7 @@ int Relay_log_info::remove_logged_gtids(
   Gtid gtid;
   for (const auto& trimmed_gtid : trimmed_gtids)
   {
-    auto status = gtid.parse(gtid_set.get_sid_map(), trimmed_gtid.c_str());
+    auto status = gtid.parse(global_sid_map, trimmed_gtid.c_str());
     if (status != RETURN_STATUS_OK)
     {
       // NO_LINT_DEBUG
