@@ -825,6 +825,15 @@ class Relay_log_info : public Rpl_info {
   */
   enum_return_status add_gtid_set(const Gtid_set *gtid_set);
 
+  /**
+    Adds a GTID to received GTID set
+
+    @param logged_gtid - gtid to add (uuid:gno)
+
+    @return RETURN_STATUS_OK or RETURN_STATUS_REPORTED_ERROR.
+  */
+  int add_logged_gtid(const std::string &logged_gtid);
+
   int remove_logged_gtids(const std::vector<std::string> &trimmed_gtids);
 
   const Gtid_set *get_gtid_set() const { return gtid_set; }

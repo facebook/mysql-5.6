@@ -1336,6 +1336,7 @@ int rli_relay_log_raft_reset(
   Master_info *mi = nullptr;
   Relay_log_info *rli = nullptr;
   Gtid_set *all_gtid_set = nullptr;
+  char *gtid_set_relay_log = nullptr;
   int error = 0;
   std::string normalized_log_name;
 
@@ -1419,6 +1420,15 @@ int rli_relay_log_raft_reset(
       all_gtid_set, nullptr, opt_replica_sql_verify_checksum,
       /*need_lock=*/false, &mi->transaction_parser,
       mi->get_gtid_monitoring_info());
+
+  // Print the initialized gtid set for debugging
+  all_gtid_set->to_string(&gtid_set_relay_log, /*need_lock=*/false);
+
+  // NO_LINT_DEBUG
+  sql_print_information(
+      "rli_relay_log_raft_reset: GTID set in relay log: %s",
+      gtid_set_relay_log ? gtid_set_relay_log : "Could not initialize");
+  my_free(gtid_set_relay_log);
 
   all_gtid_set->get_sid_map()->get_sid_lock()->unlock();
 
@@ -7966,33 +7976,9 @@ int update_rli_and_mi(
     return 0;
   }
 
-  mysql_mutex_t *log_lock = mi->rli->relay_log.get_log_lock();
-  mysql_mutex_assert_not_owner(log_lock);
-  mysql_mutex_lock(log_lock);
-  const char *buf = gtid_s.c_str();
-  Gtid_log_event gtid_ev(buf, mi->get_mi_description_event());
-  mysql_mutex_unlock(log_lock);
-
-  Gtid gtid = {0, 0};
-  rli->get_sid_lock()->rdlock();
-  gtid.sidno = gtid_ev.get_sidno(rli->get_gtid_set()->get_sid_map());
-  rli->get_sid_lock()->unlock();
-  if (gtid.sidno < 0) {
-    sql_print_information("could not get proper sid: %s", buf);
-    channel_map.unlock();
-    return 1;
-  }
-
-  gtid.gno = gtid_ev.get_gno();
-  DBUG_PRINT("info", ("update_rli_and_mi: Found Gtid : Gtid(%d, %ld).",
-                      gtid.sidno, gtid.gno));
-
-  rli->get_sid_lock()->rdlock();
-  rli->add_logged_gtid(gtid.sidno, gtid.gno);
-  rli->get_sid_lock()->unlock();
+  int error = rli->add_logged_gtid(gtid_s);
   channel_map.unlock();
-
-  return 0;
+  return error;
 }
 
 /**

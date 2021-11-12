@@ -5135,8 +5135,16 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
           it.
         */
         if (is_relay_log) {
-          ret = GOT_GTIDS, done = true;
-        } else {
+          ret = GOT_GTIDS;
+          if (!enable_raft_plugin) {
+            // Break early only when raft is not enabled. When raft is enabled,
+            // we want to read the relay log till the end so that
+            // retrieved-gtid-set can be built correctly
+            done = true;
+          }
+        }
+
+        if (!done) {
           Gtid_log_event *gtid_ev = (Gtid_log_event *)ev;
           rpl_sidno sidno = gtid_ev->get_sidno(sid_map);
           if (sidno < 0)
@@ -5179,7 +5187,13 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
         */
         if (is_relay_log) {
           ret = GOT_GTIDS;
-          done = true;
+
+          if (!enable_raft_plugin) {
+            // Break early only when raft is not enabled. When raft is enabled,
+            // we want to read the relay log till the end so that
+            // retrieved-gtid-set can be built correctly
+            done = true;
+          }
           break;
         }
         assert(prev_gtids == nullptr
@@ -5191,7 +5205,11 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
         // if we found any other event type without finding a
         // previous_gtids_log_event, then the rest of this binlog
         // cannot contain gtids
-        if (ret != GOT_GTIDS && ret != GOT_PREVIOUS_GTIDS) done = true;
+        if (ret != GOT_GTIDS && ret != GOT_PREVIOUS_GTIDS &&
+            !enable_raft_plugin) {
+          done = true;
+        }
+
         /*
           The GTIDs of the relaylog files will be handled later
           because of the possibility of transactions be spanned
@@ -5200,8 +5218,14 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
           GTID but we already found the PREVIOUS_GTIDS, this probably
           means that the event is from a transaction that started on
           previous relaylog file.
+
+          Break early only when raft is not enabled. When raft is enabled,
+          we want to read the relay log till the end so that
+          retrieved-gtid-set can be built correctly
         */
-        if (ret == GOT_PREVIOUS_GTIDS && is_relay_log) done = true;
+        if (ret == GOT_PREVIOUS_GTIDS && is_relay_log && !enable_raft_plugin) {
+          done = true;
+        }
         break;
     }
     delete ev;
@@ -5544,7 +5568,7 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
         string(file_name_and_gtid_set_length),
         string((char *)previous_gtid_set_in_file, gtid_string_length)));
 
-    if (enable_raft_plugin) {
+    if (enable_raft_plugin && !is_relay_log) {
       if (log_file_to_read.empty()) {
         const std::string cur_log_file =
             file_name_and_gtid_set_length +
@@ -5642,8 +5666,11 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
     disabled.
 
     If no previous gtids were found, then skip this.
+    Also skip this logic if raft is enabled as raft does not allow partial trx
+    in raft (relay) log on secondaries
   */
-  if (is_relay_log && filename_list.size() > 0 && num_prev_gtids_found) {
+  if (is_relay_log && filename_list.size() > 0 && num_prev_gtids_found &&
+      !enable_raft_plugin) {
     /*
       Suppose the following relaylog:
 
@@ -11377,9 +11404,13 @@ int binlog_change_to_apply() {
 
   mysql_bin_log.is_apply_log = true;
 
-  // set prevoius gtid set for relay log
-  mysql_bin_log.set_previous_gtid_set_relaylog(
-      const_cast<Gtid_set *>(gtid_state->get_executed_gtids()));
+  /*
+   * 5.6 myraft sets previous gtid set here using
+   * mysql_bin_log.set_previous_gtid_set(gtid_state->get_logged_gtids).
+   * However, this is not available in 8.0. open_binlog() determines the
+   * previous_gtid_set that needs to be written into the new file. Hence the
+   * change is dropped in 8.0.
+   */
 
   // HLC is TBD
   if (mysql_bin_log.open_binlog(opt_apply_logname,
@@ -11478,7 +11509,7 @@ int binlog_change_to_binlog(THD *thd) {
   global_sid_lock->unlock();
 
   /*
-   * TODO: 5.6 myraft sets previous gtid set here using
+   * 5.6 myraft sets previous gtid set here using
    * mysql_bin_log.set_previous_gtid_set(gtid_state->get_logged_gtids).
    * However, this is not available in 8.0. open_binlog() determines the
    * previous_gtid_set that needs to be written into the new file. Hence the
