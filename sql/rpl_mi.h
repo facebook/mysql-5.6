@@ -595,7 +595,7 @@ class Master_info : public Rpl_info {
     Locks:
     All access is protected by Relay_log::LOCK_log.
   */
-  Format_description_log_event *mi_description_event;
+  Format_description_log_event *mi_description_event = nullptr;
 
  public:
   Format_description_log_event *get_mi_description_event() {

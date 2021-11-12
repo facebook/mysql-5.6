@@ -257,6 +257,8 @@ Master_info::~Master_info() {
   delete ignore_server_ids;
   delete mi_description_event;
   delete gtid_monitoring_info;
+
+  mi_description_event = nullptr;
 }
 
 void Master_info::request_rotate(THD *thd) {
