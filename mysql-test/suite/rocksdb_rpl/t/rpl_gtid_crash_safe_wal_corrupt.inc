@@ -3,9 +3,6 @@ source include/master-slave.inc;
 -- let $uuid = `select @@server_uuid;`
 -- let $use_gtids = `select @@gtid_mode = "ON";`
 
---exec echo > $MYSQLTEST_VARDIR/log/mysqld.1.err
---exec echo > $MYSQLTEST_VARDIR/log/mysqld.2.err
-
 connection master;
 --disable_warnings
 drop table if exists x;
@@ -71,13 +68,17 @@ EOF
 --chmod 0755 $MYSQL_TMP_DIR/truncate_tail_wal.sh
 --exec $MYSQL_TMP_DIR/truncate_tail_wal.sh $write_policy
 
+# Log the output to a new file to separate it from prior tests
+--let LOG=$MYSQLTEST_VARDIR/tmp/rpl_gtid_crash_safe_wal_corrupt.err
 --let $rpl_skip_start_slave= 1
+--let $rpl_server_parameters= --log-error=$LOG
+--let $rpl_omit_print_server_parameters= 1
 --source include/rpl_start_server.inc
 --disable_query_log
 select "--- slave state after crash recovery, slave stop, one transaction recovered---" as "";
 --enable_query_log
 connection slave;
---exec /usr/bin/python3 suite/rocksdb/t/check_log_for_xa.py $MYSQLTEST_VARDIR/log/mysqld.2.err commit,prepare,rollback
+--exec /usr/bin/python3 suite/rocksdb/t/check_log_for_xa.py $LOG commit,prepare,rollback
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
@@ -150,6 +151,7 @@ EOF
 --chmod 0755 $MYSQL_TMP_DIR/corrupt_wal.sh
 --exec $MYSQL_TMP_DIR/corrupt_wal.sh $write_policy
 
+--let $rpl_server_parameters=
 --let $rpl_skip_start_slave= 1
 --source include/rpl_start_server.inc
 --disable_query_log
@@ -172,5 +174,6 @@ drop table x;
 
 --remove_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
 --remove_file $MYSQL_TMP_DIR/corrupt_wal.sh
+--remove_file $LOG
 --source include/rpl_end.inc
 
