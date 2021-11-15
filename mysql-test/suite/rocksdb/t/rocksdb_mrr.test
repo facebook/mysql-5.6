@@ -327,6 +327,8 @@ select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.fill
 --echo #
 create table t5(a int primary key, b int);
 insert into t5 values (1, 9),(2, 8),(3, 7);
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t5;
 --replace_column 10 # 11 #
 explain
 select * from t5 left join t4 on t5.b = t4.a where t5.a > 0;
