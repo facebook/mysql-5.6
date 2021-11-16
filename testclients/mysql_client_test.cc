@@ -22876,6 +22876,26 @@ static void test_ssl_connect_ctx() {
   DBUG_VOID_RETURN;
 }
 
+template <class Enum>
+static void set_ip_proto_and_opt_name(int fd, Enum *ip_proto, int *opt_name) {
+  int so_domain = 0;
+  uint so_domain_len = sizeof(int);
+  int rc = getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &so_domain, &so_domain_len);
+
+  if (!rc) {
+    if (so_domain == AF_INET6) {
+      *ip_proto = IPPROTO_IPV6;
+      *opt_name = IPV6_TCLASS;
+    } else if (so_domain == AF_INET) {
+      *ip_proto = IPPROTO_IP;
+      *opt_name = IP_TOS;
+    } else {
+      rc = -1;
+    }
+  }
+  DIE_UNLESS(rc == 0);
+}
+
 static void test_option_tos() {
   MYSQL conn;
   auto ip_proto = IPPROTO_IPV6;
@@ -22902,6 +22922,8 @@ static void test_option_tos() {
 
   // Verify the ToS is 0 from getsockopt
   int fd = conn.net.vio->mysql_socket.fd;
+  set_ip_proto_and_opt_name(fd, &ip_proto, &opt_name);
+
   int rc = getsockopt(fd, ip_proto, opt_name, &tos, &tos_len);
   fprintf(stdout, "ToS is set to %d\n", tos);
   DIE_UNLESS(rc == 0);
@@ -22928,6 +22950,8 @@ static void test_option_tos() {
 
   // Verify the ToS is set to 140 from getsockopt
   fd = conn.net.vio->mysql_socket.fd;
+  set_ip_proto_and_opt_name(fd, &ip_proto, &opt_name);
+
   rc = getsockopt(fd, ip_proto, opt_name, &tos, &tos_len);
   fprintf(stdout, "ToS is set to %d\n", tos);
   DIE_UNLESS(rc == 0);
@@ -22954,6 +22978,8 @@ static void test_option_tos() {
 
   // Verify the ToS is set to 252 from getsockopt
   fd = conn.net.vio->mysql_socket.fd;
+  set_ip_proto_and_opt_name(fd, &ip_proto, &opt_name);
+
   rc = getsockopt(fd, ip_proto, opt_name, &tos, &tos_len);
   fprintf(stdout, "ToS is set to %d\n", tos);
   DIE_UNLESS(rc == 0);
@@ -22980,6 +23006,8 @@ static void test_option_tos() {
 
   // Verify the ToS is set to 0 from getsockopt
   fd = conn.net.vio->mysql_socket.fd;
+  set_ip_proto_and_opt_name(fd, &ip_proto, &opt_name);
+
   rc = getsockopt(fd, ip_proto, opt_name, &tos, &tos_len);
   fprintf(stdout, "ToS is set to %d\n", tos);
   DIE_UNLESS(rc == 0);

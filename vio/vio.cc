@@ -397,6 +397,15 @@ bool vio_reset(Vio *vio, enum enum_vio_type type, my_socket sd,
       vio->kq_fd = -1;
     }
 #endif
+
+#ifdef USE_PPOLL_IN_VIO
+    new_vio.thread_id = vio->thread_id;
+    new_vio.signal_mask = vio->signal_mask;
+    if (vio->poll_shutdown_flag.test_and_set())
+      new_vio.poll_shutdown_flag.test_and_set();
+    else
+      new_vio.poll_shutdown_flag.clear();
+#endif
     /*
       Overwrite existing Vio structure
     */
