@@ -86,7 +86,8 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, TABLE *table,
     }
 
     if (!field_dec->m_is_virtual_gcol) {
-      if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
+      if (field_dec->m_field_type == MYSQL_TYPE_BLOB ||
+          field_dec->m_field_type == MYSQL_TYPE_JSON) {
         err = decode_blob(table, ptr, field_dec, reader, decode);
       } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
         err = decode_varchar(ptr, field_dec, reader, decode);
@@ -824,7 +825,8 @@ int Rdb_converter::encode_value_slice(
       }
     }
 
-    if (encoder.m_field_type == MYSQL_TYPE_BLOB) {
+    if (encoder.m_field_type == MYSQL_TYPE_BLOB ||
+        encoder.m_field_type == MYSQL_TYPE_JSON) {
       my_core::Field_blob *blob =
           reinterpret_cast<my_core::Field_blob *>(field);
       /* Get the number of bytes needed to store length*/

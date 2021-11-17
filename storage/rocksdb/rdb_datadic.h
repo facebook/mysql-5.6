@@ -1195,7 +1195,8 @@ class Rdb_field_encoder {
 
   bool uses_variable_len_encoding() const {
     return (m_field_type == MYSQL_TYPE_BLOB ||
-            m_field_type == MYSQL_TYPE_VARCHAR);
+            m_field_type == MYSQL_TYPE_VARCHAR ||
+            m_field_type == MYSQL_TYPE_JSON);
   }
 };
 
