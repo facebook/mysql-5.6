@@ -145,3 +145,6 @@ component_test_mysql_runtime_error  plugin_output_directory  TEST_MYSQL_RUNTIME_
 
 # mysqlbackup component
 component_mysqlbackup           plugin_output_directory  MYSQLBACKUP_COMPONENT
+
+# test privacy service
+libtest_get_column_ref_info                      plugin_output_directory TEST_GET_COLUMN_REF_INFO test_get_column_ref_info
