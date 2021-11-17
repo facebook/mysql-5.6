@@ -1,0 +1,246 @@
+##########################################
+# Run plugin
+##########################################
+INSTALL PLUGIN test_get_column_ref_info SONAME 'TEST_GET_COLUMN_REF_INFO';
+##########################################
+# Prepare Tables
+##########################################
+CREATE TABLE a(a_1 INT, a_2 INT, common VARCHAR(10));
+CREATE TABLE b(b_1 INT, b_2 INT, common VARCHAR(10));
+CREATE TABLE c(c_1 INT, c_2 INT, c_3 INT, common VARCHAR(10));
+INSERT INTO a (a_1, a_2, common) VALUES (1, 2, 'a_common');
+INSERT INTO b (b_1, b_2, common) VALUES (3, 2, 'b_common');
+INSERT INTO c (c_1, c_2, c_3, common) VALUES (10, 20, 30, 'c_common');
+##########################################
+# Run SQL Queries
+##########################################
+SELECT NULL LIMIT 0;
+NULL
+SELECT * FROM a;
+a_1	a_2	common
+1	2	a_common
+SELECT a_2 FROM a;
+a_2
+2
+SELECT a_2, a_1 FROM a;
+a_2	a_1
+2	1
+SELECT a_1 + a_1 FROM a;
+a_1 + a_1
+2
+SELECT c_1 + c_3 FROM c;
+c_1 + c_3
+40
+SELECT (SELECT t.a_1) FROM a AS t;
+(SELECT t.a_1)
+1
+SELECT (SELECT t.a_1 as xyz) FROM a AS t;
+(SELECT t.a_1 as xyz)
+1
+SELECT (SELECT c_1 from c LIMIT 1), common AS x FROM a AS t;
+(SELECT c_1 from c LIMIT 1)	x
+10	a_common
+SELECT (SELECT c_1 from c LIMIT 1), common AS x, (SELECT t.a_1 as xyz) AS y FROM a AS t;
+(SELECT c_1 from c LIMIT 1)	x	y
+10	a_common	1
+SELECT y AS a, z AS b, x AS c, common FROM (
+SELECT c_2 AS x, c_3 AS y, c_1 AS z FROM (
+SELECT c_1, c_2, c_3 FROM c
+) as p
+) as t, b;
+a	b	c	common
+30	10	20	b_common
+SELECT a_2 FROM a WHERE a_1 > 0 GROUP BY a_2;
+a_2
+2
+SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 ORDER BY a_2;
+a_2	SUM(a_1)
+2	1
+SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t;
+y
+20
+SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t;
+y	x + z
+20	12
+SELECT a_1, c_1 FROM a, c;
+a_1	c_1
+1	10
+SELECT * FROM a, c;
+a_1	a_2	common	c_1	c_2	c_3	common
+1	2	a_common	10	20	30	c_common
+SELECT * FROM a, c, b;
+a_1	a_2	common	c_1	c_2	c_3	common	b_1	b_2	common
+1	2	a_common	10	20	30	c_common	3	2	b_common
+SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1;
+a_1	a_2	common	c_1	c_2	c_3	common	b_1	b_2	common
+SELECT 1, 2 UNION SELECT 'a', 'b';
+1	2
+1	2
+a	b
+SELECT * FROM a UNION SELECT c_1, c_2, common FROM c;
+a_1	a_2	common
+1	2	a_common
+10	20	c_common
+SELECT * FROM a UNION ALL SELECT c_1, c_2, common FROM c UNION ALL SELECT c_1, c_2, common FROM c;
+a_1	a_2	common
+1	2	a_common
+10	20	c_common
+10	20	c_common
+(SELECT common, a_1 FROM a WHERE a_1 > 0 ORDER BY common LIMIT 5) UNION (SELECT common, c_1 FROM c WHERE c_1 < 100 ORDER BY c_3 LIMIT 5);
+common	a_1
+a_common	1
+c_common	10
+##########################################
+# Stop plugin
+##########################################
+UNINSTALL PLUGIN test_get_column_ref_info;
+DROP TABLE a;
+DROP TABLE b;
+DROP TABLE c;
+##########################################
+# Plugin log
+##########################################
+Plugin test plugin initialized
+Test query: INSERT INTO a (a_1, a_2, common) VALUES (1, 2, 'a_common')
+
+Test query: INSERT INTO b (b_1, b_2, common) VALUES (3, 2, 'b_common')
+
+Test query: INSERT INTO c (c_1, c_2, c_3, common) VALUES (10, 20, 30, 'c_common')
+
+Test query: SELECT NULL LIMIT 0
+
+Test query: SELECT * FROM a
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (common)
+
+Test query: SELECT a_2 FROM a
+Column_ref_info db = (test), table (a), field (a_2)
+
+Test query: SELECT a_2, a_1 FROM a
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (a_1)
+
+Test query: SELECT a_1 + a_1 FROM a
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_1)
+
+Test query: SELECT c_1 + c_3 FROM c
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_3)
+
+Test query: SELECT (SELECT t.a_1) FROM a AS t
+Column_ref_info db = (test), table (a), field (a_1)
+
+Test query: SELECT (SELECT t.a_1 as xyz) FROM a AS t
+Column_ref_info db = (test), table (a), field (a_1)
+
+Test query: SELECT (SELECT c_1 from c LIMIT 1), common AS x FROM a AS t
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (a), field (common)
+
+Test query: SELECT (SELECT c_1 from c LIMIT 1), common AS x, (SELECT t.a_1 as xyz) AS y FROM a AS t
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (a), field (a_1)
+
+Test query: SELECT y AS a, z AS b, x AS c, common FROM (
+SELECT c_2 AS x, c_3 AS y, c_1 AS z FROM (
+SELECT c_1, c_2, c_3 FROM c
+) as p
+) as t, b
+Column_ref_info db = (test), table (c), field (c_3)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_2)
+Column_ref_info db = (test), table (b), field (common)
+
+Test query: SELECT a_2 FROM a WHERE a_1 > 0 GROUP BY a_2
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+
+Test query: SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 ORDER BY a_2
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (a_2)
+
+Test query: SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t
+Column_ref_info db = (test), table (a), field (a_1)
+
+Test query: SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+
+Test query: SELECT a_1, c_1 FROM a, c
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (c), field (c_1)
+
+Test query: SELECT * FROM a, c
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_2)
+Column_ref_info db = (test), table (c), field (c_3)
+Column_ref_info db = (test), table (c), field (common)
+
+Test query: SELECT * FROM a, c, b
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_2)
+Column_ref_info db = (test), table (c), field (c_3)
+Column_ref_info db = (test), table (c), field (common)
+Column_ref_info db = (test), table (b), field (b_1)
+Column_ref_info db = (test), table (b), field (b_2)
+Column_ref_info db = (test), table (b), field (common)
+
+Test query: SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_2)
+Column_ref_info db = (test), table (c), field (c_3)
+Column_ref_info db = (test), table (c), field (common)
+Column_ref_info db = (test), table (b), field (b_1)
+Column_ref_info db = (test), table (b), field (b_2)
+Column_ref_info db = (test), table (b), field (common)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (b), field (b_1)
+
+Test query: SELECT 1, 2 UNION SELECT 'a', 'b'
+
+Test query: SELECT * FROM a UNION SELECT c_1, c_2, common FROM c
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_2)
+Column_ref_info db = (test), table (c), field (common)
+
+Test query: SELECT * FROM a UNION ALL SELECT c_1, c_2, common FROM c UNION ALL SELECT c_1, c_2, common FROM c
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_2)
+Column_ref_info db = (test), table (c), field (common)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_2)
+Column_ref_info db = (test), table (c), field (common)
+
+Test query: (SELECT common, a_1 FROM a WHERE a_1 > 0 ORDER BY common LIMIT 5) UNION (SELECT common, c_1 FROM c WHERE c_1 < 100 ORDER BY c_3 LIMIT 5)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (c), field (common)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_1)
+Column_ref_info db = (test), table (c), field (c_3)
+
