@@ -4001,6 +4001,28 @@ mysql_execute_command(THD *thd,
       goto error;
   }
 
+  /*
+    Check for HLC upper and lower bounds if we're either
+    already in transaction, or there is an out-of-transaction query that
+    changes data.
+  */
+  if (!(thd->server_status & SERVER_STATUS_IN_TRANS)) {
+    thd->transaction.hlc_bound_cleanup();
+  }
+
+  /*
+    TODO: Potentially need to add a check for SQLCOM_XA_START here. Also
+          may need to check for SQLCOM_XA_COMMIT as well unless
+          SERVER_STATUS_IN_TRANS flag is always set for SQLCOM_XA_COMMIT.
+   */
+  if (lex->sql_command == SQLCOM_BEGIN ||
+      ((thd->server_status & SERVER_STATUS_IN_TRANS) && !thd->tx_read_only) ||
+      (sql_command_flags[lex->sql_command] & CF_CHANGES_DATA)) {
+    if (mysql_bin_log.capture_hlc_bound(thd)) {
+      goto error;
+    }
+  }
+
   switch (lex->sql_command) {
 
   case SQLCOM_SHOW_STATUS:

@@ -252,6 +252,12 @@ enum enum_protocol_mode
   PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD= 1,
 };
 
+enum enum_hlc_bound_no_value
+{
+  HLC_LOWER_BOUND_NOVALUE = 0,
+  HLC_UPPER_BOUND_NOVALUE = UINT64_MAX,
+};
+
 extern char internal_table_name[2];
 extern char empty_c_string[1];
 extern LEX_STRING EMPTY_STR;
@@ -3102,6 +3108,8 @@ public:
     THD_TRANS stmt;			// Trans for current statement
     XID_STATE xid_state;
     Rows_log_event *m_pending_rows_event;
+    uint64_t hlc_lower_bound;
+    uint64_t hlc_upper_bound;
 
     /*
        Tables changed in transaction (that must be invalidated in query cache).
@@ -3137,6 +3145,7 @@ public:
       DBUG_ENTER("THD::st_transaction::cleanup");
       changed_tables= 0;
       savepoints= 0;
+      hlc_bound_cleanup();
 
       /*
         If rm_error is raised, it means that this piece of a distributed
@@ -3158,6 +3167,7 @@ public:
       memset(this, 0, sizeof(*this));
       xid_state.xid.null();
       init_sql_alloc(&mem_root, ALLOC_ROOT_MIN_BLOCK_SIZE, 0);
+      hlc_bound_cleanup();
     }
     void push_unsafe_rollback_warnings(THD *thd)
     {
@@ -3185,6 +3195,20 @@ public:
       */
       all.add_unsafe_rollback_flags(stmt.get_unsafe_rollback_flags());
     }
+    void hlc_bound_cleanup() {
+      hlc_lower_bound = HLC_LOWER_BOUND_NOVALUE;
+      hlc_upper_bound = HLC_UPPER_BOUND_NOVALUE;
+    }
+    void update_hlc_lower_bound(uint64_t bound) {
+      // Select the highest lower bound across all queries in the transaction
+      hlc_lower_bound= std::max(hlc_lower_bound, bound);
+    }
+    void update_hlc_upper_bound(uint64_t bound) {
+      // Select the lowest upper bound across all queries in the transaction
+      hlc_upper_bound= std::min(hlc_upper_bound, bound);
+    }
+    uint64_t get_hlc_lower_bound() const { return hlc_lower_bound; }
+    uint64_t get_hlc_upper_bound() const { return hlc_upper_bound; }
   } transaction;
   Global_read_lock global_read_lock;
   Field      *dup_field;

@@ -388,8 +388,26 @@ class HybridLogicalClock {
     return hlc != 0 && hlc != ULLONG_MAX;
   }
 
- private:
+  /**
+   * Convert a string to an HLC value.
+   *
+   * @param hlc_str [in] The string representing an HLC value.
+   *
+   * @param hlc [out] a pointer to a numeric variable that will receive the
+   *              HLC value read from "hlc_str"
+   *
+   * @return "true" if the conversion was successfull and "hlc" parameter
+   *         was updated with the conversion result, "false" otherwise.
+   */
+  static bool str_to_hlc(const char *hlc_str, uint64_t *hlc);
 
+  /**
+   * Check if upper and lower HLC bound attributes are set, and store
+   * their values in the transaction context object.
+   */
+  bool capture_hlc_bound(THD *thd);
+
+private:
   // nanosecond precision internal clock
   std::atomic<uint64_t> current_;
 
@@ -908,6 +926,8 @@ public:
   }
 
   bool check_hlc_bound(THD *thd) { return hlc.check_hlc_bound(thd); }
+
+  bool capture_hlc_bound(THD *thd) { return hlc.capture_hlc_bound(thd); }
 
   /*
    * @param raft_rotate_info

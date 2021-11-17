@@ -2066,15 +2066,12 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd,
     return true;
   }
 
-  char *endptr = nullptr;
-  uint64_t requested_hlc = strtoull(hlc_ts_str.c_str(), &endptr, 10);
-  if (!endptr || *endptr != '\0' ||
-      !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
-    my_error(ER_INVALID_HLC, MYF(0), hlc_ts_str.c_str());
+  uint64_t requested_hlc;
+  if (!str_to_hlc(hlc_ts_str.c_str(), &requested_hlc)) {
     return true;
   }
 
-  endptr = nullptr;
+  char *endptr = nullptr;
   uint64_t timeout_ms = wait_for_hlc_timeout_ms;
   if (hlc_wait_timeout_str) {
     timeout_ms = strtoull(hlc_wait_timeout_str, &endptr, 10);
@@ -2111,70 +2108,99 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd,
   return entry->wait_for_hlc(thd, requested_hlc, timeout_ms);
 }
 
+bool HybridLogicalClock::capture_hlc_bound(THD *thd) {
+  if (!thd->variables.enable_hlc_bound || thd->slave_thread) {
+    return false;
+  }
+
+  uint64_t hlc_lower_bound= HLC_LOWER_BOUND_NOVALUE;
+  auto it= thd->query_attrs_map.find(hlc_ts_lower_bound);
+  if (it != thd->query_attrs_map.end() &&
+      !str_to_hlc(it->second.c_str(), &hlc_lower_bound)) {
+    return true;
+  }
+
+  uint64_t hlc_upper_bound= HLC_UPPER_BOUND_NOVALUE;
+  it= thd->query_attrs_map.find(hlc_ts_upper_bound);
+  if (it != thd->query_attrs_map.end() &&
+      !str_to_hlc(it->second.c_str(), &hlc_upper_bound)) {
+      return true;
+  }
+
+  if (hlc_lower_bound != HLC_LOWER_BOUND_NOVALUE) {
+    thd->transaction.update_hlc_lower_bound(hlc_lower_bound);
+  }
+
+  if (hlc_upper_bound != HLC_UPPER_BOUND_NOVALUE) {
+    if (hlc_upper_bound <=
+        thd->transaction.get_hlc_lower_bound() + hlc_upper_bound_delta) {
+      my_error(ER_HLC_STALE_UPPER_BOUND,
+               MYF(0),
+               thd->transaction.get_hlc_lower_bound());
+      return true;
+    }
+    thd->transaction.update_hlc_upper_bound(hlc_upper_bound);
+  }
+
+  return false;
+}
+
 bool HybridLogicalClock::check_hlc_bound(THD *thd) {
   if (!thd->variables.enable_hlc_bound || thd->slave_thread) {
     return false;
   }
 
-  const char *hlc_lower_bound_ts_str = nullptr;
-  const char *hlc_upper_bound_ts_str = nullptr;
-  for (const auto &p : thd->query_attrs_map) {
-    if (p.first == hlc_ts_lower_bound) {
-      hlc_lower_bound_ts_str = p.second.c_str();
-    } else if (p.first == hlc_ts_upper_bound) {
-      hlc_upper_bound_ts_str = p.second.c_str();
-    }
-    if (hlc_lower_bound_ts_str && hlc_upper_bound_ts_str) {
-      break;
-    }
-  }
-
-  if (hlc_lower_bound_ts_str) {
-    char *endptr = nullptr;
-    uint64_t requested_hlc = strtoull(hlc_lower_bound_ts_str, &endptr, 10);
-    if (!endptr || *endptr != '\0' ||
-        !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
-      my_error(ER_INVALID_HLC, MYF(0), hlc_lower_bound_ts_str);
-      return true;
-    }
-
+  const uint64_t hlc_lower_bound_ts= thd->transaction.get_hlc_lower_bound();
+  if (hlc_lower_bound_ts != HLC_LOWER_BOUND_NOVALUE) {
     // There is a limit on how far we can jump HLC value. In case if the
     // requested HLC value is too far ahead of the current wallclock time
     // we fail the request with ER_HLC_ABOVE_MAX_DRIFT error.
 
     // Get current wall clock
-    uint64_t cur_wall_clock_ns =
+    uint64_t cur_wall_clock_ns=
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::high_resolution_clock::now().time_since_epoch())
             .count();
 
     // Updating the HLC cannot be allowed if HLC drifts forward by more than
     // 'maximum_hlc_drift_ns' as compared to wall clock
-    if (requested_hlc > cur_wall_clock_ns &&
-        (requested_hlc - cur_wall_clock_ns) > maximum_hlc_drift_ns) {
-      my_error(ER_HLC_ABOVE_MAX_DRIFT, MYF(0), hlc_lower_bound_ts_str);
+    if (hlc_lower_bound_ts > cur_wall_clock_ns &&
+        (hlc_lower_bound_ts - cur_wall_clock_ns) > maximum_hlc_drift_ns) {
+      my_error(ER_HLC_ABOVE_MAX_DRIFT, MYF(0), hlc_lower_bound_ts);
       return true;
     }
-    update(requested_hlc);
   }
 
-  if (hlc_upper_bound_ts_str) {
-    char *endptr = nullptr;
-    uint64_t requested_hlc = strtoull(hlc_upper_bound_ts_str, &endptr, 10);
-    if (!endptr || *endptr != '\0' ||
-        !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
-      my_error(ER_INVALID_HLC, MYF(0), hlc_upper_bound_ts_str);
-      return true;
-    }
-
-    uint64_t current_hlc = get_current();
-    if (requested_hlc <= current_hlc + hlc_upper_bound_delta) {
+  const uint64_t hlc_upper_bound_ts= thd->transaction.get_hlc_upper_bound();
+  if (hlc_upper_bound_ts != HLC_UPPER_BOUND_NOVALUE) {
+    // The new lower HLC bound is not applied yet, but we need to consider it
+    // while validating the requested upper HLC bound
+    uint64_t current_hlc= std::max(get_current(), hlc_lower_bound_ts);
+    if (hlc_upper_bound_ts <= current_hlc + hlc_upper_bound_delta) {
       my_error(ER_HLC_STALE_UPPER_BOUND, MYF(0), current_hlc);
       return true;
     }
   }
 
+  // Don't apply the new lower HLC value until we validate that the upper HLC
+  // bound condition can be satisfied.
+  if (hlc_lower_bound_ts != HLC_LOWER_BOUND_NOVALUE) {
+    update(hlc_lower_bound_ts);
+  }
+
   return false;
+}
+
+bool HybridLogicalClock::str_to_hlc(const char *hlc_str, uint64_t *hlc) {
+  char *endptr = nullptr;
+  uint64_t requested_hlc = strtoull(hlc_str, &endptr, 10);
+  if (!endptr || *endptr != '\0' ||
+      !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+    my_error(ER_INVALID_HLC, MYF(0), hlc_str);
+    return false;
+  }
+  *hlc = requested_hlc;
+  return true;
 }
 
 void HybridLogicalClock::DatabaseEntry::update_hlc(uint64_t applied_hlc) {
