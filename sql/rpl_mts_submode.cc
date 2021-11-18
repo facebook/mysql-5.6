@@ -1095,14 +1095,24 @@ bool Mts_submode_dependency::wait_for_dep_workers_to_finish(
   DBUG_ASSERT(is_mts_parallel_type_dependency(rli));
   PSI_stage_info old_stage;
 
+  // This simulates `STOP SLAVE` command racing with SQL thread error handling
+  // by setting the killed flag to NOT_KILLED. See @terminate_slave_thread()
+  DBUG_EXECUTE_IF("simulate_stop_slave_before_dep_worker_wait", {
+    rli->info_thd->killed = THD::NOT_KILLED;
+  };);
+
   mysql_mutex_lock(&dep_lock);
 
   const ulonglong num = partial_trx ? 1 : 0;
   rli->info_thd->ENTER_COND(&dep_trx_all_done_cond, &dep_lock,
                             &stage_slave_waiting_for_dependency_workers,
                             &old_stage);
-  while (num_in_flight_trx > num && !rli->info_thd->killed) {
-    mysql_cond_wait(&dep_trx_all_done_cond, &dep_lock);
+  while (num_in_flight_trx > num && !rli->info_thd->killed &&
+         !dependency_worker_error) {
+    const auto timeout_nsec = rli->mts_dependency_cond_wait_timeout * 1000000;
+    struct timespec abstime;
+    set_timespec_nsec(&abstime, timeout_nsec);
+    mysql_cond_timedwait(&dep_trx_all_done_cond, &dep_lock, &abstime);
   }
 
   mysql_mutex_unlock(&dep_lock);
