@@ -1922,6 +1922,12 @@ bool wait_for_dep_workers_to_finish(Relay_log_info *rli, bool partial_trx)
   DBUG_ASSERT(rli->mts_dependency_replication);
   PSI_stage_info old_stage;
 
+  // This simulates `STOP SLAVE` command racing with SQL thread error handling
+  // by setting the killed flag to NOT_KILLED. See @terminate_slave_thread()
+  DBUG_EXECUTE_IF("simulate_stop_slave_before_dep_worker_wait", {
+    rli->info_thd->killed = THD::NOT_KILLED;
+  };);
+
   mysql_mutex_lock(&rli->dep_lock);
 
   const ulonglong num= partial_trx ? 1 : 0;
@@ -1929,7 +1935,9 @@ bool wait_for_dep_workers_to_finish(Relay_log_info *rli, bool partial_trx)
                             &rli->dep_lock,
                             &stage_slave_waiting_for_dependency_workers,
                             &old_stage);
-  while (rli->num_in_flight_trx > num && !rli->info_thd->killed)
+  while (rli->num_in_flight_trx > num &&
+         !rli->info_thd->killed &&
+         !rli->dependency_worker_error)
   {
     const auto timeout_nsec= rli->mts_dependency_cond_wait_timeout * 1000000;
     struct timespec abstime;
