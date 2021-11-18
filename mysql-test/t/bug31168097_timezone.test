@@ -1,0 +1,7 @@
+# Test fix for Bug#31168097
+
+CREATE TABLE foo (a INT) ENGINE=INNODB;
+INSERT INTO foo VALUES(1593284118);
+--replace_column 1 #
+SELECT CONVERT_TZ(FROM_UNIXTIME(a),@@SESSION.time_zone,@@SESSION.time_zone) AS reported_time FROM foo ORDER BY reported_time;
+DROP TABLE foo;
