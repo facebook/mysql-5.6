@@ -2881,3 +2881,70 @@
    fun:_ZN10my_rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
    ...
 }
+
+{
+   One time memory leak inside dlerror()
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:dlerror
+   fun:_ZN36mysql_dynamic_loader_scheme_file_imp4loadEPKcPP17mysql_component_t
+   ...
+}
+
+{
+   ThreadLocalPtr::StaticMeta* ThreadLocalPtr::Instance() allocates method static variable.
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN7rocksdb14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
+   ...
+}
+
+{
+   Registry& GetRegistry() creates methods static pointer to Registry
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN7rocksdb12_GLOBAL__N_18Registry8RegisterEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   ...
+}
+
+{
+   Registry& GetRegistry() creates methods static pointer to Registry
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN7rocksdb24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   ...
+}
+
+
+{
+   ThreadStatusUpdater is the member of PosixEnv, which is static method object inside Env* Env::Default()
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN7rocksdb19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
+   ...
+}
+
+{
+   ThreadStatusUpdater is the member of PosixEnv, which is static method object inside Env* Env::Default()
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN7rocksdb19ThreadStatusUpdater19NewColumnFamilyInfoEPKvRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES2_SA_
+   ...
+}
+
+
+{
+   static Status GetShared(Cache *cache, SystemClock *clock, std::shared_ptr<CacheEntryStatsCollector> *ptr) creates static pointer inside metod
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN7rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
+   ...
+}
+
