@@ -7103,11 +7103,11 @@ static int rocksdb_shutdown(bool minimalShutdown) {
     // Disown the cache data since we're shutting down.
     // This results in memory leaks but it improved the shutdown time.
     // Don't disown when running under valgrind
-#ifndef HAVE_purify
+#ifndef HAVE_VALGRIND
     if (rocksdb_tbl_options->block_cache) {
       rocksdb_tbl_options->block_cache->DisownData();
     }
-#endif /* HAVE_purify */
+#endif /* HAVE_VALGRIND */
   }
 
   rocksdb_db_options = nullptr;

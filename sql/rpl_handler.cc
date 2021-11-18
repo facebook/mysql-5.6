@@ -440,6 +440,8 @@ void delegates_destroy() {
     binlog_transmit_delegate->~Binlog_transmit_delegate();
   if (binlog_relay_io_delegate)
     binlog_relay_io_delegate->~Binlog_relay_IO_delegate();
+  if (raft_replication_delegate)
+    raft_replication_delegate->~Raft_replication_delegate();
 }
 
 static void delegates_update_plugin_ref_count() {
