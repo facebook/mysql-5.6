@@ -1,0 +1,60 @@
+source include/master-slave.inc;
+source include/have_mts_dependency_replication_stmt.inc;
+source include/have_debug.inc;
+source include/have_debug_sync.inc;
+
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+
+connection master;
+create table t1 (a int primary key, b int) engine = innodb;
+insert into t1 values(1, 1);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+source include/stop_slave.inc;
+# This debug flag will set killed flag for the SQL thread to NOT_KILLED just
+# before SQL thread waits for workers to finish exec in the error handling flow.
+# This simulates a 'STOP SLAVE' racing with error handling flow of SQL thread.
+set @@global.debug = "+d,simulate_stop_slave_before_dep_worker_wait";
+source include/start_slave.inc;
+
+# Create a trx on the secondary to block trx from worker threads
+connection slave1;
+begin;
+update t1 set a = 1000 where a = 1;
+
+connection master;
+update t1 set a = 10 where a = 1; # this will be blocked due to trx above
+update t1 set a = 100 where a = 10; # this will wait for deps
+insert into t1 values(2, 2); # this will wait for commit order
+insert into t1 values(3, 3); # this will wait for commit order
+
+# Wait for lock wait timeout of worker thread
+connection slave;
+let $slave_sql_errno= convert_error(ER_LOCK_WAIT_TIMEOUT);
+source include/wait_for_slave_sql_error.inc;
+
+# Rollback the blocking trx
+connection slave1;
+rollback;
+
+# Resume normal execution
+connection slave;
+set @@global.debug = "-d,simulate_stop_slave_before_dep_worker_wait";
+source include/start_slave.inc;
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+select * from t1;
+
+connection slave;
+select * from t1;
+
+# Cleanup
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

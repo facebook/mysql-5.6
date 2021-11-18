@@ -120,6 +120,7 @@ void Dependency_slave_worker::start() {
 
   // case: cleanup if stopped abruptly
   if (running_status != STOP_ACCEPTED) {
+    scheduler->dependency_worker_error = true;
     // tagging as exiting so Coordinator won't be able synchronize with it
     mysql_mutex_lock(&jobs_lock);
     running_status = ERROR_LEAVING;
