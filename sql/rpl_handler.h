@@ -300,6 +300,10 @@ public:
 
   int show_raft_status(THD *thd,
       std::vector<std::pair<std::string, std::string>> *var_value_pairs);
+
+  int inform_applier_health(THD *thd, bool healthy);
+
+  int inform_heartbeats_health(THD *thd, bool healthy);
 };
 
 int delegates_init();

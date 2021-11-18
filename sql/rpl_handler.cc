@@ -728,6 +728,24 @@ int Raft_replication_delegate::show_raft_status(
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::inform_applier_health(THD *thd, bool healthy)
+{
+  DBUG_ENTER("Raft_replication_delegate::inform_applier_health");
+  Raft_replication_param param;
+  int ret= 0;
+  FOREACH_OBSERVER_STRICT(ret, inform_applier_health, thd, (healthy));
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::inform_heartbeats_health(THD *thd, bool healthy)
+{
+  DBUG_ENTER("Raft_replication_delegate::inform_heartbeats_health");
+  Raft_replication_param param;
+  int ret= 0;
+  FOREACH_OBSERVER_STRICT(ret, inform_heartbeats_health, thd, (healthy));
+  DBUG_RETURN(ret);
+}
+
 static int update_sys_var(const char *var_name, uint name_len, Item& update_item)
 {
   // find_sys_var will take a mutex on LOCK_plugin, and a read lock on

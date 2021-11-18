@@ -575,6 +575,27 @@ typedef struct Raft_replication_observer {
   */
   int (*show_raft_status)(
       std::vector<std::pair<std::string, std::string>>* var_value_pairs);
+
+  /**
+   * This callback is called to inform Raft of the health of the applier
+   * @param healthy = true, the applier has turned back healthy
+   * healthy = false, the applier is broken. Do not try to make it primary.
+   */
+  int (*inform_applier_health)(bool healthy);
+
+  /**
+   * This callback is called to inform Raft of the health of the "self
+   * injecting heartbeater". If these writes are failing Raft should
+   * know, so that it can start a Dead Primary Promotion to another instance.
+   * Not to be confused with Raft protocol heartbeats.
+   * These are shardbeats (Shard level) or heartbeats (instance level)
+   * which inject INSERTs into a BLACKHOLE table to ascertain
+   * the health of mysql.
+   *
+   * @param healthy = true, the heartbeat injector has turned back healthy
+   * healthy = false, the heartbeat injector is broken now.
+   */
+  int (*inform_heartbeats_health)(bool healthy);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer
