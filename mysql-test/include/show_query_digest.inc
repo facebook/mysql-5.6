@@ -58,6 +58,11 @@ if ($engine == INNODB)
   SET show_query_digest=@show_query_digest_save;
 }
 
+if ($engine == ROCKSDB)
+{
+  SET global rocksdb_lock_wait_timeout = 500;
+}
+
 SET @show_query_digest_save = @@show_query_digest;
 SET show_query_digest=1;
 
@@ -100,6 +105,11 @@ COMMIT;
 --disconnect con1
 --source include/wait_until_disconnected.inc
 --connection default
+
+if ($engine == ROCKSDB)
+{
+  SET global rocksdb_lock_wait_timeout = default;
+}
 
 # Cleanup
 --remove_file $MYSQL_TMP_DIR/show_transaction_status
