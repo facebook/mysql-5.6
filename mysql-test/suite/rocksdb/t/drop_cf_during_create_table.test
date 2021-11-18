@@ -38,11 +38,13 @@ reap;
 
 show tables;
 
+--replace_column 3 #
 select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key' ;
 set debug_sync = "now signal ready_to_drop_cf";
 
 # drop cf_primary_key succeeds
 set debug_sync = "now wait_for drop_cf_done";
+--replace_column 3 #
 select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
 
 set @@global.debug = @old_debug;
@@ -71,11 +73,13 @@ reap;
 
 show tables;
 
+--replace_column 3 #
 select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key' ;
 set debug_sync = "now signal ready_to_drop_cf";
 
 # drop cf_primary_key succeeds
 set debug_sync = "now wait_for drop_cf_done";
+--replace_column 3 #
 select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
 
 set @@global.debug = @old_debug;
