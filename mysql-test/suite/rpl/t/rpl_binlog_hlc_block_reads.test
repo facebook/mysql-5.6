@@ -353,7 +353,14 @@ ROLLBACK;
 
 USE a;
 query_attrs_add hlc_ts_lower_bound $hlc_a;
+# This select is not deterministic because it races against the
+# replication applier. The lower bound only guarantees the data
+# read is from the hlc timestamp or later. There is no guarantee
+# additional transactions have not been applied.
+--echo # Disabling results log for query
+--disable_result_log
 SELECT * FROM ta;
+--enable_result_log
 query_attrs_reset;
 
 --echo Reset state

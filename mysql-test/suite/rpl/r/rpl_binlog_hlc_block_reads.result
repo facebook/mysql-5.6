@@ -178,11 +178,8 @@ a	b
 7	baz
 ROLLBACK;
 USE a;
+# Disabling results log for query
 SELECT * FROM ta;
-a	b
-1	foo
-3	baz
-4	bah
 Reset state
 DROP DATABASE a;
 DROP DATABASE b;
