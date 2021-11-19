@@ -107,8 +107,6 @@ select @@performance_schema_esms_by_all;
 @@performance_schema_esms_by_all
 1
 select 1;
-select 2;
-select 3;
 create table t2(c int);
 insert into t2 values(100);
 select * from t2;
@@ -118,10 +116,6 @@ drop table t2;
 ||||
 1
 1
-2
-2
-3
-3
 c
 100
 CREATE TABLE test.t11(a int) ||||
@@ -150,14 +144,12 @@ update t2 set c=c+7;
 delete from t2 where c=107;
 drop table t2	9355f873b85ca62c15f9c76c7d577a46	user_super	0000000000000000d194f27ab572142e	00000000000000000000000000000000	1	0	0	0
 test	select 1;
-select 2;
-select 3;
 create table t2(c int);
 insert into t2 values(100);
 select * from t2;
 update t2 set c=c+7;
 delete from t2 where c=107;
-drop table t2	a532c6f3e890282b7eee77f35ee85ae9	user_super	0000000000000000d194f27ab572142e	00000000000000000000000000000000	3	0	0	0
+drop table t2	a532c6f3e890282b7eee77f35ee85ae9	user_super	0000000000000000d194f27ab572142e	00000000000000000000000000000000	1	0	0	0
 test	select @@performance_schema_esms_by_all	aaee6b4d5f9c26d4d43d3967f53cd8c7	user_super	0000000000000000d194f27ab572142e	00000000000000000000000000000000	1	0	0	0
 test	CREATE TABLE test.t11(a int)	b90de024eac53b1869f604d5e84bf832	user_super	0000000000000000d194f27ab572142e	00000000000000000000000000000000	1	0	12	6
 test	delete from t2 where c=107;
