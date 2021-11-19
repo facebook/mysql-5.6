@@ -1,0 +1,93 @@
+let $MYSQLD_DATADIR= `select @@datadir`;
+
+--echo ##########################################
+--echo # Run plugin
+--echo ##########################################
+--replace_result $TEST_BUILD_COLUMN_LINEAGE_INFO TEST_BUILD_COLUMN_LINEAGE_INFO
+eval INSTALL PLUGIN test_build_column_lineage_info SONAME '$TEST_BUILD_COLUMN_LINEAGE_INFO';
+
+--echo ##########################################
+--echo # Prepare Tables
+--echo ##########################################
+CREATE TABLE a(a_1 INT, a_2 INT, common VARCHAR(10));
+CREATE TABLE b(b_1 INT, b_2 INT, common VARCHAR(10));
+CREATE TABLE c(c_1 INT, c_2 INT, c_3 INT, common VARCHAR(10));
+INSERT INTO a (a_1, a_2, common) VALUES (1, 2, 'a_common');
+INSERT INTO b (b_1, b_2, common) VALUES (3, 2, 'b_common');
+INSERT INTO c (c_1, c_2, c_3, common) VALUES (10, 20, 30, 'c_common');
+
+--echo ##########################################
+--echo # Enable Debug Trace
+--echo ##########################################
+--replace_result $MYSQLD_DATADIR MYSQLD_DATADIR
+eval SET SESSION debug="O,$MYSQLD_DATADIR/test_build_column_lineage_info.trace";
+
+--echo ##########################################
+--echo # Run SQL Queries
+--echo ##########################################
+SELECT NULL LIMIT 0;
+SELECT * FROM a;
+SELECT a_2 FROM a;
+SELECT a_2, a_1 FROM a;
+
+#### NOT YET SUPPORED QUERIES
+
+## Item function / operators
+# SELECT a_1 + a_1 FROM a;
+# SELECT c_1 + c_3 FROM c;
+
+## Singlerow subqueries
+# SELECT (SELECT t.a_1) FROM a AS t;
+# SELECT (SELECT t.a_1 as xyz) FROM a AS t;
+# SELECT (SELECT c_1 from c LIMIT 1), common AS x FROM a AS t;
+# SELECT (SELECT c_1 from c LIMIT 1), common AS x, (SELECT t.a_1 as xyz) AS y FROM a AS t;
+
+## non-singlerow subqueries
+# SELECT y AS a, z AS b, x AS c, common FROM (
+#     SELECT c_2 AS x, c_3 AS y, c_1 AS z FROM (
+#         SELECT c_1, c_2, c_3 FROM c
+#     ) as p
+# ) as t, b;
+
+## WHERE, ORDER BY and GROUP BY
+# SELECT a_2 FROM a WHERE a_1 > 0 GROUP BY a_2;
+# SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 ORDER BY a_2;
+
+## Derived table
+# SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t;
+# SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t;
+
+## JOIN
+# SELECT a_1, c_1 FROM a, c;
+# SELECT * FROM a, c;
+# SELECT * FROM a, c, b;
+# SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1;
+# SELECT * FROM a JOIN (SELECT 1, 2, 3) AS c ON a.a_1 = c.2;
+
+## UNION
+SELECT 1, 2 UNION SELECT 'a', 'b';
+SELECT * FROM a UNION SELECT c_1, c_2, common FROM c;
+SELECT * FROM a UNION ALL SELECT c_1, c_2, common FROM c UNION ALL SELECT c_1, c_2, common FROM c;
+# (SELECT common, a_1 FROM a WHERE a_1 > 0 ORDER BY common LIMIT 5) UNION (SELECT common, c_1 FROM c WHERE c_1 < 100 ORDER BY c_3 LIMIT 5);
+
+--echo ##########################################
+--echo # Stop plugin
+--echo ##########################################
+--disable_warnings
+UNINSTALL PLUGIN test_build_column_lineage_info;
+DROP TABLE a;
+DROP TABLE b;
+DROP TABLE c;
+--enable_warnings
+
+--echo ##########################################
+--echo # Plugin log
+--echo ##########################################
+cat_file $MYSQLD_DATADIR/test_build_column_lineage_info.log;
+remove_file $MYSQLD_DATADIR/test_build_column_lineage_info.log;
+
+--echo ##########################################
+--echo # Plugin trace
+--echo ##########################################
+cat_file $MYSQLD_DATADIR/test_build_column_lineage_info.trace;
+remove_file $MYSQLD_DATADIR/test_build_column_lineage_info.trace;
