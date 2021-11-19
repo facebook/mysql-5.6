@@ -389,9 +389,8 @@ COMMENT='ttl_duration=5;';
 
 INSERT INTO t1 VALUES (1,1);
 INSERT INTO t1 VALUES (2,2);
-
-ALTER TABLE t1 DROP PRIMARY KEY, ADD PRIMARY KEY(b);
 set global rocksdb_debug_ttl_snapshot_ts = -3600;
+ALTER TABLE t1 DROP PRIMARY KEY, ADD PRIMARY KEY(b);
 set global rocksdb_force_flush_memtable_now=1;
 set @@global.rocksdb_compact_cf = 'default';
 set global rocksdb_debug_ttl_snapshot_ts = 0;
