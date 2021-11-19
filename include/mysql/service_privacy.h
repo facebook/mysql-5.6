@@ -31,14 +31,102 @@
 #pragma once
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 class Item;
+class Query_block;
+class Query_expression;
+class THD;
+class Table_ref;
 
 struct Column_ref_info {
   std::string m_db_name;
   std::string m_table_name;
   std::string m_column_name;
 };
+
+/**
+ * @brief Abstract lineage node for resolving column lineage
+ */
+class Column_lineage_info {
+ protected:
+  Column_lineage_info(uint32_t id) : m_id(id) {}
+
+ public:
+  enum class Type {
+    INVALID = 0,
+    QUERY_BLOCK = 1,
+    UNION = 2,
+    TABLE = 3,
+  };
+
+  virtual Type type() const { return Type::INVALID; }
+  virtual ~Column_lineage_info() {}
+
+  uint32_t m_id;  // unique identifier
+};
+
+/**
+ * @brief Lineage node represent Item level lineage
+ */
+struct Item_lineage_info {
+  uint32_t m_index;
+  Column_lineage_info *m_cli;
+  std::string m_item_name;
+};
+
+/**
+ * @brief Lineage node represents Query_expression union unit
+ */
+class Union_column_lineage_info : public Column_lineage_info {
+ public:
+  Union_column_lineage_info(uint32_t id, Query_expression *unit)
+      : Column_lineage_info(id), m_unit(unit) {}
+
+  Query_expression *m_unit;
+  std::vector<Column_lineage_info *> m_parents;
+  enum Type type() const override { return Type::UNION; }
+};
+
+/**
+ * @brief Lineage node represents Query_block query block
+ */
+class Query_block_column_lineage_info : public Column_lineage_info {
+ public:
+  Query_block_column_lineage_info(uint32_t id, Query_block *query_block)
+      : Column_lineage_info(id), m_query_block(query_block) {}
+
+  Query_block *m_query_block;
+  std::vector<Column_lineage_info *> m_parents;
+  std::vector<std::vector<Item_lineage_info>> m_selected_field;
+  enum Type type() const override { return Type::QUERY_BLOCK; }
+};
+
+/**
+ * @brief Lineage node represents Table_ref table reference
+ */
+class Table_column_lineage_info : public Column_lineage_info {
+ public:
+  Table_column_lineage_info(uint32_t id, Table_ref *table_ref)
+      : Column_lineage_info(id), m_table_ref(table_ref) {}
+
+  Table_ref *m_table_ref = nullptr;
+  std::string m_db_name;
+  std::string m_table_name;
+  std::string m_table_alias;
+  std::vector<std::string> m_column_refs;
+  enum Type type() const override { return Type::TABLE; }
+};
+
+/**
+ * @brief Build column lineage info for the query associated with the thread
+ *
+ * @param[in] thd The MySQL internal thread pointer
+ *
+ * @retval Pointer to the root of Column_lineage_info tree
+ */
+Column_lineage_info *build_column_lineage_info(THD *thd);
 
 /**
  * @brief Get column reference info from an Item object
@@ -60,6 +148,8 @@ bool get_column_ref_info(Item *item, Column_ref_info &column_ref_info);
 extern "C" struct mysql_privacy_service_st {
   /** Get column reference information from an Item */
   bool (*get_column_ref_info)(Item *item, Column_ref_info &column_ref_info);
+  /** Build column lineage info from THD */
+  Column_lineage_info *(*build_column_lineage_info)(THD *thd);
 } * mysql_privacy_service;
 
 #endif /* MYSQL_SERVICE_PRIVACY_INCLUDED */
