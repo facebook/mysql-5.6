@@ -16180,7 +16180,9 @@ bool Rows_log_event::parse_keys(Relay_log_info *rli, TABLE *table,
       Dependency_key curr_key;
 
       for (uint j = 0; j < key_info->user_defined_key_parts; j++) {
-        curr_key.key_length += key_info->key_part[j].field->sort_length();
+        curr_key.key_length +=
+            std::min((ulong)key_info->key_part[j].field->sort_length(),
+                     thd->variables.max_sort_length);
       }
       curr_key.table_id = m_table_name;
 
@@ -16199,7 +16201,9 @@ bool Rows_log_event::parse_keys(Relay_log_info *rli, TABLE *table,
 
       auto buf = key_buf;
       for (uint j = 0; j < key_info->user_defined_key_parts; j++) {
-        const auto len = key_info->key_part[j].field->sort_length();
+        const auto len =
+            std::min((ulong)key_info->key_part[j].field->sort_length(),
+                     thd->variables.max_sort_length);
         key_info->key_part[j].field->make_sort_key(buf, len);
         buf += len;
       }
