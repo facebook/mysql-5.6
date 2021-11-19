@@ -82,8 +82,6 @@ select @@performance_schema_esms_by_all;
 delimiter ||||;
 
 select 1;
-select 2;
-select 3;
 create table t2(c int);
 insert into t2 values(100);
 select * from t2;
