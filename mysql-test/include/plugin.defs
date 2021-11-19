@@ -155,3 +155,4 @@ component_reference_cache      plugin_output_directory REFERENCE_CACHE_COMPONENT
 
 # test privacy service
 libtest_get_column_ref_info                      plugin_output_directory TEST_GET_COLUMN_REF_INFO test_get_column_ref_info
+libtest_build_column_lineage_info                plugin_output_directory TEST_BUILD_COLUMN_LINEAGE_INFO test_build_column_lineage_info
