@@ -17,7 +17,7 @@ The idea is to have a concurrent workload, where
   RL-UPDATES. We can run the workload, then stop it and verify the invariants
   still hold.
 
-== Suggestion ==
+== Basic idea ==
 
 Rows and groups.
 
@@ -36,7 +36,8 @@ We allow the following to be stored:
 
 2. Groups.
 
-A group is 5 (or some other number) of rows with adjacent PK values.
+A group is 5 (potentially could be some other number) of rows with adjacent 
+PK values.
 
 The row with the smallest PK value is the "group leader" and has
 group_list=(comma-separated-list-of-pks-of-group members).
@@ -62,21 +63,29 @@ Operations:
 - Insert an individual row. It is obvious we may not insert a row into a group.
 
 - Convert 5 individual rows into a group. One needs range locking to prevent
-  concurrent inserts.
+  other threads from deleting these rows or putting them into another group.
 
-- Disband a group (convert it back into 5 individual rows).
+- Disband a group (convert it back into 5 individual rows). 
+  When we are disbanding a group, we verify it to be valid.
 
+- Delete a group. If we attempt to insert a row and hit a group leader, we
+  don't insert the row and delete the whole group we've hit, instead. (when 
+  deleting the group, we also verify it to be valid)
+  This provides some balance between inserts and deletes.
+
+=== Making sure lock contention happens ===
+
+We use normal distribution (rand.normalvariate) to pick random PK values,
+which are then used to make an attempt to insert a row or create a group.
+
+This creates a much greater contention than the uniform distribution. 
+
+With sufficiently small sigma parameter, the contention seems to be
+sufficiently high.
 
 === Implementation ===
 
-range_locking_conc_test.py implements these operations
-
-- Insert an individual row. This makes sure it doesn't break any group.
-
-- create a group.  This does multiple things:
-  1. Gets a sequence of 5 rows that doesn't start with a group member
-  2. if it finds a group leader there, verify that group and disband it.
-  3. Create a new group from the 5 rows we've got at step #1.
+range_locking_conc_test.py implements the above operations.
 
 
 
