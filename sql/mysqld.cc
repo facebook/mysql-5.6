@@ -1126,6 +1126,7 @@ handlerton *heap_hton;
 handlerton *temptable_hton;
 handlerton *myisam_hton;
 handlerton *innodb_hton;
+handlerton *rocksdb_hton;
 
 char *opt_read_only_error_msg_extra;
 char *opt_disabled_storage_engines;
@@ -1450,6 +1451,7 @@ bool enable_deprecation_warning = true;
 bool enable_optimizer_cputime_with_wallclock = true;
 bool enable_cputime_with_wallclock = true;
 
+bool enable_rocksdb_intrinsic_tmp_table = false;
 /**
    Number of times JSON functions are called that emulate
    5.6 fb json functions behavior

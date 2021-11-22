@@ -4838,7 +4838,8 @@ static bool buffer_record_somewhere(THD *thd, Window *w, int64 rowno) {
     bool is_duplicate;
     if (create_ondisk_from_heap(thd, t, error, true, &is_duplicate)) return -1;
 
-    DBUG_ASSERT(t->s->db_type() == innodb_hton);
+    DBUG_ASSERT(t->s->db_type() == innodb_hton ||
+                t->s->db_type() == rocksdb_hton);
     if (t->file->ha_rnd_init(true)) return true; /* purecov: inspected */
 
     /*
@@ -4867,8 +4868,8 @@ static bool buffer_record_somewhere(THD *thd, Window *w, int64 rowno) {
       to construct the position.
     */
     encode_innodb_position(
-        w->m_frame_buffer_positions[first_in_partition].m_position,
-        t->file->ref_length, w->frame_buffer_partition_offset());
+        t, w->m_frame_buffer_positions[first_in_partition].m_position,
+        w->frame_buffer_partition_offset());
 
     return is_duplicate ? true : false;
   }

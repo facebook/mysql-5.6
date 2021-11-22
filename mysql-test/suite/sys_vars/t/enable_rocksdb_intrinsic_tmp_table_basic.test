@@ -1,0 +1,30 @@
+#
+# Only global
+#
+
+select @@global.enable_rocksdb_intrinsic_tmp_table;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.enable_rocksdb_intrinsic_tmp_table;
+
+show global variables like 'enable_rocksdb_intrinsic_tmp_table';
+
+show session variables like 'enable_rocksdb_intrinsic_tmp_table';
+
+--disable_warnings
+select * from performance_schema.global_variables
+  where variable_name='enable_rocksdb_intrinsic_tmp_table';
+
+select * from performance_schema.session_variables
+  where variable_name='enable_rocksdb_intrinsic_tmp_table';
+--enable_warnings
+
+#
+# Read-only
+#
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global enable_rocksdb_intrinsic_tmp_table=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session enable_rocksdb_intrinsic_tmp_table=1;

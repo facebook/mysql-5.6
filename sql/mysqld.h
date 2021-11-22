@@ -426,6 +426,7 @@ extern bool disable_instant_ddl;
 extern bool enable_deprecation_warning;
 extern bool enable_optimizer_cputime_with_wallclock;
 extern bool enable_cputime_with_wallclock;
+extern bool enable_rocksdb_intrinsic_tmp_table;
 
 extern ulonglong rbr_unsafe_queries;
 extern ulong relay_io_connected;
@@ -595,6 +596,8 @@ extern handlerton *myisam_hton;
 extern handlerton *heap_hton;
 extern handlerton *temptable_hton;
 extern handlerton *innodb_hton;
+extern handlerton *rocksdb_hton;
+
 extern uint opt_server_id_bits;
 extern ulong opt_server_id_mask;
 extern const char *load_default_groups[];

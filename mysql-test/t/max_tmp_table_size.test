@@ -1,3 +1,4 @@
+--source include/have_innodb_intrinsic_table.inc
 disable_warnings;
 drop table if exists t1;
 enable_warnings;

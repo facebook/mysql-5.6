@@ -1,0 +1,23 @@
+select @@global.enable_rocksdb_intrinsic_tmp_table;
+@@global.enable_rocksdb_intrinsic_tmp_table
+0
+select @@session.enable_rocksdb_intrinsic_tmp_table;
+ERROR HY000: Variable 'enable_rocksdb_intrinsic_tmp_table' is a GLOBAL variable
+show global variables like 'enable_rocksdb_intrinsic_tmp_table';
+Variable_name	Value
+enable_rocksdb_intrinsic_tmp_table	OFF
+show session variables like 'enable_rocksdb_intrinsic_tmp_table';
+Variable_name	Value
+enable_rocksdb_intrinsic_tmp_table	OFF
+select * from performance_schema.global_variables
+where variable_name='enable_rocksdb_intrinsic_tmp_table';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_rocksdb_intrinsic_tmp_table	OFF
+select * from performance_schema.session_variables
+where variable_name='enable_rocksdb_intrinsic_tmp_table';
+VARIABLE_NAME	VARIABLE_VALUE
+enable_rocksdb_intrinsic_tmp_table	OFF
+set global enable_rocksdb_intrinsic_tmp_table=1;
+ERROR HY000: Variable 'enable_rocksdb_intrinsic_tmp_table' is a read only variable
+set session enable_rocksdb_intrinsic_tmp_table=1;
+ERROR HY000: Variable 'enable_rocksdb_intrinsic_tmp_table' is a read only variable
