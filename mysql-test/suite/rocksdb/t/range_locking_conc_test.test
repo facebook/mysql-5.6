@@ -5,7 +5,6 @@
 
 --source include/have_rocksdb.inc
 --source suite/rocksdb/include/have_range_locking.inc
---source include/have_debug.inc
 
 --disable_warnings
 drop table if exists t1;
@@ -19,8 +18,9 @@ create table t1 (
 ) engine=rocksdb;
 
 set global rocksdb_lock_wait_timeout=10;
-let $exec = /usr/bin/python3 suite/rocksdb/t/range_locking_conc_test.py root 127.0.0.1 $MASTER_MYPORT test t1 2000 20 30000 10
+let $SERVER_PORT=`select @@port`;
+let $exec = /usr/bin/python3 suite/rocksdb/t/range_locking_conc_test.py root 127.0.0.1 $SERVER_PORT test t1 2000 20 30000 10;
+
 exec $exec;
 
-#SELECT COUNT(*) from t1;
 DROP TABLE t1;

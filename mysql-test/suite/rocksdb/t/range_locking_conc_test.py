@@ -25,6 +25,7 @@ import sys
 import threading
 import time
 import string
+import traceback
 
 MAX_PK_VAL = 1000*1000*1000
 
@@ -217,7 +218,7 @@ if __name__ == '__main__':
   if len(sys.argv) != 10:
     print("Usage: range_locking_conc_test.py " \
            "user host port db_name table_name " \
-           "num_inserts num_insert_threads" \
+           "num_inserts num_insert_threads " \
            "num_grp_ops num_group_threads" \
            )
     sys.exit(1)
