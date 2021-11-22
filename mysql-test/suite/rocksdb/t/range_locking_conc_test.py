@@ -119,7 +119,20 @@ class Worker(threading.Thread):
       last_pk = row[0]
       if row[1] is not None:
         # Found a row in a group
-        break;
+        # Continue until group end.
+        found_next_group = False
+        row = cur.fetchone()
+        while row is not None:
+          if row[1] is None:
+            found_next_group = True
+            first_pk = row[0]
+            group_list= str(first_pk)
+            break
+          row= cur.fetchone()
+
+        if not found_next_group:
+          break;
+
       if row[2] is not None:
         # Found a group leader row.
         ungrouped_ids = self.delete_group(row[0], row[2])
@@ -155,6 +168,7 @@ class Worker(threading.Thread):
   # Verify and delete the group
   #   @return  An array listing the deleted PKs (basically, group_list_base
   #                                              parameter in the array form)
+  #
   def delete_group(self, group_id, group_list_base):
     global counter_n_groups_verified
     cur = self.con.cursor();
