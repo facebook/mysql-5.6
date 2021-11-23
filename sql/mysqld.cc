@@ -870,6 +870,7 @@ ulonglong  max_binlog_cache_size=0;
 ulong slave_max_allowed_packet= 0;
 ulong binlog_stmt_cache_size=0;
 ulonglong  max_binlog_stmt_cache_size=0;
+bool slave_skip_max_binlog_cache_size_check = false;
 ulong query_cache_size=0;
 ulong refresh_version;  /* Increments on each reload */
 query_id_t global_query_id;

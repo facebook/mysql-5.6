@@ -18,6 +18,7 @@
 #include "log.h"
 #include "binlog.h"
 #include "log_event.h"
+#include "mysqld.h"
 #include "rpl_filter.h"
 #include "rpl_rli.h"
 #include "rpl_slave_commit_order_manager.h" // Commit_order_manager
@@ -11673,11 +11674,18 @@ int THD::binlog_setup_trx_data()
   DBUG_PRINT("debug", ("Set ha_data slot %d to 0x%llx", binlog_hton->slot, (ulonglong) cache_mngr));
   thd_set_ha_data(this, binlog_hton, cache_mngr);
 
+  ulonglong binlog_stmt_cache_size =
+    this->rli_slave && slave_skip_max_binlog_cache_size_check ?
+    ULLONG_MAX : max_binlog_stmt_cache_size;
+  ulonglong binlog_cache_size =
+    this->rli_slave && slave_skip_max_binlog_cache_size_check ?
+    ULLONG_MAX : max_binlog_cache_size;
+
   cache_mngr= new (thd_get_cache_mngr(this))
-              binlog_cache_mngr(max_binlog_stmt_cache_size,
+              binlog_cache_mngr(binlog_stmt_cache_size,
                                 &binlog_stmt_cache_use,
                                 &binlog_stmt_cache_disk_use,
-                                max_binlog_cache_size,
+                                binlog_cache_size,
                                 &binlog_cache_use,
                                 &binlog_cache_disk_use);
   DBUG_RETURN(0);
