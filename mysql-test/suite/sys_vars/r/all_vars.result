@@ -40,6 +40,8 @@ enable_hlc_bound
 enable_hlc_bound
 enable_rocksdb_intrinsic_tmp_table
 enable_rocksdb_intrinsic_tmp_table
+enable_shardbeater
+enable_shardbeater
 force_pk_for_equality_preds_on_pk
 force_pk_for_equality_preds_on_pk
 generated_random_password_length
@@ -172,6 +174,10 @@ select_into_disk_sync
 select_into_disk_sync
 select_into_disk_sync_delay
 select_into_disk_sync_delay
+shardbeat_interval_ms
+shardbeat_interval_ms
+shardbeat_vlog_level
+shardbeat_vlog_level
 skip_replica_start
 skip_replica_start
 skip_slave_start

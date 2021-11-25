@@ -139,6 +139,7 @@
 #include "sql/rpl_handler.h"  // launch_hook_trans_begin
 #include "sql/rpl_lag_manager.h"
 #include "sql/rpl_replica.h"  // change_master_cmd
+#include "sql/rpl_shardbeats.h"  // Shardbeats_manager
 #include "sql/rpl_source.h"   // register_slave
 #include "sql/rpl_utility.h"
 #include "sql/session_tracker.h"
@@ -822,6 +823,7 @@ void init_sql_command_flags(void) {
   sql_command_flags[SQLCOM_SHOW_MASTER_STAT] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_MEMORY_STATUS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_STAT] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_SHARDBEATER_STAT] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_PROC] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_FUNC] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_TRIGGER] = CF_STATUS_COMMAND;
@@ -1104,6 +1106,7 @@ void init_sql_command_flags(void) {
   sql_command_flags[SQLCOM_SHOW_PROCESSLIST] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_MASTER_STAT] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_SLAVE_STAT] |= CF_ALLOW_PROTOCOL_PLUGIN;
+  sql_command_flags[SQLCOM_SHOW_SHARDBEATER_STAT] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_GRANTS] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_CREATE] |= CF_ALLOW_PROTOCOL_PLUGIN;
   sql_command_flags[SQLCOM_SHOW_CHARSETS] |= CF_ALLOW_PROTOCOL_PLUGIN;
@@ -4000,6 +4003,19 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       res = change_master_cmd(thd);
       break;
     }
+    case SQLCOM_SHOW_SHARDBEATER_STAT: {
+      /* Accept one of two privileges */
+      if (check_global_access(thd, SUPER_ACL)) goto error;
+      Shardbeats_manager *smgr = Shardbeats_manager::get();
+      if (!smgr) {
+        my_printf_error(ER_DISALLOWED_OPERATION, "Shardbeats not ON yet",
+                        MYF(0));
+        goto error;
+      }
+
+      res = smgr->show_status_cmd(thd);
+      break;
+    }
     case SQLCOM_START_GROUP_REPLICATION: {
       Security_context *sctx = thd->security_context();
       if (!sctx->check_access(SUPER_ACL) &&
@@ -4159,6 +4175,14 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       break;
     }
 
+    case SQLCOM_START_SHARDBEATER: {
+      res = Shardbeats_manager::get_or_create()->start_shardbeater_thread(thd);
+      break;
+    }
+    case SQLCOM_STOP_SHARDBEATER: {
+      res = Shardbeats_manager::get_or_create()->stop_shardbeater_thread(thd);
+      break;
+    }
     case SQLCOM_SLAVE_START: {
       res = start_slave_cmd(thd);
       break;

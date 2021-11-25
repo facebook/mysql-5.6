@@ -492,6 +492,9 @@ The following options may be given as the first argument:
  This will control the intrinsic tmp table storage engine.
  If true then rocksdb intrinsic tmp table will be created.
  Otherwise default will be innodb intrinsic tmp tables.
+ --enable-shardbeater 
+ Enables Shardbeater
+ (Defaults to on; use --skip-enable-shardbeater to disable.)
  --enable-sql-wsenv  Enable dumping/loading file to/from warm storage for
  SELECT INTO OUTFILE/LOAD DATA. Set true to enable.
  --enable-super-log-bin-read-only 
@@ -2450,6 +2453,21 @@ The following options may be given as the first argument:
  to TRUE, the plugin will flag associated authenticated
  accounts to be mapped to proxy users when the server
  option check_proxy_users is enabled.
+ --shardbeat-blocked-dbs[=name] 
+ List of comma separated database names on which not to
+ insert shardbeats
+ --shardbeat-interval-ms[=#] 
+ Interval in milliseconds in which shardbeats are injected
+ on silent databases
+ --shardbeat-query-comment-format[=name] 
+ Formatted string to be used for shardbeats insert
+ --shardbeat-table[=name] 
+ Name of table in which to insert a shardbeat
+ --shardbeat-user[=name] 
+ Name of user as which to insert regular shardbeats
+ --shardbeat-vlog-level[=#] 
+ Verbosity level of logging into mysqld error log for
+ shardbeater
  --show-binlogs-encryption 
  Scan binlogs to determine encryption property during show
  binlogs
@@ -3034,6 +3052,7 @@ enable-query-checksum FALSE
 enable-raft-plugin FALSE
 enable-resultset-checksum FALSE
 enable-rocksdb-intrinsic-tmp-table FALSE
+enable-shardbeater TRUE
 enable-sql-wsenv FALSE
 enable-super-log-bin-read-only FALSE
 enable-user-tables-engine-check FALSE
@@ -3294,7 +3313,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 232
+performance-schema-max-statement-classes 235
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -3596,6 +3615,12 @@ session-track-system-variables time_zone,autocommit,character_set_client,charact
 session-track-transaction-info OFF
 set-read-only-on-shutdown FALSE
 sha256-password-proxy-users FALSE
+shardbeat-blocked-dbs 
+shardbeat-interval-ms 60000
+shardbeat-query-comment-format 
+shardbeat-table blackhole
+shardbeat-user 
+shardbeat-vlog-level 0
 show-binlogs-encryption TRUE
 show-create-table-verbosity FALSE
 show-old-temporals FALSE

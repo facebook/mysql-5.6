@@ -1,0 +1,21 @@
+set @@global.shardbeat_blocked_dbs='db100';
+select @@global.shardbeat_blocked_dbs;
+@@global.shardbeat_blocked_dbs
+db100
+set @@global.shardbeat_blocked_dbs = default;
+select @@global.shardbeat_blocked_dbs;
+@@global.shardbeat_blocked_dbs
+
+set @saved_shardbeat_blocked_dbs = @@global.shardbeat_blocked_dbs;
+set @@global.shardbeat_blocked_dbs='db100, db200';
+set @@global.shardbeat_blocked_dbs='db100, 	db200, ';
+set @@global.shardbeat_blocked_dbs=1;
+ERROR 42000: Incorrect argument type to variable 'shardbeat_blocked_dbs'
+select @@session.shardbeat_blocked_dbs;
+ERROR HY000: Variable 'shardbeat_blocked_dbs' is a GLOBAL variable
+set @@session.shardbeat_blocked_dbs='db100, db200';
+ERROR HY000: Variable 'shardbeat_blocked_dbs' is a GLOBAL variable and should be set with SET GLOBAL
+set global shardbeat_blocked_dbs = @saved_shardbeat_blocked_dbs;
+select @@global.shardbeat_blocked_dbs;
+@@global.shardbeat_blocked_dbs
+

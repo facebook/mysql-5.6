@@ -1408,6 +1408,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> EXPLICIT_SYM 1208            /* MYSQL */
 %token<lexer.keyword> SHARED_SYM 1209              /* MYSQL */
 %token<lexer.keyword> RAFT_SYM 1210                /* MYSQL */
+%token<lexer.keyword> SHARDBEATER 1211             /* FB MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -1912,6 +1913,7 @@ void warn_about_deprecated_binary(THD *thd)
         show_grants_stmt
         show_gtid_executed_stmt
         show_keys_stmt
+        show_shardbeater_status_stmt
         show_master_status_stmt
         show_memory_status_stmt
         show_open_tables_stmt
@@ -2360,6 +2362,7 @@ simple_statement:
         | find                          { $$= nullptr; }
         | get_diagnostics               { $$= nullptr; }
         | group_replication             { $$= nullptr; }
+        | shardbeater                   { $$= nullptr; }
         | grant                         { $$= nullptr; }
         | handler_stmt
         | help                          { $$= nullptr; }
@@ -2416,6 +2419,7 @@ simple_statement:
         | show_grants_stmt
         | show_gtid_executed_stmt
         | show_keys_stmt
+        | show_shardbeater_status_stmt
         | show_master_status_stmt
         | show_memory_status_stmt
         | show_open_tables_stmt
@@ -9303,6 +9307,19 @@ group_replication:
           }
         ;
 
+shardbeater:
+           START_SYM SHARDBEATER
+           {
+             LEX *lex=Lex;
+             lex->sql_command = SQLCOM_START_SHARDBEATER;
+           }
+         | STOP_SYM SHARDBEATER
+           {
+             LEX *lex=Lex;
+             lex->sql_command = SQLCOM_STOP_SHARDBEATER;
+           }
+         ;
+
 group_replication_start:
           START_SYM GROUP_REPLICATION
           {
@@ -14067,6 +14084,14 @@ show_create_view_stmt:
           SHOW CREATE VIEW_SYM table_ident
           {
             $$ = NEW_PTN PT_show_create_view(@$, $4);
+          }
+        ;
+
+show_shardbeater_status_stmt:
+          SHOW SHARDBEATER STATUS_SYM
+          {
+            LEX *lex= Lex;
+            lex->sql_command = SQLCOM_SHOW_SHARDBEATER_STAT;
           }
         ;
 

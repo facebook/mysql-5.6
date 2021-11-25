@@ -994,7 +994,8 @@ ADD_DEPENDENCIES(binlog GenError)
 ADD_LIBRARY(rpl STATIC ${RPL_SOURCE})
 TARGET_LINK_LIBRARIES(rpl sql_main)
 
-SET (MASTER_SOURCE rpl_source.cc rpl_binlog_sender.cc binlog_reader.cc)
+SET (MASTER_SOURCE rpl_source.cc rpl_binlog_sender.cc binlog_reader.cc
+     rpl_shardbeats.cc)
 ADD_DEPENDENCIES(rpl GenError)
 ADD_LIBRARY(master STATIC ${MASTER_SOURCE})
 ADD_DEPENDENCIES(master GenError)

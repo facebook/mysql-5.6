@@ -825,6 +825,7 @@ MySQL clients support the protocol:
 #include "sql/rpl_msr.h"      // Multisource_info
 #include "sql/rpl_rli.h"      // Relay_log_info
 #include "sql/rpl_replica.h"  // replica_load_tmpdir
+#include "sql/rpl_shardbeats.h"  // Shardbeats_manager
 #include "sql/rpl_trx_tracking.h"
 #include "sql/sd_notify.h"  // sd_notify_connect
 #include "sql/session_tracker.h"
@@ -1449,7 +1450,7 @@ const char *binlog_error_action_list[] = {"IGNORE_ERROR", "ABORT_SERVER",
 uint32 gtid_executed_compression_period = 0;
 bool opt_log_unsafe_statements;
 bool opt_log_global_var_changes;
-bool is_slave = false;
+std::atomic<bool> is_slave(false);
 /* Counter to count the number of slave_stats_daemon threads created. Should be
  * at most 1. */
 std::atomic<int> slave_stats_daemon_thread_counter(0);
@@ -2863,6 +2864,8 @@ static void mysqld_exit(int exit_code) {
   Srv_session::module_deinit();
   delete_optimizer_cost_module();
   clean_up_mutexes();
+  Shardbeats_manager::destroy();
+
   my_end(opt_endinfo ? MY_CHECK_ERROR | MY_GIVE_INFO : 0);
   destroy_error_log();
   log_error_read_log_exit();
@@ -5178,6 +5181,10 @@ SHOW_VAR com_status_vars[] = {
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_SHOW_SLAVE_STAT]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_shardbeater_status",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_SHOW_SHARDBEATER_STAT]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"show_status",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHOW_STATUS]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
@@ -5296,6 +5303,14 @@ SHOW_VAR com_status_vars[] = {
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"show_raftlogs",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHOW_RAFT_LOGS]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"shardbeater_start",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_START_SHARDBEATER]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"shardbeater_stop",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_STOP_SHARDBEATER]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 

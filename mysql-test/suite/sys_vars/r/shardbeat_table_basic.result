@@ -1,0 +1,22 @@
+set @@global.shardbeat_table='blackhole';
+select @@global.shardbeat_table;
+@@global.shardbeat_table
+blackhole
+set @@global.shardbeat_table = default;
+select @@global.shardbeat_table;
+@@global.shardbeat_table
+blackhole
+set @saved_shardbeat_table = @@global.shardbeat_table;
+set @@global.shardbeat_table=1;
+ERROR 42000: Incorrect argument type to variable 'shardbeat_table'
+select @@session.shardbeat_table;
+ERROR HY000: Variable 'shardbeat_table' is a GLOBAL variable
+set @@session.shardbeat_table='blackhole';
+ERROR HY000: Variable 'shardbeat_table' is a GLOBAL variable and should be set with SET GLOBAL
+set global shardbeat_table="";
+start shardbeater;
+ERROR HY000: start shardbeater operation is disallowed on  when shardbeater user is empty
+set global shardbeat_table = @saved_shardbeat_table;
+select @@global.shardbeat_table;
+@@global.shardbeat_table
+blackhole

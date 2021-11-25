@@ -2423,6 +2423,12 @@ class THD : public MDL_context_owner,
    */
   bool release_explicit_snapshot();
 
+  static int get_shard_rs_id(const std::string &db_metadata,
+                             std::pair<std::string, std::string> *shard_rs,
+                             bool *olm);
+
+  static std::string get_shard_id(const std::string &db_metadata);
+
  private:
   USER_CONN *m_user_connect;
 
