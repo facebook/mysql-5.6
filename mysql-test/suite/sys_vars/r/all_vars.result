@@ -36,6 +36,8 @@ enable_acl_db_cache
 enable_acl_db_cache
 enable_hlc_bound
 enable_hlc_bound
+enable_shardbeater
+enable_shardbeater
 force_pk_for_equality_preds_on_pk
 force_pk_for_equality_preds_on_pk
 generated_random_password_length
@@ -109,6 +111,10 @@ regexp_stack_limit
 regexp_time_limit
 regexp_time_limit
 resultset_metadata
+shardbeat_interval_ms
+shardbeat_interval_ms
+shardbeat_vlog_level
+shardbeat_vlog_level
 sql_require_primary_key
 sql_require_primary_key
 temptable_use_mmap

@@ -1248,6 +1248,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> REQUIRE_TABLE_PRIMARY_KEY_CHECK_SYM 996 /* MYSQL */
 %token<lexer.keyword> STREAM_SYM 997                    /* MYSQL */
 %token<lexer.keyword> OFF_SYM 998                       /* SQL-1999-R */
+%token<lexer.keyword> SHARDBEATER 999 /* FB MYSQL */
 /*
   Here is an intentional gap in token numbers.
 
@@ -2159,6 +2160,7 @@ simple_statement:
         | find                          { $$= nullptr; }
         | get_diagnostics               { $$= nullptr; }
         | group_replication             { $$= nullptr; }
+        | shardbeater                   { $$= nullptr; }
         | grant                         { $$= nullptr; }
         | handler_stmt
         | help                          { $$= nullptr; }
@@ -8606,6 +8608,19 @@ group_replication:
                  }
                ;
 
+shardbeater:
+           START_SYM SHARDBEATER
+           {
+             LEX *lex=Lex;
+             lex->sql_command = SQLCOM_START_SHARDBEATER;
+           }
+         | STOP_SYM SHARDBEATER
+           {
+             LEX *lex=Lex;
+             lex->sql_command = SQLCOM_STOP_SHARDBEATER;
+           }
+         ;
+
 slave:
         slave_start start_slave_opts{}
       | STOP_SYM SLAVE opt_slave_thread_option_list opt_channel
@@ -13245,6 +13260,10 @@ show_param:
         | SLAVE STATUS_SYM opt_channel
           {
             Lex->sql_command = SQLCOM_SHOW_SLAVE_STAT;
+          }
+        | SHARDBEATER STATUS_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_SHARDBEATER_STAT;
           }
         | CREATE PROCEDURE_SYM sp_name
           {

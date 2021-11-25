@@ -143,6 +143,7 @@ bool filter_command(enum_sql_command sql_command) {
     case SQLCOM_SHOW_PROCESSLIST:
     case SQLCOM_SHOW_MASTER_STAT:
     case SQLCOM_SHOW_SLAVE_STAT:
+    case SQLCOM_SHOW_SHARDBEATER_STAT:
     case SQLCOM_SHOW_GRANTS:
     case SQLCOM_SHOW_CREATE:
     case SQLCOM_SHOW_CHARSETS:

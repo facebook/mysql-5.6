@@ -1,0 +1,200 @@
+source ../include/raft_3_node.inc;
+# --source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+
+connection server_1;
+let $uuid1= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_2;
+let $uuid2= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_3;
+let $uuid3= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+
+
+# connection slave
+#connection slave;
+#set global read_only=1;
+
+# create 2 user dbs. Equivalent of shards
+connection server_1;
+create database db1;
+create database db2;
+
+# Shardbeater is not ON yet.
+
+--error ER_DISALLOWED_OPERATION
+show shardbeater status;
+
+set global shardbeat_interval_ms = 2000;
+set global shardbeat_vlog_level = 1;
+
+# Shardbeater start should fail since user and table is not populated
+
+--error ER_DISALLOWED_OPERATION
+start shardbeater;
+#show shardbeater status;
+
+set global shardbeat_query_comment_format='WH:1 .T:sb .I:{ipaddr} #S:{shard} #rs:{replicaset}';
+
+# Create the user
+create user 'dba_scripts:sys.database'@'%';
+set global shardbeat_user='dba_scripts:sys.database';
+
+# Shardbeater start should fail as the table name is not present
+
+set global shardbeat_table='';
+--error ER_DISALLOWED_OPERATION
+start shardbeater;
+
+# Set the value of shardbeat_table to blackhole which is yet to be created.
+set global shardbeat_table = default;
+
+# Shardbeater start should now succeed.
+
+start shardbeater;
+--sleep 5
+
+--let $no_db_ok = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $db_name = query_get_value(SHOW SHARDBEATER STATUS, Db, 1)
+--let $assert_text = no user facing dbs hence test is skipped as well;
+--let $assert_cond = $no_db_ok = 0;
+--source include/assert.inc
+
+ALTER DATABASE db1 DB_METADATA '{"shard": "50000000", "rs": "1234579"}';
+--sleep 5
+
+--let $test_db_ok = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $test_db_fail = query_get_value(SHOW SHARDBEATER STATUS, Num_Fail, 1)
+--let $last_few_fail = query_get_value(SHOW SHARDBEATER STATUS, Last_few_failures, 1)
+--let $assert_text = user facing dbs hence test is not skipped;
+--let $assert_cond = $test_db_ok = 0;
+--source include/assert.inc
+
+--let $assert_text = no permissions so we should fail shardbeats
+--let $assert_cond = $test_db_fail > 0;
+--source include/assert.inc
+
+--let $assert_text = we should get permission error 1142
+--let $assert_cond = "$last_few_fail" LIKE "ErrCode: 1142%"
+--source include/assert.inc
+
+# Since grants was missing writes would have failed. Lets now give
+# permissions
+
+GRANT INSERT ON db1.* to 'dba_scripts:sys.database'@'%';
+--sleep 5
+
+--let $test_db_ok = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $assert_text = now that we have grants shardbeats should go through
+--let $assert_cond = $test_db_ok = 0;
+--source include/assert.inc
+
+use db1;
+create table blackhole(i INT);
+--sleep 5
+
+--let $test_db_ok = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $assert_text = now that we have grants shardbeats should go through
+--let $assert_cond = $test_db_ok > 0;
+--source include/assert.inc
+
+ALTER DATABASE db2 DB_METADATA '{"shard": "50000001", "rs": "1234579"}';
+GRANT INSERT ON db2.* to 'dba_scripts:sys.database'@'%';
+use db2;
+create table blackhole(i INT);
+--sleep 5
+
+--let $test_db_ok1 = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $test_db_ok2 = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 2)
+--let $test_db_ok = ($test_db_ok1 * $test_db_ok2)
+
+--let $assert_text = now that we have grants shardbeats should go through
+--let $assert_cond = $test_db_ok > 0;
+--source include/assert.inc
+
+# measure the number of heartbeats in 10 seconds
+--let $test_db_ok1_b = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $test_db_ok2_b = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 2)
+
+--sleep 11
+
+--let $test_db_ok1_a = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $test_db_ok2_a = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 2)
+
+--let $assert_text = the number of shardbeats should be 5
+--let $assert_cond = ($test_db_ok1_a - $test_db_ok1_b) >= 5
+--source include/assert.inc
+
+--let $assert_text = the number of shardbeats should be 5
+--let $assert_cond = ($test_db_ok2_a - $test_db_ok2_b) >= 5
+--source include/assert.inc
+
+connection server_2;
+--error ER_DISALLOWED_OPERATION
+show shardbeater status;
+
+echo "Transfering leadership: server_1 -> server_2";
+connection server_1;
+replace_result $uuid2 uuid2;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid2';
+
+let $wait_condition= select @@global.read_only = 1;
+source include/wait_condition.inc;
+
+echo "The leadership has transferred and server_1 is now a FOLLOWER"
+
+--let $test_db_ok_b = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--sleep 5
+--let $test_db_ok_a = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+
+--let $assert_text = no new shardbeats on follower
+--let $assert_cond = "$test_db_ok_b" = "$test_db_ok_a"
+--source include/assert.inc
+
+echo "Transfering leadership: server_2 -> server_1";
+connection server_2;
+replace_result $uuid1 uuid1;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid1';
+connection server_1;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+
+# measure the number of heartbeats in 10 seconds
+--let $test_db_ok1_b = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $test_db_ok2_b = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 2)
+
+--sleep 11
+
+--let $test_db_ok1_a = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let $test_db_ok2_a = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 2)
+
+--let $assert_text = the number of shardbeats should be 5
+--let $assert_cond = ($test_db_ok1_a - $test_db_ok1_b) >= 5
+--source include/assert.inc
+
+--let $assert_text = the number of shardbeats should be 5
+--let $assert_cond = ($test_db_ok2_a - $test_db_ok2_b) >= 5
+--source include/assert.inc
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+--echo Cleanup
+
+connection server_1;
+stop shardbeater;
+set global shardbeat_interval_ms = default;
+set global shardbeat_vlog_level = default;
+set global shardbeat_query_comment_format= default;
+set global shardbeat_user= default;
+set global shardbeat_table= default;
+DROP DATABASE db1;
+DROP DATABASE db2;
+DROP USER IF EXISTS 'dba_scripts:sys.database'@'%';
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

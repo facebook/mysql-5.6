@@ -117,6 +117,7 @@
 #include "sql/rpl_record.h"
 #include "sql/rpl_rli.h"      // Relay_log_info
 #include "sql/rpl_rli_pdb.h"  // Slave_worker
+#include "sql/rpl_shardbeats.h"  // Shardbeats_manager
 #include "sql/rpl_slave.h"
 #include "sql/rpl_slave_commit_order_manager.h"  // Commit_order_manager
 #include "sql/rpl_transaction_ctx.h"
@@ -1734,6 +1735,14 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     log).
   */
   ulonglong immediate_commit_timestamp = my_micro_time();
+
+  // Use this timestamp to update the map of db trx times for shards
+  // in order to determine silent shards.
+  Shardbeats_manager *smgr = Shardbeats_manager::get();
+  if (smgr) {
+    // We don't destroy shardbeats manager once created.
+    smgr->update_db_trx_times(thd, immediate_commit_timestamp);
+  }
 
   /*
     When the original_commit_timestamp session variable is set to a value
