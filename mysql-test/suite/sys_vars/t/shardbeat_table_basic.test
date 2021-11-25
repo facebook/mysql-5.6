@@ -1,0 +1,22 @@
+set @@global.shardbeat_table='blackhole';
+select @@global.shardbeat_table;
+
+set @@global.shardbeat_table = default;
+select @@global.shardbeat_table;
+set @saved_shardbeat_table = @@global.shardbeat_table;
+
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.shardbeat_table=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.shardbeat_table;
+--error ER_GLOBAL_VARIABLE
+set @@session.shardbeat_table='blackhole';
+
+set global shardbeat_table="";
+connection default;
+--error ER_DISALLOWED_OPERATION
+start shardbeater;
+
+set global shardbeat_table = @saved_shardbeat_table;
+select @@global.shardbeat_table;

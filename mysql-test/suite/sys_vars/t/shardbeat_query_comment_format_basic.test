@@ -1,0 +1,17 @@
+set @@global.shardbeat_query_comment_format='WH:1 #.T:sb #.S:{shard} #.I:{ipaddr} #rs:{replicaset}';
+select @@global.shardbeat_query_comment_format;
+
+set @@global.shardbeat_query_comment_format = default;
+select @@global.shardbeat_query_comment_format;
+set @saved_shardbeat_query_comment_format = @@global.shardbeat_query_comment_format;
+
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.shardbeat_query_comment_format=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.shardbeat_query_comment_format;
+--error ER_GLOBAL_VARIABLE
+set @@session.shardbeat_query_comment_format='WH:1 #.T:sb #.S:{shard} #.I:{ipaddr} #rs:{replicaset}';
+
+set global shardbeat_query_comment_format = @saved_shardbeat_query_comment_format;
+select @@global.shardbeat_query_comment_format;

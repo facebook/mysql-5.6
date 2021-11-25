@@ -1,0 +1,23 @@
+set @@global.shardbeat_user='dba_scripts';
+select @@global.shardbeat_user;
+@@global.shardbeat_user
+dba_scripts
+set @@global.shardbeat_user = default;
+select @@global.shardbeat_user;
+@@global.shardbeat_user
+
+set @saved_shardbeat_user = @@global.shardbeat_user;
+set @@global.shardbeat_user="dba_scripts:sys.database@'%'";
+set @@global.shardbeat_user=1;
+ERROR 42000: Incorrect argument type to variable 'shardbeat_user'
+select @@session.shardbeat_user;
+ERROR HY000: Variable 'shardbeat_user' is a GLOBAL variable
+set @@session.shardbeat_user='dba_scripts:sys.database';
+ERROR HY000: Variable 'shardbeat_user' is a GLOBAL variable and should be set with SET GLOBAL
+set global shardbeat_user='';
+start shardbeater;
+ERROR HY000: start shardbeater operation is disallowed on  when shardbeater user is empty
+set global shardbeat_user = @saved_shardbeat_user;
+select @@global.shardbeat_user;
+@@global.shardbeat_user
+

@@ -554,7 +554,7 @@ extern uint write_cpu_limit_milliseconds;
  */
 extern uint write_time_check_batch;
 
-extern bool is_slave;
+extern std::atomic<bool> is_slave;
 extern std::atomic<int> slave_stats_daemon_thread_counter;
 extern uint write_stats_count;
 extern ulong write_stats_frequency;

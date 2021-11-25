@@ -1,0 +1,83 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+create database db1;
+create database db2;
+show shardbeater status;
+ERROR HY000: Shardbeats not ON yet
+set global shardbeat_interval_ms = 2000;
+set global shardbeat_vlog_level = 1;
+start shardbeater;
+ERROR HY000: start shardbeater operation is disallowed on  when shardbeater user is empty
+set global shardbeat_query_comment_format='WH:1 .T:sb .I:{ipaddr} #S:{shard} #rs:{replicaset}';
+create user 'dba_scripts:sys.database'@'%';
+set global shardbeat_user='dba_scripts:sys.database';
+set global shardbeat_table='';
+start shardbeater;
+ERROR HY000: start shardbeater operation is disallowed on  when shardbeat_table is empty
+set global shardbeat_table = default;
+start shardbeater;
+include/assert.inc [no user facing dbs hence test is skipped as well;]
+ALTER DATABASE db1 DB_METADATA '{"shard": "50000000", "rs": "1234579"}';
+include/assert.inc [user facing dbs hence test is not skipped;]
+include/assert.inc [no permissions so we should fail shardbeats]
+include/assert.inc [we should get permission error 1142]
+GRANT INSERT ON db1.* to 'dba_scripts:sys.database'@'%';
+include/assert.inc [now that we have grants shardbeats should go through]
+use db1;
+create table blackhole(i INT);
+include/assert.inc [now that we have grants shardbeats should go through]
+ALTER DATABASE db2 DB_METADATA '{"shard": "50000001", "rs": "1234579"}';
+GRANT INSERT ON db2.* to 'dba_scripts:sys.database'@'%';
+use db2;
+create table blackhole(i INT);
+include/assert.inc [now that we have grants shardbeats should go through]
+include/assert.inc [the number of shardbeats should be 5]
+include/assert.inc [the number of shardbeats should be 5]
+show shardbeater status;
+ERROR HY000: Shardbeats not ON yet
+"Transfering leadership: server_1 -> server_2"
+set @@global.rpl_raft_new_leader_uuid = 'uuid2';
+"The leadership has transferred and server_1 is now a FOLLOWER"
+
+--let  = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--sleep 5
+--let  = query_get_value(SHOW SHARDBEATER STATUS, Num_OK, 1)
+--let  = no new shardbeats on follower
+--let  = "" = ""
+--source include/assert.inc
+echo "Transfering leadership: server_2 -> server_1"
+set @@global.rpl_raft_new_leader_uuid = 'uuid1';
+include/assert.inc [the number of shardbeats should be 5]
+include/assert.inc [the number of shardbeats should be 5]
+Cleanup
+stop shardbeater;
+set global shardbeat_interval_ms = default;
+set global shardbeat_vlog_level = default;
+set global shardbeat_query_comment_format= default;
+set global shardbeat_user= default;
+set global shardbeat_table= default;
+DROP DATABASE db1;
+DROP DATABASE db2;
+DROP USER IF EXISTS 'dba_scripts:sys.database'@'%';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

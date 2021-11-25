@@ -1,0 +1,21 @@
+set @@global.shardbeat_blocked_dbs='db100';
+select @@global.shardbeat_blocked_dbs;
+
+set @@global.shardbeat_blocked_dbs = default;
+select @@global.shardbeat_blocked_dbs;
+set @saved_shardbeat_blocked_dbs = @@global.shardbeat_blocked_dbs;
+
+set @@global.shardbeat_blocked_dbs='db100, db200';
+
+set @@global.shardbeat_blocked_dbs='db100, 	db200, ';
+
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.shardbeat_blocked_dbs=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.shardbeat_blocked_dbs;
+--error ER_GLOBAL_VARIABLE
+set @@session.shardbeat_blocked_dbs='db100, db200';
+
+set global shardbeat_blocked_dbs = @saved_shardbeat_blocked_dbs;
+select @@global.shardbeat_blocked_dbs;

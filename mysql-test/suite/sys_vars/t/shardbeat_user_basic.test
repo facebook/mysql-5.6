@@ -1,0 +1,24 @@
+set @@global.shardbeat_user='dba_scripts';
+select @@global.shardbeat_user;
+
+set @@global.shardbeat_user = default;
+select @@global.shardbeat_user;
+set @saved_shardbeat_user = @@global.shardbeat_user;
+
+set @@global.shardbeat_user="dba_scripts:sys.database@'%'";
+
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.shardbeat_user=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.shardbeat_user;
+--error ER_GLOBAL_VARIABLE
+set @@session.shardbeat_user='dba_scripts:sys.database';
+
+set global shardbeat_user='';
+connection default;
+--error ER_DISALLOWED_OPERATION
+start shardbeater;
+
+set global shardbeat_user = @saved_shardbeat_user;
+select @@global.shardbeat_user;

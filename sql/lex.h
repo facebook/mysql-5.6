@@ -648,6 +648,7 @@ static const SYMBOL symbols[] = {
     {SYM("SESSION", SESSION_SYM)},
     {SYM("SERVER", SERVER_SYM)},
     {SYM("SET", SET_SYM)},
+    {SYM("SHARDBEATER", SHARDBEATER)},
     {SYM("SHARE", SHARE_SYM)},
     {SYM("SHARED", SHARED_SYM)},
     {SYM("SHOW", SHOW)},

@@ -896,7 +896,44 @@ void THD::set_transaction(Transaction_ctx *transaction_ctx) {
   m_transaction.reset(transaction_ctx);
 }
 
-static std::string get_shard_id(const std::string &db_metadata) {
+int THD::get_shard_rs_id(const std::string &db_metadata,
+                         std::pair<std::string, std::string> *shard_rs,
+                         bool *olm) {
+  try {
+    rapidjson::Document db_metadata_root;
+    // The local_db_metadata format should be:
+    // {"shard":"<shard_name>", "replicaset":"<replicaset_id>"}
+    if (db_metadata_root.Parse(db_metadata.c_str()).HasParseError() ||
+        !db_metadata_root.IsObject()) {
+      return 1;
+    }
+    const auto iter = db_metadata_root.FindMember("shard");
+    std::string shard_id;
+    if (iter != db_metadata_root.MemberEnd()) {
+      shard_id = iter->value.GetString();
+    }
+
+    const auto iter2 = db_metadata_root.FindMember("rs");
+    std::string rs_id;
+    if (iter2 != db_metadata_root.MemberEnd()) {
+      rs_id = iter2->value.GetString();
+    }
+
+    const auto iter3 = db_metadata_root.FindMember("olm");
+    bool olm_val_b = false;
+    if (iter3 != db_metadata_root.MemberEnd()) {
+      std::string olm_val_s = iter3->value.GetString();
+      olm_val_b = (olm_val_s == "1");
+    }
+    *shard_rs = std::make_pair(std::move(shard_id), std::move(rs_id));
+    *olm = olm_val_b;
+  } catch (const std::exception &) {
+    return 1;
+  }
+  return 0;
+}
+
+std::string THD::get_shard_id(const std::string &db_metadata) {
   try {
     rapidjson::Document db_metadata_root;
     // The local_db_metadata format should be:

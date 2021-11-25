@@ -1,0 +1,19 @@
+set @@global.shardbeat_query_comment_format='WH:1 #.T:sb #.S:{shard} #.I:{ipaddr} #rs:{replicaset}';
+select @@global.shardbeat_query_comment_format;
+@@global.shardbeat_query_comment_format
+WH:1 #.T:sb #.S:{shard} #.I:{ipaddr} #rs:{replicaset}
+set @@global.shardbeat_query_comment_format = default;
+select @@global.shardbeat_query_comment_format;
+@@global.shardbeat_query_comment_format
+
+set @saved_shardbeat_query_comment_format = @@global.shardbeat_query_comment_format;
+set @@global.shardbeat_query_comment_format=1;
+ERROR 42000: Incorrect argument type to variable 'shardbeat_query_comment_format'
+select @@session.shardbeat_query_comment_format;
+ERROR HY000: Variable 'shardbeat_query_comment_format' is a GLOBAL variable
+set @@session.shardbeat_query_comment_format='WH:1 #.T:sb #.S:{shard} #.I:{ipaddr} #rs:{replicaset}';
+ERROR HY000: Variable 'shardbeat_query_comment_format' is a GLOBAL variable and should be set with SET GLOBAL
+set global shardbeat_query_comment_format = @saved_shardbeat_query_comment_format;
+select @@global.shardbeat_query_comment_format;
+@@global.shardbeat_query_comment_format
+
