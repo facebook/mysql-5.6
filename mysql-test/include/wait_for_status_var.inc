@@ -57,7 +57,9 @@ if (!$_status_var_comparsion)
 let $_is_number= 0;
 if (`SELECT '$status_var_value' REGEXP '^[\+\-]*[0-9]+(\.[0-9]+)*\$'`)
 {
-  let $_is_number= 1;
+  if (!$status_val_not_number) {
+    let $_is_number= 1;
+  }
 }
 
 let $_show_status_value= query_get_value("SHOW $status_type STATUS LIKE '$status_var'", Value, 1);
