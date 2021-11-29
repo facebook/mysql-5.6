@@ -1,0 +1,291 @@
+show variables like 'rocksdb_use_range_locking';
+Variable_name	Value
+rocksdb_use_range_locking	ON
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+pk int,
+a int,
+primary key (pk)
+) engine=rocksdb;
+insert into t1 select
+A.a + B.a*10 + C.a*100,
+A.a + B.a*10 + C.a*100
+from 
+t0 A, t0 B, t0 C;
+# Make another connection to get the lock tree out of the STO-mode
+connect  con1,localhost,root,,;
+connection con1;
+begin;
+select * from t1 where pk=10 for update;
+pk	a
+10	10
+connection default;
+begin;
+select * from t1 where pk=11 for update;
+pk	a
+11	11
+# Now, we will just see locks on 10=0xA and 11=0xB:
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}8000000b	X
+#
+#  SeekForUpdate Test #1: A query with type=range (without upper bound) and LIMIT 
+#
+explain
+select * from t1 where pk>=500 order by pk limit 3 for update;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	#	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`pk` >= 500) order by `test`.`t1`.`pk` limit 3
+select * from t1 where pk>=500 order by pk limit 3 for update;
+pk	a
+500	500
+501	501
+502	502
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}8000000b	X
+$cf_id	$trx_id	${indexnr}800001f4-${indexnr}800001f6	X
+rollback;
+begin;
+select * from t1 where pk=11 for update;
+pk	a
+11	11
+explain
+select * from t1 order by pk limit 3 for update;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	4	NULL	3	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a` from `test`.`t1` order by `test`.`t1`.`pk` limit 3
+select * from t1 order by pk limit 3 for update;
+pk	a
+0	0
+1	1
+2	2
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}-${indexnr}80000002	X
+$cf_id	$trx_id	${indexnr}8000000b	X
+rollback;
+connection con1;
+rollback;
+disconnect con1;
+connection default;
+drop table t0, t1;
+#
+#  Concurrent tests: let one thread do SeekForUpdate and the other
+#   interfere by committing modifications
+#
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+pk int,
+a int,
+primary key (pk)
+) engine=rocksdb;
+insert into t1 select
+A.a + B.a*10 + C.a*100,
+A.a + B.a*10 + C.a*100
+from 
+t0 A, t0 B, t0 C;
+select * from t1 where pk<10;
+pk	a
+0	0
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+delete from t1 where pk<10;
+select * from t1 where pk<10;
+pk	a
+# Test what happens when another transaction commits a row
+# right before the range we are about to lock (nothing)
+explain 
+select * from t1 where pk >=5 order by pk limit 3 for update;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	#	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`pk` >= 5) order by `test`.`t1`.`pk` limit 3
+begin;
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR spoiler_inserted';
+select * from t1 where pk >=5 order by pk limit 3 for update;
+connect  con1,localhost,root,,;
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+insert into t1 values (3,3);
+set debug_sync='now SIGNAL spoiler_inserted';
+connection default;
+pk	a
+10	10
+11	11
+12	12
+rollback;
+delete from t1 where pk=3;
+#
+# Now, repeat the test but let the other transaction insert the row into
+# the range we are locking
+explain 
+select * from t1 where pk >=5 order by pk limit 1 for update;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	#	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`pk` >= 5) order by `test`.`t1`.`pk` limit 1
+begin;
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR spoiler_inserted';
+select * from t1 where pk >=5 order by pk limit 1 for update;
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+insert into t1 values (8,8);
+set debug_sync='now SIGNAL spoiler_inserted';
+connection default;
+pk	a
+8	8
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}80000005-${indexnr}8000000a	X
+rollback;
+delete from t1 where pk=8;
+#
+# Repeat the third time, this time deleting the row that SeekForUpdate saw
+#
+insert into t1 values (7,7);
+begin;
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR spoiler_inserted';
+select * from t1 where pk >=5 order by pk limit 1 for update;
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+delete from t1 where pk=7;
+set debug_sync='now SIGNAL spoiler_inserted';
+connection default;
+pk	a
+10	10
+rollback;
+#
+# Repeat the above test, but let the read fail with ER_LOCK_WAIT_TIMEOUT
+# error. MyRocks code should now be prepared that data reads cause this
+# error
+#
+insert into t1 values (7,7);
+begin;
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR spoiler_inserted';
+select * from t1 where pk >=5 order by pk limit 1 for update;
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+begin;
+delete from t1 where pk=7;
+set debug_sync='now SIGNAL spoiler_inserted';
+connection default;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+rollback;
+connection con1;
+rollback;
+connection default;
+#
+# Test the thd_killed check in the iterator
+#
+begin;
+set debug_sync='rocksdb.locking_iter_scan SIGNAL about_to_lock_range WAIT_FOR go_get_killed';
+select * from t1 where pk >=5 order by pk limit 1 for update;
+connection con1;
+set debug_sync='now WAIT_FOR about_to_lock_range';
+kill query CONN_ID;
+connection default;
+ERROR HY000: Got error 10 'Operation aborted: ' from ROCKSDB
+rollback;
+#
+# Backward scan test
+#
+connection con1;
+begin;
+select * from t1 where pk=500 for update;
+pk	a
+500	500
+connection default;
+insert into t1 values 
+(1001, 1001),
+(1005, 1005),
+(1007, 1007),
+(1010, 1010);
+begin;
+select * from t1 order by pk desc limit 2 for update;
+pk	a
+1010	1010
+1007	1007
+#  The below will lock from pk=1007 (0x3ef) till the end of the table:
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}800003ef-${indexnr+1}	X
+rollback;
+begin;
+select * from t1 where pk <1007 order by pk desc limit 2 for update;
+pk	a
+1005	1005
+1001	1001
+# select * from information_schema.rocksdb_locks; # With replacements by select_from_is_rowlocks.inc
+COLUMN_FAMILY_ID	TRANSACTION_ID	KEY	mode
+$cf_id	$trx_id	${indexnr}800003e9-${indexnr}800003ef	X
+connection con1;
+rollback;
+connection default;
+rollback;
+#
+# Backward scan test 2: error condition
+#
+connection con1;
+begin;
+select * from t1 where pk=1010 for update;
+pk	a
+1010	1010
+connection default;
+begin;
+select * from t1 order by pk desc limit 2 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+rollback;
+connection con1;
+rollback;
+begin;
+select * from t1 where pk=1007 for update;
+pk	a
+1007	1007
+connection default;
+begin;
+select * from t1 order by pk desc limit 2 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+rollback;
+connection con1;
+rollback;
+disconnect con1;
+connection default;
+drop table t0,t1;
+#
+# A test: full table scan doesn't lock gaps
+#
+create table t1 (
+pk int primary key,
+a int
+) engine=rocksdb;
+insert into t1 values (10,10),(20,20),(30,30);
+connect  con1,localhost,root,,;
+connect  con2,localhost,root,,;
+connection con1;
+begin;
+select * from t1 for update;
+pk	a
+10	10
+20	20
+30	30
+connection con2;
+insert into t1 values (5,5);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+connection con1;
+rollback;
+disconnect con1;
+disconnect con2;
+connection default;
+drop table t1;

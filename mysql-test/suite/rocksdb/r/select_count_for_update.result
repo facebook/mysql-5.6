@@ -35,9 +35,9 @@ SELECT COUNT(*) FROM t1 FORCE INDEX (sk);
 COUNT(*)
 3
 SELECT COUNT(*) FROM t1 FORCE INDEX (sk) LOCK IN SHARE MODE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: $FAILING_INDEX
 SELECT COUNT(*) FROM t1 FORCE INDEX (sk) FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: $FAILING_INDEX
 connection con1;
 COMMIT;
 SELECT COUNT(*) FROM t1 FORCE INDEX (sk);

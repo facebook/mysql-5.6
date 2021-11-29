@@ -27,6 +27,10 @@
 # In all cases, RR gets snapshot conflict errors if non-first rows get
 # deleted by another transaction after scanning.
 
+# The tests do not work with range locking as it locks it is about to
+# read, first.
+--source suite/rocksdb/include/not_range_locking.inc
+
 --source include/have_rocksdb.inc
 --source include/have_debug_sync.inc
 
