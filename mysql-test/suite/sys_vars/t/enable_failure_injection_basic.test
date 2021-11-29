@@ -1,0 +1,19 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value false
+####
+--echo Default value of enable_failure_injection is false
+SELECT @@global.enable_failure_injection;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_failure_injection;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--echo enable_failure_injection is a read-only variable
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@global.enable_failure_injection = true;
+SELECT @@global.enable_failure_injection;
