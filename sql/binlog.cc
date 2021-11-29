@@ -10283,8 +10283,14 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all) {
     "binlog_query called or stmt.ha_list != 0".
    */
   if (!all && !trn_ctx->is_active(trx_scope) &&
-      cache_mngr->stmt_cache.is_binlog_empty())
+      cache_mngr->stmt_cache.is_binlog_empty()) {
+    if (enable_raft_plugin && thd->m_force_raft_after_commit_hook &&
+        thd->rli_slave) {
+      if (RUN_HOOK_STRICT(raft_replication, after_commit, (thd)))
+        return RESULT_ABORTED;
+    }
     return RESULT_SUCCESS;
+  }
 
   if (thd->lex->sql_command == SQLCOM_XA_COMMIT) {
     /* The Commit phase of the XA two phase logging. */

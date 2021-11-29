@@ -1,0 +1,120 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+call mtr.add_suppression("Error in Log_event::read_log_event()");
+call mtr.add_suppression("Error reading GTIDs from binary log");
+call mtr.add_suppression("Engine has seen trxs till file");
+call mtr.add_suppression("Forcing raft after_commit hook for opid");
+create table t1 (a int primary key) engine = innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+flush binary logs;
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+insert into t1 values(6);
+insert into t1 values(7);
+insert into t1 values(8);
+insert into t1 values(9);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+"Trimming last raft log in server_2"
+flush logs;
+set @@global.rpl_raft_allow_start_election = 0;
+show status like 'Rpl_raft_slave_low_water_mark';
+Variable_name	Value
+Rpl_raft_slave_low_water_mark	1:16
+"Sending kill -STOP to server_1"
+"Stopping server_1"
+"Sending kill -STOP to server_3"
+set @@global.rpl_raft_allow_start_election = 0;
+"Stopping server_3"
+"Force restarting server_2"
+include/rpl_restart_server.inc [server_number=2]
+set @@global.rpl_raft_reject_append_entries = 1;
+"Sending kill -CONT to server_1 and server_3"
+"Waiting for LWM to be populated on server_2"
+"Allowing append entries RPC and waiting for SQL thread to start on server_2"
+set @@global.rpl_raft_reject_append_entries = 0;
+include/wait_for_slave_sql_to_start.inc
+"Executing some more trxs on leader"
+insert into t1 values(10);
+insert into t1 values(11);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Checking out of order transactions after catching up server_2 with leader"
+show status like 'Rpl_raft_slave_num_out_of_order_trxs';
+Variable_name	Value
+Rpl_raft_slave_num_out_of_order_trxs	0
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+set @@global.rpl_raft_allow_start_election = 1;
+set @@global.rpl_raft_allow_start_election = 1;
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
