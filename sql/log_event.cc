@@ -12816,12 +12816,16 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
 
   if (opt_bin_log)
   {
+    thd->m_force_raft_after_commit_hook= false;
     enum_gtid_statement_status state= gtid_pre_statement_checks(thd);
     if (state == GTID_STATEMENT_CANCEL)
       // error has already been printed; don't print anything more here
       DBUG_RETURN(-1);
     else if (state == GTID_STATEMENT_SKIP)
+    {
+      thd->m_force_raft_after_commit_hook= enable_raft_plugin && thd->rli_slave;
       DBUG_RETURN(0);
+    }
   }
 
   /*

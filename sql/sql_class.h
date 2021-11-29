@@ -2869,6 +2869,12 @@ public:
   bool add_db_metadata(ptree &meta_data_root);
 #endif
 
+  /* Force a call to raft's after_commit hook even if the binlog cache is empty
+   * or uninitialized. Currently this is used to call after_commit hook for
+   * transactions that are skipped because their GTID <= executed_gtid. It is
+   * reset in Raft_replication_delegate::after_commit() */
+  bool m_force_raft_after_commit_hook= false;
+
   void set_server_id(uint32 sid) { server_id = sid; }
 
   /*

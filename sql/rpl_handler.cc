@@ -698,6 +698,15 @@ int Raft_replication_delegate::after_commit(THD *thd, bool all)
 
   thd->get_trans_marker(&param.term, &param.index);
 
+  if (thd->m_force_raft_after_commit_hook)
+  {
+    DBUG_ASSERT(thd->rli_slave);
+    sql_print_warning("Forcing raft after_commit hook for opid: %ld:%ld",
+                      param.term, param.index);
+  }
+
+  thd->m_force_raft_after_commit_hook= false;
+
   int ret= 0;
   FOREACH_OBSERVER_STRICT(ret, after_commit, thd, (&param));
   DBUG_RETURN(ret);

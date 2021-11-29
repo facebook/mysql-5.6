@@ -29,7 +29,9 @@ while ($mysql_errno)
 }
 if ($rpl_enable_raft)
 {
-  source include/rpl_raft_make_master_leader.inc;
+  if (!$rpl_skip_election_on_startup) {
+    source include/rpl_raft_make_master_leader.inc;
+  }
 }
 --enable_query_log
 --enable_result_log

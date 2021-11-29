@@ -9582,7 +9582,15 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all, bool async)
    */
   if (!all && trans->ha_list == 0 &&
       cache_mngr->stmt_cache.is_binlog_empty())
+  {
+    if (enable_raft_plugin && thd->m_force_raft_after_commit_hook &&
+        thd->rli_slave)
+    {
+      if (RUN_HOOK_STRICT(raft_replication, after_commit, (thd, all)))
+        DBUG_RETURN(RESULT_ABORTED);
+    }
     DBUG_RETURN(RESULT_SUCCESS);
+  }
 
   /*
     If there is anything in the stmt cache, and GTIDs are enabled,

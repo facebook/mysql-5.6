@@ -129,7 +129,9 @@ if (!$rpl_server_error)
       let $_is_master= `SELECT SUBSTRING('$rpl_master_list', 1 + ($rpl_server_number - 1) * $rpl_server_count_length, $rpl_server_count_length) = ''`;
       if ($_is_master)
       {
-        source include/rpl_raft_make_master_leader.inc;
+        if (!$rpl_skip_election_on_startup) {
+          source include/rpl_raft_make_master_leader.inc;
+        }
       }
       if (!$_is_master)
       {
