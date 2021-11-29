@@ -1462,6 +1462,14 @@ int Raft_replication_delegate::after_commit(THD *thd) {
 
   thd->get_trans_marker(&param.term, &param.index);
 
+  if (thd->m_force_raft_after_commit_hook) {
+    assert(thd->rli_slave);
+    sql_print_warning("Forcing raft after_commit hook for opid: %ld:%ld",
+                      param.term, param.index);
+  }
+
+  thd->m_force_raft_after_commit_hook = false;
+
   const char *file = nullptr;
   my_off_t pos = 0;
   if (mysql_bin_log.is_apply_log)

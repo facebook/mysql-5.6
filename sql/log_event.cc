@@ -10427,6 +10427,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     lex_start(thd);
     mysql_reset_thd_for_next_command(thd);
 
+    thd->m_force_raft_after_commit_hook = false;
     enum_gtid_statement_status state = gtid_pre_statement_checks(thd);
     if (state == GTID_STATEMENT_EXECUTE) {
       if (gtid_pre_statement_post_implicit_commit_checks(thd))
@@ -10440,8 +10441,11 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
                   thd->get_stmt_da()->message_text());
       thd->is_slave_error = true;
       return -1;
-    } else if (state == GTID_STATEMENT_SKIP)
+    } else if (state == GTID_STATEMENT_SKIP) {
+      thd->m_force_raft_after_commit_hook =
+          enable_raft_plugin && thd->rli_slave;
       goto end;
+    }
 
     /*
       The current statement is just about to begin and
