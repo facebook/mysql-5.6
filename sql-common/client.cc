@@ -8436,7 +8436,8 @@ net_async_status STDCALL mysql_send_query_nonblocking(MYSQL *mysql,
       async_context->async_query_state = QUERY_IDLE;
       async_context->async_query_length = 0;
       DBUG_PRINT("async", ("set state=%d", async_context->async_query_state));
-      return NET_ASYNC_ERROR;
+      ret = NET_ASYNC_ERROR;
+      goto end;
     }
   }
 
@@ -8449,11 +8450,13 @@ net_async_status STDCALL mysql_send_query_nonblocking(MYSQL *mysql,
     async_context->async_query_state = QUERY_IDLE;
     DBUG_PRINT("async", ("set state=%d", async_context->async_query_state));
     async_context->async_query_length = 0;
-    return ret;
+    goto end;
   }
 
   async_context->async_query_state = QUERY_READING_RESULT;
   DBUG_PRINT("async", ("set state=%d", async_context->async_query_state));
+
+end:
   /*
     Technically we don't need to keep the query attributes data until the
     state change as they're stored into the NET at the first call to
