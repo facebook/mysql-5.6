@@ -26,12 +26,38 @@ set session session_track_response_attributes = 1;
 set @original_privacy_plugin_on=@@privacy_plugin_on;
 set global privacy_plugin_on = 1;
 
-# Increase PES Timeout
+# Disable query log
 disable_query_log;
+
+# Increase PES Timeout
 let $value = query_get_value(SHOW VARIABLES LIKE 'privacy_plugin_pes_overall_timeout', Value, 1);
 if ($value !=  No such row)
 {
   set @original_privacy_plugin_pes_overall_timeout=@@privacy_plugin_pes_overall_timeout;
   set global privacy_plugin_pes_overall_timeout = 60000;
 }
+
+# Check if the plugin has column level check implemented
+let $value = query_get_value(SHOW VARIABLES LIKE 'privacy_plugin_purpose_policy_column_level_check', Value, 1);
+if ($value ==  No such row)
+{
+  let $has_column_level_check = 0;
+}
+if ($value !=  No such row)
+{
+  let $has_column_level_check = 1;
+}
+
+# Check if the plugin has column level check implemented
+let $value = query_get_value(SHOW VARIABLES LIKE 'purpose_policy_column_level_check_fine_grained', Value, 1);
+if ($value ==  No such row)
+{
+  let $has_column_level_check_fine_grained = 0;
+}
+if ($value !=  No such row)
+{
+  let $has_column_level_check_fine_grained = 1;
+}
+
+# Enable query log
 enable_query_log;
