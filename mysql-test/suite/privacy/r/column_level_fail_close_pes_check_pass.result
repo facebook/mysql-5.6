@@ -1,0 +1,36 @@
+set @original_session_track_response_attributes=@@session.session_track_response_attributes;
+set session session_track_response_attributes = 1;
+set @original_privacy_plugin_on=@@privacy_plugin_on;
+set global privacy_plugin_on = 1;
+set session privacy_plugin_purpose_policy_column_level_check = ON;
+CREATE TABLE privacy_column_research (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+score int NOT NULL,
+PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_column_research VALUES(1, "User1", 100);
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_close;
+select id from privacy_column_research;
+id
+1
+select name from privacy_column_research;
+name
+User1
+select * from privacy_column_research;
+id	name	score
+1	User1	100
+select * from privacy_column_research where id>= 1;
+id	name	score
+1	User1	100
+select name, count(id) from privacy_column_research group by name;
+name	count(id)
+User1	1
+select name, count(id) from privacy_column_research group by name order by 1;
+name	count(id)
+User1	1
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+drop table privacy_column_research;
+set session session_track_response_attributes=@original_session_track_response_attributes;
+set global privacy_plugin_on=@original_privacy_plugin_on;
