@@ -26,11 +26,27 @@ set session session_track_response_attributes=@original_session_track_response_a
 #Restore privacy_plugin_on setting
 set global privacy_plugin_on=@original_privacy_plugin_on;
 
-# Restore privacy_plugin_pes_overall_timeout setting
+# Disable query log
 disable_query_log;
+
+# Restore privacy_plugin_pes_overall_timeout setting
 let $value = query_get_value(SHOW VARIABLES LIKE 'privacy_plugin_pes_overall_timeout', Value, 1);
 if ($value != No such row)
 {
   set global privacy_plugin_pes_overall_timeout = @original_privacy_plugin_pes_overall_timeout;
 }
+
+# Restore privacy_plugin_purpose_policy_column_level_check setting
+if ($has_column_level_check)
+{
+  set global privacy_plugin_purpose_policy_column_level_check = OFF;
+}
+
+# Restore privacy_plugin_purpose_policy_column_level_check setting
+if ($has_column_level_check_fine_grained)
+{
+  set global purpose_policy_column_level_check_fine_grained = OFF;
+}
+
+# Enable query log
 enable_query_log;
