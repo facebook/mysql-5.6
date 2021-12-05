@@ -1,0 +1,40 @@
+--source ../include/privacy_init.inc
+
+if (!$has_column_level_check)
+{
+    --source ../include/privacy_end.inc
+    --skip "Column level check is not supported with current plugin version"
+}
+set session privacy_plugin_purpose_policy_column_level_check = ON;
+
+# Policy for table "privacy_column_research": test::test_a
+# Policy for column "name": test::test_b::test_c
+CREATE TABLE privacy_column_research (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    score int NOT NULL,
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_column_research VALUES(1, "User1", 100);
+
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_open;
+
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add query_policy 'test::test_b::test_c and test::test_a';
+
+select id from privacy_column_research;
+select name from privacy_column_research;
+select * from privacy_column_research;
+select * from privacy_column_research where id>= 1;
+
+select name, count(id) from privacy_column_research group by name;
+select name, count(id) from privacy_column_research group by name order by 1;
+
+# Cleanup
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+query_attrs_delete shard;
+query_attrs_delete cipp_context;
+drop table privacy_column_research;
+
+--source ../include/privacy_end.inc
