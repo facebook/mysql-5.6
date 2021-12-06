@@ -153,6 +153,7 @@ my $opt_retry              = 3;
 my $opt_retry_failure      = env_or_val(MTR_RETRY_FAILURE => 2);
 my $opt_skip_ndbcluster    = 0;
 my $opt_skip_sys_schema    = 0;
+my $opt_shutdown_report    = 0;
 my $opt_suite_timeout      = $ENV{MTR_SUITE_TIMEOUT} || 300;           # minutes
 my $opt_testcase_timeout   = $ENV{MTR_TESTCASE_TIMEOUT} || 15;         # minutes
 my $opt_valgrind_clients   = 0;
@@ -1870,6 +1871,7 @@ sub command_line_setup {
     'result-file'           => \$opt_resfile,
     'retry-failure=i'       => \$opt_retry_failure,
     'retry=i'               => \$opt_retry,
+    'shutdown-report'       => \$opt_shutdown_report,
     'shutdown-timeout=i'    => \$opt_shutdown_timeout,
     'start'                 => \$opt_start,
     'start-and-exit'        => \$opt_start_exit,
@@ -6633,6 +6635,11 @@ sub shutdown_processes {
   my ($timeout, @servers)= @_;
   my $append_exit_reports= 0;
   my %status = My::SafeProcess::shutdown($timeout, @servers);
+
+  # Skip generating shutdown reports
+  if ($opt_shutdown_report == 0) {
+    return;
+  }
 
   if ($status{failed}) {
     $shutdown_report_text.= "mysqld abnormal exit\n";
