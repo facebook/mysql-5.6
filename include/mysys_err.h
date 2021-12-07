@@ -138,9 +138,10 @@ extern const struct my_glob_errors globerrs[]; /* my_error_messages is here */
 #define EE_RESET_CHAR_OUT_OF_RANGE 89
 #define EE_UNKNOWN_LDML_TAG 90
 #define EE_FAILED_TO_RESET_BEFORE_SECONDARY_IGNORABLE_CHAR 91
-#define ER_WSENV_CANT_OPEN_LIBRARY 92
-#define ER_WSENV_CANT_FIND_DL_ENTRY 93
-#define EE_ERROR_LAST 93 /* Copy last error nr */
+#define EE_WSENV_CANT_OPEN_LIBRARY 92
+#define EE_WSENV_CANT_FIND_DL_ENTRY 93
+#define EE_WSENV_RUNTIME_ERROR 94
+#define EE_ERROR_LAST 94 /* Copy last error nr */
 /* Add error numbers before EE_ERROR_LAST and change it accordingly. */
 
 /* Exit codes for option processing. When exiting from server use the

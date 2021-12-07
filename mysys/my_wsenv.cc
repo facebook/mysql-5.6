@@ -1,6 +1,7 @@
 // Copyright 2004-present Facebook. All Rights Reserved.
 
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include "include/my_dbug.h"
 #include "include/my_sys.h"
@@ -42,7 +43,7 @@ void init_wsenv() {
   DBUG_ASSERT(handle != nullptr);
   DBUG_EXECUTE_IF("simulate_wsenv_dlopen_error", { handle = nullptr; });
   if (!handle) {
-    my_error(ER_WSENV_CANT_OPEN_LIBRARY, MYF(0), sql_wsenv_lib_name, errno);
+    my_error(EE_WSENV_CANT_OPEN_LIBRARY, MYF(0), sql_wsenv_lib_name, errno);
     return;
   }
 
@@ -52,7 +53,7 @@ void init_wsenv() {
       handle, wsenv_folly_singleton_vault_registration_sym);
   DBUG_ASSERT(follySingletonVaultRegistration != nullptr);
   if (!follySingletonVaultRegistration) {
-    my_error(ER_WSENV_CANT_FIND_DL_ENTRY, MYF(0),
+    my_error(EE_WSENV_CANT_FIND_DL_ENTRY, MYF(0),
              wsenv_folly_singleton_vault_registration_sym, sql_wsenv_lib_name);
     return;
   }
@@ -64,7 +65,7 @@ void init_wsenv() {
   DBUG_ASSERT(func_wsenv != nullptr);
   DBUG_EXECUTE_IF("simulate_wsenv_dlsym_error", { func_wsenv = nullptr; });
   if (!func_wsenv) {
-    my_error(ER_WSENV_CANT_FIND_DL_ENTRY, MYF(0), wsenv_get_or_create_wsenv_sym,
+    my_error(EE_WSENV_CANT_FIND_DL_ENTRY, MYF(0), wsenv_get_or_create_wsenv_sym,
              sql_wsenv_lib_name);
     return;
   }
@@ -74,7 +75,7 @@ void init_wsenv() {
       handle, wsenv_create_wsenv_options_sym);
   DBUG_ASSERT(func_wsenv_options != nullptr);
   if (!func_wsenv_options) {
-    my_error(ER_WSENV_CANT_FIND_DL_ENTRY, MYF(0),
+    my_error(EE_WSENV_CANT_FIND_DL_ENTRY, MYF(0),
              wsenv_create_wsenv_options_sym, sql_wsenv_lib_name);
     return;
   }
@@ -108,7 +109,13 @@ rocksdb::Env *get_wsenv_from_uri(const std::string &wsenv_uri,
   DBUG_ASSERT(!wsenv_cluster.empty());
   if (wsenv_cluster.empty()) return nullptr;
 
-  return func_wsenv(wsenv_cluster.c_str(), sql_wsenv_tenant);
+  try {
+    auto env = func_wsenv(wsenv_cluster.c_str(), sql_wsenv_tenant);
+    return env;
+  } catch (const std::runtime_error &error) {
+    my_error(EE_WSENV_RUNTIME_ERROR, MYF(0), error.what());
+    return nullptr;
+  }
 }
 
 /*
