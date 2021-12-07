@@ -1,0 +1,71 @@
+source ../include/raft_3_node.inc;
+
+call mtr.add_suppression("Failed to open the relay log");
+call mtr.add_suppression("Could not find target log file mentioned in relay log info in the index file");
+call mtr.add_suppression("Could not find target log file mentioned in relay log info in the index file");
+call mtr.add_suppression("Slave: Failed to initialize the master info structure for channel");
+call mtr.add_suppression("Failed to create or recover replication info repositories");
+
+# This tests checks if the relay log vars are set correctly when
+# enable_raft_plugin is enabled/disabled
+
+# Execute some transactions in the ring
+connection server_1;
+create table t1(a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+let $datadir = `select @@global.datadir`;
+echo "Restarting server_2 with enable_raft_plugin = 0";
+let $rpl_server_number = 2;
+let $rpl_server_parameters = --enable_raft_plugin=0 --rpl_raft_on=0;
+source include/rpl_restart_server.inc;
+
+select @@global.enable_raft_plugin;
+
+echo "Since enable_raft_plugin = 0, the vars should be 'mysqld-relay-logs-XYZ'";
+replace_result $datadir DATA_DIR/;
+select @@global.relay_log_basename;
+replace_result $datadir DATA_DIR/;
+select @@global.relay_log_index;
+
+echo "Setting enable_raft_plugin = 1, the vars should be 'binary-logs-XYZ'";
+set @@global.enable_raft_plugin = 1;
+replace_result $datadir DATA_DIR/;
+select @@global.relay_log_basename;
+replace_result $datadir DATA_DIR/;
+select @@global.relay_log_index;
+
+echo "Setting enable_raft_plugin = 0, the vars should be 'mysqld-relay-logs-XYZ'";
+set @@global.enable_raft_plugin = 0;
+replace_result $datadir DATA_DIR/;
+select @@global.relay_log_basename;
+replace_result $datadir DATA_DIR/;
+select @@global.relay_log_index;
+
+connection server_2;
+echo "Restarting server_2 with enable_raft_plugin = 1";
+let $rpl_server_number = 2;
+let $rpl_server_parameters = --enable_raft_plugin=1 --rpl_raft_on=1;
+source include/rpl_restart_server.inc;
+source include/wait_for_slave_sql_to_start.inc;
+
+echo "Since enable_raft_plugin = 1, the vars should be 'binary-logs-XYZ'";
+replace_result $datadir DATA_DIR/;
+select @@global.relay_log_basename;
+replace_result $datadir DATA_DIR/;
+select @@global.relay_log_index;
+
+# Cleanup
+connection server_1;
+drop table t1;
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

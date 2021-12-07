@@ -5252,8 +5252,8 @@ static void init_com_statement_info() {
   @returns Pointer to string containing the full file path, or NULL if
   it was not possible to create the path.
  */
-static inline const char *rpl_make_log_name(PSI_memory_key key, const char *opt,
-                                            const char *def, const char *ext) {
+inline const char *rpl_make_log_name(PSI_memory_key key, const char *opt,
+                                     const char *def, const char *ext) {
   DBUG_TRACE;
   DBUG_PRINT("enter", ("opt: %s, def: %s, ext: %s", (opt && opt[0]) ? opt : "",
                        def, ext));
