@@ -1,0 +1,72 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+call mtr.add_suppression("Failed to open the relay log");
+call mtr.add_suppression("Could not find target log file mentioned in relay log info in the index file");
+call mtr.add_suppression("Could not find target log file mentioned in relay log info in the index file");
+call mtr.add_suppression("Slave: Failed to initialize the master info structure for channel");
+call mtr.add_suppression("Failed to create or recover replication info repositories");
+create table t1(a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Restarting server_2 with enable_raft_plugin = 0"
+include/rpl_restart_server.inc [server_number=2 parameters: --enable_raft_plugin=0 --rpl_raft_on=0]
+select @@global.enable_raft_plugin;
+@@global.enable_raft_plugin
+0
+"Since enable_raft_plugin = 0, the vars should be 'mysqld-relay-logs-XYZ'"
+select @@global.relay_log_basename;
+@@global.relay_log_basename
+DATA_DIR/mysqld-relay-bin-13001
+select @@global.relay_log_index;
+@@global.relay_log_index
+DATA_DIR/mysqld-relay-bin-13001.index
+"Setting enable_raft_plugin = 1, the vars should be 'binary-logs-XYZ'"
+set @@global.enable_raft_plugin = 1;
+select @@global.relay_log_basename;
+@@global.relay_log_basename
+DATA_DIR/binary-logs-13001
+select @@global.relay_log_index;
+@@global.relay_log_index
+DATA_DIR/binary-logs-13001.index
+"Setting enable_raft_plugin = 0, the vars should be 'mysqld-relay-logs-XYZ'"
+set @@global.enable_raft_plugin = 0;
+select @@global.relay_log_basename;
+@@global.relay_log_basename
+DATA_DIR/mysqld-relay-bin-13001
+select @@global.relay_log_index;
+@@global.relay_log_index
+DATA_DIR/mysqld-relay-bin-13001.index
+"Restarting server_2 with enable_raft_plugin = 1"
+include/rpl_restart_server.inc [server_number=2 parameters: --enable_raft_plugin=1 --rpl_raft_on=1]
+include/wait_for_slave_sql_to_start.inc
+"Since enable_raft_plugin = 1, the vars should be 'binary-logs-XYZ'"
+select @@global.relay_log_basename;
+@@global.relay_log_basename
+DATA_DIR/binary-logs-13001
+select @@global.relay_log_index;
+@@global.relay_log_index
+DATA_DIR/binary-logs-13001.index
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

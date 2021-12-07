@@ -9077,6 +9077,25 @@ static bool update_enable_raft_change(sys_var * /*self */, THD *thd,
   const char *user = "unknown";
   const char *host = "unknown";
 
+  // Resetting relay log basename and index based on whether raft is enabled
+  // see @init_server_components() where we do a similar thing
+  my_free(const_cast<char *>(relay_log_basename));
+  my_free(const_cast<char *>(relay_log_index));
+  if (!enable_raft_plugin) {
+    relay_log_basename = rpl_make_log_name(
+        key_memory_MYSQL_RELAY_LOG_basename, opt_relay_logname,
+        default_logfile_name,
+        (opt_relay_logname && opt_relay_logname[0]) ? "" : relay_ext);
+    relay_log_index = rpl_make_log_name(key_memory_MYSQL_RELAY_LOG_index,
+                                        opt_relaylog_index_name,
+                                        relay_log_basename, ".index");
+  } else {
+    relay_log_basename = my_strdup(key_memory_MYSQL_RELAY_LOG_basename,
+                                   log_bin_basename, MYF(MY_FAE));
+    relay_log_index =
+        my_strdup(key_memory_MYSQL_RELAY_LOG_index, log_bin_index, MYF(MY_FAE));
+  }
+
   // NO_LINT_DEBUG
   sql_print_information("Unblocking dump threads");
   unblock_all_dump_threads();
