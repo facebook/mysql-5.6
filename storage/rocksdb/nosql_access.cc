@@ -35,6 +35,7 @@
 #include "./sql/item.h"
 #include "./sql/item_func.h"
 #include "./sql/query_result.h"
+#include "./sql/rpc_plugin.h"
 #include "./sql/sql_base.h"
 #include "./sql/sql_select.h"
 #include "./sql/strfunc.h"
@@ -98,30 +99,104 @@ struct sql_cond {
 class base_protocol {
  public:
   virtual ~base_protocol() = default;
-  virtual void start_row() const = 0;
-  virtual bool end_row() const = 0;
+  // Do something only when we send data through buffer other than record[0].
+  // We need to call this prior to start_row() because the buffer might be
+  // used during the evaluation.
+  virtual bool fill_buffer() const = 0;
   virtual bool send_result_metadata() const = 0;
-  virtual bool send_result_set_row() const = 0;
+  virtual bool send_row() const = 0;
 };
 
 class sql_protocol : public base_protocol {
  public:
   explicit sql_protocol(THD *thd, List<Item> *item_list)
       : m_thd(thd), m_protocol(thd->get_protocol()), m_item_list(item_list) {}
-  void start_row() const { m_protocol->start_row(); }
-  bool end_row() const { return m_protocol->end_row(); }
+  bool fill_buffer() const { return false; }
+  bool send_row() const {
+    m_protocol->start_row();
+    // This works because we read everything into record and all the items
+    // are pointing into the record[0]
+    // This is the slow path as we need to unpack everything into record[0]
+    if (m_thd->send_result_set_row(m_item_list) || m_protocol->end_row()) {
+      return true;
+    }
+    return false;
+  }
   bool send_result_metadata() const {
     return m_thd->send_result_metadata(
         m_item_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
-  }
-  bool send_result_set_row() const {
-    return m_thd->send_result_set_row(m_item_list);
   }
 
  private:
   THD *m_thd;
   Protocol *m_protocol;
   List<Item> *m_item_list;
+};
+
+class rpc_protocol : public base_protocol {
+ public:
+  explicit rpc_protocol(const std::vector<Field *> *field_list,
+                        const myrocks_select_from_rpc *_param,
+                        myrocks_columns *_columns)
+      : m_field_list(field_list),
+        m_columns(_columns),
+        m_rpc_buffer(_param->rpc_buffer),
+        m_send_row_fn(_param->send_row),
+        m_num_columns(_param->columns.size()) {}
+  bool fill_buffer() const {
+    int idx = 0;
+    for (const auto field : *m_field_list) {
+      auto rpcbuf = &m_columns->at(idx++);
+      auto buf = field->ptr;
+      switch (field->real_type()) {
+        case MYSQL_TYPE_LONGLONG:
+        case MYSQL_TYPE_LONG:
+        case MYSQL_TYPE_INT24:
+        case MYSQL_TYPE_SHORT:
+        case MYSQL_TYPE_TINY: {
+          uint64_t val = 0;
+          auto len = field->pack_length();
+          for (int i = len - 1; i >= 0; i--) {
+            val = val * 256 + static_cast<uint64_t>(buf[i]);
+          }
+          rpcbuf->i64Val = val;
+          rpcbuf->type = myrocks_value_type::_UNSIGNED_INT;
+          break;
+        }
+
+        case MYSQL_TYPE_VARCHAR: {
+          const auto field_var = static_cast<const Field_varstring *>(field);
+          uint length =
+              (field_var->length_bytes == 1) ? (uint)*buf : uint2korr(buf);
+          rpcbuf->stringVal = buf + field_var->length_bytes;
+          rpcbuf->length = length;
+          rpcbuf->type = myrocks_value_type::_STRING;
+          break;
+        }
+
+        default:
+          // todo: support more type, especially MYSQL_TYPE_BLOB
+          return true;
+      }
+    }
+    return false;
+  }
+  bool send_row() const {
+    m_send_row_fn(m_rpc_buffer, m_columns, m_num_columns);
+    return false;
+  }
+  bool send_result_metadata() const {
+    // do nothing
+    return false;
+  }
+
+ private:
+  const std::vector<Field *> *m_field_list;
+  myrocks_columns *m_columns;
+  // below are copied from myrocks_select_from_rpc
+  void *m_rpc_buffer;
+  myrocks_bypass_rpc_send_row_fn m_send_row_fn;
+  int m_num_columns;
 };
 
 class base_select_parser {
@@ -1424,17 +1499,10 @@ bool INLINE_ATTR select_exec::run() {
   Send the entire row in select_lex->item_list and record[0]
  */
 bool inline select_exec::send_row() {
-  m_protocol.start_row();
-
-  // This works because we read everything into record and all the items
-  // are pointing into the record[0]
-  // This is the slow path as we need to unpack everything into record[0]
-  if (m_protocol.send_result_set_row() || m_protocol.end_row()) {
+  if (m_protocol.send_row()) {
     return true;
   }
-
   m_rows_sent++;
-
   return false;
 }
 
@@ -1694,6 +1762,11 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
 
 int INLINE_ATTR select_exec::eval_and_send() {
   m_examined_rows++;
+
+  if (m_protocol.fill_buffer()) {
+    // failure
+    return 1;
+  }
   if (eval_cond()) {
     m_row_count++;
     if (m_row_count > m_offset_limit) {
