@@ -16,9 +16,16 @@
  */
 enum Failure_points {
 
-  // Dump thread introduces corruption when shipping binlog events to
-  // secondaries
-  DUMP_THREAD_CORRUPT_BINLOG_PAYLOAD = 0,
+  // Dump thread introduces corruption in checksum when shipping binlog events
+  // to COM_BINLOG_DUMP client
+  // Format: host_port lower_bound upper_bound event_type
+  // It will introduce checksum corruption to specific host_port at a random
+  // interval between lower_bound and upper_bound for a specific event type
+  // Event type is a optional and can be ignored. When use, use number from 1 to
+  // 40. See enum Log_event_type in binlog_event.h
+  // Ex: SET GLOBAL failure_injection_point =
+  //    "DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM=localhost:12345 100 200 16"
+  DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM = 0,
   // Induce delay/stalls when binlog file is rotated. Optionally takes a value
   // indicating the duration (in milli-seconds) of the stall. Default duration
   // is 10ms

@@ -541,6 +541,29 @@ class Binlog_sender {
 
 #endif  // ! __APPLE__
 
+  /**
+    host:port of the client for this dump thread
+  */
+  std::string m_host_port;
+
+  /**
+    Inject binlog corruption after m_inject_skip_events
+  */
+  uint32 m_inject_skip_events = 0;
+
+  /**
+    Inject binlog corruption after m_inject_skip_events
+  */
+  Log_event_type m_target_event_type = binary_log::UNKNOWN_EVENT;
+
+  /*
+   * Inject a binlog corruption to current event if m_inject_skip_events == 0
+   * and m_host_port matches target_host_port matches
+   *
+   * @param event_ptr current event
+   * @param event_len current event length
+   */
+  void inject_binlog_corruption(uchar *event_ptr, uint32 event_len);
 };
 
 #endif  // DEFINED_RPL_BINLOG_SENDER
