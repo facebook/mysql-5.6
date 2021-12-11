@@ -1,0 +1,88 @@
+
+--source include/master-slave.inc
+
+create table t(id int auto_increment primary key);
+
+let $host_port= `SELECT HOST FROM INFORMATION_SCHEMA.PROCESSLIST WHERE command = "Binlog DUmp"`;
+
+--echo ============ test 1: corrupt after 16~19 events ===========
+
+replace_result $host_port slave_host_port;
+eval set @@global.failure_injection_points = 'DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM=$host_port 16 19';
+
+insert into t values (NULL);
+insert into t values (NULL);
+insert into t values (NULL);
+
+sleep 2;
+
+--echo Verify Slave IO thread is running after receiving 15 events
+connection slave;
+let $io_running1= query_get_value(SHOW SLAVE STATUS, Slave_IO_Running, 1);
+--echo Slave_IO_Running: $io_running1
+
+call mtr.add_suppression("Slave I/O for channel '': Replication event checksum verification failed while reading from network*");
+call mtr.add_suppression("Slave I/O for channel '': Relay log write failure: could not queue event from master*");
+
+
+connection master;
+insert into t values (NULL);
+
+sleep 2;
+
+--echo Verify Slave IO thread stops after receiving 20 events
+connection slave;
+let $io_running2 = query_get_value(SHOW SLAVE STATUS, Slave_IO_Running, 1);
+--echo Slave_IO_Running: $io_running2
+
+--echo Verify slave IO thread errors
+let $slave_io_errno= 13122,13115; # ER_SLAVE_RELAY_LOG_WRITE_FAILURE, ER_NETWORK_READ_EVENT_CHECKSUM_FAILURE
+--source include/wait_for_slave_io_error.inc
+
+--source include/start_slave.inc
+
+--echo ============ test 2: corrupt after 3 XID events ===========
+connection master;
+let $host_port= `SELECT HOST FROM INFORMATION_SCHEMA.PROCESSLIST WHERE command = "Binlog DUmp"`;
+replace_result $host_port slave_host_port;
+eval set @@global.failure_injection_points = 'DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM=$host_port 4 4 16';
+
+insert into t values (NULL);
+insert into t values (NULL);
+insert into t values (NULL);
+
+sleep 2;
+
+--echo Verify Slave IO thread is running after receiving 3 XID events
+connection slave;
+let $io_running1= query_get_value(SHOW SLAVE STATUS, Slave_IO_Running, 1);
+--echo Slave_IO_Running: $io_running1
+
+call mtr.add_suppression("Slave I/O for channel '': Replication event checksum verification failed while reading from network*");
+call mtr.add_suppression("Slave I/O for channel '': Relay log write failure: could not queue event from master*");
+
+
+connection master;
+insert into t values (NULL);
+
+sleep 2;
+
+--echo Verify Slave IO thread stops after receiving 1 XID event
+connection slave;
+let $io_running2 = query_get_value(SHOW SLAVE STATUS, Slave_IO_Running, 1);
+--echo Slave_IO_Running: $io_running2
+
+--echo Verify slave IO thread errors
+let $slave_io_errno= 13122,13115; # ER_SLAVE_RELAY_LOG_WRITE_FAILURE, ER_NETWORK_READ_EVENT_CHECKSUM_FAILURE
+--source include/wait_for_slave_io_error.inc
+
+--source include/start_slave.inc
+
+# cleanup
+connection master;
+set @@global.failure_injection_points = "";
+
+DROP TABLE t;
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_end.inc
