@@ -28,6 +28,7 @@
 #include <sys/socket.h>
 #include <algorithm>
 #include <atomic>
+#include <boost/algorithm/string.hpp>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -50,9 +51,10 @@
 #include "mysql/psi/mysql_socket.h"
 #include "sql/binlog.h"
 #include "sql/binlog_reader.h"
-#include "sql/debug_sync.h"  // debug_sync_set_action
-#include "sql/derror.h"      // ER_THD
-#include "sql/item_func.h"   // user_var_entry
+#include "sql/debug_sync.h"         // debug_sync_set_action
+#include "sql/derror.h"             // ER_THD
+#include "sql/failure_injection.h"  // Failure injection framework
+#include "sql/item_func.h"          // user_var_entry
 #include "sql/log.h"
 #include "sql/log_event.h"  // MAX_MAX_ALLOWED_PACKET
 #include "sql/mdl.h"
@@ -770,6 +772,10 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
       set_fatal_error(log_read_error_msg(Binlog_read_error::SYSTEM_IO));
       return 1;
     }
+
+    FAILURE_INJECTION_EXEC_IF(
+        Failure_points::DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM,
+        inject_binlog_corruption(event_ptr, event_len););
 
     Log_event_type event_type = (Log_event_type)event_ptr[EVENT_TYPE_OFFSET];
     if (unlikely(check_event_type(event_type, log_file, log_pos))) return 1;
@@ -1755,4 +1761,83 @@ void Binlog_sender::processlist_slave_offset(const char *log_file_name,
   }
 
   DBUG_VOID_RETURN;
+}
+
+void Binlog_sender::inject_binlog_corruption(uchar *event_ptr,
+                                             uint32_t event_len) {
+  if (!event_checksum_on()) {
+    // early return when checksum is not enabled
+    return;
+  }
+
+  try {
+    // After every corruption, we recompute a random interval for the next
+    // corruption.
+    if (m_inject_skip_events == 0) {
+      // parameter is the format of "host:port upper lower"
+      std::string parameters = failure_injection.get_point_value(
+          Failure_points::DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM);
+
+      if (parameters.empty()) {
+        return;
+      }
+
+      std::vector<std::string> para_vec;
+      boost::split(para_vec, parameters, boost::is_any_of(" "));
+
+      std::string target_host_port = para_vec[0];
+      unsigned long lower = std::stoul(para_vec[1]);
+      unsigned long upper = std::stoul(para_vec[2]);
+
+      if (para_vec.size() == 4) {
+        unsigned long type = std::stoul(para_vec[3]);
+        m_target_event_type = static_cast<Log_event_type>(type);
+      }
+
+      // Get current host:port of the client for the dump thread
+      // We only need to do it once, because Binlog_sender is unique for each
+      // new client connection
+      if (m_host_port.empty()) {
+        const auto current_sctx = m_thd->security_context();
+        const auto current_sctx_host = current_sctx->host();
+        const auto current_sctx_ip = current_sctx->ip();
+        const auto current_sctx_host_or_ip = current_sctx->host_or_ip();
+
+        if (current_sctx_host.str != nullptr &&
+            current_sctx_host.str[0] != '\0') {
+          m_host_port.assign(current_sctx_host.str, current_sctx_host.length);
+        } else if (current_sctx_ip.str != nullptr &&
+                   current_sctx_ip.str[0] != '\0') {
+          m_host_port.assign(current_sctx_ip.str, current_sctx_ip.length);
+        } else if (current_sctx_host_or_ip.str != nullptr &&
+                   current_sctx_host_or_ip.str[0] == '\0') {
+          m_host_port.assign(current_sctx_host_or_ip.str,
+                             current_sctx_host_or_ip.length);
+        }
+        if (!m_host_port.empty() && m_thd->peer_port != 0) {
+          m_host_port += ':';
+          m_host_port += std::to_string(m_thd->peer_port);
+        }
+      }
+
+      if (m_host_port == target_host_port) {
+        // compute a random interval between lower and upper
+        m_inject_skip_events = lower + (std::rand() % (upper - lower + 1));
+      }
+    }
+
+    // Decrement the counter, and inject corruption when couter is 0
+    if (m_inject_skip_events > 0) {
+      Log_event_type event_type = (Log_event_type)event_ptr[EVENT_TYPE_OFFSET];
+      if (m_target_event_type == binary_log::UNKNOWN_EVENT ||
+          event_type == m_target_event_type) {
+        m_inject_skip_events--;
+        if (m_inject_skip_events == 0 && event_checksum_on()) {
+          int4store(event_ptr + event_len - BINLOG_CHECKSUM_LEN, 0);
+        }
+      }
+    }
+  } catch (std::exception &e) {
+    sql_print_warning("Exception happens when inject corruptions %s", e.what());
+  }
 }

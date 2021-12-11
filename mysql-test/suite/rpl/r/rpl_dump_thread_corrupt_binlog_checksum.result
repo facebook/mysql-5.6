@@ -1,0 +1,40 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create table t(id int auto_increment primary key);
+============ test 1: corrupt after 16~19 events ===========
+set @@global.failure_injection_points = 'DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM=slave_host_port 16 19';
+insert into t values (NULL);
+insert into t values (NULL);
+insert into t values (NULL);
+Verify Slave IO thread is running after receiving 15 events
+Slave_IO_Running: Yes
+call mtr.add_suppression("Slave I/O for channel '': Replication event checksum verification failed while reading from network*");
+call mtr.add_suppression("Slave I/O for channel '': Relay log write failure: could not queue event from master*");
+insert into t values (NULL);
+Verify Slave IO thread stops after receiving 20 events
+Slave_IO_Running: No
+Verify slave IO thread errors
+include/wait_for_slave_io_error.inc [errno=13122,13115]
+include/start_slave.inc
+============ test 2: corrupt after 3 XID events ===========
+set @@global.failure_injection_points = 'DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM=slave_host_port 4 4 16';
+insert into t values (NULL);
+insert into t values (NULL);
+insert into t values (NULL);
+Verify Slave IO thread is running after receiving 3 XID events
+Slave_IO_Running: Yes
+call mtr.add_suppression("Slave I/O for channel '': Replication event checksum verification failed while reading from network*");
+call mtr.add_suppression("Slave I/O for channel '': Relay log write failure: could not queue event from master*");
+insert into t values (NULL);
+Verify Slave IO thread stops after receiving 1 XID event
+Slave_IO_Running: No
+Verify slave IO thread errors
+include/wait_for_slave_io_error.inc [errno=13122,13115]
+include/start_slave.inc
+set @@global.failure_injection_points = "";
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

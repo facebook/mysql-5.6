@@ -6,8 +6,8 @@
  */
 std::unordered_map<std::string, Failure_points>
     Failure_injection::available_points{
-        {"DUMP_THREAD_CORRUPT_BINLOG_PAYLOAD",
-         DUMP_THREAD_CORRUPT_BINLOG_PAYLOAD},
+        {"DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM",
+         DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM},
         {"STALL_BINLOG_ROTATE", STALL_BINLOG_ROTATE}};
 
 void Failure_injection::disable() {
