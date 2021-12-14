@@ -1903,7 +1903,7 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
   set_master_log_pos(static_cast<ulong>(ev->common_header->log_pos));
   set_gaq_index(ev->mts_group_idx);
 
-  ev->check_and_set_idempotent_recovery(rli, worker_last_gtid);
+  ev->check_and_set_idempotent_recovery(this, worker_last_gtid);
 
   ret = ev->do_apply_event_worker(this);
 

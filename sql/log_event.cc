@@ -3274,10 +3274,8 @@ void Log_event::check_and_set_idempotent_recovery(Relay_log_info *rli,
   DBUG_EXECUTE_IF("dbg_enable_idempotent_recovery", {
     Gtid current_gtid;
     current_gtid.clear();
-    rli->recovery_sid_lock.rdlock();
     assert(current_gtid.parse(&rli->recovery_sid_map, gtid) ==
            RETURN_STATUS_OK);
-    rli->recovery_sid_lock.unlock();
     rli->recovery_max_engine_gtid = current_gtid;
   });
 
@@ -3286,9 +3284,7 @@ void Log_event::check_and_set_idempotent_recovery(Relay_log_info *rli,
       !rli->recovery_max_engine_gtid.is_empty()) {
     Gtid current_gtid;
     current_gtid.clear();
-    rli->recovery_sid_lock.rdlock();
     current_gtid.parse(&rli->recovery_sid_map, gtid);
-    rli->recovery_sid_lock.unlock();
 
     if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
         current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
