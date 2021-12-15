@@ -9224,29 +9224,13 @@ static Sys_var_bool Sys_sql_wsenv(
     "LOAD DATA. Set true to enable.",
     SESSION_VAR(enable_sql_wsenv), CMD_LINE(OPT_ARG), DEFAULT(false));
 
-static bool enable_failure_injection_framework(sys_var *, THD *,
-                                               enum_var_type) {
-  if (enable_failure_injection) {
-    // NO_LINT_DEBUG
-    sql_print_information("Enabling failure injection");
-    failure_injection.enable();
-  } else {
-    // NO_LINT_DEBUG
-    sql_print_information("Disabling failure injection");
-    failure_injection.disable();
-  }
-
-  return false;  // Success
-}
-
 static Sys_var_bool Sys_enable_failure_injection(
     "enable_failure_injection",
     "Enables failure injection framework. This is a read-only variable and "
     "needs a server restart to prevent accidental usage. Only set this option "
     "if you know what you are doing",
     READ_ONLY GLOBAL_VAR(enable_failure_injection), CMD_LINE(OPT_ARG),
-    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
-    ON_UPDATE(enable_failure_injection_framework));
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 static bool validate_failure_injection_points(sys_var *, THD *, set_var *) {
   if (!enable_failure_injection) {

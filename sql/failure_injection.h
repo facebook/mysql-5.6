@@ -41,12 +41,6 @@ class Failure_injection {
   void disable();
 
   /*
-   * Enable the failure injector. New failure points can be added after this
-   * step
-   */
-  void enable();
-
-  /*
    * Add a single failure point
    *
    * @param point The Failure_points to add
@@ -95,13 +89,6 @@ class Failure_injection {
   bool is_set(Failure_points point);
 
   /*
-   * Check if failure injection is enabled
-   *
-   * @return true if enabled, false if not enabled
-   */
-  bool is_enabled();
-
-  /*
    * Clear all failure injection points
    *
    */
@@ -137,9 +124,6 @@ class Failure_injection {
 
   // Mutex protecting access to all members of this class
   std::mutex failure_injection_mutex_;
-
-  // Is this enabled?
-  bool enabled_ = false;
 
   /*
    * A list of failure points. This is used to identify if a particular failure

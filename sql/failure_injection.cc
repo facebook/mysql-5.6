@@ -10,14 +10,8 @@ std::unordered_map<std::string, Failure_points>
          DUMP_THREAD_CORRUPT_BINLOG_PAYLOAD},
         {"STALL_BINLOG_ROTATE", STALL_BINLOG_ROTATE}};
 
-void Failure_injection::enable() {
-  std::lock_guard<std::mutex> guard(failure_injection_mutex_);
-  enabled_ = true;
-}
-
 void Failure_injection::disable() {
   std::lock_guard<std::mutex> guard(failure_injection_mutex_);
-  enabled_ = false;
   injection_points_.clear();
   injection_points_string_.clear();
 }
@@ -140,12 +134,8 @@ std::pair<std::string, std::string> Failure_injection::split(
 
 bool Failure_injection::is_set(Failure_points point) {
   std::lock_guard<std::mutex> guard(failure_injection_mutex_);
-  return (enabled_ && injection_points_.find(point) != injection_points_.end());
-}
-
-bool Failure_injection::is_enabled() {
-  std::lock_guard<std::mutex> guard(failure_injection_mutex_);
-  return enabled_;
+  return (enable_failure_injection &&
+          injection_points_.find(point) != injection_points_.end());
 }
 
 void Failure_injection::clear() {
