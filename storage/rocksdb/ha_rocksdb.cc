@@ -9164,8 +9164,6 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
 int ha_rocksdb::delete_all_rows() {
   DBUG_ENTER_FUNC();
   if (!m_tbl_def->is_intrinsic_tmp_table()) {
-    sql_print_error(
-        "delete_all_rows is only supported for intrinsic_tmp_table");
     DBUG_RETURN(HA_ERR_WRONG_COMMAND);
   }
   // This is called without metadata lock. Truncate table works by renaming
