@@ -1,5 +1,8 @@
 source ../include/raft_3_node.inc;
-connection server_1;
+
+call mtr.add_suppression("Error reading GTIDs from binary log");
+call mtr.add_suppression("Forcing raft after_commit hook for opid");
+
 connection server_1;
 create table t1 (a int primary key) engine = innodb;
 insert into t1 values(1);
