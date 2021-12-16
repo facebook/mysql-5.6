@@ -3,6 +3,7 @@
 # All tests are required to run with Myisam
 # Hence MTR starts mysqld with MyISAM as default
 
+--source include/have_innodb_intrinsic_table.inc
 --source include/force_myisam_default.inc
 --source include/have_myisam.inc
 
@@ -17,4 +18,3 @@ select @@read_rnd_buffer_size;
 
 set @@read_rnd_buffer_size= @read_rnd_buffer_size_save;
 set optimizer_switch=default;
-

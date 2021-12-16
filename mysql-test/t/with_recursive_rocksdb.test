@@ -1,4 +1,4 @@
---source include/have_innodb_intrinsic_table.inc
+--source include/have_rocksdb_intrinsic_table.inc
 --echo # In-memory tmp tables
 set big_tables=0;
 --source include/with_recursive.inc

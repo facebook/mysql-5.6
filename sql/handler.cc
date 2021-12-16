@@ -827,6 +827,9 @@ int ha_initialize_handlerton(st_plugin_int *plugin) {
     case DB_TYPE_INNODB:
       innodb_hton = hton;
       break;
+    case DB_TYPE_ROCKSDB:
+      rocksdb_hton = hton;
+      break;
     default:
       break;
   };

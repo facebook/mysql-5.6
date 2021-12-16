@@ -143,6 +143,7 @@ DROP TABLE t1;
 
 --echo # CREATE TABLE LIKE works for I_S tables that are not system view.
 CREATE TABLE t1 LIKE information_schema.processlist;
+--replace_result InnoDB TMP_TABLE_ENGINE ROCKSDB TMP_TABLE_ENGINE
 SHOW CREATE TABLE t1;
 DROP TABLE t1;
 

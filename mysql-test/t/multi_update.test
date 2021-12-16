@@ -794,7 +794,8 @@ eval $check_query;
 let $query=
   UPDATE performance_schema.setup_instruments, (SELECT 1) AS dt
     SET enabled = 'NO' WHERE name = 'wait/lock/metadata/sql/mdl';
-eval EXPLAIN $query;
+# DISABLED: different results for RocksDB and InnoDB
+# eval EXPLAIN $query;
 eval $query;
 # Not testing DELETE, as it's not possible on
 # performance_schema.setup_instruments.

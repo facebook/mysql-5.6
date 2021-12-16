@@ -130,7 +130,7 @@ t1	CREATE TABLE `t1` (
   `TIME` double NOT NULL DEFAULT '0',
   `STATE` varchar(64) DEFAULT NULL,
   `INFO` longtext
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3
+) ENGINE=TMP_TABLE_ENGINE DEFAULT CHARSET=utf8mb3
 DROP TABLE t1;
 #########################################################
 # Issue WL#6599/HLS/6h): I_S schema/table name,

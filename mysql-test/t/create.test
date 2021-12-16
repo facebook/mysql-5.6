@@ -1073,11 +1073,11 @@ drop function f1;
 create table t1 like information_schema.processlist;
 set global information_schema_engine=memory;
 create table t1 like information_schema.processlist;
---replace_result InnoDB TMP_TABLE_ENGINE MyISAM TMP_TABLE_ENGINE 
+--replace_result InnoDB TMP_TABLE_ENGINE MyISAM TMP_TABLE_ENGINE ROCKSDB TMP_TABLE_ENGINE
 show create table t1;
 drop table t1;
 create temporary table t1 like information_schema.processlist;
---replace_result InnoDB TMP_TABLE_ENGINE MyISAM TMP_TABLE_ENGINE 
+--replace_result InnoDB TMP_TABLE_ENGINE MyISAM TMP_TABLE_ENGINE ROCKSDB TMP_TABLE_ENGINE
 show create table t1;
 drop table t1;
 set global information_schema_engine=temptable;
@@ -2272,7 +2272,6 @@ SHOW CREATE PROCEDURE p1;
 --sorted_result
 SELECT DTD_IDENTIFIER FROM INFORMATION_SCHEMA.PARAMETERS WHERE SPECIFIC_NAME = 'p1';
 DROP PROCEDURE p1;
-
 
 --echo #
 --echo # Bug#32227101: CREATE TABLE PRODUCES CORE

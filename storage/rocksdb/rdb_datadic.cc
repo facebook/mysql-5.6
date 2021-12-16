@@ -669,7 +669,8 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
 uint Rdb_key_def::extract_partial_index_info(
     const TABLE *const table_arg, const Rdb_tbl_def *const tbl_def_arg) {
   // Nothing to parse if this is a hidden PK.
-  if (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY) {
+  if (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY ||
+      tbl_def_arg->is_intrinsic_tmp_table()) {
     return HA_EXIT_SUCCESS;
   }
 
@@ -4531,8 +4532,8 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager_selector *const dict_arg,
       return true;
     }
 
-    Rdb_tbl_def *const tdef =
-        new Rdb_tbl_def(key, Rdb_key_def::INDEX_NUMBER_SIZE);
+    Rdb_tbl_def *const tdef = new Rdb_tbl_def(
+        key, Rdb_key_def::INDEX_NUMBER_SIZE, false /*is_intrinsic_tmp_table*/);
 
     // Now, read the DDLs.
     const int real_val_size = val.size() - Rdb_key_def::VERSION_SIZE;
