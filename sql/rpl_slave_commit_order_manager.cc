@@ -526,7 +526,9 @@ bool Commit_order_manager::visit_lock_graph(
   // freezing the different commit_order_queues can result in a deadlock.
   // This function is also re-entrant, so check the lock status.
   int lock_status = -1;
-  raii::Sentry<> m_lock_guard{[&]() -> void { if (lock_status == 0) mysql_rwlock_unlock(&m_lock); }};
+  raii::Sentry<> m_lock_guard{[&]() -> void {
+    if (lock_status == 0) mysql_rwlock_unlock(&m_lock);
+  }};
   lock_status = mysql_rwlock_wrlock(&m_lock);
 
   for (auto validate : validators) {
