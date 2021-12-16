@@ -925,6 +925,11 @@ class Log_event {
   */
   ulonglong future_event_relay_log_pos;
 
+  /**
+   * Event's relay log coords (end log pos in the relay log)
+   */
+  std::pair<std::string, ulonglong> relay_log_coords = {"", 0};
+
 #ifdef MYSQL_SERVER
   THD *thd;
   /**
