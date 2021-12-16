@@ -9768,3 +9768,12 @@ static Sys_var_bool Sys_raft_high_priority_read_only(
     "read-only in Raft handler thread.",
     GLOBAL_VAR(high_priority_raft_thread), CMD_LINE(OPT_ARG), DEFAULT(true),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_enable_rocksdb_intrinsic_tmp_table(
+    "enable_rocksdb_intrinsic_tmp_table",
+    "This will control the intrinsic tmp table storage engine. "
+    "If true then rocksdb intrinsic tmp table will be created. "
+    "Otherwise default will be innodb intrinsic tmp tables.",
+    READ_ONLY GLOBAL_VAR(enable_rocksdb_intrinsic_tmp_table), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);

@@ -837,14 +837,6 @@ SELECT enabled FROM performance_schema.setup_instruments
 WHERE name = 'wait/lock/metadata/sql/mdl';
 enabled
 YES
-EXPLAIN UPDATE performance_schema.setup_instruments, (SELECT 1) AS dt
-SET enabled = 'NO' WHERE name = 'wait/lock/metadata/sql/mdl';
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	<derived2>	NULL	system	NULL	NULL	NULL	NULL	1	100.00	NULL
-1	UPDATE	setup_instruments	NULL	const	PRIMARY	PRIMARY	514	const	1	100.00	NULL
-2	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
-Warnings:
-Note	1003	update `performance_schema`.`setup_instruments` join (/* select#2 */ select 1 AS `1`) `dt` set `performance_schema`.`setup_instruments`.`ENABLED` = 'NO' where true
 UPDATE performance_schema.setup_instruments, (SELECT 1) AS dt
 SET enabled = 'NO' WHERE name = 'wait/lock/metadata/sql/mdl';
 SELECT enabled FROM performance_schema.setup_instruments

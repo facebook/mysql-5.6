@@ -488,6 +488,10 @@ The following options may be given as the first argument:
  Enable CRC32 resultset checksums if requested by the
  client sending the checksum query attribute, set to the
  query checksum
+ --enable-rocksdb-intrinsic-tmp-table 
+ This will control the intrinsic tmp table storage engine.
+ If true then rocksdb intrinsic tmp table will be created.
+ Otherwise default will be innodb intrinsic tmp tables.
  --enable-sql-wsenv  Enable dumping/loading file to/from warm storage for
  SELECT INTO OUTFILE/LOAD DATA. Set true to enable.
  --enable-super-log-bin-read-only 
@@ -3015,6 +3019,7 @@ enable-pfs-global-select FALSE
 enable-query-checksum FALSE
 enable-raft-plugin FALSE
 enable-resultset-checksum FALSE
+enable-rocksdb-intrinsic-tmp-table FALSE
 enable-sql-wsenv FALSE
 enable-super-log-bin-read-only FALSE
 enable-user-tables-engine-check FALSE

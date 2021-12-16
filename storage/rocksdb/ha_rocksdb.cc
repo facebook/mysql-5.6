@@ -2507,8 +2507,8 @@ static MYSQL_SYSVAR_BOOL(instant_ddl, rocksdb_instant_ddl, PLUGIN_VAR_RQCMDARG,
                          nullptr, false);
 
 static MYSQL_SYSVAR_BOOL(enable_tmp_table, rocksdb_enable_tmp_table,
-                         PLUGIN_VAR_READONLY, "Allow rocksdb tmp tables",
-                         nullptr, nullptr, false);
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "Allow rocksdb tmp tables", nullptr, nullptr, false);
 
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
@@ -4320,9 +4320,23 @@ class Rdb_transaction_impl : public Rdb_transaction {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
-    value->Reset();
-    global_stats.queries[QUERIES_POINT].inc();
-    return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
+    if (value == nullptr) {
+      // Only possible for intrinsic tmp table which has sk with hidden pk
+      // and row_locks as RDB_LOCK_NONE. This is triggered from
+      // check_uniqueness_and_lock -> check_and_lock_sk -> rdb_tx_get.
+      // Sample Query which hits this condition:
+      // with recursive qn as (select 1 from dual union select 1 from qn)
+      // select * from qn;
+      rocksdb::PinnableSlice pin_val;
+      rocksdb::Status s =
+          m_rocksdb_tx->Get(m_read_opts, column_family, key, &pin_val);
+      pin_val.Reset();
+      return s;
+    } else {
+      value->Reset();
+      global_stats.queries[QUERIES_POINT].inc();
+      return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
+    }
   }
 
   void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
@@ -8715,6 +8729,11 @@ bool ha_rocksdb::contains_foreign_key() {
 
   THD *thd = my_core::thd_get_current_thd();
   const char *str = thd_query_unsafe(thd).str;
+  // query string can only be null in case this is called during bootstrap
+  // process.
+  if (str == nullptr) {
+    return false;
+  }
 
   assert(str != nullptr);
 
@@ -8862,7 +8881,8 @@ int ha_rocksdb::create_table(const std::string &table_name,
                              const std::string &actual_user_table_name,
                              const TABLE *table_arg,
                              ulonglong auto_increment_value,
-                             dd::Table *table_def MY_ATTRIBUTE((__unused__))) {
+                             dd::Table *table_def MY_ATTRIBUTE((__unused__)),
+                             bool is_intrinsic_tmp_table) {
   DBUG_ENTER_FUNC();
 
   int err;
@@ -8872,7 +8892,7 @@ int ha_rocksdb::create_table(const std::string &table_name,
   rocksdb::WriteBatch *const batch = wb.get();
 
   /* Create table/key descriptions and put them into the data dictionary */
-  m_tbl_def = new Rdb_tbl_def(table_name);
+  m_tbl_def = new Rdb_tbl_def(table_name, is_intrinsic_tmp_table);
 
   uint n_keys = table_arg->s->keys;
 
@@ -9025,8 +9045,10 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
       DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
     }
   }
-  DBUG_RETURN(create_table(str, create_info->actual_user_table_name, table_arg,
-                           create_info->auto_increment_value, table_def));
+  DBUG_RETURN(
+      create_table(str, create_info->actual_user_table_name, table_arg,
+                   create_info->auto_increment_value, table_def,
+                   create_info->options & HA_LEX_CREATE_INTERNAL_TMP_TABLE));
 }
 
 /*
@@ -9064,6 +9086,7 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
   */
   std::string orig_tablename = tbl_def_arg->full_tablename();
   std::string dbname, tblname, partition;
+  bool is_intrinsic_tmp_table = tbl_def_arg->is_intrinsic_tmp_table();
 
   /*
     Rename the table in the data dictionary. Since this thread should be
@@ -9089,7 +9112,7 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
     Otherwise, try to restore it.
   */
   err = create_table(orig_tablename, actual_user_table_name, table_arg,
-                     auto_increment_value, table_def);
+                     auto_increment_value, table_def, is_intrinsic_tmp_table);
   bool should_remove_old_table = true;
 
   /* Restore the old table being truncated if creating the new table failed */
@@ -9134,6 +9157,25 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
   m_tbl_def = ddl_manager.find(orig_tablename);
   m_converter.reset(new Rdb_converter(ha_thd(), m_tbl_def, table_arg));
   DBUG_RETURN(err);
+}
+
+int ha_rocksdb::delete_all_rows() {
+  DBUG_ENTER_FUNC();
+  if (!m_tbl_def->is_intrinsic_tmp_table()) {
+    DBUG_RETURN(HA_ERR_WRONG_COMMAND);
+  }
+  // This is called without metadata lock. Truncate table works by renaming
+  // old table, creating a new empty table, and then dropping the old table,
+  // so this is normally safe to do with a metadata lock. However in this case
+  // the metadata lock is non-existent. There are no other threads accessing
+  // the table for this particular case so it should be fine for intrinsic
+  // table case. It is DANGEROUS to call for normal case.
+  // TODO(pgl): Transaction::Clear to clear the current intrinsic table write
+  // batch.
+  DBUG_RETURN(truncate_table(
+      m_tbl_def, "" /* actual_user_table_name */, table,
+      table->found_next_number_field ? 1 : 0 /* auto_increment_value */,
+      nullptr));
 }
 
 /**
@@ -10206,6 +10248,10 @@ int ha_rocksdb::index_read_intern(uchar *const buf, bool first) {
 void ha_rocksdb::unlock_row() {
   DBUG_ENTER_FUNC();
 
+  if (m_tbl_def->is_intrinsic_tmp_table()) {
+    DBUG_VOID_RETURN;
+  }
+
   if (m_lock_rows != RDB_LOCK_NONE) {
     Rdb_transaction *const tx = get_or_create_tx(table->in_use);
     tx->release_lock(*m_pk_descr,
@@ -10333,7 +10379,8 @@ const char *ha_rocksdb::get_key_name(const uint index,
 const char *ha_rocksdb::get_key_comment(const uint index,
                                         const TABLE *const table_arg,
                                         const Rdb_tbl_def *const tbl_def_arg) {
-  if (is_hidden_pk(index, table_arg, tbl_def_arg)) {
+  if (is_hidden_pk(index, table_arg, tbl_def_arg) ||
+      tbl_def_arg->is_intrinsic_tmp_table()) {
     return nullptr;
   }
 
@@ -10398,17 +10445,30 @@ const std::string ha_rocksdb::get_table_comment(const TABLE *const table_arg) {
 */
 int ha_rocksdb::write_row(uchar *const buf) {
   DBUG_ENTER_FUNC();
-
   assert(buf != nullptr);
-  assert(buf == table->record[0]);
-  assert(m_lock_rows == RDB_LOCK_WRITE);
+  assert(m_lock_rows == RDB_LOCK_WRITE || m_tbl_def->is_intrinsic_tmp_table());
 
-  ha_statistic_increment(&System_status_var::ha_write_count);
   /*
-    Note: "buf == table->record[0]" is copied from innodb. I am not aware of
-    any use cases where this condition is not true.
+    Only intrinsic table(create_ondisk_from_heap) uses record[1] as buffer to
+    read/write. All scenarios uses record[0] as buffer to read/write.
+    Rdb_converter uses fields pointing to record[0] for encoding, so updating
+    the fields to record[1] for tmp tables is required for proper encoding.
   */
-  if (table->next_number_field && buf == table->record[0]) {
+  ptrdiff_t ptrdiff = buf - table->record[0];
+  uchar *save_record_0 = nullptr;
+  if (ptrdiff) {
+    save_record_0 = table->record[0];
+    table->record[0] = buf;
+    for (uint i = 0; i < table->s->fields; i++) {
+      assert(table->s->field[i]);
+      table->s->field[i]->move_field_offset(ptrdiff);
+    }
+    assert(m_tbl_def->is_intrinsic_tmp_table());
+  }
+  ha_statistic_increment(&System_status_var::ha_write_count);
+
+  if (table->next_number_field) {
+    assert(!m_tbl_def->is_intrinsic_tmp_table());
     int err;
     if ((err = update_auto_increment())) {
       DBUG_RETURN(err);
@@ -10432,6 +10492,13 @@ int ha_rocksdb::write_row(uchar *const buf) {
     update_table_stats_if_needed();
 
     update_row_stats(ROWS_INSERTED);
+  }
+
+  if (ptrdiff) {
+    table->record[0] = save_record_0;
+    for (uint i = 0; i < table->s->fields; i++) {
+      table->s->field[i]->move_field_offset(-ptrdiff);
+    }
   }
 
   DBUG_RETURN(rv);
@@ -10892,6 +10959,11 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
   }
 
   DBUG_RETURN(res);
+}
+
+bool ha_rocksdb::should_store_row_debug_checksums() const {
+  return !m_tbl_def->is_intrinsic_tmp_table() && m_store_row_debug_checksums &&
+         (rand() % 100 < m_checksums_pct);
 }
 
 int ha_rocksdb::finalize_bulk_load(bool print_client_error) {
@@ -11746,6 +11818,11 @@ int ha_rocksdb::info(uint flag) {
         continue;
       }
       KEY *const k = &table->key_info[i];
+      // Check if this index supports index statistics.
+      if (!k->supports_records_per_key()) {
+        assert(m_tbl_def->is_intrinsic_tmp_table());
+        continue;
+      }
       auto records = stats.records;
       for (uint j = 0; j < k->actual_key_parts; j++) {
         const Rdb_index_stats &k_stats = m_key_descr_arr[i]->m_stats;
@@ -11848,6 +11925,30 @@ void ha_rocksdb::position(const uchar *const record) {
   DBUG_VOID_RETURN;
 }
 
+void ha_rocksdb::encode_autogenerated_pk(const longlong hidden_pk_id,
+                                         uchar *packed_pk_id) {
+  DBUG_ENTER_FUNC();
+  assert(has_hidden_pk(table));
+
+  const uint packed_size =
+      m_pk_descr->pack_hidden_pk(hidden_pk_id, packed_pk_id);
+  /*
+    It could be that mem-comparable form of PK occupies less than ref_length
+    bytes. Fill the remainder with zeros.
+  */
+  if (ref_length > packed_size) {
+    memset(packed_pk_id + packed_size, 0, ref_length - packed_size);
+  }
+  DBUG_VOID_RETURN;
+}
+
+void ha_rocksdb::change_table_ptr(TABLE *table_arg, TABLE_SHARE *share) {
+  handler::change_table_ptr(table_arg, share);
+  if (m_tbl_def) {
+    m_converter.reset(new Rdb_converter(ha_thd(), m_tbl_def, table));
+  }
+}
+
 /**
   @return
     HA_EXIT_SUCCESS  OK
@@ -11865,13 +11966,50 @@ int ha_rocksdb::rnd_pos(uchar *const buf, uchar *const pos) {
 
   /* TODO(yzha) - row stats are gone in 8.0
   stats.rows_requested++; */
-  len = m_pk_descr->key_length(table,
-                               rocksdb::Slice((const char *)pos, ref_length));
+  const rocksdb::Slice &key = rocksdb::Slice((const char *)pos, ref_length);
+  len = m_pk_descr->key_length(table, key);
   if (len == size_t(-1)) {
     DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA); /* Data corruption? */
   }
 
-  rc = get_row_by_rowid(buf, pos, len);
+  /*
+  Intrinsic table has special code path where cursor is repositioned
+  to specific autogenerated pk during create_ondisk_from_heap. Handling
+  this use case require additional handing:
+  1) Initialize index if rnd_init is not called earlier.
+  2) Reposition the iterator to correct position using iterator seek with
+    HA_READ_KEY_OR_NEXT, so that successive rnd_next will resume from this
+    position. Note that HA_READ_KEY_OR_NEXT is used instead of HA_READ_KEY_EXACT
+    to store infimum_key as prefix, so that successive rnd_next can do regular
+    table scan.
+  3) Verify if the key exists in the index.
+  */
+  if (m_tbl_def->is_intrinsic_tmp_table()) {
+    // Step1: Initialize iterator if rnd_next is never called after rnd_init.
+    // This is only possible for intrinsic tables where encode_autogenerated_pk
+    // is called to fetch the position and then rnd_next is called.
+    bool is_reverse_cf = m_key_descr_arr[active_index_pos()]->m_is_reverse_cf;
+    if (!m_rnd_scan_started) {
+      rc = rnd_init(true /* scan */);
+      if (rc) DBUG_RETURN(rc);
+      m_rnd_scan_started = true;
+    }
+    // Step2: Reposition the m_iterator to "pos" provided in input.
+    rocksdb::Slice empty_end_slice;
+    rc = m_iterator->seek(HA_READ_KEY_OR_NEXT, key, true /*using_full_key*/,
+                          empty_end_slice, true /* read_current */);
+    if (m_iterator->key() != key) {
+      // Key not found in the index
+      rc = HA_ERR_KEY_NOT_FOUND;
+      m_iterator->reset();
+      DBUG_RETURN(rc);
+    }
+    rc = index_next_with_direction_intern(buf, !is_reverse_cf,
+                                          true /*skip_next*/);
+  } else {
+    // Confirm the pos exists in pk index.
+    rc = get_row_by_rowid(buf, pos, len);
+  }
 
   if (!rc) {
     /* TODO(yzha) - row stats are gone in 8.0
@@ -11925,14 +12063,28 @@ int ha_rocksdb::update_row(const uchar *const old_data, uchar *const new_data) {
 
   assert(old_data != nullptr);
   assert(new_data != nullptr);
-  assert(m_lock_rows == RDB_LOCK_WRITE);
+  assert(m_lock_rows == RDB_LOCK_WRITE || m_tbl_def->is_intrinsic_tmp_table());
   /*
     old_data points to record we're updating. It is the same as the record
     we've just read (for multi-table UPDATE, too, because SQL layer will make
-    an rnd_pos() call to re-read the record before calling update_row())
-  */
-  assert(new_data == table->record[0]);
+    an rnd_pos() call to re-read the record before calling update_row()).
 
+    Only intrinsic table(create_ondisk_from_heap) uses record[1] as buffer to
+    read/write. All scenarios uses record[0] as buffer to read/write.
+    Rdb_converter uses fields pointing to record[0] for encoding, so updating
+    the fields to record[1] for tmp tables is required for proper encoding.
+  */
+  ptrdiff_t ptrdiff = new_data - table->record[0];
+  uchar *save_record_0 = nullptr;
+  if (ptrdiff) {
+    save_record_0 = table->record[0];
+    table->record[0] = new_data;
+    for (uint i = 0; i < table->s->fields; i++) {
+      assert(table->s->field[i]);
+      table->s->field[i]->move_field_offset(ptrdiff);
+    }
+    assert(m_tbl_def->is_intrinsic_tmp_table());
+  }
   ha_statistic_increment(&System_status_var::ha_update_count);
   const int rv = update_write_row(old_data, new_data, skip_unique_check());
 
@@ -11941,6 +12093,13 @@ int ha_rocksdb::update_row(const uchar *const old_data, uchar *const new_data) {
     stats.rows_updated++; */
     update_table_stats_if_needed();
     update_row_stats(ROWS_UPDATED);
+  }
+
+  if (ptrdiff) {
+    table->record[0] = save_record_0;
+    for (uint i = 0; i < table->s->fields; i++) {
+      table->s->field[i]->move_field_offset(-ptrdiff);
+    }
   }
 
   DBUG_RETURN(rv);
@@ -13711,7 +13870,8 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     old_key_descr = m_tbl_def->m_key_descr_arr;
     new_key_descr = new std::shared_ptr<Rdb_key_def>[new_n_keys];
 
-    new_tdef = new Rdb_tbl_def(m_tbl_def->full_tablename());
+    new_tdef = new Rdb_tbl_def(m_tbl_def->full_tablename(),
+                               m_tbl_def->is_intrinsic_tmp_table());
     new_tdef->m_key_descr_arr = new_key_descr;
     new_tdef->m_key_count = new_n_keys;
     new_tdef->m_pk_index = altered_table->s->primary_key;
@@ -15470,11 +15630,12 @@ bool ha_rocksdb::should_recreate_snapshot(const int rc,
 /**
  * If calling put/delete/singledelete without locking the row,
  * it is necessary to pass assume_tracked=false to RocksDB TX API.
- * Read Free Replication and Blind Deletes are the cases when
- * using TX API and skipping row locking.
+ * Read Free Replication, Blind Deletes and intrinsic tmp tables
+ * are the cases when using TX API and skipping row locking.
  */
 bool ha_rocksdb::can_assume_tracked(THD *thd) {
-  if (use_read_free_rpl() || (THDVAR(thd, blind_delete_primary_key))) {
+  if (use_read_free_rpl() || (THDVAR(thd, blind_delete_primary_key)) ||
+      m_tbl_def->is_intrinsic_tmp_table()) {
     return false;
   }
   return true;

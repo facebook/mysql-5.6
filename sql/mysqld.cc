@@ -1297,6 +1297,7 @@ handlerton *heap_hton;
 handlerton *temptable_hton;
 handlerton *myisam_hton;
 handlerton *innodb_hton;
+handlerton *rocksdb_hton;
 
 char *opt_read_only_error_msg_extra;
 char *opt_disabled_storage_engines;
@@ -1638,6 +1639,7 @@ bool disable_instant_ddl = false;
 bool enable_deprecation_warning = true;
 bool enable_optimizer_cputime_with_wallclock = true;
 bool enable_pfs_global_select = false;
+bool enable_rocksdb_intrinsic_tmp_table = false;
 
 /**
   This variable holds handle to the object that's responsible

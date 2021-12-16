@@ -91,6 +91,7 @@
 using std::max;
 using std::min;
 static bool alloc_record_buffers(THD *thd, TABLE *table);
+static bool should_use_rockdb_tmp_table(const THD *thd);
 
 /**
   Lifecycle management of internal temporary tables.
@@ -535,12 +536,15 @@ class Cache_temp_engine_properties {
   static uint HEAP_MAX_KEY_LENGTH;
   static uint TEMPTABLE_MAX_KEY_LENGTH;
   static uint INNODB_MAX_KEY_LENGTH;
+  static uint ROCKSDB_MAX_KEY_LENGTH;
   static uint HEAP_MAX_KEY_PART_LENGTH;
   static uint TEMPTABLE_MAX_KEY_PART_LENGTH;
   static uint INNODB_MAX_KEY_PART_LENGTH;
+  static uint ROCKSDB_MAX_KEY_PART_LENGTH;
   static uint HEAP_MAX_KEY_PARTS;
   static uint TEMPTABLE_MAX_KEY_PARTS;
   static uint INNODB_MAX_KEY_PARTS;
+  static uint ROCKSDB_MAX_KEY_PARTS;
 
   static void init(THD *thd);
 };
@@ -586,17 +590,33 @@ void Cache_temp_engine_properties::init(THD *thd) {
   INNODB_MAX_KEY_PARTS = handler->max_key_parts();
   destroy(handler);
   plugin_unlock(nullptr, db_plugin);
+  // Cache ROCKSDB engine's
+  if (enable_rocksdb_intrinsic_tmp_table) {
+    db_plugin = ha_lock_engine(nullptr, rocksdb_hton);
+    handler = get_new_handler((TABLE_SHARE *)nullptr, false, thd->mem_root,
+                              rocksdb_hton);
+    assert(handler != nullptr);
+    ROCKSDB_MAX_KEY_LENGTH = handler->max_key_length();
+    // used same setting as innodb
+    ROCKSDB_MAX_KEY_PART_LENGTH = 3072;
+    ROCKSDB_MAX_KEY_PARTS = handler->max_key_parts();
+    destroy(handler);
+    plugin_unlock(nullptr, db_plugin);
+  }
 }
 
 uint Cache_temp_engine_properties::HEAP_MAX_KEY_LENGTH = 0;
 uint Cache_temp_engine_properties::TEMPTABLE_MAX_KEY_LENGTH = 0;
 uint Cache_temp_engine_properties::INNODB_MAX_KEY_LENGTH = 0;
+uint Cache_temp_engine_properties::ROCKSDB_MAX_KEY_LENGTH = 0;
 uint Cache_temp_engine_properties::HEAP_MAX_KEY_PART_LENGTH = 0;
 uint Cache_temp_engine_properties::TEMPTABLE_MAX_KEY_PART_LENGTH = 0;
 uint Cache_temp_engine_properties::INNODB_MAX_KEY_PART_LENGTH = 0;
+uint Cache_temp_engine_properties::ROCKSDB_MAX_KEY_PART_LENGTH = 0;
 uint Cache_temp_engine_properties::HEAP_MAX_KEY_PARTS = 0;
 uint Cache_temp_engine_properties::TEMPTABLE_MAX_KEY_PARTS = 0;
 uint Cache_temp_engine_properties::INNODB_MAX_KEY_PARTS = 0;
+uint Cache_temp_engine_properties::ROCKSDB_MAX_KEY_PARTS = 0;
 
 /**
   Initialize the storage engine properties for the alternative temporary table
@@ -625,15 +645,30 @@ void get_max_key_and_part_length(uint *max_key_length,
                                  uint *max_key_parts) {
   // Make sure these cached properties are initialized.
   assert(Cache_temp_engine_properties::HEAP_MAX_KEY_LENGTH);
-
-  *max_key_length =
-      std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_LENGTH,
-               Cache_temp_engine_properties::INNODB_MAX_KEY_LENGTH);
-  *max_key_part_length =
-      std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_PART_LENGTH,
-               Cache_temp_engine_properties::INNODB_MAX_KEY_PART_LENGTH);
-  *max_key_parts = std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_PARTS,
-                            Cache_temp_engine_properties::INNODB_MAX_KEY_PARTS);
+  if (enable_rocksdb_intrinsic_tmp_table) {
+    *max_key_length =
+        std::min({Cache_temp_engine_properties::HEAP_MAX_KEY_LENGTH,
+                  Cache_temp_engine_properties::INNODB_MAX_KEY_LENGTH,
+                  Cache_temp_engine_properties::ROCKSDB_MAX_KEY_LENGTH});
+    *max_key_part_length =
+        std::min({Cache_temp_engine_properties::HEAP_MAX_KEY_PART_LENGTH,
+                  Cache_temp_engine_properties::INNODB_MAX_KEY_PART_LENGTH,
+                  Cache_temp_engine_properties::ROCKSDB_MAX_KEY_PART_LENGTH});
+    *max_key_parts =
+        std::min({Cache_temp_engine_properties::HEAP_MAX_KEY_PARTS,
+                  Cache_temp_engine_properties::INNODB_MAX_KEY_PARTS,
+                  Cache_temp_engine_properties::ROCKSDB_MAX_KEY_PARTS});
+  } else {
+    *max_key_length =
+        std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_LENGTH,
+                 Cache_temp_engine_properties::INNODB_MAX_KEY_LENGTH);
+    *max_key_part_length =
+        std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_PART_LENGTH,
+                 Cache_temp_engine_properties::INNODB_MAX_KEY_PART_LENGTH);
+    *max_key_parts =
+        std::min(Cache_temp_engine_properties::HEAP_MAX_KEY_PARTS,
+                 Cache_temp_engine_properties::INNODB_MAX_KEY_PARTS);
+  }
 }
 
 /**
@@ -1959,7 +1994,7 @@ error:
   @param thd              thread handler
   @param table            table to allocate SE for
   @param select_options   current select's options
-  @param force_disk_table true <=> Use InnoDB
+  @param force_disk_table true <=> Use InnoDB or ROCKSDB
   @param mem_engine       Selected in-memory storage engine.
 
   @return
@@ -2058,7 +2093,11 @@ bool setup_tmp_table_handler(THD *thd, TABLE *table, ulonglong select_options,
 
     if (use_tmp_disk_storage_engine(thd, table, select_options,
                                     force_disk_table, mem_engine)) {
-      hton = innodb_hton;
+      if (should_use_rockdb_tmp_table(thd)) {
+        hton = rocksdb_hton;
+      } else {
+        hton = innodb_hton;
+      }
     } else {
       switch (mem_engine) {
         case TMP_TABLE_TEMPTABLE:
@@ -2159,7 +2198,8 @@ bool open_tmp_table(TABLE *table) {
   assert(table->s->ref_count() == 1 ||        // not shared, or:
          table->s->db_type() == heap_hton ||  // using right engines
          table->s->db_type() == temptable_hton ||
-         table->s->db_type() == innodb_hton);
+         table->s->db_type() == innodb_hton ||
+         table->s->db_type() == rocksdb_hton);
 
   int error;
   if ((error = table->file->ha_open(table, table->s->table_name.str, O_RDWR,
@@ -2201,7 +2241,6 @@ bool open_tmp_table(TABLE *table) {
 */
 static bool create_tmp_table_with_fallback(THD *thd, TABLE *table) {
   TABLE_SHARE *share = table->s;
-
   DBUG_TRACE;
 
   HA_CREATE_INFO create_info;
@@ -2213,9 +2252,10 @@ static bool create_tmp_table_with_fallback(THD *thd, TABLE *table) {
 
   /*
     INNODB's fixed length column size is restricted to 1024. Exceeding this can
-    result in incorrect behavior.
+    result in incorrect behavior. Forced same behavior for ROCKSDB.
   */
-  if (table->s->db_type() == innodb_hton) {
+  if (table->s->db_type() == innodb_hton ||
+      table->s->db_type() == rocksdb_hton) {
     for (Field **field = table->field; *field; ++field) {
       if ((*field)->type() == MYSQL_TYPE_STRING &&
           (*field)->key_length() > 1024) {
@@ -2229,8 +2269,13 @@ static bool create_tmp_table_with_fallback(THD *thd, TABLE *table) {
       table->file->create(share->table_name.str, table, &create_info, nullptr);
   if (error == HA_ERR_RECORD_FILE_FULL &&
       table->s->db_type() == temptable_hton) {
-    table->file = get_new_handler(
-        table->s, false, share->alloc_for_tmp_file_handler, innodb_hton);
+    if (should_use_rockdb_tmp_table(thd)) {
+      table->file =
+          get_new_handler(table->s, false, &table->s->mem_root, rocksdb_hton);
+    } else {
+      table->file = get_new_handler(
+          table->s, false, share->alloc_for_tmp_file_handler, innodb_hton);
+    }
     error = table->file->create(share->table_name.str, table, &create_info,
                                 nullptr);
   }
@@ -2270,6 +2315,8 @@ static void trace_tmp_table(Opt_trace_context *trace, const TABLE *table) {
       trace_tmp.add_alnum("record_format", "packed");
     else
       trace_tmp.add_alnum("record_format", "fixed");
+  } else if (s->db_type() == rocksdb_hton) {
+    trace_tmp.add_alnum("location", "disk (RocksDB)");
   } else if (table->s->db_type() == temptable_hton) {
     trace_tmp.add_alnum("location", "TempTable");
   } else {
@@ -2313,7 +2360,8 @@ bool instantiate_tmp_table(THD *thd, TABLE *table) {
   }
   if (share->db_type() == temptable_hton) {
     if (create_tmp_table_with_fallback(thd, table)) return true;
-  } else if (share->db_type() == innodb_hton) {
+  } else if (share->db_type() == innodb_hton ||
+             share->db_type() == rocksdb_hton) {
     if (create_tmp_table_with_fallback(thd, table)) return true;
     // Make empty record so random data is not written to disk
     empty_record(table);
@@ -2551,7 +2599,11 @@ bool create_ondisk_from_heap(THD *thd, TABLE *wtable, int error,
   TABLE_SHARE share = std::move(*old_share);
   assert(share.ha_share == nullptr);
 
-  share.db_plugin = ha_lock_engine(thd, innodb_hton);
+  if (should_use_rockdb_tmp_table(thd)) {
+    share.db_plugin = ha_lock_engine(thd, rocksdb_hton);
+  } else {
+    share.db_plugin = ha_lock_engine(thd, innodb_hton);
+  }
 
   TABLE_LIST *const wtable_list = wtable->pos_in_table_list;
   Derived_refs_iterator ref_it(wtable_list);
@@ -2813,26 +2865,22 @@ err_after_proc_info:
 }
 
 /**
-  Encode an InnoDB PK in 6 bytes, high-byte first; like
-  InnoDB's dict_sys_write_row_id() does.
+  Encode PK in storage engine format.
+  @param Table
   @param rowid_bytes  where to store the result
-  @param length       how many available bytes in rowid_bytes
   @param row_num      PK to encode
 */
-void encode_innodb_position(uchar *rowid_bytes, uint length [[maybe_unused]],
-                            ha_rows row_num) {
-  assert(length == 6);
-  for (int i = 0; i < 6; i++)
-    rowid_bytes[i] = (uchar)(row_num >> ((5 - i) * 8));
+// TODO(pgl): Remove storage engine name from method name
+void encode_innodb_position(TABLE *table, uchar *rowid_bytes, ha_rows row_num) {
+  table->file->encode_autogenerated_pk((longlong)row_num, rowid_bytes);
 }
 
 /**
   Helper function for create_ondisk_from_heap().
 
-  Our InnoDB on-disk intrinsic table uses an autogenerated
+  Our InnoDB/RocksDB on-disk intrinsic table uses an autogenerated
   auto-incrementing primary key:
-  - first inserted row has pk=1 (see
-  dict_table_get_next_table_sess_row_id()), second has pk=2, etc
+  - first inserted row has pk=1, second has pk=2, etc
   - ha_rnd_next uses a PK index scan so returns rows in PK order
   - position() returns the PK
   - ha_rnd_pos() takes the PK in input.
@@ -2842,17 +2890,29 @@ void encode_innodb_position(uchar *rowid_bytes, uint length [[maybe_unused]],
   order.
 */
 bool reposition_innodb_cursor(TABLE *table, ha_rows row_num) {
-  assert(table->s->db_type() == innodb_hton);
+  assert(table->s->db_type() == innodb_hton ||
+         table->s->db_type() == rocksdb_hton);
   if (table->file->ha_rnd_init(false)) return true; /* purecov: inspected */
-  // Per the explanation above, the wanted InnoDB row has PK=row_num.
-  uchar rowid_bytes[6];
-  encode_innodb_position(rowid_bytes, sizeof(rowid_bytes), row_num);
+  // Per the explanation above, the wanted InnoDB/RocksDB row has PK=row_num.
+  uchar rowid_bytes[16];
+  assert(table->file->ref_length <= sizeof(rowid_bytes));
+  encode_innodb_position(table, rowid_bytes, row_num);
   /*
     Go to the row, and discard the row. That places the cursor at
     the same row as before the engine conversion, so that rnd_next() will
     read the (row_num+1)th row.
   */
   return table->file->ha_rnd_pos(table->record[0], rowid_bytes);
+}
+
+/**
+  Returns if rocksdb is enabled for intrinsic tmp tables. Rocksdb plugin
+  is not initialized properly during the bootstrap phase, so keeping it
+  disabled for that duration.
+*/
+static bool should_use_rockdb_tmp_table(const THD *thd) {
+  return !opt_initialize && enable_rocksdb_intrinsic_tmp_table &&
+         thd->system_thread != SYSTEM_THREAD_DD_INITIALIZE;
 }
 
 // Computes Func_ptr::m_func_bits.

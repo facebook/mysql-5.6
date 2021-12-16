@@ -38,6 +38,8 @@ enable_acl_db_cache
 enable_acl_db_cache
 enable_hlc_bound
 enable_hlc_bound
+enable_rocksdb_intrinsic_tmp_table
+enable_rocksdb_intrinsic_tmp_table
 force_pk_for_equality_preds_on_pk
 force_pk_for_equality_preds_on_pk
 generated_random_password_length

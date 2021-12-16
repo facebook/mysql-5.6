@@ -89,6 +89,6 @@ void get_max_key_and_part_length(uint *max_key_length,
                                  uint *max_key_part_length,
                                  uint *max_key_parts);
 void init_cache_tmp_engine_properties();
-void encode_innodb_position(uchar *rowid_bytes, uint length, ha_rows row_num);
+void encode_innodb_position(TABLE *table, uchar *rowid_bytes, ha_rows row_num);
 bool reposition_innodb_cursor(TABLE *table, ha_rows row_num);
 #endif /* SQL_TMP_TABLE_INCLUDED */
