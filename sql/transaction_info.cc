@@ -48,7 +48,9 @@ Transaction_ctx::Transaction_ctx()
       sequence_number(0),
       m_rpl_transaction_ctx(),
       m_transaction_write_set_ctx(),
-      trans_begin_hook_invoked(false) {
+      trans_begin_hook_invoked(false),
+      m_hlc_lower_bound(HLC_LOWER_BOUND_NOVALUE),
+      m_hlc_upper_bound(HLC_UPPER_BOUND_NOVALUE) {
   memset(&m_scope_info, 0, sizeof(m_scope_info));
 }
 

@@ -19,66 +19,187 @@ BEGIN;
 INSERT INTO ta (a, b) VALUES (16, 'bar');
 COMMIT;
 include/assert.inc [Check if HLC was updated by the INSERT]
+Low HLC bound set on BEGIN
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (17, 'bar');
+COMMIT;
+include/assert.inc [Check if HLC was updated by the BEGIN]
+Low HLC bound set on COMMIT
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (18, 'bar');
+COMMIT;
+include/assert.inc [Check if HLC was updated by the INSERT]
+Setting Low HLC bounds on BEGIN, query and COMMIT
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (19, 'bar');
+COMMIT;
+include/assert.inc [Check if HLC was updated by the INSERT]
+Setting Low HLC bounds on SELECT inside a transaction
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (20, 'bar');
+SELECT b FROM ta WHERE a = 20;
+b
+bar
+COMMIT;
+include/assert.inc [Check if HLC was updated by the SELECT]
+Setting Low HLC bounds on a SELECT before transaction start
+USE a;
+SELECT b FROM ta WHERE a = 20;
+b
+bar
+BEGIN;
+INSERT INTO ta (a, b) VALUES (21, 'bqr');
+COMMIT;
+include/assert.inc [Check if HLC was not updated by the transaction after SELECT]
 Testing max drift limit
 SET @@global.maximum_hlc_drift_ns = 1000000000;
 USE a;
 BEGIN;
-INSERT INTO ta (a, b) VALUES (17, 'bir');
+INSERT INTO ta (a, b) VALUES (22, 'bir');
 COMMIT;
-Setting lower bound HLC for inserts outside of transactions
 SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+ROLLBACK should clear lower bounds for subsequent operations
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (22, 'bqr');
+ROLLBACK;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (22, 'bqr');
+COMMIT;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (23, 'byp');
+ROLLBACK;
+USE a;
+INSERT INTO ta (a, b) VALUES (23, 'byp');
+Setting lower bound HLC for inserts outside of transactions
 INSERT with lower HLC bound from the past
 USE a;
-INSERT INTO ta (a, b) VALUES (18, 'bir');
+INSERT INTO ta (a, b) VALUES (24, 'bir');
 include/assert.inc [Check if HLC was not updated by the INSERT]
 include/assert.inc [Check if HLC was not updated by the previous insert since it failed]
 INSERT with lower HLC bound a little bit ahead
 USE a;
-INSERT INTO ta (a, b) VALUES (19, 'bur');
+INSERT INTO ta (a, b) VALUES (25, 'bur');
 include/assert.inc [Check if HLC was updated by the INSERT]
 INSERT with lower HLC bound far ahead
 SET @@global.maximum_hlc_drift_ns = 1000000000;
 USE a;
-INSERT INTO ta (a, b) VALUES (20, 'byr');
+INSERT INTO ta (a, b) VALUES (26, 'byr');
 Perform a single write to get an HLC timstamp from the write
 USE a;
-INSERT INTO ta (a, b) VALUES (21, 'bam');
+INSERT INTO ta (a, b) VALUES (26, 'bam');
 include/assert.inc [Check if HLC was not updated by the last INSERT since it failed]
 Perform write with lower HLC bound below the current HLC
 SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
 USE a;
-INSERT INTO ta (a, b) VALUES (22, 'bup');
+INSERT INTO ta (a, b) VALUES (27, 'bup');
 include/assert.inc [Check if HLC hasn't decrease after INSERT]
+Lower HLC bound from previous queries must not affect subsequent queries
+SET @@global.maximum_hlc_drift_ns = 1000000000;
+USE a;
+INSERT INTO ta (a, b) VALUES (28, 'buh');
+INSERT INTO ta (a, b) VALUES (28, 'buh');
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
 A valid upper HLC bounds in transactions
 USE a;
 BEGIN;
-INSERT INTO ta (a, b) VALUES (23, 'bep');
+INSERT INTO ta (a, b) VALUES (29, 'bep');
 COMMIT;
 include/assert.inc [Check if HLC was not updated by the last INSERT]
+A valid upper HLC bound set on COMMIT query
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (30, 'bep');
+COMMIT;
+include/assert.inc [Check if HLC was not updated by the last INSERT]
+Stale upper HLC bound on BEGIN 
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (31, 'bem');
+COMMIT;
 Stale upper HLC bounds in transactions
 USE a;
 BEGIN;
-INSERT INTO ta (a, b) VALUES (24, 'bem');
+INSERT INTO ta (a, b) VALUES (31, 'bem');
 COMMIT;
+Stale upper HLC bound on SELECT in transactions
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (31, 'bem');
+SELECT b FROM ta WHERE a = 31;
+COMMIT;
+Stale upper HLC bound on SELECT before transaction start
+USE a;
+SELECT b FROM ta WHERE a = 30;
+b
+bep
+BEGIN;
+INSERT INTO ta (a, b) VALUES (31, 'bem');
+SELECT b FROM ta WHERE a = 31;
+b
+bem
+COMMIT;
+include/assert.inc [Check if HLC was not updated by the transaction]
+Set upper HLC bound on both INSERT and COMMIT queries
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (32, 'bwp');
+COMMIT;
+ROLLBACK should clear upper bounds for subsequent operations
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (32, 'bws');
+ROLLBACK;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (32, 'bws');
+ROLLBACK;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (33, 'bwt');
+ROLLBACK;
+USE a;
+INSERT INTO ta (a, b) VALUES (33, 'bwt');
 Setting non-zero HLC Upper Bound delta
 SET @@global.hlc_upper_bound_delta = 1;
 USE a;
 BEGIN;
-INSERT INTO ta (a, b) VALUES (24, 'bem');
+INSERT INTO ta (a, b) VALUES (34, 'bem');
 COMMIT;
 include/assert.inc [Check if HLC was not updated by the last INSERT]
 Setting non-zero HLC Upper Bound delta that blocks the transaction
 SET @@global.hlc_upper_bound_delta = 100000000000;
 USE a;
 BEGIN;
-INSERT INTO ta (a, b) VALUES (25, 'bed');
+INSERT INTO ta (a, b) VALUES (35, 'bed');
+COMMIT;
+Upper HLC bound set to 0 shouldn't be treated differently
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (35, 'bqd');
 COMMIT;
 Setting both HLC upper and lower bounds
 SET @@global.hlc_upper_bound_delta = 10000000000;
 USE a;
 BEGIN;
-INSERT INTO ta (a, b) VALUES (25, 'bed');
+INSERT INTO ta (a, b) VALUES (35, 'bed');
 COMMIT;
+Setting different upper and lower boundaries for queries in a transaction
+SET @@global.hlc_upper_bound_delta = 0;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (35, 'bed');
+UPDATE ta SET b='bup' WHERE a=35;
+DELETE FROM ta WHERE a=35;
+COMMIT;
+include/assert.inc [Check if lower HLC bound condition was satisfied]
+include/assert.inc [Check if upper HLC bound condition was satisfied]
 Cleanup
 DROP DATABASE a;
 SET @@global.enable_binlog_hlc = default;

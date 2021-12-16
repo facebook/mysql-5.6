@@ -53,6 +53,11 @@ class Transaction_ctx {
  public:
   enum enum_trx_scope { STMT = 0, SESSION };
 
+  enum enum_hlc_bound_no_value {
+    HLC_LOWER_BOUND_NOVALUE = 0,
+    HLC_UPPER_BOUND_NOVALUE = UINT64_MAX,
+  };
+
   SAVEPOINT *m_savepoints;
 
   void register_ha(enum_trx_scope scope, Ha_trx_info *ha_info, handlerton *ht);
@@ -229,7 +234,13 @@ class Transaction_ctx {
     m_transaction_write_set_ctx.reset_state();
     trans_begin_hook_invoked = false;
     m_mem_root.ClearForReuse();
+    hlc_bound_cleanup();
     return;
+  }
+
+  void hlc_bound_cleanup() {
+    m_hlc_lower_bound = HLC_LOWER_BOUND_NOVALUE;
+    m_hlc_upper_bound = HLC_UPPER_BOUND_NOVALUE;
   }
 
   bool is_active(enum_trx_scope scope) const {
@@ -379,6 +390,25 @@ class Transaction_ctx {
   Rpl_transaction_ctx m_rpl_transaction_ctx;
   Rpl_transaction_write_set_ctx m_transaction_write_set_ctx;
   bool trans_begin_hook_invoked;
+
+ public:
+  void update_hlc_lower_bound(uint64_t bound) {
+    // Select the highest lower bound across all queries in the transaction
+    m_hlc_lower_bound = std::max(m_hlc_lower_bound, bound);
+  }
+
+  void update_hlc_upper_bound(uint64_t bound) {
+    // Select the lowest upper bound across all queries in the transaction
+    m_hlc_upper_bound = std::min(m_hlc_upper_bound, bound);
+  }
+
+  uint64_t get_hlc_lower_bound() const { return m_hlc_lower_bound; }
+
+  uint64_t get_hlc_upper_bound() const { return m_hlc_upper_bound; }
+
+ private:
+  uint64_t m_hlc_lower_bound;
+  uint64_t m_hlc_upper_bound;
 };
 
 /**
