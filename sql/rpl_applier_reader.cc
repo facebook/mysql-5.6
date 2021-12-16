@@ -231,8 +231,11 @@ Log_event *Rpl_applier_reader::read_next_event() {
   m_rli->set_event_start_pos(m_relaylog_file_reader.position());
   ev = m_relaylog_file_reader.read_event_object(&read_length);
   if (ev != nullptr) {
-    m_rli->set_future_event_relay_log_pos(m_relaylog_file_reader.position());
+    const my_off_t &relay_event_end_log_pos = m_relaylog_file_reader.position();
+    m_rli->set_future_event_relay_log_pos(relay_event_end_log_pos);
     ev->future_event_relay_log_pos = m_rli->get_future_event_relay_log_pos();
+    ev->relay_log_coords = {m_rli->get_event_relay_log_name(),
+                            relay_event_end_log_pos};
     relay_sql_events++;
     relay_sql_bytes += read_length;
     return ev;

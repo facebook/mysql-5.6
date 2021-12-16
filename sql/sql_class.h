@@ -2028,7 +2028,7 @@ class THD : public MDL_context_owner,
   /**
    * Relay log positions for the transaction
    */
-  std::pair<std::string, my_off_t> m_trans_relay_log_pos;
+  std::pair<std::string, my_off_t> m_trans_relay_log_pos = {"", 0};
 
   /* The term and index that need to be communicated across different raft
    * plugin hooks. These fields are not protected by locks since they are
@@ -3092,9 +3092,8 @@ class THD : public MDL_context_owner,
     if (pos_var) *pos_var = m_trans_relay_log_pos.second;
   }
 
-  void set_trans_relay_log_pos(const std::string &file, my_off_t pos) {
-    m_trans_relay_log_pos.first = file;
-    m_trans_relay_log_pos.second = pos;
+  void set_trans_relay_log_pos(const std::pair<std::string, my_off_t> &pos) {
+    m_trans_relay_log_pos = pos;
   }
 
   /**@}*/
