@@ -3850,9 +3850,31 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
   }
 
   /* Check if the HLC read bound/wait is satisfied */
-  if (lex->sql_command == SQLCOM_SELECT &&
+  if (!thd->slave_thread && lex->sql_command == SQLCOM_SELECT &&
       mysql_bin_log.wait_for_hlc_applied(thd)) {
     goto error;
+  } else {
+    /*
+      Reset HLC boundaries before processing a query outside of
+      a multi-query transaction
+     */
+    if (!(thd->server_status & SERVER_STATUS_IN_TRANS)) {
+      thd->get_transaction()->hlc_bound_cleanup();
+    }
+    /*
+      There is three situations where we should capture the values of
+      HLC bound attributes:
+      - For BEGIN queries
+      - For queries that are part of a multi-query transaction
+      - For data modifying queries outside of multi-query transactions
+     */
+    if (lex->sql_command == SQLCOM_BEGIN ||
+        ((thd->server_status & SERVER_STATUS_IN_TRANS) && !thd->tx_read_only) ||
+        (sql_command_flags[lex->sql_command] & CF_CHANGES_DATA)) {
+      if (mysql_bin_log.capture_hlc_bound(thd)) {
+        goto error;
+      }
+    }
   }
 
   DBUG_EXECUTE_IF(

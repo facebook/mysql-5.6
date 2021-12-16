@@ -10128,7 +10128,7 @@ ER_PURPOSE_POLICY_CHECK_FAILED
   eng "Purpose policy check `%s` (query policy: `%s`) failed in %s mode"
 
 ER_HLC_ABOVE_MAX_DRIFT
-  eng "Can't advance HLC value to `%s` because it's too far from the current time"
+  eng "Can't advance HLC value to `%llu` because it's too far from the current time"
 
 ER_HLC_STALE_UPPER_BOUND
   eng "Requested upper HLC bound is lower than current HLC: %lu"
