@@ -26,9 +26,6 @@ set global sql_findings_control=on;
 query_attrs_add shard xdb.dbclient_test.1;
 query_attrs_add query_policy fbig::research;
 
-### check system/session setup
-show variables like 'privacy_plugin%';
-
 ### setup test (table, ...)
 CREATE TABLE privacy_research (
     id int NOT NULL,
