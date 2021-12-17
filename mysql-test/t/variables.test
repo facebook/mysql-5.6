@@ -365,7 +365,7 @@ set global max_connect_errors=100;
 set global max_connections=100;
 set global max_delayed_threads=100;
 set max_heap_table_size=100;
-set max_join_size=100;
+set max_join_size=256;
 set max_sort_length=100;
 set global max_user_connections=100;
 select @@max_user_connections;
