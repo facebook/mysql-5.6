@@ -9,7 +9,6 @@ INSERT INTO privacy_blood_donation_table VALUES(1, "User1");
 
 set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
 set session privacy_plugin_purpose_policy_check=fail_open;
-show variables like 'privacy_plugin_%';
 query_attrs_add shard xdb.dbclient_test.1;
 query_attrs_add cipp_context {"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}};
 
