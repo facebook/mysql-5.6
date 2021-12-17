@@ -151,7 +151,7 @@ include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 "Stopping slave sql_thread on follower: server_2"
-stop slave sql_thread;
+stop replica sql_thread;
 "Inserting more rows into t1 from leader: server_1 after stopping sql_thread on follower: server_2"
 select sleep(10);
 sleep(10)
@@ -216,7 +216,7 @@ select count(*) from t1;
 count(*)
 15
 "Starting slave sql_thread on follower: server_2"
-start slave sql_thread;
+start replica sql_thread;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 "Purging raft logs on follower: server_2"

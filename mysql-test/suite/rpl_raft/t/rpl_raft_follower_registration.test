@@ -6,20 +6,20 @@ let $use_gtids=1;
 # server4 will tail the leader
 connection server_4;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
 replace_result $SERVER_MYPORT_1 SERVER_MYPORT_1;
-eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
-START SLAVE;
+eval CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = $SERVER_MYPORT_1, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
+START REPLICA;
 
 # server5 will tail a follower
 connection server_5;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
 replace_result $SERVER_MYPORT_2 SERVER_MYPORT_2;
-eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_2, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
-START SLAVE;
+eval CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = $SERVER_MYPORT_2, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
+START REPLICA;
 
 connection server_1;
 create table t1 (a int primary key) engine = innodb;
@@ -37,46 +37,46 @@ echo "SERVER 1";
 connection server_1;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "SERVER 2";
 connection server_2;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "SERVER 3";
 connection server_3;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "SERVER 4";
 connection server_4;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "SERVER 5";
 connection server_5;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "Transferring leadership from SERVER 1 to SERVER 2";
 let $rpl_raft_leader_number= 2;
@@ -86,46 +86,46 @@ echo "SERVER 1";
 connection server_1;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "SERVER 2";
 connection server_2;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "SERVER 3";
 connection server_3;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "SERVER 4";
 connection server_4;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "SERVER 5";
 connection server_5;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS;
+SHOW REPLICAS;
 replace_column 2 HOST 3 PORT 5 UUID;
 sorted_result;
-SHOW SLAVE HOSTS WITH RAFT;
+SHOW REPLICAS WITH RAFT;
 
 echo "Transferring leadership back to SERVER 1";
 let $rpl_raft_leader_number= 1;
@@ -144,10 +144,10 @@ let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
 
 connection server_4;
-stop slave;
-reset slave all;
+stop replica;
+reset replica all;
 connection server_5;
-stop slave;
-reset slave all;
+stop replica;
+reset replica all;
 
 source include/rpl_end.inc;

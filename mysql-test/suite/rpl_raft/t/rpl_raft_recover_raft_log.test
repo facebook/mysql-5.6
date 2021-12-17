@@ -1,5 +1,8 @@
 source ../include/raft_3_node.inc;
-connection server_1;
+
+call mtr.add_suppression("Error reading GTIDs from binary log");
+call mtr.add_suppression("Forcing raft after_commit hook for opid");
+
 connection server_1;
 create table t1 (a int primary key) engine = innodb;
 insert into t1 values(1);
@@ -21,8 +24,8 @@ select sleep(10);
 
 # Expand this test later to cover multiple scenarios
 let $server2_datadir = `select @@datadir`;
-let $server2_raft_file = query_get_value("SHOW SLAVE STATUS", "Relay_Log_File", 1);
-let $server2_raft_file_pos = query_get_value("SHOW SLAVE STATUS", "Relay_Log_Pos", 1);
+let $server2_raft_file = query_get_value("SHOW REPLICA STATUS", "Relay_Log_File", 1);
+let $server2_raft_file_pos = query_get_value("SHOW REPLICA STATUS", "Relay_Log_Pos", 1);
 echo "raft file: $server2_raft_file";
 echo "raft file pos: $server2_raft_file_pos";
 let $half = `select ROUND($server2_raft_file_pos / 2)`;
@@ -35,7 +38,7 @@ source include/rpl_restart_server.inc;
 connection server_2;
 # wait for raft plugin initialzed
 sleep 10;
-start slave sql_thread;
+start replica sql_thread;
 
 connection server_1;
 insert into t1 values(3);
