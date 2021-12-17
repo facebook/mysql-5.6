@@ -24,9 +24,9 @@ select variable_value from performance_schema.global_status where variable_name 
 variable_value
 LEADER
 "Stopping slave applier on all peers"
-stop slave sql_thread;
-stop slave sql_thread;
-stop slave sql_thread;
+stop replica sql_thread;
+stop replica sql_thread;
+stop replica sql_thread;
 "Writing data on leader 1"
 create table t1 (a int primary key auto_increment) engine = innodb;
 insert into t1 values();
@@ -40,9 +40,9 @@ select * from t1;
 a
 1
 "Stopping slave applier on all peers"
-stop slave sql_thread;
-stop slave sql_thread;
-stop slave sql_thread;
+stop replica sql_thread;
+stop replica sql_thread;
+stop replica sql_thread;
 "Writing data on leader 2"
 insert into t1 values();
 "Transfering leadership: server_2 -> server_3"
@@ -75,9 +75,9 @@ show variables like 'super_read_only';
 Variable_name	Value
 super_read_only	OFF
 "Stopping slave applier on all peers"
-stop slave sql_thread;
-stop slave sql_thread;
-stop slave sql_thread;
+stop replica sql_thread;
+stop replica sql_thread;
+stop replica sql_thread;
 "Writing data on leader 3"
 insert into t1 values();
 "Transfering leadership: server_3 -> server_1"

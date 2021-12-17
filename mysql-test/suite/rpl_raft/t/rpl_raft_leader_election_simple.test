@@ -6,11 +6,11 @@ select variable_value from performance_schema.global_status where variable_name 
 
 echo "Stopping slave applier on all peers";
 connection server_1;
-stop slave sql_thread;
+stop replica sql_thread;
 connection server_2;
-stop slave sql_thread;
+stop replica sql_thread;
 connection server_3;
-stop slave sql_thread;
+stop replica sql_thread;
 
 echo "Writing data on leader 1";
 connection server_1;
@@ -28,11 +28,11 @@ select * from t1;
 
 echo "Stopping slave applier on all peers";
 connection server_1;
-stop slave sql_thread;
+stop replica sql_thread;
 connection server_2;
-stop slave sql_thread;
+stop replica sql_thread;
 connection server_3;
-stop slave sql_thread;
+stop replica sql_thread;
 
 echo "Writing data on leader 2";
 connection server_2;
@@ -61,11 +61,11 @@ show variables like 'super_read_only';
 
 echo "Stopping slave applier on all peers";
 connection server_1;
-stop slave sql_thread;
+stop replica sql_thread;
 connection server_2;
-stop slave sql_thread;
+stop replica sql_thread;
 connection server_3;
-stop slave sql_thread;
+stop replica sql_thread;
 
 echo "Writing data on leader 3";
 connection server_3;

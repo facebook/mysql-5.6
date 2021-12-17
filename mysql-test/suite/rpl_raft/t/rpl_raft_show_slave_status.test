@@ -1,26 +1,26 @@
 source ../include/raft_3_node.inc;
 
 connection server_2;
-let $master_uuid2 = query_get_value(SHOW SLAVE STATUS, Master_UUID, 1);
+let $master_uuid2 = query_get_value(SHOW REPLICA STATUS, Source_UUID, 1);
 let $uuid2 = `select @@server_uuid`;
 
 connection server_1;
 let $uuid1 = `select @@server_uuid`;
 if ($master_uuid2 != $uuid1)
 {
-  echo 'Master_UUID: $master_uuid2' <> 'server_uuid: $uuid1';
-  die Failed because Master_UUID is not equal to server_uuid;
+  echo 'Source_UUID: $master_uuid2' <> 'server_uuid: $uuid1';
+  die Failed because Source_UUID is not equal to server_uuid;
 }
 
 let $rpl_raft_leader_number= 2;
 source ../include/raft_promote_to_leader.inc;
 
 connection server_1;
-let $master_uuid1 = query_get_value(SHOW SLAVE STATUS, Master_UUID, 1);
+let $master_uuid1 = query_get_value(SHOW REPLICA STATUS, Source_UUID, 1);
 if ($master_uuid1 != $uuid2)
 {
-  echo 'Master_UUID: $master_uuid1' <> 'server_uuid: $uuid2';
-  die Failed because Master_UUID is not equal to server_uuid;
+  echo 'Source_UUID: $master_uuid1' <> 'server_uuid: $uuid2';
+  die Failed because Source_UUID is not equal to server_uuid;
 }
 
 connection server_2;

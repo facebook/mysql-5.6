@@ -6,20 +6,20 @@ let $use_gtids=1;
 # Connect server 4 and 5 using COM_BINLOG_DUMP_GTID
 connection server_4;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
-replace_result $SERVER_MYPORT_1 MASTER_PORT;
-eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
-START SLAVE;
+replace_result $SERVER_MYPORT_1 SOURCE_PORT;
+eval CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = $SERVER_MYPORT_1, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
+START REPLICA;
 
 connection server_5;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
-replace_result $SERVER_MYPORT_2 MASTER_PORT;
+replace_result $SERVER_MYPORT_2 SOURCE_PORT;
 # server 5 is tailing server 2 (a follower)
-eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_2, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
-START SLAVE;
+eval CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = $SERVER_MYPORT_2, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
+START REPLICA;
 
 # Check raft roles, 4 and 5 should be empty
 connection server_1;
@@ -290,10 +290,10 @@ let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
 
 connection server_4;
-stop slave;
-reset slave all;
+stop replica;
+reset replica all;
 connection server_5;
-stop slave;
-reset slave all;
+stop replica;
+reset replica all;
 
 source include/rpl_end.inc;

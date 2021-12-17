@@ -106,7 +106,7 @@ while ($j <= 15)
 
 connection server_2;
 echo "Stopping slave sql_thread on follower: server_2";
-stop slave sql_thread;
+stop replica sql_thread;
 
 connection server_1;
 echo "Inserting more rows into t1 from leader: server_1 after stopping sql_thread on follower: server_2";
@@ -143,7 +143,7 @@ select count(*) from t1;
 # start and sync sql_thread. all rows should be succesfully applied and table
 # content should match with leader
 echo "Starting slave sql_thread on follower: server_2";
-start slave sql_thread;
+start replica sql_thread;
 
 connection server_1;
 let $sync_slave_connection= server_2;
@@ -217,7 +217,7 @@ select count(*) from t1;
 
 connection server_3;
 echo "Purging raft logs on follower: server_3";
-let $raft_log_name= query_get_value(show slave status, Relay_Log_File, 1);
+let $raft_log_name= query_get_value(show replica status, Relay_Log_File, 1);
 eval purge raft logs to '$raft_log_name';
 source include/show_raft_logs.inc;
 

@@ -23,7 +23,7 @@ call mtr.add_suppression("Out of order opid found");
 create table t1(a int primary key) engine = innodb;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
-stop slave sql_thread;
+stop replica sql_thread;
 insert into t1 values(1);
 insert into t1 values(2);
 insert into t1 values(3);
@@ -37,7 +37,7 @@ set @sql_log_bin=1;
 set @sql_log_bin=0;
 drop table offsets;
 set @sql_log_bin=1;
-include/start_slave_sql.inc
+START REPLICA SQL_THREAD;
 include/wait_for_slave_sql_error.inc [errno=13121]
 include/rpl_stop_server.inc [server_number=2]
 flush binary logs;

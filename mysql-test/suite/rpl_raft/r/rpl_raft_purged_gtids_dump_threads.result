@@ -20,20 +20,20 @@ Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
-CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = SERVER_MYPORT_1, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
-START SLAVE;
+START REPLICA;
 create table t1 (a int) engine = innodb;
 insert into t1 values(1);
 insert into t1 values(2);
 include/sync_slave_sql_with_master.inc
 include/raft_promote_to_leader.inc
-STOP SLAVE;
-change master to master_host='localhost', master_port=port2, master_auto_position=1, master_user='root';
+STOP REPLICA;
+change replication source to source_host='localhost', source_port=port2, source_auto_position=1, source_user='root';
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -51,5 +51,5 @@ include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-reset slave all;
+reset replica all;
 include/rpl_end.inc

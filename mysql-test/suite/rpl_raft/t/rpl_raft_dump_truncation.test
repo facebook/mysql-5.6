@@ -5,21 +5,20 @@ connection server_1;
 # server4 will tail the leader
 connection server_4;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
 replace_result $SERVER_MYPORT_1 SERVER_MYPORT_1;
-eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
-START SLAVE;
+eval CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = $SERVER_MYPORT_1, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
+START REPLICA;
 
 # server5 will tail a follower
 connection server_5;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
 replace_result $SERVER_MYPORT_2 SERVER_MYPORT_2;
-eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_2, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
-START SLAVE;
-
+eval CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = $SERVER_MYPORT_2, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
+START REPLICA;
 # Create a schema and sync it across replicas
 connection server_1;
 create table t1 (a int primary key) engine = innodb;
@@ -136,10 +135,10 @@ call mtr.add_suppression("Run function 'before_commit' in plugin 'RPL_RAFT' fail
 --enable_query_log
 
 connection server_4;
-stop slave;
-reset slave all;
+stop replica;
+reset replica all;
 connection server_5;
-stop slave;
-reset slave all;
+stop replica;
+reset replica all;
 
 source include/rpl_end.inc;

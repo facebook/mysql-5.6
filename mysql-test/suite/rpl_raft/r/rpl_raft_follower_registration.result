@@ -20,21 +20,21 @@ Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
-CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = SERVER_MYPORT_1, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
-START SLAVE;
+START REPLICA;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
-CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = SERVER_MYPORT_2, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = SERVER_MYPORT_2, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
-START SLAVE;
+START REPLICA;
 create table t1 (a int primary key) engine = innodb;
 insert into t1 values(1);
 include/sync_slave_sql_with_master.inc
@@ -42,69 +42,69 @@ include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 "SERVER 1"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 157
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 2	HOST	PORT	1	UUID	0	RAFT
 3	HOST	PORT	1	UUID	0	RAFT
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 157
 "SERVER 2"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 156
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 156
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 157
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 157
 "SERVER 3"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "SERVER 4"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "SERVER 5"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "Transferring leadership from SERVER 1 to SERVER 2"
 include/raft_promote_to_leader.inc
 "SERVER 1"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 157
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 157
 "SERVER 2"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 852
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 853
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 1	HOST	PORT	2	UUID	0	RAFT
 3	HOST	PORT	2	UUID	0	RAFT
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 852
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 853
 "SERVER 3"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "SERVER 4"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "SERVER 5"
-SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
-SHOW SLAVE HOSTS WITH RAFT;
-Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+SHOW REPLICAS;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+SHOW REPLICAS WITH RAFT;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "Transferring leadership back to SERVER 1"
 include/raft_promote_to_leader.inc
 drop table t1;
@@ -112,8 +112,8 @@ include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
-stop slave;
-reset slave all;
-stop slave;
-reset slave all;
+stop replica;
+reset replica all;
+stop replica;
+reset replica all;
 include/rpl_end.inc
