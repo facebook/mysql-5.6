@@ -13,15 +13,6 @@ set global privacy_plugin_purpose_policy_cache_control=on;
 set global privacy_plugin_purpose_policy_cache_retention=15;
 set global performance_schema_esms_by_all=on;
 set global sql_findings_control=on;
-show variables like 'privacy_plugin%';
-Variable_name	Value
-privacy_plugin_purpose_policy_cache_control	ON
-privacy_plugin_purpose_policy_cache_retention	15
-privacy_plugin_purpose_policy_check	FAIL_OPEN
-privacy_plugin_purpose_policy_check_always_false	OFF
-privacy_plugin_purpose_policy_check_bypass_evaluator	OFF
-privacy_plugin_purpose_policy_check_debug_dump	OFF
-privacy_plugin_response_attrs_contain_policy_status	OFF
 CREATE TABLE privacy_research (
 id int NOT NULL,
 name VARCHAR(30)   NOT NULL DEFAULT '',
