@@ -56,25 +56,26 @@ SELECT * FROM d;
 # ) as t, b;
 
 ## WHERE, ORDER BY and GROUP BY
-# SELECT a_2 FROM a WHERE a_1 > 0 GROUP BY a_2;
-# SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 ORDER BY a_2;
+SELECT a_2 FROM a WHERE a_1 > 0 GROUP BY a_2;
+SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 ORDER BY a_2;
+SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 HAVING SUM(a_1) > 0 ORDER BY a_2;
 
 ## Derived table
 # SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t;
 # SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t;
 
 ## JOIN
-# SELECT a_1, c_1 FROM a, c;
-# SELECT * FROM a, c;
-# SELECT * FROM a, c, b;
-# SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1;
+SELECT a_1, c_1 FROM a, c;
+SELECT * FROM a, c;
+SELECT * FROM a, c, b;
+SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1;
 # SELECT * FROM a JOIN (SELECT 1, 2, 3) AS c ON a.a_1 = c.2;
 
-## UNION
+## UNION and UNION ALL
 SELECT 1, 2 UNION SELECT 'a', 'b';
 SELECT * FROM a UNION SELECT c_1, c_2, common FROM c;
 SELECT * FROM a UNION ALL SELECT c_1, c_2, common FROM c UNION ALL SELECT c_1, c_2, common FROM c;
-# (SELECT common, a_1 FROM a WHERE a_1 > 0 ORDER BY common LIMIT 5) UNION (SELECT common, c_1 FROM c WHERE c_1 < 100 ORDER BY c_3 LIMIT 5);
+(SELECT common, a_1 FROM a WHERE a_1 > 0 ORDER BY common LIMIT 5) UNION (SELECT common, c_1 FROM c WHERE c_1 < 100 ORDER BY c_3 LIMIT 5);
 
 --echo ##########################################
 --echo # Stop plugin
