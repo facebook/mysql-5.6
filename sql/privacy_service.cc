@@ -34,6 +34,7 @@
 #include "sql/select_lex_visitor.h"
 #include "sql/sql_class.h"
 #include "sql/sql_lex.h"
+#include "sql/sql_optimizer.h"  // JOIN
 #include "sql/table.h"
 
 bool get_column_ref_info(Item *item, Column_ref_info &column_ref_info) {
@@ -181,21 +182,63 @@ class Column_lineage_info_builder : public Select_lex_visitor {
         cli->m_parents.push_back(table_cli);
       }
 
+      // Select clause: Build Field_lineage_info for each field from
+      // visible_fields() and append into cli->m_selected_field.
       for (Item *item : query_block->visible_fields()) {
         Item_lineage_info_builder item_builder;
         walk_item(item, &item_builder);
         mem_root_deque<Item_lineage_info> item_lineage_infos(m_mem_root);
-        for (Item_field *item_field : item_builder.get_item_fields()) {
-          Item_lineage_info item_lineage_info;
-          if (build_item_lineage_info(item_field, item_lineage_info)) {
-            return true;
-          }
-
-          item_lineage_infos.push_back(std::move(item_lineage_info));
-        }
+        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                          item_lineage_infos);
         Field_lineage_info field_lineage_info{item->item_name.ptr(),
                                               std::move(item_lineage_infos)};
         cli->m_selected_field.push_back({std::move(field_lineage_info)});
+      }
+
+      // Where clause: Collect all the Item_lineage_info for the clause
+      // expression and store in cli->m_where_condition.
+      {
+        Item_lineage_info_builder item_builder;
+        Item *where_condition = query_block->join != nullptr
+                                    ? query_block->join->where_cond
+                                    : query_block->where_cond();
+        if (where_condition != nullptr &&
+            walk_item(where_condition, &item_builder))
+          return true;
+        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                          cli->m_where_condition);
+      }
+
+      // Group by and olap clauses: Collect all the Item_lineage_info for the
+      // clause expression and store in cli->m_group_list.
+      {
+        Item_lineage_info_builder item_builder;
+        if (accept_for_order(query_block->group_list, &item_builder))
+          return true;
+        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                          cli->m_group_list);
+      }
+
+      // Having clause: Collect all the Item_lineage_info for the clause
+      // expression and store in cli->m_having_condition.
+      {
+        Item_lineage_info_builder item_builder;
+        Item *having_condition = query_block->join != nullptr
+                                     ? query_block->join->having_for_explain
+                                     : query_block->having_cond();
+        if (walk_item(having_condition, &item_builder)) return true;
+        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                          cli->m_having_condition);
+      }
+
+      // Order clause: Collect all the Item_lineage_info for the clause
+      // expression and store in cli->m_order_list.
+      {
+        Item_lineage_info_builder item_builder;
+        if (accept_for_order(query_block->order_list, &item_builder))
+          return true;
+        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                          cli->m_order_list);
       }
     } else {
       // inner union units not supported
@@ -280,6 +323,30 @@ class Column_lineage_info_builder : public Select_lex_visitor {
 
     item_lineage_info.m_index = field->field_index();
     item_lineage_info.m_cli = table_cli;
+    return false;
+  }
+
+  /**
+   * @brief Build Item_lineage_info from multiple Item_field and append the
+   * converted Item_lineage_info into the deque of Item_lineage_info
+   *
+   * @param [in]     item_fields        The Item_field vector to convert from
+   * @param [out]    item_lineage_infos The deque of Item_lineage_info to append
+   *                                    the converted Item_lineage_info
+   *
+   * @retval false Succeed
+   * @retval true Fail
+   */
+  bool build_multiple_item_lineage_infos(
+      const std::vector<Item_field *> &item_fields,
+      mem_root_deque<Item_lineage_info> &item_lineage_infos) {
+    for (Item_field *item_field : item_fields) {
+      Item_lineage_info item_lineage_info;
+      if (build_item_lineage_info(item_field, item_lineage_info)) {
+        return true;
+      }
+      item_lineage_infos.push_back(std::move(item_lineage_info));
+    }
     return false;
   }
 

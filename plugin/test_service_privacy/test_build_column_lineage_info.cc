@@ -49,6 +49,24 @@ static void create_log_file(const char *log_name) {
 }
 
 /**
+ * Print out the contents in item_lineage_infos with DBUG for MTR tests to
+ * verify against the expected trace output.
+ */
+void validate_item_lineage_info(
+    const mem_root_deque<Item_lineage_info> &item_lineage_infos) {
+  for (const auto &item_lineage_info : item_lineage_infos) {
+    if (item_lineage_info.m_cli == nullptr) {
+      DBUG_PRINT("column_lineage_info",
+                 ("Item source lineage info is NULL unexpectedly"));
+    } else {
+      DBUG_PRINT("column_lineage_info",
+                 ("Item lineage: index (%d), source lineage info (%d)",
+                  item_lineage_info.m_index, item_lineage_info.m_cli->m_id));
+    }
+  }
+}
+
+/**
  * Traverse the column lineage info recursively and print out the contents with
  * DBUG. In MTR, the trace file enabled a MTR test to verify against the
  * expected trace output, ensuring the lineage info is constructed as expected.
@@ -75,26 +93,35 @@ void validate_column_lineage_info(Column_lineage_info *cli, int32_t level) {
 
       Query_block_column_lineage_info *query_block_cli =
           (Query_block_column_lineage_info *)cli;
+
+      // Validate lineage info from the expressions in SELECT clause
       int32_t field_id [[maybe_unused]] = 0;
       for (const auto &field_lineage_info : query_block_cli->m_selected_field) {
-        DBUG_PRINT("column_lineage_info", ("Field %d", field_id));
-        for (const auto &item_lineage_info :
-             field_lineage_info.m_item_lineage_info) {
-          if (item_lineage_info.m_cli == nullptr) {
-            DBUG_PRINT(
-                "column_lineage_info",
-                ("Item source lineage info for field (%d) is NULL unexpectedly",
-                 field_id));
-          } else {
-            DBUG_PRINT(
-                "column_lineage_info",
-                ("Item lineage: index (%d), source lineage info (%d) => "
-                 "dest field (%s)",
-                 item_lineage_info.m_index, item_lineage_info.m_cli->m_id,
-                 field_lineage_info.m_field_name));
-          }
-        }
+        DBUG_PRINT("column_lineage_info", ("Field %d (%s)", field_id,
+                                           field_lineage_info.m_field_name));
+        validate_item_lineage_info(field_lineage_info.m_item_lineage_info);
         field_id++;
+      }
+
+      // Validate lineage info from the expressions in WHERE clause
+      if (!query_block_cli->m_where_condition.empty()) {
+        DBUG_PRINT("column_lineage_info", ("Where condition"));
+        validate_item_lineage_info(query_block_cli->m_where_condition);
+      }
+      // Validate lineage info from the expressions in GROUP clause
+      if (!query_block_cli->m_group_list.empty()) {
+        DBUG_PRINT("column_lineage_info", ("Group list"));
+        validate_item_lineage_info(query_block_cli->m_group_list);
+      }
+      // Validate lineage info from the expressions in HAVING clause
+      if (!query_block_cli->m_having_condition.empty()) {
+        DBUG_PRINT("column_lineage_info", ("Having condition"));
+        validate_item_lineage_info(query_block_cli->m_having_condition);
+      }
+      // Validate lineage info from the expressions in ORDER clause
+      if (!query_block_cli->m_order_list.empty()) {
+        DBUG_PRINT("column_lineage_info", ("Order list"));
+        validate_item_lineage_info(query_block_cli->m_order_list);
       }
 
       // traverse next level
