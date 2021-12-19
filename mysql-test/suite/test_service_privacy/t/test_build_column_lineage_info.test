@@ -33,8 +33,9 @@ SELECT a_2, a_1 FROM a;
 #### NOT YET SUPPORED QUERIES
 
 ## Item function / operators
-# SELECT a_1 + a_1 FROM a;
-# SELECT c_1 + c_3 FROM c;
+SELECT a_1 + a_1 FROM a;
+SELECT c_1 + c_3 FROM c;
+SELECT a_1 + a_1 AS a_n FROM a;
 
 ## Singlerow subqueries
 # SELECT (SELECT t.a_1) FROM a AS t;

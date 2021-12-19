@@ -73,7 +73,14 @@ class Column_lineage_info {
 struct Item_lineage_info {
   uint32_t m_index;
   Column_lineage_info *m_cli;
-  std::string m_item_name;
+};
+
+/**
+ * @brief Lineage node represent Item level lineage
+ */
+struct Field_lineage_info {
+  std::string m_field_name;
+  std::vector<Item_lineage_info> m_item_lineage_info;
 };
 
 /**
@@ -99,7 +106,7 @@ class Query_block_column_lineage_info : public Column_lineage_info {
 
   Query_block *m_query_block;
   std::vector<Column_lineage_info *> m_parents;
-  std::vector<std::vector<Item_lineage_info>> m_selected_field;
+  std::vector<Field_lineage_info> m_selected_field;
   enum Type type() const override { return Type::QUERY_BLOCK; }
 };
 

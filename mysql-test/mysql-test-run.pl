@@ -295,6 +295,7 @@ our @DEFAULT_SUITES = qw(
   service_udf_registration
   sys_vars
   sysschema
+  test_service_privacy
   test_service_sql_api
   test_services
   x
