@@ -50,6 +50,34 @@ bool get_column_ref_info(Item *item, Column_ref_info &column_ref_info) {
   return false;
 }
 
+class Item_lineage_info_builder : public Select_lex_visitor {
+ public:
+  bool visit_union(Query_expression *) override { return false; }
+  bool visit_query_block(Query_block *) override { return false; }
+  /**
+   * @brief Find Item_field and store them in m_item_fields.
+   *
+   * @param [in]     item An item to visit
+   *
+   * @retval false Succeed and continue traversal.
+   * @retval true Halt traversal.
+   */
+  bool visit_item(Item *item) override {
+    if (m_visited.find(item) != m_visited.end()) return false;
+    m_visited.insert(item);
+
+    if (item->type() == Item::FIELD_ITEM) {
+      m_item_fields.push_back(dynamic_cast<Item_field *>(item));
+    }
+    return false;
+  }
+  const std::vector<Item_field *> &get_item_fields() { return m_item_fields; }
+
+ private:
+  std::vector<Item_field *> m_item_fields;
+  std::unordered_set<Item *> m_visited;
+};
+
 /**
  * @brief Column_lineage_info_builder build the lineage info by implementing the
  * visit_* methods to allow itself to be accepted by Query_expression,
@@ -153,33 +181,20 @@ class Column_lineage_info_builder : public Select_lex_visitor {
       }
 
       for (Item *item : query_block->visible_fields()) {
-        if (item->type() == Item::FIELD_ITEM) {
-          Item_field *item_field = (Item_field *)item;
-          Field *field = item_field->field;
-          if (!field) {
-            DBUG_PRINT(
-                "column_lineage_info",
-                ("Field of item_field (%s) is null", item_field->full_name()));
+        Item_lineage_info_builder item_builder;
+        walk_item(item, &item_builder);
+        std::vector<Item_lineage_info> item_lineage_infos;
+        for (Item_field *item_field : item_builder.get_item_fields()) {
+          Item_lineage_info item_lineage_info;
+          if (build_item_lineage_info(item_field, item_lineage_info)) {
             return true;
           }
-          Table_ref *table_ref = item_field->table_ref;
-          if (!table_ref) {
-            DBUG_PRINT("column_lineage_info",
-                       ("table (Table_ref) of item_field (%s) is null",
-                        item_field->full_name()));
-            return true;
-          }
-          const auto &table_cli = m_table_ref_map[table_ref];
-          Item_lineage_info item_lineage_info{field->field_index(), table_cli,
-                                              item_field->item_name.ptr()};
-          cli->m_selected_field.push_back({std::move(item_lineage_info)});
-        } else if (item->basic_const_item()) {
-          cli->m_selected_field.push_back({});
-        } else {
-          DBUG_PRINT("column_lineage_info",
-                     ("Not supported item type (%d)", item->type()));
-          return true;
+
+          item_lineage_infos.push_back(std::move(item_lineage_info));
         }
+        Field_lineage_info field_lineage_info{item->item_name.ptr(),
+                                              std::move(item_lineage_infos)};
+        cli->m_selected_field.push_back({std::move(field_lineage_info)});
       }
     } else {
       // inner union units not supported
@@ -233,6 +248,37 @@ class Column_lineage_info_builder : public Select_lex_visitor {
     DBUG_PRINT("column_lineage_info",
                ("storing m_table_ref_map result %p => %p\n", table_ref, cli));
     m_table_ref_map[table_ref] = cli;
+    return false;
+  }
+
+  /**
+   * @brief Build Item_lineage_info from Item_field
+   *
+   * @param [in]     item_field The Item_field to convert from
+   * @param [out]    item_lineage_info The Item_lineage_info to convert to
+   *
+   * @retval false Succeed
+   * @retval true Fail
+   */
+  bool build_item_lineage_info(Item_field *item_field,
+                               Item_lineage_info &item_lineage_info) {
+    Field *field = item_field->field;
+    if (!field) {
+      DBUG_PRINT("column_lineage_info",
+                 ("Field of item_field (%s) is null", item_field->full_name()));
+      return true;
+    }
+    Table_ref *table_ref = item_field->table_ref;
+    if (!table_ref) {
+      DBUG_PRINT("column_lineage_info",
+                 ("table (Table_ref) of item_field (%s) is null",
+                  item_field->full_name()));
+      return true;
+    }
+    const auto &table_cli = m_table_ref_map[table_ref];
+
+    item_lineage_info.m_index = field->field_index();
+    item_lineage_info.m_cli = table_cli;
     return false;
   }
 

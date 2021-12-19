@@ -76,9 +76,10 @@ void validate_column_lineage_info(Column_lineage_info *cli, int32_t level) {
       Query_block_column_lineage_info *query_block_cli =
           (Query_block_column_lineage_info *)cli;
       int32_t field_id [[maybe_unused]] = 0;
-      for (const auto &item_lineage_infos : query_block_cli->m_selected_field) {
+      for (const auto &field_lineage_info : query_block_cli->m_selected_field) {
         DBUG_PRINT("column_lineage_info", ("Field %d", field_id));
-        for (const auto &item_lineage_info : item_lineage_infos) {
+        for (const auto &item_lineage_info :
+             field_lineage_info.m_item_lineage_info) {
           if (item_lineage_info.m_cli == nullptr) {
             DBUG_PRINT(
                 "column_lineage_info",
@@ -90,7 +91,7 @@ void validate_column_lineage_info(Column_lineage_info *cli, int32_t level) {
                 ("Item lineage: index (%d), source lineage info (%d) => "
                  "dest field (%s)",
                  item_lineage_info.m_index, item_lineage_info.m_cli->m_id,
-                 item_lineage_info.m_item_name.c_str()));
+                 field_lineage_info.m_field_name.c_str()));
           }
         }
         field_id++;
