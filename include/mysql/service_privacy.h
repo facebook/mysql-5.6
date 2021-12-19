@@ -119,11 +119,19 @@ class Query_block_column_lineage_info : public Column_lineage_info {
       : Column_lineage_info(id),
         m_query_block(query_block),
         m_parents(mem_root),
-        m_selected_field(mem_root) {}
+        m_selected_field(mem_root),
+        m_where_condition(mem_root),
+        m_group_list(mem_root),
+        m_having_condition(mem_root),
+        m_order_list(mem_root) {}
 
   Query_block *m_query_block;
   mem_root_deque<Column_lineage_info *> m_parents;
   mem_root_deque<Field_lineage_info> m_selected_field;
+  mem_root_deque<Item_lineage_info> m_where_condition;
+  mem_root_deque<Item_lineage_info> m_group_list;
+  mem_root_deque<Item_lineage_info> m_having_condition;
+  mem_root_deque<Item_lineage_info> m_order_list;
   enum Type type() const override { return Type::QUERY_BLOCK; }
 };
 
