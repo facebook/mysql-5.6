@@ -50,10 +50,13 @@ SELECT a_1 + a_1 AS a_n FROM a AS long_table_name_to_trigger_std_string_alllocat
 SELECT * FROM d;
 
 ## Subqueries
-# SELECT (SELECT t.a_1) FROM a AS t;
-# SELECT (SELECT t.a_1 as xyz) FROM a AS t;
-# SELECT (SELECT c_1 from c LIMIT 1), common AS x FROM a AS t;
-# SELECT (SELECT c_1 from c LIMIT 1), common AS x, (SELECT t.a_1 as xyz) AS y FROM a AS t;
+SELECT (SELECT t.a_1) FROM a AS t;
+SELECT (SELECT t.a_1 as xyz) FROM a AS t;
+# TODO test plugin doesn't print out table c
+SELECT (SELECT c_1 from c LIMIT 1), common AS x FROM a AS t;
+SELECT (SELECT c_1 from c LIMIT 1), common AS x, (SELECT t.a_1 as xyz) AS y FROM a AS t;
+# TODO c_1 reference is missing
+SELECT common AS x FROM a AS t WHERE EXISTS (SELECT c_1 from c);
 
 ## WHERE, ORDER BY and GROUP BY
 SELECT a_2 FROM a WHERE a_1 > 0 GROUP BY a_2;
@@ -74,7 +77,7 @@ SELECT a_1, c_1 FROM a, c;
 SELECT * FROM a, c;
 SELECT * FROM a, c, b;
 SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1;
-# SELECT * FROM a JOIN (SELECT 1, 2, 3) AS c ON a.a_1 = c.2;
+SELECT * FROM a JOIN (SELECT 1, 2, 3) AS c ON a.a_1 = c.2;
 
 ## UNION and UNION ALL
 SELECT 1, 2 UNION SELECT 'a', 'b';
