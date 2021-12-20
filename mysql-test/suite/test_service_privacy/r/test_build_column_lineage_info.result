@@ -53,6 +53,19 @@ a_2	SUM(a_1)
 SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 HAVING SUM(a_1) > 0 ORDER BY a_2;
 a_2	SUM(a_1)
 2	1
+SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t;
+y
+20
+SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t;
+y	x + z
+20	12
+SELECT y AS a, z AS b, x AS c, common FROM (
+SELECT c_2 AS x, c_3 AS y, c_1 AS z FROM (
+SELECT c_1, c_2, c_3 FROM c
+) as p
+) as t, b;
+a	b	c	common
+30	10	20	b_common
 SELECT a_1, c_1 FROM a, c;
 a_1	c_1
 1	10
@@ -136,6 +149,19 @@ Test query: SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 ORDER BY a_2
 Column_lineage_info succeeded
 
 Test query: SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 HAVING SUM(a_1) > 0 ORDER BY a_2
+Column_lineage_info succeeded
+
+Test query: SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t
+Column_lineage_info succeeded
+
+Test query: SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t
+Column_lineage_info succeeded
+
+Test query: SELECT y AS a, z AS b, x AS c, common FROM (
+SELECT c_2 AS x, c_3 AS y, c_1 AS z FROM (
+SELECT c_1, c_2, c_3 FROM c
+) as p
+) as t, b
 Column_lineage_info succeeded
 
 Test query: SELECT a_1, c_1 FROM a, c
@@ -422,6 +448,87 @@ Column_lineage_info succeeded
 | | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: a, alias_name: a
 | | | | | | | | column_lineage_info: column: a_1, index: 0
 | | | | | | | | column_lineage_info: column: a_2, index: 1
+| | | | | | | | column_lineage_info: column: common, index: 2
+| | | | | | | <validate_column_lineage_info
+| | | | | | <validate_column_lineage_info
+| | | | | <validate_column_lineage_info
+| | | | | column_lineage_info: 
+
+| | | | | column_lineage_info: query: SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t
+| | | | | >validate_column_lineage_info
+| | | | | | column_lineage_info: level 0 id 2
+| | | | | | column_lineage_info: type: UNIT
+| | | | | | >validate_column_lineage_info
+| | | | | | | column_lineage_info: level 1 id 0
+| | | | | | | column_lineage_info: type: SELECT_LEX
+| | | | | | | column_lineage_info: Field 0 (y)
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (1)
+| | | | | | | >validate_column_lineage_info
+| | | | | | | | column_lineage_info: level 2 id 1
+| | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: a, alias_name: a
+| | | | | | | | column_lineage_info: column: a_1, index: 0
+| | | | | | | | column_lineage_info: column: a_2, index: 1
+| | | | | | | | column_lineage_info: column: common, index: 2
+| | | | | | | <validate_column_lineage_info
+| | | | | | <validate_column_lineage_info
+| | | | | <validate_column_lineage_info
+| | | | | column_lineage_info: 
+
+| | | | | column_lineage_info: query: SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t
+| | | | | >validate_column_lineage_info
+| | | | | | column_lineage_info: level 0 id 2
+| | | | | | column_lineage_info: type: UNIT
+| | | | | | >validate_column_lineage_info
+| | | | | | | column_lineage_info: level 1 id 0
+| | | | | | | column_lineage_info: type: SELECT_LEX
+| | | | | | | column_lineage_info: Field 0 (y)
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (1)
+| | | | | | | column_lineage_info: Field 1 (x + z)
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (1)
+| | | | | | | column_lineage_info: Item lineage: index (1), source lineage info (1)
+| | | | | | | >validate_column_lineage_info
+| | | | | | | | column_lineage_info: level 2 id 1
+| | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: a, alias_name: a
+| | | | | | | | column_lineage_info: column: a_1, index: 0
+| | | | | | | | column_lineage_info: column: a_2, index: 1
+| | | | | | | | column_lineage_info: column: common, index: 2
+| | | | | | | <validate_column_lineage_info
+| | | | | | <validate_column_lineage_info
+| | | | | <validate_column_lineage_info
+| | | | | column_lineage_info: 
+
+| | | | | column_lineage_info: query: SELECT y AS a, z AS b, x AS c, common FROM (
+SELECT c_2 AS x, c_3 AS y, c_1 AS z FROM (
+SELECT c_1, c_2, c_3 FROM c
+) as p
+) as t, b
+| | | | | >validate_column_lineage_info
+| | | | | | column_lineage_info: level 0 id 3
+| | | | | | column_lineage_info: type: UNIT
+| | | | | | >validate_column_lineage_info
+| | | | | | | column_lineage_info: level 1 id 0
+| | | | | | | column_lineage_info: type: SELECT_LEX
+| | | | | | | column_lineage_info: Field 0 (a)
+| | | | | | | column_lineage_info: Item lineage: index (2), source lineage info (1)
+| | | | | | | column_lineage_info: Field 1 (b)
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (1)
+| | | | | | | column_lineage_info: Field 2 (c)
+| | | | | | | column_lineage_info: Item lineage: index (1), source lineage info (1)
+| | | | | | | column_lineage_info: Field 3 (common)
+| | | | | | | column_lineage_info: Item lineage: index (2), source lineage info (2)
+| | | | | | | >validate_column_lineage_info
+| | | | | | | | column_lineage_info: level 2 id 1
+| | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: c, alias_name: c
+| | | | | | | | column_lineage_info: column: c_1, index: 0
+| | | | | | | | column_lineage_info: column: c_2, index: 1
+| | | | | | | | column_lineage_info: column: c_3, index: 2
+| | | | | | | | column_lineage_info: column: common, index: 3
+| | | | | | | <validate_column_lineage_info
+| | | | | | | >validate_column_lineage_info
+| | | | | | | | column_lineage_info: level 2 id 2
+| | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: b, alias_name: b
+| | | | | | | | column_lineage_info: column: b_1, index: 0
+| | | | | | | | column_lineage_info: column: b_2, index: 1
 | | | | | | | | column_lineage_info: column: common, index: 2
 | | | | | | | <validate_column_lineage_info
 | | | | | | <validate_column_lineage_info
