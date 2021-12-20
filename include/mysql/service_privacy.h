@@ -151,6 +151,7 @@ class Table_column_lineage_info : public Column_lineage_info {
   const char *m_table_name;
   const char *m_table_alias;
   mem_root_deque<const char *> m_column_refs;
+  Column_lineage_info *m_derived = nullptr;
   enum Type type() const override { return Type::TABLE; }
 };
 
