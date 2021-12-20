@@ -1,5 +1,12 @@
 let $MYSQLD_DATADIR= `select @@datadir`;
 
+# Check if the build has DBUG enabled
+let $value = query_get_value(SHOW VARIABLES LIKE 'debug', Value, 1);
+if ($value ==  No such row)
+{
+  --skip "DBUG is disabled"
+}
+
 --echo ##########################################
 --echo # Run plugin
 --echo ##########################################
@@ -42,27 +49,25 @@ SELECT a_1 + a_1 AS a_n FROM a;
 SELECT a_1 + a_1 AS a_n FROM a AS long_table_name_to_trigger_std_string_alllocation_et_cetera_et_cetera_et_cetera;
 SELECT * FROM d;
 
-## Singlerow subqueries
+## Subqueries
 # SELECT (SELECT t.a_1) FROM a AS t;
 # SELECT (SELECT t.a_1 as xyz) FROM a AS t;
 # SELECT (SELECT c_1 from c LIMIT 1), common AS x FROM a AS t;
 # SELECT (SELECT c_1 from c LIMIT 1), common AS x, (SELECT t.a_1 as xyz) AS y FROM a AS t;
-
-## non-singlerow subqueries
-# SELECT y AS a, z AS b, x AS c, common FROM (
-#     SELECT c_2 AS x, c_3 AS y, c_1 AS z FROM (
-#         SELECT c_1, c_2, c_3 FROM c
-#     ) as p
-# ) as t, b;
 
 ## WHERE, ORDER BY and GROUP BY
 SELECT a_2 FROM a WHERE a_1 > 0 GROUP BY a_2;
 SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 ORDER BY a_2;
 SELECT a_2, SUM(a_1) FROM a WHERE a_1 > 0 GROUP BY a_2 HAVING SUM(a_1) > 0 ORDER BY a_2;
 
-## Derived table
-# SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t;
-# SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t;
+## Derived table (Inline view)
+SELECT x + 10 AS y FROM (SELECT a_1 * 10 AS x FROM a) as t;
+SELECT x + 10 AS y, x + z FROM (SELECT a_1 * 10 AS x, a_2 AS z FROM a) as t;
+SELECT y AS a, z AS b, x AS c, common FROM (
+    SELECT c_2 AS x, c_3 AS y, c_1 AS z FROM (
+        SELECT c_1, c_2, c_3 FROM c
+    ) as p
+) as t, b;
 
 ## JOIN
 SELECT a_1, c_1 FROM a, c;
