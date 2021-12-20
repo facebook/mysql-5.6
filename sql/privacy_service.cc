@@ -172,8 +172,16 @@ class Column_lineage_info_builder : public Select_lex_visitor {
     if (!unit) {
       // Leaf query block. Iterate through all the item and their positions in
       // TABLE_LIST. There might be multiple TABLE_LIST
-      for (TABLE_LIST *t = query_block->table_list.first; t;
-           t = t->next_local) {
+
+      // To support subqueries, iterate though all the leaf tables in the table
+      // list because mergeable subqueries (SELECT_LEX) are converted into
+      // TABLE_LIST as semi-join nest. See also SELECT_LEX::resolve_subquery and
+      // SELECT_LEX::merge_derived
+      TABLE_LIST *first_leaf_table = nullptr;
+      if (query_block->table_list.elements > 0) {
+        first_leaf_table = query_block->table_list.first->first_leaf_table();
+      }
+      for (TABLE_LIST *t = first_leaf_table; t; t = t->next_leaf) {
         if (build_table_lineage_info(t)) {
           return true;
         }
