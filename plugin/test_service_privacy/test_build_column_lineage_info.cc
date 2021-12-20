@@ -146,6 +146,10 @@ void validate_column_lineage_info(Column_lineage_info *cli, int32_t level) {
                    ("column: %s, index: %d", column, field_id));
         field_id++;
       }
+
+      if (table_cli->m_derived) {
+        validate_column_lineage_info(table_cli->m_derived, level + 1);
+      }
       break;
     }
     case Column_lineage_info::Type::INVALID:

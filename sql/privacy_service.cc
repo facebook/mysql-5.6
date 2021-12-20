@@ -160,99 +160,80 @@ class Column_lineage_info_builder : public Select_lex_visitor {
         DBUG_PRINT("column_lineage_info", ("Union lineage is not built"));
         return true;
       }
-      cli->m_parents.push_back(it->second);
     }
 
-    // Determine if the query block is the leaf query block by looking into 2
-    // things:
-    // 1) inner unit: If yes, the query block might have subqueries
-    // 2) table_list: If there's more than one table, this query block might
-    //                perform JOIN
-    const auto &unit = query_block->first_inner_query_expression();
-    if (!unit) {
-      // Leaf query block. Iterate through all the item and their positions in
-      // Table_ref. There might be multiple Table_ref
-
-      // To support subqueries, iterate though all the leaf tables in the table
-      // list because mergeable subqueries (SELECT_LEX) are converted into
-      // Table_ref as semi-join nest. See also SELECT_LEX::resolve_subquery and
-      // SELECT_LEX::merge_derived
-      Table_ref *first_leaf_table = nullptr;
-      if (query_block->m_table_list.elements > 0) {
-        first_leaf_table = query_block->m_table_list.first->first_leaf_table();
-      }
-      for (Table_ref *t = first_leaf_table; t; t = t->next_leaf) {
-        if (build_table_lineage_info(t)) {
-          return true;
-        }
-
-        Table_column_lineage_info *table_cli = m_table_ref_map[t];
-        cli->m_parents.push_back(table_cli);
+    // To support subqueries, iterate though all the leaf tables in the table
+    // list because mergeable subqueries (SELECT_LEX) are converted into
+    // Table_ref as semi-join nest. See also SELECT_LEX::resolve_subquery and
+    // SELECT_LEX::merge_derived
+    Table_ref *first_leaf_table = nullptr;
+    if (query_block->m_table_list.elements > 0) {
+      first_leaf_table = query_block->m_table_list.first->first_leaf_table();
+    }
+    for (Table_ref *t = first_leaf_table; t; t = t->next_leaf) {
+      if (build_table_lineage_info(t)) {
+        return true;
       }
 
-      // Select clause: Build Field_lineage_info for each field from
-      // visible_fields() and append into cli->m_selected_field.
-      for (Item *item : query_block->visible_fields()) {
-        Item_lineage_info_builder item_builder;
-        walk_item(item, &item_builder);
-        mem_root_deque<Item_lineage_info> item_lineage_infos(m_mem_root);
-        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
-                                          item_lineage_infos);
-        Field_lineage_info field_lineage_info{item->item_name.ptr(),
-                                              std::move(item_lineage_infos)};
-        cli->m_selected_field.push_back({std::move(field_lineage_info)});
-      }
+      Table_column_lineage_info *table_cli = m_table_ref_map[t];
+      cli->m_parents.push_back(table_cli);
+    }
 
-      // Where clause: Collect all the Item_lineage_info for the clause
-      // expression and store in cli->m_where_condition.
-      {
-        Item_lineage_info_builder item_builder;
-        Item *where_condition = query_block->join != nullptr
-                                    ? query_block->join->where_cond
-                                    : query_block->where_cond();
-        if (where_condition != nullptr &&
-            walk_item(where_condition, &item_builder))
-          return true;
-        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
-                                          cli->m_where_condition);
-      }
+    // Select clause: Build Field_lineage_info for each field from
+    // visible_fields() and append into cli->m_selected_field.
+    for (Item *item : query_block->visible_fields()) {
+      Item_lineage_info_builder item_builder;
+      walk_item(item, &item_builder);
+      mem_root_deque<Item_lineage_info> item_lineage_infos(m_mem_root);
+      build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                        item_lineage_infos);
+      Field_lineage_info field_lineage_info{item->item_name.ptr(),
+                                            std::move(item_lineage_infos)};
+      cli->m_selected_field.push_back({std::move(field_lineage_info)});
+    }
 
-      // Group by and olap clauses: Collect all the Item_lineage_info for the
-      // clause expression and store in cli->m_group_list.
-      {
-        Item_lineage_info_builder item_builder;
-        if (accept_for_order(query_block->group_list, &item_builder))
-          return true;
-        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
-                                          cli->m_group_list);
-      }
+    // Where clause: Collect all the Item_lineage_info for the clause
+    // expression and store in cli->m_where_condition.
+    {
+      Item_lineage_info_builder item_builder;
+      Item *where_condition = query_block->join != nullptr
+                                  ? query_block->join->where_cond
+                                  : query_block->where_cond();
+      if (where_condition != nullptr &&
+          walk_item(where_condition, &item_builder))
+        return true;
+      build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                        cli->m_where_condition);
+    }
 
-      // Having clause: Collect all the Item_lineage_info for the clause
-      // expression and store in cli->m_having_condition.
-      {
-        Item_lineage_info_builder item_builder;
-        Item *having_condition = query_block->join != nullptr
-                                     ? query_block->join->having_for_explain
-                                     : query_block->having_cond();
-        if (walk_item(having_condition, &item_builder)) return true;
-        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
-                                          cli->m_having_condition);
-      }
+    // Group by and olap clauses: Collect all the Item_lineage_info for the
+    // clause expression and store in cli->m_group_list.
+    {
+      Item_lineage_info_builder item_builder;
+      if (accept_for_order(query_block->group_list, &item_builder)) return true;
+      build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                        cli->m_group_list);
+    }
 
-      // Order clause: Collect all the Item_lineage_info for the clause
-      // expression and store in cli->m_order_list.
-      {
-        Item_lineage_info_builder item_builder;
-        if (accept_for_order(query_block->order_list, &item_builder))
-          return true;
-        build_multiple_item_lineage_infos(item_builder.get_item_fields(),
-                                          cli->m_order_list);
-      }
-    } else {
-      // inner union units not supported
-      DBUG_PRINT("column_lineage_info",
-                 ("inner union units under a Query_block not supported"));
-      return true;
+    // Having clause: Collect all the Item_lineage_info for the clause
+    // expression and store in cli->m_having_condition.
+    {
+      Item_lineage_info_builder item_builder;
+      Item *having_condition = query_block->join != nullptr
+                                   ? query_block->join->having_for_explain
+                                   : query_block->having_cond();
+      if (walk_item(having_condition, &item_builder)) return true;
+      build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                        cli->m_having_condition);
+    }
+
+    // Order clause: Collect all the Item_lineage_info for the clause
+    // expression and store in cli->m_order_list.
+    {
+      Item_lineage_info_builder item_builder;
+      if (accept_for_order(query_block->order_list, &item_builder)) return true;
+      build_multiple_item_lineage_infos(item_builder.get_item_fields(),
+                                        cli->m_order_list);
     }
 
     // store the result
@@ -288,13 +269,25 @@ class Column_lineage_info_builder : public Select_lex_visitor {
     cli->m_table_name = table_ref->get_table_name();
     cli->m_table_alias = table_ref->alias ? table_ref->alias : "";
 
-    if (!table_ref->table) {
-      DBUG_PRINT("column_lineage_info", ("table_ref->table is empty"));
-      return true;
-    }
-    for (Field **field_ptr = table_ref->table->field; *field_ptr; ++field_ptr) {
-      cli->m_column_refs.push_back(
-          (*field_ptr)->field_name ? (*field_ptr)->field_name : "");
+    if (table_ref->is_derived()) {
+      Query_expression *derived_unit = table_ref->derived_query_expression();
+      if (derived_unit->accept(this)) return true;
+      const auto &it = m_unit_map.find(derived_unit);
+      if (it == m_unit_map.end()) {
+        DBUG_PRINT("column_lineage_info", ("Union lineage is not built"));
+        return true;
+      }
+      cli->m_derived = it->second;
+    } else {
+      if (!table_ref->table) {
+        DBUG_PRINT("column_lineage_info", ("table_ref->table is empty"));
+        return true;
+      }
+      for (Field **field_ptr = table_ref->table->field; *field_ptr;
+           ++field_ptr) {
+        cli->m_column_refs.push_back(
+            (*field_ptr)->field_name ? (*field_ptr)->field_name : "");
+      }
     }
 
     DBUG_PRINT("column_lineage_info",
@@ -327,10 +320,15 @@ class Column_lineage_info_builder : public Select_lex_visitor {
                   item_field->full_name()));
       return true;
     }
-    const auto &table_cli = m_table_ref_map[table_ref];
+    const auto &it = m_table_ref_map.find(table_ref);
+    if (it == m_table_ref_map.end()) {
+      DBUG_PRINT("column_lineage_info",
+                 ("table column lineage for table (%p) is null", table_ref));
+      return true;
+    }
 
     item_lineage_info.m_index = field->field_index();
-    item_lineage_info.m_cli = table_cli;
+    item_lineage_info.m_cli = it->second;
     return false;
   }
 
