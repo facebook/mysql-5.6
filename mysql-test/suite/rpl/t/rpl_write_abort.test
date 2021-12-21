@@ -39,6 +39,10 @@ set @@GLOBAL.write_cpu_limit_milliseconds=1;
 --echo connect to master
 connection master;
 
+--echo Set sql_mode to traditional by which warnings are raised as errors
+--echo except when the warning comes from the throttling features (write)
+set @@GLOBAL.sql_mode=traditional;
+
 --echo Test 1.1: Insert Query
 
 --echo setting dbug.force_long_running_query which will
@@ -2448,6 +2452,7 @@ set @@GLOBAL.write_control_level=OFF;
 set @@GLOBAL.write_cpu_limit_milliseconds=0;
 set @@GLOBAL.write_time_check_batch=0;
 set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_mode=default;
 drop table test;
 drop table staging;
 

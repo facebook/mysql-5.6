@@ -16,6 +16,9 @@ SET @@GLOBAL.WRITE_THROTTLE_MIN_RATIO=1.5;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
 SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="SQL_ID,SHARD,CLIENT,USER";
+Set sql_mode to traditional by which warnings are raised as errors
+except when the warning comes from the throttling features (write)
+set @@GLOBAL.sql_mode=traditional;
 create table t(a int) engine=innodb;
 create database test1;
 create table test1.t(a int) engine=innodb;
@@ -1037,4 +1040,5 @@ SET @@GLOBAL.WRITE_CONTROL_LEVEL=OFF;
 SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="OFF";
 set @@global.debug= '-d,dbug.skip_last_complete_bucket_check';
 SET @@GLOBAL.bypass_write_throttle_admin_check=0;
+set @@GLOBAL.sql_mode=default;
 include/rpl_end.inc

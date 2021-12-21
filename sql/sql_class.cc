@@ -1384,7 +1384,7 @@ Sql_condition* THD::raise_condition(uint sql_errno,
     (system_thread == SYSTEM_THREAD_SLAVE_WORKER);
 
   if ((level == Sql_condition::WARN_LEVEL_WARN) &&
-      (really_abort_on_warning() ||
+      ((really_abort_on_warning() && !query_mt_throttled(sql_errno)) ||
        (really_error_partial_strict && !is_slave_thread)))
   {
     if (really_audit_instrumented_event > 1 &&

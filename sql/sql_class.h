@@ -3711,6 +3711,19 @@ public:
 
   enum_control_level get_mt_throttle_tag_level() const;
 
+  /* check whether the provided error code is from any throttling feature, e.g,
+  ** write throttling. They may be enabled in warning mode and we do not want to
+  ** have them converted into errrors (when running in strict mode).
+  */
+  bool query_mt_throttled(uint sql_errno)
+  {
+    if (sql_errno == ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS ||
+        sql_errno == ER_WRITE_QUERY_THROTTLED)
+      return true;
+    else
+      return false;
+  }
+
   ulonglong get_stmt_tmp_table_disk_usage_peak()
   {
     DBUG_ASSERT(m_stmt_tmp_table_disk_usage_peak >=
