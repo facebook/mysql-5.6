@@ -26,6 +26,7 @@
   Service API implementation for Privacy Plugin
 */
 
+#include "mem_root_deque.h"
 #include "my_dbug.h"
 #include "mysql/service_privacy.h"
 #include "sql/column_statistics.h"
@@ -109,8 +110,8 @@ class Column_lineage_info_builder : public Select_lex_visitor {
     DBUG_PRINT("column_lineage_info", ("unit %p", unit));
     if (m_unit_map.find(unit) != m_unit_map.end()) return false;
 
-    Union_column_lineage_info *cli =
-        new (m_mem_root) Union_column_lineage_info(m_next_id++, unit);
+    Union_column_lineage_info *cli = new (m_mem_root)
+        Union_column_lineage_info(m_next_id++, unit, m_mem_root);
 
     // visit all the inner unit and add to parents
     for (Query_block *query_block = unit->first_query_block(); query_block;
@@ -147,7 +148,7 @@ class Column_lineage_info_builder : public Select_lex_visitor {
       return false;
 
     Query_block_column_lineage_info *cli = new (m_mem_root)
-        Query_block_column_lineage_info(m_next_id++, query_block);
+        Query_block_column_lineage_info(m_next_id++, query_block, m_mem_root);
 
     // visit all the inner unit and add to parents
     for (Query_expression *unit = query_block->first_inner_query_expression();
@@ -183,7 +184,7 @@ class Column_lineage_info_builder : public Select_lex_visitor {
       for (Item *item : query_block->visible_fields()) {
         Item_lineage_info_builder item_builder;
         walk_item(item, &item_builder);
-        std::vector<Item_lineage_info> item_lineage_infos;
+        mem_root_deque<Item_lineage_info> item_lineage_infos(m_mem_root);
         for (Item_field *item_field : item_builder.get_item_fields()) {
           Item_lineage_info item_lineage_info;
           if (build_item_lineage_info(item_field, item_lineage_info)) {
@@ -230,8 +231,8 @@ class Column_lineage_info_builder : public Select_lex_visitor {
     DBUG_TRACE;
     if (m_table_ref_map.find(table_ref) != m_table_ref_map.end()) return false;
 
-    Table_column_lineage_info *cli =
-        new (m_mem_root) Table_column_lineage_info(m_next_id++, table_ref);
+    Table_column_lineage_info *cli = new (m_mem_root)
+        Table_column_lineage_info(m_next_id++, table_ref, m_mem_root);
     cli->m_db_name = table_ref->get_db_name();
     cli->m_table_name = table_ref->get_table_name();
     cli->m_table_alias = table_ref->alias ? table_ref->alias : "";

@@ -12,6 +12,7 @@ eval INSTALL PLUGIN test_build_column_lineage_info SONAME '$TEST_BUILD_COLUMN_LI
 CREATE TABLE a(a_1 INT, a_2 INT, common VARCHAR(10));
 CREATE TABLE b(b_1 INT, b_2 INT, common VARCHAR(10));
 CREATE TABLE c(c_1 INT, c_2 INT, c_3 INT, common VARCHAR(10));
+CREATE TABLE d(d_long_column_name_to_trigger_std_string_alloc INT);
 INSERT INTO a (a_1, a_2, common) VALUES (1, 2, 'a_common');
 INSERT INTO b (b_1, b_2, common) VALUES (3, 2, 'b_common');
 INSERT INTO c (c_1, c_2, c_3, common) VALUES (10, 20, 30, 'c_common');
@@ -36,6 +37,10 @@ SELECT a_2, a_1 FROM a;
 SELECT a_1 + a_1 FROM a;
 SELECT c_1 + c_3 FROM c;
 SELECT a_1 + a_1 AS a_n FROM a;
+
+## Memory leak from string allocation
+SELECT a_1 + a_1 AS a_n FROM a AS long_table_name_to_trigger_std_string_alllocation_et_cetera_et_cetera_et_cetera;
+SELECT * FROM d;
 
 ## Singlerow subqueries
 # SELECT (SELECT t.a_1) FROM a AS t;
@@ -79,6 +84,7 @@ UNINSTALL PLUGIN test_build_column_lineage_info;
 DROP TABLE a;
 DROP TABLE b;
 DROP TABLE c;
+DROP TABLE d;
 --enable_warnings
 
 --echo ##########################################

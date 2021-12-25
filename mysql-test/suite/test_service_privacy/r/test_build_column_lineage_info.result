@@ -8,6 +8,7 @@ INSTALL PLUGIN test_build_column_lineage_info SONAME 'TEST_BUILD_COLUMN_LINEAGE_
 CREATE TABLE a(a_1 INT, a_2 INT, common VARCHAR(10));
 CREATE TABLE b(b_1 INT, b_2 INT, common VARCHAR(10));
 CREATE TABLE c(c_1 INT, c_2 INT, c_3 INT, common VARCHAR(10));
+CREATE TABLE d(d_long_column_name_to_trigger_std_string_alloc INT);
 INSERT INTO a (a_1, a_2, common) VALUES (1, 2, 'a_common');
 INSERT INTO b (b_1, b_2, common) VALUES (3, 2, 'b_common');
 INSERT INTO c (c_1, c_2, c_3, common) VALUES (10, 20, 30, 'c_common');
@@ -38,6 +39,11 @@ c_1 + c_3
 SELECT a_1 + a_1 AS a_n FROM a;
 a_n
 2
+SELECT a_1 + a_1 AS a_n FROM a AS long_table_name_to_trigger_std_string_alllocation_et_cetera_et_cetera_et_cetera;
+a_n
+2
+SELECT * FROM d;
+d_long_column_name_to_trigger_std_string_alloc
 SELECT 1, 2 UNION SELECT 'a', 'b';
 1	2
 1	2
@@ -58,6 +64,7 @@ UNINSTALL PLUGIN test_build_column_lineage_info;
 DROP TABLE a;
 DROP TABLE b;
 DROP TABLE c;
+DROP TABLE d;
 ##########################################
 # Plugin log
 ##########################################
@@ -90,6 +97,12 @@ Test query: SELECT c_1 + c_3 FROM c
 Column_lineage_info succeeded
 
 Test query: SELECT a_1 + a_1 AS a_n FROM a
+Column_lineage_info succeeded
+
+Test query: SELECT a_1 + a_1 AS a_n FROM a AS long_table_name_to_trigger_std_string_alllocation_et_cetera_et_cetera_et_cetera
+Column_lineage_info succeeded
+
+Test query: SELECT * FROM d
 Column_lineage_info succeeded
 
 Test query: SELECT 1, 2 UNION SELECT 'a', 'b'
@@ -241,6 +254,45 @@ Column_lineage_info succeeded
 | | | | | | | | column_lineage_info: column: a_1, index: 0
 | | | | | | | | column_lineage_info: column: a_2, index: 1
 | | | | | | | | column_lineage_info: column: common, index: 2
+| | | | | | | <validate_column_lineage_info
+| | | | | | <validate_column_lineage_info
+| | | | | <validate_column_lineage_info
+| | | | | column_lineage_info: 
+
+| | | | | column_lineage_info: query: SELECT a_1 + a_1 AS a_n FROM a AS long_table_name_to_trigger_std_string_alllocation_et_cetera_et_cetera_et_cetera
+| | | | | >validate_column_lineage_info
+| | | | | | column_lineage_info: level 0 id 2
+| | | | | | column_lineage_info: type: UNIT
+| | | | | | >validate_column_lineage_info
+| | | | | | | column_lineage_info: level 1 id 0
+| | | | | | | column_lineage_info: type: SELECT_LEX
+| | | | | | | column_lineage_info: Field 0
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (1) => dest field (a_n)
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (1) => dest field (a_n)
+| | | | | | | >validate_column_lineage_info
+| | | | | | | | column_lineage_info: level 2 id 1
+| | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: a, alias_name: long_table_name_to_trigger_std_string_alllocation_et_cetera_et_cetera_et_cetera
+| | | | | | | | column_lineage_info: column: a_1, index: 0
+| | | | | | | | column_lineage_info: column: a_2, index: 1
+| | | | | | | | column_lineage_info: column: common, index: 2
+| | | | | | | <validate_column_lineage_info
+| | | | | | <validate_column_lineage_info
+| | | | | <validate_column_lineage_info
+| | | | | column_lineage_info: 
+
+| | | | | column_lineage_info: query: SELECT * FROM d
+| | | | | >validate_column_lineage_info
+| | | | | | column_lineage_info: level 0 id 2
+| | | | | | column_lineage_info: type: UNIT
+| | | | | | >validate_column_lineage_info
+| | | | | | | column_lineage_info: level 1 id 0
+| | | | | | | column_lineage_info: type: SELECT_LEX
+| | | | | | | column_lineage_info: Field 0
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (1) => dest field (d_long_column_name_to_trigger_std_string_alloc)
+| | | | | | | >validate_column_lineage_info
+| | | | | | | | column_lineage_info: level 2 id 1
+| | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: d, alias_name: d
+| | | | | | | | column_lineage_info: column: d_long_column_name_to_trigger_std_string_alloc, index: 0
 | | | | | | | <validate_column_lineage_info
 | | | | | | <validate_column_lineage_info
 | | | | | <validate_column_lineage_info
