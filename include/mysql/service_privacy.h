@@ -29,10 +29,11 @@
 */
 
 #pragma once
+#include <mem_root_deque.h>
+#include <my_alloc.h>
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 class Item;
 class Query_block;
@@ -47,7 +48,18 @@ struct Column_ref_info {
 };
 
 /**
- * @brief Abstract lineage node for resolving column lineage
+ * @brief Abstract lineage node for resolving column lineage.
+ *
+ * @note For fast memory allocation, Column_lineage_info is dynamically
+ * allocated in heap with MEM_ROOT which gaurantees O(1) memory allocation and
+ * deallocation. The caveat is that no destructors are run, which poses
+ * potential memory leak if there's any memory allocated not by MEM_ROOT, e.g.
+ * std::vector and std::string. To prevent that:
+ *
+ * 1. Use containers like mem_root_deque instead of STL container.
+ *    mem_root_deque allocates memory from MEM_ROOT.
+ * 2. Use const char * instead of std::string. If copy is required, use
+ *    safe_strdup_root which allocates memory from MEM_ROOT.
  */
 class Column_lineage_info {
  protected:
@@ -79,8 +91,8 @@ struct Item_lineage_info {
  * @brief Lineage node represent Item level lineage
  */
 struct Field_lineage_info {
-  std::string m_field_name;
-  std::vector<Item_lineage_info> m_item_lineage_info;
+  const char *m_field_name;
+  mem_root_deque<Item_lineage_info> m_item_lineage_info;
 };
 
 /**
@@ -88,11 +100,12 @@ struct Field_lineage_info {
  */
 class Union_column_lineage_info : public Column_lineage_info {
  public:
-  Union_column_lineage_info(uint32_t id, Query_expression *unit)
-      : Column_lineage_info(id), m_unit(unit) {}
+  Union_column_lineage_info(uint32_t id, Query_expression *unit,
+                            MEM_ROOT *mem_root)
+      : Column_lineage_info(id), m_unit(unit), m_parents(mem_root) {}
 
   Query_expression *m_unit;
-  std::vector<Column_lineage_info *> m_parents;
+  mem_root_deque<Column_lineage_info *> m_parents;
   enum Type type() const override { return Type::UNION; }
 };
 
@@ -101,12 +114,16 @@ class Union_column_lineage_info : public Column_lineage_info {
  */
 class Query_block_column_lineage_info : public Column_lineage_info {
  public:
-  Query_block_column_lineage_info(uint32_t id, Query_block *query_block)
-      : Column_lineage_info(id), m_query_block(query_block) {}
+  Query_block_column_lineage_info(uint32_t id, Query_block *query_block,
+                                  MEM_ROOT *mem_root)
+      : Column_lineage_info(id),
+        m_query_block(query_block),
+        m_parents(mem_root),
+        m_selected_field(mem_root) {}
 
   Query_block *m_query_block;
-  std::vector<Column_lineage_info *> m_parents;
-  std::vector<Field_lineage_info> m_selected_field;
+  mem_root_deque<Column_lineage_info *> m_parents;
+  mem_root_deque<Field_lineage_info> m_selected_field;
   enum Type type() const override { return Type::QUERY_BLOCK; }
 };
 
@@ -115,14 +132,17 @@ class Query_block_column_lineage_info : public Column_lineage_info {
  */
 class Table_column_lineage_info : public Column_lineage_info {
  public:
-  Table_column_lineage_info(uint32_t id, Table_ref *table_ref)
-      : Column_lineage_info(id), m_table_ref(table_ref) {}
+  Table_column_lineage_info(uint32_t id, Table_ref *table_ref,
+                            MEM_ROOT *mem_root)
+      : Column_lineage_info(id),
+        m_table_ref(table_ref),
+        m_column_refs(mem_root) {}
 
   Table_ref *m_table_ref = nullptr;
-  std::string m_db_name;
-  std::string m_table_name;
-  std::string m_table_alias;
-  std::vector<std::string> m_column_refs;
+  const char *m_db_name;
+  const char *m_table_name;
+  const char *m_table_alias;
+  mem_root_deque<const char *> m_column_refs;
   enum Type type() const override { return Type::TABLE; }
 };
 

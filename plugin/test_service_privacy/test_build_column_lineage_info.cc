@@ -91,7 +91,7 @@ void validate_column_lineage_info(Column_lineage_info *cli, int32_t level) {
                 ("Item lineage: index (%d), source lineage info (%d) => "
                  "dest field (%s)",
                  item_lineage_info.m_index, item_lineage_info.m_cli->m_id,
-                 field_lineage_info.m_field_name.c_str()));
+                 field_lineage_info.m_field_name));
           }
         }
         field_id++;
@@ -107,16 +107,16 @@ void validate_column_lineage_info(Column_lineage_info *cli, int32_t level) {
       Table_column_lineage_info *table_cli = (Table_column_lineage_info *)cli;
       DBUG_PRINT("column_lineage_info",
                  ("type: TABLE, db_name: %s, table_name: %s, alias_name: %s",
-                  table_cli->m_db_name.c_str(), table_cli->m_table_name.c_str(),
-                  table_cli->m_table_alias.c_str()));
+                  table_cli->m_db_name, table_cli->m_table_name,
+                  table_cli->m_table_alias));
 
       int32_t field_id [[maybe_unused]] = 0;
       for (const auto &column : table_cli->m_column_refs) {
-        if (column.empty()) {
+        if (!column) {
           DBUG_PRINT("column_lineage_info", ("Column name is empty"));
         }
         DBUG_PRINT("column_lineage_info",
-                   ("column: %s, index: %d", column.c_str(), field_id));
+                   ("column: %s, index: %d", column, field_id));
         field_id++;
       }
       break;
