@@ -18,20 +18,56 @@ INSERT INTO tbl1 (col2, col3, col4) VALUES (2,3,4);
 INSERT INTO tbl1 (col2, col3, col4) VALUES (3,4,5);
 INSERT INTO tbl1 (col2, col3, col4) VALUES (4,5,6);
 SET GLOBAL column_stats_control = ON;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
 UPDATE tbl1 SET col3 = 1 WHERE col2 IN (3, 17, 12);
 UPDATE tbl2 SET col3 = 1 WHERE col1 > 0 AND (col2 < 0 OR (col3 > 0 AND col4 < 0));
+Number of distinct queries executed.
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 COUNT(DISTINCT SQL_ID)
 2
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics;
-SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
-758289fd608af25dd357f632ec49f995	cus_test	tbl1	col2	FILTER	SET_MEMBERSHIP
-b8ec3acbb0c019cc9caaf0888ec29768	cus_test	tbl2	col1	FILTER	GREATER_THAN
-b8ec3acbb0c019cc9caaf0888ec29768	cus_test	tbl2	col2	FILTER	LESS_THAN
-b8ec3acbb0c019cc9caaf0888ec29768	cus_test	tbl2	col3	FILTER	GREATER_THAN
-b8ec3acbb0c019cc9caaf0888ec29768	cus_test	tbl2	col4	FILTER	LESS_THAN
+Unique column accesses per table instance per SQL_ID
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
+SQL_ID	758289fd608af25dd357f632ec49f995
+DIGEST_TEXT	UPDATE `tbl1` SET `col3` = ? WHERE `col2` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col2
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	SET_MEMBERSHIP
+SQL_ID	b8ec3acbb0c019cc9caaf0888ec29768
+DIGEST_TEXT	UPDATE `tbl2` SET `col3` = ? WHERE `col1` > ? AND ( `col2` < ? OR ( `col3` > ? AND `col4` < ? ) )
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col1
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	GREATER_THAN
+SQL_ID	b8ec3acbb0c019cc9caaf0888ec29768
+DIGEST_TEXT	UPDATE `tbl2` SET `col3` = ? WHERE `col1` > ? AND ( `col2` < ? OR ( `col3` > ? AND `col4` < ? ) )
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col2
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	LESS_THAN
+SQL_ID	b8ec3acbb0c019cc9caaf0888ec29768
+DIGEST_TEXT	UPDATE `tbl2` SET `col3` = ? WHERE `col1` > ? AND ( `col2` < ? OR ( `col3` > ? AND `col4` < ? ) )
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col3
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	GREATER_THAN
+SQL_ID	b8ec3acbb0c019cc9caaf0888ec29768
+DIGEST_TEXT	UPDATE `tbl2` SET `col3` = ? WHERE `col1` > ? AND ( `col2` < ? OR ( `col3` > ? AND `col4` < ? ) )
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col4
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	LESS_THAN
 set global column_stats_control = OFF_HARD;
+SET @@global.performance_schema_esms_by_all = @start_value;
 DROP TABLE tbl1;
 DROP TABLE tbl2;
 DROP DATABASE cus_test;

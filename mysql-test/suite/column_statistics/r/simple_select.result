@@ -6,7 +6,7 @@ CREATE TABLE MyGuests (
 id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 firstname VARCHAR(30) NOT NULL,
 lastname VARCHAR(30) NOT NULL,
-email VARCHAR(50),
+email VARCHAR(50) DEFAULT NULL,
 reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 Warnings:
@@ -18,6 +18,8 @@ VALUES ('Johnny', 'Doe', 'john2@example.com');
 INSERT INTO MyGuests (firstname, lastname, email)
 VALUES ('Mohandas', 'Gandhi', NULL);
 set global column_stats_control = ON;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
 SELECT firstname, lastname, email FROM MyGuests WHERE id = 1;
 firstname	lastname	email
 John	Doe	john@example.com
@@ -91,37 +93,188 @@ SELECT email, lastname AS ln FROM MyGuests MyGuestsAlias WHERE lastname LIKE 'Do
 email	ln
 john@example.com	Doe
 john2@example.com	Doe
+SELECT lastname, firstname FROM MyGuests WHERE email IN ('a@b.com', 'b@c.com', 'c@d.com');
+lastname	firstname
 SELECT email FROM MyGuests WHERE fake_column = 1;
 ERROR 42S22: Unknown column 'fake_column' in 'where clause'
+Number of distinct queries executed.
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 COUNT(DISTINCT SQL_ID)
-14
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics;
-SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
-1988fca1256427d9df85e42722507837	cus_test	MyGuests	id	FILTER	BETWEEN
-26afedf90d8d485ef301619812383c71	cus_test	MyGuests	id	FILTER	GREATER_THAN
-2aa9a923e22d66b2c0691eb15246f3d1	cus_test	MyGuests	email	FILTER	NULL_CHECK
-3c4891cc507737abfb5d05e116813b70	cus_test	MyGuests	lastname	FILTER	PATTERN_MATCH
-45328bfb6352142e5e8d2f1f11e07b7f	cus_test	MyGuests	id	FILTER	EQUAL
-45328bfb6352142e5e8d2f1f11e07b7f	cus_test	MyGuests	id	FILTER	GREATER_THAN
-45328bfb6352142e5e8d2f1f11e07b7f	cus_test	MyGuests	id	ORDER_BY	SORT_ASCENDING
-45328bfb6352142e5e8d2f1f11e07b7f	cus_test	MyGuests	lastname	FILTER	EQUAL
-45328bfb6352142e5e8d2f1f11e07b7f	cus_test	MyGuests	lastname	ORDER_BY	SORT_ASCENDING
-5897c0e4b2555c2743aa41b18d584fe9	cus_test	MyGuests	id	FILTER	EQUAL
-5bff50944f2bafabec390ce06e1e087c	cus_test	MyGuests	id	FILTER	BETWEEN
-71f20196b3ec2f51d904a62c1b068d1c	cus_test	MyGuests	email	FILTER	NULL_CHECK
-71f20196b3ec2f51d904a62c1b068d1c	cus_test	MyGuests	id	FILTER	GREATER_THAN_EQUAL
-91b1fb32f2a4ff496da2640c111e0647	cus_test	MyGuests	email	FILTER	PATTERN_MATCH
-a38a088b510dd30c851f24dab7c220d3	cus_test	MyGuests	email	FILTER	NULLSAFE_EQUAL
-a38a088b510dd30c851f24dab7c220d3	cus_test	MyGuests	firstname	FILTER	NOT_EQUAL
-a38a088b510dd30c851f24dab7c220d3	cus_test	MyGuests	id	FILTER	NOT_EQUAL
-b0f95a83b64e36e35463650c474052ed	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
-b0f95a83b64e36e35463650c474052ed	cus_test	MyGuests	lastname	FILTER	EQUAL
-c895c0487e611aa19f0fb2ad1a77022a	cus_test	MyGuests	email	FILTER	PATTERN_MATCH
-d97fde773bcf4c9929151e6261df6859	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
-f0fbb32823813288ac2e27cc9344690e	cus_test	MyGuests	firstname	FILTER	EQUAL
-f0fbb32823813288ac2e27cc9344690e	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+15
+Unique column accesses per table instance per SQL_ID
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
+SQL_ID	1988fca1256427d9df85e42722507837
+DIGEST_TEXT	SELECT `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `id` NOT BETWEEN ? AND ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	BETWEEN
+SQL_ID	26afedf90d8d485ef301619812383c71
+DIGEST_TEXT	SELECT `email` FROM `MyGuests` WHERE `id` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	GREATER_THAN
+SQL_ID	2aa9a923e22d66b2c0691eb15246f3d1
+DIGEST_TEXT	SELECT `firstname` FROM `MyGuests` WHERE `email` IS NULL
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	email
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	NULL_CHECK
+SQL_ID	3c4891cc507737abfb5d05e116813b70
+DIGEST_TEXT	SELECT `email` , `lastname` AS `ln` FROM `MyGuests` `MyGuestsAlias` WHERE `lastname` LIKE ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	lastname
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	PATTERN_MATCH
+SQL_ID	45328bfb6352142e5e8d2f1f11e07b7f
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE ( `id` = ? AND ( ( `id` > - ? ) OR ( `id` > ? AND `lastname` = ? ) ) ) ORDER BY `id` , `lastname` LIMIT ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	EQUAL
+SQL_ID	45328bfb6352142e5e8d2f1f11e07b7f
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE ( `id` = ? AND ( ( `id` > - ? ) OR ( `id` > ? AND `lastname` = ? ) ) ) ORDER BY `id` , `lastname` LIMIT ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	GREATER_THAN
+SQL_ID	45328bfb6352142e5e8d2f1f11e07b7f
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE ( `id` = ? AND ( ( `id` > - ? ) OR ( `id` > ? AND `lastname` = ? ) ) ) ORDER BY `id` , `lastname` LIMIT ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	ORDER_BY
+OPERATOR_TYPE	SORT_ASCENDING
+SQL_ID	45328bfb6352142e5e8d2f1f11e07b7f
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE ( `id` = ? AND ( ( `id` > - ? ) OR ( `id` > ? AND `lastname` = ? ) ) ) ORDER BY `id` , `lastname` LIMIT ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	lastname
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	EQUAL
+SQL_ID	45328bfb6352142e5e8d2f1f11e07b7f
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE ( `id` = ? AND ( ( `id` > - ? ) OR ( `id` > ? AND `lastname` = ? ) ) ) ORDER BY `id` , `lastname` LIMIT ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	lastname
+SQL_OPERATION	ORDER_BY
+OPERATOR_TYPE	SORT_ASCENDING
+SQL_ID	5897c0e4b2555c2743aa41b18d584fe9
+DIGEST_TEXT	SELECT `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `id` = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	EQUAL
+SQL_ID	5bff50944f2bafabec390ce06e1e087c
+DIGEST_TEXT	SELECT `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `id` BETWEEN ? AND ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	BETWEEN
+SQL_ID	71f20196b3ec2f51d904a62c1b068d1c
+DIGEST_TEXT	SELECT `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `id` >= ? AND `email` IS NOT NULL
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	email
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	NULL_CHECK
+SQL_ID	71f20196b3ec2f51d904a62c1b068d1c
+DIGEST_TEXT	SELECT `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `id` >= ? AND `email` IS NOT NULL
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	GREATER_THAN_EQUAL
+SQL_ID	91b1fb32f2a4ff496da2640c111e0647
+DIGEST_TEXT	SELECT `firstname` FROM `MyGuests` WHERE `email` LIKE ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	email
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	PATTERN_MATCH
+SQL_ID	9811e0344b70a16babadc8af299eda2e
+DIGEST_TEXT	SELECT `lastname` , `firstname` FROM `MyGuests` WHERE `email` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	email
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	SET_MEMBERSHIP
+SQL_ID	a38a088b510dd30c851f24dab7c220d3
+DIGEST_TEXT	SELECT `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `email` <=> ? AND `id` != ? AND `firstname` != ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	email
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	NULLSAFE_EQUAL
+SQL_ID	a38a088b510dd30c851f24dab7c220d3
+DIGEST_TEXT	SELECT `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `email` <=> ? AND `id` != ? AND `firstname` != ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	firstname
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	NOT_EQUAL
+SQL_ID	a38a088b510dd30c851f24dab7c220d3
+DIGEST_TEXT	SELECT `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `email` <=> ? AND `id` != ? AND `firstname` != ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	NOT_EQUAL
+SQL_ID	b0f95a83b64e36e35463650c474052ed
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE `id` IN (...) AND `lastname` = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	SET_MEMBERSHIP
+SQL_ID	b0f95a83b64e36e35463650c474052ed
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE `id` IN (...) AND `lastname` = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	lastname
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	EQUAL
+SQL_ID	c895c0487e611aa19f0fb2ad1a77022a
+DIGEST_TEXT	SELECT `id` , `firstname` , `lastname` , `email` FROM `MyGuests` WHERE `email` LIKE ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	email
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	PATTERN_MATCH
+SQL_ID	d97fde773bcf4c9929151e6261df6859
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE `id` NOT IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	SET_MEMBERSHIP
+SQL_ID	f0fbb32823813288ac2e27cc9344690e
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE `id` IN (...) OR `firstname` = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	firstname
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	EQUAL
+SQL_ID	f0fbb32823813288ac2e27cc9344690e
+DIGEST_TEXT	SELECT `firstname` , `email` FROM `MyGuests` WHERE `id` IN (...) OR `firstname` = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	MyGuests
+COLUMN_NAME	id
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	SET_MEMBERSHIP
 set global column_stats_control = OFF_HARD;
+SET @@global.performance_schema_esms_by_all = @start_value;
 DROP TABLE MyGuests;
 DROP DATABASE cus_test;

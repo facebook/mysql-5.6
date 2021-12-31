@@ -30,23 +30,53 @@ INSERT INTO tbl3 (col3_2, col3_3) VALUES (2, 83);
 INSERT INTO tbl3 (col3_2, col3_3) VALUES (3, 84);
 INSERT INTO tbl3 (col3_2, col3_3) VALUES (4, 85);
 set global column_stats_control = ON;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
 REPLACE INTO tbl1 (id, data, ts)
 SELECT id, data, ts
 FROM tbl2 WHERE data = 'New';
 REPLACE INTO tbl1 (id, data, ts)
 SELECT id, data, ts
 FROM tbl2 STRAIGHT_JOIN tbl3 ON tbl2.id = tbl3.col3_1 WHERE data = 'New';
+Number of distinct queries executed.
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 COUNT(DISTINCT SQL_ID)
 2
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics;
-SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
-28c83e434dbc18a0d73ab24acf050840	cus_test	tbl2	data	FILTER	EQUAL
-80622c192f790c3c4d19737955f5e7b0	cus_test	tbl2	data	FILTER	EQUAL
-80622c192f790c3c4d19737955f5e7b0	cus_test	tbl2	id	FILTER	EQUAL
-80622c192f790c3c4d19737955f5e7b0	cus_test	tbl3	col3_1	FILTER	EQUAL
+Unique column accesses per table instance per SQL_ID
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
+SQL_ID	28c83e434dbc18a0d73ab24acf050840
+DIGEST_TEXT	REPLACE INTO `tbl1` ( `id` , DATA , `ts` ) SELECT `id` , DATA , `ts` FROM `tbl2` WHERE DATA = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	data
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	EQUAL
+SQL_ID	80622c192f790c3c4d19737955f5e7b0
+DIGEST_TEXT	REPLACE INTO `tbl1` ( `id` , DATA , `ts` ) SELECT `id` , DATA , `ts` FROM `tbl2` STRAIGHT_JOIN `tbl3` ON `tbl2` . `id` = `tbl3` . `col3_1` WHERE DATA = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	data
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	EQUAL
+SQL_ID	80622c192f790c3c4d19737955f5e7b0
+DIGEST_TEXT	REPLACE INTO `tbl1` ( `id` , DATA , `ts` ) SELECT `id` , DATA , `ts` FROM `tbl2` STRAIGHT_JOIN `tbl3` ON `tbl2` . `id` = `tbl3` . `col3_1` WHERE DATA = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	id
+SQL_OPERATION	TABLE_JOIN
+OPERATOR_TYPE	EQUAL
+SQL_ID	80622c192f790c3c4d19737955f5e7b0
+DIGEST_TEXT	REPLACE INTO `tbl1` ( `id` , DATA , `ts` ) SELECT `id` , DATA , `ts` FROM `tbl2` STRAIGHT_JOIN `tbl3` ON `tbl2` . `id` = `tbl3` . `col3_1` WHERE DATA = ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl3
+COLUMN_NAME	col3_1
+SQL_OPERATION	TABLE_JOIN
+OPERATOR_TYPE	EQUAL
 set global column_stats_control = OFF_HARD;
+SET @@global.performance_schema_esms_by_all = @start_value;
 DROP TABLE tbl1;
 DROP TABLE tbl2;
 DROP DATABASE cus_test;
