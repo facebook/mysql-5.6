@@ -130,6 +130,31 @@ order by sql_id, code, query_text;
 connection default;
 set @@GLOBAL.mt_tables_access_control=0;
 
+##################################
+### Case 5: memory size limit test
+##################################
+--echo -> Case 5: memory size limit test
+
+connect (con51, localhost, user_super,su,test);
+set @@GLOBAL.max_sql_stats_size=1500;
+select @@max_sql_stats_size;
+
+connect (con52, localhost, user_super,su,test);
+
+create table t5(c1 char(2) PRIMARY KEY)
+ engine=myisam;
+--disable_warnings
+insert into t5 values('case5');
+--enable_warnings
+
+## report findings: no finding related to table t5
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+
+connection default;
+set @@GLOBAL.max_sql_stats_size=default;
+select @@max_sql_stats_size;
+
 ###########
 ### Cleanup
 ###########
@@ -142,6 +167,7 @@ set @@GLOBAL.sql_findings_control=DEFAULT;
 
 drop table t1;
 drop table t2;
+drop table t5;
 drop user user1@localhost;
 drop user user2@localhost;
 drop user user_super@localhost;
@@ -155,6 +181,9 @@ disconnect con31;
 
 disconnect con41;
 disconnect con42;
+
+disconnect con51;
+disconnect con52;
 
 # Check that all connections opened by test cases in this file are gone
 --source include/wait_until_count_sessions.inc

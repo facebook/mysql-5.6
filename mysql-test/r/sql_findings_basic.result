@@ -105,11 +105,36 @@ select sql_id, code, message, query_text, count from information_schema.sql_Find
 order by sql_id, code, query_text;
 ERROR 42000: Access denied; you need (at least one of) the PROCESS privilege(s) for this operation
 set @@GLOBAL.mt_tables_access_control=0;
+-> Case 5: memory size limit test
+set @@GLOBAL.max_sql_stats_size=1500;
+select @@max_sql_stats_size;
+@@max_sql_stats_size
+1500
+create table t5(c1 char(2) PRIMARY KEY)
+engine=myisam;
+insert into t5 values('case5');
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+26d79ac84a23fc12af52b90ef72eb512	1264	Out of range value for column 'c2' at row 1	insert into t1 values('momo', -1)	1
+26d79ac84a23fc12af52b90ef72eb512	1265	Data truncated for column 'c1' at row 1	insert into t1 values('momo', -1)	1
+30f0d42cb85af0a5f3c7c337c1b2ab4b	1265	Data truncated for column 'c1' at row 1	insert into t3 values('case3');	1
+7dfea1f0a58438ce30aeaba05f28df3d	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t3 where c1=1;	1
+84fd589b168fc0c8915e208cb569b995	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t1 where c1=1	1
+af70c54c4679332d51d576be8b0b27ee	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t2 where c1=2	1
+b5d74033813edd43b779ba064ef58e0e	1265	Data truncated for column 'c1' at row 1	insert into t2 values('zoro')	1
+e6cbaa6ddc8cf70b04e859d18bb3a81c	1227	Access denied; you need (at least one of) the PROCESS privilege(s) for this operation	select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text	1
+set @@GLOBAL.max_sql_stats_size=default;
+select @@max_sql_stats_size;
+@@max_sql_stats_size
+104857600
 -> Cleanup
 set @@GLOBAL.sql_stats_control=DEFAULT;
 set @@GLOBAL.sql_findings_control=DEFAULT;
 drop table t1;
 drop table t2;
+drop table t5;
 drop user user1@localhost;
 drop user user2@localhost;
 drop user user_super@localhost;
