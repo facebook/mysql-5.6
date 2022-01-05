@@ -23,7 +23,7 @@ SELECT * FROM information_schema.failure_injection_points;
 ####
 ## Set a correct value
 ####
-SET GLOBAL failure_injection_points = "DUMP_THREAD_CORRUPT_BINLOG_PAYLOAD,STALL_BINLOG_ROTATE=100";
+SET GLOBAL failure_injection_points = "DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM,STALL_BINLOG_ROTATE=100";
 SELECT * FROM information_schema.failure_injection_points ORDER BY failure_injection_point_name;
 
 ####
