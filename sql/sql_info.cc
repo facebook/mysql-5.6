@@ -393,6 +393,8 @@ static void populate_sql_findings(THD *thd, char *query_text,
       finding_vec.push_back(sql_find);
 
       sql_findings_size += sizeof(SQL_FINDING);
+      sql_findings_size += sql_find.message.size();
+      sql_findings_size += sql_find.query_text.size();
     } else {
       // Increment the count and update the time
       iter->count++;
