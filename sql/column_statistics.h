@@ -60,7 +60,27 @@ operator_type match_op(ORDER::enum_order direction);
     cui           out: ColumnUsageInfo
                        Base table information is populated in this structure.
 */
-void fetch_table_info(Item_field *field_arg, ColumnUsageInfo *cui);
+void fetch_table_info(Item_field *field_arg, ColumnUsageInfo &cui);
+
+/*
+  fill_column_usage_struct
+    Helper function to fill out the columnn usage information derived from
+    Item_field into the ColumnsUsageInfo struct.
+  Input:
+    sql_op        in: sql_operation
+                      The SQL operation FILTER, TABLE_JOIN etc.
+                      in which the field was used.
+    op_type       in: operator_type
+                      For eg. EQUAL, LESS_THAN etc.
+    field_arg     in:  Item_field
+                       The field argument to parse the column usage info
+                       struct from.
+    cui           out: ColumnUsageInfo
+                       Stucture representing column usage.
+*/
+bool fill_column_usage_struct(const sql_operation &sql_op,
+                              const operator_type &op_type,
+                              Item_field *field_arg, ColumnUsageInfo &cui);
 
 /*
   populate_field_info
@@ -71,6 +91,7 @@ void fetch_table_info(Item_field *field_arg, ColumnUsageInfo *cui);
                       The SQL operation FILTER, TABLE_JOIN etc.
                       in which the field was used.
     op_type       in: operator_type
+                      For eg. EQUAL, LESS_THAN etc.
     field_arg     in: Item_field
                       The field argument to parse the column usage info
                       struct from.
@@ -80,6 +101,27 @@ void fetch_table_info(Item_field *field_arg, ColumnUsageInfo *cui);
 void populate_field_info(
     const sql_operation& op, const operator_type& op_type,
     Item_field *field_arg, std::set<ColumnUsageInfo>& out_cus);
+
+/*
+  populate_fields_info
+    Helper to parse column usage information corresponding to all
+    function items in an atomic predicate (Item_func).
+  Input:
+    sql_op        in: sql_operation
+                      The SQL operation FILTER, TABLE_JOIN etc.
+                      in which the field was used.
+    op_type       in: operator_type
+                      For eg. EQUAL, LESS_THAN etc.
+    fields_arg    in: std::vector<Item_field *>
+                      The field arguments to parse the column usage info
+                      structs from.
+    out_cus       out: std::set<ColumnUsageInfo>
+                       Column usage information parsed from field_arg.
+*/
+void populate_fields_info(const sql_operation &sql_op,
+                          const operator_type &op_type,
+                          std::vector<Item_field *> &field_args,
+                          std::set<ColumnUsageInfo> &out_cus);
 
 /*
   parse_column_from_func_item

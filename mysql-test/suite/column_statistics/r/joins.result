@@ -85,14 +85,14 @@ SQL_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` , `tbl1` `t2`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
-SQL_OPERATION	FILTER
+SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
 SQL_ID	08217a8342df9fa78a1757ae7791f820
 SQL_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1` AND `t1` . `col1_2` > ? AND `t2` . `col1_2` > ? 
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
-SQL_OPERATION	FILTER
+SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
 SQL_ID	08217a8342df9fa78a1757ae7791f820
 SQL_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1` AND `t1` . `col1_2` > ? AND `t2` . `col1_2` > ? 
@@ -141,14 +141,14 @@ SQL_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` , `tbl1` `t2`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
-SQL_OPERATION	FILTER
+SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
 SQL_ID	6c2915f25e4b994b79d7c0aede2042ec
 SQL_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1` AND `t1` . `col1_2` > ? AND `t2` . `col1_2` <= ? 
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
-SQL_OPERATION	FILTER
+SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
 SQL_ID	6c2915f25e4b994b79d7c0aede2042ec
 SQL_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1` AND `t1` . `col1_2` > ? AND `t2` . `col1_2` <= ? 

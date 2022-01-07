@@ -158,17 +158,23 @@ operator_type match_op(ORDER::enum_order direction) {
   }
 }
 
-void fetch_table_info(Item_field *field_arg, ColumnUsageInfo *cui) {
+void fetch_table_info(Item_field *field_arg, ColumnUsageInfo &cui) {
   DBUG_ENTER("fetch_table_info");
   DBUG_ASSERT(field_arg);
-  DBUG_ASSERT(cui);
+
+  // Setting default values in case of derived / temp tables.
+  cui.table_name = "";
+  cui.table_instance = "";
 
   // `orig_table` and associated parameters maybe absent for
   // derived / temp tables.
   if (field_arg->field && field_arg->field->orig_table &&
       field_arg->field->orig_table->pos_in_table_list) {
     TABLE_LIST *tl = field_arg->field->orig_table->pos_in_table_list;
-    cui->table_name = tl->get_table_name();
+    const char* tn = tl->get_table_name();
+    if (tn) {
+      cui.table_name = tn;
+    }
 
     // Table instance in column statistics is just a string representation
     // of the TABLE_LIST object corresponding to the table instance. We could
@@ -177,36 +183,37 @@ void fetch_table_info(Item_field *field_arg, ColumnUsageInfo *cui) {
     // sql_id, table_schema, table_name, table_instance
     std::stringstream tl_addr;
     tl_addr << (void const *)tl;
-    cui->table_instance = tl_addr.str();
+    cui.table_instance = tl_addr.str();
   }
 
   DBUG_VOID_RETURN;
 }
 
-void populate_field_info(
-    const sql_operation& op, const operator_type& op_type,
-    Item_field *field_arg, std::set<ColumnUsageInfo>& out_cus)
-{
-  // This is a helper to parse column usage information for one Item_field.
-  // It relies on the prepare stage to resolve column names to their respective
-  // tables and database. Derived and temporary tables do NOT have db_name.
-
-  DBUG_ENTER("populate_field_info");
+bool fill_column_usage_struct(const sql_operation &op,
+                              const operator_type &op_type,
+                              Item_field *field_arg, ColumnUsageInfo &cui) {
+  // Helper function to fill out the column usage information for one
+  // Item_field object. Returns true if successfully resolved, false otherwise.
+  DBUG_ENTER("fill_column_usage_struct");
   DBUG_ASSERT(field_arg);
 
   // We do not populate column usage information if we weren't able to resolve
   // the table_schema (database). This is particularly true for derived tables
   // where indexing cannot help.
   std::string db_name = (field_arg->db_name) ? field_arg->db_name : "";
+
+  // It is essential that we have the table_instance populated because we
+  // rely on in when distinguishing between predicates on the same table
+  // instance versus different instances.
+  fetch_table_info(field_arg, cui);
+
   if (db_name == "") {
-    DBUG_VOID_RETURN;
+    DBUG_RETURN(false);
   }
 
-  ColumnUsageInfo cui;
   cui.sql_op = op;
   cui.op_type = op_type;
   cui.table_schema = db_name;
-  fetch_table_info(field_arg, &cui);
   cui.column_name = (field_arg->field_name) ? field_arg->field_name : "";
 
   // This condition should never trigger because for non-base tables, db_name
@@ -214,10 +221,89 @@ void populate_field_info(
   // certain.
   if (cui.table_name == "") {
     DBUG_ASSERT(false);
+    DBUG_RETURN(false);
+  }
+
+  DBUG_RETURN(true);
+}
+
+void populate_field_info(const sql_operation &op, const operator_type &op_type,
+                         Item_field *field_arg,
+                         std::set<ColumnUsageInfo> &out_cus) {
+  // This is a helper to parse column usage information for one Item_field.
+  // It relies on the prepare stage to resolve column names to their respective
+  // tables and database. Derived and temporary tables do NOT have db_name.
+
+  DBUG_ENTER("populate_field_info");
+  DBUG_ASSERT(field_arg);
+
+  ColumnUsageInfo cui;
+  if (fill_column_usage_struct(op, op_type, field_arg, cui)) {
+    out_cus.insert(cui);
+  }
+
+  DBUG_VOID_RETURN;
+}
+
+void populate_fields_info(const sql_operation &op, const operator_type &op_type,
+                          std::vector<Item_field *> &field_args,
+                          std::set<ColumnUsageInfo> &out_cus) {
+  // This is a helper to parse column usage information for Item_field objects
+  // from the same functional item. This comes in handy when we want to detect
+  // joins and predicates where indexing would NOT help in actually filtering
+  // out a subset of the rows.
+  // For eg. SELECT col1 FROM tbl1 WHERE col1 = col2;
+  // It relies on the prepare stage to resolve column names to their respective
+  // tables and database. Derived and temporary tables do NOT have db_name.
+
+  DBUG_ENTER("populate_fields_info");
+
+  if (field_args.empty()) {
+    DBUG_VOID_RETURN;
+  } else if (field_args.size() == 1) {
+    populate_field_info(op, op_type, field_args[0], out_cus);
     DBUG_VOID_RETURN;
   }
 
-  out_cus.insert(cui);
+  std::vector<ColumnUsageInfo> cuis;
+  std::set<std::string> table_instances;
+  for (uint32_t idx = 0; idx < field_args.size(); idx++) {
+    ColumnUsageInfo cui;
+    if (fill_column_usage_struct(op, op_type, field_args[idx], cui)) {
+      cuis.push_back(cui);
+    }
+
+    // We populate table instance regardless of whether it's empty or not.
+    // This is done because joins can happen between base tables and derived /
+    // temp tables for which there would be no valid ColumnUsageInfo but
+    // table_instance can be used to determine if a predicate corresponds to a
+    // join or just an expression containing multiple columns of the same table
+    // instance.
+    table_instances.insert(cui.table_instance);
+  }
+
+  // Override SQL operation when multiple table instances are detected.
+  // This is true in the case of multi-table joins and self joins.
+  // JOIN: SELECT ... FROM tbl1, tbl2 WHERE tbl1.col1 = tbl2.col2 ...
+  // Self Join: SELECT ... FROM tbl1 t1, tbl1 t2 WHERE t1.col1 = t2.col2 AND...
+  if (table_instances.size() > 1) {
+    for (ColumnUsageInfo &cui : cuis) {
+      cui.sql_op = sql_operation::TABLE_JOIN;
+    }
+  }
+  // TODO(ritwikyadav): Handle cases where the predicate is on two columns of
+  // the same table instance when adding support for covering indexes with
+  // projections.
+  // For eg. SELECT col1 FROM tbl1 WHERE col1 = col2
+  // We return in this case because adding an index on either col1 or col2
+  // not help with the filtration. It might be beneficial to add a covering
+  // index on (col1, col2) though. Therefore, it would be covered when adding
+  // support for projection list.
+  if (table_instances.size() == 1) {
+    DBUG_VOID_RETURN;
+  }
+
+  out_cus.insert(cuis.begin(), cuis.end());
 
   DBUG_VOID_RETURN;
 }
@@ -260,13 +346,15 @@ int parse_column_from_func_item(
       const auto args = fitem->arguments();
 
       // Populating ColumnUsageInfo structs
+      std::vector<Item_field *> field_args;
       for (uint i = 0; i < fitem->argument_count(); i++) {
         if (args[i]->type() == Item::FIELD_ITEM)
         {
           Item_field *field_arg = static_cast<Item_field *>(args[i]);
-          populate_field_info(op, match_op(type), field_arg, out_cus);
+          field_args.push_back(field_arg);
         }
       }
+      populate_fields_info(op, match_op(type), field_args, out_cus);
 
       break;
     }
