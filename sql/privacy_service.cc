@@ -41,7 +41,7 @@ bool get_column_ref_info(Item *item, Column_ref_info &column_ref_info) {
   if (item->type() == Item::FIELD_ITEM) {
     Item_field *item_field = (Item_field *)item;
     ColumnUsageInfo cui;
-    fetch_table_info(item_field, &cui);
+    fetch_table_info(item_field, cui);
     column_ref_info.m_column_name =
         (item_field->field_name) ? item_field->field_name : "";
     column_ref_info.m_table_name = cui.table_name;

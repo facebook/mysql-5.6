@@ -9,23 +9,16 @@ USE cus_test;
 CREATE TABLE tbl1 (
   col1_1 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   col1_2 INT NOT NULL,
-  col1_3 INT NOT NULL,
+  col1_3 INT DEFAULT NULL,
   col1_4 INT NOT NULL);
 
 INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (2, 3, 4);
-INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (3, 4, 5);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (3, NULL, 5);
 INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (4, 5, 6);
 
-CREATE TABLE tbl2 (col2_1 INT NOT NULL, col2_2 INT NOT NULL);
-
-CREATE TABLE tbl3 (
-  col1_1 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  col1_2 INT NOT NULL,
-  col3_3 INT NOT NULL);
-
-INSERT INTO tbl3 (col1_2, col3_3) VALUES (2, 83);
-INSERT INTO tbl3 (col1_2, col3_3) VALUES (3, 84);
-INSERT INTO tbl3 (col1_2, col3_3) VALUES (4, 85);
+CREATE TABLE tbl2 (col2_1 INT NOT NULL, col2_2 INT DEFAULT NULL);
+INSERT INTO tbl2 (col2_1, col2_2) VALUES (2, 3);
+INSERT INTO tbl2 (col2_1, col2_2) VALUES (5, NULL);
 
 set global column_stats_control = ON;
 
@@ -36,26 +29,23 @@ SET @@global.performance_schema_esms_by_all = ON;
 
 # Executing queries that would populate column_statistics
 
-INSERT INTO tbl2 (col2_1, col2_2)
-  SELECT col1_3, col1_4
-  FROM tbl1 WHERE col1_2 <= 100 AND col1_3 IN (1, 2, 3, 4, 5, 6);
+--echo 4 combinations with outer expression and inner expression being NULL & NOT NULL
 
-INSERT INTO tbl2 (col2_1, col2_2)
-  SELECT col1_3, col3_3
-  FROM tbl1 INNER JOIN tbl3 USING (col1_1) WHERE tbl1.col1_2 <= 100;
+SELECT col1_1, col1_2 FROM tbl1 WHERE col1_3 IN (SELECT col2_2 FROM tbl2 WHERE col2_1 <> -1);
+SELECT col1_1, col1_2 FROM tbl1 WHERE col1_3 IN (SELECT col2_1 FROM tbl2 WHERE col2_2 > -1);
+SELECT col1_1, col1_2 FROM tbl1 WHERE col1_4 IN (SELECT col2_2 FROM tbl2 WHERE col2_1 <> -1);
+SELECT col1_1, col1_2 FROM tbl1 WHERE col1_4 IN (SELECT col2_1 FROM tbl2 WHERE col2_2 > -1);
 
 # Verification of stats accumulated
 
---echo Number of distinct queries executed.
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 
 --vertical_results
---echo Unique column accesses per table instance per SQL_ID
-
 SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
-WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND  cs.SQL_ID = st.DIGEST
 ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
+
 
 set global column_stats_control = OFF_HARD;
 
@@ -64,5 +54,4 @@ SET @@global.performance_schema_esms_by_all = @start_value;
 
 DROP TABLE tbl1;
 DROP TABLE tbl2;
-DROP TABLE tbl3;
 DROP DATABASE cus_test;

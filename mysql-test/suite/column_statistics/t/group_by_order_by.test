@@ -20,6 +20,11 @@ INSERT INTO tbl1 (col2, col3, col4) VALUES (4,5,6);
 
 SET GLOBAL column_stats_control = ON;
 
+# performance_schema_esms_by_all is OFF by default.
+# enable it to populate performance_schema.events_statements_summary_by_all
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+
 # Testing GROUP BY
 
 SELECT col1, col3, SUM(col2) AS s FROM tbl1 WHERE col2 >= 3 GROUP BY col1, col3;
@@ -35,13 +40,21 @@ SELECT col1, col2 FROM tbl1 WHERE col4 > 1 AND col3 IN (1,2,3) ORDER BY col1 ASC
 
 # Verification of stats accumulated
 
+--echo Number of distinct queries executed.
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 
-SORTED_RESULT;
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics;
+--vertical_results
+--echo Unique column accesses per table instance per SQL_ID
+
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
 
 set global column_stats_control = OFF_HARD;
+
+# set performance_schema_esms_by_all to original value
+SET @@global.performance_schema_esms_by_all = @start_value;
 
 DROP TABLE tbl1;
 DROP DATABASE cus_test;

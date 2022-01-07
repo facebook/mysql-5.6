@@ -20,24 +20,60 @@ INSERT INTO tbl3 (col1_2, col3_3) VALUES (2, 83);
 INSERT INTO tbl3 (col1_2, col3_3) VALUES (3, 84);
 INSERT INTO tbl3 (col1_2, col3_3) VALUES (4, 85);
 set global column_stats_control = ON;
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
 INSERT INTO tbl2 (col2_1, col2_2)
 SELECT col1_3, col1_4
 FROM tbl1 WHERE col1_2 <= 100 AND col1_3 IN (1, 2, 3, 4, 5, 6);
 INSERT INTO tbl2 (col2_1, col2_2)
 SELECT col1_3, col3_3
 FROM tbl1 INNER JOIN tbl3 USING (col1_1) WHERE tbl1.col1_2 <= 100;
+Number of distinct queries executed.
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 COUNT(DISTINCT SQL_ID)
 2
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics;
-SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
-25e9d216b486167e852dff03595b6480	cus_test	tbl1	col1_1	FILTER	EQUAL
-25e9d216b486167e852dff03595b6480	cus_test	tbl1	col1_2	FILTER	LESS_THAN_EQUAL
-25e9d216b486167e852dff03595b6480	cus_test	tbl3	col1_1	FILTER	EQUAL
-dbe546cd4134df274c88406fe87b6130	cus_test	tbl1	col1_2	FILTER	LESS_THAN_EQUAL
-dbe546cd4134df274c88406fe87b6130	cus_test	tbl1	col1_3	FILTER	SET_MEMBERSHIP
+Unique column accesses per table instance per SQL_ID
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
+SQL_ID	25e9d216b486167e852dff03595b6480
+DIGEST_TEXT	INSERT INTO `tbl2` ( `col2_1` , `col2_2` ) SELECT `col1_3` , `col3_3` FROM `tbl1` INNER JOIN `tbl3` USING ( `col1_1` ) WHERE `tbl1` . `col1_2` <= ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
+SQL_OPERATION	TABLE_JOIN
+OPERATOR_TYPE	EQUAL
+SQL_ID	25e9d216b486167e852dff03595b6480
+DIGEST_TEXT	INSERT INTO `tbl2` ( `col2_1` , `col2_2` ) SELECT `col1_3` , `col3_3` FROM `tbl1` INNER JOIN `tbl3` USING ( `col1_1` ) WHERE `tbl1` . `col1_2` <= ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_2
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	LESS_THAN_EQUAL
+SQL_ID	25e9d216b486167e852dff03595b6480
+DIGEST_TEXT	INSERT INTO `tbl2` ( `col2_1` , `col2_2` ) SELECT `col1_3` , `col3_3` FROM `tbl1` INNER JOIN `tbl3` USING ( `col1_1` ) WHERE `tbl1` . `col1_2` <= ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl3
+COLUMN_NAME	col1_1
+SQL_OPERATION	TABLE_JOIN
+OPERATOR_TYPE	EQUAL
+SQL_ID	dbe546cd4134df274c88406fe87b6130
+DIGEST_TEXT	INSERT INTO `tbl2` ( `col2_1` , `col2_2` ) SELECT `col1_3` , `col1_4` FROM `tbl1` WHERE `col1_2` <= ? AND `col1_3` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_2
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	LESS_THAN_EQUAL
+SQL_ID	dbe546cd4134df274c88406fe87b6130
+DIGEST_TEXT	INSERT INTO `tbl2` ( `col2_1` , `col2_2` ) SELECT `col1_3` , `col1_4` FROM `tbl1` WHERE `col1_2` <= ? AND `col1_3` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_3
+SQL_OPERATION	FILTER
+OPERATOR_TYPE	SET_MEMBERSHIP
 set global column_stats_control = OFF_HARD;
+SET @@global.performance_schema_esms_by_all = @start_value;
 DROP TABLE tbl1;
 DROP TABLE tbl2;
 DROP TABLE tbl3;
