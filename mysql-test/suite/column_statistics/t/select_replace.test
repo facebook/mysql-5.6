@@ -36,6 +36,11 @@ INSERT INTO tbl3 (col3_2, col3_3) VALUES (4, 85);
 
 set global column_stats_control = ON;
 
+# performance_schema_esms_by_all is OFF by default.
+# enable it to populate performance_schema.events_statements_summary_by_all
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+
 # Executing queries that would populate column_statistics
 
 REPLACE INTO tbl1 (id, data, ts)
@@ -48,13 +53,21 @@ REPLACE INTO tbl1 (id, data, ts)
 
 # Verification of stats accumulated
 
+--echo Number of distinct queries executed.
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 
-SORTED_RESULT;
-SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
-FROM performance_schema.column_statistics;
+--vertical_results
+--echo Unique column accesses per table instance per SQL_ID
+
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
 
 set global column_stats_control = OFF_HARD;
+
+# set performance_schema_esms_by_all to original value
+SET @@global.performance_schema_esms_by_all = @start_value;
 
 DROP TABLE tbl1;
 DROP TABLE tbl2;
