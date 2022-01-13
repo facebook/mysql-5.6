@@ -4433,12 +4433,6 @@ static int cli_establish_ssl(MYSQL *mysql) {
         mysql->client_flag & CLIENT_SSL_VERIFY_SERVER_CERT;
 
     /* check if server supports compression else turn off client capability */
-    if (!(mysql->server_capabilities &
-          CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM))
-      mysql->client_flag &= ~CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM;
-    if (!(mysql->server_capabilities &
-          CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM))
-      mysql->client_flag &= ~CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM;
     if (!(mysql->server_capabilities & CLIENT_ZSTD_COMPRESSION_ALGORITHM))
       mysql->client_flag &= ~CLIENT_ZSTD_COMPRESSION_ALGORITHM;
     if (!(mysql->server_capabilities & CLIENT_COMPRESS))
@@ -5071,11 +5065,9 @@ static bool prep_client_reply_packet(MCPVIO_EXT *mpvio, const uchar *data,
           : 0;
   unsigned int compress_level = 0;
   bool server_zstd =
-      (mysql->server_capabilities & CLIENT_ZSTD_COMPRESSION_ALGORITHM) ||
-      (mysql->server_capabilities & CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM);
+      mysql->server_capabilities & CLIENT_ZSTD_COMPRESSION_ALGORITHM;
   bool client_zstd =
-      (mysql->options.client_flag & CLIENT_ZSTD_COMPRESSION_ALGORITHM) ||
-      (mysql->options.client_flag & CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM);
+      mysql->options.client_flag & CLIENT_ZSTD_COMPRESSION_ALGORITHM;
 
   /* validate compression configuration */
   ENSURE_EXTENSIONS_PRESENT(&mysql->options);
@@ -5105,19 +5097,13 @@ static bool prep_client_reply_packet(MCPVIO_EXT *mpvio, const uchar *data,
     mysql->client_flag &= ~CLIENT_COMPRESS;
   if (!(mysql->server_capabilities & CLIENT_ZSTD_COMPRESSION_ALGORITHM))
     mysql->client_flag &= ~CLIENT_ZSTD_COMPRESSION_ALGORITHM;
-  if (!(mysql->server_capabilities & CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM))
-    mysql->client_flag &= ~CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM;
-  if (!(mysql->server_capabilities & CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM))
-    mysql->client_flag &= ~CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM;
 
   /*
    If the server does not support any compression, then remove the
    compression_lib connection attribute.
   */
   if (!(mysql->server_capabilities &
-        (CLIENT_COMPRESS | CLIENT_ZSTD_COMPRESSION_ALGORITHM |
-         CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM |
-         CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM))) {
+        (CLIENT_COMPRESS | CLIENT_ZSTD_COMPRESSION_ALGORITHM))) {
     mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_DELETE, "compression_lib");
   }
 
@@ -5129,8 +5115,6 @@ static bool prep_client_reply_packet(MCPVIO_EXT *mpvio, const uchar *data,
 
   if (!(mysql->client_flag & CLIENT_COMPRESS) &&
       !(mysql->client_flag & CLIENT_ZSTD_COMPRESSION_ALGORITHM) &&
-      !(mysql->client_flag & CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM) &&
-      !(mysql->client_flag & CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM) &&
       mysql->options.extension->connection_compressed) {
     set_mysql_error(mysql, CR_COMPRESSION_WRONGLY_CONFIGURED, unknown_sqlstate);
     return true;
@@ -7121,8 +7105,6 @@ static mysql_state_machine_status csm_prep_select_database(
 
   if ((mysql->client_flag & CLIENT_COMPRESS) ||
       (mysql->client_flag & CLIENT_ZSTD_COMPRESSION_ALGORITHM) ||
-      (mysql->client_flag & CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM) ||
-      (mysql->client_flag & CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM) ||
       (compression_lib_algorithm != enum_compression_algorithm::MYSQL_INVALID &&
        compression_lib_algorithm !=
            enum_compression_algorithm::MYSQL_UNCOMPRESSED)) {
@@ -7130,10 +7112,6 @@ static mysql_state_machine_status csm_prep_select_database(
     uint compress_level;
     enum enum_compression_algorithm algorithm =
         mysql->client_flag & CLIENT_COMPRESS ? MYSQL_ZLIB : MYSQL_ZSTD;
-    if (mysql->client_flag & CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM)
-      algorithm = MYSQL_ZSTD_STREAM;
-    if (mysql->client_flag & CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM)
-      algorithm = MYSQL_LZ4F_STREAM;
 
     if (mysql->options.extension &&
         mysql->options.extension->zstd_compression_level)
@@ -8901,12 +8879,11 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
       ENSURE_EXTENSIONS_PRESENT(&mysql->options);
       mysql->options.extension->connection_compressed = true;
       mysql->options.client_flag &=
-          ~(CLIENT_COMPRESS | CLIENT_ZSTD_COMPRESSION_ALGORITHM |
-            CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM |
-            CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM);
+          ~(CLIENT_COMPRESS | CLIENT_ZSTD_COMPRESSION_ALGORITHM);
       mysql->options.compress = false;
       auto it = list.begin();
       unsigned int cnt = 0;
+      unsigned int add_client_flag = 0;
       while (it != list.end() && cnt < COMPRESSION_ALGORITHM_COUNT_MAX) {
         std::string value = *it;
         switch (get_compression_algorithm(value)) {
@@ -8919,13 +8896,13 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
             mysql->options.compress = true;
             break;
           case enum_compression_algorithm::MYSQL_ZSTD_STREAM:
-            mysql->options.client_flag |=
-                CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM;
+            add_client_flag |=
+                (1 << enum_compression_algorithm::MYSQL_ZSTD_STREAM);
             mysql->options.compress = true;
             break;
           case enum_compression_algorithm::MYSQL_LZ4F_STREAM:
-            mysql->options.client_flag |=
-                CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM;
+            add_client_flag |=
+                (1 << enum_compression_algorithm::MYSQL_LZ4F_STREAM);
             mysql->options.compress = true;
             break;
           case enum_compression_algorithm::MYSQL_UNCOMPRESSED:
@@ -8956,11 +8933,11 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
           } else if (mysql->options.client_flag &
                      CLIENT_ZSTD_COMPRESSION_ALGORITHM) {
             lib_name = "zstd";
-          } else if (mysql->options.client_flag &
-                     CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM) {
+          } else if (add_client_flag &
+                     (1 << enum_compression_algorithm::MYSQL_ZSTD_STREAM)) {
             lib_name = "zstd_stream";
-          } else if (mysql->options.client_flag &
-                     CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM) {
+          } else if (add_client_flag &
+                     (1 << enum_compression_algorithm::MYSQL_LZ4F_STREAM)) {
             lib_name = "lz4f_stream";
           }
           mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD, "compression_lib",
@@ -8971,9 +8948,7 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
           // to be set to negotiate for compression correctly.
           // 8.0.20 servers examines all of the compression flags.
           if (!(mysql->server_capabilities &
-                (CLIENT_ZSTD_COMPRESSION_ALGORITHM |
-                 CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM |
-                 CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM))) {
+                (CLIENT_ZSTD_COMPRESSION_ALGORITHM))) {
             mysql->options.client_flag |= CLIENT_COMPRESS;
           }
         }

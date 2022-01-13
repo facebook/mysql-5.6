@@ -4,8 +4,8 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 set @save_comp_lib = @@global.slave_compression_lib;
-set @save_slave_compress = @@global.slave_compressed_protocol;
-set global slave_compressed_protocol=on;
+set @save_slave_compress = @@global.replica_compressed_protocol;
+set global replica_compressed_protocol=on;
 include/stop_slave_io.inc
 include/start_slave_io.inc
 CREATE TABLE t1(c VARCHAR(1000));
@@ -42,5 +42,5 @@ compression_changed
 drop table t1;
 drop table t2;
 set @@global.slave_compression_lib = @save_comp_lib;
-set @@global.slave_compressed_protocol = @save_slave_compress;
+set @@global.replica_compressed_protocol = @save_slave_compress;
 include/rpl_end.inc

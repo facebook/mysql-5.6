@@ -1558,10 +1558,6 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
     /* turn off the capability flag as the global variable might have changed */
     protocol->remove_client_capability(CLIENT_COMPRESS);
     protocol->remove_client_capability(CLIENT_ZSTD_COMPRESSION_ALGORITHM);
-    protocol->remove_client_capability(
-        CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM);
-    protocol->remove_client_capability(
-        CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM);
     std::vector<std::string> list;
     parse_compression_algorithms_list(opt_protocol_compression_algorithms,
                                       list);
@@ -1574,14 +1570,24 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
       switch (get_compression_algorithm(value)) {
         case enum_compression_algorithm::MYSQL_ZSTD:
           protocol->add_client_capability(CLIENT_ZSTD_COMPRESSION_ALGORITHM);
-          break;
+          [[fallthrough]];
         case enum_compression_algorithm::MYSQL_ZSTD_STREAM:
-          protocol->add_client_capability(
-              CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM);
-          break;
         case enum_compression_algorithm::MYSQL_LZ4F_STREAM:
-          protocol->add_client_capability(
-              CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM);
+          // 8.0.20 has changed CLIENT_COMPRESS to mean zlib compression.
+          // However, earlier versions of FB mysql uses CLIENT_COMPRESS to
+          // indicate support for any type of compression.
+          //
+          // To maintain backwards compatibility here, if we are advertising
+          // any type of compression support, we also set the CLIENT_COMPRESS
+          // bit. For clients not using compression_lib connection attribute to
+          // request compression type, this means that zlib is automatically
+          // available, despite not being in the
+          // opt_protocol_compression_algorithms setting.
+          //
+          // Any client connecting to this server (mostly likely secondaries
+          // running 8.0.17 or 5.6.35) will need to see the CLIENT_COMPRESS bit
+          // is set in order to negotiate using compression correctly.
+          protocol->add_client_capability(CLIENT_COMPRESS);
           break;
         case enum_compression_algorithm::MYSQL_ZLIB:
           protocol->add_client_capability(CLIENT_COMPRESS);
@@ -1594,28 +1600,6 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
           break;
       }
       it++;
-    }
-
-    // 8.0.20 has changed CLIENT_COMPRESS to mean zlib compression.
-    // However, earlier versions of FB mysql uses CLIENT_COMPRESS to
-    // indicate support for any type of compression.
-    //
-    // To maintain backwards compatibility here, if we are advertising
-    // any type of compression support, we also set the CLIENT_COMPRESS bit.
-    // For clients not using compression_lib connection attribute
-    // to request compression type, this means that zlib is automatically
-    // available, despite not being in the opt_protocol_compressio_algorithms
-    // setting.
-    //
-    // Any client connecting to this server (mostly likely secondaries running
-    // 8.0.17 or 5.6.35) will need to see the CLIENT_COMPRESS bit is set
-    // in order to negotiate using compression correctly.
-    if (protocol->has_client_capability(CLIENT_ZSTD_COMPRESSION_ALGORITHM) ||
-        protocol->has_client_capability(
-            CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM) ||
-        protocol->has_client_capability(
-            CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM)) {
-      protocol->add_client_capability(CLIENT_COMPRESS);
     }
   }
 
@@ -2794,10 +2778,6 @@ static size_t parse_client_handshake_packet(THD *thd, MPVIO_EXT *mpvio,
       protocol->has_client_capability(CLIENT_COMPRESS);
   bool is_server_supports_zstd =
       protocol->has_client_capability(CLIENT_ZSTD_COMPRESSION_ALGORITHM);
-  bool is_server_supports_zstd_stream =
-      protocol->has_client_capability(CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM);
-  bool is_server_supports_lz4f_stream =
-      protocol->has_client_capability(CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM);
   assert(mpvio->status == MPVIO_EXT::FAILURE);
 
   uint charset_code = 0;
@@ -3078,10 +3058,6 @@ skip_to_ssl:
       protocol->has_client_capability(CLIENT_COMPRESS);
   bool is_client_supports_zstd =
       protocol->has_client_capability(CLIENT_ZSTD_COMPRESSION_ALGORITHM);
-  bool is_client_supports_zstd_stream =
-      protocol->has_client_capability(CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM);
-  bool is_client_supports_lz4f_stream =
-      protocol->has_client_capability(CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM);
 
   // FB: For backwards compatibility to 8.0.17 and 5.6.35, if
   // the compression_lib connection attribute is specified,
@@ -3091,6 +3067,7 @@ skip_to_ssl:
   if (compression_lib_algorithm != enum_compression_algorithm::MYSQL_INVALID &&
       compression_lib_algorithm !=
           enum_compression_algorithm::MYSQL_UNCOMPRESSED) {
+    bool is_client_supports_zstd_stream = false;
     switch (compression_lib_algorithm) {
       case enum_compression_algorithm::MYSQL_ZSTD:
         strcpy(compression->compress_algorithm, COMPRESSION_ALGORITHM_ZSTD);
@@ -3101,15 +3078,12 @@ skip_to_ssl:
         strcpy(compression->compress_algorithm,
                COMPRESSION_ALGORITHM_ZSTD_STREAM);
         compression->compress_level = zstd_net_compression_level;
-        protocol->add_client_capability(
-            CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM);
+        is_client_supports_zstd_stream = true;
         break;
       case enum_compression_algorithm::MYSQL_LZ4F_STREAM:
         strcpy(compression->compress_algorithm,
                COMPRESSION_ALGORITHM_LZ4F_STREAM);
         compression->compress_level = lz4f_net_compression_level;
-        protocol->add_client_capability(
-            CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM);
         break;
       case enum_compression_algorithm::MYSQL_ZLIB:
       default:
@@ -3120,7 +3094,7 @@ skip_to_ssl:
     }
     /* Consume the compression_level bit if zstd is specified */
     if ((is_client_supports_zstd && is_server_supports_zstd) ||
-        (is_client_supports_zstd_stream && is_server_supports_zstd_stream)) {
+        (is_client_supports_zstd_stream)) {
       end += 1;
       bytes_remaining_in_packet -= 1;
     }
@@ -3131,13 +3105,8 @@ skip_to_ssl:
       set default compression level
     */
     compression->compress_level = 6;
-  } else if ((is_client_supports_zstd && is_server_supports_zstd) ||
-             (is_client_supports_zstd_stream &&
-              is_server_supports_zstd_stream)) {
-    strcpy(compression->compress_algorithm,
-           (is_client_supports_zstd && is_server_supports_zstd)
-               ? COMPRESSION_ALGORITHM_ZSTD
-               : COMPRESSION_ALGORITHM_ZSTD_STREAM);
+  } else if (is_client_supports_zstd && is_server_supports_zstd) {
+    strcpy(compression->compress_algorithm, COMPRESSION_ALGORITHM_ZSTD);
     compression->compress_level = (uint) * (end);
     end += 1;
     bytes_remaining_in_packet -= 1;
@@ -3147,9 +3116,6 @@ skip_to_ssl:
       mpvio->status = MPVIO_EXT::FAILURE;
       return CR_COMPRESSION_WRONGLY_CONFIGURED;
     }
-  } else if (is_client_supports_lz4f_stream && is_server_supports_lz4f_stream) {
-    strcpy(compression->compress_algorithm, COMPRESSION_ALGORITHM_LZ4F_STREAM);
-    compression->compress_level = 0;
   } else if (!compression->compression_optional) {
     /*
       if server is configured to only allow connections with compression enabled

@@ -457,6 +457,7 @@
   net_send_ok(), net_send_eof()
 */
 #define CLIENT_TRANSACTIONS 8192
+#define CLIENT_RESERVED 16384
 #define CLIENT_RESERVED2                                 \
   32768 /**< DEPRECATED: Old flag for 4.1 authentication \
            CLIENT_SECURE_CONNECTION */
@@ -708,9 +709,6 @@
 
 */
 #define CLIENT_ZSTD_COMPRESSION_ALGORITHM (1UL << 26)
-#define CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM 16384
-/** former CLIENT_RESERVED   */
-#define CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM (1UL << 28)
 
 /**
   Support optional extension for query parameters into the @ref
@@ -781,9 +779,7 @@
    CLIENT_CONNECT_WITH_DB | CLIENT_NO_SCHEMA | CLIENT_COMPRESS | CLIENT_ODBC | \
    CLIENT_LOCAL_FILES | CLIENT_IGNORE_SPACE | CLIENT_PROTOCOL_41 |             \
    CLIENT_INTERACTIVE | CLIENT_SSL | CLIENT_IGNORE_SIGPIPE |                   \
-   CLIENT_TRANSACTIONS | CLIENT_RESERVED2 |                                    \
-   CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM |                                  \
-   CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM | CLIENT_MULTI_STATEMENTS |        \
+   CLIENT_TRANSACTIONS | CLIENT_RESERVED2 | CLIENT_MULTI_STATEMENTS |          \
    CLIENT_MULTI_RESULTS | CLIENT_PS_MULTI_RESULTS |                            \
    CLIENT_SSL_VERIFY_SERVER_CERT | CLIENT_REMEMBER_OPTIONS |                   \
    CLIENT_PLUGIN_AUTH | CLIENT_CONNECT_ATTRS |                                 \
@@ -802,9 +798,7 @@
 #define CLIENT_BASIC_FLAGS                                          \
   (CLIENT_ALL_FLAGS &                                               \
    ~(CLIENT_SSL | CLIENT_COMPRESS | CLIENT_SSL_VERIFY_SERVER_CERT | \
-     CLIENT_ZSTD_COMPRESSION_ALGORITHM |                            \
-     CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM |                     \
-     CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM))
+     CLIENT_ZSTD_COMPRESSION_ALGORITHM))
 
 /** The status flags are a bit-field */
 enum SERVER_STATUS_flags_enum {
