@@ -7781,7 +7781,7 @@ sub run_ctest() {
   }
   my $old_ld_preload = $ENV{'LD_PRELOAD'};
   if ($opt_ctest_preload) {
-    $ENV{'LD_PRELOAD'} = $ENV{'LD_PRELOAD'} . ":$opt_ctest_preload";
+    $ENV{'LD_PRELOAD'} = env_or_val('LD_PRELOAD' => '') . ":$opt_ctest_preload";
   }
 
   # Request Valgrind for unit tests if former was requested for other tests.
