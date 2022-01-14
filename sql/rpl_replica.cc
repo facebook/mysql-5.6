@@ -3895,25 +3895,31 @@ static int register_slave_on_master(MYSQL *mysql, Master_info *mi,
 
 static void show_slave_status_metadata(mem_root_deque<Item *> *field_list,
                                        int io_gtid_set_size,
-                                       int sql_gtid_set_size) {
-  field_list->push_back(new Item_empty_string("Replica_IO_State", 14));
+                                       int sql_gtid_set_size, bool deprecated) {
   field_list->push_back(
-      new Item_empty_string("Source_Host", HOSTNAME_LENGTH + 1));
-  field_list->push_back(
-      new Item_empty_string("Source_User", USERNAME_LENGTH + 1));
-  field_list->push_back(new Item_return_int("Source_Port", 7, MYSQL_TYPE_LONG));
+      new Item_empty_string(GET_REPLICA_NAME(deprecated, "_IO_State"), 14));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_Host"), HOSTNAME_LENGTH + 1));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_User"), USERNAME_LENGTH + 1));
+  field_list->push_back(new Item_return_int(
+      GET_SOURCE_NAME(deprecated, "_Port"), 7, MYSQL_TYPE_LONG));
   field_list->push_back(
       new Item_return_int("Connect_Retry", 10, MYSQL_TYPE_LONG));
-  field_list->push_back(new Item_empty_string("Source_Log_File", FN_REFLEN));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_Log_File"), FN_REFLEN));
   field_list->push_back(
-      new Item_return_int("Read_Source_Log_Pos", 10, MYSQL_TYPE_LONGLONG));
+      new Item_return_int(GET_SOURCE_NAME_2(deprecated, "Read_", "_Log_Pos"),
+                          10, MYSQL_TYPE_LONGLONG));
   field_list->push_back(new Item_empty_string("Relay_Log_File", FN_REFLEN));
   field_list->push_back(
       new Item_return_int("Relay_Log_Pos", 10, MYSQL_TYPE_LONGLONG));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME_2(deprecated, "Relay_", "_Log_File"), FN_REFLEN));
   field_list->push_back(
-      new Item_empty_string("Relay_Source_Log_File", FN_REFLEN));
-  field_list->push_back(new Item_empty_string("Replica_IO_Running", 3));
-  field_list->push_back(new Item_empty_string("Replica_SQL_Running", 3));
+      new Item_empty_string(GET_REPLICA_NAME(deprecated, "_IO_Running"), 3));
+  field_list->push_back(
+      new Item_empty_string(GET_REPLICA_NAME(deprecated, "_SQL_Running"), 3));
   field_list->push_back(new Item_empty_string("Replicate_Do_DB", 20));
   field_list->push_back(new Item_empty_string("Replicate_Ignore_DB", 20));
   field_list->push_back(new Item_empty_string("Replicate_Do_Table", 20));
@@ -3927,26 +3933,35 @@ static void show_slave_status_metadata(mem_root_deque<Item *> *field_list,
   field_list->push_back(
       new Item_return_int("Skip_Counter", 10, MYSQL_TYPE_LONG));
   field_list->push_back(
-      new Item_return_int("Exec_Source_Log_Pos", 10, MYSQL_TYPE_LONGLONG));
+      new Item_return_int(GET_SOURCE_NAME_2(deprecated, "Exec_", "_Log_Pos"),
+                          10, MYSQL_TYPE_LONGLONG));
   field_list->push_back(
       new Item_return_int("Relay_Log_Space", 10, MYSQL_TYPE_LONGLONG));
   field_list->push_back(new Item_empty_string("Until_Condition", 6));
   field_list->push_back(new Item_empty_string("Until_Log_File", FN_REFLEN));
   field_list->push_back(
       new Item_return_int("Until_Log_Pos", 10, MYSQL_TYPE_LONGLONG));
-  field_list->push_back(new Item_empty_string("Source_SSL_Allowed", 7));
-  field_list->push_back(new Item_empty_string("Source_SSL_CA_File", FN_REFLEN));
-  field_list->push_back(new Item_empty_string("Source_SSL_CA_Path", FN_REFLEN));
-  field_list->push_back(new Item_empty_string("Source_SSL_Cert", FN_REFLEN));
-  field_list->push_back(new Item_empty_string("Source_SSL_Cipher", FN_REFLEN));
-  field_list->push_back(new Item_empty_string("Source_SSL_Key", FN_REFLEN));
   field_list->push_back(
-      new Item_return_int("Seconds_Behind_Source", 10, MYSQL_TYPE_LONGLONG));
+      new Item_empty_string(GET_SOURCE_NAME(deprecated, "_SSL_Allowed"), 7));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_SSL_CA_File"), FN_REFLEN));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_SSL_CA_Path"), FN_REFLEN));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_SSL_Cert"), FN_REFLEN));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_SSL_Cipher"), FN_REFLEN));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_SSL_Key"), FN_REFLEN));
+  field_list->push_back(
+      new Item_return_int(GET_SOURCE_NAME_2(deprecated, "Seconds_Behind_", ""),
+                          10, MYSQL_TYPE_LONGLONG));
   if (opt_binlog_trx_meta_data)
-    field_list->push_back(new Item_return_int("Milli_Seconds_Behind_Master", 10,
-                                              MYSQL_TYPE_LONGLONG));
-  field_list->push_back(
-      new Item_empty_string("Source_SSL_Verify_Server_Cert", 3));
+    field_list->push_back(new Item_return_int(
+        GET_SOURCE_NAME_2(deprecated, "Milli_Seconds_Behind_", ""), 10,
+        MYSQL_TYPE_LONGLONG));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_SSL_Verify_Server_Cert"), 3));
   field_list->push_back(
       new Item_return_int("Last_IO_Errno", 4, MYSQL_TYPE_LONG));
   field_list->push_back(new Item_empty_string("Last_IO_Error", 20));
@@ -3956,22 +3971,27 @@ static void show_slave_status_metadata(mem_root_deque<Item *> *field_list,
   field_list->push_back(
       new Item_empty_string("Replicate_Ignore_Server_Ids", FN_REFLEN));
   field_list->push_back(
-      new Item_return_int("Source_Server_Id", sizeof(ulong), MYSQL_TYPE_LONG));
-  field_list->push_back(new Item_empty_string("Source_UUID", UUID_LENGTH));
+      new Item_return_int(GET_SOURCE_NAME(deprecated, "_Server_Id"),
+                          sizeof(ulong), MYSQL_TYPE_LONG));
   field_list->push_back(
-      new Item_empty_string("Source_Info_File", 2 * FN_REFLEN));
+      new Item_empty_string(GET_SOURCE_NAME(deprecated, "_UUID"), UUID_LENGTH));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_Info_File"), 2 * FN_REFLEN));
   field_list->push_back(new Item_return_int("SQL_Delay", 10, MYSQL_TYPE_LONG));
   field_list->push_back(
       new Item_return_int("SQL_Remaining_Delay", 8, MYSQL_TYPE_LONG));
-  field_list->push_back(new Item_empty_string("Replica_SQL_Running_State", 20));
-  field_list->push_back(
-      new Item_return_int("Source_Retry_Count", 10, MYSQL_TYPE_LONGLONG));
-  field_list->push_back(
-      new Item_empty_string("Source_Bind", HOSTNAME_LENGTH + 1));
+  field_list->push_back(new Item_empty_string(
+      GET_REPLICA_NAME(deprecated, "_SQL_Running_State"), 20));
+  field_list->push_back(new Item_return_int(
+      GET_SOURCE_NAME(deprecated, "_Retry_Count"), 10, MYSQL_TYPE_LONGLONG));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_Bind"), HOSTNAME_LENGTH + 1));
   field_list->push_back(new Item_empty_string("Last_IO_Error_Timestamp", 20));
   field_list->push_back(new Item_empty_string("Last_SQL_Error_Timestamp", 20));
-  field_list->push_back(new Item_empty_string("Source_SSL_Crl", FN_REFLEN));
-  field_list->push_back(new Item_empty_string("Source_SSL_Crlpath", FN_REFLEN));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_SSL_Crl"), FN_REFLEN));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_SSL_Crlpath"), FN_REFLEN));
   field_list->push_back(
       new Item_empty_string("Retrieved_Gtid_Set", io_gtid_set_size));
   field_list->push_back(
@@ -3981,11 +4001,13 @@ static void show_slave_status_metadata(mem_root_deque<Item *> *field_list,
   field_list->push_back(new Item_empty_string("Replicate_Rewrite_DB", 24));
   field_list->push_back(
       new Item_empty_string("Channel_Name", CHANNEL_NAME_LENGTH));
-  field_list->push_back(new Item_empty_string("Source_TLS_Version", FN_REFLEN));
-  field_list->push_back(
-      new Item_empty_string("Source_public_key_path", FN_REFLEN));
-  field_list->push_back(new Item_return_int("Get_Source_public_key",
-                                            sizeof(ulong), MYSQL_TYPE_LONG));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_TLS_Version"), FN_REFLEN));
+  field_list->push_back(new Item_empty_string(
+      GET_SOURCE_NAME(deprecated, "_public_key_path"), FN_REFLEN));
+  field_list->push_back(new Item_return_int(
+      deprecated ? "Get_master_public_key" : "Get_Source_public_key",
+      sizeof(ulong), MYSQL_TYPE_LONG));
   field_list->push_back(
       new Item_empty_string("Network_Namespace", NAME_LEN + 1));
   field_list->push_back(
@@ -4343,11 +4365,8 @@ bool show_slave_status(THD *thd) {
 
   mem_root_deque<Item *> field_list(thd->mem_root);
   show_slave_status_metadata(&field_list, max_io_gtid_set_size,
-                             sql_gtid_set_size);
-
-  // TODO: once the old syntax is removed, remove this as well.
-  if (thd->lex->is_replication_deprecated_syntax_used())
-    rename_fields_use_old_replica_source_terms(thd, field_list);
+                             sql_gtid_set_size,
+                             thd->lex->is_replication_deprecated_syntax_used());
 
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
@@ -4426,11 +4445,8 @@ bool show_slave_status(THD *thd, Master_info *mi) {
   /* Fill the metadata required for show slave status. */
 
   mem_root_deque<Item *> field_list(thd->mem_root);
-  show_slave_status_metadata(&field_list, io_gtid_set_size, sql_gtid_set_size);
-
-  // TODO: once the old syntax is removed, remove this as well.
-  if (thd->lex->is_replication_deprecated_syntax_used())
-    rename_fields_use_old_replica_source_terms(thd, field_list);
+  show_slave_status_metadata(&field_list, io_gtid_set_size, sql_gtid_set_size,
+                             thd->lex->is_replication_deprecated_syntax_used());
 
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {

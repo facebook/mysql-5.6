@@ -1528,16 +1528,6 @@ static const std::unordered_map<std::string, std::string> deprecated_field_map{
     {"Source_Id", "Master_id"},
     {"Replica_UUID", "Slave_UUID"}};
 
-void rename_fields_use_old_replica_source_terms(
-    THD *thd, mem_root_deque<Item *> &field_list) {
-  for (auto &item : field_list) {
-    std::string name{item->full_name()};
-    auto itr = deprecated_field_map.find(name);
-    if (itr != deprecated_field_map.end()) name = itr->second;
-    item->rename(thd->mem_strdup(name.c_str()));
-  }
-}
-
 bool is_immediate_server_gipk_ready(THD &thd) {
   return thd.variables.immediate_server_version != UNDEFINED_SERVER_VERSION &&
          thd.variables.immediate_server_version >= 80030;

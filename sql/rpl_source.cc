@@ -345,22 +345,23 @@ bool show_replicas(THD *thd) {
   Protocol *protocol = thd->get_protocol();
   DBUG_TRACE;
 
-  field_list.push_back(new Item_return_int("Server_Id", 10, MYSQL_TYPE_LONG));
+  bool deprecated = thd->lex->is_replication_deprecated_syntax_used();
+  field_list.push_back(new Item_return_int(
+      deprecated ? "Server_id" : "Server_Id", 10, MYSQL_TYPE_LONG));
   field_list.push_back(new Item_empty_string("Host", HOSTNAME_LENGTH));
   if (opt_show_replica_auth_info) {
     field_list.push_back(new Item_empty_string("User", USERNAME_CHAR_LENGTH));
     field_list.push_back(new Item_empty_string("Password", 20));
   }
   field_list.push_back(new Item_return_int("Port", 7, MYSQL_TYPE_LONG));
-  field_list.push_back(new Item_return_int("Source_Id", 10, MYSQL_TYPE_LONG));
-  field_list.push_back(new Item_empty_string("Replica_UUID", UUID_LENGTH));
-  field_list.push_back(
-      new Item_return_int("Is_semi_sync_slave", 7, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_return_int(
+      deprecated ? "Master_id" : "Source_Id", 10, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_empty_string(
+      GET_REPLICA_NAME(deprecated, "_UUID"), UUID_LENGTH));
+  field_list.push_back(new Item_return_int(
+      deprecated ? "Is_semi_sync_slave" : "Is_Semi_Sync_Replica", 7,
+      MYSQL_TYPE_LONG));
   field_list.push_back(new Item_empty_string("Replication_status", 20));
-
-  // TODO: once the old syntax is removed, remove this as well.
-  if (thd->lex->is_replication_deprecated_syntax_used())
-    rename_fields_use_old_replica_source_terms(thd, field_list);
 
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))

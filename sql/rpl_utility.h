@@ -696,16 +696,17 @@ std::string replace_all_in_str(std::string from, std::string find,
 bool is_require_row_format_violation(const THD *thd);
 
 /**
-  This function shall blindly replace some deprecated terms used in the
-  field names with more recent ones. This function must be removed
-  once the related syntax (SHOW SLAVE STATUS and friends) is removed.
-
-  @param thd the thread context.
-  @param field_list the list of fields that will have their name checked
-                    and altered if needed.
+  Construct the name constant string using either deprecated terms or
+  more recently updated terms
  */
-void rename_fields_use_old_replica_source_terms(
-    THD *thd, mem_root_deque<Item *> &field_list);
+#define GET_SOURCE_NAME(deprecated_syntax, postfix) \
+  (deprecated_syntax ? "Master" postfix : "Source" postfix)
+#define GET_SOURCE_NAME_2(deprecated_syntax, prefix, postfix) \
+  (deprecated_syntax ? prefix "Master" postfix : prefix "Source" postfix)
+#define GET_REPLICA_NAME(deprecated_syntax, postfix) \
+  (deprecated_syntax ? "Slave" postfix : "Replica" postfix)
+#define GET_REPLICA_NAME_2(deprecated_syntax, prefix, postfix) \
+  (deprecated_syntax ? prefix "Slave" postfix : prefix "Replica" postfix)
 
 /**
   Checks if the immediate_server_version supports GIPKs or not
