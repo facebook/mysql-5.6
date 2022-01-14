@@ -43,68 +43,68 @@ include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 "SERVER 1"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 2	HOST	PORT	1	UUID	0	RAFT
 3	HOST	PORT	1	UUID	0	RAFT
 4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
 "SERVER 2"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 156
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 156
 "SERVER 3"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "SERVER 4"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "SERVER 5"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "Transferring leadership from SERVER 1 to SERVER 2"
 include/raft_promote_to_leader.inc
 "SERVER 1"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
 "SERVER 2"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 852
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 1	HOST	PORT	2	UUID	0	RAFT
 3	HOST	PORT	2	UUID	0	RAFT
 5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 852
 "SERVER 3"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "SERVER 4"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "SERVER 5"
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 SHOW REPLICAS WITH RAFT;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 "Transferring leadership back to SERVER 1"
 include/raft_promote_to_leader.inc
 drop table t1;
