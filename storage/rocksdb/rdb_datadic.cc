@@ -37,14 +37,14 @@
 #include "./my_bit.h"
 #include "./my_bitmap.h"
 #include "./my_byteorder.h"
+#include "my_compare.h"  // get_rec_bits
 #include "my_dir.h"
+#include "myisampack.h"  // mi_int2store
 #include "mysql/thread_pool_priv.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/field.h"
 #include "sql/key.h"
 #include "sql/sql_table.h"
-#include "myisampack.h"         // mi_int2store
-#include "my_compare.h"         // get_rec_bits
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
@@ -363,14 +363,15 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
                   m_total_index_flags_length == 0);
   if (k.m_pack_info) {
     const size_t size = sizeof(Rdb_field_packing) * k.m_key_parts;
-    m_pack_info =
-        reinterpret_cast<Rdb_field_packing *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
+    m_pack_info = reinterpret_cast<Rdb_field_packing *>(
+        my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
     memcpy(m_pack_info, k.m_pack_info, size);
   }
 
   if (k.m_pk_part_no) {
     const size_t size = sizeof(uint) * m_key_parts;
-    m_pk_part_no = reinterpret_cast<uint *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
+    m_pk_part_no =
+        reinterpret_cast<uint *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
     memcpy(m_pk_part_no, k.m_pk_part_no, size);
   }
 }
@@ -450,8 +451,8 @@ void Rdb_key_def::setup(const TABLE *const tbl,
     }
 
     const size_t size = sizeof(Rdb_field_packing) * m_key_parts;
-    m_pack_info =
-        reinterpret_cast<Rdb_field_packing *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
+    m_pack_info = reinterpret_cast<Rdb_field_packing *>(
+        my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
 
     /*
       Guaranteed not to error here as checks have been made already during
@@ -664,7 +665,8 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
   if (skip_checks) {
     for (uint i = 0; i < table_arg->s->fields; i++) {
       Field *const field = table_arg->field[i];
-      if (!my_strcasecmp(system_charset_info, field->field_name, ttl_col_str.c_str())) { 
+      if (!my_strcasecmp(system_charset_info, field->field_name,
+                         ttl_col_str.c_str())) {
         *ttl_column = ttl_col_str;
         *ttl_field_index = i;
       }
@@ -677,7 +679,8 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
     bool found = false;
     for (uint i = 0; i < table_arg->s->fields; i++) {
       Field *const field = table_arg->field[i];
-      if (!my_strcasecmp(system_charset_info, field->field_name, ttl_col_str.c_str()) &&
+      if (!my_strcasecmp(system_charset_info, field->field_name,
+                         ttl_col_str.c_str()) &&
           field->real_type() == MYSQL_TYPE_LONGLONG &&
           field->key_type() == HA_KEYTYPE_ULONGLONG &&
           !field->real_maybe_null()) {
@@ -1009,7 +1012,8 @@ uint Rdb_key_def::pack_index_tuple(TABLE *const tbl, uchar *const pack_buffer,
 
   /* We were given a record in KeyTupleFormat. First, save it to record */
   const uint key_len = calculate_key_len(tbl, m_keyno, keypart_map);
-  key_restore(tbl->record[0], const_cast<uchar *>(key_tuple), &tbl->key_info[m_keyno], key_len);
+  key_restore(tbl->record[0], const_cast<uchar *>(key_tuple),
+              &tbl->key_info[m_keyno], key_len);
 
   uint n_used_parts = my_count_bits(keypart_map);
   if (keypart_map == HA_WHOLE_KEY) n_used_parts = 0;  // Full key is used
@@ -1399,9 +1403,10 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     // ha_rocksdb::convert_record_to_storage_format
     //
     if (should_store_row_debug_checksums) {
-      const ha_checksum key_crc32 = my_core::my_checksum(0, packed_tuple, tuple - packed_tuple);
-      const ha_checksum val_crc32 =
-          my_core::my_checksum(0, unpack_info->ptr(), unpack_info->get_current_pos());
+      const ha_checksum key_crc32 =
+          my_core::my_checksum(0, packed_tuple, tuple - packed_tuple);
+      const ha_checksum val_crc32 = my_core::my_checksum(
+          0, unpack_info->ptr(), unpack_info->get_current_pos());
 
       unpack_info->write_uint8(RDB_CHECKSUM_DATA_TAG);
       unpack_info->write_uint32(key_crc32);
@@ -1640,11 +1645,11 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
       const uint32_t stored_val_chksum = rdb_netbuf_to_uint32(
           (const uchar *)unp_reader.read(RDB_CHECKSUM_SIZE));
 
-      const ha_checksum computed_key_chksum =
-          my_core::my_checksum(0, (const uchar *)packed_key->data(), packed_key->size());
+      const ha_checksum computed_key_chksum = my_core::my_checksum(
+          0, (const uchar *)packed_key->data(), packed_key->size());
       const ha_checksum computed_val_chksum =
           my_core::my_checksum(0, (const uchar *)unpack_info->data(),
-                unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
+                               unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
 
       DBUG_EXECUTE_IF("myrocks_simulate_bad_key_checksum1",
                       stored_key_chksum++;);
@@ -1899,7 +1904,6 @@ void Rdb_key_def::pack_unsigned(
 
   *dst += length;
 }
-
 
 template <int length>
 int Rdb_key_def::unpack_integer(
@@ -2584,8 +2588,8 @@ void Rdb_key_def::pack_with_varlength_encoding(
   const char *src = get_data_value(field);
   // We only store the trimmed contents but encode the missing char with
   // removed_chars later to save space
-  const size_t trimmed_len = charset->cset->lengthsp(
-      charset, src, value_length);
+  const size_t trimmed_len =
+      charset->cset->lengthsp(charset, src, value_length);
 
   // Max memcmp byte length with char_length(), in case we need to truncate
   const size_t max_xfrm_len = charset->cset->charpos(
@@ -2596,7 +2600,7 @@ void Rdb_key_def::pack_with_varlength_encoding(
   // behavior in strnxfrm for padding collations otherwise strnxfrm would
   // pad to max length which defeats the trimming earlier
   const size_t trimmed_codepoints =
-    charset->cset->numchars(charset, src, src + trimmed_len);
+      charset->cset->numchars(charset, src, src + trimmed_len);
 
   const size_t xfrm_len = charset->coll->strnxfrm(
       charset, buf, fpi->m_max_image_len_before_encoding,
@@ -2728,8 +2732,8 @@ void Rdb_key_def::pack_with_varlength_space_pad(
 
   // We only store the trimmed contents but encode the missing char with
   // removed_chars later to save space
-  const size_t trimmed_len = charset->cset->lengthsp(
-      charset, src, value_length);
+  const size_t trimmed_len =
+      charset->cset->lengthsp(charset, src, value_length);
 
   // Max memcmp byte length with char_length() including space characters, in
   // case we need to truncate for prefix keys
@@ -2747,7 +2751,7 @@ void Rdb_key_def::pack_with_varlength_space_pad(
   // behavior in strnxfrm for padding collations otherwise strnxfrm would
   // pad to max length which defeats the trimming earlier
   const size_t trimmed_codepoints =
-    charset->cset->numchars(charset, src, src + trimmed_len);
+      charset->cset->numchars(charset, src, src + trimmed_len);
 
   const size_t xfrm_len = charset->coll->strnxfrm(
       charset, buf, fpi->m_max_image_len_before_encoding,

@@ -34,21 +34,21 @@ int main(int argc, char **argv) {
   // test the circular buffer for delete flags
   myrocks::Rdb_compact_params params;
   params.m_file_size = 333;
-  params.m_deletes = 333; // irrelevant
+  params.m_deletes = 333;  // irrelevant
   params.m_window = 10;
 
   myrocks::Rdb_tbl_prop_coll coll(nullptr, params, 0,
                                   RDB_DEFAULT_TBL_STATS_SAMPLE_PCT);
 
-  putKeys(&coll, 2, true, 2);    // [xx]
-  putKeys(&coll, 3, false, 2);   // [xxo]
-  putKeys(&coll, 1, true, 3);    // [xxox]
-  putKeys(&coll, 6, false, 3);   // [xxoxoooooo]
-  putKeys(&coll, 3, true, 4);    // xxo[xooooooxxx]
-  putKeys(&coll, 1, false, 4);   // xxox[ooooooxxxo]
-  putKeys(&coll, 100, false, 4); // ....[oooooooooo]
-  putKeys(&coll, 100, true, 10); // ....[xxxxxxxxxx]
-  putKeys(&coll, 100, true, 10); // ....[oooooooooo]
+  putKeys(&coll, 2, true, 2);     // [xx]
+  putKeys(&coll, 3, false, 2);    // [xxo]
+  putKeys(&coll, 1, true, 3);     // [xxox]
+  putKeys(&coll, 6, false, 3);    // [xxoxoooooo]
+  putKeys(&coll, 3, true, 4);     // xxo[xooooooxxx]
+  putKeys(&coll, 1, false, 4);    // xxox[ooooooxxxo]
+  putKeys(&coll, 100, false, 4);  // ....[oooooooooo]
+  putKeys(&coll, 100, true, 10);  // ....[xxxxxxxxxx]
+  putKeys(&coll, 100, true, 10);  // ....[oooooooooo]
 
   return 0;
 }

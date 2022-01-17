@@ -28,9 +28,9 @@
 #include "rocksdb/db.h"
 
 /* MyRocks header files */
-#include "./rdb_global.h"
 #include "./rdb_cf_options.h"
 #include "./rdb_datadic.h"
+#include "./rdb_global.h"
 
 namespace myrocks {
 

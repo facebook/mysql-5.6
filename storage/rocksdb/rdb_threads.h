@@ -149,16 +149,13 @@ class Rdb_index_stats_thread : public Rdb_thread {
   pid_t m_tid;
 
  public:
-  Rdb_index_stats_thread() : m_tid_set(false), m_tid(0) {
-  }
+  Rdb_index_stats_thread() : m_tid_set(false), m_tid(0) {}
 
   virtual void on_init() override {
     mysql_mutex_init(0, &m_is_mutex, MY_MUTEX_INIT_FAST);
   }
 
-  virtual void on_uninit() override {
-    mysql_mutex_destroy(&m_is_mutex);
-  }
+  virtual void on_uninit() override { mysql_mutex_destroy(&m_is_mutex); }
 
   virtual void run() override;
   bool get_index_stats_request(std::string *tbl_name);
@@ -184,16 +181,13 @@ class Rdb_manual_compaction_thread : public Rdb_thread {
   std::map<int, Manual_compaction_request> m_requests;
 
  public:
-  Rdb_manual_compaction_thread() {
-  }
+  Rdb_manual_compaction_thread() {}
 
   virtual void on_init() override {
     mysql_mutex_init(0, &m_mc_mutex, MY_MUTEX_INIT_FAST);
   }
 
-  virtual void on_uninit() override {
-    mysql_mutex_destroy(&m_mc_mutex);
-  }
+  virtual void on_uninit() override { mysql_mutex_destroy(&m_mc_mutex); }
 
   virtual void run() override;
   int request_manual_compaction(std::shared_ptr<rocksdb::ColumnFamilyHandle> cf,
