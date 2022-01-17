@@ -18,8 +18,8 @@
 #include "./rdb_mutex_wrapper.h"
 
 /* MySQL header files */
-#include "sql/sql_class.h"
 #include "sql/replication.h"
+#include "sql/sql_class.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
@@ -28,7 +28,7 @@
 namespace myrocks {
 
 static PSI_stage_info stage_waiting_on_row_lock2 = {0, "Waiting for row lock",
-                                                    0,PSI_DOCUMENT_ME};
+                                                    0, PSI_DOCUMENT_ME};
 
 static const int64_t ONE_SECOND_IN_MICROSECS = 1000 * 1000;
 // A timeout as long as one full non-leap year worth of microseconds is as
