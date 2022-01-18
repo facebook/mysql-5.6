@@ -1541,10 +1541,14 @@ bool skip_core_dump_on_error = false;
 bool show_query_digest = false;
 
 /* write_control_level:
- * Global variable to control write throttling for short running queries and
- * abort for long running queries.
+ * Global variable to control write throttling for short running writes
  */
 ulong write_control_level;
+
+/* write_abort_level:
+ * Global variable to control abort for long running writes.
+ */
+ulong write_abort_level;
 
 /* Global variable to denote the maximum CPU time (specified in milliseconds)
  * limit for DML queries.

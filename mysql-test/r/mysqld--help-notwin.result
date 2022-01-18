@@ -2802,14 +2802,18 @@ The following options may be given as the first argument:
  inversion optimization for moving window frames also for
  floating values.
  (Defaults to on; use --skip-windowing-use-high-precision to disable.)
+ --write-abort-level[=name] 
+ Specifies how to abort long running writes. Valid values
+ are: OFF: Default value (writes are not aborted). NOTE:
+ Raise warning as note. WARN: Raise warning. ERROR: Raise
+ error and abort query.
  --write-auto-throttle-frequency[=#] 
  The frequency (seconds) at which auto throttling checks
  are run on a primary. Default value is 0 which means auto
  throttling is turned off.
  --write-control-level[=name] 
- Controls write throttle for short queries and write abort
- for long running queries. It can take the following
- values: OFF: Default value (disable write throttling).
+ Controls throttling of short running writes. Valid values
+ are: OFF: Default value (write throttling is inactive).
  NOTE: Raise warning as note. WARN: Raise warning. ERROR:
  Raise error and abort query.
  --write-cpu-limit-milliseconds[=#] 
@@ -3648,6 +3652,7 @@ wait-for-hlc-sleep-threshold-ms 50
 wait-for-hlc-timeout-ms 0
 wait-timeout 28800
 windowing-use-high-precision TRUE
+write-abort-level OFF
 write-auto-throttle-frequency 0
 write-control-level OFF
 write-cpu-limit-milliseconds 0

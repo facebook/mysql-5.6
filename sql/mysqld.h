@@ -551,6 +551,8 @@ inline ulonglong microseconds_to_my_timer(double when) {
 
 extern ulong write_control_level;
 
+extern ulong write_abort_level;
+
 /* Global variable to denote the maximum CPU time (specified in milliseconds)
  * limit for DML queries.
  */
@@ -1152,7 +1154,8 @@ inline bool sql_id_is_needed() {
   bool needed = (sql_findings_control == SQL_INFO_CONTROL_ON ||
                          column_stats_control == SQL_INFO_CONTROL_ON ||
                          write_stats_capture_enabled() ||
-                         write_control_level != CONTROL_LEVEL_OFF
+                         write_control_level != CONTROL_LEVEL_OFF ||
+                         write_abort_level != CONTROL_LEVEL_OFF
                      ? true
                      : false);
   return needed;

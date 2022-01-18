@@ -4360,32 +4360,32 @@ ulonglong THD::get_trx_dml_write_time() {
                 query needs to be errored out. Returns false otherwise.
 
   Note: The function will register a warning as note if the variable
-        'write_control_level' is set to 'NOTE'. If the variable is set
+        'write_abort_level' is set to 'NOTE'. If the variable is set
         to 'WARN' then a regular warning is raised.
         The function will return TRUE if the CPU execution time limt
-        has exceeded only if the variable 'write_control_level' is set to ERROR
+        has exceeded only if the variable 'write_abort_level' is set to ERROR
         and if the variables 'write_cpu_limit_milliseconds' and
         'write_time_check_batch' are set to non-zero values.
 */
 bool THD::dml_execution_cpu_limit_exceeded() {
   /* enforcing DML execution time limit is disabled if
-   * - write_control_level is set to 'OFF' or
+   * - write_abort_level is set to 'OFF' or
    * - write_cpu_limit_milliseconds is set to 0 or
    * - write_time_check_batch is set to 0
    */
 
-  if (write_control_level == CONTROL_LEVEL_OFF ||
+  if (write_abort_level == CONTROL_LEVEL_OFF ||
       write_cpu_limit_milliseconds == 0 || write_time_check_batch == 0 ||
       variables.sql_log_bin == 0) {
     return false;
   }
 
-  /* if the variable 'write_control_level' is set to 'NOTE' or 'WARN'
+  /* if the variable 'write_abort_level' is set to 'NOTE' or 'WARN'
    * then stop checking for CPU execution time limit any further
    * because the warning needs to be raised only once per statement/transaction
    */
-  if ((write_control_level == CONTROL_LEVEL_NOTE ||  /* NOTE */
-       write_control_level == CONTROL_LEVEL_WARN) && /* WARN */
+  if ((write_abort_level == CONTROL_LEVEL_NOTE ||  /* NOTE */
+       write_abort_level == CONTROL_LEVEL_WARN) && /* WARN */
       m_trx_dml_cpu_time_limit_warning) {
     return false;
   }
@@ -4406,13 +4406,13 @@ bool THD::dml_execution_cpu_limit_exceeded() {
                     dml_cpu_time = write_cpu_limit_milliseconds;);
 
     if (dml_cpu_time >= (ulonglong)write_cpu_limit_milliseconds) {
-      /* raise warning if 'write_control_level' is 'NOTE' or 'WARN' */
-      if (write_control_level == CONTROL_LEVEL_NOTE ||
-          write_control_level == CONTROL_LEVEL_WARN) {
+      /* raise warning if 'write_abort_level' is 'NOTE' or 'WARN' */
+      if (write_abort_level == CONTROL_LEVEL_NOTE ||
+          write_abort_level == CONTROL_LEVEL_WARN) {
         /* raise warning */
         push_warning(
             this,
-            (write_control_level == CONTROL_LEVEL_NOTE)
+            (write_abort_level == CONTROL_LEVEL_NOTE)
                 ? Sql_condition::SL_NOTE
                 : Sql_condition::SL_WARNING,
             ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS,
@@ -4422,7 +4422,7 @@ bool THD::dml_execution_cpu_limit_exceeded() {
          * warnings will not be raised for the same statement/transaction
          */
         m_trx_dml_cpu_time_limit_warning = true;
-      } else if (write_control_level == CONTROL_LEVEL_ERROR) {
+      } else if (write_abort_level == CONTROL_LEVEL_ERROR) {
         return true;
       }
     }

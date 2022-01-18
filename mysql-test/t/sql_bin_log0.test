@@ -33,7 +33,7 @@ set @@GLOBAL.write_time_check_batch=3;
 
 --echo Test 1.1: Long running query to force throttling level=NOTE
 
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 --echo this query raises warning
@@ -43,7 +43,7 @@ show warnings;
 
 --echo Test 1.2: Long running query to force throttling level=WARN
 
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 --echo this query raises warning
@@ -53,7 +53,7 @@ show warnings;
 
 --echo Test 1.3: Long running query to force throttling level=ERROR
 
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 --echo this query raises error
@@ -71,7 +71,7 @@ set sql_log_bin=0;
 
 --echo Test 2.1: Repeat query with sql_log_bin = 0 level=NOTE
 
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 --echo this query should not raise warning
@@ -81,7 +81,7 @@ show warnings;
 
 --echo Test 2.2: Repeat query with sql_log_bin = 0 level=WARN
 
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 --echo this query should not raise warning
@@ -91,7 +91,7 @@ show warnings;
 
 --echo Test 2.3: Repeat query with sql_log_bin = 0 level=ERROR
 
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 --echo this query should not raise error
@@ -104,7 +104,7 @@ show errors;
 --echo Finished tests begining cleanup
 connection master;
 
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 set @@GLOBAL.write_cpu_limit_milliseconds=0;
 set @@GLOBAL.write_time_check_batch=0;
 set @@global.debug= '-d,dbug.force_long_running_query';

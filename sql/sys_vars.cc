@@ -9213,13 +9213,23 @@ static const char *control_level_values[] = {
 
 static Sys_var_enum Sys_write_control_level(
     "write_control_level",
-    "Controls write throttle for short queries and write abort for long "
-    "running queries. It can take the following values: "
-    "OFF: Default value (disable write throttling). "
+    "Controls throttling of short running writes. Valid values are: "
+    "OFF: Default value (write throttling is inactive). "
     "NOTE: Raise warning as note. "
     "WARN: Raise warning. "
     "ERROR: Raise error and abort query.",
     GLOBAL_VAR(write_control_level), CMD_LINE(OPT_ARG), control_level_values,
+    DEFAULT(CONTROL_LEVEL_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
+static Sys_var_enum Sys_write_abort_level(
+    "write_abort_level",
+    "Specifies how to abort long running writes. Valid values are: "
+    "OFF: Default value (writes are not aborted). "
+    "NOTE: Raise warning as note. "
+    "WARN: Raise warning. "
+    "ERROR: Raise error and abort query.",
+    GLOBAL_VAR(write_abort_level), CMD_LINE(OPT_ARG), control_level_values,
     DEFAULT(CONTROL_LEVEL_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(NULL));
 

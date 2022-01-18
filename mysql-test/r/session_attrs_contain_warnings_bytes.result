@@ -43,7 +43,7 @@ Note	1003	/* select#1 */ select `test`.`mytbl`.`c1` AS `c1`,`test`.`mytbl`.`c2` 
 [X] Did not find warnings in query response attributes
 Set variables to raise an additional warning for long running queries
 set @@GLOBAL.write_cpu_limit_milliseconds=1;
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 set @@GLOBAL.write_time_check_batch=3;
 set @@global.debug= '+d,dbug.force_long_running_query';
 # Test 7: session level variable is default, i.e. 0
@@ -76,7 +76,7 @@ Warnings:
 Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 [X] Did not find warnings in query response attributes
 set @@global.debug= '-d,dbug.force_long_running_query';
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 set @@GLOBAL.write_cpu_limit_milliseconds=0;
 set @@GLOBAL.write_time_check_batch=0;
 set @@session.response_attrs_contain_warnings_bytes = default;

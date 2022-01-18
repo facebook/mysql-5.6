@@ -1,0 +1,55 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: write_abort_level
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of write_abort_level
+SELECT @@global.write_abort_level;
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_abort_level is set to NOTE
+set @@global.write_abort_level = NOTE;
+SELECT @@global.write_abort_level;
+
+--echo write_abort_level is set to 'NOTE'
+set @@global.write_abort_level = 'NOTE';
+SELECT @@global.write_abort_level;
+
+--echo write_abort_level is set to WARN
+set @@global.write_abort_level = WARN;
+SELECT @@global.write_abort_level;
+
+--echo write_abort_level is set to 'WARN'
+set @@global.write_abort_level = 'WARN';
+SELECT @@global.write_abort_level;
+
+-- echo setting write_control to a random number gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_abort_level = 255;
+SELECT @@global.write_abort_level;
+
+-- echo setting write_control to a random string gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_abort_level = 'XYZ';
+SELECT @@global.write_abort_level;
+
+--echo write_abort_level is set to OFF
+set @@global.write_abort_level = OFF;
+SELECT @@global.write_abort_level;
+
+--echo write_abort_level is set to 'OFF'
+set @@global.write_abort_level = 'OFF';
+SELECT @@global.write_abort_level;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.write_abort_level = OFF;
+SELECT @@global.write_abort_level;
