@@ -22,7 +22,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 1.1.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 this query raises warning
@@ -31,7 +31,7 @@ show warnings;
 Level	Code	Message
 Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.1.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 this query raises warning
@@ -40,10 +40,10 @@ show warnings;
 Level	Code	Message
 Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 Test 1.1.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 this query fails with an error
@@ -57,7 +57,7 @@ from performance_schema.write_throttling_log
 where transaction_type='LONG';
 sum(count)
 1
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 verify that the last statement failed
 select * from test;
 a	b	c
@@ -73,7 +73,7 @@ count(*)
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 1.1.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
@@ -84,7 +84,7 @@ show warnings;
 Level	Code	Message
 Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.1.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
@@ -95,10 +95,10 @@ show warnings;
 Level	Code	Message
 Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 Test 1.1.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 insert into test values(1, 1, 1);
 insert into test values(2, 2, 2), (3, 3, 3);
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
@@ -134,11 +134,11 @@ where error_name='er_warn_write_exceeded_cpu_limit_milliseconds'
 count(*)
 1
 set @@global.debug= '-d,dbug.force_long_running_query';
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 connect to master
 Test 1.2: Update Query
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 setting dbug.force_long_running_query which will
@@ -148,7 +148,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 1.2.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 update test set b=-1 where a <= 1;
 update test set b=-2 where a <= 2;
 this query raises warning
@@ -157,7 +157,7 @@ show warnings;
 Level	Code	Message
 Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.2.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 update test set b=-11 where a <= 1;
 update test set b=-12 where a <= 2;
 this query raises warning
@@ -166,7 +166,7 @@ show warnings;
 Level	Code	Message
 Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.2.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 select count(*)
 from performance_schema.events_errors_summary_global_by_error
@@ -214,7 +214,7 @@ count(*)
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 1.2.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 update test set b=-31 where a <= 1;
 update test set b=-32 where a <= 2;
 update test set b=-33 where a <= 3;
@@ -225,7 +225,7 @@ show warnings;
 Level	Code	Message
 Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.2.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 update test set b=-41 where a <= 1;
 update test set b=-42 where a <= 2;
 update test set b=-43 where a <= 3;
@@ -236,7 +236,7 @@ show warnings;
 Level	Code	Message
 Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Test 1.2.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 update test set b=-51 where a <= 1;
 update test set b=-52 where a <= 2;
@@ -281,7 +281,7 @@ set @@global.debug= '-d,dbug.force_long_running_query';
 connect to master
 Test 1.3: Delete Query
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 setting dbug.force_long_running_query which will
@@ -291,7 +291,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 1.3.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 delete from test where a = 1;
 delete from test where a in (2, 3);
 this query raises warning
@@ -300,11 +300,11 @@ show warnings;
 Level	Code	Message
 Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 1.3.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 delete from test where a = 1;
 delete from test where a in (2, 3);
 this query raises warning
@@ -313,11 +313,11 @@ show warnings;
 Level	Code	Message
 Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 1.3.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 delete from test where a = 1;
 delete from test where a in (2, 3);
@@ -354,13 +354,13 @@ where error_name='er_warn_write_exceeded_cpu_limit_milliseconds'
 count(*)
 1
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 1.3.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 delete from test where a = 1;
 delete from test where a in (2, 3);
 delete from test where a in (4, 5, 6);
@@ -371,11 +371,11 @@ show warnings;
 Level	Code	Message
 Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 1.3.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 delete from test where a = 1;
 delete from test where a in (2, 3);
 delete from test where a in (4, 5, 6);
@@ -386,11 +386,11 @@ show warnings;
 Level	Code	Message
 Warning	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 1.3.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 delete from test where a = 1;
 delete from test where a in (2, 3);
@@ -432,7 +432,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 2.1.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 select 1;
 insert into test values(1, 1, 1);
@@ -461,7 +461,7 @@ select 6;
 show warnings;
 Level	Code	Message
 Test 2.1.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 select 1;
 insert into test values(1, 1, 1);
@@ -490,10 +490,10 @@ select 6;
 show warnings;
 Level	Code	Message
 Reset table test
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 Test 2.1.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 select 1;
@@ -538,7 +538,7 @@ count(*)
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 2.1.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 select 1;
 insert into test values(1, 1, 1);
@@ -575,7 +575,7 @@ select 8;
 show warnings;
 Level	Code	Message
 Test 2.1.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 select 1;
 insert into test values(1, 1, 1);
@@ -612,10 +612,10 @@ select 8;
 show warnings;
 Level	Code	Message
 Reset table test
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 Test 2.1.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 select 1;
@@ -676,7 +676,7 @@ set @@global.debug= '-d,dbug.force_long_running_query';
 connect to master
 Test 2.2: Update Query - Multi-statement
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 setting dbug.force_long_running_query which will
@@ -686,7 +686,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 2.2.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 select 1;
 update test set b=-1 where a <= 1;
@@ -715,7 +715,7 @@ select 6;
 show warnings;
 Level	Code	Message
 Test 2.2.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 select 1;
 update test set b=-11 where a <= 1;
@@ -744,7 +744,7 @@ select 6;
 show warnings;
 Level	Code	Message
 Test 2.2.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 select 1;
@@ -801,7 +801,7 @@ count(*)
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 2.2.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 select 1;
 update test set b=-31 where a <= 1;
@@ -838,7 +838,7 @@ select 8;
 show warnings;
 Level	Code	Message
 Test 2.2.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 select 1;
 update test set b=-41 where a <= 1;
@@ -875,7 +875,7 @@ select 8;
 show warnings;
 Level	Code	Message
 Test 2.2.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 select 1;
@@ -941,7 +941,7 @@ set @@global.debug= '-d,dbug.force_long_running_query';
 connect to master
 Test 2.3: Delete Query - Multi-statement
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 setting dbug.force_long_running_query which will
@@ -951,7 +951,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 2.3.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 select 1;
 delete from test where a = 1;
@@ -980,11 +980,11 @@ select 6;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 2.3.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 select 1;
 delete from test where a = 1;
@@ -1013,11 +1013,11 @@ select 6;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 2.3.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 select 1;
@@ -1069,14 +1069,14 @@ where error_name='er_warn_write_exceeded_cpu_limit_milliseconds'
 count(*)
 1
 Reset table test and insert 30 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 insert into test select a+1, b+1, c+1 from staging;
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 2.3.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 select 1;
 delete from test where a = 1;
@@ -1113,12 +1113,12 @@ select 8;
 show warnings;
 Level	Code	Message
 Reset table test and insert 30 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 insert into test select a+1, b+1, c+1 from staging;
 Test 2.3.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 select 1;
 delete from test where a = 1;
@@ -1155,11 +1155,11 @@ select 8;
 show warnings;
 Level	Code	Message
 Reset table test and insert 30 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 2.3.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 select 1;
@@ -1215,7 +1215,7 @@ set @@global.debug= '-d,dbug.force_long_running_query';
 connect to master
 Test 2.4: Mixed Query - Multi-statement
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 setting dbug.force_long_running_query which will
@@ -1225,7 +1225,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 2.4.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 select 1;
 insert into test values (16, 16, 16);
@@ -1262,11 +1262,11 @@ select 8;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 2.4.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 select 1;
 insert into test values (16, 16, 16);
@@ -1303,11 +1303,11 @@ select 8;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 2.4.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 select 1;
@@ -1366,13 +1366,13 @@ where error_name='er_warn_write_exceeded_cpu_limit_milliseconds'
 count(*)
 1
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 2.4.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 select 1;
 insert into test values (16, 16, 16);
@@ -1409,11 +1409,11 @@ select 8;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 2.4.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 select 1;
 insert into test values (16, 16, 16);
@@ -1450,11 +1450,11 @@ select 8;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 2.4.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 select 1;
@@ -1528,7 +1528,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 3.1.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 start transaction;
 select 1;
@@ -1559,7 +1559,7 @@ select 6;
 6
 commit;
 Test 3.1.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 start transaction;
 select 1;
@@ -1590,10 +1590,10 @@ select 6;
 6
 commit;
 Reset table test
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 Test 3.1.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 start transaction;
@@ -1645,7 +1645,7 @@ count(*)
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 3.1.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 start transaction;
 select 1;
@@ -1684,7 +1684,7 @@ select 8;
 8
 commit;
 Test 3.1.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 start transaction;
 select 1;
@@ -1723,10 +1723,10 @@ select 8;
 8
 commit;
 Reset table test
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 Test 3.1.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 start transaction;
@@ -1790,7 +1790,7 @@ set @@global.debug= '-d,dbug.force_long_running_query';
 connect to master
 Test 3.2: Update Query - Multi-statement
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 setting dbug.force_long_running_query which will
@@ -1800,7 +1800,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 3.2.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 start transaction;
 select 1;
@@ -1830,7 +1830,7 @@ commit;
 show warnings;
 Level	Code	Message
 Test 3.2.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 start transaction;
 select 1;
@@ -1860,11 +1860,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.2.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 start transaction;
@@ -1928,7 +1928,7 @@ count(*)
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 3.2.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 start transaction;
 select 1;
@@ -1962,7 +1962,7 @@ commit;
 show warnings;
 Level	Code	Message
 Test 3.2.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 start transaction;
 select 1;
@@ -1996,11 +1996,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.2.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 start transaction;
@@ -2069,7 +2069,7 @@ set @@global.debug= '-d,dbug.force_long_running_query';
 connect to master
 Test 3.3: Delete Query - Multi-statement
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 setting dbug.force_long_running_query which will
@@ -2079,7 +2079,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 3.3.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 start transaction;
 select 1;
@@ -2109,11 +2109,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.3.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 start transaction;
 select 1;
@@ -2143,11 +2143,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.3.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 start transaction;
@@ -2208,13 +2208,13 @@ where error_name='er_warn_write_exceeded_cpu_limit_milliseconds'
 count(*)
 1
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 3.3.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 start transaction;
 select 1;
@@ -2244,11 +2244,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.3.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 start transaction;
 select 1;
@@ -2278,11 +2278,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.3.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 start transaction;
@@ -2343,7 +2343,7 @@ set @@global.debug= '-d,dbug.force_long_running_query';
 connect to master
 Test 3.4: Mixed Query - Multi-statement
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 setting dbug.force_long_running_query which will
@@ -2353,7 +2353,7 @@ set @@global.debug= '+d,dbug.force_long_running_query';
 Set the batch size for checking CPU time to 3
 set @@GLOBAL.write_time_check_batch=3;
 Test 3.4.1: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 start transaction;
 select 1;
@@ -2387,11 +2387,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.4.2: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 start transaction;
 select 1;
@@ -2425,11 +2425,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.4.3: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 start transaction;
@@ -2495,13 +2495,13 @@ where error_name='er_warn_write_exceeded_cpu_limit_milliseconds'
 count(*)
 1
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Set the batch size for checking CPU time to 5
 set @@GLOBAL.write_time_check_batch=5;
 Test 3.4.4: Raise warning as note
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 this query raises warning
 start transaction;
 select 1;
@@ -2535,11 +2535,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.4.5: Raise warning
-set @@GLOBAL.write_control_level=WARN;
+set @@GLOBAL.write_abort_level=WARN;
 this query raises warning
 start transaction;
 select 1;
@@ -2573,11 +2573,11 @@ commit;
 show warnings;
 Level	Code	Message
 Reset table test and insert 15 rows
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 delete from test;
 insert into test select * from staging;
 Test 3.4.6: Raise error
-set @@GLOBAL.write_control_level=ERROR;
+set @@GLOBAL.write_abort_level=ERROR;
 truncate table performance_schema.events_errors_summary_global_by_error;
 this query fails with an error
 start transaction;
@@ -2641,7 +2641,7 @@ where error_name='er_warn_write_exceeded_cpu_limit_milliseconds'
 count(*)
 1
 set @@global.debug= '-d,dbug.force_long_running_query';
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 set @@GLOBAL.write_cpu_limit_milliseconds=0;
 set @@GLOBAL.write_time_check_batch=0;
 drop table test;
