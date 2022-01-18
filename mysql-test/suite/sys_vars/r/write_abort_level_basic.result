@@ -1,0 +1,51 @@
+Default value of write_abort_level
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+OFF
+write_abort_level is set to NOTE
+set @@global.write_abort_level = NOTE;
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+NOTE
+write_abort_level is set to 'NOTE'
+set @@global.write_abort_level = 'NOTE';
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+NOTE
+write_abort_level is set to WARN
+set @@global.write_abort_level = WARN;
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+WARN
+write_abort_level is set to 'WARN'
+set @@global.write_abort_level = 'WARN';
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+WARN
+setting write_control to a random number gives error
+set @@global.write_abort_level = 255;
+ERROR 42000: Variable 'write_abort_level' can't be set to the value of '255'
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+WARN
+setting write_control to a random string gives error
+set @@global.write_abort_level = 'XYZ';
+ERROR 42000: Variable 'write_abort_level' can't be set to the value of 'XYZ'
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+WARN
+write_abort_level is set to OFF
+set @@global.write_abort_level = OFF;
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+OFF
+write_abort_level is set to 'OFF'
+set @@global.write_abort_level = 'OFF';
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+OFF
+restore the default value
+SET @@global.write_abort_level = OFF;
+SELECT @@global.write_abort_level;
+@@global.write_abort_level
+OFF

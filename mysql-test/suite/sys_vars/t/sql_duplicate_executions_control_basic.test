@@ -1,7 +1,7 @@
 -- source include/load_sysvars.inc
 
 ####################################################
-# Variable: write_control_level
+# Variable: sql_duplicate_executions_control
 ####################################################
 
 ####
@@ -29,12 +29,12 @@ SELECT @@global.sql_duplicate_executions_control;
 set @@global.sql_duplicate_executions_control = 'WARN';
 SELECT @@global.sql_duplicate_executions_control;
 
--- echo setting write_control to a random number gives error
+-- echo setting control variable to a random number gives error
 --error ER_WRONG_VALUE_FOR_VAR
 set @@global.sql_duplicate_executions_control = 255;
 SELECT @@global.sql_duplicate_executions_control;
 
--- echo setting write_control to a random string gives error
+-- echo setting control variable to a random string gives error
 --error ER_WRONG_VALUE_FOR_VAR
 set @@global.sql_duplicate_executions_control = 'XYZ';
 SELECT @@global.sql_duplicate_executions_control;

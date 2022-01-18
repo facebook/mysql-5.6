@@ -105,7 +105,7 @@ if ($attr) {
 
 --echo Set variables to raise an additional warning for long running queries
 set @@GLOBAL.write_cpu_limit_milliseconds=1;
-set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_abort_level=NOTE;
 set @@GLOBAL.write_time_check_batch=3;
 set @@global.debug= '+d,dbug.force_long_running_query';
 
@@ -168,7 +168,7 @@ if ($attr) {
 
 #Reset
 set @@global.debug= '-d,dbug.force_long_running_query';
-set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_abort_level=OFF;
 set @@GLOBAL.write_cpu_limit_milliseconds=0;
 set @@GLOBAL.write_time_check_batch=0;
 

@@ -22,13 +22,13 @@ set @@global.sql_duplicate_executions_control = 'WARN';
 SELECT @@global.sql_duplicate_executions_control;
 @@global.sql_duplicate_executions_control
 WARN
-setting write_control to a random number gives error
+setting control variable to a random number gives error
 set @@global.sql_duplicate_executions_control = 255;
 ERROR 42000: Variable 'sql_duplicate_executions_control' can't be set to the value of '255'
 SELECT @@global.sql_duplicate_executions_control;
 @@global.sql_duplicate_executions_control
 WARN
-setting write_control to a random string gives error
+setting control variable to a random string gives error
 set @@global.sql_duplicate_executions_control = 'XYZ';
 ERROR 42000: Variable 'sql_duplicate_executions_control' can't be set to the value of 'XYZ'
 SELECT @@global.sql_duplicate_executions_control;
