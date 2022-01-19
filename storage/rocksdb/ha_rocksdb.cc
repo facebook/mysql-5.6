@@ -5531,7 +5531,7 @@ static int rocksdb_init_internal(void *const p) {
   if (opt_rocksdb_fault_injection_options != nullptr &&
       *opt_rocksdb_fault_injection_options != '\0') {
     bool retryable = false;
-    uint32_t failure_ratio;
+    uint32_t failure_ratio = 0;
     std::vector<rocksdb::FileType> types;
     if (parse_fault_injection_params(&retryable, &failure_ratio, &types)) {
       DBUG_RETURN(HA_EXIT_FAILURE);
@@ -5549,7 +5549,8 @@ static int rocksdb_init_internal(void *const p) {
         "RocksDB: Initializing fault injection with params (retry=%d, "
         "failure_ratio=%d, seed=%d)",
         retryable, failure_ratio, seed);
-    fs->SetRandomWriteError(seed, failure_ratio, error_msg, types);
+    fs->SetRandomWriteError(seed, failure_ratio, error_msg,
+                            /* inject_for_all_file_types */ false, types);
     fs->EnableWriteErrorInjection();
 
     static auto fault_env_guard =

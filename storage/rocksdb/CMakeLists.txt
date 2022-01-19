@@ -116,6 +116,7 @@ ENDIF()
 # Suppress warnings for gcc-9 or newer
 IF(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
   ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-maybe-uninitialized FILES ../../rocksdb/env/env.cc)
+  remove_compile_flags(-Wsuggest-override)
 ENDIF()
 
 

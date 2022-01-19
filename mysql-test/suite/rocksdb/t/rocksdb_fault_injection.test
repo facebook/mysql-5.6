@@ -1,7 +1,7 @@
 --source include/have_rocksdb.inc
-call mtr.add_suppression("RocksDB: Error detected in background, Status Code: 5, Status: IO error: IO Error");
-call mtr.add_suppression("RocksDB: BackgroundErrorReason: 5");
-call mtr.add_suppression(".*Waiting after background flush error: IO error: IO ErrorAccumulated background error counts.*");
+call mtr.add_suppression("RocksDB: Error detected in background");
+call mtr.add_suppression("RocksDB: BackgroundErrorReason");
+call mtr.add_suppression("Waiting after background .*error");
 
 CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE=rocksdb;
 
