@@ -590,9 +590,10 @@ static int rdb_i_s_cfoptions_fill_table(
 
     // get PREFIX_EXTRACTOR option
     cf_option_types.push_back(
-        {"PREFIX_EXTRACTOR", opts.prefix_extractor == nullptr
-                                 ? "NULL"
-                                 : std::string(opts.prefix_extractor->Name())});
+        {"PREFIX_EXTRACTOR",
+         opts.prefix_extractor == nullptr
+             ? "NULL"
+             : std::string(opts.prefix_extractor->AsString())});
 
     // get COMPACTION_STYLE option
     switch (opts.compaction_style) {
