@@ -1160,7 +1160,8 @@ class Reduced_double_write : public Double_write {
       auto err =
           write_to_datafile(bpage, false, std::get<1>(m_buf_pages.m_pages[i]),
                             std::get<2>(m_buf_pages.m_pages[i]));
-      ut_a(err == DB_SUCCESS || err == DB_TABLESPACE_DELETED);
+      ut_a(err == DB_SUCCESS || err == DB_TABLESPACE_DELETED ||
+           err == DB_PAGE_IS_STALE);
 
 #ifdef UNIV_DEBUG
       if (dblwr::Force_crash == page_id) {
