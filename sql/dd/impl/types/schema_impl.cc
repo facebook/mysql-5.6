@@ -71,9 +71,10 @@ using dd::tables::Tables;
 
 namespace dd {
 
-static constexpr auto read_only_options_key = "db_read_only";
+static constexpr auto fb_read_only_options_key = "read_only";
+static constexpr auto mysql_db_read_only_options_key = "mysql_db_read_only";
 static const std::set<String_type> default_valid_option_keys = {
-    "db_metadata", "read_only", read_only_options_key};
+    "db_metadata", mysql_db_read_only_options_key, fb_read_only_options_key};
 
 ///////////////////////////////////////////////////////////////////////////
 // Schema_impl implementation.
@@ -98,7 +99,8 @@ bool Schema_impl::validate() const {
 
 bool Schema_impl::read_only() const {
   bool state = false;
-  if (options().exists("read_only") && options().get("read_only", &state)) {
+  if (options().exists(mysql_db_read_only_options_key) &&
+      options().get(mysql_db_read_only_options_key, &state)) {
     return false;
   }
   return state;
@@ -107,7 +109,7 @@ bool Schema_impl::read_only() const {
 /////////////////////////////////////////////////////////////////////////
 
 void Schema_impl::set_read_only(bool state) {
-  options().set("read_only", state);
+  options().set(mysql_db_read_only_options_key, state);
 }
 
 bool Schema_impl::set_db_metadata(const String_type &metadata) {
@@ -134,19 +136,19 @@ String_type Schema_impl::get_db_metadata() const noexcept {
 ///////////////////////////////////////////////////////////////////////////
 
 void Schema_impl::set_db_read_only(int state) {
-  options().set(read_only_options_key, state);
+  options().set(fb_read_only_options_key, state);
 }
 
 int Schema_impl::get_db_read_only() const {
   DBUG_TRACE;
   int val = 0;
 
-  if (!options().exists(read_only_options_key)) {
+  if (!options().exists(fb_read_only_options_key)) {
     // No option set. Assume not read only.
     return DB_READ_ONLY_NO;
   }
 
-  if (options().get(read_only_options_key, &val) || val < DB_READ_ONLY_NO ||
+  if (options().get(fb_read_only_options_key, &val) || val < DB_READ_ONLY_NO ||
       val > DB_READ_ONLY_SUPER) {
     my_error(ER_UNKNOWN_DB_READ_ONLY, MYF(0), std::to_string(val).c_str());
     return DB_READ_ONLY_NO;
