@@ -17,7 +17,8 @@ std::once_flag wsenv_inited;
 extern "C" {
 // Function pointer to create WS Environment
 typedef rocksdb::Env *(*func_get_or_create_wsenv)(const char *uri,
-                                                  const char *tenant);
+                                                  const char *tenant,
+                                                  const char *oncall);
 // Function pointer to create EnvOptions pointer
 // Use EnvOptions pointer instead of EnvOptions to avoid reference error
 typedef rocksdb::EnvOptions *(*func_get_or_create_wsenv_options)(void);
@@ -110,7 +111,8 @@ rocksdb::Env *get_wsenv_from_uri(const std::string &wsenv_uri,
   if (wsenv_cluster.empty()) return nullptr;
 
   try {
-    auto env = func_wsenv(wsenv_cluster.c_str(), sql_wsenv_tenant);
+    auto env =
+        func_wsenv(wsenv_cluster.c_str(), sql_wsenv_tenant, sql_wsenv_oncall);
     return env;
   } catch (const std::runtime_error &error) {
     my_error(EE_WSENV_RUNTIME_ERROR, MYF(0), error.what());

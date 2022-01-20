@@ -229,6 +229,15 @@ sub fix_sql_wsenv_tenant {
   return $sql_wsenv_tenant;
 }
 
+sub fix_sql_wsenv_oncall {
+  my ($self, $config, $group_name) = @_;
+  my $sql_wsenv_oncall = $self->{ARGS}->{sql_wsenv_oncall};
+  if (!defined $sql_wsenv_oncall or $sql_wsenv_oncall eq "") {
+    return ""
+  }
+  return $sql_wsenv_oncall;
+}
+
 sub fix_sql_wsenv_uri_prefix {
   my ($self, $config, $group_name) = @_;
   my $sql_wsenv_uri_prefix = $self->{ARGS}->{sql_wsenv_uri_prefix};
@@ -335,6 +344,7 @@ my @mysqld_rules = (
   { 'loose-rocksdb_wsenv_path'                     => \&fix_rocksdb_wsenv_path },
   { 'loose-rocksdb_wsenv_tenant'                   => \&fix_rocksdb_wsenv_tenant },
   { 'loose-sql_wsenv_tenant'                       => \&fix_sql_wsenv_tenant },
+  { 'loose-sql_wsenv_oncall'                       => \&fix_sql_wsenv_oncall },
   { 'loose-sql_wsenv_uri_prefix'                   => \&fix_sql_wsenv_uri_prefix },
   { 'loose-sql_wsenv_lib_name'                     => \&fix_sql_wsenv_lib_name },
   { 'loose-sha256_password_auto_generate_rsa_keys' => "0" },

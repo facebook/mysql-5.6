@@ -77,6 +77,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'tx_isolation',
 'tx_read_only',
 'sql_wsenv_tenant',
+'sql_wsenv_oncall',
 'sql_wsenv_uri_prefix',
 'sql_wsenv_lib_name',
 '_list_end_'

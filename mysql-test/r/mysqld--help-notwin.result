@@ -2520,6 +2520,8 @@ The following options may be given as the first argument:
  TABLE'. Attempts to do so will result in an error.
  --sql-wsenv-lib-name=name 
  warm storage library name for dynamic load
+ --sql-wsenv-oncall=name 
+ warm storage environment oncall
  --sql-wsenv-tenant=name 
  warm storage environment tenant
  --sql-wsenv-uri-prefix=name 
@@ -3446,6 +3448,7 @@ sql-maximum-duplicate-executions 0
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
 sql-wsenv-lib-name 
+sql-wsenv-oncall 
 sql-wsenv-tenant 
 sql-wsenv-uri-prefix 
 stored-program-cache 256

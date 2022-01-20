@@ -162,7 +162,8 @@ my $opt_mtr_term_args = env_or_val(MTR_TERM => "xterm -title %title% -e");
 my $opt_lldb_cmd = env_or_val(MTR_LLDB => "lldb");
 my $opt_rocksdb_wsenv_path=$ENV{'MTR_ROCKSDB_WSENV_PATH'} || "";
 my $opt_rocksdb_wsenv_tenant=$ENV{'MTR_ROCKSDB_WSENV_TENANT'} || "";
-my $opt_sql_wsenv_tenant=$ENV{'MTR_SQL_WSENV_URI_TENANT'} || "";
+my $opt_sql_wsenv_tenant=$ENV{'MTR_SQL_WSENV_TENANT'} || "";
+my $opt_sql_wsenv_oncall=$ENV{'MTR_SQL_WSENV_ONCALL'} || "";
 my $opt_sql_wsenv_uri_prefix=$ENV{'MTR_SQL_WSENV_URI_PREFIX'} || "";
 my $opt_sql_wsenv_lib_name=$ENV{'MTR_SQL_WSENV_LIB_NAME'} || "";
 my $opt_sql_wsenv_mtr_path=$ENV{'MTR_SQL_WSENV_MTR_PATH'} || "";
@@ -1836,6 +1837,7 @@ sub command_line_setup {
     'rocksdb-wsenv-path=s'  => \$opt_rocksdb_wsenv_path,
     'rocksdb-wsenv-tenant=s'    => \$opt_rocksdb_wsenv_tenant,
     'sql-wsenv-tenant=s'        => \$opt_sql_wsenv_tenant,
+    'sql-wsenv-oncall=s'        => \$opt_sql_wsenv_oncall,
     'sql-wsenv-uri-prefix=s'    => \$opt_sql_wsenv_uri_prefix,
     'sql-wsenv-lib-name=s'  => \$opt_sql_wsenv_lib_name,
     'sql-wsenv-mtr-path=s'  => \$opt_sql_wsenv_mtr_path,
@@ -4149,12 +4151,14 @@ sub print_wsenv {
       mtr_print("  rocksdb_wsenv_tenant=$rocksdb_wsenv_tenant");
     }
     my $sql_wsenv_tenant = $mysqld->value('loose-sql_wsenv_tenant');
+    my $sql_wsenv_oncall = $mysqld->value('loose-sql_wsenv_oncall');
     my $sql_wsenv_uri_prefix = $mysqld->value('loose-sql_wsenv_uri_prefix');
     my $sql_wsenv_lib_name = $mysqld->value('loose-sql_wsenv_lib_name');
     if ($opt_sql_wsenv_mtr_path ne "") {
       my $suffix = $mysqld->after('mysqld');
       mtr_print("[SQL WSEnv] mysqld$suffix:");
       mtr_print("  sql_wsenv_tenant=$sql_wsenv_tenant");
+      mtr_print("  sql_wsenv_oncall=$sql_wsenv_oncall");
       mtr_print("  sql_wsenv_uri_prefix=$sql_wsenv_uri_prefix");
       mtr_print("  sql_wsenv_lib_name=$sql_wsenv_lib_name");
     }
@@ -4173,6 +4177,7 @@ sub default_mysqld {
   if ($opt_sql_wsenv_mtr_path ne "") {
     mtr_print("[SQL WSEnv] Setting default mysqld config:");
     mtr_print("  sql_wsenv_tenant=$opt_sql_wsenv_tenant");
+    mtr_print("  sql_wsenv_oncall=$opt_sql_wsenv_oncall");
     mtr_print("  sql_wsenv_uri_prefix=$opt_sql_wsenv_uri_prefix");
     mtr_print("  sql_wsenv_lib_name=$opt_sql_wsenv_lib_name");
   }
@@ -4190,6 +4195,7 @@ sub default_mysqld {
                                     rocksdb_wsenv_path    => $wsenv_mtr_path,
                                     rocksdb_wsenv_tenant  => $opt_rocksdb_wsenv_tenant,
                                     sql_wsenv_tenant      => $opt_sql_wsenv_tenant,
+                                    sql_wsenv_oncall      => $opt_sql_wsenv_oncall,
                                     sql_wsenv_uri_prefix  => $opt_sql_wsenv_uri_prefix,
                                     sql_wsenv_lib_name    => $opt_sql_wsenv_lib_name,
                                   });
@@ -4252,6 +4258,9 @@ sub mysql_install_db {
 
   my $sql_wsenv_tenant = $mysqld->value('loose-sql_wsenv_tenant');
   mtr_add_arg($args, "--sql-wsenv-tenant=$sql_wsenv_tenant");
+
+  my $sql_wsenv_oncall = $mysqld->value('loose-sql_wsenv_oncall');
+  mtr_add_arg($args, "--sql-wsenv-oncall=$sql_wsenv_oncall");
 
   my $sql_wsenv_uri_prefix = $mysqld->value('loose-sql_wsenv_uri_prefix');
   mtr_add_arg($args, "--sql-wsenv-uri-prefix=$sql_wsenv_uri_prefix");
@@ -4997,6 +5006,7 @@ sub run_testcase ($) {
       if ($opt_sql_wsenv_mtr_path ne "") {
         mtr_print("[SQL WSEnv] Setting mysqld config:");
         mtr_print("  sql_wsenv_tenant=$opt_sql_wsenv_tenant");
+        mtr_print("  sql_wsenv_oncall=$opt_sql_wsenv_oncall");
         mtr_print("  sql_wsenv_uri_prefix=$opt_sql_wsenv_uri_prefix");
         mtr_print("  sql_wsenv_lib_name=$opt_sql_wsenv_lib_name");
 
@@ -5028,6 +5038,7 @@ sub run_testcase ($) {
                            rocksdb_wsenv_path     => $wsenv_mtr_path,
                            rocksdb_wsenv_tenant   => $opt_rocksdb_wsenv_tenant,
                            sql_wsenv_tenant       => $opt_sql_wsenv_tenant,
+                           sql_wsenv_oncall       => $opt_sql_wsenv_oncall,
                            sql_wsenv_uri_prefix   => $opt_sql_wsenv_uri_prefix,
                            sql_wsenv_lib_name     => $opt_sql_wsenv_lib_name,
                          });

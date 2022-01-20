@@ -239,6 +239,7 @@ extern void (*local_message_hook)(enum loglevel ll, uint ecode, va_list args);
 extern MYSQL_PLUGIN_IMPORT ulong my_thread_stack_size;
 
 extern MYSQL_PLUGIN_IMPORT char *sql_wsenv_tenant;
+extern MYSQL_PLUGIN_IMPORT char *sql_wsenv_oncall;
 extern MYSQL_PLUGIN_IMPORT char *sql_wsenv_uri_prefix;
 extern MYSQL_PLUGIN_IMPORT char *sql_wsenv_lib_name;
 

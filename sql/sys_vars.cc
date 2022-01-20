@@ -9237,6 +9237,11 @@ static Sys_var_charptr Sys_sql_wsenv_tenant(
     READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_tenant), CMD_LINE(REQUIRED_ARG),
     IN_FS_CHARSET, DEFAULT(nullptr));
 
+static Sys_var_charptr Sys_sql_wsenv_oncall(
+    "sql_wsenv_oncall", "warm storage environment oncall",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_oncall), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(nullptr));
+
 static Sys_var_charptr Sys_sql_wsenv_uri_prefix(
     "sql_wsenv_uri_prefix", "warm storage uri path prefix",
     READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_uri_prefix),
