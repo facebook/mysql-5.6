@@ -77,7 +77,7 @@ we trigger the start of a purge? When a transaction writes to an undo log,
 it may notice that the space is running out. When a read view is closed,
 it may make some history superfluous. The server can have an utility which
 periodically checks if it can purge some history.
-        In a parallellized purge we have the problem that a query thread
+        In a parallelized purge we have the problem that a query thread
 can remove a delete marked clustered index record before another query
 thread has processed an earlier version of the record, which cannot then
 be done because the row cannot be constructed from the clustered index
@@ -96,8 +96,8 @@ latches?
 The contention of the trx_sys_t::mutex should be minimized. When a transaction
 does its first insert or modify in an index, an undo log is assigned for it.
 Then we must have an x-latch to the rollback segment header.
-        When the transaction does more modifys or rolls back, the undo log is
-protected with undo_mutex in the transaction.
+        When the transaction does more modifications or rolls back, the undo log
+is protected with undo_mutex in the transaction.
         When the transaction commits, its insert undo log is either reset and
 cached for a fast reuse, or freed. In these cases we must have an x-latch on
 the rollback segment page. The update undo log is put to the history list. If
@@ -2031,7 +2031,7 @@ bool trx_undo_truncate_tablespace(undo::Tablespace *marked_space) {
   };
 #endif /* UNIV_DEBUG */
 
-  bool success = true;
+  bool is_encrypted;
 
   auto old_space_id = marked_space->id();
   auto space_num = undo::id2num(old_space_id);
@@ -2048,19 +2048,41 @@ bool trx_undo_truncate_tablespace(undo::Tablespace *marked_space) {
   /* If the default extend amount has been increased greater than the default
   and it has been less than 1 second since the last time the file was extended,
   then we consider the undo tablespace to be growing aggressively. */
-  if (space->m_undo_extend > INITIAL_UNDO_SPACE_SIZE_IN_PAGES &&
+  if (space != nullptr &&
+      space->m_undo_extend > INITIAL_UNDO_SPACE_SIZE_IN_PAGES &&
       space->m_last_extended.elapsed() < 1000) {
     /* UNDO is beeing extended aggressively, dont' reduce size to default. */
     n_pages = fil_space_get_size(old_space_id) / 4;
   }
 
-  bool is_encrypted = FSP_FLAGS_GET_ENCRYPTION(space->flags);
+  /* Step-1: Delete the old tablespace. */
+  /* Tablespace might have been attempted to be deleted before. If it was
+  removed, then possibly only new space creation failed, or old space file
+  deletion failed.*/
+  if (space != nullptr) {
+    is_encrypted = FSP_FLAGS_GET_ENCRYPTION(space->flags);
 
-  /* Step-1: Truncate tablespace by replacement with a new space_id. */
-  success = fil_replace_tablespace(old_space_id, new_space_id, n_pages);
+    if (fil_delete_tablespace(old_space_id, BUF_REMOVE_NONE) != DB_SUCCESS) {
+      return false;
+    }
+  } else {
+    /* For example on Windows the file deletion can fail if the file
+    is being used. Just try again to remove it if it still exists. */
+    os_file_delete_if_exists(innodb_data_file_key, marked_space->file_name(),
+                             nullptr);
 
-  if (!success) {
-    return (success);
+    /* We don't know if the undo was encrypted or not, just use the
+    srv_undo_log_encrypt value. */
+    is_encrypted = true;
+  }
+
+  /* Step-2: Re-create tablespace with new file. */
+  ulint flags = fsp_flags_init(univ_page_size, false, false, false, false);
+
+  /* Create the new UNDO tablespace. */
+  if (fil_ibd_create(new_space_id, marked_space->space_name(),
+                     marked_space->file_name(), flags, n_pages) != DB_SUCCESS) {
+    return false;
   }
 
   ut_d(undo::inject_crash("ib_undo_trunc_empty_file"));
@@ -2069,7 +2091,7 @@ bool trx_undo_truncate_tablespace(undo::Tablespace *marked_space) {
   file_space because SYNC_RSEGS > SYNC_FSP. */
   marked_rsegs->x_lock();
 
-  /* Step-2: Re-initialize tablespace header. */
+  /* Step-3: Re-initialize tablespace header. */
   log_free_check();
 
   mtr_t mtr;
@@ -2086,12 +2108,12 @@ bool trx_undo_truncate_tablespace(undo::Tablespace *marked_space) {
     ut_ad(!ret);
   }
 
-  /* Step-3: Add the RSEG_ARRAY page. */
+  /* Step-4: Add the RSEG_ARRAY page. */
   trx_rseg_array_create(new_space_id, &mtr);
 
   mtr.commit();
 
-  /* Step-4: Re-initialize rollback segment header that resides
+  /* Step-5: Re-initialize rollback segment header that resides
   in truncated tablespaces. */
 
   ut_d(undo::inject_crash("ib_undo_trunc_before_rsegs"));
@@ -2166,7 +2188,7 @@ bool trx_undo_truncate_tablespace(undo::Tablespace *marked_space) {
   to this space, it is completely initialized. */
   marked_space->set_space_id(new_space_id);
 
-  return (success);
+  return true;
 }
 
 #endif /* !UNIV_HOTBACKUP */
