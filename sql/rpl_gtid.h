@@ -1130,6 +1130,10 @@ struct Gtid {
   bool equals(const Gtid &other) const {
     return sidno == other.sidno && gno == other.gno;
   }
+  /// Returns true if this Gtid is greater than 'other'.
+  bool greater_than(const Gtid &other) const noexcept {
+    return sidno == other.sidno && gno > other.gno;
+  }
   /**
     Parses the given string and stores in this Gtid.
 

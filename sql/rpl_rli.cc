@@ -129,6 +129,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
       replicate_same_server_id(::replicate_same_server_id),
       relay_log(&sync_relaylog_period, true),
       is_relay_log_recovery(is_slave_recovery),
+      recovery_sid_lock(),
+      recovery_sid_map(&recovery_sid_lock),
       save_temporary_tables(nullptr),
       mi(nullptr),
       error_on_rli_init_info(false),
@@ -213,7 +215,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
 #endif
 
   group_relay_log_name[0] = event_relay_log_name[0] = group_master_log_name[0] =
-      0;
+      last_gtid[0] = 0;
   ign_master_log_name_end[0] = 0;
   set_timespec_nsec(&last_clock, 0);
   cached_charset_invalidate();
@@ -257,6 +259,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
   do_server_version_split(::server_version, slave_version_split);
   until_option = nullptr;
   rpl_filter = nullptr;
+
+  recovery_max_engine_gtid.clear();
 }
 
 /**

@@ -1,0 +1,2 @@
+--gtid-mode=ON --enforce-gtid-consistency
+--slave-parallel-workers=10 --relay-log-recovery=1

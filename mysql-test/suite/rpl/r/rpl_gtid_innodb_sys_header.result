@@ -3,6 +3,8 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
+call mtr.add_suppression("The master's UUID has changed, although this should not happen unless you have changed it manually.");
+include/rpl_restart_server.inc [server_number=1]
 create table t1 (a int);
 insert into t1 values(1);
 SET GLOBAL debug = '+d,crash_before_writing_xid';

@@ -283,6 +283,7 @@ our @DEFAULT_SUITES = qw(
   rpl
   rpl_gtid
   rpl_nogtid
+  rpl_recovery
   secondary_engine
   service_status_var_registration
   service_sys_var_registration

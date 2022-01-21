@@ -1,2 +1,3 @@
+--gtid-mode=on --enforce-gtid-consistency
 --sync_source_info=1 --relay-log-recovery=1 --replica-transaction-retries=0
 --skip-replica-preserve-commit-order

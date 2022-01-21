@@ -1,0 +1,17 @@
+[row]
+binlog-format=row
+
+[row-idempotent-recovery]
+binlog-format=row
+slave-use-idempotent-for-recovery=yes
+master_info_repository=FILE
+relay_log_info_repository=FILE
+skip_flush_master_info=ON
+skip_flush_relay_worker_info=ON
+
+
+[stmt]
+binlog-format=statement
+
+[mix]
+binlog-format=mixed

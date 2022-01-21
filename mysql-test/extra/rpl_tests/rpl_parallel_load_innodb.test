@@ -67,7 +67,7 @@ while($i)
 
   # this table is special - just for timing. It's more special on test0 db
   # where it contains master timing of the load as well.
-  create table benchmark (state text) engine=myisam; # timestamp keep on the slave side
+  create table benchmark (state text) engine=innodb; # timestamp keep on the slave side
 
   dec $i;
 }
