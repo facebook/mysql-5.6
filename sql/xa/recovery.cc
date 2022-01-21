@@ -67,7 +67,8 @@ constexpr size_t STATS_COMMITTED = 0,  // The committed counter
  */
 void recover_one_internal_trx(xarecover_st const &info, handlerton &ht,
                               XA_recover_txn const &xa_trx, my_xid xid,
-                              ::recovery_statistics &stats);
+                              ::recovery_statistics &stats,
+                              Gtid &recovered_max_gtid);
 /**
   Processes an externally coordinated transaction against the transaction
   coordinator internal state.
@@ -192,14 +193,32 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
   xarecover_st *info = static_cast<struct xarecover_st *>(arg);
   int got;
 
+  /**
+  This variable will track the max gtid for executed transactions
+  hton->recover will give us the max gtid stored in the engine prior to
+  the restart but we need to update the max gtid if there are any
+  prepared transactions that are rolled forward
+  */
+  Gtid recovered_max_gtid;
+  recovered_max_gtid.clear();
+
+  if (info->binlog_max_gtid) recovered_max_gtid = *(info->binlog_max_gtid);
+
   if (ht->state == SHOW_OPTION_YES && ht->recover) {
     ::recovery_statistics external_stats{{0, 0, 0}, {0, 0, 0}};
     ::recovery_statistics internal_stats{{0, 0, 0}, {0, 0, 0}};
-    while (
-        (got = ht->recover(
-             ht, info->list, info->len,
-             Recovered_xa_transactions::instance().get_allocated_memroot())) >
-        0) {
+    while ((got = ht->recover(
+                ht, info->list, info->len,
+                Recovered_xa_transactions::instance().get_allocated_memroot(),
+                info->binlog_max_gtid, info->binlog_file, info->binlog_pos)) >
+           0) {
+      // case: check if the max gtid recovered from the engine in
+      // this iteration is greater than what we recovered before
+      if (info->binlog_max_gtid &&
+          (info->binlog_max_gtid->greater_than(recovered_max_gtid) ||
+           info->binlog_max_gtid->sidno != recovered_max_gtid.sidno)) {
+        recovered_max_gtid = *(info->binlog_max_gtid);
+      }
       assert(got <= info->len);
       LogErr(INFORMATION_LEVEL, ER_XA_RECOVER_FOUND_TRX_IN_SE, got,
              ha_resolve_storage_engine_name(ht));
@@ -222,10 +241,12 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
         }
 
         // Internally coordinated transaction
-        ::recover_one_internal_trx(*info, *ht, xa_trx, xid, internal_stats);
+        ::recover_one_internal_trx(*info, *ht, xa_trx, xid, internal_stats,
+                                   recovered_max_gtid);
       }
       if (got < info->len) break;
     }
+
     bool has_failures =
         ::has_failures(internal_stats) || ::has_failures(external_stats);
     LogErr(has_failures ? ERROR_LEVEL : INFORMATION_LEVEL,
@@ -233,6 +254,27 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
            ha_resolve_storage_engine_name(ht),
            ::print_stats(internal_stats, external_stats).data());
     DBUG_EXECUTE_IF("xa_recovery_error_reporting", return has_failures;);
+
+    // case: this is required because there might not be even a single
+    // iteration of the while loop
+    if (info->binlog_max_gtid &&
+        (info->binlog_max_gtid->greater_than(recovered_max_gtid) ||
+         info->binlog_max_gtid->sidno != recovered_max_gtid.sidno)) {
+      recovered_max_gtid = *(info->binlog_max_gtid);
+    }
+  }
+
+  if (info->binlog_max_gtid) {
+    // set the max gtid in info so that it can be carried up the stack
+    *(info->binlog_max_gtid) = recovered_max_gtid;
+    if (!recovered_max_gtid.is_empty()) {
+      char buf[Gtid::MAX_TEXT_LENGTH + 1];
+      global_sid_lock->rdlock();
+      recovered_max_gtid.to_string(global_sid_map, buf);
+      global_sid_lock->unlock();
+      // NO_LINT_DEBUG
+      sql_print_information("Recovered Max Gtid is %s", buf);
+    }
   }
   return false;
 }
@@ -240,9 +282,30 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
 namespace {
 void recover_one_internal_trx(xarecover_st const &info, handlerton &ht,
                               XA_recover_txn const &xa_trx, my_xid xid,
-                              ::recovery_statistics &stats) {
-  if (info.commit_list ? info.commit_list->count(xid) != 0
-                       : tc_heuristic_recover == TC_HEURISTIC_RECOVER_COMMIT) {
+                              ::recovery_statistics &stats,
+                              Gtid &recovered_max_gtid) {
+  const Gtid *current_gtid = nullptr;
+  bool recovery_mode_condition;
+  if (info.commit_list != nullptr) {
+    auto it = info.commit_list->find(xid);
+    if (it != info.commit_list->end()) {
+      recovery_mode_condition = true;
+      current_gtid = &(it->second);
+    } else
+      recovery_mode_condition = false;
+  } else {
+    recovery_mode_condition =
+        tc_heuristic_recover == TC_HEURISTIC_RECOVER_COMMIT;
+  }
+
+  if (recovery_mode_condition) {
+    // case: check if this prepared transaction's gtid is greater than
+    // what we recovered before
+    if (current_gtid != nullptr &&
+        (current_gtid->greater_than(recovered_max_gtid) ||
+         recovered_max_gtid.sidno != current_gtid->sidno)) {
+      recovered_max_gtid = *current_gtid;
+    }
     enum xa_status_code exec_status;
     if (DBUG_EVALUATE_IF("xa_recovery_error_reporting", true, false))
       exec_status = ::generate_xa_recovery_error();

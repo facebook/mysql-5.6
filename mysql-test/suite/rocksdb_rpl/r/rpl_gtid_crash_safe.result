@@ -4,6 +4,7 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 call mtr.add_suppression("Recovery from master pos");
+*** Testing crash_before_update_pos
 [connection master]
 CREATE TABLE t1(a INT, PRIMARY KEY(a)) ENGINE=ROCKSDB;
 INSERT INTO t1 VALUES(1);
@@ -50,6 +51,7 @@ include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-7
+*** Testing crash_after_update_pos_before_apply
 include/rpl_reset.inc
 [connection master]
 CREATE TABLE t1(a INT, PRIMARY KEY(a)) ENGINE=ROCKSDB;
@@ -97,6 +99,7 @@ include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-6
+*** Testing crash_before_writing_xid
 include/rpl_reset.inc
 [connection master]
 CREATE TABLE t1(a INT, PRIMARY KEY(a)) ENGINE=ROCKSDB;
@@ -144,6 +147,7 @@ include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-6
+*** Testing half_binlogged_transaction
 include/rpl_reset.inc
 [connection master]
 CREATE TABLE t1(a INT, PRIMARY KEY(a)) ENGINE=ROCKSDB;
@@ -191,6 +195,7 @@ include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-6
+*** Testing crash_commit_before
 include/rpl_reset.inc
 [connection master]
 CREATE TABLE t1(a INT, PRIMARY KEY(a)) ENGINE=ROCKSDB;
@@ -238,6 +243,7 @@ include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-6
+*** Testing crash_commit_after_log
 include/rpl_reset.inc
 [connection master]
 CREATE TABLE t1(a INT, PRIMARY KEY(a)) ENGINE=ROCKSDB;
@@ -285,6 +291,7 @@ include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-6
+*** Testing crash_commit_after_prepare
 include/rpl_reset.inc
 [connection master]
 CREATE TABLE t1(a INT, PRIMARY KEY(a)) ENGINE=ROCKSDB;
@@ -332,6 +339,7 @@ include/start_slave.inc
 SELECT @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-6
+*** Testing crash_commit_after
 include/rpl_reset.inc
 [connection master]
 CREATE TABLE t1(a INT, PRIMARY KEY(a)) ENGINE=ROCKSDB;

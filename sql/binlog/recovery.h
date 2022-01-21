@@ -144,7 +144,8 @@ class Binlog_recovery {
 
     @return This instance's reference, for chaining purposes.
    */
-  Binlog_recovery &recover();
+  Binlog_recovery &recover(Gtid *binlog_max_gtid, char *engine_binlog_file,
+                           my_off_t *engine_binlog_pos);
 
  private:
   /** File reader for the last available binary log file */
@@ -161,12 +162,11 @@ class Binlog_recovery {
   std::string m_failure_message{""};
   /** Memory pool to use for the XID lists */
   MEM_ROOT m_mem_root;
-  /** Memory pool allocator to use with the normal transaction list */
-  Mem_root_allocator<my_xid> m_set_alloc;
+  Gtid m_current_gtid;
   /** Memory pool allocator to use with the XA transaction list */
   Mem_root_allocator<std::pair<const XID, XID_STATE::xa_states>> m_map_alloc;
   /** List of normal transactions fully written to the binary log */
-  Xid_commit_list m_internal_xids;
+  xid_to_gtid_container m_internal_xids;
   /** List of XA transactions and states that appear in the binary log */
   Xa_state_list::list m_external_xids;
 

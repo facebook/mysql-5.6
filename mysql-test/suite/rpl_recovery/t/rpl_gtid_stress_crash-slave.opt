@@ -1,0 +1,2 @@
+--gtid-mode=ON --enforce-gtid-consistency --max-binlog-size=50000
+--relay-log-recovery=1 --innodb_flush_log_at_trx_commit=0

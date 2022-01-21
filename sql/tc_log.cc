@@ -711,11 +711,15 @@ int TC_LOG_MMAP::recover() {
 
   {
     MEM_ROOT mem_root(PSI_INSTRUMENT_ME, tc_log_page_size / 3);
-    mem_root_unordered_set<my_xid> xids(&mem_root);
+    xid_to_gtid_container xids(&mem_root);
 
     for (; p < end_p; p++) {
       for (my_xid *x = p->start; x < p->end; x++) {
-        if (*x) xids.insert(*x);
+        if (*x) {
+          Gtid current_gtid;
+          current_gtid.clear();
+          xids.emplace(*x, current_gtid);
+        }
       }
     }
 

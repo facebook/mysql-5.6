@@ -3,6 +3,7 @@
 #
 --source include/force_restart.inc
 --source include/have_binlog_format_statement.inc
+--source include/assert_gtid_mode_off.inc
 --source include/master-slave.inc
 --source include/rpl_connection_slave.inc
 

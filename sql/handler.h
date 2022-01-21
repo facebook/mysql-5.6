@@ -1263,9 +1263,7 @@ enum class enum_ha_recover_xa_state : int {
   Single occurrence set of XIDs of internally coordinated transactions
   found as been committed in the transaction coordinator state.
  */
-using Xid_commit_list =
-    std::unordered_set<my_xid, std::hash<my_xid>, std::equal_to<my_xid>,
-                       Mem_root_allocator<my_xid>>;
+using xid_to_gtid_container = mem_root_unordered_map<my_xid, Gtid>;
 
 /**
   Class to maintain list of externally coordinated transactions and their
@@ -1412,7 +1410,8 @@ typedef void (*recover_binlog_pos_t)(handlerton *hton, Gtid *binlog_max_gtid,
                                      char *binlog_file, my_off_t *binlog_pos);
 
 typedef int (*recover_t)(handlerton *hton, XA_recover_txn *xid_list, uint len,
-                         MEM_ROOT *mem_root);
+                         MEM_ROOT *mem_root, Gtid *binlog_max_gtid,
+                         char *binlog_file, my_off_t *binlog_pos);
 /**
   Retrieves information about externally coordinated transactions for which
   the two-phase prepare was finished and transactions were prepared in the
@@ -6865,6 +6864,14 @@ class handler {
   int get_lock_type() const { return m_lock_type; }
 
   /**
+     Whether the storage engine table has a TTL column
+
+     @return true if the table contains ttl col
+             false otherwise
+   */
+  virtual bool has_ttl_column() const { return false; }
+
+  /**
     Callback function that will be called by my_prepare_gcolumn_template
     once the table has been opened.
   */
@@ -7217,6 +7224,7 @@ typedef bool Log_func(THD *, TABLE *, bool, const uchar *, const uchar *);
 
 int binlog_log_row(TABLE *table, const uchar *before_record,
                    const uchar *after_record, Log_func *log_func);
+int write_locked_table_maps(THD *thd);
 
 /* discovery */
 int ha_create_table_from_engine(THD *thd, const char *db, const char *name);
@@ -7290,8 +7298,10 @@ int ha_rollback_trans(THD *thd, bool all);
 
   @return 0 if recovery was successful, non-zero otherwise.
 */
-int ha_recover(Xid_commit_list *commit_list = nullptr,
-               Xa_state_list *xa_state_list = nullptr);
+int ha_recover(xid_to_gtid_container *commit_list = nullptr,
+               Xa_state_list *xa_state_list = nullptr,
+               Gtid *binlog_max_gtid = nullptr, char *binlog_file = nullptr,
+               my_off_t *binlog_pos = nullptr);
 
 /**
   Perform SE-specific cleanup after recovery of transactions.

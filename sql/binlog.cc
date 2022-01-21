@@ -961,6 +961,7 @@ class binlog_cache_data {
     return 0;
   }
 
+ public:
   /**
     Remove the pending event.
    */
@@ -969,6 +970,8 @@ class binlog_cache_data {
     m_pending = nullptr;
     return 0;
   }
+
+ protected:
   struct Flags {
     /*
       Defines if this is either a trx-cache or stmt-cache, respectively, a
@@ -1366,7 +1369,7 @@ static void binlog_dummy_recover_binlog_pos(handlerton *, Gtid *, char *,
                                             my_off_t *) {}
 
 static int binlog_dummy_recover(handlerton *, XA_recover_txn *, uint,
-                                MEM_ROOT *) {
+                                MEM_ROOT *, Gtid *, char *, my_off_t *) {
   return 0;
 }
 
@@ -3658,6 +3661,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       is_relay_log(relay_log),
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       relay_log_checksum_alg(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
+      engine_binlog_pos(ULLONG_MAX),
       previous_gtid_set_relaylog(nullptr),
       is_rotating_caused_by_incident(false) {
   /*
@@ -3667,6 +3671,8 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
     before main().
   */
   index_file_name[0] = 0;
+  engine_binlog_file[0] = 0;
+  engine_binlog_max_gtid.clear();
 }
 
 MYSQL_BIN_LOG::~MYSQL_BIN_LOG() { delete m_binlog_file; }
@@ -7281,7 +7287,8 @@ int MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
 */
 
 bool MYSQL_BIN_LOG::write_event(Log_event *event_info,
-                                bool write_meta_data_event) {
+                                bool write_meta_data_event,
+                                force_cache_type force_cache) {
   THD *thd = event_info->thd;
   bool error = true;
   DBUG_TRACE;
@@ -7334,6 +7341,15 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info,
          (!event_info->is_no_filter_event() &&
           !binlog_filter->db_ok(local_db))))
       return false;
+
+    if (force_cache == FORCE_CACHE_STATEMENT) {
+      event_info->set_using_stmt_cache();
+      event_info->set_immediate_logging();
+    } else if (force_cache == FORCE_CACHE_TRANSACTIONAL) {
+      event_info->set_using_trans_cache();
+    } else {
+      assert(force_cache == FORCE_CACHE_DEFAULT);
+    }
 
     assert(event_info->is_using_trans_cache() ||
            event_info->is_using_stmt_cache());
@@ -8219,8 +8235,9 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       LogErr(INFORMATION_LEVEL, ER_BINLOG_RECOVERING_AFTER_CRASH_USING,
              opt_name);
       binlog::Binlog_recovery bl_recovery{binlog_file_reader};
-      error = bl_recovery     //
-                  .recover()  //
+      error = bl_recovery  //
+                  .recover(&engine_binlog_max_gtid, engine_binlog_file,
+                           &engine_binlog_pos)  //
                   .has_failures();
       valid_pos = bl_recovery.get_valid_pos();
       binlog_size = binlog_file_reader.ifile()->length();
@@ -8904,7 +8921,7 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       (void)RUN_HOOK(transaction, after_commit, (head, all));
 
       my_off_t pos;
-      head->get_trans_pos(nullptr, &pos, nullptr);
+      head->get_trans_pos(nullptr, &pos, nullptr, nullptr);
       signal_semi_sync_ack(head->get_trans_fixed_log_path(), pos);
       /*
         When after_commit finished for the transaction, clear the run_hooks
@@ -11859,6 +11876,18 @@ int THD::binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional) {
   }
 
   return error;
+}
+
+void THD::binlog_reset_pending_rows_event(bool is_transactional) {
+  DBUG_ENTER("THD::binlog_reset_pending_rows_event");
+  auto cache_mngr = thd_get_cache_mngr(this);
+  if (!cache_mngr) DBUG_VOID_RETURN;
+
+  auto cache_data = cache_mngr->get_binlog_cache_data(is_transactional);
+  assert(cache_data != nullptr);
+  cache_data->remove_pending_event();
+  assert(binlog_get_pending_rows_event(is_transactional) == nullptr);
+  DBUG_VOID_RETURN;
 }
 
 #if !defined(NDEBUG)

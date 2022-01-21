@@ -56,6 +56,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 /** The transaction system */
 trx_sys_t *trx_sys = nullptr;
 
+/** Binlog max gitd */
+char trx_sys_mysql_bin_log_max_gtid[TRX_SYS_MYSQL_GTID_LEN];
+
 /** Check whether transaction id is valid.
 @param[in]      id      transaction id to check
 @param[in]      name    table name */
@@ -208,10 +211,10 @@ static bool read_binlog_position(const byte *binlog_buf, const char *&file_name,
 @param[in]      offset          Binary log offset
 @param[out]     binlog_buf      Buffer from trx sys page to write to
 @param[in,out]  mtr             Mini-transaction
-@param[in] gtid Gtid of the transaction */
+@param[in]	max_gtid	Max Gtid seen till this transaction */
 static void write_binlog_position(const char *file_name, uint64_t offset,
                                   byte *binlog_buf, mtr_t *mtr,
-                                  const char *gtid) {
+                                  const char *max_gtid) {
   if (file_name == nullptr ||
       ut_strlen(file_name) >= TRX_SYS_MYSQL_LOG_NAME_LEN) {
     /* We cannot fit the name to the 512 bytes we have reserved */
@@ -241,16 +244,20 @@ static void write_binlog_position(const char *file_name, uint64_t offset,
   }
   mlog_write_ulint(binlog_buf + TRX_SYS_MYSQL_LOG_OFFSET_LOW, in_low,
                    MLOG_4BYTES, mtr);
-  if (gtid) {
-    size_t gtid_length = ut_strlen(gtid);
+  if (max_gtid) {
+    size_t gtid_length = ut_strlen(max_gtid);
     if (gtid_length >= TRX_SYS_MYSQL_GTID_LEN) {
       /* This should not happen */
       assert(0);
       return;
     }
-    /* Write Gtid string */
-    mlog_write_string(binlog_buf + TRX_SYS_MYSQL_GTID, (byte *)gtid,
-                      1 + gtid_length, mtr);
+    if (0 != strcmp(reinterpret_cast<char *>(binlog_buf + TRX_SYS_MYSQL_GTID),
+                    max_gtid)) {
+      /* Write Gtid string */
+      mlog_write_string(binlog_buf + TRX_SYS_MYSQL_GTID,
+                        reinterpret_cast<const byte *>(max_gtid),
+                        1 + gtid_length, mtr);
+    }
   }
 }
 
@@ -324,7 +331,7 @@ bool trx_sys_write_binlog_position(const char *last_file, uint64_t last_offset,
 }
 
 void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
-                                        const char *gtid) {
+                                        const char *max_gtid) {
   trx_sys_update_binlog_position(trx);
 
   const char *file_name = trx->mysql_log_file_name;
@@ -339,7 +346,7 @@ void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
     /* Don't write blank name in binary log file position. */
     return;
   }
-  write_binlog_position(file_name, offset, binlog_pos, mtr, gtid);
+  write_binlog_position(file_name, offset, binlog_pos, mtr, max_gtid);
 }
 
 /** Stores the MySQL binlog offset info in the trx system header if
@@ -373,8 +380,14 @@ void trx_sys_print_mysql_binlog_offset(void) {
                            << sys_header + TRX_SYS_MYSQL_LOG_INFO +
                                   TRX_SYS_MYSQL_LOG_NAME;
 
-  ib::info() << "Last MySQL Gtid "
-             << sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID;
+  ut_strlcpy(trx_sys_mysql_bin_log_max_gtid,
+             reinterpret_cast<const char *>(sys_header) +
+                 TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID,
+             TRX_SYS_MYSQL_GTID_LEN);
+
+  ib::info() << "Last MySQL Gtid " << trx_sys_mysql_bin_log_max_gtid;
+  fprintf(stderr, "InnoDB: Last MySQL Gtid %s\n",
+          trx_sys_mysql_bin_log_max_gtid);
 
   mtr_commit(&mtr);
 }

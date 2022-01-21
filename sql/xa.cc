@@ -264,7 +264,8 @@ bool Recovered_xa_transactions::recover_prepared_xa_transactions() {
   return ret;
 }
 
-int ha_recover(Xid_commit_list *commit_list, Xa_state_list *xa_list) {
+int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
+               Gtid *binlog_max_gtid, char *binlog_file, my_off_t *binlog_pos) {
   xarecover_st info;
   DBUG_TRACE;
   info.found_foreign_xids = info.found_my_xids = 0;
@@ -272,6 +273,9 @@ int ha_recover(Xid_commit_list *commit_list, Xa_state_list *xa_list) {
   info.dry_run = (info.commit_list == nullptr &&
                   tc_heuristic_recover == TC_HEURISTIC_NOT_USED);
   info.list = nullptr;
+  info.binlog_max_gtid = binlog_max_gtid;
+  info.binlog_file = binlog_file;
+  info.binlog_pos = binlog_pos;
 
   std::unique_ptr<MEM_ROOT> mem_root{nullptr};
   std::unique_ptr<Xa_state_list::allocator> map_alloc{nullptr};
@@ -329,8 +333,12 @@ int ha_recover(Xid_commit_list *commit_list, Xa_state_list *xa_list) {
     return 1;
   }
 
-  if (info.found_foreign_xids)
+  if (info.found_foreign_xids) {
     LogErr(WARNING_LEVEL, ER_XA_RECOVER_FOUND_XA_TRX, info.found_foreign_xids);
+    if (binlog_pos)
+      *binlog_pos =
+          ULLONG_MAX;  // don't change gtid_state->get_executed_gtids()
+  }
   if (info.dry_run && info.found_my_xids) {
     LogErr(ERROR_LEVEL, ER_XA_RECOVER_EXPLANATION, info.found_my_xids,
            opt_tc_log_file);

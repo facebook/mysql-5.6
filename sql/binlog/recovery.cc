@@ -30,9 +30,8 @@ binlog::Binlog_recovery::Binlog_recovery(Binlog_file_reader &binlog_file_reader)
     : m_reader{binlog_file_reader},
       m_mem_root{key_memory_binlog_recover_exec,
                  static_cast<size_t>(my_getpagesize())},
-      m_set_alloc{&m_mem_root},
       m_map_alloc{&m_mem_root},
-      m_internal_xids{m_set_alloc},
+      m_internal_xids{&m_mem_root},
       m_external_xids{m_map_alloc} {}
 
 my_off_t binlog::Binlog_recovery::get_valid_pos() const {
@@ -55,7 +54,11 @@ std::string const &binlog::Binlog_recovery::get_failure_message() const {
   return this->m_failure_message;
 }
 
-binlog::Binlog_recovery &binlog::Binlog_recovery::recover() {
+binlog::Binlog_recovery &binlog::Binlog_recovery::recover(
+    Gtid *binlog_max_gtid, char *engine_binlog_file,
+    my_off_t *engine_binlog_pos) {
+  m_current_gtid.clear();
+
   binlog::tools::Iterator it{&this->m_reader};
   it.set_copy_event_buffer();
   this->m_valid_pos = this->m_reader.position();
@@ -74,6 +77,14 @@ binlog::Binlog_recovery &binlog::Binlog_recovery::recover() {
         this->process_xa_prepare_event(
             dynamic_cast<XA_prepare_log_event &>(*ev));
         break;
+      }
+      case binary_log::ANONYMOUS_GTID_LOG_EVENT:
+      case binary_log::GTID_LOG_EVENT: {
+        auto gev = static_cast<Gtid_log_event *>(ev);
+        if (gev->get_type() != ANONYMOUS_GTID)
+          m_current_gtid.set(gev->get_sidno(true), gev->get_gno());
+        else
+          m_current_gtid.clear();
       }
       default: {
         break;
@@ -94,7 +105,9 @@ binlog::Binlog_recovery &binlog::Binlog_recovery::recover() {
 
   if (!this->m_is_malformed && total_ha_2pc > 1) {
     Xa_state_list xa_list{this->m_external_xids};
-    this->m_no_engine_recovery = ha_recover(&this->m_internal_xids, &xa_list);
+    this->m_no_engine_recovery =
+        ha_recover(&this->m_internal_xids, &xa_list, binlog_max_gtid,
+                   engine_binlog_file, engine_binlog_pos);
     if (this->m_no_engine_recovery) {
       this->m_failure_message.assign("Recovery failed in storage engines");
     }
@@ -134,7 +147,7 @@ void binlog::Binlog_recovery::process_xid_event(Xid_log_event const &ev) {
     return;
   }
   this->m_in_transaction = false;
-  if (!this->m_internal_xids.insert(ev.xid).second) {
+  if (!this->m_internal_xids.emplace(ev.xid, m_current_gtid).second) {
     this->m_is_malformed = true;
     this->m_failure_message.assign("Xid_log_event holds an invalid XID");
   }
@@ -207,7 +220,7 @@ void binlog::Binlog_recovery::process_atomic_ddl(Query_log_event const &ev) {
         "events representing an active transaction");
     return;
   }
-  if (!this->m_internal_xids.insert(ev.ddl_xid).second) {
+  if (!this->m_internal_xids.emplace(ev.ddl_xid, m_current_gtid).second) {
     this->m_is_malformed = true;
     this->m_failure_message.assign(
         "Query_log_event containing a DDL holds an invalid XID");

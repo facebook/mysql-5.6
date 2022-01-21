@@ -25,14 +25,17 @@
 
 #include "sql/handler.h"    // XA_recover_txn
 #include "sql/sql_class.h"  // THD
-#include "sql/xa.h"         // Xid_commit_list, Xa_state_list, XID, ...
+#include "sql/xa.h"         // xid_to_gtid_container, Xa_state_list, XID, ...
 
 struct xarecover_st {
   int len, found_foreign_xids, found_my_xids;
   XA_recover_txn *list;
-  Xid_commit_list const *commit_list;
+  xid_to_gtid_container const *commit_list;
   Xa_state_list *xa_list;
   bool dry_run;
+  Gtid *binlog_max_gtid;
+  char *binlog_file;
+  my_off_t *binlog_pos;
 };
 
 namespace xa {

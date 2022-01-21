@@ -1568,7 +1568,10 @@ static int innobase_xa_recover(
     handlerton *hton,         /*!< in: InnoDB handlerton */
     XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
     uint len,                 /*!< in: number of slots in xid_list */
-    MEM_ROOT *mem_root);      /*!< in: memory for table names */
+    MEM_ROOT *mem_root,       /*!< in: memory for table names */
+    Gtid *binlog_max_gtid,    /*!< in/out: Max valid binlog gtid */
+    char *binlog_file,        /*!< in/out: Last valid binlog file */
+    my_off_t *binlog_pos);    /*!< in/out: Last valid binlog pos */
 /** Find prepared transactions that are marked as prepared in TC, for recovery
 purposes.
 @param[in]     hton    InnoDB handlerton
@@ -5918,7 +5921,8 @@ static int innobase_commit(handlerton *hton, /*!< in: InnoDB handlerton */
       be a NULL pointer. */
       ulonglong pos;
 
-      thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos, &trx->mysql_gtid);
+      thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos, &trx->mysql_gtid,
+                     &trx->mysql_max_gtid);
 
       trx->mysql_log_offset = static_cast<uint64_t>(pos);
 
@@ -20124,9 +20128,24 @@ static int innobase_xa_recover(
     handlerton *hton,         /*!< in: InnoDB handlerton */
     XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
     uint len,                 /*!< in: number of slots in xid_list */
-    MEM_ROOT *mem_root)       /*!< in: memory for table names */
+    MEM_ROOT *mem_root,       /*!< in: memory for table names */
+    Gtid *binlog_max_gtid,    /*!< in/out: Max valid binlog gtid*/
+    char *binlog_file,        /*!< in/out: Last valid binlog file */
+    my_off_t *binlog_pos)     /*!< in/out: Last valid binlog pos */
 {
   assert(hton == innodb_hton_ptr);
+
+  if (binlog_max_gtid != nullptr) {
+    global_sid_lock->rdlock();
+    binlog_max_gtid->parse(global_sid_map, trx_sys_mysql_bin_log_max_gtid);
+    global_sid_lock->unlock();
+  }
+
+  if (binlog_file != nullptr && binlog_pos != nullptr) {
+    uint64_t offset = 0;
+    trx_sys_read_binlog_position(binlog_file, offset);
+    *binlog_pos = offset;
+  }
 
   if (len == 0 || txn_list == nullptr) {
     return (0);

@@ -606,6 +606,7 @@ class Slave_worker : public Relay_log_info {
     When WQ length is dropped below overrun the counter is reset.
   */
   ulong excess_cnt;
+  char worker_last_gtid[Gtid::MAX_TEXT_LENGTH + 1];
   /*
     Coordinates of the last CheckPoint (CP) this Worker has
     acknowledged; part of is persistent data
