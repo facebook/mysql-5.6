@@ -1103,7 +1103,7 @@ void Events::dump_internal_status() {
     opt_event_scheduler should only be accessed while
     holding LOCK_global_system_variables.
   */
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_rdlock(&LOCK_global_system_variables);
   if (opt_event_scheduler == EVENTS_DISABLED)
     puts("The Event Scheduler is disabled");
   else {
@@ -1111,7 +1111,7 @@ void Events::dump_internal_status() {
     event_queue->dump_internal_status();
   }
 
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 }
 
 bool Events::start(int *err_no) {

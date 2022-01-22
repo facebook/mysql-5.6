@@ -75,7 +75,7 @@ using std::string;
 using set_var_list_map = std::unordered_map<ulong, List<set_var_base>>;
 
 static collation_unordered_map<string, sys_var *> *system_variable_hash;
-static PolyLock_mutex PLock_global_system_variables(
+static PolyLock_rwlock PLock_global_system_variables(
     &LOCK_global_system_variables);
 ulonglong system_variable_hash_version = 0;
 
@@ -407,7 +407,6 @@ bool sys_var::check(THD *thd, set_var *var) {
 const uchar *sys_var::value_ptr(THD *running_thd, THD *target_thd,
                                 enum_var_type type, LEX_STRING *base) {
   if (type == OPT_GLOBAL || type == OPT_PERSIST || scope() == GLOBAL) {
-    mysql_mutex_assert_owner(&LOCK_global_system_variables);
     AutoRLock lock(guard);
     return global_value_ptr(running_thd, base);
   } else

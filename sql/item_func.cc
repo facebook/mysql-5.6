@@ -7285,7 +7285,8 @@ template <typename T>
 longlong Item_func_get_system_var::get_sys_var_safe(THD *thd) {
   T value;
   {
-    MUTEX_LOCK(lock, &LOCK_global_system_variables);
+    rwlock_scoped_lock lock(&LOCK_global_system_variables, false, __FILE__,
+                            __LINE__);
     value = *pointer_cast<const T *>(var->value_ptr(thd, var_type, &component));
   }
   cache_present |= GET_SYS_VAR_CACHE_LONG;
@@ -7408,7 +7409,7 @@ String *Item_func_get_system_var::val_str(String *str) {
     case SHOW_CHAR:
     case SHOW_CHAR_PTR:
     case SHOW_LEX_STRING: {
-      mysql_mutex_lock(&LOCK_global_system_variables);
+      mysql_rwlock_rdlock(&LOCK_global_system_variables);
       const char *cptr = var->show_type() == SHOW_CHAR
                              ? pointer_cast<const char *>(
                                    var->value_ptr(thd, var_type, &component))
@@ -7428,7 +7429,7 @@ String *Item_func_get_system_var::val_str(String *str) {
         null_value = true;
         str = nullptr;
       }
-      mysql_mutex_unlock(&LOCK_global_system_variables);
+      mysql_rwlock_unlock(&LOCK_global_system_variables);
       break;
     }
 
@@ -7500,10 +7501,10 @@ double Item_func_get_system_var::val_real() {
       cached_null_value = null_value;
       return cached_dval;
     case SHOW_DOUBLE:
-      mysql_mutex_lock(&LOCK_global_system_variables);
+      mysql_rwlock_rdlock(&LOCK_global_system_variables);
       cached_dval = *pointer_cast<const double *>(
           var->value_ptr(thd, var_type, &component));
-      mysql_mutex_unlock(&LOCK_global_system_variables);
+      mysql_rwlock_unlock(&LOCK_global_system_variables);
       used_query_id = thd->query_id;
       cached_null_value = null_value;
       if (null_value) cached_dval = 0;
@@ -7512,7 +7513,7 @@ double Item_func_get_system_var::val_real() {
     case SHOW_CHAR:
     case SHOW_LEX_STRING:
     case SHOW_CHAR_PTR: {
-      mysql_mutex_lock(&LOCK_global_system_variables);
+      mysql_rwlock_rdlock(&LOCK_global_system_variables);
       const char *cptr = var->show_type() == SHOW_CHAR
                              ? pointer_cast<const char *>(
                                    var->value_ptr(thd, var_type, &component))
@@ -7526,7 +7527,7 @@ double Item_func_get_system_var::val_real() {
         null_value = true;
         cached_dval = 0;
       }
-      mysql_mutex_unlock(&LOCK_global_system_variables);
+      mysql_rwlock_unlock(&LOCK_global_system_variables);
       used_query_id = thd->query_id;
       cached_null_value = null_value;
       cache_present |= GET_SYS_VAR_CACHE_DOUBLE;

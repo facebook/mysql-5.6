@@ -337,11 +337,11 @@ bool sys_var_pluginvar::session_update(THD *thd, set_var *var) {
   assert(!is_readonly());
   assert(plugin_var->flags & PLUGIN_VAR_THDLOCAL);
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
   void *tgt = real_value_ptr(thd, var->type);
   const void *src = var->value ? (void *)&var->save_result
                                : (void *)real_value_ptr(thd, OPT_GLOBAL);
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if ((plugin_var->flags & PLUGIN_VAR_TYPEMASK) == PLUGIN_VAR_STR &&
       plugin_var->flags & PLUGIN_VAR_MEMALLOC)
@@ -357,7 +357,6 @@ bool sys_var_pluginvar::session_update(THD *thd, set_var *var) {
 bool sys_var_pluginvar::global_update(THD *thd, set_var *var) {
   bool rc = false;
   assert(!is_readonly());
-  mysql_mutex_assert_owner(&LOCK_global_system_variables);
 
   void *tgt = real_value_ptr(thd, var->type);
   const void *src = &var->save_result;
