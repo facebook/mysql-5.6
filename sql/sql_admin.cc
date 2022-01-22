@@ -1054,9 +1054,9 @@ static bool mysql_admin_table(
     if (operator_func == &handler::ha_repair &&
         !(check_opt->sql_flags & TT_USEFRM)) {
       // Check for old temporal format if avoid_temporal_upgrade is disabled.
-      mysql_mutex_lock(&LOCK_global_system_variables);
+      mysql_rwlock_rdlock(&LOCK_global_system_variables);
       const bool check_temporal_upgrade = !avoid_temporal_upgrade;
-      mysql_mutex_unlock(&LOCK_global_system_variables);
+      mysql_rwlock_unlock(&LOCK_global_system_variables);
 
       if ((check_table_for_old_types(table->table, check_temporal_upgrade) ==
            HA_ADMIN_NEEDS_ALTER) ||
@@ -1564,13 +1564,13 @@ bool Sql_cmd_cache_index::assign_to_keycache(THD *thd, Table_ref *tables) {
   KEY_CACHE *key_cache;
   DBUG_TRACE;
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_rdlock(&LOCK_global_system_variables);
   if (!(key_cache = get_key_cache(to_string_view(m_key_cache_name)))) {
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     my_error(ER_UNKNOWN_KEY_CACHE, MYF(0), m_key_cache_name.str);
     return true;
   }
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
   if (!key_cache->key_cache_inited) {
     my_error(ER_UNKNOWN_KEY_CACHE, MYF(0), m_key_cache_name.str);
     return true;

@@ -1069,7 +1069,6 @@ extern mysql_mutex_t LOCK_global_sql_findings;
 extern mysql_mutex_t LOCK_full_sql_text;
 extern mysql_mutex_t LOCK_client_attribute_names;
 extern mysql_mutex_t LOCK_global_active_sql;
-extern mysql_mutex_t LOCK_global_system_variables;
 extern mysql_mutex_t LOCK_user_conn;
 extern mysql_mutex_t LOCK_log_throttle_qni;
 extern mysql_mutex_t LOCK_log_throttle_ddl;
@@ -1101,6 +1100,7 @@ extern mysql_cond_t COND_manager;
 extern mysql_cond_t COND_slave_stats_daemon;
 
 extern mysql_rwlock_t LOCK_column_statistics;
+extern mysql_rwlock_t LOCK_global_system_variables;
 extern mysql_rwlock_t LOCK_index_statistics;
 extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_replica;

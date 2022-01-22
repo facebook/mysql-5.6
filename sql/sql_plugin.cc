@@ -437,7 +437,7 @@ static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
   A mutex LOCK_plugin_delete must be acquired before calling plugin_del
   function.
 */
-mysql_mutex_t LOCK_plugin_delete;
+mysql_rwlock_t LOCK_plugin_delete;
 
 /**
   Serializes access to the global plugin memory list.
@@ -1152,7 +1152,6 @@ static void plugin_deinitialize(st_plugin_int *plugin, bool ref_check) {
 static void plugin_del(st_plugin_int *plugin) {
   DBUG_TRACE;
   mysql_mutex_assert_owner(&LOCK_plugin);
-  mysql_mutex_assert_owner(&LOCK_plugin_delete);
   /* Free allocated strings before deleting the plugin. */
   delete_dynamic_system_variable_chain(plugin->system_vars);
   restore_pluginvar_names(plugin->system_vars);
@@ -1196,14 +1195,14 @@ static void reap_plugins() {
     plugin_deinitialize(plugin, true);
   }
 
-  mysql_mutex_lock(&LOCK_plugin_delete);
+  mysql_rwlock_wrlock(&LOCK_plugin_delete);
   mysql_rwlock_wrlock(&LOCK_system_variables_hash);
   mysql_mutex_lock(&LOCK_plugin);
 
   while ((plugin = *(--reap))) plugin_del(plugin);
 
   mysql_rwlock_unlock(&LOCK_system_variables_hash);
-  mysql_mutex_unlock(&LOCK_plugin_delete);
+  mysql_rwlock_unlock(&LOCK_plugin_delete);
 }
 
 void intern_plugin_unlock(LEX *lex, plugin_ref plugin) {
@@ -1355,15 +1354,19 @@ static inline void convert_dash_to_underscore(char *str, size_t len) {
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_key key_LOCK_plugin;
-static PSI_mutex_key key_LOCK_plugin_delete;
+static PSI_rwlock_key key_rwlock_LOCK_plugin_delete;
 static PSI_mutex_key key_LOCK_plugin_install;
 
 /* clang-format off */
 static PSI_mutex_info all_plugin_mutexes[]=
 {
   { &key_LOCK_plugin, "LOCK_plugin", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_plugin_delete, "LOCK_plugin_delete", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_plugin_install, "LOCK_plugin_install", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}
+};
+
+static PSI_rwlock_info all_plugin_rwlocks[]=
+{
+  { &key_rwlock_LOCK_plugin_delete, "LOCK_plugin_delete", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 
@@ -1388,6 +1391,9 @@ static void init_plugin_psi_keys(void) {
 
   count = array_elements(all_plugin_mutexes);
   mysql_mutex_register(category, all_plugin_mutexes, count);
+
+  count = array_elements(all_plugin_rwlocks);
+  mysql_rwlock_register(category, all_plugin_rwlocks, count);
 
   count = array_elements(all_plugin_memory);
   mysql_memory_register(category, all_plugin_memory, count);
@@ -1415,8 +1421,7 @@ static bool plugin_init_internals() {
           key_memory_plugin_bookmark);
 
   mysql_mutex_init(key_LOCK_plugin, &LOCK_plugin, MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_plugin_delete, &LOCK_plugin_delete,
-                   MY_MUTEX_INIT_FAST);
+  mysql_rwlock_init(key_rwlock_LOCK_plugin_delete, &LOCK_plugin_delete);
   mysql_mutex_init(key_LOCK_plugin_install, &LOCK_plugin_install,
                    MY_MUTEX_INIT_FAST);
   mutex_plugin_install.init("PLUGIN_INSTALL");
@@ -1477,13 +1482,13 @@ static bool plugin_init_initialize_and_reap() {
       reaped_mandatory_plugin = true;
     plugin_deinitialize(plugin_ptr, true);
 
-    mysql_mutex_lock(&LOCK_plugin_delete);
+    mysql_rwlock_wrlock(&LOCK_plugin_delete);
     mysql_rwlock_wrlock(&LOCK_system_variables_hash);
     mysql_mutex_lock(&LOCK_plugin);
 
     plugin_del(plugin_ptr);
 
-    mysql_mutex_unlock(&LOCK_plugin_delete);
+    mysql_rwlock_unlock(&LOCK_plugin_delete);
   }
 
   mysql_mutex_unlock(&LOCK_plugin);
@@ -1817,11 +1822,11 @@ bool raft_plugin_initialize() {
       mysql_rwlock_unlock(&LOCK_system_variables_hash);
       plugin_ptr->state = PLUGIN_IS_DYING;
       plugin_deinitialize(plugin_ptr, true);
-      mysql_mutex_lock(&LOCK_plugin_delete);
+      mysql_rwlock_wrlock(&LOCK_plugin_delete);
       mysql_rwlock_wrlock(&LOCK_system_variables_hash);
       mysql_mutex_lock(&LOCK_plugin);
       plugin_del(plugin_ptr);
-      mysql_mutex_unlock(&LOCK_plugin_delete);
+      mysql_rwlock_unlock(&LOCK_plugin_delete);
       my_error(ER_CANT_INITIALIZE_UDF, MYF(0), raft_plugin_name.str,
                "Plugin initialization function failed.");
       error = true;
@@ -2115,14 +2120,14 @@ void memcached_shutdown() {
           strcmp(plugin->name.str, "daemon_memcached") == 0) {
         plugin_deinitialize(plugin, true);
 
-        mysql_mutex_lock(&LOCK_plugin_delete);
+        mysql_rwlock_wrlock(&LOCK_plugin_delete);
         mysql_rwlock_wrlock(&LOCK_system_variables_hash);
         mysql_mutex_lock(&LOCK_plugin);
         plugin->state = PLUGIN_IS_DYING;
         plugin_del(plugin);
         mysql_mutex_unlock(&LOCK_plugin);
         mysql_rwlock_unlock(&LOCK_system_variables_hash);
-        mysql_mutex_unlock(&LOCK_plugin_delete);
+        mysql_rwlock_unlock(&LOCK_plugin_delete);
       }
     }
   }
@@ -2210,7 +2215,7 @@ void plugin_shutdown() {
       there're no concurrent threads anymore. But some functions called from
       here use mysql_mutex_assert_owner(), so we lock the mutex to satisfy it
     */
-    mysql_mutex_lock(&LOCK_plugin_delete);
+    mysql_rwlock_wrlock(&LOCK_plugin_delete);
     mysql_rwlock_wrlock(&LOCK_system_variables_hash);
     mysql_mutex_lock(&LOCK_plugin);
 
@@ -2233,11 +2238,11 @@ void plugin_shutdown() {
     cleanup_variables(nullptr, &max_system_variables);
     mysql_mutex_unlock(&LOCK_plugin);
     mysql_rwlock_unlock(&LOCK_system_variables_hash);
-    mysql_mutex_unlock(&LOCK_plugin_delete);
+    mysql_rwlock_unlock(&LOCK_plugin_delete);
 
     initialized = false;
     mysql_mutex_destroy(&LOCK_plugin);
-    mysql_mutex_destroy(&LOCK_plugin_delete);
+    mysql_rwlock_destroy(&LOCK_plugin_delete);
     mysql_mutex_destroy(&LOCK_plugin_install);
   }
 
@@ -2980,9 +2985,7 @@ void alloc_and_copy_thd_dynamic_variables(THD *thd, bool global_lock) {
   mysql_mutex_assert_not_owner(&LOCK_plugin);
   mysql_rwlock_rdlock(&LOCK_system_variables_hash);
 
-  if (global_lock) mysql_mutex_lock(&LOCK_global_system_variables);
-
-  mysql_mutex_assert_owner(&LOCK_global_system_variables);
+  if (global_lock) mysql_rwlock_rdlock(&LOCK_global_system_variables);
 
   /*
     MAINTAINER:
@@ -3034,7 +3037,7 @@ void alloc_and_copy_thd_dynamic_variables(THD *thd, bool global_lock) {
     plugin_var_memalloc_session_update(thd, nullptr, thdvar, *sysvar);
   }
 
-  if (global_lock) mysql_mutex_unlock(&LOCK_global_system_variables);
+  if (global_lock) mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   thd->variables.dynamic_variables_version =
       global_system_variables.dynamic_variables_version;
@@ -3091,7 +3094,7 @@ void plugin_thdvar_init(THD *thd, bool enable_plugins) {
   thd->variables.temp_table_plugin = nullptr;
   cleanup_variables(thd, &thd->variables);
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
   thd->variables = global_system_variables;
   thd->variables.table_plugin = nullptr;
   thd->variables.temp_table_plugin = nullptr;
@@ -3110,7 +3113,7 @@ void plugin_thdvar_init(THD *thd, bool enable_plugins) {
     intern_plugin_unlock(nullptr, old_temp_table_plugin);
     mysql_mutex_unlock(&LOCK_plugin);
   }
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   /* Initialize all Sys_var_charptr variables here. */
 

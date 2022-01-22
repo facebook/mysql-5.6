@@ -1067,7 +1067,6 @@ static PSI_mutex_key key_LOCK_manager;
 static PSI_mutex_key key_LOCK_slave_stats_daemon;
 static PSI_mutex_key key_LOCK_crypt;
 static PSI_mutex_key key_LOCK_user_conn;
-static PSI_mutex_key key_LOCK_global_system_variables;
 static PSI_mutex_key key_LOCK_prepared_stmt_count;
 static PSI_mutex_key key_LOCK_replica_list;
 static PSI_mutex_key key_LOCK_sql_replica_skip_counter;
@@ -1098,6 +1097,7 @@ static PSI_mutex_key key_BINLOG_LOCK_xids;
 static PSI_mutex_key key_BINLOG_LOCK_non_xid_trxs;
 static PSI_mutex_key key_BINLOG_LOCK_wait_for_group_turn;
 static PSI_mutex_key key_BINLOG_LOCK_lost_gtids_for_tailing;
+static PSI_rwlock_key key_rwlock_LOCK_global_system_variables;
 static PSI_rwlock_key key_rwlock_global_sid_lock;
 PSI_rwlock_key key_rwlock_gtid_mode_lock;
 static PSI_rwlock_key key_rwlock_LOCK_system_variables_hash;
@@ -1900,9 +1900,10 @@ SHOW_COMP_OPTION have_statement_timeout = SHOW_OPTION_DISABLED;
 
 thread_local MEM_ROOT **THR_MALLOC = nullptr;
 
-mysql_mutex_t LOCK_status, LOCK_uuid_generator, LOCK_crypt,
-    LOCK_global_system_variables, LOCK_user_conn, LOCK_error_messages;
+mysql_mutex_t LOCK_status, LOCK_uuid_generator, LOCK_crypt, LOCK_user_conn,
+    LOCK_error_messages;
 mysql_mutex_t LOCK_sql_rand;
+mysql_rwlock_t LOCK_global_system_variables;
 
 /**
   The below lock protects access to two global server variables:
@@ -2703,7 +2704,7 @@ static void close_connections(void) {
 
     // NO_LINT_DEBUG
     sql_print_information("Setting read_only=1 during shutdown");
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_wrlock(&LOCK_global_system_variables);
     read_only = super_read_only = true;
     if (fix_read_only(nullptr, thd, OPT_GLOBAL) ||
         fix_super_read_only(nullptr, thd, OPT_GLOBAL))
@@ -2712,7 +2713,7 @@ static void close_connections(void) {
     else
       // NO_LINT_DEBUG
       sql_print_information("Successfully set read_only=1 during shutdown");
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
 
     DBUG_EXECUTE_IF("after_shutdown_read_only", {
       const char act[] = "now signal signal.reached wait_for signal.done";
@@ -3187,7 +3188,7 @@ static void clean_up_mutexes() {
   mysql_rwlock_destroy(&LOCK_index_statistics);
   mysql_rwlock_destroy(&LOCK_sys_init_connect);
   mysql_rwlock_destroy(&LOCK_sys_init_replica);
-  mysql_mutex_destroy(&LOCK_global_system_variables);
+  mysql_rwlock_destroy(&LOCK_global_system_variables);
   mysql_rwlock_destroy(&LOCK_system_variables_hash);
   mysql_mutex_destroy(&LOCK_uuid_generator);
   mysql_mutex_destroy(&LOCK_sql_rand);
@@ -6172,8 +6173,8 @@ static int init_thread_environment() {
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_crypt, &LOCK_crypt, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_user_conn, &LOCK_user_conn, MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_global_system_variables,
-                   &LOCK_global_system_variables, MY_MUTEX_INIT_FAST);
+  mysql_rwlock_init(key_rwlock_LOCK_global_system_variables,
+                    &LOCK_global_system_variables);
   mysql_rwlock_init(key_rwlock_LOCK_column_statistics, &LOCK_column_statistics);
   mysql_rwlock_init(key_rwlock_LOCK_index_statistics, &LOCK_index_statistics);
   mysql_rwlock_init(key_rwlock_LOCK_system_variables_hash,
@@ -13811,7 +13812,6 @@ static PSI_mutex_info all_server_mutexes[]=
   { &Gtid_set::key_gtid_executed_free_intervals_mutex, "Gtid_set::gtid_executed::free_intervals_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_crypt, "LOCK_crypt", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_error_log, "LOCK_error_log", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_LOCK_global_system_variables, "LOCK_global_system_variables", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #if defined(_WIN32)
   { &key_LOCK_handler_count, "LOCK_handler_count", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #endif
@@ -13939,6 +13939,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_LOCK_sys_init_connect, "LOCK_sys_init_connect", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_sys_init_replica, "LOCK_sys_init_replica", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_gap_lock_exceptions, "LOCK_gap_lock_exceptions", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_rwlock_LOCK_global_system_variables, "LOCK_global_system_variables", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_system_variables_hash, "LOCK_system_variables_hash", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_global_sid_lock, "gtid_commit_rollback", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_gtid_mode_lock, "gtid_mode_lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

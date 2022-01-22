@@ -84,7 +84,7 @@ static collation_unordered_map<string, sys_var *> *static_system_variable_hash;
 
 static collation_unordered_map<string, sys_var *> *dynamic_system_variable_hash;
 
-static PolyLock_mutex PLock_global_system_variables(
+static PolyLock_rwlock PLock_global_system_variables(
     &LOCK_global_system_variables);
 
 ulonglong dynamic_system_variable_hash_version = 0;
@@ -441,7 +441,6 @@ const uchar *sys_var::value_ptr(THD *running_thd, THD *target_thd,
                                 enum_var_type type,
                                 std::string_view keycache_name) {
   if (type == OPT_GLOBAL || type == OPT_PERSIST || scope() == GLOBAL) {
-    mysql_mutex_assert_owner(&LOCK_global_system_variables);
     AutoRLock lock(guard);
     return global_value_ptr(running_thd, keycache_name);
   } else

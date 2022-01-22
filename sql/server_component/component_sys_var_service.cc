@@ -431,7 +431,7 @@ const char *get_variable_value(sys_var *system_var, char *val_buf,
   show->name = system_var->name.str;
   show->value = (char *)system_var;
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_rdlock(&LOCK_global_system_variables);
   const char *variable_value = get_one_variable(
       current_thd, show, OPT_GLOBAL, show->type, nullptr, &fromcs,
       variable_data_buffer, &out_variable_data_length);
@@ -447,7 +447,7 @@ const char *get_variable_value(sys_var *system_var, char *val_buf,
   const size_t result_length =
       copy_and_convert(result.get(), new_len, tocs, variable_value,
                        out_variable_data_length, fromcs, &dummy_err);
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   /*
      The length of the user supplied buffer is intentionally checked

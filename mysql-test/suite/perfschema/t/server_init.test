@@ -59,8 +59,8 @@ select count(name) from mutex_instances
 select count(name) from mutex_instances
  where name like "wait/synch/mutex/sql/LOCK_manager";
 
-select count(name) from mutex_instances
- where name like "wait/synch/mutex/sql/LOCK_global_system_variables";
+select count(name) from rwlock_instances
+ where name like "wait/synch/rwlock/sql/LOCK_global_system_variables";
 
 select count(name) from mutex_instances
  where name like "wait/synch/mutex/sql/LOCK_user_conn";

@@ -16949,9 +16949,9 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
     current format.
   */
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_rdlock(&LOCK_global_system_variables);
   bool check_temporal_upgrade = !avoid_temporal_upgrade;
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if (check_temporal_upgrade) {
     if (upgrade_old_temporal_types(thd, alter_info)) return true;

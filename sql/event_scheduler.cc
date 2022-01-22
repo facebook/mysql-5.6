@@ -666,9 +666,9 @@ bool Event_scheduler::execute_top(Event_queue_element_for_exec *event_name) {
   if ((res =
            mysql_thread_create(key_thread_event_worker, &th, &connection_attrib,
                                event_worker_thread, event_name))) {
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_wrlock(&LOCK_global_system_variables);
     Events::opt_event_scheduler = Events::EVENTS_OFF;
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
 
     LogErr(ERROR_LEVEL, ER_SCHEDULER_STOPPING_FAILED_TO_CREATE_WORKER, res);
 

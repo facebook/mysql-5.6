@@ -4924,9 +4924,9 @@ int handler::ha_check(THD *thd, HA_CHECK_OPT *check_opt) {
 
   if (table->s->mysql_version < MYSQL_VERSION_ID) {
     // Check for old temporal format if avoid_temporal_upgrade is disabled.
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_rdlock(&LOCK_global_system_variables);
     const bool check_temporal_upgrade = !avoid_temporal_upgrade;
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
 
     if ((error = check_table_for_old_types(table, check_temporal_upgrade)))
       return error;
@@ -5879,12 +5879,12 @@ int ha_init_key_cache(std::string_view, KEY_CACHE *key_cache) {
   DBUG_TRACE;
 
   if (!key_cache->key_cache_inited) {
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_rdlock(&LOCK_global_system_variables);
     size_t tmp_buff_size = (size_t)key_cache->param_buff_size;
     ulonglong tmp_block_size = key_cache->param_block_size;
     ulonglong division_limit = key_cache->param_division_limit;
     ulonglong age_threshold = key_cache->param_age_threshold;
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     return !init_key_cache(key_cache, tmp_block_size, tmp_buff_size,
                            division_limit, age_threshold);
   }
@@ -5898,12 +5898,12 @@ int ha_resize_key_cache(KEY_CACHE *key_cache) {
   DBUG_TRACE;
 
   if (key_cache->key_cache_inited) {
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_rdlock(&LOCK_global_system_variables);
     size_t tmp_buff_size = (size_t)key_cache->param_buff_size;
     ulonglong tmp_block_size = key_cache->param_block_size;
     ulonglong division_limit = key_cache->param_division_limit;
     ulonglong age_threshold = key_cache->param_age_threshold;
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     const int retval =
         resize_key_cache(key_cache, keycache_thread_var(), tmp_block_size,
                          tmp_buff_size, division_limit, age_threshold);

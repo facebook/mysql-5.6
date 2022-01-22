@@ -650,12 +650,12 @@ void Ndb_index_stat_glob::set_status() {
   p += strlen(p);
 
   // alternating status buffers to keep this lock short
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
   g_ndb_status_index_stat_status = status[status_i];
   status_i = (status_i + 1) % 2;
   g_ndb_status_index_stat_cache_query = cache_query_bytes;
   g_ndb_status_index_stat_cache_clean = cache_clean_bytes;
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 }
 
 static long g_ndb_status_index_stat_event_count = 0;

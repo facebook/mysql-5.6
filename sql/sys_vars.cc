@@ -250,7 +250,7 @@ static bool update_buffer_size(THD *, KEY_CACHE *key_cache,
         and clear the old key cache.
       */
       key_cache->in_init = true;
-      mysql_mutex_unlock(&LOCK_global_system_variables);
+      mysql_rwlock_unlock(&LOCK_global_system_variables);
       key_cache->param_buff_size = 0;
       ha_resize_key_cache(key_cache);
       ha_change_key_cache(key_cache, dflt_key_cache);
@@ -258,7 +258,7 @@ static bool update_buffer_size(THD *, KEY_CACHE *key_cache,
         We don't delete the key cache as some running threads my still be in
         the key cache code with a pointer to the deleted (empty) key cache
       */
-      mysql_mutex_lock(&LOCK_global_system_variables);
+      mysql_rwlock_wrlock(&LOCK_global_system_variables);
       key_cache->in_init = false;
     }
     return error;
@@ -268,14 +268,14 @@ static bool update_buffer_size(THD *, KEY_CACHE *key_cache,
 
   /* If key cache didn't exist initialize it, else resize it */
   key_cache->in_init = true;
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if (!key_cache->key_cache_inited)
     error = ha_init_key_cache({}, key_cache);
   else
     error = ha_resize_key_cache(key_cache);
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
   key_cache->in_init = false;
 
   return error;
@@ -289,10 +289,10 @@ static bool update_keycache_param(THD *, KEY_CACHE *key_cache, ptrdiff_t offset,
   keycache_var(key_cache, offset) = new_value;
 
   key_cache->in_init = true;
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
   error = ha_resize_key_cache(key_cache);
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
   key_cache->in_init = false;
 
   return error;
@@ -2305,7 +2305,7 @@ static bool event_scheduler_check(sys_var *, THD *, set_var *var) {
 static bool event_scheduler_update(sys_var *, THD *, enum_var_type) {
   int err_no = 0;
   ulong opt_event_scheduler_value = Events::opt_event_scheduler;
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
   /*
     Events::start() is heavyweight. In particular it creates a new THD,
     which takes LOCK_global_system_variables internally.
@@ -2325,7 +2325,7 @@ static bool event_scheduler_update(sys_var *, THD *, enum_var_type) {
   bool ret = opt_event_scheduler_value == Events::EVENTS_ON
                  ? Events::start(&err_no)
                  : Events::stop();
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
   if (ret) {
     Events::opt_event_scheduler = Events::EVENTS_OFF;
     my_error(ER_EVENT_SET_VAR_ERROR, MYF(0), err_no);
@@ -2893,7 +2893,7 @@ static bool fix_log_error_services(sys_var *self [[maybe_unused]], THD *thd,
 
      Both issues are admittedly unlikely, but guarding against them is cheap.
   */
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if (log_builtins_error_stack(pipeline_config, false, &pos) < 0) {
     if (pos < strlen(pipeline_config)) /* purecov: begin inspected */
@@ -2906,7 +2906,7 @@ static bool fix_log_error_services(sys_var *self [[maybe_unused]], THD *thd,
 
   my_free(pipeline_config);
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
 
   return ret;
 }
@@ -4222,9 +4222,9 @@ static void event_scheduler_restart(THD *thd) {
       We must not hold the lock while starting the event scheduler,
       as that will internally try to take the lock while creating a THD.
     */
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     evsched_error = Events::start(&evsched_errcode);
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_wrlock(&LOCK_global_system_variables);
 
     if (evsched_error) {
       /*
@@ -4314,7 +4314,7 @@ bool fix_read_only(sys_var *self, THD *thd, enum_var_type) {
   */
 
   read_only = opt_readonly;
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if (legacy_global_read_lock_mode &&
       thd->global_read_lock.lock_global_read_lock(thd)) {
@@ -4333,7 +4333,7 @@ end_with_read_lock:
   /* Release the lock */
   thd->global_read_lock.unlock_global_read_lock(thd);
 end_with_mutex_unlock:
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
 end:
   read_only = opt_readonly;
   return result;
@@ -4376,7 +4376,7 @@ bool fix_super_read_only(sys_var *, THD *thd, enum_var_type type) {
 
   /* now we're turning ON super_read_only: */
   super_read_only = opt_super_readonly;
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if (legacy_global_read_lock_mode &&
       thd->global_read_lock.lock_global_read_lock(thd))
@@ -4391,7 +4391,7 @@ end_with_read_lock:
   /* Release the lock */
   thd->global_read_lock.unlock_global_read_lock(thd);
 end_with_mutex_unlock:
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
 end:
   super_read_only = opt_super_readonly;
   return result;
@@ -6760,14 +6760,14 @@ static bool fix_general_log_file(sys_var *, THD *, enum_var_type) {
   res = query_logger.set_log_file(QUERY_LOG_GENERAL);
 
   if (opt_general_log) {
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
 
     if (!res)
       res = query_logger.reopen_log_file(QUERY_LOG_GENERAL);
     else
       query_logger.deactivate_log_handler(QUERY_LOG_GENERAL);
 
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_wrlock(&LOCK_global_system_variables);
   }
 
   if (res) opt_general_log = false;
@@ -6801,7 +6801,7 @@ static bool fix_slow_log_file(sys_var *, THD *thd [[maybe_unused]],
   DEBUG_SYNC(thd, "log_fix_slow_log_released_logger_lock");
 
   if (opt_slow_log) {
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
 
     DEBUG_SYNC(thd, "log_fix_slow_log_released_sysvar_lock");
 
@@ -6810,7 +6810,7 @@ static bool fix_slow_log_file(sys_var *, THD *thd [[maybe_unused]],
     else
       query_logger.deactivate_log_handler(QUERY_LOG_SLOW);
 
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_wrlock(&LOCK_global_system_variables);
   }
 
   if (res) opt_slow_log = false;
@@ -6828,9 +6828,9 @@ static Sys_var_charptr Sys_slow_log_path(
 
 bool update_Sys_slow_log_path(const char *const log_file_name,
                               const bool need_lock) {
-  if (need_lock) mysql_mutex_lock(&LOCK_global_system_variables);
+  if (need_lock) mysql_rwlock_wrlock(&LOCK_global_system_variables);
   const bool res = Sys_slow_log_path.global_update_value(log_file_name);
-  if (need_lock) mysql_mutex_unlock(&LOCK_global_system_variables);
+  if (need_lock) mysql_rwlock_unlock(&LOCK_global_system_variables);
   return res;
 }
 
@@ -6848,14 +6848,14 @@ static bool fix_gap_lock_log_file(sys_var *, THD *, enum_var_type) {
 
   res = query_logger.set_log_file(QUERY_LOG_GAP_LOCK);
 
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if (!res)
     res = query_logger.reopen_log_file(QUERY_LOG_GAP_LOCK);
   else
     query_logger.deactivate_log_handler(QUERY_LOG_GAP_LOCK);
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
 
   return res;
 }
@@ -6991,7 +6991,7 @@ static bool fix_general_log_state(sys_var *, THD *thd, enum_var_type) {
   if (query_logger.is_log_file_enabled(QUERY_LOG_GENERAL) == new_state)
     return false;
 
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if (!new_state) {
     query_logger.deactivate_log_handler(QUERY_LOG_GENERAL);
@@ -6999,7 +6999,7 @@ static bool fix_general_log_state(sys_var *, THD *thd, enum_var_type) {
     res = query_logger.activate_log_handler(thd, QUERY_LOG_GENERAL);
   }
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
 
   if (res) opt_general_log = false;
 
@@ -7027,7 +7027,7 @@ static bool fix_slow_log_state(sys_var *, THD *thd, enum_var_type) {
   if (query_logger.is_log_file_enabled(QUERY_LOG_SLOW) == new_state)
     return false;
 
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   if (!new_state) {
     query_logger.deactivate_log_handler(QUERY_LOG_SLOW);
@@ -7035,7 +7035,7 @@ static bool fix_slow_log_state(sys_var *, THD *thd, enum_var_type) {
     res = query_logger.activate_log_handler(thd, QUERY_LOG_SLOW);
   }
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
 
   if (res) opt_slow_log = false;
 
@@ -7231,7 +7231,7 @@ static bool fix_replica_net_timeout(sys_var *, THD *thd, enum_var_type) {
     locks back again at the end of this function.
    */
   mysql_mutex_unlock(&LOCK_replica_net_timeout);
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
   channel_map.wrlock();
 
   for (mi_map::iterator it = channel_map.begin(); it != channel_map.end();
@@ -7248,7 +7248,7 @@ static bool fix_replica_net_timeout(sys_var *, THD *thd, enum_var_type) {
   }
 
   channel_map.unlock();
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
   mysql_mutex_lock(&LOCK_replica_net_timeout);
   return false;
 }
@@ -7993,9 +7993,9 @@ static bool handle_offline_mode(sys_var *, THD *thd, enum_var_type) {
 
   if (mysqld_offline_mode()) {
     // Unlock the global system variable lock as kill holds LOCK_thd_data.
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     killall_non_super_threads(thd);
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_wrlock(&LOCK_global_system_variables);
   }
 
   return false;
@@ -8454,14 +8454,14 @@ bool Sys_var_binlog_encryption::global_update(THD *thd, set_var *var) {
    * Thread 3 (SET GLOBAL binlog_encryption=ON|OFF) has locked
    * LOCK_global_system_variables and waiting for channel_map.
    */
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
   /* Set the option new value */
   bool res = false;
   if (new_value)
     res = rpl_encryption.enable(thd);
   else
     rpl_encryption.disable(thd);
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_wrlock(&LOCK_global_system_variables);
   return res;
 }
 

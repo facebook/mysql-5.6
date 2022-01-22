@@ -72,7 +72,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "my_dbug.h"
 
-extern mysql_mutex_t LOCK_global_system_variables;
+extern mysql_rwlock_t LOCK_global_system_variables;
 
 constexpr char plugin_author[] = PLUGIN_AUTHOR_ORACLE;
 
@@ -2304,16 +2304,16 @@ static int i_s_fts_deleted_generic_fill(
     return 0;
   }
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_rdlock(&LOCK_global_system_variables);
 
   if (!fts_internal_tbl_name) {
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     return 0;
   }
 
   ut_strcpy(local_name, fts_internal_tbl_name);
 
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   /* Prevent DDL to drop fts aux tables. */
   rw_lock_s_lock(dict_operation_lock, UT_LOCATION_HERE);
@@ -2693,15 +2693,15 @@ static int i_s_fts_index_cache_fill(
     return 0;
   }
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_rdlock(&LOCK_global_system_variables);
   if (!fts_internal_tbl_name) {
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     return 0;
   }
 
   ut_strcpy(local_name, fts_internal_tbl_name);
 
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   user_table =
       dd_table_open_on_name(thd, &mdl, local_name, false, DICT_ERR_IGNORE_NONE);
@@ -3117,14 +3117,14 @@ static int i_s_fts_index_table_fill(
     return 0;
   }
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_rdlock(&LOCK_global_system_variables);
   if (!fts_internal_tbl_name) {
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     return 0;
   }
 
   ut_strcpy(local_name, fts_internal_tbl_name);
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   /* Prevent DDL to drop fts aux tables. */
   rw_lock_s_lock(dict_operation_lock, UT_LOCATION_HERE);
@@ -3267,14 +3267,14 @@ static int i_s_fts_config_fill(THD *thd,          /*!< in: thread */
     return 0;
   }
 
-  mysql_mutex_lock(&LOCK_global_system_variables);
+  mysql_rwlock_rdlock(&LOCK_global_system_variables);
   if (!fts_internal_tbl_name) {
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
     return 0;
   }
 
   ut_strcpy(local_name, fts_internal_tbl_name);
-  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_rwlock_unlock(&LOCK_global_system_variables);
 
   DEBUG_SYNC_C("i_s_fts_config_fille_check");
 

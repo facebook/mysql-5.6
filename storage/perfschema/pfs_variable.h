@@ -158,7 +158,7 @@ extern Status_var_array all_status_vars;
 extern bool status_vars_inited;
 static const uint SYSVAR_MEMROOT_BLOCK_SIZE = 4096;
 
-extern mysql_mutex_t LOCK_plugin_delete;
+extern mysql_rwlock_t LOCK_plugin_delete;
 
 class Find_THD_Impl;
 class Find_THD_variable;

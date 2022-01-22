@@ -198,7 +198,7 @@ static int get_utf8_config(THD *thd, std::string config_name,
     show.value = pointer_cast<char *>(var);
     show.name = var->name.str;
 
-    mysql_mutex_lock(&LOCK_global_system_variables);
+    mysql_rwlock_rdlock(&LOCK_global_system_variables);
     size_t val_length;
     const CHARSET_INFO *fromcs;
 
@@ -209,7 +209,7 @@ static int get_utf8_config(THD *thd, std::string config_name,
     uint dummy_err;
     const CHARSET_INFO *tocs = &my_charset_utf8mb4_bin;
     utf8_val.copy(value, val_length, fromcs, tocs, &dummy_err);
-    mysql_mutex_unlock(&LOCK_global_system_variables);
+    mysql_rwlock_unlock(&LOCK_global_system_variables);
   };
 
   System_variable_tracker sv =
