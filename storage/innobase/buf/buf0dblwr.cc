@@ -1160,8 +1160,19 @@ class Reduced_double_write : public Double_write {
       auto err =
           write_to_datafile(bpage, false, std::get<1>(m_buf_pages.m_pages[i]),
                             std::get<2>(m_buf_pages.m_pages[i]));
-      ut_a(err == DB_SUCCESS || err == DB_TABLESPACE_DELETED ||
-           err == DB_PAGE_IS_STALE);
+
+      if (err == DB_PAGE_IS_STALE || err == DB_TABLESPACE_DELETED) {
+        write_complete(bpage, flush_type);
+        buf_page_free_stale_during_write(
+            bpage, buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
+
+        const file::Block *block = std::get<1>(m_buf_pages.m_pages[i]);
+        if (block != nullptr) {
+          os_free_block(const_cast<file::Block *>(block));
+        }
+      } else {
+        ut_a(err == DB_SUCCESS);
+      }
 
 #ifdef UNIV_DEBUG
       if (dblwr::Force_crash == page_id) {
