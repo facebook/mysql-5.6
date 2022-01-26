@@ -8718,12 +8718,11 @@ void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
                                                       const char *message) {
   char errmsg[MYSQL_ERRMSG_SIZE] = {0};
   if (message == nullptr)
-    sprintf(
-        errmsg,
-        "An error occurred during %s stage of the commit. "
-        "'binlog_error_action' is set to '%s'.",
-        thd->commit_error == THD::CE_FLUSH_ERROR ? "flush" : "sync",
-        binlog_error_action == ABORT_SERVER ? "ABORT_SERVER" : "IGNORE_ERROR");
+    sprintf(errmsg,
+            "An error occurred during %s stage of the commit. "
+            "'binlog_error_action' is set to '%s'.",
+            thd->commit_error == THD::CE_FLUSH_ERROR ? "flush" : "sync",
+            binlog_error_action_list[binlog_error_action]);
   else
     strncpy(errmsg, message, MYSQL_ERRMSG_SIZE - 1);
   if (binlog_error_action == ABORT_SERVER) {
