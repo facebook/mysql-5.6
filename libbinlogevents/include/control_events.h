@@ -36,6 +36,7 @@
 #ifndef CONTROL_EVENT_INCLUDED
 #define CONTROL_EVENT_INCLUDED
 
+#include <array>
 #include <sys/types.h>
 #include <time.h>
 #include <list>

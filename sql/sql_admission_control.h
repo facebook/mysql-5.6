@@ -42,6 +42,7 @@
 #include "mysql/components/services/psi_stage_bits.h"
 #include "mysql/psi/mysql_mutex.h"
 
+#include <array>
 #include <atomic>
 #include <list>
 #include <memory>

@@ -28,6 +28,7 @@
   pfs structs for optimizing memory consumption
 */
 
+#include <array>
 #include <string.h>
 #include <sys/types.h>
 #include <string>
