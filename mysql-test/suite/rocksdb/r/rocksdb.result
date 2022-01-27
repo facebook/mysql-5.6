@@ -983,7 +983,6 @@ rocksdb_max_total_wal_size	0
 rocksdb_merge_buf_size	67108864
 rocksdb_merge_combine_read_size	1073741824
 rocksdb_merge_tmp_file_removal_delay_ms	0
-rocksdb_new_table_reader_for_compaction_inputs	OFF
 rocksdb_no_block_cache	OFF
 rocksdb_override_cf_options	
 rocksdb_paranoid_checks	ON
