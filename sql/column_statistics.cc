@@ -55,18 +55,23 @@ std::unordered_map<digest_key, std::set<ColumnUsageInfo>> col_statistics_map;
 // because the table schema `xdb_mzait` is lexicographically ordered before
 // `xdb_ritwik`.
 bool ColumnUsageInfo::operator<(const ColumnUsageInfo &other) const {
-  if (table_schema.compare(other.table_schema) < 0) {
+  int table_schema_comparison = table_schema.compare(other.table_schema);
+  if (table_schema_comparison < 0) {
     return true;
-  } else if (table_schema.compare(other.table_schema) == 0) {
-    if (table_name.compare(other.table_name) < 0) {
+  } else if (table_schema_comparison == 0) {
+    int table_name_comparison = table_name.compare(other.table_name);
+    if (table_name_comparison < 0) {
       return true;
-    } else if (table_name.compare(other.table_name) == 0) {
-      if (table_instance.compare(other.table_instance) < 0) {
+    } else if (table_name_comparison == 0) {
+      int table_instance_comparison =
+          table_instance.compare(other.table_instance);
+      if (table_instance_comparison < 0) {
         return true;
-      } else if (table_instance.compare(other.table_instance) == 0) {
-        if (column_name.compare(other.column_name) < 0) {
+      } else if (table_instance_comparison == 0) {
+        int column_name_comparison = column_name.compare(other.column_name);
+        if (column_name_comparison < 0) {
           return true;
-        } else if (column_name.compare(other.column_name) == 0) {
+        } else if (column_name_comparison == 0) {
           if (sql_op < other.sql_op) {
             return true;
           } else if (sql_op == other.sql_op) {
@@ -194,9 +199,7 @@ void fetch_table_info(Item_field *field_arg, ColumnUsageInfo &cui) {
     // have used an integer to represent it but the order is immaterial.
     // The only property that matters is distinctness of the following tuple.
     // sql_id, table_schema, table_name, table_instance
-    std::stringstream tl_addr;
-    tl_addr << (void const *)tl;
-    cui.table_instance = tl_addr.str();
+    cui.table_instance = std::to_string(reinterpret_cast<size_t>(tl));
   }
 
   DBUG_VOID_RETURN;
