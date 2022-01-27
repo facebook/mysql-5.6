@@ -395,6 +395,64 @@ set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 select sleep(@wat_freq);
 
 --echo ####################################################
+--echo ### Test 6: Only permissible query types are throttled
+--echo ####################################################
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_QUERY_TYPES="UPDATE";
+
+insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
+delete from test.t where a = 2;
+use test1;
+insert into test1.t values(2);
+delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
+
+--echo ####### Next Cycle #######
+--echo ### Expectation - There is replication lag. Based on the write stats, there is no clear sql_id or shard as the culprit. Should identify client_id as the culprit and throttle it. ###
+select sleep(@wat_freq);
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into test1.t values(2);
+--echo # should quarantine the client, all next queries(UPDATE ONLY) should error
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
+delete from test1.t where a = 2;
+insert into test1.t values(2);
+--error ER_WRITE_QUERY_THROTTLED
+update test1.t set a = 3 where a = 2;
+--echo # should throttle both updates & deletes if WRITE_THROTTLE_PERMISSIBLE_QUERY_TYPES=UPDATE,DELETE
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_QUERY_TYPES="UPDATE,DELETE";
+insert into test1.t values(4);
+--error ER_WRITE_QUERY_THROTTLED
+update test1.t set a = 4 where a = 5;
+--error ER_WRITE_QUERY_THROTTLED
+delete from test1.t where a = 4;
+--echo # should throttle all writes if WRITE_THROTTLE_PERMISSIBLE_QUERY_TYPES=OFF
+SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_QUERY_TYPES="OFF";
+--error ER_WRITE_QUERY_THROTTLED
+insert into test1.t values(4);
+--error ER_WRITE_QUERY_THROTTLED
+update test1.t set a = 4 where a = 5;
+--error ER_WRITE_QUERY_THROTTLED
+delete from test1.t where a = 4;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
+
+--echo ####### Reset #######
+use test;
+TRUNCATE test.t;
+TRUNCATE test1.t;
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
+flush statistics;
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+
+--echo ####################################################
 --echo ### Test 7: No throttling if WRITE_AUTO_THROTTLE_FREQUENCY = 0
 --echo ####################################################
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
@@ -489,6 +547,7 @@ select sleep(@wat_freq);
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
+SET @@GLOBAL.WRITE_THROTTLE_PARSE_QUERY_COMMENTS=1;
 SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=TRUE;
 --echo ### Store total error logs until now for comparison later ###
 Select sum(count) from information_schema.write_throttling_log into @log_count;
@@ -514,6 +573,9 @@ set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 query_attrs_add mt_throttle_okay WARN;
 insert into test1.t values(2);
 query_attrs_reset;
+
+--echo ### next query should be throttled(warning) as the query tag is present in query comments
+/* mtthrottle-W */ insert into test1.t values(2);
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
 
 --echo ### next query should be throttled(error) as the query tag is present
@@ -521,6 +583,18 @@ query_attrs_add mt_throttle_okay ERROR;
 --error ER_WRITE_QUERY_THROTTLED
 insert into test1.t values(2);
 query_attrs_reset;
+
+--echo ### next query should be throttled(error) as the query tag is present in query comments
+--error ER_WRITE_QUERY_THROTTLED
+/* mtthrottle-E */ insert into test1.t values(2);
+
+--echo ### next query should not be throttled(error) as the query tag is not set correctly
+/* mtthrottle-X */ insert into test1.t values(2);
+
+SET @@GLOBAL.WRITE_THROTTLE_PARSE_QUERY_COMMENTS=DEFAULT;
+--echo ### next query should not be throttled(error) as the query tag is present in query comments but WRITE_THROTTLE_PARSE_QUERY_COMMENTS=0
+/* mtthrottle-E */ insert into test1.t values(2);
+
 --echo ### next query should not be throttled as tag is not set correctly
 query_attrs_add mt_throttle_okay BLAHBLAH;
 insert into test1.t values(2);
@@ -535,6 +609,7 @@ insert into test1.t values(2);
 ||||
 delimiter ;||||
 query_attrs_reset;
+
 
 SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=FALSE;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;

@@ -8231,16 +8231,6 @@ static bool mt_check_throttle_write_query(THD* thd)
     DBUG_RETURN(false);
   }
 
-  if (!bypass_write_throttle_admin_check) {
-    // exclude automation & super queries
-    ulong master_access = thd->security_context()->master_access;
-    if ((master_access & ADMIN_PORT_ACL) ||
-        (master_access & SUPER_ACL) ||
-        (master_access & REPL_SLAVE_ACL)) {
-      DBUG_RETURN(false);
-    }
-  }
-
 // check if its time to check replication lag
 #ifdef HAVE_REPLICATION
   bool debug_skip_auto_throttle_check = false;
@@ -8264,6 +8254,24 @@ static bool mt_check_throttle_write_query(THD* thd)
     }
   }
 #endif
+
+  if (!bypass_write_throttle_admin_check) {
+    // exclude automation & super queries
+    ulong master_access = thd->security_context()->master_access;
+    if ((master_access & ADMIN_PORT_ACL) ||
+        (master_access & SUPER_ACL) ||
+        (master_access & REPL_SLAVE_ACL)) {
+      DBUG_RETURN(false);
+    }
+  }
+
+  // skip if only specified query types should be throttled and this query
+  // type is not specified
+  if (!write_throttle_permissible_query_types.empty()
+        && write_throttle_permissible_query_types.find(thd->lex->sql_command) == 
+            write_throttle_permissible_query_types.end()) {
+    DBUG_RETURN(false);
+  }
 
   std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
   thd->get_mt_keys_for_write_query(keys);

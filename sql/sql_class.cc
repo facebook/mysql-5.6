@@ -6187,6 +6187,10 @@ void THD::set_shard_id()
   this->shard_id = get_shard_id(this->db_metadata);
 }
 
+
+static const String async_token("async-",default_charset_info);
+static const String mtcaller_token("mtcaller-",default_charset_info);
+static const String mtthrottle_token("mtthrottle-",default_charset_info);
 /*
   serialize_client_attrs
     Extracts and serializes client attributes into the buffer
@@ -6206,6 +6210,7 @@ void THD::serialize_client_attrs()
   if (client_attrs_string.is_empty()) {
     std::vector<std::pair<String, String>> client_attrs;
     bool found_async_id = false;
+    bool found_caller = false;
 
     mysql_mutex_lock(&LOCK_global_sql_stats);
     // Populate caller, origina_caller, async_id, etc
@@ -6224,6 +6229,9 @@ void THD::serialize_client_attrs()
         if (name_iter == "async_id") {
           found_async_id = true;
         }
+        if (name_iter == "caller") {
+          found_caller = true;
+        }
 
         client_attrs.emplace_back(String(it->first.data(), it->first.size(),
                                          &my_charset_bin),
@@ -6239,14 +6247,12 @@ void THD::serialize_client_attrs()
     // The async id is usually near the beginning.
     //
     // Only look if async_id was not passed down.
+    String query100(query(), MY_MIN(100, query_length()), &my_charset_bin);
     if (!found_async_id) {
-      String query100(query(), MY_MIN(100, query_length()), &my_charset_bin);
-      String async_word(C_STRING_WITH_LEN("async-"), &my_charset_bin);
-
-      int pos = query100.strstr(async_word);
+      int pos = query100.strstr(async_token);
 
       if (pos != -1) {
-        pos += async_word.length();
+        pos += async_token.length();
         int epos = pos;
 
         while(epos < (int)query100.length() && std::isdigit(query100[epos])) {
@@ -6254,6 +6260,48 @@ void THD::serialize_client_attrs()
         }
         client_attrs.emplace_back(String("async_id", &my_charset_bin),
                                   String(&query100[pos], epos - pos, &my_charset_bin));
+      }
+    }
+
+    // Populate mt caller from query comments, if it wasn't passed as query or
+    // connection attribute already. We only search the first 100 characters to
+    // avoid scanning the whole query and only consider the first match. The
+    // tag must be terminated with a colon(:). 
+    // Example - mtcaller-tsp_global/myservice:
+    if (write_throttle_parse_query_comments) {
+      if (!found_caller) {
+        int pos = query100.strstr(mtcaller_token);
+        if (pos != -1) {
+          pos += mtcaller_token.length();
+          int epos = pos;
+
+          while(epos < (int)query100.length() && query100[epos] != ':') {
+            epos++;
+          }
+          client_attrs.emplace_back(String("caller", &my_charset_bin),
+                          String(&query100[pos], epos - pos, &my_charset_bin));
+        }
+      }
+
+      // Populate mt_throttle_okay attribute from query comments, if it wasn't
+      // passed as query or connection attribute already. We only search the
+      // first 100 characters to avoid scanning the whole query and only
+      // consider the first match. There are two possible tags mtthrottle-E
+      // for error and mtthrottle-W for warning mode.
+      if (variables.write_throttle_tag_only &&
+          query_attrs_map.find("mt_throttle_okay") == query_attrs_map.end()) {
+        int pos = query100.strstr(mtthrottle_token);
+        if (pos != -1) {
+          pos += mtthrottle_token.length();
+          mysql_mutex_lock(&LOCK_thd_data);
+          if (query100[pos] == 'E') {
+            query_attrs_map.emplace("mt_throttle_okay", "ERROR");
+          }
+          if (query100[pos] == 'W') {
+            query_attrs_map.emplace("mt_throttle_okay", "WARN");
+          }
+          mysql_mutex_unlock(&LOCK_thd_data);
+        }
       }
     }
 

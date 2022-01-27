@@ -1019,6 +1019,58 @@ bool store_write_throttle_permissible_dimensions_in_order(char *new_value) {
 }
 
 /*
+  Stores user specified query command types that throttling system should
+  throttle in case of replication lag
+*/
+bool store_write_throttle_permissible_query_types(char *new_value) {
+  if (strcmp(new_value, "OFF") == 0) {
+    mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
+    write_throttle_permissible_query_types.clear();
+    mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+    return false;
+  }
+  // copy the string to avoid mutating new var value.
+  char * new_value_copy = (char *)my_malloc(strlen(new_value)+ 1, MYF(MY_WME));
+  if(new_value_copy == nullptr) {
+    return true; // failure allocating memory
+  }
+  strcpy(new_value_copy, new_value);
+  char* strtok_str;
+  std::string query_type;
+  std::set<enum_sql_command> new_query_types;
+  bool result = false;
+
+  strtok_str = strtok(new_value_copy, ",");
+  while (strtok_str != nullptr) {
+    query_type = strtok_str;
+    if (query_type == "INSERT") {
+      new_query_types.emplace(SQLCOM_INSERT);
+      new_query_types.emplace(SQLCOM_INSERT_SELECT);
+    } else if (query_type == "UPDATE") {
+      new_query_types.emplace(SQLCOM_UPDATE);
+      new_query_types.emplace(SQLCOM_UPDATE_MULTI);
+    } else if (query_type == "DELETE") {
+      new_query_types.emplace(SQLCOM_DELETE);
+      new_query_types.emplace(SQLCOM_DELETE_MULTI);
+    } else if (query_type == "REPLACE") {
+      new_query_types.emplace(SQLCOM_REPLACE);
+      new_query_types.emplace(SQLCOM_REPLACE_SELECT);
+    } else {
+      result = true; // not a valid query type string, failure
+      break;
+    }
+    strtok_str = strtok(nullptr, ",");
+  }
+  if (!result) {
+    mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
+    write_throttle_permissible_query_types = new_query_types;
+    mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+  }
+  my_free(new_value_copy);
+  return result;
+}
+
+/*
   Stores a user specified throttling rule from write_throttling_patterns
   sys_var into global_write_throttling_rules
 */

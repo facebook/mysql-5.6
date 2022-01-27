@@ -7263,6 +7263,21 @@ static Sys_var_charptr Sys_write_throttle_permissible_dimensions_in_order(
       NOT_IN_BINLOG,
       ON_CHECK(check_write_throttle_permissible_dimensions_in_order));
 
+static bool check_write_throttle_permissible_query_types(
+       sys_var *self, THD *thd, set_var *var) {
+       return store_write_throttle_permissible_query_types(
+              var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_write_throttle_permissible_query_types(
+      "write_throttle_permissible_query_types",
+      "All write query types(INSERT, UPDATE, REPLACE, DELETE) that are permitted"
+      "to be auto throttled in case of replication lag.",
+      GLOBAL_VAR(latest_write_throttle_permissible_query_types),
+      CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT("OFF"), NO_MUTEX_GUARD,
+      NOT_IN_BINLOG,
+      ON_CHECK(check_write_throttle_permissible_query_types));
+
 static Sys_var_ulong Sys_write_start_throttle_lag_milliseconds(
       "write_start_throttle_lag_milliseconds",
       "A replication lag higher than the value of this variable will enable throttling "
@@ -7701,4 +7716,10 @@ static Sys_var_mybool Sys_bypass_write_throttle_admin_check(
        "Bypass the check to avoid throttling write queries from admin users "
        "to prevent replication lag",
        GLOBAL_VAR(bypass_write_throttle_admin_check),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_write_throttle_parse_query_comments(
+       "write_throttle_parse_query_comments",
+       "Parse query comments to extract caller and mt_throttle_okay attributes",
+       GLOBAL_VAR(write_throttle_parse_query_comments),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));

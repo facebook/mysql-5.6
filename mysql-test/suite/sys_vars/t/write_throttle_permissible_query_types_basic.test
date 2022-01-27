@@ -1,0 +1,59 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of write_throttle_permissible_query_types is OFF
+SELECT @@global.write_throttle_permissible_query_types;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.write_throttle_permissible_query_types;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_throttle_permissible_query_types is a dynamic variable (change to a valid value)
+set @@global.write_throttle_permissible_query_types = 'UPDATE,DELETE';
+SELECT @@global.write_throttle_permissible_query_types;
+set @@global.write_throttle_permissible_query_types = 'UPDATE';
+SELECT @@global.write_throttle_permissible_query_types;
+set @@global.write_throttle_permissible_query_types = 'DELETE,REPLACE,DELETE,INSERT';
+SELECT @@global.write_throttle_permissible_query_types;
+set @@global.write_throttle_permissible_query_types = 'DELETE,REPLACE,UPDATE,INSERT';
+SELECT @@global.write_throttle_permissible_query_types;
+
+####
+## Verify that rubbish values are not allowed
+####
+--echo write_throttle_permissible_query_types is a dynamic variable (change to a valid value)
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_throttle_permissible_query_types = 'UPDATE1';
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_throttle_permissible_query_types = 'UPDATE,REPLACE,DELETE,INSERT1';
+SELECT @@global.write_throttle_permissible_query_types;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.write_throttle_permissible_query_types = 'OFF';
+SELECT @@global.write_throttle_permissible_query_types;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (DELETE,INSERT)
+--let $_mysqld_option=--write_throttle_permissible_query_types=DELETE,INSERT
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.write_throttle_permissible_query_types;
+
+--echo restart the server with the default value ('OFF')
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
+SELECT @@global.write_throttle_permissible_query_types;

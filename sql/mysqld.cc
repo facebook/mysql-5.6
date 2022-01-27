@@ -750,6 +750,8 @@ uint sql_maximum_duplicate_executions;
 ulong sql_duplicate_executions_control;
 /* Controls whether write queries from admin users are throttled to avoid replication lag */
 bool bypass_write_throttle_admin_check;
+/* Controls whether to parse query comments to extract caller and mt_throttle_okay attributes */
+bool write_throttle_parse_query_comments;
 /* Controls num most recent data points to collect for information_schema.write_statistics */
 uint write_stats_count;
 /* Controls the frequency(seconds) at which write stats and replica lag stats are collected*/
@@ -774,6 +776,10 @@ char *latest_write_throttling_rule;
 char *latest_write_throttle_permissible_dimensions_in_order = nullptr;
 /* Vector of all dimensions that are permissible to be throttled in order by replication lag system*/
 std::vector<enum_wtr_dimension> write_throttle_permissible_dimensions_in_order;
+/* Stores the (latest)value for sys_var write_throttle_permissible_query_types*/
+char *latest_write_throttle_permissible_query_types = nullptr;
+/* Vector of all sql commands that are permissible to be throttled replication lag system*/
+std::set<enum_sql_command> write_throttle_permissible_query_types;
 /* Patterns to throttle queries in case of replication lag */
 GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
 /* Controls the width of the histogram bucket (unit: kilo-bytes) */

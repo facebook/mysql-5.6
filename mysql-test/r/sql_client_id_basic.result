@@ -264,6 +264,75 @@ order by client_id;
 client_id	table_schema	user_name	execution_count	sql_id	client_attributes
 23af960d50f4082d1693fec287ca38d5	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'ca_test2', 'original_caller' : 'oc_ca_test2', 'async_id' : '56789'}
 2c75a842092397eef0fe269615bff151	information_schema	user	2	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'qa_test3', 'original_caller' : 'oc_qa_test3', 'async_id' : '56789'}
+use information_schema;
+set global sql_stats_control = OFF_HARD;
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
+order by client_id;
+client_id	table_schema	user_name	execution_count	sql_id	client_attributes
+set global sql_stats_control = ON;
+#
+# Verify with caller in query comment
+#
+set global write_throttle_parse_query_comments = 1;
+/* mtcaller-caller123: */ select 1;
+1
+1
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
+order by client_id;
+client_id	table_schema	user_name	execution_count	sql_id	client_attributes
+3abcf4e4e095a87c12f77b9c5ac12514	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller123'}
+#
+# Verify with caller in a complex query comment
+#
+/*some comment here:*//*mtcaller-caller456:*//*more comments*/ select 1;
+1
+1
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
+order by client_id;
+client_id	table_schema	user_name	execution_count	sql_id	client_attributes
+3abcf4e4e095a87c12f77b9c5ac12514	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller123'}
+7e9e83504dd5c51bd47634ee1d67099b	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller456'}
+#
+# Verify only first occurence of caller is registered
+#
+/*mtcaller-caller789:*//*mtcaller-caller987:*//*more comments*/ select 1;
+1
+1
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
+order by client_id;
+client_id	table_schema	user_name	execution_count	sql_id	client_attributes
+3abcf4e4e095a87c12f77b9c5ac12514	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller123'}
+666b7a5fc5b2bf95d2defcd4c58d5454	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller789'}
+7e9e83504dd5c51bd47634ee1d67099b	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller456'}
+set global write_throttle_parse_query_comments = DEFAULT;
+#
+# Verify caller is not parsed when write_throttle_parse_query_comments=0
+#
+/*some comment here:*//*mtcaller-caller123:*//*more comments*/ select 1;
+1
+1
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
+order by client_id;
+client_id	table_schema	user_name	execution_count	sql_id	client_attributes
+3abcf4e4e095a87c12f77b9c5ac12514	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller123'}
+666b7a5fc5b2bf95d2defcd4c58d5454	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller789'}
+7e9e83504dd5c51bd47634ee1d67099b	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{'caller' : 'caller456'}
+99914b932bd37a50b983c5e7c90ae93b	information_schema	user	1	db1589f429c8f6fbba750f47fbc7c130	{}
 set global client_attribute_names=@saved_client_attribute_names;
 set global sql_stats_control = DEFAULT;
 drop user user@localhost;

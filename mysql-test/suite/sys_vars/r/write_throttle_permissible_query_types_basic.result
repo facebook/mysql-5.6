@@ -1,0 +1,45 @@
+Default value of write_throttle_permissible_query_types is OFF
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+OFF
+SELECT @@session.write_throttle_permissible_query_types;
+ERROR HY000: Variable 'write_throttle_permissible_query_types' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_throttle_permissible_query_types is a dynamic variable (change to a valid value)
+set @@global.write_throttle_permissible_query_types = 'UPDATE,DELETE';
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+UPDATE,DELETE
+set @@global.write_throttle_permissible_query_types = 'UPDATE';
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+UPDATE
+set @@global.write_throttle_permissible_query_types = 'DELETE,REPLACE,DELETE,INSERT';
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+DELETE,REPLACE,DELETE,INSERT
+set @@global.write_throttle_permissible_query_types = 'DELETE,REPLACE,UPDATE,INSERT';
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+DELETE,REPLACE,UPDATE,INSERT
+write_throttle_permissible_query_types is a dynamic variable (change to a valid value)
+set @@global.write_throttle_permissible_query_types = 'UPDATE1';
+ERROR 42000: Variable 'write_throttle_permissible_query_types' can't be set to the value of 'UPDATE1'
+set @@global.write_throttle_permissible_query_types = 'UPDATE,REPLACE,DELETE,INSERT1';
+ERROR 42000: Variable 'write_throttle_permissible_query_types' can't be set to the value of 'UPDATE,REPLACE,DELETE,INSERT1'
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+DELETE,REPLACE,UPDATE,INSERT
+restore the default value
+SET @@global.write_throttle_permissible_query_types = 'OFF';
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+OFF
+restart the server with non default value (DELETE,INSERT)
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+DELETE,INSERT
+restart the server with the default value ('OFF')
+SELECT @@global.write_throttle_permissible_query_types;
+@@global.write_throttle_permissible_query_types
+OFF
