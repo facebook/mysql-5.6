@@ -1993,9 +1993,6 @@ The following options may be given as the first argument:
  as merge_buf_size.
  --rocksdb-mrr-batch-size=# 
  maximum number of keys to fetch during each MRR
- --rocksdb-new-table-reader-for-compaction-inputs 
- DBOptions::new_table_reader_for_compaction_inputs for
- RocksDB
  --rocksdb-no-block-cache 
  BlockBasedTableOptions::no_block_cache for RocksDB
  --rocksdb-override-cf-options=name 
@@ -3291,7 +3288,6 @@ rocksdb-merge-buf-size 67108864
 rocksdb-merge-combine-read-size 1073741824
 rocksdb-merge-tmp-file-removal-delay-ms 0
 rocksdb-mrr-batch-size 100
-rocksdb-new-table-reader-for-compaction-inputs FALSE
 rocksdb-no-block-cache FALSE
 rocksdb-override-cf-options 
 rocksdb-paranoid-checks TRUE
