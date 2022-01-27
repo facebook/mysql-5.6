@@ -10,7 +10,11 @@
 int main(int argc, char **argv) {
   // Register the comparators so they can be loaded from OPTIONS file when
   // `--try_load_options` is provided.
+#if ROCKSDB_MAJOR > 6 || (ROCKSDB_MAJOR == 6 && ROCKSDB_MINOR >= 29)
+  rocksdb::ObjectLibrary::Default()->AddFactory(
+#else
   rocksdb::ObjectLibrary::Default()->Register(
+#endif
       myrocks::Rdb_pk_comparator().Name(),
       rocksdb::FactoryFunc<rocksdb::Comparator>(
           [](const std::string & /* uri */,
@@ -19,7 +23,11 @@ int main(int argc, char **argv) {
             static myrocks::Rdb_pk_comparator cmp;
             return &cmp;
           }));
+#if ROCKSDB_MAJOR > 6 || (ROCKSDB_MAJOR == 6 && ROCKSDB_MINOR >= 29)
+  rocksdb::ObjectLibrary::Default()->AddFactory(
+#else
   rocksdb::ObjectLibrary::Default()->Register(
+#endif
       myrocks::Rdb_rev_comparator().Name(),
       rocksdb::FactoryFunc<rocksdb::Comparator>(
           [](const std::string & /* uri */,
