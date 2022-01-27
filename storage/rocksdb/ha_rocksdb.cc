@@ -1420,14 +1420,6 @@ static MYSQL_SYSVAR_ULONG(compaction_readahead_size,
                           rocksdb_db_options->compaction_readahead_size,
                           /* min */ 0L, /* max */ ULONG_MAX, 0);
 
-static MYSQL_SYSVAR_BOOL(
-    new_table_reader_for_compaction_inputs,
-    *reinterpret_cast<bool *>(
-        &rocksdb_db_options->new_table_reader_for_compaction_inputs),
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "DBOptions::new_table_reader_for_compaction_inputs for RocksDB", nullptr,
-    nullptr, rocksdb_db_options->new_table_reader_for_compaction_inputs);
-
 static MYSQL_SYSVAR_UINT(
     access_hint_on_compaction_start, rocksdb_access_hint_on_compaction_start,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -2330,7 +2322,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(wal_recovery_mode),
     MYSQL_SYSVAR(stats_level),
     MYSQL_SYSVAR(access_hint_on_compaction_start),
-    MYSQL_SYSVAR(new_table_reader_for_compaction_inputs),
     MYSQL_SYSVAR(compaction_readahead_size),
     MYSQL_SYSVAR(allow_concurrent_memtable_write),
     MYSQL_SYSVAR(enable_write_thread_adaptive_yield),
