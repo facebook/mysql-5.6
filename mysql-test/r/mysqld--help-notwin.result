@@ -1883,10 +1883,6 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_GLOBAL_INFO plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
- --rocksdb-hash-index-allow-collision 
- BlockBasedTableOptions::hash_index_allow_collision for
- RocksDB
- (Defaults to on; use --skip-rocksdb-hash-index-allow-collision to disable.)
  --rocksdb-ignore-unknown-options 
  Enable ignoring unknown options passed to RocksDB
  (Defaults to on; use --skip-rocksdb-ignore-unknown-options to disable.)
@@ -3257,7 +3253,6 @@ rocksdb-force-flush-memtable-and-lzero-now FALSE
 rocksdb-force-flush-memtable-now TRUE
 rocksdb-force-index-records-in-range 0
 rocksdb-global-info ON
-rocksdb-hash-index-allow-collision TRUE
 rocksdb-ignore-unknown-options TRUE
 rocksdb-index-file-map ON
 rocksdb-index-type kBinarySearch
