@@ -1,7 +1,7 @@
 DESC sys.session_ssl_status;
 Field	Type	Null	Key	Default	Extra
-thread_id	bigint unsigned	NO		NULL	
-ssl_version	varchar(1024)	YES		NULL	
-ssl_cipher	varchar(1024)	YES		NULL	
-ssl_sessions_reused	varchar(1024)	YES		NULL	
+thread_id	bigint unsigned	X		X	
+ssl_version	varchar(1024)	X		X	
+ssl_cipher	varchar(1024)	X		X	
+ssl_sessions_reused	varchar(1024)	X		X	
 SELECT * FROM sys.session_ssl_status;

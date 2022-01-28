@@ -1,8 +1,8 @@
 DESC sys.memory_global_total;
 Field	Type	Null	Key	Default	Extra
-total_allocated	varchar(11)	YES		NULL	
+total_allocated	varchar(11)	X		X	
 SELECT * FROM sys.memory_global_total;
 DESC sys.x$memory_global_total;
 Field	Type	Null	Key	Default	Extra
-total_allocated	decimal(41,0)	YES		NULL	
+total_allocated	decimal(41,0)	X		X	
 SELECT * FROM sys.x$memory_global_total;

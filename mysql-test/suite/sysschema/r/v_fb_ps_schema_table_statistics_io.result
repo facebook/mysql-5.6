@@ -1,20 +1,20 @@
 DESC sys.fb_ps_schema_table_statistics_io;
 Field	Type	Null	Key	Default	Extra
-table_schema	varchar(64)	YES		NULL	
-table_name	varchar(64)	YES		NULL	
-io_read_requests	decimal(20,0)	NO		0	
-io_read	decimal(20,0)	NO		0	
-io_write_requests	decimal(20,0)	NO		0	
-io_write	decimal(20,0)	NO		0	
+table_schema	varchar(64)	X		X	
+table_name	varchar(64)	X		X	
+io_read_requests	decimal(20,0)	X		X	
+io_read	decimal(20,0)	X		X	
+io_write_requests	decimal(20,0)	X		X	
+io_write	decimal(20,0)	X		X	
 SELECT * FROM sys.fb_ps_schema_table_statistics_io;
 DESC sys.fb_ps_schema_table_statistics_io;
 Field	Type	Null	Key	Default	Extra
-table_schema	varchar(64)	YES		NULL	
-table_name	varchar(64)	YES		NULL	
-io_read_requests	decimal(20,0)	NO		0	
-io_read	decimal(20,0)	NO		0	
-io_write_requests	decimal(20,0)	NO		0	
-io_write	decimal(20,0)	NO		0	
+table_schema	varchar(64)	X		X	
+table_name	varchar(64)	X		X	
+io_read_requests	decimal(20,0)	X		X	
+io_read	decimal(20,0)	X		X	
+io_write_requests	decimal(20,0)	X		X	
+io_write	decimal(20,0)	X		X	
 SELECT * FROM sys.fb_ps_schema_table_statistics_io;
 explain SELECT * FROM sys.fb_ps_schema_table_statistics_io;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra

@@ -1,16 +1,16 @@
 DESC sys.latest_file_io;
 Field	Type	Null	Key	Default	Extra
-thread	varchar(365)	YES		NULL	
-file	varchar(512)	YES		NULL	
-latency	varchar(11)	YES		NULL	
-operation	varchar(32)	NO		NULL	
-requested	varchar(11)	YES		NULL	
+thread	varchar(365)	X		X	
+file	varchar(512)	X		X	
+latency	varchar(11)	X		X	
+operation	varchar(32)	X		X	
+requested	varchar(11)	X		X	
 SELECT * FROM sys.latest_file_io;
 DESC sys.x$latest_file_io;
 Field	Type	Null	Key	Default	Extra
-thread	varchar(365)	YES		NULL	
-file	varchar(512)	YES		NULL	
-latency	bigint unsigned	YES		NULL	
-operation	varchar(32)	NO		NULL	
-requested	bigint	YES		NULL	
+thread	varchar(365)	X		X	
+file	varchar(512)	X		X	
+latency	bigint unsigned	X		X	
+operation	varchar(32)	X		X	
+requested	bigint	X		X	
 SELECT * FROM sys.x$latest_file_io;
