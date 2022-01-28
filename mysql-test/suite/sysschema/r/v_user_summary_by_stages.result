@@ -1,16 +1,16 @@
 DESC sys.user_summary_by_stages;
 Field	Type	Null	Key	Default	Extra
-user	varchar(80)	YES		NULL	
-event_name	varchar(128)	NO		NULL	
-total	bigint unsigned	NO		NULL	
-total_latency	varchar(11)	YES		NULL	
-avg_latency	varchar(11)	YES		NULL	
+user	varchar(80)	X		X	
+event_name	varchar(128)	X		X	
+total	bigint unsigned	X		X	
+total_latency	varchar(11)	X		X	
+avg_latency	varchar(11)	X		X	
 SELECT * FROM sys.user_summary_by_stages;
 DESC sys.x$user_summary_by_stages;
 Field	Type	Null	Key	Default	Extra
-user	varchar(80)	YES		NULL	
-event_name	varchar(128)	NO		NULL	
-total	bigint unsigned	NO		NULL	
-total_latency	bigint unsigned	NO		NULL	
-avg_latency	bigint unsigned	NO		NULL	
+user	varchar(80)	X		X	
+event_name	varchar(128)	X		X	
+total	bigint unsigned	X		X	
+total_latency	bigint unsigned	X		X	
+avg_latency	bigint unsigned	X		X	
 SELECT * FROM sys.x$user_summary_by_stages;
