@@ -1,16 +1,16 @@
 DESC sys.waits_global_by_latency;
 Field	Type	Null	Key	Default	Extra
-events	varchar(128)	NO		NULL	
-total	bigint unsigned	NO		NULL	
-total_latency	varchar(11)	YES		NULL	
-avg_latency	varchar(11)	YES		NULL	
-max_latency	varchar(11)	YES		NULL	
+events	varchar(128)	X		X	
+total	bigint unsigned	X		X	
+total_latency	varchar(11)	X		X	
+avg_latency	varchar(11)	X		X	
+max_latency	varchar(11)	X		X	
 SELECT * FROM sys.waits_global_by_latency;
 DESC sys.x$waits_global_by_latency;
 Field	Type	Null	Key	Default	Extra
-events	varchar(128)	NO		NULL	
-total	bigint unsigned	NO		NULL	
-total_latency	bigint unsigned	NO		NULL	
-avg_latency	bigint unsigned	NO		NULL	
-max_latency	bigint unsigned	NO		NULL	
+events	varchar(128)	X		X	
+total	bigint unsigned	X		X	
+total_latency	bigint unsigned	X		X	
+avg_latency	bigint unsigned	X		X	
+max_latency	bigint unsigned	X		X	
 SELECT * FROM sys.x$waits_global_by_latency;
