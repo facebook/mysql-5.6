@@ -1762,13 +1762,6 @@ static MYSQL_SYSVAR_ENUM(index_type, rocksdb_index_type,
                          &index_type_typelib);
 
 static MYSQL_SYSVAR_BOOL(
-    hash_index_allow_collision,
-    *reinterpret_cast<bool *>(&rocksdb_tbl_options->hash_index_allow_collision),
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "BlockBasedTableOptions::hash_index_allow_collision for RocksDB", nullptr,
-    nullptr, rocksdb_tbl_options->hash_index_allow_collision);
-
-static MYSQL_SYSVAR_BOOL(
     no_block_cache,
     *reinterpret_cast<bool *>(&rocksdb_tbl_options->no_block_cache),
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -2335,7 +2328,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(cache_index_and_filter_with_high_priority),
     MYSQL_SYSVAR(pin_l0_filter_and_index_blocks_in_cache),
     MYSQL_SYSVAR(index_type),
-    MYSQL_SYSVAR(hash_index_allow_collision),
     MYSQL_SYSVAR(no_block_cache),
     MYSQL_SYSVAR(block_size),
     MYSQL_SYSVAR(block_size_deviation),
