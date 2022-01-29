@@ -2429,6 +2429,11 @@ The following options may be given as the first argument:
  --slave-skip-errors=name 
  Tells the slave thread to continue replication when a
  query event returns an error from the provided list
+ --slave-skip-max-binlog-cache-size-check 
+ When enable, replication (slave) threads use
+ ULONGLONG_MAX for max_binlog_cache_size and
+ max_binlog_stmt_cache_size, which in effect skip check
+ max binlog cache size
  --slave-sql-verify-checksum 
  Force checksum verification of replication events after
  reading them from relay log. Note: Events are always
@@ -3430,6 +3435,7 @@ slave-preserve-commit-order FALSE
 slave-rows-search-algorithms INDEX_SCAN,HASH_SCAN
 slave-run-triggers-for-rbr NO
 slave-skip-errors (No default value)
+slave-skip-max-binlog-cache-size-check FALSE
 slave-sql-verify-checksum TRUE
 slave-transaction-retries 10
 slave-tx-isolation REPEATABLE-READ
