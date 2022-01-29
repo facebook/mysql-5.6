@@ -1,0 +1,60 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CALL mtr.add_suppression("Slave SQL for channel '': ... The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state.");
+CALL mtr.add_suppression("Multi-statement transaction required more than 'max_binlog_cache_size' bytes of storage.*");
+CALL mtr.add_suppression("Multi-statement transaction required more than 'max_binlog_stmt_cache_size' bytes of storage.*");
+CALL mtr.add_suppression("Multi-row statements required more than 'max_binlog_cache_size' bytes of storage.*");
+CALL mtr.add_suppression("Multi-row statements required more than 'max_binlog_stmt_cache_size' bytes of storage.*");
+call mtr.add_suppression("The content of the statement cache is corrupted "
+                         "while writing a rollback record of the transaction "
+                         "to the binary log. An incident event has been "
+                         "written to the binary log which will stop the "
+                         "slaves.");
+SET GLOBAL max_binlog_cache_size = 4096;
+Warnings:
+Warning	1738	Option binlog_cache_size (32768) is greater than max_binlog_cache_size (4096); setting binlog_cache_size equal to max_binlog_cache_size.
+SET GLOBAL binlog_cache_size = 4096;
+SET GLOBAL max_binlog_stmt_cache_size = 4096;
+Warnings:
+Warning	1745	Option binlog_stmt_cache_size (32768) is greater than max_binlog_stmt_cache_size (4096); setting binlog_stmt_cache_size equal to max_binlog_stmt_cache_size.
+SET GLOBAL binlog_stmt_cache_size = 4096;
+include/stop_slave.inc
+include/start_slave.inc
+###
+### scenario1: transaction table
+###
+CREATE TABLE t1(a INT PRIMARY KEY, data VARCHAR(16000)) ENGINE=Innodb;
+include/wait_for_slave_sql_error_and_skip.inc [errno=1197]
+SET GLOBAL slave_skip_max_binlog_cache_size_check=ON;
+include/stop_slave.inc
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+SET GLOBAL slave_skip_max_binlog_cache_size_check=OFF;
+include/stop_slave.inc
+include/start_slave.inc
+###
+### scenario2: non-transaction table
+###
+CREATE TABLE t2(a INT PRIMARY KEY, data VARCHAR(16000)) ENGINE=MyIsam;
+include/wait_for_slave_sql_error_and_skip.inc [errno=1705 ]
+SET GLOBAL slave_skip_max_binlog_cache_size_check=ON;
+include/stop_slave.inc
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+SET GLOBAL slave_skip_max_binlog_cache_size_check=OFF;
+include/stop_slave.inc
+include/start_slave.inc
+######### CLEAN #########
+SET GLOBAL max_binlog_cache_size= 18446744073709547520;
+SET GLOBAL binlog_cache_size= 32768;
+SET GLOBAL max_binlog_stmt_cache_size= 18446744073709547520;
+SET GLOBAL binlog_stmt_cache_size= 32768;
+SET GLOBAL slave_skip_max_binlog_cache_size_check=OFF;;
+include/stop_slave.inc
+include/start_slave.inc
+DROP TABLE t1;
+DROP TABLE t2;
+include/rpl_end.inc

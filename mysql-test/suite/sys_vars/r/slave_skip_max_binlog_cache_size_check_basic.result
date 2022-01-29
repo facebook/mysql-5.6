@@ -1,0 +1,118 @@
+SET @start_value = @@global.slave_skip_max_binlog_cache_size_check;
+SELECT @start_value;
+@start_value
+0
+'#--------------------FN_DYNVARS_139_01------------------------#'
+SET @@global.slave_skip_max_binlog_cache_size_check = 1;
+SET @@global.slave_skip_max_binlog_cache_size_check = DEFAULT;
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+'#---------------------FN_DYNVARS_139_02-------------------------#'
+SET @@global.slave_skip_max_binlog_cache_size_check = @start_value;
+SELECT @@global.slave_skip_max_binlog_cache_size_check = 0;
+@@global.slave_skip_max_binlog_cache_size_check = 0
+1
+'#--------------------FN_DYNVARS_139_03------------------------#'
+SET @@global.slave_skip_max_binlog_cache_size_check = 0;
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+SET @@global.slave_skip_max_binlog_cache_size_check = 1;
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+1
+SET @@global.slave_skip_max_binlog_cache_size_check = TRUE;
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+1
+SET @@global.slave_skip_max_binlog_cache_size_check = FALSE;
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+SET @@global.slave_skip_max_binlog_cache_size_check = ON;
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+1
+SET @@global.slave_skip_max_binlog_cache_size_check = OFF;
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+'#--------------------FN_DYNVARS_139_04-------------------------#'
+SET @@global.slave_skip_max_binlog_cache_size_check = -1;
+ERROR 42000: Variable 'slave_skip_max_binlog_cache_size_check' can't be set to the value of '-1'
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+SET @@global.slave_skip_max_binlog_cache_size_check = 4294967296;
+ERROR 42000: Variable 'slave_skip_max_binlog_cache_size_check' can't be set to the value of '4294967296'
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+SET @@global.slave_skip_max_binlog_cache_size_check = 10240022115;
+ERROR 42000: Variable 'slave_skip_max_binlog_cache_size_check' can't be set to the value of '10240022115'
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+SET @@global.slave_skip_max_binlog_cache_size_check = 10000.01;
+ERROR 42000: Incorrect argument type to variable 'slave_skip_max_binlog_cache_size_check'
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+SET @@global.slave_skip_max_binlog_cache_size_check = -1024;
+ERROR 42000: Variable 'slave_skip_max_binlog_cache_size_check' can't be set to the value of '-1024'
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+SET @@global.slave_skip_max_binlog_cache_size_check = 42949672950;
+ERROR 42000: Variable 'slave_skip_max_binlog_cache_size_check' can't be set to the value of '42949672950'
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+SET @@global.slave_skip_max_binlog_cache_size_check = 'test';
+ERROR 42000: Variable 'slave_skip_max_binlog_cache_size_check' can't be set to the value of 'test'
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
+'#-------------------FN_DYNVARS_139_05----------------------------#'
+SET @@session.slave_skip_max_binlog_cache_size_check = 0;
+ERROR HY000: Variable 'slave_skip_max_binlog_cache_size_check' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@slave_skip_max_binlog_cache_size_check;
+@@slave_skip_max_binlog_cache_size_check
+0
+'#----------------------FN_DYNVARS_139_06------------------------#'
+SELECT IF(@@global.slave_skip_max_binlog_cache_size_check, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='slave_skip_max_binlog_cache_size_check';
+IF(@@global.slave_skip_max_binlog_cache_size_check, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT IF(@@slave_skip_max_binlog_cache_size_check, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.session_variables 
+WHERE VARIABLE_NAME='slave_skip_max_binlog_cache_size_check';
+IF(@@slave_skip_max_binlog_cache_size_check, "ON", "OFF") = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_139_07----------------------#'
+SET @@global.slave_skip_max_binlog_cache_size_check = 1;
+SELECT @@slave_skip_max_binlog_cache_size_check = @@global.slave_skip_max_binlog_cache_size_check;
+@@slave_skip_max_binlog_cache_size_check = @@global.slave_skip_max_binlog_cache_size_check
+1
+'#---------------------FN_DYNVARS_139_08----------------------#'
+SET slave_skip_max_binlog_cache_size_check = 1;
+ERROR HY000: Variable 'slave_skip_max_binlog_cache_size_check' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@slave_skip_max_binlog_cache_size_check;
+@@slave_skip_max_binlog_cache_size_check
+1
+SET local.slave_skip_max_binlog_cache_size_check = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.slave_skip_max_binlog_cache_size_check = 1' at line 1
+SELECT local.slave_skip_max_binlog_cache_size_check;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.slave_skip_max_binlog_cache_size_check = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.slave_skip_max_binlog_cache_size_check = 1' at line 1
+SELECT global.slave_skip_max_binlog_cache_size_check;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT slave_skip_max_binlog_cache_size_check = @@session.slave_skip_max_binlog_cache_size_check;
+ERROR HY000: Variable 'slave_skip_max_binlog_cache_size_check' is a GLOBAL variable
+SET @@global.slave_skip_max_binlog_cache_size_check = @start_value;
+SELECT @@global.slave_skip_max_binlog_cache_size_check;
+@@global.slave_skip_max_binlog_cache_size_check
+0
