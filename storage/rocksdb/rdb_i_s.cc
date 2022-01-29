@@ -510,8 +510,6 @@ static int rdb_i_s_cfoptions_fill_table(
         {"ARENA_BLOCK_SIZE", std::to_string(opts.arena_block_size)},
         {"DISABLE_AUTO_COMPACTIONS",
          opts.disable_auto_compactions ? "ON" : "OFF"},
-        {"PURGE_REDUNDANT_KVS_WHILE_FLUSH",
-         opts.purge_redundant_kvs_while_flush ? "ON" : "OFF"},
         {"MAX_SEQUENTIAL_SKIP_IN_ITERATIONS",
          std::to_string(opts.max_sequential_skip_in_iterations)},
         {"MEMTABLE_FACTORY", opts.memtable_factory == nullptr
