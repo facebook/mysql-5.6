@@ -1148,10 +1148,19 @@ class binlog_cache_mngr {
                   ptr_binlog_cache_disk_use_arg),
         has_logged_xid(false) {}
 
-  bool init() {
+  bool init(bool is_slave_worker) {
+    ulonglong new_max_binlog_stmt_cache_size =
+        is_slave_worker && slave_skip_max_binlog_cache_size_check
+            ? ULLONG_MAX
+            : max_binlog_stmt_cache_size;
+    ulonglong new_max_binlog_cache_size =
+        is_slave_worker && slave_skip_max_binlog_cache_size_check
+            ? ULLONG_MAX
+            : max_binlog_cache_size;
+
     return stmt_cache.open(binlog_stmt_cache_size,
-                           max_binlog_stmt_cache_size) ||
-           trx_cache.open(binlog_cache_size, max_binlog_cache_size);
+                           new_max_binlog_stmt_cache_size) ||
+           trx_cache.open(binlog_cache_size, new_max_binlog_cache_size);
   }
 
   binlog_cache_data *get_binlog_cache_data(bool is_transactional) {
@@ -13039,7 +13048,7 @@ int THD::binlog_setup_trx_data() {
   cache_mngr = new (cache_mngr)
       binlog_cache_mngr(&binlog_stmt_cache_use, &binlog_stmt_cache_disk_use,
                         &binlog_cache_use, &binlog_cache_disk_use);
-  if (cache_mngr->init()) {
+  if (cache_mngr->init(rli_slave != nullptr)) {
     cache_mngr->~binlog_cache_mngr();
     my_free(cache_mngr);
     return 1;

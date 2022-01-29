@@ -3068,6 +3068,14 @@ static Sys_var_ulonglong Sys_max_binlog_stmt_cache_size(
     BLOCK_SIZE(IO_SIZE), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(fix_binlog_stmt_cache_size));
 
+static Sys_var_bool Sys_slave_skip_max_binlog_cache_size_check(
+    "slave_skip_max_binlog_cache_size_check",
+    "When enable, replication (slave) threads use ULONGLONG_MAX "
+    "for max_binlog_cache_size and max_binlog_stmt_cache_size, which "
+    "in effect skip check max binlog cache size",
+    GLOBAL_VAR(slave_skip_max_binlog_cache_size_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static bool fix_max_binlog_size(sys_var *, THD *, enum_var_type) {
   mysql_bin_log.set_max_size(max_binlog_size);
   /*

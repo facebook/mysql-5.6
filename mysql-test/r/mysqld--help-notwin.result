@@ -2557,6 +2557,11 @@ The following options may be given as the first argument:
  --slave-skip-errors=name 
  This option is deprecated. Use replica_skip_errors
  instead.
+ --slave-skip-max-binlog-cache-size-check 
+ When enable, replication (slave) threads use
+ ULONGLONG_MAX for max_binlog_cache_size and
+ max_binlog_stmt_cache_size, which in effect skip check
+ max binlog cache size
  --slave-sql-verify-checksum 
  This option is deprecated. Use
  replica_sql_verify_checksum instead.
@@ -3593,6 +3598,7 @@ slave-preserve-commit-order TRUE
 slave-rows-search-algorithms INDEX_SCAN,HASH_SCAN
 slave-run-triggers-for-rbr NO
 slave-skip-errors (No default value)
+slave-skip-max-binlog-cache-size-check FALSE
 slave-sql-verify-checksum TRUE
 slave-transaction-retries 10
 slave-tx-isolation REPEATABLE-READ

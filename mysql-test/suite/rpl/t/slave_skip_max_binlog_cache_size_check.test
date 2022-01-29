@@ -1,0 +1,117 @@
+--source include/not_group_replication_plugin.inc
+--source include/not_ndb_default.inc
+--source include/have_binlog_format_row.inc
+source include/master-slave.inc;
+
+CALL mtr.add_suppression("Slave SQL for channel '': ... The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state.");
+CALL mtr.add_suppression("Multi-statement transaction required more than 'max_binlog_cache_size' bytes of storage.*");
+CALL mtr.add_suppression("Multi-statement transaction required more than 'max_binlog_stmt_cache_size' bytes of storage.*");
+CALL mtr.add_suppression("Multi-row statements required more than 'max_binlog_cache_size' bytes of storage.*");
+CALL mtr.add_suppression("Multi-row statements required more than 'max_binlog_stmt_cache_size' bytes of storage.*");
+# following msg shows for myiasm engine if
+# max_binlog_stmt_cache_size/max_binlog_stmt_cache_size isn't big enough
+call mtr.add_suppression("The content of the statement cache is corrupted "
+                         "while writing a rollback record of the transaction "
+                         "to the binary log. An incident event has been "
+                         "written to the binary log which will stop the "
+                         "slaves.");
+
+connection slave;
+let $old_max_binlog_cache_size= query_get_value(SHOW VARIABLES LIKE "max_binlog_cache_size", Value, 1);
+let $old_binlog_cache_size= query_get_value(SHOW VARIABLES LIKE "binlog_cache_size", Value, 1);
+let $old_max_binlog_stmt_cache_size= query_get_value(SHOW VARIABLES LIKE "max_binlog_stmt_cache_size", Value, 1);
+let $old_binlog_stmt_cache_size= query_get_value(SHOW VARIABLES LIKE "binlog_stmt_cache_size", Value, 1);
+let $old_slave_skip_max_binlog_cache_size_check = query_get_value(SHOW VARIABLES LIKE "slave_skip_max_binlog_cache_size_check", Value, 1);
+SET GLOBAL max_binlog_cache_size = 4096;
+SET GLOBAL binlog_cache_size = 4096;
+SET GLOBAL max_binlog_stmt_cache_size = 4096;
+SET GLOBAL binlog_stmt_cache_size = 4096;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+--echo ###
+--echo ### scenario1: transaction table
+--echo ###
+connection master;
+
+CREATE TABLE t1(a INT PRIMARY KEY, data VARCHAR(16000)) ENGINE=Innodb;
+
+
+let $data = `select concat('"', repeat('a',2000), '"')`;
+--disable_query_log
+eval INSERT INTO t1 (a, data) VALUES (1,
+     CONCAT($data, $data, $data, $data, $data));
+--enable_query_log
+
+connection slave;
+
+# Incident event
+# 1197=ER_TRANS_CACHE_FULL
+--let $slave_sql_errno= 1197
+--source include/wait_for_slave_sql_error_and_skip.inc
+
+# 
+connection slave;
+SET GLOBAL slave_skip_max_binlog_cache_size_check=ON;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+SET GLOBAL slave_skip_max_binlog_cache_size_check=OFF;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+
+
+--echo ###
+--echo ### scenario2: non-transaction table
+--echo ###
+
+connection master;
+CREATE TABLE t2(a INT PRIMARY KEY, data VARCHAR(16000)) ENGINE=MyIsam;
+
+let $data = `select concat('"', repeat('a',2000), '"')`;
+--disable_query_log
+eval INSERT INTO t2 (a, data) VALUES (1,
+     CONCAT($data, $data, $data, $data, $data));
+--enable_query_log
+
+connection slave;
+# Incident event
+# 1705=ER_STMT_CACHE_FULL
+--let $slave_sql_errno=1705 
+--source include/wait_for_slave_sql_error_and_skip.inc
+
+# 
+connection slave;
+SET GLOBAL slave_skip_max_binlog_cache_size_check=ON;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+SET GLOBAL slave_skip_max_binlog_cache_size_check=OFF;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+
+--echo ######### CLEAN #########
+connection slave;
+--eval SET GLOBAL max_binlog_cache_size= $old_max_binlog_cache_size
+--eval SET GLOBAL binlog_cache_size= $old_binlog_cache_size
+--eval SET GLOBAL max_binlog_stmt_cache_size= $old_max_binlog_stmt_cache_size
+--eval SET GLOBAL binlog_stmt_cache_size= $old_binlog_stmt_cache_size
+--eval SET GLOBAL slave_skip_max_binlog_cache_size_check=$old_slave_skip_max_binlog_cache_size_check;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+DROP TABLE t1;
+DROP TABLE t2;
+
+--source include/rpl_end.inc

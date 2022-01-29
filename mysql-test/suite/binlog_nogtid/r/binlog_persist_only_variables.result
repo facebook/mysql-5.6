@@ -262,6 +262,7 @@ SET PERSIST_ONLY slave_skip_errors = @@GLOBAL.slave_skip_errors;
 Warnings:
 Warning	1287	'@@slave_skip_errors' is deprecated and will be removed in a future release. Please use replica_skip_errors instead.
 Warning	1287	'@@slave_skip_errors' is deprecated and will be removed in a future release. Please use replica_skip_errors instead.
+SET PERSIST_ONLY slave_skip_max_binlog_cache_size_check = @@GLOBAL.slave_skip_max_binlog_cache_size_check;
 SET PERSIST_ONLY slave_sql_verify_checksum = @@GLOBAL.slave_sql_verify_checksum;
 Warnings:
 Warning	1287	'@@slave_sql_verify_checksum' is deprecated and will be removed in a future release. Please use replica_sql_verify_checksum instead.
@@ -426,6 +427,7 @@ RESET PERSIST slave_high_priority_ddl;
 RESET PERSIST slave_high_priority_lock_wait_timeout;
 RESET PERSIST slave_rows_search_algorithms;
 RESET PERSIST slave_run_triggers_for_rbr;
+RESET PERSIST slave_skip_max_binlog_cache_size_check;
 RESET PERSIST slave_tx_isolation;
 RESET PERSIST slave_use_idempotent_for_recovery;
 RESET PERSIST source_verify_checksum;

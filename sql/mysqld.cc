@@ -1512,6 +1512,7 @@ int32 opt_binlog_max_flush_queue_time = 0;
 long opt_binlog_group_commit_sync_delay = 0;
 ulong opt_binlog_group_commit_sync_no_delay_count = 0;
 ulonglong max_binlog_stmt_cache_size = 0;
+bool slave_skip_max_binlog_cache_size_check = false;
 ulong refresh_version; /* Increments on each reload */
 std::atomic<query_id_t> atomic_global_query_id{1};
 ulong aborted_threads;
