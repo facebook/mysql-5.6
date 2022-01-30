@@ -74,7 +74,7 @@ class Rdb_io_watchdog {
   static void io_check_callback_wrapper(union sigval timer_data) {
     Rdb_io_watchdog *io_watchdog =
         static_cast<Rdb_io_watchdog *>(timer_data.sival_ptr);
-    DBUG_ASSERT(io_watchdog != nullptr);
+    assert(io_watchdog != nullptr);
 
     io_watchdog->io_check_callback(timer_data);
   }
@@ -82,7 +82,7 @@ class Rdb_io_watchdog {
   static void expire_io_callback_wrapper(union sigval timer_data) {
     Rdb_io_watchdog *io_watchdog =
         static_cast<Rdb_io_watchdog *>(timer_data.sival_ptr);
-    DBUG_ASSERT(io_watchdog != nullptr);
+    assert(io_watchdog != nullptr);
 
     io_watchdog->expire_io_callback(timer_data);
   }
@@ -94,7 +94,7 @@ class Rdb_io_watchdog {
         m_io_in_progress(false),
         m_dirs_to_check(std::move(directories)),
         m_buf(nullptr) {
-    DBUG_ASSERT(m_dirs_to_check.size() > 0);
+    assert(m_dirs_to_check.size() > 0);
     mysql_mutex_init(0, &m_reset_mutex, MY_MUTEX_INIT_FAST);
   }
 

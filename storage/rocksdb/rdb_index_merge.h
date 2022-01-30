@@ -168,7 +168,7 @@ class Rdb_index_merge {
 
   static inline void merge_read_uint64(const uchar **buf_ptr,
                                        uint64 *const dst) {
-    DBUG_ASSERT(buf_ptr != nullptr);
+    assert(buf_ptr != nullptr);
     memcpy(dst, *buf_ptr, sizeof(uint64));
     *buf_ptr += sizeof(uint64);
   }

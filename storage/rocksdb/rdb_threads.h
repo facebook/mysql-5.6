@@ -91,7 +91,7 @@ class Rdb_thread {
       not work correctly in all situations.  Having the created thread do the
       pthread_setname_np resolves the issue.
     */
-    DBUG_ASSERT(!m_name.empty());
+    assert(!m_name.empty());
 #ifdef __linux__
     int err = pthread_setname_np(m_handle.thread, m_name.c_str());
     if (err) {

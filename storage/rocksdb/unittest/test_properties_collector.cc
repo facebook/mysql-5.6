@@ -27,7 +27,7 @@ void putKeys(myrocks::Rdb_tbl_prop_coll *coll, int num, bool is_delete,
     coll->AddUserKey(
         sl, sl, is_delete ? rocksdb::kEntryDelete : rocksdb::kEntryPut, 0, 100);
   }
-  DBUG_ASSERT(coll->GetMaxDeletedRows() == expected_deleted);
+  assert(coll->GetMaxDeletedRows() == expected_deleted);
 }
 
 int main(int argc, char **argv) {
