@@ -38,7 +38,7 @@ static std::vector<Rdb_index_stats> extract_index_stats(
   std::vector<Rdb_index_stats> ret;
   for (const auto &fn : files) {
     const auto it = props.find(fn);
-    DBUG_ASSERT(it != props.end());
+    assert(it != props.end());
     std::vector<Rdb_index_stats> stats;
     Rdb_tbl_prop_coll::read_stats_from_tbl_props(it->second, &stats);
     ret.insert(ret.end(), stats.begin(), stats.end());
@@ -48,7 +48,7 @@ static std::vector<Rdb_index_stats> extract_index_stats(
 
 void Rdb_event_listener::update_index_stats(
     const rocksdb::TableProperties &props) {
-  DBUG_ASSERT(m_ddl_manager != nullptr);
+  assert(m_ddl_manager != nullptr);
   const auto tbl_props =
       std::make_shared<const rocksdb::TableProperties>(props);
 
@@ -83,8 +83,8 @@ void Rdb_event_listener::OnCompactionBegin(
 void Rdb_event_listener::OnCompactionCompleted(
     rocksdb::DB *db MY_ATTRIBUTE((__unused__)),
     const rocksdb::CompactionJobInfo &ci) {
-  DBUG_ASSERT(db != nullptr);
-  DBUG_ASSERT(m_ddl_manager != nullptr);
+  assert(db != nullptr);
+  assert(m_ddl_manager != nullptr);
 
   if (rdb_is_table_scan_index_stats_calculation_enabled()) {
     return;
@@ -102,14 +102,14 @@ void Rdb_event_listener::OnCompactionCompleted(
 void Rdb_event_listener::OnFlushCompleted(
     rocksdb::DB *db MY_ATTRIBUTE((__unused__)),
     const rocksdb::FlushJobInfo &flush_job_info) {
-  DBUG_ASSERT(db != nullptr);
+  assert(db != nullptr);
   update_index_stats(flush_job_info.table_properties);
 }
 
 void Rdb_event_listener::OnExternalFileIngested(
     rocksdb::DB *db MY_ATTRIBUTE((__unused__)),
     const rocksdb::ExternalFileIngestionInfo &info) {
-  DBUG_ASSERT(db != nullptr);
+  assert(db != nullptr);
   update_index_stats(info.table_properties);
 }
 

@@ -138,10 +138,10 @@ class Rdb_io_perf {
             my_io_perf_atomic_t *const shared_io_perf_read,
             my_io_perf_atomic_t *const shared_io_perf_write,
             ha_statistics *const stats) {
-    DBUG_ASSERT(atomic_counters != nullptr);
-    DBUG_ASSERT(shared_io_perf_read != nullptr);
-    DBUG_ASSERT(shared_io_perf_write != nullptr);
-    DBUG_ASSERT(stats != nullptr);
+    assert(atomic_counters != nullptr);
+    assert(shared_io_perf_read != nullptr);
+    assert(shared_io_perf_write != nullptr);
+    assert(stats != nullptr);
 
     m_atomic_counters = atomic_counters;
     m_shared_io_perf_read = shared_io_perf_read;

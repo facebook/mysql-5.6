@@ -53,12 +53,12 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
       const rocksdb::Slice &existing_value,
       std::string *new_value MY_ATTRIBUTE((unused)),
       bool *value_changed MY_ATTRIBUTE((unused))) const override {
-    DBUG_ASSERT(key.size() >= sizeof(uint32));
+    assert(key.size() >= sizeof(uint32));
 
     GL_INDEX_ID gl_index_id;
     gl_index_id.cf_id = m_cf_id;
     gl_index_id.index_id = rdb_netbuf_to_uint32((const uchar *)key.data());
-    DBUG_ASSERT(gl_index_id.index_id >= 1);
+    assert(gl_index_id.index_id >= 1);
 
     if (gl_index_id != m_prev_index) {
       m_should_delete =
@@ -112,7 +112,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
   void get_ttl_duration_and_offset(const GL_INDEX_ID &gl_index_id,
                                    uint64 *ttl_duration,
                                    uint32 *ttl_offset) const {
-    DBUG_ASSERT(ttl_duration != nullptr);
+    assert(ttl_duration != nullptr);
     /*
       If TTL is disabled set ttl_duration to 0.  This prevents the compaction
       filter from dropping expired records.

@@ -206,7 +206,7 @@ class Rdb_sst_info {
 
     void init(rocksdb::ColumnFamilyHandle *cf,
               std::vector<std::string> &&files) {
-      DBUG_ASSERT(m_cf == nullptr && m_committed_files.size() == 0 &&
+      assert(m_cf == nullptr && m_committed_files.size() == 0 &&
                   m_committed);
       m_cf = cf;
       m_committed_files = std::move(files);

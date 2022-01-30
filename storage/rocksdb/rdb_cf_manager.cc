@@ -47,14 +47,14 @@ void Rdb_cf_manager::init(
     std::vector<rocksdb::ColumnFamilyHandle *> *const handles) {
   mysql_mutex_init(rdb_cfm_mutex_key, &m_mutex, MY_MUTEX_INIT_FAST);
 
-  DBUG_ASSERT(cf_options != nullptr);
-  DBUG_ASSERT(handles != nullptr);
-  DBUG_ASSERT(handles->size() > 0);
+  assert(cf_options != nullptr);
+  assert(handles != nullptr);
+  assert(handles->size() > 0);
 
   m_cf_options = std::move(cf_options);
 
   for (auto cfh_ptr : *handles) {
-    DBUG_ASSERT(cfh_ptr != nullptr);
+    assert(cfh_ptr != nullptr);
 
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh(cfh_ptr);
     m_cf_name_map[cfh_ptr->GetName()] = cfh;
@@ -78,7 +78,7 @@ void Rdb_cf_manager::cleanup() {
 */
 std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_or_create_cf(
     rocksdb::DB *const rdb, const std::string &cf_name_arg) {
-  DBUG_ASSERT(rdb != nullptr);
+  assert(rdb != nullptr);
 
   std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
 
@@ -117,7 +117,7 @@ std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_or_create_cf(
         rdb->CreateColumnFamily(opts, cf_name, &cf_handle_ptr);
 
     if (s.ok()) {
-      DBUG_ASSERT(cf_handle_ptr != nullptr);
+      assert(cf_handle_ptr != nullptr);
       cf_handle.reset(cf_handle_ptr);
       m_cf_name_map[cf_handle_ptr->GetName()] = cf_handle;
       m_cf_id_map[cf_handle_ptr->GetID()] = cf_handle;
@@ -195,7 +195,7 @@ Rdb_cf_manager::get_all_cf(void) const {
   RDB_MUTEX_LOCK_CHECK(m_mutex);
 
   for (auto it : m_cf_id_map) {
-    DBUG_ASSERT(it.second != nullptr);
+    assert(it.second != nullptr);
     list.push_back(it.second);
   }
 
@@ -260,17 +260,17 @@ int Rdb_cf_manager::remove_dropped_cf(Rdb_dict_manager *const dict_manager,
     thd->thread_stack = reinterpret_cast<char *>(&(thd));
     thd->store_globals();
     const char act[] = "now signal ready_to_restart_during_drop_cf";
-    DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+    assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
     thd->restore_globals();
     delete thd;
   });
 
   auto id_iter = m_cf_id_map.find(cf_id);
-  DBUG_ASSERT(id_iter != m_cf_id_map.end());
+  assert(id_iter != m_cf_id_map.end());
   m_cf_id_map.erase(id_iter);
 
   auto name_iter = m_cf_name_map.find(cf_name);
-  DBUG_ASSERT(name_iter != m_cf_name_map.end());
+  assert(name_iter != m_cf_name_map.end());
   m_cf_name_map.erase(name_iter);
 
   dict_manager->delete_dropped_cf_and_flags(batch, cf_id);
@@ -293,7 +293,7 @@ struct Rdb_cf_scanner : public Rdb_tables_scanner {
   explicit Rdb_cf_scanner(uint32_t cf_id) : m_cf_id(cf_id) {}
 
   int add_table(Rdb_tbl_def *tdef) override {
-    DBUG_ASSERT(tdef != nullptr);
+    assert(tdef != nullptr);
 
     for (uint i = 0; i < tdef->m_key_count; i++) {
       const Rdb_key_def &kd = *tdef->m_key_descr_arr[i];

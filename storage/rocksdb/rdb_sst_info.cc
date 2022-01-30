@@ -52,8 +52,8 @@ Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
       m_name(name),
       m_tracing(tracing),
       m_comparator(cf->GetComparator()) {
-  DBUG_ASSERT(db != nullptr);
-  DBUG_ASSERT(cf != nullptr);
+  assert(db != nullptr);
+  assert(cf != nullptr);
 }
 
 Rdb_sst_file_ordered::Rdb_sst_file::~Rdb_sst_file() {
@@ -63,7 +63,7 @@ Rdb_sst_file_ordered::Rdb_sst_file::~Rdb_sst_file() {
 }
 
 rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
-  DBUG_ASSERT(m_sst_file_writer == nullptr);
+  assert(m_sst_file_writer == nullptr);
 
   rocksdb::ColumnFamilyDescriptor cf_descr;
 
@@ -98,7 +98,7 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
 
 rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::put(
     const rocksdb::Slice &key, const rocksdb::Slice &value) {
-  DBUG_ASSERT(m_sst_file_writer != nullptr);
+  assert(m_sst_file_writer != nullptr);
 
   // Add the specified key/value to the sst file writer
 #pragma GCC diagnostic push
@@ -125,7 +125,7 @@ std::string Rdb_sst_file_ordered::Rdb_sst_file::generateKey(
 
 // This function is run by the background thread
 rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::commit() {
-  DBUG_ASSERT(m_sst_file_writer != nullptr);
+  assert(m_sst_file_writer != nullptr);
 
   rocksdb::Status s;
   rocksdb::ExternalSstFileInfo fileinfo;  /// Finish may should be modified
@@ -184,7 +184,7 @@ Rdb_sst_file_ordered::Rdb_sst_stack::top() {
 
   // Make slices from the offset (first), key length (second), and value
   // length (third)
-  DBUG_ASSERT(m_buffer != nullptr);
+  assert(m_buffer != nullptr);
   rocksdb::Slice key(m_buffer + offset, key_len);
   rocksdb::Slice value(m_buffer + offset + key_len, value_len);
 
@@ -346,7 +346,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
 }
 
 Rdb_sst_info::~Rdb_sst_info() {
-  DBUG_ASSERT(m_sst_file == nullptr);
+  assert(m_sst_file == nullptr);
 
   for (const auto &sst_file : m_committed_files) {
     // In case something went wrong attempt to delete the temporary file.
@@ -360,7 +360,7 @@ Rdb_sst_info::~Rdb_sst_info() {
 }
 
 int Rdb_sst_info::open_new_sst_file() {
-  DBUG_ASSERT(m_sst_file == nullptr);
+  assert(m_sst_file == nullptr);
 
   // Create the new sst file's name
   const std::string name = m_prefix + std::to_string(m_sst_count++) + m_suffix;
@@ -396,8 +396,8 @@ void Rdb_sst_info::commit_sst_file(Rdb_sst_file_ordered *sst_file) {
 }
 
 void Rdb_sst_info::close_curr_sst_file() {
-  DBUG_ASSERT(m_sst_file != nullptr);
-  DBUG_ASSERT(m_curr_size > 0);
+  assert(m_sst_file != nullptr);
+  assert(m_curr_size > 0);
 
   commit_sst_file(m_sst_file);
 
@@ -409,7 +409,7 @@ void Rdb_sst_info::close_curr_sst_file() {
 int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
   int rc;
 
-  DBUG_ASSERT(!m_done);
+  assert(!m_done);
 
   if (m_curr_size + key.size() + value.size() >= m_max_size) {
     // The current sst file has reached its maximum, close it out
@@ -430,7 +430,7 @@ int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
     }
   }
 
-  DBUG_ASSERT(m_sst_file != nullptr);
+  assert(m_sst_file != nullptr);
 
   // Add the key/value to the current sst file
   const rocksdb::Status s = m_sst_file->put(key, value);
@@ -475,7 +475,7 @@ int Rdb_sst_info::finish(Rdb_sst_commit_info *commit_info,
   // them and ingest them all in one go, and any racing calls to commit
   // won't see them at all
   commit_info->init(m_cf, std::move(m_committed_files));
-  DBUG_ASSERT(m_committed_files.size() == 0);
+  assert(m_committed_files.size() == 0);
 
   m_done = true;
   RDB_MUTEX_UNLOCK_CHECK(m_commit_mutex);

@@ -31,7 +31,7 @@ class Rdb_logger : public rocksdb::Logger {
 
   void Logv(const rocksdb::InfoLogLevel log_level, const char *format,
             va_list ap) override {
-    DBUG_ASSERT(format != nullptr);
+    assert(format != nullptr);
 
     enum loglevel mysql_log_level;
 
@@ -64,7 +64,7 @@ class Rdb_logger : public rocksdb::Logger {
   }
 
   void Logv(const char *format, va_list ap) override {
-    DBUG_ASSERT(format != nullptr);
+    assert(format != nullptr);
     // If no level is specified, it is by default at information level
     Logv(rocksdb::InfoLogLevel::INFO_LEVEL, format, ap);
   }

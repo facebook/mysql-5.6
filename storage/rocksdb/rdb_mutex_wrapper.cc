@@ -63,7 +63,7 @@ rocksdb::Status Rdb_cond_var::WaitFor(
     const std::shared_ptr<rocksdb::TransactionDBMutex> mutex_arg,
     int64_t timeout_micros) {
   auto *mutex_obj = reinterpret_cast<Rdb_mutex *>(mutex_arg.get());
-  DBUG_ASSERT(mutex_obj != nullptr);
+  assert(mutex_obj != nullptr);
 
   mysql_mutex_t *const mutex_ptr = &mutex_obj->m_mutex;
 
@@ -158,7 +158,7 @@ Rdb_mutex::~Rdb_mutex() { mysql_mutex_destroy(&m_mutex); }
 
 rocksdb::Status Rdb_mutex::Lock() {
   RDB_MUTEX_LOCK_CHECK(m_mutex);
-  DBUG_ASSERT(m_old_stage_info.count(current_thd) == 0);
+  assert(m_old_stage_info.count(current_thd) == 0);
   return rocksdb::Status::OK();
 }
 
@@ -179,10 +179,10 @@ rocksdb::Status Rdb_mutex::TryLockFor(
 
 #ifndef STANDALONE_UNITTEST
 void Rdb_mutex::set_unlock_action(const PSI_stage_info *const old_stage_arg) {
-  DBUG_ASSERT(old_stage_arg != nullptr);
+  assert(old_stage_arg != nullptr);
 
   mysql_mutex_assert_owner(&m_mutex);
-  DBUG_ASSERT(m_old_stage_info.count(current_thd) == 0);
+  assert(m_old_stage_info.count(current_thd) == 0);
 
   m_old_stage_info[current_thd] =
       std::make_shared<PSI_stage_info>(*old_stage_arg);

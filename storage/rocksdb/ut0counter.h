@@ -93,13 +93,13 @@ struct single_indexer_t {
 
   /** @return offset within m_counter */
   size_t offset(size_t /* index */) const {
-    DBUG_ASSERT(N == 1);
+    assert(N == 1);
     return ((INNOBASE_CACHE_LINE_SIZE / sizeof(Type)));
   }
 
   /* @return 1 */
   size_t get_rnd_index() const {
-    DBUG_ASSERT(N == 1);
+    assert(N == 1);
     return (1);
   }
 };
@@ -114,7 +114,7 @@ class ib_counter_t {
  public:
   ib_counter_t() { memset(m_counter, 0x0, sizeof(m_counter)); }
 
-  ~ib_counter_t() { DBUG_ASSERT(validate()); }
+  ~ib_counter_t() { assert(validate()); }
 
   bool validate() {
 #ifdef UNIV_DEBUG
@@ -123,7 +123,7 @@ class ib_counter_t {
     /* Check that we aren't writing outside our defined bounds. */
     for (size_t i = 0; i < UT_ARRAY_SIZE(m_counter); i += n) {
       for (size_t j = 1; j < n - 1; ++j) {
-        DBUG_ASSERT(m_counter[i + j] == 0);
+        assert(m_counter[i + j] == 0);
       }
     }
 #endif /* UNIV_DEBUG */
@@ -138,7 +138,7 @@ class ib_counter_t {
   void add(Type n) {
     size_t i = m_policy.offset(m_policy.get_rnd_index());
 
-    DBUG_ASSERT(i < UT_ARRAY_SIZE(m_counter));
+    assert(i < UT_ARRAY_SIZE(m_counter));
 
     m_counter[i] += n;
   }
@@ -150,7 +150,7 @@ class ib_counter_t {
   void add(size_t index, Type n) {
     size_t i = m_policy.offset(index);
 
-    DBUG_ASSERT(i < UT_ARRAY_SIZE(m_counter));
+    assert(i < UT_ARRAY_SIZE(m_counter));
 
     m_counter[i] += n;
   }
@@ -163,7 +163,7 @@ class ib_counter_t {
   void sub(Type n) {
     size_t i = m_policy.offset(m_policy.get_rnd_index());
 
-    DBUG_ASSERT(i < UT_ARRAY_SIZE(m_counter));
+    assert(i < UT_ARRAY_SIZE(m_counter));
 
     m_counter[i] -= n;
   }
@@ -175,7 +175,7 @@ class ib_counter_t {
   void sub(size_t index, Type n) {
     size_t i = m_policy.offset(index);
 
-    DBUG_ASSERT(i < UT_ARRAY_SIZE(m_counter));
+    assert(i < UT_ARRAY_SIZE(m_counter));
 
     m_counter[i] -= n;
   }
