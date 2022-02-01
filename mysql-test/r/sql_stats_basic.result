@@ -132,6 +132,7 @@ tmp_table_disk_usage, filesort_disk_usage,
 case when elapsed_time > 0 then "populated" else "not populated"
         end elapsed_time
 from information_schema.sql_statistics
+where elapsed_time > total_cpu
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
 07f5ad4b3201ceebd12b7fea78258490	a49336ae23cce474430146ec3a7d0ee3	test	user_super	2	0	0	0	18	6	0	0	0	0	populated
@@ -160,10 +161,10 @@ sql_id	table_schema	user_name	execution_count	sql_text
 217ee3f8be69be1bf35d38bb4a29bc05	test	user_super	1	CREATE TABLE `t1` ( `c` INTEGER ) 
 4236231881b662910017cab9d06dd6af	test	user_super	1	SELECT `a` . `c` `c1` , `b` . `c` `c2` FROM `t1` `a` , `t1` `b` WHERE `a` . `c` <= `b` . `c` ORDER BY ?, ... 
 4d541b899fcde2a44c020127ca28b83a	test	user_super	1	SET @@GLOBAL . `sql_plans_control` = ON 
-80b8bde9caab2211389a46a813bc11c0	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` , `rows_inserted` , `rows_updated` , `rows_deleted` , `rows_read` , `rows_sent` , `tmp_table_bytes_written` , `filesort_bytes_written` , `tmp_table_disk_usage` , `filesort_disk_usage` , CASE WHEN `elapsed_time` > ? THEN ? ELSE ? END `elapsed_time` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
 86275001b7ac0cd3a98dc74b0daab2a6	test	user_super	5	INSERT INTO `t1` VALUES (?) 
 8ef3511d2c418993cd3069c504edaccc	test	user_super	1	SELECT `c` FROM `t1` `a` WHERE NOT EXISTS ( SELECT `sum_val` FROM ( SELECT `a` . `c` `c1` , `b` . `c` `c2` , SUM ( `c` . `c` ) `sum_val` FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ) `v1` WHERE `sum_val` = `a` . `c` ) ORDER BY ? 
 9284735a0b4c7827a5e96ab5bc66b2da	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
+935b0f07e59e1a9fade9a5c29b0ef111	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` , `rows_inserted` , `rows_updated` , `rows_deleted` , `rows_read` , `rows_sent` , `tmp_table_bytes_written` , `filesort_bytes_written` , `tmp_table_disk_usage` , `filesort_disk_usage` , CASE WHEN `elapsed_time` > ? THEN ? ELSE ? END `elapsed_time` FROM `information_schema` . `sql_statistics` WHERE `elapsed_time` > `total_cpu` ORDER BY `sql_id` 
 af7d7543fc2f2e9feeee1e4e4972d896	test	user_super	1	SELECT `c` . `c` , MIN ( `a` . `c` ) , MAX ( `b` . `c` ) FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `c` . `c` ORDER BY ?, ... 
 c7942e54edf6699ceff98d65910fee2c	test	user_super	1	SELECT `c` FROM `t1` `a` WHERE EXISTS ( SELECT `sum_val` FROM ( SELECT `a` . `c` `c1` , `b` . `c` `c2` , SUM ( `c` . `c` ) `sum_val` FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ) `v1` WHERE `sum_val` = `a` . `c` ) ORDER BY ? 
 db1589f429c8f6fbba750f47fbc7c130	test	user_super	3	SELECT ? 
@@ -203,10 +204,10 @@ sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated
 4236231881b662910017cab9d06dd6af	6c45f7957b65ebc76c1000cdfdb33186	test	user_super	1	0	0	0	6	6	0	0	0	0
 4d541b899fcde2a44c020127ca28b83a	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
 72be32c3cfad197483ded601af349ad2	4747e34c854d3849c6d4422b9a38ab68	test	user_super	1	0	0	0	0	1	0	0	0	0
-80b8bde9caab2211389a46a813bc11c0	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	15	0	0	0	0
 86275001b7ac0cd3a98dc74b0daab2a6	c63aca0e3e2270468eaadb4364351527	test	user_super	5	5	0	0	0	0	0	0	0	0
 8ef3511d2c418993cd3069c504edaccc	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	2	0	0	0	0
 9284735a0b4c7827a5e96ab5bc66b2da	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	4	0	0	0	0
+935b0f07e59e1a9fade9a5c29b0ef111	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	15	0	0	0	0
 af7d7543fc2f2e9feeee1e4e4972d896	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	3	0	0	0	0
 c7942e54edf6699ceff98d65910fee2c	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	1	0	0	0	0
 db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0

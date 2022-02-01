@@ -110,6 +110,7 @@ select sql_id, plan_id, table_schema, user_name, execution_count,
         case when elapsed_time > 0 then "populated" else "not populated"
         end elapsed_time
 from information_schema.sql_statistics
+where elapsed_time > total_cpu
 order by sql_id;
 
 # Join sql_statistics and sql_text tables

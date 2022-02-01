@@ -7168,6 +7168,7 @@ void THD::reset_counters_for_next_subquery_stats() {
 }
 
 void THD::init_sql_cpu_capture() {
+  sql_cpu = 0;
   #if HAVE_CLOCK_GETTIME
       last_cpu_info_result = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu_start_timespec.time_begin_cpu_capture);
   #elif HAVE_GETRUSAGE
