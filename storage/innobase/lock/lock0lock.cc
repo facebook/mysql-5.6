@@ -4754,16 +4754,12 @@ class TrxLockIterator {
   ulint m_index;
 };
 
-/** This iterates over RW trx_sys lists only. We need to keep
+/** This iterates over trx_sys mysql trx lists. We need to keep
 track where the iterator was up to and we do that using an ordinal value. */
 
 class TrxListIterator {
  public:
-  TrxListIterator() : m_index() {
-    /* We iterate over the RW trx list only. */
-
-    m_trx_list = &trx_sys->rw_trx_list;
-  }
+  TrxListIterator() : m_index() { m_trx_list = &trx_sys->mysql_trx_list; }
 
   /** Get the current transaction whose ordinality is m_index.
   @return current transaction or 0 */
@@ -4787,26 +4783,29 @@ class TrxListIterator {
 
   @return transaction instance or 0 */
   const trx_t *reposition() const {
-    ulint i = 0;
+    ulint i;
+    trx_t *trx;
 
     /* Make the transaction at the ordinal value of m_index
     the current transaction. ie. reposition/restore */
 
-    for (auto trx : *m_trx_list) {
-      if (i++ == m_index) {
-        return trx;
-      }
-      check_trx_state(trx);
+    for (i = 0, trx = UT_LIST_GET_FIRST(*m_trx_list);
+         trx != nullptr && ((i < m_index) || !trx_was_started(trx));
+         trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+      if (!trx_was_started(trx)) continue;
+
+      ++i;  // i record num of started trx
+      assert_trx_nonlocking_or_in_list(trx);
     }
 
-    return nullptr;
+    return (trx);
   }
 
   /** Ordinal value of the transaction in the current transaction list */
   ulint m_index;
 
   /** Current transaction list */
-  decltype(trx_sys->rw_trx_list) *m_trx_list;
+  decltype(trx_sys->mysql_trx_list) *m_trx_list;
 
   /** For iterating over a transaction's locks */
   TrxLockIterator m_lock_iter;
@@ -4983,7 +4982,7 @@ void lock_print_info_all_transactions(FILE *file) {
   bool monitor = srv_print_innodb_lock_monitor;
 
   while ((trx = trx_iter.current()) != nullptr) {
-    check_trx_state(trx);
+    assert_trx_nonlocking_or_in_list(trx);
 
     if (trx != prev_trx) {
       lock_trx_print_wait_and_mvcc_state(file, trx);

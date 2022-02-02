@@ -3371,6 +3371,19 @@ class PT_show_engine_status final : public PT_show_engine_base {
   Sql_cmd_show_engine_status m_sql_cmd;
 };
 
+/// Parse tree node for SHOW ENGINE TRANSACTION STATUS statement
+
+class PT_show_engine_trx_status final : public PT_show_engine_base {
+ public:
+  PT_show_engine_trx_status(const POS &pos, LEX_STRING opt_engine = {})
+      : PT_show_engine_base(pos, SQLCOM_SHOW_ENGINE_TRX, opt_engine) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_show_engine_trx_status m_sql_cmd;
+};
+
 /// Parse tree node for SHOW ENGINES statement
 
 class PT_show_engines final : public PT_show_base {
