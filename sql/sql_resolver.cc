@@ -1572,6 +1572,8 @@ bool Query_block::setup_wild(THD *thd) {
 
   assert(with_wild > 0);
 
+  invariant_with_wild = with_wild;
+
   // PS/SP uses arena so that changes are made permanently.
   Prepared_stmt_arena_holder ps_arena_holder(thd);
 

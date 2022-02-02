@@ -29,7 +29,7 @@
  * `sql_operation` defines operations performed by a query where an index could
  * have been useful.
  */
-enum sql_operation : int { FILTER, TABLE_JOIN, ORDER_BY, GROUP_BY };
+enum sql_operation : int { PROJECTION, FILTER, TABLE_JOIN, ORDER_BY, GROUP_BY };
 
 /*
  * `operator_type` defines operators which let specify filtration predicates
@@ -49,6 +49,8 @@ enum operator_type : int {
   PATTERN_MATCH,
   SORT_ASCENDING,
   SORT_DESCENDING,
+  NO_OP,
+  WILDCARD_STAR,
   UNKNOWN_OPERATOR
 };
 
