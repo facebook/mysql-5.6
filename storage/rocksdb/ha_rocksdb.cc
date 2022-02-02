@@ -1496,14 +1496,6 @@ static MYSQL_SYSVAR_ULONG(compaction_readahead_size,
                           rocksdb_db_options->compaction_readahead_size,
                           /* min */ 0L, /* max */ ULONG_MAX, 0);
 
-static MYSQL_SYSVAR_BOOL(
-    new_table_reader_for_compaction_inputs,
-    *reinterpret_cast<my_bool *>(
-        &rocksdb_db_options->new_table_reader_for_compaction_inputs),
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "DBOptions::new_table_reader_for_compaction_inputs for RocksDB", nullptr,
-    nullptr, rocksdb_db_options->new_table_reader_for_compaction_inputs);
-
 static MYSQL_SYSVAR_UINT(
     access_hint_on_compaction_start, rocksdb_access_hint_on_compaction_start,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -2466,7 +2458,6 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(track_and_verify_wals_in_manifest),
     MYSQL_SYSVAR(stats_level),
     MYSQL_SYSVAR(access_hint_on_compaction_start),
-    MYSQL_SYSVAR(new_table_reader_for_compaction_inputs),
     MYSQL_SYSVAR(compaction_readahead_size),
     MYSQL_SYSVAR(allow_concurrent_memtable_write),
     MYSQL_SYSVAR(enable_write_thread_adaptive_yield),
@@ -16050,8 +16041,8 @@ bool ha_rocksdb::use_read_free_rpl() const {
   Whether the table or last access partition has TTL column
   Only used in replication error checking
 */
-bool ha_rocksdb::last_part_has_ttl_column() const { 
-  return m_tbl_def->has_ttl_col(); 
+bool ha_rocksdb::last_part_has_ttl_column() const {
+  return m_tbl_def->has_ttl_col();
 }
 
 double ha_rocksdb::read_time(uint index, uint ranges, ha_rows rows) {
