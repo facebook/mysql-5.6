@@ -8295,7 +8295,10 @@ int handler::ha_write_row(uchar *buf) {
 
   if (unlikely(error)) return error;
 
-  table->in_use->inc_inserted_row_count(1);
+  if (!skip_dml_counters_for_tmp_tables ||
+      (table_share->tmp_table != NON_TRANSACTIONAL_TMP_TABLE &&
+       table_share->tmp_table != INTERNAL_TMP_TABLE))
+    table->in_use->inc_inserted_row_count(1);
 
   /* check if the cpu execution time limit for DML is exceeded */
   check_dml_execution_cpu_limit_exceeded(&error, thd);
@@ -8339,7 +8342,10 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data) {
 
   if (unlikely(error)) return error;
 
-  table->in_use->inc_updated_row_count(1);
+  if (!skip_dml_counters_for_tmp_tables ||
+      (table_share->tmp_table != NON_TRANSACTIONAL_TMP_TABLE &&
+       table_share->tmp_table != INTERNAL_TMP_TABLE))
+    table->in_use->inc_updated_row_count(1);
 
   /* check if the cpu execution time limit for DML is exceeded */
   check_dml_execution_cpu_limit_exceeded(&error, thd);

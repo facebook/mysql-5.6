@@ -2452,6 +2452,9 @@ The following options may be given as the first argument:
  If set, MySQL skips dumping the core if it hits an error
  (e.g,IO)
  (Defaults to on; use --skip-skip-core-dump-on-error to disable.)
+ --skip-dml-counters-for-tmp-tables 
+ Skip change to DML counters (in P_S tables) for tmp
+ tables.
  --skip-flush-master-info 
  Increase performance by not flushing the master info on
  each replica event
@@ -3557,6 +3560,7 @@ show-query-digest FALSE
 show-replica-auth-info FALSE
 show-slave-auth-info FALSE
 skip-core-dump-on-error TRUE
+skip-dml-counters-for-tmp-tables FALSE
 skip-flush-master-info FALSE
 skip-flush-relay-worker-info FALSE
 skip-grant-tables TRUE

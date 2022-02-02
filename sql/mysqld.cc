@@ -1605,6 +1605,8 @@ ulong column_stats_control;
 ulong index_stats_control;
 /* Controls collecting MySQL findings (aka SQL conditions) */
 ulong sql_findings_control;
+/* Control whether to update DML counters (in P_S tables) for tmp tables */
+bool skip_dml_counters_for_tmp_tables;
 
 /* Vector of the client attribute names */
 std::vector<std::string> client_attribute_names;

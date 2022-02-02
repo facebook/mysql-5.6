@@ -1,0 +1,27 @@
+Default value of skip_dml_counters_for_tmp_tables is 0
+SELECT @@global.skip_dml_counters_for_tmp_tables;
+@@global.skip_dml_counters_for_tmp_tables
+0
+SELECT @@session.skip_dml_counters_for_tmp_tables;
+ERROR HY000: Variable 'skip_dml_counters_for_tmp_tables' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+skip_dml_counters_for_tmp_tables is a dynamic variable (change to 1)
+set @@global.skip_dml_counters_for_tmp_tables = 1;
+SELECT @@global.skip_dml_counters_for_tmp_tables;
+@@global.skip_dml_counters_for_tmp_tables
+1
+restore the default value
+SET @@global.skip_dml_counters_for_tmp_tables = 0;
+SELECT @@global.skip_dml_counters_for_tmp_tables;
+@@global.skip_dml_counters_for_tmp_tables
+0
+restart the server with non default value (1)
+# restart: --skip_dml_counters_for_tmp_tables=1
+SELECT @@global.skip_dml_counters_for_tmp_tables;
+@@global.skip_dml_counters_for_tmp_tables
+1
+restart the server with the default value (0)
+# restart:
+SELECT @@global.skip_dml_counters_for_tmp_tables;
+@@global.skip_dml_counters_for_tmp_tables
+0
