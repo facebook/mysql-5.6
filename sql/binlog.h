@@ -363,7 +363,9 @@ class HybridLogicalClock {
 };
 
 struct st_filenum_pos {
-  uint file_num = 0;
+  // Without alignas, LLVM emits library calls for atomic st_filenum_pos
+  // operations - https://bugs.llvm.org/show_bug.cgi?id=45055
+  alignas(sizeof(uint64_t)) uint file_num = 0;
   uint pos = 0;
 
   static const uint max_pos = std::numeric_limits<uint>::max();
@@ -387,6 +389,9 @@ struct st_filenum_pos {
   bool operator<=(const st_filenum_pos &other) const { return cmp(other) <= 0; }
   bool operator>=(const st_filenum_pos &other) const { return cmp(other) >= 0; }
 };
+
+static_assert(sizeof(st_filenum_pos) <= 8,
+              "st_filenum_pos must fit into a single word to support atomics");
 
 /*
   TODO use mmap instead of IO_CACHE for binlog
