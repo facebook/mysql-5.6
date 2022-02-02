@@ -584,6 +584,9 @@ extern ulong column_stats_control;
 /* Global variable to control collecting index statistics */
 extern ulong index_stats_control;
 
+/* Control whether to update DML counters (in P_S tables) for tmp tables */
+extern bool skip_dml_counters_for_tmp_tables;
+
 extern bool read_only_slave;
 extern bool flush_only_old_table_cache_entries;
 extern ulong stored_program_cache_size;
