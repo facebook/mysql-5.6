@@ -1,1 +1,2 @@
 --innodb-directories=$MYSQL_TMP_DIR
+--skip-innodb-stats-persistent

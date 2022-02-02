@@ -277,6 +277,7 @@ id	name	myDate
 8	Joe	2009-09-16
 # No changes.
 COMMIT;
+SET AUTOCOMMIT = 1;
 DROP TABLE t1;
 #
 # Bug#51830: Incorrect partition pruning on range partition (regression)
@@ -413,9 +414,12 @@ SET @old_transaction_isolation := @@session.transaction_isolation;
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
 SET autocommit = 0;
 UPDATE t1 SET DATA = data*2 WHERE id = 3;
+SHOW ENGINE InnoDB TRANSACTION STATUS;
 UPDATE t1 SET data = data*2 WHERE data = 2;
+SHOW ENGINE InnoDB TRANSACTION STATUS;
 SET @@session.transaction_isolation = @old_transaction_isolation;
 SET autocommit = default;
+SET AUTOCOMMIT = 1;
 DROP TABLE t1;
 # Bug#37721, test of ORDER BY on PK and WHERE on INDEX
 CREATE TABLE t1 (

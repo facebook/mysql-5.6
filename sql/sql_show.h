@@ -375,6 +375,16 @@ class Sql_cmd_show_engine_status : public Sql_cmd_show_noplan {
   bool execute_inner(THD *thd) override;
 };
 
+/// Represents SHOW ENGINE TRANSACTION STATUS statement.
+
+class Sql_cmd_show_engine_trx_status : public Sql_cmd_show_noplan {
+ public:
+  Sql_cmd_show_engine_trx_status()
+      : Sql_cmd_show_noplan(SQLCOM_SHOW_ENGINE_TRX) {}
+  bool check_privileges(THD *thd) override;
+  bool execute_inner(THD *thd) override;
+};
+
 /// Represents SHOW STORAGE ENGINES statement.
 
 class Sql_cmd_show_engines : public Sql_cmd_show {

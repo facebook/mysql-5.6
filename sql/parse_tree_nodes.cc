@@ -2244,6 +2244,20 @@ Sql_cmd *PT_show_engine_status::make_cmd(THD *thd) {
   return &m_sql_cmd;
 }
 
+Sql_cmd *PT_show_engine_trx_status::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  assert(lex->create_info == nullptr);
+  lex->create_info = thd->alloc_typed<HA_CREATE_INFO>();
+  if (lex->create_info == nullptr) return nullptr;  // OOM
+  if (!m_all && resolve_engine(thd, to_lex_cstring(m_engine), false, true,
+                               &lex->create_info->db_type))
+    return nullptr;
+
+  return &m_sql_cmd;
+}
+
 Sql_cmd *PT_show_engines::make_cmd(THD *thd) {
   LEX *lex = thd->lex;
   lex->sql_command = m_sql_command;

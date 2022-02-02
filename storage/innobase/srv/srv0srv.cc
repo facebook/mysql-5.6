@@ -1325,6 +1325,31 @@ static void srv_printf_locks_and_transactions(FILE *file, ibool include_trxs) {
   if (include_trxs) lock_print_info_all_transactions(file);
 }
 
+/** Output for SHOW INNODB TRANSACTION STATUS */
+void srv_printf_innodb_transaction(FILE *file) /*!< in: output stream */
+{
+  mutex_enter(&srv_innodb_monitor_mutex);
+
+  fputs("\n=================================================\n", file);
+  ut_print_timestamp(file);
+  fprintf(file,
+          " INNODB TRANSACTION MONITOR OUTPUT\n"
+          "=================================================\n");
+
+  {
+    locksys::Global_exclusive_latch_guard guard{UT_LOCATION_HERE};
+    srv_printf_locks_and_transactions(file, true);
+  }
+
+  fputs(
+      "----------------------------------------\n"
+      "END OF INNODB TRANSACTION MONITOR OUTPUT\n"
+      "========================================\n",
+      file);
+  mutex_exit(&srv_innodb_monitor_mutex);
+  fflush(file);
+}
+
 /** Outputs to a file the output of the InnoDB Monitor.
  @return false if not all information printed
  due to failure to obtain necessary mutex */
@@ -1394,6 +1419,8 @@ ibool srv_printf_innodb_monitor(
 
   mutex_exit(&dict_foreign_err_mutex);
 
+  DBUG_EXECUTE_IF("force_wait_mutex_during_print_for_tests",
+                  { nowait = false; });
   ret = true;
   if (nowait) {
     locksys::Global_exclusive_try_latch guard{UT_LOCATION_HERE};

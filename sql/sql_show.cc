@@ -469,6 +469,14 @@ bool Sql_cmd_show_engine_status::execute_inner(THD *thd) {
   return ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_STATUS);
 }
 
+bool Sql_cmd_show_engine_trx_status::check_privileges(THD *thd) {
+  return check_global_access(thd, PROCESS_ACL);
+}
+
+bool Sql_cmd_show_engine_trx_status::execute_inner(THD *thd) {
+  return ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_TRX);
+}
+
 bool Sql_cmd_show_events::check_privileges(THD *thd) {
   const char *db = thd->lex->query_block->db;
   assert(db != nullptr);
