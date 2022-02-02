@@ -71,6 +71,7 @@ SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TY
 FROM performance_schema.column_statistics;
 SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
 ab1d5bf839e98ed4da92d037d87d91c4	cus_test	ColumnStatisticsRecursion	c0	FILTER	EQUAL
+ab1d5bf839e98ed4da92d037d87d91c4	cus_test	ColumnStatisticsRecursion	c0	PROJECTION	NO_OP
 ab1d5bf839e98ed4da92d037d87d91c4	cus_test	ColumnStatisticsRecursion	c1	FILTER	EQUAL
 ab1d5bf839e98ed4da92d037d87d91c4	cus_test	ColumnStatisticsRecursion	c10	FILTER	EQUAL
 ab1d5bf839e98ed4da92d037d87d91c4	cus_test	ColumnStatisticsRecursion	c11	FILTER	EQUAL

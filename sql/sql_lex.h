@@ -2087,6 +2087,10 @@ class Query_block : public Query_term {
   */
   uint with_wild{0};
 
+  // with_wild is decremented in SELECT_LEX::setup_wild after '*' are expanded
+  // invariant_with_wild keeps the number of wildcards without decrementation
+  uint invariant_with_wild{0};
+
   /// Number of leaf tables in this query block.
   uint leaf_table_count{0};
   /// Number of derived tables and views in this query block.
