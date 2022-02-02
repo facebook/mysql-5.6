@@ -69,6 +69,8 @@ WHERE t1.col1_1 = t2.col1_1 AND t1.col1_2 > 10 AND t2.col1_2 <= 5;
 
 SELECT t1.col1_1, t2.col2_2 FROM tbl1 t1 LEFT OUTER JOIN tbl2 t2 ON t1.col1_2 = t2.col2_2;
 
+SELECT t1.col1_1, t2.* FROM tbl1 t1 JOIN tbl2 t2 ON t1.col1_2 = t2.col2_2;
+
 # Verification of stats accumulated
 
 SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;

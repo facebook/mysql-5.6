@@ -110,12 +110,12 @@ SQL_ID	1d90cbfad1d650c614ade71b106ab25f
 DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	1
+COLUMN_USAGE_COUNT	5
 SQL_ID	1d90cbfad1d650c614ade71b106ab25f
 DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	1
+COLUMN_USAGE_COUNT	5
 SQL_ID	1d90cbfad1d650c614ade71b106ab25f
 DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
 TABLE_SCHEMA	cus_test
@@ -123,64 +123,64 @@ TABLE_NAME	tbl1
 COLUMN_USAGE_COUNT	1
 SQL_ID	b43ac3666c0b7c45d68e33d5b9afda9d
 DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` JOIN `tbl1` `t11` ON `tbl1` . `col1_1` = `t11` . `col1_1` WHERE `tbl1` . `col1_2` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_USAGE_COUNT	4
+SQL_ID	b43ac3666c0b7c45d68e33d5b9afda9d
+DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` JOIN `tbl1` `t11` ON `tbl1` . `col1_1` = `t11` . `col1_1` WHERE `tbl1` . `col1_2` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_USAGE_COUNT	1
+SQL_ID	b43ac3666c0b7c45d68e33d5b9afda9d
+DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` JOIN `tbl1` `t11` ON `tbl1` . `col1_1` = `t11` . `col1_1` WHERE `tbl1` . `col1_2` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_USAGE_COUNT	2
+SQL_ID	b8bfe77272de6b261c8911f58b1364d2
+DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_USAGE_COUNT	8
+SQL_ID	b8bfe77272de6b261c8911f58b1364d2
+DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_USAGE_COUNT	4
+SQL_ID	ca5efd42642d23f302e1887e50771f6a
+DIGEST_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` INNER JOIN `tbl1` `t2` ON `t1` . `col1_2` = `t2` . `col1_1` WHERE `t1` . `col1_1` IN (...)
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_USAGE_COUNT	3
-SQL_ID	b43ac3666c0b7c45d68e33d5b9afda9d
-DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` JOIN `tbl1` `t11` ON `tbl1` . `col1_1` = `t11` . `col1_1` WHERE `tbl1` . `col1_2` IN (...)
-TABLE_SCHEMA	cus_test
-TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	1
-SQL_ID	b43ac3666c0b7c45d68e33d5b9afda9d
-DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` JOIN `tbl1` `t11` ON `tbl1` . `col1_1` = `t11` . `col1_1` WHERE `tbl1` . `col1_2` IN (...)
-TABLE_SCHEMA	cus_test
-TABLE_NAME	tbl2
-COLUMN_USAGE_COUNT	1
-SQL_ID	b8bfe77272de6b261c8911f58b1364d2
-DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
-TABLE_SCHEMA	cus_test
-TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	4
-SQL_ID	b8bfe77272de6b261c8911f58b1364d2
-DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
-TABLE_SCHEMA	cus_test
-TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	4
 SQL_ID	ca5efd42642d23f302e1887e50771f6a
 DIGEST_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` INNER JOIN `tbl1` `t2` ON `t1` . `col1_2` = `t2` . `col1_1` WHERE `t1` . `col1_1` IN (...)
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_USAGE_COUNT	2
-SQL_ID	ca5efd42642d23f302e1887e50771f6a
-DIGEST_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` INNER JOIN `tbl1` `t2` ON `t1` . `col1_2` = `t2` . `col1_1` WHERE `t1` . `col1_1` IN (...)
-TABLE_SCHEMA	cus_test
-TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	1
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	2
+COLUMN_USAGE_COUNT	6
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	1
+COLUMN_USAGE_COUNT	5
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl2
-COLUMN_USAGE_COUNT	1
+COLUMN_USAGE_COUNT	3
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl2
-COLUMN_USAGE_COUNT	1
+COLUMN_USAGE_COUNT	3
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl3
-COLUMN_USAGE_COUNT	1
+COLUMN_USAGE_COUNT	4
 Unique column accesses per table instance per SQL_ID
 SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
@@ -198,6 +198,20 @@ DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FR
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	1d90cbfad1d650c614ade71b106ab25f
+DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	1d90cbfad1d650c614ade71b106ab25f
+DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
 SQL_ID	1d90cbfad1d650c614ade71b106ab25f
@@ -207,6 +221,55 @@ TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
+SQL_ID	1d90cbfad1d650c614ade71b106ab25f
+DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	1d90cbfad1d650c614ade71b106ab25f
+DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	1d90cbfad1d650c614ade71b106ab25f
+DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_3
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	1d90cbfad1d650c614ade71b106ab25f
+DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_3
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	1d90cbfad1d650c614ade71b106ab25f
+DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_4
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	1d90cbfad1d650c614ade71b106ab25f
+DIGEST_TEXT	SELECT * FROM `tbl1` WHERE `col1_1` > ? UNION ALL SELECT `t2` . * FROM `tbl1` `t1` , `tbl1` `t2` WHERE `t1` . `col1_1` = `t2` . `col1_1`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_4
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	b43ac3666c0b7c45d68e33d5b9afda9d
+DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` JOIN `tbl1` `t11` ON `tbl1` . `col1_1` = `t11` . `col1_1` WHERE `tbl1` . `col1_2` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	NO_OP
 SQL_ID	b43ac3666c0b7c45d68e33d5b9afda9d
 DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` JOIN `tbl1` `t11` ON `tbl1` . `col1_1` = `t11` . `col1_1` WHERE `tbl1` . `col1_2` IN (...)
 TABLE_SCHEMA	cus_test
@@ -240,8 +303,22 @@ DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl2
 COLUMN_NAME	col2_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	NO_OP
+SQL_ID	b43ac3666c0b7c45d68e33d5b9afda9d
+DIGEST_TEXT	SELECT `tbl1` . `col1_1` , `tbl2` . `col2_2` FROM `tbl1` JOIN `tbl2` ON `tbl1` . `col1_2` = `col2_2` JOIN `tbl1` `t11` ON `tbl1` . `col1_1` = `t11` . `col1_1` WHERE `tbl1` . `col1_2` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col2_2
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
+SQL_ID	b8bfe77272de6b261c8911f58b1364d2
+DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
 SQL_ID	b8bfe77272de6b261c8911f58b1364d2
 DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
 TABLE_SCHEMA	cus_test
@@ -261,6 +338,13 @@ DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	b8bfe77272de6b261c8911f58b1364d2
+DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_2
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
 SQL_ID	b8bfe77272de6b261c8911f58b1364d2
@@ -275,6 +359,13 @@ DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_3
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	b8bfe77272de6b261c8911f58b1364d2
+DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_3
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
 SQL_ID	b8bfe77272de6b261c8911f58b1364d2
@@ -284,6 +375,13 @@ TABLE_NAME	tbl1
 COLUMN_NAME	col1_3
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
+SQL_ID	b8bfe77272de6b261c8911f58b1364d2
+DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_4
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
 SQL_ID	b8bfe77272de6b261c8911f58b1364d2
 DIGEST_TEXT	SELECT * FROM `tbl1` `t1` NATURAL JOIN `tbl1` `t2`
 TABLE_SCHEMA	cus_test
@@ -310,8 +408,22 @@ DIGEST_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` INNER JOIN
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	NO_OP
+SQL_ID	ca5efd42642d23f302e1887e50771f6a
+DIGEST_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` INNER JOIN `tbl1` `t2` ON `t1` . `col1_2` = `t2` . `col1_1` WHERE `t1` . `col1_1` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
+SQL_ID	ca5efd42642d23f302e1887e50771f6a
+DIGEST_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` INNER JOIN `tbl1` `t2` ON `t1` . `col1_2` = `t2` . `col1_1` WHERE `t1` . `col1_1` IN (...)
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	NO_OP
 SQL_ID	ca5efd42642d23f302e1887e50771f6a
 DIGEST_TEXT	SELECT `t1` . `col1_1` , `t2` . `col1_2` FROM `tbl1` `t1` INNER JOIN `tbl1` `t2` ON `t1` . `col1_2` = `t2` . `col1_1` WHERE `t1` . `col1_1` IN (...)
 TABLE_SCHEMA	cus_test
@@ -324,6 +436,20 @@ DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	EQUAL
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
@@ -337,9 +463,65 @@ SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
+COLUMN_NAME	col1_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_3
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_3
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
 COLUMN_NAME	col1_3
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	GREATER_THAN
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_4
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_4
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col2_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col2_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
@@ -352,8 +534,29 @@ DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11`
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl2
 COLUMN_NAME	col2_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col2_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl2
+COLUMN_NAME	col2_2
 SQL_OPERATION	TABLE_JOIN
 OPERATOR_TYPE	GREATER_THAN
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl3
+COLUMN_NAME	col3_1
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
@@ -361,6 +564,20 @@ TABLE_NAME	tbl3
 COLUMN_NAME	col3_2
 SQL_OPERATION	FILTER
 OPERATOR_TYPE	GREATER_THAN
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl3
+COLUMN_NAME	col3_2
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl3
+COLUMN_NAME	col3_3
+SQL_OPERATION	PROJECTION
+OPERATOR_TYPE	WILDCARD_STAR
 set global column_stats_control = OFF_HARD;
 SET @@global.performance_schema_esms_by_all = @start_value;
 DROP TABLE tbl1;
