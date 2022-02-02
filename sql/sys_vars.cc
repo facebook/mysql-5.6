@@ -9944,6 +9944,12 @@ static Sys_var_bool Sys_enable_pfs_global_select(
     "This allows any user to perform select on performance_schema tables.",
     GLOBAL_VAR(enable_pfs_global_select), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_skip_dml_counters_for_tmp_tables(
+    "skip_dml_counters_for_tmp_tables",
+    "Skip change to DML counters (in P_S tables) for tmp tables.",
+    GLOBAL_VAR(skip_dml_counters_for_tmp_tables), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static Sys_var_bool Sys_raft_high_priority_read_only(
     "raft_high_priority_read_only",
     "Set high_priority_ddl and kill_conflicting_connections before set "

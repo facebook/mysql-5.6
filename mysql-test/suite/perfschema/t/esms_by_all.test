@@ -130,13 +130,105 @@ SELECT SLEEP(1);
 --source include/assert.inc
 set global enable_cputime_with_wallclock = DEFAULT;
 
+#####################################################
+### Case 7: DML row counters unchanged for tmp tables
+#####################################################
+--echo Case 7: DML row counters unchanged for tmp tables
+
+create table test.tables(
+TABLE_CATALOG    varchar(64)                                                        ,
+TABLE_SCHEMA     varchar(64)                                                        ,
+TABLE_NAME       varchar(64)                                                        ,
+TABLE_TYPE       enum('BASE TABLE','VIEW','SYSTEM VIEW')                            ,
+ENGINE           varchar(64)                                                        ,
+VERSION          int                                                                ,
+ROW_FORMAT       enum('Fixed','Dynamic','Compressed','Redundant','Compact','Paged') ,
+TABLE_ROWS       bigint unsigned                                                    ,
+AVG_ROW_LENGTH   bigint unsigned                                                    ,
+DATA_LENGTH      bigint unsigned                                                    ,
+MAX_DATA_LENGTH  bigint unsigned                                                    ,
+INDEX_LENGTH     bigint unsigned                                                    ,
+DATA_FREE        bigint unsigned                                                    ,
+AUTO_INCREMENT   bigint unsigned                                                    ,
+CREATE_TIME      timestamp                                                          ,
+UPDATE_TIME      datetime                                                           ,
+CHECK_TIME       datetime                                                           ,
+TABLE_COLLATION  varchar(64)                                                        ,
+CHECKSUM         bigint                                                             ,
+CREATE_OPTIONS   varchar(256)                                                       ,
+TABLE_COMMENT    text                                                               );
+
+insert into tables select * from information_schema.tables;
+insert into tables select * from tables;
+insert into tables select * from tables;
+insert into tables select * from tables;
+insert into tables select * from tables;
+insert into tables select * from tables;
+insert into tables select * from tables;
+
+set global performance_schema_esms_by_all = on;
+set global skip_dml_counters_for_tmp_tables=off;
+
+### not interested in the actual query result, only the statistics
+--disable_result_log
+select a.table_name, a.row_count
+from (select table_name, count(1) row_count from tables group by table_name) a
+where table_name like 'T%' limit 10;
+
+select a100.table_name
+from (select table_name from tables limit 100) a100,
+     (select table_name from tables limit 100) b100
+where a100.table_name=b100.table_name
+  and b100.table_name like 'T%'
+limit 10;
+--enable_result_log
+
+select 1 union select 2 union select 3;
+
+--echo Case 7.1: skip_dml_counters_for_tmp_tables off
+select case when SUM_ROWS_SENT >0 then 'success' else 'failure' end sent_check,
+       case when SUM_ROWS_EXAMINED >0 then 'success' else 'failure' end examined_check,
+       case when (SUM_ROWS_UPDATED + SUM_ROWS_DELETED + SUM_ROWS_INSERTED) > 0 then 'success' else 'failure' end dml_check,
+       digest_text
+from performance_schema.events_statements_summary_by_all a, performance_schema.sql_text b
+where a.digest=b.digest and (digest_text like 'SELECT `a%' or digest_text like 'SELECT %UNION%');
+
+truncate performance_schema.events_statements_summary_by_all;
+set global skip_dml_counters_for_tmp_tables=on;
+
+select a.table_name, a.row_count
+from (select table_name, count(1) row_count from tables group by table_name) a
+where table_name like 'T%' limit 10;
+
+### not interested in the actual query result, only the statistics
+--disable_result_log
+select a100.table_name
+from (select table_name from tables limit 100) a100,
+     (select table_name from tables limit 100) b100
+where a100.table_name=b100.table_name
+  and b100.table_name like 'T%'
+limit 10;
+--enable_result_log
+
+select 1 union select 2 union select 3;
+
+--echo Case 7.2: skip_dml_counters_for_tmp_tables on
+select case when SUM_ROWS_SENT >0 then 'success' else 'failure' end sent_check,
+       case when SUM_ROWS_EXAMINED >0 then 'success' else 'failure' end examined_check,
+       case when (SUM_ROWS_UPDATED + SUM_ROWS_DELETED + SUM_ROWS_INSERTED) = 0 then 'success' else 'failure' end dml_check,
+       digest_text
+from performance_schema.events_statements_summary_by_all a, performance_schema.sql_text b
+where a.digest=b.digest and (digest_text like 'SELECT `a%' or digest_text like 'SELECT %UNION%');
+
 ###########
 ### Cleanup
 ###########
 --echo Cleanup
 connection default;
 set global performance_schema_esms_by_all = DEFAULT;
+set global skip_dml_counters_for_tmp_tables= DEFAULT;
 drop table t1;
+drop table tables;
 drop user user_super@localhost;
 disconnect con13;
 
