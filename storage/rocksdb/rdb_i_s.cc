@@ -496,8 +496,6 @@ static int rdb_i_s_cfoptions_fill_table(
          std::to_string(opts.level0_slowdown_writes_trigger)},
         {"LEVEL0_STOP_WRITES_TRIGGER",
          std::to_string(opts.level0_stop_writes_trigger)},
-        {"MAX_MEM_COMPACTION_LEVEL",
-         std::to_string(opts.max_mem_compaction_level)},
         {"TARGET_FILE_SIZE_BASE", std::to_string(opts.target_file_size_base)},
         {"TARGET_FILE_SIZE_MULTIPLIER",
          std::to_string(opts.target_file_size_multiplier)},
