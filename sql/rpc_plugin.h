@@ -52,6 +52,7 @@ struct myrocks_order_by_item {
 struct myrocks_column_value {
   myrocks_value_type type;
   bool isNull = false;
+  uint32_t length = 0;  // valid for string and binary
   union {
     bool boolVal;
     uint64_t i64Val;
