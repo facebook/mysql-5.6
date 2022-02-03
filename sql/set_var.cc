@@ -1262,7 +1262,7 @@ int set_var::update(THD *thd) {
 
     LogErr(WARNING_LEVEL, ER_LOG_GLOBAL_VAR_CHANGE, var->name.str, before_value,
            after_value, thd->security_context()->user().str,
-           thd->security_context()->host().str);
+           thd->security_context()->host_or_ip().str);
   }
   return ret;
 }
