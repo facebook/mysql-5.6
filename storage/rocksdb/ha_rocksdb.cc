@@ -5056,10 +5056,6 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   return HA_EXIT_SUCCESS;
 }
 
-/**
- do nothing for prepare/commit by xid
- this is needed to avoid crashes in XA scenarios
-*/
 /* TODO(yzha) - Review failures code as return type as changed to xa_status_code
  */
 static xa_status_code rocksdb_commit_by_xid(
