@@ -74,6 +74,11 @@ bool inline is_supported_item_func(Item_func::Functype type) {
 
 namespace {
 
+bool check_field_name_match(Field *field, const char *field_name) {
+  return (field->field_name &&
+          !my_strcasecmp(system_charset_info, field->field_name, field_name));
+}
+
 typedef enum {
   NONE = 0,
   BOOL = 1,
@@ -527,8 +532,60 @@ class base_select_parser {
   uint get_cond_count() const { return m_cond_count; }
   uint64_t get_select_limit() const { return m_select_limit; }
   uint64_t get_offset_limit() const { return m_offset_limit; }
+  const char *get_error_msg() const { return m_error_msg; }
 
  protected:
+  // Update m_is_order_desc. If orders are not matched or orders are not in
+  // index order, return true, otherwise return false.
+  bool process_order_by(KEY *key, bool is_current_order_desc,
+                        const char *field_name, bool &is_first,
+                        uint &cur_index) {
+    if (is_first) {
+      m_is_order_desc = is_current_order_desc;
+      is_first = false;
+
+      // Find the first index
+      for (uint j = 0; j < key->actual_key_parts; ++j) {
+        if (check_field_name_match(key->key_part[j].field, field_name)) {
+          cur_index = j;
+          break;
+        }
+      }
+
+      if (cur_index >= key->actual_key_parts) {
+        m_error_msg = "ORDER BY field doesn't belong to the index";
+        return true;
+      }
+    } else {
+      if (m_is_order_desc != is_current_order_desc) {
+        // Found a different order
+        m_error_msg = "ORDER BY should be either ascending or descending";
+        return true;
+      }
+
+      cur_index++;
+      if (cur_index >= key->actual_key_parts) {
+        m_error_msg = "ORDER BY field is not in index order";
+        return true;
+      }
+
+      if (!check_field_name_match(key->key_part[cur_index].field, field_name)) {
+        m_error_msg = "ORDER BY is not in index order";
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void update_error_msg(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(m_error_msg_buf, sizeof(m_error_msg_buf) / sizeof(char), fmt,
+              args);
+    va_end(args);
+    m_error_msg = m_error_msg_buf;
+  }
+
   THD *m_thd;
   TABLE *m_table;
   Table_ref *m_table_list;
@@ -539,6 +596,9 @@ class base_select_parser {
   uint m_cond_count = 0;
   uint64_t m_select_limit;
   uint64_t m_offset_limit;
+  const char *m_error_msg;
+  // Buffer to store snprintf-ed error messages
+  char m_error_msg_buf[FN_REFLEN];
 };
 
 /*
@@ -642,14 +702,7 @@ class sql_select_parser : public base_select_parser {
     return str;
   }
 
-  const char *get_error_msg() const { return m_error_msg; }
-
  private:
-  const char *m_error_msg;
-
-  // Buffer to store snprintf-ed error messages
-  char m_error_msg_buf[FN_REFLEN];
-
   sql_cond m_cond_list[MAX_NOSQL_COND_COUNT];
   std::vector<base_cond *> m_cond_list_ptr;
 
@@ -674,9 +727,7 @@ class sql_select_parser : public base_select_parser {
                              index_to_use.length, true);
         if (!pos) {
           // Unrecognized index
-          snprintf(m_error_msg_buf, sizeof(m_error_msg_buf) / sizeof(char),
-                   "Unrecognized index: '%s'", index_to_use.str);
-          m_error_msg = m_error_msg_buf;
+          update_error_msg("Unrecognized index: '%s'", index_to_use.str);
           return true;
         }
         m_index = pos - 1;
@@ -715,9 +766,7 @@ class sql_select_parser : public base_select_parser {
 
       Field *field = find_field_in_table(m_table, name, false, &field_index);
       if (!field) {
-        snprintf(m_error_msg_buf, sizeof(m_error_msg_buf) / sizeof(char),
-                 "Unrecognized field name: '%s'", name);
-        m_error_msg = m_error_msg_buf;
+        update_error_msg("Unrecognized field name: '%s'", name);
         return true;
       }
 
@@ -741,11 +790,6 @@ class sql_select_parser : public base_select_parser {
     return false;
   }
 
-  bool check_field_name_match(Field *field, const char *field_name) {
-    return (field->field_name &&
-            !my_strcasecmp(system_charset_info, field->field_name, field_name));
-  }
-
   bool parse_order_by() {
     // Extract order ascending vs descending from the order by list
     if (m_select_lex->order_list.elements == 0) {
@@ -764,41 +808,9 @@ class sql_select_parser : public base_select_parser {
         return true;
       }
       auto field_item = static_cast<Item_field *>(item);
-      if (is_first) {
-        m_is_order_desc = (order->direction == ORDER_DESC);
-        is_first = false;
-
-        // Find the first index
-        for (uint j = 0; j < key->actual_key_parts; ++j) {
-          if (check_field_name_match(key->key_part[j].field,
-                                     field_item->field_name)) {
-            cur_index = j;
-            break;
-          }
-        }
-
-        if (cur_index >= key->actual_key_parts) {
-          m_error_msg = "ORDER BY field doesn't belong to the index";
-          return true;
-        }
-      } else {
-        if (m_is_order_desc != (order->direction == ORDER_DESC)) {
-          // Found a different order
-          m_error_msg = "ORDER BY should be either ascending or descending";
-          return true;
-        }
-
-        cur_index++;
-        if (cur_index >= key->actual_key_parts) {
-          m_error_msg = "ORDER BY field is not in index order";
-          return true;
-        }
-
-        if (!check_field_name_match(key->key_part[cur_index].field,
-                                    field_item->field_name)) {
-          m_error_msg = "ORDER BY is not in index order";
-          return true;
-        }
+      if (process_order_by(key, order->direction == ORDER_DESC,
+                           field_item->field_name, is_first, cur_index)) {
+        return true;
       }
       order = order->next;
     }
@@ -877,9 +889,7 @@ class sql_select_parser : public base_select_parser {
     Field *found =
         find_field_in_table(m_table, field_name, false, &field_index);
     if (!found) {
-      snprintf(m_error_msg_buf, sizeof(m_error_msg_buf) / sizeof(char),
-               "Unrecognized field name: '%s'", field_name);
-      m_error_msg = m_error_msg_buf;
+      update_error_msg("Unrecognized field name: '%s'", field_name);
       return true;
     }
 
@@ -1000,6 +1010,312 @@ class sql_select_parser : public base_select_parser {
     } else {
       m_offset_limit = 0;
     }
+
+    return false;
+  }
+};
+
+class rpc_select_parser : public base_select_parser {
+ public:
+  explicit rpc_select_parser(THD *thd, const myrocks_select_from_rpc *param,
+                             myrocks_columns *columns)
+      : base_select_parser(thd, thd->lex->query_block),
+        m_param(param),
+        m_columns(columns) {
+    m_table_list = m_select_lex->m_table_list.first;
+    m_table = m_table_list->table;
+    m_error_msg = "UNKNOWN";
+
+    // initialize field_index
+    m_field_index.assign(m_table->s->fields, -1);
+  }
+
+  const std::vector<base_cond *> &get_cond_list() const override {
+    return m_cond_list_ptr;
+  }
+
+  bool INLINE_ATTR parse() {
+    if (parse_index() || parse_items() || parse_order_by() || parse_where() ||
+        parse_limit()) {
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  const myrocks_select_from_rpc *m_param;
+  myrocks_columns *m_columns;
+  std::vector<int> m_field_index;
+  rpc_cond m_cond_list[MAX_NOSQL_COND_COUNT];
+  std::vector<base_cond *> m_cond_list_ptr;
+  int m_num_used_columns;
+
+  bool parse_index() {
+    if (!m_param->force_index.empty()) {
+      uint pos =
+          find_type(&get_table()->s->keynames, m_param->force_index.c_str(),
+                    m_param->force_index.size(), true);
+      if (!pos) {
+        // Unrecognized index
+        update_error_msg("Unrecognized index: '%s'",
+                         m_param->force_index.c_str());
+        return true;
+      }
+      m_index = pos - 1;
+    } else {
+      // Default to PRIMARY
+      m_index = m_table->s->primary_key;
+    }
+
+    return false;
+  }
+
+  bool parse_items() {
+    // 'select *' is not supported
+    if (m_param->columns.empty()) {
+      m_error_msg = "Requested columns should be specified";
+      return true;
+    }
+
+    m_field_list.reserve(m_param->columns.size());
+
+    for (auto &fname : m_param->columns) {
+      unsigned int unused_index;
+      Field *field =
+          find_field_in_table(get_table(), fname.c_str(), false, &unused_index);
+      if (!field) {
+        update_error_msg("Unrecognized field name: '%s'", fname.c_str());
+        return true;
+      }
+
+      if (add_field_list(field)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // update field_list and field_index
+  // the order of calling this matters
+  bool inline add_field_list(Field *field) {
+    auto field_type = field->real_type();
+    if (field_type == MYSQL_TYPE_VARCHAR &&
+        field->charset() != &my_charset_bin &&
+        field->charset() != &my_charset_utf8mb3_bin &&
+        field->charset() != &my_charset_latin1_bin) {
+      m_error_msg =
+          "only binary, utf8_bin, latin1_bin is supported for varchar "
+          "field";
+      return true;
+    }
+
+    int idx = m_field_list.size();
+    m_field_list.push_back(field);
+    m_field_index[field->field_index()] = idx;
+    return false;
+  }
+
+  bool parse_order_by() {
+    // extract order ascending vs descending from the order by list
+    if (m_param->order_by.empty()) {
+      m_is_order_desc = false;
+      return false;
+    }
+
+    bool is_first = true;
+    KEY *key = &get_table()->key_info[get_index()];
+    uint cur_index = key->actual_key_parts;
+    for (const auto &it : m_param->order_by) {
+      if (process_order_by(key,
+                           it.op == myrocks_order_by_item::order_by_op::DESC,
+                           it.column.c_str(), is_first, cur_index)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // TODO: rpc plugin directly calls with Item_func type
+  inline Item_func::Functype convert_where_op(myrocks_where_item::where_op op) {
+    switch (op) {
+      case myrocks_where_item::where_op::EQ:
+        return Item_func::EQ_FUNC;
+      case myrocks_where_item::where_op::LT:
+        return Item_func::LT_FUNC;
+      case myrocks_where_item::where_op::GT:
+        return Item_func::GT_FUNC;
+      case myrocks_where_item::where_op::LE:
+        return Item_func::LE_FUNC;
+      case myrocks_where_item::where_op::GE:
+        return Item_func::GE_FUNC;
+    }
+  }
+
+  inline Field *find_field(const std::string &field_name) {
+    uint unused_index;
+    Field *found = find_field_in_table(get_table(), field_name.c_str(), false,
+                                       &unused_index);
+    if (!found) {
+      update_error_msg("Unrecognized field name: '%s'", field_name.c_str());
+      return nullptr;
+    }
+
+    if (found->is_nullable()) {
+      m_error_msg = "NULL fields not supported";
+      return nullptr;
+    }
+
+    if (get_cond_count() >= MAX_NOSQL_COND_COUNT) {
+      m_error_msg = "Too many WHERE expressions";
+      return nullptr;
+    }
+
+    return found;
+  }
+
+  // Return false if field_type is supported, with its corresponding
+  // myrocks_value_type in val_type. Otherwise, return true.
+  inline bool field_type_to_myrocks_value_type(enum_field_types field_type,
+                                               myrocks_value_type &val_type) {
+    switch (field_type) {
+      case MYSQL_TYPE_LONGLONG:
+      case MYSQL_TYPE_LONG:
+      case MYSQL_TYPE_INT24:
+      case MYSQL_TYPE_SHORT:
+      case MYSQL_TYPE_TINY: {
+        val_type = myrocks_value_type::UNSIGNED_INT;
+        return false;
+      }
+      case MYSQL_TYPE_VARCHAR: {
+        val_type = myrocks_value_type::STRING;
+        return false;
+      }
+      default: {
+        update_error_msg("Unsupported field type in where clause: type = %d",
+                         field_type);
+        return true;
+      }
+    }
+  }
+
+  bool inline parse_in_cond(const myrocks_where_in_item &item) {
+    Field *found = find_field(item.column);
+    if (!found) {
+      // error message is already updated
+      return true;
+    }
+
+    if (item.num_values == 0) {
+      m_error_msg = "IN operators should have at least one value";
+      return true;
+    }
+
+    // true if `more_values` pointer is used instead of `values` array
+    bool more_values = item.num_values > MAX_VALUES_PER_RPC_WHERE_ITEM;
+
+    myrocks_value_type desired_type;
+    if (field_type_to_myrocks_value_type(found->type(), desired_type)) {
+      // error message is already updated
+      return true;
+    }
+    for (uint i = 0; i < item.num_values; ++i) {
+      auto value_type =
+          more_values ? item.more_values[i].type : item.values[i].type;
+      if (desired_type != value_type) {
+        m_error_msg = "Type does not match in where clause";
+        return true;
+      }
+    }
+
+    auto idx = m_field_index[found->field_index()];
+    if (idx < 0) {
+      // unrequested field is in where in clause
+      if (add_field_list(found)) {
+        return true;
+      }
+      idx = m_field_index.size() - 1;
+    }
+    m_cond_list[m_cond_count++] = {
+        Item_func::IN_FUNC, found,
+        more_values ? item.more_values : item.values.data(), item.num_values,
+        &m_columns->at(idx)};
+    return false;
+  }
+
+  // TODO: redundancy between parse_cond() and parse_in_cond()
+  bool inline parse_cond(const myrocks_where_item &item) {
+    Field *found = find_field(item.column);
+    if (!found) {
+      // error message is already updated
+      return true;
+    }
+
+    myrocks_value_type desired_type;
+    if (field_type_to_myrocks_value_type(found->type(), desired_type)) {
+      // error message is already updated
+      return true;
+    }
+    if (desired_type != item.value.type) {
+      m_error_msg = "Type does not match in where clause";
+      return true;
+    }
+
+    auto idx = m_field_index[found->field_index()];
+    if (idx < 0) {
+      // unrequested field is in where clause
+      if (add_field_list(found)) {
+        return true;
+      }
+      idx = m_field_index.size() - 1;
+    }
+
+    auto op = convert_where_op(item.op);
+
+    // TAO-specific optimizations
+    if (found->is_flag_set(UNSIGNED_FLAG) && found->type() == MYSQL_TYPE_LONG) {
+      if (op == Item_func::GE_FUNC && item.value.i64Val == 0) {
+        // unsigned A >= 0 - skip this one
+        return false;
+      }
+      if (op == Item_func::LE_FUNC &&
+          item.value.i64Val == std::numeric_limits<uint32_t>::max()) {
+        // unsigned A <= UINT32_MAX - skip this one
+        return false;
+      }
+    }
+
+    m_cond_list[m_cond_count++] = {op, found, &item.value, 1,
+                                   &m_columns->at(idx)};
+    return false;
+  }
+
+  bool parse_where() {
+    std::vector<std::pair<std::string, uint64_t>> fields;
+
+    for (const auto &item : m_param->where) {
+      if (parse_cond(item)) {
+        return true;
+      }
+    }
+
+    for (const auto &item : m_param->where_in) {
+      if (parse_in_cond(item)) {
+        return true;
+      }
+    }
+
+    m_cond_list_ptr.reserve(m_cond_count);
+    for (uint i = 0; i < m_cond_count; i++) {
+      m_cond_list_ptr.push_back(&m_cond_list[i]);
+    }
+    return false;
+  }
+
+  bool parse_limit() {
+    // thrift plugin already set it as uint64_t max if no limit is set
+    m_select_limit = m_param->limit;
+    m_offset_limit = m_param->limit_offset;
 
     return false;
   }
