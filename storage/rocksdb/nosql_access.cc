@@ -74,23 +74,22 @@ bool inline is_supported_item_func(Item_func::Functype type) {
 
 namespace {
 
-/*
-  Represents single conditional expression in SELECT WHERE
-  Example: id1 > 100
- */
-struct sql_cond {
-  Item_func::Functype op_type;  // the operator, such as >
-  Field *field;                 // field
-  Item *cond_item;              // item
-  Item *val_item;               // item containing the value
+typedef enum {
+  NONE = 0,
+  BOOL = 1,
+  UNSIGNED_INT = 2,
+  DOUBLE = 3,
+  STRING = 4
+} nosql_cond_value_type;
 
-  sql_cond(Item_func::Functype _op_type, Field *_field, Item *_cond_item,
-           Item *_val_item)
-      : op_type(_op_type),
-        field(_field),
-        cond_item(_cond_item),
-        val_item(_val_item) {}
-  sql_cond() = default;
+struct nosql_cond_value {
+  nosql_cond_value_type type;
+  union {
+    bool boolVal;
+    uint64_t i64Val;
+    double doubleVal;
+    String *stringVal;
+  };
 };
 
 /*
@@ -187,7 +186,7 @@ class rpc_protocol : public base_protocol {
           }
           rpcbuf->stringVal = const_cast<uchar *>(ptr) + length_bytes;
           rpcbuf->length = data_len;
-          rpcbuf->type = myrocks_value_type::_STRING;
+          rpcbuf->type = myrocks_value_type::STRING;
           break;
         }
         case MYSQL_TYPE_BLOB: {
@@ -199,7 +198,7 @@ class rpc_protocol : public base_protocol {
                  sizeof(uchar *));
           rpcbuf->stringVal = ucharptr;
           rpcbuf->length = length;
-          rpcbuf->type = myrocks_value_type::_STRING;
+          rpcbuf->type = myrocks_value_type::STRING;
           break;
         }
 
@@ -244,11 +243,271 @@ class rpc_protocol : public base_protocol {
 
     if (is_unsigned) {
       rpcbuf->i64Val = val;
-      rpcbuf->type = myrocks_value_type::_UNSIGNED_INT;
+      rpcbuf->type = myrocks_value_type::UNSIGNED_INT;
     } else {
       rpcbuf->signed_i64Val = val;
-      rpcbuf->type = myrocks_value_type::_SIGNED_INT;
+      rpcbuf->type = myrocks_value_type::SIGNED_INT;
     }
+  }
+};
+
+/*
+  Represents single conditional expression in SELECT WHERE
+  Example: id1 > 100
+ */
+class base_cond {
+ public:
+  base_cond(Item_func::Functype _op_type, Field *_field)
+      : op_type(_op_type), field(_field) {}
+  base_cond() = default;
+  virtual ~base_cond() = default;
+  // dump the condition in string
+  virtual std::string dump() const = 0;
+  // read the condition value
+  virtual nosql_cond_value get_value(String *str) const = 0;
+  // read the k-th condition value (when IN operator is used)
+  virtual nosql_cond_value get_value(String *str, uint k) const = 0;
+  // read number of condition values (IN operator is used)
+  virtual int get_size() const = 0;
+  // fix fields before using items
+  virtual bool fix_fields(THD *thd) const = 0;
+  // evaluate the condition against read values
+  // return true if the cond is met, false otherwise
+  virtual bool evaluate() const = 0;
+
+  Item_func::Functype op_type;
+  Field *field;
+};
+
+class sql_cond : public base_cond {
+ public:
+  sql_cond(Item_func::Functype _op_type, Field *_field, Item *_cond_item,
+           Item *_val_item)
+      : base_cond(_op_type, _field),
+        cond_item(_cond_item),
+        val_item(_val_item) {}
+  sql_cond() = default;
+
+  Item *cond_item;
+  Item *val_item;
+
+  std::string dump() const override {
+    std::string str;
+    str += "(";
+    str += field->field_name;
+    str += " ";
+    switch (op_type) {
+      case Item_func::EQ_FUNC: {
+        str += "==";
+        break;
+      }
+      case Item_func::LT_FUNC: {
+        str += "<";
+        break;
+      }
+      default:
+        str += "?";
+    }
+    str += " ";
+    if (op_type == Item_func::IN_FUNC) {
+      str += "(";
+      auto in_func = static_cast<Item_func_in *>(cond_item);
+      auto args = in_func->arguments();
+      for (uint j = 1; j < in_func->argument_count(); ++j) {
+        if (j > 1) {
+          str += ",";
+        }
+        String storage;
+        String *ret = args[j]->val_str(&storage);
+        if (ret == nullptr) {
+          str += "NULL";
+        } else {
+          str += ret->c_ptr_safe();
+        }
+      }
+      str += ")";
+    }
+
+    return str;
+  }
+
+  nosql_cond_value get_value(String *str) const override {
+    return __get_value(str, val_item);
+  }
+
+  nosql_cond_value get_value(String *str, uint idx) const override {
+    assert(op_type == Item_func::IN_FUNC);
+    auto in_func = static_cast<Item_func_in *>(cond_item);
+    auto item = in_func->arguments()[idx + 1];
+    return __get_value(str, item);
+  }
+
+  int get_size() const override {
+    if (op_type != Item_func::IN_FUNC) return 1;
+    auto in_func = static_cast<Item_func_in *>(cond_item);
+    return in_func->argument_count() - 1;  // idx starts from 1
+  }
+
+  bool fix_fields(THD *thd) const override {
+    if (!cond_item->fixed) {
+      if (cond_item->fix_fields(thd, const_cast<Item **>(&cond_item))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  bool evaluate() const override { return (cond_item->val_int() != 0); }
+
+ private:
+  nosql_cond_value __get_value(String *str, Item *item) const {
+    nosql_cond_value value;
+
+    switch (field->type()) {
+      case MYSQL_TYPE_LONGLONG:
+      case MYSQL_TYPE_LONG:
+      case MYSQL_TYPE_SHORT:
+      case MYSQL_TYPE_TINY: {
+        value.type = nosql_cond_value_type::UNSIGNED_INT;
+        value.i64Val = item->val_int();
+        break;
+      }
+      case MYSQL_TYPE_STRING: {
+        value.type = nosql_cond_value_type::STRING;
+        value.stringVal = item->val_str(str);
+        break;
+      }
+      default: {
+        // TODO: support more types
+        value.type = nosql_cond_value_type::NONE;
+      }
+    }
+    return value;
+  }
+};
+
+class rpc_cond : public base_cond {
+ public:
+  rpc_cond(Item_func::Functype _op_type, Field *_field,
+           const myrocks_column_cond_value *_cond_val, uint _cond_val_count,
+           const myrocks_column_value *_val)
+      : base_cond(_op_type, _field),
+        cond_val(_cond_val),
+        cond_val_count(_cond_val_count),
+        val(_val) {}
+  rpc_cond() = default;
+
+  const myrocks_column_cond_value *cond_val;
+  uint cond_val_count;
+  const myrocks_column_value *val;
+
+  std::string dump() const override { return {}; }
+
+  nosql_cond_value get_value(String *str, uint idx) const override {
+    nosql_cond_value value;
+
+    switch (cond_val[idx].type) {
+      case myrocks_value_type::UNSIGNED_INT:
+      case myrocks_value_type::SIGNED_INT: {
+        value.type = nosql_cond_value_type::UNSIGNED_INT;
+        value.i64Val = cond_val[idx].i64Val;
+        break;
+      }
+      case myrocks_value_type::STRING: {
+        value.type = nosql_cond_value_type::STRING;
+        String tmp(reinterpret_cast<const char *>(cond_val[idx].stringVal),
+                   cond_val[idx].length, field->charset());
+        str->copy(tmp);
+        value.stringVal = str;
+        break;
+      }
+      default: {
+        value.type = nosql_cond_value_type::NONE;
+      }
+    }
+    return value;
+  }
+
+  nosql_cond_value get_value(String *str) const override { return get_value(str, 0); }
+  int get_size() const override { return cond_val_count; }
+  bool fix_fields(THD *) const override { return false; }
+  bool evaluate() const override {
+    if (op_type == Item_func::IN_FUNC) {
+      bool found = false;
+      for (uint i = 0; i < cond_val_count; ++i) {
+        if (__evaluate(Item_func::EQ_FUNC, cond_val[i], val)) {
+          found = true;
+          break;
+        }
+      }
+      return found;
+    } else {
+      return __evaluate(op_type, cond_val[0], val);
+    }
+  }
+
+ private:
+  bool __evaluate(Item_func::Functype op,
+                  const myrocks_column_cond_value &cond_val,
+                  const myrocks_column_value *val) const {
+    switch (cond_val.type) {
+      case myrocks_value_type::BOOL: {
+        assert(val->type == myrocks_value_type::BOOL);
+        return compare(op, val->boolVal, cond_val.boolVal);
+      }
+      case myrocks_value_type::UNSIGNED_INT:
+      case myrocks_value_type::SIGNED_INT: {
+        assert(val->type == myrocks_value_type::UNSIGNED_INT ||
+               val->type == myrocks_value_type::SIGNED_INT);
+        return compare(op, val->i64Val, cond_val.i64Val);
+      }
+      case myrocks_value_type::DOUBLE: {
+        assert(val->type == myrocks_value_type::DOUBLE);
+        return compare(op, val->doubleVal, cond_val.doubleVal);
+      }
+      case myrocks_value_type::STRING: {
+        assert(val->type == myrocks_value_type::STRING);
+        if (cond_val.length != val->length) {
+          return false;
+        }
+        return compare(op, reinterpret_cast<char *>(val->stringVal),
+                       cond_val.stringVal, val->length);
+      }
+      default:
+        return false;
+    }
+    return false;
+  }
+
+  template <typename P, typename Q>
+  bool compare(Item_func::Functype op, P a, Q b) const {
+    switch (op) {
+      case Item_func::EQ_FUNC:
+        return (a == b) ? true : false;
+      case Item_func::LT_FUNC:
+        return (a < b) ? true : false;
+      case Item_func::GT_FUNC:
+        return (a > b) ? true : false;
+      case Item_func::LE_FUNC:
+        return (a <= b) ? true : false;
+      case Item_func::GE_FUNC:
+        return (a >= b) ? true : false;
+      default:
+        return false;
+    }
+    return false;
+  }
+
+  bool compare(Item_func::Functype op, char *a, const char *b,
+               uint length) const {
+    switch (op) {
+      case Item_func::EQ_FUNC:
+        // TODO: test with different collation and charset
+        return (!strncmp(a, b, length)) ? true : false;
+      default:
+        // not supported
+        return false;
+    }
+    return false;
   }
 };
 
@@ -264,7 +523,7 @@ class base_select_parser {
   uint get_index() const { return m_index; }
   bool is_order_desc() const { return m_is_order_desc; }
   const std::vector<Field *> &get_field_list() const { return m_field_list; }
-  const sql_cond *get_cond_list() const { return m_cond_list; }
+  virtual const std::vector<base_cond *> &get_cond_list() const = 0;
   uint get_cond_count() const { return m_cond_count; }
   uint64_t get_select_limit() const { return m_select_limit; }
   uint64_t get_offset_limit() const { return m_offset_limit; }
@@ -277,7 +536,6 @@ class base_select_parser {
   uint m_index;
   bool m_is_order_desc;
   std::vector<Field *> m_field_list;
-  sql_cond m_cond_list[MAX_NOSQL_COND_COUNT];
   uint m_cond_count = 0;
   uint64_t m_select_limit;
   uint64_t m_offset_limit;
@@ -296,6 +554,10 @@ class sql_select_parser : public base_select_parser {
     m_table = m_table_list->table;
     assert(ha_legacy_type(m_table->s->db_type()) == DB_TYPE_ROCKSDB);
     m_error_msg = "UNKNOWN";
+  }
+
+  const std::vector<base_cond *> &get_cond_list() const override {
+    return m_cond_list_ptr;
   }
 
   bool INLINE_ATTR parse() {
@@ -373,65 +635,7 @@ class sql_select_parser : public base_select_parser {
       if (i) {
         str += ", ";
       }
-      str += "(";
-      str += cond.field->field_name;
-      str += " ";
-      switch (cond.op_type) {
-        case Item_func::EQ_FUNC: {
-          str += "==";
-          break;
-        }
-        case Item_func::LT_FUNC: {
-          str += "<";
-          break;
-        }
-        case Item_func::GT_FUNC: {
-          str += ">";
-          break;
-        }
-        case Item_func::LE_FUNC: {
-          str += "<=";
-          break;
-        }
-        case Item_func::GE_FUNC: {
-          str += ">=";
-          break;
-        }
-        case Item_func::IN_FUNC: {
-          str += "IN";
-          break;
-        }
-        default:
-          str += "?";
-      }
-      str += " ";
-      if (cond.op_type == Item_func::IN_FUNC) {
-        str += "(";
-        auto in_func = static_cast<Item_func_in *>(cond.cond_item);
-        auto args = in_func->arguments();
-        for (uint j = 1; j < in_func->argument_count(); ++j) {
-          if (j > 1) {
-            str += ",";
-          }
-          String storage;
-          String *ret = args[j]->val_str(&storage);
-          if (ret == nullptr) {
-            str += "NULL";
-          } else {
-            str += ret->c_ptr_safe();
-          }
-        }
-        str += ")";
-      } else {
-        String storage;
-        String *ret = cond.val_item->val_str(&storage);
-        if (ret == nullptr) {
-          str += "NULL";
-        } else {
-          str += ret->c_ptr_safe();
-        }
-      }
-      str += ")";
+      str += cond.dump();
     }
     str += " }";
 
@@ -445,6 +649,9 @@ class sql_select_parser : public base_select_parser {
 
   // Buffer to store snprintf-ed error messages
   char m_error_msg_buf[FN_REFLEN];
+
+  sql_cond m_cond_list[MAX_NOSQL_COND_COUNT];
+  std::vector<base_cond *> m_cond_list_ptr;
 
  private:
   bool parse_index() {
@@ -715,7 +922,6 @@ class sql_select_parser : public base_select_parser {
       assert(op_arg != nullptr);
       m_cond_list[m_cond_count++] = {type, found, func, op_arg};
     }
-
     return false;
   }
 
@@ -761,6 +967,10 @@ class sql_select_parser : public base_select_parser {
       return true;
     }
 
+    m_cond_list_ptr.reserve(m_cond_count);
+    for (uint i = 0; i < m_cond_count; i++) {
+      m_cond_list_ptr.push_back(&m_cond_list[i]);
+    }
     return false;
   }
 
@@ -802,7 +1012,9 @@ class select_exec {
  public:
   explicit select_exec(const base_select_parser &parser,
                        const base_protocol &protocol)
-      : m_parser(parser), m_protocol(protocol) {
+      : m_parser(parser),
+        m_protocol(protocol),
+        m_cond_list(parser.get_cond_list()) {
     m_table = parser.get_table();
     m_table_share = m_table->s;
     m_index = parser.get_index();
@@ -926,8 +1138,8 @@ class select_exec {
   bool run_pk_point_query(txn_wrapper *txn);
   bool run_sk_point_query(txn_wrapper *txn);
   bool pack_index_tuple(uint key_part_no, Rdb_string_writer *writer,
-                        const Field *field, Item *item);
-  bool pack_cond(uint key_part_no, const sql_cond &cond, bool is_start = true);
+                        const Field *field, const nosql_cond_value &value);
+  bool pack_cond(uint key_part_no, const base_cond *cond, bool is_start = true);
   bool send_row();
 
   bool setup_iterator(THD *thd);
@@ -944,6 +1156,7 @@ class select_exec {
  private:
   const base_select_parser &m_parser;
   const base_protocol &m_protocol;
+  std::vector<base_cond *> m_cond_list;
   TABLE *m_table;
   TABLE_SHARE *m_table_share;
   Rdb_ddl_manager *m_ddl_manager;
@@ -1037,57 +1250,60 @@ class select_exec {
 };
 
 bool select_exec::pack_index_tuple(uint key_part_no, Rdb_string_writer *writer,
-                                   const Field *field, Item *item) {
+                                   const Field *field,
+                                   const nosql_cond_value &value) {
   // Don't support keys that may be NULL
   assert(!field->is_nullable());
 
   switch (field->type()) {
     case MYSQL_TYPE_LONGLONG: {
+      assert(value.type == nosql_cond_value_type::UNSIGNED_INT);
       if (field->is_flag_set(UNSIGNED_FLAG)) {
-        writer->write_uint64(item->val_int());
+        writer->write_uint64(value.i64Val);
       } else {
-        writer->write_uint64(item->val_int() ^ 0x8000000000000000);
+        writer->write_uint64(value.i64Val ^ 0x8000000000000000);
       }
       break;
     }
     case MYSQL_TYPE_LONG: {
+      assert(value.type == nosql_cond_value_type::UNSIGNED_INT);
       if (field->is_flag_set(UNSIGNED_FLAG)) {
-        writer->write_uint32(item->val_int());
+        writer->write_uint32(value.i64Val);
       } else {
-        writer->write_uint32(item->val_int() ^ 0x80000000);
+        writer->write_uint32(value.i64Val ^ 0x80000000);
       }
       break;
     }
     case MYSQL_TYPE_SHORT: {
+      assert(value.type == nosql_cond_value_type::UNSIGNED_INT);
       if (field->is_flag_set(UNSIGNED_FLAG)) {
-        writer->write_uint16(item->val_int());
+        writer->write_uint16(value.i64Val);
       } else {
-        writer->write_uint16(item->val_int() ^ 0x8000);
+        writer->write_uint16(value.i64Val ^ 0x8000);
       }
       break;
     }
     case MYSQL_TYPE_TINY: {
+      assert(value.type == nosql_cond_value_type::UNSIGNED_INT);
       if (field->is_flag_set(UNSIGNED_FLAG)) {
-        writer->write_uint8(item->val_int());
+        writer->write_uint8(value.i64Val);
       } else {
-        writer->write_uint8(item->val_int() ^ 0x80);
+        writer->write_uint8(value.i64Val ^ 0x80);
       }
       break;
     }
     case MYSQL_TYPE_STRING: {
+      assert(value.type == nosql_cond_value_type::STRING);
       uchar *buf = m_index_tuple_buf.data();
       const CHARSET_INFO *const charset = field->charset();
       const auto field_var = static_cast<const Field_string *>(field);
-      String str;
-      String *str_result = item->val_str(&str);
 
       uint len = charset->coll->strnxfrm(
           charset, buf, m_key_def->get_pack_info(key_part_no)->m_max_image_len,
           field_var->char_length(),
-          reinterpret_cast<const uchar *>(str_result->ptr()),
-          str_result->length(),
+          reinterpret_cast<const uchar *>(value.stringVal->ptr()),
+          value.stringVal->length(),
           /*MY_STRXFRM_PAD_WITH_SPACE |*/ MY_STRXFRM_PAD_TO_MAXLEN);
-
       writer->write(m_index_tuple_buf.data(), len);
       break;
     }
@@ -1106,22 +1322,24 @@ bool select_exec::pack_index_tuple(uint key_part_no, Rdb_string_writer *writer,
   return false;
 }
 
-bool inline select_exec::pack_cond(uint key_part_no, const sql_cond &cond,
+bool inline select_exec::pack_cond(uint key_part_no, const base_cond *cond,
                                    bool is_start) {
+  String str;
   if (is_start) {
     // Start key in range query or key in point query
+    auto cond_value = cond->get_value(&str);
     for (auto &entry : m_key_index_tuples) {
-      if (pack_index_tuple(key_part_no, &entry.start, cond.field,
-                           cond.val_item)) {
+      if (pack_index_tuple(key_part_no, &entry.start, cond->field,
+                           cond_value)) {
         return true;
       }
     }
   } else {
     // End key in range query
+    auto cond_value = cond->get_value(&str);
     for (auto &entry : m_key_index_tuples) {
       assert(!entry.end.is_empty());
-      if (pack_index_tuple(key_part_no, &entry.end, cond.field,
-                           cond.val_item)) {
+      if (pack_index_tuple(key_part_no, &entry.end, cond->field, cond_value)) {
         return true;
       }
     }
@@ -1141,8 +1359,7 @@ bool INLINE_ATTR select_exec::scan_where() {
   // Approximation of the required buff
   m_row_buf.reserve(m_table_share->reclength);
 
-  auto where_list = m_parser.get_cond_list();
-  auto where_list_count = m_parser.get_cond_count();
+  auto where_list_count = m_cond_list.size();
 
   std::array<bool, MAX_NOSQL_COND_COUNT> where_list_processed = {};
 
@@ -1150,7 +1367,7 @@ bool INLINE_ATTR select_exec::scan_where() {
   // Will be used later to reverse lookup from index -> expression
   // inside WHERE clause
   for (uint i = 0; i < where_list_count; ++i) {
-    int field_index = where_list[i].field->field_index();
+    int field_index = m_cond_list[i]->field->field_index();
     std::pair<int, int> &index_pair = m_field_index_to_where[field_index];
     if (index_pair.first == -1) {
       index_pair.first = i;
@@ -1203,8 +1420,8 @@ bool INLINE_ATTR select_exec::scan_where() {
     if (index_pair.first >= 0) {
       // The current key_part in the index has a corresponding match in
       // WHERE clause. Pack the current value in WHERE into the key
-      const sql_cond &cond = where_list[index_pair.first];
-      if (cond.op_type == Item_func::EQ_FUNC) {
+      const base_cond *cond = m_cond_list[index_pair.first];
+      if (cond->op_type == Item_func::EQ_FUNC) {
         // This is = operator - just keep packing the key
         if (pack_cond(key_part_no, cond)) {
           return true;
@@ -1219,7 +1436,7 @@ bool INLINE_ATTR select_exec::scan_where() {
           where_list_processed[index_pair.first] = true;
           continue;
         }
-      } else if (cond.op_type == Item_func::IN_FUNC) {
+      } else if (cond->op_type == Item_func::IN_FUNC) {
         if (!eq_only) {
           // We can't build key anymore with next key_part being a IN func
           // The remaining WHERE clauses will be filters
@@ -1233,19 +1450,18 @@ bool INLINE_ATTR select_exec::scan_where() {
         // multiply the key slices, so that A=1, B IN (2, 3) becomes
         // (1, 2) and (1, 3)
         size_t prev_size = m_key_index_tuples.size();
-        auto in_func = static_cast<Item_func_in *>(cond.cond_item);
-        auto in_elem_count = in_func->argument_count();
-        auto args = in_func->arguments();
+        auto in_elem_count = cond->get_size();
 
         std::vector<key_index_tuple_writer> new_writers;
         new_writers.reserve(KEY_WRITER_DEFAULT_SIZE);
         for (uint i = 0; i < prev_size; ++i) {
           assert(m_key_index_tuples[i].end.is_empty());
-          for (uint j = 1; j < in_elem_count; ++j) {
+          for (int j = 0; j < in_elem_count; ++j) {
             new_writers.emplace_back(m_key_index_tuples[i]);
+            String str;
             if (pack_index_tuple(key_part_no,
                                  &new_writers[new_writers.size() - 1].start,
-                                 cond.field, args[j])) {
+                                 cond->field, cond->get_value(&str, j))) {
               return true;
             }
           }
@@ -1275,16 +1491,16 @@ bool INLINE_ATTR select_exec::scan_where() {
       // Figure out (start, end) range for range query
       int start_id = -1, end_id = -1;
       bool start_inclusive = false, end_inclusive = false;
-      if (cond.op_type == Item_func::GT_FUNC ||
-          cond.op_type == Item_func::GE_FUNC) {
+      if (cond->op_type == Item_func::GT_FUNC ||
+          cond->op_type == Item_func::GE_FUNC) {
         start_id = index_pair.first;
-        if (cond.op_type == Item_func::GE_FUNC) {
+        if (cond->op_type == Item_func::GE_FUNC) {
           start_inclusive = true;
         }
-      } else if (cond.op_type == Item_func::LE_FUNC ||
-                 cond.op_type == Item_func::LT_FUNC) {
+      } else if (cond->op_type == Item_func::LE_FUNC ||
+                 cond->op_type == Item_func::LT_FUNC) {
         end_id = index_pair.first;
-        if (cond.op_type == Item_func::LE_FUNC) {
+        if (cond->op_type == Item_func::LE_FUNC) {
           end_inclusive = true;
         }
       } else {
@@ -1293,28 +1509,28 @@ bool INLINE_ATTR select_exec::scan_where() {
       }
 
       if (index_pair.second >= 0) {
-        auto &second_cond = where_list[index_pair.second];
-        if (second_cond.op_type == Item_func::GT_FUNC ||
-            second_cond.op_type == Item_func::GE_FUNC) {
+        auto second_cond = m_cond_list[index_pair.second];
+        if (second_cond->op_type == Item_func::GT_FUNC ||
+            second_cond->op_type == Item_func::GE_FUNC) {
           if (start_id != -1) {
             m_unsupported = true;
             m_error_msg = "Unsupported range query pattern";
             return true;
           } else {
             start_id = index_pair.second;
-            if (second_cond.op_type == Item_func::GE_FUNC) {
+            if (second_cond->op_type == Item_func::GE_FUNC) {
               start_inclusive = true;
             }
           }
-        } else if (second_cond.op_type == Item_func::LE_FUNC ||
-                   second_cond.op_type == Item_func::LT_FUNC) {
+        } else if (second_cond->op_type == Item_func::LE_FUNC ||
+                   second_cond->op_type == Item_func::LT_FUNC) {
           if (end_id != -1) {
             m_unsupported = true;
             m_error_msg = "Unsupported range query pattern";
             return true;
           } else {
             end_id = index_pair.second;
-            if (second_cond.op_type == Item_func::LE_FUNC) {
+            if (second_cond->op_type == Item_func::LE_FUNC) {
               end_inclusive = true;
             }
           }
@@ -1349,7 +1565,8 @@ bool INLINE_ATTR select_exec::scan_where() {
         // accounted for them in (start, end) range
         where_list_processed[start_id] = true;
         m_start_inclusive = start_inclusive;
-        if (pack_cond(key_part_no, where_list[start_id], true /* is_start */)) {
+        if (pack_cond(key_part_no, m_cond_list[start_id],
+                      true /* is_start */)) {
           return true;
         }
         start_key_count++;
@@ -1359,7 +1576,7 @@ bool INLINE_ATTR select_exec::scan_where() {
         // filters
         where_list_processed[end_id] = true;
         m_end_inclusive = end_inclusive;
-        if (pack_cond(key_part_no, where_list[end_id], false /* is_end */)) {
+        if (pack_cond(key_part_no, m_cond_list[end_id], false /* is_end */)) {
           return true;
         }
         end_key_count++;
@@ -1427,11 +1644,8 @@ bool INLINE_ATTR select_exec::scan_where() {
   // Any condition we haven't processed in prefix key are filters
   for (uint i = 0; i < where_list_count; ++i) {
     if (!where_list_processed[i]) {
-      if (!where_list[i].cond_item->fixed) {
-        if (where_list[i].cond_item->fix_fields(
-                m_thd, const_cast<Item **>(&where_list[i].cond_item))) {
-          return true;
-        }
+      if (m_cond_list[i]->fix_fields(m_thd)) {
+        return true;
       }
       m_filter_list[m_filter_count++] = i;
     }
@@ -1448,7 +1662,7 @@ bool INLINE_ATTR select_exec::scan_where() {
   }
 
   for (uint i = 0; i < m_filter_count; ++i) {
-    Field *field = where_list[m_filter_list[i]].field;
+    Field *field = m_cond_list[m_filter_list[i]]->field;
 
     // Since we bypassed prepare function, read_set might not be set.
     // Let's set it before calling eval_cond().
@@ -1736,14 +1950,8 @@ bool INLINE_ATTR select_exec::run_sk_point_query(txn_wrapper *txn) {
  */
 bool INLINE_ATTR select_exec::eval_cond() {
   if (unlikely(m_filter_count > 0)) {
-    auto where_list = m_parser.get_cond_list();
     for (uint i = 0; i < m_filter_count; ++i) {
-      // Let MySQL evaluate the conditional expression with item pointing to
-      // the field record. At least this is better than MySQL where index_key=A
-      // are always evaluated even though it is not necessary
-      if (where_list[m_filter_list[i]].cond_item->val_int() == 0) {
-        return false;
-      }
+      if (!m_cond_list[m_filter_list[i]]->evaluate()) return false;
     }
   }
   return true;
