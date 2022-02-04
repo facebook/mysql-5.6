@@ -8,15 +8,16 @@
 
 // These structs are defined for communication between thrift plugin and myrocks
 typedef enum {
-  _BOOL = 0,
-  _UNSIGNED_INT = 1,
-  _SIGNED_INT = 2,
-  _DOUBLE = 3,
-  _STRING = 4
+  BOOL = 0,
+  UNSIGNED_INT = 1,
+  SIGNED_INT = 2,
+  DOUBLE = 3,
+  STRING = 4
 } myrocks_value_type;
 
 struct myrocks_column_cond_value {
   myrocks_value_type type;
+  uint32_t length = 0;  // valid for string
   union {
     bool boolVal;
     uint64_t i64Val;
