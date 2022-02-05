@@ -272,8 +272,8 @@ void rpl_slave_debug_point(enum_rpl_slave_debug_point point_id,
   }
 
   DBUG_ASSERT(!debug_point_string.empty());
-  DBUG_ASSERT(!debug_sync_set_action(thd, debug_point_string.c_str(),
-                                     debug_point_string.length()));
+  debug_sync_set_action(thd, debug_point_string.c_str(),
+                        debug_point_string.length());
 }
 
 #endif /* DBUG_OFF */
