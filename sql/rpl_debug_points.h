@@ -280,8 +280,8 @@ void rpl_replica_debug_point(enum_rpl_replica_debug_point point_id,
   }
 
   assert(!debug_point_string.empty());
-  assert(!debug_sync_set_action(thd, debug_point_string.c_str(),
-                                debug_point_string.length()));
+  debug_sync_set_action(thd, debug_point_string.c_str(),
+                        debug_point_string.length());
 }
 
 #endif /* NDEBUG */

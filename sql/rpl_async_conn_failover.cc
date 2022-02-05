@@ -166,7 +166,7 @@ Async_conn_failover_manager::do_auto_conn_failover(Master_info *mi,
           "now SIGNAL wait_for_new_sender_selection "
           "WAIT_FOR continue_connect_new_sender";
       assert(source_conn_detail_list.size() == 3UL);
-      assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+      debug_sync_set_action(current_thd, STRING_WITH_LEN(act));
     });
 
     DBUG_EXECUTE_IF("async_conn_failover_wait_new_4sender", {
@@ -174,7 +174,7 @@ Async_conn_failover_manager::do_auto_conn_failover(Master_info *mi,
           "now SIGNAL wait_for_new_4sender_selection "
           "WAIT_FOR continue_connect_new_4sender";
       assert(source_conn_detail_list.size() == 4UL);
-      assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+      debug_sync_set_action(current_thd, STRING_WITH_LEN(act));
     });
   }
 #endif
