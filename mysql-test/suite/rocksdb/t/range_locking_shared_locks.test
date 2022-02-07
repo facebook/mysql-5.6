@@ -1,0 +1,202 @@
+#
+# Test for shared lock support for range locking
+#
+--source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_range_locking.inc
+--enable_connect_log
+
+select @@rocksdb_use_range_locking;
+
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (
+  pk int primary key,
+  a int
+) engine=rocksdb;
+
+
+insert into t1 select a,a from t0;
+
+--echo # A basic test for shared locks
+
+begin;
+select * from t1 where pk=3 for update;
+select * from t1 where pk=5 lock in share mode;
+let $TRX1_ID=`select transaction_id from information_schema.rocksdb_trx where thread_id=connection_id()`;
+
+connect (con1,localhost,root,,);
+connection con1;
+begin;
+select * from t1 where pk=5 lock in share mode;
+let $TRX2_ID=`select transaction_id from information_schema.rocksdb_trx where thread_id=connection_id()`;
+--echo # Now for pk=5 we should see two locks by TRX1 and TRX2 with mode=S:
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+rollback;
+--echo # Now, TRX2_ID should be gone:
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+connection default;
+
+--echo # Get a read lock on pk=3 (where we have a write lock).
+--echo #  The result should be that we will still have a write lock
+select * from t1 where pk=3 for update;
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+--echo # Get a write lock on pk=5 (where we have a read lock).
+--echo #  The result should be that we will have a write lock.
+select * from t1 where pk=5 for update;
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+connection default;
+rollback;
+
+--echo #
+--echo # Test if a read lock inhibits write locks
+--echo #
+
+begin;
+select * from t1 where pk=2 lock in share mode;
+select * from t1 where pk=8 for update;
+
+connection con1;
+begin;
+
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t1 where pk=2 for update;
+
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t1 where pk between 0 and 4 for update;
+
+--error ER_LOCK_WAIT_TIMEOUT
+delete from t1 where pk=2;
+
+--echo # Get a shared lock
+select * from t1 where pk=2 lock in share mode;
+
+--echo # But this should still prevent us from acquiring a write lock on that value: 
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t1 where pk=2 for update;
+
+rollback;
+connection default;
+rollback;
+
+drop table t1;
+create table t1 (
+  pk int not null primary key,
+  a int not null,
+  key(a)
+) engine=rocksdb;
+
+insert into t1
+select
+  A.a+10*B.a+100*C.a+1000*D.a, A.a+10*B.a+100*C.a+1000*D.a
+from
+  t0 A, t0 B, t0 C, t0 D;
+set global rocksdb_force_flush_memtable_now=1;
+
+connection con1;
+begin;
+select * from t1 where pk=900 for update;
+let $TRX2_ID=`select transaction_id from information_schema.rocksdb_trx where thread_id=connection_id()`;
+
+connection default;
+begin;
+--replace_column 10 #
+explain
+select * from t1 where a between 2 and 5 lock in share mode;
+select * from t1 where a between 2 and 5 lock in share mode;
+let $TRX1_ID=`select transaction_id from information_schema.rocksdb_trx where thread_id=connection_id()`;
+
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+rollback;
+
+disconnect con1;
+
+drop table t0,t1;
+
+--echo #
+--echo # Test shared point locks and lock escalation
+--echo #
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (
+  pk int primary key,
+  a int
+) engine=rocksdb;
+
+insert into t1 
+select 1000 + 100*A.a + 10*B.a + C.a, 12345 from t0 A, t0 B, t0 C;
+
+show status like 'rocksdb_locktree_current_lock_memory';
+
+connect (con1,localhost,root,,);
+connection con1;
+
+begin;
+--echo # CON1: get some shared locks
+select * from t1 where pk=1001 lock in share mode;
+select * from t1 where pk=1100 lock in share mode;
+select * from t1 where pk=1200 lock in share mode;
+
+select * from t1 where pk=2500 lock in share mode;
+let $TRX1_ID=`select transaction_id from information_schema.rocksdb_trx where thread_id=connection_id()`;
+
+connection default;
+begin;
+--echo # DEFAULT: get the same locks so we have locks with multiple owners
+select * from t1 where pk=1001 lock in share mode;
+select * from t1 where pk=1100 lock in share mode;
+select * from t1 where pk=1200 lock in share mode;
+
+--echo # DEFAULT: get shared locks with one owner:
+select * from t1 where pk=2510 lock in share mode;
+let $TRX2_ID=`select transaction_id from information_schema.rocksdb_trx where thread_id=connection_id()`;
+
+
+--echo # DEFAULT: exclusive locks on 0-10:
+insert into t1 select A.a, 0 from t0 A;
+
+connection con1;
+--echo # CON1: exclusive locks on 2000-2010:
+insert into t1 select 2000+A.a, 0 from t0 A;
+
+let $order_by_rowkey=1;
+#select * from information_schema.rocksdb_locks;
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+connection default;
+show status like 'rocksdb_locktree_current_lock_memory';
+set @save_mlm= @@rocksdb_max_lock_memory;
+
+--echo # Set the limit to cause lock escalation:
+set @cur_mem_usage= (select 
+                       variable_value 
+                     from 
+                       performance_schema.global_status 
+                     where 
+                       variable_name='rocksdb_locktree_current_lock_memory');
+
+set global rocksdb_max_lock_memory = cast(@cur_mem_usage+4 as SIGNED);
+
+connection con1;
+insert into t1 select 3000+A.a, 0 from t0 A;
+
+#select * from information_schema.rocksdb_locks;
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+connection con1;
+rollback;
+connection default;
+rollback;
+
+disconnect con1;
+set global rocksdb_max_lock_memory= cast(@save_mlm as SIGNED);
+
+drop table t0, t1;
+
+

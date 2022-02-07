@@ -5,6 +5,9 @@
 #
 --source include/have_debug.inc
 
+# Range locking requests locks before doing snapshot checking.
+--source suite/rocksdb/include/not_range_locking.inc
+
 --enable_connect_log
 create table t1 (pk int not null primary key) engine=rocksdb;
 

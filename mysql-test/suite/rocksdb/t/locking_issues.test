@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# A lot of tests below assume point locking, not range.
+--source suite/rocksdb/include/not_range_locking.inc
+
 let $isolation_level = REPEATABLE READ;
 --source suite/rocksdb/include/locking_issues_case1_1.inc
 

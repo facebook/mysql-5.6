@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# See hermitage-range_locking variant
+--source suite/rocksdb/include/not_range_locking.inc
+
 # Hermitage is an attempt to test transaction isolation levels.
 # https://github.com/ept/hermitage
 

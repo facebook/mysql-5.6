@@ -1,5 +1,9 @@
 --source include/have_rocksdb.inc
 
+if (!$forced_range_locking) {
+--source suite/rocksdb/include/not_range_locking.inc
+}
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 --enable_warnings

@@ -1,0 +1,91 @@
+
+
+A concurrent test for Range Locking code
+
+== Requirements ==
+
+The idea is to have a concurrent workload, where
+- Some clients make modifications to the database that use range locking (let's
+  denote these RL-UPDATES)
+
+- There is some concurrent data modification activity, which is likely to
+  make RL-UPDATES corrupt the data if transaction isolation does not perform
+  proper range locking
+
+- There is a way to detect this data corruption. First suggestion: have some
+  invariants that must remain true regardless of any action done by
+  RL-UPDATES. We can run the workload, then stop it and verify the invariants
+  still hold.
+
+== Basic idea ==
+
+Rows and groups.
+
+Consider a table:
+
+create table t1 (
+  pk bigint primary key,
+  group_list varchar(128),
+  parent_id bigint
+) engine=rocksdb;
+
+
+We allow the following to be stored:
+
+1. Individual rows. An individual row has group_list=NULL, parent_id=NULL.
+
+2. Groups.
+
+A group is 5 (potentially could be some other number) of rows with adjacent 
+PK values.
+
+The row with the smallest PK value is the "group leader" and has
+group_list=(comma-separated-list-of-pks-of-group members).
+
+The rest of the rows are "followers" and have parent_id=$GROUP_LEADER.pk
+
+Example of a group:
+
+mysql> select * from t1 where pk>=720418192 order by pk limit 5;
++-----------+---------------------------------------------------+-----------+
+| pk        | group_list                                        | parent_id |
++-----------+---------------------------------------------------+-----------+
+| 720418192 | 720418192,721972360,730798130,741595383,742883456 |      NULL |
+| 721972360 | NULL                                              | 720418192 |
+| 730798130 | NULL                                              | 720418192 |
+| 741595383 | NULL                                              | 720418192 |
+| 742883456 | NULL                                              | 720418192 |
++-----------+---------------------------------------------------+-----------+
+5 rows in set (0.01 sec)
+
+
+Operations:
+- Insert an individual row. It is obvious we may not insert a row into a group.
+
+- Convert 5 individual rows into a group. One needs range locking to prevent
+  other threads from deleting these rows or putting them into another group.
+
+- Disband a group (convert it back into 5 individual rows). 
+  When we are disbanding a group, we verify it to be valid.
+
+- Delete a group. If we attempt to insert a row and hit a group leader, we
+  don't insert the row and delete the whole group we've hit, instead. (when 
+  deleting the group, we also verify it to be valid)
+  This provides some balance between inserts and deletes.
+
+=== Making sure lock contention happens ===
+
+We use normal distribution (rand.normalvariate) to pick random PK values,
+which are then used to make an attempt to insert a row or create a group.
+
+This creates a much greater contention than the uniform distribution. 
+
+With sufficiently small sigma parameter, the contention seems to be
+sufficiently high.
+
+=== Implementation ===
+
+range_locking_conc_test.py implements the above operations.
+
+
+

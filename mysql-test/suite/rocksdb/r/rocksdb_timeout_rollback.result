@@ -36,6 +36,9 @@ rocksdb_rollback_on_timeout	OFF
 begin work;
 insert into t1 values (9);
 insert into t1 values (10);
+# Fix for Range Locking: force a snapshot to be taken:
+select * from t1 where a=100;
+a
 update t1 set a = a + 1 where a = 2;
 begin work;
 insert into t1 values (11);

@@ -108,6 +108,8 @@ select * from test where value % 3 = 0;
 commit;
 
 --source hermitage_init.inc
+let $RC_OR_RANGE_LOCKING=`select @@tx_isolation='READ-COMMITTED' OR @@rocksdb_use_range_locking=1`;
+let $RR_AND_NOT_RANGE_LOCKING=`select @@tx_isolation='REPEATABLE-READ' AND @@rocksdb_use_range_locking=0`;
 connection con1;
 update test set value = value + 10;
 connection con2;
@@ -117,13 +119,13 @@ send delete from test where value = 20;
 connection con1;
 commit;
 connection con2;
-if ($trx_isolation == "READ COMMITTED")
+if ($RC_OR_RANGE_LOCKING)
 {
   reap;
   # RC: Returns 2 => 30
   select * from test;
 }
-if ($trx_isolation == "REPEATABLE READ")
+if ($RR_AND_NOT_RANGE_LOCKING)
 {
   --error ER_LOCK_DEADLOCK
   reap;
@@ -147,13 +149,13 @@ send update test set value = 12 where id = 1;
 connection con1;
 commit;
 connection con2;
-if ($trx_isolation == "READ COMMITTED")
+if ($RC_OR_RANGE_LOCKING)
 {
   reap;
   # RC: Returns 1 => 12
   select * from test;
 }
-if ($trx_isolation == "REPEATABLE READ")
+if ($RR_AND_NOT_RANGE_LOCKING)
 {
   --error ER_LOCK_DEADLOCK
   reap;
@@ -200,12 +202,12 @@ update test set value = 12 where id = 1;
 update test set value = 18 where id = 2;
 commit;
 connection con1;
-if ($trx_isolation == "READ COMMITTED")
+if ($RC_OR_RANGE_LOCKING)
 {
   delete from test where value = 20; # doesn't delete anything
   select * from test where id = 2; # shows 2 => 18
 }
-if ($trx_isolation == "REPEATABLE READ")
+if ($RR_AND_NOT_RANGE_LOCKING)
 {
   --error ER_LOCK_DEADLOCK
   delete from test where value = 20;

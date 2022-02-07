@@ -11,7 +11,11 @@ insert into t1 values (2);
 set autocommit=0;
 select * from t1 for update;
 
---replace_column 1 _TRX_ID_ 3 _NAME_ 7 _KEY_ 14 _THREAD_ID_
+--replace_column 1 _TRX_ID_ 3 _NAME_ 5 2_or_3 7 _KEY_ 14 _THREAD_ID_
 select * from information_schema.rocksdb_trx;
+
+select
+  if(@@rocksdb_use_range_locking=1, LOCK_COUNT=3, LOCK_COUNT=2) as LOCK_COUNT_IS_CORRECT
+from information_schema.rocksdb_trx;
 
 DROP TABLE t1;

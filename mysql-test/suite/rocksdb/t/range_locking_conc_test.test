@@ -1,0 +1,18 @@
+
+#
+# Test Range Locking behavior. See
+# ./suite/rocksdb/t/range_locking_conc_test.txt for details
+#
+
+--source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_range_locking.inc
+
+set @save_rlwt=@@rocksdb_lock_wait_timeout;
+let $SERVER_PORT=`select @@port`;
+let $exec = /usr/bin/python3 suite/rocksdb/t/range_locking_conc_test.py root 127.0.0.1 $SERVER_PORT test t1 2000 20 30000 10;
+
+--echo # Run range_locking_conc_test.py
+exec $exec;
+
+set global rocksdb_lock_wait_timeout= @save_rlwt;
+DROP TABLE t1;

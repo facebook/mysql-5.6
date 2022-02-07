@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Range Locking supports I_S.lock_info but its printout is different (see range_locking.test)
+--source suite/rocksdb/include/not_range_locking.inc
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;

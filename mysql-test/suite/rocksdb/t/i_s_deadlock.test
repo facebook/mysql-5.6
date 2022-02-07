@@ -1,5 +1,9 @@
 --source include/have_rocksdb.inc
 
+# Uses LOCK IN SHARE MODE and so will hang in range-locking mode. The part that
+# doesn't hang is in rocksdb.range_locking_i_s_deadlock.test
+--source suite/rocksdb/include/not_range_locking.inc
+
 set @prior_lock_wait_timeout = @@rocksdb_lock_wait_timeout;
 set @prior_deadlock_detect = @@rocksdb_deadlock_detect;
 set @prior_max_latest_deadlocks = @@rocksdb_max_latest_deadlocks;
