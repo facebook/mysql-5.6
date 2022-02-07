@@ -156,6 +156,8 @@ int table_sql_text::index_next(void) {
 }
 
 int table_sql_text::make_row(PFS_sql_text *attrs) {
+  if (check_pre_make_row("SQL_TEXT")) return 1;
+
   m_row.digest_text.length(0);
   m_row.digest_id_null = true;
   size_t safe_byte_count = attrs->m_digest_storage.m_byte_count;

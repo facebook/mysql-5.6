@@ -142,13 +142,13 @@ test	insert into t2 values(100)	ea8d7221939e31cd79bb5a0800f1c421	user_super	0000
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
 Verify index working properly
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all
 where schema_name = 'test' and digest = '1bdaf02b6c6dd4f5bfc3045555865597' and user = 'fake';
 schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all
 where schema_name = 'test' and digest = '1bdaf02b6c6dd4f5bfc3045555865597' and user = 'user_super' and client_id = 'fake';
 schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all
 where schema_name = 'test' and digest = '1bdaf02b6c6dd4f5bfc3045555865597' and user = 'user_super' and client_id = '0000000000000000d194f27ab572142e';
 schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
 test	1bdaf02b6c6dd4f5bfc3045555865597	user_super	0000000000000000d194f27ab572142e	00000000000000000000000000000000	1	0	0	0
@@ -162,12 +162,52 @@ SELECT SLEEP(1);
 SLEEP(1)
 0
 include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should increase by a non-zero value.]
+SELECT SLEEP(1);
+SLEEP(1)
+0
+include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be more than 2000000000000.]
+SELECT SLEEP(1);
+SLEEP(1)
+0
+include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be more than 3000000000000.]
+SELECT SLEEP(1);
+SLEEP(1)
+0
+include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be more than 4000000000000.]
+include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be smaller than (4 + 1) * 1000000000000.]
+select 1 union select 2;
+1
+1
+2
+include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'select 1 union select 2' should be smaller than (0 + 1) * 1000000000000.]
 truncate performance_schema.events_statements_summary_by_all;
 set global enable_cputime_with_wallclock = 0;
 SELECT SLEEP(1);
 SLEEP(1)
 0
 include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should increase by a non-zero value.]
+set global enable_cputime_with_wallclock = DEFAULT;
+Case 6.1: Verify SUM_ELAPSED_TIME
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+@@performance_schema_esms_by_all
+1
+set global enable_cputime_with_wallclock = 1;
+SELECT SLEEP(2);
+SLEEP(2)
+0
+include/assert.inc [SUM_ELAPSED_TIME on events_statements_summary_by_all for 'SELECT SLEEP(2)' should increase by a non-zero value.]
+SELECT SLEEP(2);
+SLEEP(2)
+0
+include/assert.inc [SUM_ELAPSED_TIME on events_statements_summary_by_all for 'SELECT SLEEP(2)' should increase by a non-zero value.]
+include/assert.inc [SUM_ELAPSED_TIME on events_statements_summary_by_all for 'SELECT SLEEP(2)' should be more than 4 seconds with enable_cputime_with_wallclock.]
+select 1 union select 2 union select 3;
+1
+1
+2
+3
+include/assert.inc [SUM_ELAPSED_TIME on events_statements_summary_by_all for 'select 1 union select 2 union select 3' should be smaller than (0 + 1) * 1000000000000.]
 set global enable_cputime_with_wallclock = DEFAULT;
 Case 7: DML row counters unchanged for tmp tables
 create table test.tables(
@@ -231,17 +271,6 @@ set global skip_dml_counters_for_tmp_tables=on;
 select a.table_name, a.row_count
 from (select table_name, count(1) row_count from tables group by table_name) a
 where table_name like 'T%' limit 10;
-table_name	row_count
-TABLE_CONSTRAINTS	64
-TABLE_CONSTRAINTS_EXTENSIONS	64
-TABLES	128
-TABLES_EXTENSIONS	64
-TABLESPACES_EXTENSIONS	64
-TRIGGERS	64
-TABLESPACES	64
-TABLE_PRIVILEGES	64
-table_statistics_by_table	64
-table_io_waits_summary_by_index_usage	64
 select a100.table_name
 from (select table_name from tables limit 100) a100,
 (select table_name from tables limit 100) b100
@@ -264,6 +293,18 @@ sent_check	examined_check	dml_check	digest_text
 success	success	success	SELECT `a` . `table_name` , `a` . `row_count` FROM ( SELECT TABLE_NAME , COUNT (?) ROW_COUNT FROM TABLES GROUP BY TABLE_NAME ) `a` WHERE TABLE_NAME LIKE ? LIMIT ?
 success	success	success	SELECT `a100` . `table_name` FROM ( SELECT TABLE_NAME FROM TABLES LIMIT ? ) `a100` , ( SELECT TABLE_NAME FROM TABLES LIMIT ? ) `b100` WHERE `a100` . `table_name` = `b100` . `table_name` AND `b100` . `table_name` LIKE ? LIMIT ?
 success	success	success	SELECT ? UNION SELECT ? UNION SELECT ?
+Case 8: unit test for sql_stats_read_control
+set sql_stats_read_control=false;
+select 1;
+1
+1
+select * from performance_schema.events_statements_summary_by_all;
+ERROR HY000: Reads are disabled on EVENTS_STATEMENTS_SUMMARY_BY_ALL performance schema table
+select * from performance_schema.sql_text;
+ERROR HY000: Reads are disabled on SQL_TEXT performance schema table
+select * from performance_schema.client_attributes;
+ERROR HY000: Reads are disabled on CLIENT_ATTRIBUTES performance schema table
+set sql_stats_read_control = default;
 Cleanup
 set global performance_schema_esms_by_all = DEFAULT;
 set global skip_dml_counters_for_tmp_tables= DEFAULT;

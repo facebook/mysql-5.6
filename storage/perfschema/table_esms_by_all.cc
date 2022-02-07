@@ -260,6 +260,8 @@ int table_esms_by_all::index_next(void) {
 }
 
 int table_esms_by_all::make_row(PFS_statements_digest_stat *digest_stat) {
+  if (check_pre_make_row("EVENTS_STATEMENTS_SUMMARY_BY_ALL")) return 1;
+
   m_row.m_first_seen = digest_stat->m_first_seen;
   m_row.m_last_seen = digest_stat->m_last_seen;
   m_row.m_digest.make_row(digest_stat,

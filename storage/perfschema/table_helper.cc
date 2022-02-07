@@ -39,7 +39,9 @@
 #include "my_md5.h"
 #include "my_thread.h"
 #include "sql-common/json_dom.h"
+#include "sql/current_thd.h"
 #include "sql/field.h"
+#include "sql/sql_class.h"
 #include "storage/perfschema/pfs_account.h"
 #include "storage/perfschema/pfs_column_types.h"
 #include "storage/perfschema/pfs_column_values.h"
@@ -53,6 +55,15 @@
 #include "storage/perfschema/pfs_setup_object.h"
 #include "storage/perfschema/pfs_user.h"
 #include "storage/perfschema/pfs_variable.h"
+
+int check_pre_make_row(const char *table_name) {
+  if (current_thd->variables.sql_stats_read_control) {
+    return 0;
+  } else {
+    my_error(ER_IS_TABLE_READ_DISABLED, MYF(0), table_name);
+    return 1;
+  }
+}
 
 /* TINYINT TYPE */
 void set_field_tiny(Field *f, long value) {

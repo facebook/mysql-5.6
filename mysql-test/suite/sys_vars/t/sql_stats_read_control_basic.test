@@ -1,0 +1,35 @@
+SELECT @@global.sql_stats_read_control;
+SET @@global.sql_stats_read_control=true;
+show global variables like 'sql_stats_read_control';
+select * from performance_schema.global_variables where variable_name='sql_stats_read_control';
+
+select @@session.sql_stats_read_control;
+show session variables like 'sql_stats_read_control';
+select * from performance_schema.session_variables where variable_name='sql_stats_read_control';
+
+#
+# show that it's writable
+#
+set session sql_stats_read_control=true;
+select @@session.sql_stats_read_control;
+show session variables like 'sql_stats_read_control';
+
+set session sql_stats_read_control=false;
+select @@session.sql_stats_read_control;
+show session variables like 'sql_stats_read_control';
+
+set session sql_stats_read_control=default;
+select @@session.sql_stats_read_control;
+show session variables like 'sql_stats_read_control';
+
+set global sql_stats_read_control=default;
+select @@global.sql_stats_read_control;
+show global variables like 'sql_stats_read_control';
+
+#
+# incorrect assignments
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set sql_stats_read_control=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+set sql_stats_read_control="foobar";

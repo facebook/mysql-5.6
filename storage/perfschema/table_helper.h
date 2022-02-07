@@ -78,6 +78,13 @@ class Json_wrapper;
 */
 
 /**
+  Helper, check conditions before filling rows for P_S tables
+  @param  table_name - performance schema table
+  @return 0 if check passes and 1 otherwise
+*/
+int check_pre_make_row(const char *table_name);
+
+/**
   Helper, assign a value to a @c tinyint field.
   @param f the field to set
   @param value the value to assign
