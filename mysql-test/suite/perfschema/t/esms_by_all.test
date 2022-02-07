@@ -196,12 +196,12 @@ where a.digest=b.digest and (digest_text like 'SELECT `a%' or digest_text like '
 truncate performance_schema.events_statements_summary_by_all;
 set global skip_dml_counters_for_tmp_tables=on;
 
+### not interested in the actual query result, only the statistics
+--disable_result_log
 select a.table_name, a.row_count
 from (select table_name, count(1) row_count from tables group by table_name) a
 where table_name like 'T%' limit 10;
 
-### not interested in the actual query result, only the statistics
---disable_result_log
 select a100.table_name
 from (select table_name from tables limit 100) a100,
      (select table_name from tables limit 100) b100
@@ -219,6 +219,24 @@ select case when SUM_ROWS_SENT >0 then 'success' else 'failure' end sent_check,
        digest_text
 from performance_schema.events_statements_summary_by_all a, performance_schema.sql_text b
 where a.digest=b.digest and (digest_text like 'SELECT `a%' or digest_text like 'SELECT %UNION%');
+
+################################################
+### Case 8: unit test for sql_stats_read_control
+################################################
+--echo Case 8: unit test for sql_stats_read_control
+
+set sql_stats_read_control=false;
+
+select 1;
+--error ER_IS_TABLE_READ_DISABLED
+select * from performance_schema.events_statements_summary_by_all;
+--error ER_IS_TABLE_READ_DISABLED
+select * from performance_schema.sql_text;
+--error ER_IS_TABLE_READ_DISABLED
+select * from performance_schema.client_attributes;
+
+# cleanup 
+set sql_stats_read_control = default;
 
 ###########
 ### Cleanup

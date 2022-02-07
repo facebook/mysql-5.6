@@ -546,6 +546,8 @@ struct System_variables {
   bool validate_schema_from_attributes;
 
   long thread_priority;
+
+  bool sql_stats_read_control;
 };
 
 /**

@@ -159,6 +159,8 @@ int table_client_attrs::index_next(void) {
 }
 
 int table_client_attrs::make_row(PFS_client_attrs *attrs) {
+  if (check_pre_make_row("CLIENT_ATTRIBUTES")) return 1;
+
   array_to_hex(m_row.client_id, attrs->m_key.m_hash_key, MD5_HASH_SIZE);
   m_row.client_id[MD5_HASH_SIZE * 2] = '\0';
 

@@ -10106,6 +10106,9 @@ ER_GAP_LOCK_USED
 ER_WARN_SKIP_SCAN_KEYS_NOT_CONSIDERED
   eng "Skip scan was not considered due to large IN list of size %lu"
 
+ER_IS_TABLE_READ_DISABLED
+  eng "Reads are disabled on %s performance schema table"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

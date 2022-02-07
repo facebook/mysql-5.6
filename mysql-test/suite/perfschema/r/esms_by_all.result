@@ -252,17 +252,6 @@ set global skip_dml_counters_for_tmp_tables=on;
 select a.table_name, a.row_count
 from (select table_name, count(1) row_count from tables group by table_name) a
 where table_name like 'T%' limit 10;
-table_name	row_count
-TABLE_CONSTRAINTS	64
-TABLE_CONSTRAINTS_EXTENSIONS	64
-TABLES	128
-TABLES_EXTENSIONS	64
-TABLESPACES_EXTENSIONS	64
-TRIGGERS	64
-TABLESPACES	64
-TABLE_PRIVILEGES	64
-table_statistics_by_table	64
-table_io_waits_summary_by_index_usage	64
 select a100.table_name
 from (select table_name from tables limit 100) a100,
 (select table_name from tables limit 100) b100
@@ -285,6 +274,18 @@ sent_check	examined_check	dml_check	digest_text
 success	success	success	SELECT `a` . `table_name` , `a` . `row_count` FROM ( SELECT TABLE_NAME , COUNT (?) ROW_COUNT FROM TABLES GROUP BY TABLE_NAME ) `a` WHERE TABLE_NAME LIKE ? LIMIT ?
 success	success	success	SELECT `a100` . `table_name` FROM ( SELECT TABLE_NAME FROM TABLES LIMIT ? ) `a100` , ( SELECT TABLE_NAME FROM TABLES LIMIT ? ) `b100` WHERE `a100` . `table_name` = `b100` . `table_name` AND `b100` . `table_name` LIKE ? LIMIT ?
 success	success	success	SELECT ? UNION SELECT ? UNION SELECT ?
+Case 8: unit test for sql_stats_read_control
+set sql_stats_read_control=false;
+select 1;
+1
+1
+select * from performance_schema.events_statements_summary_by_all;
+ERROR HY000: Reads are disabled on EVENTS_STATEMENTS_SUMMARY_BY_ALL performance schema table
+select * from performance_schema.sql_text;
+ERROR HY000: Reads are disabled on SQL_TEXT performance schema table
+select * from performance_schema.client_attributes;
+ERROR HY000: Reads are disabled on CLIENT_ATTRIBUTES performance schema table
+set sql_stats_read_control = default;
 Cleanup
 set global performance_schema_esms_by_all = DEFAULT;
 set global skip_dml_counters_for_tmp_tables= DEFAULT;

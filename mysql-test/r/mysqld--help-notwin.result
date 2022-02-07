@@ -2631,6 +2631,10 @@ The following options may be given as the first argument:
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
  TABLE'. Attempts to do so will result in an error.
+ --sql-stats-read-control 
+ Controls reading from EVENTS_STATEMENTS_SUMMARY_BY_ALL,
+ SQL_TEXT and CLIENT_ATTRIBUTES tables.
+ (Defaults to on; use --skip-sql-stats-read-control to disable.)
  --sql-wsenv-lib-name=name 
  warm storage library name for dynamic load
  --sql-wsenv-oncall=name 
@@ -3606,6 +3610,7 @@ sql-log-bin-triggers TRUE
 sql-maximum-duplicate-executions 0
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
+sql-stats-read-control TRUE
 sql-wsenv-lib-name 
 sql-wsenv-oncall 
 sql-wsenv-tenant 

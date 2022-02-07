@@ -9733,3 +9733,9 @@ static Sys_var_bool Sys_skip_dml_counters_for_tmp_tables(
     "Skip change to DML counters (in P_S tables) for tmp tables.",
     GLOBAL_VAR(skip_dml_counters_for_tmp_tables), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static Sys_var_bool Sys_sql_stats_read_control(
+    "sql_stats_read_control",
+    "Controls reading from EVENTS_STATEMENTS_SUMMARY_BY_ALL, SQL_TEXT and "
+    "CLIENT_ATTRIBUTES tables.",
+    SESSION_VAR(sql_stats_read_control), CMD_LINE(OPT_ARG), DEFAULT(true));
