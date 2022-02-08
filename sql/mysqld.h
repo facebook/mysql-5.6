@@ -565,6 +565,7 @@ extern uint write_time_check_batch;
 
 extern std::atomic<bool> is_slave;
 extern std::atomic<int> slave_stats_daemon_thread_counter;
+extern std::atomic<bool> are_replicas_lagging;
 extern bool bypass_write_throttle_admin_check;
 extern uint write_stats_count;
 extern ulong write_stats_frequency;

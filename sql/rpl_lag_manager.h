@@ -158,6 +158,8 @@ struct WRITE_MONITORED_ENTITY {
     hits = 0;
   }
 
+  void resetHits() { hits = 0; }
+
   WRITE_MONITORED_ENTITY() { reset(); }
 };
 
