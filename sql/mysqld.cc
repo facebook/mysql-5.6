@@ -1452,6 +1452,9 @@ bool is_slave = false;
 /* Counter to count the number of slave_stats_daemon threads created. Should be
  * at most 1. */
 std::atomic<int> slave_stats_daemon_thread_counter(0);
+/* bool to maintain the state of whether replicas are lagging for write
+ * throttling purpose or not */
+std::atomic<bool> are_replicas_lagging(false);
 bool read_only_slave;
 bool flush_only_old_table_cache_entries = false;
 
