@@ -985,7 +985,7 @@ int Binlog_sender::check_start_file() {
     Sid_map gtids_lost_sid_map(nullptr);
     Gtid_set gtids(&gtids_lost_sid_map, nullptr);
     if (enable_raft_plugin) {
-      Gtid_set *lost_gtids = &gtids;
+      lost_gtids = &gtids;
       raw_log->get_lost_gtid_for_tailing(lost_gtids);
     }
     if (!lost_gtids->is_subset(m_exclude_gtid)) {
