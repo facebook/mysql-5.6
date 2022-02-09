@@ -12582,7 +12582,7 @@ void MYSQL_BIN_LOG::report_missing_purged_gtids(
   DBUG_TRACE;
   THD *thd = current_thd;
   Gtid_set gtid_missing(lost_gtid_set->get_sid_map());
-  gtid_missing.add_gtid_set(gtid_state->get_lost_gtids());
+  gtid_missing.add_gtid_set(lost_gtid_set);
   gtid_missing.remove_gtid_set(slave_executed_gtid_set);
 
   String tmp_uuid;
