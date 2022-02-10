@@ -130,6 +130,9 @@ insert into t1 values(1006);
 --replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 insert into t2 values(2006);
+--replace_result $MASTER_MYPORT MASTER_PORT
+--error ER_OPTION_PREVENTS_STATEMENT
+select * from t2 where a=1 for update;
 connection slave2_root;
 set global read_only_error_msg_extra = default;
 
