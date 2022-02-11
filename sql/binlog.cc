@@ -6304,6 +6304,11 @@ bool MYSQL_BIN_LOG::open_binlog(
   if (rotate_in_listener_context) s.common_header->when.tv_sec = my_time(0);
   /* Set LOG_EVENT_RELAY_LOG_F flag for relay log's FD */
   if (is_relay_log && !raft_noop) s.set_relay_log_event();
+
+  // Set LOG_EVENT_RAFT_LOG_F flag to indicate that a raft enabled instance
+  // generated this file
+  if (raft_rotate_info) s.set_raft_log_event();
+
   if (write_event_to_binlog(&s)) goto err;
   /*
     We need to revisit this code and improve it.
