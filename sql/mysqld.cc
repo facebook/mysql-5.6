@@ -806,6 +806,9 @@ bool enable_gtid_mode_on_new_slave_with_old_master;
 my_bool is_slave = false;
 /* Set to true when slave_stats_daemon thread is in use */
 std::atomic<int> slave_stats_daemon_thread_counter(0);
+/* bool to maintain the state of whether replicas are lagging for write
+ * throttling purpose or not */
+std::atomic<bool> are_replicas_lagging(false);
 my_bool read_only_slave;
 const char *gtid_mode_names[]=
 {"OFF", "UPGRADE_STEP_1", "UPGRADE_STEP_2", "ON", NullS};
