@@ -9264,7 +9264,8 @@ static Sys_var_bool Sys_sql_wsenv(
     "enable_sql_wsenv",
     "Enable dumping/loading file to/from warm storage for SELECT INTO OUTFILE/"
     "LOAD DATA. Set true to enable.",
-    SESSION_VAR(enable_sql_wsenv), CMD_LINE(OPT_ARG), DEFAULT(false));
+    SESSION_VAR(enable_sql_wsenv), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_session_admin));
 
 static Sys_var_bool Sys_enable_failure_injection(
     "enable_failure_injection",
