@@ -1718,11 +1718,11 @@ extern "C" void *process_raft_queue(void *) {
                ("process_raft_queue: %d\n", static_cast<int>(element.type)));
     switch (element.type) {
       case RaftListenerCallbackType::SET_READ_ONLY: {
-        handle_read_only(element.arg.val_sys_var_uint);
+        result.error = handle_read_only(element.arg.val_sys_var_uint);
         break;
       }
       case RaftListenerCallbackType::TRIM_LOGGED_GTIDS: {
-        trim_logged_gtid(element.arg.trim_gtids);
+        result.error = trim_logged_gtid(element.arg.trim_gtids);
         break;
       }
       case RaftListenerCallbackType::ROTATE_BINLOG: {
