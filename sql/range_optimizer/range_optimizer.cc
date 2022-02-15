@@ -279,8 +279,8 @@ QUICK_RANGE::QUICK_RANGE()
       min_keypart_map(0),
       max_keypart_map(0) {}
 
-QUICK_RANGE::QUICK_RANGE(const uchar *min_key_arg, uint min_length_arg,
-                         key_part_map min_keypart_map_arg,
+QUICK_RANGE::QUICK_RANGE(MEM_ROOT *alloc, const uchar *min_key_arg,
+                         uint min_length_arg, key_part_map min_keypart_map_arg,
                          const uchar *max_key_arg, uint max_length_arg,
                          key_part_map max_keypart_map_arg, uint flag_arg,
                          enum ha_rkey_function rkey_func_flag_arg)
@@ -292,8 +292,10 @@ QUICK_RANGE::QUICK_RANGE(const uchar *min_key_arg, uint min_length_arg,
       rkey_func_flag(rkey_func_flag_arg),
       min_keypart_map(min_keypart_map_arg),
       max_keypart_map(max_keypart_map_arg) {
-  min_key = static_cast<uchar *>(sql_memdup(min_key_arg, min_length_arg + 1));
-  max_key = static_cast<uchar *>(sql_memdup(max_key_arg, max_length_arg + 1));
+  min_key =
+      static_cast<uchar *>(memdup_root(alloc, min_key_arg, min_length_arg + 1));
+  max_key =
+      static_cast<uchar *>(memdup_root(alloc, max_key_arg, max_length_arg + 1));
   // If we get is_null_string as argument, the memdup is undefined behavior.
   assert(min_key_arg != is_null_string);
   assert(max_key_arg != is_null_string);
@@ -649,6 +651,12 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
                          read_tables | INNER_TABLE_BIT,
                          table->pos_in_table_list->map(),
                          /*remove_jump_scans=*/true, cond);
+      if (param.has_errors()) {
+        trace_range.add_alnum("cause", "reached_tree_mem_limit");
+        if (thd->variables.range_optimizer_fail_mode == RANGE_OPT_MEM_ERROR) {
+          return -1;
+        }
+      }
     }
     if (tree) {
       if (tree->type == SEL_TREE::IMPOSSIBLE) {
@@ -745,9 +753,13 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
       */
       Opt_trace_object trace_range_alt(trace, "analyzing_range_alternatives",
                                        Opt_trace_context::RANGE_OPTIMIZER);
+      bool has_errors_before = param.has_errors();
       AccessPath *range_path = get_key_scans_params(
           thd, &param, tree, false, true, interesting_order,
           skip_records_in_range, best_cost, needed_reg);
+      if (!has_errors_before && param.has_errors()) {
+        trace_range.add_alnum("cause", "reached_quick_ranges_mem_limit");
+      }
 
       /* Get best 'range' plan and prepare data for making other plans */
       if (range_path) {

@@ -3683,6 +3683,13 @@ static Sys_var_ulong Sys_range_optimizer_max_mem_size(
     CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, ULONG_MAX), DEFAULT(8388608),
     BLOCK_SIZE(1));
 
+static const char *range_optimizer_fail_mode_names[] = {"WARN", "ERROR", 0};
+static Sys_var_enum Sys_range_optimizer_fail_mode(
+    "range_optimizer_fail_mode",
+    "Determines the behavior when range analysis fails due to memory limits.",
+    SESSION_VAR(range_optimizer_fail_mode), CMD_LINE(OPT_ARG),
+    range_optimizer_fail_mode_names, DEFAULT(0));
+
 static bool limit_parser_max_mem_size(sys_var *, THD *thd, set_var *var) {
   if (var->is_global_persist()) return false;
   ulonglong val = var->save_result.ulonglong_value;

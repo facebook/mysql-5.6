@@ -1462,6 +1462,9 @@ The following options may be given as the first argument:
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
+ --range-optimizer-fail-mode[=name] 
+ Determines the behavior when range analysis fails due to
+ memory limits.
  --range-optimizer-max-mem-size=# 
  Maximum amount of memory used by the range optimizer to
  allocate predicates during range analysis. The larger the
@@ -3292,6 +3295,7 @@ query-prealloc-size 8192
 raft-send-replica-statistics FALSE
 raft-signal-async-dump-threads AFTER_CONSENSUS
 range-alloc-block-size 4096
+range-optimizer-fail-mode WARN
 range-optimizer-max-mem-size 8388608
 rbr-column-type-mismatch-whitelist 
 read-buffer-size 131072
