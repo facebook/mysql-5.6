@@ -1,0 +1,92 @@
+#
+# Basic testing of the range_optimizer_fail_mode variable.
+#
+
+# Save default value.
+
+SET @global_range_optimizer_fail_mode_value = @@GLOBAL.range_optimizer_fail_mode;
+SET @session_range_optimizer_fail_mode_value = @@SESSION.range_optimizer_fail_mode;
+
+# Default values.
+
+SELECT @global_range_optimizer_fail_mode_value, @session_range_optimizer_fail_mode_value;
+@global_range_optimizer_fail_mode_value	@session_range_optimizer_fail_mode_value
+WARN	WARN
+
+# Invalid values.
+
+SET GLOBAL range_optimizer_fail_mode = NULL;
+ERROR 42000: Variable 'range_optimizer_fail_mode' can't be set to the value of 'NULL'
+SET GLOBAL range_optimizer_fail_mode = -1;
+ERROR 42000: Variable 'range_optimizer_fail_mode' can't be set to the value of '-1'
+SET GLOBAL range_optimizer_fail_mode = 1000;
+ERROR 42000: Variable 'range_optimizer_fail_mode' can't be set to the value of '1000'
+SET GLOBAL range_optimizer_fail_mode = 'INVALID';
+ERROR 42000: Variable 'range_optimizer_fail_mode' can't be set to the value of 'INVALID'
+SET GLOBAL range_optimizer_fail_mode = 'WA';
+ERROR 42000: Variable 'range_optimizer_fail_mode' can't be set to the value of 'WA'
+
+# Valid values.
+
+SET GLOBAL range_optimizer_fail_mode = 1;
+SELECT @@GLOBAL.range_optimizer_fail_mode;
+@@GLOBAL.range_optimizer_fail_mode
+ERROR
+SET GLOBAL range_optimizer_fail_mode = 0;
+SELECT @@GLOBAL.range_optimizer_fail_mode;
+@@GLOBAL.range_optimizer_fail_mode
+WARN
+SET GLOBAL range_optimizer_fail_mode = 'WARN';
+SELECT @@GLOBAL.range_optimizer_fail_mode;
+@@GLOBAL.range_optimizer_fail_mode
+WARN
+SET SESSION range_optimizer_fail_mode = 1;
+SELECT @@SESSION.range_optimizer_fail_mode;
+@@SESSION.range_optimizer_fail_mode
+ERROR
+SET SESSION range_optimizer_fail_mode = 0;
+SELECT @@SESSION.range_optimizer_fail_mode;
+@@SESSION.range_optimizer_fail_mode
+WARN
+SET SESSION range_optimizer_fail_mode = 'WARN';
+SELECT @@SESSION.range_optimizer_fail_mode;
+@@SESSION.range_optimizer_fail_mode
+WARN
+
+# Information schema global/session variables tables.
+
+SET GLOBAL range_optimizer_fail_mode = 0;
+SET SESSION range_optimizer_fail_mode = 0;
+SELECT @@GLOBAL.range_optimizer_fail_mode = VARIABLE_VALUE
+FROM performance_schema.global_variables WHERE VARIABLE_NAME='range_optimizer_fail_mode';
+@@GLOBAL.range_optimizer_fail_mode = VARIABLE_VALUE
+1
+SELECT @@SESSION.range_optimizer_fail_mode = VARIABLE_VALUE
+FROM performance_schema.session_variables WHERE VARIABLE_NAME='range_optimizer_fail_mode';
+@@SESSION.range_optimizer_fail_mode = VARIABLE_VALUE
+1
+SET GLOBAL range_optimizer_fail_mode = 1;
+SET SESSION range_optimizer_fail_mode = 0;
+SELECT VARIABLE_VALUE
+FROM performance_schema.global_variables WHERE VARIABLE_NAME='range_optimizer_fail_mode';
+VARIABLE_VALUE
+ERROR
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables WHERE VARIABLE_NAME='range_optimizer_fail_mode';
+VARIABLE_VALUE
+WARN
+SET GLOBAL range_optimizer_fail_mode = 0;
+SET SESSION range_optimizer_fail_mode = 1;
+SELECT VARIABLE_VALUE
+FROM performance_schema.global_variables WHERE VARIABLE_NAME='range_optimizer_fail_mode';
+VARIABLE_VALUE
+WARN
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables WHERE VARIABLE_NAME='range_optimizer_fail_mode';
+VARIABLE_VALUE
+ERROR
+
+# Restore default value.
+
+SET GLOBAL range_optimizer_fail_mode = @global_range_optimizer_fail_mode_value;
+SET SESSION range_optimizer_fail_mode = @session_range_optimizer_fail_mode_value;

@@ -91,7 +91,7 @@ class QUICK_RANGE {
       max_keypart_map;           // bitmap of used keyparts in max_key
 
   QUICK_RANGE(); /* Full range */
-  QUICK_RANGE(const uchar *min_key_arg, uint min_length_arg,
+  QUICK_RANGE(MEM_ROOT *alloc, const uchar *min_key_arg, uint min_length_arg,
               key_part_map min_keypart_map_arg, const uchar *max_key_arg,
               uint max_length_arg, key_part_map max_keypart_map_arg,
               uint flag_arg, enum ha_rkey_function rkey_func);
@@ -465,7 +465,8 @@ class QUICK_RANGE_SELECT : public QUICK_SELECT_I {
 
   friend class TRP_ROR_INTERSECT;
   friend bool get_quick_keys(PARAM *param, QUICK_RANGE_SELECT *quick,
-                             KEY_PART *key, SEL_ARG *key_tree, uchar *min_key,
+                             MEM_ROOT *parent_alloc, KEY_PART *key,
+                             SEL_ARG *key_tree, uchar *min_key,
                              uint min_key_flag, uchar *max_key,
                              uint max_key_flag, uint *desc_flag,
                              uint num_key_parts);
