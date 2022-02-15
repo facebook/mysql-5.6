@@ -1,0 +1,18 @@
+# Run through a variety of range plans. Disable errors since include/range.inc
+# will not be expecting errors. The error code will still be recorded in the
+# results file though.
+
+# MEM_ROOT behaves differently under valgrind/asan, so more queries will hit max mem error leading to results mismatch.
+--source include/not_valgrind.inc
+--source include/not_asan.inc
+
+--disable_abort_on_error
+set range_optimizer_max_mem_size = 10;
+set range_optimizer_fail_mode = ERROR;
+
+--source include/range.inc
+
+set range_optimizer_fail_mode = DEFAULT;
+set range_optimizer_max_mem_size = DEFAULT;
+--enable_abort_on_error
+

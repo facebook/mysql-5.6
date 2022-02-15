@@ -290,6 +290,7 @@ struct System_variables {
   ulong optimizer_skip_scan_in_list_limit;
   ulonglong parser_max_mem_size;
   ulong range_optimizer_max_mem_size;
+  ulong range_optimizer_fail_mode;
   ulong preload_buff_size;
   ulong profiling_history_size;
   ulong read_buff_size;

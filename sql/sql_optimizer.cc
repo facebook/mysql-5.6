@@ -6253,6 +6253,18 @@ static ha_rows get_quick_record_count(THD *thd, JOIN_TAB *tab, ha_rows limit,
     keys_to_use.merge(tab->skip_scan_keys);
     MEM_ROOT temp_mem_root(key_memory_test_quick_select_exec,
                            thd->variables.range_alloc_block_size);
+
+    size_t max_capacity = thd->mem_root->get_max_capacity();
+    bool error_for_capacity_exceeded =
+        thd->mem_root->get_error_for_capacity_exceeded();
+    // The main mem_root may already have allocated memory on it which may
+    // exceed range_optimizer_max_mem_size. Thus, set the max capacity to be the
+    // sum of the two.
+    thd->mem_root->set_max_capacity(
+        thd->mem_root->allocated_size() +
+        thd->variables.range_optimizer_max_mem_size);
+    thd->mem_root->set_error_for_capacity_exceeded(true);
+
     int error = test_quick_select(
         thd, thd->mem_root, &temp_mem_root, keys_to_use, 0,
         0,  // empty table_map
@@ -6261,6 +6273,9 @@ static ha_rows get_quick_record_count(THD *thd, JOIN_TAB *tab, ha_rows limit,
         ORDER_NOT_RELEVANT, tab->table(), tab->skip_records_in_range(),
         condition, &tab->needed_reg, tab->table()->force_index,
         tab->join()->query_block, &range_scan);
+    // Restore saved MEM_ROOT params
+    thd->mem_root->set_max_capacity(max_capacity);
+    thd->mem_root->set_error_for_capacity_exceeded(error_for_capacity_exceeded);
     tab->set_range_scan(range_scan);
 
     if (error == 1) return range_scan->num_output_rows();

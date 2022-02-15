@@ -64,6 +64,8 @@ namespace opt_range {
 extern SEL_ARG *null_element;
 }
 
+enum enum_range_optimizer_mem_mode { RANGE_OPT_MEM_WARN, RANGE_OPT_MEM_ERROR };
+
 /**
   Error handling class for range optimizer. We handle only out of memory
   error here. This is to give a hint to the user to
@@ -74,25 +76,42 @@ extern SEL_ARG *null_element;
 class Range_optimizer_error_handler : public Internal_error_handler {
  public:
   Range_optimizer_error_handler()
-      : m_has_errors(false), m_is_mem_error(false) {}
+      : m_has_errors(false), m_is_mem_error(false), m_passthrough(false) {}
 
   bool handle_condition(THD *thd, uint sql_errno, const char *,
                         Sql_condition::enum_severity_level *level,
                         const char *) override {
+    // Do not handle any conditions if passthrough is set.
+    if (m_passthrough) return false;
+
     if (*level == Sql_condition::SL_ERROR) {
       m_has_errors = true;
-      /* Out of memory error is reported only once. Return as handled */
-      if (m_is_mem_error && sql_errno == EE_CAPACITY_EXCEEDED) return true;
-      if (sql_errno == EE_CAPACITY_EXCEEDED) {
-        m_is_mem_error = true;
-        /* Convert the error into a warning. */
-        *level = Sql_condition::SL_WARNING;
-        push_warning_printf(
-            thd, Sql_condition::SL_WARNING, ER_CAPACITY_EXCEEDED,
-            ER_THD(thd, ER_CAPACITY_EXCEEDED),
-            (ulonglong)thd->variables.range_optimizer_max_mem_size,
-            "range_optimizer_max_mem_size",
-            ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER));
+      if (thd->variables.range_optimizer_fail_mode == RANGE_OPT_MEM_WARN) {
+        /* Out of memory error is reported only once. Return as handled */
+        if (m_is_mem_error && sql_errno == EE_CAPACITY_EXCEEDED) return true;
+        if (sql_errno == EE_CAPACITY_EXCEEDED) {
+          m_is_mem_error = true;
+          /* Convert the error into a warning. */
+          *level = Sql_condition::SL_WARNING;
+          push_warning_printf(
+              thd, Sql_condition::SL_WARNING, ER_CAPACITY_EXCEEDED,
+              ER_THD(thd, ER_CAPACITY_EXCEEDED),
+              (ulonglong)thd->variables.range_optimizer_max_mem_size,
+              "range_optimizer_max_mem_size",
+              ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER));
+          return true;
+        }
+      } else {
+        // Call my_error with the correct range_optimizer_max_mem_size value.
+        // The default error message will contain the MEMROOT limit, which may
+        // be different from range_optimizer_max_mem_size in certain cases. To
+        // avoid infinite recursion (since we are calling my_error in the error
+        // handler), set m_passthrough to true.
+        m_passthrough = true;
+        my_error(EE_CAPACITY_EXCEEDED, MYF(0),
+                 static_cast<ulonglong>(
+                     thd->variables.range_optimizer_max_mem_size));
+        m_passthrough = false;
         return true;
       }
     }
@@ -104,6 +123,7 @@ class Range_optimizer_error_handler : public Internal_error_handler {
  private:
   bool m_has_errors;
   bool m_is_mem_error;
+  bool m_passthrough;
 };
 
 int index_next_different(bool is_index_scan, handler *file,

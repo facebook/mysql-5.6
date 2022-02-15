@@ -1,0 +1,33 @@
+
+create table t (i varchar(100), j varchar(100), k varchar(100), l varchar(100), m varchar(100), n varchar(100), o varchar(100), p varchar(100), q varchar(100), primary key(i, j, k, l, m, n, o, p, q)) engine=innodb character set latin1;
+
+set optimizer_trace='enabled=on';
+set optimizer_trace_max_mem_size = 1000000000;
+set optimizer_force_index_for_range = true;
+
+# Verify that we hit quick ranges memory limit with 10000000
+set range_optimizer_max_mem_size = 10000000;
+explain select * from t force index (primary) where i in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10") and
+                                                    j in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10") and
+                                                    k in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10") and
+                                                    l in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10") and
+                                                    m in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
+select count(*) from information_schema.optimizer_trace where trace like '%reached_tree_mem_limit%';
+select count(*) from information_schema.optimizer_trace where trace like '%reached_quick_ranges_mem_limit%';
+
+# Verify that we hit SEL_ARGs tree memory limit with 10
+set range_optimizer_max_mem_size = 10;
+explain select * from t force index (primary) where i in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10") and
+                                                    j in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10") and
+                                                    k in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10") and
+                                                    l in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10") and
+                                                    m in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
+select count(*) from information_schema.optimizer_trace where trace like '%reached_tree_mem_limit%';
+select count(*) from information_schema.optimizer_trace where trace like '%reached_quick_ranges_mem_limit%';
+
+set range_optimizer_max_mem_size = DEFAULT;
+set optimizer_force_index_for_range = DEFAULT;
+set optimizer_trace_max_mem_size = DEFAULT;
+set optimizer_trace=DEFAULT;
+
+drop table t;

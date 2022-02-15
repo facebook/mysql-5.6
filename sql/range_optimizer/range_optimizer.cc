@@ -589,12 +589,14 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
 
   /* set up parameter that is passed to all functions */
   RANGE_OPT_PARAM param;
+
+  thd->push_internal_handler(&param.error_handler);
+  auto cleanup = create_scope_guard([thd] { thd->pop_internal_handler(); });
+
   if (setup_range_optimizer_param(thd, return_mem_root, temp_mem_root,
                                   keys_to_use, table, query_block, &param)) {
     return 0;
   }
-  thd->push_internal_handler(&param.error_handler);
-  auto cleanup = create_scope_guard([thd] { thd->pop_internal_handler(); });
 
   /*
     Set index_merge_allowed from OPTIMIZER_SWITCH_INDEX_MERGE.
@@ -654,6 +656,12 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
                          read_tables | INNER_TABLE_BIT,
                          table->pos_in_table_list->map(),
                          /*remove_jump_scans=*/true, cond);
+      if (param.has_errors()) {
+        trace_range.add_alnum("cause", "reached_tree_mem_limit");
+        if (thd->variables.range_optimizer_fail_mode == RANGE_OPT_MEM_ERROR) {
+          return -1;
+        }
+      }
     }
     if (tree) {
       if (tree->type == SEL_TREE::IMPOSSIBLE) {
@@ -750,9 +758,13 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
       */
       Opt_trace_object trace_range_alt(trace, "analyzing_range_alternatives",
                                        Opt_trace_context::RANGE_OPTIMIZER);
+      bool has_errors_before = param.has_errors();
       AccessPath *range_path = get_key_scans_params(
           thd, &param, tree, false, true, interesting_order,
           skip_records_in_range, best_cost, needed_reg);
+      if (!has_errors_before && param.has_errors()) {
+        trace_range.add_alnum("cause", "reached_quick_ranges_mem_limit");
+      }
 
       /* Get best 'range' plan and prepare data for making other plans */
       if (range_path) {
