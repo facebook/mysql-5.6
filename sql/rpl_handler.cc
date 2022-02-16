@@ -965,7 +965,7 @@ pthread_handler_t process_raft_queue(void *arg)
     {
       case RaftListenerCallbackType::SET_READ_ONLY:
       {
-        handle_read_only(element.arg.val_sys_var_uint);
+        result.error = handle_read_only(element.arg.val_sys_var_uint);
         break;
       }
       case RaftListenerCallbackType::ROTATE_BINLOG:
