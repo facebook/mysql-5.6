@@ -18,7 +18,7 @@
 
 include(CheckCXXSourceRuns)
 
-set(CMAKE_REQUIRED_FLAGS "-msse4.2 --std=c++11 -Wno-error")
+set(CMAKE_REQUIRED_FLAGS "-msse4.2 --std=c++17 -Wno-error")
 CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <nmmintrin.h>
@@ -29,7 +29,7 @@ int main() {
 " HAVE_SSE42)
 
 
-set(CMAKE_REQUIRED_FLAGS "-mpclmul --std=c++11 -Wno-error")
+set(CMAKE_REQUIRED_FLAGS "-mpclmul --std=c++17 -Wno-error")
 CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <wmmintrin.h>
@@ -43,7 +43,7 @@ int main() {
 " HAVE_PCLMUL)
 
 
-set(CMAKE_REQUIRED_FLAGS "-mavx2 --std=c++11 -Wno-error")
+set(CMAKE_REQUIRED_FLAGS "-mavx2 --std=c++17 -Wno-error")
 CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <immintrin.h>
@@ -55,7 +55,7 @@ int main() {
 " HAVE_AVX2)
 
 
-set(CMAKE_REQUIRED_FLAGS "-mbmi --std=c++11 -Wno-error")
+set(CMAKE_REQUIRED_FLAGS "-mbmi --std=c++17 -Wno-error")
 CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <immintrin.h>
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 " HAVE_BMI)
 
 
-set(CMAKE_REQUIRED_FLAGS "-mlzcnt --std=c++11 -Wno-error")
+set(CMAKE_REQUIRED_FLAGS "-mlzcnt --std=c++17 -Wno-error")
 CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 #include <immintrin.h>
@@ -86,7 +86,7 @@ int main() { return 0; }
 " HAVE_ALIGNED_NEW)
 
 
-set(CMAKE_REQUIRED_FLAGS "--std=c++11 -Wno-error")
+set(CMAKE_REQUIRED_FLAGS "--std=c++17 -Wno-error")
 CHECK_CXX_SOURCE_RUNS("
 #include <cstdint>
 int main() {
