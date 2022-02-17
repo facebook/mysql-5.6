@@ -188,10 +188,10 @@ cmp_whole_field(
 /*============*/
 	ulint		mtype,		/*!< in: main type */
 	ulint		prtype,		/*!< in: precise type */
-	const byte*	a,		/*!< in: data field */
+	const ::byte*	a,		/*!< in: data field */
 	unsigned int	a_length,	/*!< in: data field length,
 					not UNIV_SQL_NULL */
-	const byte*	b,		/*!< in: data field */
+	const ::byte*	b,		/*!< in: data field */
 	unsigned int	b_length)	/*!< in: data field length,
 					not UNIV_SQL_NULL */
 {
@@ -327,15 +327,15 @@ cmp_dfield_dfield_like_prefix(
 		ret = innobase_mysql_cmp_prefix(
 			static_cast<int>(type->prtype & DATA_MYSQL_TYPE_MASK),
 			static_cast<uint>(dtype_get_charset_coll(type->prtype)),
-			static_cast<byte*>(dfield_get_data(dfield1)),
+			static_cast<::byte*>(dfield_get_data(dfield1)),
 			static_cast<uint>(dfield_get_len(dfield1)),
-			static_cast<byte*>(dfield_get_data(dfield2)),
+			static_cast<::byte*>(dfield_get_data(dfield2)),
 			static_cast<uint>(dfield_get_len(dfield2)));
 	} else {
 		ret = (cmp_data_data_like_prefix(
-			static_cast<byte*>(dfield_get_data(dfield1)),
+			static_cast<::byte*>(dfield_get_data(dfield1)),
 			dfield_get_len(dfield1),
-			static_cast<byte*>(dfield_get_data(dfield2)),
+			static_cast<::byte*>(dfield_get_data(dfield2)),
 			dfield_get_len(dfield2)));
 	}
 
@@ -352,10 +352,10 @@ cmp_data_data_slow(
 /*===============*/
 	ulint		mtype,	/*!< in: main type */
 	ulint		prtype,	/*!< in: precise type */
-	const byte*	data1,	/*!< in: data field (== a pointer to a memory
+	const ::byte*	data1,	/*!< in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len1,	/*!< in: data field length or UNIV_SQL_NULL */
-	const byte*	data2,	/*!< in: data field (== a pointer to a memory
+	const ::byte*	data2,	/*!< in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len2)	/*!< in: data field length or UNIV_SQL_NULL */
 {
@@ -464,10 +464,10 @@ cmp_data_data_slow_varchar(
 /*=======================*/
 				/* out: 1, 0, -1, if lhs is greater, equal,
 				less than rhs, respectively */
-	const byte*	lhs,	/* in: data field (== a pointer to a memory
+	const ::byte*	lhs,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		lhs_len,/* in: data field length or UNIV_SQL_NULL */
-	const byte*	rhs,	/* in: data field (== a pointer to a memory
+	const ::byte*	rhs,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		rhs_len)/* in: data field length or UNIV_SQL_NULL */
 {
@@ -519,10 +519,10 @@ cmp_data_data_slow_like_prefix(
 /*===========================*/
 				/* out: 1, 0, -1, if lhs is greater, equal,
 				less than rhs, respectively */
-	const byte*	lhs,	/* in: data field (== a pointer to a memory
+	const ::byte*	lhs,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len1,	/* in: data field length or UNIV_SQL_NULL */
-	const byte*	rhs,	/* in: data field (== a pointer to a memory
+	const ::byte*	rhs,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len2)	/* in: data field length or UNIV_SQL_NULL */
 {
@@ -575,12 +575,12 @@ cmp_data_data_slow_like_suffix(
 				less than data2, respectively */
 				/* in: data field (== a pointer to a
 				memory buffer) */
-	const byte*	data1 UNIV_UNUSED,
+	const ::byte*	data1 UNIV_UNUSED,
 				/* in: data field length or UNIV_SQL_NULL */
 	ulint		len1 UNIV_UNUSED,
 				/* in: data field (== a pointer to a memory
 				buffer) */
-	const byte*	data2 UNIV_UNUSED,
+	const ::byte*	data2 UNIV_UNUSED,
 				/* in: data field length or UNIV_SQL_NULL */
 	ulint		len2 UNIV_UNUSED)
 
@@ -600,12 +600,12 @@ cmp_data_data_slow_like_substr(
 				less than data2, respectively */
 				/* in: data field (== a pointer to a
 				memory buffer) */
-	const byte*	data1 UNIV_UNUSED,
+	const ::byte*	data1 UNIV_UNUSED,
 				/* in: data field length or UNIV_SQL_NULL */
 	ulint		len1 UNIV_UNUSED,
 				/* in: data field (== a pointer to a memory
 				buffer) */
-	const byte*	data2 UNIV_UNUSED,
+	const ::byte*	data2 UNIV_UNUSED,
 				/* in: data field length or UNIV_SQL_NULL */
 	ulint		len2 UNIV_UNUSED)
 {
@@ -645,12 +645,12 @@ cmp_dtuple_rec_with_match_low(
 	const dfield_t*	dtuple_field;	/* current field in logical record */
 	ulint		dtuple_f_len;	/* the length of the current field
 					in the logical record */
-	const byte*	dtuple_b_ptr;	/* pointer to the current byte in
+	const ::byte*	dtuple_b_ptr;	/* pointer to the current byte in
 					logical field data */
 	ulint		dtuple_byte;	/* value of current byte to be compared
 					in dtuple*/
 	ulint		rec_f_len;	/* length of current field in rec */
-	const byte*	rec_b_ptr;	/* pointer to the current byte in
+	const ::byte*	rec_b_ptr;	/* pointer to the current byte in
 					rec field */
 	ulint		rec_byte;	/* value of current byte to be
 					compared in rec */
@@ -751,7 +751,7 @@ cmp_dtuple_rec_with_match_low(
 
 			ret = cmp_whole_field(
 				mtype, prtype,
-				static_cast<const byte*>(
+				static_cast<const ::byte*>(
 					dfield_get_data(dtuple_field)),
 				(unsigned) dtuple_f_len,
 				rec_b_ptr, (unsigned) rec_f_len);
@@ -768,7 +768,7 @@ cmp_dtuple_rec_with_match_low(
 		/* Set the pointers at the current byte */
 
 		rec_b_ptr = rec_b_ptr + cur_bytes;
-		dtuple_b_ptr = (byte*) dfield_get_data(dtuple_field)
+		dtuple_b_ptr = (::byte*) dfield_get_data(dtuple_field)
 			+ cur_bytes;
 		/* Compare then the fields */
 
@@ -934,8 +934,8 @@ cmp_rec_rec_simple_field(
 	const dict_index_t*	index,	/*!< in: data dictionary index */
 	ulint			n)	/*!< in: field to compare */
 {
-	const byte*	rec1_b_ptr;
-	const byte*	rec2_b_ptr;
+	const ::byte*	rec1_b_ptr;
+	const ::byte*	rec2_b_ptr;
 	ulint		rec1_f_len;
 	ulint		rec2_f_len;
 	const dict_col_t*	col	= dict_index_get_nth_col(index, n);
@@ -1126,13 +1126,13 @@ cmp_rec_rec_with_match(
 {
 	ulint		rec1_n_fields;	/* the number of fields in rec */
 	ulint		rec1_f_len;	/* length of current field in rec */
-	const byte*	rec1_b_ptr;	/* pointer to the current byte
+	const ::byte*	rec1_b_ptr;	/* pointer to the current byte
 					in rec field */
 	ulint		rec1_byte;	/* value of current byte to be
 					compared in rec */
 	ulint		rec2_n_fields;	/* the number of fields in rec */
 	ulint		rec2_f_len;	/* length of current field in rec */
-	const byte*	rec2_b_ptr;	/* pointer to the current byte
+	const ::byte*	rec2_b_ptr;	/* pointer to the current byte
 					in rec field */
 	ulint		rec2_byte;	/* value of current byte to be
 					compared in rec */
@@ -1373,10 +1373,10 @@ cmp_debug_dtuple_rec_with_match(
 	const dfield_t*	dtuple_field;	/* current field in logical record */
 	ulint		dtuple_f_len;	/* the length of the current field
 					in the logical record */
-	const byte*	dtuple_f_data;	/* pointer to the current logical
+	const ::byte*	dtuple_f_data;	/* pointer to the current logical
 					field data */
 	ulint		rec_f_len;	/* length of current field in rec */
-	const byte*	rec_f_data;	/* pointer to the current rec field */
+	const ::byte*	rec_f_data;	/* pointer to the current rec field */
 	int		ret;		/* return value */
 	ulint		cur_field;	/* current field number */
 
@@ -1428,7 +1428,7 @@ cmp_debug_dtuple_rec_with_match(
 			prtype = type->prtype;
 		}
 
-		dtuple_f_data = static_cast<const byte*>(
+		dtuple_f_data = static_cast<const ::byte*>(
 			dfield_get_data(dtuple_field));
 
 		dtuple_f_len = dfield_get_len(dtuple_field);

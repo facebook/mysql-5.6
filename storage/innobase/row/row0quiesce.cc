@@ -46,10 +46,10 @@ row_quiesce_write_index_fields(
 	FILE*			file,	/*!< in: file to write to */
 	THD*			thd)	/*!< in/out: session */
 {
-	byte			row[sizeof(ib_uint32_t) * 2];
+	::byte			row[sizeof(ib_uint32_t) * 2];
 
 	for (ulint i = 0; i < index->n_fields; ++i) {
-		byte*			ptr = row;
+		::byte*			ptr = row;
 		const dict_field_t*	field = &index->fields[i];
 
 		mach_write_to_4(ptr, field->prefix_len);
@@ -107,7 +107,7 @@ row_quiesce_write_indexes(
 	THD*			thd)	/*!< in/out: session */
 {
 	{
-		byte		row[sizeof(ib_uint32_t)];
+		::byte		row[sizeof(ib_uint32_t)];
 
 		/* Write the number of indexes in the table. */
 		mach_write_to_4(row, UT_LIST_GET_LEN(table->indexes));
@@ -132,8 +132,8 @@ row_quiesce_write_indexes(
 	     index != 0 && err == DB_SUCCESS;
 	     index = UT_LIST_GET_NEXT(indexes, index)) {
 
-		byte*		ptr;
-		byte		row[sizeof(index_id_t)
+		::byte*		ptr;
+		::byte		row[sizeof(index_id_t)
 				    + sizeof(ib_uint32_t) * 8];
 
 		ptr = row;
@@ -220,12 +220,12 @@ row_quiesce_write_table(
 	THD*			thd)	/*!< in/out: session */
 {
 	dict_col_t*		col;
-	byte			row[sizeof(ib_uint32_t) * 7];
+	::byte			row[sizeof(ib_uint32_t) * 7];
 
 	col = table->cols;
 
 	for (ulint i = 0; i < table->n_cols; ++i, ++col) {
-		byte*		ptr = row;
+		::byte*		ptr = row;
 
 		mach_write_to_4(ptr, col->prtype);
 		ptr += sizeof(ib_uint32_t);
@@ -302,7 +302,7 @@ row_quiesce_write_header(
 	FILE*			file,	/*!< in: file to write to */
 	THD*			thd)	/*!< in/out: session */
 {
-	byte			value[sizeof(ib_uint32_t)];
+	::byte			value[sizeof(ib_uint32_t)];
 
 	/* Write the meta-data version number. */
 	mach_write_to_4(value, IB_EXPORT_CFG_VERSION_V1);
@@ -369,7 +369,7 @@ row_quiesce_write_header(
 		return(DB_IO_ERROR);
 	}
 
-	byte		row[sizeof(ib_uint32_t) * 3];
+	::byte		row[sizeof(ib_uint32_t) * 3];
 
 	/* Write the next autoinc value. */
 	mach_write_to_8(row, table->autoinc);
@@ -385,7 +385,7 @@ row_quiesce_write_header(
 		return(DB_IO_ERROR);
 	}
 
-	byte*		ptr = row;
+	::byte*		ptr = row;
 
 	/* Write the system page size. */
 	mach_write_to_4(ptr, UNIV_PAGE_SIZE);

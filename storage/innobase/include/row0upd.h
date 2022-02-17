@@ -97,13 +97,13 @@ Writes into the redo log the values of trx id and roll ptr and enough info
 to determine their positions within a clustered index record.
 @return	new pointer to mlog */
 UNIV_INTERN
-byte*
+::byte*
 row_upd_write_sys_vals_to_log(
 /*==========================*/
 	dict_index_t*	index,	/*!< in: clustered index */
 	trx_id_t	trx_id,	/*!< in: transaction id */
 	roll_ptr_t	roll_ptr,/*!< in: roll ptr of the undo log record */
-	byte*		log_ptr,/*!< pointer to a buffer of size > 20 opened
+	::byte*		log_ptr,/*!< pointer to a buffer of size > 20 opened
 				in mlog */
 	mtr_t*		mtr);	/*!< in: mtr */
 /*********************************************************************//**
@@ -149,7 +149,7 @@ void
 row_upd_index_write_log(
 /*====================*/
 	const upd_t*	update,	/*!< in: update vector */
-	byte*		log_ptr,/*!< in: pointer to mlog buffer: must
+	::byte*		log_ptr,/*!< in: pointer to mlog buffer: must
 				contain at least MLOG_BUF_MARGIN bytes
 				of free space; the buffer is closed
 				within this function */
@@ -366,11 +366,11 @@ row_upd_step(
 Parses the log data of system field values.
 @return	log data end or NULL */
 UNIV_INTERN
-byte*
+::byte*
 row_upd_parse_sys_vals(
 /*===================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	ulint*		pos,	/*!< out: TRX_ID position in record */
 	trx_id_t*	trx_id,	/*!< out: trx id */
 	roll_ptr_t*	roll_ptr);/*!< out: roll ptr */
@@ -391,11 +391,11 @@ row_upd_rec_sys_fields_in_recovery(
 Parses the log data written by row_upd_index_write_log.
 @return	log data end or NULL */
 UNIV_INTERN
-byte*
+::byte*
 row_upd_index_parse(
 /*================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	mem_heap_t*	heap,	/*!< in: memory heap where update vector is
 				built */
 	upd_t**		update_out);/*!< out: update vector */

@@ -236,7 +236,7 @@ trx_sys_update_mysql_binlog_offset(
 
 		mlog_write_string(sys_header + field
 				  + TRX_SYS_MYSQL_LOG_NAME,
-				  (byte*) file_name, 1 + ut_strlen(file_name),
+				  (::byte*) file_name, 1 + ut_strlen(file_name),
 				  mtr);
 	}
 
@@ -266,7 +266,7 @@ trx_sys_update_mysql_binlog_offset(
 					max_gtid)) {
 			/* Write Gtid string */
 			mlog_write_string(sys_header + field + TRX_SYS_MYSQL_GTID,
-					(byte*)max_gtid, 1 + gtid_length, mtr);
+					(::byte*)max_gtid, 1 + gtid_length, mtr);
 		}
 	}
 }
@@ -436,7 +436,7 @@ trx_sysf_create(
 	buf_block_t*	block;
 	page_t*		page;
 	ulint		page_no;
-	byte*		ptr;
+	::byte*		ptr;
 	ulint		len;
 
 	ut_ad(mtr);
@@ -663,7 +663,7 @@ trx_sys_file_format_max_write(
 					be NULL */
 {
 	mtr_t		mtr;
-	byte*		ptr;
+	::byte*		ptr;
 	buf_block_t*	block;
 	ib_uint64_t	tag_value;
 
@@ -698,7 +698,7 @@ trx_sys_file_format_max_read(void)
 /*==============================*/
 {
 	mtr_t			mtr;
-	const byte*		ptr;
+	const ::byte*		ptr;
 	const buf_block_t*	block;
 	ib_id_t			file_format_id;
 
@@ -980,7 +980,7 @@ UNIV_INTERN
 void
 trx_sys_print_mysql_binlog_offset_from_page(
 /*========================================*/
-	const byte*	page)	/*!< in: buffer containing the trx
+	const ::byte*	page)	/*!< in: buffer containing the trx
 				system header page, i.e., page number
 				TRX_SYS_PAGE_NO in the tablespace */
 {
@@ -1025,7 +1025,7 @@ trx_sys_read_file_format_id(
 	ibool		success;
 	byte		buf[UNIV_PAGE_SIZE * 2];
 	page_t*		page = ut_align(buf, UNIV_PAGE_SIZE);
-	const byte*	ptr;
+	const ::byte*	ptr;
 	ib_id_t		file_format_id;
 
 	*format_id = ULINT_UNDEFINED;
@@ -1105,7 +1105,7 @@ trx_sys_read_pertable_file_format_id(
 	ibool		success;
 	byte		buf[UNIV_PAGE_SIZE * 2];
 	page_t*		page = ut_align(buf, UNIV_PAGE_SIZE);
-	const byte*	ptr;
+	const ::byte*	ptr;
 	ib_uint32_t	flags;
 
 	*format_id = ULINT_UNDEFINED;

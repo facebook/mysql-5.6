@@ -517,7 +517,7 @@ flst_print(
 
 	ut_ad(base && mtr);
 	ut_ad(mtr_memo_contains_page(mtr, base, MTR_MEMO_PAGE_X_FIX));
-	frame = page_align((byte*) base);
+	frame = page_align((::byte*) base);
 
 	len = flst_get_len(base, mtr);
 

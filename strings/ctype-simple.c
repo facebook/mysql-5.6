@@ -329,10 +329,10 @@ long my_strntol_8bit(const CHARSET_INFO *cs,
 		     char **endptr, int *err)
 {
   int negative;
-  register uint32 cutoff;
+  uint32 cutoff;
   register uint cutlim;
-  register uint32 i;
-  register const char *s;
+  uint32 i;
+  const char *s;
   register uchar c;
   const char *save, *e;
   int overflow;
@@ -425,10 +425,10 @@ ulong my_strntoul_8bit(const CHARSET_INFO *cs,
 		       char **endptr, int *err)
 {
   int negative;
-  register uint32 cutoff;
+  uint32 cutoff;
   register uint cutlim;
-  register uint32 i;
-  register const char *s;
+  uint32 i;
+  const char *s;
   register uchar c;
   const char *save, *e;
   int overflow;
@@ -512,10 +512,10 @@ longlong my_strntoll_8bit(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
 			  char **endptr,int *err)
 {
   int negative;
-  register ulonglong cutoff;
+  ulonglong cutoff;
   register uint cutlim;
-  register ulonglong i;
-  register const char *s, *e;
+  ulonglong i;
+  const char *s, *e;
   const char *save;
   int overflow;
 
@@ -608,10 +608,10 @@ ulonglong my_strntoull_8bit(const CHARSET_INFO *cs,
 			   char **endptr, int *err)
 {
   int negative;
-  register ulonglong cutoff;
+  ulonglong cutoff;
   register uint cutlim;
-  register ulonglong i;
-  register const char *s, *e;
+  ulonglong i;
+  const char *s, *e;
   const char *save;
   int overflow;
 
@@ -737,7 +737,7 @@ my_long10_to_str_8bit_imp(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
                              char *dst, size_t len, int radix, long int val)
 {
   char buffer[66];
-  register char *p, *e;
+  char *p, *e;
   long int new_val;
   uint sign=0;
   unsigned long int uval = (unsigned long int) val;
@@ -801,7 +801,7 @@ my_longlong10_to_str_8bit_imp(const CHARSET_INFO *cs
                                  longlong val)
 {
   char buffer[65];
-  register char *p, *e;
+  char *p, *e;
   long long_val;
   uint sign= 0;
   ulonglong uval = (ulonglong)val;
@@ -1127,7 +1127,7 @@ uint my_instr_simple(const CHARSET_INFO *cs,
                      const char *s, size_t s_length,
                      my_match_t *match, uint nmatch)
 {
-  register const uchar *str, *search, *end, *search_end;
+  const uchar *str, *search, *end, *search_end;
   
   if (s_length <= b_length)
   {
@@ -1152,7 +1152,7 @@ skip:
     {
       if (cs->sort_order[*str++] == cs->sort_order[*search])
       {
-	register const uchar *i,*j;
+	const uchar *i,*j;
 	
 	i= str; 
 	j= search+1;

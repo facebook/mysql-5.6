@@ -58,7 +58,7 @@ Looks up a column prefix of an externally stored column.
 @return column prefix, or NULL if the column is not stored externally,
 or pointer to field_ref_zero if the BLOB pointer is unset */
 UNIV_INLINE
-const byte*
+const ::byte*
 row_ext_lookup_ith(
 /*===============*/
 	const row_ext_t*	ext,	/*!< in/out: column prefix cache */
@@ -71,7 +71,7 @@ Looks up a column prefix of an externally stored column.
 @return column prefix, or NULL if the column is not stored externally,
 or pointer to field_ref_zero if the BLOB pointer is unset */
 UNIV_INLINE
-const byte*
+const ::byte*
 row_ext_lookup(
 /*===========*/
 	const row_ext_t*	ext,	/*!< in: column prefix cache */
@@ -87,7 +87,7 @@ row_ext_lookup(
 struct row_ext_t{
 	ulint		n_ext;	/*!< number of externally stored columns */
 	const ulint*	ext;	/*!< col_no's of externally stored columns */
-	byte*		buf;	/*!< backing store of the column prefix cache */
+	::byte*		buf;	/*!< backing store of the column prefix cache */
 	ulint		max_len;/*!< maximum prefix length, it could be
 				REC_ANTELOPE_MAX_INDEX_COL_LEN or
 				REC_VERSION_56_MAX_INDEX_COL_LEN depending

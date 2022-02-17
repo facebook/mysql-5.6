@@ -5159,7 +5159,7 @@ dict_index_build_node_ptr(
 {
 	dtuple_t*	tuple;
 	dfield_t*	field;
-	byte*		buf;
+	::byte*		buf;
 	ulint		n_unique;
 
 	if (dict_index_is_univ(index)) {
@@ -5191,7 +5191,7 @@ dict_index_build_node_ptr(
 
 	dict_index_copy_types(tuple, index, n_unique);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 
 	mach_write_to_4(buf, page_no);
 
@@ -5221,7 +5221,7 @@ dict_index_copy_rec_order_prefix(
 	const rec_t*		rec,	/*!< in: record for which to
 					copy prefix */
 	ulint*			n_fields,/*!< out: number of fields copied */
-	byte**			buf,	/*!< in/out: memory buffer for the
+	::byte**			buf,	/*!< in/out: memory buffer for the
 					copied prefix, or NULL */
 	ulint*			buf_size)/*!< in/out: buffer size */
 {
@@ -5773,7 +5773,7 @@ dict_set_corrupted(
 	dict_index_t*	sys_index;
 	dtuple_t*	tuple;
 	dfield_t*	dfield;
-	byte*		buf;
+	::byte*		buf;
 	char*		table_name;
 	const char*	status;
 	btr_cur_t	cursor;
@@ -5816,12 +5816,12 @@ dict_set_corrupted(
 	tuple = dtuple_create(heap, 2);
 
 	dfield = dtuple_get_nth_field(tuple, 0);
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(buf, index->table->id);
 	dfield_set_data(dfield, buf, 8);
 
 	dfield = dtuple_get_nth_field(tuple, 1);
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(buf, index->id);
 	dfield_set_data(dfield, buf, 8);
 
@@ -5835,7 +5835,7 @@ dict_set_corrupted(
 		/* UPDATE SYS_INDEXES SET TYPE=index->type
 		WHERE TABLE_ID=index->table->id AND INDEX_ID=index->id */
 		ulint	len;
-		byte*	field	= rec_get_nth_field_old(
+		::byte*	field	= rec_get_nth_field_old(
 			btr_cur_get_rec(&cursor),
 			DICT_FLD__SYS_INDEXES__TYPE, &len);
 		if (len != 4) {

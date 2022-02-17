@@ -718,7 +718,7 @@ get_one_option(int optid,
 }
 
 
-static void get_options(register int *argc,register char ***argv)
+static void get_options(int *argc,char ***argv)
 {
   int ho_error;
 
@@ -1186,9 +1186,9 @@ end2:
 static void descript(MI_CHECK *param, register MI_INFO *info, char * name)
 {
   uint key,keyseg_nr,field,start;
-  reg3 MI_KEYDEF *keyinfo;
-  reg2 HA_KEYSEG *keyseg;
-  reg4 const char *text;
+  MI_KEYDEF *keyinfo;
+  HA_KEYSEG *keyseg;
+  const char *text;
   char buff[160],length[10],*pos,*end;
   enum en_fieldtype type;
   MYISAM_SHARE *share=info->s;

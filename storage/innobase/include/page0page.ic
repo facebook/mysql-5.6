@@ -182,7 +182,7 @@ page_header_set_ptr(
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page whose
 				uncompressed part will be updated, or NULL */
 	ulint		field,	/*!< in: PAGE_FREE, ... */
-	const byte*	ptr)	/*!< in: pointer or NULL*/
+	const ::byte*	ptr)	/*!< in: pointer or NULL*/
 {
 	ulint	offs;
 
@@ -1080,7 +1080,7 @@ page_rec_write_field(
 	ulint	val,	/*!< in: value to write */
 	mtr_t*	mtr)	/*!< in/out: mini-transaction */
 {
-	byte*	data;
+	::byte*	data;
 	ulint	len;
 
 	data = rec_get_nth_field_old(rec, i, &len);

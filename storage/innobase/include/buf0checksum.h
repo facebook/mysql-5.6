@@ -42,14 +42,14 @@ UNIV_INTERN
 ib_uint32_t
 buf_calc_page_crc32(
 /*================*/
-	const byte*	page);	/*!< in: buffer page */
+	const ::byte*	page);	/*!< in: buffer page */
 
 struct dual_crc { ib_uint32_t crc32c, crc32cfb; };
 UNIV_INTERN
 dual_crc
 buf_calc_page_crc32fb(
 /*================*/
-	const byte*	page);	/*!< in: buffer page */
+	const ::byte*	page);	/*!< in: buffer page */
 
 UNIV_INLINE
 ibool
@@ -66,7 +66,7 @@ UNIV_INTERN
 ulint
 buf_calc_page_new_checksum(
 /*=======================*/
-	const byte*	page);	/*!< in: buffer page */
+	const ::byte*	page);	/*!< in: buffer page */
 
 /********************************************************************//**
 In versions < 4.0.14 and < 4.1.1 there was a bug that the checksum only
@@ -80,7 +80,7 @@ UNIV_INTERN
 ulint
 buf_calc_page_old_checksum(
 /*=======================*/
-	const byte*	page);	/*!< in: buffer page */
+	const ::byte*	page);	/*!< in: buffer page */
 
 /********************************************************************//**
 Return a printable string describing the checksum algorithm.

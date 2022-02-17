@@ -394,11 +394,11 @@ ibuf_merge_space(
 Parses a redo log record of an ibuf bitmap page init.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 ibuf_parse_bitmap_init(
 /*===================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in: block or NULL */
 	mtr_t*		mtr);	/*!< in: mtr or NULL */
 #ifndef UNIV_HOTBACKUP

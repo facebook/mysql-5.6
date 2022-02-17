@@ -74,7 +74,7 @@ static bool row_log_apply_print;
 
 /** Log block for modifications during online ALTER TABLE */
 struct row_log_buf_t {
-	byte*		block;	/*!< file block buffer */
+	::byte*		block;	/*!< file block buffer */
 	mrec_buf_t	buf;	/*!< buffer for accessing a record
 				that spans two blocks */
 	ulint		blocks; /*!< current position in blocks */
@@ -225,7 +225,7 @@ row_log_block_allocate(
 	DBUG_ENTER("row_log_block_allocate");
 	if (log_buf.block == NULL) {
 		log_buf.size = srv_sort_buf_size;
-		log_buf.block = (byte*) os_mem_alloc_large(&log_buf.size, FALSE);
+		log_buf.block = (::byte*) os_mem_alloc_large(&log_buf.size, FALSE);
 		DBUG_EXECUTE_IF("simulate_row_log_allocation_failure",
 			if (log_buf.block)
 				os_mem_free_large(log_buf.block, log_buf.size);
@@ -263,7 +263,7 @@ row_log_online_op(
 	trx_id_t	trx_id)	/*!< in: transaction ID for insert,
 				or 0 for delete */
 {
-	byte*		b;
+	::byte*		b;
 	ulint		extra_size;
 	ulint		size;
 	ulint		mrec_size;
@@ -328,11 +328,11 @@ row_log_online_op(
 	}
 
 	if (extra_size < 0x80) {
-		*b++ = (byte) extra_size;
+		*b++ = (::byte) extra_size;
 	} else {
 		ut_ad(extra_size < 0x8000);
-		*b++ = (byte) (0x80 | (extra_size >> 8));
-		*b++ = (byte) extra_size;
+		*b++ = (::byte) (0x80 | (extra_size >> 8));
+		*b++ = (::byte) extra_size;
 	}
 
 	rec_convert_dtuple_to_temp(
@@ -408,7 +408,7 @@ row_log_table_get_error(
 Starts logging an operation to a table that is being rebuilt.
 @return pointer to log, or NULL if no logging is necessary */
 static MY_ATTRIBUTE((nonnull, warn_unused_result))
-byte*
+::byte*
 row_log_table_open(
 /*===============*/
 	row_log_t*	log,	/*!< in/out: online rebuild log */
@@ -448,7 +448,7 @@ row_log_table_close_func(
 /*=====================*/
 	row_log_t*	log,	/*!< in/out: online rebuild log */
 #ifdef UNIV_DEBUG
-	const byte*	b,	/*!< in: end of log record */
+	const ::byte*	b,	/*!< in: end of log record */
 #endif /* UNIV_DEBUG */
 	ulint		size,	/*!< in: size of log record */
 	ulint		avail)	/*!< in: available size for log record */
@@ -522,7 +522,7 @@ row_log_table_delete(
 	dict_index_t*	index,	/*!< in/out: clustered index, S-latched
 				or X-latched */
 	const ulint*	offsets,/*!< in: rec_get_offsets(rec,index) */
-	const byte*	sys)	/*!< in: DB_TRX_ID,DB_ROLL_PTR that should
+	const ::byte*	sys)	/*!< in: DB_TRX_ID,DB_ROLL_PTR that should
 				be logged, or NULL to use those in rec */
 {
 	ulint		old_pk_extra_size;
@@ -637,10 +637,10 @@ row_log_table_delete(
 		}
 	}
 
-	if (byte* b = row_log_table_open(index->online_log,
+	if (::byte* b = row_log_table_open(index->online_log,
 					 mrec_size, &avail_size)) {
 		*b++ = ROW_T_DELETE;
-		*b++ = static_cast<byte>(old_pk_extra_size);
+		*b++ = static_cast<::byte>(old_pk_extra_size);
 
 		/* Log the size of external prefix we saved */
 		mach_write_to_4(b, ext_size);
@@ -778,12 +778,12 @@ row_log_table_low_redundant(
 		mrec_size += 1/*old_pk_extra_size*/ + old_pk_size;
 	}
 
-	if (byte* b = row_log_table_open(index->online_log,
+	if (::byte* b = row_log_table_open(index->online_log,
 					 mrec_size, &avail_size)) {
 		*b++ = insert ? ROW_T_INSERT : ROW_T_UPDATE;
 
 		if (old_pk_size) {
-			*b++ = static_cast<byte>(old_pk_extra_size);
+			*b++ = static_cast<::byte>(old_pk_extra_size);
 
 			rec_convert_dtuple_to_temp(
 				b + old_pk_extra_size, new_index,
@@ -792,11 +792,11 @@ row_log_table_low_redundant(
 		}
 
 		if (extra_size < 0x80) {
-			*b++ = static_cast<byte>(extra_size);
+			*b++ = static_cast<::byte>(extra_size);
 		} else {
 			ut_ad(extra_size < 0x8000);
-			*b++ = static_cast<byte>(0x80 | (extra_size >> 8));
-			*b++ = static_cast<byte>(extra_size);
+			*b++ = static_cast<::byte>(0x80 | (extra_size >> 8));
+			*b++ = static_cast<::byte>(extra_size);
 		}
 
 		rec_convert_dtuple_to_temp(
@@ -887,12 +887,12 @@ row_log_table_low(
 		mrec_size += 1/*old_pk_extra_size*/ + old_pk_size;
 	}
 
-	if (byte* b = row_log_table_open(index->online_log,
+	if (::byte* b = row_log_table_open(index->online_log,
 					 mrec_size, &avail_size)) {
 		*b++ = insert ? ROW_T_INSERT : ROW_T_UPDATE;
 
 		if (old_pk_size) {
-			*b++ = static_cast<byte>(old_pk_extra_size);
+			*b++ = static_cast<::byte>(old_pk_extra_size);
 
 			rec_convert_dtuple_to_temp(
 				b + old_pk_extra_size, new_index,
@@ -901,11 +901,11 @@ row_log_table_low(
 		}
 
 		if (extra_size < 0x80) {
-			*b++ = static_cast<byte>(extra_size);
+			*b++ = static_cast<::byte>(extra_size);
 		} else {
 			ut_ad(extra_size < 0x8000);
-			*b++ = static_cast<byte>(0x80 | (extra_size >> 8));
-			*b++ = static_cast<byte>(extra_size);
+			*b++ = static_cast<::byte>(0x80 | (extra_size >> 8));
+			*b++ = static_cast<::byte>(extra_size);
 		}
 
 		memcpy(b, rec - rec_offs_extra_size(offsets), extra_size);
@@ -984,7 +984,7 @@ row_log_table_get_pk_col(
 	ulint			zip_size,
 	ulint			max_len)
 {
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 
 	ut_ad(ut_is_2pow(zip_size));
@@ -997,7 +997,7 @@ row_log_table_get_pk_col(
 
 	if (rec_offs_nth_extern(offsets, i)) {
 		ulint	field_len = ifield->prefix_len;
-		byte*	blob_field;
+		::byte*	blob_field;
 
 		if (!field_len) {
 			field_len = ifield->fixed_len;
@@ -1006,7 +1006,7 @@ row_log_table_get_pk_col(
 			}
 		}
 
-		blob_field = static_cast<byte*>(
+		blob_field = static_cast<::byte*>(
 			mem_heap_alloc(heap, field_len));
 
 		len = btr_copy_externally_stored_field_prefix(
@@ -1037,7 +1037,7 @@ row_log_table_get_pk(
 	dict_index_t*	index,	/*!< in/out: clustered index, S-latched
 				or X-latched */
 	const ulint*	offsets,/*!< in: rec_get_offsets(rec,index) */
-	byte*		sys,	/*!< out: DB_TRX_ID,DB_ROLL_PTR for
+	::byte*		sys,	/*!< out: DB_TRX_ID,DB_ROLL_PTR for
 				row_log_table_delete(), or NULL */
 	mem_heap_t**	heap)	/*!< in/out: memory heap where allocated */
 {
@@ -1188,7 +1188,7 @@ err_exit:
 			}
 		}
 
-		const byte* trx_roll = rec
+		const ::byte* trx_roll = rec
 			+ row_get_trx_id_offset(index, offsets);
 
 		/* Copy the fields, because the fields will be updated
@@ -1199,7 +1199,7 @@ err_exit:
 			       DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
 			trx_roll = sys;
 		} else {
-			trx_roll = static_cast<const byte*>(
+			trx_roll = static_cast<const ::byte*>(
 				mem_heap_dup(
 					*heap, trx_roll,
 					DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN));
@@ -1371,7 +1371,7 @@ row_log_table_apply_convert_mrec(
 		dfield_t*		dfield
 			= dtuple_get_nth_field(row, col_no);
 		ulint			len;
-		const byte*		data;
+		const ::byte*		data;
 
 		if (rec_offs_nth_extern(offsets, i)) {
 			ut_ad(rec_offs_any_extern(offsets));
@@ -1416,7 +1416,7 @@ blob_done:
 
 			ut_ad(col->len >= len);
 			if (dict_table_is_comp(index->table)) {
-				byte*	buf = (byte*) mem_heap_alloc(heap,
+				::byte*	buf = (::byte*) mem_heap_alloc(heap,
 								     col->len);
 				memcpy(buf, dfield->data, len);
 				memset(buf + len, 0x20, col->len - len);
@@ -1785,10 +1785,10 @@ all_done:
 
 	{
 		ulint		len;
-		const byte*	mrec_trx_id
+		const ::byte*	mrec_trx_id
 			= rec_get_nth_field(mrec, moffsets, trx_id_col, &len);
 		ut_ad(len == DATA_TRX_ID_LEN);
-		const byte*	rec_trx_id
+		const ::byte*	rec_trx_id
 			= rec_get_nth_field(btr_pcur_get_rec(&pcur), offsets,
 					    trx_id_col, &len);
 		ut_ad(len == DATA_TRX_ID_LEN);
@@ -2266,7 +2266,7 @@ row_log_table_apply_op(
 			log->head.total += next_mrec - mrec_start;
 
 			ulint		len;
-			const byte*	db_trx_id
+			const ::byte*	db_trx_id
 				= rec_get_nth_field(
 					mrec, offsets, trx_id_col, &len);
 			ut_ad(len == DATA_TRX_ID_LEN);
@@ -2310,7 +2310,7 @@ row_log_table_apply_op(
 					     mrec + rec_offs_data_size(offsets),
 					     ext_size));
 
-			byte*	ext_start = reinterpret_cast<byte*>(ext);
+			::byte*	ext_start = reinterpret_cast<::byte*>(ext);
 
 			ulint	ext_len = sizeof(*ext)
 				+ (ext->n_ext - 1) * sizeof ext->len;
@@ -2318,7 +2318,7 @@ row_log_table_apply_op(
 			ext->ext = reinterpret_cast<ulint*>(ext_start + ext_len);
 			ext_len += ext->n_ext * sizeof(*ext->ext);
 
-			ext->buf = static_cast<byte*>(ext_start + ext_len);
+			ext->buf = static_cast<::byte*>(ext_start + ext_len);
 		} else {
 			ext = NULL;
 		}
@@ -2461,7 +2461,7 @@ row_log_table_apply_op(
 
 		{
 			ulint		len;
-			const byte*	db_trx_id
+			const ::byte*	db_trx_id
 				= rec_get_nth_field(
 					mrec, offsets, trx_id_col, &len);
 			ut_ad(len == DATA_TRX_ID_LEN);
@@ -3318,7 +3318,7 @@ corrupted:
 		fprintf(stderr, "apply " IB_ID_FMT " " TRX_ID_FMT " %u %u ",
 			index->id, trx_id,
 			unsigned (op), unsigned (has_index_lock));
-		for (const byte* m = mrec - data_size; m < mrec; m++) {
+		for (const ::byte* m = mrec - data_size; m < mrec; m++) {
 			fprintf(stderr, "%02x", *m);
 		}
 		putc('\n', stderr);

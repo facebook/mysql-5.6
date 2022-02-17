@@ -283,7 +283,7 @@ pars_like_rebind(
 /*=============*/
 				/* out, own: function node in a query tree */
 	sym_node_t*	node,	/* in: The search string node.*/
-	const byte*	ptr,	/* in: literal to (re) bind */
+	const ::byte*	ptr,	/* in: literal to (re) bind */
 	ulint		ptr_len)/* in: length of literal to (re) bind*/
 {
 	dtype_t*	dtype;
@@ -335,7 +335,7 @@ pars_like_rebind(
 
 	ut_a(dtype_get_mtype(dtype) == DATA_INT);
 	op_check = static_cast<ib_like_t>(
-		mach_read_from_4(static_cast<byte*>(dfield_get_data(dfield))));
+		mach_read_from_4(static_cast<::byte*>(dfield_get_data(dfield))));
 
 	switch (op_check) {
 	case	IB_LIKE_PREFIX:
@@ -348,7 +348,7 @@ pars_like_rebind(
 		ut_error;
 	}
 
-	mach_write_to_4(static_cast<byte*>(dfield_get_data(dfield)), op);
+	mach_write_to_4(static_cast<::byte*>(dfield_get_data(dfield)), op);
 
 	dfield = que_node_get_val(node);
 
@@ -443,7 +443,7 @@ pars_like_op(
 	if (ptr_len) {
 
 		func = pars_like_rebind(
-			static_cast<sym_node_t*>(arg), (byte*) ptr, ptr_len);
+			static_cast<sym_node_t*>(arg), (::byte*) ptr, ptr_len);
 	}
 
 	return(func);
@@ -920,7 +920,7 @@ pars_select_all_columns(
 				table, i);
 
 			col_node = sym_tab_add_id(pars_sym_tab_global,
-						  (byte*) col_name,
+						  (::byte*) col_name,
 						  ut_strlen(col_name));
 
 			select_node->select_list = que_node_list_add_last(
@@ -1970,7 +1970,7 @@ pars_create_table(
 		dfield = que_node_get_val(block_size);
 
 		ut_a(dfield_get_len(dfield) == 4);
-		size = mach_read_from_4(static_cast<byte*>(
+		size = mach_read_from_4(static_cast<::byte*>(
 			dfield_get_data(dfield)));
 
 
@@ -2423,7 +2423,7 @@ pars_info_bind_varchar_literal(
 /*===========================*/
 	pars_info_t*	info,		/*!< in: info struct */
 	const char*	name,		/*!< in: name */
-	const byte*	str,		/*!< in: string */
+	const ::byte*	str,		/*!< in: string */
 	ulint		str_len)	/*!< in: string length */
 {
 	pars_bound_lit_t*	pbl;
@@ -2459,7 +2459,7 @@ pars_info_add_int4_literal(
 	const char*	name,		/*!< in: name */
 	lint		val)		/*!< in: value */
 {
-	byte*	buf = static_cast<byte*>(mem_heap_alloc(info->heap, 4));
+	::byte*	buf = static_cast<::byte*>(mem_heap_alloc(info->heap, 4));
 
 	mach_write_to_4(buf, val);
 	pars_info_add_literal(info, name, buf, 4, DATA_INT, 0);
@@ -2535,7 +2535,7 @@ pars_info_add_ull_literal(
 	const char*	name,		/*!< in: name */
 	ib_uint64_t	val)		/*!< in: value */
 {
-	byte*	buf = static_cast<byte*>(mem_heap_alloc(info->heap, 8));
+	::byte*	buf = static_cast<::byte*>(mem_heap_alloc(info->heap, 8));
 
 	mach_write_to_8(buf, val);
 

@@ -51,8 +51,8 @@ _event_strlcpy(dst, src, siz)
 	const char *src;
 	size_t siz;
 {
-	register char *d = dst;
-	register const char *s = src;
+	char *d = dst;
+	const char *s = src;
 	register size_t n = siz;
 
 	/* Copy as many bytes as will fit */

@@ -36,9 +36,9 @@ flags to tell this (their type is made byte for the compiler
 to warn if direction and hint parameters are switched in
 fseg_alloc_free_page) */
 /* @{ */
-#define	FSP_UP		((byte)111)	/*!< alphabetically upwards */
-#define	FSP_DOWN	((byte)112)	/*!< alphabetically downwards */
-#define	FSP_NO_DIR	((byte)113)	/*!< no order */
+#define	FSP_UP		((::byte)111)	/*!< alphabetically upwards */
+#define	FSP_DOWN	((::byte)112)	/*!< alphabetically downwards */
+#define	FSP_NO_DIR	((::byte)113)	/*!< no order */
 /* @} */
 
 /** File space extent size in pages
@@ -70,7 +70,7 @@ offset */
 The file segment header points to the inode describing the file segment. */
 /* @{ */
 /** Data type for file segment header */
-typedef	byte	fseg_header_t;
+typedef	::byte	fseg_header_t;
 
 #define FSEG_HDR_SPACE		0	/*!< space id of the inode */
 #define FSEG_HDR_PAGE_NO	4	/*!< page number of the inode */

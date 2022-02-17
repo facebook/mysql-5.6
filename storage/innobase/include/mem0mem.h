@@ -184,7 +184,7 @@ mem_heap_alloc(
 Returns a pointer to the heap top.
 @return	pointer to the heap top */
 UNIV_INLINE
-byte*
+::byte*
 mem_heap_get_heap_top(
 /*==================*/
 	mem_heap_t*	heap);	/*!< in: memory heap */
@@ -197,7 +197,7 @@ void
 mem_heap_free_heap_top(
 /*===================*/
 	mem_heap_t*	heap,	/*!< in: heap from which to free */
-	byte*		old_top);/*!< in: pointer to old top of heap */
+	::byte*		old_top);/*!< in: pointer to old top of heap */
 /*****************************************************************//**
 Empties a memory heap. The first memory block of the heap is not freed. */
 UNIV_INLINE

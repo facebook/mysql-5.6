@@ -325,12 +325,12 @@ page_cur_open_on_rnd_user_rec(
 Parses a log record of a record insert on a page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_cur_parse_insert_rec(
 /*======================*/
 	ibool		is_short,/*!< in: TRUE if short inserts */
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in: page or NULL */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr);	/*!< in: mtr or NULL */
@@ -338,11 +338,11 @@ page_cur_parse_insert_rec(
 Parses a log record of copying a record list end to a new created page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_parse_copy_rec_list_to_created_page(
 /*=====================================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in: page or NULL */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr);	/*!< in: mtr or NULL */
@@ -350,11 +350,11 @@ page_parse_copy_rec_list_to_created_page(
 Parses log record of a record delete on a page.
 @return	pointer to record end or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_cur_parse_delete_rec(
 /*======================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in: page or NULL */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr);	/*!< in: mtr or NULL */
@@ -376,7 +376,7 @@ page_delete_rec(
 /** Index page cursor */
 
 struct page_cur_t{
-	byte*		rec;	/*!< pointer to a record on page */
+	::byte*		rec;	/*!< pointer to a record on page */
 	buf_block_t*	block;	/*!< pointer to the block containing rec */
 };
 

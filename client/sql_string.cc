@@ -511,8 +511,8 @@ int String::strstr(const String &s,uint32 offset)
     if (!s.length())
       return ((int) offset);	// Empty string is always found
 
-    register const char *str = Ptr+offset;
-    register const char *search=s.ptr();
+    const char *str = Ptr+offset;
+    const char *search=s.ptr();
     const char *end=Ptr+str_length-s.length()+1;
     const char *search_end=s.ptr()+s.length();
 skip:
@@ -520,7 +520,7 @@ skip:
     {
       if (*str++ == *search)
       {
-	register char *i,*j;
+	char *i,*j;
 	i=(char*) str; j=(char*) search+1;
 	while (j != search_end)
 	  if (*i++ != *j++) goto skip;
@@ -541,8 +541,8 @@ int String::strrstr(const String &s,uint32 offset)
   {
     if (!s.length())
       return offset;				// Empty string is always found
-    register const char *str = Ptr+offset-1;
-    register const char *search=s.ptr()+s.length()-1;
+    const char *str = Ptr+offset-1;
+    const char *search=s.ptr()+s.length()-1;
 
     const char *end=Ptr+s.length()-2;
     const char *search_end=s.ptr()-1;
@@ -551,7 +551,7 @@ skip:
     {
       if (*str-- == *search)
       {
-	register char *i,*j;
+	char *i,*j;
 	i=(char*) str; j=(char*) search-1;
 	while (j != search_end)
 	  if (*i-- != *j--) goto skip;

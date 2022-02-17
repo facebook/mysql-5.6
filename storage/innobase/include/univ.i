@@ -423,7 +423,7 @@ mysql_com.h if you are to use this macro. */
 */
 
 /* Note that inside MySQL 'byte' is defined as char on Linux! */
-#define byte			unsigned char
+using byte = unsigned char;
 
 /* Another basic type we use is unsigned long integer which should be equal to
 the word size of the machine, that is on a 32-bit platform 32 bits, and on a

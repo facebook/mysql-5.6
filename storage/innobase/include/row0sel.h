@@ -127,7 +127,7 @@ row_sel_convert_mysql_key_to_innobase(
 					NOTE: we assume that the type info
 					in the tuple is already according
 					to index! */
-	byte*		buf,		/*!< in: buffer to use in field
+	::byte*		buf,		/*!< in: buffer to use in field
 					conversions; NOTE that dtuple->data
 					may end up pointing inside buf so
 					do not discard that buffer while
@@ -136,7 +136,7 @@ row_sel_convert_mysql_key_to_innobase(
 					in the case of DATA_INT */
 	ulint		buf_len,	/*!< in: buffer length */
 	dict_index_t*	index,		/*!< in: index of the key value */
-	const byte*	key_ptr,	/*!< in: MySQL key value */
+	const ::byte*	key_ptr,	/*!< in: MySQL key value */
 	ulint		key_len,	/*!< in: MySQL key value length */
 	trx_t*		trx);		/*!< in: transaction */
 /********************************************************************//**
@@ -151,7 +151,7 @@ UNIV_INTERN
 dberr_t
 row_search_for_mysql(
 /*=================*/
-	byte*		buf,		/*!< in/out: buffer for the fetched
+	::byte*		buf,		/*!< in/out: buffer for the fetched
 					row in the MySQL format */
 	ulint		mode,		/*!< in: search mode PAGE_CUR_L, ... */
 	row_prebuilt_t*	prebuilt,	/*!< in: prebuilt struct for the
@@ -194,7 +194,7 @@ row_search_max_autoinc(
 
 /** A structure for caching column values for prefetched rows */
 struct sel_buf_t{
-	byte*		data;	/*!< data, or NULL; if not NULL, this field
+	::byte*		data;	/*!< data, or NULL; if not NULL, this field
 				has allocated memory which must be explicitly
 				freed; can be != NULL even when len is
 				UNIV_SQL_NULL */

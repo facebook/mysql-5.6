@@ -976,12 +976,12 @@ err:
 	/* Pack a record. Return new reclength */
 
 uint _mi_rec_pack(MI_INFO *info, register uchar *to,
-                  register const uchar *from)
+                  const uchar *from)
 {
   uint		length,new_length,flag,bit,i;
   uchar		*pos,*end,*startpos,*packpos;
   enum en_fieldtype type;
-  reg3 MI_COLUMNDEF *rec;
+  MI_COLUMNDEF *rec;
   MI_BLOB	*blob;
   DBUG_ENTER("_mi_rec_pack");
 
@@ -1107,7 +1107,7 @@ my_bool _mi_rec_check(MI_INFO *info,const uchar *record, uchar *rec_buff,
   uint		length,new_length,flag,bit,i;
   uchar		*pos,*end,*packpos,*to;
   enum en_fieldtype type;
-  reg3 MI_COLUMNDEF *rec;
+  MI_COLUMNDEF *rec;
   DBUG_ENTER("_mi_rec_check");
 
   packpos=rec_buff; to= rec_buff+info->s->base.pack_bits;
@@ -1231,7 +1231,7 @@ ulong _mi_rec_unpack(register MI_INFO *info, register uchar *to, uchar *from,
   uint flag,bit,length,rec_length,min_pack_length;
   enum en_fieldtype type;
   uchar *from_end,*to_end,*packpos;
-  reg3 MI_COLUMNDEF *rec,*end_field;
+  MI_COLUMNDEF *rec,*end_field;
   DBUG_ENTER("_mi_rec_unpack");
 
   to_end=to + info->s->base.reclength;
@@ -1579,7 +1579,7 @@ int _mi_cmp_dynamic_unique(MI_INFO *info, MI_UNIQUEDEF *def,
 
 	/* Compare of record one disk with packed record in memory */
 
-int _mi_cmp_dynamic_record(register MI_INFO *info, register const uchar *record)
+int _mi_cmp_dynamic_record(register MI_INFO *info, const uchar *record)
 {
   uint flag,reclength,b_type;
   my_off_t filepos;

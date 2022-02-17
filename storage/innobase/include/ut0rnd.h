@@ -136,7 +136,7 @@ UNIV_INLINE
 ulint
 ut_fold_binary(
 /*===========*/
-	const byte*	str,	/*!< in: string of bytes */
+	const ::byte*	str,	/*!< in: string of bytes */
 	ulint		len)	/*!< in: length */
 	MY_ATTRIBUTE((pure));
 

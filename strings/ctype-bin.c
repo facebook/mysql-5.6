@@ -433,7 +433,7 @@ uint my_instr_bin(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
 		  const char *s, size_t s_length,
 		  my_match_t *match, uint nmatch)
 {
-  register const uchar *str, *search, *end, *search_end;
+  const uchar *str, *search, *end, *search_end;
 
   if (s_length <= b_length)
   {
@@ -458,7 +458,7 @@ skip:
     {
       if ( (*str++) == (*search))
       {
-	register const uchar *i,*j;
+	const uchar *i,*j;
 
 	i= str;
 	j= search+1;

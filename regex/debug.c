@@ -20,9 +20,9 @@ my_regex_t *r;
 FILE *d;
 {
 	register struct re_guts *g = r->re_g;
-	register int i;
-	register int c;
-	register int last;
+	int i;
+	int c;
+	int last;
 	int nincat[NC];
 	char buf[10];
 
@@ -96,11 +96,11 @@ FILE *d;
 {
 	register sop *s;
 	register cset *cs;
-	register int i;
-	register int done = 0;
+	int i;
+	int done = 0;
 	register sop opnd;
-	register int col = 0;
-	register int last;
+	int col = 0;
+	int last;
 	register sopno offset = 2;
 	char buf[10];
 #	define	GAP()	{	if (offset % 5 == 0) { \

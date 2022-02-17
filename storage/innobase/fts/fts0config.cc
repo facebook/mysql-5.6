@@ -97,7 +97,7 @@ fts_config_get_value(
 	/* The len field of value must be set to the max bytes that
 	it can hold. On a successful read, the len field will be set
 	to the actual number of bytes copied to value. */
-	pars_info_bind_varchar_literal(info, "name", (byte*) name, name_len);
+	pars_info_bind_varchar_literal(info, "name", (::byte*) name, name_len);
 
 	fts_table->suffix = "CONFIG";
 
@@ -215,7 +215,7 @@ fts_config_set_value(
 
 	info = pars_info_create();
 
-	pars_info_bind_varchar_literal(info, "name", (byte*) name, name_len);
+	pars_info_bind_varchar_literal(info, "name", (::byte*) name, name_len);
 	pars_info_bind_varchar_literal(info, "value",
 				       value->f_str, value->f_len);
 
@@ -240,7 +240,7 @@ fts_config_set_value(
 		info = pars_info_create();
 
 		pars_info_bind_varchar_literal(
-			info, "name", (byte*) name, name_len);
+			info, "name", (::byte*) name, name_len);
 
 		pars_info_bind_varchar_literal(
 			info, "value", value->f_str, value->f_len);
@@ -309,7 +309,7 @@ fts_config_get_index_ulint(
 	/* We set the length of value to the max bytes it can hold. This
 	information is used by the callback that reads the value.*/
 	value.f_len = FTS_MAX_CONFIG_VALUE_LEN;
-	value.f_str = static_cast<byte*>(ut_malloc(value.f_len + 1));
+	value.f_str = static_cast<::byte*>(ut_malloc(value.f_len + 1));
 
 	error = fts_config_get_index_value(trx, index, name, &value);
 
@@ -345,7 +345,7 @@ fts_config_set_index_ulint(
 	/* We set the length of value to the max bytes it can hold. This
 	information is used by the callback that reads the value.*/
 	value.f_len = FTS_MAX_CONFIG_VALUE_LEN;
-	value.f_str = static_cast<byte*>(ut_malloc(value.f_len + 1));
+	value.f_str = static_cast<::byte*>(ut_malloc(value.f_len + 1));
 
 	// FIXME: Get rid of snprintf
 	ut_a(FTS_MAX_INT_LEN < FTS_MAX_CONFIG_VALUE_LEN);
@@ -386,7 +386,7 @@ fts_config_get_ulint(
 	/* We set the length of value to the max bytes it can hold. This
 	information is used by the callback that reads the value.*/
 	value.f_len = FTS_MAX_CONFIG_VALUE_LEN;
-	value.f_str = static_cast<byte*>(ut_malloc(value.f_len + 1));
+	value.f_str = static_cast<::byte*>(ut_malloc(value.f_len + 1));
 
 	error = fts_config_get_value(trx, fts_table, name, &value);
 
@@ -423,7 +423,7 @@ fts_config_set_ulint(
 	/* We set the length of value to the max bytes it can hold. This
 	information is used by the callback that reads the value.*/
 	value.f_len = FTS_MAX_CONFIG_VALUE_LEN;
-	value.f_str = static_cast<byte*>(ut_malloc(value.f_len + 1));
+	value.f_str = static_cast<::byte*>(ut_malloc(value.f_len + 1));
 
 	// FIXME: Get rid of snprintf
 	ut_a(FTS_MAX_INT_LEN < FTS_MAX_CONFIG_VALUE_LEN);
@@ -469,11 +469,11 @@ fts_config_increment_value(
 	/* We set the length of value to the max bytes it can hold. This
 	information is used by the callback that reads the value.*/
 	value.f_len = FTS_MAX_CONFIG_VALUE_LEN;
-	value.f_str = static_cast<byte*>(ut_malloc(value.f_len + 1));
+	value.f_str = static_cast<::byte*>(ut_malloc(value.f_len + 1));
 
 	*value.f_str = '\0';
 
-	pars_info_bind_varchar_literal(info, "name", (byte*) name, name_len);
+	pars_info_bind_varchar_literal(info, "name", (::byte*) name, name_len);
 
 	pars_info_bind_function(
 		info, "my_func", fts_config_fetch_value, &value);

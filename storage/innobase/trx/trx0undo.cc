@@ -364,11 +364,11 @@ trx_undo_page_init_log(
 Parses the redo log entry of an undo log page initialization.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 trx_undo_parse_page_init(
 /*=====================*/
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
 	page_t*	page,	/*!< in: page or NULL */
 	mtr_t*	mtr)	/*!< in: mtr or NULL */
 {
@@ -626,7 +626,7 @@ trx_undo_write_xid(
 	mlog_write_ulint(log_hdr + TRX_UNDO_XA_BQUAL_LEN,
 			 (ulint) xid->bqual_length, MLOG_4BYTES, mtr);
 
-	mlog_write_string(log_hdr + TRX_UNDO_XA_XID, (const byte*) xid->data,
+	mlog_write_string(log_hdr + TRX_UNDO_XA_XID, (const ::byte*) xid->data,
 			  XIDDATASIZE, mtr);
 }
 
@@ -709,12 +709,12 @@ trx_undo_insert_header_reuse_log(
 Parses the redo log entry of an undo log page header create or reuse.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 trx_undo_parse_page_header(
 /*=======================*/
 	ulint	type,	/*!< in: MLOG_UNDO_HDR_CREATE or MLOG_UNDO_HDR_REUSE */
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
 	page_t*	page,	/*!< in: page or NULL */
 	mtr_t*	mtr)	/*!< in: mtr or NULL */
 {
@@ -825,11 +825,11 @@ trx_undo_discard_latest_log(
 Parses the redo log entry of an undo log page header discard.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 trx_undo_parse_discard_latest(
 /*==========================*/
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr MY_ATTRIBUTE((unused)), /*!< in: buffer end */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr MY_ATTRIBUTE((unused)), /*!< in: buffer end */
 	page_t*	page,	/*!< in: page or NULL */
 	mtr_t*	mtr)	/*!< in: mtr or NULL */
 {

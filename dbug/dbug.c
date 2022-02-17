@@ -2206,7 +2206,7 @@ static void DbugExit(const char *why)
 
 static char *DbugMalloc(size_t size)
 {
-  register char *new_malloc;
+  char *new_malloc;
 
   if (!(new_malloc= (char*) malloc(size)))
     DbugExit("out of memory");
@@ -2247,7 +2247,7 @@ static const char *DbugStrTok(const char *s)
 
 static const char *BaseName(const char *pathname)
 {
-  register const char *base;
+  const char *base;
 
   base= strrchr(pathname, FN_LIBCHAR);
   if (base++ == NullS)

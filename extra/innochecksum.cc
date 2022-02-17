@@ -175,7 +175,7 @@ get_page_size(
 /*==========*/
   FILE*  f,                     /*!< in: file pointer, must be open
                                          and set to start of file */
-  byte* buf,                    /*!< in: buffer used to read the page */
+  ::byte* buf,                    /*!< in: buffer used to read the page */
   ulong* logical_page_size,     /*!< out: Logical/Uncompressed page size */
   ulong* physical_page_size,    /*!< out: Physical/Commpressed page size */
   bool* compressed,             /*!< out: whether the tablespace is

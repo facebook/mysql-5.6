@@ -196,7 +196,7 @@ ibool
 recv_check_cp_is_consistent(
 /*========================*/
 				/* out: TRUE if ok */
-	const byte*	buf);	/*!< in: buffer containing checkpoint info */
+	const ::byte*	buf);	/*!< in: buffer containing checkpoint info */
 
 dberr_t
 open_or_create_data_files(
@@ -221,7 +221,7 @@ recv_find_max_checkpoint(
 ibool
 log_block_checksum_is_ok_or_old_format(
 /*===================================*/
-	const byte*	block);	/*!< in: pointer to a log block */
+	const ::byte*	block);	/*!< in: pointer to a log block */
 
 int
 os_file_set_nocache(
@@ -2044,7 +2044,7 @@ static
 ibool
 xb_buf_page_is_corrupted(
 /*==================*/
-	byte*		read_buf,	/*!< in: a database page */
+	::byte*		read_buf,	/*!< in: a database page */
 	ulint		zip_size)	/*!< in: size of compressed page;
 					0 for uncompressed pages */
 {
@@ -2093,14 +2093,14 @@ xtrabackup_copy_datafile(fil_node_t* node, uint thread_n, ds_ctxt_t *ds_ctxt)
 	char		dst_name[FN_REFLEN];
 	char		meta_name[FN_REFLEN];
 	ibool		success;
-	byte*		page;
-	byte*		buf2 = NULL;
+	::byte*		page;
+	::byte*		buf2 = NULL;
 	IB_UINT64	file_size;
 	IB_UINT64	offset;
 	ulint		page_in_buffer;
 	ulint		incremental_buffers = 0;
-	byte*		incremental_buffer = NULL;
-	byte*		incremental_buffer_base = NULL;
+	::byte*		incremental_buffer = NULL;
+	::byte*		incremental_buffer_base = NULL;
 	ulint		page_size;
 	ulint		page_size_shift;
 	xb_delta_info_t info;
@@ -2470,7 +2470,7 @@ xtrabackup_copy_logfile(lsn_t from_lsn, my_bool is_last)
 
 		/* reference recv_scan_log_recs() */
 		{
-	byte*	log_block;
+	::byte*	log_block;
 	lsn_t	scanned_lsn;
 	ulint	data_len;
 
@@ -3419,9 +3419,9 @@ xtrabackup_backup_func(void)
 	/* definition from recv_recovery_from_checkpoint_start() */
 	log_group_t*	max_cp_group;
 	ulint		max_cp_field;
-	byte*		buf;
-	byte*		log_hdr_buf_;
-	byte*		log_hdr_buf;
+	::byte*		buf;
+	::byte*		log_hdr_buf_;
+	::byte*		log_hdr_buf;
 	ulint		err;
 
 	/* start back ground thread to copy newer log */
@@ -3873,11 +3873,11 @@ loop:
 					ulint	space_id;
 					ulint	page_no;
 					ulint	offset;
-					byte*	blob_header;
+					::byte*	blob_header;
 					ulint	part_len;
 					mtr_t	local_mtr;
 					ulint	local_len;
-					byte*	data;
+					::byte*	data;
 					buf_block_t*	local_block;
 
 					data = rec_get_nth_field(cur.rec, local_offsets, i, &local_len);
@@ -4043,7 +4043,7 @@ xtrabackup_stats_func(void)
 	dict_table_t*	table;
 	btr_pcur_t	pcur;
 	rec_t*		rec;
-	byte*		field;
+	::byte*		field;
 	ulint		len;
 	mtr_t		mtr;
 	
@@ -4197,7 +4197,7 @@ version differences.
 static ibool
 xb_recv_check_cp_is_consistent(
 /*===========================*/
-	const byte*	buf)	/*!<in: buffer containing checkpoint info */
+	const ::byte*	buf)	/*!<in: buffer containing checkpoint info */
 {
 	return recv_check_cp_is_consistent(buf);
 }
@@ -4211,8 +4211,8 @@ xtrabackup_init_temp_log(void)
 	ibool	success;
 
 	ulint	field;
-	byte*	log_buf;
-	byte*	log_buf_ = NULL;
+	::byte*	log_buf;
+	::byte*	log_buf_ = NULL;
 
 	IB_INT64	file_size;
 
@@ -4276,7 +4276,7 @@ retry:
 		}
 
 		if ( ut_memcmp(log_buf + LOG_FILE_WAS_CREATED_BY_HOT_BACKUP,
-				(byte*)"xtrabkup", (sizeof "xtrabkup") - 1) == 0) {
+				(::byte*)"xtrabkup", (sizeof "xtrabkup") - 1) == 0) {
 			msg("  xtrabackup: 'ib_logfile0' seems to be "
 			    "'xtrabackup_logfile'. will retry.\n");
 
@@ -4328,7 +4328,7 @@ retry:
 	}
 
 	if ( ut_memcmp(log_buf + LOG_FILE_WAS_CREATED_BY_HOT_BACKUP,
-			(byte*)"xtrabkup", (sizeof "xtrabkup") - 1) != 0 ) {
+			(::byte*)"xtrabkup", (sizeof "xtrabkup") - 1) != 0 ) {
 		msg("xtrabackup: notice: xtrabackup_logfile was already used "
 		    "to '--prepare'.\n");
 		goto skip_modify;
@@ -4341,7 +4341,7 @@ retry:
 	/* read last checkpoint lsn */
 	for (field = LOG_CHECKPOINT_1; field <= LOG_CHECKPOINT_2;
 			field += LOG_CHECKPOINT_2 - LOG_CHECKPOINT_1) {
-		if (!xb_recv_check_cp_is_consistent(const_cast<const byte *>
+		if (!xb_recv_check_cp_is_consistent(const_cast<const ::byte *>
 						    (log_buf + field)))
 			goto not_consistent;
 
@@ -4555,8 +4555,8 @@ xb_delta_create_space_file(
 	os_file_t*	file)		/*!<out: file handle */
 {
 	ibool		ret;
-	byte*		buf;
-	byte*		page;
+	::byte*		buf;
+	::byte*		page;
 
 	*file = xb_file_create_no_error_handling(path, OS_FILE_CREATE,
 						 OS_FILE_READ_WRITE, &ret);
@@ -4808,8 +4808,8 @@ xtrabackup_apply_delta(
 	xb_delta_info_t info;
 	ulint		page_size;
 	ulint		page_size_shift;
-	byte*		incremental_buffer_base = NULL;
-	byte*		incremental_buffer;
+	::byte*		incremental_buffer_base = NULL;
+	::byte*		incremental_buffer;
 
 	ut_a(xtrabackup_incremental);
 
@@ -5116,8 +5116,8 @@ xtrabackup_close_temp_log(my_bool clear_flag)
 	char	dst_path[FN_REFLEN];
 	ibool	success;
 
-	byte*	log_buf;
-	byte*	log_buf_ = NULL;
+	::byte*	log_buf;
+	::byte*	log_buf_ = NULL;
 
 
 	if (!xtrabackup_logfile_is_renamed)
@@ -5329,7 +5329,7 @@ skip_check:
 	space = UT_LIST_GET_FIRST(f_system->space_list);
 
 	while (space != NULL) {
-		byte*	header;
+		::byte*	header;
 		ulint	size;
 		ulint	actual_size;
 		mtr_t	mtr;
@@ -5377,8 +5377,8 @@ skip_check:
 			ibool		success;
 			char		table_name[FN_REFLEN];
 
-			byte*		page;
-			byte*		buf = NULL;
+			::byte*		page;
+			::byte*		buf = NULL;
 
 			buf = static_cast<byte *>
 				(ut_malloc(UNIV_PAGE_SIZE * 2));

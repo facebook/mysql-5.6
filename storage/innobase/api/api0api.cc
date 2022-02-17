@@ -418,7 +418,7 @@ ib_read_tuple(
 
 	for (i = 0; i < n_index_fields; ++i) {
 		ulint		len;
-		const byte*	data;
+		const ::byte*	data;
 		dfield_t*	dfield;
 
 		if (tuple->type == TPL_TYPE_ROW) {
@@ -1964,7 +1964,7 @@ ib_cursor_delete_row(
 		ib_bool_t	page_format;
 		mtr_t		mtr;
 		rec_t*		copy = NULL;
-	        byte		ptr[UNIV_PAGE_SIZE_MAX];
+	        ::byte		ptr[UNIV_PAGE_SIZE_MAX];
 
 		page_format = static_cast<ib_bool_t>(
 			dict_table_is_comp(index->table));
@@ -2146,7 +2146,7 @@ ib_cursor_next(
         ib_err_t	err;
         ib_cursor_t*    cursor = (ib_cursor_t*) ib_crsr;
         row_prebuilt_t* prebuilt = cursor->prebuilt;
-	byte		buf[UNIV_PAGE_SIZE_MAX];
+	::byte		buf[UNIV_PAGE_SIZE_MAX];
 
         /* We want to move to the next record */
         dtuple_set_n_fields(prebuilt->search_tuple, 0);
@@ -2321,8 +2321,8 @@ ib_col_set_value(
 			ibool		usign;
 
 			usign = dtype_get_prtype(dtype) & DATA_UNSIGNED;
-			mach_write_int_type(static_cast<byte*>(dst),
-					    static_cast<const byte*>(src),
+			mach_write_int_type(static_cast<::byte*>(dst),
+					    static_cast<const ::byte*>(src),
 					    len, usign);
 
 		} else {
@@ -2333,7 +2333,7 @@ ib_col_set_value(
 
 	case DATA_FLOAT:
 		if (len == sizeof(float)) {
-			mach_float_write(static_cast<byte*>(dst), *(float*)src);
+			mach_float_write(static_cast<::byte*>(dst), *(float*)src);
 		} else {
 			return(DB_DATA_MISMATCH);
 		}
@@ -2341,7 +2341,7 @@ ib_col_set_value(
 
 	case DATA_DOUBLE:
 		if (len == sizeof(double)) {
-			mach_double_write(static_cast<byte*>(dst),
+			mach_double_write(static_cast<::byte*>(dst),
 					  *(double*)src);
 		} else {
 			return(DB_DATA_MISMATCH);
@@ -2360,7 +2360,7 @@ ib_col_set_value(
 
 		ut_a(pad_char != ULINT_UNDEFINED);
 
-		memset((byte*) dst + len,
+		memset((::byte*) dst + len,
 		       static_cast<int>(pad_char),
 			   static_cast<size_t>(col_len - len));
 
@@ -2522,7 +2522,7 @@ ib_col_copy_value_low(
 			ut_a(data_len == len);
 
 			usign = dtype_get_prtype(dtype) & DATA_UNSIGNED;
-			ret = mach_read_int_type(static_cast<const byte*>(data),
+			ret = mach_read_int_type(static_cast<const ::byte*>(data),
 						 data_len, usign);
 
 			if (usign) {
@@ -2554,7 +2554,7 @@ ib_col_copy_value_low(
 				float	f;
 
 				ut_a(data_len == sizeof(f));
-				f = mach_float_read(static_cast<const byte*>(
+				f = mach_float_read(static_cast<const ::byte*>(
 					data));
 				memcpy(dst, &f, sizeof(f));
 			} else {
@@ -2566,7 +2566,7 @@ ib_col_copy_value_low(
 				double	d;
 
 				ut_a(data_len == sizeof(d));
-				d = mach_double_read(static_cast<const byte*>(
+				d = mach_double_read(static_cast<const ::byte*>(
 					data));
 				memcpy(dst, &d, sizeof(d));
 			} else {

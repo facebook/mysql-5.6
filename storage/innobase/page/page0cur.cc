@@ -207,7 +207,7 @@ page_cur_rec_field_extends(
 {
 	const dtype_t*	type;
 	const dfield_t*	dfield;
-	const byte*	rec_f;
+	const ::byte*	rec_f;
 	ulint		rec_f_len;
 
 	ut_ad(rec_offs_validate(rec, NULL, offsets));
@@ -582,9 +582,9 @@ page_cur_insert_rec_write_log(
 	ulint	cur_rec_size;
 	ulint	extra_size;
 	ulint	cur_extra_size;
-	const byte* ins_ptr;
-	byte*	log_ptr;
-	const byte* log_end;
+	const ::byte* ins_ptr;
+	::byte*	log_ptr;
+	const ::byte* log_end;
 	ulint	i;
 
 	ut_a(rec_size < UNIV_PAGE_SIZE);
@@ -625,7 +625,7 @@ page_cur_insert_rec_write_log(
 	if (cur_extra_size == extra_size) {
 		ulint		min_rec_size = ut_min(cur_rec_size, rec_size);
 
-		const byte*	cur_ptr = cursor_rec - cur_extra_size;
+		const ::byte*	cur_ptr = cursor_rec - cur_extra_size;
 
 		/* Find out the first byte in insert_rec which differs from
 		cursor_rec; skip the bytes in the record info */
@@ -755,12 +755,12 @@ need_extra_info:
 Parses a log record of a record insert on a page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_cur_parse_insert_rec(
 /*======================*/
 	ibool		is_short,/*!< in: TRUE if short inserts */
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in: page or NULL */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr)	/*!< in: mtr or NULL */
@@ -770,9 +770,9 @@ page_cur_parse_insert_rec(
 	ulint	mismatch_index;
 	page_t*	page;
 	rec_t*	cursor_rec;
-	byte	buf1[1024];
-	byte*	buf;
-	byte*	ptr2			= ptr;
+	::byte	buf1[1024];
+	::byte*	buf;
+	::byte*	ptr2			= ptr;
 	ulint	info_and_status_bits = 0; /* remove warning */
 	page_cur_t	cursor;
 	mem_heap_t*	heap		= NULL;
@@ -881,7 +881,7 @@ page_cur_parse_insert_rec(
 	if (mismatch_index + end_seg_len < sizeof buf1) {
 		buf = buf1;
 	} else {
-		buf = static_cast<byte*>(
+		buf = static_cast<::byte*>(
 			mem_alloc(mismatch_index + end_seg_len));
 	}
 
@@ -959,7 +959,7 @@ page_cur_insert_rec_low(
 	ulint*		offsets,/*!< in/out: rec_get_offsets(rec, index) */
 	mtr_t*		mtr)	/*!< in: mini-transaction handle, or NULL */
 {
-	byte*		insert_buf;
+	::byte*		insert_buf;
 	ulint		rec_size;
 	page_t*		page;		/*!< the relevant page */
 	rec_t*		last_insert;	/*!< cursor position at previous
@@ -1183,7 +1183,7 @@ page_cur_insert_rec_zip(
 	ulint*		offsets,/*!< in/out: rec_get_offsets(rec, index) */
 	mtr_t*		mtr)	/*!< in: mini-transaction handle, or NULL */
 {
-	byte*		insert_buf;
+	::byte*		insert_buf;
 	ulint		rec_size;
 	page_t*		page;		/*!< the relevant page */
 	rec_t*		last_insert;	/*!< cursor position at previous
@@ -1640,14 +1640,14 @@ Writes a log record of copying a record list end to a new created page.
 @return 4-byte field where to write the log data length, or NULL if
 logging is disabled */
 UNIV_INLINE
-byte*
+::byte*
 page_copy_rec_list_to_created_page_write_log(
 /*=========================================*/
 	page_t*		page,	/*!< in: index page */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr)	/*!< in: mtr */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 
 	ut_ad(!!page_is_comp(page) == dict_table_is_comp(index->table));
 
@@ -1667,16 +1667,16 @@ page_copy_rec_list_to_created_page_write_log(
 Parses a log record of copying a record list end to a new created page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_parse_copy_rec_list_to_created_page(
 /*=====================================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in: page or NULL */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr)	/*!< in: mtr or NULL */
 {
-	byte*		rec_end;
+	::byte*		rec_end;
 	ulint		log_data_len;
 	page_t*		page;
 	page_zip_des_t*	page_zip;
@@ -1738,7 +1738,7 @@ page_copy_rec_list_end_to_created_page(
 	mtr_t*		mtr)		/*!< in: mtr */
 {
 	page_dir_slot_t* slot = 0; /* remove warning */
-	byte*	heap_top;
+	::byte*	heap_top;
 	rec_t*	insert_rec = 0; /* remove warning */
 	rec_t*	prev_rec;
 	ulint	count;
@@ -1746,7 +1746,7 @@ page_copy_rec_list_end_to_created_page(
 	ulint	slot_index;
 	ulint	rec_size;
 	ulint	log_mode;
-	byte*	log_ptr;
+	::byte*	log_ptr;
 	ulint	log_data_len;
 	mem_heap_t*	heap		= NULL;
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
@@ -1911,7 +1911,7 @@ page_cur_delete_rec_write_log(
 	const dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*			mtr)	/*!< in: mini-transaction handle */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 
 	ut_ad(!!page_rec_is_comp(rec) == dict_table_is_comp(index->table));
 
@@ -1939,11 +1939,11 @@ page_cur_delete_rec_write_log(
 Parses log record of a record delete on a page.
 @return	pointer to record end or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_cur_parse_delete_rec(
 /*======================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in: page or NULL */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr)	/*!< in: mtr or NULL */

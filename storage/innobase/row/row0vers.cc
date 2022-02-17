@@ -530,7 +530,7 @@ row_vers_build_for_consistent_read(
 	rec_t*		prev_version;
 	trx_id_t	trx_id;
 	mem_heap_t*	heap		= NULL;
-	byte*		buf;
+	::byte*		buf;
 	dberr_t		err;
 
 	ut_ad(dict_index_is_clust(index));
@@ -597,7 +597,7 @@ row_vers_build_for_consistent_read(
 					     version, *offsets));
 #endif /* UNIV_DEBUG || UNIV_BLOB_LIGHT_DEBUG */
 
-				buf = static_cast<byte*>(mem_heap_alloc(
+				buf = static_cast<::byte*>(mem_heap_alloc(
 					in_heap, rec_offs_size(*offsets)));
 
 				*old_vers = rec_copy(buf, version, *offsets);
@@ -636,7 +636,7 @@ row_vers_build_for_consistent_read(
 			/* The view already sees this version: we can copy
 			it to in_heap and return */
 
-			buf = static_cast<byte*>(
+			buf = static_cast<::byte*>(
 				mem_heap_alloc(
 					in_heap, rec_offs_size(*offsets)));
 
@@ -680,7 +680,7 @@ row_vers_build_for_semi_consistent_read(
 {
 	const rec_t*	version;
 	mem_heap_t*	heap		= NULL;
-	byte*		buf;
+	::byte*		buf;
 	trx_id_t	rec_trx_id	= 0;
 
 	ut_ad(dict_index_is_clust(index));
@@ -750,7 +750,7 @@ committed_version_trx:
 							   offset_heap);
 			}
 
-			buf = static_cast<byte*>(
+			buf = static_cast<::byte*>(
 				mem_heap_alloc(
 					in_heap, rec_offs_size(*offsets)));
 

@@ -67,7 +67,7 @@ sym_node_t*
 sym_tab_add_str_lit(
 /*================*/
 	sym_tab_t*	sym_tab,	/*!< in: symbol table */
-	const byte*	str,		/*!< in: string with no quotes around
+	const ::byte*	str,		/*!< in: string with no quotes around
 					it */
 	ulint		len);		/*!< in: string length */
 /******************************************************************//**
@@ -106,7 +106,7 @@ sym_node_t*
 sym_tab_add_id(
 /*===========*/
 	sym_tab_t*	sym_tab,	/*!< in: symbol table */
-	byte*		name,		/*!< in: identifier name */
+	::byte*		name,		/*!< in: identifier name */
 	ulint		len);		/*!< in: identifier length */
 
 /******************************************************************//**

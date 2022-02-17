@@ -401,7 +401,7 @@ process_flags:
 
     if (*fmt == 's')				/* String parameter */
     {
-      reg2 char *par = va_arg(args, char *);
+      char *par = va_arg(args, char *);
       size_t length2 = strlen(par);
       /* TODO: implement precision */
       out_length+= length2;
@@ -424,7 +424,7 @@ process_flags:
     }
     else if (*fmt == 'd' || *fmt == 'u')	/* Integer parameter */
     {
-      register int iarg;
+      int iarg;
       size_t length2;
       char buff[32];
 

@@ -36,8 +36,8 @@ Created 11/28/1995 Heikki Tuuri
 write self-documenting code. Of course, the sizeof macro cannot be
 applied to these types! */
 
-typedef	byte	flst_base_node_t;
-typedef	byte	flst_node_t;
+typedef	::byte	flst_base_node_t;
+typedef	::byte	flst_node_t;
 
 /* The physical size of a list base node in bytes */
 #define	FLST_BASE_NODE_SIZE	(4 + 2 * FIL_ADDR_SIZE)

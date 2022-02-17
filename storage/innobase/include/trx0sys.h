@@ -199,7 +199,7 @@ UNIV_INLINE
 void
 trx_write_trx_id(
 /*=============*/
-	byte*		ptr,	/*!< in: pointer to memory where written */
+	::byte*		ptr,	/*!< in: pointer to memory where written */
 	trx_id_t	id);	/*!< in: id */
 /*****************************************************************//**
 Reads a trx id from an index page. In case that the id size changes in
@@ -210,7 +210,7 @@ UNIV_INLINE
 trx_id_t
 trx_read_trx_id(
 /*============*/
-	const byte*	ptr);	/*!< in: pointer to memory from where to read */
+	const ::byte*	ptr);	/*!< in: pointer to memory from where to read */
 /****************************************************************//**
 Looks for the trx instance with the given id in the rw trx_list.
 The caller must be holding trx_sys->mutex.
@@ -389,7 +389,7 @@ UNIV_INTERN
 void
 trx_sys_print_mysql_binlog_offset_from_page(
 /*========================================*/
-	const byte*	page);	/*!< in: buffer containing the trx
+	const ::byte*	page);	/*!< in: buffer containing the trx
 				system header page, i.e., page number
 				TRX_SYS_PAGE_NO in the tablespace */
 /*****************************************************************//**

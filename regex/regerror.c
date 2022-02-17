@@ -60,8 +60,8 @@ my_regerror(int errcode, const my_regex_t *preg, char *errbuf, size_t errbuf_siz
 {
 	register struct rerr *r;
 	register size_t len;
-	register int target = errcode &~ MY_REG_ITOA;
-	register char *s;
+	int target = errcode &~ MY_REG_ITOA;
+	char *s;
 	char convbuf[50];
 
 	if (errcode == MY_REG_ATOI)

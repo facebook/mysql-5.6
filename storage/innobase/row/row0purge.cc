@@ -691,7 +691,7 @@ skip_secondaries:
 			trx_rseg_t*	rseg;
 			buf_block_t*	block;
 			ulint		internal_offset;
-			byte*		data_field;
+			::byte*		data_field;
 			dict_index_t*	index;
 			ibool		is_insert;
 			ulint		rseg_id;
@@ -706,7 +706,7 @@ skip_secondaries:
 			address of the new_val data */
 
 			internal_offset
-				= ((const byte*)
+				= ((const ::byte*)
 				   dfield_get_data(&ufield->new_val))
 				- undo_rec;
 
@@ -787,7 +787,7 @@ row_purge_parse_undo_rec(
 	que_thr_t*		thr)		/*!< in: query thread */
 {
 	dict_index_t*	clust_index;
-	byte*		ptr;
+	::byte*		ptr;
 	trx_t*		trx;
 	undo_no_t	undo_no;
 	table_id_t	table_id;

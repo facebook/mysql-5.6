@@ -1034,7 +1034,7 @@ dict_stats_analyze_index_level(
 	const rec_t*	rec;
 	const rec_t*	prev_rec;
 	bool		prev_rec_is_copied;
-	byte*		prev_rec_buf = NULL;
+	::byte*		prev_rec_buf = NULL;
 	ulint		prev_rec_buf_size = 0;
 	ulint*		rec_offsets;
 	ulint*		prev_rec_offsets;
@@ -2648,12 +2648,12 @@ dict_stats_fetch_table_stats_step(
 	     cnode = static_cast<que_common_t*>(que_node_get_next(cnode)),
 	     i++) {
 
-		const byte*	data;
+		const ::byte*	data;
 		dfield_t*	dfield = que_node_get_val(cnode);
 		dtype_t*	type = dfield_get_type(dfield);
 		ulint		len = dfield_get_len(dfield);
 
-		data = static_cast<const byte*>(dfield_get_data(dfield));
+		data = static_cast<const ::byte*>(dfield_get_data(dfield));
 
 		switch (i) {
 		case 0: /* mysql.innodb_table_stats.n_rows */
@@ -2756,12 +2756,12 @@ dict_stats_fetch_index_stats_step(
 	     cnode = static_cast<que_common_t*>(que_node_get_next(cnode)),
 	     i++) {
 
-		const byte*	data;
+		const ::byte*	data;
 		dfield_t*	dfield = que_node_get_val(cnode);
 		dtype_t*	type = dfield_get_type(dfield);
 		ulint		len = dfield_get_len(dfield);
 
-		data = static_cast<const byte*>(dfield_get_data(dfield));
+		data = static_cast<const ::byte*>(dfield_get_data(dfield));
 
 		switch (i) {
 		case 0: /* mysql.innodb_index_stats.index_name */

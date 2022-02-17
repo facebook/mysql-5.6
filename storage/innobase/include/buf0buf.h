@@ -315,7 +315,7 @@ Determines if a frame is intended to be withdrawn.
 bool
 buf_frame_will_withdrawn(
 	buf_pool_t*	buf_pool,
-	const byte*	ptr);
+	const ::byte*	ptr);
 
 /**
 Resize the buffer pool based on srv_buf_pool_size from
@@ -418,10 +418,10 @@ buf_block_free(
 Copies contents of a buffer frame to a given buffer.
 @return	buf */
 UNIV_INLINE
-byte*
+::byte*
 buf_frame_copy(
 /*===========*/
-	byte*			buf,	/*!< in: buffer to copy to */
+	::byte*			buf,	/*!< in: buffer to copy to */
 	const buf_frame_t*	frame);	/*!< in: buffer frame */
 #ifndef UNIV_HOTBACKUP
 /**************************************************************//**
@@ -746,7 +746,7 @@ buf_page_is_corrupted(
 /*==================*/
 	bool		check_lsn,	/*!< in: true if we need to check the
 					and complain about the LSN */
-	const byte*	read_buf,	/*!< in: a database page */
+	const ::byte*	read_buf,	/*!< in: a database page */
 	ulint		zip_size)	/*!< in: size of compressed page;
 					0 for uncompressed pages */
 	MY_ATTRIBUTE((nonnull, warn_unused_result));
@@ -756,7 +756,7 @@ Checks if a page is all zeroes.
 bool
 buf_page_is_zeroes(
 /*===============*/
-	const byte*	read_buf,	/*!< in: a database page */
+	const ::byte*	read_buf,	/*!< in: a database page */
 	const ulint	zip_size);	/*!< in: size of compressed page;
 					0 for uncompressed pages */
 #ifndef UNIV_HOTBACKUP
@@ -800,7 +800,7 @@ buf_frame_t*
 buf_frame_align(
 /*============*/
                         /* out: pointer to frame */
-        byte*   ptr);   /* in: pointer to a frame */
+        ::byte*   ptr);   /* in: pointer to a frame */
 
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
@@ -834,7 +834,7 @@ UNIV_INTERN
 void
 buf_page_print(
 /*===========*/
-	const byte*	read_buf,	/*!< in: a database page */
+	const ::byte*	read_buf,	/*!< in: a database page */
 	ulint		zip_size,	/*!< in: compressed page size, or
 					0 for uncompressed pages */
 	ulint		flags)		/*!< in: 0 or
@@ -1231,7 +1231,7 @@ UNIV_INTERN
 buf_block_t*
 buf_block_align(
 /*============*/
-	const byte*	ptr);	/*!< in: pointer to a frame */
+	const ::byte*	ptr);	/*!< in: pointer to a frame */
 /********************************************************************//**
 Find out if a pointer belongs to a buf_block_t. It can be a pointer to
 the buf_block_t itself or a member of it
@@ -1262,7 +1262,7 @@ UNIV_INLINE
 const page_zip_des_t*
 buf_frame_get_page_zip(
 /*===================*/
-	const byte*	ptr);	/*!< in: pointer to the page */
+	const ::byte*	ptr);	/*!< in: pointer to the page */
 #endif /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
 /********************************************************************//**
 Function which inits a page for read to the buffer buf_pool. If the page is
@@ -1574,9 +1574,9 @@ struct buf_page_t{
 
 	/** type of pending I/O operation; also protected by
 	buf_pool->mutex for writes only @see enum buf_io_fix */
-	byte		io_fix;
+	::byte		io_fix;
 
-	byte		state;
+	::byte		state;
 #else
 	unsigned	buf_fix_count:19;
 
@@ -1760,7 +1760,7 @@ struct buf_block_t{
 					be the first field, so that
 					buf_pool->page_hash can point
 					to buf_page_t or buf_block_t */
-	byte*		frame;		/*!< pointer to buffer frame which
+	::byte*		frame;		/*!< pointer to buffer frame which
 					is of size UNIV_PAGE_SIZE, and
 					aligned to an address divisible by
 					UNIV_PAGE_SIZE */
@@ -2029,7 +2029,7 @@ public:
 struct buf_buddy_free_t {
 	union {
 		ulint	size;	/*!< size of the block */
-		byte	bytes[FIL_PAGE_DATA];
+		::byte	bytes[FIL_PAGE_DATA];
 				/*!< stamp[FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID]
 				== BUF_BUDDY_FREE_STAMP denotes a free
 				block. If the space_id field of buddy

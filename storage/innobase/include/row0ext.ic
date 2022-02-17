@@ -31,7 +31,7 @@ Looks up a column prefix of an externally stored column.
 @return column prefix, or NULL if the column is not stored externally,
 or pointer to field_ref_zero if the BLOB pointer is unset */
 UNIV_INLINE
-const byte*
+const ::byte*
 row_ext_lookup_ith(
 /*===============*/
 	const row_ext_t*	ext,	/*!< in/out: column prefix cache */
@@ -61,7 +61,7 @@ Looks up a column prefix of an externally stored column.
 @return column prefix, or NULL if the column is not stored externally,
 or pointer to field_ref_zero if the BLOB pointer is unset */
 UNIV_INLINE
-const byte*
+const ::byte*
 row_ext_lookup(
 /*===========*/
 	const row_ext_t*	ext,	/*!< in: column prefix cache */

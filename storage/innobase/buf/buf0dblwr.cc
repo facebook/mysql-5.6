@@ -85,7 +85,7 @@ doublewrite buffer within it.
 @return	pointer to the doublewrite buffer within the filespace header
 page. */
 UNIV_INLINE
-byte*
+::byte*
 buf_dblwr_get(
 /*==========*/
 	mtr_t*	mtr)	/*!< in/out: MTR to hold the page latch */
@@ -125,7 +125,7 @@ static
 void
 buf_dblwr_init(
 /*===========*/
-	byte*	doublewrite)	/*!< in: pointer to the doublewrite buf
+	::byte*	doublewrite)	/*!< in: pointer to the doublewrite buf
 				header on trx sys page */
 {
 	ulint	buf_size;
@@ -159,17 +159,17 @@ buf_dblwr_init(
 	buf_dblwr->in_use = static_cast<bool*>(
 		mem_zalloc(buf_size * sizeof(bool)));
 
-	buf_dblwr->write_buf_unaligned = static_cast<byte*>(
+	buf_dblwr->write_buf_unaligned = static_cast<::byte*>(
 		mem_zalloc((1 + buf_size) * UNIV_PAGE_SIZE));
 
-	buf_dblwr->write_buf = static_cast<byte*>(
+	buf_dblwr->write_buf = static_cast<::byte*>(
 		ut_align(buf_dblwr->write_buf_unaligned,
 			 UNIV_PAGE_SIZE));
 
-	buf_dblwr->header_unaligned = static_cast<byte*>(
+	buf_dblwr->header_unaligned = static_cast<::byte*>(
 		mem_zalloc(2 * BUF_DBLWR_HEADER_SIZE));
 
-	buf_dblwr->header = static_cast<byte*>(
+	buf_dblwr->header = static_cast<::byte*>(
 		ut_align(buf_dblwr->header_unaligned,
 			 BUF_DBLWR_HEADER_SIZE));
 
@@ -193,8 +193,8 @@ buf_dblwr_create(void)
 {
 	buf_block_t*	block2;
 	buf_block_t*	new_block;
-	byte*	doublewrite;
-	byte*	fseg_header;
+	::byte*	doublewrite;
+	::byte*	fseg_header;
 	ulint	page_no;
 	ulint	prev_page_no;
 	ulint	i;
@@ -373,7 +373,7 @@ buf_dblwr_reset(
 	ib_uint32_t	checksum = 0;
 	void*	page_unaligned = ut_malloc(
 			(TRX_SYS_DOUBLEWRITE_BLOCK_SIZE + 1) * UNIV_PAGE_SIZE);
-	byte*	page = page_align((byte*)page_unaligned + UNIV_PAGE_SIZE);
+	::byte*	page = page_align((::byte*)page_unaligned + UNIV_PAGE_SIZE);
 	memset(page, 0, TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * UNIV_PAGE_SIZE);
 	ut_a(doublewrite_mode);
 
@@ -400,7 +400,7 @@ buf_dblwr_reset(
 		page += UNIV_PAGE_SIZE;
 	}
 
-	page = page_align((byte*)page_unaligned + UNIV_PAGE_SIZE);
+	page = page_align((::byte*)page_unaligned + UNIV_PAGE_SIZE);
 	fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true, TRX_SYS_SPACE, 0,
 	       buf_dblwr->block1, 0,
 	       TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * UNIV_PAGE_SIZE,
@@ -414,7 +414,7 @@ buf_dblwr_reset(
 		page += UNIV_PAGE_SIZE;
 	}
 
-	page = page_align((byte*)page_unaligned + UNIV_PAGE_SIZE);
+	page = page_align((::byte*)page_unaligned + UNIV_PAGE_SIZE);
 	fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true, TRX_SYS_SPACE, 0,
 	       buf_dblwr->block2, 0,
 	       TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * UNIV_PAGE_SIZE,
@@ -435,14 +435,14 @@ buf_dblwr_init_or_load_pages(
 	char*		path,
 	bool		load_corrupt_pages)
 {
-	byte*	buf;
-	byte*	read_buf;
-	byte*	unaligned_read_buf;
+	::byte*	buf;
+	::byte*	read_buf;
+	::byte*	unaligned_read_buf;
 	ulint	block1;
 	ulint	block2;
-	byte*	page;
+	::byte*	page;
 	ibool	reset_space_ids = FALSE;
-	byte*	doublewrite;
+	::byte*	doublewrite;
 	ulint	space_id;
 	ulint	i;
         ulint	block_bytes = 0;
@@ -451,9 +451,9 @@ buf_dblwr_init_or_load_pages(
 
 	/* We do the file i/o past the buffer pool */
 
-	unaligned_read_buf = static_cast<byte*>(ut_malloc(2 * UNIV_PAGE_SIZE));
+	unaligned_read_buf = static_cast<::byte*>(ut_malloc(2 * UNIV_PAGE_SIZE));
 
-	read_buf = static_cast<byte*>(
+	read_buf = static_cast<::byte*>(
 		ut_align(unaligned_read_buf, UNIV_PAGE_SIZE));
 
 	/* Read the trx sys header to check if we are using the doublewrite
@@ -514,7 +514,7 @@ buf_dblwr_init_or_load_pages(
 	}
 
 	if (header_found && load_corrupt_pages) {
-		byte* ptr = page + FIL_PAGE_DATA;
+		::byte* ptr = page + FIL_PAGE_DATA;
 		ulint num_pages;
 		ut_a(!reset_space_ids);
 		if (buf_page_is_corrupted(
@@ -601,13 +601,13 @@ buf_dblwr_process()
 /*===============*/
 {
 	ulint	page_no_dblwr = 0;
-	byte*	read_buf;
-	byte*	unaligned_read_buf;
+	::byte*	read_buf;
+	::byte*	unaligned_read_buf;
 	std::list<recv_dblwr_item_t>& dblwr_pages = recv_sys->dblwr.pages;
 
-	unaligned_read_buf = static_cast<byte*>(ut_malloc(2 * UNIV_PAGE_SIZE));
+	unaligned_read_buf = static_cast<::byte*>(ut_malloc(2 * UNIV_PAGE_SIZE));
 
-	read_buf = static_cast<byte*>(
+	read_buf = static_cast<::byte*>(
 		ut_align(unaligned_read_buf, UNIV_PAGE_SIZE));
 
 	for (std::list<recv_dblwr_item_t>::iterator i = dblwr_pages.begin();
@@ -973,10 +973,10 @@ void
 buf_dblwr_flush_buffered_writes(void)
 /*=================================*/
 {
-	byte*		write_buf;
+	::byte*		write_buf;
 	ulint		first_free;
 	ulint		len;
-	byte*		header_ptr;
+	::byte*		header_ptr;
 	ulong		use_doublewrite_buf = srv_use_doublewrite_buf;
 
 	if (!use_doublewrite_buf || buf_dblwr == NULL) {

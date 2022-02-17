@@ -2872,7 +2872,7 @@ done:
 
 bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx)
 {
-  reg1	TABLE *table;
+  TABLE *table;
   const char *key;
   uint key_length;
   char	*alias= table_list->alias;
@@ -8575,7 +8575,7 @@ bool setup_fields(THD *thd, Ref_ptr_array ref_pointer_array,
                   List<Item> &fields, enum_mark_columns mark_used_columns,
                   List<Item> *sum_func_list, bool allow_sum_func)
 {
-  reg2 Item *item;
+  Item *item;
   enum_mark_columns save_mark_used_columns= thd->mark_used_columns;
   nesting_map save_allow_sum_func= thd->lex->allow_sum_func;
   List_iterator<Item> it(fields);

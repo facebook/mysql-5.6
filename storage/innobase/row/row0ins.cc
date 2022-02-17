@@ -148,7 +148,7 @@ row_ins_alloc_sys_fields(
 	mem_heap_t*		heap;
 	const dict_col_t*	col;
 	dfield_t*		dfield;
-	byte*			ptr;
+	::byte*			ptr;
 
 	row = node->row;
 	table = node->table;
@@ -159,7 +159,7 @@ row_ins_alloc_sys_fields(
 
 	/* allocate buffer to hold the needed system created hidden columns. */
 	uint len = DATA_ROW_ID_LEN + DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN;
-	ptr = static_cast<byte*>(mem_heap_zalloc(heap, len));
+	ptr = static_cast<::byte*>(mem_heap_zalloc(heap, len));
 
 	/* 1. Populate row-id */
 	col = dict_table_get_sys_col(table, DATA_ROW_ID);
@@ -594,12 +594,12 @@ row_ins_cascade_calc_update_vec(
 
 				if (min_size > ufield_len) {
 
-					byte*	pad;
+					::byte*	pad;
 					ulint	pad_len;
-					byte*	padded_data;
+					::byte*	padded_data;
 					ulint	mbminlen;
 
-					padded_data = static_cast<byte*>(
+					padded_data = static_cast<::byte*>(
 						mem_heap_alloc(
 							heap, min_size));
 
@@ -650,7 +650,7 @@ row_ins_cascade_calc_update_vec(
 						table->fts->cache->next_doc_id;
 
 					new_doc_id = fts_read_doc_id(
-						static_cast<const byte*>(
+						static_cast<const ::byte*>(
 							dfield_get_data(
 							&ufield->new_val)));
 

@@ -735,7 +735,7 @@ int _mi_pack_rec_unpack(register MI_INFO *info, MI_BIT_BUFF *bit_buff,
                         register uchar *to, uchar *from, ulong reclength)
 {
   uchar *end_field;
-  reg3 MI_COLUMNDEF *end;
+  MI_COLUMNDEF *end;
   MI_COLUMNDEF *current_field;
   MYISAM_SHARE *share=info->s;
   DBUG_ENTER("_mi_pack_rec_unpack");
@@ -1019,7 +1019,7 @@ static void uf_constant(MI_COLUMNDEF *rec,
 static void uf_intervall(MI_COLUMNDEF *rec, MI_BIT_BUFF *bit_buff, uchar *to,
 			 uchar *end)
 {
-  reg1 uint field_length=(uint) (end-to);
+  uint field_length=(uint) (end-to);
   memcpy(to,rec->huff_tree->intervalls+field_length*decode_pos(bit_buff,
 							       rec->huff_tree),
 	 (size_t) field_length);
@@ -1091,9 +1091,9 @@ static void uf_varchar2(MI_COLUMNDEF *rec, MI_BIT_BUFF *bit_buff,
 static void decode_bytes(MI_COLUMNDEF *rec,MI_BIT_BUFF *bit_buff,uchar *to,
 			 uchar *end)
 {
-  reg1 uint bits,low_byte;
-  reg3 uint16 *pos;
-  reg4 uint table_bits,table_and;
+  uint bits,low_byte;
+  uint16 *pos;
+  uint table_bits,table_and;
   MI_DECODE_TREE *decode_tree;
 
   decode_tree=rec->decode_tree;
@@ -1184,9 +1184,9 @@ static void decode_bytes(MI_COLUMNDEF *rec,MI_BIT_BUFF *bit_buff,uchar *to,
 static void decode_bytes(MI_COLUMNDEF *rec, MI_BIT_BUFF *bit_buff, uchar *to,
 			 uchar *end)
 {
-  reg1 uint bits,low_byte;
-  reg3 uint16 *pos;
-  reg4 uint table_bits,table_and;
+  uint bits,low_byte;
+  uint16 *pos;
+  uint table_bits,table_and;
   MI_DECODE_TREE *decode_tree;
 
   decode_tree=rec->huff_tree;
@@ -1468,7 +1468,7 @@ static void fill_buffer(MI_BIT_BUFF *bit_buff)
 
 static uint max_bit(register uint value)
 {
-  reg2 uint power=1;
+  uint power=1;
 
   while ((value>>=1))
     power++;

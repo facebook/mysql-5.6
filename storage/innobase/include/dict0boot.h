@@ -35,7 +35,7 @@ Created 4/18/1996 Heikki Tuuri
 #include "fsp0fsp.h"
 #include "dict0dict.h"
 
-typedef	byte	dict_hdr_t;
+typedef	::byte	dict_hdr_t;
 
 /**********************************************************************//**
 Gets a pointer to the dictionary header and x-latches its page.
@@ -78,14 +78,14 @@ UNIV_INLINE
 row_id_t
 dict_sys_read_row_id(
 /*=================*/
-	const byte*	field);	/*!< in: record field */
+	const ::byte*	field);	/*!< in: record field */
 /**********************************************************************//**
 Writes a row id to a record or other 6-byte stored form. */
 UNIV_INLINE
 void
 dict_sys_write_row_id(
 /*==================*/
-	byte*		field,	/*!< in: record field */
+	::byte*		field,	/*!< in: record field */
 	row_id_t	row_id);/*!< in: row id */
 /*****************************************************************//**
 Initializes the data dictionary memory structures when the database is

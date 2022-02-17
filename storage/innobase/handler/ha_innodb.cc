@@ -6594,8 +6594,8 @@ ulint
 innobase_mysql_fts_get_token(
 /*=========================*/
 	CHARSET_INFO*	cs,		/*!< in: Character set */
-	const byte*	start,		/*!< in: start of text */
-	const byte*	end,		/*!< in: one character past end of
+	const ::byte*	start,		/*!< in: start of text */
+	const ::byte*	end,		/*!< in: one character past end of
 					text */
 	fts_string_t*	token,		/*!< out: token's text */
 	ulint*		offset)		/*!< out: offset to token,
@@ -6631,7 +6631,7 @@ innobase_mysql_fts_get_token(
 	ulint	mwc = 0;
 	ulint	length = 0;
 
-	token->f_str = const_cast<byte*>(doc);
+	token->f_str = const_cast<::byte*>(doc);
 
 	while (doc < end) {
 
@@ -6791,13 +6791,13 @@ static inline
 void
 innobase_write_to_2_little_endian(
 /*==============================*/
-	byte*	buf,	/*!< in: where to store */
+	::byte*	buf,	/*!< in: where to store */
 	ulint	val)	/*!< in: value to write, must be < 64k */
 {
 	ut_a(val < 256 * 256);
 
-	buf[0] = (byte)(val & 0xFF);
-	buf[1] = (byte)(val / 256);
+	buf[0] = (::byte)(val & 0xFF);
+	buf[1] = (::byte)(val / 256);
 }
 
 /*******************************************************************//**
@@ -6885,7 +6885,7 @@ ha_innobase::store_key_val_for_row(
 						/* >= 5.0.3 true VARCHAR */
 			ulint		lenlen;
 			ulint		len;
-			const byte*	data;
+			const ::byte*	data;
 			ulint		key_len;
 			ulint		true_len;
 			const CHARSET_INFO* cs;
@@ -6904,7 +6904,7 @@ ha_innobase::store_key_val_for_row(
 				(((Field_varstring*) field)->length_bytes);
 
 			data = row_mysql_read_true_varchar(&len,
-				(byte*) (record
+				(::byte*) (record
 				+ (ulint) get_field_offset(table, field)),
 				lenlen);
 
@@ -6931,7 +6931,7 @@ ha_innobase::store_key_val_for_row(
 			/* The length in a key value is always stored in 2
 			bytes */
 
-			row_mysql_store_true_var_len((byte*) buff, true_len, 2);
+			row_mysql_store_true_var_len((::byte*) buff, true_len, 2);
 			buff += 2;
 
 			memcpy(buff, data, true_len);
@@ -6960,7 +6960,7 @@ ha_innobase::store_key_val_for_row(
 			ulint		true_len;
 			int		error=0;
 			ulint		blob_len;
-			const byte*	blob_data;
+			const ::byte*	blob_data;
 
 			ut_a(key_part->key_part_flag & HA_PART_KEY_SEG);
 
@@ -6975,7 +6975,7 @@ ha_innobase::store_key_val_for_row(
 			cs = field->charset();
 
 			blob_data = row_mysql_read_blob_ref(&blob_len,
-				(byte*) (record
+				(::byte*) (record
 				+ (ulint) get_field_offset(table, field)),
 					(ulint) field->pack_length());
 
@@ -7008,7 +7008,7 @@ ha_innobase::store_key_val_for_row(
 			storage of the number is little-endian */
 
 			innobase_write_to_2_little_endian(
-					(byte*) buff, true_len);
+					(::byte*) buff, true_len);
 			buff += 2;
 
 			memcpy(buff, blob_data, true_len);
@@ -7696,11 +7696,11 @@ ha_innobase::write_row(
 				(const void*) prebuilt->trx, (const void*) trx);
 
 		fputs("InnoDB: Dump of 200 bytes around prebuilt: ", stderr);
-		ut_print_buf(stderr, ((const byte*) prebuilt) - 100, 200);
+		ut_print_buf(stderr, ((const ::byte*) prebuilt) - 100, 200);
 		fputs("\n"
 			"InnoDB: Dump of 200 bytes around ha_data: ",
 			stderr);
-		ut_print_buf(stderr, ((const byte*) trx) - 100, 200);
+		ut_print_buf(stderr, ((const ::byte*) trx) - 100, 200);
 		putc('\n', stderr);
 		ut_error;
 	} else if (!trx_is_started(trx)) {
@@ -7821,7 +7821,7 @@ no_commit:
 
 	innobase_srv_conc_enter_innodb(prebuilt->trx, true);
 
-	error = row_insert_for_mysql((byte*) record, prebuilt);
+	error = row_insert_for_mysql((::byte*) record, prebuilt);
 	DEBUG_SYNC(user_thd, "ib_after_row_insert");
 
 	if (error == DB_SUCCESS)
@@ -7963,10 +7963,10 @@ calc_row_difference(
 	ulint		o_len;
 	ulint		n_len;
 	ulint		col_pack_len;
-	const byte*	new_mysql_row_col;
-	const byte*	o_ptr;
-	const byte*	n_ptr;
-	byte*		buf;
+	const ::byte*	new_mysql_row_col;
+	const ::byte*	o_ptr;
+	const ::byte*	n_ptr;
+	::byte*		buf;
 	upd_field_t*	ufield;
 	ulint		col_type;
 	ulint		n_changed = 0;
@@ -7984,13 +7984,13 @@ calc_row_difference(
 	clust_index = dict_table_get_first_index(prebuilt->table);
 
 	/* We use upd_buff to convert changed fields */
-	buf = (byte*) upd_buff;
+	buf = (::byte*) upd_buff;
 
 	for (i = 0; i < n_fields; i++) {
 		field = table->field[i];
 
-		o_ptr = (const byte*) old_row + get_field_offset(table, field);
-		n_ptr = (const byte*) new_row + get_field_offset(table, field);
+		o_ptr = (const ::byte*) old_row + get_field_offset(table, field);
+		n_ptr = (const ::byte*) new_row + get_field_offset(table, field);
 
 		/* Use new_mysql_row_col and col_pack_len save the values */
 
@@ -8077,7 +8077,7 @@ calc_row_difference(
 
 				buf = row_mysql_store_col_in_innobase_format(
 					&dfield,
-					(byte*) buf,
+					(::byte*) buf,
 					TRUE,
 					new_mysql_row_col,
 					col_pack_len,
@@ -8205,7 +8205,7 @@ calc_row_difference(
 	uvect->n_fields = n_changed;
 	uvect->info_bits = 0;
 
-	ut_a(buf <= (byte*) original_upd_buff + buff_len);
+	ut_a(buf <= (::byte*) original_upd_buff + buff_len);
 
 	return(DB_SUCCESS);
 }
@@ -8282,7 +8282,7 @@ ha_innobase::update_row(
 
 	innobase_srv_conc_enter_innodb(trx, true);
 
-	error = row_update_for_mysql((byte*) old_row, prebuilt);
+	error = row_update_for_mysql((::byte*) old_row, prebuilt);
 
 	if (error == DB_SUCCESS)
 		stats.rows_updated++;
@@ -8387,7 +8387,7 @@ ha_innobase::delete_row(
 
 	innobase_srv_conc_enter_innodb(trx, true);
 
-	error = row_update_for_mysql((byte*) record, prebuilt);
+	error = row_update_for_mysql((::byte*) record, prebuilt);
 
 	if (error == DB_SUCCESS)
 		stats.rows_deleted++;
@@ -8697,7 +8697,7 @@ ha_innobase::index_read(
 			prebuilt->srch_key_val1,
 			prebuilt->srch_key_val_len,
 			index,
-			(byte*) key_ptr,
+			(::byte*) key_ptr,
 			(ulint) key_len,
 			prebuilt->trx);
 		DBUG_ASSERT(prebuilt->search_tuple->n_fields > 0);
@@ -8728,7 +8728,7 @@ ha_innobase::index_read(
 
 		innobase_srv_conc_enter_innodb(prebuilt->trx, false);
 
-		ret = row_search_for_mysql((byte*) buf, mode, prebuilt,
+		ret = row_search_for_mysql((::byte*) buf, mode, prebuilt,
 					   match_mode, 0);
 
 		innobase_srv_conc_exit_innodb(prebuilt->trx, false);
@@ -9061,7 +9061,7 @@ ha_innobase::general_fetch(
 	innobase_srv_conc_enter_innodb(prebuilt->trx, false);
 
 	ret = row_search_for_mysql(
-		(byte*) buf, 0, prebuilt, match_mode, direction);
+		(::byte*) buf, 0, prebuilt, match_mode, direction);
 
 	innobase_srv_conc_exit_innodb(prebuilt->trx, false);
 
@@ -9379,7 +9379,7 @@ ha_innobase::ft_init_ext(
 	trx_t*			trx;
 	dict_table_t*		ft_table;
 	dberr_t			error;
-	byte*			query = (byte*) key->ptr();
+	::byte*			query = (::byte*) key->ptr();
 	ulint			query_len = key->length();
 	const CHARSET_INFO*	char_set = key->charset();
 	NEW_FT_INFO*		fts_hdl = NULL;
@@ -9391,7 +9391,7 @@ ha_innobase::ft_init_ext(
 
 	if (fts_enable_diag_print) {
 		fprintf(stderr, "keynr=%u, '%.*s'\n",
-			keynr, (int) key->length(), (byte*) key->ptr());
+			keynr, (int) key->length(), (::byte*) key->ptr());
 
 		if (flags & FT_BOOL) {
 			fprintf(stderr, "BOOL search\n");
@@ -9411,7 +9411,7 @@ ha_innobase::ft_init_ext(
 			query, query_len, (CHARSET_INFO*) char_set,
 			&num_errors);
 
-		query = (byte*) buf_tmp;
+		query = (::byte*) buf_tmp;
 		query_len = buf_tmp_used;
 		query[query_len] = 0;
 	}
@@ -9518,7 +9518,7 @@ innobase_fts_create_doc_id_key(
 #endif /* UNIV_DEBUG */
 
 	/* Convert to storage byte order */
-	mach_write_to_8(reinterpret_cast<byte*>(&temp_doc_id), *doc_id);
+	mach_write_to_8(reinterpret_cast<::byte*>(&temp_doc_id), *doc_id);
 	*doc_id = temp_doc_id;
 	dfield_set_data(dfield, doc_id, sizeof(*doc_id));
 
@@ -9605,7 +9605,7 @@ next_record:
 		innobase_srv_conc_enter_innodb(prebuilt->trx, false);
 
 		dberr_t ret = row_search_for_mysql(
-			(byte*) buf, PAGE_CUR_GE, prebuilt, ROW_SEL_EXACT, 0);
+			(::byte*) buf, PAGE_CUR_GE, prebuilt, ROW_SEL_EXACT, 0);
 
 		innobase_srv_conc_exit_innodb(prebuilt->trx, false);
 
@@ -11955,7 +11955,7 @@ ha_innobase::records_in_range(
 				prebuilt->srch_key_val1,
 				prebuilt->srch_key_val_len,
 				index,
-				(byte*) (min_key ? min_key->key :
+				(::byte*) (min_key ? min_key->key :
 					 (const uchar*) 0),
 				(ulint) (min_key ? min_key->length : 0),
 				prebuilt->trx);
@@ -11968,7 +11968,7 @@ ha_innobase::records_in_range(
 				prebuilt->srch_key_val2,
 				prebuilt->srch_key_val_len,
 				index,
-				(byte*) (max_key ? max_key->key :
+				(::byte*) (max_key ? max_key->key :
 					 (const uchar*) 0),
 				(ulint) (max_key ? max_key->length : 0),
 				prebuilt->trx);
@@ -16466,7 +16466,7 @@ innodb_make_page_dirty(
 		space_id, 0, srv_saved_page_number_debug, RW_X_LATCH, &mtr);
 
 	if (block) {
-		byte* page = block->frame;
+		::byte* page = block->frame;
 		ib_logf(IB_LOG_LEVEL_INFO,
 			"Dirtying page:%lu of space:%lu",
 			page_get_page_no(page),

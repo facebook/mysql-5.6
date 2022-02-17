@@ -150,7 +150,7 @@ int
 pars_like_rebind(
 /*=============*/
         sym_node_t*     node,   /* in: The search string node.*/
-        const byte*     ptr,    /* in: literal to (re) bind */
+        const ::byte*     ptr,    /* in: literal to (re) bind */
         ulint           len);   /* in: length of literal to (re) bind*/
 /*********************************************************************//**
 Parses an operator expression.
@@ -536,7 +536,7 @@ pars_info_bind_varchar_literal(
 /*===========================*/
 	pars_info_t*	info,		/*!< in: info struct */
 	const char*	name,		/*!< in: name */
-	const byte*	str,		/*!< in: string */
+	const ::byte*	str,		/*!< in: string */
 	ulint		str_len);	/*!< in: string length */
 /****************************************************************//**
 Equivalent to:

@@ -182,7 +182,7 @@ int _mi_bin_search(MI_INFO *info, register MI_KEYDEF *keyinfo, uchar *page,
                    uchar *key, uint key_len, uint comp_flag, uchar **ret_pos,
                    uchar *buff MY_ATTRIBUTE((unused)), my_bool *last_key)
 {
-  reg4 int start,mid,end,save_end;
+  int start,mid,end,save_end;
   int flag;
   uint totlength,nod_flag,not_used[2];
   DBUG_ENTER("_mi_bin_search");
@@ -776,7 +776,7 @@ uint _mi_get_static_key(register MI_KEYDEF *keyinfo, uint nod_flag,
 uint _mi_get_pack_key(register MI_KEYDEF *keyinfo, uint nod_flag,
                       register uchar **page_pos, register uchar *key)
 {
-  reg1 HA_KEYSEG *keyseg;
+  HA_KEYSEG *keyseg;
   uchar *start_key,*page=*page_pos;
   uint length;
 
@@ -913,7 +913,7 @@ uint _mi_get_pack_key(register MI_KEYDEF *keyinfo, uint nod_flag,
 uint _mi_get_binary_pack_key(register MI_KEYDEF *keyinfo, uint nod_flag,
                              register uchar **page_pos, register uchar *key)
 {
-  reg1 HA_KEYSEG *keyseg;
+  HA_KEYSEG *keyseg;
   uchar *start_key,*page,*page_end,*from,*from_end;
   uint length,tmp;
   DBUG_ENTER("_mi_get_binary_pack_key");
@@ -1166,7 +1166,7 @@ uchar *_mi_get_last_key(MI_INFO *info, MI_KEYDEF *keyinfo, uchar *page,
 
 uint _mi_keylength(MI_KEYDEF *keyinfo, register uchar *key)
 {
-  reg1 HA_KEYSEG *keyseg;
+  HA_KEYSEG *keyseg;
   uchar *start;
 
   if (! (keyinfo->flag & (HA_VAR_LENGTH_KEY | HA_BINARY_PACK_KEY)))
@@ -1202,7 +1202,7 @@ uint _mi_keylength(MI_KEYDEF *keyinfo, register uchar *key)
 uint _mi_keylength_part(MI_KEYDEF *keyinfo, register uchar *key,
 			HA_KEYSEG *end)
 {
-  reg1 HA_KEYSEG *keyseg;
+  HA_KEYSEG *keyseg;
   uchar *start= key;
 
   for (keyseg=keyinfo->seg ; keyseg != end ; keyseg++)
@@ -1226,7 +1226,7 @@ uint _mi_keylength_part(MI_KEYDEF *keyinfo, register uchar *key,
 
 uchar *_mi_move_key(MI_KEYDEF *keyinfo, uchar *to, uchar *from)
 {
-  reg1 uint length;
+  uint length;
   memcpy((uchar*) to, (uchar*) from,
          (size_t) (length=_mi_keylength(keyinfo,from)));
   return to+length;
@@ -1466,7 +1466,7 @@ _mi_calc_var_pack_key_length(MI_KEYDEF *keyinfo,uint nod_flag,uchar *next_key,
                              uchar *org_key, uchar *prev_key, uchar *key,
                              MI_KEY_PARAM *s_temp)
 {
-  reg1 HA_KEYSEG *keyseg;
+  HA_KEYSEG *keyseg;
   int length;
   uint key_length,ref_length,org_key_length=0,
        length_pack,new_key_length,diff_flag,pack_marker;

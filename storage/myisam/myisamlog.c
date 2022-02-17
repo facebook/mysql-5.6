@@ -129,7 +129,7 @@ int main(int argc, char **argv)
 } /* main */
 
 
-static void get_options(register int *argc, register char ***argv)
+static void get_options(int *argc, char ***argv)
 {
   int help,version;
   const char *pos,*usage;

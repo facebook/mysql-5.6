@@ -97,42 +97,42 @@ mem_hash_get_nth_cell(ulint i)
 /* Accessor functions for a memory field in the debug version */
 UNIV_INTERN
 void
-mem_field_header_set_len(byte* field, ulint len)
+mem_field_header_set_len(::byte* field, ulint len)
 {
 	mach_write_to_4(field - 2 * sizeof(ulint), len);
 }
 
 UNIV_INTERN
 ulint
-mem_field_header_get_len(byte* field)
+mem_field_header_get_len(::byte* field)
 {
 	return(mach_read_from_4(field - 2 * sizeof(ulint)));
 }
 
 UNIV_INTERN
 void
-mem_field_header_set_check(byte* field, ulint check)
+mem_field_header_set_check(::byte* field, ulint check)
 {
 	mach_write_to_4(field - sizeof(ulint), check);
 }
 
 UNIV_INTERN
 ulint
-mem_field_header_get_check(byte* field)
+mem_field_header_get_check(::byte* field)
 {
 	return(mach_read_from_4(field - sizeof(ulint)));
 }
 
 UNIV_INTERN
 void
-mem_field_trailer_set_check(byte* field, ulint check)
+mem_field_trailer_set_check(::byte* field, ulint check)
 {
 	mach_write_to_4(field + mem_field_header_get_len(field), check);
 }
 
 UNIV_INTERN
 ulint
-mem_field_trailer_get_check(byte* field)
+mem_field_trailer_get_check(::byte* field)
 {
 	return(mach_read_from_4(field
 				+ mem_field_header_get_len(field)));
@@ -200,11 +200,11 @@ UNIV_INTERN
 void
 mem_field_init(
 /*===========*/
-	byte*	buf,	/*!< in: memory field */
+	::byte*	buf,	/*!< in: memory field */
 	ulint	n)	/*!< in: how many bytes the user requested */
 {
 	ulint	rnd;
-	byte*	usr_buf;
+	::byte*	usr_buf;
 
 	usr_buf = buf + MEM_FIELD_HEADER_SIZE;
 
@@ -247,11 +247,11 @@ UNIV_INTERN
 void
 mem_field_erase(
 /*============*/
-	byte*	buf,	/*!< in: memory field */
+	::byte*	buf,	/*!< in: memory field */
 	ulint	n MY_ATTRIBUTE((unused)))
 			/*!< in: how many bytes the user requested */
 {
-	byte*	usr_buf;
+	::byte*	usr_buf;
 
 	usr_buf = buf + MEM_FIELD_HEADER_SIZE;
 
@@ -275,10 +275,10 @@ UNIV_INTERN
 void
 mem_init_buf(
 /*=========*/
-	byte*	buf,	/*!< in: pointer to buffer */
+	::byte*	buf,	/*!< in: pointer to buffer */
 	ulint	 n)	/*!< in: length of buffer */
 {
-	byte*	ptr;
+	::byte*	ptr;
 
 	UNIV_MEM_ASSERT_W(buf, n);
 
@@ -301,10 +301,10 @@ UNIV_INTERN
 void
 mem_erase_buf(
 /*==========*/
-	byte*	buf,	/*!< in: pointer to buffer */
+	::byte*	buf,	/*!< in: pointer to buffer */
 	ulint	n)	/*!< in: length of buffer */
 {
-	byte*	ptr;
+	::byte*	ptr;
 
 	UNIV_MEM_ASSERT_W(buf, n);
 
@@ -422,7 +422,7 @@ mem_hash_remove(
 			node->nth_heap,
 			innobase_basename(node->file_name), (ulong) node->line,
 			innobase_basename(file_name), (ulong) line);
-		ut_print_buf(stderr, (byte*) node->heap - 200, 400);
+		ut_print_buf(stderr, (::byte*) node->heap - 200, 400);
 		fputs("\nDump of the mem heap:\n", stderr);
 		mem_heap_validate_or_print(node->heap, NULL, TRUE, &error,
 					   &size, NULL, NULL);
@@ -450,7 +450,7 @@ void
 mem_heap_validate_or_print(
 /*=======================*/
 	mem_heap_t*	heap,	/*!< in: memory heap */
-	byte*		top MY_ATTRIBUTE((unused)),
+	::byte*		top MY_ATTRIBUTE((unused)),
 				/*!< in: calculate and validate only until
 				this top pointer in the heap is reached,
 				if this pointer is NULL, ignored */
@@ -476,8 +476,8 @@ mem_heap_validate_or_print(
 	ulint		phys_len	= 0;
 #ifdef UNIV_MEM_DEBUG
 	ulint		len;
-	byte*		field;
-	byte*		user_field;
+	::byte*		field;
+	::byte*		user_field;
 	ulint		check_field;
 #endif
 
@@ -526,14 +526,14 @@ mem_heap_validate_or_print(
 			fprintf(stderr, " Block %ld:", block_count);
 		}
 
-		field = (byte*) block + mem_block_get_start(block);
+		field = (::byte*) block + mem_block_get_start(block);
 
 		if (top && (field == top)) {
 
 			goto completed;
 		}
 
-		while (field < (byte*) block + mem_block_get_free(block)) {
+		while (field < (::byte*) block + mem_block_get_free(block)) {
 
 			/* Calculate the pointer to the storage
 			which was given to the user */
@@ -580,7 +580,7 @@ mem_heap_validate_or_print(
 		/* At the end check that we have arrived to the first free
 		position */
 
-		if (field != (byte*) block + mem_block_get_free(block)) {
+		if (field != (::byte*) block + mem_block_get_free(block)) {
 			/* error */
 
 			fprintf(stderr,
@@ -588,7 +588,7 @@ mem_heap_validate_or_print(
 				" mem fields %lx\n"
 				"InnoDB: but block free at %lx\n",
 				(ulint) block, (ulint) field,
-				(ulint)((byte*) block
+				(ulint)((::byte*) block
 					+ mem_block_get_free(block)));
 
 			return;
@@ -821,17 +821,17 @@ mem_analyze_corruption(
 /*===================*/
 	void*	ptr)	/*!< in: pointer to place of possible corruption */
 {
-	byte*	p;
+	::byte*	p;
 	ulint	i;
 	ulint	dist;
 
 	fputs("InnoDB: Apparent memory corruption: mem dump ", stderr);
-	ut_print_buf(stderr, (byte*) ptr - 250, 500);
+	ut_print_buf(stderr, (::byte*) ptr - 250, 500);
 
 	fputs("\nInnoDB: Scanning backward trying to find"
 	      " previous allocated mem blocks\n", stderr);
 
-	p = (byte*) ptr;
+	p = (::byte*) ptr;
 	dist = 0;
 
 	for (i = 0; i < 10; i++) {
@@ -877,7 +877,7 @@ mem_analyze_corruption(
 		"InnoDB: Scanning forward trying to find next"
 		" allocated mem blocks\n");
 
-	p = (byte*) ptr;
+	p = (::byte*) ptr;
 	dist = 0;
 
 	for (i = 0; i < 10; i++) {

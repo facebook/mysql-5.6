@@ -1332,7 +1332,7 @@ dict_index_copy_rec_order_prefix(
 	const rec_t*		rec,	/*!< in: record for which to
 					copy prefix */
 	ulint*			n_fields,/*!< out: number of fields copied */
-	byte**			buf,	/*!< in/out: memory buffer for the
+	::byte**			buf,	/*!< in/out: memory buffer for the
 					copied prefix, or NULL */
 	ulint*			buf_size)/*!< in/out: buffer size */
 	MY_ATTRIBUTE((nonnull, warn_unused_result));

@@ -1254,7 +1254,7 @@ String *Item_func_reverse::val_str(String *str)
 #ifdef USE_MB
   if (use_mb(res->charset()))
   {
-    register uint32 l;
+    uint32 l;
     while (ptr < end)
     {
       if ((l= my_ismbchar(res->charset(),ptr,end)))
@@ -1303,7 +1303,7 @@ String *Item_func_replace::val_str(String *str)
   bool alloced=0;
 #ifdef USE_MB
   const char *ptr,*end,*strend,*search,*search_end;
-  register uint32 l;
+  uint32 l;
   bool binary_cmp;
 #endif
 
@@ -1355,7 +1355,7 @@ redo:
     {
         if (*ptr == *search)
         {
-          register char *i,*j;
+          char *i,*j;
           i=(char*) ptr+1; j=(char*) search+1;
           while (j != search_end)
             if (*i++ != *j++) goto skip;
@@ -1804,14 +1804,14 @@ String *Item_func_substr_index::val_str(String *str)
     const char *search= delimiter->ptr();
     const char *search_end= search+delimiter_length;
     int32 n=0,c=count,pass;
-    register uint32 l;
+    uint32 l;
     for (pass=(count>0);pass<2;++pass)
     {
       while (ptr < end)
       {
         if (*ptr == *search)
         {
-	  register char *i,*j;
+	  char *i,*j;
 	  i=(char*) ptr+1; j=(char*) search+1;
 	  while (j != search_end)
 	    if (*i++ != *j++) goto skip;
@@ -2021,7 +2021,7 @@ String *Item_func_rtrim::val_str(String *str)
   end= ptr+res->length();
 #ifdef USE_MB
   char *p=ptr;
-  register uint32 l;
+  uint32 l;
 #endif
   if (remove_length == 1)
   {
@@ -2106,7 +2106,7 @@ String *Item_func_trim::val_str(String *str)
     ptr= trim_left_mb(res, ptr, end, remove_str);
 
     char *p=ptr;
-    register uint32 l;
+    uint32 l;
  loop:
     while (ptr + remove_length < end)
     {

@@ -509,7 +509,7 @@ mem_heap_block_free(
 		/* In the debug version we set the memory to a random
 		combination of hex 0xDE and 0xAD. */
 
-		mem_erase_buf((byte*) block, len);
+		mem_erase_buf((::byte*) block, len);
 #else /* UNIV_MEM_DEBUG */
 		UNIV_MEM_ASSERT_AND_FREE(block, len);
 #endif /* UNIV_MEM_DEBUG */
@@ -529,7 +529,7 @@ mem_heap_block_free(
 	/* In the debug version we set the memory to a random
 	combination of hex 0xDE and 0xAD. */
 
-	mem_erase_buf((byte*) block, len);
+	mem_erase_buf((::byte*) block, len);
 #else /* UNIV_MEM_DEBUG */
 	UNIV_MEM_ASSERT_AND_FREE(block, len);
 #endif /* UNIV_MEM_DEBUG */

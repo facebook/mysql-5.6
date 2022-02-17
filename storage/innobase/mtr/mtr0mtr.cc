@@ -239,7 +239,7 @@ mtr_log_reserve_and_write(
 {
 	dyn_array_t*	mlog;
 	ulint		data_size;
-	byte*		first_data;
+	::byte*		first_data;
 
 	ut_ad(!srv_read_only_mode);
 
@@ -250,7 +250,7 @@ mtr_log_reserve_and_write(
 	if (mtr->n_log_recs > 1) {
 		mlog_catenate_ulint(mtr, MLOG_MULTI_REC_END, MLOG_1BYTE);
 	} else {
-		*first_data = (byte)((ulint)*first_data
+		*first_data = (::byte)((ulint)*first_data
 				     | MLOG_SINGLE_REC_FLAG);
 	}
 
@@ -393,7 +393,7 @@ UNIV_INTERN
 ulint
 mtr_read_ulint(
 /*===========*/
-	const byte*	ptr,	/*!< in: pointer from where to read */
+	const ::byte*	ptr,	/*!< in: pointer from where to read */
 	ulint		type,	/*!< in: MLOG_1BYTE, MLOG_2BYTES, MLOG_4BYTES */
 	mtr_t*		mtr MY_ATTRIBUTE((unused)))
 				/*!< in: mini-transaction handle */
@@ -415,7 +415,7 @@ ibool
 mtr_memo_contains_page(
 /*===================*/
 	mtr_t*		mtr,	/*!< in: mtr */
-	const byte*	ptr,	/*!< in: pointer to buffer frame */
+	const ::byte*	ptr,	/*!< in: pointer to buffer frame */
 	ulint		type)	/*!< in: type of object */
 {
 	return(mtr_memo_contains(mtr, buf_block_align(ptr), type));

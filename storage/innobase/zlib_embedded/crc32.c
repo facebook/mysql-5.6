@@ -267,7 +267,7 @@ local unsigned long crc32_little(crc, buf, len)
     unsigned len;
 {
     register u4 c;
-    register const u4 FAR *buf4;
+    const u4 FAR *buf4;
 
     c = (u4)crc;
     c = ~c;
@@ -307,7 +307,7 @@ local unsigned long crc32_big(crc, buf, len)
     unsigned len;
 {
     register u4 c;
-    register const u4 FAR *buf4;
+    const u4 FAR *buf4;
 
     c = REV((u4)crc);
     c = ~c;

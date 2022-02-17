@@ -30,7 +30,7 @@ Created 5/30/1994 Heikki Tuuri
 /** Dummy variable to catch access to uninitialized fields.  In the
 debug version, dtuple_create() will make all fields of dtuple_t point
 to data_error. */
-extern byte data_error;
+extern ::byte data_error;
 
 /*********************************************************************//**
 Gets pointer to the type struct of SQL data field.
@@ -269,7 +269,7 @@ dfield_data_is_binary_equal(
 /*========================*/
 	const dfield_t*	field,	/*!< in: field */
 	ulint		len,	/*!< in: data length or UNIV_SQL_NULL */
-	const byte*	data)	/*!< in: data */
+	const ::byte*	data)	/*!< in: data */
 {
 	return(len == dfield_get_len(field)
 	       && (len == UNIV_SQL_NULL
@@ -561,7 +561,7 @@ dtuple_fold(
 {
 	const dfield_t*	field;
 	ulint		i;
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	ulint		fold;
 
@@ -574,7 +574,7 @@ dtuple_fold(
 	for (i = 0; i < n_fields; i++) {
 		field = dtuple_get_nth_field(tuple, i);
 
-		data = (const byte*) dfield_get_data(field);
+		data = (const ::byte*) dfield_get_data(field);
 		len = dfield_get_len(field);
 
 		if (len != UNIV_SQL_NULL) {
@@ -586,7 +586,7 @@ dtuple_fold(
 	if (n_bytes > 0) {
 		field = dtuple_get_nth_field(tuple, i);
 
-		data = (const byte*) dfield_get_data(field);
+		data = (const ::byte*) dfield_get_data(field);
 		len = dfield_get_len(field);
 
 		if (len != UNIV_SQL_NULL) {
@@ -608,7 +608,7 @@ UNIV_INLINE
 void
 data_write_sql_null(
 /*================*/
-	byte*	data,	/*!< in: pointer to a buffer of size len */
+	::byte*	data,	/*!< in: pointer to a buffer of size len */
 	ulint	len)	/*!< in: SQL null size in bytes */
 {
 	memset(data, 0, len);

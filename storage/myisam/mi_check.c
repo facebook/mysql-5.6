@@ -73,7 +73,7 @@ static int sort_key_write(MI_SORT_PARAM *sort_param, const void *a);
 static my_off_t get_record_for_key(MI_INFO *info,MI_KEYDEF *keyinfo,
 				uchar *key);
 static int sort_insert_key(MI_SORT_PARAM  *sort_param,
-                           reg1 SORT_KEY_BLOCKS *key_block,
+                           SORT_KEY_BLOCKS *key_block,
 			   uchar *key, my_off_t prev_block);
 static int sort_delete_record(MI_SORT_PARAM *sort_param);
 /*static int flush_pending_blocks(MI_CHECK *param);*/
@@ -136,7 +136,7 @@ int chk_status(MI_CHECK *param, register MI_INFO *info)
 
 int chk_del(MI_CHECK *param, register MI_INFO *info, uint test_flag)
 {
-  reg2 ha_rows i;
+  ha_rows i;
   uint delete_link_length;
   my_off_t empty, next_link, old_link= 0;
   char buff[22],buff2[22];
@@ -1951,8 +1951,8 @@ int flush_blocks(MI_CHECK *param, KEY_CACHE *key_cache, File file)
 int mi_sort_index(MI_CHECK *param, register MI_INFO *info, char * name,
                   my_bool no_copy_stat)
 {
-  reg2 uint key;
-  reg1 MI_KEYDEF *keyinfo;
+  uint key;
+  MI_KEYDEF *keyinfo;
   File new_file;
   my_off_t index_pos[HA_MAX_POSSIBLE_KEY];
   uint r_locks,w_locks;
@@ -4225,7 +4225,7 @@ int flush_pending_blocks(MI_SORT_PARAM *sort_param)
 static SORT_KEY_BLOCKS *alloc_key_blocks(MI_CHECK *param, uint blocks,
                                          uint buffer_length)
 {
-  reg1 uint i;
+  uint i;
   SORT_KEY_BLOCKS *block;
   DBUG_ENTER("alloc_key_blocks");
 

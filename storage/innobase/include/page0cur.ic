@@ -267,7 +267,7 @@ page_cur_tuple_insert(
 					* sizeof **offsets);
 	}
 
-	rec = rec_convert_dtuple_to_rec((byte*) mem_heap_alloc(*heap, size),
+	rec = rec_convert_dtuple_to_rec((::byte*) mem_heap_alloc(*heap, size),
 					index, tuple, n_ext);
 	*offsets = rec_get_offsets(
 		rec, index, *offsets, ULINT_UNDEFINED, heap);

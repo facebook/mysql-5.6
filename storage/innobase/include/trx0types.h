@@ -130,18 +130,18 @@ struct trx_savept_t{
 /** File objects */
 /* @{ */
 /** Transaction system header */
-typedef byte	trx_sysf_t;
+typedef ::byte	trx_sysf_t;
 /** Rollback segment header */
-typedef byte	trx_rsegf_t;
+typedef ::byte	trx_rsegf_t;
 /** Undo segment header */
-typedef byte	trx_usegf_t;
+typedef ::byte	trx_usegf_t;
 /** Undo log header */
-typedef byte	trx_ulogf_t;
+typedef ::byte	trx_ulogf_t;
 /** Undo log page header */
-typedef byte	trx_upagef_t;
+typedef ::byte	trx_upagef_t;
 
 /** Undo log record */
-typedef	byte	trx_undo_rec_t;
+typedef	::byte	trx_undo_rec_t;
 /* @} */
 
 #endif

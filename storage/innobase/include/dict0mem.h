@@ -1191,7 +1191,7 @@ struct dict_table_t{
 				waiting on BG_STAT_IN_PROGRESS to be cleared,
 				the background stats thread will detect this
 				and will eventually quit sooner */
-	byte		stats_bg_flag;
+	::byte		stats_bg_flag;
 				/*!< see BG_STAT_* above.
 				Writes are covered by dict_sys->mutex.
 				Dirty reads are possible. */

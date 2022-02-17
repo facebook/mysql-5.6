@@ -67,7 +67,7 @@ struct row_stats_t {
 struct row_index_t {
 	index_id_t	m_id;			/*!< Index id of the table
 						in the exporting server */
-	byte*		m_name;			/*!< Index name */
+	::byte*		m_name;			/*!< Index name */
 
 	ulint		m_space;		/*!< Space where it is placed */
 
@@ -191,9 +191,9 @@ struct row_import {
 
 	ulint		m_version;		/*!< Version of config file */
 
-	byte*		m_hostname;		/*!< Hostname where the
+	::byte*		m_hostname;		/*!< Hostname where the
 						tablespace was exported */
-	byte*		m_table_name;		/*!< Exporting instance table
+	::byte*		m_table_name;		/*!< Exporting instance table
 						name */
 
 	ib_uint64_t	m_autoinc;		/*!< Next autoinc value */
@@ -207,7 +207,7 @@ struct row_import {
 
 	dict_col_t*	m_cols;			/*!< Column data */
 
-	byte**		m_col_names;		/*!< Column names, we store the
+	::byte**		m_col_names;		/*!< Column names, we store the
 						column naems separately becuase
 						there is no field to store the
 						value in dict_col_t */
@@ -797,7 +797,7 @@ FetchIndexRootPages::build_row_import(row_import* cfg) const UNIV_NOTHROW
 
 		ulint	len = strlen(name) + 1;
 
-		cfg_index->m_name = new(std::nothrow) byte[len];
+		cfg_index->m_name = new(std::nothrow) ::byte[len];
 
 		/* Trigger OOM */
 		DBUG_EXECUTE_IF("ib_import_OOM_12",
@@ -1464,7 +1464,7 @@ row_import::set_root_by_heuristic() UNIV_NOTHROW
 
 			ulint	len = strlen(index->name) + 1;
 
-			cfg_index[i].m_name = new(std::nothrow) byte[len];
+			cfg_index[i].m_name = new(std::nothrow) ::byte[len];
 
 			/* Trigger OOM */
 			DBUG_EXECUTE_IF("ib_import_OOM_14",
@@ -1660,7 +1660,7 @@ PageConverter::adjust_cluster_index_blob_column(
 	ulint		i) UNIV_NOTHROW
 {
 	ulint		len;
-	byte*		field;
+	::byte*		field;
 
 	field = rec_get_nth_field(rec, offsets, i, &len);
 
@@ -2079,8 +2079,8 @@ PageConverter::validate(
 				checksum);
 		}
 
-		const byte*	b = page + FIL_PAGE_OFFSET;
-		const byte*	e = page + m_page_size
+		const ::byte*	b = page + FIL_PAGE_OFFSET;
+		const ::byte*	e = page + m_page_size
 				    - FIL_PAGE_END_LSN_OLD_CHKSUM;
 
 		/* If the page number is zero and offset > 0 then
@@ -2451,7 +2451,7 @@ row_import_set_sys_max_row_id(
 	/* Check for empty table. */
 	if (!page_rec_is_infimum(rec)) {
 		ulint		len;
-		const byte*	field;
+		const ::byte*	field;
 		mem_heap_t*	heap = NULL;
 		ulint		offsets_[1 + REC_OFFS_HEADER_SIZE];
 		ulint*		offsets;
@@ -2527,7 +2527,7 @@ dberr_t
 row_import_cfg_read_string(
 /*=======================*/
 	FILE*		file,		/*!< in/out: File to read from */
-	byte*		ptr,		/*!< out: string to read */
+	::byte*		ptr,		/*!< out: string to read */
 	ulint		max_len)	/*!< in: maximum length of the output
 					buffer in bytes */
 {
@@ -2573,7 +2573,7 @@ row_import_cfg_read_index_fields(
 	row_index_t*		index,	/*!< Index being read in */
 	row_import*		cfg)	/*!< in/out: meta-data read */
 {
-	byte			row[sizeof(ib_uint32_t) * 3];
+	::byte			row[sizeof(ib_uint32_t) * 3];
 	ulint			n_fields = index->m_n_fields;
 
 	index->m_fields = new(std::nothrow) dict_field_t[n_fields];
@@ -2591,7 +2591,7 @@ row_import_cfg_read_index_fields(
 	memset(field, 0x0, sizeof(*field) * n_fields);
 
 	for (ulint i = 0; i < n_fields; ++i, ++field) {
-		byte*		ptr = row;
+		::byte*		ptr = row;
 
 		/* Trigger EOF */
 		DBUG_EXECUTE_IF("ib_import_io_read_error_1",
@@ -2621,7 +2621,7 @@ row_import_cfg_read_index_fields(
 		/* Include the NUL byte in the length. */
 		ulint	len = mach_read_from_4(ptr);
 
-		byte*	name = new(std::nothrow) byte[len];
+		::byte*	name = new(std::nothrow) ::byte[len];
 
 		/* Trigger OOM */
 		DBUG_EXECUTE_IF("ib_import_OOM_5", delete [] name; name = 0;);
@@ -2660,9 +2660,9 @@ row_import_read_index_data(
 	THD*		thd,		/*!< in: session */
 	row_import*	cfg)		/*!< in/out: meta-data read */
 {
-	byte*		ptr;
+	::byte*		ptr;
 	row_index_t*	cfg_index;
-	byte		row[sizeof(index_id_t) + sizeof(ib_uint32_t) * 9];
+	::byte		row[sizeof(index_id_t) + sizeof(ib_uint32_t) * 9];
 
 	/* FIXME: What is the max value? */
 	ut_a(cfg->m_n_indexes > 0);
@@ -2759,7 +2759,7 @@ row_import_read_index_data(
 			return(DB_CORRUPTION);
 		}
 
-		cfg_index->m_name = new(std::nothrow) byte[len];
+		cfg_index->m_name = new(std::nothrow) ::byte[len];
 
 		/* Trigger OOM */
 		DBUG_EXECUTE_IF("ib_import_OOM_7",
@@ -2807,7 +2807,7 @@ row_import_read_indexes(
 	THD*		thd,		/*!< in: session */
 	row_import*	cfg)		/*!< in/out: meta-data read */
 {
-	byte		row[sizeof(ib_uint32_t)];
+	::byte		row[sizeof(ib_uint32_t)];
 
 	/* Trigger EOF */
 	DBUG_EXECUTE_IF("ib_import_io_read_error_3",
@@ -2856,7 +2856,7 @@ row_import_read_columns(
 	row_import*		cfg)	/*!< in/out: meta-data read */
 {
 	dict_col_t*		col;
-	byte			row[sizeof(ib_uint32_t) * 8];
+	::byte			row[sizeof(ib_uint32_t) * 8];
 
 	/* FIXME: What should the upper limit be? */
 	ut_a(cfg->m_n_cols > 0);
@@ -2872,7 +2872,7 @@ row_import_read_columns(
 		return(DB_OUT_OF_MEMORY);
 	}
 
-	cfg->m_col_names = new(std::nothrow) byte* [cfg->m_n_cols];
+	cfg->m_col_names = new(std::nothrow) ::byte* [cfg->m_n_cols];
 
 	/* Trigger OOM */
 	DBUG_EXECUTE_IF("ib_import_OOM_9",
@@ -2888,7 +2888,7 @@ row_import_read_columns(
 	col = cfg->m_cols;
 
 	for (ulint i = 0; i < cfg->m_n_cols; ++i, ++col) {
-		byte*		ptr = row;
+		::byte*		ptr = row;
 
 		/* Trigger EOF */
 		DBUG_EXECUTE_IF("ib_import_io_read_error_4",
@@ -2939,7 +2939,7 @@ row_import_read_columns(
 			return(DB_CORRUPTION);
 		}
 
-		cfg->m_col_names[i] = new(std::nothrow) byte[len];
+		cfg->m_col_names[i] = new(std::nothrow) ::byte[len];
 
 		/* Trigger OOM */
 		DBUG_EXECUTE_IF("ib_import_OOM_10",
@@ -2980,7 +2980,7 @@ row_import_read_v1(
 	THD*		thd,		/*!< in: session */
 	row_import*	cfg)		/*!< out: meta data */
 {
-	byte		value[sizeof(ib_uint32_t)];
+	::byte		value[sizeof(ib_uint32_t)];
 
 	/* Trigger EOF */
 	DBUG_EXECUTE_IF("ib_import_io_read_error_5",
@@ -2999,7 +2999,7 @@ row_import_read_v1(
 	ulint	len = mach_read_from_4(value);
 
 	/* NUL byte is part of name length. */
-	cfg->m_hostname = new(std::nothrow) byte[len];
+	cfg->m_hostname = new(std::nothrow) ::byte[len];
 
 	/* Trigger OOM */
 	DBUG_EXECUTE_IF("ib_import_OOM_1",
@@ -3038,7 +3038,7 @@ row_import_read_v1(
 	len = mach_read_from_4(value);
 
 	/* NUL byte is part of name length. */
-	cfg->m_table_name = new(std::nothrow) byte[len];
+	cfg->m_table_name = new(std::nothrow) ::byte[len];
 
 	/* Trigger OOM */
 	DBUG_EXECUTE_IF("ib_import_OOM_2",
@@ -3063,7 +3063,7 @@ row_import_read_v1(
 		"Importing tablespace for table '%s' that was exported "
 		"from host '%s'", cfg->m_table_name, cfg->m_hostname);
 
-	byte		row[sizeof(ib_uint32_t) * 3];
+	::byte		row[sizeof(ib_uint32_t) * 3];
 
 	/* Trigger EOF */
 	DBUG_EXECUTE_IF("ib_import_io_read_error_7",
@@ -3095,7 +3095,7 @@ row_import_read_v1(
 		return(DB_IO_ERROR);
 	}
 
-	byte*		ptr = row;
+	::byte*		ptr = row;
 
 	cfg->m_page_size = mach_read_from_4(ptr);
 	ptr += sizeof(ib_uint32_t);
@@ -3147,7 +3147,7 @@ row_import_read_meta_data(
 	THD*		thd,		/*!< in: session */
 	row_import&	cfg)		/*!< out: contents of the .cfg file */
 {
-	byte		row[sizeof(ib_uint32_t)];
+	::byte		row[sizeof(ib_uint32_t)];
 
 	/* Trigger EOF */
 	DBUG_EXECUTE_IF("ib_import_io_read_error_9",
@@ -3274,23 +3274,23 @@ row_import_update_index_root(
 		info = (graph != 0) ? graph->info : pars_info_create();
 
 		mach_write_to_4(
-			reinterpret_cast<byte*>(&type),
+			reinterpret_cast<::byte*>(&type),
 			index->type);
 
 		mach_write_to_4(
-			reinterpret_cast<byte*>(&page),
+			reinterpret_cast<::byte*>(&page),
 			reset ? FIL_NULL : index->page);
 
 		mach_write_to_4(
-			reinterpret_cast<byte*>(&space),
+			reinterpret_cast<::byte*>(&space),
 			reset ? FIL_NULL : index->space);
 
 		mach_write_to_8(
-			reinterpret_cast<byte*>(&index_id),
+			reinterpret_cast<::byte*>(&index_id),
 			index->id);
 
 		mach_write_to_8(
-			reinterpret_cast<byte*>(&table_id),
+			reinterpret_cast<::byte*>(&table_id),
 			table->id);
 
 		/* If we set the corrupt bit during the IMPORT phase then
@@ -3374,7 +3374,7 @@ row_import_set_discarded(
 	ut_a(len == sizeof(ib_uint32_t));
 
 	ulint	flags2 = mach_read_from_4(
-		static_cast<byte*>(dfield_get_data(dfield)));
+		static_cast<::byte*>(dfield_get_data(dfield)));
 
 	if (discard->state) {
 		flags2 |= DICT_TF2_DISCARDED;
@@ -3382,7 +3382,7 @@ row_import_set_discarded(
 		flags2 &= ~DICT_TF2_DISCARDED;
 	}
 
-	mach_write_to_4(reinterpret_cast<byte*>(&discard->flags2), flags2);
+	mach_write_to_4(reinterpret_cast<::byte*>(&discard->flags2), flags2);
 
 	++discard->n_recs;
 

@@ -154,7 +154,7 @@ btr_copy_externally_stored_field_prefix_low(). */
 /** A BLOB field reference full of zero, for use in assertions and tests.
 Initially, BLOB field references are set to zero, in
 dtuple_convert_big_rec(). */
-const byte field_ref_zero[BTR_EXTERN_FIELD_REF_SIZE] = {
+const ::byte field_ref_zero[BTR_EXTERN_FIELD_REF_SIZE] = {
 	0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0,
@@ -1754,7 +1754,7 @@ btr_cur_update_in_place_log(
 	roll_ptr_t	roll_ptr,	/*!< in: roll ptr */
 	mtr_t*		mtr)		/*!< in: mtr */
 {
-	byte*		log_ptr;
+	::byte*		log_ptr;
 	const page_t*	page	= page_align(rec);
 	ut_ad(flags < 256);
 	ut_ad(!!page_is_comp(page) == dict_table_is_comp(index->table));
@@ -1804,11 +1804,11 @@ btr_cur_update_in_place_log(
 Parses a redo log record of updating a record in-place.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_cur_parse_update_in_place(
 /*==========================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< in/out: page or NULL */
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page, or NULL */
 	dict_index_t*	index)	/*!< in: index corresponding to page */
@@ -2858,7 +2858,7 @@ btr_cur_del_mark_set_clust_rec_log(
 	roll_ptr_t	roll_ptr,/*!< in: roll ptr to the undo log record */
 	mtr_t*		mtr)	/*!< in: mtr */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 
 	ut_ad(!!page_rec_is_comp(rec) == dict_table_is_comp(index->table));
 
@@ -2891,11 +2891,11 @@ Parses the redo log record for delete marking or unmarking of a clustered
 index record.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_cur_parse_del_mark_set_clust_rec(
 /*=================================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< in/out: page or NULL */
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page, or NULL */
 	dict_index_t*	index)	/*!< in: index corresponding to page */
@@ -3056,7 +3056,7 @@ btr_cur_del_mark_set_sec_rec_log(
 	ibool		val,	/*!< in: value to set */
 	mtr_t*		mtr)	/*!< in: mtr */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 	ut_ad(val <= 1);
 
 	log_ptr = mlog_open(mtr, 11 + 1 + 2);
@@ -3084,11 +3084,11 @@ Parses the redo log record for delete marking or unmarking of a secondary
 index record.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_cur_parse_del_mark_set_sec_rec(
 /*===============================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< in/out: page or NULL */
 	page_zip_des_t*	page_zip)/*!< in/out: compressed page, or NULL */
 {
@@ -4215,7 +4215,7 @@ btr_cur_set_ownership_of_extern_field(
 	ibool		val,	/*!< in: value to set */
 	mtr_t*		mtr)	/*!< in: mtr, or NULL if not logged */
 {
-	byte*	data;
+	::byte*	data;
 	ulint	local_len;
 	ulint	byte_val;
 
@@ -4352,9 +4352,9 @@ btr_push_update_extern_fields(
 			}
 
 			switch (uf->orig_len) {
-				byte*	data;
+				::byte*	data;
 				ulint	len;
-				byte*	buf;
+				::byte*	buf;
 			case 0:
 				break;
 			case BTR_EXTERN_FIELD_REF_SIZE:
@@ -4363,7 +4363,7 @@ btr_push_update_extern_fields(
 				InnoDB writes a longer prefix of externally
 				stored columns, so that column prefixes
 				in secondary indexes can be reconstructed. */
-				dfield_set_data(field, (byte*) dfield_get_data(field)
+				dfield_set_data(field, (::byte*) dfield_get_data(field)
 						+ dfield_get_len(field)
 						- BTR_EXTERN_FIELD_REF_SIZE,
 						BTR_EXTERN_FIELD_REF_SIZE);
@@ -4375,10 +4375,10 @@ btr_push_update_extern_fields(
 				will have to be copied. */
 				ut_a(uf->orig_len > BTR_EXTERN_FIELD_REF_SIZE);
 
-				data = (byte*) dfield_get_data(field);
+				data = (::byte*) dfield_get_data(field);
 				len = dfield_get_len(field);
 
-				buf = (byte*) mem_heap_alloc(heap,
+				buf = (::byte*) mem_heap_alloc(heap,
 							     uf->orig_len);
 				/* Copy the locally stored prefix. */
 				memcpy(buf, data,
@@ -4406,7 +4406,7 @@ static
 ulint
 btr_blob_get_part_len(
 /*==================*/
-	const byte*	blob_header)	/*!< in: blob header */
+	const ::byte*	blob_header)	/*!< in: blob header */
 {
 	return(mach_read_from_4(blob_header + BTR_BLOB_HDR_PART_LEN));
 }
@@ -4418,7 +4418,7 @@ static
 ulint
 btr_blob_get_next_page_no(
 /*======================*/
-	const byte*	blob_header)	/*!< in: blob header */
+	const ::byte*	blob_header)	/*!< in: blob header */
 {
 	return(mach_read_from_4(blob_header + BTR_BLOB_HDR_NEXT_PAGE_NO));
 }
@@ -4490,7 +4490,7 @@ btr_store_big_rec_extern_fields(
 	enum blob_op	op)		/*! in: operation code */
 {
 	ulint		rec_page_no;
-	byte*		field_ref;
+	::byte*		field_ref;
 	ulint		extern_len;
 	ulint		store_len;
 	ulint		page_no;
@@ -4860,7 +4860,7 @@ next_zip_page:
 
 				mlog_write_string(page + FIL_PAGE_DATA
 						  + BTR_BLOB_HDR_SIZE,
-						  (const byte*)
+						  (const ::byte*)
 						  big_rec_vec->fields[i].data
 						  + big_rec_vec->fields[i].len
 						  - extern_len,
@@ -5028,7 +5028,7 @@ btr_free_externally_stored_field(
 					from purge where 'data' is located on
 					an undo log page, not an index
 					page) */
-	byte*		field_ref,	/*!< in/out: field reference */
+	::byte*		field_ref,	/*!< in/out: field reference */
 	const rec_t*	rec,		/*!< in: record containing field_ref, for
 					page_zip_write_blob_ptr(), or NULL */
 	const ulint*	offsets,	/*!< in: rec_get_offsets(rec, index),
@@ -5301,7 +5301,7 @@ btr_rec_free_updated_extern_fields(
 
 		if (rec_offs_nth_extern(offsets, ufield->field_no)) {
 			ulint	len;
-			byte*	data = rec_get_nth_field(
+			::byte*	data = rec_get_nth_field(
 				rec, offsets, ufield->field_no, &len);
 			ut_a(len >= BTR_EXTERN_FIELD_REF_SIZE);
 
@@ -5321,7 +5321,7 @@ static
 ulint
 btr_copy_blob_prefix(
 /*=================*/
-	byte*		buf,	/*!< out: the externally stored part of
+	::byte*		buf,	/*!< out: the externally stored part of
 				the field, or a prefix of it */
 	ulint		len,	/*!< in: length of buf, in bytes */
 	ulint		space_id,/*!< in: space id of the BLOB pages */
@@ -5335,7 +5335,7 @@ btr_copy_blob_prefix(
 		mtr_t		mtr;
 		buf_block_t*	block;
 		const page_t*	page;
-		const byte*	blob_header;
+		const ::byte*	blob_header;
 		ulint		part_len;
 		ulint		copy_len;
 
@@ -5416,7 +5416,7 @@ static
 ulint
 btr_copy_zblob_prefix(
 /*==================*/
-	byte*		buf,	/*!< out: the externally stored part of
+	::byte*		buf,	/*!< out: the externally stored part of
 				the field, or a prefix of it */
 	ulint		len,	/*!< in: length of buf, in bytes */
 	ulint		zip_size,/*!< in: compressed BLOB page size */
@@ -5585,7 +5585,7 @@ static
 ulint
 btr_copy_externally_stored_field_prefix_low(
 /*========================================*/
-	byte*		buf,	/*!< out: the externally stored part of
+	::byte*		buf,	/*!< out: the externally stored part of
 				the field, or a prefix of it */
 	ulint		len,	/*!< in: length of buf, in bytes */
 	ulint		zip_size,/*!< in: nonzero=compressed BLOB page size,
@@ -5617,11 +5617,11 @@ UNIV_INTERN
 ulint
 btr_copy_externally_stored_field_prefix(
 /*====================================*/
-	byte*		buf,	/*!< out: the field, or a prefix of it */
+	::byte*		buf,	/*!< out: the field, or a prefix of it */
 	ulint		len,	/*!< in: length of buf, in bytes */
 	ulint		zip_size,/*!< in: nonzero=compressed BLOB page size,
 				zero for uncompressed BLOBs */
-	const byte*	data,	/*!< in: 'internally' stored part of the
+	const ::byte*	data,	/*!< in: 'internally' stored part of the
 				field containing also the reference to
 				the external part; must be protected by
 				a lock or a page latch */
@@ -5673,11 +5673,11 @@ Copies an externally stored field of a record to mem heap.  The
 clustered index record must be protected by a lock or a page latch.
 @return	the whole field copied to heap */
 UNIV_INTERN
-byte*
+::byte*
 btr_copy_externally_stored_field(
 /*=============================*/
 	ulint*		len,	/*!< out: length of the whole field */
-	const byte*	data,	/*!< in: 'internally' stored part of the
+	const ::byte*	data,	/*!< in: 'internally' stored part of the
 				field containing also the reference to
 				the external part; must be protected by
 				a lock or a page latch */
@@ -5691,7 +5691,7 @@ btr_copy_externally_stored_field(
 	ulint	page_no;
 	ulint	offset;
 	ulint	extern_len;
-	byte*	buf;
+	::byte*	buf;
 
 	ut_a(local_len >= BTR_EXTERN_FIELD_REF_SIZE);
 
@@ -5708,7 +5708,7 @@ btr_copy_externally_stored_field(
 
 	extern_len = mach_read_from_4(data + local_len + BTR_EXTERN_LEN + 4);
 
-	buf = (byte*) mem_heap_alloc(heap, local_len + extern_len);
+	buf = (::byte*) mem_heap_alloc(heap, local_len + extern_len);
 
 	memcpy(buf, data, local_len);
 	*len = local_len
@@ -5739,7 +5739,7 @@ btr_copy_externally_stored_field(
 Copies an externally stored field of a record to mem heap.
 @return	the field copied to heap, or NULL if the field is incomplete */
 UNIV_INTERN
-byte*
+::byte*
 btr_rec_copy_externally_stored_field(
 /*=================================*/
 	const rec_t*	rec,	/*!< in: record in a clustered index;
@@ -5753,7 +5753,7 @@ btr_rec_copy_externally_stored_field(
 	trx_t*		trx)	/*!< in: transaction handle */
 {
 	ulint		local_len;
-	const byte*	data;
+	const ::byte*	data;
 
 	ut_a(rec_offs_nth_extern(offsets, no));
 

@@ -42,10 +42,10 @@ row_ext_cache_fill(
 	ulint		zip_size,/*!< compressed page size in bytes, or 0 */
 	const dfield_t*	dfield)	/*!< in: data field */
 {
-	const byte*	field	= static_cast<const byte*>(
+	const ::byte*	field	= static_cast<const ::byte*>(
 					dfield_get_data(dfield));
 	ulint		f_len	= dfield_get_len(dfield);
-	byte*		buf	= ext->buf + i * ext->max_len;
+	::byte*		buf	= ext->buf + i * ext->max_len;
 
 	ut_ad(ext->max_len > 0);
 	ut_ad(i < ext->n_ext);
@@ -123,7 +123,7 @@ row_ext_create(
 	ret->ext = ext;
 	ret->max_len = DICT_MAX_FIELD_LEN_BY_FORMAT_FLAG(flags);
 
-	ret->buf = static_cast<byte*>(
+	ret->buf = static_cast<::byte*>(
 		mem_heap_alloc(heap, n_ext * ret->max_len));
 
 #ifdef UNIV_DEBUG

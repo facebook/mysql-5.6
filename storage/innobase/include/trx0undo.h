@@ -74,7 +74,7 @@ UNIV_INLINE
 bool
 trx_undo_trx_id_is_insert(
 /*======================*/
-	const byte*	trx_id)	/*!< in: DB_TRX_ID, followed by DB_ROLL_PTR */
+	const ::byte*	trx_id)	/*!< in: DB_TRX_ID, followed by DB_ROLL_PTR */
 	MY_ATTRIBUTE((nonnull, pure, warn_unused_result));
 #endif /* !UNIV_HOTBACKUP */
 /*****************************************************************//**
@@ -85,7 +85,7 @@ UNIV_INLINE
 void
 trx_write_roll_ptr(
 /*===============*/
-	byte*		ptr,		/*!< in: pointer to memory where
+	::byte*		ptr,		/*!< in: pointer to memory where
 					written */
 	roll_ptr_t	roll_ptr);	/*!< in: roll ptr */
 /*****************************************************************//**
@@ -97,7 +97,7 @@ UNIV_INLINE
 roll_ptr_t
 trx_read_roll_ptr(
 /*==============*/
-	const byte*	ptr);	/*!< in: pointer to memory from where to read */
+	const ::byte*	ptr);	/*!< in: pointer to memory from where to read */
 #ifndef UNIV_HOTBACKUP
 /******************************************************************//**
 Gets an undo log page and x-latches it.
@@ -349,34 +349,34 @@ trx_undo_free_prepared(
 Parses the redo log entry of an undo log page initialization.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 trx_undo_parse_page_init(
 /*=====================*/
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
 	page_t*	page,	/*!< in: page or NULL */
 	mtr_t*	mtr);	/*!< in: mtr or NULL */
 /***********************************************************//**
 Parses the redo log entry of an undo log page header create or reuse.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 trx_undo_parse_page_header(
 /*=======================*/
 	ulint	type,	/*!< in: MLOG_UNDO_HDR_CREATE or MLOG_UNDO_HDR_REUSE */
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
 	page_t*	page,	/*!< in: page or NULL */
 	mtr_t*	mtr);	/*!< in: mtr or NULL */
 /***********************************************************//**
 Parses the redo log entry of an undo log page header discard.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 trx_undo_parse_discard_latest(
 /*==========================*/
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
 	page_t*	page,	/*!< in: page or NULL */
 	mtr_t*	mtr);	/*!< in: mtr or NULL */
 /************************************************************************

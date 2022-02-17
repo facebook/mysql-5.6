@@ -349,7 +349,7 @@ extern my_bool	srv_load_corrupted;
 
 /* The sort order table of the MySQL latin1_swedish_ci character set
 collation */
-extern const byte*	srv_latin1_ordering;
+extern const ::byte*	srv_latin1_ordering;
 #ifndef UNIV_HOTBACKUP
 extern my_bool	srv_use_sys_malloc;
 #else

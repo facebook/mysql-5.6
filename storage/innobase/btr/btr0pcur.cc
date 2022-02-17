@@ -190,7 +190,7 @@ btr_pcur_copy_stored_position(
 
 	if (pcur_donate->old_rec_buf) {
 
-		pcur_receive->old_rec_buf = (byte*)
+		pcur_receive->old_rec_buf = (::byte*)
 			mem_alloc(pcur_donate->buf_size);
 
 		ut_memcpy(pcur_receive->old_rec_buf, pcur_donate->old_rec_buf,

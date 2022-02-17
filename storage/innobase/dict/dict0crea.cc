@@ -62,7 +62,7 @@ dict_create_sys_tables_tuple(
 	dict_table_t*	sys_tables;
 	dtuple_t*	entry;
 	dfield_t*	dfield;
-	byte*		ptr;
+	::byte*		ptr;
 	ulint		type;
 
 	ut_ad(table);
@@ -86,7 +86,7 @@ dict_create_sys_tables_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_TABLES__ID);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(ptr, table->id);
 
 	dfield_set_data(dfield, ptr, 8);
@@ -95,7 +95,7 @@ dict_create_sys_tables_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_TABLES__N_COLS);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, table->n_def
 			| ((table->flags & DICT_TF_COMPACT) << 31));
 	dfield_set_data(dfield, ptr, 4);
@@ -104,7 +104,7 @@ dict_create_sys_tables_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_TABLES__TYPE);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 
 	/* Validate the table flags and convert them to what is saved in
 	SYS_TABLES.TYPE.  Table flag values 0 and 1 are both written to
@@ -118,7 +118,7 @@ dict_create_sys_tables_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_TABLES__MIX_ID);
 
-	ptr = static_cast<byte*>(mem_heap_zalloc(heap, 8));
+	ptr = static_cast<::byte*>(mem_heap_zalloc(heap, 8));
 
 	dfield_set_data(dfield, ptr, 8);
 
@@ -126,7 +126,7 @@ dict_create_sys_tables_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_TABLES__MIX_LEN);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	/* Be sure all non-used bits are zero. */
 	ut_a(!(table->flags2 & ~DICT_TF2_BIT_MASK));
 	mach_write_to_4(ptr, table->flags2);
@@ -142,7 +142,7 @@ dict_create_sys_tables_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_TABLES__SPACE);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, table->space);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -169,7 +169,7 @@ dict_create_sys_columns_tuple(
 	dtuple_t*		entry;
 	const dict_col_t*	column;
 	dfield_t*		dfield;
-	byte*			ptr;
+	::byte*			ptr;
 	const char*		col_name;
 
 	ut_ad(table);
@@ -186,7 +186,7 @@ dict_create_sys_columns_tuple(
 	/* 0: TABLE_ID -----------------------*/
 	dfield = dtuple_get_nth_field(entry, DICT_COL__SYS_COLUMNS__TABLE_ID);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(ptr, table->id);
 
 	dfield_set_data(dfield, ptr, 8);
@@ -194,7 +194,7 @@ dict_create_sys_columns_tuple(
 	/* 1: POS ----------------------------*/
 	dfield = dtuple_get_nth_field(entry, DICT_COL__SYS_COLUMNS__POS);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, i);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -210,7 +210,7 @@ dict_create_sys_columns_tuple(
 	/* 5: MTYPE --------------------------*/
 	dfield = dtuple_get_nth_field(entry, DICT_COL__SYS_COLUMNS__MTYPE);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, column->mtype);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -218,7 +218,7 @@ dict_create_sys_columns_tuple(
 	/* 6: PRTYPE -------------------------*/
 	dfield = dtuple_get_nth_field(entry, DICT_COL__SYS_COLUMNS__PRTYPE);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, column->prtype);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -226,7 +226,7 @@ dict_create_sys_columns_tuple(
 	/* 7: LEN ----------------------------*/
 	dfield = dtuple_get_nth_field(entry, DICT_COL__SYS_COLUMNS__LEN);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, column->len);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -234,7 +234,7 @@ dict_create_sys_columns_tuple(
 	/* 8: PREC ---------------------------*/
 	dfield = dtuple_get_nth_field(entry, DICT_COL__SYS_COLUMNS__PREC);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, 0/* unused */);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -369,7 +369,7 @@ dict_create_sys_indexes_tuple(
 	dict_table_t*	table;
 	dtuple_t*	entry;
 	dfield_t*	dfield;
-	byte*		ptr;
+	::byte*		ptr;
 
 	ut_ad(mutex_own(&(dict_sys->mutex)));
 	ut_ad(index);
@@ -387,7 +387,7 @@ dict_create_sys_indexes_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_INDEXES__TABLE_ID);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(ptr, table->id);
 
 	dfield_set_data(dfield, ptr, 8);
@@ -396,7 +396,7 @@ dict_create_sys_indexes_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_INDEXES__ID);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(ptr, index->id);
 
 	dfield_set_data(dfield, ptr, 8);
@@ -413,7 +413,7 @@ dict_create_sys_indexes_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_INDEXES__N_FIELDS);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, index->n_fields);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -422,7 +422,7 @@ dict_create_sys_indexes_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_INDEXES__TYPE);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, index->type);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -432,7 +432,7 @@ dict_create_sys_indexes_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_INDEXES__SPACE);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, index->space);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -442,7 +442,7 @@ dict_create_sys_indexes_tuple(
 	dfield = dtuple_get_nth_field(
 		entry, DICT_COL__SYS_INDEXES__PAGE_NO);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, FIL_NULL);
 
 	dfield_set_data(dfield, ptr, 4);
@@ -470,7 +470,7 @@ dict_create_sys_fields_tuple(
 	dtuple_t*	entry;
 	dict_field_t*	field;
 	dfield_t*	dfield;
-	byte*		ptr;
+	::byte*		ptr;
 	ibool		index_contains_column_prefix_field	= FALSE;
 	ulint		j;
 
@@ -496,7 +496,7 @@ dict_create_sys_fields_tuple(
 	/* 0: INDEX_ID -----------------------*/
 	dfield = dtuple_get_nth_field(entry, DICT_COL__SYS_FIELDS__INDEX_ID);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(ptr, index->id);
 
 	dfield_set_data(dfield, ptr, 8);
@@ -505,7 +505,7 @@ dict_create_sys_fields_tuple(
 
 	dfield = dtuple_get_nth_field(entry, DICT_COL__SYS_FIELDS__POS);
 
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 
 	if (index_contains_column_prefix_field) {
 		/* If there are column prefix fields in the index, then
@@ -551,7 +551,7 @@ dict_create_sys_docstore_fields_tuple(
 	dtuple_t*	entry;
 	dict_field_t*	field;
 	dfield_t*	dfield;
-	byte*		ptr;
+	::byte*		ptr;
 
 	ut_ad(index);
 	ut_ad(heap);
@@ -565,14 +565,14 @@ dict_create_sys_docstore_fields_tuple(
 	/* 0: INDEX_ID -----------------------*/
 	dfield = dtuple_get_nth_field(entry,
 				      DICT_COL__SYS_DOCSTORE_FIELDS__INDEX_ID);
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(ptr, index->id);
 	dfield_set_data(dfield, ptr, 8);
 
 	/* 1: POS; FIELD NUMBER */
 	dfield = dtuple_get_nth_field(entry,
 				      DICT_COL__SYS_DOCSTORE_FIELDS__POS);
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, fld_no);
 	dfield_set_data(dfield, ptr, 4);
 
@@ -589,7 +589,7 @@ dict_create_sys_docstore_fields_tuple(
 	/* 5: DOCUMENT_PATH_TYPE */
 	dfield = dtuple_get_nth_field(entry,
 				      DICT_COL__SYS_DOCSTORE_FIELDS__TYPE);
-	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	ptr = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, field->document_path_type);
 	dfield_set_data(dfield, ptr, 4);
 
@@ -810,7 +810,7 @@ dict_drop_index_tree(
 	ulint		root_page_no;
 	ulint		space;
 	ulint		zip_size;
-	const byte*	ptr;
+	const ::byte*	ptr;
 	ulint		len;
 
 	ut_ad(mutex_own(&(dict_sys->mutex)));
@@ -885,7 +885,7 @@ dict_truncate_index_tree(
 	ulint		type;
 	index_id_t	index_id;
 	rec_t*		rec;
-	const byte*	ptr;
+	const ::byte*	ptr;
 	ulint		len;
 	dict_index_t*	index;
 	bool		has_been_dropped = false;

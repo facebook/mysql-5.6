@@ -185,7 +185,7 @@ struct os_aio_slot_t{
 	ulonglong	reservation_time;/*!< time when reserved */
 	ulint		len;		/*!< length of the block to read or
 					write */
-	byte*		buf;		/*!< buffer used in i/o */
+	::byte*		buf;		/*!< buffer used in i/o */
 	ulint		type;		/*!< OS_FILE_READ or OS_FILE_WRITE */
 	os_offset_t	offset;		/*!< file offset in bytes */
 	os_file_t	file;		/*!< file where to read or write */
@@ -291,7 +291,7 @@ static os_event_t*	os_aio_segment_wait_events = NULL;
 /** Per thread buffer used for merged IO requests. Used by
 os_aio_simulated_handle so that a buffer doesn't have to be allocated
 for each request. @{ */
-static byte* os_aio_thread_buffer[SRV_MAX_N_IO_THREADS];
+static ::byte* os_aio_thread_buffer[SRV_MAX_N_IO_THREADS];
 static ulint os_aio_thread_buffer_size[SRV_MAX_N_IO_THREADS];
 /* @} */
 
@@ -2329,18 +2329,18 @@ os_file_set_size(
 {
 	os_offset_t	current_size;
 	ibool		ret;
-	byte*		buf;
-	byte*		buf2;
+	::byte*		buf;
+	::byte*		buf2;
 	ulint		buf_size;
 
 	current_size = 0;
 
 	/* Write 1 megabyte at a time. */
 	buf_size = OS_FILE_WRITE_BUF_SIZE;
-	buf2 = static_cast<byte*>(ut_malloc(buf_size + UNIV_PAGE_SIZE));
+	buf2 = static_cast<::byte*>(ut_malloc(buf_size + UNIV_PAGE_SIZE));
 
 	/* Align the buffer for possible raw i/o */
-	buf = static_cast<byte*>(ut_align(buf2, UNIV_PAGE_SIZE));
+	buf = static_cast<::byte*>(ut_align(buf2, UNIV_PAGE_SIZE));
 
 	/* Write buffer full of zeros */
 	memset(buf, 0, buf_size);
@@ -3949,8 +3949,8 @@ os_aio_native_aio_supported(void)
 
 	memset(&io_event, 0x0, sizeof(io_event));
 
-	byte*	buf = static_cast<byte*>(ut_malloc(UNIV_PAGE_SIZE * 2));
-	byte*	ptr = static_cast<byte*>(ut_align(buf, UNIV_PAGE_SIZE));
+	::byte*	buf = static_cast<::byte*>(ut_malloc(UNIV_PAGE_SIZE * 2));
+	::byte*	ptr = static_cast<::byte*>(ut_align(buf, UNIV_PAGE_SIZE));
 
 	struct iocb	iocb;
 
@@ -4611,7 +4611,7 @@ found:
 	slot->name     = name;
 	slot->len      = len;
 	slot->type     = type;
-	slot->buf      = static_cast<byte*>(buf);
+	slot->buf      = static_cast<::byte*>(buf);
 	slot->offset   = offset;
 	slot->io_already_done = FALSE;
 
@@ -5809,8 +5809,8 @@ os_aio_simulated_handle(
 	ulonglong	biggest_age;
 	ulonglong	age;
 	ulint		oldest_offset;
-	byte*		combined_buf;
-	byte*		combined_buf2;
+	::byte*		combined_buf;
+	::byte*		combined_buf2;
 	ibool		ret;
 	ibool		any_reserved;
 	ulint		n;
@@ -6016,7 +6016,7 @@ consecutive_loop:
 				ut_free(os_aio_thread_buffer[global_segment]);
 
 			os_aio_thread_buffer[global_segment] =
-				static_cast<byte*>(
+				static_cast<::byte*>(
 					ut_malloc(total_len + UNIV_PAGE_SIZE));
 			os_aio_thread_buffer_size[global_segment] =
 				total_len + UNIV_PAGE_SIZE;
@@ -6025,7 +6025,7 @@ consecutive_loop:
 
 		ut_a(combined_buf2);
 
-		combined_buf = static_cast<byte*>(
+		combined_buf = static_cast<::byte*>(
 			ut_align(combined_buf2, UNIV_PAGE_SIZE));
 	}
 

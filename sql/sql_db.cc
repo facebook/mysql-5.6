@@ -579,7 +579,7 @@ static void update_thd_db_metadata(const char *db_name,
 static bool write_db_opt(THD *thd, const char *db_name, const char *path,
                          HA_CREATE_INFO *create)
 {
-  register File file;
+  File file;
   char buf[2048]; // 1024 for db_metadata and 1024 for the other options
   bool error=1;
 

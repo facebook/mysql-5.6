@@ -170,8 +170,8 @@ rec_get_n_extern_new(
 	const dict_index_t*	index,	/*!< in: record descriptor */
 	ulint			n)	/*!< in: number of columns to scan */
 {
-	const byte*	nulls;
-	const byte*	lens;
+	const ::byte*	nulls;
+	const ::byte*	lens;
 	ulint		null_mask;
 	ulint		n_extern;
 	ulint		i;
@@ -201,7 +201,7 @@ rec_get_n_extern_new(
 		if (!(col->prtype & DATA_NOT_NULL)) {
 			/* nullable field => read the null flag */
 
-			if (UNIV_UNLIKELY(!(byte) null_mask)) {
+			if (UNIV_UNLIKELY(!(::byte) null_mask)) {
 				nulls--;
 				null_mask = 1;
 			}
@@ -261,10 +261,10 @@ rec_init_offsets_comp_ordinary(
 	ulint		offs		= 0;
 	ulint		any_ext		= 0;
 	ulint		n_null		= index->n_nullable;
-	const byte*	nulls		= temp
+	const ::byte*	nulls		= temp
 		? rec - 1
 		: rec - (1 + REC_N_NEW_EXTRA_BYTES);
-	const byte*	lens		= nulls - UT_BITS_IN_BYTES(n_null);
+	const ::byte*	lens		= nulls - UT_BITS_IN_BYTES(n_null);
 	ulint		null_mask	= 1;
 
 #ifdef UNIV_DEBUG
@@ -295,7 +295,7 @@ rec_init_offsets_comp_ordinary(
 			/* nullable field => read the null flag */
 			ut_ad(n_null--);
 
-			if (UNIV_UNLIKELY(!(byte) null_mask)) {
+			if (UNIV_UNLIKELY(!(::byte) null_mask)) {
 				nulls--;
 				null_mask = 1;
 			}
@@ -388,8 +388,8 @@ rec_init_offsets(
 	rec_offs_make_valid(rec, index, offsets);
 
 	if (dict_table_is_comp(index->table)) {
-		const byte*	nulls;
-		const byte*	lens;
+		const ::byte*	nulls;
+		const ::byte*	lens;
 		dict_field_t*	field;
 		ulint		null_mask;
 		ulint		status = rec_get_status(rec);
@@ -431,7 +431,7 @@ rec_init_offsets(
 			      & DATA_NOT_NULL)) {
 				/* nullable field => read the null flag */
 
-				if (UNIV_UNLIKELY(!(byte) null_mask)) {
+				if (UNIV_UNLIKELY(!(::byte) null_mask)) {
 					nulls--;
 					null_mask = 1;
 				}
@@ -616,7 +616,7 @@ UNIV_INTERN
 void
 rec_get_offsets_reverse(
 /*====================*/
-	const byte*		extra,	/*!< in: the extra bytes of a
+	const ::byte*		extra,	/*!< in: the extra bytes of a
 					compact record in reverse order,
 					excluding the fixed-size
 					REC_N_NEW_EXTRA_BYTES */
@@ -630,8 +630,8 @@ rec_get_offsets_reverse(
 	ulint		i;
 	ulint		offs;
 	ulint		any_ext;
-	const byte*	nulls;
-	const byte*	lens;
+	const ::byte*	nulls;
+	const ::byte*	lens;
 	dict_field_t*	field;
 	ulint		null_mask;
 	ulint		n_node_ptr_field;
@@ -670,7 +670,7 @@ rec_get_offsets_reverse(
 		if (!(dict_field_get_col(field)->prtype & DATA_NOT_NULL)) {
 			/* nullable field => read the null flag */
 
-			if (UNIV_UNLIKELY(!(byte) null_mask)) {
+			if (UNIV_UNLIKELY(!(::byte) null_mask)) {
 				nulls++;
 				null_mask = 1;
 			}
@@ -1024,7 +1024,7 @@ static
 rec_t*
 rec_convert_dtuple_to_rec_old(
 /*==========================*/
-	byte*		buf,	/*!< in: start address of the physical record */
+	::byte*		buf,	/*!< in: start address of the physical record */
 	const dtuple_t*	dtuple,	/*!< in: data tuple */
 	ulint		n_ext)	/*!< in: number of externally stored columns */
 {
@@ -1148,9 +1148,9 @@ rec_convert_dtuple_to_rec_comp(
 {
 	const dfield_t*	field;
 	const dtype_t*	type;
-	byte*		end;
-	byte*		nulls;
-	byte*		lens;
+	::byte*		end;
+	::byte*		nulls;
+	::byte*		lens;
 	ulint		len;
 	ulint		i;
 	ulint		n_node_ptr_field;
@@ -1221,7 +1221,7 @@ rec_convert_dtuple_to_rec_comp(
 			/* nullable field */
 			ut_ad(n_null--);
 
-			if (UNIV_UNLIKELY(!(byte) null_mask)) {
+			if (UNIV_UNLIKELY(!(::byte) null_mask)) {
 				nulls--;
 				null_mask = 1;
 			}
@@ -1269,8 +1269,8 @@ rec_convert_dtuple_to_rec_comp(
 			      || ifield->col->mtype == DATA_BLOB);
 			ut_ad(len <= REC_ANTELOPE_MAX_INDEX_COL_LEN
 			      + BTR_EXTERN_FIELD_REF_SIZE);
-			*lens-- = (byte) (len >> 8) | 0xc0;
-			*lens-- = (byte) len;
+			*lens-- = (::byte) (len >> 8) | 0xc0;
+			*lens-- = (::byte) len;
 		} else {
 			ut_ad(len <= dtype_get_len(type)
 			      || dtype_get_mtype(type) == DATA_BLOB
@@ -1280,11 +1280,11 @@ rec_convert_dtuple_to_rec_comp(
 			    || (dtype_get_len(type) < 256
 				&& dtype_get_mtype(type) != DATA_BLOB)) {
 
-				*lens-- = (byte) len;
+				*lens-- = (::byte) len;
 			} else {
 				ut_ad(len < 16384);
-				*lens-- = (byte) (len >> 8) | 0x80;
-				*lens-- = (byte) len;
+				*lens-- = (::byte) (len >> 8) | 0x80;
+				*lens-- = (::byte) len;
 			}
 		}
 
@@ -1301,7 +1301,7 @@ static
 rec_t*
 rec_convert_dtuple_to_rec_new(
 /*==========================*/
-	byte*			buf,	/*!< in: start address of
+	::byte*			buf,	/*!< in: start address of
 					the physical record */
 	const dict_index_t*	index,	/*!< in: record descriptor */
 	const dtuple_t*		dtuple)	/*!< in: data tuple */
@@ -1332,7 +1332,7 @@ UNIV_INTERN
 rec_t*
 rec_convert_dtuple_to_rec(
 /*======================*/
-	byte*			buf,	/*!< in: start address of the
+	::byte*			buf,	/*!< in: start address of the
 					physical record */
 	const dict_index_t*	index,	/*!< in: record descriptor */
 	const dtuple_t*		dtuple,	/*!< in: data tuple */
@@ -1457,7 +1457,7 @@ rec_copy_prefix_to_dtuple(
 
 	for (i = 0; i < n_fields; i++) {
 		dfield_t*	field;
-		const byte*	data;
+		const ::byte*	data;
 		ulint		len;
 
 		field = dtuple_get_nth_field(tuple, i);
@@ -1484,7 +1484,7 @@ rec_copy_prefix_to_buf_old(
 	const rec_t*	rec,		/*!< in: physical record */
 	ulint		n_fields,	/*!< in: number of fields to copy */
 	ulint		area_end,	/*!< in: end of the prefix data */
-	byte**		buf,		/*!< in/out: memory buffer for
+	::byte**		buf,		/*!< in/out: memory buffer for
 					the copied prefix, or NULL */
 	ulint*		buf_size)	/*!< in/out: buffer size */
 {
@@ -1505,7 +1505,7 @@ rec_copy_prefix_to_buf_old(
 			mem_free(*buf);
 		}
 
-		*buf = static_cast<byte*>(mem_alloc2(prefix_len, buf_size));
+		*buf = static_cast<::byte*>(mem_alloc2(prefix_len, buf_size));
 	}
 
 	ut_memcpy(*buf, rec - area_start, prefix_len);
@@ -1529,13 +1529,13 @@ rec_copy_prefix_to_buf(
 	const dict_index_t*	index,		/*!< in: record descriptor */
 	ulint			n_fields,	/*!< in: number of fields
 						to copy */
-	byte**			buf,		/*!< in/out: memory buffer
+	::byte**			buf,		/*!< in/out: memory buffer
 						for the copied prefix,
 						or NULL */
 	ulint*			buf_size)	/*!< in/out: buffer size */
 {
-	const byte*	nulls;
-	const byte*	lens;
+	const ::byte*	nulls;
+	const ::byte*	lens;
 	ulint		i;
 	ulint		prefix_len;
 	ulint		null_mask;
@@ -1585,7 +1585,7 @@ rec_copy_prefix_to_buf(
 
 		if (!(col->prtype & DATA_NOT_NULL)) {
 			/* nullable field => read the null flag */
-			if (UNIV_UNLIKELY(!(byte) null_mask)) {
+			if (UNIV_UNLIKELY(!(::byte) null_mask)) {
 				nulls--;
 				null_mask = 1;
 			}
@@ -1631,7 +1631,7 @@ rec_copy_prefix_to_buf(
 			mem_free(*buf);
 		}
 
-		*buf = static_cast<byte*>(mem_alloc2(prefix_len, buf_size));
+		*buf = static_cast<::byte*>(mem_alloc2(prefix_len, buf_size));
 	}
 
 	memcpy(*buf, lens + 1, prefix_len);
@@ -1649,7 +1649,7 @@ rec_validate_old(
 /*=============*/
 	const rec_t*	rec)	/*!< in: physical record */
 {
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	ulint		n_fields;
 	ulint		len_sum		= 0;
@@ -1710,7 +1710,7 @@ rec_validate(
 	const rec_t*	rec,	/*!< in: physical record */
 	const ulint*	offsets)/*!< in: array returned by rec_get_offsets() */
 {
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	ulint		n_fields;
 	ulint		len_sum		= 0;
@@ -1783,7 +1783,7 @@ rec_print_old(
 		return;
 	}
 
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	ulint		n;
 	ulint		i;
@@ -1850,7 +1850,7 @@ rec_print_comp(
 	ulint	i;
 
 	for (i = 0; i < rec_offs_n_fields(offsets); i++) {
-		const byte*	data;
+		const ::byte*	data;
 		ulint		len;
 
 		data = rec_get_nth_field(rec, offsets, i, &len);
@@ -1955,7 +1955,7 @@ rec_get_trx_id(
 		= page_align(rec);
 	ulint		trx_id_col
 		= dict_index_get_sys_col_pos(index, DATA_TRX_ID);
-	const byte*	trx_id;
+	const ::byte*	trx_id;
 	ulint		len;
 	mem_heap_t*	heap		= NULL;
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];

@@ -121,12 +121,12 @@ void pack_dirname(char * to, const char *from)
     #  length of new name   
 */
 
-size_t cleanup_dirname(register char *to, const char *from)
+size_t cleanup_dirname(char *to, const char *from)
 {
   reg5 size_t length;
-  reg2 char * pos;
-  reg3 char * from_ptr;
-  reg4 char * start;
+  char * pos;
+  char * from_ptr;
+  char * start;
   char parent[5],				/* for "FN_PARENTDIR" */
        buff[FN_REFLEN+1],*end_parentdir;
 #ifdef BACKSLASH_MBTAIL

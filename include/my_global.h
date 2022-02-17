@@ -1008,8 +1008,6 @@ typedef char		my_bool; /* Small bool */
   longer that important with modern compilers.
 */
 #ifndef USING_X
-#define reg1 register
-#define reg2 register
 #define reg3 register
 #define reg4 register
 #define reg5 register

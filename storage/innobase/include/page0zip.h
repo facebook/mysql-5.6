@@ -228,7 +228,7 @@ void
 page_zip_write_header(
 /*==================*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	str,	/*!< in: address on the uncompressed page */
+	const ::byte*	str,	/*!< in: address on the uncompressed page */
 	ulint		length,	/*!< in: length of the data */
 	mtr_t*		mtr)	/*!< in: mini-transaction, or NULL */
 	MY_ATTRIBUTE((nonnull(1,2)));
@@ -241,7 +241,7 @@ void
 page_zip_write_rec(
 /*===============*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	rec,	/*!< in: record being written */
+	const ::byte*	rec,	/*!< in: record being written */
 	dict_index_t*	index,	/*!< in: the index the record belongs to */
 	const ulint*	offsets,/*!< in: rec_get_offsets(rec, index) */
 	ulint		create)	/*!< in: nonzero=insert, zero=update */
@@ -251,11 +251,11 @@ page_zip_write_rec(
 Parses a log record of writing a BLOB pointer of a record.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_zip_parse_write_blob_ptr(
 /*==========================*/
-	byte*		ptr,	/*!< in: redo log buffer */
-	byte*		end_ptr,/*!< in: redo log buffer end */
+	::byte*		ptr,	/*!< in: redo log buffer */
+	::byte*		end_ptr,/*!< in: redo log buffer end */
 	page_t*		page,	/*!< in/out: uncompressed page */
 	page_zip_des_t*	page_zip);/*!< in/out: compressed page */
 
@@ -267,7 +267,7 @@ void
 page_zip_write_blob_ptr(
 /*====================*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	rec,	/*!< in/out: record whose data is being
+	const ::byte*	rec,	/*!< in/out: record whose data is being
 				written */
 	dict_index_t*	index,	/*!< in: index of the page */
 	const ulint*	offsets,/*!< in: rec_get_offsets(rec, index) */
@@ -280,11 +280,11 @@ page_zip_write_blob_ptr(
 Parses a log record of writing the node pointer of a record.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_zip_parse_write_node_ptr(
 /*==========================*/
-	byte*		ptr,	/*!< in: redo log buffer */
-	byte*		end_ptr,/*!< in: redo log buffer end */
+	::byte*		ptr,	/*!< in: redo log buffer */
+	::byte*		end_ptr,/*!< in: redo log buffer end */
 	page_t*		page,	/*!< in/out: uncompressed page */
 	page_zip_des_t*	page_zip);/*!< in/out: compressed page */
 
@@ -295,7 +295,7 @@ void
 page_zip_write_node_ptr(
 /*====================*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	byte*		rec,	/*!< in/out: record */
+	::byte*		rec,	/*!< in/out: record */
 	ulint		size,	/*!< in: data size of rec */
 	ulint		ptr,	/*!< in: node pointer */
 	mtr_t*		mtr)	/*!< in: mini-transaction, or NULL */
@@ -308,7 +308,7 @@ void
 page_zip_write_trx_id_and_roll_ptr(
 /*===============================*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	byte*		rec,	/*!< in/out: record */
+	::byte*		rec,	/*!< in/out: record */
 	const ulint*	offsets,/*!< in: rec_get_offsets(rec, index) */
 	ulint		trx_id_col,/*!< in: column number of TRX_ID in rec */
 	trx_id_t	trx_id,	/*!< in: transaction identifier */
@@ -323,7 +323,7 @@ void
 page_zip_rec_set_deleted(
 /*=====================*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	rec,	/*!< in: record on the uncompressed page */
+	const ::byte*	rec,	/*!< in: record on the uncompressed page */
 	ulint		flag)	/*!< in: the deleted flag (nonzero=TRUE) */
 	MY_ATTRIBUTE((nonnull));
 
@@ -335,7 +335,7 @@ void
 page_zip_rec_set_owned(
 /*===================*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	rec,	/*!< in: record on the uncompressed page */
+	const ::byte*	rec,	/*!< in: record on the uncompressed page */
 	ulint		flag)	/*!< in: the owned flag (nonzero=TRUE) */
 	MY_ATTRIBUTE((nonnull));
 
@@ -346,10 +346,10 @@ void
 page_zip_dir_insert(
 /*================*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	prev_rec,/*!< in: record after which to insert */
-	const byte*	free_rec,/*!< in: record from which rec was
+	const ::byte*	prev_rec,/*!< in: record after which to insert */
+	const ::byte*	free_rec,/*!< in: record from which rec was
 				allocated, or NULL */
-	byte*		rec);	/*!< in: record to insert */
+	::byte*		rec);	/*!< in: record to insert */
 
 /**********************************************************************//**
 Shift the dense page directory and the array of BLOB pointers
@@ -359,10 +359,10 @@ void
 page_zip_dir_delete(
 /*================*/
 	page_zip_des_t*		page_zip,	/*!< in/out: compressed page */
-	byte*			rec,		/*!< in: deleted record */
+	::byte*			rec,		/*!< in: deleted record */
 	const dict_index_t*	index,		/*!< in: index of rec */
 	const ulint*		offsets,	/*!< in: rec_get_offsets(rec) */
-	const byte*		free)		/*!< in: previous start of
+	const ::byte*		free)		/*!< in: previous start of
 						the free list */
 	MY_ATTRIBUTE((nonnull(1,2,3,4)));
 
@@ -381,11 +381,11 @@ page_zip_dir_add_slot(
 Parses a log record of writing to the header of a page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_zip_parse_write_header(
 /*========================*/
-	byte*		ptr,	/*!< in: redo log buffer */
-	byte*		end_ptr,/*!< in: redo log buffer end */
+	::byte*		ptr,	/*!< in: redo log buffer */
+	::byte*		end_ptr,/*!< in: redo log buffer end */
 	page_t*		page,	/*!< in/out: uncompressed page */
 	page_zip_des_t*	page_zip);/*!< in/out: compressed page */
 
@@ -400,7 +400,7 @@ void
 page_zip_write_header(
 /*==================*/
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	str,	/*!< in: address on the uncompressed page */
+	const ::byte*	str,	/*!< in: address on the uncompressed page */
 	ulint		length,	/*!< in: length of the data */
 	mtr_t*		mtr)	/*!< in: mini-transaction, or NULL */
 	MY_ATTRIBUTE((nonnull(1,2)));
@@ -454,11 +454,11 @@ page_zip_copy_recs(
 Parses a log record of compressing an index page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_zip_parse_compress(
 /*====================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< out: uncompressed page */
 	page_zip_des_t*	page_zip)/*!< out: compressed page */
 	MY_ATTRIBUTE((nonnull(1,2)));
@@ -530,11 +530,11 @@ page_zip_encode_compression_flags(
 Parses a log record of compressing an index page without the data.
 @return	end of log record or NULL */
 UNIV_INLINE
-byte*
+::byte*
 page_zip_parse_compress_no_data(
 /*============================*/
-	byte*		ptr,		/*!< in: buffer */
-	byte*		end_ptr,	/*!< in: buffer end */
+	::byte*		ptr,		/*!< in: buffer */
+	::byte*		end_ptr,	/*!< in: buffer end */
 	page_t*		page,		/*!< in: uncompressed page */
 	page_zip_des_t*	page_zip,	/*!< out: compressed page */
 	dict_index_t*	index)		/*!< in: index */

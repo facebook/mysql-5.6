@@ -204,7 +204,7 @@ void delete_queue(QUEUE *queue)
 
 void queue_insert(register QUEUE *queue, uchar *element)
 {
-  reg2 uint idx, next;
+  uint idx, next;
   DBUG_ASSERT(queue->elements < queue->max_elements);
   queue->root[0]= element;
   idx= ++queue->elements;

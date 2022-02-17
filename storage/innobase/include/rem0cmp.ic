@@ -33,10 +33,10 @@ cmp_data_data(
 /*==========*/
 	ulint		mtype,	/*!< in: main type */
 	ulint		prtype,	/*!< in: precise type */
-	const byte*	data1,	/*!< in: data field (== a pointer to a memory
+	const ::byte*	data1,	/*!< in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len1,	/*!< in: data field length or UNIV_SQL_NULL */
-	const byte*	data2,	/*!< in: data field (== a pointer to a memory
+	const ::byte*	data2,	/*!< in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len2)	/*!< in: data field length or UNIV_SQL_NULL */
 {
@@ -52,10 +52,10 @@ cmp_data_data_like_prefix(
 /*======================*/
 				/* out: 1, 0, -1, if data1 is greater, equal,
 				less than data2, respectively */
-	byte*           data1,  /* in: data field (== a pointer to a memory
+	::byte*           data1,  /* in: data field (== a pointer to a memory
 				buffer) */
 	ulint           len1,   /* in: data field length or UNIV_SQL_NULL */
-	byte*           data2,  /* in: data field (== a pointer to a memory
+	::byte*           data2,  /* in: data field (== a pointer to a memory
 				buffer) */
 	ulint           len2)   /* in: data field length or UNIV_SQL_NULL */
 {
@@ -70,10 +70,10 @@ cmp_data_data_like_suffix(
 /*======================*/
 				/* out: 1, 0, -1, if data1 is greater, equal,
 				less than data2, respectively */
-	byte*           data1,  /* in: data field (== a pointer to a memory
+	::byte*           data1,  /* in: data field (== a pointer to a memory
 				buffer) */
 	ulint           len1,   /* in: data field length or UNIV_SQL_NULL */
-	byte*           data2,  /* in: data field (== a pointer to a memory
+	::byte*           data2,  /* in: data field (== a pointer to a memory
 				buffer) */
 	ulint           len2)   /* in: data field length or UNIV_SQL_NULL */
 {
@@ -88,10 +88,10 @@ cmp_data_data_like_substr(
 /*======================*/
 				/* out: 1, 0, -1, if data1 is greater, equal,
 				less than data2, respectively */
-	byte*           data1,  /* in: data field (== a pointer to a memory
+	::byte*           data1,  /* in: data field (== a pointer to a memory
 				buffer) */
 	ulint           len1,   /* in: data field length or UNIV_SQL_NULL */
-	byte*           data2,  /* in: data field (== a pointer to a memory
+	::byte*           data2,  /* in: data field (== a pointer to a memory
 				buffer) */
 	ulint           len2)   /* in: data field length or UNIV_SQL_NULL */
 {
@@ -116,9 +116,9 @@ cmp_dfield_dfield(
 	type = dfield_get_type(dfield1);
 
 	return(cmp_data_data(type->mtype, type->prtype,
-			     (const byte*) dfield_get_data(dfield1),
+			     (const ::byte*) dfield_get_data(dfield1),
 			     dfield_get_len(dfield1),
-			     (const byte*) dfield_get_data(dfield2),
+			     (const ::byte*) dfield_get_data(dfield2),
 			     dfield_get_len(dfield2)));
 }
 
@@ -137,9 +137,9 @@ cmp_dfield_dfield_like_suffix(
 	ut_ad(dfield_check_typed(dfield1));
 
 	return(cmp_data_data_like_suffix(
-		(byte*) dfield_get_data(dfield1),
+		(::byte*) dfield_get_data(dfield1),
 		dfield_get_len(dfield1),
-		(byte*) dfield_get_data(dfield2),
+		(::byte*) dfield_get_data(dfield2),
 		dfield_get_len(dfield2)));
 }
 
@@ -158,9 +158,9 @@ cmp_dfield_dfield_like_substr(
 	ut_ad(dfield_check_typed(dfield1));
 
 	return(cmp_data_data_like_substr(
-		(byte*) dfield_get_data(dfield1),
+		(::byte*) dfield_get_data(dfield1),
 		dfield_get_len(dfield1),
-		(byte*) dfield_get_data(dfield2),
+		(::byte*) dfield_get_data(dfield2),
 		dfield_get_len(dfield2)));
 }
 /*************************************************************//**

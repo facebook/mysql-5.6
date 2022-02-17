@@ -27,7 +27,7 @@ Created 5/30/1994 Heikki Tuuri
 #define rem0types_h
 
 /* We define the physical record simply as an array of bytes */
-typedef byte	rec_t;
+typedef ::byte	rec_t;
 
 /* Maximum values for various fields (for non-blob tuples) */
 #define REC_MAX_N_FIELDS	(1024 - 1)

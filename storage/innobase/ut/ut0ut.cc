@@ -429,20 +429,20 @@ ut_print_buf(
 	const void*	buf,	/*!< in: memory buffer */
 	ulint		len)	/*!< in: length of the buffer */
 {
-	const byte*	data;
+	const ::byte*	data;
 	ulint		i;
 
 	UNIV_MEM_ASSERT_RW(buf, len);
 
 	fprintf(file, " len %lu; hex ", len);
 
-	for (data = (const byte*) buf, i = 0; i < len; i++) {
+	for (data = (const ::byte*) buf, i = 0; i < len; i++) {
 		fprintf(file, "%02lx", (ulong)*data++);
 	}
 
 	fputs("; asc ", file);
 
-	data = (const byte*) buf;
+	data = (const ::byte*) buf;
 
 	for (i = 0; i < len; i++) {
 		int	c = (int) *data++;

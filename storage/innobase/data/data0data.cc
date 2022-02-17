@@ -44,7 +44,7 @@ Created 5/30/1994 Heikki Tuuri
 /** Dummy variable to catch access to uninitialized fields.  In the
 debug version, dtuple_create() will make all fields of dtuple_t point
 to data_error. */
-UNIV_INTERN byte	data_error;
+UNIV_INTERN ::byte	data_error;
 
 # ifndef UNIV_DEBUG_VALGRIND
 /** this is used to fool the compiler in dtuple_validate */
@@ -246,9 +246,9 @@ dtuple_validate(
 
 		if (!dfield_is_null(field)) {
 
-			const byte*	data;
+			const ::byte*	data;
 
-			data = static_cast<const byte*>(dfield_get_data(field));
+			data = static_cast<const ::byte*>(dfield_get_data(field));
 #ifndef UNIV_DEBUG_VALGRIND
 			ulint		j;
 
@@ -280,12 +280,12 @@ dfield_print(
 /*=========*/
 	const dfield_t*	dfield)	/*!< in: dfield */
 {
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	ulint		i;
 
 	len = dfield_get_len(dfield);
-	data = static_cast<const byte*>(dfield_get_data(dfield));
+	data = static_cast<const ::byte*>(dfield_get_data(dfield));
 
 	if (dfield_is_null(dfield)) {
 		fputs("NULL", stderr);
@@ -323,14 +323,14 @@ dfield_print_also_hex(
 /*==================*/
 	const dfield_t*	dfield)	/*!< in: dfield */
 {
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	ulint		prtype;
 	ulint		i;
 	ibool		print_also_hex;
 
 	len = dfield_get_len(dfield);
-	data = static_cast<const byte*>(dfield_get_data(dfield));
+	data = static_cast<const ::byte*>(dfield_get_data(dfield));
 
 	if (dfield_is_null(dfield)) {
 		fputs("NULL", stderr);
@@ -458,7 +458,7 @@ dfield_print_also_hex(
 			break;
 		}
 
-		data = static_cast<byte*>(dfield_get_data(dfield));
+		data = static_cast<::byte*>(dfield_get_data(dfield));
 		/* fall through */
 
 	case DATA_BINARY:
@@ -606,7 +606,7 @@ dtuple_convert_big_rec(
 		ulint			i;
 		ulint			longest		= 0;
 		ulint			longest_i	= ULINT_MAX;
-		byte*			data;
+		::byte*			data;
 		big_rec_field_t*	b;
 
 		for (i = dict_index_get_n_unique_in_tree(index);
@@ -681,7 +681,7 @@ skip_field:
 		b->data = (char*) dfield_get_data(dfield) + local_prefix_len;
 
 		/* Allocate the locally stored part of the column. */
-		data = static_cast<byte*>(mem_heap_alloc(heap, local_len));
+		data = static_cast<::byte*>(mem_heap_alloc(heap, local_len));
 
 		/* Copy the local prefix. */
 		memcpy(data, dfield_get_data(dfield), local_prefix_len);

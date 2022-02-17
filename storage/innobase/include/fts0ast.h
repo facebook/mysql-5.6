@@ -221,7 +221,7 @@ fts_lexer_t*
 fts_lexer_create(
 /*=============*/
 	ibool		boolean_mode,		/*!< in: query type */
-	const byte*	query,			/*!< in: query string */
+	const ::byte*	query,			/*!< in: query string */
 	ulint		query_len)		/*!< in: query string len */
 	MY_ATTRIBUTE((nonnull, malloc, warn_unused_result));
 /********************************************************************
@@ -243,7 +243,7 @@ has one more byte than len
 UNIV_INTERN
 fts_ast_string_t*
 fts_ast_string_create(
-	const byte*	str,
+	const ::byte*	str,
 	ulint		len);
 
 /**
@@ -278,7 +278,7 @@ We always store the string of length len with a terminating '\0',
 regardless of there is any 0x00 in the string itself */
 struct fts_ast_string_t {
 	/*!< Pointer to string. */
-	byte*		str;
+	::byte*		str;
 
 	/*!< Length of the string. */
 	ulint		len;

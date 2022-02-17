@@ -179,10 +179,10 @@ format.
 @return pointer to the data, we skip the 1 or 2 bytes at the start
 that are used to store the len */
 UNIV_INTERN
-byte*
+::byte*
 row_mysql_store_true_var_len(
 /*=========================*/
-	byte*	dest,	/*!< in: where to store */
+	::byte*	dest,	/*!< in: where to store */
 	ulint	len,	/*!< in: length, must fit in two bytes */
 	ulint	lenlen)	/*!< in: storage length of len: either 1 or 2 bytes */
 {
@@ -208,11 +208,11 @@ returns a pointer to the data.
 @return pointer to the data, we skip the 1 or 2 bytes at the start
 that are used to store the len */
 UNIV_INTERN
-const byte*
+const ::byte*
 row_mysql_read_true_varchar(
 /*========================*/
 	ulint*		len,	/*!< out: variable-length field length */
-	const byte*	field,	/*!< in: field in the MySQL format */
+	const ::byte*	field,	/*!< in: field in the MySQL format */
 	ulint		lenlen)	/*!< in: storage length of len: either 1
 				or 2 bytes */
 {
@@ -235,7 +235,7 @@ UNIV_INTERN
 void
 row_mysql_store_blob_ref(
 /*=====================*/
-	byte*		dest,	/*!< in: where to store */
+	::byte*		dest,	/*!< in: where to store */
 	ulint		col_len,/*!< in: dest buffer size: determines into
 				how many bytes the BLOB length is stored,
 				the space for the length may vary from 1
@@ -270,16 +270,16 @@ row_mysql_store_blob_ref(
 Reads a reference to a BLOB in the MySQL format.
 @return	pointer to BLOB data */
 UNIV_INTERN
-const byte*
+const ::byte*
 row_mysql_read_blob_ref(
 /*====================*/
 	ulint*		len,		/*!< out: BLOB length */
-	const byte*	ref,		/*!< in: BLOB reference in the
+	const ::byte*	ref,		/*!< in: BLOB reference in the
 					MySQL format */
 	ulint		col_len)	/*!< in: BLOB reference length
 					(not BLOB length) */
 {
-	byte*	data;
+	::byte*	data;
 
 	*len = mach_read_from_n_little_endian(ref, col_len - 8);
 
@@ -296,10 +296,10 @@ row_mysql_pad_col(
 /*==============*/
 	ulint	mbminlen,	/*!< in: minimum size of a character,
 				in bytes */
-	byte*	pad,		/*!< out: padded buffer */
+	::byte*	pad,		/*!< out: padded buffer */
 	ulint	len)		/*!< in: number of bytes to pad */
 {
-	const byte*	pad_end;
+	const ::byte*	pad_end;
 
 	switch (UNIV_EXPECT(mbminlen, 1)) {
 	default:
@@ -337,13 +337,13 @@ The counterpart of this function is row_sel_field_store_in_mysql_format() in
 row0sel.cc.
 @return	up to which byte we used buf in the conversion */
 UNIV_INTERN
-byte*
+::byte*
 row_mysql_store_col_in_innobase_format(
 /*===================================*/
 	dfield_t*	dfield,		/*!< in/out: dfield where dtype
 					information must be already set when
 					this function is called! */
-	byte*		buf,		/*!< in/out: buffer for a converted
+	::byte*		buf,		/*!< in/out: buffer for a converted
 					integer value; this must be at least
 					col_len long then! NOTE that dfield
 					may also get a pointer to 'buf',
@@ -356,7 +356,7 @@ row_mysql_store_col_in_innobase_format(
 					format differs in a row and in a
 					key value: in a key value the length
 					is always stored in 2 bytes! */
-	const byte*	mysql_data,	/*!< in: MySQL column value, not
+	const ::byte*	mysql_data,	/*!< in: MySQL column value, not
 					SQL NULL; NOTE that dfield may also
 					get a pointer to mysql_data,
 					therefore do not discard this as long
@@ -369,7 +369,7 @@ row_mysql_store_col_in_innobase_format(
 					VARCHAR then this is irrelevant */
 	ulint		comp)		/*!< in: nonzero=compact format */
 {
-	const byte*	ptr	= mysql_data;
+	const ::byte*	ptr	= mysql_data;
 	const dtype_t*	dtype;
 	ulint		type;
 	ulint		lenlen;
@@ -383,7 +383,7 @@ row_mysql_store_col_in_innobase_format(
 		sign bit negated if the data is a signed integer. In MySQL,
 		integers are stored in a little-endian format. */
 
-		byte*	p = buf + col_len;
+		::byte*	p = buf + col_len;
 
 		for (;;) {
 			p--;
@@ -524,7 +524,7 @@ row_mysql_convert_row_to_innobase(
 					copied there! */
 	row_prebuilt_t*	prebuilt,	/*!< in: prebuilt struct where template
 					must be of type ROW_MYSQL_WHOLE_ROW */
-	byte*		mysql_rec)	/*!< in: row in the MySQL format;
+	::byte*		mysql_rec)	/*!< in: row in the MySQL format;
 					NOTE: do not discard as long as
 					row is used, as row may contain
 					pointers to this record! */
@@ -545,7 +545,7 @@ row_mysql_convert_row_to_innobase(
 			/* Column may be SQL NULL */
 
 			if (mysql_rec[templ->mysql_null_byte_offset]
-			    & (byte) (templ->mysql_null_bit_mask)) {
+			    & (::byte) (templ->mysql_null_bit_mask)) {
 
 				/* It is SQL NULL */
 
@@ -822,7 +822,7 @@ row_create_prebuilt(
 
 	prebuilt->srch_key_val_len = srch_key_len;
 	if (prebuilt->srch_key_val_len) {
-		prebuilt->srch_key_val1 = static_cast<byte*>(
+		prebuilt->srch_key_val1 = static_cast<::byte*>(
 			mem_heap_alloc(prebuilt->heap,
 				       2 * prebuilt->srch_key_val_len));
 		prebuilt->srch_key_val2 = prebuilt->srch_key_val1 +
@@ -924,11 +924,11 @@ row_prebuilt_free(
 	}
 
 	if (prebuilt->fetch_cache[0] != NULL) {
-		byte*	base = prebuilt->fetch_cache[0] - 4;
-		byte*	ptr = base;
+		::byte*	base = prebuilt->fetch_cache[0] - 4;
+		::byte*	ptr = base;
 
 		for (i = 0; i < MYSQL_FETCH_CACHE_SIZE; i++) {
-			byte*	row;
+			::byte*	row;
 			ulint	magic1;
 			ulint	magic2;
 
@@ -1055,7 +1055,7 @@ row_get_prebuilt_insert_row(
 	prebuilt->ins_node = node;
 
 	if (prebuilt->ins_upd_rec_buff == 0) {
-		prebuilt->ins_upd_rec_buff = static_cast<byte*>(
+		prebuilt->ins_upd_rec_buff = static_cast<::byte*>(
 			mem_heap_alloc(
 				prebuilt->heap,
 				prebuilt->mysql_row_len));
@@ -1303,7 +1303,7 @@ UNIV_INTERN
 dberr_t
 row_insert_for_mysql(
 /*=================*/
-	byte*		mysql_rec,	/*!< in: row in the MySQL format */
+	::byte*		mysql_rec,	/*!< in: row in the MySQL format */
 	row_prebuilt_t*	prebuilt)	/*!< in: prebuilt struct in MySQL
 					handle */
 {
@@ -1629,7 +1629,7 @@ row_fts_update_or_delete(
 	} else {
 		doc_id_t	new_doc_id;
 
-		new_doc_id = fts_read_doc_id((byte*) &trx->fts_next_doc_id);
+		new_doc_id = fts_read_doc_id((::byte*) &trx->fts_next_doc_id);
 
 		if (new_doc_id == 0) {
 			fprintf(stderr, " InnoDB FTS: Doc ID cannot be 0 \n");
@@ -1693,7 +1693,7 @@ UNIV_INTERN
 dberr_t
 row_update_for_mysql(
 /*=================*/
-	byte*		mysql_rec,	/*!< in: the row to be updated, in
+	::byte*		mysql_rec,	/*!< in: the row to be updated, in
 					the MySQL format */
 	row_prebuilt_t*	prebuilt)	/*!< in: prebuilt struct in MySQL
 					handle */
@@ -3287,7 +3287,7 @@ row_truncate_table_for_mysql(
 {
 	dberr_t		err;
 	mem_heap_t*	heap;
-	byte*		buf;
+	::byte*		buf;
 	dtuple_t*	tuple;
 	dfield_t*	dfield;
 	dict_index_t*	sys_index;
@@ -3532,7 +3532,7 @@ row_truncate_table_for_mysql(
 	tuple = dtuple_create(heap, 1);
 	dfield = dtuple_get_nth_field(tuple, 0);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(buf, table->id);
 
 	dfield_set_data(dfield, buf, 8);
@@ -3544,7 +3544,7 @@ row_truncate_table_for_mysql(
 				  BTR_MODIFY_LEAF, &pcur, &mtr);
 	for (;;) {
 		rec_t*		rec;
-		const byte*	field;
+		const ::byte*	field;
 		ulint		len;
 		ulint		root_page_no;
 
@@ -4485,7 +4485,7 @@ row_mysql_drop_temp_tables(void)
 
 	for (;;) {
 		const rec_t*	rec;
-		const byte*	field;
+		const ::byte*	field;
 		ulint		len;
 		const char*	table_name;
 		dict_table_t*	table;
@@ -5300,7 +5300,7 @@ row_check_index_for_mysql(
 	dtuple_t*	prev_entry	= NULL;
 	ulint		matched_fields;
 	ulint		matched_bytes;
-	byte*		buf;
+	::byte*		buf;
 	ulint		ret;
 	rec_t*		rec;
 	bool		is_ok		= true;
@@ -5332,7 +5332,7 @@ row_check_index_for_mysql(
 		return(true);
 	}
 
-	buf = static_cast<byte*>(mem_alloc(UNIV_PAGE_SIZE));
+	buf = static_cast<::byte*>(mem_alloc(UNIV_PAGE_SIZE));
 	heap = mem_heap_create(100);
 
 	cnt = 1000;

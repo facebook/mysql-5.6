@@ -382,7 +382,7 @@ void init_thread_mask(int* mask, Master_info* mi, bool inverse)
 {
   bool set_io = mi->slave_running;
   bool set_sql = mi->rli->slave_running;
-  register int tmp_mask=0;
+  int tmp_mask=0;
   DBUG_ENTER("init_thread_mask");
 
   if (set_io)

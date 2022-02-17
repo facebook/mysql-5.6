@@ -466,7 +466,7 @@ UNIV_INTERN
 void
 rec_get_offsets_reverse(
 /*====================*/
-	const byte*		extra,	/*!< in: the extra bytes of a
+	const ::byte*		extra,	/*!< in: the extra bytes of a
 					compact record in reverse order,
 					excluding the fixed-size
 					REC_N_NEW_EXTRA_BYTES */
@@ -571,7 +571,7 @@ rec_offs_any_extern(
 Determine if the offsets are for a record containing null BLOB pointers.
 @return	first field containing a null BLOB pointer, or NULL if none found */
 UNIV_INLINE
-const byte*
+const ::byte*
 rec_offs_any_null_extern(
 /*=====================*/
 	const rec_t*	rec,		/*!< in: record */
@@ -718,7 +718,7 @@ rec_offs_size(
 Returns a pointer to the start of the record.
 @return	pointer to start */
 UNIV_INLINE
-byte*
+::byte*
 rec_get_start(
 /*==========*/
 	const rec_t*	rec,	/*!< in: pointer to record */
@@ -728,7 +728,7 @@ rec_get_start(
 Returns a pointer to the end of the record.
 @return	pointer to end */
 UNIV_INLINE
-byte*
+::byte*
 rec_get_end(
 /*========*/
 	const rec_t*	rec,	/*!< in: pointer to record */
@@ -801,7 +801,7 @@ rec_copy_prefix_to_buf(
 	const dict_index_t*	index,		/*!< in: record descriptor */
 	ulint			n_fields,	/*!< in: number of fields
 						to copy */
-	byte**			buf,		/*!< in/out: memory buffer
+	::byte**			buf,		/*!< in/out: memory buffer
 						for the copied prefix,
 						or NULL */
 	ulint*			buf_size)	/*!< in/out: buffer size */
@@ -831,7 +831,7 @@ UNIV_INTERN
 rec_t*
 rec_convert_dtuple_to_rec(
 /*======================*/
-	byte*			buf,	/*!< in: start address of the
+	::byte*			buf,	/*!< in: start address of the
 					physical record */
 	const dict_index_t*	index,	/*!< in: record descriptor */
 	const dtuple_t*		dtuple,	/*!< in: data tuple */

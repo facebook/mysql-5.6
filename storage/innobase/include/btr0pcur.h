@@ -533,7 +533,7 @@ struct btr_pcur_t{
 	/* NOTE that the following fields may possess dynamically allocated
 	memory which should be freed if not needed anymore! */
 
-	byte*		old_rec_buf;	/*!< NULL, or a dynamically allocated
+	::byte*		old_rec_buf;	/*!< NULL, or a dynamically allocated
 					buffer for old_rec */
 	ulint		buf_size;	/*!< old_rec_buf size if old_rec_buf
 					is not NULL */

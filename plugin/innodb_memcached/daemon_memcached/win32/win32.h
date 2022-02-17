@@ -98,7 +98,7 @@ struct rusage {
     long int ru_nivcsw;
 };
 
-int inet_aton(register const char *cp, struct in_addr *addr);
+int inet_aton(const char *cp, struct in_addr *addr);
 
 #define close(s) closesocket(s)
 

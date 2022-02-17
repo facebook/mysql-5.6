@@ -232,7 +232,7 @@ typedef unsigned short ib_uc_t;
 
 /** An UTF-16 ro UTF-8 string. */
 struct fts_string_t {
-	byte*		f_str;		/*!< string, not necessary terminated in
+	::byte*		f_str;		/*!< string, not necessary terminated in
 					any way */
 	ulint		f_len;		/*!< Length of the string in bytes */
 	ulint		f_n_char;	/*!< Number of characters */
@@ -244,7 +244,7 @@ struct fts_ranking_t {
 
 	fts_rank_t	rank;		/*!< Rank is between 0 .. 1 */
 
-	byte*		words;		/*!< this contains the words
+	::byte*		words;		/*!< this contains the words
 					that were queried
 					and found in this document */
 	ulint		words_len;	/*!< words len */
@@ -568,7 +568,7 @@ fts_query(
 	trx_t*		trx,			/*!< in: transaction */
 	dict_index_t*	index,			/*!< in: FTS index to search */
 	uint		flags,			/*!< in: FTS search mode */
-	const byte*	query,			/*!< in: FTS query */
+	const ::byte*	query,			/*!< in: FTS query */
 	ulint		query_len,		/*!< in: FTS query string len
 						in bytes */
 	fts_result_t**	result)			/*!< out: query result, to be
@@ -936,8 +936,8 @@ ulint
 innobase_mysql_fts_get_token(
 /*=========================*/
 	CHARSET_INFO*	charset,		/*!< in: Character set */
-	const byte*	start,			/*!< in: start of text */
-	const byte*	end,			/*!< in: one character past
+	const ::byte*	start,			/*!< in: start of text */
+	const ::byte*	end,			/*!< in: one character past
 						end of text */
 	fts_string_t*	token,			/*!< out: token's text */
 	ulint*		offset);		/*!< out: offset to token,

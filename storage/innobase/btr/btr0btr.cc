@@ -228,7 +228,7 @@ btr_blob_dbg_add_rec(
 	for (i = 0; i < rec_offs_n_fields(offsets); i++) {
 		if (rec_offs_nth_extern(offsets, i)) {
 			ulint		len;
-			const byte*	field_ref = rec_get_nth_field(
+			const ::byte*	field_ref = rec_get_nth_field(
 				rec, offsets, i, &len);
 
 			ut_a(len != UNIV_SQL_NULL);
@@ -319,7 +319,7 @@ btr_blob_dbg_remove_rec(
 	for (i = 0; i < rec_offs_n_fields(offsets); i++) {
 		if (rec_offs_nth_extern(offsets, i)) {
 			ulint		len;
-			const byte*	field_ref = rec_get_nth_field(
+			const ::byte*	field_ref = rec_get_nth_field(
 				rec, offsets, i, &len);
 
 			ut_a(len != UNIV_SQL_NULL);
@@ -540,7 +540,7 @@ btr_blob_dbg_set_deleted_flag(
 	for (i = 0; i < rec_offs_n_fields(offsets); i++) {
 		if (rec_offs_nth_extern(offsets, i)) {
 			ulint		len;
-			const byte*	field_ref = rec_get_nth_field(
+			const ::byte*	field_ref = rec_get_nth_field(
 				rec, offsets, i, &len);
 
 			ut_a(len != UNIV_SQL_NULL);
@@ -594,7 +594,7 @@ btr_blob_dbg_owner(
 {
 	const ib_rbt_node_t*	node;
 	btr_blob_dbg_t		b;
-	const byte*		field_ref;
+	const ::byte*		field_ref;
 	ulint			len;
 
 	ut_ad(rec_offs_validate(rec, index, offsets));
@@ -1110,7 +1110,7 @@ btr_page_alloc_low(
 /*===============*/
 	dict_index_t*	index,		/*!< in: index */
 	ulint		hint_page_no,	/*!< in: hint of a good page */
-	byte		file_direction,	/*!< in: direction where a possible
+	::byte		file_direction,	/*!< in: direction where a possible
 					page split is made */
 	ulint		level,		/*!< in: level where the page is placed
 					in the tree */
@@ -1156,7 +1156,7 @@ btr_page_alloc(
 /*===========*/
 	dict_index_t*	index,		/*!< in: index */
 	ulint		hint_page_no,	/*!< in: hint of a good page */
-	byte		file_direction,	/*!< in: direction where a possible
+	::byte		file_direction,	/*!< in: direction where a possible
 					page split is made */
 	ulint		level,		/*!< in: level where the page is placed
 					in the tree */
@@ -1360,7 +1360,7 @@ btr_node_ptr_set_child_page_no(
 	ulint		page_no,/*!< in: child node address */
 	mtr_t*		mtr)	/*!< in: mtr */
 {
-	byte*	field;
+	::byte*	field;
 	ulint	len;
 
 	ut_ad(rec_offs_validate(rec, NULL, offsets));
@@ -1954,8 +1954,8 @@ func_exit:
 
 #ifndef UNIV_HOTBACKUP
 	if (success) {
-		byte	type;
-		byte*	log_ptr;
+		::byte	type;
+		::byte*	log_ptr;
 
 		/* Write the log record */
 		if (page_zip) {
@@ -2047,11 +2047,11 @@ btr_page_reorganize(
 Parses a redo log record of reorganizing a page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_parse_page_reorganize(
 /*======================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	bool		compressed,/*!< in: true if compressed page */
 	buf_block_t*	block,	/*!< in: page to be reorganized, or NULL */
@@ -2991,7 +2991,7 @@ btr_page_split_and_insert(
 	page_t*		page;
 	page_zip_des_t*	page_zip;
 	ulint		page_no;
-	byte		direction;
+	::byte		direction;
 	ulint		hint_page_no;
 	buf_block_t*	new_block;
 	page_t*		new_page;
@@ -3002,7 +3002,7 @@ btr_page_split_and_insert(
 	buf_block_t*	insert_block;
 	page_cur_t*	page_cursor;
 	rec_t*		first_rec;
-	byte*		buf = 0; /* remove warning */
+	::byte*		buf = 0; /* remove warning */
 	rec_t*		move_limit;
 	ibool		insert_will_fit;
 	ibool		insert_left;
@@ -3136,7 +3136,7 @@ func_start:
 insert_empty:
 		ut_ad(!split_rec);
 		ut_ad(!insert_left);
-		buf = (byte*) mem_alloc(rec_get_converted_size(cursor->index,
+		buf = (::byte*) mem_alloc(rec_get_converted_size(cursor->index,
 							       tuple, n_ext));
 
 		first_rec = rec_convert_dtuple_to_rec(buf, cursor->index,
@@ -3437,7 +3437,7 @@ void
 btr_set_min_rec_mark_log(
 /*=====================*/
 	rec_t*	rec,	/*!< in: record */
-	byte	type,	/*!< in: MLOG_COMP_REC_MIN_MARK or MLOG_REC_MIN_MARK */
+	::byte	type,	/*!< in: MLOG_COMP_REC_MIN_MARK or MLOG_REC_MIN_MARK */
 	mtr_t*	mtr)	/*!< in: mtr */
 {
 	mlog_write_initial_log_record(rec, type, mtr);
@@ -3454,11 +3454,11 @@ Parses the redo log record for setting an index record as the predefined
 minimum record.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_parse_set_min_rec_mark(
 /*=======================*/
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
 	ulint	comp,	/*!< in: nonzero=compact page format */
 	page_t*	page,	/*!< in: page or NULL */
 	mtr_t*	mtr)	/*!< in: mtr or NULL */
@@ -3837,7 +3837,7 @@ btr_compress(
 					/* father cursor pointing to node ptr
 					of the right sibling */
 #ifdef UNIV_BTR_DEBUG
-		byte		fil_page_prev[4];
+		::byte		fil_page_prev[4];
 #endif /* UNIV_BTR_DEBUG */
 
 		btr_page_get_father(index, merge_block, mtr, &cursor2);

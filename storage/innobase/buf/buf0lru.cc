@@ -2833,7 +2833,7 @@ buf_LRU_print_instance(
 		}
 
 		switch (buf_page_get_state(bpage)) {
-			const byte*	frame;
+			const ::byte*	frame;
 		case BUF_BLOCK_FILE_PAGE:
 			frame = buf_block_get_frame((buf_block_t*) bpage);
 			fprintf(stderr, "\ntype %lu"

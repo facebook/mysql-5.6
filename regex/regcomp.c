@@ -120,7 +120,7 @@ const CHARSET_INFO *charset;
 	struct parse pa;
 	register struct re_guts *g;
 	register struct parse *p = &pa;
-	register int i;
+	int i;
 	register size_t len;
 #ifdef REDEBUG
 #	define	GOODFLAGS(f)	(f)
@@ -237,11 +237,11 @@ p_ere(p, stop)
 register struct parse *p;
 int stop;			/* character this ERE should end at */
 {
-	register char c;
+	char c;
 	register sopno UNINIT_VAR(prevback);
 	register sopno UNINIT_VAR(prevfwd);
 	register sopno conc;
-	register int first = 1;		/* is this the first alternative? */
+	int first = 1;		/* is this the first alternative? */
 
 	for (;;) {
 		/* do a bunch of concatenated expressions */
@@ -290,10 +290,10 @@ static void
 p_ere_exp(p)
 register struct parse *p;
 {
-	register char c;
+	char c;
 	register sopno pos;
-	register int count;
-	register int count2;
+	int count;
+	int count2;
 	register sopno subno;
 	int wascaret = 0;
 
@@ -436,8 +436,8 @@ register struct parse *p;
 
 /*
  - p_bre - BRE parser top level, anchoring and concatenation
- == static void p_bre(register struct parse *p, register int end1, \
- ==	register int end2);
+ == static void p_bre(register struct parse *p, int end1, \
+ ==	int end2);
  * Giving end1 as OUT essentially eliminates the end1/end2 check.
  *
  * This implementation is a bit of a kludge, in that a trailing $ is first
@@ -449,12 +449,12 @@ register struct parse *p;
 static void
 p_bre(p, end1, end2)
 register struct parse *p;
-register int end1;		/* first terminating character */
-register int end2;		/* second terminating character */
+int end1;		/* first terminating character */
+int end2;		/* second terminating character */
 {
 	register sopno start = HERE();
-	register int first = 1;			/* first subexpression? */
-	register int wasdollar = 0;
+	int first = 1;			/* first subexpression? */
+	int wasdollar = 0;
 
 	if (EAT('^')) {
 		EMIT(OBOL, 0);
@@ -484,11 +484,11 @@ p_simp_re(p, starordinary)
 register struct parse *p;
 int starordinary;		/* is a leading * an ordinary character? */
 {
-	register int c;
-	register int count;
-	register int count2;
+	int c;
+	int count;
+	int count2;
 	register sopno pos;
-	register int i;
+	int i;
 	register sopno subno;
 #	define	BACKSL	(1<<CHAR_BIT)
 
@@ -601,8 +601,8 @@ static int			/* the value */
 p_count(p)
 register struct parse *p;
 {
-	register int count = 0;
-	register int ndigits = 0;
+	int count = 0;
+	int ndigits = 0;
 
 	while (MORE() && my_isdigit(p->charset,PEEK()) && count <= DUPMAX) {
 		count = count*10 + (GETNEXT() - '0');
@@ -625,7 +625,7 @@ p_bracket(p)
 register struct parse *p;
 {
 	register cset *cs = allocset(p);
-	register int invert = 0;
+	int invert = 0;
 
 	/* Dept of Truly Sickening Special-Case Kludges */
 	if (p->next + 5 < p->end && strncmp(p->next, "[:<:]]", 6) == 0) {
@@ -655,8 +655,8 @@ register struct parse *p;
 		return;
 
 	if (p->g->cflags&MY_REG_ICASE) {
-		register int i;
-		register int ci;
+		int i;
+		int ci;
 
 		for (i = p->g->csetsize - 1; i >= 0; i--)
 			if (CHIN(cs, i) && my_isalpha(p->charset,i)) {
@@ -668,7 +668,7 @@ register struct parse *p;
 			mccase(p, cs);
 	}
 	if (invert) {
-		register int i;
+		int i;
 
 		for (i = p->g->csetsize - 1; i >= 0; i--)
 			if (CHIN(cs, i))
@@ -699,9 +699,9 @@ p_b_term(p, cs)
 register struct parse *p;
 register cset *cs;
 {
-	register char c;
-	register char start, finish;
-	register int i;
+	char c;
+	char start, finish;
+	int i;
 
 	/* classify what we've got */
 	switch ((MORE()) ? PEEK() : '\0') {
@@ -764,7 +764,7 @@ p_b_cclass(p, cs)
 register struct parse *p;
 register cset *cs;
 {
-	register char *sp = p->next;
+	char *sp = p->next;
 	register struct cclass *cp;
 	register size_t len;
 	
@@ -789,8 +789,8 @@ register cset *cs;
 	}
 #else	
 	{
-		register char *u = (char*) cp->chars;
-		register char c;
+		char *u = (char*) cp->chars;
+		char c;
 		
 		while ((c = *u++) != '\0')
 			CHadd(cs, c);
@@ -813,7 +813,7 @@ p_b_eclass(p, cs)
 register struct parse *p;
 register cset *cs;
 {
-	register char c;
+	char c;
 
 	c = p_b_coll_elem(p, '=');
 	CHadd(cs, c);
@@ -827,7 +827,7 @@ static char			/* value of symbol */
 p_b_symbol(p)
 register struct parse *p;
 {
-	register char value;
+	char value;
 
 	if(REQUIRE(MORE(), MY_REG_EBRACK)) {}
 	if (!EATTWO('[', '.'))
@@ -848,12 +848,12 @@ p_b_coll_elem(p, endc)
 register struct parse *p;
 int endc;			/* name ended by endc,']' */
 {
-	register char *sp = p->next;
+	char *sp = p->next;
 	register struct cname *cp;
 #ifdef _WIN64
 	register __int64 len;
 #else
-	register int len;
+	int len;
 #endif
 	while (MORE() && !SEETWO(endc, ']'))
 		NEXT();
@@ -917,8 +917,8 @@ bothcases(p, ch)
 register struct parse *p;
 int ch;
 {
-	register char *oldnext = p->next;
-	register char *oldend = p->end;
+	char *oldnext = p->next;
+	char *oldend = p->end;
 	char bracket[3];
 
 	assert(othercase(p->charset, ch) != ch); /* p_bracket() would recurse */
@@ -935,12 +935,12 @@ int ch;
 
 /*
  - ordinary - emit an ordinary character
- == static void ordinary(register struct parse *p, register int ch);
+ == static void ordinary(register struct parse *p, int ch);
  */
 static void
 ordinary(p, ch)
 register struct parse *p;
-register int ch;
+int ch;
 {
 	register cat_t *cap = p->g->categories;
 
@@ -964,8 +964,8 @@ static void
 nonnewline(p)
 register struct parse *p;
 {
-	register char *oldnext = p->next;
-	register char *oldend = p->end;
+	char *oldnext = p->next;
+	char *oldend = p->end;
 	char bracket[4];
 
 	p->next = bracket;
@@ -1076,12 +1076,12 @@ static cset *
 allocset(p)
 register struct parse *p;
 {
-	register int no = p->g->ncsets++;
+	int no = p->g->ncsets++;
 	register size_t nc;
 	register size_t nbytes;
 	register cset *cs;
 	register size_t css = (size_t)p->g->csetsize;
-	register int i;
+	int i;
 
 	if (no >= p->ncsalloc) {	/* need another column of space */
 		p->ncsalloc += CHAR_BIT;
@@ -1212,7 +1212,7 @@ register cset *cs;
 {
 	register size_t i;
 	register size_t css = (size_t)p->g->csetsize;
-	register int n = 0;
+	int n = 0;
 
 	for (i = 0; i < css; i++)
 		if (CHIN(cs, i))
@@ -1224,13 +1224,13 @@ register cset *cs;
 /*
  - mcadd - add a collating element to a cset
  == static void mcadd(register struct parse *p, register cset *cs, \
- ==	register char *cp);
+ ==	char *cp);
  */
 static void
 mcadd(p, cs, cp)
 register struct parse *p;
 register cset *cs;
-register char *cp;
+char *cp;
 {
 	register size_t oldend = cs->smultis;
 
@@ -1289,9 +1289,9 @@ register struct re_guts *g;
 int c;
 {
 	register uch *col;
-	register int i;
-	register int ncols = (g->ncsets+(CHAR_BIT-1)) / CHAR_BIT;
-	register unsigned uc = (unsigned char)c;
+	int i;
+	int ncols = (g->ncsets+(CHAR_BIT-1)) / CHAR_BIT;
+	unsigned uc = (unsigned char)c;
 
 	for (i = 0, col = g->setbits; i < ncols; i++, col += g->csetsize)
 		if (col[uc] != 0)
@@ -1310,10 +1310,10 @@ int c1;
 int c2;
 {
 	register uch *col;
-	register int i;
-	register int ncols = (g->ncsets+(CHAR_BIT-1)) / CHAR_BIT;
-	register unsigned uc1 = (unsigned char)c1;
-	register unsigned uc2 = (unsigned char)c2;
+	int i;
+	int ncols = (g->ncsets+(CHAR_BIT-1)) / CHAR_BIT;
+	unsigned uc1 = (unsigned char)c1;
+	unsigned uc2 = (unsigned char)c2;
 
 	for (i = 0, col = g->setbits; i < ncols; i++, col += g->csetsize)
 		if (col[uc1] != col[uc2])
@@ -1331,8 +1331,8 @@ struct parse *p;
 register struct re_guts *g;
 {
 	register cat_t *cats = g->categories;
-	register int c;
-	register int c2;
+	int c;
+	int c2;
 	register cat_t cat;
 
 	/* avoid making error situations worse */
@@ -1416,7 +1416,7 @@ sopno pos;
 {
 	register sopno sn;
 	register sop s;
-	register int i;
+	int i;
 
 	/* avoid making error situations worse */
 	if (p->error != 0)
@@ -1528,7 +1528,7 @@ register struct re_guts *g;
 	register sop *UNINIT_VAR(newstart);
 	register sopno newlen;
 	register sop s;
-	register char *cp;
+	char *cp;
 	register sopno i;
 
 	/* avoid making error situations worse */

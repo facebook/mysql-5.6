@@ -115,8 +115,8 @@ ib_bh_pop(
 /*======*/
 	ib_bh_t*	ib_bh)			/*!< in/out: instance */
 {
-	byte*		ptr;
-	byte*		last;
+	::byte*		ptr;
+	::byte*		last;
 	ulint		parent = 0;
 
 	if (ib_bh_is_empty(ib_bh)) {
@@ -126,10 +126,10 @@ ib_bh_pop(
 		return;
 	}
 
-	last = (byte*) ib_bh_last(ib_bh);
+	last = (::byte*) ib_bh_last(ib_bh);
 
 	/* Start from the child node */
-	ptr = (byte*) ib_bh_get(ib_bh, 1);
+	ptr = (::byte*) ib_bh_get(ib_bh, 1);
 
 	while (ptr < last) {
 		/* If the "right" child node is < "left" child node */
@@ -143,14 +143,14 @@ ib_bh_pop(
 
 		ib_bh_set(ib_bh, parent, ptr);
 
-		parent = (ptr - (byte*) ib_bh_first(ib_bh))
+		parent = (ptr - (::byte*) ib_bh_first(ib_bh))
 		       / ib_bh->sizeof_elem;
 
 		if ((parent << 1) >= ib_bh_size(ib_bh)) {
 			break;
 		}
 
-		ptr = (byte*) ib_bh_get(ib_bh, parent << 1);
+		ptr = (::byte*) ib_bh_get(ib_bh, parent << 1);
 	}
 
 	--ib_bh->n_elems;

@@ -50,7 +50,7 @@ rounded to a power of 2.
 
 When not creating a PRIMARY KEY that contains column prefixes, this
 can be set as small as UNIV_PAGE_SIZE / 2. */
-typedef byte	row_merge_block_t;
+typedef ::byte	row_merge_block_t;
 
 /** @brief Secondary buffer for I/O operations of merge records.
 
@@ -58,13 +58,13 @@ This buffer is used for writing or reading a record that spans two
 row_merge_block_t.  Thus, it must be able to hold one merge record,
 whose maximum size is the same as the minimum size of
 row_merge_block_t. */
-typedef byte	mrec_buf_t[UNIV_PAGE_SIZE_MAX];
+typedef ::byte	mrec_buf_t[UNIV_PAGE_SIZE_MAX];
 
 /** @brief Merge record in row_merge_block_t.
 
 The format is the same as a record in ROW_FORMAT=COMPACT with the
 exception that the REC_N_NEW_EXTRA_BYTES are omitted. */
-typedef byte	mrec_t;
+typedef ::byte	mrec_t;
 
 /** Merge record in row_merge_buf_t */
 struct mtuple_t {
@@ -415,12 +415,12 @@ row_merge_read(
 Read a merge record.
 @return pointer to next record, or NULL on I/O error or end of list */
 UNIV_INTERN
-const byte*
+const ::byte*
 row_merge_read_rec(
 /*===============*/
 	row_merge_block_t*	block,	/*!< in/out: file buffer */
 	mrec_buf_t*		buf,	/*!< in/out: secondary buffer */
-	const byte*		b,	/*!< in: pointer to record */
+	const ::byte*		b,	/*!< in: pointer to record */
 	const dict_index_t*	index,	/*!< in: index of the record */
 	int			fd,	/*!< in: file descriptor */
 	ulint*			foffs,	/*!< in/out: file offset */

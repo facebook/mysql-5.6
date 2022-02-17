@@ -127,7 +127,7 @@ int _mi_delete_static_record(MI_INFO *info)
 }
 
 
-int _mi_cmp_static_record(register MI_INFO *info, register const uchar *old)
+int _mi_cmp_static_record(register MI_INFO *info, const uchar *old)
 {
   DBUG_ENTER("_mi_cmp_static_record");
 

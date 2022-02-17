@@ -364,7 +364,7 @@ hex2octet(uint8 *to, const char *str, uint len)
   const char *str_end= str + len;
   while (str < str_end)
   {
-    register char tmp= char_val(*str++);
+    char tmp= char_val(*str++);
     *to++= (tmp << 4) | char_val(*str++);
   }
 }

@@ -149,7 +149,7 @@ row_build_row_ref_fast(
 	const ulint*	offsets)/*!< in: array returned by rec_get_offsets() */
 {
 	dfield_t*	dfield;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		ref_len;
 	ulint		field_no;

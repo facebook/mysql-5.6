@@ -198,6 +198,6 @@ in the index record. */
 /** A BLOB field reference full of zero, for use in assertions and tests.
 Initially, BLOB field references are set to zero, in
 dtuple_convert_big_rec(). */
-extern const byte field_ref_zero[BTR_EXTERN_FIELD_REF_SIZE];
+extern const ::byte field_ref_zero[BTR_EXTERN_FIELD_REF_SIZE];
 
 #endif

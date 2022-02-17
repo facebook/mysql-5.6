@@ -43,7 +43,7 @@ UNIV_INTERN
 ibool
 recv_read_checkpoint_info_for_backup(
 /*=================================*/
-	const byte*	hdr,	/*!< in: buffer containing the log group
+	const ::byte*	hdr,	/*!< in: buffer containing the log group
 				header */
 	lsn_t*		lsn,	/*!< out: checkpoint lsn */
 	lsn_t*		offset,	/*!< out: checkpoint offset in the log group */
@@ -59,7 +59,7 @@ UNIV_INTERN
 void
 recv_scan_log_seg_for_backup(
 /*=========================*/
-	byte*		buf,		/*!< in: buffer containing log data */
+	::byte*		buf,		/*!< in: buffer containing log data */
 	ulint		buf_len,	/*!< in: data length in that buffer */
 	lsn_t*		scanned_lsn,	/*!< in/out: lsn of buffer start,
 					we return scanned lsn */
@@ -198,7 +198,7 @@ recv_scan_log_recs(
 					stored to the hash table; this is set
 					to FALSE if just debug checking is
 					needed */
-	const byte*	buf,		/*!< in: buffer containing a log
+	const ::byte*	buf,		/*!< in: buffer containing a log
 					segment or garbage */
 	ulint		len,		/*!< in: buffer length */
 	lsn_t		start_lsn,	/*!< in: buffer start lsn */
@@ -345,7 +345,7 @@ struct recv_data_t{
 
 /** Stored log record struct */
 struct recv_t{
-	byte		type;	/*!< log record type */
+	::byte		type;	/*!< log record type */
 	ulint		len;	/*!< log record body length in bytes */
 	recv_data_t*	data;	/*!< chain of blocks containing the log record
 				body */
@@ -386,15 +386,15 @@ struct recv_addr_t{
 };
 
 struct recv_dblwr_item_t {
-	byte*	page;
+	::byte*	page;
 	ulint	space_id;
 	ulint	page_no;
 };
 
 struct recv_dblwr_t {
-	void add(byte* page, ulint space_id, ulint page_no);
+	void add(::byte* page, ulint space_id, ulint page_no);
 
-	byte* find_page(ulint space_id, ulint page_no);
+	::byte* find_page(ulint space_id, ulint page_no);
 
 	std::list<recv_dblwr_item_t> pages; /* Pages from double write buffer */
 
@@ -425,13 +425,13 @@ struct recv_sys_t{
 	ulint		last_log_buf_size;
 				/*!< size of the log buffer when the database
 				last time wrote to the log */
-	byte*		last_block;
+	::byte*		last_block;
 				/*!< possible incomplete last recovered log
 				block */
-	byte*		last_block_buf_start;
+	::byte*		last_block_buf_start;
 				/*!< the nonaligned start address of the
 				preceding buffer */
-	byte*		buf;	/*!< buffer for parsing log records */
+	::byte*		buf;	/*!< buffer for parsing log records */
 	ulint		len;	/*!< amount of data in buf */
 	lsn_t		parse_start_lsn;
 				/*!< this is the lsn from which we were able to

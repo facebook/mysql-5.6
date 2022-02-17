@@ -636,7 +636,7 @@ put_nth_field(
 	const ulint*		offsets)/*!< in: record offsets, returned
 					by rec_get_offsets() */
 {
-	const byte*	data;
+	const ::byte*	data;
 	ulint		data_len;
 	dict_field_t*	dict_field;
 	ulint		ret;

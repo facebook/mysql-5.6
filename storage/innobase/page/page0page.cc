@@ -94,10 +94,10 @@ page_dir_find_owner_slot(
 	const rec_t*	rec)	/*!< in: the physical record */
 {
 	const page_t*			page;
-	register uint16			rec_offs_bytes;
-	register const page_dir_slot_t*	slot;
-	register const page_dir_slot_t*	first_slot;
-	register const rec_t*		r = rec;
+	uint16			rec_offs_bytes;
+	const page_dir_slot_t*	slot;
+	const page_dir_slot_t*	first_slot;
+	const rec_t*		r = rec;
 
 	ut_ad(page_rec_check(rec));
 
@@ -242,7 +242,7 @@ page_set_max_trx_id(
 Allocates a block of memory from the heap of an index page.
 @return	pointer to start of allocated buffer, or NULL if allocation fails */
 UNIV_INTERN
-byte*
+::byte*
 page_mem_alloc_heap(
 /*================*/
 	page_t*		page,	/*!< in/out: index page */
@@ -254,7 +254,7 @@ page_mem_alloc_heap(
 				of the allocated record
 				if allocation succeeds */
 {
-	byte*	block;
+	::byte*	block;
 	ulint	avl_space;
 
 	ut_ad(page && heap_no);
@@ -300,11 +300,11 @@ page_create_write_log(
 Parses a redo log record of creating a page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_parse_create(
 /*==============*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr MY_ATTRIBUTE((unused)), /*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr MY_ATTRIBUTE((unused)), /*!< in: buffer end */
 	ulint		comp,	/*!< in: nonzero=compact page format */
 	buf_block_t*	block,	/*!< in: block or NULL */
 	mtr_t*		mtr)	/*!< in: mtr or NULL */
@@ -335,7 +335,7 @@ page_create_low(
 	mem_heap_t*	heap;
 	dtuple_t*	tuple;
 	dfield_t*	field;
-	byte*		heap_top;
+	::byte*		heap_top;
 	rec_t*		infimum_rec;
 	rec_t*		supremum_rec;
 	page_t*		page;
@@ -895,11 +895,11 @@ page_delete_rec_list_write_log(
 /*===========================*/
 	rec_t*		rec,	/*!< in: record on page */
 	dict_index_t*	index,	/*!< in: record descriptor */
-	byte		type,	/*!< in: operation type:
+	::byte		type,	/*!< in: operation type:
 				MLOG_LIST_END_DELETE, ... */
 	mtr_t*		mtr)	/*!< in: mtr */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 	ut_ad(type == MLOG_LIST_END_DELETE
 	      || type == MLOG_LIST_START_DELETE
 	      || type == MLOG_COMP_LIST_END_DELETE
@@ -920,15 +920,15 @@ page_delete_rec_list_write_log(
 Parses a log record of a record list end or start deletion.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_parse_delete_rec_list(
 /*=======================*/
-	byte		type,	/*!< in: MLOG_LIST_END_DELETE,
+	::byte		type,	/*!< in: MLOG_LIST_END_DELETE,
 				MLOG_LIST_START_DELETE,
 				MLOG_COMP_LIST_END_DELETE or
 				MLOG_COMP_LIST_START_DELETE */
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in/out: buffer block or NULL */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr)	/*!< in: mtr or NULL */
@@ -1195,7 +1195,7 @@ page_delete_rec_list_start(
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
 	ulint*		offsets		= offsets_;
 	mem_heap_t*	heap		= NULL;
-	byte		type;
+	::byte		type;
 
 	rec_offs_init(offsets_);
 
@@ -1974,7 +1974,7 @@ page_simple_validate_old(
 	ulint			slot_no;
 	ulint			n_slots;
 	const rec_t*		rec;
-	const byte*		rec_heap_top;
+	const ::byte*		rec_heap_top;
 	ulint			count;
 	ulint			own_count;
 	ibool			ret	= FALSE;
@@ -2184,7 +2184,7 @@ page_simple_validate_new(
 	ulint			slot_no;
 	ulint			n_slots;
 	const rec_t*		rec;
-	const byte*		rec_heap_top;
+	const ::byte*		rec_heap_top;
 	ulint			count;
 	ulint			own_count;
 	ibool			ret	= FALSE;
@@ -2393,7 +2393,7 @@ page_validate(
 {
 	const page_dir_slot_t*	slot;
 	mem_heap_t*		heap;
-	byte*			buf;
+	::byte*			buf;
 	ulint			count;
 	ulint			own_count;
 	ulint			rec_own_count;
@@ -2442,7 +2442,7 @@ page_validate(
 	/* The following buffer is used to check that the
 	records in the page record heap do not overlap */
 
-	buf = static_cast<byte*>(mem_heap_zalloc(heap, UNIV_PAGE_SIZE));
+	buf = static_cast<::byte*>(mem_heap_zalloc(heap, UNIV_PAGE_SIZE));
 
 	/* Check first that the record heap and the directory do not
 	overlap. */

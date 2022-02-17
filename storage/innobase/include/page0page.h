@@ -50,7 +50,7 @@ Created 2/2/1994 Heikki Tuuri
 
 Index page header starts at the first offset left free by the FIL-module */
 
-typedef	byte		page_header_t;
+typedef	::byte		page_header_t;
 
 #define	PAGE_HEADER	FSEG_PAGE_DATA	/* index page header starts at this
 				offset */
@@ -141,7 +141,7 @@ typedef	byte		page_header_t;
 			==============
 */
 
-typedef	byte			page_dir_slot_t;
+typedef	::byte			page_dir_slot_t;
 typedef page_dir_slot_t		page_dir_t;
 
 /* Offset of the directory start down from the page end. We call the
@@ -254,7 +254,7 @@ page_header_set_ptr(
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page whose
 				uncompressed part will be updated, or NULL */
 	ulint		field,	/*!< in/out: PAGE_FREE, ... */
-	const byte*	ptr);	/*!< in: pointer or NULL*/
+	const ::byte*	ptr);	/*!< in: pointer or NULL*/
 #ifndef UNIV_HOTBACKUP
 /*************************************************************//**
 Resets the last insert info field in the page header. Writes to mlog
@@ -768,7 +768,7 @@ page_mem_alloc_free(
 Allocates a block of memory from the heap of an index page.
 @return	pointer to start of allocated buffer, or NULL if allocation fails */
 UNIV_INTERN
-byte*
+::byte*
 page_mem_alloc_heap(
 /*================*/
 	page_t*		page,	/*!< in/out: index page */
@@ -987,15 +987,15 @@ page_dir_balance_slot(
 Parses a log record of a record list end or start deletion.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_parse_delete_rec_list(
 /*=======================*/
-	byte		type,	/*!< in: MLOG_LIST_END_DELETE,
+	::byte		type,	/*!< in: MLOG_LIST_END_DELETE,
 				MLOG_LIST_START_DELETE,
 				MLOG_COMP_LIST_END_DELETE or
 				MLOG_COMP_LIST_START_DELETE */
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	buf_block_t*	block,	/*!< in/out: buffer block or NULL */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr);	/*!< in: mtr or NULL */
@@ -1003,11 +1003,11 @@ page_parse_delete_rec_list(
 Parses a redo log record of creating a page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 page_parse_create(
 /*==============*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	ulint		comp,	/*!< in: nonzero=compact page format */
 	buf_block_t*	block,	/*!< in: block or NULL */
 	mtr_t*		mtr);	/*!< in: mtr or NULL */

@@ -1938,7 +1938,7 @@ fts_lexer_t*
 fts_lexer_create(
 /*=============*/
 	ibool		boolean_mode,
-	const byte*	query,
+	const ::byte*	query,
 	ulint		query_len)
 {
 	fts_lexer_t*	fts_lexer = static_cast<fts_lexer_t*>(

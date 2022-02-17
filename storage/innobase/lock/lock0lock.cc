@@ -327,7 +327,7 @@ locks on the inserted record. */
  * statement-level MySQL binlog.
  * See also lock_mode_compatible().
  */
-static const byte lock_compatibility_matrix[5][5] = {
+static const ::byte lock_compatibility_matrix[5][5] = {
  /**         IS     IX       S     X       AI */
  /* IS */ {  TRUE,  TRUE,  TRUE,  FALSE,  TRUE},
  /* IX */ {  TRUE,  TRUE,  FALSE, FALSE,  TRUE},
@@ -345,7 +345,7 @@ static const byte lock_compatibility_matrix[5][5] = {
  * AI -  -  -  -  +
  * See lock_mode_stronger_or_eq().
  */
-static const byte lock_strength_matrix[5][5] = {
+static const ::byte lock_strength_matrix[5][5] = {
  /**         IS     IX       S     X       AI */
  /* IS */ {  TRUE,  FALSE, FALSE,  FALSE, FALSE},
  /* IX */ {  TRUE,  TRUE,  FALSE, FALSE,  FALSE},
@@ -460,7 +460,7 @@ lock_rec_get_nth_bit(
 	const lock_t*	lock,	/*!< in: record lock */
 	ulint		i)	/*!< in: index of the bit */
 {
-	const byte*	b;
+	const ::byte*	b;
 
 	ut_ad(lock);
 	ut_ad(lock_get_type_low(lock) == LOCK_REC);
@@ -470,7 +470,7 @@ lock_rec_get_nth_bit(
 		return(FALSE);
 	}
 
-	b = ((const byte*) &lock[1]) + (i / 8);
+	b = ((const ::byte*) &lock[1]) + (i / 8);
 
 	return(1 & *b >> (i % 8));
 }
@@ -1139,7 +1139,7 @@ lock_rec_set_nth_bit(
 	byte_index = i / 8;
 	bit_index = i % 8;
 
-	((byte*) &lock[1])[byte_index] |= 1 << bit_index;
+	((::byte*) &lock[1])[byte_index] |= 1 << bit_index;
 }
 
 /**********************************************************************//**
@@ -1186,7 +1186,7 @@ lock_rec_reset_nth_bit(
 	byte_index = i / 8;
 	bit_index = i % 8;
 
-	((byte*) &lock[1])[byte_index] &= ~(1 << bit_index);
+	((::byte*) &lock[1])[byte_index] &= ~(1 << bit_index);
 }
 
 /*********************************************************************//**
@@ -2452,7 +2452,7 @@ lock_rec_has_to_wait_in_queue(
 	     lock != wait_lock;
 	     lock = lock_rec_get_next_on_page_const(lock)) {
 
-		const byte*	p = (const byte*) &lock[1];
+		const ::byte*	p = (const ::byte*) &lock[1];
 
 		if (heap_no < lock_rec_get_n_bits(lock)
 		    && (p[bit_offset] & bit_mask)

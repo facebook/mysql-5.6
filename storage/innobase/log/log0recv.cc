@@ -410,7 +410,7 @@ recv_sys_init(
 		                          * srv_n_read_io_threads;
 	}
 
-	recv_sys->buf = static_cast<byte*>(ut_malloc(RECV_PARSING_BUF_SIZE));
+	recv_sys->buf = static_cast<::byte*>(ut_malloc(RECV_PARSING_BUF_SIZE));
 	recv_sys->len = 0;
 	recv_sys->recovered_offset = 0;
 
@@ -420,10 +420,10 @@ recv_sys_init(
 	recv_sys->apply_log_recs = FALSE;
 	recv_sys->apply_batch_on = FALSE;
 
-	recv_sys->last_block_buf_start = static_cast<byte*>(
+	recv_sys->last_block_buf_start = static_cast<::byte*>(
 		mem_alloc(2 * OS_FILE_LOG_BLOCK_SIZE));
 
-	recv_sys->last_block = static_cast<byte*>(ut_align(
+	recv_sys->last_block = static_cast<::byte*>(ut_align(
 		recv_sys->last_block_buf_start, OS_FILE_LOG_BLOCK_SIZE));
 
 	recv_sys->found_corrupt_log = FALSE;
@@ -713,7 +713,7 @@ UNIV_INTERN
 ibool
 recv_check_cp_is_consistent(
 /*========================*/
-	const byte*	buf)	/*!< in: buffer containing checkpoint info */
+	const ::byte*	buf)	/*!< in: buffer containing checkpoint info */
 {
 	ulint	fold;
 
@@ -751,7 +751,7 @@ recv_find_max_checkpoint(
 	ib_uint64_t	max_no;
 	ib_uint64_t	checkpoint_no;
 	ulint		field;
-	byte*		buf;
+	::byte*		buf;
 
 	group = UT_LIST_GET_FIRST(log_sys->log_groups);
 
@@ -849,7 +849,7 @@ UNIV_INTERN
 ibool
 recv_read_checkpoint_info_for_backup(
 /*=================================*/
-	const byte*	hdr,	/*!< in: buffer containing the log group
+	const ::byte*	hdr,	/*!< in: buffer containing the log group
 				header */
 	lsn_t*		lsn,	/*!< out: checkpoint lsn */
 	lsn_t*		offset,	/*!< out: checkpoint offset in the log group */
@@ -860,7 +860,7 @@ recv_read_checkpoint_info_for_backup(
 {
 	ulint		max_cp		= 0;
 	ib_uint64_t	max_cp_no	= 0;
-	const byte*	cp_buf;
+	const ::byte*	cp_buf;
 
 	cp_buf = hdr + LOG_CHECKPOINT_1;
 
@@ -907,7 +907,7 @@ UNIV_INTERN
 ibool
 log_block_checksum_is_ok_or_old_format(
 /*===================================*/
-	const byte*	block)	/*!< in: pointer to a log block */
+	const ::byte*	block)	/*!< in: pointer to a log block */
 {
 #ifdef UNIV_LOG_DEBUG
 	return(TRUE);
@@ -941,7 +941,7 @@ UNIV_INTERN
 void
 recv_scan_log_seg_for_backup(
 /*=========================*/
-	byte*		buf,		/*!< in: buffer containing log data */
+	::byte*		buf,		/*!< in: buffer containing log data */
 	ulint		buf_len,	/*!< in: data length in that buffer */
 	lsn_t*		scanned_lsn,	/*!< in/out: lsn of buffer start,
 					we return scanned lsn */
@@ -954,7 +954,7 @@ recv_scan_log_seg_for_backup(
 					data ended here */
 {
 	ulint	data_len;
-	byte*	log_block;
+	::byte*	log_block;
 	ulint	no;
 
 	*n_bytes_scanned = 0;
@@ -1030,12 +1030,12 @@ Tries to parse a single log record body and also applies it to a page if
 specified. File ops are parsed, but not applied in this function.
 @return	log record end, NULL if not a complete record */
 static
-byte*
+::byte*
 recv_parse_or_apply_log_rec_body(
 /*=============================*/
-	byte		type,	/*!< in: type */
-	byte*		ptr,	/*!< in: pointer to a buffer */
-	byte*		end_ptr,/*!< in: pointer to the buffer end */
+	::byte		type,	/*!< in: type */
+	::byte*		ptr,	/*!< in: pointer to a buffer */
+	::byte*		end_ptr,/*!< in: pointer to the buffer end */
 	buf_block_t*	block,	/*!< in/out: buffer block or NULL; if
 				not NULL, then the log record is
 				applied to the page, and the log
@@ -1457,11 +1457,11 @@ static
 void
 recv_add_to_hash_table(
 /*===================*/
-	byte	type,		/*!< in: log record type */
+	::byte	type,		/*!< in: log record type */
 	ulint	space,		/*!< in: space id */
 	ulint	page_no,	/*!< in: page number */
-	byte*	body,		/*!< in: log record body */
-	byte*	rec_end,	/*!< in: log record end */
+	::byte*	body,		/*!< in: log record body */
+	::byte*	rec_end,	/*!< in: log record end */
 	lsn_t	start_lsn,	/*!< in: start lsn of the mtr */
 	lsn_t	end_lsn)	/*!< in: end lsn of the mtr */
 {
@@ -1547,7 +1547,7 @@ static
 void
 recv_data_copy_to_buf(
 /*==================*/
-	byte*	buf,	/*!< in: buffer of length at least recv->len */
+	::byte*	buf,	/*!< in: buffer of length at least recv->len */
 	recv_t*	recv)	/*!< in: log record */
 {
 	recv_data_t*	recv_data;
@@ -1564,7 +1564,7 @@ recv_data_copy_to_buf(
 			part_len = len;
 		}
 
-		ut_memcpy(buf, ((byte*) recv_data) + sizeof(recv_data_t),
+		ut_memcpy(buf, ((::byte*) recv_data) + sizeof(recv_data_t),
 			  part_len);
 		buf += part_len;
 		len -= part_len;
@@ -1592,7 +1592,7 @@ recv_recover_page_func(
 	page_zip_des_t*	page_zip;
 	recv_addr_t*	recv_addr;
 	recv_t*		recv;
-	byte*		buf;
+	::byte*		buf;
 	lsn_t		start_lsn;
 	lsn_t		end_lsn;
 	lsn_t		page_lsn;
@@ -1694,11 +1694,11 @@ recv_recover_page_func(
 			/* We have to copy the record body to a separate
 			buffer */
 
-			buf = static_cast<byte*>(mem_alloc(recv->len));
+			buf = static_cast<::byte*>(mem_alloc(recv->len));
 
 			recv_data_copy_to_buf(buf, recv);
 		} else {
-			buf = ((byte*)(recv->data)) + sizeof(recv_data_t);
+			buf = ((::byte*)(recv->data)) + sizeof(recv_data_t);
 		}
 
 		if (recv->type == MLOG_INIT_FILE_PAGE) {
@@ -2186,14 +2186,14 @@ static
 ulint
 recv_parse_log_rec(
 /*===============*/
-	byte*	ptr,	/*!< in: pointer to a buffer */
-	byte*	end_ptr,/*!< in: pointer to the buffer end */
-	byte*	type,	/*!< out: type */
+	::byte*	ptr,	/*!< in: pointer to a buffer */
+	::byte*	end_ptr,/*!< in: pointer to the buffer end */
+	::byte*	type,	/*!< out: type */
 	ulint*	space,	/*!< out: space id */
 	ulint*	page_no,/*!< out: page number */
-	byte**	body)	/*!< out: log record body start */
+	::byte**	body)	/*!< out: log record body start */
 {
-	byte*	new_ptr;
+	::byte*	new_ptr;
 
 	*body = NULL;
 
@@ -2284,14 +2284,14 @@ static
 void
 recv_check_incomplete_log_recs(
 /*===========================*/
-	byte*	ptr,	/*!< in: pointer to a complete log record */
+	::byte*	ptr,	/*!< in: pointer to a complete log record */
 	ulint	len)	/*!< in: length of the log record */
 {
 	ulint	i;
-	byte	type;
+	::byte	type;
 	ulint	space;
 	ulint	page_no;
-	byte*	body;
+	::byte*	body;
 
 	for (i = 0; i < len; i++) {
 		ut_a(0 == recv_parse_log_rec(ptr, ptr + i, &type, &space,
@@ -2306,8 +2306,8 @@ static
 void
 recv_report_corrupt_log(
 /*====================*/
-	byte*	ptr,	/*!< in: pointer to corrupt log record */
-	byte	type,	/*!< in: type of the record */
+	::byte*	ptr,	/*!< in: pointer to corrupt log record */
+	::byte	type,	/*!< in: type of the record */
 	ulint	space,	/*!< in: space id, this may also be garbage */
 	ulint	page_no)/*!< in: page number, this may also be garbage */
 {
@@ -2375,17 +2375,17 @@ recv_parse_log_recs(
 				to the hash table; this is set to FALSE if just
 				debug checking is needed */
 {
-	byte*	ptr;
-	byte*	end_ptr;
+	::byte*	ptr;
+	::byte*	end_ptr;
 	ulint	single_rec;
 	ulint	len;
 	ulint	total_len;
 	lsn_t	new_recovered_lsn;
 	lsn_t	old_lsn;
-	byte	type;
+	::byte	type;
 	ulint	space;
 	ulint	page_no;
-	byte*	body;
+	::byte*	body;
 	ulint	n_recs;
 
 	ut_ad(mutex_own(&(log_sys->mutex)));
@@ -2615,7 +2615,7 @@ static
 ibool
 recv_sys_add_to_parsing_buf(
 /*========================*/
-	const byte*	log_block,	/*!< in: log block */
+	const ::byte*	log_block,	/*!< in: log block */
 	lsn_t		scanned_lsn)	/*!< in: lsn of how far we were able
 					to find data in this log block */
 {
@@ -2714,7 +2714,7 @@ recv_scan_log_recs(
 					stored to the hash table; this is set
 					to FALSE if just debug checking is
 					needed */
-	const byte*	buf,		/*!< in: buffer containing a log
+	const ::byte*	buf,		/*!< in: buffer containing a log
 					segment or garbage */
 	ulint		len,		/*!< in: buffer length */
 	lsn_t		start_lsn,	/*!< in: buffer start lsn */
@@ -2724,7 +2724,7 @@ recv_scan_log_recs(
 	lsn_t*		group_scanned_lsn)/*!< out: scanning succeeded up to
 					this lsn */
 {
-	const byte*	log_block;
+	const ::byte*	log_block;
 	ulint		no;
 	lsn_t		scanned_lsn;
 	ibool		finished;
@@ -3072,9 +3072,9 @@ recv_recovery_from_checkpoint_start_func(
 	log_group_t*	up_to_date_group;
 	lsn_t		archived_lsn;
 #endif /* UNIV_LOG_ARCHIVE */
-	byte*		buf;
-	byte*           log_hdr_buf;
-	byte            log_hdr_mem[LOG_FILE_HDR_SIZE + OS_FILE_LOG_BLOCK_SIZE];
+	::byte*		buf;
+	::byte*           log_hdr_buf;
+	::byte            log_hdr_mem[LOG_FILE_HDR_SIZE + OS_FILE_LOG_BLOCK_SIZE];
 	dberr_t		err;
 
 	/* Initialize red-black tree for fast insertions into the
@@ -3083,7 +3083,7 @@ recv_recovery_from_checkpoint_start_func(
 
 	ut_when_dtor<recv_dblwr_t> tmp(recv_sys->dblwr);
 
-	log_hdr_buf = (byte*)ut_align(log_hdr_mem, OS_FILE_LOG_BLOCK_SIZE);
+	log_hdr_buf = (::byte*)ut_align(log_hdr_mem, OS_FILE_LOG_BLOCK_SIZE);
 	ut_a(log_hdr_buf >= log_hdr_mem);
 	ut_a(log_hdr_buf <= (log_hdr_mem + OS_FILE_LOG_BLOCK_SIZE));
 
@@ -3144,7 +3144,7 @@ recv_recovery_from_checkpoint_start_func(
 	       log_hdr_buf, max_cp_group);
 
 	if (0 == ut_memcmp(log_hdr_buf + LOG_FILE_WAS_CREATED_BY_HOT_BACKUP,
-			   (byte*)"ibbackup", (sizeof "ibbackup") - 1)) {
+			   (::byte*)"ibbackup", (sizeof "ibbackup") - 1)) {
 
 		if (srv_read_only_mode) {
 
@@ -3654,7 +3654,7 @@ recv_reset_log_files_for_backup(
 {
 	os_file_t	log_file;
 	ibool		success;
-	byte*		buf;
+	::byte*		buf;
 	ulint		i;
 	ulint		log_dir_len;
 	char		name[5000];
@@ -3747,7 +3747,7 @@ log_group_recover_from_archive_file(
 	ib_uint64_t	scanned_lsn;
 	ulint		len;
 	ibool		ret;
-	byte*		buf;
+	::byte*		buf;
 	os_offset_t	read_offset;
 	os_offset_t	file_size;
 	int		input_char;
@@ -4050,16 +4050,16 @@ recv_recovery_from_archive_finish(void)
 #endif /* UNIV_LOG_ARCHIVE */
 
 
-void recv_dblwr_t::add(byte* page, ulint space_id, ulint page_no)
+void recv_dblwr_t::add(::byte* page, ulint space_id, ulint page_no)
 {
 	recv_dblwr_item_t item = { page, space_id, page_no };
 	pages.push_back(item);
 }
 
-byte* recv_dblwr_t::find_page(ulint space_id, ulint page_no)
+::byte* recv_dblwr_t::find_page(ulint space_id, ulint page_no)
 {
-	std::vector<byte*> matches;
-	byte*	result = 0;
+	std::vector<::byte*> matches;
+	::byte*	result = 0;
 
 	for (std::list<recv_dblwr_item_t>::iterator i = pages.begin();
 	     i != pages.end(); ++i) {
@@ -4077,7 +4077,7 @@ byte* recv_dblwr_t::find_page(ulint space_id, ulint page_no)
 		lsn_t max_lsn	= 0;
 		lsn_t page_lsn	= 0;
 
-		for (std::vector<byte*>::iterator i = matches.begin();
+		for (std::vector<::byte*>::iterator i = matches.begin();
 		     i != matches.end(); ++i) {
 
 			if (*i) {

@@ -215,11 +215,11 @@ UNIV_INLINE
 ulint
 ut_fold_binary(
 /*===========*/
-	const byte*	str,	/*!< in: string of bytes */
+	const ::byte*	str,	/*!< in: string of bytes */
 	ulint		len)	/*!< in: length */
 {
 	ulint		fold = 0;
-	const byte*	str_end	= str + (len & 0xFFFFFFF8);
+	const ::byte*	str_end	= str + (len & 0xFFFFFFF8);
 
 	ut_ad(str || !len);
 

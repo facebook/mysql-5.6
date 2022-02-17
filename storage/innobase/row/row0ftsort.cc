@@ -383,7 +383,7 @@ row_merge_fts_doc_tokenize(
 	dfield_t*	field;
 	fts_string_t	t_str;
 	ibool		buf_full = FALSE;
-	byte		str_buf[FTS_MAX_WORD_LEN + 1];
+	::byte		str_buf[FTS_MAX_WORD_LEN + 1];
 	ulint		data_size[FTS_NUM_AUX_INDEX];
 	ulint		n_tuple[FTS_NUM_AUX_INDEX];
 
@@ -422,7 +422,7 @@ row_merge_fts_doc_tokenize(
 			doc->charset, (char*) str.f_str, str.f_len,
 			(char*) &str_buf, FTS_MAX_WORD_LEN + 1);
 
-		t_str.f_str = (byte*) &str_buf;
+		t_str.f_str = (::byte*) &str_buf;
 
 		/* if "cached_stopword" is defined, ingore words in the
 		stopword list */
@@ -470,13 +470,13 @@ row_merge_fts_doc_tokenize(
 		ib_uint32_t	doc_id_32_bit;
 
 		if (!opt_doc_id_size) {
-			fts_write_doc_id((byte*) &write_doc_id, doc_id);
+			fts_write_doc_id((::byte*) &write_doc_id, doc_id);
 
 			dfield_set_data(
 				field, &write_doc_id, sizeof(write_doc_id));
 		} else {
 			mach_write_to_4(
-				(byte*) &doc_id_32_bit, (ib_uint32_t) doc_id);
+				(::byte*) &doc_id_32_bit, (ib_uint32_t) doc_id);
 
 			dfield_set_data(
 				field, &doc_id_32_bit, sizeof(doc_id_32_bit));
@@ -497,7 +497,7 @@ row_merge_fts_doc_tokenize(
 
 		/* The third field is the position */
 		mach_write_to_4(
-			(byte*) &position,
+			(::byte*) &position,
 			(i + offset + inc - str.f_len + t_ctx->init_pos));
 
 		dfield_set_data(field, &position, sizeof(position));
@@ -667,11 +667,11 @@ loop:
 		strings in the doc_item, otherwise continue processing last
 		item */
 		if (processed) {
-			byte*		data;
+			::byte*		data;
 			ulint		data_len;
 
 			dfield = doc_item->field;
-			data = static_cast<byte*>(dfield_get_data(dfield));
+			data = static_cast<::byte*>(dfield_get_data(dfield));
 			data_len = dfield_get_len(dfield);
 
 			if (dfield_is_ext(dfield)) {
@@ -1091,7 +1091,7 @@ row_fts_insert_tuple(
 
 	token_word.f_n_char = 0;
 	token_word.f_len = dfield->len;
-	token_word.f_str = static_cast<byte*>(dfield_get_data(dfield));
+	token_word.f_str = static_cast<::byte*>(dfield_get_data(dfield));
 
 	if (!word->text.f_str) {
 		fts_utf8_string_dup(&word->text, &token_word, ins_ctx->heap);
@@ -1135,15 +1135,15 @@ row_fts_insert_tuple(
 
 	if (!ins_ctx->opt_doc_id_size) {
 		doc_id = fts_read_doc_id(
-			static_cast<byte*>(dfield_get_data(dfield)));
+			static_cast<::byte*>(dfield_get_data(dfield)));
 	} else {
 		doc_id = (doc_id_t) mach_read_from_4(
-			static_cast<byte*>(dfield_get_data(dfield)));
+			static_cast<::byte*>(dfield_get_data(dfield)));
 	}
 
 	/* Get the word's position info */
 	dfield = dtuple_get_nth_field(dtuple, 2);
-	position = mach_read_from_4(static_cast<byte*>(dfield_get_data(dfield)));
+	position = mach_read_from_4(static_cast<::byte*>(dfield_get_data(dfield)));
 
 	/* If this is the same word as the last word, and they
 	have the same Doc ID, we just need to add its position
@@ -1355,7 +1355,7 @@ row_fts_merge_insert(
 	ulint			id)	/* !< in: which auxiliary table's data
 					to insert to */
 {
-	const byte**		b;
+	const ::byte**		b;
 	mem_heap_t*		tuple_heap;
 	mem_heap_t*		heap;
 	dberr_t			error = DB_SUCCESS;
@@ -1369,7 +1369,7 @@ row_fts_merge_insert(
 	ulint			i;
 	mrec_buf_t**		buf;
 	int*			fd;
-	byte**			block;
+	::byte**			block;
 	const mrec_t**		mrec;
 	ulint			count = 0;
 	int*			sel_tree;
@@ -1392,7 +1392,7 @@ row_fts_merge_insert(
 
 	heap = mem_heap_create(500 + sizeof(mrec_buf_t));
 
-	b = (const byte**) mem_heap_alloc(
+	b = (const ::byte**) mem_heap_alloc(
 		heap, sizeof (*b) * fts_sort_pll_degree);
 	foffs = (ulint*) mem_heap_alloc(
 		heap, sizeof(*foffs) * fts_sort_pll_degree);
@@ -1401,7 +1401,7 @@ row_fts_merge_insert(
 	buf = (mrec_buf_t**) mem_heap_alloc(
 		heap, sizeof(*buf) * fts_sort_pll_degree);
 	fd = (int*) mem_heap_alloc(heap, sizeof(*fd) * fts_sort_pll_degree);
-	block = (byte**) mem_heap_alloc(
+	block = (::byte**) mem_heap_alloc(
 		heap, sizeof(*block) * fts_sort_pll_degree);
 	mrec = (const mrec_t**) mem_heap_alloc(
 		heap, sizeof(*mrec) * fts_sort_pll_degree);

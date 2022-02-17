@@ -74,7 +74,7 @@ trx_undo_rec_get_undo_no(
 /*=====================*/
 	const trx_undo_rec_t*	undo_rec)	/*!< in: undo log record */
 {
-	const byte*	ptr;
+	const ::byte*	ptr;
 
 	ptr = undo_rec + 3;
 

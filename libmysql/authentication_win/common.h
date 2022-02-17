@@ -159,7 +159,7 @@ typedef unsigned char byte;
 
 class Blob
 {
-  byte   *m_ptr;  ///< Pointer to the first byte of the memory region.
+  ::byte   *m_ptr;  ///< Pointer to the first byte of the memory region.
   size_t  m_len;  ///< Length of the memory region.
 
 public:
@@ -167,7 +167,7 @@ public:
   Blob(): m_ptr(NULL), m_len(0)
   {}
 
-  Blob(const byte *ptr, const size_t len)
+  Blob(const ::byte *ptr, const size_t len)
   : m_ptr(const_cast<byte*>(ptr)), m_len(len)
   {}
 
@@ -188,7 +188,7 @@ public:
 
   byte& operator[](unsigned pos) const
   {
-    static byte out_of_range= 0;  // alas, no exceptions...
+    static ::byte out_of_range= 0;  // alas, no exceptions...
     return pos < len() ? m_ptr[pos] : out_of_range;
   }
 

@@ -31,7 +31,7 @@ Return offset of F in POD T.
 @param T	- POD pointer
 @param F	- Field in T */
 #define IB_OFFSETOF(T, F)						\
-	(reinterpret_cast<byte*>(&(T)->F) - reinterpret_cast<byte*>(T))
+	(reinterpret_cast<::byte*>(&(T)->F) - reinterpret_cast<::byte*>(T))
 
 /* This module implements the two-way linear list which should be used
 if a list is used in the database. Note that a single struct may belong
@@ -90,7 +90,7 @@ ut_elem_get_node(Type&	elem, size_t offset)
 	ut_a(offset < sizeof(elem));
 
 	return(*reinterpret_cast<ut_list_node<Type>*>(
-		reinterpret_cast<byte*>(&elem) + offset));
+		reinterpret_cast<::byte*>(&elem) + offset));
 }
 
 /*******************************************************************//**
@@ -420,13 +420,13 @@ ut_list_offset(
 	typename List::elem_type* elem = list.start;
 	if (elem && elem >= area_start && elem < area_end) {
 		list.start = reinterpret_cast<typename List::elem_type*>
-			((byte*)elem + offset);
+			((::byte*)elem + offset);
 	}
 
 	elem = list.end;
 	if (elem && elem >= area_start && elem < area_end) {
 		list.end = reinterpret_cast<typename List::elem_type*>
-			((byte*)elem + offset);
+			((::byte*)elem + offset);
 	}
 
 	elem = list.start;
@@ -435,13 +435,13 @@ ut_list_offset(
 		if (next && next >= area_start && next < area_end) {
 			(elem->*node).next =
 				reinterpret_cast<typename List::elem_type*>
-					((byte*)next + offset);
+					((::byte*)next + offset);
 		}
 		typename List::elem_type* prev = (elem->*node).prev;
 		if (prev && prev >= area_start && prev < area_end) {
 			(elem->*node).prev =
 				reinterpret_cast<typename List::elem_type*>
-					((byte*)prev + offset);
+					((::byte*)prev + offset);
 		}
 		elem = (elem->*node).next;
 	}

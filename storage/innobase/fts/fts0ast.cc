@@ -101,8 +101,8 @@ fts_ast_create_node_term(
 
 		cur_len = innobase_mysql_fts_get_token(
 			state->charset,
-			reinterpret_cast<const byte*>(ptr->str) + cur_pos,
-			reinterpret_cast<const byte*>(ptr->str) + len,
+			reinterpret_cast<const ::byte*>(ptr->str) + cur_pos,
+			reinterpret_cast<const ::byte*>(ptr->str) + len,
 			&str, &offset);
 
 		if (cur_len == 0) {
@@ -185,7 +185,7 @@ fts_ast_create_node_text(
 	node->type = FTS_AST_TEXT;
 	/*!< Skip copying the first quote */
 	node->text.ptr = fts_ast_string_create(
-			reinterpret_cast<const byte*>(ptr->str + 1), len);
+			reinterpret_cast<const ::byte*>(ptr->str + 1), len);
 	node->text.distance = ULINT_UNDEFINED;
 
 	fts_ast_state_add_node((fts_ast_state_t*) arg, node);
@@ -633,7 +633,7 @@ has one more byte than len
 UNIV_INTERN
 fts_ast_string_t*
 fts_ast_string_create(
-	const byte*	str,
+	const ::byte*	str,
 	ulint		len)
 {
 	fts_ast_string_t*	ast_str;
@@ -642,7 +642,7 @@ fts_ast_string_create(
 
 	ast_str = static_cast<fts_ast_string_t*>
 			(ut_malloc(sizeof(fts_ast_string_t)));
-	ast_str->str = static_cast<byte*>(ut_malloc(len + 1));
+	ast_str->str = static_cast<::byte*>(ut_malloc(len + 1));
 
 	ast_str->len = len;
 	memcpy(ast_str->str, str, len);

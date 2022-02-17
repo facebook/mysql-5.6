@@ -57,7 +57,7 @@ static
 ibool
 is_field_ref_freed(
 /*======================*/
-	const byte* field_ref)	/*< in: field reference */
+	const ::byte* field_ref)	/*< in: field reference */
 {
 	/* More info on this is in btr_free_externally_stored_field() */
 	return (mach_read_from_4(field_ref
@@ -89,8 +89,8 @@ fetch_document_path_value(
 	mtr_t		mtr;
 	dfield_t	full_field = *doc_field;
 	ulint		full_len = 0;
-	const byte*	buf = 0;
-        const byte*	data = (const byte*)dfield_get_data(&full_field);
+	const ::byte*	buf = 0;
+        const ::byte*	data = (const ::byte*)dfield_get_data(&full_field);
 	ulint		len = dfield_get_len(&full_field);
 	dfield_set_null(field);
 	if (dfield_is_ext(doc_field)) {
@@ -118,8 +118,8 @@ fetch_document_path_value(
 			trx_rseg_t*	rseg;
 			buf_block_t*	block;
 			ulint		internal_offset;
-			byte*		data_field;
-			byte*		field_ref;
+			::byte*		data_field;
+			::byte*		field_ref;
 			ibool		is_insert;
 			ulint		rseg_id;
 			ulint		page_no;
@@ -138,7 +138,7 @@ fetch_document_path_value(
 				ufield = upd_get_field_by_field_no(node->update,
 								   clust_pos);
 				internal_offset
-					= ((const byte*)
+					= ((const ::byte*)
 					   dfield_get_data(&ufield->new_val))
 					- undo_rec;
 				ut_a(internal_offset < UNIV_PAGE_SIZE);
@@ -321,7 +321,7 @@ row_build_index_entry_low(
 
 		if (ext) {
 			/* See if the column is stored externally. */
-			const byte*	buf = row_ext_lookup(ext, col_no,
+			const ::byte*	buf = row_ext_lookup(ext, col_no,
 							     &len);
 			if (UNIV_LIKELY_NULL(buf)) {
 				if (UNIV_UNLIKELY(buf == field_ref_zero)) {
@@ -415,12 +415,12 @@ row_build(
 	mem_heap_t*		heap)	/*!< in: memory heap from which
 					the memory needed is allocated */
 {
-	const byte*		copy;
+	const ::byte*		copy;
 	dtuple_t*		row;
 	ulint			n_ext_cols;
 	ulint*			ext_cols	= NULL; /* remove warning */
 	ulint			len;
-	byte*			buf;
+	::byte*			buf;
 	ulint			j;
 	mem_heap_t*		tmp_heap	= NULL;
 	ulint			offsets_[REC_OFFS_NORMAL_SIZE];
@@ -455,7 +455,7 @@ row_build(
 
 	if (type != ROW_COPY_POINTERS) {
 		/* Take a copy of rec to heap */
-		buf = static_cast<byte*>(
+		buf = static_cast<::byte*>(
 			mem_heap_alloc(heap, rec_offs_size(offsets)));
 
 		copy = rec_copy(buf, rec, offsets);
@@ -527,7 +527,7 @@ row_build(
 
 		dfield_t*	dfield = dtuple_get_nth_field(row, col_no);
 
-		const byte*	field = rec_get_nth_field(
+		const ::byte*	field = rec_get_nth_field(
 			copy, offsets, i, &len);
 
 		dfield_set_data(dfield, field, len);
@@ -593,7 +593,7 @@ row_rec_to_index_entry_low(
 	dtuple_t*	entry;
 	dfield_t*	dfield;
 	ulint		i;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		rec_len;
 
@@ -651,7 +651,7 @@ row_rec_to_index_entry(
 					the memory needed is allocated */
 {
 	dtuple_t*	entry;
-	byte*		buf;
+	::byte*		buf;
 	const rec_t*	copy_rec;
 
 	ut_ad(rec != NULL);
@@ -660,7 +660,7 @@ row_rec_to_index_entry(
 	ut_ad(rec_offs_validate(rec, index, offsets));
 
 	/* Take a copy of rec to heap */
-	buf = static_cast<byte*>(
+	buf = static_cast<::byte*>(
 		mem_heap_alloc(heap, rec_offs_size(offsets)));
 
 	copy_rec = rec_copy(buf, rec, offsets);
@@ -703,11 +703,11 @@ row_build_row_ref(
 	dict_index_t*	clust_index;
 	dfield_t*	dfield;
 	dtuple_t*	ref;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		ref_len;
 	ulint		pos;
-	byte*		buf;
+	::byte*		buf;
 	ulint		clust_col_prefix_len;
 	ulint		i;
 	mem_heap_t*	tmp_heap	= NULL;
@@ -728,7 +728,7 @@ row_build_row_ref(
 	if (type == ROW_COPY_DATA) {
 		/* Take a copy of rec to heap */
 
-		buf = static_cast<byte*>(
+		buf = static_cast<::byte*>(
 			mem_heap_alloc(heap, rec_offs_size(offsets)));
 
 		rec = rec_copy(buf, rec, offsets);
@@ -813,7 +813,7 @@ row_build_row_ref_in_tuple(
 {
 	const dict_index_t*	clust_index;
 	dfield_t*		dfield;
-	const byte*		field;
+	const ::byte*		field;
 	ulint			len;
 	ulint			ref_len;
 	ulint			pos;
@@ -1074,7 +1074,7 @@ row_raw_format_int(
 		ibool		unsigned_type = prtype & DATA_UNSIGNED;
 
 		value = mach_read_int_type(
-			(const byte*) data, data_len, unsigned_type);
+			(const ::byte*) data, data_len, unsigned_type);
 
 		ret = ut_snprintf(
 			buf, buf_size,

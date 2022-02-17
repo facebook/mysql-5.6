@@ -516,11 +516,11 @@ btr_cur_pessimistic_delete(
 Parses a redo log record of updating a record in-place.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_cur_parse_update_in_place(
 /*==========================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< in/out: page or NULL */
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page, or NULL */
 	dict_index_t*	index);	/*!< in: index corresponding to page */
@@ -529,11 +529,11 @@ Parses the redo log record for delete marking or unmarking of a clustered
 index record.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_cur_parse_del_mark_set_clust_rec(
 /*=================================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< in/out: page or NULL */
 	page_zip_des_t*	page_zip,/*!< in/out: compressed page, or NULL */
 	dict_index_t*	index);	/*!< in: index corresponding to page */
@@ -542,11 +542,11 @@ Parses the redo log record for delete marking or unmarking of a secondary
 index record.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_cur_parse_del_mark_set_sec_rec(
 /*===============================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< in/out: page or NULL */
 	page_zip_des_t*	page_zip);/*!< in/out: compressed page, or NULL */
 #ifndef UNIV_HOTBACKUP
@@ -668,7 +668,7 @@ btr_free_externally_stored_field(
 					from purge where 'data' is located on
 					an undo log page, not an index
 					page) */
-	byte*		field_ref,	/*!< in/out: field reference */
+	::byte*		field_ref,	/*!< in/out: field reference */
 	const rec_t*	rec,		/*!< in: record containing field_ref, for
 					page_zip_write_blob_ptr(), or NULL */
 	const ulint*	offsets,	/*!< in: rec_get_offsets(rec, index),
@@ -690,11 +690,11 @@ UNIV_INTERN
 ulint
 btr_copy_externally_stored_field_prefix(
 /*====================================*/
-	byte*		buf,	/*!< out: the field, or a prefix of it */
+	::byte*		buf,	/*!< out: the field, or a prefix of it */
 	ulint		len,	/*!< in: length of buf, in bytes */
 	ulint		zip_size,/*!< in: nonzero=compressed BLOB page size,
 				zero for uncompressed BLOBs */
-	const byte*	data,	/*!< in: 'internally' stored part of the
+	const ::byte*	data,	/*!< in: 'internally' stored part of the
 				field containing also the reference to
 				the external part; must be protected by
 				a lock or a page latch */
@@ -705,11 +705,11 @@ Copies an externally stored field of a record to mem heap.  The
 clustered index record must be protected by a lock or a page latch.
 @return the whole field copied to heap */
 UNIV_INTERN
-byte*
+::byte*
 btr_copy_externally_stored_field(
 /*=============================*/
 	ulint*		len,	/*!< out: length of the whole field */
-	const byte*	data,	/*!< in: 'internally' stored part of the
+	const ::byte*	data,	/*!< in: 'internally' stored part of the
 				field containing also the reference to
 				the external part; must be protected by
 				a lock or a page latch */
@@ -722,7 +722,7 @@ btr_copy_externally_stored_field(
 Copies an externally stored field of a record to mem heap.
 @return	the field copied to heap, or NULL if the field is incomplete */
 UNIV_INTERN
-byte*
+::byte*
 btr_rec_copy_externally_stored_field(
 /*=================================*/
 	const rec_t*	rec,	/*!< in: record in a clustered index;

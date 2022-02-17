@@ -37,7 +37,7 @@ Gets a pointer to a file address and latches the page.
 @return pointer to a byte in a frame; the file page in the frame is
 bufferfixed and latched */
 UNIV_INLINE
-byte*
+::byte*
 fut_get_ptr(
 /*========*/
 	ulint		space,	/*!< in: space id */

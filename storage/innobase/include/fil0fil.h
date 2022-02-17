@@ -67,7 +67,7 @@ extern uint innobase_load_table_thread_num;
 addresses accurate to a byte are stored in file pages. If the page part
 of the address is FIL_NULL, the address is considered undefined. */
 
-typedef	byte	fil_faddr_t;	/*!< 'type' definition in C: an address
+typedef	::byte	fil_faddr_t;	/*!< 'type' definition in C: an address
 				stored in a file page is a string of bytes */
 
 #endif /* !UNIV_INNOCHECKSUM */
@@ -722,13 +722,13 @@ the datadir that we should use in replaying the file operations.
 @return end of log record, or NULL if the record was not completely
 contained between ptr and end_ptr */
 UNIV_INTERN
-byte*
+::byte*
 fil_op_log_parse_or_replay(
 /*=======================*/
-	byte*	ptr,		/*!< in: buffer containing the log record body,
+	::byte*	ptr,		/*!< in: buffer containing the log record body,
 				or an initial segment of it, if the record does
 				not fir completely between ptr and end_ptr */
-	byte*	end_ptr,	/*!< in: buffer end */
+	::byte*	end_ptr,	/*!< in: buffer end */
 	ulint	type,		/*!< in: the type of this log record */
 	ulint	space_id,	/*!< in: the space id of the tablespace in
 				question, or 0 if the log record should
@@ -1149,7 +1149,7 @@ UNIV_INTERN
 ulint
 fil_page_get_prev(
 /*==============*/
-	const byte*	page);	/*!< in: file page */
+	const ::byte*	page);	/*!< in: file page */
 /********************************************************************//**
 Get the successor of a file page.
 @return	FIL_PAGE_NEXT */
@@ -1157,14 +1157,14 @@ UNIV_INTERN
 ulint
 fil_page_get_next(
 /*==============*/
-	const byte*	page);	/*!< in: file page */
+	const ::byte*	page);	/*!< in: file page */
 /*********************************************************************//**
 Sets the file page type. */
 UNIV_INTERN
 void
 fil_page_set_type(
 /*==============*/
-	byte*	page,	/*!< in/out: file page */
+	::byte*	page,	/*!< in/out: file page */
 	ulint	type);	/*!< in: type */
 /*********************************************************************//**
 Gets the file page type.
@@ -1174,7 +1174,7 @@ UNIV_INTERN
 ulint
 fil_page_get_type(
 /*==============*/
-	const byte*	page);	/*!< in: file page */
+	const ::byte*	page);	/*!< in: file page */
 
 /*******************************************************************//**
 Returns TRUE if a single-table tablespace is being deleted.

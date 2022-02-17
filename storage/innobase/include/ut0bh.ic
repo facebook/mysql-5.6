@@ -72,7 +72,7 @@ ib_bh_get(
 	ib_bh_t*	ib_bh,			/*!< in: instance */
 	ulint		i)			/*!< in: index */
 {
-	byte*		ptr = (byte*) (ib_bh + 1);
+	::byte*		ptr = (::byte*) (ib_bh + 1);
 
 	ut_a(i < ib_bh_size(ib_bh));
 

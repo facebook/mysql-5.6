@@ -3734,7 +3734,7 @@ i_s_fts_index_cache_fill_one_index(
 	index_charset = index_cache->charset;
 	conv_str.f_len = system_charset_info->mbmaxlen
 		* FTS_MAX_WORD_LEN_IN_CHAR;
-	conv_str.f_str = static_cast<byte*>(ut_malloc(conv_str.f_len));
+	conv_str.f_str = static_cast<::byte*>(ut_malloc(conv_str.f_len));
 	conv_str.f_n_char = 0;
 
 	/* Go through each word in the index cache */
@@ -3764,7 +3764,7 @@ i_s_fts_index_cache_fill_one_index(
 		/* Decrypt the ilist, and display Dod ID and word position */
 		for (ulint i = 0; i < ib_vector_size(word->nodes); i++) {
 			fts_node_t*	node;
-			byte*		ptr;
+			::byte*		ptr;
 			ulint		decoded = 0;
 			doc_id_t	doc_id = 0;
 
@@ -3809,7 +3809,7 @@ i_s_fts_index_cache_fill_one_index(
 
 				++ptr;
 
-				decoded = ptr - (byte*) node->ilist;
+				decoded = ptr - (::byte*) node->ilist;
 			}
 		}
 	}
@@ -4131,7 +4131,7 @@ i_s_fts_index_table_fill_one_fetch(
 		/* Decrypt the ilist, and display Dod ID and word position */
 		for (ulint i = 0; i < ib_vector_size(word->nodes); i++) {
 			fts_node_t*	node;
-			byte*		ptr;
+			::byte*		ptr;
 			ulint		decoded = 0;
 			doc_id_t	doc_id = 0;
 
@@ -4176,7 +4176,7 @@ i_s_fts_index_table_fill_one_fetch(
 
 				++ptr;
 
-				decoded = ptr - (byte*) node->ilist;
+				decoded = ptr - (::byte*) node->ilist;
 			}
 		}
 	}
@@ -4221,7 +4221,7 @@ i_s_fts_index_table_fill_one_index(
 	index_charset = fts_index_get_charset(index);
 	conv_str.f_len = system_charset_info->mbmaxlen
 		* FTS_MAX_WORD_LEN_IN_CHAR;
-	conv_str.f_str = static_cast<byte*>(ut_malloc(conv_str.f_len));
+	conv_str.f_str = static_cast<::byte*>(ut_malloc(conv_str.f_len));
 	conv_str.f_n_char = 0;
 
 	/* Iterate through each auxiliary table as described in
@@ -5543,7 +5543,7 @@ i_s_innodb_set_page_type(
 	buf_page_info_t*page_info,	/*!< in/out: structure to fill with
 					scanned info */
 	ulint		page_type,	/*!< in: page type */
-	const byte*	frame)		/*!< in: buffer frame */
+	const ::byte*	frame)		/*!< in: buffer frame */
 {
 	if (page_type == FIL_PAGE_INDEX) {
 		const page_t*	page = (const page_t*) frame;
@@ -5618,7 +5618,7 @@ i_s_innodb_buffer_page_get_info(
 	that is, buffer page with state BUF_BLOCK_ZIP_PAGE,
 	BUF_BLOCK_ZIP_DIRTY or BUF_BLOCK_FILE_PAGE */
 	if (buf_page_in_file(bpage)) {
-		const byte*	frame;
+		const ::byte*	frame;
 		ulint		page_type;
 
 		page_info->space_id = buf_page_get_space(bpage);
@@ -8763,7 +8763,7 @@ i_s_sys_docstore_fill_table(
 		index_id_t	index_id;
 		dict_field_t	field_rec;
 
-		byte* buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+		::byte* buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 		/* Extract necessary information from a SYS_DOCSTORE_FIELDS */
 		err_msg = dict_load_docstore_field_low(
 			  buf, NULL, &field_rec, &pos, heap, rec);

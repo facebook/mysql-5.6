@@ -96,21 +96,21 @@ row_sel_sec_rec_is_for_blob(
 	ulint		prtype,		/*!< in: precise type */
 	ulint		mbminmaxlen,	/*!< in: minimum and maximum length of
 					a multi-byte character */
-	const byte*	clust_field,	/*!< in: the locally stored part of
+	const ::byte*	clust_field,	/*!< in: the locally stored part of
 					the clustered index column, including
 					the BLOB pointer; the clustered
 					index record must be covered by
 					a lock or a page latch to protect it
 					against deletion (rollback or purge) */
 	ulint		clust_len,	/*!< in: length of clust_field */
-	const byte*	sec_field,	/*!< in: column in secondary index */
+	const ::byte*	sec_field,	/*!< in: column in secondary index */
 	ulint		sec_len,	/*!< in: length of sec_field */
 	ulint		prefix_len,	/*!< in: index column prefix length
 					in bytes */
 	dict_table_t*	table)		/*!< in: table */
 {
 	ulint	len;
-	byte	buf[REC_VERSION_56_MAX_INDEX_COL_LEN];
+	::byte	buf[REC_VERSION_56_MAX_INDEX_COL_LEN];
 	ulint	zip_size = dict_tf_get_zip_size(table->flags);
 
 	/* This function should never be invoked on an Antelope format
@@ -173,9 +173,9 @@ row_sel_sec_rec_is_for_clust_rec(
 					in rollback or purge */
 	dict_index_t*	clust_index)	/*!< in: clustered index */
 {
-	const byte*	sec_field;
+	const ::byte*	sec_field;
 	ulint		sec_len;
-	const byte*	clust_field;
+	const ::byte*	clust_field;
 	ulint		n;
 	ulint		i;
 	mem_heap_t*	heap		= NULL;
@@ -424,7 +424,7 @@ row_sel_fetch_columns(
 	dfield_t*	val;
 	ulint		index_type;
 	ulint		field_no;
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 
 	ut_ad(rec_offs_validate(rec, index, offsets));
@@ -555,7 +555,7 @@ sel_dequeue_prefetched_row(
 	sym_node_t*	column;
 	sel_buf_t*	sel_buf;
 	dfield_t*	val;
-	byte*		data;
+	::byte*		data;
 	ulint		len;
 	ulint		val_buf_size;
 
@@ -590,7 +590,7 @@ sel_dequeue_prefetched_row(
 		column values to be able to free it later: therefore
 		we swap the values for sel_buf and val */
 
-		sel_buf->data = static_cast<byte*>(dfield_get_data(val));
+		sel_buf->data = static_cast<::byte*>(dfield_get_data(val));
 		sel_buf->len = dfield_get_len(val);
 		sel_buf->val_buf_size = que_node_get_val_buf_size(column);
 
@@ -617,7 +617,7 @@ sel_enqueue_prefetched_row(
 	sym_node_t*	column;
 	sel_buf_t*	sel_buf;
 	dfield_t*	val;
-	byte*		data;
+	::byte*		data;
 	ulint		len;
 	ulint		pos;
 	ulint		val_buf_size;
@@ -658,7 +658,7 @@ sel_enqueue_prefetched_row(
 
 		val = que_node_get_val(column);
 
-		data = static_cast<byte*>(dfield_get_data(val));
+		data = static_cast<::byte*>(dfield_get_data(val));
 		len = dfield_get_len(val);
 		val_buf_size = que_node_get_val_buf_size(column);
 
@@ -2332,7 +2332,7 @@ row_sel_convert_mysql_key_to_innobase(
 					NOTE: we assume that the type info
 					in the tuple is already according
 					to index! */
-	byte*		buf,		/*!< in: buffer to use in field
+	::byte*		buf,		/*!< in: buffer to use in field
 					conversions; NOTE that dtuple->data
 					may end up pointing inside buf so
 					do not discard that buffer while
@@ -2341,19 +2341,19 @@ row_sel_convert_mysql_key_to_innobase(
 					in the case of DATA_INT */
 	ulint		buf_len,	/*!< in: buffer length */
 	dict_index_t*	index,		/*!< in: index of the key value */
-	const byte*	key_ptr,	/*!< in: MySQL key value */
+	const ::byte*	key_ptr,	/*!< in: MySQL key value */
 	ulint		key_len,	/*!< in: MySQL key value length */
 	trx_t*		trx)		/*!< in: transaction */
 {
-	byte*		original_buf	= buf;
-	const byte*	original_key_ptr = key_ptr;
+	::byte*		original_buf	= buf;
+	const ::byte*	original_key_ptr = key_ptr;
 	dict_field_t*	field;
 	dfield_t*	dfield;
 	ulint		data_offset;
 	ulint		data_len;
 	ulint		data_field_len;
 	ibool		is_null;
-	const byte*	key_end;
+	const ::byte*	key_end;
 	ulint		n_fields = 0;
 
 	/* For documentation of the key value storage format in MySQL, see
@@ -2543,7 +2543,7 @@ row_sel_store_row_id_to_prebuilt(
 	const ulint*		offsets)	/*!< in: rec_get_offsets
 						(index_rec, index) */
 {
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 
 	ut_ad(rec_offs_validate(index_rec, index, offsets));
@@ -2586,7 +2586,7 @@ static MY_ATTRIBUTE((nonnull))
 void
 row_sel_field_store_in_mysql_format_func(
 /*=====================================*/
-	byte*		dest,	/*!< in/out: buffer where to store; NOTE
+	::byte*		dest,	/*!< in/out: buffer where to store; NOTE
 				that BLOBs are not in themselves
 				stored here: the caller must allocate
 				and copy the BLOB into buffer before,
@@ -2605,10 +2605,10 @@ row_sel_field_store_in_mysql_format_func(
 				templ->clust_rec_field_no or
 				templ->icp_rec_field_no */
 #endif /* UNIV_DEBUG */
-	const byte*	data,	/*!< in: data to store */
+	const ::byte*	data,	/*!< in: data to store */
 	ulint		len)	/*!< in: length of the data */
 {
-	byte*			ptr;
+	::byte*			ptr;
 #ifdef UNIV_DEBUG
 	const dict_field_t*	field
 		= dict_index_get_nth_field(index, field_no);
@@ -2620,8 +2620,8 @@ row_sel_field_store_in_mysql_format_func(
 	UNIV_MEM_INVALID(dest, templ->mysql_col_len);
 
 	switch (templ->type) {
-		const byte*	field_end;
-		byte*		pad;
+		const ::byte*	field_end;
+		::byte*		pad;
 	case DATA_INT:
 		/* Convert integer data from Innobase to a little-endian
 		format, sign bit restored to normal */
@@ -2638,7 +2638,7 @@ row_sel_field_store_in_mysql_format_func(
 		}
 
 		if (!templ->is_unsigned) {
-			dest[len - 1] = (byte) (dest[len - 1] ^ 128);
+			dest[len - 1] = (::byte) (dest[len - 1] ^ 128);
 		}
 
 		ut_ad(templ->mysql_col_len == len);
@@ -2775,7 +2775,7 @@ static MY_ATTRIBUTE((warn_unused_result))
 ibool
 row_sel_store_mysql_field_func(
 /*===========================*/
-	byte*			mysql_rec,	/*!< out: record in the
+	::byte*			mysql_rec,	/*!< out: record in the
 						MySQL format */
 	row_prebuilt_t*		prebuilt,	/*!< in/out: prebuilt struct */
 	const rec_t*		rec,		/*!< in: InnoDB record;
@@ -2791,7 +2791,7 @@ row_sel_store_mysql_field_func(
 						templ->icp_rec_field_no */
 	const mysql_row_templ_t*templ)		/*!< in: row template */
 {
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 
 	ut_ad(prebuilt->default_rec);
@@ -2869,9 +2869,9 @@ row_sel_store_mysql_field_func(
 					   + templ->mysql_col_offset,
 					   templ->mysql_col_len);
 			mysql_rec[templ->mysql_null_byte_offset]
-				|= (byte) templ->mysql_null_bit_mask;
+				|= (::byte) templ->mysql_null_bit_mask;
 			memcpy(mysql_rec + templ->mysql_col_offset,
-			       (const byte*) prebuilt->default_rec
+			       (const ::byte*) prebuilt->default_rec
 			       + templ->mysql_col_offset,
 			       templ->mysql_col_len);
 			return(TRUE);
@@ -2894,7 +2894,7 @@ row_sel_store_mysql_field_func(
 					UNIV_PAGE_SIZE);
 			}
 
-			data = static_cast<byte*>(
+			data = static_cast<::byte*>(
 				mem_heap_dup(prebuilt->blob_heap, data, len));
 		}
 
@@ -2909,7 +2909,7 @@ row_sel_store_mysql_field_func(
 		/* It is a nullable column with a non-NULL
 		value */
 		mysql_rec[templ->mysql_null_byte_offset]
-			&= ~(byte) templ->mysql_null_bit_mask;
+			&= ~(::byte) templ->mysql_null_bit_mask;
 	}
 
 	return(TRUE);
@@ -2925,7 +2925,7 @@ static MY_ATTRIBUTE((warn_unused_result))
 ibool
 row_sel_store_mysql_rec(
 /*====================*/
-	byte*		mysql_rec,	/*!< out: row in the MySQL format */
+	::byte*		mysql_rec,	/*!< out: row in the MySQL format */
 	row_prebuilt_t*	prebuilt,	/*!< in: prebuilt struct */
 	const rec_t*	rec,		/*!< in: Innobase record in the index
 					which was described in prebuilt's
@@ -3399,8 +3399,8 @@ static
 void
 row_sel_copy_cached_field_for_mysql(
 /*================================*/
-	byte*			buf,	/*!< in/out: row buffer */
-	const byte*		cache,	/*!< in: cached row */
+	::byte*			buf,	/*!< in/out: row buffer */
+	const ::byte*		cache,	/*!< in: cached row */
 	const mysql_row_templ_t*templ)	/*!< in: column template */
 {
 	ulint	len;
@@ -3432,13 +3432,13 @@ UNIV_INLINE
 void
 row_sel_dequeue_cached_row_for_mysql(
 /*=================================*/
-	byte*		buf,		/*!< in/out: buffer where to copy the
+	::byte*		buf,		/*!< in/out: buffer where to copy the
 					row */
 	row_prebuilt_t*	prebuilt)	/*!< in: prebuilt struct */
 {
 	ulint			i;
 	const mysql_row_templ_t*templ;
-	const byte*		cached_rec;
+	const ::byte*		cached_rec;
 	ut_ad(prebuilt->n_fetch_cached > 0);
 	ut_ad(prebuilt->mysql_prefix_len <= prebuilt->mysql_row_len);
 
@@ -3460,7 +3460,7 @@ row_sel_dequeue_cached_row_for_mysql(
 				buf[templ->mysql_null_byte_offset]
 					^= (buf[templ->mysql_null_byte_offset]
 					    ^ cached_rec[templ->mysql_null_byte_offset])
-					& (byte) templ->mysql_null_bit_mask;
+					& (::byte) templ->mysql_null_bit_mask;
 			}
 		}
 	} else if (prebuilt->mysql_prefix_len > 63) {
@@ -3499,11 +3499,11 @@ row_sel_prefetch_cache_init(
 {
 	ulint	i;
 	ulint	sz;
-	byte*	ptr;
+	::byte*	ptr;
 
 	/* Reserve space for the magic number. */
 	sz = UT_ARR_SIZE(prebuilt->fetch_cache) * (prebuilt->mysql_row_len + 8);
-	ptr = static_cast<byte*>(mem_alloc(sz));
+	ptr = static_cast<::byte*>(mem_alloc(sz));
 
 	for (i = 0; i < UT_ARR_SIZE(prebuilt->fetch_cache); i++) {
 
@@ -3526,7 +3526,7 @@ row_sel_prefetch_cache_init(
 Get the last fetch cache buffer from the queue.
 @return pointer to buffer. */
 UNIV_INLINE
-byte*
+::byte*
 row_sel_fetch_last_buf(
 /*===================*/
 	row_prebuilt_t*	prebuilt)	/*!< in/out: prebuilt struct */
@@ -3554,14 +3554,14 @@ UNIV_INLINE
 void
 row_sel_enqueue_cache_row_for_mysql(
 /*================================*/
-	byte*		mysql_rec,	/*!< in/out: MySQL record */
+	::byte*		mysql_rec,	/*!< in/out: MySQL record */
 	row_prebuilt_t*	prebuilt)	/*!< in/out: prebuilt struct */
 {
 	/* For non ICP code path the row should already exist in the
 	next fetch cache slot. */
 
 	if (prebuilt->idx_cond != NULL) {
-		byte*	dest = row_sel_fetch_last_buf(prebuilt);
+		::byte*	dest = row_sel_fetch_last_buf(prebuilt);
 
 		ut_memcpy(dest, mysql_rec, prebuilt->mysql_row_len);
 	}
@@ -3652,7 +3652,7 @@ static
 enum icp_result
 row_search_idx_cond_check(
 /*======================*/
-	byte*			mysql_rec,	/*!< out: record
+	::byte*			mysql_rec,	/*!< out: record
 						in MySQL format (invalid unless
 						prebuilt->idx_cond!=NULL and
 						we return ICP_MATCH) */
@@ -4071,7 +4071,7 @@ UNIV_INTERN
 dberr_t
 row_search_for_mysql(
 /*=================*/
-	byte*		buf,		/*!< in/out: buffer for the fetched
+	::byte*		buf,		/*!< in/out: buffer for the fetched
 					row in the MySQL format */
 	ulint		mode,		/*!< in: search mode PAGE_CUR_L, ... */
 	row_prebuilt_t*	prebuilt,	/*!< in: prebuilt struct for the
@@ -4121,7 +4121,7 @@ row_search_for_mysql(
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
 	ulint*		offsets				= offsets_;
 	ibool		table_lock_waited		= FALSE;
-	byte*		next_buf			= 0;
+	::byte*		next_buf			= 0;
 	ibool		use_clustered_index		= FALSE;
 	uint		read_level = 0;
 	ulint		latch_mode = BTR_SEARCH_LEAF;
@@ -5793,7 +5793,7 @@ row_search_autoinc_read_column(
 	ibool		unsigned_type)	/*!< in: signed or unsigned flag */
 {
 	ulint		len;
-	const byte*	data;
+	const ::byte*	data;
 	ib_uint64_t	value;
 	mem_heap_t*	heap = NULL;
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];

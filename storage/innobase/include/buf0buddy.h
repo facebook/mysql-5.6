@@ -41,7 +41,7 @@ block->mutex.  The buf_pool->mutex may be released and reacquired.
 This function should only be used for allocating compressed page frames.
 @return	allocated block, never NULL */
 UNIV_INLINE
-byte*
+::byte*
 buf_buddy_alloc(
 /*============*/
 	buf_pool_t*	buf_pool,	/*!< in/out: buffer pool in which

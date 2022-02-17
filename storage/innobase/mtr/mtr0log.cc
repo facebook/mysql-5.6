@@ -44,7 +44,7 @@ void
 mlog_catenate_string(
 /*=================*/
 	mtr_t*		mtr,	/*!< in: mtr */
-	const byte*	str,	/*!< in: string to write */
+	const ::byte*	str,	/*!< in: string to write */
 	ulint		len)	/*!< in: string length */
 {
 	dyn_array_t*	mlog;
@@ -67,13 +67,13 @@ UNIV_INTERN
 void
 mlog_write_initial_log_record(
 /*==========================*/
-	const byte*	ptr,	/*!< in: pointer to (inside) a buffer
+	const ::byte*	ptr,	/*!< in: pointer to (inside) a buffer
 				frame holding the file page where
 				modification is made */
-	byte		type,	/*!< in: log item type: MLOG_1BYTE, ... */
+	::byte		type,	/*!< in: log item type: MLOG_1BYTE, ... */
 	mtr_t*		mtr)	/*!< in: mini-transaction handle */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 
 	ut_ad(type <= MLOG_BIGGEST_TYPE);
 	ut_ad(type > MLOG_8BYTES);
@@ -96,12 +96,12 @@ mlog_write_initial_log_record(
 Parses an initial log record written by mlog_write_initial_log_record.
 @return	parsed record end, NULL if not a complete record */
 UNIV_INTERN
-byte*
+::byte*
 mlog_parse_initial_log_record(
 /*==========================*/
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
-	byte*	type,	/*!< out: log record type: MLOG_1BYTE, ... */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
+	::byte*	type,	/*!< out: log record type: MLOG_1BYTE, ... */
 	ulint*	space,	/*!< out: space id */
 	ulint*	page_no)/*!< out: page number */
 {
@@ -110,7 +110,7 @@ mlog_parse_initial_log_record(
 		return(NULL);
 	}
 
-	*type = (byte)((ulint)*ptr & ~MLOG_SINGLE_REC_FLAG);
+	*type = (::byte)((ulint)*ptr & ~MLOG_SINGLE_REC_FLAG);
 	ut_ad(*type <= MLOG_BIGGEST_TYPE);
 
 	ptr++;
@@ -136,13 +136,13 @@ mlog_parse_initial_log_record(
 Parses a log record written by mlog_write_ulint or mlog_write_ull.
 @return	parsed record end, NULL if not a complete record or a corrupt record */
 UNIV_INTERN
-byte*
+::byte*
 mlog_parse_nbytes(
 /*==============*/
 	ulint	type,	/*!< in: log record type: MLOG_1BYTE, ... */
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
-	byte*	page,	/*!< in: page where to apply the log record, or NULL */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
+	::byte*	page,	/*!< in: page where to apply the log record, or NULL */
 	void*	page_zip)/*!< in/out: compressed page, or NULL */
 {
 	ulint		offset;
@@ -246,9 +246,9 @@ UNIV_INTERN
 void
 mlog_write_ulint(
 /*=============*/
-	byte*	ptr,	/*!< in: pointer where to write */
+	::byte*	ptr,	/*!< in: pointer where to write */
 	ulint	val,	/*!< in: value to write */
-	byte	type,	/*!< in: MLOG_1BYTE, MLOG_2BYTES, MLOG_4BYTES */
+	::byte	type,	/*!< in: MLOG_1BYTE, MLOG_2BYTES, MLOG_4BYTES */
 	mtr_t*	mtr)	/*!< in: mini-transaction handle */
 {
 	switch (type) {
@@ -266,7 +266,7 @@ mlog_write_ulint(
 	}
 
 	if (mtr != 0) {
-		byte*	log_ptr = mlog_open(mtr, 11 + 2 + 5);
+		::byte*	log_ptr = mlog_open(mtr, 11 + 2 + 5);
 
 		/* If no logging is requested, we may return now */
 
@@ -292,14 +292,14 @@ UNIV_INTERN
 void
 mlog_write_ull(
 /*===========*/
-	byte*		ptr,	/*!< in: pointer where to write */
+	::byte*		ptr,	/*!< in: pointer where to write */
 	ib_uint64_t	val,	/*!< in: value to write */
 	mtr_t*		mtr)	/*!< in: mini-transaction handle */
 {
 	mach_write_to_8(ptr, val);
 
 	if (mtr != 0) {
-		byte*	log_ptr = mlog_open(mtr, 11 + 2 + 9);
+		::byte*	log_ptr = mlog_open(mtr, 11 + 2 + 9);
 
 		/* If no logging is requested, we may return now */
 		if (log_ptr != 0) {
@@ -325,8 +325,8 @@ UNIV_INTERN
 void
 mlog_write_string(
 /*==============*/
-	byte*		ptr,	/*!< in: pointer where to write */
-	const byte*	str,	/*!< in: string to write */
+	::byte*		ptr,	/*!< in: pointer where to write */
+	const ::byte*	str,	/*!< in: string to write */
 	ulint		len,	/*!< in: string length */
 	mtr_t*		mtr)	/*!< in: mini-transaction handle */
 {
@@ -345,11 +345,11 @@ UNIV_INTERN
 void
 mlog_log_string(
 /*============*/
-	byte*	ptr,	/*!< in: pointer written to */
+	::byte*	ptr,	/*!< in: pointer written to */
 	ulint	len,	/*!< in: string length */
 	mtr_t*	mtr)	/*!< in: mini-transaction handle */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 
 	ut_ad(ptr && mtr);
 	ut_ad(len <= UNIV_PAGE_SIZE);
@@ -380,12 +380,12 @@ mlog_log_string(
 Parses a log record written by mlog_write_string.
 @return	parsed record end, NULL if not a complete record */
 UNIV_INTERN
-byte*
+::byte*
 mlog_parse_string(
 /*==============*/
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
-	byte*	page,	/*!< in: page where to apply the log record, or NULL */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
+	::byte*	page,	/*!< in: page where to apply the log record, or NULL */
 	void*	page_zip)/*!< in/out: compressed page, or NULL */
 {
 	ulint	offset;
@@ -432,20 +432,20 @@ Opens a buffer for mlog, writes the initial log record and,
 if needed, the field lengths of an index.
 @return	buffer, NULL if log mode MTR_LOG_NONE */
 UNIV_INTERN
-byte*
+::byte*
 mlog_open_and_write_index(
 /*======================*/
 	mtr_t*			mtr,	/*!< in: mtr */
-	const byte*		rec,	/*!< in: index record or page */
+	const ::byte*		rec,	/*!< in: index record or page */
 	const dict_index_t*	index,	/*!< in: record descriptor */
-	byte			type,	/*!< in: log item type */
+	::byte			type,	/*!< in: log item type */
 	ulint			size)	/*!< in: requested buffer size in bytes
 					(if 0, calls mlog_close() and
 					returns NULL) */
 {
-	byte*		log_ptr;
-	const byte*	log_start;
-	const byte*	log_end;
+	::byte*		log_ptr;
+	const ::byte*	log_start;
+	const ::byte*	log_end;
 
 	ut_ad(!!page_rec_is_comp(rec) == dict_table_is_comp(index->table));
 
@@ -530,11 +530,11 @@ mlog_open_and_write_index(
 Parses a log record written by mlog_open_and_write_index.
 @return	parsed record end, NULL if not a complete record */
 UNIV_INTERN
-byte*
+::byte*
 mlog_parse_index(
 /*=============*/
-	byte*		ptr,	/*!< in: buffer */
-	const byte*	end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	const ::byte*	end_ptr,/*!< in: buffer end */
 	ibool		comp,	/*!< in: TRUE=compact row format */
 	dict_index_t**	index)	/*!< out, own: dummy index */
 {

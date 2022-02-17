@@ -66,7 +66,7 @@ void
 mem_heap_validate_or_print(
 /*=======================*/
 	mem_heap_t*	heap,	/*!< in: memory heap */
-	byte*		top,	/*!< in: calculate and validate only until
+	::byte*		top,	/*!< in: calculate and validate only until
 				this top pointer in the heap is reached,
 				if this pointer is NULL, ignored */
 	ibool		 print,	 /*!< in: if TRUE, prints the contents

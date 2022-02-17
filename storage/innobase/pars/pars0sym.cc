@@ -121,7 +121,7 @@ sym_tab_add_int_lit(
 	ulint		val)		/*!< in: integer value */
 {
 	sym_node_t*	node;
-	byte*		data;
+	::byte*		data;
 
 	node = static_cast<sym_node_t*>(
 		mem_heap_alloc(sym_tab->heap, sizeof(sym_node_t)));
@@ -136,7 +136,7 @@ sym_tab_add_int_lit(
 
 	dtype_set(dfield_get_type(&node->common.val), DATA_INT, 0, 4);
 
-	data = static_cast<byte*>(mem_heap_alloc(sym_tab->heap, 4));
+	data = static_cast<::byte*>(mem_heap_alloc(sym_tab->heap, 4));
 	mach_write_to_4(data, val);
 
 	dfield_set_data(&(node->common.val), data, 4);
@@ -162,12 +162,12 @@ sym_node_t*
 sym_tab_add_str_lit(
 /*================*/
 	sym_tab_t*	sym_tab,	/*!< in: symbol table */
-	const byte*	str,		/*!< in: string with no quotes around
+	const ::byte*	str,		/*!< in: string with no quotes around
 					it */
 	ulint		len)		/*!< in: string length */
 {
 	sym_node_t*	node;
-	byte*		data;
+	::byte*		data;
 
 	node = static_cast<sym_node_t*>(
 		mem_heap_alloc(sym_tab->heap, sizeof(sym_node_t)));
@@ -183,7 +183,7 @@ sym_tab_add_str_lit(
 	dtype_set(dfield_get_type(&node->common.val),
 		  DATA_VARCHAR, DATA_ENGLISH, 0);
 
-	data = (len) ? static_cast<byte*>(mem_heap_dup(sym_tab->heap, str, len))
+	data = (len) ? static_cast<::byte*>(mem_heap_dup(sym_tab->heap, str, len))
 	      	     : NULL;
 
 	dfield_set_data(&(node->common.val), data, len);
@@ -307,7 +307,7 @@ sym_tab_rebind_lit(
 
 		/* Don't force [FALSE] creation of sub-nodes (for LIKE) */
 		pars_like_rebind(
-			node,static_cast<const byte*>(address), length);
+			node,static_cast<const ::byte*>(address), length);
 	}
 
 	/* FIXME: What's this ? */
@@ -373,7 +373,7 @@ sym_node_t*
 sym_tab_add_id(
 /*===========*/
 	sym_tab_t*	sym_tab,	/*!< in: symbol table */
-	byte*		name,		/*!< in: identifier name */
+	::byte*		name,		/*!< in: identifier name */
 	ulint		len)		/*!< in: identifier length */
 {
 	sym_node_t*	node;

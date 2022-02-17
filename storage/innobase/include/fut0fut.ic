@@ -31,7 +31,7 @@ Gets a pointer to a file address and latches the page.
 @return pointer to a byte in a frame; the file page in the frame is
 bufferfixed and latched */
 UNIV_INLINE
-byte*
+::byte*
 fut_get_ptr(
 /*========*/
 	ulint		space,	/*!< in: space id */
@@ -42,7 +42,7 @@ fut_get_ptr(
 	mtr_t*		mtr)	/*!< in: mtr handle */
 {
 	buf_block_t*	block;
-	byte*		ptr;
+	::byte*		ptr;
 
 	ut_ad(addr.boffset < UNIV_PAGE_SIZE);
 	ut_ad((rw_latch == RW_S_LATCH) || (rw_latch == RW_X_LATCH));

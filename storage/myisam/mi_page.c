@@ -64,7 +64,7 @@ uchar *_mi_fetch_keypage(register MI_INFO *info, MI_KEYDEF *keyinfo,
 int _mi_write_keypage(register MI_INFO *info, register MI_KEYDEF *keyinfo,
 		      my_off_t page, int level, uchar *buff)
 {
-  reg3 uint length;
+  uint length;
   DBUG_ENTER("_mi_write_keypage");
 
 #ifndef FAST					/* Safety check */

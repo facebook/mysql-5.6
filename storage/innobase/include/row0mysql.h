@@ -57,10 +57,10 @@ format.
 @return pointer to the data, we skip the 1 or 2 bytes at the start
 that are used to store the len */
 UNIV_INTERN
-byte*
+::byte*
 row_mysql_store_true_var_len(
 /*=========================*/
-	byte*	dest,	/*!< in: where to store */
+	::byte*	dest,	/*!< in: where to store */
 	ulint	len,	/*!< in: length, must fit in two bytes */
 	ulint	lenlen);/*!< in: storage length of len: either 1 or 2 bytes */
 /*******************************************************************//**
@@ -69,11 +69,11 @@ returns a pointer to the data.
 @return pointer to the data, we skip the 1 or 2 bytes at the start
 that are used to store the len */
 UNIV_INTERN
-const byte*
+const ::byte*
 row_mysql_read_true_varchar(
 /*========================*/
 	ulint*		len,	/*!< out: variable-length field length */
-	const byte*	field,	/*!< in: field in the MySQL format */
+	const ::byte*	field,	/*!< in: field in the MySQL format */
 	ulint		lenlen);/*!< in: storage length of len: either 1
 				or 2 bytes */
 /*******************************************************************//**
@@ -82,7 +82,7 @@ UNIV_INTERN
 void
 row_mysql_store_blob_ref(
 /*=====================*/
-	byte*		dest,	/*!< in: where to store */
+	::byte*		dest,	/*!< in: where to store */
 	ulint		col_len,/*!< in: dest buffer size: determines into
 				how many bytes the BLOB length is stored,
 				the space for the length may vary from 1
@@ -97,11 +97,11 @@ row_mysql_store_blob_ref(
 Reads a reference to a BLOB in the MySQL format.
 @return	pointer to BLOB data */
 UNIV_INTERN
-const byte*
+const ::byte*
 row_mysql_read_blob_ref(
 /*====================*/
 	ulint*		len,		/*!< out: BLOB length */
-	const byte*	ref,		/*!< in: BLOB reference in the
+	const ::byte*	ref,		/*!< in: BLOB reference in the
 					MySQL format */
 	ulint		col_len);	/*!< in: BLOB reference length
 					(not BLOB length) */
@@ -113,7 +113,7 @@ row_mysql_pad_col(
 /*==============*/
 	ulint	mbminlen,	/*!< in: minimum size of a character,
 				in bytes */
-	byte*	pad,		/*!< out: padded buffer */
+	::byte*	pad,		/*!< out: padded buffer */
 	ulint	len);		/*!< in: number of bytes to pad */
 
 /**************************************************************//**
@@ -122,13 +122,13 @@ The counterpart of this function is row_sel_field_store_in_mysql_format() in
 row0sel.cc.
 @return	up to which byte we used buf in the conversion */
 UNIV_INTERN
-byte*
+::byte*
 row_mysql_store_col_in_innobase_format(
 /*===================================*/
 	dfield_t*	dfield,		/*!< in/out: dfield where dtype
 					information must be already set when
 					this function is called! */
-	byte*		buf,		/*!< in/out: buffer for a converted
+	::byte*		buf,		/*!< in/out: buffer for a converted
 					integer value; this must be at least
 					col_len long then! NOTE that dfield
 					may also get a pointer to 'buf',
@@ -141,7 +141,7 @@ row_mysql_store_col_in_innobase_format(
 					format differs in a row and in a
 					key value: in a key value the length
 					is always stored in 2 bytes! */
-	const byte*	mysql_data,	/*!< in: MySQL column value, not
+	const ::byte*	mysql_data,	/*!< in: MySQL column value, not
 					SQL NULL; NOTE that dfield may also
 					get a pointer to mysql_data,
 					therefore do not discard this as long
@@ -234,7 +234,7 @@ UNIV_INTERN
 dberr_t
 row_insert_for_mysql(
 /*=================*/
-	byte*		mysql_rec,	/*!< in: row in the MySQL format */
+	::byte*		mysql_rec,	/*!< in: row in the MySQL format */
 	row_prebuilt_t*	prebuilt)	/*!< in: prebuilt struct in MySQL
 					handle */
 	MY_ATTRIBUTE((nonnull, warn_unused_result));
@@ -273,7 +273,7 @@ UNIV_INTERN
 dberr_t
 row_update_for_mysql(
 /*=================*/
-	byte*		mysql_rec,	/*!< in: the row to be updated, in
+	::byte*		mysql_rec,	/*!< in: the row to be updated, in
 					the MySQL format */
 	row_prebuilt_t*	prebuilt)	/*!< in: prebuilt struct in MySQL
 					handle */
@@ -736,10 +736,10 @@ struct row_prebuilt_t {
 	ins_node_t*	ins_node;	/*!< Innobase SQL insert node
 					used to perform inserts
 					to the table */
-	byte*		ins_upd_rec_buff;/*!< buffer for storing data converted
+	::byte*		ins_upd_rec_buff;/*!< buffer for storing data converted
 					to the Innobase format from the MySQL
 					format */
-	const byte*	default_rec;	/*!< the default values of all columns
+	const ::byte*	default_rec;	/*!< the default values of all columns
 					(a "default row") in MySQL format */
 	ulint		hint_need_to_fetch_extra_cols;
 					/*!< normally this is set to 0; if this
@@ -766,7 +766,7 @@ struct row_prebuilt_t {
 	que_fork_t*	sel_graph;	/*!< dummy query graph used in
 					selects */
 	dtuple_t*	search_tuple;	/*!< prebuilt dtuple used in selects */
-	byte		row_id[DATA_ROW_ID_LEN];
+	::byte		row_id[DATA_ROW_ID_LEN];
 					/*!< if the clustered index was
 					generated, the row id of the
 					last row fetched is stored
@@ -833,7 +833,7 @@ struct row_prebuilt_t {
 	ulint		n_rows_fetched;	/*!< number of rows fetched after
 					positioning the current cursor */
 	ulint		fetch_direction;/*!< ROW_SEL_NEXT or ROW_SEL_PREV */
-	byte*		fetch_cache[MYSQL_FETCH_CACHE_SIZE];
+	::byte*		fetch_cache[MYSQL_FETCH_CACHE_SIZE];
 					/*!< a cache for fetched rows if we
 					fetch many rows from the same cursor:
 					it saves CPU time to fetch them in a
@@ -885,10 +885,10 @@ struct row_prebuilt_t {
 	unsigned	innodb_api:1;	/*!< whether this is a InnoDB API
 					query */
 	const rec_t*	innodb_api_rec;	/*!< InnoDB API search result */
-	byte*		srch_key_val1;  /*!< buffer used in converting
+	::byte*		srch_key_val1;  /*!< buffer used in converting
 					search key values from MySQL format
 					to InnoDB format.*/
-	byte*		srch_key_val2;  /*!< buffer used in converting
+	::byte*		srch_key_val2;  /*!< buffer used in converting
 					search key values from MySQL format
 					to InnoDB format.*/
 	uint		srch_key_val_len; /*!< Size of search key */

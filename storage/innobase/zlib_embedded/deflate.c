@@ -1067,7 +1067,7 @@ local uInt longest_match(s, cur_match)
     unsigned chain_length = s->max_chain_length;/* max hash chain length */
     register Bytef *scan = s->window + s->strstart; /* current string */
     register Bytef *match;                       /* matched string */
-    register int len;                           /* length of current match */
+    int len;                           /* length of current match */
     int best_len = s->prev_length;              /* best match length so far */
     int nice_match = s->nice_match;             /* stop if match long enough */
     IPos limit = s->strstart > (IPos)MAX_DIST(s) ?
@@ -1214,7 +1214,7 @@ local uInt longest_match(s, cur_match)
 {
     register Bytef *scan = s->window + s->strstart; /* current string */
     register Bytef *match;                       /* matched string */
-    register int len;                           /* length of current match */
+    int len;                           /* length of current match */
     register Bytef *strend = s->window + s->strstart + MAX_MATCH;
 
     /* The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
@@ -1304,7 +1304,7 @@ local void check_match(s, start, match, length)
 local void fill_window(s)
     deflate_state *s;
 {
-    register unsigned n;
+    unsigned n;
 
     /* We expect all of the input to fit into the window directly. */
     Assert(s->strstart == 0, "No input should have been processed");

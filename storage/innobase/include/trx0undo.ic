@@ -109,7 +109,7 @@ UNIV_INLINE
 bool
 trx_undo_trx_id_is_insert(
 /*======================*/
-	const byte*	trx_id)	/*!< in: DB_TRX_ID, followed by DB_ROLL_PTR */
+	const ::byte*	trx_id)	/*!< in: DB_TRX_ID, followed by DB_ROLL_PTR */
 {
 #if DATA_TRX_ID + 1 != DATA_ROLL_PTR
 # error
@@ -126,7 +126,7 @@ UNIV_INLINE
 void
 trx_write_roll_ptr(
 /*===============*/
-	byte*		ptr,		/*!< in: pointer to memory where
+	::byte*		ptr,		/*!< in: pointer to memory where
 					written */
 	roll_ptr_t	roll_ptr)	/*!< in: roll ptr */
 {
@@ -145,7 +145,7 @@ UNIV_INLINE
 roll_ptr_t
 trx_read_roll_ptr(
 /*==============*/
-	const byte*	ptr)	/*!< in: pointer to memory from where to read */
+	const ::byte*	ptr)	/*!< in: pointer to memory from where to read */
 {
 #if DATA_ROLL_PTR_LEN != 7
 # error "DATA_ROLL_PTR_LEN != 7"

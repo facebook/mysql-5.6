@@ -62,11 +62,11 @@
  * This replaces inet_addr, the return value from which
  * cannot distinguish between failure and a local broadcast address.
  */
-int inet_aton(register const char *cp, struct in_addr *addr)
+int inet_aton(const char *cp, struct in_addr *addr)
 {
-    register uint32_t val;
-    register int base, n;
-    register char c;
+    uint32_t val;
+    int base, n;
+    char c;
     u_int parts[4];
     register u_int *pp = parts;
 

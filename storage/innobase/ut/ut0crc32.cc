@@ -181,7 +181,7 @@ UNIV_INLINE
 ib_uint32_t
 ut_crc32_sse42(
 /*===========*/
-	const byte*	buf,	/*!< in: data over which to calculate CRC32 */
+	const ::byte*	buf,	/*!< in: data over which to calculate CRC32 */
 	ulint		len)	/*!< in: data length */
 {
 #if defined(__GNUC__) && defined(__x86_64__)
@@ -239,7 +239,7 @@ UNIV_INLINE
 ib_uint32_t
 ut_crc32_slice8(
 /*============*/
-	const byte*	buf,	/*!< in: data over which to calculate CRC32 */
+	const ::byte*	buf,	/*!< in: data over which to calculate CRC32 */
 	ulint		len)	/*!< in: data length */
 {
 	ib_uint64_t	crc = (ib_uint32_t) (-1);

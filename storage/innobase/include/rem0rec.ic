@@ -281,12 +281,12 @@ rec_get_next_ptr_const(
 		       && field_value < 32768)
 		      || field_value < (uint16) -REC_N_NEW_EXTRA_BYTES);
 
-		return((byte*) ut_align_down(rec, UNIV_PAGE_SIZE)
+		return((::byte*) ut_align_down(rec, UNIV_PAGE_SIZE)
 		       + ut_align_offset(rec + field_value, UNIV_PAGE_SIZE));
 	} else {
 		ut_ad(field_value < UNIV_PAGE_SIZE);
 
-		return((byte*) ut_align_down(rec, UNIV_PAGE_SIZE)
+		return((::byte*) ut_align_down(rec, UNIV_PAGE_SIZE)
 		       + field_value);
 	}
 }
@@ -1082,7 +1082,7 @@ rec_offs_any_extern(
 Determine if the offsets are for a record containing null BLOB pointers.
 @return	first field containing a null BLOB pointer, or NULL if none found */
 UNIV_INLINE
-const byte*
+const ::byte*
 rec_offs_any_null_extern(
 /*=====================*/
 	const rec_t*	rec,		/*!< in: record */
@@ -1098,7 +1098,7 @@ rec_offs_any_null_extern(
 	for (i = 0; i < rec_offs_n_fields(offsets); i++) {
 		if (rec_offs_nth_extern(offsets, i)) {
 			ulint		len;
-			const byte*	field
+			const ::byte*	field
 				= rec_get_nth_field(rec, offsets, i, &len);
 
 			ut_a(len >= BTR_EXTERN_FIELD_REF_SIZE);
@@ -1374,7 +1374,7 @@ rec_set_nth_field(
 				if not SQL null */
 	ulint		len)	/*!< in: length of the data or UNIV_SQL_NULL */
 {
-	byte*	data2;
+	::byte*	data2;
 	ulint	len2;
 
 	ut_ad(rec);
@@ -1492,7 +1492,7 @@ rec_offs_size(
 Returns a pointer to the end of the record.
 @return	pointer to end */
 UNIV_INLINE
-byte*
+::byte*
 rec_get_end(
 /*========*/
 	const rec_t*	rec,	/*!< in: pointer to record */
@@ -1506,7 +1506,7 @@ rec_get_end(
 Returns a pointer to the start of the record.
 @return	pointer to start */
 UNIV_INLINE
-byte*
+::byte*
 rec_get_start(
 /*==========*/
 	const rec_t*	rec,	/*!< in: pointer to record */
@@ -1541,7 +1541,7 @@ rec_copy(
 
 	ut_memcpy(buf, rec - extra_len, extra_len + data_len);
 
-	return((byte*) buf + extra_len);
+	return((::byte*) buf + extra_len);
 }
 
 /**********************************************************//**
@@ -1660,7 +1660,7 @@ rec_fold(
 	index_id_t	tree_id)	/*!< in: index tree id */
 {
 	ulint		i;
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	ulint		fold;
 	ulint		n_fields_rec;

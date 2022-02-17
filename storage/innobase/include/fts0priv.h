@@ -302,7 +302,7 @@ fts_word_t*
 fts_word_init(
 /*==========*/
 	fts_word_t*	word,		/*!< in: word to initialize */
-	byte*		utf8,		/*!< in: UTF-8 string */
+	::byte*		utf8,		/*!< in: UTF-8 string */
 	ulint		len)		/*!< in: length of string in bytes */
 	MY_ATTRIBUTE((nonnull));
 /******************************************************************//**

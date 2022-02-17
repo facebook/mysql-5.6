@@ -54,7 +54,7 @@ typedef ulint lock_word_t;
 
 #define IB_LOCK_WORD_IS_BYTE
 
-typedef byte lock_word_t;
+typedef ::byte lock_word_t;
 
 #endif /* HAVE_WINDOWS_ATOMICS */
 

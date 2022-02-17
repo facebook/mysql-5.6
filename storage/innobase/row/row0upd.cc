@@ -355,7 +355,7 @@ row_upd_rec_sys_fields_in_recovery(
 		page_zip_write_trx_id_and_roll_ptr(
 			page_zip, rec, offsets, pos, trx_id, roll_ptr);
 	} else {
-		byte*	field;
+		::byte*	field;
 		ulint	len;
 
 		field = rec_get_nth_field(rec, offsets, pos, &len);
@@ -384,7 +384,7 @@ row_upd_index_entry_sys_field(
 	ib_uint64_t	val)	/*!< in: value to write */
 {
 	dfield_t*	dfield;
-	byte*		field;
+	::byte*		field;
 	ulint		pos;
 
 	ut_ad(dict_index_is_clust(index));
@@ -392,7 +392,7 @@ row_upd_index_entry_sys_field(
 	pos = dict_index_get_sys_col_pos(index, type);
 
 	dfield = dtuple_get_nth_field(entry, pos);
-	field = static_cast<byte*>(dfield_get_data(dfield));
+	field = static_cast<::byte*>(dfield_get_data(dfield));
 
 	if (type == DATA_TRX_ID) {
 		trx_write_trx_id(field, val);
@@ -486,7 +486,7 @@ row_upd_changes_disowned_external(
 	n_fields = upd_get_n_fields(update);
 
 	for (i = 0; i < n_fields; i++) {
-		const byte*	field_ref;
+		const ::byte*	field_ref;
 
 		upd_field = upd_get_nth_field(update, i);
 		new_val = &(upd_field->new_val);
@@ -498,7 +498,7 @@ row_upd_changes_disowned_external(
 
 		ut_ad(new_len >= BTR_EXTERN_FIELD_REF_SIZE);
 
-		field_ref = static_cast<const byte*>(dfield_get_data(new_val))
+		field_ref = static_cast<const ::byte*>(dfield_get_data(new_val))
 			    + new_len - BTR_EXTERN_FIELD_REF_SIZE;
 
 		if (field_ref[BTR_EXTERN_LEN] & BTR_EXTERN_OWNER_FLAG) {
@@ -545,7 +545,7 @@ row_upd_rec_in_place(
 	for (i = 0; i < n_fields; i++) {
 #ifdef UNIV_BLOB_DEBUG
 		btr_blob_dbg_t	b;
-		const byte*	field_ref	= NULL;
+		const ::byte*	field_ref	= NULL;
 #endif /* UNIV_BLOB_DEBUG */
 
 		upd_field = upd_get_nth_field(update, i);
@@ -599,13 +599,13 @@ Writes into the redo log the values of trx id and roll ptr and enough info
 to determine their positions within a clustered index record.
 @return	new pointer to mlog */
 UNIV_INTERN
-byte*
+::byte*
 row_upd_write_sys_vals_to_log(
 /*==========================*/
 	dict_index_t*	index,	/*!< in: clustered index */
 	trx_id_t	trx_id,	/*!< in: transaction id */
 	roll_ptr_t	roll_ptr,/*!< in: roll ptr of the undo log record */
-	byte*		log_ptr,/*!< pointer to a buffer of size > 20 opened
+	::byte*		log_ptr,/*!< pointer to a buffer of size > 20 opened
 				in mlog */
 	mtr_t*		mtr MY_ATTRIBUTE((unused))) /*!< in: mtr */
 {
@@ -629,11 +629,11 @@ row_upd_write_sys_vals_to_log(
 Parses the log data of system field values.
 @return	log data end or NULL */
 UNIV_INTERN
-byte*
+::byte*
 row_upd_parse_sys_vals(
 /*===================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	ulint*		pos,	/*!< out: TRX_ID position in record */
 	trx_id_t*	trx_id,	/*!< out: trx id */
 	roll_ptr_t*	roll_ptr)/*!< out: roll ptr */
@@ -666,7 +666,7 @@ void
 row_upd_index_write_log(
 /*====================*/
 	const upd_t*	update,	/*!< in: update vector */
-	byte*		log_ptr,/*!< in: pointer to mlog buffer: must
+	::byte*		log_ptr,/*!< in: pointer to mlog buffer: must
 				contain at least MLOG_BUF_MARGIN bytes
 				of free space; the buffer is closed
 				within this function */
@@ -676,7 +676,7 @@ row_upd_index_write_log(
 	const dfield_t*		new_val;
 	ulint			len;
 	ulint			n_fields;
-	byte*			buf_end;
+	::byte*			buf_end;
 	ulint			i;
 
 	n_fields = upd_get_n_fields(update);
@@ -719,7 +719,7 @@ row_upd_index_write_log(
 
 				mlog_catenate_string(
 					mtr,
-					static_cast<byte*>(
+					static_cast<::byte*>(
 						dfield_get_data(new_val)),
 					len);
 
@@ -737,11 +737,11 @@ row_upd_index_write_log(
 Parses the log data written by row_upd_index_write_log.
 @return	log data end or NULL */
 UNIV_INTERN
-byte*
+::byte*
 row_upd_index_parse(
 /*================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	mem_heap_t*	heap,	/*!< in: memory heap where update vector is
 				built */
 	upd_t**		update_out)/*!< out: update vector */
@@ -830,7 +830,7 @@ row_upd_build_sec_rec_difference_binary(
 {
 	upd_field_t*	upd_field;
 	const dfield_t*	dfield;
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	upd_t*		update;
 	ulint		n_diff;
@@ -901,7 +901,7 @@ row_upd_build_difference_binary(
 {
 	upd_field_t*	upd_field;
 	const dfield_t*	dfield;
-	const byte*	data;
+	const ::byte*	data;
 	ulint		len;
 	upd_t*		update;
 	ulint		n_diff;
@@ -967,10 +967,10 @@ to row_ext_lookup(), but the row_ext_t holds the old values
 of the column and must not be poisoned with the new values.
 @return	BLOB prefix */
 static
-byte*
+::byte*
 row_upd_ext_fetch(
 /*==============*/
-	const byte*	data,		/*!< in: 'internally' stored part of the
+	const ::byte*	data,		/*!< in: 'internally' stored part of the
 					field containing also the reference to
 					the external part */
 	ulint		local_len,	/*!< in: length of data, in bytes */
@@ -981,7 +981,7 @@ row_upd_ext_fetch(
 					out: fetched length of the prefix */
 	mem_heap_t*	heap)		/*!< in: heap where to allocate */
 {
-	byte*	buf = static_cast<byte*>(mem_heap_alloc(heap, *len));
+	::byte*	buf = static_cast<::byte*>(mem_heap_alloc(heap, *len));
 
 	*len = btr_copy_externally_stored_field_prefix(
 		buf, *len, zip_size, data, local_len, NULL);
@@ -1010,7 +1010,7 @@ row_upd_index_replace_new_col_val(
 					 size of the table, or 0 */
 {
 	ulint		len;
-	const byte*	data;
+	const ::byte*	data;
 
 	dfield_copy_data(dfield, &uf->new_val);
 
@@ -1019,7 +1019,7 @@ row_upd_index_replace_new_col_val(
 	}
 
 	len = dfield_get_len(dfield);
-	data = static_cast<const byte*>(dfield_get_data(dfield));
+	data = static_cast<const ::byte*>(dfield_get_data(dfield));
 
 	if (field->prefix_len > 0) {
 		ibool		fetch_ext = dfield_is_ext(dfield)
@@ -1050,7 +1050,7 @@ row_upd_index_replace_new_col_val(
 	}
 
 	switch (uf->orig_len) {
-		byte*	buf;
+		::byte*	buf;
 	case BTR_EXTERN_FIELD_REF_SIZE:
 		/* Restore the original locally stored
 		part of the column.  In the undo log,
@@ -1070,7 +1070,7 @@ row_upd_index_replace_new_col_val(
 		stored part of the column.  The data
 		will have to be copied. */
 		ut_a(uf->orig_len > BTR_EXTERN_FIELD_REF_SIZE);
-		buf = static_cast<byte*>(mem_heap_alloc(heap, uf->orig_len));
+		buf = static_cast<::byte*>(mem_heap_alloc(heap, uf->orig_len));
 
 		/* Copy the locally stored prefix. */
 		memcpy(buf, data,
@@ -1319,7 +1319,7 @@ row_upd_changes_ord_field_binary_func(
 		const dfield_t*		dfield;
 		dfield_t		dfield_ext;
 		ulint			dfield_len;
-		const byte*		buf;
+		const ::byte*		buf;
 		ind_field = dict_index_get_nth_field(index, i);
 		col = dict_field_get_col(ind_field);
 		col_no = dict_col_get_no(col);
@@ -1392,7 +1392,7 @@ row_upd_changes_ord_field_binary_func(
 			ut_a(dict_index_is_clust(index)
 			     || ind_field->prefix_len <= dfield_len);
 
-			buf = static_cast<byte*>(dfield_get_data(dfield));
+			buf = static_cast<::byte*>(dfield_get_data(dfield));
 copy_dfield:
 			ut_a(dfield_len > 0);
 			dfield_copy(&dfield_ext, dfield);
@@ -1555,7 +1555,7 @@ row_upd_copy_columns(
 	sym_node_t*	column)	/*!< in: first column in a column list, or
 				NULL */
 {
-	byte*	data;
+	::byte*	data;
 	ulint	len;
 
 	while (column) {
@@ -1912,7 +1912,7 @@ row_upd_clust_rec_by_insert_inherit_func(
 
 	for (i = 0; i < dtuple_get_n_fields(entry); i++) {
 		dfield_t*	dfield	= dtuple_get_nth_field(entry, i);
-		byte*		data;
+		::byte*		data;
 		ulint		len;
 
 		ut_ad(!offsets
@@ -1926,7 +1926,7 @@ row_upd_clust_rec_by_insert_inherit_func(
 
 #ifdef UNIV_DEBUG
 		if (UNIV_LIKELY(rec != NULL)) {
-			const byte* rec_data
+			const ::byte* rec_data
 				= rec_get_nth_field(rec, offsets, i, &len);
 			ut_ad(len == dfield_get_len(dfield));
 			ut_ad(len != UNIV_SQL_NULL);
@@ -1947,7 +1947,7 @@ row_upd_clust_rec_by_insert_inherit_func(
 		ut_a(len != UNIV_SQL_NULL);
 		ut_a(len >= BTR_EXTERN_FIELD_REF_SIZE);
 
-		data = static_cast<byte*>(dfield_get_data(dfield));
+		data = static_cast<::byte*>(dfield_get_data(dfield));
 
 		data += len - BTR_EXTERN_FIELD_REF_SIZE;
 		/* The pointer must not be zero. */

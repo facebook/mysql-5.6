@@ -336,7 +336,7 @@ trx_lra_reset(
 #endif
 		btr_pcur_init(lra->lra_cur);
 	} else {
-		byte* alloc;
+		::byte* alloc;
 		ut_a(!lra->lra_ht1);
 		ut_a(!lra->lra_ht2);
 		ut_a(!lra->lra_sort_arr);
@@ -344,7 +344,7 @@ trx_lra_reset(
 		lra->lra_ht1 = hash_create(16384);
 		lra->lra_ht2 = hash_create(16384);
 		lra->lra_ht = lra->lra_ht1;
-		alloc = (byte*)ut_malloc(mem);
+		alloc = (::byte*)ut_malloc(mem);
 #ifdef UNIV_DEBUG
 		memset(alloc, 0, mem);
 #endif

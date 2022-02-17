@@ -134,7 +134,7 @@ UNIV_INTERN
 const char*
 dict_load_index_low(
 /*================*/
-	byte*		table_id,	/*!< in/out: table id (8 bytes),
+	::byte*		table_id,	/*!< in/out: table id (8 bytes),
 					an "in" value if allocate=TRUE
 					and "out" when allocate=FALSE */
 	const char*	table_name,	/*!< in: table name */
@@ -152,7 +152,7 @@ UNIV_INTERN
 const char*
 dict_load_field_low(
 /*================*/
-	byte*		index_id,	/*!< in/out: index id (8 bytes)
+	::byte*		index_id,	/*!< in/out: index id (8 bytes)
 					an "in" value if index != NULL
 					and "out" if index == NULL */
 	dict_index_t*	index,		/*!< in/out: index, could be NULL
@@ -162,7 +162,7 @@ dict_load_field_low(
 	dict_field_t*	sys_field,	/*!< out: dict_field_t to be
 					filled */
 	ulint*		pos,		/*!< out: Field position */
-	byte*		last_index_id,	/*!< in: last index id */
+	::byte*		last_index_id,	/*!< in: last index id */
 	mem_heap_t*	heap,		/*!< in/out: memory heap
 					for temporary storage */
 	const rec_t*	rec);		/*!< in: SYS_FIELDS record */
@@ -426,7 +426,7 @@ UNIV_INTERN
 const char*
 dict_load_docstore_field_low(
 /*===================*/
-	byte*		index_id,
+	::byte*		index_id,
 	dict_index_t*	index,
 	dict_field_t*	sys_field,
 	ulint*		pos,

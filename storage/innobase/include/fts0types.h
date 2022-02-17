@@ -200,7 +200,7 @@ struct fts_node_t {
 
 	doc_id_t	last_doc_id;	/*!< Last document id in ilist. */
 
-	byte*		ilist;		/*!< Binary list of documents & word
+	::byte*		ilist;		/*!< Binary list of documents & word
 					positions the token appears in.
 					TODO: For now, these are simply
 					ut_malloc'd, but if testing shows
@@ -357,7 +357,7 @@ ulint
 fts_decode_vlc(
 /*===========*/
 			/*!< out: value decoded */
-	byte**	ptr);	/*!< in: ptr to decode from, this ptr is
+	::byte**	ptr);	/*!< in: ptr to decode from, this ptr is
 			incremented by the number of bytes decoded */
 
 /******************************************************************//**
@@ -393,7 +393,7 @@ fts_encode_int(
 						/*!< out: length of value
 						encoded, in bytes */
 	ulint		val,			/*!< in: value to encode */
-	byte*		buf);			/*!< in: buffer, must have
+	::byte*		buf);			/*!< in: buffer, must have
 						enough space */
 
 /******************************************************************//**
@@ -419,7 +419,7 @@ fts_utf8_decode(
 						did not point to a valid
 						UTF-8 sequence, or the
 						Unicode code point. */
-	const byte**	ptr);			/*!< in/out: pointer to
+	const ::byte**	ptr);			/*!< in/out: pointer to
 						UTF-8 string. The
 						pointer is advanced to
 						the start of the next
@@ -456,7 +456,7 @@ ulint
 fts_select_index(
 /*=============*/
 	const CHARSET_INFO*	cs,		/*!< Charset */
-	const byte*		str,		/*!< in: word string */
+	const ::byte*		str,		/*!< in: word string */
 	ulint			len);		/*!< in: string length */
 
 /********************************************************************
@@ -467,7 +467,7 @@ ulint
 fts_select_next_index(
 /*==================*/
 	const CHARSET_INFO*	cs,		/*!< Charset */
-	const byte*		str,		/*!< in: string */
+	const ::byte*		str,		/*!< in: string */
 	ulint			len);		/*!< in: string length */
 
 #ifndef UNIV_NONINL

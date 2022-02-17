@@ -160,7 +160,7 @@ fseg_alloc_free_page_low(
 	fseg_inode_t*	seg_inode, /*!< in/out: segment inode */
 	ulint		hint,	/*!< in: hint of which page would be
 				desirable */
-	byte		direction, /*!< in: if the new page is needed because
+	::byte		direction, /*!< in: if the new page is needed because
 				of an index page split, and records are
 				inserted there in order, into which
 				direction they go alphabetically: FSP_DOWN,
@@ -619,11 +619,11 @@ fsp_init_file_page(
 Parses a redo log record of a file page init.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 fsp_parse_init_file_page(
 /*=====================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr MY_ATTRIBUTE((unused)), /*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr MY_ATTRIBUTE((unused)), /*!< in: buffer end */
 	buf_block_t*	block)	/*!< in: block or NULL */
 {
 	ut_ad(ptr && end_ptr);
@@ -1407,7 +1407,7 @@ fsp_alloc_free_page(
 			     hint % FSP_EXTENT_SIZE, mtr);
 	if (free == ULINT_UNDEFINED) {
 
-		ut_print_buf(stderr, ((byte*) descr) - 500, 1000);
+		ut_print_buf(stderr, ((::byte*) descr) - 500, 1000);
 		putc('\n', stderr);
 
 		ut_error;
@@ -1477,7 +1477,7 @@ fsp_free_page(
 			(ulong) page,
 			(ulong) state);
 		fputs("InnoDB: Dump of descriptor: ", stderr);
-		ut_print_buf(stderr, ((byte*) descr) - 50, 200);
+		ut_print_buf(stderr, ((::byte*) descr) - 50, 200);
 		putc('\n', stderr);
 		/* Crash in debug version, so that we get a core dump
 		of this corruption. */
@@ -1500,7 +1500,7 @@ fsp_free_page(
 			"InnoDB: Error: File space extent descriptor"
 			" of page %lu says it is free\n"
 			"InnoDB: Dump of descriptor: ", (ulong) page);
-		ut_print_buf(stderr, ((byte*) descr) - 50, 200);
+		ut_print_buf(stderr, ((::byte*) descr) - 50, 200);
 		putc('\n', stderr);
 		/* Crash in debug version, so that we get a core dump
 		of this corruption. */
@@ -1566,7 +1566,7 @@ fsp_free_extent(
 
 	if (xdes_get_state(descr, mtr) == XDES_FREE) {
 
-		ut_print_buf(stderr, (byte*) descr - 500, 1000);
+		ut_print_buf(stderr, (::byte*) descr - 500, 1000);
 		putc('\n', stderr);
 
 		ut_error;
@@ -2349,7 +2349,7 @@ fseg_alloc_free_page_low(
 	fseg_inode_t*	seg_inode, /*!< in/out: segment inode */
 	ulint		hint,	/*!< in: hint of which page would be
 				desirable */
-	byte		direction, /*!< in: if the new page is needed because
+	::byte		direction, /*!< in: if the new page is needed because
 				of an index page split, and records are
 				inserted there in order, into which
 				direction they go alphabetically: FSP_DOWN,
@@ -2595,7 +2595,7 @@ fseg_alloc_free_page_general(
 	fseg_header_t*	seg_header,/*!< in/out: segment header */
 	ulint		hint,	/*!< in: hint of which page would be
 				desirable */
-	byte		direction,/*!< in: if the new page is needed because
+	::byte		direction,/*!< in: if the new page is needed because
 				of an index page split, and records are
 				inserted there in order, into which
 				direction they go alphabetically: FSP_DOWN,

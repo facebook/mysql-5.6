@@ -102,7 +102,7 @@ dict_get_first_table_name_in_db(
 	mem_heap_t*	heap;
 	dfield_t*	dfield;
 	const rec_t*	rec;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	mtr_t		mtr;
 
@@ -386,9 +386,9 @@ dict_process_sys_indexes_rec(
 	table_id_t*	table_id)	/*!< out: index table id */
 {
 	const char*	err_msg;
-	byte*		buf;
+	::byte*		buf;
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 
 	/* Parse the record, and get "dict_index_t" struct filled */
 	err_msg = dict_load_index_low(buf, NULL,
@@ -438,13 +438,13 @@ dict_process_sys_fields_rec(
 	index_id_t*	index_id,	/*!< out: current index id */
 	index_id_t	last_id)	/*!< in: previous index id */
 {
-	byte*		buf;
-	byte*		last_index_id;
+	::byte*		buf;
+	::byte*		last_index_id;
 	const char*	err_msg;
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 
-	last_index_id = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	last_index_id = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(last_index_id, last_id);
 
 	err_msg = dict_load_field_low(buf, NULL, sys_field,
@@ -471,7 +471,7 @@ dict_process_sys_foreign_rec(
 					to be filled */
 {
 	ulint		len;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		n_fields_and_type;
 
 	if (rec_get_deleted_flag(rec, 0)) {
@@ -555,7 +555,7 @@ dict_process_sys_foreign_col_rec(
 	ulint*		pos)		/*!< out: column position */
 {
 	ulint		len;
-	const byte*	field;
+	const ::byte*	field;
 
 	if (rec_get_deleted_flag(rec, 0)) {
 		return("delete-marked record in SYS_FOREIGN_COLS");
@@ -623,7 +623,7 @@ dict_process_sys_tablespaces(
 	ulint*		flags)		/*!< out: tablespace flags */
 {
 	ulint		len;
-	const byte*	field;
+	const ::byte*	field;
 
 	/* Initialize the output values */
 	*space = ULINT_UNDEFINED;
@@ -689,7 +689,7 @@ dict_process_sys_datafiles(
 	const char**	path)		/*!< out: datafile paths */
 {
 	ulint		len;
-	const byte*	field;
+	const ::byte*	field;
 
 	if (rec_get_deleted_flag(rec, 0)) {
 		return("delete-marked record in SYS_DATAFILES");
@@ -738,7 +738,7 @@ dict_sys_tables_get_flags(
 /*======================*/
 	const rec_t*	rec)	/*!< in: a record of SYS_TABLES */
 {
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		type;
 	ulint		n_cols;
@@ -794,10 +794,10 @@ dict_get_first_path(
 	dict_index_t*	sys_index;
 	dtuple_t*	tuple;
 	dfield_t*	dfield;
-	byte*		buf;
+	::byte*		buf;
 	btr_pcur_t	pcur;
 	const rec_t*	rec;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	char*		dict_filepath = NULL;
 	mem_heap_t*	heap = mem_heap_create(1024);
@@ -817,7 +817,7 @@ dict_get_first_path(
 	tuple = dtuple_create(heap, 1);
 	dfield = dtuple_get_nth_field(tuple, DICT_FLD__SYS_DATAFILES__SPACE);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(buf, space);
 
 	dfield_set_data(dfield, buf, 4);
@@ -1013,7 +1013,7 @@ loop:
 	if (!rec_get_deleted_flag(rec, 0)) {
 
 		/* We found one */
-		const byte*	field;
+		const ::byte*	field;
 		ulint		len;
 		ulint		space_id;
 		ulint		flags;
@@ -1213,7 +1213,7 @@ dict_load_column_low(
 	const rec_t*	rec)		/*!< in: SYS_COLUMNS record */
 {
 	char*		name;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		mtype;
 	ulint		prtype;
@@ -1354,7 +1354,7 @@ dict_load_columns(
 	dtuple_t*	tuple;
 	dfield_t*	dfield;
 	const rec_t*	rec;
-	byte*		buf;
+	::byte*		buf;
 	ulint		i;
 	mtr_t		mtr;
 
@@ -1374,7 +1374,7 @@ dict_load_columns(
 	tuple = dtuple_create(heap, 1);
 	dfield = dtuple_get_nth_field(tuple, 0);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(buf, table->id);
 
 	dfield_set_data(dfield, buf, 8);
@@ -1452,7 +1452,7 @@ UNIV_INTERN
 const char*
 dict_load_field_low(
 /*================*/
-	byte*		index_id,	/*!< in/out: index id (8 bytes)
+	::byte*		index_id,	/*!< in/out: index id (8 bytes)
 					an "in" value if index != NULL
 					and "out" if index == NULL */
 	dict_index_t*	index,		/*!< in/out: index, could be NULL
@@ -1462,12 +1462,12 @@ dict_load_field_low(
 	dict_field_t*	sys_field,	/*!< out: dict_field_t to be
 					filled */
 	ulint*		pos,		/*!< out: Field position */
-	byte*		last_index_id,	/*!< in: last index id */
+	::byte*		last_index_id,	/*!< in: last index id */
 	mem_heap_t*	heap,		/*!< in/out: memory heap
 					for temporary storage */
 	const rec_t*	rec)		/*!< in: SYS_FIELDS record */
 {
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		pos_and_prefix_len;
 	ulint		prefix_len;
@@ -1577,7 +1577,7 @@ UNIV_INTERN
 const char*
 dict_load_docstore_field_low(
 /*===================*/
-	byte*		index_id,	/*!< in/out : index id (8 bytes)
+	::byte*		index_id,	/*!< in/out : index id (8 bytes)
 					"in" if index != NULL, otherwise
 					out" */
 	dict_index_t*	index,		/*!< in/out: index definition */
@@ -1587,7 +1587,7 @@ dict_load_docstore_field_low(
 					for temporary storage */
 	const rec_t*	rec)		/*!< in: SYS_DOCSTORE_FIELDS record */
 {
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		position;
 	const char*	document_path = 0;
@@ -1693,7 +1693,7 @@ dict_load_fields(
 	dtuple_t*	tuple;
 	dfield_t*	dfield;
 	const rec_t*	rec;
-	byte*		buf;
+	::byte*		buf;
 	ulint		i;
 	mtr_t		mtr;
 	dberr_t		error;
@@ -1711,7 +1711,7 @@ dict_load_fields(
 	tuple = dtuple_create(heap, 1);
 	dfield = dtuple_get_nth_field(tuple, 0);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(buf, index->id);
 
 	dfield_set_data(dfield, buf, 8);
@@ -1767,7 +1767,7 @@ dict_load_docstore_fields(
 	dtuple_t*	tuple;
 	dfield_t*	dfield;
 	const rec_t*	rec;
-	byte*		buf;
+	::byte*		buf;
 	ulint		i;
 	mtr_t		mtr;
 	dberr_t		error;
@@ -1782,7 +1782,7 @@ dict_load_docstore_fields(
 	tuple = dtuple_create(heap, 1);
 	dfield = dtuple_get_nth_field(tuple, 0);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
         mach_write_to_8(buf, index->id);
 
 	dfield_set_data(dfield, buf, 8);
@@ -1836,7 +1836,7 @@ UNIV_INTERN
 const char*
 dict_load_index_low(
 /*================*/
-	byte*		table_id,	/*!< in/out: table id (8 bytes),
+	::byte*		table_id,	/*!< in/out: table id (8 bytes),
 					an "in" value if allocate=TRUE
 					and "out" when allocate=FALSE */
 	const char*	table_name,	/*!< in: table name */
@@ -1847,7 +1847,7 @@ dict_load_index_low(
 					*index */
 	dict_index_t**	index)		/*!< out,own: index, or NULL */
 {
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		name_len;
 	char*		name_buf;
@@ -1982,7 +1982,7 @@ dict_load_indexes(
 	dtuple_t*	tuple;
 	dfield_t*	dfield;
 	const rec_t*	rec;
-	byte*		buf;
+	::byte*		buf;
 	mtr_t		mtr;
 	dberr_t		error = DB_SUCCESS;
 
@@ -2001,7 +2001,7 @@ dict_load_indexes(
 	tuple = dtuple_create(heap, 1);
 	dfield = dtuple_get_nth_field(tuple, 0);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 8));
 	mach_write_to_8(buf, table->id);
 
 	dfield_set_data(dfield, buf, 8);
@@ -2038,7 +2038,7 @@ dict_load_indexes(
 		if ((ignore_err & DICT_ERR_IGNORE_RECOVER_LOCK)
 		    && rec_get_n_fields_old(rec)
 		    == DICT_NUM_FIELDS__SYS_INDEXES) {
-			const byte*	field;
+			const ::byte*	field;
 			ulint		len;
 			field = rec_get_nth_field_old(
 				rec, DICT_FLD__SYS_INDEXES__NAME, &len);
@@ -2243,7 +2243,7 @@ dict_load_table_low(
 	const rec_t*	rec,		/*!< in: SYS_TABLES record */
 	dict_table_t**	table)		/*!< out,own: table, or NULL */
 {
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		space;
 	ulint		n_cols;
@@ -2481,7 +2481,7 @@ dict_load_table(
 	mem_heap_t*	heap;
 	dfield_t*	dfield;
 	const rec_t*	rec;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	char*		filepath = NULL;
 	const char*	err_msg;
@@ -2748,7 +2748,7 @@ dict_load_table_on_id(
 	dict_err_ignore_t	ignore_err)	/*!< in: errors to ignore
 						when loading the table */
 {
-	byte		id_buf[8];
+	::byte		id_buf[8];
 	btr_pcur_t	pcur;
 	mem_heap_t*	heap;
 	dtuple_t*	tuple;
@@ -2756,7 +2756,7 @@ dict_load_table_on_id(
 	dict_index_t*	sys_table_ids;
 	dict_table_t*	sys_tables;
 	const rec_t*	rec;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	dict_table_t*	table;
 	mtr_t		mtr;
@@ -2879,7 +2879,7 @@ dict_load_foreign_cols(
 	dtuple_t*	tuple;
 	dfield_t*	dfield;
 	const rec_t*	rec;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		i;
 	mtr_t		mtr;
@@ -3011,7 +3011,7 @@ dict_load_foreign(
 	mem_heap_t*	heap2;
 	dfield_t*	dfield;
 	const rec_t*	rec;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	ulint		n_fields_and_type;
 	mtr_t		mtr;
@@ -3203,7 +3203,7 @@ dict_load_foreigns(
 	dict_index_t*	sec_index;
 	dict_table_t*	sys_foreign;
 	const rec_t*	rec;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	dberr_t		err;
 	mtr_t		mtr;
@@ -3262,7 +3262,7 @@ loop:
 
 	if (0 != cmp_data_data(dfield_get_type(dfield)->mtype,
 			       dfield_get_type(dfield)->prtype,
-			       static_cast<const byte*>(
+			       static_cast<const ::byte*>(
 				       dfield_get_data(dfield)),
 			       dfield_get_len(dfield),
 			       field, len)) {

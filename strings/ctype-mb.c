@@ -22,7 +22,7 @@
 
 size_t my_caseup_str_mb(const CHARSET_INFO *cs, char *str)
 {
-  register uint32 l;
+  uint32 l;
   register uchar *map= cs->to_upper;
   char *str_orig= str;
   
@@ -43,7 +43,7 @@ size_t my_caseup_str_mb(const CHARSET_INFO *cs, char *str)
 
 size_t my_casedn_str_mb(const CHARSET_INFO *cs, char *str)
 {
-  register uint32 l;
+  uint32 l;
   register uchar *map= cs->to_lower;
   char *str_orig= str;
   
@@ -77,8 +77,8 @@ size_t my_caseup_mb(const CHARSET_INFO *cs, char *src, size_t srclen,
                     char *dst MY_ATTRIBUTE((unused)),
                     size_t dstlen MY_ATTRIBUTE((unused)))
 {
-  register uint32 l;
-  register char *srcend= src + srclen;
+  uint32 l;
+  char *srcend= src + srclen;
   register uchar *map= cs->to_upper;
 
   DBUG_ASSERT(cs->caseup_multiply == 1);
@@ -112,8 +112,8 @@ size_t my_casedn_mb(const CHARSET_INFO *cs, char *src, size_t srclen,
                     char *dst MY_ATTRIBUTE((unused)),
                     size_t dstlen MY_ATTRIBUTE((unused)))
 {
-  register uint32 l;
-  register char *srcend= src + srclen;
+  uint32 l;
+  char *srcend= src + srclen;
   register uchar *map=cs->to_lower;
 
   DBUG_ASSERT(cs->casedn_multiply == 1);
@@ -218,7 +218,7 @@ my_caseup_mb_varlen(const CHARSET_INFO *cs, char *src, size_t srclen,
 
 int my_strcasecmp_mb(const CHARSET_INFO *cs,const char *s, const char *t)
 {
-  register uint32 l;
+  uint32 l;
   register uchar *map=cs->to_upper;
   
   while (*s && *t)
@@ -429,7 +429,7 @@ uint my_instr_mb(const CHARSET_INFO *cs,
                  const char *s, size_t s_length,
                  my_match_t *match, uint nmatch)
 {
-  register const char *end, *b0;
+  const char *end, *b0;
   int res= 0;
   
   if (s_length <= b_length)

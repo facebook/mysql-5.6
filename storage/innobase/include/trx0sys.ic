@@ -30,7 +30,7 @@ Created 3/26/1996 Heikki Tuuri
 # include "mtr0log.h"
 
 /* The typedef for rseg slot in the file copy */
-typedef byte	trx_sysf_rseg_t;
+typedef ::byte	trx_sysf_rseg_t;
 
 /* Rollback segment specification slot offsets */
 /*-------------------------------------------------------------*/
@@ -202,7 +202,7 @@ UNIV_INLINE
 void
 trx_write_trx_id(
 /*=============*/
-	byte*		ptr,	/*!< in: pointer to memory where written */
+	::byte*		ptr,	/*!< in: pointer to memory where written */
 	trx_id_t	id)	/*!< in: id */
 {
 #if DATA_TRX_ID_LEN != 6
@@ -221,7 +221,7 @@ UNIV_INLINE
 trx_id_t
 trx_read_trx_id(
 /*============*/
-	const byte*	ptr)	/*!< in: pointer to memory from where to read */
+	const ::byte*	ptr)	/*!< in: pointer to memory from where to read */
 {
 #if DATA_TRX_ID_LEN != 6
 # error "DATA_TRX_ID_LEN != 6"

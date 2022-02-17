@@ -109,7 +109,7 @@ static MY_ATTRIBUTE((nonnull))
 void
 row_merge_buf_encode(
 /*=================*/
-	byte**			b,		/*!< in/out: pointer to
+	::byte**			b,		/*!< in/out: pointer to
 						current end of output buffer */
 	const dict_index_t*	index,		/*!< in: index */
 	const mtuple_t*		entry,		/*!< in: index fields
@@ -126,11 +126,11 @@ row_merge_buf_encode(
 
 	/* Encode extra_size + 1 */
 	if (extra_size + 1 < 0x80) {
-		*(*b)++ = (byte) (extra_size + 1);
+		*(*b)++ = (::byte) (extra_size + 1);
 	} else {
 		ut_ad((extra_size + 1) < 0x8000);
-		*(*b)++ = (byte) (0x80 | ((extra_size + 1) >> 8));
-		*(*b)++ = (byte) (extra_size + 1);
+		*(*b)++ = (::byte) (0x80 | ((extra_size + 1) >> 8));
+		*(*b)++ = (::byte) (extra_size + 1);
 	}
 
 	rec_convert_dtuple_to_temp(*b + extra_size, index,
@@ -257,12 +257,12 @@ row_merge_buf_redundant_convert(
 	ut_ad(DATA_MBMINLEN(field->type.mbminmaxlen) == 1);
 	ut_ad(DATA_MBMAXLEN(field->type.mbminmaxlen) > 1);
 
-	byte*		buf = (byte*) mem_heap_alloc(heap, len);
+	::byte*		buf = (::byte*) mem_heap_alloc(heap, len);
 	ulint		field_len = row_field->len;
 	ut_ad(field_len <= len);
 
 	if (row_field->ext) {
-		const byte*	field_data = static_cast<byte*>(
+		const ::byte*	field_data = static_cast<::byte*>(
 			dfield_get_data(row_field));
 		ulint		ext_len;
 
@@ -270,7 +270,7 @@ row_merge_buf_redundant_convert(
 		ut_a(memcmp(field_data + field_len - BTR_EXTERN_FIELD_REF_SIZE,
 			    field_ref_zero, BTR_EXTERN_FIELD_REF_SIZE));
 
-		byte*	data = btr_copy_externally_stored_field(
+		::byte*	data = btr_copy_externally_stored_field(
 			&ext_len, field_data, zip_size, field_len, heap, NULL);
 
 		ut_ad(ext_len < len);
@@ -368,7 +368,7 @@ row_merge_buf_add(
 		/* Process the Doc ID column */
 		if (*doc_id > 0
 		    && col_no == index->table->fts->doc_col) {
-			fts_write_doc_id((byte*) &write_doc_id, *doc_id);
+			fts_write_doc_id((::byte*) &write_doc_id, *doc_id);
 
 			/* Note: field->data now points to a value on the
 			stack: &write_doc_id after dfield_set_data(). Because
@@ -391,7 +391,7 @@ row_merge_buf_add(
 			/* Tokenize and process data for FTS */
 			if (index->type & DICT_FTS) {
 				fts_doc_item_t*	doc_item;
-				byte*		value;
+				::byte*		value;
 				void*		ptr;
 				const ulint	max_trial_count = 10000;
 				ulint		trial_count = 0;
@@ -408,7 +408,7 @@ row_merge_buf_add(
 						row,
 						index->table->fts->doc_col);
 					*doc_id = (doc_id_t) mach_read_from_8(
-						static_cast<byte*>(
+						static_cast<::byte*>(
 						dfield_get_data(doc_field)));
 
 					if (*doc_id == 0) {
@@ -428,7 +428,7 @@ row_merge_buf_add(
 						+ field->len);
 
 				doc_item = static_cast<fts_doc_item_t*>(ptr);
-				value = static_cast<byte*>(ptr)
+				value = static_cast<::byte*>(ptr)
 					+ sizeof(*doc_item);
 				memcpy(value, field->data, field->len);
 				field->data = value;
@@ -491,7 +491,7 @@ row_merge_buf_add(
 		} else if (!ext) {
 		} else if (dict_index_is_clust(index)) {
 			/* Flag externally stored fields. */
-			const byte*	buf = row_ext_lookup(ext, col_no,
+			const ::byte*	buf = row_ext_lookup(ext, col_no,
 							     &len);
 			if (UNIV_LIKELY_NULL(buf)) {
 				ut_a(buf != field_ref_zero);
@@ -503,7 +503,7 @@ row_merge_buf_add(
 				}
 			}
 		} else {
-			const byte*	buf = row_ext_lookup(ext, col_no,
+			const ::byte*	buf = row_ext_lookup(ext, col_no,
 							     &len);
 			if (UNIV_LIKELY_NULL(buf)) {
 				ut_a(buf != field_ref_zero);
@@ -772,7 +772,7 @@ row_merge_buf_write(
 {
 	const dict_index_t*	index	= buf->index;
 	ulint			n_fields= dict_index_get_n_fields(index);
-	byte*			b	= &block[0];
+	::byte*			b	= &block[0];
 
 	for (ulint i = 0; i < buf->n_tuples; i++) {
 		const mtuple_t*	entry	= &buf->tuples[i];
@@ -926,12 +926,12 @@ row_merge_write(
 Read a merge record.
 @return	pointer to next record, or NULL on I/O error or end of list */
 UNIV_INTERN
-const byte*
+const ::byte*
 row_merge_read_rec(
 /*===============*/
 	row_merge_block_t*	block,	/*!< in/out: file buffer */
 	mrec_buf_t*		buf,	/*!< in/out: secondary buffer */
-	const byte*		b,	/*!< in: pointer to record */
+	const ::byte*		b,	/*!< in: pointer to record */
 	const dict_index_t*	index,	/*!< in: index of the record */
 	int			fd,	/*!< in: file descriptor */
 	ulint*			foffs,	/*!< in/out: file offset */
@@ -1097,7 +1097,7 @@ static
 void
 row_merge_write_rec_low(
 /*====================*/
-	byte*		b,	/*!< out: buffer */
+	::byte*		b,	/*!< out: buffer */
 	ulint		e,	/*!< in: encoded extra_size */
 #ifdef UNIV_DEBUG
 	ulint		size,	/*!< in: total size to write */
@@ -1112,7 +1112,7 @@ row_merge_write_rec_low(
 #endif /* !UNIV_DEBUG */
 {
 #ifdef UNIV_DEBUG
-	const byte* const end = b + size;
+	const ::byte* const end = b + size;
 	ut_ad(e == rec_offs_extra_size(offsets) + 1);
 
 	if (row_merge_print_write) {
@@ -1124,10 +1124,10 @@ row_merge_write_rec_low(
 #endif /* UNIV_DEBUG */
 
 	if (e < 0x80) {
-		*b++ = (byte) e;
+		*b++ = (::byte) e;
 	} else {
-		*b++ = (byte) (0x80 | (e >> 8));
-		*b++ = (byte) e;
+		*b++ = (::byte) (0x80 | (e >> 8));
+		*b++ = (::byte) e;
 	}
 
 	memcpy(b, mrec - rec_offs_extra_size(offsets), rec_offs_size(offsets));
@@ -1138,12 +1138,12 @@ row_merge_write_rec_low(
 Write a merge record.
 @return	pointer to end of block, or NULL on error */
 static
-byte*
+::byte*
 row_merge_write_rec(
 /*================*/
 	row_merge_block_t*	block,	/*!< in/out: file buffer */
 	mrec_buf_t*		buf,	/*!< in/out: secondary buffer */
-	byte*			b,	/*!< in: pointer to end of block */
+	::byte*			b,	/*!< in: pointer to end of block */
 	int			fd,	/*!< in: file descriptor */
 	ulint*			foffs,	/*!< in/out: file offset */
 	const mrec_t*		mrec,	/*!< in: record to write */
@@ -1205,11 +1205,11 @@ row_merge_write_rec(
 Write an end-of-list marker.
 @return	pointer to end of block, or NULL on error */
 static
-byte*
+::byte*
 row_merge_write_eof(
 /*================*/
 	row_merge_block_t*	block,	/*!< in/out: file buffer */
-	byte*			b,	/*!< in: pointer to end of block */
+	::byte*			b,	/*!< in: pointer to end of block */
 	int			fd,	/*!< in: file descriptor */
 	ulint*			foffs)	/*!< in/out: file offset */
 {
@@ -1683,7 +1683,7 @@ end_of_index:
 			}
 
 			const dtype_t*  dtype = dfield_get_type(dfield);
-			byte*	b = static_cast<byte*>(dfield_get_data(dfield));
+			::byte*	b = static_cast<::byte*>(dfield_get_data(dfield));
 
 			if (sequence.eof()) {
 				err = DB_ERROR;
@@ -2047,9 +2047,9 @@ row_merge_blocks(
 
 	mrec_buf_t*	buf;	/*!< buffer for handling
 				split mrec in block[] */
-	const byte*	b0;	/*!< pointer to block[0] */
-	const byte*	b1;	/*!< pointer to block[srv_sort_buf_size] */
-	byte*		b2;	/*!< pointer to block[2 * srv_sort_buf_size] */
+	const ::byte*	b0;	/*!< pointer to block[0] */
+	const ::byte*	b1;	/*!< pointer to block[srv_sort_buf_size] */
+	::byte*		b2;	/*!< pointer to block[2 * srv_sort_buf_size] */
 	const mrec_t*	mrec0;	/*!< merge rec, points to block[0] or buf[0] */
 	const mrec_t*	mrec1;	/*!< merge rec, points to
 				block[srv_sort_buf_size] or buf[1] */
@@ -2153,8 +2153,8 @@ row_merge_blocks_copy(
 
 	mrec_buf_t*	buf;	/*!< buffer for handling
 				split mrec in block[] */
-	const byte*	b0;	/*!< pointer to block[0] */
-	byte*		b2;	/*!< pointer to block[2 * srv_sort_buf_size] */
+	const ::byte*	b0;	/*!< pointer to block[0] */
+	::byte*		b2;	/*!< pointer to block[2 * srv_sort_buf_size] */
 	const mrec_t*	mrec0;	/*!< merge rec, points to block[0] */
 	ulint*		offsets0;/* offsets of mrec0 */
 	ulint*		offsets1;/* dummy offsets */
@@ -2453,7 +2453,7 @@ row_merge_insert_index_tuples(
 	int			fd,	/*!< in: file descriptor */
 	row_merge_block_t*	block)	/*!< in/out: file buffer */
 {
-	const byte*		b;
+	const ::byte*		b;
 	mem_heap_t*		heap;
 	mem_heap_t*		tuple_heap;
 	mem_heap_t*		ins_heap;

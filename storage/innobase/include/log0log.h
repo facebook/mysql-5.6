@@ -132,7 +132,7 @@ UNIV_INTERN
 void
 log_write_low(
 /*==========*/
-	byte*	str,		/*!< in: string */
+	::byte*	str,		/*!< in: string */
 	ulint	str_len);	/*!< in: string length */
 /************************************************************//**
 Closes the log.
@@ -301,7 +301,7 @@ UNIV_INTERN
 void
 log_checkpoint_get_nth_group_info(
 /*==============================*/
-	const byte*	buf,	/*!< in: buffer containing checkpoint info */
+	const ::byte*	buf,	/*!< in: buffer containing checkpoint info */
 	ulint		n,	/*!< in: nth slot */
 	ulint*		file_no,/*!< out: archived file number */
 	ulint*		offset);/*!< out: archived file offset */
@@ -370,7 +370,7 @@ UNIV_INTERN
 void
 log_reset_first_header_and_checkpoint(
 /*==================================*/
-	byte*		hdr_buf,/*!< in: buffer which will be written to the
+	::byte*		hdr_buf,/*!< in: buffer which will be written to the
 				start of the first log file */
 	ib_uint64_t	start);	/*!< in: lsn of the start of the first log file;
 				we pretend that there is a checkpoint at
@@ -393,7 +393,7 @@ void
 log_group_read_log_seg(
 /*===================*/
 	ulint		type,		/*!< in: LOG_ARCHIVE or LOG_RECOVER */
-	byte*		buf,		/*!< in: buffer where to read */
+	::byte*		buf,		/*!< in: buffer where to read */
 	log_group_t*	group,		/*!< in: log group */
 	lsn_t		start_lsn,	/*!< in: read area start */
 	lsn_t		end_lsn);	/*!< in: read area end */
@@ -404,7 +404,7 @@ void
 log_group_write_buf(
 /*================*/
 	log_group_t*	group,		/*!< in: log group */
-	byte*		buf,		/*!< in: buffer */
+	::byte*		buf,		/*!< in: buffer */
 	ulint		len,		/*!< in: buffer len; must be divisible
 					by OS_FILE_LOG_BLOCK_SIZE */
 	lsn_t		start_lsn,	/*!< in: start lsn of the buffer; must
@@ -442,7 +442,7 @@ UNIV_INLINE
 ibool
 log_block_get_flush_bit(
 /*====================*/
-	const byte*	log_block);	/*!< in: log block */
+	const ::byte*	log_block);	/*!< in: log block */
 /************************************************************//**
 Gets a log block number stored in the header.
 @return	log block number stored in the block header */
@@ -450,7 +450,7 @@ UNIV_INLINE
 ulint
 log_block_get_hdr_no(
 /*=================*/
-	const byte*	log_block);	/*!< in: log block */
+	const ::byte*	log_block);	/*!< in: log block */
 /************************************************************//**
 Gets a log block data length.
 @return	log block data length measured as a byte offset from the block start */
@@ -458,14 +458,14 @@ UNIV_INLINE
 ulint
 log_block_get_data_len(
 /*===================*/
-	const byte*	log_block);	/*!< in: log block */
+	const ::byte*	log_block);	/*!< in: log block */
 /************************************************************//**
 Sets the log block data length. */
 UNIV_INLINE
 void
 log_block_set_data_len(
 /*===================*/
-	byte*	log_block,	/*!< in/out: log block */
+	::byte*	log_block,	/*!< in/out: log block */
 	ulint	len);		/*!< in: data length */
 /************************************************************//**
 Calculates the checksum for a log block.
@@ -474,7 +474,7 @@ UNIV_INLINE
 ulint
 log_block_calc_checksum(
 /*====================*/
-	const byte*	block);	/*!< in: log block */
+	const ::byte*	block);	/*!< in: log block */
 /************************************************************//**
 Gets a log block checksum field value.
 @return	checksum */
@@ -482,14 +482,14 @@ UNIV_INLINE
 ulint
 log_block_get_checksum(
 /*===================*/
-	const byte*	log_block);	/*!< in: log block */
+	const ::byte*	log_block);	/*!< in: log block */
 /************************************************************//**
 Sets a log block checksum field value. */
 UNIV_INLINE
 void
 log_block_set_checksum(
 /*===================*/
-	byte*	log_block,	/*!< in/out: log block */
+	::byte*	log_block,	/*!< in/out: log block */
 	ulint	checksum);	/*!< in: checksum */
 /************************************************************//**
 Gets a log block first mtr log record group offset.
@@ -499,14 +499,14 @@ UNIV_INLINE
 ulint
 log_block_get_first_rec_group(
 /*==========================*/
-	const byte*	log_block);	/*!< in: log block */
+	const ::byte*	log_block);	/*!< in: log block */
 /************************************************************//**
 Sets the log block first mtr log record group offset. */
 UNIV_INLINE
 void
 log_block_set_first_rec_group(
 /*==========================*/
-	byte*	log_block,	/*!< in/out: log block */
+	::byte*	log_block,	/*!< in/out: log block */
 	ulint	offset);	/*!< in: offset, 0 if none */
 /************************************************************//**
 Gets a log block checkpoint number field (4 lowest bytes).
@@ -515,14 +515,14 @@ UNIV_INLINE
 ulint
 log_block_get_checkpoint_no(
 /*========================*/
-	const byte*	log_block);	/*!< in: log block */
+	const ::byte*	log_block);	/*!< in: log block */
 /************************************************************//**
 Initializes a log block in the log buffer. */
 UNIV_INLINE
 void
 log_block_init(
 /*===========*/
-	byte*	log_block,	/*!< in: pointer to the log buffer */
+	::byte*	log_block,	/*!< in: pointer to the log buffer */
 	lsn_t	lsn);		/*!< in: lsn within the log block */
 /************************************************************//**
 Initializes a log block in the log buffer in the old, < 3.23.52 format, where
@@ -531,7 +531,7 @@ UNIV_INLINE
 void
 log_block_init_in_old_format(
 /*=========================*/
-	byte*	log_block,	/*!< in: pointer to the log buffer */
+	::byte*	log_block,	/*!< in: pointer to the log buffer */
 	lsn_t	lsn);		/*!< in: lsn within the log block */
 /************************************************************//**
 Converts a lsn to a log block number.
@@ -756,13 +756,13 @@ struct log_group_t{
 	lsn_t		lsn_offset;	/*!< the offset of the above lsn */
 	ulint		n_pending_writes;/*!< number of currently pending flush
 					writes for this log group */
-	byte**		file_header_bufs_ptr;/*!< unaligned buffers */
-	byte**		file_header_bufs;/*!< buffers for each file
+	::byte**		file_header_bufs_ptr;/*!< unaligned buffers */
+	::byte**		file_header_bufs;/*!< buffers for each file
 					header in the group */
 #ifdef UNIV_LOG_ARCHIVE
 	/*-----------------------------*/
-	byte**		archive_file_header_bufs_ptr;/*!< unaligned buffers */
-	byte**		archive_file_header_bufs;/*!< buffers for each file
+	::byte**		archive_file_header_bufs_ptr;/*!< unaligned buffers */
+	::byte**		archive_file_header_bufs;/*!< buffers for each file
 					header in the group */
 	ulint		archive_space_id;/*!< file space which
 					implements the log group
@@ -785,8 +785,8 @@ struct log_group_t{
 	lsn_t		scanned_lsn;	/*!< used only in recovery: recovery scan
 					succeeded up to this lsn in this log
 					group */
-	byte*		checkpoint_buf_ptr;/*!< unaligned checkpoint header */
-	byte*		checkpoint_buf;	/*!< checkpoint header is written from
+	::byte*		checkpoint_buf_ptr;/*!< unaligned checkpoint header */
+	::byte*		checkpoint_buf;	/*!< checkpoint header is written from
 					this buffer to the group */
 	UT_LIST_NODE_T(log_group_t)
 			log_groups;	/*!< list of log groups */
@@ -794,7 +794,7 @@ struct log_group_t{
 
 /** Redo log buffer */
 struct log_t{
-	byte		pad[64];	/*!< padding to prevent other memory
+	::byte		pad[64];	/*!< padding to prevent other memory
 					update hotspots from residing on the
 					same memory cache line */
 	lsn_t		lsn;		/*!< log sequence number */
@@ -812,8 +812,8 @@ struct log_t{
 					insertions in the flush_list happen
 					in the LSN order. */
 #endif /* !UNIV_HOTBACKUP */
-	byte*		buf_ptr;	/* unaligned log buffer */
-	byte*		buf;		/*!< log buffer */
+	::byte*		buf_ptr;	/* unaligned log buffer */
+	::byte*		buf;		/*!< log buffer */
 	ulint		buf_size;	/*!< log buffer size in bytes */
 	ulint		max_buf_free;	/*!< recommended maximum value of
 					buf_free, after which the buffer is
@@ -969,8 +969,8 @@ struct log_t{
 					should wait for this without owning
 					the log mutex */
 #endif /* !UNIV_HOTBACKUP */
-	byte*		checkpoint_buf_ptr;/* unaligned checkpoint header */
-	byte*		checkpoint_buf;	/*!< checkpoint header is read to this
+	::byte*		checkpoint_buf_ptr;/* unaligned checkpoint header */
+	::byte*		checkpoint_buf;	/*!< checkpoint header is read to this
 					buffer */
 	/* @} */
 #ifdef UNIV_LOG_ARCHIVE
@@ -1002,7 +1002,7 @@ struct log_t{
 					should wait for this without owning
 					the log mutex */
 	ulint		archive_buf_size;/*!< size of archive_buf */
-	byte*		archive_buf;	/*!< log segment is written to the
+	::byte*		archive_buf;	/*!< log segment is written to the
 					archive from this buffer */
 	os_event_t	archiving_on;	/*!< if archiving has been stopped,
 					a thread can wait for this event to

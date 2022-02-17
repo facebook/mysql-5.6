@@ -603,7 +603,7 @@ size_t my_vsnprintf_ex(const CHARSET_INFO *cs, char *to, size_t n,
 
     if (*fmt == 's')				/* String parameter */
     {
-      reg2 char *par= va_arg(ap, char *);
+      char *par= va_arg(ap, char *);
       to= process_str_arg(cs, to, end, width, par, print_type);
       continue;
     }
@@ -639,7 +639,7 @@ size_t my_vsnprintf_ex(const CHARSET_INFO *cs, char *to, size_t n,
     }
     else if (*fmt == 'c')                       /* Character parameter */
     {
-      register int larg;
+      int larg;
       if (to == end)
         break;
       larg = va_arg(ap, int);

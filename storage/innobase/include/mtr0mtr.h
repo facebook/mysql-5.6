@@ -73,48 +73,48 @@ For 1 - 8 bytes, the flag value must give the length also! @{ */
 #define	MLOG_2BYTES		(2)		/*!< 2 bytes ... */
 #define	MLOG_4BYTES		(4)		/*!< 4 bytes ... */
 #define	MLOG_8BYTES		(8)		/*!< 8 bytes ... */
-#define	MLOG_REC_INSERT		((byte)9)	/*!< record insert */
-#define	MLOG_REC_CLUST_DELETE_MARK ((byte)10)	/*!< mark clustered index record
+#define	MLOG_REC_INSERT		((::byte)9)	/*!< record insert */
+#define	MLOG_REC_CLUST_DELETE_MARK ((::byte)10)	/*!< mark clustered index record
 						deleted */
-#define	MLOG_REC_SEC_DELETE_MARK ((byte)11)	/*!< mark secondary index record
+#define	MLOG_REC_SEC_DELETE_MARK ((::byte)11)	/*!< mark secondary index record
 						deleted */
-#define MLOG_REC_UPDATE_IN_PLACE ((byte)13)	/*!< update of a record,
+#define MLOG_REC_UPDATE_IN_PLACE ((::byte)13)	/*!< update of a record,
 						preserves record field sizes */
-#define MLOG_REC_DELETE		((byte)14)	/*!< delete a record from a
+#define MLOG_REC_DELETE		((::byte)14)	/*!< delete a record from a
 						page */
-#define	MLOG_LIST_END_DELETE	((byte)15)	/*!< delete record list end on
+#define	MLOG_LIST_END_DELETE	((::byte)15)	/*!< delete record list end on
 						index page */
-#define	MLOG_LIST_START_DELETE	((byte)16)	/*!< delete record list start on
+#define	MLOG_LIST_START_DELETE	((::byte)16)	/*!< delete record list start on
 						index page */
-#define	MLOG_LIST_END_COPY_CREATED ((byte)17)	/*!< copy record list end to a
+#define	MLOG_LIST_END_COPY_CREATED ((::byte)17)	/*!< copy record list end to a
 						new created index page */
-#define	MLOG_PAGE_REORGANIZE	((byte)18)	/*!< reorganize an
+#define	MLOG_PAGE_REORGANIZE	((::byte)18)	/*!< reorganize an
 						index page in
 						ROW_FORMAT=REDUNDANT */
-#define MLOG_PAGE_CREATE	((byte)19)	/*!< create an index page */
-#define	MLOG_UNDO_INSERT	((byte)20)	/*!< insert entry in an undo
+#define MLOG_PAGE_CREATE	((::byte)19)	/*!< create an index page */
+#define	MLOG_UNDO_INSERT	((::byte)20)	/*!< insert entry in an undo
 						log */
-#define MLOG_UNDO_ERASE_END	((byte)21)	/*!< erase an undo log
+#define MLOG_UNDO_ERASE_END	((::byte)21)	/*!< erase an undo log
 						page end */
-#define	MLOG_UNDO_INIT		((byte)22)	/*!< initialize a page in an
+#define	MLOG_UNDO_INIT		((::byte)22)	/*!< initialize a page in an
 						undo log */
-#define MLOG_UNDO_HDR_DISCARD	((byte)23)	/*!< discard an update undo log
+#define MLOG_UNDO_HDR_DISCARD	((::byte)23)	/*!< discard an update undo log
 						header */
-#define	MLOG_UNDO_HDR_REUSE	((byte)24)	/*!< reuse an insert undo log
+#define	MLOG_UNDO_HDR_REUSE	((::byte)24)	/*!< reuse an insert undo log
 						header */
-#define MLOG_UNDO_HDR_CREATE	((byte)25)	/*!< create an undo
+#define MLOG_UNDO_HDR_CREATE	((::byte)25)	/*!< create an undo
 						log header */
-#define MLOG_REC_MIN_MARK	((byte)26)	/*!< mark an index
+#define MLOG_REC_MIN_MARK	((::byte)26)	/*!< mark an index
 						record as the
 						predefined minimum
 						record */
-#define MLOG_IBUF_BITMAP_INIT	((byte)27)	/*!< initialize an
+#define MLOG_IBUF_BITMAP_INIT	((::byte)27)	/*!< initialize an
 						ibuf bitmap page */
-/*#define	MLOG_FULL_PAGE	((byte)28)	full contents of a page */
+/*#define	MLOG_FULL_PAGE	((::byte)28)	full contents of a page */
 #ifdef UNIV_LOG_LSN_DEBUG
-# define MLOG_LSN		((byte)28)	/* current LSN */
+# define MLOG_LSN		((::byte)28)	/* current LSN */
 #endif
-#define MLOG_INIT_FILE_PAGE	((byte)29)	/*!< this means that a
+#define MLOG_INIT_FILE_PAGE	((::byte)29)	/*!< this means that a
 						file page is taken
 						into use and the prior
 						contents of the page
@@ -123,32 +123,32 @@ For 1 - 8 bytes, the flag value must give the length also! @{ */
 						trust the lsn values
 						stored to the file
 						page */
-#define MLOG_WRITE_STRING	((byte)30)	/*!< write a string to
+#define MLOG_WRITE_STRING	((::byte)30)	/*!< write a string to
 						a page */
-#define	MLOG_MULTI_REC_END	((byte)31)	/*!< if a single mtr writes
+#define	MLOG_MULTI_REC_END	((::byte)31)	/*!< if a single mtr writes
 						several log records,
 						this log record ends the
 						sequence of these records */
-#define MLOG_DUMMY_RECORD	((byte)32)	/*!< dummy log record used to
+#define MLOG_DUMMY_RECORD	((::byte)32)	/*!< dummy log record used to
 						pad a log block full */
-#define MLOG_FILE_CREATE	((byte)33)	/*!< log record about an .ibd
+#define MLOG_FILE_CREATE	((::byte)33)	/*!< log record about an .ibd
 						file creation */
-#define MLOG_FILE_RENAME	((byte)34)	/*!< log record about an .ibd
+#define MLOG_FILE_RENAME	((::byte)34)	/*!< log record about an .ibd
 						file rename */
-#define MLOG_FILE_DELETE	((byte)35)	/*!< log record about an .ibd
+#define MLOG_FILE_DELETE	((::byte)35)	/*!< log record about an .ibd
 						file deletion */
-#define MLOG_COMP_REC_MIN_MARK	((byte)36)	/*!< mark a compact
+#define MLOG_COMP_REC_MIN_MARK	((::byte)36)	/*!< mark a compact
 						index record as the
 						predefined minimum
 						record */
-#define MLOG_COMP_PAGE_CREATE	((byte)37)	/*!< create a compact
+#define MLOG_COMP_PAGE_CREATE	((::byte)37)	/*!< create a compact
 						index page */
-#define MLOG_COMP_REC_INSERT	((byte)38)	/*!< compact record insert */
-#define MLOG_COMP_REC_CLUST_DELETE_MARK ((byte)39)
+#define MLOG_COMP_REC_INSERT	((::byte)38)	/*!< compact record insert */
+#define MLOG_COMP_REC_CLUST_DELETE_MARK ((::byte)39)
 						/*!< mark compact
 						clustered index record
 						deleted */
-#define MLOG_COMP_REC_SEC_DELETE_MARK ((byte)40)/*!< mark compact
+#define MLOG_COMP_REC_SEC_DELETE_MARK ((::byte)40)/*!< mark compact
 						secondary index record
 						deleted; this log
 						record type is
@@ -156,38 +156,38 @@ For 1 - 8 bytes, the flag value must give the length also! @{ */
 						MLOG_REC_SEC_DELETE_MARK
 						is independent of the
 						record format. */
-#define MLOG_COMP_REC_UPDATE_IN_PLACE ((byte)41)/*!< update of a
+#define MLOG_COMP_REC_UPDATE_IN_PLACE ((::byte)41)/*!< update of a
 						compact record,
 						preserves record field
 						sizes */
-#define MLOG_COMP_REC_DELETE	((byte)42)	/*!< delete a compact record
+#define MLOG_COMP_REC_DELETE	((::byte)42)	/*!< delete a compact record
 						from a page */
-#define MLOG_COMP_LIST_END_DELETE ((byte)43)	/*!< delete compact record list
+#define MLOG_COMP_LIST_END_DELETE ((::byte)43)	/*!< delete compact record list
 						end on index page */
-#define MLOG_COMP_LIST_START_DELETE ((byte)44)	/*!< delete compact record list
+#define MLOG_COMP_LIST_START_DELETE ((::byte)44)	/*!< delete compact record list
 						start on index page */
-#define MLOG_COMP_LIST_END_COPY_CREATED ((byte)45)
+#define MLOG_COMP_LIST_END_COPY_CREATED ((::byte)45)
 						/*!< copy compact
 						record list end to a
 						new created index
 						page */
-#define MLOG_COMP_PAGE_REORGANIZE ((byte)46)	/*!< reorganize an index page */
-#define MLOG_FILE_CREATE2	((byte)47)	/*!< log record about creating
+#define MLOG_COMP_PAGE_REORGANIZE ((::byte)46)	/*!< reorganize an index page */
+#define MLOG_FILE_CREATE2	((::byte)47)	/*!< log record about creating
 						an .ibd file, with format */
-#define MLOG_ZIP_WRITE_NODE_PTR	((byte)48)	/*!< write the node pointer of
+#define MLOG_ZIP_WRITE_NODE_PTR	((::byte)48)	/*!< write the node pointer of
 						a record on a compressed
 						non-leaf B-tree page */
-#define MLOG_ZIP_WRITE_BLOB_PTR	((byte)49)	/*!< write the BLOB pointer
+#define MLOG_ZIP_WRITE_BLOB_PTR	((::byte)49)	/*!< write the BLOB pointer
 						of an externally stored column
 						on a compressed page */
-#define MLOG_ZIP_WRITE_HEADER	((byte)50)	/*!< write to compressed page
+#define MLOG_ZIP_WRITE_HEADER	((::byte)50)	/*!< write to compressed page
 						header */
-#define MLOG_ZIP_PAGE_COMPRESS	((byte)51)	/*!< compress an index page */
-#define MLOG_ZIP_PAGE_COMPRESS_NO_DATA	((byte)52)/*!< compress an index page
+#define MLOG_ZIP_PAGE_COMPRESS	((::byte)51)	/*!< compress an index page */
+#define MLOG_ZIP_PAGE_COMPRESS_NO_DATA	((::byte)52)/*!< compress an index page
 						without logging it's image */
-#define MLOG_ZIP_PAGE_REORGANIZE ((byte)53)	/*!< reorganize a compressed
+#define MLOG_ZIP_PAGE_REORGANIZE ((::byte)53)	/*!< reorganize a compressed
 						page */
-#define MLOG_BIGGEST_TYPE	((byte)53)	/*!< biggest value (used in
+#define MLOG_BIGGEST_TYPE	((::byte)53)	/*!< biggest value (used in
 						assertions) */
 /* @} */
 
@@ -275,7 +275,7 @@ UNIV_INTERN
 ulint
 mtr_read_ulint(
 /*===========*/
-	const byte*	ptr,	/*!< in: pointer from where to read */
+	const ::byte*	ptr,	/*!< in: pointer from where to read */
 	ulint		type,	/*!< in: MLOG_1BYTE, MLOG_2BYTES, MLOG_4BYTES */
 	mtr_t*		mtr);	/*!< in: mini-transaction handle */
 #ifndef UNIV_HOTBACKUP
@@ -344,7 +344,7 @@ ibool
 mtr_memo_contains_page(
 /*===================*/
 	mtr_t*		mtr,	/*!< in: mtr */
-	const byte*	ptr,	/*!< in: pointer to buffer frame */
+	const ::byte*	ptr,	/*!< in: pointer to buffer frame */
 	ulint		type);	/*!< in: type of object */
 /*********************************************************//**
 Prints info of an mtr handle. */

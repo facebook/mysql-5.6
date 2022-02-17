@@ -71,13 +71,13 @@ size_t nmatch;
 my_regmatch_t pmatch[];
 int eflags;
 {
-	register char *endp;
+	char *endp;
 	register uint i;
 	struct match mv;
 	register struct match *m = &mv;
-	register char *dp;
-	register const sopno gf = g->firststate+1;	/* +1 for OEND */
-	register const sopno gl = g->laststate;
+	char *dp;
+	const sopno gf = g->firststate+1;	/* +1 for OEND */
+	const sopno gl = g->laststate;
 	char *start;
 	char *stop;
 
@@ -247,15 +247,15 @@ sopno stopst;
 	register uint i;
 	register sopno ss;	/* start sop of current subRE */
 	register sopno es;	/* end sop of current subRE */
-	register char *sp;	/* start of string matched by it */
-	register char *stp;	/* string matched by it cannot pass here */
-	register char *rest;	/* start of rest of string */
-	register char *tail;	/* string unmatched by rest of RE */
+	char *sp;	/* start of string matched by it */
+	char *stp;	/* string matched by it cannot pass here */
+	char *rest;	/* start of rest of string */
+	char *tail;	/* string unmatched by rest of RE */
 	register sopno ssub;	/* start sop of subsubRE */
 	register sopno esub;	/* end sop of subsubRE */
-	register char *ssp;	/* start of string matched by subsubRE */
-	register char *sep;	/* end of string matched by subsubRE */
-	register char *oldssp;	/* previous ssp */
+	char *ssp;	/* start of string matched by subsubRE */
+	char *sep;	/* end of string matched by subsubRE */
+	char *oldssp;	/* previous ssp */
 
 	AT("diss", start, stop, startst, stopst);
 	sp = start;
@@ -433,13 +433,13 @@ sopno lev;			/* PLUS nesting level */
 {
 	register uint i;
 	register sopno ss;	/* start sop of current subRE */
-	register char *sp;	/* start of string matched by it */
+	char *sp;	/* start of string matched by it */
 	register sopno ssub;	/* start sop of subsubRE */
 	register sopno esub;	/* end sop of subsubRE */
-	register char *ssp;	/* start of string matched by subsubRE */
-	register char *dp;
+	char *ssp;	/* start of string matched by subsubRE */
+	char *dp;
 	register size_t len;
-	register int hard;
+	int hard;
 	register sop s;
 	register my_regoff_t offsave;
 	register cset *cs;
@@ -639,12 +639,12 @@ sopno stopst;
 	register states st = m->st;
 	register states fresh = m->fresh;
 	register states tmp = m->tmp;
-	register char *p = start;
-	register int c = (start == m->beginp) ? OUT : *(start-1);
-	register int lastc;	/* previous c */
-	register int flagch;
-	register int i;
-	register char *coldp;	/* last p after which no match was underway */
+	char *p = start;
+	int c = (start == m->beginp) ? OUT : *(start-1);
+	int lastc;	/* previous c */
+	int flagch;
+	int i;
+	char *coldp;	/* last p after which no match was underway */
 
 	CLEAR(st);
 	SET1(st, startst);
@@ -731,12 +731,12 @@ sopno stopst;
 	register states st = m->st;
 	register states empty = m->empty;
 	register states tmp = m->tmp;
-	register char *p = start;
-	register int c = (start == m->beginp) ? OUT : *(start-1);
-	register int lastc;	/* previous c */
-	register int flagch;
-	register int i;
-	register char *matchp;	/* last p at which a match ended */
+	char *p = start;
+	int c = (start == m->beginp) ? OUT : *(start-1);
+	int lastc;	/* previous c */
+	int flagch;
+	int i;
+	char *matchp;	/* last p at which a match ended */
 
 	AT("slow", start, stop, startst, stopst);
 	CLEAR(st);
@@ -947,8 +947,8 @@ int ch;
 FILE *d;
 {
 	register struct re_guts *g = m->g;
-	register int i;
-	register int first = 1;
+	int i;
+	int first = 1;
 	char buf[10];
 
 	if (!(m->eflags&MY_REG_TRACE))

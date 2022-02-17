@@ -729,11 +729,11 @@ Parses the redo log record for setting an index record as the predefined
 minimum record.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_parse_set_min_rec_mark(
 /*=======================*/
-	byte*	ptr,	/*!< in: buffer */
-	byte*	end_ptr,/*!< in: buffer end */
+	::byte*	ptr,	/*!< in: buffer */
+	::byte*	end_ptr,/*!< in: buffer end */
 	ulint	comp,	/*!< in: nonzero=compact page format */
 	page_t*	page,	/*!< in: page or NULL */
 	mtr_t*	mtr)	/*!< in: mtr or NULL */
@@ -742,11 +742,11 @@ btr_parse_set_min_rec_mark(
 Parses a redo log record of reorganizing a page.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 btr_parse_page_reorganize(
 /*======================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr,/*!< in: buffer end */
 	dict_index_t*	index,	/*!< in: record descriptor */
 	bool		compressed,/*!< in: true if compressed page */
 	buf_block_t*	block,	/*!< in: page to be reorganized, or NULL */
@@ -792,7 +792,7 @@ btr_page_alloc(
 /*===========*/
 	dict_index_t*	index,		/*!< in: index tree */
 	ulint		hint_page_no,	/*!< in: hint of a good page */
-	byte		file_direction,	/*!< in: direction where a possible
+	::byte		file_direction,	/*!< in: direction where a possible
 					page split is made */
 	ulint		level,		/*!< in: level where the page is placed
 					in the tree */

@@ -123,7 +123,7 @@ row_log_table_delete(
 	dict_index_t*	index,	/*!< in/out: clustered index, S-latched
 				or X-latched */
 	const ulint*	offsets,/*!< in: rec_get_offsets(rec,index) */
-	const byte*	sys)	/*!< in: DB_TRX_ID,DB_ROLL_PTR that should
+	const ::byte*	sys)	/*!< in: DB_TRX_ID,DB_ROLL_PTR that should
 				be logged, or NULL to use those in rec */
 	UNIV_COLD MY_ATTRIBUTE((nonnull(1,2,3)));
 
@@ -158,7 +158,7 @@ row_log_table_get_pk(
 				or X-latched */
 	const ulint*	offsets,/*!< in: rec_get_offsets(rec,index),
 				or NULL */
-	byte*		sys,	/*!< out: DB_TRX_ID,DB_ROLL_PTR for
+	::byte*		sys,	/*!< out: DB_TRX_ID,DB_ROLL_PTR for
 				row_log_table_delete(), or NULL */
 	mem_heap_t**	heap)	/*!< in/out: memory heap where allocated */
 	UNIV_COLD MY_ATTRIBUTE((nonnull(1,2,5), warn_unused_result));

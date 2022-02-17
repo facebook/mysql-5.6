@@ -736,7 +736,7 @@ UNIV_INTERN
 void
 buf_flush_init_for_writing(
 /*=======================*/
-	byte*	page,		/*!< in/out: page */
+	::byte*	page,		/*!< in/out: page */
 	void*	page_zip_,	/*!< in/out: compressed page, or NULL */
 	lsn_t	newest_lsn)	/*!< in: newest modification lsn
 				to the page */
@@ -801,7 +801,7 @@ UNIV_INTERN
 void
 buf_update_uncompressed_page_checksums(
 /*=======================*/
-	byte*	page)		/*!< in/out: page */
+	::byte*	page)		/*!< in/out: page */
 {
 	ib_uint32_t	checksum = 0 /* silence bogus gcc warning */;
 

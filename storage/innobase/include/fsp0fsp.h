@@ -142,8 +142,8 @@ tablespace flags. */
 #define FSP_HEADER_OFFSET	FIL_PAGE_DATA
 
 /* The data structures in files are defined just as byte strings in C */
-typedef	byte	fsp_header_t;
-typedef	byte	xdes_t;
+typedef	::byte	fsp_header_t;
+typedef	::byte	xdes_t;
 
 /*			SPACE HEADER
 			============
@@ -212,7 +212,7 @@ purge we assume that a segment having only one currently used page can be
 freed in a few steps, so that the freeing cannot fill the file buffer with
 bufferfixed file pages. */
 
-typedef	byte	fseg_inode_t;
+typedef	::byte	fseg_inode_t;
 
 #define FSEG_INODE_PAGE_NODE	FSEG_PAGE_DATA
 					/* the list node for linking
@@ -488,7 +488,7 @@ fseg_alloc_free_page_general(
 	fseg_header_t*	seg_header,/*!< in/out: segment header */
 	ulint		hint,	/*!< in: hint of which page would be
 				desirable */
-	byte		direction,/*!< in: if the new page is needed because
+	::byte		direction,/*!< in: if the new page is needed because
 				of an index page split, and records are
 				inserted there in order, into which
 				direction they go alphabetically: FSP_DOWN,
@@ -613,11 +613,11 @@ fsp_descr_page(
 Parses a redo log record of a file page init.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 fsp_parse_init_file_page(
 /*=====================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr, /*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr, /*!< in: buffer end */
 	buf_block_t*	block);	/*!< in: block or NULL */
 /*******************************************************************//**
 Validates the file space system and its segments.

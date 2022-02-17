@@ -43,7 +43,7 @@ UNIV_INLINE
 void
 mach_write_to_1(
 /*============*/
-	byte*	b,	/*!< in: pointer to byte where to store */
+	::byte*	b,	/*!< in: pointer to byte where to store */
 	ulint	n);	 /*!< in: ulint integer to be stored, >= 0, < 256 */
 /********************************************************//**
 The following function is used to fetch data from one byte.
@@ -52,7 +52,7 @@ UNIV_INLINE
 ulint
 mach_read_from_1(
 /*=============*/
-	const byte*	b)	/*!< in: pointer to byte */
+	const ::byte*	b)	/*!< in: pointer to byte */
 	MY_ATTRIBUTE((nonnull, pure));
 /*******************************************************//**
 The following function is used to store data in two consecutive
@@ -61,7 +61,7 @@ UNIV_INLINE
 void
 mach_write_to_2(
 /*============*/
-	byte*	b,	/*!< in: pointer to two bytes where to store */
+	::byte*	b,	/*!< in: pointer to two bytes where to store */
 	ulint	n);	 /*!< in: ulint integer to be stored, >= 0, < 64k */
 /********************************************************//**
 The following function is used to fetch data from two consecutive
@@ -71,7 +71,7 @@ UNIV_INLINE
 ulint
 mach_read_from_2(
 /*=============*/
-	const byte*	b)	/*!< in: pointer to two bytes */
+	const ::byte*	b)	/*!< in: pointer to two bytes */
 	MY_ATTRIBUTE((nonnull, pure));
 
 /********************************************************//**
@@ -103,7 +103,7 @@ UNIV_INLINE
 void
 mach_write_to_3(
 /*============*/
-	byte*	b,	/*!< in: pointer to 3 bytes where to store */
+	::byte*	b,	/*!< in: pointer to 3 bytes where to store */
 	ulint	n);	 /*!< in: ulint integer to be stored */
 /********************************************************//**
 The following function is used to fetch data from 3 consecutive
@@ -113,7 +113,7 @@ UNIV_INLINE
 ulint
 mach_read_from_3(
 /*=============*/
-	const byte*	b)	/*!< in: pointer to 3 bytes */
+	const ::byte*	b)	/*!< in: pointer to 3 bytes */
 	MY_ATTRIBUTE((nonnull, pure));
 /*******************************************************//**
 The following function is used to store data in four consecutive
@@ -122,7 +122,7 @@ UNIV_INLINE
 void
 mach_write_to_4(
 /*============*/
-	byte*	b,	/*!< in: pointer to four bytes where to store */
+	::byte*	b,	/*!< in: pointer to four bytes where to store */
 	ulint	n);	 /*!< in: ulint integer to be stored */
 /********************************************************//**
 The following function is used to fetch data from 4 consecutive
@@ -132,7 +132,7 @@ UNIV_INLINE
 ulint
 mach_read_from_4(
 /*=============*/
-	const byte*	b)	/*!< in: pointer to four bytes */
+	const ::byte*	b)	/*!< in: pointer to four bytes */
 	MY_ATTRIBUTE((nonnull, pure));
 /*********************************************************//**
 Writes a ulint in a compressed form (1..5 bytes).
@@ -141,7 +141,7 @@ UNIV_INLINE
 ulint
 mach_write_compressed(
 /*==================*/
-	byte*	b,	/*!< in: pointer to memory where to store */
+	::byte*	b,	/*!< in: pointer to memory where to store */
 	ulint	n);	/*!< in: ulint integer to be stored */
 /*********************************************************//**
 Returns the size of an ulint when written in the compressed form.
@@ -159,7 +159,7 @@ UNIV_INLINE
 ulint
 mach_read_compressed(
 /*=================*/
-	const byte*	b)	/*!< in: pointer to memory from where to read */
+	const ::byte*	b)	/*!< in: pointer to memory from where to read */
 	MY_ATTRIBUTE((nonnull, pure));
 /*******************************************************//**
 The following function is used to store data in 6 consecutive
@@ -168,7 +168,7 @@ UNIV_INLINE
 void
 mach_write_to_6(
 /*============*/
-	byte*		b,	/*!< in: pointer to 6 bytes where to store */
+	::byte*		b,	/*!< in: pointer to 6 bytes where to store */
 	ib_uint64_t	id);	/*!< in: 48-bit integer */
 /********************************************************//**
 The following function is used to fetch data from 6 consecutive
@@ -178,7 +178,7 @@ UNIV_INLINE
 ib_uint64_t
 mach_read_from_6(
 /*=============*/
-	const byte*	b)	/*!< in: pointer to 6 bytes */
+	const ::byte*	b)	/*!< in: pointer to 6 bytes */
 	MY_ATTRIBUTE((nonnull, pure));
 /*******************************************************//**
 The following function is used to store data in 7 consecutive
@@ -187,7 +187,7 @@ UNIV_INLINE
 void
 mach_write_to_7(
 /*============*/
-	byte*		b,	/*!< in: pointer to 7 bytes where to store */
+	::byte*		b,	/*!< in: pointer to 7 bytes where to store */
 	ib_uint64_t	n);	/*!< in: 56-bit integer */
 /********************************************************//**
 The following function is used to fetch data from 7 consecutive
@@ -197,7 +197,7 @@ UNIV_INLINE
 ib_uint64_t
 mach_read_from_7(
 /*=============*/
-	const byte*	b)	/*!< in: pointer to 7 bytes */
+	const ::byte*	b)	/*!< in: pointer to 7 bytes */
 	MY_ATTRIBUTE((nonnull, pure));
 /*******************************************************//**
 The following function is used to store data in 8 consecutive
@@ -216,7 +216,7 @@ UNIV_INLINE
 ib_uint64_t
 mach_read_from_8(
 /*=============*/
-	const byte*	b)	/*!< in: pointer to 8 bytes */
+	const ::byte*	b)	/*!< in: pointer to 8 bytes */
 	MY_ATTRIBUTE((nonnull, pure));
 /*********************************************************//**
 Writes a 64-bit integer in a compressed form (5..9 bytes).
@@ -225,7 +225,7 @@ UNIV_INLINE
 ulint
 mach_ull_write_compressed(
 /*======================*/
-	byte*		b,	/*!< in: pointer to memory where to store */
+	::byte*		b,	/*!< in: pointer to memory where to store */
 	ib_uint64_t	n);	/*!< in: 64-bit integer to be stored */
 /*********************************************************//**
 Returns the size of a 64-bit integer when written in the compressed form.
@@ -242,7 +242,7 @@ UNIV_INLINE
 ib_uint64_t
 mach_ull_read_compressed(
 /*=====================*/
-	const byte*	b)	/*!< in: pointer to memory from where to read */
+	const ::byte*	b)	/*!< in: pointer to memory from where to read */
 	MY_ATTRIBUTE((nonnull, pure));
 /*********************************************************//**
 Writes a 64-bit integer in a compressed form (1..11 bytes).
@@ -251,7 +251,7 @@ UNIV_INLINE
 ulint
 mach_ull_write_much_compressed(
 /*===========================*/
-	byte*		b,	/*!< in: pointer to memory where to store */
+	::byte*		b,	/*!< in: pointer to memory where to store */
 	ib_uint64_t	n);	/*!< in: 64-bit integer to be stored */
 /*********************************************************//**
 Returns the size of a 64-bit integer when written in the compressed form.
@@ -269,28 +269,28 @@ UNIV_INLINE
 ib_uint64_t
 mach_ull_read_much_compressed(
 /*==========================*/
-	const byte*	b)	/*!< in: pointer to memory from where to read */
+	const ::byte*	b)	/*!< in: pointer to memory from where to read */
 	MY_ATTRIBUTE((nonnull, pure));
 /*********************************************************//**
 Reads a ulint in a compressed form if the log record fully contains it.
 @return	pointer to end of the stored field, NULL if not complete */
 UNIV_INTERN
-byte*
+::byte*
 mach_parse_compressed(
 /*==================*/
-	byte*	ptr,	/*!< in: pointer to buffer from where to read */
-	byte*	end_ptr,/*!< in: pointer to end of the buffer */
+	::byte*	ptr,	/*!< in: pointer to buffer from where to read */
+	::byte*	end_ptr,/*!< in: pointer to end of the buffer */
 	ulint*	val);	/*!< out: read value */
 /*********************************************************//**
 Reads a 64-bit integer in a compressed form
 if the log record fully contains it.
 @return pointer to end of the stored field, NULL if not complete */
 UNIV_INLINE
-byte*
+::byte*
 mach_ull_parse_compressed(
 /*======================*/
-	byte*		ptr,	/*!< in: pointer to buffer from where to read */
-	byte*		end_ptr,/*!< in: pointer to end of the buffer */
+	::byte*		ptr,	/*!< in: pointer to buffer from where to read */
+	::byte*		end_ptr,/*!< in: pointer to end of the buffer */
 	ib_uint64_t*	val);	/*!< out: read value */
 #ifndef UNIV_HOTBACKUP
 /*********************************************************//**
@@ -300,7 +300,7 @@ UNIV_INLINE
 double
 mach_double_read(
 /*=============*/
-	const byte*	b)	/*!< in: pointer to memory from where to read */
+	const ::byte*	b)	/*!< in: pointer to memory from where to read */
 	MY_ATTRIBUTE((nonnull, pure));
 /*********************************************************//**
 Writes a double. It is stored in a little-endian format. */
@@ -308,7 +308,7 @@ UNIV_INLINE
 void
 mach_double_write(
 /*==============*/
-	byte*	b,	/*!< in: pointer to memory where to write */
+	::byte*	b,	/*!< in: pointer to memory where to write */
 	double	d);	/*!< in: double */
 /*********************************************************//**
 Reads a float. It is stored in a little-endian format.
@@ -317,7 +317,7 @@ UNIV_INLINE
 float
 mach_float_read(
 /*============*/
-	const byte*	b)	/*!< in: pointer to memory from where to read */
+	const ::byte*	b)	/*!< in: pointer to memory from where to read */
 	MY_ATTRIBUTE((nonnull, pure));
 /*********************************************************//**
 Writes a float. It is stored in a little-endian format. */
@@ -325,7 +325,7 @@ UNIV_INLINE
 void
 mach_float_write(
 /*=============*/
-	byte*	b,	/*!< in: pointer to memory where to write */
+	::byte*	b,	/*!< in: pointer to memory where to write */
 	float	d);	/*!< in: float */
 /*********************************************************//**
 Reads a ulint stored in the little-endian format.
@@ -334,7 +334,7 @@ UNIV_INLINE
 ulint
 mach_read_from_n_little_endian(
 /*===========================*/
-	const byte*	buf,		/*!< in: from where to read */
+	const ::byte*	buf,		/*!< in: from where to read */
 	ulint		buf_size)	/*!< in: from how many bytes to read */
 	MY_ATTRIBUTE((nonnull, pure));
 /*********************************************************//**
@@ -343,7 +343,7 @@ UNIV_INLINE
 void
 mach_write_to_n_little_endian(
 /*==========================*/
-	byte*	dest,		/*!< in: where to write */
+	::byte*	dest,		/*!< in: where to write */
 	ulint	dest_size,	/*!< in: into how many bytes to write */
 	ulint	n);		/*!< in: unsigned long int to write */
 /*********************************************************//**
@@ -353,7 +353,7 @@ UNIV_INLINE
 ulint
 mach_read_from_2_little_endian(
 /*===========================*/
-	const byte*	buf)		/*!< in: from where to read */
+	const ::byte*	buf)		/*!< in: from where to read */
 	MY_ATTRIBUTE((nonnull, pure));
 /*********************************************************//**
 Writes a ulint in the little-endian format. */
@@ -361,7 +361,7 @@ UNIV_INLINE
 void
 mach_write_to_2_little_endian(
 /*==========================*/
-	byte*	dest,		/*!< in: where to write */
+	::byte*	dest,		/*!< in: where to write */
 	ulint	n);		/*!< in: unsigned long int to write */
 /*********************************************************//**
 Convert integral type from storage byte order (big endian) to
@@ -371,7 +371,7 @@ UNIV_INLINE
 ib_uint64_t
 mach_read_int_type(
 /*===============*/
-	const byte*	src,		/*!< in: where to read from */
+	const ::byte*	src,		/*!< in: where to read from */
 	ulint		len,		/*!< in: length of src */
 	ibool		unsigned_type);	/*!< in: signed or unsigned flag */
 /***********************************************************//**
@@ -381,8 +381,8 @@ UNIV_INLINE
 void
 mach_write_int_type(
 /*================*/
-	byte*		dest,		/*!< in: where to write*/
-	const byte*	src,		/*!< in: where to read from */
+	::byte*		dest,		/*!< in: where to write*/
+	const ::byte*	src,		/*!< in: where to read from */
 	ulint		len,		/*!< in: length of src */
 	bool		usign);		/*!< in: signed or unsigned flag */
 
@@ -393,7 +393,7 @@ UNIV_INLINE
 void
 mach_write_ulonglong(
 /*=================*/
-	byte*		dest,		/*!< in: where to write */
+	::byte*		dest,		/*!< in: where to write */
 	ulonglong	src,		/*!< in: where to read from */
 	ulint		len,		/*!< in: length of dest */
 	bool		usign);		/*!< in: signed or unsigned flag */
@@ -405,7 +405,7 @@ UNIV_INLINE
 ulint
 mach_read_ulint(
 /*============*/
-	const byte*	ptr,	/*!< in: pointer from where to read */
+	const ::byte*	ptr,	/*!< in: pointer from where to read */
 	ulint		type);	/*!< in: MLOG_1BYTE, MLOG_2BYTES, MLOG_4BYTES */
 
 #endif /* !UNIV_HOTBACKUP */

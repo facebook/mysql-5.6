@@ -137,7 +137,7 @@ UNIV_INLINE
 void
 data_write_sql_null(
 /*================*/
-	byte*	data,	/*!< in: pointer to a buffer of size len */
+	::byte*	data,	/*!< in: pointer to a buffer of size len */
 	ulint	len)	/*!< in: SQL null size in bytes */
 	MY_ATTRIBUTE((nonnull));
 /*********************************************************************//**
@@ -191,7 +191,7 @@ dfield_data_is_binary_equal(
 /*========================*/
 	const dfield_t*	field,	/*!< in: field */
 	ulint		len,	/*!< in: data length or UNIV_SQL_NULL */
-	const byte*	data)	/*!< in: data */
+	const ::byte*	data)	/*!< in: data */
 	MY_ATTRIBUTE((nonnull, warn_unused_result));
 #endif /* !UNIV_HOTBACKUP */
 /*********************************************************************//**

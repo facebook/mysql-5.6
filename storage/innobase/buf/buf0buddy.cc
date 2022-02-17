@@ -157,7 +157,7 @@ UNIV_INLINE
 void*
 buf_buddy_get(
 /*==========*/
-	byte*	page,	/*!< in: compressed page */
+	::byte*	page,	/*!< in: compressed page */
 	ulint	size)	/*!< in: page size in bytes */
 {
 	ut_ad(ut_is_2pow(size));
@@ -327,7 +327,7 @@ buf_buddy_alloc_zip(
 	if (buf_pool->curr_size < buf_pool->old_size) {
 		while (buf
 		       && buf_frame_will_withdrawn(
-			       buf_pool, reinterpret_cast<byte*>(buf))) {
+			       buf_pool, reinterpret_cast<::byte*>(buf))) {
 			/* This should be withdrawn, not to be allocated */
 			buf = UT_LIST_GET_NEXT(list, buf);
 		}
@@ -460,7 +460,7 @@ buf_buddy_alloc_from(
 		j--;
 
 		zip_buf = reinterpret_cast<buf_buddy_free_t*>(
-			reinterpret_cast<byte*>(buf) + offs);
+			reinterpret_cast<::byte*>(buf) + offs);
 		buf_buddy_add_to_free(buf_pool, zip_buf, j);
 	}
 
@@ -554,9 +554,9 @@ buf_buddy_relocate(
 	ut_ad(i >= buf_buddy_get_slot(UNIV_ZIP_SIZE_MIN));
 	UNIV_MEM_ASSERT_W(dst, size);
 
-	space	= mach_read_from_4((const byte*) src
+	space	= mach_read_from_4((const ::byte*) src
 				   + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-	offset	= mach_read_from_4((const byte*) src
+	offset	= mach_read_from_4((const ::byte*) src
 				   + FIL_PAGE_OFFSET);
 
 	/* Suppress Valgrind warnings about conditional jump
@@ -707,7 +707,7 @@ recombine:
 
 	/* Try to combine adjacent blocks. */
 	buddy = reinterpret_cast<buf_buddy_free_t*>(
-		buf_buddy_get(reinterpret_cast<byte*>(buf),
+		buf_buddy_get(reinterpret_cast<::byte*>(buf),
 			      BUF_BUDDY_LOW << i));
 
 	switch (buf_buddy_is_free(buddy, i)) {
@@ -840,7 +840,7 @@ buf_buddy_condense_free(
 		/* seek to withdraw target */
 		while (buf != NULL
 		       && !buf_frame_will_withdrawn(
-				buf_pool, reinterpret_cast<byte*>(buf))) {
+				buf_pool, reinterpret_cast<::byte*>(buf))) {
 			buf = UT_LIST_GET_NEXT(list, buf);
 		}
 
@@ -851,14 +851,14 @@ buf_buddy_condense_free(
 			buf_buddy_free_t* buddy =
 				reinterpret_cast<buf_buddy_free_t*>(
 					buf_buddy_get(
-						reinterpret_cast<byte*>(buf),
+						reinterpret_cast<::byte*>(buf),
 						BUF_BUDDY_LOW << i));
 
 seek_more:
 			/* seek to the next withdraw target */
 			while (next != NULL
 			       && !buf_frame_will_withdrawn(
-				       buf_pool, reinterpret_cast<byte*>(next))) {
+				       buf_pool, reinterpret_cast<::byte*>(next))) {
 				next = UT_LIST_GET_NEXT(list, next);
 			}
 

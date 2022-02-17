@@ -556,7 +556,7 @@ Checks if a page is all zeroes.
 bool
 buf_page_is_zeroes(
 /*===============*/
-	const byte*	read_buf,	/*!< in: a database page */
+	const ::byte*	read_buf,	/*!< in: a database page */
 	const ulint	zip_size)	/*!< in: size of compressed page;
 					0 for uncompressed pages */
 {
@@ -578,7 +578,7 @@ buf_page_is_zeroes(
 UNIV_INLINE
 bool
 buf_page_is_checksum_valid_crc32(
-	const byte*	read_buf,
+	const ::byte*	read_buf,
 	ulint		checksum_field1,
 	ulint		checksum_field2)
 {
@@ -595,7 +595,7 @@ buf_page_is_checksum_valid_crc32(
 UNIV_INLINE
 bool
 buf_page_is_checksum_valid_innodb(
-	const byte*	read_buf,
+	const ::byte*	read_buf,
 	ulint		checksum_field1,
 	ulint		checksum_field2)
 {
@@ -635,7 +635,7 @@ buf_page_is_checksum_valid_innodb(
 UNIV_INLINE
 bool
 buf_page_is_checksum_valid_none(
-	const byte*	read_buf,
+	const ::byte*	read_buf,
 	ulint		checksum_field1,
 	ulint		checksum_field2)
 {
@@ -652,7 +652,7 @@ buf_page_is_corrupted(
 /*==================*/
 	bool		check_lsn,	/*!< in: true if we need to check
 					and complain about the LSN */
-	const byte*	read_buf,	/*!< in: a database page */
+	const ::byte*	read_buf,	/*!< in: a database page */
 	ulint		zip_size)	/*!< in: size of compressed page;
 					0 for uncompressed pages */
 {
@@ -912,7 +912,7 @@ UNIV_INTERN
 void
 buf_page_print(
 /*===========*/
-	const byte*	read_buf,	/*!< in: a database page */
+	const ::byte*	read_buf,	/*!< in: a database page */
 	ulint		zip_size,	/*!< in: compressed page size, or
 					0 for uncompressed pages */
 	ulint		flags)		/*!< in: 0 or
@@ -1156,7 +1156,7 @@ buf_block_init(
 /*===========*/
 	buf_pool_t*	buf_pool,	/*!< in: buffer pool instance */
 	buf_block_t*	block,		/*!< in: pointer to control block */
-	byte*		frame)		/*!< in: pointer to buffer frame */
+	::byte*		frame)		/*!< in: pointer to buffer frame */
 {
 	UNIV_MEM_DESC(frame, UNIV_PAGE_SIZE);
 
@@ -1231,7 +1231,7 @@ buf_chunk_init(
 	ibool		populate)	/*!< in: virtual page preallocation */
 {
 	buf_block_t*	block;
-	byte*		frame;
+	::byte*		frame;
 	ulint		i;
 
 	/* Round down to a multiple of page size,
@@ -1276,7 +1276,7 @@ buf_chunk_init(
 	we may allocate one fewer block than requested.  When
 	it is bigger, we may allocate more blocks than requested. */
 
-	frame = (byte*) ut_align(chunk->mem, UNIV_PAGE_SIZE);
+	frame = (::byte*) ut_align(chunk->mem, UNIV_PAGE_SIZE);
 	chunk->size = chunk->mem_size / UNIV_PAGE_SIZE
 		- (frame != chunk->mem);
 
@@ -1284,7 +1284,7 @@ buf_chunk_init(
 	{
 		ulint	size = chunk->size;
 
-		while (frame < (byte*) (chunk->blocks + size)) {
+		while (frame < (::byte*) (chunk->blocks + size)) {
 			frame += UNIV_PAGE_SIZE;
 			size--;
 		}
@@ -2008,7 +2008,7 @@ Determines if a frame is intended to be withdrawn.
 bool
 buf_frame_will_withdrawn(
 	buf_pool_t*	buf_pool,
-	const byte*	ptr)
+	const ::byte*	ptr)
 {
 	ut_ad(buf_pool->curr_size < buf_pool->old_size);
 	ut_ad(srv_buf_pool_chunk_unit > 0);
@@ -2233,7 +2233,7 @@ buf_pool_withdraw_blocks(
 			if (bpage->zip.data != NULL
 			    && buf_frame_will_withdrawn(
 				buf_pool,
-				static_cast<byte*>(bpage->zip.data))) {
+				static_cast<::byte*>(bpage->zip.data))) {
 
 				if (buf_page_can_relocate(bpage)) {
 					mutex_exit(block_mutex);
@@ -3976,7 +3976,7 @@ buf_zip_decompress(
 	buf_block_t*	block,	/*!< in/out: block */
 	ibool		check)	/*!< in: TRUE=verify the page checksum */
 {
-	const byte*	frame = block->page.zip.data;
+	const ::byte*	frame = block->page.zip.data;
 	ulint		size = page_zip_get_size(&block->page.zip);
 
 	ut_ad(buf_block_get_zip_size(block));
@@ -4046,7 +4046,7 @@ buf_block_align_instance(
 /*=====================*/
  	buf_pool_t*	buf_pool,	/*!< in: buffer in which the block
 					resides */
-	const byte*	ptr)		/*!< in: pointer to a frame */
+	const ::byte*	ptr)		/*!< in: pointer to a frame */
 {
 	buf_chunk_t*	chunk;
 	ulint		i;
@@ -4136,7 +4136,7 @@ UNIV_INTERN
 buf_block_t*
 buf_block_align(
 /*============*/
-	const byte*	ptr)	/*!< in: pointer to a frame */
+	const ::byte*	ptr)	/*!< in: pointer to a frame */
 {
 	ulint		i;
 
@@ -5722,7 +5722,7 @@ buf_page_monitor(
 	const buf_page_t*	bpage,	/*!< in: pointer to the block */
 	enum buf_io_fix		io_type)/*!< in: io_fix types */
 {
-	const byte*	frame;
+	const ::byte*	frame;
 	monitor_id_t	counter;
 
 	/* If the counter module is not turned on, just return */
@@ -5882,7 +5882,7 @@ buf_page_io_complete(
 	buf_pool_t*	buf_pool = buf_pool_from_bpage(bpage);
 	const ibool	uncompressed = (buf_page_get_state(bpage)
 					== BUF_BLOCK_FILE_PAGE);
-	byte*	frame = NULL;
+	::byte*	frame = NULL;
 
 	ut_a(buf_page_in_file(bpage));
 

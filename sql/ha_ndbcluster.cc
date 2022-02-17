@@ -6468,7 +6468,7 @@ int ha_ndbcluster::index_read_last(uchar * buf, const uchar * key, uint key_len)
   */
 int ha_ndbcluster::read_first_row(uchar * buf, uint primary_key)
 {
-  register int error;
+  int error;
   DBUG_ENTER("ha_ndbcluster::read_first_row");
 
   ha_statistic_increment(&SSV::ha_read_first_count);

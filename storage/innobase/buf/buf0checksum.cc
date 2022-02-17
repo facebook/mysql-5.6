@@ -51,7 +51,7 @@ UNIV_INTERN
 ib_uint32_t
 buf_calc_page_crc32(
 /*================*/
-	const byte*	page)	/*!< in: buffer page */
+	const ::byte*	page)	/*!< in: buffer page */
 {
 	ib_uint32_t	checksum;
 
@@ -76,7 +76,7 @@ UNIV_INTERN
 dual_crc
 buf_calc_page_crc32fb(
 /*================*/
-	const byte*	page)	/*!< in: buffer page */
+	const ::byte*	page)	/*!< in: buffer page */
 {
 	dual_crc	checksum;
 	ib_uint32_t	c1;
@@ -101,7 +101,7 @@ UNIV_INTERN
 ulint
 buf_calc_page_new_checksum(
 /*=======================*/
-	const byte*	page)	/*!< in: buffer page */
+	const ::byte*	page)	/*!< in: buffer page */
 {
 	ulint checksum;
 
@@ -135,7 +135,7 @@ UNIV_INTERN
 ulint
 buf_calc_page_old_checksum(
 /*=======================*/
-	const byte*	page)	/*!< in: buffer page */
+	const ::byte*	page)	/*!< in: buffer page */
 {
 	ulint checksum;
 

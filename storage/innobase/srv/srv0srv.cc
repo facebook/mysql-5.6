@@ -218,7 +218,7 @@ with mutex_enter(), which will wait until it gets the mutex. */
 
 /** The sort order table of the MySQL latin1_swedish_ci character set
 collation */
-UNIV_INTERN const byte*	srv_latin1_ordering;
+UNIV_INTERN const ::byte*	srv_latin1_ordering;
 
 /* use os/external memory allocator */
 UNIV_INTERN my_bool	srv_use_sys_malloc	= TRUE;

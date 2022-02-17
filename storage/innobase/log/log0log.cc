@@ -193,7 +193,7 @@ log_buffer_extend(
 {
 	ulint	move_start;
 	ulint	move_end;
-	byte	tmp_buf[OS_FILE_LOG_BLOCK_SIZE];
+	::byte	tmp_buf[OS_FILE_LOG_BLOCK_SIZE];
 
 	mutex_enter(&(log_sys->mutex));
 
@@ -243,11 +243,11 @@ log_buffer_extend(
 	/* reallocate log buffer */
 	srv_log_buffer_size = len / UNIV_PAGE_SIZE + 1;
 	mem_free(log_sys->buf_ptr);
-	log_sys->buf_ptr = static_cast<byte*>(
+	log_sys->buf_ptr = static_cast<::byte*>(
 		mem_zalloc(LOG_BUFFER_SIZE +
 			   max((ulong)OS_FILE_LOG_BLOCK_SIZE,
 			       srv_trx_log_write_block_size)));
-	log_sys->buf = static_cast<byte*>(
+	log_sys->buf = static_cast<::byte*>(
 		ut_align(log_sys->buf_ptr, OS_FILE_LOG_BLOCK_SIZE));
 	log_sys->buf_size = LOG_BUFFER_SIZE;
 	log_sys->max_buf_free = log_sys->buf_size / LOG_BUF_FLUSH_RATIO
@@ -374,13 +374,13 @@ UNIV_INTERN
 void
 log_write_low(
 /*==========*/
-	byte*	str,		/*!< in: string */
+	::byte*	str,		/*!< in: string */
 	ulint	str_len)	/*!< in: string length */
 {
 	log_t*	log	= log_sys;
 	ulint	len;
 	ulint	data_len;
-	byte*	log_block;
+	::byte*	log_block;
 
 	ut_ad(mutex_own(&(log->mutex)));
 part_loop:
@@ -407,7 +407,7 @@ part_loop:
 	str_len -= len;
 	str = str + len;
 
-	log_block = static_cast<byte*>(
+	log_block = static_cast<::byte*>(
 		ut_align_down(
 			log->buf + log->buf_free, OS_FILE_LOG_BLOCK_SIZE));
 
@@ -447,7 +447,7 @@ lsn_t
 log_close(void)
 /*===========*/
 {
-	byte*		log_block;
+	::byte*		log_block;
 	ulint		first_rec_group;
 	lsn_t		oldest_lsn;
 	lsn_t		lsn;
@@ -459,7 +459,7 @@ log_close(void)
 
 	lsn = log->lsn;
 
-	log_block = static_cast<byte*>(
+	log_block = static_cast<::byte*>(
 		ut_align_down(
 			log->buf + log->buf_free, OS_FILE_LOG_BLOCK_SIZE));
 
@@ -893,12 +893,12 @@ log_init(void)
 	ut_a(LOG_BUFFER_SIZE >= 16 * OS_FILE_LOG_BLOCK_SIZE);
 	ut_a(LOG_BUFFER_SIZE >= 4 * UNIV_PAGE_SIZE);
 
-	log_sys->buf_ptr = static_cast<byte*>(
+	log_sys->buf_ptr = static_cast<::byte*>(
 		mem_zalloc(LOG_BUFFER_SIZE +
 			   max((ulong)OS_FILE_LOG_BLOCK_SIZE,
 			       srv_trx_log_write_block_size)));
 
-	log_sys->buf = static_cast<byte*>(
+	log_sys->buf = static_cast<::byte*>(
 		ut_align(log_sys->buf_ptr, OS_FILE_LOG_BLOCK_SIZE));
 
 	log_sys->buf_size = LOG_BUFFER_SIZE;
@@ -959,10 +959,10 @@ log_init(void)
 	rw_lock_create(checkpoint_lock_key, &log_sys->checkpoint_lock,
 		       SYNC_NO_ORDER_CHECK);
 
-	log_sys->checkpoint_buf_ptr = static_cast<byte*>(
+	log_sys->checkpoint_buf_ptr = static_cast<::byte*>(
 		mem_zalloc(2 * OS_FILE_LOG_BLOCK_SIZE));
 
-	log_sys->checkpoint_buf = static_cast<byte*>(
+	log_sys->checkpoint_buf = static_cast<::byte*>(
 		ut_align(log_sys->checkpoint_buf_ptr, OS_FILE_LOG_BLOCK_SIZE));
 
 	/*----------------------------*/
@@ -1050,33 +1050,33 @@ log_group_init(
 	group->lsn_offset = LOG_FILE_HDR_SIZE;
 	group->n_pending_writes = 0;
 
-	group->file_header_bufs_ptr = static_cast<byte**>(
-		mem_zalloc(sizeof(byte*) * n_files));
+	group->file_header_bufs_ptr = static_cast<::byte**>(
+		mem_zalloc(sizeof(::byte*) * n_files));
 
-	group->file_header_bufs = static_cast<byte**>(
-		mem_zalloc(sizeof(byte**) * n_files));
+	group->file_header_bufs = static_cast<::byte**>(
+		mem_zalloc(sizeof(::byte**) * n_files));
 
 #ifdef UNIV_LOG_ARCHIVE
-	group->archive_file_header_bufs_ptr = static_cast<byte*>(
-		mem_zalloc( sizeof(byte*) * n_files));
+	group->archive_file_header_bufs_ptr = static_cast<::byte*>(
+		mem_zalloc( sizeof(::byte*) * n_files));
 
-	group->archive_file_header_bufs = static_cast<byte*>(
-		mem_zalloc(sizeof(byte*) * n_files));
+	group->archive_file_header_bufs = static_cast<::byte*>(
+		mem_zalloc(sizeof(::byte*) * n_files));
 #endif /* UNIV_LOG_ARCHIVE */
 
 	for (i = 0; i < n_files; i++) {
-		group->file_header_bufs_ptr[i] = static_cast<byte*>(
+		group->file_header_bufs_ptr[i] = static_cast<::byte*>(
 			mem_zalloc(LOG_FILE_HDR_SIZE + OS_FILE_LOG_BLOCK_SIZE));
 
-		group->file_header_bufs[i] = static_cast<byte*>(
+		group->file_header_bufs[i] = static_cast<::byte*>(
 			ut_align(group->file_header_bufs_ptr[i],
 				 OS_FILE_LOG_BLOCK_SIZE));
 
 #ifdef UNIV_LOG_ARCHIVE
-		group->archive_file_header_bufs_ptr[i] = static_cast<byte*>(
+		group->archive_file_header_bufs_ptr[i] = static_cast<::byte*>(
 			mem_zalloc(LOG_FILE_HDR_SIZE + OS_FILE_LOG_BLOCK_SIZE));
 
-		group->archive_file_header_bufs[i] = static_cast<byte*>(
+		group->archive_file_header_bufs[i] = static_cast<::byte*>(
 			ut_align(group->archive_file_header_bufs_ptr[i],
 				 OS_FILE_LOG_BLOCK_SIZE));
 #endif /* UNIV_LOG_ARCHIVE */
@@ -1089,10 +1089,10 @@ log_group_init(
 	group->archived_offset = 0;
 #endif /* UNIV_LOG_ARCHIVE */
 
-	group->checkpoint_buf_ptr = static_cast<byte*>(
+	group->checkpoint_buf_ptr = static_cast<::byte*>(
 		mem_zalloc(2 * OS_FILE_LOG_BLOCK_SIZE));
 
-	group->checkpoint_buf = static_cast<byte*>(
+	group->checkpoint_buf = static_cast<::byte*>(
 		ut_align(group->checkpoint_buf_ptr,OS_FILE_LOG_BLOCK_SIZE));
 
 	UT_LIST_ADD_LAST(log_groups, log_sys->log_groups, group);
@@ -1219,7 +1219,7 @@ log_io_complete(
 	ulint	unlock;
 
 #ifdef UNIV_LOG_ARCHIVE
-	if ((byte*) group == &log_archive_io) {
+	if ((::byte*) group == &log_archive_io) {
 		/* It was an archive write */
 
 		log_io_complete_archive();
@@ -1292,7 +1292,7 @@ log_group_file_header_flush(
 	lsn_t		start_lsn)	/*!< in: log file data starts at this
 					lsn */
 {
-	byte*	buf;
+	::byte*	buf;
 	lsn_t	dest_offset;
 
 	ut_ad(mutex_own(&(log_sys->mutex)));
@@ -1341,7 +1341,7 @@ static
 void
 log_block_store_checksum(
 /*=====================*/
-	byte*	block)	/*!< in/out: pointer to a log block */
+	::byte*	block)	/*!< in/out: pointer to a log block */
 {
 	log_block_set_checksum(block, log_block_calc_checksum(block));
 }
@@ -1353,7 +1353,7 @@ void
 log_group_write_buf(
 /*================*/
 	log_group_t*	group,		/*!< in: log group */
-	byte*		buf,		/*!< in: buffer */
+	::byte*		buf,		/*!< in: buffer */
 	ulint		len,		/*!< in: buffer len; must be divisible
 					by OS_FILE_LOG_BLOCK_SIZE */
 	lsn_t		start_lsn,	/*!< in: start lsn of the buffer; must
@@ -1884,7 +1884,7 @@ static
 void
 log_checkpoint_set_nth_group_info(
 /*==============================*/
-	byte*	buf,	/*!< in: buffer for checkpoint info */
+	::byte*	buf,	/*!< in: buffer for checkpoint info */
 	ulint	n,	/*!< in: nth slot */
 	ulint	file_no,/*!< in: archived file number */
 	ulint	offset)	/*!< in: archived file offset */
@@ -1903,7 +1903,7 @@ UNIV_INTERN
 void
 log_checkpoint_get_nth_group_info(
 /*==============================*/
-	const byte*	buf,	/*!< in: buffer containing checkpoint info */
+	const ::byte*	buf,	/*!< in: buffer containing checkpoint info */
 	ulint		n,	/*!< in: nth slot */
 	ulint*		file_no,/*!< out: archived file number */
 	ulint*		offset)	/*!< out: archived file offset */
@@ -1932,7 +1932,7 @@ log_group_checkpoint(
 	lsn_t		lsn_offset;
 	ulint		write_offset;
 	ulint		fold;
-	byte*		buf;
+	::byte*		buf;
 	ulint		i;
 
 	ut_ad(!srv_read_only_mode);
@@ -2029,7 +2029,7 @@ log_group_checkpoint(
 		       write_offset / UNIV_PAGE_SIZE,
 		       write_offset % UNIV_PAGE_SIZE,
 		       OS_FILE_LOG_BLOCK_SIZE,
-		       buf, ((byte*) group + 1));
+		       buf, ((::byte*) group + 1));
 
 		ut_ad(((ulint) group & 0x1UL) == 0);
 	}
@@ -2044,14 +2044,14 @@ UNIV_INTERN
 void
 log_reset_first_header_and_checkpoint(
 /*==================================*/
-	byte*		hdr_buf,/*!< in: buffer which will be written to the
+	::byte*		hdr_buf,/*!< in: buffer which will be written to the
 				start of the first log file */
 	ib_uint64_t	start)	/*!< in: lsn of the start of the first log file;
 				we pretend that there is a checkpoint at
 				start + LOG_BLOCK_HDR_SIZE */
 {
 	ulint		fold;
-	byte*		buf;
+	::byte*		buf;
 	ib_uint64_t	lsn;
 
 	mach_write_to_4(hdr_buf + LOG_GROUP_ID, 0);
@@ -2361,7 +2361,7 @@ void
 log_group_read_log_seg(
 /*===================*/
 	ulint		type,		/*!< in: LOG_ARCHIVE or LOG_RECOVER */
-	byte*		buf,		/*!< in: buffer where to read */
+	::byte*		buf,		/*!< in: buffer where to read */
 	log_group_t*	group,		/*!< in: log group */
 	lsn_t		start_lsn,	/*!< in: read area start */
 	lsn_t		end_lsn)	/*!< in: read area end */
@@ -2445,7 +2445,7 @@ log_group_archive_file_header_write(
 	ib_uint64_t	start_lsn)	/*!< in: log file data starts at this
 					lsn */
 {
-	byte*	buf;
+	::byte*	buf;
 	ulint	dest_offset;
 
 	ut_ad(mutex_own(&(log_sys->mutex)));
@@ -2484,7 +2484,7 @@ log_group_archive_completed_header_write(
 					archive log file space */
 	ib_uint64_t	end_lsn)	/*!< in: end lsn of the file */
 {
-	byte*	buf;
+	::byte*	buf;
 	ulint	dest_offset;
 
 	ut_ad(mutex_own(&(log_sys->mutex)));
@@ -2521,7 +2521,7 @@ log_group_archive(
 	lsn_t		start_lsn;
 	lsn_t		end_lsn;
 	char		name[1024];
-	byte*		buf;
+	::byte*		buf;
 	ulint		len;
 	ibool		ret;
 	lsn_t		next_offset;
@@ -3586,7 +3586,7 @@ UNIV_INTERN
 ibool
 log_check_log_recs(
 /*===============*/
-	const byte*	buf,		/*!< in: pointer to the start of
+	const ::byte*	buf,		/*!< in: pointer to the start of
 					the log segment in the
 					log_sys->buf log buffer */
 	ulint		len,		/*!< in: segment length in bytes */
@@ -3594,10 +3594,10 @@ log_check_log_recs(
 {
 	ib_uint64_t	contiguous_lsn;
 	ib_uint64_t	scanned_lsn;
-	const byte*	start;
-	const byte*	end;
-	byte*		buf1;
-	byte*		scan_buf;
+	const ::byte*	start;
+	const ::byte*	end;
+	::byte*		buf1;
+	::byte*		scan_buf;
 
 	ut_ad(mutex_own(&(log_sys->mutex)));
 

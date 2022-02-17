@@ -54,7 +54,7 @@ uint _mi_make_key(register MI_INFO *info, uint keynr, uchar *key,
 {
   uchar *pos;
   uchar *start;
-  reg1 HA_KEYSEG *keyseg;
+  HA_KEYSEG *keyseg;
   my_bool is_ft= info->s->keyinfo[keynr].flag & HA_FULLTEXT;
   DBUG_ENTER("_mi_make_key");
 
@@ -330,9 +330,9 @@ uint _mi_pack_key(register MI_INFO *info, uint keynr, uchar *key, uchar *old,
 static int _mi_put_key_in_record(register MI_INFO *info, uint keynr, 
                                  my_bool unpack_blobs, uchar *record)
 {
-  reg2 uchar *key;
+  uchar *key;
   uchar *pos,*key_end;
-  reg1 HA_KEYSEG *keyseg;
+  HA_KEYSEG *keyseg;
   uchar *blob_ptr;
   DBUG_ENTER("_mi_put_key_in_record");
 

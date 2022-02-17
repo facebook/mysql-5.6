@@ -653,11 +653,11 @@ ibuf_bitmap_page_init(
 Parses a redo log record of an ibuf bitmap page init.
 @return	end of log record or NULL */
 UNIV_INTERN
-byte*
+::byte*
 ibuf_parse_bitmap_init(
 /*===================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr MY_ATTRIBUTE((unused)), /*!< in: buffer end */
+	::byte*		ptr,	/*!< in: buffer */
+	::byte*		end_ptr MY_ATTRIBUTE((unused)), /*!< in: buffer end */
 	buf_block_t*	block,	/*!< in: block or NULL */
 	mtr_t*		mtr)	/*!< in: mtr or NULL */
 {
@@ -1251,7 +1251,7 @@ ibuf_rec_get_page_no_func(
 #endif /* UNIV_DEBUG */
 	const rec_t*	rec)	/*!< in: ibuf record */
 {
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 
 	ut_ad(mtr_memo_contains_page(mtr, rec, MTR_MEMO_PAGE_X_FIX)
@@ -1289,7 +1289,7 @@ ibuf_rec_get_space_func(
 #endif /* UNIV_DEBUG */
 	const rec_t*	rec)	/*!< in: ibuf record */
 {
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 
 	ut_ad(mtr_memo_contains_page(mtr, rec, MTR_MEMO_PAGE_X_FIX)
@@ -1332,7 +1332,7 @@ ibuf_rec_get_info_func(
 					NULL */
 	ulint*		counter)	/*!< in: counter value, or NULL */
 {
-	const byte*	types;
+	const ::byte*	types;
 	ulint		fields;
 	ulint		len;
 
@@ -1445,7 +1445,7 @@ ibuf_rec_get_counter(
 /*=================*/
 	const rec_t*	rec)	/*!< in: ibuf record */
 {
-	const byte*	ptr;
+	const ::byte*	ptr;
 	ulint		len;
 
 	if (rec_get_n_fields_old(rec) <= IBUF_REC_FIELD_METADATA) {
@@ -1614,8 +1614,8 @@ ibuf_build_entry_from_ibuf_rec_func(
 	dtuple_t*	tuple;
 	dfield_t*	field;
 	ulint		n_fields;
-	const byte*	types;
-	const byte*	data;
+	const ::byte*	types;
+	const ::byte*	data;
 	ulint		len;
 	ulint		info_len;
 	ulint		i;
@@ -1682,7 +1682,7 @@ ulint
 ibuf_rec_get_size(
 /*==============*/
 	const rec_t*	rec,			/*!< in: ibuf record */
-	const byte*	types,			/*!< in: fields */
+	const ::byte*	types,			/*!< in: fields */
 	ulint		n_fields,		/*!< in: number of fields */
 	ulint		comp)			/*!< in: 0=ROW_FORMAT=REDUNDANT,
 						nonzero=ROW_FORMAT=COMPACT */
@@ -1736,8 +1736,8 @@ ibuf_rec_get_volume_func(
 	const rec_t*	ibuf_rec)/*!< in: ibuf record */
 {
 	ulint		len;
-	const byte*	data;
-	const byte*	types;
+	const ::byte*	data;
+	const ::byte*	types;
 	ulint		n_fields;
 	ulint		data_size;
 	ulint		comp;
@@ -1819,9 +1819,9 @@ ibuf_entry_build(
 	dfield_t*	field;
 	const dfield_t*	entry_field;
 	ulint		n_fields;
-	byte*		buf;
-	byte*		ti;
-	byte*		type_info;
+	::byte*		buf;
+	::byte*		ti;
+	::byte*		type_info;
 	ulint		i;
 
 	ut_ad(counter != ULINT_UNDEFINED || op == IBUF_OP_INSERT);
@@ -1845,7 +1845,7 @@ ibuf_entry_build(
 
 	field = dtuple_get_nth_field(tuple, IBUF_REC_FIELD_SPACE);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 
 	mach_write_to_4(buf, space);
 
@@ -1855,7 +1855,7 @@ ibuf_entry_build(
 
 	field = dtuple_get_nth_field(tuple, IBUF_REC_FIELD_MARKER);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 1));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 1));
 
 	/* We set the marker byte zero */
 
@@ -1867,7 +1867,7 @@ ibuf_entry_build(
 
 	field = dtuple_get_nth_field(tuple, IBUF_REC_FIELD_PAGE);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 
 	mach_write_to_4(buf, page_no);
 
@@ -1882,7 +1882,7 @@ ibuf_entry_build(
 		i = IBUF_REC_INFO_SIZE;
 	}
 
-	ti = type_info = static_cast<byte*>(
+	ti = type_info = static_cast<::byte*>(
 		mem_heap_alloc(
 			heap,
 			i + n_fields * DATA_NEW_ORDER_NULL_TYPE_BUF_SIZE));
@@ -1902,7 +1902,7 @@ ibuf_entry_build(
 	case IBUF_REC_INFO_SIZE:
 		mach_write_to_2(ti + IBUF_REC_OFFSET_COUNTER, counter);
 
-		ti[IBUF_REC_OFFSET_TYPE] = (byte) op;
+		ti[IBUF_REC_OFFSET_TYPE] = (::byte) op;
 		ti[IBUF_REC_OFFSET_FLAGS] = dict_table_is_comp(index->table)
 			? IBUF_REC_COMPACT : 0;
 		ti += IBUF_REC_INFO_SIZE;
@@ -1973,7 +1973,7 @@ ibuf_search_tuple_build(
 {
 	dtuple_t*	tuple;
 	dfield_t*	field;
-	byte*		buf;
+	::byte*		buf;
 
 	tuple = dtuple_create(heap, IBUF_REC_FIELD_METADATA);
 
@@ -1981,7 +1981,7 @@ ibuf_search_tuple_build(
 
 	field = dtuple_get_nth_field(tuple, IBUF_REC_FIELD_SPACE);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 
 	mach_write_to_4(buf, space);
 
@@ -1991,7 +1991,7 @@ ibuf_search_tuple_build(
 
 	field = dtuple_get_nth_field(tuple, IBUF_REC_FIELD_MARKER);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 1));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 1));
 
 	mach_write_to_1(buf, 0);
 
@@ -2001,7 +2001,7 @@ ibuf_search_tuple_build(
 
 	field = dtuple_get_nth_field(tuple, IBUF_REC_FIELD_PAGE);
 
-	buf = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	buf = static_cast<::byte*>(mem_heap_alloc(heap, 4));
 
 	mach_write_to_4(buf, page_no);
 
@@ -2872,8 +2872,8 @@ ibool
 ibuf_get_volume_buffered_hash(
 /*==========================*/
 	const rec_t*	rec,	/*!< in: ibuf record in post-4.1 format */
-	const byte*	types,	/*!< in: fields */
-	const byte*	data,	/*!< in: start of user record data */
+	const ::byte*	types,	/*!< in: fields */
+	const ::byte*	data,	/*!< in: start of user record data */
 	ulint		comp,	/*!< in: 0=ROW_FORMAT=REDUNDANT,
 				nonzero=ROW_FORMAT=COMPACT */
 	ulint*		hash,	/*!< in/out: hash array */
@@ -2930,7 +2930,7 @@ ibuf_get_volume_buffered_count_func(
 {
 	ulint		len;
 	ibuf_op_t	ibuf_op;
-	const byte*	types;
+	const ::byte*	types;
 	ulint		n_fields;
 
 	ut_ad(mtr_memo_contains_page(mtr, rec, MTR_MEMO_PAGE_X_FIX)
@@ -3242,7 +3242,7 @@ ibuf_update_max_tablespace_id(void)
 {
 	ulint		max_space_id;
 	const rec_t*	rec;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 	btr_pcur_t	pcur;
 	mtr_t		mtr;
@@ -3305,7 +3305,7 @@ ibuf_get_entry_counter_low_func(
 	ulint		page_no)	/*!< in: page number */
 {
 	ulint		counter;
-	const byte*	field;
+	const ::byte*	field;
 	ulint		len;
 
 	ut_ad(ibuf_inside(mtr));
@@ -3650,7 +3650,7 @@ fail_exit:
 		field = dtuple_get_nth_field(
 			ibuf_entry, IBUF_REC_FIELD_METADATA);
 		mach_write_to_2(
-			(byte*) dfield_get_data(field)
+			(::byte*) dfield_get_data(field)
 			+ IBUF_REC_OFFSET_COUNTER, counter);
 	}
 

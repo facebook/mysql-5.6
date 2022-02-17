@@ -300,7 +300,7 @@ row_undo_ins_parse_undo_rec(
 	ibool		dict_locked)	/*!< in: TRUE if own dict_sys->mutex */
 {
 	dict_index_t*	clust_index;
-	byte*		ptr;
+	::byte*		ptr;
 	undo_no_t	undo_no;
 	table_id_t	table_id;
 	ulint		type;

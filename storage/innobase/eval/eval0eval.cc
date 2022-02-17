@@ -40,7 +40,7 @@ static ulint	eval_rnd	= 128367121;
 /** Dummy adress used when we should allocate a buffer of size 0 in
 eval_node_alloc_val_buf */
 
-static byte	eval_dummy;
+static ::byte	eval_dummy;
 
 /*************************************************************************
 Gets the like node from the node */
@@ -62,7 +62,7 @@ here. NOTE that this is the only function where dynamic memory should be
 allocated for a query node val field.
 @return	pointer to allocated buffer */
 UNIV_INTERN
-byte*
+::byte*
 eval_node_alloc_val_buf(
 /*====================*/
 	que_node_t*	node,	/*!< in: query graph node; sets the val field
@@ -71,14 +71,14 @@ eval_node_alloc_val_buf(
 	ulint		size)	/*!< in: buffer size */
 {
 	dfield_t*	dfield;
-	byte*		data;
+	::byte*		data;
 
 	ut_ad(que_node_get_type(node) == QUE_NODE_SYMBOL
 	      || que_node_get_type(node) == QUE_NODE_FUNC);
 
 	dfield = que_node_get_val(node);
 
-	data = static_cast<byte*>(dfield_get_data(dfield));
+	data = static_cast<::byte*>(dfield_get_data(dfield));
 
 	if (data && data != &eval_dummy) {
 		mem_free(data);
@@ -87,7 +87,7 @@ eval_node_alloc_val_buf(
 	if (size == 0) {
 		data = &eval_dummy;
 	} else {
-		data = static_cast<byte*>(mem_alloc(size));
+		data = static_cast<::byte*>(mem_alloc(size));
 	}
 
 	que_node_set_val_buf_size(node, size);
@@ -108,14 +108,14 @@ eval_node_free_val_buf(
 	que_node_t*	node)	/*!< in: query graph node */
 {
 	dfield_t*	dfield;
-	byte*		data;
+	::byte*		data;
 
 	ut_ad(que_node_get_type(node) == QUE_NODE_SYMBOL
 	      || que_node_get_type(node) == QUE_NODE_FUNC);
 
 	dfield = que_node_get_val(node);
 
-	data = static_cast<byte*>(dfield_get_data(dfield));
+	data = static_cast<::byte*>(dfield_get_data(dfield));
 
 	if (que_node_get_val_buf_size(node) > 0) {
 		ut_a(data);
@@ -392,7 +392,7 @@ eval_predefined_2(
 	que_node_t*	arg1;
 	que_node_t*	arg2 = 0; /* remove warning (??? bug ???) */
 	lint		int_val;
-	byte*		data;
+	::byte*		data;
 	ulint		len1;
 	ulint		len2;
 	int		func;
@@ -457,7 +457,7 @@ eval_predefined_2(
 		data = eval_node_ensure_val_buf(func_node, len1);
 
 		for (i = 0; i < len1; i++) {
-			data[i] = (byte)(97 + (eval_rnd % 3));
+			data[i] = (::byte)(97 + (eval_rnd % 3));
 
 			eval_rnd = ut_rnd_gen_next_ulint(eval_rnd);
 		}
@@ -515,7 +515,7 @@ eval_substr(
 	que_node_t*	arg2;
 	que_node_t*	arg3;
 	dfield_t*	dfield;
-	byte*		str1;
+	::byte*		str1;
 	ulint		len1;
 	ulint		len2;
 
@@ -526,7 +526,7 @@ eval_substr(
 
 	arg3 = que_node_get_next(arg2);
 
-	str1 = static_cast<byte*>(dfield_get_data(que_node_get_val(arg1)));
+	str1 = static_cast<::byte*>(dfield_get_data(que_node_get_val(arg1)));
 
 	len1 = (ulint) eval_node_get_int_val(arg2);
 	len2 = (ulint) eval_node_get_int_val(arg3);
@@ -548,8 +548,8 @@ eval_replstr(
 	que_node_t*	arg2;
 	que_node_t*	arg3;
 	que_node_t*	arg4;
-	byte*		str1;
-	byte*		str2;
+	::byte*		str1;
+	::byte*		str2;
 	ulint		len1;
 	ulint		len2;
 
@@ -561,8 +561,8 @@ eval_replstr(
 	arg3 = que_node_get_next(arg2);
 	arg4 = que_node_get_next(arg3);
 
-	str1 = static_cast<byte*>(dfield_get_data(que_node_get_val(arg1)));
-	str2 = static_cast<byte*>(dfield_get_data(que_node_get_val(arg2)));
+	str1 = static_cast<::byte*>(dfield_get_data(que_node_get_val(arg1)));
+	str2 = static_cast<::byte*>(dfield_get_data(que_node_get_val(arg2)));
 
 	len1 = (ulint) eval_node_get_int_val(arg3);
 	len2 = (ulint) eval_node_get_int_val(arg4);
@@ -589,9 +589,9 @@ eval_instr(
 	dfield_t*	dfield1;
 	dfield_t*	dfield2;
 	lint		int_val;
-	byte*		str1;
-	byte*		str2;
-	byte		match_char;
+	::byte*		str1;
+	::byte*		str2;
+	::byte		match_char;
 	ulint		len1;
 	ulint		len2;
 	ulint		i;
@@ -603,8 +603,8 @@ eval_instr(
 	dfield1 = que_node_get_val(arg1);
 	dfield2 = que_node_get_val(arg2);
 
-	str1 = static_cast<byte*>(dfield_get_data(dfield1));
-	str2 = static_cast<byte*>(dfield_get_data(dfield2));
+	str1 = static_cast<::byte*>(dfield_get_data(dfield1));
+	str2 = static_cast<::byte*>(dfield_get_data(dfield2));
 
 	len1 = dfield_get_len(dfield1);
 	len2 = dfield_get_len(dfield2);
@@ -658,8 +658,8 @@ eval_binary_to_number(
 {
 	que_node_t*	arg1;
 	dfield_t*	dfield;
-	byte*		str1;
-	byte*		str2;
+	::byte*		str1;
+	::byte*		str2;
 	ulint		len1;
 	ulint		int_val;
 
@@ -667,7 +667,7 @@ eval_binary_to_number(
 
 	dfield = que_node_get_val(arg1);
 
-	str1 = static_cast<byte*>(dfield_get_data(dfield));
+	str1 = static_cast<::byte*>(dfield_get_data(dfield));
 	len1 = dfield_get_len(dfield);
 
 	if (len1 > 4) {
@@ -678,7 +678,7 @@ eval_binary_to_number(
 		str2 = str1;
 	} else {
 		int_val = 0;
-		str2 = (byte*) &int_val;
+		str2 = (::byte*) &int_val;
 
 		ut_memcpy(str2 + (4 - len1), str1, len1);
 	}
@@ -696,7 +696,7 @@ eval_concat(
 {
 	que_node_t*	arg;
 	dfield_t*	dfield;
-	byte*		data;
+	::byte*		data;
 	ulint		len;
 	ulint		len1;
 
@@ -743,13 +743,13 @@ eval_to_binary(
 	que_node_t*	arg1;
 	que_node_t*	arg2;
 	dfield_t*	dfield;
-	byte*		str1;
+	::byte*		str1;
 	ulint		len;
 	ulint		len1;
 
 	arg1 = func_node->args;
 
-	str1 = static_cast<byte*>(dfield_get_data(que_node_get_val(arg1)));
+	str1 = static_cast<::byte*>(dfield_get_data(que_node_get_val(arg1)));
 
 	if (dtype_get_mtype(que_node_get_data_type(arg1)) != DATA_INT) {
 
@@ -786,7 +786,7 @@ eval_predefined(
 {
 	que_node_t*	arg1;
 	lint		int_val;
-	byte*		data;
+	::byte*		data;
 	int		func;
 
 	func = func_node->func;
@@ -843,8 +843,8 @@ eval_predefined(
 				uint_val = (ulint) int_val;
 			}
 			for (tmp = int_len; uint_val > 0; uint_val /= 10) {
-				data[--tmp] = (byte)
-					('0' + (byte)(uint_val % 10));
+				data[--tmp] = (::byte)
+					('0' + (::byte)(uint_val % 10));
 			}
 		}
 

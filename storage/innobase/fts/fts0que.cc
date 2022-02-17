@@ -475,14 +475,14 @@ Convert string to lowercase.
 @return lower case string, callers responsibility to delete using
 ut_free() */
 static
-byte*
+::byte*
 fts_tolower(
 /*========*/
-	const byte*	src,		/*!< in: src string */
+	const ::byte*	src,		/*!< in: src string */
 	ulint		len)		/*!< in: src string length */
 {
 	fts_string_t	str;
-	byte*		lc_str = ut_malloc(len + 1);
+	::byte*		lc_str = ut_malloc(len + 1);
 
 	str.f_len = len;
 	str.f_str = lc_str;
@@ -512,7 +512,7 @@ fts_utf8_strcmp(
 					of this string during compare as it
 					should be the min of the two strings */
 {
-	byte		b = str2->f_str[str2->f_len];
+	::byte		b = str2->f_str[str2->f_len];
 
 	ut_a(str2->f_len <= str1->f_len);
 
@@ -539,7 +539,7 @@ fts_ranking_words_create(
 	fts_query_t*	query,		/*!< in: query instance */
 	fts_ranking_t*	ranking)	/*!< in: ranking instance */
 {
-	ranking->words = static_cast<byte*>(
+	ranking->words = static_cast<::byte*>(
 		mem_heap_zalloc(query->heap, RANKING_WORDS_INIT_LEN));
 	ranking->words_len = RANKING_WORDS_INIT_LEN;
 }
@@ -593,7 +593,7 @@ fts_ranking_words_add(
 
 		pos = rbt_size(query->word_map);
 
-		new_word.f_str = static_cast<byte*>(mem_heap_alloc(query->heap,
+		new_word.f_str = static_cast<::byte*>(mem_heap_alloc(query->heap,
 			word->f_len + 1));
 		memcpy(new_word.f_str, word->f_str, word->f_len);
 		new_word.f_str[word->f_len] = 0;
@@ -608,14 +608,14 @@ fts_ranking_words_add(
 	/* Check words len */
 	byte_offset = pos / CHAR_BIT;
 	if (byte_offset >= ranking->words_len) {
-		byte*	words = ranking->words;
+		::byte*	words = ranking->words;
 		ulint	words_len = ranking->words_len;
 
 		while (byte_offset >= words_len) {
 			words_len *= 2;
 		}
 
-		ranking->words = static_cast<byte*>(
+		ranking->words = static_cast<::byte*>(
 			mem_heap_zalloc(query->heap, words_len));
 		ut_memcpy(ranking->words, words, ranking->words_len);
 		ranking->words_len = words_len;
@@ -684,7 +684,7 @@ fts_query_add_word_freq(
 
 		memset(&word_freq, 0, sizeof(word_freq));
 
-		word_freq.word.f_str = static_cast<byte*>(
+		word_freq.word.f_str = static_cast<::byte*>(
 			mem_heap_alloc(query->heap, word->f_len + 1));
 		memcpy(word_freq.word.f_str, word->f_str, word->f_len);
 		word_freq.word.f_str[word->f_len] = 0;
@@ -1041,7 +1041,7 @@ fts_cache_find_wildcard(
 	ib_rbt_bound_t		parent;
 	const ib_vector_t*	nodes = NULL;
 	fts_string_t		srch_text;
-	byte			term[FTS_MAX_WORD_LEN + 1];
+	::byte			term[FTS_MAX_WORD_LEN + 1];
 	ulint			num_word = 0;
 
 	srch_text.f_len = (token->f_str[token->f_len - 1] == '%')
@@ -1583,11 +1583,11 @@ fts_merge_doc_ids(
 Skip non-whitespace in a string. Move ptr to the next word boundary.
 @return pointer to first whitespace character or end */
 UNIV_INLINE
-byte*
+::byte*
 fts_query_skip_word(
 /*================*/
-	byte*		ptr,		/*!< in: start of scan */
-	const byte*	end)		/*!< in: pointer to end of string */
+	::byte*		ptr,		/*!< in: start of scan */
+	const ::byte*	end)		/*!< in: pointer to end of string */
 {
 	/* TODO: Does this have to be UTF-8 too ? */
 	while (ptr < end && !(ispunct(*ptr) || isspace(*ptr))) {
@@ -1605,16 +1605,16 @@ ibool
 fts_query_match_phrase_terms(
 /*=========================*/
 	fts_phrase_t*	phrase,		/*!< in: phrase to match */
-	byte**		start,		/*!< in/out: text to search, we can't
+	::byte**		start,		/*!< in/out: text to search, we can't
 					make this const becase we need to
 					first convert the string to
 					lowercase */
-	const byte*	end,		/*!< in: pointer to the end of
+	const ::byte*	end,		/*!< in: pointer to the end of
 					the string to search */
 	mem_heap_t*	heap)		/*!< in: heap */
 {
 	ulint			i;
-	byte*			ptr = *start;
+	::byte*			ptr = *start;
 	const ib_vector_t*	tokens = phrase->tokens;
 	ulint			distance = phrase->distance;
 
@@ -1629,7 +1629,7 @@ fts_query_match_phrase_terms(
 		ulint			offset;
 
 		ret = innobase_mysql_fts_get_token(
-			phrase->charset, ptr, (byte*) end,
+			phrase->charset, ptr, (::byte*) end,
 			&match, &offset);
 
 		if (match.f_len > 0) {
@@ -1698,7 +1698,7 @@ fts_proximity_is_word_in_range(
 /*===========================*/
 	const fts_phrase_t*
 			phrase,		/*!< in: phrase with the search info */
-	byte*		start,		/*!< in: text to search */
+	::byte*		start,		/*!< in: text to search */
 	ulint		total_len)	/*!< in: length of text */
 {
 	fts_proximity_t*	proximity_pos = phrase->proximity_pos;
@@ -1760,7 +1760,7 @@ ibool
 fts_query_match_phrase(
 /*===================*/
 	fts_phrase_t*	phrase,		/*!< in: phrase to match */
-	byte*		start,		/*!< in: text to search, we can't make
+	::byte*		start,		/*!< in: text to search, we can't make
 					this const becase we need to first
 					convert the string to lowercase */
 	ulint		cur_len,	/*!< in: length of text */
@@ -1770,7 +1770,7 @@ fts_query_match_phrase(
 {
 	ulint			i;
 	const fts_string_t*	first;
-	const byte*		end = start + cur_len;
+	const ::byte*		end = start + cur_len;
 	const ib_vector_t*	tokens = phrase->tokens;
 	const ib_vector_t*	positions = phrase->match->positions;
 
@@ -1788,7 +1788,7 @@ fts_query_match_phrase(
 		ulint		pos;
 		fts_string_t	match;
 		fts_string_t	cmp_str;
-		byte*		ptr = start;
+		::byte*		ptr = start;
 		ulint		ret;
 		ulint		offset;
 
@@ -1815,7 +1815,7 @@ fts_query_match_phrase(
 		}
 
 		ret = innobase_mysql_fts_get_token(
-			phrase->charset, start + pos, (byte*) end,
+			phrase->charset, start + pos, (::byte*) end,
 			&match, &offset);
 
 		if (match.f_len == 0) {
@@ -1863,7 +1863,7 @@ fts_query_fetch_document(
 	fts_phrase_t*	phrase = static_cast<fts_phrase_t*>(user_arg);
 	ulint		prev_len = 0;
 	ulint		total_len = 0;
-	byte*		document_text = NULL;
+	::byte*		document_text = NULL;
 
 	exp = node->select_list;
 
@@ -1876,7 +1876,7 @@ fts_query_fetch_document(
 		 while (exp) {
 			ulint		field_len;
 			dfield_t*	dfield = que_node_get_val(exp);
-			byte*		data = static_cast<byte*>(
+			::byte*		data = static_cast<::byte*>(
 						dfield_get_data(dfield));
 
 			if (dfield_is_ext(dfield)) {
@@ -1897,7 +1897,7 @@ fts_query_fetch_document(
 			exp = que_node_get_next(exp);
 		}
 
-		document_text = static_cast<byte*>(mem_heap_zalloc(
+		document_text = static_cast<::byte*>(mem_heap_zalloc(
 					phrase->heap, total_len));
 
 		if (!document_text) {
@@ -1909,7 +1909,7 @@ fts_query_fetch_document(
 
 	while (exp) {
 		dfield_t*	dfield = que_node_get_val(exp);
-		byte*		data = static_cast<byte*>(
+		::byte*		data = static_cast<::byte*>(
 					dfield_get_data(dfield));
 		ulint		cur_len;
 
@@ -1931,7 +1931,7 @@ fts_query_fetch_document(
 				phrase->found =
 					fts_query_match_phrase(
 						phrase,
-						static_cast<byte*>(data),
+						static_cast<::byte*>(data),
 						cur_len, prev_len,
 						phrase->heap);
 			}
@@ -2050,7 +2050,7 @@ fts_query_find_term(
 	pars_info_bind_varchar_literal(info, "word", word->f_str, word->f_len);
 
 	/* Convert to "storage" byte order. */
-	fts_write_doc_id((byte*) &match_doc_id, doc_id);
+	fts_write_doc_id((::byte*) &match_doc_id, doc_id);
 
 	fts_bind_doc_id(info, "min_doc_id", &match_doc_id);
 
@@ -2257,7 +2257,7 @@ fts_query_terms_in_document(
 	pars_info_bind_function(info, "my_func", fts_query_sum, total);
 
 	/* Convert to "storage" byte order. */
-	fts_write_doc_id((byte*) &read_doc_id, doc_id);
+	fts_write_doc_id((::byte*) &read_doc_id, doc_id);
 	fts_bind_doc_id(info, "doc_id", &read_doc_id);
 
 	query->fts_index_table.suffix = "DOC_ID";
@@ -2543,8 +2543,8 @@ fts_query_phrase_search(
 
                 cur_len = innobase_mysql_fts_get_token(
                         charset,
-                        reinterpret_cast<const byte*>(phrase->f_str) + cur_pos,
-                        reinterpret_cast<const byte*>(phrase->f_str) + len,
+                        reinterpret_cast<const ::byte*>(phrase->f_str) + cur_pos,
+                        reinterpret_cast<const ::byte*>(phrase->f_str) + len,
 			&result_str, &offset);
 
 		if (cur_len == 0) {
@@ -2560,7 +2560,7 @@ fts_query_phrase_search(
 		fts_string_t*	token = static_cast<fts_string_t*>(
 			ib_vector_push(tokens, NULL));
 
-		token->f_str = static_cast<byte*>(
+		token->f_str = static_cast<::byte*>(
 			mem_heap_alloc(heap, result_str.f_len + 1));
 		ut_memcpy(token->f_str, result_str.f_str, result_str.f_len);
 
@@ -2790,14 +2790,14 @@ Create a wildcard string. It's the responsibility of the caller to
 free the byte* pointer. It's allocated using ut_malloc().
 @return ptr to allocated memory */
 static
-byte*
+::byte*
 fts_query_get_token(
 /*================*/
 	fts_ast_node_t*	node,		/*!< in: the current sub tree */
 	fts_string_t*	token)		/*!< in: token to create */
 {
 	ulint		str_len;
-	byte*		new_ptr = NULL;
+	::byte*		new_ptr = NULL;
 
 	str_len = node->term.ptr->len;
 
@@ -2808,7 +2808,7 @@ fts_query_get_token(
 
 	if (node->term.wildcard) {
 
-		token->f_str = static_cast<byte*>(ut_malloc(str_len + 2));
+		token->f_str = static_cast<::byte*>(ut_malloc(str_len + 2));
 		token->f_len = str_len + 1;
 
 		memcpy(token->f_str, node->term.ptr->str, str_len);
@@ -2832,7 +2832,7 @@ fts_query_visitor(
 	fts_ast_node_t*	node,		/*!< in: The root of the current subtree*/
 	void*		arg)		/*!< in: callback arg*/
 {
-	byte*		ptr;
+	::byte*		ptr;
 	fts_string_t	token;
 	fts_query_t*	query = static_cast<fts_query_t*>(arg);
 
@@ -2981,7 +2981,7 @@ fts_query_find_doc_id(
 	void*		data,		/*!< in: doc id ilist */
 	ulint		len)		/*!< in: doc id ilist size */
 {
-	byte*		ptr = data;
+	::byte*		ptr = data;
 	doc_id_t	doc_id = 0;
 	ulint		decoded = 0;
 
@@ -3012,7 +3012,7 @@ fts_query_find_doc_id(
 		++ptr;
 
 		/* Bytes decoded so far. */
-		decoded = ptr - (byte*) data;
+		decoded = ptr - (::byte*) data;
 
 		/* A word may exist in the document but we only consider a
 		match if it exists in a position that is greater than the
@@ -3055,7 +3055,7 @@ fts_query_filter_doc_ids(
 	ulint			len,		/*!< in: doc id ilist size */
 	ibool			calc_doc_count)	/*!< in: whether to remember doc count */
 {
-	byte*		ptr = static_cast<byte*>(data);
+	::byte*		ptr = static_cast<::byte*>(data);
 	doc_id_t	doc_id = 0;
 	ulint		decoded = 0;
 	ib_rbt_t*	doc_freqs = word_freq->doc_freqs;
@@ -3136,7 +3136,7 @@ fts_query_filter_doc_ids(
 		++ptr;
 
 		/* Bytes decoded so far */
-		decoded = ptr - (byte*) data;
+		decoded = ptr - (::byte*) data;
 
 		/* We simply collect the matching documents and the
 		positions here and match later. */
@@ -3177,7 +3177,7 @@ fts_query_read_node(
 	fts_word_freq_t*	word_freq;
 	ibool			skip = FALSE;
 	fts_string_t		term;
-	byte			buf[FTS_MAX_WORD_LEN + 1];
+	::byte			buf[FTS_MAX_WORD_LEN + 1];
 	dberr_t			error = DB_SUCCESS;
 
 	ut_a(query->cur_node->type == FTS_AST_TERM ||
@@ -3215,7 +3215,7 @@ fts_query_read_node(
 	for (i = 1; exp && !skip; exp = que_node_get_next(exp), ++i) {
 
 		dfield_t*	dfield = que_node_get_val(exp);
-		byte*		data = static_cast<byte*>(
+		::byte*		data = static_cast<::byte*>(
 			dfield_get_data(dfield));
 		ulint		len = dfield_get_len(dfield);
 
@@ -3291,7 +3291,7 @@ fts_query_index_fetch_nodes(
 	void*		data = dfield_get_data(dfield);
 	ulint		dfield_len = dfield_get_len(dfield);
 
-	key.f_str = static_cast<byte*>(data);
+	key.f_str = static_cast<::byte*>(data);
 	key.f_len = dfield_len;
 
 	ut_a(dfield_len <= FTS_MAX_WORD_LEN);
@@ -3686,7 +3686,7 @@ fts_ast_node_t*
 fts_query_parse(
 /*============*/
 	fts_query_t*	query,		/*!< in: query instance */
-	byte*		query_str,	/*!< in: query string */
+	::byte*		query_str,	/*!< in: query string */
 	ulint		query_len)	/*!< in: query string length */
 {
 	int		error;
@@ -3745,10 +3745,10 @@ Pre-process the query string
 and followed by valid word, make it a space
 @return the processed string */
 static
-byte*
+::byte*
 fts_query_str_preprocess(
 /*=====================*/
-	const byte*	query_str,	/*!< in: FTS query */
+	const ::byte*	query_str,	/*!< in: FTS query */
 	ulint		query_len,	/*!< in: FTS query string len */
 	ulint		*result_len,	/*!< out: result string length */
 	CHARSET_INFO*	charset,	/*!< in: string charset */
@@ -3756,14 +3756,14 @@ fts_query_str_preprocess(
 {
 	ulint	cur_pos = 0;
 	ulint	str_len;
-	byte*	str_ptr;
+	::byte*	str_ptr;
 	bool	in_phrase = false;
 
 	/* Convert the query string to lower case before parsing. We own
 	the ut_malloc'ed result and so remember to free it before return. */
 
 	str_len = query_len * charset->casedn_multiply + 1;
-	str_ptr = static_cast<byte*>(ut_malloc(str_len));
+	str_ptr = static_cast<::byte*>(ut_malloc(str_len));
 
 	*result_len = innobase_fts_casedn_str(
 		charset, const_cast<char*>(reinterpret_cast<const char*>(
@@ -3799,7 +3799,7 @@ fts_query_str_preprocess(
 
 		/* Check if we are in a phrase, if so, no need to do
 		replacement of '-/+'. */
-		for (byte* ptr = str_ptr + cur_pos; ptr < str.f_str; ptr++) {
+		for (::byte* ptr = str_ptr + cur_pos; ptr < str.f_str; ptr++) {
 			if ((char) (*ptr) == '"' ) {
 				in_phrase = !in_phrase;
 			}
@@ -3832,14 +3832,14 @@ fts_query(
 	trx_t*		trx,		/*!< in: transaction */
 	dict_index_t*	index,		/*!< in: The FTS index to search */
 	uint		flags,		/*!< in: FTS search mode */
-	const byte*	query_str,	/*!< in: FTS query */
+	const ::byte*	query_str,	/*!< in: FTS query */
 	ulint		query_len,	/*!< in: FTS query string len
 					in bytes */
 	fts_result_t**	result)		/*!< in/out: result doc ids */
 {
 	fts_query_t	query;
 	dberr_t		error = DB_SUCCESS;
-	byte*		lc_query_str;
+	::byte*		lc_query_str;
 	ulint		result_len;
 	bool		boolean_mode;
 	trx_t*		query_trx;
@@ -3936,7 +3936,7 @@ fts_query(
 	the ut_malloc'ed result and so remember to free it before return. */
 
 	lc_query_str_len = query_len * charset->casedn_multiply + 1;
-	lc_query_str = static_cast<byte*>(ut_malloc(lc_query_str_len));
+	lc_query_str = static_cast<::byte*>(ut_malloc(lc_query_str_len));
 
 	result_len = innobase_fts_casedn_str(
 		charset, (char*) query_str, query_len,

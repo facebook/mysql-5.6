@@ -34,7 +34,7 @@ Created 12/7/1995 Heikki Tuuri
 Opens a buffer to mlog. It must be closed with mlog_close.
 @return	buffer, NULL if log mode MTR_LOG_NONE */
 UNIV_INLINE
-byte*
+::byte*
 mlog_open(
 /*======*/
 	mtr_t*	mtr,	/*!< in: mtr */
@@ -62,7 +62,7 @@ void
 mlog_close(
 /*=======*/
 	mtr_t*	mtr,	/*!< in: mtr */
-	byte*	ptr)	/*!< in: buffer space from ptr up was not used */
+	::byte*	ptr)	/*!< in: buffer space from ptr up was not used */
 {
 	dyn_array_t*	mlog;
 
@@ -85,7 +85,7 @@ mlog_catenate_ulint(
 	ulint	type)	/*!< in: MLOG_1BYTE, MLOG_2BYTES, MLOG_4BYTES */
 {
 	dyn_array_t*	mlog;
-	byte*		ptr;
+	::byte*		ptr;
 
 	if (mtr_get_log_mode(mtr) == MTR_LOG_NONE) {
 
@@ -106,7 +106,7 @@ mlog_catenate_ulint(
 #if MLOG_8BYTES != 8
 # error "MLOG_8BYTES != 8"
 #endif
-	ptr = (byte*) dyn_array_push(mlog, type);
+	ptr = (::byte*) dyn_array_push(mlog, type);
 
 	if (type == MLOG_4BYTES) {
 		mach_write_to_4(ptr, val);
@@ -127,7 +127,7 @@ mlog_catenate_ulint_compressed(
 	mtr_t*	mtr,	/*!< in: mtr */
 	ulint	val)	/*!< in: value to write */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 
 	log_ptr = mlog_open(mtr, 10);
 
@@ -151,7 +151,7 @@ mlog_catenate_ull_compressed(
 	mtr_t*		mtr,	/*!< in: mtr */
 	ib_uint64_t	val)	/*!< in: value to write */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 
 	log_ptr = mlog_open(mtr, 15);
 
@@ -172,21 +172,21 @@ If the implementation of this function is changed, all
 size parameters to mlog_open() should be adjusted accordingly!
 @return	new value of log_ptr */
 UNIV_INLINE
-byte*
+::byte*
 mlog_write_initial_log_record_fast(
 /*===============================*/
-	const byte*	ptr,	/*!< in: pointer to (inside) a buffer
+	const ::byte*	ptr,	/*!< in: pointer to (inside) a buffer
 				frame holding the file page where
 				modification is made */
-	byte		type,	/*!< in: log item type: MLOG_1BYTE, ... */
-	byte*		log_ptr,/*!< in: pointer to mtr log which has
+	::byte		type,	/*!< in: log item type: MLOG_1BYTE, ... */
+	::byte*		log_ptr,/*!< in: pointer to mtr log which has
 				been opened */
 	mtr_t*		mtr)	/*!< in: mtr */
 {
 #ifdef UNIV_DEBUG
 	buf_block_t*	block;
 #endif
-	const byte*	page;
+	const ::byte*	page;
 	ulint		space;
 	ulint		offset;
 
@@ -194,7 +194,7 @@ mlog_write_initial_log_record_fast(
 	ut_ad(type <= MLOG_BIGGEST_TYPE);
 	ut_ad(ptr && log_ptr);
 
-	page = (const byte*) ut_align_down(ptr, UNIV_PAGE_SIZE);
+	page = (const ::byte*) ut_align_down(ptr, UNIV_PAGE_SIZE);
 	space = mach_read_from_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 	offset = mach_read_from_4(page + FIL_PAGE_OFFSET);
 
@@ -250,14 +250,14 @@ mlog_write_initial_log_record_fast(
 Writes a log record about an .ibd file create/delete/rename.
 @return	new value of log_ptr */
 UNIV_INLINE
-byte*
+::byte*
 mlog_write_initial_log_record_for_file_op(
 /*======================================*/
 	ulint	type,	/*!< in: MLOG_FILE_CREATE, MLOG_FILE_DELETE, or
 			MLOG_FILE_RENAME */
 	ulint	space_id,/*!< in: space id, if applicable */
 	ulint	page_no,/*!< in: page number (not relevant currently) */
-	byte*	log_ptr,/*!< in: pointer to mtr log which has been opened */
+	::byte*	log_ptr,/*!< in: pointer to mtr log which has been opened */
 	mtr_t*	mtr)	/*!< in: mtr */
 {
 	ut_ad(log_ptr);

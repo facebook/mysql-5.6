@@ -86,7 +86,7 @@ row_undo_mod_clust_low(
 				before the update, or NULL if
 				the table is not being rebuilt online or
 				the PRIMARY KEY definition does not change */
-	byte*		sys,	/*!< out: DB_TRX_ID, DB_ROLL_PTR
+	::byte*		sys,	/*!< out: DB_TRX_ID, DB_ROLL_PTR
 				for row_log_table_delete() */
 	que_thr_t*	thr,	/*!< in: query thread */
 	mtr_t*		mtr,	/*!< in: mtr; must be committed before
@@ -279,7 +279,7 @@ row_undo_mod_clust(
 	mem_heap_t*	offsets_heap	= NULL;
 	ulint*		offsets		= NULL;
 	const dtuple_t*	rebuilt_old_pk;
-	byte		sys[DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN];
+	::byte		sys[DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN];
 
 	/* Try optimistic processing of the record, keeping changes within
 	the index page */
@@ -1036,7 +1036,7 @@ row_undo_mod_parse_undo_rec(
 	ibool		dict_locked)	/*!< in: TRUE if own dict_sys->mutex */
 {
 	dict_index_t*	clust_index;
-	byte*		ptr;
+	::byte*		ptr;
 	undo_no_t	undo_no;
 	table_id_t	table_id;
 	trx_id_t	trx_id;

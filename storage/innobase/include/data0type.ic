@@ -295,7 +295,7 @@ UNIV_INLINE
 void
 dtype_new_store_for_order_and_null_size(
 /*====================================*/
-	byte*		buf,	/*!< in: buffer for
+	::byte*		buf,	/*!< in: buffer for
 				DATA_NEW_ORDER_NULL_TYPE_BUF_SIZE
 				bytes where we store the info */
 	const dtype_t*	type,	/*!< in: type struct */
@@ -311,7 +311,7 @@ dtype_new_store_for_order_and_null_size(
 	ut_ad(type->mtype >= DATA_VARCHAR);
 	ut_ad(type->mtype <= DATA_MYSQL);
 
-	buf[0] = (byte)(type->mtype & 0xFFUL);
+	buf[0] = (::byte)(type->mtype & 0xFFUL);
 
 	if (type->prtype & DATA_BINARY_TYPE) {
 		buf[0] |= 128;
@@ -322,7 +322,7 @@ dtype_new_store_for_order_and_null_size(
 	}
 	*/
 
-	buf[1] = (byte)(type->prtype & 0xFFUL);
+	buf[1] = (::byte)(type->prtype & 0xFFUL);
 
 	len = prefix_len ? prefix_len : type->len;
 
@@ -345,7 +345,7 @@ void
 dtype_read_for_order_and_null_size(
 /*===============================*/
 	dtype_t*	type,	/*!< in: type struct */
-	const byte*	buf)	/*!< in: buffer for stored type order info */
+	const ::byte*	buf)	/*!< in: buffer for stored type order info */
 {
 #if 4 != DATA_ORDER_NULL_TYPE_BUF_SIZE
 # error "4 != DATA_ORDER_NULL_TYPE_BUF_SIZE"
@@ -374,7 +374,7 @@ void
 dtype_new_read_for_order_and_null_size(
 /*===================================*/
 	dtype_t*	type,	/*!< in: type struct */
-	const byte*	buf)	/*!< in: buffer for stored type order info */
+	const ::byte*	buf)	/*!< in: buffer for stored type order info */
 {
 	ulint	charset_coll;
 

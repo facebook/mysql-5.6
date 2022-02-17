@@ -180,7 +180,7 @@ struct fts_optimize_t {
 /** Used by the optimize, to keep state during compacting nodes. */
 struct fts_encode_t {
 	doc_id_t	src_last_doc_id;/*!< Last doc id read from src node */
-	byte*		src_ilist_ptr;	/*!< Current ptr within src ilist */
+	::byte*		src_ilist_ptr;	/*!< Current ptr within src ilist */
 };
 
 /** We use this information to determine when to start the optimize
@@ -303,7 +303,7 @@ fts_zip_create(
 
 	zip = static_cast<fts_zip_t*>(mem_heap_zalloc(heap, sizeof(*zip)));
 
-	zip->word.f_str = static_cast<byte*>(
+	zip->word.f_str = static_cast<::byte*>(
 		mem_heap_zalloc(heap, FTS_MAX_WORD_LEN + 1));
 
 	zip->block_sz = block_sz;
@@ -343,7 +343,7 @@ fts_word_t*
 fts_word_init(
 /*==========*/
 	fts_word_t*	word,		/*!< in: word to initialize */
-	byte*		utf8,		/*!< in: UTF-8 string */
+	::byte*		utf8,		/*!< in: UTF-8 string */
 	ulint		len)		/*!< in: length of string in bytes */
 {
 	mem_heap_t*	heap = mem_heap_create(sizeof(fts_node_t));
@@ -351,7 +351,7 @@ fts_word_init(
 	memset(word, 0, sizeof(*word));
 
 	word->text.f_len = len;
-	word->text.f_str = static_cast<byte*>(mem_heap_alloc(heap, len + 1));
+	word->text.f_str = static_cast<::byte*>(mem_heap_alloc(heap, len + 1));
 
 	/* Need to copy the NUL character too. */
 	memcpy(word->text.f_str, utf8, word->text.f_len);
@@ -383,7 +383,7 @@ fts_optimize_read_node(
 	for (i = 1; exp; exp = que_node_get_next(exp), ++i) {
 
 		dfield_t*	dfield = que_node_get_val(exp);
-		byte*		data = static_cast<byte*>(
+		::byte*		data = static_cast<::byte*>(
 			dfield_get_data(dfield));
 		ulint		len = dfield_get_len(dfield);
 
@@ -405,7 +405,7 @@ fts_optimize_read_node(
 
 		case 4: /* ILIST */
 			node->ilist_size_alloc = node->ilist_size = len;
-			node->ilist = static_cast<byte*>(ut_malloc(len));
+			node->ilist = static_cast<::byte*>(ut_malloc(len));
 			memcpy(node->ilist, data, len);
 			break;
 
@@ -446,7 +446,7 @@ fts_optimize_index_fetch_node(
 	if (ib_vector_size(words) == 0) {
 
 		word = static_cast<fts_word_t*>(ib_vector_push(words, NULL));
-		fts_word_init(word, (byte*) data, dfield_len);
+		fts_word_init(word, (::byte*) data, dfield_len);
 		is_word_init = true;
 	}
 
@@ -456,7 +456,7 @@ fts_optimize_index_fetch_node(
 	    || memcmp(word->text.f_str, data, dfield_len)) {
 
 		word = static_cast<fts_word_t*>(ib_vector_push(words, NULL));
-		fts_word_init(word, (byte*) data, dfield_len);
+		fts_word_init(word, (::byte*) data, dfield_len);
 		is_word_init = true;
 	}
 
@@ -572,7 +572,7 @@ fts_index_fetch_nodes(
 /**********************************************************************//**
 Read a word */
 static
-byte*
+::byte*
 fts_zip_read_word(
 /*==============*/
 	fts_zip_t*	zip,		/*!< in: Zip state + data */
@@ -580,7 +580,7 @@ fts_zip_read_word(
 {
 	short		len = 0;
 	void*		null = NULL;
-	byte*		ptr = word->f_str;
+	::byte*		ptr = word->f_str;
 	int		flush = Z_NO_FLUSH;
 
 	/* Either there was an error or we are at the Z_STREAM_END. */
@@ -588,7 +588,7 @@ fts_zip_read_word(
 		return(NULL);
 	}
 
-	zip->zp->next_out = reinterpret_cast<byte*>(&len);
+	zip->zp->next_out = reinterpret_cast<::byte*>(&len);
 	zip->zp->avail_out = sizeof(len);
 
 	while (zip->status == Z_OK && zip->zp->avail_out > 0) {
@@ -609,7 +609,7 @@ fts_zip_read_word(
 			/* Any more blocks to decompress. */
 			if (zip->pos < ib_vector_size(zip->blocks)) {
 
-				zip->zp->next_in = static_cast<byte*>(
+				zip->zp->next_in = static_cast<::byte*>(
 					ib_vector_getp(
 						zip->blocks, zip->pos));
 
@@ -703,7 +703,7 @@ fts_fetch_index_words(
 	ut_a(zip->zp->next_in == NULL);
 
 	/* The string is prefixed by len. */
-	zip->zp->next_in = reinterpret_cast<byte*>(&len);
+	zip->zp->next_in = reinterpret_cast<::byte*>(&len);
 	zip->zp->avail_in = sizeof(len);
 
 	/* Compress the word, create output blocks as necessary. */
@@ -711,9 +711,9 @@ fts_fetch_index_words(
 
 		/* No space left in output buffer, create a new one. */
 		if (zip->zp->avail_out == 0) {
-			byte*		block;
+			::byte*		block;
 
-			block = static_cast<byte*>(ut_malloc(zip->block_sz));
+			block = static_cast<::byte*>(ut_malloc(zip->block_sz));
 			ib_vector_push(zip->blocks, &block);
 
 			zip->zp->next_out = block;
@@ -723,7 +723,7 @@ fts_fetch_index_words(
 		switch (zip->status = deflate(zip->zp, Z_NO_FLUSH)) {
 		case Z_OK:
 			if (zip->zp->avail_in == 0) {
-				zip->zp->next_in = static_cast<byte*>(data);
+				zip->zp->next_in = static_cast<::byte*>(data);
 				zip->zp->avail_in = len;
 				ut_a(len <= FTS_MAX_WORD_LEN);
 				len = 0;
@@ -766,11 +766,11 @@ fts_zip_deflate_end(
 
 	/* Allocate smaller block(s), since this is trailing data. */
 	while (zip->status == Z_OK) {
-		byte*		block;
+		::byte*		block;
 
 		ut_a(zip->zp->avail_out == 0);
 
-		block = static_cast<byte*>(ut_malloc(FTS_MAX_WORD_LEN + 1));
+		block = static_cast<::byte*>(ut_malloc(FTS_MAX_WORD_LEN + 1));
 		ib_vector_push(zip->blocks, &block);
 
 		zip->zp->next_out = block;
@@ -959,7 +959,7 @@ fts_fetch_doc_ids(
 		case 0: /* DOC_ID */
 			update->fts_indexes = NULL;
 			update->doc_id = fts_read_doc_id(
-				static_cast<byte*>(data));
+				static_cast<::byte*>(data));
 			break;
 
 		default:
@@ -1134,12 +1134,12 @@ fts_optimize_encode_node(
 	doc_id_t	doc_id,		/*!< in: doc id to encode */
 	fts_encode_t*	enc)		/*!< in: encoding state.*/
 {
-	byte*		dst;
+	::byte*		dst;
 	ulint		enc_len;
 	ulint		pos_enc_len;
 	doc_id_t	doc_id_delta;
 	dberr_t		error = DB_SUCCESS;
-	byte*		src = enc->src_ilist_ptr;
+	::byte*		src = enc->src_ilist_ptr;
 
 	if (node->first_doc_id == 0) {
 		ut_a(node->last_doc_id == 0);
@@ -1176,12 +1176,12 @@ fts_optimize_encode_node(
 		new_size = enc_len > FTS_ILIST_MAX_SIZE
 			? enc_len : FTS_ILIST_MAX_SIZE;
 
-		node->ilist = static_cast<byte*>(ut_malloc(new_size));
+		node->ilist = static_cast<::byte*>(ut_malloc(new_size));
 		node->ilist_size_alloc = new_size;
 
 	} else if ((node->ilist_size + enc_len) > node->ilist_size_alloc) {
 		ulint	new_size = node->ilist_size + enc_len;
-		byte*	ilist = static_cast<byte*>(ut_malloc(new_size));
+		::byte*	ilist = static_cast<::byte*>(ut_malloc(new_size));
 
 		memcpy(ilist, node->ilist, node->ilist_size);
 
@@ -1897,7 +1897,7 @@ fts_optimize_set_next_word(
 
 		/* Set to the first character of the next slot. */
 		word->f_len = 1;
-		*word->f_str = (byte) value;
+		*word->f_str = (::byte) value;
 	}
 
 	return(last);
@@ -1916,7 +1916,7 @@ fts_optimize_index_completed(
 {
 	fts_string_t	word;
 	dberr_t		error;
-	byte		buf[sizeof(ulint)];
+	::byte		buf[sizeof(ulint)];
 #ifdef FTS_OPTIMIZE_DEBUG
 	ib_time_t	end_time = ut_time();
 
@@ -2013,7 +2013,7 @@ fts_optimize_index(
 {
 	fts_string_t	word;
 	dberr_t		error;
-	byte		str[FTS_MAX_WORD_LEN + 1];
+	::byte		str[FTS_MAX_WORD_LEN + 1];
 
 	/* Set the current index that we have to optimize. */
 	optim->fts_index_table.index_id = index->id;
@@ -2097,7 +2097,7 @@ fts_optimize_purge_deleted_doc_ids(
 		ib_vector_get(optim->to_delete->doc_ids, 0));
 
 	/* Convert to "storage" byte order. */
-	fts_write_doc_id((byte*) &write_doc_id, update->doc_id);
+	fts_write_doc_id((::byte*) &write_doc_id, update->doc_id);
 
 	/* This is required for the SQL parser to work. It must be able
 	to find the following variables. So we do it twice. */
@@ -2120,7 +2120,7 @@ fts_optimize_purge_deleted_doc_ids(
 			optim->to_delete->doc_ids, i));
 
 		/* Convert to "storage" byte order. */
-		fts_write_doc_id((byte*) &write_doc_id, update->doc_id);
+		fts_write_doc_id((::byte*) &write_doc_id, update->doc_id);
 
 		fts_bind_doc_id(info, "doc_id1", &write_doc_id);
 

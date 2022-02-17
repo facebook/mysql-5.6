@@ -1064,7 +1064,7 @@ innobase_col_to_mysql(
 		}
 
 		if (!(field->flags & UNSIGNED_FLAG)) {
-			((byte*) dest)[len - 1] ^= 0x80;
+			((::byte*) dest)[len - 1] ^= 0x80;
 		}
 
 		break;
@@ -2337,7 +2337,7 @@ innobase_build_col_map_add(
 
 	ulint	size	= field->pack_length();
 
-	byte*	buf	= static_cast<byte*>(mem_heap_alloc(heap, size));
+	::byte*	buf	= static_cast<::byte*>(mem_heap_alloc(heap, size));
 
 	row_mysql_store_col_in_innobase_format(
 		dfield, buf, TRUE, field->ptr, size, comp);

@@ -857,8 +857,8 @@ fil_node_open_file(
 	os_offset_t	size_bytes;
 	ibool		ret;
 	ibool		success;
-	byte*		buf2;
-	byte*		page;
+	::byte*		buf2;
+	::byte*		page;
 	ulint		space_id;
 	ulint		flags;
 	ulint		page_size;
@@ -921,10 +921,10 @@ fil_node_open_file(
 
 		/* Read the first page of the tablespace */
 
-		buf2 = static_cast<byte*>(ut_malloc(2 * UNIV_PAGE_SIZE));
+		buf2 = static_cast<::byte*>(ut_malloc(2 * UNIV_PAGE_SIZE));
 		/* Align the memory for file i/o if we might have O_DIRECT
 		set */
-		page = static_cast<byte*>(ut_align(buf2, UNIV_PAGE_SIZE));
+		page = static_cast<::byte*>(ut_align(buf2, UNIV_PAGE_SIZE));
 
 		success = os_file_read(node->handle, page, 0, UNIV_PAGE_SIZE);
 		space_id = fsp_header_get_space_id(page);
@@ -2235,12 +2235,12 @@ fil_write_lsn_and_arch_no_to_file(
 	ulint	arch_log_no MY_ATTRIBUTE((unused)))
 				/*!< in: archived log number to write */
 {
-	byte*	buf1;
-	byte*	buf;
+	::byte*	buf1;
+	::byte*	buf;
 	dberr_t	err;
 
-	buf1 = static_cast<byte*>(mem_alloc(2 * UNIV_PAGE_SIZE));
-	buf = static_cast<byte*>(ut_align(buf1, UNIV_PAGE_SIZE));
+	buf1 = static_cast<::byte*>(mem_alloc(2 * UNIV_PAGE_SIZE));
+	buf = static_cast<::byte*>(ut_align(buf1, UNIV_PAGE_SIZE));
 
 	err = fil_read(TRUE, space, 0, sum_of_sizes, 0,
 		       UNIV_PAGE_SIZE, buf, NULL);
@@ -2341,7 +2341,7 @@ fil_check_first_page(
 
 	if (!space_id && !flags) {
 		ulint		nonzero_bytes	= UNIV_PAGE_SIZE;
-		const byte*	b		= page;
+		const ::byte*	b		= page;
 
 		while (!*b && --nonzero_bytes) {
 			b++;
@@ -2391,16 +2391,16 @@ fil_read_first_page(
 	lsn_t*		max_flushed_lsn)	/*!< out: max of flushed
 						lsn values in data files */
 {
-	byte*		buf;
-	byte*		page;
+	::byte*		buf;
+	::byte*		page;
 	lsn_t		flushed_lsn;
 	const char*	check_msg = NULL;
 
-	buf = static_cast<byte*>(ut_malloc(2 * UNIV_PAGE_SIZE));
+	buf = static_cast<::byte*>(ut_malloc(2 * UNIV_PAGE_SIZE));
 
 	/* Align the memory for a possible read from a raw device */
 
-	page = static_cast<byte*>(ut_align(buf, UNIV_PAGE_SIZE));
+	page = static_cast<::byte*>(ut_align(buf, UNIV_PAGE_SIZE));
 
 	os_file_read(data_file, page, 0, UNIV_PAGE_SIZE);
 
@@ -2576,7 +2576,7 @@ fil_op_write_log(
 					'databasename/tablename' format */
 	mtr_t*		mtr)		/*!< in: mini-transaction handle */
 {
-	byte*	log_ptr;
+	::byte*	log_ptr;
 	ulint	len;
 
 	log_ptr = mlog_open(mtr, 11 + 2 + 1);
@@ -2602,7 +2602,7 @@ fil_op_write_log(
 	log_ptr += 2;
 	mlog_close(mtr, log_ptr);
 
-	mlog_catenate_string(mtr, (byte*) name, len);
+	mlog_catenate_string(mtr, (::byte*) name, len);
 
 	if (type == MLOG_FILE_RENAME) {
 		len = strlen(new_name) + 1;
@@ -2612,7 +2612,7 @@ fil_op_write_log(
 		log_ptr += 2;
 		mlog_close(mtr, log_ptr);
 
-		mlog_catenate_string(mtr, (byte*) new_name, len);
+		mlog_catenate_string(mtr, (::byte*) new_name, len);
 	}
 }
 #endif /* !XTRABACKUP */
@@ -2638,13 +2638,13 @@ MLOG_FILE_CREATE and MLOG_FILE_CREATE2 only know the tablename, not the path.
 @return end of log record, or NULL if the record was not completely
 contained between ptr and end_ptr */
 UNIV_INTERN
-byte*
+::byte*
 fil_op_log_parse_or_replay(
 /*=======================*/
-	byte*	ptr,		/*!< in: buffer containing the log record body,
+	::byte*	ptr,		/*!< in: buffer containing the log record body,
 				or an initial segment of it, if the record does
 				not fir completely between ptr and end_ptr */
-	byte*	end_ptr,	/*!< in: buffer end */
+	::byte*	end_ptr,	/*!< in: buffer end */
 	ulint	type,		/*!< in: the type of this log record */
 	ulint	space_id,	/*!< in: the space id of the tablespace in
 				question, or 0 if the log record should
@@ -3812,8 +3812,8 @@ fil_create_new_single_table_tablespace(
 	os_file_t	file;
 	ibool		ret;
 	dberr_t		err;
-	byte*		buf2;
-	byte*		page;
+	::byte*		buf2;
+	::byte*		page;
 	char*		path;
 	ibool		success;
 	/* TRUE if a table is created with CREATE TEMPORARY TABLE */
@@ -3905,9 +3905,9 @@ fil_create_new_single_table_tablespace(
 	with zeros from the call of os_file_set_size(), until a buffer pool
 	flush would write to it. */
 
-	buf2 = static_cast<byte*>(ut_malloc(3 * UNIV_PAGE_SIZE));
+	buf2 = static_cast<::byte*>(ut_malloc(3 * UNIV_PAGE_SIZE));
 	/* Align the memory for file i/o if we might have O_DIRECT set */
-	page = static_cast<byte*>(ut_align(buf2, UNIV_PAGE_SIZE));
+	page = static_cast<::byte*>(ut_align(buf2, UNIV_PAGE_SIZE));
 
 	memset(page, '\0', UNIV_PAGE_SIZE);
 
@@ -4615,8 +4615,8 @@ fil_user_tablespace_find_space_id(
 		ib_logf(IB_LOG_LEVEL_INFO, "Page size:%lu Pages to analyze:"
 			"%lu", page_size, page_count);
 
-		byte* buf = static_cast<byte*>(ut_malloc(2*page_size));
-		byte* page = static_cast<byte*>(ut_align(buf, page_size));
+		::byte* buf = static_cast<::byte*>(ut_malloc(2*page_size));
+		::byte* page = static_cast<::byte*>(ut_align(buf, page_size));
 
 		for (ulint j = 0; j < page_count; ++j) {
 
@@ -4708,7 +4708,7 @@ fil_user_tablespace_restore_page(
 	ulint	zip_size;
 	ulint	page_size;
 	ulint	buflen;
-	byte*	page;
+	::byte*	page;
 
 	ib_logf(IB_LOG_LEVEL_INFO, "Restoring page %lu of tablespace %lu",
 		page_no, fsp->id);
@@ -5735,8 +5735,8 @@ fil_extend_space_to_desired_size(
 {
 	fil_node_t*	node;
 	fil_space_t*	space;
-	byte*		buf2;
-	byte*		buf;
+	::byte*		buf2;
+	::byte*		buf;
 	ulint		buf_size;
 	ulint		start_page_no;
 	ulint		file_start_page_no;
@@ -5805,8 +5805,8 @@ retry:
 
 	/* Extend at most 64 pages at a time */
 	buf_size = ut_min(64, size_after_extend - start_page_no) * page_size;
-	buf2 = static_cast<byte*>(mem_alloc(buf_size + page_size));
-	buf = static_cast<byte*>(ut_align(buf2, page_size));
+	buf2 = static_cast<::byte*>(mem_alloc(buf_size + page_size));
+	buf = static_cast<::byte*>(ut_align(buf2, page_size));
 
 	memset(buf, 0, buf_size);
 
@@ -5901,7 +5901,7 @@ fil_extend_tablespaces_to_stored_len(void)
 /*======================================*/
 {
 	fil_space_t*	space;
-	byte*		buf;
+	::byte*		buf;
 	ulint		actual_size;
 	ulint		size_in_header;
 	dberr_t		error;
@@ -6832,7 +6832,7 @@ UNIV_INTERN
 ulint
 fil_page_get_prev(
 /*==============*/
-	const byte*	page)	/*!< in: file page */
+	const ::byte*	page)	/*!< in: file page */
 {
 	return(mach_read_from_4(page + FIL_PAGE_PREV));
 }
@@ -6844,7 +6844,7 @@ UNIV_INTERN
 ulint
 fil_page_get_next(
 /*==============*/
-	const byte*	page)	/*!< in: file page */
+	const ::byte*	page)	/*!< in: file page */
 {
 	return(mach_read_from_4(page + FIL_PAGE_NEXT));
 }
@@ -6855,7 +6855,7 @@ UNIV_INTERN
 void
 fil_page_set_type(
 /*==============*/
-	byte*	page,	/*!< in/out: file page */
+	::byte*	page,	/*!< in/out: file page */
 	ulint	type)	/*!< in: type */
 {
 	ut_ad(page);
@@ -6871,7 +6871,7 @@ UNIV_INTERN
 ulint
 fil_page_get_type(
 /*==============*/
-	const byte*	page)	/*!< in: file page */
+	const ::byte*	page)	/*!< in: file page */
 {
 	ut_ad(page);
 
@@ -6911,7 +6911,7 @@ void
 fil_buf_block_init(
 /*===============*/
 	buf_block_t*	block,		/*!< in: pointer to control block */
-	byte*		frame)		/*!< in: pointer to buffer frame */
+	::byte*		frame)		/*!< in: pointer to buffer frame */
 {
 	UNIV_MEM_DESC(frame, UNIV_PAGE_SIZE);
 
@@ -6934,7 +6934,7 @@ struct fil_iterator_t {
 	ulint		page_size;		/*!< Page size */
 	ulint		n_io_buffers;		/*!< Number of pages to use
 						for IO */
-	byte*		io_buffer;		/*!< Buffer to use for IO */
+	::byte*		io_buffer;		/*!< Buffer to use for IO */
 };
 
 /********************************************************************//**
@@ -6970,7 +6970,7 @@ fil_iterate(
 
 	for (offset = iter.start; offset < iter.end; offset += n_bytes) {
 
-		byte*		io_buffer = iter.io_buffer;
+		::byte*		io_buffer = iter.io_buffer;
 
 		block->frame = io_buffer;
 
@@ -7131,7 +7131,7 @@ fil_tablespace_iterate(
 	page is to ensure alignement. */
 
 	void*	page_ptr = mem_alloc(3 * UNIV_PAGE_SIZE);
-	byte*	page = static_cast<byte*>(ut_align(page_ptr, UNIV_PAGE_SIZE));
+	::byte*	page = static_cast<::byte*>(ut_align(page_ptr, UNIV_PAGE_SIZE));
 
 	fil_buf_block_init(&block, page);
 
@@ -7165,7 +7165,7 @@ fil_tablespace_iterate(
 		void*	io_buffer = mem_alloc(
 			(2 + iter.n_io_buffers) * UNIV_PAGE_SIZE);
 
-		iter.io_buffer = static_cast<byte*>(
+		iter.io_buffer = static_cast<::byte*>(
 			ut_align(io_buffer, UNIV_PAGE_SIZE));
 
 		err = fil_iterate(iter, &block, callback);

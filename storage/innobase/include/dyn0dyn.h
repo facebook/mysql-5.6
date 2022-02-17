@@ -63,7 +63,7 @@ After copying the elements, the caller must close the buffer using
 dyn_array_close.
 @return	pointer to the buffer */
 UNIV_INLINE
-byte*
+::byte*
 dyn_array_open(
 /*===========*/
 	dyn_array_t*	arr,	/*!< in: dynamic array */
@@ -77,7 +77,7 @@ void
 dyn_array_close(
 /*============*/
 	dyn_array_t*	arr,	/*!< in: dynamic array */
-	const byte*	ptr)	/*!< in: end of used space */
+	const ::byte*	ptr)	/*!< in: end of used space */
 	MY_ATTRIBUTE((nonnull));
 /*********************************************************************//**
 Makes room on top of a dyn array and returns a pointer to
@@ -149,7 +149,7 @@ dyn_block_get_used(
 Gets pointer to the start of data in a dyn array block.
 @return	pointer to data */
 UNIV_INLINE
-byte*
+::byte*
 dyn_block_get_data(
 /*===============*/
 	const dyn_block_t*	block)	/*!< in: dyn array block */
@@ -161,7 +161,7 @@ void
 dyn_push_string(
 /*============*/
 	dyn_array_t*	arr,	/*!< in/out: dyn array */
-	const byte*	str,	/*!< in: string to write */
+	const ::byte*	str,	/*!< in: string to write */
 	ulint		len)	/*!< in: string length */
 	MY_ATTRIBUTE((nonnull));
 
@@ -176,7 +176,7 @@ struct dyn_block_t{
 	ulint		used;	/*!< number of data bytes used in this block;
 				DYN_BLOCK_FULL_FLAG is set when the block
 				becomes full */
-	byte		data[DYN_ARRAY_DATA_SIZE];
+	::byte		data[DYN_ARRAY_DATA_SIZE];
 				/*!< storage for array elements */
 	UT_LIST_BASE_NODE_T(dyn_block_t) base;
 				/*!< linear list of dyn blocks: this node is

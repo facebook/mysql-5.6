@@ -53,10 +53,10 @@ cmp_data_data(
 /*==========*/
 	ulint		mtype,	/*!< in: main type */
 	ulint		prtype,	/*!< in: precise type */
-	const byte*	data1,	/*!< in: data field (== a pointer to a memory
+	const ::byte*	data1,	/*!< in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len1,	/*!< in: data field length or UNIV_SQL_NULL */
-	const byte*	data2,	/*!< in: data field (== a pointer to a memory
+	const ::byte*	data2,	/*!< in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len2);	/*!< in: data field length or UNIV_SQL_NULL */
 /*************************************************************//**
@@ -69,10 +69,10 @@ cmp_data_data_slow(
 /*===============*/
 	ulint		mtype,	/*!< in: main type */
 	ulint		prtype,	/*!< in: precise type */
-	const byte*	data1,	/*!< in: data field (== a pointer to a memory
+	const ::byte*	data1,	/*!< in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len1,	/*!< in: data field length or UNIV_SQL_NULL */
-	const byte*	data2,	/*!< in: data field (== a pointer to a memory
+	const ::byte*	data2,	/*!< in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len2);	/*!< in: data field length or UNIV_SQL_NULL */
 
@@ -84,10 +84,10 @@ UNIV_INTERN
 int
 cmp_data_data_slow_varchar(
 /*=======================*/
-	const byte*	lhs,	/* in: data field (== a pointer to a memory
+	const ::byte*	lhs,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		lhs_len,/* in: data field length or UNIV_SQL_NULL */
-	const byte*	rhs,	/* in: data field (== a pointer to a memory
+	const ::byte*	rhs,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		rhs_len);/* in: data field length or UNIV_SQL_NULL */
 /*****************************************************************
@@ -98,10 +98,10 @@ UNIV_INTERN
 int
 cmp_data_data_slow_like_prefix(
 /*===========================*/
-	const byte*	data1,	/* in: data field (== a pointer to a memory
+	const ::byte*	data1,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len1,	/* in: data field length or UNIV_SQL_NULL */
-	const byte*	data2,	/* in: data field (== a pointer to a memory
+	const ::byte*	data2,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len2);	/* in: data field length or UNIV_SQL_NULL */
 /*****************************************************************
@@ -112,10 +112,10 @@ UNIV_INTERN
 int
 cmp_data_data_slow_like_suffix(
 /*===========================*/
-	const byte*	data1,	/* in: data field (== a pointer to a memory
+	const ::byte*	data1,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len1,	/* in: data field length or UNIV_SQL_NULL */
-	const byte*	data2,	/* in: data field (== a pointer to a memory
+	const ::byte*	data2,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len2);	/* in: data field length or UNIV_SQL_NULL */
 /*****************************************************************
@@ -126,10 +126,10 @@ UNIV_INTERN
 int
 cmp_data_data_slow_like_substr(
 /*===========================*/
-	const byte*	data1,	/* in: data field (== a pointer to a memory
+	const ::byte*	data1,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len1,	/* in: data field length or UNIV_SQL_NULL */
-	const byte*	data2,	/* in: data field (== a pointer to a memory
+	const ::byte*	data2,	/* in: data field (== a pointer to a memory
 				buffer) */
 	ulint		len2);	/* in: data field length or UNIV_SQL_NULL */
 /*************************************************************//**
