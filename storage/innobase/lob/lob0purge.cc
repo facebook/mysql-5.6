@@ -303,7 +303,9 @@ static void z_purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
   page_id_t page_id(ref.space_id(), first_page_no);
 
   /* Hold exclusive access to LOB */
-  z_first_page_t btr_first(mtr, index);
+  mtr_t lob_mtr;
+  mtr_start(&lob_mtr);
+  z_first_page_t btr_first(&lob_mtr, index);
   btr_first.load_x(page_id, page_size);
 
   const trx_id_t last_trx_id = btr_first.get_last_trx_id();
@@ -335,22 +337,23 @@ static void z_purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
     if (ctx->get_page_zip() != nullptr) {
       ref.set_page_no(FIL_NULL, nullptr);
       ref.set_length(0, nullptr);
-      ctx->zblob_write_blobref(ctx->m_field_no, mtr);
+      ctx->zblob_write_blobref(ctx->m_field_no, &lob_mtr);
     } else {
       /* Only purge operation should reach this else block. */
       ut_ad(purge_node != nullptr);
 
       /* Note that page_zip will be NULL in
       row_purge_upd_exist_or_extern(). */
-      ref.set_page_no(FIL_NULL, mtr);
-      ref.set_length(0, mtr);
+      ctx->x_latch_rec_page(&lob_mtr);
+      ref.set_page_no(FIL_NULL, &lob_mtr);
+      ref.set_length(0, &lob_mtr);
     }
+    ut_ad(!lob_mtr.conflicts_with(mtr));
+    mtr_commit(&lob_mtr);
 
     return;
   }
 
-  mtr_t lob_mtr;
-  mtr_start(&lob_mtr);
   lob_mtr.set_log_mode(mtr->get_log_mode());
 
   z_first_page_t first(&lob_mtr, index);
@@ -495,7 +498,9 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
   }
 
   /* Hold exclusive access to LOB */
-  first_page_t btr_first(mtr, index);
+  mtr_start(&lob_mtr);
+  lob_mtr.set_log_mode(log_mode);
+  first_page_t btr_first(&lob_mtr, index);
   btr_first.load_x(page_id, page_size);
   const trx_id_t last_trx_id = btr_first.get_last_trx_id();
   const undo_no_t last_undo_no = btr_first.get_last_trx_undo_no();
@@ -525,14 +530,14 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
       purge_node->add_lob_page(index, page_id);
     }
 
-    ref.set_page_no(FIL_NULL, mtr);
-    ref.set_length(0, mtr);
+    ctx->x_latch_rec_page(&lob_mtr);
+    ref.set_page_no(FIL_NULL, &lob_mtr);
+    ref.set_length(0, &lob_mtr);
+    ut_ad(!lob_mtr.conflicts_with(mtr));
+    mtr_commit(&lob_mtr);
 
     return;
   }
-
-  mtr_start(&lob_mtr);
-  lob_mtr.set_log_mode(log_mode);
 
   /* The current entry - it is the latest version. */
   index_entry_t cur_entry(&lob_mtr, index);
