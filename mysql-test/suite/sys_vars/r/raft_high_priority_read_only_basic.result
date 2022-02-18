@@ -1,0 +1,27 @@
+Default value of raft_high_priority_read_only is ON
+SELECT @@global.raft_high_priority_read_only;
+@@global.raft_high_priority_read_only
+1
+SELECT @@session.raft_high_priority_read_only;
+ERROR HY000: Variable 'raft_high_priority_read_only' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+raft_high_priority_read_only is a dynamic variable (change to OFF)
+set @@global.raft_high_priority_read_only = OFF;
+SELECT @@global.raft_high_priority_read_only;
+@@global.raft_high_priority_read_only
+0
+restore the default value
+SET @@global.raft_high_priority_read_only = ON;
+SELECT @@global.raft_high_priority_read_only;
+@@global.raft_high_priority_read_only
+1
+restart the server with non default value (1)
+# restart: --raft_high_priority_read_only=OFF
+SELECT @@global.raft_high_priority_read_only;
+@@global.raft_high_priority_read_only
+0
+restart the server with the default value (ON)
+# restart: --raft_high_priority_read_only=OFF
+SELECT @@global.raft_high_priority_read_only;
+@@global.raft_high_priority_read_only
+0
