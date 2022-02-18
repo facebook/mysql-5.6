@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of raft_high_priority_read_only is ON
+SELECT @@global.raft_high_priority_read_only;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.raft_high_priority_read_only;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo raft_high_priority_read_only is a dynamic variable (change to OFF)
+set @@global.raft_high_priority_read_only = OFF;
+SELECT @@global.raft_high_priority_read_only;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.raft_high_priority_read_only = ON;
+SELECT @@global.raft_high_priority_read_only;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (1)
+--let restart_parameters=restart: --raft_high_priority_read_only=OFF
+--source include/restart_mysqld.inc
+
+SELECT @@global.raft_high_priority_read_only;
+
+--echo restart the server with the default value (ON)
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
+SELECT @@global.raft_high_priority_read_only;

@@ -99,6 +99,7 @@ std::atomic<bool> opt_replication_sender_observe_commit_only{false};
 /* Raft plugin related variables */
 Raft_replication_delegate *raft_replication_delegate;
 RaftListenerQueue raft_listener_queue;
+bool high_priority_raft_thread{true};
 
 Observer_info::Observer_info(void *ob, st_plugin_int *p)
     : observer(ob), plugin_int(p) {
@@ -1647,6 +1648,16 @@ static int update_sys_var(const char *var_name, uint name_len,
   return 1;
 }
 
+static void set_priority_raft_thread_session_vars() {
+  current_thd->variables.high_priority_ddl = true;
+  current_thd->variables.kill_conflicting_connections = true;
+}
+
+static void unset_priority_raft_thread_session_vars() {
+  current_thd->variables.high_priority_ddl = false;
+  current_thd->variables.kill_conflicting_connections = false;
+}
+
 static int handle_read_only(
     const std::map<std::string, unsigned int> &sys_var_map) {
   int error = 0;
@@ -1656,12 +1667,20 @@ static int handle_read_only(
       super_read_only_it == sys_var_map.end())
     return 1;
 
+  bool high_priority_raft_thread_copy = high_priority_raft_thread;
+
   if (super_read_only_it != sys_var_map.end() &&
       super_read_only_it->second == 1) {
     // Case 1: set super_read_only=1. This will implicitly set read_only.
+    if (high_priority_raft_thread_copy) {
+      set_priority_raft_thread_session_vars();
+    }
     Item_uint super_read_only_item(super_read_only_it->second);
     error = update_sys_var(STRING_WITH_LEN("super_read_only"),
                            super_read_only_item);
+    if (high_priority_raft_thread_copy) {
+      unset_priority_raft_thread_session_vars();
+    }
   } else if (read_only_it != sys_var_map.end() && read_only_it->second == 0) {
     // Case 2: set read_only=0. This will implicitly unset super_read_only.
     Item_uint read_only_item(read_only_it->second);
@@ -1669,10 +1688,15 @@ static int handle_read_only(
   } else {
     // Case 3: Need to set read_only=1 OR/AND set super_read_only=0
     if (read_only_it != sys_var_map.end()) {
+      if (high_priority_raft_thread_copy) {
+        set_priority_raft_thread_session_vars();
+      }
       Item_uint read_only_item(read_only_it->second);
       error = update_sys_var(STRING_WITH_LEN("read_only"), read_only_item);
+      if (high_priority_raft_thread_copy) {
+        unset_priority_raft_thread_session_vars();
+      }
     }
-
     if (!error && super_read_only_it != sys_var_map.end()) {
       Item_uint super_read_only_item(super_read_only_it->second);
       error = update_sys_var(STRING_WITH_LEN("super_read_only"),
