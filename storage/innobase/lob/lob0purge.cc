@@ -348,7 +348,7 @@ static void z_purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
 
   ut_ad(!lob_mtr.conflicts_with(mtr));
   mtr_commit(&lob_mtr);
-  first.set_mtr(mtr);
+  mtr_start(&lob_mtr);
   first.load_x(first_page_no);
 
   bool ok_to_free_2 = (rec_type == TRX_UNDO_UPD_EXIST_REC ||
@@ -370,13 +370,16 @@ static void z_purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
   if (ctx->get_page_zip() != nullptr) {
     ref.set_page_no(FIL_NULL, nullptr);
     ref.set_length(0, nullptr);
-    ctx->zblob_write_blobref(ctx->m_field_no, mtr);
+    ctx->zblob_write_blobref(ctx->m_field_no, &lob_mtr);
   } else {
     /* Note that page_zip will be NULL in
     row_purge_upd_exist_or_extern(). */
-    ref.set_page_no(FIL_NULL, mtr);
-    ref.set_length(0, mtr);
+    ctx->x_latch_rec_page(&lob_mtr);
+    ref.set_page_no(FIL_NULL, &lob_mtr);
+    ref.set_length(0, &lob_mtr);
   }
+  ut_ad(!lob_mtr.conflicts_with(mtr));
+  mtr_commit(&lob_mtr);
 }
 
 void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
@@ -511,7 +514,7 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
   do not make conflicting modifications. */
   ut_ad(!lob_mtr.conflicts_with(mtr));
   mtr_commit(&lob_mtr);
-  first.set_mtr(ctx->get_mtr());
+  mtr_start(&lob_mtr);
   first.load_x(page_id, page_size);
 
   bool ok_to_free = (rec_type == TRX_UNDO_UPD_EXIST_REC ||
@@ -528,8 +531,11 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
     first.destroy();
   }
 
-  ref.set_page_no(FIL_NULL, mtr);
-  ref.set_length(0, mtr);
+  ctx->x_latch_rec_page(&lob_mtr);
+  ref.set_page_no(FIL_NULL, &lob_mtr);
+  ref.set_length(0, &lob_mtr);
+  ut_ad(!lob_mtr.conflicts_with(mtr));
+  mtr_commit(&lob_mtr);
 }
 
 } /* namespace lob */
