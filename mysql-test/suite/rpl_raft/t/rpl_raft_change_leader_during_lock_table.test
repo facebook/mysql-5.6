@@ -1,0 +1,48 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+create table t1 (a int primary key);
+insert into t1 values (1);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2_1;
+let $uuid2 = `select @@server_uuid`;
+echo simulate long-running trx by lock table;
+lock tables t1 write;
+
+echo Make sure write lock on t1 is held;
+sleep 2;
+
+connection server_1;
+replace_result $uuid2 uuid2;
+eval SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID="$uuid2";
+
+connection server_2;
+echo new leader should become writable within 5 seconds;
+
+let $wait_timeout= 5;
+let $wait_condition= select @@global.read_only = 0;
+--source include/wait_condition.inc
+echo Leader is changed to server 2;
+
+echo Connection holding the write lock is killed by raft thread;
+connection server_2_1;
+--error CR_SERVER_LOST
+select @@global.read_only;
+
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
+
+reset master;

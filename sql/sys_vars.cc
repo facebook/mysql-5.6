@@ -9814,3 +9814,10 @@ static Sys_var_bool Sys_enable_deprecation_warning(
     "enable_deprecation_warning",
     "If set to false, will not show deprecation warnings ",
     GLOBAL_VAR(enable_deprecation_warning), CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_bool Sys_raft_high_priority_read_only(
+    "raft_high_priority_read_only",
+    "Set high_priority_ddl and kill_conflicting_connections before set "
+    "read-only in Raft handler thread.",
+    GLOBAL_VAR(high_priority_raft_thread), CMD_LINE(OPT_ARG), DEFAULT(true),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);

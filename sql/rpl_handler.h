@@ -489,6 +489,7 @@ extern Server_state_delegate *server_state_delegate;
 extern Binlog_transmit_delegate *binlog_transmit_delegate;
 extern Binlog_relay_IO_delegate *binlog_relay_io_delegate;
 extern Raft_replication_delegate *raft_replication_delegate;
+extern bool high_priority_raft_thread;
 
 /*
   if there is no observers in the delegate, we can return 0
