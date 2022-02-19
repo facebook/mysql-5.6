@@ -16,34 +16,34 @@ select * from privacy_research;
 id	name
 1	User1
 Warnings:
-Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz', policy type: 'DI') failed in FAIL_OPEN mode
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz', policy type: 'DI') failed in FAIL_OPEN mode
 select * from privacy_research where id >= 1;
 id	name
 1	User1
 Warnings:
-Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz', policy type: 'DI') failed in FAIL_OPEN mode
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz', policy type: 'DI') failed in FAIL_OPEN mode
 select name, count(id) from privacy_research group by name;
 name	count(id)
 User1	1
 Warnings:
-Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz', policy type: 'DI') failed in FAIL_OPEN mode
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz', policy type: 'DI') failed in FAIL_OPEN mode
 select name, count(id) from privacy_research group by name order by 1;
 name	count(id)
 User1	1
 Warnings:
-Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz', policy type: 'DI') failed in FAIL_OPEN mode
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::research or fbig::safety_security_integrity' (query policy: 'xyz', policy type: 'DI') failed in FAIL_OPEN mode
 set session privacy_plugin_purpose_policy_check=fail_close;
 select * from privacy_research;
 ERROR HY000: Purpose policy check `fbig::research or fbig::safety_security_integrity` (query policy: `xyz`) failed in FAIL_CLOSE mode
