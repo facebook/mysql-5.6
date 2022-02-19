@@ -18,34 +18,34 @@ select * from privacy_blood_donation_table;
 id	name
 1	User1
 Warnings:
-Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
 select * from privacy_blood_donation_table where id>= 1;
 id	name
 1	User1
 Warnings:
-Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
 select name, count(id) from privacy_blood_donation_table group by name;
 name	count(id)
 User1	1
 Warnings:
-Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
 select name, count(id) from privacy_blood_donation_table group by name order by 1;
 name	count(id)
 User1	1
 Warnings:
-Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'dummy_result_policy' (query policy: 'blood_donor', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
 set session privacy_plugin_purpose_policy_check=fail_close;
 select * from privacy_blood_donation_table;
 ERROR HY000: Purpose policy check `dummy_result_policy` (query policy: `blood_donor`) failed in FAIL_CLOSE mode
