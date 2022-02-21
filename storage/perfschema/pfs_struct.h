@@ -30,6 +30,7 @@
 
 #include <string.h>
 #include <sys/types.h>
+#include <array>
 #include <string>
 #include <unordered_map>
 #include <vector>

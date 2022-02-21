@@ -10103,8 +10103,6 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
        * coordinates in init_slave().
        */
       int memory_page_size = my_getpagesize();
-      char tmp_binlog_file[FN_REFLEN + 1] = {0};
-      my_off_t tmp_binlog_pos = 0;
       MEM_ROOT mem_root(key_memory_binlog_recover_exec, memory_page_size);
       xid_to_gtid_container xids(&mem_root);
       if (!enable_raft_plugin) {
@@ -10112,6 +10110,8 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
           Temp variables help trigger fetching the file/offset info even
           during a clean recovery.
         */
+        char tmp_binlog_file[FN_REFLEN + 1] = {0};
+        my_off_t tmp_binlog_pos = 0;
         error = ha_recover(&xids, &engine_binlog_max_gtid, tmp_binlog_file,
                            &tmp_binlog_pos);
       } else {
