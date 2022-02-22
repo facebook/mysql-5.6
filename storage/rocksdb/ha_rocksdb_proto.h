@@ -81,7 +81,7 @@ const rocksdb::BlockBasedTableOptions &rdb_get_table_options();
 bool rdb_is_table_scan_index_stats_calculation_enabled();
 bool rdb_is_ttl_enabled();
 bool rdb_is_ttl_read_filtering_enabled();
-#ifndef DBUG_OFF
+#ifndef NDEBUG
 int rdb_dbug_set_ttl_rec_ts();
 int rdb_dbug_set_ttl_snapshot_ts();
 int rdb_dbug_set_ttl_read_filter_ts();

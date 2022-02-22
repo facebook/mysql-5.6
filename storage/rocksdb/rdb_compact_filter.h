@@ -80,7 +80,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
             m_snapshot_timestamp = static_cast<uint64_t>(std::time(nullptr));
           }
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
           int snapshot_ts = rdb_dbug_set_ttl_snapshot_ts();
           if (snapshot_ts) {
             m_snapshot_timestamp =
@@ -140,7 +140,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
           gl_index_id.cf_id, gl_index_id.index_id);
     }
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
     if (rdb_dbug_set_ttl_ignore_pk() &&
         index_info.m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY) {
       *ttl_duration = 0;

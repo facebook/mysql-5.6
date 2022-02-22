@@ -291,7 +291,7 @@ class ha_rocksdb : public my_core::handler {
   */
   bool m_dup_key_found;
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
   /*
     Last retrieved record (for duplicate PK) or index tuple (for duplicate
     unique SK). Used for sanity checking.
