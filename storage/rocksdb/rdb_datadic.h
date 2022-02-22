@@ -842,12 +842,12 @@ class Rdb_key_def {
   static bool is_variable_length_field(const enum_field_types type);
 
  private:
-#ifndef DBUG_OFF
+#ifndef NDEBUG
   inline bool is_storage_available(const int offset, const int needed) const {
     const int storage_length = static_cast<int>(max_storage_fmt_length());
     return (storage_length - offset) >= needed;
   }
-#endif  // DBUG_OFF
+#endif  // NDEBUG
 
   /* Global number of this index (used as prefix in StorageFormat) */
   const uint32 m_index_number;

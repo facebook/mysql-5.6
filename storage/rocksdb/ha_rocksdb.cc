@@ -750,7 +750,7 @@ std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
 std::atomic<uint64_t> rocksdb_manual_compactions_processed(0);
 std::atomic<uint64_t> rocksdb_manual_compactions_running(0);
-#ifndef DBUG_OFF
+#ifndef NDEBUG
 std::atomic<uint64_t> rocksdb_num_get_for_update_calls(0);
 #endif
 
@@ -3126,7 +3126,7 @@ class Rdb_transaction {
         std::max(m_auto_incr_map[gl_index_id], curr_id);
   }
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
   ulonglong get_auto_incr(const GL_INDEX_ID &gl_index_id) {
     if (m_auto_incr_map.count(gl_index_id) > 0) {
       return m_auto_incr_map[gl_index_id];
@@ -6280,7 +6280,7 @@ static inline void rocksdb_smart_next(bool seek_backward,
   }
 }
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
 // simulate that RocksDB has reported corrupted data
 static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
   *status = rocksdb::Status::Corruption();
@@ -6384,7 +6384,7 @@ std::vector<std::string> Rdb_open_tables_map::get_table_names(void) const {
 void ha_rocksdb::load_auto_incr_value() {
   ulonglong auto_incr = 0;
   bool validate_last = false, use_datadic = true;
-#ifndef DBUG_OFF
+#ifndef NDEBUG
   DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", use_datadic = false;);
   validate_last = true;
 #endif
@@ -6443,7 +6443,7 @@ ulonglong ha_rocksdb::load_auto_incr_value_from_index() {
     if (last_val != max_val) {
       last_val++;
     }
-#ifndef DBUG_OFF
+#ifndef NDEBUG
     ulonglong dd_val;
     if (last_val <= max_val) {
       const auto &gl_index_id = m_tbl_def->get_autoincr_gl_index_id();
@@ -6742,7 +6742,7 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
 
   /* Hide record if it has expired before the current snapshot time. */
   uint64 read_filter_ts = 0;
-#ifndef DBUG_OFF
+#ifndef NDEBUG
   read_filter_ts += rdb_dbug_set_ttl_read_filter_ts();
 #endif
   bool is_hide_ttl =
@@ -6777,7 +6777,7 @@ int ha_rocksdb::rocksdb_skip_expired_records(const Rdb_key_def &kd,
   return HA_EXIT_SUCCESS;
 }
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
 void dbug_append_garbage_at_end(rocksdb::PinnableSlice *on_disk_rec) {
   std::string str(on_disk_rec->data(), on_disk_rec->size());
   on_disk_rec->Reset();
@@ -8404,7 +8404,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   const rocksdb::Slice &rkey = m_scan_it->key();
   const rocksdb::Slice &value = m_scan_it->value();
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
   bool save_keyread_only = m_keyread_only;
 #endif
   DBUG_EXECUTE_IF("dbug.rocksdb.HA_EXTRA_KEYREAD", { m_keyread_only = true; });
@@ -8412,7 +8412,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   bool covered_lookup = (m_keyread_only && kd.can_cover_lookup()) ||
                         kd.covers_lookup(&value, &m_lookup_bitmap);
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
   m_keyread_only = save_keyread_only;
 #endif
 
@@ -9158,7 +9158,7 @@ rocksdb::Status ha_rocksdb::get_for_update(
   rocksdb::Status s =
       tx->get_for_update(column_family, key, value, exclusive, do_validate);
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
   ++rocksdb_num_get_for_update_calls;
 #endif
   return s;
@@ -9962,7 +9962,7 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
     // next time
     m_dup_key_found = true;
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
     // save it for sanity checking later
     m_dup_key_retrieved_record.copy(m_retrieved_record.data(),
                                     m_retrieved_record.size(), &my_charset_bin);
@@ -10122,7 +10122,7 @@ int ha_rocksdb::check_and_lock_sk(const uint key_id,
       m_dup_key_found = true;
       m_last_rowkey.copy((const char *)m_pk_packed_tuple, pk_size,
                          &my_charset_bin);
-#ifndef DBUG_OFF
+#ifndef NDEBUG
       // save it for sanity checking later
       m_dup_key_retrieved_record.copy(rkey.data(), rkey.size(),
                                       &my_charset_bin);
@@ -12889,7 +12889,7 @@ void ha_rocksdb::get_auto_increment(
   *nb_reserved_values = 1;
 }
 
-#ifndef DBUG_OFF
+#ifndef NDEBUG
 
 /* Debugger help function */
 static char dbug_item_print_buf[512];
@@ -12908,7 +12908,7 @@ const char *dbug_print_item(Item *const item) {
   }
 }
 
-#endif /*DBUG_OFF*/
+#endif // NDEBUG
 
 /**
   SQL layer calls this function to push an index condition.
@@ -14159,7 +14159,7 @@ static SHOW_VAR rocksdb_status_vars[] = {
                        SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("number_sst_entry_other", &rocksdb_num_sst_entry_other,
                        SHOW_LONGLONG),
-#ifndef DBUG_OFF
+#ifndef NDEBUG
     DEF_STATUS_VAR_PTR("num_get_for_update_calls",
                        &rocksdb_num_get_for_update_calls, SHOW_LONGLONG),
 #endif
@@ -14755,7 +14755,7 @@ bool rdb_is_ttl_enabled() { return rocksdb_enable_ttl; }
 bool rdb_is_ttl_read_filtering_enabled() {
   return rocksdb_enable_ttl_read_filtering;
 }
-#ifndef DBUG_OFF
+#ifndef NDEBUG
 int rdb_dbug_set_ttl_rec_ts() { return rocksdb_debug_ttl_rec_ts; }
 int rdb_dbug_set_ttl_snapshot_ts() { return rocksdb_debug_ttl_snapshot_ts; }
 int rdb_dbug_set_ttl_read_filter_ts() {
