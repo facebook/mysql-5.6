@@ -39,6 +39,9 @@ let $con1_id = `SELECT CONNECTION_ID()`;
 send select sleep(1000);
 
 connection default;
+let $wait_condition =
+  select count(*) = 1 from information_schema.processlist where state = 'User sleep';
+source include/wait_condition.inc;
 unlock tables;
 
 connection con2;
