@@ -502,10 +502,17 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
     While position() returns the "file size" from the plain binary log events
     stream point of view, this function considers the encryption header when it
     exists.
+    @param writes_via_raft - the actual write to binlog happens via plugin,
+     so size accounting on mysql side is not dependable
 
     @return The real file size considering the encryption header.
   */
-  my_off_t get_real_file_size() { return m_position + m_encrypted_header_size; }
+  my_off_t get_real_file_size(bool writes_via_raft = false) {
+    return (m_io_cache && writes_via_raft)
+               ? my_b_tell(m_io_cache) + m_encrypted_header_size
+               : m_position + m_encrypted_header_size;
+  }
+
   /**
     Get the pipeline head.
 
@@ -1868,9 +1875,7 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
 
     (void)gtid_event.write(temp_binlog_cache.get());
 
-    bool wrote_hlc = false;
-    ret =
-        write_hlc(thd, cache_data, writer, temp_binlog_cache.get(), &wrote_hlc);
+    ret = write_hlc(thd, cache_data, nullptr, temp_binlog_cache.get());
     assert(!ret);
 
     thd->commit_consensus_error = false;
@@ -8556,7 +8561,7 @@ int MYSQL_BIN_LOG::new_file_impl(
     if ((error = gtid_state->save_gtids_of_last_binlog_into_table())) {
       if (error == ER_RPL_GTID_TABLE_CANNOT_OPEN) {
         close_on_error =
-            m_binlog_file->get_real_file_size() >=
+            m_binlog_file->get_real_file_size(rotate_via_raft) >=
                 static_cast<my_off_t>(max_size) ||
             DBUG_EVALUATE_IF("simulate_max_binlog_size", true, false);
 
@@ -9308,9 +9313,13 @@ int MYSQL_BIN_LOG::rotate(bool force_rotate, bool *check_purge) {
   mysql_mutex_assert_owner(&LOCK_log);
 
   *check_purge = false;
+  bool plugin_writes_to_binlog =
+      enable_raft_plugin && /* true !is_relay_log && */
+      !is_apply_log;
 
   if (DBUG_EVALUATE_IF("force_rotate", 1, 0) || force_rotate ||
-      (m_binlog_file->get_real_file_size() >= (my_off_t)max_size) ||
+      (m_binlog_file->get_real_file_size(plugin_writes_to_binlog) >=
+       (my_off_t)max_size) ||
       DBUG_EVALUATE_IF("simulate_max_binlog_size", true, false)) {
     error = new_file_without_locking(nullptr);
     *check_purge = true;
@@ -10783,8 +10792,10 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
 
   *out_queue_var = first_seen;
   *total_bytes_var = total_bytes;
+  bool plugin_writes_to_binlog = enable_raft_plugin && !is_apply_log;
   if (total_bytes > 0 &&
-      (m_binlog_file->get_real_file_size() >= (my_off_t)max_size ||
+      (m_binlog_file->get_real_file_size(plugin_writes_to_binlog) >=
+           (my_off_t)max_size ||
        DBUG_EVALUATE_IF("simulate_max_binlog_size", true, false)))
     *rotate_var = true;
 
