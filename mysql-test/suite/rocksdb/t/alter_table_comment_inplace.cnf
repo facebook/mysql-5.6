@@ -1,0 +1,7 @@
+!include suite/rocksdb_rpl/my.cnf
+
+[mysqld.1]
+binlog_format=ROW
+
+[mysqld.2]
+binlog_format=ROW
