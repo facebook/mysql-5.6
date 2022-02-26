@@ -753,6 +753,7 @@ static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
 static my_bool rocksdb_skip_locks_if_skip_unique_check = FALSE;
 static my_bool rocksdb_alter_column_default_inplace = FALSE;
+static my_bool rocksdb_alter_table_comment_inplace = FALSE;
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
@@ -2378,6 +2379,12 @@ static MYSQL_SYSVAR_BOOL(
     "Allow inplace alter for alter column default operation", nullptr, nullptr,
     TRUE);
 
+static MYSQL_SYSVAR_BOOL(alter_table_comment_inplace,
+                         rocksdb_alter_table_comment_inplace,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Allow inplace alter for alter table comment", nullptr,
+                         nullptr, FALSE);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct st_mysql_sys_var *rocksdb_system_variables[] = {
@@ -2564,6 +2571,8 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(mrr_batch_size),
     MYSQL_SYSVAR(skip_locks_if_skip_unique_check),
     MYSQL_SYSVAR(alter_column_default_inplace),
+    MYSQL_SYSVAR(alter_table_comment_inplace),
+
     nullptr};
 
 static rocksdb::WriteOptions rdb_get_rocksdb_write_options(
@@ -7710,7 +7719,7 @@ int ha_rocksdb::create_inplace_key_defs(
           index_info.m_kv_version, okd.m_is_reverse_cf,
           okd.m_is_per_partition_cf, okd.m_name.c_str(),
           dict_manager.get_stats(gl_index_id), index_info.m_index_flags,
-          ttl_rec_offset, index_info.m_ttl_duration);
+          ttl_rec_offset, ttl_duration);
     } else if (create_key_def(table_arg, i, tbl_def_arg, &new_key_descr[i],
                               cfs[i], ttl_duration, ttl_column)) {
       DBUG_RETURN(HA_EXIT_FAILURE);
@@ -13357,11 +13366,53 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
-  /* We only support changing auto_increment for table options. */
+  /* We only support changing auto_increment or comments for table options. */
   if ((ha_alter_info->handler_flags &
        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
-      !(ha_alter_info->create_info->used_fields & HA_CREATE_USED_AUTO)) {
+      (ha_alter_info->create_info->used_fields &
+       ~(HA_CREATE_USED_AUTO | HA_CREATE_USED_COMMENT))) {
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+  }
+
+  // We don't support changing ttl column, also doesn't support adding/removing
+  // ttl duration in comments.
+  if ((ha_alter_info->handler_flags &
+       my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
+      (ha_alter_info->create_info->used_fields & HA_CREATE_USED_COMMENT)) {
+    // if variable isn't enabled, don't support inplace
+    if (!rocksdb_alter_table_comment_inplace)
+      DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+
+    // this shouldn't happen, just in case
+    if (m_tbl_def == nullptr || m_tbl_def->m_key_count == 0)
+      DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+
+    // check ttl column
+    uint pk = pk_index(altered_table, m_tbl_def);
+    std::string ttl_col = m_tbl_def->m_key_descr_arr[pk]->m_ttl_column;
+    std::string altered_ttl_col;
+    uint altered_ttl_field_offset;
+    if ((Rdb_key_def::extract_ttl_col(altered_table, m_tbl_def,
+                                      &altered_ttl_col,
+                                      &altered_ttl_field_offset))) {
+      DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+    }
+    // don't support change for ttl column
+    if (ttl_col != altered_ttl_col) {
+      DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+    }
+
+    // check ttl duration
+    uint64 ttl_duration = m_tbl_def->m_key_descr_arr[pk]->m_ttl_duration;
+    uint64 altered_ttl_duration = 0;
+    if (Rdb_key_def::extract_ttl_duration(altered_table, m_tbl_def,
+                                          &altered_ttl_duration)) {
+      DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+    }
+    // don't support add/remove ttl duration
+    if ((ttl_duration == 0 && altered_ttl_duration > 0) ||
+        (ttl_duration > 0 && altered_ttl_duration == 0))
+      DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
   DBUG_RETURN(my_core::HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
@@ -13414,11 +13465,16 @@ bool ha_rocksdb::prepare_inplace_alter_table(
   uint n_added_keys = 0;
   ulonglong max_auto_incr = 0;
 
-  if (ha_alter_info->handler_flags &
-      (my_core::Alter_inplace_info::DROP_INDEX |
-       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
-       my_core::Alter_inplace_info::ADD_INDEX |
-       my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)) {
+  bool update_comment =
+      ((ha_alter_info->handler_flags &
+        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
+       (ha_alter_info->create_info->used_fields & HA_CREATE_USED_COMMENT));
+  if ((ha_alter_info->handler_flags &
+       (my_core::Alter_inplace_info::DROP_INDEX |
+        my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
+        my_core::Alter_inplace_info::ADD_INDEX |
+        my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)) ||
+      update_comment) {
     if (has_hidden_pk(altered_table)) {
       new_n_keys += 1;
     }
@@ -13505,8 +13561,9 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     DBUG_ASSERT(added_indexes.size() == n_added_keys);
     DBUG_ASSERT(new_n_keys == (old_n_keys - n_dropped_keys + n_added_keys));
   }
-  if (ha_alter_info->handler_flags &
-      my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) {
+  if ((ha_alter_info->handler_flags &
+       my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
+      (ha_alter_info->create_info->used_fields & HA_CREATE_USED_AUTO)) {
     if (!new_tdef) {
       new_tdef = m_tbl_def;
     }
@@ -14034,8 +14091,9 @@ bool ha_rocksdb::commit_inplace_alter_table(
     }
   }
 
-  if (ha_alter_info->handler_flags &
-      (my_core::Alter_inplace_info::CHANGE_CREATE_OPTION)) {
+  if ((ha_alter_info->handler_flags &
+       my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
+      (ha_alter_info->create_info->used_fields & HA_CREATE_USED_AUTO)) {
     const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
     rocksdb::WriteBatch *const batch = wb.get();
     std::unordered_set<GL_INDEX_ID> create_index_ids;
@@ -14057,6 +14115,40 @@ bool ha_rocksdb::commit_inplace_alter_table(
     }
   }
 
+  if ((ha_alter_info->handler_flags &
+       my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
+      (ha_alter_info->create_info->used_fields & HA_CREATE_USED_COMMENT)) {
+    const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
+    rocksdb::WriteBatch *const batch = wb.get();
+
+    m_tbl_def = ctx0->m_new_tdef;
+    m_key_descr_arr = m_tbl_def->m_key_descr_arr;
+    m_pk_descr = m_key_descr_arr[pk_index(altered_table, m_tbl_def)];
+
+    {
+      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+      for (inplace_alter_handler_ctx **pctx = ctx_array; *pctx; pctx++) {
+        Rdb_inplace_alter_ctx *const ctx =
+            static_cast<Rdb_inplace_alter_ctx *>(*pctx);
+
+        if (ddl_manager.put_and_write(ctx->m_new_tdef, batch)) {
+          /*
+            Failed to write new entry into data dictionary, this should never
+            happen.
+          */
+          DBUG_ASSERT(0);
+        }
+      }
+
+      if (dict_manager.commit(batch)) {
+        /*
+          Should never reach here. We assume MyRocks will abort if commit
+          fails.
+        */
+        DBUG_ASSERT(0);
+      }
+    }
+  }
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
