@@ -10190,7 +10190,8 @@ static void restore_empty_query_table_list(LEX *lex) {
   lex->query_tables_last = &lex->query_tables;
 }
 
-int Rows_log_event::force_write_to_binlog(Relay_log_info *rli) {
+int Rows_log_event::force_write_to_binlog(table_def *tabledef,
+                                          Relay_log_info *rli) {
   int error = 0;
 
   // reset the row logging function flag
@@ -10223,7 +10224,7 @@ int Rows_log_event::force_write_to_binlog(Relay_log_info *rli) {
 
   m_curr_row = m_rows_buf;
   m_curr_row_end = NULL;
-  uint i = 0;  // update event count
+  uint j = 0;  // update event count
   while (m_curr_row != m_rows_end) {
     Log_event_type event_type = get_general_type_code();
 
@@ -10235,9 +10236,61 @@ int Rows_log_event::force_write_to_binlog(Relay_log_info *rli) {
     }
     // NOTE: In updates, the after image follows the before image, hence
     // every odd index will be an after image
-    else if (event_type == binary_log::UPDATE_ROWS_EVENT && i++ % 2 == 1) {
+    else if (event_type == binary_log::UPDATE_ROWS_EVENT && j++ % 2 == 1) {
       cols = &m_cols_ai;
       is_after_image = true;
+    }
+
+    if (event_type == binary_log::UPDATE_ROWS_EVENT && is_after_image) {
+      if (tabledef->use_column_names(m_table)) {
+        // Loop over fields by name on the original table
+        for (uint i = 0; i < tabledef->size(); ++i) {
+          const char *col_name = tabledef->get_column_name(i);
+          Field *const field = find_field_in_table_sef(m_table, col_name);
+          // field may be NULL if the field is removed on slave.
+          if (!field) continue;
+          if (field->type() == MYSQL_TYPE_BLOB) {
+            if (bitmap_is_set(&m_cols_ai, i)) {
+              Field_blob *blob = static_cast<Field_blob *>(field);
+
+              // When we unpack rows the blob is saved as a ptr to
+              // Field_blob::value cache - this means when you unpack AI
+              // the blob in BI is going to be invalidated, leading to
+              // corruption or truncation.
+              // To workaround this, we "backup" the current value to
+              // Field_blob::m_blob_backup (which is the "backup" cache).
+              // We only need two cache for AI/BI so it works out
+              blob->backup_blob_field();
+            } else {
+              // As Field_blob::unpack updates the write_set during unpacking,
+              // AI would actually write empty blob fields even when they are
+              // not changed. In normal replication path this isn't an issue
+              // because AI is "overlay" with BI so the binlog write path
+              // can see that the blob didn't change and clear the bit.
+              // However in this particular case we unpack AI / BI separately so
+              // when format is COMPLETE the check would always fail.
+              // The workaround here is to force clear them
+              bitmap_clear_bit(m_table->write_set, field->field_index());
+            }
+          }
+        }
+      } else {
+        // Loop over fields by index on the local table
+        for (unsigned int i = 0; i < m_table->s->fields; ++i) {
+          Field *field = m_table->field[i];
+          if (field->type() == MYSQL_TYPE_BLOB) {
+            if (bitmap_is_set(&m_local_cols_ai, i)) {
+              Field_blob *blob = static_cast<Field_blob *>(field);
+
+              // See above for expalanation
+              blob->backup_blob_field();
+            } else {
+              // See above for expalanation
+              bitmap_clear_bit(m_table->write_set, i);
+            }
+          }
+        }
+      }
     }
 
     prepare_record(m_table, cols, false);
@@ -11016,7 +11069,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
       // reset all the pending rows that might have been added while applying
       // the row events, we will directly write the relay log event
       thd->binlog_reset_pending_rows_event(m_table->file->has_transactions());
-      error = force_write_to_binlog(const_cast<Relay_log_info *>(rli));
+      error =
+          force_write_to_binlog(tabledef, const_cast<Relay_log_info *>(rli));
     }
     // reset back the db
     thd->reset_db(current_db_name_saved);

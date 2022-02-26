@@ -3191,7 +3191,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
   int do_apply_event(Relay_log_info const *rli) override;
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
-  int force_write_to_binlog(Relay_log_info *rli);
+  int force_write_to_binlog(table_def *tabledef, Relay_log_info *rli);
   bool can_use_idempotent_recovery(Relay_log_info const *rli,
                                    std::string &err_msg) const;
 

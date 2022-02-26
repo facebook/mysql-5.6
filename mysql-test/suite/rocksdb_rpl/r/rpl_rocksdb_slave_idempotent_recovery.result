@@ -14,6 +14,8 @@ set @@session.binlog_row_image= FULL;
 include/stop_slave.inc
 set @@global.binlog_row_image= FULL;
 include/start_slave.inc
+set @@global.log_column_names = true;
+set @@global.log_column_names = true;
 include/stop_slave.inc
 change replication source to source_auto_position=1;
 include/start_slave.inc
@@ -24,74 +26,78 @@ Note	1051	Unknown table 'test.t1'
 drop table if exists t2;
 Warnings:
 Note	1051	Unknown table 'test.t2'
-create table t1(a int primary key, b int unique, c int, d int, key(c)) engine = rocksdb;
-create table t2(a int primary key, b int, c int) engine = rocksdb;
+create table t1(a int primary key, b int unique, c int, d int, e mediumtext NOT NULL, key(c)) engine = rocksdb;
+create table t2(a int primary key, b int, c int, d mediumtext) engine = rocksdb;
 include/sync_slave_sql_with_master.inc
 flush logs;
 "Execute transctions which will be recovered:"
 "PrimaryKey: insert then update"
-insert into t1 values(1, 1, 1, 1);
+insert into t1 values(1, 1, 1, 1, 1);
 update t1 set a = a + 100 where a = 1;
 "PrimaryKey: insert then delete"
-insert into t1 values(2, 2, 2, 2);
+insert into t1 values(2, 2, 2, 2, 2);
 delete from t1 where a = 2;
 "PrimaryKey: update then delete"
 update t1 set a = a + 100 where a = 1000;
 delete from t1 where a = 1000 + 100;
 "PrimaryKey: delete then insert"
 delete from t1 where a = 1001;
-insert into t1 values(1001, 1001, 1001, 1001);
+insert into t1 values(1001, 1001, 1001, 1001, 1001);
 "UniqueKey: insert then update"
-insert into t1 values(3, 3, 3, 3);
+insert into t1 values(3, 3, 3, 3, 3);
 update t1 set b = b + 100 where b = 3;
 "UniqueKey: insert then delete"
-insert into t1 values(4, 4, 4, 4);
+insert into t1 values(4, 4, 4, 4, 4);
 delete from t1 where b = 4;
 "UniqueKey: update then delete"
 update t1 set b = b + 100 where b = 1002;
 delete from t1 where b = 1002 + 100;
 "UniqueKey: delete then insert"
 delete from t1 where b = 1003;
-insert into t1 values(1003, 1003, 1003, 1003);
+insert into t1 values(1003, 1003, 1003, 1003, 1003);
+"UniqueKey: update blob"
+insert into t1 values(5, 5, 5, 5, 5);
+update t1 set b = b + 100, e = CONCAT('aaa', 5) where a = 5;
+update t1 set b = b + 100 where a = 5;
 "NonUniqueKey: insert then update"
-insert into t1 values(5, 5, 5, 5);
-update t1 set c = c + 100 where c = 5;
+insert into t1 values(6, 6, 6, 6, 6);
+update t1 set c = c + 100 where c = 6;
 "NonUniqueKey: insert then delete"
-insert into t1 values(6, 6, 6, 6);
-delete from t1 where c = 6;
+insert into t1 values(7, 7, 7, 7, 7);
+delete from t1 where c = 7;
 "NonUniqueKey: update then delete"
 update t1 set c = c + 100 where c = 1004;
 delete from t1 where c = 1004 + 100;
 "NonUniqueKey: delete then insert"
 delete from t1 where c = 1005;
-insert into t1 values(1005, 1005, 1005, 1005);
+insert into t1 values(1005, 1005, 1005, 1005, 1005);
 "NonKey: insert then update"
-insert into t1 values(7, 7, 7, 7);
-update t1 set d = d + 100 where d = 7;
+insert into t1 values(8, 8, 8, 8, 1006);
+update t1 set d = d + 100 where d = 8;
 "NonKey: insert then delete"
-insert into t1 values(8, 8, 8, 8);
-delete from t1 where d = 8;
+insert into t1 values(9, 9, 9, 9, 9);
+delete from t1 where d = 9;
 "NonKey: update then delete"
 update t1 set d = d + 100 where d = 1006;
 delete from t1 where d = 1006 + 100;
 "NonKey: delete then insert"
 delete from t1 where d = 1007;
-insert into t1 values(1007, 1007, 1007, 1007);
+insert into t1 values(1007, 1007, 1007, 1007, 1007);
 "AllUniqueKeys: insert then update"
-insert into t1 values(9, 9, 9, 9);
-update t1 set a = a + 100, b = b + 100 where a = 9;
+insert into t1 values(10, 10, 10, 10, 10);
+update t1 set a = a + 100, b = b + 100 where a = 10;
 "AllUniqueKeys: update then delete"
 update t1 set a = a + 100, b = b + 100 where a = 1008;
 delete from t1 where a = 1008 + 100;
 "AllKeys: insert then update"
-insert into t1 values(10, 10, 10, 10);
-update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 10;
+insert into t1 values(11, 11, 11, 11, 11);
+update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 11;
 "AllKeys: update then delete"
 update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 1009;
 delete from t1 where a = 1009 + 100;
 "AllCols: insert then update"
-insert into t1 values(11, 11, 11, 11);
-update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 11;
+insert into t1 values(12, 12, 12, 12, 12);
+update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 12;
 "AllCols: update then delete"
 update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 1010;
 delete from t1 where a = 1010 + 100;
@@ -275,12 +281,8 @@ reset master;
 include/diff_tables.inc [master:t1, slave:t1]
 drop table t1;
 include/sync_slave_sql_with_master.inc
-SET @img_types= LTRIM(SUBSTRING(@img_types, LENGTH('FULL') + 1));
-set @@global.binlog_row_image= COMPLETE;
-set @@session.binlog_row_image= COMPLETE;
-include/stop_slave.inc
-set @@global.binlog_row_image= COMPLETE;
-include/start_slave.inc
+set @@global.log_column_names = false;
+set @@global.log_column_names = false;
 include/stop_slave.inc
 change replication source to source_auto_position=1;
 include/start_slave.inc
@@ -291,74 +293,353 @@ Note	1051	Unknown table 'test.t1'
 drop table if exists t2;
 Warnings:
 Note	1051	Unknown table 'test.t2'
-create table t1(a int primary key, b int unique, c int, d int, key(c)) engine = rocksdb;
-create table t2(a int primary key, b int, c int) engine = rocksdb;
+create table t1(a int primary key, b int unique, c int, d int, e mediumtext NOT NULL, key(c)) engine = rocksdb;
+create table t2(a int primary key, b int, c int, d mediumtext) engine = rocksdb;
 include/sync_slave_sql_with_master.inc
 flush logs;
 "Execute transctions which will be recovered:"
 "PrimaryKey: insert then update"
-insert into t1 values(1, 1, 1, 1);
+insert into t1 values(1, 1, 1, 1, 1);
 update t1 set a = a + 100 where a = 1;
 "PrimaryKey: insert then delete"
-insert into t1 values(2, 2, 2, 2);
+insert into t1 values(2, 2, 2, 2, 2);
 delete from t1 where a = 2;
 "PrimaryKey: update then delete"
 update t1 set a = a + 100 where a = 1000;
 delete from t1 where a = 1000 + 100;
 "PrimaryKey: delete then insert"
 delete from t1 where a = 1001;
-insert into t1 values(1001, 1001, 1001, 1001);
+insert into t1 values(1001, 1001, 1001, 1001, 1001);
 "UniqueKey: insert then update"
-insert into t1 values(3, 3, 3, 3);
+insert into t1 values(3, 3, 3, 3, 3);
 update t1 set b = b + 100 where b = 3;
 "UniqueKey: insert then delete"
-insert into t1 values(4, 4, 4, 4);
+insert into t1 values(4, 4, 4, 4, 4);
 delete from t1 where b = 4;
 "UniqueKey: update then delete"
 update t1 set b = b + 100 where b = 1002;
 delete from t1 where b = 1002 + 100;
 "UniqueKey: delete then insert"
 delete from t1 where b = 1003;
-insert into t1 values(1003, 1003, 1003, 1003);
+insert into t1 values(1003, 1003, 1003, 1003, 1003);
+"UniqueKey: update blob"
+insert into t1 values(5, 5, 5, 5, 5);
+update t1 set b = b + 100, e = CONCAT('aaa', 5) where a = 5;
+update t1 set b = b + 100 where a = 5;
 "NonUniqueKey: insert then update"
-insert into t1 values(5, 5, 5, 5);
-update t1 set c = c + 100 where c = 5;
+insert into t1 values(6, 6, 6, 6, 6);
+update t1 set c = c + 100 where c = 6;
 "NonUniqueKey: insert then delete"
-insert into t1 values(6, 6, 6, 6);
-delete from t1 where c = 6;
+insert into t1 values(7, 7, 7, 7, 7);
+delete from t1 where c = 7;
 "NonUniqueKey: update then delete"
 update t1 set c = c + 100 where c = 1004;
 delete from t1 where c = 1004 + 100;
 "NonUniqueKey: delete then insert"
 delete from t1 where c = 1005;
-insert into t1 values(1005, 1005, 1005, 1005);
+insert into t1 values(1005, 1005, 1005, 1005, 1005);
 "NonKey: insert then update"
-insert into t1 values(7, 7, 7, 7);
-update t1 set d = d + 100 where d = 7;
+insert into t1 values(8, 8, 8, 8, 1006);
+update t1 set d = d + 100 where d = 8;
 "NonKey: insert then delete"
-insert into t1 values(8, 8, 8, 8);
-delete from t1 where d = 8;
+insert into t1 values(9, 9, 9, 9, 9);
+delete from t1 where d = 9;
 "NonKey: update then delete"
 update t1 set d = d + 100 where d = 1006;
 delete from t1 where d = 1006 + 100;
 "NonKey: delete then insert"
 delete from t1 where d = 1007;
-insert into t1 values(1007, 1007, 1007, 1007);
+insert into t1 values(1007, 1007, 1007, 1007, 1007);
 "AllUniqueKeys: insert then update"
-insert into t1 values(9, 9, 9, 9);
-update t1 set a = a + 100, b = b + 100 where a = 9;
+insert into t1 values(10, 10, 10, 10, 10);
+update t1 set a = a + 100, b = b + 100 where a = 10;
 "AllUniqueKeys: update then delete"
 update t1 set a = a + 100, b = b + 100 where a = 1008;
 delete from t1 where a = 1008 + 100;
 "AllKeys: insert then update"
-insert into t1 values(10, 10, 10, 10);
-update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 10;
+insert into t1 values(11, 11, 11, 11, 11);
+update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 11;
 "AllKeys: update then delete"
 update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 1009;
 delete from t1 where a = 1009 + 100;
 "AllCols: insert then update"
-insert into t1 values(11, 11, 11, 11);
-update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 11;
+insert into t1 values(12, 12, 12, 12, 12);
+update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 12;
+"AllCols: update then delete"
+update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 1010;
+delete from t1 where a = 1010 + 100;
+"PrimaryKey(t2): insert then update"
+eval insert into t2 values(1, 1, 1)
+update t2 set a = a + 100 where a = 1;
+include/sync_slave_sql_with_master.inc
+flush engine logs;
+include/rpl_restart_server.inc [server_number=2 parameters: --binlog_row_image=FULL]
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+"Check if master and slave have the same data"
+include/diff_tables.inc [master:t1, slave:t1]
+"Check if slave binlogs are generated correctly"
+reset master;
+include/diff_tables.inc [master:t1, slave:t1]
+drop table t1;
+drop table t2;
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+change replication source to source_auto_position=1;
+set @@global.debug= "+d,dbg_enable_idempotent_recovery";
+set @@sql_log_bin= 0;
+include/start_slave.inc
+"Create schema"
+drop table if exists t1;
+Warnings:
+Note	1051	Unknown table 'test.t1'
+create table t1(a int primary key, b int unique, c int, d int, key(c)) engine = rocksdb;
+include/sync_slave_sql_with_master.inc
+flush logs;
+"Check if inserts overwrite correctly"
+insert into t1 values(1, 2, 3, 4);
+insert into t1 values(1, 1, 1, 1);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+select * from t1 force index(primary);
+a	b	c	d
+1	1	1	1
+select * from t1 force index(b);
+a	b	c	d
+1	1	1	1
+select * from t1 force index(c);
+a	b	c	d
+1	1	1	1
+"Check if updates overwrite correctly"
+delete from t1;
+insert into t1 values(1, 20, 30, 40);
+/* update UK */ update t1 set b = 2 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	2	1	1
+select * from t1 force index(primary);
+a	b	c	d
+1	2	1	1
+select * from t1 force index(b);
+a	b	c	d
+1	2	1	1
+select * from t1 force index(c);
+a	b	c	d
+1	2	1	1
+/* update Key */ update t1 set c = 2 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	2	2	1
+select * from t1 force index(primary);
+a	b	c	d
+1	2	2	1
+select * from t1 force index(b);
+a	b	c	d
+1	2	2	1
+select * from t1 force index(c);
+a	b	c	d
+1	2	2	1
+/* update Non-Key */ update t1 set d = 2 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	2	2	2
+select * from t1 force index(primary);
+a	b	c	d
+1	2	2	2
+select * from t1 force index(b);
+a	b	c	d
+1	2	2	2
+select * from t1 force index(c);
+a	b	c	d
+1	2	2	2
+/* update PK */ update t1 set a = 2 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+2	2	2	2
+select * from t1 force index(primary);
+a	b	c	d
+2	2	2	2
+select * from t1 force index(b);
+a	b	c	d
+2	2	2	2
+select * from t1 force index(c);
+a	b	c	d
+2	2	2	2
+/* update all cols */ update t1 set a = 3, b = 3, c = 3, d = 3 where a = 2;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+3	3	3	3
+select * from t1 force index(primary);
+a	b	c	d
+3	3	3	3
+select * from t1 force index(b);
+a	b	c	d
+3	3	3	3
+select * from t1 force index(c);
+a	b	c	d
+3	3	3	3
+"Check if deletes overwrite correctly"
+update t1 set b = 30, c = 30, d = 30;
+/* delete an existing row */ delete from t1 where a = 3;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+select * from t1 force index(primary);
+a	b	c	d
+select * from t1 force index(b);
+a	b	c	d
+select * from t1 force index(c);
+a	b	c	d
+insert into t1 values(1, 1, 1, 1);
+include/sync_slave_sql_with_master.inc
+delete from t1 where a = 1;
+/* delete a non-existing row */ delete from t1 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+select * from t1 force index(primary);
+a	b	c	d
+select * from t1 force index(b);
+a	b	c	d
+select * from t1 force index(c);
+a	b	c	d
+"Check if multi-stmt trxs with stmt that mutate multiple rows work correctly"
+delete from t1;
+include/sync_slave_sql_with_master.inc
+insert into t1 values(1, 10, 100, 1000);
+insert into t1 values(2, 20, 200, 2000);
+insert into t1 values(3, 30, 300, 3000);
+insert into t1 values(5, 50, 500, 5000);
+begin;
+insert into t1 values(1, 1, 1, 1), (2, 2, 2, 2), (3, 3, 3, 3), (4, 4, 4, 4);
+update t1 set b = b + 10 where a in (2, 3, 4);
+update t1 set a = 5 where a = 4;
+delete from t1 where a > 2;
+commit;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	12	2	2
+select * from t1 force index(primary);
+a	b	c	d
+1	1	1	1
+2	12	2	2
+select * from t1 force index(b);
+a	b	c	d
+1	1	1	1
+2	12	2	2
+select * from t1 force index(c);
+a	b	c	d
+1	1	1	1
+2	12	2	2
+"Double check if master and slave have the same data"
+include/diff_tables.inc [master:t1, slave:t1]
+"Check if slave binlogs are generated correctly"
+set @@global.debug= "-d,dbg_enable_idempotent_recovery";
+reset master;
+include/diff_tables.inc [master:t1, slave:t1]
+drop table t1;
+include/sync_slave_sql_with_master.inc
+set @@global.log_column_names = 0;
+set @@global.log_column_names = 0;
+SET @img_types= LTRIM(SUBSTRING(@img_types, LENGTH('FULL') + 1));
+set @@global.binlog_row_image= COMPLETE;
+set @@session.binlog_row_image= COMPLETE;
+include/stop_slave.inc
+set @@global.binlog_row_image= COMPLETE;
+include/start_slave.inc
+set @@global.log_column_names = true;
+set @@global.log_column_names = true;
+include/stop_slave.inc
+change replication source to source_auto_position=1;
+include/start_slave.inc
+"Create schema and pre-insert some rows"
+drop table if exists t1;
+Warnings:
+Note	1051	Unknown table 'test.t1'
+drop table if exists t2;
+Warnings:
+Note	1051	Unknown table 'test.t2'
+create table t1(a int primary key, b int unique, c int, d int, e mediumtext NOT NULL, key(c)) engine = rocksdb;
+create table t2(a int primary key, b int, c int, d mediumtext) engine = rocksdb;
+include/sync_slave_sql_with_master.inc
+flush logs;
+"Execute transctions which will be recovered:"
+"PrimaryKey: insert then update"
+insert into t1 values(1, 1, 1, 1, 1);
+update t1 set a = a + 100 where a = 1;
+"PrimaryKey: insert then delete"
+insert into t1 values(2, 2, 2, 2, 2);
+delete from t1 where a = 2;
+"PrimaryKey: update then delete"
+update t1 set a = a + 100 where a = 1000;
+delete from t1 where a = 1000 + 100;
+"PrimaryKey: delete then insert"
+delete from t1 where a = 1001;
+insert into t1 values(1001, 1001, 1001, 1001, 1001);
+"UniqueKey: insert then update"
+insert into t1 values(3, 3, 3, 3, 3);
+update t1 set b = b + 100 where b = 3;
+"UniqueKey: insert then delete"
+insert into t1 values(4, 4, 4, 4, 4);
+delete from t1 where b = 4;
+"UniqueKey: update then delete"
+update t1 set b = b + 100 where b = 1002;
+delete from t1 where b = 1002 + 100;
+"UniqueKey: delete then insert"
+delete from t1 where b = 1003;
+insert into t1 values(1003, 1003, 1003, 1003, 1003);
+"UniqueKey: update blob"
+insert into t1 values(5, 5, 5, 5, 5);
+update t1 set b = b + 100, e = CONCAT('aaa', 5) where a = 5;
+update t1 set b = b + 100 where a = 5;
+"NonUniqueKey: insert then update"
+insert into t1 values(6, 6, 6, 6, 6);
+update t1 set c = c + 100 where c = 6;
+"NonUniqueKey: insert then delete"
+insert into t1 values(7, 7, 7, 7, 7);
+delete from t1 where c = 7;
+"NonUniqueKey: update then delete"
+update t1 set c = c + 100 where c = 1004;
+delete from t1 where c = 1004 + 100;
+"NonUniqueKey: delete then insert"
+delete from t1 where c = 1005;
+insert into t1 values(1005, 1005, 1005, 1005, 1005);
+"NonKey: insert then update"
+insert into t1 values(8, 8, 8, 8, 1006);
+update t1 set d = d + 100 where d = 8;
+"NonKey: insert then delete"
+insert into t1 values(9, 9, 9, 9, 9);
+delete from t1 where d = 9;
+"NonKey: update then delete"
+update t1 set d = d + 100 where d = 1006;
+delete from t1 where d = 1006 + 100;
+"NonKey: delete then insert"
+delete from t1 where d = 1007;
+insert into t1 values(1007, 1007, 1007, 1007, 1007);
+"AllUniqueKeys: insert then update"
+insert into t1 values(10, 10, 10, 10, 10);
+update t1 set a = a + 100, b = b + 100 where a = 10;
+"AllUniqueKeys: update then delete"
+update t1 set a = a + 100, b = b + 100 where a = 1008;
+delete from t1 where a = 1008 + 100;
+"AllKeys: insert then update"
+insert into t1 values(11, 11, 11, 11, 11);
+update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 11;
+"AllKeys: update then delete"
+update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 1009;
+delete from t1 where a = 1009 + 100;
+"AllCols: insert then update"
+insert into t1 values(12, 12, 12, 12, 12);
+update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 12;
 "AllCols: update then delete"
 update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 1010;
 delete from t1 where a = 1010 + 100;
@@ -542,6 +823,275 @@ reset master;
 include/diff_tables.inc [master:t1, slave:t1]
 drop table t1;
 include/sync_slave_sql_with_master.inc
+set @@global.log_column_names = false;
+set @@global.log_column_names = false;
+include/stop_slave.inc
+change replication source to source_auto_position=1;
+include/start_slave.inc
+"Create schema and pre-insert some rows"
+drop table if exists t1;
+Warnings:
+Note	1051	Unknown table 'test.t1'
+drop table if exists t2;
+Warnings:
+Note	1051	Unknown table 'test.t2'
+create table t1(a int primary key, b int unique, c int, d int, e mediumtext NOT NULL, key(c)) engine = rocksdb;
+create table t2(a int primary key, b int, c int, d mediumtext) engine = rocksdb;
+include/sync_slave_sql_with_master.inc
+flush logs;
+"Execute transctions which will be recovered:"
+"PrimaryKey: insert then update"
+insert into t1 values(1, 1, 1, 1, 1);
+update t1 set a = a + 100 where a = 1;
+"PrimaryKey: insert then delete"
+insert into t1 values(2, 2, 2, 2, 2);
+delete from t1 where a = 2;
+"PrimaryKey: update then delete"
+update t1 set a = a + 100 where a = 1000;
+delete from t1 where a = 1000 + 100;
+"PrimaryKey: delete then insert"
+delete from t1 where a = 1001;
+insert into t1 values(1001, 1001, 1001, 1001, 1001);
+"UniqueKey: insert then update"
+insert into t1 values(3, 3, 3, 3, 3);
+update t1 set b = b + 100 where b = 3;
+"UniqueKey: insert then delete"
+insert into t1 values(4, 4, 4, 4, 4);
+delete from t1 where b = 4;
+"UniqueKey: update then delete"
+update t1 set b = b + 100 where b = 1002;
+delete from t1 where b = 1002 + 100;
+"UniqueKey: delete then insert"
+delete from t1 where b = 1003;
+insert into t1 values(1003, 1003, 1003, 1003, 1003);
+"UniqueKey: update blob"
+insert into t1 values(5, 5, 5, 5, 5);
+update t1 set b = b + 100, e = CONCAT('aaa', 5) where a = 5;
+update t1 set b = b + 100 where a = 5;
+"NonUniqueKey: insert then update"
+insert into t1 values(6, 6, 6, 6, 6);
+update t1 set c = c + 100 where c = 6;
+"NonUniqueKey: insert then delete"
+insert into t1 values(7, 7, 7, 7, 7);
+delete from t1 where c = 7;
+"NonUniqueKey: update then delete"
+update t1 set c = c + 100 where c = 1004;
+delete from t1 where c = 1004 + 100;
+"NonUniqueKey: delete then insert"
+delete from t1 where c = 1005;
+insert into t1 values(1005, 1005, 1005, 1005, 1005);
+"NonKey: insert then update"
+insert into t1 values(8, 8, 8, 8, 1006);
+update t1 set d = d + 100 where d = 8;
+"NonKey: insert then delete"
+insert into t1 values(9, 9, 9, 9, 9);
+delete from t1 where d = 9;
+"NonKey: update then delete"
+update t1 set d = d + 100 where d = 1006;
+delete from t1 where d = 1006 + 100;
+"NonKey: delete then insert"
+delete from t1 where d = 1007;
+insert into t1 values(1007, 1007, 1007, 1007, 1007);
+"AllUniqueKeys: insert then update"
+insert into t1 values(10, 10, 10, 10, 10);
+update t1 set a = a + 100, b = b + 100 where a = 10;
+"AllUniqueKeys: update then delete"
+update t1 set a = a + 100, b = b + 100 where a = 1008;
+delete from t1 where a = 1008 + 100;
+"AllKeys: insert then update"
+insert into t1 values(11, 11, 11, 11, 11);
+update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 11;
+"AllKeys: update then delete"
+update t1 set a = a + 100, b = b + 100, c = c + 100 where a = 1009;
+delete from t1 where a = 1009 + 100;
+"AllCols: insert then update"
+insert into t1 values(12, 12, 12, 12, 12);
+update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 12;
+"AllCols: update then delete"
+update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 1010;
+delete from t1 where a = 1010 + 100;
+"PrimaryKey(t2): insert then update"
+eval insert into t2 values(1, 1, 1)
+update t2 set a = a + 100 where a = 1;
+include/sync_slave_sql_with_master.inc
+flush engine logs;
+include/rpl_restart_server.inc [server_number=2 parameters: --binlog_row_image=COMPLETE]
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+"Check if master and slave have the same data"
+include/diff_tables.inc [master:t1, slave:t1]
+"Check if slave binlogs are generated correctly"
+reset master;
+include/diff_tables.inc [master:t1, slave:t1]
+drop table t1;
+drop table t2;
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+change replication source to source_auto_position=1;
+set @@global.debug= "+d,dbg_enable_idempotent_recovery";
+set @@sql_log_bin= 0;
+include/start_slave.inc
+"Create schema"
+drop table if exists t1;
+Warnings:
+Note	1051	Unknown table 'test.t1'
+create table t1(a int primary key, b int unique, c int, d int, key(c)) engine = rocksdb;
+include/sync_slave_sql_with_master.inc
+flush logs;
+"Check if inserts overwrite correctly"
+insert into t1 values(1, 2, 3, 4);
+insert into t1 values(1, 1, 1, 1);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+select * from t1 force index(primary);
+a	b	c	d
+1	1	1	1
+select * from t1 force index(b);
+a	b	c	d
+1	1	1	1
+select * from t1 force index(c);
+a	b	c	d
+1	1	1	1
+"Check if updates overwrite correctly"
+delete from t1;
+insert into t1 values(1, 20, 30, 40);
+/* update UK */ update t1 set b = 2 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	2	1	1
+select * from t1 force index(primary);
+a	b	c	d
+1	2	1	1
+select * from t1 force index(b);
+a	b	c	d
+1	2	1	1
+select * from t1 force index(c);
+a	b	c	d
+1	2	1	1
+/* update Key */ update t1 set c = 2 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	2	2	1
+select * from t1 force index(primary);
+a	b	c	d
+1	2	2	1
+select * from t1 force index(b);
+a	b	c	d
+1	2	2	1
+select * from t1 force index(c);
+a	b	c	d
+1	2	2	1
+/* update Non-Key */ update t1 set d = 2 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	2	2	2
+select * from t1 force index(primary);
+a	b	c	d
+1	2	2	2
+select * from t1 force index(b);
+a	b	c	d
+1	2	2	2
+select * from t1 force index(c);
+a	b	c	d
+1	2	2	2
+/* update PK */ update t1 set a = 2 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+2	2	2	2
+select * from t1 force index(primary);
+a	b	c	d
+2	2	2	2
+select * from t1 force index(b);
+a	b	c	d
+2	2	2	2
+select * from t1 force index(c);
+a	b	c	d
+2	2	2	2
+/* update all cols */ update t1 set a = 3, b = 3, c = 3, d = 3 where a = 2;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+3	3	3	3
+select * from t1 force index(primary);
+a	b	c	d
+3	3	3	3
+select * from t1 force index(b);
+a	b	c	d
+3	3	3	3
+select * from t1 force index(c);
+a	b	c	d
+3	3	3	3
+"Check if deletes overwrite correctly"
+update t1 set b = 30, c = 30, d = 30;
+/* delete an existing row */ delete from t1 where a = 3;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+select * from t1 force index(primary);
+a	b	c	d
+select * from t1 force index(b);
+a	b	c	d
+select * from t1 force index(c);
+a	b	c	d
+insert into t1 values(1, 1, 1, 1);
+include/sync_slave_sql_with_master.inc
+delete from t1 where a = 1;
+/* delete a non-existing row */ delete from t1 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+select * from t1 force index(primary);
+a	b	c	d
+select * from t1 force index(b);
+a	b	c	d
+select * from t1 force index(c);
+a	b	c	d
+"Check if multi-stmt trxs with stmt that mutate multiple rows work correctly"
+delete from t1;
+include/sync_slave_sql_with_master.inc
+insert into t1 values(1, 10, 100, 1000);
+insert into t1 values(2, 20, 200, 2000);
+insert into t1 values(3, 30, 300, 3000);
+insert into t1 values(5, 50, 500, 5000);
+begin;
+insert into t1 values(1, 1, 1, 1), (2, 2, 2, 2), (3, 3, 3, 3), (4, 4, 4, 4);
+update t1 set b = b + 10 where a in (2, 3, 4);
+update t1 set a = 5 where a = 4;
+delete from t1 where a > 2;
+commit;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	12	2	2
+select * from t1 force index(primary);
+a	b	c	d
+1	1	1	1
+2	12	2	2
+select * from t1 force index(b);
+a	b	c	d
+1	1	1	1
+2	12	2	2
+select * from t1 force index(c);
+a	b	c	d
+1	1	1	1
+2	12	2	2
+"Double check if master and slave have the same data"
+include/diff_tables.inc [master:t1, slave:t1]
+"Check if slave binlogs are generated correctly"
+set @@global.debug= "-d,dbg_enable_idempotent_recovery";
+reset master;
+include/diff_tables.inc [master:t1, slave:t1]
+drop table t1;
+include/sync_slave_sql_with_master.inc
+set @@global.log_column_names = 0;
+set @@global.log_column_names = 0;
 SET @img_types= LTRIM(SUBSTRING(@img_types, LENGTH('COMPLETE') + 1));
 set @@global.binlog_row_image= FULL;
 set @@session.binlog_row_image= FULL;
