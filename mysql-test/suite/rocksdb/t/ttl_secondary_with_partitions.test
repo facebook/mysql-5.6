@@ -188,6 +188,27 @@ SELECT * FROM t1 FORCE INDEX (PRIMARY);
 --sorted_result
 SELECT * FROM t1 FORCE INDEX (kc2);
 
+SET @@GLOBAL.ROCKSDB_ALTER_TABLE_COMMENT_INPLACE = ON;
+# try to inplace replace partition ttl
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t1 comment = 'custom_p0_ttl_duration=1000;custom_p1_ttl_duration=5;', ALGORITHM=INPLACE;
+
+ALTER TABLE t1 comment = 'custom_p0_ttl_duration=1000;custom_p2_ttl_duration=5;', ALGORITHM=INPLACE;
+set global rocksdb_debug_ttl_snapshot_ts = 2000;
+set global rocksdb_force_flush_memtable_now=1;
+set @@global.rocksdb_compact_cf = 'foo';
+set @@global.rocksdb_compact_cf = 'baz';
+# Filter out expired secondary keys too
+set @@global.rocksdb_compact_cf = 'default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
+# 1,2,3 should also gone
+--sorted_result
+SELECT * FROM t1 FORCE INDEX (PRIMARY);
+--sorted_result
+# 1,2,3 should also gone
+SELECT * FROM t1 FORCE INDEX (kc2);
+SET @@GLOBAL.ROCKSDB_ALTER_TABLE_COMMENT_INPLACE = OFF;
+
 DROP TABLE t1;
 
 #
@@ -252,7 +273,31 @@ SELECT c1 FROM t1 FORCE INDEX (PRIMARY);
 SELECT c1 FROM t1 FORCE INDEX (kc2);
 
 # at this point only 7,8,9 should be left..
+SET @@GLOBAL.ROCKSDB_ALTER_TABLE_COMMENT_INPLACE = ON;
+# doesn't support remove table ttl 
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t1 comment = 'custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=5000;', ALGORITHM=INPLACE;
+# remove partition ttl and use table ttl instead
+ALTER TABLE t1 comment = 'ttl_duration=1;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t1 comment = 'ttl_duration=1;custom_p1_ttl_duration=100;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+
+ALTER TABLE t1 comment = 'ttl_duration=1;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+set global rocksdb_debug_ttl_snapshot_ts = 2000;
+set global rocksdb_force_flush_memtable_now=1;
+set @@global.rocksdb_compact_cf = 'baz';
+# Filter out expired secondary keys too
+set @@global.rocksdb_compact_cf = 'default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
+# 7,8,9 should also gone
+--sorted_result
+SELECT * FROM t1 FORCE INDEX (PRIMARY);
+--sorted_result
+# 7,8,9 should also gone
+SELECT * FROM t1 FORCE INDEX (kc2);
+SET @@GLOBAL.ROCKSDB_ALTER_TABLE_COMMENT_INPLACE = OFF;
 DROP TABLE t1;
+
 
 CREATE TABLE t1 (
     c1 BIGINT,

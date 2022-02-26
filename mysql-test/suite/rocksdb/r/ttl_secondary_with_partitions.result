@@ -271,6 +271,27 @@ c1	c2	name	event
 4	4	four	NULL
 5	5	five	NULL
 6	6	six	NULL
+SET @@GLOBAL.ROCKSDB_ALTER_TABLE_COMMENT_INPLACE = ON;
+ALTER TABLE t1 comment = 'custom_p0_ttl_duration=1000;custom_p1_ttl_duration=5;', ALGORITHM=INPLACE;
+ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
+ALTER TABLE t1 comment = 'custom_p0_ttl_duration=1000;custom_p2_ttl_duration=5;', ALGORITHM=INPLACE;
+set global rocksdb_debug_ttl_snapshot_ts = 2000;
+set global rocksdb_force_flush_memtable_now=1;
+set @@global.rocksdb_compact_cf = 'foo';
+set @@global.rocksdb_compact_cf = 'baz';
+set @@global.rocksdb_compact_cf = 'default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
+SELECT * FROM t1 FORCE INDEX (PRIMARY);
+c1	c2	name	event
+4	4	four	NULL
+5	5	five	NULL
+6	6	six	NULL
+SELECT * FROM t1 FORCE INDEX (kc2);
+c1	c2	name	event
+4	4	four	NULL
+5	5	five	NULL
+6	6	six	NULL
+SET @@GLOBAL.ROCKSDB_ALTER_TABLE_COMMENT_INPLACE = OFF;
 DROP TABLE t1;
 CREATE TABLE t1 (
 c1 BIGINT,
@@ -332,6 +353,23 @@ c1
 7
 8
 9
+SET @@GLOBAL.ROCKSDB_ALTER_TABLE_COMMENT_INPLACE = ON;
+ALTER TABLE t1 comment = 'custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=5000;', ALGORITHM=INPLACE;
+ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
+ALTER TABLE t1 comment = 'ttl_duration=1;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+ALTER TABLE t1 comment = 'ttl_duration=1;custom_p1_ttl_duration=100;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
+ALTER TABLE t1 comment = 'ttl_duration=1;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+set global rocksdb_debug_ttl_snapshot_ts = 2000;
+set global rocksdb_force_flush_memtable_now=1;
+set @@global.rocksdb_compact_cf = 'baz';
+set @@global.rocksdb_compact_cf = 'default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
+SELECT * FROM t1 FORCE INDEX (PRIMARY);
+c1	c2	name	event
+SELECT * FROM t1 FORCE INDEX (kc2);
+c1	c2	name	event
+SET @@GLOBAL.ROCKSDB_ALTER_TABLE_COMMENT_INPLACE = OFF;
 DROP TABLE t1;
 CREATE TABLE t1 (
 c1 BIGINT,

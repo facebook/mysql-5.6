@@ -1,0 +1,275 @@
+source include/have_debug.inc;
+source include/have_rocksdb.inc;
+source include/master-slave.inc;
+
+connection slave;
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace=ON;
+
+connection master;
+
+--echo
+--echo # Test inplace ALTER when changing TABLE comment --- implicit TTL
+--echo
+CREATE TABLE t0(a int primary key, b char(100), ts BIGINT UNSIGNED default 0 NOT NULL) engine=rocksdb COMMENT "ttl_duration=1000;";
+SET GLOBAL rocksdb_debug_ttl_rec_ts = -300;
+INSERT into t0 values(1, 'aaa', 1);
+INSERT into t0 values(2, 'bbb', 2);
+INSERT into t0 values(3, 'ccc', 3);
+SET GLOBAL rocksdb_debug_ttl_rec_ts = 0;
+--sorted_result
+SELECT * from t0;
+
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace = OFF;
+SET session rocksdb_max_row_locks = 0;
+--error ER_GET_ERRMSG
+ALTER TABLE t0 comment = 'ttl_duration=2000';
+SET session rocksdb_max_row_locks = default;
+
+# if varilabe isn't SET, inplace isn't supported
+--error ER_ALTER_OPERATION_NOT_SUPPORTED 
+ALTER TABLE t0 comment = 'ttl_duration=2000;', ALGORITHM=INPLACE;
+
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace = ON;
+
+# don't support inplace adding ts column
+--error ER_ALTER_OPERATION_NOT_SUPPORTED 
+ALTER TABLE t0 comment = 'ttl_duration=2000;ttl_col=ts', ALGORITHM=INPLACE;
+
+# don't support inplace removing ttl duration
+--error ER_ALTER_OPERATION_NOT_SUPPORTED 
+ALTER TABLE t0 comment = 'A=B', ALGORITHM=INPLACE;
+
+--sorted_result
+SELECT * from t0;
+
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't0';
+ALTER TABLE t0 comment = 'ttl_duration=20', ALGORITHM=INPLACE;
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't0';
+
+SET GLOBAL rocksdb_force_flush_memtable_now=1;
+SET GLOBAL rocksdb_compact_cf='default';
+
+# nothing should exist
+SELECT * from t0;
+
+# okay to alter with random string
+ALTER TABLE t0 comment = 'abadfas;dfikajps;ttl_duration=30;aspipwrqp3948r', ALGORITHM=INPLACE;
+
+DROP TABLE t0;
+--source include/sync_slave_sql_with_master.inc
+
+
+--echo
+--echo # Test inplace ALTER when changing TABLE comment --- explicit TTL 
+--echo
+connection master;
+CREATE TABLE t1 (a INT, b INT, c INT, ts BIGINT UNSIGNED NOT NULL, PRIMARY KEY (a), KEY(b)) ENGINE=ROCKSDB COMMENT "ttl_duration=1000;ttl_col=ts;";
+INSERT into t1 values(1, 1, 1, UNIX_TIMESTAMP());
+INSERT into t1 values(2, 2, 2, UNIX_TIMESTAMP()); 
+INSERT into t1 values(3, 3, 3, UNIX_TIMESTAMP()); 
+--sorted_result
+SELECT a,b,c from t1;
+
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace = OFF;
+
+# don't support inplace if rocksdb_alter_table_comment_inplace is OFF
+--error ER_ALTER_OPERATION_NOT_SUPPORTED 
+ALTER TABLE t1 comment = 'ttl_duration=2000;ttl_col=ts;', ALGORITHM=INPLACE;
+
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace = ON;
+
+# don't support inplace removing ts column
+--error ER_ALTER_OPERATION_NOT_SUPPORTED 
+ALTER TABLE t1 comment = 'ttl_duration=2000;', ALGORITHM=INPLACE;
+
+# it will reset timstamp when adding extra column
+ALTER TABLE t1 add column ts2 BIGINT UNSIGNED DEFAULT 0 NOT NULL;
+# don't support inplace replacing ts column
+--error ER_ALTER_OPERATION_NOT_SUPPORTED 
+ALTER TABLE t1 comment = 'ttl_duration=2000;ttl_col=ts2', ALGORITHM=INPLACE;
+
+# don't support inplace removing ttl duration
+--error ER_ALTER_OPERATION_NOT_SUPPORTED 
+ALTER TABLE t1 comment = 'ttl_col=ts;', ALGORITHM=INPLACE;
+
+--sorted_result
+SELECT a,b,c from t1;
+
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't1';
+ALTER TABLE t1 comment = 'ttl_duration=200;ttl_col=ts;', ALGORITHM=INPLACE;
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't1';
+
+SET GLOBAL rocksdb_debug_ttl_snapshot_ts = 300;
+SET GLOBAL rocksdb_force_flush_memtable_now=1;
+SET GLOBAL rocksdb_compact_cf='default';
+SET GLOBAL rocksdb_debug_ttl_snapshot_ts = 0;
+
+SELECT a,b,c from t1;
+
+# okay to alter with random string
+ALTER TABLE t1 comment = 'abadfas;dfikajps;ttl_duration=1000;ttl_col=ts;aspipwrqp3948r', ALGORITHM=INPLACE;
+
+DROP TABLE t1;
+--source include/sync_slave_sql_with_master.inc
+
+
+--echo
+--echo # Test inplace ALTER when changing TABLE comment --- partition with implicit TTL 
+--echo
+connection master;
+CREATE TABLE t2 (
+    c1 INT,
+    PRIMARY KEY (`c1`)
+) ENGINE=ROCKSDB
+COMMENT="custom_p0_ttl_duration=1000;"
+PARTITION BY LIST(c1) (
+    PARTITION custom_p0 VALUES IN (1, 4, 7),
+    PARTITION custom_p1 VALUES IN (2, 5, 8),
+    PARTITION custom_p2 VALUES IN (3, 6, 9)
+);
+
+SET GLOBAL rocksdb_debug_ttl_rec_ts = -300;
+INSERT INTO t2 values (1);
+INSERT INTO t2 values (2);
+INSERT INTO t2 values (3);
+INSERT INTO t2 values (4);
+INSERT INTO t2 values (5);
+INSERT INTO t2 values (6);
+INSERT INTO t2 values (7);
+INSERT INTO t2 values (8);
+INSERT INTO t2 values (9);
+SET GLOBAL rocksdb_debug_ttl_rec_ts = 0;
+
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace = OFF;
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t2 comment = ';custom_p0_ttl_duration=200', ALGORITHM=INPLACE;
+
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace = ON;
+
+# don't support add new ttl duration
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t2 comment = 'custom_p0_ttl_duration=10;custom_p1_ttl_duration=1', ALGORITHM=INPLACE;
+
+# don't support add new ttl duration
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t2 comment = 'ttl_duration=10;custom_p0_ttl_duration=1', ALGORITHM=INPLACE;
+
+# don't support replace other partition  ttl duration
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t2 comment = ';custom_p2_ttl_duration=1', ALGORITHM=INPLACE;
+
+# don't support remove exising ttl duration
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t2 comment = '', ALGORITHM=INPLACE;
+
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t2 comment = 'custom_p1_ttl_duration=1;custom_p2_ttl_duration=1', ALGORITHM=INPLACE;
+
+# support inplace change ttl duration value
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't2' ORDER BY TABLE_NAME,TTL_DURATION,INDEX_FLAGS;
+ALTER TABLE t2 comment = ';custom_p0_ttl_duration=200', ALGORITHM=INPLACE;
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't2' ORDER BY TABLE_NAME,TTL_DURATION,INDEX_FLAGS;
+
+--sorted_result
+SELECT * FROM t2;
+SET GLOBAL rocksdb_force_flush_memtable_now=1;
+SET GLOBAL rocksdb_compact_cf='default';
+
+# 1,4, and 7 should be gone
+--sorted_result
+SELECT * FROM t2;
+DROP TABLE t2;
+--source include/sync_slave_sql_with_master.inc
+
+
+--echo
+--echo # Test inplace ALTER when changing TABLE comment --- partition with explicit TTL 
+--echo
+connection master;
+CREATE TABLE t3 (
+    c1 BIGINT UNSIGNED NOT NULL,
+    c2 BIGINT UNSIGNED NOT NULL,
+    name VARCHAR(25) NOT NULL,
+    e DATE,
+    PRIMARY KEY (`c1`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=bar;custom_p2_cfname=baz;'
+) ENGINE=ROCKSDB
+COMMENT="ttl_duration=1;custom_p1_ttl_duration=1000;custom_p1_ttl_col=c2;custom_p2_ttl_duration=5000;"
+PARTITION BY LIST(c1) (
+    PARTITION custom_p0 VALUES IN (1, 2, 3),
+    PARTITION custom_p1 VALUES IN (4, 5, 6),
+    PARTITION custom_p2 VALUES IN (7, 8, 9)
+);
+
+set global rocksdb_debug_ttl_rec_ts = -300;
+INSERT INTO t3 VALUES (1, UNIX_TIMESTAMP(), "one", null);
+INSERT INTO t3 VALUES (2, UNIX_TIMESTAMP(), "two", null);
+INSERT INTO t3 VALUES (3, UNIX_TIMESTAMP(), "three", null);
+
+set global rocksdb_debug_ttl_rec_ts = 0;
+INSERT INTO t3 VALUES (4, UNIX_TIMESTAMP(), "four", null);
+INSERT INTO t3 VALUES (5, UNIX_TIMESTAMP(), "five", null);
+INSERT INTO t3 VALUES (6, UNIX_TIMESTAMP(), "six", null);
+
+INSERT INTO t3 VALUES (7, UNIX_TIMESTAMP(), "seven", null);
+INSERT INTO t3 VALUES (8, UNIX_TIMESTAMP(), "eight", null);
+INSERT INTO t3 VALUES (9, UNIX_TIMESTAMP(), "nine", null);
+
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace = OFF;
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t3 comment = 'ttl_duration=5;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace = ON;
+
+# don't support inplace remove table ttl duration
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t3 comment = 'custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=5000;', ALGORITHM=INPLACE;
+
+# don't support inplace remove ttl column 
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t3 comment = 'ttl_duration=1;custom_p1_ttl_duration=100;custom_p2_ttl_duration=5000;', ALGORITHM=INPLACE;
+
+# don't support inplace remove all 
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t3 comment = '', ALGORITHM=INPLACE;
+
+# don't support bad ttl col 
+--error ER_RDB_TTL_COL_FORMAT
+ALTER TABLE t3 COMMENT="ttl_duration=1;custom_p1_ttl_duration=1000;custom_p1_ttl_col=e;custom_p2_ttl_duration=5000;",ALGORITHM=INPLACE;
+
+# don't support replace ttl col 
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t3 COMMENT="ttl_duration=1;custom_p1_ttl_duration=1000;custom_p1_ttl_col=c1;custom_p2_ttl_duration=5000;",ALGORITHM=INPLACE;
+
+# don't support add new ttl col 
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t3 COMMENT="ttl_duration=1;custom_p1_ttl_duration=1000;custom_p1_ttl_col=c2;custom_p2_ttl_col=c1;custom_p2_ttl_duration=5000;",ALGORITHM=INPLACE;
+
+# support inplace change ttl duration value
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't3';
+ALTER TABLE t3 comment = 'ttl_duration=5;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't3';
+
+SET GLOBAL rocksdb_debug_ttl_snapshot_ts = 300;
+set global rocksdb_force_flush_memtable_now=1;
+set @@global.rocksdb_compact_cf = 'foo';
+set @@global.rocksdb_compact_cf = 'baz';
+set @@global.rocksdb_compact_cf = 'bar';
+SET GLOBAL rocksdb_debug_ttl_snapshot_ts = 0;
+
+# expect p0, p1 are gone
+--sorted_result
+SELECT c1 FROM t3;
+DROP TABLE t3;
+--source include/sync_slave_sql_with_master.inc
+
+
+--echo
+--echo # Cleanup
+--echo
+connection slave;
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace=default;
+
+connection master;
+SET @@GLOBAL.rocksdb_alter_table_comment_inplace=default;
+
+source include/rpl_end.inc;
