@@ -1,3 +1,4 @@
 --gtid_mode=ON --enforce_gtid_consistency --log_slave_updates
 --binlog_rows_query_log_events=ON --binlog_checksum=CRC32 --relay-log-recovery=1
 --sync_binlog=1000 --slave_parallel_workers=10
+--slave_check_before_image_consistency=ON

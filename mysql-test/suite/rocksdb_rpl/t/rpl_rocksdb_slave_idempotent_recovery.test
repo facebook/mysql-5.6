@@ -28,8 +28,27 @@ while (`SELECT HEX(@img_types) != HEX('')`)
   eval set @@global.binlog_row_image= $img_type;
   source include/start_slave.inc;
 
+  connection master;
+  let $save_log_column_names_master = `SELECT @@global.log_column_names`; 
+  set @@global.log_column_names = true;
+  connection slave;
+  let $save_log_column_names_slave = `SELECT @@global.log_column_names`; 
+  set @@global.log_column_names = true;
+
   source extra/rpl_tests/rpl_slave_idempotent_recovery.inc;
   source extra/rpl_tests/rpl_slave_idempotent_recovery_overwrite.inc;
+
+  connection master;
+  set @@global.log_column_names = false;
+  connection slave;
+  set @@global.log_column_names = false;
+  source extra/rpl_tests/rpl_slave_idempotent_recovery.inc;
+  source extra/rpl_tests/rpl_slave_idempotent_recovery_overwrite.inc;
+
+  connection master;
+  eval set @@global.log_column_names = $save_log_column_names_master;
+  connection slave;
+  eval set @@global.log_column_names = $save_log_column_names_slave;
 
   connection master;
   eval SET @img_types= LTRIM(SUBSTRING(@img_types, LENGTH('$img_type') + 1));
