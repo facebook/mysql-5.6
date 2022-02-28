@@ -3510,6 +3510,11 @@ protected:
   String value;
 
   /**
+    Backup String for table's blob fields.
+  */
+  String m_blob_backup;
+
+  /**
     Store ptr and length.
   */
   void store_ptr_and_length(const char *from, uint32 length)
@@ -3668,7 +3673,10 @@ public:
                               uint param_data, bool low_byte_first);
   uint packed_col_length(const uchar *col_ptr, uint length);
   uint max_packed_col_length(uint max_length);
-  void free() { value.free(); }
+  void free() {
+    value.free();
+    m_blob_backup.free();
+  }
   inline void clear_temporary() { memset(&value, 0, sizeof(value)); }
   friend type_conversion_status field_conv(Field *to,Field *from);
   bool has_charset(void) const
@@ -3678,6 +3686,15 @@ public:
   uint is_equal(Create_field *new_field);
   inline bool in_read_set() { return bitmap_is_set(table->read_set, field_index); }
   inline bool in_write_set() { return bitmap_is_set(table->write_set, field_index); }
+
+  /**
+    Backup data stored in 'value' into the m_blob_backup
+  */
+  bool backup_blob_field() {
+    value.swap(m_blob_backup);
+    return false;
+  }
+
 private:
   int do_save_field_metadata(uchar *first_byte);
 };

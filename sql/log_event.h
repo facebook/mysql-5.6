@@ -4615,7 +4615,7 @@ private:
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_update_pos(Relay_log_info *rli);
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
-  int force_write_to_binlog(Relay_log_info *rli);
+  int force_write_to_binlog(table_def *tabledef, Relay_log_info *rli);
   bool can_use_idempotent_recovery(Relay_log_info const *rli,
                                    std::string& err_msg) const;
 

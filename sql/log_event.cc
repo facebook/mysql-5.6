@@ -12662,7 +12662,8 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
   DBUG_VOID_RETURN;
 }
 
-int Rows_log_event::force_write_to_binlog(Relay_log_info *rli)
+int Rows_log_event::force_write_to_binlog(table_def *tabledef,
+                                          Relay_log_info *rli)
 {
   int error= 0;
 
@@ -12708,8 +12709,59 @@ int Rows_log_event::force_write_to_binlog(Relay_log_info *rli)
 
     // NOTE: In updates, the after image follows the before image, hence
     // every odd index will be an after image
-    if (get_type_code() == UPDATE_ROWS_EVENT && i % 2 == 1)
+    if (get_type_code() == UPDATE_ROWS_EVENT && i % 2 == 1) {
       cols= &m_cols_ai;
+
+      if (tabledef->use_column_names(m_table)) {
+        // Loop over fields by name on the original table
+        for (uint i = 0; i < tabledef->size(); ++i) {
+          const char *col_name = tabledef->get_column_name(i);
+          Field *const field = find_field_in_table_sef(m_table, col_name);
+          // field may be NULL if the field is removed on slave.
+          if (!field) continue;
+          if (field->type() == MYSQL_TYPE_BLOB) {
+            if (bitmap_is_set(&m_cols_ai, i)) {
+              Field_blob *blob = static_cast<Field_blob *>(field);
+
+              // When we unpack rows the blob is saved as a ptr to
+              // Field_blob::value cache - this means when you unpack AI
+              // the blob in BI is going to be invalidated, leading to
+              // corruption or truncation.
+              // To workaround this, we "backup" the current value to
+              // Field_blob::m_blob_backup (which is the "backup" cache).
+              // We only need two cache for AI/BI so it works out
+              blob->backup_blob_field();
+            } else {
+              // As Field_blob::unpack updates the write_set during unpacking,
+              // AI would actually write empty blob fields even when they are
+              // not changed. In normal replication path this isn't an issue
+              // because AI is "overlay" with BI so the binlog write path
+              // can see that the blob didn't change and clear the bit.
+              // However in this particular case we unpack AI / BI separately so
+              // when format is COMPLETE the check would always fail.
+              // The workaround here is to force clear them
+              bitmap_clear_bit(m_table->write_set, field->field_index);
+            }
+          }
+        }
+      } else {
+        // Loop over fields by index on the local table
+        for (unsigned int i = 0; i < m_table->s->fields; ++i) {
+          Field *field = m_table->field[i];
+          if (field->type() == MYSQL_TYPE_BLOB) {
+            if (bitmap_is_set(&m_cols_ai, i)) {
+              Field_blob *blob = static_cast<Field_blob *>(field);
+
+              // See above for expalanation
+              blob->backup_blob_field();
+            } else {
+              // See above for expalanation
+              bitmap_clear_bit(m_table->write_set, i);
+            }
+          }
+        }
+      }
+    }
 
     prepare_record(m_table, cols, false);
 
@@ -13189,7 +13241,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
 
     if (m_binlog_only)
     {
-      error= force_write_to_binlog(const_cast<Relay_log_info*>(rli));
+      error= force_write_to_binlog(tabledef, const_cast<Relay_log_info*>(rli));
       if (get_flags(STMT_END_F) && !error &&
           !(error = rows_event_stmt_cleanup(rli, thd)))
       {
@@ -13389,7 +13441,7 @@ AFTER_MAIN_EXEC_ROW_LOOP:
       // reset all the pending rows that might have been added while applying
       // the row events, we will directly write the relay log event
       thd->binlog_reset_pending_rows_event(m_table->file->has_transactions());
-      error= force_write_to_binlog(const_cast<Relay_log_info*>(rli));
+      error= force_write_to_binlog(tabledef, const_cast<Relay_log_info*>(rli));
     }
   } // if (table)
 
