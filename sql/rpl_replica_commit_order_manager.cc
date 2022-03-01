@@ -131,7 +131,7 @@ bool Commit_order_manager::wait_on_graph(Slave_worker *worker, std::string db) {
         [&]() -> void { worker_thd->mdl_context.done_waiting_for(); }};
 
     struct timespec abs_timeout;
-    set_timespec(&abs_timeout, LONG_TIMEOUT);  // Wait for a year
+    set_timespec(&abs_timeout, opt_slave_commit_order_wait_timeout);
     auto wait_status = worker_thd->mdl_context.m_wait.timed_wait(
         worker_thd, &abs_timeout, true,
         &stage_worker_waiting_for_its_turn_to_commit);

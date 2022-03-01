@@ -1,0 +1,127 @@
+--source include/load_sysvars.inc
+
+###############################################################
+#           START OF slave_commit_order_wait_timeout TESTS    #
+###############################################################
+
+#######################################################################
+# Saving initial value of var in a temporary variable                 #
+#######################################################################
+
+SET @start_value = @@global.slave_commit_order_wait_timeout;
+SELECT @start_value;
+
+--echo '#--------------------FN_DYNVARS_019_01------------------------#'
+#######################################################################
+#              Display the DEFAULT value of var                       #
+#######################################################################
+
+SET @@global.slave_commit_order_wait_timeout = 100;
+SET @@global.slave_commit_order_wait_timeout = DEFAULT;
+SELECT @@global.slave_commit_order_wait_timeout;
+
+
+--echo '#---------------------FN_DYNVARS_019_02-------------------------#'
+###############################################
+#     Verify default value of variable        #
+###############################################
+
+SET @@global.slave_commit_order_wait_timeout = @start_value;
+SELECT @@global.slave_commit_order_wait_timeout = 5;
+
+
+--echo '#--------------------FN_DYNVARS_019_03------------------------#'
+#######################################################################
+#        Change the value of var to a valid value                     #
+#######################################################################
+
+SET @@global.slave_commit_order_wait_timeout = 2;
+SELECT @@global.slave_commit_order_wait_timeout;
+SET @@global.slave_commit_order_wait_timeout = 10000;
+SELECT @@global.slave_commit_order_wait_timeout;
+SET @@global.slave_commit_order_wait_timeout = 212204;
+SELECT @@global.slave_commit_order_wait_timeout;
+
+
+--echo '#--------------------FN_DYNVARS_019_04-------------------------#'
+##########################################################################
+#         Change the value of var to invalid value                       #
+##########################################################################
+
+SET @@global.slave_commit_order_wait_timeout = 1;
+SELECT @@global.slave_commit_order_wait_timeout;
+SET @@global.slave_commit_order_wait_timeout = -1024;
+SELECT @@global.slave_commit_order_wait_timeout;
+SET @@global.slave_commit_order_wait_timeout = 315360000000001;
+SELECT @@global.slave_commit_order_wait_timeout;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.slave_commit_order_wait_timeout = 212204.10;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.slave_commit_order_wait_timeout = ON;
+
+
+--echo '#-------------------FN_DYNVARS_019_05----------------------------#'
+##########################################################################
+#       Test if accessing session var gives error                        #
+##########################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.slave_commit_order_wait_timeout = 0;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.slave_commit_order_wait_timeout;
+
+
+--echo '#----------------------FN_DYNVARS_019_06------------------------#'
+####################################################################
+# Check if the value in GLOBAL Tables matches values in variable   #
+####################################################################
+
+SELECT @@global.slave_commit_order_wait_timeout = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='slave_commit_order_wait_timeout';
+
+--echo '#---------------------FN_DYNVARS_019_07----------------------#'
+###################################################################
+#      Check if TRUE and FALSE values can be used on variable     #
+###################################################################
+
+SET @@global.slave_commit_order_wait_timeout = TRUE;
+SELECT @@global.slave_commit_order_wait_timeout;
+SET @@global.slave_commit_order_wait_timeout = FALSE;
+SELECT @@global.slave_commit_order_wait_timeout;
+
+
+--echo '#---------------------FN_DYNVARS_019_08----------------------#'
+###############################################################################
+#    Check if accessing variable without SCOPE points to same global variable #
+###############################################################################
+
+SET @@global.slave_commit_order_wait_timeout = 5;
+SELECT @@slave_commit_order_wait_timeout = @@global.slave_commit_order_wait_timeout;
+
+--echo '#---------------------FN_DYNVARS_019_09----------------------#'
+#########################################################################
+#   Check if var can be accessed with and without @@ sign               #
+#########################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET slave_commit_order_wait_timeout = 1;
+--Error ER_PARSE_ERROR
+SET global.slave_commit_order_wait_timeout = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT global.slave_commit_order_wait_timeout;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT slave_commit_order_wait_timeout = @@session.slave_commit_order_wait_timeout;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.slave_commit_order_wait_timeout = @start_value;
+SELECT @@global.slave_commit_order_wait_timeout;
+
+
+#########################################################################
+#              END OF slave_commit_order_wait_timeout TESTS             #
+#########################################################################
+
