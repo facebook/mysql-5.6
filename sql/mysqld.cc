@@ -1493,6 +1493,7 @@ double opt_mts_imbalance_threshold;
 ulonglong opt_mts_pending_jobs_size_max;
 ulonglong slave_rows_search_algorithms_options;
 bool opt_replica_preserve_commit_order;
+ulong opt_slave_commit_order_wait_timeout;
 ulong opt_mts_dependency_replication;
 ulonglong opt_mts_dependency_size;
 double opt_mts_dependency_refill_threshold;

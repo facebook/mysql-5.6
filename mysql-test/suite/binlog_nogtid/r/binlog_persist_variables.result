@@ -198,6 +198,7 @@ SET PERSIST slave_checkpoint_period = @@GLOBAL.slave_checkpoint_period;
 Warnings:
 Warning	1287	'@@slave_checkpoint_period' is deprecated and will be removed in a future release. Please use replica_checkpoint_period instead.
 Warning	1287	'@@slave_checkpoint_period' is deprecated and will be removed in a future release. Please use replica_checkpoint_period instead.
+SET PERSIST slave_commit_order_wait_timeout = @@GLOBAL.slave_commit_order_wait_timeout;
 SET PERSIST slave_compressed_protocol = @@GLOBAL.slave_compressed_protocol;
 Warnings:
 Warning	1287	'@@slave_compressed_protocol' is deprecated and will be removed in a future release. Please use replica_compressed_protocol instead.
@@ -456,6 +457,7 @@ Warning	3615	Variable slave_checkpoint_group does not exist in persisted config 
 RESET PERSIST IF EXISTS slave_checkpoint_period;
 Warnings:
 Warning	3615	Variable slave_checkpoint_period does not exist in persisted config file
+RESET PERSIST IF EXISTS slave_commit_order_wait_timeout;
 RESET PERSIST IF EXISTS slave_compressed_protocol;
 Warnings:
 Warning	3615	Variable slave_compressed_protocol does not exist in persisted config file
