@@ -1421,6 +1421,10 @@ The following options may be given as the first argument:
  Allocation block size for query parsing and execution
  --query-prealloc-size=# 
  Persistent buffer for query parsing and execution
+ --raft-high-priority-read-only 
+ Set high_priority_ddl and kill_conflicting_connections
+ before set read-only in Raft handler thread.
+ (Defaults to on; use --skip-raft-high-priority-read-only to disable.)
  --raft-send-replica-statistics 
  Variable to control sending replication lag statistics
  from followers to leaders in raft replication.
@@ -2366,6 +2370,9 @@ The following options may be given as the first argument:
  Gather workers' activities to Update progress status of
  Multi-threaded slave and flush the relay log info to disk
  after every #th milli-seconds.
+ --slave-commit-order-wait-timeout[=#] 
+ Time in secs after which we give up on waiting for commit
+ order and fail
  --slave-compressed-protocol 
  Use compression on master/slave protocol
  --slave-compression-lib[=name] 
@@ -3147,6 +3154,7 @@ protocol-compression-algorithms zlib,zstd,zstd_stream,lz4f_stream,uncompressed
 protocol-mode 
 query-alloc-block-size 8192
 query-prealloc-size 8192
+raft-high-priority-read-only TRUE
 raft-send-replica-statistics FALSE
 raft-signal-async-dump-threads AFTER_CONSENSUS
 range-alloc-block-size 4096
@@ -3424,6 +3432,7 @@ slave-allow-batching FALSE
 slave-check-before-image-consistency OFF
 slave-checkpoint-group 512
 slave-checkpoint-period 300
+slave-commit-order-wait-timeout 60
 slave-compressed-protocol FALSE
 slave-compression-lib zlib
 slave-dump-thread-wait-sleep-usec 0

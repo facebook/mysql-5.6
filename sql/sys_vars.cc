@@ -4562,6 +4562,13 @@ static Sys_var_bool Sys_slave_preserve_commit_order(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_slave_stopped),
     ON_UPDATE(nullptr));
 
+static Sys_var_ulong Sys_slave_commit_order_wait_timeout(
+    "slave_commit_order_wait_timeout",
+    "Time in secs after which we give up on waiting for commit order and fail",
+    GLOBAL_VAR(opt_slave_commit_order_wait_timeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, LONG_TIMEOUT), DEFAULT(60), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
 bool Sys_var_charptr::global_update(THD *, set_var *var) {
   char *new_val, *ptr = var->save_result.string_value.str;
   size_t len = var->save_result.string_value.length;
