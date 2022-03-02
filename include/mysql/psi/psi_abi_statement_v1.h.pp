@@ -176,6 +176,8 @@ typedef void (*update_statement_filesort_disk_usage_t)(
     struct PSI_statement_locker *locker, unsigned long long value);
 typedef void (*update_statement_tmp_table_disk_usage_t)(
     struct PSI_statement_locker *locker, unsigned long long value);
+typedef void (*snapshot_statement_v2_t)(struct PSI_statement_locker *locker,
+                                        void *stmt_da);
 typedef void (*end_statement_v1_t)(struct PSI_statement_locker *locker,
                                    void *stmt_da);
 typedef PSI_prepared_stmt *(*create_prepared_stmt_v1_t)(
@@ -262,6 +264,7 @@ struct PSI_statement_service_v2 {
   start_sp_v1_t start_sp;
   end_sp_v1_t end_sp;
   drop_sp_v1_t drop_sp;
+  snapshot_statement_v2_t snapshot_statement;
 };
 typedef struct PSI_statement_service_v2 PSI_statement_service_t;
 extern PSI_statement_service_t *psi_statement_service;
