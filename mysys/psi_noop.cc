@@ -784,6 +784,8 @@ static void update_statement_tmp_table_disk_usage_noop(PSI_statement_locker *,
 
 static void end_statement_noop(PSI_statement_locker *, void *) { return; }
 
+static void snapshot_statement_noop(PSI_statement_locker *, void *) { return; }
+
 static PSI_prepared_stmt *create_prepared_stmt_noop(void *, uint,
                                                     PSI_statement_locker *,
                                                     const char *, size_t,
@@ -881,7 +883,8 @@ static PSI_statement_service_t psi_statement_noop = {
     release_sp_share_noop,
     start_sp_noop,
     end_sp_noop,
-    drop_sp_noop};
+    drop_sp_noop,
+    snapshot_statement_noop};
 
 struct PSI_statement_bootstrap *psi_statement_hook = nullptr;
 PSI_statement_service_t *psi_statement_service = &psi_statement_noop;

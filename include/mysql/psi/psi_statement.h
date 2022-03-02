@@ -166,6 +166,9 @@ struct PSI_statement_service_v2 {
   end_sp_v1_t end_sp;
   /** @sa drop_sp_v1_t. */
   drop_sp_v1_t drop_sp;
+
+  /** @sa snapshot_statement_v2_t. */
+  snapshot_statement_v2_t snapshot_statement;
 };
 
 typedef struct PSI_statement_service_v2 PSI_statement_service_t;

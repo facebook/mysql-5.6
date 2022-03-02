@@ -143,6 +143,7 @@ void pfs_update_statement_tmp_table_disk_usage_v2(PSI_statement_locker *locker,
                                                   ulonglong value);
 
 void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da);
+void pfs_snapshot_statement_v2(PSI_statement_locker *locker, void *stmt_da);
 
 PSI_prepared_stmt *pfs_create_prepared_stmt_v2(void *identity, uint stmt_id,
                                                PSI_statement_locker *locker,

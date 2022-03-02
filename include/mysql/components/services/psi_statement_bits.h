@@ -135,28 +135,11 @@ typedef struct PSI_statement_info_v1 PSI_statement_info_v1;
   This memory is provided by the instrumented code for performance reasons.
   @sa get_thread_statement_locker_v1_t
 */
-struct PSI_statement_locker_state_v1 {
-  /** Discarded flag. */
-  bool m_discarded;
-  /** In prepare flag. */
-  bool m_in_prepare;
+struct PSI_statement_locker_mutating_state_v1 {
   /** Metric, no index used flag. */
   unsigned char m_no_index_used;
   /** Metric, no good index used flag. */
   unsigned char m_no_good_index_used;
-  /** Internal state. */
-  unsigned int m_flags;
-  /** Instrumentation class. */
-  void *m_class;
-  /** Current thread. */
-  struct PSI_thread *m_thread;
-  /** Timer start. */
-  unsigned long long m_timer_start;
-  /** THREAD CPU time start. */
-  unsigned long long m_cpu_time_start;
-  unsigned long long m_start_cputime_wallclock;
-  /** Internal data. */
-  void *m_statement;
   /** Locked time. */
   unsigned long long m_lock_time;
   /** Rows sent. */
@@ -205,6 +188,29 @@ struct PSI_statement_locker_state_v1 {
   unsigned long m_sort_rows;
   /** Metric, number of sort scans. */
   unsigned long m_sort_scan;
+  /** Peak filesort disk usage by statement. */
+  unsigned long long m_filesort_disk_usage_peak;
+  /** Peak temp table disk usage by statement. */
+  unsigned long long m_tmp_table_disk_usage_peak;
+};
+
+struct PSI_statement_locker_state_v1 {
+  /** Discarded flag. */
+  bool m_discarded;
+  /** In prepare flag. */
+  bool m_in_prepare;
+  /** Internal state. */
+  unsigned int m_flags;
+  /** Instrumentation class. */
+  void *m_class;
+  /** Current thread. */
+  struct PSI_thread *m_thread;
+  /** Timer start. */
+  unsigned long long m_timer_start;
+  /** Timer function. */
+  unsigned long long (*m_timer)(void);
+  /** Internal data. */
+  void *m_statement;
   /** Statement digest. */
   const struct sql_digest_storage *m_digest;
   /** Current schema name. */
@@ -219,10 +225,12 @@ struct PSI_statement_locker_state_v1 {
   unsigned int m_query_sample_length;
   /** True if @c m_query_sample was truncated. */
   bool m_query_sample_truncated;
-  /** Peak filesort disk usage by statement. */
-  unsigned long long m_filesort_disk_usage_peak;
-  /** Peak temp table disk usage by statement. */
-  unsigned long long m_tmp_table_disk_usage_peak;
+  /** THREAD CPU time start. */
+  unsigned long long m_cpu_time_start;
+  unsigned long long m_start_cputime_wallclock;
+
+  PSI_statement_locker_mutating_state_v1 current_state;
+  PSI_statement_locker_mutating_state_v1 prev_state;
 
   PSI_sp_share *m_parent_sp_share;
   PSI_prepared_stmt *m_parent_prepared_stmt;
@@ -518,6 +526,15 @@ typedef void (*update_statement_filesort_disk_usage_t)(
 */
 typedef void (*update_statement_tmp_table_disk_usage_t)(
     struct PSI_statement_locker *locker, unsigned long long value);
+
+/**
+  Snapshot a statement event.
+  @param locker the statement locker
+  @param stmt_da the statement diagnostics area.
+  @sa Diagnostics_area
+*/
+typedef void (*snapshot_statement_v2_t)(struct PSI_statement_locker *locker,
+                                        void *stmt_da);
 
 /**
   End a statement event.

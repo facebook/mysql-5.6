@@ -234,6 +234,15 @@ struct CHARSET_INFO;
 #define MYSQL_GET_STATEMENT_CPU_TIME(LOCKER) 0
 #endif
 
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_SNAPSHOT_STATEMENT(LOCKER, DA) \
+  inline_mysql_snapshot_statement(LOCKER, DA)
+#else
+#define MYSQL_SNAPSHOT_STATEMENT(LOCKER, DA) \
+  do {                                       \
+  } while (0)
+#endif
+
 static inline void inline_mysql_statement_register(
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
     const char *category, PSI_statement_info *info, int count
@@ -276,6 +285,13 @@ static inline struct PSI_statement_locker *inline_mysql_start_statement(
   PSI_statement_locker *locker;
   locker = PSI_STATEMENT_CALL(get_thread_statement_locker)(state, key, charset,
                                                            sp_share);
+  /*
+   * Fill the prev. state with initialized values from state
+   * New values will keep on getting accumulated in state
+   * while prev. state will track the last state, so that we
+   * capture delta and understand the impact of the queries in shorter time
+   * intervals
+   */
   if (likely(locker != nullptr)) {
     PSI_STATEMENT_CALL(start_statement)(locker, db, db_len, src_file, src_line);
   }
@@ -389,6 +405,16 @@ static inline void inline_mysql_end_statement(
 #endif /* HAVE_PSI_STAGE_INTERFACE */
   if (likely(locker != nullptr)) {
     PSI_STATEMENT_CALL(end_statement)(locker, stmt_da);
+  }
+}
+
+static inline void inline_mysql_snapshot_statement(
+    struct PSI_statement_locker *locker, Diagnostics_area *stmt_da) {
+#ifdef HAVE_PSI_STAGE_INTERFACE
+  PSI_STAGE_CALL(end_stage)();
+#endif /* HAVE_PSI_STAGE_INTERFACE */
+  if (likely(locker != nullptr)) {
+    PSI_STATEMENT_CALL(snapshot_statement)(locker, stmt_da);
   }
 }
 #endif

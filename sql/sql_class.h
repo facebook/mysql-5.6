@@ -2692,6 +2692,8 @@ class THD : public MDL_context_owner,
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   /** Current statement instrumentation state. */
   PSI_statement_locker_state m_statement_state;
+  /** Previous statement instrumentation state. */
+  PSI_statement_locker_state m_prev_statement_state;
 #endif /* HAVE_PSI_STATEMENT_INTERFACE */
 
   /** Current transaction instrumentation. */
