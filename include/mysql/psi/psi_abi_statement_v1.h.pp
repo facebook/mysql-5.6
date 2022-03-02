@@ -46,22 +46,9 @@ struct PSI_statement_info_v1 {
   const char *m_documentation;
 };
 typedef struct PSI_statement_info_v1 PSI_statement_info_v1;
-struct PSI_statement_locker_state_v4 {
-  bool m_discarded;
-  bool m_in_prepare;
+struct PSI_statement_locker_mutating_state_v1 {
   unsigned char m_no_index_used;
   unsigned char m_no_good_index_used;
-  unsigned int m_flags;
-  void *m_class;
-  struct PSI_thread *m_thread;
-  unsigned long long m_timer_start;
-  unsigned long long m_cpu_time_start;
-  unsigned long long m_start_cputime_wallclock;
-  size_t m_controlled_local_size_start;
-  size_t m_controlled_stmt_size_start;
-  size_t m_total_local_size_start;
-  size_t m_total_stmt_size_start;
-  void *m_statement;
   unsigned long long m_lock_time;
   unsigned long long m_rows_sent;
   unsigned long long m_rows_examined;
@@ -86,6 +73,22 @@ struct PSI_statement_locker_state_v4 {
   unsigned long m_sort_range;
   unsigned long m_sort_rows;
   unsigned long m_sort_scan;
+  unsigned long long m_filesort_disk_usage_peak;
+  unsigned long long m_tmp_table_disk_usage_peak;
+};
+struct PSI_statement_locker_state_v4 {
+  bool m_discarded;
+  bool m_in_prepare;
+  unsigned int m_flags;
+  void *m_class;
+  struct PSI_thread *m_thread;
+  unsigned long long m_timer_start;
+  unsigned long long (*m_timer)(void);
+  size_t m_controlled_local_size_start;
+  size_t m_controlled_stmt_size_start;
+  size_t m_total_local_size_start;
+  size_t m_total_stmt_size_start;
+  void *m_statement;
   const struct sql_digest_storage *m_digest;
   char m_schema_name[(64 * 3)];
   unsigned int m_schema_name_length;
@@ -93,8 +96,10 @@ struct PSI_statement_locker_state_v4 {
   const char *m_query_sample;
   unsigned int m_query_sample_length;
   bool m_query_sample_truncated;
-  unsigned long long m_filesort_disk_usage_peak;
-  unsigned long long m_tmp_table_disk_usage_peak;
+  unsigned long long m_cpu_time_start;
+  unsigned long long m_start_cputime_wallclock;
+  PSI_statement_locker_mutating_state_v1 current_state;
+  PSI_statement_locker_mutating_state_v1 prev_state;
   PSI_sp_share *m_parent_sp_share;
   PSI_prepared_stmt *m_parent_prepared_stmt;
 };
@@ -180,6 +185,8 @@ typedef void (*update_statement_filesort_disk_usage_t)(
     struct PSI_statement_locker *locker, unsigned long long value);
 typedef void (*update_statement_tmp_table_disk_usage_t)(
     struct PSI_statement_locker *locker, unsigned long long value);
+typedef void (*snapshot_statement_v2_t)(struct PSI_statement_locker *locker,
+                                        void *stmt_da);
 typedef void (*end_statement_v1_t)(struct PSI_statement_locker *locker,
                                    void *stmt_da);
 typedef PSI_prepared_stmt *(*create_prepared_stmt_v1_t)(
@@ -278,6 +285,7 @@ struct PSI_statement_service_v4 {
   start_sp_v1_t start_sp;
   end_sp_v1_t end_sp;
   drop_sp_v1_t drop_sp;
+  snapshot_statement_v2_t snapshot_statement;
 };
 typedef struct PSI_statement_service_v4 PSI_statement_service_t;
 extern PSI_statement_service_t *psi_statement_service;
