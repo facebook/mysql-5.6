@@ -1995,6 +1995,9 @@ The following options may be given as the first argument:
  INFORMATION_SCHEMA.ROCKSDB_COMPACTION_HISTORY table.
  --rocksdb-max-latest-deadlocks=# 
  Maximum number of recent deadlocks to store
+ --rocksdb-max-lock-memory=# 
+ Range-locking mode: Maximum amount of memory that locks
+ from all transactions can use at a time
  --rocksdb-max-log-file-size=# 
  DBOptions::max_log_file_size for RocksDB
  --rocksdb-max-manifest-file-size=# 
@@ -2207,6 +2210,10 @@ The following options may be given as the first argument:
  --rocksdb-use-direct-reads 
  DBOptions::use_direct_reads for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
+ --rocksdb-use-range-lock-manager-as-point 
+ Use Range Lock Manager as point
+ --rocksdb-use-range-locking 
+ Use Range Locking
  --rocksdb-validate-tables=# 
  Verify all DD tables match all RocksDB tables (0 means no
  verification, 1 means verify and fail on error, and 2
@@ -3351,6 +3358,7 @@ rocksdb-max-background-jobs 2
 rocksdb-max-bottom-pri-background-compactions 0
 rocksdb-max-compaction-history 64
 rocksdb-max-latest-deadlocks 5
+rocksdb-max-lock-memory 1073741824
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 1073741824
 rocksdb-max-manual-compactions 10
@@ -3424,6 +3432,8 @@ rocksdb-use-default-sk-cf FALSE
 rocksdb-use-direct-io-for-flush-and-compaction FALSE
 rocksdb-use-direct-reads FALSE
 rocksdb-use-fsync FALSE
+rocksdb-use-range-lock-manager-as-point FALSE
+rocksdb-use-range-locking FALSE
 rocksdb-validate-tables 1
 rocksdb-verify-row-debug-checksums FALSE
 rocksdb-wal-bytes-per-sync 0

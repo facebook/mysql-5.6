@@ -36,6 +36,8 @@ Rdb_iterator_base::Rdb_iterator_base(THD *thd,
       m_tbl_def(tbl_def),
       m_thd(thd),
       m_scan_it(nullptr),
+      m_iter_uses_locking(false),
+      m_iter_should_use_locking(false),
       m_scan_it_skips_bloom(false),
       m_scan_it_snapshot(nullptr),
       m_scan_it_lower_bound(nullptr),
@@ -83,7 +85,7 @@ int Rdb_iterator_base::read_before_key(const bool full_key_match,
     return HA_EXIT_SUCCESS;
   }
 
-  return HA_ERR_END_OF_FILE;
+  return iter_status_to_retval(m_scan_it, m_kd, HA_ERR_END_OF_FILE);
 }
 
 int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
@@ -98,12 +100,15 @@ int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
   */
   rocksdb_smart_seek(m_kd->m_is_reverse_cf, m_scan_it, key_slice);
 
-  return is_valid_iterator(m_scan_it) ? HA_EXIT_SUCCESS : HA_ERR_END_OF_FILE;
+  return is_valid_iterator(m_scan_it)
+             ? HA_EXIT_SUCCESS
+             : iter_status_to_retval(m_scan_it, m_kd, HA_ERR_END_OF_FILE);
 }
 
 void Rdb_iterator_base::release_scan_iterator() {
   delete m_scan_it;
   m_scan_it = nullptr;
+  m_iter_uses_locking = false;
 
   if (m_scan_it_snapshot) {
     auto rdb = rdb_get_rocksdb_db();
@@ -154,7 +159,8 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
     and
     re-create Iterator.
     */
-  if (m_scan_it_skips_bloom != skip_bloom) {
+  if (m_scan_it_skips_bloom != skip_bloom ||
+      m_iter_uses_locking != m_iter_should_use_locking) {
     release_scan_iterator();
   }
 
@@ -164,10 +170,11 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
     */
   if (!m_scan_it) {
     m_scan_it = rdb_tx_get_iterator(
-        m_thd, m_kd->get_cf(), skip_bloom, m_scan_it_lower_bound_slice,
+        m_thd, m_kd->get_cf(), m_kd, skip_bloom, m_scan_it_lower_bound_slice,
         m_scan_it_upper_bound_slice, &m_scan_it_snapshot, read_current,
-        !read_current);
+        !read_current, m_iter_should_use_locking);
     m_scan_it_skips_bloom = skip_bloom;
+    m_iter_uses_locking = m_iter_should_use_locking;
   }
 }
 
@@ -208,6 +215,18 @@ int Rdb_iterator_base::calc_eq_cond_len(enum ha_rkey_function find_flag,
   return Rdb_key_def::INDEX_NUMBER_SIZE;
 }
 
+int Rdb_iterator_base::iter_status_to_retval(
+    rocksdb::Iterator *it, const std::shared_ptr<Rdb_key_def> kd,
+    int not_found_code) {
+  if (it->Valid()) return HA_EXIT_SUCCESS;
+
+  rocksdb::Status s = it->status();
+  if (s.ok() || s.IsNotFound()) return not_found_code;
+
+  Rdb_transaction *tx = get_tx_from_thd(m_thd);
+  return rdb_tx_set_status_error(tx, s, *kd, m_tbl_def);
+}
+
 int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
   int rc = 0;
   const auto &kd = *m_kd;
@@ -237,7 +256,7 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
     }
 
     if (!is_valid_iterator(m_scan_it)) {
-      rc = HA_ERR_END_OF_FILE;
+      rc = iter_status_to_retval(m_scan_it, m_kd, HA_ERR_END_OF_FILE);
       break;
     }
 
@@ -617,8 +636,15 @@ int Rdb_iterator_partial::materialize_prefix() {
   const char *old_proc_info = m_thd->get_proc_info();
   thd_proc_info(m_thd, "Materializing group in partial index");
 
-  auto s =
-      rdb_tx_get_for_update(tx, *m_kd, cur_prefix_key, nullptr, true, false);
+  rocksdb::Status s;
+  if (rocksdb_use_range_locking) {
+    rocksdb::Endpoint start_endp(cur_prefix_key, false);
+    rocksdb::Endpoint end_endp(cur_prefix_key, true);
+    s = rdb_tx_lock_range(tx, *m_kd, start_endp, end_endp);
+  } else {
+    s = rdb_tx_get_for_update(tx, *m_kd, cur_prefix_key, nullptr, true, false);
+  }
+
   if (!s.ok()) {
     thd_proc_info(m_thd, old_proc_info);
     return rdb_tx_set_status_error(tx, s, *m_kd, m_tbl_def);
@@ -815,7 +841,13 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
     return HA_ERR_INTERNAL_ERROR;
   }
 
+  // Save the value because reset() clears it:
+  auto save_iter_should_use_locking = m_iter_should_use_locking;
   reset();
+  m_iter_should_use_locking = save_iter_should_use_locking;
+  // Range Locking: when the iterator does a locking read,
+  // both secondary and primary key iterators should use locking reads.
+  if (m_iter_should_use_locking) m_iterator_pk.set_use_locking();
 
   bool direction = (find_flag == HA_READ_KEY_EXACT) ||
                    (find_flag == HA_READ_AFTER_KEY) ||
@@ -831,6 +863,15 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
                                 m_cur_prefix_key_len);
   m_kd->get_infimum_key(m_cur_prefix_key, &tmp);
 
+  //
+  // Range Locking note: When using a locking iterator (i.e.
+  // m_iter_should_use_locking=true), this will read (and lock)
+  // and the value space up to the next prefix.
+  // If the next prefix is not materialized, it will lock the whole
+  // prefix in the secondary key. It will not lock more than that,
+  // because the iterator use the iterator bounds to limit the scan
+  // to the prefix specified.
+  //
   rc = Rdb_iterator_base::seek(find_flag, start_key, true, end_key,
                                read_current);
 

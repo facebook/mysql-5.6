@@ -1,0 +1,10 @@
+#
+# A range-locking variant of  issue243_transactionStatus.test
+
+--source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_range_locking.inc
+
+let $forced_range_locking=1;
+--source issue243_transactionStatus.test
+
+

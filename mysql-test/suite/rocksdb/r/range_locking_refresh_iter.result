@@ -1,0 +1,50 @@
+select @@rocksdb_use_range_locking;
+@@rocksdb_use_range_locking
+1
+set debug_sync='RESET';
+create table ten(a int primary key);
+insert into ten values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table one_k(a int primary key);
+insert into one_k select A.a + B.a* 10 + C.a * 100 from ten A, ten B, ten C;
+create table t1 (
+pk int primary key,
+a int
+) engine=rocksdb;
+insert into t1 select a,a from ten;
+insert into t1 select a+40, a+40 from ten;
+insert into t1 select a+100, a+100 from one_k;
+delete from t1 where pk=44;
+set global rocksdb_force_flush_memtable_and_lzero_now=1;
+begin;
+set debug_sync='rocksdb.check_flags_iri SIGNAL con1_stopped WAIT_FOR con1_cont';
+update t1 set a=a+100 where pk < 3 or pk between 10 and 50;
+set debug_sync='now WAIT_FOR con1_stopped';
+insert into t1 values (44,5000);
+delete from t1 where pk= 42;
+update t1 set a=5000 where pk between 40 and 45;
+set global rocksdb_force_flush_memtable_and_lzero_now=1;
+set debug_sync='now SIGNAL con1_cont';
+select * from t1 where pk<100;
+pk	a
+0	100
+1	101
+2	102
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+40	5100
+41	5100
+43	5100
+44	5100
+45	5100
+46	146
+47	147
+48	148
+49	149
+commit;
+set debug_sync='RESET';
+drop table t1, ten, one_k;

@@ -1,0 +1,1 @@
+--rocksdb_use_range_locking=1 --rocksdb_max_lock_memory=1024

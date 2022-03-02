@@ -29,6 +29,7 @@
 /* RocksDB header files */
 #include "rocksdb/slice.h"
 #include "rocksdb/status.h"
+#include "rocksdb/utilities/transaction_db.h"
 
 /* MyRocks header files */
 #include "./rdb_global.h"
@@ -290,6 +291,8 @@ std::string rdb_hexdump(const char *data, const std::size_t data_len,
                         const std::size_t maxsize = 0)
     MY_ATTRIBUTE((__nonnull__));
 
+std::string rdb_hexdump_range(const rocksdb::EndpointWithString &left,
+                              const rocksdb::EndpointWithString &right);
 /*
   Helper function to see if a database exists
  */

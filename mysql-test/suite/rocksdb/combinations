@@ -11,3 +11,6 @@ rocksdb_write_batch_flush_threshold=1
 [write_committed_with_delete_range]
 rocksdb_write_policy=write_committed
 rocksdb_enable_delete_range_for_drop_index = ON
+
+[range_locking]
+rocksdb_use_range_locking=1

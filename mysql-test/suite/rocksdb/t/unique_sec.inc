@@ -144,8 +144,16 @@ UPDATE t1 SET id5=37 WHERE id1=38;
 UPDATE t1 SET id5=34 WHERE id1=38;
 
 --echo # NULL values are unique
+--echo # (Note: the following UPDATE reads through the whole table without 
+--echo #  finding anything to update. With point locking, this is fine,
+--echo #  but with range locking it will time out while waiting on a row lock
+--echo #  that the other transaction is holding)
+if (`select @@rocksdb_use_range_locking=0`) {
 UPDATE t1 SET id5=NULL WHERE value1 > 37;
-
+}
+if (`select @@rocksdb_use_range_locking=1`) {
+-- echo UPDATE t1 SET id5=NULL WHERE value1 > 37;
+}
 connection con1;
 COMMIT;
 

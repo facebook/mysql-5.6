@@ -1,5 +1,9 @@
 --source include/have_rocksdb.inc
 
+# The testcase here assumes key tracking is present
+# (and range locking uses  InnoDB-like approach, "DMLs use Read Commited")
+--source suite/rocksdb/include/not_range_locking.inc
+
 connect (con2,localhost,root,,);
 connection default;
 

@@ -260,6 +260,31 @@ std::string rdb_hexdump(const char *data, const std::size_t data_len,
 }
 
 /*
+  Print the range in hex, in "start_endpoint-end_endpoint" form
+*/
+
+std::string rdb_hexdump_range(const rocksdb::EndpointWithString &start,
+                              const rocksdb::EndpointWithString &end) {
+  std::string res;
+  // For keys: :0 keys should look like point keys
+  if (!start.inf_suffix && !end.inf_suffix && (start.slice == end.slice)) {
+    // This is a single-point range, show it like a key
+    res = rdb_hexdump(start.slice.c_str(), start.slice.length(), FN_REFLEN);
+  } else {
+    res = rdb_hexdump(start.slice.c_str(), start.slice.length(), FN_REFLEN);
+    if (start.inf_suffix) res.append(":1");
+
+    res.append("-");
+
+    std::string key2 =
+        rdb_hexdump(end.slice.c_str(), end.slice.length(), FN_REFLEN);
+    if (end.inf_suffix) key2.append(":1");
+    res.append(key2);
+  }
+  return res;
+}
+
+/*
   Attempt to access the database subdirectory to see if it exists
 */
 bool rdb_database_exists(const std::string &db_name) {

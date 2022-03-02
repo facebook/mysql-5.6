@@ -82,6 +82,9 @@ extern PSI_rwlock_key key_rwlock_read_free_rpl_tables;
 #endif
 extern Regex_list_handler rdb_read_free_regex_handler;
 static bool rocksdb_column_default_value_as_expression = true;
+
+extern bool rocksdb_use_range_locking;
+
 /**
   @brief
   Rdb_table_handler is a reference-counted structure storing information for
@@ -266,6 +269,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   /* Type of locking to apply to rows */
   Rdb_lock_type m_lock_rows;
 
+  bool m_use_range_locking;
+
   thr_locked_row_action m_locked_row_action;
 
   /* true means we're doing an index-only read. false means otherwise. */
@@ -329,6 +334,12 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   rocksdb::Status get_for_update(Rdb_transaction *const tx,
                                  const Rdb_key_def &kd,
                                  const rocksdb::Slice &key) const;
+
+  int set_range_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
+                     const enum ha_rkey_function &find_flag,
+                     const rocksdb::Slice &slice,
+                     const key_range *const end_key,
+                     bool *use_locking_iterator);
 
   int get_row_by_rowid(uchar *const buf, const char *const rowid,
                        const uint rowid_size, bool *skip_row = nullptr,
@@ -786,6 +797,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                         const struct update_row_info &row_info,
                         bool *const found, const bool skip_unique_check)
       MY_ATTRIBUTE((__warn_unused_result__));
+
+  int check_and_lock_non_unique_sk(const uint key_id,
+                                   const struct update_row_info &row_info)
+      MY_ATTRIBUTE((__warn_unused_result__));
   int check_uniqueness_and_lock(const struct update_row_info &row_info,
                                 bool pk_changed, const bool skip_unique_check)
       MY_ATTRIBUTE((__warn_unused_result__));
@@ -997,6 +1012,9 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   /* Need to build decoder on next read operation */
   bool m_need_build_decoder;
+
+  int iter_status_to_retval(rocksdb::Iterator *it, const Rdb_key_def &kd,
+                            int not_found_code);
 };
 
 /*
@@ -1134,11 +1152,12 @@ Rdb_transaction *get_tx_from_thd(THD *const thd);
 const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
 
 rocksdb::Iterator *rdb_tx_get_iterator(
-    THD *thd, rocksdb::ColumnFamilyHandle *const cf, bool skip_bloom_filter,
+    THD *thd, rocksdb::ColumnFamilyHandle *const cf,
+    const std::shared_ptr<Rdb_key_def> &kd, bool skip_bloom_filter,
     const rocksdb::Slice &eq_cond_lower_bound,
     const rocksdb::Slice &eq_cond_upper_bound,
     const rocksdb::Snapshot **snapshot, bool read_current = false,
-    bool create_snapshot = true);
+    bool create_snapshot = true, bool use_locking_iter = false);
 
 rocksdb::Status rdb_tx_get(Rdb_transaction *tx,
                            rocksdb::ColumnFamilyHandle *const column_family,
@@ -1150,6 +1169,10 @@ rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
                                       const rocksdb::Slice &key,
                                       rocksdb::PinnableSlice *const value,
                                       bool exclusive, bool skip_wait);
+
+rocksdb::Status rdb_tx_lock_range(Rdb_transaction *tx, const Rdb_key_def &kd,
+                                  const rocksdb::Endpoint &start_key,
+                                  const rocksdb::Endpoint &end_key);
 
 void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
                          const rocksdb::Slice &key, bool force);
@@ -1212,4 +1235,6 @@ extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_materialized;
 extern bool rocksdb_enable_tmp_table;
 extern bool rocksdb_enable_delete_range_for_drop_index;
+
+extern std::shared_ptr<rocksdb::RangeLockManagerHandle> range_lock_mgr;
 }  // namespace myrocks

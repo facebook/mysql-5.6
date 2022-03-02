@@ -3,6 +3,8 @@
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 
+--source suite/rocksdb/include/not_range_locking.inc
+
 connection master;
 --disable_warnings
 drop table if exists t1;

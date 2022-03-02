@@ -4,7 +4,7 @@ MKFILE=`mktemp`
 # include rocksdb make file relative to the path of this script
 echo "include rocksdb/src.mk
 all:
-	@echo \$(LIB_SOURCES)" > $MKFILE
+	@echo \$(LIB_SOURCES) \$(RANGE_TREE_SOURCES)" > $MKFILE
 for f in `make --makefile $MKFILE`
 do
   echo ../../rocksdb/$f

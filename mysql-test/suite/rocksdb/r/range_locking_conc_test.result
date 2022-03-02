@@ -1,0 +1,4 @@
+set @save_rlwt=@@rocksdb_lock_wait_timeout;
+# Run range_locking_conc_test.py
+set global rocksdb_lock_wait_timeout= @save_rlwt;
+DROP TABLE t1;

@@ -1,0 +1,120 @@
+#
+# Range Locking and Partial Indexes
+#
+
+--source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_range_locking.inc
+--source include/have_debug_sync.inc
+--enable_connect_log
+
+create table t0(a int primary key) engine=rocksdb;
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (
+  pk1 int,
+  pk2 int,
+  a int not null,
+  b int,
+  primary key (pk1, pk2),
+  key     key1(pk1, a) comment 'partial_group_keyparts=1;partial_group_threshold=5'
+) engine=rocksdb;
+
+# pk1=1 IS materialized prefix (N=10)
+insert into t1 select
+  1,
+  A.a,
+  100 + A.a,
+  123456
+from t0 A;
+# Run a SELECT so that it is acually materialized:
+select * from t1 force index (key1) where pk1=1;
+
+# pk1=2 IS NOT materialized (N=3)
+insert into t1 select
+  2,
+  A.a,
+  100 + A.a,
+  123456
+from t0 A limit 3;
+
+# and some more rows
+insert into t1 select
+  10000 + A.a +10 *B.a +100*C.a,
+  A.a,
+  100 + A.a,
+  123456
+from t0 A, t0 B, t0 C;
+
+create table t3(pk int primary key);
+
+connect (con2,localhost,root,,);
+connection con2;
+begin;
+insert into t3 values(3333333);
+connection default;
+
+--echo #
+--echo # First, test a query with range lock
+--echo #
+
+--replace_column 10 #
+explain
+select * from t1 force index (key1) where pk1>=1 and pk1<=10;
+
+connect (con1,localhost,root,,);
+connection con1;
+begin;
+--echo # Allocate a snapshot
+select * from t0 where a=3;
+
+connection default;
+--echo #  Make some modifications not visible in the snapshot
+insert into t1 values (1,11, 99999, 99999);
+insert into t1 values (2,11, 99999, 99999);
+
+connection con1;
+--echo # This doesn't see the modifications
+select * from t1 force index (key1) where pk1>=1 and pk1<=10;
+--echo # This DOES see the modifications
+select * from t1 force index (key1) where pk1>=1 and pk1<=10 for update;
+
+let $order_by_rowkey=1;
+let $SECOND_INDEX_NAME=key1;
+let $select_from_is_rowlocks_current_trx_only=1;
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+rollback;
+
+--echo #
+--echo # Now, test a query with LockingIterator
+--echo #
+delete from t1 where b=99999;
+
+begin;
+--echo # Allocate a snapshot
+select * from t0 where a=3;
+
+connection default;
+--echo #  Make some modifications not visible in the snapshot
+insert into t1 values (1,11, 99999, 99999);
+insert into t1 values (2,11, 99999, 99999);
+
+connection con1;
+--echo # This doesn't see the modifications:
+select * from t1 force index (key1) where pk1>=1 order by pk1 limit 15;
+--echo # This DOES see the modifications:
+select * from t1 force index (key1) where pk1>=1 order by pk1 limit 15 for update;
+
+let $order_by_rowkey=1;
+let $SECOND_INDEX_NAME=key1;
+let $select_from_is_rowlocks_current_trx_only=1;
+--source suite/rocksdb/include/select_from_is_rowlocks.inc
+
+rollback;
+
+disconnect con1;
+connection default;
+
+disconnect con2;
+
+drop table t0, t1,t3;
