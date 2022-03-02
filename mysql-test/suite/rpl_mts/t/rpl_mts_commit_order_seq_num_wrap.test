@@ -1,0 +1,103 @@
+# ==== Purpose ====
+#
+# The purpose of this script is to test if the commit order queue continues
+# to work properly when the commit sequence ticket number reaches it's max
+# value (2^64 - 1) and wraps around.
+#
+# ==== Requirements ====
+#
+# R1. When the commit order sequence ticket reaches 2^64 it should wrap
+#     around and values 0 and 1 should be skipped.
+#
+# ==== Implementation ====
+#
+# 1. Setup a debug point that initializes the commit order sequence ticket
+#    generator to 2^64 - 2
+# 2. Execute 5 transactions on the source that are bound to be executed
+#    together on the replica.
+# 3. Enforce that the fifth transaction executed on the source is the third
+#    to be executed on the replica (the one that will make the commit order
+#    sequence ticket generator to wrap around).
+# 4. Ensure that applier finishes applying properly, without stopping.
+#
+# ==== References ====
+#
+# BUG#32891221 SLAVE HANGS WITH SLAVE_PRESERVE_COMMIT_ORDER ON
+#
+
+source include/have_debug.inc;
+source include/have_binlog_format_row.inc;
+source include/only_mts_slave_parallel_type_dependency.inc;
+
+let $rpl_gtid_utils = 1;
+let $rpl_skip_start_slave = 1;
+source include/master-slave.inc;
+
+connection slave;
+SET @@GLOBAL.slave_parallel_workers = 8;
+SET @@GLOBAL.slave_preserve_commit_order = 1;
+source include/start_slave.inc;
+
+connection master;
+CREATE TABLE t1 (a INT PRIMARY KEY);
+CREATE TABLE t2 (a INT PRIMARY KEY);
+CREATE TABLE t3 (a INT PRIMARY KEY);
+CREATE TABLE t4 (a INT PRIMARY KEY);
+CREATE TABLE t5 (a INT PRIMARY KEY);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t2 VALUES (2);
+INSERT INTO t3 VALUES (3);
+INSERT INTO t4 VALUES (4);
+INSERT INTO t5 VALUES (5);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+source include/stop_slave.inc;
+# Debug point that will set the replica commit order ticket sequence number;
+# to MAX_ULLONG minus 2, meaning, after executing 2 transactions, the;
+# sequence generator should wrap around;
+let $debug_point = commit_order_queue_seq_wrap_around;
+source include/add_debug_point.inc;
+
+connection master;
+# Execute 5 transactions so that we ensure that the sequence generator will;
+# wrap around with the previously set debug point.;
+UPDATE t1 SET a = 10 WHERE a = 1;
+UPDATE t2 SET a = 20 WHERE a = 2;
+UPDATE t3 SET a = 30 WHERE a = 3;
+UPDATE t4 SET a = 40 WHERE a = 4;
+UPDATE t5 SET a = 50 WHERE a = 5;
+
+# Make the 5th transaction to run before the first transaction that will
+# wrap around (the 3rd) and wait on the commit order queue. This will
+# ensure that both special values 0 and 1 will be skipped because otherwise
+# the 5th transaction will be waiting on the commit order indefinitely.
+connection slave1;
+BEGIN;
+UPDATE t3 SET a = 300 WHERE a = 3;
+UPDATE t4 SET a = 400 WHERE a = 4;
+
+connection slave;
+source include/start_slave.inc;
+let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE STATE LIKE "%Waiting for preceding transaction to commit%";
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+
+connection slave1;
+ROLLBACK;
+
+connection master;
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+DROP TABLE t4;
+DROP TABLE t5;
+source include/sync_slave_sql_with_master.inc;
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers = default;
+source include/start_slave.inc;
+
+let $debug_point = commit_order_queue_seq_wrap_around;
+source include/remove_debug_point.inc;
+source include/rpl_end.inc;

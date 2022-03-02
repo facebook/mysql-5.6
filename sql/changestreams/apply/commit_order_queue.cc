@@ -125,6 +125,10 @@ cs::apply::Commit_order_queue::Commit_order_queue(size_t n_workers)
   for (size_t w = 0; w != this->m_workers.size(); ++w) {
     this->m_workers[w].m_worker_id = w;
   }
+  DBUG_EXECUTE_IF("commit_order_queue_seq_wrap_around", {
+    this->m_commit_sequence_generator->store(
+        std::numeric_limits<unsigned long long>::max() - 2);
+  });
 }
 
 cs::apply::Commit_order_queue::Node &cs::apply::Commit_order_queue::operator[](
@@ -166,8 +170,11 @@ void cs::apply::Commit_order_queue::push(value_type index) {
       lock::Shared_spin_lock::enum_lock_acquisition::SL_SHARED};
   DBUG_ASSERT(this->m_workers[index].m_commit_sequence_nr ==
               Node::NO_SEQUENCE_NR);
-  this->m_workers[index].m_commit_sequence_nr->store(
-      this->m_commit_sequence_generator->fetch_add(1));
+  sequence_type next{Node::NO_SEQUENCE_NR};
+  do {
+    next = this->m_commit_sequence_generator->fetch_add(1);
+  } while (next <= Node::SEQUENCE_NR_FROZEN);
+  this->m_workers[index].m_commit_sequence_nr->store(next);
   this->m_commit_queue << index;
   DBUG_ASSERT(
       this->m_commit_queue.get_state() !=
@@ -202,4 +209,14 @@ cs::apply::Commit_order_queue::Iterator cs::apply::Commit_order_queue::end() {
 
 std::string cs::apply::Commit_order_queue::to_string() {
   return this->m_commit_queue.to_string();
+}
+
+cs::apply::Commit_order_queue::sequence_type
+cs::apply::Commit_order_queue::get_next_sequence_nr(
+    sequence_type current_seq_nr) {
+  sequence_type next{current_seq_nr};
+  do {
+    ++next;
+  } while (next <= Node::SEQUENCE_NR_FROZEN);
+  return next;
 }

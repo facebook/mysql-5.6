@@ -1,0 +1,42 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+SET @@GLOBAL.slave_parallel_workers = 8;
+SET @@GLOBAL.slave_preserve_commit_order = 1;
+include/start_slave.inc
+CREATE TABLE t1 (a INT PRIMARY KEY);
+CREATE TABLE t2 (a INT PRIMARY KEY);
+CREATE TABLE t3 (a INT PRIMARY KEY);
+CREATE TABLE t4 (a INT PRIMARY KEY);
+CREATE TABLE t5 (a INT PRIMARY KEY);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t2 VALUES (2);
+INSERT INTO t3 VALUES (3);
+INSERT INTO t4 VALUES (4);
+INSERT INTO t5 VALUES (5);
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+# Adding debug point 'commit_order_queue_seq_wrap_around' to @@GLOBAL.debug
+UPDATE t1 SET a = 10 WHERE a = 1;
+UPDATE t2 SET a = 20 WHERE a = 2;
+UPDATE t3 SET a = 30 WHERE a = 3;
+UPDATE t4 SET a = 40 WHERE a = 4;
+UPDATE t5 SET a = 50 WHERE a = 5;
+BEGIN;
+UPDATE t3 SET a = 300 WHERE a = 3;
+UPDATE t4 SET a = 400 WHERE a = 4;
+include/start_slave.inc
+ROLLBACK;
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+DROP TABLE t4;
+DROP TABLE t5;
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+set @@global.slave_parallel_workers = default;
+include/start_slave.inc
+# Removing debug point 'commit_order_queue_seq_wrap_around' from @@GLOBAL.debug
+include/rpl_end.inc
