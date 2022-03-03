@@ -25,8 +25,8 @@ if ($current_leader_uuid != $uuid) {
 # Wait for leader to become writable
 let $rpl_connection_name = server_$rpl_raft_leader_number;
 source include/rpl_connection.inc;
-let $query = SELECT @@GLOBAL.READ_ONLY = 0 AND @@GLOBAL.SUPER_READ_ONLY = 0;
-source include/wait_for_query_to_succeed.inc;
+let $wait_condition = SELECT @@GLOBAL.READ_ONLY = 0 AND @@GLOBAL.SUPER_READ_ONLY = 0;
+source include/wait_condition.inc;
 
 # Wait for SQL threads to start on followers
 let $_rpl_server = $rpl_server_count;

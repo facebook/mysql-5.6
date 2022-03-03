@@ -34,6 +34,7 @@ a
 2
 "Restarting server_1"
 include/rpl_restart_server.inc [server_number=1]
+set @lwm = "lwm";
 include/raft_promote_to_leader.inc
 insert into t1 values(3);
 include/sync_slave_sql_with_master.inc
