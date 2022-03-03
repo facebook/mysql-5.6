@@ -17,10 +17,20 @@ connection server_3;
 select * from t1;
 
 connection server_1;
+let $lwm = `SELECT variable_value FROM performance_schema.global_status WHERE variable_name = 'Rpl_raft_slave_low_water_mark'`;
+
 echo "Restarting server_1";
 let $rpl_server_number = 1;
 source include/rpl_restart_server.inc;
 
+# Wait for election to finish
+connection server_1;
+replace_result $lwm lwm;
+eval set @lwm = "$lwm";
+let $wait_condition = SELECT variable_value > @lwm FROM performance_schema.global_status WHERE variable_name = 'Rpl_raft_slave_low_water_mark';
+source include/wait_condition.inc;
+
+# Bring back leadership to server_1
 let $rpl_raft_leader_number= 1;
 source ../include/raft_promote_to_leader.inc;
 

@@ -1753,7 +1753,6 @@ int raft_change_master(THD *, const MysqlPrimaryInfo &info) {
   }
   mi->ssl = info.auth_info.use_ssl();
   mi->set_auto_position(true);
-  mi->init_master_log_pos();
 
   int thread_mask_stopped_threads;
   /*
