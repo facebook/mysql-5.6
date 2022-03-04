@@ -14,34 +14,34 @@ select * from privacy_blood_donation_table;
 id	name
 1	User1
 Warnings:
-Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: 'safety_security_integrity', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: '{"purposePolicy":{"policyName":"safety_security_integrity","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}}', policy type: 'CONFIGERATOR') failed i
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: 'safety_security_integrity', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: '{"purposePolicy":{"policyName":"safety_security_integrity","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}}', policy type: 'CONFIGERATOR') failed i
 select * from privacy_blood_donation_table where id>= 1;
 id	name
 1	User1
 Warnings:
-Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: 'safety_security_integrity', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: '{"purposePolicy":{"policyName":"safety_security_integrity","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}}', policy type: 'CONFIGERATOR') failed i
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: 'safety_security_integrity', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: '{"purposePolicy":{"policyName":"safety_security_integrity","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}}', policy type: 'CONFIGERATOR') failed i
 select name, count(id) from privacy_blood_donation_table group by name;
 name	count(id)
 User1	1
 Warnings:
-Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: 'safety_security_integrity', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: '{"purposePolicy":{"policyName":"safety_security_integrity","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}}', policy type: 'CONFIGERATOR') failed i
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: 'safety_security_integrity', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: '{"purposePolicy":{"policyName":"safety_security_integrity","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}}', policy type: 'CONFIGERATOR') failed i
 select name, count(id) from privacy_blood_donation_table group by name order by 1;
 name	count(id)
 User1	1
 Warnings:
-Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: 'safety_security_integrity', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: '{"purposePolicy":{"policyName":"safety_security_integrity","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}}', policy type: 'CONFIGERATOR') failed i
 show warnings;
 Level	Code	Message
-Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: 'safety_security_integrity', policy type: 'CONFIGERATOR') failed in FAIL_OPEN mode
+Warning	50302	Purpose policy check 'fbig::consumer_products::core_products::blood_donation' (query policy: '{"purposePolicy":{"policyName":"safety_security_integrity","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}}', policy type: 'CONFIGERATOR') failed i
 set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
 drop table privacy_blood_donation_table;
 set session session_track_response_attributes=@original_session_track_response_attributes;
