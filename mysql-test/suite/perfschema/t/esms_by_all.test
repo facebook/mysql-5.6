@@ -101,11 +101,11 @@ select schema_name, query_sample_text, digest, user, client_id, plan_id, count_s
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest;
 
 --echo Verify index working properly
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all
 where schema_name = 'test' and digest = '1bdaf02b6c6dd4f5bfc3045555865597' and user = 'fake';
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all
 where schema_name = 'test' and digest = '1bdaf02b6c6dd4f5bfc3045555865597' and user = 'user_super' and client_id = 'fake';
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all 
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all
 where schema_name = 'test' and digest = '1bdaf02b6c6dd4f5bfc3045555865597' and user = 'user_super' and client_id = '0000000000000000d194f27ab572142e';
 
 ####################################################
@@ -116,10 +116,37 @@ set global performance_schema_esms_by_all = on;
 select @@performance_schema_esms_by_all;
 
 set global enable_cputime_with_wallclock = 1;
+let $start_time = `select now()`;
 SELECT SLEEP(1);
 --let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(1)', Value, 1)
 --let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should increase by a non-zero value.
 --let $assert_cond= $sum_cpu_time > 0
+--source include/assert.inc
+SELECT SLEEP(1);
+--let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(1)', Value, 1)
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be more than 2000000000000.
+--let $assert_cond= $sum_cpu_time > 2000000000000
+--source include/assert.inc
+SELECT SLEEP(1);
+--let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(1)', Value, 1)
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be more than 3000000000000.
+--let $assert_cond= $sum_cpu_time > 3000000000000
+--source include/assert.inc
+SELECT SLEEP(1);
+--let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(1)', Value, 1)
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be more than 4000000000000.
+--let $assert_cond= $sum_cpu_time > 4000000000000
+--source include/assert.inc
+let $end_time = `select timestampdiff(second, '$start_time', now())`;
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be smaller than ($end_time + 1) * 1000000000000.
+--let $assert_cond= $sum_cpu_time < ($end_time + 1) * 1000000000000
+--source include/assert.inc
+let $start_time = `select now()`;
+select 1 union select 2;
+let $end_time = `select timestampdiff(second, '$start_time', now())`;
+--let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'select 1 union select 2', Value, 1)
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'select 1 union select 2' should be smaller than ($end_time + 1) * 1000000000000.
+--let $assert_cond= $sum_cpu_time < ($end_time + 1) * 1000000000000
 --source include/assert.inc
 truncate performance_schema.events_statements_summary_by_all;
 set global enable_cputime_with_wallclock = 0;
@@ -127,6 +154,38 @@ SELECT SLEEP(1);
 --let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(1)', Value, 1)
 --let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should increase by a non-zero value.
 --let $assert_cond= $sum_cpu_time > 0
+--source include/assert.inc
+set global enable_cputime_with_wallclock = DEFAULT;
+
+####################################################
+### Case 6.1: Verify SUM_ELAPSED_TIME
+####################################################
+--echo Case 6.1: Verify SUM_ELAPSED_TIME
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+
+set global enable_cputime_with_wallclock = 1;
+let $start_time = `select now()`;
+SELECT SLEEP(2);
+--let $sum_elapsed_time = query_get_value(select sum_elapsed_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(2)', Value, 1)
+--let $assert_text= SUM_ELAPSED_TIME on events_statements_summary_by_all for 'SELECT SLEEP(2)' should increase by a non-zero value.
+--let $assert_cond= $sum_elapsed_time > 2000000000000
+--source include/assert.inc
+SELECT SLEEP(2);
+let $end_time = `select timestampdiff(second, '$start_time', now())`;
+--let $sum_elapsed_time = query_get_value(select sum_elapsed_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'SELECT SLEEP(2)', Value, 1)
+--let $assert_text= SUM_ELAPSED_TIME on events_statements_summary_by_all for 'SELECT SLEEP(2)' should increase by a non-zero value.
+--let $assert_cond= $sum_elapsed_time < ($end_time + 1) * 1000000000000
+--source include/assert.inc
+--let $assert_text= SUM_ELAPSED_TIME on events_statements_summary_by_all for 'SELECT SLEEP(2)' should be more than 4 seconds with enable_cputime_with_wallclock.
+--let $assert_cond= $sum_elapsed_time > 4000000000000
+--source include/assert.inc
+let $start_time = `select now()`;
+select 1 union select 2 union select 3;
+let $end_time = `select timestampdiff(second, '$start_time', now())`;
+--let $sum_elapsed_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'select 1 union select 2 union select 3', Value, 1)
+--let $assert_text= SUM_ELAPSED_TIME on events_statements_summary_by_all for 'select 1 union select 2 union select 3' should be smaller than ($end_time + 1) * 1000000000000.
+--let $assert_cond= $sum_elapsed_time < ($end_time + 1) * 1000000000000
 --source include/assert.inc
 set global enable_cputime_with_wallclock = DEFAULT;
 
@@ -235,7 +294,7 @@ select * from performance_schema.sql_text;
 --error ER_IS_TABLE_READ_DISABLED
 select * from performance_schema.client_attributes;
 
-# cleanup 
+# cleanup
 set sql_stats_read_control = default;
 
 ###########
