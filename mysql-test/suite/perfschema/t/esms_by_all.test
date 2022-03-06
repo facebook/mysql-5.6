@@ -138,14 +138,14 @@ SELECT SLEEP(1);
 --let $assert_cond= $sum_cpu_time > 4000000000000
 --source include/assert.inc
 let $end_time = `select timestampdiff(second, '$start_time', now())`;
---let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be smaller than ($end_time + 1) * 1000000000000.
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be smaller than elapsed time.
 --let $assert_cond= $sum_cpu_time < ($end_time + 1) * 1000000000000
 --source include/assert.inc
 let $start_time = `select now()`;
 select 1 union select 2;
 let $end_time = `select timestampdiff(second, '$start_time', now())`;
 --let $sum_cpu_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'select 1 union select 2', Value, 1)
---let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'select 1 union select 2' should be smaller than ($end_time + 1) * 1000000000000.
+--let $assert_text= SUM_CPU_TIME on events_statements_summary_by_all for 'select 1 union select 2' should be smaller than elapsed time.
 --let $assert_cond= $sum_cpu_time < ($end_time + 1) * 1000000000000
 --source include/assert.inc
 truncate performance_schema.events_statements_summary_by_all;
@@ -184,7 +184,7 @@ let $start_time = `select now()`;
 select 1 union select 2 union select 3;
 let $end_time = `select timestampdiff(second, '$start_time', now())`;
 --let $sum_elapsed_time = query_get_value(select sum_cpu_time as Value from performance_schema.events_statements_summary_by_all where query_sample_text = 'select 1 union select 2 union select 3', Value, 1)
---let $assert_text= SUM_ELAPSED_TIME on events_statements_summary_by_all for 'select 1 union select 2 union select 3' should be smaller than ($end_time + 1) * 1000000000000.
+--let $assert_text= SUM_ELAPSED_TIME on events_statements_summary_by_all for 'select 1 union select 2 union select 3' should be smaller than elased time.
 --let $assert_cond= $sum_elapsed_time < ($end_time + 1) * 1000000000000
 --source include/assert.inc
 set global enable_cputime_with_wallclock = DEFAULT;
