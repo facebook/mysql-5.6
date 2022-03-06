@@ -1,0 +1,90 @@
+--source include/count_sessions.inc
+--source include/have_debug_sync.inc
+
+TRUNCATE TABLE performance_schema.events_statements_summary_by_all;
+
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+
+connect (con13, localhost, user_super,su,test);
+
+####################################################
+### Case 1: Query with periodic sampling
+####################################################
+
+--echo Case 1: Query with periodic sampling
+set @@SESSION.min_examined_row_limit_sql_stats=1;
+set @@global.debug = '+d,skip_end_statement';
+
+set global performance_schema_esms_by_all = on;
+set global enable_cputime_with_wallclock = 1;
+
+SET @@global.performance_schema_max_digest_sample_age = 1;
+
+set @@global.debug = '+d,add_busy_loop_2sec';
+create table t71 (i int);
+set @@global.debug = '-d,add_busy_loop_2sec';
+insert into t71 values(1);
+insert into t71 values(3);
+insert into t71 values(4);
+
+set @@global.debug = '-d,skip_end_statement';
+select * from t71;
+
+select schema_name, digest, user, SUBSTRING(query_sample_text, 1, 10), count_star, sum_rows_inserted, sum_rows_examined, sum_rows_updated, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
+select query_sample_text, schema_name from performance_schema.events_statements_summary_by_all where sum_cpu_time > 2000000000000 and sum_elapsed_time > 2000000000000 and query_sample_text LIKE '%create table%' order by query_sample_text;
+
+drop table t71;
+set @@SESSION.min_examined_row_limit_sql_stats=DEFAULT;
+SET @@global.performance_schema_max_digest_sample_age = DEFAULT;
+set global enable_cputime_with_wallclock = 0;
+
+####################################################
+### Case 2: Multi-Query with periodic sampling
+####################################################
+
+--echo Case 2: Multi-Query with periodic sampling
+set @@SESSION.min_examined_row_limit_sql_stats=1;
+truncate performance_schema.events_statements_summary_by_all;
+set @@global.debug = '+d,skip_end_statement';
+
+set global performance_schema_esms_by_all = on;
+set global enable_cputime_with_wallclock = 1;
+set @@global.debug = '+d,add_busy_loop_2sec';
+
+SET @@global.performance_schema_max_digest_sample_age = 1;
+
+delimiter ||||;
+
+select 1;
+create table t72(c int);
+insert into t72 values(100);
+select * from t72;
+update t72 set c=c+7;
+update t72 set c=c+7;
+delete from t72 where c=114;
+drop table t72;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+set @@global.debug = '-d,add_busy_loop_2sec';
+
+set @@global.debug = '-d,skip_end_statement';
+
+select schema_name, digest, user, query_sample_text, count_star, sum_rows_inserted, sum_rows_examined, sum_rows_updated, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
+select query_sample_text, schema_name from performance_schema.events_statements_summary_by_all where sum_cpu_time > 2000000000000 and sum_elapsed_time > 2000000000000 order by query_sample_text;
+
+set @@SESSION.min_examined_row_limit_sql_stats=DEFAULT;
+SET @@global.performance_schema_max_digest_sample_age = DEFAULT;
+set global enable_cputime_with_wallclock = DEFAULT;
+
+###########
+### Cleanup
+###########
+--echo Cleanup
+connection default;
+set global performance_schema_esms_by_all = DEFAULT;
+drop user user_super@localhost;
+disconnect con13;

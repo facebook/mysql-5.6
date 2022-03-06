@@ -3431,6 +3431,12 @@ static Sys_var_ulong Sys_min_examined_row_limit(
     VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_session_admin_no_super));
 
+static Sys_var_ulong Sys_min_examined_row_limit_sql_stats(
+    "min_examined_row_limit_sql_stats",
+    "Write to sql stats after examining a defined number of rows ",
+    SESSION_VAR(min_examined_row_limit_sql_stats), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 #ifdef _WIN32
 static Sys_var_bool Sys_named_pipe("named_pipe", "Enable the named pipe (NT)",
                                    READ_ONLY NON_PERSIST

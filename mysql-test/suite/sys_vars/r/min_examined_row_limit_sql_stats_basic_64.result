@@ -1,0 +1,179 @@
+SET @start_global_value = @@global.min_examined_row_limit_sql_stats;
+SELECT @start_global_value;
+@start_global_value
+0
+SET @start_session_value = @@session.min_examined_row_limit_sql_stats;
+SELECT @start_session_value;
+@start_session_value
+0
+'#--------------------FN_DYNVARS_089_01-------------------------#'
+SET @@global.min_examined_row_limit_sql_stats = 100;
+SET @@global.min_examined_row_limit_sql_stats = DEFAULT;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+0
+SET @@session.min_examined_row_limit_sql_stats = 200;
+SET @@session.min_examined_row_limit_sql_stats = DEFAULT;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+0
+'#--------------------FN_DYNVARS_089_02-------------------------#'
+SET @@global.min_examined_row_limit_sql_stats = DEFAULT;
+SELECT @@global.min_examined_row_limit_sql_stats = 0;
+@@global.min_examined_row_limit_sql_stats = 0
+1
+SET @@session.min_examined_row_limit_sql_stats = DEFAULT;
+SELECT @@session.min_examined_row_limit_sql_stats = 0;
+@@session.min_examined_row_limit_sql_stats = 0
+1
+'#--------------------FN_DYNVARS_089_03-------------------------#'
+SET @@global.min_examined_row_limit_sql_stats = 0;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+0
+SET @@global.min_examined_row_limit_sql_stats = 1;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+1
+SET @@global.min_examined_row_limit_sql_stats = 60020;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+60020
+SET @@global.min_examined_row_limit_sql_stats = 65535;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+65535
+SET @@global.min_examined_row_limit_sql_stats = 4294967295;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+4294967295
+SET @@global.min_examined_row_limit_sql_stats = 4294967294;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+4294967294
+SET @@global.min_examined_row_limit_sql_stats = 18446744073709551615;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+18446744073709551615
+'#--------------------FN_DYNVARS_089_04-------------------------#'
+SET @@session.min_examined_row_limit_sql_stats = 0;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+0
+SET @@session.min_examined_row_limit_sql_stats = 1;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+1
+SET @@session.min_examined_row_limit_sql_stats = 50050;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+50050
+SET @@session.min_examined_row_limit_sql_stats = 65535;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+65535
+SET @@session.min_examined_row_limit_sql_stats = 4294967295;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+4294967295
+SET @@session.min_examined_row_limit_sql_stats = 4294967294;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+4294967294
+SET @@session.min_examined_row_limit_sql_stats = 18446744073709551615;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+18446744073709551615
+'#------------------FN_DYNVARS_089_05-----------------------#'
+SET @@global.min_examined_row_limit_sql_stats = -1024;
+Warnings:
+Warning	1292	Truncated incorrect min_examined_row_limit_sql_stats value: '-1024'
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+0
+SET @@global.min_examined_row_limit_sql_stats = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'min_examined_row_limit_sql_stats'
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+0
+SET @@global.min_examined_row_limit_sql_stats = test;
+ERROR 42000: Incorrect argument type to variable 'min_examined_row_limit_sql_stats'
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+0
+SET @@global.min_examined_row_limit_sql_stats = 18446744073709551616;
+ERROR 42000: Incorrect argument type to variable 'min_examined_row_limit_sql_stats'
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+0
+SET @@session.min_examined_row_limit_sql_stats = -1;
+Warnings:
+Warning	1292	Truncated incorrect min_examined_row_limit_sql_stats value: '-1'
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+0
+SET @@session.min_examined_row_limit_sql_stats = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'min_examined_row_limit_sql_stats'
+SET @@session.min_examined_row_limit_sql_stats = test;
+ERROR 42000: Incorrect argument type to variable 'min_examined_row_limit_sql_stats'
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+0
+SET @@session.min_examined_row_limit_sql_stats = 18446744073709551616;
+ERROR 42000: Incorrect argument type to variable 'min_examined_row_limit_sql_stats'
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+0
+'#------------------FN_DYNVARS_089_06-----------------------#'
+SELECT @@global.min_examined_row_limit_sql_stats = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='min_examined_row_limit_sql_stats';
+@@global.min_examined_row_limit_sql_stats = VARIABLE_VALUE
+1
+'#------------------FN_DYNVARS_089_07-----------------------#'
+SELECT @@session.min_examined_row_limit_sql_stats = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='min_examined_row_limit_sql_stats';
+@@session.min_examined_row_limit_sql_stats = VARIABLE_VALUE
+1
+'#------------------FN_DYNVARS_089_08-----------------------#'
+SET @@global.min_examined_row_limit_sql_stats = TRUE;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+1
+SET @@global.min_examined_row_limit_sql_stats = FALSE;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+0
+'#---------------------FN_DYNVARS_089_09----------------------#'
+SET @@global.min_examined_row_limit_sql_stats = 10;
+SELECT @@min_examined_row_limit_sql_stats = @@global.min_examined_row_limit_sql_stats;
+@@min_examined_row_limit_sql_stats = @@global.min_examined_row_limit_sql_stats
+0
+'#---------------------FN_DYNVARS_089_10----------------------#'
+SET @@min_examined_row_limit_sql_stats = 100;
+SELECT @@min_examined_row_limit_sql_stats = @@local.min_examined_row_limit_sql_stats;
+@@min_examined_row_limit_sql_stats = @@local.min_examined_row_limit_sql_stats
+1
+SELECT @@local.min_examined_row_limit_sql_stats = @@session.min_examined_row_limit_sql_stats;
+@@local.min_examined_row_limit_sql_stats = @@session.min_examined_row_limit_sql_stats
+1
+'#---------------------FN_DYNVARS_089_11----------------------#'
+SET min_examined_row_limit_sql_stats = 1;
+SELECT @@min_examined_row_limit_sql_stats;
+@@min_examined_row_limit_sql_stats
+1
+SELECT local.min_examined_row_limit_sql_stats;
+ERROR 42S02: Unknown table 'local' in field list
+SELECT session.min_examined_row_limit_sql_stats;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT min_examined_row_limit_sql_stats = @@session.min_examined_row_limit_sql_stats;
+ERROR 42S22: Unknown column 'min_examined_row_limit_sql_stats' in 'field list'
+SET @@global.min_examined_row_limit_sql_stats = @start_global_value;
+SELECT @@global.min_examined_row_limit_sql_stats;
+@@global.min_examined_row_limit_sql_stats
+0
+SET @@session.min_examined_row_limit_sql_stats = @start_session_value;
+SELECT @@session.min_examined_row_limit_sql_stats;
+@@session.min_examined_row_limit_sql_stats
+0

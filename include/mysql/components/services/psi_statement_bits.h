@@ -232,6 +232,9 @@ struct PSI_statement_locker_state_v1 {
   PSI_statement_locker_mutating_state_v1 current_state;
   PSI_statement_locker_mutating_state_v1 prev_state;
 
+  bool m_aggregate_count_initiated;
+  bool m_capture_stats_periodic;
+
   PSI_sp_share *m_parent_sp_share;
   PSI_prepared_stmt *m_parent_prepared_stmt;
 };

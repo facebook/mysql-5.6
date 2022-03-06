@@ -2899,6 +2899,8 @@ void handler::ha_statistic_increment(
     ulonglong System_status_var::*offset) const {
   if (table && table->in_use) {
     (table->in_use->status_var.*offset)++;
+    table->in_use->check_limit_rows_examined();
+    table->in_use->update_sql_stats_periodic();
     table->in_use->check_yield(std::bind(yield_condition, table));
   }
 }
@@ -8300,8 +8302,9 @@ int handler::ha_write_row(uchar *buf) {
 
   if (!skip_dml_counters_for_tmp_tables ||
       (table_share->tmp_table != NON_TRANSACTIONAL_TMP_TABLE &&
-       table_share->tmp_table != INTERNAL_TMP_TABLE))
+       table_share->tmp_table != INTERNAL_TMP_TABLE)) {
     table->in_use->inc_inserted_row_count(1);
+  }
 
   /* check if the cpu execution time limit for DML is exceeded */
   check_dml_execution_cpu_limit_exceeded(&error, thd);

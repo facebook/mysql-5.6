@@ -2360,6 +2360,11 @@ class THD : public MDL_context_owner,
   ha_rows m_examined_row_count;
 
   /**
+    Used to track the ha statistic increments
+  */
+  ulonglong m_accessed_rows_and_keys;
+
+  /**
      Total binlog bytes written per stmt.
   */
   ulonglong m_binlog_bytes_written;
@@ -2469,6 +2474,16 @@ class THD : public MDL_context_owner,
 
   ha_rows get_examined_row_count() const { return m_examined_row_count; }
 
+  /**
+    Track the rows examined. TODO: not taking any action if they exceed a limit
+    right now
+  */
+  void check_limit_rows_examined();
+
+  ulonglong get_accessed_rows_and_keys() const {
+    return m_accessed_rows_and_keys;
+  }
+
   void reset_stmt_stats();
 
   ulonglong get_row_binlog_bytes_written() const {
@@ -2506,6 +2521,8 @@ class THD : public MDL_context_owner,
   enum_control_level get_mt_throttle_tag_level() const;
 
   void set_sent_row_count(ha_rows count);
+
+  void set_accessed_rows_and_keys(ulonglong count);
 
   void set_trx_dml_row_count(ha_rows count) { m_trx_dml_row_count = count; }
 
@@ -2692,8 +2709,6 @@ class THD : public MDL_context_owner,
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   /** Current statement instrumentation state. */
   PSI_statement_locker_state m_statement_state;
-  /** Previous statement instrumentation state. */
-  PSI_statement_locker_state m_prev_statement_state;
 #endif /* HAVE_PSI_STATEMENT_INTERFACE */
 
   /** Current transaction instrumentation. */
@@ -5118,6 +5133,11 @@ class THD : public MDL_context_owner,
     Check if we should exit and reenter admission control.
   */
   void check_yield(std::function<bool()> cond);
+
+  /**
+    Periodic calls to update pfs stats on processing a number of rows.
+  */
+  void update_sql_stats_periodic();
 
   /**
     Callback for thd_wait_begin.

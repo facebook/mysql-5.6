@@ -1023,6 +1023,9 @@ The following options may be given as the first argument:
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
  than that
+ --min-examined-row-limit-sql-stats[=#] 
+ Write to sql stats after examining a defined number of
+ rows 
  --minimum-hlc-ns[=#] 
  Sets the minimum HLC value for the instance (in
  nanoseconds). Any HLC timestamp doled out after
@@ -3206,6 +3209,7 @@ max-write-lock-count 18446744073709551615
 maximum-hlc-drift-ns 300000000000
 memlock FALSE
 min-examined-row-limit 0
+min-examined-row-limit-sql-stats 0
 minimum-hlc-ns 0
 mts-dependency-cond-wait-timeout 5000
 mts-dependency-max-keys 100000

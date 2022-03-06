@@ -674,6 +674,7 @@ THD::THD(bool enable_plugins, bool is_slave)
       m_attachable_trx(nullptr),
       table_map_for_update(0),
       m_examined_row_count(0),
+      m_accessed_rows_and_keys(0),
       m_current_db_context(NULL),
 #if defined(ENABLED_PROFILING)
       profiling(new PROFILING),
@@ -2728,6 +2729,23 @@ void THD::check_yield(std::function<bool()> cond) {
   thd_wait_begin(this, THD_WAIT_YIELD);
   thd_wait_end(this);
   yield_cond = nullptr;
+}
+
+void THD::check_limit_rows_examined() { ++m_accessed_rows_and_keys; }
+
+void THD::set_accessed_rows_and_keys(ulonglong count) {
+  m_accessed_rows_and_keys = count;
+}
+
+void THD::update_sql_stats_periodic() {
+  ulong min_examined_row_limit_sql_stats =
+      variables.min_examined_row_limit_sql_stats;
+  if (m_statement_psi == nullptr || get_stmt_da() == nullptr ||
+      m_accessed_rows_and_keys == 0 || min_examined_row_limit_sql_stats == 0 ||
+      m_accessed_rows_and_keys % min_examined_row_limit_sql_stats != 0) {
+    return;
+  }
+  MYSQL_SNAPSHOT_STATEMENT(m_statement_psi, get_stmt_da());
 }
 
 /**

@@ -27,6 +27,7 @@
 #endif
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <climits>
 #include <cstdint>
 #include <cstdio>
@@ -2044,6 +2045,11 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   */
   if (thd->killed == THD::KILL_QUERY) thd->killed = THD::NOT_KILLED;
   thd->set_time();
+  DBUG_EXECUTE_IF("add_busy_loop_2sec", {
+    auto finish = std::chrono::system_clock::now() + std::chrono::seconds(2);
+    while (finish > std::chrono::system_clock::now()) {
+    }
+  });
   if (is_time_t_valid_for_timestamp(thd->query_start_in_secs()) == false) {
     /*
       If the time has gone past end of epoch we need to shutdown the server. But
@@ -2516,6 +2522,12 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         */
         thd->status_var.questions++;
         thd->set_time(); /* Reset the query start time. */
+        DBUG_EXECUTE_IF("add_busy_loop_2sec", {
+          auto finish =
+              std::chrono::system_clock::now() + std::chrono::seconds(2);
+          while (finish > std::chrono::system_clock::now()) {
+          }
+        });
         parser_state.reset(beginning_of_next_stmt, length);
         thd->set_secondary_engine_optimization(
             Secondary_engine_optimization::PRIMARY_TENTATIVELY);
@@ -5779,6 +5791,7 @@ void THD::reset_for_next_command() {
   thd->reset_current_stmt_binlog_format_row();
   thd->binlog_unsafe_warning_flags = 0;
   thd->binlog_need_explicit_defaults_ts = false;
+  thd->set_accessed_rows_and_keys(0);
 
   thd->commit_error = THD::CE_NONE;
   thd->durability_property = HA_REGULAR_DURABILITY;
