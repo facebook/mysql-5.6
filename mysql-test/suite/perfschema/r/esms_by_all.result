@@ -174,12 +174,12 @@ SELECT SLEEP(1);
 SLEEP(1)
 0
 include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be more than 4000000000000.]
-include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be smaller than (4 + 1) * 1000000000000.]
+include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'SELECT SLEEP(1)' should be smaller than elapsed time.]
 select 1 union select 2;
 1
 1
 2
-include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'select 1 union select 2' should be smaller than (0 + 1) * 1000000000000.]
+include/assert.inc [SUM_CPU_TIME on events_statements_summary_by_all for 'select 1 union select 2' should be smaller than elapsed time.]
 truncate performance_schema.events_statements_summary_by_all;
 set global enable_cputime_with_wallclock = 0;
 SELECT SLEEP(1);
@@ -207,7 +207,7 @@ select 1 union select 2 union select 3;
 1
 2
 3
-include/assert.inc [SUM_ELAPSED_TIME on events_statements_summary_by_all for 'select 1 union select 2 union select 3' should be smaller than (0 + 1) * 1000000000000.]
+include/assert.inc [SUM_ELAPSED_TIME on events_statements_summary_by_all for 'select 1 union select 2 union select 3' should be smaller than elased time.]
 set global enable_cputime_with_wallclock = DEFAULT;
 Case 7: DML row counters unchanged for tmp tables
 create table test.tables(
