@@ -12305,7 +12305,8 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *const min_key,
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   // Getting statistics, including from Memtables
-  uint8_t include_flags = rocksdb::DB::INCLUDE_FILES;
+  rocksdb::DB::SizeApproximationFlags include_flags =
+      rocksdb::DB::SizeApproximationFlags::INCLUDE_FILES;
   rdb->GetApproximateSizes(kd.get_cf(), &r, 1, &sz, include_flags);
   ret = rows * ((double)sz / (double)disk_size);
   uint64_t memTableCount;
@@ -12790,7 +12791,8 @@ int ha_rocksdb::adjust_handler_stats_sst_and_memtable() {
     auto r = get_range(pk_index(table, m_tbl_def), buf);
     uint64_t sz = 0;
 
-    uint8_t include_flags = rocksdb::DB::INCLUDE_FILES;
+    rocksdb::DB::SizeApproximationFlags include_flags =
+        rocksdb::DB::SizeApproximationFlags::INCLUDE_FILES;
 
     // recompute SST files stats only if records count is 0
     if (stats.records == 0) {

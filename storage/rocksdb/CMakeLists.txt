@@ -88,13 +88,12 @@ message(STATUS "MyRocks compile definitions: ${COMPILE_DEFINITIONS}")
 
 
 # Suppress warnings for all compilers
-remove_compile_flags(-Wcast-qual -Wundef)
-ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-unused-parameter FILES ../../rocksdb/file/random_access_file_reader.cc)
-append_cflags_if_supported(-Wno-unused-parameter)
+remove_compile_flags(-Wcast-qual -Wextra-semi)
+append_cflags_if_supported(-Wno-invalid-offsetof)
 
 # Suppress warnings for all clang versions
 IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  remove_compile_flags(-Winconsistent-missing-destructor-override -Wdeprecated -Wextra-semi)
+  remove_compile_flags(-Winconsistent-missing-destructor-override -Wdeprecated)
   ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-shadow-field FILES ../../rocksdb/memtable/hash_skiplist_rep.cc)
   ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-conditional-uninitialized FILES ../../rocksdb/env/fs_posix.cc)
 
@@ -111,12 +110,6 @@ ENDIF()
 # Suppress warnings for gcc-6.x or newer
 IF(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 6)
   ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-logical-op FILES ../../rocksdb/file/filename.cc)
-ENDIF()
-
-# Suppress warnings for gcc-9 or newer
-IF(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
-  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-maybe-uninitialized FILES ../../rocksdb/env/env.cc)
-  remove_compile_flags(-Wsuggest-override)
 ENDIF()
 
 
