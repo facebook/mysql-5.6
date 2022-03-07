@@ -94,6 +94,7 @@ message(STATUS "MyRocks compile definitions: ${COMPILE_DEFINITIONS}")
 
 # Suppress warnings for all compilers
 remove_compile_flags(-Wcast-qual)
+append_cflags_if_supported(-Wno-invalid-offsetof)
 
 # Suppress warnings for all clang versions
 IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
