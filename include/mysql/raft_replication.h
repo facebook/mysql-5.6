@@ -16,8 +16,8 @@
 #ifndef RAFT_REPLICATION_H
 #define RAFT_REPLICATION_H
 
-// For RaftReplicateMsgOpType
 #include <string>
+// For RaftReplicateMsgOpType
 #include "raft_optype.h"
 
 #ifdef INCL_DEFINED_IN_MYSQL_SERVER
@@ -101,6 +101,10 @@ typedef struct Raft_replication_observer {
     bool is_relay_log = false;
     // Extra context
     int context = 0;
+
+    // another variable for end log pos maintenance,
+    // especially for 8.0
+    unsigned long long *position_ptr = nullptr;
   };
 
   /**
@@ -203,6 +207,22 @@ typedef struct Raft_replication_observer {
   */
   int (*show_raft_status)(
       std::vector<std::pair<std::string, std::string>> *var_value_pairs);
+
+  /**
+   * This callback is called to inform Raft of the health of the applier
+   * @param healthy = true, the applier has turned back healthy
+   * healthy = false, the applier is broken. Do not try to make it primary.
+   */
+  int (*inform_applier_health)(bool healthy);
+
+  /**
+   * This callback is called to inform Raft of the health of the self
+   * injected heartbeats checker. If heartbeats are failing Raft should
+   * know
+   * @param healthy = true, the heartbeat injector has turned back healthy
+   * healthy = false, the heartbeat injector is broken now.
+   */
+  int (*inform_heartbeats_health)(bool healthy);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer
