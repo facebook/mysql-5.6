@@ -1469,7 +1469,7 @@ int Binlog_sender::send_heartbeat_event(my_off_t log_pos, bool send_timestamp) {
   // value in the HB event otherwise we use now()
   time_t ts = 0;
   if (send_timestamp) {
-    ts = dump_log.get_log(false)->last_master_timestamp.load();
+    ts = mysql_bin_log.last_master_timestamp.load();
     if (ts == 0) ts = time(nullptr);
   }
   int4store(header, ts);

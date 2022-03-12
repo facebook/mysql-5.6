@@ -4544,6 +4544,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       relay_log_checksum_alg(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       engine_binlog_pos(ULLONG_MAX),
+      last_master_timestamp(0),
       previous_gtid_set_relaylog(nullptr),
       raft_cur_log_ext(0),
       setup_flush_done(false),
