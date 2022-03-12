@@ -101,6 +101,7 @@ IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   remove_compile_flags(-Winconsistent-missing-destructor-override -Wdeprecated -Wextra-semi)
   ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-shadow-field FILES ../../rocksdb/memtable/hash_skiplist_rep.cc)
   ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-conditional-uninitialized FILES ../../rocksdb/env/fs_posix.cc)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-deprecated-copy FILES ../../rocksdb/cache/clock_cache.cc)
 
   # platform007 (tbb, etc) has throw() which is deprecated
   append_cflags_if_supported(-Wno-deprecated-dynamic-exception-spec)
