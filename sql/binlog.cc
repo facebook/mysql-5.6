@@ -38,6 +38,7 @@
 #include <my_stacktrace.h>
 #include <boost/algorithm/string.hpp>
 #include <exception>
+#include <thread>
 #ifdef HAVE_RAPIDJSON
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"

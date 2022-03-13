@@ -700,7 +700,7 @@ bool ReplSemiSyncMaster::update_whitelist(std::string& wlist)
 
   // re-calculate wlist from the set
   wlist = "";
-  for (const auto uuid : local_whitelist_set)
+  for (const auto& uuid : local_whitelist_set)
   {
     wlist.append(uuid);
     wlist.append(",");

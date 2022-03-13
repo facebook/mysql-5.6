@@ -6934,19 +6934,21 @@ mysql_options(MYSQL *mysql,enum mysql_option option, const void *arg)
     break;
   case MYSQL_OPT_COMP_LIB:
     mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_DELETE, "compression_lib");
-    if ((enum mysql_compression_lib)arg == MYSQL_COMPRESSION_NONE) {
+    enum mysql_compression_lib lib_arg =
+      (enum mysql_compression_lib)(size_t)arg;
+    if (lib_arg == MYSQL_COMPRESSION_NONE) {
       mysql->options.compress = 0;
       mysql->options.client_flag &= ~CLIENT_COMPRESS;
       break;
     }
     const char *lib_name = "zlib";
-    if ((enum mysql_compression_lib)arg == MYSQL_COMPRESSION_ZSTD) {
+    if (lib_arg == MYSQL_COMPRESSION_ZSTD) {
       lib_name = "zstd";
     }
-    if ((enum mysql_compression_lib)arg == MYSQL_COMPRESSION_ZSTD_STREAM) {
+    if (lib_arg == MYSQL_COMPRESSION_ZSTD_STREAM) {
       lib_name = "zstd_stream";
     }
-    if ((enum mysql_compression_lib)arg == MYSQL_COMPRESSION_LZ4F_STREAM) {
+    if (lib_arg == MYSQL_COMPRESSION_LZ4F_STREAM) {
       lib_name = "lz4f_stream";
     }
     mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD,

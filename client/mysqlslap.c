@@ -1990,7 +1990,7 @@ end:
   if (commit_rate)
     run_query(mysql, "COMMIT", strlen("COMMIT"));
 
-    mysql_close(mysql);
+  mysql_close(mysql);
 
   mysql_thread_end();
 

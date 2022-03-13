@@ -537,7 +537,7 @@ int register_raft_followers(
     my_hash_delete(&slave_list, (uchar*) info);
   }
 
-  for (const std::pair<std::string, std::string> &info : follower_info)
+  for (const std::pair<std::string, std::string> info : follower_info)
   {
     SLAVE_INFO *si= nullptr;
 

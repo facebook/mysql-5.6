@@ -29,7 +29,8 @@ SET(MY_CXX_WARNING_FLAGS
 IF(CMAKE_C_COMPILER_ID MATCHES "Clang")
   SET(MY_C_WARNING_FLAGS
     "${MY_C_WARNING_FLAGS} \
-    -Wno-unused-command-line-argument -Wno-deprecated-register")
+    -Wno-unused-command-line-argument -Wno-deprecated-register \
+    -Wno-deprecated-declarations")
 ENDIF()
 IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   SET(MY_CXX_WARNING_FLAGS

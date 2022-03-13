@@ -65,8 +65,8 @@ static const char *handler_error_messages[]=
   "There's no partition in table for the given value",
   "Row-based binlogging of row failed",
   "Index needed in foreign key constraint",
-  "Upholding foreign key constraints would lead to a duplicate key error in "
-  "some other table",
+  ("Upholding foreign key constraints would lead to a duplicate key error in "
+  "some other table"),
   "Table needs to be upgraded before it can be used",
   "Table is read only",
   "Failed to get next auto increment value",

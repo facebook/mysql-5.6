@@ -13832,7 +13832,8 @@ void cost_group_min_max(TABLE *table, KEY *index_info, uint used_key_parts,
       overflowing uint.
     */
     num_groups = std::min<uint>(
-        limit < (std::numeric_limits<uint>::max() * filtering_effect)
+        limit < (static_cast<float>(std::numeric_limits<uint>::max()) *
+                 filtering_effect)
             ? (uint)(limit / filtering_effect)
             : std::numeric_limits<uint>::max(),
         num_groups);
