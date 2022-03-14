@@ -236,6 +236,10 @@ innodb/log_flusher_thread	BACKGROUND
 innodb/log_write_notifier_thread	BACKGROUND
 innodb/log_writer_thread	BACKGROUND
 innodb/page_flush_coordinator_thread	BACKGROUND
+rocksdb/background	BACKGROUND
+rocksdb/drop index	BACKGROUND
+rocksdb/index stats calculation	BACKGROUND
+rocksdb/manual compaction	BACKGROUND
 root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
@@ -287,6 +291,10 @@ innodb/log_flusher_thread	BACKGROUND
 innodb/log_write_notifier_thread	BACKGROUND
 innodb/log_writer_thread	BACKGROUND
 innodb/page_flush_coordinator_thread	BACKGROUND
+rocksdb/background	BACKGROUND
+rocksdb/drop index	BACKGROUND
+rocksdb/index stats calculation	BACKGROUND
+rocksdb/manual compaction	BACKGROUND
 root@localhost	FOREGROUND
 sql/compress_gtid_table	FOREGROUND
 sql/event_scheduler	FOREGROUND
