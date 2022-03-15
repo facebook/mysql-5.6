@@ -98,7 +98,7 @@ INDEX (d2)
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	d2	1	d2	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	d2	1	d2	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 (10.22,60.12345,123456,14.3456,1),
 (10.0,60.12345,123456,14,2),

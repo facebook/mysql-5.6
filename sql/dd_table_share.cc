@@ -298,6 +298,28 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
     keyinfo = share->key_info;
     key_part = keyinfo->key_part;
 
+    /*
+      The following if-else is here for MyRocks:
+      set share->primary_key as early as possible, because the return value
+      of ha_rocksdb::index_flags(key, ...) (HA_KEYREAD_ONLY bit in particular)
+      depends on whether the key is the primary key.
+    */
+    if (primary_key < MAX_KEY && share->keys_in_use.is_set(primary_key)) {
+      share->primary_key = primary_key;
+    } else {
+      share->primary_key = MAX_KEY;
+    }
+
+  restart:
+    /*
+      The next call is here for MyRocks:  Now, we have filled in field and key
+      definitions, give the storage engine a chance to adjust its properties.
+      MyRocks may (and typically does) adjust HA_PRIMARY_KEY_IN_READ_INDEX
+      flag in this call.
+    */
+    if (handler_file->init_with_fields()) return true;
+    ha_option = handler_file->ha_table_flags();
+
     dd::Table::Index_collection::const_iterator idx_it(
         table_def->indexes().begin());
 
@@ -340,6 +362,21 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
           the same way as above call to is_suitable_for_primary_key().
         */
         assert((primary_key == key) == (*idx_it)->is_candidate_key());
+
+        /*
+          The following is here for MyRocks. See the comment above
+          about "set share->primary_key as early as possible"
+        */
+        if (primary_key < MAX_KEY && share->keys_in_use.is_set(primary_key)) {
+          share->primary_key = primary_key;
+          /*
+            OK, we decided to use it as primary key, but that may have impact on
+            HA_PRIMARY_KEY_IN_READ_INDEX flag, which is set by MyRocks basing on
+            the information about PK. Restart the iteration, but with PK already
+            set.
+          */
+          goto restart;
+        }
       }
 
       dd::Index::Index_elements::const_iterator idx_el_it(
@@ -382,6 +419,10 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
         field->set_flag(PART_KEY_FLAG);
         if (key == primary_key) {
           field->set_flag(PRI_KEY_FLAG);
+          /*
+            We need to set field->part_of_key before add_pk_parts_to_sk()
+            as calling it may clean key maps that exceed sizes.
+          */
           /*
              If this field is part of the primary key and all keys contains
              the primary key, then we can use any key to find this column
@@ -464,8 +505,8 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
 
       ++idx_it;
     }
-    if (primary_key < MAX_KEY && (share->keys_in_use.is_set(primary_key))) {
-      share->primary_key = primary_key;
+
+    if (share->primary_key != MAX_KEY) {
       /*
          If we are using an integer as the primary key then allow the user to
          refer to it as '_rowid'
@@ -478,8 +519,7 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
               (share->key_info[primary_key].key_part[0].fieldnr);
         }
       }
-    } else
-      share->primary_key = MAX_KEY;  // we do not have a primary key
+    }
   } else
     share->primary_key = MAX_KEY;
   destroy(handler_file);

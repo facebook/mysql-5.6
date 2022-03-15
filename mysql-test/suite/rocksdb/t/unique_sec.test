@@ -22,8 +22,6 @@ alter table t1 add unique(a);
 --enable_result_log
 drop table t1;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 --echo #
 --echo # Issue #111
 --echo #
@@ -35,7 +33,6 @@ INSERT INTO t2 VALUES (1,1);
 --error ER_DUP_ENTRY
 INSERT INTO t2 VALUES (2,1);
 DROP TABLE t2;
---enable_testcase
 
 --echo #
 --echo # Issue #491 (https://github.com/facebook/mysql-5.6/issues/491)

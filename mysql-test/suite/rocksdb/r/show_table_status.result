@@ -122,3 +122,14 @@ where table_schema=database() and table_name='t1';
 create_time=(select create_time from t2)	1
 UPDATE_TIME	NULL
 drop table t1, t2;
+#
+# Check how it works for partitioned tables
+#
+create table t1 (pk int primary key) partition by hash(pk) partitions 2;
+insert into t1 values (1);
+select create_time IS NOT NULL , update_time IS NOT NULL
+from information_schema.tables 
+where table_schema=database() and table_name='t1';
+create_time IS NOT NULL	1
+update_time IS NOT NULL	1
+drop table t1;

@@ -746,7 +746,7 @@ void Partition_helper::get_auto_increment_first_field(
   *nb_reserved_values = nb_desired_values;
 }
 
-inline void Partition_helper::set_auto_increment_if_higher() {
+void Partition_helper::set_auto_increment_if_higher() {
   Field_num *field = static_cast<Field_num *>(m_table->found_next_number_field);
   ulonglong nr =
       (field->is_unsigned() || field->val_int() > 0) ? field->val_int() : 0;
@@ -1359,7 +1359,7 @@ err:
   Set table->read_set taking partitioning expressions into account.
 */
 
-inline void Partition_helper::set_partition_read_set() {
+void Partition_helper::set_partition_read_set() {
   /*
     For operations that may need to change data, we may need to extend
     read_set.

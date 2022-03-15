@@ -12,18 +12,6 @@ rocksdb_hotbackup.xbstream : BUG#0000 hotbackup feature is missing in 8.0
 rocksdb_hotbackup.wdt : BUG#0000 hotbackup feature is missing in 8.0
 rocksdb_hotbackup.xbstream_socket : BUG#0000 hotbackup feature is missing in 8.0
 
-# Disable partition tests
-rocksdb.rocksdb_cf_per_partition : BUG#888001 partition feature is missing in 8.0
-rocksdb.partition : BUG#888001 partition feature is missing in 8.0
-rocksdb.truncate_partition : BUG#888001 partition feature is missing in 8.0
-rocksdb.ttl_primary_with_partitions : BUG#888001 partition feature is missing in 8.0
-rocksdb.ttl_secondary_with_partitions : BUG#888001 partition feature is missing in 8.0
-rocksdb.issue495 : BUG#888001 partition feature is missing in 8.0
-rocksdb.rocksdb_parts : BUG#888001 partition feature is missing in 8.0
-rocksdb.get_error_message : BUG#888001 partition feature is missing in 8.0
-rocksdb.autoinc_crash_safe_partition : BUG#888001 partition feature is missing in 8.0
-rocksdb.validate_datadic : BUG#0000 native partitioning not supported
-
 # Missing features
 rocksdb.explicit_snapshot : BUG#0000 missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
 rocksdb.skip_core_dump_on_error : BUG#0000 missing patch

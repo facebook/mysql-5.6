@@ -279,8 +279,6 @@ INSERT INTO t12 VALUES (2),(1);
 SELECT * FROM t12 ORDER BY pk;
 DROP TABLE t12;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 --echo #
 --echo # MDEV-3964: Assertion `!pk_descr' fails in ha_rocksdb::open on adding partitions ...
 --echo #
@@ -289,7 +287,6 @@ create table t14 (pk int primary key) ENGINE=rocksdb CHARSET=latin1 partition by
 #alter table t14 add partition partitions 2;
 # ^^ works, but causes weird warnings in error log.
 drop table t14;
---enable_testcase
 
 --echo #
 --echo # MDEV-3960: Server crashes on running DISCARD TABLESPACE on a RocksDB table
@@ -1861,8 +1858,6 @@ COMMIT;
 UNLOCK TABLES;
 DROP TABLE t1;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 --echo #
 --echo # Issue#213 Crash on LOCK TABLES + partitions
 --echo #
@@ -1874,7 +1869,6 @@ truncate t1;
 INSERT INTO t1 VALUES(X'042000200020',X'042000200020'),(X'200400200020',X'200400200020');
 UNLOCK TABLES;
 DROP TABLE t1;
---enable_testcase
 
 --echo #
 --echo # Issue#250: MyRocks/Innodb different output from query with order by on table with index and decimal type

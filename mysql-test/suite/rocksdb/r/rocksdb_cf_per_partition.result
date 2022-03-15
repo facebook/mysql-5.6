@@ -212,10 +212,10 @@ PARTITION custom_p2 VALUES IN (3, 6, 9)
 );
 DROP TABLE t1;
 CREATE TABLE `t2` (
-`col1` bigint(20) NOT NULL,
+`col1` bigint NOT NULL,
 `col2` varbinary(64) NOT NULL,
 `col3` varbinary(256) NOT NULL,
-`col4` bigint(20) NOT NULL,
+`col4` bigint NOT NULL,
 `col5` mediumblob NOT NULL,
 PRIMARY KEY (`col1`,`col2`,`col3`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
@@ -231,10 +231,10 @@ PARTITION custom_p7 VALUES IN (0x89ABC)
 );
 DROP TABLE t2;
 CREATE TABLE `t2` (
-`col1` bigint(20) NOT NULL,
+`col1` bigint NOT NULL,
 `col2` varbinary(64) NOT NULL,
 `col3` varbinary(256) NOT NULL,
-`col4` bigint(20) NOT NULL,
+`col4` bigint NOT NULL,
 `col5` mediumblob NOT NULL,
 PRIMARY KEY (`col1`,`col2`,`col3`) COMMENT 'custom_p0_cfname=my_cf0;custom_p1_cfname=my_cf1'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
@@ -270,12 +270,16 @@ col1	HEX(col2)	HEX(col3)	col4	HEX(col5)
 100	023456	02	1	03
 100	034567	04	1	05
 400	089ABC	04	1	05
-EXPLAIN PARTITIONS SELECT HEX(col2) FROM t2 where col2 = 0x12345;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	custom_p0	index	NULL	PRIMARY	332	NULL	3	Using where; Using index
-EXPLAIN PARTITIONS SELECT HEX(col2) FROM t2 where col2 = 0x23456;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	custom_p1	index	NULL	PRIMARY	332	NULL	2	Using where; Using index
+EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x12345;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	custom_p0	index	PRIMARY	PRIMARY	332	NULL	3	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select hex(`test`.`t2`.`col2`) AS `HEX(col2)` from `test`.`t2` where (`test`.`t2`.`col2` = 0x012345)
+EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x23456;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	custom_p1	index	PRIMARY	PRIMARY	332	NULL	2	50.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select hex(`test`.`t2`.`col2`) AS `HEX(col2)` from `test`.`t2` where (`test`.`t2`.`col2` = 0x023456)
 ALTER TABLE t2 DROP PRIMARY KEY;
 ALTER TABLE t2 ADD  PRIMARY KEY (`col1`,`col2`,`col3`) COMMENT 'custom_p0_cfname=new_cf0;custom_p1_cfname=new_cf1';
 set @@global.rocksdb_compact_cf = 'new_cf0';
@@ -288,12 +292,16 @@ cf_name
 new_cf1
 INSERT INTO t2 VALUES (500, 0x12345, 0x5, 1, 0x2);
 INSERT INTO t2 VALUES (700, 0x23456, 0x7, 1, 0x3);
-EXPLAIN PARTITIONS SELECT HEX(col2) FROM t2 where col2 = 0x12345;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	custom_p0	index	NULL	PRIMARY	332	NULL	4	Using where; Using index
-EXPLAIN PARTITIONS SELECT HEX(col2) FROM t2 where col2 = 0x23456;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	custom_p1	index	NULL	PRIMARY	332	NULL	2	Using where; Using index
+EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x12345;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	custom_p0	#	PRIMARY	PRIMARY	#	NULL	#	#	#
+Warnings:
+Note	1003	/* select#1 */ select hex(`test`.`t2`.`col2`) AS `HEX(col2)` from `test`.`t2` where (`test`.`t2`.`col2` = 0x012345)
+EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x23456;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	custom_p1	#	PRIMARY	PRIMARY	#	NULL	#	#	#
+Warnings:
+Note	1003	/* select#1 */ select hex(`test`.`t2`.`col2`) AS `HEX(col2)` from `test`.`t2` where (`test`.`t2`.`col2` = 0x023456)
 SELECT col1, HEX(col2), HEX(col3), col4, HEX(col5) FROM t2;
 col1	HEX(col2)	HEX(col3)	col4	HEX(col5)
 100	012345	01	1	02
@@ -306,10 +314,10 @@ col1	HEX(col2)	HEX(col3)	col4	HEX(col5)
 400	089ABC	04	1	05
 DROP TABLE t2;
 CREATE TABLE `t2` (
-`col1` bigint(20) NOT NULL,
+`col1` bigint NOT NULL,
 `col2` varbinary(64) NOT NULL,
 `col3` varbinary(256) NOT NULL,
-`col4` bigint(20) NOT NULL,
+`col4` bigint NOT NULL,
 `col5` mediumblob NOT NULL,
 PRIMARY KEY (`col1`,`col2`,`col3`) COMMENT 'custom_p0_cfname=test_cf0;custom_p1_cfname=test_cf1',
 KEY (`col2`, `col4`) COMMENT 'custom_p5_cfname=test_cf5'
@@ -340,9 +348,11 @@ INSERT INTO t2 VALUES (100, 0x23456, 0x2, 1, 0x3);
 INSERT INTO t2 VALUES (100, 0x34567, 0x4, 1, 0x5);
 INSERT INTO t2 VALUES (400, 0x89ABC, 0x4, 1, 0x5);
 INSERT INTO t2 VALUES (500, 0x6789A, 0x5, 1, 0x7);
-EXPLAIN PARTITIONS SELECT  * FROM t2 WHERE col2 = 0x6789A AND col4 = 1;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	custom_p5	ref	col2	col2	74	const,const	1	Using where
+EXPLAIN SELECT  * FROM t2 WHERE col2 = 0x6789A AND col4 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	custom_p5	ref	col2	col2	74	const,const	1	100.00	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`col1` AS `col1`,`test`.`t2`.`col2` AS `col2`,`test`.`t2`.`col3` AS `col3`,`test`.`t2`.`col4` AS `col4`,`test`.`t2`.`col5` AS `col5` from `test`.`t2` where ((`test`.`t2`.`col4` = 1) and (`test`.`t2`.`col2` = 0x06789a))
 ALTER TABLE t2 DROP KEY `col2`;
 ALTER TABLE t2 ADD KEY (`col3`, `col4`) COMMENT 'custom_p5_cfname=another_cf_for_p5';
 SELECT DISTINCT(cf_name) FROM information_schema.rocksdb_cfstats WHERE cf_name='another_cf_for_p5';
@@ -351,15 +361,72 @@ another_cf_for_p5
 ANALYZE TABLE t2;
 Table	Op	Msg_type	Msg_text
 test.t2	analyze	status	OK
-EXPLAIN PARTITIONS SELECT  * FROM t2 WHERE col3 = 0x4 AND col2 = 0x34567;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	custom_p2	ref	col3	col3	258	const	1	Using where
+EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col2 = 0x34567;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	custom_p2	ref	col3	col3	258	const	1	50.00	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`col1` AS `col1`,`test`.`t2`.`col2` AS `col2`,`test`.`t2`.`col3` AS `col3`,`test`.`t2`.`col4` AS `col4`,`test`.`t2`.`col5` AS `col5` from `test`.`t2` where ((`test`.`t2`.`col2` = 0x034567) and (`test`.`t2`.`col3` = 0x04))
 DROP TABLE t2;
 CREATE TABLE `t2` (
-`col1` bigint(20) NOT NULL,
+`col1` bigint NOT NULL,
 `col2` varbinary(64) NOT NULL,
 `col3` varbinary(256) NOT NULL,
-`col4` bigint(20) NOT NULL,
+`col4` bigint NOT NULL,
+`col5` mediumblob NOT NULL,
+`col6` bigint NOT NULL,
+PRIMARY KEY (`col1`,`col2`,`col3`) COMMENT 'custom_p0_cfname=test_cf0;custom_p1_cfname=test_cf1',
+KEY (`col2`, `col4`) COMMENT 'custom_p5_cfname=test_cf5'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+PARTITION BY LIST COLUMNS (`col2`) (
+PARTITION custom_p0 VALUES IN (0x12345),
+PARTITION custom_p1 VALUES IN (0x23456),
+PARTITION custom_p2 VALUES IN (0x34567),
+PARTITION custom_p3 VALUES IN (0x45678),
+PARTITION custom_p4 VALUES IN (0x56789),
+PARTITION custom_p5 VALUES IN (0x6789A),
+PARTITION custom_p6 VALUES IN (0x789AB),
+PARTITION custom_p7 VALUES IN (0x89ABC)
+);
+SELECT DISTINCT(cf_name) FROM information_schema.rocksdb_cfstats WHERE cf_name='test_cf0';
+cf_name
+test_cf0
+SELECT DISTINCT(cf_name) FROM information_schema.rocksdb_cfstats WHERE cf_name='test_cf1';
+cf_name
+test_cf1
+SELECT DISTINCT(cf_name) FROM information_schema.rocksdb_cfstats WHERE cf_name='test_cf5';
+cf_name
+test_cf5
+INSERT INTO t2 VALUES (100, 0x12345, 0x1, 1, 0x2, 1);
+INSERT INTO t2 VALUES (200, 0x12345, 0x1, 1, 0x2, 2);
+INSERT INTO t2 VALUES (300, 0x12345, 0x1, 1, 0x2, 3);
+INSERT INTO t2 VALUES (100, 0x23456, 0x2, 1, 0x3, 4);
+INSERT INTO t2 VALUES (100, 0x34567, 0x4, 1, 0x5, 5);
+INSERT INTO t2 VALUES (400, 0x89ABC, 0x4, 1, 0x5, 6);
+INSERT INTO t2 VALUES (500, 0x6789A, 0x5, 1, 0x7, 7);
+EXPLAIN SELECT  * FROM t2 WHERE col2 = 0x6789A AND col4 = 1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	custom_p5	ref	col2	col2	74	const,const	1	100.00	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`col1` AS `col1`,`test`.`t2`.`col2` AS `col2`,`test`.`t2`.`col3` AS `col3`,`test`.`t2`.`col4` AS `col4`,`test`.`t2`.`col5` AS `col5`,`test`.`t2`.`col6` AS `col6` from `test`.`t2` where ((`test`.`t2`.`col4` = 1) and (`test`.`t2`.`col2` = 0x06789a))
+ALTER TABLE t2 DROP KEY `col2`;
+ALTER TABLE t2 ADD KEY (`col3`, `col4`) COMMENT 'custom_p5_cfname=another_cf_for_p5';
+SELECT DISTINCT(cf_name) FROM information_schema.rocksdb_cfstats WHERE cf_name='another_cf_for_p5';
+cf_name
+another_cf_for_p5
+ANALYZE TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col5 = 3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	custom_p0,custom_p1,custom_p2,custom_p3,custom_p4,custom_p5,custom_p6,custom_p7	ref	col3	col3	258	const	#	10.00	Using index condition; Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`col1` AS `col1`,`test`.`t2`.`col2` AS `col2`,`test`.`t2`.`col3` AS `col3`,`test`.`t2`.`col4` AS `col4`,`test`.`t2`.`col5` AS `col5`,`test`.`t2`.`col6` AS `col6` from `test`.`t2` where ((`test`.`t2`.`col3` = 0x04) and (`test`.`t2`.`col5` = 3))
+DROP TABLE t2;
+CREATE TABLE `t2` (
+`col1` bigint NOT NULL,
+`col2` varbinary(64) NOT NULL,
+`col3` varbinary(256) NOT NULL,
+`col4` bigint NOT NULL,
 `col5` mediumblob NOT NULL,
 PRIMARY KEY (`col1`,`col2`,`col3`) COMMENT 'custom_p0_cfname=test_cf0;custom_p1_cfname=test_cf1',
 UNIQUE KEY (`col2`, `col4`) COMMENT 'custom_p5_cfname=unique_test_cf5'
@@ -379,9 +446,9 @@ cf_name
 unique_test_cf5
 INSERT INTO t2 VALUES (100, 0x12345, 0x1, 1, 0x2);
 INSERT INTO t2 VALUES (200, 0x12345, 0x1, 1, 0x2);
-ERROR 23000: Duplicate entry '\x01#E-1' for key 'col2'
+ERROR 23000: Duplicate entry '\x01#E-1' for key 't2.col2'
 INSERT INTO t2 VALUES (300, 0x12345, 0x1, 1, 0x2);
-ERROR 23000: Duplicate entry '\x01#E-1' for key 'col2'
+ERROR 23000: Duplicate entry '\x01#E-1' for key 't2.col2'
 INSERT INTO t2 VALUES (100, 0x23456, 0x2, 1, 0x3);
 INSERT INTO t2 VALUES (100, 0x34567, 0x4, 1, 0x5);
 INSERT INTO t2 VALUES (400, 0x89ABC, 0x4, 1, 0x5);

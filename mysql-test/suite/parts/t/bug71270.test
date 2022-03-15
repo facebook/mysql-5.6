@@ -1,0 +1,5 @@
+--source include/have_rocksdb.inc
+--let $engine= 'RocksDB'
+
+--source suite/parts/inc/bug71270.inc
+

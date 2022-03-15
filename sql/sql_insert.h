@@ -69,7 +69,7 @@ class Query_result_insert : public Query_result_interceptor {
   mem_root_deque<Item *> *fields;
 
  protected:
-  /// ha_start_bulk_insert has been called. Never cleared.
+  /// ha_start_bulk_insert has been called.
   bool bulk_insert_started{false};
 
  public:

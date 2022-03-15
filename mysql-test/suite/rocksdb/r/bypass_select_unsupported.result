@@ -502,9 +502,9 @@ SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, a;
 ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1
 ORDER BY a, b, c, c, c, a, b, c, d;
-ERROR 42000: SELECT statement pattern not supported: ORDER BY field is not in index order
+ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY c, a;
-ERROR 42000: SELECT statement pattern not supported: ORDER BY field is not in index order
+ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY a, a;
 ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1

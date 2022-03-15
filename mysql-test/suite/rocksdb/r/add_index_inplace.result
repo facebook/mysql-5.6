@@ -118,15 +118,15 @@ DROP TABLE t1;
 CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8mb3 collate utf8_bin;
 Warnings:
 Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `pk` char(8) COLLATE utf8_bin NOT NULL,
-  `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
+  `pk` char(8) COLLATE utf8mb3_bin NOT NULL,
+  `a` varchar(11) COLLATE utf8mb3_bin DEFAULT NULL,
   `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 pk	char(8)	NO	PRI	NULL	
@@ -139,12 +139,12 @@ ALTER TABLE t1 ADD INDEX kab(a,b), ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `pk` char(8) COLLATE utf8_bin NOT NULL,
-  `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
+  `pk` char(8) COLLATE utf8mb3_bin NOT NULL,
+  `a` varchar(11) COLLATE utf8mb3_bin DEFAULT NULL,
   `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`),
   KEY `kab` (`a`,`b`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
@@ -155,15 +155,15 @@ DROP TABLE t1;
 CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8mb3 collate utf8_bin;
 Warnings:
 Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `pk` char(8) COLLATE utf8_bin NOT NULL,
-  `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
+  `pk` char(8) COLLATE utf8mb3_bin NOT NULL,
+  `a` varchar(11) COLLATE utf8mb3_bin DEFAULT NULL,
   `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 pk	char(8)	NO	PRI	NULL	
@@ -177,12 +177,12 @@ ALTER TABLE t1 ADD INDEX ka(a), DROP INDEX kab, ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `pk` char(8) COLLATE utf8_bin NOT NULL,
-  `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
+  `pk` char(8) COLLATE utf8mb3_bin NOT NULL,
+  `a` varchar(11) COLLATE utf8mb3_bin DEFAULT NULL,
   `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`),
   KEY `ka` (`a`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
@@ -193,15 +193,15 @@ DROP TABLE t1;
 CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8mb3 collate utf8_bin;
 Warnings:
 Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `pk` char(8) COLLATE utf8_bin NOT NULL,
-  `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
+  `pk` char(8) COLLATE utf8mb3_bin NOT NULL,
+  `a` varchar(11) COLLATE utf8mb3_bin DEFAULT NULL,
   `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 pk	char(8)	NO	PRI	NULL	
@@ -215,12 +215,12 @@ ALTER TABLE t1 DROP INDEX ka, DROP INDEX kb, ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `pk` char(8) COLLATE utf8_bin NOT NULL,
-  `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
+  `pk` char(8) COLLATE utf8mb3_bin NOT NULL,
+  `a` varchar(11) COLLATE utf8mb3_bin DEFAULT NULL,
   `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`),
   KEY `kab` (`a`,`b`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
@@ -255,9 +255,39 @@ SELECT * FROM t1 FORCE INDEX(kba) WHERE a > 2;
 a	b
 3	7
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b TEXT) CHARSET=utf8mb4;
+CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE=RocksDB CHARSET=latin1 PARTITION BY KEY(i) PARTITIONS 4;
+ALTER TABLE t1 ADD INDEX kij(i,j), ALGORITHM=INPLACE;
+DROP INDEX kij ON t1;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int NOT NULL,
+  `j` int DEFAULT NULL,
+  `k` int DEFAULT NULL,
+  PRIMARY KEY (`i`),
+  KEY `j` (`j`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+/*!50100 PARTITION BY KEY (i)
+PARTITIONS 4 */
+SELECT * FROM t1 ORDER BY i LIMIT 10;
+i	j	k
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+6	6	6
+7	7	7
+8	8	8
+9	9	9
+10	10	10
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+100
+DROP TABLE t1;
+CREATE TABLE t1 (a INT, b TEXT) CHARSET=latin1;
 ALTER TABLE t1 ADD KEY kb(b(10));
-ERROR HY000: Unsupported collation on string indexed column test.t1.b Use binary collation (binary, latin1_bin, utf8_bin).
+ERROR HY000: Unsupported collation on string indexed column test.t1.b Use binary collation (binary, latin1_bin, utf8mb3_bin).
 ALTER TABLE t1 ADD PRIMARY KEY(a);
 DROP TABLE t1;
 set global rocksdb_bulk_load=1;
@@ -410,7 +440,7 @@ index kb(b(5))
 ) ENGINE=RocksDB CHARSET=utf8mb3 collate utf8_bin;
 Warnings:
 Warning	1287	'utf8mb3' is deprecated and will be removed in a future release. Please use utf8mb4 instead
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 INSERT INTO t1 (a,b) VALUES (1,'1111122222');
 INSERT INTO t1 (a,b) VALUES (2,'2222233333');
 INSERT INTO t1 (a,b) VALUES (3,'3333344444');
@@ -424,10 +454,10 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int NOT NULL,
-  `b` varchar(10) COLLATE utf8_bin DEFAULT NULL,
+  `b` varchar(10) COLLATE utf8mb3_bin DEFAULT NULL,
   PRIMARY KEY (`a`),
   KEY `kb` (`b`(8))
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin
 DROP TABLE t1;
 SET @prior_rocksdb_table_stats_sampling_pct = @@rocksdb_table_stats_sampling_pct;
 set global rocksdb_table_stats_sampling_pct = 100;
