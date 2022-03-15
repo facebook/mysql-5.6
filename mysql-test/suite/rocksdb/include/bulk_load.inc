@@ -30,8 +30,6 @@ eval CREATE TABLE t2(
   KEY(a)
 ) ENGINE=ROCKSDB COLLATE 'latin1_bin';
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 # Create a third table using partitions to validate that bulk loading works
 # across a partitioned table
 eval CREATE TABLE t3(
@@ -41,7 +39,6 @@ eval CREATE TABLE t3(
   PRIMARY KEY(pk) COMMENT "$pk_cf",
   KEY(a)
 ) ENGINE=ROCKSDB COLLATE 'latin1_bin' PARTITION BY KEY() PARTITIONS 4;
---enable_testcase
 
 --let $file = `SELECT CONCAT(@@datadir, "test_loadfile.txt")`
 
@@ -117,13 +114,10 @@ eval LOAD DATA INFILE '$file' INTO TABLE t2;
 # There should be no SST being ingested
 select * from t2;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 --echo LOAD DATA INFILE <input_file> INTO TABLE t3;
 eval LOAD DATA INFILE '$file' INTO TABLE t3;
 # There should be no SST being ingested
 select * from t3;
---enable_testcase
 
 --enable_query_log
 set rocksdb_bulk_load=0;
@@ -134,12 +128,7 @@ set rocksdb_bulk_load=0;
 --replace_column 6 # 7 # 8 # 9 # 12 # 13 #
 SHOW TABLE STATUS WHERE name LIKE 't%';
 
-ANALYZE TABLE t1, t2;
-
-# Disable until partition support is added
---disable_testcase BUG#888001
-ANALYZE TABLE t3;
---enable_testcase
+ANALYZE TABLE t1, t2, t3;
 
 --replace_column 6 # 7 # 8 # 9 # 12 # 13 #
 SHOW TABLE STATUS WHERE name LIKE 't%';
@@ -152,12 +141,9 @@ select count(pk) from t2;
 select count(a) from t2;
 select count(b) from t2;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 select count(pk) from t3;
 select count(a) from t3;
 select count(b) from t3;
---enable_testcase
 
 # Create a dummy file with a bulk load extesion.  It should be removed when
 # the server starts
@@ -184,9 +170,6 @@ EOF
 disconnect other;
 DROP TABLE t1, t2;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 DROP TABLE t3;
---enable_testcase
 
 --source include/wait_until_count_sessions.inc

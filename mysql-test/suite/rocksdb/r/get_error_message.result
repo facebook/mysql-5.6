@@ -4,5 +4,5 @@ SHOW TABLES;
 Tables_in_test
 t1
 ALTER TABLE t1 ADD PARTITION(PARTITION p3 DATA DIRECTORY='G:/mysqltest/p3Data' INDEX DIRECTORY='H:/mysqltest/p3Index');
-ERROR 42000: Incorrect table name 'H:/mysqltest/p3Index'
+ERROR HY000: Got error 501 'Specifying DATA DIRECTORY for an individual table is not supported.' from ROCKSDB
 DROP TABLE t1;

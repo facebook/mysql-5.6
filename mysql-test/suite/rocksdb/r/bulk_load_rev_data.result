@@ -13,6 +13,13 @@ b CHAR(30),
 PRIMARY KEY(pk) COMMENT "cf1",
 KEY(a)
 ) ENGINE=ROCKSDB COLLATE 'latin1_bin';
+CREATE TABLE t3(
+pk CHAR(5),
+a CHAR(30),
+b CHAR(30),
+PRIMARY KEY(pk) COMMENT "cf1",
+KEY(a)
+) ENGINE=ROCKSDB COLLATE 'latin1_bin' PARTITION BY KEY() PARTITIONS 4;
 set session transaction isolation level repeatable read;
 start transaction with consistent snapshot;
 select VALUE > 0 as 'Has opened snapshots' from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
@@ -26,19 +33,24 @@ LOAD DATA INFILE <input_file> INTO TABLE t1;
 pk	a	b
 LOAD DATA INFILE <input_file> INTO TABLE t2;
 pk	a	b
+LOAD DATA INFILE <input_file> INTO TABLE t3;
+pk	a	b
 set rocksdb_bulk_load=0;
 SHOW TABLE STATUS WHERE name LIKE 't%';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t1	ROCKSDB	10	Fixed	500000	#	#	#	#	0	NULL	#	#	NULL	latin1_bin	NULL		
 t2	ROCKSDB	10	Fixed	500000	#	#	#	#	0	NULL	#	#	NULL	latin1_bin	NULL		
-ANALYZE TABLE t1, t2;
+t3	ROCKSDB	10	Fixed	500000	#	#	#	#	0	NULL	#	#	NULL	latin1_bin	NULL		
+ANALYZE TABLE t1, t2, t3;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 test.t2	analyze	status	OK
+test.t3	analyze	status	OK
 SHOW TABLE STATUS WHERE name LIKE 't%';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t1	ROCKSDB	10	Fixed	500000	#	#	#	#	0	NULL	#	#	NULL	latin1_bin	NULL		
 t2	ROCKSDB	10	Fixed	500000	#	#	#	#	0	NULL	#	#	NULL	latin1_bin	NULL		
+t3	ROCKSDB	10	Fixed	500000	#	#	#	#	0	NULL	#	#	NULL	latin1_bin	NULL		
 select count(pk) from t1;
 count(pk)
 500000
@@ -57,7 +69,17 @@ count(a)
 select count(b) from t2;
 count(b)
 500000
+select count(pk) from t3;
+count(pk)
+500000
+select count(a) from t3;
+count(a)
+500000
+select count(b) from t3;
+count(b)
+500000
 longfilenamethatvalidatesthatthiswillgetdeleted.bulk_load.tmp.sst
 test.bulk_load.tmp.sst
 # restart
 DROP TABLE t1, t2;
+DROP TABLE t3;
