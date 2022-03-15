@@ -32,6 +32,7 @@ let $current_value = query_get_value(show global status like "Slave_before_image
 eval select $current_value - $initial_value as "inconsistency_count";
 --enable_query_log
 replace_result $uuid uuid;
+--sorted_result
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 set @@sql_log_bin = 0;
 update t1 set c = 0.798320;
@@ -57,6 +58,7 @@ let $current_value = query_get_value(show global status like "Slave_before_image
 eval select $current_value - $initial_value as "inconsistency_count";
 --enable_query_log
 replace_result $uuid uuid;
+--sorted_result
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 set @@sql_log_bin = 0;
 update t2 set c = 0.798320;
@@ -82,6 +84,7 @@ let $current_value = query_get_value(show global status like "Slave_before_image
 eval select $current_value - $initial_value as "inconsistency_count";
 --enable_query_log
 replace_result $uuid uuid;
+--sorted_result
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 set @@sql_log_bin = 0;
 update t3 set c = 0.798320;

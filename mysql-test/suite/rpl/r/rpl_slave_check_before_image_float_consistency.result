@@ -41,8 +41,8 @@ inconsistency_count
 2
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t2	uuid:10	master-bin.000002:2429	c=0.79832	c=0.798321
 test.t1	uuid:9	master-bin.000002:2186	c=0.79832	c=0.798321
+test.t2	uuid:10	master-bin.000002:2429	c=0.79832	c=0.798321
 set @@sql_log_bin = 0;
 update t2 set c = 0.798320;
 set @@sql_log_bin = 1;
@@ -59,8 +59,8 @@ inconsistency_count
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
 test.t1	uuid:9	master-bin.000002:2186	c=0.79832	c=0.798321
-test.t3	uuid:11	master-bin.000002:2674	c=0.79832	c=0.798321
 test.t2	uuid:10	master-bin.000002:2429	c=0.79832	c=0.798321
+test.t3	uuid:11	master-bin.000002:2674	c=0.79832	c=0.798321
 set @@sql_log_bin = 0;
 update t3 set c = 0.798320;
 set @@sql_log_bin = 1;

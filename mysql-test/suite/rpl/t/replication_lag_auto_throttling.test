@@ -52,6 +52,7 @@ set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 insert into t values(2);
 delete from t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 
@@ -112,6 +113,7 @@ insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -165,6 +167,7 @@ insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 set @@global.debug= '+d,dbug.simulate_fallback_sql_throttling';
 
@@ -176,6 +179,7 @@ set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 insert into test.t values(2);
 delete from test.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
@@ -223,6 +227,7 @@ delete from t where a = 2;
 update t set a = 1 where a = 3;
 update t set a = 2 where a = 4;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 
@@ -304,6 +309,7 @@ delete from t where a = 6;
 delete from t where a = 7;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -318,6 +324,7 @@ delete from t where a = 2;
 delete from t where a = 3;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -331,6 +338,7 @@ delete from t where a = 5;
 delete from t where a = 6;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
 
@@ -343,6 +351,7 @@ set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from t where a = 1;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
 
@@ -367,6 +376,7 @@ use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -409,6 +419,7 @@ use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -466,6 +477,7 @@ use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -508,6 +520,7 @@ use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -559,6 +572,7 @@ use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -651,6 +665,7 @@ use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -774,6 +789,7 @@ use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -809,6 +825,7 @@ use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
@@ -875,6 +892,7 @@ use test1;
 insert into test1.t values(2),(2);
 delete from test1.t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+--sorted_result
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 
 --echo ####### Next Cycle #######
