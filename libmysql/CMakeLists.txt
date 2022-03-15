@@ -155,6 +155,7 @@ SET(CLIENT_API_FUNCTIONS
   net_flush
   net_clear
   my_net_write
+  mysql_get_ssl_version
 
   CACHE INTERNAL "Functions exported by client API"
 )

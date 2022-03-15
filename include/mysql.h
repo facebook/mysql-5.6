@@ -469,6 +469,7 @@ MYSQL *STDCALL mysql_init(MYSQL *mysql);
 bool STDCALL mysql_ssl_set(MYSQL *mysql, const char *key, const char *cert,
                            const char *ca, const char *capath,
                            const char *cipher);
+const char* STDCALL mysql_get_ssl_version(MYSQL *mysql);
 const char *STDCALL mysql_get_ssl_cipher(MYSQL *mysql);
 void *STDCALL mysql_get_ssl_session(MYSQL *mysql);
 bool STDCALL mysql_get_ssl_session_reused(MYSQL *mysql);
