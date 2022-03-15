@@ -3625,6 +3625,22 @@ static void mysql_ssl_free(MYSQL *mysql) {
 }
 
 /*
+  Return the TLS/SSL version (if any) used for current
+  connection to the server.
+
+  SYNOPSYS
+    mysql_get_ssl_version()
+      mysql pointer to the mysql connection
+*/
+
+const char* STDCALL mysql_get_ssl_version(MYSQL *mysql MY_ATTRIBUTE((unused))) {
+  DBUG_TRACE;
+  if (mysql->net.vio && mysql->net.vio->ssl_arg)
+    return SSL_get_version((SSL *)mysql->net.vio->ssl_arg);
+  return nullptr;
+}
+
+/*
   Return the SSL cipher (if any) used for current
   connection to the server.
 
