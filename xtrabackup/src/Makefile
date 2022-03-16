@@ -39,11 +39,7 @@ default: 5.6
 	include sql storage/innobase/include)
 5.6: INNODBOBJS =
 
-ifeq "$(wildcard $(MYSQL_ROOT_DIR)/zlib/.libs/libzlt.a)" ""
-5.6: LIBZ= -lz
-else
-5.6: LIBZ= $(MYSQL_ROOT_DIR)/zlib/.libs/libzlt.a
-endif
+5.6: LIBZ= $(ZLIB_PATH)/lib/libz.a
 5.6: LIBZSTD= $(ZSTD_PATH)/lib/libzstd.a
 5.6: LIBLZ4 = $(LZ4_PATH)/lib/liblz4.a
 
