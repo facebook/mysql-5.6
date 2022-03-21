@@ -2022,6 +2022,10 @@ static MYSQL_SYSVAR_BOOL(ignore_unknown_options, rocksdb_ignore_unknown_options,
                          "Enable ignoring unknown options passed to RocksDB",
                          nullptr, nullptr, true);
 
+/*
+  TODO(herman) - Both strict_collation_check and strict_collation_exceptions can
+  be deprecated now that SKs support index lookups for all collations.
+*/
 static MYSQL_SYSVAR_BOOL(strict_collation_check, rocksdb_strict_collation_check,
                          PLUGIN_VAR_RQCMDARG,
                          "Enforce case sensitive collation for MyRocks indexes",
@@ -7461,25 +7465,6 @@ int ha_rocksdb::rdb_error_to_mysql(const rocksdb::Status &s,
   return err;
 }
 
-/* MyRocks supports only the following collations for indexed columns */
-static const std::set<const my_core::CHARSET_INFO *> RDB_INDEX_COLLATIONS = {
-    &my_charset_bin, &my_charset_utf8_bin, &my_charset_utf8mb4_bin,
-    &my_charset_latin1_bin};
-
-static bool rdb_is_index_collation_supported(
-    const my_core::Field *const field) {
-  const my_core::enum_field_types type = field->real_type();
-  /* Handle [VAR](CHAR|BINARY) or TEXT|BLOB */
-  if (type == MYSQL_TYPE_VARCHAR || type == MYSQL_TYPE_STRING ||
-      type == MYSQL_TYPE_BLOB) {
-    return rdb_is_simple_collation(field->charset()) ||
-           rdb_is_binary_collation(field->charset()) ||
-           RDB_INDEX_COLLATIONS.find(field->charset()) !=
-               RDB_INDEX_COLLATIONS.end();
-  }
-  return true;
-}
-
 /*
   Create structures needed for storing data in rocksdb. This is called when the
   table is created. The structures will be shared by all TABLE* objects.
@@ -7623,50 +7608,6 @@ int ha_rocksdb::create_cfs(
   */
   for (uint i = 0; i < tbl_def_arg->m_key_count; i++) {
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
-    /*
-     Few key points -
-      1) Functionality supported below is the collation check on user_tables
-      coming from create and alter table code path. Any tmp_tables which are
-     created outside of alter table code path shouldn't have collation check. 2)
-     actual_user_table_name field is only set in the alter table code which
-      contains the name of actual table being altered. This is required because
-      alter table copy algorithm passes tmp table as table name and due to which
-      we miss some collation checks.
-    */
-    if (rocksdb_strict_collation_check &&
-        !is_hidden_pk(i, table_arg, tbl_def_arg) &&
-        (tbl_def_arg->base_tablename().find(tmp_file_prefix) != 0 ||
-         !actual_user_table_name.empty())) {
-      for (uint part = 0; part < table_arg->key_info[i].actual_key_parts;
-           part++) {
-        if (!rdb_is_index_collation_supported(
-                table_arg->key_info[i].key_part[part].field) &&
-            !rdb_collation_exceptions->matches(table_with_enforced_collation)) {
-          std::string collation_err;
-          for (const auto &coll : RDB_INDEX_COLLATIONS) {
-            if (collation_err != "") {
-              collation_err += ", ";
-            }
-            collation_err += coll->name;
-          }
-          if (rocksdb_error_on_suboptimal_collation) {
-            my_error(ER_UNSUPPORTED_COLLATION, MYF(0),
-                     tbl_def_arg->full_tablename().c_str(),
-                     table_arg->key_info[i].key_part[part].field->field_name,
-                     collation_err.c_str());
-            DBUG_RETURN(HA_EXIT_FAILURE);
-          } else {
-            push_warning_printf(
-                ha_thd(), Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
-                "Unsupported collation on string indexed column %s.%s Use "
-                "binary collation (%s).",
-                tbl_def_arg->full_tablename().c_str(),
-                table_arg->key_info[i].key_part[part].field->field_name,
-                collation_err.c_str());
-          }
-        }
-      }
-    }
 
     // Internal consistency check to make sure that data in TABLE and
     // Rdb_tbl_def structures matches. Either both are missing or both are
@@ -8359,37 +8300,20 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
 */
 
 bool ha_rocksdb::check_keyread_allowed(bool &pk_can_be_decoded,
-                                       const TABLE_SHARE *table_arg, uint inx,
-                                       uint part, bool all_parts) {
-  bool res = true;
-  KEY *const key_info = &table_arg->key_info[inx];
+                                       const TABLE_SHARE *, uint, uint, bool) {
+  /*
+    (TODO) Remove this function and index version checks, Also remove return
+    code from Rdb_field_packing:setup() and remove the changes for '[mysql80]
+    Issue #108: Index-only scans do not work for partitioned tables and
+    extended keys'.
 
-  Rdb_field_packing dummy1;
-  res = dummy1.setup(nullptr, key_info->key_part[part].field, inx, part,
-                     key_info->key_part[part].length);
-
-  if (res && all_parts) {
-    for (uint i = 0; i < part; i++) {
-      Field *field;
-      if ((field = key_info->key_part[i].field)) {
-        Rdb_field_packing dummy;
-        if (!dummy.setup(nullptr, field, inx, i,
-                         key_info->key_part[i].length)) {
-          /* Cannot do index-only reads for this column */
-          res = false;
-          break;
-        }
-      }
-    }
-  }
-
-  const uint pk = table_arg->primary_key;
-  if (inx == pk && all_parts &&
-      part + 1 == table_arg->key_info[pk].user_defined_key_parts) {
-    pk_can_be_decoded = res;
-  }
-
-  return res;
+    For the cases of `create table t1 (a varchar(64), key (a(32)))`
+    and text/blob key columns, the sql layer seems to handle them
+    correctly regarding using index. InnoDB also seems to return
+    HA_KEYREAD_ONLY for these cases.
+  */
+  pk_can_be_decoded = true;
+  return true;
 }
 
 int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,

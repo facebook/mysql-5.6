@@ -31,7 +31,7 @@ INSERT INTO t1 (t,tt,m,l) VALUES
 (REPEAT('b',128),REPEAT('f',128),REPEAT('e',128),REPEAT('d',128)),
 (REPEAT('c',128),REPEAT('b',128),REPEAT('c',128),REPEAT('e',128));
 
---replace_column 10 # 11 #
+--replace_column 8 # 10 # 11 #
 EXPLAIN SELECT SUBSTRING(t,16) AS f FROM t1 WHERE t IN ('test1','test2') ORDER BY f;
 SELECT SUBSTRING(t,16) AS f FROM t1 WHERE t IN ('test1','test2') ORDER BY f;
 
@@ -74,7 +74,7 @@ INSERT INTO t1 (t,tt,m,l,pk) VALUES
 (REPEAT('b',128),REPEAT('f',128),REPEAT('e',128),REPEAT('d',128),'8'),
 (REPEAT('c',128),REPEAT('b',128),REPEAT('c',128),REPEAT('e',128),'9');
 
---replace_column 10 # 11 #
+--replace_column 8 # 10 # 11 #
 EXPLAIN SELECT SUBSTRING(m,128) AS f FROM t1 WHERE m = 'test1' ORDER BY f DESC;
 SELECT SUBSTRING(m,128) AS f FROM t1 WHERE m = 'test1' ORDER BY f DESC;
 
@@ -270,7 +270,7 @@ drop table t;
 set session rocksdb_verify_row_debug_checksums = on;
 create table t (id int primary key, email text, KEY email_i (email(30))) engine=rocksdb default charset=latin1;
 insert into t values (1, '                                  a');
---replace_column 9 #
+--replace_column 8 # 9 #
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 drop table t;
@@ -304,12 +304,10 @@ drop table t;
 --let $COLLATION = "latin1_swedish_ci"
 --source suite/rocksdb/include/covering_index_query.inc
 
-set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
 --let $FIELD_TYPE = TINYTEXT
 --let $CHAR_SET = "utf8"
 --let $COLLATION = "utf8_general_ci"
 --source suite/rocksdb/include/covering_index_query.inc
-set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
 
 --echo
 --echo #Text Covering Indexes
@@ -334,12 +332,10 @@ set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
 --let $COLLATION = "latin1_swedish_ci"
 --source suite/rocksdb/include/covering_index_query.inc
 
-set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
 --let $FIELD_TYPE = TEXT
 --let $CHAR_SET = "utf8"
 --let $COLLATION = "utf8_general_ci"
 --source suite/rocksdb/include/covering_index_query.inc
-set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
 
 --echo
 --echo #MEDIUMTEXT Covering Indexes
@@ -364,12 +360,10 @@ set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
 --let $COLLATION = "latin1_swedish_ci"
 --source suite/rocksdb/include/covering_index_query.inc
 
-set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
 --let $FIELD_TYPE = MEDIUMTEXT
 --let $CHAR_SET = "utf8"
 --let $COLLATION = "utf8_general_ci"
 --source suite/rocksdb/include/covering_index_query.inc
-set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
 
 --echo
 --echo #LONGTEXT Covering Indexes
@@ -394,11 +388,9 @@ set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
 --let $COLLATION = "latin1_swedish_ci"
 --source suite/rocksdb/include/covering_index_query.inc
 
-set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
 --let $FIELD_TYPE = LONGTEXT
 --let $CHAR_SET = "utf8"
 --let $COLLATION = "utf8_general_ci"
 --source suite/rocksdb/include/covering_index_query.inc
-set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
 
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
