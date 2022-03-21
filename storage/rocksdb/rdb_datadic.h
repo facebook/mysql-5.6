@@ -394,6 +394,13 @@ class Rdb_key_def {
            m_kv_format_version >= SECONDARY_FORMAT_VERSION_UPDATE4;
   }
 
+  inline bool supports_index_only_collation_scans() const {
+    return (m_index_type == INDEX_TYPE_SECONDARY &&
+            m_kv_format_version >= SECONDARY_FORMAT_VERSION_COLL) ||
+           (m_index_type == INDEX_TYPE_PRIMARY &&
+            m_kv_format_version >= PRIMARY_FORMAT_VERSION_COLL);
+  }
+
   /* Indicates that all key parts can be unpacked to cover a secondary lookup */
   bool can_cover_lookup() const;
 
@@ -577,7 +584,10 @@ class Rdb_key_def {
     //  - Add a lead segment byte in space padding varchar datatypes to
     //    optimize for empty content.
     PRIMARY_FORMAT_VERSION_UPDATE3 = 14,
-    PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_UPDATE3,
+    // This change includes:
+    //  - NO_PAD collations should not use the space padded encoding
+    PRIMARY_FORMAT_VERSION_COLL = 15,
+    PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_COLL,
 
     SECONDARY_FORMAT_VERSION_INITIAL = 10,
     // This change the SK format to include unpack_info.
@@ -599,7 +609,11 @@ class Rdb_key_def {
     // 2-byte bitmap is added after the tag-byte to unpack_info only for
     // records which have covered varchar/blob columns.
     SECONDARY_FORMAT_VERSION_UPDATE4 = 15,
-    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE4,
+    // This change includes support for index-only scans with SK for all
+    // previously-unsupported collations by storing entire copy of original
+    // field in "unpack_info".
+    SECONDARY_FORMAT_VERSION_COLL = 16,
+    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_COLL,
   };
 
   // Stores if the secondary index keys are covered for index scans or not.
@@ -1835,8 +1849,5 @@ class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
     return rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(s.data()));
   }
 };
-
-bool rdb_is_simple_collation(const my_core::CHARSET_INFO *const cs);
-bool rdb_is_binary_collation(const my_core::CHARSET_INFO *const cs);
 
 }  // namespace myrocks
