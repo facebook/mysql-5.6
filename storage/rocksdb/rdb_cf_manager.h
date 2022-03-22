@@ -48,7 +48,7 @@ namespace myrocks {
   - CFs are created in a synchronized way. We can't remove them, yet.
 */
 
-class Rdb_cf_manager {
+class Rdb_cf_manager : public Ensure_initialized {
   std::map<std::string, std::shared_ptr<rocksdb::ColumnFamilyHandle>>
       m_cf_name_map;
   std::map<uint32_t, std::shared_ptr<rocksdb::ColumnFamilyHandle>> m_cf_id_map;

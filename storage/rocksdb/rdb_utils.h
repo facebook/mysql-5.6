@@ -391,4 +391,13 @@ class Ensure_cleanup {
   std::function<void()> m_cleanup;
   bool m_skip_cleanup;
 };
+
+class Ensure_initialized {
+ public:
+  bool is_initialized() const { return initialized; }
+
+ protected:
+  bool initialized = false;
+};
+
 }  // namespace myrocks
