@@ -318,6 +318,8 @@ static const char *rdb_get_error_message(int nr);
 static void rocksdb_flush_all_memtables() {
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
+  if (!cf_manager.is_initialized()) return;
+
   // RocksDB will fail the flush if the CF is deleted,
   // but here we don't handle return status
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
@@ -5714,7 +5716,7 @@ static int rocksdb_init_internal(void *const p) {
     } else {
       std::unique_ptr<rocksdb::WritableFile> file;
       soptions.use_direct_writes = true;
-      check_status = env->ReopenWritableFile(fname, &file, soptions);
+      check_status = env->NewWritableFile(fname, &file, soptions);
       if (file != nullptr) {
         file->Close();
       }
@@ -5726,7 +5728,7 @@ static int rocksdb_init_internal(void *const p) {
       sql_print_error(
           "RocksDB: Unable to use direct io in rocksdb-datadir:"
           "(%s)",
-          check_status.getState());
+          check_status.ToString().c_str());
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   }
@@ -5969,6 +5971,8 @@ static int rocksdb_init_internal(void *const p) {
   DBUG_EXECUTE_IF("rocksdb_init_failure_open_db", {
     // Simulate opening TransactionDB failure
     status = rocksdb::Status::Corruption();
+    // fix a memory leak caused by not calling cf_manager.init()
+    for (auto cfh_ptr : cf_handles) delete (cfh_ptr);
   });
 
   if (!status.ok()) {
@@ -6320,16 +6324,6 @@ static int rocksdb_shutdown(bool minimalShutdown) {
   return error;
 }
 
-static int rocksdb_init_func(void *const p) {
-  int ret = rocksdb_init_internal(p);
-  if (ret) {
-    // Ideally we should call rocksdb_done_func but we are not quite
-    // there yet so this only cleans up the safe ones
-    rocksdb_shutdown(/* minimalShutdown = */ true);
-  }
-  return ret;
-}
-
 /*
   Storage Engine deinitialization function, invoked when plugin is unloaded.
 */
@@ -6340,6 +6334,14 @@ static int rocksdb_done_func(void *const p MY_ATTRIBUTE((__unused__))) {
   int error = rocksdb_shutdown(/* minimalShutdown = */ false);
 
   DBUG_RETURN(error);
+}
+
+static int rocksdb_init_func(void *const p) {
+  int ret = rocksdb_init_internal(p);
+  if (ret) {
+    rocksdb_done_func(p);
+  }
+  return ret;
 }
 
 static inline void rocksdb_smart_seek(bool seek_backward,

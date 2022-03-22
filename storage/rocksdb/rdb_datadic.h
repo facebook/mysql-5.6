@@ -1338,7 +1338,7 @@ interface Rdb_tables_scanner {
   objects are shared among all threads.
 */
 
-class Rdb_ddl_manager {
+class Rdb_ddl_manager : public Ensure_initialized {
   Rdb_dict_manager *m_dict = nullptr;
   Rdb_cf_manager *m_cf_manager = nullptr;
 
@@ -1525,7 +1525,7 @@ class Rdb_binlog_manager {
   begin() and commit() to make it easier to do atomic operations.
 
 */
-class Rdb_dict_manager {
+class Rdb_dict_manager : public Ensure_initialized {
  private:
   mysql_mutex_t m_mutex;
   rocksdb::TransactionDB *m_db = nullptr;
@@ -1567,7 +1567,10 @@ class Rdb_dict_manager {
             Rdb_cf_manager *const cf_manager,
             const bool enable_remove_orphaned_cf_flags);
 
-  inline void cleanup() { mysql_mutex_destroy(&m_mutex); }
+  inline void cleanup() {
+    if (!initialized) return;
+    mysql_mutex_destroy(&m_mutex);
+  }
 
   inline void lock() { RDB_MUTEX_LOCK_CHECK(m_mutex); }
 

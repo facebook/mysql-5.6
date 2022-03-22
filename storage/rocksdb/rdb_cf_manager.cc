@@ -60,9 +60,13 @@ void Rdb_cf_manager::init(
     m_cf_name_map[cfh_ptr->GetName()] = cfh;
     m_cf_id_map[cfh_ptr->GetID()] = cfh;
   }
+
+  initialized = true;
 }
 
 void Rdb_cf_manager::cleanup() {
+  if (!initialized) return;
+
   m_cf_name_map.clear();
   m_cf_id_map.clear();
   mysql_mutex_destroy(&m_mutex);
