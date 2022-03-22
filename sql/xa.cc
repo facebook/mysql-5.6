@@ -277,6 +277,10 @@ int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
   info.binlog_file = binlog_file;
   info.binlog_pos = binlog_pos;
 
+  Gtid binlog_smallest_max_gtid;
+  binlog_smallest_max_gtid.clear();
+  info.binlog_smallest_max_gtid = &binlog_smallest_max_gtid;
+
   std::unique_ptr<MEM_ROOT> mem_root{nullptr};
   std::unique_ptr<Xa_state_list::allocator> map_alloc{nullptr};
   std::unique_ptr<Xa_state_list::list> xid_map{nullptr};
@@ -341,6 +345,31 @@ int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
                      MYSQL_STORAGE_ENGINE_PLUGIN, &info)) {
     return 1;
   }
+
+  /* Print the max gtid and smallest max gtid found for recovery */
+  if (info.binlog_max_gtid && !info.binlog_max_gtid->is_empty()) {
+    char max_gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+    char smallest_max_gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+
+    global_sid_lock->rdlock();
+    info.binlog_max_gtid->to_string(global_sid_map, max_gtid_buf);
+    if (!info.binlog_smallest_max_gtid->is_empty()) {
+      info.binlog_smallest_max_gtid->to_string(global_sid_map,
+                                               smallest_max_gtid_buf);
+    }
+    global_sid_lock->unlock();
+
+    /*
+      The output of this line is parsed by other applications, so should
+      not be changed.
+    */
+    fprintf(stderr,
+            "Gtid recovery info: Largest MySQL Gtid %s, "
+            "Smallest MySQL Gtid %s\n",
+            max_gtid_buf, smallest_max_gtid_buf);
+  }
+
+  info.binlog_smallest_max_gtid = nullptr;
 
   if (info.found_foreign_xids) {
     LogErr(WARNING_LEVEL, ER_XA_RECOVER_FOUND_XA_TRX, info.found_foreign_xids);

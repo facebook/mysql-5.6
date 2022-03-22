@@ -195,7 +195,8 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
   my_off_t binlog_pos = ULLONG_MAX;
   Gtid max_gtid{0, 0};
 
-  assert(info->binlog_file && info->binlog_max_gtid);
+  assert(info->binlog_file && info->binlog_max_gtid &&
+         info->binlog_smallest_max_gtid);
 
   hton->recover_binlog_pos(hton, &max_gtid, binlog_file, &binlog_pos);
 
@@ -219,6 +220,7 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
     assert(info->binlog_max_gtid->is_empty());
 
     *(info->binlog_max_gtid) = max_gtid;
+    *(info->binlog_smallest_max_gtid) = max_gtid;
     memcpy(info->binlog_file, binlog_file, FN_REFLEN + 1);
     *info->binlog_pos = binlog_pos;
 
@@ -247,6 +249,16 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
                          *info->binlog_pos)) {
     memcpy(info->binlog_file, binlog_file, FN_REFLEN + 1);
     *info->binlog_pos = binlog_pos;
+
+    // Track the smallest max gtid found so far.
+    //
+    // The engine's actual committed max_gtid might be higher than this because
+    // prepared transactions may be rolled forward. However, idempotent
+    // recovery allows the transactions that are being rolled forward to be
+    // replayed. In the case where the binlog is trimmed on a primary instance,
+    // nothing is rolled forward, so this value will be the smallest max_gtid
+    // committed to an engine, and can be used as the executed_gtid base value.
+    *(info->binlog_smallest_max_gtid) = max_gtid;
   }
 }
 
@@ -291,9 +303,13 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
         global_sid_lock->unlock();
       }
 
-      sql_print_information(
-          "Current chosen binlog position (%s,%llu), max gtid %s",
-          info->binlog_file, *info->binlog_pos, gtid_buf);
+      if (info->binlog_file[0]) {
+        sql_print_information(
+            "Plugin '%s': Current chosen binlog position (%s,%llu), max gtid "
+            "%s",
+            plugin_name(plugin)->str, info->binlog_file, *info->binlog_pos,
+            gtid_buf);
+      }
     }
 
     while (

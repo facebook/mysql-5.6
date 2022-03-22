@@ -157,7 +157,8 @@ EOF
 --disable_query_log
 select "--- slave state after crash recovery, slave stop, WAL was corrupted, point in time recovery with wal_recovery_mode=2 ---" as "";
 --enable_query_log
-select * from x;
+--echo Expect less than 12 rows if wal is corrupted
+select case when count(*) < 12 then 'true' else 'false' end from x;
 --source include/start_slave.inc
 connection master;
 --let $use_gtids = 1

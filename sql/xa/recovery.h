@@ -33,8 +33,9 @@ struct xarecover_st {
   xid_to_gtid_container const *commit_list;
   Xa_state_list *xa_list;
   bool dry_run;
-  Gtid *binlog_max_gtid;
+  Gtid *binlog_max_gtid; /* max gtid across all engines */
   char *binlog_max_gtid_buf;
+  Gtid *binlog_smallest_max_gtid; /* smallest max gtid for engine */
   char *binlog_file;
   my_off_t *binlog_pos;
 };

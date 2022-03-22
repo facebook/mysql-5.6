@@ -2073,10 +2073,6 @@ dberr_t srv_start(bool create_new_db) {
     /* We have successfully recovered from the redo log. The
     data dictionary should now be readable. */
 
-    if (srv_force_recovery < SRV_FORCE_NO_LOG_REDO && recv_needed_recovery) {
-      trx_sys_print_mysql_binlog_offset();
-    }
-
     if (recv_sys->found_corrupt_log) {
       ib::warn(ER_IB_MSG_RECOVERY_CORRUPT);
     }

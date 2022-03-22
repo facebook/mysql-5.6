@@ -18,8 +18,10 @@ compile_commands.json
 # Allow
 !storage/innobase/xtrabackup/*
 
-# Clangd code completion index.
+# Clangd version < 11 index
 /.clangd
+# Clangd version >= 11 index
+/.cache/clangd
 
 # LLVM coverage files
 *.profraw

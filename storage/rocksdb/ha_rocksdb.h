@@ -64,13 +64,6 @@
   refinements (@see /storage/rocksdb/README file).
 */
 
-/**
-  @note MyRocks Coding Conventions:
-  MyRocks code follows the baseline MySQL coding conventions, available at
-  http://dev.mysql.com/doc/internals/en/coding-guidelines.html, with several
-  refinements (@see /storage/rocksdb/README file).
-*/
-
 namespace myrocks {
 
 class Rdb_converter;

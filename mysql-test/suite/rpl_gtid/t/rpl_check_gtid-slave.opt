@@ -1,1 +1,2 @@
 --skip-binlog-gtid-simple-recovery
+--skip-rocksdb
