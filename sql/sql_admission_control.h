@@ -36,6 +36,7 @@
 
 #include "mysql/psi/mysql_mutex.h"
 
+#include <array>
 #include <list>
 #include "sql/sql_class.h"
 

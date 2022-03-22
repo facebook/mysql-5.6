@@ -39,8 +39,11 @@ source_downloads
 # Configuration files for Visual Studio Code
 .vscode/
 
-# Clangd code completion index.
+# Clangd version < 11 index
 /.clangd
+# Clangd version >= 11 index
+/.cache/clangd
+
 
 # LLVM coverage files
 *.profraw

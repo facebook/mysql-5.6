@@ -17,6 +17,7 @@
 
 /* C++ standard header files */
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <boost/optional.hpp>
 #include <map>

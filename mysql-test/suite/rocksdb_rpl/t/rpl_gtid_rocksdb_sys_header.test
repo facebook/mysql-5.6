@@ -32,6 +32,8 @@ connection master;
 --let $master_uuid= query_get_value(select @@server_uuid, @@server_uuid, 1)
 --replace_result $master_uuid master_uuid
 --exec grep 'RocksDB: Last MySQL Gtid $master_uuid' $MYSQLTEST_VARDIR/log/mysqld.1.err
+--replace_result $master_uuid master_uuid
+--exec grep 'Gtid recovery info: Largest MySQL Gtid $master_uuid' $MYSQLTEST_VARDIR/log/mysqld.1.err
 
 drop table t1;
 source include/rpl_end.inc;

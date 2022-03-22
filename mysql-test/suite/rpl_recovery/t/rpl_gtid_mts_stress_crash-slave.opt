@@ -1,2 +1,3 @@
 --gtid-mode=ON --enforce-gtid-consistency --max-binlog-size=50000
 --slave-parallel-workers=30 --relay-log-recovery=1 --innodb-flush-log-at-trx-commit=0
+--skip-rocksdb

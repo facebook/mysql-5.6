@@ -20,7 +20,7 @@ create table t1 (a int);
 insert into t1 values(1);
 --eval SET GLOBAL debug = '+d,crash_before_writing_xid'
 --let LOG=$MYSQLTEST_VARDIR/tmp/rpl_gtid_innodb_sys_header.err
---exec echo "restart:--log-error=$LOG" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec echo "restart:--log-error=$LOG --rocksdb=0" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --error 2013
 insert into t1 values(2);
 --source include/wait_until_disconnected.inc
@@ -50,6 +50,10 @@ connection master;
 --let SEARCH_FILE=$LOG
 --let SEARCH_PATTERN=\[InnoDB\] Last MySQL Gtid $master_uuid:2
 --source include/search_pattern_in_file.inc 
+--replace_result $master_uuid master_uuid
+# Largest MySQL Gtid takes into account roll forward/rollbacks
+--let SEARCH_PATTERN=Gtid recovery info: Largest MySQL Gtid $master_uuid:3, Smallest MySQL Gtid $master_uuid:2
+--source include/search_pattern_in_file.inc
 
 --remove_file $LOG
 
