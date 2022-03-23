@@ -1103,7 +1103,9 @@ int Srv_session::execute_command(enum enum_server_command command,
   /* Switch to different callbacks */
   Protocol_callback client_proto(callbacks, text_or_binary, callbacks_context);
 
+  mysql_mutex_lock(&thd.LOCK_thd_protocol);
   thd.push_protocol(&client_proto);
+  mysql_mutex_unlock(&thd.LOCK_thd_protocol);
 
   mysql_audit_release(&thd);
 
@@ -1119,7 +1121,9 @@ int Srv_session::execute_command(enum enum_server_command command,
       thd.db().length, thd.charset(), nullptr);
   int ret = dispatch_command(&thd, data, command);
 
+  mysql_mutex_lock(&thd.LOCK_thd_protocol);
   thd.pop_protocol();
+  mysql_mutex_unlock(&thd.LOCK_thd_protocol);
   assert(thd.get_protocol() == &protocol_error);
   return ret;
 }

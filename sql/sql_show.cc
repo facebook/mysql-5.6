@@ -2817,8 +2817,11 @@ class thread_info_compare {
 
 static const char *thread_state_info(THD *invoking_thd, THD *inspected_thd) {
   DBUG_TRACE;
-  if (inspected_thd->get_protocol()->get_rw_status()) {
-    if (inspected_thd->get_protocol()->get_rw_status() == 2)
+  mysql_mutex_lock(&inspected_thd->LOCK_thd_protocol);
+  auto rw_status = inspected_thd->get_protocol()->get_rw_status();
+  mysql_mutex_unlock(&inspected_thd->LOCK_thd_protocol);
+  if (rw_status) {
+    if (rw_status == 2)
       return "Sending to client";
     else if (inspected_thd->get_command() == COM_SLEEP)
       return "";
