@@ -2810,8 +2810,11 @@ class thread_info_compare {
 };
 
 static const char *thread_state_info(THD *tmp) {
-  if (tmp->get_protocol()->get_rw_status()) {
-    if (tmp->get_protocol()->get_rw_status() == 2)
+  mysql_mutex_lock(&tmp->LOCK_thd_protocol);
+  auto rw_status = tmp->get_protocol()->get_rw_status();
+  mysql_mutex_unlock(&tmp->LOCK_thd_protocol);
+  if (rw_status) {
+    if (rw_status == 2)
       return "Sending to client";
     else if (tmp->get_command() == COM_SLEEP)
       return "";
@@ -3195,8 +3198,11 @@ class Fill_process_list : public Do_THD_Impl {
             ? NullS
             : client_priv_user;
 
-    if ((!inspect_thd->get_protocol()->connection_alive() &&
-         !inspect_thd->system_thread) ||
+    mysql_mutex_lock(&inspect_thd->LOCK_thd_protocol);
+    auto conn_alive = inspect_thd->get_protocol() &&
+                      inspect_thd->get_protocol()->connection_alive();
+    mysql_mutex_unlock(&inspect_thd->LOCK_thd_protocol);
+    if ((!conn_alive && !inspect_thd->system_thread) ||
         (user && (inspect_thd->system_thread || !inspect_sctx_user.str ||
                   strcmp(inspect_sctx_user.str, user))))
       return;
