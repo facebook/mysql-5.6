@@ -7048,6 +7048,14 @@ extern "C" void *handle_slave_sql(void *arg) {
     }
     thd->init_query_mem_roots();
 
+    if (opt_rbr_column_type_mismatch_whitelist) {
+      const auto &list =
+          split_into_set(opt_rbr_column_type_mismatch_whitelist, ',');
+      rli->set_rbr_column_type_mismatch_whitelist(list);
+    } else
+      rli->set_rbr_column_type_mismatch_whitelist(
+          std::unordered_set<std::string>());
+
     if ((rli->deferred_events_collecting = rli->rpl_filter->is_on()))
       rli->deferred_events = new Deferred_log_events();
     thd->rli_slave = rli;
