@@ -218,6 +218,7 @@ static range_seq_t sel_arg_range_seq_init(void *init_param, uint, uint) {
   Sel_arg_range_sequence *seq =
       static_cast<Sel_arg_range_sequence *>(init_param);
   seq->reset();
+  seq->range_count = 0;
   return init_param;
 }
 

@@ -1096,6 +1096,7 @@ const int64 RDB_MIN_BLOCK_CACHE_SIZE = 1024;
 const int RDB_MAX_CHECKSUMS_PCT = 100;
 const ulong RDB_DEADLOCK_DETECT_DEPTH = 50;
 const ulonglong RDB_DEFAULT_MAX_COMPACTION_HISTORY = 64;
+const ulong ROCKSDB_MAX_MRR_BATCH_SIZE = 1000;
 
 // TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -2320,6 +2321,11 @@ static MYSQL_SYSVAR_ULONGLONG(
     "MultiGet",
     nullptr, nullptr, SIZE_T_MAX, /* min */ 0, /* max */ SIZE_T_MAX, 0);
 
+static MYSQL_THDVAR_ULONG(mrr_batch_size, PLUGIN_VAR_RQCMDARG,
+                          "maximum number of keys to fetch during each MRR",
+                          nullptr, nullptr, /* default */ 100, /* min */ 0,
+                          /* max */ ROCKSDB_MAX_MRR_BATCH_SIZE, 0);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct SYS_VAR *rocksdb_system_variables[] = {
@@ -2495,6 +2501,8 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(enable_insert_with_update_caching),
     MYSQL_SYSVAR(trace_block_cache_access),
     MYSQL_SYSVAR(max_compaction_history),
+    MYSQL_SYSVAR(mrr_batch_size),
+
     MYSQL_SYSVAR(select_bypass_policy),
     MYSQL_SYSVAR(select_bypass_fail_unsupported),
     MYSQL_SYSVAR(select_bypass_log_failed),
@@ -6911,6 +6919,10 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_keyread_only(false),
       m_insert_with_update(false),
       m_dup_key_found(false),
+      mrr_rowid_reader(nullptr),
+      mrr_n_elements(0),
+      mrr_enabled_keyread(false),
+      mrr_used_cpk(false),
       m_in_rpl_delete_rows(false),
       m_in_rpl_update_rows(false) {}
 
@@ -8618,6 +8630,16 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   int rc = 0;
   uint pk_size = 0;
 
+  // Due to MRR, now an index-only scan have pushed index condition.
+  // (If it does, we follow non-index only code path here, except that
+  //  we don't fetch the row).
+  bool have_icp = (pushed_idx_cond && pushed_idx_cond_keyno == active_index);
+  if (have_icp) {
+    if (kd.m_is_reverse_cf) move_forward = !move_forward;
+    rc = find_icp_matching_index_rec(move_forward, buf);
+    if (rc) return (rc);
+  }
+
   /* Get the key columns and primary key value */
   const rocksdb::Slice &rkey = m_scan_it->key();
   const rocksdb::Slice &value = m_scan_it->value();
@@ -8634,29 +8656,17 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   m_keyread_only = save_keyread_only;
 #endif
 
-  if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
-    pk_size =
-        kd.get_primary_key_tuple(table, *m_pk_descr, &rkey, m_pk_packed_tuple);
-    if (pk_size == RDB_INVALID_KEY_LEN) {
-      rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
-    } else {
+  pk_size =
+      kd.get_primary_key_tuple(table, *m_pk_descr, &rkey, m_pk_packed_tuple);
+  if (pk_size == RDB_INVALID_KEY_LEN) {
+    rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
+  } else {
+    if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
       rc = kd.unpack_record(table, buf, &rkey, &value,
                             m_converter->get_verify_row_debug_checksums());
       inc_covered_sk_lookup();
-    }
-  } else {
-    if (kd.m_is_reverse_cf) move_forward = !move_forward;
-
-    rc = find_icp_matching_index_rec(move_forward, buf);
-    if (!rc) {
-      const rocksdb::Slice &rkey = m_scan_it->key();
-      pk_size = kd.get_primary_key_tuple(table, *m_pk_descr, &rkey,
-                                         m_pk_packed_tuple);
-      if (pk_size == RDB_INVALID_KEY_LEN) {
-        rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
-      } else {
-        rc = get_row_by_rowid(buf, m_pk_packed_tuple, pk_size);
-      }
+    } else {
+      rc = get_row_by_rowid(buf, m_pk_packed_tuple, pk_size);
     }
   }
 
@@ -11237,6 +11247,10 @@ int ha_rocksdb::index_end() {
   active_index = MAX_KEY;
   in_range_check_pushed_down = false;
 
+  if (mrr_rowid_reader) {
+    mrr_free();
+  }
+
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
@@ -11466,6 +11480,8 @@ int ha_rocksdb::info(uint flag) {
     if (stats.records != 0) {
       stats.mean_rec_length = stats.data_file_length / stats.records;
     }
+
+    stats.mrr_length_per_rec = mrr_get_length_per_rec();
   }
 
   if (flag & HA_STATUS_CONST) {
@@ -15965,6 +15981,545 @@ void rdb_tx_multi_get(Rdb_transaction *tx,
                       rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
                       const bool sorted_input) {
   tx->multi_get(column_family, num_keys, keys, values, statuses, sorted_input);
+}
+
+/****************************************************************************
+ * Multi-Range-Read implementation based on RocksDB's MultiGet() call
+ ***************************************************************************/
+
+/*
+  Check if MultiGet-MRR can be used to scan given list of ranges.
+
+  @param  seq            List of ranges to scan
+  @param  bufsz   INOUT  IN: Size of the buffer available for use
+                         OUT: How much buffer space will be required
+  @param  flags   INOUT  Properties of the scan to be done
+
+  @return
+     HA_POS_ERROR - The scan cannot be done at all
+     Other value  - Number of expected output rows
+*/
+ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                                void *seq_init_param,
+                                                uint n_ranges, uint *bufsz,
+                                                uint *flags,
+                                                Cost_estimate *cost) {
+  ha_rows res;
+  THD *thd = table->in_use;
+
+  // We allow MultiGet-MRR only with these settings:
+  //   optimizer_switch='mrr=on,mrr_cost_based=off'
+  // mrr_cost_based is not supported
+  bool mrr_enabled =
+      thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) &&
+      !thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR_COST_BASED);
+
+  uint def_bufsz = *bufsz;
+  res = handler::multi_range_read_info_const(keyno, seq, seq_init_param,
+                                             n_ranges, &def_bufsz, flags, cost);
+
+  if (res == HA_POS_ERROR) {
+    return res;  // Not possible to do the scan
+  }
+
+  // Use the default MRR implementation if @@optimizer_switch value tells us
+  // to, or if the query needs to do a locking read.
+  if (!mrr_enabled || m_lock_rows != RDB_LOCK_NONE) {
+    return res;
+  }
+
+  // How many buffer required to store all requried keys
+  uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
+  // How many buffer required to store maximum number of keys per MRR
+  ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
+  uint mrr_batch_size_buff =
+      mrr_get_length_per_rec() * elements_limit * 1.1 + 1;
+  // The final bufsz value should be minimum among these three values:
+  // 1. The passed in bufsz: contains maximum available buff size --- by
+  // default, its value is specify by session variable read_rnd_buff_size,
+  // 2. calculated_buf, specify buffer required to store all required keys
+  // 3. mrr_batch_size_buffer, specify the maximun number of keys to fetch
+  // during each MRR
+  uint mrr_bufsz =
+      std::min(std::min(*bufsz, calculated_buf), mrr_batch_size_buff);
+
+  if (keyno == table->s->primary_key) {
+    // We need all ranges to be single-point lookups using full PK values.
+    // (Range scans, like "pk BETWEEN 10 and 20" or restrictions on PK prefix
+    //  cannot be used)
+    bool all_eq_ranges = true;
+    KEY_MULTI_RANGE range{};
+    range_seq_t seq_it;
+    seq_it = seq->init(seq_init_param, n_ranges, *flags);
+    while (!seq->next(seq_it, &range)) {
+      if ((range.range_flag & UNIQUE_RANGE) == 0) {
+        all_eq_ranges = false;
+        break;
+      }
+      if (table->in_use->killed) {
+        return HA_POS_ERROR;
+      }
+    }
+
+    if (all_eq_ranges) {
+      // Indicate that we will use MultiGet MRR
+      *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+      *flags |= HA_MRR_SUPPORT_SORTED;
+      *bufsz = mrr_bufsz;
+    }
+  } else {
+    // For scans on secondary keys, we use MultiGet when we read the PK values.
+    // We only need PK values when the scan is non-index-only.
+    if ((*flags & HA_MRR_INDEX_ONLY) == 0) {
+      *flags &= ~HA_MRR_SUPPORT_SORTED;  //  Non-sorted mode
+      *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+      *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
+      *bufsz = mrr_bufsz;
+    }
+  }
+
+  return res;
+}
+
+ha_rows ha_rocksdb::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                                          uint *bufsz, uint *flags,
+                                          Cost_estimate *cost) {
+  ha_rows res;
+  THD *thd = table->in_use;
+  bool mrr_enabled =
+      thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) &&
+      !thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR_COST_BASED);
+
+  res =
+      handler::multi_range_read_info(keyno, n_ranges, keys, bufsz, flags, cost);
+  if (res || m_lock_rows != RDB_LOCK_NONE || !mrr_enabled) {
+    return res;
+  }
+
+  if (keyno == table->s->primary_key &&
+      (*flags & HA_MRR_FULL_EXTENDED_KEYS) != 0) {
+    *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+    *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
+    *flags |= HA_MRR_SUPPORT_SORTED;
+  }
+
+  if (keyno != table->s->primary_key && (*flags & HA_MRR_INDEX_ONLY) == 0) {
+    *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+    *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
+    *flags &= ~HA_MRR_SUPPORT_SORTED;  // Non-sorted mode
+  }
+
+  return 0;  // "0" means ok, despite the ha_rows return type.
+}
+
+//
+// Source of Rowids for the MRR scan
+//
+class Mrr_rowid_source {
+ public:
+  // Get the next rowid, in the on-disk mem-comparable form. Also, get the
+  // "range pointer" associated with the rowid (it is returned in *range_ptr).
+  virtual int get_next_rowid(uchar *buf, int *size, char **range_ptr) = 0;
+  virtual bool eof() = 0;
+  virtual ~Mrr_rowid_source() = default;
+};
+
+//
+// Rowid source that produces rowids by enumerating a sequence of ranges
+//
+class Mrr_pk_scan_rowid_source : public Mrr_rowid_source {
+  bool mrr_ranges_eof;  // true means we've got eof when enumerating the ranges.
+  ha_rocksdb *self;
+
+ public:
+  Mrr_pk_scan_rowid_source(ha_rocksdb *self_arg, void *seq_init_param,
+                           uint n_ranges, uint mode)
+      : mrr_ranges_eof(false), self(self_arg) {
+    self->mrr_iter = self->mrr_funcs.init(seq_init_param, n_ranges, mode);
+  }
+
+  int get_next_rowid(uchar *buf, int *size, char **range_ptr) override {
+    if (mrr_ranges_eof) {
+      return HA_ERR_END_OF_FILE;  //  At eof already
+    }
+
+    KEY_MULTI_RANGE range{};
+    if ((mrr_ranges_eof = self->mrr_funcs.next(self->mrr_iter, &range))) {
+      return HA_ERR_END_OF_FILE;  //  Got eof now
+    }
+
+    key_part_map all_parts_map =
+        (key_part_map(1) << self->m_pk_descr->get_key_parts()) - 1;
+    assert(range.start_key.keypart_map == all_parts_map);
+    assert(range.end_key.keypart_map == all_parts_map);
+    assert(range.start_key.flag == HA_READ_KEY_EXACT);
+    assert(range.end_key.flag == HA_READ_AFTER_KEY);
+
+    *range_ptr = range.ptr;
+    *size = self->m_pk_descr->pack_index_tuple(self->table, self->m_pack_buffer,
+                                               buf, range.start_key.key,
+                                               all_parts_map);
+    return 0;
+  }
+
+  bool eof() override { return mrr_ranges_eof; }
+};
+
+//
+// Rowid source that produces rowids by doing an index-only scan on a
+// secondary index and returning rowids from the index records
+//
+class Mrr_sec_key_rowid_source : public Mrr_rowid_source {
+  ha_rocksdb *self;
+  int err;
+
+ public:
+  explicit Mrr_sec_key_rowid_source(ha_rocksdb *self_arg)
+      : self(self_arg), err(0) {}
+
+  int init(RANGE_SEQ_IF *seq, void *seq_init_param, uint n_ranges, uint mode) {
+    self->m_keyread_only = true;
+    self->mrr_enabled_keyread = true;
+    return self->handler::multi_range_read_init(seq, seq_init_param, n_ranges,
+                                                mode, nullptr);
+  }
+
+  int get_next_rowid(uchar *buf, int *size, char **range_ptr) override {
+    if (err) {
+      return err;
+    }
+
+    while ((err = self->handler::multi_range_read_next(range_ptr)) == 0) {
+      if (self->mrr_funcs.skip_record != nullptr &&
+          self->mrr_funcs.skip_record(self->mrr_iter, *range_ptr,
+                                      (uchar *)self->m_last_rowkey.ptr())) {
+        continue;
+      }
+
+      memcpy(buf, self->m_last_rowkey.ptr(), self->m_last_rowkey.length());
+      *size = self->m_last_rowkey.length();
+      break;
+    }
+    return err;
+  }
+
+  bool eof() override { return err != 0; }
+};
+
+// Initialize an MRR scan
+int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
+                                      uint n_ranges, uint mode,
+                                      HANDLER_BUFFER *buf) {
+  int res;
+
+  if (!current_thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) ||
+      (mode & HA_MRR_USE_DEFAULT_IMPL) != 0 ||
+      (buf->buffer_end - buf->buffer < mrr_get_length_per_rec()) ||
+      (active_index != table->s->primary_key && (mode & HA_MRR_SORTED) != 0) ||
+      (THDVAR(current_thd, mrr_batch_size) == 0)) {
+    mrr_uses_default_impl = true;
+    res = handler::multi_range_read_init(seq, seq_init_param, n_ranges, mode,
+                                         buf);
+    return res;
+  }
+
+  // Ok, using a non-default MRR implementation, MultiGet-MRR
+
+  mrr_uses_default_impl = false;
+  mrr_n_elements = 0;  // nothing to cleanup, yet.
+  mrr_enabled_keyread = false;
+  mrr_rowid_reader = nullptr;
+
+  mrr_funcs = *seq;
+  mrr_buf = *buf;
+
+  bool is_mrr_assoc = !(mode & HA_MRR_NO_ASSOCIATION);
+  if (is_mrr_assoc) {
+    ++table->in_use->status_var.ha_multi_range_read_init_count;
+  }
+
+  mrr_sorted_mode = (mode & HA_MRR_SORTED) != 0;
+
+  if (active_index == table->s->primary_key) {
+    // ICP is not supported for PK, so we don't expect that BKA's variant
+    // of ICP would be used:
+    mrr_used_cpk = true;
+    mrr_rowid_reader =
+        new Mrr_pk_scan_rowid_source(this, seq_init_param, n_ranges, mode);
+  } else {
+    mrr_used_cpk = false;
+    auto reader = new Mrr_sec_key_rowid_source(this);
+    reader->init(seq, seq_init_param, n_ranges, mode);
+    mrr_rowid_reader = reader;
+  }
+
+  res = mrr_fill_buffer();
+
+  // note: here, we must NOT return HA_ERR_END_OF_FILE even if we know there
+  // are no matches. We should return 0 here and return HA_ERR_END_OF_FILE
+  // from the first multi_range_read_next() call.
+  if (res == HA_ERR_END_OF_FILE) {
+    res = 0;
+  }
+
+  return res;
+}
+
+// Return the amount of buffer space that MRR scan requires for each record
+// returned
+uint ha_rocksdb::mrr_get_length_per_rec() {
+  return sizeof(rocksdb::Slice) + sizeof(rocksdb::Status) +
+         sizeof(rocksdb::PinnableSlice) +
+         sizeof(char *) +  // this for KEY_MULTI_RANGE::ptr
+         m_pk_descr->max_storage_fmt_length();
+}
+
+template <typename T>
+void align_ptr(char **p) {
+  if ((reinterpret_cast<std::uintptr_t>(*p)) % alignof(T)) {
+    *p += alignof(T) - (reinterpret_cast<std::uintptr_t>(*p)) % alignof(T);
+  }
+}
+
+/*
+  We've got a buffer in mrr_buf, and in order to call RocksDB's MultiGet, we
+  need to use this space to construct several arrays of the same size N:
+
+    rocksdb::Slice[N]         - lookup keys
+    rocksdb::Status[N]        - return statuses
+    rocksdb::PinnableSlice[N] - return rows (*)
+    char*[N]                  - "ptr" value of KEY_MULTI_RANGE. This tells the
+                                SQL layer which lookup key the returned record
+                                matches with (**)
+    {PK lookup value}[N]      - The rowid (Primary Key) to lookup. The
+                                corresponding rocksdb::Slice object points to
+                                this key.
+
+  (*) The memory for rows is allocated somewhere inside RocksDB, there's no
+      way to make it use the user-supplied buffer.
+  (**) The engine could specify HA_MRR_NO_ASSOCIATION which would mean "we
+      cannot tell which key the returned records match" we don't do this.
+
+  The PK lookup value is in mem-comparable encoding. It may have variable
+  length (this is the case when table's PRIMARY KEY has VARCHAR() columns).
+  Currently, we optimize for fixed-size primary keys and consume
+  m_pk_descr->max_storage_fmt_length() bytes for each lookup value. One can
+  develop a solution for variable-length PKs but this is not a priority.
+
+  Note that the buffer may be much larger than necessary. For range scans,
+  @@rnd_buffer_size=256K is passed, even if there will be only a few lookup
+  values.
+*/
+int ha_rocksdb::mrr_fill_buffer() {
+  mrr_free_rows();
+  mrr_read_index = 0;
+
+  // This should agree with the code in mrr_get_length_per_rec():
+  ssize_t element_size = sizeof(rocksdb::Slice) + sizeof(rocksdb::Status) +
+                         sizeof(rocksdb::PinnableSlice) +
+                         sizeof(char *) +  // this for KEY_MULTI_RANGE::ptr
+                         m_pk_descr->max_storage_fmt_length();
+
+  // The buffer has space for this many elements:
+  ssize_t n_elements = (mrr_buf.buffer_end - mrr_buf.buffer) / element_size;
+
+  THD *thd = table->in_use;
+  ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
+  n_elements = std::min(n_elements, elements_limit);
+
+  if (n_elements < 1) {
+    // We shouldn't get here as multi_range_read_init() has logic to fall back
+    // to the default MRR implementation in this case.
+    assert(0);
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
+  char *buf = (char *)mrr_buf.buffer;
+
+  align_ptr<rocksdb::Slice>(&buf);
+  mrr_keys = (rocksdb::Slice *)buf;
+  buf += sizeof(rocksdb::Slice) * n_elements;
+
+  align_ptr<rocksdb::Status>(&buf);
+  mrr_statuses = (rocksdb::Status *)buf;
+  buf += sizeof(rocksdb::Status) * n_elements;
+
+  align_ptr<rocksdb::PinnableSlice>(&buf);
+  mrr_values = (rocksdb::PinnableSlice *)buf;
+  buf += sizeof(rocksdb::PinnableSlice) * n_elements;
+
+  align_ptr<char *>(&buf);
+  mrr_range_ptrs = (char **)buf;
+  buf += sizeof(char *) * n_elements;
+
+  if (buf + m_pk_descr->max_storage_fmt_length() >=
+      (char *)mrr_buf.buffer_end) {
+    // a VERY unlikely scenario:  we were given a really small buffer,
+    // (probably for just one rowid), and also we had to use some bytes for
+    // alignment. As a result, there's no buffer space left to hold even one
+    // rowid. Return an error immediately to avoid looping.
+    assert(0);
+    return HA_ERR_INTERNAL_ERROR;  // error
+  }
+
+  ssize_t elem = 0;
+
+  mrr_n_elements = elem;
+  int key_size;
+  char *range_ptr;
+  int err;
+  while ((err = mrr_rowid_reader->get_next_rowid((uchar *)buf, &key_size,
+                                                 &range_ptr)) == 0) {
+    DEBUG_SYNC(table->in_use, "rocksdb.mrr_fill_buffer.loop");
+    if (table->in_use->killed) {
+      return HA_ERR_QUERY_INTERRUPTED;
+    }
+
+    new (&mrr_keys[elem]) rocksdb::Slice(buf, key_size);
+    new (&mrr_statuses[elem]) rocksdb::Status;
+    new (&mrr_values[elem]) rocksdb::PinnableSlice;
+    mrr_range_ptrs[elem] = range_ptr;
+    buf += key_size;
+
+    elem++;
+    mrr_n_elements = elem;
+
+    if ((elem == n_elements) || (buf + m_pk_descr->max_storage_fmt_length() >=
+                                 (char *)mrr_buf.buffer_end)) {
+      // No more buffer space
+      break;
+    }
+  }
+
+  if (err && err != HA_ERR_END_OF_FILE) {
+    return err;
+  }
+
+  if (mrr_n_elements == 0) {
+    return HA_ERR_END_OF_FILE;  // nothing to scan
+  }
+
+  Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+
+  /* TODO - row stats are gone in 8.0
+  if (active_index == table->s->primary_key) {
+    stats.rows_requested += mrr_n_elements;
+  }
+  */
+
+  tx->multi_get(m_pk_descr->get_cf(), mrr_n_elements, mrr_keys, mrr_values,
+                mrr_statuses, mrr_sorted_mode);
+
+  return 0;
+}
+
+void ha_rocksdb::mrr_free() {
+  // Free everything
+  if (mrr_enabled_keyread) {
+    m_keyread_only = false;
+    mrr_enabled_keyread = false;
+  }
+  mrr_free_rows();
+  delete mrr_rowid_reader;
+  mrr_rowid_reader = nullptr;
+}
+
+void ha_rocksdb::mrr_free_rows() {
+  for (ssize_t i = 0; i < mrr_n_elements; i++) {
+    mrr_values[i].~PinnableSlice();
+    mrr_statuses[i].~Status();
+    // no need to free mrr_keys
+  }
+
+  // There could be rows that MultiGet has returned but MyRocks hasn't
+  // returned to the SQL layer (typically due to LIMIT clause)
+  // Count them in in "rows_read" anyway. (This is only necessary when using
+  // clustered PK. When using a secondary key, the index-only part of the scan
+  // that collects the rowids has caused all counters to be incremented)
+
+  /* TODO - row stats are gone in 8.0
+  if (mrr_used_cpk && mrr_n_elements) {
+    stats.rows_read += mrr_n_elements - mrr_read_index;
+  }
+  */
+
+  mrr_n_elements = 0;
+  // We can't rely on the data from HANDLER_BUFFER once the scan is over, so:
+  mrr_values = nullptr;
+}
+
+int ha_rocksdb::multi_range_read_next(char **range_info) {
+  if (mrr_uses_default_impl) {
+    return handler::multi_range_read_next(range_info);
+  }
+
+  Rdb_transaction *tx = get_tx_from_thd(table->in_use);
+  int rc;
+
+  while (true) {
+    while (true) {
+      if (table->in_use->killed) return HA_ERR_QUERY_INTERRUPTED;
+
+      if (mrr_read_index >= mrr_n_elements) {
+        if (mrr_rowid_reader->eof() || mrr_n_elements == 0) {
+          table->m_status = STATUS_NOT_FOUND;  // not sure if this is necessary?
+          mrr_free_rows();
+          return HA_ERR_END_OF_FILE;
+        }
+
+        if ((rc = mrr_fill_buffer())) {
+          if (rc == HA_ERR_END_OF_FILE) table->m_status = STATUS_NOT_FOUND;
+          return rc;
+        }
+      }
+      // If we found a status that has a row, leave the loop
+      if (mrr_statuses[mrr_read_index].ok()) break;
+
+      // Skip the NotFound errors, return any other error to the SQL layer
+      if (!mrr_statuses[mrr_read_index].IsNotFound())
+        return rdb_error_to_mysql(mrr_statuses[mrr_read_index]);
+
+      mrr_read_index++;
+    }
+    size_t cur_key = mrr_read_index++;
+
+    const rocksdb::Slice &rowkey = mrr_keys[cur_key];
+
+    if (mrr_funcs.skip_record &&
+        mrr_funcs.skip_record(mrr_iter, mrr_range_ptrs[cur_key],
+                              (uchar *)rowkey.data())) {
+      rc = HA_ERR_END_OF_FILE;
+      continue;
+    }
+
+    m_last_rowkey.copy((const char *)rowkey.data(), rowkey.size(),
+                       &my_charset_bin);
+
+    *range_info = mrr_range_ptrs[cur_key];
+
+    m_retrieved_record.Reset();
+    m_retrieved_record.PinSlice(mrr_values[cur_key], &mrr_values[cur_key]);
+
+    /* If we found the record, but it's expired, pretend we didn't find it.  */
+    if (m_pk_descr->has_ttl() &&
+        should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
+                            tx->m_snapshot_timestamp)) {
+      continue;
+    }
+
+    rc = convert_record_from_storage_format(&rowkey, table->record[0]);
+
+    // When using a secondary index, the scan on secondary index increments the
+    // count
+    if (active_index == table->s->primary_key) {
+      /* TODO - row stats are gone in 8.0
+      stats.rows_read++; */
+      update_row_stats(ROWS_READ);
+    }
+    break;
+  }
+  table->m_status = rc ? STATUS_NOT_FOUND : 0;
+  return rc;
 }
 
 static bool parse_fault_injection_file_type(const std::string &type_str,

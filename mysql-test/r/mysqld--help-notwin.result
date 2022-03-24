@@ -1878,6 +1878,8 @@ The following options may be given as the first argument:
  sleep (in milliseconds) between calling chsize() to
  truncate the file in chunks.  The chunk size is  the same
  as merge_buf_size.
+ --rocksdb-mrr-batch-size=# 
+ maximum number of keys to fetch during each MRR
  --rocksdb-no-block-cache 
  BlockBasedTableOptions::no_block_cache for RocksDB
  --rocksdb-override-cf-options=name 
@@ -2998,6 +3000,7 @@ rocksdb-max-total-wal-size 0
 rocksdb-merge-buf-size 67108864
 rocksdb-merge-combine-read-size 1073741824
 rocksdb-merge-tmp-file-removal-delay-ms 0
+rocksdb-mrr-batch-size 100
 rocksdb-no-block-cache FALSE
 rocksdb-override-cf-options 
 rocksdb-paranoid-checks TRUE
