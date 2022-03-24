@@ -1101,7 +1101,8 @@ bool Explain_table_base::explain_extra_common(int range_scan_type, uint keyno) {
       is not done when executing an EXPLAIN. We therefore simulate
       its effect here:
     */
-    if (mrr_flags & HA_MRR_SORTED && !(mrr_flags & HA_MRR_SUPPORT_SORTED))
+    if ( (mrr_flags & HA_MRR_SORTED && !(mrr_flags & HA_MRR_SUPPORT_SORTED))
+          || (range_scan_path->index_range_scan().reverse) )
       mrr_flags |= HA_MRR_USE_DEFAULT_IMPL;
 
     if (!(mrr_flags & HA_MRR_USE_DEFAULT_IMPL) && push_extra(ET_USING_MRR))

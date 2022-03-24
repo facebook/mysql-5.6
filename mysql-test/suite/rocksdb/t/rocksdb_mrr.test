@@ -1,0 +1,388 @@
+#
+#  Test for MyRocks' MRR implementation based on MultiGet.
+#
+--source include/have_rocksdb.inc
+
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1(a int);
+insert into t1 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
+
+create table t2 (
+  pk int primary key,
+  col1 int,
+  filler char(32)
+) engine=rocksdb default charset=latin1;
+
+insert into t2 select a,a,a from t1;
+set global rocksdb_force_flush_memtable_now=1;
+
+set @save_optimizer_switch=@@optimizer_switch;
+set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on,hash_join=off';
+
+explain 
+select * from t2,t0 where t2.pk=t0.a;
+select * from t2,t0 where t2.pk=t0.a;
+
+--echo # Check the counters
+create temporary table t10 as 
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+
+flush status; # for Handler_mrr_init
+
+select * from t2,t0 where t2.pk=t0.a;
+
+show status like 'Handler_mrr_init';
+
+create temporary table t11 as 
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+
+select 
+  variable_name, 
+  t11.variable_value - t10.variable_value as DIFF 
+from 
+  t10 join t11 using (VARIABLE_NAME)
+having
+  DIFF>0;
+drop table t10, t11;
+
+--echo # Check rocksdb_mrr_batch_size use MRR
+set @saved_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;
+set rocksdb_mrr_batch_size=5;
+select variable_value into @val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+
+--replace_column 11 #
+explain select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+
+select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+
+# 5 refills * 5 rowids per pass >= 21
+select variable_value-@val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+
+--echo # Check rocksdb_mrr_batch_size use BKA
+create table hundred(a int primary key);
+insert into hundred select A.a + B.a* 10 from t0 A, t0 B;
+analyze table hundred, t2;
+--replace_column 10 # 11 #
+eval explain select * from hundred, t2 where t2.pk=hundred.a;
+select variable_value into @val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+select * from hundred, t2 where t2.pk=hundred.a;
+select variable_value-@val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+drop table hundred;
+set rocksdb_mrr_batch_size=@saved_rocksdb_mrr_batch_size;
+
+--echo # This will use MRR:
+explain select * from t2 where pk in (1,2,3,4,5);
+
+--echo # Check how optimizer_switch flags effect it:
+set optimizer_switch='mrr_cost_based=on';
+
+--echo # No MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
+explain select * from t2 where pk in (1,2,3,4,5);
+
+set optimizer_switch='mrr_cost_based=off,mrr=off';
+--echo # No MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
+explain select * from t2 where pk in (1,2,3,4,5);
+
+set optimizer_switch='mrr_cost_based=off,mrr=on';
+--echo # Have MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
+explain select * from t2 where pk in (1,2,3,4,5);
+
+--echo # This will not use MRR, as one of the ranges is a non-singlepoint:
+explain select * from t2 where pk in (1,2,3,4,5) or pk between 6 and 8;
+
+create table t3 (
+  pk1 int,
+  pk2 int,
+  col1 int,
+  filler char(32),
+  primary key(pk1, pk2),
+  key(col1)
+) engine=rocksdb default charset=latin1;
+
+insert into t3 select a,a, a,a from t1;
+set global rocksdb_force_flush_memtable_now=1;
+
+--echo # This must not use BKA as it uses key prefix:
+explain 
+select * from t3,t0 where t3.pk1=t0.a;
+
+--echo # This will use BKA as it uses full key:
+explain 
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a+1;
+
+--echo # This will use MRR as it uses full key:
+explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5);
+
+--echo # This will not use MRR as there are non-singlepoint ranges:
+explain select * from t3 where (pk1 in (1,2,4,5) and pk2 in (4,5)) or pk1=3;
+
+--echo # Due to HA_MRR_SUPPORT_SORTED, the following will use MRR, and not require filesort:
+explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5) order by pk1, pk2;
+
+#--echo #
+#--echo # More basic tests
+#--echo #
+
+--echo # Test for lookups returning nothing
+delete from t2 where pk in (3,5,7,9,10) or pk between 100 and 200;
+
+explain
+select * from t2,t0 where t2.pk=t0.a;
+select * from t2,t0 where t2.pk=t0.a;
+
+
+--echo # Test for a scan returning nothing at all:
+explain
+select * from t2,t0 where t2.pk=t0.a+500100;
+select * from t2,t0 where t2.pk=t0.a+500100;
+
+--echo # Make the scan finish before it has returned all the data:
+select * from t2,t0 where t2.pk=t0.a limit 1;
+
+--echo # Re-execute MRR scan in a subquery:
+create table t4(a int primary key);
+insert into t4 values (4),(6),(8);
+
+--replace_column 10 # 11 #
+explain
+select a ,
+       (select concat(t0.a,'-',t2.pk) 
+        from t2,t0 
+        where t2.pk=t0.a and t2.col1>=t4.a
+        limit 1) as SUBQ
+from t4;
+
+select a ,
+       (select concat(t0.a,'-',t2.pk) 
+        from t2,t0 
+        where t2.pk=t0.a and t2.col1>=t4.a
+        limit 1) as SUBQ
+from t4;
+
+--echo #
+--echo # MRR/BKA on secondary keys
+--echo #
+
+--echo # This won't use BKA because it's an index-only scan:
+explain
+select t3.col1 from t3,t0 where t3.col1=t0.a;
+
+--echo # This will use BKA: 
+explain
+select * from t3,t0 where t3.col1=t0.a;
+
+select * from t3,t0 where t3.col1=t0.a;
+
+--echo # Now, run the query and check the counters
+create temporary table t11 as
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+
+select * from t3,t0 where t3.col1=t0.a;
+
+create temporary table t12 as
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+
+select 
+  variable_name, 
+  t12.variable_value - t11.variable_value as DIFF 
+from 
+  t11 join t12 using (VARIABLE_NAME)
+having
+  DIFF>0;
+
+drop table t11,t12;
+
+--echo #
+--echo # Check how the counters are incremented when SQL
+--echo # layer doesn't read all of the MultiGet results
+--echo #
+create table t20 (a int);
+insert into t20 values (1);
+set global rocksdb_force_flush_memtable_now=1;
+
+explain
+select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+
+create temporary table t10 as 
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+
+select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+
+create temporary table t11 as 
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+
+--echo # The below shows ROCKSDB_ROWS_READ=13. 
+--echo #  1 is from table t20
+--echo # 10 are from table t0, BKA reads all its rows into buffer
+--echo #  2 are from table t2.  BKA code reads two rows before it figures that
+--echo #    the subquery has a match and no more rows are needed.
+--echo #    (note that MultiGet call has read all 10 rows, but SQL layer only has read 2)
+select 
+  variable_name, 
+  t11.variable_value - t10.variable_value as DIFF 
+from 
+  t10 join t11 using (VARIABLE_NAME)
+having
+  DIFF>0;
+drop table t10, t11;
+drop table t20;
+
+--echo #
+--echo # Check how MRR works without BKA
+--echo #
+--replace_column 10 # 11 #
+explain select t3.col1 from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+
+--echo # This will use MRR:
+--replace_column 10 # 11 #
+explain 
+select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+
+--echo # Check if Index Condition Pushdown works
+--replace_column 10 # 11 #
+explain 
+select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+
+select * from t3 use index() where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+
+--replace_column 10 # 11 #
+explain
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
+where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
+where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+
+--echo #
+--echo # Test for BKA's variant of Index Condition Pushdown. With BKA,
+--echo # pushed index conditions that refer to preceding tables are 
+--echo # handled in a special way because there's no clear concept of 
+--echo # "current row" for the preceding table(s)
+--echo #
+
+--replace_column 10 # 11 #
+explain
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+
+set optimizer_switch='mrr=off';
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+set optimizer_switch='mrr=on';
+
+--echo #
+--echo # A query which has RANGE_SEQ_IF::skip_record != nullptr.
+--echo #
+--echo # MultiGet/MRR does not invoke skip_record() as it would not produce
+--echo # much speedup.
+--echo #
+insert into t3 select 10000+a, 10000+a, a, 'duplicate-match' from t1;
+delete from t3 where col1 in (3,5);
+
+--replace_column 10 # 11 #
+explain
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+
+--replace_column 10 # 11 #
+explain 
+select * from t0 left join t4 using (a) where t4.a is null;
+select * from t0 left join t4 using (a) where t4.a is null;
+
+set optimizer_switch='mrr=off';
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+set optimizer_switch='mrr=on';
+
+--replace_column 10 # 11 #
+explain
+select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.filler)<30);
+select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.filler)<30);
+
+drop table t0,t1,t2,t3,t4;
+
+--echo #
+--echo # Multi-keypart testcase
+--echo #
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+CREATE TABLE t2 (
+  id bigint(20) unsigned NOT NULL DEFAULT '0',
+  type tinyint(3) unsigned NOT NULL DEFAULT '0',
+  c1 int(10) unsigned NOT NULL DEFAULT '0',
+  c2 int(10) unsigned NOT NULL DEFAULT '0',
+  time_updated int(10) unsigned NOT NULL DEFAULT '0',
+  id2 bigint(20) unsigned NOT NULL DEFAULT '0',
+  c3 int(10) unsigned NOT NULL DEFAULT '0',
+  c_id bigint(20) unsigned NOT NULL DEFAULT '0',
+  a_id bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (id,`type`),
+  KEY time_updated (time_updated),
+  KEY id2 (id2),
+  KEY a_idx (a_id),
+  KEY c_a_idx (c_id,`a_id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
+
+
+insert into t2 (id, type, id2, time_updated)
+ select a, 1, 1, 1565888298 
+from t0;
+
+insert into t2 (id, type, id2, time_updated)
+ select a, 2, 2, 1565888298 
+from t0;
+
+set optimizer_trace=1;
+--echo # The following should have type=range, and "Using MRR":
+--replace_column 10 # 11 #
+explain
+SELECT 
+  id2, type, SUM(c1), SUM(c2) 
+FROM t2 force index (id2) 
+WHERE 
+  id2 IN (1) AND 
+  time_updated > 1565888297 AND 
+  time_updated <= UNIX_TIMESTAMP() 
+GROUP BY id2, type;
+
+select 
+  MID(trace, locate('access_type_changed', trace), 220)
+    as TRACE_FRAGMENT
+from
+  information_schema.optimizer_trace;
+
+set optimizer_trace=0;
+
+drop table t0, t2;
+
+--echo #
+--echo # Test for the "fallback to default MRR implementation if SQL layer
+--echo # requests the sorted mode". 
+--echo #
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (kp1 int, kp2 int, kp3 int, col1 int, key (kp1, kp2, kp3));
+insert into t1 select A.a, B.a, C.a, 123456 from t0 A, t0 B, t0 C;
+
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t1;
+--replace_column 10 # 11 #
+explain
+select * from t1 where kp1=1 order by kp2 limit 10;
+# This shouldn't fail an assert:
+select * from t1 where kp1=1 order by kp2 limit 10;
+
+drop table t0, t1;

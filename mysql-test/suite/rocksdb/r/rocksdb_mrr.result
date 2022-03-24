@@ -1,0 +1,729 @@
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1(a int);
+insert into t1 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
+create table t2 (
+pk int primary key,
+col1 int,
+filler char(32)
+) engine=rocksdb default charset=latin1;
+insert into t2 select a,a,a from t1;
+set global rocksdb_force_flush_memtable_now=1;
+set @save_optimizer_switch=@@optimizer_switch;
+set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on,hash_join=off';
+explain 
+select * from t2,t0 where t2.pk=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	1	100.00	Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t2` join `test`.`t0` where (`test`.`t2`.`pk` = `test`.`t0`.`a`)
+select * from t2,t0 where t2.pk=t0.a;
+pk	col1	filler	a
+0	0	0	0
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+# Check the counters
+create temporary table t10 as 
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+flush status;
+select * from t2,t0 where t2.pk=t0.a;
+pk	col1	filler	a
+0	0	0	0
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	1
+create temporary table t11 as 
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+select 
+variable_name, 
+t11.variable_value - t10.variable_value as DIFF 
+from 
+t10 join t11 using (VARIABLE_NAME)
+having
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	10
+rocksdb_number_db_next_found	9
+rocksdb_number_db_seek	1
+rocksdb_number_db_seek_found	1
+rocksdb_number_multiget_bytes_read	370
+rocksdb_number_multiget_get	1
+rocksdb_number_multiget_keys_read	10
+rocksdb_rows_read	20
+drop table t10, t11;
+# Check rocksdb_mrr_batch_size use MRR
+set @saved_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;
+set rocksdb_mrr_batch_size=5;
+select variable_value into @val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+explain select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	PRIMARY	PRIMARY	4	NULL	21	#	Using where; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` FORCE INDEX (PRIMARY) where (`test`.`t2`.`pk` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20))
+select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+pk	col1	filler
+0	0	0
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+6	6	6
+7	7	7
+8	8	8
+9	9	9
+10	10	10
+11	11	11
+12	12	12
+13	13	13
+14	14	14
+15	15	15
+16	16	16
+17	17	17
+18	18	18
+19	19	19
+20	20	20
+select variable_value-@val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+variable_value-@val1
+5
+# Check rocksdb_mrr_batch_size use BKA
+create table hundred(a int primary key);
+insert into hundred select A.a + B.a* 10 from t0 A, t0 B;
+analyze table hundred, t2;
+Table	Op	Msg_type	Msg_text
+test.hundred	analyze	status	OK
+test.t2	analyze	status	OK
+explain select * from hundred, t2 where t2.pk=hundred.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	hundred	NULL	index	PRIMARY	PRIMARY	4	NULL	#	#	Using index
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.hundred.a	#	#	Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`hundred`.`a` AS `a`,`test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler` from `test`.`hundred` join `test`.`t2` where (`test`.`t2`.`pk` = `test`.`hundred`.`a`)
+select variable_value into @val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+select * from hundred, t2 where t2.pk=hundred.a;
+a	pk	col1	filler
+0	0	0	0
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+6	6	6	6
+7	7	7	7
+8	8	8	8
+9	9	9	9
+10	10	10	10
+11	11	11	11
+12	12	12	12
+13	13	13	13
+14	14	14	14
+15	15	15	15
+16	16	16	16
+17	17	17	17
+18	18	18	18
+19	19	19	19
+20	20	20	20
+21	21	21	21
+22	22	22	22
+23	23	23	23
+24	24	24	24
+25	25	25	25
+26	26	26	26
+27	27	27	27
+28	28	28	28
+29	29	29	29
+30	30	30	30
+31	31	31	31
+32	32	32	32
+33	33	33	33
+34	34	34	34
+35	35	35	35
+36	36	36	36
+37	37	37	37
+38	38	38	38
+39	39	39	39
+40	40	40	40
+41	41	41	41
+42	42	42	42
+43	43	43	43
+44	44	44	44
+45	45	45	45
+46	46	46	46
+47	47	47	47
+48	48	48	48
+49	49	49	49
+50	50	50	50
+51	51	51	51
+52	52	52	52
+53	53	53	53
+54	54	54	54
+55	55	55	55
+56	56	56	56
+57	57	57	57
+58	58	58	58
+59	59	59	59
+60	60	60	60
+61	61	61	61
+62	62	62	62
+63	63	63	63
+64	64	64	64
+65	65	65	65
+66	66	66	66
+67	67	67	67
+68	68	68	68
+69	69	69	69
+70	70	70	70
+71	71	71	71
+72	72	72	72
+73	73	73	73
+74	74	74	74
+75	75	75	75
+76	76	76	76
+77	77	77	77
+78	78	78	78
+79	79	79	79
+80	80	80	80
+81	81	81	81
+82	82	82	82
+83	83	83	83
+84	84	84	84
+85	85	85	85
+86	86	86	86
+87	87	87	87
+88	88	88	88
+89	89	89	89
+90	90	90	90
+91	91	91	91
+92	92	92	92
+93	93	93	93
+94	94	94	94
+95	95	95	95
+96	96	96	96
+97	97	97	97
+98	98	98	98
+99	99	99	99
+select variable_value-@val1 from performance_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+variable_value-@val1
+20
+drop table hundred;
+set rocksdb_mrr_batch_size=@saved_rocksdb_mrr_batch_size;
+# This will use MRR:
+explain select * from t2 where pk in (1,2,3,4,5);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	PRIMARY	PRIMARY	4	NULL	5	100.00	Using where; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`pk` in (1,2,3,4,5))
+# Check how optimizer_switch flags effect it:
+set optimizer_switch='mrr_cost_based=on';
+# No MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t2` join `test`.`t0` where (`test`.`t2`.`pk` = `test`.`t0`.`a`)
+explain select * from t2 where pk in (1,2,3,4,5);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	PRIMARY	PRIMARY	4	NULL	5	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`pk` in (1,2,3,4,5))
+set optimizer_switch='mrr_cost_based=off,mrr=off';
+# No MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t2` join `test`.`t0` where (`test`.`t2`.`pk` = `test`.`t0`.`a`)
+explain select * from t2 where pk in (1,2,3,4,5);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	PRIMARY	PRIMARY	4	NULL	5	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`pk` in (1,2,3,4,5))
+set optimizer_switch='mrr_cost_based=off,mrr=on';
+# Have MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	1	100.00	Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t2` join `test`.`t0` where (`test`.`t2`.`pk` = `test`.`t0`.`a`)
+explain select * from t2 where pk in (1,2,3,4,5);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	PRIMARY	PRIMARY	4	NULL	5	100.00	Using where; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where (`test`.`t2`.`pk` in (1,2,3,4,5))
+# This will not use MRR, as one of the ranges is a non-singlepoint:
+explain select * from t2 where pk in (1,2,3,4,5) or pk between 6 and 8;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	PRIMARY	PRIMARY	4	NULL	6	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler` from `test`.`t2` where ((`test`.`t2`.`pk` in (1,2,3,4,5)) or (`test`.`t2`.`pk` between 6 and 8))
+create table t3 (
+pk1 int,
+pk2 int,
+col1 int,
+filler char(32),
+primary key(pk1, pk2),
+key(col1)
+) engine=rocksdb default charset=latin1;
+insert into t3 select a,a, a,a from t1;
+set global rocksdb_force_flush_memtable_now=1;
+# This must not use BKA as it uses key prefix:
+explain 
+select * from t3,t0 where t3.pk1=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t3	NULL	ref	PRIMARY	PRIMARY	4	test.t0.a	11	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t3` join `test`.`t0` where (`test`.`t3`.`pk1` = `test`.`t0`.`a`)
+# This will use BKA as it uses full key:
+explain 
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a+1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t3	NULL	eq_ref	PRIMARY	PRIMARY	8	test.t0.a,func	1	100.00	Using where; Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t3` join `test`.`t0` where ((`test`.`t3`.`pk1` = `test`.`t0`.`a`) and (`test`.`t3`.`pk2` = (`test`.`t0`.`a` + 1)))
+# This will use MRR as it uses full key:
+explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	PRIMARY	PRIMARY	8	NULL	15	100.00	Using where; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler` from `test`.`t3` where ((`test`.`t3`.`pk1` in (1,2,3,4,5)) and (`test`.`t3`.`pk2` in (3,4,5)))
+# This will not use MRR as there are non-singlepoint ranges:
+explain select * from t3 where (pk1 in (1,2,4,5) and pk2 in (4,5)) or pk1=3;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	PRIMARY	PRIMARY	8	NULL	9	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler` from `test`.`t3` where (((`test`.`t3`.`pk1` in (1,2,4,5)) and (`test`.`t3`.`pk2` in (4,5))) or (`test`.`t3`.`pk1` = 3))
+# Due to HA_MRR_SUPPORT_SORTED, the following will use MRR, and not require filesort:
+explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5) order by pk1, pk2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	PRIMARY	PRIMARY	8	NULL	15	100.00	Using where; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler` from `test`.`t3` where ((`test`.`t3`.`pk1` in (1,2,3,4,5)) and (`test`.`t3`.`pk2` in (3,4,5))) order by `test`.`t3`.`pk1`,`test`.`t3`.`pk2`
+# Test for lookups returning nothing
+delete from t2 where pk in (3,5,7,9,10) or pk between 100 and 200;
+explain
+select * from t2,t0 where t2.pk=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	1	100.00	Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t2` join `test`.`t0` where (`test`.`t2`.`pk` = `test`.`t0`.`a`)
+select * from t2,t0 where t2.pk=t0.a;
+pk	col1	filler	a
+0	0	0	0
+1	1	1	1
+2	2	2	2
+4	4	4	4
+6	6	6	6
+8	8	8	8
+# Test for a scan returning nothing at all:
+explain
+select * from t2,t0 where t2.pk=t0.a+500100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
+1	SIMPLE	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using where; Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`col1` AS `col1`,`test`.`t2`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t2` join `test`.`t0` where (`test`.`t2`.`pk` = (`test`.`t0`.`a` + 500100))
+select * from t2,t0 where t2.pk=t0.a+500100;
+pk	col1	filler	a
+# Make the scan finish before it has returned all the data:
+select * from t2,t0 where t2.pk=t0.a limit 1;
+pk	col1	filler	a
+0	0	0	0
+# Re-execute MRR scan in a subquery:
+create table t4(a int primary key);
+insert into t4 values (4),(6),(8);
+explain
+select a ,
+(select concat(t0.a,'-',t2.pk) 
+from t2,t0 
+where t2.pk=t0.a and t2.col1>=t4.a
+limit 1) as SUBQ
+from t4;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t4	NULL	index	NULL	PRIMARY	4	NULL	#	#	Using index
+2	DEPENDENT SUBQUERY	t0	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using where
+2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	#	#	Using where; Using join buffer (Batched Key Access)
+Warnings:
+Note	1276	Field or reference 'test.t4.a' of SELECT #2 was resolved in SELECT #1
+Note	1003	/* select#1 */ select `test`.`t4`.`a` AS `a`,(/* select#2 */ select concat(`test`.`t0`.`a`,'-',`test`.`t2`.`pk`) from `test`.`t2` join `test`.`t0` where ((`test`.`t2`.`pk` = `test`.`t0`.`a`) and (`test`.`t2`.`col1` >= `test`.`t4`.`a`)) limit 1) AS `SUBQ` from `test`.`t4`
+select a ,
+(select concat(t0.a,'-',t2.pk) 
+from t2,t0 
+where t2.pk=t0.a and t2.col1>=t4.a
+limit 1) as SUBQ
+from t4;
+a	SUBQ
+4	4-4
+6	6-6
+8	8-8
+#
+# MRR/BKA on secondary keys
+#
+# This won't use BKA because it's an index-only scan:
+explain
+select t3.col1 from t3,t0 where t3.col1=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t3	NULL	ref	col1	col1	5	test.t0.a	11	100.00	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`col1` AS `col1` from `test`.`t3` join `test`.`t0` where (`test`.`t3`.`col1` = `test`.`t0`.`a`)
+# This will use BKA: 
+explain
+select * from t3,t0 where t3.col1=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	Using where
+1	SIMPLE	t3	NULL	ref	col1	col1	5	test.t0.a	11	100.00	Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler`,`test`.`t0`.`a` AS `a` from `test`.`t3` join `test`.`t0` where (`test`.`t3`.`col1` = `test`.`t0`.`a`)
+select * from t3,t0 where t3.col1=t0.a;
+pk1	pk2	col1	filler	a
+0	0	0	0	0
+1	1	1	1	1
+2	2	2	2	2
+3	3	3	3	3
+4	4	4	4	4
+5	5	5	5	5
+6	6	6	6	6
+7	7	7	7	7
+8	8	8	8	8
+9	9	9	9	9
+# Now, run the query and check the counters
+create temporary table t11 as
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+select * from t3,t0 where t3.col1=t0.a;
+pk1	pk2	col1	filler	a
+0	0	0	0	0
+1	1	1	1	1
+2	2	2	2	2
+3	3	3	3	3
+4	4	4	4	4
+5	5	5	5	5
+6	6	6	6	6
+7	7	7	7	7
+8	8	8	8	8
+9	9	9	9	9
+create temporary table t12 as
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+select 
+variable_name, 
+t12.variable_value - t11.variable_value as DIFF 
+from 
+t11 join t12 using (VARIABLE_NAME)
+having
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	20
+rocksdb_number_db_next_found	9
+rocksdb_number_db_seek	11
+rocksdb_number_db_seek_found	11
+rocksdb_number_multiget_bytes_read	370
+rocksdb_number_multiget_get	1
+rocksdb_number_multiget_keys_read	10
+rocksdb_rows_read	20
+drop table t11,t12;
+#
+# Check how the counters are incremented when SQL
+# layer doesn't read all of the MultiGet results
+#
+create table t20 (a int);
+insert into t20 values (1);
+set global rocksdb_force_flush_memtable_now=1;
+explain
+select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t20	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+2	DEPENDENT SUBQUERY	t0	NULL	ALL	NULL	NULL	NULL	NULL	10	100.00	NULL
+2	DEPENDENT SUBQUERY	t2	NULL	eq_ref	PRIMARY	PRIMARY	4	func	1	100.00	Using where; Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t20`.`a` AS `a`,<in_optimizer>((`test`.`t20`.`a` + 20),<exists>(/* select#2 */ select `test`.`t2`.`filler` from `test`.`t2` join `test`.`t0` where ((`test`.`t2`.`pk` = (`test`.`t0`.`a` + 20)) and <if>(outer_field_is_not_null, ((<cache>((`test`.`t20`.`a` + 20)) = `test`.`t2`.`filler`) or (`test`.`t2`.`filler` is null)), true)) having <if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t2`.`filler`), true))) AS `a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20)` from `test`.`t20`
+create temporary table t10 as 
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+a	a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20)
+1	1
+create temporary table t11 as 
+select * from performance_schema.global_status
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
+# The below shows ROCKSDB_ROWS_READ=13. 
+#  1 is from table t20
+# 10 are from table t0, BKA reads all its rows into buffer
+#  2 are from table t2.  BKA code reads two rows before it figures that
+#    the subquery has a match and no more rows are needed.
+#    (note that MultiGet call has read all 10 rows, but SQL layer only has read 2)
+select 
+variable_name, 
+t11.variable_value - t10.variable_value as DIFF 
+from 
+t10 join t11 using (VARIABLE_NAME)
+having
+DIFF>0;
+variable_name	DIFF
+rocksdb_number_db_next	11
+rocksdb_number_db_next_found	9
+rocksdb_number_db_seek	2
+rocksdb_number_db_seek_found	2
+rocksdb_number_multiget_bytes_read	370
+rocksdb_number_multiget_get	1
+rocksdb_number_multiget_keys_read	10
+rocksdb_rows_read	13
+drop table t10, t11;
+drop table t20;
+#
+# Check how MRR works without BKA
+#
+explain select t3.col1 from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	col1	col1	5	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`col1` AS `col1` from `test`.`t3` where ((`test`.`t3`.`col1` = 20) or (`test`.`t3`.`col1` between 25 and 28))
+# This will use MRR:
+explain 
+select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	col1	col1	5	NULL	#	#	Using index condition; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler` from `test`.`t3` where ((`test`.`t3`.`col1` = 20) or (`test`.`t3`.`col1` between 25 and 28))
+select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+pk1	pk2	col1	filler
+20	20	20	20
+25	25	25	25
+26	26	26	26
+27	27	27	27
+28	28	28	28
+# Check if Index Condition Pushdown works
+explain 
+select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	col1	col1	5	NULL	#	#	Using index condition; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler` from `test`.`t3` where (((`test`.`t3`.`col1` = 20) or (`test`.`t3`.`col1` between 25 and 28)) and ((`test`.`t3`.`col1` % 2) = 0))
+select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+pk1	pk2	col1	filler
+20	20	20	20
+26	26	26	26
+28	28	28	28
+select * from t3 use index() where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+pk1	pk2	col1	filler
+20	20	20	20
+26	26	26	26
+28	28	28	28
+explain
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
+where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	col1	col1	5	NULL	#	#	Using index condition; Using MRR
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler`,(`test`.`t3`.`col1` % 2) AS `mod(t3.col1,2)` from `test`.`t3` where (((`test`.`t3`.`col1` = 20) or (`test`.`t3`.`col1` between 25 and 28)) and ((`test`.`t3`.`col1` % 2) = 0))
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
+where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+pk1	pk2	col1	filler	mod(t3.col1,2)
+20	20	20	20	0
+26	26	26	26	0
+28	28	28	28	0
+#
+# Test for BKA's variant of Index Condition Pushdown. With BKA,
+# pushed index conditions that refer to preceding tables are 
+# handled in a special way because there's no clear concept of 
+# "current row" for the preceding table(s)
+#
+explain
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using where
+1	SIMPLE	t3	NULL	ref	col1	col1	5	test.t0.a	#	#	Using where; Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler` from `test`.`t0` join `test`.`t3` where ((`test`.`t3`.`col1` = `test`.`t0`.`a`) and ((`test`.`t3`.`pk2` % 2) = `test`.`t0`.`a`))
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+a	pk1	pk2	col1	filler
+0	0	0	0	0
+1	1	1	1	1
+set optimizer_switch='mrr=off';
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+a	pk1	pk2	col1	filler
+0	0	0	0	0
+1	1	1	1	1
+set optimizer_switch='mrr=on';
+#
+# A query which has RANGE_SEQ_IF::skip_record != nullptr.
+#
+# MultiGet/MRR does not invoke skip_record() as it would not produce
+# much speedup.
+#
+insert into t3 select 10000+a, 10000+a, a, 'duplicate-match' from t1;
+delete from t3 where col1 in (3,5);
+explain
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+1	SIMPLE	t3	NULL	ref	col1	col1	5	test.t0.a	#	#	Using where; Not exists; Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a`,`test`.`t3`.`pk1` AS `pk1`,`test`.`t3`.`pk2` AS `pk2`,`test`.`t3`.`col1` AS `col1`,`test`.`t3`.`filler` AS `filler` from `test`.`t0` left join `test`.`t3` on((`test`.`t3`.`col1` = `test`.`t0`.`a`)) where (`test`.`t3`.`pk1` is null)
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+a	pk1	pk2	col1	filler
+3	NULL	NULL	NULL	NULL
+5	NULL	NULL	NULL	NULL
+explain 
+select * from t0 left join t4 using (a) where t4.a is null;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+1	SIMPLE	t4	NULL	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	#	#	Using where; Not exists; Using index; Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a` from `test`.`t0` left join `test`.`t4` on((`test`.`t4`.`a` = `test`.`t0`.`a`)) where (`test`.`t4`.`a` is null)
+select * from t0 left join t4 using (a) where t4.a is null;
+a
+0
+1
+2
+3
+5
+7
+9
+set optimizer_switch='mrr=off';
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+a	pk1	pk2	col1	filler
+3	NULL	NULL	NULL	NULL
+5	NULL	NULL	NULL	NULL
+set optimizer_switch='mrr=on';
+explain
+select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.filler)<30);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t0	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using where
+1	SIMPLE	t3	NULL	ref	col1	col1	5	test.t0.a	#	#	Using where; FirstMatch(t0); Using join buffer (Batched Key Access)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t0`.`a` AS `a` from `test`.`t0` semi join (`test`.`t3`) where ((`test`.`t3`.`col1` = `test`.`t0`.`a`) and (char_length(`test`.`t3`.`filler`) < 30))
+select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.filler)<30);
+a
+0
+1
+2
+4
+6
+7
+8
+9
+drop table t0,t1,t2,t3,t4;
+#
+# Multi-keypart testcase
+#
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE t2 (
+id bigint(20) unsigned NOT NULL DEFAULT '0',
+type tinyint(3) unsigned NOT NULL DEFAULT '0',
+c1 int(10) unsigned NOT NULL DEFAULT '0',
+c2 int(10) unsigned NOT NULL DEFAULT '0',
+time_updated int(10) unsigned NOT NULL DEFAULT '0',
+id2 bigint(20) unsigned NOT NULL DEFAULT '0',
+c3 int(10) unsigned NOT NULL DEFAULT '0',
+c_id bigint(20) unsigned NOT NULL DEFAULT '0',
+a_id bigint(20) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (id,`type`),
+KEY time_updated (time_updated),
+KEY id2 (id2),
+KEY a_idx (a_id),
+KEY c_a_idx (c_id,`a_id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into t2 (id, type, id2, time_updated)
+select a, 1, 1, 1565888298 
+from t0;
+insert into t2 (id, type, id2, time_updated)
+select a, 2, 2, 1565888298 
+from t0;
+set optimizer_trace=1;
+# The following should have type=range, and "Using MRR":
+explain
+SELECT 
+id2, type, SUM(c1), SUM(c2) 
+FROM t2 force index (id2) 
+WHERE 
+id2 IN (1) AND 
+time_updated > 1565888297 AND 
+time_updated <= UNIX_TIMESTAMP() 
+GROUP BY id2, type;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	id2	id2	8	NULL	#	#	Using index condition; Using where; Using MRR; Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`id2` AS `id2`,`test`.`t2`.`type` AS `type`,sum(`test`.`t2`.`c1`) AS `SUM(c1)`,sum(`test`.`t2`.`c2`) AS `SUM(c2)` from `test`.`t2` FORCE INDEX (`id2`) where ((`test`.`t2`.`id2` = 1) and (`test`.`t2`.`time_updated` > 1565888297) and (`test`.`t2`.`time_updated` <= <cache>(unix_timestamp()))) group by `test`.`t2`.`id2`,`test`.`t2`.`type`
+select 
+MID(trace, locate('access_type_changed', trace), 220)
+as TRACE_FRAGMENT
+from
+information_schema.optimizer_trace;
+TRACE_FRAGMENT
+access_type_changed": {
+              "table": "`t2` FORCE INDEX (`id2`)",
+              "index": "id2",
+              "old_type": "ref",
+              "new_type": "range",
+              "cause": "uses_mrr"
+            }
+set optimizer_trace=0;
+drop table t0, t2;
+#
+# Test for the "fallback to default MRR implementation if SQL layer
+# requests the sorted mode". 
+#
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (kp1 int, kp2 int, kp3 int, col1 int, key (kp1, kp2, kp3));
+insert into t1 select A.a, B.a, C.a, 123456 from t0 A, t0 B, t0 C;
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+explain
+select * from t1 where kp1=1 order by kp2 limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	kp1	kp1	5	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`kp1` AS `kp1`,`test`.`t1`.`kp2` AS `kp2`,`test`.`t1`.`kp3` AS `kp3`,`test`.`t1`.`col1` AS `col1` from `test`.`t1` where (`test`.`t1`.`kp1` = 1) order by `test`.`t1`.`kp2` limit 10
+select * from t1 where kp1=1 order by kp2 limit 10;
+kp1	kp2	kp3	col1
+1	0	0	123456
+1	0	1	123456
+1	0	2	123456
+1	0	3	123456
+1	0	4	123456
+1	0	5	123456
+1	0	6	123456
+1	0	7	123456
+1	0	8	123456
+1	0	9	123456
+drop table t0, t1;

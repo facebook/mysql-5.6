@@ -129,6 +129,8 @@ enum table_cardinality_scan_type {
   SCAN_TYPE_FULL_TABLE,
 };
 
+class Mrr_rowid_source;
+
 uint32_t rocksdb_perf_context_level(THD *const thd);
 
 /**
@@ -659,7 +661,58 @@ class ha_rocksdb : public my_core::handler {
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
+
+  // Multi-Range-Read implmentation
+  ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                      void *seq_init_param, uint n_ranges,
+                                      uint *bufsz, uint *flags,
+                                      Cost_estimate *cost) override;
+  ha_rows multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                                uint *bufsz, uint *flags,
+                                Cost_estimate *cost) override;
+  int multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
+                            uint n_ranges, uint mode,
+                            HANDLER_BUFFER *buf) override;
+  int multi_range_read_next(char **range_info) override;
+
+  // Note: the following is only used by DS-MRR, so not needed for MyRocks:
+  // longlong get_memory_buffer_size() const override { return 1024; }
+
  private:
+  // true <=> The scan uses the default MRR implementation, just redirect all
+  // calls to it
+  bool mrr_uses_default_impl;
+
+  bool mrr_sorted_mode;  // true <=> we are in ordered-keys, ordered-results
+                         // mode.
+
+  // RANGE_SEQ_IF is stored in handler::mrr_funcs
+  HANDLER_BUFFER mrr_buf;
+
+  Mrr_rowid_source *mrr_rowid_reader;
+
+  friend class Mrr_rowid_source;
+  friend class Mrr_pk_scan_rowid_source;
+  friend class Mrr_sec_key_rowid_source;
+
+  // MRR parameters and output values
+  rocksdb::Slice *mrr_keys;
+  rocksdb::Status *mrr_statuses;
+  char **mrr_range_ptrs;
+  rocksdb::PinnableSlice *mrr_values;
+
+  ssize_t mrr_n_elements;  // Number of elements in the above arrays
+  ssize_t mrr_read_index;  // Number of the element we will return next
+
+  // if true, MRR code has enabled keyread (and should disable it back)
+  bool mrr_enabled_keyread;
+  bool mrr_used_cpk;
+
+  int mrr_fill_buffer();
+  void mrr_free_rows();
+  void mrr_free();
+  uint mrr_get_length_per_rec();
+
   struct key_def_cf_info {
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
     bool is_reverse_cf;
