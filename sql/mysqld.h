@@ -221,6 +221,7 @@ enum enum_replica_type_conversions {
 };
 extern ulong slave_run_triggers_for_rbr;
 extern ulonglong replica_type_conversions_options;
+extern char *opt_rbr_column_type_mismatch_whitelist;
 
 extern bool read_only, opt_readonly;
 extern bool super_read_only, opt_super_readonly;

@@ -200,6 +200,27 @@ inline bool time_cross_check(enum_field_types type1, enum_field_types type2) {
 }
 
 /**
+  Check if the field is part of the type mismatch whitelist
+  (global var: rbr_column_type_mismatch_whitelist)
+*/
+static bool is_in_col_whitelist(const Field *field, const Relay_log_info *rli) {
+  bool ret = false;
+  const auto whitelist_ptr = rli->get_rbr_column_type_mismatch_whitelist();
+  if (whitelist_ptr && !whitelist_ptr->empty()) {
+    // case: all tables are in the whitelist if '.*' regex is present in the
+    // list
+    if (whitelist_ptr->count(".*")) return true;
+    char fqcn[2 * MAX_ALIAS_NAME + MAX_FIELD_NAME + 2 + 1];
+    int cnt = snprintf(fqcn, sizeof(fqcn), "%s.%s.%s", field->table->s->db.str,
+                       field->table->s->table_name.str, field->field_name);
+    if (cnt >= 0 && cnt < (int)sizeof(fqcn)) {
+      ret = whitelist_ptr->count(std::string(fqcn));
+    }
+  }
+  return ret;
+}
+
+/**
    Can a type potentially be converted to another type?
 
    This function check if the types are convertible and what
@@ -247,6 +268,7 @@ static bool can_convert_field_to(Field *field, enum_field_types source_type,
 #endif
   // Can't convert from scalar to array and vice versa
   if (is_array != field->is_array()) return false;
+  bool is_in_whitelist_cached = false;
 
   /*
     If the real type is the same, we need to check the metadata to
@@ -270,7 +292,7 @@ static bool can_convert_field_to(Field *field, enum_field_types source_type,
     DBUG_PRINT("debug",
                ("Base types are identical, doing field size comparison"));
     if (field->compatible_field_size(metadata, rli, mflags, order_var))
-      return is_conversion_ok(*order_var);
+      return is_conversion_ok(*order_var) || is_in_col_whitelist(field, rli);
     else
       return false;
   } else if (is_array) {
@@ -304,7 +326,8 @@ static bool can_convert_field_to(Field *field, enum_field_types source_type,
     */
     *order_var = -1;
     return true;
-  } else if (!replica_type_conversions_options)
+  } else if (!replica_type_conversions_options &&
+             !(is_in_whitelist_cached = is_in_col_whitelist(field, rli)))
     return false;
 
   /*
@@ -327,7 +350,8 @@ static bool can_convert_field_to(Field *field, enum_field_types source_type,
             DECIMAL, so we require lossy conversion.
           */
           *order_var = 1;
-          return is_conversion_ok(*order_var);
+          return is_in_whitelist_cached || is_conversion_ok(*order_var) ||
+                 is_in_col_whitelist(field, rli);
 
         case MYSQL_TYPE_DECIMAL:
         case MYSQL_TYPE_FLOAT:
@@ -338,7 +362,8 @@ static bool can_convert_field_to(Field *field, enum_field_types source_type,
           else
             *order_var = compare_lengths(field, source_type, metadata);
           assert(*order_var != 0);
-          return is_conversion_ok(*order_var);
+          return is_in_whitelist_cached || is_conversion_ok(*order_var) ||
+                 is_in_col_whitelist(field, rli);
         }
 
         default:
@@ -365,7 +390,8 @@ static bool can_convert_field_to(Field *field, enum_field_types source_type,
         case MYSQL_TYPE_LONGLONG:
           *order_var = compare_lengths(field, source_type, metadata);
           assert(*order_var != 0);
-          return is_conversion_ok(*order_var);
+          return is_in_whitelist_cached || is_conversion_ok(*order_var) ||
+                 is_in_col_whitelist(field, rli);
 
         default:
           return false;
@@ -408,7 +434,8 @@ static bool can_convert_field_to(Field *field, enum_field_types source_type,
             between different (string) types of the same length.
            */
           if (*order_var == 0) *order_var = -1;
-          return is_conversion_ok(*order_var);
+          return is_in_whitelist_cached || is_conversion_ok(*order_var) ||
+                 is_in_col_whitelist(field, rli);
 
         default:
           return false;
