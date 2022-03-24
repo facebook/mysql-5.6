@@ -1584,7 +1584,11 @@ void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats,
   }
   uint query_length = min(input_length, max_sql_query_sample_text_size);
 
-  if (sql_stats_control == SQL_INFO_CONTROL_ON) {
+  bool skip_update_stats = false;
+  DBUG_EXECUTE_IF("snapshot_update_verification", {
+    skip_update_stats = statement_completed;
+  });
+  if (!skip_update_stats && sql_stats_control == SQL_INFO_CONTROL_ON) {
     SHARED_SQL_STATS sql_stats = {};
     /*
       THD will contain the cumulative stats for the multi-query statement
@@ -1881,6 +1885,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   thd->enable_slow_log= TRUE;
   thd->lex->sql_command= SQLCOM_END; /* to avoid confusing VIEW detectors */
   thd->set_time();
+  DBUG_EXECUTE_IF("add_busy_loop", {
+    auto finish = std::chrono::system_clock::now() + std::chrono::seconds(2);
+    while (finish > std::chrono::system_clock::now()) {}
+  });
   if (thd->is_valid_time() == false)
   {
     /*
@@ -2257,6 +2265,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       */
       statistic_increment(thd->status_var.questions, &LOCK_status);
       thd->set_time(); /* Reset the query start time. */
+      DBUG_EXECUTE_IF("add_busy_loop", {
+          auto finish = std::chrono::system_clock::now() + 
+            std::chrono::seconds(2);
+          while (finish > std::chrono::system_clock::now()) {}
+      });
 
       /* SQL_PLAN - capture the sql plan */
       capture_sql_plan(thd, beginning_of_next_stmt, length);
@@ -8268,7 +8281,7 @@ static bool mt_check_throttle_write_query(THD* thd)
   // skip if only specified query types should be throttled and this query
   // type is not specified
   if (!write_throttle_permissible_query_types.empty()
-        && write_throttle_permissible_query_types.find(thd->lex->sql_command) == 
+        && write_throttle_permissible_query_types.find(thd->lex->sql_command) ==
             write_throttle_permissible_query_types.end()) {
     DBUG_RETURN(false);
   }

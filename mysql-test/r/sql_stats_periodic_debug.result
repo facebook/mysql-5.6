@@ -34,3 +34,48 @@ drop table t71;
 set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.max_digest_sample_age=DEFAULT;
+Case 2: Multi-Query with periodic sampling
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.max_digest_sample_age=1;
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+set @@global.debug = '+d,snapshot_update_verification';
+set @@global.debug = '+d,add_busy_loop';
+select 1;
+create table t72(c int);
+insert into t72 values(100);
+select * from t72;
+update t72 set c=c+7;
+update t72 set c=c+7;
+delete from t72 where c=114;
+drop table t72;
+||||
+1
+1
+c
+100
+set @@global.debug = '-d,snapshot_update_verification';
+set @@global.debug = '-d,add_busy_loop';
+select sql_id, plan_id, table_schema, user_name, query_sample_text,
+execution_count, rows_inserted, rows_updated,
+rows_deleted, rows_read, rows_sent,
+tmp_table_bytes_written, filesort_bytes_written,
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
+from information_schema.sql_statistics
+order by sql_id;
+sql_id	plan_id	table_schema	user_name	query_sample_text	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+16b4b893067fc211fff92b1b100a49fa	NULL	test	root	set @@GLOBAL.max_digest_sample_age=1	1	0	0	0	0	0	0	0	0	0	populated
+25561167e4b73008348bee8055d9f974	NULL	test	root	delete from t72 where c=114	0	0	1	0	1	0	0	0	0	0	populated
+31fb5a73c21aba858390055f620ab152	NULL	test	root	update t72 set c=c+7	0	0	1	0	2	0	0	0	0	0	populated
+401bf7c258d1f1af16631836e60a895a	NULL	test	root	set @@global.debug = '-d,add_busy_loop'	2	0	0	0	0	0	0	0	0	0	populated
+6cb30d664f5fde7b96305e51b40ec1a0	NULL	test	root	select * from t72	0	1	0	0	0	0	0	0	0	0	populated
+9fccf1dd4753de9e824f61b12550a9c1	NULL	test	root	insert into t72 values(100)	0	0	0	0	0	0	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	root	select @@sql_stats_control	1	0	0	0	0	1	0	0	0	0	populated
+set @@GLOBAL.max_digest_sample_age=DEFAULT;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
+Cleanup

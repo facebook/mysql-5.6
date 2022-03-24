@@ -40,4 +40,56 @@ drop table t71;
 set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.max_digest_sample_age=DEFAULT;
+
+####################################################
+### Case 2: Multi-Query with periodic sampling
+####################################################
+
+--echo Case 2: Multi-Query with periodic sampling
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.max_digest_sample_age=1;
+select @@sql_stats_control;
+
+set @@global.debug = '+d,snapshot_update_verification';
+set @@global.debug = '+d,add_busy_loop';
+
+delimiter ||||;
+
+select 1;
+create table t72(c int);
+insert into t72 values(100);
+select * from t72;
+update t72 set c=c+7;
+update t72 set c=c+7;
+delete from t72 where c=114;
+drop table t72;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+set @@global.debug = '-d,snapshot_update_verification';
+set @@global.debug = '-d,add_busy_loop';
+
+select sql_id, plan_id, table_schema, user_name, query_sample_text,
+  execution_count, rows_inserted, rows_updated,
+	rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
+from information_schema.sql_statistics
+order by sql_id;
+
+set @@GLOBAL.max_digest_sample_age=DEFAULT;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
+
+###########
+### Cleanup
+###########
+--echo Cleanup
+connection default;
+
 disconnect con25;
