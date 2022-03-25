@@ -1,0 +1,109 @@
+--echo #
+--echo # Variable name : response_attrs_contain_binlog_row_image_delta
+--echo # Scope         : Global & Session
+--echo #
+
+--echo # Global - default
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+--echo # Session - default
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+# Save the global value to be used to restore the original value.
+SET @global_saved_tmp =  @@global.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Altering global variable's value
+SET @@global.response_attrs_contain_binlog_row_image_delta = 0;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+
+SET @@global.response_attrs_contain_binlog_row_image_delta = TrUe;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+
+SET @@global.response_attrs_contain_binlog_row_image_delta = FaLsE;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Altering session variable's value
+SET @@session.response_attrs_contain_binlog_row_image_delta = 0;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+SET @@session.response_attrs_contain_binlog_row_image_delta = TrUe;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+SET @@session.response_attrs_contain_binlog_row_image_delta = FaLsE;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+SET @@session.response_attrs_contain_binlog_row_image_delta = TrUe;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Variables' values in a new session.
+connect (con1,"127.0.0.1",root,,test,$MASTER_MYPORT,);
+
+--echo # Global - expect 0
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+--echo
+--echo # Session - expect 0
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Switching to the default connection.
+connection default;
+
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Test if DEFAULT is working as expected.
+SET @@global.response_attrs_contain_binlog_row_image_delta = DEFAULT;
+SET @@session.response_attrs_contain_binlog_row_image_delta = DEFAULT;
+--echo
+
+--echo # Global - expect 0
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+--echo # Session - expect 0
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Variables' values in a new session (con2).
+connect (con2,"127.0.0.1",root,,test,$MASTER_MYPORT,);
+
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Altering session should not affect global.
+SET @@session.response_attrs_contain_binlog_row_image_delta = TRUE;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Variables' values in a new session (con3).
+connect (con3,"127.0.0.1",root,,test,$MASTER_MYPORT,);
+
+--echo # Altering global should not affect session.
+SET @@global.response_attrs_contain_binlog_row_image_delta = ON;
+SELECT @@global.response_attrs_contain_binlog_row_image_delta;
+SELECT @@session.response_attrs_contain_binlog_row_image_delta;
+--echo
+
+--echo # Switching to the default connection.
+connection default;
+
+--echo # Restoring the original values.
+SET @@global.response_attrs_contain_binlog_row_image_delta = DEFAULT;
+SET @@session.response_attrs_contain_binlog_row_image_delta = DEFAULT;
+
+--echo # End of tests.
+

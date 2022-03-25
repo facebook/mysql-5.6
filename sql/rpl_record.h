@@ -26,6 +26,7 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <string>
+#include <unordered_map>
 
 #include "my_inttypes.h"
 
@@ -39,7 +40,8 @@ enum class enum_row_image_type { WRITE_AI, UPDATE_BI, UPDATE_AI, DELETE_BI };
 #if defined(MYSQL_SERVER)
 size_t pack_row(TABLE *table, MY_BITMAP const *cols, uchar *row_data,
                 const uchar *data, enum_row_image_type row_image_type,
-                ulonglong value_options = 0);
+                ulonglong value_options = 0,
+                std::unordered_map<int, uint64_t> *field_sizes = nullptr);
 
 bool unpack_row(Relay_log_info const *rli, TABLE *table,
                 uint const master_column_count, uchar const *const row_data,
