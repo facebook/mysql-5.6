@@ -1725,6 +1725,11 @@ The following options may be given as the first argument:
  between 0 and the real lag when the IO thread is the
  bottleneck.
  (Defaults to on; use --skip-reset-seconds-behind-master to disable.)
+ --response-attrs-contain-binlog-row-image-delta 
+ When enabled we send difference between the field sizes
+ of after image and before image for all binlog row events
+ for every RW transaction thru resp attr
+ 'binlog_row_image_delta'
  --response-attrs-contain-hlc 
  If this is enabled, then the HLC timestamp of a RW
  transaction is sent back to clients as part of OK packet
@@ -3351,6 +3356,7 @@ report-user (No default value)
 require-secure-transport FALSE
 reset-period-status-vars FALSE
 reset-seconds-behind-master TRUE
+response-attrs-contain-binlog-row-image-delta FALSE
 response-attrs-contain-hlc FALSE
 response-attrs-contain-read-tables-bytes 0
 response-attrs-contain-server-cpu FALSE

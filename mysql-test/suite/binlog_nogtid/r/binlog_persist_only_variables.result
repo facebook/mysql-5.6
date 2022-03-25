@@ -174,6 +174,7 @@ SET PERSIST_ONLY replica_transaction_retries = @@GLOBAL.replica_transaction_retr
 SET PERSIST_ONLY replica_type_conversions = @@GLOBAL.replica_type_conversions;
 SET PERSIST_ONLY replication_optimize_for_static_plugin_config = @@GLOBAL.replication_optimize_for_static_plugin_config;
 SET PERSIST_ONLY replication_sender_observe_commit_only = @@GLOBAL.replication_sender_observe_commit_only;
+SET PERSIST_ONLY response_attrs_contain_binlog_row_image_delta = @@GLOBAL.response_attrs_contain_binlog_row_image_delta;
 SET PERSIST_ONLY rpl_read_size = @@GLOBAL.rpl_read_size;
 SET PERSIST_ONLY rpl_receive_buffer_size = @@GLOBAL.rpl_receive_buffer_size;
 SET PERSIST_ONLY rpl_semi_sync_replica_enabled = @@GLOBAL.rpl_semi_sync_replica_enabled;
@@ -401,6 +402,7 @@ RESET PERSIST replica_transaction_retries;
 RESET PERSIST replica_type_conversions;
 RESET PERSIST replication_optimize_for_static_plugin_config;
 RESET PERSIST replication_sender_observe_commit_only;
+RESET PERSIST response_attrs_contain_binlog_row_image_delta;
 RESET PERSIST rpl_read_size;
 RESET PERSIST rpl_receive_buffer_size;
 RESET PERSIST rpl_semi_sync_replica_enabled;

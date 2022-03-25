@@ -1782,10 +1782,7 @@ class Field {
 
     Valid only for varchar and typed arrays of varchar
   */
-  virtual uint32 get_length_bytes() const {
-    assert(0);
-    return 0;
-  }
+  virtual uint32 get_length_bytes() const { return 0; }
 
   /**
     Whether field's old valued have to be handled.
@@ -3417,6 +3414,9 @@ class Field_string : public Field_longstr {
                       field_name_arg, cs) {}
 
   enum_field_types type() const final { return MYSQL_TYPE_STRING; }
+  uint32 get_length_bytes() const override {
+    return (field_length > 255) ? 2 : 1;
+  }
   bool match_collation_to_optimize_range() const final { return true; }
   enum ha_base_keytype key_type() const final {
     return binary() ? HA_KEYTYPE_BINARY : HA_KEYTYPE_TEXT;
@@ -3666,6 +3666,8 @@ class Field_blob : public Field_longstr {
   }
 
   explicit Field_blob(uint32 packlength_arg);
+
+  uint32 get_length_bytes() const override { return packlength; }
 
   /* Note that the default copy constructor is used, in clone() */
   enum_field_types type() const override { return MYSQL_TYPE_BLOB; }

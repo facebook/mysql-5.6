@@ -5908,6 +5908,15 @@ static Sys_var_bool Sys_response_attrs_contain_hlc(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_outside_transaction),
     ON_UPDATE(nullptr));
 
+static Sys_var_bool Sys_response_attrs_contain_binlog_row_image_delta(
+    "response_attrs_contain_binlog_row_image_delta",
+    "When enabled we send difference between the field sizes of after image "
+    "and before image for all binlog row events for every RW transaction thru "
+    "resp attr 'binlog_row_image_delta'",
+    SESSION_VAR(response_attrs_contain_binlog_row_image_delta),
+    CMD_LINE(OPT_ARG), DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_outside_transaction), ON_UPDATE(nullptr));
+
 static Sys_var_ulonglong Sys_tmp_table_size(
     "tmp_table_size",
     "If an internal in-memory temporary table in the MEMORY or TempTable "

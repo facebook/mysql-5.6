@@ -3158,6 +3158,9 @@ int MYSQL_BIN_LOG::rollback(THD *thd, bool all) {
   DBUG_PRINT("enter",
              ("all: %s, cache_mngr: 0x%llx, thd->is_error: %s", YESNO(all),
               (ulonglong)cache_mngr, YESNO(thd->is_error())));
+
+  thd->reset_binlog_row_image_delta();
+
   /*
     Defer XA-transaction rollback until its XA-rollback event is recorded.
     When we are executing a ROLLBACK TO SAVEPOINT, we
@@ -10582,6 +10585,9 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all) {
 
     if (ordered_commit(thd, all, skip_commit)) return RESULT_INCONSISTENT;
 
+    thd->set_binlog_row_image_delta_in_resp_attrs();
+    thd->reset_binlog_row_image_delta();
+
     DBUG_EXECUTE_IF("ensure_binlog_cache_is_reset", {
       /* Assert that binlog cache is reset at commit time. */
       assert(binlog_cache_is_reset);
@@ -14971,6 +14977,63 @@ class Row_data_memory {
 
 }  // namespace
 
+inline bool THD::binlog_row_image_delta_enabled() const {
+  const auto &tracker = session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  return (variables.response_attrs_contain_binlog_row_image_delta &&
+          tracker->is_enabled() && !slave_thread && !is_binlog_applier() &&
+          // deltas can only be calculated for COMPLETE & FULL row images
+          (variables.binlog_row_image == BINLOG_ROW_IMAGE_FULL ||
+           variables.binlog_row_image == BINLOG_ROW_IMAGE_COMPLETE) &&
+          // binlog_row_value_options = PARTIAL_JSON is not supported
+          !variables.binlog_row_value_options);
+}
+
+void THD::update_binlog_row_image_delta(
+    const std::unordered_map<int, uint64_t> &before_img_field_sizes,
+    const std::unordered_map<int, uint64_t> &after_img_field_sizes) {
+  assert(binlog_row_image_delta_enabled());
+
+  int64_t delta = 0;
+  std::unordered_map<int, uint64_t> full_after_img_field_sizes =
+      after_img_field_sizes;
+
+  // Construct a full after image (with all cols), this will only be useful for
+  // COMPLETE binlog row image where after images only contain the modified rows
+  if (!after_img_field_sizes.empty()) {
+    for (const auto &kv : before_img_field_sizes) {
+      if (full_after_img_field_sizes.find(kv.first) ==
+          full_after_img_field_sizes.end()) {
+        full_after_img_field_sizes[kv.first] = kv.second;
+      }
+    }
+  }
+
+  assert(full_after_img_field_sizes.empty() || before_img_field_sizes.empty() ||
+         full_after_img_field_sizes.size() == before_img_field_sizes.size());
+
+  // Add all after image field sizes and substract all before image field sizes
+  // to calculate the delta
+  for (const auto &kv : full_after_img_field_sizes) {
+    delta += kv.second;
+  }
+  for (const auto &kv : before_img_field_sizes) {
+    delta -= kv.second;
+  }
+
+  binlog_row_image_delta += delta;
+}
+
+void THD::set_binlog_row_image_delta_in_resp_attrs() {
+  if (!binlog_row_image_delta_enabled()) {
+    return;
+  }
+  auto tracker = session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  LEX_CSTRING key = {STRING_WITH_LEN("binlog_row_image_delta")};
+  const std::string value_str = std::to_string(binlog_row_image_delta);
+  const LEX_CSTRING value = {value_str.c_str(), value_str.length()};
+  tracker->mark_as_changed(this, &key, &value);
+}
+
 int THD::binlog_write_row(TABLE *table, bool is_trans, uchar const *record,
                           const unsigned char *extra_row_info) {
   assert(is_current_stmt_binlog_format_row() && mysql_bin_log.is_open());
@@ -14984,8 +15047,16 @@ int THD::binlog_write_row(TABLE *table, bool is_trans, uchar const *record,
 
   uchar *row_data = memory.slot(0);
 
+  std::unordered_map<int, uint64_t> field_sizes;
+  const bool row_image_delta_enabled = binlog_row_image_delta_enabled();
+
   size_t const len = pack_row(table, table->write_set, row_data, record,
-                              enum_row_image_type::WRITE_AI);
+                              enum_row_image_type::WRITE_AI, 0,
+                              row_image_delta_enabled ? &field_sizes : nullptr);
+
+  if (row_image_delta_enabled) {
+    update_binlog_row_image_delta({}, field_sizes);
+  }
 
   Rows_log_event *const ev =
       binlog_prepare_pending_rows_event<Write_rows_log_event>(
@@ -15024,12 +15095,23 @@ int THD::binlog_update_row(TABLE *table, bool is_trans,
   uchar *before_row = row_data.slot(0);
   uchar *after_row = row_data.slot(1);
 
+  std::unordered_map<int, uint64_t> before_field_sizes;
+  std::unordered_map<int, uint64_t> after_field_sizes;
+  const bool row_image_delta_enabled = binlog_row_image_delta_enabled();
+
   size_t const before_size =
       pack_row(table, table->read_set, before_row, before_record,
-               enum_row_image_type::UPDATE_BI);
+               enum_row_image_type::UPDATE_BI, 0,
+               row_image_delta_enabled ? &before_field_sizes : nullptr);
+
   size_t const after_size = pack_row(
       table, table->write_set, after_row, after_record,
-      enum_row_image_type::UPDATE_AI, variables.binlog_row_value_options);
+      enum_row_image_type::UPDATE_AI, variables.binlog_row_value_options,
+      row_image_delta_enabled ? &after_field_sizes : nullptr);
+
+  if (row_image_delta_enabled) {
+    update_binlog_row_image_delta(before_field_sizes, after_field_sizes);
+  }
 
   DBUG_DUMP("before_record", before_record, table->s->reclength);
   DBUG_DUMP("after_record", after_record, table->s->reclength);
@@ -15097,8 +15179,17 @@ int THD::binlog_delete_row(TABLE *table, bool is_trans, uchar const *record,
 
   DBUG_DUMP("table->read_set", (uchar *)table->read_set->bitmap,
             (table->s->fields + 7) / 8);
+
+  std::unordered_map<int, uint64_t> field_sizes;
+  const bool row_image_delta_enabled = binlog_row_image_delta_enabled();
+
   size_t const len = pack_row(table, table->read_set, row_data, record,
-                              enum_row_image_type::DELETE_BI);
+                              enum_row_image_type::DELETE_BI, 0,
+                              row_image_delta_enabled ? &field_sizes : nullptr);
+
+  if (row_image_delta_enabled) {
+    update_binlog_row_image_delta(field_sizes, {});
+  }
 
   Rows_log_event *const ev =
       binlog_prepare_pending_rows_event<Delete_rows_log_event>(

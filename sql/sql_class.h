@@ -1623,6 +1623,18 @@ class THD : public MDL_context_owner,
                         const uchar *old_data, const uchar *new_data,
                         const uchar *extra_row_info);
 
+  int64_t binlog_row_image_delta = 0;
+
+  bool binlog_row_image_delta_enabled() const;
+
+  void update_binlog_row_image_delta(
+      const std::unordered_map<int, uint64_t> &before_field_sizes,
+      const std::unordered_map<int, uint64_t> &after_field_sizes);
+
+  void reset_binlog_row_image_delta() { binlog_row_image_delta = 0; }
+
+  void set_binlog_row_image_delta_in_resp_attrs();
+
   std::string gen_trx_metadata();
 
   bool add_time_metadata(rapidjson::Document &meta_data_root);
