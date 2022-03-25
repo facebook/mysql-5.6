@@ -266,11 +266,14 @@ static bool unpack_field(const uchar **pack_ptr, Field *field, uint metadata,
 
   @param value_options The value of @@session.binlog_row_value_options
 
+  @param field_sizes Map to store sizes of all fields in the row image
+
   @return The number of bytes written at @c row_data.
 */
 size_t pack_row(TABLE *table, MY_BITMAP const *columns_in_image,
                 uchar *row_data, const uchar *record,
-                enum_row_image_type row_image_type, ulonglong value_options) {
+                enum_row_image_type row_image_type, ulonglong value_options,
+                std::unordered_map<int, uint64_t> *field_sizes) {
   DBUG_TRACE;
   cs::util::ReplicatedColumnsView fields{table};
   fields.add_filter(
@@ -354,16 +357,21 @@ size_t pack_row(TABLE *table, MY_BITMAP const *columns_in_image,
     if (bitmap_is_set(&table->pack_row_tmp_set, field->field_index())) {
       if (field->is_null(rec_offset)) {
         null_bits.set(true);
+        if (field_sizes) {
+          (*field_sizes)[field->field_index()] = 0;
+        }
         DBUG_PRINT("info", ("field %s: NULL", field->field_name));
       } else {
         null_bits.set(false);
 
         // Store the field when it is not NULL.
-#ifndef NDEBUG
         const uchar *old_pack_ptr = pack_ptr;
-#endif
         pack_field(&pack_ptr, field, rec_offset, row_image_type, value_options,
                    &is_partial_json);
+        if (field_sizes) {
+          (*field_sizes)[field->field_index()] =
+              pack_ptr - old_pack_ptr - field->get_length_bytes();
+        }
         DBUG_PRINT("info", ("field: %s; real_type: %d, pack_ptr before: %p; "
                             "pack_ptr after: %p; byte length: %d",
                             field->field_name, field->real_type(), old_pack_ptr,

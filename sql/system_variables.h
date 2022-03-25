@@ -392,6 +392,8 @@ struct System_variables {
    */
   bool response_attrs_contain_hlc;
 
+  bool response_attrs_contain_binlog_row_image_delta;
+
   /*
     Should we set the server CPU time in response attribute?
    */
