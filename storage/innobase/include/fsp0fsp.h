@@ -240,7 +240,7 @@ segment_reserve_factor, which is contained in this variable. */
 extern double fseg_reserve_pct;
 
 /* Various constants related to segment reserve factor */
-constexpr double FSEG_RESERVE_PCT_DFLT = 12.50;
+constexpr double FSEG_RESERVE_PCT_DFLT = 1.0;
 constexpr double FSEG_RESERVE_PCT_MIN = 0.03;
 constexpr double FSEG_RESERVE_PCT_MAX = 40.00;
 
