@@ -428,6 +428,8 @@ extern bool enable_raft_plugin;
 extern bool disallow_raft;
 
 /* Apply log related variables for raft */
+extern char *opt_apply_logname;
+extern char *opt_applylog_index_name;
 extern char *opt_apply_logname_ptr;
 extern char *opt_applylog_index_name_ptr;
 

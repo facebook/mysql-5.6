@@ -1633,6 +1633,14 @@ extern "C" void *process_raft_queue(void *) {
             MYF(element.arg.val_uint));
         break;
       }
+      case RaftListenerCallbackType::BINLOG_CHANGE_TO_APPLY: {
+        result.error = binlog_change_to_apply();
+        break;
+      }
+      case RaftListenerCallbackType::BINLOG_CHANGE_TO_BINLOG: {
+        result.error = binlog_change_to_binlog();
+        break;
+      }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
         exit = true;
         result.error = 0;

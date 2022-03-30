@@ -667,7 +667,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
       uint64_t *max_prev_hlc = NULL);
 
   void set_previous_gtid_set_relaylog(Gtid_set *previous_gtid_set_param) {
-    assert(is_relay_log);
+    assert(is_apply_log || is_relay_log);
     previous_gtid_set_relaylog = previous_gtid_set_param;
   }
   /**
@@ -1033,6 +1033,17 @@ class MYSQL_BIN_LOG : public TC_LOG {
                    Format_description_log_event *extra_description_event,
                    uint32 new_index_number = 0,
                    bool raft_specific_handling = false);
+
+  /**
+    Open an existing binlog/relaylog file
+
+    @param log_name Name of binlog
+    @param max_size The size at which this binlog will be rotated.
+
+    @retval false on success, true on error
+  */
+  bool open_existing_binlog(const char *log_name, ulong max_size_arg);
+
   bool open_index_file(const char *index_file_name_arg, const char *log_name,
                        bool need_lock_index);
   /* Use this to start writing a new log file */
@@ -1150,6 +1161,18 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int rotate(bool force_rotate, bool *check_purge);
   void purge();
   int rotate_and_purge(THD *thd, bool force_rotate);
+
+  /*
+   * Reads the current index file and returns a list of all file names found in
+   * the binlog file
+   *
+   * @param need_lock - Should LOCK_index be taken?
+   * @param lognames [out] - vector of filenames in the index
+   *
+   * @return 1 on error, 0 on success
+   */
+  int get_lognames_from_index(bool need_lock,
+                              std::vector<std::string> *lognames);
 
   bool flush();
   /**
@@ -1414,6 +1437,26 @@ int rotate_binlog_file(THD *thd);
  */
 int rotate_relay_log_for_raft(const std::string &new_log_ident, ulonglong pos,
                               myf raft_flags = MYF(0));
+
+/**
+  This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
+  to point to the apply binlog/reopen new one. Apply binlogs are binlog
+  files used by FOLLOWERS/SLAVES in Raft. They are only on the State
+  Machine side
+
+  @returns true if a problem occurs, false otherwise.
+ */
+int binlog_change_to_apply();
+
+/**
+  This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
+  to point to latest binlog-330*.# (Raft LOG). This has to be done
+  before a Raft LEADER can become a MySQL Master and start proposing
+  transactions via ORDERED COMMIT
+
+  @returns true if a problem occurs, false otherwise.
+ */
+int binlog_change_to_binlog();
 
 /**
   Turns a relative log binary log path into a full path, based on the
