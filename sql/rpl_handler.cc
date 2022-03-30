@@ -1703,6 +1703,14 @@ extern "C" void *process_raft_queue(void *) {
             MYF(element.arg.val_uint));
         break;
       }
+      case RaftListenerCallbackType::BINLOG_CHANGE_TO_APPLY: {
+        result.error = binlog_change_to_apply();
+        break;
+      }
+      case RaftListenerCallbackType::BINLOG_CHANGE_TO_BINLOG: {
+        result.error = binlog_change_to_binlog();
+        break;
+      }
       case RaftListenerCallbackType::STOP_SQL_THREAD: {
         result.error = raft_stop_sql_thread(current_thd);
         break;
