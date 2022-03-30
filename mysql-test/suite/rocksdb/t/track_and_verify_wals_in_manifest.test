@@ -51,7 +51,7 @@ case $2 in
     NEW_SIZE=`expr $SIZE - 30`
     ;;
   write_unprepared)
-    NEW_SIZE=`expr $SIZE - 200`
+    NEW_SIZE=`expr $SIZE - 150`
     ;;
 esac
 

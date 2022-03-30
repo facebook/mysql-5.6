@@ -1265,6 +1265,12 @@ static MYSQL_THDVAR_ULONGLONG(
     "Maximum size of write batch in bytes. 0 means no limit.", nullptr, nullptr,
     /* default */ 0, /* min */ 0, /* max */ SIZE_T_MAX, 1);
 
+static MYSQL_THDVAR_ULONGLONG(
+    write_batch_flush_threshold, PLUGIN_VAR_RQCMDARG,
+    "Maximum size of write batch in bytes before flushing. Only valid if "
+    "rocksdb_write_policy is WRITE_UNPREPARED. 0 means no limit.",
+    nullptr, nullptr, /* default */ 0, /* min */ 0, /* max */ SIZE_T_MAX, 1);
+
 static MYSQL_THDVAR_BOOL(
     lock_scanned_rows, PLUGIN_VAR_RQCMDARG,
     "Take and hold locks on rows that are scanned but not updated", nullptr,
@@ -2277,6 +2283,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(commit_time_batch_for_recovery),
     MYSQL_SYSVAR(max_row_locks),
     MYSQL_SYSVAR(write_batch_max_bytes),
+    MYSQL_SYSVAR(write_batch_flush_threshold),
     MYSQL_SYSVAR(lock_scanned_rows),
     MYSQL_SYSVAR(bulk_load),
     MYSQL_SYSVAR(bulk_load_allow_sk),
@@ -2499,6 +2506,34 @@ static int rocksdb_compact_column_family(
     }
   }
   return HA_EXIT_SUCCESS;
+}
+
+/*
+ * Serializes an xid to a string so that it can
+ * be used as a rocksdb transaction name
+ */
+static std::string rdb_xid_to_string(const XID &src) {
+  assert(src.get_gtrid_length() >= 0 && src.get_gtrid_length() <= MAXGTRIDSIZE);
+  assert(src.get_bqual_length() >= 0 && src.get_bqual_length() <= MAXBQUALSIZE);
+
+  std::string buf;
+  buf.reserve(RDB_XIDHDR_LEN + src.get_gtrid_length() + src.get_bqual_length());
+
+  /*
+   * expand formatID to fill 8 bytes if it doesn't already
+   * then reinterpret bit pattern as unsigned and store in network order
+   */
+  uchar fidbuf[RDB_FORMATID_SZ];
+  int64 signed_fid8 = src.get_format_id();
+  const uint64 raw_fid8 = *reinterpret_cast<uint64 *>(&signed_fid8);
+  rdb_netbuf_store_uint64(fidbuf, raw_fid8);
+  buf.append(reinterpret_cast<const char *>(fidbuf), RDB_FORMATID_SZ);
+
+  buf.push_back(src.get_gtrid_length());
+  buf.push_back(src.get_bqual_length());
+  buf.append(src.get_data(),
+             (src.get_gtrid_length()) + (src.get_bqual_length()));
+  return buf;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2826,7 +2861,7 @@ class Rdb_transaction {
   virtual void release_lock(rocksdb::ColumnFamilyHandle *const column_family,
                             const std::string &rowkey) = 0;
 
-  virtual bool prepare(const rocksdb::TransactionName &name) = 0;
+  virtual bool prepare() = 0;
 
   bool commit_or_rollback() {
     bool res;
@@ -3266,6 +3301,7 @@ class Rdb_transaction {
   virtual bool is_tx_started() const = 0;
   virtual void start_tx() = 0;
   virtual void start_stmt() = 0;
+  virtual void set_name() = 0;
 
  protected:
   // Non-virtual functions with actions to be done on transaction start and
@@ -3428,13 +3464,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
     m_rocksdb_tx = nullptr;
   }
 
-  bool prepare(const rocksdb::TransactionName &name) override {
+  bool prepare() override {
     rocksdb::Status s;
-    s = m_rocksdb_tx->SetName(name);
-    if (!s.ok()) {
-      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
-      return false;
-    }
 
     s = merge_auto_incr_map(m_rocksdb_tx->GetWriteBatch()->GetWriteBatch());
     if (!s.ok()) {
@@ -3673,6 +3704,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
     tx_opts.use_only_the_last_commit_time_batch_for_recovery =
         THDVAR(m_thd, commit_time_batch_for_recovery);
     tx_opts.max_write_batch_size = THDVAR(m_thd, write_batch_max_bytes);
+    tx_opts.write_batch_flush_threshold =
+        THDVAR(m_thd, write_batch_flush_threshold);
 
     write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
@@ -3693,6 +3726,21 @@ class Rdb_transaction_impl : public Rdb_transaction {
     set_initial_savepoint();
 
     m_ddl_transaction = false;
+  }
+
+  void set_name() override {
+    XID xid;
+    thd_get_xid(m_thd, reinterpret_cast<MYSQL_XID *>(&xid));
+    auto name = m_rocksdb_tx->GetName();
+    if (!name.empty()) {
+      assert(name == rdb_xid_to_string(xid));
+      return;
+    }
+    rocksdb::Status s = m_rocksdb_tx->SetName(rdb_xid_to_string(xid));
+    assert(s.ok());
+    if (!s.ok()) {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+    }
   }
 
   /* Implementations of do_*savepoint based on rocksdB::Transaction savepoints
@@ -3783,10 +3831,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
  private:
-  bool prepare(
-      const rocksdb::TransactionName &name MY_ATTRIBUTE((unused))) override {
-    return true;
-  }
+  bool prepare() override { return true; }
 
   bool commit_no_binlog() override {
     bool res = false;
@@ -3950,6 +3995,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
     set_initial_savepoint();
   }
+
+  void set_name() override {}
 
   void start_stmt() override {}
 
@@ -4193,34 +4240,6 @@ static void rocksdb_disable_file_deletions_update(
   }
 }
 
-/*
- * Serializes an xid to a string so that it can
- * be used as a rocksdb transaction name
- */
-static std::string rdb_xid_to_string(const XID &src) {
-  assert(src.get_gtrid_length() >= 0 && src.get_gtrid_length() <= MAXGTRIDSIZE);
-  assert(src.get_bqual_length() >= 0 && src.get_bqual_length() <= MAXBQUALSIZE);
-
-  std::string buf;
-  buf.reserve(RDB_XIDHDR_LEN + src.get_gtrid_length() + src.get_bqual_length());
-
-  /*
-   * expand formatID to fill 8 bytes if it doesn't already
-   * then reinterpret bit pattern as unsigned and store in network order
-   */
-  uchar fidbuf[RDB_FORMATID_SZ];
-  int64 signed_fid8 = src.get_format_id();
-  const uint64 raw_fid8 = *reinterpret_cast<uint64 *>(&signed_fid8);
-  rdb_netbuf_store_uint64(fidbuf, raw_fid8);
-  buf.append(reinterpret_cast<const char *>(fidbuf), RDB_FORMATID_SZ);
-
-  buf.push_back(src.get_gtrid_length());
-  buf.push_back(src.get_bqual_length());
-  buf.append(src.get_data(),
-             (src.get_gtrid_length()) + (src.get_bqual_length()));
-  return buf;
-}
-
 /**
   Called by hton->flush_logs after MySQL group commit prepares a set of
   transactions.
@@ -4272,9 +4291,11 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
       if (thd->durability_property == HA_IGNORE_DURABILITY) {
         tx->set_sync(false);
       }
-      XID xid;
-      thd_get_xid(thd, reinterpret_cast<MYSQL_XID *>(&xid));
-      if (!tx->prepare(rdb_xid_to_string(xid))) {
+      // For write unprepared, set_name is called at the start of a transaction.
+      if (rocksdb_write_policy != rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED) {
+        tx->set_name();
+      }
+      if (!tx->prepare()) {
         return HA_EXIT_FAILURE;
       }
     }
@@ -5146,6 +5167,16 @@ static inline void rocksdb_register_tx(
   assert(tx != nullptr);
 
   trans_register_ha(thd, false, rocksdb_hton, NULL);
+  if (rocksdb_write_policy == rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED) {
+    // Some internal operations will call trans_register_ha, but they do not
+    // go through 2pc. In this case, the xid is set with query_id == 0, which
+    // means that rocksdb will receive transactions with duplicate names.
+    //
+    // Skip setting name in these cases.
+    if (thd->query_id != 0) {
+      tx->set_name();
+    }
+  }
   if (my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)) {
     tx->start_stmt();
     trans_register_ha(thd, true, rocksdb_hton, NULL);
@@ -9734,8 +9765,15 @@ bool ha_rocksdb::skip_unique_check() const {
 }
 
 bool ha_rocksdb::commit_in_the_middle() {
-  return THDVAR(table->in_use, bulk_load) ||
-         THDVAR(table->in_use, commit_in_the_middle);
+  // It does not make sense to use write unprepared with commit in the middle,
+  // since both handle large transactions by flushing the write batches onto
+  // disk.
+  //
+  // For the two to work together, we would need to assign a new xid after
+  // committing.
+  return (THDVAR(table->in_use, bulk_load) ||
+          THDVAR(table->in_use, commit_in_the_middle)) &&
+         rocksdb_write_policy != rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED;
 }
 
 /*
@@ -13463,7 +13501,8 @@ int ha_rocksdb::inplace_populate_sk(
     if ((res = finalize_bulk_load())) {
       DBUG_RETURN(res);
     }
-    tx->commit();
+    assert(tx->get_write_count() == 0);
+    tx->release_snapshot();
   }
 
   const ulonglong rdb_merge_buf_size = THDVAR(ha_thd(), merge_buf_size);
