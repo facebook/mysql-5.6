@@ -3504,14 +3504,11 @@ std::pair<longlong, longlong> get_time_lag_behind_master(Master_info *mi) {
   return std::make_pair(sec_behind_master, milli_sec_behind_master);
 }
 
-int send_replica_statistics_to_master(MYSQL *mysql, Master_info *mi) {
+int send_replica_statistics_to_master(MYSQL *mysql, Master_info *mi, int milli_sec_behind_master) {
   uchar buf[1024], *pos = buf;
   DBUG_ENTER("send_replica_statistics_to_master");
 
   int timestamp = my_time(0);
-  std::pair<longlong, longlong> time_lag_behind_master =
-      get_time_lag_behind_master(mi);
-  int milli_sec_behind_master = max((int)time_lag_behind_master.second, 0);
 
   int4store(pos, server_id);
   pos += 4;

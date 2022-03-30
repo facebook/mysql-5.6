@@ -1053,6 +1053,7 @@ extern bool bypass_write_throttle_admin_check;
 extern bool write_throttle_parse_query_comments;
 extern ulong write_stats_frequency;
 extern ulong write_start_throttle_lag_milliseconds;
+extern ulong write_send_replica_statistics_wait_time_seconds;
 extern ulong write_stop_throttle_lag_milliseconds;
 extern double write_throttle_min_ratio;
 extern uint write_throttle_monitor_cycles;

@@ -7731,3 +7731,12 @@ static Sys_var_mybool Sys_write_throttle_parse_query_comments(
        "Parse query comments to extract caller and mt_throttle_okay attributes",
        GLOBAL_VAR(write_throttle_parse_query_comments),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_ulong Sys_write_send_replica_statistics_wait_time_seconds(
+      "write_send_replica_statistics_wait_time_seconds",
+      "Replicas wait for this much time or until catching up before starting "
+      "to send lag statistics to mysql primary ",
+      GLOBAL_VAR(write_send_replica_statistics_wait_time_seconds),
+      CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX),
+      DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+      ON_CHECK(nullptr), ON_UPDATE(nullptr));

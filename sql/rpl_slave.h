@@ -293,7 +293,8 @@ int flush_master_info(Master_info* mi, bool force);
 void add_slave_skip_errors(const char* arg);
 void set_slave_skip_errors(char** slave_skip_errors_ptr);
 void configure_master_connection_options(MYSQL* mysql, Master_info* mi);
-int send_replica_statistics_to_master(MYSQL* mysql, Master_info* mi);
+int send_replica_statistics_to_master(MYSQL* mysql, Master_info* mi, int milli_sec_behind_master);
+std::pair<longlong, longlong> get_time_lag_behind_master(Master_info *mi);
 int register_slave_on_master(MYSQL* mysql);
 int terminate_slave_threads(Master_info* mi, int thread_mask,
                             bool need_lock_term= true);

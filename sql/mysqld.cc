@@ -758,6 +758,8 @@ uint write_stats_count;
 ulong write_stats_frequency;
 /* A replication lag higher than the value of this variable will enable throttling of write workload */
 ulong write_start_throttle_lag_milliseconds;
+/* Replicas wait for this much time or until catching up before starting to send lag statistics to mysql primary */
+ulong write_send_replica_statistics_wait_time_seconds;
 /* A replication lag lower than the value of this variable will disable throttling of write workload */
 ulong write_stop_throttle_lag_milliseconds;
 /* Minimum value of the ratio (1st entity)/(2nd entity) for replication lag throttling to kick in */
