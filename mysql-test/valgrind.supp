@@ -2960,3 +2960,10 @@
    ...
 }
 
+{
+   glibc tunables triggers valgrind check
+   Memcheck:Cond
+   ...
+   fun:__GI___tunables_init
+   ...
+}
