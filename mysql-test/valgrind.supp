@@ -1438,3 +1438,20 @@
   fun:getnameinfo
   ...
 }
+
+{
+  glibc tunables triggers valgrind check
+  Memcheck:Cond
+  ...
+  fun:__GI___tunables_init
+  ...
+}
+
+{
+   glibc tls allocation
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_dl_allocate_tls
+   ...
+}
