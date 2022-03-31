@@ -5748,11 +5748,11 @@ static bool mt_check_throttle_write_query(THD *thd) {
     auto iter = global_write_throttling_rules[i].find(keys[i]);
     if (iter != global_write_throttling_rules[i].end()) {
       WRITE_THROTTLING_RULE &rule = iter->second;
-      store_write_throttling_log(thd, i, iter->first, rule);
       if (iter->second.mode == WTR_MANUAL ||
           (!thd->variables.write_throttle_tag_only &&
            write_control_level == CONTROL_LEVEL_ERROR) ||
           mt_throttle_tag_level == CONTROL_LEVEL_ERROR) {
+        store_write_throttling_log(thd, i, iter->first, rule);
         my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
         mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
         DBUG_RETURN(true);
@@ -5760,6 +5760,7 @@ static bool mt_check_throttle_write_query(THD *thd) {
                   (write_control_level == CONTROL_LEVEL_NOTE ||
                    write_control_level == CONTROL_LEVEL_WARN)) ||
                  mt_throttle_tag_level == CONTROL_LEVEL_WARN) {
+        store_write_throttling_log(thd, i, iter->first, rule);
         push_warning(thd,
                      (write_control_level == CONTROL_LEVEL_NOTE ||
                       mt_throttle_tag_level != CONTROL_LEVEL_WARN)

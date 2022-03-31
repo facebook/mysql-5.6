@@ -9999,14 +9999,44 @@ ER_STALE_HLC_READ
 ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND
   eng "Requested HLC read bound when allow_noncurrent_db_rw set to %d != 3"
 
+ER_PLACEHOLDER_50087
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50088
+  eng "Placeholder"
+
+ER_MAX_TMP_DISK_USAGE_EXCEEDED
+  eng "Disk usage for temp objects exceeds specified limit"
+
+ER_PLACEHOLDER_50090
+  eng "Placeholder"
+
+ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
+  eng "Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)"
+
+ER_WRITE_QUERY_THROTTLED
+  eng "Exceeded write workload limit. Try again later"
+
+ER_SLAVE_IO_RAFT_CONFLICT
+  eng "slave io thread is running when try to enable raft"
+
+ER_RAFT_BINLOG_ERROR_ACTION
+  eng "binlog_error_action should be set to ROLLBACK_TRX in raft mode."
+
+ER_RAFT_OPERATION_INCOMPATIBLE
+  eng "This operation is not allowed since raft is enabled"
+
+ER_RAFT_FILE_ROTATION_FAILED
+  eng "File rotation failed to reach consensus"
+
+ER_PLACEHOLDER_50097
+  eng "Placeholder"
+
 ER_HLC_WAIT_TIMEDOUT
   eng "Got timeout while waiting for HLC: %llu"
 
 ER_INVALID_HLC_WAIT_TIMEOUT
   eng "Invalid HLC wait timeout supplied: `%s`"
-
-ER_MAX_TMP_DISK_USAGE_EXCEEDED
-  eng "Disk usage for temp objects exceeds specified limit"
 
 #
 # FB error codes specifically for 8.0 only start at 50100.
@@ -10052,32 +10082,35 @@ ER_WARN_USER_TABLE_BLOCKED_ENGINE
 ER_RPL_SLAVE_MAX_GTID_RECOVERED
   eng "Max GTID recovered at the end of recovery %s"
 
-ER_RAFT_FILE_ROTATION_FAILED
-  eng "File rotation failed to reach consensus"
-
-ER_RAFT_OPERATION_INCOMPATIBLE
-  eng "This operation is not allowed since raft is enabled"
-
-ER_SLAVE_IO_RAFT_CONFLICT
-  eng "slave io thread is running when try to enable raft"
-
-ER_RAFT_BINLOG_ERROR_ACTION
-  eng "binlog_error_action should be set to ROLLBACK_TRX in raft mode."
-
 ER_LOG_ALTER_DB
   eng "Alter database query: %s (user '%s' from '%s')"
-
-ER_WRITE_QUERY_THROTTLED
-  eng "Exceeded write workload limit. Try again later"
-
-ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
-  eng "Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)"
 
 ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX
   eng "`%s` found in the middle of a trx or with end_log_pos = 0, this is not expected in raft mode"
 
 #
 # End of 8.0 FB MySQL error messages.
+# (Please read comments from the header of this section before adding error
+#  message here)
+#
+
+#
+# The allocated range for 5.6.35 error codes 50000-50099 is already exhausted.
+# So use the new range starting 50300 for the new 5.6.35 error messages.
+#
+start-error-number 50300
+
+ER_PLACEHOLDER_50300
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50301
+  eng "Placeholder"
+
+ER_PURPOSE_POLICY_CHECK_FAILED
+  eng "Purpose policy check `%s` (query policy: `%s`) failed in %s mode"
+
+#
+# End of new range for 5.6.35 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error
 #  message here)
 #
