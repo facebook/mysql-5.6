@@ -3708,16 +3708,13 @@ std::pair<longlong, longlong> get_time_lag_behind_master(Master_info *mi) {
   Send milli_second_behind_master statistic to primary using
   COM_SEND_REPLICA_STATISTICS
 */
-int send_replica_statistics_to_master(MYSQL *mysql, Master_info *mi) {
+int send_replica_statistics_to_master(MYSQL *mysql,
+                                      int milli_sec_behind_master) {
   uchar buf[1024];
   uchar *pos = buf;
   DBUG_ENTER("send_replica_statistics_to_master");
 
   int timestamp = my_time(0);
-  std::pair<longlong, longlong> time_lag_behind_master =
-      get_time_lag_behind_master(mi);
-  longlong milli_sec_behind_master =
-      max((longlong)time_lag_behind_master.second, (longlong)0);
 
   int4store(pos, server_id);
   pos += 4;

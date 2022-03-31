@@ -2853,6 +2853,9 @@ The following options may be given as the first argument:
  Maximum CPU time (specified in milliseconds) limit for
  DML queries. It can take integer values greater than or
  equal to 0. The value 0 disables enforcing the limit.
+ --write-send-replica-statistics-wait-time-seconds[=#] 
+ Replicas wait for this much time or until catching up
+ before starting to send lag statistics to mysql primary 
  --write-start-throttle-lag-milliseconds[=#] 
  A replication lag higher than the value of this variable
  will enable throttling of write workload
@@ -3698,6 +3701,7 @@ write-abort-level OFF
 write-auto-throttle-frequency 0
 write-control-level OFF
 write-cpu-limit-milliseconds 0
+write-send-replica-statistics-wait-time-seconds 0
 write-start-throttle-lag-milliseconds 86400000
 write-stats-count 0
 write-stats-frequency 0

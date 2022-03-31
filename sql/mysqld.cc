@@ -1587,6 +1587,9 @@ std::vector<enum_wtr_dimension> write_throttle_permissible_dimensions_in_order;
 /* A replication lag higher than the value of this variable will enable
  * throttling of write workload */
 ulong write_start_throttle_lag_milliseconds;
+/* Replicas wait for this much time or until catching up before starting
+ * to send lag statistics to mysql primary */
+ulong write_send_replica_statistics_wait_time_seconds;
 /* A replication lag lower than the value of this variable will disable
  * throttling of write workload */
 ulong write_stop_throttle_lag_milliseconds;

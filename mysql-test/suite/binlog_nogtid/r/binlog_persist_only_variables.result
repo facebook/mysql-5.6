@@ -295,6 +295,7 @@ SET PERSIST_ONLY sync_relay_log = @@GLOBAL.sync_relay_log;
 SET PERSIST_ONLY sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 SET PERSIST_ONLY sync_source_info = @@GLOBAL.sync_source_info;
 SET PERSIST_ONLY update_binlog_pos_threshold = @@GLOBAL.update_binlog_pos_threshold;
+SET PERSIST_ONLY write_send_replica_statistics_wait_time_seconds = @@GLOBAL.write_send_replica_statistics_wait_time_seconds;
 
 include/assert.inc ['Expect $expected persisted variables in persisted_variables table.']
 
@@ -442,6 +443,7 @@ RESET PERSIST sync_relay_log;
 RESET PERSIST sync_relay_log_info;
 RESET PERSIST sync_source_info;
 RESET PERSIST update_binlog_pos_threshold;
+RESET PERSIST write_send_replica_statistics_wait_time_seconds;
 
 include/assert.inc [Expect 0 persisted variables.]
 

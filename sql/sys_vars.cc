@@ -9786,3 +9786,11 @@ static Sys_var_bool Sys_enable_rocksdb_intrinsic_tmp_table(
     READ_ONLY GLOBAL_VAR(enable_rocksdb_intrinsic_tmp_table), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
+
+static Sys_var_ulong Sys_write_send_replica_statistics_wait_time_seconds(
+    "write_send_replica_statistics_wait_time_seconds",
+    "Replicas wait for this much time or until catching up before starting "
+    "to send lag statistics to mysql primary ",
+    GLOBAL_VAR(write_send_replica_statistics_wait_time_seconds),
+    CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
