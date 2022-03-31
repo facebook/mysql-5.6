@@ -37,6 +37,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <list>
 #include <memory>
 #include <set>
 #include <string>
@@ -2582,6 +2583,11 @@ class THD : public MDL_context_owner,
 
   ulong get_query_or_connect_attr_value(const char *attr_name,
                                         ulong default_value, ulong max_value);
+
+  const std::string &get_query_attr(const std::string &qattr_key);
+  const std::string &get_connection_attr(const std::string &cattr_key);
+
+  std::list<std::pair<const char *, const char *>> get_query_tables();
 
   void get_mt_keys_for_write_query(
       std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> &keys);

@@ -28,6 +28,9 @@
 
 #include <fcntl.h>
 #include <string.h>
+#include <list>
+#include <string>
+#include <utility>
 
 #include "m_string.h"
 #include "mysql/components/services/psi_stage_bits.h"
@@ -400,6 +403,25 @@ bool thd_is_dd_update_stmt(const THD *thd) {
 my_thread_id thd_thread_id(const THD *thd) { return (thd->thread_id()); }
 
 /**
+  Get the query SQL ID
+
+  @param thd       The MySQL internal thread pointer
+
+  @return the SQL ID of the query
+*/
+const std::string thd_get_sql_id(THD *thd) {
+  char sql_id_string[DIGEST_HASH_TO_STRING_LENGTH + 1];
+
+  if (thd->mt_key_is_set(THD::SQL_ID)) {
+    DIGEST_HASH_TO_STRING(thd->mt_key_value(THD::SQL_ID), sql_id_string);
+    sql_id_string[DIGEST_HASH_TO_STRING_LENGTH] = '\0';
+  } else {
+    sql_id_string[0] = '\0';
+  }
+  return std::string(sql_id_string);
+}
+
+/**
   Invoke yield_cond.
 
   @return true if should yield, false otherwise.
@@ -417,3 +439,53 @@ mysql_mutex_t *thd_current_mutex(THD *thd) { return thd->current_mutex; }
   Set thread priority.
 */
 void thd_set_priority(THD *thd) { thd->set_thread_priority(); }
+
+/**
+  Get tables in the query. The tables are returned as a list of pairs
+  where the first value is the dbname and the second value is the table name.
+
+  @param thd       The MySQL internal thread pointer
+
+  @return List of pairs: dbname, table name
+ */
+std::list<std::pair<const char *, const char *>> thd_get_query_tables(
+    THD *thd) {
+  assert(current_thd == thd);
+  return thd->get_query_tables();
+}
+
+/**
+  Get the value of the query attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param qattr_key Name of the query attribute
+
+  @return Value of the query attribute 'qattr_key'
+*/
+const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key) {
+  return thd->get_query_attr(qattr_key);
+}
+
+/**
+  Get the value of the connection attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param cattr_key Name of the connection attribute
+
+  @return Value of the query attribute 'cattr_key'
+*/
+const std::string &thd_get_connection_attr(THD *thd,
+                                           const std::string &cattr_key) {
+  return thd->get_connection_attr(cattr_key);
+}
+
+void thd_add_response_attr(THD *thd, const std::string &rattr_key,
+                           const std::string &rattr_val) {
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+
+  if (tracker->is_enabled()) {
+    LEX_CSTRING key = {rattr_key.c_str(), rattr_key.length()};
+    LEX_CSTRING value = {rattr_val.c_str(), rattr_val.length()};
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+}

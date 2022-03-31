@@ -32,7 +32,9 @@
 #include <stddef.h>
 #include <sys/types.h>
 
+#include <list>
 #include <string>
+#include <utility>
 
 #include "dur_prop.h"  // durability_properties
 #include "lex_string.h"
@@ -294,6 +296,15 @@ bool thd_is_dd_update_stmt(const THD *thd);
 my_thread_id thd_thread_id(const THD *thd);
 
 /**
+  Get the query SQL ID
+
+  @param thd       The MySQL internal thread pointer
+
+  @return the SQL ID of the query
+*/
+const std::string thd_get_sql_id(THD *thd);
+
+/**
   Invoke yield_cond.
 
   @return true if should yield, false otherwise.
@@ -318,5 +329,39 @@ mysql_mutex_t *thd_current_mutex(THD *thd);
   Set thread priority.
 */
 void thd_set_priority(THD *thd);
+
+/**
+  Get tables in the query. The tables are returned as a list of pairs
+  where the first value is the dbname and the second value is the table name.
+
+  @param  thd  Thread pointer
+
+  @return List of pairs: dbname, table name
+ */
+std::list<std::pair<const char *, const char *>> thd_get_query_tables(THD *thd);
+
+/**
+  Get the value of the query attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param qattr_key Name of the query attribute
+
+  @return Value of the query attribute 'qattr_key'
+*/
+const std::string &thd_get_query_attr(THD *thd, const std::string &qattr_key);
+
+/**
+  Get the value of the connection attribute
+
+  @param thd       The MySQL internal thread pointer
+  @param cattr_key Name of the connection attribute
+
+  @return Value of the query attribute 'cattr_key'
+*/
+const std::string &thd_get_connection_attr(THD *thd,
+                                           const std::string &cattr_key);
+
+void thd_add_response_attr(THD *thd, const std::string &rattr_key,
+                           const std::string &rattr_val);
 
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

@@ -29,7 +29,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <algorithm>
+#include <list>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include <sstream>
@@ -136,6 +138,9 @@ using std::unique_ptr;
   table name
 */
 char empty_c_string[1] = {0}; /* used for not defined db */
+
+/* empty string */
+static const std::string emptyStr = "";
 
 const char *const THD::DEFAULT_WHERE = "field list";
 extern PSI_stage_info stage_waiting_for_disk_space;
@@ -4448,3 +4453,86 @@ Thd_wait_scope::Thd_wait_scope(THD *thd, int wait_type) : m_thd(thd) {
   Call thd_wait_end to mark the wait end.
 */
 Thd_wait_scope::~Thd_wait_scope() { thd_wait_end(m_thd); }
+
+/**
+  Get the value of the query attribute
+
+  @param qattr_key Name of the query attribute
+
+  @return Value of the query attribute 'qattr_key'
+*/
+const std::string &THD::get_query_attr(const std::string &qattr_key) {
+  /* iterate through all the query attributes */
+  for (const auto &kvp : query_attrs_list) {
+    /* look for qattr_key */
+    if (kvp.first == qattr_key) {
+      return kvp.second;
+    }
+  }
+
+  /* return empty result */
+  return emptyStr;
+}
+
+/**
+  Get the value of the connection attribute
+
+  @param cattr_key Name of the connection attribute
+
+  @return Value of the query attribute 'cattr_key'
+*/
+const std::string &THD::get_connection_attr(const std::string &cattr_key) {
+  /*
+   * pointers (to db name, table names etc) are only valid until
+   * the end of the current query
+   */
+  assert(this == current_thd);
+
+  auto it = connection_attrs_map.find(cattr_key);
+  if (it != connection_attrs_map.end()) {
+    return it->second;
+  }
+
+  /* return empty result */
+  return emptyStr;
+}
+
+/**
+  Get tables in the query. The tables are returned as a list of pairs
+  where the first value is the dbname and the second value is the table name.
+
+  @return List of pairs: dbname, table name
+ */
+std::list<std::pair<const char *, const char *>> THD::get_query_tables() {
+  std::list<std::pair<const char *, const char *>> uniq_tables;
+  std::list<std::string> uniq_tables_str;
+  /*
+   * pointers (to db name, table names etc) are only valid until
+   * the end of the current query
+   */
+  assert(this == current_thd);
+
+  /* iterate through the list of tables */
+  for (const TABLE_LIST *table = lex->query_tables; table != nullptr;
+       table = table->next_global) {
+    if (table->is_view_or_derived()) {
+      continue;
+    }
+
+    const char *dbname = table->get_db_name();
+    const char *tname = table->get_table_name();
+    std::string full_tname = dbname;
+    full_tname.append(".");
+    full_tname.append(tname);
+
+    /* skip duplicate entries */
+    if (find(uniq_tables_str.begin(), uniq_tables_str.end(), full_tname) !=
+        uniq_tables_str.end()) {
+      continue;
+    }
+
+    uniq_tables_str.emplace_back(full_tname);
+    uniq_tables.emplace_back(dbname, tname);
+  }
+  return uniq_tables;
+}
