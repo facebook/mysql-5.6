@@ -300,4 +300,23 @@ my_thread_id thd_thread_id(const THD *thd);
 */
 bool thd_yield_cond(THD *thd);
 
+/**
+  Get currently held mutex (for cond wait).
+
+  @return current mutex if held, nullptr otherwise.
+*/
+mysql_mutex_t *thd_current_mutex(THD *thd);
+
+/**
+  Get currently held mutex (for cond wait).
+
+  @return current mutex if held, nullptr otherwise.
+*/
+mysql_mutex_t *thd_current_mutex(THD *thd);
+
+/**
+  Set thread priority.
+*/
+void thd_set_priority(THD *thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
