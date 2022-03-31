@@ -992,8 +992,10 @@ Information in the data-dictionary needs to be updated. */
 #define HA_ERR_SAMPLING_INIT_FAILED 208
 /** Too many sub-expression in search string */
 #define HA_ERR_FTS_TOO_MANY_NESTED_EXP 209
+/** Write query exceeded cpu time limit */
+#define HA_ERR_WRITE_CPU_LIMIT_EXCEEDED 210
 /** Copy of last error number */
-#define HA_ERR_LAST 209
+#define HA_ERR_LAST 210
 
 /* Number of different errors */
 #define HA_ERR_ERRORS (HA_ERR_LAST - HA_ERR_FIRST + 1)

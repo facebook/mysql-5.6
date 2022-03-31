@@ -539,7 +539,7 @@ Warning	1287	'@@max_delayed_threads' is deprecated and will be removed in a futu
 set max_heap_table_size=100;
 Warnings:
 Warning	1292	Truncated incorrect max_heap_table_size value: '100'
-set max_join_size=100;
+set max_join_size=256;
 set max_sort_length=100;
 set global max_user_connections=100;
 select @@max_user_connections;
@@ -671,11 +671,11 @@ myisam_max_sort_file_size	MAX_FILE_SIZE
 set global myisam_max_sort_file_size=default;
 select @@global.max_user_connections,@@local.max_join_size;
 @@global.max_user_connections	@@local.max_join_size
-100	100
+100	256
 set @svc=@@global.max_user_connections, @svj=@@local.max_join_size;
 select @@global.max_user_connections,@@local.max_join_size;
 @@global.max_user_connections	@@local.max_join_size
-100	100
+100	256
 set @@global.max_user_connections=111,@@local.max_join_size=222;
 select @@global.max_user_connections,@@local.max_join_size;
 @@global.max_user_connections	@@local.max_join_size
@@ -687,7 +687,7 @@ select @@global.max_user_connections,@@local.max_join_size;
 set @@global.max_user_connections=@svc, @@local.max_join_size=@svj;
 select @@global.max_user_connections,@@local.max_join_size;
 @@global.max_user_connections	@@local.max_join_size
-100	100
+100	256
 set @a=1, @b=2;
 set @a=@b, @b=@a;
 select @a, @b;

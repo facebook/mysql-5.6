@@ -2449,6 +2449,19 @@ class THD : public MDL_context_owner,
   */
   ulonglong m_stmt_total_write_time;
 
+  /**
+     DML row count for the transaction. This is incremented as the
+     DML operations take place
+  */
+  ha_rows m_trx_dml_row_count;
+
+  /* record that a warning that a DML cpu time exceeded the limit was raised */
+  bool m_trx_dml_cpu_time_limit_warning = false;
+
+  timespec m_trx_dml_start_time;
+
+  bool m_trx_dml_start_time_is_set = false;
+
  private:
   using explicit_snapshot_ptr = std::shared_ptr<explicit_snapshot>;
   explicit_snapshot_ptr m_explicit_snapshot;
@@ -2544,6 +2557,19 @@ class THD : public MDL_context_owner,
   enum_control_level get_mt_throttle_tag_level() const;
 
   void set_sent_row_count(ha_rows count);
+
+  void set_trx_dml_row_count(ha_rows count) { m_trx_dml_row_count = count; }
+
+  ha_rows get_trx_dml_row_count() { return m_trx_dml_row_count; }
+
+  void set_trx_dml_cpu_time_limit_warning(bool val) {
+    m_trx_dml_cpu_time_limit_warning = val;
+  }
+
+  void set_trx_dml_start_time();
+
+  ulonglong get_trx_dml_write_time();
+  bool dml_execution_cpu_limit_exceeded();
 
   void inc_sent_row_count(ha_rows count);
   void inc_examined_row_count(ha_rows count);

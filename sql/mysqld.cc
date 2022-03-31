@@ -1497,6 +1497,18 @@ bool skip_core_dump_on_error = false;
  * abort for long running queries.
  */
 ulong write_control_level;
+
+/* Global variable to denote the maximum CPU time (specified in milliseconds)
+ * limit for DML queries.
+ */
+uint write_cpu_limit_milliseconds;
+
+/* Global variable to denote the frequency (specified in number of rows) of
+ * checking whether DML queries exceeded the CPU time limit enforced by
+ * 'write_time_check_batch'
+ */
+uint write_time_check_batch;
+
 /* Controls num most recent data points to collect for
  * information_schema.write_statistics */
 uint write_stats_count;

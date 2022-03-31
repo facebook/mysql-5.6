@@ -5626,6 +5626,11 @@ void THD::reset_for_next_command() {
   thd->m_sent_row_count = thd->m_examined_row_count = 0;
 
   thd->reset_stmt_stats();
+  if (!thd->get_transaction()->is_active(Transaction_ctx::SESSION)) {
+    thd->set_trx_dml_row_count(0);
+    thd->set_trx_dml_cpu_time_limit_warning(false);
+    thd->m_trx_dml_start_time_is_set = false;
+  }
 
   thd->reset_current_stmt_binlog_format_row();
   thd->binlog_unsafe_warning_flags = 0;

@@ -8966,6 +8966,22 @@ static Sys_var_ulong Sys_write_auto_throttle_frequency(
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+static Sys_var_uint Sys_write_cpu_limit_milliseconds(
+    "write_cpu_limit_milliseconds",
+    "Maximum CPU time (specified in milliseconds) limit for DML queries. It "
+    "can take integer values greater than or equal to 0. The value 0 disables "
+    "enforcing the limit.",
+    GLOBAL_VAR(write_cpu_limit_milliseconds), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_write_time_check_batch(
+    "write_time_check_batch",
+    "Frequency (specified in number of rows) of checking whether the CPU "
+    "time of DML queries exceeded the limit enforced by "
+    "write_cpu_limit_milliseconds.",
+    GLOBAL_VAR(write_time_check_batch), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 static const char *raft_signal_async_dump_threads_options[] = {
     "AFTER_CONSENSUS", "AFTER_ENGINE_COMMIT", 0};
 

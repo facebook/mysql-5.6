@@ -2564,6 +2564,10 @@ The following options may be given as the first argument:
  values: OFF: Default value (disable write throttling).
  NOTE: Raise warning as note. WARN: Raise warning. ERROR:
  Raise error and abort query.
+ --write-cpu-limit-milliseconds[=#] 
+ Maximum CPU time (specified in milliseconds) limit for
+ DML queries. It can take integer values greater than or
+ equal to 0. The value 0 disables enforcing the limit.
  --write-start-throttle-lag-milliseconds[=#] 
  A replication lag higher than the value of this variable
  will enable throttling of write workload
@@ -2596,6 +2600,10 @@ The following options may be given as the first argument:
  --write-throttle-tag-only 
  If set to true, replication lag throttling will only
  throttle queries with query attribute mt_throttle_okay.
+ --write-time-check-batch[=#] 
+ Frequency (specified in number of rows) of checking
+ whether the CPU time of DML queries exceeded the limit
+ enforced by write_cpu_limit_milliseconds.
  --zstd-net-compression-level[=#] 
  Compression level for compressed protocol when zstd
  library is selected.
@@ -3324,6 +3332,7 @@ wait-timeout 28800
 windowing-use-high-precision TRUE
 write-auto-throttle-frequency 0
 write-control-level OFF
+write-cpu-limit-milliseconds 0
 write-start-throttle-lag-milliseconds 86400000
 write-stats-count 0
 write-stats-frequency 0
@@ -3333,6 +3342,7 @@ write-throttle-min-ratio 1000
 write-throttle-monitor-cycles 1000
 write-throttle-patterns OFF
 write-throttle-tag-only FALSE
+write-time-check-batch 0
 zstd-net-compression-level 3
 
 To see what values a running MySQL server is using, type

@@ -10067,6 +10067,9 @@ ER_LOG_ALTER_DB
 ER_WRITE_QUERY_THROTTLED
   eng "Exceeded write workload limit. Try again later"
 
+ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
+  eng "Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)"
+
 ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX
   eng "`%s` found in the middle of a trx or with end_log_pos = 0, this is not expected in raft mode"
 

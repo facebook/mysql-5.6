@@ -1,0 +1,115 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+source include/have_debug_sync.inc;
+
+--disable_warnings
+
+####################################################
+### Tests no throttling with sql_log_bin = 0
+####################################################
+
+### Setup
+connection master;
+
+create table test(a int, b int, c int) engine=innodb;
+
+--echo Set CPU limit for milliseconds to 1
+set @@GLOBAL.write_cpu_limit_milliseconds=1;
+
+--echo connect to master
+connection master;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+####################################################
+### Test 1: Query throttling with sql_log_bin = 1
+####################################################
+
+--echo Test 1.1: Long running query to force throttling level=NOTE
+
+set @@GLOBAL.write_control_level=NOTE;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+--echo this query raises warning
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+
+show warnings;
+
+--echo Test 1.2: Long running query to force throttling level=WARN
+
+set @@GLOBAL.write_control_level=WARN;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+--echo this query raises warning
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+
+show warnings;
+
+--echo Test 1.3: Long running query to force throttling level=ERROR
+
+set @@GLOBAL.write_control_level=ERROR;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+--echo this query raises error
+--error ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+
+show errors;
+
+####################################################
+### Test 1: No query throttling with sql_log_bin = 0
+####################################################
+
+--echo Set sql_log_bin to 0
+set sql_log_bin=0;
+
+--echo Test 2.1: Repeat query with sql_log_bin = 0 level=NOTE
+
+set @@GLOBAL.write_control_level=NOTE;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+--echo this query should not raise warning
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+
+show warnings;
+
+--echo Test 2.2: Repeat query with sql_log_bin = 0 level=WARN
+
+set @@GLOBAL.write_control_level=WARN;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+--echo this query should not raise warning
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+
+show warnings;
+
+--echo Test 2.3: Repeat query with sql_log_bin = 0 level=ERROR
+
+set @@GLOBAL.write_control_level=ERROR;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+--echo this query should not raise error
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+
+show errors;
+
+
+### Clean Up
+--echo Finished tests begining cleanup
+connection master;
+
+set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_cpu_limit_milliseconds=0;
+set @@GLOBAL.write_time_check_batch=0;
+set @@global.debug= '-d,dbug.force_long_running_query';
+set sql_log_bin=1;
+drop table test;
+
+--source include/rpl_end.inc
+--enable_warnings
