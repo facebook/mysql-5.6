@@ -563,6 +563,7 @@ extern char *latest_write_throttle_permissible_dimensions_in_order;
 extern std::vector<enum_wtr_dimension>
     write_throttle_permissible_dimensions_in_order;
 extern ulong write_start_throttle_lag_milliseconds;
+extern ulong write_send_replica_statistics_wait_time_seconds;
 extern ulong write_stop_throttle_lag_milliseconds;
 extern double write_throttle_min_ratio;
 extern uint write_throttle_monitor_cycles;
