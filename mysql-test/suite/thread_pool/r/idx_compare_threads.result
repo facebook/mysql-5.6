@@ -123,7 +123,7 @@ OK: Result set: Non-empty  Expected: Non-empty
 
 OK: Extra rows: 0  Missing rows: 0
 ========
-SELECT * FROM performance_schema.threads WHERE NAME = 'thread/thread_pool/worker'
+SELECT * FROM performance_schema.threads WHERE NAME = 'thread/thread_pool/connection'
 
 OK: Handler_read_key
 
@@ -131,7 +131,7 @@ OK: Result set: Non-empty  Expected: Non-empty
 
 OK: Extra rows: 0  Missing rows: 0
 ========
-SELECT * FROM performance_schema.threads WHERE NAME != 'thread/thread_pool/worker'
+SELECT * FROM performance_schema.threads WHERE NAME != 'thread/thread_pool/connection'
 
 OK: Handler_read_key
 

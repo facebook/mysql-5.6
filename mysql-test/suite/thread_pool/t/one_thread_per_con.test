@@ -5,7 +5,7 @@
 
 # Setup
 
---source ../perfschema/include/setup_helper.inc
+--source ../../perfschema/include/setup_helper.inc
 
 # We use a myisam table here because CREATE TABLE has a known,
 # stable behavior (it will lock THR_LOCK_myisam once).
@@ -75,4 +75,4 @@ drop table test.t1;
 drop table test.t2;
 drop table test.t3;
 
---source ../perfschema/include/cleanup_helper.inc
+--source ../../perfschema/include/cleanup_helper.inc

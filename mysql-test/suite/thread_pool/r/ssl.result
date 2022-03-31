@@ -32,7 +32,7 @@ select THREAD_ID, NAME, CONNECTION_TYPE
 from performance_schema.threads
 where THREAD_ID = @clear_con_tid;
 THREAD_ID	NAME	CONNECTION_TYPE
-#	thread/thread_pool/worker	Socket
+#	thread/thread_pool/connection	Socket
 select EVENT_NAME,
 left(SOURCE, locate(":", SOURCE)) as PRINT_SOURCE,
 OBJECT_NAME, OPERATION,
@@ -53,7 +53,7 @@ select THREAD_ID, NAME, CONNECTION_TYPE
 from performance_schema.threads
 where THREAD_ID = @ssl_con_tid;
 THREAD_ID	NAME	CONNECTION_TYPE
-#	thread/thread_pool/worker	SSL/TLS
+#	thread/thread_pool/connection	SSL/TLS
 select EVENT_NAME,
 left(SOURCE, locate(":", SOURCE)) as PRINT_SOURCE,
 OBJECT_NAME, OPERATION,

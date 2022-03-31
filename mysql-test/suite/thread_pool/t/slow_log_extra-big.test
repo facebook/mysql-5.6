@@ -65,7 +65,7 @@ connection default;
 
 # wait for queries to complete
 let $wait_condition=
-  SELECT COUNT(*)=3 FROM performance_schema.threads WHERE name="thread/thread_pool/worker" AND processlist_command="Sleep";
+  SELECT COUNT(*)=3 FROM performance_schema.threads WHERE name="thread/thread_pool/connection" AND processlist_command="Sleep";
 --source include/wait_condition.inc
 
 # make sure we add no more log lines

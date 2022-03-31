@@ -61,9 +61,9 @@ explain select * from performance_schema.threads
 explain select * from performance_schema.threads
   where thread_os_id < 99999;
 
-select thread_id - @tid, name, processlist_info
+select name, processlist_info
   from performance_schema.threads
-  where thread_os_id = @osid;
+  where thread_os_id = @osid and name like '%worker';
 
 # Test index on NAME
 
@@ -103,6 +103,7 @@ explain select * from performance_schema.threads
 explain select * from performance_schema.threads
   where PROCESSLIST_USER like "ro%";
 
+--replace_regex /.*thread\/thread_pool\/worker.*//
 select thread_id = @tid, name, processlist_state, processlist_info
   from performance_schema.threads
   where PROCESSLIST_USER = "root";
@@ -122,6 +123,7 @@ explain select * from performance_schema.threads
 explain select * from performance_schema.threads
   where PROCESSLIST_USER = "foo" and PROCESSLIST_HOST like "bar%";
 
+--replace_regex /.*thread\/thread_pool\/worker.*//
 select thread_id = @tid, name, processlist_state, processlist_info
   from performance_schema.threads
   where PROCESSLIST_USER = "root" and PROCESSLIST_HOST = "localhost";
@@ -143,6 +145,7 @@ explain select * from performance_schema.threads
 explain select * from performance_schema.threads
   where PROCESSLIST_HOST like "local%";
 
+--replace_regex /.*thread\/thread_pool\/worker.*//
 select thread_id = @tid, name, processlist_state, processlist_info
   from performance_schema.threads
   where PROCESSLIST_HOST = "localhost";

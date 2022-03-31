@@ -120,7 +120,7 @@ where PROCESSLIST_ID = connection_id();
 #      on T.PROCESSLIST_ID = P.ID and T.PROCESSLIST_USER = P.USER and
 #         T.PROCESSLIST_HOST = P.HOST and T.PROCESSLIST_DB = P.DB and
 #         T.PROCESSLIST_COMMAND = P.COMMAND and T.PROCESSLIST_INFO = P.INFO
-#      where T.PROCESSLIST_ID = connection_id() and T.NAME = 'thread/thread_pool/worker'
+#      where T.PROCESSLIST_ID = connection_id() and T.NAME = 'thread/thread_pool/connection'
 #   executed by the current connection looks like some of the most elegant solutions
 #   for revealing this. But such a join suffers from sporadic differences like
 #      column |  observation
@@ -148,7 +148,7 @@ from performance_schema.threads T inner join information_schema.PROCESSLIST P
   on T.PROCESSLIST_ID = P.ID and T.PROCESSLIST_USER = P.USER and
      T.PROCESSLIST_HOST = P.HOST and T.PROCESSLIST_DB = P.DB and
      T.PROCESSLIST_COMMAND = P.COMMAND and T.PROCESSLIST_INFO = P.INFO
-where T.PROCESSLIST_USER = 'user3' and T.NAME = 'thread/thread_pool/worker';
+where T.PROCESSLIST_USER = 'user3' and T.NAME = 'thread/thread_pool/connection';
 
 # Resolve the situation + some cleanup
 --echo # Switch to connection default

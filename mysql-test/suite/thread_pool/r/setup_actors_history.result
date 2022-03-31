@@ -24,25 +24,25 @@ select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	YES	YES	user1	localhost
+thread/thread_pool/connection	FOREGROUND	YES	YES	user1	localhost
 # Switch to (con2, localhost, user2, , )
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	YES	NO	user2	localhost
+thread/thread_pool/connection	FOREGROUND	YES	NO	user2	localhost
 # Switch to (con3, localhost, user3, , )
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	NO	YES	user3	localhost
+thread/thread_pool/connection	FOREGROUND	NO	YES	user3	localhost
 # Switch to (con4, localhost, user4, , )
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	NO	NO	user4	localhost
+thread/thread_pool/connection	FOREGROUND	NO	NO	user4	localhost
 # Switch to connection default
 update performance_schema.setup_actors
 set HISTORY='NO' where USER in ('user1', 'user3');
@@ -53,50 +53,50 @@ select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	YES	YES	user1	localhost
+thread/thread_pool/connection	FOREGROUND	YES	YES	user1	localhost
 # Switch to connection con2
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	YES	NO	user2	localhost
+thread/thread_pool/connection	FOREGROUND	YES	NO	user2	localhost
 # Switch to connection con3
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	NO	YES	user3	localhost
+thread/thread_pool/connection	FOREGROUND	NO	YES	user3	localhost
 # Switch to connection con4
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	NO	NO	user4	localhost
+thread/thread_pool/connection	FOREGROUND	NO	NO	user4	localhost
 # Disconnect all con
 # Switch to (con1, localhost, user1, , )
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	YES	NO	user1	localhost
+thread/thread_pool/connection	FOREGROUND	YES	NO	user1	localhost
 # Switch to (con2 localhost, user2, , )
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	YES	YES	user2	localhost
+thread/thread_pool/connection	FOREGROUND	YES	YES	user2	localhost
 # Switch to (con3, localhost, user3, , )
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	NO	NO	user3	localhost
+thread/thread_pool/connection	FOREGROUND	NO	NO	user3	localhost
 # Switch to (con4 localhost, user4, , )
 select NAME, TYPE, INSTRUMENTED, HISTORY, PROCESSLIST_USER, PROCESSLIST_HOST
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
 NAME	TYPE	INSTRUMENTED	HISTORY	PROCESSLIST_USER	PROCESSLIST_HOST
-thread/thread_pool/worker	FOREGROUND	NO	YES	user4	localhost
+thread/thread_pool/connection	FOREGROUND	NO	YES	user4	localhost
 # Disconnect all con
 # Switch to connection default
 revoke all privileges, grant option from user1@localhost;

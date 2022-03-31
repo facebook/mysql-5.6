@@ -110,7 +110,7 @@ select OBJECT_TYPE, OBJECT_SCHEMA, OBJECT_NAME,
 echo "===== Check Thread Status for default connection ";
 eval select NAME, PROCESSLIST_COMMAND, PROCESSLIST_STATE, PROCESSLIST_INFO
   from performance_schema.threads
-  where NAME = "thread/thread_pool/worker"
+  where NAME = "thread/thread_pool/connection"
   and PROCESSLIST_INFO like "UNINSTALL %" and
   THREAD_ID = $con_default_thread_id;
 
@@ -164,7 +164,7 @@ select OBJECT_TYPE, OBJECT_SCHEMA, OBJECT_NAME,
 echo "===== Check Thread Status for default connection ";
 eval select NAME, PROCESSLIST_COMMAND, PROCESSLIST_STATE, PROCESSLIST_INFO
   from performance_schema.threads
-  where NAME = "thread/thread_pool/worker"
+  where NAME = "thread/thread_pool/connection"
   and PROCESSLIST_INFO like "UNINSTALL %" and
   THREAD_ID = $con_default_thread_id;
 
@@ -280,7 +280,7 @@ select OBJECT_TYPE, OBJECT_SCHEMA, OBJECT_NAME,
 echo "===== Check Thread Status for default connection ";
 eval select NAME, PROCESSLIST_COMMAND, PROCESSLIST_STATE, PROCESSLIST_INFO
   from performance_schema.threads
-  where NAME = "thread/thread_pool/worker"
+  where NAME = "thread/thread_pool/connection"
   and PROCESSLIST_INFO like "UNINSTALL %" and
   THREAD_ID = $con_default_thread_id;
 
@@ -334,7 +334,7 @@ select OBJECT_TYPE, OBJECT_SCHEMA, OBJECT_NAME,
 echo "===== Check Thread Status for default connection ";
 eval select NAME, PROCESSLIST_COMMAND, PROCESSLIST_STATE, PROCESSLIST_INFO
   from performance_schema.threads
-  where NAME = "thread/thread_pool/worker"
+  where NAME = "thread/thread_pool/connection"
   and PROCESSLIST_INFO like "UNINSTALL %" and
   THREAD_ID = $con_default_thread_id;
 
@@ -354,7 +354,7 @@ eval select OBJECT_TYPE, OBJECT_SCHEMA, OBJECT_NAME,
 
 eval select PROCESSLIST_ID into @pid
   from performance_schema.threads
-  where NAME = "thread/thread_pool/worker"
+  where NAME = "thread/thread_pool/connection"
   and PROCESSLIST_INFO like "UNINSTALL %" and
   THREAD_ID = $con_default_thread_id;
 --enable_query_log
@@ -364,7 +364,7 @@ kill query @pid;
 # Make sure that UNINSTALL query from connection default has been killed
 let $wait_condition=  select count(*) = 0
   from performance_schema.threads
-  where NAME = "thread/thread_pool/worker"
+  where NAME = "thread/thread_pool/connection"
   and PROCESSLIST_INFO like "UNINSTALL %" and
   THREAD_ID = $con_default_thread_id;
 --source include/wait_condition.inc
