@@ -522,6 +522,18 @@ inline ulonglong microseconds_to_my_timer(double when) {
 }
 
 extern ulong write_control_level;
+
+/* Global variable to denote the maximum CPU time (specified in milliseconds)
+ * limit for DML queries.
+ */
+extern uint write_cpu_limit_milliseconds;
+
+/* Global variable to denote the frequency (specified in number of rows) of
+ * checking whether DML queries exceeded the CPU time limit enforced by
+ * 'write_time_check_batch'
+ */
+extern uint write_time_check_batch;
+
 extern bool is_slave;
 extern std::atomic<int> slave_stats_daemon_thread_counter;
 extern uint write_stats_count;

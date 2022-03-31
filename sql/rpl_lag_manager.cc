@@ -291,6 +291,14 @@ void free_global_write_throttling_log(void) {
 }
 
 /*
+** global_long_qry_abort_log
+**
+** global map that stores the long queries information to populate
+** the table performance_schema.write_throttling_log
+*/
+std::unordered_map<std::string, WRITE_THROTTLING_LOG> global_long_qry_abort_log;
+
+/*
   store_write_throttling_log
     Stores a log for when a query was throttled due to a throttling
     rule in I_S.WRITE_THROTTLING_RULES
@@ -302,6 +310,37 @@ void store_write_throttling_log(THD *, int type, std::string value,
   time_t timestamp = time(0);
   auto &log_map = global_write_throttling_log[type][rule.mode];
   auto &inserted_log = log_map.insert(std::make_pair(value, log)).first->second;
+  inserted_log.last_time = timestamp;
+  inserted_log.count++;
+  mysql_mutex_unlock(&LOCK_global_write_throttling_log);
+}
+
+/*
+  store_long_qry_abort_log
+    Stores a log for a query that is aborted due to it being identified
+    as long running query. This will be added to
+    performance_schema.write_throttling_log.
+*/
+void store_long_qry_abort_log(THD *thd) {
+  // SQL ID
+  // TODO(mzait) Calculating a unique hash for now, to be
+  // replaced after the same hash used in sql_findings when ported to 8.0
+  char sql_id[DIGEST_HASH_TO_STRING_LENGTH + 1] = "";
+  sql_digest_state *thd_digest = thd->m_digest;
+  if (thd_digest && !thd_digest->m_digest_storage.is_empty()) {
+    uchar digest_hash[DIGEST_HASH_SIZE];
+    compute_digest_hash(&thd_digest->m_digest_storage, digest_hash);
+    DIGEST_HASH_TO_STRING(digest_hash, sql_id);
+  }
+
+  mysql_mutex_lock(&LOCK_global_write_throttling_log);
+  WRITE_THROTTLING_LOG log{};
+  time_t timestamp = time(0);
+  auto &inserted_log =
+      global_long_qry_abort_log
+          .insert(std::make_pair(
+              std::string(sql_id, DIGEST_HASH_TO_STRING_LENGTH), log))
+          .first->second;
   inserted_log.last_time = timestamp;
   inserted_log.count++;
   mysql_mutex_unlock(&LOCK_global_write_throttling_log);
@@ -344,6 +383,20 @@ std::vector<write_throttling_log_row> get_all_write_throttling_log() {
       }
     }
   }
+
+  /* populate rows from aborting long running queries */
+  for (auto log_iter = global_long_qry_abort_log.begin();
+       log_iter != global_long_qry_abort_log.end(); ++log_iter) {
+    WRITE_THROTTLING_LOG &log = log_iter->second;
+
+    // mode: AUTO
+    auto mode = WTR_AUTO;
+    write_throttling_log.emplace_back(
+        WRITE_THROTTLING_MODE_STRING[mode], log.last_time,
+        WRITE_STATS_TYPE_STRING[WTR_DIM_SQL_ID], log_iter->first,
+        WRITE_THRLOG_TXN_TYPE[WTR_THRLOG_TXN_TYPE_LONG], log.count);
+  }
+
   mysql_mutex_unlock(&LOCK_global_write_throttling_log);
   return write_throttling_log;
 }
