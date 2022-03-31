@@ -1,3 +1,5 @@
+source include/have_log_bin.inc;
+
 create database d1;
 create database d2;
 
