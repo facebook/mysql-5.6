@@ -2179,6 +2179,7 @@ class Rotate_log_event : public binary_log::Rotate_event, public Log_event {
 #if defined(MYSQL_SERVER)
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
+  int do_apply_event(Relay_log_info const *rli) override;
 #endif
 };
 
@@ -4082,6 +4083,20 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   Metadata_log_event(THD *thd_arg, bool using_trans, uint64_t hlc_time_ns);
 
   /**
+   * Use this constructor to create a Metadata Log Event which
+   * will have multiple type's from below and you will use multiple
+   * set operations to populate the guts.
+   */
+  Metadata_log_event();
+
+  /**
+   * Create a new metadata event which contains a generic raft provided string
+   * @param raft_str - the string that is understood by raft and
+   *                   to be serialized in metadata event
+   */
+  explicit Metadata_log_event(const std::string &raft_str);
+
+  /**
    * Create a new metadata event which contains Previous HLC. Previous HLC is
    * max HLC that could have been potentially stored in all the previous binlog
    * for the instance. This can be easily extended later if we decide to
@@ -4165,6 +4180,15 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - 0 on success, 1 on false
    */
   bool write_raft_str(Basic_ostream *ostream);
+
+  /**
+   * Write previous opid term and index to file
+   *
+   * @param file - file to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_prev_opid(Basic_ostream *ostream);
 
   /**
    * Write type and length to file

@@ -2440,6 +2440,20 @@ Sql_cmd *PT_show_profiles::make_cmd(THD *thd) {
   return &m_sql_cmd;
 }
 
+Sql_cmd *PT_show_raft_logs::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  return &m_sql_cmd;
+}
+
+Sql_cmd *PT_show_raft_status::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  return &m_sql_cmd;
+}
+
 Sql_cmd *PT_show_relaylog_events::make_cmd(THD *thd) {
   LEX *lex = thd->lex;
   lex->sql_command = m_sql_command;

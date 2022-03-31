@@ -428,6 +428,10 @@ class Raft_replication_delegate : public Delegate {
                      const std::string &raft_log_path_prefix,
                      const std::string &s_hostname, uint64_t port);
   int after_commit(THD *thd);
+  int purge_logs(THD *thd, uint64_t file_ext);
+  int show_raft_status(
+      THD *thd,
+      std::vector<std::pair<std::string, std::string>> *var_value_pairs);
 };
 
 int delegates_init();
@@ -509,4 +513,34 @@ class RaftListenerQueue : public RaftListenerQueueIf {
 
   std::mutex init_mutex_;    // Mutex to guard against init and deinit races
   std::atomic_bool inited_;  // Has this been inited?
+};
+
+// A container to help passing raft related rotation info through
+// the code. This will be created by the handler and then passed along.
+struct RaftRotateInfo {
+  // The payload of config change that contains before configuration
+  // and after configuration. Generated with help from Raft by plugin.
+  std::string config_change;
+  // The name of the new log file after rotation. In Raft case, it
+  // contains the name of the leader's next log.
+  std::string new_log_ident;
+  // The starting position of the next file. Typically 4.
+  ulonglong pos = 0;
+  // Is this rotation to get consensus on a NO-OP event after winning
+  // election.
+  bool noop = false;
+  // if true, the rotate event has already been appended to relay log
+  bool post_append = false;
+  // If true, the server will need to replicate and get consensus on
+  // rotate event.
+  bool rotate_via_raft = false;
+  // goes together with config_change above, if true, this is a
+  // rotation to be initiated by server to get consensus on a
+  // config change (add/remove/modify of the ring)
+  bool config_change_rotate = false;
+  // This is the opid of the rotate event which is either
+  // passed in by plugin or obtained from before_flush.
+  // During rotation of raft logs, this is put into Metadata event
+  // as previous opid
+  std::pair<int64_t, int64_t> rotate_opid = std::make_pair(0, 0);
 };

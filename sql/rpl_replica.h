@@ -57,7 +57,7 @@ typedef enum {
   SLAVE_THD_WORKER,
   SLAVE_THD_MONITOR
 } SLAVE_THD_TYPE;
-
+struct RaftRotateInfo;
 /**
   MASTER_DELAY can be at most (1 << 31) - 1.
 */
@@ -430,13 +430,15 @@ int init_recovery(Master_info *mi);
 
   @param skip_received_gtid_set_recovery When true, skips the received GTID
                                          set recovery.
+  @param need_lock If this is true, mi and rli data_lock will be acquired
 
   @retval 0 Success
   @retval nonzero Error
 */
 int load_mi_and_rli_from_repositories(
     Master_info *mi, bool ignore_if_no_info, int thread_mask,
-    bool skip_received_gtid_set_recovery = false, bool force_load = false);
+    bool skip_received_gtid_set_recovery = false, bool force_load = false,
+    bool need_lock = true);
 void end_info(Master_info *mi);
 /**
   Clear the information regarding the `Master_info` and `Relay_log_info` objects
@@ -550,7 +552,7 @@ void set_slave_thread_options(THD *thd);
 void set_slave_thread_default_charset(THD *thd, Relay_log_info const *rli);
 int rotate_relay_log(Master_info *mi, bool log_master_fd = true,
                      bool need_lock = true, bool need_log_space_lock = true,
-                     myf raft_flags = MYF(0));
+                     RaftRotateInfo *rotate_info = nullptr);
 int raft_stop_sql_thread(THD *thd);
 int raft_stop_io_thread(THD *thd);
 int raft_start_sql_thread(THD *thd);

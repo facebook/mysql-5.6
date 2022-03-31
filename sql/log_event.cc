@@ -5937,6 +5937,14 @@ bool Rotate_log_event::write(Basic_ostream *ostream) {
       write_footer(ostream));
 }
 
+int Rotate_log_event::do_apply_event(Relay_log_info const *) {
+  if (!enable_raft_plugin) return 0;
+
+  int64_t term, index;
+  thd->get_trans_marker(&term, &index);
+  return RUN_HOOK(raft_replication, after_commit, (thd));
+}
+
 /*
   Got a rotate log event from the master.
 
@@ -14635,6 +14643,17 @@ Metadata_log_event::Metadata_log_event(THD *thd_arg, bool using_trans,
   set_hlc_time(hlc_time_ns);
 }
 
+Metadata_log_event::Metadata_log_event()
+    : binary_log::Metadata_event(),
+      Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
+                Log_event::EVENT_IMMEDIATE_LOGGING) {}
+
+Metadata_log_event::Metadata_log_event(const std::string &raft_str)
+    : Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
+                Log_event::EVENT_IMMEDIATE_LOGGING) {
+  set_raft_str(raft_str);
+}
+
 Metadata_log_event::Metadata_log_event(uint64_t prev_hlc_time_ns)
     : binary_log::Metadata_event(),
       Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
@@ -14662,6 +14681,8 @@ bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
   if (write_prev_hlc_time(ostream)) DBUG_RETURN(1);
 
   if (write_raft_term_and_index(ostream)) DBUG_RETURN(1);
+
+  if (write_raft_prev_opid(ostream)) DBUG_RETURN(1);
 
   DBUG_RETURN(0);
 }
@@ -14754,6 +14775,31 @@ bool Metadata_log_event::write_raft_str(Basic_ostream *ostream) {
   bool ret = wrapper_my_b_safe_write(ostream, (const uchar *)raft_str_.c_str(),
                                      raft_str_.size());
 
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_raft_prev_opid(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_raft_prev_opid");
+
+  if (!does_exist(Metadata_event_types::RAFT_PREV_OPID_TYPE))
+    DBUG_RETURN(0); /* No need to write term and index */
+
+  char buffer[ENCODED_RAFT_PREV_OPID_SIZE];
+  char *ptr_buffer = buffer;
+
+  if (write_type_and_length(ostream, Metadata_event_types::RAFT_PREV_OPID_TYPE,
+                            ENCODED_RAFT_PREV_OPID_SIZE)) {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, prev_raft_term_);
+  ptr_buffer += sizeof(prev_raft_term_);
+
+  int8store(ptr_buffer, prev_raft_index_);
+  ptr_buffer += sizeof(prev_raft_index_);
+
+  assert(ptr_buffer == (buffer + sizeof(buffer)));
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
   DBUG_RETURN(ret);
 }
 
@@ -14942,6 +14988,10 @@ void Metadata_log_event::print(FILE * /* file */,
 
     if (does_exist(Metadata_event_types::RAFT_GENERIC_STR_TYPE))
       buffer.append("\t Raft string: '" + raft_str_ + "'");
+    if (does_exist(Metadata_event_types::RAFT_PREV_OPID_TYPE))
+      buffer.append(
+          "\tRaft Prev OPID term: " + std::to_string(prev_raft_term_) +
+          ", Raft Prev OPID Index: " + std::to_string(prev_raft_index_));
 
     print_header(head, print_event_info, false);
     my_b_printf(head, "%s\n", buffer.c_str());
@@ -14963,6 +15013,11 @@ int Metadata_log_event::do_apply_event(Relay_log_info const *rli) {
     rli->info_thd->hlc_time_ns_next = hlc_time_ns_;
   }
 
+  if (does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE)) {
+    // Stash the raft term and index in THD
+    thd->set_trans_marker(raft_term_, raft_index_);
+  }
+
   DBUG_RETURN(error);
 }
 
@@ -14972,13 +15027,31 @@ int Metadata_log_event::do_update_pos(Relay_log_info *rli) {
 }
 
 Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
-    Relay_log_info * /*unused */) {
+    Relay_log_info *rli) {
   /*
    * Metadata event containing previous hlc timestamp has no meaning for slave.
    * hence slave should skip such events
    */
   if (does_exist(Metadata_event_types::PREV_HLC_TYPE))
     return Log_event::EVENT_SKIP_IGNORE;
+
+  if (does_exist(Metadata_event_types::RAFT_PREV_OPID_TYPE))
+    return Log_event::EVENT_SKIP_IGNORE;
+
+  /*
+   * A metadata event not in the context of a transaction
+   * can be skipped as it is for a rotate/no-op event. Do this only if MTS is
+   * enabled (since single threaded slave does not care about free floating
+   * metadata event and curr_group_seen_gtid is set only for MTS)
+   */
+  if (enable_raft_plugin &&
+      ((rli->replica_parallel_workers > 0) && (!rli->curr_group_seen_gtid))) {
+    if (does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE)) {
+      // Stash the raft term and index in THD
+      thd->set_trans_marker(raft_term_, raft_index_);
+    }
+    return Log_event::EVENT_SKIP_IGNORE;
+  }
 
   return Log_event::EVENT_SKIP_NOT;
 }

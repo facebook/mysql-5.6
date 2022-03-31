@@ -700,6 +700,24 @@ bool Sql_cmd_show_processlist::execute_inner(THD *thd) {
   }
 }
 
+bool Sql_cmd_show_raft_logs::check_privileges(THD *) {
+  /* db ops requested that this work for non-super */
+  /* return check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL); */
+  return false;
+}
+
+bool Sql_cmd_show_raft_logs::execute_inner(THD *thd) {
+  return show_raft_logs(thd);
+}
+
+bool Sql_cmd_show_raft_status::check_privileges(THD *thd) {
+  return check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL);
+}
+
+bool Sql_cmd_show_raft_status::execute_inner(THD *thd) {
+  return show_raft_status(thd);
+}
+
 bool Sql_cmd_show_relaylog_events::check_privileges(THD *thd) {
   return check_global_access(thd, REPL_SLAVE_ACL);
 }

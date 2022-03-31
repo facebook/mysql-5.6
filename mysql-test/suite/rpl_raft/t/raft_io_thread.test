@@ -1,0 +1,69 @@
+--source include/master-slave.inc
+
+--disable_query_log
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Create connections to server 3 
+let $rpl_server_number= 3;
+let $rpl_connection_name= server_3;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_3;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Create connections to server 4
+let $rpl_server_number= 4;
+let $rpl_connection_name= server_4;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_4;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Create connections to server 5
+let $rpl_server_number= 5;
+let $rpl_connection_name= server_5;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_5;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Save variable value
+--connection slave
+SET @save.enable_raft_plugin=@@global.enable_raft_plugin;
+
+SET @@global.enable_raft_plugin=0;
+START SLAVE IO_THREAD;
+
+# raft cannot be enabled when IO thread is running
+--error ER_SLAVE_IO_RAFT_CONFLICT
+SET @@global.enable_raft_plugin=1;
+
+STOP SLAVE IO_THREAD;
+SET @@global.enable_raft_plugin=1;
+
+SET @@global.enable_raft_plugin=0;
+START SLAVE IO_THREAD;
+
+SET @@global.binlog_error_action="ABORT_SERVER";
+STOP SLAVE IO_THREAD;
+
+--error ER_RAFT_BINLOG_ERROR_ACTION
+SET @@global.enable_raft_plugin=1;
+
+SET @@global.binlog_error_action="ROLLBACK_TRX";
+SET @@global.enable_raft_plugin=1;
+
+
+SET @@global.enable_raft_plugin=0;
+START SLAVE IO_THREAD;
+
+# Retore to start state
+STOP SLAVE IO_THREAD;
+SET @@global.enable_raft_plugin=@save.enable_raft_plugin;
+
+--connection master
+--source include/rpl_end.inc

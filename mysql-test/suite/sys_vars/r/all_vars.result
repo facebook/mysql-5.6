@@ -16,6 +16,10 @@ left join t1 on variable_name=test_name where test_name is null ORDER BY variabl
 There should be *no* variables listed below:
 activate_all_roles_on_login
 activate_all_roles_on_login
+apply_log_retention_duration
+apply_log_retention_duration
+apply_log_retention_num
+apply_log_retention_num
 authentication_policy
 authentication_policy
 binlog_encryption
@@ -26,6 +30,8 @@ cte_max_recursion_depth
 cte_max_recursion_depth
 default_collation_for_utf8mb4
 default_collation_for_utf8mb4
+disable_raft_log_repointing
+disable_raft_log_repointing
 disabled_storage_engines
 disabled_storage_engines
 enable_acl_db_cache

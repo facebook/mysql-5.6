@@ -1219,6 +1219,10 @@ bool enable_super_log_bin_read_only = false;
 ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;
 bool disallow_raft = 1;  // raft is not allowed by default
+bool override_enable_raft_check = false;
+ulonglong apply_log_retention_num = 0;
+ulonglong apply_log_retention_duration = 0;
+bool disable_raft_log_repointing = 0;
 
 /* Apply log related variables for raft
    "_ptr" variables are system variables that should not be free by us */
@@ -4978,6 +4982,20 @@ SHOW_VAR com_status_vars[] = {
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"xa_start",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_XA_START]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_raftstatus",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_SHOW_RAFT_STATUS]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"purge_raft_log",
+     (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_PURGE_RAFT_LOG]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"purge_raft_log_before_date",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_PURGE_RAFT_LOG_BEFORE]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_raftlogs",
+     (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHOW_RAFT_LOGS]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
@@ -11684,7 +11702,7 @@ static int generate_apply_file_gvars() {
     DBUG_RETURN(0);
   }
 
-  if (!opt_apply_logname_ptr) {
+  if (!opt_apply_logname_ptr && !disable_raft_log_repointing) {
     /* create the apply binlog name for Raft using some common
      * rules. Replace binary with apply or -bin with -apply
      * This handles the 2 common cases of naming convention without

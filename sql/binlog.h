@@ -30,8 +30,10 @@
 #include <limits>
 #include <list>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "libbinlogevents/include/binlog_event.h"  // enum_binlog_checksum_alg
 #include "m_string.h"                              // llstr
@@ -76,6 +78,7 @@ class Binlog_cache_storage;
 
 struct Gtid;
 struct snapshot_info_st;
+struct RaftRotateInfo;
 
 typedef int64 query_id_t;
 
@@ -476,7 +479,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   int new_file_without_locking(
       Format_description_log_event *extra_description_event,
-      myf raft_flags = MYF(0));
+      RaftRotateInfo *raft_rotate_info = nullptr);
 
  private:
   /**
@@ -486,9 +489,16 @@ class MYSQL_BIN_LOG : public TC_LOG {
     @return true if server needs to be aborted
    */
   bool should_abort_on_binlog_error();
+
+  /*
+   * @param raft_rotate_info
+   *   Rotate related information passed in by listener callbacks.
+   *   Caters today to relay log rotates, no-op rotates and config
+   *   change rotates.
+   */
   int new_file_impl(bool need_lock,
                     Format_description_log_event *extra_description_event,
-                    myf raft_flags = MYF(0));
+                    RaftRotateInfo *raft_rotate_info = nullptr);
 
   bool open(PSI_file_key log_file_key, const char *log_name,
             const char *new_name, uint32 new_index_number);
@@ -517,6 +527,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
    *        rpl_handler.cc / point_binlog_to_apply
    */
   bool is_apply_log = false;
+
+  // TODO(pgl) : update init_index_file() to update apply_file_count
+  // Number of files that are created and maintained in index files
+  std::atomic<uint64_t> apply_file_count;
 
   /* This is relay log */
   bool is_relay_log;
@@ -677,6 +691,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
                       Gtid_monitoring_info *partial_trx,
                       uint64_t *max_prev_hlc = NULL);
 
+  /**
+   * This function is used by binlog_change_to_apply to update
+   * the previous gtid set map, since we don't call init_gtid_sets
+   * which would have initialized it from disk
+   */
+  bool init_prev_gtid_sets_map();
+
   enum_read_gtids_from_binlog_status read_gtids_from_binlog(
       const char *filename, Gtid_set *all_gtids, Gtid_set *prev_gtids,
       Gtid *first_gtid, Sid_map *sid_map, bool verify_checksum,
@@ -773,6 +794,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   HybridLogicalClock hlc;
 
+  // Used by raft log only
+  // Log file name: binary-logs-{port}.####
+  // Log file ext: ####
+  ulong raft_cur_log_ext;
   /*
      This is set when we have registered log entities with raft plugin
      during ordered commit, after we have become master on step up.
@@ -1043,15 +1068,15 @@ class MYSQL_BIN_LOG : public TC_LOG {
     binary log files.
     @param new_index_number The binary log file index number to start from
     after the RESET MASTER TO command is called.
-    @param raft_specific_handling Does this open_binlog interact with raft
-    (binlog or relay log)
+    @param raft_rotate_info rotate related information passed in by
+    listener callbacks
   */
   bool open_binlog(const char *log_name, const char *new_name,
                    ulong max_size_arg, bool null_created_arg,
                    bool need_lock_index, bool need_sid_lock,
                    Format_description_log_event *extra_description_event,
                    uint32 new_index_number = 0,
-                   bool raft_specific_handling = false);
+                   RaftRotateInfo *raft_rotate_info = nullptr);
 
   /**
     Open an existing binlog/relaylog file
@@ -1065,9 +1090,15 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   bool open_index_file(const char *index_file_name_arg, const char *log_name,
                        bool need_lock_index);
-  /* Use this to start writing a new log file */
+
+  /**
+    Use this to start writing a new log file
+    @param raft_rotate_info - Used by raft to optionally control
+     how file rotation happens. Caters to relay log rotates,
+     no-op rotates and config change rotates.
+  */
   int new_file(Format_description_log_event *extra_description_event,
-               myf raft_flags = MYF(0));
+               RaftRotateInfo *raft_rotate_info = nullptr);
 
   enum force_cache_type {
     FORCE_CACHE_DEFAULT,
@@ -1117,11 +1148,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * @param writer - Binlog writer
    * @param obuffer - The metadata event will be written to the buffer
    *                  (if not null)
+   * @param wrote_hlc - Will be set to true if HLC was written to the log file
    *
    * @return false on success, true on failure
    */
   bool write_hlc(THD *thd, binlog_cache_data *cache_data,
-                 Binlog_event_writer *writer, Binlog_cache_storage *obuffer);
+                 Binlog_event_writer *writer, Binlog_cache_storage *obuffer,
+                 bool *wrote_hlc = nullptr);
 
   /**
     Assign automatic generated GTIDs for all commit group threads in the flush
@@ -1181,6 +1214,17 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void purge();
   int rotate_and_purge(THD *thd, bool force_rotate);
 
+  /**
+   * Take the config change payload and create a before_flush call into the
+   * plugin after taking LOCK_log.
+   * We do a rotation immediately after config change, because it enables
+   * us to keep the invariant that we don't have free floating metadata
+   * events due to Raft, except the rotate event at the end of a file.
+   * @config_change - a description of the config change understood by Raft
+   *                  (move semantics)
+   */
+  int config_change_rotate(std::string config_change);
+
   /*
    * Reads the current index file and returns a list of all file names found in
    * the binlog file
@@ -1209,10 +1253,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
      @retval other Failure
   */
   bool flush_and_sync(const bool force = false);
+  void purge_apply_logs();
   int purge_logs(const char *to_log, bool included, bool need_lock_index,
                  bool need_update_threads, ulonglong *decrease_log_space,
-                 bool auto_purge);
-  int purge_logs_before_date(time_t purge_time, bool auto_purge);
+                 bool auto_purge, const char *max_log = nullptr);
+  int purge_logs_before_date(time_t purge_time, bool auto_purge,
+                             bool stop_purge = 0, bool need_lock_index = true,
+                             const char *max_log = nullptr);
   int set_crash_safe_index_file_name(const char *base_file_name);
   int open_crash_safe_index_file();
   int close_crash_safe_index_file();
@@ -1237,6 +1284,17 @@ class MYSQL_BIN_LOG : public TC_LOG {
   // iterating through the log index file
   int find_log_pos(LOG_INFO *linfo, const char *log_name, bool need_lock_index);
   int find_next_log(LOG_INFO *linfo, bool need_lock_index);
+
+  /**
+   *  Get the total number of log file entries in the index file
+   *
+   *  @param need_lock_index - should we aquire LOCK_index
+   *  @param num_log_files (out) - number of log file entries in the index file
+   *
+   *  @return 0 on success, non-zero on failure
+   *
+   */
+  int get_total_log_files(bool need_lock_index, uint64_t *num_log_files);
   int find_next_relay_log(char log_name[FN_REFLEN + 1]);
   int get_current_log(LOG_INFO *linfo, bool need_lock_log = true);
   /*
@@ -1415,6 +1473,9 @@ bool stmt_cannot_safely_rollback(const THD *thd);
 int log_loaded_block(IO_CACHE *file);
 
 bool purge_master_logs(THD *thd, const char *to_log);
+bool purge_raft_logs(THD *thd, const char *to_log);
+bool purge_raft_logs_before_date(THD *thd, time_t purge_time);
+bool show_raft_logs(THD *thd);
 bool purge_master_logs_before_date(THD *thd, time_t purge_time);
 bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool mysql_show_binlog_events(THD *thd);
@@ -1425,12 +1486,23 @@ void update_binlog_hlc();
 bool binlog_enabled();
 void register_binlog_handler(THD *thd, bool trx);
 int query_error_code(const THD *thd, bool not_killed);
+bool show_raft_status(THD *thd);
+bool get_and_lock_master_info(Master_info **master_info);
+void unlock_master_info(Master_info *master_info);
+int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids);
 
 extern const char *log_bin_index;
 extern const char *log_bin_basename;
 extern bool opt_binlog_order_commits;
 extern ulong rpl_read_size;
 extern bool rpl_semi_sync_source_enabled;
+
+/**
+ * Start a raft configuration change on the binlog with the provided
+ * config change payload
+ * @param config_change - Has the committed Config and New Config
+ */
+int raft_config_change(std::string config_change);
 
 /**
   Rotates the binary log file. Helper method invoked by raft plugin through
@@ -1445,15 +1517,11 @@ int rotate_binlog_file(THD *thd);
 /**
   Rotates the relay log file. Helper method invoked by raft plugin through
   raft listener queue.
-
-  @param new_log_iden  The new log name
-  @param pos the log position
-  @param raft_flags
+  @param raft_rotate_info raft flags and log info
 
   @returns true if a problem occurs, false otherwise.
  */
-int rotate_relay_log_for_raft(const std::string &new_log_ident, ulonglong pos,
-                              myf raft_flags = MYF(0));
+int rotate_relay_log_for_raft(RaftRotateInfo *raft_rotate_info);
 
 /**
   This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
