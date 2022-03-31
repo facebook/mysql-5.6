@@ -2184,4 +2184,27 @@ void _db_unlock_file_() {
   native_mutex_unlock(&THR_LOCK_dbug);
 }
 
+/**
+  Get current dbug settings.
+
+  @return Current top of dbug stack or nullptr if thread is not initialized.
+*/
+void *_db_get_settings_() {
+  CODE_STATE *cs;
+  get_code_state_or_return nullptr;
+  return cs->stack;
+}
+
+/**
+  Set current dbug settings.
+
+  @param s Dbug settings previously returned by _db_get_settings_().
+           If nullptr, then initial settings are used.
+*/
+void _db_set_settings_(void *s) {
+  CODE_STATE *cs;
+  get_code_state_or_return;
+  cs->stack = s ? reinterpret_cast<settings *>(s) : &init_settings;
+}
+
 #endif

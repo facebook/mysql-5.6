@@ -19,19 +19,19 @@ event_name	short_source	operation	number_of_bytes
 wait/synch/mutex/mysys/THR_LOCK_myisam	mi_create.cc:	lock	NULL
 execute stmt_dump_thread using @tid;
 name
-thread/thread_pool/worker
+thread/thread_pool/connection
 execute stmt_dump_events using @tid;
 event_name	short_source	operation	number_of_bytes
 wait/synch/mutex/mysys/THR_LOCK_myisam	mi_create.cc:	lock	NULL
 execute stmt_dump_thread using @tid;
 name
-thread/thread_pool/worker
+thread/thread_pool/connection
 execute stmt_dump_events using @tid;
 event_name	short_source	operation	number_of_bytes
 wait/synch/mutex/mysys/THR_LOCK_myisam	mi_create.cc:	lock	NULL
 execute stmt_dump_thread using @tid;
 name
-thread/thread_pool/worker
+thread/thread_pool/connection
 drop table test.t1;
 drop table test.t2;
 drop table test.t3;

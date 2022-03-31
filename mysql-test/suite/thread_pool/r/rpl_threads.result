@@ -24,7 +24,7 @@ select NAME, TYPE, PROCESSLIST_COMMAND, PROCESSLIST_STATE
 from performance_schema.threads
 where PROCESSLIST_ID = @master_dump_pid;
 NAME	TYPE	PROCESSLIST_COMMAND	PROCESSLIST_STATE
-thread/thread_pool/worker	FOREGROUND	Binlog Dump	Master has sent all binlog to slave; waiting for more updates
+thread/thread_pool/connection	FOREGROUND	Binlog Dump	Master has sent all binlog to slave; waiting for more updates
 "============ Performance schema on slave ============"
 select ID from INFORMATION_SCHEMA.PROCESSLIST
 where STATE like "Waiting for master to send event%"

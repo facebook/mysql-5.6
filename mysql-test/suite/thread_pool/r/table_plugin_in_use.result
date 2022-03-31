@@ -75,7 +75,7 @@ TABLE	performance_schema	pfs_example_employee_name	NULL	NULL	NULL
 TABLE	performance_schema	pfs_example_employee_name	NULL	NULL	NULL
 "===== Check Thread Status for default connection "
 NAME	PROCESSLIST_COMMAND	PROCESSLIST_STATE	PROCESSLIST_INFO
-thread/thread_pool/worker	Query	Waiting for table metadata lock	UNINSTALL PLUGIN pfs_example_plugin_employee
+thread/thread_pool/connection	Query	Waiting for table metadata lock	UNINSTALL PLUGIN pfs_example_plugin_employee
 "===== Check metadata lock status "
 OBJECT_TYPE	OBJECT_SCHEMA	OBJECT_NAME	LOCK_TYPE	LOCK_DURATION	LOCK_STATUS
 TABLE	performance_schema	pfs_example_employee_name	SHARED_READ	TRANSACTION	GRANTED
@@ -99,7 +99,7 @@ TABLE	performance_schema	pfs_example_employee_name	NULL	NULL	NULL
 TABLE	performance_schema	pfs_example_employee_name	NULL	NULL	NULL
 "===== Check Thread Status for default connection "
 NAME	PROCESSLIST_COMMAND	PROCESSLIST_STATE	PROCESSLIST_INFO
-thread/thread_pool/worker	Query	Waiting for table metadata lock	UNINSTALL PLUGIN pfs_example_plugin_employee
+thread/thread_pool/connection	Query	Waiting for table metadata lock	UNINSTALL PLUGIN pfs_example_plugin_employee
 "===== Check metadata lock status "
 OBJECT_TYPE	OBJECT_SCHEMA	OBJECT_NAME	LOCK_TYPE	LOCK_DURATION	LOCK_STATUS
 TABLE	performance_schema	pfs_example_employee_name	SHARED_READ	TRANSACTION	GRANTED
@@ -187,7 +187,7 @@ TABLE	performance_schema	pfs_example_employee_name	NULL	NULL	NULL
 TABLE	performance_schema	pfs_example_employee_name	NULL	NULL	NULL
 "===== Check Thread Status for default connection "
 NAME	PROCESSLIST_COMMAND	PROCESSLIST_STATE	PROCESSLIST_INFO
-thread/thread_pool/worker	Query	Waiting for table metadata lock	UNINSTALL PLUGIN pfs_example_plugin_employee
+thread/thread_pool/connection	Query	Waiting for table metadata lock	UNINSTALL PLUGIN pfs_example_plugin_employee
 "===== Check metadata lock status "
 OBJECT_TYPE	OBJECT_SCHEMA	OBJECT_NAME	LOCK_TYPE	LOCK_DURATION	LOCK_STATUS
 TABLE	performance_schema	pfs_example_employee_name	SHARED_READ	TRANSACTION	GRANTED
@@ -211,7 +211,7 @@ TABLE	performance_schema	pfs_example_employee_name	NULL	NULL	NULL
 TABLE	performance_schema	pfs_example_employee_name	NULL	NULL	NULL
 "===== Check Thread Status for default connection "
 NAME	PROCESSLIST_COMMAND	PROCESSLIST_STATE	PROCESSLIST_INFO
-thread/thread_pool/worker	Query	Waiting for table metadata lock	UNINSTALL PLUGIN pfs_example_plugin_employee
+thread/thread_pool/connection	Query	Waiting for table metadata lock	UNINSTALL PLUGIN pfs_example_plugin_employee
 "===== Check metadata lock status "
 OBJECT_TYPE	OBJECT_SCHEMA	OBJECT_NAME	LOCK_TYPE	LOCK_DURATION	LOCK_STATUS
 TABLE	performance_schema	pfs_example_employee_name	SHARED_READ	TRANSACTION	GRANTED

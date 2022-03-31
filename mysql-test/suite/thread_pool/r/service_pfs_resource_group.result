@@ -28,7 +28,7 @@ GRANT ALL ON *.* TO PFS_TEST_INVALID_GROUP_NAME;
 SELECT name, type, processlist_user, processlist_host, processlist_db, resource_group
 FROM performance_schema.threads WHERE resource_group = 'PFS_CURRENT_THREAD';
 name	type	processlist_user	processlist_host	processlist_db	resource_group
-thread/thread_pool/worker	FOREGROUND	root	localhost	test	PFS_CURRENT_THREAD
+thread/thread_pool/connection	FOREGROUND	root	localhost	test	PFS_CURRENT_THREAD
 
 ## TEST 2. VALID GROUP NAME
 ## set_resource_group() with a valid group name

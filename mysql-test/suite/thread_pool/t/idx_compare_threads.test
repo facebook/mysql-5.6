@@ -11,7 +11,7 @@ let $table = "threads";
 --echo          KEY (PROCESSLIST_USER, PROCESSLIST_HOST),
 --echo          KEY (PROCESSLIST_HOST), KEY (THREAD_OS_ID)
 
---source ../perfschema/include/idx_compare_setup.inc
+--source ../../perfschema/include/idx_compare_setup.inc
 
 # Get thread_os_id for user2
 
@@ -29,24 +29,24 @@ let $id_column = THREAD_ID;
 --disable_query_log
 eval SET @target_id = $con2_thread_id;
 --enable_query_log
---source ../perfschema/include/idx_compare_load.inc
+--source ../../perfschema/include/idx_compare_load.inc
 
 --echo
 --echo ## Test NAME
 let $key_group = 13;
 let $name_column = NAME;
-let $target_name = thread/thread_pool/worker;
---source ../perfschema/include/idx_compare_load.inc
+let $target_name = thread/thread_pool/connection;
+--source ../../perfschema/include/idx_compare_load.inc
 
 --echo
 --echo ## Test PROCESSLIST_USER, PROCESSLIST_HOST
 let $key_group = 2.1.1;
---source ../perfschema/include/idx_compare_load.inc
+--source ../../perfschema/include/idx_compare_load.inc
 
 --echo
 --echo ## Test PROCESSLIST_HOST
 let $key_group = 6.3;
---source ../perfschema/include/idx_compare_load.inc
+--source ../../perfschema/include/idx_compare_load.inc
 
 --echo
 --echo ## Test THREAD_OS_ID
@@ -55,7 +55,7 @@ let $id_column = THREAD_OS_ID;
 --disable_query_log
 eval SET @target_id = $con2_thread_os_id;
 --enable_query_log
---source ../perfschema/include/idx_compare_load.inc
+--source ../../perfschema/include/idx_compare_load.inc
 
 
---source ../perfschema/include/idx_compare_cleanup.inc
+--source ../../perfschema/include/idx_compare_cleanup.inc

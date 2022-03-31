@@ -90,6 +90,8 @@ extern void _db_lock_file_(void);
 extern void _db_unlock_file_(void);
 extern FILE *_db_fp_(void);
 extern void _db_flush_();
+extern void *_db_get_settings_();
+extern void _db_set_settings_(void *s);
 
 #ifdef __cplusplus
 

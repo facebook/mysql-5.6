@@ -85,7 +85,7 @@ while($i)
   --let $state_db= $db
   --let $state_command= Query
   --let $state_info= $info
-  --source ../rpl/include/rpl_row_stages_validate.inc
+  --source ../../rpl/include/rpl_row_stages_validate.inc
 
   # this session signals that applier can proceed to next row
   SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
@@ -159,7 +159,7 @@ while($i)
   --let $state_db= $db
   --let $state_command= Query
   --let $state_info= $info
-  --source ../rpl/include/rpl_row_stages_validate.inc
+  --source ../../rpl/include/rpl_row_stages_validate.inc
 
   SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 
@@ -209,7 +209,7 @@ BEGIN;
 
 # skip show processlist since comparison of info field is bogus with BINLOG statement
 --let $state_skip_show_processlist=1
---let $state_thd_name= thread/thread_pool/worker
+--let $state_thd_name= thread/thread_pool/connection
 --let $state_command= Query
 --let $state_db= $db
 
@@ -221,7 +221,7 @@ SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
 
 --let $state_stage= Applying batch of row changes (write)
 --let $state_info= INSERT INTO db_wl7364.t1 (1)
---source ../rpl/include/rpl_row_stages_validate.inc
+--source ../../rpl/include/rpl_row_stages_validate.inc
 
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 
@@ -239,7 +239,7 @@ SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
 
 --let $state_stage= Applying batch of row changes (update)
 --let $state_info= UPDATE db_wl7364.t1 (1)(2)
---source ../rpl/include/rpl_row_stages_validate.inc
+--source ../../rpl/include/rpl_row_stages_validate.inc
 
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 
@@ -257,7 +257,7 @@ SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
 
 --let $state_stage= Applying batch of row changes (delete)
 --let $state_info= DELETE FROM db_wl7364.t1 (2)
---source ../rpl/include/rpl_row_stages_validate.inc
+--source ../../rpl/include/rpl_row_stages_validate.inc
 
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 
@@ -523,7 +523,7 @@ while($i)
   --let $state_db= $db
   --let $state_command= Query
   --let $state_info= $info
-  --source ../rpl/include/rpl_row_stages_validate.inc
+  --source ../../rpl/include/rpl_row_stages_validate.inc
 
   # this session signals that applier can proceed to next row
   SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';

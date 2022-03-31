@@ -2,7 +2,7 @@
 select NAME, PROCESSLIST_USER, PROCESSLIST_HOST, CONNECTION_TYPE
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
-NAME	thread/thread_pool/worker
+NAME	thread/thread_pool/connection
 PROCESSLIST_USER	root
 PROCESSLIST_HOST	localhost
 CONNECTION_TYPE	Socket
@@ -23,7 +23,7 @@ SET GLOBAL general_log=       'ON';
 select NAME, PROCESSLIST_USER, PROCESSLIST_HOST, CONNECTION_TYPE
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
-NAME	thread/thread_pool/worker
+NAME	thread/thread_pool/connection
 PROCESSLIST_USER	root
 PROCESSLIST_HOST	localhost
 CONNECTION_TYPE	Socket
@@ -31,7 +31,7 @@ CONNECTION_TYPE	Socket
 select NAME, PROCESSLIST_USER, PROCESSLIST_HOST, CONNECTION_TYPE
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
-NAME	thread/thread_pool/worker
+NAME	thread/thread_pool/connection
 PROCESSLIST_USER	root
 PROCESSLIST_HOST	santa.claus.ipv4.example.com
 CONNECTION_TYPE	TCP/IP
@@ -39,7 +39,7 @@ CONNECTION_TYPE	TCP/IP
 select NAME, PROCESSLIST_USER, PROCESSLIST_HOST, CONNECTION_TYPE
 from performance_schema.threads
 where PROCESSLIST_ID = connection_id();
-NAME	thread/thread_pool/worker
+NAME	thread/thread_pool/connection
 PROCESSLIST_USER	rootssl
 PROCESSLIST_HOST	santa.claus.ipv4.example.com
 CONNECTION_TYPE	SSL/TLS
