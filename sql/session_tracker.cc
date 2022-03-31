@@ -45,6 +45,7 @@
 #include "mysqld_error.h"
 #include "sql/current_thd.h"
 #include "sql/protocol.h"
+#include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
 #include "sql/rpl_context.h"
@@ -186,7 +187,9 @@ class Session_sysvars_tracker : public State_tracker {
   bool check(THD *thd, set_var *var) override;
   bool update(THD *thd) override;
   bool store(THD *thd, String &buf) override;
-  void mark_as_changed(THD *thd, LEX_CSTRING tracked_item_name) override;
+  void mark_as_changed(
+      THD *thd, LEX_CSTRING tracked_item_name,
+      const LEX_CSTRING *tracked_item_value = nullptr) override;
   /* callback */
   static const uchar *sysvars_get_key(const uchar *entry, size_t *length);
 
@@ -216,7 +219,9 @@ class Current_schema_tracker : public State_tracker {
   bool check(THD *, set_var *) override { return false; }
   bool update(THD *thd) override;
   bool store(THD *thd, String &buf) override;
-  void mark_as_changed(THD *thd, LEX_CSTRING tracked_item_name) override;
+  void mark_as_changed(
+      THD *thd, LEX_CSTRING tracked_item_name,
+      const LEX_CSTRING *tracked_item_value = nullptr) override;
 };
 
 /* To be used in expanding the buffer. */
@@ -366,7 +371,9 @@ class Session_gtids_tracker
   bool check(THD *, set_var *) override { return false; }
   bool update(THD *thd) override;
   bool store(THD *thd, String &buf) override;
-  void mark_as_changed(THD *thd, LEX_CSTRING tracked_item_name) override;
+  void mark_as_changed(
+      THD *thd, LEX_CSTRING tracked_item_name,
+      const LEX_CSTRING *tracked_item_value = nullptr) override;
 
   // implementation of the Session_gtids_ctx::Ctx_change_listener
   void notify_session_gtids_ctx_change() override {
@@ -778,8 +785,9 @@ bool Session_sysvars_tracker::store(THD *thd, String &buf) {
   @param tracked_item_name Name of the system variable which got changed.
 */
 
-void Session_sysvars_tracker::mark_as_changed(THD *thd,
-                                              LEX_CSTRING tracked_item_name) {
+void Session_sysvars_tracker::mark_as_changed(
+    THD *thd, LEX_CSTRING tracked_item_name,
+    const LEX_CSTRING *tracked_item_value MY_ATTRIBUTE((unused))) {
   assert(tracked_item_name.str);
   sysvar_node_st *node = nullptr;
   /*
@@ -886,9 +894,8 @@ bool Current_schema_tracker::store(THD *thd, String &buf) {
   @param tracked_item_name Always null (unused).
 */
 
-void Current_schema_tracker::mark_as_changed(THD *thd,
-                                             LEX_CSTRING tracked_item_name
-                                             [[maybe_unused]]) {
+void Current_schema_tracker::mark_as_changed(THD *thd, LEX_CSTRING,
+                                             const LEX_CSTRING *) {
   m_changed = true;
   thd->lex->safe_to_cache_query = false;
 }
@@ -1221,7 +1228,8 @@ bool Transaction_state_tracker::store(THD *thd, String &buf) {
   Mark the tracker as changed.
 */
 
-void Transaction_state_tracker::mark_as_changed(THD *, LEX_CSTRING) {
+void Transaction_state_tracker::mark_as_changed(THD *, LEX_CSTRING,
+                                                const LEX_CSTRING *) {
   m_changed = true;
 }
 
@@ -1377,6 +1385,88 @@ void Transaction_state_tracker::set_isol_level(THD *thd,
 
 ///////////////////////////////////////////////////////////////////////////////
 
+bool Session_resp_attr_tracker::store(THD *thd MY_ATTRIBUTE((unused)),
+                                      String &buf) {
+  assert(attrs_.size() > 0);
+
+  size_t len = net_length_size(attrs_.size());
+  for (const auto &attr : attrs_) {
+    assert(attr.first.size() <= MAX_RESP_ATTR_LEN);
+    assert(attr.second.size() <= MAX_RESP_ATTR_LEN);
+    len += net_length_size(attr.first.size()) + attr.first.size();
+    len += net_length_size(attr.second.size()) + attr.second.size();
+  }
+  size_t header_len = 1 + net_length_size(len) + len;
+
+  uchar *to = (uchar *)buf.prep_append(header_len, EXTRA_ALLOC);
+
+  /* format of the payload is as follows:
+     [tracker type] [total bytes] [count of pairs] [keylen] [keydata]
+     [vallen] [valdata] */
+
+  /* Session state type */
+  *to = SESSION_TRACK_RESP_ATTR;
+  to++;
+  to = net_store_length(to, len);
+  to = net_store_length(to, attrs_.size());
+
+  DBUG_PRINT("info", ("Sending response attributes:"));
+  for (const auto &attr : attrs_) {
+    // Store len and data for key
+    to = net_store_data(to, pointer_cast<const uchar *>(attr.first.data()),
+                        attr.first.size());
+    // Store len and data for value
+    to = net_store_data(to, pointer_cast<const uchar *>(attr.second.data()),
+                        attr.second.size());
+
+    DBUG_PRINT("info", ("   %s = %s", attr.first.data(), attr.second.data()));
+  }
+
+  m_changed = false;
+  attrs_.clear();
+
+  return false;
+}
+
+/**
+  @brief Mark the tracker as changed and store the response attributes
+
+  @param thd [IN]             The thd handle
+  @param key [IN]             The attribute key to include in the OK packet
+  @param value [IN]           The attribute value to include in the OK packet
+  @return void
+*/
+
+void Session_resp_attr_tracker::mark_as_changed(THD *thd MY_ATTRIBUTE((unused)),
+                                                LEX_CSTRING key,
+                                                const LEX_CSTRING *value) {
+  assert(key.length > 0);
+  assert(key.length <= MAX_RESP_ATTR_LEN);
+  assert(value->length > 0);
+  assert(value->length <= MAX_RESP_ATTR_LEN);
+
+  std::string k(key.str, std::min(key.length, MAX_RESP_ATTR_LEN));
+  std::string val(value->str, std::min(value->length, MAX_RESP_ATTR_LEN));
+  attrs_[std::move(k)] = std::move(val);
+  m_changed = true;
+}
+
+/**
+  @brief Enable/disable the tracker based on
+         @@session_track_response_attributes's value.
+
+  @param thd [IN]           The thd handle.
+
+  @return
+    false (always)
+*/
+bool Session_resp_attr_tracker::enable(THD *thd) {
+  m_enabled = (thd->variables.session_track_response_attributes) ? true : false;
+  return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 /** Constructor */
 Session_state_change_tracker::Session_state_change_tracker() {
   m_changed = false;
@@ -1447,7 +1537,8 @@ bool Session_state_change_tracker::store(THD *, String &buf) {
 */
 
 void Session_state_change_tracker::mark_as_changed(
-    THD *thd, LEX_CSTRING tracked_item_name) {
+    THD *thd, LEX_CSTRING tracked_item_name,
+    const LEX_CSTRING *tracked_item_value MY_ATTRIBUTE((unused))) {
   /* do not send the boolean flag for the tracker itself
      in the OK packet */
   if (tracked_item_name.str &&
@@ -1487,7 +1578,7 @@ class Session_transaction_state : public State_tracker {
   bool check(THD *, set_var *) override { return false; }
   bool update(THD *) override { return false; }
   bool store(THD *, String &) override { return false; }
-  void mark_as_changed(THD *, LEX_CSTRING) override {}
+  void mark_as_changed(THD *, LEX_CSTRING, const LEX_CSTRING *) override {}
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1510,6 +1601,8 @@ void Session_tracker::init(const CHARSET_INFO *char_set) {
       new (std::nothrow) Transaction_state_tracker;
   m_trackers[TRACK_TRANSACTION_STATE] =
       new (std::nothrow) Session_transaction_state;
+  m_trackers[SESSION_RESP_ATTR_TRACKER] =
+      new (std::nothrow) Session_resp_attr_tracker;
 }
 
 void Session_tracker::claim_memory_ownership(bool claim) {
@@ -1711,9 +1804,8 @@ bool Session_gtids_tracker::store(THD *thd, String &buf) {
   @param tracked_item_name          Always null.
 */
 
-void Session_gtids_tracker::mark_as_changed(THD *thd [[maybe_unused]],
-                                            LEX_CSTRING tracked_item_name
-                                            [[maybe_unused]]) {
+void Session_gtids_tracker::mark_as_changed(THD *, LEX_CSTRING,
+                                            const LEX_CSTRING *) {
   m_changed = true;
 }
 

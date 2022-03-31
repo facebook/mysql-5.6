@@ -1714,6 +1714,13 @@ done:
           ->is_enabled())
     thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
         ->mark_as_changed(thd, {});
+  if (thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)
+          ->is_enabled() &&
+      thd->db().length > 0) {
+    static LEX_CSTRING key = {STRING_WITH_LEN("change_db")};
+    thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)
+        ->mark_as_changed(thd, key, &thd->db());
+  }
   return false;
 }
 
