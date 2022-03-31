@@ -56,6 +56,33 @@ select * from information_schema.tp_admission_control_entities where schema_name
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	5	10	3	0	15	0
 test_db2	0	1	0	0	1	0
+Dynamically disable/enable thread pool plugin.
+select * from t1;
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+set @@global.thread_pool_on=false;
+Query on existing thread pool connection succeeds now.
+select 1;
+1
+1
+Query on new connection will wait on the table lock.
+select * from t1;
+Query on another new connection will succeed.
+select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	5	10	4	0	16	0
+test_db2	0	0	0	0	0	0
+set @@global.thread_pool_on=true;
+Query on the second connection will still run even with thread pool enabled.
+select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	5	10	4	0	16	0
+test_db2	0	0	0	0	0	0
+After thread pool is enabled query on new connection will be rejected.
+select * from t1;
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+Query on existing thread pool connection is also rejected.
+select * from t1;
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
 set @@global.thread_pool_max_waiting_queries=6;
 Kill a thread that is waiting for admission.
 select count(*) from t1;
@@ -101,10 +128,10 @@ The waiting queries will be unblocked
 Check status variables
 include/assert.inc [DB Admission control waiting queries should be zero]
 include/assert.inc [DB Admission control running queries should be zero]
-include/assert.inc [DB Admission control aborted queries should be five]
+include/assert.inc [DB Admission control aborted queries should be eight]
 select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
-test_db	0	0	5	0	13	0
+test_db	0	0	8	0	13	0
 test_db2	0	0	0	0	0	0
 set @@global.thread_pool_admission_control_by_trx = @save_admission_control_by_trx;
 select @@global.thread_pool_admission_control_by_trx;
@@ -141,7 +168,7 @@ waiting_queries should be 0
 waiting_queries = 0
 select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
-test_db	0	0	5	1	15	0
+test_db	0	0	8	1	15	0
 test_db2	0	0	0	0	0	0
 reset global.thread_pool_max_running_queries and global.thread_pool_max_waiting_queries
 set @@global.thread_pool_max_running_queries=10;

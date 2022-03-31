@@ -163,4 +163,15 @@ my_thread_attr_t *get_connection_attrib(void);
 /* Increment the status variable 'Aborted_connects'. */
 void increment_aborted_connects();
 
+/**
+  Set current PSI thread.
+*/
+void psi_set_thread(PSI_thread *psi MY_ATTRIBUTE((unused)));
+
+/**
+  Set current PSI thread as owner of THD socket.
+  @param thd THD of socket to set owner on.
+*/
+void psi_set_socket_thread_owner(THD *thd);
+
 #endif  // THREAD_POOL_PRIV_INCLUDED

@@ -300,6 +300,25 @@ my_thread_attr_t *get_connection_attrib() { return &connection_attrib; }
 
 ulong get_max_connections() { return max_connections; }
 
+/**
+  Set current PSI thread.
+*/
+void psi_set_thread(PSI_thread *psi MY_ATTRIBUTE((unused))) {
+#ifdef HAVE_PSI_THREAD_INTERFACE
+  PSI_THREAD_CALL(set_thread)(psi);
+#endif /* HAVE_PSI_THREAD_INTERFACE */
+}
+
+/**
+  Set current PSI thread as owner of THD socket.
+
+  @param thd THD of socket to set owner on.
+*/
+void psi_set_socket_thread_owner(THD *thd) {
+  mysql_socket_set_thread_owner(
+      thd->get_protocol_classic()->get_vio()->mysql_socket);
+}
+
 //////////////////////////////////////////////////////////
 //
 //  Definitions of functions declared in plugin.h

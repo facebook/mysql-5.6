@@ -1,0 +1,3 @@
+select @@global.thread_pool_on;
+@@global.thread_pool_on
+0
