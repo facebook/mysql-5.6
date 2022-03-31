@@ -540,7 +540,9 @@ int flush_master_info(Master_info *mi, bool force, bool need_lock = true,
 void add_replica_skip_errors(const char *arg);
 void set_replica_skip_errors(char **replica_skip_errors_ptr);
 void configure_master_connection_options(MYSQL *mysql, Master_info *mi);
-int send_replica_statistics_to_master(MYSQL *mysql, Master_info *mi);
+int send_replica_statistics_to_master(MYSQL *mysql,
+                                      int milli_sec_behind_master);
+std::pair<longlong, longlong> get_time_lag_behind_master(Master_info *mi);
 int add_new_channel(Master_info **mi, const char *channel);
 /**
   Terminates the slave threads according to the given mask.

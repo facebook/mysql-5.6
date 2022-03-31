@@ -1,6 +1,7 @@
 #
 # Test if slaves are able to send lag statistics to master every 15 seconds.
 #
+source include/have_debug_sync.inc;
 -- disable_warnings
 -- source include/master-slave.inc
 
@@ -109,7 +110,7 @@ select sleep(2);
 select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
 
 --echo ########################################################################################################
---echo ### Case 3.5: Slave should be able to handle reconnections to master. It should reuse the existing 
+--echo ### Case 3.5: Slave should be able to handle reconnections to master. It should reuse the existing
 --echo ### thread for sending slave stats and should not spawn a new one.
 --echo ########################################################################################################
 connection slave;
@@ -141,8 +142,46 @@ select sleep(2);
 select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
 
 --echo ########################################################################################################
+--echo ### Case 3.6: Secondary should wait after restart to catch up before sending lag info to primary
+--echo ########################################################################################################
+connection master;
+set @@GLOBAL.write_stats_count=10;
+
+--let $rpl_server_number= 2
+--source include/rpl_restart_server.inc
+
+connection slave;
+-- source include/start_slave.inc
+select @@write_stats_frequency;
+set @@global.debug= '+d,dbug.force_high_lag_behind_master';
+set @@GLOBAL.write_stop_throttle_lag_milliseconds=100;
+select variable_value from performance_schema.global_status where variable_name = 'uptime' into @uptime;
+# Artificially add wait time for 5 more seconds before lag info is sent to primary
+set @@GLOBAL.write_send_replica_statistics_wait_time_seconds=(select cast(@uptime as SIGNED)+5);
+set @@GLOBAL.write_stats_frequency=1;
+
+connection master;
+select sleep(3);
+# Master should not be receiving stats every second because replica is waiting for uptime threshold before sending lag info
+select COALESCE(now() - max(timestamp) <= 1, 0) as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+select now() into @t;
+# wait until we start receiving replica_statistics again and there's at least one newer entry
+let $wait_condition= select timediff(max(timestamp), @t) > 0 from performance_schema.replica_statistics;
+--source include/wait_condition.inc
+select sleep(2);
+# Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+#reset
+connection slave;
+set @@global.debug= '-d,dbug.force_high_lag_behind_master';
+set @@GLOBAL.write_send_replica_statistics_wait_time_seconds=0;
+set @@GLOBAL.write_stop_throttle_lag_milliseconds=86400000;
+
+--echo ########################################################################################################
 --echo ### Case 3.5: Secondary is not stuck waiting for primary to send OK packet in case something goes wrong
---echo ### It should timeout and move on. 
+--echo ### It should timeout and move on.
 --echo ########################################################################################################
 connection slave;
 select @@write_stats_frequency;
@@ -176,7 +215,7 @@ select sleep(2);
 select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
 
 --echo ########################################################################################################
---echo ### Case 3.6: Test for 8.0.20 crashes. Make sure secondary does not crash when slave_compressed_protocol = 1 
+--echo ### Case 3.6: Test for 8.0.20 crashes. Make sure secondary does not crash when slave_compressed_protocol = 1
 --echo ########################################################################################################
 connection slave;
 set @@GLOBAL.write_stats_frequency=1;

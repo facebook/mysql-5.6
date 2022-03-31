@@ -111,7 +111,7 @@ select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from
 less_than_1_sec_old_most_recent_stats
 1
 ########################################################################################################
-### Case 3.5: Slave should be able to handle reconnections to master. It should reuse the existing 
+### Case 3.5: Slave should be able to handle reconnections to master. It should reuse the existing
 ### thread for sending slave stats and should not spawn a new one.
 ########################################################################################################
 select @@write_stats_frequency;
@@ -135,8 +135,38 @@ select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from
 less_than_1_sec_old_most_recent_stats
 1
 ########################################################################################################
+### Case 3.6: Secondary should wait after restart to catch up before sending lag info to primary
+########################################################################################################
+set @@GLOBAL.write_stats_count=10;
+include/rpl_restart_server.inc [server_number=2]
+include/start_slave.inc
+select @@write_stats_frequency;
+@@write_stats_frequency
+0
+set @@global.debug= '+d,dbug.force_high_lag_behind_master';
+set @@GLOBAL.write_stop_throttle_lag_milliseconds=100;
+select variable_value from performance_schema.global_status where variable_name = 'uptime' into @uptime;
+set @@GLOBAL.write_send_replica_statistics_wait_time_seconds=(select cast(@uptime as SIGNED)+5);
+set @@GLOBAL.write_stats_frequency=1;
+select sleep(3);
+sleep(3)
+0
+select COALESCE(now() - max(timestamp) <= 1, 0) as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+0
+select now() into @t;
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+1
+set @@global.debug= '-d,dbug.force_high_lag_behind_master';
+set @@GLOBAL.write_send_replica_statistics_wait_time_seconds=0;
+set @@GLOBAL.write_stop_throttle_lag_milliseconds=86400000;
+########################################################################################################
 ### Case 3.5: Secondary is not stuck waiting for primary to send OK packet in case something goes wrong
-### It should timeout and move on. 
+### It should timeout and move on.
 ########################################################################################################
 select @@write_stats_frequency;
 @@write_stats_frequency
@@ -159,7 +189,7 @@ select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from
 less_than_1_sec_old_most_recent_stats
 1
 ########################################################################################################
-### Case 3.6: Test for 8.0.20 crashes. Make sure secondary does not crash when slave_compressed_protocol = 1 
+### Case 3.6: Test for 8.0.20 crashes. Make sure secondary does not crash when slave_compressed_protocol = 1
 ########################################################################################################
 set @@GLOBAL.write_stats_frequency=1;
 set @@GLOBAL.write_stats_count=10;

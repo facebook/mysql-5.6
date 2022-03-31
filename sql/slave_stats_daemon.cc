@@ -187,11 +187,24 @@ static void *handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused))) {
       if (connected_to_master &&
           (enable_raft_plugin ||
            active_mi->slave_running == MYSQL_SLAVE_RUN_CONNECT)) {
-        if (send_replica_statistics_to_master(mysql, active_mi)) {
-          DBUG_PRINT("info", ("Slave Stats Daemon: Failed to send lag "
-                              "statistics, resetting connection, (Error: %s)",
-                              mysql_error(mysql)));
-          connected_to_master = false;
+        ulong seconds_since_start = time(0) - server_start_time;
+        std::pair<longlong, longlong> time_lag_behind_master =
+            get_time_lag_behind_master(active_mi);
+        int milli_sec_behind_master =
+            std::max((int)time_lag_behind_master.second, 0);
+        DBUG_EXECUTE_IF("dbug.force_high_lag_behind_master",
+                        { milli_sec_behind_master = 9999; });
+        if (seconds_since_start >
+                write_send_replica_statistics_wait_time_seconds ||
+            (ulong)milli_sec_behind_master <
+                write_stop_throttle_lag_milliseconds) {
+          if (send_replica_statistics_to_master(mysql,
+                                                milli_sec_behind_master)) {
+            DBUG_PRINT("info", ("Slave Stats Daemon: Failed to send lag "
+                                "statistics, resetting connection, (Error: %s)",
+                                mysql_error(mysql)));
+            connected_to_master = false;
+          }
         }
       }
       error = 0;
