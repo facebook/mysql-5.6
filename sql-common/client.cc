@@ -734,6 +734,79 @@ inline my_ulonglong net_field_length_ll_safe(MYSQL *mysql, uchar **packet,
   return net_field_length_ll(packet);
 }
 
+/*
+ * Reads a single entry out of the response attributes field
+ * Returns NULL on error
+ */
+static LIST *read_resp_attr_entry(MYSQL *mysql, uchar **pos,
+                                  ulong packet_length) {
+  bool is_error;
+  LIST *element = NULL;
+  LEX_STRING *data = NULL;
+  char *data_str;
+  /* Get the length of the data */
+  size_t len =
+      (size_t)net_field_length_ll_safe(mysql, pos, packet_length, &is_error);
+  if (is_error) {
+    return NULL;
+  }
+
+  if (!buffer_check_remaining(mysql, *pos, packet_length, len)) {
+    return NULL;
+  }
+
+  if (!my_multi_malloc(key_memory_MYSQL_state_change_info, MYF(0), &element,
+                       sizeof(LIST), &data, sizeof(LEX_STRING), &data_str, len,
+                       NullS)) {
+    return NULL;
+  }
+
+  data->str = data_str;
+  memcpy(data->str, *pos, len);
+  data->length = len;
+  *pos += len;
+
+  element->data = data;
+  return element;
+}
+
+static int read_resp_attrs(MYSQL *mysql, STATE_INFO *info, uchar **pos,
+                           ulong packet_length) {
+  bool is_error;
+  // Length is included so it can be skipped
+  (void)net_field_length_ll_safe(mysql, pos, packet_length, &is_error);
+  if (is_error) {
+    return 1;
+  }
+  size_t count =
+      (size_t)net_field_length_ll_safe(mysql, pos, packet_length, &is_error);
+  if (is_error) {
+    return 1;
+  }
+  LIST *element_key = NULL;
+  LIST *element_value = NULL;
+
+  // The response attributes come in key/value pairs
+  for (size_t ii = 0; ii < count; ii++) {
+    element_key = read_resp_attr_entry(mysql, pos, packet_length);
+    if (element_key == NULL) {
+      return 1;
+    }
+
+    element_value = read_resp_attr_entry(mysql, pos, packet_length);
+    if (element_value == NULL) {
+      my_free(element_key);
+      return 1;
+    }
+
+    // Add the value to the list first since the list gets reversed later
+    ADD_INFO(info, element_value, SESSION_TRACK_RESP_ATTR);
+    ADD_INFO(info, element_key, SESSION_TRACK_RESP_ATTR);
+  }
+
+  return 0;
+}
+
 /**
  Read Ok packet along with the server state change information.
 */
@@ -1005,6 +1078,13 @@ void read_ok_ex(MYSQL *mysql, ulong length) {
               ADD_INFO(info, element, SESSION_TRACK_STATE_CHANGE);
 
               break;
+            case SESSION_TRACK_RESP_ATTR:
+              if (read_resp_attrs(mysql, info, &pos, length)) {
+                set_mysql_error(mysql, CR_MALFORMED_PACKET, unknown_sqlstate);
+                return;
+              }
+
+              break;
             default:
               assert(type <= SESSION_TRACK_END);
               /*
@@ -1015,6 +1095,9 @@ void read_ok_ex(MYSQL *mysql, ulong length) {
               len = (size_t)net_field_length_ll_safe(mysql, &pos, length,
                                                      &is_error);
               if (is_error) return;
+              if (!buffer_check_remaining(mysql, pos, length, len)) {
+                return;
+              }
               pos += len;
               break;
           }
@@ -1022,7 +1105,7 @@ void read_ok_ex(MYSQL *mysql, ulong length) {
         }
         if (info) {
           int itype;
-          for (itype = SESSION_TRACK_BEGIN; itype <= SESSION_TRACK_END;
+          for (itype = SESSION_TRACK_BEGIN; itype < SESSION_TRACK_END;
                itype++) {
             if (info->info_list[itype].head_node) {
               info->info_list[itype].current_node =
@@ -9159,6 +9242,116 @@ int STDCALL mysql_session_track_get_next(MYSQL *mysql,
       list_rest(info->info_list[type].current_node);
 
   return ret;
+}
+
+/*
+  Get the first key/value pair from the response attribute data
+
+  @param mysql     [IN]     mysql handle
+  @param keydata   [OUT]    the data for the key
+  @param keylength [OUT]    length of the key
+  @param keydata   [OUT]    the data for the key
+  @param keylength [OUT]    length of the key
+
+  @return
+    0 - Valid data stored
+    1 - No data
+*/
+
+static int mysql_resp_attr_get_first(MYSQL *mysql, const char **keydata,
+                                     size_t *keylength, const char **valdata,
+                                     size_t *vallength) {
+  const char *attr1data;
+  const char *attr2data;
+  size_t attr1length;
+  size_t attr2length;
+
+  if (!mysql_session_track_get_first(mysql, SESSION_TRACK_RESP_ATTR, &attr1data,
+                                     &attr1length)) {
+    if (!mysql_session_track_get_next(mysql, SESSION_TRACK_RESP_ATTR,
+                                      &attr2data, &attr2length)) {
+      *keydata = attr1data;
+      *keylength = attr1length;
+      *valdata = attr2data;
+      *vallength = attr2length;
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+/*
+  Get the next key/value pair from the response attribute data
+
+  @param mysql     [IN]     mysql handle
+  @param keydata   [OUT]    the data for the key
+  @param keylength [OUT]    length of the key
+  @param keydata   [OUT]    the data for the key
+  @param keylength [OUT]    length of the key
+
+  @return
+    0 - Valid data stored
+    1 - No data
+*/
+
+static int mysql_resp_attr_get_next(MYSQL *mysql, const char **keydata,
+                                    size_t *keylength, const char **valdata,
+                                    size_t *vallength) {
+  const char *attr1data;
+  const char *attr2data;
+  size_t attr1length;
+  size_t attr2length;
+
+  if (!mysql_session_track_get_next(mysql, SESSION_TRACK_RESP_ATTR, &attr1data,
+                                    &attr1length)) {
+    if (!mysql_session_track_get_next(mysql, SESSION_TRACK_RESP_ATTR,
+                                      &attr2data, &attr2length)) {
+      *keydata = attr1data;
+      *keylength = attr1length;
+      *valdata = attr2data;
+      *vallength = attr2length;
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+/*
+  Get the response attribute value for a particular key
+
+  @param mysql  [IN]     mysql handle
+  @param key    [IN}     the attribute key to find
+  @param data   [OUT]    buffer to store the data in
+  @param length [OUT]    length of the data
+
+  @return
+    0 - Valid data stored
+    1 - No data
+*/
+
+int STDCALL mysql_resp_attr_find(MYSQL *mysql, const char *lookup,
+                                 const char **data, size_t *length) {
+  int ret;
+  const char *key;
+  const char *val;
+  size_t keylen;
+  size_t vallen;
+  size_t lookup_len = strlen(lookup);
+
+  ret = mysql_resp_attr_get_first(mysql, &key, &keylen, &val, &vallen);
+  while (!ret) {
+    if (lookup_len == keylen && strncmp(lookup, key, keylen) == 0) {
+      *data = val;
+      *length = vallen;
+      return 0;
+    }
+
+    ret = mysql_resp_attr_get_next(mysql, &key, &keylen, &val, &vallen);
+  }
+
+  return 1;
 }
 
 /*

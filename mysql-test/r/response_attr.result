@@ -1,0 +1,57 @@
+set @save = @@global.session_track_response_attributes;
+set global session_track_response_attributes = on;
+
+# Case 1: Send queries that don't generate any response attributes
+
+SELECT 1;
+1
+1
+
+# Case 2: Send a SET wait_timeout statement
+
+SET wait_timeout = 37;
+SELECT 1;
+1
+1
+SET wait_timeout = 19;
+# Testing USE <db> returns the change of database in response attributes
+
+USE test;
+-- Tracker : SESSION_TRACK_SCHEMA
+-- test
+
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+# Expect no change info
+USE invalid;
+ERROR 42000: Unknown database 'invalid'
+USE mysql;
+-- Tracker : SESSION_TRACK_SCHEMA
+-- mysql
+
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- mysql
+
+USE test;
+-- Tracker : SESSION_TRACK_SCHEMA
+-- test
+
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+USE test;
+-- Tracker : SESSION_TRACK_SCHEMA
+-- test
+
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+# Testing COM_CHANGE_USER does not return the change of database in
+# response attributes
+
+set global session_track_response_attributes = @save;
