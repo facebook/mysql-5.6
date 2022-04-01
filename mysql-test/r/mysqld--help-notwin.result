@@ -1859,6 +1859,9 @@ The following options may be given as the first argument:
  --rocksdb-collect-sst-properties 
  Enables collecting SST file properties on each flush
  (Defaults to on; use --skip-rocksdb-collect-sst-properties to disable.)
+ --rocksdb-column-default-value-as-expression 
+ allow column default value expressed in function
+ (Defaults to on; use --skip-rocksdb-column-default-value-as-expression to disable.)
  --rocksdb-commit-in-the-middle 
  Commit rows implicitly every rocksdb_bulk_load_size, on
  bulk load/insert, update and delete
@@ -3425,6 +3428,7 @@ rocksdb-cf-options ON
 rocksdb-cfstats ON
 rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
+rocksdb-column-default-value-as-expression TRUE
 rocksdb-commit-in-the-middle FALSE
 rocksdb-commit-time-batch-for-recovery TRUE
 rocksdb-compact-cf 
