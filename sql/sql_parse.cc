@@ -1637,6 +1637,11 @@ bool do_command(THD *thd) {
   thd->get_protocol_classic()->get_output_packet()->shrink(
       thd->variables.net_buffer_length);
 
+  // Also shrink the buffer on NET object.
+  if (net->max_packet_size > thd->variables.net_buffer_length) {
+    net_shrink(net, thd->variables.net_buffer_length);
+  }
+
 out:
   /* The statement instrumentation must be closed in all cases. */
   assert(thd->m_digest == nullptr);

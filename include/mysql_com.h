@@ -1132,6 +1132,7 @@ void net_clear(struct NET *net, bool check_buffer);
 #endif
 void net_claim_memory_ownership(struct NET *net, bool claim);
 bool net_realloc(struct NET *net, size_t length);
+bool net_shrink(struct NET *net, size_t length);
 // extern "C" since it is part of the libmysql ABI.
 #ifdef __cplusplus
 extern "C" {
