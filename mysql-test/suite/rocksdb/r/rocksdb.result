@@ -919,6 +919,7 @@ rocksdb_cache_index_and_filter_with_high_priority	ON
 rocksdb_cancel_manual_compactions	OFF
 rocksdb_checksums_pct	100
 rocksdb_collect_sst_properties	ON
+rocksdb_column_default_value_as_expression	ON
 rocksdb_commit_in_the_middle	OFF
 rocksdb_commit_time_batch_for_recovery	ON
 rocksdb_compact_cf	

@@ -81,7 +81,7 @@ class Rdb_field_encoder;
 extern PSI_rwlock_key key_rwlock_read_free_rpl_tables;
 #endif
 extern Regex_list_handler rdb_read_free_regex_handler;
-
+static bool rocksdb_column_default_value_as_expression = true;
 /**
   @brief
   Rdb_table_handler is a reference-counted structure storing information for
@@ -450,7 +450,9 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                 (m_pk_can_be_decoded ? HA_PRIMARY_KEY_IN_READ_INDEX : 0) |
                 HA_PRIMARY_KEY_REQUIRED_FOR_POSITION | HA_NULL_IN_KEY |
                 HA_PARTIAL_COLUMN_READ | HA_ONLINE_ANALYZE |
-                HA_SUPPORTS_DEFAULT_EXPRESSION);
+                (rocksdb_column_default_value_as_expression
+                     ? HA_SUPPORTS_DEFAULT_EXPRESSION
+                     : 0));
   }
 
   bool init_with_fields() override;
