@@ -267,6 +267,7 @@ int main(int argc, char *const argv[]) {
     // Close write end
     close(pfd[1]);
 
+    /*
 #if defined(HAVE_ASAN) && defined(HAVE_TIRPC)
 #include "asan_library_name.h"
     std::string ld_preload = "LD_PRELOAD=";
@@ -293,6 +294,7 @@ int main(int argc, char *const argv[]) {
       putenv(strdup(ld_preload.c_str()));
     }
 #endif
+    */
     if (execvp(child_argv[0], child_argv) < 0) die("Failed to exec child");
   }
 
