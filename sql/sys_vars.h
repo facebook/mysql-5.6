@@ -164,6 +164,8 @@ enum charset_enum { IN_SYSTEM_CHARSET, IN_FS_CHARSET };
 static const char *bool_values[3] = {"OFF", "ON", nullptr};
 
 const char *fixup_enforce_gtid_consistency_command_line(char *value_arg);
+bool update_cached_slave_high_priority_lock_wait_timeout(sys_var *, THD *,
+                                                         enum_var_type);
 
 /**
   A small wrapper class to pass getopt arguments as a pair

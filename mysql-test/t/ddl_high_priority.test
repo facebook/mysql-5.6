@@ -3,4 +3,22 @@
 --echo ##
 --echo ## Using the system variable high_priority_ddl"
 --echo ##
+# Default values
+# con_block is a connection to execute 'block' table
+# con_kill  is a connection to execute DDL command
+# con_init  is a connection to execute initialize 
+--let $con_init = default
+--let $con_block = con1
+--let $con_block_host = localhost
+--let $con_block_user = test_user1
+--let $con_block_port =
+--let $con_kill = default
+--let $con_status = default
+--let $should_kill = 1
+--let $recreate_table = 1
+--let $throw_error = 1
+--let $slave_ddl = 0 
+--let $high_priority_ddl = high_priority_ddl
+--let $tablename = t1
+--let $should_table_exist = 1 
 --source include/ddl_high_priority.inc

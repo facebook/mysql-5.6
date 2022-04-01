@@ -1,0 +1,50 @@
+###############################################################################
+# Test replication of the slave_high_priority variable 
+###############################################################################
+
+
+--source include/master-slave.inc
+
+--let $rpl_connection_name= slave_block
+--let $rpl_server_number= 2
+--source include/rpl_connect.inc
+
+--source include/rpl_connection_master.inc
+
+create table t1 (i int);
+insert into t1 values (1), (2), (3);
+
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_slave.inc
+select * from t1;
+
+--let $rpl_connection_name= slave_block
+--source include/rpl_connection.inc
+# issue a blocking read from slave connection
+lock tables t1 read;
+
+--source include/rpl_connection_master.inc
+
+# issue a DDL command from master
+create index idx1 on t1 (i);
+show create table t1;
+
+--source include/rpl_connection_master.inc
+# sync. slave_high_priority_lock_wait_timeout is 1 second by default
+sync_slave_with_master;
+
+--source include/rpl_connection_slave.inc
+
+# the high_pri ddl replication should go through
+show create table t1;
+
+
+##
+## clean up
+##
+
+--source include/rpl_connection_master.inc
+drop table t1;
+
+source include/rpl_end.inc;

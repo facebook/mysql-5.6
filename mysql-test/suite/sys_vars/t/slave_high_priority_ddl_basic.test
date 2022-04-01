@@ -1,0 +1,9 @@
+select @@global.slave_high_priority_ddl;
+set @default_value = @@global.slave_high_priority_ddl;
+set global slave_high_priority_ddl = True;
+set global slave_high_priority_ddl = False;
+
+# echo slave_high_priority_ddl is a global variable
+-- error 1238
+select @@session.slave_high_priority_ddl;
+set global slave_high_priority_ddl = @default_value;
