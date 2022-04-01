@@ -709,7 +709,6 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
     const uchar *old_data;
     rocksdb::Slice new_pk_slice;
     rocksdb::Slice old_pk_slice;
-    rocksdb::Slice old_pk_rec;
 
     // "unpack_info" data for the new PK value
     Rdb_string_writer *new_pk_unpack_info;
@@ -796,6 +795,9 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   int get_pk_for_update(struct update_row_info *const row_info);
   int check_and_lock_unique_pk(const struct update_row_info &row_info,
                                bool *const found, const bool skip_unique_check)
+      MY_ATTRIBUTE((__warn_unused_result__));
+  int acquire_prefix_lock(const Rdb_key_def &kd, Rdb_transaction *tx,
+                          const uchar *data)
       MY_ATTRIBUTE((__warn_unused_result__));
   int check_and_lock_sk(const uint key_id,
                         const struct update_row_info &row_info,
@@ -1124,6 +1126,8 @@ uint32_t get_select_bypass_debug_row_delay();
 unsigned long long  // NOLINT(runtime/int)
 get_select_bypass_multiget_min();
 
+unsigned long long get_partial_index_sort_max_mem(THD *thd);
+
 Rdb_transaction *get_tx_from_thd(THD *const thd);
 
 const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
@@ -1145,6 +1149,9 @@ rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
                                       const rocksdb::Slice &key,
                                       rocksdb::PinnableSlice *const value,
                                       bool exclusive, bool skip_wait);
+
+void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
+                         const rocksdb::Slice &key, bool force);
 
 void rdb_tx_multi_get(Rdb_transaction *tx,
                       rocksdb::ColumnFamilyHandle *const column_family,
@@ -1197,5 +1204,10 @@ int rdb_tx_set_status_error(Rdb_transaction *tx, const rocksdb::Status &s,
 extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
 extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
+
+extern std::atomic<uint64_t> rocksdb_partial_index_groups_sorted;
+extern std::atomic<uint64_t> rocksdb_partial_index_groups_materialized;
+extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;
+extern std::atomic<uint64_t> rocksdb_partial_index_rows_materialized;
 
 }  // namespace myrocks

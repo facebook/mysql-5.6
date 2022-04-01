@@ -217,13 +217,13 @@ CREATE TABLE t (
   id1_type int(10) unsigned NOT NULL DEFAULT '0',
   id2 bigint(20) unsigned NOT NULL DEFAULT '0',
   id2_type int(10) unsigned NOT NULL DEFAULT '0',
-  assoc_type bigint(20) unsigned NOT NULL DEFAULT '0',
+  link_type bigint(20) unsigned NOT NULL DEFAULT '0',
   visibility tinyint(3) NOT NULL DEFAULT '0',
   data varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
   time int(10) unsigned NOT NULL DEFAULT '0',
   version bigint(20) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (assoc_type, id1, id2) COMMENT 'cf_assoc',
-  KEY id1_type (assoc_type, id1, visibility, time, id2, version, data) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
+  PRIMARY KEY (link_type, id1, id2) COMMENT 'cf_link',
+  KEY id1_type (link_type, id1, visibility, time, id2, version, data) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 DROP TABLE t;
 
@@ -232,13 +232,13 @@ CREATE TABLE t (
   raw_key text COLLATE latin1_bin,
   id2 bigint(20) unsigned NOT NULL DEFAULT '0',
   id2_type int(10) unsigned NOT NULL DEFAULT '0',
-  assoc_type bigint(20) unsigned NOT NULL DEFAULT '0',
+  link_type bigint(20) unsigned NOT NULL DEFAULT '0',
   visibility tinyint(3) NOT NULL DEFAULT '0',
   data varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
   time int(10) unsigned NOT NULL DEFAULT '0',
   version bigint(20) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (assoc_type, id1, id2) COMMENT 'cf_assoc',
-  KEY id1_type (assoc_type, id1, visibility, time, id2, version, data) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
+  PRIMARY KEY (link_type, id1, id2) COMMENT 'cf_link',
+  KEY id1_type (link_type, id1, visibility, time, id2, version, data) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 DROP TABLE t;
 
@@ -248,13 +248,13 @@ CREATE TABLE t (
   id1_type int(10) unsigned NOT NULL DEFAULT '0',
   id2 bigint(20) unsigned NOT NULL DEFAULT '0',
   id2_type int(10) unsigned NOT NULL DEFAULT '0',
-  assoc_type bigint(20) unsigned NOT NULL DEFAULT '0',
+  link_type bigint(20) unsigned NOT NULL DEFAULT '0',
   visibility tinyint(4) NOT NULL DEFAULT '0',
   data text COLLATE latin1_bin NOT NULL,
   time int(10) unsigned NOT NULL DEFAULT '0',
   version bigint(20) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (assoc_type, id1, id2) COMMENT 'cf_assoc',
-  KEY id1_type (assoc_type, id1, visibility, time, id2, version, data(255)) COMMENT 'cfname=rev:cf_assoc_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
+  PRIMARY KEY (link_type, id1, id2) COMMENT 'cf_link',
+  KEY id1_type (link_type, id1, visibility, time, id2, version, data(255)) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=1;partial_group_threshold=10000'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
 DROP TABLE t;
 
