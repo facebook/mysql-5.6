@@ -996,6 +996,7 @@ rocksdb_mrr_batch_size	100
 rocksdb_no_block_cache	OFF
 rocksdb_override_cf_options	
 rocksdb_paranoid_checks	ON
+rocksdb_partial_index_sort_max_mem	0
 rocksdb_pause_background_work	ON
 rocksdb_perf_context_level	0
 rocksdb_persistent_cache_path	
@@ -1652,6 +1653,10 @@ rocksdb_number_sst_entry_singledelete	#
 rocksdb_number_superversion_acquires	#
 rocksdb_number_superversion_cleanups	#
 rocksdb_number_superversion_releases	#
+rocksdb_partial_index_groups_materialized	#
+rocksdb_partial_index_groups_sorted	#
+rocksdb_partial_index_rows_materialized	#
+rocksdb_partial_index_rows_sorted	#
 rocksdb_row_lock_deadlocks	#
 rocksdb_row_lock_wait_timeouts	#
 rocksdb_select_bypass_executed	#
@@ -1756,6 +1761,10 @@ ROCKSDB_NUMBER_SUPERVERSION_ACQUIRES
 ROCKSDB_NUMBER_SUPERVERSION_CLEANUPS
 ROCKSDB_NUMBER_SUPERVERSION_RELEASES
 ROCKSDB_NUM_ITERATORS
+ROCKSDB_PARTIAL_INDEX_GROUPS_MATERIALIZED
+ROCKSDB_PARTIAL_INDEX_GROUPS_SORTED
+ROCKSDB_PARTIAL_INDEX_ROWS_MATERIALIZED
+ROCKSDB_PARTIAL_INDEX_ROWS_SORTED
 ROCKSDB_QUERIES_POINT
 ROCKSDB_QUERIES_RANGE
 ROCKSDB_ROWS_DELETED
@@ -1879,6 +1888,10 @@ ROCKSDB_NUMBER_SUPERVERSION_ACQUIRES
 ROCKSDB_NUMBER_SUPERVERSION_CLEANUPS
 ROCKSDB_NUMBER_SUPERVERSION_RELEASES
 ROCKSDB_NUM_ITERATORS
+ROCKSDB_PARTIAL_INDEX_GROUPS_MATERIALIZED
+ROCKSDB_PARTIAL_INDEX_GROUPS_SORTED
+ROCKSDB_PARTIAL_INDEX_ROWS_MATERIALIZED
+ROCKSDB_PARTIAL_INDEX_ROWS_SORTED
 ROCKSDB_QUERIES_POINT
 ROCKSDB_QUERIES_RANGE
 ROCKSDB_ROWS_DELETED

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <map>
+
 // MySQL header files
 #include "sql/debug_sync.h"
 #include "sql/handler.h"
@@ -76,7 +78,7 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   int seek(enum ha_rkey_function find_flag, const rocksdb::Slice start_key,
            bool full_key_match, const rocksdb::Slice end_key,
-           bool read_current) override;
+           bool read_current = false) override;
   int get(const rocksdb::Slice *key, rocksdb::PinnableSlice *value,
           Rdb_lock_type type, bool skip_ttl_check = false,
           bool skip_wait = false) override;
@@ -118,6 +120,90 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   uchar *m_prefix_buf;
   rocksdb::Slice m_prefix_tuple;
+};
+
+class Rdb_iterator_partial : public Rdb_iterator_base {
+ private:
+  TABLE *m_table;
+  MEM_ROOT m_mem_root;
+
+  Rdb_iterator_base m_iterator_pk;
+  Rdb_converter m_converter;
+
+  bool m_valid;
+  bool m_materialized;
+
+  enum class Iterator_position {
+    UNKNOWN,
+    START_NEXT_PREFIX,
+    START_CUR_PREFIX,
+    END_OF_FILE
+  };
+
+  Iterator_position m_iterator_pk_position;
+
+  const uint m_threshold;
+  const uint m_prefix_keyparts;
+
+  uchar *m_cur_prefix_key;
+  uint m_cur_prefix_key_len;
+
+  uchar *m_record_buf;
+  uchar *m_pack_buffer;
+  uchar *m_sk_packed_tuple;
+
+  Rdb_string_writer m_sk_tails;
+
+  int get_prefix_len(const rocksdb::Slice &start_key, uint *prefix_cnt,
+                     uint *prefix_len);
+  int get_prefix_from_start(enum ha_rkey_function find_flag,
+                            const rocksdb::Slice &start_key);
+  int get_next_prefix(bool direction);
+  int seek_next_prefix(bool direction);
+  int materialize_prefix();
+  int read_prefix_from_pk();
+  int next_with_direction_in_group(bool direction);
+  int next_with_direction(bool direction);
+
+  using Slice_pair = std::pair<rocksdb::Slice, rocksdb::Slice>;
+  using Records = std::vector<Slice_pair>;
+
+  struct slice_comparator {
+    explicit slice_comparator(const rocksdb::Comparator *c) : m_comparator(c) {}
+    const rocksdb::Comparator *const m_comparator;
+
+    bool operator()(const rocksdb::Slice &lhs, const Slice_pair &rhs) {
+      return m_comparator->Compare(lhs, rhs.first) < 0;
+    }
+    bool operator()(const Slice_pair &lhs, const rocksdb::Slice &rhs) {
+      return m_comparator->Compare(lhs.first, rhs) < 0;
+    }
+    bool operator()(const Slice_pair &lhs, const Slice_pair &rhs) {
+      return m_comparator->Compare(lhs.first, rhs.first) < 0;
+    }
+  };
+
+  Records m_records;
+  Records::iterator m_records_it;
+  slice_comparator m_comparator;
+
+ public:
+  Rdb_iterator_partial(THD *thd, const std::shared_ptr<Rdb_key_def> kd,
+                       const std::shared_ptr<Rdb_key_def> pkd,
+                       const Rdb_tbl_def *tbl_def, TABLE *table);
+  ~Rdb_iterator_partial() override;
+
+  int seek(enum ha_rkey_function find_flag, const rocksdb::Slice start_key,
+           bool full_key_match, const rocksdb::Slice end_key,
+           bool read_current = false) override;
+  int get(const rocksdb::Slice *key, rocksdb::PinnableSlice *value,
+          Rdb_lock_type type, bool skip_ttl_check = false,
+          bool skip_wait = false) override;
+  int next() override;
+  int prev() override;
+  rocksdb::Slice key() override;
+  rocksdb::Slice value() override;
+  void reset() override;
 };
 
 }  // namespace myrocks

@@ -1,0 +1,19 @@
+set optimizer_force_index_for_range = on;
+
+--let $asc=ASC
+--let $cfname=cf
+--source partial_index.inc
+
+--let $asc=ASC
+--let $cfname=rev:cf
+--source partial_index.inc
+
+--let $asc=DESC
+--let $cfname=cf
+--source partial_index.inc
+
+--let $asc=DESC
+--let $cfname=rev:cf
+--source partial_index.inc
+
+set optimizer_force_index_for_range = off;

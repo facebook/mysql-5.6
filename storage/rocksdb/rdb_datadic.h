@@ -578,6 +578,12 @@ class Rdb_key_def {
   uint extract_partial_index_info(const TABLE *const table_arg,
                                   const Rdb_tbl_def *const tbl_def_arg);
   inline bool is_partial_index() const { return m_partial_index_threshold > 0; }
+  inline uint partial_index_threshold() const {
+    return m_partial_index_threshold;
+  }
+  inline uint partial_index_keyparts() const {
+    return m_partial_index_keyparts;
+  }
 
   static bool has_index_flag(uint32 index_flags, enum INDEX_FLAG flag);
   static uint32 calculate_index_flag_offset(uint32 index_flags,

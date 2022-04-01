@@ -807,6 +807,11 @@ std::atomic<uint64_t> rocksdb_select_bypass_executed(0);
 std::atomic<uint64_t> rocksdb_select_bypass_rejected(0);
 std::atomic<uint64_t> rocksdb_select_bypass_failed(0);
 
+std::atomic<uint64_t> rocksdb_partial_index_groups_sorted(0);
+std::atomic<uint64_t> rocksdb_partial_index_groups_materialized(0);
+std::atomic<uint64_t> rocksdb_partial_index_rows_sorted(0);
+std::atomic<uint64_t> rocksdb_partial_index_rows_materialized(0);
+
 static int rocksdb_trace_block_cache_access(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *const save,
@@ -2447,6 +2452,13 @@ static MYSQL_SYSVAR_BOOL(
     "Allow inplace alter for alter column default operation", nullptr, nullptr,
     true);
 
+static MYSQL_THDVAR_ULONGLONG(
+    partial_index_sort_max_mem, PLUGIN_VAR_RQCMDARG,
+    "Maximum memory to use when sorting an unmaterialized group for partial "
+    "indexes. 0 means no limit.",
+    nullptr, nullptr,
+    /* default */ 0, /* min */ 0, /* max */ SIZE_T_MAX, 1);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct SYS_VAR *rocksdb_system_variables[] = {
@@ -2638,6 +2650,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(select_bypass_multiget_min),
     MYSQL_SYSVAR(skip_locks_if_skip_unique_check),
     MYSQL_SYSVAR(alter_column_default_inplace),
+    MYSQL_SYSVAR(partial_index_sort_max_mem),
     nullptr};
 
 static int rocksdb_compact_column_family(
@@ -3057,7 +3070,7 @@ class Rdb_transaction {
   virtual void set_sync(bool sync) = 0;
 
   virtual void release_lock(const Rdb_key_def &key_descr,
-                            const std::string &rowkey) = 0;
+                            const std::string &rowkey, bool force = false) = 0;
 
   virtual bool prepare() = 0;
 
@@ -3699,9 +3712,9 @@ class Rdb_transaction_impl : public Rdb_transaction {
     m_rocksdb_tx->GetWriteOptions()->sync = sync;
   }
 
-  void release_lock(const Rdb_key_def &key_descr,
-                    const std::string &rowkey) override {
-    if (!THDVAR(m_thd, lock_scanned_rows)) {
+  void release_lock(const Rdb_key_def &key_descr, const std::string &rowkey,
+                    bool force) override {
+    if (!THDVAR(m_thd, lock_scanned_rows) || force) {
       m_rocksdb_tx->UndoGetForUpdate(key_descr.get_cf(),
                                      rocksdb::Slice(rowkey));
       // row_lock_count track row(pk)
@@ -4188,7 +4201,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   void set_sync(bool sync) override { write_opts.sync = sync; }
 
   void release_lock(const Rdb_key_def &key_descr MY_ATTRIBUTE((unused)),
-                    const std::string &rowkey MY_ATTRIBUTE((unused))) override {
+                    const std::string &rowkey MY_ATTRIBUTE((unused)),
+                    bool force MY_ATTRIBUTE((unused))) override {
     // Nothing to do here since we don't hold any row locks.
   }
 
@@ -6913,6 +6927,7 @@ ulonglong ha_rocksdb::load_auto_incr_value_from_index() {
   active_index = table->s->next_number_index;
   const uint8 save_table_status = table->m_status;
 
+  assert(!m_key_descr_arr[active_index_pos()]->is_partial_index());
   std::unique_ptr<Rdb_iterator> save_iterator(new Rdb_iterator_base(
       ha_thd(), m_key_descr_arr[active_index_pos()], m_pk_descr, m_tbl_def));
   std::swap(m_iterator, save_iterator);
@@ -10158,6 +10173,26 @@ int ha_rocksdb::check_and_lock_unique_pk(const struct update_row_info &row_info,
   return HA_EXIT_SUCCESS;
 }
 
+int ha_rocksdb::acquire_prefix_lock(const Rdb_key_def &kd, Rdb_transaction *tx,
+                                    const uchar *data) {
+  assert(kd.is_partial_index());
+  // Obtain shared lock on prefix.
+  uint size = kd.pack_record(table, m_pack_buffer, data, m_sk_packed_tuple,
+                             nullptr, false, 0, kd.partial_index_keyparts());
+  const rocksdb::Slice prefix_slice =
+      rocksdb::Slice((const char *)m_sk_packed_tuple, size);
+
+  const rocksdb::Status s =
+      tx->get_for_update(kd, prefix_slice, nullptr, false /* exclusive */,
+                         false /* do validate */, false /* no_wait */);
+  if (!s.ok()) {
+    return tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                m_table_handler);
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
 /**
    Check the specified secondary key value is unique and also lock the row
 
@@ -10186,9 +10221,24 @@ int ha_rocksdb::check_and_lock_sk(
   KEY *key_info = nullptr;
   uint n_null_fields = 0;
   uint user_defined_key_parts = 1;
+  int rc = HA_EXIT_SUCCESS;
 
   key_info = &table->key_info[key_id];
   user_defined_key_parts = key_info->user_defined_key_parts;
+  const Rdb_key_def &kd = *m_key_descr_arr[key_id];
+
+  if (kd.is_partial_index()) {
+    // Obtain shared lock on new/old prefix.
+    if (row_info.old_data != nullptr) {
+      rc = acquire_prefix_lock(kd, row_info.tx, row_info.old_data);
+      if (rc) return rc;
+    }
+
+    assert(row_info.new_data != nullptr);
+    rc = acquire_prefix_lock(kd, row_info.tx, row_info.new_data);
+    if (rc) return rc;
+  }
+
   /*
     If there are no uniqueness requirements, there's no need to obtain a
     lock for this key.
@@ -10196,8 +10246,6 @@ int ha_rocksdb::check_and_lock_sk(
   if (!(key_info->flags & HA_NOSAME)) {
     return HA_EXIT_SUCCESS;
   }
-
-  const Rdb_key_def &kd = *m_key_descr_arr[key_id];
 
   /*
     Calculate the new key for obtaining the lock
@@ -10265,9 +10313,9 @@ int ha_rocksdb::check_and_lock_sk(
 
     The bloom filter may need to be disabled for this lookup.
   */
+  assert(!m_key_descr_arr[key_id]->is_partial_index());
   Rdb_iterator_base iter(ha_thd(), m_key_descr_arr[key_id], m_pk_descr,
                          m_tbl_def);
-  int rc = HA_EXIT_SUCCESS;
 
   /*
     If all_parts_used is true, then PK uniqueness check/lock would already
@@ -10668,10 +10716,40 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
     old_key_slice = rocksdb::Slice(
         reinterpret_cast<const char *>(m_sk_packed_tuple_old), old_packed_size);
 
+    // TODO(mung) - If the new_data and old_data below to the same partial index
+    // group (ie. have the same prefix), we can make use of the read below to
+    // determine whether to issue SingleDelete or not.
+    //
+    // Currently we unconditionally issue SingleDelete, meaning that it is
+    // possible for SD to be compacted out without meeting any Puts. This bumps
+    // the num_single_delete_fallthrough counter in rocksdb, but is otherwise
+    // fine as the SD markers just get compacted out. We will have to revisit
+    // this if we want stronger consistency checks though.
     row_info.tx->get_indexed_write_batch()->SingleDelete(kd.get_cf(),
                                                          old_key_slice);
 
     bytes_written = old_key_slice.size();
+  }
+
+  if (kd.is_partial_index()) {
+    // TODO(mung) - We've already calculated prefix len when locking. If we
+    // cache that value, we can avoid recalculating here.
+    uint size = kd.pack_record(table, m_pack_buffer, row_info.new_data,
+                               m_sk_packed_tuple, nullptr, false, 0,
+                               kd.partial_index_keyparts());
+    rocksdb::Slice prefix_slice(
+        reinterpret_cast<const char *>(m_sk_packed_tuple), size);
+    // Shared lock on prefix should have already been acquired in
+    // check_and_lock_sk. Check if this prefix has been materialized.
+    Rdb_iterator_base iter(ha_thd(), m_key_descr_arr[kd.get_keyno()],
+                           m_pk_descr, m_tbl_def);
+    rc = iter.seek(kd.m_is_reverse_cf ? HA_READ_PREFIX_LAST : HA_READ_KEY_EXACT,
+                   prefix_slice, false, prefix_slice, true /* read current */);
+
+    // We can skip updating the index, if the prefix is not materialized.
+    if (rc == HA_ERR_END_OF_FILE || rc == HA_ERR_KEY_NOT_FOUND) {
+      return 0;
+    }
   }
 
   new_key_slice = rocksdb::Slice(
@@ -10961,8 +11039,15 @@ int ha_rocksdb::index_init(uint idx, bool sorted MY_ATTRIBUTE((__unused__))) {
   assert(tx != nullptr);
 
   active_index = idx;
-  m_iterator.reset(new Rdb_iterator_base(
-      thd, m_key_descr_arr[active_index_pos()], m_pk_descr, m_tbl_def));
+  if (idx != table->s->primary_key &&
+      m_key_descr_arr[idx]->is_partial_index()) {
+    m_iterator.reset(
+        new Rdb_iterator_partial(thd, m_key_descr_arr[active_index_pos()],
+                                 m_pk_descr, m_tbl_def, table));
+  } else {
+    m_iterator.reset(new Rdb_iterator_base(
+        thd, m_key_descr_arr[active_index_pos()], m_pk_descr, m_tbl_def));
+  }
 
   // If m_lock_rows is not RDB_LOCK_NONE then we will be doing a get_for_update
   // when accessing the index, so don't acquire the snapshot right away.
@@ -11095,6 +11180,12 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
                                              m_table_handler));
           }
         }
+      }
+
+      if (kd.is_partial_index()) {
+        // Obtain shared lock on prefix.
+        int rc = acquire_prefix_lock(kd, tx, buf);
+        if (rc) DBUG_RETURN(rc);
       }
 
       packed_size = kd.pack_record(table, m_pack_buffer, buf, m_sk_packed_tuple,
@@ -13443,6 +13534,9 @@ int ha_rocksdb::inplace_populate_sk(
       THDVAR(ha_thd(), merge_tmp_file_removal_delay_ms);
 
   for (const auto &index : indexes) {
+    // Skip populating partial indexes for now.
+    if (index->is_partial_index()) continue;
+
     bool is_unique_index =
         new_table_arg->key_info[index->get_keyno()].flags & HA_NOSAME;
 
@@ -14275,6 +14369,17 @@ static SHOW_VAR rocksdb_status_vars[] = {
                        &rocksdb_select_bypass_rejected, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("select_bypass_failed", &rocksdb_select_bypass_failed,
                        SHOW_LONGLONG),
+
+    DEF_STATUS_VAR_PTR("partial_index_groups_sorted",
+                       &rocksdb_partial_index_groups_sorted, SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("partial_index_groups_materialized",
+                       &rocksdb_partial_index_groups_materialized,
+                       SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("partial_index_rows_sorted",
+                       &rocksdb_partial_index_rows_sorted, SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("partial_index_rows_materialized",
+                       &rocksdb_partial_index_rows_materialized, SHOW_LONGLONG),
+
     // the variables generated by SHOW_FUNC are sorted only by prefix (first
     // arg in the tuple below), so make sure it is unique to make sorting
     // deterministic as quick sort is not stable
@@ -15868,6 +15973,10 @@ get_select_bypass_multiget_min() {
   return rocksdb_select_bypass_multiget_min;
 }
 
+unsigned long long get_partial_index_sort_max_mem(THD *thd) {
+  return THDVAR(thd, partial_index_sort_max_mem);
+}
+
 const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx) {
   tx->acquire_snapshot(true);
   return tx->m_read_opts;
@@ -15921,6 +16030,11 @@ rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
   ++rocksdb_num_get_for_update_calls;
 #endif
   return s;
+}
+
+void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
+                         const rocksdb::Slice &key, bool force) {
+  tx->release_lock(kd, std::string(key.data(), key.size()), force);
 }
 
 void rdb_tx_multi_get(Rdb_transaction *tx,

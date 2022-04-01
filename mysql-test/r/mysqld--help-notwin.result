@@ -2027,6 +2027,9 @@ The following options may be given as the first argument:
  --rocksdb-paranoid-checks 
  DBOptions::paranoid_checks for RocksDB
  (Defaults to on; use --skip-rocksdb-paranoid-checks to disable.)
+ --rocksdb-partial-index-sort-max-mem=# 
+ Maximum memory to use when sorting an unmaterialized
+ group for partial indexes. 0 means no limit.
  --rocksdb-pause-background-work 
  Disable all rocksdb background operations
  --rocksdb-perf-context[=name] 
@@ -3316,6 +3319,7 @@ rocksdb-mrr-batch-size 100
 rocksdb-no-block-cache FALSE
 rocksdb-override-cf-options 
 rocksdb-paranoid-checks TRUE
+rocksdb-partial-index-sort-max-mem 0
 rocksdb-pause-background-work FALSE
 rocksdb-perf-context ON
 rocksdb-perf-context-global ON
