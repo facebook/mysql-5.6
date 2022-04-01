@@ -190,6 +190,8 @@ SET PERSIST slave_exec_mode = @@GLOBAL.slave_exec_mode;
 Warnings:
 Warning	1287	'@@slave_exec_mode' is deprecated and will be removed in a future release. Please use replica_exec_mode instead.
 Warning	1287	'@@slave_exec_mode' is deprecated and will be removed in a future release. Please use replica_exec_mode instead.
+SET PERSIST slave_high_priority_ddl = @@GLOBAL.slave_high_priority_ddl;
+SET PERSIST slave_high_priority_lock_wait_timeout = @@GLOBAL.slave_high_priority_lock_wait_timeout;
 SET PERSIST slave_load_tmpdir = @@GLOBAL.slave_load_tmpdir;
 ERROR HY000: Variable 'slave_load_tmpdir' is a read only variable
 SET PERSIST slave_max_allowed_packet = @@GLOBAL.slave_max_allowed_packet;
@@ -423,6 +425,8 @@ RESET PERSIST IF EXISTS slave_dump_thread_wait_sleep_usec;
 RESET PERSIST IF EXISTS slave_exec_mode;
 Warnings:
 Warning	3615	Variable slave_exec_mode does not exist in persisted config file
+RESET PERSIST IF EXISTS slave_high_priority_ddl;
+RESET PERSIST IF EXISTS slave_high_priority_lock_wait_timeout;
 RESET PERSIST IF EXISTS slave_load_tmpdir;
 Warnings:
 Warning	3615	Variable slave_load_tmpdir does not exist in persisted config file

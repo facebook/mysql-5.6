@@ -1,0 +1,37 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating slave_block]
+[connection master]
+create table t1 (i int);
+insert into t1 values (1), (2), (3);
+include/sync_slave_sql_with_master.inc
+[connection slave]
+select * from t1;
+i
+1
+2
+3
+[connection slave_block]
+lock tables t1 read;
+[connection master]
+create index idx1 on t1 (i);
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int DEFAULT NULL,
+  KEY `idx1` (`i`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+[connection master]
+[connection slave]
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int DEFAULT NULL,
+  KEY `idx1` (`i`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+[connection master]
+drop table t1;
+include/rpl_end.inc

@@ -1551,6 +1551,16 @@ The following options may be given as the first argument:
  before waiting for new data on the latest binlog.
  --slave-exec-mode=name 
  This option is deprecated. Use replica_exec_mode instead.
+ --slave-high-priority-ddl 
+ Setting this flag will allow DDL commands to kill
+ conflictingconnections during replication (effective for
+ admin user only).
+ --slave-high-priority-lock-wait-timeout=# 
+ Timeout in seconds to wait for a lock before returning an
+ error. This timeout is specifically for high_priority
+ commands (DDLs), when the slave_high_priority_ddl
+ variable is turned on. The argument will be treated as a
+ decimal value with nanosecond precision.
  --slave-load-tmpdir=name 
  This option is deprecated. Use replica_load_tmpdir
  instead.
@@ -2181,6 +2191,8 @@ slave-compressed-protocol FALSE
 slave-compression-lib zlib
 slave-dump-thread-wait-sleep-usec 0
 slave-exec-mode STRICT
+slave-high-priority-ddl FALSE
+slave-high-priority-lock-wait-timeout 1
 slave-max-allowed-packet 1073741824
 slave-net-timeout 60
 slave-parallel-type LOGICAL_CLOCK

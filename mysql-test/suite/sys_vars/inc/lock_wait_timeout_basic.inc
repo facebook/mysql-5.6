@@ -35,9 +35,11 @@
 
 eval SET @start_global_value = @@global.$lock_wait_timeout;
 SELECT @start_global_value;
-eval SET @start_session_value = @@session.$lock_wait_timeout;
-SELECT @start_session_value;
-
+if ($session)
+{
+  eval SET @start_session_value = @@session.$lock_wait_timeout;
+  SELECT @start_session_value;
+}
 
 --echo '#--------------------FN_DYNVARS_002_01-------------------------#'
 #####################################################################
@@ -48,10 +50,12 @@ eval SET @@global.$lock_wait_timeout = 100;
 eval SET @@global.$lock_wait_timeout = DEFAULT;
 eval SELECT @@global.$lock_wait_timeout;
 
-eval SET @@session.$lock_wait_timeout = 200;
-eval SET @@session.$lock_wait_timeout = DEFAULT;
-eval SELECT @@session.$lock_wait_timeout;
-
+if ($session)
+{
+  eval SET @@session.$lock_wait_timeout = 200;
+  eval SET @@session.$lock_wait_timeout = DEFAULT;
+  eval SELECT @@session.$lock_wait_timeout;
+}
 
 --echo '#--------------------FN_DYNVARS_002_02-------------------------#'
 #####################################################################
@@ -60,9 +64,11 @@ eval SELECT @@session.$lock_wait_timeout;
 
 eval SET @@global.$lock_wait_timeout = @start_global_value;
 eval SELECT @@global.$lock_wait_timeout = 604800;
-eval SET @@session.$lock_wait_timeout = @start_session_value;
-eval SELECT @@session.$lock_wait_timeout = 604800;
-
+if ($session)
+{
+  eval SET @@session.$lock_wait_timeout = @start_session_value;
+  eval SELECT @@session.$lock_wait_timeout = 604800;
+}
 
 --echo '#--------------------FN_DYNVARS_002_03-------------------------#'
 ###############################################################################
@@ -83,24 +89,26 @@ eval SET @@global.$lock_wait_timeout = 65535;
 eval SELECT @@global.$lock_wait_timeout;
 
 
---echo '#--------------------FN_DYNVARS_002_04-------------------------#'
-###############################################################################
-# Change the value of lock_wait_timeout to a valid value for SESSION Scope    #
-###############################################################################
+if ($session)
+{
+  --echo '#--------------------FN_DYNVARS_002_04-------------------------#'
+  ##############################################################################
+  # Change the value of lock_wait_timeout to a valid value for SESSION Scope   #
+  ##############################################################################
 
-eval SET @@session.$lock_wait_timeout = 0;
-eval SELECT @@session.$lock_wait_timeout;
-eval SET @@session.$lock_wait_timeout = 0.00001;
-eval SELECT @@session.$lock_wait_timeout;
-eval SET @@session.$lock_wait_timeout = 1;
-eval SELECT @@session.$lock_wait_timeout;
-eval SET @@session.$lock_wait_timeout = 1.23;
-eval SELECT @@session.$lock_wait_timeout;
-eval SET @@session.$lock_wait_timeout = 50050;
-eval SELECT @@session.$lock_wait_timeout;
-eval SET @@session.$lock_wait_timeout = 65535;
-eval SELECT @@session.$lock_wait_timeout;
-
+  eval SET @@session.$lock_wait_timeout = 0;
+  eval SELECT @@session.$lock_wait_timeout;
+  eval SET @@session.$lock_wait_timeout = 0.00001;
+  eval SELECT @@session.$lock_wait_timeout;
+  eval SET @@session.$lock_wait_timeout = 1;
+  eval SELECT @@session.$lock_wait_timeout;
+  eval SET @@session.$lock_wait_timeout = 1.23;
+  eval SELECT @@session.$lock_wait_timeout;
+  eval SET @@session.$lock_wait_timeout = 50050;
+  eval SELECT @@session.$lock_wait_timeout;
+  eval SET @@session.$lock_wait_timeout = 65535;
+  eval SELECT @@session.$lock_wait_timeout;
+}
 
 --echo '#------------------FN_DYNVARS_002_05-----------------------#'
 #################################################################
@@ -120,22 +128,25 @@ eval SELECT @@global.$lock_wait_timeout;
 --Error ER_WRONG_TYPE_FOR_VAR
 eval SET @@global.$lock_wait_timeout = test;
 eval SELECT @@global.$lock_wait_timeout;
+
 # for session scope
-eval SET @@session.$lock_wait_timeout = -2;
-eval SELECT @@session.$lock_wait_timeout;
-eval SET @@session.$lock_wait_timeout = 604900;
-eval SELECT @@session.$lock_wait_timeout;
+if ($session)
+{
+  eval SET @@session.$lock_wait_timeout = -2;
+  eval SELECT @@session.$lock_wait_timeout;
+  eval SET @@session.$lock_wait_timeout = 604900;
+  eval SELECT @@session.$lock_wait_timeout;
 
---Error ER_WRONG_TYPE_FOR_VAR
-eval SET @@session.$lock_wait_timeout = ON;
-eval SELECT @@session.$lock_wait_timeout;
---Error ER_WRONG_TYPE_FOR_VAR
-eval SET @@session.$lock_wait_timeout = OFF;
-eval SELECT @@session.$lock_wait_timeout;
---Error ER_WRONG_TYPE_FOR_VAR
-eval SET @@session.$lock_wait_timeout = test;
-eval SELECT @@session.$lock_wait_timeout;
-
+  --Error ER_WRONG_TYPE_FOR_VAR
+  eval SET @@session.$lock_wait_timeout = ON;
+  eval SELECT @@session.$lock_wait_timeout;
+  --Error ER_WRONG_TYPE_FOR_VAR
+  eval SET @@session.$lock_wait_timeout = OFF;
+  eval SELECT @@session.$lock_wait_timeout;
+  --Error ER_WRONG_TYPE_FOR_VAR
+  eval SET @@session.$lock_wait_timeout = test;
+  eval SELECT @@session.$lock_wait_timeout;
+}
 
 
 --echo '#------------------FN_DYNVARS_002_06-----------------------#'
@@ -153,10 +164,12 @@ WHERE VARIABLE_NAME='$lock_wait_timeout';
 #  Check if the value in SESSION Table matches value in variable   #
 ####################################################################
 
-eval SELECT @@session.$lock_wait_timeout = VARIABLE_VALUE
-FROM performance_schema.session_variables 
-WHERE VARIABLE_NAME='$lock_wait_timeout';
-
+if ($session)
+{
+  eval SELECT @@session.$lock_wait_timeout = VARIABLE_VALUE
+  FROM performance_schema.session_variables
+  WHERE VARIABLE_NAME='$lock_wait_timeout';
+}
 
 --echo '#------------------FN_DYNVARS_002_08-----------------------#'
 ####################################################################
@@ -174,10 +187,12 @@ eval SELECT @@global.$lock_wait_timeout;
 #  Check if global and session variables are independant of each other        #
 ###############################################################################
 
-eval SET @@global.$lock_wait_timeout = 10;
-eval SET @@session.$lock_wait_timeout = 11;
-eval SELECT @@$lock_wait_timeout = @@global.$lock_wait_timeout;
-
+if ($session)
+{
+  eval SET @@global.$lock_wait_timeout = 10;
+  eval SET @@session.$lock_wait_timeout = 11;
+  eval SELECT @@$lock_wait_timeout = @@global.$lock_wait_timeout;
+}
 
 --echo '#---------------------FN_DYNVARS_001_10----------------------#'
 ##############################################################################
@@ -185,25 +200,29 @@ eval SELECT @@$lock_wait_timeout = @@global.$lock_wait_timeout;
 #    to same session variable                                                #
 ##############################################################################
 
-eval SET @@$lock_wait_timeout = 100;
-eval SELECT @@$lock_wait_timeout = @@local.$lock_wait_timeout;
-eval SELECT @@local.$lock_wait_timeout = @@session.$lock_wait_timeout;
-
+if ($session)
+{
+  eval SET @@$lock_wait_timeout = 100;
+  eval SELECT @@$lock_wait_timeout = @@local.$lock_wait_timeout;
+  eval SELECT @@local.$lock_wait_timeout = @@session.$lock_wait_timeout;
+}
 
 --echo '#---------------------FN_DYNVARS_001_11----------------------#'
 ###############################################################################
 #   Check if lock_wait_timeout can be accessed with and without @@ sign       #
 ###############################################################################
 
-eval SET $lock_wait_timeout = 1;
-eval SELECT @@$lock_wait_timeout;
---Error ER_UNKNOWN_TABLE
-eval SELECT local.$lock_wait_timeout;
---Error ER_UNKNOWN_TABLE
-eval SELECT session.$lock_wait_timeout;
---Error ER_BAD_FIELD_ERROR
-eval SELECT $lock_wait_timeout = @@session.$lock_wait_timeout;
-
+if ($session)
+{
+  eval SET $lock_wait_timeout = 1;
+  eval SELECT @@$lock_wait_timeout;
+  --Error ER_UNKNOWN_TABLE
+  eval SELECT local.$lock_wait_timeout;
+  --Error ER_UNKNOWN_TABLE
+  eval SELECT session.$lock_wait_timeout;
+  --Error ER_BAD_FIELD_ERROR
+  eval SELECT $lock_wait_timeout = @@session.$lock_wait_timeout;
+}
 
 ####################################
 #     Restore initial value        #
@@ -211,9 +230,11 @@ eval SELECT $lock_wait_timeout = @@session.$lock_wait_timeout;
 
 eval SET @@global.$lock_wait_timeout = @start_global_value;
 eval SELECT @@global.$lock_wait_timeout;
-eval SET @@session.$lock_wait_timeout = @start_session_value;
-eval SELECT @@session.$lock_wait_timeout;
-
+if ($session)
+{
+  eval SET @@session.$lock_wait_timeout = @start_session_value;
+  eval SELECT @@session.$lock_wait_timeout;
+}
 
 ###################################################
 #          END OF lock_wait_timeout TESTS         #

@@ -1787,7 +1787,8 @@ bool THD::kill_shared_lock(MDL_context_owner *ctx_in_use) {
 
   // Only allow super user with ddl command to kill blocking threads
   if (m_security_ctx->master_access() & SUPER_ACL) {
-    bool is_high_priority_ddl = (variables.high_priority_ddl) &&
+    bool is_high_priority_ddl = (variables.high_priority_ddl ||
+                                 (slave_thread && slave_high_priority_ddl)) &&
                                 support_high_priority(lex->sql_command);
 
     if (is_high_priority_ddl || variables.kill_conflicting_connections) {
