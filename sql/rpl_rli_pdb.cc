@@ -1590,45 +1590,6 @@ void Slave_worker::do_report(loglevel level, int err_code, const char *msg,
 
   gtid_next->to_string(global_sid_map, buff_gtid, true);
 
-  if (level == ERROR_LEVEL && (!has_temporary_error(thd, err_code) ||
-                               thd->get_transaction()->cannot_safely_rollback(
-                                   Transaction_ctx::SESSION))) {
-    char coordinator_errmsg[MAX_SLAVE_ERRMSG];
-
-    if (is_group_replication_applier_channel) {
-      snprintf(coordinator_errmsg, MAX_SLAVE_ERRMSG,
-               "Coordinator stopped because there were error(s) in the "
-               "worker(s). "
-               "The most recent failure being: Worker %u failed executing "
-               "transaction '%s'. See error log and/or "
-               "performance_schema.replication_applier_status_by_worker "
-               "table for "
-               "more details about this failure or others, if any.",
-               internal_id, buff_gtid);
-    } else {
-      snprintf(coordinator_errmsg, MAX_SLAVE_ERRMSG,
-               "Coordinator stopped because there were error(s) in the "
-               "worker(s). "
-               "The most recent failure being: Worker %u failed executing "
-               "transaction '%s' at master log %s, end_log_pos %llu. "
-               "See error log and/or "
-               "performance_schema.replication_applier_status_by_worker "
-               "table for "
-               "more details about this failure or others, if any.",
-               internal_id, buff_gtid, log_name, log_pos);
-    }
-
-    /*
-      We want to update the errors in coordinator as well as worker.
-      The fill_coord_err_buf() function update the error number, message and
-      timestamp fields. This function is different from va_report() as
-      va_report() also logs the error message in the log apart from updating the
-      error fields. So, the worker does the job of reporting the error in the
-      log. We just make coordinator aware of the error.
-    */
-    c_rli->fill_coord_err_buf(level, err_code, coordinator_errmsg);
-  }
-
   if (is_group_replication_applier_channel) {
     snprintf(buff_coord, sizeof(buff_coord),
              "Worker %u failed executing transaction '%s'", internal_id,
@@ -1645,6 +1606,57 @@ void Slave_worker::do_report(loglevel level, int err_code, const char *msg,
     as reports the error in the log.
   */
   this->va_report(level, err_code, buff_coord, msg, args);
+
+  if (level == ERROR_LEVEL && (!has_temporary_error(thd, err_code) ||
+                               thd->get_transaction()->cannot_safely_rollback(
+                                   Transaction_ctx::SESSION))) {
+    char coordinator_errmsg[MAX_SLAVE_ERRMSG];
+    const char *err_msg = nullptr;
+
+    mysql_mutex_lock(&err_lock);
+    if (m_last_error.number) {
+      /* We know for sure there is an valid error */
+      err_msg = m_last_error.message;
+    } else {
+      /* Fallback to generic error message just in case */
+      err_msg = buff_coord;
+    }
+
+    if (is_group_replication_applier_channel) {
+      my_snprintf_8bit(
+          nullptr, coordinator_errmsg, MAX_SLAVE_ERRMSG,
+          "Coordinator stopped because there were error(s) in the "
+          "worker(s). "
+          "The most recent failure being: %s; "
+          "See error log and/or "
+          "performance_schema.replication_applier_status_by_worker "
+          "table for "
+          "more details about this failure or others, if any.",
+          err_msg);
+    } else {
+      my_snprintf_8bit(
+          nullptr, coordinator_errmsg, MAX_SLAVE_ERRMSG,
+          "Coordinator stopped because there were error(s) in the "
+          "worker(s). "
+          "The most recent failure being: %s; "
+          "See error log and/or "
+          "performance_schema.replication_applier_status_by_worker "
+          "table for "
+          "more details about this failure or others, if any.",
+          err_msg);
+    }
+    mysql_mutex_unlock(&err_lock);
+
+    /*
+      We want to update the errors in coordinator as well as worker.
+      The fill_coord_err_buf() function update the error number, message and
+      timestamp fields. This function is different from va_report() as
+      va_report() also logs the error message in the log apart from updating the
+      error fields. So, the worker does the job of reporting the error in the
+      log. We just make coordinator aware of the error.
+    */
+    c_rli->fill_coord_err_buf(level, err_code, coordinator_errmsg);
+  }
 }
 
 #ifndef NDEBUG

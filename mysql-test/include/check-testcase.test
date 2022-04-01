@@ -46,6 +46,7 @@ if ($tmp) {
   --echo Replicate_Wild_Do_Table	#
   --echo Replicate_Wild_Ignore_Table	#
   --echo Last_Errno	0
+  --echo Last_Symbolic_Errno	
   --echo Last_Error	
   --echo Skip_Counter	0
   --echo Exec_Source_Log_Pos	#
@@ -91,7 +92,7 @@ if ($tmp) {
 
 if (!$tmp) {
   # Note: after WL#5177, fields 13-18 shall not be filtered-out.
-  --replace_column 4 # 5 # 6 # 7 # 8 # 9 # 10 # 13 # 14 # 15 # 16 # 17 # 18 # 22 # 23 # 24 # 25 # 26 # 40 # 41 # 42 # 46 # 52 # 53 # 55 # 56 #
+  --replace_column 4 # 5 # 6 # 7 # 8 # 9 # 10 # 13 # 14 # 15 # 16 # 17 # 18 # 23 # 24 # 25 # 26 # 27 # 41 # 42 # 43 # 47 # 53 # 54 # 56 # 57 #
   query_vertical
   SHOW REPLICA STATUS;
 }
