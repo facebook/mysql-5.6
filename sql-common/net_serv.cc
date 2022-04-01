@@ -212,7 +212,7 @@ void net_claim_memory_ownership(NET *net, bool claim) {
 
 /** Realloc the packet buffer. */
 
-bool net_realloc(NET *net, size_t length) {
+static bool net_realloc_shrink(NET *net, size_t length, bool copy) {
   uchar *buff;
   size_t pkt_length;
   DBUG_TRACE;
@@ -236,9 +236,18 @@ bool net_realloc(NET *net, size_t length) {
     net_read_packet() may actually read 4 bytes depending on build flags and
     platform.
   */
-  if (!(buff = (uchar *)my_realloc(
-            key_memory_NET_buff, (char *)net->buff,
-            pkt_length + NET_HEADER_SIZE + COMP_HEADER_SIZE, MYF(MY_WME)))) {
+  if (copy) {
+    buff = (uchar *)my_realloc(key_memory_NET_buff, (char *)net->buff,
+                               pkt_length + NET_HEADER_SIZE + COMP_HEADER_SIZE,
+                               MYF(MY_WME));
+  } else {
+    buff = (uchar *)my_malloc(key_memory_NET_buff,
+                              pkt_length + NET_HEADER_SIZE + COMP_HEADER_SIZE,
+                              MYF(MY_WME));
+    if (buff) my_free(net->buff);
+  }
+
+  if (!buff) {
     /* Error, but no need to stop using the socket. */
     net->error = NET_ERROR_SOCKET_RECOVERABLE;
     net->last_errno = ER_OUT_OF_RESOURCES;
@@ -254,6 +263,14 @@ bool net_realloc(NET *net, size_t length) {
 #endif
   net->buff_end = buff + (net->max_packet = (ulong)pkt_length);
   return false;
+}
+
+bool net_realloc(NET *net, size_t length) {
+  return net_realloc_shrink(net, length, true);
+}
+
+bool net_shrink(NET *net, size_t length) {
+  return net_realloc_shrink(net, length, false);
 }
 
 /**

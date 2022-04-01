@@ -237,6 +237,7 @@ void net_end(struct NET *net);
 void net_clear(struct NET *net, bool check_buffer);
 void net_claim_memory_ownership(struct NET *net, bool claim);
 bool net_realloc(struct NET *net, size_t length);
+bool net_shrink(struct NET *net, size_t length);
 bool net_flush(struct NET *net);
 bool my_net_write(struct NET *net, const unsigned char *packet, size_t len);
 bool net_write_command(struct NET *net, unsigned char command,
