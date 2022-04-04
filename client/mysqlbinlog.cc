@@ -1895,7 +1895,14 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
         }
 
         ev->print(result_file, print_event_info);
-        print_event_info->have_unflushed_events = true;
+
+        // case: we can have rows_query event containing trx metadata in SBR, to
+        // avoid unflushed event warning we'll skip setting this flag when the
+        // rows_query event contains trx metadata
+        if (!(ev_type == binary_log::ROWS_QUERY_LOG_EVENT &&
+              static_cast<Rows_query_log_event *>(ev)->has_trx_meta_data())) {
+          print_event_info->have_unflushed_events = true;
+        }
         /* Flush head,body and footer cache to result_file */
         if (stmt_end) {
           print_event_info->have_unflushed_events = false;

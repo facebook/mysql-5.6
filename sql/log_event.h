@@ -3672,6 +3672,7 @@ class Ignorable_log_event : public virtual binary_log::Ignorable_event,
   B_l : namespace binary_log
   @endinternal
 */
+const std::string TRX_META_DATA_HEADER = "::TRX_META_DATA::";
 class Rows_query_log_event : public Ignorable_log_event,
                              public binary_log::Rows_query_event {
  public:
@@ -3712,6 +3713,37 @@ class Rows_query_log_event : public Ignorable_log_event,
     return Binary_log_event::IGNORABLE_HEADER_LEN + 1 + strlen(m_rows_query);
   }
 
+  // enum to detect if this event has trx_meta_data prepended to the rows_query
+  enum enum_has_trx_meta_data {
+    UNKNOWN = 0,  // Status not known
+    YES = 1,      // This event contains trx_meta_data
+    NO = 2        // This event does not contain trx_meta_data
+  };
+
+  bool has_trx_meta_data() const {
+    // Return status if we have already decoded and computed it
+    if (has_trx_meta_data_flag != enum_has_trx_meta_data::UNKNOWN) {
+      return has_trx_meta_data_flag == enum_has_trx_meta_data::YES;
+    }
+
+    std::string str(m_rows_query);
+    if (str.length() < (2 + TRX_META_DATA_HEADER.length() + 2)) return false;
+    // NOTE: Meta data comment format: /*::TRX_META_DATA::{.. JSON ..}*/
+    // so to check if the event contains trx meta data we check if the string
+    // "::TRX_META_DATA::" is present after the first two "/*" characters.
+    bool contains_trx_metadata = str.compare(2, TRX_META_DATA_HEADER.length(),
+                                             TRX_META_DATA_HEADER) == 0;
+
+    // Store the result for future use
+    if (contains_trx_metadata) {
+      has_trx_meta_data_flag = enum_has_trx_meta_data::YES;
+    } else {
+      has_trx_meta_data_flag = enum_has_trx_meta_data::NO;
+    }
+
+    return contains_trx_metadata;
+  }
+
  private:
   /*
    * Returns the length of comment at the start of the query.
@@ -3724,6 +3756,11 @@ class Rows_query_log_event : public Ignorable_log_event,
    * @return  comment length.
    */
   uint get_comment_length(const char *str, uint length) const;
+
+  // Flag indicating if this rows-query event has a trx_meta_data prepended to
+  // itself
+  mutable enum_has_trx_meta_data has_trx_meta_data_flag =
+      enum_has_trx_meta_data::UNKNOWN;
 };
 
 static inline bool copy_event_cache_to_file_and_reinit(IO_CACHE *cache,
