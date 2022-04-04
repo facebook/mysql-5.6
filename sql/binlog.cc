@@ -180,6 +180,7 @@ const char *log_bin_basename = nullptr;
 // const char *opt_relaylog_index_name = nullptr;
 
 const char *hlc_ts_lower_bound = "hlc_ts_lower_bound";
+const char *hlc_ts_upper_bound = "hlc_ts_upper_bound";
 const char *hlc_wait_timeout_ms = "hlc_wait_timeout_ms";
 
 /* Size for IO_CACHE buffer for binlog & relay log */
@@ -2852,44 +2853,63 @@ bool HybridLogicalClock::check_hlc_bound(THD *thd) {
   }
 
   const char *hlc_lower_bound_ts_str = nullptr;
+  const char *hlc_upper_bound_ts_str = nullptr;
   for (const auto &p : thd->query_attrs_list) {
     if (p.first == hlc_ts_lower_bound) {
       hlc_lower_bound_ts_str = p.second.c_str();
+    } else if (p.first == hlc_ts_upper_bound) {
+      hlc_upper_bound_ts_str = p.second.c_str();
+    }
+    if (hlc_lower_bound_ts_str && hlc_upper_bound_ts_str) {
       break;
     }
   }
 
-  // No lower bound HLC ts specified, skip early
-  if (!hlc_lower_bound_ts_str) {
-    return false;
+  if (hlc_lower_bound_ts_str) {
+    char *endptr = nullptr;
+    uint64_t requested_hlc = strtoull(hlc_lower_bound_ts_str, &endptr, 10);
+    if (!endptr || *endptr != '\0' ||
+        !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+      my_error(ER_INVALID_HLC, MYF(0), hlc_lower_bound_ts_str);
+      return true;
+    }
+
+    // There is a limit on how far we can jump HLC value. In case if the
+    // requested HLC value is too far ahead of the current wallclock time
+    // we fail the request with ER_HLC_ABOVE_MAX_DRIFT error.
+
+    // Get current wall clock
+    uint64_t cur_wall_clock_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::high_resolution_clock::now().time_since_epoch())
+            .count();
+
+    // Updating the HLC cannot be allowed if HLC drifts forward by more than
+    // 'maximum_hlc_drift_ns' as compared to wall clock
+    if (requested_hlc > cur_wall_clock_ns &&
+        (requested_hlc - cur_wall_clock_ns) > maximum_hlc_drift_ns) {
+      my_error(ER_HLC_ABOVE_MAX_DRIFT, MYF(0), hlc_lower_bound_ts_str);
+      return true;
+    }
+    update(requested_hlc);
   }
 
-  char *endptr = nullptr;
-  uint64_t requested_hlc = strtoull(hlc_lower_bound_ts_str, &endptr, 10);
-  if (!endptr || *endptr != '\0' ||
-      !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
-    my_error(ER_INVALID_HLC, MYF(0), hlc_lower_bound_ts_str);
-    return true;
+  if (hlc_upper_bound_ts_str) {
+    char *endptr = nullptr;
+    uint64_t requested_hlc = strtoull(hlc_upper_bound_ts_str, &endptr, 10);
+    if (!endptr || *endptr != '\0' ||
+        !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+      my_error(ER_INVALID_HLC, MYF(0), hlc_upper_bound_ts_str);
+      return true;
+    }
+
+    uint64_t current_hlc = get_current();
+    if (requested_hlc <= current_hlc + hlc_upper_bound_delta) {
+      my_error(ER_HLC_STALE_UPPER_BOUND, MYF(0), current_hlc);
+      return true;
+    }
   }
 
-  // There is a limit on how far we can jump HLC value. In case if the
-  // requested HLC value is too far ahead of the current wallclock time
-  // we fail the request with ER_HLC_ABOVE_MAX_DRIFT error.
-
-  // Get current wall clock
-  uint64_t cur_wall_clock_ns =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-          std::chrono::high_resolution_clock::now().time_since_epoch())
-          .count();
-
-  // Updating the HLC cannot be allowed if HLC drifts forward by more than
-  // 'maximum_hlc_drift_ns' as compared to wall clock
-  if (requested_hlc > cur_wall_clock_ns &&
-      (requested_hlc - cur_wall_clock_ns) > maximum_hlc_drift_ns) {
-    my_error(ER_HLC_ABOVE_MAX_DRIFT, MYF(0), hlc_lower_bound_ts_str);
-    return true;
-  }
-  update(requested_hlc);
   return false;
 }
 

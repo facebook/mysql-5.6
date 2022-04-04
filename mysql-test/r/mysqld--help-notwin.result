@@ -610,6 +610,9 @@ The following options may be given as the first argument:
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
+ --hlc-upper-bound-delta[=#] 
+ Min acceptable difference between current HLC value and
+ upper HLC boundary specified for the query
  --host-cache-size=# How many host names should be cached to avoid resolving.
  --improved-dup-key-error 
  Include the table name in the error text when receiving a
@@ -2902,6 +2905,7 @@ high-precision-processlist FALSE
 high-priority-ddl FALSE
 high-priority-lock-wait-timeout 1
 histogram-generation-max-mem-size 20000000
+hlc-upper-bound-delta 0
 host-cache-size 279
 improved-dup-key-error FALSE
 index-stats-control OFF_HARD

@@ -1217,6 +1217,7 @@ bool maintain_database_hlc = false;
 ulong wait_for_hlc_timeout_ms = 0;
 ulong wait_for_hlc_sleep_threshold_ms = 0;
 double wait_for_hlc_sleep_scaling_factor = 0.75;
+ulonglong hlc_upper_bound_delta = 0;
 char *default_collation_for_utf8mb4_init = nullptr;
 bool enable_blind_replace = false;
 bool enable_acl_fast_lookup = false;

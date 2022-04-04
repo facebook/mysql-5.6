@@ -42,6 +42,8 @@ group_replication_consistency
 group_replication_consistency
 have_boringssl
 have_boringssl
+hlc_upper_bound_delta
+hlc_upper_bound_delta
 init_replica
 init_replica
 init_slave
