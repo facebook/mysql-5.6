@@ -49,6 +49,36 @@ SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
 USE a;
 INSERT INTO ta (a, b) VALUES (22, 'bup');
 include/assert.inc [Check if HLC hasn't decrease after INSERT]
+A valid upper HLC bounds in transactions
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (23, 'bep');
+COMMIT;
+include/assert.inc [Check if HLC was not updated by the last INSERT]
+Stale upper HLC bounds in transactions
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (24, 'bem');
+COMMIT;
+Setting non-zero HLC Upper Bound delta
+SET @@global.hlc_upper_bound_delta = 1;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (24, 'bem');
+COMMIT;
+include/assert.inc [Check if HLC was not updated by the last INSERT]
+Setting non-zero HLC Upper Bound delta that blocks the transaction
+SET @@global.hlc_upper_bound_delta = 100000000000;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (25, 'bed');
+COMMIT;
+Setting both HLC upper and lower bounds
+SET @@global.hlc_upper_bound_delta = 10000000000;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (25, 'bed');
+COMMIT;
 Cleanup
 DROP DATABASE a;
 SET @@global.enable_binlog_hlc = default;
@@ -57,4 +87,5 @@ SET @@global.wait_for_hlc_timeout_ms = default;
 SET @@global.enable_hlc_bound = default;
 SET @@global.minimum_hlc_ns = 0;
 SET @@global.maximum_hlc_drift_ns = default;
+SET @@global.hlc_upper_bound_delta = default;
 include/rpl_end.inc

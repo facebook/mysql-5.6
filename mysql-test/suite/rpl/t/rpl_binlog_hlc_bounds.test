@@ -133,6 +133,92 @@ let $hlc = get_response_attribute(hlc_ts);
 query_attrs_reset;
 
 # =============================================================================
+# Specifying upper HLC bound for transactional queries should fail queries
+# if HLC passed over the requested upper bound
+# =============================================================================
+
+--echo A valid upper HLC bounds in transactions
+
+--let $hlc = 2538630060000000000
+query_attrs_add hlc_ts_upper_bound $hlc;
+--disable_result_log
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (23, 'bep');
+COMMIT;
+--enable_result_log
+let $hlc = get_response_attribute(hlc_ts);
+--let $assert_text = Check if HLC was not updated by the last INSERT
+--let $assert_cond = $hlc <= 2538630006000000000
+--source include/assert.inc
+query_attrs_reset;
+
+--echo Stale upper HLC bounds in transactions
+
+--let $hlc = 2538630000000000000
+query_attrs_add hlc_ts_upper_bound $hlc;
+--disable_result_log
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (24, 'bem');
+--error ER_HLC_STALE_UPPER_BOUND
+COMMIT;
+--enable_result_log
+let $hlc = get_response_attribute(hlc_ts);
+query_attrs_reset;
+
+--echo Setting non-zero HLC Upper Bound delta
+
+SET @@global.hlc_upper_bound_delta = 1;  # 1ns
+
+--let $hlc = 2538630060000000000
+query_attrs_add hlc_ts_upper_bound $hlc;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (24, 'bem');
+COMMIT;
+let $hlc = get_response_attribute(hlc_ts);
+--let $assert_text = Check if HLC was not updated by the last INSERT
+--let $assert_cond = $hlc <= 2538630006000000000
+--source include/assert.inc
+query_attrs_reset;
+
+--echo Setting non-zero HLC Upper Bound delta that blocks the transaction
+
+SET @@global.hlc_upper_bound_delta = 100000000000;
+
+--let $hlc = 2538630060000000000
+query_attrs_add hlc_ts_upper_bound $hlc;
+--disable_result_log
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (25, 'bed');
+--error ER_HLC_STALE_UPPER_BOUND
+COMMIT;
+--enable_result_log
+query_attrs_reset;
+
+--echo Setting both HLC upper and lower bounds
+
+SET @@global.hlc_upper_bound_delta = 10000000000;
+
+# Setting both upper and lower HLC bound. Upper bound is initially clear,
+# but once lower bound advances current HLC upper bound gets stale
+# considering the set delta. The quesry is expected to fail.
+--let $hlc = 2538630060000000000
+query_attrs_add hlc_ts_lower_bound $hlc;
+--let $hlc = 2538630065000000000
+query_attrs_add hlc_ts_upper_bound $hlc;
+--disable_result_log
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (25, 'bed');
+--error ER_HLC_STALE_UPPER_BOUND
+COMMIT;
+--enable_result_log
+query_attrs_reset;
+
+# =============================================================================
 # Cleanup
 # =============================================================================
 
@@ -146,5 +232,6 @@ SET @@global.wait_for_hlc_timeout_ms = default;
 SET @@global.enable_hlc_bound = default;
 SET @@global.minimum_hlc_ns = 0;
 SET @@global.maximum_hlc_drift_ns = default;
+SET @@global.hlc_upper_bound_delta = default;
 
 source include/rpl_end.inc;
