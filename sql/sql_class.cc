@@ -4470,7 +4470,11 @@ const std::string &THD::found_connection_attr(const std::string &cattr_key,
  */
 static bool check_unique(std::list<std::string> &unique_full_names,
                          const char *db_name, const char *tab_name) {
-  std::string full_tname = db_name;
+  std::string_view db_name_sv(db_name);    // Calculates the size of db_name
+  std::string_view tab_name_sv(tab_name);  // Calculates the size of tab_name
+  std::string full_tname;
+  full_tname.reserve(db_name_sv.size() + tab_name_sv.size() + 1);
+  full_tname.append(db_name);
   full_tname.append(".");
   full_tname.append(tab_name);
 
@@ -4479,7 +4483,7 @@ static bool check_unique(std::list<std::string> &unique_full_names,
       unique_full_names.end())
     return false;
 
-  unique_full_names.emplace_back(full_tname);
+  unique_full_names.emplace_back(std::move(full_tname));
   return true;
 }
 
@@ -4514,7 +4518,7 @@ std::pair<Table_List, Table_List> THD::get_read_write_tables() {
     }
   }
 
-  return std::make_pair(read_tables, write_tables);
+  return std::make_pair(std::move(read_tables), std::move(write_tables));
 }
 
 /**
