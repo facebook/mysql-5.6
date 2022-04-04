@@ -412,6 +412,10 @@ The following options may be given as the first argument:
  --div-precision-increment=# 
  Precision of the result of '/' operator will be increased
  on that value
+ --dscp-on-socket[=#] 
+ DSCP value for socket/connection to control out-bound
+ packages. 0 means unset, and it will use default value.
+ To overrides, use number from 1 to 63
  --early-plugin-load=name 
  Optional semicolon-separated list of plugins to load
  before storage engine initialization, where each plugin
@@ -2863,6 +2867,7 @@ disallow-raft FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+dscp-on-socket 0
 enable-acl-cache-deadlock-detection TRUE
 enable-acl-db-cache TRUE
 enable-acl-fast-lookup FALSE

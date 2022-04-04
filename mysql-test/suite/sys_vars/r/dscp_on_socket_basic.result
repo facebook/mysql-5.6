@@ -52,10 +52,6 @@ Warning	1292	Truncated incorrect dscp_on_socket value: '1000'
 SELECT @@session.dscp_on_socket;
 @@session.dscp_on_socket
 63
-SET @@global.dscp_on_socket = 0;
-ERROR HY000: Variable 'dscp_on_socket' is a SESSION variable and can't be used with SET GLOBAL
-SELECT @@global.dscp_on_socket;
-ERROR HY000: Variable 'dscp_on_socket' is a SESSION variable
 SELECT count(VARIABLE_VALUE) FROM performance_schema.session_variables
 WHERE VARIABLE_NAME='dscp_on_socket';
 count(VARIABLE_VALUE)
