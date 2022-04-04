@@ -1,4 +1,5 @@
 --source include/not_valgrind.inc
+--source include/not_mac_os.inc
 
 --echo ------ Run plugin ------------------------------------------------
 --replace_result $TEST_SQL_COMPLEX TEST_SQL_COMPLEX

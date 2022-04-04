@@ -18,6 +18,7 @@
 #              * Data Integrity                                               #
 #                                                                             #
 ###############################################################################
+--source include/not_mac_os.inc
 
 --source include/load_sysvars.inc
 
@@ -89,15 +90,6 @@ SET @@session.dscp_on_socket = "T";
 SET @@session.dscp_on_socket = 1000;
 SELECT @@session.dscp_on_socket;
 
-
-###########################################################################
-#     Test if accessing global dscp_on_socket gives error                 #
-###########################################################################
-
---error ER_LOCAL_VARIABLE
-SET @@global.dscp_on_socket = 0;
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
-SELECT @@global.dscp_on_socket;
 
 #########################################################################
 #     Check if the value in SESSION Table contains variable value       #

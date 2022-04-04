@@ -5377,6 +5377,10 @@ class THD : public MDL_context_owner,
              get_stmt_da()->mysql_errno() == ER_DA_CONN_LIMIT));
   }
 #endif
+
+#ifndef __APPLE__
+  bool set_dscp_on_socket();
+#endif
 };
 
 /**

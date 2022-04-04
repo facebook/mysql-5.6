@@ -525,7 +525,9 @@ struct System_variables {
   ulong kill_conflicting_connections_timeout;
   long admission_control_queue_timeout;
   long admission_control_queue;
+#ifndef __APPLE__
   ulong dscp_on_socket;
+#endif
   bool enable_block_stale_hlc_read;
   bool enable_hlc_bound;
   bool enable_user_tables_engine_check;
