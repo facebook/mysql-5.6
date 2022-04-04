@@ -1,0 +1,38 @@
+SET @disable_instant_ddl_saved = @@global.disable_instant_ddl;
+SELECT @disable_instant_ddl_saved;
+@disable_instant_ddl_saved
+0
+set global disable_instant_ddl = True;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
+1
+set global disable_instant_ddl = False;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
+0
+SET @@global.disable_instant_ddl= DEFAULT;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
+0
+SET @@global.disable_instant_ddl= 1000;
+ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of '1000'
+SET @@global.disable_instant_ddl= -1;
+ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of '-1'
+SET @@global.disable_instant_ddl= 5;
+ERROR 42000: Variable 'disable_instant_ddl' can't be set to the value of '5'
+SET @@global.disable_instant_ddl= OFF;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
+0
+SET @@global.disable_instant_ddl= ON;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
+1
+SET GLOBAL disable_instant_ddl= 0.01;
+ERROR 42000: Incorrect argument type to variable 'disable_instant_ddl'
+select @@session.disable_instant_ddl;
+ERROR HY000: Variable 'disable_instant_ddl' is a GLOBAL variable
+SET @@global.disable_instant_ddl = @disable_instant_ddl_saved;
+SELECT @@global.disable_instant_ddl;
+@@global.disable_instant_ddl
+0

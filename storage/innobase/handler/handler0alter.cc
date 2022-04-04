@@ -88,6 +88,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "fts0priv.h"
 #include "handler0alter.h"
 #include "lock0lock.h"
+#include "mysqld.h"
 #include "pars0pars.h"
 #include "partition_info.h"
 #include "rem0types.h"
@@ -824,6 +825,10 @@ static bool ok_to_rename_column(const Alter_inplace_info *ha_alter_info,
 static inline Instant_Type innobase_support_instant(
     const Alter_inplace_info *ha_alter_info, const dict_table_t *table,
     const TABLE *old_table, const TABLE *altered_table) {
+  if (disable_instant_ddl) {
+    return (Instant_Type::INSTANT_IMPOSSIBLE);
+  }
+
   if (!(ha_alter_info->handler_flags & ~INNOBASE_INPLACE_IGNORE)) {
     return (Instant_Type::INSTANT_NO_CHANGE);
   }

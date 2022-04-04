@@ -1,0 +1,44 @@
+SET @disable_instant_ddl_saved = @@global.disable_instant_ddl;
+#
+# Scenario 1: when disable_instant_ddl=1, it should use copy/inplace algorithm
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+set global disable_instant_ddl = 1;
+ALTER TABLE t1 ADD COLUMN c1 INT DEFAULT 10;
+Table ID differed
+count(*) = 1
+0
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT count(*) FROM information_schema.innodb_tables WHERE name like '%t1%' and instant_cols != 0;
+count(*)
+0
+SELECT count(*) FROM information_schema.innodb_columns WHERE TABLE_ID in
+(SELECT TABLE_ID FROM information_schema.innodb_tables WHERE name LIKE '%t1%') and has_default = 1;
+count(*)
+0
+#
+# Scenario 2: when disable_instant_ddl=1, it should fail for algorithm=instant 
+#
+SET GLOBAL disable_instant_ddl = 1;
+ALTER TABLE t1 ADD COLUMN c2 INT DEFAULT 10, ALGORITHM = INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
+set global disable_instant_ddl = 0;
+ALTER TABLE t1 ADD COLUMN c2 INT DEFAULT 10;
+Table id did not change
+count(*) = 1
+1
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT count(*) FROM information_schema.innodb_tables WHERE name like '%t1%' and instant_cols != 0;
+count(*)
+0
+SELECT count(*) FROM information_schema.innodb_columns WHERE TABLE_ID in
+(SELECT TABLE_ID FROM information_schema.innodb_tables WHERE name LIKE '%t1%') and has_default = 1;
+count(*)
+1
+SET GLOBAL disable_instant_ddl=@disable_instant_ddl_saved;
+DROP TABLE t1;
