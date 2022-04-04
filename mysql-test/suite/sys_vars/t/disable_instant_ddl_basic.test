@@ -1,0 +1,42 @@
+--source include/load_sysvars.inc
+
+
+# Saving initial value of disable_instant_ddl in a temporary variable
+
+SET @disable_instant_ddl_saved = @@global.disable_instant_ddl;
+SELECT @disable_instant_ddl_saved;
+
+set global disable_instant_ddl = True;
+SELECT @@global.disable_instant_ddl;
+
+set global disable_instant_ddl = False;
+SELECT @@global.disable_instant_ddl;
+
+SET @@global.disable_instant_ddl= DEFAULT;
+SELECT @@global.disable_instant_ddl;
+
+--error ER_WRONG_VALUE_FOR_VAR 
+SET @@global.disable_instant_ddl= 1000;
+
+--error ER_WRONG_VALUE_FOR_VAR 
+SET @@global.disable_instant_ddl= -1;
+
+--error ER_WRONG_VALUE_FOR_VAR 
+SET @@global.disable_instant_ddl= 5;
+
+SET @@global.disable_instant_ddl= OFF;
+SELECT @@global.disable_instant_ddl;
+
+SET @@global.disable_instant_ddl= ON;
+SELECT @@global.disable_instant_ddl;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL disable_instant_ddl= 0.01;
+
+# echo disable_instant_ddl is a global variable
+-- error 1238
+select @@session.disable_instant_ddl;
+
+# Restore initial value
+SET @@global.disable_instant_ddl = @disable_instant_ddl_saved;
+SELECT @@global.disable_instant_ddl;
