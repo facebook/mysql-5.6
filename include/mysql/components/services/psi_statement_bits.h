@@ -587,6 +587,14 @@ typedef void (*digest_end_v1_t)(struct PSI_digest_locker *locker,
                                 const struct sql_digest_storage *digest);
 
 /**
+  Set a statement event cpu time.
+  @param locker the statement locker
+  @param cpu_time the cpu time, in microseconds
+*/
+typedef unsigned long long (*get_statement_cpu_time_v1_t)(
+    struct PSI_statement_locker *locker);
+
+/**
   Acquire a sp share instrumentation.
   @param object_type type of stored program
   @param schema_name schema name of stored program

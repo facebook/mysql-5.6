@@ -406,7 +406,7 @@ int table_events_statements_common::make_row_part_1(
   m_row.m_sort_scan = statement->m_sort_scan;
   m_row.m_no_index_used = statement->m_no_index_used;
   m_row.m_no_good_index_used = statement->m_no_good_index_used;
-  m_row.m_cpu_time = statement->m_cpu_time * NANOSEC_TO_PICOSEC;
+  m_row.m_cpu_time = statement->m_cpu_time * MICROSEC_TO_PICOSEC;
   m_row.m_filesort_disk_usage_peak = statement->m_filesort_disk_usage_peak;
   m_row.m_tmp_table_disk_usage_peak = statement->m_tmp_table_disk_usage_peak;
 

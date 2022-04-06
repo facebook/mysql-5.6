@@ -814,6 +814,10 @@ static void digest_end_noop(PSI_digest_locker *,
   return;
 }
 
+static unsigned long long get_statement_cpu_time_noop(PSI_statement_locker *) {
+  return 0;
+}
+
 static PSI_sp_share *get_sp_share_noop(uint, const char *, uint, const char *,
                                        uint) {
   return nullptr;
@@ -872,6 +876,7 @@ static PSI_statement_service_t psi_statement_noop = {
     set_prepared_stmt_text_noop,
     digest_start_noop,
     digest_end_noop,
+    get_statement_cpu_time_noop,
     get_sp_share_noop,
     release_sp_share_noop,
     start_sp_noop,

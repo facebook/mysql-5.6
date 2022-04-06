@@ -225,6 +225,9 @@ using std::max;
 static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
                      const char *reason = nullptr);
 
+static void store_server_cpu_in_resp_attrs(THD *thd, ulonglong cpu_time);
+static void store_warnings_in_resp_attrs(THD *thd);
+
 const std::string Command_names::m_names[COM_TOP_END] = {
     "Sleep",
     "Quit",
@@ -1905,6 +1908,13 @@ static void update_mt_stmt_stats(THD *thd, char *sub_query) {
   if (sql_findings_control == SQL_INFO_CONTROL_ON)
     store_sql_findings(thd, sub_query);
 
+  /* check if should we include warnings in the response attributes */
+  if (thd->variables.response_attrs_contain_warnings_bytes > 0 &&
+      !thd->is_error() &&                     /* there is no error generated */
+      thd->get_stmt_da()->cond_count() > 0 && /* # errors, warnings & notes */
+      thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->is_enabled())
+    store_warnings_in_resp_attrs(thd);
+
   thd->mt_key_clear(THD::SQL_ID);
   thd->mt_key_clear(THD::SQL_HASH);
 }
@@ -1972,6 +1982,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   Sql_cmd_clone *clone_cmd = nullptr;
   const ulonglong init_timer = my_timer_now();
   ulonglong last_timer = init_timer;
+  ulonglong cpu_time = 0;
 
   /* For per-query performance counters with log_slow_statement */
   struct System_status_var query_start_status;
@@ -2412,6 +2423,10 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         update_mt_stmt_stats(thd, sub_query);
         my_free(sub_query);
 
+        /* store CPU time as part of the query response attributes */
+        cpu_time = MYSQL_GET_STATEMENT_CPU_TIME(thd->m_statement_psi);
+        store_server_cpu_in_resp_attrs(thd, cpu_time);
+
         /* Finalize server status flags after executing a statement. */
         thd->finalize_session_trackers();
         thd->update_slow_query_status();
@@ -2442,6 +2457,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
         /* PSI end */
         MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+
         thd->m_statement_psi = nullptr;
         thd->m_digest = nullptr;
 
@@ -2804,6 +2820,10 @@ done:
   assert(thd->open_tables == nullptr ||
          (thd->locked_tables_mode == LTM_LOCK_TABLES));
 
+  /* store CPU time as part of the query response attributes */
+  cpu_time = MYSQL_GET_STATEMENT_CPU_TIME(thd->m_statement_psi);
+  store_server_cpu_in_resp_attrs(thd, cpu_time);
+
   /* Finalize server status flags after executing a command. */
   thd->finalize_session_trackers();
   thd->update_slow_query_status();
@@ -2876,6 +2896,7 @@ done:
 
   /* Performance Schema Interface instrumentation, end */
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+
   thd->m_statement_psi = nullptr;
   thd->m_digest = nullptr;
   thd->reset_query_for_display();
@@ -7968,4 +7989,105 @@ std::string get_user_query_info_from_thd(THD *thd) {
   }
 
   return user_info;
+}
+
+/**
+  Include warnings in the query response attributes
+
+  @param pointer to thread
+
+  This function iterate through all the warnings and includes them
+  in the query response attributes. The query response attribute
+  is identified by the key 'warnings' and the value is a list of
+  pairs where the first value of the pair is the error code and the
+  second value is the message text of the warning. Warnings corresponding
+  to errors are skipped and only warnings that are either regular warnings
+  or notes are included.
+
+  The variable 'response_attrs_contain_warnings_bytes' controls the above.
+  It takes a value >= 0 where 0 indicates that the feature is disabled. A
+  non zero value indicates the maximum number of bytes that can be used for
+  warnings included. If the length of the message to be included is more than
+  this limit then the message text of the warnings is truncated and only the
+  error codes are included with empty message texts.
+*/
+
+static void store_warnings_in_resp_attrs(THD *thd) {
+  ulonglong warnings_length = 0; /* total length of warnings */
+
+  Diagnostics_area::Sql_condition_iterator it =
+      thd->get_stmt_da()->sql_conditions();
+  /* this indicates the length of the delimiters added in the warnings
+   * message that will be included in the response attributes. The delimiters
+   * are '(', ')', ','.
+   */
+
+  const ulonglong WARNINGS_DELIMITER_LENGTH = 3;
+
+  /* first compute the length of the warnings message
+   * used to enforce the limit
+   */
+  const Sql_condition *err;
+  while ((err = it++)) /* iterate through all the warnings */
+  {
+    const uint err_no = err->mysql_errno();
+
+    /* update the length of warnings message */
+    warnings_length += std::to_string(err_no).length() +
+                       strlen(err->message_text()) + WARNINGS_DELIMITER_LENGTH;
+  }
+
+  if (warnings_length > 0) /* there are warnings to included */
+  {
+    /* included the message text also if it is within the limit */
+    bool include_mesg_text =
+        (warnings_length <=
+         thd->variables.response_attrs_contain_warnings_bytes);
+    std::string resp_attrs_value; /* warnings text */
+
+    /* create the string that will be made part of the response attributes */
+    it = thd->get_stmt_da()->sql_conditions();
+    while ((err = it++)) {
+      const uint err_no = err->mysql_errno();
+
+      /* add the warnings as "(error_no, message_text)" if within in limit
+       * otherwise just include "(error_no,)"
+       */
+      if (resp_attrs_value.length() > 0) resp_attrs_value.append(",");
+      resp_attrs_value.append("(");
+      resp_attrs_value.append(std::to_string(err_no));
+      resp_attrs_value.append(",");
+      if (include_mesg_text) resp_attrs_value.append(err->message_text());
+      resp_attrs_value.append(")");
+    }
+
+    /* add the warnings to response attributes */
+    auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+    static LEX_CSTRING key = {STRING_WITH_LEN("warnings")};
+    LEX_CSTRING value = {resp_attrs_value.c_str(), resp_attrs_value.length()};
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+}
+
+static std::string response_attrs_contain_server_cpu_key =
+    "response_attrs_contain_server_cpu";
+
+static void store_server_cpu_in_resp_attrs(THD *thd, ulonglong cpu_time) {
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+
+  if (tracker->is_enabled() && /* check if session tracker is not enabled */
+      /* check if the variable is enabled */
+      (thd->variables.response_attrs_contain_server_cpu ||
+       /* check if query attribute is set to '1'
+        * the argument type of the query attribute is changed to int
+        * to avoid type conversions. The query attribute will be considered
+        * enabled only if its value is set "1".
+        */
+       thd->get_query_attr(response_attrs_contain_server_cpu_key) == "1")) {
+    /* Update session tracker with server CPU time */
+    static LEX_CSTRING key = {STRING_WITH_LEN("server_cpu")};
+    std::string value_str = std::to_string(cpu_time);
+    LEX_CSTRING value = {value_str.c_str(), value_str.length()};
+    tracker->mark_as_changed(thd, &key, &value);
+  }
 }

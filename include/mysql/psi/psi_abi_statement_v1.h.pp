@@ -190,6 +190,8 @@ typedef struct PSI_digest_locker *(*digest_start_v1_t)(
     struct PSI_statement_locker *locker);
 typedef void (*digest_end_v1_t)(struct PSI_digest_locker *locker,
                                 const struct sql_digest_storage *digest);
+typedef unsigned long long (*get_statement_cpu_time_v1_t)(
+    struct PSI_statement_locker *locker);
 typedef struct PSI_sp_share *(*get_sp_share_v1_t)(
     unsigned int object_type, const char *schema_name,
     unsigned int schema_name_length, const char *object_name,
@@ -253,6 +255,7 @@ struct PSI_statement_service_v2 {
   set_prepared_stmt_text_v1_t set_prepared_stmt_text;
   digest_start_v1_t digest_start;
   digest_end_v1_t digest_end;
+  get_statement_cpu_time_v1_t get_statement_cpu_time;
   get_sp_share_v1_t get_sp_share;
   release_sp_share_v1_t release_sp_share;
   start_sp_v1_t start_sp;

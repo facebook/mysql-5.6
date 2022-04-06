@@ -117,6 +117,8 @@ digest_start_v1_t digest_start;
 /** @sa digest_end_v1_t. */
 digest_end_v1_t digest_end;
 
+/** @sa get_statement_cpu_time_v1_t. */
+get_statement_cpu_time_v1_t get_statement_cpu_time;
 /** @sa get_sp_share_v1_t. */
 get_sp_share_v1_t get_sp_share;
 /** @sa release_sp_share_v1_t. */
@@ -218,6 +220,8 @@ digest_start_v1_t digest_start;
 /** @sa digest_end_v1_t. */
 digest_end_v1_t digest_end;
 
+/** @sa get_statement_cpu_time_v1_t. */
+get_statement_cpu_time_v1_t get_statement_cpu_time;
 /** @sa get_sp_share_v1_t. */
 get_sp_share_v1_t get_sp_share;
 /** @sa release_sp_share_v1_t. */

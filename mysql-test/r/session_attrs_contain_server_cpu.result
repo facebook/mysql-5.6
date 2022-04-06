@@ -1,0 +1,91 @@
+
+# Test server_cpu query response attribute
+
+use test;
+create table mytbl (a int, b int, c int, d int, e int);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+SET @@session.session_track_response_attributes = on;
+# Case 1: session level variable is default, i.e. FALSE
+set @@session.response_attrs_contain_server_cpu = default;
+select * from mytbl;
+Did not find server_cpu in query response attributes
+# Case 2: session level variable is TRUE
+set @@session.response_attrs_contain_server_cpu = true;
+select * from mytbl;
+Found valid value for server_cpu in query response attributes
+set @@session.response_attrs_contain_server_cpu = default;
+# Case 4: global level variable is TRUE but session is FALSE
+set @@global.response_attrs_contain_server_cpu = true;
+select a,b from mytbl;
+Did not find server_cpu in query response attributes
+set @@global.response_attrs_contain_server_cpu = default;
+# Case 5: specify query attribute 'response_attrs_contain_server_cpu' to 1
+select a,b from mytbl;
+Found valid value for server_cpu in query response attributes
+# Case 6: specify query attribute 'response_attrs_contain_server_cpu' to 0
+select a,b from mytbl;
+Did not find server_cpu in query response attributes
+
+# Test multistatement query
+
+use test;
+# Case 1: session level variable is default, i.e. FALSE
+set @@session.response_attrs_contain_server_cpu = default;
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+Did not find server_cpu in query response attributes
+# Case 2: session level variable is TRUE
+set @@session.response_attrs_contain_server_cpu = true;
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+Found valid value for server_cpu in query response attributes
+set @@session.response_attrs_contain_server_cpu = default;
+# Case 4: global level variable is TRUE but session is FALSE
+set @@global.response_attrs_contain_server_cpu = true;
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+Did not find server_cpu in query response attributes
+set @@global.response_attrs_contain_server_cpu = default;
+# Case 5: specify query attribute 'response_attrs_contain_server_cpu' to 1
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+Found valid value for server_cpu in query response attributes
+# Case 6: specify query attribute 'response_attrs_contain_server_cpu' to 0
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+Did not find server_cpu in query response attributes
+use test;
+drop table if exists mytbl;

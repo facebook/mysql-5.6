@@ -1626,6 +1626,22 @@ The following options may be given as the first argument:
  pair - 'hlc_ts' is the key and the value is the
  stringified HLC timestamp. Note that HLC should be
  enabled by setting enable_binlog_hlc
+ --response-attrs-contain-server-cpu 
+ If this is enabled, then the server CPU time of the query
+ is sent back to clients as part of OK packet in session
+ response attribute. Server CPU time is sent as a
+ key-value pair - 'server_cpu' is the key and the value is
+ the stringified server CPU time.
+ --response-attrs-contain-warnings-bytes[=#] 
+ Specifies the size of the warnings information (specified
+ in bytes)  that can be included in the query response
+ attributes. The warnings are sent as a key-value pair -
+ 'warnings' is the key and the value is a list of pairs
+ included with in brackets separated by commas. The first
+ value of the pair is the error number (code) and the
+ second  value of the pair is the message text and these
+ are separated by a comma. The default value is 0 which
+ disables this feature
  --rocksdb[=name]    Enable or disable ROCKSDB plugin. Possible values are ON,
  OFF, FORCE (don't start if the plugin fails to load).
  --rocksdb-access-hint-on-compaction-start=# 
@@ -3146,6 +3162,8 @@ require-secure-transport FALSE
 reset-period-status-vars FALSE
 reset-seconds-behind-master TRUE
 response-attrs-contain-hlc FALSE
+response-attrs-contain-server-cpu FALSE
+response-attrs-contain-warnings-bytes 0
 rocksdb ON
 rocksdb-access-hint-on-compaction-start 1
 rocksdb-active-compaction-stats ON

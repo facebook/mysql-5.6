@@ -959,7 +959,7 @@ struct PFS_statement_stat_row {
       m_sort_scan = stat->m_sort_scan;
       m_no_index_used = stat->m_no_index_used;
       m_no_good_index_used = stat->m_no_good_index_used;
-      m_cpu_time = stat->m_cpu_time * NANOSEC_TO_PICOSEC;
+      m_cpu_time = stat->m_cpu_time * MICROSEC_TO_PICOSEC;
       m_filesort_disk_usage_peak = stat->m_filesort_disk_usage_peak;
       m_tmp_table_disk_usage_peak = stat->m_tmp_table_disk_usage_peak;
     } else {
