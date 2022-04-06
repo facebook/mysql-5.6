@@ -1,0 +1,85 @@
+SET @start_value = @@global.binlog_trx_meta_data;
+SELECT @start_value;
+@start_value
+0
+SET @@global.binlog_trx_meta_data = DEFAULT;
+SELECT @@global.binlog_trx_meta_data = TRUE;
+@@global.binlog_trx_meta_data = TRUE
+0
+SET @@global.binlog_trx_meta_data = ON;
+SELECT @@global.binlog_trx_meta_data;
+@@global.binlog_trx_meta_data
+1
+SET @@global.binlog_trx_meta_data = OFF;
+SELECT @@global.binlog_trx_meta_data;
+@@global.binlog_trx_meta_data
+0
+SET @@global.binlog_trx_meta_data = 2;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of '2'
+SET @@global.binlog_trx_meta_data = -1;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of '-1'
+SET @@global.binlog_trx_meta_data = TRUEF;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of 'TRUEF'
+SET @@global.binlog_trx_meta_data = TRUE_F;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of 'TRUE_F'
+SET @@global.binlog_trx_meta_data = FALSE0;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of 'FALSE0'
+SET @@global.binlog_trx_meta_data = OON;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of 'OON'
+SET @@global.binlog_trx_meta_data = ONN;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of 'ONN'
+SET @@global.binlog_trx_meta_data = OOFF;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of 'OOFF'
+SET @@global.binlog_trx_meta_data = 0FF;
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of '0FF'
+SET @@global.binlog_trx_meta_data = ' ';
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of ' '
+SET @@global.binlog_trx_meta_data = " ";
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of ' '
+SET @@global.binlog_trx_meta_data = '';
+ERROR 42000: Variable 'binlog_trx_meta_data' can't be set to the value of ''
+SET @@session.binlog_trx_meta_data = OFF;
+ERROR HY000: Variable 'binlog_trx_meta_data' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.binlog_trx_meta_data;
+ERROR HY000: Variable 'binlog_trx_meta_data' is a GLOBAL variable
+SELECT IF(@@global.binlog_trx_meta_data, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='binlog_trx_meta_data';
+IF(@@global.binlog_trx_meta_data, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.binlog_trx_meta_data = 0;
+SELECT @@global.binlog_trx_meta_data;
+@@global.binlog_trx_meta_data
+0
+SET @@global.binlog_trx_meta_data = 1;
+SELECT @@global.binlog_trx_meta_data;
+@@global.binlog_trx_meta_data
+1
+SET @@global.binlog_trx_meta_data = TRUE;
+SELECT @@global.binlog_trx_meta_data;
+@@global.binlog_trx_meta_data
+1
+SET @@global.binlog_trx_meta_data = FALSE;
+SELECT @@global.binlog_trx_meta_data;
+@@global.binlog_trx_meta_data
+0
+SET @@global.binlog_trx_meta_data = ON;
+SELECT @@binlog_trx_meta_data = @@global.binlog_trx_meta_data;
+@@binlog_trx_meta_data = @@global.binlog_trx_meta_data
+1
+SET binlog_trx_meta_data = ON;
+ERROR HY000: Variable 'binlog_trx_meta_data' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.binlog_trx_meta_data = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.binlog_trx_meta_data = OFF' at line 1
+SELECT local.binlog_trx_meta_data;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.binlog_trx_meta_data = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.binlog_trx_meta_data = ON' at line 1
+SELECT global.binlog_trx_meta_data;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT binlog_trx_meta_data = @@session.binlog_trx_meta_data;
+ERROR HY000: Variable 'binlog_trx_meta_data' is a GLOBAL variable
+SET @@global.binlog_trx_meta_data = @start_value;
+SELECT @@global.binlog_trx_meta_data;
+@@global.binlog_trx_meta_data
+0

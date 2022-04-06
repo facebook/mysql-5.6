@@ -1270,8 +1270,11 @@ bool parse_view_definition(THD *thd, Table_ref *view_ref) {
     that the view is parsed and prepared correctly.
   */
   mysql_mutex_lock(&thd->LOCK_thd_data);
-  thd->reset_db({view_ref->db, view_ref->db_length});
+  thd->reset_db({view_ref->db, view_ref->db_length},
+                /* lock_held_skip_metadata */ true);
   mysql_mutex_unlock(&thd->LOCK_thd_data);
+  /* Explicitly call set_db_metadata() after lock is released */
+  thd->set_db_metadata();
 
   lex_start(thd);
 
@@ -1327,8 +1330,10 @@ bool parse_view_definition(THD *thd, Table_ref *view_ref) {
     view_lex->sql_command = old_lex->sql_command;
 
   mysql_mutex_lock(&thd->LOCK_thd_data);
-  thd->reset_db(current_db_name_saved);
+  thd->reset_db(current_db_name_saved, /* lock_held_skip_metadata */ true);
   mysql_mutex_unlock(&thd->LOCK_thd_data);
+  /* Explicitly call set_db_metadata() after lock is released */
+  thd->set_db_metadata();
 
   if (result) return true; /* purecov: inspected */
 

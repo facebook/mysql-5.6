@@ -126,7 +126,7 @@ def	test7	{"shard":"test7_shard"}
 def	test8	NULL
 def	test9	{"shard":"test9_shard"}
 create database test10 db_metadata = "invalid_json";
-ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
+ERROR HY000: Invalid JSON object for DB_METADATA attribute: invalid_json.
 select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 CATALOG_NAME	SCHEMA_NAME	DB_METADATA
 def	information_schema	NULL
@@ -144,8 +144,26 @@ def	test7	{"shard":"test7_shard"}
 def	test8	NULL
 def	test9	{"shard":"test9_shard"}
 create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
-ERROR HY000: Invalid JSON for DB_METADATA attribute: {'shard':'test11_shard'}.
+ERROR HY000: Invalid JSON object for DB_METADATA attribute: {'shard':'test11_shard'}.
 select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
+CATALOG_NAME	SCHEMA_NAME	DB_METADATA
+def	information_schema	NULL
+def	mtr	NULL
+def	mysql	NULL
+def	performance_schema	NULL
+def	sys	NULL
+def	test	NULL
+def	test2	NULL
+def	test3	NULL
+def	test4	NULL
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	NULL
+def	test9	{"shard":"test9_shard"}
+CREATE DATABASE test14 db_metadata = "[{\"shard\":\"test14_shard\", \"data\":\"1234\"}]";
+ERROR HY000: Invalid JSON object for DB_METADATA attribute: [{"shard":"test14_shard", "data":"1234"}].
+SELECT catalog_name, schema_name, db_metadata FROM information_schema.schemata_extensions;
 CATALOG_NAME	SCHEMA_NAME	DB_METADATA
 def	information_schema	NULL
 def	mtr	NULL
@@ -366,11 +384,29 @@ def	test7	{"shard":"test7_shard_altered"}
 def	test8	NULL
 def	test9	{"shard":"test9_shard_altered"}
 alter database test9 db_metadata = "invalid_json";
-ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
+ERROR HY000: Invalid JSON object for DB_METADATA attribute: invalid_json.
 show create database test9;
 Database	Create Database
 test9	CREATE DATABASE `test9` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY DB_METADATA '{"shard":"test9_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
 select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
+CATALOG_NAME	SCHEMA_NAME	DB_METADATA
+def	information_schema	NULL
+def	mtr	NULL
+def	mysql	NULL
+def	performance_schema	NULL
+def	sys	NULL
+def	test	NULL
+def	test2	NULL
+def	test3	NULL
+def	test4	NULL
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard_altered"}
+def	test7	{"shard":"test7_shard_altered"}
+def	test8	NULL
+def	test9	{"shard":"test9_shard_altered"}
+ALTER DATABASE test10 db_metadata = "[{\"shard\":\"test10_shard\", \"data\":\"1234\"}]";
+ERROR HY000: Invalid JSON object for DB_METADATA attribute: [{"shard":"test10_shard", "data":"1234"}].
+SELECT catalog_name, schema_name, db_metadata FROM information_schema.schemata_extensions;
 CATALOG_NAME	SCHEMA_NAME	DB_METADATA
 def	information_schema	NULL
 def	mtr	NULL
@@ -403,7 +439,7 @@ show create database test10;
 Database	Create Database
 test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"shard":"test10_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
 create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
-ERROR HY000: Invalid JSON for DB_METADATA attribute: {'shard':'test11_shard'}.
+ERROR HY000: Invalid JSON object for DB_METADATA attribute: {'shard':'test11_shard'}.
 create database test12 db_metadata = "{\"sha'rd\":\"test12\\\"_shard\"}";
 show create database test12;
 Database	Create Database

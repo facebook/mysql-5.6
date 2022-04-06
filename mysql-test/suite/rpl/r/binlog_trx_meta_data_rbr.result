@@ -1,0 +1,122 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+[connection master]
+set @@global.binlog_trx_meta_data= true;
+[connection slave]
+set @@global.binlog_trx_meta_data= true;
+[connection master]
+set @@session.binlog_rows_query_log_events= OFF;
+[connection slave]
+set @@global.binlog_rows_query_log_events= OFF;
+include/stop_slave.inc
+include/start_slave.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+flush logs;
+include/sync_slave_sql_with_master.inc
+[connection master]
+purge binary logs to 'master-bin.000002';
+[connection slave]
+flush logs;
+purge binary logs to 'slave-bin.000002';
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	31
+[connection slave]
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	31
+[connection master]
+drop table t1;
+[connection master]
+set @@session.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= OFF;
+[connection slave]
+set @@global.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= OFF;
+include/stop_slave.inc
+include/start_slave.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+flush logs;
+include/sync_slave_sql_with_master.inc
+[connection master]
+purge binary logs to 'master-bin.000003';
+[connection slave]
+flush logs;
+purge binary logs to 'slave-bin.000003';
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert { hello:  { world } }*/insert into t1 values()	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update { { hello : world } }*/update t1 set a= a + 1	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/delete from t1	10
+[connection slave]
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert { hello:  { world } }*/insert into t1 values()	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update { { hello : world } }*/update t1 set a= a + 1	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/delete from t1	10
+[connection master]
+drop table t1;
+create table test_multi_stmt_query (a int primary key, b char(32));
+insert into test_multi_stmt_query values(1, 'THESE');
+insert into test_multi_stmt_query values(2, 'SHOULD');
+insert into test_multi_stmt_query values(3, 'BE');
+insert into test_multi_stmt_query values(4, 'SEPARATE');
+|
+Should be 1 ::TRX_META_DATA::.*THESE
+1
+Should be 0 ::TRX_META_DATA::.*THESE.*SHOULD.*BE.*SEPARATE
+0
+drop table test_multi_stmt_query;
+[connection master]
+set @@session.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= ON;
+[connection slave]
+set @@global.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= ON;
+include/stop_slave.inc
+include/start_slave.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+flush logs;
+include/sync_slave_sql_with_master.inc
+[connection master]
+purge binary logs to 'master-bin.000004';
+[connection slave]
+flush logs;
+purge binary logs to 'slave-bin.000004';
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert { hello:  { world } }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update { { hello : world } }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/	10
+[connection slave]
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert { hello:  { world } }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update { { hello : world } }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/	10
+[connection master]
+drop table t1;
+[connection master]
+set @@global.binlog_trx_meta_data= 0;
+set @@global.log_only_query_comments= 1;
+[connection slave]
+set @@global.binlog_trx_meta_data= 0;
+set @@global.binlog_rows_query_log_events= 0;
+set @@global.log_only_query_comments= 1;
+include/rpl_end.inc

@@ -63,7 +63,8 @@ static Query_block *parse(const Server_initializer *initializer,
     char *db = static_cast<char *>(my_malloc(PSI_NOT_INSTRUMENTED, 3, MYF(0)));
     sprintf(db, "db");
     LEX_CSTRING db_lex_cstr = {db, strlen(db)};
-    initializer->thd()->reset_db(db_lex_cstr);
+    initializer->thd()->reset_db(db_lex_cstr,
+                                 /* lock_held_skip_metadata */ true);
   }
 
   lex_start(initializer->thd());

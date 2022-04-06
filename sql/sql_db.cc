@@ -234,6 +234,39 @@ bool is_thd_db_read_only_by_name(THD *thd, const char *db) {
   DBUG_RETURN(false);
 }
 
+struct Update_thd_db_metadata : public Do_THD_Impl {
+  const char *db_name;
+  std::string metadata;
+
+  Update_thd_db_metadata(const char *db_name, const char *metadata)
+      : db_name(db_name), metadata(metadata) {}
+
+  virtual void operator()(THD *thd) override {
+    const auto name_len = strlen(db_name);
+    mysql_mutex_lock(&thd->LOCK_thd_data);
+    if (name_len == thd->db().length &&
+        strncmp(thd->db().str, db_name, name_len) == 0) {
+      mysql_mutex_lock(&thd->LOCK_thd_db_metadata);
+      thd->db_metadata = metadata;
+      mysql_mutex_unlock(&thd->LOCK_thd_db_metadata);
+    }
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+  }
+};
+
+/* Update db_metadata in all threads using the specified database */
+static void update_thd_db_metadata(const char *db_name,
+                                   HA_CREATE_INFO *create) {
+  DBUG_ENTER("update_db_metadata");
+
+  Update_thd_db_metadata updater{db_name, create->db_metadata.ptr()};
+
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  thd_manager->do_for_all_thd(&updater);
+
+  DBUG_VOID_RETURN;
+}
+
 /* Update db read only flag in all threads' local hash map */
 static void update_thd_db_read_only(const char *db,
                                     enum enum_db_read_only db_read_only) {
@@ -788,6 +821,9 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
   if (create_info->db_read_only != DB_READ_ONLY_NULL) {
     update_thd_db_read_only(db, create_info->db_read_only);
   }
+
+  /* If db_metadata is changed, update it in all threads using this database */
+  if (create_info->db_metadata.ptr()) update_thd_db_metadata(db, create_info);
 
   my_ok(thd, 1);
   return false;
@@ -1372,8 +1408,10 @@ static void mysql_change_db_impl(THD *thd, const LEX_CSTRING &new_db_name,
     mysql_mutex_lock(&thd->LOCK_thd_data);
     if (thd->db().str) my_free(const_cast<char *>(thd->db().str));
     DEBUG_SYNC(thd, "after_freeing_thd_db");
-    thd->reset_db(new_db_name);
+    thd->reset_db(new_db_name, /* lock_held_skip_metadata */ true);
     mysql_mutex_unlock(&thd->LOCK_thd_data);
+    /* Explicitly call set_db_metadata after lock is released */
+    thd->set_db_metadata();
   }
 
   /* 2. Update security context. */

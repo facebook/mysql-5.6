@@ -1,0 +1,80 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.binlog_trx_meta_data;
+SELECT @start_value;
+
+
+SET @@global.binlog_trx_meta_data = DEFAULT;
+SELECT @@global.binlog_trx_meta_data = TRUE;
+
+
+SET @@global.binlog_trx_meta_data = ON;
+SELECT @@global.binlog_trx_meta_data;
+SET @@global.binlog_trx_meta_data = OFF;
+SELECT @@global.binlog_trx_meta_data;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.binlog_trx_meta_data = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.binlog_trx_meta_data = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.binlog_trx_meta_data;
+
+
+SELECT IF(@@global.binlog_trx_meta_data, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='binlog_trx_meta_data';
+
+
+SET @@global.binlog_trx_meta_data = 0;
+SELECT @@global.binlog_trx_meta_data;
+SET @@global.binlog_trx_meta_data = 1;
+SELECT @@global.binlog_trx_meta_data;
+
+SET @@global.binlog_trx_meta_data = TRUE;
+SELECT @@global.binlog_trx_meta_data;
+SET @@global.binlog_trx_meta_data = FALSE;
+SELECT @@global.binlog_trx_meta_data;
+
+SET @@global.binlog_trx_meta_data = ON;
+SELECT @@binlog_trx_meta_data = @@global.binlog_trx_meta_data;
+
+--Error ER_GLOBAL_VARIABLE
+SET binlog_trx_meta_data = ON;
+--Error ER_PARSE_ERROR
+SET local.binlog_trx_meta_data = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.binlog_trx_meta_data;
+--Error ER_PARSE_ERROR
+SET global.binlog_trx_meta_data = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.binlog_trx_meta_data;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT binlog_trx_meta_data = @@session.binlog_trx_meta_data;
+
+SET @@global.binlog_trx_meta_data = @start_value;
+SELECT @@global.binlog_trx_meta_data;

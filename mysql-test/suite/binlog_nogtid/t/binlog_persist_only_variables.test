@@ -108,7 +108,7 @@ while ( $varid <= $countvars )
   --eval SET PERSIST_ONLY $varname = @@GLOBAL.$varname
 
   #  TODO: Remove/update this once Bug#27322592 is FIXED.
-  if (`SELECT '$varname' IN ('binlog_direct_non_transactional_updates', 'binlog_order_commits', 'binlog_rows_query_log_events', 'log_bin_trust_function_creators', 'log_slow_replica_statements', 'log_statements_unsafe_for_binlog', 'source_verify_checksum', 'replica_allow_batching', 'replica_compressed_protocol', 'replica_preserve_commit_order', 'replica_sql_verify_checksum', 'relay_log_purge', 'rpl_semi_sync_source_enabled', 'rpl_semi_sync_source_wait_no_replica', 'rpl_semi_sync_replica_enabled', 'binlog_gtid_simple_recovery', 'log_replica_updates', 'relay_log_recovery', 'binlog_rotate_encryption_master_key_at_startup', 'binlog_transaction_compression')`)
+  if (`SELECT '$varname' IN ('binlog_trx_meta_data', 'binlog_direct_non_transactional_updates', 'binlog_order_commits', 'binlog_rows_query_log_events', 'log_bin_trust_function_creators', 'log_slow_replica_statements', 'log_statements_unsafe_for_binlog', 'source_verify_checksum', 'replica_allow_batching', 'replica_compressed_protocol', 'replica_preserve_commit_order', 'replica_sql_verify_checksum', 'relay_log_purge', 'rpl_semi_sync_source_enabled', 'rpl_semi_sync_source_wait_no_replica', 'rpl_semi_sync_replica_enabled', 'binlog_gtid_simple_recovery', 'log_replica_updates', 'relay_log_recovery', 'binlog_rotate_encryption_master_key_at_startup', 'binlog_transaction_compression')`)
   {
     --disable_query_log
       --eval SELECT varvalue INTO @varvalue FROM rplvars WHERE id=$varid

@@ -130,6 +130,7 @@ struct Slave_job_group {
         done(other.done.load()),
         shifted(other.shifted),
         ts(other.ts),
+        ts_millis(other.ts_millis),
 #ifndef NDEBUG
         notified(other.notified),
 #endif
@@ -155,6 +156,7 @@ struct Slave_job_group {
     done.store(other.done.load());
     shifted = other.shifted;
     ts = other.ts;
+    ts_millis = other.ts_millis;
 #ifndef NDEBUG
     notified = other.notified;
 #endif
@@ -196,6 +198,7 @@ struct Slave_job_group {
   std::atomic<int32> done;  // Flag raised by W,  read and reset by Coordinator
   ulong shifted;            // shift the last CP bitmap at receiving a new CP
   time_t ts;                // Group's timestamp to update Seconds_behind_master
+  ulonglong ts_millis = 0;
 #ifndef NDEBUG
   bool notified{false};  // to debug group_master_log_name change notification
 #endif
@@ -246,6 +249,7 @@ struct Slave_job_group {
     checkpoint_seqno = (uint)-1;
     done = 0;
     ts = 0;
+    ts_millis = 0;
 #ifndef NDEBUG
     notified = false;
 #endif
