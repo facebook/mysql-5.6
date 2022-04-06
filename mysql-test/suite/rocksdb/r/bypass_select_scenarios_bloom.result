@@ -1,0 +1,1486 @@
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+select @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+always_off
+select @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
+set global rocksdb_select_bypass_policy=2;
+select @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+opt_in
+SELECT variable_value into @executed_start
+FROM performance_schema.global_status WHERE
+variable_name="rocksdb_select_bypass_executed";
+# Bloom filter with complete SK but shorter than bloom filter
+CREATE TABLE `id_table_bloom` (
+`id1` bigint(20) NOT NULL DEFAULT '0',
+`id2` bigint(20) NOT NULL DEFAULT '0',
+`id3` bigint(11) NOT NULL DEFAULT '0',
+`val` bigint(20) NOT NULL DEFAULT '0',
+PRIMARY KEY (`id1`, `id2`),
+KEY `id3` (`id3`) COMMENT 'cf_link',
+UNIQUE KEY `unique_id3` (`id3`) COMMENT 'cf_link'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO id_table_bloom values (1, 1, 1, 101);
+INSERT INTO id_table_bloom values (1, 2, 2, 102);
+INSERT INTO id_table_bloom values (1, 3, 3, 103);
+INSERT INTO id_table_bloom values (1, 4, 4, 104);
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1;
+val
+101
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1;
+val
+101
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1;
+val
+101
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1;
+val
+101
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Range query with full PK+SK
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1;
+val
+101
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1;
+val
+101
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1 AND id2=1;
+val
+101
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1 AND id2=1;
+val
+101
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1 AND id2>=1;
+val
+101
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
+WHERE id3=1 AND id1=1 AND id2>=1;
+val
+101
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1;
+val
+101
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1;
+val
+101
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1 AND id2=1;
+val
+101
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1 AND id2=1;
+val
+101
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1 AND id2>=1;
+val
+101
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
+WHERE id3=1 AND id1=1 AND id2>=1;
+val
+101
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+DROP TABLE id_table_bloom;
+# Range query, binary key
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table4 FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
+visibility = 1  AND time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+a1              	5	1	1	data15	1	1
+a1              	2	1	1	data12	1	1
+ROWS_READ
+2
+COVERED_SK_LOOKUP
+2
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table4 FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
+visibility = 1  AND time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+a1              	5	1	1	data15	1	1
+a1              	2	1	1	data12	1	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table4 FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
+visibility = 1  AND time >= 0 AND time <= 4294967295
+ORDER BY time ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+a1              	2	1	1	data12	1	1
+a1              	5	1	1	data15	1	1
+ROWS_READ
+2
+COVERED_SK_LOOKUP
+2
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table4 FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
+visibility = 1  AND time >= 0 AND time <= 4294967295
+ORDER BY time ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+a1              	2	1	1	data12	1	1
+a1              	5	1	1	data15	1	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Point query, with node_table
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (1, 2, 3, 4, 5) AND type = 1
+ORDER BY type, id;
+id	type	version	update_time	data
+1	1	1	10	data
+2	1	1	10	data
+3	1	1	10	data
+4	1	1	10	data
+5	1	1	10	data
+ROWS_READ
+5
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (1, 2, 3, 4, 5) AND type = 1
+ORDER BY type, id;
+id	type	version	update_time	data
+1	1	1	10	data
+2	1	1	10	data
+3	1	1	10	data
+4	1	1	10	data
+5	1	1	10	data
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (1) AND type = 1;
+id	type	version	update_time	data
+1	1	1	10	data
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (1) AND type = 1;
+id	type	version	update_time	data
+1	1	1	10	data
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id = 2 AND type = 1
+ORDER BY type, id;
+id	type	version	update_time	data
+2	1	1	10	data
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id = 2 AND type = 1
+ORDER BY type, id;
+id	type	version	update_time	data
+2	1	1	10	data
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Point query, with id_table
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (PRIMARY)
+WHERE id IN (1, 2, 3, 4, 5)
+ORDER BY id;
+id	type	row_created_time	is_deleted
+1	1	10	0
+2	1	10	1
+3	1	10	0
+4	1	10	1
+5	1	10	0
+ROWS_READ
+5
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (PRIMARY)
+WHERE id IN (1, 2, 3, 4, 5)
+ORDER BY id;
+id	type	row_created_time	is_deleted
+1	1	10	0
+2	1	10	1
+3	1	10	0
+4	1	10	1
+5	1	10	0
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (PRIMARY)
+WHERE id IN (1);
+id	type	row_created_time	is_deleted
+1	1	10	0
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (PRIMARY)
+WHERE id IN (1);
+id	type	row_created_time	is_deleted
+1	1	10	0
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (PRIMARY)
+WHERE id = 1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (PRIMARY)
+WHERE id = 1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Point query, with id_table SK
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=2;
+id	type	row_created_time	is_deleted
+2	1	10	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=2;
+id	type	row_created_time	is_deleted
+2	1	10	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=10;
+id	type	row_created_time	is_deleted
+10	1	10	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=10;
+id	type	row_created_time	is_deleted
+10	1	10	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=11;
+id	type	row_created_time	is_deleted
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=11;
+id	type	row_created_time	is_deleted
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=0;
+id	type	row_created_time	is_deleted
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (type_id) WHERE `type`=1 and id=0;
+id	type	row_created_time	is_deleted
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Point query, with id_table unique SK
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=2;
+id	type	row_created_time	is_deleted
+2	1	10	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=2;
+id	type	row_created_time	is_deleted
+2	1	10	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=1;
+id	type	row_created_time	is_deleted
+1	1	10	0
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=10;
+id	type	row_created_time	is_deleted
+10	1	10	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=10;
+id	type	row_created_time	is_deleted
+10	1	10	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=11;
+id	type	row_created_time	is_deleted
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=11;
+id	type	row_created_time	is_deleted
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=0;
+id	type	row_created_time	is_deleted
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, row_created_time, is_deleted
+FROM id_table FORCE INDEX (unique_type_id) WHERE `type`=1 and id=0;
+id	type	row_created_time	is_deleted
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Point query, with count_table
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, link_type, count, TIME, version
+FROM count_table
+WHERE id = 2 AND link_type = 1;
+id	type	link_type	count	TIME	version
+2	1	1	1	10	20
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, link_type, count, TIME, version
+FROM count_table
+WHERE id = 2 AND link_type = 1;
+id	type	link_type	count	TIME	version
+2	1	1	1	10	20
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Bugs found when debugging real production scenarios
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table3 FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = 1 AND visibility = 1
+AND time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 10000;
+id1	id2	link_type	visibility	data	time	version
+1	5	1	1	data15	1	1
+1	2	1	1	data12	1	1
+ROWS_READ
+2
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table3 FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = 1 AND visibility = 1
+AND time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 10000;
+id1	id2	link_type	visibility	data	time	version
+1	5	1	1	data15	1	1
+1	2	1	1	data12	1	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ data from link_table6 FORCE INDEX (id1_type) where id1=1;
+data
+data12_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data15_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data13_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data14_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+ROWS_READ
+4
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ data from link_table6 FORCE INDEX (id1_type) where id1=1;
+data
+data12_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data15_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data13_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data14_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = 1 AND visibility = 0 AND time >= 1551074583 AND
+time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 500;
+id1	id2	link_type	visibility	data	time	version
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = 1 AND visibility = 0 AND time >= 1551074583 AND
+time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 500;
+id1	id2	link_type	visibility	data	time	version
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = 1 AND visibility = 0 AND time >= 1551074583
+ORDER BY time DESC, id2 DESC LIMIT 0, 500;
+id1	id2	link_type	visibility	data	time	version
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table FORCE INDEX (id1_type)
+WHERE link_type = 1 AND id1 = 1 AND visibility = 0 AND time >= 1551074583
+ORDER BY time DESC, id2 DESC LIMIT 0, 500;
+id1	id2	link_type	visibility	data	time	version
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id1_type, id2, id2_type FROM link_table
+WHERE link_type=3 and id1 in (1, 2, 3)
+ORDER BY link_type, id1, id2;
+id1	id1_type	id2	id2_type
+1	1	1	2
+1	1	2	2
+1	1	3	2
+1	1	4	2
+1	1	5	2
+1	1	6	2
+1	1	7	2
+1	1	8	2
+1	1	9	2
+1	1	10	2
+2	1	1	2
+2	1	2	2
+2	1	3	2
+2	1	4	2
+2	1	5	2
+2	1	6	2
+2	1	7	2
+2	1	8	2
+2	1	9	2
+2	1	10	2
+3	1	1	2
+3	1	2	2
+3	1	3	2
+3	1	4	2
+3	1	5	2
+3	1	6	2
+3	1	7	2
+3	1	8	2
+3	1	9	2
+3	1	10	2
+ROWS_READ
+30
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id1_type, id2, id2_type FROM link_table
+WHERE link_type=3 and id1 in (1, 2, 3)
+ORDER BY link_type, id1, id2;
+id1	id1_type	id2	id2_type
+1	1	1	2
+1	1	2	2
+1	1	3	2
+1	1	4	2
+1	1	5	2
+1	1	6	2
+1	1	7	2
+1	1	8	2
+1	1	9	2
+1	1	10	2
+2	1	1	2
+2	1	2	2
+2	1	3	2
+2	1	4	2
+2	1	5	2
+2	1	6	2
+2	1	7	2
+2	1	8	2
+2	1	9	2
+2	1	10	2
+3	1	1	2
+3	1	2	2
+3	1	3	2
+3	1	4	2
+3	1	5	2
+3	1	6	2
+3	1	7	2
+3	1	8	2
+3	1	9	2
+3	1	10	2
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id1_type, id2, id2_type from link_table
+WHERE link_type=3 and id1 IN (1, 2, 3) and id2=1
+ORDER BY link_type, id1, id2;
+id1	id1_type	id2	id2_type
+1	1	1	2
+2	1	1	2
+3	1	1	2
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id1_type, id2, id2_type from link_table
+WHERE link_type=3 and id1 IN (1, 2, 3) and id2=1
+ORDER BY link_type, id1, id2;
+id1	id1_type	id2	id2_type
+1	1	1	2
+2	1	1	2
+3	1	1	2
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id1_type, id2, id2_type from link_table
+WHERE link_type=3 and id1 IN (1, 2, 3) and id2 IN (3, 4, 5)
+ORDER BY link_type, id1, id2;
+id1	id1_type	id2	id2_type
+1	1	3	2
+1	1	4	2
+1	1	5	2
+2	1	3	2
+2	1	4	2
+2	1	5	2
+3	1	3	2
+3	1	4	2
+3	1	5	2
+ROWS_READ
+9
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id1_type, id2, id2_type from link_table
+WHERE link_type=3 and id1 IN (1, 2, 3) and id2 IN (3, 4, 5)
+ORDER BY link_type, id1, id2;
+id1	id1_type	id2	id2_type
+1	1	3	2
+1	1	4	2
+1	1	5	2
+2	1	3	2
+2	1	4	2
+2	1	5	2
+3	1	3	2
+3	1	4	2
+3	1	5	2
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, data, version, time
+FROM link_table FORCE INDEX (id1_type)
+WHERE id1=9 and link_type=5;
+id1	id2	data	version	time
+9	9	0  	125	10
+9	7	012  	125	11
+9	8	01  	125	11
+9	4	012345  	125	12
+9	5	01234  	125	12
+9	6	0123  	125	12
+9	3	0123456  	125	13
+9	2	01234567  	125	14
+9	0	0123456789  	125	15
+9	1	012345678  	125	15
+ROWS_READ
+10
+COVERED_SK_LOOKUP
+10
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, data, version, time
+FROM link_table FORCE INDEX (id1_type)
+WHERE id1=9 and link_type=5;
+id1	id2	data	version	time
+9	9	0  	125	10
+9	7	012  	125	11
+9	8	01  	125	11
+9	4	012345  	125	12
+9	5	01234  	125	12
+9	6	0123  	125	12
+9	3	0123456  	125	13
+9	2	01234567  	125	14
+9	0	0123456789  	125	15
+9	1	012345678  	125	15
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (5, 5, 5, 5, 5) AND type = 1;
+id	type	version	update_time	data
+5	1	1	10	data
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (5, 5, 5, 5, 5) AND type = 1;
+id	type	version	update_time	data
+5	1	1	10	data
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (5, 4, 3, 2, 1) AND type = 1;
+id	type	version	update_time	data
+1	1	1	10	data
+2	1	1	10	data
+3	1	1	10	data
+4	1	1	10	data
+5	1	1	10	data
+ROWS_READ
+5
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (5, 4, 3, 2, 1) AND type = 1;
+id	type	version	update_time	data
+1	1	1	10	data
+2	1	1	10	data
+3	1	1	10	data
+4	1	1	10	data
+5	1	1	10	data
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (5, 4, 3, 2, 1) AND type = 1 ORDER BY id DESC;
+id	type	version	update_time	data
+5	1	1	10	data
+4	1	1	10	data
+3	1	1	10	data
+2	1	1	10	data
+1	1	1	10	data
+ROWS_READ
+5
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id, type, version, update_time, data
+FROM node_table FORCE INDEX (PRIMARY)
+WHERE id IN (5, 4, 3, 2, 1) AND type = 1 ORDER BY id DESC;
+id	type	version	update_time	data
+5	1	1	10	data
+4	1	1	10	data
+3	1	1	10	data
+2	1	1	10	data
+1	1	1	10	data
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, data, time, version FROM link_table5
+WHERE link_type=1 and id1=2 and id2 >= 1;
+id1	id2	data	time	version
+2	1	data21	1	1
+2	2	data22	1	1
+2	3	data32	1	1
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, data, time, version FROM link_table5
+WHERE link_type=1 and id1=2 and id2 >= 1;
+id1	id2	data	time	version
+2	1	data21	1	1
+2	2	data22	1	1
+2	3	data32	1	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Range query with PK key only
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2=1;
+id2
+1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2=1;
+id2
+1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2=1;
+id2
+1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2=1;
+id2
+1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Range query with PK key only with filters
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2 > 1;
+id2
+2
+3
+ROWS_READ
+2
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2 > 1;
+id2
+2
+3
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2 >= 1;
+id2
+1
+2
+3
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2 >= 1;
+id2
+1
+2
+3
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+CREATE TABLE `link_table7` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+`time` int(10) unsigned NOT NULL DEFAULT '0' ,
+`version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
+COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into link_table7 values (9223372036854775807, 100, 9223372036854775801,
+100, 9223372036854775807, 0,
+'data1', 1234561, 9223372036854775801);
+insert into link_table7 values (9223372036854775807, 100, 1223372036854775802,
+100, 9223372036854775807, 0,
+'0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1234562, 9223372036854775802);
+insert into link_table7 values (9223372036854775807, 100, 1223372036854775803,
+100, 9223372036854775807, 0,
+'0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1234563, 9223372036854775803);
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table7 FORCE INDEX (id1_type)
+WHERE link_type = 9223372036854775807  and id1 = 9223372036854775807
+and visibility = 0 ORDER BY time ASC, id2 ASC limit 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+9223372036854775807	9223372036854775801	9223372036854775807	0	data1	1234561	9223372036854775801
+9223372036854775807	1223372036854775802	9223372036854775807	0	0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890	1234562	9223372036854775802
+9223372036854775807	1223372036854775803	9223372036854775807	0	0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890	1234563	9223372036854775803
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table7 FORCE INDEX (id1_type)
+WHERE link_type = 9223372036854775807  and id1 = 9223372036854775807
+and visibility = 0 ORDER BY time ASC, id2 ASC limit 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+9223372036854775807	9223372036854775801	9223372036854775807	0	data1	1234561	9223372036854775801
+9223372036854775807	1223372036854775802	9223372036854775807	0	0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890	1234562	9223372036854775802
+9223372036854775807	1223372036854775803	9223372036854775807	0	0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890	1234563	9223372036854775803
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+DROP TABLE link_table7;
+CREATE TABLE `link_table8` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+`time` int(10) unsigned NOT NULL DEFAULT '0' ,
+`version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
+COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into link_table8 values (1, 0x03030303, 1, 0, 100, 0, 'data1', 0, 0);
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table8 FORCE INDEX (PRIMARY) WHERE link_type = 100 and id1 = 1
+ORDER BY id2 ASC limit 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+1	1	100	0	data1	0	0
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table8 FORCE INDEX (PRIMARY) WHERE link_type = 100 and id1 = 1
+ORDER BY id2 ASC limit 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+1	1	100	0	data1	0	0
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+DROP TABLE link_table8;
+CREATE TABLE `meta_table` (
+`lvid` int(10) unsigned NOT NULL DEFAULT '0',
+`mt_object_type` int(10) unsigned NOT NULL DEFAULT '0',
+`id` bigint(20) unsigned NOT NULL DEFAULT '0',
+`mt_object_cookie` bigint(20) unsigned NOT NULL DEFAULT '0',
+`mt_alt_key_data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+`mt_total_size` bigint(20) unsigned NOT NULL DEFAULT '0',
+`mt_object_type2` int(10) unsigned NOT NULL DEFAULT '0',
+`mt_object_state` smallint(5) unsigned NOT NULL DEFAULT '0',
+`context` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+`mt_ref` bigint(20) DEFAULT NULL,
+`mt_key` varbinary(80) DEFAULT NULL,
+`mt_ctime` int(10) NOT NULL DEFAULT '0',
+`mt_rtime` int(10) NOT NULL DEFAULT '0',
+`policy_id` tinyint(3) unsigned DEFAULT NULL,
+`policy` bigint(20) unsigned DEFAULT NULL,
+`parent_id` bigint(20) unsigned NOT NULL DEFAULT '0',
+`ttl` int(10) DEFAULT NULL,
+`mt_last_update` int(10) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`lvid`,`id`),
+KEY `key1` (`lvid`,`mt_object_state`,`mt_key`(1)),
+KEY `key2` (`lvid`,`mt_last_update`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO meta_table VALUES (100, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 2, 0, 'data2', 1, 2, 3, 'context2',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 3, 0, 'data3', 1, 2, 3, 'context3',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 4, 0, 'data4', 1, 2, 3, 'context4',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (101, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ `mt_object_state`, `id`, `mt_object_cookie`,
+`mt_alt_key_data`, `mt_key`, `mt_ctime`, `mt_rtime`,
+`mt_ref`, `mt_object_type`, `mt_last_update`, `mt_total_size`,
+`mt_object_type2`, `policy_id`, `ttl`, `policy` FROM `meta_table`
+FORCE INDEX (PRIMARY) WHERE lvid = 100 AND id >= 3 ORDER BY id LIMIT 1000000;
+mt_object_state	id	mt_object_cookie	mt_alt_key_data	mt_key	mt_ctime	mt_rtime	mt_ref	mt_object_type	mt_last_update	mt_total_size	mt_object_type2	policy_id	ttl	policy
+3	3	0	data3		1	1	1	0	0	1	2	1	0	1
+3	4	0	data4		1	1	1	0	0	1	2	1	0	1
+ROWS_READ
+2
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ `mt_object_state`, `id`, `mt_object_cookie`,
+`mt_alt_key_data`, `mt_key`, `mt_ctime`, `mt_rtime`,
+`mt_ref`, `mt_object_type`, `mt_last_update`, `mt_total_size`,
+`mt_object_type2`, `policy_id`, `ttl`, `policy` FROM `meta_table`
+FORCE INDEX (PRIMARY) WHERE lvid = 100 AND id >= 3 ORDER BY id LIMIT 1000000;
+mt_object_state	id	mt_object_cookie	mt_alt_key_data	mt_key	mt_ctime	mt_rtime	mt_ref	mt_object_type	mt_last_update	mt_total_size	mt_object_type2	policy_id	ttl	policy
+3	3	0	data3		1	1	1	0	0	1	2	1	0	1
+3	4	0	data4		1	1	1	0	0	1	2	1	0	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+DROP TABLE meta_table;
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2, version, data from link_text FORCE INDEX (PRIMARY)
+WHERE id1=1 and link_type=3 and id2 >= 1;
+id2	version	data
+1	125	a
+2	125	aaaaaa
+3	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+4	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ROWS_READ
+4
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2, version, data from link_text FORCE INDEX (PRIMARY)
+WHERE id1=1 and link_type=3 and id2 >= 1;
+id2	version	data
+1	125	a
+2	125	aaaaaa
+3	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+4	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2, version, data from link_varchar FORCE INDEX (PRIMARY)
+WHERE id1=1 and link_type=3 and id2 >= 1;
+id2	version	data
+1	125	a
+2	125	aaaaaa
+3	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+4	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ROWS_READ
+4
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2, version, data from link_varchar FORCE INDEX (PRIMARY)
+WHERE id1=1 and link_type=3 and id2 >= 1;
+id2	version	data
+1	125	a
+2	125	aaaaaa
+3	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+4	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2, version, data from link_text FORCE INDEX (id1_type)
+WHERE id1=1 and link_type=3 and visibility=4 and time >= 10;
+id2	version	data
+1	125	a
+2	125	aaaaaa
+3	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+4	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ROWS_READ
+4
+COVERED_SK_LOOKUP
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2, version, data from link_text FORCE INDEX (id1_type)
+WHERE id1=1 and link_type=3 and visibility=4 and time >= 10;
+id2	version	data
+1	125	a
+2	125	aaaaaa
+3	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+4	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id2, version, data from link_varchar
+FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4
+and time >= 10;
+id2	version	data
+1	125	a
+2	125	aaaaaa
+3	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+4	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ROWS_READ
+4
+COVERED_SK_LOOKUP
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id2, version, data from link_varchar
+FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4
+and time >= 10;
+id2	version	data
+1	125	a
+2	125	aaaaaa
+3	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+4	125	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Establish connection con1 (user=root)
+# Switch to connection con1
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
+FROM link_table5 FORCE INDEX (PRIMARY)
+WHERE link_type = 1 AND id1 = 1 AND visibility = 1
+ORDER BY id2 ASC LIMIT 1;
+id1	id2	link_type	visibility	data	TIME	version
+1	2	1	1	data12	1	1
+ROWS_READ
+1
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, TIME, version
+FROM link_table5 FORCE INDEX (PRIMARY)
+WHERE link_type = 1 AND id1 = 1 AND visibility = 1
+ORDER BY id2 ASC LIMIT 1;
+id1	id2	link_type	visibility	data	TIME	version
+1	2	1	1	data12	1	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+# Switch back to default connection
+select @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+opt_in
+set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
+select @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+always_off
+SELECT variable_value into @executed_end
+FROM performance_schema.global_status WHERE
+variable_name="rocksdb_select_bypass_executed";
+SELECT @executed_end-@executed_start AS ROCKSDB_SELECT_BYPASS_EXECUTED;
+ROCKSDB_SELECT_BYPASS_EXECUTED
+51

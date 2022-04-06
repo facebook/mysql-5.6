@@ -1,0 +1,18 @@
+--source include/have_rocksdb.inc
+
+CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO valid_values VALUES('always_on');
+INSERT INTO valid_values VALUES('opt_in');
+INSERT INTO valid_values VALUES('opt_out');
+INSERT INTO valid_values VALUES('always_off');
+
+CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO invalid_values VALUES('\'aaa\'');
+
+--let $sys_var=ROCKSDB_SELECT_BYPASS_POLICY
+--let $read_only=0
+--let $session=0
+--source ../include/rocksdb_sys_var.inc
+
+DROP TABLE valid_values;
+DROP TABLE invalid_values;

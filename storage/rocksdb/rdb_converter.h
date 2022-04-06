@@ -31,6 +31,8 @@
 namespace myrocks {
 class Rdb_field_encoder;
 
+uint32_t u64ToAsciiTable(uint64_t value, Rdb_string_writer *writer) noexcept;
+
 /**
   Describes instructions on how to decode the field for value slice
 */
@@ -41,6 +43,37 @@ struct READ_FIELD {
   bool m_decode;
   // Skip this many bytes before reading (or skipping) this field
   int m_skip;
+};
+
+/**
+ class to convert rocksdb value slice from storage format to mysql protocol
+ format.
+*/
+class Rdb_protocol_value_decoder {
+ public:
+  Rdb_protocol_value_decoder() = delete;
+  Rdb_protocol_value_decoder(const Rdb_protocol_value_decoder &decoder) =
+      delete;
+  Rdb_protocol_value_decoder &operator=(
+      const Rdb_protocol_value_decoder &decoder) = delete;
+
+  static int decode(Rdb_string_writer *writer, uint *offset, TABLE *table,
+                    my_core::Field *field, Rdb_field_encoder *field_dec,
+                    Rdb_string_reader *reader, bool decode, bool is_null);
+
+ private:
+  static int decode_blob(Rdb_string_writer *writer, uint *offset, TABLE *table,
+                         Field *field, Rdb_string_reader *reader, bool decode);
+  static int decode_integer(Rdb_string_writer *writer, uint *offset,
+                            Rdb_field_encoder *field_dec,
+                            Rdb_string_reader *const reader, bool decode);
+
+  static int decode_string(Rdb_string_writer *writer, uint *offset,
+                           Rdb_field_encoder *field_dec,
+                           Rdb_string_reader *const reader, bool decode);
+  static int decode_varchar(Rdb_string_writer *writer, uint *offset,
+                            Field *const field, Rdb_string_reader *const reader,
+                            bool decode);
 };
 
 /**
@@ -77,7 +110,7 @@ class Rdb_convert_to_record_value_decoder {
   The reason to use template class instead of normal class is to elimate
   virtual method call.
 */
-template <typename value_field_decoder>
+template <typename value_field_decoder, typename dst_type>
 class Rdb_value_field_iterator {
  private:
   bool m_is_null;
@@ -91,13 +124,14 @@ class Rdb_value_field_iterator {
   // The current field
   Field *m_field;
   Rdb_field_encoder *m_field_dec;
-  uchar *const m_buf;
+  dst_type m_buf;
   uint m_offset;
+  // field value length in bytes
+  uint m_len;
 
  public:
   Rdb_value_field_iterator(TABLE *table, Rdb_string_reader *value_slice_reader,
-                           const Rdb_converter *rdb_converter,
-                           uchar *const buf);
+                           const Rdb_converter *rdb_converter, dst_type buf);
   Rdb_value_field_iterator(const Rdb_value_field_iterator &field_iterator) =
       delete;
   Rdb_value_field_iterator &operator=(
@@ -110,11 +144,11 @@ class Rdb_value_field_iterator {
   int next();
   // Whether current field is the end of fields
   bool end_of_fields() const;
-  void *get_dst() const;
+  uint get_length() const;
   // Whether the value of current field is null
   bool is_null() const;
   // get current field index
-  int get_field_index() const;
+  uint16 get_field_index() const;
   // get current field type
   enum_field_types get_field_type() const;
   // get current field
@@ -138,8 +172,8 @@ class Rdb_converter {
                             bool decode_all_fields = false);
 
   int decode(const std::shared_ptr<Rdb_key_def> &key_def, uchar *dst,
-             const rocksdb::Slice *key_slice,
-             const rocksdb::Slice *value_slice);
+             const rocksdb::Slice *key_slice, const rocksdb::Slice *value_slice,
+             bool decode_value = true);
 
   int encode_value_slice(const std::shared_ptr<Rdb_key_def> &pk_def,
                          const rocksdb::Slice &pk_packed_slice,
@@ -172,11 +206,11 @@ class Rdb_converter {
     return &m_decoders_vect;
   }
 
- private:
-  int decode_value_header(Rdb_string_reader *reader,
-                          const std::shared_ptr<Rdb_key_def> &pk_def,
-                          rocksdb::Slice *unpack_slice);
+  int decode_value_header_for_pk(Rdb_string_reader *reader,
+                                 const std::shared_ptr<Rdb_key_def> &pk_def,
+                                 rocksdb::Slice *unpack_slice);
 
+ private:
   void setup_field_encoders();
 
   void get_storage_type(Rdb_field_encoder *const encoder, const uint kp);
@@ -184,7 +218,7 @@ class Rdb_converter {
   int convert_record_from_storage_format(
       const std::shared_ptr<Rdb_key_def> &pk_def,
       const rocksdb::Slice *const key, const rocksdb::Slice *const value,
-      uchar *const buf);
+      uchar *const buf, bool decode_value);
 
   int verify_row_debug_checksum(const std::shared_ptr<Rdb_key_def> &pk_def,
                                 Rdb_string_reader *reader,

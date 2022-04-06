@@ -1800,7 +1800,7 @@ static int cat_file(DYNAMIC_STRING *ds, const char *filename) {
     file_content.append(start, buf_len);
   }
 
-  replace_dynstr_append(ds, file_content.c_str());
+  replace_dynstr_append_mem(ds, file_content.c_str(), file_content.length());
   my_close(fd, MYF(0));
 
   return 0;

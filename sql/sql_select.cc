@@ -753,6 +753,35 @@ bool optimize_secondary_engine(THD *thd) {
          secondary_engine->optimize_secondary_engine(thd, thd->lex);
 }
 
+/* Call out to handler to handle this select command */
+bool ha_handle_single_table_select(THD *thd, Query_expression *unit) {
+  /* Simple non-UNION non-NESTED query only */
+  if (!unit->is_simple()) {
+    return false;
+  }
+
+  Query_block *select_lex = unit->first_query_block();
+
+  /* Single table query only */
+  if (select_lex->table_list.elements != 1) {
+    return false;
+  }
+
+  TABLE_LIST *table_list = select_lex->table_list.first;
+  if (!table_list) {
+    return false;
+  }
+
+  TABLE *table = table_list->table;
+  if (!table) {
+    return false;
+  }
+
+  handlerton *hton = table->s->db_type();
+  return (hton && hton->handle_single_table_select &&
+          hton->handle_single_table_select(thd, select_lex));
+}
+
 /**
   Execute a DML statement.
   This is the default implementation for a DML statement and uses a
@@ -764,6 +793,11 @@ bool optimize_secondary_engine(THD *thd) {
 
 bool Sql_cmd_dml::execute_inner(THD *thd) {
   Query_expression *unit = lex->unit;
+
+  if (ha_handle_single_table_select(thd, unit)) {
+    // We've handled the query
+    return thd->is_error();
+  }
 
   if (unit->optimize(thd, /*materialize_destination=*/nullptr,
                      /*create_iterators=*/true, /*finalize_access_paths=*/true))

@@ -4043,8 +4043,10 @@ class Item_equal;
 class Item_field : public Item_ident {
   typedef Item_ident super;
 
- protected:
+ public:
   void set_field(Field *field);
+
+ protected:
   void fix_after_pullout(Query_block *parent_query_block,
                          Query_block *removed_query_block) override {
     super::fix_after_pullout(parent_query_block, removed_query_block);

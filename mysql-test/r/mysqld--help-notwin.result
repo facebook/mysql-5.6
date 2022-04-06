@@ -1584,6 +1584,10 @@ The following options may be given as the first argument:
  only when bulk load is disabled.
  --rocksdb-bulk-load-size=# 
  Max #records in a batch for bulk-load mode
+ --rocksdb-bypass-rejected-query-history[=name] 
+ Enable or disable ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY
+ plugin. Possible values are ON, OFF, FORCE (don't start
+ if the plugin fails to load).
  --rocksdb-bytes-per-sync=# 
  DBOptions::bytes_per_sync for RocksDB
  --rocksdb-cache-dump 
@@ -1930,6 +1934,32 @@ The following options may be given as the first argument:
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
+ --rocksdb-select-bypass-allow-filters 
+ Allow non-optimal filters in SELECT bypass queries
+ (Defaults to on; use --skip-rocksdb-select-bypass-allow-filters to disable.)
+ --rocksdb-select-bypass-debug-row-delay=# 
+ Test only to inject delays in bypass select to simulate
+ long queries for each row sent
+ --rocksdb-select-bypass-fail-unsupported 
+ Select bypass would fail for unsupported SELECT commands
+ (Defaults to on; use --skip-rocksdb-select-bypass-fail-unsupported to disable.)
+ --rocksdb-select-bypass-log-failed 
+ Log failed SELECT bypass queries
+ --rocksdb-select-bypass-log-rejected 
+ Log rejected SELECT bypass queries
+ (Defaults to on; use --skip-rocksdb-select-bypass-log-rejected to disable.)
+ --rocksdb-select-bypass-multiget-min=# 
+ Minimum number of items to use RocksDB MultiGet API.
+ Default is SIZE_T_MAX meaning it is turned off. Set to 0
+ to enable always using MultiGet
+ --rocksdb-select-bypass-policy=name 
+ Change bypass SELECT related policy and allow directly
+ talk to RocksDB. Valid values include 'always_off',
+ 'always_on', 'opt_in', 'opt_out'. 
+ --rocksdb-select-bypass-rejected-query-history-size=# 
+ History size of rejected bypass queries in
+ information_schema.bypass_rejected_query_history. Set to
+ 0 to turn off
  --rocksdb-signal-drop-index-thread 
  Wake up drop index thread
  --rocksdb-sim-cache-size=# 
@@ -2872,6 +2902,7 @@ rocksdb-bulk-load FALSE
 rocksdb-bulk-load-allow-sk FALSE
 rocksdb-bulk-load-allow-unsorted FALSE
 rocksdb-bulk-load-size 1000
+rocksdb-bypass-rejected-query-history ON
 rocksdb-bytes-per-sync 0
 rocksdb-cache-dump TRUE
 rocksdb-cache-high-pri-pool-ratio 0
@@ -2983,6 +3014,14 @@ rocksdb-records-in-range 0
 rocksdb-reset-stats FALSE
 rocksdb-rollback-on-timeout FALSE
 rocksdb-seconds-between-stat-computes 3600
+rocksdb-select-bypass-allow-filters TRUE
+rocksdb-select-bypass-debug-row-delay 0
+rocksdb-select-bypass-fail-unsupported TRUE
+rocksdb-select-bypass-log-failed FALSE
+rocksdb-select-bypass-log-rejected TRUE
+rocksdb-select-bypass-multiget-min 18446744073709551615
+rocksdb-select-bypass-policy always_off
+rocksdb-select-bypass-rejected-query-history-size 0
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-sim-cache-size 0
 rocksdb-skip-bloom-filter-on-read FALSE

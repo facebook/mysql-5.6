@@ -1,0 +1,57 @@
+CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO valid_values VALUES(0);
+INSERT INTO valid_values VALUES(10);
+INSERT INTO valid_values VALUES(20);
+CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO invalid_values VALUES('\'aaa\'');
+SET @start_global_value = @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+SELECT @start_global_value;
+@start_global_value
+0
+'# Setting to valid values in global scope#'
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY to 0"
+SET @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY   = 0;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+@@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+@@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY
+0
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY to 10"
+SET @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY   = 10;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+@@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY
+10
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+@@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY
+0
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY to 20"
+SET @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY   = 20;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+@@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY
+20
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+@@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY
+0
+"Trying to set variable @@session.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY to 444. It should fail because it is not session."
+SET @@session.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY   = 444;
+ERROR HY000: Variable 'rocksdb_select_bypass_debug_row_delay' is a GLOBAL variable and should be set with SET GLOBAL
+'# Testing with invalid values in global scope #'
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY to 'aaa'"
+SET @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY   = 'aaa';
+Got one of the listed errors
+SELECT @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+@@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY
+0
+SET @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY = @start_global_value;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY;
+@@global.ROCKSDB_SELECT_BYPASS_DEBUG_ROW_DELAY
+0
+DROP TABLE valid_values;
+DROP TABLE invalid_values;

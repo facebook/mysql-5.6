@@ -277,6 +277,9 @@ class Rdb_key_def {
                     const rocksdb::Slice *const unpack_info,
                     const bool verify_row_debug_checksums) const;
 
+  int decode_unpack_info(Rdb_string_reader *unp_reader, bool *has_unpack_info,
+                         const char **unpack_header) const;
+
   int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
                    std::size_t *const column_index) const;
 
@@ -840,6 +843,8 @@ class Rdb_key_def {
     Currently returns true for varchar, blob and text.
   */
   static bool is_variable_length_field(const enum_field_types type);
+
+  Rdb_field_packing *get_pack_info(uint pack_no);
 
  private:
 #ifndef NDEBUG

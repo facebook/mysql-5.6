@@ -1299,7 +1299,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     if (m_index_type == INDEX_TYPE_SECONDARY &&
         m_total_index_flags_length > 0) {
       // Reserve space for index flag fields
-      unpack_info->allocate(m_total_index_flags_length);
+      unpack_info->alloc_init(m_total_index_flags_length);
 
       // Insert TTL timestamp
       if (has_ttl() && ttl_bytes) {
@@ -1556,6 +1556,39 @@ size_t Rdb_key_def::key_length(const TABLE *const table,
 }
 
 /*
+  Decode unpack info in value
+
+  @return
+    HA_EXIT_SUCCESS    OK
+    other              HA_ERR error code
+ */
+int Rdb_key_def::decode_unpack_info(Rdb_string_reader *unp_reader,
+                                    bool *has_unpack_info,
+                                    const char **unpack_header) const {
+  // For secondary keys, we expect the value field to contain index flags,
+  // unpack data, and checksum data in that order. One or all can be missing,
+  // but they cannot be reordered.
+  if (unp_reader->remaining_bytes()) {
+    if (m_index_type == INDEX_TYPE_SECONDARY &&
+        m_total_index_flags_length > 0 &&
+        !unp_reader->read(m_total_index_flags_length)) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+  }
+
+  *unpack_header = unp_reader->get_current_ptr();
+  *has_unpack_info =
+      unp_reader->remaining_bytes() && is_unpack_data_tag(*unpack_header[0]);
+  if (*has_unpack_info) {
+    if (!unp_reader->read(get_unpack_header_size(*unpack_header[0]))) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+/*
   Take mem-comparable form and unpack_info and unpack it to Table->record
 
   @detail
@@ -1584,24 +1617,12 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
-  // For secondary keys, we expect the value field to contain index flags,
-  // unpack data, and checksum data in that order. One or all can be missing,
-  // but they cannot be reordered.
-  if (unp_reader.remaining_bytes()) {
-    if (m_index_type == INDEX_TYPE_SECONDARY &&
-        m_total_index_flags_length > 0 &&
-        !unp_reader.read(m_total_index_flags_length)) {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
-  }
-
-  const char *unpack_header = unp_reader.get_current_ptr();
-  bool has_unpack_info =
-      unp_reader.remaining_bytes() && is_unpack_data_tag(unpack_header[0]);
-  if (has_unpack_info) {
-    if (!unp_reader.read(get_unpack_header_size(unpack_header[0]))) {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
+  const char *unpack_header;
+  bool has_unpack_info;
+  int err = HA_EXIT_SUCCESS;
+  err = decode_unpack_info(&unp_reader, &has_unpack_info, &unpack_header);
+  if (err) {
+    return err;
   }
 
   // Reset the blob buffer required for unpacking.
@@ -1623,8 +1644,6 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
     covered_bits = rdb_netbuf_to_uint16((const uchar *)unpack_header +
                                         sizeof(RDB_UNPACK_COVERED_DATA_TAG));
   }
-
-  int err = HA_EXIT_SUCCESS;
 
   Rdb_key_field_iterator iter(
       this, m_pack_info, &reader, &unp_reader, table, has_unpack_info,
@@ -3497,6 +3516,10 @@ int Rdb_key_def::unpack_simple(Rdb_field_packing *const fpi,
 
   return rdb_read_unpack_simple(unp_reader ? &bit_reader : nullptr,
                                 fpi->m_charset_codec, ptr, len, dst);
+}
+
+Rdb_field_packing *Rdb_key_def::get_pack_info(uint pack_no) {
+  return &m_pack_info[pack_no];
 }
 
 // See Rdb_charset_space_info::spaces_xfrm
