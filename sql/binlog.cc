@@ -29,6 +29,10 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <boost/algorithm/string.hpp>
+#include <chrono>
+#include <exception>
+#include <sstream>
 
 #include "lex_string.h"
 #include "map_helpers.h"
@@ -127,6 +131,9 @@
 #include "sql/xa.h"
 #include "sql_partition.h"
 #include "thr_lock.h"
+
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
 
 class Item;
 
@@ -588,7 +595,8 @@ class binlog_cache_data {
   int finalize(THD *thd, Log_event *end_event);
   int finalize(THD *thd, Log_event *end_event, XID_STATE *xs);
   int flush(THD *thd, my_off_t *bytes, bool *wrote_xid);
-  int write_event(Log_event *event);
+  int write_event(THD *thd, Log_event *event,
+                  bool write_meta_data_event = false);
   size_t get_event_counter() { return event_counter; }
   size_t get_compressed_size() { return m_compressed_size; }
   size_t get_decompressed_size() { return m_decompressed_size; }
@@ -818,7 +826,7 @@ class binlog_cache_data {
   int flush_pending_event(THD *thd) {
     if (m_pending) {
       m_pending->set_flags(Rows_log_event::STMT_END_F);
-      if (int error = write_event(m_pending)) return error;
+      if (int error = write_event(thd, m_pending)) return error;
       thd->clear_binlog_table_maps();
     }
     return 0;
@@ -1391,12 +1399,21 @@ static int binlog_close_connection(handlerton *, THD *thd) {
   return 0;
 }
 
-int binlog_cache_data::write_event(Log_event *ev) {
+int binlog_cache_data::write_event(THD *thd, Log_event *ev,
+                                   bool write_meta_data_event) {
   DBUG_TRACE;
 
   if (ev != nullptr) {
     DBUG_EXECUTE_IF("simulate_disk_full_at_flush_pending",
                     { DBUG_SET("+d,simulate_file_write_error"); });
+    // case: write meta data event before the real event
+    // see @opt_binlog_trx_meta_data
+    if (write_meta_data_event) {
+      const std::string metadata = thd->gen_trx_metadata();
+      Rows_query_log_event metadata_ev(thd, metadata.c_str(),
+                                       metadata.length());
+      if (binary_event_serialize(&metadata_ev, &m_cache) != 0) return 1;
+    }
 
     if (binary_event_serialize(ev, &m_cache)) {
       DBUG_EXECUTE_IF("simulate_disk_full_at_flush_pending", {
@@ -1739,7 +1756,8 @@ int MYSQL_BIN_LOG::gtid_end_transaction(THD *thd) {
         event and Gtid_log_event)
       */
       DBUG_PRINT("debug", ("Writing to trx_cache"));
-      if (cache_data->write_event(&qinfo) || mysql_bin_log.commit(thd, true))
+      if (cache_data->write_event(thd, &qinfo) ||
+          mysql_bin_log.commit(thd, true))
         return 1;
     }
   } else if (thd->owned_gtid.sidno == THD::OWNED_SIDNO_ANONYMOUS ||
@@ -1951,7 +1969,7 @@ bool binlog_cache_data::compress(THD *thd) {
     tple.set_uncompressed_size(uncompressed_size);
 
     // write back the new cache contents
-    error = write_event(&tple);
+    error = write_event(thd, &tple);
 
   compression_end:
     // revert back to the default buffer, so that we don't overuse memory
@@ -1994,7 +2012,7 @@ int binlog_cache_data::finalize(THD *thd, Log_event *end_event) {
   if (!is_binlog_empty()) {
     assert(!flags.finalized);
     if (int error = flush_pending_event(thd)) return error;
-    if (int error = write_event(end_event)) return error;
+    if (int error = write_event(thd, end_event)) return error;
     if (int error = this->compress(thd)) return error;
     DBUG_PRINT("debug", ("flags.finalized: %s", YESNO(flags.finalized)));
     flags.finalized = true;
@@ -2016,7 +2034,7 @@ int binlog_cache_data::finalize(THD *thd, Log_event *end_event, XID_STATE *xs) {
   int qlen = sprintf(query, "XA END %s", xs->get_xid()->serialize(buf));
   Query_log_event qev(thd, query, qlen, true, false, true, 0);
 
-  if ((error = write_event(&qev))) return error;
+  if ((error = write_event(thd, &qev))) return error;
 
   return finalize(thd, end_event);
 }
@@ -7126,7 +7144,7 @@ int MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
     /*
       Write pending event to the cache.
     */
-    if (cache_data->write_event(pending)) {
+    if (cache_data->write_event(thd, pending)) {
       report_cache_write_error(thd, is_transactional);
       if (check_write_error(thd) && cache_data &&
           stmt_cannot_safely_rollback(thd))
@@ -7148,7 +7166,8 @@ int MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
   Write an event to the binary log cache.
 */
 
-bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
+bool MYSQL_BIN_LOG::write_event(Log_event *event_info,
+                                bool write_meta_data_event) {
   THD *thd = event_info->thd;
   bool error = true;
   DBUG_TRACE;
@@ -7229,7 +7248,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
               thd, (uchar)binary_log::Intvar_event::LAST_INSERT_ID_EVENT,
               thd->first_successful_insert_id_in_prev_stmt_for_binlog,
               event_info->event_cache_type, event_info->event_logging_type);
-          if (cache_data->write_event(&e)) goto err;
+          if (cache_data->write_event(thd, &e)) goto err;
         }
         if (thd->auto_inc_intervals_in_cur_stmt_for_binlog.nb_elements() > 0) {
           DBUG_PRINT(
@@ -7240,13 +7259,13 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
               thd, (uchar)binary_log::Intvar_event::INSERT_ID_EVENT,
               thd->auto_inc_intervals_in_cur_stmt_for_binlog.minimum(),
               event_info->event_cache_type, event_info->event_logging_type);
-          if (cache_data->write_event(&e)) goto err;
+          if (cache_data->write_event(thd, &e)) goto err;
         }
         if (thd->rand_used) {
           Rand_log_event e(thd, thd->rand_saved_seed1, thd->rand_saved_seed2,
                            event_info->event_cache_type,
                            event_info->event_logging_type);
-          if (cache_data->write_event(&e)) goto err;
+          if (cache_data->write_event(thd, &e)) goto err;
         }
         if (!thd->user_var_events.empty()) {
           for (size_t i = 0; i < thd->user_var_events.size(); i++) {
@@ -7263,7 +7282,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
                 user_var_event->value, user_var_event->length,
                 user_var_event->type, user_var_event->charset_number, flags,
                 event_info->event_cache_type, event_info->event_logging_type);
-            if (cache_data->write_event(&e)) goto err;
+            if (cache_data->write_event(thd, &e)) goto err;
           }
         }
       }
@@ -7272,7 +7291,8 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info) {
     /*
       Write the event.
     */
-    if (cache_data->write_event(event_info)) goto err;
+    if (cache_data->write_event(thd, event_info, write_meta_data_event))
+      goto err;
 
     if (DBUG_EVALUATE_IF("injecting_fault_writing", 1, 0)) goto err;
 
@@ -7621,7 +7641,7 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, THD *thd,
       written for it prior to flushing the stmt_cache.
     */
     binlog_cache_data *cache_data = cache_mngr->get_binlog_cache_data(false);
-    if ((error = cache_data->write_event(ev))) {
+    if ((error = cache_data->write_event(thd, ev))) {
       LogErr(ERROR_LEVEL, ER_BINLOG_EVENT_WRITE_TO_STMT_CACHE_FAILED);
       cache_mngr->stmt_cache.reset();
       return error;
@@ -9764,10 +9784,144 @@ static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event) {
 
     Query_log_event qinfo(thd, query, qlen, is_transactional, false, true, 0,
                           true);
-    if (cache_data->write_event(&qinfo)) return 1;
+    if (cache_data->write_event(thd, &qinfo)) return 1;
   }
 
   return 0;
+}
+
+/**
+  This function generated meta data in JSON format as a comment in a rows query
+  event.
+  @see binlog_trx_meta_data
+  @return JSON if all good, null string otherwise
+*/
+std::string THD::gen_trx_metadata() {
+  DBUG_ENTER("THD::gen_trx_metadata");
+  assert(opt_binlog_trx_meta_data);
+
+  rapidjson::Document doc;
+  doc.SetObject();
+
+  // case: read existing meta data received from the master
+  bool should_add_ts = true;
+  if (rli_slave && !rli_slave->trx_meta_data_json.empty()) {
+    if (doc.Parse(rli_slave->trx_meta_data_json.c_str()).HasParseError()) {
+      // NO_LINT_DEBUG
+      sql_print_error("Exception while reading meta data: %s",
+                      rli_slave->trx_meta_data_json.c_str());
+      DBUG_RETURN("");
+    }
+    // clear existing data
+    rli_slave->trx_meta_data_json.clear();
+
+    // No need to add another timestamp on the secondary
+    should_add_ts = false;
+  }
+
+  // add things to the meta data
+  if (!add_db_metadata(doc)) {
+    // NO_LINT_DEBUG
+    sql_print_error("Exception while adding meta data");
+    DBUG_RETURN("");
+  }
+
+  if (should_add_ts && !add_time_metadata(doc)) {
+    // NO_LINT_DEBUG
+    sql_print_error("Exception while adding meta data");
+    DBUG_RETURN("");
+  }
+
+  // write meta data with new stuff in the binlog
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+  if (!doc.Accept(writer)) {
+    // NO_LINT_DEBUG
+    sql_print_error("Error while writing meta data");
+    DBUG_RETURN("");
+  }
+  std::string json = buf.GetString();
+  boost::trim(json);
+
+  // verify doc json document
+  if (!doc.IsObject()) {
+    // NO_LINT_DEBUG
+    sql_print_error("Bad JSON format after adding meta data: %s", json.c_str());
+    DBUG_RETURN("");
+  }
+
+  std::string comment_str;
+  // Reserve space upfront to avoid copies. The '10' here is just a buffer
+  // for the start and the end comments ("/*" and "*/")
+  comment_str.reserve(10 + TRX_META_DATA_HEADER.length() + json.length());
+  comment_str = "/*";
+  comment_str.append(TRX_META_DATA_HEADER).append(json).append("*/");
+
+  DBUG_RETURN(comment_str);
+}
+
+/**
+  This function adds timing information in meta data JSON of rows query event.
+  @see THD::write_trx_metadata
+  @param meta_data_root Property tree object which represents the JSON
+  @return true if all good, false if error
+*/
+bool THD::add_time_metadata(rapidjson::Document &meta_data_root) {
+  DBUG_ENTER("THD::add_time_metadata");
+  assert(opt_binlog_trx_meta_data);
+
+  rapidjson::Document::AllocatorType &allocator = meta_data_root.GetAllocator();
+
+  // get existing timestamps
+  auto times = meta_data_root.FindMember("ts");
+  if (times == meta_data_root.MemberEnd()) {
+    meta_data_root.AddMember("ts", rapidjson::Value().SetArray(), allocator);
+    times = meta_data_root.FindMember("ts");
+  }
+
+  // add our timestamp to the array
+  std::string millis =
+      std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count());
+  times->value.PushBack(
+      rapidjson::Value().SetString(millis.c_str(), millis.size(), allocator),
+      allocator);
+
+  DBUG_RETURN(true);
+}
+
+bool THD::add_db_metadata(rapidjson::Document &meta_data_root) {
+  DBUG_ENTER("THD::add_db_meta_data");
+  assert(opt_binlog_trx_meta_data);
+
+  mysql_mutex_lock(&LOCK_thd_db_metadata);
+  std::string local_db_metadata = db_metadata;
+  mysql_mutex_unlock(&LOCK_thd_db_metadata);
+
+  if (!local_db_metadata.empty()) {
+    rapidjson::Document db_metadata_root;
+    // rapidjson doesn't like calling GetObject() on json non-object value
+    // The local_db_metadata format should similar to the following example:
+    // {"shard":"<shard_name>", "replicaset":"<replicaset_id>"}
+    if (db_metadata_root.Parse(local_db_metadata.c_str()).HasParseError() ||
+        !db_metadata_root.IsObject()) {
+      // NO_LINT_DEBUG
+      sql_print_error("Exception while reading meta data: %s",
+                      local_db_metadata.c_str());
+      DBUG_RETURN(false);
+    }
+
+    // flatten DB metadata into trx metadata
+    auto &allocator = meta_data_root.GetAllocator();
+    for (auto &node : db_metadata_root.GetObject()) {
+      rapidjson::Value val(node.value, allocator);
+      if (!meta_data_root.HasMember(node.name))
+        meta_data_root.AddMember(node.name, val, allocator);
+    }
+  }
+
+  DBUG_RETURN(true);
 }
 
 /**
@@ -9810,14 +9964,22 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
   binlog_cache_data *cache_data =
       cache_mngr->get_binlog_cache_data(is_transactional);
 
-  if (binlog_rows_query && this->query().str) {
+  if (binlog_rows_query) {
+    std::string query;
+    if (opt_binlog_trx_meta_data) {
+      query = gen_trx_metadata();
+    }
+
+    if (variables.binlog_rows_query_log_events && this->query().str)
+      query.append(this->query().str, this->query().length);
     /* Write the Rows_query_log_event into binlog before the table map */
-    Rows_query_log_event rows_query_ev(this, this->query().str,
-                                       this->query().length);
-    if ((error = cache_data->write_event(&rows_query_ev))) return error;
+    if (!query.empty()) {
+      Rows_query_log_event rows_query_ev(this, query.c_str(), query.length());
+      if ((error = cache_data->write_event(this, &rows_query_ev))) return error;
+    }
   }
 
-  if ((error = cache_data->write_event(&the_event))) return error;
+  if ((error = cache_data->write_event(this, &the_event))) return error;
 
   binlog_table_maps++;
   return 0;
@@ -11862,7 +12024,7 @@ int THD::binlog_query(THD::enum_binlog_query_type qtype, const char *query_arg,
           log event is written to the binary log, we pretend that no
           table maps were written.
          */
-        int error = mysql_bin_log.write_event(&qinfo);
+        int error = mysql_bin_log.write_event(&qinfo, opt_binlog_trx_meta_data);
         binlog_table_maps = 0;
         return error;
       }

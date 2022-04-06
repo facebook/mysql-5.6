@@ -63,6 +63,7 @@
 #endif
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <deque>
 #include <map>
 #include <regex>
@@ -171,6 +172,7 @@ using binary_log::checksum_crc32;
 using binary_log::Log_event_header;
 using std::max;
 using std::min;
+using namespace std::chrono;
 
 #define FLAGSTR(V, F) ((V) & (F) ? #F " " : "")
 
@@ -3229,6 +3231,9 @@ static void show_slave_status_metadata(mem_root_deque<Item *> *field_list,
   field_list->push_back(new Item_empty_string("Source_SSL_Key", FN_REFLEN));
   field_list->push_back(
       new Item_return_int("Seconds_Behind_Source", 10, MYSQL_TYPE_LONGLONG));
+  if (opt_binlog_trx_meta_data)
+    field_list->push_back(new Item_return_int("Milli_Seconds_Behind_Master", 10,
+                                              MYSQL_TYPE_LONGLONG));
   field_list->push_back(
       new Item_empty_string("Source_SSL_Verify_Server_Cert", 3));
   field_list->push_back(
@@ -3443,6 +3448,8 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
        print NULL;
   */
 
+  bool sbm_is_null = false;
+  bool sbm_is_zero = false;
   if (mi->rli->slave_running) {
     /*
        Check if SQL thread is at the end of relay log
@@ -3458,6 +3465,8 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
         protocol->store(0LL);
       else
         protocol->store_null();
+      sbm_is_zero = mi->slave_running == MYSQL_SLAVE_RUN_CONNECT;
+      sbm_is_null = !sbm_is_zero;
     } else {
       long time_diff = ((long)(time(nullptr) - mi->rli->last_master_timestamp) -
                         mi->clock_diff_with_master);
@@ -3481,12 +3490,42 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
         last_master_timestamp == 0 (an "impossible" timestamp 1970) is a
         special marker to say "consider we have caught up".
       */
-      protocol->store(
-          (longlong)(mi->rli->last_master_timestamp ? max(0L, time_diff) : 0));
+      if (mi->rli->last_master_timestamp == 0) {
+        /*
+          If the I/O thread is encountering problems during initailization,
+          then display NULL instead of 0.
+        */
+        sbm_is_zero = mi->slave_running == MYSQL_SLAVE_RUN_CONNECT;
+        sbm_is_null = !sbm_is_zero;
+      }
+      if (sbm_is_null) {
+        protocol->store_null();
+      } else {
+        protocol->store((longlong)(
+            mi->rli->last_master_timestamp ? max(0L, time_diff) : 0));
+      }
     }
   } else {
     protocol->store_null();
+    sbm_is_null = true;
   }
+
+  // Milli_Seconds_Behind_Master
+  if (opt_binlog_trx_meta_data) {
+    if (sbm_is_null)
+      protocol->store_null();
+    else if (sbm_is_zero)
+      protocol->store(0LL);
+    else {
+      ulonglong now_millis =
+          duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+              .count();
+      // adjust for clock mismatch
+      now_millis -= mi->clock_diff_with_master * 1000;
+      protocol->store(now_millis - mi->rli->last_master_timestamp_millis);
+    }
+  }
+
   protocol->store(mi->ssl_verify_server_cert ? "Yes" : "No", &my_charset_bin);
 
   // Last_IO_Errno
@@ -4841,8 +4880,8 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
         !(ev->is_artificial_event() || ev->is_relay_log_event() ||
           ev->get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT ||
           ev->server_id == 0)) {
-      rli->set_last_master_timestamp(ev->common_header->when.tv_sec +
-                                     (time_t)ev->exec_time);
+      const auto v = ev->common_header->when.tv_sec + (time_t)ev->exec_time;
+      rli->set_last_master_timestamp(v, v * 1000);
       assert(rli->last_master_timestamp >= 0);
     }
 
@@ -4929,7 +4968,7 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
         used to read info about the relay log's format; it will be deleted when
         the SQL thread does not need it, i.e. when this thread terminates.
         ROWS_QUERY_LOG_EVENT is destroyed at the end of the current statement
-        clean-up routine.
+        clean-up routine but ones with trx meta data are deleted here.
       */
       if (ev->get_type_code() != binary_log::FORMAT_DESCRIPTION_EVENT &&
           ev->get_type_code() != binary_log::ROWS_QUERY_LOG_EVENT) {
@@ -6252,6 +6291,7 @@ bool mta_checkpoint_routine(Relay_log_info *rli, bool force) {
   ulong cnt;
   bool error = false;
   time_t ts = 0;
+  ulonglong ts_millis = 0;
 
   DBUG_TRACE;
 
@@ -6351,14 +6391,22 @@ bool mta_checkpoint_routine(Relay_log_info *rli, bool force) {
     Update the rli->last_master_timestamp for reporting correct
     Seconds_behind_master.
 
-    If GAQ is empty, set it to zero.
+    Note (herman) original comment "If GAQ is empty, set it to zero."
+    Noticed that SBM keeps rising despite processing slave transactions
+    Changed zero to the timestamp of the lwm similar to the original code.
+
     Else, update it with the timestamp of the first job of the Slave_job_queue
     which was assigned in the Log_event::get_slave_worker() function.
   */
-  ts = rli->gaq->empty()
-           ? 0
-           : reinterpret_cast<Slave_job_group *>(rli->gaq->head_queue())->ts;
-  rli->reset_notified_checkpoint(cnt, ts, true);
+  if (!rli->gaq->empty()) {
+    auto sjg = reinterpret_cast<Slave_job_group *>(rli->gaq->head_queue());
+    ts = sjg->ts;
+    ts_millis = sjg->ts_millis;
+  } else {
+    ts = rli->gaq->lwm.ts;
+    ts_millis = rli->gaq->lwm.ts_millis;
+  }
+  rli->reset_notified_checkpoint(cnt, ts, ts_millis, true);
   /* end-of "Coordinator::commit_positions" */
 
 end:
@@ -7733,9 +7781,8 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
         is always monotonically increasing
       */
       mysql_mutex_lock(&rli->data_lock);
-      if (hb.common_header->when.tv_sec > rli->last_master_timestamp) {
-        rli->set_last_master_timestamp(hb.common_header->when.tv_sec);
-      }
+      rli->set_last_master_timestamp(hb.common_header->when.tv_sec,
+                                     hb.common_header->when.tv_sec * 1000);
       mysql_mutex_unlock(&rli->data_lock);
       goto end;
     } break;

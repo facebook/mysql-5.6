@@ -1,0 +1,21 @@
+--source include/not_binlog_format_row.inc # we have binlog_trx_meta_data_rbr.test for this
+--source include/master-slave.inc
+
+# Enable trx meta data
+--source include/rpl_connection_master.inc
+let $global_binlog_trx_meta_data_master =  `SELECT @@global.binlog_trx_meta_data`;
+set @@global.binlog_trx_meta_data= true;
+
+--source include/rpl_connection_slave.inc
+let $global_binlog_trx_meta_data_slave =  `SELECT @@global.binlog_trx_meta_data`;
+set @@global.binlog_trx_meta_data= true;
+
+source suite/rpl/include/binlog_trx_meta_data.inc;
+
+# Cleanup
+--source include/rpl_connection_master.inc
+eval set @@global.binlog_trx_meta_data= $global_binlog_trx_meta_data_master;
+--source include/rpl_connection_slave.inc
+eval set @@global.binlog_trx_meta_data= $global_binlog_trx_meta_data_slave;
+
+--source include/rpl_end.inc
