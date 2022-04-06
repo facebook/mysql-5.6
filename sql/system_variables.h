@@ -389,6 +389,16 @@ struct System_variables {
    */
   bool response_attrs_contain_hlc;
 
+  /*
+    Should we set the server CPU time in response attribute?
+   */
+  bool response_attrs_contain_server_cpu;
+
+  /*
+    Size of the warnings that can be included in response attribute
+  */
+  uint response_attrs_contain_warnings_bytes;
+
   ulong max_execution_time;
 
   char *track_sysvars_ptr;

@@ -7112,6 +7112,17 @@ static inline enum_object_type sp_type_to_object_type(uint sp_type) {
   }
 }
 
+unsigned long long pfs_get_statement_cpu_time_vc(PSI_statement_locker *locker) {
+  PSI_statement_locker_state *state =
+      reinterpret_cast<PSI_statement_locker_state *>(locker);
+  assert(state != nullptr);
+
+  uint flags = state->m_flags;
+  if (!(flags & STATE_FLAG_CPU)) return 0;
+
+  return get_thread_cpu_timer() - state->m_cpu_time_start;
+}
+
 /**
   Implementation of the stored program instrumentation interface.
   @sa PSI_v1::get_sp_share.
@@ -9119,6 +9130,7 @@ PSI_statement_service_v4 pfs_statement_service_v4 = {
     pfs_set_prepared_stmt_secondary_engine_vc,
     pfs_digest_start_vc,
     pfs_digest_end_vc,
+    pfs_get_statement_cpu_time_vc,
     pfs_get_sp_share_vc,
     pfs_release_sp_share_vc,
     pfs_start_sp_vc,
@@ -9170,6 +9182,7 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_statement_v4) = {
     pfs_set_prepared_stmt_secondary_engine_vc,
     pfs_digest_start_vc,
     pfs_digest_end_vc,
+    pfs_get_statement_cpu_time_vc,
     pfs_get_sp_share_vc,
     pfs_release_sp_share_vc,
     pfs_start_sp_vc,

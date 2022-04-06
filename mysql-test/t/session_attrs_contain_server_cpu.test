@@ -1,0 +1,301 @@
+--source include/have_debug.inc
+
+-- echo
+-- echo # Test server_cpu query response attribute
+-- echo
+connection default;
+
+use test;
+create table mytbl (a int, b int, c int, d int, e int);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+
+# Enable tracking response attribute
+SET @@session.session_track_response_attributes = on;
+
+-- echo # Case 1: session level variable is default, i.e. FALSE
+set @@session.response_attrs_contain_server_cpu = default;
+--disable_result_log
+select * from mytbl;
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+-- echo # Case 2: session level variable is TRUE
+set @@session.response_attrs_contain_server_cpu = true;
+--disable_result_log
+select * from mytbl;
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+## Uncomment this test after fixing task T70725359
+##-- echo # Case 3: session level variable is FALSE
+##set @@session.response_attrs_contain_server_cpu = false;
+##--disable_result_log
+##select * from mytbl;
+##--enable_result_log
+
+##let $attr = get_response_attribute(server_cpu);
+##if ($attr == "") {
+##  echo Did not find server_cpu in query response attributes;
+##}
+##if ($attr) {
+##  echo Found valid value for server_cpu in query response attributes;
+##}
+
+# Reset to default
+set @@session.response_attrs_contain_server_cpu = default;
+
+-- echo # Case 4: global level variable is TRUE but session is FALSE
+
+set @@global.response_attrs_contain_server_cpu = true;
+--disable_result_log
+select a,b from mytbl;
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+# Reset to default
+set @@global.response_attrs_contain_server_cpu = default;
+
+-- echo # Case 5: specify query attribute 'response_attrs_contain_server_cpu' to 1
+
+query_attrs_add response_attrs_contain_server_cpu 1;
+--disable_result_log
+select a,b from mytbl;
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+query_attrs_reset;
+
+-- echo # Case 6: specify query attribute 'response_attrs_contain_server_cpu' to 0
+
+query_attrs_add response_attrs_contain_server_cpu 0;
+--disable_result_log
+select a,b from mytbl;
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+query_attrs_reset;
+
+-- echo
+-- echo # Test multistatement query
+-- echo
+use test;
+
+-- echo # Case 1: session level variable is default, i.e. FALSE
+set @@session.response_attrs_contain_server_cpu = default;
+--disable_result_log
+delimiter ||||;
+
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+-- echo # Case 2: session level variable is TRUE
+set @@session.response_attrs_contain_server_cpu = true;
+--disable_result_log
+
+delimiter ||||;
+
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+## Uncomment this test after fixing task T70725359
+##-- echo # Case 3: session level variable is FALSE
+##set @@session.response_attrs_contain_server_cpu = false;
+##--disable_result_log
+##delimiter ||||;
+##
+##select * from mytbl where a > 1;
+##select * from mytbl where b > 1;
+##select * from mytbl where c > 1;
+##select * from mytbl where d > 1;
+##select * from mytbl where e > 1;
+##||||
+##
+### reset delimiter
+##delimiter ;||||
+##--enable_result_log
+
+##let $attr = get_response_attribute(server_cpu);
+##if ($attr == "") {
+##  echo Did not find server_cpu in query response attributes;
+##}
+##if ($attr) {
+##  echo Found valid value for server_cpu in query response attributes;
+##}
+
+# Reset to default
+set @@session.response_attrs_contain_server_cpu = default;
+
+-- echo # Case 4: global level variable is TRUE but session is FALSE
+
+set @@global.response_attrs_contain_server_cpu = true;
+--disable_result_log
+delimiter ||||;
+
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+# Reset to default
+set @@global.response_attrs_contain_server_cpu = default;
+
+-- echo # Case 5: specify query attribute 'response_attrs_contain_server_cpu' to 1
+
+query_attrs_add response_attrs_contain_server_cpu 1;
+--disable_result_log
+delimiter ||||;
+
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+query_attrs_reset;
+
+-- echo # Case 6: specify query attribute 'response_attrs_contain_server_cpu' to 0
+
+query_attrs_add response_attrs_contain_server_cpu 0;
+--disable_result_log
+delimiter ||||;
+
+select * from mytbl where a > 1;
+select * from mytbl where b > 1;
+select * from mytbl where c > 1;
+select * from mytbl where d > 1;
+select * from mytbl where e > 1;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+--enable_result_log
+
+let $attr = get_response_attribute(server_cpu);
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+query_attrs_reset;
+
+# Cleanup
+connection default;
+use test;
+drop table if exists mytbl;

@@ -172,6 +172,8 @@ PSI_digest_locker *pfs_digest_start_vc(PSI_statement_locker *locker);
 void pfs_digest_end_vc(PSI_digest_locker *locker,
                        const sql_digest_storage *digest);
 
+unsigned long long pfs_get_statement_cpu_time_vc(PSI_statement_locker *locker);
+
 #endif /* WITH_LOCK_ORDER */
 #endif /* MYSQL_DYNAMIC_PLUGIN */
 #endif /* MYSQL_SERVER || PFS_DIRECT_CALL */

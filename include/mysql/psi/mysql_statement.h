@@ -227,6 +227,13 @@ struct CHARSET_INFO;
   } while (0)
 #endif
 
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_GET_STATEMENT_CPU_TIME(LOCKER) \
+  inline_mysql_get_statement_cpu_time(LOCKER)
+#else
+#define MYSQL_GET_STATEMENT_CPU_TIME(LOCKER) 0
+#endif
+
 static inline void inline_mysql_statement_register(
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
     const char *category, PSI_statement_info *info, int count
@@ -394,6 +401,16 @@ static inline void mysql_statement_set_secondary_engine(
     PSI_STATEMENT_CALL(set_statement_secondary_engine)(locker, secondary);
   }
 #endif /* HAVE_PSI_STATEMENT_INTERFACE */
+}
+
+static inline unsigned long long inline_mysql_get_statement_cpu_time(
+    PSI_statement_locker *locker) {
+  unsigned long long cpu_time = 0;
+
+  if (likely(locker != nullptr)) {
+    cpu_time = PSI_STATEMENT_CALL(get_statement_cpu_time)(locker);
+  }
+  return cpu_time;
 }
 
 /** @} (end of group psi_api_statement) */
