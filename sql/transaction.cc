@@ -727,6 +727,13 @@ bool trans_savepoint(THD *thd, LEX_STRING name) {
   thd->get_transaction()->m_savepoints = newsv;
 
   /*
+    savepoints are session state and it's not safe to switch sessions with
+    savepoints set
+   */
+  auto tracker = thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER);
+  if (tracker->is_enabled()) tracker->mark_as_changed(thd, {});
+
+  /*
     Remember locks acquired before the savepoint was set.
     They are used as a marker to only release locks acquired after
     the setting of this savepoint.
