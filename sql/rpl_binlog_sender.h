@@ -412,8 +412,8 @@ class Binlog_sender {
     @return It returns 0 if succeeds, otherwise 1 is returned.
   */
   int wait_new_events(my_off_t log_pos);
-  int wait_with_heartbeat(my_off_t log_pos);
-  int wait_without_heartbeat();
+  int wait_with_heartbeat(MYSQL_BIN_LOG *raw_log, my_off_t log_pos);
+  int wait_without_heartbeat(MYSQL_BIN_LOG *raw_log);
 
 #ifndef NDEBUG
   /* It is used to count the events that have been sent. */

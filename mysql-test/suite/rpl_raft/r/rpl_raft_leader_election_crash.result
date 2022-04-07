@@ -24,9 +24,9 @@ select variable_value from performance_schema.global_status where variable_name 
 variable_value
 LEADER
 "Stopping slave applier on all peers"
-stop slave sql_thread;
-stop slave sql_thread;
-stop slave sql_thread;
+stop replica sql_thread;
+stop replica sql_thread;
+stop replica sql_thread;
 "Writing data on leader"
 create table t1 (a int primary key auto_increment) engine = innodb;
 insert into t1 values();
@@ -40,7 +40,7 @@ a
 "Setting debug symbol so that server_2 crashed on becoming a leader after switching logs"
 set global debug="+d,crash_after_point_binlog_to_binlog";
 "Stopping sql appliers on server_2"
-stop slave sql_thread
+stop replica sql_thread
 insert into t1 values();
 insert into t1 values();
 insert into t1 values();

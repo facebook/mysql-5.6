@@ -88,6 +88,8 @@ static bool safe_connect_slave_stats_thread_to_master(MYSQL *&mysql,
     return false;
   }
   mysql_extension_set_server_extn(mysql, server_extn);
+  DBUG_EXECUTE_IF("dbug.replica_stats_force_disconnet_primary",
+                  { return false; });
   if (!mysql_real_connect(mysql, active_mi->host, active_mi->get_user(), pass,
                           0, active_mi->port, 0, 0)) {
     return false;
@@ -140,6 +142,11 @@ static void *handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused))) {
 
     if (abort_slave_stats_daemon) break;
 
+    if (enable_raft_plugin && !raft_send_replica_statistics) {
+      error = 0;
+      continue;
+    }
+
     if (error == ETIMEDOUT) {
       // Initialize connection thd, if not already done.
       if (thd == nullptr) {
@@ -151,6 +158,9 @@ static void *handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused))) {
         my_net_init(thd->get_protocol_classic()->get_net(), 0);
         thd->store_globals();
       }
+
+      DBUG_EXECUTE_IF("dbug.replica_stats_force_disconnet_primary",
+                      { connected_to_master = false; });
 
       channel_map.rdlock();
       active_mi = channel_map.get_default_channel_mi();
@@ -175,7 +185,8 @@ static void *handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused))) {
         }
       }
       if (connected_to_master &&
-          active_mi->slave_running == MYSQL_SLAVE_RUN_CONNECT) {
+          (enable_raft_plugin ||
+           active_mi->slave_running == MYSQL_SLAVE_RUN_CONNECT)) {
         if (send_replica_statistics_to_master(mysql, active_mi)) {
           DBUG_PRINT("info", ("Slave Stats Daemon: Failed to send lag "
                               "statistics, resetting connection, (Error: %s)",

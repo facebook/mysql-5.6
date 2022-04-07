@@ -63,7 +63,7 @@ source include/show_raft_logs.inc;
 echo "Case 3: stop slave sql_thread, flush logs and verify raft logs";
 connection server_2;
 echo "Stopping sql_thread on follower: server_2";
-stop slave sql_thread;
+stop replica sql_thread;
 
 connection server_1;
 echo "Inserting more rows into t1 and flusing logs on leader: server_1";
@@ -96,7 +96,7 @@ connection server_2;
 echo "Verifying table t1 data on follower: server_2"
 select count(*) from t1;
 source include/show_raft_logs.inc;
-start slave sql_thread;
+start replica sql_thread;
 
 connection server_1;
 let $sync_slave_connection= server_2;

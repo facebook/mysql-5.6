@@ -84,6 +84,8 @@
 #include "sql_string.h"
 #include "thr_mutex.h"
 #include "typelib.h"
+// stop_handle_slave_stats_daemon, start_handle_slave_stats_daemon
+#include "slave_stats_daemon.h"
 
 int max_binlog_dump_events = 0;  // unlimited
 bool opt_sporadic_binlog_dump_fail = false;
@@ -184,7 +186,7 @@ err:
  */
 int register_raft_followers(
     const std::unordered_map<std::string, std::string> &follower_info,
-    bool /*is_leader*/, bool /*is_shutdown*/) {
+    bool is_leader, bool is_shutdown) {
   int error = 0;
 
   mysql_mutex_lock(&LOCK_replica_list);
@@ -244,6 +246,15 @@ int register_raft_followers(
   }
 
   mysql_mutex_unlock(&LOCK_replica_list);
+
+  // clean up - stop previous run of slave_stats_daemon, if any.
+  stop_handle_slave_stats_daemon();
+
+  if (!is_shutdown && !is_leader) {
+    // Spawn slave_stats_daemon thread only for followers and we are not
+    // shutting down raft.
+    start_handle_slave_stats_daemon();
+  }
 
   return error;
 }
@@ -414,22 +425,23 @@ bool show_replicas(THD *thd, bool with_raft) {
   Protocol *protocol = thd->get_protocol();
   DBUG_TRACE;
 
-  field_list.push_back(new Item_return_int("Server_Id", 10, MYSQL_TYPE_LONG));
+  bool deprecated = thd->lex->is_replication_deprecated_syntax_used();
+  field_list.push_back(new Item_return_int(
+      deprecated ? "Server_id" : "Server_Id", 10, MYSQL_TYPE_LONG));
   field_list.push_back(new Item_empty_string("Host", HOSTNAME_LENGTH));
   if (opt_show_replica_auth_info) {
     field_list.push_back(new Item_empty_string("User", USERNAME_CHAR_LENGTH));
     field_list.push_back(new Item_empty_string("Password", 20));
   }
   field_list.push_back(new Item_return_int("Port", 7, MYSQL_TYPE_LONG));
-  field_list.push_back(new Item_return_int("Source_Id", 10, MYSQL_TYPE_LONG));
-  field_list.push_back(new Item_empty_string("Replica_UUID", UUID_LENGTH));
-  field_list.push_back(
-      new Item_return_int("Is_semi_sync_slave", 7, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_return_int(
+      deprecated ? "Master_id" : "Source_Id", 10, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_empty_string(
+      GET_REPLICA_NAME(deprecated, "_UUID"), UUID_LENGTH));
+  field_list.push_back(new Item_return_int(
+      deprecated ? "Is_semi_sync_slave" : "Is_Semi_Sync_Replica", 7,
+      MYSQL_TYPE_LONG));
   field_list.push_back(new Item_empty_string("Replication_status", 20));
-
-  // TODO: once the old syntax is removed, remove this as well.
-  if (thd->lex->is_replication_deprecated_syntax_used())
-    rename_fields_use_old_replica_source_terms(thd, field_list);
 
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))

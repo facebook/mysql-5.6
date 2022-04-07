@@ -454,6 +454,8 @@ Slave_worker *Rpl_info_factory::create_worker(uint rli_option, uint worker_id,
 
   if (!worker) goto err;
 
+  worker->populate_recovery_binlog_max_gtid();
+
   if (init_repositories(worker_table_data, worker_file_data, rli_option,
                         &handler_src, &handler_dest, &msg))
     goto err;

@@ -9,11 +9,11 @@ let $use_gtids= 1;
 # server4 will tail the leader
 connection server_4;
 RESET MASTER;
-RESET SLAVE;
+RESET REPLICA;
 SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
 replace_result $SERVER_MYPORT_1 SERVER_MYPORT_1;
-eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
-START SLAVE;
+eval CHANGE REPLICATION SOURCE TO SOURCE_HOST = '::1', SOURCE_PORT = $SERVER_MYPORT_1, SOURCE_USER = 'root',  SOURCE_CONNECT_RETRY = 1, SOURCE_AUTO_POSITION = 1;
+START REPLICA;
 
 # Execute some transactions
 connection server_1;
@@ -37,9 +37,9 @@ source ../include/raft_promote_to_leader.inc;
 
 # Make server_4 tail server_2
 connection server_4;
-STOP SLAVE;
+STOP REPLICA;
 replace_result $port2 port2;
-eval change master to master_host='localhost', master_port=$port2, master_auto_position=1, master_user='root';
+eval change replication source to source_host='localhost', source_port=$port2, source_auto_position=1, source_user='root';
 source include/start_slave.inc;
 --let $uuid4= `SELECT @@GLOBAL.SERVER_UUID`
 
@@ -69,6 +69,6 @@ source include/sync_slave_sql_with_master.inc;
 
 connection server_4;
 source include/stop_slave.inc;
-reset slave all;
+reset replica all;
 
 source include/rpl_end.inc;

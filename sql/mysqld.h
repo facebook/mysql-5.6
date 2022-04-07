@@ -466,6 +466,7 @@ extern bool abort_on_raft_purge_error;
 extern ulonglong apply_log_retention_num;
 extern ulonglong apply_log_retention_duration;
 extern bool recover_raft_log;
+extern bool raft_send_replica_statistics;
 /* Apply log related variables for raft */
 extern char *opt_apply_logname;
 extern char *opt_applylog_index_name;
@@ -999,6 +1000,7 @@ extern char mysql_unpacked_real_data_home[];
 extern MYSQL_PLUGIN_IMPORT struct System_variables global_system_variables;
 extern char default_logfile_name[FN_REFLEN];
 extern bool log_bin_supplied;
+extern const char *relay_ext;
 extern char default_binlogfile_name[FN_REFLEN];
 extern MYSQL_PLUGIN_IMPORT char pidfile_name[];
 
@@ -1074,6 +1076,9 @@ extern std::atomic<query_id_t> atomic_global_query_id;
 
 int *get_remaining_argc();
 char ***get_remaining_argv();
+
+const char *rpl_make_log_name(PSI_memory_key key, const char *opt,
+                              const char *def, const char *ext);
 
 /* increment query_id and return it.  */
 [[nodiscard]] inline query_id_t next_query_id() {

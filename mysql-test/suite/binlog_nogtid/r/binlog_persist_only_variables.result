@@ -138,6 +138,7 @@ SET PERSIST_ONLY max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST_ONLY max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
 SET PERSIST_ONLY max_relay_log_size = @@GLOBAL.max_relay_log_size;
 SET PERSIST_ONLY mts_dependency_replication = @@GLOBAL.mts_dependency_replication;
+SET PERSIST_ONLY raft_send_replica_statistics = @@GLOBAL.raft_send_replica_statistics;
 SET PERSIST_ONLY relay_log = @@GLOBAL.relay_log;
 ERROR HY000: Variable 'relay_log' is a non persistent read only variable
 SET PERSIST_ONLY relay_log_basename = @@GLOBAL.relay_log_basename;
@@ -364,6 +365,7 @@ RESET PERSIST max_binlog_size;
 RESET PERSIST max_binlog_stmt_cache_size;
 RESET PERSIST max_relay_log_size;
 RESET PERSIST mts_dependency_replication;
+RESET PERSIST raft_send_replica_statistics;
 RESET PERSIST relay_log;
 ERROR HY000: Variable relay_log does not exist in persisted config file
 RESET PERSIST relay_log_basename;

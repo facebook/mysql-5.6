@@ -8872,6 +8872,25 @@ static bool update_enable_raft_change(sys_var * /*self */, THD *thd,
   const char *user = "unknown";
   const char *host = "unknown";
 
+  // Resetting relay log basename and index based on whether raft is enabled
+  // see @init_server_components() where we do a similar thing
+  my_free(const_cast<char *>(relay_log_basename));
+  my_free(const_cast<char *>(relay_log_index));
+  if (!enable_raft_plugin) {
+    relay_log_basename = rpl_make_log_name(
+        key_memory_MYSQL_RELAY_LOG_basename, opt_relay_logname,
+        default_logfile_name,
+        (opt_relay_logname && opt_relay_logname[0]) ? "" : relay_ext);
+    relay_log_index = rpl_make_log_name(key_memory_MYSQL_RELAY_LOG_index,
+                                        opt_relaylog_index_name,
+                                        relay_log_basename, ".index");
+  } else {
+    relay_log_basename = my_strdup(key_memory_MYSQL_RELAY_LOG_basename,
+                                   log_bin_basename, MYF(MY_FAE));
+    relay_log_index =
+        my_strdup(key_memory_MYSQL_RELAY_LOG_index, log_bin_index, MYF(MY_FAE));
+  }
+
   // NO_LINT_DEBUG
   sql_print_information("Unblocking dump threads");
   unblock_all_dump_threads();
@@ -9077,6 +9096,13 @@ static Sys_var_bool Sys_recover_raft_log(
     "Temprary variable to control recovery of raft log by removing partial "
     "trxs. This should be removed later.",
     GLOBAL_VAR(recover_raft_log), CMD_LINE(OPT_ARG), DEFAULT(true),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_raft_send_replica_statistics(
+    "raft_send_replica_statistics",
+    "Variable to control sending replication lag statistics from followers "
+    "to leaders in raft replication.",
+    GLOBAL_VAR(raft_send_replica_statistics), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 /* Free global_write_statistics if sys_var is set to 0 */

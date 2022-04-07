@@ -333,7 +333,6 @@ class Relay_log_info : public Rpl_info {
   bool is_relay_log_recovery;
 
   Gtid recovery_max_engine_gtid;
-  Checkable_rwlock recovery_sid_lock;
   Sid_map recovery_sid_map;
 
   // Last gtid seen by coordinator thread.

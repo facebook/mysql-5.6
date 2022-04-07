@@ -66,8 +66,8 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 Checksum: 2889758595;
 verify SHOW SLAVE HOSTS output
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
-Checksum: 3702298611;
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
+Checksum: 1754523680;
 Verify SHOW TABLES output
 SHOW TABLES;
 Tables_in_test

@@ -71,12 +71,12 @@
 #include "sql/transaction_info.h"
 #include "sql_string.h"
 
+struct MysqlPrimaryInfo;
+
 /** start of raft related extern funtion declarations  **/
 
 extern int raft_reset_slave(THD *thd);
-extern int raft_change_master(
-    THD *thd, const std::pair<const std::string, uint> &master_instance,
-    const std::string &master_uuid);
+extern int raft_change_master(THD *thd, const MysqlPrimaryInfo &info);
 extern int rotate_binlog_file(THD *thd);
 extern int raft_stop_sql_thread(THD *thd);
 extern int raft_stop_io_thread(THD *thd);
@@ -657,10 +657,7 @@ int Trans_delegate::before_commit(THD *thd, bool all,
       (all || !thd->get_transaction()->is_active(Transaction_ctx::SESSION));
   if (is_real_trans) param.flags |= TRANS_IS_REAL_TRANS;
 
-  if (mysql_bin_log.is_apply_log)
-    thd->get_trans_relay_log_pos(&param.log_file, &param.log_pos);
-  else
-    thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
 
   DBUG_PRINT("enter",
              ("log_file: %s, log_pos: %llu", param.log_file, param.log_pos));
@@ -887,10 +884,7 @@ int Trans_delegate::after_rollback(THD *thd, bool all) {
   bool is_real_trans =
       (all || !thd->get_transaction()->is_active(Transaction_ctx::SESSION));
   if (is_real_trans) param.flags |= TRANS_IS_REAL_TRANS;
-  if (mysql_bin_log.is_apply_log)
-    thd->get_trans_relay_log_pos(&param.log_file, &param.log_pos);
-  else
-    thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
   param.server_id = thd->server_id;
   param.rpl_channel_type = thd->rpl_thd_ctx.get_rpl_channel_type();
 
@@ -1391,12 +1385,13 @@ int Raft_replication_delegate::after_commit(THD *thd) {
 
   thd->get_trans_marker(&param.term, &param.index);
 
-  const char *file = nullptr;
-  my_off_t pos = 0;
-  if (mysql_bin_log.is_apply_log)
-    thd->get_trans_relay_log_pos(&file, &pos);
-  else
-    thd->get_trans_fixed_pos(&file, &pos);
+  if (thd->m_force_raft_after_commit_hook) {
+    assert(thd->rli_slave);
+    sql_print_warning("Forcing raft after_commit hook for opid: %ld:%ld",
+                      param.term, param.index);
+  }
+
+  thd->m_force_raft_after_commit_hook = false;
 
   int ret = 0;
   FOREACH_OBSERVER_STRICT(ret, after_commit, (&param));
@@ -1817,8 +1812,8 @@ extern "C" void *process_raft_queue(void *) {
         break;
       }
       case RaftListenerCallbackType::CHANGE_MASTER: {
-        result.error = raft_change_master(
-            current_thd, element.arg.master_instance, element.arg.master_uuid);
+        const MysqlPrimaryInfo &info = element.arg.primary_info;
+        result.error = raft_change_master(current_thd, info);
         if (!result.error && !element.arg.val_str.empty()) {
           Item_string item(element.arg.val_str.c_str(),
                            element.arg.val_str.length(),

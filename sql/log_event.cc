@@ -3324,10 +3324,8 @@ void Log_event::check_and_set_idempotent_recovery(Relay_log_info *rli,
   DBUG_EXECUTE_IF("dbg_enable_idempotent_recovery", {
     Gtid current_gtid;
     current_gtid.clear();
-    rli->recovery_sid_lock.rdlock();
     assert(current_gtid.parse(&rli->recovery_sid_map, gtid) ==
            RETURN_STATUS_OK);
-    rli->recovery_sid_lock.unlock();
     rli->recovery_max_engine_gtid = current_gtid;
   });
 
@@ -3336,9 +3334,7 @@ void Log_event::check_and_set_idempotent_recovery(Relay_log_info *rli,
       !rli->recovery_max_engine_gtid.is_empty()) {
     Gtid current_gtid;
     current_gtid.clear();
-    rli->recovery_sid_lock.rdlock();
     current_gtid.parse(&rli->recovery_sid_map, gtid);
-    rli->recovery_sid_lock.unlock();
 
     if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
         current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
@@ -4715,26 +4711,12 @@ void Query_log_event::detach_temp_tables_worker(THD *thd_arg,
   Query_log_event::do_apply_event()
 */
 int Query_log_event::do_apply_event(Relay_log_info const *rli) {
-  // Note: We're using event's future_event_relay_log_pos instead of
-  // rli->get_event_relay_log_pos() because rli is only updated in
-  // do_update_pos() which is called after applying the event and we might need
-  // to use this pos during application (e.g. during commit)
-  Relay_log_info *rli_ptr = const_cast<Relay_log_info *>(rli);
-  thd->set_trans_relay_log_pos(rli_ptr->get_event_relay_log_name(),
-                               future_event_relay_log_pos);
+  thd->set_trans_relay_log_pos(relay_log_coords);
   return do_apply_event(rli, query, q_len);
 }
 
 int Query_log_event::do_apply_event_worker(Slave_worker *w) {
-  // Note: We're using event's future_event_relay_log_pos instead of
-  // rli->get_event_relay_log_pos() because rli is only updated in
-  // do_update_pos() which is called after applying the event and we might
-  // need to use this pos during application (e.g. during commit)
-  Slave_job_group *ptr_g = w->c_rli->gaq->get_job_group(mts_group_idx);
-  thd->set_trans_relay_log_pos(ptr_g && ptr_g->group_relay_log_name
-                                   ? ptr_g->group_relay_log_name
-                                   : w->get_group_relay_log_name(),
-                               future_event_relay_log_pos);
+  thd->set_trans_relay_log_pos(relay_log_coords);
   return do_apply_event(w, query, q_len);
 }
 
@@ -5972,18 +5954,8 @@ bool Rotate_log_event::write(Basic_ostream *ostream) {
       write_footer(ostream));
 }
 
-int Rotate_log_event::do_apply_event(Relay_log_info const *rli) {
+int Rotate_log_event::do_apply_event(Relay_log_info const * /*rli*/) {
   if (!enable_raft_plugin) return 0;
-
-  // Note: We're using event's future_event_relay_log_pos instead of
-  // rli->get_event_relay_log_pos() because rli is only updated in
-  // do_update_pos() which is called after applying the event and we might need
-  // to use this pos during application (e.g. during commit)
-  Relay_log_info *rli_ptr = const_cast<Relay_log_info *>(rli);
-  thd->set_trans_relay_log_pos(rli_ptr->get_event_relay_log_name(),
-                               future_event_relay_log_pos);
-  int64_t term, index;
-  thd->get_trans_marker(&term, &index);
   return RUN_HOOK_STRICT(raft_replication, after_commit, (thd));
 }
 
@@ -6535,8 +6507,7 @@ int Xid_apply_log_event::do_apply_event_worker(Slave_worker *w) {
       goto err;
   }
 
-  thd->set_trans_relay_log_pos(w->get_group_relay_log_name(),
-                               w->get_group_relay_log_pos());
+  thd->set_trans_relay_log_pos(relay_log_coords);
 
   DBUG_PRINT(
       "mts",
@@ -6677,8 +6648,8 @@ int Xid_apply_log_event::do_apply_event(Relay_log_info const *rli) {
   strmake(new_group_relay_log_name, rli_ptr->get_group_relay_log_name(),
           FN_REFLEN - 1);
   new_group_relay_log_pos = rli_ptr->get_group_relay_log_pos();
-  thd->set_trans_relay_log_pos(rli_ptr->get_group_relay_log_name(),
-                               rli_ptr->get_group_relay_log_pos());
+
+  thd->set_trans_relay_log_pos(relay_log_coords);
   /*
     Rollback positions in memory just before commit. Position values will be
     reset to their new values only on successful commit operation.
@@ -10392,6 +10363,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     lex_start(thd);
     mysql_reset_thd_for_next_command(thd);
 
+    thd->m_force_raft_after_commit_hook = false;
     enum_gtid_statement_status state = gtid_pre_statement_checks(thd);
     if (state == GTID_STATEMENT_EXECUTE) {
       if (gtid_pre_statement_post_implicit_commit_checks(thd))
@@ -10405,8 +10377,11 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
                   thd->get_stmt_da()->message_text());
       thd->is_slave_error = true;
       return -1;
-    } else if (state == GTID_STATEMENT_SKIP)
+    } else if (state == GTID_STATEMENT_SKIP) {
+      thd->m_force_raft_after_commit_hook =
+          enable_raft_plugin && thd->rli_slave;
       goto end;
+    }
 
     /*
       The current statement is just about to begin and

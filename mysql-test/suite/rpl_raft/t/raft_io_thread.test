@@ -5,20 +5,20 @@ source ../include/raft_3_node.inc;
 SET @save.enable_raft_plugin=@@global.enable_raft_plugin;
 
 SET @@global.enable_raft_plugin=0;
-START SLAVE IO_THREAD;
+START REPLICA IO_THREAD;
 
 # raft cannot be enabled when IO thread is running
 --error ER_SLAVE_IO_RAFT_CONFLICT
 SET @@global.enable_raft_plugin=1;
 
-STOP SLAVE IO_THREAD;
+STOP REPLICA IO_THREAD;
 SET @@global.enable_raft_plugin=1;
 
 SET @@global.enable_raft_plugin=0;
-START SLAVE IO_THREAD;
+START REPLICA IO_THREAD;
 
 SET @@global.binlog_error_action="ABORT_SERVER";
-STOP SLAVE IO_THREAD;
+STOP REPLICA IO_THREAD;
 
 --error ER_RAFT_BINLOG_ERROR_ACTION
 SET @@global.enable_raft_plugin=1;
@@ -28,10 +28,10 @@ SET @@global.enable_raft_plugin=1;
 
 
 SET @@global.enable_raft_plugin=0;
-START SLAVE IO_THREAD;
+START REPLICA IO_THREAD;
 
 # Retore to start state
-STOP SLAVE IO_THREAD;
+STOP REPLICA IO_THREAD;
 SET @@global.enable_raft_plugin=@save.enable_raft_plugin;
 
 --connection server_1 

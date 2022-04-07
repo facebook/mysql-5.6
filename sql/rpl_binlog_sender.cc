@@ -981,22 +981,22 @@ int Binlog_sender::wait_new_events(my_off_t log_pos) {
                     &stage_source_has_sent_all_binlog_to_replica, &old_stage);
 
   if (m_heartbeat_period.count() > 0)
-    ret = wait_with_heartbeat(log_pos);
+    ret = wait_with_heartbeat(raw_log, log_pos);
   else
-    ret = wait_without_heartbeat();
+    ret = wait_without_heartbeat(raw_log);
 
   raw_log->unlock_binlog_end_pos();
   m_thd->EXIT_COND(&old_stage);
   return ret;
 }
 
-inline int Binlog_sender::wait_with_heartbeat(my_off_t log_pos) {
+inline int Binlog_sender::wait_with_heartbeat(MYSQL_BIN_LOG *raw_log,
+                                              my_off_t log_pos) {
 #ifndef NDEBUG
   ulong hb_info_counter = 0;
 #endif
   struct timespec ts;
   int ret;
-  auto raw_log = dump_log.get_log(false);
 
   ulong signal_cnt = raw_log->signal_cnt;
 
@@ -1019,8 +1019,7 @@ inline int Binlog_sender::wait_with_heartbeat(my_off_t log_pos) {
   return ret ? 1 : 0;
 }
 
-inline int Binlog_sender::wait_without_heartbeat() {
-  auto raw_log = dump_log.get_log(false);
+inline int Binlog_sender::wait_without_heartbeat(MYSQL_BIN_LOG *raw_log) {
   return raw_log->wait_for_update(nullptr);
 }
 

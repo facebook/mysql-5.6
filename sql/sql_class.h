@@ -1746,6 +1746,12 @@ class THD : public MDL_context_owner,
   bool add_time_metadata(rapidjson::Document &meta_data_root);
   bool add_db_metadata(rapidjson::Document &meta_data_root);
 
+  /* Force a call to raft's after_commit hook even if the binlog cache is empty
+   * or uninitialized. Currently this is used to call after_commit hook for
+   * transactions that are skipped because their GTID <= executed_gtid. It is
+   * reset in Raft_replication_delegate::after_commit() */
+  bool m_force_raft_after_commit_hook = false;
+
   void set_server_id(uint32 sid) { server_id = sid; }
 
   /*
@@ -1960,7 +1966,7 @@ class THD : public MDL_context_owner,
   /**
    * Relay log positions for the transaction
    */
-  std::pair<std::string, my_off_t> m_trans_relay_log_pos;
+  std::pair<std::string, my_off_t> m_trans_relay_log_pos = {"", 0};
 
   /* The term and index that need to be communicated across different raft
    * plugin hooks. These fields are not protected by locks since they are
@@ -3021,9 +3027,8 @@ class THD : public MDL_context_owner,
     if (pos_var) *pos_var = m_trans_relay_log_pos.second;
   }
 
-  void set_trans_relay_log_pos(const std::string &file, my_off_t pos) {
-    m_trans_relay_log_pos.first = file;
-    m_trans_relay_log_pos.second = pos;
+  void set_trans_relay_log_pos(const std::pair<std::string, my_off_t> &pos) {
+    m_trans_relay_log_pos = pos;
   }
 
   /**@}*/
@@ -3177,8 +3182,13 @@ class THD : public MDL_context_owner,
     If we do a purge of binary logs, log index info of the threads
     that are currently reading it needs to be adjusted. To do that
     each thread that is using LOG_INFO needs to adjust the pointer to it
+
+    Why is this atomic? In order to avoid taking LOCK_thd_data, on the
+    read path. we check the presence of current_linfo and in the common
+    case linfo is not present. LOCK_thd_data only needs to be taken
+    while linfo is being adjusted inside.
   */
-  LOG_INFO *current_linfo;
+  std::atomic<LOG_INFO *> current_linfo;
   /* Used by the sys_var class to store temporary values */
   union {
     bool bool_value;

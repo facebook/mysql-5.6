@@ -1972,6 +1972,15 @@ err:
       (void)RUN_HOOK(transaction, after_commit, (thd, all));
     trn_ctx->m_flags.run_hooks = false;
   }
+
+  // Case: ha_commit_low was called directly from MYSQL_BIN_LOG::commit. This
+  // ususally happens when a transaction is skipped by the applier because its
+  // gtid is included in excecuted gtid.
+  // see @THD::m_force_raft_after_commit_hook
+  if (!error && enable_raft_plugin && thd->m_force_raft_after_commit_hook &&
+      thd->rli_slave)
+    error = RUN_HOOK_STRICT(raft_replication, after_commit, (thd));
+
   return error;
 }
 

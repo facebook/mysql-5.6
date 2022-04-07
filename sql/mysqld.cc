@@ -1244,6 +1244,7 @@ ulonglong apply_log_retention_duration = 0;
 bool disable_raft_log_repointing = 0;
 ulong opt_raft_signal_async_dump_threads = 0;
 bool recover_raft_log = false;
+bool raft_send_replica_statistics = false;
 
 /* Apply log related variables for raft
    "_ptr" variables are system variables that should not be free by us */
@@ -5476,8 +5477,8 @@ bool update_authentication_policy() {
   @returns Pointer to string containing the full file path, or NULL if
   it was not possible to create the path.
  */
-static inline const char *rpl_make_log_name(PSI_memory_key key, const char *opt,
-                                            const char *def, const char *ext) {
+const char *rpl_make_log_name(PSI_memory_key key, const char *opt,
+                              const char *def, const char *ext) {
   DBUG_TRACE;
   DBUG_PRINT("enter", ("opt: %s, def: %s, ext: %s", (opt && opt[0]) ? opt : "",
                        def, ext));

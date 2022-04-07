@@ -17,11 +17,11 @@ select variable_value from performance_schema.global_status where variable_name 
 
 echo "Stopping slave applier on all peers";
 connection server_1;
-stop slave sql_thread;
+stop replica sql_thread;
 connection server_2;
-stop slave sql_thread;
+stop replica sql_thread;
 connection server_3;
-stop slave sql_thread;
+stop replica sql_thread;
 
 echo "Writing data on leader";
 connection server_1;
@@ -36,7 +36,7 @@ connection server_2;
 set global debug="+d,crash_after_point_binlog_to_binlog";
 
 echo "Stopping sql appliers on server_2"
-stop slave sql_thread;
+stop replica sql_thread;
 
 connection server_1;
 insert into t1 values();
@@ -70,10 +70,10 @@ set global rpl_raft_start_election = default;
 select sleep(10);
 
 connection server_2;
-start slave sql_thread;
+start replica sql_thread;
 
 connection server_3;
-start slave sql_thread;
+start replica sql_thread;
 
 let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
