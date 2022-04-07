@@ -90,6 +90,10 @@ static void my_win_init();
 
 bool my_init_done = false;
 ulong my_thread_stack_size = 65536;
+char *sql_wsenv_tenant = nullptr;
+char *sql_wsenv_oncall = nullptr;
+char *sql_wsenv_uri_prefix = nullptr;
+char *sql_wsenv_lib_name = nullptr;
 
 static ulong atoi_octal(const char *str) {
   long int tmp;

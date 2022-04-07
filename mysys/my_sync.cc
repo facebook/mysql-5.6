@@ -48,6 +48,7 @@
 #if defined(_WIN32)
 #include "mysys/mysys_priv.h"
 #endif
+#include "mysys/my_wsfile.h"
 
 static void (*before_sync_wait)(void) = nullptr;
 static void (*after_sync_wait)(void) = nullptr;
@@ -89,9 +90,17 @@ int my_sync(File fd, myf my_flags) {
   if (before_sync_wait) (*before_sync_wait)();
   do {
 #if defined(HAVE_FDATASYNC) && defined(HAVE_DECL_FDATASYNC)
-    res = fdatasync(fd);
+    if (fd >= WS_START_FD) {
+      res = my_ws_sync(fd);
+    } else {
+      res = fdatasync(fd);
+    }
 #elif defined(HAVE_FSYNC)
-    res = fsync(fd);
+    if (fd >= WS_START_FD) {
+      res = my_ws_fsync(fd);
+    } else {
+      res = fsync(fd);
+    }
 #elif defined(_WIN32)
     res = my_win_fsync(fd);
 #else

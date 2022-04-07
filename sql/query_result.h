@@ -209,12 +209,16 @@ class Query_result_to_file : public Query_result_interceptor {
   IO_CACHE cache;
   ha_rows row_count;
   char path[FN_REFLEN];
-
+  bool output_to_wsenv;
   void close_file_handle();
 
  public:
   explicit Query_result_to_file(sql_exchange *ex)
-      : Query_result_interceptor(), exchange(ex), file(-1), row_count(0L) {
+      : Query_result_interceptor(),
+        exchange(ex),
+        file(-1),
+        row_count(0L),
+        output_to_wsenv(false) {
     path[0] = 0;
   }
   ~Query_result_to_file() override { assert(file < 0); }

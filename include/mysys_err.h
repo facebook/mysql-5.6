@@ -140,7 +140,26 @@ extern const struct my_glob_errors globerrs[]; /* my_error_messages is here */
 #define EE_FAILED_TO_RESET_BEFORE_SECONDARY_IGNORABLE_CHAR 91
 #define EE_FAILED_PROCESSING_DIRECTIVE 92
 #define EE_PTHREAD_KILL_FAILED 93
-#define EE_ERROR_LAST 93 /* Copy last error nr */
+#define EE_PLACEHOLDER_94
+#define EE_PLACEHOLDER_95
+#define EE_PLACEHOLDER_96
+#define EE_PLACEHOLDER_97
+#define EE_PLACEHOLDER_98
+#define EE_PLACEHOLDER_99
+#define EE_PLACEHOLDER_100
+#define EE_PLACEHOLDER_101
+#define EE_PLACEHOLDER_102
+#define EE_PLACEHOLDER_103
+#define EE_PLACEHOLDER_104
+#define EE_PLACEHOLDER_105
+#define EE_PLACEHOLDER_106
+#define EE_PLACEHOLDER_107
+#define EE_PLACEHOLDER_108
+#define EE_PLACEHOLDER_109
+#define EE_WSENV_CANT_OPEN_LIBRARY 110
+#define EE_WSENV_CANT_FIND_DL_ENTRY 111
+#define EE_WSENV_RUNTIME_ERROR 112
+#define EE_ERROR_LAST 112 /* Copy last error nr */
 /* Add error numbers before EE_ERROR_LAST and change it accordingly. */
 
 /* Exit codes for option processing. When exiting from server use the

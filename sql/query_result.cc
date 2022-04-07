@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 
 #include "my_config.h"
+#include "my_sys.h"
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -205,37 +206,52 @@ void Query_result_to_file::cleanup() {
     compressed		is file compressed
     exchange		Exchange class
     cache		IO cache
-
+    output_to_wsenv   is wsenv file
   RETURN
     >= 0 	File handle
    -1		Error
 */
 
 static File create_file(THD *thd, char *path, const char *file_name,
-                        bool compressed, IO_CACHE *cache) {
+                        bool compressed, IO_CACHE *cache,
+                        bool output_to_wsenv) {
   File file;
   uint option = MY_UNPACK_FILENAME | MY_RELATIVE_PATH;
 
-  if (!dirname_length(file_name)) {
-    strxnmov(path, FN_REFLEN - 1, mysql_real_data_home,
-             thd->db().str ? thd->db().str : "", NullS);
-    (void)fn_format(path, file_name, path, "", option);
-  } else
-    (void)fn_format(path, file_name, mysql_real_data_home, "", option);
+  /* Only support output file to ws if the file_name contains correct uri
+   prefix and enable_sql_wsenv = 1 */
+  if (output_to_wsenv) {
+    strmake(path, file_name, FN_REFLEN - 1);
+  } else {
+    if (!dirname_length(file_name)) {
+      strxnmov(path, FN_REFLEN - 1, mysql_real_data_home,
+               thd->db().str ? thd->db().str : "", NullS);
+      (void)fn_format(path, file_name, path, "", option);
+    } else
+      (void)fn_format(path, file_name, mysql_real_data_home, "", option);
+  }
 
-  if (!is_secure_file_path(path)) {
+  /* When output to WS, WS check its permission during creating WS file */
+  if (!output_to_wsenv && !is_secure_file_path(path)) {
     /* Write only allowed to dir or subdir specified by secure_file_priv */
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv", "");
     return -1;
   }
 
-  if (!access(path, F_OK)) {
+  int amode = F_OK;
+  if (output_to_wsenv) amode |= WS_ACCESS_MODE;
+  if (!my_access(path, amode)) {
     my_error(ER_FILE_EXISTS_ERROR, MYF(0), file_name);
     return -1;
   }
+
+  /* Append WS_SEQWRT for WS file */
+  int oflag = O_WRONLY | O_EXCL;
+  if (output_to_wsenv) oflag |= WS_SEQWRT;
+
   /* Create the file world readable */
   if ((file = mysql_file_create(key_select_to_file, path,
-                                S_IRUSR | S_IWUSR | S_IRGRP, O_WRONLY | O_EXCL,
+                                S_IRUSR | S_IWUSR | S_IRGRP, oflag,
                                 MYF(MY_WME))) < 0)
     return file;
 #ifdef HAVE_FCHMOD
@@ -271,7 +287,7 @@ bool Query_result_export::open_new_compressed_file(THD *thd) {
   if (wr >= FN_REFLEN || wr < 0) return true;
 
   if ((file = create_file(thd, path, new_file_buff, true /* compressed */,
-                          &cache)) < 0)
+                          &cache, output_to_wsenv)) < 0)
     return true;
 
   return false;
@@ -373,6 +389,12 @@ bool Query_result_export::prepare(THD *thd, const mem_root_deque<Item *> &list,
   } else
     is_ambiguous_field_term = false;
 
+  if (unlikely(thd->variables.enable_sql_wsenv) &&
+      exchange->file_name != nullptr && sql_wsenv_uri_prefix != nullptr &&
+      strncmp(exchange->file_name, sql_wsenv_uri_prefix,
+              strlen(sql_wsenv_uri_prefix)) == 0) {
+    output_to_wsenv = true;
+  }
   return false;
 }
 
@@ -389,7 +411,8 @@ bool Query_result_export::start_execution(THD *thd) {
       file and dump data in it. There will be no chunking.
     */
     if ((file = create_file(thd, path, exchange->file_name,
-                            false /* compressed */, &cache)) < 0)
+                            false /* compressed */, &cache, output_to_wsenv)) <
+        0)
       return true;
   }
 
@@ -752,7 +775,8 @@ bool Query_result_dump::prepare(THD *, const mem_root_deque<Item *> &,
 
 bool Query_result_dump::start_execution(THD *thd) {
   if ((file = create_file(thd, path, exchange->file_name,
-                          false /* compressed */, &cache)) < 0)
+                          false /* compressed */, &cache, output_to_wsenv)) < 0)
+
     return true;
   return false;
 }

@@ -71,6 +71,8 @@ SET SESSION sql_log_off = DEFAULT;
 SET SESSION original_commit_timestamp = DEFAULT;
 --error ER_SPECIFIC_ACCESS_DENIED_ERROR
 SET SESSION sql_log_bin = DEFAULT;
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET SESSION enable_sql_wsenv= DEFAULT;
 
 --echo # Back to default connection
 connection default;
@@ -101,6 +103,7 @@ SET SESSION default_collation_for_utf8mb4 = DEFAULT;
 SET SESSION explicit_defaults_for_timestamp = DEFAULT;
 SET SESSION sql_log_bin = DEFAULT;
 SET SESSION rbr_exec_mode = DEFAULT;
+SET SESSION enable_sql_wsenv= DEFAULT;
 
 --echo # Back to default connection
 connection default;
@@ -143,6 +146,7 @@ SET SESSION default_collation_for_utf8mb4 = DEFAULT;
 SET SESSION explicit_defaults_for_timestamp = DEFAULT;
 SET SESSION sql_log_bin = DEFAULT;
 SET SESSION rbr_exec_mode = DEFAULT;
+SET SESSION enable_sql_wsenv= DEFAULT;
 
 --echo # Back to default connection
 connection default;
@@ -185,6 +189,7 @@ SET SESSION default_collation_for_utf8mb4 = DEFAULT;
 SET SESSION explicit_defaults_for_timestamp = DEFAULT;
 SET SESSION sql_log_bin = DEFAULT;
 SET SESSION rbr_exec_mode = DEFAULT;
+SET SESSION enable_sql_wsenv= DEFAULT;
 
 --echo # Back to default connection
 connection default;

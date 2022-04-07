@@ -1,0 +1,162 @@
+CREATE TABLE valid_values (value VARCHAR(255)) ENGINE=myisam;
+INSERT INTO valid_values VALUES(1), (0), ('on'), ('off'), ('true'), ('false');
+CREATE TABLE invalid_values (value VARCHAR(255)) ENGINE=myisam;
+INSERT INTO invalid_values VALUES('aaa'), ('bbb'), (3.14);
+SET @start_global_value = @@global.ENABLE_SQL_WSENV;
+SELECT @start_global_value;
+@start_global_value
+0
+SET @start_session_value = @@session.ENABLE_SQL_WSENV;
+SELECT @start_session_value;
+@start_session_value
+0
+'# Setting to valid values in global scope#'
+"Trying to set variable @@global.ENABLE_SQL_WSENV to 1"
+SET @@global.ENABLE_SQL_WSENV   = 1;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+1
+"Setting the global scope variable back to default"
+SET @@global.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@global.ENABLE_SQL_WSENV to 0"
+SET @@global.ENABLE_SQL_WSENV   = 0;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Setting the global scope variable back to default"
+SET @@global.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@global.ENABLE_SQL_WSENV to on"
+SET @@global.ENABLE_SQL_WSENV   = on;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+1
+"Setting the global scope variable back to default"
+SET @@global.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@global.ENABLE_SQL_WSENV to off"
+SET @@global.ENABLE_SQL_WSENV   = off;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Setting the global scope variable back to default"
+SET @@global.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@global.ENABLE_SQL_WSENV to true"
+SET @@global.ENABLE_SQL_WSENV   = true;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+1
+"Setting the global scope variable back to default"
+SET @@global.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@global.ENABLE_SQL_WSENV to false"
+SET @@global.ENABLE_SQL_WSENV   = false;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Setting the global scope variable back to default"
+SET @@global.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+'# Setting to valid values in session scope#'
+"Trying to set variable @@session.ENABLE_SQL_WSENV to 1"
+SET @@session.ENABLE_SQL_WSENV   = 1;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+1
+"Setting the session scope variable back to default"
+SET @@session.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@session.ENABLE_SQL_WSENV to 0"
+SET @@session.ENABLE_SQL_WSENV   = 0;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+"Setting the session scope variable back to default"
+SET @@session.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@session.ENABLE_SQL_WSENV to on"
+SET @@session.ENABLE_SQL_WSENV   = on;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+1
+"Setting the session scope variable back to default"
+SET @@session.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@session.ENABLE_SQL_WSENV to off"
+SET @@session.ENABLE_SQL_WSENV   = off;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+"Setting the session scope variable back to default"
+SET @@session.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@session.ENABLE_SQL_WSENV to true"
+SET @@session.ENABLE_SQL_WSENV   = true;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+1
+"Setting the session scope variable back to default"
+SET @@session.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@session.ENABLE_SQL_WSENV to false"
+SET @@session.ENABLE_SQL_WSENV   = false;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+"Setting the session scope variable back to default"
+SET @@session.ENABLE_SQL_WSENV = DEFAULT;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+'# Testing with invalid values in global scope #'
+"Trying to set variable @@global.ENABLE_SQL_WSENV to aaa"
+SET @@global.ENABLE_SQL_WSENV   = aaa;
+Got one of the listed errors
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@global.ENABLE_SQL_WSENV to bbb"
+SET @@global.ENABLE_SQL_WSENV   = bbb;
+Got one of the listed errors
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+"Trying to set variable @@global.ENABLE_SQL_WSENV to 3.14"
+SET @@global.ENABLE_SQL_WSENV   = 3.14;
+Got one of the listed errors
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+SET @@global.ENABLE_SQL_WSENV = @start_global_value;
+SELECT @@global.ENABLE_SQL_WSENV;
+@@global.ENABLE_SQL_WSENV
+0
+SET @@session.ENABLE_SQL_WSENV = @start_session_value;
+SELECT @@session.ENABLE_SQL_WSENV;
+@@session.ENABLE_SQL_WSENV
+0
+DROP TABLE valid_values, invalid_values;

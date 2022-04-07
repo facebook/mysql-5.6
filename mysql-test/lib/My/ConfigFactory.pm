@@ -219,22 +219,58 @@ sub fix_log {
   return "$dir/mysqld.log";
 }
 
-sub fix_wsenv_path {
+sub fix_rocksdb_wsenv_path {
   my ($self, $config, $group_name) = @_;
-  my $wsenv_path = $self->{ARGS}->{wsenv_path};
-  if (!defined $wsenv_path or $wsenv_path eq "") {
+  my $rocksdb_wsenv_path = $self->{ARGS}->{rocksdb_wsenv_path};
+  if (!defined $rocksdb_wsenv_path or $rocksdb_wsenv_path eq "") {
     return ""
   }
-  return "$wsenv_path/$group_name/data";
+  return "$rocksdb_wsenv_path/$group_name/data";
 }
 
-sub fix_wsenv_tenant {
+sub fix_rocksdb_wsenv_tenant {
   my ($self, $config, $group_name) = @_;
-  my $wsenv_tenant = $self->{ARGS}->{wsenv_tenant};
-  if (!defined $wsenv_tenant or $wsenv_tenant eq "") {
+  my $rocksdb_wsenv_tenant = $self->{ARGS}->{rocksdb_wsenv_tenant};
+  if (!defined $rocksdb_wsenv_tenant or $rocksdb_wsenv_tenant eq "") {
     return ""
   }
-  return $wsenv_tenant;
+  return $rocksdb_wsenv_tenant;
+}
+
+sub fix_sql_wsenv_tenant {
+  my ($self, $config, $group_name) = @_;
+  my $sql_wsenv_tenant = $self->{ARGS}->{sql_wsenv_tenant};
+  if (!defined $sql_wsenv_tenant or $sql_wsenv_tenant eq "") {
+    return ""
+  }
+  return $sql_wsenv_tenant;
+}
+
+sub fix_sql_wsenv_oncall {
+  my ($self, $config, $group_name) = @_;
+  my $sql_wsenv_oncall = $self->{ARGS}->{sql_wsenv_oncall};
+  if (!defined $sql_wsenv_oncall or $sql_wsenv_oncall eq "") {
+    return ""
+  }
+  return $sql_wsenv_oncall;
+}
+
+sub fix_sql_wsenv_uri_prefix {
+  my ($self, $config, $group_name) = @_;
+  my $sql_wsenv_uri_prefix = $self->{ARGS}->{sql_wsenv_uri_prefix};
+  if (!defined $sql_wsenv_uri_prefix or $sql_wsenv_uri_prefix eq "") {
+    return ""
+  }
+  return $sql_wsenv_uri_prefix;
+}
+
+sub fix_sql_wsenv_lib_name{
+  my ($self, $config, $group_name) = @_;
+  my $sql_wsenv_lib_name = $self->{ARGS}->{sql_wsenv_lib_name};
+  if (!defined $sql_wsenv_lib_name or $sql_wsenv_lib_name eq "") {
+    return ""
+  }
+  return $sql_wsenv_lib_name;
 }
 
 sub fix_group_setting {
@@ -343,8 +379,12 @@ my @mysqld_rules = (
   { 'ssl-cert'                                     => \&fix_ssl_server_cert },
   { 'ssl-key'                                      => \&fix_ssl_server_key },
   { 'tmpdir'                                       => \&fix_tmpdir },
-  { 'loose-rocksdb_wsenv_path'                     => \&fix_wsenv_path },
-  { 'loose-rocksdb_wsenv_tenant'                   => \&fix_wsenv_tenant },
+  { 'loose-rocksdb_wsenv_path'                     => \&fix_rocksdb_wsenv_path },
+  { 'loose-rocksdb_wsenv_tenant'                   => \&fix_rocksdb_wsenv_tenant },
+  { 'loose-sql_wsenv_tenant'                       => \&fix_sql_wsenv_tenant },
+  { 'loose-sql_wsenv_oncall'                       => \&fix_sql_wsenv_oncall },
+  { 'loose-sql_wsenv_uri_prefix'                   => \&fix_sql_wsenv_uri_prefix },
+  { 'loose-sql_wsenv_lib_name'                     => \&fix_sql_wsenv_lib_name },
   { 'loose-sha256_password_auto_generate_rsa_keys' => "0" },
   { 'loose-caching_sha2_password_auto_generate_rsa_keys' => "0" },
 

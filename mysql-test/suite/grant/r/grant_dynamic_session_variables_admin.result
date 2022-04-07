@@ -55,6 +55,8 @@ SET SESSION original_commit_timestamp = DEFAULT;
 ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN, SESSION_VARIABLES_ADMIN or REPLICATION_APPLIER privilege(s) for this operation
 SET SESSION sql_log_bin = DEFAULT;
 ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
+SET SESSION enable_sql_wsenv= DEFAULT;
+ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
 # Back to default connection
 GRANT SESSION_VARIABLES_ADMIN ON *.* TO wl12217@localhost;
 # Back to wl12217@localhost
@@ -90,6 +92,7 @@ Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be 
 SET SESSION explicit_defaults_for_timestamp = DEFAULT;
 SET SESSION sql_log_bin = DEFAULT;
 SET SESSION rbr_exec_mode = DEFAULT;
+SET SESSION enable_sql_wsenv= DEFAULT;
 # Back to default connection
 # Cleanup
 DROP DATABASE wl12217;
@@ -132,6 +135,7 @@ Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be 
 SET SESSION explicit_defaults_for_timestamp = DEFAULT;
 SET SESSION sql_log_bin = DEFAULT;
 SET SESSION rbr_exec_mode = DEFAULT;
+SET SESSION enable_sql_wsenv= DEFAULT;
 # Back to default connection
 # Cleanup
 DROP DATABASE wl12217;
@@ -176,6 +180,7 @@ Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be 
 SET SESSION explicit_defaults_for_timestamp = DEFAULT;
 SET SESSION sql_log_bin = DEFAULT;
 SET SESSION rbr_exec_mode = DEFAULT;
+SET SESSION enable_sql_wsenv= DEFAULT;
 # Back to default connection
 # Cleanup
 DROP DATABASE wl12217;

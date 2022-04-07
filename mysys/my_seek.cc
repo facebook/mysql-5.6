@@ -45,6 +45,7 @@
 #if defined(_WIN32)
 #include "mysys/mysys_priv.h"
 #endif
+#include "mysys/my_wsfile.h"
 
 /**
   Seek to a position in a file. The my_seek  function  is a wrapper around
@@ -72,12 +73,18 @@ my_off_t my_seek(File fd, my_off_t pos, int whence, myf MyFlags) {
       Make sure we are using a valid file descriptor!
   */
   assert(fd != -1);
-  const int64_t newpos =
+  int64_t newpos = -1;
+
+  if (fd >= WS_START_FD) {
+    newpos = my_ws_seek(fd, pos, whence);
+  } else {
+    newpos =
 #if defined(_WIN32)
-      my_win_lseek(fd, pos, whence);
+        my_win_lseek(fd, pos, whence);
 #else
-      lseek(fd, pos, whence);
+        lseek(fd, pos, whence);
 #endif
+  }
   if (newpos == -1) {
     set_my_errno(errno);
     if (MyFlags & MY_WME) {
@@ -94,12 +101,17 @@ my_off_t my_tell(File fd, myf MyFlags) {
   DBUG_TRACE;
   assert(fd >= 0);
 
-  const int64_t pos =
+  int64_t pos = -1;
+  if (fd >= WS_START_FD) {
+    pos = my_ws_tell(fd);
+  } else {
+    pos =
 #if defined(HAVE_TELL) && !defined(_WIN32)
-      tell(fd);
+        tell(fd);
 #else
-      my_seek(fd, 0L, MY_SEEK_CUR, 0);
+        my_seek(fd, 0L, MY_SEEK_CUR, 0);
 #endif
+  }
   if (pos == -1) {
     set_my_errno(errno);
     if (MyFlags & MY_WME) {

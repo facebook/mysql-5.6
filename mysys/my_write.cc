@@ -48,6 +48,7 @@
 #if defined(_WIN32)
 #include "mysys/mysys_priv.h"
 #endif
+#include "mysys/my_wsfile.h"
 
 #include <algorithm>
 
@@ -105,13 +106,18 @@ size_t my_write(File Filedes, const uchar *Buffer, size_t Count, myf MyFlags) {
       }
     });
 
-    int64_t writtenbytes =
+    int64_t writtenbytes = -1;
+    if (Filedes >= WS_START_FD) {
+      writtenbytes = my_ws_write(Filedes, Buffer, Count);
+    } else {
+      writtenbytes =
 #ifdef _WIN32
-        my_win_write(Filedes, Buffer, ToWriteCount);
+          my_win_write(Filedes, Buffer, ToWriteCount);
 #else
-        (mock_write ? mock_write(Filedes, Buffer, ToWriteCount)
-                    : write(Filedes, Buffer, ToWriteCount));
+          (mock_write ? mock_write(Filedes, Buffer, ToWriteCount)
+                      : write(Filedes, Buffer, ToWriteCount));
 #endif
+    }
     DBUG_EXECUTE_IF("simulate_file_write_error", {
       errno = ENOSPC;
       writtenbytes = -1;
