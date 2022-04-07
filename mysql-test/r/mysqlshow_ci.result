@@ -151,6 +151,7 @@ Database: information_schema
 | ROCKSDB_DEADLOCK                      |
 | ROCKSDB_GLOBAL_INFO                   |
 | ROCKSDB_INDEX_FILE_MAP                |
+| ROCKSDB_LIVE_FILES_METADATA           |
 | ROCKSDB_LOCKS                         |
 | ROCKSDB_PERF_CONTEXT                  |
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
@@ -259,6 +260,7 @@ Database: INFORMATION_SCHEMA
 | ROCKSDB_DEADLOCK                      |
 | ROCKSDB_GLOBAL_INFO                   |
 | ROCKSDB_INDEX_FILE_MAP                |
+| ROCKSDB_LIVE_FILES_METADATA           |
 | ROCKSDB_LOCKS                         |
 | ROCKSDB_PERF_CONTEXT                  |
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |

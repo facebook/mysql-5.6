@@ -17692,4 +17692,5 @@ mysql_declare_plugin(rocksdb_se){
     myrocks::rdb_i_s_sst_props, myrocks::rdb_i_s_index_file_map,
     myrocks::rdb_i_s_lock_info, myrocks::rdb_i_s_trx_info,
     myrocks::rdb_i_s_deadlock_info,
-    myrocks::rdb_i_s_bypass_rejected_query_history mysql_declare_plugin_end;
+    myrocks::rdb_i_s_bypass_rejected_query_history,
+    myrocks::rdb_i_s_live_files_metadata mysql_declare_plugin_end;

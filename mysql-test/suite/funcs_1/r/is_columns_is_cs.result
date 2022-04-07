@@ -345,6 +345,29 @@ def	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_SINGLEDELETES	7		NO	bigint	N
 def	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_MERGES	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_OTHERS	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	ROCKSDB_INDEX_FILE_MAP	DISTINCT_KEYS_PREFIX	10		NO	varchar	133	400	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(400)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	CF_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	LEVEL	2		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	NAME	3		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	DB_PATH	4		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_NUMBER	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_TYPE	6		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	SIZE	7		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	RELATIVE_FILENAME	8		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	DIRECTORY	9		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	TEMPERATURE	10		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_CHECKSUM	11		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_CHECKSUM_FUNC_NAME	12		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	SMALLEST_SEQNO	13		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	LARGEST_SEQNO	14		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	SMALLEST_KEY	15		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	LARGEST_KEY	16		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	NUM_READS_SAMPLED	17		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	BEING_COMPACTED	18		NO	tinyint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	tinyint(1)			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	NUM_ENTRIES	19		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	NUM_DELETIONS	20		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	OLDEST_BLOB_FILE_NUMBER	21		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	OLDEST_ANCESTER_TIME	22		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_CREATION_TIME	23		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	ROCKSDB_LOCKS	COLUMN_FAMILY_ID	1		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
 def	information_schema	ROCKSDB_LOCKS	TRANSACTION_ID	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	ROCKSDB_LOCKS	KEY	3		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
@@ -1061,6 +1084,29 @@ NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_SINGLEDELETES	bigint	NULL	N
 NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_MERGES	bigint	NULL	NULL	NULL	NULL	bigint
 NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_OTHERS	bigint	NULL	NULL	NULL	NULL	bigint
 3.0075	information_schema	ROCKSDB_INDEX_FILE_MAP	DISTINCT_KEYS_PREFIX	varchar	133	400	utf8mb3	utf8mb3_general_ci	varchar(400)
+3.0156	information_schema	ROCKSDB_LIVE_FILES_METADATA	CF_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0000	information_schema	ROCKSDB_LIVE_FILES_METADATA	LEVEL	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_LIVE_FILES_METADATA	NAME	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_LIVE_FILES_METADATA	DB_PATH	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_NUMBER	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_TYPE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	SIZE	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_LIVE_FILES_METADATA	RELATIVE_FILENAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0000	information_schema	ROCKSDB_LIVE_FILES_METADATA	DIRECTORY	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0156	information_schema	ROCKSDB_LIVE_FILES_METADATA	TEMPERATURE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0000	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_CHECKSUM	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0156	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_CHECKSUM_FUNC_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	SMALLEST_SEQNO	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	LARGEST_SEQNO	bigint	NULL	NULL	NULL	NULL	bigint
+3.0000	information_schema	ROCKSDB_LIVE_FILES_METADATA	SMALLEST_KEY	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_LIVE_FILES_METADATA	LARGEST_KEY	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	NUM_READS_SAMPLED	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	BEING_COMPACTED	tinyint	NULL	NULL	NULL	NULL	tinyint(1)
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	NUM_ENTRIES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	NUM_DELETIONS	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	OLDEST_BLOB_FILE_NUMBER	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	OLDEST_ANCESTER_TIME	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_LIVE_FILES_METADATA	FILE_CREATION_TIME	bigint	NULL	NULL	NULL	NULL	bigint
 NULL	information_schema	ROCKSDB_LOCKS	COLUMN_FAMILY_ID	int	NULL	NULL	NULL	NULL	int
 NULL	information_schema	ROCKSDB_LOCKS	TRANSACTION_ID	bigint	NULL	NULL	NULL	NULL	bigint
 3.0000	information_schema	ROCKSDB_LOCKS	KEY	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
