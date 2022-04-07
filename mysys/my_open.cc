@@ -48,9 +48,9 @@
 #include "my_thread_local.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/service_mysql_alloc.h"
+#include "mysys/my_wsfile.h"
 #include "mysys/mysys_priv.h"
 #include "mysys_err.h"
-
 /**
   Open a file.
 
@@ -107,11 +107,16 @@ int my_close(File fd, myf MyFlags) {
   file_info::UnregisterFilename(fd);
 
   int err = -1;
+
+  if (fd >= WS_START_FD) {
+    err = my_ws_close(fd);
+  } else {
 #ifndef _WIN32
   err = mysys_priv::RetryOnEintr([&fd]() { return close(fd); }, -1);
 #else
   err = my_win_close(fd);
 #endif
+  }
   if (err == -1) {
     DBUG_PRINT("error", ("Got error %d on close", err));
     set_my_errno(errno);

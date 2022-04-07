@@ -422,6 +422,8 @@ The following options may be given as the first argument:
  Enable CRC32 resultset checksums if requested by the
  client sending the checksum query attribute, set to the
  query checksum
+ --enable-sql-wsenv  Enable dumping/loading file to/from warm storage for
+ SELECT INTO OUTFILE/LOAD DATA. Set true to enable.
  --enable-super-log-bin-read-only 
  If set, prevents super from writing to a read_only
  instance when sql_log_bin is also enabled
@@ -2386,6 +2388,14 @@ The following options may be given as the first argument:
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
  TABLE'. Attempts to do so will result in an error.
+ --sql-wsenv-lib-name=name 
+ warm storage library name for dynamic load
+ --sql-wsenv-oncall=name 
+ warm storage environment oncall
+ --sql-wsenv-tenant=name 
+ warm storage environment tenant
+ --sql-wsenv-uri-prefix=name 
+ warm storage uri path prefix
  --stored-program-cache=# 
  The soft upper limit for number of cached stored routines
  for one connection.
@@ -2645,6 +2655,7 @@ enable-block-stale-hlc-read FALSE
 enable-query-checksum FALSE
 enable-raft-plugin FALSE
 enable-resultset-checksum FALSE
+enable-sql-wsenv FALSE
 enable-super-log-bin-read-only FALSE
 enable-user-tables-engine-check FALSE
 end-markers-in-json FALSE
@@ -3211,6 +3222,10 @@ sporadic-binlog-dump-fail FALSE
 sql-log-bin-triggers TRUE
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 sql-require-primary-key FALSE
+sql-wsenv-lib-name 
+sql-wsenv-oncall 
+sql-wsenv-tenant 
+sql-wsenv-uri-prefix 
 stored-program-cache 256
 stored-program-definition-cache 256
 super-read-only FALSE

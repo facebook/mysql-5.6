@@ -8819,3 +8819,30 @@ static Sys_var_enum Sys_raft_signal_async_dump_threads(
     GLOBAL_VAR(opt_raft_signal_async_dump_threads), CMD_LINE(OPT_ARG),
     raft_signal_async_dump_threads_options, DEFAULT(AFTER_CONSENSUS),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_charptr Sys_sql_wsenv_tenant(
+    "sql_wsenv_tenant", "warm storage environment tenant",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_tenant), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(nullptr));
+
+static Sys_var_charptr Sys_sql_wsenv_oncall(
+    "sql_wsenv_oncall", "warm storage environment oncall",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_oncall), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(nullptr));
+
+static Sys_var_charptr Sys_sql_wsenv_uri_prefix(
+    "sql_wsenv_uri_prefix", "warm storage uri path prefix",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_uri_prefix),
+    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(nullptr));
+
+static Sys_var_charptr Sys_sql_wsenv_lib_name(
+    "sql_wsenv_lib_name", "warm storage library name for dynamic load",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_lib_name),
+    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(nullptr));
+
+static Sys_var_bool Sys_sql_wsenv(
+    "enable_sql_wsenv",
+    "Enable dumping/loading file to/from warm storage for SELECT INTO OUTFILE/"
+    "LOAD DATA. Set true to enable.",
+    SESSION_VAR(enable_sql_wsenv), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_session_admin));

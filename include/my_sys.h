@@ -176,6 +176,16 @@ struct MEM_ROOT;
 #define MY_ERRNO_EDOM 33
 #define MY_ERRNO_ERANGE 34
 
+/* Warm storage file flags */
+#define WS_SEQWRT 0x00100000
+#define WS_RNDRD 0x00200000
+/* The start file descriptor for warm storage files
+   Use big fd number to avoid conflict with local system file descriptors
+*/
+#define WS_START_FD (1 << 30)
+/* Warm storage access mode */
+#define WS_ACCESS_MODE 0x8
+
 /* defines when allocating data */
 extern void *my_multi_malloc(PSI_memory_key key, myf flags, ...);
 
@@ -225,6 +235,11 @@ extern std::atomic<ErrorHandlerFunctionPointer> error_handler_hook;
 extern void (*local_message_hook)(enum loglevel ll, uint ecode, va_list args);
 
 extern MYSQL_PLUGIN_IMPORT ulong my_thread_stack_size;
+
+extern MYSQL_PLUGIN_IMPORT char *sql_wsenv_tenant;
+extern MYSQL_PLUGIN_IMPORT char *sql_wsenv_oncall;
+extern MYSQL_PLUGIN_IMPORT char *sql_wsenv_uri_prefix;
+extern MYSQL_PLUGIN_IMPORT char *sql_wsenv_lib_name;
 
 /*
   Hooks for reporting execution stage information. The server implementation
@@ -633,11 +648,7 @@ extern int my_closelog();
 extern int my_syslog(const CHARSET_INFO *cs, enum loglevel level,
                      const char *msg);
 
-#ifdef _WIN32
 extern int my_access(const char *path, int amode);
-#else
-#define my_access access
-#endif
 
 extern int check_if_legal_filename(const char *path);
 extern int check_if_legal_tablename(const char *path);

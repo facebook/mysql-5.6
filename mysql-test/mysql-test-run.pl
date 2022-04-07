@@ -163,8 +163,13 @@ my $opt_mtr_term_args = env_or_val(MTR_TERM => "xterm -title %title% -e");
 my $opt_lldb_cmd = env_or_val(MTR_LLDB => "lldb");
 our $opt_junit_output = undef;
 our $opt_junit_package = undef;
-my $opt_wsenv_path=$ENV{'MTR_WSENV_PATH'} || "";
-my $opt_wsenv_tenant=$ENV{'MTR_WSENV_TENANT'} || "";
+my $opt_rocksdb_wsenv_path=$ENV{'MTR_ROCKSDB_WSENV_PATH'} || "";
+my $opt_rocksdb_wsenv_tenant=$ENV{'MTR_ROCKSDB_WSENV_TENANT'} || "";
+my $opt_sql_wsenv_tenant=$ENV{'MTR_SQL_WSENV_TENANT'} || "";
+my $opt_sql_wsenv_oncall=$ENV{'MTR_SQL_WSENV_ONCALL'} || "";
+my $opt_sql_wsenv_uri_prefix=$ENV{'MTR_SQL_WSENV_URI_PREFIX'} || "";
+my $opt_sql_wsenv_lib_name=$ENV{'MTR_SQL_WSENV_LIB_NAME'} || "";
+my $opt_sql_wsenv_mtr_path=$ENV{'MTR_SQL_WSENV_MTR_PATH'} || "";
 my $opt_wsenv_clean_cmd=$ENV{'MTR_WSENV_CLEAN_CMD'} || "";
 my $opt_wsenv_mv_cmd=$ENV{'MTR_WSENV_MV_CMD'} || "";
 my $opt_wsenv_mkdir_cmd=$ENV{'MTR_WSENV_MKDIR_CMD'} || "";
@@ -1906,8 +1911,13 @@ sub command_line_setup {
     'verbose'               => \$opt_verbose,
     'verbose-restart'       => \&report_option,
     'wait-all'              => \$opt_wait_all,
-    'wsenv-path=s'          => \$opt_wsenv_path,
-    'wsenv-tenant=s'        => \$opt_wsenv_tenant,
+    'rocksdb-wsenv-path=s'  => \$opt_rocksdb_wsenv_path,
+    'rocksdb-wsenv-tenant=s'    => \$opt_rocksdb_wsenv_tenant,
+    'sql-wsenv-tenant=s'        => \$opt_sql_wsenv_tenant,
+    'sql-wsenv-oncall=s'        => \$opt_sql_wsenv_oncall,
+    'sql-wsenv-uri-prefix=s'    => \$opt_sql_wsenv_uri_prefix,
+    'sql-wsenv-lib-name=s'  => \$opt_sql_wsenv_lib_name,
+    'sql-wsenv-mtr-path=s'  => \$opt_sql_wsenv_mtr_path,
     'wsenv-clean-cmd=s'     => \$opt_wsenv_clean_cmd,
     'wsenv-mv-cmd=s'        => \$opt_wsenv_mv_cmd,
     'warnings!'             => \$opt_warnings,
@@ -4305,39 +4315,62 @@ sub sql_to_bootstrap {
 
 sub print_wsenv {
   foreach my $mysqld (mysqlds()) {
-    my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
-    my $wsenv_tenant = $mysqld->value('loose-rocksdb_wsenv_tenant');
-
-    if ($wsenv_path ne "") {
+    my $rocksdb_wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
+    my $rocksdb_wsenv_tenant = $mysqld->value('loose-rocksdb_wsenv_tenant');
+    if ($rocksdb_wsenv_path ne "") {
       my $suffix = $mysqld->after('mysqld');
-      mtr_print("[WSEnv] mysqld$suffix:");
-      mtr_print("  rocksdb_wsenv_path=$wsenv_path");
-      mtr_print("  rocksdb_wsenv_tenant=$wsenv_tenant");
+      mtr_print("[ROCKSDB WSEnv] mysqld$suffix:");
+      mtr_print("  rocksdb_wsenv_path=$rocksdb_wsenv_path");
+      mtr_print("  rocksdb_wsenv_tenant=$rocksdb_wsenv_tenant");
+    }
+    my $sql_wsenv_tenant = $mysqld->value('loose-sql_wsenv_tenant');
+    my $sql_wsenv_oncall = $mysqld->value('loose-sql_wsenv_oncall');
+    my $sql_wsenv_uri_prefix = $mysqld->value('loose-sql_wsenv_uri_prefix');
+    my $sql_wsenv_lib_name = $mysqld->value('loose-sql_wsenv_lib_name');
+    if ($opt_sql_wsenv_mtr_path ne "") {
+      my $suffix = $mysqld->after('mysqld');
+      mtr_print("[SQL WSEnv] mysqld$suffix:");
+      mtr_print("  sql_wsenv_tenant=$sql_wsenv_tenant");
+      mtr_print("  sql_wsenv_oncall=$sql_wsenv_oncall");
+      mtr_print("  sql_wsenv_uri_prefix=$sql_wsenv_uri_prefix");
+      mtr_print("  sql_wsenv_lib_name=$sql_wsenv_lib_name");
     }
   }
 }
 
 sub default_mysqld {
-  my $wsenv_mtr_path = $opt_wsenv_path;
+  my $wsenv_mtr_path = $opt_rocksdb_wsenv_path;
   if ($wsenv_mtr_path ne "") {
     $wsenv_mtr_path = $wsenv_mtr_path . "/bootstrap";
-    mtr_print("[WSEnv] Setting default mysqld config:");
+    mtr_print("[ROCKSDB WSEnv] Setting default mysqld config:");
     mtr_print("  rocksdb_wsenv_path=$wsenv_mtr_path");
-    mtr_print("  rocksdb_wsenv_tenant=$opt_wsenv_tenant");
+    mtr_print("  rocksdb_wsenv_tenant=$opt_rocksdb_wsenv_tenant");
+  }
+
+  if ($opt_sql_wsenv_mtr_path ne "") {
+    mtr_print("[SQL WSEnv] Setting default mysqld config:");
+    mtr_print("  sql_wsenv_tenant=$opt_sql_wsenv_tenant");
+    mtr_print("  sql_wsenv_oncall=$opt_sql_wsenv_oncall");
+    mtr_print("  sql_wsenv_uri_prefix=$opt_sql_wsenv_uri_prefix");
+    mtr_print("  sql_wsenv_lib_name=$opt_sql_wsenv_lib_name");
   }
 
   # Generate new config file from template
   my $config =
-    My::ConfigFactory->new_config({ basedir       => $basedir,
-                                    testdir       => $glob_mysql_test_dir,
-                                    template_path => "include/default_my.cnf",
-                                    vardir        => $opt_vardir,
-                                    tmpdir        => $opt_tmpdir,
-                                    baseport      => 0,
-                                    user          => $opt_user,
-                                    password      => '',
-                                    wsenv_path    => $wsenv_mtr_path,
-                                    wsenv_tenant  => $opt_wsenv_tenant,
+    My::ConfigFactory->new_config({ basedir        => $basedir,
+                                    testdir        => $glob_mysql_test_dir,
+                                    template_path  => "include/default_my.cnf",
+                                    vardir         => $opt_vardir,
+                                    tmpdir         => $opt_tmpdir,
+                                    baseport       => 0,
+                                    user           => $opt_user,
+                                    password       => '',
+                                    rocksdb_wsenv_path    => $wsenv_mtr_path,
+                                    rocksdb_wsenv_tenant  => $opt_rocksdb_wsenv_tenant,
+                                    sql_wsenv_tenant      => $opt_sql_wsenv_tenant,
+                                    sql_wsenv_oncall      => $opt_sql_wsenv_oncall,
+                                    sql_wsenv_uri_prefix  => $opt_sql_wsenv_uri_prefix,
+                                    sql_wsenv_lib_name    => $opt_sql_wsenv_lib_name,
                                   });
 
   my $mysqld = $config->group('mysqld.1') or
@@ -4390,12 +4423,24 @@ sub mysql_install_db {
   mtr_add_arg($args,
               "--loose-caching_sha2_password_auto_generate_rsa_keys=OFF");
 
-  my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
-  mtr_add_arg($args, "--rocksdb-wsenv-path=$wsenv_path");
+  my $rocksdb_wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
+  mtr_add_arg($args, "--rocksdb-wsenv-path=$rocksdb_wsenv_path");
 
-  my $wsenv_tenant = $mysqld->value('loose-rocksdb_wsenv_tenant');
-  mtr_add_arg($args, "--rocksdb-wsenv-tenant=$wsenv_tenant");
+  my $rocksdb_wsenv_tenant = $mysqld->value('loose-rocksdb_wsenv_tenant');
+  mtr_add_arg($args, "--rocksdb-wsenv-tenant=$rocksdb_wsenv_tenant");
 
+  my $sql_wsenv_tenant = $mysqld->value('loose-sql_wsenv_tenant');
+  mtr_add_arg($args, "--sql-wsenv-tenant=$sql_wsenv_tenant");
+
+  my $sql_wsenv_oncall = $mysqld->value('loose-sql_wsenv_oncall');
+  mtr_add_arg($args, "--sql-wsenv-oncall=$sql_wsenv_oncall");
+
+  my $sql_wsenv_uri_prefix = $mysqld->value('loose-sql_wsenv_uri_prefix');
+  mtr_add_arg($args, "--sql-wsenv-uri-prefix=$sql_wsenv_uri_prefix");
+
+  my $sql_wsenv_lib_name = $mysqld->value('loose-sql_wsenv_lib_name');
+  mtr_add_arg($args, "--sql-wsenv-lib-name=$sql_wsenv_lib_name");
+  #
   # Arguments to bootstrap process.
   my $init_file;
   foreach my $extra_opt (@opt_extra_bootstrap_opt) {
@@ -5120,15 +5165,34 @@ sub run_testcase ($) {
 
       mtr_verbose("Generating my.cnf from '$tinfo->{template_path}'");
 
-      my $wsenv_mtr_path = $opt_wsenv_path;
+      my $wsenv_mtr_path = $opt_rocksdb_wsenv_path;
       if ($wsenv_mtr_path ne "") {
         $wsenv_mtr_path = $wsenv_mtr_path . "/mtr";
         if (defined $tinfo->{worker}) {
           $wsenv_mtr_path = $wsenv_mtr_path . "/$tinfo->{worker}";
         }
-        mtr_print("[WSEnv] Setting mysqld config:");
+        mtr_print("[ROCKSDB WSEnv] Setting mysqld config:");
         mtr_print("  rocksdb_wsenv_path=$wsenv_mtr_path");
-        mtr_print("  rocksdb_wsenv_tenant=$opt_wsenv_tenant");
+        mtr_print("  rocksdb_wsenv_tenant=$opt_rocksdb_wsenv_tenant");
+      }
+
+      if ($opt_sql_wsenv_mtr_path ne "") {
+        mtr_print("[SQL WSEnv] Setting mysqld config:");
+        mtr_print("  sql_wsenv_tenant=$opt_sql_wsenv_tenant");
+        mtr_print("  sql_wsenv_oncall=$opt_sql_wsenv_oncall");
+        mtr_print("  sql_wsenv_uri_prefix=$opt_sql_wsenv_uri_prefix");
+        mtr_print("  sql_wsenv_lib_name=$opt_sql_wsenv_lib_name");
+
+        # To avoid conflict, append more info into SQL_WSENV_MTR_PATH
+        my $sql_wsenv_mtr_full_path =
+          calculate_sql_wsenv_mtr_path($opt_sql_wsenv_mtr_path, $tinfo);
+        mtr_print("  sql_wsenv_mtr_path=$sql_wsenv_mtr_full_path");
+        # Save path into Environment for MTR use
+        $ENV{'SQL_WSENV_MTR_PATH'} = $sql_wsenv_mtr_full_path;
+
+        # Create WS directory
+        mtr_print("[SQL WSEnv] mkdir '$sql_wsenv_mtr_full_path'");
+        `echo $sql_wsenv_mtr_full_path | xargs $opt_wsenv_mkdir_cmd`;
       }
 
       # Generate new config file from template
@@ -5144,8 +5208,12 @@ sub run_testcase ($) {
                            tmpdir              => $opt_tmpdir,
                            user                => $opt_user,
                            vardir              => $opt_vardir,
-                           wsenv_path          => $wsenv_mtr_path,
-                           wsenv_tenant        => $opt_wsenv_tenant,
+                           rocksdb_wsenv_path     => $wsenv_mtr_path,
+                           rocksdb_wsenv_tenant   => $opt_rocksdb_wsenv_tenant,
+                           sql_wsenv_tenant       => $opt_sql_wsenv_tenant,
+                           sql_wsenv_oncall       => $opt_sql_wsenv_oncall,
+                           sql_wsenv_uri_prefix   => $opt_sql_wsenv_uri_prefix,
+                           sql_wsenv_lib_name     => $opt_sql_wsenv_lib_name,
                          });
       print_wsenv();
 
@@ -6194,13 +6262,34 @@ sub clean_dir {
     $dir);
 }
 
+sub calculate_sql_wsenv_mtr_path {
+  my $sql_wsenv_mtr_full_path = shift;
+  my $tinfo = shift;
+  # To avoid conflict, Append worker and testcase name into SQL_WSENV_MTR_PATH
+  if (defined $tinfo->{worker}) {
+    $sql_wsenv_mtr_full_path .= "/$tinfo->{worker}";
+  }
+  $sql_wsenv_mtr_full_path .= "/$tinfo->{name}";
+  $sql_wsenv_mtr_full_path .= "-$tinfo->{combination}"
+    if defined $tinfo->{combination};
+  return $sql_wsenv_mtr_full_path
+}
+
 sub clean_wsenv_data {
-  my ($mysqld) = @_;
+  my $mysqld = shift;
+  my $tinfo = shift;
 
   my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
   if ($wsenv_path ne "" and $opt_wsenv_clean_cmd ne "") {
-    mtr_print("[WSEnv] Removing '$wsenv_path'");
+    mtr_print("[ROCKSDB WSEnv] Removing '$wsenv_path'");
     `echo $wsenv_path | xargs $opt_wsenv_clean_cmd`
+  }
+
+  if ($opt_sql_wsenv_mtr_path ne "" and $opt_wsenv_clean_cmd ne "") {
+    my $wsenv_mtr_full_path =
+      calculate_sql_wsenv_mtr_path($opt_sql_wsenv_mtr_path, $tinfo);
+    mtr_print("[SQL WSEnv] Removing '$wsenv_mtr_full_path'");
+    `echo $wsenv_mtr_full_path | xargs $opt_wsenv_clean_cmd`
   }
 }
 
@@ -6243,7 +6332,7 @@ sub clean_datadir {
         }
       }
       rmtree($mysqld_dir);
-      clean_wsenv_data($mysqld);
+      clean_wsenv_data($mysqld, $tinfo);
     }
   }
 
@@ -6313,16 +6402,34 @@ sub after_failure ($) {
       save_datadir_after_failure($cluster_dir, $save_dir);
     }
   } else {
-    my $wsenv_save_path;
-    if ($opt_wsenv_path ne "") {
-      $wsenv_save_path = $opt_wsenv_path . "/save/";
-      $wsenv_save_path .= $tinfo->{name};
-      $wsenv_save_path .= "-$tinfo->{combination}" if defined $tinfo->{combination};
+    my $rocksdb_wsenv_save_path;
+    if ($opt_rocksdb_wsenv_path ne "") {
+      $rocksdb_wsenv_save_path = $opt_rocksdb_wsenv_path . "/save/";
+      $rocksdb_wsenv_save_path .= $tinfo->{name};
+      $rocksdb_wsenv_save_path .= "-$tinfo->{combination}"
+        if defined $tinfo->{combination};
       if ($opt_wsenv_mkdir_cmd ne "") {
-        mtr_print("[WSEnv] mkdir '$wsenv_save_path'");
-        `echo $wsenv_save_path | xargs $opt_wsenv_mkdir_cmd`;
+        mtr_print("[ROCKSDB WSEnv] mkdir '$rocksdb_wsenv_save_path'");
+        `echo $rocksdb_wsenv_save_path | xargs $opt_wsenv_mkdir_cmd`;
       }
     }
+
+    if ($opt_sql_wsenv_mtr_path ne "") {
+      my $sql_wsenv_full_path =
+        calculate_sql_wsenv_mtr_path($opt_sql_wsenv_mtr_path, $tinfo);
+      my $sql_wsenv_save_path =
+        calculate_sql_wsenv_mtr_path(
+          $opt_sql_wsenv_mtr_path . "/save/", $tinfo);
+      if ($opt_wsenv_mkdir_cmd ne "" and $opt_wsenv_mv_cmd ne "") {
+        mtr_print("[SQL WSEnv] mkdir '$sql_wsenv_save_path'");
+        `echo $sql_wsenv_save_path | xargs $opt_wsenv_mkdir_cmd`;
+
+        mtr_print(
+          "[SQL WSEnv] Saving '$sql_wsenv_full_path' to '$sql_wsenv_save_path'");
+        `echo $sql_wsenv_full_path $sql_wsenv_save_path | xargs $opt_wsenv_mv_cmd`;
+     }
+    }
+
     foreach my $mysqld (mysqlds()) {
       my $data_dir = $mysqld->value('datadir');
       save_datadir_after_failure(dirname($data_dir), $save_dir);
@@ -6330,9 +6437,9 @@ sub after_failure ($) {
 
       my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
       if ($wsenv_path ne "" and $opt_wsenv_mv_cmd ne "") {
-        my $cur_save_path = $wsenv_save_path;
+        my $cur_save_path = $rocksdb_wsenv_save_path;
         $cur_save_path .= "/" . basename(dirname($data_dir));
-        mtr_print("[WSEnv] Saving '$wsenv_path' to '$cur_save_path'");
+        mtr_print("[ROCKSDB WSEnv] Saving '$wsenv_path' to '$cur_save_path'");
         `echo $wsenv_path $cur_save_path | xargs $opt_wsenv_mv_cmd`;
       }
     }
@@ -7129,7 +7236,7 @@ sub start_servers($) {
           !$bootstrap_opts) {
         mtr_verbose(" - removing '$datadir'");
         rmtree($datadir);
-        clean_wsenv_data($mysqld);
+        clean_wsenv_data($mysqld, $tinfo);
       }
     }
 
@@ -7164,7 +7271,7 @@ sub start_servers($) {
     # in the opt file.
     if ($mysqld->{need_reinitialization}) {
       clean_dir($datadir);
-      clean_wsenv_data($mysqld);
+      clean_wsenv_data($mysqld, $tinfo);
       mysql_install_db($mysqld, $datadir, $bootstrap_opts);
       $tinfo->{'reinitialized'} = 1;
       # Remove the bootstrap.sql file so that a duplicate set of

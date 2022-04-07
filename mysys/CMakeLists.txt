@@ -171,6 +171,30 @@ IF(HAVE_LINUX_LARGE_PAGES)
   LIST(APPEND MYSYS_SOURCES my_largepage.cc)
 ENDIF()
 
+# Find rocksdb header files
+IF(HAVE_EXTERNAL_ROCKSDB)
+  MESSAGE(STATUS "MyRocks: Using external RocksDB")
+  SET(ROCKSDB_ROOT ${ROCKSDB_SRC_PATH})
+ELSE()
+  MESSAGE(STATUS "mysys: Using local RocksDB")
+
+  IF (NOT EXISTS "${CMAKE_SOURCE_DIR}/rocksdb/Makefile")
+    MESSAGE(SEND_ERROR
+      "Missing Makefile in rocksdb directory. Try \"git submodule update\".")
+  ENDIF()
+
+  SET(ROCKSDB_ROOT ${CMAKE_SOURCE_DIR}/rocksdb)
+ENDIF()
+
+INCLUDE_DIRECTORIES(
+    ${ROCKSDB_ROOT}
+    ${ROCKSDB_ROOT}/include
+)
+LIST(APPEND MYSYS_SOURCES
+  my_wsenv.cc
+  my_wsfile.cc
+)
+
 IF(FREEBSD)
   ADD_COMPILE_FLAGS(stacktrace.cc COMPILE_FLAGS ${LIBUNWIND_CFLAGS})
 ENDIF()

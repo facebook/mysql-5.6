@@ -1,0 +1,8 @@
+SET @start_global_value = @@global.SQL_WSENV_URI_PREFIX;
+SELECT @start_global_value;
+@start_global_value
+
+"Trying to set variable @@global.SQL_WSENV_URI_PREFIX to 444."
+"It should fail because it is readonly."
+SET @@global.SQL_WSENV_URI_PREFIX   = 444;
+ERROR HY000: Variable 'sql_wsenv_uri_prefix' is a read only variable
