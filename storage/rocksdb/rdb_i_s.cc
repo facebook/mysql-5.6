@@ -1083,6 +1083,216 @@ static int rdb_i_s_compact_history_fill_table(
 }
 
 /*
+  Support for INFORMATION_SCHEMA.ROCKSDB_LIVE_FILES_METADATA dynamic table
+ */
+namespace RDB_LIVE_FILES_METADATA_FIELD {
+enum {
+  CF_NAME = 0,
+  LEVEL,
+  NAME,
+  DB_PATH,
+  FILE_NUMBER,
+  FILE_TYPE,
+  SIZE,
+  RELATIVE_FILENAME,
+  DIRECTORY,
+  TEMPERATURE,
+  FILE_CHECKSUM,
+  FILE_CHECKSUM_FUNC_NAME,
+  SMALLEST_SEQNO,
+  LARGEST_SEQNO,
+  SMALLEST_KEY,
+  LARGEST_KEY,
+  NUM_READS_SAMPLED,
+  BEING_COMPACTED,
+  NUM_ENTRIES,
+  NUM_DELETIONS,
+  OLDEST_BLOB_FILE_NUMBER,
+  OLDEST_ANCESTER_TIME,
+  FILE_CREATION_TIME,
+};
+}  // namespace RDB_LIVE_FILES_METADATA_FIELD
+
+static ST_FIELD_INFO rdb_i_s_live_files_metadata_fields_info[] = {
+    ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("LEVEL", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("NAME", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("DB_PATH", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("FILE_NUMBER", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("FILE_TYPE", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("SIZE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("RELATIVE_FILENAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("DIRECTORY", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("TEMPERATURE", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("FILE_CHECKSUM", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("FILE_CHECKSUM_FUNC_NAME", NAME_LEN + 1,
+                       MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("SMALLEST_SEQNO", sizeof(uint64_t), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("LARGEST_SEQNO", sizeof(uint64_t), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("SMALLEST_KEY", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("LARGEST_KEY", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("NUM_READS_SAMPLED", sizeof(uint64_t),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("BEING_COMPACTED", 1, MYSQL_TYPE_TINY, 0),
+    ROCKSDB_FIELD_INFO("NUM_ENTRIES", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("NUM_DELETIONS", sizeof(uint64_t), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("OLDEST_BLOB_FILE_NUMBER", sizeof(uint64_t),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("OLDEST_ANCESTER_TIME", sizeof(uint64_t),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("FILE_CREATION_TIME", sizeof(uint64_t),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO_END};
+
+namespace {
+
+using rocksdb::FileType;
+
+std::string GetFileTypeString(FileType file_type) {
+  switch (file_type) {
+    case FileType::kWalFile:
+      return "WalFile";
+    case FileType::kDBLockFile:
+      return "DBLockFile";
+    case FileType::kTableFile:
+      return "TableFile";
+    case FileType::kDescriptorFile:
+      return "DescriptorFile";
+    case FileType::kCurrentFile:
+      return "CurrentFile";
+    case FileType::kTempFile:
+      return "TempFile";
+    case FileType::kInfoLogFile:
+      return "InfoLogFile";
+    case FileType::kMetaDatabase:
+      return "MetaDatabase";
+    case FileType::kIdentityFile:
+      return "IdentityFile";
+    case FileType::kOptionsFile:
+      return "OptionsFile";
+    case FileType::kBlobFile:
+      return "BlobFile";
+    default:
+      return std::to_string(static_cast<int>(file_type));
+  }
+}
+
+using rocksdb::Temperature;
+
+std::string GetTemperatureString(Temperature temperature) {
+  switch (temperature) {
+    case Temperature::kUnknown:
+      return "Unknown";
+    case Temperature::kHot:
+      return "Hot";
+    case Temperature::kWarm:
+      return "Warm";
+    case Temperature::kCold:
+      return "Cold";
+    default:
+      return std::to_string(static_cast<int>(temperature));
+  }
+}
+
+}  // anonymous namespace
+
+static int rdb_i_s_live_files_metadata_fill_table(
+    my_core::THD *thd, my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__))) {
+  assert(thd != nullptr);
+  assert(tables != nullptr);
+
+  DBUG_ENTER_FUNC();
+
+  int ret = 0;
+  rocksdb::DB *rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
+
+  std::vector<rocksdb::LiveFileMetaData> metadata;
+  rdb->GetLiveFilesMetaData(&metadata);
+
+  for (const auto &file : metadata) {
+    Field **field = tables->table->field;
+    assert(field != nullptr);
+
+    field[RDB_LIVE_FILES_METADATA_FIELD::CF_NAME]->store(
+        file.column_family_name.c_str(), file.column_family_name.size(),
+        system_charset_info);
+    field[RDB_LIVE_FILES_METADATA_FIELD::LEVEL]->store(file.level, true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::NAME]->store(
+        file.name.c_str(), file.name.size(), system_charset_info);
+    field[RDB_LIVE_FILES_METADATA_FIELD::DB_PATH]->store(
+        file.db_path.c_str(), file.db_path.size(), system_charset_info);
+    field[RDB_LIVE_FILES_METADATA_FIELD::FILE_NUMBER]->store(file.file_number,
+                                                             true);
+    std::string file_type = GetFileTypeString(file.file_type);
+    field[RDB_LIVE_FILES_METADATA_FIELD::FILE_TYPE]->store(
+        file_type.c_str(), file_type.size(), system_charset_info);
+    field[RDB_LIVE_FILES_METADATA_FIELD::SIZE]->store(file.size, true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::RELATIVE_FILENAME]->store(
+        file.relative_filename.c_str(), file.relative_filename.size(),
+        system_charset_info);
+    field[RDB_LIVE_FILES_METADATA_FIELD::DIRECTORY]->store(
+        file.directory.c_str(), file.directory.size(), system_charset_info);
+    std::string temperature = GetTemperatureString(file.temperature);
+    field[RDB_LIVE_FILES_METADATA_FIELD::TEMPERATURE]->store(
+        temperature.c_str(), temperature.size(), system_charset_info);
+    rocksdb::Slice file_checksum_slice(file.file_checksum);
+    auto file_checksum = "0x" + file_checksum_slice.ToString(true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::FILE_CHECKSUM]->store(
+        file_checksum.c_str(), file_checksum.size(), system_charset_info);
+    field[RDB_LIVE_FILES_METADATA_FIELD::FILE_CHECKSUM_FUNC_NAME]->store(
+        file.file_checksum_func_name.c_str(),
+        file.file_checksum_func_name.size(), system_charset_info);
+    field[RDB_LIVE_FILES_METADATA_FIELD::SMALLEST_SEQNO]->store(
+        file.smallest_seqno, true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::LARGEST_SEQNO]->store(
+        file.largest_seqno, true);
+    rocksdb::Slice smallest_key_slice(file.smallestkey);
+    auto smallest_key = "0x" + smallest_key_slice.ToString(true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::SMALLEST_KEY]->store(
+        smallest_key.c_str(), smallest_key.size(), system_charset_info);
+    rocksdb::Slice largest_key_slice(file.largestkey);
+    auto largest_key = "0x" + largest_key_slice.ToString(true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::LARGEST_KEY]->store(
+        largest_key.c_str(), largest_key.size(), system_charset_info);
+    field[RDB_LIVE_FILES_METADATA_FIELD::NUM_READS_SAMPLED]->store(
+        file.num_reads_sampled, true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::BEING_COMPACTED]->store(
+        file.being_compacted);
+    field[RDB_LIVE_FILES_METADATA_FIELD::NUM_ENTRIES]->store(file.num_entries,
+                                                             true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::NUM_DELETIONS]->store(
+        file.num_deletions, true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::OLDEST_BLOB_FILE_NUMBER]->store(
+        file.oldest_blob_file_number, true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::OLDEST_ANCESTER_TIME]->store(
+        file.oldest_ancester_time, true);
+    field[RDB_LIVE_FILES_METADATA_FIELD::FILE_CREATION_TIME]->store(
+        file.file_creation_time, true);
+
+    ret |= static_cast<int>(
+        my_core::schema_table_store_record(thd, tables->table));
+
+    if (ret != 0) {
+      DBUG_RETURN(ret);
+    }
+  }
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
+
+  DBUG_RETURN(ret);
+}
+
+/*
   Support for INFORMATION_SCHEMA.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY dynamic
   table
  */
@@ -1369,6 +1579,20 @@ static int rdb_i_s_active_compact_stats_init(void *p) {
 
   schema->fields_info = rdb_i_s_active_compact_stats_fields_info;
   schema->fill_table = rdb_i_s_active_compact_stats_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int rdb_i_s_live_files_metadata_init(void *p) {
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER_FUNC();
+  assert(p != nullptr);
+
+  schema = reinterpret_cast<my_core::ST_SCHEMA_TABLE *>(p);
+
+  schema->fields_info = rdb_i_s_live_files_metadata_fields_info;
+  schema->fill_table = rdb_i_s_live_files_metadata_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -2237,6 +2461,23 @@ struct st_mysql_plugin rdb_i_s_compact_history = {
     "RocksDB recent compaction history",
     PLUGIN_LICENSE_GPL,
     rdb_i_s_compact_history_init,
+    nullptr, /* uninstall */
+    rdb_i_s_deinit,
+    0x0001,  /* version number (0.1) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_live_files_metadata = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_LIVE_FILES_METADATA",
+    "Facebook",
+    "RocksDB live files metadata",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_live_files_metadata_init,
     nullptr, /* uninstall */
     rdb_i_s_deinit,
     0x0001,  /* version number (0.1) */

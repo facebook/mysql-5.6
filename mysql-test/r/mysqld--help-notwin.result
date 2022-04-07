@@ -2050,6 +2050,10 @@ The following options may be given as the first argument:
  --rocksdb-large-prefix 
  Support large index prefix length of 3072 bytes. If off,
  the maximum index prefix length is 767.
+ --rocksdb-live-files-metadata[=name] 
+ Enable or disable ROCKSDB_LIVE_FILES_METADATA plugin.
+ Possible values are ON, OFF, FORCE (don't start if the
+ plugin fails to load).
  --rocksdb-lock-scanned-rows 
  Take and hold locks on rows that are scanned but not
  updated
@@ -3460,6 +3464,7 @@ rocksdb-io-write-timeout 0
 rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000
 rocksdb-large-prefix FALSE
+rocksdb-live-files-metadata ON
 rocksdb-lock-scanned-rows FALSE
 rocksdb-lock-wait-timeout 1
 rocksdb-locks ON
