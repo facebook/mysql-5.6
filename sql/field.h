@@ -899,6 +899,8 @@ public:
     return pack_length();
   };
 
+  virtual uint32 get_length_bytes() const { return 0; }
+
   virtual type_conversion_status reset(void)
   {
     memset(ptr, 0, pack_length());
@@ -3355,6 +3357,9 @@ class Field_string :public Field_longstr {
   bool compatible_field_size(uint field_metadata, Relay_log_info *rli,
                              uint16 mflags, int *order_var);
   uint row_pack_length() const { return field_length; }
+  uint32 get_length_bytes() const {
+    return (field_length > 255) ? 2 : 1;
+  }
   int pack_cmp(const uchar *a,const uchar *b,uint key_length,
                my_bool insert_or_update);
   int pack_cmp(const uchar *b,uint key_length,my_bool insert_or_update);
@@ -3427,6 +3432,7 @@ public:
     return TYPE_OK;
   }
   uint32 pack_length() const { return (uint32) field_length+length_bytes; }
+  uint32 get_length_bytes() const { return length_bytes; }
   uint32 key_length() const { return (uint32) field_length; }
   uint32 sort_length() const
   {
@@ -3588,6 +3594,7 @@ public:
   */
   uint32 pack_length_no_ptr() const
   { return (uint32) (packlength); }
+  uint32 get_length_bytes() const { return packlength; }
   uint row_pack_length() const { return pack_length_no_ptr(); }
   uint32 sort_length() const;
   virtual uint32 max_data_length() const

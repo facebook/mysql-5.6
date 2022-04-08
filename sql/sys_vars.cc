@@ -6534,6 +6534,15 @@ static Sys_var_mybool Sys_response_attrs_contain_server_cpu(
     SESSION_VAR(response_attrs_contain_server_cpu), CMD_LINE(OPT_ARG),
     DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_response_attrs_contain_binlog_row_image_delta(
+    "response_attrs_contain_binlog_row_image_delta",
+    "When enabled we send difference between the field sizes of after image "
+    "and before image for all binlog row events for every RW transaction thru "
+    "resp attr 'binlog_row_image_delta'",
+    SESSION_VAR(response_attrs_contain_binlog_row_image_delta),
+    CMD_LINE(OPT_ARG), DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_outside_transaction), ON_UPDATE(0));
+
 static bool update_session_track_state_change(sys_var *self, THD *thd,
                                               enum_var_type type)
 {

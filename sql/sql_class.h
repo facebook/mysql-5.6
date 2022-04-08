@@ -807,6 +807,8 @@ typedef struct system_variables
    */
   bool response_attrs_contain_hlc;
 
+  bool response_attrs_contain_binlog_row_image_delta;
+
   /*
     Should we set the server CPU time in response attribute?
    */
@@ -2865,6 +2867,18 @@ public:
                         const uchar *old_data, const uchar *new_data,
                         const uchar* extra_row_info);
   void binlog_prepare_row_images(TABLE* table, bool is_update);
+
+  int64_t binlog_row_image_delta = 0;
+
+  bool binlog_row_image_delta_enabled() const;
+
+  void update_binlog_row_image_delta(
+      const std::unordered_map<int, uint64_t> &before_field_sizes,
+      const std::unordered_map<int, uint64_t> &after_field_sizes);
+
+  void reset_binlog_row_image_delta() { binlog_row_image_delta = 0; }
+
+  void set_binlog_row_image_delta_in_resp_attrs();
 
   std::string gen_trx_metadata();
 #ifdef HAVE_RAPIDJSON

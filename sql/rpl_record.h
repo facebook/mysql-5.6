@@ -18,6 +18,7 @@
 
 #include <rpl_reporting.h>
 #include "my_global.h"                          /* uchar */
+#include <unordered_map>
 
 class Relay_log_info;
 struct TABLE;
@@ -25,7 +26,8 @@ typedef struct st_bitmap MY_BITMAP;
 
 #if !defined(MYSQL_CLIENT)
 size_t pack_row(TABLE* table, MY_BITMAP const* cols,
-                uchar *row_data, const uchar *data);
+                uchar *row_data, const uchar *data,
+                std::unordered_map<int, uint64_t> *field_sizes = nullptr);
 #include "sql_base.h"
 #endif
 

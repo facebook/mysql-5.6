@@ -1,0 +1,16 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+
+let $binlog_row_image = "FULL";
+source rpl_binlog_row_image_delta.inc;
+
+let $binlog_row_image = "COMPLETE";
+source rpl_binlog_row_image_delta.inc;
+
+let $binlog_row_image = "NOBLOB";
+source rpl_binlog_row_image_delta.inc;
+
+let $binlog_row_image = "MINIMAL";
+source rpl_binlog_row_image_delta.inc;
+
+source include/rpl_end.inc;

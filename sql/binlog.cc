@@ -2351,6 +2351,8 @@ int MYSQL_BIN_LOG::rollback(THD *thd, bool all)
   DBUG_PRINT("enter", ("all: %s, cache_mngr: 0x%llx, thd->is_error: %s",
                        YESNO(all), (ulonglong) cache_mngr, YESNO(thd->is_error())));
 
+  thd->reset_binlog_row_image_delta();
+
   /*
     We roll back the transaction in the engines early since this will
     release locks and allow other transactions to start executing.
@@ -9706,6 +9708,10 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all, bool async)
 
     if (ordered_commit(thd, all, false, async))
       DBUG_RETURN(RESULT_INCONSISTENT);
+
+    if (!error)
+      thd->set_binlog_row_image_delta_in_resp_attrs();
+    thd->reset_binlog_row_image_delta();
   }
   else
   {
@@ -13332,6 +13338,73 @@ CPP_UNNAMED_NS_START
 
 CPP_UNNAMED_NS_END
 
+inline bool THD::binlog_row_image_delta_enabled() const
+{
+  const auto &tracker = session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  return (variables.response_attrs_contain_binlog_row_image_delta &&
+          tracker->is_enabled() && !slave_thread && !rli_fake && !rli_slave &&
+          // deltas can only be calculated for COMPLETE & FULL row images
+          (variables.binlog_row_image == BINLOG_ROW_IMAGE_FULL ||
+           variables.binlog_row_image == BINLOG_ROW_IMAGE_COMPLETE));
+}
+
+void THD::update_binlog_row_image_delta(
+    const std::unordered_map<int, uint64_t> &before_img_field_sizes,
+    const std::unordered_map<int, uint64_t> &after_img_field_sizes)
+{
+  DBUG_ASSERT(binlog_row_image_delta_enabled());
+
+  int64_t delta = 0;
+  std::unordered_map<int, uint64_t> full_after_img_field_sizes =
+      after_img_field_sizes;
+
+  // Construct a full after image (with all cols), this will only be useful for
+  // COMPLETE binlog row image where after images only contain the modified rows
+  if (!after_img_field_sizes.empty())
+  {
+    for (const auto &kv : before_img_field_sizes)
+    {
+      if (full_after_img_field_sizes.find(kv.first) ==
+          full_after_img_field_sizes.end())
+      {
+        full_after_img_field_sizes[kv.first] = kv.second;
+      }
+    }
+  }
+
+  DBUG_ASSERT(
+      full_after_img_field_sizes.empty() || before_img_field_sizes.empty() ||
+      full_after_img_field_sizes.size() == before_img_field_sizes.size());
+
+  // Add all after image field sizes and substract all before image field sizes
+  // to calculate the delta
+  for (const auto &kv : full_after_img_field_sizes)
+  {
+    delta += kv.second;
+  }
+
+  for (const auto &kv : before_img_field_sizes)
+  {
+    delta -= kv.second;
+  }
+
+  binlog_row_image_delta += delta;
+}
+
+void THD::set_binlog_row_image_delta_in_resp_attrs()
+{
+  if (!binlog_row_image_delta_enabled())
+  {
+    return;
+  }
+
+  auto tracker = session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  LEX_CSTRING key = {STRING_WITH_LEN("binlog_row_image_delta")};
+  const std::string value_str = std::to_string(binlog_row_image_delta);
+  LEX_CSTRING value = {value_str.c_str(), value_str.length()};
+  tracker->mark_as_changed(this, &key, &value);
+}
+
 int THD::binlog_write_row(TABLE* table, bool is_trans,
                           uchar const *record,
                           const uchar* extra_row_info)
@@ -13348,7 +13421,16 @@ int THD::binlog_write_row(TABLE* table, bool is_trans,
 
   uchar *row_data= memory.slot(0);
 
-  size_t const len= pack_row(table, table->write_set, row_data, record);
+  std::unordered_map<int, uint64_t> field_sizes;
+  const bool row_image_delta_enabled = binlog_row_image_delta_enabled();
+
+  size_t const len= pack_row(table, table->write_set, row_data, record,
+                             row_image_delta_enabled ? &field_sizes : nullptr);
+
+  if (row_image_delta_enabled)
+  {
+    update_binlog_row_image_delta({}, field_sizes);
+  }
 
   Rows_log_event* const ev=
     binlog_prepare_pending_rows_event(table, server_id, len, is_trans,
@@ -13393,10 +13475,21 @@ int THD::binlog_update_row(TABLE* table, bool is_trans,
   uchar *before_row= row_data.slot(0);
   uchar *after_row= row_data.slot(1);
 
+  std::unordered_map<int, uint64_t> before_field_sizes;
+  std::unordered_map<int, uint64_t> after_field_sizes;
+  const bool row_image_delta_enabled = binlog_row_image_delta_enabled();
+
   size_t const before_size= pack_row(table, table->read_set, before_row,
-                                        before_record);
+                                     before_record, row_image_delta_enabled ?
+                                        &before_field_sizes : nullptr);
   size_t const after_size= pack_row(table, table->write_set, after_row,
-                                       after_record);
+                                    after_record, row_image_delta_enabled ?
+                                        &after_field_sizes : nullptr);
+
+  if (row_image_delta_enabled)
+  {
+    update_binlog_row_image_delta(before_field_sizes, after_field_sizes);
+  }
 
   /*
     Don't print debug messages when running valgrind since they can
@@ -13459,8 +13552,17 @@ int THD::binlog_delete_row(TABLE* table, bool is_trans,
 
   uchar *row_data= memory.slot(0);
 
+  std::unordered_map<int, uint64_t> field_sizes;
+  const bool row_image_delta_enabled = binlog_row_image_delta_enabled();
+
   DBUG_DUMP("table->read_set", (uchar*) table->read_set->bitmap, (table->s->fields + 7) / 8);
-  size_t const len= pack_row(table, table->read_set, row_data, record);
+  size_t const len= pack_row(table, table->read_set, row_data, record,
+                             row_image_delta_enabled ? &field_sizes : nullptr);
+
+  if (row_image_delta_enabled)
+  {
+    update_binlog_row_image_delta(field_sizes, {});
+  }
 
   Rows_log_event* const ev=
     binlog_prepare_pending_rows_event(table, server_id, len, is_trans,

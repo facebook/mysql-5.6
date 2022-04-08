@@ -55,12 +55,15 @@ using std::max;
                    record[0] or @c record[1], but no such check is
                    made since the code does not rely on that.
 
+   @param field_sizes Map to store sizes of all fields in the row image
+
    @return The number of bytes written at @c row_data.
  */
 #if !defined(MYSQL_CLIENT)
 size_t
 pack_row(TABLE *table, MY_BITMAP const* cols,
-         uchar *row_data, const uchar *record)
+         uchar *row_data, const uchar *record,
+         std::unordered_map<int, uint64_t> *field_sizes)
 {
   Field **p_field= table->field, *field;
   int const null_byte_count= (bitmap_bits_set(cols) + 7) / 8;
@@ -93,6 +96,10 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
                              null_mask, null_bits));
         offset= def_offset;
         null_bits |= null_mask;
+        if (field_sizes)
+        {
+          (*field_sizes)[field->field_index] = 0;
+        }
       }
       else
       {
@@ -106,11 +113,15 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
           length is stored in little-endian format, since this is the
           format used for the binlog.
         */
-#ifndef DBUG_OFF
         const uchar *old_pack_ptr= pack_ptr;
-#endif
         pack_ptr= field->pack(pack_ptr, field->ptr + offset,
                               field->max_data_length(), TRUE);
+        if (field_sizes)
+        {
+          (*field_sizes)[field->field_index] =
+              pack_ptr - old_pack_ptr - field->get_length_bytes();
+        }
+
         DBUG_PRINT("debug", ("field: %s; real_type: %d, pack_ptr: 0x%lx;"
                              " pack_ptr':0x%lx; bytes: %d",
                              field->field_name, field->real_type(),
