@@ -269,8 +269,10 @@ void trx_print_low(FILE *f,
                    /*!< in: lock_number_of_rows_locked(&trx->lock) */
                    ulint n_trx_locks,
                    /*!< in: length of trx->lock.trx_locks */
-                   ulint heap_size);
-/*!< in: mem_heap_get_size(trx->lock.lock_heap) */
+                   ulint heap_size,
+                   /*!< in: mem_heap_get_size(trx->lock.lock_heap) */
+                   bool force_digest = false);
+/*!< in: always show query digest */
 
 /** Prints info about a transaction.
 The caller must hold lock_sys exclusive global latch and trx_sys->mutex.

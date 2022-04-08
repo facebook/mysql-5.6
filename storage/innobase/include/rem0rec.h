@@ -647,9 +647,10 @@ void rec_print_mbr_rec(FILE *file, const rec_t *rec, const ulint *offsets);
 
 /** Prints a physical record. */
 void rec_print_new(
-    FILE *file,            /*!< in: file where to print */
-    const rec_t *rec,      /*!< in: physical record */
-    const ulint *offsets); /*!< in: array returned by rec_get_offsets() */
+    FILE *file,                 /*!< in: file where to print */
+    const rec_t *rec,           /*!< in: physical record */
+    const ulint *offsets,       /*!< in: array returned by rec_get_offsets() */
+    bool force_digest = false); /*!< in: always show query digest */
 
 /** Prints a physical record.
 @param[in] file File where to print

@@ -1,5 +1,3 @@
-SET @show_query_digest_save = @@show_query_digest;
-SET show_query_digest=1;
 CREATE TABLE t1 (pk int primary key, a int, b int, c int) ENGINE=INNODB;;
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -11,6 +9,37 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`pk`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 INSERT INTO t1 values (1, 1, 1, 1), (2, 2, 2, 2), (3, 3, 3, 3);
+SELECT @@show_query_digest;
+@@show_query_digest
+0
+BEGIN;
+SELECT 1+1, "abc", a, b, c  FROM t1 WHERE PK = 1 FOR UPDATE;
+1+1	abc	a	b	c
+2	abc	1	1	1
+BEGIN;
+SELECT 1+1, "abc", a, b, c FROM t1 WHERE PK = 2 FOR UPDATE;
+1+1	abc	a	b	c
+2	abc	2	2	2
+SET DEBUG_SYNC = 'lock_wait_will_wait SIGNAL con1_will_wait';
+SELECT 1+1, "abc", a, b, c  FROM t1 WHERE PK = 2 FOR UPDATE;
+SET DEBUG_SYNC = 'now WAIT_FOR con1_will_wait';
+SELECT 1+1, "abc", a, b, c  FROM t1 WHERE PK = 1 FOR UPDATE;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
+1+1	abc	a	b	c
+2	abc	2	2	2
+SET @show_query_digest_save = @@show_query_digest;
+SET show_query_digest=1;
+SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE
+SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE
+Search for skipped records
+<record skipped>
+<record skipped>
+<record skipped>
+<record skipped>
+SET show_query_digest=@show_query_digest_save;
+SET @show_query_digest_save = @@show_query_digest;
+SET show_query_digest=1;
 START TRANSACTION;
 SELECT * FROM t1 WHERE pk=3 FOR UPDATE;
 pk	a	b	c
@@ -32,7 +61,13 @@ statistics	SELECT 1+2, "abc", a, b, c FROM t1 WHERE PK = 3 FOR UPDATE
 Waiting on empty queue	NULL
 Searching for digest query in SHOW ENGINE INNODB TRANSACTION STATUS;
 SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE
+SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE
+SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE
 Search for skipped records
+<record skipped>
+<record skipped>
+<record skipped>
+<record skipped>
 <record skipped>
 COMMIT;
 1+2	abc	a	b	c

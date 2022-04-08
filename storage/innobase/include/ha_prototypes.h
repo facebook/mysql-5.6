@@ -102,8 +102,10 @@ ibool thd_has_edited_nontrans_tables(THD *thd); /*!< in: thread handle */
 @param[in] f Output stream
 @param[in] thd Pointer to a mysql thd object
 @param[in] max_query_len Max query length to print, or 0 to use the default max
-length */
-void innobase_mysql_print_thd(FILE *f, THD *thd, uint max_query_len);
+length
+@param[in] always show query digest */
+void innobase_mysql_print_thd(FILE *f, THD *thd, uint max_query_len,
+                              bool force_digest);
 
 /** Converts a MySQL type to an InnoDB type. Note that this function returns
 the 'mtype' of InnoDB. InnoDB differentiates between MySQL's old <= 4.1

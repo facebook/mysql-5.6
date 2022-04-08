@@ -2372,15 +2372,17 @@ int convert_error_code_to_mysql(dberr_t error, uint32_t flags, THD *thd) {
 void innobase_mysql_print_thd(
     FILE *f,            /*!< in: output stream */
     THD *thd,           /*!< in: MySQL THD object */
-    uint max_query_len) /*!< in: max query length to print, or 0 to
+    uint max_query_len, /*!< in: max query length to print, or 0 to
                         use the default max length */
+    bool force_digest)  /*!< in: always show query digest */
 {
   char buffer[1024];
 
   /* This may be called from monitor thread without THD */
   THD *this_thd = current_thd;
   bool show_query_digest =
-      this_thd ? this_thd->variables.show_query_digest : false;
+      force_digest ||
+      (this_thd ? this_thd->variables.show_query_digest : false);
   char *msg = thd_security_context_internal(thd, buffer, sizeof buffer,
                                             max_query_len, show_query_digest);
   fputs(msg, f);
