@@ -26,6 +26,7 @@
 
 #include <assert.h>
 #include <sys/types.h>
+#include <mutex>
 
 #include "my_inttypes.h"
 #include "my_io.h"
@@ -646,6 +647,9 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
   ReplSemiSyncMaster();
   ~ReplSemiSyncMaster();
 
+  /* The UUID of the slave handled by the current connection */
+  std::string get_slave_uuid(THD *thd) const;
+
   bool getMasterEnabled() { return master_enabled_; }
   void setTraceLevel(unsigned long trace_level) {
     trace_level_ = trace_level;
@@ -682,8 +686,8 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
   bool is_semi_sync_slave();
 
   /* It parses a reply packet and call reportReplyBinlog to handle it. */
-  int reportReplyPacket(uint32 server_id, const uchar *packet,
-                        ulong packet_len);
+  int reportReplyPacket(uint32 server_id, std::string &slave_uuid,
+                        const uchar *packet, ulong packet_len);
 
   /* In semi-sync replication, reports up to which binlog position we have
    * received replies from the slave indicating that it already get the events
@@ -860,4 +864,6 @@ extern unsigned long long rpl_semi_sync_source_trx_wait_time;
      1 (default) : keep waiting until timeout even no available semi-sync slave.
 */
 extern bool rpl_semi_sync_source_wait_no_replica;
+extern char *rpl_semi_sync_master_whitelist;
+
 #endif /* SEMISYNC_SOURCE_H */

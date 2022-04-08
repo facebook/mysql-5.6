@@ -17,12 +17,14 @@
 --source include/rpl_init.inc
 --let $rpl_connection_name= server_1
 --source include/rpl_connection.inc
-# Suppress warning:
-# "Semi-sync master failed on net_flush() before waiting for replica reply"
-CALL mtr.add_suppression("Semi-sync master failed on net_flush().*");
 
 # echo [ check SHOW PROCESSLIST shows the semisync info of dump threads ];
 SELECT info FROM information_schema.processlist where Command like 'Binlog%';
+
+# Suppress warning:
+CALL mtr.add_suppression("Semi-sync master failed on net_flush.. before waiting for replica reply");
+CALL mtr.add_suppression("Run function 'before_send_event' in plugin 'rpl_semi_sync_master' failed");
+CALL mtr.add_suppression("Slave SQL.*Request to stop slave SQL Thread received while applying a group that has non-transactional changes; waiting for completion of the group");
 
 --echo ####################################################################
 --echo # Test Case: semisync master can be enabled and disabled sucessfully

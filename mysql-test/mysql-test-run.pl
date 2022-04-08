@@ -2425,6 +2425,7 @@ sub command_line_setup {
     $opt_suite_timeout      *= 6;
     $opt_start_timeout      *= 10;
     $opt_debug_sync_timeout *= 10;
+    $opt_shutdown_timeout   *= 20;
   } elsif ($opt_valgrind_mysqld) {
     mtr_report("Turning on valgrind for mysqld(s) only");
     $opt_valgrind = 1;

@@ -1037,6 +1037,9 @@ const user_var_entry *get_user_var_from_alternatives(const THD *thd,
   @param[out]   value String to return UUID value.
 
   @return       if success value is returned else NULL is returned.
+
+  NOTE: Please make sure this method is in sync with
+        ReplSemiSyncMaster::get_slave_uuid
 */
 String *get_replica_uuid(THD *thd, String *value) {
   if (value == nullptr) return nullptr;

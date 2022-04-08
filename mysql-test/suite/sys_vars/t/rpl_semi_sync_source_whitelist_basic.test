@@ -1,0 +1,104 @@
+--source include/count_sessions.inc
+
+SET @start_global_value = @@GLOBAL.rpl_semi_sync_master_whitelist;
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be "ANY"
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = "ANY"
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist = NULL;
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be NULL
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist IS NULL
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist = "";
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be ""
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = ""
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='+55555555-5555-5555-5555-555555555555';
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be "55555555-5555-5555-5555-555555555555"
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = "55555555-5555-5555-5555-555555555555"
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='66666666-6666-6666-6666-666666666666';
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be "66666666-6666-6666-6666-666666666666"
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = "66666666-6666-6666-6666-666666666666"
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='+ANY';
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be "ANY"
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = "ANY"
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='66666666-6666-6666-6666-666666666666';
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='-ANY';
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be ""
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = ""
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='+66666666-6666-6666-6666-666666666666';
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be "66666666-6666-6666-6666-666666666666"
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = "66666666-6666-6666-6666-666666666666"
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='+77777777-7777-7777-7777-777777777777';
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be "77777777-7777-7777-7777-777777777777,66666666-6666-6666-6666-666666666666"
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = "77777777-7777-7777-7777-777777777777,66666666-6666-6666-6666-666666666666"
+--source include/assert.inc
+
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='-66666666-6666-6666-6666-666666666666';
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be "77777777-7777-7777-7777-777777777777"
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = "77777777-7777-7777-7777-777777777777"
+--source include/assert.inc
+
+--let $assert_text= performance_schema.global_variables WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist' should be "77777777-7777-7777-7777-777777777777"
+--let $assert_cond= "[SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME=\'rpl_semi_sync_master_whitelist\', VARIABLE_VALUE, 1]" = "77777777-7777-7777-7777-777777777777"
+--source include/assert.inc
+
+--let $assert_text= SELECT @@GLOBAL.rpl_semi_sync_master_whitelist = VARIABLE_VALUE FROM performance_schema.global_variables WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist'
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = VARIABLE_VALUE FROM performance_schema.global_variables WHERE VARIABLE_NAME="rpl_semi_sync_master_whitelist"
+--source include/assert.inc
+
+--let $assert_text= SELECT COUNT(@@GLOBAL.rpl_semi_sync_master_whitelist) = 1
+--let $assert_cond= COUNT(@@GLOBAL.rpl_semi_sync_master_whitelist) = 1
+--source include/assert.inc
+
+--let $assert_text= SELECT COUNT(VARIABLE_VALUE) = 1 FROM performance_schema.global_variables WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist'
+--let $assert_cond= COUNT(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME="rpl_semi_sync_master_whitelist" = 1
+--source include/assert.inc
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.rpl_semi_sync_master_whitelist);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.rpl_semi_sync_master_whitelist);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+CREATE USER nonsuper@localhost;
+--connect (nonsuperconn,localhost,nonsuper,,test)
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='88888888-8888-8888-8888-888888888888';
+
+--let $assert_text= rpl_semi_sync_master_whitelist should be "77777777-7777-7777-7777-777777777777"
+--let $assert_cond= @@GLOBAL.rpl_semi_sync_master_whitelist = "77777777-7777-7777-7777-777777777777"
+--source include/assert.inc
+
+--connection default
+--disconnect nonsuperconn
+
+DROP USER nonsuper@localhost;
+SET @@GLOBAL.rpl_semi_sync_master_whitelist = @start_global_value;
+
+--source include/wait_until_count_sessions.inc
