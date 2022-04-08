@@ -102,6 +102,7 @@
 #include "sql/derror.h"                          // read_texts
 #include "sql/discrete_interval.h"
 #include "sql/events.h"          // Events
+#include "sql/failure_injection.h"  // Failure injection framework
 #include "sql/hostname_cache.h"  // host_cache_resize
 #include "sql/index_statistics.h"
 #include "sql/log.h"
@@ -9648,3 +9649,66 @@ static Sys_var_bool Sys_enable_optimizer_cputime_with_wallclock(
     "system calls).",
     GLOBAL_VAR(enable_optimizer_cputime_with_wallclock), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static Sys_var_bool Sys_enable_failure_injection(
+    "enable_failure_injection",
+    "Enables failure injection framework. This is a read-only variable and "
+    "needs a server restart to prevent accidental usage. Only set this option "
+    "if you know what you are doing",
+    READ_ONLY GLOBAL_VAR(enable_failure_injection), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static bool validate_failure_injection_points(sys_var *, THD *, set_var *) {
+  if (!enable_failure_injection) {
+    // Requires failure injection framework to be enabled first
+    return true;  // Failure
+  }
+
+  return false;  // Success
+}
+
+static bool update_failure_injection_points(sys_var *, THD *, enum_var_type) {
+  if (!enable_failure_injection) {
+    // Requires failure injection framework to be enabled first
+    return true;  // Failure
+  }
+
+  if (strlen(failure_injection_points) == 0) {
+    // Clear all failure injection points
+    failure_injection.clear();
+    return false;  // Success
+  }
+
+  std::vector<std::string> points =
+      split_into_vector(failure_injection_points, ',');
+
+  // Note: If some of the points here are not valid, then adding to the failure
+  // injection framework will fail. Users are expected to check the
+  // i_s.failure_injection_points table for the currently set failure points
+  failure_injection.add_failure_points(points);
+
+  return false;  // Success
+}
+
+/*
+ * Set and unset failure injection points. A failure injection point can
+ * optionally have a value. A comma separated list of different failure points
+ * can be specified to set multiple failure points in a single invocation.
+ * Current list of failure points that are activated can be queried through
+ * information schema table 'failure_injection_points'. Check
+ * failure_injection.h and failure_injection.cc for more inforamtion and for the
+ * current list of failure points supported
+ *
+ * Ex: SET GLOBAL failure_injection_points =
+ * "inject_binlog_stall=10,inject_write_failure_rate=10,inject_crash_on_election"
+ *
+ * All the current failure points can be cleared by setting to a empty string
+ * EX: SET GLOBAL failure_injection_points = "" will clear all the failure
+ * points
+ */
+static Sys_var_charptr Sys_failure_injection_points(
+    "failure_injection_points", "Set/unset failure injection points",
+    GLOBAL_VAR(failure_injection_points), CMD_LINE(OPT_ARG), IN_FS_CHARSET,
+    DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(validate_failure_injection_points),
+    ON_UPDATE(update_failure_injection_points));

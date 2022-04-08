@@ -46,6 +46,7 @@
 #include "my_thread.h"
 #include "sql/check_stack.h"
 #include "sql/clone_handler.h"
+#include "sql/failure_injection.h"
 #include "sql_string.h"
 #include "template_utils.h"
 #ifdef HAVE_UNISTD_H
@@ -227,6 +228,23 @@ static int check_instance_backup_locked();
 static std::pair<std::string, uint> extract_file_index(
     const std::string &file_name);
 extern int ha_update_binlog_pos(const char *, my_off_t, Gtid *);
+
+/* Some static functions used by failure injection for binlog */
+static void failure_inject_stall_binlog_rotate() {
+  std::string sleep_duration =
+      failure_injection.get_point_value(Failure_points::STALL_BINLOG_ROTATE);
+  static const std::regex UNSIGNED_INT_TYPE("[+]?[0-9]+");
+
+  unsigned long duration = 10;  // Sleep for 10ms (default value)
+  if (std::regex_match(sleep_duration, UNSIGNED_INT_TYPE)) {
+    // Sleep for specified duration (in ms)
+    duration = std::stoul(sleep_duration);
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(duration));
+  return;
+}
+/* END: Some static functions used by failure injection for binlog */
 
 bool normalize_binlog_name(char *to, const char *from, bool is_relay_log) {
   DBUG_TRACE;
@@ -8431,6 +8449,9 @@ int MYSQL_BIN_LOG::new_file_impl(
   }
 
   if (need_lock_log) mysql_mutex_lock(&LOCK_log);
+
+  FAILURE_INJECTION_EXEC_IF(Failure_points::STALL_BINLOG_ROTATE,
+                            { failure_inject_stall_binlog_rotate(); });
 
   DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                   DEBUG_SYNC(current_thd, "before_rotate_binlog"););

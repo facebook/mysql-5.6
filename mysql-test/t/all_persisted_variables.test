@@ -55,6 +55,8 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'enable_acl_cache_deadlock_detection',
 'enable_acl_db_cache',
 'enable_acl_fast_lookup',
+'enable_failure_injection',
+'failure_injection_points',
 'group_replication_plugin_hooks',
 'gtid_committed',
 'gtid_purged_for_tailing',
@@ -110,7 +112,8 @@ CREATE TABLE global_vars (id INT PRIMARY KEY AUTO_INCREMENT, var_name VARCHAR(64
 # Bug#27534122 - RBR_EXEC_MODE DOES NOT SUPPORT GLOBAL SCOPE
 INSERT INTO global_vars (var_name, var_value) SELECT * FROM
 performance_schema.global_variables WHERE variable_name NOT IN
-('innodb_monitor_enable',
+('failure_injection_points',
+'innodb_monitor_enable',
 'innodb_monitor_disable',
 'innodb_monitor_reset',
 'innodb_monitor_reset_all',

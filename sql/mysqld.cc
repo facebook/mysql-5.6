@@ -1262,6 +1262,10 @@ ulong slow_start_timeout;
 bool opt_no_monitor = false;
 #endif
 
+/* Failure injection related variables */
+bool enable_failure_injection = false;
+char *failure_injection_points = nullptr;
+
 bool opt_no_dd_upgrade = false;
 long opt_upgrade_mode = UPGRADE_AUTO;
 bool opt_initialize = false;

@@ -1,0 +1,36 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is empty
+####
+--echo Default value of enable_failure_injection is false
+SELECT @@global.failure_injection_points;
+SELECT * FROM information_schema.failure_injection_points;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.failure_injection_points;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Invalid value should not activate any failure point
+####
+SET GLOBAL failure_injection_points = "A, B";
+SELECT * FROM information_schema.failure_injection_points;
+
+####
+## Set a correct value
+####
+SET GLOBAL failure_injection_points = "DUMP_THREAD_CORRUPT_BINLOG_CHECKSUM,STALL_BINLOG_ROTATE=100";
+SELECT * FROM information_schema.failure_injection_points ORDER BY failure_injection_point_name;
+
+####
+## Setting to a empty string should clear all failure points
+####
+SET GLOBAL failure_injection_points = "";
+SELECT * FROM information_schema.failure_injection_points ORDER BY failure_injection_point_name;
+
+# Cleanup
+SET GLOBAL failure_injection_points = default;

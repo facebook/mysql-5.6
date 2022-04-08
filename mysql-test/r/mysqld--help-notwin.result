@@ -459,6 +459,11 @@ The following options may be given as the first argument:
  --enable-deprecation-warning 
  If set to false, will not show deprecation warnings 
  (Defaults to on; use --skip-enable-deprecation-warning to disable.)
+ --enable-failure-injection 
+ Enables failure injection framework. This is a read-only
+ variable and needs a server restart to prevent accidental
+ usage. Only set this option if you know what you are
+ doing
  --enable-hlc-bound  Enable HLC bound enforcement for transactional operations
  --enable-optimizer-cputime-with-wallclock 
  This will control how we track optimizer cputime i.e
@@ -533,6 +538,8 @@ The following options may be given as the first argument:
  With this option enabled you can run myisamchk to test
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
+ --failure-injection-points[=name] 
+ Set/unset failure injection points
  --fast-integer-to-string 
  Optimized implementation of integer to string conversion
  --filesort-max-file-size=# 
@@ -2970,6 +2977,7 @@ enable-blind-replace FALSE
 enable-block-stale-hlc-read FALSE
 enable-cputime-with-wallclock FALSE
 enable-deprecation-warning TRUE
+enable-failure-injection FALSE
 enable-hlc-bound FALSE
 enable-optimizer-cputime-with-wallclock FALSE
 enable-query-checksum FALSE
@@ -2987,6 +2995,7 @@ event-scheduler ON
 expire-logs-days 0
 explicit-defaults-for-timestamp TRUE
 external-locking FALSE
+failure-injection-points 
 fast-integer-to-string FALSE
 filesort-max-file-size 0
 flush FALSE
