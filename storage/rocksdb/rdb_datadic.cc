@@ -514,8 +514,9 @@ void Rdb_key_def::setup(const TABLE *const tbl,
         if (!m_ttl_column.empty() &&
             !my_strcasecmp(system_charset_info, field->field_name,
                            m_ttl_column.c_str())) {
-          assert(field->real_type() == MYSQL_TYPE_LONGLONG);
-          assert(field->key_type() == HA_KEYTYPE_ULONGLONG);
+          assert((field->real_type() == MYSQL_TYPE_LONGLONG &&
+                  field->key_type() == HA_KEYTYPE_ULONGLONG) ||
+                 field->type() == MYSQL_TYPE_TIMESTAMP);
           assert(!field->is_nullable());
           m_ttl_pk_key_part_offset = dst_i;
         }
@@ -645,8 +646,10 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
       Field *const field = table_arg->field[i];
       if (!my_strcasecmp(system_charset_info, field->field_name,
                          ttl_col_str.c_str()) &&
-          field->real_type() == MYSQL_TYPE_LONGLONG &&
-          field->key_type() == HA_KEYTYPE_ULONGLONG && !field->is_nullable()) {
+          (field->type() == MYSQL_TYPE_TIMESTAMP ||
+           (field->real_type() == MYSQL_TYPE_LONGLONG &&
+            field->key_type() == HA_KEYTYPE_ULONGLONG)) &&
+          !field->is_nullable()) {
         *ttl_column = ttl_col_str;
         *ttl_field_index = i;
         found = true;

@@ -2,14 +2,29 @@
 --source include/have_rocksdb.inc
 
 CREATE TABLE `t1` (
-`a` bigint(20) NOT NULL,
-`b` varchar(10) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
-`u` bigint(20) unsigned NOT NULL,
-`d` bigint(20) DEFAULT NULL,
+`a` bigint NOT NULL,
+`b` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
+`u` bigint unsigned NOT NULL,
+`d` bigint DEFAULT NULL,
 PRIMARY KEY (`a`,`b`),
 KEY `d` (`d`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='ttl_duration=1000;ttl_col=u';
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_bin COMMENT='ttl_duration=1000;ttl_col=u';
 INSERT INTO t1 VALUES (100, 'aaabbb', UNIX_TIMESTAMP(), 200);
+--replace_column 10 # 11 #
+EXPLAIN SELECT COUNT(*) FROM t1;
+--echo # segfault here without the fix
+SELECT COUNT(*) FROM t1;
+DROP TABLE t1;
+
+CREATE TABLE `t1` (
+`a` bigint NOT NULL,
+`b` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
+`u` timestamp NOT NULL,
+`d` bigint DEFAULT NULL,
+PRIMARY KEY (`a`,`b`),
+KEY `d` (`d`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_bin COMMENT='ttl_duration=1000;ttl_col=u';
+INSERT INTO t1 VALUES (100, 'aaabbb', NOW(), 200);
 --replace_column 10 # 11 #
 EXPLAIN SELECT COUNT(*) FROM t1;
 --echo # segfault here without the fix
