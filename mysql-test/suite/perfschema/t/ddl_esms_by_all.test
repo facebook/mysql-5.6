@@ -1,0 +1,20 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DDLs on the table esms_by_all
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.events_statements_summary_by_all
+  ADD COLUMN foo integer;
+
+TRUNCATE TABLE performance_schema.events_statements_summary_by_all;
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.events_statements_summary_by_all
+   ADD INDEX test_index(USER);
+
+-- error ER_DBACCESS_DENIED_ERROR
+CREATE UNIQUE INDEX test_index ON
+  performance_schema.events_statements_summary_by_all(USER);

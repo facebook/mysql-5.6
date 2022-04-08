@@ -1,0 +1,10 @@
+ALTER TABLE performance_schema.events_statements_summary_by_all
+ADD COLUMN foo integer;
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+TRUNCATE TABLE performance_schema.events_statements_summary_by_all;
+ALTER TABLE performance_schema.events_statements_summary_by_all
+ADD INDEX test_index(USER);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+CREATE UNIQUE INDEX test_index ON
+performance_schema.events_statements_summary_by_all(USER);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'

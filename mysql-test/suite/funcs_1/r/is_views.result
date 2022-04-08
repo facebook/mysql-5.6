@@ -56,6 +56,7 @@ COLLATION_CONNECTION	varchar(64)	NO		NULL
 SELECT table_catalog, table_schema, table_name
 FROM information_schema.views WHERE table_catalog IS NOT NULL order by table_name;
 TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME
+def	sys	fb_ps_schema_table_statistics_io
 def	sys	host_summary
 def	sys	host_summary_by_file_io
 def	sys	host_summary_by_file_io_type

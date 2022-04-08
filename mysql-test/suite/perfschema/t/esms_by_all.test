@@ -1,0 +1,110 @@
+--source include/count_sessions.inc
+
+TRUNCATE TABLE performance_schema.events_statements_summary_by_all;
+
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+
+connect (con13, localhost, user_super,su,test);
+
+
+####################################################
+### Case 1: performance_schema_esms_by_all=off. No data in events_statements_summary_by_all.
+####################################################
+--echo Case 1: performance_schema_esms_by_all=off
+select @@performance_schema_esms_by_all;
+select 42;
+
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
+select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
+
+####################################################
+### Case 2: sql_stats_control=ON, Data will be stored in sql_statistics.
+####################################################
+--echo Case 2: sql_stats_control=ON
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+
+# Check that all data was cleared.
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
+select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
+
+select 1;
+select 2;
+select 100;
+
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
+select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
+
+create table t1(c int);
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+update t1 set c=c+100;
+update t1 set c=c+300;
+update t1 set c=c+500;
+delete from t1 where c=905;
+delete from t1 where c=903;
+
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
+select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
+
+####################################################
+### Case 3: TRUNCATE TABLE.
+####################################################
+--echo Case 3: TRUNCATE TABLE
+TRUNCATE TABLE performance_schema.events_statements_summary_by_all;
+select 1 union select 2;
+select 1 union select 2 union select 3;
+
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
+select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
+
+####################################################
+### Case 4: performance_schema_esms_by_all=off. No data in events_statements_summary_by_all.
+####################################################
+--echo Case 4: performance_schema_esms_by_all=off. No data in events_statements_summary_by_all.
+set global performance_schema_esms_by_all = off;
+select @@performance_schema_esms_by_all;
+
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
+select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
+
+####################################################
+### Case 5: Multi-query support
+####################################################
+--echo Case 6: Multi-query support
+set global performance_schema_esms_by_all = on;
+select @@performance_schema_esms_by_all;
+
+delimiter ||||;
+
+select 1;
+create table t2(c int);
+insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2;
+||||
+
+# reset delimiter
+delimiter ;||||
+
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
+select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
+
+###########
+### Cleanup
+###########
+--echo Cleanup
+connection default;
+set global performance_schema_esms_by_all = DEFAULT;
+drop table t1;
+drop user user_super@localhost;
+disconnect con13;
+
+--source include/wait_until_count_sessions.inc
+

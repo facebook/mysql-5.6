@@ -233,10 +233,13 @@
     IO_READ_BYTES
     IO_READ_REQUESTS
 
+  80028-006
+  - add events_statements_summary_by_all table
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80028-005. i.e. 8.0.28 Facebook schema change no. 5.
+  Version published is now 80028-006. i.e. 8.0.28 Facebook schema change no. 6.
 */
 
-static const uint PFS_DD_VERSION = 80028005;
+static const uint PFS_DD_VERSION = 80028006;
 
 #endif /* PFS_DD_VERSION_H */

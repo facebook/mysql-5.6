@@ -1,0 +1,19 @@
+SELECT * FROM performance_schema.events_statements_summary_by_all
+LIMIT 1;
+INSERT INTO performance_schema.events_statements_summary_by_all
+SET USER="abc";
+ERROR 42000: INSERT command denied to user 'root'@'localhost' for table 'events_statements_summary_by_all'
+UPDATE performance_schema.events_statements_summary_by_all
+SET USER="abc" WHERE USER=root;
+ERROR 42000: UPDATE command denied to user 'root'@'localhost' for table 'events_statements_summary_by_all'
+DELETE FROM performance_schema.events_statements_summary_by_all
+WHERE USER=root;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'events_statements_summary_by_all'
+DELETE FROM performance_schema.events_statements_summary_by_all;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'events_statements_summary_by_all'
+LOCK TABLES performance_schema.events_statements_summary_by_all READ;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'events_statements_summary_by_all'
+UNLOCK TABLES;
+LOCK TABLES performance_schema.events_statements_summary_by_all WRITE;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'events_statements_summary_by_all'
+UNLOCK TABLES;
