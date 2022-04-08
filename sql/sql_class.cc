@@ -1239,6 +1239,8 @@ void THD::init(bool is_slave) {
   */
   m_disable_password_validation = false;
 
+  mt_key_clear(THD::SQL_ID);
+  mt_key_clear(THD::CLIENT_ID);
   reset_stmt_stats();
   set_trx_dml_row_count(0);
   set_trx_dml_cpu_time_limit_warning(false);
@@ -3838,9 +3840,14 @@ void THD::serialize_client_attrs() {
 
   compute_md5_hash((char *)client_id.data(), client_attrs_string.ptr(),
                    client_attrs_string.length());
+
   int bytes_lost MY_ATTRIBUTE((unused)) = PSI_THREAD_CALL(
       set_thread_client_attrs)(client_id.data(), client_attrs_string.ptr(),
                                client_attrs_string.length());
+
+  memcpy(mt_key_val[THD::CLIENT_ID].data(), client_id.data(), MD5_HASH_SIZE);
+  mt_key_val_set[THD::CLIENT_ID] = true;
+
   assert(bytes_lost == 0);
 }
 
@@ -3878,21 +3885,18 @@ void THD::get_mt_keys_for_write_query(
   // Get keys for all the target dimensions to update write stats for
   // USER
   keys[0] = get_user_name();
+
   // CLIENT ID
-  // TODO(mzait) - Hardcoding it for now, to be replaced
-  // after sql_findings is ported to 8.0
-  keys[1] = "HARDCODED_CLIENT_ID";
+  char client_id[MD5_HASH_TO_STRING_LENGTH + 1];
+  mt_hex_value(THD::CLIENT_ID, client_id, MD5_HASH_TO_STRING_LENGTH + 1);
+  keys[1] = client_id;
+
   // SHARD
   keys[2] = get_db_name();
+
   // SQL ID
-  // TODO(mzait) Calculating a unique hash for now, to be
-  // replaced after the same hash used in sql_findings when ported to 8.0
-  char sql_id[DIGEST_HASH_TO_STRING_LENGTH + 1] = "";
-  if (m_digest && !m_digest->m_digest_storage.is_empty()) {
-    uchar digest_hash[DIGEST_HASH_SIZE];
-    compute_digest_hash(&m_digest->m_digest_storage, digest_hash);
-    DIGEST_HASH_TO_STRING(digest_hash, sql_id);
-  }
+  char sql_id[DIGEST_HASH_TO_STRING_LENGTH + 1];
+  mt_hex_value(THD::SQL_ID, sql_id, DIGEST_HASH_TO_STRING_LENGTH + 1);
   keys[3] = sql_id;
 }
 
@@ -3934,6 +3938,7 @@ void THD::set_trx_dml_start_time() {
   /* remember that we have initialized m_trx_dml_start_time */
   m_trx_dml_start_time_is_set = (result == 0);
 }
+
 /*
   Capture the total cpu time(ms) spent to write the rows for stmt
  */
@@ -4025,4 +4030,22 @@ bool THD::dml_execution_cpu_limit_exceeded() {
   }
 
   return false;
+}
+
+void THD::mt_hex_value(enum_mt_key key_name, char *hex_val, int len) {
+  assert(key_name < MT_KEY_MAX);
+
+  if (mt_key_is_set(key_name)) {
+    if (key_name == SQL_ID) {
+      assert(len == DIGEST_HASH_TO_STRING_LENGTH + 1);
+      array_to_hex(hex_val, mt_key_value(key_name).data(), DIGEST_HASH_SIZE);
+      hex_val[len - 1] = '\0';
+    } else {
+      assert(len == MD5_HASH_TO_STRING_LENGTH + 1);
+      array_to_hex(hex_val, mt_key_value(key_name).data(), MD5_HASH_SIZE);
+      hex_val[len - 1] = '\0';
+    }
+  } else {
+    hex_val[0] = '\0';
+  }
 }

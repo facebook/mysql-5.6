@@ -67,6 +67,7 @@
 #include <string>
 
 #include "dur_prop.h"  // durability_properties
+#include "include/my_md5.h"
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "map_helpers.h"
@@ -2612,6 +2613,63 @@ class THD : public MDL_context_owner,
   /** Top level statement digest. */
   sql_digest_state m_digest_state;
 
+  /** Types of keys used to track various attributes of a query
+      For each key we maintain an ID computed as a MD5 and a status
+      of whether the ID has been set or not (i.e, valid for read).
+      Both are stored in an array indexed by the corresponding enum value
+
+      SQL ID    = compute_digest_hash(statement digest)
+      Client ID = compute_md5_hash(client attributes)
+      Plan ID   = compute_md5_hash(sql plan)
+      SQL Hash  = compute_md5_hash(statement text + flags from QC)
+   */
+  enum enum_mt_key {
+    SQL_ID = 0,
+    CLIENT_ID = 1,
+    //    PLAN_ID   = 2,
+    //    SQL_HASH  = 3,
+    MT_KEY_MAX
+  };
+
+  digest_key mt_key_val[MT_KEY_MAX] = {};
+  std::atomic_bool mt_key_val_set[MT_KEY_MAX];
+
+  /* SQL_ID and SQL_PLAN may be accessed by another thread executing
+     SHOW PROCESSLIST or a SQL reading from I_S.PROCESSLIST
+  */
+  void mt_mutex_lock(enum_mt_key key_name) {
+    if (key_name == SQL_ID || key_name == CLIENT_ID
+        // || key_name == PLAN_ID
+    )
+      mysql_mutex_lock(&LOCK_thd_data);
+  }
+  void mt_mutex_unlock(enum_mt_key key_name) {
+    if (key_name == SQL_ID || key_name == CLIENT_ID
+        // || key_name == PLAN_ID
+    )
+      mysql_mutex_unlock(&LOCK_thd_data);
+  }
+  void mt_key_set(enum_mt_key key_name, const unsigned char *key_val) {
+    assert(key_name < MT_KEY_MAX);
+    mt_mutex_lock(key_name);
+    memcpy(mt_key_val[key_name].data(), key_val, DIGEST_HASH_SIZE);
+    mt_key_val_set[key_name] = true;
+    mt_mutex_unlock(key_name);
+  }
+  bool mt_key_is_set(enum_mt_key key_name) {
+    assert(key_name < MT_KEY_MAX);
+    return mt_key_val_set[key_name];
+  }
+  digest_key &mt_key_value(enum_mt_key key_name) {
+    assert(key_name < MT_KEY_MAX);
+    return mt_key_val[key_name];
+  }
+  void mt_hex_value(enum_mt_key key_name, char *hex_val, int len);
+  void mt_key_clear(enum_mt_key key_name) {
+    assert(key_name < MT_KEY_MAX);
+    mt_key_val_set[key_name] = false;
+  }
+
   /** Current statement instrumentation. */
   PSI_statement_locker *m_statement_psi;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
@@ -2651,10 +2709,8 @@ class THD : public MDL_context_owner,
   my_thread_t real_id; /* For debugging */
                        /**
                          This counter is 32 bit because of the client protocol.
-                     
                          @note It is not meant to be used for my_thread_self(), see @c real_id for
                          this.
-                     
                          @note Set to reserved_thread_id on initialization. This is a magic
                          value that is only to be used for temporary THDs not present in
                          the global THD list.

@@ -67,10 +67,12 @@
 #include "mysql_com.h"  // SERVER_VERSION_LENGTH
 #ifdef _WIN32
 #include "sql/nt_servc.h"
-#endif                    // _WIN32
+#endif  // _WIN32
+#include "sql/rpl_lag_manager.h"
 #include "sql/set_var.h"  // enum_var_type
 #include "sql/sql_bitmap.h"
 #include "sql/sql_const.h"  // UUID_LENGTH
+#include "sql/sql_info.h"
 #include "sql/system_variables.h"
 #include "sql/thr_malloc.h"
 
@@ -543,6 +545,9 @@ extern double write_throttle_min_ratio;
 extern uint write_throttle_monitor_cycles;
 extern uint write_throttle_lag_pct_min_secondaries;
 extern ulong write_auto_throttle_frequency;
+/* Controls collecting MySQL findings (aka SQL conditions) */
+extern ulong sql_findings_control;
+
 extern bool read_only_slave;
 extern bool flush_only_old_table_cache_entries;
 extern ulong stored_program_cache_size;
@@ -683,6 +688,7 @@ extern PSI_mutex_key key_LOCK_global_write_statistics;
 extern PSI_mutex_key key_LOCK_global_write_throttling_rules;
 extern PSI_mutex_key key_LOCK_global_write_throttling_log;
 extern PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
+extern PSI_mutex_key key_LOCK_global_sql_findings;
 
 extern PSI_mutex_key key_commit_order_manager_mutex;
 extern PSI_mutex_key key_mutex_replica_worker_hash;
@@ -946,6 +952,7 @@ extern mysql_mutex_t LOCK_global_write_statistics;
 extern mysql_mutex_t LOCK_global_write_throttling_rules;
 extern mysql_mutex_t LOCK_global_write_throttling_log;
 extern mysql_mutex_t LOCK_replication_lag_auto_throttling;
+extern mysql_mutex_t LOCK_global_sql_findings;
 extern mysql_mutex_t LOCK_global_system_variables;
 extern mysql_mutex_t LOCK_user_conn;
 extern mysql_mutex_t LOCK_log_throttle_qni;
@@ -1041,6 +1048,23 @@ inline void set_mysqld_offline_mode(bool value) { offline_mode.store(value); }
  */
 inline bool write_stats_capture_enabled() {
   return write_stats_count > 0 && write_stats_frequency > 0;
+}
+
+/* sql_id_is_needed
+     Returns TRUE if SQL_ID is needed:
+     - SQL Findings
+     - write statistics
+     - write throttling
+     - column statistics (todo:ritwik)
+ */
+inline bool sql_id_is_needed() {
+  bool needed = (sql_findings_control == SQL_INFO_CONTROL_ON ||
+                         write_stats_capture_enabled() ||
+                         write_control_level != CONTROL_LEVEL_OFF
+                     // || column statistics check
+                     ? true
+                     : false);
+  return needed;
 }
 
 /**

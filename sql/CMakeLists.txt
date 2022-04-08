@@ -559,6 +559,7 @@ SET(SQL_SHARED_SOURCES
   sql_handler.cc
   sql_help.cc
   sql_import.cc
+  sql_info.cc
   sql_insert.cc
   sql_join_buffer.cc
   sql_lex.cc

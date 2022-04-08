@@ -8992,6 +8992,33 @@ static Sys_var_enum Sys_raft_signal_async_dump_threads(
     raft_signal_async_dump_threads_options, DEFAULT(AFTER_CONSENSUS),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static const char *sql_info_control_values[] = {
+    "OFF_HARD", "OFF_SOFT", "ON",
+    /* Add new control before the following line */
+    0};
+
+static bool set_sql_findings_control(sys_var *, THD *, enum_var_type) {
+  if (sql_findings_control == SQL_INFO_CONTROL_OFF_HARD) {
+    free_global_sql_findings();
+  }
+
+  return false;  // success
+}
+
+static Sys_var_enum Sys_sql_findings_control(
+    "sql_findings_control",
+    "Provides a control to store findings from optimizer/executing SQL "
+    "statements. This data is exposed through the SQL_FINDINGS table. "
+    "It accepts the following values: "
+    "OFF_HARD: Default value. Stop collecting the findings and flush "
+    "all SQL findings related data from memory. "
+    "OFF_SOFT: Stop collecting the findings, but retain any data "
+    "collected so far. "
+    "ON: Collect the SQL findings.",
+    GLOBAL_VAR(sql_findings_control), CMD_LINE(REQUIRED_ARG),
+    sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_sql_findings_control));
+
 static Sys_var_charptr Sys_sql_wsenv_tenant(
     "sql_wsenv_tenant", "warm storage environment tenant",
     READ_ONLY NON_PERSIST GLOBAL_VAR(sql_wsenv_tenant), CMD_LINE(REQUIRED_ARG),
