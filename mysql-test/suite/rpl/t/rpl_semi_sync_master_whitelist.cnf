@@ -1,0 +1,16 @@
+!include ../my.cnf
+
+[mysqld.1]
+rpl_semi_sync_master_enabled=1
+rpl_semi_sync_master_timeout=86400000 # 1 day
+
+[mysqld.2]
+master-retry-count=60
+rpl_semi_sync_slave_enabled=1
+
+[mysqld.3]
+master-retry-count=60
+rpl_semi_sync_slave_enabled=1
+
+[ENV]
+SERVER_MYPORT_3= @mysqld.3.port

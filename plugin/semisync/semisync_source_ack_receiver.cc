@@ -37,6 +37,8 @@
 #include "sql/protocol_classic.h"
 #include "sql/sql_class.h"
 
+static constexpr char any_slave[] = "ANY";
+
 extern ReplSemiSyncMaster *repl_semisync;
 
 #ifdef HAVE_PSI_INTERFACE
@@ -133,13 +135,15 @@ void Ack_receiver::stop() {
   function_exit(kWho);
 }
 
-bool Ack_receiver::add_slave(THD *thd) {
+bool Ack_receiver::add_slave(THD *thd, uint32 server_id,
+                             std::string slave_uuid) {
   Slave slave;
   const char *kWho = "Ack_receiver::add_slave";
   function_enter(kWho);
 
   slave.thread_id = thd->thread_id();
-  slave.server_id = thd->server_id;
+  slave.server_id = server_id;
+  slave.slave_uuid = slave_uuid;
   slave.compress_ctx.algorithm = enum_compression_algorithm::MYSQL_UNCOMPRESSED;
   char *cmp_algorithm_name = thd->get_protocol()->get_compression_algorithm();
   if (cmp_algorithm_name != nullptr) {
@@ -157,6 +161,13 @@ bool Ack_receiver::add_slave(THD *thd) {
   /* push_back() may throw an exception */
   try {
     mysql_mutex_lock(&m_mutex);
+
+    if (!rpl_semi_sync_master_whitelist ||
+        (strcmp(rpl_semi_sync_master_whitelist, any_slave) != 0 &&
+         !verify_against_whitelist(slave_uuid))) {
+      mysql_mutex_unlock(&m_mutex);
+      return function_exit(kWho, true);
+    }
 
     DBUG_EXECUTE_IF("rpl_semisync_simulate_add_replica_failure", throw 1;);
 
@@ -216,6 +227,95 @@ void Ack_receiver::remove_slave(THD *thd) {
   m_slaves_changed = true;
   mysql_mutex_unlock(&m_mutex);
   function_exit(kWho);
+}
+
+void Ack_receiver::disconnect_non_whitelisted_slaves() {
+  const char *kWho = "Ack_receiver::remove_not_whitelisted_slaves";
+  function_enter(kWho);
+
+  mysql_mutex_assert_owner(&m_mutex);
+
+  if (rpl_semi_sync_master_whitelist &&
+      strcmp(rpl_semi_sync_master_whitelist, any_slave) == 0) {
+    return function_exit(kWho);
+  }
+
+  for (Slave_vector_it it = m_slaves.begin(); it != m_slaves.end(); ++it) {
+    if (!rpl_semi_sync_master_whitelist ||
+        !verify_against_whitelist(it->slave_uuid)) {
+#ifdef USE_PPOLL_IN_VIO
+      it->vio->thread_id = it->thread_id;
+#endif
+      vio_shutdown(it->vio);
+    }
+  }
+
+  mysql_cond_broadcast(&m_cond);
+  function_exit(kWho);
+}
+
+void Ack_receiver::update_whitelist(std::string &wlist) {
+  mysql_mutex_assert_owner(&m_mutex);
+
+  // remove all spaces
+  wlist.erase(std::remove(wlist.begin(), wlist.end(), ' '), wlist.end());
+
+  whitelist_set_t local_whitelist_set = rpl_semi_sync_master_whitelist_set;
+
+  // case: add a single uuid to the whitelist (value starts with +)
+  if (wlist[0] == '+') {
+    const auto str = wlist.substr(1);
+    // case: +ANY specified, start with a clean slate
+    if (str == any_slave) {
+      local_whitelist_set.clear();
+    }
+    local_whitelist_set.insert(str);
+  }
+  // case: remove a single uuid to the whitelist (value starts with -)
+  else if (wlist[0] == '-') {
+    const auto str = wlist.substr(1);
+    // case: -ANY specified, start with a clean slate
+    if (str == any_slave) {
+      local_whitelist_set.clear();
+    } else {
+      local_whitelist_set.erase(str);
+    }
+  }
+  // case: full comma separated string is specified
+  else {
+    local_whitelist_set = split_into_set(wlist, ',');
+  }
+
+  // re-calculate wlist from the set
+  wlist = "";
+  for (const auto &uuid : local_whitelist_set) {
+    wlist.append(uuid);
+    wlist.append(",");
+  }
+  // remove last comma
+  if (!wlist.empty()) {
+    wlist.pop_back();
+  }
+
+  rpl_semi_sync_master_whitelist_set = local_whitelist_set;
+  // remove ANY from set
+  rpl_semi_sync_master_whitelist_set.erase(any_slave);
+
+  LogErr(INFORMATION_LEVEL, ER_SEMISYNC_WHITELIST_UPDATED,
+         rpl_semi_sync_master_whitelist, wlist.c_str());
+}
+
+bool Ack_receiver::verify_against_whitelist(std::string slave_uuid) {
+  mysql_mutex_assert_owner(&m_mutex);
+
+  if (rpl_semi_sync_master_whitelist_set.find(slave_uuid) ==
+      rpl_semi_sync_master_whitelist_set.end()) {
+    LogErr(ERROR_LEVEL, ER_SEMISYNC_ACK_FROM_UNRECOGNIZED_SLAVE,
+           slave_uuid.c_str());
+    return false;
+  }
+
+  return true;
 }
 
 inline void Ack_receiver::set_stage_info(const PSI_stage_info &stage
@@ -308,10 +408,10 @@ void Ack_receiver::run() {
           net_clear(&net, false);
 
           len = my_net_read(&net);
-          if (likely(len != packet_error))
-            repl_semisync->reportReplyPacket(slave_obj.server_id, net.read_pos,
-                                             len);
-          else if (net.last_errno == ER_NET_READ_ERROR) {
+          if (likely(len != packet_error)) {
+            repl_semisync->reportReplyPacket(
+                slave_obj.server_id, slave_obj.slave_uuid, net.read_pos, len);
+          } else if (net.last_errno == ER_NET_READ_ERROR) {
             listener.clear_socket_info(i);
           }
         } while (net.vio->has_data(net.vio) && m_status == ST_UP);

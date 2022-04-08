@@ -40,6 +40,7 @@ struct Slave {
   uint server_id;
   mysql_compress_context compress_ctx;
   EnumStatus m_status = EnumStatus::up;
+  std::string slave_uuid;
 
   my_socket sock_fd() const { return vio->mysql_socket.fd; }
 };
@@ -72,7 +73,7 @@ class Ack_receiver : public ReplSemiSyncBase {
 
      @return it return false if succeeds, otherwise true is returned.
   */
-  bool add_slave(THD *thd);
+  bool add_slave(THD *thd, uint32 server_id, std::string slave_uuid);
 
   /**
     Notify ack receiver not to receive ack on the dump session.
@@ -110,6 +111,18 @@ class Ack_receiver : public ReplSemiSyncBase {
     return false;
   }
 
+  void lock() { mysql_mutex_lock(&m_mutex); }
+  void unlock() { mysql_mutex_unlock(&m_mutex); }
+
+  /* Updates the whitelist, called from update callback of whitelist sysvar */
+  void update_whitelist(std::string &wlist);
+
+  /* Checks if the reply is from a slave on the whitelist */
+  bool verify_against_whitelist(std::string slave_uuid);
+
+  /* Disconnect slaves that are not on the whitelist */
+  void disconnect_non_whitelisted_slaves();
+
  private:
   enum status { ST_UP, ST_DOWN, ST_STOPPING };
   uint8 m_status;
@@ -123,6 +136,10 @@ class Ack_receiver : public ReplSemiSyncBase {
   bool m_slaves_changed;
   Slave_vector m_slaves;
   my_thread_handle m_pid;
+
+  /* Whitelist related members */
+  using whitelist_set_t = std::unordered_set<std::string>;
+  whitelist_set_t rpl_semi_sync_master_whitelist_set; /* protected by m_mutex */
 
   /* Declare them private, so no one can copy the object. */
   Ack_receiver(const Ack_receiver &ack_receiver);
