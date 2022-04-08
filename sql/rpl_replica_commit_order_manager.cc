@@ -435,6 +435,7 @@ void Commit_order_manager::wait_and_finish(THD *thd, bool error) {
       std::tie(ret, std::ignore, std::ignore) =
           worker->check_and_report_end_of_retries(thd);
       if (ret) {
+        worker->reset_commit_order_deadlock();
         /*
           worker can set m_rollback_trx when it is its turn to commit,
           so need to call wait() before updating m_rollback_trx.

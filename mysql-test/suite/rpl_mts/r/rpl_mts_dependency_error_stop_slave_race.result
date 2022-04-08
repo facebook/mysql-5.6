@@ -1,0 +1,36 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+create table t1 (a int primary key, b int) engine = innodb;
+insert into t1 values(1, 1);
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+set @@global.debug = "+d,simulate_stop_slave_before_dep_worker_wait";
+include/start_slave.inc
+begin;
+update t1 set a = 1000 where a = 1;
+update t1 set a = 10 where a = 1;
+update t1 set a = 100 where a = 10;
+insert into t1 values(2, 2);
+insert into t1 values(3, 3);
+include/wait_for_slave_sql_error.inc [errno=1205]
+rollback;
+set @@global.debug = "-d,simulate_stop_slave_before_dep_worker_wait";
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b
+2	2
+3	3
+100	1
+select * from t1;
+a	b
+2	2
+3	3
+100	1
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

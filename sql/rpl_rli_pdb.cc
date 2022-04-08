@@ -1818,6 +1818,10 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
 
   DBUG_TRACE;
 
+  if (found_commit_order_deadlock()) {
+    return ER_LOCK_DEADLOCK;
+  }
+
   if (is_mts_parallel_type_dependency(rli)) {
     Slave_job_group *ptr_g = rli->gaq->get_job_group(ev->mts_group_idx);
     ptr_g->worker = this;

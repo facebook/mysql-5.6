@@ -1,0 +1,3 @@
+--slave_transaction_retries=0
+--innodb_lock_wait_timeout=1
+--slave_parallel_workers=4
