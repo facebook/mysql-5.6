@@ -107,6 +107,7 @@ setup_threads
 socket_instances
 socket_summary_by_event_name
 socket_summary_by_instance
+sql_findings
 status_by_account
 status_by_host
 status_by_thread

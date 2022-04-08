@@ -30,6 +30,7 @@
 
 #include <stddef.h>
 
+#include "include/my_md5_size.h"
 #include "my_dbug.h"
 #include "my_md5.h"
 #include "my_thread.h"
@@ -58,8 +59,8 @@ Plugin_table table_esms_by_all::m_table_def(
     "  DIGEST VARCHAR(64),\n"
     "  DIGEST_TEXT LONGTEXT,\n"
     "  USER VARCHAR(80),\n"
-    "  CLIENT_ID VARCHAR(64),\n"
-    "  PLAN_ID VARCHAR(64),\n"
+    "  CLIENT_ID VARCHAR(32),\n"
+    "  PLAN_ID VARCHAR(32),\n"
     "  COUNT_STAR BIGINT unsigned not null,\n"
     "  SUM_TIMER_WAIT BIGINT unsigned not null,\n"
     "  MIN_TIMER_WAIT BIGINT unsigned not null,\n"
@@ -244,9 +245,9 @@ int table_esms_by_all::make_row(PFS_statements_digest_stat *digest_stat) {
            m_row.m_user_name_length);
   array_to_hex(m_row.client_id, digest_stat->m_digest_key.client_id,
                MD5_HASH_SIZE);
-  m_row.client_id[MD5_HASH_SIZE * 2] = '\0';
+  m_row.client_id[MD5_HASH_TO_STRING_LENGTH] = '\0';
   array_to_hex(m_row.plan_id, digest_stat->m_digest_key.plan_id, MD5_HASH_SIZE);
-  m_row.plan_id[MD5_HASH_SIZE * 2] = '\0';
+  m_row.plan_id[MD5_HASH_TO_STRING_LENGTH] = '\0';
 
   /*
     Get statements stats.

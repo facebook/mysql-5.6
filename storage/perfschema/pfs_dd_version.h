@@ -286,10 +286,14 @@
   - add write_throttling_rules
   - add write_throttling_log
 
+  80032-011:
+  - add sql_findings
+  - change type of SQL_FINDINGS.LAST_RECORDED to bigint
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80032-010. i.e. 8.0.32 Facebook schema change no. 10.
+  Version published is now 80032-011. i.e. 8.0.32 Facebook schema change no. 11.
 */
 
-static const uint PFS_DD_VERSION = 80032010;
+static const uint PFS_DD_VERSION = 80032011;
 
 #endif /* PFS_DD_VERSION_H */

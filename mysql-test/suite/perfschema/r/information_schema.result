@@ -102,6 +102,7 @@ performance_schema	setup_threads	def
 performance_schema	socket_instances	def
 performance_schema	socket_summary_by_event_name	def
 performance_schema	socket_summary_by_instance	def
+performance_schema	sql_findings	def
 performance_schema	status_by_account	def
 performance_schema	status_by_host	def
 performance_schema	status_by_thread	def
@@ -225,6 +226,7 @@ setup_threads	BASE TABLE	PERFORMANCE_SCHEMA
 socket_instances	BASE TABLE	PERFORMANCE_SCHEMA
 socket_summary_by_event_name	BASE TABLE	PERFORMANCE_SCHEMA
 socket_summary_by_instance	BASE TABLE	PERFORMANCE_SCHEMA
+sql_findings	BASE TABLE	PERFORMANCE_SCHEMA
 status_by_account	BASE TABLE	PERFORMANCE_SCHEMA
 status_by_host	BASE TABLE	PERFORMANCE_SCHEMA
 status_by_thread	BASE TABLE	PERFORMANCE_SCHEMA
@@ -348,6 +350,7 @@ setup_threads	10	Dynamic
 socket_instances	10	Dynamic
 socket_summary_by_event_name	10	Dynamic
 socket_summary_by_instance	10	Dynamic
+sql_findings	10	Dynamic
 status_by_account	10	Dynamic
 status_by_host	10	Dynamic
 status_by_thread	10	Dynamic
@@ -467,6 +470,7 @@ setup_threads	0
 socket_instances	0
 socket_summary_by_event_name	0
 socket_summary_by_instance	0
+sql_findings	0
 table_handles	0
 table_io_waits_summary_by_index_usage	0
 table_io_waits_summary_by_table	0
@@ -600,6 +604,7 @@ setup_threads	0	0
 socket_instances	0	0
 socket_summary_by_event_name	0	0
 socket_summary_by_instance	0	0
+sql_findings	0	0
 status_by_account	0	0
 status_by_host	0	0
 status_by_thread	0	0
@@ -723,6 +728,7 @@ setup_threads	0	0	NULL
 socket_instances	0	0	NULL
 socket_summary_by_event_name	0	0	NULL
 socket_summary_by_instance	0	0	NULL
+sql_findings	0	0	NULL
 status_by_account	0	0	NULL
 status_by_host	0	0	NULL
 status_by_thread	0	0	NULL
@@ -846,6 +852,7 @@ setup_threads	NULL	NULL	NULL
 socket_instances	NULL	NULL	NULL
 socket_summary_by_event_name	NULL	NULL	NULL
 socket_summary_by_instance	NULL	NULL	NULL
+sql_findings	NULL	NULL	NULL
 status_by_account	NULL	NULL	NULL
 status_by_host	NULL	NULL	NULL
 status_by_thread	NULL	NULL	NULL
@@ -969,6 +976,7 @@ setup_threads	utf8mb4_0900_ai_ci	NULL
 socket_instances	utf8mb4_0900_ai_ci	NULL
 socket_summary_by_event_name	utf8mb4_0900_ai_ci	NULL
 socket_summary_by_instance	utf8mb4_0900_ai_ci	NULL
+sql_findings	utf8mb4_0900_ai_ci	NULL
 status_by_account	utf8mb4_0900_ai_ci	NULL
 status_by_host	utf8mb4_0900_ai_ci	NULL
 status_by_thread	utf8mb4_0900_ai_ci	NULL
@@ -1092,6 +1100,7 @@ setup_threads
 socket_instances	
 socket_summary_by_event_name	
 socket_summary_by_instance	
+sql_findings	
 status_by_account	
 status_by_host	
 status_by_thread	
@@ -1215,6 +1224,7 @@ setup_threads
 socket_instances	
 socket_summary_by_event_name	
 socket_summary_by_instance	
+sql_findings	
 status_by_account	
 status_by_host	
 status_by_thread	

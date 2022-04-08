@@ -1,0 +1,137 @@
+--source include/count_sessions.inc
+
+##########################################
+### create 2 normal users and 1 super user
+##########################################
+create user user1@localhost  identified by 'u1';
+grant alter, create, insert, select, drop on test.* to user1@localhost;
+GRANT SELECT ON performance_schema.* TO user1@localhost;
+
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+
+#################################################
+### Case 0: show the sql_findings definition
+#################################################
+--echo -> Case 0: show the sql_findings definition
+
+describe performance_schema.sql_findings;
+
+#################################################
+### Case 1: both variables are default (OFF_HARD)
+#################################################
+--echo -> Case 1: sql findings is default (OFF_HARD)
+
+select @@sql_findings_control;
+
+connect (con11, localhost, user1,u1,test);
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+
+create table t1 (c1 char(2) PRIMARY KEY, c2 int unsigned)
+ engine=myisam;
+insert into t1 values('momo', -1);
+
+select * from t1 where c1=1;
+
+## no findings (normally we would see 2)
+--echo -> no findings captured
+select sql_id, code, message, query_text, count from performance_schema.sql_findings;
+
+##################################################
+### Case 2: both parameters are default (ON)
+##################################################
+--echo -> Case 2: sql findings is ON
+
+connect (con21, localhost, user_super,su,test);
+
+set @@GLOBAL.sql_findings_control=ON;
+select @@sql_findings_control;
+
+connect (con22, localhost, user1,u1,test);
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+
+create table t2 (c1 char(2) PRIMARY KEY, c2 int unsigned)
+ engine=myisam;
+--disable_warnings
+insert into t2 values('momo', -1);
+--enable_warnings
+
+## report truncation
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+--disable_warnings
+select * from t2 where c1=1;
+--enable_warnings
+
+## report type mismatch
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+create table t3 (c1 char(2) PRIMARY KEY) collate latin1_danish_ci
+ engine=myisam;
+insert into t3 values('zoro');
+
+## report truncation
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+--disable_warnings
+select * from t3 where c1=2;
+--enable_warnings
+
+## report type mismatch
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+################################
+### Case 3: multi-query scenario
+################################
+--echo -> Case 3: multi-query scenario
+
+connect (con31, localhost, user_super,su,test);
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+
+--disable_warnings
+delimiter ||||;
+
+create table t4(c1 char(2) PRIMARY KEY)
+ engine=myisam;
+insert into t4 values('case3');
+commit;
+select * from t4 where c1=1;
+drop table t4;
+||||
+
+# reset delimiter
+delimiter ;||||
+--enable_warnings
+
+## report findings: truncated, mismatch
+select sql_id, code, message, query_text, count from performance_schema.sql_findings
+order by sql_id, code, query_text;
+
+###########
+### Cleanup
+###########
+--echo -> Cleanup
+
+connection default;
+
+set @@GLOBAL.sql_findings_control=DEFAULT;
+
+drop table t1;
+drop table t2;
+drop table t3;
+drop user user1@localhost;
+drop user user_super@localhost;
+
+disconnect con11;
+
+disconnect con21;
+disconnect con22;
+
+disconnect con31;
+
+# Check that all connections opened by test cases in this file are gone
+--source include/wait_until_count_sessions.inc

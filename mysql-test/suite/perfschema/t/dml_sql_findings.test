@@ -1,0 +1,35 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DMLs on the table sql_findings.
+#
+
+--disable_result_log
+SELECT * FROM performance_schema.sql_findings
+  LIMIT 1;
+--enable_result_log
+
+--error ER_TABLEACCESS_DENIED_ERROR
+INSERT INTO performance_schema.sql_findings
+  VALUES(NOW(), SQL_ID, 123, 10, 10);
+
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.sql_findings
+  SET VALUE=123 WHERE VALUE=2;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.sql_findings
+  WHERE VALUE=2;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.sql_findings;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.sql_findings READ;
+UNLOCK TABLES;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.sql_findings WRITE;
+UNLOCK TABLES;

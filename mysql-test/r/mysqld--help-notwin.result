@@ -2438,6 +2438,15 @@ The following options may be given as the first argument:
  --sporadic-binlog-dump-fail 
  Option used by mysql-test for debugging and testing of
  replication.
+ --sql-findings-control=name 
+ Provides a control to store findings from
+ optimizer/executing SQL statements. This data is exposed
+ through the SQL_FINDINGS table. It accepts the following
+ values: OFF_HARD: Default value. Stop collecting the
+ findings and flush all SQL findings related data from
+ memory. OFF_SOFT: Stop collecting the findings, but
+ retain any data collected so far. ON: Collect the SQL
+ findings.
  --sql-generate-invisible-primary-key 
  When set, if a table is created without a primary key
  then server generates invisible auto-increment column as
@@ -3361,6 +3370,7 @@ slowlog-space-limit 0
 sort-buffer-size 262144
 source-verify-checksum FALSE
 sporadic-binlog-dump-fail FALSE
+sql-findings-control OFF_HARD
 sql-generate-invisible-primary-key FALSE
 sql-log-bin-triggers TRUE
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
