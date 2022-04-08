@@ -13,7 +13,8 @@ call mtr.add_suppression("Failed to initialize TLS for channel: mysql_main");
 CREATE TABLE global_vars (id INT PRIMARY KEY AUTO_INCREMENT, var_name VARCHAR(64), var_value VARCHAR(1024));
 INSERT INTO global_vars (var_name, var_value) SELECT * FROM
 performance_schema.global_variables WHERE variable_name NOT IN
-('innodb_monitor_enable',
+('failure_injection_points',
+'innodb_monitor_enable',
 'innodb_monitor_disable',
 'innodb_monitor_reset',
 'innodb_monitor_reset_all',

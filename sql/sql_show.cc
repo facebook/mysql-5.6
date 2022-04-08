@@ -109,6 +109,7 @@
 #include "sql/enum_query_type.h"
 #include "sql/error_handler.h"  // Internal_error_handler
 #include "sql/events.h"         // Events
+#include "sql/failure_injection.h"  // Failure injection framework
 #include "sql/field.h"          // Field
 #include "sql/handler.h"
 #include "sql/item.h"  // Item_empty_string
@@ -5756,6 +5757,21 @@ int fill_db_applied_hlc(THD *thd, Table_ref *tables, Item *) {
   return 0;
 }
 
+int fill_failure_injection_points(THD *thd, Table_ref *tables, Item *) {
+  auto table = tables->table;
+  auto points = failure_injection.get_current_failure_points();
+
+  for (const auto &point : points) {
+    table->field[0]->store(point.first.c_str(), point.first.length(),
+                           system_charset_info);
+    table->field[1]->store(point.second.c_str(), point.second.length(),
+                           system_charset_info);
+    schema_table_store_record(thd, table);
+  }
+
+  return 0;
+}
+
 ST_FIELD_INFO engines_fields_info[] = {
     {"ENGINE", 64, MYSQL_TYPE_STRING, 0, 0, "Engine", 0},
     {"SUPPORT", 8, MYSQL_TYPE_STRING, 0, 0, "Support", 0},
@@ -5924,6 +5940,11 @@ ST_FIELD_INFO db_applied_hlc_fields_info[] = {
     {"NUM_OUT_OF_ORDER_HLC", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+ST_FIELD_INFO failure_injection_points_fields_info[] = {
+    {"FAILURE_INJECTION_POINT_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {"FAILURE_INJECTION_POINT_VALUE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 #ifdef __linux__
 
 #define LIST_PROCESS_HOST_LEN 64
@@ -6027,6 +6048,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      fill_ac_entities, nullptr, nullptr, false},
     {"ADMISSION_CONTROL_QUEUE", admission_control_queue_fields_info,
      fill_ac_queue, nullptr, nullptr, false},
+    {"FAILURE_INJECTION_POINTS", failure_injection_points_fields_info,
+     fill_failure_injection_points, nullptr, nullptr, false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};
 
 int initialize_schema_table(st_plugin_int *plugin) {

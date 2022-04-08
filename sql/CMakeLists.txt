@@ -379,6 +379,7 @@ SET(SQL_SHARED_SOURCES
   default_values.cc
   derror.cc
   error_handler.cc
+  failure_injection.cc
   field.cc
   field_conv.cc
   filesort.cc

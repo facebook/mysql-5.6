@@ -96,6 +96,7 @@ Database: information_schema
 | ENABLED_ROLES                         |
 | ENGINES                               |
 | EVENTS                                |
+| FAILURE_INJECTION_POINTS              |
 | FILES                                 |
 | INNODB_BUFFER_PAGE                    |
 | INNODB_BUFFER_PAGE_LRU                |
@@ -203,6 +204,7 @@ Database: INFORMATION_SCHEMA
 | ENABLED_ROLES                         |
 | ENGINES                               |
 | EVENTS                                |
+| FAILURE_INJECTION_POINTS              |
 | FILES                                 |
 | INNODB_BUFFER_PAGE                    |
 | INNODB_BUFFER_PAGE_LRU                |

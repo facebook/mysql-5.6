@@ -480,6 +480,10 @@ extern char *opt_applylog_index_name;
 /* What should the server do when trxs fail inside ordered commit */
 extern ulong opt_commit_consensus_error_action;
 
+/* Failure injection related variables */
+extern bool enable_failure_injection;
+extern char *failure_injection_points;
+
 /* Enable query checksum validation for queries with a checksum sent */
 extern bool enable_query_checksum;
 

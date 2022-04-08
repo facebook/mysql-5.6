@@ -1,0 +1,13 @@
+Default value of enable_failure_injection is false
+SELECT @@global.enable_failure_injection;
+@@global.enable_failure_injection
+0
+SELECT @@session.enable_failure_injection;
+ERROR HY000: Variable 'enable_failure_injection' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+enable_failure_injection is a read-only variable
+SET @@global.enable_failure_injection = true;
+ERROR HY000: Variable 'enable_failure_injection' is a read only variable
+SELECT @@global.enable_failure_injection;
+@@global.enable_failure_injection
+0

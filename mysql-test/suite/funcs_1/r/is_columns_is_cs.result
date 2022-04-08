@@ -135,6 +135,8 @@ def	information_schema	EVENTS	ORIGINATOR	21	NULL	NO	int	NULL	NULL	10	0	NULL	NULL
 def	information_schema	EVENTS	CHARACTER_SET_CLIENT	22	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	EVENTS	COLLATION_CONNECTION	23	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	EVENTS	DATABASE_COLLATION	24	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
+def	information_schema	FAILURE_INJECTION_POINTS	FAILURE_INJECTION_POINT_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
+def	information_schema	FAILURE_INJECTION_POINTS	FAILURE_INJECTION_POINT_VALUE	2		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
 def	information_schema	FILES	FILE_ID	1	NULL	YES	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	FILES	FILE_NAME	2	NULL	YES	text	65535	65535	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	text			select			NULL
 def	information_schema	FILES	FILE_TYPE	3	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
@@ -849,6 +851,8 @@ NULL	information_schema	EVENTS	ORIGINATOR	int	NULL	NULL	NULL	NULL	int unsigned
 3.0000	information_schema	EVENTS	CHARACTER_SET_CLIENT	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0000	information_schema	EVENTS	COLLATION_CONNECTION	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0000	information_schema	EVENTS	DATABASE_COLLATION	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(64)
+3.0000	information_schema	FAILURE_INJECTION_POINTS	FAILURE_INJECTION_POINT_NAME	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+3.0000	information_schema	FAILURE_INJECTION_POINTS	FAILURE_INJECTION_POINT_VALUE	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
 NULL	information_schema	FILES	FILE_ID	bigint	NULL	NULL	NULL	NULL	bigint
 1.0000	information_schema	FILES	FILE_NAME	text	65535	65535	utf8mb3	utf8mb3_bin	text
 3.0000	information_schema	FILES	FILE_TYPE	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
