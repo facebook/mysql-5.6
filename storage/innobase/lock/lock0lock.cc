@@ -32,6 +32,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #define LOCK_MODULE_IMPLEMENTATION
 
+#include "sql_class.h"
+
 #include <mysql/service_thd_engine_lock.h>
 #include <sys/types.h>
 
@@ -198,6 +200,11 @@ static bool lock_deadlock_found = false;
 exclusive lock_sys latch */
 static FILE *lock_latest_err_file;
 
+/** Same as lock_latest_err_file but for show_query_digest - we double
+write a digest version of lock_latest_err_file and show one of the two
+based on show_query_digest setting at the time of SHOW ENGINE STATUS */
+static FILE *lock_latest_digest_err_file;
+
 void lock_report_trx_id_insanity(trx_id_t trx_id, const rec_t *rec,
                                  const dict_index_t *index,
                                  const ulint *offsets, trx_id_t next_trx_id) {
@@ -324,6 +331,8 @@ void lock_sys_create(
   if (!srv_read_only_mode) {
     lock_latest_err_file = os_file_create_tmpfile();
     ut_a(lock_latest_err_file);
+    lock_latest_digest_err_file = os_file_create_tmpfile();
+    ut_a(lock_latest_digest_err_file);
   }
 }
 
@@ -380,6 +389,10 @@ void lock_sys_close(void) {
   if (lock_latest_err_file != nullptr) {
     fclose(lock_latest_err_file);
     lock_latest_err_file = nullptr;
+  }
+  if (lock_latest_digest_err_file != NULL) {
+    fclose(lock_latest_digest_err_file);
+    lock_latest_digest_err_file = NULL;
   }
 
   ut::delete_(lock_sys->rec_hash);
@@ -4518,8 +4531,10 @@ static void lock_table_print(FILE *file,         /*!< in: file where to print */
 }
 
 /** Prints info of a record lock. */
-static void lock_rec_print(FILE *file,         /*!< in: file where to print */
-                           const lock_t *lock) /*!< in: record type lock */
+static void lock_rec_print(
+    FILE *file,                /*!< in: file where to print */
+    const lock_t *lock,        /*!< in: record type lock */
+    bool force_digest = false) /*!< in: always show query digest */
 {
   mtr_t mtr;
   Rec_offsets offsets;
@@ -4582,7 +4597,7 @@ static void lock_rec_print(FILE *file,         /*!< in: file where to print */
       rec = page_find_rec_with_heap_no(buf_block_get_frame(block), i);
 
       putc(' ', file);
-      rec_print_new(file, rec, offsets.compute(rec, lock->index));
+      rec_print_new(file, rec, offsets.compute(rec, lock->index), force_digest);
     }
 
     putc('\n', file);
@@ -4634,7 +4649,17 @@ void lock_print_info_summary(FILE *file) {
         file);
 
     if (!srv_read_only_mode) {
-      ut_copy_file(file, lock_latest_err_file);
+      THD *this_thd = current_thd;
+
+      bool show_query_digest =
+          this_thd ? this_thd->variables.show_query_digest : false;
+      if (show_query_digest) {
+        /* hand out the error file with digest only */
+        ut_copy_file(file, lock_latest_digest_err_file);
+      } else {
+        /* hand out the error file with full query */
+        ut_copy_file(file, lock_latest_err_file);
+      }
     }
   }
 
@@ -6319,7 +6344,9 @@ void Deadlock_notifier::start_print() {
   srv_lock_deadlocks++;
 
   rewind(lock_latest_err_file);
+  rewind(lock_latest_digest_err_file);
   ut_print_timestamp(lock_latest_err_file);
+  ut_print_timestamp(lock_latest_digest_err_file);
 
   if (srv_print_all_deadlocks) {
     ib::info(ER_IB_MSG_643) << "Transactions deadlock detected, dumping"
@@ -6334,6 +6361,7 @@ void Deadlock_notifier::print(const char *msg) {
   lock_sys */
   ut_ad(locksys::owns_exclusive_global_latch());
   fputs(msg, lock_latest_err_file);
+  fputs(msg, lock_latest_digest_err_file);
 
   if (srv_print_all_deadlocks) {
     ib::info(ER_IB_MSG_644) << msg;
@@ -6361,6 +6389,9 @@ void Deadlock_notifier::print(const trx_t *trx, ulint max_query_len) {
 
   trx_print_low(lock_latest_err_file, trx, max_query_len, n_rec_locks,
                 n_trx_locks, heap_size);
+  trx_print_low(lock_latest_digest_err_file, trx, max_query_len, n_rec_locks,
+                n_trx_locks, heap_size,
+                /* force_digest = */ true);
 
   if (srv_print_all_deadlocks) {
     trx_print_low(stderr, trx, max_query_len, n_rec_locks, n_trx_locks,
@@ -6379,12 +6410,14 @@ void Deadlock_notifier::print(const lock_t *lock) {
 
   if (lock_get_type_low(lock) == LOCK_REC) {
     lock_rec_print(lock_latest_err_file, lock);
-
+    lock_rec_print(lock_latest_digest_err_file, lock,
+                   /* force_digest = */ true);
     if (srv_print_all_deadlocks) {
       lock_rec_print(stderr, lock);
     }
   } else {
     lock_table_print(lock_latest_err_file, lock);
+    lock_table_print(lock_latest_digest_err_file, lock);
 
     if (srv_print_all_deadlocks) {
       lock_table_print(stderr, lock);

@@ -1,5 +1,3 @@
-SET @show_query_digest_save = @@show_query_digest;
-SET show_query_digest=1;
 CREATE TABLE t1 (pk int primary key, a int, b int, c int) ENGINE=ROCKSDB;;
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -11,6 +9,9 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`pk`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 INSERT INTO t1 values (1, 1, 1, 1), (2, 2, 2, 2), (3, 3, 3, 3);
+SET global rocksdb_lock_wait_timeout = 500;
+SET @show_query_digest_save = @@show_query_digest;
+SET show_query_digest=1;
 START TRANSACTION;
 SELECT * FROM t1 WHERE pk=3 FOR UPDATE;
 pk	a	b	c
@@ -35,5 +36,6 @@ SELECT ? + ?, ... , `a` , `b` , `c` FROM `t1` WHERE `PK` = ? FOR UPDATE
 COMMIT;
 1+2	abc	a	b	c
 3	abc	3	3	3
+SET global rocksdb_lock_wait_timeout = default;
 DROP TABLE t1;
 SET show_query_digest=@show_query_digest_save;
