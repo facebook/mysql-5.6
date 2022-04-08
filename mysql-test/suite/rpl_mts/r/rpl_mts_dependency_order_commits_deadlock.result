@@ -4,11 +4,19 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 call mtr.add_suppression("Commit order deadlock between");
+call mtr.add_suppression("Commit order deadlock found");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+call mtr.add_suppression("Slave SQL .*Deadlock found when trying to get lock; try restarting transaction.*");
 create table t1 (a int primary key, b int) engine = innodb;
-insert into t1 values(3, 3);
 include/sync_slave_sql_with_master.inc
 stop replica;
 set @@global.debug = "+d,dbug.dep_fake_gap_lock_on_insert";
+SELECT VARIABLE_VALUE INTO @orig_deadlocks FROM performance_schema.global_status WHERE VARIABLE_NAME = 'Slave_commit_order_deadlocks';
+start replica;
+"Case 1: Commit order deadlock when waiting for commit order"
+insert into t1 values(3, 3);
+include/sync_slave_sql_with_master.inc
+stop replica;
 begin;
 insert into t1 values(1, 1);
 insert into t1 values(1, 1);
@@ -25,9 +33,61 @@ a	b
 1	1
 2	200
 3	300
+delete from t1;
+include/sync_slave_sql_with_master.inc
+"Case 2: Commit order deadlock when waiting for dependencies"
+insert into t1 values(3, 3);
+include/sync_slave_sql_with_master.inc
 stop replica;
-set @@global.debug = "-d,dbug.dep_fake_gap_lock_on_insert";
+begin;
+insert into t1 values(1, 1);
+insert into t1 values(1, 1);
+begin;
+insert into t1 values(2, 2);
+update t1 set b = 10 where a = 1;
+commit;
+update t1 set b = 20 where a = 2;
+update t1 set b = 200 where a = 2;
+update t1 set b = 30 where a = 3;
+update t1 set b = 300 where a = 3;
+start slave;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+rollback;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b
+1	10
+2	200
+3	300
+delete from t1;
+include/sync_slave_sql_with_master.inc
+"Case 3: Secondary stops when retries are exhausted"
+set @save.replica_transaction_retries= @@global.replica_transaction_retries;
+set @@global.replica_transaction_retries= 0;
+insert into t1 values(3, 3);
+include/sync_slave_sql_with_master.inc
+stop replica;
+begin;
+insert into t1 values(1, 1);
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+update t1 set b = 20 where a = 2;
+update t1 set b = 200 where a = 2;
+update t1 set b = 30 where a = 3;
+update t1 set b = 300 where a = 3;
 start replica;
+rollback;
+include/wait_for_slave_sql_error.inc [errno=1213]
+set @@global.debug = "-d,dbug.dep_fake_gap_lock_on_insert";
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b
+1	1
+2	200
+3	300
+set @@global.replica_transaction_retries= @save.replica_transaction_retries;
 drop table t1;
 include/sync_slave_sql_with_master.inc
 include/rpl_end.inc

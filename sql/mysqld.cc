@@ -1488,6 +1488,7 @@ ulonglong opt_mts_dependency_max_keys;
 uint replica_rows_last_search_algorithm_used;
 #endif
 ulong opt_mts_dependency_order_commits;
+ulonglong opt_mts_dependency_cond_wait_timeout;
 ulong mts_parallel_option;
 ulonglong binlog_bytes_written = 0;
 ulong binlog_cache_size = 0;

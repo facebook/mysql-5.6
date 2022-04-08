@@ -971,6 +971,9 @@ The following options may be given as the first argument:
  minimum_hlc_ns is successfully updated is guranteed to be
  greater than this value. The maximum allowed drift 
  (forward) is controlled by maximum_hlc_drift_ns
+ --mts-dependency-cond-wait-timeout[=#] 
+ Timeout for all conditional waits in dependency repl in
+ milliseconds
  --mts-dependency-max-keys[=#] 
  Max number of keys in a transaction after which it will
  be executed in isolation. This limits the amount of
@@ -3067,6 +3070,7 @@ maximum-hlc-drift-ns 300000000000
 memlock FALSE
 min-examined-row-limit 0
 minimum-hlc-ns 0
+mts-dependency-cond-wait-timeout 5000
 mts-dependency-max-keys 100000
 mts-dependency-order-commits DB
 mts-dependency-refill-threshold 60

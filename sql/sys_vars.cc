@@ -7179,6 +7179,12 @@ static Sys_var_enum Sys_mts_dependency_order_commits(
     GLOBAL_VAR(opt_mts_dependency_order_commits), CMD_LINE(OPT_ARG),
     commit_order_type_names, DEFAULT(DEP_RPL_ORDER_DB));
 
+static Sys_var_ulonglong Sys_mts_dependency_cond_wait_timeout(
+    "mts_dependency_cond_wait_timeout",
+    "Timeout for all conditional waits in dependency repl in milliseconds",
+    GLOBAL_VAR(opt_mts_dependency_cond_wait_timeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(5000), BLOCK_SIZE(1));
+
 static Sys_var_ulonglong Sys_replica_pending_jobs_size_max(
     "replica_pending_jobs_size_max",
     "Soft limit on the size, in bytes, of per-worker queues of events that "
