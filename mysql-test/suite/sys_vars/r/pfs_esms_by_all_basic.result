@@ -1,0 +1,85 @@
+SET @start_value = @@global.performance_schema_esms_by_all;
+SELECT @start_value;
+@start_value
+0
+SET @@global.performance_schema_esms_by_all = DEFAULT;
+SELECT @@global.performance_schema_esms_by_all = TRUE;
+@@global.performance_schema_esms_by_all = TRUE
+0
+SET @@global.performance_schema_esms_by_all = ON;
+SELECT @@global.performance_schema_esms_by_all;
+@@global.performance_schema_esms_by_all
+1
+SET @@global.performance_schema_esms_by_all = OFF;
+SELECT @@global.performance_schema_esms_by_all;
+@@global.performance_schema_esms_by_all
+0
+SET @@global.performance_schema_esms_by_all = 2;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of '2'
+SET @@global.performance_schema_esms_by_all = -1;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of '-1'
+SET @@global.performance_schema_esms_by_all = TRUEF;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of 'TRUEF'
+SET @@global.performance_schema_esms_by_all = TRUE_F;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of 'TRUE_F'
+SET @@global.performance_schema_esms_by_all = FALSE0;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of 'FALSE0'
+SET @@global.performance_schema_esms_by_all = OON;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of 'OON'
+SET @@global.performance_schema_esms_by_all = ONN;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of 'ONN'
+SET @@global.performance_schema_esms_by_all = OOFF;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of 'OOFF'
+SET @@global.performance_schema_esms_by_all = 0FF;
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of '0FF'
+SET @@global.performance_schema_esms_by_all = ' ';
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of ' '
+SET @@global.performance_schema_esms_by_all = " ";
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of ' '
+SET @@global.performance_schema_esms_by_all = '';
+ERROR 42000: Variable 'performance_schema_esms_by_all' can't be set to the value of ''
+SET @@session.performance_schema_esms_by_all = OFF;
+ERROR HY000: Variable 'performance_schema_esms_by_all' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.performance_schema_esms_by_all;
+ERROR HY000: Variable 'performance_schema_esms_by_all' is a GLOBAL variable
+SELECT IF(@@global.performance_schema_esms_by_all, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='performance_schema_esms_by_all';
+IF(@@global.performance_schema_esms_by_all, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.performance_schema_esms_by_all = 0;
+SELECT @@global.performance_schema_esms_by_all;
+@@global.performance_schema_esms_by_all
+0
+SET @@global.performance_schema_esms_by_all = 1;
+SELECT @@global.performance_schema_esms_by_all;
+@@global.performance_schema_esms_by_all
+1
+SET @@global.performance_schema_esms_by_all = TRUE;
+SELECT @@global.performance_schema_esms_by_all;
+@@global.performance_schema_esms_by_all
+1
+SET @@global.performance_schema_esms_by_all = FALSE;
+SELECT @@global.performance_schema_esms_by_all;
+@@global.performance_schema_esms_by_all
+0
+SET @@global.performance_schema_esms_by_all = ON;
+SELECT @@performance_schema_esms_by_all = @@global.performance_schema_esms_by_all;
+@@performance_schema_esms_by_all = @@global.performance_schema_esms_by_all
+1
+SET performance_schema_esms_by_all = ON;
+ERROR HY000: Variable 'performance_schema_esms_by_all' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.performance_schema_esms_by_all = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.performance_schema_esms_by_all = OFF' at line 1
+SELECT local.performance_schema_esms_by_all;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.performance_schema_esms_by_all = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.performance_schema_esms_by_all = ON' at line 1
+SELECT global.performance_schema_esms_by_all;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT performance_schema_esms_by_all = @@session.performance_schema_esms_by_all;
+ERROR HY000: Variable 'performance_schema_esms_by_all' is a GLOBAL variable
+SET @@global.performance_schema_esms_by_all = @start_value;
+SELECT @@global.performance_schema_esms_by_all;
+@@global.performance_schema_esms_by_all
+0

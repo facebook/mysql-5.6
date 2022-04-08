@@ -243,7 +243,9 @@ static LF_PINS *get_digest_hash_pins(PFS_thread *thread) {
 
 PFS_statements_digest_stat *find_or_create_digest(
     PFS_thread *thread, const sql_digest_storage *digest_storage,
-    const char *schema_name, uint schema_name_length) {
+    const char *schema_name, uint schema_name_length,
+    const uchar *client_id MY_ATTRIBUTE((unused)),
+    const uchar *plan_id MY_ATTRIBUTE((unused))) {
   assert(digest_storage != nullptr);
 
   if (statements_digest_stat_array == nullptr) {
@@ -260,10 +262,20 @@ PFS_statements_digest_stat *find_or_create_digest(
   }
 
   PFS_digest_key hash_key;
+  hash_key.reset();
   /* Copy digest hash of the tokens received. */
   memcpy(&hash_key.m_hash, digest_storage->m_hash, DIGEST_HASH_SIZE);
   /* Add the current schema to the key */
   hash_key.m_schema_name.set(schema_name, schema_name_length);
+
+  if (pfs_param.m_esms_by_all_enabled) {
+    /* Add the current username to the key */
+    hash_key.m_user_name_length = thread->m_user_name.length();
+    if (thread->m_user_name.length() > 0) {
+      memcpy(hash_key.m_user_name, thread->m_user_name.ptr(),
+             thread->m_user_name.length());
+    }
+  }
 
   int res;
   uint retry_count = 0;

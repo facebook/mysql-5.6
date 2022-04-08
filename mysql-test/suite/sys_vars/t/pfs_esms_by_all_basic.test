@@ -1,0 +1,78 @@
+SET @start_value = @@global.performance_schema_esms_by_all;
+SELECT @start_value;
+
+
+SET @@global.performance_schema_esms_by_all = DEFAULT;
+SELECT @@global.performance_schema_esms_by_all = TRUE;
+
+
+SET @@global.performance_schema_esms_by_all = ON;
+SELECT @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = OFF;
+SELECT @@global.performance_schema_esms_by_all;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.performance_schema_esms_by_all = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.performance_schema_esms_by_all = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.performance_schema_esms_by_all;
+
+
+SELECT IF(@@global.performance_schema_esms_by_all, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='performance_schema_esms_by_all';
+
+
+SET @@global.performance_schema_esms_by_all = 0;
+SELECT @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = 1;
+SELECT @@global.performance_schema_esms_by_all;
+
+SET @@global.performance_schema_esms_by_all = TRUE;
+SELECT @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = FALSE;
+SELECT @@global.performance_schema_esms_by_all;
+
+SET @@global.performance_schema_esms_by_all = ON;
+SELECT @@performance_schema_esms_by_all = @@global.performance_schema_esms_by_all;
+
+--Error ER_GLOBAL_VARIABLE
+SET performance_schema_esms_by_all = ON;
+--Error ER_PARSE_ERROR
+SET local.performance_schema_esms_by_all = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.performance_schema_esms_by_all;
+--Error ER_PARSE_ERROR
+SET global.performance_schema_esms_by_all = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.performance_schema_esms_by_all;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT performance_schema_esms_by_all = @@session.performance_schema_esms_by_all;
+
+SET @@global.performance_schema_esms_by_all = @start_value;
+SELECT @@global.performance_schema_esms_by_all;

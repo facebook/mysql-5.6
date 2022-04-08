@@ -71,6 +71,7 @@
 #include "storage/perfschema/table_esmh_by_digest.h"
 #include "storage/perfschema/table_esmh_global.h"
 #include "storage/perfschema/table_esms_by_account_by_event_name.h"
+#include "storage/perfschema/table_esms_by_all.h"
 #include "storage/perfschema/table_esms_by_digest.h"
 #include "storage/perfschema/table_esms_by_host_by_event_name.h"
 #include "storage/perfschema/table_esms_by_program.h"
@@ -530,6 +531,7 @@ static PFS_engine_table_share *all_shares[] = {
     &table_esms_by_host_by_event_name::m_share,
     &table_esms_global_by_event_name::m_share,
     &table_esms_by_digest::m_share,
+    &table_esms_by_all::m_share,
     &table_esms_by_program::m_share,
     &table_esmh_global::m_share,
     &table_esmh_by_digest::m_share,

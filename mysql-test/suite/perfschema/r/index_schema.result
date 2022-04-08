@@ -38,6 +38,7 @@ events_statements_histogram_by_digest	0	performance_schema	SCHEMA_NAME	HASH
 events_statements_histogram_global	0	performance_schema	PRIMARY	HASH	
 events_statements_history	0	performance_schema	PRIMARY	HASH	
 events_statements_summary_by_account_by_event_name	0	performance_schema	ACCOUNT	HASH	
+events_statements_summary_by_all	0	performance_schema	SCHEMA_NAME	HASH	
 events_statements_summary_by_digest	0	performance_schema	SCHEMA_NAME	HASH	
 events_statements_summary_by_host_by_event_name	0	performance_schema	HOST	HASH	
 events_statements_summary_by_program	0	performance_schema	PRIMARY	HASH	
@@ -212,6 +213,10 @@ events_statements_history	0	performance_schema	PRIMARY	2	EVENT_ID	NULL
 events_statements_summary_by_account_by_event_name	0	performance_schema	ACCOUNT	1	USER	NULL	YES
 events_statements_summary_by_account_by_event_name	0	performance_schema	ACCOUNT	2	HOST	NULL	YES
 events_statements_summary_by_account_by_event_name	0	performance_schema	ACCOUNT	3	EVENT_NAME	NULL	
+events_statements_summary_by_all	0	performance_schema	SCHEMA_NAME	1	SCHEMA_NAME	NULL	YES
+events_statements_summary_by_all	0	performance_schema	SCHEMA_NAME	2	DIGEST	NULL	YES
+events_statements_summary_by_all	0	performance_schema	SCHEMA_NAME	3	USER	NULL	YES
+events_statements_summary_by_all	0	performance_schema	SCHEMA_NAME	4	CLIENT_ID	NULL	YES
 events_statements_summary_by_digest	0	performance_schema	SCHEMA_NAME	1	SCHEMA_NAME	NULL	YES
 events_statements_summary_by_digest	0	performance_schema	SCHEMA_NAME	2	DIGEST	NULL	YES
 events_statements_summary_by_host_by_event_name	0	performance_schema	HOST	1	HOST	NULL	YES

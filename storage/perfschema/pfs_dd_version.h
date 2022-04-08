@@ -249,25 +249,28 @@
   table_users
   table_variables_info
 
-  80028-003:
+  80032-003:
   performance_schema tables changed:
   - table_statistics_per_table added.
 
-  80028-004:
+  80032-004:
   performance_schema tables changed:
   - added table for queries_used and queries_empty
 
-  80028-005:
+  80032-005:
   - add new columns below into table_statistics_per_table:
     IO_WRITE_BYTES
     IO_WRITE_REQUESTS
     IO_READ_BYTES
     IO_READ_REQUESTS
 
+  80032-006
+  - add events_statements_summary_by_all table
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80032-005. i.e. 8.0.32 Facebook schema change no. 5.
+  Version published is now 80032-006. i.e. 8.0.32 Facebook schema change no. 6.
 */
 
-static const uint PFS_DD_VERSION = 80032005;
+static const uint PFS_DD_VERSION = 80032006;
 
 #endif /* PFS_DD_VERSION_H */

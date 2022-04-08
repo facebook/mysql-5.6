@@ -133,6 +133,9 @@ struct PFS_global_param {
   /** True if SHOW PROCESSLIST is enabeld in the performance schema. */
   bool m_processlist_enabled;
 
+  /** True if esms_by_all table is enabled. */
+  bool m_esms_by_all_enabled;
+
   /** Default instrument configuration option. */
   char *m_pfs_instrument;
 
