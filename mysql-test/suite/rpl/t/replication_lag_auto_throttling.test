@@ -10,7 +10,7 @@ source include/have_debug_sync.inc;
 
 ### Setup
 
-set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=1;
 
 connection slave;
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
@@ -781,7 +781,7 @@ SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="OFF";
 
 connection master;
 set @@global.debug= '+d,dbug.skip_last_complete_bucket_check';
-set @@global.debug= '+d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=1;
 select @@GLOBAL.WRITE_STATS_FREQUENCY into @ws_freq;
 select @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY into @wat_freq;
 
@@ -851,7 +851,7 @@ SET @@GLOBAL.WRITE_CONTROL_LEVEL=OFF;
 SET @@GLOBAL.WRITE_THROTTLE_PERMISSIBLE_DIMENSIONS_IN_ORDER="OFF";
 
 set @@global.debug= '-d,dbug.skip_last_complete_bucket_check';
-set @@global.debug= '-d,dbug.skip_write_throttle_super_check';
+SET @@GLOBAL.bypass_write_throttle_admin_check=0;
 
 --source include/rpl_end.inc
 --enable_warnings

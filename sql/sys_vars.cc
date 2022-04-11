@@ -9830,6 +9830,13 @@ static Sys_var_bool Sys_enable_deprecation_warning(
     "If set to false, will not show deprecation warnings ",
     GLOBAL_VAR(enable_deprecation_warning), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_bypass_write_throttle_admin_check(
+    "bypass_write_throttle_admin_check",
+    "Bypass the check to avoid throttling write queries from admin users "
+    "to prevent replication lag",
+    GLOBAL_VAR(bypass_write_throttle_admin_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static Sys_var_bool Sys_raft_high_priority_read_only(
     "raft_high_priority_read_only",
     "Set high_priority_ddl and kill_conflicting_connections before set "
