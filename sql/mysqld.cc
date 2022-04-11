@@ -1549,6 +1549,9 @@ uint write_cpu_limit_milliseconds;
  */
 uint write_time_check_batch;
 
+/* Controls whether write queries from admin users are throttled to avoid
+ * replication lag */
+bool bypass_write_throttle_admin_check;
 /* Controls num most recent data points to collect for
  * information_schema.write_statistics */
 uint write_stats_count;
