@@ -117,7 +117,10 @@ bool Commit_order_manager::wait_on_graph(Slave_worker *worker) {
         /* purecov: end */
       case MDL_wait::TIMEOUT:
         /* purecov: begin inspected */
-        my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+        char err_msg[100];
+        sprintf(err_msg, "Worker %lu timed out while waiting for commit order",
+                worker->id);
+        my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), err_msg);
         break;
         /* purecov: end */
       case MDL_wait::KILLED:
