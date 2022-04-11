@@ -1,0 +1,35 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DMLs on the table column_statistics.
+#
+
+--disable_result_log
+SELECT * FROM performance_schema.column_statistics
+  LIMIT 1;
+--enable_result_log
+
+--error ER_TABLEACCESS_DENIED_ERROR
+INSERT INTO performance_schema.column_statistics
+  VALUES('sql_id1', 'db_name', 'tab_name', 'col1', 'FILTER', 'EQUAL');
+
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.column_statistics
+  SET TABLE_NAME='new_table' WHERE TABLE_NAME='tab1';
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.column_statistics
+  WHERE SQL_ID='12';
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.column_statistics;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.column_statistics READ;
+UNLOCK TABLES;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.column_statistics WRITE;
+UNLOCK TABLES;

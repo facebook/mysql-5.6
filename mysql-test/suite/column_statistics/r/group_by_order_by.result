@@ -1,0 +1,54 @@
+DROP TABLE IF EXISTS tbl1;
+DROP DATABASE IF EXISTS cus_test;
+CREATE DATABASE cus_test;
+USE cus_test;
+CREATE TABLE tbl1 (
+col1 INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+col2 INT(6) NOT NULL,
+col3 INT(6) NOT NULL,
+col4 INT(6) NOT NULL
+);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO tbl1 (col2, col3, col4) VALUES (2,3,4);
+INSERT INTO tbl1 (col2, col3, col4) VALUES (3,4,5);
+INSERT INTO tbl1 (col2, col3, col4) VALUES (4,5,6);
+SET GLOBAL column_stats_control = ON;
+SELECT col1, col3, SUM(col2) AS s FROM tbl1 WHERE col2 >= 3 GROUP BY col1, col3;
+col1	col3	s
+2	4	3
+3	5	4
+SELECT col4, SUM(col2) AS s FROM tbl1 WHERE col2 >= 3 GROUP BY col4;
+col4	s
+5	3
+6	4
+SELECT col3, SUM(col2) AS s FROM tbl1 WHERE col1 >= 1 GROUP BY col3 HAVING s > 4;
+col3	s
+SELECT col4, SUM(col2) AS s FROM tbl1 WHERE col2 >= 3 GROUP BY col5;
+ERROR 42S22: Unknown column 'col5' in 'group statement'
+SELECT col1, col2 FROM tbl1 WHERE col4 > 1 AND col3 IN (1,2,3) ORDER BY col1 ASC, col2 DESC;
+col1	col2
+1	2
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+COUNT(DISTINCT SQL_ID)
+4
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics;
+SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
+433eb7ac6b3f4f469fb273d07e0cd016	cus_test	tbl1	col1	ORDER_BY	SORT_ASCENDING
+433eb7ac6b3f4f469fb273d07e0cd016	cus_test	tbl1	col2	ORDER_BY	SORT_DESCENDING
+433eb7ac6b3f4f469fb273d07e0cd016	cus_test	tbl1	col3	FILTER	SET_MEMBERSHIP
+433eb7ac6b3f4f469fb273d07e0cd016	cus_test	tbl1	col4	FILTER	GREATER_THAN
+84b42f69c672164b61edb15a1a53628d	cus_test	tbl1	col1	FILTER	GREATER_THAN_EQUAL
+84b42f69c672164b61edb15a1a53628d	cus_test	tbl1	col3	GROUP_BY	UNKNOWN_OPERATOR
+b0f38b50a030b3d0054a6632ee76bf4c	cus_test	tbl1	col2	FILTER	GREATER_THAN_EQUAL
+b0f38b50a030b3d0054a6632ee76bf4c	cus_test	tbl1	col4	GROUP_BY	UNKNOWN_OPERATOR
+ed856b9d9cb5e6bd64f3e8762841999e	cus_test	tbl1	col1	GROUP_BY	UNKNOWN_OPERATOR
+ed856b9d9cb5e6bd64f3e8762841999e	cus_test	tbl1	col2	FILTER	GREATER_THAN_EQUAL
+ed856b9d9cb5e6bd64f3e8762841999e	cus_test	tbl1	col3	GROUP_BY	UNKNOWN_OPERATOR
+set global column_stats_control = OFF_HARD;
+DROP TABLE tbl1;
+DROP DATABASE cus_test;

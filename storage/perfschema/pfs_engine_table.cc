@@ -55,6 +55,7 @@
 #include "storage/perfschema/pfs_column_values.h"
 #include "storage/perfschema/table_accounts.h"
 #include "storage/perfschema/table_binary_log_transaction_compression_stats.h"
+#include "storage/perfschema/table_column_statistics.h"
 #include "storage/perfschema/table_data_lock_waits.h"
 #include "storage/perfschema/table_data_locks.h"
 #include "storage/perfschema/table_ees_by_account_by_error.h"
@@ -488,6 +489,7 @@
 */
 
 static PFS_engine_table_share *all_shares[] = {
+    &table_column_statistics::m_share,
     &table_cond_instances::m_share,
     &table_error_log::m_share,
     &table_events_waits_current::m_share,

@@ -6,6 +6,7 @@ WHERE TABLE_SCHEMA = 'performance_schema'
   AND COLUMN_NAME LIKE '%SCHEMA%'
   ORDER BY TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	COLLATION_NAME
+performance_schema	column_statistics	TABLE_SCHEMA	utf8mb4_0900_ai_ci
 performance_schema	data_locks	OBJECT_SCHEMA	utf8mb4_0900_ai_ci
 performance_schema	events_statements_current	CURRENT_SCHEMA	utf8mb4_0900_ai_ci
 performance_schema	events_statements_current	OBJECT_SCHEMA	utf8mb4_0900_ai_ci
@@ -58,6 +59,7 @@ WHERE TABLE_SCHEMA = 'performance_schema'
   AND COLUMN_NAME LIKE '%COLUMN%'
   ORDER BY TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	COLLATION_NAME
+performance_schema	column_statistics	COLUMN_NAME	utf8mb4_0900_ai_ci
 performance_schema	metadata_locks	COLUMN_NAME	utf8mb4_0900_ai_ci
 TRUNCATE TABLE performance_schema.events_waits_history_long;
 TRUNCATE TABLE performance_schema.events_statements_history_long;

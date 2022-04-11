@@ -1,0 +1,52 @@
+DROP TABLE IF EXISTS tbl1;
+DROP TABLE IF EXISTS tbl2;
+DROP DATABASE IF EXISTS cus_test;
+CREATE DATABASE cus_test;
+USE cus_test;
+CREATE TABLE tbl1 (
+id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+data VARCHAR(64) DEFAULT NULL,
+ts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+PRIMARY KEY (id)
+);
+INSERT INTO tbl1 VALUES (1, 'Old', '2020-08-20 18:47:00');
+CREATE TABLE tbl2 (
+id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+data VARCHAR(64) DEFAULT NULL,
+ts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+PRIMARY KEY (id, ts)
+);
+INSERT INTO tbl2 VALUES (1, 'Old', '2020-08-20 18:47:00');
+INSERT INTO tbl2 VALUES (1, 'New', '2020-08-20 18:47:42');
+CREATE TABLE tbl3 (
+col3_1 INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+col3_2 INT(6) NOT NULL,
+col3_3 INT(6) NOT NULL);
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO tbl3 (col3_2, col3_3) VALUES (2, 83);
+INSERT INTO tbl3 (col3_2, col3_3) VALUES (3, 84);
+INSERT INTO tbl3 (col3_2, col3_3) VALUES (4, 85);
+set global column_stats_control = ON;
+REPLACE INTO tbl1 (id, data, ts)
+SELECT id, data, ts
+FROM tbl2 WHERE data = 'New';
+REPLACE INTO tbl1 (id, data, ts)
+SELECT id, data, ts
+FROM tbl2 STRAIGHT_JOIN tbl3 ON tbl2.id = tbl3.col3_1 WHERE data = 'New';
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+COUNT(DISTINCT SQL_ID)
+2
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics;
+SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
+28c83e434dbc18a0d73ab24acf050840	cus_test	tbl2	data	FILTER	EQUAL
+80622c192f790c3c4d19737955f5e7b0	cus_test	tbl2	data	FILTER	EQUAL
+80622c192f790c3c4d19737955f5e7b0	cus_test	tbl2	id	FILTER	EQUAL
+80622c192f790c3c4d19737955f5e7b0	cus_test	tbl3	col3_1	FILTER	EQUAL
+set global column_stats_control = OFF_HARD;
+DROP TABLE tbl1;
+DROP TABLE tbl2;
+DROP DATABASE cus_test;

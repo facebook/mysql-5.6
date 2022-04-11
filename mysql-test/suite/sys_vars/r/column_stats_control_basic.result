@@ -1,0 +1,18 @@
+SET @@global.column_stats_control = "on";
+SET @@global.column_stats_control = DEFAULT;
+SELECT @@global.column_stats_control;
+@@global.column_stats_control
+OFF_HARD
+SET @@global.column_stats_control = "off_hard";
+SELECT @@global.column_stats_control;
+@@global.column_stats_control
+OFF_HARD
+SET @@global.column_stats_control = "off_soft";
+SELECT @@global.column_stats_control;
+@@global.column_stats_control
+OFF_SOFT
+SET @@global.column_stats_control = "on";
+SELECT @@global.column_stats_control;
+@@global.column_stats_control
+ON
+SET @@global.column_stats_control = "off_hard";

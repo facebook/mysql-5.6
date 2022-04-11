@@ -35,8 +35,8 @@ select type, value, write_data_bytes from performance_schema.write_statistics wh
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	108
 SHARD	test	108
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3	72
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4	36
+SQL_ID	34e88a1155b13f86bcea1673de80d26b	36
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed	72
 USER	root	108
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 ####### Next Cycle #######
@@ -62,7 +62,7 @@ sleep(@wat_freq)
 insert into t values(2);
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed
 select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
 50092	ER_WRITE_QUERY_THROTTLED	1
@@ -121,10 +121,10 @@ select type, value, write_data_bytes from performance_schema.write_statistics wh
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
 SHARD	test	144
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	36
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	36
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
 USER	root	144
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The system should identity shard 'test' as the culprit since there is no conclusive sql_id culprit. Should start monitoring 'test' shard ###
@@ -197,10 +197,10 @@ select type, value, write_data_bytes from performance_schema.write_statistics wh
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	185
 SHARD	test	185
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	41
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	72
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	72
+SQL_ID	f66df89c2ca4535043dda3710def2e92	41
 USER	root	185
 set @@global.debug= '+d,dbug.simulate_fallback_sql_throttling';
 ####### Next Cycle #######
@@ -217,8 +217,8 @@ select type, value, write_data_bytes from performance_schema.write_statistics wh
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	113
 SHARD	test	113
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	41
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	72
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	72
+SQL_ID	f66df89c2ca4535043dda3710def2e92	41
 USER	root	113
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
@@ -233,7 +233,7 @@ sleep(@wat_freq)
 insert into test.t values(2);
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc
 select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
 50092	ER_WRITE_QUERY_THROTTLED	1
@@ -280,9 +280,9 @@ select type, value, write_data_bytes from performance_schema.write_statistics wh
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	300
 SHARD	test	300
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3	144
-SQL_ID	964a3aed67b79c1fd0187e3d6606282308d01d46f6f0f699bdfe848369f85757	84
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4	72
+SQL_ID	34e88a1155b13f86bcea1673de80d26b	72
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed	144
+SQL_ID	f372f24930380909c6e290eebc8adeaa	84
 USER	root	300
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 ####### Next Cycle #######
@@ -298,7 +298,7 @@ delete from t where a = 2;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed
 select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
 50092	ER_WRITE_QUERY_THROTTLED	1
@@ -313,8 +313,8 @@ delete from t where a = 4;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3
+SQL_ID	34e88a1155b13f86bcea1673de80d26b
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed
 select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
 50092	ER_WRITE_QUERY_THROTTLED	3
@@ -331,7 +331,7 @@ delete from t where a = 3;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4
+SQL_ID	34e88a1155b13f86bcea1673de80d26b
 select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
 50092	ER_WRITE_QUERY_THROTTLED	4
@@ -382,8 +382,8 @@ select type, value, write_data_bytes from performance_schema.write_statistics wh
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	324
 SHARD	test	324
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3	252
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4	72
+SQL_ID	34e88a1155b13f86bcea1673de80d26b	72
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed	252
 USER	root	324
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The system should identify insert query sql_id as the culprit and start monitoring it. ###
@@ -403,8 +403,8 @@ select type, value, write_data_bytes from performance_schema.write_statistics wh
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
 SHARD	test	144
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3	36
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4	108
+SQL_ID	34e88a1155b13f86bcea1673de80d26b	108
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed	36
 USER	root	144
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists but in the last cycle the system should identify delete query as the culprit and update the sql_id to be monitored. Should not throttle it yet. ###
@@ -423,8 +423,8 @@ select type, value, write_data_bytes from performance_schema.write_statistics wh
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	149
 SHARD	test	149
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3	36
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4	113
+SQL_ID	34e88a1155b13f86bcea1673de80d26b	113
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed	36
 USER	root	149
 select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
@@ -440,13 +440,13 @@ delete from t where a = 1;
 set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
 type	value
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4
+SQL_ID	34e88a1155b13f86bcea1673de80d26b
 select type, value, write_data_bytes from performance_schema.write_statistics where timestamp = (select max(timestamp) from performance_schema.write_statistics) order by type, value;
 type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	72
 SHARD	test	72
-SQL_ID	1df4de2a8dd27d161264765258e6603b64e3c91210f21de1c8dfea72966479b3	36
-SQL_ID	c83a90a83d28399b1960356de86ac91583d8173e49826fdf93cf04bfb7db7ea4	36
+SQL_ID	34e88a1155b13f86bcea1673de80d26b	36
+SQL_ID	dcb74d0d1e8cc1aabcaec0ada2bc5aed	36
 USER	root	72
 select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
 error_number	error_name	SUM_ERROR_RAISED
@@ -477,10 +477,10 @@ type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
 SHARD	test	72
 SHARD	test1	72
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	36
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	36
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
 USER	root	144
 ####### Next Cycle #######
 ### Expectation - There is replication lag. Based on the write stats, there is no clear sql_id or shard as the culprit. Should identify client_id as the culprit and throttle it. ###
@@ -530,10 +530,10 @@ type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
 SHARD	test	72
 SHARD	test1	72
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	36
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	36
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
 USER	root	144
 ####### Next Cycle #######
 ### Expectation - There is replication lag but WRITE_AUTO_THROTTLE_FREQUENCY is set to 0. The system should not throttle any entity. No warnings ###
@@ -583,10 +583,10 @@ type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
 SHARD	test	72
 SHARD	test1	72
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	36
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	36
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
 USER	root	144
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The client should be identified as the entity to be throttled ###
@@ -643,10 +643,10 @@ type	value	write_data_bytes
 CLIENT	99914b932bd37a50b983c5e7c90ae93b	144
 SHARD	test	72
 SHARD	test1	72
-SQL_ID	24ddf49d0393e337d0a5c6ca90895af2dda310c1b3fc036e89b9c7bd744dc2c1	36
-SQL_ID	3fd767db8963952ac673e8abdedabb4f4e05d48a73f1d9662a53746d78acc75a	36
-SQL_ID	5a689cb01803d4479e00d7ceb18fce27ec68127eef6a535abb4018db5b629cf3	36
-SQL_ID	fd3a52d9aac1d879830582a3123bd6d77f48f60d4327523ed10462d084da584d	36
+SQL_ID	6aa03692f520126c3933940216180870	36
+SQL_ID	d1a61efcfc6659dee601fc851fef4374	36
+SQL_ID	dd344876a41a9ca8aec34362fadfb2bc	36
+SQL_ID	f66df89c2ca4535043dda3710def2e92	36
 USER	root	144
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The client should be identified as the entity to be throttled ###

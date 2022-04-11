@@ -1,0 +1,38 @@
+--disable_warnings
+DROP TABLE IF EXISTS tbl1;
+DROP DATABASE IF EXISTS cus_test;
+CREATE DATABASE cus_test;
+USE cus_test;
+--enable_warnings
+
+CREATE TABLE tbl1 (
+    col1 INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    col2 INT(6) NOT NULL,
+    col3 INT(6) NOT NULL,
+    col4 INT(6) NOT NULL
+);
+CREATE TABLE tbl2 LIKE tbl1;
+
+INSERT INTO tbl1 (col2, col3, col4) VALUES (2,3,4);
+INSERT INTO tbl1 (col2, col3, col4) VALUES (3,4,5);
+INSERT INTO tbl1 (col2, col3, col4) VALUES (4,5,6);
+
+SET GLOBAL column_stats_control = ON;
+
+DELETE FROM tbl1 WHERE col2 > 3;
+DELETE FROM tbl2 WHERE col1 > 0 AND (col2 < 0 OR (col3 > 0 AND col4 < 0));
+
+
+# Verification of stats accumulated
+
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+SORTED_RESULT;
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics;
+
+set global column_stats_control = OFF_HARD;
+
+DROP TABLE tbl1;
+DROP TABLE tbl2;
+DROP DATABASE cus_test;

@@ -304,6 +304,7 @@ our @DEFAULT_SUITES = qw(
   component_keyring_file
 
   audit_null
+  column_statistics
   engines/iuds
   engines/funcs
   funcs_1
