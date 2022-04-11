@@ -94,6 +94,7 @@
 #include "sql/binlog.h"            // mysql_bin_log
 #include "sql/changestreams/apply/replication_thread_status.h"
 #include "sql/clone_handler.h"
+#include "sql/column_statistics.h"
 #include "sql/conn_handler/connection_handler_impl.h"  // Per_thread_connection_handler
 #include "sql/conn_handler/connection_handler_manager.h"  // Connection_handler_manager
 #include "sql/conn_handler/socket_connection.h"  // MY_BIND_ALL_ADDRESSES
@@ -9018,6 +9019,28 @@ static Sys_var_enum Sys_sql_findings_control(
     GLOBAL_VAR(sql_findings_control), CMD_LINE(REQUIRED_ARG),
     sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_sql_findings_control));
+
+static bool set_column_stats_control(sys_var *, THD *, enum_var_type) {
+  if (column_stats_control == SQL_INFO_CONTROL_OFF_HARD) {
+    free_column_stats();
+  }
+
+  return false;  // success
+}
+
+static Sys_var_enum Sys_column_stats_control(
+    "column_stats_control",
+    "Control the collection of column statistics from parse tree. "
+    "The data is exposed via the column_statistics table. "
+    "Takes the following values: "
+    "OFF_HARD: Default value. Stop collecting the statistics and flush "
+    "all column statistics data from memory. "
+    "OFF_SOFT: Stop collecting column statistics, but retain any data "
+    "collected so far. "
+    "ON: Collect the statistics.",
+    GLOBAL_VAR(column_stats_control), CMD_LINE(REQUIRED_ARG),
+    sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_column_stats_control));
 
 static Sys_var_charptr Sys_sql_wsenv_tenant(
     "sql_wsenv_tenant", "warm storage environment tenant",

@@ -300,6 +300,7 @@ our @DEFAULT_SUITES = qw(
   x
   component_keyring_file
 
+  column_statistics
   funcs_1
   grant
   rocksdb

@@ -87,6 +87,7 @@ table_ees_by_thread_by_error.h
 table_ees_by_user_by_error.h
 table_ees_global_by_error.h
 table_error_log.h
+table_column_statistics.h
 table_esgs_by_account_by_event_name.h
 table_esgs_by_host_by_event_name.h
 table_esgs_by_thread_by_event_name.h
@@ -261,6 +262,7 @@ table_ees_by_thread_by_error.cc
 table_ees_by_user_by_error.cc
 table_ees_global_by_error.cc
 table_error_log.cc
+table_column_statistics.cc
 table_esgs_by_account_by_event_name.cc
 table_esgs_by_host_by_event_name.cc
 table_esgs_by_thread_by_event_name.cc

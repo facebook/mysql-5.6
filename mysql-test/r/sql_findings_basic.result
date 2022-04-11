@@ -43,16 +43,16 @@ insert into t2 values('momo', -1);
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 sql_id	code	message	query_text	count
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
 select * from t2 where c1=1;
 c1	c2
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 sql_id	code	message	query_text	count
-c239c52b0a88981e0ac3e51c3467c68ae084d5e38d874b8991ed7af09b2c35c1	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
 create table t3 (c1 char(2) PRIMARY KEY) collate latin1_danish_ci
 engine=myisam;
 insert into t3 values('zoro');
@@ -61,20 +61,20 @@ Warning	1265	Data truncated for column 'c1' at row 1
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 sql_id	code	message	query_text	count
-2e3002059c39b0856e05ac13482c1fc8c1fd3e1c15936849007d6b26c935cd19	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
-c239c52b0a88981e0ac3e51c3467c68ae084d5e38d874b8991ed7af09b2c35c1	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
 select * from t3 where c1=2;
 c1
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 sql_id	code	message	query_text	count
-1d7fe9751d69c07cad26cca7d06ed13be79f6c2550ac690c8c6ee88de878d55a	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
-2e3002059c39b0856e05ac13482c1fc8c1fd3e1c15936849007d6b26c935cd19	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
-c239c52b0a88981e0ac3e51c3467c68ae084d5e38d874b8991ed7af09b2c35c1	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
+cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
 -> Case 3: multi-query scenario
 set session sql_mode=NO_ENGINE_SUBSTITUTION;
 create table t4(c1 char(2) PRIMARY KEY)
@@ -88,13 +88,13 @@ c1
 select sql_id, code, message, query_text, count from performance_schema.sql_findings
 order by sql_id, code, query_text;
 sql_id	code	message	query_text	count
-1047c4954a34004a338753db5ccaa66f00f17afb2c46510a23cf223078fb5dc9	1265	Data truncated for column 'c1' at row 1	insert into t4 values('case3');	1
-1278fbacccf4e2434c132c445f719a76afa61f2d0a5e8f4a8b106ba3c1ae8322	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t4 where c1=1;	1
-1d7fe9751d69c07cad26cca7d06ed13be79f6c2550ac690c8c6ee88de878d55a	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
-2e3002059c39b0856e05ac13482c1fc8c1fd3e1c15936849007d6b26c935cd19	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
-c239c52b0a88981e0ac3e51c3467c68ae084d5e38d874b8991ed7af09b2c35c1	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-d8f816e953b607f1961a22401328e5e1c271cfa5c8b0ff6089c0381a91559346	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+183ce38d3b8510e459f005ce4140ae85	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t4 where c1=1;	1
+4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
+643317334990228a29749ffb51d6ac51	1265	Data truncated for column 'c1' at row 1	insert into t4 values('case3');	1
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
+cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
 -> Cleanup
 set @@GLOBAL.sql_findings_control=DEFAULT;
 drop table t1;

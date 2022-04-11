@@ -99,9 +99,9 @@ from performance_schema.events_statements_summary_by_digest
 where digest_text like 'SELECT %skip_dup_tab%'
 order by digest;
 digest	digest_text	count_star	sum_skipped
-09fab5f3ee7161fee4a8229af04efa300cc36439966f9defdcb8de99c143a386	SELECT ?, ... , `sleep` (?) FROM `skip_dup_tab` `q2`	2	1
-47ff37f62279088c5a182aeb7af9cbf8c7e0fb214465925e0483254cf3630176	SELECT ?, ... + `sleep` (?) FROM `skip_dup_tab` `q3`	2	1
-8988d7850038a99776ef5ef05f6aab74b2ab82cb2252ef6952aa5322bf93ede8	SELECT ? , `sleep` (?) FROM `skip_dup_tab` `q1`	6	1
+45e4c7d9fd5b422a6aa1262a330b2772	SELECT ?, ... + `sleep` (?) FROM `skip_dup_tab` `q3`	2	1
+9a62c15f577f3c1b6a63407fa410f115	SELECT ? , `sleep` (?) FROM `skip_dup_tab` `q1`	6	1
+f8e56d3cb2336522c1c106565b2dc825	SELECT ?, ... , `sleep` (?) FROM `skip_dup_tab` `q2`	2	1
 affected rows: 3
 select ERROR_NUMBER, ERROR_NAME, SUM_ERROR_RAISED
 from performance_schema.events_errors_summary_by_user_by_error

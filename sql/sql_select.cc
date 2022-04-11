@@ -62,6 +62,7 @@
 #include "sql/auth/auth_acls.h"
 #include "sql/auth/auth_common.h"  // *_ACL
 #include "sql/auth/sql_security_ctx.h"
+#include "sql/column_statistics.h"
 #include "sql/current_thd.h"
 #include "sql/debug_sync.h"  // DEBUG_SYNC
 #include "sql/enum_query_type.h"
@@ -549,6 +550,15 @@ bool Sql_cmd_dml::execute(THD *thd) {
     }
   }
 
+  // Parse column usage statistics and store it into THD.
+  // TODO(ritwikyadav) : Fix TABLE_JOIN accounting.
+  // MySQL 8.0 has refactored code wherein a single function in sql_select.cc
+  // is responsible for the preparation phase. It sets up fields and does
+  // query re-writing / flattening before the next optimization phase. This is
+  // slightly different from 5.6 and would need a little more investment to
+  // tag joins properly.
+  parse_column_usage_info(thd);
+
   if (validate_use_secondary_engine(lex)) goto err;
 
   lex->set_exec_started();
@@ -585,6 +595,10 @@ bool Sql_cmd_dml::execute(THD *thd) {
   // Count the number of statements offloaded to a secondary storage engine.
   if (using_secondary_storage_engine() && lex->unit->is_executed())
     ++thd->status_var.secondary_engine_execution_count;
+
+  // Populates the internal data structures for the COLUMN_STATISTICS
+  // temporary table.
+  populate_column_usage_info(thd);
 
   assert(!thd->is_error());
 

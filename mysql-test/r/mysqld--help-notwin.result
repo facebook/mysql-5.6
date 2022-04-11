@@ -314,6 +314,14 @@ The following options may be given as the first argument:
  -r, --chroot=name   Chroot mysqld daemon during startup.
  --collation-server=name 
  Set the default collation.
+ --column-stats-control=name 
+ Control the collection of column statistics from parse
+ tree. The data is exposed via the column_statistics
+ table. Takes the following values: OFF_HARD: Default
+ value. Stop collecting the statistics and flush all
+ column statistics data from memory. OFF_SOFT: Stop
+ collecting column statistics, but retain any data
+ collected so far. ON: Collect the statistics.
  --commit-consensus-error-action[=name] 
  Defines the server action when a thread fails inside
  ordered commit due to consensus error
@@ -2717,6 +2725,7 @@ character-sets-dir MYSQL_CHARSETSDIR/
 check-proxy-users FALSE
 chroot (No default value)
 collation-server utf8mb4_0900_ai_ci
+column-stats-control OFF_HARD
 commit-consensus-error-action ROLLBACK_TRXS_IN_GROUP
 completion-type NO_CHAIN
 concurrent-insert AUTO

@@ -37,6 +37,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <set>
 #include <string>
 
 #include <memory>
@@ -104,6 +105,7 @@
 #include "prealloced_array.h"
 #include "rpl_source.h"
 #include "sql/auth/sql_security_ctx.h"  // Security_context
+#include "sql/column_statistics_dt.h"
 #include "sql/current_thd.h"
 #include "sql/dd/string_type.h"      // dd::string_type
 #include "sql/discrete_interval.h"   // Discrete_interval
@@ -1128,6 +1130,9 @@ class THD : public MDL_context_owner,
 
   /* Is transaction commit still pending */
   bool tx_commit_pending;
+
+  /* Column usage statistics for the SQL statements */
+  std::set<ColumnUsageInfo> column_usage_info;
 
   /* Nonsuper_connections reference counting */
  private:

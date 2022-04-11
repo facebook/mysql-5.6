@@ -370,6 +370,7 @@ SET(SQL_SHARED_SOURCES
   check_stack.cc
   conn_handler/connection_handler_manager.cc
   clone_handler.cc
+  column_statistics.cc
   create_field.cc
   current_thd.cc
   dd_sql_view.cc

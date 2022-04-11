@@ -553,6 +553,9 @@ extern uint sql_maximum_duplicate_executions;
 /* Controls the mode of enforcement of duplicate executions of the same stmt */
 extern ulong sql_duplicate_executions_control;
 
+/* Global variable to control collecting column statistics */
+extern ulong column_stats_control;
+
 extern bool read_only_slave;
 extern bool flush_only_old_table_cache_entries;
 extern ulong stored_program_cache_size;
@@ -727,6 +730,7 @@ extern PSI_mutex_key key_mutex_replica_worker_hash;
 extern PSI_mutex_key key_LOCK_ac_node;
 extern PSI_mutex_key key_LOCK_ac_info;
 
+extern PSI_rwlock_key key_rwlock_LOCK_column_statistics;
 extern PSI_rwlock_key key_rwlock_LOCK_logger;
 extern PSI_rwlock_key key_rwlock_channel_map_lock;
 extern PSI_rwlock_key key_rwlock_channel_lock;
@@ -1016,6 +1020,7 @@ extern mysql_cond_t COND_compress_gtid_table;
 extern mysql_cond_t COND_manager;
 extern mysql_cond_t COND_slave_stats_daemon;
 
+extern mysql_rwlock_t LOCK_column_statistics;
 extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_replica;
 extern mysql_rwlock_t LOCK_system_variables_hash;
@@ -1087,13 +1092,13 @@ inline bool write_stats_capture_enabled() {
      - SQL Findings
      - write statistics
      - write throttling
-     - column statistics (todo:ritwik)
+     - column statistics
  */
 inline bool sql_id_is_needed() {
   bool needed = (sql_findings_control == SQL_INFO_CONTROL_ON ||
+                         column_stats_control == SQL_INFO_CONTROL_ON ||
                          write_stats_capture_enabled() ||
                          write_control_level != CONTROL_LEVEL_OFF
-                     // || column statistics check
                      ? true
                      : false);
   return needed;
