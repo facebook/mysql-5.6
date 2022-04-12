@@ -92,34 +92,34 @@ DROP SCHEMA S;
 #--------------------------------------------------------------------
 CREATE SCHEMA s;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
-CATALOG_NAME	SCHEMA_NAME	OPTIONS
-def	information_schema	
-def	mtr	
-def	mysql	
-def	performance_schema	
-def	s	
-def	sys	
-def	test	
+CATALOG_NAME	SCHEMA_NAME	OPTIONS	DB_METADATA
+def	information_schema		NULL
+def	mtr		NULL
+def	mysql		NULL
+def	performance_schema		NULL
+def	s		NULL
+def	sys		NULL
+def	test		NULL
 ALTER SCHEMA S READ ONLY=1;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
-CATALOG_NAME	SCHEMA_NAME	OPTIONS
-def	information_schema	
-def	mtr	
-def	mysql	
-def	performance_schema	
-def	s	READ ONLY=1
-def	sys	
-def	test	
+CATALOG_NAME	SCHEMA_NAME	OPTIONS	DB_METADATA
+def	information_schema		NULL
+def	mtr		NULL
+def	mysql		NULL
+def	performance_schema		NULL
+def	s	READ ONLY=1	NULL
+def	sys		NULL
+def	test		NULL
 ALTER SCHEMA S READ ONLY=0;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
-CATALOG_NAME	SCHEMA_NAME	OPTIONS
-def	information_schema	
-def	mtr	
-def	mysql	
-def	performance_schema	
-def	s	
-def	sys	
-def	test	
+CATALOG_NAME	SCHEMA_NAME	OPTIONS	DB_METADATA
+def	information_schema		NULL
+def	mtr		NULL
+def	mysql		NULL
+def	performance_schema		NULL
+def	s		NULL
+def	sys		NULL
+def	test		NULL
 DROP SCHEMA S;
 #--------------------------------------------------------------------
 # FR7: The read only option affects all users.
@@ -651,7 +651,7 @@ LOCK TABLE test.t WRITE;
 connect  con_1, localhost, root,, test;
 set @@session.lock_wait_timeout = 1;
 ALTER SCHEMA S READ ONLY=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: s.c
 # LOCK TABLE READ will not block ALTER SCHEMA S from another connection,
 # but ALTER SCHEMA test will be blocked.
 connection default;
@@ -661,7 +661,7 @@ connection con_1;
 ALTER SCHEMA S READ ONLY=1;
 ALTER SCHEMA S READ ONLY=0;
 ALTER SCHEMA test READ ONLY=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 connection default;
 disconnect con_1;
 UNLOCK TABLES;

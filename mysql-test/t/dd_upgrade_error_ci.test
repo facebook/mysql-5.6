@@ -36,7 +36,7 @@ let $MYSQLD_DATADIR1 = $MYSQL_TMP_DIR/data80011_upgrade_groupby_desc_ci;
 --echo # events/triggers/views/routines contain GROUP BY DESC
 let MYSQLD_LOG= $MYSQL_TMP_DIR/server.log;
 --error 1
---exec $MYSQLD --no-defaults $extra_args --innodb_dedicated_server=OFF --secure-file-priv="" --log-error=$MYSQLD_LOG --datadir=$MYSQLD_DATADIR1
+--exec $MYSQLD --lower-case-table-names=1 --no-defaults $extra_args --innodb_dedicated_server=OFF --secure-file-priv="" --log-error=$MYSQLD_LOG --datadir=$MYSQLD_DATADIR1
 
 --let SEARCH_FILE= $MYSQLD_LOG
 --let SEARCH_PATTERN= Trigger 'trigger_groupby_desc' has an error in its body

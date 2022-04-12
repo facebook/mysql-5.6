@@ -8,6 +8,9 @@ if (`SELECT CONVERT(@@version_compile_os USING LATIN1) RLIKE '^(osx|macos)'`)
 --let $expect_case_sensitive_variant= 1
 }
 
+let $MYSQLD_DATADIR=`select @@datadir`;
+let MYSQL_TMP_DIR=`SELECT REGEXP_REPLACE('$MYSQLD_DATADIR', '/data/', '')`;
+
 let BASEDIR=    `select @@basedir`;
 let DDIR=       $MYSQL_TMP_DIR/lctn_test;
 let MYSQLD_LOG= $MYSQL_TMP_DIR/server.log;
