@@ -110,7 +110,7 @@ enum enum_admission_control_wait_events {
 enum enum_admission_control_request_mode {
   AC_REQUEST_NONE,
   AC_REQUEST_QUERY,
-  AC_REQUEST_QUERY_READMIT_LOPRI,
+  AC_REQUEST_QUERY_READMIT_LOPRI,  // Add admission modes above readmission.
   AC_REQUEST_QUERY_READMIT_HIPRI,
 };
 

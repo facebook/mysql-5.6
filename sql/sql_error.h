@@ -687,6 +687,34 @@ class Diagnostics_area {
   friend class THD;
 };
 
+/**
+  Deferred error to be sent instead of kill message.
+*/
+class Deferred_error {
+ public:
+  /** Constructor. */
+  Deferred_error();
+
+  /** Remember error and format error message. */
+  void set_error(uint error, va_list args);
+
+  /** Send previously set error. */
+  void send_error() const;
+
+  /** Clear error information. */
+  void clear_error();
+
+  /** Is error set? */
+  bool is_set() const;
+
+ private:
+  /** Error code. */
+  uint m_error;
+
+  /** Formatted error message. */
+  std::string m_error_msg;
+};
+
 ///////////////////////////////////////////////////////////////////////////
 
 void push_warning(THD *thd, Sql_condition::enum_severity_level severity,

@@ -639,6 +639,50 @@ Diagnostics_area *Diagnostics_area::pop_diagnostics_area() {
 }
 
 /**
+  Constructor.
+*/
+Deferred_error::Deferred_error() : m_error(0) {}
+
+/**
+  Remember error and format error message.
+*/
+void Deferred_error::set_error(uint error, va_list args) {
+  m_error = error;
+  m_error_msg.resize(MYSQL_ERRMSG_SIZE);
+
+  const char *format = my_get_err_msg(error);
+  int size;
+  if (!format) {
+    size =
+        snprintf(&m_error_msg[0], MYSQL_ERRMSG_SIZE, "Unknown error %u", error);
+  } else {
+    size = vsnprintf(&m_error_msg[0], MYSQL_ERRMSG_SIZE, format, args);
+  }
+
+  m_error_msg.resize(size);
+}
+
+/**
+  Send previously set error.
+*/
+void Deferred_error::send_error() const {
+  my_message(m_error, m_error_msg.data(), MYF(0));
+}
+
+/**
+  Clear error information.
+*/
+void Deferred_error::clear_error() {
+  m_error = 0;
+  m_error_msg.resize(0);
+}
+
+/**
+  Is error set?
+*/
+bool Deferred_error::is_set() const { return m_error != 0; }
+
+/**
   Push the warning to error list if there is still room in the list.
 
   @param thd           Thread handle

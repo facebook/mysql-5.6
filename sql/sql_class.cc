@@ -1324,6 +1324,7 @@ void THD::cleanup_connection(void) {
 
   reset_connection_certificate();
 
+  deferred_error.clear_error();
   clear_error();
   // clear the warnings
   get_stmt_da()->reset_condition_info(this);
@@ -2411,18 +2412,48 @@ void THD::send_kill_message() const {
     */
     if (!running_explain_analyze) {
       if (err == ER_QUERY_INTERRUPTED) {
-        std::string reason;
-        if (killed_reason && killed_reason[0] != '\0') {
-          reason.append(", reason: ");
-          reason.append(killed_reason);
+        if (deferred_error.is_set()) {
+          deferred_error.send_error();
+        } else {
+          std::string reason;
+          if (killed_reason && killed_reason[0] != '\0') {
+            reason.append(", reason: ");
+            reason.append(killed_reason);
+          }
+          my_printf_error(err, "%s%s", MYF(ME_FATALERROR), ER_THD(this, err),
+                          reason.c_str());
         }
-        my_printf_error(err, "%s%s", MYF(ME_FATALERROR), ER_THD(this, err),
-                        reason.c_str());
       } else {
         my_error(err, MYF(ME_FATALERROR));
       }
     }
   }
+}
+
+/**
+  Kill current query and defer error.
+*/
+void THD::kill_query_with_error(uint error, ...) {
+  assert(this == current_thd);
+  assert(!deferred_error.is_set());
+
+  va_list args;
+  va_start(args, error);
+  deferred_error.set_error(error, args);
+  va_end(args);
+
+  mysql_mutex_lock(&LOCK_thd_data);
+  awake(KILL_QUERY);
+  mysql_mutex_unlock(&LOCK_thd_data);
+}
+
+/**
+  Clear kill query error.
+*/
+void THD::clear_kill_error() {
+  assert(this == current_thd);
+
+  deferred_error.clear_error();
 }
 
 /****************************************************************************

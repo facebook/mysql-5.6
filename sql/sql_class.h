@@ -2968,6 +2968,11 @@ class THD : public MDL_context_owner,
   char *killed_reason;
 
   /**
+    Deferred error that could be sent instead of ER_QUERY_INTERRUPTED.
+  */
+  Deferred_error deferred_error;
+
+  /**
     Whether we are currently in the execution phase of an EXPLAIN ANALYZE query.
     If so, send_kill_message() won't actually set an error; we will add a
     warning near the end of the execution instead.
@@ -5120,6 +5125,16 @@ class THD : public MDL_context_owner,
   */
   bool filter_wait_type(int wait_type,
                         enum_admission_control_request_mode &new_mode);
+
+  /**
+    Kill current query and defer error.
+  */
+  void kill_query_with_error(uint error, ...);
+
+  /**
+    Clear kill query error.
+  */
+  void clear_kill_error();
 
  private:
   /**
