@@ -3,8 +3,13 @@
 --source include/have_case_insensitive_file_system.inc
 --source include/xplugin_preamble.inc
 
+# This is a default value when run on Windows
 --let $expect_case_sensitive_variant= 1
-if (`SELECT CONVERT(@@version_compile_os USING LATIN1) RLIKE '^(osx|macos)'`)
+
+# For other platforms the lower_case_table_names system variable is set to 0
+# by default. In case it is run on case-insensitive FS its value is
+# automatically changed to 2.
+if (`SELECT CONVERT(@@version_compile_os USING LATIN1) RLIKE '^(osx|macos|linux)'`)
 {
 --let $expect_case_sensitive_variant= 2
 }
