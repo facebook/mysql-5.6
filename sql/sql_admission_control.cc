@@ -232,13 +232,24 @@ int multi_tenancy_admit_query(THD *thd,
   if (admission_check) {
     Ac_result res = db_ac->admission_control_enter(thd, mode);
     if (res == Ac_result::AC_ABORTED) {
-      my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
-               db_ac->get_max_waiting_queries(),
-               thd->ac_node->ac_info->get_entity().c_str());
+      if (mode < AC_REQUEST_QUERY_READMIT_LOPRI) {
+        my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
+                 db_ac->get_max_waiting_queries(),
+                 thd->ac_node->ac_info->get_entity().c_str());
+      } else {
+        thd->kill_query_with_error(ER_DB_ADMISSION_CONTROL,
+                                   db_ac->get_max_waiting_queries(),
+                                   thd->ac_node->ac_info->get_entity().c_str());
+      }
       return 1;
     } else if (res == Ac_result::AC_TIMEOUT) {
-      my_error(ER_DB_ADMISSION_CONTROL_TIMEOUT, MYF(0),
-               thd->ac_node->ac_info->get_entity().c_str());
+      if (mode < AC_REQUEST_QUERY_READMIT_LOPRI) {
+        my_error(ER_DB_ADMISSION_CONTROL_TIMEOUT, MYF(0),
+                 thd->ac_node->ac_info->get_entity().c_str());
+      } else {
+        thd->kill_query_with_error(ER_DB_ADMISSION_CONTROL_TIMEOUT,
+                                   thd->ac_node->ac_info->get_entity().c_str());
+      }
       return 1;
     } else if (res == Ac_result::AC_KILLED) {
       return 1;

@@ -5669,6 +5669,7 @@ finish:
     if (thd->killed == THD::KILL_QUERY || thd->killed == THD::KILL_TIMEOUT) {
       thd->killed = THD::NOT_KILLED;
       thd->reset_query_for_display();
+      thd->clear_kill_error();
     }
   }
 
