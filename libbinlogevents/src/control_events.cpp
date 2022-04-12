@@ -418,7 +418,7 @@ Metadata_event::Metadata_event(const char *buf,
   READER_TRY_INITIALIZATION;
   READER_ASSERT_POSITION(fde->common_header_len);
 
-  uint8_t read_len [[maybe_unused]] = fde->common_header_len;
+  uint32_t read_len [[maybe_unused]] = fde->common_header_len;
 
   /* Read and intialize every type in the stream for this event */
   while (READER_CALL(available_to_read) > 0) {
@@ -507,6 +507,34 @@ void Metadata_event::set_raft_prev_opid(int64_t term, int64_t index) {
       (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_PREV_OPID_SIZE);
 }
 
+void Metadata_event::set_raft_rotate_tag(
+    Metadata_event::RAFT_ROTATE_EVENT_TAG t) {
+  raft_rotate_tag_ = t;
+  set_exist(Metadata_event_types::RAFT_ROTATE_TAG_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+      (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_ROTATE_TAG_SIZE);
+}
+
+Metadata_event::RAFT_ROTATE_EVENT_TAG Metadata_event::get_rotate_tag() const {
+  return raft_rotate_tag_;
+}
+
+std::string Metadata_event::get_rotate_tag_string() const {
+  switch (raft_rotate_tag_) {
+    case RRET_SIMPLE_ROTATE:
+      return "Rotate";
+    case RRET_NOOP:
+      return "No-Op";
+    case RRET_CONFIG_CHANGE:
+      return "Config-Change";
+    case RRET_NOT_ROTATE:
+      return "Non-Rotate (Unexpected)";
+    default:
+      return "Invalid (Unexpected)";
+  }
+}
+
 int64_t Metadata_event::get_raft_prev_opid_term() const {
   return prev_raft_term_;
 }
@@ -520,12 +548,13 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   using MET = Metadata_event_types;
 
   // Read the 'length' of the field's value
-  uint value_length = 0;
+  uint16_t value_length = 0;
   uint64_t hlc_time = 0;
   uint64_t prev_hlc_time = 0;
   int64_t term = -1, index = -1;
   const char *ptr_raft_str = nullptr;
   int64_t prev_term = -1, prev_index = -1;
+  int16_t raft_rotate_tag = RRET_NOT_ROTATE;
   READER_TRY_SET(value_length, read<uint16_t>);
 
   switch (type) {
@@ -557,6 +586,12 @@ uint Metadata_event::read_type(Metadata_event_types type) {
       READER_TRY_SET(prev_index, read<int64_t>);
       set_raft_prev_opid(prev_term, prev_index);
       break;
+    case MET::RAFT_ROTATE_TAG_TYPE:
+      assert(value_length == ENCODED_RAFT_ROTATE_TAG_SIZE);
+      READER_TRY_SET(raft_rotate_tag, read<int16_t>);
+      set_raft_rotate_tag((RAFT_ROTATE_EVENT_TAG)raft_rotate_tag);
+      break;
+
     default:
       // This is a event which we do not know about. Just skip this
       READER_CALL(ptr, value_length);

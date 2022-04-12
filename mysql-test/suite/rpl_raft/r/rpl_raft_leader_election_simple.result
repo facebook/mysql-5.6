@@ -1,0 +1,86 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+"server_1 is the initial leader"
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+"Stopping slave applier on all peers"
+stop slave sql_thread;
+stop slave sql_thread;
+stop slave sql_thread;
+"Writing data on leader"
+create table t1 (a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+"Transfering leadership: server_1 -> server_2"
+set @@global.rpl_raft_new_leader_uuid = 'uuid2';
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+"server_2 should have all the data after leader election"
+select * from t1;
+a
+1
+"Stopping slave applier on all peers"
+stop slave sql_thread;
+stop slave sql_thread;
+stop slave sql_thread;
+"Writing data on leader"
+insert into t1 values();
+"Transfering leadership: server_2 -> server_3"
+set @@global.rpl_raft_new_leader_uuid = 'uuid3';
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+"server_3 should have all the data after leader election"
+select * from t1;
+a
+1
+2
+"Checking read_only and super_read_only on all instances"
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show variables like 'read_only';
+Variable_name	Value
+read_only	OFF
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+"Stopping slave applier on all peers"
+stop slave sql_thread;
+stop slave sql_thread;
+stop slave sql_thread;
+"Writing data on leader"
+insert into t1 values();
+"Transfering leadership: server_3 -> server_1"
+set @@global.rpl_raft_new_leader_uuid = 'uuid1';
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+"server_1 should have all the data after leader election"
+select * from t1;
+a
+1
+2
+3
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

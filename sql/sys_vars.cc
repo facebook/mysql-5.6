@@ -8625,7 +8625,7 @@ static Sys_var_bool Sys_disallow_raft(
     "disallow_raft",
     "Temporary variable wich blocks turning on raft. Will be removed later "
     "once raft is ready for 8.0",
-    GLOBAL_VAR(disallow_raft), CMD_LINE(OPT_ARG), DEFAULT(true));
+    GLOBAL_VAR(disallow_raft), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 static Sys_var_bool Sys_override_enable_raft_check(
     "override_enable_raft_check",
@@ -8801,3 +8801,13 @@ static Sys_var_ulong Sys_write_stats_frequency(
     GLOBAL_VAR(write_stats_frequency), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_write_stats_frequency));
+
+static const char *raft_signal_async_dump_threads_options[] = {
+    "AFTER_CONSENSUS", "AFTER_ENGINE_COMMIT", 0};
+
+static Sys_var_enum Sys_raft_signal_async_dump_threads(
+    "raft_signal_async_dump_threads",
+    "When should we signal async dump threads who are waiting to send events",
+    GLOBAL_VAR(opt_raft_signal_async_dump_threads), CMD_LINE(OPT_ARG),
+    raft_signal_async_dump_threads_options, DEFAULT(AFTER_CONSENSUS),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);

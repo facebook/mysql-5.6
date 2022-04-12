@@ -1,0 +1,19 @@
+!include ../my.cnf
+
+[mysqld.1]
+slave_parallel_workers=2
+slave_use_idempotent_for_recovery=YES
+mts_dependency_replication=TBL
+slave-parallel-type=DEPENDENCY
+
+[mysqld.2]
+slave_parallel_workers=2
+slave_use_idempotent_for_recovery=YES
+mts_dependency_replication=TBL
+slave-parallel-type=DEPENDENCY
+
+[mysqld.3]
+slave_parallel_workers=2
+slave_use_idempotent_for_recovery=YES
+mts_dependency_replication=TBL
+slave-parallel-type=DEPENDENCY

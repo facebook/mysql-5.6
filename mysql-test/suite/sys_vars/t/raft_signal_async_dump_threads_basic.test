@@ -1,0 +1,51 @@
+SELECT @@GLOBAL.raft_signal_async_dump_threads;
+--echo AFTER_CONSENSUS Expected
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@SESSION.raft_signal_async_dump_threads;
+
+SET @start_value= @@global.raft_signal_async_dump_threads;
+####################################################################
+#   Displaying default value                                       #
+####################################################################
+SHOW GLOBAL VARIABLES LIKE 'raft_signal_async_dump_threads';
+
+####################################################################
+#   Check if Value can set                                         #
+####################################################################
+SET @@GLOBAL.raft_signal_async_dump_threads=AFTER_ENGINE_COMMIT;
+SELECT @@GLOBAL.raft_signal_async_dump_threads;
+--echo AFTER_ENGINE_COMMIT Expected
+
+SET @@GLOBAL.raft_signal_async_dump_threads=AFTER_CONSENSUS;
+SELECT @@GLOBAL.raft_signal_async_dump_threads;
+--echo AFTER_CONSENSUS Expected
+
+#################################################################
+# Check if the value in GLOBAL Table matches value in variable  #
+#################################################################
+
+SELECT @@GLOBAL.raft_signal_async_dump_threads = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='raft_signal_async_dump_threads';
+--echo 1 Expected
+
+SELECT COUNT(@@GLOBAL.raft_signal_async_dump_threads);
+--echo 1 Expected
+
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='raft_signal_async_dump_threads';
+--echo 1 Expected
+
+
+################################################################################
+#   Check if raft_signal_async_dump_threads can be accessed with @@ sign           #
+################################################################################
+
+SELECT COUNT(@@raft_signal_async_dump_threads);
+--echo 1 Expected
+SELECT COUNT(@@GLOBAL.raft_signal_async_dump_threads);
+--echo 1 Expected
+
+SET @@global.raft_signal_async_dump_threads= @start_value;

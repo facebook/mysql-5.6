@@ -1943,6 +1943,17 @@ class THD : public MDL_context_owner,
   uint get_binlog_table_maps() const { return binlog_table_maps; }
   void clear_binlog_table_maps() { binlog_table_maps = 0; }
 
+  /**
+   * Clear the raft opid which was cached, in preparation for next apply round
+   * Should be only called at a safe point, like finish_commit or ends_group of
+   * a slave applier.
+   *
+   */
+  void clear_raft_opid() {
+    term_ = -1;
+    index_ = -1;
+  }
+
   /*
     MTS: accessor to binlog_accessed_db_names list
   */

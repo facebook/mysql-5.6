@@ -1,0 +1,125 @@
+source include/have_debug.inc;
+source ../include/raft_3_node.inc;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+call mtr.add_suppression("Failed to rotate binary log");
+
+# Create connections to server 4 and 5 (these are not in the ring)
+let $rpl_server_number= 4;
+let $rpl_connection_name= server_4;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_4;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+let $rpl_server_number= 5;
+let $rpl_connection_name= server_5;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_5;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+connection server_1;
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+
+connection server_2;
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+
+connection server_3;
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+
+connection server_1;
+create table t1 (a int primary key) engine=innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+select * from t1;
+source include/show_raft_logs.inc;
+
+connection server_3;
+select * from t1;
+source include/show_raft_logs.inc;
+
+connection server_1;
+source include/show_raft_logs.inc;
+
+echo "Flushing binary logs on leader:server_1. This should fail";
+set session debug="+d,simulate_before_flush_error_on_new_file";
+--error ER_RAFT_FILE_ROTATION_FAILED
+flush binary logs;
+set session debug="-d,simulate_before_flush_error_on_new_file";
+
+connection server_1;
+echo "Verifying raft status in server_1";
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+source include/show_raft_logs.inc;
+
+connection server_2;
+echo "Verifying raft status in server_2";
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+source include/show_raft_logs.inc;
+
+connection server_3;
+echo "Verifying raft status in server_3";
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+source include/show_raft_logs.inc;
+
+connection server_1;
+echo "Flushing binary logs again on leader: server_1. This should go through";
+insert into t1 values(3);
+flush binary logs;
+insert into t1 values(4);
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+source include/show_raft_logs.inc;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+echo "Verifying raft status in server_2";
+select * from t1;
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+source include/show_raft_logs.inc;
+
+connection server_3;
+echo "Verifying raft status in server_3";
+select * from t1;
+show variables like 'read_only';
+show variables like 'super_read_only';
+show status like 'rpl_raft_role';
+source include/show_raft_logs.inc;
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

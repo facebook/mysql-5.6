@@ -397,9 +397,10 @@ void Binlog_sender::init() {
   LogErr(INFORMATION_LEVEL, ER_RPL_BINLOG_STARTING_DUMP, thd->thread_id(),
          thd->server_id, m_start_file, m_start_pos);
 
-  if (RUN_HOOK(
-          binlog_transmit, transmit_start,
-          (thd, m_flag, m_start_file, m_start_pos, &m_observe_transmission))) {
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin && RUN_HOOK(binlog_transmit, transmit_start,
+                                      (thd, m_flag, m_start_file, m_start_pos,
+                                       &m_observe_transmission))) {
     set_unknown_error("Failed to run hook 'transmit_start'");
     return;
   }
@@ -475,7 +476,8 @@ void Binlog_sender::cleanup() {
   thd->set_query(m_orig_query);
   thd->set_query_for_display(m_orig_query.str, m_orig_query.length);
 
-  if (m_transmit_started)
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin && m_transmit_started)
     (void)RUN_HOOK(binlog_transmit, transmit_stop, (thd, m_flag));
 
   mysql_mutex_lock(&thd->LOCK_thd_data);
@@ -1219,7 +1221,8 @@ inline int Binlog_sender::reset_transmit_packet(ushort flags,
   qs_append('\0', &m_packet);  // Set this as an OK packet
 
   /* reserve and set default header */
-  if (m_observe_transmission &&
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin && m_observe_transmission &&
       RUN_HOOK(binlog_transmit, reserve_header, (m_thd, flags, &m_packet))) {
     set_unknown_error("Failed to run hook 'reserve_header'");
     return 1;
@@ -1526,7 +1529,8 @@ inline int Binlog_sender::send_packet_and_flush() {
 
 inline int Binlog_sender::before_send_hook(const char *log_file,
                                            my_off_t log_pos) {
-  if (m_observe_transmission &&
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin && m_observe_transmission &&
       RUN_HOOK(binlog_transmit, before_send_event,
                (m_thd, m_flag, &m_packet, log_file, log_pos))) {
     set_unknown_error("run 'before_send_event' hook failed");
@@ -1537,7 +1541,8 @@ inline int Binlog_sender::before_send_hook(const char *log_file,
 
 inline int Binlog_sender::after_send_hook(const char *log_file,
                                           my_off_t log_pos) {
-  if (m_observe_transmission &&
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin && m_observe_transmission &&
       RUN_HOOK(binlog_transmit, after_send_event,
                (m_thd, m_flag, &m_packet, log_file, log_pos))) {
     set_unknown_error("Failed to run hook 'after_send_event'");

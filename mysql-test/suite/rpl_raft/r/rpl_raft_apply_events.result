@@ -1,0 +1,36 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+flush binary logs;
+"server_1 is the initial leader"
+"Writing data on leader"
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+create table t1 (a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+#	#	Previous_gtids	#	#	Gtid_set
+#	#	Metadata	#	#	Prev HLC_TIME: #
+#	#	Gtid	#	#	SET @@SESSION.GTID_NEXT= 'Gtid_set'
+#	#	Metadata	#	#	HLC_TIME: # Raft term: 1 Raft Index: 3
+#	#	Query	#	#	use `test`; create table t1 (a int primary key auto_increment) engine = innodb
+#	#	Gtid	#	#	SET @@SESSION.GTID_NEXT= 'Gtid_set'
+#	#	Metadata	#	#	HLC_TIME: # Raft term: 1 Raft Index: 4
+#	#	Query	#	#	BEGIN
+#	#	Table_map	#	#	table_id: # (test.t1)
+#	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+#	#	Xid	#	#	COMMIT /* XID */
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

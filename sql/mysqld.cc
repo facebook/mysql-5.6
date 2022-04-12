@@ -1225,7 +1225,7 @@ bool override_enable_raft_check = false;
 ulonglong apply_log_retention_num = 0;
 ulonglong apply_log_retention_duration = 0;
 bool disable_raft_log_repointing = 0;
-
+ulong opt_raft_signal_async_dump_threads = 0;
 /* Apply log related variables for raft
    "_ptr" variables are system variables that should not be free by us */
 char *opt_apply_logname = nullptr, *opt_apply_logname_ptr = nullptr;
@@ -2445,6 +2445,11 @@ class Call_close_conn : public Do_THD_Impl {
 
 static void close_connections(void) {
   DBUG_TRACE;
+
+  // NO_LINT_DEBUG
+  sql_print_information("Sending shutdown call to raft plugin");
+  RUN_HOOK(raft_replication, before_shutdown, (nullptr));
+
   (void)RUN_HOOK(server_state, before_server_shutdown, (nullptr));
 
   Per_thread_connection_handler::kill_blocked_pthreads();
@@ -6689,9 +6694,18 @@ static int init_server_components() {
       to avoid creating the file in an otherwise empty datadir, which will
       cause a succeeding 'mysqld --initialize' to fail.
     */
-    if (!is_help_or_validate_option() &&
-        mysql_bin_log.open_index_file(opt_binlog_index_name, ln, true)) {
-      unireg_abort(MYSQLD_ABORT_EXIT);
+    if (!is_help_or_validate_option()) {
+      if (enable_raft_plugin && !disable_raft_log_repointing) {
+        // Initialize the right index file when raft is enabled
+        if (mysql_bin_log.init_index_file()) {
+          // NO_LINT_DEBUG
+          sql_print_error("Failed to initialize index file in raft mode");
+          unireg_abort(1);
+        }
+      } else if (mysql_bin_log.open_index_file(opt_binlog_index_name, ln,
+                                               true)) {
+        unireg_abort(MYSQLD_ABORT_EXIT);
+      }
     }
     /*
       Remove entries of logs from the index that were deleted from
@@ -6748,10 +6762,15 @@ static int init_server_components() {
     not an empty string, incase it is an empty string default file
     extension will be passed
    */
-  relay_log_basename = rpl_make_log_name(
-      key_memory_MYSQL_RELAY_LOG_basename, opt_relay_logname,
-      default_logfile_name,
-      (opt_relay_logname && opt_relay_logname[0]) ? "" : relay_ext);
+  if (!enable_raft_plugin || disable_raft_log_repointing) {
+    relay_log_basename = rpl_make_log_name(
+        key_memory_MYSQL_RELAY_LOG_basename, opt_relay_logname,
+        default_logfile_name,
+        (opt_relay_logname && opt_relay_logname[0]) ? "" : relay_ext);
+  } else {
+    relay_log_basename = my_strdup(key_memory_MYSQL_RELAY_LOG_basename,
+                                   log_bin_basename, MYF(MY_FAE));
+  }
 
   if (!opt_relay_logname || !opt_relay_logname[0]) {
     if (relay_log_basename) {
@@ -6763,10 +6782,16 @@ static int init_server_components() {
   } else
     opt_relay_logname_supplied = true;
 
-  if (relay_log_basename != nullptr)
-    relay_log_index = rpl_make_log_name(key_memory_MYSQL_RELAY_LOG_index,
-                                        opt_relaylog_index_name,
-                                        relay_log_basename, ".index");
+  if (relay_log_basename != nullptr) {
+    if (!enable_raft_plugin) {
+      relay_log_index = rpl_make_log_name(key_memory_MYSQL_RELAY_LOG_index,
+                                          opt_relaylog_index_name,
+                                          relay_log_basename, ".index");
+    } else {
+      relay_log_index = my_strdup(key_memory_MYSQL_RELAY_LOG_index,
+                                  log_bin_index, MYF(MY_FAE));
+    }
+  }
 
   if (!opt_relaylog_index_name || !opt_relaylog_index_name[0]) {
     if (relay_log_index) {
@@ -6784,7 +6809,7 @@ static int init_server_components() {
   }
 
   if (log_bin_basename != nullptr &&
-      !strcmp(log_bin_basename, relay_log_basename)) {
+      !strcmp(log_bin_basename, relay_log_basename) && !enable_raft_plugin) {
     const int bin_ext_length = 4;
     char default_binlogfile_name_from_hostname[FN_REFLEN + bin_ext_length];
     /* Generate default bin log file name. */
@@ -7339,11 +7364,41 @@ static int init_server_components() {
     // times of trx's in all previous binlog
     mysql_bin_log.update_hlc(prev_hlc);
 
-    if (mysql_bin_log.open_binlog(opt_bin_logname, nullptr, max_binlog_size,
-                                  false, true /*need_lock_index=true*/,
-                                  true /*need_sid_lock=true*/, nullptr)) {
-      mysql_mutex_unlock(log_lock);
-      unireg_abort(MYSQLD_ABORT_EXIT);
+    if (enable_raft_plugin && !disable_raft_log_repointing) {
+      /* If raft is enabled, we open an existing binlog file if it exists.
+       * Note that in raft mode, the recovery of the transaction log will not
+       * mark the log as 'closed'. This is because raft 'owns' the log and
+       * will use it later when the node rejoins the ring */
+      char *logname =
+          mysql_bin_log.is_apply_log ? opt_apply_logname : opt_bin_logname;
+
+      if (mysql_bin_log.open_binlog_found) {
+        // NO_LINT_DEBUG
+        sql_print_information("In Raft mode open_binlog_found: %s\n",
+                              ((logname) ? logname : "nullfile"));
+        if (mysql_bin_log.open_existing_binlog(logname, max_binlog_size)) {
+          // NO_LINT_DEBUG
+          sql_print_error(
+              "Failed to open existing binlog/apply-binlog when "
+              "raft is enabled");
+          unireg_abort(1);
+        }
+      } else {
+        // NO_LINT_DEBUG
+        sql_print_information("In Raft mode new binlog will be opened: %s\n",
+                              ((logname) ? logname : "nullfile"));
+        if (mysql_bin_log.open_binlog(logname, 0, max_binlog_size, false,
+                                      true /*need_lock_index=true*/,
+                                      true /*need_sid_lock=true*/, nullptr))
+          unireg_abort(1);
+      }
+    } else {
+      if (mysql_bin_log.open_binlog(opt_bin_logname, nullptr, max_binlog_size,
+                                    false, true /*need_lock_index=true*/,
+                                    true /*need_sid_lock=true*/, nullptr)) {
+        mysql_mutex_unlock(log_lock);
+        unireg_abort(MYSQLD_ABORT_EXIT);
+      }
     }
     mysql_mutex_unlock(log_lock);
     global_sid_lock->wrlock();
@@ -8505,6 +8560,13 @@ int mysqld_main(int argc, char **argv)
   if (mysql_audit_notify(AUDIT_EVENT(MYSQL_AUDIT_SERVER_STARTUP_STARTUP),
                          static_cast<const char **>(argv_p), argc))
     unireg_abort(MYSQLD_ABORT_EXIT);
+
+  // TODO(luqun): moved to after_server_startup hook or something similar
+  if (!opt_initialize) {
+    // do the postponed init of raft, now that
+    // binlog recovery has finished.
+    raft_plugin_initialize();
+  }
 
 #ifdef _WIN32
   create_shutdown_and_restart_thread();
@@ -10248,7 +10310,8 @@ static int show_replica_open_temp_tables(THD *, SHOW_VAR *var, char *buf) {
 
 static int show_last_acked_binlog_pos(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_UNDEF;
-  if (rpl_semi_sync_source_enabled && rpl_wait_for_semi_sync_ack) {
+  if ((rpl_semi_sync_source_enabled || enable_raft_plugin) &&
+      rpl_wait_for_semi_sync_ack) {
     std::string log_file;
     my_off_t log_pos;
     mysql_bin_log.get_semi_sync_last_acked(log_file, log_pos);

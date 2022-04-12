@@ -1,0 +1,11 @@
+Default value of disable_raft_log_repointing is 0
+SELECT @@global.disable_raft_log_repointing;
+@@global.disable_raft_log_repointing
+0
+SELECT @@session.disable_raft_log_repointing;
+ERROR HY000: Variable 'disable_raft_log_repointing' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+disable_raft_log_repointing is read-only
+SET @@global.disable_raft_log_repointing = 1;
+ERROR HY000: Variable 'disable_raft_log_repointing' is a read only variable
+Expected error 'Read only variable'

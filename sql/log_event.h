@@ -60,6 +60,7 @@
 #include "my_sharedlib.h"
 #include "my_sys.h"
 #include "my_thread_local.h"
+#include "mysql/components/services/log_builtins.h"
 #include "mysql/components/services/psi_stage_bits.h"
 #include "mysql/service_mysql_alloc.h"
 #include "mysql/udf_registration_types.h"
@@ -83,6 +84,7 @@ class Basic_ostream;
 #ifdef MYSQL_SERVER
 #include <stdio.h>
 
+#include <mysqld_error.h>
 #include "my_compiler.h"
 #include "sql/key.h"
 #include "sql/mysqld.h"
@@ -94,9 +96,9 @@ class Basic_ostream;
 #endif
 
 #ifndef MYSQL_SERVER
+#include <errmsg.h>
 #include <vector>
 #include "sql/rpl_tblmap.h"  // table_mapping
-
 #endif
 
 #include <limits.h>
@@ -372,6 +374,17 @@ struct hash<Dependency_key> {
    a query accessing more than OVER_MAX_DBS_IN_EVENT_MTS databases.
 */
 #define LOG_EVENT_MTS_ISOLATE_F 0x200
+
+/**
+ * Intermediate values from 0x400 to 0x4000 are unused and Oracle
+ * can use them.
+ */
+
+/**
+ * RAFT: These binlog files have been created by a MySQL Raft based
+ * binlog system.
+ */
+#define LOG_EVENT_RAFT_LOG_F 0x8000
 
 /** @}*/
 
@@ -1018,6 +1031,7 @@ class Log_event {
     common_header->log_pos = 0;
   }
   void set_relay_log_event() { common_header->flags |= LOG_EVENT_RELAY_LOG_F; }
+  void set_raft_log_event() { common_header->flags |= LOG_EVENT_RAFT_LOG_F; }
   bool is_artificial_event() const {
     return common_header->flags & LOG_EVENT_ARTIFICIAL_F;
   }
@@ -1165,6 +1179,33 @@ class Log_event {
       that the worker that handles the transaction handles these
       events too. /Sven
     */
+    // Case: If we're not in a middle of a group (aka trx) and this is a
+    // metadata event, then this must be a free floating metadata event and
+    // should be executed in sync mode
+    if (get_type_code() == binary_log::METADATA_EVENT && !mts_in_group)
+      return EVENT_EXEC_SYNC;
+
+    // Case: In the raft world we won't check server_id like the if condition
+    // below because some events can be written in the relay log by the plugin.
+    // The logic here is that for format desc event and rotate event if the
+    // end_log_pos is 0 or they come in the middle of a trx we execute them in
+    // ASYNC mode, meaning that the coordinator thread will apply these events
+    // without waiting for worker threads to finish every thing before this
+    // event. We cannot wait for worker threads to finish because we are in the
+    // middle of a trx and the worker does not have all events to complete the
+    // trx. This should never happen in raft mode because it means that we've
+    // split a trx across two raft logs.
+    if (enable_raft_plugin &&
+        (get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT ||
+         get_type_code() == binary_log::ROTATE_EVENT)) {
+      if (common_header->log_pos == 0 || mts_in_group) {
+        LogErr(ERROR_LEVEL, ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX,
+               get_type_str());
+        return EVENT_EXEC_ASYNC;
+      } else
+        return EVENT_EXEC_SYNC;
+    }
+
     if (
         /*
           When a Format_description_log_event occurs in the middle of
@@ -4191,6 +4232,16 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   bool write_raft_prev_opid(Basic_ostream *ostream);
 
   /**
+   * Write rotate event tag to metadata event previous to rotate event
+   * Central to raft correctness
+   *
+   * @param ostream - stream to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_rotate_tag(Basic_ostream *ostream);
+
+  /**
    * Write type and length to file
    *
    * @param ostream - stream to write to
@@ -4246,6 +4297,16 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - number of bytes written
    */
   uint32 write_raft_str(uchar *obuffer);
+
+  /**
+   * Write rotate event tag to metadata event previous to rotate event
+   * Central to raft correctness
+   *
+   * @param ostream - stream to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  uint32 write_rotate_tag(uchar *obuffer);
 
   /**
    * Write type and length to memory buffer

@@ -1962,7 +1962,8 @@ err:
              only one invocation of this hook in the code (in
              MYSQL_LOG_BIN::finish_commit).
     */
-    if (!error) (void)RUN_HOOK(transaction, after_commit, (thd, all));
+    if (!error && !enable_raft_plugin)
+      (void)RUN_HOOK(transaction, after_commit, (thd, all));
     trn_ctx->m_flags.run_hooks = false;
   }
   return error;

@@ -1,0 +1,73 @@
+source ../include/raft_3_node.inc;
+
+--disable_query_log
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+call mtr.add_suppression("Engine has seen trxs till file .*");
+--enable_query_log
+
+# Create connections to server 4 and 5 (these are not in the ring)
+let $rpl_server_number= 4;
+let $rpl_connection_name= server_4;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_4;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+let $rpl_server_number= 5;
+let $rpl_connection_name= server_5;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_5;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+
+connection server_1;
+create table t1 (a int primary key) engine = innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+select * from t1;
+
+connection server_3;
+select * from t1;
+
+connection server_1;
+echo "Restarting server_1";
+let $rpl_server_number = 1;
+source include/rpl_restart_server.inc;
+
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+connection server_1;
+insert into t1 values(3);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+select * from t1;
+
+connection server_3;
+select * from t1;
+
+# cleanup
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

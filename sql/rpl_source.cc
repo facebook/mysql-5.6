@@ -1339,7 +1339,9 @@ end:
     have succeeded.
   */
   if (!ret) {
-    (void)RUN_HOOK(binlog_transmit, after_reset_master, (thd, 0 /* flags */));
+    // semi-sync is called only when raft is disabled
+    if (!enable_raft_plugin)
+      (void)RUN_HOOK(binlog_transmit, after_reset_master, (thd, 0 /* flags */));
     mysql_bin_log.reset_semi_sync_last_acked();
   }
   return ret;

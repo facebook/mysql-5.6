@@ -378,7 +378,6 @@ The following options may be given as the first argument:
  Limit CREATE TABLE for the storage engines listed
  --disallow-raft     Temporary variable wich blocks turning on raft. Will be
  removed later once raft is ready for 8.0
- (Defaults to on; use --skip-disallow-raft to disable.)
  --disconnect-on-expired-password 
  Give clients that don't signal password expiration
  support execution time error(s) instead of connection
@@ -1309,6 +1308,9 @@ The following options may be given as the first argument:
  Allocation block size for query parsing and execution
  --query-prealloc-size=# 
  Persistent buffer for query parsing and execution
+ --raft-signal-async-dump-threads[=name] 
+ When should we signal async dump threads who are waiting
+ to send events
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
@@ -2627,7 +2629,7 @@ delayed-insert-timeout 300
 delayed-queue-size 1000
 disable-raft-log-repointing FALSE
 disabled-storage-engines 
-disallow-raft TRUE
+disallow-raft FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
@@ -2901,6 +2903,7 @@ protocol-compression-algorithms zlib,zstd,zstd_stream,lz4f_stream,uncompressed
 protocol-mode 
 query-alloc-block-size 8192
 query-prealloc-size 8192
+raft-signal-async-dump-threads AFTER_CONSENSUS
 range-alloc-block-size 4096
 range-optimizer-max-mem-size 8388608
 rbr-column-type-mismatch-whitelist 
