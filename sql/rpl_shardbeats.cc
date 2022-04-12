@@ -444,8 +444,8 @@ void Shardbeats_manager::check_and_insert_shardbeat(
     comment = format_str_comment_iter;
     boost::replace_all(comment, "{shard}", shard_id);
     boost::replace_all(comment, "{replicaset}", rs_id);
-    sprintf(s_buf, "/* %s */ INSERT INTO %s.%s VALUES(%ld);", comment.c_str(),
-            db.c_str(), table_name.c_str(), sb_val);
+    sprintf(s_buf, "USE %s; /* %s */ INSERT INTO %s VALUES(%ld);", db.c_str(),
+            comment.c_str(), table_name.c_str(), sb_val);
   } else {
     sprintf(s_buf, "INSERT INTO %s.%s VALUES(%ld);", db.c_str(),
             table_name.c_str(), sb_val);
@@ -579,6 +579,14 @@ void Shardbeats_manager::execute() {
     std::string table_name(shardbeat_table);
     // table name should be valid.
     if (table_name.empty()) {
+      static int error_msg_count = 0;
+      if ((error_msg_count++ % INFREQUENT_LOGGING == 0 &&
+           shardbeat_vlog_level >= 1) ||
+          shardbeat_vlog_level >= 3) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "shardbeat_table is empty. Skipping sharbeats insertion");
+      }
       continue;
     }
 
@@ -588,6 +596,13 @@ void Shardbeats_manager::execute() {
     unsigned long long current_ts = my_micro_time();
     maintain_ro_stats(ro_fail, current_ts / 1000 /* milliseconds */);
     if (ro_fail) {
+      static int error_msg_count = 0;
+      if ((error_msg_count++ % INFREQUENT_LOGGING == 0 &&
+           shardbeat_vlog_level >= 1) ||
+          shardbeat_vlog_level >= 3) {
+        // NO_LINT_DEBUG
+        sql_print_information("read_only is set. Skipping sharbeats insertion");
+      }
       continue;
     }
 
@@ -597,6 +612,13 @@ void Shardbeats_manager::execute() {
 
     // Do not insert shardbeats on replicas till they become primary
     if (is_slave_check) {
+      static int error_msg_count = 0;
+      if ((error_msg_count++ % INFREQUENT_LOGGING == 0 &&
+           shardbeat_vlog_level >= 1) ||
+          shardbeat_vlog_level >= 3) {
+        // NO_LINT_DEBUG
+        sql_print_information("is_slave is set. Skipping sharbeats insertion");
+      }
       continue;
     }
 
