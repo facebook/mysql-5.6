@@ -39,7 +39,7 @@ include/assert.inc [no user facing dbs hence test is skipped as well;]
 ALTER DATABASE db1 DB_METADATA '{"shard": "50000000", "rs": "1234579"}';
 include/assert.inc [user facing dbs hence test is not skipped;]
 include/assert.inc [no permissions so we should fail shardbeats]
-include/assert.inc [we should get permission error 1142]
+include/assert.inc [we should get permission error 1044]
 GRANT INSERT ON db1.* to 'dba_scripts:sys.database'@'%';
 include/assert.inc [now that we have grants shardbeats should go through]
 use db1;

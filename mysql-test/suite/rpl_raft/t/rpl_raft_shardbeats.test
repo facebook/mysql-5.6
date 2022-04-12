@@ -73,8 +73,8 @@ ALTER DATABASE db1 DB_METADATA '{"shard": "50000000", "rs": "1234579"}';
 --let $assert_cond = $test_db_fail > 0;
 --source include/assert.inc
 
---let $assert_text = we should get permission error 1142
---let $assert_cond = "$last_few_fail" LIKE "ErrCode: 1142%"
+--let $assert_text = we should get permission error 1044
+--let $assert_cond = "$last_few_fail" LIKE "errcode: 1044%"
 --source include/assert.inc
 
 # Since grants was missing writes would have failed. Lets now give
