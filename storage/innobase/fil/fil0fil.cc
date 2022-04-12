@@ -287,7 +287,8 @@ Fil_path MySQL_undo_path;
 bool MySQL_undo_path_is_unique;
 
 /** Common InnoDB file extensions */
-const char *dot_ext[] = {"", ".ibd", ".cfg", ".cfp", ".ibt", ".ibu", ".dblwr"};
+const char *dot_ext[] = {"",     ".ibd", ".cfg",   ".cfp",
+                         ".ibt", ".ibu", ".dblwr", ".bdblwr"};
 
 /** The number of fsyncs done to the log */
 ulint fil_n_log_flushes = 0;
@@ -316,7 +317,10 @@ enum fil_load_status {
 
   /** The tablespace file ID in the first page doesn't match
   expected value. */
-  FIL_LOAD_MISMATCH
+  FIL_LOAD_MISMATCH,
+
+  /** Doublewrite buffer corruption */
+  FIL_LOAD_DBWLR_CORRUPTION
 };
 
 /** File operations for tablespace */
@@ -1620,8 +1624,8 @@ class Fil_system {
 
   /** Open a tablespace that has a redo log record to apply.
   @param[in]	space_id		Tablespace ID
-  @return true if the open was successful */
-  [[nodiscard]] bool open_for_recovery(space_id_t space_id);
+  @return DB_SUCCESS if the open was successful */
+  [[nodiscard]] dberr_t open_for_recovery(space_id_t space_id);
 
   /** This function should be called after recovery has completed.
   Check for tablespace files for which we did not see any
@@ -5985,7 +5989,7 @@ dberr_t fil_ibd_open(bool validate, fil_type_t purpose, space_id_t space_id,
 
 #if !defined(NO_FALLOCATE) && defined(UNIV_LINUX)
   const bool atomic_write =
-      !dblwr::enabled && fil_fusionio_enable_atomic_write(df.handle());
+      !dblwr::is_enabled() && fil_fusionio_enable_atomic_write(df.handle());
 #else
   const bool atomic_write = false;
 #endif /* !NO_FALLOCATE && UNIV_LINUX */
@@ -6261,7 +6265,13 @@ fil_load_status Fil_shard::ibd_open_for_recovery(space_id_t space_id,
   the flags and names to be queried. */
   dberr_t err = df.validate_for_recovery(space_id);
 
-  ut_a(err == DB_SUCCESS || err == DB_INVALID_ENCRYPTION_META);
+  ut_a(err == DB_SUCCESS || err == DB_INVALID_ENCRYPTION_META ||
+       err == DB_CORRUPTION);
+
+  if (err == DB_CORRUPTION) {
+    return (FIL_LOAD_DBWLR_CORRUPTION);
+  }
+
   if (err == DB_INVALID_ENCRYPTION_META) {
     bool success = fil_system->erase_path(space_id);
     ut_a(success);
@@ -10311,11 +10321,11 @@ bool fil_tablespace_lookup_for_recovery(space_id_t space_id) {
 /** Open a tablespace that has a redo/DDL log record to apply.
 @param[in]	space_id		Tablespace ID
 @return true if the open was successful */
-bool Fil_system::open_for_recovery(space_id_t space_id) {
+dberr_t Fil_system::open_for_recovery(space_id_t space_id) {
   ut_ad(recv_recovery_is_on() || Log_DDL::is_in_recovery());
 
   if (!lookup_for_recovery(space_id)) {
-    return false;
+    return DB_FAIL;
   }
 
   const auto result = get_scanned_filename_by_space_id(space_id);
@@ -10330,6 +10340,12 @@ bool Fil_system::open_for_recovery(space_id_t space_id) {
 
   auto status = ibd_open_for_recovery(space_id, path, space);
 
+  dberr_t err = DB_SUCCESS;
+
+  if (status == FIL_LOAD_DBWLR_CORRUPTION) {
+    return (DB_CORRUPTION);
+  }
+
   if (status == FIL_LOAD_OK) {
     if ((FSP_FLAGS_GET_ENCRYPTION(space->flags) ||
          space->encryption_op_in_progress ==
@@ -10339,20 +10355,20 @@ bool Fil_system::open_for_recovery(space_id_t space_id) {
     }
 
     if (!recv_sys->dblwr->empty()) {
-      recv_sys->dblwr->recover(space);
+      err = recv_sys->dblwr->recover(space);
 
     } else {
       ib::info(ER_IB_MSG_DBLWR_1317) << "DBLWR recovery skipped for "
                                      << space->name << " ID: " << space->id;
     }
 
-    return true;
+    return err;
   }
 
-  return false;
+  return DB_FAIL;
 }
 
-bool fil_tablespace_open_for_recovery(space_id_t space_id) {
+dberr_t fil_tablespace_open_for_recovery(space_id_t space_id) {
   return fil_system->open_for_recovery(space_id);
 }
 
@@ -10692,11 +10708,9 @@ byte *fil_tablespace_redo_create(byte *ptr, const byte *end,
 
   /* It's possible that the tablespace file was renamed later. */
   if (result.second->front().compare(abs_name) == 0) {
-    bool success;
+    dberr_t success = fil_tablespace_open_for_recovery(page_id.space());
 
-    success = fil_tablespace_open_for_recovery(page_id.space());
-
-    if (!success) {
+    if (success != DB_SUCCESS) {
       ib::info(ER_IB_MSG_356) << "Create '" << abs_name << "' failed!";
     }
   }

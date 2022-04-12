@@ -248,8 +248,9 @@ pages.
                                 in buffer pool: this alternative means that
                                 no new log records can be generated during
                                 the application; the caller must in this case
-                                own the log mutex */
-void recv_apply_hashed_log_recs(log_t &log, bool allow_ibuf);
+                                own the log mutex
+@return DB_SUCCESS on success, others on failure */
+dberr_t recv_apply_hashed_log_recs(log_t &log, bool allow_ibuf);
 
 #if defined(UNIV_DEBUG) || defined(UNIV_HOTBACKUP)
 /** Return string name of the redo log record type.

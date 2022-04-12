@@ -418,12 +418,14 @@ bool sys_var_pluginvar::global_update(THD *thd, set_var *var) {
   }
 
   if ((plugin_var->flags & PLUGIN_VAR_TYPEMASK) == PLUGIN_VAR_STR &&
-      plugin_var->flags & PLUGIN_VAR_MEMALLOC)
+      plugin_var->flags & PLUGIN_VAR_MEMALLOC) {
     rc = plugin_var_memalloc_global_update(thd, plugin_var,
                                            static_cast<char **>(tgt),
                                            *static_cast<char *const *>(src));
-  else
+  } else {
     plugin_var->update(thd, plugin_var, tgt, src);
+    return (thd->is_error() ? 1 : 0);
+  }
 
   return rc;
 }

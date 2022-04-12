@@ -486,6 +486,18 @@ static TYPELIB innodb_default_row_format_typelib = {
     "innodb_default_row_format_typelib", innodb_default_row_format_names,
     nullptr};
 
+/** Possible values for system variable "innodb_doublewrite".
+@note: If you change order or add new values, please update dblwr::mode_t in
+include/buf0dblwr.h */
+static const char *innodb_doublewrite_names[] = {"OFF",   "ON",   "REDUCED",
+                                                 "FALSE", "TRUE", NullS};
+
+/** Used to define an enumerate type of the system variable
+innodb_default_row_format. */
+static TYPELIB innodb_doublewrite_typelib = {
+    array_elements(innodb_doublewrite_names) - 1, "innodb_doublewrite_typelib",
+    innodb_doublewrite_names, nullptr};
+
 #else  /* !UNIV_HOTBACKUP */
 
 /** Returns the name of the checksum algorithm corresponding to the
@@ -876,6 +888,91 @@ static PSI_file_info all_innodb_files[] = {
     PSI_KEY(meb::redo_log_archive_file, 0, 0, PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_IO */
 #endif /* HAVE_PSI_INTERFACE */
+
+/** Plugin update function to handle valdiation and then switch the
+innodb_doublewrite mode
+@param[in]  thd thread handle
+@param[in]  var pointer to system variable
+@param[in]  var_ptr where the formal string goes
+@param[in]  save  immediate result from check function */
+static void doublewrite_update(THD *thd, SYS_VAR *var, void *var_ptr,
+                               const void *save) {
+  ulong new_value = *static_cast<const dblwr::mode_t *>(save);
+
+  if (dblwr::is_enabled() && dblwr::is_disabled_low(new_value)) {
+    char msg[FN_REFLEN];
+    snprintf(msg, sizeof(msg),
+             "InnoDB: cannot change doublewrite mode to %s if"
+             " doublewrite is enabled. Please shutdown and"
+             " change value to %s",
+             dblwr::to_string(new_value), dblwr::to_string(new_value));
+    /*
+    push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
+                        "InnoDB: cannot change doublewrite mode to OFF if"
+                        " doublewrite is enabled. Please shutdown and"
+                        " change value to OFF");
+    */
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), msg);
+    return;
+  }
+
+  if (dblwr::is_disabled() && dblwr::is_enabled_low(new_value)) {
+    char msg[FN_REFLEN];
+    snprintf(msg, sizeof(msg),
+             "InnoDB: cannot change doublewrite mode to %s if"
+             " doublewrite is disabled. Please shutdown and"
+             " change value to %s",
+             dblwr::to_string(new_value), dblwr::to_string(new_value));
+
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), msg);
+
+    return;
+  }
+
+  // ON and TRUE are same
+  if ((dblwr::enabled == dblwr::TRUEE || dblwr::enabled == dblwr::ON) &&
+      (new_value == dblwr::TRUEE || new_value == dblwr::ON)) {
+    return;
+  }
+
+  // OFF and FALSE are same
+  if ((dblwr::enabled == dblwr::FALSEE || dblwr::enabled == dblwr::OFF) &&
+      (new_value == dblwr::FALSEE || new_value == dblwr::OFF)) {
+    return;
+  }
+
+  if (new_value == dblwr::enabled) {
+    // Old value and new value same. Do nothing.
+    return;
+  }
+
+  // Handle ON to REDUCED
+  // 1. Check if REDUCED setup is already initalized. If not intialize REDUCED
+  //    files and structures
+  // 2. Flush the partially filled dblwr buffers
+  //
+  if (dblwr::is_reduced_low(new_value)) {
+    dberr_t err = dblwr::enable_reduced(false);
+    if (err != DB_SUCCESS) {
+      char msg[FN_REFLEN];
+      snprintf(msg, sizeof(msg),
+               "InnoDB: cannot change doublewrite mode to %s."
+               " Please check if doublewrite directory is writable"
+               " Error code: %d",
+               dblwr::to_string(new_value), err);
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), msg);
+      return;
+    }
+  }
+
+  // Handle REDUCED to ON
+  // 1. Flush partially filled reduced dblwr buffers
+
+  dblwr::force_flush_all();
+
+  *static_cast<dblwr::mode_t *>(var_ptr) =
+      *static_cast<const dblwr::mode_t *>(save);
+}
 
 /** Set up InnoDB API callback function array */
 /*
@@ -4917,7 +5014,7 @@ static int innodb_init_params() {
 
     /* There is no write except to intrinsic table and so turn-off
     doublewrite mechanism completely. */
-    dblwr::enabled = false;
+    dblwr::enabled = dblwr::OFF;
   }
 
 #ifdef LINUX_NATIVE_AIO
@@ -12768,7 +12865,7 @@ static bool innobase_ddse_dict_init(
   assert(tables && tables->is_empty());
   assert(tablespaces && tablespaces->is_empty());
 
-  if (dblwr::enabled) {
+  if (dblwr::is_enabled()) {
     if (innobase_doublewrite_dir != nullptr && *innobase_doublewrite_dir != 0) {
       dblwr::dir.assign(innobase_doublewrite_dir);
       switch (dblwr::dir.front()) {
@@ -22211,11 +22308,11 @@ static MYSQL_SYSVAR_BOOL(use_fdatasync, srv_use_fdatasync, PLUGIN_VAR_NOCMDARG,
                          nullptr, nullptr, false);
 
 // clang-format off
-static MYSQL_SYSVAR_BOOL(
-    doublewrite, dblwr::enabled, PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+static MYSQL_SYSVAR_ENUM(
+    doublewrite, dblwr::enabled, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_NOPERSIST,
     "Enable InnoDB doublewrite buffer (enabled by default)."
     " Disable with --skip-innodb-doublewrite.",
-    nullptr, nullptr, TRUE);
+    nullptr, doublewrite_update, dblwr::ON, &innodb_doublewrite_typelib);
 
 static MYSQL_SYSVAR_BOOL(
     extend_and_initialize, tbsp_extend_and_initialize, PLUGIN_VAR_NOCMDARG,

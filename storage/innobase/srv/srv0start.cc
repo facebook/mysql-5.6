@@ -904,7 +904,7 @@ dberr_t srv_undo_tablespace_open(undo::Tablespace &undo_space) {
 
   /* Check if this file supports atomic write. */
 #if !defined(NO_FALLOCATE) && defined(UNIV_LINUX)
-  if (!dblwr::enabled) {
+  if (!dblwr::is_enabled()) {
     atomic_write = fil_fusionio_enable_atomic_write(fh);
   } else {
     atomic_write = false;
@@ -2380,7 +2380,8 @@ dberr_t srv_start(bool create_new_db) {
 
 files_checked:
 
-  if (dblwr::enabled && ((err = dblwr::open(create_new_db)) != DB_SUCCESS)) {
+  if (dblwr::is_enabled() &&
+      ((err = dblwr::open(create_new_db)) != DB_SUCCESS)) {
     return (srv_init_abort(err));
   }
 
@@ -2527,14 +2528,15 @@ files_checked:
       /* Don't allow IBUF operations for cloned database
       recovery as it would add extra redo log and we may
       not have enough margin. */
+      dberr_t err;
       if (recv_sys->is_cloned_db) {
-        recv_apply_hashed_log_recs(*log_sys, false);
+        err = recv_apply_hashed_log_recs(*log_sys, false);
 
       } else {
-        recv_apply_hashed_log_recs(*log_sys, true);
+        err = recv_apply_hashed_log_recs(*log_sys, true);
       }
 
-      if (recv_sys->found_corrupt_log) {
+      if (recv_sys->found_corrupt_log || err != DB_SUCCESS) {
         err = DB_ERROR;
         return (srv_init_abort(err));
       }

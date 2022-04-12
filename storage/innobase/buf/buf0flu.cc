@@ -942,7 +942,7 @@ void buf_flush_write_complete(buf_page_t *bpage) {
 
   mutex_exit(&buf_pool->flush_state_mutex);
 
-  if (!fsp_is_system_temporary(bpage->id.space()) && dblwr::enabled) {
+  if (!fsp_is_system_temporary(bpage->id.space()) && dblwr::is_enabled()) {
     dblwr::write_complete(bpage, flush_type);
   }
 }
@@ -1375,7 +1375,7 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
 
     if (flush_type == BUF_FLUSH_LIST && is_uncompressed &&
         !rw_lock_sx_lock_nowait(rw_lock, BUF_IO_WRITE)) {
-      if (!fsp_is_system_temporary(bpage->id.space()) && dblwr::enabled) {
+      if (!fsp_is_system_temporary(bpage->id.space()) && dblwr::is_enabled()) {
         dblwr::force_flush(flush_type, buf_pool_index(buf_pool));
       } else {
         buf_flush_sync_datafiles();
@@ -2046,7 +2046,7 @@ static void buf_flush_end(buf_pool_t *buf_pool, buf_flush_t flush_type) {
   mutex_exit(&buf_pool->flush_state_mutex);
 
   if (!srv_read_only_mode) {
-    if (dblwr::enabled) {
+    if (dblwr::is_enabled()) {
       dblwr::force_flush(flush_type, buf_pool_index(buf_pool));
     } else {
       buf_flush_sync_datafiles();
