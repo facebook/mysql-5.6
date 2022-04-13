@@ -835,9 +835,12 @@ void Shardbeats_manager::transition_to_state(Shardbeats_manager::State s) {
 }
 
 // Fork the shardbeater thread.
-bool Shardbeats_manager::start_shardbeater_thread(THD *thd) {
+bool Shardbeats_manager::start_shardbeater_thread(THD *thd,
+                                                  Start_Stop_Reason reason) {
   DBUG_ENTER("start_shardbeater_thread");
 
+  DBUG_ASSERT(reason == Start_Stop_Reason::NONE ||
+              reason == Start_Stop_Reason::READ_ONLY_OFF);
   Security_context *sctx = thd->security_context();
   if (!sctx->check_access(SUPER_ACL)) {
     my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER");
@@ -876,6 +879,11 @@ bool Shardbeats_manager::start_shardbeater_thread(THD *thd) {
 
   // Indicate that it is starting
   state = State::STARTING;
+  if (reason == Start_Stop_Reason::READ_ONLY_OFF) {
+    current_ro_state = false;
+    unsigned long long current_ts = my_micro_time();
+    ro_OFF_ts = current_ts / 1000 /* milliseconds */;
+  }
 
   my_thread_handle th;
   if ((mysql_thread_create(0, &th, &connection_attrib, generate_shardbeats,
@@ -913,9 +921,12 @@ bool Shardbeats_manager::start_shardbeater_thread(THD *thd) {
 
 // set the state to STOPPING and wait for the shardbeater
 // thread to exit.
-bool Shardbeats_manager::stop_shardbeater_thread(THD *thd) {
+bool Shardbeats_manager::stop_shardbeater_thread(THD *thd,
+                                                 Start_Stop_Reason reason) {
   DBUG_ENTER("stop_shardbeater_thread");
 
+  DBUG_ASSERT(reason == Start_Stop_Reason::NONE ||
+              reason == Start_Stop_Reason::READ_ONLY_ON);
   Security_context *sctx = thd->security_context();
   if (!sctx->check_access(SUPER_ACL)) {
     my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER");
@@ -931,6 +942,12 @@ bool Shardbeats_manager::stop_shardbeater_thread(THD *thd) {
   }
 
   state = State::STOPPING;
+  if (reason == Start_Stop_Reason::READ_ONLY_ON) {
+    current_ro_state = true;
+    unsigned long long current_ts = my_micro_time();
+    ro_ON_ts = current_ts / 1000 /* milliseconds */;
+  }
+
   int stop_wait_timeout = 10;
   while (state != State::STOPPED && stop_wait_timeout > 0) {
     struct timespec abstime;

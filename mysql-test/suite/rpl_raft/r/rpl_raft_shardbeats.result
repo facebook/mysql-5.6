@@ -21,8 +21,7 @@ Rpl_raft_role	FOLLOWER
 reset master;
 create database db1;
 create database db2;
-show shardbeater status;
-ERROR HY000: Shardbeats not ON yet
+include/assert.inc [shardbeater should not be running]
 set global shardbeat_interval_ms = 2000;
 set global shardbeat_vlog_level = 1;
 start shardbeater;
@@ -52,8 +51,6 @@ create table blackhole(i INT);
 include/assert.inc [now that we have grants shardbeats should go through]
 include/assert.inc [the number of shardbeats should be 5]
 include/assert.inc [the number of shardbeats should be 5]
-show shardbeater status;
-ERROR HY000: Shardbeats not ON yet
 "Transfering leadership: server_1 -> server_2"
 set @@global.rpl_raft_new_leader_uuid = 'uuid2';
 "The leadership has transferred and server_1 is now a FOLLOWER"
@@ -68,6 +65,19 @@ echo "Transfering leadership: server_2 -> server_1"
 set @@global.rpl_raft_new_leader_uuid = 'uuid1';
 include/assert.inc [the number of shardbeats should be 5]
 include/assert.inc [the number of shardbeats should be 5]
+set global shardbeat_interval_ms = 2000;
+set global shardbeat_vlog_level = 1;
+set global shardbeat_query_comment_format='WH:1 .T:sb .I:{ipaddr} #S:{shard} #rs:{replicaset}';
+set global shardbeat_user='dba_scripts:sys.database';
+set global shardbeat_interval_ms = 2000;
+set global shardbeat_vlog_level = 1;
+set global shardbeat_query_comment_format='WH:1 .T:sb .I:{ipaddr} #S:{shard} #rs:{replicaset}';
+set global shardbeat_user='dba_scripts:sys.database';
+"Transfering leadership: server_1 -> server_2"
+set @@global.rpl_raft_new_leader_uuid = 'uuid2';
+include/assert.inc [shardbeater should not be running]
+"Transfering leadership: server_2 -> server_1"
+set @@global.rpl_raft_new_leader_uuid = 'uuid1';
 Cleanup
 stop shardbeater;
 set global shardbeat_interval_ms = default;
@@ -78,6 +88,16 @@ set global shardbeat_table= default;
 DROP DATABASE db1;
 DROP DATABASE db2;
 DROP USER IF EXISTS 'dba_scripts:sys.database'@'%';
+set global shardbeat_interval_ms = default;
+set global shardbeat_vlog_level = default;
+set global shardbeat_query_comment_format= default;
+set global shardbeat_user= default;
+set global shardbeat_table= default;
+set global shardbeat_interval_ms = default;
+set global shardbeat_vlog_level = default;
+set global shardbeat_query_comment_format= default;
+set global shardbeat_user= default;
+set global shardbeat_table= default;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/rpl_end.inc
