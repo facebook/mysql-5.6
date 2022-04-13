@@ -58,9 +58,10 @@
 #include "sql/raii/sentry.h"  // raii::Sentry<T>
 #include "sql/replication.h"  // Trans_param
 #include "sql/rpl_gtid.h"
-#include "sql/rpl_mi.h"     // Master_info
-#include "sql/set_var.h"    // OPT_PERSIST
-#include "sql/sql_class.h"  // THD
+#include "sql/rpl_mi.h"          // Master_info
+#include "sql/rpl_shardbeats.h"  // for shardbeater
+#include "sql/set_var.h"         // OPT_PERSIST
+#include "sql/sql_class.h"       // THD
 #include "sql/sql_const.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_parse.h"   // sql_command_flags
@@ -1659,7 +1660,7 @@ static void unset_priority_raft_thread_session_vars() {
 }
 
 static int handle_read_only(
-    const std::map<std::string, unsigned int> &sys_var_map) {
+    THD *thd, const std::map<std::string, unsigned int> &sys_var_map) {
   int error = 0;
   auto read_only_it = sys_var_map.find("read_only");
   auto super_read_only_it = sys_var_map.find("super_read_only");
@@ -1681,10 +1682,20 @@ static int handle_read_only(
     if (high_priority_raft_thread_copy) {
       unset_priority_raft_thread_session_vars();
     }
+    // Since we are shutting down user writes, we should turn off shardbeater
+    if (!error && enable_shardbeater) {
+      Shardbeats_manager::get_or_create()->stop_shardbeater_thread(
+          thd, Shardbeats_manager::Start_Stop_Reason::READ_ONLY_ON);
+    }
   } else if (read_only_it != sys_var_map.end() && read_only_it->second == 0) {
     // Case 2: set read_only=0. This will implicitly unset super_read_only.
     Item_uint read_only_item(read_only_it->second);
     error = update_sys_var(STRING_WITH_LEN("read_only"), read_only_item);
+    // Since we are enabling writes, we should turn on shardbeater
+    if (!error && enable_shardbeater) {
+      Shardbeats_manager::get_or_create()->start_shardbeater_thread(
+          thd, Shardbeats_manager::Start_Stop_Reason::READ_ONLY_OFF);
+    }
   } else {
     // Case 3: Need to set read_only=1 OR/AND set super_read_only=0
     if (read_only_it != sys_var_map.end()) {
@@ -1701,6 +1712,11 @@ static int handle_read_only(
       Item_uint super_read_only_item(super_read_only_it->second);
       error = update_sys_var(STRING_WITH_LEN("super_read_only"),
                              super_read_only_item);
+    }
+    // Since we are shutting down user writes, we should turn off shardbeater
+    if (!error && enable_shardbeater) {
+      Shardbeats_manager::get_or_create()->stop_shardbeater_thread(
+          thd, Shardbeats_manager::Start_Stop_Reason::READ_ONLY_ON);
     }
   }
 
@@ -1773,7 +1789,7 @@ extern "C" void *process_raft_queue(void *) {
                ("process_raft_queue: %d\n", static_cast<int>(element.type)));
     switch (element.type) {
       case RaftListenerCallbackType::SET_READ_ONLY: {
-        result.error = handle_read_only(element.arg.val_sys_var_uint);
+        result.error = handle_read_only(thd, element.arg.val_sys_var_uint);
         break;
       }
       case RaftListenerCallbackType::TRIM_LOGGED_GTIDS: {
