@@ -20,9 +20,11 @@ create database db1;
 create database db2;
 
 # Shardbeater is not ON yet.
-
---error ER_DISALLOWED_OPERATION
-show shardbeater status;
+# show shardbeater status;
+--let $running_state = query_get_value(SHOW SHARDBEATER STATUS, Running, 1)
+--let $assert_text = shardbeater should not be running
+--let $assert_cond = "$running_state" = "NO"
+--source include/assert.inc
 
 set global shardbeat_interval_ms = 2000;
 set global shardbeat_vlog_level = 1;
@@ -128,10 +130,6 @@ create table blackhole(i INT);
 --let $assert_cond = ($test_db_ok2_a - $test_db_ok2_b) >= 5
 --source include/assert.inc
 
-connection server_2;
---error ER_DISALLOWED_OPERATION
-show shardbeater status;
-
 echo "Transfering leadership: server_1 -> server_2";
 connection server_1;
 replace_result $uuid2 uuid2;
@@ -176,6 +174,76 @@ source include/wait_condition.inc;
 --source include/assert.inc
 
 # =============================================================================
+# Promotions in Raft automatically start shardbeater
+# =============================================================================
+connection server_2;
+set global shardbeat_interval_ms = 2000;
+set global shardbeat_vlog_level = 1;
+set global shardbeat_query_comment_format='WH:1 .T:sb .I:{ipaddr} #S:{shard} #rs:{replicaset}';
+set global shardbeat_user='dba_scripts:sys.database';
+# Create the user
+#create user if not exists 'dba_scripts:sys.database'@'%';
+#GRANT INSERT ON db1.* to 'dba_scripts:sys.database'@'%';
+#GRANT INSERT ON db2.* to 'dba_scripts:sys.database'@'%';
+
+connection server_3;
+set global shardbeat_interval_ms = 2000;
+set global shardbeat_vlog_level = 1;
+set global shardbeat_query_comment_format='WH:1 .T:sb .I:{ipaddr} #S:{shard} #rs:{replicaset}';
+set global shardbeat_user='dba_scripts:sys.database';
+# Create the user
+#create user if not exists 'dba_scripts:sys.database'@'%';
+#GRANT INSERT ON db1.* to 'dba_scripts:sys.database'@'%';
+#GRANT INSERT ON db2.* to 'dba_scripts:sys.database'@'%';
+
+echo "Transfering leadership: server_1 -> server_2";
+connection server_1;
+replace_result $uuid2 uuid2;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid2';
+
+let $wait_condition= select @@global.read_only = 1;
+source include/wait_condition.inc;
+
+# Shardbeater should not more be running in server_1
+--let $running_state = query_get_value(SHOW SHARDBEATER STATUS, Running, 1)
+--let $assert_text = shardbeater should not be running
+--let $assert_cond = "$running_state" = "NO"
+--source include/assert.inc
+
+connection server_2;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+
+# Shardbeater should not more be running in server_1
+--let $running_state = query_get_value(SHOW SHARDBEATER STATUS, Running, 1)
+--let $assert_text = shardbeater should be running
+--let $assert_cond = "$running_state" = "YES"
+
+echo "Transfering leadership: server_2 -> server_1";
+replace_result $uuid1 uuid1;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid1';
+let $wait_condition= select @@global.read_only = 1;
+source include/wait_condition.inc;
+
+--sleep 2
+
+# Shardbeater should not more be running in server_1
+--let $running_state = query_get_value(SHOW SHARDBEATER STATUS, Running, 1)
+--let $assert_text = shardbeater should be running
+--let $assert_cond = "$running_state" = "NO"
+
+connection server_1;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+
+--sleep 2
+
+# Shardbeater should not more be running in server_1
+--let $running_state = query_get_value(SHOW SHARDBEATER STATUS, Running, 1)
+--let $assert_text = shardbeater should be running
+--let $assert_cond = "$running_state" = "YES"
+
+# =============================================================================
 # Cleanup
 # =============================================================================
 
@@ -191,6 +259,22 @@ set global shardbeat_table= default;
 DROP DATABASE db1;
 DROP DATABASE db2;
 DROP USER IF EXISTS 'dba_scripts:sys.database'@'%';
+
+connection server_2;
+set global shardbeat_interval_ms = default;
+set global shardbeat_vlog_level = default;
+set global shardbeat_query_comment_format= default;
+set global shardbeat_user= default;
+set global shardbeat_table= default;
+
+connection server_3;
+set global shardbeat_interval_ms = default;
+set global shardbeat_vlog_level = default;
+set global shardbeat_query_comment_format= default;
+set global shardbeat_user= default;
+set global shardbeat_table= default;
+
+connection server_1;
 
 let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;

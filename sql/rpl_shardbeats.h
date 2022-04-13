@@ -20,6 +20,8 @@ extern char *shardbeat_table;
 extern char *shardbeat_user;
 // interval between shardbeats on silent shards
 extern uint shardbeat_interval_ms;
+// killswitch for the shardbeater.
+extern bool enable_shardbeater;
 
 /**
  * This class contains the functionality for Shardbeats.
@@ -59,6 +61,8 @@ class Shardbeats_manager {
   ~Shardbeats_manager();
 
   enum class State { STOPPED, STARTING, RUNNING, STOPPING };
+
+  enum class Start_Stop_Reason { NONE, READ_ONLY_OFF, READ_ONLY_ON };
 
   // A simple struct to keep range of time
   // that a mysql error consecutively happened
@@ -116,10 +120,12 @@ class Shardbeats_manager {
   void update_db_trx_times(THD *thd, unsigned long long oc_flush_timestamp);
 
   // Stop the Thread for Shardbeat injection
-  bool start_shardbeater_thread(THD *thd);
+  bool start_shardbeater_thread(
+      THD *thd, Start_Stop_Reason reason = Start_Stop_Reason::NONE);
 
   // Start the Thread for Shardbeat injection
-  bool stop_shardbeater_thread(THD *thd);
+  bool stop_shardbeater_thread(
+      THD *thd, Start_Stop_Reason reason = Start_Stop_Reason::NONE);
 
   // Show status of the shardbeater
   bool show_status_cmd(THD *thd);
