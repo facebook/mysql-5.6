@@ -1249,8 +1249,10 @@ bool raft_send_replica_statistics = false;
 
 /* Apply log related variables for raft
    "_ptr" variables are system variables that should not be free by us */
-char *opt_apply_logname = nullptr, *opt_apply_logname_ptr = nullptr;
-char *opt_applylog_index_name = nullptr, *opt_applylog_index_name_ptr = nullptr;
+char *opt_apply_logname = nullptr;
+char *opt_applylog_index_name = nullptr;
+bool opt_apply_logname_allocated = false;
+bool opt_applylog_index_name_allocated = false;
 
 #if defined(_WIN32)
 /*
@@ -3020,12 +3022,12 @@ static void clean_up(bool print_message) {
   free_tmpdir(&mysql_tmpdir_list);
   my_free(opt_bin_logname);
 
-  if (opt_apply_logname) {
+  if (opt_apply_logname && opt_apply_logname_allocated) {
     my_free(opt_apply_logname);
     opt_apply_logname = nullptr;
   }
 
-  if (opt_applylog_index_name) {
+  if (opt_applylog_index_name && opt_applylog_index_name_allocated) {
     my_free(opt_applylog_index_name);
     opt_applylog_index_name = nullptr;
   }
@@ -12320,38 +12322,32 @@ static int generate_apply_file_gvars() {
   DBUG_ENTER("generate_apply_file_gvars");
 
   /* Reports an error and aborts, if the --apply-log's path is a directory */
-  if (opt_apply_logname_ptr &&
-      opt_apply_logname_ptr[strlen(opt_apply_logname_ptr) - 1] == FN_LIBCHAR) {
+  if (opt_apply_logname &&
+      opt_apply_logname[strlen(opt_apply_logname) - 1] == FN_LIBCHAR) {
     // NO_LINT_DEBUG
     sql_print_information(
         "Path '%s' is a directory name, please specify a"
         "file name for --apply-log option",
-        opt_apply_logname_ptr);
+        opt_apply_logname);
     DBUG_RETURN(1);
   }
 
   /* Reports an error and aborts, if the --apply-log-index's path
      is a directory.*/
-  if (opt_applylog_index_name_ptr &&
-      opt_applylog_index_name_ptr[strlen(opt_applylog_index_name_ptr) - 1] ==
+  if (opt_applylog_index_name &&
+      opt_applylog_index_name[strlen(opt_applylog_index_name) - 1] ==
           FN_LIBCHAR) {
     // NO_LINT_DEBUG
     sql_print_information(
         "Path '%s' is a directory name, please specify a "
         "file name for --apply-log-index option",
-        opt_applylog_index_name_ptr);
+        opt_applylog_index_name);
     DBUG_RETURN(1);
   }
 
-  if (opt_apply_logname_ptr && opt_applylog_index_name_ptr) {
-    opt_apply_logname =
-        my_strdup(PSI_NOT_INSTRUMENTED, opt_apply_logname_ptr, MYF(0));
-    opt_applylog_index_name =
-        my_strdup(PSI_NOT_INSTRUMENTED, opt_applylog_index_name_ptr, MYF(0));
-    DBUG_RETURN(0);
-  }
+  if (opt_apply_logname && opt_applylog_index_name) DBUG_RETURN(0);
 
-  if (!opt_apply_logname_ptr && !disable_raft_log_repointing) {
+  if (!opt_apply_logname && !disable_raft_log_repointing) {
     /* create the apply binlog name for Raft using some common
      * rules. Replace binary with apply or -bin with -apply
      * This handles the 2 common cases of naming convention without
@@ -12368,10 +12364,12 @@ static int generate_apply_file_gvars() {
     if (fpos != std::string::npos) {
       tstr.replace(fpos, rep_from1.length(), rep_to1);
       opt_apply_logname = my_strdup(PSI_NOT_INSTRUMENTED, tstr.c_str(), MYF(0));
+      opt_apply_logname_allocated = true;
     } else if ((fpos = tstr.find(rep_from2)) != std::string::npos) {
       std::string rep_to2("-apply");
       tstr.replace(fpos, rep_from2.length(), rep_to2);
       opt_apply_logname = my_strdup(PSI_NOT_INSTRUMENTED, tstr.c_str(), MYF(0));
+      opt_apply_logname_allocated = true;
     } else if (enable_raft_plugin) {
       // NO_LINT_DEBUG
       sql_print_information("apply log needs to be set or follow a pattern");
@@ -12381,14 +12379,16 @@ static int generate_apply_file_gvars() {
     // Just point apply logs to binlogs
     opt_apply_logname =
         my_strdup(PSI_NOT_INSTRUMENTED, opt_bin_logname, MYF(0));
+    opt_apply_logname_allocated = true;
   }
 
-  if (!opt_applylog_index_name_ptr && opt_apply_logname) {
+  if (!opt_applylog_index_name && opt_apply_logname) {
     // generate relate path for opt_applylog_index_name
     char buff[FN_REFLEN];
     fn_format(buff, opt_apply_logname, mysql_data_home, ".index",
               MY_UNPACK_FILENAME | MY_REPLACE_EXT);
     opt_applylog_index_name = my_strdup(PSI_NOT_INSTRUMENTED, buff, MYF(0));
+    opt_applylog_index_name_allocated = true;
   }
 
   DBUG_RETURN(0);
