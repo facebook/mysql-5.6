@@ -1248,12 +1248,9 @@ bool recover_raft_log = false;
 bool raft_send_replica_statistics = false;
 bool skip_backup_lock_for_stop_replica = false;
 
-/* Apply log related variables for raft
-   "_ptr" variables are system variables that should not be free by us */
+// Apply log related variables for raft
 char *opt_apply_logname = nullptr;
 char *opt_applylog_index_name = nullptr;
-bool opt_apply_logname_allocated = false;
-bool opt_applylog_index_name_allocated = false;
 
 #if defined(_WIN32)
 /*
@@ -1740,6 +1737,8 @@ const int index_ext_length = 6;
 const char *index_ext = ".index";
 const int relay_ext_length = 10;
 const char *relay_ext = "-relay-bin";
+const int apply_ext_length = 6;
+const char *apply_ext = "-apply";
 /* True if --log-bin option is used. */
 bool log_bin_supplied = false;
 
@@ -1756,6 +1755,9 @@ char default_binlogfile_name[FN_REFLEN];
 char default_binlog_index_name[FN_REFLEN + index_ext_length];
 char default_relaylogfile_name[FN_REFLEN + relay_ext_length];
 char default_relaylog_index_name[FN_REFLEN + relay_ext_length +
+                                 index_ext_length];
+char default_applylogfile_name[FN_REFLEN + apply_ext_length];
+char default_applylog_index_name[FN_REFLEN + apply_ext_length +
                                  index_ext_length];
 char *default_tz_name;
 static char errorlog_filename_buff[FN_REFLEN];
@@ -3022,16 +3024,6 @@ static void clean_up(bool print_message) {
   query_logger.cleanup();
   free_tmpdir(&mysql_tmpdir_list);
   my_free(opt_bin_logname);
-
-  if (opt_apply_logname && opt_apply_logname_allocated) {
-    my_free(opt_apply_logname);
-    opt_apply_logname = nullptr;
-  }
-
-  if (opt_applylog_index_name && opt_applylog_index_name_allocated) {
-    my_free(opt_applylog_index_name);
-    opt_applylog_index_name = nullptr;
-  }
 
   free_global_write_statistics();
   free_global_sql_findings(false);
@@ -12446,13 +12438,15 @@ static int generate_apply_file_gvars() {
     size_t fpos = tstr.find(rep_from1);
     if (fpos != std::string::npos) {
       tstr.replace(fpos, rep_from1.length(), rep_to1);
-      opt_apply_logname = my_strdup(PSI_NOT_INSTRUMENTED, tstr.c_str(), MYF(0));
-      opt_apply_logname_allocated = true;
+      strmake(default_applylogfile_name, tstr.c_str(),
+              FN_REFLEN + apply_ext_length - 1);
+      opt_apply_logname = default_applylogfile_name;
     } else if ((fpos = tstr.find(rep_from2)) != std::string::npos) {
-      std::string rep_to2("-apply");
+      std::string rep_to2(apply_ext);
       tstr.replace(fpos, rep_from2.length(), rep_to2);
-      opt_apply_logname = my_strdup(PSI_NOT_INSTRUMENTED, tstr.c_str(), MYF(0));
-      opt_apply_logname_allocated = true;
+      strmake(default_applylogfile_name, tstr.c_str(),
+              FN_REFLEN + apply_ext_length - 1);
+      opt_apply_logname = default_applylogfile_name;
     } else if (enable_raft_plugin) {
       // NO_LINT_DEBUG
       sql_print_information("apply log needs to be set or follow a pattern");
@@ -12460,18 +12454,16 @@ static int generate_apply_file_gvars() {
     }
   } else {
     // Just point apply logs to binlogs
-    opt_apply_logname =
-        my_strdup(PSI_NOT_INSTRUMENTED, opt_bin_logname, MYF(0));
-    opt_apply_logname_allocated = true;
+    strmake(default_applylogfile_name, opt_apply_logname,
+            FN_REFLEN + apply_ext_length - 1);
+    opt_apply_logname = default_applylogfile_name;
   }
 
   if (!opt_applylog_index_name && opt_apply_logname) {
     // generate relate path for opt_applylog_index_name
-    char buff[FN_REFLEN];
-    fn_format(buff, opt_apply_logname, mysql_data_home, ".index",
-              MY_UNPACK_FILENAME | MY_REPLACE_EXT);
-    opt_applylog_index_name = my_strdup(PSI_NOT_INSTRUMENTED, buff, MYF(0));
-    opt_applylog_index_name_allocated = true;
+    fn_format(default_applylog_index_name, opt_apply_logname, mysql_data_home,
+              ".index", MY_UNPACK_FILENAME | MY_REPLACE_EXT);
+    opt_applylog_index_name = default_applylog_index_name;
   }
 
   DBUG_RETURN(0);
@@ -12677,8 +12669,10 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
   global_system_variables.lock_wait_timeout_nsec =
       (ulonglong)(global_system_variables.lock_wait_timeout_double * 1e9);
 
-  global_system_variables.high_priority_lock_wait_timeout_nsec = (ulonglong)(
-      global_system_variables.high_priority_lock_wait_timeout_double * 1e9);
+  global_system_variables.high_priority_lock_wait_timeout_nsec =
+      (ulonglong)(global_system_variables
+                      .high_priority_lock_wait_timeout_double *
+                  1e9);
 
   if (opt_short_log_format) opt_specialflag |= SPECIAL_SHORT_LOG_FORMAT;
 
