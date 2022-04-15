@@ -456,3 +456,85 @@ having
 drop table t10, t11;
 
 drop table t0, t1, t2;
+
+--echo #
+--echo # Test for HA_MRR_SUPPORT_SORTED support in BKA plans.
+--echo #
+create table t0 (i int primary key) engine=rocksdb;
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1000 (i int) engine=rocksdb;
+insert into t1000 select a.i + b.i * 10 + c.i * 100 from t0 a, t0 b, t0 c;
+
+create table t1 (a int primary key, b int not null) engine=rocksdb;
+create table t2 (a int primary key, b int not null, c int not null, key(b)) engine=rocksdb;
+
+insert into t1 select i * 3, i * 3 from t1000;
+insert into t2 select i * 2, i * 2, 1 from t1000;
+
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t1, t2;
+
+--let $setup = set optimizer_switch='batched_key_access=off';
+--let $restore = set optimizer_switch='batched_key_access=on';
+
+--echo # INNER JOIN
+--replace_column 10 # 11 #
+explain select * from t1, t2 where t1.b = t2.a;
+--replace_column 10 # 11 #
+explain select * from t1, t2 where t1.b = t2.b;
+
+--replace_column 10 # 11 #
+explain
+select * from t1, t2 where t1.b = t2.a  order by t1.a;
+let $query =
+select * from t1, t2 where t1.b = t2.a  order by t1.a;
+--source include/diff_query.inc
+
+--replace_column 10 # 11 #
+explain
+select * from t1, t2 where t1.b = t2.b  order by t1.a;
+let $query =
+select * from t1, t2 where t1.b = t2.b  order by t1.a;
+--source include/diff_query.inc
+
+--echo # Double check that ordering by non-key order still produces filesort
+--replace_column 10 # 11 #
+explain select * from t1, t2 where t1.b = t2.b  order by t1.b;
+
+--echo # LEFT JOIN
+--replace_column 10 # 11 #
+explain select * from t1 left join t2 on t1.b = t2.a;
+--replace_column 10 # 11 #
+explain select * from t1 left join t2 on t1.b = t2.b;
+
+--replace_column 10 # 11 #
+explain select * from t1 left join t2 on t1.b = t2.a order by t1.a;
+--replace_column 10 # 11 #
+explain select * from t1 left join t2 on t1.b = t2.b order by t1.a;
+
+--echo # ANTI JOIN
+--replace_column 10 # 11 #
+explain select * from t1 where t1.b not in (select /*+ SEMIJOIN(FIRSTMATCH) */ t2.a from t2);
+--replace_column 10 # 11 #
+explain select * from t1 where t1.b not in (select /*+ SEMIJOIN(FIRSTMATCH) */ t2.b from t2 where t2.c > 0);
+
+--replace_column 10 # 11 #
+explain select * from t1 where t1.b not in (select /*+ SEMIJOIN(FIRSTMATCH) */ t2.a from t2) order by t1.a;
+--replace_column 10 # 11 #
+explain select * from t1 where t1.b not in (select /*+ SEMIJOIN(FIRSTMATCH) */ t2.b from t2 where t2.c > 0) order by t1.a;
+
+--echo # SEMI JOIN
+# Semijoin only makes sense if lookup is on a non-unique key, otherwise, it's just an inner join.
+--replace_column 10 # 11 #
+explain select * from t1 where t1.b in (select /*+ SEMIJOIN(FIRSTMATCH) */ t2.b from t2 where t2.c > 0);
+--replace_column 10 # 11 #
+explain
+select * from t1 where t1.b in (select /*+ SEMIJOIN(FIRSTMATCH) */ t2.b from t2 where t2.c > 0) order by t1.a;
+
+let $query =
+select * from t1 where t1.b in (select /*+ SEMIJOIN(FIRSTMATCH) */ t2.b from t2 where t2.c > 0) order by t1.a;
+--source include/diff_query.inc
+
+drop table t0, t1000, t1, t2;
+

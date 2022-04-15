@@ -17159,7 +17159,7 @@ ha_rows ha_rocksdb::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
   if (keyno != table->s->primary_key && (*flags & HA_MRR_INDEX_ONLY) == 0) {
     *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
     *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
-    *flags &= ~HA_MRR_SUPPORT_SORTED;  // Non-sorted mode
+    *flags |= HA_MRR_SUPPORT_SORTED;
   }
 
   return 0;  // "0" means ok, despite the ha_rows return type.
@@ -17414,8 +17414,7 @@ int ha_rocksdb::mrr_fill_buffer() {
   mrr_range_ptrs = (char **)buf;
   buf += sizeof(char *) * n_elements;
 
-  if (buf + m_pk_descr->max_storage_fmt_length() >=
-      (char *)mrr_buf.buffer_end) {
+  if (buf + m_pk_descr->max_storage_fmt_length() > (char *)mrr_buf.buffer_end) {
     // a VERY unlikely scenario:  we were given a really small buffer,
     // (probably for just one rowid), and also we had to use some bytes for
     // alignment. As a result, there's no buffer space left to hold even one
