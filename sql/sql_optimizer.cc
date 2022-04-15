@@ -869,7 +869,7 @@ bool JOIN::optimize(bool finalize_access_paths) {
       JOIN_TAB *const tab = best_ref[i];
       if (!tab->position()) continue;
       if (setup_join_buffering(tab, this, no_jbuf_after)) return true;
-      if (tab->use_join_cache() != JOIN_CACHE::ALG_NONE) simple_sort = false;
+      if (tab->use_join_cache() == JOIN_CACHE::ALG_BNL) simple_sort = false;
       assert(tab->type() != JT_FT ||
              tab->use_join_cache() == JOIN_CACHE::ALG_NONE);
       if (has_lateral && get_lateral_deps(*best_ref[i]) != 0) {
@@ -3563,8 +3563,38 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
           tab->ref().key_parts)
         join_cache_flags |= HA_MRR_FULL_EXTENDED_KEYS;
 
+      /*
+        Because the decision to use BKA is not cost based, and it is always
+        chosen if available, it will sometimes regress plans when NLJ can skip
+        filesort while BKA cannot skip filesort. To fix this, produce BKA only
+        if it produces ordered results, or if there's no order by clause.
+
+        If order is needed, then request sorted MRR. Generally BKA will produce
+        sorted results if sorted MRR is supported.
+
+        Ideally we should check here if the order by can even be satistified by
+        the index order of the outer table. Currently, if it cannot be
+        satistified, BKA is not used even though picking BKA would not hurt in
+        this case, since a filesort is required regardless.
+      */
+      if (!(join->order.empty() && join->group_list.empty())) {
+        /*
+          Generally BKA will preserve sort order, but the current outer join
+          algorithm outputs matching rows first, followed by non-matching rows.
+          It is probably possible to extend BKAIterator::Read to always preserve
+          sort order, and remove this check.
+
+          This check also includes antijoins as well, even though antijoins also
+          preserve order. It's not clear how to only target outer joins.
+        */
+        if (tab->is_inner_table_of_outer_join()) goto no_join_cache;
+
+        join_cache_flags |= HA_MRR_SORTED;
+      }
+
       rows = tab->table()->file->multi_range_read_info(
           tab->ref().key, 10, 20, &bufsz, &join_cache_flags, &cost);
+
       /*
         Cannot use BKA if
         1. MRR scan cannot be performed, or
