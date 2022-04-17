@@ -815,6 +815,11 @@ typedef struct system_variables
   my_bool response_attrs_contain_server_cpu;
 
   /*
+    Should we set the sql_id in response attribute?
+   */
+  my_bool response_attrs_contain_sql_id;
+
+  /*
     Size of the warnings that can be included in response attribute
   */
   uint response_attrs_contain_warnings_bytes;

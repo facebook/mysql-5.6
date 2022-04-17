@@ -1570,6 +1570,25 @@ static void update_thd_dml_row_count(THD *thd, SHARED_SQL_STATS *cumulative_sql_
 }
 
 /*
+  update_query_response_with_sql_id
+  sql_id is logged at different locations but the clients don't have
+  direct visibilty into it for their diagnosis.
+*/
+void update_query_response_with_sql_id(THD *thd) {
+  if (!thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->is_enabled() ||
+      !thd->variables.response_attrs_contain_sql_id ||
+      !thd->mt_key_is_set(THD::SQL_ID)) {
+    return;
+  }
+
+  auto tracker= thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  static LEX_CSTRING key= { STRING_WITH_LEN("sql_id") };
+  const std::string& sql_id = thd_get_sql_id(thd);
+  LEX_CSTRING value= { sql_id.c_str(), sql_id.length() };
+  tracker->mark_as_changed(thd, &key, &value);
+}
+
+/*
   update_sql_stats
     A helper/wrapper around update_sql_stats_for_statement to keep track of
     some internal state.
@@ -1624,6 +1643,8 @@ void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats,
         thd->get_stmt_da()->cond_count() > 0 && /* # errors, warnings & notes */
         thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->is_enabled())
       store_warnings_in_resp_attrs(thd);
+
+    update_query_response_with_sql_id(thd);
 
     update_thd_dml_row_count(thd, cumulative_sql_stats);
 

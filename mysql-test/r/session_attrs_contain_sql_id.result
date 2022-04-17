@@ -1,0 +1,24 @@
+
+# Test sql_id query response attribute
+
+use test;
+create table mytbl (a int, b int, c int, d int, e int);
+insert into mytbl values (1, 2, 3, 4, 5);
+# Case 1: session level variable is default, i.e. FALSE
+set @@GLOBAL.sql_stats_control="ON";
+set @@session.response_attrs_contain_sql_id = default;
+select * from mytbl;
+a	b	c	d	e
+1	2	3	4	5
+Did not find sql_id in query response attributes
+set @@session.response_attrs_contain_sql_id = default;
+set @@GLOBAL.sql_stats_control=DEFAULT;
+# Case 2: session level variable is TRUE
+set @@GLOBAL.sql_stats_control="ON";
+set @@session.response_attrs_contain_sql_id = true;
+Found sql_id in query response attributes
+7acaeb7bf07ca7f93d72db2f35af3a8b
+set @@session.response_attrs_contain_sql_id = default;
+set @@GLOBAL.sql_stats_control=DEFAULT;
+use test;
+drop table if exists mytbl;

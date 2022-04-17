@@ -1,0 +1,43 @@
+--source include/have_debug.inc
+
+-- echo
+-- echo # Test sql_id query response attribute
+-- echo
+connection default;
+
+use test;
+create table mytbl (a int, b int, c int, d int, e int);
+insert into mytbl values (1, 2, 3, 4, 5);
+
+-- echo # Case 1: session level variable is default, i.e. FALSE
+set @@GLOBAL.sql_stats_control="ON";
+set @@session.response_attrs_contain_sql_id = default;
+select * from mytbl;
+
+let $attr = get_response_attribute sql_id;
+if ($attr == "") {
+  echo Did not find sql_id in query response attributes;
+}
+
+# Reset to default
+set @@session.response_attrs_contain_sql_id = default;
+set @@GLOBAL.sql_stats_control=DEFAULT;
+
+-- echo # Case 2: session level variable is TRUE
+set @@GLOBAL.sql_stats_control="ON";
+set @@session.response_attrs_contain_sql_id = true;
+
+let $attr = get_response_attribute sql_id;
+if ($attr) {
+  echo Found sql_id in query response attributes;
+  echo $attr;
+}
+
+# Reset to default
+set @@session.response_attrs_contain_sql_id = default;
+set @@GLOBAL.sql_stats_control=DEFAULT;
+
+# Cleanup
+connection default;
+use test;
+drop table if exists mytbl;

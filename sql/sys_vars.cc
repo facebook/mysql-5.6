@@ -6543,6 +6543,14 @@ static Sys_var_mybool Sys_response_attrs_contain_binlog_row_image_delta(
     CMD_LINE(OPT_ARG), DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_outside_transaction), ON_UPDATE(0));
 
+static Sys_var_mybool Sys_response_attrs_contain_sql_id(
+    "response_attrs_contain_sql_id",
+    "Returns the sql id for the query. Sql "
+    "id is sent as a key-value pair - 'sql_id' is the key and the "
+    "value is the computed sql_id.",
+    SESSION_VAR(response_attrs_contain_sql_id), CMD_LINE(OPT_ARG),
+    DEFAULT(FALSE));
+
 static bool update_session_track_state_change(sys_var *self, THD *thd,
                                               enum_var_type type)
 {
