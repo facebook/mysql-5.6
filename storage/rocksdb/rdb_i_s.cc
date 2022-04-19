@@ -1989,7 +1989,8 @@ enum { COLUMN_FAMILY_ID = 0, TRANSACTION_ID, KEY, MODE };
 static ST_FIELD_INFO rdb_i_s_lock_info_fields_info[] = {
     ROCKSDB_FIELD_INFO("COLUMN_FAMILY_ID", sizeof(uint32_t), MYSQL_TYPE_LONG,
                        0),
-    ROCKSDB_FIELD_INFO("TRANSACTION_ID", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+    ROCKSDB_FIELD_INFO("TRANSACTION_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
+                       0),
     ROCKSDB_FIELD_INFO("KEY", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("MODE", 32, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO_END};
