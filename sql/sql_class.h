@@ -1950,6 +1950,11 @@ class THD : public MDL_context_owner,
   NET net;        // client connection descriptor
   String packet;  // dynamic buffer for network I/O
 
+  /**
+   * Relay log positions for the transaction
+   */
+  std::pair<std::string, my_off_t> m_trans_relay_log_pos;
+
   /* The term and index that need to be communicated across different raft
    * plugin hooks. These fields are not protected by locks since they are
    * accessed by the same THD serially during different stages of ordered commit
@@ -2991,6 +2996,16 @@ class THD : public MDL_context_owner,
                ("file: %s, pos: %llu", file_var ? *file_var : "<none>",
                 pos_var ? *pos_var : 0));
     return;
+  }
+
+  void get_trans_relay_log_pos(const char **file_var, my_off_t *pos_var) const {
+    if (file_var) *file_var = m_trans_relay_log_pos.first.c_str();
+    if (pos_var) *pos_var = m_trans_relay_log_pos.second;
+  }
+
+  void set_trans_relay_log_pos(const std::string &file, my_off_t pos) {
+    m_trans_relay_log_pos.first = file;
+    m_trans_relay_log_pos.second = pos;
   }
 
   /**@}*/

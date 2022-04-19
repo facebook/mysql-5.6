@@ -75,7 +75,8 @@
 
 extern int raft_reset_slave(THD *thd);
 extern int raft_change_master(
-    THD *thd, const std::pair<const std::string, uint> &master_instance);
+    THD *thd, const std::pair<const std::string, uint> &master_instance,
+    const std::string &master_uuid);
 extern int rotate_binlog_file(THD *thd);
 extern int raft_stop_sql_thread(THD *thd);
 extern int raft_stop_io_thread(THD *thd);
@@ -479,6 +480,50 @@ void delegates_update_lock_type() {
 }
 
 /*
+  This macro is used by raft Delegate methods to call into raft plugin
+  The only difference is that this is a 'stricter' version which will return
+  failure if the plugin hooks were not called
+ */
+#define FOREACH_OBSERVER_STRICT(r, f, args)                            \
+  Prealloced_array<plugin_ref, 8> plugins(PSI_NOT_INSTRUMENTED);       \
+  read_lock();                                                         \
+  Observer_info_iterator iter = observer_info_iter();                  \
+  Observer_info *info = iter++;                                        \
+  for (; info; info = iter++) {                                        \
+    plugin_ref plugin = my_plugin_lock(0, &info->plugin);              \
+    if (!plugin) {                                                     \
+      /* plugin is not intialized or deleted, this is not an error */  \
+      enable_raft_plugin ? (r) = 1 : (r) = 0;                          \
+      break;                                                           \
+    }                                                                  \
+    plugins.push_back(plugin);                                         \
+    if (((Observer *)info->observer)->f &&                             \
+        ((Observer *)info->observer)->f args) {                        \
+      r = 1;                                                           \
+      LogEvent()                                                       \
+          .prio(ERROR_LEVEL)                                           \
+          .errcode(ER_RPL_PLUGIN_FUNCTION_FAILED)                      \
+          .subsys(LOG_SUBSYSTEM_TAG)                                   \
+          .function(#f)                                                \
+          .message("Run function '" #f "' in plugin '%s' failed",      \
+                   info->plugin_int->name.str);                        \
+      break;                                                           \
+    }                                                                  \
+    /* Plugin is successfully called, set return status to 0           \
+     * indicating success */                                           \
+    (r) = 0;                                                           \
+  }                                                                    \
+  unlock();                                                            \
+  /*                                                                   \
+     Unlock plugins should be done after we released the Delegate lock \
+     to avoid possible deadlock when this is the last user of the      \
+     plugin, and when we unlock the plugin, it will try to             \
+     deinitialize the plugin, which will try to lock the Delegate in   \
+     order to remove the observers.                                    \
+  */                                                                   \
+  if (!plugins.empty()) plugin_unlock_list(0, &plugins[0], plugins.size());
+
+/*
   This macro is used by almost all the Delegate methods to iterate
   over all the observers running given callback function of the
   delegate .
@@ -612,6 +657,13 @@ int Trans_delegate::before_commit(THD *thd, bool all,
       (all || !thd->get_transaction()->is_active(Transaction_ctx::SESSION));
   if (is_real_trans) param.flags |= TRANS_IS_REAL_TRANS;
 
+  if (mysql_bin_log.is_apply_log)
+    thd->get_trans_relay_log_pos(&param.log_file, &param.log_pos);
+  else
+    thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+
+  DBUG_PRINT("enter",
+             ("log_file: %s, log_pos: %llu", param.log_file, param.log_pos));
   int ret = 0;
   FOREACH_OBSERVER(ret, before_commit, (&param));
   plugin_foreach(thd, se_before_commit, MYSQL_STORAGE_ENGINE_PLUGIN, &param);
@@ -811,7 +863,6 @@ int Trans_delegate::after_commit(THD *thd, bool all) {
   bool is_real_trans =
       (all || !thd->get_transaction()->is_active(Transaction_ctx::SESSION));
   if (is_real_trans) param.flags |= TRANS_IS_REAL_TRANS;
-
   thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
   param.server_id = thd->server_id;
   param.rpl_channel_type = thd->rpl_thd_ctx.get_rpl_channel_type();
@@ -836,7 +887,10 @@ int Trans_delegate::after_rollback(THD *thd, bool all) {
   bool is_real_trans =
       (all || !thd->get_transaction()->is_active(Transaction_ctx::SESSION));
   if (is_real_trans) param.flags |= TRANS_IS_REAL_TRANS;
-  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  if (mysql_bin_log.is_apply_log)
+    thd->get_trans_relay_log_pos(&param.log_file, &param.log_pos);
+  else
+    thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
   param.server_id = thd->server_id;
   param.rpl_channel_type = thd->rpl_thd_ctx.get_rpl_channel_type();
 
@@ -1270,8 +1324,7 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
 
   int ret = 0;
 
-  thd->set_trans_marker(-1, -1);
-  FOREACH_OBSERVER(ret, before_flush, (&param, io_cache, op_type));
+  FOREACH_OBSERVER_STRICT(ret, before_flush, (&param, io_cache, op_type));
 
   DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
 
@@ -1291,7 +1344,7 @@ int Raft_replication_delegate::before_commit(THD *thd) {
   DBUG_PRINT("enter", ("term: %ld, index: %ld", param.term, param.index));
 
   int ret = 0;
-  FOREACH_OBSERVER(ret, before_commit, (&param));
+  FOREACH_OBSERVER_STRICT(ret, before_commit, (&param));
 
   DEBUG_SYNC(thd, "after_call_after_sync_observer");
   DBUG_RETURN(ret);
@@ -1302,7 +1355,7 @@ int Raft_replication_delegate::setup_flush(
   DBUG_ENTER("Raft_replication_delegate::setup_flush");
   int ret = 0;
 
-  FOREACH_OBSERVER(ret, setup_flush, (arg));
+  FOREACH_OBSERVER_STRICT(ret, setup_flush, (arg));
 
   DBUG_RETURN(ret);
 }
@@ -1311,7 +1364,7 @@ int Raft_replication_delegate::before_shutdown(THD * /* thd */) {
   DBUG_ENTER("Raft_replication_delegate::before_shutdown");
   int ret = 0;
 
-  FOREACH_OBSERVER(ret, before_shutdown, ());
+  FOREACH_OBSERVER_STRICT(ret, before_shutdown, ());
 
   DBUG_RETURN(ret);
 }
@@ -1324,9 +1377,10 @@ int Raft_replication_delegate::register_paths(
   DBUG_ENTER("Raft_replication_delegate::register_paths");
   int ret = 0;
 
-  FOREACH_OBSERVER(ret, register_paths,
-                   (&raft_listener_queue, s_uuid, wal_dir_parent,
-                    log_dir_parent, raft_log_path_prefix, s_hostname, port));
+  FOREACH_OBSERVER_STRICT(
+      ret, register_paths,
+      (&raft_listener_queue, s_uuid, wal_dir_parent, log_dir_parent,
+       raft_log_path_prefix, s_hostname, port));
 
   DBUG_RETURN(ret);
 }
@@ -1337,8 +1391,15 @@ int Raft_replication_delegate::after_commit(THD *thd) {
 
   thd->get_trans_marker(&param.term, &param.index);
 
+  const char *file = nullptr;
+  my_off_t pos = 0;
+  if (mysql_bin_log.is_apply_log)
+    thd->get_trans_relay_log_pos(&file, &pos);
+  else
+    thd->get_trans_fixed_pos(&file, &pos);
+
   int ret = 0;
-  FOREACH_OBSERVER(ret, after_commit, (&param));
+  FOREACH_OBSERVER_STRICT(ret, after_commit, (&param));
   DBUG_RETURN(ret);
 }
 
@@ -1347,7 +1408,7 @@ int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext) {
   Raft_replication_param param;
   param.purge_file_ext = file_ext;
   int ret = 0;
-  FOREACH_OBSERVER(ret, purge_logs, (&param));
+  FOREACH_OBSERVER_STRICT(ret, purge_logs, (&param));
 
   // Set the safe purge file that was sent back by the plugin
   thd->set_safe_purge_file(param.purge_file);
@@ -1361,7 +1422,7 @@ int Raft_replication_delegate::show_raft_status(
   DBUG_ENTER("Raft_replication_delegate::show_raft_status");
   Raft_replication_param param;
   int ret = 0;
-  FOREACH_OBSERVER(ret, show_raft_status, (var_value_pairs));
+  FOREACH_OBSERVER_STRICT(ret, show_raft_status, (var_value_pairs));
   DBUG_RETURN(ret);
 }
 
@@ -1756,8 +1817,8 @@ extern "C" void *process_raft_queue(void *) {
         break;
       }
       case RaftListenerCallbackType::CHANGE_MASTER: {
-        result.error =
-            raft_change_master(current_thd, element.arg.master_instance);
+        result.error = raft_change_master(
+            current_thd, element.arg.master_instance, element.arg.master_uuid);
         if (!result.error && !element.arg.val_str.empty()) {
           Item_string item(element.arg.val_str.c_str(),
                            element.arg.val_str.length(),
@@ -1767,6 +1828,13 @@ extern "C" void *process_raft_queue(void *) {
         }
         break;
       }
+
+      case RaftListenerCallbackType::GET_COMMITTED_GTIDS: {
+        result.error =
+            get_committed_gtids(element.arg.trim_gtids, &result.gtids);
+        break;
+      }
+
       case RaftListenerCallbackType::GET_EXECUTED_GTIDS: {
         char *buffer;
         global_sid_lock->wrlock();
@@ -1783,6 +1851,10 @@ extern "C" void *process_raft_queue(void *) {
       }
       case RaftListenerCallbackType::RAFT_CONFIG_CHANGE: {
         result.error = raft_config_change(std::move(element.arg.val_str));
+        break;
+      }
+      case RaftListenerCallbackType::HANDLE_DUMP_THREADS: {
+        result.error = handle_dump_threads(element.arg.val_bool);
         break;
       }
       default:

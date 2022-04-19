@@ -452,8 +452,10 @@ extern bool disable_raft_log_repointing;
 extern ulong opt_raft_signal_async_dump_threads;
 extern bool disallow_raft;
 extern bool override_enable_raft_check;
+extern bool abort_on_raft_purge_error;
 extern ulonglong apply_log_retention_num;
 extern ulonglong apply_log_retention_duration;
+extern bool recover_raft_log;
 /* Apply log related variables for raft */
 extern char *opt_apply_logname;
 extern char *opt_applylog_index_name;
@@ -717,6 +719,7 @@ extern PSI_mutex_key key_RELAYLOG_LOCK_log_end_pos;
 extern PSI_mutex_key key_RELAYLOG_LOCK_sync;
 extern PSI_mutex_key key_RELAYLOG_LOCK_non_xid_trxs;
 extern PSI_mutex_key key_RELAYLOG_LOCK_xids;
+extern PSI_mutex_key key_RELAYLOG_LOCK_lost_gtids_for_tailing;
 extern PSI_mutex_key key_gtid_ensure_index_mutex;
 extern PSI_mutex_key key_mta_temp_table_LOCK;
 extern PSI_mutex_key key_mta_gaq_LOCK;

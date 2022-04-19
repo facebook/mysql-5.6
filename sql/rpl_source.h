@@ -87,6 +87,7 @@ bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok);
 bool show_master_status(THD *thd);
 bool show_binlogs(THD *thd, bool with_gtid = false);
 void kill_zombie_dump_threads(THD *thd);
+void kill_all_dump_threads();
 
 uint find_gtid_position_helper(const char *gtid_string, char *log_name,
                                my_off_t &gtid_pos);
@@ -149,7 +150,7 @@ bool com_binlog_dump(THD *thd, char *packet, size_t packet_length);
 void mysql_binlog_send(THD *thd, char *log_ident, my_off_t pos,
                        Gtid_set *gtid_set, uint32 flags);
 
-bool reset_master(THD *thd, bool unlock_read_lock);
+bool reset_master(THD *thd, bool unlock_read_lock, bool force = false);
 
 std::vector<replica_statistics_row> get_all_replica_statistics();
 int get_current_replication_lag();

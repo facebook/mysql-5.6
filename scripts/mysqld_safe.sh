@@ -493,7 +493,7 @@ else
 fi
 
 if test -z "$MYSQL_HOME"
-then 
+then
   MYSQL_HOME=$MY_BASEDIR_VERSION
 fi
 export MYSQL_HOME
@@ -599,7 +599,7 @@ then
 
     # mysqld does not add ".err" to "--log-error=foo."; it considers a
     # trailing "." as an extension
-    
+
     if expr "$err_log" : '.*\.[^/]*$' > /dev/null
     then
         :
@@ -975,6 +975,11 @@ fast_restart=0
 max_fast_restarts=5
 # flag whether a usable sleep command exists
 have_sleep=1
+
+cur_retry_times=0
+max_restart_a_day=10
+prev_date=`date +%D`
+
 while true
 do
   start_time=`date +%M%S`
@@ -1042,6 +1047,41 @@ do
   fi
 
 
+  # stop retrying too ofen and rocksdb filling up txlogs
+  #
+  # 1. Reset current retry times in a new day
+  cur_date=`date +%D`
+  if test $cur_date != $prev_date
+  then
+    cur_retry_times=0
+    prev_date=`date +%D`
+  fi
+
+  # 2. Sleep 2,4,8,16... seconds between restart
+  #    Sleep 30 mins if reaching 10 retries in a day
+  cur_retry_times=`expr $cur_retry_times + 1`
+  if test ! -f /tmp/disable_mysqld_restart_throttle \
+    && test "$cur_retry_times" -gt "$max_restart_a_day"
+  then
+    log_notice "Throttling restart after 10 restarts: Sleep 30 mins"
+    sleep 1800
+    if [ $? = 137 ];
+    then
+      log_notice "Sleep was likely interrupted from outside. Will exit loop"
+      break
+    fi
+  else
+    sleep_time=$((1<<${cur_retry_times}))
+    log_notice "Throttling restart after $cur_retry_times restarts: Sleep $sleep_time seconds"
+    sleep $sleep_time
+    if [ $? = 137 ];
+    then
+      log_notice "Sleep was likely interrupted from outside. Will exit loop"
+      break
+    fi
+  fi
+
+  # Note: the following code is not needed after exponential backoff
   # sanity check if time reading is sane and there's sleep
   if test $end_time -gt 0 -a $have_sleep -gt 0
   then
@@ -1079,8 +1119,8 @@ do
     log_notice "Number of processes running now: $numofproces"
     I=1
     while test "$I" -le "$numofproces"
-    do 
-      PROC=`ps xaww | grep "$ledir/$MYSQLD\>" | grep -v "grep" | grep "pid-file=$pid_file" | sed -n '$p'` 
+    do
+      PROC=`ps xaww | grep "$ledir/$MYSQLD\>" | grep -v "grep" | grep "pid-file=$pid_file" | sed -n '$p'`
 
       for T in $PROC
       do

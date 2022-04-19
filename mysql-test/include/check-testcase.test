@@ -31,7 +31,7 @@ if ($tmp) {
   let $rpl_enable_raft= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`;
   if ($rpl_enable_raft)
   {
-   --echo Source_Host	::1
+   --echo Source_Host	0000:0000:0000:0000:0000:0000:0000:0001
   }
   if (!$rpl_enable_raft)
   {

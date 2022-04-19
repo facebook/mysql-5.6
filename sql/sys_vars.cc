@@ -4353,9 +4353,10 @@ static Sys_var_int32 Sys_regexp_stack_limit(
 
 static bool update_rpl_wait_for_semi_sync_ack(sys_var *, THD *, enum_var_type) {
   if (!rpl_wait_for_semi_sync_ack) {
-    mysql_bin_log.lock_binlog_end_pos();
-    mysql_bin_log.signal_update();
-    mysql_bin_log.unlock_binlog_end_pos();
+    auto raw_log = dump_log.get_log(/*should_lock*/ true);
+    raw_log->lock_binlog_end_pos();
+    raw_log->signal_update();
+    raw_log->unlock_binlog_end_pos();
   }
   return false;
 }
@@ -7421,6 +7422,15 @@ static Sys_var_gtid_purged Sys_gtid_purged(
     NOT_IN_BINLOG, ON_CHECK(check_gtid_purged));
 export sys_var *Sys_gtid_purged_ptr = &Sys_gtid_purged;
 
+Gtid_set *gtid_purged_for_tailing;
+static Sys_var_gtid_purged_for_tailing Sys_gtid_purged_for_tailing(
+    "gtid_purged_for_tailing",
+    "The set of GTIDs that existed in previous, purged binary logs in "
+    "non-raft mode. The set of GTIDs that existed in previous, purged "
+    "raft logs in raft mode; ",
+    READ_ONLY GLOBAL_VAR(gtid_purged_for_tailing), NO_CMD_LINE, DEFAULT(NULL),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static Sys_var_gtid_owned Sys_gtid_owned(
     "gtid_owned",
     "The global variable lists all GTIDs owned by all threads. "
@@ -8679,13 +8689,23 @@ static bool validate_enable_raft(sys_var * /*self */, THD *, set_var *var) {
     err = true;
   }
 
+  if (!err) {
+    // NO_LINT_DEBUG
+    sql_print_information("Killing and blocking binlog dump threads");
+    err = !block_all_dump_threads();
+  }
+
   return err;
 }
 
-static bool log_enable_raft_change(sys_var * /*self */, THD *thd,
-                                   enum_var_type) {
+static bool update_enable_raft_change(sys_var * /*self */, THD *thd,
+                                      enum_var_type) {
   const char *user = "unknown";
   const char *host = "unknown";
+
+  // NO_LINT_DEBUG
+  sql_print_information("Unblocking dump threads");
+  unblock_all_dump_threads();
 
   if (thd && thd->get_user_connect()) {
     user = (const_cast<USER_CONN *>(thd->get_user_connect()))->user;
@@ -8707,7 +8727,13 @@ static Sys_var_bool Sys_enable_raft_plugin(
     "plugin when it is enabled",
     GLOBAL_VAR(enable_raft_plugin), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(validate_enable_raft),
-    ON_UPDATE(log_enable_raft_change));
+    ON_UPDATE(update_enable_raft_change));
+
+static Sys_var_bool Sys_abort_on_raft_purge_error(
+    "abort_on_raft_purge_error",
+    "Any error in raft plugin to purge files will abort the server",
+    GLOBAL_VAR(abort_on_raft_purge_error), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 static Sys_var_bool Sys_disallow_raft(
     "disallow_raft",
@@ -8861,6 +8887,13 @@ static Sys_var_ulonglong Sys_apply_log_retention_duration(
     "Minimum duration (mins) that apply logs need to be retained.",
     GLOBAL_VAR(apply_log_retention_duration), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_recover_raft_log(
+    "recover_raft_log",
+    "Temprary variable to control recovery of raft log by removing partial "
+    "trxs. This should be removed later.",
+    GLOBAL_VAR(recover_raft_log), CMD_LINE(OPT_ARG), DEFAULT(true),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 /* Free global_write_statistics if sys_var is set to 0 */
 static bool update_write_stats_count(sys_var *, THD *, enum_var_type) {

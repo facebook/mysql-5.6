@@ -54,6 +54,7 @@
 #include "mysql/udf_registration_types.h"
 #include "mysqld_error.h"
 #include "sql/auth/sql_security_ctx.h"
+#include "sql/binlog.h"      // dump_log
 #include "sql/debug_sync.h"  // debug_sync_update
 #include "sql/handler.h"
 #include "sql/item.h"       // Item
@@ -2779,6 +2780,86 @@ class Sys_var_gtid_purged : public sys_var {
   const uchar *session_value_ptr(THD *, THD *, LEX_STRING *) override {
     assert(false);
     return nullptr;
+  }
+};
+
+/**
+  Class for @@global.gtid_purged_for_tailing.
+*/
+class Sys_var_gtid_purged_for_tailing : public sys_var {
+ public:
+  Sys_var_gtid_purged_for_tailing(
+      const char *name_arg, const char *comment, int flag_args, ptrdiff_t off,
+      size_t, CMD_LINE getopt, const char *def_val, PolyLock *lock = 0,
+      enum binlog_status_enum binlog_status_arg = VARIABLE_NOT_IN_BINLOG,
+      on_check_function on_check_func = 0,
+      on_update_function on_update_func = 0, const char *substitute = 0,
+      int parse_flag = PARSE_NORMAL)
+      : sys_var(&all_sys_vars, name_arg, comment, flag_args, off, getopt.id,
+                getopt.arg_type, SHOW_CHAR, (intptr)def_val, lock,
+                binlog_status_arg, on_check_func, on_update_func, substitute,
+                parse_flag) {}
+
+  bool session_update(THD *, set_var *) override {
+    assert(false);
+    return true;
+  }
+
+  void session_save_default(THD *, set_var *var) override {
+    my_error(ER_NO_DEFAULT, MYF(0), var->var->name.str);
+  }
+
+  bool global_update(THD *, set_var *) override {
+    assert(false);
+    return true;
+  }
+
+  void global_save_default(THD *, set_var *var) override {
+    /* gtid_purged does not have default value */
+    my_error(ER_NO_DEFAULT, MYF(0), var->var->name.str);
+  }
+
+  bool check_update_type(Item_result) override {
+    assert(false);
+    return true;
+  }
+
+  void saved_value_to_string(THD *, set_var *var, char *) override {
+    my_error(ER_NO_DEFAULT, MYF(0), var->var->name.str);
+  }
+
+  bool do_check(THD *, set_var *) override {
+    assert(false);
+    return true;
+  }
+
+  const uchar *global_value_ptr(THD *thd, LEX_STRING *) override {
+    DBUG_TRACE;
+    char *buf = nullptr;
+    if (opt_bin_log) {
+      Sid_map gtids_lost_sid_map(nullptr);
+      Gtid_set gs(&gtids_lost_sid_map, nullptr);
+      dump_log.get_lost_gtids(&gs);
+      buf = reinterpret_cast<char *>(thd->alloc(gs.get_string_length() + 1));
+      if (buf == nullptr)
+        my_error(ER_OUT_OF_RESOURCES, MYF(0));
+      else
+        gs.to_string(buf);
+    } else {
+      /*
+        When binlog is off, report @@GLOBAL.GTID_PURGED_FOR_TAILING
+        from executed_gtids. Same as GTID_PURGED.
+      */
+      global_sid_lock->wrlock();
+      const Gtid_set *gs = gtid_state->get_executed_gtids();
+      buf = reinterpret_cast<char *>(thd->alloc(gs->get_string_length() + 1));
+      if (buf == nullptr)
+        my_error(ER_OUT_OF_RESOURCES, MYF(0));
+      else
+        gs->to_string(buf);
+      global_sid_lock->unlock();
+    }
+    return reinterpret_cast<uchar *>(buf);
   }
 };
 

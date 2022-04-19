@@ -56,6 +56,7 @@
 #include <new>
 #include <queue>
 #include <sstream>
+#include <vector>
 
 #include "dur_prop.h"
 #include "libbinlogevents/include/compression/base.h"
@@ -105,6 +106,7 @@
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
 #include "sql/replication.h"
+#include "sql/rpl_binlog_sender.h"
 #include "sql/rpl_filter.h"
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_handler.h"  // RUN_HOOK
@@ -184,7 +186,10 @@ const char *hlc_wait_timeout_ms = "hlc_wait_timeout_ms";
 ulong rpl_read_size;
 bool rpl_semi_sync_source_enabled = false;
 
+latency_histogram histogram_raft_trx_wait;
+
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
+Dump_log dump_log;
 
 static int binlog_init(void *p);
 static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event);
@@ -203,7 +208,8 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
                            my_off_t *valid_pos, Gtid *binlog_max_gtid,
                            char *engine_binlog_file,
                            my_off_t *engine_binlog_pos,
-                           const std::string &cur_binlog_file);
+                           const std::string &cur_binlog_file,
+                           my_off_t *first_gtid_start_pos);
 static void binlog_prepare_row_images(const THD *thd, TABLE *table,
                                       bool is_update);
 static bool is_loggable_xa_prepare(THD *thd);
@@ -1440,6 +1446,9 @@ static int binlog_init(void *p) {
   binlog_hton->recover_binlog_pos = binlog_dummy_recover_binlog_pos;
   binlog_hton->recover = binlog_dummy_recover;
   binlog_hton->flags = HTON_NOT_USER_SELECTABLE | HTON_HIDDEN;
+
+  latency_histogram_init(&histogram_raft_trx_wait, "125us");
+
   return 0;
 }
 
@@ -1821,9 +1830,9 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     thd->commit_consensus_error = false;
     // TODO(luqun): perf concern? merge in plugin?
     cache_data->get_cache()->copy_to(temp_binlog_cache.get());
-    ret = RUN_HOOK(raft_replication, before_flush,
-                   (thd, temp_binlog_cache->get_io_cache(),
-                    RaftReplicateMsgOpType::OP_TYPE_TRX));
+    ret = RUN_HOOK_STRICT(raft_replication, before_flush,
+                          (thd, temp_binlog_cache->get_io_cache(),
+                           RaftReplicateMsgOpType::OP_TYPE_TRX));
 
     DBUG_EXECUTE_IF("fail_binlog_flush_raft", { ret = 1; });
 
@@ -3410,11 +3419,12 @@ static bool binlog_savepoint_rollback_can_release_mdl(handlerton *, THD *thd) {
 */
 class Adjust_offset : public Do_THD_Impl {
  public:
-  Adjust_offset(my_off_t value) : m_purge_offset(value) {}
+  Adjust_offset(my_off_t value, bool is_relay_log)
+      : m_purge_offset(value), m_relay_log(is_relay_log) {}
   void operator()(THD *thd) override {
-    LOG_INFO *linfo;
+    LOG_INFO *linfo = thd->current_linfo;
     mysql_mutex_lock(&thd->LOCK_thd_data);
-    if ((linfo = thd->current_linfo)) {
+    if (linfo && (!enable_raft_plugin || linfo->is_relay_log == m_relay_log)) {
       /*
         Index file offset can be less that purge offset only if
         we just started reading the index file. In that case
@@ -3430,6 +3440,25 @@ class Adjust_offset : public Do_THD_Impl {
 
  private:
   my_off_t m_purge_offset;
+  bool m_relay_log;
+};
+
+class Adjust_linfo_in_dump_thread : public Do_THD_Impl {
+ public:
+  explicit Adjust_linfo_in_dump_thread(bool is_relay_log) {
+    m_relay_log = is_relay_log;
+  }
+  virtual void operator()(THD *thd) override {
+    LOG_INFO *linfo = thd->current_linfo;
+    if (linfo && linfo->is_used_by_dump_thd) {
+      mysql_mutex_lock(&thd->LOCK_thd_data);
+      linfo->is_relay_log = m_relay_log;
+      mysql_mutex_unlock(&thd->LOCK_thd_data);
+    }
+  }
+
+ private:
+  bool m_relay_log;
 };
 
 /*
@@ -3437,7 +3466,7 @@ class Adjust_offset : public Do_THD_Impl {
 
   SYNOPSIS
     adjust_linfo_offsets()
-    purge_offset	Number of bytes removed from start of log index file
+    purge_offset Number of bytes removed from start of log index file
 
   NOTES
     - This is called when doing a PURGE when we delete lines from the
@@ -3452,9 +3481,15 @@ class Adjust_offset : public Do_THD_Impl {
       in the binary log file with flush_relay_log_info.
       Now they sync is done for next read.
 */
-static void adjust_linfo_offsets(my_off_t purge_offset) {
-  Adjust_offset adjust_offset(purge_offset);
+static void adjust_linfo_offsets(my_off_t purge_offset, bool is_relay_log) {
+  Adjust_offset adjust_offset(purge_offset, is_relay_log);
   Global_THD_manager::get_instance()->do_for_all_thd(&adjust_offset);
+}
+
+static void adjust_linfo_in_dump_threads(bool is_relay_log) {
+  Adjust_linfo_in_dump_thread adjust_linfo_in_dump_thread(is_relay_log);
+  Global_THD_manager::get_instance()->do_for_all_thd(
+      &adjust_linfo_in_dump_thread);
 }
 
 /**
@@ -4087,7 +4122,7 @@ bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log) {
   Protocol *protocol = thd->get_protocol();
   List<Item> field_list;
   std::string errmsg;
-  LOG_INFO linfo;
+  LOG_INFO linfo(binary_log->is_relay_log);
 
   DBUG_TRACE;
 
@@ -4335,6 +4370,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       m_binlog_file(new Binlog_ofile()),
       m_key_LOCK_log(key_LOG_LOCK_log),
       bytes_written(0),
+      lost_gtid_for_tailing(""),
       file_id(1),
       sync_period_ptr(sync_period),
       sync_counter(0),
@@ -4346,6 +4382,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       relay_log_checksum_alg(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       engine_binlog_pos(ULLONG_MAX),
+      last_master_timestamp(0),
       previous_gtid_set_relaylog(nullptr),
       raft_cur_log_ext(0),
       setup_flush_done(false),
@@ -4379,6 +4416,7 @@ void MYSQL_BIN_LOG::cleanup() {
     mysql_mutex_destroy(&LOCK_binlog_end_pos);
     mysql_mutex_destroy(&LOCK_xids);
     mysql_mutex_destroy(&LOCK_non_xid_trxs);
+    mysql_mutex_destroy(&LOCK_lost_gtids_for_tailing);
     mysql_cond_destroy(&update_cond);
     mysql_cond_destroy(&m_prep_xids_cond);
     mysql_cond_destroy(&non_xid_trxs_cond);
@@ -4406,6 +4444,8 @@ void MYSQL_BIN_LOG::init_pthread_objects() {
   mysql_mutex_init(m_key_LOCK_binlog_end_pos, &LOCK_binlog_end_pos,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_xids, &LOCK_xids, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(m_key_LOCK_lost_gtids_for_tailing,
+                   &LOCK_lost_gtids_for_tailing, MY_MUTEX_INIT_FAST);
   mysql_cond_init(m_key_update_cond, &update_cond);
   mysql_cond_init(m_key_prep_xids_cond, &m_prep_xids_cond);
   mysql_cond_init(m_key_non_xid_trxs_cond, &non_xid_trxs_cond);
@@ -4828,7 +4868,8 @@ int MYSQL_BIN_LOG::init_index_file() {
     // NO_LINT_DEBUG
     sql_print_information(
         "Binlog apply index file exists. Recovering mysqld "
-        "based on binlog apply index file");
+        "based on binlog apply index file: %s",
+        opt_applylog_index_name);
     index_file_name = opt_applylog_index_name;
     log_file_name = opt_apply_logname;
     is_apply_log = true;
@@ -4836,7 +4877,8 @@ int MYSQL_BIN_LOG::init_index_file() {
     // NO_LINT_DEBUG
     sql_print_information(
         "Binlog apply index file does not exist. Recovering "
-        "mysqld based on binlog index file");
+        "mysqld based on binlog index file: %s",
+        opt_binlog_index_name);
     index_file_name = opt_binlog_index_name;
     log_file_name = opt_bin_logname;
   }
@@ -5557,7 +5599,7 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
 /*
  * This is a limited version of init_gtid_sets which is only
  * called from binlog_change_to_apply.
- * Needs to be called under LOCK_log and LOCK_index held.
+ * Needs to be called LOCK_index held.
  * The previous_gtid_set_map is cleared and reinitialized from
  * the index file contents.
  */
@@ -5568,7 +5610,6 @@ bool MYSQL_BIN_LOG::init_prev_gtid_sets_map() {
   std::pair<Gtid_set_map::iterator, bool> iterator;
   DBUG_ENTER("MYSQL_BIN_LOG::init_prev_gtid_sets_map");
 
-  mysql_mutex_assert_owner(&LOCK_log);
   mysql_mutex_assert_owner(&LOCK_index);
 
   // clear the map as it is being reset
@@ -5617,6 +5658,7 @@ bool MYSQL_BIN_LOG::init_prev_gtid_sets_map() {
   }
 
 end:
+  update_lost_gtid_for_tailing();
   DBUG_PRINT("info", ("returning %d", error));
   DBUG_RETURN(error != 0 ? true : false);
 }
@@ -5822,8 +5864,16 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
             "Could not get the transaction log file name from the engine. "
             "Using the latest for initializing mysqld state");
 
-        log_file_to_read.assign(last_binlog_file_with_gtids);
-        max_pos = this->engine_binlog_pos;
+        // In innodb, engine_binlog_file is populated _only_ when there are
+        // trxs to recover (i.e trxs are in prepared state) during startup
+        // and engine recovery. Hence, engine_binlog_file being empty indicates
+        // that engine's state is up-to-date with the latest binlog file and we
+        // can include all gtids in the latest binlog file for calculating
+        // executed-gtid-set
+        if (strlen(engine_binlog_file) == 0)
+          max_pos = ULLONG_MAX;
+        else
+          max_pos = this->first_gtid_start_pos;
       } else {
         // Initializing gtid_sets based on engine binlog position is fine since
         // idempotent recovery will fill in the holes
@@ -5965,7 +6015,9 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
       }
     }
   }
+
 end:
+  update_lost_gtid_for_tailing();
   if (all_gtids) all_gtids->dbug_print("all_gtids");
   if (lost_gtids) lost_gtids->dbug_print("lost_gtids");
   if (need_lock) {
@@ -5996,7 +6048,8 @@ bool MYSQL_BIN_LOG::open_binlog(
     const char *log_name, const char *new_name, ulong max_size_arg,
     bool null_created_arg, bool need_lock_index, bool need_sid_lock,
     Format_description_log_event *extra_description_event,
-    uint32 new_index_number, RaftRotateInfo *raft_rotate_info) {
+    uint32 new_index_number, RaftRotateInfo *raft_rotate_info,
+    bool need_end_log_pos_lock) {
   // lock_index must be acquired *before* sid_lock.
   assert(need_sid_lock || !need_lock_index);
   DBUG_TRACE;
@@ -6053,6 +6106,21 @@ bool MYSQL_BIN_LOG::open_binlog(
 
   bool write_file_name_to_index_file = false;
   bool raft_noop = raft_rotate_info && raft_rotate_info->noop;
+  /*
+
+   * Which rotates are initiated by the plugin and happen
+   * in the raft listener queue thread?
+   *
+   * 1. Any rotate which is a post_append (i.e. normal rotate)
+   * 2. Any rotate which the plugin asks the mysql to initiate
+   * via injecting an operation in the listener queue.
+   * i.e. 2.1 - No-Op messages
+   *      2.2 - Config Change messages.
+  */
+  bool rotate_in_listener_context =
+      raft_rotate_info &&
+      (raft_rotate_info->post_append || raft_rotate_info->noop ||
+       raft_rotate_info->config_change_rotate);
   /* This must be before goto err. */
 #ifndef NDEBUG
   binary_log_debug::debug_pretend_version_50034_in_binlog =
@@ -6096,6 +6164,10 @@ bool MYSQL_BIN_LOG::open_binlog(
 
   if (!s.is_valid()) goto err;
   s.dont_set_created = null_created_arg;
+  // Since start time of listener thread is not correct,
+  // we need to explicitly set event timestamp otherwise,
+  // the mysqlbinlog output will show UTC-0 for FD/PGTID/MD event
+  if (rotate_in_listener_context) s.common_header->when.tv_sec = my_time(0);
   /* Set LOG_EVENT_RELAY_LOG_F flag for relay log's FD */
   if (is_relay_log && !raft_noop) s.set_relay_log_event();
 
@@ -6180,6 +6252,9 @@ bool MYSQL_BIN_LOG::open_binlog(
     DBUG_PRINT("info", ("Generating PREVIOUS_GTIDS for %s file.",
                         is_relay_log ? "relaylog" : "binlog"));
     Previous_gtids_log_event prev_gtids_ev(previous_logged_gtids);
+
+    if (rotate_in_listener_context)
+      prev_gtids_ev.common_header->when.tv_sec = my_time(0);
     // TODO(pgl) : confirm if raft_noop check required here.
     if (!raft_noop && is_relay_log) prev_gtids_ev.set_relay_log_event();
     if (need_sid_lock) sid_lock->unlock();
@@ -6198,6 +6273,8 @@ bool MYSQL_BIN_LOG::open_binlog(
         current_hlc = mysql_bin_log.get_current_hlc();
       }
       Metadata_log_event metadata_ev(current_hlc);
+      if (rotate_in_listener_context)
+        metadata_ev.common_header->when.tv_sec = my_time(0);
       if (raft_rotate_info) {
         metadata_ev.set_raft_prev_opid(raft_rotate_info->rotate_opid.first,
                                        raft_rotate_info->rotate_opid.second);
@@ -6276,7 +6353,7 @@ bool MYSQL_BIN_LOG::open_binlog(
 
   close_purge_index_file();
 
-  update_binlog_end_pos();
+  update_binlog_end_pos(need_end_log_pos_lock);
   my_free(previous_gtid_set_buffer);
   return false;
 
@@ -6299,7 +6376,8 @@ err:
 }
 
 bool MYSQL_BIN_LOG::open_existing_binlog(const char *log_name,
-                                         ulong max_size_arg) {
+                                         ulong max_size_arg,
+                                         bool need_end_log_pos_lock) {
   DBUG_ENTER("MYSQL_BIN_LOG::open_existing_binlog(const char *, ...)");
   DBUG_PRINT("enter", ("name: %s", log_name));
 
@@ -6327,8 +6405,8 @@ bool MYSQL_BIN_LOG::open_existing_binlog(const char *log_name,
     DBUG_RETURN(1);
   }
 
-  if (!(this->name =
-            my_strdup(key_memory_MYSQL_LOG_name, log_name, MYF(MY_WME)))) {
+  my_free(name);
+  if (!(name = my_strdup(key_memory_MYSQL_LOG_name, log_name, MYF(MY_WME)))) {
     // NO_LINT_DEBUG
     sql_print_error("Could not allocate name %s (error %d)", log_name, errno);
     DBUG_RETURN(1);
@@ -6338,6 +6416,8 @@ bool MYSQL_BIN_LOG::open_existing_binlog(const char *log_name,
       Binlog_ofile::open_existing(m_key_file_log, existing_file, MYF(MY_WME));
   if (!binlog_file) goto err;
 
+  // release current point before assign
+  delete m_binlog_file;
   m_binlog_file = binlog_file.release();
 
   file = mysql_file_open(m_key_file_log, existing_file, O_CREAT | O_WRONLY,
@@ -6361,7 +6441,7 @@ bool MYSQL_BIN_LOG::open_existing_binlog(const char *log_name,
   if (offset > 0) m_binlog_file->seek(offset);
 
   max_size = max_size_arg;
-  update_binlog_end_pos();
+  update_binlog_end_pos(need_end_log_pos_lock);
   atomic_log_state = LOG_OPENED;
 
   DBUG_RETURN(0);  // Success
@@ -6667,7 +6747,13 @@ void MYSQL_BIN_LOG::get_current_log_without_lock_log(LOG_INFO *linfo) {
 int MYSQL_BIN_LOG::raw_get_current_log(LOG_INFO *linfo) {
   strmake(linfo->log_file_name, log_file_name,
           sizeof(linfo->log_file_name) - 1);
-  linfo->pos = m_binlog_file->position();
+  // raft write data directly into IO_CACHE, thus
+  // Binlog_ofile's m_position member isn't updated.
+  if (enable_raft_plugin && !is_apply_log)
+    linfo->pos = atomic_binlog_end_pos.load();
+  else
+    linfo->pos = m_binlog_file->position();
+
   linfo->encrypted_header_size = m_binlog_file->get_encrypted_header_size();
   return 0;
 }
@@ -7171,6 +7257,7 @@ bool MYSQL_BIN_LOG::reset_logs(THD *thd, bool delete_only) {
   }
 
 err:
+  update_lost_gtid_for_tailing();
   if (name == nullptr)
     name = const_cast<char *>(save_name);  // restore old file-name
   sid_lock->unlock();
@@ -7314,7 +7401,7 @@ int MYSQL_BIN_LOG::remove_logs_from_index(LOG_INFO *log_info,
 
   // now update offsets in index file for running threads
   if (need_update_threads)
-    adjust_linfo_offsets(log_info->index_file_start_offset);
+    adjust_linfo_offsets(log_info->index_file_start_offset, is_relay_log);
   return 0;
 
 err:
@@ -7383,6 +7470,8 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   log_file_name_container delete_list;
   std::pair<std::string, uint> file_index_pair;
   std::string safe_purge_file;
+  int raft_plugin_error = 0;
+
   DBUG_TRACE;
   DBUG_PRINT("info", ("to_log= %s", to_log));
 
@@ -7417,8 +7506,10 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     // Nothing to purge if file index is 0
     if (!included && file_index_pair.second == 0) goto err;
 
-    error = RUN_HOOK(raft_replication, purge_logs,
-                     (current_thd, file_index_pair.second));
+    error = RUN_HOOK_STRICT(raft_replication, purge_logs,
+                            (current_thd, file_index_pair.second));
+
+    DBUG_EXECUTE_IF("simulate_raft_plugin_purge_error", error = 1;);
 
     if (error) {
       // NO_LINT_DEBUG
@@ -7426,6 +7517,7 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
           "MYSQL_BIN_LOG::purge_logs raft plugin failed in "
           "purge_logs(). file-name: %s",
           to_log);
+      raft_plugin_error = 1;
       goto err;
     }
 
@@ -7528,6 +7620,10 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     global_sid_lock->unlock();
   }
 
+  if (enable_raft_plugin && is_relay_log) {
+    error = init_prev_gtid_sets_map();
+  }
+
 err:
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
 
@@ -7537,10 +7633,12 @@ err:
   */
   error = error ? error : error_index;
   if (error && should_abort_on_binlog_error()) {
-    exec_binlog_error_action_abort(
-        "Either disk is full, file system is read only or "
-        "there was an encryption error while opening the binlog. "
-        "Aborting the server.");
+    if (!raft_plugin_error || abort_on_raft_purge_error) {
+      exec_binlog_error_action_abort(
+          "Either disk is full, file system is read only or "
+          "there was an encryption error while opening the binlog. "
+          "Aborting the server.");
+    }
   }
   return error;
 }
@@ -8171,6 +8269,10 @@ int MYSQL_BIN_LOG::new_file_impl(
   // skip rotate event append implies rotate event has already
   // been appended to relay log by plugin
   bool skip_re_append = raft_rotate_info && raft_rotate_info->post_append;
+  bool rotate_in_listener_context =
+      raft_rotate_info &&
+      (raft_rotate_info->post_append || raft_rotate_info->noop ||
+       raft_rotate_info->config_change_rotate);
   if (skip_re_append) {
     assert(is_relay_log);
   }
@@ -8281,6 +8383,7 @@ int MYSQL_BIN_LOG::new_file_impl(
     Rotate_log_event r(
         new_name + dirname_length(new_name), 0, LOG_EVENT_OFFSET,
         is_relay_log && !no_op ? Rotate_log_event::RELAY_LOG : 0);
+    if (rotate_in_listener_context) r.common_header->when.tv_sec = my_time(0);
 
     if (rotate_via_raft) {
       temp_binlog_cache = std::make_unique<Binlog_cache_storage>();
@@ -8308,6 +8411,8 @@ int MYSQL_BIN_LOG::new_file_impl(
         me.set_raft_rotate_tag(Metadata_log_event::RRET_SIMPLE_ROTATE);
       }
 
+      if (rotate_in_listener_context)
+        me.common_header->when.tv_sec = my_time(0);
       // checksum has to be turned off, because the raft plugin
       // will patch the events and generate the final checksum.
       me.common_footer->checksum_alg = binary_log::BINLOG_CHECKSUM_ALG_OFF;
@@ -8347,13 +8452,13 @@ int MYSQL_BIN_LOG::new_file_impl(
       DBUG_EXECUTE_IF("simulate_before_flush_error_on_new_file", error = 1;);
 
       if (!error)
-        error =
-            RUN_HOOK(raft_replication, before_flush,
-                     (current_thd, temp_binlog_cache->get_io_cache(), op_type));
+        error = RUN_HOOK_STRICT(
+            raft_replication, before_flush,
+            (current_thd, temp_binlog_cache->get_io_cache(), op_type));
 
       // time to safely readjust the cur_log_ext back to expected value
       if (!error) {
-        error = RUN_HOOK(raft_replication, before_commit, (current_thd));
+        error = RUN_HOOK_STRICT(raft_replication, before_commit, (current_thd));
 
         if (!error) {
           // If there was no error, there is a guarantee that this rotate
@@ -8465,7 +8570,7 @@ int MYSQL_BIN_LOG::new_file_impl(
   if (!error && rotate_via_raft && !no_op) {
     // not trapping return code, because this is the existing
     // pattern in most places of after_commit hook (TODO)
-    (void)RUN_HOOK(raft_replication, after_commit, (current_thd));
+    (void)RUN_HOOK_STRICT(raft_replication, after_commit, (current_thd));
   }
 end:
   if (error && close_on_error /* rotate, flush or reopen failed */) {
@@ -9748,6 +9853,15 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       goto err;
     }
 
+    // We found atleast one binlog file in the binlog index file
+    // Note that this is useful only when raft is enabled - even during clean
+    // shutdown, raft plugin can rollback last batch of trxs from the engine
+    // (after writing to binlog). hence on restart, this binlog file can have
+    // uncommitted trxs and should not be marked as 'cleanly closed'. In other
+    // words, 'LOG_EVENT_BINLOG_IN_USE_F' is not a reliable indicator anymore
+    // that a binlog file does not contain uncommitted trxs.
+    open_binlog_found = true;
+
     /*
       If the binary log was not properly closed it means that the server
       may have crashed. In that case, we need to call
@@ -9773,9 +9887,9 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       const std::string cur_log_file = log_name + dirname_length(log_name);
       error = binlog_recover(&binlog_file_reader, &valid_pos,
                              &engine_binlog_max_gtid, engine_binlog_file,
-                             &engine_binlog_pos, cur_log_file);
+                             &engine_binlog_pos, cur_log_file,
+                             &this->first_gtid_start_pos);
       binlog_size = binlog_file_reader.ifile()->length();
-      open_binlog_found = true;
     } else {
       /*
        * If we are here, it implies either mysqld was shutdown cleanly or
@@ -9802,7 +9916,6 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       */
       error = ha_recover(&xids, &engine_binlog_max_gtid, tmp_binlog_file,
                          &tmp_binlog_pos);
-      open_binlog_found = false;
     }
 
     delete ev;
@@ -10447,15 +10560,26 @@ void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
     if (thd->commit_error == THD::CE_NONE) last_thd = thd;
 
   if (last_thd) {
-    error = RUN_HOOK(raft_replication, before_commit, (last_thd));
+    auto start_time = my_timer_now();
+
+    error = RUN_HOOK_STRICT(raft_replication, before_commit, (last_thd));
+
+    if (!this->is_apply_log) {
+      auto wait_time = my_timer_since(start_time);
+      latency_histogram_increment(&histogram_raft_trx_wait, wait_time, 1);
+    }
 
     if (error) set_commit_consensus_error(queue_head);
     if (!error && opt_raft_signal_async_dump_threads == AFTER_CONSENSUS &&
         enable_raft_plugin && rpl_wait_for_semi_sync_ack) {
       const char *log_file = nullptr;
       my_off_t log_pos = 0;
-      queue_head->get_trans_fixed_pos((const char **)&log_file, &log_pos);
-      signal_semi_sync_ack(log_file, log_pos);
+      if (mysql_bin_log.is_apply_log) {
+        last_thd->get_trans_relay_log_pos((const char **)&log_file, &log_pos);
+      } else {
+        last_thd->get_trans_fixed_pos((const char **)&log_file, &log_pos);
+      }
+      dump_log.signal_semi_sync_ack(log_file, log_pos);
     }
   }
 }
@@ -10656,10 +10780,14 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       */
       Thd_backup_and_restore switch_thd(thd, head);
       bool all = head->get_transaction()->m_flags.real_commit;
-      error = error || RUN_HOOK(transaction, after_commit, (head, all));
 
-      if (enable_raft_plugin)
-        (void)RUN_HOOK(raft_replication, after_commit, (head));
+      // Call semi-sync plugin only when raft is not enabled
+      if (!enable_raft_plugin)
+        error = error || RUN_HOOK(transaction, after_commit, (head, all));
+      else
+        error =
+            error || RUN_HOOK_STRICT(raft_replication, after_commit, (head));
+
       if (!enable_raft_plugin) {
         my_off_t pos;
         head->get_trans_pos(nullptr, &pos, nullptr, nullptr);
@@ -10680,8 +10808,12 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       rpl_wait_for_semi_sync_ack) {
     my_off_t log_pos;
     const char *log_file = nullptr;
-    last_thd->get_trans_fixed_pos((const char **)&log_file, &log_pos);
-    signal_semi_sync_ack(log_file, log_pos);
+    if (mysql_bin_log.is_apply_log) {
+      thd->get_trans_relay_log_pos((const char **)&log_file, &log_pos);
+    } else {
+      thd->get_trans_fixed_pos((const char **)&log_file, &log_pos);
+    }
+    dump_log.signal_semi_sync_ack(log_file, log_pos);
   }
 }
 
@@ -10692,16 +10824,9 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
   @param queue_head  Head of the queue
 */
 void MYSQL_BIN_LOG::set_commit_consensus_error(THD *queue_head) {
-  uint32 thread_count = 0;
-
   for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit) {
-    thread_count++;
     thd->commit_consensus_error = true;
   }
-
-  // NO_LINT_DEBUG
-  sql_print_error("Commit consensus error set for %u threads in the group",
-                  thread_count);
 }
 
 /**
@@ -10795,7 +10920,13 @@ int MYSQL_BIN_LOG::flush_cache_to_file(my_off_t *end_pos_var) {
     thd->commit_error = THD::CE_FLUSH_ERROR;
     return ER_ERROR_ON_WRITE;
   }
-  *end_pos_var = m_binlog_file->position();
+
+  // raft write data directly into IO_CACHE, thus
+  // Binlog_ofile's m_position member isn't updated.
+  if (enable_raft_plugin && !is_apply_log)
+    *end_pos_var = atomic_binlog_end_pos.load();
+  else
+    *end_pos_var = m_binlog_file->position();
   return 0;
 }
 
@@ -10897,18 +11028,22 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
       if (!enable_raft_plugin)
         (void)RUN_HOOK(transaction, after_commit, (thd, all));
       else
-        (void)RUN_HOOK(raft_replication, after_commit, (thd));
+        (void)RUN_HOOK_STRICT(raft_replication, after_commit, (thd));
       thd->get_transaction()->m_flags.run_hooks = false;
     }
 
     if (enable_raft_plugin && thd->commit_error == THD::CE_NONE) {
-      int error = RUN_HOOK(raft_replication, after_commit, (thd));
+      int error = RUN_HOOK_STRICT(raft_replication, after_commit, (thd));
       if (!error && opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&
           enable_raft_plugin && rpl_wait_for_semi_sync_ack) {
         const char *log_file = nullptr;
         my_off_t log_pos = 0;
-        thd->get_trans_fixed_pos((const char **)&log_file, &log_pos);
-        signal_semi_sync_ack(log_file, log_pos);
+        if (mysql_bin_log.is_apply_log) {
+          thd->get_trans_relay_log_pos((const char **)&log_file, &log_pos);
+        } else {
+          thd->get_trans_fixed_pos((const char **)&log_file, &log_pos);
+        }
+        dump_log.signal_semi_sync_ack(log_file, log_pos);
       }
       thd->get_transaction()->m_flags.run_hooks = false;
     }
@@ -11113,7 +11248,7 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
   arg.log_prefix = name;
   arg.log_name = log_file_name;
   arg.cur_log_ext = &raft_cur_log_ext;
-  arg.endpos_log_name = binlog_file_name;
+  arg.endpos_log_name = log_file_name;
   arg.endpos = (ulonglong *)&atomic_binlog_end_pos;
   arg.signal_cnt = &signal_cnt;
   arg.lock_log = &LOCK_log;
@@ -11123,7 +11258,7 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
   arg.context = context;
   arg.is_relay_log = is_relay_log;
 
-  int err = RUN_HOOK(raft_replication, setup_flush, (thd, &arg));
+  int err = RUN_HOOK_STRICT(raft_replication, setup_flush, (thd, &arg));
 
   if (need_lock) mysql_mutex_unlock(&LOCK_log);
 
@@ -11240,9 +11375,10 @@ int ask_server_to_register_with_raft(Raft_Registration_Item item) {
       }
 
       THD *thd = current_thd;
-      err = RUN_HOOK(raft_replication, register_paths,
-                     (thd, server_uuid, s_wal_dir, s_log_dir, log_bin_basename,
-                      glob_hostname, (uint64_t)mysqld_port));
+      err = RUN_HOOK_STRICT(
+          raft_replication, register_paths,
+          (thd, server_uuid, s_wal_dir, s_log_dir, log_bin_basename,
+           glob_hostname, (uint64_t)mysqld_port));
       break;
     }
     default:
@@ -11588,6 +11724,37 @@ int rotate_binlog_file(THD *thd) {
   DBUG_RETURN(error);
 }
 
+bool block_all_dump_threads() {
+  block_dump_threads = true;
+  kill_all_dump_threads();
+
+  uint count = 50;
+  while (count-- &&
+         Global_THD_manager::get_instance()->get_num_thread_binlog_client())
+    std::this_thread::sleep_for(std::chrono::milliseconds{100});
+
+  if (Global_THD_manager::get_instance()->get_num_thread_binlog_client()) {
+    // NO_LINT_DEBUG
+    sql_print_error("Dump thread count did not reach 0 after 5 secs!");
+    block_dump_threads = false;
+    return false;
+  }
+
+  return true;
+}
+
+void unblock_all_dump_threads() { block_dump_threads = false; }
+
+int handle_dump_threads(bool block) {
+  DBUG_TRACE;
+  int err = 0;
+  if (block)
+    err = block_all_dump_threads() ? 0 : 1;
+  else
+    unblock_all_dump_threads();
+  return err;
+}
+
 int binlog_change_to_apply() {
   DBUG_ENTER("binlog_change_to_apply");
 
@@ -11600,8 +11767,9 @@ int binlog_change_to_apply() {
   int error = 0;
   LOG_INFO linfo;
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
+  const bool is_locked = dump_log.lock();
   mysql_bin_log.lock_index();
-
+  mysql_bin_log.lock_binlog_end_pos();
   mysql_bin_log.close(LOG_CLOSE_INDEX, /*need_lock_log=*/false,
                       /*need_lock_index=*/false);
 
@@ -11627,10 +11795,14 @@ int binlog_change_to_apply() {
                                 /*null_created_arg=*/false,
                                 /*need_lock_index=*/false,
                                 /*need_sid_lock=*/true,
-                                /*extra_description_event=*/NULL)) {
+                                /*extra_description_event=*/NULL,
+                                /*new_index_number =*/0,
+                                /*raft_rotate_info =*/nullptr,
+                                /*need_end_log_pos_lock =*/false)) {
     error = 1;
     goto err;
   }
+  dump_log.switch_log(/* relay_log= */ true, /* should_lock= */ false);
 
   // Purge all apply logs before the last log, because they
   // are from the previous epoch of being a FOLLOWER, and they
@@ -11651,8 +11823,9 @@ int binlog_change_to_apply() {
   }
 
 err:
-
+  mysql_bin_log.unlock_binlog_end_pos();
   mysql_bin_log.unlock_index();
+  dump_log.unlock(is_locked);
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_RETURN(error);
@@ -11671,8 +11844,27 @@ int binlog_change_to_binlog(THD *thd) {
   uint64_t prev_hlc = 0;
   std::vector<std::string> lognames;
 
+  // Flush logs to ensure that storage engine has flushed and fsynced the last
+  // batch of transactions. This is important because the act of switching trx
+  // logs from "apply-logs-*" to "binary-logs-*" looks like a rotation to other
+  // parts of the system and rotation is always a 'sync' point
+  ha_flush_logs(NULL);
+
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
+  const bool is_locked = dump_log.lock();
   mysql_bin_log.lock_index();
+
+  Master_info *active_mi;
+  if (!get_and_lock_master_info(&active_mi) || !active_mi || !active_mi->rli) {
+    error = 1;
+    // NO_LINT_DEBUG
+    sql_print_error("active_mi or rli is not set");
+    mysql_bin_log.unlock_index();
+    dump_log.unlock(is_locked);
+    mysql_mutex_unlock(mysql_bin_log.get_log_lock());
+    return error;
+  }
+  active_mi->rli->relay_log.lock_binlog_end_pos();
 
   // Get the index file name
   std::string indexfn = mysql_bin_log.get_index_fname();
@@ -11765,14 +11957,21 @@ int binlog_change_to_binlog(THD *thd) {
   mysql_bin_log.is_apply_log = false;
   mysql_bin_log.apply_file_count.store(0);
 
+  dump_log.switch_log(/* relay_log= */ false, /* should_lock= */ false);
+
   // Register new log to raft
   // Previous mysql_bin_log.close(LOG_CLOSE_INDEX) will also close binlog and
   // its IO_CACHE.
   mysql_bin_log.register_log_entities(thd, /*context=*/0, /*need_lock=*/false,
                                       /*is_relay_log=*/false);
 err:
+  active_mi->rli->relay_log.unlock_binlog_end_pos();
+  unlock_master_info(active_mi);
   mysql_bin_log.unlock_index();
+  dump_log.unlock(is_locked);
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
+
+  DBUG_EXECUTE_IF("crash_after_point_binlog_to_binlog", DBUG_SUICIDE(););
 
   DBUG_RETURN(error);
 }
@@ -11805,6 +12004,40 @@ err:
   if (need_lock) mysql_mutex_unlock(&LOCK_index);
 
   return error;
+}
+
+Dump_log::Dump_log() {
+  if (enable_raft_plugin && mysql_bin_log.is_apply_log) {
+    Master_info *active_mi = nullptr;
+    if (!get_and_lock_master_info(&active_mi)) {
+      // NO_LINT_DEBUG
+      sql_print_error("active_mi or rli is not set");
+    }
+    assert(active_mi && active_mi->rli);
+    log_ = &active_mi->rli->relay_log;
+    unlock_master_info(active_mi);
+  } else {
+    log_ = &mysql_bin_log;
+  }
+}
+
+void Dump_log::switch_log(bool relay_log, bool should_lock) {
+  bool is_locked = false;
+  if (should_lock) is_locked = lock();
+  mysql_mutex_assert_owner(log_->get_binlog_end_pos_lock());
+  log_->update_binlog_end_pos(/* need_lock= */ false);
+  Master_info *active_mi = nullptr;
+  if (!get_and_lock_master_info(&active_mi)) {
+    // NO_LINT_DEBUG
+    sql_print_error("active_mi or rli is not set");
+  }
+  assert(active_mi && active_mi->rli);
+  log_ = relay_log ? &active_mi->rli->relay_log : &mysql_bin_log;
+  unlock_master_info(active_mi);
+  // Now let's update the dump thread's linfos
+  log_->reset_semi_sync_last_acked();
+  adjust_linfo_in_dump_threads(relay_log);
+  if (should_lock) unlock(is_locked);
 }
 
 // Given a file name of the form 'binlog-file-name.index', it extracts the
@@ -11928,7 +12161,8 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
                            my_off_t *valid_pos, Gtid *binlog_max_gtid,
                            char *engine_binlog_file,
                            my_off_t *engine_binlog_pos,
-                           const std::string &cur_binlog_file) {
+                           const std::string &cur_binlog_file,
+                           my_off_t *first_gtid_start_pos) {
   bool res = false;
   binlog::tools::Iterator it(binlog_file_reader);
   it.set_copy_event_buffer();
@@ -12002,9 +12236,11 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
             current_gtid.set(gev->get_sidno(true), gev->get_gno());
           else
             current_gtid.clear();
-          if (first_gtid_start == 0)
+          if (first_gtid_start == 0) {
             first_gtid_start =
                 ev->common_header->log_pos - ev->common_header->data_written;
+            *first_gtid_start_pos = first_gtid_start;
+          }
         }
         default: {
           break;
@@ -12080,8 +12316,12 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
         2. A binlog rotation ensures that the previous binlogs and engine's
            transaction logs are flushed and made durable. Hence all previous
            transactions are made durable.
+
+         If enable_raft_plugin is set, then we skip trimming binlog. This is
+         because the trim is handled inside the raft plugin when this node
+         rejoins the raft ring
        */
-      if (opt_trim_binlog) {
+      if (opt_trim_binlog && !enable_raft_plugin) {
         set_valid_pos(valid_pos, cur_binlog_file, first_gtid_start,
                       engine_binlog_file, *engine_binlog_pos);
       }
@@ -12094,11 +12334,12 @@ fin1:
 }
 
 void MYSQL_BIN_LOG::report_missing_purged_gtids(
-    const Gtid_set *slave_executed_gtid_set, std::string &errmsg) {
+    const Gtid_set *lost_gtid_set, const Gtid_set *slave_executed_gtid_set,
+    std::string &errmsg) {
   DBUG_TRACE;
   THD *thd = current_thd;
-  Gtid_set gtid_missing(gtid_state->get_lost_gtids()->get_sid_map());
-  gtid_missing.add_gtid_set(gtid_state->get_lost_gtids());
+  Gtid_set gtid_missing(lost_gtid_set->get_sid_map());
+  gtid_missing.add_gtid_set(lost_gtid_set);
   gtid_missing.remove_gtid_set(slave_executed_gtid_set);
 
   String tmp_uuid;
@@ -12216,6 +12457,141 @@ void MYSQL_BIN_LOG::report_missing_gtids(
   my_free(slave_executed_gtids);
 }
 
+/**
+ * Recover raft log. This is primarily for relay logs in the raft world since
+ * trx logs (binary logs or apply logs) are already recovered by mysqld as part
+ * of trx log recovery. This method tries to get rid of partial trxs in the tal
+ * of the raft log. Much has been borrowed from
+ * MYSQL_BIN_LOG::open_binlog(const char *opt_name) and
+ * binlog_recover(). Refactoring the components is rather hard and
+ * adds unnecessary complexity with additional params and if() {} else {}
+ * branches. Hence a separate method.
+ */
+int MYSQL_BIN_LOG::raft_log_recover() {
+  int error = 0;
+  Log_event *ev = 0;
+  char log_name[FN_REFLEN];
+  my_off_t valid_pos = 0;
+  my_off_t binlog_size = 0;
+  LOG_INFO log_info;
+  bool pending_gtid = false;
+  std::string error_message;
+  int status = 0;
+  bool in_transaction = false;
+  if (!mysql_bin_log.is_apply_log)
+    goto err;  // raft log already recovered as part of trx log recovery
+
+  if (!my_b_inited(&index_file)) {
+    error_message = "Index file is not inited in recover_raft_log";
+    error = 1;
+    goto err;
+  }
+
+  if ((status =
+           find_log_pos(&log_info, NullS, true /*need_lock_index=true*/))) {
+    if (status != LOG_INFO_EOF) {
+      error_message = "find_log_pos() failed in recover_raft_log with error: " +
+                      std::to_string(error);
+      error = 1;
+    }
+    goto err;
+  }
+
+  do {
+    strmake(log_name, log_info.log_file_name, sizeof(log_name) - 1);
+  } while (!(status = find_next_log(&log_info, true /*need_lock_index=true*/)));
+
+  if (status != LOG_INFO_EOF) {
+    error_message = "find_log_pos() failed in recover_raft_log with error: " +
+                    std::to_string(error);
+    error = 1;
+    goto err;
+  }
+
+  {
+    Binlog_file_reader binlog_file_reader(opt_source_verify_checksum);
+    if (binlog_file_reader.open(log_name)) {
+      error = 1;
+      error_message = "open_binlog_file() failed in recover_raft_log with ";
+      goto err;
+    }
+    binlog_size = binlog_file_reader.ifile()->length();
+    // This logic is borrowed from binlog_recover() which has to do
+    // additional things and refactoring it will simply add more branches. Hence
+    // the code duplication
+    while ((ev = binlog_file_reader.read_event_object())) {
+      if (ev->get_type_code() == binary_log::QUERY_EVENT &&
+          !strcmp(static_cast<Query_log_event *>(ev)->query, "BEGIN")) {
+        in_transaction = true;
+      } else if (ev->get_type_code() == binary_log::QUERY_EVENT &&
+                 !strcmp(static_cast<Query_log_event *>(ev)->query, "COMMIT")) {
+        assert(in_transaction == true);
+        in_transaction = false;
+      } else if (is_gtid_event(ev)) {
+        pending_gtid = true;
+      } else if (ev->get_type_code() == binary_log::XID_EVENT ||
+                 (ev->get_type_code() == binary_log::QUERY_EVENT &&
+                  !strcmp(static_cast<Query_log_event *>(ev)->query,
+                          "COMMIT"))) {
+        if (!in_transaction) {
+          // When we see a commit message, we should already be parsing a valid
+          // transaction
+          error_message =
+              "Saw a XID/COMMIT event without a begin. Corrupted log: " +
+              std::string(log_name);
+          error = 1;
+          delete ev;
+          break;
+        }
+        in_transaction = false;
+      }
+      if (!(ev->get_type_code() == binary_log::METADATA_EVENT &&
+            pending_gtid)) {
+        if (!in_transaction && !is_gtid_event(ev)) {
+          valid_pos = binlog_file_reader.position();
+          pending_gtid = false;
+        }
+      }
+
+      delete ev;
+    }
+  }
+
+  // No partial trxs found in the raft log or error parsing the log
+  if (error || (valid_pos == 0 || valid_pos >= binlog_size)) goto err;
+
+  // NO_LINT_DEBUG
+  sql_print_information(
+      "Raft log %s with a size of %llu will be trimmed to "
+      "%llu bytes based on valid transactions in the file",
+      log_name, binlog_size, valid_pos);
+
+  {
+    std::unique_ptr<Binlog_ofile> ofile(
+        Binlog_ofile::open_existing(key_file_binlog, log_name, MYF(MY_WME)));
+    if (!ofile) {
+      error_message =
+          "Failed to remove partial transactions from raft log file ";
+      error = 1;
+      goto err;
+    }
+    if (ofile->truncate(valid_pos)) {
+      error_message =
+          "Failed to remove partial transactions from raft log file " +
+          std::string(log_name);
+      error = 1;
+      goto err;
+    }
+  }
+
+err:
+  if (error && !error_message.empty())
+    // NO_LINT_DEBUG
+    sql_print_error("%s", error_message.c_str());
+
+  return error;
+}
+
 void MYSQL_BIN_LOG::update_binlog_end_pos(bool need_lock) {
   if (need_lock)
     lock_binlog_end_pos();
@@ -12228,13 +12604,17 @@ void MYSQL_BIN_LOG::update_binlog_end_pos(bool need_lock) {
   if (need_lock) unlock_binlog_end_pos();
 }
 
-inline void MYSQL_BIN_LOG::update_binlog_end_pos(const char *file,
-                                                 my_off_t pos) {
-  lock_binlog_end_pos();
-  if (is_active(file) && (pos > atomic_binlog_end_pos))
+inline void MYSQL_BIN_LOG::update_binlog_end_pos(const char *file, my_off_t pos,
+                                                 bool need_lock) {
+  if (need_lock)
+    lock_binlog_end_pos();
+  else
+    mysql_mutex_assert_owner(&LOCK_binlog_end_pos);
+  if (is_active(file) && (pos > atomic_binlog_end_pos)) {
     atomic_binlog_end_pos = pos;
+  }
   signal_update();
-  unlock_binlog_end_pos();
+  if (need_lock) unlock_binlog_end_pos();
 }
 
 my_off_t MYSQL_BIN_LOG::get_binlog_end_pos() const {
@@ -12268,7 +12648,7 @@ my_off_t MYSQL_BIN_LOG::get_last_acked_pos(bool *wait_for_ack,
 
 /* Use by raft plugin */
 void signal_semi_sync_ack(const std::string &file, uint pos) {
-  mysql_bin_log.signal_semi_sync_ack(file.c_str(), pos);
+  dump_log.signal_semi_sync_ack(file.c_str(), pos);
 }
 
 void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
@@ -12296,7 +12676,7 @@ void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
   lock_binlog_end_pos();
   if (acked > last_acked.load()) {
     last_acked = acked;
-    signal_update();
+    update_binlog_end_pos(log_file, log_pos, false);
   }
   unlock_binlog_end_pos();
 }
@@ -12304,7 +12684,10 @@ void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
 void MYSQL_BIN_LOG::reset_semi_sync_last_acked() {
   lock_binlog_end_pos();
   /* binary log is rotated and all trxs in previous binlog are already committed
-   * to the storage engine */
+   * to the storage engine.
+   * Note: when in raft mode we cannot init the coords without consulting the
+   * plugin, so we reset the coords
+   */
   if (strlen(log_file_name)) {
     last_acked = {extract_file_index(log_file_name).second, 0};
   } else {
@@ -12428,8 +12811,10 @@ bool show_raft_status(THD *thd) {
   std::vector<std::pair<std::string, std::string>> var_value_pairs;
   std::vector<std::pair<std::string, std::string>>::const_iterator itr;
 
-  int error = RUN_HOOK(raft_replication, show_raft_status,
-                       (current_thd, &var_value_pairs));
+  mysql_mutex_lock(&LOCK_status);
+  int error = RUN_HOOK_STRICT(raft_replication, show_raft_status,
+                              (current_thd, &var_value_pairs));
+  mysql_mutex_unlock(&LOCK_status);
   if (error) {
     errmsg = "Failure to run plugin hook";
     goto err;
@@ -14874,6 +15259,28 @@ int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids) {
   global_sid_lock->unlock();
 
   return error;
+}
+
+int get_committed_gtids(const std::vector<std::string> &gtids,
+                        std::vector<std::string> *committed_gtids) {
+  global_sid_lock->rdlock();
+
+  for (const auto &gtid_s : gtids) {
+    if (gtid_s.empty()) continue;
+
+    Gtid gtid;
+    enum_return_status st = gtid.parse(global_sid_map, gtid_s.c_str());
+    if (st != RETURN_STATUS_OK) {
+      global_sid_lock->unlock();
+      return st;
+    }
+
+    if (gtid_state->get_executed_gtids()->contains_gtid(gtid))
+      committed_gtids->push_back(gtid_s);
+  }
+  global_sid_lock->unlock();
+
+  return 0;
 }
 
 struct st_mysql_storage_engine binlog_storage_engine = {

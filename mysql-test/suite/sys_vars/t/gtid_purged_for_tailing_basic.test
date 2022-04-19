@@ -1,0 +1,26 @@
+
+SET @start_global_value = @@global.gtid_purged_for_tailing;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+select @@global.gtid_purged_for_tailing;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.gtid_purged_for_tailing;
+show global variables like 'gtid_purged_for_tailing';
+show session variables like 'gtid_purged_for_tailing';
+select * from performance_schema.global_variables where variable_name='gtid_purged_for_tailing';
+select * from performance_schema.session_variables where variable_name='gtid_purged_for_tailing';
+
+#
+# show that it's read only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@global.gtid_purged_for_tailing='11111111-1111-1111-1111-111111111111:2';
+--echo Expected error 'Read only variable'
+
+
+#
+# See rpl_raft_gtid_purged_for_tailing.test for a comprehensive test case.
+#

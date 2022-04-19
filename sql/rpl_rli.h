@@ -339,6 +339,8 @@ class Relay_log_info : public Rpl_info {
   // Last gtid seen by coordinator thread.
   char last_gtid[Gtid::MAX_TEXT_LENGTH + 1];
 
+  std::pair<int64_t, int64_t> last_opid = std::make_pair(-1, -1);
+
   /* The following variables are safe to read any time */
 
   /*

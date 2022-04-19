@@ -196,6 +196,16 @@ bool reset_seconds_behind_master = true;
 
 const char *relay_log_index = nullptr;
 const char *relay_log_basename = nullptr;
+
+/* When raft has done a TermAdvancement, it starts
+ * the SQL thread. During the receive of No-Ops it
+ * does the log repointing and then starts the SQL
+ * thread. During this phase, no external actor should
+ * be able to start the SQL thread. This boolean is
+ * set to true when raft has stopped the SQL thread.
+ */
+std::atomic<bool> sql_thread_stopped_by_raft(false);
+
 std::weak_ptr<Rpl_applier_reader> global_applier_reader;
 /*
   MTS load-ballancing parameter.
@@ -621,6 +631,12 @@ int init_replica() {
   if (check_slave_sql_config_conflict(nullptr)) {
     error = 1;
     goto err;
+  }
+
+  for (mi_map::iterator it = channel_map.begin(); it != channel_map.end();
+       it++) {
+    Master_info *mi = it->second;
+    mi->rli->relay_log.raft_log_recover();
   }
 
   /*
@@ -1365,10 +1381,35 @@ int rli_relay_log_raft_reset(
   mysql_mutex_lock(&mi->data_lock);
   mysql_mutex_lock(&mi->rli->data_lock);
 
-  if (mi->rli->check_info() == REPOSITORY_DOES_NOT_EXIST) {
+  enum_return_check check_return_mi = mi->check_info();
+  enum_return_check check_return_rli = mi->rli->check_info();
+
+  // If the master.info file does not exist, or if it exists,
+  // but the inited has never happened (most likely due to an
+  // error), try mi_init_info
+  if (check_return_mi == REPOSITORY_DOES_NOT_EXIST || !mi->inited) {
     // NO_LINT_DEBUG
     sql_print_information(
-        "Relay log info repository doesn't exist, creating one now");
+        "rli_relay_log_raft_reset: Master info "
+        "repository doesn't exist or not inited."
+        " Calling mi_init_info");
+    if (mi->mi_init_info()) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "rli_relay_log_raft_reset: Failed to initialize "
+          "the master info structure");
+      error = 1;
+      goto end;
+    }
+  }
+
+  if (check_return_rli == REPOSITORY_DOES_NOT_EXIST) {
+    // NO_LINT_DEBUG
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "rli_relay_log_raft_reset: Relay log info repository"
+        " doesn't exist or not inited. Calling"
+        " load_mi_and_rli_from_repositories ");
     // TODO: Check these additional params (skip_received_gtid_set_recovery)
     if (load_mi_and_rli_from_repositories(
             mi,
@@ -1518,14 +1559,31 @@ int load_mi_and_rli_from_repositories(Master_info *mi, bool ignore_if_no_info,
   */
   check_return = mi->check_info();
   if (check_return == ERROR_CHECKING_REPOSITORY) {
+    if (enable_raft_plugin) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "load_mi_and_rli_from_repositories: mi repository "
+          "check returns ERROR_CHECKING_REPOSITORY");
+    }
     init_error = 1;
     goto end;
   }
 
   if (!ignore_if_no_info || check_return != REPOSITORY_DOES_NOT_EXIST) {
     if ((thread_mask & SLAVE_IO) != 0) {
+      if (enable_raft_plugin) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "load_mi_and_rli_from_repositories: mi_init_info called");
+      }
       if (!mi->inited || force_load) {
         if (mi->mi_init_info()) {
+          if (enable_raft_plugin) {
+            // NO_LINT_DEBUG
+            sql_print_error(
+                "load_mi_and_rli_from_repositories: mi_init_info returned "
+                "error");
+          }
           init_error = 1;
         }
       }
@@ -1534,13 +1592,30 @@ int load_mi_and_rli_from_repositories(Master_info *mi, bool ignore_if_no_info,
 
   check_return = mi->rli->check_info();
   if (check_return == ERROR_CHECKING_REPOSITORY) {
+    if (enable_raft_plugin) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "load_mi_and_rli_from_repositories: rli repository check returns"
+          " ERROR_CHECKING_REPOSITORY");
+    }
     init_error = 1;
     goto end;
   }
   if (!ignore_if_no_info || check_return != REPOSITORY_DOES_NOT_EXIST) {
     if ((thread_mask & SLAVE_SQL) != 0 || !(mi->rli->inited)) {
+      if (enable_raft_plugin) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "load_mi_and_rli_from_repositories: rli_init_info called");
+      }
       if (!mi->rli->inited || force_load) {
         if (mi->rli->rli_init_info(skip_received_gtid_set_recovery)) {
+          if (enable_raft_plugin) {
+            // NO_LINT_DEBUG
+            sql_print_error(
+                "load_mi_and_rli_from_repositories: rli_init_info returned "
+                "error");
+          }
           init_error = 1;
         } else {
           /*
@@ -1599,13 +1674,16 @@ int raft_reset_slave(THD *) {
   channel_map.rdlock();
   Master_info *mi = channel_map.get_default_channel_mi();
 
+  if (!mi) {
+    channel_map.unlock();
+    DBUG_RETURN(error);
+  }
   mysql_mutex_lock(&mi->data_lock);
   strmake(mi->host, "\0", sizeof(mi->host) - 1);
   mi->port = 0;
   mi->inited = false;
   mysql_mutex_lock(&mi->rli->data_lock);
   mi->rli->inited = false;
-  mi->flush_info(true);
   /**
     Clear the retrieved gtid set for this channel.
   */
@@ -1615,7 +1693,7 @@ int raft_reset_slave(THD *) {
 
   mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
-
+  remove_info(mi);
   // no longer a slave. will be set again during change master
   is_slave = false;
   channel_map.unlock();
@@ -1624,28 +1702,52 @@ int raft_reset_slave(THD *) {
 
 // TODO: currently we're only setting host port
 int raft_change_master(
-    THD *, const std::pair<const std::string, uint> &master_instance) {
+    THD *, const std::pair<const std::string, uint> &master_instance,
+    const std::string &master_uuid) {
   DBUG_ENTER("raft_change_master");
   int error = 0;
 
   channel_map.rdlock();
   Master_info *mi = channel_map.get_default_channel_mi();
 
-  if (!mi) goto end;
+  if (!mi) {
+    channel_map.unlock();
+    DBUG_RETURN(error);
+  }
 
   mysql_mutex_lock(&mi->data_lock);
   strmake(mi->host, const_cast<char *>(master_instance.first.c_str()),
           sizeof(mi->host) - 1);
   mi->port = master_instance.second;
+  assert(master_uuid.length() == UUID_LENGTH);
+  strncpy(mi->master_uuid, master_uuid.c_str(), UUID_LENGTH);
+  mi->master_uuid[UUID_LENGTH] = 0;
   mi->set_auto_position(true);
   mi->init_master_log_pos();
+
+  int thread_mask_stopped_threads;
+  /*
+    Before load_mi_and_rli_from_repositories() call, get a bit mask to indicate
+    stopped threads in thread_mask_stopped_threads. Since the third argguement
+    is 1, thread_mask when the function returns stands for stopped threads.
+  */
+  init_thread_mask(&thread_mask_stopped_threads, mi, 1);
+  mysql_mutex_lock(&mi->rli->data_lock);
+  // Call mi->init_info() and/or mi->rli->init_info() if itn't configured
+  if (load_mi_and_rli_from_repositories(mi, false, thread_mask_stopped_threads,
+                                        false, /*need_lock*/ false)) {
+    error = ER_MASTER_INFO;
+    my_error(ER_MASTER_INFO, MYF(0));
+    goto end;
+  }
   mi->inited = true;
   mi->flush_info(true);
-  mysql_mutex_unlock(&mi->data_lock);
 
   // changing to a slave. set the is_slave flag
   is_slave = true;
 end:
+  mysql_mutex_unlock(&mi->rli->data_lock);
+  mysql_mutex_unlock(&mi->data_lock);
   channel_map.unlock();
   DBUG_RETURN(error);
 }
@@ -2330,6 +2432,12 @@ bool start_slave_threads(bool need_lock_slave, bool wait_for_start,
   if (!mi->inited || !mi->rli->inited) {
     int error = (!mi->inited ? ER_SLAVE_MI_INIT_REPOSITORY
                              : ER_SLAVE_RLI_INIT_REPOSITORY);
+
+    if (enable_raft_plugin) {
+      // NO_LINT_DEBUG
+      sql_print_error("start_slave_threads: error: %d mi_inited: %d", error,
+                      mi->inited);
+    }
     Rpl_info *info = (!mi->inited ? mi : static_cast<Rpl_info *>(mi->rli));
     const char *prefix = current_thd ? ER_THD_NONCONST(current_thd, error)
                                      : ER_DEFAULT_NONCONST(error);
@@ -5265,6 +5373,32 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
   }
 
   if (ev) {
+    if (enable_raft_plugin &&
+        ev->get_type_code() == binary_log::METADATA_EVENT) {
+      Metadata_log_event *mev = static_cast<Metadata_log_event *>(ev);
+      if (mev->does_exist(binary_log::Metadata_event::Metadata_event_types::
+                              RAFT_TERM_INDEX_TYPE)) {
+        const int64_t term = mev->get_raft_term();
+        const int64_t index = mev->get_raft_index();
+        if (rli->last_opid.first != -1 && rli->last_opid.second != -1 &&
+            (index != rli->last_opid.second + 1 ||
+             term < rli->last_opid.first)) {
+          char msg[1024];
+          snprintf(
+              msg, sizeof(msg),
+              "Out of order opid found last opid=%ld:%ld, current opid=%ld:%ld",
+              rli->last_opid.first, rli->last_opid.second, term, index);
+          rli->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_READ_FAILURE,
+                      ER_THD(thd, ER_SLAVE_RELAY_LOG_READ_FAILURE), msg);
+          rli->abort_slave = 1;
+          mysql_mutex_unlock(&rli->data_lock);
+          delete ev;
+          return 1;
+        }
+        rli->last_opid = std::make_pair(term, index);
+      }
+    }
+
     if (rli->is_row_format_required()) {
       bool info_error{false};
       binary_log::Log_event_basic_info log_event_info;
@@ -6528,6 +6662,10 @@ bool mts_recovery_groups(Relay_log_info *rli) {
     return false;
   }
 
+  // raft replication always have GTID_MODE=ON, thus ignore positions
+  if (enable_raft_plugin) {
+    return false;
+  }
   /*
     Save relay log position to compare with worker's position.
   */
@@ -7345,6 +7483,8 @@ extern "C" void *handle_slave_sql(void *arg) {
       rli->current_mts_submode = new Mts_submode_database();
     else
       rli->current_mts_submode = new Mts_submode_dependency();
+
+    rli->last_opid = std::make_pair(-1, -1);
 
     const auto replica_preserve_commit_order =
         get_slave_preserve_commit_order();
@@ -9409,7 +9549,7 @@ uint sql_replica_skip_counter;
 */
 bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
                  LEX_MASTER_INFO *master_param, int thread_mask_input,
-                 Master_info *mi, bool set_mts_settings) {
+                 Master_info *mi, bool set_mts_settings, bool invoked_by_raft) {
   bool is_error = false;
   int thread_mask;
 
@@ -9456,9 +9596,32 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
 
   if (thread_mask)  // some threads are stopped, start them
   {
+    // If raft is doing some critical operations to block out threads,
+    // we disallow slave sql start till raft has restarted the slave
+    // thread.
+    if (enable_raft_plugin && !invoked_by_raft && sql_thread_stopped_by_raft) {
+      unlock_slave_threads(mi);
+
+      mi->channel_unlock();
+
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Did not allow start_slave as raft has stopped SQL threads");
+      my_error(ER_RAFT_OPERATION_INCOMPATIBLE, MYF(0),
+               "start slave not allowed when raft has stopped SQL threads");
+      return true;
+    }
+
+    (void)invoked_by_raft;
     if (load_mi_and_rli_from_repositories(mi, false, thread_mask)) {
       is_error = true;
       my_error(ER_MASTER_INFO, MYF(0));
+
+      if (enable_raft_plugin) {
+        // NO_LINT_DEBUG
+        sql_print_error(
+            "start_slave: error as load_mi_and_rli_from_repositories failed");
+      }
     } else if (*mi->host || !(thread_mask & SLAVE_IO)) {
       /*
         If we will start IO thread we need to take care of possible
@@ -9639,6 +9802,11 @@ int raft_stop_sql_thread(THD *thd) {
   res = stop_slave(thd, mi,
                    /*net_report=*/0,
                    /*for_one_channel=*/true, &push_temp_table_warning);
+  if (!res) {
+    // set this flag to prevent other non-raft actors from
+    // starting sql thread during critical raft operations
+    sql_thread_stopped_by_raft = true;
+  }
 
 end:
   channel_map.unlock();
@@ -9664,7 +9832,12 @@ int raft_start_sql_thread(THD *thd) {
   }
 
   res = start_slave(thd, &lex_connection, &lex_mi, thd->lex->slave_thd_opt, mi,
-                    /*set_mts_settings=*/true);
+                    /*set_mts_settings=*/true, true /*invoked_by_raft*/);
+  if (!res) {
+    // reset this flag to let other non-raft actors
+    // to stop and start sql threads.
+    sql_thread_stopped_by_raft = false;
+  }
 
 end:
   channel_map.unlock();

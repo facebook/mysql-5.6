@@ -1,0 +1,42 @@
+SET @start_recover_raft_log = @@global.recover_raft_log;
+SELECT @start_recover_raft_log;
+@start_recover_raft_log
+1
+SET @@global.recover_raft_log = DEFAULT;
+SELECT @@global.recover_raft_log;
+@@global.recover_raft_log
+1
+SET @@global.recover_raft_log = false;
+SELECT @@global.recover_raft_log;
+@@global.recover_raft_log
+0
+SET @@global.recover_raft_log = true;
+SELECT @@global.recover_raft_log;
+@@global.recover_raft_log
+1
+SET @@global.recover_raft_log = 1;
+SELECT @@global.recover_raft_log;
+@@global.recover_raft_log
+1
+SET @@global.recover_raft_log = 0;
+SELECT @@global.recover_raft_log;
+@@global.recover_raft_log
+0
+SET @@global.recover_raft_log = -1;
+ERROR 42000: Variable 'recover_raft_log' can't be set to the value of '-1'
+SELECT @@global.recover_raft_log;
+@@global.recover_raft_log
+0
+SET @@global.recover_raft_log = 100;
+ERROR 42000: Variable 'recover_raft_log' can't be set to the value of '100'
+SELECT @@global.recover_raft_log;
+@@global.recover_raft_log
+0
+SET @@session.recover_raft_log = 10;
+ERROR HY000: Variable 'recover_raft_log' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.recover_raft_log;
+ERROR HY000: Variable 'recover_raft_log' is a GLOBAL variable
+SET @@global.recover_raft_log = @start_recover_raft_log;
+SELECT @@global.recover_raft_log;
+@@global.recover_raft_log
+1

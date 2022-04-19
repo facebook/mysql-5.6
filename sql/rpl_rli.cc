@@ -210,9 +210,9 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
       PSI_NOT_INSTRUMENTED, PSI_NOT_INSTRUMENTED, key_RELAYLOG_LOCK_log,
       key_RELAYLOG_LOCK_log_end_pos, key_RELAYLOG_LOCK_sync,
       PSI_NOT_INSTRUMENTED, key_RELAYLOG_LOCK_xids,
-      key_RELAYLOG_LOCK_non_xid_trxs, PSI_NOT_INSTRUMENTED,
-      PSI_NOT_INSTRUMENTED, key_RELAYLOG_update_cond, PSI_NOT_INSTRUMENTED,
-      key_RELAYLOG_non_xid_trxs_cond, key_file_relaylog,
+      key_RELAYLOG_LOCK_non_xid_trxs, key_RELAYLOG_LOCK_lost_gtids_for_tailing,
+      PSI_NOT_INSTRUMENTED, PSI_NOT_INSTRUMENTED, key_RELAYLOG_update_cond,
+      PSI_NOT_INSTRUMENTED, key_RELAYLOG_non_xid_trxs_cond, key_file_relaylog,
       key_file_relaylog_index, key_file_relaylog_cache,
       key_file_relaylog_index_cache);
 #endif
@@ -1553,7 +1553,12 @@ int Relay_log_info::rli_init_info(bool skip_received_gtid_set_recovery) {
     stopped when there were replication initialization errors, now it is
     not and so init_info() must be aware of previous failures.
   */
-  if (error_on_rli_init_info) goto err;
+  if (error_on_rli_init_info) {
+    // In raft  mode, these error codes are critical. Hence we should
+    //     not chew them.
+    if (enable_raft_plugin) error = 1;
+    goto err;
+  }
 
   if (inited) {
     return recovery_parallel_workers ? mts_recovery_groups(this) : 0;
@@ -1961,7 +1966,9 @@ int Relay_log_info::remove_logged_gtids(
       DBUG_PRINT("info",
                  ("Removing gtid(sidno:%d, gno:%ld) from rli logged gtids",
                   gtid.sidno, gtid.gno));
+      get_sid_lock()->wrlock();
       gtid_set->_remove_gtid(gtid);
+      get_sid_lock()->unlock();
     }
   }
 

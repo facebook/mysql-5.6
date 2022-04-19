@@ -1,0 +1,74 @@
+# Test auto position based tailing after election. After election we purge
+# apply logs that make gtid_purged == gtid_executed even though all transcations
+# exist in the raft log.
+
+source ../include/raft_3_node.inc;
+source include/have_debug_sync.inc;
+let $use_gtids= 1;
+
+# server4 will tail the leader
+connection server_4;
+RESET MASTER;
+RESET SLAVE;
+SET @@GLOBAL.ENABLE_RAFT_PLUGIN = 0;
+replace_result $SERVER_MYPORT_1 SERVER_MYPORT_1;
+eval CHANGE MASTER TO MASTER_HOST = '::1', MASTER_PORT = $SERVER_MYPORT_1, MASTER_USER = 'root',  MASTER_CONNECT_RETRY = 1, MASTER_AUTO_POSITION = 1;
+START SLAVE;
+
+# Execute some transactions
+connection server_1;
+let $uuid1= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+create table t1 (a int) engine = innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+
+# Trasfer leadership to server_2 (this will clear out the apply logs and make
+# gtid_purged == gtid_executed
+connection server_2;
+let $uuid2= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+let $port2= `select @@global.port`;
+
+connection server_1;
+let $rpl_raft_leader_number= 2;
+source ../include/raft_promote_to_leader.inc;
+
+# Make server_4 tail server_2
+connection server_4;
+STOP SLAVE;
+replace_result $port2 port2;
+eval change master to master_host='localhost', master_port=$port2, master_auto_position=1, master_user='root';
+source include/start_slave.inc;
+--let $uuid4= `SELECT @@GLOBAL.SERVER_UUID`
+
+connection server_2;
+# Note: This insert statement is required to move the last_acked to correct position.
+insert into t1 values(3);
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_4;
+select * from t1;
+
+# Cleanup
+connection server_2;
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_4;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_4;
+source include/stop_slave.inc;
+reset slave all;
+
+source include/rpl_end.inc;

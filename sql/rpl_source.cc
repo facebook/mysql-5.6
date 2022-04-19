@@ -1322,6 +1322,26 @@ void kill_zombie_dump_threads(THD *thd) {
   }
 }
 
+class Kill_dump_thread : public Do_THD_Impl {
+ public:
+  virtual void operator()(THD *thd) override {
+    if (thd->get_command() == COM_BINLOG_DUMP ||
+        thd->get_command() == COM_BINLOG_DUMP_GTID) {
+      mysql_mutex_lock(&thd->LOCK_thd_data);
+      thd->awake(THD::KILL_CONNECTION);
+      mysql_mutex_unlock(&thd->LOCK_thd_data);
+    }
+  }
+};
+
+/*
+  Kill all Binlog_dump threads.
+*/
+void kill_all_dump_threads() {
+  Kill_dump_thread kill_dump_thread;
+  Global_THD_manager::get_instance()->do_for_all_thd_copy(&kill_dump_thread);
+}
+
 /**
   Execute a RESET MASTER statement.
 
@@ -1332,7 +1352,7 @@ void kill_zombie_dump_threads(THD *thd) {
   @retval false success
   @retval true error
 */
-bool reset_master(THD *thd, bool unlock_global_read_lock) {
+bool reset_master(THD *thd, bool unlock_global_read_lock, bool force) {
   bool ret = false;
 
   /*
@@ -1344,6 +1364,26 @@ bool reset_master(THD *thd, bool unlock_global_read_lock) {
     is not enabled, as RESET MASTER command will clear 'gtid_executed' table.
   */
   thd->set_skip_readonly_check();
+
+  /*
+    No RESET MASTER commands are allowed while Raft replication is running
+  */
+  if (enable_raft_plugin) {
+    if (!force && !override_enable_raft_check) {
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Did not allow reset_master as enable_raft_plugin is ON");
+      my_error(ER_CANT_RESET_MASTER, MYF(0),
+               "reset master not allowed when enable_raft_plugin is ON");
+      ret = true;
+      goto end;
+    } else {
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Allow reset_master in enable_raft_plugin mode as force "
+          "or override_enable_raft_check is set");
+    }
+  }
 
   /*
     No RESET MASTER commands are allowed while Group Replication is running

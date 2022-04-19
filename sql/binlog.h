@@ -108,6 +108,8 @@ struct Binlog_user_var_event {
   bool unsigned_flag;
 };
 
+extern latency_histogram histogram_raft_trx_wait;
+
 /* The enum defining the server's action when a trx fails inside ordered commit
  * due to an error related to consensus (raft plugin) */
 enum enum_commit_consensus_error_actions {
@@ -145,6 +147,9 @@ enum enum_raft_signal_async_dump_threads_options {
 #define LOG_CLOSE_TO_BE_OPENED 2
 #define LOG_CLOSE_STOP_EVENT 4
 
+bool block_all_dump_threads();
+void unblock_all_dump_threads();
+
 /*
   Note that we destroy the lock mutex in the destructor here.
   This means that object instances cannot be destroyed/go out of scope
@@ -157,13 +162,17 @@ struct LOG_INFO {
   bool fatal;       // if the purge happens to give us a negative offset
   int entry_index;  // used in purge_logs(), calculatd in find_log_pos().
   int encrypted_header_size;
-  LOG_INFO()
+  bool is_relay_log;         // is this info pointing to a relay log?
+  bool is_used_by_dump_thd;  // is this info being used by a dump thread?
+  LOG_INFO(bool relay_log = false, bool used_by_dump_thd = false)
       : index_file_offset(0),
         index_file_start_offset(0),
         pos(0),
         fatal(false),
         entry_index(0),
-        encrypted_header_size(0) {
+        encrypted_header_size(0),
+        is_relay_log(relay_log),
+        is_used_by_dump_thd(used_by_dump_thd) {
     memset(log_file_name, 0, FN_REFLEN);
   }
 };
@@ -402,6 +411,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   /** The instrumentation key to use for @ LOCK_xids. */
   PSI_mutex_key m_key_LOCK_xids;
   PSI_mutex_key m_key_LOCK_non_xid_trxs;
+  PSI_mutex_key m_key_LOCK_lost_gtids_for_tailing;
   /** The instrumentation key to use for @ update_cond. */
   PSI_cond_key m_key_update_cond;
   /** The instrumentation key to use for @ prep_xids_cond. */
@@ -424,6 +434,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   mysql_mutex_t LOCK_binlog_end_pos;
   mysql_mutex_t LOCK_xids;
   mysql_mutex_t LOCK_non_xid_trxs;
+  mysql_mutex_t LOCK_lost_gtids_for_tailing;
   mysql_cond_t update_cond;
 
   std::atomic<my_off_t> atomic_binlog_end_pos;
@@ -457,6 +468,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
      directories change.
   */
   Gtid_set_map previous_gtid_set_map;
+  /*
+    Used by sys_var gtid_purged_for_tailing
+  */
+  std::string lost_gtid_for_tailing;
   /*
     crash_safe_index_file is temp file used for guaranteeing
     index file crash safe when master server restarts.
@@ -659,7 +674,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
       PSI_mutex_key key_LOCK_flush_queue, PSI_mutex_key key_LOCK_log,
       PSI_mutex_key key_LOCK_binlog_end_pos, PSI_mutex_key key_LOCK_sync,
       PSI_mutex_key key_LOCK_sync_queue, PSI_mutex_key key_LOCK_xids,
-      PSI_mutex_key key_LOCK_non_xid_trxs, PSI_cond_key key_COND_done,
+      PSI_mutex_key key_LOCK_non_xid_trxs,
+      PSI_mutex_key key_LOCK_lost_gtids_for_tailing, PSI_cond_key key_COND_done,
       PSI_cond_key key_COND_flush_queue, PSI_cond_key key_update_cond,
       PSI_cond_key key_prep_xids_cond, PSI_cond_key key_non_xid_trxs_cond,
       PSI_file_key key_file_log, PSI_file_key key_file_log_index,
@@ -679,6 +695,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
     m_key_LOCK_sync = key_LOCK_sync;
     m_key_LOCK_xids = key_LOCK_xids;
     m_key_LOCK_non_xid_trxs = key_LOCK_non_xid_trxs;
+    m_key_LOCK_lost_gtids_for_tailing = key_LOCK_lost_gtids_for_tailing;
     m_key_update_cond = key_update_cond;
     m_key_prep_xids_cond = key_prep_xids_cond;
     m_key_non_xid_trxs_cond = key_non_xid_trxs_cond;
@@ -761,6 +778,25 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * which would have initialized it from disk
    */
   bool init_prev_gtid_sets_map();
+
+  void get_lost_gtids(Gtid_set *gtids) {
+    gtids->clear();
+    mysql_mutex_lock(&LOCK_index);
+    const auto it = previous_gtid_set_map.begin();
+    if (it != previous_gtid_set_map.end() && !it->second.empty())
+      gtids->add_gtid_encoding((const uchar *)it->second.c_str(),
+                               it->second.length());
+    mysql_mutex_unlock(&LOCK_index);
+  }
+
+  void update_lost_gtid_for_tailing() {
+    mysql_mutex_assert_owner(&LOCK_index);
+    mysql_mutex_lock(&LOCK_lost_gtids_for_tailing);
+    lost_gtid_for_tailing = "";
+    const auto it = previous_gtid_set_map.begin();
+    if (it != previous_gtid_set_map.end()) lost_gtid_for_tailing = it->second;
+    mysql_mutex_unlock(&LOCK_lost_gtids_for_tailing);
+  }
 
   enum_read_gtids_from_binlog_status read_gtids_from_binlog(
       const char *filename, Gtid_set *all_gtids, Gtid_set *prev_gtids,
@@ -1091,9 +1127,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
   }
 
   void update_binlog_end_pos(bool need_lock = true);
-  void update_binlog_end_pos(const char *file, my_off_t pos);
+  void update_binlog_end_pos(const char *file, my_off_t pos,
+                             bool need_lock = true);
 
   int wait_for_update(const struct timespec *timeout);
+
+  int raft_log_recover();
 
  public:
   /** register binlog/relay (its IO_CACHE) and mutexes to plugin.
@@ -1136,23 +1175,29 @@ class MYSQL_BIN_LOG : public TC_LOG {
     after the RESET MASTER TO command is called.
     @param raft_rotate_info rotate related information passed in by
     listener callbacks
+    @param need_end_log_pos_lock If true, LOCK_binlog_end_pos is acquired;
+    otherwise LOCK_binlog_end_pos must be taken by the caller.
   */
   bool open_binlog(const char *log_name, const char *new_name,
                    ulong max_size_arg, bool null_created_arg,
                    bool need_lock_index, bool need_sid_lock,
                    Format_description_log_event *extra_description_event,
                    uint32 new_index_number = 0,
-                   RaftRotateInfo *raft_rotate_info = nullptr);
+                   RaftRotateInfo *raft_rotate_info = nullptr,
+                   bool need_end_log_pos_lock = true);
 
   /**
     Open an existing binlog/relaylog file
 
     @param log_name Name of binlog
     @param max_size The size at which this binlog will be rotated.
+    @param need_end_log_pos_lock If true, LOCK_binlog_end_pos is acquired;
+    otherwise LOCK_binlog_end_pos must be taken by the caller.
 
     @retval false on success, true on error
   */
-  bool open_existing_binlog(const char *log_name, ulong max_size_arg);
+  bool open_existing_binlog(const char *log_name, ulong max_size_arg,
+                            bool need_end_log_pos_lock = true);
 
   bool open_index_file(const char *index_file_name_arg, const char *log_name,
                        bool need_lock_index);
@@ -1427,10 +1472,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
     This function will be called from mysql_binlog_send() function.
 
+    @param lost_gtid_set               GTID set of missing gtids
     @param slave_executed_gtid_set     GTID set executed by slave
     @param errmsg                      Pointer to the error message
   */
-  void report_missing_purged_gtids(const Gtid_set *slave_executed_gtid_set,
+  void report_missing_purged_gtids(const Gtid_set *lost_gtid_set,
+                                   const Gtid_set *slave_executed_gtid_set,
                                    std::string &errmsg);
 
   /**
@@ -1459,6 +1506,15 @@ class MYSQL_BIN_LOG : public TC_LOG {
   static const int MAX_RETRIES_FOR_DELETE_RENAME_FAILURE = 5;
   inline const Gtid_set_map *get_previous_gtid_set_map() const {
     return &previous_gtid_set_map;
+  }
+
+  void get_lost_gtid_for_tailing(Gtid_set *gtids) {
+    gtids->clear();
+    mysql_mutex_lock(&LOCK_lost_gtids_for_tailing);
+    if (!lost_gtid_for_tailing.empty())
+      gtids->add_gtid_encoding((const uchar *)lost_gtid_for_tailing.c_str(),
+                               lost_gtid_for_tailing.length());
+    mysql_mutex_unlock(&LOCK_lost_gtids_for_tailing);
   }
 
   /*
@@ -1504,6 +1560,78 @@ struct LOAD_FILE_INFO {
 };
 
 extern MYSQL_PLUGIN_IMPORT MYSQL_BIN_LOG mysql_bin_log;
+
+/**
+ * Encapsulation over binlog or relay log for dumping raft logs during
+ * COM_BINLOG_DUMP and COM_BINLOG_DUMP_GTID.
+ */
+class Dump_log {
+ public:
+  // RAII class to handle locking for Dump_log
+  class Locker {
+   public:
+    explicit Locker(Dump_log *dump_log) {
+      dump_log_ = dump_log;
+      should_lock_ = dump_log_->lock();
+    }
+
+    ~Locker() {
+      if (should_lock_) dump_log_->unlock(should_lock_);
+    }
+
+   private:
+    bool should_lock_ = false;
+    Dump_log *dump_log_ = nullptr;
+  };
+
+  Dump_log();
+
+  void switch_log(bool relay_log, bool should_lock = true);
+
+  MYSQL_BIN_LOG *get_log(bool should_lock = true) {
+    bool is_locked = false;
+    if (should_lock) is_locked = lock();
+    auto ret = log_;
+    if (should_lock) unlock(is_locked);
+    return ret;
+  }
+
+  void signal_semi_sync_ack(const char *const log_file,
+                            const my_off_t log_pos) {
+    Locker lock(this);
+    log_->signal_semi_sync_ack(log_file, log_pos);
+  }
+
+  void reset_semi_sync_last_acked() {
+    Locker lock(this);
+    log_->reset_semi_sync_last_acked();
+  }
+
+  void get_lost_gtids(Gtid_set *gtid_set) {
+    Locker lock(this);
+    log_->get_lost_gtid_for_tailing(gtid_set);
+  }
+
+  // Avoid using this and try to use Dump_log::Locker class instead
+  bool lock() {
+    // NOTE: we lock only when we're in raft mode. That's why we're returning a
+    // bool to indicate whether we locked or not. We pass this bool to unlock
+    // method to unlock only then the mutex was actually locked.
+    const bool should_lock = enable_raft_plugin;
+    if (should_lock) log_mutex_.lock();
+    return should_lock;
+  }
+
+  // Avoid using this and try to use Dump_log::Locker class instead
+  void unlock(bool is_locked) {
+    if (is_locked) log_mutex_.unlock();
+  }
+
+ private:
+  MYSQL_BIN_LOG *log_;
+  std::mutex log_mutex_;
+};
+extern MYSQL_PLUGIN_IMPORT Dump_log dump_log;
 
 /**
   Check if the the transaction is empty.
@@ -1566,6 +1694,8 @@ bool show_raft_status(THD *thd);
 bool get_and_lock_master_info(Master_info **master_info);
 void unlock_master_info(Master_info *master_info);
 int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids);
+int get_committed_gtids(const std::vector<std::string> &gtids,
+                        std::vector<std::string> *committed_gtids);
 
 extern const char *log_bin_index;
 extern const char *log_bin_basename;
@@ -1579,6 +1709,11 @@ extern bool rpl_semi_sync_source_enabled;
  * @param config_change - Has the committed Config and New Config
  */
 int raft_config_change(std::string config_change);
+
+/**
+ * Block/unblock dump threads
+ */
+int handle_dump_threads(bool block);
 
 /**
   Rotates the binary log file. Helper method invoked by raft plugin through
