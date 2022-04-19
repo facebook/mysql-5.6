@@ -227,6 +227,10 @@ static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
 
 static void store_server_cpu_in_resp_attrs(THD *thd, ulonglong cpu_time);
 static void store_warnings_in_resp_attrs(THD *thd);
+using Table_List = std::list<std::pair<const char *, const char *>>;
+static void store_query_tables_in_response_attributes(
+    THD *thd, const Table_List &the_tables, ulong max_tables_len,
+    char read_or_write);
 
 const std::string Command_names::m_names[COM_TOP_END] = {
     "Sleep",
@@ -607,7 +611,7 @@ bool some_non_temp_table_to_be_updated(THD *thd, TABLE_LIST *tables) {
 
 /**
   Returns whether the command in thd->lex->sql_command should cause an
-  implicit commit. An active transaction should be implicitly commited if the
+  implicit commit. An active transaction should be implicitly committed if the
   statement requires so.
 
   @param thd    Thread handle.
@@ -1914,6 +1918,24 @@ static void update_mt_stmt_stats(THD *thd, char *sub_query) {
       thd->get_stmt_da()->cond_count() > 0 && /* # errors, warnings & notes */
       thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->is_enabled())
     store_warnings_in_resp_attrs(thd);
+
+  /* include read and write tables in the response attributes if allow */
+  const ulong read_tab_max_len =
+      thd->variables.response_attrs_contain_read_tables_bytes;
+  const ulong write_tab_max_len =
+      thd->variables.response_attrs_contain_read_tables_bytes;
+  if (read_tab_max_len > 0 || write_tab_max_len > 0) {
+    std::pair<Table_List, Table_List> read_write_tables =
+        thd->get_read_write_tables();
+
+    if (read_tab_max_len > 0)
+      store_query_tables_in_response_attributes(thd, read_write_tables.first,
+                                                read_tab_max_len, 'R');
+
+    if (write_tab_max_len > 0)
+      store_query_tables_in_response_attributes(thd, read_write_tables.second,
+                                                write_tab_max_len, 'W');
+  }
 
   thd->mt_key_clear(THD::SQL_ID);
   thd->mt_key_clear(THD::SQL_HASH);
@@ -8091,5 +8113,56 @@ static void store_server_cpu_in_resp_attrs(THD *thd, ulonglong cpu_time) {
     std::string value_str = std::to_string(cpu_time);
     LEX_CSTRING value = {value_str.c_str(), value_str.length()};
     tracker->mark_as_changed(thd, &key, &value);
+  }
+}
+
+/*
+  Check whether a table is user vs internal table
+*/
+static bool is_user_table(const char *db, const char *table) {
+  LEX_CSTRING db_lex;
+  LEX_CSTRING table_lex;
+  lex_cstring_set(&db_lex, db);
+  lex_cstring_set(&table_lex, table);
+
+  return (get_table_category(db_lex, table_lex) == TABLE_CATEGORY_USER);
+}
+
+/*
+  Stores the query tables in the specified response attribute key
+  We return two class of the tables in the response attribute, read and write
+*/
+static void store_query_tables_in_response_attributes(
+    THD *thd, const Table_List &the_tables, ulong max_tables_len,
+    char read_or_write) {
+  if (max_tables_len > 0) {
+    std::string tables_val;                                // tables text
+    assert(read_or_write == 'R' || read_or_write == 'W');  // check value
+
+    for (const auto &one_table : the_tables) {
+      if (is_user_table(one_table.first, one_table.second)) {
+        if (tables_val.length() > 0)  // if not the first table then add ','
+          tables_val.append(",");
+        // check the new table does not cause the value to exceed the limit
+        if (tables_val.length() + strlen(one_table.second) > max_tables_len) {
+          tables_val.append("...");
+          break;
+        }
+        tables_val.append(one_table.second);
+      }
+    }
+
+    if (tables_val.length() > 0) {
+      /* add the read_tables to response attributes */
+      auto tracker =
+          thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+      static LEX_CSTRING key;
+      if (read_or_write == 'R')
+        key = {STRING_WITH_LEN("read_tables")};
+      else
+        key = {STRING_WITH_LEN("write_tables")};
+      LEX_CSTRING value = {tables_val.c_str(), tables_val.length()};
+      tracker->mark_as_changed(thd, &key, &value);
+    }
   }
 }

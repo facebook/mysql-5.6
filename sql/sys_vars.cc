@@ -8949,7 +8949,7 @@ static Sys_var_transaction_read_only Sys_tx_read_only(
 
 static Sys_var_bool Sys_enable_user_tables_engine_check(
     "enable_user_tables_engine_check",
-    "Enable checking storage engine compatibilty of user table creation DDL.",
+    "Enable checking storage engine compatibility of user table creation DDL.",
     SESSION_VAR(enable_user_tables_engine_check), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_session_admin));
@@ -9485,3 +9485,23 @@ static Sys_var_bool Sys_force_pk_for_equality_preds_on_pk(
     "of the primary index)",
     SESSION_VAR(force_pk_for_equality_preds_on_pk), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static Sys_var_uint Sys_response_attrs_contain_read_tables_bytes(
+    "response_attrs_contain_read_tables_bytes",
+    "Specifies the size of the tables information (specified in bytes) "
+    "that can be included in the query response attributes. The tables "
+    "are sent as a key-value pair - 'read_tables' is the key and the "
+    "value is a list of table names separated by commas. "
+    "The default value is 0 which disables this feature",
+    SESSION_VAR(response_attrs_contain_read_tables_bytes), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_response_attrs_contain_write_tables_bytes(
+    "response_attrs_contain_write_tables_bytes",
+    "Specifies the size of the tables information (specified in bytes) "
+    "that can be included in the query response attributes. The tables "
+    "are sent as a key-value pair - 'write_tables' is the key and the "
+    "value is a list of table names separated by commas. "
+    "The default value is 0 which disables this feature",
+    SESSION_VAR(response_attrs_contain_write_tables_bytes), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));

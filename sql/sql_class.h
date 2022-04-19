@@ -1206,7 +1206,7 @@ class THD : public MDL_context_owner,
   */
   static const char *const DEFAULT_WHERE;
 
-  /** Aditional network instrumentation for the server only. */
+  /** Additional network instrumentation for the server only. */
   NET_SERVER m_net_server_extension;
   /**
     Hash for user variables.
@@ -2403,7 +2403,7 @@ class THD : public MDL_context_owner,
   /**
     Stores the result of ROW_COUNT() function.
 
-    ROW_COUNT() function is a MySQL extention, but we try to keep it
+    ROW_COUNT() function is a MySQL extension, but we try to keep it
     similar to ROW_COUNT member of the GET DIAGNOSTICS stack of the SQL
     standard (see SQL99, part 2, search for ROW_COUNT). It's value is
     implementation defined for anything except INSERT, DELETE, UPDATE.
@@ -2588,6 +2588,9 @@ class THD : public MDL_context_owner,
   const std::string &get_connection_attr(const std::string &cattr_key);
 
   std::list<std::pair<const char *, const char *>> get_query_tables();
+  std::pair<std::list<std::pair<const char *, const char *>>,
+            std::list<std::pair<const char *, const char *>>>
+  get_read_write_tables();
 
   void get_mt_keys_for_write_query(
       std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> &keys);
@@ -4337,7 +4340,7 @@ class THD : public MDL_context_owner,
   /*
     There are some statements (like OPTIMIZE TABLE, ANALYZE TABLE and
     REPAIR TABLE) that might call trans_rollback_stmt() and also will be
-    sucessfully executed and will have to go to the binary log.
+    successfully executed and will have to go to the binary log.
     For these statements, the skip_gtid_rollback flag must be set to avoid
     problems when the statement is executed with a GTID_NEXT set to
     ASSIGNED_GTID (like the SQL thread do when applying events from other

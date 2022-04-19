@@ -111,7 +111,7 @@
 #include "sql/sql_prepare.h"  // Prepared_statement
 #include "sql/sql_profile.h"
 #include "sql/sql_thd_internal_api.h"  // thd_yield_cond
-#include "sql/sql_timer.h"  // thd_timer_destroy
+#include "sql/sql_timer.h"             // thd_timer_destroy
 #include "sql/table.h"
 #include "sql/table_cache.h"  // table_cache_manager
 #include "sql/tc_log.h"
@@ -4619,13 +4619,75 @@ const std::string &THD::get_connection_attr(const std::string &cattr_key) {
 }
 
 /**
+  Check whether the provided DB and table names combination is unique
+  It also inserts the combination into the list if it is unique
+  @param  unique_full_names - list of full names to check duplicate in
+          db_name           - database name
+          tab_name          - table name
+
+  @return true if the combination is unique
+ */
+static bool check_unique(std::list<std::string> &unique_full_names,
+                         const char *db_name, const char *tab_name) {
+  std::string_view db_name_sv(db_name);    // Calculates the size of db_name
+  std::string_view tab_name_sv(tab_name);  // Calculates the size of tab_name
+  std::string full_tname;
+  full_tname.reserve(db_name_sv.size() + tab_name_sv.size() + 1);
+  full_tname.append(db_name);
+  full_tname.append(".");
+  full_tname.append(tab_name);
+
+  /* skip duplicate entries */
+  if (find(unique_full_names.begin(), unique_full_names.end(), full_tname) !=
+      unique_full_names.end())
+    return false;
+
+  unique_full_names.emplace_back(std::move(full_tname));
+  return true;
+}
+
+/**
+  Get read and write tables in the query. The tables are returned as a list
+  of pairs where the first value is the DB name and the second value is the
+  table name.
+  The read and writes are paired together
+
+  @return List of pairs (dbname, table name) for each of read or write tables
+ */
+using Table_List = std::list<std::pair<const char *, const char *>>;
+std::pair<Table_List, Table_List> THD::get_read_write_tables() {
+  Table_List read_tables;
+  Table_List write_tables;
+
+  std::list<std::string> unique_read_tables;   // unique read table names
+  std::list<std::string> unique_write_tables;  // unique write table names
+  for (const TABLE_LIST *table_iter = lex->query_tables; table_iter;
+       table_iter = table_iter->next_global) {
+    if (table_iter->is_view_or_derived()) continue;
+    if (table_iter->updating) {
+      if (check_unique(unique_write_tables, table_iter->get_db_name(),
+                       table_iter->get_table_name()))
+        write_tables.emplace_back(table_iter->get_db_name(),
+                                  table_iter->get_table_name());
+    } else {
+      if (check_unique(unique_read_tables, table_iter->get_db_name(),
+                       table_iter->get_table_name()))
+        read_tables.emplace_back(table_iter->get_db_name(),
+                                 table_iter->get_table_name());
+    }
+  }
+
+  return std::make_pair(std::move(read_tables), std::move(write_tables));
+}
+
+/**
   Get tables in the query. The tables are returned as a list of pairs
   where the first value is the dbname and the second value is the table name.
 
   @return List of pairs: dbname, table name
  */
-std::list<std::pair<const char *, const char *>> THD::get_query_tables() {
-  std::list<std::pair<const char *, const char *>> uniq_tables;
+Table_List THD::get_query_tables() {
+  Table_List uniq_tables;
   std::list<std::string> uniq_tables_str;
   /*
    * pointers (to db name, table names etc) are only valid until
@@ -4636,24 +4698,11 @@ std::list<std::pair<const char *, const char *>> THD::get_query_tables() {
   /* iterate through the list of tables */
   for (const TABLE_LIST *table = lex->query_tables; table != nullptr;
        table = table->next_global) {
-    if (table->is_view_or_derived()) {
-      continue;
-    }
-
-    const char *dbname = table->get_db_name();
-    const char *tname = table->get_table_name();
-    std::string full_tname = dbname;
-    full_tname.append(".");
-    full_tname.append(tname);
-
-    /* skip duplicate entries */
-    if (find(uniq_tables_str.begin(), uniq_tables_str.end(), full_tname) !=
-        uniq_tables_str.end()) {
-      continue;
-    }
-
-    uniq_tables_str.emplace_back(full_tname);
-    uniq_tables.emplace_back(dbname, tname);
+    // not a view/derived table && has not been added already
+    if (!table->is_view_or_derived() &&
+        check_unique(uniq_tables_str, table->get_db_name(),
+                     table->get_table_name()))
+      uniq_tables.emplace_back(table->get_db_name(), table->get_table_name());
   }
   return uniq_tables;
 }
