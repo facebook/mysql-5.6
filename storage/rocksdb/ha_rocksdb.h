@@ -684,6 +684,22 @@ class ha_rocksdb : public my_core::handler {
     bool skip_unique_check;
   };
 
+  /** Flags indicating if current operation can be done instantly */
+  enum class Instant_Type : uint16_t {
+    /** Impossible to alter instantly */
+    INSTANT_IMPOSSIBLE,
+
+    /** Can be instant without any change */
+    INSTANT_NO_CHANGE,
+
+    /** Adding or dropping virtual columns only */
+    INSTANT_VIRTUAL_ONLY,
+
+    /** ADD COLUMN which can be done instantly, including
+    adding stored column only (or along with adding virtual columns) */
+    INSTANT_ADD_COLUMN
+  };
+
   int create_cfs(const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
                  const std::string &actual_user_table_name,
                  std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs)
@@ -792,6 +808,9 @@ class ha_rocksdb : public my_core::handler {
   bool should_skip_locked_record(const int rc);
   bool should_recreate_snapshot(const int rc, const bool is_new_snapshot);
   bool can_assume_tracked(THD *thd);
+  Instant_Type rocksdb_support_instant(
+      my_core::Alter_inplace_info *const ha_alter_info, const TABLE *old_table,
+      const TABLE *altered_table) const;
 
  public:
   void set_pk_can_be_decoded(bool flag) { m_pk_can_be_decoded = flag; }
