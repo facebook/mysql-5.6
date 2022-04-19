@@ -176,6 +176,7 @@ SET(ROCKSDB_SE_SOURCES
   nosql_access.cc nosql_access.h
   ha_rockspart.cc ha_rockspart.h
   ../../sql/partitioning/partition_base.cc
+  sql_dd.cc sql_dd.h
 )
 
 IF(WITH_FB_TSAN)

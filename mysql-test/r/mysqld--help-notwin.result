@@ -1931,6 +1931,9 @@ The following options may be given as the first argument:
  RocksDB
  --rocksdb-disable-file-deletions 
  Prevent file deletions
+ --rocksdb-disable-instant-ddl 
+ Disable instant ddl during alter table
+ (Defaults to on; use --skip-rocksdb-disable-instant-ddl to disable.)
  --rocksdb-enable-2pc 
  Enable two phase commit for MyRocks
  (Defaults to on; use --skip-rocksdb-enable-2pc to disable.)
@@ -3396,6 +3399,7 @@ rocksdb-delayed-write-rate 0
 rocksdb-delete-cf 
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-disable-file-deletions FALSE
+rocksdb-disable-instant-ddl TRUE
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-insert-with-update-caching TRUE

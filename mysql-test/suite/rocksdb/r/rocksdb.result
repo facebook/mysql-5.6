@@ -949,6 +949,7 @@ rocksdb_delayed_write_rate	0
 rocksdb_delete_cf	
 rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_disable_file_deletions	OFF
+rocksdb_disable_instant_ddl	ON
 rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON
 rocksdb_enable_insert_with_update_caching	ON
