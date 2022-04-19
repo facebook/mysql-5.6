@@ -366,11 +366,17 @@ bool Rpl_applier_reader::move_to_next_log() {
 
   m_relaylog_file_reader.close();
 
+  // We are trying to move to next log. In order to avoid race
+  // with rotation, we should take LOCK_index
+  m_rli->relay_log.lock_index();
   if (!m_rli->relay_log.is_open() ||
-      m_rli->relay_log.find_next_log(&m_linfo, true)) {
+      m_rli->relay_log.find_next_log(&m_linfo, false)) {
     m_errmsg = "error switching to the next log";
+    m_rli->relay_log.unlock_index();
     return true;
   }
+  // Also see COMMENT at COMMENT2 below
+  m_rli->relay_log.unlock_index();
 
   m_rli->set_event_relay_log_pos(BIN_LOG_HEADER_SIZE);
   m_rli->set_event_relay_log_name(m_linfo.log_file_name);
@@ -403,6 +409,11 @@ bool Rpl_applier_reader::move_to_next_log() {
     m_rli->reset_notified_relay_log_change();
   }
 
+  // COMMENT2 - there is a possibility that we have a split read into relay_log
+  // state. Where another rotation has come and rotated the log [unlikely but
+  // possible ]
+  // It does not matter because read_next_event call after move_to_next_log
+  // will handle this gracefully.
   m_reading_active_log = m_rli->relay_log.is_active(m_linfo.log_file_name);
   m_log_end_pos = m_relaylog_file_reader.position();
   return m_relaylog_file_reader.open(m_linfo.log_file_name);
