@@ -2651,6 +2651,9 @@ class THD : public MDL_context_owner,
   const std::string &get_connection_attr(const std::string &cattr_key);
 
   std::list<std::pair<const char *, const char *>> get_query_tables();
+  std::pair<std::list<std::pair<const char *, const char *>>,
+            std::list<std::pair<const char *, const char *>>>
+  get_read_write_tables();
 
   void get_mt_keys_for_write_query(
       std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> &keys);

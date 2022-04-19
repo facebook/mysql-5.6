@@ -401,6 +401,16 @@ struct System_variables {
   */
   uint response_attrs_contain_warnings_bytes;
 
+  /*
+    Size of the read tables that can be included in response attribute
+  */
+  uint response_attrs_contain_read_tables_bytes;
+
+  /*
+    Size of the write tables that can be included in response attribute
+  */
+  uint response_attrs_contain_write_tables_bytes;
+
   ulong max_execution_time;
 
   char *track_sysvars_ptr;
