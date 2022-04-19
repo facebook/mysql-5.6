@@ -40,6 +40,7 @@
 #include "mysql/components/services/log_shared.h"
 #include "mysql/plugin.h"
 #include "mysql/psi/mysql_mutex.h"
+#include "mysql/psi/mysql_thread.h"
 #include "mysql/service_mysql_alloc.h"
 #include "mysqld_error.h"
 #include "prealloced_array.h"
@@ -49,7 +50,8 @@
 #include "sql/item_func.h"  // user_var_entry
 #include "sql/key.h"
 #include "sql/log.h"
-#include "sql/mysqld.h"  // server_uuid
+#include "sql/mysqld.h"              // server_uuid
+#include "sql/mysqld_thd_manager.h"  // Global_THD_manager
 #include "sql/psi_memory_key.h"
 #include "sql/raii/sentry.h"  // raii::Sentry<T>
 #include "sql/replication.h"  // Trans_param
@@ -67,6 +69,10 @@
 #include "sql/transaction_info.h"
 #include "sql_string.h"
 
+/** start of raft related extern funtion declarations  **/
+extern int rotate_binlog_file(THD *thd);
+/** end of raft related extern funtion declarations  **/
+
 Trans_delegate *transaction_delegate;
 Binlog_storage_delegate *binlog_storage_delegate;
 Server_state_delegate *server_state_delegate;
@@ -76,6 +82,10 @@ Binlog_relay_IO_delegate *binlog_relay_io_delegate;
 
 bool opt_replication_optimize_for_static_plugin_config{false};
 std::atomic<bool> opt_replication_sender_observe_commit_only{false};
+
+/* Raft plugin related variables */
+Raft_replication_delegate *raft_replication_delegate;
+RaftListenerQueue raft_listener_queue;
 
 Observer_info::Observer_info(void *ob, st_plugin_int *p)
     : observer(ob), plugin_int(p) {
@@ -137,7 +147,7 @@ int Delegate::remove_observer(void *observer) {
     iter.remove();
     delete info;
   } else
-    ret = true;
+    ret = MYSQL_REPLICATION_OBSERVER_NOT_FOUND;
   unlock();
   return ret;
 }
@@ -361,6 +371,8 @@ int delegates_init() {
       place_transmit_mem[sizeof(Binlog_transmit_delegate)];
   alignas(Binlog_relay_IO_delegate) static char
       place_relay_io_mem[sizeof(Binlog_relay_IO_delegate)];
+  alignas(Raft_replication_delegate) static char
+      place_raft_mem[sizeof(Raft_replication_delegate)];
 
   transaction_delegate = new (place_trans_mem) Trans_delegate;
   if (!transaction_delegate->is_inited()) {
@@ -383,6 +395,13 @@ int delegates_init() {
 
   binlog_relay_io_delegate = new (place_relay_io_mem) Binlog_relay_IO_delegate;
   if (!binlog_relay_io_delegate->is_inited()) {
+    LogErr(ERROR_LEVEL, ER_RPL_BINLOG_RELAY_DELEGATES_INIT_FAILED);
+    return 1;
+  }
+
+  raft_replication_delegate = new (place_raft_mem) Raft_replication_delegate;
+  if (!raft_replication_delegate->is_inited()) {
+    // TODO: use raft specific error codes later
     LogErr(ERROR_LEVEL, ER_RPL_BINLOG_RELAY_DELEGATES_INIT_FAILED);
     return 1;
   }
@@ -1232,6 +1251,85 @@ int Binlog_relay_IO_delegate::applier_log_event(THD *thd, int &out) {
   return ret;
 }
 
+int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
+                                            RaftReplicateMsgOpType op_type) {
+  DBUG_ENTER("Raft_replication_delegate::before_flush");
+  Raft_replication_param param;
+
+  int ret = 0;
+
+  thd->set_trans_marker(-1, -1);
+  FOREACH_OBSERVER(ret, before_flush, (&param, io_cache, op_type));
+
+  DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
+
+  /* (term, index) will be used later in before_commit hook of trans
+   * observer */
+  thd->set_trans_marker(param.term, param.index);
+
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::before_commit(THD *thd) {
+  DBUG_ENTER("Raft_replications_delegate::before_commit");
+  Raft_replication_param param;
+
+  thd->get_trans_marker(&param.term, &param.index);
+
+  DBUG_PRINT("enter", ("term: %ld, index: %ld", param.term, param.index));
+
+  int ret = 0;
+  FOREACH_OBSERVER(ret, before_commit, (&param));
+
+  DEBUG_SYNC(thd, "after_call_after_sync_observer");
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::setup_flush(
+    THD * /* thd */, Raft_replication_observer::st_setup_flush_arg *arg) {
+  DBUG_ENTER("Raft_replication_delegate::setup_flush");
+  int ret = 0;
+
+  FOREACH_OBSERVER(ret, setup_flush, (arg));
+
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::before_shutdown(THD * /* thd */) {
+  DBUG_ENTER("Raft_replication_delegate::before_shutdown");
+  int ret = 0;
+
+  FOREACH_OBSERVER(ret, before_shutdown, ());
+
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::register_paths(
+    THD * /* thd */, const std::string &s_uuid,
+    const std::string &wal_dir_parent, const std::string &log_dir_parent,
+    const std::string &raft_log_path_prefix, const std::string &s_hostname,
+    uint64_t port) {
+  DBUG_ENTER("Raft_replication_delegate::register_paths");
+  int ret = 0;
+
+  FOREACH_OBSERVER(ret, register_paths,
+                   (&raft_listener_queue, s_uuid, wal_dir_parent,
+                    log_dir_parent, raft_log_path_prefix, s_hostname, port));
+
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::after_commit(THD *thd) {
+  DBUG_ENTER("Raft_replication_delegate::after_commit");
+  Raft_replication_param param;
+
+  thd->get_trans_marker(&param.term, &param.index);
+
+  int ret = 0;
+  FOREACH_OBSERVER(ret, after_commit, (&param));
+  DBUG_RETURN(ret);
+}
+
 int register_trans_observer(Trans_observer *observer, void *p) {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);
 }
@@ -1318,6 +1416,21 @@ static bool is_show_status(enum_sql_command sql_command) {
     default:
       return false;
   }
+}
+
+int register_raft_replication_observer(Raft_replication_observer *observer,
+                                       void *p) {
+  DBUG_ENTER("register_raft_replication_observer");
+  raft_listener_queue.init();
+  int result =
+      raft_replication_delegate->add_observer(observer, (st_plugin_int *)p);
+  DBUG_RETURN(result);
+}
+
+int unregister_raft_replication_observer(Raft_replication_observer *observer,
+                                         void *) {
+  raft_listener_queue.deinit();
+  return raft_replication_delegate->remove_observer(observer);
 }
 
 int launch_hook_trans_begin(THD *thd, TABLE_LIST *all_tables) {
@@ -1422,4 +1535,188 @@ int launch_hook_trans_begin(THD *thd, TABLE_LIST *all_tables) {
   }
 
   return ret;
+}
+
+static int update_sys_var(const char *var_name, uint name_len,
+                          Item &update_item) {
+  // find_sys_var will take a read lock on LOCK_system_variables_hash
+  sys_var *sys_var_ptr = find_sys_var(current_thd, var_name, name_len);
+  if (sys_var_ptr) {
+    LEX_CSTRING tmp;
+    set_var set_v(OPT_GLOBAL, sys_var_ptr, tmp, &update_item);
+    return !set_v.check(current_thd) && set_v.update(current_thd);
+  }
+
+  return 1;
+}
+
+static int handle_read_only(
+    const std::map<std::string, unsigned int> &sys_var_map) {
+  int error = 0;
+  auto read_only_it = sys_var_map.find("read_only");
+  auto super_read_only_it = sys_var_map.find("super_read_only");
+  if (read_only_it == sys_var_map.end() &&
+      super_read_only_it == sys_var_map.end())
+    return 1;
+
+  if (super_read_only_it != sys_var_map.end() &&
+      super_read_only_it->second == 1) {
+    // Case 1: set super_read_only=1. This will implicitly set read_only.
+    Item_uint super_read_only_item(super_read_only_it->second);
+    error = update_sys_var(STRING_WITH_LEN("super_read_only"),
+                           super_read_only_item);
+  } else if (read_only_it != sys_var_map.end() && read_only_it->second == 0) {
+    // Case 2: set read_only=0. This will implicitly unset super_read_only.
+    Item_uint read_only_item(read_only_it->second);
+    error = update_sys_var(STRING_WITH_LEN("read_only"), read_only_item);
+  } else {
+    // Case 3: Need to set read_only=1 OR/AND set super_read_only=0
+    if (read_only_it != sys_var_map.end()) {
+      Item_uint read_only_item(read_only_it->second);
+      error = update_sys_var(STRING_WITH_LEN("read_only"), read_only_item);
+    }
+
+    if (!error && super_read_only_it != sys_var_map.end()) {
+      Item_uint super_read_only_item(super_read_only_it->second);
+      error = update_sys_var(STRING_WITH_LEN("super_read_only"),
+                             super_read_only_item);
+    }
+  }
+
+  return error;
+}
+
+extern "C" void *process_raft_queue(void *) {
+  THD *thd;
+  bool thd_added = false;
+
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  /* Setup this thread */
+  my_thread_init();
+  thd = new THD;
+  thd->thread_stack = (char *)&thd;
+  thd->store_globals();
+  // thd->thr_create_utime = thd->start_utime = my_micro_time();
+  thd->m_security_ctx->skip_grants();
+
+  thd->set_new_thread_id();
+  thd_manager->add_thd(thd);
+  thd_added = true;
+
+  /* Start listening for new events in the queue */
+  bool exit = false;
+  // The exit is triggered by the raft plugin gracefully
+  // enqueing an exit function for this thread.
+  // if we listen to abort_loop or thd->killed
+  // then we might not give the plugin the opportunity to
+  // do some critical tasks before exit
+  while (!exit) {
+    thd->get_stmt_da()->reset_diagnostics_area();
+    RaftListenerQueue::QueueElement element = raft_listener_queue.get();
+    RaftListenerCallbackResult result;
+    switch (element.type) {
+      case RaftListenerCallbackType::SET_READ_ONLY: {
+        result.error = handle_read_only(element.arg.val_sys_var_uint);
+        break;
+      }
+      case RaftListenerCallbackType::ROTATE_BINLOG: {
+        result.error = rotate_binlog_file(current_thd);
+        break;
+      }
+      case RaftListenerCallbackType::ROTATE_RELAYLOG: {
+        result.error = rotate_relay_log_for_raft(
+            element.arg.log_file_pos.first, element.arg.log_file_pos.second,
+            MYF(element.arg.val_uint));
+        break;
+      }
+      case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
+        exit = true;
+        result.error = 0;
+        break;
+      default:
+        // placate the compiler
+        result.error = 0;
+    }
+
+    // Fulfill the promise (if requested)
+    if (element.result) element.result->set_value(std::move(result));
+  }
+
+  // Cleanup and exit
+  thd->release_resources();
+  if (thd_added) thd_manager->remove_thd(thd);
+  delete thd;
+  my_thread_end();
+  pthread_exit(0);
+  return 0;
+}
+
+int start_raft_listener_thread() {
+  my_thread_handle th;
+  if ((mysql_thread_create(0, &th, &connection_attrib, process_raft_queue,
+                           (void *)0))) {
+    // NO_LINT_DEBUG
+    sql_print_error("Could not create raft_listener_thread");
+    return 1;
+  }
+
+  return 0;
+}
+
+RaftListenerQueue::~RaftListenerQueue() {
+  // TODO : Need to fix the destruction construct.
+}
+
+int RaftListenerQueue::add(QueueElement element) {
+  std::unique_lock<std::mutex> lock(queue_mutex_);
+  if (!inited_) {
+    // NO_LINT_DEBUG
+    sql_print_error("Raft listener queue and thread is not inited");
+    return 1;
+  }
+
+  queue_.emplace(std::move(element));
+  lock.unlock();
+  queue_cv_.notify_all();
+
+  return 0;
+}
+
+RaftListenerQueue::QueueElement RaftListenerQueue::get() {
+  // Wait for something to be put into the event queue
+  std::unique_lock<std::mutex> lock(queue_mutex_);
+  while (queue_.empty()) queue_cv_.wait(lock);
+
+  QueueElement element = queue_.front();
+  queue_.pop();
+
+  return element;
+}
+
+int RaftListenerQueue::init() {
+  // NO_LINT_DEBUG
+  sql_print_information("Initializing Raft listener queue");
+  std::unique_lock<std::mutex> lock(init_mutex_);
+  if (inited_) return 0;  // Already inited
+
+  if (start_raft_listener_thread()) return 1;  // Fails to initialize
+
+  inited_ = true;
+  return 0;  // Initialization success
+}
+
+void RaftListenerQueue::deinit() {
+  // NO_LINT_DEBUG
+  sql_print_information("Shutting down Raft listener queue");
+  std::unique_lock<std::mutex> lock(init_mutex_);
+  if (!inited_) return;
+
+  // Queue an exit event in the queue. The listener thread will eventually pick
+  // this up and exit
+  QueueElement element;
+  element.type = RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT;
+  add(element);
+
+  inited_ = false;
+  return;
 }

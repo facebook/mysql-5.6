@@ -28,6 +28,8 @@
 #include "rpl_context.h"
 #include "sql/handler.h"  // enum_tx_isolation
 
+#include <queue>
+
 struct MYSQL;
 
 #ifdef __cplusplus

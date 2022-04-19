@@ -7579,6 +7579,70 @@ int heartbeat_queue_event(bool is_valid, Master_info *&mi,
 }
 
 /**
+ * Mark this GTID as logged in the rli and set the master_log_file_name and
+ * master_log_file_pos in mi. Finally,  flushes the master.info file
+ *
+ * @retval 0 Success
+ * @retval 1 Some failure
+ */
+int update_rli_and_mi(
+    const std::string &gtid_s,
+    const std::pair<const std::string, unsigned long long> &master_log_pos) {
+  channel_map.rdlock();
+  assert(channel_map.get_num_instances() == 1);
+  Master_info *mi = channel_map.get_default_channel_mi();
+  assert(mi != nullptr);
+  Relay_log_info *rli = mi->rli;
+  assert(rli != nullptr);
+
+  mysql_mutex_lock(&mi->data_lock);
+  // Update the master log file name in mi, if provided
+  if (!master_log_pos.first.empty()) {
+    mi->set_master_log_name(master_log_pos.first.c_str());
+  }
+  // Update the master log file pos in mi
+  mi->set_master_log_pos(master_log_pos.second);
+  // Flush the master.info file
+  mi->flush_info(/*force*/ false);
+  mysql_mutex_unlock(&mi->data_lock);
+
+  // It is possible that this call was only done to update the master_log_pos
+  // in which case an empty gtid would have been passed
+  if (!gtid_s.length()) {
+    channel_map.unlock();
+    return 0;
+  }
+
+  mysql_mutex_t *log_lock = mi->rli->relay_log.get_log_lock();
+  mysql_mutex_assert_not_owner(log_lock);
+  mysql_mutex_lock(log_lock);
+  const char *buf = gtid_s.c_str();
+  Gtid_log_event gtid_ev(buf, mi->get_mi_description_event());
+  mysql_mutex_unlock(log_lock);
+
+  Gtid gtid = {0, 0};
+  rli->get_sid_lock()->rdlock();
+  gtid.sidno = gtid_ev.get_sidno(rli->get_gtid_set()->get_sid_map());
+  rli->get_sid_lock()->unlock();
+  if (gtid.sidno < 0) {
+    sql_print_information("could not get proper sid: %s", buf);
+    channel_map.unlock();
+    return 1;
+  }
+
+  gtid.gno = gtid_ev.get_gno();
+  DBUG_PRINT("info", ("update_rli_and_mi: Found Gtid : Gtid(%d, %ld).",
+                      gtid.sidno, gtid.gno));
+
+  rli->get_sid_lock()->rdlock();
+  rli->add_logged_gtid(gtid.sidno, gtid.gno);
+  rli->get_sid_lock()->unlock();
+  channel_map.unlock();
+
+  return 0;
+}
+
+/**
   Store an event received from the master connection into the relay
   log.
 
@@ -8602,7 +8666,7 @@ static int safe_reconnect(THD *thd, MYSQL *mysql, Master_info *mi,
 */
 
 int rotate_relay_log(Master_info *mi, bool log_master_fd, bool need_lock,
-                     bool need_log_space_lock) {
+                     bool need_log_space_lock, myf raft_flags) {
   DBUG_TRACE;
 
   Relay_log_info *rli = mi->rli;
@@ -8626,10 +8690,11 @@ int rotate_relay_log(Master_info *mi, bool log_master_fd, bool need_lock,
 
   /* If the relay log is closed, new_file() will do nothing. */
   if (log_master_fd)
-    error =
-        rli->relay_log.new_file_without_locking(mi->get_mi_description_event());
+    error = rli->relay_log.new_file_without_locking(
+        mi->get_mi_description_event(), raft_flags);
   else
-    error = rli->relay_log.new_file_without_locking(nullptr);
+    error = rli->relay_log.new_file_without_locking(nullptr, raft_flags);
+
   if (error != 0) goto end;
 
   /*
@@ -8649,6 +8714,52 @@ int rotate_relay_log(Master_info *mi, bool log_master_fd, bool need_lock,
 end:
   if (need_lock) mysql_mutex_unlock(rli->relay_log.get_log_lock());
   return error;
+}
+
+int rotate_relay_log_for_raft(const std::string &new_log_ident, ulonglong pos,
+                              myf raft_flags) {
+  DBUG_ENTER("rotate_relay_log_for_raft");
+  int error = 0;
+  bool no_op = false;
+  Master_info *mi = nullptr;
+
+  channel_map.rdlock();
+
+  if (channel_map.get_num_instances() > 1) {
+    error = 1;
+    goto end;
+  }
+
+  mi = channel_map.get_default_channel_mi();
+  assert(mi);
+
+  // TODO  Check if this is really needed when integrating with plugin
+  // m_channel_lock seems to protect things like 'change master' and may not be
+  // needed for file rotation
+  mi->channel_wrlock();
+
+  no_op = raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
+
+  /* in case of no_op we would be starting the file name from the master
+     so new_log_ident and pos wont be used */
+  if (!no_op) {
+    mysql_mutex_lock(&mi->data_lock);
+    memcpy(const_cast<char *>(mi->get_master_log_name()), new_log_ident.c_str(),
+           new_log_ident.length() + 1);
+    mi->set_master_log_pos(pos);
+    mysql_mutex_unlock(&mi->data_lock);
+  }
+
+  error = rotate_relay_log(mi,
+                           /*log_master_fd=*/true,
+                           /*need_lock=*/true,
+                           /*need_log_space_lock=*/true, raft_flags);
+
+  mi->channel_unlock();
+
+end:
+  channel_map.unlock();
+  DBUG_RETURN(error);
 }
 
 /**

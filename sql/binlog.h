@@ -103,6 +103,20 @@ struct Binlog_user_var_event {
   bool unsigned_flag;
 };
 
+/* The enum defining the server's action when a trx fails inside ordered commit
+ * due to an error related to consensus (raft plugin) */
+enum enum_commit_consensus_error_actions {
+  /* Transactions that fail in ordered commit will be rolled back.
+   * Currently all trxs in the group will be rolled back when the leader thread
+   * of the group fails. An optimization to just rollback the failing trx is
+   * left as a TODO */
+  ROLLBACK_TRXS_IN_GROUP = 0,
+  /* Ignore consensus errors and proceed as usual. Might be useful as an
+   * override in some cases like consensus plugin bugs, easier rollouts, full
+   * region failures etc */
+  IGNORE_COMMIT_CONSENSUS_ERROR = 1,
+  INVALID_COMMIT_CONSENSUS_ERROR_ACTION
+};
 /* log info errors */
 #define LOG_INFO_EOF -1
 #define LOG_INFO_IO -2
@@ -438,11 +452,20 @@ class MYSQL_BIN_LOG : public TC_LOG {
     LOCK_log.
   */
   int new_file_without_locking(
-      Format_description_log_event *extra_description_event);
+      Format_description_log_event *extra_description_event,
+      myf raft_flags = MYF(0));
 
  private:
+  /**
+    Checks binlog error action to identify if the server needs to abort on
+    non-recoverable errors when writing to binlog
+
+    @return true if server needs to be aborted
+   */
+  bool should_abort_on_binlog_error();
   int new_file_impl(bool need_lock,
-                    Format_description_log_event *extra_description_event);
+                    Format_description_log_event *extra_description_event,
+                    myf raft_flags = MYF(0));
 
   bool open(PSI_file_key log_file_key, const char *log_name,
             const char *new_name, uint32 new_index_number);
@@ -455,6 +478,19 @@ class MYSQL_BIN_LOG : public TC_LOG {
   const char *generate_name(const char *log_name, const char *suffix,
                             char *buff);
   bool is_open() { return atomic_log_state != LOG_CLOSED; }
+
+  /* True if this binlog is an apply-log (in raft mode apply logs are the binlog
+   * used as trx log on follower instances)
+   *
+   * This is set to true, at the end of converting a Raft FOLLOWER to a
+   * MySQL Slave. It is set to false, when the Raft Candidate transitions
+   * to LEADER, and converts the MySQL Slave to a MySQL Master as a part
+   * of Election Decision Callback.
+   *
+   * @ref - rpl_handler.cc / point_binlog_to_binlog
+   *        rpl_handler.cc / point_binlog_to_apply
+   */
+  bool is_apply_log = false;
 
   /* This is relay log */
   bool is_relay_log;
@@ -697,6 +733,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   HybridLogicalClock hlc;
 
+  /*
+     This is set when we have registered log entities with raft plugin
+     during ordered commit, after we have become master on step up.
+     Protected by LOCK_log. To prevent repeated re-registrations.
+   */
+  bool setup_flush_done;
+
   int open(const char *opt_name) override { return open_binlog(opt_name); }
 
   /**
@@ -862,6 +905,28 @@ class MYSQL_BIN_LOG : public TC_LOG {
                    be skipped and @c false otherwise (the normal case).
   */
   int ordered_commit(THD *thd, bool all, bool skip_commit = false);
+
+  /* Uses the commit stage queue of ordered commit to call raft replication's
+   * before_commit hook to block until consensus-commit of trxs
+   * (before committing to engine)
+   *
+   * @param queue_head - The head of the commit stage queue
+   *
+   */
+  void process_consensus_queue(THD *queue_head);
+
+  /* Handles commit consensus error. Commit consensus errors are failures that
+   * happen inside raft replication when the leader fails to achieve consensus
+   * (majority votes) on trxs. This function either commit's the trx to the
+   * engine OR aborts the trx (rollback) based on commit_consensus_error_action
+   *
+   * @param thd The THD for the session that encountered commit-consensus error
+   */
+  void handle_commit_consensus_error(THD *thd);
+
+  /* Sets the commit consensus error for all threads in the group */
+  void set_commit_consensus_error(THD *queue_head);
+
   void handle_binlog_flush_or_sync_error(THD *thd, bool need_lock_log,
                                          const char *message);
   bool do_write_cache(Binlog_cache_storage *cache,
@@ -898,6 +963,22 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int wait_for_update(const struct timespec *timeout);
 
  public:
+  /** register binlog/relay (its IO_CACHE) and mutexes to plugin.
+      Sharing the pointers with the plugin enables the plugin to
+      flush transactions to the appropriate file when the Raft engine
+      calls back the log Wrapper.
+
+      @param thd - Thread descriptor
+      @param context - 0 for initial time, 1 for each time
+         When we pass in 1 for re-registration, we also validate on
+         the plugin side that the cached pointers have not shifted.
+         @param If true, take LOCK_log
+      @param is_relay_log register the relay log if true, otherwise binlog
+                          Different observers are used for different logs
+   */
+  int register_log_entities(THD *thd, int context, bool need_lock,
+                            bool is_relay_log);
+  void check_and_register_log_entities(THD *thd);
   void init_pthread_objects();
   void cleanup();
   /**
@@ -920,16 +1001,20 @@ class MYSQL_BIN_LOG : public TC_LOG {
     binary log files.
     @param new_index_number The binary log file index number to start from
     after the RESET MASTER TO command is called.
+    @param raft_specific_handling Does this open_binlog interact with raft
+    (binlog or relay log)
   */
   bool open_binlog(const char *log_name, const char *new_name,
                    ulong max_size_arg, bool null_created_arg,
                    bool need_lock_index, bool need_sid_lock,
                    Format_description_log_event *extra_description_event,
-                   uint32 new_index_number = 0);
+                   uint32 new_index_number = 0,
+                   bool raft_specific_handling = false);
   bool open_index_file(const char *index_file_name_arg, const char *log_name,
                        bool need_lock_index);
   /* Use this to start writing a new log file */
-  int new_file(Format_description_log_event *extra_description_event);
+  int new_file(Format_description_log_event *extra_description_event,
+               myf raft_flags = MYF(0));
 
   enum force_cache_type {
     FORCE_CACHE_DEFAULT,
@@ -940,6 +1025,27 @@ class MYSQL_BIN_LOG : public TC_LOG {
                    force_cache_type force_cache = FORCE_CACHE_DEFAULT);
   bool write_cache(THD *thd, class binlog_cache_data *cache_data,
                    class Binlog_event_writer *writer);
+
+  /**
+   * Called after a THD's iocache is written to binlog (i.e binlog's cache)
+   * during ordered commit. Updates all internal state maintained by mysql.
+   * Used only when raft based replication is enabled
+   *
+   * @param thd Thread variable
+   * @param cache_data The cache which was written to binlog
+   * @param error will be 1 on errors which needs to be handled in post_write
+   *
+   * @returns true on error, false on success
+   */
+  bool post_write(THD *thd, binlog_cache_data *cache_data, int error);
+
+  /**
+   * Handles error that occured when flushing the cache to binlog file. Used
+   * only when raft based replication is enabled
+   *
+   * @param thd Thread variable
+   */
+  void handle_write_error(THD *thd);
 
   /**
    * Assign HLC timestamp to a thd in group commit
@@ -956,11 +1062,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * @param thd - the THD in group commit
    * @param cache_data - The cache that is being written dusring flush stage
    * @param writer - Binlog writer
+   * @param obuffer - The metadata event will be written to the buffer
+   *                  (if not null)
    *
    * @return false on success, true on failure
    */
   bool write_hlc(THD *thd, binlog_cache_data *cache_data,
-                 Binlog_event_writer *writer);
+                 Binlog_event_writer *writer, Binlog_cache_storage *obuffer);
 
   /**
     Assign automatic generated GTIDs for all commit group threads in the flush
@@ -1260,6 +1368,30 @@ extern const char *log_bin_basename;
 extern bool opt_binlog_order_commits;
 extern ulong rpl_read_size;
 extern bool rpl_semi_sync_source_enabled;
+
+/**
+  Rotates the binary log file. Helper method invoked by raft plugin through
+  raft listener queue.
+
+  @param thd  The current thread doing the rotate
+
+  @returns true if a problem occurs, false otherwise.
+ */
+int rotate_binlog_file(THD *thd);
+
+/**
+  Rotates the relay log file. Helper method invoked by raft plugin through
+  raft listener queue.
+
+  @param new_log_iden  The new log name
+  @param pos the log position
+  @param raft_flags
+
+  @returns true if a problem occurs, false otherwise.
+ */
+int rotate_relay_log_for_raft(const std::string &new_log_ident, ulonglong pos,
+                              myf raft_flags = MYF(0));
+
 /**
   Turns a relative log binary log path into a full path, based on the
   opt_bin_logname or opt_relay_logname. Also trims the cr-lf at the

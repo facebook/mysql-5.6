@@ -4049,6 +4049,15 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   bool write_prev_hlc_time(Basic_ostream *ostream);
 
   /**
+   * Write raft term and index to file
+   *
+   * @param file - file to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_term_and_index(Basic_ostream *ostream);
+
+  /**
    * Write type and length to file
    *
    * @param ostream - stream to write to
@@ -4181,6 +4190,21 @@ class Gtid_log_event : public binary_log::Gtid_event, public Log_event {
 #endif
 
 #if defined(MYSQL_SERVER)
+  /**
+    Writes this event to a memory buffer.
+
+    @param buf The event will be written to this buffer.
+
+    @return the number of bytes written, i.e., always
+    LOG_EVENT_HEADER_LEN + Gtid_log_event::POST_HEADER_LENGTH.
+  */
+  uint32 write_to_memory(uchar *buf) {
+    common_header->data_written = LOG_EVENT_HEADER_LEN + get_data_size();
+    uint32 len = write_header_to_memory(buf);
+    len += write_post_header_to_memory(buf + len);
+    len += write_body_to_memory(buf + len);
+    return len;
+  }
   int do_apply_event(Relay_log_info const *rli) override;
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
