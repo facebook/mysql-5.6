@@ -10109,6 +10109,51 @@ ER_WARN_SKIP_SCAN_KEYS_NOT_CONSIDERED
 ER_IS_TABLE_READ_DISABLED
   eng "Reads are disabled on %s performance schema table"
 
+ER_THRIFT_PLACEHOLDER_50122
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50123
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50124
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50125
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50126
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50127
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50128
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50129
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50130
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50131
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50132
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50133
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50134
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50135
+  eng "Placeholder"
+
+ER_THRIFT_PLACEHOLDER_50136
+  eng "Placeholder"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error
