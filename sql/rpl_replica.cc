@@ -367,6 +367,13 @@ static void set_thd_write_set_options(THD *thd, bool ignore_limit,
       ->set_local_allow_drop_write_set(allow_drop_write_set);
 }
 
+static void log_slave_command(THD *thd) {
+  Security_context *sctx = thd->security_context();
+  if (!sctx) return;
+  sql_print_information("Executing slave command '%s' by user %s from host %s",
+                        thd->query().str, sctx->user().str, sctx->host().str);
+}
+
 /*
   Function to set the slave's max_allowed_packet based on the value
   of replica_max_allowed_packet.
@@ -8827,6 +8834,8 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
     }
   }
 
+  log_slave_command(thd);
+
   lock_slave_threads(mi);  // this allows us to cleanly read slave_running
   // Get a mask of _stopped_ threads
   init_thread_mask(&thread_mask, mi, true /* inverse */);
@@ -8994,6 +9003,8 @@ int stop_slave(THD *thd, Master_info *mi, bool net_report, bool for_one_channel,
     return 1;
   }
 
+  log_slave_command(thd);
+
   mi->channel_wrlock();
 
   THD_STAGE_INFO(thd, stage_killing_replica);
@@ -9098,6 +9109,7 @@ int reset_slave(THD *thd) {
   Master_info *mi = nullptr;
   int result = 0;
   mi_map::iterator it, gr_channel_map_it;
+  log_slave_command(thd);
   if (thd->lex->reset_slave_info.all) {
     /* First do reset_slave for default channel */
     mi = channel_map.get_default_channel_mi();
@@ -10487,6 +10499,7 @@ int change_master(THD *thd, Master_info *mi, LEX_MASTER_INFO *lex_mi,
   my_off_t saved_log_pos = 0;
 
   DBUG_TRACE;
+  log_slave_command(thd);
 
   /*
     CHANGE MASTER command should ignore 'read-only' and 'super_read_only'
