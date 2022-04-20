@@ -7280,6 +7280,7 @@ static uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query,
 static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
                      const char *reason) {
   uint error;
+  DEBUG_SYNC(thd, "before_sql_kill");
   if (!(error = kill_one_thread(thd, id, only_kill_query, reason))) {
     if (!thd->killed) my_ok(thd);
   } else {

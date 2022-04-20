@@ -75,6 +75,7 @@
 #include "sql/auth/sql_security_ctx.h"
 #include "sql/conn_handler/connection_handler_manager.h"  // Connection_handler_manager
 #include "sql/current_thd.h"                              // current_thd
+#include "sql/debug_sync.h"                               // DEBUG_SYNC
 #include "sql/derror.h"                                   // ER_THD
 #include "sql/hostname_cache.h"  // Host_errors, inc_host_errors
 #include "sql/log.h"             // query_logger
@@ -4113,9 +4114,16 @@ int acl_authenticate(THD *thd, enum_server_command command) {
                mpvio.acl_user->user, mpvio.auth_info.host_or_ip);
         goto end;
       }
+      DBUG_EXECUTE_IF("before_is_secure_transport", {
+        // Added to sync with kill connection command.
+        if (opt_require_secure_transport && command == COM_CHANGE_USER) {
+          const char act[] = "now signal kill_now WAIT_FOR killed";
+          assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+        }
+      });
 
       if (opt_require_secure_transport &&
-          !is_secure_transport(thd->active_vio->type)) {
+          !is_secure_transport(thd->net.vio->type)) {
         my_error(ER_SECURE_TRANSPORT_REQUIRED, MYF(0));
         goto end;
       }
