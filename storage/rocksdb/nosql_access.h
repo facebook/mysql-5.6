@@ -28,6 +28,7 @@
 /* MySQL header files */
 #include "sql/protocol.h"
 #include "sql/sql_class.h"
+#include "../../sql/rpc_plugin.h"
 #include "./sql_string.h"
 
 #pragma once
@@ -49,5 +50,8 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex);
 
 extern std::deque<REJECTED_ITEM> rejected_bypass_queries;
 extern std::mutex rejected_bypass_query_lock;
+
+bypass_rpc_exception myrocks_select_by_key(THD *thd, myrocks_columns *columns,
+                                           const myrocks_select_from_rpc &str);
 
 }  // namespace myrocks
