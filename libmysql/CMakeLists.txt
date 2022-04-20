@@ -142,6 +142,9 @@ SET(CLIENT_API_FUNCTIONS
   mysql_real_connect_dns_srv
   mysql_bind_param
   mysql_plugin_get_option
+  mysql_get_ssl_version
+  mysql_get_ssl_session
+  mysql_get_ssl_session_reused
   CACHE INTERNAL "Functions exported by client API"
 )
 

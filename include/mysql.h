@@ -212,6 +212,7 @@ enum mysql_option {
   MYSQL_OPT_ZSTD_COMPRESSION_LEVEL,
   MYSQL_OPT_LOAD_DATA_LOCAL_DIR,
   MYSQL_OPT_USER_PASSWORD,
+  MYSQL_OPT_SSL_SESSION
 };
 
 /**
@@ -459,7 +460,10 @@ MYSQL *STDCALL mysql_init(MYSQL *mysql);
 bool STDCALL mysql_ssl_set(MYSQL *mysql, const char *key, const char *cert,
                            const char *ca, const char *capath,
                            const char *cipher);
+const char *STDCALL mysql_get_ssl_version(MYSQL *mysql);
 const char *STDCALL mysql_get_ssl_cipher(MYSQL *mysql);
+void *STDCALL mysql_get_ssl_session(MYSQL *mysql);
+bool STDCALL mysql_get_ssl_session_reused(MYSQL *mysql);
 bool STDCALL mysql_change_user(MYSQL *mysql, const char *user,
                                const char *passwd, const char *db);
 MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
