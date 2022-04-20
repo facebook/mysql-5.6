@@ -1,0 +1,5 @@
+# Failed assertion.
+
+--let $assert_text = "0 = 1"
+--let $assert_cond = 0 = 1
+--source include/assert.inc

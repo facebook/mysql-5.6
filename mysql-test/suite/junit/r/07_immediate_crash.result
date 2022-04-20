@@ -1,0 +1,1 @@
+SET @@session.debug = "+d,crash_dispatch_command_before";

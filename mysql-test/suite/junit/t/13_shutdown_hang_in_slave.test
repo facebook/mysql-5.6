@@ -1,0 +1,9 @@
+# Hangs slave process during shutdown.
+
+--source include/have_debug.inc
+--source include/master-slave.inc
+
+--connection slave
+SET @@session.debug = "+d,shutdown_hang";
+
+--source include/rpl_end.inc

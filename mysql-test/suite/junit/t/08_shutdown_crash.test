@@ -1,0 +1,5 @@
+# Crashing during shutdown.
+
+--source include/have_debug.inc
+
+SET @@session.debug = "+d,shutdown_crash";

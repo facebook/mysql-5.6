@@ -1,0 +1,1 @@
+--debug="+d,bootstrap_crash" --init-file=$MYSQL_TEST_DIR/suite/junit/t/select_1.sql
