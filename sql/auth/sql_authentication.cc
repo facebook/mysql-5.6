@@ -4160,6 +4160,13 @@ int acl_authenticate(THD *thd, enum_server_command command) {
                mpvio.acl_user->user, mpvio.auth_info.host_or_ip);
         goto end;
       }
+      DBUG_EXECUTE_IF("before_is_secure_transport", {
+        // Added to sync with kill connection command.
+        if (opt_require_secure_transport && command == COM_CHANGE_USER) {
+          const char act[] = "now signal kill_now WAIT_FOR killed";
+          assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+        }
+      });
 
       DBUG_EXECUTE_IF("before_secure_transport_check", {
         const char act[] = "now SIGNAL kill_now WAIT_FOR killed";

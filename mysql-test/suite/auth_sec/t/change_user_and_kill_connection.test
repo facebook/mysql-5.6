@@ -1,0 +1,33 @@
+# Skip test if DEBUG_SYNC is not enabled
+--source include/have_debug_sync.inc
+--enable_connect_log
+
+--connect (con1, localhost, root)
+--connect (con2, localhost, root)
+
+connection con2;
+SET @@global.require_secure_transport = ON;
+create user baz;
+GRANT CONNECTION_ADMIN, SYSTEM_VARIABLES_ADMIN ON *.* TO baz;
+let $CON_ID= `SELECT CONNECTION_ID()`;
+set @@global.debug = '+d,before_is_secure_transport';
+
+connection con1;
+SET DEBUG_SYNC= 'before_sql_kill WAIT_FOR kill_now';
+SET DEBUG_SYNC= 'after_shutdown_active_vio signal killed';
+--replace_result $CON_ID <CONNECTION_ID>
+--send_eval kill $CON_ID;
+
+connection con2;
+--replace_regex /system error: [0-9]+/system error: NUM/
+--error 2013
+change_user baz;
+
+connection con1;
+--reap;
+SET DEBUG_SYNC = 'RESET';
+set @@global.debug = '-d,before_is_secure_transport';
+drop user baz;
+SET @@global.require_secure_transport = OFF;
+disconnect con1;
+disconnect con2;
