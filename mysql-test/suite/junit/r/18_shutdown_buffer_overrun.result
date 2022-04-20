@@ -1,0 +1,1 @@
+SET @@session.debug = "+d,shutdown_buffer_overrun";

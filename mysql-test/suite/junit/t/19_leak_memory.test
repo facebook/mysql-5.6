@@ -1,0 +1,5 @@
+# Leaks memory.
+
+--source include/have_debug.inc
+
+SET @@session.debug = "+d,leak_memory";

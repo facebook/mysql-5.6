@@ -1,0 +1,12 @@
+# Leaks memory in both master and slave processes.
+
+--source include/have_debug.inc
+--source include/master-slave.inc
+
+--connection master
+SET @@session.debug = "+d,leak_memory";
+
+--connection slave
+SET @@session.debug = "+d,leak_memory";
+
+--source include/rpl_end.inc

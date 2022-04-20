@@ -1214,6 +1214,35 @@ class Sys_var_lexstring : public Sys_var_charptr {
 };
 
 #ifndef NDEBUG
+
+static inline void trigger_buffer_overrun() {
+  int *mem = static_cast<int *>(my_malloc(127, 0, MYF(0)));
+  // Allocations are usually aligned, so even if 127 bytes were requested,
+  // it's mostly safe to assume there are 128 bytes. Writing into the last
+  // byte is safe for the rest of the code, but still enough to trigger
+  // AddressSanitizer (ASAN) or Valgrind.
+  *static_cast<volatile int *>(mem + (128 / sizeof(*mem)) - 1) = 1;
+  free(mem);
+}
+
+class Debug_shutdown_actions {
+ public:
+  static Debug_shutdown_actions instance;
+
+  bool crash;
+  bool hang;
+  bool buffer_overrun;
+
+ public:
+  Debug_shutdown_actions() : crash(false), hang(false), buffer_overrun(false) {}
+
+  ~Debug_shutdown_actions() {
+    if (crash) DBUG_SUICIDE();
+    if (hang) while (1) my_sleep(1000000);
+    if (buffer_overrun) trigger_buffer_overrun();
+  }
+};
+
 /**
   @@session.dbug and @@global.dbug variables.
 
@@ -1257,6 +1286,22 @@ class Sys_var_dbug : public sys_var {
       DBUG_POP();
     else
       DBUG_SET(val);
+
+    DBUG_EXECUTE_IF("shutdown_crash",
+                    { Debug_shutdown_actions::instance.crash = true; });
+    DBUG_EXECUTE_IF("shutdown_hang",
+                    { Debug_shutdown_actions::instance.hang = true; });
+    DBUG_EXECUTE_IF("shutdown_buffer_overrun", {
+      Debug_shutdown_actions::instance.buffer_overrun = true;
+    });
+    DBUG_EXECUTE_IF("leak_memory", {
+      my_malloc(127, 0, MYF(0));  // Intentional memory leak.
+    });
+    DBUG_EXECUTE_IF("wait_forever", {
+      while (1) my_sleep(1000000);
+    });
+    DBUG_EXECUTE_IF("buffer_overrun", { trigger_buffer_overrun(); });
+
     return false;
   }
   bool global_update(THD *, set_var *var) override {

@@ -1,0 +1,3 @@
+This suite contains a number of tests that intentionally fail in different
+ways. The tests are used to evaluate JUnit reporting capability of
+`mysql-test-run.pl` for tests which are run in different combinations.
