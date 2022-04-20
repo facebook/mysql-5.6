@@ -1516,6 +1516,7 @@ void THD::awake(THD::killed_state state_to_set, const char *reason) {
       */
 
       shutdown_active_vio();
+      DEBUG_SYNC(this, "after_shutdown_active_vio");
     }
 
     /* Send an event to the scheduler that a thread should be killed. */
