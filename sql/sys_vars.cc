@@ -6620,8 +6620,8 @@ static Sys_var_bool Sys_log_slave_updates(
 
 static Sys_var_charptr Sys_apply_log(
     "apply_log", "The location and name to use for apply logs for raft",
-    READ_ONLY NON_PERSIST GLOBAL_VAR(opt_apply_logname),
-    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(0));
+    READ_ONLY NON_PERSIST GLOBAL_VAR(opt_apply_logname), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(0));
 
 static Sys_var_charptr Sys_apply_log_index(
     "apply_log_index",

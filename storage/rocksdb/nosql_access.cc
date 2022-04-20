@@ -39,6 +39,7 @@
 #include "./sql/sql_base.h"
 #include "./sql/sql_select.h"
 #include "./sql/strfunc.h"
+#include "./sql/transaction.h"
 #include "mysql/services.h"
 #include "sql/sql_lex.h"
 
@@ -2630,6 +2631,36 @@ bool rocksdb_handle_single_table_select(THD *thd, SELECT_LEX *select_lex) {
   }
 
   return true;
+}
+
+bypass_rpc_exception myrocks_select_by_key(
+    THD *thd, myrocks_columns *columns, const myrocks_select_from_rpc &param) {
+  bypass_rpc_exception ret;
+
+  rpc_select_parser select_stmt(thd, &param, columns);
+  if (!select_stmt.parse()) {
+    rpc_protocol protocol(&select_stmt.get_field_list(), &param, columns);
+    select_exec exec(select_stmt, protocol);
+    if (exec.run()) {
+      rocksdb_select_bypass_failed++;
+      ret.errnum = ER_NOT_SUPPORTED_YET;
+      ret.sqlstate = "MYF(0)";
+      ret.message = exec.get_error_msg();
+    } else {
+      rocksdb_select_bypass_executed++;
+    }
+  } else {
+    ret.errnum = ER_NOT_SUPPORTED_YET;
+    ret.sqlstate = "MYF(0)";
+    ret.message = select_stmt.get_error_msg();
+  }
+
+  return ret;
+}
+
+// for test
+bypass_rpc_exception test_bypass_select(const myrocks_select_from_rpc *param) {
+  return bypass_select(param);
 }
 
 }  // namespace myrocks
