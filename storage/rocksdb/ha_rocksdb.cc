@@ -6237,7 +6237,7 @@ static void rocksdb_get_stats(ha_statistics *stats, Rdb_tbl_def *tbl_def) {
   stats->mean_rec_length = 0;
 
   for (uint i = 0; i < tbl_def->m_key_count; i++) {
-    auto key_def = tbl_def->m_key_descr_arr[i];
+    const auto &key_def = tbl_def->m_key_descr_arr[i];
     if (key_def->is_primary_key()) {
       stats->data_file_length = key_def->m_stats.m_actual_disk_size;
       stats->records = key_def->m_stats.m_rows;
@@ -11957,6 +11957,19 @@ int ha_rocksdb::info(uint flag) {
 
   if (flag & HA_STATUS_TIME) {
     stats.update_time = m_tbl_def->m_update_time;
+  } else {
+    if (flag & HA_STATUS_VARIABLE) {
+      if (stats.records == 0) {
+        // We should return records >= 1 since MyRocks does not set
+        // HA_STATS_RECORDS_IS_EXACT. However, for SHOW TABLE STATUS, we still
+        // want to show the best estimate, so we only adjust if !(flag &
+        // HA_STATUS_TIME).
+        //
+        // There is a similar comment about this adjustment in
+        // ha_innobase::info_low.
+        stats.records++;
+      }
+    }
   }
 
   if (flag & HA_STATUS_ERRKEY) {
