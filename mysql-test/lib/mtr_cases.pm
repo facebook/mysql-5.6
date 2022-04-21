@@ -700,7 +700,20 @@ sub combinations_from_file($) {
     foreach my $option ($group->options()) {
       push(@{ $comb->{comb_opt} }, $option->option());
     }
-    push(@combinations, $comb);
+    if ($::opt_only_combinations) {
+      for my $only_combination (split(",", $::opt_only_combinations)) {
+        if ($comb->{name} eq $only_combination) {
+          mtr_report(" - Only-combination '$only_combination' added");
+          push(@combinations, $comb);
+        }
+      }
+    } else {
+      push(@combinations, $comb);
+    }
+  }
+
+  if ($::opt_only_combinations && !@combinations) {
+    mtr_error("Couldn't find '$::opt_only_combinations' for $combination_file file.");
   }
 
   return @combinations;
