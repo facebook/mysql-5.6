@@ -11899,6 +11899,8 @@ static TRP_GROUP_MIN_MAX *get_best_group_min_max(PARAM *param, SEL_TREE *tree,
     cause = "no_index";
   else if (param->order_direction == ORDER_DESC)
     cause = "cannot_do_reverse_ordering";
+  else if (table->file->stats.records == 0)
+    cause = "empty_table";
   if (cause != nullptr) {
     trace_group.add("chosen", false).add_alnum("cause", cause);
     return nullptr;
