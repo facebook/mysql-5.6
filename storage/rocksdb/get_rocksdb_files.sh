@@ -26,5 +26,8 @@ if [ ! -f $bv ] || [ -z $git_sha ] || [ ! `grep -q $git_sha $bv` ]
 then
 sed -e s/@GIT_SHA@/$git_sha/ -e s:@GIT_TAG@:"$git_tag":  \
     -e s/@GIT_MOD@/"$git_mod"/ -e s/@BUILD_DATE@/"$build_date"/  \
-    -e s/@GIT_DATE@/"$git_date"/ rocksdb/util/build_version.cc.in > $bv
+    -e s/@GIT_DATE@/"$git_date"/ \
+    -e s/@ROCKSDB_PLUGIN_BUILTINS@/"$(ROCKSDB_PLUGIN_BUILTINS)"/ \
+    -e s/@ROCKSDB_PLUGIN_EXTERNS@/"$(ROCKSDB_PLUGIN_EXTERNS)"/ \
+    rocksdb/util/build_version.cc.in > $bv
 fi
