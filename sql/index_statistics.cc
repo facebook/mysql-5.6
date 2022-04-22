@@ -44,23 +44,12 @@ bool IndexSpecification::operator==(const IndexSpecification &other) const {
   return table_schema.compare(other.table_schema) == 0 &&
          table_name.compare(other.table_name) == 0 &&
          index_name.compare(other.index_name) == 0;
-  if (table_schema.compare(other.table_schema) < 0) {
-    return true;
-  } else if (table_schema.compare(other.table_schema) == 0) {
-    if (table_name.compare(other.table_name) < 0) {
-      return true;
-    } else if (table_name.compare(other.table_name) == 0) {
-      return index_name.compare(other.index_name);
-    }
-  }
-  return false;
 }
 
 void aggregate_index_statistics(
     std::unordered_map<IndexSpecification, ulonglong, IndexSpecificationHash>
         &ius) {
-  if (index_stats_control != SQL_INFO_CONTROL_ON) {
-    ius.clear();
+  if (index_stats_control != SQL_INFO_CONTROL_ON || ius.empty()) {
     return;
   }
   mysql_rwlock_wrlock(&LOCK_index_statistics);
@@ -71,9 +60,8 @@ void aggregate_index_statistics(
     }
     global_index_usage_stats[ise.first] += ise.second;
   }
-  mysql_rwlock_unlock(&LOCK_index_statistics);
-
   ius.clear();
+  mysql_rwlock_unlock(&LOCK_index_statistics);
 }
 
 std::vector<index_statistics_row> get_all_index_statistics() {
@@ -111,7 +99,6 @@ ulonglong *get_or_add_index_stats_ptr(
 
   // Return nullptr if index stats are disabled.
   if (index_stats_control != SQL_INFO_CONTROL_ON) {
-    ius->clear();
     return nullptr;
   }
 

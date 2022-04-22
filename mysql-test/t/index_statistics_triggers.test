@@ -1,0 +1,65 @@
+
+--disable_warnings
+DROP TABLE IF EXISTS tbl1;
+DROP TABLE IF EXISTS tbl2;
+DROP DATABASE IF EXISTS is_test;
+CREATE DATABASE is_test;
+USE is_test;
+
+--echo
+--echo Turn index stats on.
+--echo
+
+SET GLOBAL index_stats_control = ON;
+
+--echo
+--echo Create INNODB table with 2 columns.
+--echo
+
+CREATE TABLE tbl1(a int primary key, b int) engine=innodb;
+
+--echo
+--echo Insert dummy data into tbl1.
+--echo
+
+INSERT INTO tbl1 values(1,1), (2,2),(3,3);
+
+
+--echo
+--echo Create another table with 2 columns to define a trigger.
+--echo
+
+CREATE TABLE tbl2(a int primary key, b int) engine=innodb;
+
+--echo
+--echo Define a trigger that copies data into tbl2.
+--echo
+
+CREATE TRIGGER t after update ON tbl1 FOR EACH ROW INSERT INTO tbl2(a, b) values(new.a, new.b);
+
+--echo
+--echo Updating data in tbl1.
+--echo
+
+UPDATE tbl1 SET b = 5 WHERE a > 1;
+
+SORTED_RESULT;
+
+--echo
+--echo Querying index statistics.
+--echo
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+
+--echo
+--echo Cleanup phase.
+--echo
+
+set global index_stats_control = OFF_HARD;
+
+DROP TABLE tbl1;
+DROP TABLE tbl2;
+DROP DATABASE is_test;
+
+--enable_warnings
