@@ -631,7 +631,11 @@ bool Sql_cmd_dml::execute(THD *thd) {
 
   // Aggregate and populate INDEX_STATISTICS into the global data
   // structure.
-  aggregate_index_statistics(thd->thd_ius);
+  // TODO: A better solution would be to have RowIterator objects define a
+  // custom destructor which would aggregate into a central data structure upon
+  // end of execution. However, performance evaluation would take a bit more
+  // time.
+  if (!is_part_of_sp()) aggregate_index_statistics(thd->thd_ius);
 
   THD_STAGE_INFO(thd, stage_end);
 
