@@ -19,6 +19,7 @@ SET DEBUG_SYNC= 'after_shutdown_active_vio signal killed';
 --send_eval kill $CON_ID;
 
 connection con2;
+--replace_regex /system error: [0-9]+/system error: NUM/
 --error 2013
 change_user baz;
 
