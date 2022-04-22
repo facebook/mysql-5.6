@@ -1,0 +1,56 @@
+set @redr_default = @@rocksdb_enable_delete_range_for_drop_index;
+set global rocksdb_enable_delete_range_for_drop_index = true;
+Case 1: Truncate table with auto_increment
+create table t1 (
+id int not null auto_increment,
+description varchar(50),
+primary key(id)
+) engine=rocksdb auto_increment=0;
+insert into t1 (description) values ('one');
+insert into t1 (description) values ('two');
+insert into t1 (description) values ('three');
+select * from t1;
+id	description
+1	one
+2	two
+3	three
+truncate t1;
+select count(*) from t1;
+count(*)
+0
+insert into t1 (description) values ('one');
+select * from t1;
+id	description
+1	one
+include/assert.inc [Index number should change after truncate table]
+drop table t1;
+Case 2: Alter table drop index
+create table t1 (
+id1 int unsigned not null default '0',
+id2 int unsigned not null default '0',
+primary key (id1),
+key `secondary_key` (id2)
+) engine=RocksDB;
+insert into t1 (id1, id2) values(1, 1);
+insert into t1 (id1, id2) values(2, 2);
+insert into t1 (id1, id2) values(3, 3);
+alter table t1 drop index secondary_key;
+select count(*) from information_schema.rocksdb_ddl where table_schema = 'test' and table_name = 't1';
+count(*)
+1
+drop table t1;
+Case 3: Drop table
+create table t1 (
+id1 int unsigned not null default '0',
+id2 int unsigned not null default '0',
+primary key (id1),
+key `secondary_key` (id2)
+) engine=RocksDB;
+insert into t1 (id1, id2) values(1, 1);
+insert into t1 (id1, id2) values(2, 2);
+insert into t1 (id1, id2) values(3, 3);
+drop table t1;
+select count(*) from information_schema.rocksdb_ddl where table_schema = 'test' and table_name = 't1';
+count(*)
+0
+set global rocksdb_enable_delete_range_for_drop_index = @redr_default;
