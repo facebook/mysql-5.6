@@ -363,7 +363,7 @@ Table	Op	Msg_type	Msg_text
 test.t2	analyze	status	OK
 EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col2 = 0x34567;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	custom_p2	ref	col3	col3	258	const	1	50.00	Using index condition
+1	SIMPLE	t2	custom_p2	ref	col3	col3	258	const	ROWS	FILTERED	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`col1` AS `col1`,`test`.`t2`.`col2` AS `col2`,`test`.`t2`.`col3` AS `col3`,`test`.`t2`.`col4` AS `col4`,`test`.`t2`.`col5` AS `col5` from `test`.`t2` where ((`test`.`t2`.`col2` = 0x034567) and (`test`.`t2`.`col3` = 0x04))
 DROP TABLE t2;
@@ -418,7 +418,7 @@ Table	Op	Msg_type	Msg_text
 test.t2	analyze	status	OK
 EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col5 = 3;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t2	custom_p0,custom_p1,custom_p2,custom_p3,custom_p4,custom_p5,custom_p6,custom_p7	ref	col3	col3	258	const	#	10.00	Using index condition; Using where
+1	SIMPLE	t2	custom_p0,custom_p1,custom_p2,custom_p3,custom_p4,custom_p5,custom_p6,custom_p7	ref	col3	col3	258	const	ROWS	FILTERED	Using index condition; Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t2`.`col1` AS `col1`,`test`.`t2`.`col2` AS `col2`,`test`.`t2`.`col3` AS `col3`,`test`.`t2`.`col4` AS `col4`,`test`.`t2`.`col5` AS `col5`,`test`.`t2`.`col6` AS `col6` from `test`.`t2` where ((`test`.`t2`.`col3` = 0x04) and (`test`.`t2`.`col5` = 3))
 DROP TABLE t2;

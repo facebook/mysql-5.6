@@ -424,6 +424,7 @@ ANALYZE TABLE t2;
 
 # col2 is part of PK, so it was added to SK
 # That's why we do not expect here.
+--replace_column 10 ROWS 11 FILTERED
 EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col2 = 0x34567;
 
 DROP TABLE t2;
@@ -485,7 +486,7 @@ ANALYZE TABLE t2;
 
 # col5 is not part of PK (it is not part of any key), so it was not added to SK
 # That's why we expect 'Using where' here.
---replace_column 10 #
+--replace_column 10 ROWS 11 FILTERED
 EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col5 = 3;
 
 DROP TABLE t2;
@@ -574,4 +575,3 @@ INSERT INTO t1 values (1);
 TRUNCATE TABLE t1;
 SELECT * FROM t1;
 DROP TABLE t1;
-

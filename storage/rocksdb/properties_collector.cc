@@ -171,6 +171,7 @@ void Rdb_tbl_prop_coll::CollectStatsForRow(const rocksdb::Slice &key,
     case rocksdb::kEntryMerge:
       stats->m_entry_merges++;
       break;
+    case rocksdb::kEntryRangeDeletion:
     case rocksdb::kEntryOther:
       stats->m_entry_others++;
       break;

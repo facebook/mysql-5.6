@@ -7,3 +7,7 @@ rocksdb_write_policy=write_prepared
 [write_unprepared]
 rocksdb_write_policy=write_unprepared
 rocksdb_write_batch_flush_threshold=1
+
+[write_committed_with_delete_range]
+rocksdb_write_policy=write_committed
+rocksdb_enable_delete_range_for_drop_index = ON
