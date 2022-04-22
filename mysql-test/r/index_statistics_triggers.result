@@ -1,0 +1,43 @@
+DROP TABLE IF EXISTS tbl1;
+DROP TABLE IF EXISTS tbl2;
+DROP DATABASE IF EXISTS is_test;
+CREATE DATABASE is_test;
+USE is_test;
+
+Turn index stats on.
+
+SET GLOBAL index_stats_control = ON;
+
+Create INNODB table with 2 columns.
+
+CREATE TABLE tbl1(a int primary key, b int) engine=innodb;
+
+Insert dummy data into tbl1.
+
+INSERT INTO tbl1 values(1,1), (2,2),(3,3);
+
+Create another table with 2 columns to define a trigger.
+
+CREATE TABLE tbl2(a int primary key, b int) engine=innodb;
+
+Define a trigger that copies data into tbl2.
+
+CREATE TRIGGER t after update ON tbl1 FOR EACH ROW INSERT INTO tbl2(a, b) values(new.a, new.b);
+
+Updating data in tbl1.
+
+UPDATE tbl1 SET b = 5 WHERE a > 1;
+
+Querying index statistics.
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, ROWS_REQUESTED
+FROM performance_schema.index_statistics ORDER BY TABLE_NAME, INDEX_NAME;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	ROWS_REQUESTED
+is_test	tbl1	PRIMARY	3
+
+Cleanup phase.
+
+set global index_stats_control = OFF_HARD;
+DROP TABLE tbl1;
+DROP TABLE tbl2;
+DROP DATABASE is_test;
