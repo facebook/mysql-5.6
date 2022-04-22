@@ -2865,7 +2865,7 @@ void Relay_log_info::set_last_master_timestamp(time_t ts, ulonglong ts_millis) {
   */
   if (ts > last_master_timestamp) {
     // penultimate_master_timestamp= last_master_timestamp;
-    last_master_timestamp = std::min(ts, now_sec);
+    last_master_timestamp = std::min<long long>(ts, now_sec);
     mysql_bin_log.last_master_timestamp.store(last_master_timestamp);
   }
 
