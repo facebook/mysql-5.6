@@ -48,7 +48,7 @@ extern my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key,
     rdb_sst_commit_key, rdb_block_cache_resize_mutex_key;
 
 extern my_core::PSI_rwlock_key key_rwlock_collation_exception_list,
-    key_rwlock_read_free_rpl_tables, key_rwlock_skip_unique_check_tables;
+    key_rwlock_read_free_rpl_tables;
 
 extern my_core::PSI_cond_key rdb_signal_bg_psi_cond_key,
     rdb_signal_drop_idx_psi_cond_key, rdb_signal_is_psi_cond_key,

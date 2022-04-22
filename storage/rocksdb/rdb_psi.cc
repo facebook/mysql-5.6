@@ -80,14 +80,12 @@ my_core::PSI_mutex_info all_rocksdb_mutexes[] = {
 };
 
 my_core::PSI_rwlock_key key_rwlock_collation_exception_list,
-    key_rwlock_read_free_rpl_tables, key_rwlock_skip_unique_check_tables;
+    key_rwlock_read_free_rpl_tables;
 
 my_core::PSI_rwlock_info all_rocksdb_rwlocks[] = {
     {&key_rwlock_collation_exception_list, "collation_exception_list",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
     {&key_rwlock_read_free_rpl_tables, "read_free_rpl_tables",
-     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-    {&key_rwlock_skip_unique_check_tables, "skip_unique_check_tables",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 };
 
