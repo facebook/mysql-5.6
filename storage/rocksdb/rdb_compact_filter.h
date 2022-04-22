@@ -139,11 +139,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
     if (!rdb_get_dict_manager()
              ->get_dict_manager_selector_const(gl_index_id.cf_id)
              ->get_index_info(gl_index_id, &index_info)) {
-      // NO_LINT_DEBUG
-      sql_print_error(
-          "RocksDB: Could not get index information "
-          "for Index Number (%u,%u)",
-          gl_index_id.cf_id, gl_index_id.index_id);
+      return;
     }
 
 #ifndef NDEBUG

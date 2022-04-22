@@ -954,6 +954,7 @@ rocksdb_disable_file_deletions	OFF
 rocksdb_disable_instant_ddl	ON
 rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON
+rocksdb_enable_delete_range_for_drop_index	OFF
 rocksdb_enable_insert_with_update_caching	ON
 rocksdb_enable_iterate_bounds	ON
 rocksdb_enable_remove_orphaned_dropped_cfs	ON

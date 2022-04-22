@@ -336,7 +336,9 @@ SELECT col1, HEX(col2), HEX(col3), col4, HEX(col5) FROM t2;
 # Verify it's being fetched from the right partition. This tests partitioning
 # functionality, but we want to make sure that by adding CF-s per partition we
 # don't regress anything.
+--replace_column 10 ROWS 11 FILTERED
 EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x12345;
+--replace_column 10 ROWS 11 FILTERED
 EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x23456;
 
 # Delete the current PK and create a new one referencing different CF-s. We
@@ -408,6 +410,7 @@ INSERT INTO t2 VALUES (400, 0x89ABC, 0x4, 1, 0x5);
 INSERT INTO t2 VALUES (500, 0x6789A, 0x5, 1, 0x7);
 
 # Basic verification that correct partition and key are used when searching.
+--replace_column 10 ROWS 11 FILTERED
 EXPLAIN SELECT  * FROM t2 WHERE col2 = 0x6789A AND col4 = 1;
 
 # Remove the key.
@@ -424,6 +427,7 @@ ANALYZE TABLE t2;
 
 # col2 is part of PK, so it was added to SK
 # That's why we do not expect here.
+--replace_column 10 ROWS 11 FILTERED
 EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col2 = 0x34567;
 
 DROP TABLE t2;
@@ -469,6 +473,7 @@ INSERT INTO t2 VALUES (400, 0x89ABC, 0x4, 1, 0x5, 6);
 INSERT INTO t2 VALUES (500, 0x6789A, 0x5, 1, 0x7, 7);
 
 # Basic verification that correct partition and key are used when searching.
+--replace_column 10 ROWS 11 FILTERED
 EXPLAIN SELECT  * FROM t2 WHERE col2 = 0x6789A AND col4 = 1;
 
 # Remove the key.
@@ -485,7 +490,7 @@ ANALYZE TABLE t2;
 
 # col5 is not part of PK (it is not part of any key), so it was not added to SK
 # That's why we expect 'Using where' here.
---replace_column 10 #
+--replace_column 10 ROWS 11 FILTERED
 EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col5 = 3;
 
 DROP TABLE t2;
@@ -574,4 +579,3 @@ INSERT INTO t1 values (1);
 TRUNCATE TABLE t1;
 SELECT * FROM t1;
 DROP TABLE t1;
-

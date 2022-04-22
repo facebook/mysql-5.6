@@ -1,5 +1,6 @@
 --source include/have_rocksdb.inc
 --source suite/rocksdb/include/have_write_committed.inc
+--source include/have_compact_range_for_drop_table.inc
 --source include/count_sessions.inc
 
 #

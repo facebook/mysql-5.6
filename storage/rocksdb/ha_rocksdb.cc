@@ -515,7 +515,7 @@ static int rocksdb_force_flush_memtable_now(
   rocksdb_flush_all_memtables();
   return HA_EXIT_SUCCESS;
 }
-
+static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices);
 static void rocksdb_force_flush_memtable_and_lzero_now_stub(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -828,6 +828,8 @@ static bool rocksdb_alter_column_default_inplace = false;
 static bool rocksdb_disable_instant_ddl = false;
 static bool rocksdb_alter_table_comment_inplace = false;
 bool rocksdb_enable_tmp_table = false;
+bool rocksdb_enable_delete_range_for_drop_index = false;
+
 static std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 static std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 static std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
@@ -2546,6 +2548,12 @@ static MYSQL_SYSVAR_BOOL(enable_tmp_table, rocksdb_enable_tmp_table,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Allow rocksdb tmp tables", nullptr, nullptr, false);
 
+static MYSQL_SYSVAR_BOOL(enable_delete_range_for_drop_index,
+                         rocksdb_enable_delete_range_for_drop_index,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Enable drop table/index by delete range", nullptr,
+                         nullptr, false);
+
 static MYSQL_SYSVAR_BOOL(alter_table_comment_inplace,
                          rocksdb_alter_table_comment_inplace,
                          PLUGIN_VAR_RQCMDARG,
@@ -2760,6 +2768,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(enable_tmp_table),
     MYSQL_SYSVAR(alter_table_comment_inplace),
     MYSQL_SYSVAR(column_default_value_as_expression),
+    MYSQL_SYSVAR(enable_delete_range_for_drop_index),
     nullptr};
 
 static bool is_tmp_table(const std::string &tablename) {
@@ -12510,6 +12519,68 @@ rocksdb::Range ha_rocksdb::get_range(
   return get_range(*m_key_descr_arr[i], buf);
 }
 
+static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices) {
+  int ret = 0;
+  rocksdb::WriteBatch batch;
+  for (const auto &d : indices) {
+    auto local_dict_manager =
+        dict_manager.get_dict_manager_selector_non_const(d.cf_id);
+    uint32 cf_flags = 0;
+    if (!local_dict_manager->get_cf_flags(d.cf_id, &cf_flags)) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: Failed to get column family flags "
+          "from cf id %u. MyRocks data dictionary may "
+          "get corrupted.",
+          d.cf_id);
+      ret = 1;
+      return ret;
+    }
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+        cf_manager.get_cf(d.cf_id);
+    assert(cfh);
+    const bool is_reverse_cf = cf_flags & Rdb_key_def::REVERSE_CF_FLAG;
+
+    uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
+    rocksdb::Range range = get_range(d.index_id, buf, is_reverse_cf ? 1 : 0,
+                                     is_reverse_cf ? 0 : 1);
+    rocksdb::Status status = DeleteFilesInRange(rdb->GetBaseDB(), cfh.get(),
+                                                &range.start, &range.limit);
+    if (!status.ok()) {
+      // NO_LINT_DEBUG
+      sql_print_warning(
+          "RocksDB: Failed to call DeleteFilesInRange for [cf_id %u, index_id "
+          "%u] with status [%s]",
+          d.cf_id, d.index_id, status.ToString().c_str());
+    }
+    status = batch.DeleteRange(cfh.get(), range.start, range.limit);
+    if (!status.ok()) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "RocksDB: Failed to call DeleteRange for [cf_id %u, index_id %u] "
+          "with status [%s]",
+          d.cf_id, d.index_id, status.ToString().c_str());
+      ret = 1;
+      return ret;
+    }
+  }
+
+  // Followed the same policy as we do in Rdb_dict_manager::commit.
+  rocksdb::TransactionDBWriteOptimizations optimize;
+  optimize.skip_concurrency_control = true;
+  optimize.skip_duplicate_key_check = true;
+  rocksdb::Status status =
+      rdb->Write(rocksdb::WriteOptions(), optimize, &batch);
+
+  if (status.ok()) {
+    if (!rdb_sync_wal_supported()) {
+      // If we don't support SyncWAL, do a flush at least
+      rdb->FlushWAL(false);
+    }
+  }
+  return HA_EXIT_SUCCESS;
+}
+
 /*
  This function is called with total_order_seek=true, but
  upper/lower bound setting is not necessary.
@@ -12749,9 +12820,21 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
 
   {
     std::lock_guard<Rdb_dict_manager> dm_lock(*local_dict_manager);
-    local_dict_manager->add_drop_table(tbl->m_key_descr_arr, tbl->m_key_count,
-                                       batch);
-
+    if (rocksdb_enable_delete_range_for_drop_index) {
+      std::unordered_set<GL_INDEX_ID> dropped_index_ids;
+      for (uint32 i = 0; i < tbl->m_key_count; i++) {
+        dropped_index_ids.insert(tbl->m_key_descr_arr[i]->get_gl_index_id());
+        local_dict_manager->delete_index_info(
+            batch, tbl->m_key_descr_arr[i]->get_gl_index_id());
+      }
+      int err = delete_range(dropped_index_ids);
+      if (err) {
+        DBUG_RETURN(err);
+      }
+    } else {
+      local_dict_manager->add_drop_table(tbl->m_key_descr_arr, tbl->m_key_count,
+                                         batch);
+    }
     /*
       Remove the table entry in data dictionary (this will also remove it from
       the persistent data dictionary).
@@ -12771,7 +12854,9 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
     assert(!debug_sync_set_action(ha_thd(), STRING_WITH_LEN(act)));
   });
 
-  rdb_drop_idx_thread.signal();
+  if (!rocksdb_enable_delete_range_for_drop_index) {
+    rdb_drop_idx_thread.signal();
+  }
   // avoid dangling pointer
   m_tbl_def = nullptr;
   DBUG_RETURN(HA_EXIT_SUCCESS);
@@ -14623,7 +14708,17 @@ bool ha_rocksdb::commit_inplace_alter_table(
             static_cast<Rdb_inplace_alter_ctx *>(*pctx);
 
         /* Mark indexes to be dropped */
-        local_dict_manager->add_drop_index(ctx->m_dropped_index_ids, batch);
+        if (rocksdb_enable_delete_range_for_drop_index) {
+          int err = delete_range(ctx->m_dropped_index_ids);
+          for (auto &index_id : ctx->m_dropped_index_ids) {
+            local_dict_manager->delete_index_info(batch, index_id);
+          }
+          if (err) {
+            DBUG_RETURN(err);
+          }
+        } else {
+          local_dict_manager->add_drop_index(ctx->m_dropped_index_ids, batch);
+        }
 
         for (const auto &index : ctx->m_added_indexes) {
           create_index_ids.insert(index->get_gl_index_id());
@@ -14663,8 +14758,9 @@ bool ha_rocksdb::commit_inplace_alter_table(
           "wait_for mark_cf_dropped_done_after_commit_alter_table";
       assert(!debug_sync_set_action(ha_thd(), STRING_WITH_LEN(act)));
     });
-
-    rdb_drop_idx_thread.signal();
+    if (!rocksdb_enable_delete_range_for_drop_index) {
+      rdb_drop_idx_thread.signal();
+    }
 
     if (rocksdb_table_stats_use_table_scan && !ctx0->m_added_indexes.empty()) {
       // If new indexes are created, add the table to the recalc queue
