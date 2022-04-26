@@ -4014,6 +4014,11 @@ enum_alter_inplace_result Partition_base::check_if_supported_inplace_alter(
     enum_alter_inplace_result p_result =
         m_file[index]->check_if_supported_inplace_alter(altered_table,
                                                         ha_alter_info);
+    /* TODO: Enable instant DDL on partition for myrocks */
+    if (p_result == HA_ALTER_INPLACE_INSTANT) {
+      DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+    }
+
     part_inplace_ctx->handler_ctx_array[index] = ha_alter_info->handler_ctx;
 
     if (index == 0) {
