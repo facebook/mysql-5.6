@@ -440,15 +440,6 @@ INSERT INTO t1(i, b) VALUES (NULL, DEFAULT);
 SELECT * FROM t1;
 DROP TABLE t1;
 
-CREATE TABLE t1 (i INT, b char(255) DEFAULT (md5(i)), j INT GENERATED ALWAYS AS (i*2));
-SHOW COLUMNS FROM t1;
-INSERT INTO t1(i) VALUES (1);
-INSERT INTO t1(i, b) VALUES (2, DEFAULT);
-INSERT INTO t1(i, b) VALUES (3, "some string");
-INSERT INTO t1(i, b) VALUES (NULL, DEFAULT);
-SELECT * FROM t1;
-DROP TABLE t1;
-
 --echo #
 --echo # Make sure there's no memory leaking after failed ALTER TABLE.
 --echo # (coverage for err tag in open_table_from_share)
@@ -803,24 +794,6 @@ select * from t1;
 DROP TABLE t1;
 
 --echo #
---echo # Bug#28016783 	WL#9418: SIG6 IN MY_EVAL_GCOLUMN_EXPR_HELPER() AT SQL/HANDLER.CC
---echo #
-CREATE TABLE IF NOT EXISTS D1 (i2 INT DEFAULT 568447044, d1 DOUBLE,
-                               d2 DOUBLE DEFAULT 0.0, c2 CHAR(255),
-                               def2 DOUBLE DEFAULT( i2 DIV d2 ),
-                               v1 INT AS ( d2 = c2 % ASIN( d1 ) > i2 ) VIRTUAL);
-INSERT ignore INTO D1 (  i2, d1, d2, c2, def2)
-VALUES ( 1548385958 , d1 ,128158532 , 0.0 , DEFAULT);
-ALTER TABLE D1 ADD UNIQUE KEY uidx ( def2 , v1 , d2 );
-DROP TABLE D1;
-
-CREATE TABLE IF NOT EXISTS D1 (def2 DOUBLE DEFAULT( 100 DIV 0 ),
-                               v1 INT AS (1) VIRTUAL);
-INSERT IGNORE INTO D1 (def2) VALUES (1);
-ALTER TABLE D1 ADD UNIQUE KEY uidx ( def2 , v1 );
-DROP TABLE D1;
-
---echo #
 --echo # Bug#28046624 	WL#9418: INCORRECT BEHAVIOR OF DEFAULT WITH MODIFY COLUMN
 --echo #
 CREATE TABLE t1 ( i int, j int DEFAULT (i) ) ;
@@ -998,26 +971,6 @@ DROP TABLE t1;
 --echo #
 
 --echo #
---echo # 1) Simple case, when generated column value depends on generated
---echo #    default value.
-CREATE TABLE t1 (a INT PRIMARY KEY);
-CREATE TABLE t2 LIKE t1;
-CREATE TABLE t3 LIKE t1;
-INSERT INTO t1 VALUES (1), (2);
-INSERT INTO t2 SELECT * FROM t1;
-INSERT INTO t3 SELECT * FROM t1;
-ALTER TABLE t1 ADD COLUMN b INT DEFAULT (a), ADD COLUMN c INT GENERATED ALWAYS AS (-b) STORED;
---echo # Repeat the test with explicit ALGORITHM=COPY
-ALTER TABLE t2 ADD COLUMN b INT DEFAULT (a), ADD COLUMN c INT GENERATED ALWAYS AS (-b) STORED, ALGORITHM=COPY;
---echo # INPLACE addition of generated columns and defaults is not supported.
---error ER_ALTER_OPERATION_NOT_SUPPORTED
-ALTER TABLE t3 ADD COLUMN b INT DEFAULT (a), ADD COLUMN c INT GENERATED ALWAYS AS (-b) STORED, ALGORITHM=INPLACE;
-SELECT * FROM t1;
-SELECT * FROM t2;
-SELECT * FROM t3;
-DROP TABLES t1, t2, t3;
-
---echo #
 --echo # 2) Column with generated default "replaces" old column.
 CREATE TABLE t1 (a INT, b INT);
 CREATE TABLE t2 LIKE t1;
@@ -1047,37 +1000,6 @@ ALTER TABLE t1 ADD COLUMN c INT AFTER a;
 ALTER TABLE t2 ADD COLUMN c INT AFTER a, ALGORITHM=COPY;
 --error ER_ALTER_OPERATION_NOT_SUPPORTED
 ALTER TABLE t3 ADD COLUMN c INT AFTER a, ALGORITHM=INPLACE;
-SELECT * FROM t1;
-SELECT * FROM t2;
-SELECT * FROM t3;
-DROP TABLES t1, t2, t3;
-
---echo #
---echo # 4) Complex case. Addition of generated column which depends on
---echo #    generated default, which depends on generated column, which
---echo #    which depends on generated default.
-CREATE TABLE t1 (a INT PRIMARY KEY);
-CREATE TABLE t2 LIKE t1;
-CREATE TABLE t3 LIKE t1;
-INSERT INTO t1 VALUES (1), (2), (3);
-INSERT INTO t2 SELECT * FROM t1;
-INSERT INTO t3 SELECT * FROM t1;
-ALTER TABLE t1 ADD COLUMN b INT DEFAULT (a),
-               ADD COLUMN c INT GENERATED ALWAYS AS (-b) STORED,
-               ADD COLUMN d INT DEFAULT (c),
-               ADD COLUMN e INT GENERATED ALWAYS AS (-d) STORED;
-ALTER TABLE t2 ADD COLUMN b INT DEFAULT (a),
-               ADD COLUMN c INT GENERATED ALWAYS AS (-b) STORED,
-               ADD COLUMN d INT DEFAULT (c),
-               ADD COLUMN e INT GENERATED ALWAYS AS (-d) STORED,
-               ALGORITHM=COPY;
---echo # INPLACE addition of generated columns and defaults is not supported.
---error ER_ALTER_OPERATION_NOT_SUPPORTED
-ALTER TABLE t3 ADD COLUMN b INT DEFAULT (a),
-               ADD COLUMN c INT GENERATED ALWAYS AS (-b) STORED,
-               ADD COLUMN d INT DEFAULT (c),
-               ADD COLUMN e INT GENERATED ALWAYS AS (-d) STORED,
-               ALGORITHM=INPLACE;
 SELECT * FROM t1;
 SELECT * FROM t2;
 SELECT * FROM t3;
