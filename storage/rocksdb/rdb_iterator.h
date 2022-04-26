@@ -206,7 +206,8 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
  public:
   Rdb_iterator_partial(THD *thd, const std::shared_ptr<Rdb_key_def> kd,
                        const std::shared_ptr<Rdb_key_def> pkd,
-                       const Rdb_tbl_def *tbl_def, TABLE *table);
+                       const Rdb_tbl_def *tbl_def, TABLE *table,
+                       const dd::Table *dd_table);
   ~Rdb_iterator_partial() override;
 
   int seek(enum ha_rkey_function find_flag, const rocksdb::Slice start_key,
