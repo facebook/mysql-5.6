@@ -60,6 +60,7 @@ class Rdb_convert_to_record_value_decoder {
   static int decode(uchar *const buf, TABLE *table,
                     Rdb_field_encoder *field_dec, Rdb_string_reader *reader,
                     bool decode, bool is_null);
+  static int decode_instant(uchar *const buf, Rdb_field_encoder *field_dec);
 
  private:
   static int decode_blob(TABLE *table, uchar *const buf,
@@ -129,7 +130,8 @@ class Rdb_converter {
   /*
     Initialize converter with table data
   */
-  Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def, TABLE *table);
+  Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def, TABLE *table,
+                const dd::Table *dd_table);
   Rdb_converter(const Rdb_converter &decoder) = delete;
   Rdb_converter &operator=(const Rdb_converter &decoder) = delete;
   ~Rdb_converter();
@@ -179,7 +181,7 @@ class Rdb_converter {
                                  const std::shared_ptr<Rdb_key_def> &pk_def,
                                  rocksdb::Slice *unpack_slice);
 
-  void setup_field_encoders();
+  void setup_field_encoders(const dd::Table *dd_table);
 
   void get_storage_type(Rdb_field_encoder *const encoder, const uint kp);
 

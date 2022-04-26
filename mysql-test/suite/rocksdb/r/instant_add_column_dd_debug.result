@@ -89,92 +89,90 @@ Instant columns equal
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
-ALTER TABLE t1 ADD COLUMN i1 DECIMAL(5, 2), ADD COLUMN i2 double, ALGORITHM=INSTANT;
+ALTER TABLE t1 ADD COLUMN i1 DECIMAL(5, 2), ADD COLUMN i2 double;
 SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
-1
+NULL
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN j1 DECIMAL(5, 2) NOT NULL DEFAULT 100.00, ADD COLUMN j2 double NOT NULL DEFAULT 1000.5678;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
-Instant columns equal
-1
+count(*) = 1
+0
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN k1 BIT(8), ALGORITHM=INSTANT;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 16 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN k2 BIT(8) NOT NULL DEFAULT b'101010';
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 16 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN m1 CHAR(50) default 'The fox jumps over', ADD COLUMN m2 VARCHAR(50) DEFAULT 'The fox jumps over the lazy dog.';
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 16 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN n1 BINARY(10), ADD COLUMN n2 VARBINARY(10), ALGORITHM=DEFAULT;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 16 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN o1 BINARY(10) DEFAULT 0x11223344, ADD COLUMN o2 VARBINARY(10) DEFAULT 0x55667788;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 16 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN p1 DATETIME, ALGORITHM=DEFAULT;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 16 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
-1
+NULL
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN p2 DATETIME NOT NULL DEFAULT '2017-12-31 01:02:03';
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
-Instant columns equal
+count(*) = 1
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN q1 ENUM ('value1','value2','value3'), ALGORITHM=INSTANT;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 27 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN r1 SET ('a','b','c'), ALGORITHM=INSTANT;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 27 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN s1 BLOB, ADD COLUMN s2 TEXT, ALGORITHM=INSTANT;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 27 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 ALTER TABLE t1 ADD COLUMN u1 BLOB NOT NULL, ADD COLUMN u2 TEXT NOT NULL;
-SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+SELECT 27 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
 Instant columns equal
 1
 CHECK TABLE t1;
@@ -315,14 +313,14 @@ test.t1	check	status	OK
 ALTER TABLE t1 ALTER COLUMN c SET DEFAULT 500;
 SELECT count(*) FROM mysql.columns WHERE name = 'c' AND se_private_data is not NULL;
 count(*)
-0
+1
 SELECT count(*) FROM mysql.columns WHERE name = 'e' AND se_private_data is not NULL;
 count(*)
-0
+1
 ALTER TABLE t1 ALTER COLUMN e SET DEFAULT 'HELLO MySQL!';
 SELECT count(*) FROM mysql.columns WHERE name = 'e' AND se_private_data is not NULL;
 count(*)
-0
+1
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK

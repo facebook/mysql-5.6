@@ -16,15 +16,13 @@
 
 #include "sql_dd.h"
 #include <assert.h>
+#include <memory>
 #include "./rdb_utils.h"
 #include "my_sys.h"
 #include "mysql/psi/psi_memory.h"
 #include "mysql/service_mysql_alloc.h"
 
 namespace myrocks {
-
-/* Note that inside MySQL 'byte' is defined as char on Linux! */
-#define byte unsigned char
 
 #ifdef UNIV_DEBUG
 bool dd_instant_columns_exist(const dd::Table &dd_table) {
@@ -107,11 +105,11 @@ void dd_add_instant_columns(const TABLE *old_table, const TABLE *altered_table,
 #endif
     uint32_t size = field->data_length();
     size_t length = 0;
-    const char *value = coder.encode(
-        reinterpret_cast<const byte *>(field->data_ptr()), size, &length);
+    std::unique_ptr<char[]> value = coder.encode(
+        reinterpret_cast<const uchar *>(field->data_ptr()), size, &length);
 
     dd::String_type default_value;
-    default_value.assign(dd::String_type(value, length));
+    default_value.assign(dd::String_type(value.get(), length));
     se_private.set(dd_column_key_strings[DD_INSTANT_COLUMN_DEFAULT],
                    default_value);
   }
@@ -134,17 +132,21 @@ const dd::Column *dd_find_column(const dd::Table *dd_table, const char *name) {
   return (nullptr);
 }
 
-void db_table_get_instant_default(const dd::Column &column,
-                                  const uchar **default_value, size_t *len) {
-  dd::String_type value;
-  const dd::Properties &se_private = column.se_private_data();
-  se_private.get(dd_column_key_strings[DD_INSTANT_COLUMN_DEFAULT], &value);
-  DD_instant_col_val_coder coder;
-  auto val = coder.decode(value.c_str(), value.length(), len);
-  auto dst =
-      reinterpret_cast<uchar *>(my_malloc(PSI_NOT_INSTRUMENTED, *len, MYF(0)));
-  memcpy(dst, val, *len);
-  *default_value = dst;
+void dd_table_get_instant_default(const dd::Column &column,
+                                  uchar **default_value, size_t *len) {
+  const dd::Properties &se_private_data = column.se_private_data();
+  if (se_private_data.exists(
+          dd_column_key_strings[DD_INSTANT_COLUMN_DEFAULT_NULL])) {
+    *default_value = nullptr;
+    *len = 0;
+  } else if (se_private_data.exists(
+                 dd_column_key_strings[DD_INSTANT_COLUMN_DEFAULT])) {
+    dd::String_type value;
+    se_private_data.get(dd_column_key_strings[DD_INSTANT_COLUMN_DEFAULT],
+                        &value);
+    DD_instant_col_val_coder coder;
+    *default_value = coder.decode(value.c_str(), value.length(), len);
+  }
 }
 /** Copy the engine-private parts of column definitions of a table.
 @param[in,out]	new_table	Copy of old table
@@ -170,21 +172,33 @@ void dd_copy_table_columns(dd::Table &new_table, const dd::Table &old_table) {
   }
 }
 
+/** Copy the engine-private parts of a table or partition definition
+when the change does not affect RocksDB. This mainly copies the common
+private data between dd::Table
+@tparam		Table		dd::Table
+@param[in,out]	new_table	Copy of old table or partition definition
+@param[in]	old_table	Old table or partition definition */
+void dd_copy_private(dd::Table &new_table, const dd::Table &old_table) {
+  new_table.se_private_data().clear();
+  new_table.set_se_private_id(old_table.se_private_id());
+  new_table.set_se_private_data(old_table.se_private_data());
+  new_table.table().set_row_format(old_table.table().row_format());
+  new_table.options().clear();
+  new_table.set_options(old_table.options());
+}
+
 /** The encode() will change the byte stream into char stream, by spliting
 every byte into two chars, for example, 0xFF, would be split into 0x0F and 0x0F.
 So the final storage space would be double.
 @param[in]	stream	stream to encode in bytes
 @param[in]	in_len	length of the stream
 @param[out]	out_len	length of the encoded stream
-@return	the encoded stream, which would be destroyed if the class
+@return	the encoded stream, which would be destroyed if the unique_ptr
 itself is destroyed */
-const char *DD_instant_col_val_coder::encode(const byte *stream, size_t in_len,
-                                             size_t *out_len) {
-  cleanup();
-
-  m_result = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, in_len * 2, MYF(0)));
-  char *result = reinterpret_cast<char *>(m_result);
+std::unique_ptr<char[]> DD_instant_col_val_coder::encode(const uchar *stream,
+                                                         size_t in_len,
+                                                         size_t *out_len) {
+  char *result = new char[in_len * 2];
 
   for (size_t i = 0; i < in_len; ++i) {
     uint8_t v1 = ((stream[i] & 0xF0) >> 4);
@@ -196,7 +210,7 @@ const char *DD_instant_col_val_coder::encode(const byte *stream, size_t in_len,
 
   *out_len = in_len * 2;
 
-  return (result);
+  return std::unique_ptr<char[]>(result);
 }
 
 /** The decode() will change the char stream into byte stream, by merging
@@ -205,15 +219,12 @@ every two chars into one byte, for example, 0x0F and 0x0F, would be merged into
 @param[in]	stream	stream to decode in chars
 @param[in]	in_len	length of the stream
 @param[out]	out_len	length of the decoded stream
-@return	the decoded stream, which would be destroyed if the class
-itself is destroyed */
-const byte *DD_instant_col_val_coder::decode(const char *stream, size_t in_len,
-                                             size_t *out_len) {
+@return	the decoded stream, which would be destroyed by caller */
+uchar *DD_instant_col_val_coder::decode(const char *stream, size_t in_len,
+                                        size_t *out_len) {
   assert(in_len % 2 == 0);
 
-  cleanup();
-
-  m_result = reinterpret_cast<uchar *>(
+  uchar *result = reinterpret_cast<uchar *>(
       my_malloc(PSI_NOT_INSTRUMENTED, in_len / 2, MYF(0)));
 
   for (size_t i = 0; i < in_len / 2; ++i) {
@@ -223,12 +234,12 @@ const byte *DD_instant_col_val_coder::decode(const char *stream, size_t in_len,
     assert(isdigit(c1) || (c1 >= 'a' && c1 <= 'f'));
     assert(isdigit(c2) || (c2 >= 'a' && c2 <= 'f'));
 
-    m_result[i] = ((isdigit(c1) ? c1 - '0' : c1 - 'a' + 10) << 4) +
-                  ((isdigit(c2) ? c2 - '0' : c2 - 'a' + 10));
+    result[i] = ((isdigit(c1) ? c1 - '0' : c1 - 'a' + 10) << 4) +
+                ((isdigit(c2) ? c2 - '0' : c2 - 'a' + 10));
   }
 
   *out_len = in_len / 2;
 
-  return (m_result);
+  return result;
 }
 }  // namespace myrocks

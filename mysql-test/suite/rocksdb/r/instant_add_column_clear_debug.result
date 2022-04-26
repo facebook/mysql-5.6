@@ -1,0 +1,51 @@
+set @saved_rocksd_instant_ddl=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
+#
+# Scenario 1:
+# Create a normal table, rebuild and truncate will clear the instant
+# information
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 INT DEFAULT 10;
+count(*) = 1
+1
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+ALTER TABLE t1 ADD COLUMN c2 INT DEFAULT 20, ADD KEY(c2);
+SELECT 2 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+Instant columns equal
+NULL
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+ALTER TABLE t1 ADD COLUMN c3 INT DEFAULT 10;
+count(*) = 1
+1
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+TRUNCATE TABLE t1;
+SELECT 4 = REGEXP_SUBSTR(REGEXP_SUBSTR(se_private_data,'instant_col=[0-9]+'), '[0-9]+') AS `Instant columns equal` FROM mysql.tables WHERE name like '%t1%';
+Instant columns equal
+1
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` int DEFAULT '10',
+  `c2` int DEFAULT '20',
+  `c3` int DEFAULT '10',
+  PRIMARY KEY (`a`),
+  KEY `c2` (`c2`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;

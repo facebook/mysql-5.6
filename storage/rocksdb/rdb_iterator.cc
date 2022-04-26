@@ -365,11 +365,11 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
 Rdb_iterator_partial::Rdb_iterator_partial(
     THD *thd, const std::shared_ptr<Rdb_key_def> kd,
     const std::shared_ptr<Rdb_key_def> pkd, const Rdb_tbl_def *tbl_def,
-    TABLE *table)
+    TABLE *table, const dd::Table *dd_table)
     : Rdb_iterator_base(thd, kd, pkd, tbl_def),
       m_table(table),
       m_iterator_pk(thd, pkd, pkd, tbl_def),
-      m_converter(thd, tbl_def, table),
+      m_converter(thd, tbl_def, table, dd_table),
       m_valid(false),
       m_materialized(false),
       m_iterator_pk_position(Iterator_position::UNKNOWN),

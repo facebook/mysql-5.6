@@ -79,6 +79,14 @@ bool dd_instant_columns_exist(const dd::Table &dd_table);
  @param[in]  old_table Old table */
 void dd_copy_table_columns(dd::Table &new_table, const dd::Table &old_table);
 
+/** Copy the engine-private parts of a table or partition definition
+when the change does not affect InnoDB. This mainly copies the common
+private data between dd::Table and dd::Partition
+@tparam		Table		dd::Table or dd::Partition
+@param[in,out]	new_table	Copy of old table or partition definition
+@param[in]	old_table	Old table or partition definition */
+void dd_copy_private(dd::Table &new_table, const dd::Table &old_table);
+
 /** Determine if a dd::Table has any instant column
 @param[in]	table	dd::Table
 @return	true	If it's a table with instant columns
@@ -94,8 +102,8 @@ inline bool dd_table_has_instant_cols(const dd::Table &table) {
   return (instant);
 }
 
-void db_table_get_instant_default(const dd::Column &column,
-                                  const uchar **default_value, size_t *len);
+void dd_table_get_instant_default(const dd::Column &column,
+                                  uchar **default_value, size_t *len);
 
 void dd_add_instant_columns(const TABLE *old_table, const TABLE *altered_table,
                             dd::Table *new_dd_table MY_ATTRIBUTE((unused)));
@@ -110,37 +118,20 @@ into 0x0F and 0x0F. So the final storage space would be double. For the
 decode, it's the converse process, combining two chars into one byte. */
 class DD_instant_col_val_coder {
  public:
-  /** Constructor */
-  DD_instant_col_val_coder() : m_result(nullptr) {}
-
-  /** Destructor */
-  ~DD_instant_col_val_coder() { cleanup(); }
-
   /** Encode the specified stream in format of bytes into chars
   @param[in]	stream	stream to encode in bytes
   @param[in]	in_len	length of the stream
   @param[out]	out_len	length of the encoded stream
-  @return	the encoded stream, which would be destroyed if the class
-  itself is destroyed */
-  const char *encode(const unsigned char *stream, size_t in_len,
-                     size_t *out_len);
+  @return	the encoded stream, which would be destroyed */
+  std::unique_ptr<char[]> encode(const unsigned char *stream, size_t in_len,
+                                 size_t *out_len);
 
   /** Decode the specified stream, which is encoded by encode()
   @param[in]	stream	stream to decode in chars
   @param[in]	in_len	length of the stream
   @param[out]	out_len	length of the decoded stream
-  @return	the decoded stream, which would be destroyed if the class
-  itself is destroyed */
-  const unsigned char *decode(const char *stream, size_t in_len,
-                              size_t *out_len);
-
- private:
-  /** Clean-up last result */
-  void cleanup() { my_free(m_result); }
-
- private:
-  /** The encoded or decoded stream */
-  unsigned char *m_result;
+  @return	the decoded stream, which would be destroyed by caller */
+  uchar *decode(const char *stream, size_t in_len, size_t *out_len);
 };
 
 /** Update metadata in commit phase for instant ADD COLUMN. Basically, it

@@ -40,6 +40,7 @@
 #include "./sql/strfunc.h"
 #include "./sql/transaction.h"
 #include "mysql/services.h"
+#include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/sql_lex.h"
 
 /* MyRocks header files */
@@ -1505,7 +1506,7 @@ class select_exec {
   uint m_index;
   KEY *m_index_info;
   KEY *m_pk_info;
-
+  const dd::Table *m_dd_table;
   // Current query is not supported
   bool m_unsupported;
   const char *m_error_msg;
@@ -2076,7 +2077,17 @@ bool INLINE_ATTR select_exec::run() {
 
   m_key_def = m_tbl_def->m_key_descr_arr[m_index];
   m_pk_def = m_tbl_def->m_key_descr_arr[m_table_share->primary_key];
-  m_converter.reset(new Rdb_converter(m_thd, m_tbl_def, m_table));
+
+  // Query on table with instant cols require dd::Table
+  dd::cache::Dictionary_client *dd_client = m_thd->dd_client();
+  dd::cache::Dictionary_client::Auto_releaser releaser(dd_client);
+  if (!rocksdb_disable_instant_ddl &&
+      dd_client->acquire(m_table_share->db.str, m_table_share->table_name.str,
+                         &m_dd_table)) {
+    m_handler->print_error(HA_ERR_ROCKSDB_INVALID_TABLE, 0);
+    return true;
+  }
+  m_converter.reset(new Rdb_converter(m_thd, m_tbl_def, m_table, m_dd_table));
 
   // Scans WHERE and build the key and filter list
   if (scan_where()) {
@@ -2234,8 +2245,8 @@ bool INLINE_ATTR select_exec::run_pk_point_query(txn_wrapper *txn) {
 
 bool INLINE_ATTR select_exec::setup_iterator(THD *thd) {
   if (m_key_def->is_partial_index()) {
-    m_iterator.reset(
-        new Rdb_iterator_partial(thd, m_key_def, m_pk_def, m_tbl_def, m_table));
+    m_iterator.reset(new Rdb_iterator_partial(thd, m_key_def, m_pk_def,
+                                              m_tbl_def, m_table, m_dd_table));
   } else {
     m_iterator.reset(
         new Rdb_iterator_base(thd, m_key_def, m_pk_def, m_tbl_def));
