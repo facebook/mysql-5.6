@@ -1,0 +1,1521 @@
+set @saved_rocksd_instant_ddl=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
+#
+# Scenario 1:
+# Create a small table, and add all kinds of new columns and verify
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 INT, ALGORITHM=INSTANT;
+INSERT INTO t1(a, c1) VALUES(0, 1);
+SELECT count(*) = max(a) FROM t1 WHERE c1 IS NULL;
+count(*) = max(a)
+1
+SELECT c1 FROM t1 WHERE c1 = 1;
+c1
+1
+ALTER TABLE t1 ADD COLUMN c2 INT NOT NULL DEFAULT 10;
+INSERT INTO t1(a, c2) VALUES(0, 11);
+SELECT count(*) = max(a) FROM t1 WHERE c2 = 10;
+count(*) = max(a)
+1
+SELECT c2 FROM t1 WHERE c2 = 11;
+c2
+11
+ALTER TABLE t1 ADD COLUMN d1 BIGINT, ALGORITHM=INSTANT;
+INSERT INTO t1(a, d1) VALUES(0, 1);
+SELECT count(*) = max(a) FROM t1 WHERE d1 IS NULL;
+count(*) = max(a)
+1
+SELECT d1 FROM t1 WHERE d1 = 1;
+d1
+1
+ALTER TABLE t1 ADD COLUMN d2 BIGINT NOT NULL DEFAULT 1234567890;
+INSERT INTO t1(a, d2) VALUES(0, 1234);
+SELECT count(*) = max(a) FROM t1 WHERE d2 = 1234567890;
+count(*) = max(a)
+1
+SELECT d2 FROM t1 WHERE d2 = 1234;
+d2
+1234
+ALTER TABLE t1 ADD COLUMN e1 SMALLINT, ALGORITHM=INSTANT;
+INSERT INTO t1(a, e1) VALUES(0, 1);
+SELECT count(*) = max(a) FROM t1 WHERE e1 IS NULL;
+count(*) = max(a)
+1
+SELECT e1 FROM t1 WHERE e1 = 1;
+e1
+1
+ALTER TABLE t1 ADD COLUMN e2 SMALLINT NOT NULL DEFAULT 10;
+INSERT INTO t1(a, e2) VALUES(0, 11);
+SELECT count(*) = max(a) FROM t1 WHERE e2 = 10;
+count(*) = max(a)
+1
+SELECT e2 FROM t1 WHERE e2 = 11;
+e2
+11
+ALTER TABLE t1 ADD COLUMN f1 TINYINT, ALGORITHM=INSTANT;
+INSERT INTO t1(a, f1) VALUES(0, 1);
+SELECT count(*) = max(a) FROM t1 WHERE f1 IS NULL;
+count(*) = max(a)
+1
+SELECT f1 FROM t1 WHERE f1 = 1;
+f1
+1
+ALTER TABLE t1 ADD COLUMN f2 TINYINT NOT NULL DEFAULT 123;
+INSERT INTO t1(a, f2) VALUES(0, 12);
+SELECT count(*) = max(a) FROM t1 WHERE f2 = 123;
+count(*) = max(a)
+1
+SELECT f2 FROM t1 WHERE f2 = 12;
+f2
+12
+ALTER TABLE t1 ADD COLUMN g1 MEDIUMINT, ALGORITHM=INSTANT;
+INSERT INTO t1(a, g1) VALUES(0, 1);
+SELECT count(*) = max(a) FROM t1 WHERE g1 IS NULL;
+count(*) = max(a)
+1
+SELECT g1 FROM t1 WHERE g1 = 1;
+g1
+1
+ALTER TABLE t1 ADD COLUMN g2 MEDIUMINT NOT NULL DEFAULT 12345;
+INSERT INTO t1(a, g2) VALUES(0, 1234);
+SELECT count(*) = max(a) FROM t1 WHERE g2 = 12345;
+count(*) = max(a)
+1
+SELECT g2 FROM t1 WHERE g2 = 1234;
+g2
+1234
+ALTER TABLE t1 ADD COLUMN h1 FLOAT, ALGORITHM=INSTANT;
+INSERT INTO t1(a, h1) VALUES(0, 1.0);
+SELECT count(*) = max(a) FROM t1 WHERE h1 IS NULL;
+count(*) = max(a)
+1
+SELECT h1 FROM t1 WHERE h1 = 1;
+h1
+1
+ALTER TABLE t1 ADD COLUMN h2 FLOAT NOT NULL DEFAULT 12.34;
+INSERT INTO t1(a, h2) VALUES(0, 1.234);
+SELECT count(*) = max(a) FROM t1 WHERE h2 = 12.34;
+count(*) = max(a)
+NULL
+SELECT h2 FROM t1 WHERE h2 = 1.234;
+h2
+ALTER TABLE t1 ADD COLUMN h3 FLOAT DEFAULT 56.78, ADD COLUMN h4 FLOAT DEFAULT 99.99, ALGORITHM=COPY;
+ALTER TABLE t1 ADD COLUMN i1 DECIMAL(5, 2), ADD COLUMN i2 double, ALGORITHM=INSTANT;
+INSERT INTO t1(a, i1, i2) VALUES(0, 10.10, 20.20);
+SELECT count(*) = max(a) FROM t1 WHERE i1 IS NULL;
+count(*) = max(a)
+1
+SELECT count(*) = max(a) FROM t1 WHERE i2 IS NULL;
+count(*) = max(a)
+1
+SELECT i1 FROM t1 WHERE i1 = 10.10;
+i1
+10.10
+SELECT i2 FROM t1 WHERE i2 = 20.20;
+i2
+20.2
+ALTER TABLE t1 ADD COLUMN j1 DECIMAL(5, 2) NOT NULL DEFAULT 100.00, ADD COLUMN j2 double NOT NULL DEFAULT 1000.5678;
+INSERT INTO t1(a, j1, j2) VALUES(0, 90.90, 1000.1234);
+SELECT count(*) = max(a) FROM t1 WHERE j1 = 100.00;
+count(*) = max(a)
+1
+SELECT count(*) = max(a) FROM t1 WHERE j2 = 1000.5678;
+count(*) = max(a)
+1
+SELECT j1 FROM t1 WHERE j1 = 90.90;
+j1
+90.90
+SELECT j2 FROM t1 WHERE j2 = 1000.1234;
+j2
+1000.1234
+ALTER TABLE t1 ADD COLUMN k2 BIT(8) NOT NULL DEFAULT b'101010';
+INSERT INTO t1(a, k2) VALUES(0, b'110011');
+SELECT count(*) = max(a) FROM t1 WHERE k2 = b'101010';
+count(*) = max(a)
+1
+SELECT hex(k2) FROM t1 WHERE k2 = b'110011';
+hex(k2)
+33
+ALTER TABLE t1 ADD COLUMN l1 CHAR(50), ADD COLUMN l2 VARCHAR(100), ALGORITHM=DEFAULT;
+INSERT INTO t1(a, l1, l2) VALUES(0, 'ABCD EFGH', 'abcdefg hijklmn ');
+SELECT count(*) = max(a) FROM t1 WHERE l2 IS NULL;
+count(*) = max(a)
+1
+SELECT count(*) = max(a) FROM t1 WHERE l1 IS NULL;
+count(*) = max(a)
+1
+SELECT l1 FROM t1 WHERE l1 = 'ABCD EFGH';
+l1
+ABCD EFGH
+SELECT l2 FROM t1 WHERE l2 = 'abcdefg hijklmn ';
+l2
+abcdefg hijklmn 
+ALTER TABLE t1 ADD COLUMN m1 CHAR(50) default 'The fox jumps over', ADD COLUMN m2 VARCHAR(50) DEFAULT 'The fox jumps over the lazy dog.';
+INSERT INTO t1(a, m1, m2) VALUES(0, 'over the lazy dog', 'The lazy dog jumps over the fox.');
+SELECT count(*) = max(a) FROM t1 WHERE m1 = 'The fox jumps over';
+count(*) = max(a)
+1
+SELECT count(*) = max(a) FROM t1 WHERE m2 like 'The fox jumps%';
+count(*) = max(a)
+1
+SELECT m1 FROM t1 WHERE m1 = 'over the lazy dog';
+m1
+over the lazy dog
+SELECT m2 FROM t1 WHERE m2 like '%the fox.';
+m2
+The lazy dog jumps over the fox.
+ALTER TABLE t1 ADD COLUMN n1 BINARY(10), ADD COLUMN n2 VARBINARY(10), ALGORITHM=DEFAULT;
+INSERT INTO t1(a, n1, n2) VALUES(0, 0x010203040506070809, 0x102030405060708090);
+SELECT count(*) = max(a) FROM t1 WHERE n1 IS NULL;
+count(*) = max(a)
+1
+SELECT count(*) = max(a) FROM t1 WHERE n2 IS NULL;
+count(*) = max(a)
+1
+SELECT hex(n1) FROM t1 WHERE n1 = 0x01020304050607080900;
+hex(n1)
+01020304050607080900
+SELECT hex(n2) FROM t1 WHERE n2 = 0x102030405060708090;
+hex(n2)
+102030405060708090
+ALTER TABLE t1 ADD COLUMN o1 BINARY(10) DEFAULT 0x11223344, ADD COLUMN o2 VARBINARY(10) DEFAULT 0x55667788;
+INSERT INTO t1(a, o1, o2) VALUES(0, 0x44332211, 0x88776655);
+SELECT count(*) = max(a) FROM t1 WHERE o1 = 0x11223344000000000000;
+count(*) = max(a)
+1
+SELECT count(*) = max(a) FROM t1 WHERE o2 = 0x55667788;
+count(*) = max(a)
+1
+SELECT hex(o1) FROM t1 WHERE o1 = 0x44332211000000000000;
+hex(o1)
+44332211000000000000
+SELECT hex(o2) FROM t1 WHERE o2 = 0x88776655;
+hex(o2)
+88776655
+ALTER TABLE t1 ADD COLUMN p1 DATETIME, ALGORITHM=DEFAULT;
+INSERT INTO t1(a, p1) VALUES(0, '2017-12-31 00:00:00');
+SELECT count(*) = max(a) FROM t1 WHERE p1 IS NULL;
+count(*) = max(a)
+1
+SELECT p1 FROM t1 WHERE p1 = '2017-12-31 00:00:00';
+p1
+2017-12-31 00:00:00
+ALTER TABLE t1 ADD COLUMN p2 DATETIME NOT NULL DEFAULT '2017-12-31 01:02:03';
+SELECT count(*) = max(a) FROM t1 GROUP BY p2;
+count(*) = max(a)
+1
+INSERT INTO t1(a, p2) VALUES(0, now());
+SELECT count(*) FROM t1 GROUP BY p2;
+count(*)
+25
+1
+ALTER TABLE t1 ADD COLUMN q1 ENUM ('value1','value2','value3'), ALGORITHM=INSTANT;
+INSERT INTO t1(a, q1) VALUES(0, 1);
+SELECT count(*) = max(a) FROM t1 WHERE q1 IS NULL;
+count(*) = max(a)
+1
+SELECT q1 FROM t1 WHERE q1 = 1;
+q1
+value1
+ALTER TABLE t1 ADD COLUMN r1 SET ('a','b','c'), ALGORITHM=INSTANT;
+INSERT INTO t1(a, r1) VALUES(0, 'a');
+SELECT count(*) = max(a) FROM t1 WHERE r1 IS NULL;
+count(*) = max(a)
+1
+SELECT r1 FROM t1 WHERE r1 = 'a';
+r1
+a
+ALTER TABLE t1 ADD COLUMN s1 BLOB, ADD COLUMN s2 TEXT, ALGORITHM=INSTANT;
+INSERT INTO t1(a, s1, s2) VALUES(0, 0x0102030405, 'abcd qwerty');
+SELECT count(*) = max(a) FROM t1 WHERE s1 IS NULL;
+count(*) = max(a)
+1
+SELECT count(*) = max(a) FROM t1 WHERE s2 IS NULL;
+count(*) = max(a)
+1
+SELECT hex(s1) FROM t1 WHERE s1 = 0x0102030405;
+hex(s1)
+0102030405
+SELECT s2 FROM t1 WHERE s2 = 'abcd qwerty';
+s2
+abcd qwerty
+ALTER TABLE t1 ADD COLUMN u1 BLOB NOT NULL, ADD COLUMN u2 TEXT NOT NULL;
+INSERT INTO t1(a, u1, u2) VALUES(0, 0x0102030405, 'abcd qwerty');
+SELECT count(*) = max(a) FROM t1 WHERE u1 = '';
+count(*) = max(a)
+1
+SELECT count(*) = max(a) FROM t1 WHERE u2 = '';
+count(*) = max(a)
+1
+SELECT hex(u1) FROM t1 WHERE u1 = 0x0102030405;
+hex(u1)
+0102030405
+SELECT u2 FROM t1 WHERE u2 = 'abcd qwerty';
+u2
+abcd qwerty
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` int DEFAULT NULL,
+  `c2` int NOT NULL DEFAULT '10',
+  `d1` bigint DEFAULT NULL,
+  `d2` bigint NOT NULL DEFAULT '1234567890',
+  `e1` smallint DEFAULT NULL,
+  `e2` smallint NOT NULL DEFAULT '10',
+  `f1` tinyint DEFAULT NULL,
+  `f2` tinyint NOT NULL DEFAULT '123',
+  `g1` mediumint DEFAULT NULL,
+  `g2` mediumint NOT NULL DEFAULT '12345',
+  `h1` float DEFAULT NULL,
+  `h2` float NOT NULL DEFAULT '12.34',
+  `h3` float DEFAULT '56.78',
+  `h4` float DEFAULT '99.99',
+  `i1` decimal(5,2) DEFAULT NULL,
+  `i2` double DEFAULT NULL,
+  `j1` decimal(5,2) NOT NULL DEFAULT '100.00',
+  `j2` double NOT NULL DEFAULT '1000.5678',
+  `k2` bit(8) NOT NULL DEFAULT b'101010',
+  `l1` char(50) DEFAULT NULL,
+  `l2` varchar(100) DEFAULT NULL,
+  `m1` char(50) DEFAULT 'The fox jumps over',
+  `m2` varchar(50) DEFAULT 'The fox jumps over the lazy dog.',
+  `n1` binary(10) DEFAULT NULL,
+  `n2` varbinary(10) DEFAULT NULL,
+  `o1` binary(10) DEFAULT '"3D\0\0\0\0\0\0',
+  `o2` varbinary(10) DEFAULT 'Ufw?',
+  `p1` datetime DEFAULT NULL,
+  `p2` datetime NOT NULL DEFAULT '2017-12-31 01:02:03',
+  `q1` enum('value1','value2','value3') DEFAULT NULL,
+  `r1` set('a','b','c') DEFAULT NULL,
+  `s1` blob,
+  `s2` text,
+  `u1` blob NOT NULL,
+  `u2` text NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 2:
+# Create a small table, add some columns instantly, along with
+# virtual columns
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL, ADD COLUMN d INT DEFAULT 101;
+INSERT INTO t1(a, b, c) VALUES(0, 6, 20);
+SELECT * FROM t1;
+a	b	c	d
+1	1	0	101
+2	2	0	101
+3	3	0	101
+4	4	0	101
+5	5	0	101
+6	6	20	101
+ALTER TABLE t1 ADD COLUMN e VARCHAR(100) DEFAULT 'ABCD EFGH', ADD COLUMN f INT DEFAULT 102;
+INSERT INTO t1(a, c, e) VALUES(0, 20, 'Hello'), (0, 20, 'World'), (0, 20, 'Hello World');
+SELECT * FROM t1;
+a	b	c	d	e	f
+1	1	0	101	ABCD EFGH	102
+2	2	0	101	ABCD EFGH	102
+3	3	0	101	ABCD EFGH	102
+4	4	0	101	ABCD EFGH	102
+5	5	0	101	ABCD EFGH	102
+6	6	20	101	ABCD EFGH	102
+7	NULL	20	101	Hello	102
+8	NULL	20	101	World	102
+9	NULL	20	101	Hello World	102
+ALTER TABLE t1 ADD COLUMN g VARCHAR(100) DEFAULT 103, ADD COLUMN h BIGINT DEFAULT 10000, ADD COLUMN i BIGINT DEFAULT 10001;
+SELECT * FROM t1;
+a	b	c	d	e	f	g	h	i
+1	1	0	101	ABCD EFGH	102	103	10000	10001
+2	2	0	101	ABCD EFGH	102	103	10000	10001
+3	3	0	101	ABCD EFGH	102	103	10000	10001
+4	4	0	101	ABCD EFGH	102	103	10000	10001
+5	5	0	101	ABCD EFGH	102	103	10000	10001
+6	6	20	101	ABCD EFGH	102	103	10000	10001
+7	NULL	20	101	Hello	102	103	10000	10001
+8	NULL	20	101	World	102	103	10000	10001
+9	NULL	20	101	Hello World	102	103	10000	10001
+INSERT INTO t1(a, b, c, h) VALUES(0, 7, 40, 2000), (0, 7, 40, 20000);
+SELECT * FROM t1;
+a	b	c	d	e	f	g	h	i
+1	1	0	101	ABCD EFGH	102	103	10000	10001
+2	2	0	101	ABCD EFGH	102	103	10000	10001
+3	3	0	101	ABCD EFGH	102	103	10000	10001
+4	4	0	101	ABCD EFGH	102	103	10000	10001
+5	5	0	101	ABCD EFGH	102	103	10000	10001
+6	6	20	101	ABCD EFGH	102	103	10000	10001
+7	NULL	20	101	Hello	102	103	10000	10001
+8	NULL	20	101	World	102	103	10000	10001
+9	NULL	20	101	Hello World	102	103	10000	10001
+10	7	40	101	ABCD EFGH	102	103	2000	10001
+11	7	40	101	ABCD EFGH	102	103	20000	10001
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int NOT NULL,
+  `d` int DEFAULT '101',
+  `e` varchar(100) DEFAULT 'ABCD EFGH',
+  `f` int DEFAULT '102',
+  `g` varchar(100) DEFAULT '103',
+  `h` bigint DEFAULT '10000',
+  `i` bigint DEFAULT '10001',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 3:
+# Create a small table, add some columns instantly, then change
+# their default values, check original default values are correct
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 100, ADD COLUMN d INT DEFAULT 101, ADD COLUMN e VARCHAR(100) DEFAULT 'Hello world';
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+INSERT INTO t1(a, b, c, e) VALUES(0, 6, 200, 'Good day'), (0, 7, 300, 'Good DAY');
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+6	6	200	101	Good day
+7	7	300	101	Good DAY
+ALTER TABLE t1 ALTER COLUMN c SET DEFAULT 500;
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+6	6	200	101	Good day
+7	7	300	101	Good DAY
+INSERT INTO t1(a, b) VALUES(0, 8), (0, 9);
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+6	6	200	101	Good day
+7	7	300	101	Good DAY
+8	8	500	101	Hello world
+9	9	500	101	Hello world
+ALTER TABLE t1 ALTER COLUMN e SET DEFAULT 'HELLO MySQL!';
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+6	6	200	101	Good day
+7	7	300	101	Good DAY
+8	8	500	101	Hello world
+9	9	500	101	Hello world
+INSERT INTO t1(a, b) VALUES(0, 10), (0, 20);
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+6	6	200	101	Good day
+7	7	300	101	Good DAY
+8	8	500	101	Hello world
+9	9	500	101	Hello world
+10	10	500	101	HELLO MySQL!
+11	20	500	101	HELLO MySQL!
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int NOT NULL DEFAULT '500',
+  `d` int DEFAULT '101',
+  `e` varchar(100) DEFAULT 'HELLO MySQL!',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 4:
+# Create a small table, add some columns instantly, then do DML
+# on the table
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 100, ADD COLUMN d INT DEFAULT 101, ADD COLUMN e VARCHAR(100) DEFAULT 'Hello world';
+UPDATE t1 SET c = 200 WHERE a > 3;
+SELECT distinct(c) FROM t1;
+c
+100
+200
+INSERT INTO t1(b, c, e) SELECT b, c, e FROM t1;
+INSERT INTO t1(b, c, e) SELECT b, c, e FROM t1;
+INSERT INTO t1(b, c, e) SELECT b, c, e FROM t1;
+DELETE FROM t1 WHERE c = 100;
+UPDATE t1 SET c = 300;
+SELECT distinct(c) FROM t1;
+c
+300
+SELECT count(*) FROM t1;
+count(*)
+16
+ALTER TABLE t1 ADD COLUMN t DATETIME DEFAULT CURRENT_TIMESTAMP;
+UPDATE t1 SET e = 'Hello MySQL' WHERE a > 10;
+UPDATE t1 SET e = 'Hello MySQL!!' WHERE a > 20;
+SELECT distinct(e) FROM t1;
+e
+Hello world
+Hello MySQL
+Hello MySQL!!
+UPDATE t1 SET c = 500 WHERE e LIKE '%world%';
+SELECT c, e FROM t1 GROUP BY c, e;
+c	e
+300	Hello MySQL
+300	Hello MySQL!!
+500	Hello world
+INSERT INTO t1(b, c, e) SELECT b, c, e FROM t1;
+UPDATE t1 SET t = CURRENT_TIMESTAMP WHERE a < 50;
+SELECT count(t) FROM t1 GROUP BY t;
+count(t)
+25
+7
+DELETE FROM t1 WHERE a < 50;
+SELECT count(t) FROM t1 GROUP BY t;
+count(t)
+7
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int NOT NULL DEFAULT '100',
+  `d` int DEFAULT '101',
+  `e` varchar(100) DEFAULT 'Hello world',
+  `t` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=57 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 5:
+# Create a small table, add some columns instantly, then do DDL
+# to build indexes
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 100, ADD COLUMN d INT DEFAULT 101, ADD COLUMN e VARCHAR(100) DEFAULT 'Hello world';
+ALTER TABLE t1 ADD KEY(c);
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+EXPLAIN SELECT c FROM t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	c	#	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1`
+SELECT c FROM t1 WHERE c != 100;
+c
+INSERT INTO t1(b, c, e) SELECT b, c, e FROM t1;
+INSERT INTO t1(b, c, e) SELECT b, c, e FROM t1;
+INSERT INTO t1(b, c, e) SELECT b, c, e FROM t1;
+UPDATE t1 SET e = 'Hello MySQL' WHERE a > 30;
+ALTER TABLE t1 ADD KEY(e);
+EXPLAIN SELECT e FROM t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	e	#	NULL	#	100.00	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`e` AS `e` from `test`.`t1`
+SELECT count(e) FROM t1 WHERE e LIKE '%MySQL%';
+count(e)
+10
+SELECT count(e) FROM t1 WHERE e LIKE '%world%';
+count(e)
+30
+ALTER TABLE t1 DROP PRIMARY KEY, ADD PRIMARY KEY(a, c);
+SELECT a, c, e FROM t1 WHERE a > 25 AND a < 40;
+a	c	e
+26	100	Hello world
+27	100	Hello world
+28	100	Hello world
+29	100	Hello world
+30	100	Hello world
+31	100	Hello MySQL
+32	100	Hello MySQL
+33	100	Hello MySQL
+34	100	Hello MySQL
+35	100	Hello MySQL
+36	100	Hello MySQL
+37	100	Hello MySQL
+38	100	Hello MySQL
+39	100	Hello MySQL
+ALTER TABLE t1 ADD COLUMN f VARCHAR(1024) DEFAULT 'Foo Bar';
+INSERT INTO t1(b, c, e,f ) SELECT b, c, e,f FROM t1;
+SELECT a, c, e,f FROM t1 WHERE a > 25 AND a < 40;
+a	c	e	f
+26	100	Hello world	Foo Bar
+27	100	Hello world	Foo Bar
+28	100	Hello world	Foo Bar
+29	100	Hello world	Foo Bar
+30	100	Hello world	Foo Bar
+31	100	Hello MySQL	Foo Bar
+32	100	Hello MySQL	Foo Bar
+33	100	Hello MySQL	Foo Bar
+34	100	Hello MySQL	Foo Bar
+35	100	Hello MySQL	Foo Bar
+36	100	Hello MySQL	Foo Bar
+37	100	Hello MySQL	Foo Bar
+38	100	Hello MySQL	Foo Bar
+39	100	Hello MySQL	Foo Bar
+ALTER TABLE t1 ADD COLUMN g VARCHAR(1024) DEFAULT '------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------', algorithm=instant;
+INSERT INTO t1(b, c, e,f, g) SELECT b, c, e,f,g FROM t1;
+SELECT a, c, e, f, g FROM t1 WHERE a > 25 AND a < 40;
+a	c	e	f	g
+26	100	Hello world	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+27	100	Hello world	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+28	100	Hello world	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+29	100	Hello world	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+30	100	Hello world	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+31	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+32	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+33	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+34	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+35	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+36	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+37	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+38	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+39	100	Hello MySQL	Foo Bar	------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int NOT NULL DEFAULT '100',
+  `d` int DEFAULT '101',
+  `e` varchar(100) DEFAULT 'Hello world',
+  `f` varchar(1024) DEFAULT 'Foo Bar',
+  `g` varchar(1024) DEFAULT '------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------',
+  PRIMARY KEY (`a`,`c`),
+  KEY `c` (`c`),
+  KEY `e` (`e`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=161 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 6:
+# Create a small table, add some columns instantly, then do DML
+# on the table, and some simple rollback
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 100, ADD COLUMN d INT DEFAULT 101, ADD COLUMN e VARCHAR(100) DEFAULT 'Hello world';
+START TRANSACTION;
+INSERT INTO t1(a, b) VALUES(0, 6);
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+6	6	100	101	Hello world
+ROLLBACK;
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+START TRANSACTION;
+UPDATE t1 SET c = 500 WHERE a = 1;
+UPDATE t1 SET b = 1000 WHERE a = 2;
+SELECT a, b, c FROM t1 WHERE a = 1 OR a = 2;
+a	b	c
+1	1	500
+2	1000	100
+ROLLBACK;
+SELECT a, b, c FROM t1;
+a	b	c
+1	1	100
+2	2	100
+3	3	100
+4	4	100
+5	5	100
+START TRANSACTION;
+DELETE FROM t1 WHERE a < 5;
+INSERT INTO t1(a, b) VALUES(0, 6);
+SELECT * FROM t1;
+a	b	c	d	e
+5	5	100	101	Hello world
+7	6	100	101	Hello world
+ROLLBACK;
+SELECT * FROM t1;
+a	b	c	d	e
+1	1	100	101	Hello world
+2	2	100	101	Hello world
+3	3	100	101	Hello world
+4	4	100	101	Hello world
+5	5	100	101	Hello world
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int NOT NULL DEFAULT '100',
+  `d` int DEFAULT '101',
+  `e` varchar(100) DEFAULT 'Hello world',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+CREATE TABLE t1(id INT PRIMARY KEY, c1 VARCHAR(4000), c2 VARCHAR(4000), c3 VARCHAR(1000)) ;
+INSERT INTO t1 VALUES(1, repeat('a', 4000), repeat('b', 4000), repeat('c', 1));
+SELECT id, length(c1), length(c2), length(c3) FROM t1;
+id	length(c1)	length(c2)	length(c3)
+1	4000	4000	1
+ALTER TABLE t1 ADD COLUMN c4 VARCHAR(500) NOT NULL DEFAULT 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
+SELECT id, length(c1), length(c2), length(c3), length(c4) FROM t1;
+id	length(c1)	length(c2)	length(c3)	length(c4)
+1	4000	4000	1	500
+START TRANSACTION;
+UPDATE t1 SET c1 = repeat('x', 200) WHERE id = 1;
+ROLLBACK;
+SELECT id, length(c1), length(c2), length(c3), length(c4) FROM t1;
+id	length(c1)	length(c2)	length(c3)	length(c4)
+1	4000	4000	1	500
+START TRANSACTION;
+UPDATE t1 SET c4 = 'x' WHERE id = 1;
+ROLLBACK;
+SELECT id, length(c1), length(c2), length(c3), length(c4) FROM t1;
+id	length(c1)	length(c2)	length(c3)	length(c4)
+1	4000	4000	1	500
+DROP TABLE t1;
+#
+# Scenario 7:
+# Confirm some ADD COLUMN are instant, some are not
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 100 AFTER b;
+ALTER TABLE t1 ADD COLUMN d INT NOT NULL DEFAULT 100 AFTER b;
+ALTER TABLE t1 ADD COLUMN e INT NOT NULL DEFAULT 100, ADD KEY(e);
+ALTER TABLE t1 ADD COLUMN f INT NOT NULL DEFAULT 100, FORCE;
+ALTER TABLE t1 ADD COLUMN g INT NOT NULL DEFAULT 100, ALGORITHM=INPLACE;
+ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `d` int NOT NULL DEFAULT '100',
+  `c` int NOT NULL DEFAULT '100',
+  `e` int NOT NULL DEFAULT '100',
+  `f` int NOT NULL DEFAULT '100',
+  PRIMARY KEY (`a`),
+  KEY `e` (`e`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 9:
+# Instant ADD COLUMN on partitioned table, only simple test here
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT)  PARTITION BY HASH(a) PARTITIONS 3;;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 5;
+SELECT * FROM t1;
+a	b	c
+3	3	5
+6	6	5
+1	1	5
+4	4	5
+7	7	5
+2	2	5
+5	5	5
+8	8	5
+INSERT INTO t1 VALUES(0, 9, 10), (0, 10, 20);
+SELECT * FROM t1 WHERE b > 8;
+a	b	c
+9	9	10
+10	10	20
+UPDATE t1 SET c = 8 WHERE a = 1 OR a = 3 OR a = 5 OR a = 7;
+SELECT * FROM t1;
+a	b	c
+3	3	8
+6	6	5
+9	9	10
+1	1	8
+4	4	5
+7	7	8
+10	10	20
+2	2	5
+5	5	8
+8	8	5
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int NOT NULL DEFAULT '5',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY HASH (`a`)
+PARTITIONS 3 */
+DROP TABLE t1;
+CREATE TABLE t1 (a INT, b INT)  PARTITION BY HASH(a) PARTITIONS 2;;
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 5;
+ALTER TABLE t1 CHANGE COLUMN c c1 INT;
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 5;
+DROP TABLE t1;
+#
+# Scenario 10:
+# EXCHANGE PARTITION is not allowed if either is instant
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 5;
+CREATE TABLE t2 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT, c INT NOT NULL DEFAULT 5)  PARTITION BY RANGE (a) (PARTITION p1 VALUES LESS THAN (10), PARTITION p2 VALUES LESS THAN (20), PARTITION p3 VALUES LESS THAN (30));;
+ALTER TABLE t2 EXCHANGE PARTITION p1 WITH TABLE t1;
+ERROR HY000: Partition management on a not partitioned table is not possible
+ALTER TABLE t2 ADD COLUMN d INT;
+ALTER TABLE t1 ADD COLUMN d INT, ALGORITHM=COPY;
+ALTER TABLE t2 EXCHANGE PARTITION p1 WITH TABLE t1;
+ERROR HY000: Partition management on a not partitioned table is not possible
+OPTIMIZE TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	optimize	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int NOT NULL DEFAULT '5',
+  `d` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int NOT NULL DEFAULT '5',
+  `d` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+(PARTITION p1 VALUES LESS THAN (10) ENGINE = ROCKSDB,
+ PARTITION p2 VALUES LESS THAN (20) ENGINE = ROCKSDB,
+ PARTITION p3 VALUES LESS THAN (30) ENGINE = ROCKSDB) */
+ALTER TABLE t2 EXCHANGE PARTITION p1 WITH TABLE t1;
+ERROR HY000: Partition management on a not partitioned table is not possible
+DROP TABLE t1, t2;
+#
+# Scenario 11:
+# PRIMARY KEY with more than one column, at least to verify it works with REDUDANT
+#
+CREATE TABLE t1 (a INT NOT NULL, b INT NOT NULL, PRIMARY KEY(a, b)) ;;
+INSERT INTO t1 VALUES(0, 1), (1, 2), (2, 3), (3, 4);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 5;
+SELECT * FROM t1;
+a	b	c
+0	1	5
+1	2	5
+2	3	5
+3	4	5
+UPDATE t1 SET c = b WHERE b <= 2;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT * FROM t1;
+a	b	c
+0	1	1
+1	2	2
+2	3	5
+3	4	5
+DROP TABLE t1;
+#
+# Scenario 12:
+# Mix ALTER PARTITION and ALTER TABLE ... INPLACE. This is to check if first partition is not
+# instant after ALTER PARTITION, will the metadata be copied correctly
+#
+CREATE TABLE t1 (col1 INT, col2 INT, col3 INT, col4 TEXT) ENGINE = RocksDB PARTITION BY RANGE(col1 * 2) ( PARTITION p0 VALUES LESS THAN (128), PARTITION p1 VALUES LESS THAN (256) , PARTITION p2 VALUES LESS THAN (384) , PARTITION p3 VALUES LESS THAN MAXVALUE);;
+INSERT INTO t1 VALUES(1, 2, 3, 'abcdefg'), (100, 200, 300, 'qwerty'), (200, 300, 400, 'asdfg');
+ALTER TABLE t1 ALGORITHM DEFAULT, ADD COLUMN col5 VARCHAR(500), ADD COLUMN col6 TEXT;
+ALTER TABLE t1 ALGORITHM INPLACE, REORGANIZE PARTITION p0 INTO (PARTITION p0_a VALUES LESS THAN (64), PARTITION p0_b VALUES LESS THAN (128));
+ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+ALTER TABLE t1 ALGORITHM DEFAULT, ADD KEY idx4(col4(10));
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+ALTER TABLE t1 ALGORITHM DEFAULT, LOCK EXCLUSIVE, REORGANIZE PARTITION p0_a, p0_b INTO (PARTITION p0 VALUES LESS THAN (128));
+ERROR HY000: Error in list of partitions to REORGANIZE
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+ALTER TABLE t1 ADD KEY idx3(col3);
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT * FROM t1;
+col1	col2	col3	col4	col5	col6
+1	2	3	abcdefg	NULL	NULL
+100	200	300	qwerty	NULL	NULL
+200	300	400	asdfg	NULL	NULL
+DROP TABLE t1;
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT)  PARTITION BY HASH(a) PARTITIONS 3;;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8);
+ALTER TABLE t1 ADD COLUMN c INT NOT NULL DEFAULT 5;
+ALTER TABLE t1 ADD PARTITION PARTITIONS 10;
+Warnings:
+Warning	138	Inplace partition altering is not supported
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+ALTER TABLE t1 ADD KEY(b);
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT * FROM t1;
+a	b	c
+1	1	5
+2	2	5
+3	3	5
+4	4	5
+5	5	5
+6	6	5
+7	7	5
+8	8	5
+DROP TABLE t1;
+#
+# Scenario 13:
+# Create a table with a two level clustered index, do instant ADD COLUMN, then the non-leaf node
+# should be parsed correctly
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT, d INT NOT NULL, b BLOB NOT NULL, c VARCHAR(87), INDEX(d), INDEX(a ASC), PRIMARY KEY (a, d, c))  PARTITION BY LINEAR KEY(c) PARTITIONS 9;;
+INSERT INTO t1(d, b, c) VALUES(1, 2, 'aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeeeffffffffffgggggggggghhhhhhhhhhjjjjjjj');
+INSERT INTO t1(d, b, c) VALUES(2, 3, 'aaaaaaaaaahhhhhhhhhhbbbbbbbbbbccccccccccddddddddddeeeeeeeeeeffffffffffggggggggggjjjjjjj');
+INSERT INTO t1(d, b, c) VALUES(3, 4, 'bbbbbbbbbbaaaaaaaaaahhhhhhhhhhccccccccccddddddddddeeeeeeeeeeffffffffffggggggggggjjjjjjj');
+INSERT INTO t1(d, b, c) VALUES(4, 5, 'eeeeeeeeeehhhhhhhhhhbbbbbbbbbbccccccccccddddddddddaaaaaaaaaaffffffffffggggggggggjjjjjjj');
+INSERT INTO t1(d, b, c) VALUES(5, 6, 'aaaaaaaaaahhhhhhhhhhbbbbbbbbbbddddddddddcccccccccceeeeeeeeeeffffffffffggggggggggjjjjjjj');
+INSERT INTO t1(d, b, c) VALUES(6, 7, 'cccccccccchhhhhhhhhhbbbbbbbbbbaaaaaaaaaaddddddddddeeeeeeeeeeffffffffffggggggggggjjjjjjj');
+INSERT INTO t1(d, b, c) SELECT d, b, c FROM t1;
+INSERT INTO t1(d, b, c) SELECT d, b, c FROM t1;
+INSERT INTO t1(d, b, c) SELECT d, b, c FROM t1;
+INSERT INTO t1(d, b, c) SELECT d, b, c FROM t1;
+INSERT INTO t1(d, b, c) SELECT d, b, c FROM t1;
+INSERT INTO t1(d, b, c) SELECT d, b, c FROM t1;
+ALTER TABLE t1 ADD COLUMN nc086 BIGINT NOT NULL FIRST, ALGORITHM=COPY, LOCK=DEFAULT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+ALTER TABLE t1 ADD COLUMN nc082 TINYTEXT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+384
+DROP TABLE t1;
+#
+# Scenario 15:
+# Create a small table, and add JSON columns and verify
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 JSON, ALGORITHM = INSTANT;
+INSERT INTO t1(a, c1) VALUES(0, '{"key1": "value1", "key2": "value2"}');
+SELECT count(*) = max(a) FROM t1 WHERE c1 IS NULL;
+count(*) = max(a)
+1
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` json DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 16:
+# Create a small table, and add INSTANT columns and verify with trigger
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+CREATE TABLE t2 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+INSERT INTO t2 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'aaaa', ALGORITHM = INSTANT;
+CREATE TRIGGER t1_ai AFTER INSERT ON t1 FOR EACH ROW
+INSERT INTO t2 VALUES(0,6);
+INSERT INTO t1(a, c1) VALUES(0, 'bbbb');
+SELECT count(*) = max(a) FROM t1 WHERE c1='aaaa';
+count(*) = max(a)
+1
+SELECT c1 FROM t1 WHERE c1 = 'bbbb';
+c1
+bbbb
+DROP TRIGGER t1_ai;
+ALTER TABLE t2 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'cccc', ALGORITHM = INSTANT;
+CREATE TRIGGER t2_ai AFTER INSERT ON t2 FOR EACH ROW
+INSERT INTO t1(a,c1) VALUES(0,'eeee');
+INSERT INTO t2(a, c1) VALUES(0, 'dddd');
+SELECT count(*) = max(a) FROM t2 WHERE c1='cccc';
+count(*) = max(a)
+1
+SELECT c1 FROM t2 WHERE c1 = 'dddd';
+c1
+dddd
+DROP TRIGGER t2_ai;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+CHECK TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` varchar(10) NOT NULL DEFAULT 'aaaa',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` varchar(10) NOT NULL DEFAULT 'cccc',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1,t2;
+#
+# Scenario 17:
+# Create a small table, and add INSTANT columns and verify with storedprocedure
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'aaaa', ALGORITHM = INSTANT;
+CREATE PROCEDURE p1() INSERT INTO t1(a,c1) VALUES(0, 'bbbb');
+CALL p1();
+SELECT count(*) = max(a) FROM t1 WHERE c1='aaaa';
+count(*) = max(a)
+1
+SELECT c1 FROM t1 WHERE c1 = 'bbbb';
+c1
+bbbb
+DROP PROCEDURE p1;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` varchar(10) NOT NULL DEFAULT 'aaaa',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 18:
+# Create a small table, and add INSTANT columns and verify with view
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'aaaa', ALGORITHM = INSTANT;
+CREATE VIEW v1 AS SELECT * FROM t1;
+INSERT INTO t1(a, c1) VALUES(0, 'bbbb');
+SELECT count(*) = max(a) FROM t1 WHERE c1='aaaa';
+count(*) = max(a)
+1
+SELECT c1 FROM t1 WHERE c1 = 'bbbb';
+c1
+bbbb
+SELECT * FROM v1;
+a	b	c1
+1	1	aaaa
+2	2	aaaa
+3	3	aaaa
+4	4	aaaa
+5	5	aaaa
+6	NULL	bbbb
+DROP VIEW v1;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` varchar(10) NOT NULL DEFAULT 'aaaa',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 19:
+# Create a small table, and add INSTANT columns and drop it and verify
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'aaaa', ALGORITHM = INSTANT;
+INSERT INTO t1(a, c1) VALUES(0, 'bbbb');
+SELECT count(*) = max(a) FROM t1 WHERE c1='aaaa';
+count(*) = max(a)
+1
+SELECT c1 FROM t1 WHERE c1 = 'bbbb';
+c1
+bbbb
+ALTER TABLE t1 DROP COLUMN c1;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 20:
+# Create a small table, and add INSTANT columns and rename table
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'aaaa', ALGORITHM = INSTANT;
+ALTER TABLE t1 RENAME t2;
+INSERT INTO t2(a, c1) VALUES(0, 'bbbb');
+SELECT count(*) = max(a) FROM t2 WHERE c1='aaaa';
+count(*) = max(a)
+1
+SELECT c1 FROM t2 WHERE c1 = 'bbbb';
+c1
+bbbb
+CHECK TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	check	status	OK
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` varchar(10) NOT NULL DEFAULT 'aaaa',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t2;
+#
+# Scenario 21:
+# Create a small table, and add INSTANT columns and change its data type INSTANTly won't work
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'aaaa', ALGORITHM = INSTANT;
+INSERT INTO t1(a, c1) VALUES(0, 'bbbb');
+SELECT count(*) = max(a) FROM t1 WHERE c1='aaaa';
+count(*) = max(a)
+1
+SELECT c1 FROM t1 WHERE c1 = 'bbbb';
+c1
+bbbb
+ALTER TABLE t1 CHANGE c1 c2 CHAR(10) NOT NULL DEFAULT 'cccc';
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c2` char(10) NOT NULL DEFAULT 'cccc',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 22:
+# Create a small table, and add INSTANT columns and create hash,btree multi column index and verify
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'aaaa', ALGORITHM = INSTANT;
+CREATE INDEX id1 ON t1(c1) USING BTREE;
+Warnings:
+Note	3502	This storage engine does not support the BTREE index algorithm, storage engine default was used instead.
+CREATE INDEX id2 ON t1(c1) USING HASH;
+Warnings:
+Note	3502	This storage engine does not support the HASH index algorithm, storage engine default was used instead.
+Warning	1831	Duplicate index 'id2' defined on the table 'test.t1'. This is deprecated and will be disallowed in a future release.
+INSERT INTO t1(a, c1) VALUES(0, 'bbbb');
+SELECT count(*) = max(a) FROM t1 WHERE c1='aaaa';
+count(*) = max(a)
+1
+SELECT c1 FROM t1 WHERE c1 = 'bbbb';
+c1
+bbbb
+DROP INDEX id1 ON t1;
+DROP INDEX id2 ON t1;
+ALTER TABLE t1 ADD COLUMN c2 VARCHAR(10) NOT NULL DEFAULT 'cccc', ALGORITHM = INSTANT;
+CREATE INDEX id1 ON t1(c1 ASC,c2 ASC);
+INSERT INTO t1(a, c2) VALUES(0, 'dddd');
+SELECT count(*) = max(a) FROM t1 WHERE c1='cccc';
+count(*) = max(a)
+NULL
+SELECT c1 FROM t1 WHERE c1 = 'dddd';
+c1
+ALTER TABLE t1 RENAME INDEX id1 TO id2;
+DROP INDEX id2 ON t1;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` varchar(10) NOT NULL DEFAULT 'aaaa',
+  `c2` varchar(10) NOT NULL DEFAULT 'cccc',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 23:
+# Create a small table, and add INSTANT columns and perform table join operation
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+CREATE TABLE t2 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+INSERT INTO t2 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'aaaa', ALGORITHM = INSTANT;
+INSERT INTO t1(a, c1) VALUES(0, 'cccc');
+SELECT count(*) = max(a) FROM t1 WHERE c1='aaaa';
+count(*) = max(a)
+1
+SELECT c1 FROM t1 WHERE c1 = 'cccc';
+c1
+cccc
+ALTER TABLE t2 ADD COLUMN c1 VARCHAR(10) NOT NULL DEFAULT 'bbbb', ALGORITHM = INSTANT;
+INSERT INTO t2(a, c1) VALUES(0, 'cccc');
+SELECT count(*) = max(a) FROM t2 WHERE c1='bbbb';
+count(*) = max(a)
+1
+SELECT c1 FROM t2 WHERE c1 = 'cccc';
+c1
+cccc
+SELECT * FROM t1 JOIN t2 ON t1.c1=t2.c1;
+a	b	c1	a	b	c1
+6	NULL	cccc	6	NULL	cccc
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+CHECK TABLE t2;
+Table	Op	Msg_type	Msg_text
+test.t2	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` varchar(10) NOT NULL DEFAULT 'aaaa',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c1` varchar(10) NOT NULL DEFAULT 'bbbb',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# Scenario 24:
+# Create a small table, and add stored and(or) virtual columns
+# after last stored column in the table
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT, c INT, d INT DEFAULT 101, e INT  DEFAULT 102);
+INSERT INTO t1(a, b, c) VALUES(0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 5), (0, 5, 6);
+ALTER TABLE t1 ADD COLUMN h INT NOT NULL AFTER c;
+INSERT INTO t1(a, b, c, h) VALUES(0, 6, 20, 40);
+SELECT * FROM t1;
+a	b	c	h	d	e
+1	1	2	0	101	102
+2	2	3	0	101	102
+3	3	4	0	101	102
+4	4	5	0	101	102
+5	5	6	0	101	102
+6	6	20	40	101	102
+ALTER TABLE t1 ADD COLUMN i VARCHAR(100) DEFAULT 'ABCD EFGH' AFTER h, ADD COLUMN f INT DEFAULT 12  AFTER i;
+INSERT INTO t1(a, b, c, h, i) VALUES(0, 20, 30, 50, 'qwerty');
+SELECT * FROM t1;
+a	b	c	h	i	f	d	e
+1	1	2	0	ABCD EFGH	12	101	102
+2	2	3	0	ABCD EFGH	12	101	102
+3	3	4	0	ABCD EFGH	12	101	102
+4	4	5	0	ABCD EFGH	12	101	102
+5	5	6	0	ABCD EFGH	12	101	102
+6	6	20	40	ABCD EFGH	12	101	102
+7	20	30	50	qwerty	12	101	102
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
+  `h` int NOT NULL,
+  `i` varchar(100) DEFAULT 'ABCD EFGH',
+  `f` int DEFAULT '12',
+  `d` int DEFAULT '101',
+  `e` int DEFAULT '102',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+#
+# Scenario 25:
+# bypass query
+#
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+always_off
+SELECT @@rocksdb_select_bypass_policy INTO @save_rocksdb_select_bypass_policy;
+CREATE TABLE `t1` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+`time` int(10) unsigned NOT NULL DEFAULT '0' ,
+`version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+KEY `id1_type` (`id1` , `link_type` , `visibility` , `time` , `id2` ,
+`version` , `data`) COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into t1 values (1, 1, 1, 2, 3, 4, 'a10', 10, 125);
+insert into t1 values (1, 1, 2, 2, 3, 3, 'a10', 10, 125);
+insert into t1 values (1, 1, 3, 2, 3, 4, 'a11', 11, 125);
+insert into t1 values (1, 1, 4, 2, 3, 4, 'a11', 11, 125);
+insert into t1 values (1, 1, 5, 2, 3, 3, 'a12', 12, 125);
+insert into t1 values (1, 1, 6, 2, 3, 4, 'a12', 12, 125);
+insert into t1 values (1, 1, 7, 2, 3, 4, 'a12', 12, 125);
+insert into t1 values (1, 1, 8, 2, 3, 4, 'a13', 13, 125);
+insert into t1 values (1, 1, 9, 2, 3, 4, 'a14', 14, 125);
+insert into t1 values (1, 1, 10, 2, 3, 4, 'a15', 15, 125);
+insert into t1 values (2, 1, 1, 2, 3, 4, 'a10', 10, 125);
+insert into t1 values (2, 1, 2, 2, 3, 4, 'a10', 10, 125);
+insert into t1 values (2, 1, 3, 2, 3, 4, 'a11', 11, 125);
+insert into t1 values (2, 1, 4, 2, 3, 4, 'a11', 11, 125);
+insert into t1 values (2, 1, 5, 2, 3, 4, 'a12', 12, 125);
+insert into t1 values (2, 1, 6, 2, 3, 4, 'a12', 12, 125);
+insert into t1 values (2, 1, 7, 2, 3, 4, 'a12', 12, 125);
+insert into t1 values (2, 1, 8, 2, 3, 4, 'a13', 13, 125);
+insert into t1 values (2, 1, 9, 2, 3, 4, 'a14', 14, 125);
+insert into t1 values (2, 1, 10, 2, 3, 4, 'a15', 15, 125);
+insert into t1 values (2, 1, 1, 2, 4, 4, 'a10', 10, 125);
+insert into t1 values (2, 1, 2, 2, 4, 4, 'a10', 10, 125);
+insert into t1 values (2, 1, 3, 2, 4, 4, 'a11', 11, 125);
+insert into t1 values (2, 1, 4, 2, 4, 4, 'a11', 11, 125);
+insert into t1 values (2, 1, 5, 2, 4, 4, 'a12', 12, 125);
+insert into t1 values (2, 1, 6, 2, 4, 4, 'a12', 12, 125);
+insert into t1 values (2, 1, 7, 2, 4, 4, 'a12', 12, 125);
+insert into t1 values (2, 1, 8, 2, 4, 4, 'a13', 13, 125);
+insert into t1 values (2, 1, 9, 2, 4, 4, 'a14', 14, 125);
+insert into t1 values (2, 1, 10, 2, 4, 4, 'a15', 15, 125);
+insert into t1 values (3, 1, 10, 2, 3, 4, 'a10', 10, 125);
+insert into t1 values (3, 1, 9, 2, 3, 4, 'a10', 10, 125);
+insert into t1 values (3, 1, 8, 2, 3, 4, 'a11', 11, 125);
+insert into t1 values (3, 1, 7, 2, 3, 4, 'a11', 11, 125);
+insert into t1 values (3, 1, 6, 2, 3, 4, 'a12', 12, 125);
+insert into t1 values (3, 1, 5, 2, 3, 4, 'a12', 12, 125);
+insert into t1 values (3, 1, 4, 2, 3, 4, 'a12', 12, 125);
+insert into t1 values (3, 1, 3, 2, 3, 4, 'a13', 13, 125);
+insert into t1 values (3, 1, 2, 2, 3, 4, 'a14', 14, 125);
+insert into t1 values (3, 1, 1, 2, 3, 4, 'a15', 15, 125);
+insert into t1 values (9, 1, 9, 2, 5, 6, '0  ', 10, 125);
+insert into t1 values (9, 1, 8, 2, 5, 6, '01  ', 11, 125);
+insert into t1 values (9, 1, 7, 2, 5, 6, '012  ', 11, 125);
+insert into t1 values (9, 1, 6, 2, 5, 6, '0123  ', 12, 125);
+insert into t1 values (9, 1, 5, 2, 5, 6, '01234  ', 12, 125);
+insert into t1 values (9, 1, 4, 2, 5, 6, '012345  ', 12, 125);
+insert into t1 values (9, 1, 3, 2, 5, 6, '0123456  ', 13, 125);
+insert into t1 values (9, 1, 2, 2, 5, 6, '01234567  ', 14, 125);
+insert into t1 values (9, 1, 1, 2, 5, 6, '012345678  ', 15, 125);
+insert into t1 values (9, 1, 0, 2, 5, 6, '0123456789  ', 15, 125);
+ALTER TABLE t1 ADD COLUMN version2 bigint(20) unsigned NOT NULL DEFAULT 99, algorithm = instant;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into t1 values (10, 1, 9, 2, 5, 6, '0  ', 10, 125, 128);
+insert into t1 values (10, 1, 8, 2, 5, 6, '01  ', 11, 125, 128);
+insert into t1 values (10, 1, 7, 2, 5, 6, '012  ', 11, 125, 128);
+insert into t1 values (10, 1, 6, 2, 5, 6, '0123  ', 12, 125, 128);
+insert into t1 values (10, 1, 5, 2, 5, 6, '01234  ', 12, 125, 128);
+insert into t1 values (10, 1, 4, 2, 5, 6, '012345  ', 12, 125, 128);
+insert into t1 values (10, 1, 3, 2, 5, 6, '0123456  ', 13, 125, 128);
+insert into t1 values (10, 1, 2, 2, 5, 6, '01234567  ', 14, 125, 128);
+insert into t1 values (10, 1, 1, 2, 5, 6, '012345678  ', 15, 125, 128);
+insert into t1 values (10, 1, 0, 2, 5, 6, '0123456789  ', 15, 125, 128);
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+always_off
+SET GLOBAL rocksdb_select_bypass_policy=1;
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+always_on
+SELECT variable_value INTO @a FROM performance_schema.global_status WHERE
+variable_name="rocksdb_select_bypass_executed";
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM t1
+WHERE id1=1 AND id2=2 AND link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
+SELECT /*+ abc */ id1,id2,id1_type,id2_type,data,version FROM t1
+WHERE id1=1 AND id2=2 AND link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
+Warnings:
+Warning	1064	Optimizer hint syntax error near 'abc */ id1,id2,id1_type,id2_type,data,version FROM t1
+WHERE id1=1 AND id2=2 AND ' at line 1
+SELECT /*+ no_bypass*/ id1,id2,id1_type,id2_type,data,version FROM t1
+WHERE id1=1 AND id2=2 AND link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
+Warnings:
+Warning	1064	Optimizer hint syntax error near 'no_bypass*/ id1,id2,id1_type,id2_type,data,version FROM t1
+WHERE id1=1 AND id2=2' at line 1
+SELECT id1,id2,id1_type,id2_type,data,version FROM t1
+WHERE id1=1 AND id2=2 AND link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND id2=2 AND link_type=3;
+id1	id2	id1_type	id2_type	data	version	version2
+1	2	1	2	a10	125	99
+SELECT /*+ abc */ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND id2=2 AND link_type=3;
+id1	id2	id1_type	id2_type	data	version	version2
+1	2	1	2	a10	125	99
+Warnings:
+Warning	1064	Optimizer hint syntax error near 'abc */ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND ' at line 1
+SELECT /*+ no_bypass*/ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND id2=2 AND link_type=3;
+id1	id2	id1_type	id2_type	data	version	version2
+1	2	1	2	a10	125	99
+Warnings:
+Warning	1064	Optimizer hint syntax error near 'no_bypass*/ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1' at line 1
+SELECT id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND id2=2 AND link_type=3;
+id1	id2	id1_type	id2_type	data	version	version2
+1	2	1	2	a10	125	99
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND id2=2 AND link_type=5;
+id1	id2	id1_type	id2_type	data	version	version2
+SELECT /*+ abc */ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND id2=2 AND link_type=5;
+id1	id2	id1_type	id2_type	data	version	version2
+Warnings:
+Warning	1064	Optimizer hint syntax error near 'abc */ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND ' at line 1
+SELECT /*+ no_bypass*/ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND id2=2 AND link_type=5;
+id1	id2	id1_type	id2_type	data	version	version2
+Warnings:
+Warning	1064	Optimizer hint syntax error near 'no_bypass*/ id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1' at line 1
+SELECT id1,id2,id1_type,id2_type,data,version, version2 FROM t1
+WHERE id1=1 AND id2=2 AND link_type=5;
+id1	id2	id1_type	id2_type	data	version	version2
+SELECT variable_value INTO @b FROM performance_schema.global_status WHERE
+variable_name="rocksdb_select_bypass_executed";
+# Should be 12
+SELECT @b-@a;
+@b-@a
+12
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+always_on
+set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+always_off
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id1` bigint unsigned NOT NULL DEFAULT '0',
+  `id1_type` int unsigned NOT NULL DEFAULT '0',
+  `id2` bigint unsigned NOT NULL DEFAULT '0',
+  `id2_type` int unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint NOT NULL DEFAULT '0',
+  `data` varchar(255) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL DEFAULT '',
+  `time` int unsigned NOT NULL DEFAULT '0',
+  `version` bigint unsigned NOT NULL DEFAULT '0',
+  `version2` bigint unsigned NOT NULL DEFAULT '99',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link',
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`) COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8
+DROP TABLE t1;
+set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;

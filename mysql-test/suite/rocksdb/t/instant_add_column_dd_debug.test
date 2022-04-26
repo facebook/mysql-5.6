@@ -1,4 +1,7 @@
 # Check DD tables during debug execution
+# copy test scenarios from innodb instant DDL test 
+# mysql-test/suite/innodb/include/instant_add_column_basic.inc
+#
 --source include/have_debug.inc
 --let $check_dd = 1
 set @saved_rocksd_instant_ddl=@@global.rocksdb_disable_instant_ddl;
@@ -74,7 +77,7 @@ let $instant_add_column = ALTER TABLE t1 ADD COLUMN h2 FLOAT NOT NULL DEFAULT 12
 
 # ADD COLUMN DECIMAL & DOUBLE
 let $new_cols = 2;
-let $instant_add_column = ALTER TABLE t1 ADD COLUMN i1 DECIMAL(5, 2), ADD COLUMN i2 double, ALGORITHM=INSTANT;
+let $instant_add_column = ALTER TABLE t1 ADD COLUMN i1 DECIMAL(5, 2), ADD COLUMN i2 double;
 --source ../mysql-test/suite/rocksdb/include/instant_add_column_exec_and_verify.inc
 
 # ADD COLUMN DECIMAL & DOUBLE DEFAULT

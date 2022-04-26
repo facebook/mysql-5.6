@@ -1,0 +1,12 @@
+!include suite/rocksdb_rpl/my.cnf
+
+[mysqld.1]
+binlog_format=row
+enable_rocksdb_intrinsic_tmp_table= ON
+loose-rocksdb_enable_tmp_table = ON
+
+[mysqld.2]
+binlog_format=row
+enable_rocksdb_intrinsic_tmp_table= ON
+loose-rocksdb_enable_tmp_table = ON
+
