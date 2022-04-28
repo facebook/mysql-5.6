@@ -1,0 +1,40 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+call mtr.add_suppression("Forcing raft after_commit hook");
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE = InnoDB;
+INSERT INTO t1 VALUES(1);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+SET SQL_LOG_BIN = 0;
+DELETE FROM t1;
+SET @@SESSION.GTID_NEXT = "uuid:gno";
+BEGIN;
+COMMIT;
+SET @@SESSION.GTID_NEXT = "AUTOMATIC";
+UPDATE t1 SET a = 2;
+DROP TABLE t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+SHOW STATUS LIKE 'Rpl_raft_slave_num_out_of_order_trxs';
+Variable_name	Value
+Rpl_raft_slave_num_out_of_order_trxs	0
+include/rpl_end.inc

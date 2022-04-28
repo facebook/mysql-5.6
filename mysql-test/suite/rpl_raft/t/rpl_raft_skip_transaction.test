@@ -1,0 +1,40 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+call mtr.add_suppression("Forcing raft after_commit hook");
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE = InnoDB;
+INSERT INTO t1 VALUES(1);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+
+connection server_1;
+let $uuid=`SELECT @@GLOBAL.SERVER_UUID`;
+let $gno=`SELECT SUBSTRING_INDEX(SUBSTRING_INDEX((SELECT SUBSTRING_INDEX(SUBSTRING_INDEX((SELECT @@GLOBAL.GTID_EXECUTED), ':', 2), ':', -1)), '-', 2), '-', -1)`;
+inc $gno;
+
+connection server_2;
+SET SQL_LOG_BIN = 0;
+DELETE FROM t1;
+replace_result $uuid uuid $gno gno;
+eval SET @@SESSION.GTID_NEXT = "$uuid:$gno";
+BEGIN;
+COMMIT;
+SET @@SESSION.GTID_NEXT = "AUTOMATIC";
+
+connection server_1;
+UPDATE t1 SET a = 2;
+DROP TABLE t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+SHOW STATUS LIKE 'Rpl_raft_slave_num_out_of_order_trxs';
+
+source include/rpl_end.inc;
