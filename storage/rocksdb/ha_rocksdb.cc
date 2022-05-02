@@ -141,15 +141,16 @@ const std::string DEFAULT_SYSTEM_CF_NAME("__system__");
 const std::string DEFAULT_TMP_CF_NAME("__tmp__");
 const std::string DEFAULT_TMP_SYSTEM_CF_NAME("__tmp_system__");
 const std::string PER_INDEX_CF_NAME("$per_index_cf");
-const std::string DEFAULT_SK_CF_NAME("default_sk");
+static const std::string DEFAULT_SK_CF_NAME("default_sk");
 const std::string TRUNCATE_TABLE_PREFIX("#truncate_tmp#");
-const std::string TMP_SCHEMA_NAME("#sqltmp");
+static const std::string TMP_SCHEMA_NAME("#sqltmp");
 
 static std::vector<std::string> rdb_tables_to_recalc;
 
 static Rdb_exec_time st_rdb_exec_time;
 
-int mysql_value_to_bool(struct st_mysql_value *value, bool *return_value);
+static int mysql_value_to_bool(struct st_mysql_value *value,
+                               bool *return_value);
 
 class Rdb_explicit_snapshot : public explicit_snapshot {
  public:
@@ -243,7 +244,6 @@ void ha_rocksdb::inc_covered_sk_lookup() {
   global_stats.covered_secondary_key_lookups.inc();
 }
 
-void dbug_dump_database(rocksdb::DB *db);
 static handler *rocksdb_create_handler(my_core::handlerton *hton,
                                        my_core::TABLE_SHARE *table_arg,
                                        bool partitioned,
@@ -276,18 +276,18 @@ static bool rocksdb_use_default_sk_cf = false;
 ///////////////////////////////////////////////////////////
 handlerton *rocksdb_hton;
 
-rocksdb::TransactionDB *rdb = nullptr;
-rocksdb::HistogramImpl *commit_latency_stats = nullptr;
+static rocksdb::TransactionDB *rdb = nullptr;
+static rocksdb::HistogramImpl *commit_latency_stats = nullptr;
 
 static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
 static std::shared_ptr<Rdb_tbl_prop_coll_factory> properties_collector_factory;
 
-Rdb_dict_manager_selector dict_manager;
-Rdb_cf_manager cf_manager;
-Rdb_ddl_manager ddl_manager;
-Rdb_binlog_manager binlog_manager;
-Rdb_io_watchdog *io_watchdog = nullptr;
+static Rdb_dict_manager_selector dict_manager;
+static Rdb_cf_manager cf_manager;
+static Rdb_ddl_manager ddl_manager;
+static Rdb_binlog_manager binlog_manager;
+static Rdb_io_watchdog *io_watchdog = nullptr;
 
 /**
   MyRocks background thread control
@@ -304,7 +304,7 @@ static Rdb_manual_compaction_thread rdb_mc_thread;
 static Rdb_drop_index_thread rdb_drop_idx_thread;
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
-Regex_list_handler *rdb_collation_exceptions;
+static Regex_list_handler *rdb_collation_exceptions;
 
 static const char *rdb_get_error_message(int nr);
 
@@ -789,8 +789,7 @@ static bool rocksdb_large_prefix = 0;
 static bool rocksdb_allow_to_start_after_corruption = 0;
 static uint64_t rocksdb_write_policy =
     rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
-char *rocksdb_read_free_rpl_tables;
-std::mutex rocksdb_read_free_rpl_tables_mutex;
+static char *rocksdb_read_free_rpl_tables;
 #if defined(HAVE_PSI_INTERFACE)
 Regex_list_handler rdb_read_free_regex_handler(key_rwlock_read_free_rpl_tables);
 #else
@@ -822,16 +821,16 @@ static bool rocksdb_alter_column_default_inplace = false;
 static bool rocksdb_alter_table_comment_inplace = false;
 static bool rocksdb_instant_ddl = false;
 bool rocksdb_enable_tmp_table = false;
-std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
-std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
-std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
-std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
-std::atomic<uint64_t> rocksdb_manual_compactions_processed(0);
-std::atomic<uint64_t> rocksdb_manual_compactions_cancelled(0);
-std::atomic<uint64_t> rocksdb_manual_compactions_running(0);
-std::atomic<uint64_t> rocksdb_manual_compactions_pending(0);
+static std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
+static std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
+static std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
+static std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
+static std::atomic<uint64_t> rocksdb_manual_compactions_processed(0);
+static std::atomic<uint64_t> rocksdb_manual_compactions_cancelled(0);
+static std::atomic<uint64_t> rocksdb_manual_compactions_running(0);
+static std::atomic<uint64_t> rocksdb_manual_compactions_pending(0);
 #ifndef DBUG_OFF
-std::atomic<uint64_t> rocksdb_num_get_for_update_calls(0);
+static std::atomic<uint64_t> rocksdb_num_get_for_update_calls(0);
 #endif
 std::atomic<uint64_t> rocksdb_select_bypass_executed(0);
 std::atomic<uint64_t> rocksdb_select_bypass_rejected(0);
@@ -1170,24 +1169,25 @@ static TYPELIB index_type_typelib = {array_elements(index_type_names) - 1,
                                      "index_type_typelib", index_type_names,
                                      nullptr};
 
-const ulong RDB_MAX_LOCK_WAIT_SECONDS = 1024 * 1024 * 1024;
-const ulong RDB_DEFAULT_MAX_ROW_LOCKS = 1024 * 1024;
-const ulong RDB_MAX_ROW_LOCKS = 1024 * 1024 * 1024;
-const ulong RDB_DEFAULT_BULK_LOAD_SIZE = 1000;
-const ulong RDB_MAX_BULK_LOAD_SIZE = 1024 * 1024 * 1024;
-const size_t RDB_DEFAULT_MERGE_BUF_SIZE = 64 * 1024 * 1024;
-const size_t RDB_MIN_MERGE_BUF_SIZE = 100;
-const size_t RDB_DEFAULT_MERGE_COMBINE_READ_SIZE = 1024 * 1024 * 1024;
-const size_t RDB_MIN_MERGE_COMBINE_READ_SIZE = 100;
-const size_t RDB_DEFAULT_MERGE_TMP_FILE_REMOVAL_DELAY = 0;
-const size_t RDB_MIN_MERGE_TMP_FILE_REMOVAL_DELAY = 0;
-const int64 RDB_DEFAULT_BLOCK_CACHE_SIZE = 512 * 1024 * 1024;
-const int64 RDB_MIN_BLOCK_CACHE_SIZE = 1024;
-const int RDB_MAX_CHECKSUMS_PCT = 100;
-const ulong RDB_DEADLOCK_DETECT_DEPTH = 50;
-const ulonglong RDB_DEFAULT_MAX_COMPACTION_HISTORY = 64;
-const ulong ROCKSDB_MAX_MRR_BATCH_SIZE = 1000;
-const uint ROCKSDB_MAX_BOTTOM_PRI_BACKGROUND_COMPACTIONS = 64;
+static constexpr ulong RDB_MAX_LOCK_WAIT_SECONDS = 1024 * 1024 * 1024;
+static constexpr ulong RDB_DEFAULT_MAX_ROW_LOCKS = 1024 * 1024;
+static constexpr ulong RDB_MAX_ROW_LOCKS = 1024 * 1024 * 1024;
+static constexpr ulong RDB_DEFAULT_BULK_LOAD_SIZE = 1000;
+static constexpr ulong RDB_MAX_BULK_LOAD_SIZE = 1024 * 1024 * 1024;
+static constexpr size_t RDB_DEFAULT_MERGE_BUF_SIZE = 64 * 1024 * 1024;
+static constexpr size_t RDB_MIN_MERGE_BUF_SIZE = 100;
+static constexpr size_t RDB_DEFAULT_MERGE_COMBINE_READ_SIZE =
+    1024 * 1024 * 1024;
+static constexpr size_t RDB_MIN_MERGE_COMBINE_READ_SIZE = 100;
+static constexpr size_t RDB_DEFAULT_MERGE_TMP_FILE_REMOVAL_DELAY = 0;
+static constexpr size_t RDB_MIN_MERGE_TMP_FILE_REMOVAL_DELAY = 0;
+static constexpr int64 RDB_DEFAULT_BLOCK_CACHE_SIZE = 512 * 1024 * 1024;
+static constexpr int64 RDB_MIN_BLOCK_CACHE_SIZE = 1024;
+static constexpr int RDB_MAX_CHECKSUMS_PCT = 100;
+static constexpr ulong RDB_DEADLOCK_DETECT_DEPTH = 50;
+static constexpr ulonglong RDB_DEFAULT_MAX_COMPACTION_HISTORY = 64;
+static constexpr ulong ROCKSDB_MAX_MRR_BATCH_SIZE = 1000;
+static constexpr uint ROCKSDB_MAX_BOTTOM_PRI_BACKGROUND_COMPACTIONS = 64;
 
 // TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -1269,7 +1269,7 @@ static MYSQL_THDVAR_BOOL(
     "Enable rocksdb iterator upper/lower bounds in read options.", nullptr,
     nullptr, true);
 
-static const char *DEFAULT_READ_FREE_RPL_TABLES = ".*";
+static const char *const DEFAULT_READ_FREE_RPL_TABLES = ".*";
 
 static int rocksdb_validate_read_free_rpl_tables(
     THD *thd MY_ATTRIBUTE((__unused__)),
@@ -2515,7 +2515,7 @@ static MYSQL_SYSVAR_BOOL(alter_table_comment_inplace,
                          "Allow inplace alter for alter table comment", nullptr,
                          nullptr, false);
 
-static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
+static constexpr int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(lock_wait_timeout),
@@ -6316,7 +6316,7 @@ bool rdb_sync_wal_supported() {
 }
 
 /* Clean up tables leftover from truncation */
-void rocksdb_truncation_table_cleanup(void) {
+static void rocksdb_truncation_table_cleanup(void) {
   /* Scan for tables that have the truncation prefix */
   struct Rdb_truncate_tbls : public Rdb_tables_scanner {
    public:
@@ -7633,6 +7633,12 @@ bool ha_rocksdb::init_with_fields() {
   DBUG_RETURN(false); /* Ok */
 }
 
+static bool rdb_is_ttl_read_filtering_enabled();
+
+#ifndef DBUG_OFF
+static int rdb_dbug_set_ttl_read_filter_ts();
+#endif
+
 /*
   If the key is a TTL key, we may need to filter it out.
 
@@ -7715,18 +7721,18 @@ bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
 }
 
 #ifndef DBUG_OFF
-void dbug_append_garbage_at_end(rocksdb::PinnableSlice *on_disk_rec) {
+static void dbug_append_garbage_at_end(rocksdb::PinnableSlice *on_disk_rec) {
   std::string str(on_disk_rec->data(), on_disk_rec->size());
   on_disk_rec->Reset();
   str.append("abc");
   on_disk_rec->PinSelf(rocksdb::Slice(str));
 }
 
-void dbug_truncate_record(rocksdb::PinnableSlice *on_disk_rec) {
+static void dbug_truncate_record(rocksdb::PinnableSlice *on_disk_rec) {
   on_disk_rec->remove_suffix(on_disk_rec->size());
 }
 
-void dbug_modify_rec_varchar12(rocksdb::PinnableSlice *on_disk_rec) {
+static void dbug_modify_rec_varchar12(rocksdb::PinnableSlice *on_disk_rec) {
   std::string res;
   // The record is NULL-byte followed by VARCHAR(10).
   // Put the NULL-byte
@@ -7739,7 +7745,7 @@ void dbug_modify_rec_varchar12(rocksdb::PinnableSlice *on_disk_rec) {
   on_disk_rec->PinSelf(rocksdb::Slice(res));
 }
 
-void dbug_create_err_inplace_alter() {
+static void dbug_create_err_inplace_alter() {
   my_printf_error(ER_UNKNOWN_ERROR,
                   "Intentional failure in inplace alter occurred.", MYF(0));
 }
@@ -7999,7 +8005,7 @@ int ha_rocksdb::close(void) {
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
-static const char *rdb_error_messages[] = {
+static const char *const rdb_error_messages[] = {
     "Table must have a PRIMARY KEY.",
     "Specifying DATA DIRECTORY for an individual table is not supported.",
     "Specifying INDEX DIRECTORY for an individual table is not supported.",
@@ -8683,7 +8689,7 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
-bool rdb_is_tablename_normalized(const std::string &tablename) {
+static bool rdb_is_tablename_normalized(const std::string &tablename) {
   return tablename.size() < 2 || (tablename[0] != '.' && tablename[1] != '/');
 }
 
@@ -8851,10 +8857,10 @@ int rdb_split_normalized_tablename(const std::string &fullname,
   <table>
   <table>#P#<partition>
 */
-void rdb_gen_normalized_tablename(const std::string *db,
-                                  const std::string *table,
-                                  const std::string *partition,
-                                  std::string *fullname) {
+static void rdb_gen_normalized_tablename(const std::string *db,
+                                         const std::string *table,
+                                         const std::string *partition,
+                                         std::string *fullname) {
   if (!fullname) return;
   fullname->clear();
   if (db && db->length() > 0) *fullname += *db;
@@ -10295,7 +10301,7 @@ bool ha_rocksdb::skip_unique_check() const {
          use_read_free_rpl();
 }
 
-bool commit_in_the_middle(THD *thd) {
+static bool commit_in_the_middle(THD *thd) {
   // It does not make sense to use write unprepared with commit in the middle,
   // since both handle large transactions by flushing the write batches onto
   // disk.
@@ -13702,7 +13708,7 @@ enum icp_result ha_rocksdb::check_index_cond() const {
 }
 
 /** Operations for altering a table that RocksDB does not care about */
-static const Alter_inplace_info::HA_ALTER_FLAGS ROCKSDB_INPLACE_IGNORE =
+static constexpr Alter_inplace_info::HA_ALTER_FLAGS ROCKSDB_INPLACE_IGNORE =
     Alter_inplace_info::ALTER_COLUMN_DEFAULT |
     Alter_inplace_info::ALTER_COLUMN_COLUMN_FORMAT |
     Alter_inplace_info::ALTER_COLUMN_STORAGE_TYPE |
@@ -15783,13 +15789,13 @@ bool rdb_is_table_scan_index_stats_calculation_enabled() {
   return rocksdb_table_stats_use_table_scan;
 }
 bool rdb_is_ttl_enabled() { return rocksdb_enable_ttl; }
-bool rdb_is_ttl_read_filtering_enabled() {
+static bool rdb_is_ttl_read_filtering_enabled() {
   return rocksdb_enable_ttl_read_filtering;
 }
 #ifndef DBUG_OFF
 int rdb_dbug_set_ttl_rec_ts() { return rocksdb_debug_ttl_rec_ts; }
 int rdb_dbug_set_ttl_snapshot_ts() { return rocksdb_debug_ttl_snapshot_ts; }
-int rdb_dbug_set_ttl_read_filter_ts() {
+static int rdb_dbug_set_ttl_read_filter_ts() {
   return rocksdb_debug_ttl_read_filter_ts;
 }
 bool rdb_dbug_set_ttl_ignore_pk() { return rocksdb_debug_ttl_ignore_pk; }
@@ -15824,27 +15830,6 @@ int rdb_get_table_perf_counters(const char *const tablename,
 
   rdb_open_tables.release_table_handler(table_handler);
   return HA_EXIT_SUCCESS;
-}
-
-const char *get_rdb_io_error_string(const RDB_IO_ERROR_TYPE err_type) {
-  // If this assertion fails then this means that a member has been either added
-  // to or removed from RDB_IO_ERROR_TYPE enum and this function needs to be
-  // changed to return the appropriate value.
-  static_assert(RDB_IO_ERROR_LAST == 4, "Please handle all the error types.");
-
-  switch (err_type) {
-    case RDB_IO_ERROR_TYPE::RDB_IO_ERROR_TX_COMMIT:
-      return "RDB_IO_ERROR_TX_COMMIT";
-    case RDB_IO_ERROR_TYPE::RDB_IO_ERROR_DICT_COMMIT:
-      return "RDB_IO_ERROR_DICT_COMMIT";
-    case RDB_IO_ERROR_TYPE::RDB_IO_ERROR_BG_THREAD:
-      return "RDB_IO_ERROR_BG_THREAD";
-    case RDB_IO_ERROR_TYPE::RDB_IO_ERROR_GENERAL:
-      return "RDB_IO_ERROR_GENERAL";
-    default:
-      DBUG_ASSERT(false);
-      return "(unknown)";
-  }
 }
 
 // In case of core dump generation we want this function NOT to be optimized
@@ -15914,7 +15899,7 @@ Rdb_ddl_manager *rdb_get_ddl_manager(void) { return &ddl_manager; }
 
 Rdb_binlog_manager *rdb_get_binlog_manager(void) { return &binlog_manager; }
 
-void rocksdb_set_compaction_options(
+static void rocksdb_set_compaction_options(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *const var_ptr,
     const void *const save) {
@@ -15930,7 +15915,7 @@ void rocksdb_set_compaction_options(
   }
 }
 
-void rocksdb_set_table_stats_sampling_pct(
+static void rocksdb_set_table_stats_sampling_pct(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
@@ -15950,10 +15935,9 @@ void rocksdb_set_table_stats_sampling_pct(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-void rocksdb_update_table_stats_use_table_scan(THD *const /* thd */,
-                                               struct SYS_VAR *const /* var */,
-                                               void *const var_ptr,
-                                               const void *const save) {
+static void rocksdb_update_table_stats_use_table_scan(
+    THD *const /* thd */, struct SYS_VAR *const /* var */, void *const var_ptr,
+    const void *const save) {
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   bool old_val = *static_cast<const bool *>(var_ptr);
   bool new_val = *static_cast<const bool *>(save);
@@ -15986,10 +15970,9 @@ void rocksdb_update_table_stats_use_table_scan(THD *const /* thd */,
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-int rocksdb_index_stats_thread_renice(THD *const /* thd */,
-                                      struct SYS_VAR *const /* var */,
-                                      void *const save,
-                                      struct st_mysql_value *const value) {
+static int rocksdb_index_stats_thread_renice(
+    THD *const /* thd */, struct SYS_VAR *const /* var */, void *const save,
+    struct st_mysql_value *const value) {
   long long nice_val;
   /* value is NULL */
   if (value->val_int(value, &nice_val)) {
@@ -16013,7 +15996,7 @@ int rocksdb_index_stats_thread_renice(THD *const /* thd */,
   This is similar to the code in innodb_doublewrite_update (found in
   storage/innobase/handler/ha_innodb.cc).
 */
-void rocksdb_set_rate_limiter_bytes_per_sec(
+static void rocksdb_set_rate_limiter_bytes_per_sec(
     my_core::THD *const thd,
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
@@ -16035,7 +16018,7 @@ void rocksdb_set_rate_limiter_bytes_per_sec(
   }
 }
 
-void rocksdb_set_sst_mgr_rate_bytes_per_sec(
+static void rocksdb_set_sst_mgr_rate_bytes_per_sec(
     my_core::THD *const thd MY_ATTRIBUTE((unused)),
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
@@ -16053,10 +16036,9 @@ void rocksdb_set_sst_mgr_rate_bytes_per_sec(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-void rocksdb_set_delayed_write_rate(THD *thd MY_ATTRIBUTE((unused)),
-                                    struct SYS_VAR *var MY_ATTRIBUTE((unused)),
-                                    void *var_ptr MY_ATTRIBUTE((unused)),
-                                    const void *save) {
+static void rocksdb_set_delayed_write_rate(
+    THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
+    void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   const uint64_t new_val = *static_cast<const uint64_t *>(save);
   if (rocksdb_delayed_write_rate != new_val) {
@@ -16075,7 +16057,7 @@ void rocksdb_set_delayed_write_rate(THD *thd MY_ATTRIBUTE((unused)),
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-void rocksdb_set_max_latest_deadlocks(
+static void rocksdb_set_max_latest_deadlocks(
     THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
     void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
@@ -16087,7 +16069,7 @@ void rocksdb_set_max_latest_deadlocks(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-void rdb_set_collation_exception_list(const char *const exception_list) {
+static void rdb_set_collation_exception_list(const char *const exception_list) {
   DBUG_ASSERT(rdb_collation_exceptions != nullptr);
 
   if (!rdb_collation_exceptions->set_patterns(exception_list)) {
@@ -16096,7 +16078,7 @@ void rdb_set_collation_exception_list(const char *const exception_list) {
   }
 }
 
-void rocksdb_set_collation_exception_list(
+static void rocksdb_set_collation_exception_list(
     THD *const thd MY_ATTRIBUTE((unused)),
     struct SYS_VAR *const var MY_ATTRIBUTE((unused)), void *const var_ptr,
     const void *const save) {
@@ -16107,7 +16089,8 @@ void rocksdb_set_collation_exception_list(
   *static_cast<const char **>(var_ptr) = val;
 }
 
-int mysql_value_to_bool(struct st_mysql_value *value, bool *return_value) {
+static int mysql_value_to_bool(struct st_mysql_value *value,
+                               bool *return_value) {
   int new_value_type = value->value_type(value);
   if (new_value_type == MYSQL_VALUE_TYPE_STRING) {
     char buf[16];
@@ -16134,9 +16117,9 @@ int mysql_value_to_bool(struct st_mysql_value *value, bool *return_value) {
   return 0;
 }
 
-int rocksdb_check_bulk_load(THD *const thd,
-                            struct SYS_VAR *var MY_ATTRIBUTE((__unused__)),
-                            void *save, struct st_mysql_value *value) {
+static int rocksdb_check_bulk_load(
+    THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
+    struct st_mysql_value *value) {
   bool new_value;
   if (mysql_value_to_bool(value, &new_value) != 0) {
     return 1;
@@ -16161,7 +16144,7 @@ int rocksdb_check_bulk_load(THD *const thd,
   return 0;
 }
 
-int rocksdb_check_bulk_load_allow_unsorted(
+static int rocksdb_check_bulk_load_allow_unsorted(
     THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
     struct st_mysql_value *value) {
   bool new_value;
@@ -17173,7 +17156,7 @@ uint ha_rocksdb::mrr_get_length_per_rec() {
 }
 
 template <typename T>
-void align_ptr(char **p) {
+static void align_ptr(char **p) {
   if ((reinterpret_cast<std::uintptr_t>(*p)) % alignof(T)) {
     *p += alignof(T) - (reinterpret_cast<std::uintptr_t>(*p)) % alignof(T);
   }
@@ -17501,7 +17484,7 @@ static bool parse_fault_injection_params(
   its name generation.
 */
 
-struct st_mysql_storage_engine rocksdb_storage_engine = {
+static struct st_mysql_storage_engine rocksdb_storage_engine = {
     MYSQL_HANDLERTON_INTERFACE_VERSION};
 
 mysql_declare_plugin(rocksdb_se){
