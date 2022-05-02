@@ -39,8 +39,6 @@ enum RDB_IO_ERROR_TYPE {
   RDB_IO_ERROR_LAST
 };
 
-const char *get_rdb_io_error_string(const RDB_IO_ERROR_TYPE err_type);
-
 void rdb_handle_io_error(const rocksdb::Status status,
                          const RDB_IO_ERROR_TYPE err_type)
 #if defined(__clang__)
@@ -49,9 +47,6 @@ void rdb_handle_io_error(const rocksdb::Status status,
     MY_ATTRIBUTE((optimize("O0")));
 #endif
 
-bool rdb_is_tablename_normalized(const std::string &tablename)
-    MY_ATTRIBUTE((__warn_unused_result__));
-
 int rdb_normalize_tablename(const std::string &tablename, std::string *str)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
@@ -59,10 +54,6 @@ int rdb_split_normalized_tablename(const std::string &fullname, std::string *db,
                                    std::string *table = nullptr,
                                    std::string *partition = nullptr)
     MY_ATTRIBUTE((__warn_unused_result__));
-void rdb_gen_normalized_tablename(const std::string *db,
-                                  const std::string *table,
-                                  const std::string *partition,
-                                  std::string *fullname);
 
 std::vector<std::string> rdb_get_open_table_names(void);
 
@@ -89,11 +80,9 @@ Rdb_cf_manager &rdb_get_cf_manager();
 const rocksdb::BlockBasedTableOptions &rdb_get_table_options();
 bool rdb_is_table_scan_index_stats_calculation_enabled();
 bool rdb_is_ttl_enabled();
-bool rdb_is_ttl_read_filtering_enabled();
 #ifndef NDEBUG
 int rdb_dbug_set_ttl_rec_ts();
 int rdb_dbug_set_ttl_snapshot_ts();
-int rdb_dbug_set_ttl_read_filter_ts();
 bool rdb_dbug_set_ttl_ignore_pk();
 #endif
 
