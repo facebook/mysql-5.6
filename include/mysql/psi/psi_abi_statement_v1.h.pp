@@ -46,17 +46,9 @@ struct PSI_statement_info_v1 {
   const char *m_documentation;
 };
 typedef struct PSI_statement_info_v1 PSI_statement_info_v1;
-struct PSI_statement_locker_state_v1 {
-  bool m_discarded;
-  bool m_in_prepare;
+struct PSI_statement_locker_mutating_state_v1 {
   unsigned char m_no_index_used;
   unsigned char m_no_good_index_used;
-  unsigned int m_flags;
-  void *m_class;
-  struct PSI_thread *m_thread;
-  unsigned long long m_timer_start;
-  unsigned long long (*m_timer)(void);
-  void *m_statement;
   unsigned long long m_lock_time;
   unsigned long long m_cpu_time;
   unsigned long long m_rows_sent;
@@ -82,6 +74,18 @@ struct PSI_statement_locker_state_v1 {
   unsigned long m_sort_range;
   unsigned long m_sort_rows;
   unsigned long m_sort_scan;
+  unsigned long long m_filesort_disk_usage_peak;
+  unsigned long long m_tmp_table_disk_usage_peak;
+};
+struct PSI_statement_locker_state_v1 {
+  bool m_discarded;
+  bool m_in_prepare;
+  unsigned int m_flags;
+  void *m_class;
+  struct PSI_thread *m_thread;
+  unsigned long long m_timer_start;
+  unsigned long long (*m_timer)(void);
+  void *m_statement;
   const struct sql_digest_storage *m_digest;
   char m_schema_name[(64 * 3)];
   unsigned int m_schema_name_length;
@@ -89,8 +93,10 @@ struct PSI_statement_locker_state_v1 {
   const char *m_query_sample;
   unsigned int m_query_sample_length;
   bool m_query_sample_truncated;
-  unsigned long long m_filesort_disk_usage_peak;
-  unsigned long long m_tmp_table_disk_usage_peak;
+  PSI_statement_locker_mutating_state_v1 current_state;
+  PSI_statement_locker_mutating_state_v1 prev_state;
+  bool m_aggregate_count_initiated;
+  bool m_capture_stats_periodic;
   PSI_sp_share *m_parent_sp_share;
   PSI_prepared_stmt *m_parent_prepared_stmt;
 };
