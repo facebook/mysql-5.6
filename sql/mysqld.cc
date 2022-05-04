@@ -8335,11 +8335,16 @@ int mysqld_main(int argc, char **argv)
   */
   set_my_abort(my_server_abort);
 
-  size_t guardize = 0;
+  size_t extra_mem = 0;
 #ifndef _WIN32
-  int retval = pthread_attr_getguardsize(&connection_attrib, &guardize);
+  int retval = pthread_attr_getguardsize(&connection_attrib, &extra_mem);
   assert(retval == 0);
-  if (retval != 0) guardize = my_thread_stack_size;
+  if (retval != 0)
+    extra_mem = my_thread_stack_size;
+  else {
+    /* Increase stack size to account for 16KB of TLS memory */
+    extra_mem += 16 * 1024;
+  }
 #endif
 
 #if defined(__ia64__) || defined(__ia64)
@@ -8347,11 +8352,11 @@ int mysqld_main(int argc, char **argv)
     Peculiar things with ia64 platforms - it seems we only have half the
     stack size in reality, so we have to double it here
   */
-  guardize = my_thread_stack_size;
+  extra_mem = my_thread_stack_size;
 #endif
 
   if (0 != my_thread_attr_setstacksize(&connection_attrib,
-                                       my_thread_stack_size + guardize)) {
+                                       my_thread_stack_size + extra_mem)) {
     assert(false);
   }
 
@@ -8361,13 +8366,13 @@ int mysqld_main(int argc, char **argv)
     my_thread_attr_getstacksize(&connection_attrib, &stack_size);
 
     /* We must check if stack_size = 0 as Solaris 2.9 can return 0 here */
-    if (stack_size && stack_size < (my_thread_stack_size + guardize)) {
+    if (stack_size && stack_size < (my_thread_stack_size + extra_mem)) {
       LogErr(WARNING_LEVEL, ER_STACKSIZE_UNEXPECTED,
-             my_thread_stack_size + guardize, (long)stack_size);
+             my_thread_stack_size + extra_mem, (long)stack_size);
 #if defined(__ia64__) || defined(__ia64)
       my_thread_stack_size = stack_size / 2;
 #else
-      my_thread_stack_size = static_cast<ulong>(stack_size - guardize);
+      my_thread_stack_size = static_cast<ulong>(stack_size - extra_mem);
 #endif
     }
   }
