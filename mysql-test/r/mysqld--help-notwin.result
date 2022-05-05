@@ -1345,6 +1345,10 @@ The following options may be given as the first argument:
  response attribute. Server CPU time is sent as a
  key-value pair - 'server_cpu' is the key and the value is
  the stringified server CPU time.
+ --response-attrs-contain-sql-id 
+ Returns the sql id for the query. Sql id is sent as a
+ key-value pair - 'sql_id' is the key and the value is the
+ computed sql_id.
  --response-attrs-contain-warnings-bytes[=#] 
  Specifies the size of the warnings information (specified
  in bytes)  that can be included in the query response
@@ -2829,6 +2833,7 @@ response-attrs-contain-binlog-row-image-delta FALSE
 response-attrs-contain-hlc FALSE
 response-attrs-contain-read-tables-bytes 0
 response-attrs-contain-server-cpu FALSE
+response-attrs-contain-sql-id FALSE
 response-attrs-contain-warnings-bytes 0
 response-attrs-contain-write-tables-bytes 0
 rocksdb ON
