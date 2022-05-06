@@ -35,7 +35,6 @@
 #include "./sql/item.h"
 #include "./sql/item_func.h"
 #include "./sql/query_result.h"
-#include "./sql/rpc_plugin.h"
 #include "./sql/sql_base.h"
 #include "./sql/sql_select.h"
 #include "./sql/strfunc.h"
@@ -2656,11 +2655,6 @@ bypass_rpc_exception myrocks_select_by_key(
   }
 
   return ret;
-}
-
-// for test
-bypass_rpc_exception test_bypass_select(const myrocks_select_from_rpc *param) {
-  return bypass_select(param);
 }
 
 }  // namespace myrocks

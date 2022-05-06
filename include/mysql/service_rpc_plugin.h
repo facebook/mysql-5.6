@@ -20,13 +20,15 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#ifndef RPC_PLUGIN_INCLUDED
-#define RPC_PLUGIN_INCLUDED
+#ifndef MYSQL_SERVICE_RPC_PLUGIN_INCLUDED
+#define MYSQL_SERVICE_RPC_PLUGIN_INCLUDED
 
 #include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
+
+#include "my_inttypes.h"
 
 // These structs are defined for communication between thrift plugin and myrocks
 typedef enum {
@@ -143,4 +145,8 @@ struct bypass_rpc_exception {
 */
 bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param);
 
-#endif /* RPC_PLUGIN_INCLUDED */
+extern "C" struct rpc_plugin_service_st {
+  bypass_rpc_exception (*bypass_select)(const myrocks_select_from_rpc *param);
+} * rpc_plugin_service;
+
+#endif /* MYSQL_SERVICE_RPC_PLUGIN_INCLUDED */
