@@ -1,0 +1,128 @@
+create table t1 (id int primary key);
+insert into t1 values (1);
+
+# single statement
+let $sleep_ms = 1000;
+let $buffer = 1000;
+let $timestamp_ms_before_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+query_attrs_add inject_query_latency_ms $sleep_ms;
+
+select * from t1;
+
+query_attrs_reset;
+let $timestamp_ms_after_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+expr $timediff = $timestamp_ms_after_query - $timestamp_ms_before_query;
+expr $max_exec_time = $sleep_ms + $buffer;
+if ($timediff >= $sleep_ms) {
+  if ($timediff < $max_exec_time) {
+  --echo ok
+  }
+}
+
+# single statement, different sleep period
+let $sleep_ms = 4500;
+let $buffer = 1000;
+let $timestamp_ms_before_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+query_attrs_add inject_query_latency_ms $sleep_ms;
+
+select * from t1;
+
+query_attrs_reset;
+let $timestamp_ms_after_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+expr $timediff = $timestamp_ms_after_query - $timestamp_ms_before_query;
+expr $max_exec_time = $sleep_ms + $buffer;
+if ($timediff >= $sleep_ms) {
+  if ($timediff < $max_exec_time) {
+  --echo ok
+  }
+}
+
+
+
+# multi statements (CLIENT_MULTI_STATEMENTS) should apply query attr just once
+let $sleep_ms = 1000;
+let $buffer = 1000;
+let $timestamp_ms_before_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+query_attrs_add inject_query_latency_ms $sleep_ms;
+
+delimiter |;
+select * from t1 where id=1;
+select * from t1 where id=2;
+select * from t1 where id=3;
+select * from t1 where id=4;
+select * from t1 where id=5|
+delimiter ;|
+
+query_attrs_reset;
+let $timestamp_ms_after_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+expr $timediff = $timestamp_ms_after_query - $timestamp_ms_before_query;
+expr $max_exec_time = $sleep_ms + $buffer;
+if ($timediff >= $sleep_ms) {
+  if ($timediff < $max_exec_time) {
+  --echo ok
+  }
+}
+
+# transaction
+let $sleep_ms = 1000;
+let $number_of_queries = 3;
+expr $expected_sleep_time = $sleep_ms * $number_of_queries;
+let $buffer = 1000;
+let $timestamp_ms_before_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+query_attrs_add inject_query_latency_ms $sleep_ms;
+
+begin;
+insert into t1 values (10);
+commit;
+
+query_attrs_reset;
+let $timestamp_ms_after_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+expr $timediff = $timestamp_ms_after_query - $timestamp_ms_before_query;
+expr $max_exec_time = $expected_sleep_time + $buffer;
+if ($timediff >= $expected_sleep_time) {
+  if ($timediff < $max_exec_time) {
+  --echo ok
+  }
+}
+
+# admission control (not blocked)
+SET @save.max_running_queries = @@global.max_running_queries;
+SET @save.admission_control_queue_timeout = @@global.admission_control_queue_timeout;
+SET GLOBAL max_running_queries = 1;
+SET GLOBAL admission_control_queue_timeout = 100;
+create user 'test_user'@'localhost';
+grant all on test.* to 'test_user'@'localhost';
+connect (conn1, localhost, test_user,,test);
+connect (conn2, localhost, test_user,,test);
+connection conn1;
+
+let $sleep_ms = 3000;
+let $buffer = 1000;
+let $timestamp_ms_before_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+query_attrs_add inject_query_latency_ms $sleep_ms;
+send select * from t1;
+
+connection conn2;
+query_attrs_add inject_query_latency_ms $sleep_ms;
+select * from t1;
+query_attrs_reset;
+
+connection conn1;
+reap;
+
+query_attrs_reset;
+connection default;
+let $timestamp_ms_after_query = `SELECT CEIL(UNIX_TIMESTAMP(NOW(3))*1000)`;
+expr $timediff = $timestamp_ms_after_query - $timestamp_ms_before_query;
+expr $max_exec_time = $sleep_ms + $buffer;
+if ($timediff >= $sleep_ms) {
+  if ($timediff < $max_exec_time) {
+  --echo ok
+  }
+}
+
+drop user 'test_user'@'localhost';
+SET GLOBAL max_running_queries = @save.max_running_queries;
+SET GLOBAL admission_control_queue_timeout = @save.admission_control_queue_timeout;
+
+drop table t1;
