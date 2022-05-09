@@ -1986,6 +1986,29 @@ static void copy_bind_parameter_values(THD *thd, PS_PARAM *parameters,
 }
 
 /**
+  Injecting latency before query execution, if a query attribute
+  inject_query_latency_ms is set.
+*/
+static const char *inject_query_latency_ms = "inject_query_latency_ms";
+static void handle_latency_injection_query_attribute(THD *thd) {
+  const char *inject_query_latency_ms_str = nullptr;
+  for (const auto &p : thd->query_attrs_list) {
+    if (p.first == inject_query_latency_ms) {
+      inject_query_latency_ms_str = p.second.c_str();
+      break;
+    }
+  }
+  if (inject_query_latency_ms_str) {
+    char *endptr = nullptr;
+    uint64_t sleep_ms = strtoull(inject_query_latency_ms_str, &endptr, 10);
+    if (!endptr || *endptr != '\0') {
+      sleep_ms = 0;
+    }
+    my_sleep(sleep_ms * 1000);
+  }
+}
+
+/**
   Perform one connection-level (COM_XXXX) command.
 
   @param thd             connection handle
@@ -2340,6 +2363,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       }
       thd->serialize_client_attrs(com_data->com_query.query,
                                   com_data->com_query.length);
+
+      handle_latency_injection_query_attribute(thd);
 
       if (!thd->trace_id.empty()) {
         if (!thd->query_perf) {

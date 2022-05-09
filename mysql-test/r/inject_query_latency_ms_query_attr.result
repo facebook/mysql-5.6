@@ -1,0 +1,45 @@
+create table t1 (id int primary key);
+insert into t1 values (1);
+select * from t1;
+id
+1
+ok
+select * from t1;
+id
+1
+ok
+select * from t1 where id=1;
+select * from t1 where id=2;
+select * from t1 where id=3;
+select * from t1 where id=4;
+select * from t1 where id=5|
+id
+1
+id
+id
+id
+id
+ok
+begin;
+insert into t1 values (10);
+commit;
+ok
+SET @save.max_running_queries = @@global.max_running_queries;
+SET @save.admission_control_queue_timeout = @@global.admission_control_queue_timeout;
+SET GLOBAL max_running_queries = 1;
+SET GLOBAL admission_control_queue_timeout = 100;
+create user 'test_user'@'localhost';
+grant all on test.* to 'test_user'@'localhost';
+select * from t1;
+select * from t1;
+id
+1
+10
+id
+1
+10
+ok
+drop user 'test_user'@'localhost';
+SET GLOBAL max_running_queries = @save.max_running_queries;
+SET GLOBAL admission_control_queue_timeout = @save.admission_control_queue_timeout;
+drop table t1;
