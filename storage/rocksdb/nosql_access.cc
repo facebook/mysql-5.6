@@ -1225,7 +1225,7 @@ class rpc_select_parser : public base_select_parser {
       auto value_type =
           more_values ? item.more_values[i].type : item.values[i].type;
       if (desired_type != value_type) {
-        m_error_msg = "Type does not match in where clause";
+        m_error_msg = "Type does not match in where_in clause";
         return true;
       }
     }
