@@ -168,3 +168,6 @@ component_test_table_access  	plugin_output_directory no TEST_TABLE_ACCESS
 # test privacy service
 libtest_get_column_ref_info                      plugin_output_directory  no  TEST_GET_COLUMN_REF_INFO test_get_column_ref_info
 libtest_build_column_lineage_info                plugin_output_directory  no  TEST_BUILD_COLUMN_LINEAGE_INFO test_build_column_lineage_info
+
+# test bypass rpc plugin
+libtest_bypass_rpc_plugin                        plugin_output_directory  no  TEST_BYPASS_RPC_PLUGIN test_bypass_rpc_plugin_info
