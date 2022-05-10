@@ -7884,7 +7884,7 @@ err:
     Then error codes from purging the index entry.
   */
   error = error ? error : error_index;
-  if (error && should_abort_on_binlog_error()) {
+  if (error && error != LOG_INFO_EOF && should_abort_on_binlog_error()) {
     if (!raft_plugin_error || abort_on_raft_purge_error) {
       exec_binlog_error_action_abort(
           "Either disk is full, file system is read only or "
