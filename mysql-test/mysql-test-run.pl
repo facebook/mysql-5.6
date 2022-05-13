@@ -2789,9 +2789,9 @@ sub environment_setup {
   # ----------------------------------------------------
   my $exe_sst_dump=
     mtr_exe_maybe_exists(
-           vs_config_dirs('storage/rocksdb', 'sst_dump'),
-           "$path_client_bindir/sst_dump",
-           "$basedir/storage/rocksdb/sst_dump");
+           vs_config_dirs('storage/rocksdb', 'mysql_sst_dump'),
+           "$path_client_bindir/mysql_sst_dump",
+           "$basedir/storage/rocksdb/mysql_sst_dump");
   $ENV{'MYSQL_SST_DUMP'}= native_path($exe_sst_dump);
 
   # ----------------------------------------------------

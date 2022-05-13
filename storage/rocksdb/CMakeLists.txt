@@ -193,6 +193,10 @@ IF (WITH_ROCKSDB_SE_STORAGE_ENGINE AND (NOT HAVE_EXTERNAL_ROCKSDB))
   MYSQL_ADD_EXECUTABLE(sst_dump ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump.cc ${ROCKSDB_TOOL_SOURCES})
   TARGET_LINK_LIBRARIES(sst_dump rocksdb_se)
 
+  MYSQL_ADD_EXECUTABLE(mysql_sst_dump ${CMAKE_SOURCE_DIR}/storage/rocksdb/tools/mysql_sst_dump.cc
+    ${ROCKSDB_TOOL_SOURCES})
+  TARGET_LINK_LIBRARIES(mysql_sst_dump rocksdb_se)
+
   MYSQL_ADD_EXECUTABLE(ldb ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb.cc ${ROCKSDB_TOOL_SOURCES})
   TARGET_LINK_LIBRARIES(ldb rocksdb_se)
 
