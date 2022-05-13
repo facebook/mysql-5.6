@@ -211,3 +211,159 @@ create database #sqltmp;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
 create table #sql_1 (pk int primary key) engine=rocksdb charset=latin1;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+Case 9: Create mix of tmp table and user table on same transaction
+create temporary table tmp1 (pk int primary key) engine=rocksdb charset=latin1;
+create table t1 (pk int primary key) engine=rocksdb charset=latin1;
+# commit case
+begin;
+insert into t1 values(1);
+insert into tmp1 values(1);
+select * from t1;
+pk
+1
+select * from tmp1;
+pk
+1
+commit;
+select * from t1;
+pk
+1
+select * from tmp1;
+pk
+1
+# rollback case
+begin;
+insert into t1 values(2);
+insert into tmp1 values(2);
+select * from t1;
+pk
+1
+2
+select * from tmp1;
+pk
+1
+2
+rollback;
+select * from t1;
+pk
+1
+select * from tmp1;
+pk
+1
+# commit with error
+begin;
+insert into t1 values(2);
+insert into tmp1 values(1);
+ERROR 23000: Duplicate entry '1' for key 'tmp1.PRIMARY'
+select * from t1;
+pk
+1
+2
+select * from tmp1;
+pk
+1
+commit;
+select * from t1;
+pk
+1
+2
+select * from tmp1;
+pk
+1
+begin;
+insert into t1 values(2);
+ERROR 23000: Duplicate entry '2' for key 't1.PRIMARY'
+insert into tmp1 values(2);
+select * from t1;
+pk
+1
+2
+select * from tmp1;
+pk
+1
+2
+commit;
+select * from t1;
+pk
+1
+2
+select * from tmp1;
+pk
+1
+2
+drop table tmp1;
+drop table t1;
+Case 10: Create mix of tmp table, intrinsic_tmp_table and user table
+set big_tables = 1;
+show status like 'Created_tmp_disk_tables';
+Variable_name	Value
+Created_tmp_disk_tables	0
+create temporary table tmp1(i int, c char(5));
+create table t1(i int, c char(5));
+flush status;
+# auto commit case
+insert into t1 values (0, "aaaa");
+insert into tmp1 values (0, "aaaa");
+select i, c, count(*) from t1 group by i, c having count(*) > 0;
+i	c	count(*)
+0	aaaa	1
+select i, c, count(*) from tmp1 group by i, c having count(*) > 0;
+i	c	count(*)
+0	aaaa	1
+show status like 'Created_tmp_disk_tables';
+Variable_name	Value
+Created_tmp_disk_tables	1
+# multi statement commit
+begin;
+insert into t1 values (0, "aaaa");
+insert into tmp1 values (0, "aaaa");
+select i, c, count(*) from t1 group by i, c having count(*) > 0;
+i	c	count(*)
+0	aaaa	2
+select i, c, count(*) from tmp1 group by i, c having count(*) > 0;
+i	c	count(*)
+0	aaaa	2
+commit;
+show status like 'Created_tmp_disk_tables';
+Variable_name	Value
+Created_tmp_disk_tables	3
+# multi statement rollback
+begin;
+insert into t1 values (0, "aaaa");
+insert into tmp1 values (0, "aaaa");
+select i, c, count(*) from t1 group by i, c having count(*) > 0;
+i	c	count(*)
+0	aaaa	3
+select i, c, count(*) from tmp1 group by i, c having count(*) > 0;
+i	c	count(*)
+0	aaaa	3
+rollback;
+Warnings:
+Warning	1196	Some non-transactional changed tables couldn't be rolled back
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+i	c	count(*)
+0	aaaa	2
+show status like 'Created_tmp_disk_tables';
+Variable_name	Value
+Created_tmp_disk_tables	6
+set big_tables = 0;
+drop table t1;
+drop table tmp1;
+Case 11: Tmp table crash recovery
+create temporary table tmp1 (i int, c char(5)) ENGINE=rocksdb CHARSET=latin1;
+create table t1(i int, c char(5));
+insert into tmp1 VALUES (1, "aaaa");
+insert into tmp1 VALUES (1, "aaaa");
+insert into t1 VALUES (1, "aaaa");
+# crash_during_write_row
+flush logs;
+set session debug="+d,crash_during_write_row";
+insert into tmp1 VALUES (1, "aaaa");
+ERROR HY000: Lost connection to MySQL server during query
+set session debug="-d,crash_during_write_row";
+show create table tmp1;
+ERROR 42S02: Table 'test.tmp1' doesn't exist
+select * from t1;
+i	c
+1	aaaa
+drop table t1;

@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS t1, t2;
+Case 1: Verify user table transactions
 CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b'),(3,'a');
 CREATE TABLE t2 LIKE t1;
@@ -20,3 +21,35 @@ a	b	pk
 ROLLBACK TO SAVEPOINT a;
 ALTER TABLE t1 RENAME TO t3;
 DROP TABLE t2, t3;
+Case 2: Verify tmp table transactions
+CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b'),(3,'a');
+CREATE TEMPORARY TABLE t2 LIKE t1;
+INSERT INTO t2 SELECT * FROM t1;
+set big_tables = 1;
+FLUSH STATUS;
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+SAVEPOINT b;
+SELECT * FROM t1 ORDER BY pk;
+a	b	pk
+1	a	1
+2	b	2
+3	a	3
+SELECT pk, a, COUNT(*) FROM t1 GROUP BY pk, a HAVING COUNT(*) > 0;
+pk	a	COUNT(*)
+1	1	1
+2	2	1
+3	3	1
+ROLLBACK TO SAVEPOINT b;
+SAVEPOINT b;
+SELECT * FROM t2 ORDER BY pk;
+a	b	pk
+1	a	1
+2	b	2
+3	a	3
+ROLLBACK TO SAVEPOINT b;
+SHOW STATUS like 'Created_tmp_disk_tables';
+Variable_name	Value
+Created_tmp_disk_tables	1
+ALTER TABLE t1 RENAME TO t3;
+DROP TABLE t3;
