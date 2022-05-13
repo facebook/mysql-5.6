@@ -354,7 +354,8 @@ const rocksdb::Comparator *Rdb_cf_options::get_cf_comparator(
 
 std::shared_ptr<rocksdb::MergeOperator> Rdb_cf_options::get_cf_merge_operator(
     const std::string &cf_name) {
-  return (cf_name == DEFAULT_SYSTEM_CF_NAME)
+  return (cf_name == DEFAULT_SYSTEM_CF_NAME ||
+          cf_name == DEFAULT_TMP_SYSTEM_CF_NAME)
              ? std::make_shared<Rdb_system_merge_op>()
              : nullptr;
 }

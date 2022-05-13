@@ -1,9 +1,13 @@
 --source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_write_committed.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS t1, t2;
 --enable_warnings
-
+####################################################
+### Case 1: Verify user table transactions
+####################################################
+--echo Case 1: Verify user table transactions
 CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b'),(3,'a');
 CREATE TABLE t2 LIKE t1;
@@ -27,7 +31,38 @@ ALTER TABLE t1 RENAME TO t3;
 
 --connection default
 DROP TABLE t2, t3;
-
 --disconnect con1
 --disconnect con2
 
+####################################################
+### Case 2: Verify tmp table transactions
+####################################################
+--echo Case 2: Verify tmp table transactions
+--connection default
+CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b'),(3,'a');
+--connect (con1,localhost,root,,)
+--connect (con2,localhost,root,,)
+--connection con1
+CREATE TEMPORARY TABLE t2 LIKE t1;
+INSERT INTO t2 SELECT * FROM t1;
+set big_tables = 1;
+FLUSH STATUS;
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+SAVEPOINT b;
+SELECT * FROM t1 ORDER BY pk;
+SELECT pk, a, COUNT(*) FROM t1 GROUP BY pk, a HAVING COUNT(*) > 0;
+ROLLBACK TO SAVEPOINT b;
+SAVEPOINT b;
+SELECT * FROM t2 ORDER BY pk;
+ROLLBACK TO SAVEPOINT b;
+SHOW STATUS like 'Created_tmp_disk_tables';
+
+# should not be blocked
+--connection con2
+ALTER TABLE t1 RENAME TO t3;
+
+--connection default
+DROP TABLE t3;
+--disconnect con1
+--disconnect con2

@@ -1392,8 +1392,9 @@ class select_exec {
    */
   class txn_wrapper {
    public:
-    explicit txn_wrapper(THD *thd) : m_thd(thd), m_tx(get_tx_from_thd(m_thd)) {
-      assert(m_tx && rdb_tx_started(m_tx));
+    explicit txn_wrapper(THD *thd, TABLE_TYPE table_type)
+        : m_thd(thd), m_table_type(table_type), m_tx(get_tx_from_thd(m_thd)) {
+      assert(m_tx && rdb_tx_started(m_tx, table_type));
     }
 
     bool start() {
@@ -1407,22 +1408,22 @@ class select_exec {
                                     const rocksdb::Slice &lower_bound,
                                     const rocksdb::Slice &upper_bound) {
       return rdb_tx_get_iterator(m_thd, cf, !use_bloom, lower_bound,
-                                 upper_bound, nullptr);
+                                 upper_bound, nullptr, m_table_type);
     }
 
     rocksdb::Status get(rocksdb::ColumnFamilyHandle *cf,
                         const rocksdb::Slice &key_slice,
                         rocksdb::PinnableSlice *value_slice) {
       rocksdb::Status s;
-      return rdb_tx_get(m_tx, cf, key_slice, value_slice);
+      return rdb_tx_get(m_tx, cf, key_slice, value_slice, m_table_type);
     }
 
     void multi_get(rocksdb::ColumnFamilyHandle *cf, size_t size,
                    bool sorted_input, const rocksdb::Slice *key_slices,
                    rocksdb::PinnableSlice *value_slices,
                    rocksdb::Status *statuses) {
-      rdb_tx_multi_get(m_tx, cf, size, key_slices, value_slices, statuses,
-                       sorted_input);
+      rdb_tx_multi_get(m_tx, cf, size, key_slices, value_slices, m_table_type,
+                       statuses, sorted_input);
     }
 
     void report_error(rocksdb::Status s) {
@@ -1436,6 +1437,7 @@ class select_exec {
 
    private:
     THD *m_thd;
+    TABLE_TYPE m_table_type;
     Rdb_transaction *m_tx;
   };
 
@@ -2124,7 +2126,7 @@ bool INLINE_ATTR select_exec::run_query() {
   bool is_pk_point_query = m_index_is_pk && m_is_point_query;
 
   // Initialize Rdb_transaction as needed
-  txn_wrapper txn(m_thd);
+  txn_wrapper txn(m_thd, m_tbl_def->get_table_type());
 
   // TODO(yzha) - Refactor ReadOptions initialization into a shared wrapper
   if (txn.start()) {

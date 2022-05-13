@@ -1,10 +1,12 @@
 --source include/have_rocksdb.inc
 --source include/not_parallel.inc
-
+--source include/have_debug.inc
+--source suite/rocksdb/include/have_write_committed.inc
 connect (con1,localhost,root,,);
 ####################################################
 ### Case 1: tmp table create/drop
 ####################################################
+
 --echo Case 1: tmp table create/drop
 connection con1;
 use test;
@@ -238,3 +240,118 @@ create temporary table t1(a int primary key, b int, index (b) COMMENT 'test_cf')
 create database #sqltmp;
 --error 1064
 create table #sql_1 (pk int primary key) engine=rocksdb charset=latin1;
+
+####################################################
+### Case 9: Create mix of tmp table and user table on same transaction
+####################################################
+--echo Case 9: Create mix of tmp table and user table on same transaction
+connection default;
+create temporary table tmp1 (pk int primary key) engine=rocksdb charset=latin1;
+create table t1 (pk int primary key) engine=rocksdb charset=latin1;
+--echo # commit case
+begin;
+insert into t1 values(1);
+insert into tmp1 values(1);
+select * from t1;
+select * from tmp1;
+commit;
+select * from t1;
+select * from tmp1;
+--echo # rollback case
+begin;
+insert into t1 values(2);
+insert into tmp1 values(2);
+select * from t1;
+select * from tmp1;
+rollback;
+select * from t1;
+select * from tmp1;
+--echo # commit with error
+begin;
+insert into t1 values(2);
+--error ER_DUP_ENTRY
+insert into tmp1 values(1);
+select * from t1;
+select * from tmp1;
+commit;
+select * from t1;
+select * from tmp1;
+
+begin;
+--error ER_DUP_ENTRY
+insert into t1 values(2);
+insert into tmp1 values(2);
+select * from t1;
+select * from tmp1;
+commit;
+select * from t1;
+select * from tmp1;
+drop table tmp1;
+drop table t1;
+
+####################################################
+### Case 10: Create mix of tmp table, intrinsic_tmp_table and user table
+####################################################
+--echo Case 10: Create mix of tmp table, intrinsic_tmp_table and user table
+set big_tables = 1;
+show status like 'Created_tmp_disk_tables';
+create temporary table tmp1(i int, c char(5));
+create table t1(i int, c char(5));
+flush status;
+--echo # auto commit case
+insert into t1 values (0, "aaaa");
+insert into tmp1 values (0, "aaaa");
+select i, c, count(*) from t1 group by i, c having count(*) > 0;
+select i, c, count(*) from tmp1 group by i, c having count(*) > 0;
+show status like 'Created_tmp_disk_tables';
+
+--echo # multi statement commit
+begin;
+insert into t1 values (0, "aaaa");
+insert into tmp1 values (0, "aaaa");
+select i, c, count(*) from t1 group by i, c having count(*) > 0;
+select i, c, count(*) from tmp1 group by i, c having count(*) > 0;
+commit;
+show status like 'Created_tmp_disk_tables';
+
+--echo # multi statement rollback
+--disable_query_log
+call mtr.add_suppression("Could not get index information for Index Number");
+--enable_query_log
+begin;
+insert into t1 values (0, "aaaa");
+insert into tmp1 values (0, "aaaa");
+select i, c, count(*) from t1 group by i, c having count(*) > 0;
+select i, c, count(*) from tmp1 group by i, c having count(*) > 0;
+rollback;
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+show status like 'Created_tmp_disk_tables';
+set big_tables = 0;
+drop table t1;
+drop table tmp1;
+
+####################################################
+### Case 11: Tmp table crash recovery
+####################################################
+--echo Case 11: Tmp table crash recovery
+create temporary table tmp1 (i int, c char(5)) ENGINE=rocksdb CHARSET=latin1;
+create table t1(i int, c char(5));
+
+insert into tmp1 VALUES (1, "aaaa");
+insert into tmp1 VALUES (1, "aaaa");
+insert into t1 VALUES (1, "aaaa");
+--echo # crash_during_write_row
+flush logs;
+
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+set session debug="+d,crash_during_write_row";
+--error 2013
+insert into tmp1 VALUES (1, "aaaa");
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+set session debug="-d,crash_during_write_row";
+--error 1146
+show create table tmp1;
+select * from t1;
+drop table t1;

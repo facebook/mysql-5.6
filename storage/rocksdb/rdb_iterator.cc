@@ -40,7 +40,8 @@ Rdb_iterator_base::Rdb_iterator_base(THD *thd,
       m_scan_it_snapshot(nullptr),
       m_scan_it_lower_bound(nullptr),
       m_scan_it_upper_bound(nullptr),
-      m_prefix_buf(nullptr) {}
+      m_prefix_buf(nullptr),
+      m_table_type(tbl_def->get_table_type()) {}
 
 Rdb_iterator_base::~Rdb_iterator_base() {
   release_scan_iterator();
@@ -165,8 +166,8 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
   if (!m_scan_it) {
     m_scan_it = rdb_tx_get_iterator(
         m_thd, m_kd->get_cf(), skip_bloom, m_scan_it_lower_bound_slice,
-        m_scan_it_upper_bound_slice, &m_scan_it_snapshot, read_current,
-        !read_current);
+        m_scan_it_upper_bound_slice, &m_scan_it_snapshot, m_table_type,
+        read_current, !read_current);
     m_scan_it_skips_bloom = skip_bloom;
   }
 }
@@ -337,10 +338,10 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
   Rdb_transaction *const tx = get_tx_from_thd(m_thd);
   rocksdb::Status s;
   if (type == RDB_LOCK_NONE) {
-    s = rdb_tx_get(tx, m_kd->get_cf(), *key, value);
+    s = rdb_tx_get(tx, m_kd->get_cf(), *key, value, m_table_type);
   } else {
-    s = rdb_tx_get_for_update(tx, *m_kd, *key, value, type == RDB_LOCK_WRITE,
-                              skip_wait);
+    s = rdb_tx_get_for_update(tx, *m_kd, *key, value, m_table_type,
+                              type == RDB_LOCK_WRITE, skip_wait);
   }
 
   DBUG_EXECUTE_IF("rocksdb_return_status_corrupted",
@@ -616,8 +617,8 @@ int Rdb_iterator_partial::materialize_prefix() {
   const char *old_proc_info = m_thd->proc_info();
   thd_proc_info(m_thd, "Materializing group in partial index");
 
-  auto s =
-      rdb_tx_get_for_update(tx, *m_kd, cur_prefix_key, nullptr, true, false);
+  auto s = rdb_tx_get_for_update(tx, *m_kd, cur_prefix_key, nullptr,
+                                 m_table_type, true, false);
   if (!s.ok()) {
     thd_proc_info(m_thd, old_proc_info);
     return rdb_tx_set_status_error(tx, s, *m_kd, m_tbl_def);

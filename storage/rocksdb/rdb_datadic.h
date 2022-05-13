@@ -1189,7 +1189,7 @@ class Rdb_tbl_def {
   std::string m_dbname;
   std::string m_tablename;
   std::string m_partition;
-  bool m_is_intrinsic_tmp_table;
+  TABLE_TYPE m_table_type;
   std::atomic<int> m_cached_has_ttl_col{-1};
 
   void set_name(const std::string &name);
@@ -1213,12 +1213,13 @@ class Rdb_tbl_def {
     m_auto_incr_val = other.m_auto_incr_val.load(std::memory_order_relaxed);
     m_hidden_pk_val = other.m_hidden_pk_val.load(std::memory_order_relaxed);
     m_key_count = other.m_key_count;
-    m_is_intrinsic_tmp_table = other.is_intrinsic_tmp_table();
+    m_table_type = other.get_table_type();
+
     // so that it's not free'd when deleting the old rec
     other.m_key_descr_arr = nullptr;
   }
 
-  explicit Rdb_tbl_def(const std::string &name, bool is_intrinsic_tmp_table)
+  explicit Rdb_tbl_def(const std::string &name, TABLE_TYPE table_type)
       : m_key_descr_arr(nullptr),
         m_hidden_pk_val(0),
         m_auto_incr_val(0),
@@ -1230,11 +1231,11 @@ class Rdb_tbl_def {
         m_mtcache_size(0),
         m_mtcache_last_update(0) {
     set_name(name);
-    m_is_intrinsic_tmp_table = is_intrinsic_tmp_table;
+    m_table_type = table_type;
   }
 
   explicit Rdb_tbl_def(const rocksdb::Slice &slice, const size_t pos,
-                       bool is_intrinsic_tmp_table)
+                       TABLE_TYPE table_type)
       : m_key_descr_arr(nullptr),
         m_hidden_pk_val(0),
         m_auto_incr_val(0),
@@ -1246,7 +1247,7 @@ class Rdb_tbl_def {
         m_mtcache_size(0),
         m_mtcache_last_update(0) {
     set_name(std::string(slice.data() + pos, slice.size() - pos));
-    m_is_intrinsic_tmp_table = is_intrinsic_tmp_table;
+    m_table_type = table_type;
   }
 
   ~Rdb_tbl_def();
@@ -1302,7 +1303,11 @@ class Rdb_tbl_def {
     return local_copy;
   }
 
-  bool is_intrinsic_tmp_table() const { return m_is_intrinsic_tmp_table; }
+  bool is_intrinsic_tmp_table() const {
+    return m_table_type == TABLE_TYPE::INTRINSIC_TMP;
+  }
+
+  TABLE_TYPE get_table_type() const { return m_table_type; }
 
   Rdb_table_stats m_tbl_stats;
 

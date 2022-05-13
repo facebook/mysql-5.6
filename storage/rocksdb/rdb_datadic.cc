@@ -4533,7 +4533,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager_selector *const dict_arg,
     }
 
     Rdb_tbl_def *const tdef = new Rdb_tbl_def(
-        key, Rdb_key_def::INDEX_NUMBER_SIZE, false /*is_intrinsic_tmp_table*/);
+        key, Rdb_key_def::INDEX_NUMBER_SIZE, TABLE_TYPE::USER_TABLE);
 
     // Now, read the DDLs.
     const int real_val_size = val.size() - Rdb_key_def::VERSION_SIZE;
