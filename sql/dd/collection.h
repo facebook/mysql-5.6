@@ -63,9 +63,14 @@ class Collection {
       m_items[i]->set_ordinal_position(static_cast<uint>(i + 1));
   }
 
-  class Collection_iterator
-      : public std::iterator<std::forward_iterator_tag, T> {
+  class Collection_iterator {
    public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = T;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     Collection_iterator(Array *array)
         : m_array(array), m_current(array->begin()), m_current_obj(nullptr) {}
 
@@ -100,9 +105,14 @@ class Collection {
     T m_current_obj;
   };
 
-  class Collection_const_iterator
-      : public std::iterator<std::forward_iterator_tag, const abstract_type *> {
+  class Collection_const_iterator {
    public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = const abstract_type *;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     Collection_const_iterator(const Array *array)
         : m_array(array), m_current(array->begin()), m_current_obj(nullptr) {}
 
