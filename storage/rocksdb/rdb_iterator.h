@@ -136,6 +136,7 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   uchar *m_prefix_buf;
   rocksdb::Slice m_prefix_tuple;
+  TABLE_TYPE m_table_type;
 };
 
 class Rdb_iterator_partial : public Rdb_iterator_base {
