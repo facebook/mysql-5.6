@@ -34,7 +34,10 @@
 #ifndef _sql_admission_control_h
 #define _sql_admission_control_h
 
+#include "my_md5.h"
 #include "my_sqlcommand.h"
+#include "my_systime.h"
+#include "my_thread_local.h"
 #include "mysql/components/services/bits/mysql_cond_bits.h"
 #include "mysql/components/services/bits/mysql_rwlock_bits.h"
 #include "mysql/components/services/bits/psi_cond_bits.h"
@@ -61,6 +64,7 @@ extern char *admission_control_weights;
 extern ulonglong admission_control_wait_events;
 extern ulonglong admission_control_yield_freq;
 extern bool admission_control_multiquery_filter;
+extern ulong admission_control_errors_size;
 
 class AC;
 class THD;
@@ -121,7 +125,98 @@ int multi_tenancy_admit_query(
 int multi_tenancy_exit_query(THD *);
 int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
 int fill_ac_entities(THD *thd, Table_ref *tables, Item *cond);
+int fill_ac_errors(THD *thd, Table_ref *tables, Item *cond);
 bool filter_command(enum_sql_command sql_command);
+
+/**
+  Flight recorder base record all other records should be derived from.
+*/
+struct Fr_record {
+  ulonglong timestamp_us{0};
+};
+
+/**
+  Flight recorder implemented as a ring buffer.
+
+  @param record Record type derived from Fr_record.
+*/
+template <typename Record>
+class Flight_recorder {
+ public:
+  // Constructors.
+  Flight_recorder(uint size) : ring_buffer(size) {
+    assert((size & (size - 1)) == 0);
+  }
+  Flight_recorder(const Flight_recorder &fr)
+      : ring_buffer(fr.ring_buffer), pos(fr.pos.load()) {}
+
+  // Insert record in flight recorder.
+  void insert(Record &r) {
+    static_assert(std::is_base_of<Fr_record, Record>::value);
+
+    r.timestamp_us = my_micro_time();
+    uint p = pos++ % ring_buffer.size();
+    ring_buffer[p] = r;
+  }
+
+  // Iterator.
+  class Iter {
+   public:
+    // Access to current record.
+    const Record &get() { return flight_rec.ring_buffer[pos]; }
+
+    // Move to next record.
+    bool move() {
+      bool res = remaining != 0;
+      if (res) {
+        if (pos == 0) {
+          pos = flight_rec.ring_buffer.size() - 1;
+        } else {
+          --pos;
+        }
+        --remaining;
+      }
+      return res;
+    }
+
+   private:
+    // Constructors.
+    Iter(Flight_recorder &fr, uint p) : flight_rec(fr), pos(p) {
+      // Has ring buffer been ever wrapped around?
+      auto last_index = flight_rec.ring_buffer.size() - 1;
+      if (flight_rec.ring_buffer[last_index].timestamp_us) {
+        remaining = flight_rec.ring_buffer.size();
+      } else {
+        remaining = pos;
+      }
+    }
+
+    // Flight recorder.
+    const Flight_recorder &flight_rec;
+
+    // Current position.
+    uint pos;
+
+    // Number of records left to iterate.
+    uint remaining;
+
+    // Only flight recorder can create iterators.
+    friend class Flight_recorder;
+  };
+
+  // Return iterator over records.
+  Iter get_iter() { return Iter(*this, pos % ring_buffer.size()); }
+
+ private:
+  // Ring buffer holding records.
+  std::vector<Record> ring_buffer;
+
+  // Position of the next available record.
+  std::atomic<uint> pos{0};
+
+  // Iterator has access to the internals.
+  friend class Iter;
+};
 
 /**
   Per-thread information used in admission control.
@@ -135,6 +230,8 @@ struct st_ac_node {
   bool running;  // whether we need to decrement from running_queries
   bool queued;   // whether current node is queued. pos is valid iff queued.
   std::list<std::shared_ptr<st_ac_node>>::iterator pos;
+  // Count of admissions for a query.
+  ulong admissions;
   // The queue that this node belongs to.
   long queue;
   // The THD owning this node.
@@ -161,6 +258,49 @@ struct Ac_queue {
   unsigned long aborted_queries = 0;
   // Track number of timed out queries.
   unsigned long timeout_queries = 0;
+  // Track number of high priority enqueues.
+  ulonglong high_pri_enqueues = 0;
+  // Track number of low priority enqueues.
+  ulonglong low_pri_enqueues = 0;
+};
+
+enum class Ac_result {
+  AC_ADMITTED,  // Admitted
+  AC_ABORTED,   // Rejected because queue size too large
+  AC_TIMEOUT,   // Rejected because waiting on queue for too long
+  AC_KILLED     // Killed while waiting for admission
+};
+
+/**
+  Admission control entity flight record for errors.
+*/
+struct Ac_error_record : public Fr_record {
+  struct Ac_queue_stats {
+    // The number of currently waiting queries.
+    ulong waiting;
+    // The number of currently running queries.
+    ulong running;
+  };
+  // THD ID of the query getting this error.
+  my_thread_id thread_id;
+  // Admission control error result.
+  Ac_result res;
+  // Admission control enqueue mode.
+  enum_admission_control_request_mode mode;
+  // Timestamp of last admission control exit prior to this error.
+  ulonglong last_exit_timestamp_us;
+  // Queue id of this query.
+  ulong queue;
+  // The number of high priority enqueues after this query was enqueued.
+  ulong queue_boosts;
+  // The number of admission control exits after this query was enqueued.
+  ulong exits;
+  // Total number of (re)admissions for this query.
+  ulong admissions;
+  // Per queue stats.
+  std::array<Ac_queue_stats, MAX_AC_QUEUES> stats;
+  // SQL ID of the query getting this error.
+  digest_key sql_id;
 };
 
 /**
@@ -174,6 +314,7 @@ class Ac_info {
   friend class AC;
   friend int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
   friend int fill_ac_entities(THD *thd, Table_ref *tables, Item *cond);
+  friend int fill_ac_errors(THD *thd, Table_ref *tables, Item *cond);
 
   // Queues
   std::array<Ac_queue, MAX_AC_QUEUES> queues{};
@@ -198,6 +339,18 @@ class Ac_info {
   // Protects Ac_info.
   mysql_mutex_t lock;
 
+  // Flight recorder for errors.
+  Flight_recorder<Ac_error_record> error_recorder;
+
+  // Track number of high priority enqueues.
+  ulonglong high_pri_enqueues = 0;
+  // Track number of low priority enqueues.
+  ulonglong low_pri_enqueues = 0;
+  // Track number of admission control exits.
+  ulonglong exits = 0;
+  // Timestamp of the last admission control exit.
+  ulonglong last_exit_timestamp_us = 0;
+
  public:
   Ac_info(const std::string &);
   ~Ac_info();
@@ -207,16 +360,14 @@ class Ac_info {
 
   // Accessors.
   const std::string &get_entity() const;
+
+  // Log AC error into flight recorder.
+  void log_error(THD *thd, Ac_result res, ulong queue, ulonglong prev_high_pri,
+                 ulonglong prev_exits,
+                 enum_admission_control_request_mode mode);
 };
 
 using Ac_info_ptr = std::shared_ptr<Ac_info>;
-
-enum class Ac_result {
-  AC_ADMITTED,  // Admitted
-  AC_ABORTED,   // Rejected because queue size too large
-  AC_TIMEOUT,   // Rejected because waiting on queue for too long
-  AC_KILLED     // Killed while waiting for admission
-};
 
 /**
   Global class used to enforce per admission control limits.
@@ -224,6 +375,7 @@ enum class Ac_result {
 class AC {
   friend int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
   friend int fill_ac_entities(THD *thd, Table_ref *tables, Item *cond);
+  friend int fill_ac_errors(THD *thd, Table_ref *tables, Item *cond);
 
   // This map is protected by the rwlock LOCK_ac.
   using Ac_info_ptr_container = std::unordered_map<std::string, Ac_info_ptr>;

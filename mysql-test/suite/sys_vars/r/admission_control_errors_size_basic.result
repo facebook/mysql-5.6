@@ -1,0 +1,110 @@
+####
+# Verify default value is 128.
+####
+set global admission_control_errors_size = default;
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+128
+####
+# Verify that this is not a session variable.
+####
+SELECT @@session.admission_control_errors_size;
+ERROR HY000: Variable 'admission_control_errors_size' is a GLOBAL variable
+####
+# Test valid values
+####
+SET @@global.admission_control_errors_size = 1024;
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+1024
+SET @@global.admission_control_errors_size = 2048;
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+2048
+SET @@global.admission_control_errors_size = 1048576;
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+1048576
+SET @@global.admission_control_errors_size = 256;
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+256
+####
+# Test invalid values.
+####
+SET @@global.admission_control_errors_size = ON;
+ERROR 42000: Incorrect argument type to variable 'admission_control_errors_size'
+SET @@global.admission_control_errors_size = OFF;
+ERROR 42000: Incorrect argument type to variable 'admission_control_errors_size'
+SET @@global.admission_control_errors_size = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'admission_control_errors_size'
+SET @@global.admission_control_errors_size ="Test";
+ERROR 42000: Incorrect argument type to variable 'admission_control_errors_size'
+set global admission_control_errors_size = 23429384293847293742;
+ERROR 42000: Incorrect argument type to variable 'admission_control_errors_size'
+set global admission_control_errors_size = 129;
+ERROR 42000: Variable 'admission_control_errors_size' can't be set to the value of '129'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+256
+SET @@global.admission_control_errors_size = 1048575;
+ERROR 42000: Variable 'admission_control_errors_size' can't be set to the value of '1048575'
+####
+# Test out of range values, they should all be truncated with warning.
+# True and False are treated as 1 and 0.
+####
+SET @@global.admission_control_errors_size = True;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_errors_size value: '1'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+128
+SET @@global.admission_control_errors_size = False;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_errors_size value: '0'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+128
+SET @@global.admission_control_errors_size = 9223372036854775808;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_errors_size value: '9223372036854775808'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+1048576
+set global admission_control_errors_size = -1;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_errors_size value: '-1'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+128
+SET @@global.admission_control_errors_size = 1048577;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_errors_size value: '1048577'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+1048576
+set global admission_control_errors_size = 64;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_errors_size value: '64'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+128
+SET @@global.admission_control_errors_size = 2097152;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_errors_size value: '2097152'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+1048576
+set global admission_control_errors_size = 127;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_errors_size value: '127'
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+128
+####
+# Restore default value.
+####
+set global admission_control_errors_size = default;
+SELECT @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+128

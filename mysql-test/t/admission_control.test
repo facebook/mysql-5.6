@@ -15,6 +15,7 @@ let $ac_entities_query=select * from information_schema.admission_control_entiti
 connection default;
 use test_db2;
 use test_db;
+set @@GLOBAL.sql_findings_control=ON;
 set @start_max_running_queries= @@global.max_running_queries;
 set @start_max_waiting_queries= @@global.max_waiting_queries;
 set @@global.max_running_queries=10;
@@ -471,6 +472,7 @@ reap;
 rollback;
 
 connection default;
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
 set @@global.admission_control_filter = @save_admission_control_filter;
 set @@global.admission_control_queue_timeout = @save_admission_control_queue_timeout;
 set @@global.admission_control_multiquery_filter = OFF;
@@ -517,6 +519,7 @@ select count(*) from information_schema.processlist where state='waiting for adm
 eval $ac_entities_query;
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
+set @@GLOBAL.sql_findings_control=DEFAULT;
 drop user test_user@localhost;
 disable_query_log;
 disable_result_log;

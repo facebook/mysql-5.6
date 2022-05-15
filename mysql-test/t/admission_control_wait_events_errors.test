@@ -12,6 +12,7 @@ set @save_admission_control_wait_events = @@admission_control_wait_events;
 
 set @@global.max_running_queries=1;
 set @@global.admission_control_queue_timeout=0;
+set @@global.sql_findings_control=on;
 
 source include/count_sessions.inc;
 
@@ -185,9 +186,11 @@ disconnect con2;
 
 source include/wait_until_count_sessions.inc;
 
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
 set global max_running_queries = @save_max_running_queries;
 set global admission_control_queue_timeout = @save_admission_control_queue_timeout;
 set global admission_control_wait_events = @save_admission_control_wait_events;
+set global sql_findings_control = default;
 
 drop database test_db;
 drop user test_user@localhost;
