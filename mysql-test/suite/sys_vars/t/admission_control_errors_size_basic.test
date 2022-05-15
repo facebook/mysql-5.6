@@ -1,0 +1,84 @@
+--source include/load_sysvars.inc
+
+--echo ####
+--echo # Verify default value is 128.
+--echo ####
+set global admission_control_errors_size = default;
+SELECT @@global.admission_control_errors_size;
+
+--echo ####
+--echo # Verify that this is not a session variable.
+--echo ####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.admission_control_errors_size;
+
+--echo ####
+--echo # Test valid values
+--echo ####
+SET @@global.admission_control_errors_size = 1024;
+SELECT @@global.admission_control_errors_size;
+SET @@global.admission_control_errors_size = 2048;
+SELECT @@global.admission_control_errors_size;
+SET @@global.admission_control_errors_size = 1048576;
+SELECT @@global.admission_control_errors_size;
+SET @@global.admission_control_errors_size = 256;
+SELECT @@global.admission_control_errors_size;
+
+--echo ####
+--echo # Test invalid values.
+--echo ####
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.admission_control_errors_size = ON;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.admission_control_errors_size = OFF;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.admission_control_errors_size = 65530.34;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.admission_control_errors_size ="Test";
+
+--Error ER_WRONG_TYPE_FOR_VAR
+set global admission_control_errors_size = 23429384293847293742;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+set global admission_control_errors_size = 129;
+SELECT @@global.admission_control_errors_size;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.admission_control_errors_size = 1048575;
+
+--echo ####
+--echo # Test out of range values, they should all be truncated with warning.
+--echo # True and False are treated as 1 and 0.
+--echo ####
+SET @@global.admission_control_errors_size = True;
+SELECT @@global.admission_control_errors_size;
+
+SET @@global.admission_control_errors_size = False;
+SELECT @@global.admission_control_errors_size;
+
+SET @@global.admission_control_errors_size = 9223372036854775808;
+SELECT @@global.admission_control_errors_size;
+
+set global admission_control_errors_size = -1;
+SELECT @@global.admission_control_errors_size;
+
+SET @@global.admission_control_errors_size = 1048577;
+SELECT @@global.admission_control_errors_size;
+
+set global admission_control_errors_size = 64;
+SELECT @@global.admission_control_errors_size;
+
+SET @@global.admission_control_errors_size = 2097152;
+SELECT @@global.admission_control_errors_size;
+
+set global admission_control_errors_size = 127;
+SELECT @@global.admission_control_errors_size;
+
+--echo ####
+--echo # Restore default value.
+--echo ####
+set global admission_control_errors_size = default;
+SELECT @@global.admission_control_errors_size;

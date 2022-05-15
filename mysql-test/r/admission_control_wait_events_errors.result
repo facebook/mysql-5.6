@@ -8,6 +8,7 @@ set @save_admission_control_queue_timeout = @@admission_control_queue_timeout;
 set @save_admission_control_wait_events = @@admission_control_wait_events;
 set @@global.max_running_queries=1;
 set @@global.admission_control_queue_timeout=0;
+set @@global.sql_findings_control=on;
 
 # Test 1: MDL table lock.
 #
@@ -63,8 +64,15 @@ sleep(1000)
 #
 drop table t1;
 drop table t2;
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
+schema_name	error	mode	exits	admissions	queue	queue_boosts	sql_id	info
+test_db	TIMEOUT	HIGH_PRI	0	2	0	1	94ebfd70cb7f106292beeb595b827991	{"q0":{"wait":0, "run":1}}
+test_db	TIMEOUT	HIGH_PRI	0	2	0	1	ea8d7221939e31cd79bb5a0800f1c421	{"q0":{"wait":0, "run":1}}
+test_db	TIMEOUT	HIGH_PRI	0	2	0	1	a4e3c7e73c9474dc3f946ad4a3cb9e3e	{"q0":{"wait":0, "run":1}}
+test_db	TIMEOUT	HIGH_PRI	0	2	0	1	de4ac3f385e51f51f081f37368d6e55f	{"q0":{"wait":0, "run":1}}
 set global max_running_queries = @save_max_running_queries;
 set global admission_control_queue_timeout = @save_admission_control_queue_timeout;
 set global admission_control_wait_events = @save_admission_control_wait_events;
+set global sql_findings_control = default;
 drop database test_db;
 drop user test_user@localhost;

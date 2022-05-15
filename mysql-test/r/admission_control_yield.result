@@ -10,6 +10,7 @@ set @save_admission_control_yield_freq = @@admission_control_yield_freq;
 set global max_running_queries = 1;
 set global max_waiting_queries = 2000;
 set global admission_control_filter = 'SET';
+set global sql_findings_control = on;
 set admission_control_queue_timeout = 5000;
 #
 # Test admission_control_wait_events = SLEEP
@@ -92,10 +93,17 @@ select 1;
 drop table t1;
 drop table t2;
 ERROR 70100: Query execution was interrupted
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
+schema_name	error	mode	exits	admissions	queue	queue_boosts	sql_id	info
+test_db	TIMEOUT	QUERY	0	1	0	0	a532c6f3e890282b7eee77f35ee85ae9	{"q0":{"wait":0, "run":1}}
+test_db	TIMEOUT	QUERY	0	1	0	0	a532c6f3e890282b7eee77f35ee85ae9	{"q0":{"wait":0, "run":1}}
+test_db	TIMEOUT	QUERY	0	1	0	0	a532c6f3e890282b7eee77f35ee85ae9	{"q0":{"wait":0, "run":1}}
+test_db	TIMEOUT	QUERY	0	1	0	0	a532c6f3e890282b7eee77f35ee85ae9	{"q0":{"wait":0, "run":1}}
 set global max_running_queries = @save_max_running_queries;
 set global max_waiting_queries = @save_max_waiting_queries;
 set global admission_control_wait_events = @save_admission_control_wait_events;
 set global admission_control_filter = @save_admission_control_filter;
 set global admission_control_yield_freq = @save_admission_control_yield_freq;
+set global sql_findings_control = default;
 drop database test_db;
 drop user test_user@localhost;
