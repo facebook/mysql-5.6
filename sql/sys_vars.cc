@@ -3244,6 +3244,19 @@ static Sys_var_bool Sys_admission_control_multiquery_filter(
     GLOBAL_VAR(admission_control_multiquery_filter), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static bool check_admission_control_errors_size(sys_var *, THD *,
+                                                set_var *var) {
+  auto value = var->save_result.ulonglong_value;
+  return (value & (value - 1)) != 0;
+}
+
+static Sys_var_ulong Sys_admission_control_errors_size(
+    "admission_control_errors_size",
+    "Size of the preallocated error flight recorder",
+    GLOBAL_VAR(admission_control_errors_size), CMD_LINE(OPT_ARG),
+    VALID_RANGE(128, 1048576), DEFAULT(128), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_admission_control_errors_size));
+
 static Sys_var_ulong Sys_max_connect_errors(
     "max_connect_errors",
     "If there is more than this number of interrupted connections from "

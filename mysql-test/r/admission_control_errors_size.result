@@ -1,0 +1,78 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+grant all on test.* to test_user@localhost;
+use test_db;
+set @save_max_running_queries = @@max_running_queries;
+set @save_admission_control_queue_timeout = @@admission_control_queue_timeout;
+set global max_running_queries = 1;
+set global admission_control_queue_timeout = 0;
+#
+# Test that the errors table is capped at the default value.
+#
+select @@global.admission_control_errors_size;
+@@global.admission_control_errors_size
+128
+select GET_LOCK('lock1', -1);
+GET_LOCK('lock1', -1)
+1
+select GET_LOCK('lock1', -1);
+select * from information_schema.admission_control_queue;
+SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+test_db	0	0	1	0	0
+select count(*) from information_schema.admission_control_errors where schema_name='test_db';
+count(*)
+128
+#
+# Existing database doesn't see updated errors table size.
+#
+set global admission_control_errors_size = 256;
+select count(*) from information_schema.admission_control_errors where schema_name='test_db';
+count(*)
+128
+select RELEASE_LOCK('lock1');
+RELEASE_LOCK('lock1')
+1
+select * from information_schema.admission_control_queue;
+SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+test_db	0	0	0	0	2000
+GET_LOCK('lock1', -1)
+1
+#
+# Test that new database will have updated errors table size.
+#
+create database test_db2;
+grant all on test_db2.* to test_user@localhost;
+use test_db2;
+select GET_LOCK('lock1', -1);
+GET_LOCK('lock1', -1)
+1
+select GET_LOCK('lock1', -1);
+select * from information_schema.admission_control_queue;
+SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+test_db2	0	0	1	0	0
+test_db	0	0	0	0	2000
+select count(*) from information_schema.admission_control_errors where schema_name='test_db';
+count(*)
+128
+select count(*) from information_schema.admission_control_errors where schema_name='test_db2';
+count(*)
+256
+select RELEASE_LOCK('lock1');
+RELEASE_LOCK('lock1')
+1
+select * from information_schema.admission_control_queue;
+SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+test_db2	0	0	0	0	1000
+test_db	0	0	0	0	2000
+GET_LOCK('lock1', -1)
+1
+#
+# Cleanup.
+#
+set global max_running_queries = @save_max_running_queries;
+set global admission_control_queue_timeout = @save_admission_control_queue_timeout;
+set global admission_control_errors_size = default;
+drop database test_db;
+drop database test_db2;
+drop user test_user@localhost;

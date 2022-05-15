@@ -6,6 +6,7 @@ grant all on test_db2.* to 'test_user'@'localhost';
 grant all on test.* to 'test_user'@'localhost';
 use test_db2;
 use test_db;
+set @@GLOBAL.sql_findings_control=ON;
 set @start_max_running_queries= @@global.max_running_queries;
 set @start_max_waiting_queries= @@global.max_waiting_queries;
 set @@global.max_running_queries=10;
@@ -191,6 +192,16 @@ a
 1
 rollback;
 rollback;
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
+schema_name	error	mode	exits	admissions	queue	queue_boosts	sql_id	info
+test_db	TIMEOUT	QUERY	0	1	0	0	45aa2a04da37b7f81ddd86ac9582e795	{"q0":{"wait":0, "run":1}}
+test_db	TIMEOUT	QUERY	0	1	0	0	ea8d7221939e31cd79bb5a0800f1c421	{"q0":{"wait":0, "run":1}}
+test_db	ABORTED	QUERY	0	1	0	0	ab76ae93006f3e27247a4605c9cc1677	{"q0":{"wait":10, "run":5}}
+test_db	ABORTED	QUERY	0	1	0	0	ab76ae93006f3e27247a4605c9cc1677	{"q0":{"wait":10, "run":5}}
+test_db	KILLED	QUERY	0	1	0	0	a5c96b5982875ca9552b888741eda4a2	{"q0":{"wait":5, "run":10}}
+test_db	ABORTED	QUERY	0	1	0	0	ab76ae93006f3e27247a4605c9cc1677	{"q0":{"wait":5, "run":10}}
+test_db	ABORTED	QUERY	0	1	0	0	ab76ae93006f3e27247a4605c9cc1677	{"q0":{"wait":5, "run":10}}
+test_db	ABORTED	QUERY	0	1	0	0	ab76ae93006f3e27247a4605c9cc1677	{"q0":{"wait":5, "run":10}}
 set @@global.admission_control_filter = @save_admission_control_filter;
 set @@global.admission_control_queue_timeout = @save_admission_control_queue_timeout;
 set @@global.admission_control_multiquery_filter = OFF;
@@ -208,4 +219,5 @@ select * from information_schema.admission_control_entities where schema_name li
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
+set @@GLOBAL.sql_findings_control=DEFAULT;
 drop user test_user@localhost;

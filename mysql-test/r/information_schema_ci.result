@@ -63,6 +63,7 @@ select * from v1;
 c
 ADMINISTRABLE_ROLE_AUTHORIZATIONS
 ADMISSION_CONTROL_ENTITIES
+ADMISSION_CONTROL_ERRORS
 ADMISSION_CONTROL_QUEUE
 APPLICABLE_ROLES
 AUTHINFO
@@ -907,7 +908,7 @@ AND table_name COLLATE utf8_general_ci not like 'innodb_%'
 AND table_name COLLATE utf8_general_ci not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 TABLE_SCHEMA	count(*)
-information_schema	57
+information_schema	58
 mysql	35
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1212,7 +1213,7 @@ GROUP BY column_type ORDER BY num, column_type;
 COLUMN_TYPE	GROUP_CONCAT(table_schema, '.', table_name ORDER BY table_name)	num
 varchar(30)	information_schema.PROFILING,information_schema.PROFILING	2
 varchar(7)	information_schema.INNODB_TABLESPACES_BRIEF,information_schema.ST_UNITS_OF_MEASURE,information_schema.VIEWS	3
-varchar(20)	information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PROFILING,information_schema.SOCKET_DIAG_SLAVES	5
+varchar(20)	information_schema.ADMISSION_CONTROL_ERRORS,information_schema.ADMISSION_CONTROL_ERRORS,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PROFILING,information_schema.SOCKET_DIAG_SLAVES	7
 create table t1(f1 char(1) not null, f2 char(9) not null)
 default character set utf8;
 Warnings:
@@ -1361,6 +1362,7 @@ group by t.table_name order by num1, t.table_name COLLATE utf8_general_ci;
 TABLE_NAME	group_concat(t.table_schema, '.', t.table_name)	num1
 ADMINISTRABLE_ROLE_AUTHORIZATIONS	information_schema.ADMINISTRABLE_ROLE_AUTHORIZATIONS	1
 ADMISSION_CONTROL_ENTITIES	information_schema.ADMISSION_CONTROL_ENTITIES	1
+ADMISSION_CONTROL_ERRORS	information_schema.ADMISSION_CONTROL_ERRORS	1
 ADMISSION_CONTROL_QUEUE	information_schema.ADMISSION_CONTROL_QUEUE	1
 APPLICABLE_ROLES	information_schema.APPLICABLE_ROLES	1
 AUTHINFO	information_schema.AUTHINFO	1
@@ -2499,6 +2501,7 @@ c1.column_name COLLATE utf8_general_ci;
 TABLE_NAME	COLUMN_NAME
 ADMINISTRABLE_ROLE_AUTHORIZATIONS	USER
 ADMISSION_CONTROL_ENTITIES	SCHEMA_NAME
+ADMISSION_CONTROL_ERRORS	SCHEMA_NAME
 ADMISSION_CONTROL_QUEUE	SCHEMA_NAME
 APPLICABLE_ROLES	USER
 AUTHINFO	ID
@@ -2576,6 +2579,7 @@ c1.column_name COLLATE utf8_general_ci;
 TABLE_NAME	COLUMN_NAME
 ADMINISTRABLE_ROLE_AUTHORIZATIONS	USER
 ADMISSION_CONTROL_ENTITIES	SCHEMA_NAME
+ADMISSION_CONTROL_ERRORS	SCHEMA_NAME
 ADMISSION_CONTROL_QUEUE	SCHEMA_NAME
 APPLICABLE_ROLES	USER
 AUTHINFO	ID

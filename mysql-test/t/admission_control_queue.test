@@ -12,6 +12,7 @@ set @save_admission_control_weights = @@admission_control_weights;
 
 set global max_running_queries = 5;
 set global max_waiting_queries = 2000;
+set global sql_findings_control = on;
 
 --source include/count_sessions.inc
 
@@ -190,6 +191,15 @@ let $wait_condition =
 --eval $ac_entities_query
 select * from information_schema.admission_control_queue;
 
+--echo # Get an error to validate that multi-queue stats are collected in error recorder.
+--connection default
+set global max_waiting_queries = 3;
+connect (con_error,localhost,test_user,,test_db);
+query_attrs_add @@admission_control_queue 1;
+--error ER_DB_ADMISSION_CONTROL
+select 1;
+disconnect con_error;
+
 --echo # Cleanup
 --connection con_lock
 select RELEASE_LOCK('lock2');
@@ -211,9 +221,11 @@ disconnect con_lock;
 
 --source include/wait_until_count_sessions.inc
 
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
 set global max_running_queries = @save_max_running_queries;
 set global max_waiting_queries = @save_max_waiting_queries;
 set global admission_control_weights = @save_admission_control_weights; 
+set global sql_findings_control = default;
 
 drop database test_db;
 drop user test_user@localhost;

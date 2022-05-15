@@ -5826,6 +5826,22 @@ ST_FIELD_INFO admission_control_entities_fields_info[] = {
     {"REJECTED_CONNECTIONS", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+ST_FIELD_INFO admission_control_errors_fields_info[] = {
+    {"SCHEMA_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {"TIME", MAX_DOUBLE_STR_LENGTH, MYSQL_TYPE_DOUBLE, 0, 0, 0, 0},
+    {"THREAD_ID", 10, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"ERROR", 20, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {"MODE", 20, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {"LAST_EXIT_TIME", MAX_DOUBLE_STR_LENGTH, MYSQL_TYPE_DOUBLE, 0, 0, 0, 0},
+    {"EXITS", 10, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"ADMISSIONS", 10, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"QUEUE", 10, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"QUEUE_BOOSTS", 10, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"SQL_ID", DIGEST_HASH_TO_STRING_LENGTH, MYSQL_TYPE_STRING, 0,
+     MY_I_S_UNSIGNED, 0, 0},
+    {"INFO", 256, MYSQL_TYPE_STRING, 0, MY_I_S_UNSIGNED, 0, 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -5878,6 +5894,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      nullptr, nullptr, false},
     {"ADMISSION_CONTROL_ENTITIES", admission_control_entities_fields_info,
      fill_ac_entities, nullptr, nullptr, false},
+    {"ADMISSION_CONTROL_ERRORS", admission_control_errors_fields_info,
+     fill_ac_errors, nullptr, nullptr, false},
     {"ADMISSION_CONTROL_QUEUE", admission_control_queue_fields_info,
      fill_ac_queue, nullptr, nullptr, false},
     {"FAILURE_INJECTION_POINTS", failure_injection_points_fields_info,

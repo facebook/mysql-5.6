@@ -8,6 +8,7 @@ set @save_max_waiting_queries = @@max_waiting_queries;
 set @save_admission_control_wait_events = @@admission_control_wait_events;
 set global max_running_queries = 1;
 set global max_waiting_queries = 2000;
+set global sql_findings_control = on;
 set admission_control_queue_timeout = 100;
 #
 # Test admission_control_wait_events = NET_IO
@@ -23,8 +24,12 @@ SELECT REPEAT('X', @@max_allowed_packet);;
 select 1;
 1
 1
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
+schema_name	error	mode	exits	admissions	queue	queue_boosts	sql_id	info
+test_db	TIMEOUT	QUERY	0	1	0	0	a532c6f3e890282b7eee77f35ee85ae9	{"q0":{"wait":0, "run":1}}
 set global max_running_queries = @save_max_running_queries;
 set global max_waiting_queries = @save_max_waiting_queries;
 set global admission_control_wait_events = @save_admission_control_wait_events;
+set global sql_findings_control = default;
 drop database test_db;
 drop user test_user@localhost;

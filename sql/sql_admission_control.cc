@@ -28,6 +28,7 @@ char *admission_control_weights;
 ulonglong admission_control_wait_events;
 ulonglong admission_control_yield_freq;
 bool admission_control_multiquery_filter;
+ulong admission_control_errors_size;
 
 AC *db_ac;
 #ifdef HAVE_PSI_INTERFACE
@@ -447,7 +448,17 @@ Ac_result AC::admission_control_enter(
   if (max_running_queries) {
     auto ac_info = thd->ac_node->ac_info;
     thd->ac_node->queue = get_queue(thd);
+    if (mode == AC_REQUEST_QUERY) {
+      thd->ac_node->admissions = 1;
+    } else {
+      ++thd->ac_node->admissions;
+    }
+
     mysql_mutex_lock(&ac_info->lock);
+
+    ulonglong prev_high_pri =
+        ac_info->queues[thd->ac_node->queue].high_pri_enqueues;
+    ulonglong prev_exits = ac_info->exits;
 
     if (ac_info->running_queries < max_running_queries) {
       // We are below the max running limit.
@@ -516,6 +527,11 @@ Ac_result AC::admission_control_enter(
           res = Ac_result::AC_KILLED;
         }
       }
+    }
+
+    if (res != Ac_result::AC_ADMITTED) {
+      ac_info->log_error(thd, res, thd->ac_node->queue, prev_high_pri,
+                         prev_exits, mode);
     }
 
     mysql_mutex_unlock(&ac_info->lock);
@@ -598,6 +614,9 @@ void AC::admission_control_exit(THD *thd) {
   --ac_info->queues[thd->ac_node->queue].running_queries;
   thd->ac_node->running = false;
 
+  ++ac_info->exits;
+  ac_info->last_exit_timestamp_us = my_micro_time();
+
   // Assert that max_running_queries == 0 implies no waiting queries.
   assert(max_running_queries != 0 || ac_info->waiting_queries == 0);
 
@@ -663,9 +682,13 @@ void AC::enqueue(THD *thd, Ac_info_ptr ac_info,
 
   ulong queue = ac_node->queue;
   if (mode == AC_REQUEST_QUERY_READMIT_HIPRI) {
+    ++ac_info->high_pri_enqueues;
+    ++ac_info->queues[queue].high_pri_enqueues;
     ac_info->queues[queue].queue.push_front(ac_node);
     ac_node->pos = ac_info->queues[queue].queue.begin();
   } else {
+    ++ac_info->low_pri_enqueues;
+    ++ac_info->queues[queue].low_pri_enqueues;
     ac_info->queues[queue].queue.push_back(ac_node);
     ac_node->pos = --ac_info->queues[queue].queue.end();
   }
@@ -1000,6 +1023,124 @@ int fill_ac_entities(THD *thd, TABLE_LIST *tables, Item *) {
   DBUG_RETURN(result);
 }
 
+/**
+ * @brief Populate admission_control_errors table.
+ * @param thd THD
+ * @param tables contains the TABLE struct to populate
+ * @retval 0 on success
+ * @retval 1 on failure
+ */
+int fill_ac_errors(THD *thd, TABLE_LIST *tables, Item *) {
+  DBUG_ENTER("fill_ac_errors");
+  TABLE *table = tables->table;
+  int error = 0;
+
+  mysql_rwlock_rdlock(&db_ac->LOCK_ac);
+  for (const auto &pair : db_ac->ac_map) {
+    const std::string &db = pair.first;
+    const auto &ac_info = pair.second;
+
+    mysql_mutex_lock(&ac_info->lock);
+    auto recorder = ac_info->error_recorder;
+    mysql_mutex_unlock(&ac_info->lock);
+
+    auto iter = recorder.get_iter();
+    while (iter.move()) {
+      const auto &r = iter.get();
+
+      int f = 0;
+
+      // SCHEMA_NAME
+      table->field[f++]->store(db.c_str(), db.size(), system_charset_info);
+
+      // TIME
+      table->field[f++]->store((double)r.timestamp_us / 1000000);
+
+      // THREAD_ID
+      table->field[f++]->store(r.thread_id, true);
+
+      // ERROR
+      static std::array<std::string, 4> errors = {"UNKNOWN", "ABORTED",
+                                                  "TIMEOUT", "KILLED"};
+      assert(static_cast<ulong>(r.res) < errors.size());
+      const auto &e = errors[static_cast<ulong>(r.res) < errors.size()
+                                 ? static_cast<ulong>(r.res)
+                                 : 0];
+      table->field[f++]->store(e.c_str(), e.size(), system_charset_info);
+
+      // MODE
+      static std::array<std::string, 4> modes = {"UNKNOWN", "QUERY", "LOW_PRI",
+                                                 "HIGH_PRI"};
+      assert(static_cast<ulong>(r.mode) < modes.size());
+      const auto &m = modes[static_cast<ulong>(r.mode) < modes.size()
+                                ? static_cast<ulong>(r.mode)
+                                : 0];
+      table->field[f++]->store(m.c_str(), m.size(), system_charset_info);
+
+      // LAST_EXIT_TIME
+      table->field[f++]->store((double)r.last_exit_timestamp_us / 1000000);
+
+      // EXITS
+      table->field[f++]->store(r.exits, true);
+
+      // ADMISSIONS
+      table->field[f++]->store(r.admissions, true);
+
+      // QUEUE
+      table->field[f++]->store(r.queue, true);
+
+      // QUEUE_BOOSTS
+      table->field[f++]->store(r.queue_boosts, true);
+
+      // SQL_ID
+      std::array<char, DIGEST_HASH_TO_STRING_LENGTH> sql_id_string;
+      array_to_hex(sql_id_string.data(), r.sql_id.data(), r.sql_id.size());
+      table->field[f++]->store(sql_id_string.data(), sql_id_string.size(),
+                               system_charset_info);
+
+      // INFO
+      std::string buf;
+      for (ulong i = 0; i < MAX_AC_QUEUES; i++) {
+        ulong waiting = r.stats[i].waiting;
+        ulong running = r.stats[i].running;
+        if (waiting || running) {
+          if (!buf.empty()) {
+            buf += ", ";
+          } else {
+            buf = "{";
+          }
+          buf += "\"q";
+          buf += std::to_string(i);
+          buf += "\":{\"wait\":";
+          buf += std::to_string(waiting);
+          buf += ", \"run\":";
+          buf += std::to_string(running);
+          buf += "}";
+        }
+      }
+
+      if (!buf.empty()) {
+        buf += "}";
+      }
+
+      table->field[f++]->store(buf.c_str(), buf.size(), system_charset_info);
+
+      if (schema_table_store_record(thd, table)) {
+        error = 1;
+        break;
+      }
+    }
+
+    if (error) {
+      break;
+    }
+  }
+
+  mysql_rwlock_unlock(&db_ac->LOCK_ac);
+
+  DBUG_RETURN(error);
+}
+
 st_ac_node::st_ac_node(THD *thd_arg)
     : running(false), queued(false), queue(0), thd(thd_arg) {
   mysql_mutex_init(key_LOCK_ac_node, &lock, MY_MUTEX_INIT_FAST);
@@ -1011,13 +1152,55 @@ st_ac_node::~st_ac_node() {
   mysql_cond_destroy(&cond);
 }
 
-Ac_info::Ac_info(const std::string &_entity) : entity(_entity) {
+Ac_info::Ac_info(const std::string &_entity)
+    : entity(_entity), error_recorder(admission_control_errors_size) {
   mysql_mutex_init(key_LOCK_ac_info, &lock, MY_MUTEX_INIT_FAST);
 }
 
 Ac_info::~Ac_info() { mysql_mutex_destroy(&lock); }
 
 const std::string &Ac_info::get_entity() const { return entity; }
+
+/**
+  Log AC error into flight recorder.
+
+  @param res Result of admission.
+  @param prev_high_pri high_pri_enqueues at the time of admission.
+  @param prev_exits exits at the time of admission.
+  @param mode Readmission mode.
+*/
+void Ac_info::log_error(THD *thd, Ac_result res, ulong queue,
+                        ulonglong prev_high_pri, ulonglong prev_exits,
+                        enum_admission_control_request_mode mode) {
+  Ac_error_record r;
+  r.thread_id = thd->thread_id();
+  r.res = res;
+  r.mode = mode;
+  r.last_exit_timestamp_us = last_exit_timestamp_us;
+  r.exits = exits - prev_exits;
+  r.queue = queue;
+  r.queue_boosts = queues[queue].high_pri_enqueues - prev_high_pri;
+  r.admissions = thd->ac_node->admissions;
+
+  // Ensure that current values are not smaller than previous even if
+  // they wrap around.
+  assert(static_cast<long>(r.queue_boosts) >= 0);
+  assert(static_cast<long>(r.exits) >= 0);
+
+  for (ulong i = 0; i < MAX_AC_QUEUES; i++) {
+    const auto &q = queues[i];
+    r.stats[i].waiting = q.waiting_queries();
+    r.stats[i].running = q.running_queries;
+  }
+
+  if (thd->mt_key_is_set(THD::SQL_ID)) {
+    r.sql_id = thd->mt_key_value(THD::SQL_ID);
+  } else {
+    r.sql_id.fill(0);
+  }
+
+  error_recorder.insert(r);
+}
 
 AC::AC() { mysql_rwlock_init(key_rwlock_LOCK_ac, &LOCK_ac); }
 

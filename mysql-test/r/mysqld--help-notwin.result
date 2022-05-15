@@ -45,6 +45,8 @@ The following options may be given as the first argument:
  --admin-tls-ciphersuites=name 
  --admission-control-by-trx 
  Allow open transactions to go through admission control
+ --admission-control-errors-size[=#] 
+ Size of the preallocated error flight recorder
  --admission-control-filter=name 
  Commands that are skipped in admission control checks.
  The legal values are: ALTER, BEGIN, COMMIT, CREATE,
@@ -2952,6 +2954,7 @@ admin-ssl-crlpath (No default value)
 admin-ssl-key (No default value)
 admin-tls-ciphersuites (No default value)
 admission-control-by-trx FALSE
+admission-control-errors-size 128
 admission-control-filter 
 admission-control-multiquery-filter FALSE
 admission-control-queue 0
