@@ -137,6 +137,13 @@ struct bypass_rpc_exception {
   std::string message;
 };
 
+extern "C" struct rpc_plugin_service_st {
+  bypass_rpc_exception (*bypass_select)(const myrocks_select_from_rpc *param);
+} * rpc_plugin_service;
+
+#ifdef MYSQL_DYNAMIC_PLUGIN
+#define bypass_select(a) rpc_plugin_service->bypass_select((a))
+#else
 /**
   Run bypass select query
 
@@ -144,9 +151,6 @@ struct bypass_rpc_exception {
   @return bypass_rpc_exception containing exception info if exception happens
 */
 bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param);
-
-extern "C" struct rpc_plugin_service_st {
-  bypass_rpc_exception (*bypass_select)(const myrocks_select_from_rpc *param);
-} * rpc_plugin_service;
+#endif /* MYSQL_DYNAMIC_PLUGIN */
 
 #endif /* MYSQL_SERVICE_RPC_PLUGIN_INCLUDED */
