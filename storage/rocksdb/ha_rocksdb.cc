@@ -823,14 +823,14 @@ static bool rocksdb_disable_instant_ddl = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
 
-std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
-std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
-std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
-std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
-std::atomic<uint64_t> rocksdb_manual_compactions_processed(0);
-std::atomic<uint64_t> rocksdb_manual_compactions_cancelled(0);
-std::atomic<uint64_t> rocksdb_manual_compactions_running(0);
-std::atomic<uint64_t> rocksdb_manual_compactions_pending(0);
+static std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
+static std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
+static std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
+static std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
+static std::atomic<uint64_t> rocksdb_manual_compactions_processed(0);
+static std::atomic<uint64_t> rocksdb_manual_compactions_cancelled(0);
+static std::atomic<uint64_t> rocksdb_manual_compactions_running(0);
+static std::atomic<uint64_t> rocksdb_manual_compactions_pending(0);
 #ifndef DBUG_OFF
 static std::atomic<uint64_t> rocksdb_num_get_for_update_calls(0);
 #endif
