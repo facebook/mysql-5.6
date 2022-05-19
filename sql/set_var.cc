@@ -2371,7 +2371,7 @@ bool Per_user_session_variables::init_do(User_session_vars_sp &per_user_vars,
   std::string key, val;
   char user_name_delimiter = per_user_session_var_user_name_delimiter_ptr[0];
   char delimiters[4] = {user_name_delimiter, '=', ',', '\0'};
-  static const char *invalid_tokens = " \t\"\\/';";
+  static const char *invalid_tokens = " \t\"\\';";
   const char *p = sys_var_str;
   const char *prev = p;
   /* Parsing the string value, for example:

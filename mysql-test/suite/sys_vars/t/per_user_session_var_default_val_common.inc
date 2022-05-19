@@ -39,6 +39,13 @@ while ($k<=$i) {
     inc $j;
   }
   --echo ##
+  --echo ## Connection con_tao_slash_$k for user tao/slash
+  --echo ##
+  connection con_tao_slash_$k;
+  --source per_user_session_var_print.inc
+  disconnect con_tao_slash_$k;
+
+  --echo ##
   --echo ## Connection con_root_$k for user root
   --echo ##
   connection con_root_$k;
@@ -51,6 +58,7 @@ while ($k<=$i) {
   connection con_root_ssl_$k;
   --source per_user_session_var_print.inc
   disconnect con_root_ssl_$k;
+
 
   inc $k;
 }
