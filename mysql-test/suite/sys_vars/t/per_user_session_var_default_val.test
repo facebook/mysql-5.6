@@ -25,6 +25,9 @@ create user tao5@localhost identified by '';
 grant all privileges on *.* to tao4@localhost with grant option;
 grant all privileges on *.* to tao5@localhost with grant option;
 
+create user 'tao/slash'@localhost;
+grant all privileges on *.* to 'tao/slash'@localhost with grant option;
+
 flush user_resources;
 
 let $tao=tao;
@@ -40,7 +43,7 @@ SELECT @@GLOBAL.per_user_session_var_default_val;
 
 inc $i;
 --echo ## ($i) Non-empty value
-SET GLOBAL per_user_session_var_default_val="tao1:tao2:tao3:tao4:transaction_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao5:root:binlog_format=row";
+SET GLOBAL per_user_session_var_default_val="tao1:tao2:tao3:tao4:tao/slash:transaction_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao5:root:binlog_format=row";
 SELECT @@GLOBAL.per_user_session_var_default_val;
 --source per_user_session_var_conn_create.inc
 
@@ -52,7 +55,7 @@ SELECT @@GLOBAL.per_user_session_var_default_val;
 
 inc $i;
 --echo ## ($i) Non-empty value
-SET GLOBAL per_user_session_var_default_val="tao1:transaction_isolation=READ-UNCOMMITTED,tao2:tao3:big_tables=FALSE,root:show_create_table_verbosity=off,tao4:big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao5:binlog_format=MIXED,bulk_insert_buffer_size=32M";
+SET GLOBAL per_user_session_var_default_val="tao1:transaction_isolation=READ-UNCOMMITTED,tao2:tao3:big_tables=FALSE,root:show_create_table_verbosity=off,tao4:big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao5:binlog_format=MIXED,bulk_insert_buffer_size=32M,tao/slash:big_tables=1";
 SELECT @@GLOBAL.per_user_session_var_default_val;
 --source per_user_session_var_conn_create.inc
 
@@ -65,5 +68,6 @@ drop user tao2@localhost;
 drop user tao3@localhost;
 drop user tao4@localhost;
 drop user tao5@localhost;
+drop user 'tao/slash'@localhost;
 
 --source include/rpl_end.inc
