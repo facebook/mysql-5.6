@@ -7,3 +7,4 @@ while ($j<=5) {
 }
 connect (con_root_$i,localhost,root,,);
 connect (con_root_ssl_$i,localhost,root,,,,,SSL);
+connect (con_tao_slash_$i,localhost,'tao/slash',,,,,SSL);
