@@ -5841,13 +5841,14 @@ int MYSQL_BIN_LOG::find_next_log(LOG_INFO* linfo, bool need_lock_index)
   int error= 0;
   uint length, gtid_string_length;
   char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
-  char *full_fname= linfo->log_file_name;
   DBUG_ENTER("find_next_log");
 
   if (need_lock_index)
     mysql_mutex_lock(&LOCK_index);
   else
     mysql_mutex_assert_owner(&LOCK_index);
+
+  char *full_fname= linfo->log_file_name;
 
   DBUG_PRINT("enter", ("index_file_offset: %llu", linfo->index_file_offset));
   /* As the file is flushed, we can't get an error here */
