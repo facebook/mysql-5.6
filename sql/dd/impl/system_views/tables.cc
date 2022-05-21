@@ -61,6 +61,8 @@ Tables_base::Tables_base() {
       FIELD_TABLE_COMMENT, "TABLE_COMMENT",
       "INTERNAL_GET_COMMENT_OR_ERROR(sch.name, tbl.name, tbl.type, "
       "tbl.options, tbl.comment)");
+  m_target_def.add_field(FIELD_SE_PRIVATE_DATA, "TABLE_SE_PRIVATE_DATA",
+                         "tbl.se_private_data");
 
   m_target_def.add_from("mysql.tables tbl");
   m_target_def.add_from("JOIN mysql.schemata sch ON tbl.schema_id=sch.id");
