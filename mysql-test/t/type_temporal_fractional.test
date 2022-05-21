@@ -1914,7 +1914,7 @@ DELIMITER ;//
 --echo # Testing INFORMATION_SCHEMA.COLUMNS
 --echo #
 CREATE TABLE t1 (a TIME(6));
---replace_column 19 #
+--replace_column 19 # 23 #
 --query_vertical SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='t1';
 DROP TABLE t1;
 
@@ -3872,7 +3872,7 @@ DELIMITER ;//
 --echo # Testing INFORMATION_SCHEMA.COLUMNS
 --echo #
 CREATE TABLE t1 (a DATETIME(6));
---replace_column 19 #
+--replace_column 19 # 23 #
 --query_vertical SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='t1';
 DROP TABLE t1;
 
@@ -5669,7 +5669,7 @@ DELIMITER ;//
 --echo # Testing INFORMATION_SCHEMA.COLUMNS
 --echo #
 CREATE TABLE t1 (a TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6));
---replace_column 19 #
+--replace_column 19 # 23 #
 --query_vertical SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='t1';
 DROP TABLE t1;
 

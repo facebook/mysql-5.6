@@ -40,6 +40,7 @@ eval $tables_ext_q;
 eval $verify_tables_ext;
 
 --echo # Checking columns_extensions as root
+--replace_column 23 #
 eval $columns_q;
 eval $columns_ext_q;
 eval $verify_columns_ext;
@@ -56,6 +57,7 @@ eval $tables_ext_q;
 eval $verify_tables_ext;
 
 --echo # Checking columns_extensions as testuser1
+--replace_column 23 #
 eval $columns_q;
 eval $columns_ext_q;
 eval $verify_columns_ext;
@@ -72,6 +74,7 @@ eval $tables_ext_q;
 eval $verify_tables_ext;
 
 --echo # Checking columns_extensions as testuser2
+--replace_column 23 #
 eval $columns_q;
 eval $columns_ext_q;
 eval $verify_columns_ext;
