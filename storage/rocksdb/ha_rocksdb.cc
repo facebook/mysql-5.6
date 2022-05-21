@@ -912,6 +912,7 @@ static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
 
   o->two_write_queues = true;
   o->manual_wal_flush = true;
+  o->enforce_single_del_contracts = false;
   return o;
 }
 
@@ -5817,7 +5818,11 @@ static int rocksdb_init_internal(void *const p) {
     }
     std::shared_ptr<rocksdb::Cache> block_cache =
         rocksdb_use_clock_cache
-            ? rocksdb::NewClockCache(rocksdb_block_cache_size)
+
+            ? rocksdb::NewClockCache(rocksdb_block_cache_size,
+                                     -1 /*num_shard_bits*/,
+                                     false /*strict_capacity_limit*/,
+                                     rocksdb::kDefaultCacheMetadataChargePolicy)
             : rocksdb::NewLRUCache(
                   rocksdb_block_cache_size, -1 /*num_shard_bits*/,
                   false /*strict_capcity_limit*/,
