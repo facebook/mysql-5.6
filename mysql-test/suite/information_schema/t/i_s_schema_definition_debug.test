@@ -328,6 +328,9 @@ INSERT INTO I_S_published_schema
 INSERT INTO I_S_published_schema
   VALUES ('80032', '80032003', 1,
         'a400faccade20df490513224858d8a94bef09fc7160a010203e900fa01bb7b8f');
+INSERT INTO I_S_published_schema
+  VALUES ('80032', '80032004', 0,
+        '9567456f9ec267f53920a627e29f904bf807f697484437b90c8c00c45bb7f2db');
 
 LET $checksum_version = `SELECT IF(ISNULL(mysqld_version), "0", i_s_version)
                   FROM I_S_published_schema i RIGHT OUTER JOIN whole_schema w

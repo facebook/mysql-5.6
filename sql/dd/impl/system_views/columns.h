@@ -57,7 +57,8 @@ class Columns : public System_view_impl<System_view_select_definition_impl> {
     FIELD_PRIVILEGES,
     FIELD_COLUMN_COMMENT,
     FIELD_GENERATION_EXPRESSION,
-    FIELD_SRS_ID
+    FIELD_SRS_ID,
+    FIELD_SE_PRIVATE_DATA
   };
 
   Columns();

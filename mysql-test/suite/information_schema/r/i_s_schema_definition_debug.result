@@ -118,7 +118,7 @@ include/assert.inc [All expected I_S system views are present.]
 #         I_S system views.
 ########################################################################
 # Print the actual I_S version stored on disk.
-Current I_S_VERSION=80032003
+Current I_S_VERSION=80032004
 Current I_S_VERSION_MAJOR=80032
 CREATE TABLE I_S_check_table (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 t TEXT NOT NULL,
@@ -224,7 +224,8 @@ CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema
   GET_DD_COLUMN_PRIVILEGES(sch.name, tbl.name, col.name) AS PRIVILEGES,
   IFNULL(col.comment, '') AS COLUMN_COMMENT,
   IFNULL(col.generation_expression_utf8, '') AS GENERATION_EXPRESSION,
-  col.srs_id AS SRS_ID FROM 
+  col.srs_id AS SRS_ID,
+  col.se_private_data AS COLUMN_SE_PRIVATE_DATA FROM 
   mysql.columns col
   JOIN mysql.tables tbl ON col.table_id=tbl.id
   JOIN mysql.schemata sch ON tbl.schema_id=sch.id
@@ -257,7 +258,8 @@ INSERT INTO I_S_check_table(t) VALUES ("CREATE OR REPLACE DEFINER=`mysql.infosch
   GET_DD_COLUMN_PRIVILEGES(sch.name, tbl.name, col.name) AS PRIVILEGES,
   IFNULL(col.comment, '') AS COLUMN_COMMENT,
   IFNULL(col.generation_expression_utf8, '') AS GENERATION_EXPRESSION,
-  col.srs_id AS SRS_ID FROM 
+  col.srs_id AS SRS_ID,
+  col.se_private_data AS COLUMN_SE_PRIVATE_DATA FROM 
   mysql.columns col
   JOIN mysql.tables tbl ON col.table_id=tbl.id
   JOIN mysql.schemata sch ON tbl.schema_id=sch.id
@@ -1221,7 +1223,8 @@ CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema
   col.name AS TABLE_COLLATION,
   IF (tbl.type = 'VIEW', NULL,INTERNAL_CHECKSUM(sch.name, tbl.name,  IF(ISNULL(tbl.partition_type), tbl.engine, ''),  tbl.se_private_id, tbl.hidden != 'Visible',   ts.se_private_data,  COALESCE(stat.checksum, 0),  COALESCE(CAST(stat.cached_time as UNSIGNED), 0))) AS CHECKSUM,
   IF (tbl.type = 'VIEW', NULL,  GET_DD_CREATE_OPTIONS(tbl.options,  IF(IFNULL(tbl.partition_expression, 'NOT_PART_TBL')='NOT_PART_TBL',     0, 1), IF(sch.default_encryption='YES',1,0))) AS CREATE_OPTIONS,
-  INTERNAL_GET_COMMENT_OR_ERROR(sch.name, tbl.name, tbl.type, tbl.options, tbl.comment) AS TABLE_COMMENT FROM 
+  INTERNAL_GET_COMMENT_OR_ERROR(sch.name, tbl.name, tbl.type, tbl.options, tbl.comment) AS TABLE_COMMENT,
+  tbl.se_private_data AS TABLE_SE_PRIVATE_DATA FROM 
   mysql.tables tbl
   JOIN mysql.schemata sch ON tbl.schema_id=sch.id
   JOIN mysql.catalogs cat ON cat.id=sch.catalog_id
@@ -1252,7 +1255,8 @@ INSERT INTO I_S_check_table(t) VALUES ("CREATE OR REPLACE DEFINER=`mysql.infosch
   col.name AS TABLE_COLLATION,
   IF (tbl.type = 'VIEW', NULL,INTERNAL_CHECKSUM(sch.name, tbl.name,  IF(ISNULL(tbl.partition_type), tbl.engine, ''),  tbl.se_private_id, tbl.hidden != 'Visible',   ts.se_private_data,  COALESCE(stat.checksum, 0),  COALESCE(CAST(stat.cached_time as UNSIGNED), 0))) AS CHECKSUM,
   IF (tbl.type = 'VIEW', NULL,  GET_DD_CREATE_OPTIONS(tbl.options,  IF(IFNULL(tbl.partition_expression, 'NOT_PART_TBL')='NOT_PART_TBL',     0, 1), IF(sch.default_encryption='YES',1,0))) AS CREATE_OPTIONS,
-  INTERNAL_GET_COMMENT_OR_ERROR(sch.name, tbl.name, tbl.type, tbl.options, tbl.comment) AS TABLE_COMMENT FROM 
+  INTERNAL_GET_COMMENT_OR_ERROR(sch.name, tbl.name, tbl.type, tbl.options, tbl.comment) AS TABLE_COMMENT,
+  tbl.se_private_data AS TABLE_SE_PRIVATE_DATA FROM 
   mysql.tables tbl
   JOIN mysql.schemata sch ON tbl.schema_id=sch.id
   JOIN mysql.catalogs cat ON cat.id=sch.catalog_id
@@ -1652,8 +1656,8 @@ SET debug = '-d,fetch_system_view_definition';
 include/assert.inc [Found expected number of system views in DD.]
 include/assert.inc [Found expected number of system views in I_S_check_table.]
 include/assert.inc [The group concat max length is sufficient.]
-The schema checksum corresponds to I_S version 80032003.
+The schema checksum corresponds to I_S version 80032004.
 include/assert.inc [The schema checksum corresponds to a known I_S version.]
 include/assert.inc [The schema checksum corresponds to
-IS_VERSION 80032003 stored on on disk.]
+IS_VERSION 80032004 stored on on disk.]
 include/assert.inc [The stored I_S version is the latest published I_S version.]

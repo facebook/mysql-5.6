@@ -33,6 +33,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Column privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -56,6 +57,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	autoinc=0;version=0;
 user_comment	Components
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -79,6 +81,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Database privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -102,6 +105,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Default roles
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -125,6 +129,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -148,6 +153,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	User defined functions
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -171,6 +177,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	General log
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -194,6 +201,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Extended global grants
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -217,6 +225,7 @@ TABLE_COLLATION	utf8mb4_0900_ai_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -240,6 +249,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	help categories
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -263,6 +273,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	help keywords
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -286,6 +297,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	keyword-topic relation
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -309,6 +321,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	help topics
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -332,6 +345,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -355,6 +369,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -378,6 +393,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Password history for user accounts
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -401,6 +417,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	MySQL plugins
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -424,6 +441,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Procedure privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -447,6 +465,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	User proxy privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -470,6 +489,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	The source configuration details
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -493,6 +513,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	The managed source configuration details
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -516,6 +537,7 @@ TABLE_COLLATION	utf8mb4_0900_ai_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	The group configuration version.
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -539,6 +561,7 @@ TABLE_COLLATION	utf8mb4_0900_ai_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	The member actions configuration.
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -562,6 +585,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Role hierarchy and role grants
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -585,6 +609,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	MySQL Foreign Servers table
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -608,6 +633,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -631,6 +657,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Master Information
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -654,6 +681,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Relay Log Information
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -677,6 +705,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Worker Information
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -700,6 +729,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Slow log
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -723,6 +753,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Table privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -746,6 +777,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	autoinc=0;version=0;
 user_comment	Time zones
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -769,6 +801,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Leap seconds information for time zones
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -792,6 +825,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Time zone names
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -815,6 +849,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Time zone transitions
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -838,6 +873,7 @@ TABLE_COLLATION	utf8mb3_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Time zone transition types
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -861,6 +897,7 @@ TABLE_COLLATION	utf8mb3_bin
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	Users and global privileges
 Separator	-----------------------------------------------------
 DROP   USER testuser1@localhost;

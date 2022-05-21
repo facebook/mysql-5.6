@@ -93,6 +93,7 @@ show full columns from t3 like "a%";
 show full columns from mysql.db like "Insert%";
 --replace_result utf8mb3_tolower_ci utf8_bin
 show full columns from v1;
+--replace_column 23 #
 select * from information_schema.COLUMNS where table_name="t1"
 and column_name= "a" order by table_name;
 show columns from mysqltest.t1 where field like "%a%";

@@ -231,7 +231,8 @@ CHECK_TIME       datetime                                                       
 TABLE_COLLATION  varchar(64)                                                        ,
 CHECKSUM         bigint                                                             ,
 CREATE_OPTIONS   varchar(256)                                                       ,
-TABLE_COMMENT    text                                                               );
+TABLE_COMMENT    text                                                               ,
+TABLE_SE_PRIVATE_DATA text);
 insert into tables select * from information_schema.tables;
 insert into tables select * from tables;
 insert into tables select * from tables;

@@ -26,6 +26,7 @@
 SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
 --source suite/funcs_1/datadict/datadict_bug_12777.inc
 --replace_result utf8mb3_tolower_ci utf8_bin
+--replace_column 23 #
 eval
 SELECT * FROM information_schema.columns
 $my_where

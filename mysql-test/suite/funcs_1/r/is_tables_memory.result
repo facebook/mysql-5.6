@@ -39,6 +39,7 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -62,6 +63,7 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -85,6 +87,7 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 SHOW TABLES FROM test1;
@@ -131,6 +134,7 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -154,6 +158,7 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+TABLE_SE_PRIVATE_DATA	NULL
 user_comment	
 Separator	-----------------------------------------------------
 SHOW TABLES FROM test1;
