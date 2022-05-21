@@ -997,6 +997,7 @@ static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
 
   o->two_write_queues = true;
   o->manual_wal_flush = true;
+  o->enforce_single_del_contracts = false;
   return o;
 }
 
