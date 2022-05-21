@@ -313,6 +313,12 @@ INSERT INTO I_S_published_schema
 INSERT INTO I_S_published_schema
   VALUES ('80023', '80023003', 1,
         'ffae2f69bef6c2fce940a4cabb21f01889785bc66383bf459e840baca0e6854f');
+INSERT INTO I_S_published_schema
+  VALUES ('80023', '80023004', 0,
+        'e971e478bbc174b8349d8d441d72a805bf69c8dafc2f59949bcd25bea2ad96be');
+INSERT INTO I_S_published_schema
+  VALUES ('80023', '80023004', 1,
+        '8ab2d9882a21ba0893571303561e82e27e0c7403a658f178df126885798a9007');
 
 LET $checksum_version = `SELECT IF(ISNULL(mysqld_version), "0", i_s_version)
                   FROM I_S_published_schema i RIGHT OUTER JOIN whole_schema w

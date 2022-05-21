@@ -215,13 +215,17 @@ namespace info_schema {
   80023-003:
   - Fixed the sys view to rely on performance_schema default collation
 
+  80023-004:
+  - Add SE_PRIVATE_DATA to INFORMATION_SCHEMA.TABLES and
+    INFORMATION_SCHEMA.COLUMNS
+
   80024: Next IS version number after the previous is public.
   ------------------------------------
 */
 
-static const uint IS_DD_VERSION = 80023003;
+static const uint IS_DD_VERSION = 80023004;
 static_assert((IS_DD_VERSION <= MYSQL_VERSION_ID) ||
-                  ((IS_DD_VERSION == 80023003) && (MYSQL_VERSION_ID >= 80023)),
+                  ((IS_DD_VERSION == 80023004) && (MYSQL_VERSION_ID >= 80023)),
               "This release can not use a version number from the future");
 
 /**
