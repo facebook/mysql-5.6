@@ -12152,6 +12152,7 @@ int binlog_change_to_binlog(THD *thd) {
   }
 
   global_sid_lock->wrlock();
+  const_cast<Gtid_set *>(gtid_state->get_lost_gtids())->clear();
   if (mysql_bin_log.init_gtid_sets(
           const_cast<Gtid_set *>(gtid_state->get_executed_gtids()),
           const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),

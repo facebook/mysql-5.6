@@ -1,0 +1,42 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+create table t1 (a int primary key);
+insert into t1 values (1);
+
+connection server_1;
+let $uuid1= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_2;
+let $uuid2= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+
+echo "Transfering leadership: server_1 -> server_2";
+connection server_1;
+replace_result $uuid2 uuid2;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid2';
+connection server_2;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+
+echo "server_2 should have an empty gtid_purged";
+replace_result $uuid1 uuid1;
+select @@global.gtid_purged;
+
+echo "Transfering leadership: server_2 -> server_1";
+connection server_2;
+replace_result $uuid1 uuid1;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid1';
+connection server_1;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+
+
+# Cleanup
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
