@@ -30,6 +30,7 @@
 #include "my_byteorder.h"
 #include "my_compiler.h"
 #include "my_systime.h"
+#include "sql/binlog.h"  // rpl_semi_sync_source_enabled
 #include "sql/current_thd.h"
 #include "sql/item_func.h"  // user_var_entry
 #include "sql/mysqld.h"     // max_connections
@@ -46,7 +47,6 @@
 char *rpl_semi_sync_master_whitelist =
     nullptr; /* protected by Ack_receiver::m_mutex */
 bool rpl_semi_sync_source_crash_if_active_trxs;
-bool rpl_semi_sync_source_enabled;
 unsigned long rpl_semi_sync_source_timeout;
 unsigned long rpl_semi_sync_source_trace_level;
 char rpl_semi_sync_source_status = 0;

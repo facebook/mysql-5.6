@@ -102,6 +102,7 @@
 #include "sql/protocol.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
+#include "sql/replication.h"
 #include "sql/rpl_filter.h"
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_handler.h"  // RUN_HOOK
@@ -172,6 +173,7 @@ const char *log_bin_basename = nullptr;
 
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
+bool rpl_semi_sync_source_enabled = false;
 
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 
@@ -8965,6 +8967,10 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       Thd_backup_and_restore switch_thd(thd, head);
       bool all = head->get_transaction()->m_flags.real_commit;
       (void)RUN_HOOK(transaction, after_commit, (head, all));
+
+      my_off_t pos;
+      head->get_trans_pos(nullptr, &pos, nullptr);
+      signal_semi_sync_ack(head->get_trans_fixed_log_path(), pos);
       /*
         When after_commit finished for the transaction, clear the run_hooks
         flag. This allow other parts of the system to check if after_commit was
@@ -9529,6 +9535,25 @@ commit_stage:
   return thd->commit_error == THD::CE_COMMIT_ERROR;
 }
 
+// Given a file name of the form 'binlog-file-name.index', it extracts the
+// <binlog-file-name> and <index> and returns it as a pair
+// Example:
+// master-bin-3306.0001 ==> Returns (master-bin-3306, 1)
+// master-bin-3306.9999 ==> Returns (master-bin-3306, 9999)
+static std::pair<std::string, uint> extract_file_index(
+    const std::string &file_name) {
+  char *end;
+  size_t pos = file_name.find_last_of('.');
+  if (pos == string::npos) {
+    assert(0);  // never should happened
+    return std::make_pair(file_name, 1);
+  }
+  std::string prefix = file_name.substr(0, pos);
+  uint index = std::strtoul(file_name.substr(pos + 1).c_str(), &end, 10);
+
+  return std::make_pair(std::move(prefix), index);
+}
+
 /**
   MYSQLD server recovers from last crashed binlog.
 
@@ -9819,6 +9844,90 @@ inline void MYSQL_BIN_LOG::update_binlog_end_pos(const char *file,
     atomic_binlog_end_pos = pos;
   signal_update();
   unlock_binlog_end_pos();
+}
+
+my_off_t MYSQL_BIN_LOG::get_binlog_end_pos() const {
+  mysql_mutex_assert_not_owner(&LOCK_log);
+  return atomic_binlog_end_pos;
+}
+
+/* wait_for_ack can be modified by this function */
+my_off_t MYSQL_BIN_LOG::get_last_acked_pos(bool *wait_for_ack,
+                                           const char *sender_log_name) {
+  *wait_for_ack = *wait_for_ack && rpl_wait_for_semi_sync_ack &&
+                  rpl_semi_sync_source_enabled;
+
+  if (!*wait_for_ack) return atomic_binlog_end_pos;
+
+  const char *file_name = sender_log_name + dirname_length(sender_log_name);
+  const uint file_num = extract_file_index(file_name).second;
+
+  // get a copy of last acked pos atomically
+  const st_filenum_pos local_last_acked = last_acked.load();
+
+  const int res = local_last_acked.file_num - file_num;
+  const my_off_t last_acked_pos = local_last_acked.pos;
+
+  if (res == 0) return last_acked_pos;
+  if (res < 0) return 0;  // wait for ack
+
+  *wait_for_ack = false;
+  return atomic_binlog_end_pos;
+}
+
+void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
+                                         const my_off_t log_pos) {
+  if (!log_file || !log_file[0]) return;
+
+  const char *file_name = log_file + dirname_length(log_file);
+  const st_filenum_pos acked = {
+      extract_file_index(file_name).second,
+      // NOTE: If the acked pos cannot fit in st_filenum_pos::pos then we store
+      // uint_max, this way we'll never send unacked trxs because the last acked
+      // pos will be stuck at position uint_max in the current binlog file until
+      // a rotation happens. This can only happen when a very large trx is
+      // written to the binlog, max_binlog_size is capped at 1G but that's a
+      // soft limit as one could still write more that 1G of binlogs in a single
+      // trx, so when we hit this the log will immediately be rotated and things
+      // will be back to normal.
+      static_cast<uint>(std::min<ulonglong>(st_filenum_pos::max_pos, log_pos))};
+
+  // case: nothing to update so no signal needed, let's exit
+  if (acked <= last_acked.load()) {
+    return;
+  }
+
+  lock_binlog_end_pos();
+  if (acked > last_acked.load()) {
+    last_acked = acked;
+    signal_update();
+  }
+  unlock_binlog_end_pos();
+}
+
+void MYSQL_BIN_LOG::reset_semi_sync_last_acked() {
+  lock_binlog_end_pos();
+  /* binary log is rotated and all trxs in previous binlog are already committed
+   * to the storage engine */
+  if (strlen(log_file_name)) {
+    last_acked = {extract_file_index(log_file_name).second, 0};
+  } else {
+    last_acked = {0, 0};
+  }
+  signal_update();
+  unlock_binlog_end_pos();
+}
+
+void MYSQL_BIN_LOG::get_semi_sync_last_acked(std::string &log_file,
+                                             my_off_t &log_pos) {
+  const st_filenum_pos local_last_acked = last_acked.load();
+  if (local_last_acked.file_num) {
+    char full_name[FN_REFLEN + 1];
+    snprintf(full_name, FN_REFLEN, "%s.%06u", opt_bin_logname,
+             local_last_acked.file_num);
+    log_file = std::string(full_name);
+  }
+  log_pos = local_last_acked.pos;
 }
 
 bool THD::is_binlog_cache_empty(bool is_transactional) const {

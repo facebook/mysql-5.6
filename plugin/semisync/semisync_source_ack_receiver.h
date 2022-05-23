@@ -31,6 +31,7 @@
 #include "my_thread.h"
 #include "plugin/semisync/semisync.h"
 #include "plugin/semisync/semisync_source.h"
+#include "sql/binlog.h"  // rpl_semi_sync_source_enabled
 #include "sql/sql_class.h"
 
 struct Slave {

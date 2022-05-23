@@ -1232,6 +1232,7 @@ bool opt_log_replica_updates = false;
 char *opt_replica_skip_errors;
 bool opt_replica_allow_batching = false;
 ulonglong opt_slave_dump_thread_wait_sleep_usec = 0;
+bool rpl_wait_for_semi_sync_ack = false;
 
 bool skip_flush_master_info = false;
 bool skip_flush_relay_worker_info = false;
@@ -6993,6 +6994,8 @@ static int init_server_components() {
   rpl_source_io_monitor = new Source_IO_monitor();
   udf_load_service.init();
 
+  mysql_bin_log.reset_semi_sync_last_acked();
+
   /* Initialize the optimizer cost module */
   init_optimizer_cost_module(true);
   ft_init_stopwords();
@@ -9710,6 +9713,19 @@ static int show_replica_open_temp_tables(THD *, SHOW_VAR *var, char *buf) {
   return 0;
 }
 
+static int show_last_acked_binlog_pos(THD *, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_UNDEF;
+  if (rpl_semi_sync_source_enabled && rpl_wait_for_semi_sync_ack) {
+    std::string log_file;
+    my_off_t log_pos;
+    mysql_bin_log.get_semi_sync_last_acked(log_file, log_pos);
+    var->type = SHOW_CHAR;
+    var->value = buff;
+    sprintf(buff, "%s:%llu", log_file.c_str(), log_pos);
+  }
+  return 0;
+}
+
 /*
   Variables shown by SHOW STATUS in alphabetical order
 */
@@ -9989,6 +10005,8 @@ SHOW_VAR status_vars[] = {
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_GLOBAL},
     {"Rows_sent", (char *)offsetof(System_status_var, rows_sent),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_GLOBAL},
+    {"Rpl_last_semi_sync_acked_pos", (char *)&show_last_acked_binlog_pos,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Secondary_engine_execution_count",
      (char *)offsetof(System_status_var, secondary_engine_execution_count),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
