@@ -1,0 +1,37 @@
+let $var= rpl_wait_for_semi_sync_ack;
+eval set @save.$var= @@global.$var;
+
+#
+# exists as global only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+eval select @@session.$var;
+
+select variable_name from performance_schema.global_variables where variable_name='$var';
+select variable_name from performance_schema.session_variables where variable_name='$var';
+
+#
+# show that it's writable
+#
+let $value= false;
+eval set @@global.$var= $value;
+eval select @@global.$var;
+
+#
+# incorrect value
+#
+--error ER_WRONG_TYPE_FOR_VAR
+eval set @@global.$var= 1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+eval set @@global.$var= "foo";
+
+#
+# min/max values
+#
+eval set @@global.$var= false;
+eval set @@global.$var= true;
+eval select @@global.$var as "truncated to the maximum";
+
+# cleanup
+
+eval set @@global.$var= @save.$var;

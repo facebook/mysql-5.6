@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <atomic>
+#include <limits>
 #include <list>
 #include <utility>
 
@@ -190,6 +191,37 @@ class HybridLogicalClock {
   std::atomic<uint64_t> current_;
 };
 
+struct st_filenum_pos {
+  // Without alignas, LLVM emits library calls for atomic st_filenum_pos
+  // operations - https://bugs.llvm.org/show_bug.cgi?id=45055
+  alignas(sizeof(uint64_t)) uint file_num = 0;
+  uint pos = 0;
+
+  static const uint max_pos = std::numeric_limits<uint>::max();
+
+  st_filenum_pos() = default;
+
+  st_filenum_pos(uint file_num, uint pos) {
+    this->file_num = file_num;
+    this->pos = pos;
+  }
+
+  int cmp(const st_filenum_pos &other) const {
+    if (file_num == other.file_num && pos == other.pos) return 0;
+    if (file_num == other.file_num) return pos < other.pos ? -1 : 1;
+    return file_num < other.file_num ? -1 : 1;
+  }
+
+  bool operator==(const st_filenum_pos &other) const { return cmp(other) == 0; }
+  bool operator<(const st_filenum_pos &other) const { return cmp(other) < 0; }
+  bool operator>(const st_filenum_pos &other) const { return cmp(other) > 0; }
+  bool operator<=(const st_filenum_pos &other) const { return cmp(other) <= 0; }
+  bool operator>=(const st_filenum_pos &other) const { return cmp(other) >= 0; }
+};
+
+static_assert(sizeof(st_filenum_pos) <= 8,
+              "st_filenum_pos must fit into a single word to support atomics");
+
 /*
   TODO use mmap instead of IO_CACHE for binlog
   (mmap+fsync is two times faster than write+fsync)
@@ -279,6 +311,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   // mutex.
   char binlog_file_name[FN_REFLEN];
   int binlog_encrypted_header_size;
+  std::atomic<st_filenum_pos> last_acked;
 
   ulonglong bytes_written;
   IO_CACHE index_file;
@@ -383,7 +416,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int generate_new_name(char *new_name, const char *log_name,
                         uint32 new_index_number = 0);
 
- protected:
+ public:
   /**
   @brief Notifies waiting threads that binary log has been updated
   */
@@ -1105,10 +1138,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
     It is called by the threads (e.g. dump thread, applier thread) which want
     to read hot log without LOCK_log protection.
   */
-  my_off_t get_binlog_end_pos() const {
-    mysql_mutex_assert_not_owner(&LOCK_log);
-    return atomic_binlog_end_pos;
-  }
+  my_off_t get_binlog_end_pos() const;
+  my_off_t get_last_acked_pos(bool *wait_for_ack, const char *sender_log_name);
+  void signal_semi_sync_ack(const char *const log_file, const my_off_t log_pos);
+  void reset_semi_sync_last_acked();
+  void get_semi_sync_last_acked(std::string &log_file, my_off_t &log_pos);
+
   mysql_mutex_t *get_binlog_end_pos_lock() { return &LOCK_binlog_end_pos; }
   void lock_binlog_end_pos() { mysql_mutex_lock(&LOCK_binlog_end_pos); }
   void unlock_binlog_end_pos() { mysql_mutex_unlock(&LOCK_binlog_end_pos); }
@@ -1212,6 +1247,7 @@ extern const char *log_bin_index;
 extern const char *log_bin_basename;
 extern bool opt_binlog_order_commits;
 extern ulong rpl_read_size;
+extern bool rpl_semi_sync_source_enabled;
 /**
   Turns a relative log binary log path into a full path, based on the
   opt_bin_logname or opt_relay_logname. Also trims the cr-lf at the

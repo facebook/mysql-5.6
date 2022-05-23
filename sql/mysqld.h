@@ -198,6 +198,7 @@ extern bool opt_replica_compressed_protocol;
 extern ulong opt_replica_compression_lib;
 extern ulong replica_exec_mode_options;
 extern ulonglong opt_slave_dump_thread_wait_sleep_usec;
+extern bool rpl_wait_for_semi_sync_ack;
 extern Rpl_global_filter rpl_global_filter;
 extern Rpl_acf_configuration_handler *rpl_acf_configuration_handler;
 extern Source_IO_monitor *rpl_source_io_monitor;
