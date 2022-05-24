@@ -35,7 +35,6 @@
 #include "./sql/item.h"
 #include "./sql/item_func.h"
 #include "./sql/query_result.h"
-#include "./sql/rpc_plugin.h"
 #include "./sql/sql_base.h"
 #include "./sql/sql_select.h"
 #include "./sql/strfunc.h"
