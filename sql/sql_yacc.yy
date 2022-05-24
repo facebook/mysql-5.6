@@ -44,6 +44,10 @@ Note: YYTHD is passed as an argument to yyparse(), and subsequently to yylex().
 #define Lex (YYTHD->lex)
 #define Select Lex->current_query_block()
 
+// Avoid conflicts between GNU Bison 2.3 output macros and service_rpc_plugin.h
+// symbols
+#define MYSQL_PLUGIN_STRUCT_DEFS_ONLY
+
 #include <sys/types.h>  // TODO: replace with cstdint
 
 #include <algorithm>

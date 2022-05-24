@@ -26,9 +26,9 @@
 #include <ctype.h>
 
 /* MySQL header files */
+#include <mysql/service_rpc_plugin.h>
 #include "sql/protocol.h"
 #include "sql/sql_class.h"
-#include "../../sql/rpc_plugin.h"
 #include "./sql_string.h"
 
 #pragma once

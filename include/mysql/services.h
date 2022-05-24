@@ -35,6 +35,7 @@
 #include <mysql/service_parser.h>
 #include <mysql/service_plugin_registry.h>
 #include <mysql/service_privacy.h>
+#include <mysql/service_rpc_plugin.h>
 #include <mysql/service_rpl_transaction_ctx.h>
 #include <mysql/service_rpl_transaction_write_set.h>
 #include <mysql/service_rules_table.h>

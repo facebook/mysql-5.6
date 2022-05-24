@@ -40,6 +40,7 @@ SET(MYSQLSERVICES_SOURCES
   mysql_password_policy_service.c
   parser_service.c
   srv_session_info_service.c
+  rpc_plugin_service.c
   rpl_transaction_ctx_service.c
   rpl_transaction_write_set_service.c
   security_context_service.c

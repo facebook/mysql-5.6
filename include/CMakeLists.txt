@@ -150,6 +150,7 @@ IF (INSTALL_EXTRA_HEADERS)
     mysql/service_parser.h
     mysql/service_plugin_registry.h
     mysql/service_privacy.h
+    mysql/service_rpc_plugin.h
     mysql/service_rpl_transaction_ctx.h
     mysql/service_rpl_transaction_write_set.h
     mysql/service_rules_table.h

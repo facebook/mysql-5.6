@@ -2,10 +2,10 @@
 #include <thread>
 #include <unordered_map>
 
+#include <mysql/service_rpc_plugin.h>
 #include "./storage/rocksdb/nosql_access.h"
 #include "sql/binlog.h"
 #include "sql/mysqld_thd_manager.h"
-#include "sql/rpc_plugin.h"
 #include "sql/sql_base.h"
 #include "sql/sql_lex.h"
 #include "sql/strfunc.h"
