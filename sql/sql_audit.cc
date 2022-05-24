@@ -362,7 +362,8 @@ class Ignore_event_error_handler : public Audit_error_handler {
 
 int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
                        const char *subclass_name, int error_code,
-                       const char *msg, size_t msg_len) {
+                       const char *msg, size_t msg_len, const char *query_str,
+                       size_t query_len) {
   mysql_event_general event;
   char user_buff[MAX_USER_HOST_SIZE];
 
@@ -386,8 +387,13 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
   event.general_rows = thd->get_stmt_da()->current_row_for_condition();
   event.general_sql_command = sql_statement_names[thd->lex->sql_command];
 
-  event.general_charset = const_cast<CHARSET_INFO *>(
-      thd_get_audit_query(thd, &event.general_query));
+  if (query_str != nullptr) {
+    event.general_charset = const_cast<CHARSET_INFO *>(thd->charset());
+    event.general_query = {query_str, query_len};
+  } else {
+    event.general_charset = const_cast<CHARSET_INFO *>(
+        thd_get_audit_query(thd, &event.general_query));
+  }
 
   event.general_time = thd->query_start_in_secs();
 
@@ -408,6 +414,13 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
 
   return event_class_dispatch_error(thd, MYSQL_AUDIT_GENERAL_CLASS,
                                     subclass_name, &event);
+}
+
+int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
+                       const char *subclass_name, int error_code,
+                       const char *msg, size_t msg_len) {
+  return mysql_audit_notify(thd, subclass, subclass_name, error_code, msg,
+                            msg_len, nullptr, 0);
 }
 
 int mysql_audit_notify(THD *thd, mysql_event_connection_subclass_t subclass,
