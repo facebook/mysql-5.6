@@ -83,6 +83,25 @@ void mysql_audit_enable_auditing(THD *thd);
 int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
                        const char *subclass_name, int error_code,
                        const char *msg, size_t msg_len);
+
+/**
+  Call audit plugins of GENERAL audit class.
+
+  @param[in] thd              Current thread data.
+  @param[in] subclass         Type of general audit event.
+  @param[in] subclass_name    Subclass name.
+  @param[in] error_code       Error code
+  @param[in] msg              Message
+  @param[in] msg_len          Message length.
+  @param[in] query_str        Query
+  @param[in] query_len        Query length.
+
+  @return Value returned is not taken into consideration by the server.
+*/
+int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
+                       const char *subclass_name, int error_code,
+                       const char *msg, size_t msg_len, const char *query_str,
+                       size_t query_len);
 /**
   Call audit plugins of GENERAL LOG audit class.
 
@@ -93,9 +112,10 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
   @return Value returned is not taken into consideration by the server.
 */
 inline static int mysql_audit_general_log(THD *thd, const char *cmd,
-                                          size_t cmdlen) {
+                                          size_t cmdlen, const char *query_str,
+                                          size_t query_len) {
   return mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_LOG), 0, cmd,
-                            cmdlen);
+                            cmdlen, query_str, query_len);
 }
 
 /**
