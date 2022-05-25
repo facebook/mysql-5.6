@@ -1,7 +1,6 @@
 # Test recovery crash for remote clone with concurrent DML
 
 --source include/not_valgrind.inc
---source include/linux.inc
 --source include/have_mysqld_safe.inc
 --source include/have_debug.inc
 
