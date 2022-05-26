@@ -3343,7 +3343,7 @@ class THD : public MDL_context_owner,
   void init_query_mem_roots();
   void cleanup_connection(void);
   void cleanup_after_query();
-  void store_globals();
+  void store_globals(pid_t id = 0);
   void restore_globals();
 
   inline void set_active_vio(Vio *vio) {

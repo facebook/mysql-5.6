@@ -285,6 +285,15 @@ my_socket thd_get_fd(THD *thd) {
 void thd_store_globals(THD *thd) { thd->store_globals(); }
 
 /**
+  Set thread specific environment required for thd cleanup in thread pool.
+
+  @param thd            THD object
+  @param id             Thread id
+*/
+
+void thd_store_globals(THD *thd, pid_t id) { thd->store_globals(id); }
+
+/**
   Get thread attributes for connection threads
 
   @retval      Reference to thread attribute for connection threads

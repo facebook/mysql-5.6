@@ -2008,7 +2008,7 @@ bool THD::kill_shared_lock(MDL_context_owner *ctx_in_use) {
   (*THR_MALLOC)->Alloc() and the structure for the net buffer
 */
 
-void THD::store_globals() {
+void THD::store_globals(pid_t id) {
   /*
     Assert that thread_stack is initialized: it's necessary to be able
     to track stack overrun.
@@ -2034,7 +2034,12 @@ void THD::store_globals() {
 #endif
   real_id = my_thread_self();
 
-  capture_system_thread_id();
+  // Expensive call that can be optimized.
+  if (!id) {
+    capture_system_thread_id();
+  } else {
+    m_system_thread_id = id;
+  }
 }
 
 /*

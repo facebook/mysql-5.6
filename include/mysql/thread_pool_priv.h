@@ -116,6 +116,7 @@ void thd_set_not_killable(THD *thd);
 ulong thd_get_net_wait_timeout(THD *thd);
 my_socket thd_get_fd(THD *thd);
 void thd_store_globals(THD *thd);
+void thd_store_globals(THD *thd, pid_t id);
 bool thd_check_connection_admin_privilege(THD *thd);
 
 /*
