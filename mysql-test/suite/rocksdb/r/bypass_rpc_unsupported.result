@@ -1,0 +1,19 @@
+SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
+SET GLOBAL rocksdb_select_bypass_policy=2;
+SELECT @@rocksdb_select_bypass_allow_filters into @save_rocksdb_select_bypass_allow_filters;
+SET GLOBAL rocksdb_select_bypass_allow_filters=0;
+create table t1 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c INT NOT NULL, d INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+create table t2 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+create table t3 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c VARCHAR(15) CHARACTER SET latin1 NOT NULL, KEY a (a, b)) ENGINE=ROCKSDB;
+create table t4 (pk INT PRIMARY KEY, a INT) ENGINE=ROCKSDB;
+INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+set global rocksdb_select_bypass_allow_filters=@save_rocksdb_select_bypass_allow_filters;
+set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;

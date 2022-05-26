@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 --let $MYSQLD_DATADIR= `select @@datadir`
 --replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
 --replace_result $MYSQLD_DATADIR MYSQLD_DATADIR

@@ -1,0 +1,65 @@
+--source include/have_rocksdb.inc
+
+--let $MYSQLD_DATADIR= `select @@datadir`
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+--replace_result $MYSQLD_DATADIR MYSQLD_DATADIR
+SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
+SET GLOBAL rocksdb_select_bypass_policy=2;
+SELECT @@rocksdb_select_bypass_allow_filters into @save_rocksdb_select_bypass_allow_filters;
+SET GLOBAL rocksdb_select_bypass_allow_filters=0;
+
+create table t1 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c INT NOT NULL, d INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+create table t2 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+create table t3 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c VARCHAR(15) CHARACTER SET latin1 NOT NULL, KEY a (a, b)) ENGINE=ROCKSDB;
+create table t4 (pk INT PRIMARY KEY, a INT) ENGINE=ROCKSDB;
+
+--write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>1 AND pk>2 AND pk>3;
+SELECT /*+ bypass */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b=2 AND d>4;
+SELECT /*+ bypass */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b>2 AND d>4;
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>1 AND pk>2;
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk<1 AND pk<2;
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk<=1 AND pk<=2;
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>=1 AND pk>=2;
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>1 AND pk>=2;
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>=1 AND pk>2;
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk<1 AND pk<=2;
+SELECT /*+ bypass */ pk FROM test.t1 WHERE pk<=1 AND pk<2;
+SELECT /*+ bypass */ a,b,c FROM test.t1 WHERE a>0 AND b>0;
+SELECT /*+ bypass */ a,b,c FROM test.t1 WHERE b IN (1,2) AND a>0;
+SELECT /*+ bypass */ a,b,c FROM test.t1 WHERE a>0 and b>0 and c>0;
+SELECT /*+ bypass */ a,b,c FROM test.t1 WHERE a=1 ORDER BY a ASC;
+SELECT /*+ bypass */ a,b,c FROM test.t1 FORCE INDEX (a) WHERE a=1 ORDER BY b ASC, a ASC;
+SELECT /*+ bypass */ a,b,c FROM test.t1 FORCE INDEX (a) WHERE a=1 ORDER BY a ASC, b ASC, c ASC, c ASC, c ASC, a ASC, b ASC, c ASC, d ASC;
+SELECT /*+ bypass */ a,b,c FROM test.t1 FORCE INDEX (a) WHERE a=1 ORDER BY c ASC, a ASC;
+SELECT /*+ bypass */ a,b,c FROM test.t1 FORCE INDEX (a) WHERE a=1 ORDER BY a ASC, a ASC;
+SELECT /*+ bypass */ a,b,c FROM test.t1 FORCE INDEX (a) WHERE a=1 ORDER BY a ASC, a ASC, a ASC, a ASC, a ASC, a ASC, a ASC, a ASC;
+SELECT /*+ bypass */ a,b,c FROM test.t1 FORCE INDEX (a) WHERE a=1 ORDER BY b ASC, b ASC;
+SELECT /*+ bypass */ a,b,c FROM test.t3 FORCE INDEX (a) WHERE a=1 ORDER BY b ASC, b ASC;
+SELECT /*+ bypass */ a,b,c FROM test.t1 FORCE INDEX (abc) WHERE a=1 ORDER BY b ASC, a ASC;
+# Too many WHERE expressions
+SELECT /*+ bypass */ a FROM test.t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND a=1;
+# NULL fields not supported
+SELECT /*+ bypass */ a FROM test.t4 WHERE a=1;
+EOF
+
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+eval INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME '$TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+
+--diff_files $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+
+set global rocksdb_select_bypass_allow_filters=@save_rocksdb_select_bypass_allow_filters;
+set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
+
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
