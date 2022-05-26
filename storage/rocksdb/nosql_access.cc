@@ -197,7 +197,7 @@ class rpc_protocol : public base_protocol {
         case MYSQL_TYPE_BLOB: {
           const auto field_blob = static_cast<const Field_blob *>(field);
           uint packlength = field_blob->pack_length_no_ptr();
-          uint length = field_blob->get_length_bytes();
+          uint length = field_blob->data_length();
           uchar *ucharptr;
           memcpy(&ucharptr, field_blob->field_ptr() + packlength,
                  sizeof(uchar *));
@@ -206,7 +206,15 @@ class rpc_protocol : public base_protocol {
           rpcbuf->type = myrocks_value_type::STRING;
           break;
         }
-
+        case MYSQL_TYPE_STRING: {
+          const auto field_str = static_cast<const Field_string *>(field);
+          const auto ptr = field_str->field_ptr();
+          uint length = field_str->max_display_length();
+          rpcbuf->stringVal = const_cast<uchar *>(ptr);
+          rpcbuf->length = length;
+          rpcbuf->type = myrocks_value_type::STRING;
+          break;
+        }
         default:
           // todo: support more type
           return true;
@@ -1189,7 +1197,8 @@ class rpc_select_parser : public base_select_parser {
         val_type = myrocks_value_type::UNSIGNED_INT;
         return false;
       }
-      case MYSQL_TYPE_VARCHAR: {
+      case MYSQL_TYPE_VARCHAR:
+      case MYSQL_TYPE_STRING: {
         val_type = myrocks_value_type::STRING;
         return false;
       }
@@ -1236,7 +1245,7 @@ class rpc_select_parser : public base_select_parser {
       if (add_field_list(found)) {
         return true;
       }
-      idx = m_field_index.size() - 1;
+      idx = m_field_list.size() - 1;
     }
     m_cond_list[m_cond_count++] = {
         Item_func::IN_FUNC, found,
@@ -1269,7 +1278,7 @@ class rpc_select_parser : public base_select_parser {
       if (add_field_list(found)) {
         return true;
       }
-      idx = m_field_index.size() - 1;
+      idx = m_field_list.size() - 1;
     }
 
     auto op = convert_where_op(item.op);
@@ -1310,6 +1319,11 @@ class rpc_select_parser : public base_select_parser {
     m_cond_list_ptr.reserve(m_cond_count);
     for (uint i = 0; i < m_cond_count; i++) {
       m_cond_list_ptr.push_back(&m_cond_list[i]);
+    }
+
+    if (m_cond_count == 0) {
+      m_error_msg = "No WHERE expressions found";
+      return true;
     }
     return false;
   }
@@ -2645,14 +2659,16 @@ bypass_rpc_exception myrocks_select_by_key(
       rocksdb_select_bypass_failed++;
       ret.errnum = ER_NOT_SUPPORTED_YET;
       ret.sqlstate = "MYF(0)";
-      ret.message = exec.get_error_msg();
+      ret.message = "SELECT statement pattern not supported: ";
+      ret.message.append(exec.get_error_msg());
     } else {
       rocksdb_select_bypass_executed++;
     }
   } else {
     ret.errnum = ER_NOT_SUPPORTED_YET;
     ret.sqlstate = "MYF(0)";
-    ret.message = select_stmt.get_error_msg();
+    ret.message = "SELECT statement pattern not supported: ";
+    ret.message.append(select_stmt.get_error_msg());
   }
 
   return ret;

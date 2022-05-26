@@ -223,6 +223,12 @@ static int sql_get_string(void *, const char *const value, size_t length,
   return false;
 }
 
+static void sql_handle_error(void *, uint sql_errno, const char *const err_msg,
+                             const char *const) {
+  DBUG_TRACE;
+  fprintf(outfile_sql, "ERROR %u: %s\n", sql_errno, err_msg);
+}
+
 const struct st_command_service_cbs sql_cbs = {
     sql_start_result_metadata,
     sql_field_metadata,
@@ -241,7 +247,7 @@ const struct st_command_service_cbs sql_cbs = {
     sql_get_datetime,
     sql_get_string,
     nullptr,  // sql_handle_ok,
-    nullptr,  // sql_handle_error,
+    sql_handle_error,
     nullptr,  // sql_shutdown,
     nullptr,
 };
@@ -341,6 +347,27 @@ static void fill_where_in(myrocks_select_from_rpc &param, std::string &query) {
   }
 }
 
+static void fill_where_string(myrocks_select_from_rpc &param,
+                              std::string &query,
+                              std::vector<std::string> &string_vec) {
+  std::regex r(R"(([a-zA-Z0-9_]{1,})(>|=|<|>=|<=)\"(\S+)\")");
+  std::smatch m;
+  while (regex_search(query, m, r)) {
+    std::string name(m[1]), op(m[2]), val(m[3]);
+    myrocks_column_cond_value cond_val;
+    cond_val.type = myrocks_value_type::STRING;
+
+    string_vec.push_back(std::move(val));
+    cond_val.stringVal = string_vec.back().c_str();
+    cond_val.length = string_vec.back().size();
+    myrocks_where_item witem = {.column = std::move(name),
+                                .op = convertToWhereOp(op),
+                                .value = std::move(cond_val)};
+    param.where.push_back(std::move(witem));
+    query = m.suffix();
+  }
+}
+
 static void fill_where(myrocks_select_from_rpc &param, std::string &query) {
   std::regex r(R"(([a-zA-Z0-9_]{1,})(>|=|<|>=|<=)(\d+))");
   std::smatch m;
@@ -419,6 +446,7 @@ static void test_rpc(void *) {
   char line_buffer[RPC_MAX_QUERY_LENGTH];
   while (fgets(line_buffer, RPC_MAX_QUERY_LENGTH, infile)) {
     std::string query_str(line_buffer);
+    std::vector<std::string> string_vec;
     fprintf(outfile_rpc, "%s", query_str.c_str());
 
     myrocks_select_from_rpc param;
@@ -428,11 +456,16 @@ static void test_rpc(void *) {
     if (query_str.empty()) continue;
     fill_force_index(param, query_str);
     fill_where_in(param, query_str);
+    fill_where_string(param, query_str, string_vec);
     fill_where(param, query_str);
     fill_order_by(param, query_str);
     fill_limit(param, query_str);
 
-    bypass_select(&param);
+    const auto &exception = bypass_select(&param);
+    if (exception.errnum) {
+      fprintf(outfile_rpc, "ERROR %d: %s\n", exception.errnum,
+              exception.message.c_str());
+    }
 
     // if allocated, more_values needs to be deallocated
     for (auto &witem : param.where_in) {

@@ -1,0 +1,199 @@
+--source include/have_rocksdb.inc
+
+--let $MYSQLD_DATADIR= `select @@datadir`
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+--replace_result $MYSQLD_DATADIR MYSQLD_DATADIR
+--source ../include/bypass_create_table.inc
+
+--echo # Bloom filter with complete SK but shorter than bloom filter
+CREATE TABLE `id_table_bloom` (
+  `id1` bigint(20) NOT NULL DEFAULT '0',
+  `id2` bigint(20) NOT NULL DEFAULT '0',
+  `id3` bigint(11) NOT NULL DEFAULT '0',
+  `val` bigint(20) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id1`, `id2`),
+  KEY `id3` (`id3`) COMMENT 'cf_link',
+  UNIQUE KEY `unique_id3` (`id3`) COMMENT 'cf_link'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8;
+
+INSERT INTO id_table_bloom values (1, 1, 1, 101);
+INSERT INTO id_table_bloom values (1, 2, 2, 102);
+INSERT INTO id_table_bloom values (1, 3, 3, 103);
+INSERT INTO id_table_bloom values (1, 4, 4, 104);
+
+CREATE TABLE `link_table7` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+  `time` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
+  COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+insert into link_table7 values (9223372036854775807, 100, 9223372036854775801,
+  100, 9223372036854775807, 0,
+  'data1', 1234561, 9223372036854775801);
+insert into link_table7 values (9223372036854775807, 100, 1223372036854775802,
+  100, 9223372036854775807, 0,
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1234562, 9223372036854775802);
+insert into link_table7 values (9223372036854775807, 100, 1223372036854775803,
+  100, 9223372036854775807, 0,
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1234563, 9223372036854775803);
+
+CREATE TABLE `link_table8` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+  `time` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
+  COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+insert into link_table8 values (1, 0x03030303, 1, 0, 100, 0, 'data1', 0, 0);
+
+CREATE TABLE `meta_table` (
+  `lvid` int(10) unsigned NOT NULL DEFAULT '0',
+  `mt_object_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `mt_object_cookie` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `mt_alt_key_data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `mt_total_size` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `mt_object_type2` int(10) unsigned NOT NULL DEFAULT '0',
+  `mt_object_state` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `context` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `mt_ref` bigint(20) DEFAULT NULL,
+  `mt_key` varbinary(80) DEFAULT NULL,
+  `mt_ctime` int(10) NOT NULL DEFAULT '0',
+  `mt_rtime` int(10) NOT NULL DEFAULT '0',
+  `policy_id` tinyint(3) unsigned DEFAULT NULL,
+  `policy` bigint(20) unsigned DEFAULT NULL,
+  `parent_id` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `ttl` int(10) DEFAULT NULL,
+  `mt_last_update` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`lvid`,`id`),
+  KEY `key1` (`lvid`,`mt_object_state`,`mt_key`(1)),
+  KEY `key2` (`lvid`,`mt_last_update`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+
+INSERT INTO meta_table VALUES (100, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 2, 0, 'data2', 1, 2, 3, 'context2',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 3, 0, 'data3', 1, 2, 3, 'context3',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 4, 0, 'data4', 1, 2, 3, 'context4',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (101, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+
+
+--write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+# Bloom filter with complete SK but shorter than bloom filter
+SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (unique_id3) WHERE id3=1;
+SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (id3) WHERE id3=1;
+# Range query with full PK+SK
+SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (unique_id3) WHERE id3=1 AND id1=1;
+SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (unique_id3) WHERE id3=1 AND id1=1 AND id2=1;
+SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (unique_id3) WHERE id3=1 AND id1=1 AND id2>=1;
+SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (id3) WHERE id3=1 AND id1=1;
+SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (id3) WHERE id3=1 AND id1=1 AND id2=1;
+SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (id3) WHERE id3=1 AND id1=1 AND id2>=1;
+# Point query, with node_table
+SELECT /*+ bypass */ id,type,version,update_time,data FROM test.node_table FORCE INDEX (PRIMARY) WHERE id IN (1,2,3,4,5) AND type=1 ORDER BY type ASC, id ASC;
+SELECT /*+ bypass */ id,type,version,update_time,data FROM test.node_table FORCE INDEX (PRIMARY) WHERE id IN (1) AND type=1;
+SELECT /*+ bypass */ id,type,version,update_time,data FROM test.node_table FORCE INDEX (PRIMARY) WHERE id=2 AND type=1 ORDER BY type ASC, id ASC;
+# Point query, with id_table
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (PRIMARY) WHERE id IN (1,2,3,4,5) ORDER BY id ASC;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (PRIMARY) WHERE id IN (1) ORDER BY id ASC;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (PRIMARY) WHERE id=1 ORDER BY id ASC;
+# Point query, with id_table SK
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (type_id) WHERE type=1 and id=2;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (type_id) WHERE type=1 and id=1;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (type_id) WHERE type=1 and id=10;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (type_id) WHERE type=1 and id=11;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (type_id) WHERE type=1 and id=0;
+# Point query, with id_table unique SK
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (unique_type_id) WHERE type=1 and id=2;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (unique_type_id) WHERE type=1 and id=1;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (unique_type_id) WHERE type=1 and id=10;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (unique_type_id) WHERE type=1 and id=11;
+SELECT /*+ bypass */ id,type,row_created_time,is_deleted FROM test.id_table FORCE INDEX (unique_type_id) WHERE type=1 and id=0;
+# Point query, with count_table
+SELECT /*+ bypass */ id,type,link_type,count,TIME,version FROM test.count_table WHERE id=2 AND link_type=1;
+# pk_unpack_buf unassigned when unpack_pk=false and unpack_value=true
+SELECT /*+ bypass */ id1,id2,link_type,visibility,data,time,version FROM test.link_table3 FORCE INDEX (id1_type) WHERE link_type=1 AND id1=1 AND visibility=1 AND time>=0 AND time<=4294967295 ORDER BY time DESC, id2 DESC LIMIT 0,10000;
+# Partial keys should not be unpacked
+SELECT /*+ bypass */ data FROM test.link_table6 FORCE INDEX (id1_type) where id1=1;
+# time >= ONLY crashes
+SELECT /*+ bypass */ id1,id2,link_type,visibility,data,time,version FROM test.link_table FORCE INDEX (id1_type) WHERE link_type=1 AND id1=1 AND visibility=0 AND time>=1551074583 AND time>=0 AND time<=4294967295 ORDER BY time DESC, id2 DESC LIMIT 0,500;
+SELECT /*+ bypass */ id1,id2,link_type,visibility,data,time,version FROM test.link_table FORCE INDEX (id1_type) WHERE link_type=1 AND id1=1 AND visibility=0 AND time>=1551074583 ORDER BY time DESC, id2 DESC LIMIT 0,500;
+# IN expression multiplexing
+SELECT /*+ bypass */ id1,id1_type,id2,id2_type FROM test.link_table WHERE id1 IN (1,2,3) AND link_type=3 ORDER BY link_type ASC, id1 ASC, id2 ASC;
+# IN expression multiplexing in middle
+SELECT /*+ bypass */ id1,id1_type,id2,id2_type FROM test.link_table WHERE id1 IN (1,2,3) AND link_type=3 AND id2=1 ORDER BY link_type ASC, id1 ASC, id2 ASC;
+# IN expression with multiple IN
+SELECT /*+ bypass */ id1,id1_type,id2,id2_type FROM test.link_table WHERE id1 IN (1,2,3) AND id2 IN (3,4,5) AND link_type=3 ORDER BY link_type ASC, id1 ASC, id2 ASC;
+# Decoding varchar with extra padding spaces from index
+SELECT /*+ bypass */ id1,id2,data,version,time FROM test.link_table FORCE INDEX (id1_type) WHERE id1=9 and link_type=5;
+# Point query with duplicate items
+SELECT /*+ bypass */ id,type,version,update_time,data FROM test.node_table FORCE INDEX (PRIMARY) WHERE id IN (5,5,5,5,5) AND type=1;
+# Point query with reverse order
+SELECT /*+ bypass */ id,type,version,update_time,data FROM test.node_table FORCE INDEX (PRIMARY) WHERE id IN (5,4,3,2,1) AND type=1;
+# Point query with correct order
+SELECT /*+ bypass */ id,type,version,update_time,data FROM test.node_table FORCE INDEX (PRIMARY) WHERE id IN (5,4,3,2,1) AND type=1 ORDER BY id DESC;
+# Range query with bloom filter
+SELECT /*+ bypass */ id1,id2,data,time,version FROM test.link_table5 WHERE link_type=1 AND id1=2 and id2>1;
+SELECT /*+ bypass */ id1,id2,data,time,version FROM test.link_table5 WHERE link_type=1 AND id1=2 and id2>=1;
+# Range query with PK key only
+SELECT /*+ bypass */ id2 FROM test.link_table5 WHERE link_type=1 AND id1=2 AND id2=1;
+SELECT /*+ bypass */ id2 FROM test.link_table5 WHERE link_type=1 and id1>=2 ORDER BY id1 ASC;
+# Range query with PK key only with filters
+SELECT /*+ bypass */ id2 FROM test.link_table5 WHERE link_type=1 and id1=2 and id2>1;
+SELECT /*+ bypass */ id2 FROM test.link_table5 WHERE link_type=1 and id1=2 and id2>=1;
+SELECT /*+ bypass */ id1,id2,link_type,visibility,data,time,version FROM test.link_table7 FORCE INDEX (id1_type) WHERE link_type=9223372036854775807 AND id1=9223372036854775807 AND visibility=0 ORDER BY time ASC, id2 ASC limit 0,1000;
+SELECT /*+ bypass */ id1,id2,link_type,visibility,data,time,version FROM test.link_table8 FORCE INDEX (PRIMARY) WHERE link_type=100 and id1=1 ORDER BY id2 ASC limit 0,1000;
+SELECT /*+ bypass */ mt_object_state,id,mt_object_cookie,mt_alt_key_data,mt_key,mt_ctime,mt_rtime,mt_ref,mt_object_type,mt_last_update,mt_total_size,mt_object_type2,policy_id,ttl,policy FROM test.meta_table FORCE INDEX (PRIMARY) WHERE lvid=100 AND id>=3 ORDER BY id ASC LIMIT 1000000;
+# Uncovered TEXT/VARCHAR in PK
+SELECT /*+ bypass */ id2,version,data FROM test.link_text FORCE INDEX (PRIMARY) WHERE id1=1 and link_type=3 and id2>=1;
+SELECT /*+ bypass */ id2,version,data FROM test.link_varchar FORCE INDEX (PRIMARY) WHERE id1=1 and link_type=3 and id2>=1;
+# Uncovered TEXT/VARCHAR in SK
+SELECT /*+ bypass */ id2,version,data FROM test.link_text FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4 and time>=10;
+SELECT /*+ bypass */ id2,version,data FROM test.link_varchar FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4 and time>=10;
+EOF
+
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+eval INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME '$TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+
+--diff_files $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+
+DROP TABLE id_table_bloom;
+DROP TABLE link_table7;
+DROP TABLE link_table8;
+DROP TABLE meta_table;
+
+--source ../include/bypass_drop_table.inc
