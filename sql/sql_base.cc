@@ -7066,6 +7066,14 @@ bool lock_tables(THD *thd, Table_ref *tables, uint count, uint flags) {
   */
   if (!thd->locked_tables_mode) {
     assert(thd->lock == nullptr);  // You must lock everything at once
+    if (thd->lock != nullptr) {
+      // If we detect leaking thd->lock at runtime we must abort immediately
+      // THD_LOCK_DATA leaks are insanely difficult to root cause
+      // NO_LINT_DEBUG
+      sql_print_error("thd->lock leak detected. Aborting...");
+      abort();
+    }
+
     TABLE **start, **ptr;
 
     if (!(ptr = start = (TABLE **)thd->alloc(sizeof(TABLE *) * count)))

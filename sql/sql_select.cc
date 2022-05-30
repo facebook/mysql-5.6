@@ -591,7 +591,6 @@ bool Sql_cmd_dml::execute(THD *thd) {
   // Revertable changes are not supported during preparation
   assert(thd->change_list.is_empty());
 
-  assert(m_bypassed || !lex->is_query_tables_locked());
   /*
     Locking of tables is done after preparation but before optimization.
     This allows to do better partition pruning and avoid locking unused
@@ -602,7 +601,10 @@ bool Sql_cmd_dml::execute(THD *thd) {
     locking the table, so locking again is not necessary.
   */
   if (!m_bypassed && !is_empty_query()) {
-    if (lock_tables(thd, lex->query_tables, lex->table_count, 0)) goto err;
+    /* in case bypass has already locked the table but decided to fallback */
+    if (!lex->is_query_tables_locked()) {
+      if (lock_tables(thd, lex->query_tables, lex->table_count, 0)) goto err;
+    }
   }
 
   thd->pre_exec_time = my_timer_now();
