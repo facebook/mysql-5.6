@@ -18,7 +18,7 @@ select GET_LOCK('lock1', -1);
 select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%';
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	0	1	0	0	1	0
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 test_db	0	0	1	0	0
 select RELEASE_LOCK('lock1');
@@ -26,7 +26,7 @@ RELEASE_LOCK('lock1')
 1
 select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%';
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 GET_LOCK('lock1', -1)
 1
@@ -41,13 +41,13 @@ select GET_LOCK('lock1', -1);
 select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%';
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	0	1	0	0	1	0
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 test_db	1	0	1	0	0
 select RELEASE_LOCK('lock1');
 RELEASE_LOCK('lock1')
 1
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 GET_LOCK('lock1', -1)
 1
@@ -62,7 +62,7 @@ select GET_LOCK('lock1', -1);
 select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%';
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	0	1	0	0	1	0
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 test_db	2	0	1	0	0
 select RELEASE_LOCK('lock1');
@@ -70,7 +70,7 @@ RELEASE_LOCK('lock1')
 1
 select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%';
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 GET_LOCK('lock1', -1)
 1
@@ -93,7 +93,7 @@ select GET_LOCK('lock1', -1);
 select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%';
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	0	5	0	0	5	0
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 test_db	0	0	5	0	0
 # Set up 5 waiting queries each for queue 1 and 2
@@ -111,7 +111,7 @@ select GET_LOCK('lock2', -1);
 select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%';
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	10	5	0	0	15	0
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 test_db	0	0	5	0	0
 test_db	1	5	0	0	0
@@ -123,7 +123,7 @@ RELEASE_LOCK('lock1')
 select * from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%';
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	5	5	0	0	10	0
-select * from information_schema.tp_admission_control_queue;
+select * from information_schema.tp_admission_control_queue where schema_name like 'test%';
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 test_db	1	3	2	0	0
 test_db	2	2	3	0	0

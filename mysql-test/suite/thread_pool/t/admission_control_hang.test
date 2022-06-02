@@ -11,6 +11,8 @@ set @start_innodb_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
 set @@global.innodb_lock_wait_timeout = 10000;
 set @start_admission_control_filter = @@global.thread_pool_admission_control_filter;
 set @@global.thread_pool_admission_control_filter = 'COMMIT';
+set @start_admission_control_queue_timeout = @@global.thread_pool_admission_control_queue_timeout;
+set @@global.thread_pool_admission_control_queue_timeout = 0;
 
 let $i= 6;
 while ($i)
@@ -35,6 +37,13 @@ while($i)
   send update t1 set a=2 where a=1;
   dec $i;
 }
+
+--connection default
+--echo Wait to confirm that all 4 queries are running.
+let $wait_condition =
+  select count(*) = 1 from information_schema.tp_admission_control_queue
+    where schema_name = "test_db" and running_queries = 4;
+--source include/wait_condition.inc
 
 # Test filter USE statement
 connection default;
@@ -94,8 +103,9 @@ connection default;
 set @@global.thread_pool_admission_control_filter = default;
 select @@global.thread_pool_admission_control_filter;
 
-# open transaction will be able to go through
+# open transaction will not be able to go through
 connection con5;
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
 select count(*) from t1;
 
 # restore admission_control_by_trx
@@ -123,6 +133,7 @@ connection default;
 set @@global.thread_pool_max_running_queries = @start_max_running_queries;
 set @@global.innodb_lock_wait_timeout = @start_innodb_lock_wait_timeout;
 set @@global.thread_pool_admission_control_filter = @start_admission_control_filter;
+set @@global.thread_pool_admission_control_queue_timeout = @start_admission_control_queue_timeout;
 drop database test_db;
 drop user test_user@localhost;
 --source include/wait_until_count_sessions.inc

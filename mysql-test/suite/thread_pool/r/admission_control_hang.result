@@ -7,6 +7,8 @@ set @start_innodb_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
 set @@global.innodb_lock_wait_timeout = 10000;
 set @start_admission_control_filter = @@global.thread_pool_admission_control_filter;
 set @@global.thread_pool_admission_control_filter = 'COMMIT';
+set @start_admission_control_queue_timeout = @@global.thread_pool_admission_control_queue_timeout;
+set @@global.thread_pool_admission_control_queue_timeout = 0;
 create table t1 (a int) engine=innodb;
 insert into t1 values(1);
 begin;
@@ -15,6 +17,7 @@ update t1 set a=2 where a=1;
 update t1 set a=2 where a=1;
 update t1 set a=2 where a=1;
 update t1 set a=2 where a=1;
+Wait to confirm that all 4 queries are running.
 set @@global.thread_pool_admission_control_filter = 'USE';
 select @@global.thread_pool_admission_control_filter;
 @@global.thread_pool_admission_control_filter
@@ -75,8 +78,7 @@ select @@global.thread_pool_admission_control_filter;
 @@global.thread_pool_admission_control_filter
 
 select count(*) from t1;
-count(*)
-1
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
 set @@global.thread_pool_admission_control_by_trx = @save_admission_control_by_trx;
 select @@global.thread_pool_admission_control_by_trx;
 @@global.thread_pool_admission_control_by_trx
@@ -89,5 +91,6 @@ commit;
 set @@global.thread_pool_max_running_queries = @start_max_running_queries;
 set @@global.innodb_lock_wait_timeout = @start_innodb_lock_wait_timeout;
 set @@global.thread_pool_admission_control_filter = @start_admission_control_filter;
+set @@global.thread_pool_admission_control_queue_timeout = @start_admission_control_queue_timeout;
 drop database test_db;
 drop user test_user@localhost;

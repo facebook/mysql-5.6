@@ -8,7 +8,7 @@ set @save_max_waiting_queries = @@thread_pool_max_waiting_queries;
 set @save_admission_control_wait_events = @@thread_pool_admission_control_wait_events;
 set global thread_pool_max_running_queries = 1;
 set global thread_pool_max_waiting_queries = 2000;
-set thread_pool_admission_control_queue_timeout = 100;
+set thread_pool_admission_control_queue_timeout = 0;
 #
 # Test admission_control_wait_events = NET_IO
 # We need debug sync to simulate slow clients
@@ -20,9 +20,6 @@ select 1;
 ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
 set global thread_pool_admission_control_wait_events = 'NET_IO';
 SELECT REPEAT('X', @@max_allowed_packet);;
-select 1;
-1
-1
 set global thread_pool_max_running_queries = @save_max_running_queries;
 set global thread_pool_max_waiting_queries = @save_max_waiting_queries;
 set global thread_pool_admission_control_wait_events = @save_admission_control_wait_events;
