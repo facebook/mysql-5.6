@@ -10,7 +10,7 @@ set @save_admission_control_yield_freq = @@thread_pool_admission_control_yield_f
 set global thread_pool_max_running_queries = 1;
 set global thread_pool_max_waiting_queries = 2000;
 set global thread_pool_admission_control_filter = 'SET';
-set thread_pool_admission_control_queue_timeout = 5000;
+set thread_pool_admission_control_queue_timeout = 0;
 #
 # Test admission_control_wait_events = SLEEP
 #
@@ -86,9 +86,6 @@ set global thread_pool_admission_control_wait_events = 'YIELD';
 set global thread_pool_admission_control_yield_freq = 1;
 select * from t2 a, t2 b, t2 c, t2 d, t2 e, t2 f, t2 g, t2 h limit 10000000000, 1;;
 Timeout in wait_condition.inc for select count(*) = 1 from information_schema.processlist where state = 'Sending data'
-select 1;
-1
-1
 drop table t1;
 drop table t2;
 ERROR 70100: Query execution was interrupted

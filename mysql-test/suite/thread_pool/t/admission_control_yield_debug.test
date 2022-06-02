@@ -18,7 +18,7 @@ set global thread_pool_max_waiting_queries = 2000;
 --source include/count_sessions.inc
 --connect (con1,localhost,test_user,,test_db)
 --connect (con2,localhost,test_user,,test_db)
-set thread_pool_admission_control_queue_timeout = 100;
+set thread_pool_admission_control_queue_timeout = 0;
 
 --echo #
 --echo # Test admission_control_wait_events = NET_IO
@@ -71,7 +71,8 @@ let $wait_condition =
 --source include/wait_condition.inc
 
 --connection con2
-select 1;
+# Disabled until timeout is fully supported.
+# select 1;
 
 # Cleanup
 --connection default

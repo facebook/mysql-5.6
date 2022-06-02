@@ -104,71 +104,19 @@ Query on existing thread pool connection is also rejected.
 select * from t1;
 ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
 set @@global.thread_pool_max_waiting_queries=6;
-Kill a thread that is waiting for admission.
-select count(*) from t1;
-kill ID;
 use test_db;
 unlock tables;
 Verify the waiting queries received wakeup signal.
 select count(*) from t1;
 count(*)
 15
-set @save_admission_control_by_trx = @@global.thread_pool_admission_control_by_trx;
-select @save_admission_control_by_trx;
-@save_admission_control_by_trx
-0
-set @@global.thread_pool_max_running_queries=5;
-set @@global.thread_pool_max_waiting_queries=10;
-# By default, open transaction has no effect on running queries
-select count(*) from t1;
-count(*)
-15
-# Test: open transactions will take slots in running queries,
-#       and will not be blocked
-set @@global.thread_pool_admission_control_filter = 'BEGIN,COMMIT,ROLLBACK';
-select @@global.thread_pool_admission_control_filter;
-@@global.thread_pool_admission_control_filter
-BEGIN,COMMIT,ROLLBACK
-set @@global.thread_pool_admission_control_by_trx = true;
-SELECT @@global.thread_pool_admission_control_by_trx;
-@@global.thread_pool_admission_control_by_trx
-1
-Open transaction is able to continue running queries
-connection con_max_wait;
-New queries will be rejected (waiting queue is full)
-select * from t1;
-ERROR HY000: Maximum waiting queries 10 reached for database `test_db`
-New transactions will be rejected (waiting queue is full)
-begin;
-select * from t1;
-ERROR HY000: Maximum waiting queries 10 reached for database `test_db`
-aborted_queries will increase by 2
-Committing a transaction will free up the running query slots
-The waiting queries will be unblocked
-Check status variables
-include/assert.inc [DB Admission control waiting queries should be zero]
-include/assert.inc [DB Admission control running queries should be zero]
-include/assert.inc [DB Admission control aborted queries should be eight]
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
-SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
-test_db	0	0	8	0	13	0
-test_db2	0	0	0	0	0	0
-set @@global.thread_pool_admission_control_by_trx = @save_admission_control_by_trx;
-select @@global.thread_pool_admission_control_by_trx;
-@@global.thread_pool_admission_control_by_trx
-0
-set @@global.thread_pool_admission_control_filter = '';
-select @@global.thread_pool_admission_control_filter;
-@@global.thread_pool_admission_control_filter
-
-# End of open transaction test
 # Test admission_control_queue_timeout
 use test_db;
 set @@global.thread_pool_max_running_queries=1;
 set @@global.thread_pool_max_waiting_queries=5;
 set @save_admission_control_filter = @@global.thread_pool_admission_control_filter;
 set @save_admission_control_queue_timeout = @@global.thread_pool_admission_control_queue_timeout;
-set @@global.thread_pool_admission_control_queue_timeout = 100;
+set @@global.thread_pool_admission_control_queue_timeout = 0;
 set @@global.thread_pool_admission_control_filter = 'BEGIN,COMMIT,ROLLBACK';
 create table t2(a int primary key) engine=InnoDB;
 begin;
@@ -186,7 +134,7 @@ waiting_queries should be 0
 waiting_queries = 0
 select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
-test_db	0	0	8	1	15	0
+test_db	0	0	6	1	15	0
 test_db2	0	0	0	0	0	0
 set @@global.thread_pool_admission_control_filter = 'ROLLBACK,INSERT';
 create table t3(a int primary key) engine=InnoDB;
@@ -196,7 +144,7 @@ begin;
 insert into t3 values (1)||||
 select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
-test_db	0	1	8	1	17	0
+test_db	0	1	6	1	17	0
 test_db2	0	0	0	0	0	0
 SELECT should timeout
 select * from t3;
@@ -210,7 +158,7 @@ begin;
 insert into t3 values (1)||||
 select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
-test_db	0	0	8	2	17	0
+test_db	0	0	6	2	17	0
 test_db2	0	0	0	0	0	0
 SELECT should succeed
 select * from t3;
