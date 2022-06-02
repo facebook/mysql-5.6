@@ -655,8 +655,6 @@ void Shardbeats_manager::cleanup_thread() {
   // NO_LINT_DEBUG
   sql_print_information("Exiting loop of generate_shardbeats");
 
-  transition_to_state(State::STOPPED);
-
   // Cleanup and exit
   sb_thd->release_resources();
 
@@ -664,6 +662,8 @@ void Shardbeats_manager::cleanup_thread() {
   thd_manager->remove_thd(sb_thd);
   delete sb_thd;
   sb_thd = nullptr;
+
+  transition_to_state(State::STOPPED);
 }
 
 Shardbeats_manager::Shard_stats::Shard_stats()
