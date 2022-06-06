@@ -97,6 +97,20 @@ CREATE TABLE t10(x varchar(5001));
 --error ER_OPTION_PREVENTS_STATEMENT
 --eval SELECT * FROM t10 INTO OUTFILE '$error_output_file' COMPRESSED(0);
 
+set @saved_select_into_file_fsync_size = @@session.select_into_file_fsync_size;
+set @@session.select_into_file_fsync_size = 67108864;
+
+# dump data into file
+--let $output_file4=$tmp_dir/t4.txt
+--replace_result $output_file4 OUTPUT_FILE4
+--eval SELECT 1 INTO OUTFILE '$output_file4';
+# dump data into file, compressed
+--let $output_file_zstd4=$tmp_dir/t4.txt.0.zst
+--replace_result $output_file4 OUTPUT_FILE4
+--eval SELECT 1 INTO OUTFILE '$output_file4' COMPRESSED;
+
+set @@session.select_into_file_fsync_size = @saved_select_into_file_fsync_size;
+
 # cleanup
 --remove_file $output_file
 --remove_file $output_file_zstd
@@ -105,5 +119,7 @@ CREATE TABLE t10(x varchar(5001));
 --remove_file $output_file_zstd3
 --remove_file $input_file_big_row
 --remove_file $output_file_zstd_big_row
+--remove_file $output_file4
+--remove_file $output_file_zstd4
 
 DROP TABLE t1, t10;

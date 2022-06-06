@@ -16,4 +16,9 @@ LOAD DATA INFILE 'INPUT_FILE_BIG_ROW' INTO TABLE t10;;
 SELECT * FROM t10 INTO OUTFILE 'OUTPUT_FILE_BIG_ROW' COMPRESSED;;
 SELECT * FROM t10 INTO OUTFILE 'ERROR_OUTPUT_FILE' COMPRESSED(0);;
 ERROR HY000: The MySQL server is running with the --secure-file-priv option so it cannot execute this statement
+set @saved_select_into_file_fsync_size = @@session.select_into_file_fsync_size;
+set @@session.select_into_file_fsync_size = 67108864;
+SELECT 1 INTO OUTFILE 'OUTPUT_FILE4';;
+SELECT 1 INTO OUTFILE 'OUTPUT_FILE4' COMPRESSED;;
+set @@session.select_into_file_fsync_size = @saved_select_into_file_fsync_size;
 DROP TABLE t1, t10;
