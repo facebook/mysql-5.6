@@ -47,6 +47,9 @@ class compressor {
       throw std::runtime_error("error initializing file cache");
     info->write_pos = zstd_in_buf.data();
     info->write_end = zstd_in_buf.data() + zstd_in_buf.size();
+    info->pos_in_file = cache.pos_in_file;
+    info->request_pos = cache.request_pos;
+    info->current_pos = cache.current_pos;
   }
 
   compressor(const compressor &) = delete;
