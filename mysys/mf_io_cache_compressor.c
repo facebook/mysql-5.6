@@ -209,6 +209,9 @@ int init_io_cache_ex(IO_CACHE *info, File file, size_t cachesize,
     compressor *c = info->compressor;
     info->write_pos = c->zstd_in_buf;
     info->write_end = c->zstd_in_buf + c->zstd_in_buf_size;
+    info->pos_in_file = info->compressor->cache.pos_in_file;
+    info->request_pos = info->compressor->cache.request_pos;
+    info->current_pos = info->compressor->cache.current_pos;
 
   } else if ((type == READ_NET || type == READ_FIFO || type == READ_CACHE)
             && cachesize == 0L && seek_offset == 0L) {
