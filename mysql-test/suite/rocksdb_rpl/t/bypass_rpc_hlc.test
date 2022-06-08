@@ -1,0 +1,122 @@
+--source include/master-slave.inc
+--source include/have_rocksdb.inc
+
+connection slave;
+--let $MYSQLD_DATADIR= `select @@datadir`
+--replace_result $MYSQLD_DATADIR MYSQLD_DATADIR
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@global.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+
+connection master;
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@global.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+
+CREATE DATABASE a;
+USE a;
+CREATE TABLE `table_a` (
+  `id1` bigint(20) NOT NULL DEFAULT '0',
+  `id2` bigint(20) NOT NULL DEFAULT '0',
+  `id3` bigint(11) NOT NULL DEFAULT '0',
+  `val` bigint(20) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id1`, `id2`),
+  KEY `id3` (`id3`) COMMENT 'cf_link',
+  UNIQUE KEY `unique_id3` (`id3`) COMMENT 'cf_link'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8;
+
+--source include/sync_slave_sql_with_master.inc
+
+# simple case
+connection master;
+USE a;
+BEGIN;
+INSERT INTO table_a values (1, 1, 1, 101);
+COMMIT;
+let $hlc1 = get_response_attribute(hlc_ts);
+#--echo HLC: $hlc1
+
+--source include/sync_slave_sql_with_master.inc
+
+# (1) read with $hlc1 : expects success
+connection slave;
+--write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+SELECT /*+ bypass */ val FROM a.table_a WHERE id3=1;
+EOF
+--exec echo $hlc1 > $MYSQLD_DATADIR/test_bypass_rpc_plugin_hlc.txt
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+eval INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME '$TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+--cat_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_hlc.txt
+
+# Stop the slave so it won't receive the next write
+--source include/stop_slave.inc
+
+connection master;
+USE a;
+BEGIN;
+INSERT INTO table_a values (2, 2, 2, 102);
+COMMIT;
+let $hlc2 = get_response_attribute(hlc_ts);
+#--echo HLC: $hlc2
+
+# (2) read with $hlc2 while stopping replication: expects error
+connection slave;
+--write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+SELECT /*+ bypass */ val FROM a.table_a WHERE id3=2;
+EOF
+--exec echo $hlc2 > $MYSQLD_DATADIR/test_bypass_rpc_plugin_hlc.txt
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+eval INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME '$TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+--cat_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_hlc.txt
+
+# Restart replication and re-sync for later tests
+connection slave;
+--source include/start_slave.inc
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+# (3) read with $hlc2 after resuming replication: expects success
+connection slave;
+--write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+SELECT /*+ bypass */ val FROM a.table_a WHERE id3=2;
+EOF
+--exec echo $hlc2 > $MYSQLD_DATADIR/test_bypass_rpc_plugin_hlc.txt
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+eval INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME '$TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+--cat_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_hlc.txt
+
+# cleanup
+connection master;
+DROP DATABASE a;
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+
+connection slave;
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+
+connection master;
+source include/rpl_end.inc;
