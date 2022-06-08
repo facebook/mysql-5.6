@@ -1,0 +1,65 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@global.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@global.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+CREATE DATABASE a;
+USE a;
+CREATE TABLE `table_a` (
+`id1` bigint(20) NOT NULL DEFAULT '0',
+`id2` bigint(20) NOT NULL DEFAULT '0',
+`id3` bigint(11) NOT NULL DEFAULT '0',
+`val` bigint(20) NOT NULL DEFAULT '0',
+PRIMARY KEY (`id1`, `id2`),
+KEY `id3` (`id3`) COMMENT 'cf_link',
+UNIQUE KEY `unique_id3` (`id3`) COMMENT 'cf_link'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+include/sync_slave_sql_with_master.inc
+USE a;
+BEGIN;
+INSERT INTO table_a values (1, 1, 1, 101);
+COMMIT;
+include/sync_slave_sql_with_master.inc
+INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+SELECT /*+ bypass */ val FROM a.table_a WHERE id3=1;
+101 
+include/stop_slave.inc
+USE a;
+BEGIN;
+INSERT INTO table_a values (2, 2, 2, 102);
+COMMIT;
+INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+SELECT /*+ bypass */ val FROM a.table_a WHERE id3=2;
+ERROR 50085: Requested HLC timestamp is higher than current engine HLC
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+SELECT /*+ bypass */ val FROM a.table_a WHERE id3=2;
+102 
+DROP DATABASE a;
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+include/rpl_end.inc

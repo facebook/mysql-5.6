@@ -129,6 +129,7 @@ struct myrocks_select_from_rpc {
   std::vector<myrocks_order_by_item> order_by;
   void *rpc_buffer;
   myrocks_bypass_rpc_send_row_fn send_row;
+  uint64_t hlc_lower_bound_ts;  // 0 if hlc lower bound is not given
 };
 
 struct bypass_rpc_exception {
