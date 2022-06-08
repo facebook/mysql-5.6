@@ -48,6 +48,7 @@ struct test_thread_context {
 static const char *log_filename_sql = "test_bypass_rpc_plugin_sql.result";
 static const char *log_filename_rpc = "test_bypass_rpc_plugin_rpc.result";
 static const char *input_filename = "test_bypass_rpc_plugin_input.txt";
+static const char *input_hlc_filename = "test_bypass_rpc_plugin_hlc.txt";
 FILE *outfile_rpc, *outfile_sql;
 
 static void *test_sql_threaded_wrapper(void *param) {
@@ -438,9 +439,22 @@ static void test_sql() {
 
 static void test_rpc(void *) {
   FILE *infile = my_fopen(input_filename, O_RDONLY, MYF(0));
+  FILE *hlc_file = my_fopen(input_hlc_filename, O_RDONLY, MYF(0));
+  uint64_t hlc_lower_bound_ts = 0;
+
   if (infile == nullptr) {
     fprintf(outfile_rpc, "error in opening input file: %s\n", input_filename);
     return;
+  }
+
+  // read hlc input value from the input file if it exists
+  if (hlc_file != nullptr) {
+    auto c = fscanf(hlc_file, "%" PRIu64, &hlc_lower_bound_ts);
+    my_fclose(hlc_file, MYF(0));
+    if (c == 0) {
+      fprintf(outfile_rpc, "error in reading hlc value\n");
+      return;
+    }
   }
 
   char line_buffer[RPC_MAX_QUERY_LENGTH];
@@ -451,6 +465,7 @@ static void test_rpc(void *) {
 
     myrocks_select_from_rpc param;
     param.send_row = send_row;
+    param.hlc_lower_bound_ts = hlc_lower_bound_ts;
 
     fill_table_and_columns(param, query_str);
     if (query_str.empty()) continue;

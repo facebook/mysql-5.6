@@ -12,13 +12,19 @@
 #include "sql/transaction.h" /* trans_commit_stmt */
 
 namespace {
-
-// return true if opening a table fails, otherwise return false
-bool rpc_open_table(const myrocks_select_from_rpc *param) {
+// return true if input is not valid, otherwise return false
+bool check_input(const myrocks_select_from_rpc *param) {
   if (param == nullptr) {
     return true;
   }
+  if (param->db_name.empty() || param->table_name.empty() ||
+      param->send_row == nullptr) {
+    return true;
+  }
+  return false;
+}
 
+void initialize_thd() {
   if (!current_thd) {
     // first call from this rpc thread
     THD *thd = new THD();
@@ -31,8 +37,26 @@ bool rpc_open_table(const myrocks_select_from_rpc *param) {
     LEX *lex = new LEX();
     thd->lex = lex;
   }
+}
 
-  THD *thd = current_thd;
+// return true if the requested hlc bound is not met, otherwise return false
+bool check_hlc_bound(THD *thd, const myrocks_select_from_rpc *param) {
+  if (param->hlc_lower_bound_ts == 0 ||
+      !thd->variables.enable_block_stale_hlc_read) {
+    // no hlc bound from client, or block_stale_hlc_read is not enabled
+    return false;
+  }
+  uint64_t requested_hlc = param->hlc_lower_bound_ts;
+  uint64_t applied_hlc =
+      mysql_bin_log.get_selected_database_hlc(param->db_name);
+  if (requested_hlc > applied_hlc) {
+    return true;
+  }
+  return false;
+}
+
+// return true if opening a table fails, otherwise return false
+bool rpc_open_table(THD *thd, const myrocks_select_from_rpc *param) {
   lex_start(thd);
   LEX_CSTRING db_name_lex_cstr, table_name_lex_cstr;
   Table_ref *table_list;
@@ -71,7 +95,35 @@ thd_err:
   Run bypass select query
 */
 bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
-  if (rpc_open_table(param)) {
+  initialize_thd();
+  if (check_input(param)) {
+    bypass_rpc_exception ret;
+    ret.errnum = ER_NOT_SUPPORTED_YET;
+    ret.sqlstate = "MYF(0)";
+    ret.message = "Bypass rpc input is not valid";
+    return ret;
+  }
+
+  if (wait_for_hlc_timeout_ms != 0 && param->hlc_lower_bound_ts != 0) {
+    // bypass rpc doesn't allow nonzero value in wait_for_hlc_timeout_ms,
+    // because it will block one of rpc threads
+    bypass_rpc_exception ret;
+    ret.errnum = ER_NOT_SUPPORTED_YET;
+    ret.sqlstate = "MYF(0)";
+    ret.message =
+        "Bypass rpc does not allow nonzero value in wait_for_hlc_timeout_ms";
+    return ret;
+  }
+
+  if (check_hlc_bound(current_thd, param)) {
+    bypass_rpc_exception ret;
+    ret.errnum = ER_STALE_HLC_READ;
+    ret.sqlstate = "MYF(0)";
+    ret.message = "Requested HLC timestamp is higher than current engine HLC";
+    return ret;
+  }
+
+  if (rpc_open_table(current_thd, param)) {
     bypass_rpc_exception ret;
     ret.errnum = ER_NOT_SUPPORTED_YET;
     ret.sqlstate = "MYF(0)";
