@@ -258,20 +258,24 @@ drop table t20;
 --echo #
 --echo # Check how MRR works without BKA
 --echo #
+--replace_column 10 # 11 #
 explain select t3.col1 from t3 where t3.col1=20 or t3.col1 between 25 and 28;
 
 --echo # This will use MRR:
+--replace_column 10 # 11 #
 explain 
 select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
 select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
 
 --echo # Check if Index Condition Pushdown works
+--replace_column 10 # 11 #
 explain 
 select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
 select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
 
 select * from t3 use index() where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
 
+--replace_column 10 # 11 #
 explain
 select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
@@ -286,6 +290,7 @@ where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
 --echo # "current row" for the preceding table(s)
 --echo #
 
+--replace_column 10 # 11 #
 explain
 select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
 select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
@@ -308,7 +313,7 @@ explain
 select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
 select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
 
---replace_column 11 #
+--replace_column 10 # 11 #
 explain 
 select * from t0 left join t4 using (a) where t4.a is null;
 select * from t0 left join t4 using (a) where t4.a is null;
