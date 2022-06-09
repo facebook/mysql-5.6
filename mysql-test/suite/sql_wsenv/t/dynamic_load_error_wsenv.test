@@ -7,6 +7,7 @@ CREATE TABLE t1(x VARCHAR(100));
 SET SESSION debug='d,simulate_wsenv_dlopen_error';
 --let $output_file=$SQL_WSENV_MTR_PATH/t1.txt
 --replace_result $output_file OUTPUT_FILE
+--replace_regex /.*Can\'t open shared library.*/Can't open shared library/
 --error 92
 --eval SELECT * FROM t1 INTO OUTFILE '$output_file';
 SET SESSION debug=DEFAULT;
