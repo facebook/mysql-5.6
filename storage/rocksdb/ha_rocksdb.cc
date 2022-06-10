@@ -10856,8 +10856,9 @@ int ha_rocksdb::check_and_lock_sk(
     guarantee SK uniqueness. We could optimize this by calling non-locking
     get instead.
   */
+  bool skip_ttl_check = !all_parts_used;
   rc = iter.get(&new_slice, all_parts_used ? &m_retrieved_record : nullptr,
-                m_lock_rows);
+                m_lock_rows, skip_ttl_check);
   if (rc && rc != HA_ERR_KEY_NOT_FOUND) {
     return rc;
   }
