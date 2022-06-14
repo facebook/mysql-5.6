@@ -1,0 +1,21 @@
+--source include/have_rocksdb.inc
+
+CREATE TABLE t1 (
+`id` int NOT NULL AUTO_INCREMENT,
+`username` varchar(64) NOT NULL,
+`date` date NOT NULL,
+`hour` tinyint unsigned NOT NULL,
+`ipv4` varchar(15) NOT NULL,
+`ipv6` varchar(39) NOT NULL,
+`acctinputoctets` bigint DEFAULT NULL,
+`acctoutputoctets` bigint DEFAULT NULL,
+PRIMARY KEY (`id`),
+UNIQUE KEY `username_day_hour` (`username`,`date`,`hour`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1 COMMENT='ttl_duration=604800;';
+
+INSERT INTO t1 (`username`, `date`, `hour`, `ipv4`, `ipv6`, `acctinputoctets`, `acctoutputoctets`)
+VALUES ('100002992184', '2022-06-08', '10', '192.168.1.70', '', '1', '2');
+
+SELECT * from t1;
+
+drop table t1;
