@@ -349,29 +349,40 @@ static_assert(HA_ERR_ROCKSDB_FIRST > HA_ERR_LAST,
 const char *const rocksdb_hton_name = "ROCKSDB";
 
 typedef struct _gl_index_id_s {
-  uint32_t cf_id;
-  uint32_t index_id;
+  union {
+    struct {
+#ifdef WORDS_BIGENDIAN
+      uint32_t cf_id;
+      uint32_t index_id;
+#else
+      uint32_t index_id;
+      uint32_t cf_id;
+#endif
+    };
+    uint64_t full_id;
+  };
+  _gl_index_id_s() = default;
+  _gl_index_id_s(uint32_t c, uint32_t i) {
+    cf_id = c;
+    index_id = i;
+  }
   bool operator==(const struct _gl_index_id_s &other) const {
-    return cf_id == other.cf_id && index_id == other.index_id;
+    return full_id == other.full_id;
   }
   bool operator!=(const struct _gl_index_id_s &other) const {
-    return cf_id != other.cf_id || index_id != other.index_id;
+    return full_id != other.full_id;
   }
   bool operator<(const struct _gl_index_id_s &other) const {
-    return cf_id < other.cf_id ||
-           (cf_id == other.cf_id && index_id < other.index_id);
+    return full_id < other.full_id;
   }
   bool operator<=(const struct _gl_index_id_s &other) const {
-    return cf_id < other.cf_id ||
-           (cf_id == other.cf_id && index_id <= other.index_id);
+    return full_id <= other.full_id;
   }
   bool operator>(const struct _gl_index_id_s &other) const {
-    return cf_id > other.cf_id ||
-           (cf_id == other.cf_id && index_id > other.index_id);
+    return full_id > other.full_id;
   }
   bool operator>=(const struct _gl_index_id_s &other) const {
-    return cf_id > other.cf_id ||
-           (cf_id == other.cf_id && index_id >= other.index_id);
+    return full_id >= other.full_id;
   }
 } GL_INDEX_ID;
 

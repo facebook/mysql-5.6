@@ -114,8 +114,8 @@ void Rdb_tbl_prop_coll::AdjustDeletedRows(rocksdb::EntryType type) {
 }
 
 Rdb_index_stats *Rdb_tbl_prop_coll::AccessStats(const rocksdb::Slice &key) {
-  GL_INDEX_ID gl_index_id = {.cf_id = m_cf_id,
-                             .index_id = rdb_netbuf_to_uint32(
+  GL_INDEX_ID gl_index_id{m_cf_id,
+                          rdb_netbuf_to_uint32(
                                  reinterpret_cast<const uchar *>(key.data()))};
 
   if (m_last_stats == nullptr || m_last_stats->m_gl_index_id != gl_index_id) {
