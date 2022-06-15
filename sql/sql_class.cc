@@ -1424,6 +1424,9 @@ THD::~THD() {
   if (killed_reason != NULL) {
     my_free(killed_reason);
   }
+  if (m_query_formatter != nullptr) {
+    delete m_query_formatter;
+  }
 }
 
 /**
