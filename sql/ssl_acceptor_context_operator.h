@@ -23,7 +23,10 @@
 #ifndef SSL_ACCEPTOR_CONTEXT_OPERATOR
 #define SSL_ACCEPTOR_CONTEXT_OPERATOR
 
+#include <memory>
+
 #include <my_rcu_lock.h>                   /* MyRcuLock */
+#include <mysql/psi/mysql_mutex.h>
 #include "sql/ssl_acceptor_context_data.h" /** Ssl_acceptor_context_data */
 
 /* Types of supported contexts */
@@ -39,13 +42,13 @@ class TLS_channel;
 /** TLS context access protector */
 class Ssl_acceptor_context_container {
  protected:
-  Ssl_acceptor_context_container(Ssl_acceptor_context_data *data);
+  Ssl_acceptor_context_container(
+      std::shared_ptr<Ssl_acceptor_context_data> &&data);
   ~Ssl_acceptor_context_container();
-  void switch_data(Ssl_acceptor_context_data *new_data);
+  void switch_data(std::shared_ptr<Ssl_acceptor_context_data> &&new_data);
 
-  using Ssl_acceptor_context_data_lock = MyRcuLock<Ssl_acceptor_context_data>;
-
-  Ssl_acceptor_context_data_lock *lock_;
+  std::shared_ptr<Ssl_acceptor_context_data> data_;
+  mysql_mutex_t mutex_;
 
   /* F.R.I.E.N.D.S. */
   friend class Lock_and_access_ssl_acceptor_context;
@@ -103,13 +106,12 @@ using Ssl_acceptor_context_data_lock = MyRcuLock<Ssl_acceptor_context_data>;
 /** TLS context access wrapper for ease of use */
 class Lock_and_access_ssl_acceptor_context {
  public:
-  Lock_and_access_ssl_acceptor_context(Ssl_acceptor_context_container *context)
-      : read_lock_(context->lock_) {}
+  Lock_and_access_ssl_acceptor_context(Ssl_acceptor_context_container *context);
   ~Lock_and_access_ssl_acceptor_context() = default;
 
   /** Access protected @ref Ssl_acceptor_context_data */
   operator const Ssl_acceptor_context_data *() {
-    const Ssl_acceptor_context_data *c = read_lock_;
+    const Ssl_acceptor_context_data *c = data_.get();
     return c;
   }
 
@@ -117,7 +119,7 @@ class Lock_and_access_ssl_acceptor_context {
     Access to the SSL_CTX from the protected @ref Ssl_acceptor_context_data
   */
   operator SSL_CTX *() {
-    const Ssl_acceptor_context_data *c = read_lock_;
+    const Ssl_acceptor_context_data *c = data_.get();
     return c->ssl_acceptor_fd_->ssl_context;
   }
 
@@ -125,7 +127,7 @@ class Lock_and_access_ssl_acceptor_context {
     Access to the SSL from the protected @ref Ssl_acceptor_context_data
   */
   operator SSL *() {
-    const Ssl_acceptor_context_data *c = read_lock_;
+    const Ssl_acceptor_context_data *c = data_.get();
     return c->acceptor_;
   }
 
@@ -133,7 +135,7 @@ class Lock_and_access_ssl_acceptor_context {
     Access to st_VioSSLFd from the protected @ref Ssl_acceptor_context_data
   */
   operator struct st_VioSSLFd *() {
-    const Ssl_acceptor_context_data *c = read_lock_;
+    const Ssl_acceptor_context_data *c = data_.get();
     return c->ssl_acceptor_fd_;
   }
 
@@ -163,8 +165,7 @@ class Lock_and_access_ssl_acceptor_context {
   bool have_ssl();
 
  private:
-  /** Read lock over TLS context */
-  Ssl_acceptor_context_data_lock::ReadLock read_lock_;
+  std::shared_ptr<Ssl_acceptor_context_data> data_;
 };
 
 bool have_ssl();
