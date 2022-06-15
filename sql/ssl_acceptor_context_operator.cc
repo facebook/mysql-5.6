@@ -20,6 +20,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include "mutex_lock.h"
 #include "my_dbug.h"                                /* assert */
 #include "mysql/components/services/log_builtins.h" /* LogErr */
 #include "mysql/status_var.h"                       /* SHOW_VAR */
@@ -32,19 +33,19 @@ Ssl_acceptor_context_container *mysql_main;
 Ssl_acceptor_context_container *mysql_admin;
 
 Ssl_acceptor_context_container::Ssl_acceptor_context_container(
-    Ssl_acceptor_context_data *data)
-    : lock_(nullptr) {
-  lock_ = new Ssl_acceptor_context_data_lock(data);
+    std::shared_ptr<Ssl_acceptor_context_data> &&data)
+    : data_(data) {
+  mysql_mutex_init(PSI_NOT_INSTRUMENTED, &mutex_, MY_MUTEX_INIT_FAST);
 }
 
 Ssl_acceptor_context_container ::~Ssl_acceptor_context_container() {
-  if (lock_ != nullptr) delete lock_;
-  lock_ = nullptr;
+  mysql_mutex_destroy(&mutex_);
 }
 
 void Ssl_acceptor_context_container::switch_data(
-    Ssl_acceptor_context_data *new_data) {
-  if (lock_ != nullptr) lock_->write_wait_and_delete(new_data);
+    std::shared_ptr<Ssl_acceptor_context_data> &&new_data) {
+  MUTEX_LOCK(lock, &mutex_);
+  data_ = new_data;
 }
 
 bool TLS_channel::singleton_init(Ssl_acceptor_context_container **out,
@@ -67,10 +68,10 @@ bool TLS_channel::singleton_init(Ssl_acceptor_context_container **out,
     in auto-generation, bad key material explicitly specified or
     auto-generation disabled explcitly while SSL is still on.
   */
-  Ssl_acceptor_context_data *news =
-      new Ssl_acceptor_context_data(channel, use_ssl_arg, callbacks);
+  auto news = std::make_shared<Ssl_acceptor_context_data>(channel, use_ssl_arg,
+                                                          callbacks);
   Ssl_acceptor_context_container *new_container =
-      new Ssl_acceptor_context_container(news);
+      new Ssl_acceptor_context_container(std::move(news));
   if (news == nullptr || new_container == nullptr) {
     LogErr(WARNING_LEVEL, ER_SSL_LIBRARY_ERROR,
            "Error initializing the SSL context system structure");
@@ -101,29 +102,35 @@ void TLS_channel::singleton_flush(Ssl_acceptor_context_container *container,
                                   Ssl_init_callback *callbacks,
                                   enum enum_ssl_init_error *error, bool force) {
   if (container == nullptr) return;
-  Ssl_acceptor_context_data *news =
-      new Ssl_acceptor_context_data(channel, true, callbacks, false, error);
+  auto news = std::make_shared<Ssl_acceptor_context_data>(
+      channel, true, callbacks, false, error);
   if (*error != SSL_INITERR_NOERROR && !force) {
-    delete news;
     return;
   }
-  (void)container->switch_data(news);
+  (void)container->switch_data(std::move(news));
   return;
+}
+
+Lock_and_access_ssl_acceptor_context::Lock_and_access_ssl_acceptor_context(
+    Ssl_acceptor_context_container *context) {
+  // Take a reference
+  MUTEX_LOCK(lock, &context->mutex_);
+  data_ = context->data_;
 }
 
 std::string Lock_and_access_ssl_acceptor_context::show_property(
     Ssl_acceptor_context_property_type property_type) {
-  const Ssl_acceptor_context_data *data = read_lock_;
+  const Ssl_acceptor_context_data *data = data_.get();
   return (data != nullptr ? data->show_property(property_type) : std::string{});
 }
 
 std::string Lock_and_access_ssl_acceptor_context::channel_name() {
-  const Ssl_acceptor_context_data *data = read_lock_;
+  const Ssl_acceptor_context_data *data = data_.get();
   return (data != nullptr ? data->channel_name() : std::string{});
 }
 
 bool Lock_and_access_ssl_acceptor_context::have_ssl() {
-  const Ssl_acceptor_context_data *data = read_lock_;
+  const Ssl_acceptor_context_data *data = data_.get();
   return (data != nullptr ? data->have_ssl() : false);
 }
 
