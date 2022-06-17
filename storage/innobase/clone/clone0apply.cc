@@ -1721,6 +1721,7 @@ int Clone_Snapshot::init_apply_state(Clone_Desc_State *state_desc) {
 
 int Clone_Snapshot::extend_and_flush_files(bool flush_redo) {
   auto &file_vector = (flush_redo) ? m_redo_file_vector : m_data_file_vector;
+  auto file_type = flush_redo ? OS_CLONE_LOG_FILE : OS_CLONE_DATA_FILE;
 
   for (auto file_ctx : file_vector) {
     if (file_ctx->deleted()) {
@@ -1734,10 +1735,9 @@ int Clone_Snapshot::extend_and_flush_files(bool flush_redo) {
     std::string file_name;
     file_ctx->get_file_name(file_name);
 
-    auto file =
-        os_file_create(innodb_clone_file_key, file_name.c_str(),
-                       OS_FILE_OPEN | OS_FILE_ON_ERROR_NO_EXIT, OS_FILE_NORMAL,
-                       OS_CLONE_DATA_FILE, false, &success);
+    auto file = os_file_create(innodb_clone_file_key, file_name.c_str(),
+                               OS_FILE_OPEN | OS_FILE_ON_ERROR_NO_EXIT,
+                               OS_FILE_NORMAL, file_type, false, &success);
 
     if (!success) {
       /* purecov: begin inspected */
