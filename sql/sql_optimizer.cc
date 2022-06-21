@@ -9791,7 +9791,7 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
                 */
                 if (read_direction == 1 ||
                     (read_direction == -1 &&
-                     is_reverse_sorted_range(tab->range_scan()))) {
+                     reverse_sort_possible(tab->range_scan()))) {
                   recheck_reason = DONT_RECHECK;
                 }
               }
