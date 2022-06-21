@@ -10,7 +10,7 @@ use test_db;
 create user super_user@localhost;
 grant all on *.* to super_user@localhost with grant option;
 
-let $ac_entities_query=select * from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
+let $ac_entities_query=select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test%' order by schema_name;
 
 let $start_rejected_connections = query_get_value(show global status like "Thread_pool_admission_control_rejected_connections", Value, 1);
 
@@ -18,7 +18,7 @@ SET @start_value = @@global.thread_pool_max_db_connections;
 SET @@global.thread_pool_max_db_connections = 10;
 SELECT @@global.thread_pool_max_db_connections;
 # Ideally, we'd be able to avoid repeating most the query in ac_entities_query.
-select * from information_schema.tp_admission_control_entities where schema_name like 'test%' and connections <> 0 order by schema_name;
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test%' and connections <> 0 order by schema_name;
 
 enable_connect_log;
 connection default;
