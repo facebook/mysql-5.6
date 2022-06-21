@@ -12,7 +12,11 @@ let $start_aborted_queries = query_get_value(show global status like "Thread_poo
 let $start_running_queries = query_get_value(show global status like "Thread_pool_admission_control_running_queries", Value, 1);
 let $start_waiting_queries = query_get_value(show global status like "Thread_pool_admission_control_waiting_queries", Value, 1);
 
-let $ac_entities_query=select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+# Cpu Utilization for test database 1 and test database 2 respectively. 
+let $cpu_util_1 = 0; 
+let $cpu_util_2 = 0;
+
+let $ac_entities_query=select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 
 connection default;
 use test_db2;
@@ -81,6 +85,8 @@ delimiter ||||;
 use test_db;
 select * from t1||||
 
+# Test 1: See increase in utilization for test_db2 
+# Utilization for test_db1 stays the same (0)
 # Query will only fail on test_db, but not on test_db2
 --echo Maximum waiting queries reached. So this would hit an error.
 --error ER_DB_ADMISSION_CONTROL
@@ -139,16 +145,44 @@ let $waiting_queries = query_get_value(show global status like "Thread_pool_admi
 let $aborted_queries = `select $aborted_queries - $start_aborted_queries`;
 let $running_queries = `select $running_queries - $start_running_queries`;
 let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
+let $cpu_util_1_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
+let $cpu_util_2_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
+let $res1 = `select if ($cpu_util_1_new = 0, 1, 0)`; 
+let $res2 = `select if ($cpu_util_2_new > $cpu_util_2, 1, 0)`; 
+let $cpu_util_1 = $cpu_util_1_new; 
+let $cpu_util_2 = $cpu_util_2_new;
+--echo correct_utilization_1 = $res1; 
+--echo correct_utilization_2 = $res2;  
 --echo aborted_queries = $aborted_queries
 --echo running_queries = $running_queries
 --echo waiting_queries = $waiting_queries
 eval $ac_entities_query;
 
+# set @ok = $cpu_util_2; 
+
+# Grab the CPU Utilization Value from Database 1 and check it is still 0
+# select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name into @cpu_util_1;
+# select if (@cpu_util_1 = 0, 1, 0);  
+# Grab CPU Utilization Value from Database 2 and check it is greater than 0
+# select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name into @cpu_util_2;
+# select if (@cpu_util_2 > 0, 1, 0);
+# select @cpu_util_2; 
+
 --echo Filled up queues on one db doesn't affect queries on other db.
 connect (con_test, localhost, test_user,,test_db2);
 connection con_test;
 use test_db2;
+
+let $cpu_util_1_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
+let $cpu_util_2_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
+let $res1 = `select if ($cpu_util_1_new = 0, 1, 0)`; 
+let $res2 = `select if ($cpu_util_2_new > $cpu_util_2, 1, 0)`; 
+let $cpu_util_1 = $cpu_util_1_new; 
+let $cpu_util_2 = $cpu_util_2_new;
+--echo correct_utilization_1 = $res1; 
+--echo correct_utilization_2 = $res2;  
 eval $ac_entities_query;
+# select @cpu_util_2; 
 disconnect con_test;
 
 --echo Dynamically disable/enable thread pool plugin.
@@ -172,6 +206,14 @@ send select * from t1;
 --echo Query on another new connection will succeed.
 connect (con_disabled2, localhost, test_user,,test_db);
 connection con_disabled2;
+let $cpu_util_1_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
+let $cpu_util_2_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
+let $res1 = `select if ($cpu_util_1_new = 0, 1, 0)`; 
+let $res2 = `select if ($cpu_util_2_new > $cpu_util_2, 1, 0)`; 
+let $cpu_util_1 = $cpu_util_1_new; 
+let $cpu_util_2 = $cpu_util_2_new;
+--echo correct_utilization_1 = $res1; 
+--echo correct_utilization_2 = $res2;  
 eval $ac_entities_query;
 
 connection default;
@@ -179,6 +221,14 @@ set @@global.thread_pool_on=true;
 
 --echo Query on the second connection will still run even with thread pool enabled.
 connection con_disabled2;
+let $cpu_util_1_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
+let $cpu_util_2_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
+let $res1 = `select if ($cpu_util_1_new = 0, 1, 0)`; 
+let $res2 = `select if ($cpu_util_2_new = $cpu_util_2, 1, 0)`; 
+let $cpu_util_1 = $cpu_util_1_new; 
+let $cpu_util_2 = $cpu_util_2_new;
+--echo correct_utilization_1 = $res1; 
+--echo correct_utilization_2 = $res2;  
 eval $ac_entities_query;
 disconnect con_disabled2;
 
@@ -270,6 +320,14 @@ let $timeout_queries = `select $timeout_queries - $start_timeout_queries`;
 let $waiting_queries = query_get_value(show global status like "Thread_pool_admission_control_waiting_queries", Value, 1);
 --echo waiting_queries should be 0
 --echo waiting_queries = $waiting_queries
+let $cpu_util_1_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
+let $cpu_util_2_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
+let $res1 = `select if ($cpu_util_1_new > $cpu_util_1, 1, 0)`; 
+let $res2 = `select if ($cpu_util_2_new = $cpu_util_2, 1, 0)`; 
+let $cpu_util_1 = $cpu_util_1_new; 
+let $cpu_util_2 = $cpu_util_2_new;
+--echo correct_utilization_1 = $res1; 
+--echo correct_utilization_2 = $res2;  
 eval $ac_entities_query;
 
 # Test filtering sub-statements once multiquery statement is admitted.
@@ -290,6 +348,14 @@ delimiter ;||||
 connection default;
 let $wait_condition= select count(*) = 1 from information_schema.processlist where state = "update" and info = "insert into t3 values (1)";
 --source include/wait_condition.inc
+let $cpu_util_1_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
+let $cpu_util_2_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
+let $res1 = `select if ($cpu_util_1_new > $cpu_util_1, 1, 0)`; 
+let $res2 = `select if ($cpu_util_2_new = $cpu_util_2, 1, 0)`; 
+let $cpu_util_1 = $cpu_util_1_new; 
+let $cpu_util_2 = $cpu_util_2_new;
+--echo correct_utilization_1 = $res1; 
+--echo correct_utilization_2 = $res2;  
 eval $ac_entities_query;
 
 connection con_mq1;
@@ -321,6 +387,14 @@ delimiter ;||||
 connection default;
 let $wait_condition= select count(*) = 1 from information_schema.processlist where state = "update" and info = "insert into t3 values (1)";
 --source include/wait_condition.inc
+let $cpu_util_1_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
+let $cpu_util_2_new = `select CPU_UTILIZATION from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
+let $res1 = `select if ($cpu_util_1_new > $cpu_util_1, 1, 0)`; 
+let $res2 = `select if ($cpu_util_2_new = $cpu_util_2, 1, 0)`; 
+let $cpu_util_1 = $cpu_util_1_new; 
+let $cpu_util_2 = $cpu_util_2_new;
+--echo correct_utilization_1 = $res1; 
+--echo correct_utilization_2 = $res2; 
 eval $ac_entities_query;
 
 connection con_mq1;
