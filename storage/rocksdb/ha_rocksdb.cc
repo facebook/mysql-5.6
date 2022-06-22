@@ -7276,8 +7276,8 @@ Rdb_table_handler *Rdb_open_tables_map::get_table_handler(
 
   // First, look up the table in the hash map.
   RDB_MUTEX_LOCK_CHECK(m_mutex);
-  const auto it = m_table_map.find(table_name_str);
-  if (it != m_table_map.end()) {
+  const auto [it, success] = m_table_map.emplace(table_name_str, nullptr);
+  if (!success) {
     // Found it
     table_handler = it->second;
   } else {
@@ -7289,6 +7289,7 @@ Rdb_table_handler *Rdb_open_tables_map::get_table_handler(
               my_multi_malloc(PSI_NOT_INSTRUMENTED, MYF(MY_WME | MY_ZEROFILL),
                               &table_handler, sizeof(*table_handler), &tmp_name,
                               table_name_str.length() + 1, NullS)))) {
+      m_table_map.erase(it); // malloc failing is unlikely
       // Allocating a new Rdb_table_handler and a new table name failed.
       RDB_MUTEX_UNLOCK_CHECK(m_mutex);
       return nullptr;
@@ -7299,7 +7300,7 @@ Rdb_table_handler *Rdb_open_tables_map::get_table_handler(
     table_handler->m_table_name = tmp_name;
     strxmov(table_handler->m_table_name, table_name, NullS);
 
-    m_table_map.emplace(table_name_str, table_handler);
+    it->second = table_handler;
 
     thr_lock_init(&table_handler->m_thr_lock);
     table_handler->m_io_perf_read.init();
