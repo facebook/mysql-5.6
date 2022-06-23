@@ -22,10 +22,35 @@ ELSE()
 
   SET(ROCKSDB_ROOT ${CMAKE_SOURCE_DIR}/rocksdb)
 
+  # We assume that make checkout_folly has already been run before attempting
+  # to build with folly.
+  IF(ROCKSDB_FOLLY)
+    IF (NOT EXISTS "${CMAKE_SOURCE_DIR}/rocksdb/third-party/folly")
+      MESSAGE(SEND_ERROR "Missing folly in rocksdb directory. Try \"make checkout_folly\".")
+    ENDIF()
+    ADD_DEFINITIONS(-DUSE_FOLLY -DFOLLY_NO_CONFIG)
+    INCLUDE_DIRECTORIES(
+      ${ROCKSDB_ROOT}/third-party/folly
+    )
+    IF (WITH_GLOG)
+      FIND_LIBRARY(GLOG_LIBRARY
+        NAMES libglog${PIC_EXT}.a glog
+        HINTS ${WITH_GLOG}/lib)
+      SET(rocksdb_static_libs ${rocksdb_static_libs}
+        ${GLOG_LIBRARY})
+    ENDIF()
+    IF (WITH_GFLAGS)
+      FIND_LIBRARY(GFLAGS_LIBRARY
+        NAMES libgflags${PIC_EXT}.a gflags
+        HINTS ${WITH_GFLAGS}/lib)
+      SET(rocksdb_static_libs ${rocksdb_static_libs}
+        ${GFLAGS_LIBRARY})
+    ENDIF()
+  ENDIF()
   # get a list of rocksdb library source files
   # run with env -i to avoid passing variables
   EXECUTE_PROCESS(
-    COMMAND env -i ${CMAKE_SOURCE_DIR}/storage/rocksdb/get_rocksdb_files.sh
+    COMMAND env -i PATH="/sbin:/usr/sbin:/bin:/usr/bin" ${CMAKE_SOURCE_DIR}/storage/rocksdb/get_rocksdb_files.sh ${ROCKSDB_FOLLY}
     OUTPUT_VARIABLE SCRIPT_OUTPUT
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   )
