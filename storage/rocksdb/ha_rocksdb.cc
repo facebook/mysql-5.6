@@ -6881,7 +6881,11 @@ static int rocksdb_init_internal(void *const p) {
     }
     std::shared_ptr<rocksdb::Cache> block_cache =
         rocksdb_use_clock_cache
-            ? rocksdb::NewClockCache(rocksdb_block_cache_size)
+
+            ? rocksdb::NewClockCache(
+                  rocksdb_block_cache_size, 1 /*estimated_value_size*/,
+                  -1 /*num_shard_bits*/, false /*strict_capacity_limit*/,
+                  rocksdb::kDefaultCacheMetadataChargePolicy)
             : rocksdb::NewLRUCache(
                   rocksdb_block_cache_size, -1 /*num_shard_bits*/,
                   false /*strict_capcity_limit*/,
