@@ -1,3 +1,5 @@
+--source suite/rocksdb/include/have_write_committed.inc
+
 set @saved_rocksdb_instant_ddl=@@global.rocksdb_disable_instant_ddl;
 set global rocksdb_disable_instant_ddl = false;
 
