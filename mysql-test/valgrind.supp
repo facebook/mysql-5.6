@@ -2738,6 +2738,19 @@
 }
 
 {
+   BoringSSL opt_ssl_key and locks are static, or TLS data on main
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:OPENSSL_malloc
+   ...
+   fun:X509_load_cert_crl_file
+   fun:by_file_ctrl
+   fun:X509_STORE_load_locations
+   ...
+}
+
+{
    TLS data on main thread is not cleaned up properly
    Memcheck:Leak
    match-leak-kinds: reachable
