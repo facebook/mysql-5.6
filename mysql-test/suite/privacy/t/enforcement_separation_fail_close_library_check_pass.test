@@ -1,0 +1,62 @@
+--source ../include/privacy_init.inc
+
+if (!$has_column_level_check)
+{
+    --source ../include/privacy_end.inc
+    --skip "Column level check is not supported with current plugin version"
+}
+if (!$has_enforcement_separation)
+{
+    --source ../include/privacy_end.inc
+    --skip "Enforcement separation is not supported with current plugin version"
+}
+set session privacy_plugin_failclose_check_enforced_separately=ON;
+set session privacy_plugin_purpose_policy_column_level_check = ON;
+set session privacy_plugin_purpose_policy_use_ppf_lib = ON;
+
+# Policy for table "privacy_column_research": test::test_a
+# Policy for column "name": test::test_b::test_c
+CREATE TABLE privacy_column_research (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    score int NOT NULL,
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_column_research VALUES(1, "User1", 100);
+
+# Table privacy_research_fail_open shares the same policies with privacy_column_research
+# The only difference is the enforcement mode is FAIL_OPEN
+CREATE TABLE privacy_research_fail_open (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    score int NOT NULL,
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_research_fail_open VALUES(1, "User1", 100);
+
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_close;
+set session privacy_plugin_failclose_check_enforced_separately=ON;
+
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add shardmap xdb.dbclient_test;
+query_attrs_add query_policy 'test::test_b::test_c and test::test_a';
+
+select id from privacy_column_research;
+select name from privacy_column_research;
+select c.id, o.name from  privacy_column_research as c, privacy_research_fail_open as o;
+select c.name, o.id from  privacy_column_research as c, privacy_research_fail_open as o;
+select * from privacy_column_research;
+select * from privacy_column_research where id>= 1;
+
+select name, count(id) from privacy_column_research group by name;
+select name, count(id) from privacy_column_research group by name order by 1;
+
+# Cleanup
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+query_attrs_delete shard;
+query_attrs_delete cipp_context;
+drop table privacy_column_research;
+drop table privacy_research_fail_open;
+
+--source ../include/privacy_end.inc
