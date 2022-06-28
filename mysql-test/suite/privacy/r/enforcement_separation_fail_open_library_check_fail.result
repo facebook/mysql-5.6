@@ -1,0 +1,89 @@
+set @original_session_track_response_attributes=@@session.session_track_response_attributes;
+set session session_track_response_attributes = 1;
+set @original_privacy_plugin_on=@@privacy_plugin_on;
+set global privacy_plugin_on = 1;
+set session privacy_plugin_failclose_check_enforced_separately=ON;
+set session privacy_plugin_purpose_policy_column_level_check = ON;
+set session privacy_plugin_purpose_policy_use_ppf_lib = ON;
+CREATE TABLE privacy_column_research (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+score int NOT NULL,
+PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_column_research VALUES(1, "User1", 100);
+CREATE TABLE privacy_research_fail_open (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+score int NOT NULL,
+PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_research_fail_open VALUES(1, "User1", 100);
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_open;
+select id from privacy_column_research;
+id
+1
+show warnings;
+Level	Code	Message
+select name from privacy_column_research;
+name
+User1
+Warnings:
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+show warnings;
+Level	Code	Message
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+select c.id, o.name from  privacy_column_research as c, privacy_research_fail_open as o;
+id	name
+1	User1
+Warnings:
+Warning	50302	Purpose policy check 'test::test_a and test::test_b' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+show warnings;
+Level	Code	Message
+Warning	50302	Purpose policy check 'test::test_a and test::test_b' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+select c.name, o.id from  privacy_column_research as c, privacy_research_fail_open as o;
+name	id
+User1	1
+Warnings:
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+show warnings;
+Level	Code	Message
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+select * from privacy_column_research;
+id	name	score
+1	User1	100
+Warnings:
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+show warnings;
+Level	Code	Message
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+select * from privacy_column_research where id>= 1;
+id	name	score
+1	User1	100
+Warnings:
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+show warnings;
+Level	Code	Message
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+select name, count(id) from privacy_column_research group by name;
+name	count(id)
+User1	1
+Warnings:
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+show warnings;
+Level	Code	Message
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+select name, count(id) from privacy_column_research group by name order by 1;
+name	count(id)
+User1	1
+Warnings:
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+show warnings;
+Level	Code	Message
+Warning	50302	Purpose policy check 'test::test_a and test::test_b::test_c' (query policy: 'test::test_a', policy type: 'DI') failed in FAIL_OPEN mode
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+drop table privacy_column_research;
+drop table privacy_research_fail_open;
+set session session_track_response_attributes=@original_session_track_response_attributes;
+set global privacy_plugin_on=@original_privacy_plugin_on;

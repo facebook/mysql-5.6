@@ -1,0 +1,62 @@
+--source ../include/privacy_init.inc
+
+if (!$has_column_level_check)
+{
+    --source ../include/privacy_end.inc
+    --skip "Column level check is not supported with current plugin version"
+}
+if (!$has_enforcement_separation)
+{
+    --source ../include/privacy_end.inc
+    --skip "Enforcement separation is not supported with current plugin version"
+}
+set session privacy_plugin_failclose_check_enforced_separately=ON;
+set session privacy_plugin_purpose_policy_column_level_check = ON;
+set session privacy_plugin_purpose_policy_use_ppf_lib = ON;
+
+# Policy for table "privacy_blood_donation_table": fbig::consumer_products::core_products::blood_donation
+# Enforcement mode: FAIL_CLOSE
+CREATE TABLE privacy_blood_donation_table (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    score int NOT NULL,
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_blood_donation_table VALUES(1, "User1", 100);
+
+# Policy for table "privacy_research_fail_open": test::test_a
+# Policy for column "name": test::test_b::test_c
+# Enforcement mode: FAIL_OPEN
+CREATE TABLE privacy_research_fail_open (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    score int NOT NULL,
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_research_fail_open VALUES(1, "User1", 100);
+
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set session privacy_plugin_purpose_policy_check=fail_open;
+
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add shardmap xdb.dbclient_test;
+query_attrs_add cipp_context {"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"purposePolicyArgs":{"bypassLoggingDryRun":false,"cippEnforcementMode":2,"declassifyArgs":{"policy":{"policyName":"allow","version":1,"schemaVersion":1},"rationale":"Returningwaitinterval."},"cippEnforcementModeOverrides":{},"enableFlowsToCaching":true},"policySet":{},"contextState":{}};
+
+select id from privacy_blood_donation_table;
+select name from privacy_blood_donation_table;
+select c.id, o.name from  privacy_blood_donation_table as c, privacy_research_fail_open as o;
+select c.name, o.id from  privacy_blood_donation_table as c, privacy_research_fail_open as o;
+select * from privacy_blood_donation_table;
+select * from privacy_blood_donation_table where id>= 1;
+
+select name, count(id) from privacy_blood_donation_table group by name;
+select name, count(id) from privacy_blood_donation_table group by name order by 1;
+
+# Cleanup
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+query_attrs_delete shard;
+query_attrs_delete cipp_context;
+drop table privacy_blood_donation_table;
+drop table privacy_research_fail_open;
+
+--source ../include/privacy_end.inc
