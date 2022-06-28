@@ -59,5 +59,16 @@ if ($value !=  No such row)
   let $has_column_level_check_fine_grained = 1;
 }
 
+# Check if the plugin has enforcement separation implemented
+let $value = query_get_value(SHOW VARIABLES LIKE 'privacy_plugin_failclose_check_enforced_separately', Value, 1);
+if ($value ==  No such row)
+{
+  let $has_enforcement_separation = 0;
+}
+if ($value !=  No such row)
+{
+  let $has_enforcement_separation = 1;
+}
+
 # Enable query log
 enable_query_log;
