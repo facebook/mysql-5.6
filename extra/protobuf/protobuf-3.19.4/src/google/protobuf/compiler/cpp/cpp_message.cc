@@ -1866,7 +1866,7 @@ void MessageGenerator::GenerateClassDefinition(io::Printer* printer) {
   // Prepare decls for _cached_size_ and _has_bits_.  Their position in the
   // output will be determined later.
 
-  bool need_to_emit_cached_size = true;
+  bool need_to_emit_cached_size = !HasSimpleBaseClass(descriptor_, options_);
   const std::string cached_size_decl =
       "mutable ::$proto_ns$::internal::CachedSize _cached_size_;\n";
 
@@ -1917,8 +1917,10 @@ void MessageGenerator::GenerateClassDefinition(io::Printer* printer) {
     // _cached_size_ together with _has_bits_ improves cache locality despite
     // potential alignment padding.
     format(has_bits_decl.c_str());
-    format(cached_size_decl.c_str());
-    need_to_emit_cached_size = false;
+    if (need_to_emit_cached_size) {
+      format(cached_size_decl.c_str());
+      need_to_emit_cached_size = false;
+    }
   }
 
   // Field members:
