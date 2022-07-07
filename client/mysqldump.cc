@@ -659,7 +659,7 @@ static struct my_option my_long_options[] = {
     {"timeout", OPT_TIMEOUT,
      "Set data transfer timeouts for server-side session "
      "(default server setting, if 0)",
-     &opt_timeout, &opt_timeout, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 3600 * 12,
+     &opt_timeout, &opt_timeout, 0, GET_ULONG, REQUIRED_ARG, 0, 0, LONG_TIMEOUT,
      nullptr, 0, nullptr},
     {"triggers", OPT_TRIGGERS, "Dump triggers for each dumped table.",
      &opt_dump_triggers, &opt_dump_triggers, nullptr, GET_BOOL, NO_ARG, 1, 0, 0,
