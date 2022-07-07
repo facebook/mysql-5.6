@@ -1732,6 +1732,9 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_CFSTATS plugin. Possible values
  are ON, OFF, FORCE (don't start if the plugin fails to
  load).
+ --rocksdb-charge-memory 
+ For experiment only. Turn on memory charging feature of
+ RocksDB
  --rocksdb-checksums-pct=# 
  How many percentages of rows to be checksummed
  --rocksdb-collect-sst-properties 
@@ -2209,6 +2212,8 @@ The following options may be given as the first argument:
  --rocksdb-use-direct-reads 
  DBOptions::use_direct_reads for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
+ --rocksdb-use-write-buffer-manager 
+ For experiment only. Use write buffer manager
  --rocksdb-validate-tables=# 
  Verify all DD tables match all RocksDB tables (0 means no
  verification, 1 means verify and fail on error, and 2
@@ -3272,6 +3277,7 @@ rocksdb-cache-index-and-filter-with-high-priority TRUE
 rocksdb-cancel-manual-compactions FALSE
 rocksdb-cf-options ON
 rocksdb-cfstats ON
+rocksdb-charge-memory FALSE
 rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
 rocksdb-column-default-value-as-expression TRUE
@@ -3427,6 +3433,7 @@ rocksdb-use-default-sk-cf FALSE
 rocksdb-use-direct-io-for-flush-and-compaction FALSE
 rocksdb-use-direct-reads FALSE
 rocksdb-use-fsync FALSE
+rocksdb-use-write-buffer-manager FALSE
 rocksdb-validate-tables 1
 rocksdb-verify-row-debug-checksums FALSE
 rocksdb-wal-bytes-per-sync 0
