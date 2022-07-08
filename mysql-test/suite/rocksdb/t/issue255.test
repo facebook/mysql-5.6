@@ -9,7 +9,7 @@ SHOW TABLE STATUS LIKE 't1';
 INSERT INTO t1 VALUES ('538647864786478647864');
 --replace_column 3 # 5 # 6 # 7 # 8 # 9 # 10 # 12 # 13 #
 SELECT * FROM t1;
---replace_column 12 # 13 #
+--replace_column 3 # 5 # 6 # 7 # 8 # 9 # 10 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 
 --error ER_DUP_ENTRY
