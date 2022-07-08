@@ -131,6 +131,12 @@ int register_replica(THD *thd, uchar *packet, size_t packet_length) {
   }
 
   thd->server_id = si->server_id = uint4korr(p);
+
+  if (thd->server_id == 0) {
+    errmsg = "Wrong parameters: server_id cannot be 0 for register_replica";
+    goto err;
+  }
+
   p += 4;
   get_object(p, si->host, "Failed to register slave: too long 'report-host'");
   get_object(p, si->user, "Failed to register slave: too long 'report-user'");
