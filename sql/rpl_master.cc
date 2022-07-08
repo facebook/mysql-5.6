@@ -156,7 +156,7 @@ void end_slave_list() {
 int register_slave(THD *thd, uchar *packet, size_t packet_length) {
   int res;
   uchar *p = packet, *p_end = packet + packet_length;
-  const char *errmsg = "Wrong parameters to function register_slave";
+  char const *errmsg = "Wrong parameters to function register_slave";
 
   if (check_access(thd, REPL_SLAVE_ACL, any_db, nullptr, nullptr, false, false))
     return 1;
@@ -173,6 +173,12 @@ int register_slave(THD *thd, uchar *packet, size_t packet_length) {
   }
 
   thd->server_id = si->server_id = uint4korr(p);
+
+  if (thd->server_id == 0) {
+    errmsg = "Wrong parameters: server_id cannot be 0 for register_replica";
+    goto err;
+  }
+
   p += 4;
   get_object(p, si->host, "Failed to register slave: too long 'report-host'");
   get_object(p, si->user, "Failed to register slave: too long 'report-user'");
