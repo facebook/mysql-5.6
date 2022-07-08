@@ -1907,9 +1907,24 @@ int Relay_log_info::rli_init_info(bool skip_received_gtid_set_recovery) {
   }
 
   if (count_relay_log_space()) {
-    msg = "Error counting relay log space";
-    error = 1;
-    goto err;
+    // In the Raft case, when promotions are happening, there is a chance
+    // that an ongoing purge can stomp on the binary-logs-#.index file
+    // holding the mysql_bin_log.LOCK_index while this code uses
+    // relay_log.LOCK_index.
+    //
+    // while count_relay_log_space is ongoing. Since count_relay_log_space
+    // is not super-critical, we can give it a second chance for the purge
+    // wave to have passed.
+    if (count_relay_log_space()) {
+      msg = "Error counting relay log space";
+      error = 1;
+      goto err;
+    } else {
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "rli_init_info: failure in count_relay_log_space corrected on second "
+          "chance");
+    }
   }
 
   /*

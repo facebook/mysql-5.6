@@ -1507,7 +1507,10 @@ int rli_relay_log_raft_reset(
             /*force_load*/false,
             /*need_lock=*/false)) {
       // NO_LINT_DEBUG
-      sql_print_error("Failed to initialize the master info structure");
+      sql_print_error(
+          "Failed to initialize the relay log info structure"
+          " or the master.info structure");
+       error = 1;
       error = 1;
       goto end;
     }
