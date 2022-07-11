@@ -6423,7 +6423,7 @@ static bool rocksdb_get_table_statistics(
 
   int ret = ha_rocksdb::update_stats(stats, tbl_def);
   if (ret != HA_EXIT_SUCCESS) {
-    my_error(ret, MYF(0), "Failed to update table stats");
+    my_error(ER_INTERNAL_ERROR, MYF(0), "Failed to update table stats");
     return true;
   }
 
