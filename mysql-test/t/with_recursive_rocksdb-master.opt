@@ -1,0 +1,1 @@
+--loose-rocksdb_max_intrinsic_tmp_table_write_count=1000000

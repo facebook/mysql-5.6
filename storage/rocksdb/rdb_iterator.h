@@ -69,6 +69,7 @@ class Rdb_iterator {
   virtual rocksdb::Slice key() = 0;
   virtual rocksdb::Slice value() = 0;
   virtual void reset() = 0;
+  virtual bool is_valid() = 0;
 };
 
 class Rdb_iterator_base : public Rdb_iterator {
@@ -86,7 +87,8 @@ class Rdb_iterator_base : public Rdb_iterator {
   int next_with_direction(bool move_forward, bool skip_next);
 
  public:
-  Rdb_iterator_base(THD *thd, const std::shared_ptr<Rdb_key_def> kd,
+  Rdb_iterator_base(THD *thd, ha_rocksdb *rocksdb_handler,
+                    const std::shared_ptr<Rdb_key_def> kd,
                     const std::shared_ptr<Rdb_key_def> pkd,
                     const Rdb_tbl_def *tbl_def);
 
@@ -109,6 +111,8 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   void reset() override { release_scan_iterator(); }
 
+  bool is_valid() override { return is_valid_iterator(m_scan_it); }
+
  protected:
   friend class Rdb_iterator;
   const std::shared_ptr<Rdb_key_def> m_kd;
@@ -119,6 +123,8 @@ class Rdb_iterator_base : public Rdb_iterator {
   const Rdb_tbl_def *m_tbl_def;
 
   THD *m_thd;
+
+  ha_rocksdb *m_rocksdb_handler;
 
   /* Iterator used for range scans and for full table/index scans */
   rocksdb::Iterator *m_scan_it;
@@ -222,6 +228,7 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
   rocksdb::Slice key() override;
   rocksdb::Slice value() override;
   void reset() override;
+  bool is_valid() override { return false; }
 };
 
 }  // namespace myrocks

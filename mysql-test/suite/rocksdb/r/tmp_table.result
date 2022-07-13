@@ -367,3 +367,16 @@ select * from t1;
 i	c
 1	aaaa
 drop table t1;
+Case 12: Intrinsic tmp table background commits
+set big_tables = 1;
+Set global rocksdb_max_intrinsic_tmp_table_write_count = 2;
+create table t1(i int, c char(5));
+insert into t1 values (0, "aaaa");
+insert into t1 values (1, "aaaa");
+select i, c, count(*) from t1 group by i, c having count(*) > 0;
+i	c	count(*)
+0	aaaa	1
+1	aaaa	1
+include/assert.inc [Number of intrinsic tmp table commits should be 1]
+Set global rocksdb_max_intrinsic_tmp_table_write_count = default;
+drop table t1;
