@@ -1,6 +1,4 @@
 -- source include/have_debug.inc
---source include/have_innodb_intrinsic_table.inc
-
 #
 # Bug #28499: crash for grouping query when tmp_table_size is too small
 #

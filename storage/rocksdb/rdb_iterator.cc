@@ -27,7 +27,7 @@ namespace myrocks {
 
 Rdb_iterator::~Rdb_iterator() {}
 
-Rdb_iterator_base::Rdb_iterator_base(THD *thd,
+Rdb_iterator_base::Rdb_iterator_base(THD *thd, ha_rocksdb *rocksdb_handler,
                                      const std::shared_ptr<Rdb_key_def> kd,
                                      const std::shared_ptr<Rdb_key_def> pkd,
                                      const Rdb_tbl_def *tbl_def)
@@ -35,13 +35,20 @@ Rdb_iterator_base::Rdb_iterator_base(THD *thd,
       m_pkd(pkd),
       m_tbl_def(tbl_def),
       m_thd(thd),
+      m_rocksdb_handler(rocksdb_handler),
       m_scan_it(nullptr),
       m_scan_it_skips_bloom(false),
       m_scan_it_snapshot(nullptr),
       m_scan_it_lower_bound(nullptr),
       m_scan_it_upper_bound(nullptr),
       m_prefix_buf(nullptr),
-      m_table_type(tbl_def->get_table_type()) {}
+      m_table_type(tbl_def->get_table_type()) {
+  if (tbl_def->get_table_type() == INTRINSIC_TMP) {
+    if (m_rocksdb_handler) {
+      add_tmp_table_handler(m_thd, m_rocksdb_handler);
+    }
+  }
+}
 
 Rdb_iterator_base::~Rdb_iterator_base() {
   release_scan_iterator();
@@ -51,6 +58,11 @@ Rdb_iterator_base::~Rdb_iterator_base() {
   m_scan_it_upper_bound = nullptr;
   my_free(m_prefix_buf);
   m_prefix_buf = nullptr;
+  if (m_table_type == INTRINSIC_TMP) {
+    if (m_rocksdb_handler) {
+      remove_tmp_table_handler(m_thd, m_rocksdb_handler);
+    }
+  }
 }
 
 int Rdb_iterator_base::read_before_key(const bool full_key_match,
@@ -366,9 +378,9 @@ Rdb_iterator_partial::Rdb_iterator_partial(
     THD *thd, const std::shared_ptr<Rdb_key_def> kd,
     const std::shared_ptr<Rdb_key_def> pkd, const Rdb_tbl_def *tbl_def,
     TABLE *table, const dd::Table *dd_table)
-    : Rdb_iterator_base(thd, kd, pkd, tbl_def),
+    : Rdb_iterator_base(thd, nullptr, kd, pkd, tbl_def),
       m_table(table),
-      m_iterator_pk(thd, pkd, pkd, tbl_def),
+      m_iterator_pk(thd, nullptr, pkd, pkd, tbl_def),
       m_converter(thd, tbl_def, table, dd_table),
       m_valid(false),
       m_materialized(false),
@@ -625,7 +637,7 @@ int Rdb_iterator_partial::materialize_prefix() {
 
   // It is possible that someone else has already materialized this group
   // before we locked. Double check if the prefix is still empty.
-  Rdb_iterator_base iter(m_thd, m_kd, m_pkd, m_tbl_def);
+  Rdb_iterator_base iter(m_thd, nullptr, m_kd, m_pkd, m_tbl_def);
   m_kd->get_infimum_key(m_cur_prefix_key, &tmp);
   int rc = iter.seek(HA_READ_KEY_EXACT, cur_prefix_key, false, cur_prefix_key,
                      true /* read current */);
@@ -651,7 +663,7 @@ int Rdb_iterator_partial::materialize_prefix() {
   }
 
   m_pkd->get_infimum_key(m_cur_prefix_key, &tmp);
-  Rdb_iterator_base iter_pk(m_thd, m_pkd, m_pkd, m_tbl_def);
+  Rdb_iterator_base iter_pk(m_thd, nullptr, m_pkd, m_pkd, m_tbl_def);
   rc = iter_pk.seek(HA_READ_KEY_EXACT, cur_prefix_key, false, cur_prefix_key,
                     true /* read current */);
   size_t num_rows = 0;

@@ -1033,6 +1033,7 @@ Variable_name	Value
 Created_tmp_disk_tables	1
 Created_tmp_files	0
 Created_tmp_tables	1
+rocksdb_intrinsic_tmp_table_commits	0
 set @@max_heap_table_size= @save_heap_size;
 set @@internal_tmp_mem_storage_engine= @save_mem_se;
 #
@@ -1051,6 +1052,7 @@ Variable_name	Value
 Created_tmp_disk_tables	0
 Created_tmp_files	0
 Created_tmp_tables	1
+rocksdb_intrinsic_tmp_table_commits	0
 #
 # Bug#25525409: ASSERTION `TABLE_LIST->TABLE' FAILED IN SQL/SQL_BASE.CC
 #

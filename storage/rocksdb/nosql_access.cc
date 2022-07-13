@@ -2331,7 +2331,7 @@ bool INLINE_ATTR select_exec::setup_iterator(THD *thd) {
                                               m_tbl_def, m_table, m_dd_table));
   } else {
     m_iterator.reset(
-        new Rdb_iterator_base(thd, m_key_def, m_pk_def, m_tbl_def));
+        new Rdb_iterator_base(thd, nullptr, m_key_def, m_pk_def, m_tbl_def));
   }
 
   return m_iterator == nullptr;

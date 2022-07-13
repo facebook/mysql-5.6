@@ -353,7 +353,8 @@ static_assert(HA_ERR_ROCKSDB_FIRST > HA_ERR_LAST,
 #define HA_ERR_ROCKSDB_STATUS_DEADLOCK (HA_ERR_ROCKSDB_FIRST + 23)
 #define HA_ERR_ROCKSDB_STATUS_EXPIRED (HA_ERR_ROCKSDB_FIRST + 24)
 #define HA_ERR_ROCKSDB_STATUS_TRY_AGAIN (HA_ERR_ROCKSDB_FIRST + 25)
-#define HA_ERR_ROCKSDB_LAST HA_ERR_ROCKSDB_STATUS_TRY_AGAIN
+#define HA_ERR_ROCKSDB_TMP_TABLE_COMMIT_FAILED (HA_ERR_ROCKSDB_FIRST + 26)
+#define HA_ERR_ROCKSDB_LAST HA_ERR_ROCKSDB_TMP_TABLE_COMMIT_FAILED
 
 const char *const rocksdb_hton_name = "ROCKSDB";
 
@@ -424,6 +425,7 @@ struct st_global_stats {
       table_index_stats_result[TABLE_INDEX_STATS_RESULT_MAX];
 
   ib_counter_t<ulonglong, 64, RDB_INDEXER> covered_secondary_key_lookups;
+  ib_counter_t<ulonglong, 64, RDB_INDEXER> intrinsic_tmp_table_commits;
 };
 
 /* Struct used for exporting status to MySQL */
@@ -450,6 +452,7 @@ struct st_export_stats {
   ulonglong table_index_stats_req_queue_length;
 
   ulonglong covered_secondary_key_lookups;
+  ulonglong intrinsic_tmp_table_commits;
 };
 
 /* Struct used for exporting RocksDB memory status */

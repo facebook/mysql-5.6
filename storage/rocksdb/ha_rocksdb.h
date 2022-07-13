@@ -370,6 +370,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   bool skip_unique_check() const;
   bool do_bulk_commit(Rdb_transaction *const tx)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  bool do_intrinsic_table_commit(Rdb_transaction *const tx)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   bool has_hidden_pk(const TABLE *const table) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
@@ -397,6 +399,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   Rdb_io_perf m_io_perf;
 
  public:
+  bool refresh_tmp_table_iterator(const std::string &key);
+  void extract_snapshot_keys(std::string *key);
   static rocksdb::Range get_range(const Rdb_key_def &kd, uchar buf[]);
 
   /*
@@ -490,9 +494,9 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   bool should_store_row_debug_checksums() const;
 
   int rename_table(const char *const from, const char *const to,
-                   const dd::Table *from_table_def MY_ATTRIBUTE((__unused__)),
-                   dd::Table *to_table_def MY_ATTRIBUTE((__unused__))) override
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+                   const dd::Table *from_table_def,
+                   dd::Table *to_table_def) override
+      MY_ATTRIBUTE((__warn_unused_result__, __nonnull__(2, 3)));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
                                          const rocksdb::Slice *const value,
@@ -984,6 +988,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   void update_row_read(ulonglong count);
   static void inc_covered_sk_lookup();
+  static void inc_intrinsic_tmp_table_commits();
 
   void build_decoder();
   void check_build_decoder();
@@ -1152,6 +1157,8 @@ bool should_log_rejected_bypass_rpc();
 unsigned long long get_partial_index_sort_max_mem(THD *thd);
 
 Rdb_transaction *get_tx_from_thd(THD *const thd);
+void add_tmp_table_handler(THD *const thd, ha_rocksdb *rocksdb_handler);
+void remove_tmp_table_handler(THD *const thd, ha_rocksdb *rocksdb_handler);
 
 const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
 

@@ -999,6 +999,7 @@ rocksdb_max_background_flushes	-1
 rocksdb_max_background_jobs	2
 rocksdb_max_bottom_pri_background_compactions	0
 rocksdb_max_compaction_history	64
+rocksdb_max_intrinsic_tmp_table_write_count	1000
 rocksdb_max_latest_deadlocks	5
 rocksdb_max_log_file_size	0
 rocksdb_max_manifest_file_size	1073741824
@@ -1600,6 +1601,7 @@ rocksdb_table_index_stats_success	#
 rocksdb_table_index_stats_failure	#
 rocksdb_table_index_stats_req_queue_length	#
 rocksdb_covered_secondary_key_lookups	#
+rocksdb_intrinsic_tmp_table_commits	#
 rocksdb_additional_compaction_triggers	#
 rocksdb_binlog_ttl_compaction_timestamp	#
 rocksdb_block_cache_add	#
@@ -1754,6 +1756,7 @@ ROCKSDB_GET_HIT_L1
 ROCKSDB_GET_HIT_L2_AND_UP
 ROCKSDB_GIT_DATE
 ROCKSDB_GIT_HASH
+ROCKSDB_INTRINSIC_TMP_TABLE_COMMITS
 ROCKSDB_ITER_BYTES_READ
 ROCKSDB_LAST_LEVEL_SEEK_DATA
 ROCKSDB_LAST_LEVEL_SEEK_DATA_USEFUL_FILTER_MATCH
@@ -1889,6 +1892,7 @@ ROCKSDB_GET_HIT_L1
 ROCKSDB_GET_HIT_L2_AND_UP
 ROCKSDB_GIT_DATE
 ROCKSDB_GIT_HASH
+ROCKSDB_INTRINSIC_TMP_TABLE_COMMITS
 ROCKSDB_ITER_BYTES_READ
 ROCKSDB_LAST_LEVEL_SEEK_DATA
 ROCKSDB_LAST_LEVEL_SEEK_DATA_USEFUL_FILTER_MATCH

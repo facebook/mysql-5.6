@@ -355,3 +355,21 @@ set session debug="-d,crash_during_write_row";
 show create table tmp1;
 select * from t1;
 drop table t1;
+
+####################################################
+### [TODO] Fix bugs: Case 12: Intrinsic tmp table background commits
+####################################################
+#--echo Case 12: Intrinsic tmp table background commits
+#set big_tables = 1;
+#Set global rocksdb_max_intrinsic_tmp_table_write_count = 2;
+#let $old_value= query_get_value(show status like "rocksdb_intrinsic_tmp_table_commits", Value, 1);
+#create table t1(i int, c char(5));
+#insert into t1 values (0, "aaaa");
+#insert into t1 values (1, "aaaa");
+#select i, c, count(*) from t1 group by i, c having count(*) > 0;
+#let $new_value= query_get_value(show status like "rocksdb_intrinsic_tmp_table_commits", Value, 1);
+#--let $assert_text = Number of intrinsic tmp table commits should be 1
+#--let $assert_cond= $new_value - $old_value = 1
+#--source include/assert.inc
+#Set global rocksdb_max_intrinsic_tmp_table_write_count = default;
+#drop table t1;
