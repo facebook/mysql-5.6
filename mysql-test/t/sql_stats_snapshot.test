@@ -158,12 +158,15 @@ drop table tt2;
 connection con1;
 eval $sql_stats_query;
 
---echo ### Reenable auto snapshot on second connection. It shouldn't prevent it from flushing all stats.
-set @@session.sql_stats_auto_snapshot = on;
-select @@session.sql_stats_auto_snapshot;
-
 --echo ### Flush SQL stats on second connection to drop all stats.
 flush sql_statistics;
+
+--echo ### Second connection only sees flush after dropping all stats.
+eval $sql_stats_query;
+
+--echo ### Reenable auto snapshot on second connection.
+set @@session.sql_stats_auto_snapshot = on;
+select @@session.sql_stats_auto_snapshot;
 
 --echo ### Auto snapshot on second connection still sees snapshot marked for flush.
 eval $sql_stats_query;
@@ -193,8 +196,44 @@ select @@session.sql_stats_auto_snapshot;
 show status like 'sql_stats_snapshot';
 eval $sql_stats_query;
 
---echo ### 4. Test release of snapshot by closing connection.
+--echo ### 4. Test snapshot flush with auto snapshot
+--echo ### Enable auto snapshot on second connection.
+set @@session.sql_stats_auto_snapshot = on;
+select @@session.sql_stats_auto_snapshot;
+
+--echo ### Auto snapshot flush with sql_stats_snapshot off on second connection.
+flush sql_statistics;
+
+--echo ### Second connection only sees flush after auto snapshot and flushing the snapshot.
+eval $sql_stats_query;
+
+--echo ### Enable snapshot again on first connection.
+connection default;
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+
+--echo ### Flush SQL stats on second connection. This should mark snapshot for deletion.
+connection con1;
+flush sql_statistics;
+
+--echo ### Second connection still sees the snapshot as auto snapshot is on and first connection holds the snapshot.
+eval $sql_stats_query;
+
+--echo ### Disable snapshot on first connection. It should now be back to live stats.
+connection default;
+set @@session.sql_stats_snapshot = off;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Second connection should also see the current live stats (with auto snapshot and release).
+connection con1;
+eval $sql_stats_query;
+
+--echo ### 5. Test release of snapshot by closing connection.
 --echo ### Enable snapshot again on first connection and confirm that it incudes all new statements.
+connection default;
 set @@session.sql_stats_snapshot = on;
 select @@session.sql_stats_snapshot;
 show status like 'sql_stats_snapshot';

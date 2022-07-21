@@ -3270,6 +3270,13 @@ bool toggle_sql_stats_snapshot(THD *thd)
 */
 void flush_sql_statistics(THD *thd)
 {
+  /*
+    see if we should enable sql_stats_snapshot automatically for flush,
+    so that it doesn't stall the user workload due to prolonged holding of
+    the global sql stats mutex
+    */
+  thd->auto_create_sql_stats_snapshot();
+
   if (thd->variables.sql_stats_snapshot)
   {
     mark_sql_stats_snapshot_for_deletion();
@@ -3278,6 +3285,8 @@ void flush_sql_statistics(THD *thd)
   {
     free_global_sql_stats(false /*limits_updated*/);
   }
+
+  thd->release_auto_created_sql_stats_snapshot();
 }
 
 /**
