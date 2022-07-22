@@ -17,7 +17,7 @@ connection server_2;
 let $wait_condition= select @@global.read_only = 0;
 source include/wait_condition.inc;
 
-echo "server_2 should have an empty gtid_purged"
+echo "server_2 should have an empty gtid_purged";
 replace_result $uuid1 uuid1;
 select @@global.gtid_purged;
 
