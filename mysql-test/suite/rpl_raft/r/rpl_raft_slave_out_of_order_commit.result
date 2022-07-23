@@ -37,7 +37,7 @@ a
 1
 2
 rollback;
-set @@global.rpl_raft_new_leader_uuid = 's2_uuid';
+include/raft_promote_to_leader.inc
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
@@ -68,7 +68,7 @@ select * from d2.t2;
 a
 1
 2
-set @@global.rpl_raft_new_leader_uuid = 's1_uuid';
+include/raft_promote_to_leader.inc
 drop table d1.t1;
 drop table d2.t2;
 drop database d1;
