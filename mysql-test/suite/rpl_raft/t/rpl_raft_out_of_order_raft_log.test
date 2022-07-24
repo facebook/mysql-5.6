@@ -21,6 +21,9 @@ insert into t1 values(3);
 insert into t1 values(4);
 flush binary logs;
 
+let $sync_slave_connection= server_2;
+source include/sync_slave_io_with_master.inc;
+
 # mess with raft log on server2 and reorder the last two trxs
 connection server_2;
 let $MYSQLD_DATADIR = `select @@datadir`;

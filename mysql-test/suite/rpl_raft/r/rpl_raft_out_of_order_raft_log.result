@@ -29,6 +29,7 @@ insert into t1 values(2);
 insert into t1 values(3);
 insert into t1 values(4);
 flush binary logs;
+include/sync_slave_io_with_master.inc
 set @sql_log_bin=0;
 create table offsets(a int);
 load data local infile 'MYSQLD_DATADIR/offsets' into table offsets FIELDS TERMINATED BY '\t' LINES TERMINATED BY '\n';
