@@ -67,6 +67,8 @@ source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
 
+sleep 2;
+
 # Check the contents of the table in all servers, server 4 should not receive
 # the insert
 connection server_2;
@@ -93,6 +95,8 @@ source include/sync_slave_sql_with_master.inc;
 connection server_2;
 let $sync_slave_connection = server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -124,6 +128,8 @@ set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
 
+sleep 2;
+
 # Check the contents of the table in all servers, server5 should not receive the
 # insert
 connection server_2;
@@ -150,6 +156,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -182,6 +190,8 @@ source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
 
+sleep 2;
+
 # Check the contents of the table in all servers, server 4 should not receive
 # the insert
 connection server_2;
@@ -206,6 +216,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -239,6 +251,8 @@ set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
 
+sleep 2;
+
 # Check the contents of the table in all servers, server5 should not receive the
 # insert
 connection server_2;
@@ -265,6 +279,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -308,6 +324,8 @@ let $field= State;
 let $condition= = 'Replica has read all relay log; waiting for more updates';
 source include/wait_show_condition.inc;
 
+sleep 2;
+
 # Check the contents of the table in all servers, server 4 should not receive
 # the insert
 connection server_2;
@@ -337,6 +355,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -376,6 +396,8 @@ let $field= State;
 let $condition= = 'Replica has read all relay log; waiting for more updates';
 source include/wait_show_condition.inc;
 
+sleep 2;
+
 # Check the contents of the table in all servers, server5 should not receive the
 # insert
 connection server_2;
@@ -402,6 +424,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
