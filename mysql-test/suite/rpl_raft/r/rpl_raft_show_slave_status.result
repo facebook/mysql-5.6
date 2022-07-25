@@ -19,7 +19,6 @@ show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
-SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID="uuid2";
-[connection server_2]
-set @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID="uuid1";
+include/raft_promote_to_leader.inc
+include/raft_promote_to_leader.inc
 include/rpl_end.inc
