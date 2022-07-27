@@ -456,6 +456,8 @@ class Partition_base : public handler,
   void get_dynamic_partition_info(ha_statistics *stat_info,
                                   ha_checksum *check_sum,
                                   uint part_id) override;
+  void get_partitions_io_write_stats(ha_statistics *ha_stat) override;
+  void reset_partition_io_counters() override;
   int extra(enum ha_extra_function operation) override;
   int reset(void) override;
 

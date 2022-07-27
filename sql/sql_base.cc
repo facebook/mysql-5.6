@@ -111,6 +111,7 @@
 #include "sql/mysqld_thd_manager.h"  // Global_THD_manage
 #include "sql/nested_join.h"
 #include "sql/partition_info.h"  // partition_info
+#include "sql/partitioning/partition_handler.h"
 #include "sql/psi_memory_key.h"  // key_memory_TABLE
 #include "sql/query_options.h"
 #include "sql/rpl_gtid.h"
@@ -3397,6 +3398,13 @@ retry_share : {
     /* Call rebind_psi outside of the critical section. */
     assert(table->file != nullptr);
     table->file->stats.reset_io_counters();
+    assert(table->file != nullptr);
+    Partition_handler *part_handler = table->file->get_partition_handler();
+    if (part_handler) {
+      part_handler->reset_partition_io_counters();
+    } else {
+      table->file->stats.reset_io_counters();
+    }
     table->file->rebind_psi();
     table->file->ha_extra(HA_EXTRA_RESET_STATE);
 

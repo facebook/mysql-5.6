@@ -97,6 +97,7 @@
 #include "pfs_thread_provider.h"
 #include "pfs_transaction_provider.h"
 #include "sql/mdl.h" /* mdl_key_init */
+#include "sql/partitioning/partition_base.h"
 #include "sql/sp_head.h"
 #include "sql/sql_class.h"  // THD
 #include "sql/sql_const.h"
@@ -2787,13 +2788,20 @@ void pfs_unbind_table_v1(PSI_table *table) {
         assert(pfs->m_identity);
         const handler *h = reinterpret_cast<const handler *>(pfs->m_identity);
         if (h != nullptr) {
+          Partition_handler *part_handler =
+              const_cast<handler *>(h)->get_partition_handler();
+
+          ha_statistics ha_stat = h->stats;
+          if (part_handler) {
+            part_handler->get_partitions_io_write_stats(&ha_stat);
+          }
           query_stat->m_io_write_bytes.aggregate_counted(
-              h->stats.io_write_bytes);
+              ha_stat.io_write_bytes);
           query_stat->m_io_write_requests.aggregate_counted(
-              h->stats.io_write_requests);
-          query_stat->m_io_read_bytes.aggregate_counted(h->stats.io_read_bytes);
+              ha_stat.io_write_requests);
+          query_stat->m_io_read_bytes.aggregate_counted(ha_stat.io_read_bytes);
           query_stat->m_io_read_requests.aggregate_counted(
-              h->stats.io_read_requests);
+              ha_stat.io_read_requests);
         }
       }
     }
