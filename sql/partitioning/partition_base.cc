@@ -3082,6 +3082,15 @@ int Partition_base::info(uint flag) {
   DBUG_RETURN(error);
 }
 
+void Partition_base::reset_partition_io_counters() {
+  for (uint i = m_part_info->get_first_used_partition(); i < m_tot_parts;
+       i = m_part_info->get_next_used_partition(i)) {
+    handler *file = m_file[i];
+    assert(bitmap_is_set(&(m_part_info->read_partitions), i));
+    file->stats.reset_io_counters();
+  }
+}
+
 void Partition_base::get_dynamic_partition_info(ha_statistics *stat_info,
                                                 ha_checksum *check_sum,
                                                 uint part_id) {
@@ -3099,9 +3108,26 @@ void Partition_base::get_dynamic_partition_info(ha_statistics *stat_info,
   stat_info->create_time = static_cast<ulong>(file->stats.create_time);
   stat_info->update_time = file->stats.update_time;
   stat_info->check_time = file->stats.check_time;
+  stat_info->io_write_bytes = file->stats.io_write_bytes;
+  stat_info->io_write_requests = file->stats.io_write_requests;
+  stat_info->io_read_bytes = file->stats.io_read_bytes;
+  stat_info->io_read_requests = file->stats.io_read_requests;
   *check_sum = 0;
   if (file->ha_table_flags() & HA_HAS_CHECKSUM) *check_sum = file->checksum();
   return;
+}
+
+void Partition_base::get_partitions_io_write_stats(ha_statistics *ha_stat) {
+  ha_statistics ha_part_stat;
+  ha_checksum check_sum = 0;
+  for (uint i = m_part_info->get_first_used_partition(); i < m_tot_parts;
+       i = m_part_info->get_next_used_partition(i)) {
+    get_dynamic_partition_info(&ha_part_stat, &check_sum, i);
+    ha_stat->io_write_bytes += ha_part_stat.io_write_bytes;
+    ha_stat->io_write_requests += ha_part_stat.io_write_requests;
+    ha_stat->io_read_bytes += ha_part_stat.io_read_bytes;
+    ha_stat->io_read_requests += ha_part_stat.io_read_requests;
+  }
 }
 
 /**

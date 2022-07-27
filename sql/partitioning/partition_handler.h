@@ -208,6 +208,20 @@ class Partition_handler {
   virtual void get_dynamic_partition_info(ha_statistics *stat_info,
                                           ha_checksum *check_sum,
                                           uint part_id) = 0;
+
+  /**
+    Get the statistics of partition tables
+  */
+  virtual void get_partitions_io_write_stats(
+      ha_statistics *ha_stat MY_ATTRIBUTE((unused))) {
+    return;
+  }
+
+  /**
+   Set the io counters of partition tables
+  */
+  virtual void reset_partition_io_counters() { return; }
+
   /**
     Get default number of partitions.
 
