@@ -11,3 +11,16 @@ io_write > 0	io_write_requests
 1	2
 DROP TABLE stats_test_table;
 SET GLOBAL rocksdb_perf_context_level=DEFAULT;
+DROP TABLE IF EXISTS partition_table;
+SET GLOBAL rocksdb_perf_context_level=3;
+CREATE TABLE partition_table(a int, b int , c int) PARTITION BY RANGE (b) (PARTITION p0 VALUES LESS THAN (10), PARTITION p1 VALUES LESS THAN (20), PARTITION p2 VALUES LESS THAN (50));
+INSERT INTO partition_table VALUES (12,12,12);
+SELECT table_schema AS db, sum(io_write) AS bytes_written FROM sys.fb_ps_schema_table_statistics_io WHERE table_schema = "test" AND table_name = "partition_table" GROUP BY 1;
+db	bytes_written
+test	25
+INSERT INTO partition_table VALUES (25,25,25);
+SELECT table_schema AS db, sum(io_write) AS bytes_written FROM sys.fb_ps_schema_table_statistics_io WHERE table_schema = "test" AND table_name = "partition_table" GROUP BY 1;
+db	bytes_written
+test	50
+DROP TABLE partition_table;
+SET GLOBAL rocksdb_perf_context_level=DEFAULT;

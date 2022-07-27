@@ -22,3 +22,34 @@ SELECT io_write > 0, io_write_requests FROM sys.fb_ps_schema_table_statistics_io
 # Cleanup
 DROP TABLE stats_test_table;
 SET GLOBAL rocksdb_perf_context_level=DEFAULT;
+
+
+#########################################
+## Test io_write of partition table
+#########################################
+
+--disable_warnings
+DROP TABLE IF EXISTS partition_table;
+--enable_warnings
+
+# Ensure appropriate perf_context_level is set
+SET GLOBAL rocksdb_perf_context_level=3;
+
+# Create a partition table
+CREATE TABLE partition_table(a int, b int , c int) PARTITION BY RANGE (b) (PARTITION p0 VALUES LESS THAN (10), PARTITION p1 VALUES LESS THAN (20), PARTITION p2 VALUES LESS THAN (50));
+
+# Insert a row into table
+INSERT INTO partition_table VALUES (12,12,12);
+
+# Check the io_write
+SELECT table_schema AS db, sum(io_write) AS bytes_written FROM sys.fb_ps_schema_table_statistics_io WHERE table_schema = "test" AND table_name = "partition_table" GROUP BY 1;
+
+# Insert more values
+INSERT INTO partition_table VALUES (25,25,25);
+
+# Check the io_write
+SELECT table_schema AS db, sum(io_write) AS bytes_written FROM sys.fb_ps_schema_table_statistics_io WHERE table_schema = "test" AND table_name = "partition_table" GROUP BY 1;
+
+# Cleanup
+DROP TABLE partition_table;
+SET GLOBAL rocksdb_perf_context_level=DEFAULT;
