@@ -125,3 +125,7 @@ eval set global gtid_purged='$exec_gtid_set';
 
 # switch back to server_1
 connection server_1;
+
+--disable_result_log
+--source include/force_restart.inc
+--enable_result_log
