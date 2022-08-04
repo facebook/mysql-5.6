@@ -1769,6 +1769,7 @@ static int rdb_i_s_sst_props_fill_table(
       if (props.second->compression_name.empty()) {
         field[RDB_SST_PROPS_FIELD::COMPRESSION_ALGO]->set_null();
       } else {
+        field[RDB_SST_PROPS_FIELD::COMPRESSION_ALGO]->set_notnull();
         field[RDB_SST_PROPS_FIELD::COMPRESSION_ALGO]->store(
             props.second->compression_name.c_str(),
             props.second->compression_name.size(), system_charset_info);
@@ -1782,6 +1783,7 @@ static int rdb_i_s_sst_props_fill_table(
       if (props.second->filter_policy_name.empty()) {
         field[RDB_SST_PROPS_FIELD::FILTER_POLICY]->set_null();
       } else {
+        field[RDB_SST_PROPS_FIELD::FILTER_POLICY]->set_notnull();
         field[RDB_SST_PROPS_FIELD::FILTER_POLICY]->store(
             props.second->filter_policy_name.c_str(),
             props.second->filter_policy_name.size(), system_charset_info);
@@ -1789,6 +1791,7 @@ static int rdb_i_s_sst_props_fill_table(
       if (props.second->compression_options.empty()) {
         field[RDB_SST_PROPS_FIELD::COMPRESSION_OPTIONS]->set_null();
       } else {
+        field[RDB_SST_PROPS_FIELD::COMPRESSION_OPTIONS]->set_notnull();
         field[RDB_SST_PROPS_FIELD::COMPRESSION_OPTIONS]->store(
             props.second->compression_options.c_str(),
             props.second->compression_options.size(), system_charset_info);
