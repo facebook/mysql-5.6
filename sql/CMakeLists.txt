@@ -1289,6 +1289,17 @@ IF(TARGET copy_jemalloc_dll)
   ADD_DEPENDENCIES(mysqld copy_jemalloc_dll)
 ENDIF()
 
+SET(WITH_MYSQLD_LDFLAGS "" CACHE STRING "Additional linker flags for mysqld")
+MARK_AS_ADVANCED(WITH_MYSQLD_LDFLAGS)
+IF(WITH_MYSQLD_LDFLAGS)
+  GET_TARGET_PROPERTY(MYSQLD_LINK_FLAGS mysqld LINK_FLAGS)
+  IF(NOT MYSQLD_LINK_FLAGS)
+    SET(MYSQLD_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(mysqld PROPERTIES LINK_FLAGS
+     "${MYSQLD_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+ENDIF()
+
 # See DEBUG_EXTNAME above: mysqld may already have name mysqld-debug,
 # and the rename is a no-op. If it is called 'mysqld' we rename it.
 INSTALL_DEBUG_TARGET(mysqld
