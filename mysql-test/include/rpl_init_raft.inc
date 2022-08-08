@@ -35,6 +35,8 @@ while ($_rpl_server)
 
   SET @@GLOBAL.RPL_RAFT_MYSQL_REPL_USER = "root";
 
+  SET @@GLOBAL.RPL_RAFT_VALIDATE_RAFT_LOGS_TO_BOOTSTRAP = OFF;
+
   --dec $_rpl_server
 }
 
