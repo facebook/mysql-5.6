@@ -1,4 +1,3 @@
-source include/have_innodb_intrinsic_table.inc;
 source include/big_test.inc;
 source include/not_valgrind.inc;
 create database test_db;

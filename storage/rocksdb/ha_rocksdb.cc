@@ -5111,6 +5111,15 @@ class Rdb_ha_data {
 
   ~Rdb_ha_data() { clear_checkpoint_dir(); }
 
+  /*
+    open_tmp_tables tracks the number of active intrinsic tmp tables for
+    session. When the query finishes, the number of active intrinsic tmp tables
+    will bump to zero. After that we will remove tmp disk usage for current
+    query.
+  */
+  uint open_tmp_tables = 0;
+  int64_t total_tmp_table_size = 0;
+
   const char *get_checkpoint_dir() const { return checkpoint_dir; }
 
   void set_checkpoint_dir(const char *checkpoint_dir_) {
@@ -9411,6 +9420,11 @@ int ha_rocksdb::create_table(const std::string &table_name,
   /* Create table/key descriptions and put them into the data dictionary */
   m_tbl_def = new Rdb_tbl_def(table_name, table_type);
 
+  /* Count active tables */
+  if (m_tbl_def->is_intrinsic_tmp_table()) {
+    get_ha_data(ha_thd())->open_tmp_tables++;
+  }
+
   uint n_keys = table_arg->s->keys;
 
   /*
@@ -10999,6 +11013,9 @@ int ha_rocksdb::write_row(uchar *const buf) {
   }
   ha_statistic_increment(&System_status_var::ha_write_count);
 
+  int rv = check_disk_usage();
+  if (rv) DBUG_RETURN(rv);
+
   if (table->next_number_field) {
     assert(!m_tbl_def->is_intrinsic_tmp_table());
     int err;
@@ -11012,7 +11029,7 @@ int ha_rocksdb::write_row(uchar *const buf) {
   // values from INSERT
   m_dup_key_found = false;
 
-  const int rv = update_write_row(nullptr, buf, skip_unique_check());
+  rv = update_write_row(nullptr, buf, skip_unique_check());
 
   if (rv == 0) {
     /* TODO(yzha) - row stats are gone in 8.0
@@ -11598,6 +11615,16 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
   }
 
   const auto cf = m_pk_descr->get_cf();
+
+  /*
+    Check and update the tmp table usage
+  */
+  if (m_tbl_def->is_intrinsic_tmp_table()) {
+    longlong row_size = row_info.new_pk_slice.size() + value_slice.size();
+    record_disk_usage_change(row_size);
+    get_ha_data(ha_thd())->total_tmp_table_size += row_size;
+  }
+
   if (rocksdb_enable_bulk_load_api && THDVAR(table->in_use, bulk_load) &&
       !hidden_pk) {
     /*
@@ -11635,6 +11662,24 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
         m_tbl_def->get_table_type());
   }
   return rc;
+}
+
+int ha_rocksdb::check_disk_usage() {
+  int error = 0;
+  if (table->s->tmp_table != NO_TMP_TABLE &&
+      table->s->tmp_table != SYSTEM_TMP_TABLE && is_tmp_disk_usage_over_max()) {
+    error = HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED;
+    print_error(error, MYF(0));
+  }
+
+  return error;
+}
+
+void ha_rocksdb::record_disk_usage_change(longlong delta) {
+  THD *thd = current_thd;
+  if (thd) {
+    thd->adjust_tmp_table_disk_usage(delta);
+  }
 }
 
 /**
@@ -11764,6 +11809,13 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
   new_value_slice =
       rocksdb::Slice(reinterpret_cast<const char *>(m_sk_tails.ptr()),
                      m_sk_tails.get_current_pos());
+
+  // Check and update the tmp table usage
+  if (m_tbl_def->is_intrinsic_tmp_table()) {
+    longlong row_size = new_key_slice.size() + new_value_slice.size();
+    record_disk_usage_change(row_size);
+    get_ha_data(ha_thd())->total_tmp_table_size += row_size;
+  }
 
   if (bulk_load_sk && row_info.old_data == nullptr) {
     rc = bulk_load_key(row_info.tx, kd, new_key_slice, new_value_slice, true);
@@ -12665,6 +12717,10 @@ int ha_rocksdb::update_row(const uchar *const old_data, uchar *const new_data) {
     assert(m_tbl_def->is_intrinsic_tmp_table());
   }
   ha_statistic_increment(&System_status_var::ha_update_count);
+
+  int err = check_disk_usage();
+  if (err) DBUG_RETURN(err);
+
   const int rv = update_write_row(old_data, new_data, skip_unique_check());
 
   if (rv == 0) {
@@ -13280,6 +13336,21 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
   });
 
   {
+    /*
+      After a tmp table is dropped:
+      1. Decrease open_tmp_tables's value. When the open_tmp_tables is empty, it
+         means a query has finished. It's the time to decrease the disk usage.
+      2. Update the total tmp table usage in __tmp__ column family
+    */
+    if (tbl->is_intrinsic_tmp_table()) {
+      auto ha_data = get_ha_data(ha_thd());
+      ha_data->open_tmp_tables--;
+      if (ha_data->open_tmp_tables == 0) {
+        record_disk_usage_change(-ha_data->total_tmp_table_size);
+        ha_data->total_tmp_table_size = 0;
+      }
+    }
+
     std::lock_guard<Rdb_dict_manager> dm_lock(*local_dict_manager);
     if (rocksdb_enable_delete_range_for_drop_index) {
       std::unordered_set<GL_INDEX_ID> dropped_index_ids;

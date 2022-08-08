@@ -1005,6 +1005,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   /* Need to build decoder on next read operation */
   bool m_need_build_decoder;
+
+ public:
+  int check_disk_usage();
+  void record_disk_usage_change(longlong delta);
 };
 
 /*
