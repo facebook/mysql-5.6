@@ -1,0 +1,25 @@
+drop table if exists t1;
+set big_tables = 1;
+create table t1 (i int, c char(255)) ENGINE=rocksdB;
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+== query is ok when the intrinsic tmp table size is good;
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+i	c	count(*)
+== query fails when the intrinsic tmp table size exceeds the threshold;
+set global max_tmp_disk_usage = 1000000;
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+drop table t1;
+set global max_tmp_disk_usage = 0;
