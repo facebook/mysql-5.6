@@ -105,6 +105,10 @@ if ($skip_space_validation) {
 --connection clone_conn_1
 --source ../include/clone_command.inc
 
+if($any_donor_address) {
+  SELECT @@clone_valid_donor_list;
+}
+
 if (!$clone_remote_replace) {
   --connection default
   # Restart server on cloned data directory

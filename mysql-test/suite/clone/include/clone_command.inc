@@ -54,7 +54,12 @@ if ($clone_err != ER_PLUGIN_IS_NOT_LOADED) {
   if($remote_clone) {
     if(!$skip_donor_config) {
       --replace_result $HOST HOST $PORT PORT
-      --eval SET GLOBAL clone_valid_donor_list = '$HOST:$PORT'
+      if (!$any_donor_address) {
+        --eval SET GLOBAL clone_valid_donor_list = '$HOST:$PORT'
+      }
+      if($any_donor_address) {
+        SET GLOBAL clone_valid_donor_list = 'AnY';
+      }
     }
   }
 }

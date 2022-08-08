@@ -43,6 +43,9 @@ Clone Plugin: Plugin interface
 /** Clone plugin name */
 const char *clone_plugin_name = "clone";
 
+/** Used to check if the donor list is equal to ANY*/
+const std::string &any_donor = "ANY";
+
 /** Clone system variable: buffer size for data transfer */
 uint clone_buffer_size;
 
@@ -271,7 +274,14 @@ static int match_valid_donor_address(MYSQL_THD thd, const char *host,
     return (found);
   };
 
-  static_cast<void>(scan_donor_list(valid_str, callback));
+  if (std::equal(valid_str.begin(), valid_str.end(), any_donor.begin(),
+                 any_donor.end(), [](const char &c1, const char &c2) {
+                   return std::toupper(c1) == std::toupper(c2);
+                 })) {
+    found = true;
+  } else {
+    static_cast<void>(scan_donor_list(valid_str, callback));
+  }
 
   if (found) {
     return (0);
@@ -317,6 +327,18 @@ static int check_donor_addr_format(MYSQL_THD thd, SYS_VAR *var [[maybe_unused]],
   std::string addrs(addrs_cstring);
 
   Donor_Callback callback = [](std::string, uint32_t) { return (false); };
+
+  /*
+    If the donor list is "ANY" (case-insensitive), then skip the validation of
+    donor list. This supports any donor host address.
+  */
+  if (std::equal(addrs.begin(), addrs.end(), any_donor.begin(), any_donor.end(),
+                 [](const char &c1, const char &c2) {
+                   return std::toupper(c1) == std::toupper(c2);
+                 })) {
+    *(const char **)save = addrs_cstring;
+    return (0);
+  }
 
   bool success = scan_donor_list(addrs_cstring, callback);
 
