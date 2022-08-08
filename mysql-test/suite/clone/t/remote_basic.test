@@ -6,3 +6,7 @@
 --let remote_clone = 1
 
 --source local_basic.test
+
+--echo set donor list to any
+--let $any_donor_address = 1
+--source local_basic.test
