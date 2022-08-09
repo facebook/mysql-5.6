@@ -8930,14 +8930,14 @@ static Sys_var_ulonglong Sys_maximum_hlc_drift_ns(
     VALID_RANGE(0, ULLONG_MAX), DEFAULT(300000000000), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
 
-static bool update_binlog_hlc(sys_var * /* self */, THD * /* thd */,
-                              enum_var_type /* type */) {
+static bool update_minimum_hlc_ns(sys_var * /* self */, THD * /* thd */,
+                                  enum_var_type /* type */) {
   mysql_bin_log.update_hlc(minimum_hlc_ns);
   return false;  // This is success!
 }
 
-static bool validate_binlog_hlc(sys_var * /* self */, THD * /* thd */,
-                                set_var *var) {
+static bool validate_minimum_hlc_ns(sys_var * /* self */, THD * /* thd */,
+                                    set_var *var) {
   DBUG_EXECUTE_IF("allow_long_hlc_drift_for_tests", { return false; });
 
   // New proposed HLC value to set
@@ -8967,7 +8967,7 @@ static Sys_var_ulonglong Sys_minimum_hlc_ns(
     " (forward) is controlled by maximum_hlc_drift_ns",
     GLOBAL_VAR(minimum_hlc_ns), CMD_LINE(OPT_ARG), VALID_RANGE(0, ULLONG_MAX),
     DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
-    ON_CHECK(validate_binlog_hlc), ON_UPDATE(update_binlog_hlc));
+    ON_CHECK(validate_minimum_hlc_ns), ON_UPDATE(update_minimum_hlc_ns));
 
 static bool check_enable_binlog_hlc(sys_var * /* self */, THD * /* thd */,
                                     set_var *var) {

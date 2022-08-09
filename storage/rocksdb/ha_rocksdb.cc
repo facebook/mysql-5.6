@@ -131,6 +131,22 @@ int thd_binlog_format(const MYSQL_THD thd);
  */
 bool thd_binlog_filter_ok(const MYSQL_THD thd);
 
+/**
+  Check if a user thread is a replication slave thread
+  @param thd user thread
+  @retval 0 the user thread is not a replication slave thread
+  @retval 1 the user thread is a replication slave thread
+*/
+int thd_slave_thread(const THD *thd);
+
+/**
+  Check if THD is executing binlog events
+  @param thd THD
+  @retval false THD is not executing binlog events
+  @retval true  THD is executing binlog events
+*/
+bool thd_is_executing_binlog_events(const THD *thd);
+
 namespace myrocks {
 
 static st_global_stats global_stats;
@@ -479,6 +495,18 @@ static int rocksdb_create_temporary_checkpoint_validate(
     THD *const thd, struct SYS_VAR *const var, void *const save,
     struct st_mysql_value *const value);
 
+static void rocksdb_debug_binlog_ttl_compaction_ts_delta_update(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *const var_ptr,
+    const void *const save) {
+  (void)var_ptr;
+  (void)save;
+#ifndef NDEBUG
+  int val = *static_cast<int *>(var_ptr) = *static_cast<const int *>(save);
+  rocksdb_binlog_ttl_compaction_timestamp += val;
+#endif
+}
+
 static void rocksdb_disable_file_deletions_update(
     my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
     void *const var_ptr, const void *const save);
@@ -772,6 +800,11 @@ static int rocksdb_debug_ttl_rec_ts = 0;
 static int rocksdb_debug_ttl_snapshot_ts = 0;
 static int rocksdb_debug_ttl_read_filter_ts = 0;
 static bool rocksdb_debug_ttl_ignore_pk = 0;
+static bool rocksdb_pause_ttl_compaction_filter = 0;
+static bool rocksdb_binlog_ttl = 0;
+static uint32_t rocksdb_binlog_ttl_compaction_ts_interval_secs = 0;
+static uint32_t rocksdb_binlog_ttl_compaction_ts_offset_secs = 0;
+static int rocksdb_debug_binlog_ttl_compaction_ts_delta = 0;
 static bool rocksdb_reset_stats = 0;
 #ifndef __APPLE__
 static uint32_t rocksdb_io_write_timeout_secs = 0;
@@ -830,6 +863,7 @@ static bool rocksdb_alter_table_comment_inplace = false;
 bool rocksdb_disable_instant_ddl = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
+static std::time_t last_binlog_ttl_compaction_ts = std::time(nullptr);
 
 static std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 static std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
@@ -842,6 +876,7 @@ static std::atomic<uint64_t> rocksdb_manual_compactions_pending(0);
 #ifndef NDEBUG
 static std::atomic<uint64_t> rocksdb_num_get_for_update_calls(0);
 #endif
+std::atomic<uint64_t> rocksdb_binlog_ttl_compaction_timestamp(0);
 std::atomic<uint64_t> rocksdb_select_bypass_executed(0);
 std::atomic<uint64_t> rocksdb_select_bypass_rejected(0);
 std::atomic<uint64_t> rocksdb_select_bypass_failed(0);
@@ -2149,7 +2184,7 @@ static MYSQL_SYSVAR_INT(
 static MYSQL_SYSVAR_INT(
     debug_ttl_read_filter_ts, rocksdb_debug_ttl_read_filter_ts,
     PLUGIN_VAR_RQCMDARG,
-    "For debugging purposes only.  Overrides the TTL read filtering time to "
+    "For debugging purposes only. Overrides the TTL read filtering time to "
     "time + debug_ttl_read_filter_ts. A value of 0 denotes that the variable "
     "is not set. This variable is a no-op in non-debug builds.",
     nullptr, nullptr, 0, /* min */ -3600, /* max */ 3600, 0);
@@ -2159,6 +2194,48 @@ static MYSQL_SYSVAR_BOOL(
     "For debugging purposes only. If true, compaction filtering will not occur "
     "on PK TTL data. This variable is a no-op in non-debug builds.",
     nullptr, nullptr, false);
+
+static MYSQL_SYSVAR_BOOL(pause_ttl_compaction_filter,
+                         rocksdb_pause_ttl_compaction_filter,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Pauses TTL compaction filter. This means that as "
+                         "long as this variable is enabled, compactions will "
+                         "not delete expired rows.",
+                         nullptr, nullptr, false);
+
+static MYSQL_SYSVAR_BOOL(binlog_ttl, rocksdb_binlog_ttl, PLUGIN_VAR_RQCMDARG,
+                         "Sync TTL timestamps over replication", nullptr,
+                         nullptr, false);
+
+static MYSQL_SYSVAR_UINT(binlog_ttl_compaction_ts_interval_secs,
+                         rocksdb_binlog_ttl_compaction_ts_interval_secs,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Interval in seconds when compaction timestamp is "
+                         "written to the binlog. Default: 1 hour",
+                         nullptr, nullptr, 3600,
+                         /* min */ 0,
+                         /* max */ UINT_MAX, 0);
+
+static MYSQL_SYSVAR_UINT(binlog_ttl_compaction_ts_offset_secs,
+                         rocksdb_binlog_ttl_compaction_ts_offset_secs,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Offset in seconds which is subtracted from the "
+                         "compaction ts when it's written to the binlog"
+                         "Default: 60s",
+                         nullptr, nullptr, 60,
+                         /* min */ 0,
+                         /* max */ UINT_MAX, 0);
+
+static MYSQL_SYSVAR_INT(debug_binlog_ttl_compaction_ts_delta,
+                        rocksdb_debug_binlog_ttl_compaction_ts_delta,
+                        PLUGIN_VAR_RQCMDARG,
+                        "For debugging purposes only. Overrides the binlog TTL "
+                        "compaction time by adding the "
+                        "delta provided in this var",
+                        nullptr,
+                        rocksdb_debug_binlog_ttl_compaction_ts_delta_update, 0,
+                        /* min */ INT_MIN,
+                        /* max */ INT_MAX, 0);
 
 static MYSQL_SYSVAR_UINT(
     max_manual_compactions, rocksdb_max_manual_compactions, PLUGIN_VAR_RQCMDARG,
@@ -2708,6 +2785,11 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(debug_ttl_snapshot_ts),
     MYSQL_SYSVAR(debug_ttl_read_filter_ts),
     MYSQL_SYSVAR(debug_ttl_ignore_pk),
+    MYSQL_SYSVAR(pause_ttl_compaction_filter),
+    MYSQL_SYSVAR(binlog_ttl),
+    MYSQL_SYSVAR(binlog_ttl_compaction_ts_interval_secs),
+    MYSQL_SYSVAR(binlog_ttl_compaction_ts_offset_secs),
+    MYSQL_SYSVAR(debug_binlog_ttl_compaction_ts_delta),
     MYSQL_SYSVAR(reset_stats),
 #ifndef __APPLE__
     MYSQL_SYSVAR(io_write_timeout),
@@ -2964,6 +3046,11 @@ class Rdb_snapshot_notifier : public rocksdb::TransactionNotifier {
   // it anymore.
   void detach() { m_owning_tx = nullptr; }
 };
+
+static bool rdb_is_ttl_read_filtering_enabled();
+#ifndef NDEBUG
+static int rdb_dbug_set_ttl_read_filter_ts();
+#endif
 
 /* This is the base class for transactions when interacting with rocksdb.
  */
@@ -4015,13 +4102,46 @@ class Rdb_transaction {
       it->m_update_time = tm;
     }
     modified_tables.clear();
+
+    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
   }
-  void on_rollback() { modified_tables.clear(); }
+
+  void on_rollback() {
+    modified_tables.clear();
+    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
+  }
+
+ private:
+  std::atomic<uint64_t> m_binlog_ttl_read_filtering_ts{0};
 
  public:
   void log_table_write_op(Rdb_tbl_def *tbl) {
     if (tbl->get_table_type() == TABLE_TYPE::USER_TABLE)
       modified_tables.insert(tbl);
+  }
+
+  uint64_t get_or_create_ttl_read_filtering_ts() {
+    if (!rdb_is_binlog_ttl_enabled()) {
+      return static_cast<uint64_t>(m_snapshot_timestamp);
+    }
+    if (m_binlog_ttl_read_filtering_ts.load()) {
+      return m_binlog_ttl_read_filtering_ts;
+    }
+    if (m_thd->binlog_ttl_read_filtering_ts) {
+      assert(thd_is_executing_binlog_events(m_thd));
+      m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts;
+    } else {
+      m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts =
+          mysql_bin_log.get_max_write_hlc_nsec() / 1000000000UL;
+    }
+    return m_binlog_ttl_read_filtering_ts;
+  }
+
+  uint64_t get_ttl_read_filtering_ts() const {
+    if (!rdb_is_binlog_ttl_enabled()) {
+      return static_cast<uint64_t>(m_snapshot_timestamp);
+    }
+    return m_binlog_ttl_read_filtering_ts.load();
   }
 
   void set_initial_savepoint() {
@@ -4141,7 +4261,7 @@ class Rdb_transaction {
       : m_thd(thd), m_tbl_io_perf(nullptr) {}
 
   virtual ~Rdb_transaction() {
-#ifndef DEBUG_OFF
+#ifndef NDEBUG
     RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
     assert(s_tx_list.find(this) == s_tx_list.end());
     RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
@@ -5258,6 +5378,20 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
     return HA_EXIT_FAILURE;
   }
 
+  // Case: Any RW transaction with read filtering time < compaction timestamp
+  // should not be able to commit to the binlog since it can cause
+  // inconsistencies on the secondaries. We don't enforce this check on
+  // transactions that are coming from binlogs thru either regular replication
+  // or executing base64 BINLOG commands.
+  if (!thd_is_executing_binlog_events(thd) && rdb_is_binlog_ttl_enabled() &&
+      tx->get_write_count() > 0 && tx->get_ttl_read_filtering_ts() > 0 &&
+      tx->get_ttl_read_filtering_ts() <
+          rocksdb_binlog_ttl_compaction_timestamp.load() &&
+      thd->is_any_locked_table_ttl_enabled()) {
+    my_error(ER_RDB_TTL_WRITES_WITH_STALE_SNAPSHOT, MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
   /* TODO(yzha) - 0f402cb8381b - Improve singled thread replication performance
    */
   if (prepare_tx ||
@@ -5862,6 +5996,26 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker {
   }
 };
 
+class Rdb_min_binlog_ttl_read_filtering_ts_calculator
+    : public Rdb_tx_list_walker {
+ private:
+  uint64_t min_ts = 0;
+
+ public:
+  explicit Rdb_min_binlog_ttl_read_filtering_ts_calculator() {
+    min_ts = mysql_bin_log.get_max_write_hlc_nsec() / 1000000000UL;
+  }
+
+  void process_tran(const Rdb_transaction *const tx) override {
+    const uint64_t ts = tx->get_ttl_read_filtering_ts();
+    if (ts && ts < min_ts) {
+      min_ts = ts;
+    }
+  }
+
+  uint64_t get() const { return min_ts; }
+};
+
 /*
   returns a vector of info for all non-replication threads
   for use by information_schema.rocksdb_trx
@@ -5881,6 +6035,90 @@ std::vector<Rdb_deadlock_info> rdb_get_deadlock_info() {
   Rdb_snapshot_status showStatus;
   Rdb_transaction::walk_tx_list(&showStatus);
   return showStatus.get_deadlock_info();
+}
+
+/*
+  returns the min binlog ttl read filtering ts among all active trxs
+  used during compaction and binlog rotation with binlog ttl is enabled
+*/
+uint64_t rdb_get_min_binlog_ttl_read_filtering_ts() {
+  Rdb_min_binlog_ttl_read_filtering_ts_calculator calc;
+  Rdb_transaction::walk_tx_list(&calc);
+  return calc.get();
+}
+
+/* Performs atomic CAS operation to update the binlog TTL compaction timestamp
+ * if the supplied timestamp is greater than existing one */
+static uint64_t advance_binlog_ttl_compaction_timestamp(uint64_t ts) {
+  uint64_t current_ts = rocksdb_binlog_ttl_compaction_timestamp.load();
+  while (ts > current_ts) {
+    if (rocksdb_binlog_ttl_compaction_timestamp.compare_exchange_strong(
+            current_ts, ts)) {
+      return ts;
+    }
+    current_ts = rocksdb_binlog_ttl_compaction_timestamp.load();
+  }
+  return current_ts;
+}
+
+/**
+ * Implementation for update_binlog_ttl_compaction_timestamp() handler method.
+ * This method is called when metadata event is begin written to the binlog to
+ * get TTL compaction time
+
+ * @param[in]     hton      The handlerton object
+ * @param[in]     thd       THD object
+ * @param[out]    timestamp Zero if no compaction ts is to be written, non-zero
+ *                          when a new compaction ts is calculated
+ *
+ * @retval HA_EXIT_SUCESS if everything goes well, HA_EXIT_FAILURE otherwise
+ */
+static bool rocksdb_update_binlog_ttl_compaction_ts(
+    handlerton *const hton MY_ATTRIBUTE((__unused__)), THD *thd,
+    uint64_t *timestamp) {
+  assert(rdb != nullptr);
+  assert(timestamp != nullptr);
+
+  if (unlikely(!timestamp || !rdb)) {
+    return HA_EXIT_FAILURE;
+  }
+
+  *timestamp = 0;
+
+  // Case: Feature is disabled
+  if (!rdb_is_binlog_ttl_enabled()) {
+    rocksdb_binlog_ttl_compaction_timestamp = 0;
+    return HA_EXIT_SUCCESS;
+  }
+
+  // Case: We're applying a transaction on a secondary
+  if (thd_slave_thread(thd)) {
+    if (thd->binlog_ttl_compaction_ts) {
+      *timestamp = advance_binlog_ttl_compaction_timestamp(
+          thd->binlog_ttl_compaction_ts);
+    }
+    return HA_EXIT_SUCCESS;
+  }
+
+  const std::time_t now = std::time(nullptr);
+
+  // Case: We don't have to write the compaction ts yet
+  if (likely(now - last_binlog_ttl_compaction_ts <
+             rocksdb_binlog_ttl_compaction_ts_interval_secs)) {
+    return HA_EXIT_SUCCESS;
+  }
+
+  last_binlog_ttl_compaction_ts = now;
+
+  uint64_t new_ts = rdb_get_min_binlog_ttl_read_filtering_ts();
+
+  if (likely(new_ts >= rocksdb_binlog_ttl_compaction_ts_offset_secs)) {
+    new_ts -= rocksdb_binlog_ttl_compaction_ts_offset_secs;
+  }
+
+  *timestamp = advance_binlog_ttl_compaction_timestamp(new_ts);
+
+  return HA_EXIT_SUCCESS;
 }
 
 /* Generate the snapshot status table */
@@ -6740,6 +6978,8 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->get_table_statistics = rocksdb_get_table_statistics;
   rocksdb_hton->flush_logs = rocksdb_flush_wal;
   rocksdb_hton->handle_single_table_select = rocksdb_handle_single_table_select;
+  rocksdb_hton->update_binlog_ttl_compaction_ts =
+      rocksdb_update_binlog_ttl_compaction_ts;
   rocksdb_hton->is_user_table_blocked = rocksdb_user_table_blocked;
 
   rocksdb_hton->flags = HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
@@ -7890,12 +8130,6 @@ bool ha_rocksdb::init_with_fields() {
   DBUG_RETURN(false); /* Ok */
 }
 
-static bool rdb_is_ttl_read_filtering_enabled();
-
-#ifndef NDEBUG
-static int rdb_dbug_set_ttl_read_filter_ts();
-#endif
-
 /*
   If the key is a TTL key, we may need to filter it out.
 
@@ -7908,27 +8142,37 @@ static int rdb_dbug_set_ttl_read_filter_ts();
   snapshots when filtering keys.
 */
 bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
-                             const rocksdb::Slice &ttl_rec_val,
+                             const rocksdb::Slice *const ttl_rec_val,
                              Rdb_transaction *tx) {
   assert(kd.has_ttl());
   assert(kd.m_ttl_rec_offset != UINT_MAX);
   THD *thd = tx->get_thd();
-  const int64_t curr_ts = tx->m_snapshot_timestamp;
+  uint64_t read_filtering_ts = tx->get_or_create_ttl_read_filtering_ts();
+#ifndef NDEBUG
+  assert(static_cast<int64_t>(read_filtering_ts) >=
+              rdb_dbug_set_ttl_read_filter_ts());
+  read_filtering_ts -= rdb_dbug_set_ttl_read_filter_ts();
+#endif
 
-  /*
-    Curr_ts can only be 0 if there are no snapshots open.
-    should_hide_ttl_rec can only be called when there is >=1 snapshots, unless
-    we are filtering on the write path (single INSERT/UPDATE) in which case
-    we are passed in the current time as curr_ts.
+  /* Read filtering time can be 0 in the following cases:
 
-    In the event curr_ts is 0, we always decide not to filter the record. We
-    also log a warning and increment a diagnostic counter.
+     1. When binlog ttl is enabled: Somehow the HLC of the last binlog write is
+     0. This can happen due to a bug or if HLC is disabled.
+
+     2. When binlog ttl is disabled: It can happen when there are no snapshots
+     open (since read filtering time is simply the snapshot timestamp). This
+     method should only be called when there is at least one snapshot, unless
+     we're filtering on write path (single INSERT/UPDATE) in which case we are
+     passed the current time as snapshot time
+
+    In the event read filtering time is 0, we always decide not to filter the
+    record. We also log a warning and increment a diagnostic counter.
   */
-  if (curr_ts == 0) {
+  if (read_filtering_ts == 0) {
     assert(false);
     push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
-                        "TTL read filtering called with no snapshot.");
-    rdb_update_global_stats(ROWS_UNFILTERED_NO_SNAPSHOT, 1);
+                        "TTL read filtering with read filtering time = 0");
+    rdb_update_global_stats(ROWS_UNFILTERED_NO_READ_FILTERING_TIME, 1);
     return false;
   }
 
@@ -7936,7 +8180,13 @@ bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
     return false;
   }
 
-  Rdb_string_reader reader(&ttl_rec_val);
+  // Case: No value supplied, this happens when the key is not found, so we'll
+  // just return that it should be filtered
+  if (!ttl_rec_val) {
+    return true;
+  }
+
+  Rdb_string_reader reader(ttl_rec_val);
 
   /*
     Find where the 8-byte ttl is for each record in this index.
@@ -7948,7 +8198,7 @@ bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
       8 byte ttl field in front. Don't filter the record out, and log an error.
     */
     std::string buf;
-    buf = rdb_hexdump(ttl_rec_val.data(), ttl_rec_val.size(),
+    buf = rdb_hexdump(ttl_rec_val->data(), ttl_rec_val->size(),
                       RDB_MAX_HEXDUMP_LEN);
     const GL_INDEX_ID gl_index_id = kd.get_gl_index_id();
     // NO_LINT_DEBUG
@@ -7960,13 +8210,8 @@ bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
     return false;
   }
 
-  /* Hide record if it has expired before the current snapshot time. */
-  uint64 read_filter_ts = 0;
-#ifndef NDEBUG
-  read_filter_ts += rdb_dbug_set_ttl_read_filter_ts();
-#endif
-  bool is_hide_ttl =
-      ts + kd.m_ttl_duration + read_filter_ts <= static_cast<uint64>(curr_ts);
+  /* Hide record if it has expired before the current read filtering time. */
+  bool is_hide_ttl = ts + kd.m_ttl_duration <= read_filtering_ts;
   if (is_hide_ttl) {
     rdb_update_global_stats(ROWS_FILTERED, 1);
 
@@ -9572,7 +9817,7 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf,
   } else {
     DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete_sk");
     rc = get_row_by_rowid(buf, m_last_rowkey.ptr(), m_last_rowkey.length(),
-                          skip_row);
+                          skip_row, false, !rdb_is_binlog_ttl_enabled());
   }
 
   return rc;
@@ -9706,8 +9951,9 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
                         packed_size) == 0);
 #endif
 
-          rc = get_row_by_rowid(buf, m_last_rowkey.ptr(),
-                                m_last_rowkey.length());
+          rc =
+              get_row_by_rowid(buf, m_last_rowkey.ptr(), m_last_rowkey.length(),
+                               nullptr, false, !rdb_is_binlog_ttl_enabled());
           m_iterator->reset();
           DBUG_RETURN(rc);
         }
@@ -9913,7 +10159,8 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
                          &my_charset_bin);
 
         if ((res = get_row_by_rowid(table->record[0], rowkey_copy.ptr(),
-                                    rowkey_copy.length()))) {
+                                    rowkey_copy.length(), nullptr, false,
+                                    !rdb_is_binlog_ttl_enabled()))) {
           // NO_LINT_DEBUG
           sql_print_error(
               "CHECKTABLE %s:   .. row %lld: "
@@ -10338,7 +10585,8 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
         DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete");
         /* We need to put a lock and re-read */
         bool skip_row = false;
-        rc = get_row_by_rowid(buf, key.data(), key.size(), &skip_row);
+        rc = get_row_by_rowid(buf, key.data(), key.size(), &skip_row, false,
+                              !rdb_is_binlog_ttl_enabled());
         if (rc != HA_EXIT_SUCCESS && skip_row) {
           // We are asked to skip locked rows
           continue;
@@ -12338,7 +12586,8 @@ int ha_rocksdb::rnd_pos(uchar *const buf, uchar *const pos) {
                                           true /*skip_next*/);
   } else {
     // Confirm the pos exists in pk index.
-    rc = get_row_by_rowid(buf, pos, len);
+    rc = get_row_by_rowid(buf, pos, len, nullptr, false,
+                          !rdb_is_binlog_ttl_enabled());
   }
 
   if (!rc) {
@@ -15276,8 +15525,8 @@ static void myrocks_update_status() {
   export_stats.rows_deleted_blind = global_stats.rows[ROWS_DELETED_BLIND];
   export_stats.rows_expired = global_stats.rows[ROWS_EXPIRED];
   export_stats.rows_filtered = global_stats.rows[ROWS_FILTERED];
-  export_stats.rows_unfiltered_no_snapshot =
-      global_stats.rows[ROWS_UNFILTERED_NO_SNAPSHOT];
+  export_stats.rows_unfiltered_no_read_filtering_time =
+      global_stats.rows[ROWS_UNFILTERED_NO_READ_FILTERING_TIME];
 
   export_stats.system_rows_deleted = global_stats.system_rows[ROWS_DELETED];
   export_stats.system_rows_inserted = global_stats.system_rows[ROWS_INSERTED];
@@ -15325,8 +15574,8 @@ static SHOW_VAR myrocks_status_variables[] = {
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("rows_filtered", &export_stats.rows_filtered,
                         SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("rows_unfiltered_no_snapshot",
-                        &export_stats.rows_unfiltered_no_snapshot,
+    DEF_STATUS_VAR_FUNC("rows_unfiltered_no_read_filtering_time",
+                        &export_stats.rows_unfiltered_no_read_filtering_time,
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("system_rows_deleted",
                         &export_stats.system_rows_deleted, SHOW_LONGLONG),
@@ -15553,6 +15802,8 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(number_superversion_releases),
     DEF_STATUS_VAR(number_superversion_cleanups),
     DEF_STATUS_VAR(number_block_not_compressed),
+    DEF_STATUS_VAR_PTR("binlog_ttl_compaction_timestamp",
+                       &rocksdb_binlog_ttl_compaction_timestamp, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("row_lock_deadlocks", &rocksdb_row_lock_deadlocks,
                        SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("row_lock_wait_timeouts",
@@ -16325,6 +16576,10 @@ static int rdb_dbug_set_ttl_read_filter_ts() {
 }
 bool rdb_dbug_set_ttl_ignore_pk() { return rocksdb_debug_ttl_ignore_pk; }
 #endif
+bool rdb_is_ttl_compaction_filter_paused() {
+  return rocksdb_pause_ttl_compaction_filter;
+}
+bool rdb_is_binlog_ttl_enabled() { return rocksdb_binlog_ttl; }
 
 void rdb_update_global_stats(const operation_type &type, uint count,
                              Rdb_tbl_def *td) {
@@ -17915,7 +18170,7 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
 
     /* If we found the record, but it's expired, pretend we didn't find it.  */
     if (m_pk_descr->has_ttl() &&
-        rdb_should_hide_ttl_rec(*m_pk_descr, m_retrieved_record, tx)) {
+        rdb_should_hide_ttl_rec(*m_pk_descr, &m_retrieved_record, tx)) {
       continue;
     }
 

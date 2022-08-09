@@ -10396,6 +10396,9 @@ ER_THRIFT_PLACEHOLDER_50135
 ER_THRIFT_PLACEHOLDER_50136
   eng "Placeholder"
 
+ER_RDB_TTL_WRITES_WITH_STALE_SNAPSHOT
+  eng "Can't execute writes with a stale snapshot on a TTL enabled table when rocksdb_binlog_ttl = 1. Retry the transaction to refresh the snapshot."
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

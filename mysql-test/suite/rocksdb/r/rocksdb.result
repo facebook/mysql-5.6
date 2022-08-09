@@ -903,6 +903,9 @@ rocksdb_allow_mmap_writes	OFF
 rocksdb_allow_to_start_after_corruption	OFF
 rocksdb_alter_column_default_inplace	ON
 rocksdb_alter_table_comment_inplace	OFF
+rocksdb_binlog_ttl	OFF
+rocksdb_binlog_ttl_compaction_ts_interval_secs	3600
+rocksdb_binlog_ttl_compaction_ts_offset_secs	60
 rocksdb_blind_delete_primary_key	OFF
 rocksdb_block_cache_size	536870912
 rocksdb_block_restart_interval	16
@@ -939,6 +942,7 @@ rocksdb_datadir	./.rocksdb
 rocksdb_db_write_buffer_size	0
 rocksdb_deadlock_detect	OFF
 rocksdb_deadlock_detect_depth	50
+rocksdb_debug_binlog_ttl_compaction_ts_delta	0
 rocksdb_debug_cardinality_multiplier	2
 rocksdb_debug_manual_compaction_delay	0
 rocksdb_debug_optimizer_no_zero_cardinality	ON
@@ -1007,6 +1011,7 @@ rocksdb_override_cf_options
 rocksdb_paranoid_checks	ON
 rocksdb_partial_index_sort_max_mem	0
 rocksdb_pause_background_work	ON
+rocksdb_pause_ttl_compaction_filter	OFF
 rocksdb_perf_context_level	0
 rocksdb_persistent_cache_path	
 rocksdb_persistent_cache_size_mb	0
@@ -1576,7 +1581,7 @@ rocksdb_rows_updated	#
 rocksdb_rows_deleted_blind	#
 rocksdb_rows_expired	#
 rocksdb_rows_filtered	#
-rocksdb_rows_unfiltered_no_snapshot	#
+rocksdb_rows_unfiltered_no_read_filtering_time	#
 rocksdb_system_rows_deleted	#
 rocksdb_system_rows_inserted	#
 rocksdb_system_rows_read	#
@@ -1590,6 +1595,7 @@ rocksdb_table_index_stats_failure	#
 rocksdb_table_index_stats_req_queue_length	#
 rocksdb_covered_secondary_key_lookups	#
 rocksdb_additional_compaction_triggers	#
+rocksdb_binlog_ttl_compaction_timestamp	#
 rocksdb_block_cache_add	#
 rocksdb_block_cache_add_failures	#
 rocksdb_block_cache_bytes_read	#
@@ -1697,6 +1703,7 @@ rocksdb_write_wal	#
 select UPPER(VARIABLE_NAME) from performance_schema.global_status where VARIABLE_NAME LIKE 'rocksdb%' and VARIABLE_NAME NOT LIKE '%num_get_for_update%';
 UPPER(VARIABLE_NAME)
 ROCKSDB_ADDITIONAL_COMPACTION_TRIGGERS
+ROCKSDB_BINLOG_TTL_COMPACTION_TIMESTAMP
 ROCKSDB_BLOCK_CACHE_ADD
 ROCKSDB_BLOCK_CACHE_ADD_FAILURES
 ROCKSDB_BLOCK_CACHE_BYTES_READ
@@ -1791,7 +1798,7 @@ ROCKSDB_ROWS_EXPIRED
 ROCKSDB_ROWS_FILTERED
 ROCKSDB_ROWS_INSERTED
 ROCKSDB_ROWS_READ
-ROCKSDB_ROWS_UNFILTERED_NO_SNAPSHOT
+ROCKSDB_ROWS_UNFILTERED_NO_READ_FILTERING_TIME
 ROCKSDB_ROWS_UPDATED
 ROCKSDB_ROW_LOCK_DEADLOCKS
 ROCKSDB_ROW_LOCK_WAIT_TIMEOUTS
@@ -1828,6 +1835,7 @@ ROCKSDB_WRITE_WAL
 select UPPER(VARIABLE_NAME) from performance_schema.session_status where VARIABLE_NAME LIKE 'rocksdb%' and VARIABLE_NAME NOT LIKE '%num_get_for_update%';
 UPPER(VARIABLE_NAME)
 ROCKSDB_ADDITIONAL_COMPACTION_TRIGGERS
+ROCKSDB_BINLOG_TTL_COMPACTION_TIMESTAMP
 ROCKSDB_BLOCK_CACHE_ADD
 ROCKSDB_BLOCK_CACHE_ADD_FAILURES
 ROCKSDB_BLOCK_CACHE_BYTES_READ
@@ -1922,7 +1930,7 @@ ROCKSDB_ROWS_EXPIRED
 ROCKSDB_ROWS_FILTERED
 ROCKSDB_ROWS_INSERTED
 ROCKSDB_ROWS_READ
-ROCKSDB_ROWS_UNFILTERED_NO_SNAPSHOT
+ROCKSDB_ROWS_UNFILTERED_NO_READ_FILTERING_TIME
 ROCKSDB_ROWS_UPDATED
 ROCKSDB_ROW_LOCK_DEADLOCKS
 ROCKSDB_ROW_LOCK_WAIT_TIMEOUTS

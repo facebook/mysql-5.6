@@ -4161,6 +4161,24 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   bool write_rotate_tag(Basic_ostream *ostream);
 
   /**
+   * Write TTL read filtering timestamp to file
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_ttl_read_filtering_timestamp(Basic_ostream *ostream);
+
+  /**
+   * Write TTL compaction timestamp to file
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_ttl_compaction_timestamp(Basic_ostream *ostream);
+
+  /**
    * Write type and length to file
    *
    * @param ostream - stream to write to
@@ -4226,6 +4244,24 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - 0 on success, 1 on false
    */
   uint32 write_rotate_tag(uchar *obuffer);
+
+  /**
+   * Write TTL read filtering timestamp to memory buffer
+   *
+   * @param obffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_ttl_read_filtering_timestamp(uchar *obuffer);
+
+  /**
+   * Write TTL compaction timestamp to memory buffer
+   *
+   * @param obffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_ttl_compaction_timestamp(uchar *obuffer);
 
   /**
    * Write type and length to memory buffer

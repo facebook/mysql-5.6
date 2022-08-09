@@ -1313,6 +1313,14 @@ bool Mts_submode_dependency::schedule_dep(Relay_log_info *rli, Log_event *ev) {
                        (dbs_accessed_by_group.size() > 1));
   }
 
+  // Metadata event with TTL compaction timestamp should be executed in
+  // isolation
+  if (ev->get_type_code() == binary_log::METADATA_EVENT) {
+    const auto mle = static_cast<Metadata_log_event *>(ev);
+    set_dep_sync_group(dep_sync_group ||
+        mle->get_ttl_compaction_timestamp());
+  }
+
   if (unlikely(dep_sync_group)) {
     if (!wait_for_dep_workers_to_finish(rli, trx_queued)) DBUG_RETURN(false);
   }

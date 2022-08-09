@@ -1826,6 +1826,14 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-alter-column-default-inplace to disable.)
  --rocksdb-alter-table-comment-inplace 
  Allow inplace alter for alter table comment
+ --rocksdb-binlog-ttl 
+ Sync TTL timestamps over replication
+ --rocksdb-binlog-ttl-compaction-ts-interval-secs=# 
+ Interval in seconds when compaction timestamp is written
+ to the binlog. Default: 1 hour
+ --rocksdb-binlog-ttl-compaction-ts-offset-secs=# 
+ Offset in seconds which is subtracted from the compaction
+ ts when it's written to the binlogDefault: 60s
  --rocksdb-blind-delete-primary-key 
  Deleting rows by primary key lookup, without reading rows
  (Blind Deletes). Blind delete is disabled if the table
@@ -1951,6 +1959,9 @@ The following options may be given as the first argument:
  --rocksdb-deadlock-detect-depth=# 
  Number of transactions deadlock detection will traverse
  through before assuming deadlock
+ --rocksdb-debug-binlog-ttl-compaction-ts-delta=# 
+ For debugging purposes only. Overrides the binlog TTL
+ compaction time by adding the delta provided in this var
  --rocksdb-debug-cardinality-multiplier=# 
  Cardinality multiplier used in tests
  --rocksdb-debug-manual-compaction-delay=# 
@@ -1968,7 +1979,7 @@ The following options may be given as the first argument:
  filtering will not occur on PK TTL data. This variable is
  a no-op in non-debug builds.
  --rocksdb-debug-ttl-read-filter-ts=# 
- For debugging purposes only.  Overrides the TTL read
+ For debugging purposes only. Overrides the TTL read
  filtering time to time + debug_ttl_read_filter_ts. A
  value of 0 denotes that the variable is not set. This
  variable is a no-op in non-debug builds.
@@ -2194,6 +2205,10 @@ The following options may be given as the first argument:
  group for partial indexes. 0 means no limit.
  --rocksdb-pause-background-work 
  Disable all rocksdb background operations
+ --rocksdb-pause-ttl-compaction-filter 
+ Pauses TTL compaction filter. This means that as long as
+ this variable is enabled, compactions will not delete
+ expired rows.
  --rocksdb-perf-context[=name] 
  Enable or disable ROCKSDB_PERF_CONTEXT plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
@@ -3473,6 +3488,9 @@ rocksdb-allow-mmap-writes FALSE
 rocksdb-allow-to-start-after-corruption FALSE
 rocksdb-alter-column-default-inplace TRUE
 rocksdb-alter-table-comment-inplace FALSE
+rocksdb-binlog-ttl FALSE
+rocksdb-binlog-ttl-compaction-ts-interval-secs 3600
+rocksdb-binlog-ttl-compaction-ts-offset-secs 60
 rocksdb-blind-delete-primary-key FALSE
 rocksdb-block-cache-size 536870912
 rocksdb-block-restart-interval 16
@@ -3516,6 +3534,7 @@ rocksdb-ddl ON
 rocksdb-deadlock ON
 rocksdb-deadlock-detect FALSE
 rocksdb-deadlock-detect-depth 50
+rocksdb-debug-binlog-ttl-compaction-ts-delta 0
 rocksdb-debug-cardinality-multiplier 2
 rocksdb-debug-manual-compaction-delay 0
 rocksdb-debug-optimizer-n-rows 0
@@ -3591,6 +3610,7 @@ rocksdb-override-cf-options
 rocksdb-paranoid-checks TRUE
 rocksdb-partial-index-sort-max-mem 0
 rocksdb-pause-background-work FALSE
+rocksdb-pause-ttl-compaction-filter FALSE
 rocksdb-perf-context ON
 rocksdb-perf-context-global ON
 rocksdb-perf-context-level 0

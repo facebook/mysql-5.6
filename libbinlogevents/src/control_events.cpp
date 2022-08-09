@@ -447,16 +447,10 @@ Metadata_event::Metadata_event(const char *buf,
   BAPI_VOID_RETURN;
 }
 
-void Metadata_event::set_hlc_time(uint64_t hlc_time_ns) {
-  hlc_time_ns_ = hlc_time_ns;
-  set_exist(Metadata_event_types::HLC_TYPE);
-  // Update the size of the event when it gets serialized into the stream.
-  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_HLC_SIZE);
-}
-
 void Metadata_event::set_exist(Metadata_event_types type) {
   std::size_t index = static_cast<std::size_t>(type);
   assert(index < existing_types_.size());
+  assert(!existing_types_[index]);
   existing_types_[index] = true;
 }
 
@@ -466,7 +460,38 @@ bool Metadata_event::does_exist(Metadata_event_types type) const {
   return existing_types_[index];
 }
 
+void Metadata_event::set_hlc_time(uint64_t hlc_time_ns) {
+  hlc_time_ns_ = hlc_time_ns;
+  set_exist(Metadata_event_types::HLC_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_HLC_SIZE);
+}
+
 uint64_t Metadata_event::get_hlc_time() const { return hlc_time_ns_; }
+
+void Metadata_event::set_ttl_read_filtering_timestamp(uint64_t ts) {
+  ttl_read_filtering_timestamp_ = ts;
+  set_exist(Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE +
+            ENCODED_TTL_READ_FILTERING_TIMESTAMP_SIZE);
+}
+
+uint64_t Metadata_event::get_ttl_read_filtering_timestamp() const {
+  return ttl_read_filtering_timestamp_;
+}
+
+void Metadata_event::set_ttl_compaction_timestamp(uint64_t ts) {
+  ttl_compaction_timestamp_ = ts;
+  set_exist(Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE +
+            ENCODED_TTL_COMPACTION_TIMESTAMP_SIZE);
+}
+
+uint64_t Metadata_event::get_ttl_compaction_timestamp() const {
+  return ttl_compaction_timestamp_;
+}
 
 void Metadata_event::set_prev_hlc_time(uint64_t prev_hlc_time_ns) {
   prev_hlc_time_ns_ = prev_hlc_time_ns;
@@ -513,6 +538,14 @@ void Metadata_event::set_raft_prev_opid(int64_t term, int64_t index) {
       (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_PREV_OPID_SIZE);
 }
 
+int64_t Metadata_event::get_raft_prev_opid_term() const {
+  return prev_raft_term_;
+}
+
+int64_t Metadata_event::get_raft_prev_opid_index() const {
+  return prev_raft_index_;
+}
+
 void Metadata_event::set_raft_rotate_tag(
     Metadata_event::RAFT_ROTATE_EVENT_TAG t) {
   raft_rotate_tag_ = t;
@@ -541,14 +574,6 @@ std::string Metadata_event::get_rotate_tag_string() const {
   }
 }
 
-int64_t Metadata_event::get_raft_prev_opid_term() const {
-  return prev_raft_term_;
-}
-
-int64_t Metadata_event::get_raft_prev_opid_index() const {
-  return prev_raft_index_;
-}
-
 uint Metadata_event::read_type(Metadata_event_types type) {
   BAPI_ENTER("Metadata_event::read_type");
   using MET = Metadata_event_types;
@@ -561,6 +586,8 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   const char *ptr_raft_str = nullptr;
   int64_t prev_term = -1, prev_index = -1;
   int16_t raft_rotate_tag = RRET_NOT_ROTATE;
+  uint64_t ttl_read_filtering_timestamp = 0;
+  uint64_t ttl_compaction_timestamp = 0;
   READER_TRY_SET(value_length, read<uint16_t>);
 
   switch (type) {
@@ -596,6 +623,18 @@ uint Metadata_event::read_type(Metadata_event_types type) {
       assert(value_length == ENCODED_RAFT_ROTATE_TAG_SIZE);
       READER_TRY_SET(raft_rotate_tag, read<int16_t>);
       set_raft_rotate_tag((RAFT_ROTATE_EVENT_TAG)raft_rotate_tag);
+      break;
+    case MET::TTL_READ_FILTERING_TIMESTAMP_TYPE:
+      // TTL is a 8 byte numerical field
+      assert(value_length == 8);
+      READER_TRY_SET(ttl_read_filtering_timestamp, read<uint64_t>);
+      set_ttl_read_filtering_timestamp(ttl_read_filtering_timestamp);
+      break;
+    case MET::TTL_COMPACTION_TIMESTAMP_TYPE:
+      // TTL is a 8 byte numerical field
+      assert(value_length == 8);
+      READER_TRY_SET(ttl_compaction_timestamp, read<uint64_t>);
+      set_ttl_compaction_timestamp(ttl_compaction_timestamp);
       break;
 
     default:

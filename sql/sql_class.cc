@@ -3679,6 +3679,20 @@ void THD::claim_memory_ownership(bool claim [[maybe_unused]]) {
 #endif /* HAVE_PSI_MEMORY_INTERFACE */
 }
 
+bool THD::is_any_locked_table_ttl_enabled() const {
+  for (MYSQL_LOCK *lock : {extra_lock, lock}) {
+    if (lock == nullptr) continue;
+    TABLE **const end_ptr = lock->table + lock->table_count;
+    for (TABLE **table_ptr = lock->table; table_ptr != end_ptr; ++table_ptr) {
+      TABLE *const table = *table_ptr;
+      if (unlikely(table->file->last_part_has_ttl_column())) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 void THD::rpl_detach_engine_ha_data() {
   Relay_log_info *rli =
       is_binlog_applier() ? rli_fake : (slave_thread ? rli_slave : nullptr);

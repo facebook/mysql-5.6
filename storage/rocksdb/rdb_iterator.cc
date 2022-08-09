@@ -252,7 +252,7 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
     }
 
     // Record is not visible due to TTL, move to next record.
-    if (m_pkd->has_ttl() && rdb_should_hide_ttl_rec(kd, value, tx)) {
+    if (m_pkd->has_ttl() && rdb_should_hide_ttl_rec(kd, &value, tx)) {
       continue;
     }
 
@@ -351,12 +351,11 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
     return rdb_tx_set_status_error(tx, s, *m_kd, m_tbl_def);
   }
 
-  if (s.IsNotFound()) {
-    return HA_ERR_KEY_NOT_FOUND;
-  }
+  const bool hide_ttl_rec =
+      !skip_ttl_check && m_kd->has_ttl() &&
+      rdb_should_hide_ttl_rec(*m_kd, s.IsNotFound() ? nullptr : value, tx);
 
-  if (!skip_ttl_check && m_kd->has_ttl() &&
-      rdb_should_hide_ttl_rec(*m_kd, *value, tx)) {
+  if (hide_ttl_rec || s.IsNotFound()) {
     return HA_ERR_KEY_NOT_FOUND;
   }
 

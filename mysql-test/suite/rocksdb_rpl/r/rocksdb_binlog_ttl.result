@@ -1,0 +1,200 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+Creating schema
+create table short_ttl_table(a bigint unsigned primary key) engine = rocksdb comment = 'ttl_duration=5;ttl_col=a';
+create table ttl_table(a bigint unsigned primary key) engine = rocksdb comment = 'ttl_duration=3600;ttl_col=a';
+create table non_ttl_table(a int primary key) engine = rocksdb;
+include/sync_slave_sql_with_master.inc
+"Case: Row will be present past expiration time if HLC is not advanced thru writes"
+insert into short_ttl_table values(unix_timestamp());
+select sleep(5);
+sleep(5)
+0
+include/assert.inc [Primary: Row will be present past expiration time]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Secondary: Row will be present past expiration time]
+insert into short_ttl_table values(unix_timestamp());
+include/assert.inc [Primary: After HLC is advanced previous row will expire]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Secondary: After HLC is advanced previous row will expire]
+delete from short_ttl_table;
+include/sync_slave_sql_with_master.inc
+"Case: Compaction timestamp should advance after rocksdb_binlog_ttl_compaction_ts_interval_secs"
+select sleep(2);
+sleep(2)
+0
+insert into ttl_table values(unix_timestamp());
+include/sync_slave_sql_with_master.inc
+select sleep(2);
+sleep(2)
+0
+insert into ttl_table values(unix_timestamp());
+include/assert.inc [Primary: Compaction timestamp should advance]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Secondary: Compaction timestamp should advance]
+include/assert.inc [Secondary: Compaction timestamp <= compaction timestamp on primary]
+delete from ttl_table;
+include/sync_slave_sql_with_master.inc
+"Case: Compaction timestamp should take rocksdb_binlog_ttl_compaction_ts_offset_secs into account"
+set @save.rocksdb_binlog_ttl_compaction_ts_offset_secs = @@global.rocksdb_binlog_ttl_compaction_ts_offset_secs;
+set @@global.rocksdb_binlog_ttl_compaction_ts_offset_secs = 10;
+select sleep(10);
+sleep(10)
+0
+select sleep(2);
+sleep(2)
+0
+insert into ttl_table values(unix_timestamp());
+include/sync_slave_sql_with_master.inc
+select sleep(2);
+sleep(2)
+0
+insert into ttl_table values(unix_timestamp());
+include/assert.inc [Primary: Compaction timestamp should take rocksdb_binlog_ttl_compaction_ts_offset_secs into account]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Secondary: Compaction timestamp should take rocksdb_binlog_ttl_compaction_ts_offset_secs into account]
+set @@global.rocksdb_binlog_ttl_compaction_ts_offset_secs = @save.rocksdb_binlog_ttl_compaction_ts_offset_secs;
+delete from ttl_table;
+include/sync_slave_sql_with_master.inc
+"Case: Compaction timestamp should not advance beyond the oldest active transaction's read filtering time"
+insert into ttl_table values(unix_timestamp());
+begin;
+select count(*) from ttl_table;
+count(*)
+1
+select sleep(2);
+sleep(2)
+0
+insert into ttl_table values(unix_timestamp());
+select sleep(2);
+sleep(2)
+0
+insert into ttl_table values(unix_timestamp());
+include/assert.inc [Primary: Compaction timestamp should not advance because of active transaction]
+commit;
+select sleep(2);
+sleep(2)
+0
+insert into ttl_table values(unix_timestamp());
+include/assert.inc [Primary: Compaction timestamp will advance after active transaction commits]
+delete from ttl_table;
+include/sync_slave_sql_with_master.inc
+"Case: RW transactions with stale snapshots (older than binlog TTL) should not be able to commit"
+set @@global.rocksdb_debug_binlog_ttl_compaction_ts_delta = 3600;
+insert into ttl_table values(unix_timestamp());
+ERROR HY000: Can't execute writes with a stale snapshot on a TTL enabled table when rocksdb_binlog_ttl = 1. Retry the transaction to refresh the snapshot.
+insert into non_ttl_table values(1);
+delete from non_ttl_table;
+set @@global.rocksdb_debug_binlog_ttl_compaction_ts_delta = -3600;
+set @@global.rocksdb_debug_binlog_ttl_compaction_ts_delta = 0;
+include/sync_slave_sql_with_master.inc
+"Case: Compaction should respect binlog TTL"
+insert into short_ttl_table values(unix_timestamp());
+select sleep(5);
+sleep(5)
+0
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+include/assert.inc [Primary: Compaction should respect binlog compaction time]
+delete from short_ttl_table;
+include/sync_slave_sql_with_master.inc
+"Case: Rows will not expire when TTL compaction filter is paused"
+set @@global.rocksdb_pause_ttl_compaction_filter = true;
+insert into short_ttl_table values(unix_timestamp());
+select sleep(5);
+sleep(5)
+0
+select sleep(1);
+sleep(1)
+0
+insert into short_ttl_table values(unix_timestamp());
+select sleep(2);
+sleep(2)
+0
+insert into short_ttl_table values(unix_timestamp());
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+include/assert.inc [Primary: Compaction should not clean up expired rows when TTL compaction filter is paused]
+set @@global.rocksdb_pause_ttl_compaction_filter = false;
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+include/assert.inc [Primary: Compaction will resume TTL cleanup when compaction filter is resumed]
+delete from short_ttl_table;
+include/sync_slave_sql_with_master.inc
+"Case: Multi threaded applier should execute transaction carrying compaction time in sync mode"
+insert into non_ttl_table values(unix_timestamp());
+include/sync_slave_sql_with_master.inc
+begin;
+update non_ttl_table set a = a + 1;
+update non_ttl_table set a = a + 10;
+set @@global.rocksdb_binlog_ttl_compaction_ts_interval_secs = 100000;
+insert into ttl_table values(unix_timestamp());
+set @@global.rocksdb_binlog_ttl_compaction_ts_interval_secs = 2;
+select sleep(2);
+sleep(2)
+0
+insert into ttl_table values(unix_timestamp());
+rollback;
+delete from non_ttl_table;
+delete from ttl_table;
+include/sync_slave_sql_with_master.inc
+"Case: Partial rollout should work"
+"1. Enabled on primary but not on secondary"
+set @@global.rocksdb_binlog_ttl = 0;
+insert into non_ttl_table values(unix_timestamp());
+insert into ttl_table values(unix_timestamp());
+insert into short_ttl_table values(unix_timestamp());
+select sleep(2);
+sleep(2)
+0
+insert into non_ttl_table values(unix_timestamp());
+insert into ttl_table values(unix_timestamp());
+insert into short_ttl_table values(unix_timestamp());
+delete from non_ttl_table;
+delete from ttl_table;
+delete from short_ttl_table;
+include/sync_slave_sql_with_master.inc
+set @@global.rocksdb_binlog_ttl = 1;
+"2. Enabled on secondary but not on primary"
+set @@global.rocksdb_binlog_ttl = 0;
+insert into non_ttl_table values(unix_timestamp());
+insert into ttl_table values(unix_timestamp());
+insert into short_ttl_table values(unix_timestamp());
+select sleep(2);
+sleep(2)
+0
+insert into non_ttl_table values(unix_timestamp());
+insert into ttl_table values(unix_timestamp());
+insert into short_ttl_table values(unix_timestamp());
+delete from non_ttl_table;
+delete from ttl_table;
+delete from short_ttl_table;
+set @@global.rocksdb_binlog_ttl = 1;
+include/sync_slave_sql_with_master.inc
+"Case: No errors when there is data drift on TTL tables"
+insert into ttl_table values(unix_timestamp());
+include/sync_slave_sql_with_master.inc
+set @@sql_log_bin = 0;
+delete from ttl_table;
+set @@sql_log_bin = 1;
+call mtr.add_suppression('Could not execute Delete_rows event on table test.ttl_table');
+delete from ttl_table;
+include/sync_slave_sql_with_master.inc
+"Case: BINLOG commands should work even with old read filtering time"
+drop table ttl_table;
+drop table short_ttl_table;
+drop table non_ttl_table;
+include/sync_slave_sql_with_master.inc
+flush binary logs;
+include/sync_slave_sql_with_master.inc
+"Case: Server restarts are handled"
+include/stop_slave.inc
+include/rpl_restart_server.inc [server_number=2]
+include/rpl_restart_server.inc [server_number=1]
+include/assert.inc [Primary: Compaction ts will be 0 after restart]
+include/start_slave.inc
+include/assert.inc [Secondary: Compaction ts will be 0 after restart]
+include/rpl_end.inc

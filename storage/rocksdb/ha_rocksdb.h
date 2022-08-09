@@ -1204,7 +1204,7 @@ inline void rocksdb_smart_prev(bool seek_backward,
 bool is_valid_iterator(rocksdb::Iterator *scan_it);
 
 bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
-                             const rocksdb::Slice &ttl_rec_val,
+                             const rocksdb::Slice *const ttl_rec_val,
                              Rdb_transaction *tx);
 
 bool rdb_tx_started(Rdb_transaction *tx, const TABLE_TYPE table_type);
@@ -1220,6 +1220,7 @@ extern std::atomic<uint64_t> rocksdb_partial_index_groups_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_groups_materialized;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_materialized;
+extern std::atomic<uint64_t> rocksdb_binlog_ttl_compaction_timestamp;
 extern bool rocksdb_enable_tmp_table;
 extern bool rocksdb_enable_delete_range_for_drop_index;
 extern bool rocksdb_disable_instant_ddl;

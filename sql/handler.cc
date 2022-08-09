@@ -2560,6 +2560,16 @@ bool ha_flush_logs(bool binlog_group_flush) {
   return false;
 }
 
+bool ha_update_binlog_ttl_compaction_ts(THD *thd, uint64_t *timestamp) {
+  if (rocksdb_hton == nullptr ||
+      rocksdb_hton->update_binlog_ttl_compaction_ts == nullptr ||
+      rocksdb_hton->state != SHOW_OPTION_YES) {
+    return false;
+  }
+  return rocksdb_hton->update_binlog_ttl_compaction_ts(rocksdb_hton, thd,
+                                                       timestamp);
+}
+
 /**
   @brief make canonical filename
 

@@ -1422,6 +1422,9 @@ typedef bool (*update_binlog_pos_t)(handlerton *hton, const char *file,
                                     const my_off_t *offset,
                                     const char *max_gtid_buf);
 
+typedef bool (*update_binlog_ttl_compaction_ts_t)(handlerton *hton, THD *thd,
+                                                  uint64_t *ts);
+
 typedef int (*recover_t)(handlerton *hton, XA_recover_txn *xid_list, uint len,
                          MEM_ROOT *mem_root);
 /**
@@ -2706,6 +2709,7 @@ struct handlerton {
   start_consistent_snapshot_t start_consistent_snapshot;
   start_shared_snapshot_t start_shared_snapshot;
   flush_logs_t flush_logs;
+  update_binlog_ttl_compaction_ts_t update_binlog_ttl_compaction_ts;
   show_status_t show_status;
   partition_flags_t partition_flags;
   is_valid_tablespace_name_t is_valid_tablespace_name;
@@ -7342,6 +7346,7 @@ void ha_pre_dd_shutdown(void);
   @retval true Error
 */
 bool ha_flush_logs(bool binlog_group_flush = false);
+bool ha_update_binlog_ttl_compaction_ts(THD *thd, uint64_t *ts = nullptr);
 void ha_drop_database(char *path);
 int ha_create_table(THD *thd, const char *path, const char *db,
                     const char *table_name, HA_CREATE_INFO *create_info,

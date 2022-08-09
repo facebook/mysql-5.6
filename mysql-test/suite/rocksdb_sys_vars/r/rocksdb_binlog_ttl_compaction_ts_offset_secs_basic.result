@@ -1,0 +1,57 @@
+CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO valid_values VALUES(0);
+INSERT INTO valid_values VALUES(1800);
+INSERT INTO valid_values VALUES(3600);
+CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO invalid_values VALUES('\'aaa\'');
+SET @start_global_value = @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+SELECT @start_global_value;
+@start_global_value
+60
+'# Setting to valid values in global scope#'
+"Trying to set variable @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS to 0"
+SET @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS   = 0;
+SELECT @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+@@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS = DEFAULT;
+SELECT @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+@@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS
+60
+"Trying to set variable @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS to 1800"
+SET @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS   = 1800;
+SELECT @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+@@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS
+1800
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS = DEFAULT;
+SELECT @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+@@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS
+60
+"Trying to set variable @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS to 3600"
+SET @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS   = 3600;
+SELECT @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+@@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS
+3600
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS = DEFAULT;
+SELECT @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+@@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS
+60
+"Trying to set variable @@session.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS to 444. It should fail because it is not session."
+SET @@session.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS   = 444;
+ERROR HY000: Variable 'rocksdb_binlog_ttl_compaction_ts_offset_secs' is a GLOBAL variable and should be set with SET GLOBAL
+'# Testing with invalid values in global scope #'
+"Trying to set variable @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS to 'aaa'"
+SET @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS   = 'aaa';
+Got one of the listed errors
+SELECT @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+@@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS
+60
+SET @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS = @start_global_value;
+SELECT @@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS;
+@@global.ROCKSDB_BINLOG_TTL_COMPACTION_TS_OFFSET_SECS
+60
+DROP TABLE valid_values;
+DROP TABLE invalid_values;

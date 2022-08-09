@@ -821,6 +821,36 @@ class Metadata_event : public Binary_log_event {
   int64_t get_raft_prev_opid_index() const;
 
   /**
+   * Set TTL read filtering timestamp and update internal state needed later to
+   * write this to stream
+   *
+   * @param ts - timestamp to set
+   */
+  void set_ttl_read_filtering_timestamp(uint64_t ts);
+
+  /**
+   * Get TTL read filtering timestamp
+   *
+   * @return timestamp if present. 0 otherwise
+   */
+  uint64_t get_ttl_read_filtering_timestamp() const;
+
+  /**
+   * Set TTL compaction timestamp and update internal state needed later to
+   * write this to stream
+   *
+   * @param ts - timestamp to set
+   */
+  void set_ttl_compaction_timestamp(uint64_t ts);
+
+  /**
+   * Get TTL compaction timestamp
+   *
+   * @return timestamp if present. 0 otherwise
+   */
+  uint64_t get_ttl_compaction_timestamp() const;
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_event_types : unsigned char {
@@ -841,6 +871,11 @@ class Metadata_event : public Binary_log_event {
     RAFT_PREV_OPID_TYPE = 4,
     /* Raft Rotate Event Tag Type */
     RAFT_ROTATE_TAG_TYPE = 5,
+    /* MyRocks TTL read filtering timestamp */
+    TTL_READ_FILTERING_TIMESTAMP_TYPE = 6,
+    /* MyRocks TTL compaction timestamp */
+    TTL_COMPACTION_TIMESTAMP_TYPE = 7,
+
     METADATA_EVENT_TYPE_MAX,
   };
 
@@ -905,6 +940,18 @@ class Metadata_event : public Binary_log_event {
   RAFT_ROTATE_EVENT_TAG raft_rotate_tag_ = RRET_NOT_ROTATE;
   // will write as uint16_t
   static const uint32_t ENCODED_RAFT_ROTATE_TAG_SIZE = sizeof(uint16_t);
+
+  /* TTL read filtering timestamp. The type corresponding to this is
+   * TTL_READ_FILTERING_TIMESTAMP_TYPE. */
+  uint64_t ttl_read_filtering_timestamp_ = 0;
+  static const uint32_t ENCODED_TTL_READ_FILTERING_TIMESTAMP_SIZE =
+      sizeof(ttl_read_filtering_timestamp_);
+
+  /* TTL compaction timestamp. The type corresponding to this is
+   * TTL_COMPACTION_TIMESTAMP_TYPE. */
+  uint64_t ttl_compaction_timestamp_ = 0;
+  static const uint32_t ENCODED_TTL_COMPACTION_TIMESTAMP_SIZE =
+      sizeof(ttl_compaction_timestamp_);
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;

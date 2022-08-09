@@ -7917,7 +7917,7 @@ static int init_server_components() {
 
     // Update the instance's HLC clock to be greater than or equal to the HLC
     // times of trx's in all previous binlog
-    mysql_bin_log.update_hlc(prev_hlc);
+    mysql_bin_log.update_binlog_hlc(prev_hlc);
 
     if (enable_raft_plugin && !disable_raft_log_repointing) {
       /* If raft is enabled, we open an existing binlog file if it exists.
@@ -9024,7 +9024,7 @@ int mysqld_main(int argc, char **argv)
 
     // Update the instance's HLC clock to be greater than or equal to the HLC
     // times of trx's in all previous binlog
-    mysql_bin_log.update_hlc(prev_hlc);
+    mysql_bin_log.update_binlog_hlc(prev_hlc);
 
     global_sid_lock->wrlock();
 

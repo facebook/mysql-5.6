@@ -307,6 +307,10 @@ void thd_query_safe(THD *thd, std::string *query) {
 
 int thd_slave_thread(const THD *thd) { return (thd->slave_thread); }
 
+bool thd_is_executing_binlog_events(const THD *thd) {
+  return thd->rli_slave != nullptr || thd->rli_fake != nullptr;
+}
+
 int thd_non_transactional_update(const THD *thd) {
   return thd->get_transaction()->has_modified_non_trans_table(
       Transaction_ctx::SESSION);

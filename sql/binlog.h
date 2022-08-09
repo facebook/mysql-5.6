@@ -512,6 +512,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
     Used by sys_var gtid_purged_for_tailing
   */
   std::string lost_gtid_for_tailing;
+
+  // TTL compaction timestamp from metadata event
+  std::atomic<uint64_t> ttl_compaction_ts{0};
+
   /*
     crash_safe_index_file is temp file used for guaranteeing
     index file crash safe when master server restarts.
@@ -602,6 +606,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
     is disabled
   */
   bool is_current_stmt_binlog_enabled_and_caches_empty(const THD *thd) const;
+
+  void set_ttl_compaction_ts(uint64_t ts) { ttl_compaction_ts = ts; }
+
+  uint64_t get_ttl_compaction_ts() const { return ttl_compaction_ts.load(); }
 
  private:
   /**
@@ -918,6 +926,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   bool reencrypt_logs();
 
+  bool is_hlc_enabled() const { return enable_binlog_hlc; }
+
   // Extract HLC time (either prev_hlc or regular hlc) from Metadata_log_event
   uint64_t extract_hlc(Metadata_log_event *metadata_ev);
 
@@ -926,11 +936,31 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   uint64_t get_current_hlc() { return hlc.get_current(); }
 
+  /* Return the max HLC ts written to the binlog */
+  uint64_t get_max_write_hlc_nsec() const { return max_write_hlc_ts.load(); }
+
+  /* Atomically advances the max HLC written to the binlog */
+  void set_max_write_hlc_nsec(uint64_t ts) {
+    uint64_t current_ts = max_write_hlc_ts.load();
+    while (ts > current_ts) {
+      if (max_write_hlc_ts.compare_exchange_strong(current_ts, ts)) {
+        break;
+      }
+      current_ts = max_write_hlc_ts.load();
+    }
+  }
+
   /* Update the minimum HLC value. This is used to set the lower bound on the
      HLC for this instance. This is achieved by exposing a global system var
      'minimum hlc' - updates on which will call this function. This can also
      be used to synchronize HLC across different communicating instances */
   uint64_t update_hlc(uint64_t minimum_hlc) { return hlc.update(minimum_hlc); }
+
+  /* Updates hlc from the binlogs */
+  void update_binlog_hlc(uint64_t ts) {
+    hlc.update(ts);
+    set_max_write_hlc_nsec(ts);
+  }
 
   /* get the applied HLC for all known databases in this instance */
   database_hlc_container get_database_hlc() const {
@@ -961,6 +991,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * by having a map of such  clocks
    */
   HybridLogicalClock hlc;
+
+  // Max HLC timestamp written to the binlog
+  std::atomic<uint64_t> max_write_hlc_ts{0};
 
   // Used by raft log only
   // Log file name: binary-logs-{port}.####
@@ -1356,20 +1389,22 @@ class MYSQL_BIN_LOG : public TC_LOG {
   bool assign_hlc(THD *thd);
 
   /**
-   * Write HLC timestamp of a thd in group commit to binlog
+   * Write metadata event
+   *
+   * Metadata event contains info like HLC, Raft OpId, TTL timestamp etc. It is
+   * written after GTID event
    *
    * @param thd - the THD in group commit
-   * @param cache_data - The cache that is being written dusring flush stage
-   * @param writer - Binlog writer
-   * @param obuffer - The metadata event will be written to the buffer
-   *                  (if not null)
-   * @param wrote_hlc - Will be set to true if HLC was written to the log file
+   * @param cache_data - The cache that is being written during flush stage
+   * @param writer - Binlog writer (metadata event will be written here)
+   * @param obuffer - if not null, metadata event will be written here (instead
+   *                  of writing to writer)
    *
    * @return false on success, true on failure
    */
-  bool write_hlc(THD *thd, binlog_cache_data *cache_data,
-                 Binlog_event_writer *writer, Binlog_cache_storage *obuffer,
-                 bool *wrote_hlc = nullptr);
+  bool write_metadata_event(THD *thd, binlog_cache_data *cache_data,
+                            Binlog_event_writer *writer,
+                            Binlog_cache_storage *obuffer);
 
   /**
     Assign automatic generated GTIDs for all commit group threads in the flush

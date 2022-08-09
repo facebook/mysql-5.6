@@ -174,6 +174,14 @@ void thd_query_safe(THD *thd, std::string *query);
 int thd_slave_thread(const THD *thd);
 
 /**
+  Check if THD is executing binlog events
+  @param thd THD
+  @retval false THD is not executing binlog events
+  @retval true  THD is executing binlog events
+*/
+bool thd_is_executing_binlog_events(const THD *thd);
+
+/**
   Check if a user thread is running a non-transactional update
   @param thd user thread
   @retval 0 the user thread is not running a non-transactional update

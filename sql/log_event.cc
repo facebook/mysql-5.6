@@ -2871,6 +2871,15 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       // By the time we see Metadata event for the group, we should have already
       // seen gtid event. Hence number of elements in the array is 2
       assert(rli->curr_group_da.size() == 2);
+
+      // Metadata event with TTL compaction timestamp should be executed in
+      // isolation
+      const auto mle = static_cast<Metadata_log_event *>(this);
+      if (mle->get_ttl_compaction_timestamp()) {
+        (void)rli->current_mts_submode->wait_for_workers_to_finish(rli,
+                                                                   ret_worker);
+        rli->curr_group_isolated = true;
+      }
       return ret_worker;
     } else {
       /*
@@ -15060,6 +15069,10 @@ bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
 
   if (write_rotate_tag(ostream)) DBUG_RETURN(1);
 
+  if (write_ttl_read_filtering_timestamp(ostream)) DBUG_RETURN(1);
+
+  if (write_ttl_compaction_timestamp(ostream)) DBUG_RETURN(1);
+
   DBUG_RETURN(0);
 }
 
@@ -15079,6 +15092,56 @@ bool Metadata_log_event::write_hlc_time(Basic_ostream *ostream) {
 
   int8store(ptr_buffer, hlc_time_ns_);
   ptr_buffer += ENCODED_HLC_SIZE;
+
+  assert(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_ttl_read_filtering_timestamp(
+    Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_ttl_read_filtering_timestamp");
+
+  if (!does_exist(Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE))
+    DBUG_RETURN(0); /* No need to write TTL timestamp */
+
+  if (write_type_and_length(
+          ostream, Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE,
+          sizeof(ttl_read_filtering_timestamp_))) {
+    DBUG_RETURN(1);
+  }
+
+  char buffer[ENCODED_TTL_READ_FILTERING_TIMESTAMP_SIZE];
+  char *ptr_buffer = buffer;
+
+  int8store(ptr_buffer, ttl_read_filtering_timestamp_);
+  ptr_buffer += ENCODED_TTL_READ_FILTERING_TIMESTAMP_SIZE;
+
+  assert(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_ttl_compaction_timestamp(
+    Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_ttl_compaction_timestamp");
+
+  if (!does_exist(Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE))
+    DBUG_RETURN(0); /* No need to write TTL timestamp */
+
+  if (write_type_and_length(ostream,
+                            Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE,
+                            sizeof(ttl_compaction_timestamp_))) {
+    DBUG_RETURN(1);
+  }
+
+  char buffer[ENCODED_TTL_COMPACTION_TIMESTAMP_SIZE];
+  char *ptr_buffer = buffer;
+
+  int8store(ptr_buffer, ttl_compaction_timestamp_);
+  ptr_buffer += ENCODED_TTL_COMPACTION_TIMESTAMP_SIZE;
 
   assert(ptr_buffer == (buffer + sizeof(buffer)));
 
@@ -15235,6 +15298,8 @@ uint32 Metadata_log_event::write_data_body(uchar *obuffer) {
   length += write_raft_term_and_index(obuffer + length);
   length += write_raft_str(obuffer + length);
   length += write_rotate_tag(obuffer + length);
+  length += write_ttl_read_filtering_timestamp(obuffer + length);
+  length += write_ttl_compaction_timestamp(obuffer + length);
   DBUG_RETURN(length);
 }
 
@@ -15251,6 +15316,42 @@ uint32 Metadata_log_event::write_hlc_time(uchar *obuffer) {
 
   int8store(obuffer + length, hlc_time_ns_);
   length += sizeof(hlc_time_ns_);
+
+  DBUG_RETURN(length);
+}
+
+uint32 Metadata_log_event::write_ttl_read_filtering_timestamp(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_ttl_read_filtering_timestamp");
+
+  if (!does_exist(Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE))
+    DBUG_RETURN(0); /* No need to write TTL timestamp */
+
+  uint32 length = 0;
+
+  length += write_type_and_length(
+      obuffer + length, Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE,
+      sizeof(ttl_read_filtering_timestamp_));
+
+  int8store(obuffer + length, ttl_read_filtering_timestamp_);
+  length += sizeof(ttl_read_filtering_timestamp_);
+
+  DBUG_RETURN(length);
+}
+
+uint32 Metadata_log_event::write_ttl_compaction_timestamp(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_ttl_compaction_timestamp");
+
+  if (!does_exist(Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE))
+    DBUG_RETURN(0); /* No need to write TTL timestamp */
+
+  uint32 length = 0;
+
+  length += write_type_and_length(
+      obuffer + length, Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE,
+      sizeof(ttl_compaction_timestamp_));
+
+  int8store(obuffer + length, ttl_compaction_timestamp_);
+  length += sizeof(ttl_compaction_timestamp_);
 
   DBUG_RETURN(length);
 }
@@ -15398,6 +15499,18 @@ int Metadata_log_event::pack_info(Protocol *protocol) {
     field_added = true;
   }
 
+  if (does_exist(Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE)) {
+    buffer.append("TTL read filtering time: ");
+    buffer.append(std::to_string(ttl_read_filtering_timestamp_));
+    field_added = true;
+  }
+
+  if (does_exist(Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE)) {
+    buffer.append("TTL compaction time: ");
+    buffer.append(std::to_string(ttl_compaction_timestamp_));
+    field_added = true;
+  }
+
   if (buffer.length() > 0)
     protocol->store_string(buffer.c_str(), buffer.length(), &my_charset_bin);
 
@@ -15435,6 +15548,15 @@ void Metadata_log_event::print(FILE * /* file */,
 
     if (does_exist(Metadata_event_types::RAFT_ROTATE_TAG_TYPE))
       buffer.append("\tRotate Event Tag: " + get_rotate_tag_string());
+
+    if (does_exist(Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE))
+      buffer.append("\tTTL read filtering time: " +
+                    std::to_string(ttl_read_filtering_timestamp_));
+
+    if (does_exist(Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE))
+      buffer.append("\tTTL compaction time: " +
+                    std::to_string(ttl_compaction_timestamp_));
+
     print_header(head, print_event_info, false);
     my_b_printf(head, "%s\n", buffer.c_str());
     print_base64(body, print_event_info, false);
@@ -15445,19 +15567,30 @@ void Metadata_log_event::print(FILE * /* file */,
 #endif
 
 #if defined(MYSQL_SERVER)
-int Metadata_log_event::do_apply_event(Relay_log_info const *rli) {
+int Metadata_log_event::do_apply_event(
+    Relay_log_info const *rli MY_ATTRIBUTE((unused))) {
   DBUG_ENTER("Metadata_log_event::do_apply_event");
   assert(rli->info_thd == thd);
   int error = 0;
 
   if (does_exist(Metadata_event_types::HLC_TYPE)) {
     // Stash the HLC commit timestamp of this transaction in master
-    rli->info_thd->hlc_time_ns_next = hlc_time_ns_;
+    thd->hlc_time_ns_next = hlc_time_ns_;
   }
 
   if (does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE)) {
     // Stash the raft term and index in THD
     thd->set_trans_marker(raft_term_, raft_index_);
+  }
+
+  if (does_exist(Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE)) {
+    // Stash the TTL timestamp of this transaction
+    thd->binlog_ttl_read_filtering_ts = ttl_read_filtering_timestamp_;
+  }
+
+  if (does_exist(Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE)) {
+    // Stash the TTL compaction timestamp of this transaction
+    thd->binlog_ttl_compaction_ts = ttl_compaction_timestamp_;
   }
 
   DBUG_RETURN(error);
