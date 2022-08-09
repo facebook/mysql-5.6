@@ -22,6 +22,7 @@
 
 /* C++ system header files */
 #include <time.h>
+#include <optional>
 #include <string>
 
 /* RocksDB includes */
@@ -42,6 +43,34 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
   ~Rdb_compact_filter() {
     // Increment stats by num expired at the end of compaction
     rdb_update_global_stats(ROWS_EXPIRED, m_num_expired);
+  }
+
+  void calculate_expiration_timestamp() const {
+    assert(!m_expiration_timestamp.has_value());
+
+    uint64_t oldest_snapshot_timestamp = 0;
+    rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+    if (!rdb->GetIntProperty(rocksdb::DB::Properties::kOldestSnapshotTime,
+                             &oldest_snapshot_timestamp) ||
+        oldest_snapshot_timestamp == 0) {
+      oldest_snapshot_timestamp = static_cast<uint64_t>(std::time(nullptr));
+    }
+
+    m_expiration_timestamp = oldest_snapshot_timestamp;
+
+    if (rdb_is_binlog_ttl_enabled()) {
+      m_expiration_timestamp =
+          std::min(rocksdb_binlog_ttl_compaction_timestamp.load(),
+                   m_expiration_timestamp.value());
+    }
+
+#ifndef NDEBUG
+    int snapshot_ts = rdb_dbug_set_ttl_snapshot_ts();
+    if (snapshot_ts) {
+      m_expiration_timestamp =
+          static_cast<uint64_t>(std::time(nullptr)) + snapshot_ts;
+    }
+#endif
   }
 
   // keys are passed in sorted order within the same sst.
@@ -69,25 +98,12 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
         get_ttl_duration_and_offset(gl_index_id, &m_ttl_duration,
                                     &m_ttl_offset);
 
-        if (m_ttl_duration != 0 && m_snapshot_timestamp == 0) {
+        if (m_ttl_duration != 0 && !m_expiration_timestamp.has_value()) {
           /*
-            For efficiency reasons, we lazily call GetIntProperty to get the
-            oldest snapshot time (occurs once per compaction).
+            For efficiency reasons, we lazily calculate expiration timestamp
+            (once per compaction if required)
           */
-          rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-          if (!rdb->GetIntProperty(rocksdb::DB::Properties::kOldestSnapshotTime,
-                                   &m_snapshot_timestamp) ||
-              m_snapshot_timestamp == 0) {
-            m_snapshot_timestamp = static_cast<uint64_t>(std::time(nullptr));
-          }
-
-#ifndef NDEBUG
-          int snapshot_ts = rdb_dbug_set_ttl_snapshot_ts();
-          if (snapshot_ts) {
-            m_snapshot_timestamp =
-                static_cast<uint64_t>(std::time(nullptr)) + snapshot_ts;
-          }
-#endif
+          calculate_expiration_timestamp();
         }
       }
 
@@ -161,6 +177,12 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
   bool should_filter_ttl_rec(const rocksdb::Slice &key
                                  MY_ATTRIBUTE((__unused__)),
                              const rocksdb::Slice &existing_value) const {
+    // Case: TTL filtering is paused or expiration ts is 0 (happens on server
+    // restart until the next compaction ts is calculated)
+    if (rdb_is_ttl_compaction_filter_paused() || m_expiration_timestamp == 0) {
+      return false;
+    }
+
     uint64 ttl_timestamp;
     Rdb_string_reader reader(&existing_value);
     if (!reader.read(m_ttl_offset) || reader.read_uint64(&ttl_timestamp)) {
@@ -176,11 +198,11 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
     }
 
     /*
-      Filter out the record only if it is older than the oldest snapshot
-      timestamp.  This prevents any rows from expiring in the middle of
+      Filter out the record only if it is older than the expiration
+      timestamp. This prevents any rows from expiring in the middle of
       long-running transactions.
     */
-    return ttl_timestamp + m_ttl_duration <= m_snapshot_timestamp;
+    return ttl_timestamp + m_ttl_duration <= m_expiration_timestamp;
   }
 
  private:
@@ -198,8 +220,8 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
   mutable uint64 m_ttl_duration = 0;
   // TTL offset for all records in the current index
   mutable uint32 m_ttl_offset = 0;
-  // Oldest snapshot timestamp at the time a TTL index is discovered
-  mutable uint64_t m_snapshot_timestamp = 0;
+  // Timestamp below which rows can be compacted away
+  mutable std::optional<uint64_t> m_expiration_timestamp;
 };
 
 class Rdb_compact_filter_factory : public rocksdb::CompactionFilterFactory {

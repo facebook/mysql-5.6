@@ -1,0 +1,340 @@
+source include/master-slave.inc;
+source include/have_debug.inc;
+
+let $use_gtids=1;
+
+connection master;
+echo Creating schema;
+
+let $short_ttl=5;
+let $ttl=3600;
+let $compaction_ts_interval=`select @@global.rocksdb_binlog_ttl_compaction_ts_interval_secs`;
+
+eval create table short_ttl_table(a bigint unsigned primary key) engine = rocksdb comment = 'ttl_duration=$short_ttl;ttl_col=a';
+eval create table ttl_table(a bigint unsigned primary key) engine = rocksdb comment = 'ttl_duration=$ttl;ttl_col=a';
+create table non_ttl_table(a int primary key) engine = rocksdb;
+
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Row will be present past expiration time if HLC is not advanced thru writes";
+
+connection master;
+insert into short_ttl_table values(unix_timestamp());
+eval select sleep($short_ttl);
+let $assert_cond = count(*) = 1 from short_ttl_table;
+let $assert_text = Primary: Row will be present past expiration time;
+source include/assert.inc;
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+let $assert_cond = count(*) = 1 from short_ttl_table;
+let $assert_text = Secondary: Row will be present past expiration time;
+source include/assert.inc;
+
+connection master;
+insert into short_ttl_table values(unix_timestamp());
+let $assert_cond = count(*) = 1 from short_ttl_table;
+let $assert_text = Primary: After HLC is advanced previous row will expire;
+source include/assert.inc;
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+let $assert_cond = count(*) = 1 from short_ttl_table;
+let $assert_text = Secondary: After HLC is advanced previous row will expire;
+source include/assert.inc;
+
+connection master;
+delete from short_ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Compaction timestamp should advance after rocksdb_binlog_ttl_compaction_ts_interval_secs";
+connection master;
+eval select sleep($compaction_ts_interval); # wait for compaction ts interval
+insert into ttl_table values(unix_timestamp()); # advances compaction ts
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+let $primary_compaction_ts = `select variable_value from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp"`;
+connection slave;
+let $secondary_compaction_ts = `select variable_value from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp"`;
+
+connection master;
+eval select sleep($compaction_ts_interval); # wait for compaction ts interval
+insert into ttl_table values(unix_timestamp()); # advances compaction ts
+
+let $assert_cond = variable_value > $primary_compaction_ts from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp";
+let $assert_text = Primary: Compaction timestamp should advance;
+source include/assert.inc;
+
+let $primary_compaction_ts = `select variable_value from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp"`;
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+let $assert_cond = variable_value > $secondary_compaction_ts from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp";
+let $assert_text = Secondary: Compaction timestamp should advance;
+source include/assert.inc;
+
+let $secondary_compaction_ts = `select variable_value from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp"`;
+
+let $assert_cond = $secondary_compaction_ts <= $primary_compaction_ts;
+let $assert_text = Secondary: Compaction timestamp <= compaction timestamp on primary;
+source include/assert.inc;
+
+connection master;
+delete from ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Compaction timestamp should take rocksdb_binlog_ttl_compaction_ts_offset_secs into account";
+connection master;
+let $compaction_ts_offset = 10;
+set @save.rocksdb_binlog_ttl_compaction_ts_offset_secs = @@global.rocksdb_binlog_ttl_compaction_ts_offset_secs;
+eval set @@global.rocksdb_binlog_ttl_compaction_ts_offset_secs = $compaction_ts_offset;
+eval select sleep($compaction_ts_offset);
+
+eval select sleep($compaction_ts_interval); # wait for compaction ts interval
+insert into ttl_table values(unix_timestamp()); # advances compaction ts
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+eval select sleep($compaction_ts_interval); # wait for compaction ts interval
+insert into ttl_table values(unix_timestamp()); # advances compaction ts
+let $current_ts = `select unix_timestamp()`;
+
+let $assert_cond = variable_value <= $current_ts - $compaction_ts_offset from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp";
+let $assert_text = Primary: Compaction timestamp should take rocksdb_binlog_ttl_compaction_ts_offset_secs into account;
+source include/assert.inc;
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+let $current_ts = `select unix_timestamp()`;
+let $assert_cond = variable_value <= $current_ts - $compaction_ts_offset from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp";
+let $assert_text = Secondary: Compaction timestamp should take rocksdb_binlog_ttl_compaction_ts_offset_secs into account;
+source include/assert.inc;
+
+connection master;
+set @@global.rocksdb_binlog_ttl_compaction_ts_offset_secs = @save.rocksdb_binlog_ttl_compaction_ts_offset_secs;
+delete from ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Compaction timestamp should not advance beyond the oldest active transaction's read filtering time";
+connection master;
+insert into ttl_table values(unix_timestamp());
+
+connection master1;
+begin;
+select count(*) from ttl_table; # active transaction with read filtering
+
+connection master;
+eval select sleep($compaction_ts_interval);
+insert into ttl_table values(unix_timestamp()); # will advance compaction ts <= read filtering ts of prev select
+let $primary_compaction_ts = `select variable_value from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp"`;
+
+eval select sleep($compaction_ts_interval);
+insert into ttl_table values(unix_timestamp());
+let $assert_cond = variable_value = $primary_compaction_ts from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp";
+let $assert_text = Primary: Compaction timestamp should not advance because of active transaction;
+source include/assert.inc;
+
+connection master1;
+commit; # end the active transaction
+
+connection master;
+eval select sleep($compaction_ts_interval);
+insert into ttl_table values(unix_timestamp());
+let $assert_cond = variable_value > $primary_compaction_ts from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp";
+let $assert_text = Primary: Compaction timestamp will advance after active transaction commits;
+source include/assert.inc;
+
+delete from ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: RW transactions with stale snapshots (older than binlog TTL) should not be able to commit";
+connection master;
+# set binlog ttl to 3600 secs in the future
+set @@global.rocksdb_debug_binlog_ttl_compaction_ts_delta = 3600;
+
+error ER_RDB_TTL_WRITES_WITH_STALE_SNAPSHOT;
+insert into ttl_table values(unix_timestamp());
+
+# transaction which don't touch ttl enabled tables should work fine
+insert into non_ttl_table values(1);
+delete from non_ttl_table;
+
+set @@global.rocksdb_debug_binlog_ttl_compaction_ts_delta = -3600;
+set @@global.rocksdb_debug_binlog_ttl_compaction_ts_delta = 0;
+
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Compaction should respect binlog TTL";
+connection master;
+insert into short_ttl_table values(unix_timestamp());
+eval select sleep($short_ttl); # the row expired based on wall clock time but HLC has not advanced so it should not be cleaned up
+
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+
+let $assert_cond = count(*) = 1 from short_ttl_table;
+let $assert_text = Primary: Compaction should respect binlog compaction time;
+source include/assert.inc;
+
+delete from short_ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Rows will not expire when TTL compaction filter is paused";
+connection master;
+set @@global.rocksdb_pause_ttl_compaction_filter = true;
+let $rows_expired_before = `select variable_value from performance_schema.global_status where variable_name = "rocksdb_rows_expired"`;
+insert into short_ttl_table values(unix_timestamp());
+eval select sleep($short_ttl);
+select sleep(1);
+insert into short_ttl_table values(unix_timestamp());
+eval select sleep($compaction_ts_interval);
+insert into short_ttl_table values(unix_timestamp());
+
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+
+let $assert_cond = variable_value = $rows_expired_before from performance_schema.global_status where variable_name = "rocksdb_rows_expired";
+let $assert_text = Primary: Compaction should not clean up expired rows when TTL compaction filter is paused;
+source include/assert.inc;
+
+set @@global.rocksdb_pause_ttl_compaction_filter = false;
+
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+
+let $assert_cond = variable_value > $rows_expired_before from performance_schema.global_status where variable_name = "rocksdb_rows_expired";
+let $assert_text = Primary: Compaction will resume TTL cleanup when compaction filter is resumed;
+source include/assert.inc;
+
+delete from short_ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Multi threaded applier should execute transaction carrying compaction time in sync mode";
+connection master;
+insert into non_ttl_table values(unix_timestamp());
+source include/sync_slave_sql_with_master.inc;
+
+connection slave1;
+begin;
+update non_ttl_table set a = a + 1; # lock the row
+
+connection master;
+update non_ttl_table set a = a + 10; # this will get stuck waiting for lock
+set @@global.rocksdb_binlog_ttl_compaction_ts_interval_secs = 100000;
+insert into ttl_table values(unix_timestamp()); # this trx will not carry compaction ts
+eval set @@global.rocksdb_binlog_ttl_compaction_ts_interval_secs = $compaction_ts_interval;
+eval select sleep($compaction_ts_interval);
+insert into ttl_table values(unix_timestamp()); # this trx will carry compaction ts
+
+connection slave;
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state like "Waiting for dependency workers to finish";
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+
+connection slave1;
+rollback; # unblock row
+
+connection master;
+delete from non_ttl_table;
+delete from ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Partial rollout should work";
+echo "1. Enabled on primary but not on secondary";
+connection slave;
+set @@global.rocksdb_binlog_ttl = 0;
+connection master;
+insert into non_ttl_table values(unix_timestamp());
+insert into ttl_table values(unix_timestamp());
+insert into short_ttl_table values(unix_timestamp());
+eval select sleep($compaction_ts_interval);
+insert into non_ttl_table values(unix_timestamp());
+insert into ttl_table values(unix_timestamp());
+insert into short_ttl_table values(unix_timestamp());
+delete from non_ttl_table;
+delete from ttl_table;
+delete from short_ttl_table;
+
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+set @@global.rocksdb_binlog_ttl = 1;
+
+echo "2. Enabled on secondary but not on primary";
+connection master;
+set @@global.rocksdb_binlog_ttl = 0;
+insert into non_ttl_table values(unix_timestamp());
+insert into ttl_table values(unix_timestamp());
+insert into short_ttl_table values(unix_timestamp());
+eval select sleep($compaction_ts_interval);
+insert into non_ttl_table values(unix_timestamp());
+insert into ttl_table values(unix_timestamp());
+insert into short_ttl_table values(unix_timestamp());
+delete from non_ttl_table;
+delete from ttl_table;
+delete from short_ttl_table;
+connection master;
+set @@global.rocksdb_binlog_ttl = 1;
+
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: No errors when there is data drift on TTL tables";
+connection master;
+insert into ttl_table values(unix_timestamp());
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+set @@sql_log_bin = 0;
+delete from ttl_table; # introduce data drift
+set @@sql_log_bin = 1;
+
+connection master;
+call mtr.add_suppression('Could not execute Delete_rows event on table test.ttl_table');
+delete from ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: BINLOG commands should work even with old read filtering time";
+connection master;
+drop table ttl_table;
+drop table short_ttl_table;
+drop table non_ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+let $MYSQLD_DATADIR = `select @@datadir`;
+let $binlog = query_get_value("SHOW MASTER STATUS", "File", 1);
+flush binary logs;
+exec $MYSQL_BINLOG -vvv --skip-gtids $MYSQLD_DATADIR/$binlog > $MYSQLTEST_VARDIR/tmp/fulldump.sql;
+exec $MYSQL --user=root --host=127.0.0.1 --port=$MASTER_MYPORT < $MYSQLTEST_VARDIR/tmp/fulldump.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/fulldump.sql;
+
+source include/sync_slave_sql_with_master.inc;
+
+echo "Case: Server restarts are handled";
+connection slave;
+source include/stop_slave.inc;
+let $rpl_server_number=2;
+#let $rpl_server_parameters=--skip-slave-start=0;
+source include/rpl_restart_server.inc;
+
+connection master;
+let $rpl_server_number=1;
+source include/rpl_restart_server.inc;
+
+connection master;
+let $assert_cond = variable_value = 0 from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp";
+let $assert_text = Primary: Compaction ts will be 0 after restart;
+source include/assert.inc;
+
+connection slave;
+let $slave_timeout=120;
+source include/start_slave.inc;
+let $assert_cond = variable_value = 0 from performance_schema.global_status where variable_name = "rocksdb_binlog_ttl_compaction_timestamp";
+let $assert_text = Secondary: Compaction ts will be 0 after restart;
+source include/assert.inc;
+
+source include/rpl_end.inc;

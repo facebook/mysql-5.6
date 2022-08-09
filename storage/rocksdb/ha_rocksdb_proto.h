@@ -85,6 +85,8 @@ int rdb_dbug_set_ttl_rec_ts();
 int rdb_dbug_set_ttl_snapshot_ts();
 bool rdb_dbug_set_ttl_ignore_pk();
 #endif
+bool rdb_is_ttl_compaction_filter_paused();
+bool rdb_is_binlog_ttl_enabled();
 
 /* Whether WSEnvironment is enabled */
 bool rdb_has_wsenv();
