@@ -1,0 +1,109 @@
+Default value of thread_pool_scheduling_mode is Default
+set global thread_pool_scheduling_mode = default;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+Default
+SELECT @@session.thread_pool_scheduling_mode;
+ERROR HY000: Variable 'thread_pool_scheduling_mode' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.thread_pool_scheduling_mode = 2;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+RIM
+SET @@global.thread_pool_scheduling_mode = 1;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+LDF
+SET @@global.thread_pool_scheduling_mode = 0;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+Default
+SET @@global.thread_pool_scheduling_mode = DEFAULT;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+Default
+SET @@global.thread_pool_scheduling_mode = RIM;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+RIM
+SET @@global.thread_pool_scheduling_mode = LDF;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+LDF
+SET @@global.thread_pool_scheduling_mode = rim;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+RIM
+SET @@global.thread_pool_scheduling_mode = ldf;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+LDF
+SET @@global.thread_pool_scheduling_mode = rIM;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+RIM
+SET @@global.thread_pool_scheduling_mode = deFAUlt;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+Default
+SET @@global.thread_pool_scheduling_mode = LdF;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+LDF
+SET @@global.thread_pool_scheduling_mode = true;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+LDF
+SET @@global.thread_pool_scheduling_mode = false;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+Default
+SET @@global.thread_pool_scheduling_mode =    RIM    ;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+RIM
+SET @@global.thread_pool_scheduling_mode = "LDF";
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+LDF
+SET @@global.thread_pool_scheduling_mode = "RIM";
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+RIM
+SET @@global.thread_pool_scheduling_mode = 'rim';
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+RIM
+SET @@global.thread_pool_scheduling_mode = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'thread_pool_scheduling_mode'
+SET @@global.thread_pool_scheduling_mode = 1.0;
+ERROR 42000: Incorrect argument type to variable 'thread_pool_scheduling_mode'
+SET @@global.thread_pool_scheduling_mode = 9223372036854775808298374120938471234;
+ERROR 42000: Incorrect argument type to variable 'thread_pool_scheduling_mode'
+SET @@global.thread_pool_scheduling_mode = -1000;
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of '-1000'
+SET @@global.thread_pool_scheduling_mode = 3;
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of '3'
+SET @@global.thread_pool_scheduling_mode = "Test";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of 'Test'
+SET @@global.thread_pool_scheduling_mode = "rimTest";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of 'rimTest'
+SET @@global.thread_pool_scheduling_mode = " LDF";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of ' LDF'
+SET @@global.thread_pool_scheduling_mode = "  LDF  ";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of '  LDF  '
+SET @@global.thread_pool_scheduling_mode = "LDF  ";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of 'LDF  '
+SET @@global.thread_pool_scheduling_mode = "true";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of 'true'
+SET @@global.thread_pool_scheduling_mode = "false";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of 'false'
+SET @@global.thread_pool_scheduling_mode = "0";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of '0'
+SET @@global.thread_pool_scheduling_mode = "1";
+ERROR 42000: Variable 'thread_pool_scheduling_mode' can't be set to the value of '1'
+Reset value of thread_pool_scheduling_mode back to Default
+set global thread_pool_scheduling_mode = default;
+SELECT @@global.thread_pool_scheduling_mode;
+@@global.thread_pool_scheduling_mode
+Default
