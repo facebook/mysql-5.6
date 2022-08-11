@@ -1,0 +1,107 @@
+--source include/have_thread_pool_plugin.inc
+
+####
+# Verify default value is Default
+####
+--echo Default value of thread_pool_scheduling_mode is Default
+set global thread_pool_scheduling_mode = default;
+SELECT @@global.thread_pool_scheduling_mode;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.thread_pool_scheduling_mode;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+# Test valid values
+####
+SET @@global.thread_pool_scheduling_mode = 2;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = 1;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = 0;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = DEFAULT;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = RIM;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = LDF;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = rim;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = ldf;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = rIM;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = deFAUlt;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = LdF;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = true;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = false;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode =    RIM    ;
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = "LDF";
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = "RIM";
+SELECT @@global.thread_pool_scheduling_mode;
+SET @@global.thread_pool_scheduling_mode = 'rim';
+SELECT @@global.thread_pool_scheduling_mode;
+
+
+####
+# Test invalid values
+####
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = 65530.34;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = 1.0;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = 9223372036854775808298374120938471234;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = -1000;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = 3;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = "Test";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = "rimTest";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = " LDF";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = "  LDF  ";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = "LDF  ";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = "true";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = "false";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = "0";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_scheduling_mode = "1";
+
+
+####
+## Cleanup
+####
+--echo Reset value of thread_pool_scheduling_mode back to Default
+set global thread_pool_scheduling_mode = default;
+SELECT @@global.thread_pool_scheduling_mode;
