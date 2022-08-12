@@ -22876,6 +22876,8 @@ static void test_ssl_connect_ctx() {
   DBUG_VOID_RETURN;
 }
 
+#ifdef __linux__
+
 template <class Enum>
 static void set_ip_proto_and_opt_name(int fd, Enum *ip_proto, int *opt_name) {
   int so_domain = 0;
@@ -23016,6 +23018,8 @@ static void test_option_tos() {
 
   DBUG_VOID_RETURN;
 }
+
+#endif  // __linux__
 
 static struct my_tests_st my_tests[] = {
     {"test_bug5194", test_bug5194},
@@ -23328,7 +23332,9 @@ static struct my_tests_st my_tests[] = {
     {"test_get_connect_stage", test_get_connect_stage},
     {"test_ssl_connect", test_ssl_connect},
     {"test_ssl_connect_ctx", test_ssl_connect_ctx},
+#ifdef __linux__
     {"test_option_tos", test_option_tos},
+#endif
     {nullptr, nullptr}};
 
 static struct my_tests_st *get_my_tests() { return my_tests; }
