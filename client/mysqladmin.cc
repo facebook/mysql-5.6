@@ -24,6 +24,7 @@
 
 // Maintenance of MySQL databases.
 
+#include <cinttypes>
 #include <fcntl.h>
 #include <mysql.h>
 #include <mysqld_error.h> /* to check server error codes */
@@ -871,7 +872,7 @@ static int execute_commands(MYSQL *mysql, int argc, char **argv) {
 
         if (mysql_num_rows(res) >= MAX_MYSQL_VAR) {
           my_printf_error(0,
-                          "Too many rows returned: '%lu'. "
+                          "Too many rows returned: '%" PRIu64 "'. "
                           "Expecting no more than '%d' rows",
                           error_flags, mysql_num_rows(res), MAX_MYSQL_VAR);
           return -1;
