@@ -1,0 +1,74 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test.* to test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+use test_db;
+connect  con, localhost, test_user,, test_db;
+connect  con1, localhost, root,, test_db;
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	0	100
+__system__	0	100
+connection con1;
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_min_percent=0";
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	0	100
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=100";
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	0	100
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_min_percent=20";
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	20	100
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=60";
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	20	60
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=101";
+ERROR 42000: Variable 'thread_pool_tenant_resource_settings' can't be set to the value of 'test_db cpu_max_percent=101'
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	20	60
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "test_db max_percent=60";
+ERROR 42000: Variable 'thread_pool_tenant_resource_settings' can't be set to the value of 'test_db max_percent=60'
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	20	60
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_min_percent=-1";
+ERROR 42000: Variable 'thread_pool_tenant_resource_settings' can't be set to the value of 'test_db cpu_min_percent=-1'
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	20	60
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=60 cpu_min_percent=10";
+ERROR 42000: Variable 'thread_pool_tenant_resource_settings' can't be set to the value of 'test_db cpu_max_percent=60 cpu_min_percent=10'
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	20	60
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "__system__ cpu_min_percent=10";
+ERROR 42000: Variable 'thread_pool_tenant_resource_settings' can't be set to the value of '__system__ cpu_min_percent=10'
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	20	60
+__system__	0	100
+set @@global.thread_pool_tenant_resource_settings = "test_db3 cpu_max_percent=60";
+ERROR 42000: Variable 'thread_pool_tenant_resource_settings' can't be set to the value of 'test_db3 cpu_max_percent=60'
+select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+SCHEMA_NAME	CPU_MIN_PERCENT	CPU_MAX_PERCENT
+test_db	20	60
+__system__	0	100
+disconnect con;
+disconnect con1;
+connection default;
+set @@global.thread_pool_tenant_resource_settings = DEFAULT;
+drop database test_db;
+drop user test_user@localhost;
