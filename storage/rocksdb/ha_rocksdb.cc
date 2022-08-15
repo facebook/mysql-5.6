@@ -7156,8 +7156,18 @@ static int rocksdb_init_internal(void *const p) {
       rocksdb_tbl_options->block_cache = block_cache;
     }
     if (rocksdb_charge_memory) {
-      rocksdb_tbl_options->cache_usage_options.options.charged =
-          rocksdb::CacheEntryRoleOptions::Decision::kEnabled;
+      rocksdb_tbl_options->cache_usage_options.options_overrides.insert(
+          {rocksdb::CacheEntryRole::kFilterConstruction,
+           {/*.charged = */ rocksdb::CacheEntryRoleOptions::Decision::
+                kEnabled}});
+      rocksdb_tbl_options->cache_usage_options.options_overrides.insert(
+          {rocksdb::CacheEntryRole::kBlockBasedTableReader,
+           {/*.charged = */ rocksdb::CacheEntryRoleOptions::Decision::
+                kEnabled}});
+      rocksdb_tbl_options->cache_usage_options.options_overrides.insert(
+          {rocksdb::CacheEntryRole::kFileMetadata,
+           {/*.charged = */ rocksdb::CacheEntryRoleOptions::Decision::
+                kEnabled}});
     }
     if (rocksdb_use_write_buffer_manager) {
       rocksdb_db_options->write_buffer_manager.reset(
