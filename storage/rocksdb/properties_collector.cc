@@ -370,7 +370,7 @@ std::string Rdb_index_stats::materialize(
     rdb_netstr_append_uint32(&ret, i.m_gl_index_id.index_id);
     assert(sizeof i.m_data_size <= 8);
     rdb_netstr_append_uint64(&ret, i.m_data_size);
-    rdb_netstr_append_uint64(&ret, i.m_rows);
+    rdb_netstr_append_uint64(&ret, i.m_rows | uint64_t(1) << 63);
     rdb_netstr_append_uint64(&ret, i.m_actual_disk_size);
     rdb_netstr_append_uint64(&ret, i.m_distinct_keys_per_prefix.size());
     rdb_netstr_append_uint64(&ret, i.m_entry_deletes);
@@ -380,6 +380,8 @@ std::string Rdb_index_stats::materialize(
     for (const auto &num_keys : i.m_distinct_keys_per_prefix) {
       rdb_netstr_append_uint64(&ret, num_keys);
     }
+    rdb_netstr_append_uint16(&ret, i.m_name.size());
+    ret.append(i.m_name.data(), i.m_name.size());
   }
 
   return std::string((char *)ret.ptr(), ret.length());
@@ -447,6 +449,12 @@ int Rdb_index_stats::unmaterialize(const std::string &s,
     }
     for (std::size_t i = 0; i < stats.m_distinct_keys_per_prefix.size(); i++) {
       stats.m_distinct_keys_per_prefix[i] = rdb_netbuf_read_uint64(&p);
+    }
+    if (stats.m_rows & uint64_t(1) << 63) { // flag m_name is materialized
+      stats.m_rows &= ~(uint64_t(1) << 63);
+      size_t namelen = rdb_netbuf_read_uint16(&p);
+      stats.m_name.assign((const char*)p, namelen);
+      p += namelen;
     }
     ret->push_back(stats);
   }
