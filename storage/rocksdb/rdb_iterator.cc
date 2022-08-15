@@ -172,6 +172,30 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
   }
 }
 
+// This function is intented for releasing MemTable and SST objects held by
+// rocksdb::Version object which referenced by old rocksdb::Iterator, newly
+// created Iterator may reference a newer rocksdb::Version object, The data
+// view of these 2 iterators are identical.
+void Rdb_iterator_base::refresh_iter() {
+  std::string curr_key;
+  bool valid = m_scan_it->Valid();
+  if (valid) {
+    curr_key = m_scan_it->key().ToString();
+  }
+  delete m_scan_it;
+  bool skip_bloom = m_scan_it_skips_bloom;
+  m_scan_it = rdb_tx_refresh_iterator(
+      m_thd, m_kd->get_cf(), skip_bloom, m_scan_it_lower_bound_slice,
+      m_scan_it_upper_bound_slice, m_scan_it_snapshot, m_table_type);
+  if (valid) {
+    m_scan_it->Seek(curr_key);
+    SHIP_ASSERT(m_scan_it->Valid());
+    SHIP_ASSERT(m_scan_it->key() == curr_key);
+  } else {
+    SHIP_ASSERT(!m_scan_it->Valid());
+  }
+}
+
 int Rdb_iterator_base::calc_eq_cond_len(enum ha_rkey_function find_flag,
                                         const rocksdb::Slice &start_key,
                                         const int bytes_changed_by_succ,
@@ -213,6 +237,12 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
   int rc = 0;
   const auto &kd = *m_kd;
   Rdb_transaction *const tx = get_tx_from_thd(m_thd);
+
+  const uint32_t refresh_interval = 100000;
+  if (++m_call_cnt >= refresh_interval) {
+    refresh_iter();
+    m_call_cnt = 0;
+  }
 
   for (;;) {
     DEBUG_SYNC(m_thd, "rocksdb.check_flags_nwd");

@@ -122,6 +122,8 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   /* Iterator used for range scans and for full table/index scans */
   rocksdb::Iterator *m_scan_it;
+  uint32_t m_call_cnt = 0; // for refresh_iter
+  void refresh_iter();
 
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;
