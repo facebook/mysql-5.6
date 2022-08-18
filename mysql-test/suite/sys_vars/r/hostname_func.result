@@ -1,0 +1,11 @@
+This should be the customized hostname
+SELECT @@hostname;
+@@hostname
+myhostname
+SET @@GLOBAL.hostname=1;
+ERROR HY000: Variable 'hostname' is a read only variable
+Expected error 'Read only variable'
+SELECT COUNT(@@GLOBAL.hostname);
+COUNT(@@GLOBAL.hostname)
+1
+1 Expected

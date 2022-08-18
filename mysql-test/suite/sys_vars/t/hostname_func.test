@@ -1,0 +1,9 @@
+--echo This should be the customized hostname
+SELECT @@hostname;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@GLOBAL.hostname=1;
+--echo Expected error 'Read only variable'
+
+SELECT COUNT(@@GLOBAL.hostname);
+--echo 1 Expected

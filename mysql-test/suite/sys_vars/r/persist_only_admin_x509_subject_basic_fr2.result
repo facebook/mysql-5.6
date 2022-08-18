@@ -53,6 +53,7 @@ SET PERSIST_ONLY sha256_password_auto_generate_rsa_keys = DEFAULT;
 SET PERSIST_ONLY sha256_password_private_key_path = DEFAULT;
 SET PERSIST_ONLY sha256_password_public_key_path = DEFAULT;
 SET PERSIST_ONLY innodb_force_load_corrupted = DEFAULT;
+SET PERSIST_ONLY hostname = DEFAULT;
 # Following variables will never be settable
 SET PERSIST_ONLY innodb_version = DEFAULT;
 ERROR HY000: Variable 'innodb_version' is a non persistent read only variable
@@ -64,8 +65,6 @@ SET PERSIST_ONLY have_statement_timeout = DEFAULT;
 ERROR HY000: Variable 'have_statement_timeout' is a non persistent read only variable
 SET PERSIST_ONLY have_symlink = DEFAULT;
 ERROR HY000: Variable 'have_symlink' is a non persistent read only variable
-SET PERSIST_ONLY hostname = DEFAULT;
-ERROR HY000: Variable 'hostname' is a non persistent read only variable
 SET PERSIST_ONLY large_files_support = DEFAULT;
 ERROR HY000: Variable 'large_files_support' is a non persistent read only variable
 SET PERSIST_ONLY large_page_size = DEFAULT;
