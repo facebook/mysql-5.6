@@ -993,7 +993,8 @@ bool stop_slave_cmd(THD *thd) {
   /* During provisioning we stop slave after acquiring backup lock. */
   if (!Clone_handler::is_provisioning() &&
       (!thd->lex->slave_thd_opt || (thd->lex->slave_thd_opt & SLAVE_SQL))) {
-    if (backup_sentry.lock(MDL_key::BACKUP_LOCK, MDL_INTENTION_EXCLUSIVE)) {
+    if (!skip_backup_lock_for_stop_replica &&
+        backup_sentry.lock(MDL_key::BACKUP_LOCK, MDL_INTENTION_EXCLUSIVE)) {
       my_error(ER_RPL_CANT_STOP_SLAVE_WHILE_LOCKED_BACKUP, MYF(0));
       channel_map.unlock();
       return true;

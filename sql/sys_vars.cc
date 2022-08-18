@@ -10029,3 +10029,12 @@ static Sys_var_ulong Sys_write_send_replica_statistics_wait_time_seconds(
     GLOBAL_VAR(write_send_replica_statistics_wait_time_seconds),
     CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_skip_backup_lock_for_stop_replica(
+    "skip_backup_lock_for_stop_replica",
+    "This will skip the lock check for backup instance when executing stop "
+    "replica command. This will allow the replica to be promoted to primary "
+    "during LOCK INSTANCE FOR BACKUP. ",
+    GLOBAL_VAR(skip_backup_lock_for_stop_replica), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL), NULL, sys_var::PARSE_NORMAL);

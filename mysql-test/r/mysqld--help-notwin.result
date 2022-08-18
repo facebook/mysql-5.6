@@ -2554,6 +2554,11 @@ The following options may be given as the first argument:
  --show-slave-auth-info 
  This option is deprecated and will be removed in a future
  version. Use show-replica-auth-info instead.
+ --skip-backup-lock-for-stop-replica 
+ This will skip the lock check for backup instance when
+ executing stop replica command. This will allow the
+ replica to be promoted to primary during LOCK INSTANCE
+ FOR BACKUP. 
  --skip-core-dump-on-error 
  If set, MySQL skips dumping the core if it hits an error
  (e.g,IO)
@@ -3726,6 +3731,7 @@ show-old-temporals FALSE
 show-query-digest FALSE
 show-replica-auth-info FALSE
 show-slave-auth-info FALSE
+skip-backup-lock-for-stop-replica FALSE
 skip-core-dump-on-error TRUE
 skip-dml-counters-for-tmp-tables FALSE
 skip-flush-master-info FALSE

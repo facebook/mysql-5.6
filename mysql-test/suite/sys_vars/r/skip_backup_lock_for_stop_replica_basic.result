@@ -1,0 +1,19 @@
+Default value of skip_backup_lock_for_stop_replica is false
+SELECT @@global.skip_backup_lock_for_stop_replica;
+@@global.skip_backup_lock_for_stop_replica
+0
+SELECT @@session.skip_backup_lock_for_stop_replica;
+ERROR HY000: Variable 'skip_backup_lock_for_stop_replica' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.skip_backup_lock_for_stop_replica = true;
+SELECT @@global.skip_backup_lock_for_stop_replica;
+@@global.skip_backup_lock_for_stop_replica
+1
+SET @@global.skip_backup_lock_for_stop_replica = false;
+SELECT @@global.skip_backup_lock_for_stop_replica;
+@@global.skip_backup_lock_for_stop_replica
+0
+SET @@global.skip_backup_lock_for_stop_replica = default;
+SELECT @@global.skip_backup_lock_for_stop_replica;
+@@global.skip_backup_lock_for_stop_replica
+0
