@@ -1246,6 +1246,7 @@ bool disable_raft_log_repointing = 0;
 ulong opt_raft_signal_async_dump_threads = 0;
 bool recover_raft_log = false;
 bool raft_send_replica_statistics = false;
+bool skip_backup_lock_for_stop_replica = false;
 
 /* Apply log related variables for raft
    "_ptr" variables are system variables that should not be free by us */

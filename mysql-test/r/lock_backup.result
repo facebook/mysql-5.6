@@ -92,6 +92,23 @@ connect  con1, localhost, u1,,;
 LOCK INSTANCE FOR BACKUP;
 ERROR 42000: Access denied; you need (at least one of) the BACKUP_ADMIN privilege(s) for this operation
 disconnect con1;
+# Test case 7: Skip the check of backup lock if skip_backup_lock_for_stop_replica is set to true 
+connect  con2, localhost, root,,;
+LOCK INSTANCE FOR BACKUP;
+connect  con1, localhost, root,,;
+STOP REPLICA;
+ERROR HY000: Cannot stop the slave SQL thread while the instance is locked for backup. Try running `UNLOCK INSTANCE` first.
+SET GLOBAL skip_backup_lock_for_stop_replica = true;
+STOP REPLICA;
+Warnings:
+Note	3084	Replication thread(s) for channel '' are already stopped.
+SET GLOBAL skip_backup_lock_for_stop_replica = false;
+connection con2;
+SELECT * FROM t1;
+a
+100
+disconnect con1;
+disconnect con2;
 connection default;
 DROP USER u1;
 DROP TABLE t1, t2, t3;
