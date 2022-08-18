@@ -66,7 +66,7 @@ connection default;
 # When the connection is closed in this way, the error code should
 # be consistent see Bug#2845 for an explanation
 # depending on platform/client, either errno 2006 or 2013 can occur below
---error ER_CLIENT_INTERACTION_TIMEOUT,CR_SERVER_LOST
+--error ER_CLIENT_INTERACTION_TIMEOUT,CR_SERVER_LOST,CR_SERVER_GONE_ERROR
 SELECT 2;
 --echo --enable_reconnect;
 --enable_reconnect
@@ -123,7 +123,7 @@ connection con1;
 # When the connection is closed in this way, the error code should
 # be consistent see Bug#2845 for an explanation
 # depending on platform/client, either errno 2006 or 2013 can occur below
---error ER_CLIENT_INTERACTION_TIMEOUT,CR_SERVER_LOST
+--error ER_CLIENT_INTERACTION_TIMEOUT,CR_SERVER_LOST,CR_SERVER_GONE_ERROR
 SELECT 2;
 --echo --enable_reconnect;
 --enable_reconnect
