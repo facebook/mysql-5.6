@@ -44,7 +44,7 @@ flush privileges;
 SET GLOBAL OFFLINE_MODE=ON;
 # Verify that the regular_session has been killed
 SELECT USER();
-ERROR HY000: Lost connection to MySQL server during query
+Got one of the listed errors
 # Verify that the power_session is kept alive
 SELECT USER();
 USER()
@@ -77,10 +77,10 @@ USER()
 sysadmin@localhost
 # Verify that the regular_session has been killed
 SELECT USER();
-ERROR HY000: Lost connection to MySQL server during query
+Got one of the listed errors
 # Verify that the power_session has been killed
 SELECT USER();
-ERROR HY000: Lost connection to MySQL server during query
+Got one of the listed errors
 # Verify that the super_session is kept alive
 SELECT USER();
 USER()

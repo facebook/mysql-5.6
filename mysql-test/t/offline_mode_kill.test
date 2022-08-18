@@ -66,7 +66,7 @@ SET GLOBAL OFFLINE_MODE=ON;
 
 --echo # Verify that the regular_session has been killed
 connection con_regular;
---error CR_SERVER_LOST
+--error CR_SERVER_LOST,CR_SERVER_GONE_ERROR
 SELECT USER();
 
 --echo # Verify that the power_session is kept alive
@@ -109,12 +109,12 @@ SELECT USER();
 
 --echo # Verify that the regular_session has been killed
 connection con_regular1;
---error CR_SERVER_LOST
+--error CR_SERVER_LOST,CR_SERVER_GONE_ERROR
 SELECT USER();
 
 --echo # Verify that the power_session has been killed
 connection con_power;
---error CR_SERVER_LOST
+--error CR_SERVER_LOST,CR_SERVER_GONE_ERROR
 SELECT USER();
 
 --echo # Verify that the super_session is kept alive
