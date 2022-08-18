@@ -53,6 +53,7 @@
 
 #include "include/compression.h"
 
+#include "my_getopt.h"
 #include "my_loglevel.h"
 #include "mysql/components/services/log_builtins.h"
 #include "mysql/components/services/log_shared.h"
@@ -6583,10 +6584,16 @@ static Sys_var_ulong Sys_group_concat_max_len(
     HINT_UPDATEABLE SESSION_VAR(group_concat_max_len), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(4, ULONG_MAX), DEFAULT(1024), BLOCK_SIZE(1));
 
+/*
+  If the hostname is customized by configuration, the default pidfile name,
+  relay log name and log error file name may be different from the customized
+  hostname. Their names are still based on the default hostname which is taken
+  from syscall.
+*/
 static char *glob_hostname_ptr;
 static Sys_var_charptr Sys_hostname(
     "hostname", "Server host name",
-    READ_ONLY NON_PERSIST GLOBAL_VAR(glob_hostname_ptr), NO_CMD_LINE,
+    READ_ONLY NON_PERSIST GLOBAL_VAR(glob_hostname_ptr), CMD_LINE(OPT_ARG),
     IN_FS_CHARSET, DEFAULT(glob_hostname));
 
 static Sys_var_charptr Sys_repl_report_host(

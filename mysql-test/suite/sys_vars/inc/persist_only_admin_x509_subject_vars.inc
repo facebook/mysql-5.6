@@ -89,6 +89,8 @@ SET PERSIST_ONLY sha256_password_private_key_path = DEFAULT;
 SET PERSIST_ONLY sha256_password_public_key_path = DEFAULT;
 --error $persist_only_admin_x509_subject_vars_result
 SET PERSIST_ONLY innodb_force_load_corrupted = DEFAULT;
+--error $persist_only_admin_x509_subject_vars_result
+SET PERSIST_ONLY hostname = DEFAULT;
 
 --echo # Following variables will never be settable
 
@@ -102,8 +104,6 @@ SET PERSIST_ONLY character_set_system = DEFAULT;
 SET PERSIST_ONLY have_statement_timeout = DEFAULT;
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET PERSIST_ONLY have_symlink = DEFAULT;
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
-SET PERSIST_ONLY hostname = DEFAULT;
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET PERSIST_ONLY large_files_support = DEFAULT;
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
