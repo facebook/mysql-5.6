@@ -136,6 +136,21 @@ CREATE USER u1;
 LOCK INSTANCE FOR BACKUP;
 --disconnect con1
 
+--echo # Test case 7: Skip the check of backup lock if skip_backup_lock_for_stop_replica is set to true 
+--connect (con2, localhost, root,,)
+LOCK INSTANCE FOR BACKUP;
+--connect (con1, localhost, root,,)
+--error 3857
+STOP REPLICA;
+SET GLOBAL skip_backup_lock_for_stop_replica = true;
+STOP REPLICA;
+SET GLOBAL skip_backup_lock_for_stop_replica = false;
+--connection con2
+SELECT * FROM t1;
+
+--disconnect con1
+--disconnect con2
+
 --connection default
 DROP USER u1;
 DROP TABLE t1, t2, t3;
