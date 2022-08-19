@@ -1764,7 +1764,8 @@ int raft_change_master(THD *, const MysqlPrimaryInfo &info) {
   mysql_mutex_lock(&mi->rli->data_lock);
   // Call mi->init_info() and/or mi->rli->init_info() if itn't configured
   if (load_mi_and_rli_from_repositories(mi, false, thread_mask_stopped_threads,
-                                        false, /*need_lock*/ false)) {
+                                        false, /*force_load*/ false,
+                                        /*need_lock*/ false)) {
     error = ER_MASTER_INFO;
     my_error(ER_MASTER_INFO, MYF(0));
     goto end;
