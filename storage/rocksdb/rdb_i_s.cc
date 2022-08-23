@@ -17,6 +17,7 @@
 /* C++ standard header files */
 #include <algorithm>
 #include <cctype>
+#include <cinttypes>
 #include <map>
 #include <string>
 #include <vector>
@@ -763,7 +764,7 @@ static int rdb_i_s_global_info_fill_table(
   char gtid_buf[GTID_BUF_LEN] = {0};
 
   if (blm->read(file_buf, &pos, gtid_buf)) {
-    snprintf(pos_buf, INT_BUF_LEN, "%lu", (uint64_t)pos);
+    snprintf(pos_buf, INT_BUF_LEN, "%" PRIu64, (uint64_t)pos);
 
     ret |= rdb_global_info_fill_row(thd, tables, "BINLOG", "FILE", file_buf);
     ret |= rdb_global_info_fill_row(thd, tables, "BINLOG", "POS", pos_buf);
