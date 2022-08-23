@@ -4893,14 +4893,15 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
       // NB! We're replacing hyphens with underscores in output to better match
       // the existing naming convention.
       if (rdb->GetIntProperty("rocksdb.is-write-stopped", &v)) {
-        snprintf(buf, sizeof(buf), "rocksdb.is_write_stopped COUNT : %lu\n", v);
+        snprintf(buf, sizeof(buf),
+                 "rocksdb.is_write_stopped COUNT : %" PRIu64 "\n", v);
         str.append(buf);
       }
 
       if (rdb->GetIntProperty("rocksdb.actual-delayed-write-rate", &v)) {
         snprintf(buf, sizeof(buf),
                  "rocksdb.actual_delayed_write_rate "
-                 "COUNT : %lu\n",
+                 "COUNT : %" PRIu64 "\n",
                  v);
         str.append(buf);
       }
@@ -4970,16 +4971,16 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     rocksdb::MemoryUtil::GetApproximateMemoryUsageByType(dbs, cache_set,
                                                          &temp_usage_by_type);
 
-    snprintf(buf, sizeof(buf), "\nMemTable Total: %lu",
+    snprintf(buf, sizeof(buf), "\nMemTable Total: %" PRIu64,
              temp_usage_by_type[rocksdb::MemoryUtil::kMemTableTotal]);
     str.append(buf);
-    snprintf(buf, sizeof(buf), "\nMemTable Unflushed: %lu",
+    snprintf(buf, sizeof(buf), "\nMemTable Unflushed: %" PRIu64,
              temp_usage_by_type[rocksdb::MemoryUtil::kMemTableUnFlushed]);
     str.append(buf);
-    snprintf(buf, sizeof(buf), "\nTable Readers Total: %lu",
+    snprintf(buf, sizeof(buf), "\nTable Readers Total: %" PRIu64,
              temp_usage_by_type[rocksdb::MemoryUtil::kTableReadersTotal]);
     str.append(buf);
-    snprintf(buf, sizeof(buf), "\nCache Total: %lu",
+    snprintf(buf, sizeof(buf), "\nCache Total: %" PRIu64,
              temp_usage_by_type[rocksdb::MemoryUtil::kCacheTotal]);
     str.append(buf);
     snprintf(buf, sizeof(buf), "\nDefault Cache Capacity: %lu",
