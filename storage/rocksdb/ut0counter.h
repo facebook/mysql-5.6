@@ -83,7 +83,9 @@ struct thread_id_indexer_t : public generic_indexer_t<Type, N> {
   /* @return a random number, currently we use the thread id. Where
   thread id is represented as a pointer, it may not work as
   effectively. */
-  size_t get_rnd_index() const { return get_curr_thread_id(); }
+  size_t get_rnd_index() const {
+    return reinterpret_cast<std::uintptr_t>(get_curr_thread_id());
+  }
 };
 
 /** For counters wher N=1 */
