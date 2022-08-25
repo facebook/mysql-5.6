@@ -1,0 +1,10 @@
+!include ../my.cnf
+
+[mysqld.1]
+update_binlog_pos_threshold = 0
+
+[mysqld.2]
+update_binlog_pos_threshold = 0
+
+[mysqld.3]
+update_binlog_pos_threshold = 0

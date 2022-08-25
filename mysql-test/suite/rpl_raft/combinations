@@ -1,9 +1,11 @@
 [sts]
 binlog-format=row
+slave_use_idempotent_for_recovery=yes
 
 [vanilla-mts]
 binlog-format=row
 slave_parallel_workers=4
+slave_use_idempotent_for_recovery=yes
 
 [dep-tbl-mts]
 binlog-format=row
