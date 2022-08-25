@@ -1,0 +1,111 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+create table t1 (a int primary key) engine = rocksdb;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+set @@global.debug = "+d,rocksdb_skip_binlog_pos_update";
+insert into t1 values(4);
+insert into t1 values(5);
+insert into t1 values(6);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+set @@sql_log_bin = 0;
+flush engine logs;
+delete from t1 where a >= 5;
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+include/wait_for_slave_sql_to_start.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+delete from t1;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+set @@global.debug = "+d,innodb_skip_binlog_pos_update";
+insert into t1 values(4);
+insert into t1 values(5);
+insert into t1 values(6);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+set @@sql_log_bin = 0;
+flush engine logs;
+delete from t1 where a >= 5;
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+include/wait_for_slave_sql_to_start.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+select * from t1;
+a
+1
+2
+3
+4
+5
+6
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

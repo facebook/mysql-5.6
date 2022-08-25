@@ -5051,6 +5051,10 @@ void Rdb_binlog_manager::update(const char *const binlog_name,
                                 const my_off_t binlog_pos,
                                 const char *const binlog_max_gtid,
                                 rocksdb::WriteBatchBase *const batch) {
+  DBUG_EXECUTE_IF("rocksdb_skip_binlog_pos_update", {
+    return;
+  };);
+
   if (binlog_name && binlog_pos) {
     // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
     const size_t RDB_MAX_BINLOG_INFO_LEN = 1024;

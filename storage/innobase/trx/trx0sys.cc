@@ -217,6 +217,10 @@ static bool read_binlog_position(const byte *binlog_buf, const char *&file_name,
 static void write_binlog_position(const char *file_name, uint64_t offset,
                                   byte *binlog_buf, mtr_t *mtr,
                                   const char *max_gtid) {
+  DBUG_EXECUTE_IF("innodb_skip_binlog_pos_update", {
+    return;
+  };);
+
   if (file_name == nullptr ||
       ut_strlen(file_name) >= TRX_SYS_MYSQL_LOG_NAME_LEN) {
     /* We cannot fit the name to the 512 bytes we have reserved */

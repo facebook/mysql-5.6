@@ -35,7 +35,7 @@ while ($_rpl_server)
   SET GLOBAL RPL_RAFT_NEW_LEADER_UUID= default;
   SET GLOBAL RPL_RAFT_START_ELECTION= default;
   SET GLOBAL READ_ONLY_ERROR_MSG_EXTRA= default;
-  SET GLOBAL RPL_RAFT_VALIDATE_RAFT_LOGS_TO_BOOTSTRAP= default;
+  SET GLOBAL RPL_RAFT_VALIDATE_RAFT_LOGS_TO_BOOTSTRAP = default;
   exec rm -fr $fs_wal_path;
   if (!$plugin_was_early_installed)
   {

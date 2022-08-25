@@ -6983,6 +6983,53 @@ static void init_icu_data_directory() {
 
 #endif  // MYSQL_ICU_DATADIR
 
+static int init_gtid_state_from_binlog() {
+  Gtid_set executed_gtids_from_binlog(global_sid_map, global_sid_lock);
+  Gtid_set lost_gtids_from_binlog(global_sid_map, global_sid_lock);
+
+  uint64_t prev_hlc = 0;
+  if (mysql_bin_log.init_gtid_sets(
+          &executed_gtids_from_binlog, &lost_gtids_from_binlog,
+          opt_source_verify_checksum, /*need_lock=*/true,
+          /*trx_parser=*/nullptr, /*partial_trx=*/nullptr, &prev_hlc,
+          /*startup=*/true)) {
+    unireg_abort(MYSQLD_ABORT_EXIT);
+  }
+
+  // Update the instance's HLC clock to be greater than or equal to the HLC
+  // times of trx's in all previous binlog
+  mysql_bin_log.update_hlc(prev_hlc);
+
+  global_sid_lock->wrlock();
+  Gtid_set *executed_gtids =
+      const_cast<Gtid_set *>(gtid_state->get_executed_gtids());
+  Gtid_set *lost_gtids = const_cast<Gtid_set *>(gtid_state->get_lost_gtids());
+  Gtid_set *gtids_only_in_table =
+      const_cast<Gtid_set *>(gtid_state->get_gtids_only_in_table());
+  Gtid_set *previous_gtids_logged =
+      const_cast<Gtid_set *>(gtid_state->get_previous_gtids_logged());
+
+  executed_gtids->clear();
+  lost_gtids->clear();
+  previous_gtids_logged->clear();
+
+  executed_gtids->add_gtid_set(&executed_gtids_from_binlog);
+  lost_gtids->add_gtid_set(&lost_gtids_from_binlog);
+  // previous_logged_gtids is the same as executed_gtids
+  previous_gtids_logged->add_gtid_set(executed_gtids);
+
+  char *str = nullptr;
+  executed_gtids->to_string(&str, false, nullptr);
+  sql_print_information("Executed Gtids inited from binlog : %s", str);
+  my_free(str);
+
+  // Clear out gtids_only_in_table as this feature is disabled
+  gtids_only_in_table->clear();
+
+  global_sid_lock->unlock();
+  return 0;
+}
+
 static int init_server_components() {
   DBUG_TRACE;
   /*
@@ -8853,12 +8900,35 @@ int mysqld_main(int argc, char **argv)
 
   if (gtid_ret) unireg_abort(MYSQLD_ABORT_EXIT);
 
-  if (!opt_initialize && !opt_initialize_insecure) {
+  // We don't use the GTID table to populate gtid_executed in raft mode. Instead
+  // we read the binlog to the engine recovery position see
+  // @init_gtid_state_from_binlog()
+  if (!opt_initialize && !opt_initialize_insecure && !enable_raft_plugin) {
     // Initialize executed_gtids from mysql.gtid_executed table.
     if (gtid_state->read_gtid_executed_from_table() == -1) unireg_abort(1);
+
+    Gtid_set *executed_gtids =
+        const_cast<Gtid_set *>(gtid_state->get_executed_gtids());
+    char *str = nullptr;
+
+    if (executed_gtids) {
+      Checkable_rwlock *lock = executed_gtids->get_sid_map()->get_sid_lock();
+      lock->wrlock();
+      executed_gtids->to_string(&str, false, nullptr);
+      lock->unlock();
+    }
+
+    sql_print_information("Executed Gtids from gtid table: %s", str);
+    my_free(str);
   }
 
-  if (opt_bin_log) {
+  // Case: raft enabled
+  if (opt_bin_log && enable_raft_plugin) {
+    init_gtid_state_from_binlog();
+    (void)RUN_HOOK(server_state, after_engine_recovery, (nullptr));
+  }
+  // Case: raft not enabled
+  if (opt_bin_log && !enable_raft_plugin) {
     /*
       Initialize GLOBAL.GTID_EXECUTED and GLOBAL.GTID_PURGED from
       gtid_executed table and binlog files during server startup.
@@ -8965,6 +9035,18 @@ int mysqld_main(int argc, char **argv)
 
     (void)RUN_HOOK(server_state, after_engine_recovery, (nullptr));
   }
+
+  Gtid_set *executed_gtids =
+      const_cast<Gtid_set *>(gtid_state->get_executed_gtids());
+  char *str = nullptr;
+  if (executed_gtids) {
+    Checkable_rwlock *lock = executed_gtids->get_sid_map()->get_sid_lock();
+    lock->wrlock();
+    executed_gtids->to_string(&str, false, nullptr);
+    lock->unlock();
+  }
+  sql_print_information("Executed Gtids after server init: %s", str);
+  my_free(str);
 
   if (init_ssl_communication()) unireg_abort(MYSQLD_ABORT_EXIT);
   if (network_init()) unireg_abort(MYSQLD_ABORT_EXIT);
