@@ -153,12 +153,14 @@ def run_admin_checks(args):
     max_running_queries = int(rows[0])
     for i in range(NUM_TRANSACTIONS):
         cursor=con.cursor()
-        cursor.execute("show status like " \
-            "'Thread_pool_admission_control_running_queries'")
+        cursor.execute("select running_queries from " \
+                       "information_schema.tp_admission_control_entities " \
+                       "where schema_name='%s'" % args.database)
         rows = cursor.fetchall()
-        if int(rows[0][1]) > max_running_queries:
-            raise Exception('Current running queries %s is more than ' \
-                            'max_running_queries %d' % (rows[1][1],
+        running_queries = int(rows[0][0])
+        if running_queries > max_running_queries:
+            raise Exception('Current running queries %d is more than ' \
+                            'max_running_queries %d' % (running_queries,
                              max_running_queries))
 
 def run_tp_on_off(worker):
