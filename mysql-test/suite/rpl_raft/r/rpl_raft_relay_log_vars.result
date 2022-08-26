@@ -19,11 +19,6 @@ show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
-call mtr.add_suppression("Failed to open the relay log");
-call mtr.add_suppression("Could not find target log file mentioned in relay log info in the index file");
-call mtr.add_suppression("Could not find target log file mentioned in relay log info in the index file");
-call mtr.add_suppression("Slave: Failed to initialize the master info structure for channel");
-call mtr.add_suppression("Failed to create or recover replication info repositories");
 create table t1(a int primary key auto_increment) engine = innodb;
 insert into t1 values();
 include/sync_slave_sql_with_master.inc

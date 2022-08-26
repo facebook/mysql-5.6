@@ -19,10 +19,6 @@ show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	FOLLOWER
 reset master;
-call mtr.add_suppression("Error in Log_event::read_log_event()");
-call mtr.add_suppression("Error reading GTIDs from binary log");
-call mtr.add_suppression("Engine has seen trxs till file");
-call mtr.add_suppression("Forcing raft after_commit hook for opid");
 create table t1 (a int primary key) engine = innodb;
 insert into t1 values(1);
 insert into t1 values(2);
@@ -63,7 +59,7 @@ flush logs;
 set @@global.rpl_raft_allow_start_election = 0;
 show status like 'Rpl_raft_slave_low_water_mark';
 Variable_name	Value
-Rpl_raft_slave_low_water_mark	1:16
+Rpl_raft_slave_low_water_mark	1:12
 "Sending kill -STOP to server_1"
 "Stopping server_1"
 "Sending kill -STOP to server_3"

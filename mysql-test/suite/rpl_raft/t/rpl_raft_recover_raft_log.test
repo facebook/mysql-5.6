@@ -1,8 +1,5 @@
 source ../include/raft_3_node.inc;
 
-call mtr.add_suppression("Error reading GTIDs from binary log");
-call mtr.add_suppression("Forcing raft after_commit hook for opid");
-
 connection server_1;
 create table t1 (a int primary key) engine = innodb;
 insert into t1 values(1);
@@ -76,5 +73,7 @@ source include/sync_slave_sql_with_master.inc;
 --disable_query_log
 connection server_1;
 call mtr.add_suppression("Error reading GTIDs from relaylog:.*");
+call mtr.add_suppression("Error reading GTIDs from binary log");
+call mtr.add_suppression("Forcing raft after_commit hook for opid");
 --enable_query_log
 source include/rpl_end.inc;
