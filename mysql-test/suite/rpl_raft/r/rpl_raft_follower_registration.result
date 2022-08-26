@@ -44,19 +44,19 @@ include/sync_slave_sql_with_master.inc
 "SERVER 1"
 SHOW REPLICAS;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 157
 SHOW REPLICAS WITH RAFT;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 2	HOST	PORT	1	UUID	0	RAFT
 3	HOST	PORT	1	UUID	0	RAFT
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 157
 "SERVER 2"
 SHOW REPLICAS;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 156
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 157
 SHOW REPLICAS WITH RAFT;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 156
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 157
 "SERVER 3"
 SHOW REPLICAS;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
@@ -77,19 +77,19 @@ include/raft_promote_to_leader.inc
 "SERVER 1"
 SHOW REPLICAS;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 157
 SHOW REPLICAS WITH RAFT;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
-4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 156
+4	HOST	PORT	1	UUID	0	Async slave offset: binary-logs-13000.000002 157
 "SERVER 2"
 SHOW REPLICAS;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 852
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 853
 SHOW REPLICAS WITH RAFT;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 1	HOST	PORT	2	UUID	0	RAFT
 3	HOST	PORT	2	UUID	0	RAFT
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 852
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 853
 "SERVER 3"
 SHOW REPLICAS;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
