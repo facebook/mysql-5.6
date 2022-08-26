@@ -1,10 +1,5 @@
 source ../include/raft_3_node.inc;
 
-call mtr.add_suppression("Error in Log_event::read_log_event()");
-call mtr.add_suppression("Error reading GTIDs from binary log");
-call mtr.add_suppression("Engine has seen trxs till file");
-call mtr.add_suppression("Forcing raft after_commit hook for opid");
-
 connection server_1;
 create table t1 (a int primary key) engine = innodb;
 insert into t1 values(1);
@@ -112,6 +107,14 @@ select * from t1;
 
 connection server_3;
 select * from t1;
+
+--disable_query_log
+connection server_1;
+call mtr.add_suppression("Error in Log_event::read_log_event()");
+call mtr.add_suppression("Error reading GTIDs from binary log");
+call mtr.add_suppression("Engine has seen trxs till file");
+call mtr.add_suppression("Forcing raft after_commit hook for opid");
+--enable_query_log
 
 # cleanup
 connection server_2;

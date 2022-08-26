@@ -1,7 +1,5 @@
 source ../include/raft_3_node.inc;
 
-call mtr.add_suppression("Out of order opid found");
-
 connection server_1;
 create table t1(a int primary key) engine = innodb;
 let $sync_slave_connection= server_2;
@@ -86,6 +84,11 @@ remove_file $MYSQLD_DATADIR/offsets;
 remove_file $MYSQLD_DATADIR/prefix_raft_log;
 remove_file $MYSQLD_DATADIR/penultimate_trx_raft_log;
 remove_file $MYSQLD_DATADIR/last_trx_raft_log;
+
+--disable_query_log
+connection server_1;
+call mtr.add_suppression("Out of order opid found");
+--enable_query_log
 
 # cleanup
 connection server_1;
