@@ -305,7 +305,7 @@ source include/sync_slave_sql_with_master.inc;
 connection server_4;
 let $show_statement= SHOW PROCESSLIST;
 let $field= State;
-let $condition= = 'Slave has read all relay log; waiting for more updates';
+let $condition= = 'Replica has read all relay log; waiting for more updates';
 source include/wait_show_condition.inc;
 
 # Check the contents of the table in all servers, server 4 should not receive
@@ -373,7 +373,7 @@ source include/sync_slave_sql_with_master.inc;
 connection server_5;
 let $show_statement= SHOW PROCESSLIST;
 let $field= State;
-let $condition= = 'Slave has read all relay log; waiting for more updates';
+let $condition= = 'Replica has read all relay log; waiting for more updates';
 source include/wait_show_condition.inc;
 
 # Check the contents of the table in all servers, server5 should not receive the
