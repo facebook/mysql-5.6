@@ -262,13 +262,15 @@ net_async_status sha256_password_auth_client_nonblocking(MYSQL_PLUGIN_VIO *vio,
                                                          int *result) {
   DBUG_TRACE;
   net_async_status status = NET_ASYNC_NOT_READY;
-  unsigned char encrypted_password[MAX_CIPHER_LENGTH];
+  bool uses_password = mysql->passwd[0] != 0;
+  static unsigned char encrypted_password[MAX_CIPHER_LENGTH];
   static char request_public_key = '\1';
   static RSA *public_key = nullptr;
   bool got_public_key_from_server = false;
   int io_result;
   bool connection_is_secure = (mysql_get_ssl_cipher(mysql) != nullptr);
-  unsigned char scramble_pkt[SCRAMBLE_LENGTH]{};
+  static unsigned char scramble_pkt[SCRAMBLE_LENGTH]{};
+  static int cipher_length = 0;
   unsigned char *pkt;
   unsigned int passwd_len =
       static_cast<unsigned int>(strlen(mysql->passwd) + 1);
@@ -301,7 +303,7 @@ net_async_status sha256_password_auth_client_nonblocking(MYSQL_PLUGIN_VIO *vio,
             client_auth_sha256_password_plugin_status::
                 SHA256_REQUEST_PUBLIC_KEY;
       return NET_ASYNC_NOT_READY;
-    case client_auth_sha256_password_plugin_status::SHA256_REQUEST_PUBLIC_KEY: {
+    case client_auth_sha256_password_plugin_status::SHA256_REQUEST_PUBLIC_KEY:
       public_key = rsa_init(mysql);
       /* If no public key; request one from the server. */
       if (public_key == nullptr) {
@@ -315,12 +317,6 @@ net_async_status sha256_password_auth_client_nonblocking(MYSQL_PLUGIN_VIO *vio,
           return NET_ASYNC_COMPLETE;
         }
       }
-      set_mysql_extended_error(mysql, CR_AUTH_PLUGIN_ERR, unknown_sqlstate,
-                               ER_CLIENT(CR_AUTH_PLUGIN_ERR), "sha256_password",
-                               "Authentication requires SSL encryption");
-      *result = CR_ERROR;
-      return NET_ASYNC_COMPLETE;
-    }
       ctx->client_auth_plugin_state =
           client_auth_sha256_password_plugin_status::SHA256_READ_PUBLIC_KEY;
       [[fallthrough]];
@@ -344,43 +340,58 @@ net_async_status sha256_password_auth_client_nonblocking(MYSQL_PLUGIN_VIO *vio,
         }
         got_public_key_from_server = true;
       }
+      if (public_key) {
+        char passwd_scramble[512];
+
+        if (passwd_len > sizeof(passwd_scramble)) {
+          /* password too long for the buffer */
+          if (got_public_key_from_server) RSA_free(public_key);
+          *result = CR_ERROR;
+          return NET_ASYNC_COMPLETE;
+        }
+        memmove(passwd_scramble, mysql->passwd, passwd_len);
+
+        /* Obfuscate the plain text password with the session scramble */
+        xor_string(passwd_scramble, passwd_len - 1, (char *)scramble_pkt,
+                   SCRAMBLE_LENGTH);
+        /* Encrypt the password and send it to the server */
+        cipher_length = RSA_size(public_key);
+        /*
+          When using RSA_PKCS1_OAEP_PADDING the password length must be less
+          than RSA_size(rsa) - 41.
+        */
+        if (passwd_len + 41 >= (unsigned)cipher_length) {
+          /* password message is to long */
+          if (got_public_key_from_server) RSA_free(public_key);
+          *result = CR_ERROR;
+          return NET_ASYNC_COMPLETE;
+        }
+        RSA_public_encrypt(passwd_len, (unsigned char *)passwd_scramble,
+                           encrypted_password, public_key,
+                           RSA_PKCS1_OAEP_PADDING);
+        if (got_public_key_from_server) RSA_free(public_key);
+      } else {
+        set_mysql_extended_error(mysql, CR_AUTH_PLUGIN_ERR, unknown_sqlstate,
+                                 ER_CLIENT(CR_AUTH_PLUGIN_ERR),
+                                 "sha256_password",
+                                 "Authentication requires SSL encryption");
+        *result = CR_ERROR;
+        return NET_ASYNC_COMPLETE;
+      }
       ctx->client_auth_plugin_state =
           client_auth_sha256_password_plugin_status::
               SHA256_SEND_ENCRYPTED_PASSWORD;
       [[fallthrough]];
     case client_auth_sha256_password_plugin_status::
         SHA256_SEND_ENCRYPTED_PASSWORD: {
-      char passwd_scramble[512];
-
-      if (passwd_len > sizeof(passwd_scramble)) {
-        /* password too long for the buffer */
-        if (got_public_key_from_server) RSA_free(public_key);
-        *result = CR_ERROR;
-        return NET_ASYNC_COMPLETE;
+      if (uses_password) {
+        status = vio->write_packet_nonblocking(vio, (uchar *)encrypted_password,
+                                               cipher_length, &io_result);
+      } else {
+        /* We're not using a password */
+        static const unsigned char zero_byte = '\0';
+        status = vio->write_packet_nonblocking(vio, &zero_byte, 1, &io_result);
       }
-      memmove(passwd_scramble, mysql->passwd, passwd_len);
-
-      /* Obfuscate the plain text password with the session scramble */
-      xor_string(passwd_scramble, passwd_len - 1, (char *)scramble_pkt,
-                 SCRAMBLE_LENGTH);
-      /* Encrypt the password and send it to the server */
-      int cipher_length = RSA_size(public_key);
-      /*
-        When using RSA_PKCS1_OAEP_PADDING the password length must be less
-        than RSA_size(rsa) - 41.
-      */
-      if (passwd_len + 41 >= (unsigned)cipher_length) {
-        /* password message is to long */
-        if (got_public_key_from_server) RSA_free(public_key);
-        *result = CR_ERROR;
-        return NET_ASYNC_COMPLETE;
-      }
-      RSA_public_encrypt(passwd_len, (unsigned char *)passwd_scramble,
-                         encrypted_password, public_key,
-                         RSA_PKCS1_OAEP_PADDING);
-      if (got_public_key_from_server) RSA_free(public_key);
-      status = vio->write_packet_nonblocking(vio, (uchar *)encrypted_password,
-                                             cipher_length, &io_result);
       if (status == NET_ASYNC_NOT_READY) {
         return NET_ASYNC_NOT_READY;
       }
