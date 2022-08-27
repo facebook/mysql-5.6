@@ -52,9 +52,11 @@ SET GLOBAL global_connection_memory_limit = 1;
 
 --echo # Connection con1
 connect (con1, localhost, user1);
+--disable_result_log
 --replace_regex /Consumed [0-9]+/Consumed SOME/
---error ER_DA_GLOBAL_CONN_LIMIT
+--error ER_DA_GLOBAL_CONN_LIMIT,CR_SERVER_GONE_ERROR
 SELECT 1;
+--enable_result_log
 connection default;
 --replace_regex /Consumed [0-9]+/Consumed SOME/
 eval $query_check_err_log;
@@ -65,9 +67,11 @@ disconnect con1;
 SET GLOBAL connection_memory_limit = 1;
 --echo # Connection con1
 connect (con1, localhost, user1);
+--disable_result_log
 --replace_regex /Consumed [0-9]+/Consumed SOME/
---error ER_DA_CONN_LIMIT
+--error ER_DA_CONN_LIMIT,CR_SERVER_GONE_ERROR
 SELECT 1;
+--enable_result_log
 connection default;
 --replace_regex /Consumed [0-9]+/Consumed SOME/
 eval $query_check_err_log;
