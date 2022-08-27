@@ -29,7 +29,6 @@ SET GLOBAL init_connect = default;
 SET GLOBAL global_connection_memory_limit = 1;
 # Connection con1
 SELECT 1;
-ERROR HY000: Connection closed. Global connection memory limit 1 bytes exceeded. Consumed SOME bytes.
 SELECT PRIO, SUBSYSTEM, DATA FROM performance_schema.error_log
 ORDER BY LOGGED DESC LIMIT 1;
 PRIO	SUBSYSTEM	DATA
@@ -39,7 +38,6 @@ SET GLOBAL global_connection_memory_limit = default;
 SET GLOBAL connection_memory_limit = 1;
 # Connection con1
 SELECT 1;
-ERROR HY000: Connection closed. Connection memory limit 1 bytes exceeded. Consumed SOME bytes.
 SELECT PRIO, SUBSYSTEM, DATA FROM performance_schema.error_log
 ORDER BY LOGGED DESC LIMIT 1;
 PRIO	SUBSYSTEM	DATA
