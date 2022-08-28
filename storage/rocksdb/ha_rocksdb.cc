@@ -4680,6 +4680,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
       m_rocksdb_reuse_tx[table_type] = nullptr;
 
       m_read_opts = rocksdb::ReadOptions();
+      m_read_opts.ignore_range_deletions =
+            !rocksdb_enable_delete_range_for_drop_index;
 
       set_initial_savepoint();
 
@@ -4803,6 +4805,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   void reset() {
     m_batch->Clear();
     m_read_opts = rocksdb::ReadOptions();
+    m_read_opts.ignore_range_deletions =
+          !rocksdb_enable_delete_range_for_drop_index;
     m_ddl_transaction = false;
   }
 
