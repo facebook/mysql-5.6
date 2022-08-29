@@ -4406,7 +4406,12 @@ class Rdb_transaction {
   }
 
   explicit Rdb_transaction(THD *const thd)
-      : m_thd(thd), m_tbl_io_perf(nullptr) {}
+      : m_thd(thd), m_tbl_io_perf(nullptr) {
+    m_read_opts[INTRINSIC_TMP].ignore_range_deletions =
+          !rocksdb_enable_delete_range_for_drop_index;
+    m_read_opts[USER_TABLE].ignore_range_deletions =
+          !rocksdb_enable_delete_range_for_drop_index;
+  }
 
   virtual ~Rdb_transaction() {
 #ifndef NDEBUG
@@ -4858,6 +4863,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
       m_rocksdb_reuse_tx[table_type] = nullptr;
 
       m_read_opts[table_type] = rocksdb::ReadOptions();
+      m_read_opts[table_type].ignore_range_deletions =
+            !rocksdb_enable_delete_range_for_drop_index;
 
       set_initial_savepoint();
 
@@ -4982,6 +4989,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   void reset() {
     m_batch->Clear();
     m_read_opts[USER_TABLE] = rocksdb::ReadOptions();
+    m_read_opts[USER_TABLE].ignore_range_deletions =
+          !rocksdb_enable_delete_range_for_drop_index;
     m_ddl_transaction = false;
   }
 
