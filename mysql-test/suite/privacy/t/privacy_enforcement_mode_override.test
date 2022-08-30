@@ -1,0 +1,60 @@
+--source ../include/privacy_init.inc
+
+if (!$has_column_level_check)
+{
+    --source ../include/privacy_end.inc
+    --skip "Column level check is not supported with current plugin version"
+}
+set session privacy_plugin_purpose_policy_column_level_check = ON;
+set session privacy_plugin_purpose_policy_use_ppf_lib = ON;
+
+# Policy for table "privacy_column_research": test::test_a
+# Policy for column "name": test::test_b::test_c
+CREATE TABLE privacy_column_research (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    score int NOT NULL,
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_column_research VALUES(1, "User1", 100);
+
+### Backup original values
+set @original_privacy_plugin_purpose_policy_check = @@session.privacy_plugin_purpose_policy_check;
+set @original_privacy_plugin_purpose_policy_cache_control = @@global.privacy_plugin_purpose_policy_cache_control;
+set @original_privacy_plugin_purpose_policy_cache_retention = @@global.privacy_plugin_purpose_policy_cache_retention;
+set @original_performance_schema_esms_by_all = @@global.performance_schema_esms_by_all;
+set @original_sql_findings_control = @@global.sql_findings_control;
+
+### setup system/session
+use test;
+set session privacy_plugin_purpose_policy_check=fail_close;
+set global privacy_plugin_purpose_policy_cache_control=on;
+set global privacy_plugin_purpose_policy_cache_retention=15;
+set global performance_schema_esms_by_all=on;
+set global sql_findings_control=on;
+
+### Test
+
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add query_policy test::test_a;
+    
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select * from privacy_column_research;
+
+query_attrs_add enforcement_mode_override FAIL_OPEN;
+
+select * from privacy_column_research;
+
+# Cleanup
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+set global privacy_plugin_purpose_policy_cache_control=@original_privacy_plugin_purpose_policy_cache_control;
+set global privacy_plugin_purpose_policy_cache_retention=@original_privacy_plugin_purpose_policy_cache_retention;
+set global performance_schema_esms_by_all=@original_performance_schema_esms_by_all;
+set global sql_findings_control=@original_sql_findings_control;
+
+query_attrs_delete enforcement_mode_override;
+query_attrs_delete shard;
+query_attrs_delete query_policy;
+drop table privacy_column_research;
+
+--source ../include/privacy_end.inc
