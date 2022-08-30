@@ -222,6 +222,11 @@ select * from t1;
 connection server_5;
 select * from t1;
 
+--disable_query_log
+connection server_1;
+call mtr.add_suppression("Slave has more GTIDs than the master has, using the master's SERVER_UUID");
+--enable_query_log
+
 # Cleanup
 connection server_1;
 drop table t1;
