@@ -10,6 +10,7 @@
 
 #include "include/mutex_lock.h"
 #include "mysql/com_data.h"
+#include "my_thread.h"
 
 #include "sql/auth/auth_acls.h"
 #include "sql/binlog.h"
@@ -504,7 +505,7 @@ void Shardbeats_manager::execute() {
   sb_thd->set_new_thread_id();
   sb_thd->thread_stack = (char *)&sb_thd;
   sb_thd->store_globals();
-  pthread_setname_np(pthread_self(), "shardbeats");
+  my_thread_self_setname("shardbeats");
 
   mysql_thread_set_psi_id(sb_thd->thread_id());
 
