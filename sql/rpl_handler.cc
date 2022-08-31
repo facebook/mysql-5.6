@@ -23,6 +23,7 @@
 #include "sql/rpl_handler.h"
 
 #include <string.h>
+#include <cinttypes>
 #include <map>
 #include <memory>
 #include <new>
@@ -1324,7 +1325,8 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
 
   FOREACH_OBSERVER_STRICT(ret, before_flush, (&param, io_cache, op_type));
 
-  DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
+  DBUG_PRINT("return",
+             ("term: %" PRId64 ", index: %" PRId64, param.term, param.index));
 
   /* (term, index) will be used later in before_commit hook of trans
    * observer */
@@ -1339,7 +1341,8 @@ int Raft_replication_delegate::before_commit(THD *thd) {
 
   thd->get_trans_marker(&param.term, &param.index);
 
-  DBUG_PRINT("enter", ("term: %ld, index: %ld", param.term, param.index));
+  DBUG_PRINT("enter",
+             ("term: %" PRId64 ", index: %" PRId64, param.term, param.index));
 
   int ret = 0;
   FOREACH_OBSERVER_STRICT(ret, before_commit, (&param));
