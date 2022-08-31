@@ -16,6 +16,8 @@
 
 #pragma once
 
+#ifndef __APPLE__
+
 /* C++ standard header files */
 #include <signal.h>
 #include <stdlib.h>
@@ -112,3 +114,5 @@ class Rdb_io_watchdog {
 };
 
 }  // namespace myrocks
+
+#endif  // !__APPLE__
