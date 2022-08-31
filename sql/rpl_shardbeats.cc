@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+#include <cinttypes>
 
 #include "sql/rpl_shardbeats.h"
 
@@ -446,10 +447,10 @@ void Shardbeats_manager::check_and_insert_shardbeat(
     comment = format_str_comment_iter;
     boost::replace_all(comment, "{shard}", shard_id);
     boost::replace_all(comment, "{replicaset}", rs_id);
-    sprintf(s_buf, "USE %s; /* %s */ INSERT INTO %s VALUES(%ld);", db.c_str(),
-            comment.c_str(), table_name.c_str(), sb_val);
+    sprintf(s_buf, "USE %s; /* %s */ INSERT INTO %s VALUES(%" PRId64 ");",
+            db.c_str(), comment.c_str(), table_name.c_str(), sb_val);
   } else {
-    sprintf(s_buf, "INSERT INTO %s.%s VALUES(%ld);", db.c_str(),
+    sprintf(s_buf, "INSERT INTO %s.%s VALUES(%" PRId64 ");", db.c_str(),
             table_name.c_str(), sb_val);
   }
   size_t len = strlen(s_buf);
