@@ -245,7 +245,10 @@ IF (HAVE_ZLIB_H)
   SET(rocksdb_static_libs ${rocksdb_static_libs} ${ZLIB_LIBRARY})
 ENDIF()
 
-SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt" "-ldl" "-lpthread")
+SET(rocksdb_static_libs ${rocksdb_static_libs} "-ldl" "-lpthread")
+IF(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
+  SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt")
+ENDIF()
 
 MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
   LINK_LIBRARIES ${rocksdb_static_libs}
