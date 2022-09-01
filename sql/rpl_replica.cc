@@ -64,6 +64,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cinttypes>
 #include <deque>
 #include <map>
 #include <regex>
@@ -5451,10 +5452,10 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
             (index != rli->last_opid.second + 1 ||
              term < rli->last_opid.first)) {
           char msg[1024];
-          snprintf(
-              msg, sizeof(msg),
-              "Out of order opid found last opid=%ld:%ld, current opid=%ld:%ld",
-              rli->last_opid.first, rli->last_opid.second, term, index);
+          snprintf(msg, sizeof(msg),
+                   "Out of order opid found last opid=%" PRId64 ":%" PRId64
+                   ", current opid=%" PRId64 ":%" PRId64,
+                   rli->last_opid.first, rli->last_opid.second, term, index);
           rli->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_READ_FAILURE,
                       ER_THD(thd, ER_SLAVE_RELAY_LOG_READ_FAILURE), msg);
           rli->abort_slave = 1;
