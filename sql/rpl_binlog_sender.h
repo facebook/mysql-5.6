@@ -513,6 +513,8 @@ class Binlog_sender {
   */
   void processlist_slave_offset(const char *log_file_name, my_off_t log_pos);
 
+#ifndef __APPLE__
+
   /**
    Sets DSCP parameters on the binlog socket.
 
@@ -526,6 +528,8 @@ class Binlog_sender {
    @return true if succeeded, false if error occurred
   */
   bool get_dscp_value(int &ret_val);
+
+#endif  // ! __APPLE__
 
   /**
     host:port of the client for this dump thread

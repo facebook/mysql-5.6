@@ -267,6 +267,8 @@ Binlog_sender::Binlog_sender(THD *thd, const char *start_file,
       m_orig_query(NULL_CSTR),
       m_skip_state_update(0) {}
 
+#ifndef __APPLE__
+
 bool Binlog_sender::get_dscp_value(int &ret_val) {
   ret_val = 0;
   bool found_conn = false;
@@ -353,6 +355,8 @@ bool Binlog_sender::set_dscp(void) {
   return true;
 }
 
+#endif  // ! __APPLE__
+
 void Binlog_sender::init() {
   DBUG_TRACE;
   THD *thd = m_thd;
@@ -427,7 +431,9 @@ void Binlog_sender::init() {
        ))
     sql_print_warning("Failed to set SO_SNDBUF with (error: %s).",
                       strerror(errno));
+#ifndef __APPLE__
   (void)set_dscp();
+#endif  // ! __APPLE__
 
   init_checksum_alg();
   /*
