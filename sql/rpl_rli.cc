@@ -1977,9 +1977,9 @@ int Relay_log_info::remove_logged_gtids(
 
     if (gtid.sidno > 0) {
       /* Remove Gtid from logged_gtid set. */
-      DBUG_PRINT("info",
-                 ("Removing gtid(sidno:%d, gno:%ld) from rli logged gtids",
-                  gtid.sidno, gtid.gno));
+      DBUG_PRINT("info", ("Removing gtid(sidno:%d, gno:%" PRId64
+                          ") from rli logged gtids",
+                          gtid.sidno, gtid.gno));
       gtid_set->_remove_gtid(gtid);
     }
   }
