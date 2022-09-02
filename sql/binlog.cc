@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <boost/algorithm/string.hpp>
 #include <chrono>
+#include <cinttypes>
 #include <exception>
 #include <memory>
 #include <sstream>
@@ -5165,7 +5166,8 @@ int MYSQL_BIN_LOG::remove_deleted_logs_from_index(bool need_lock_index,
       }
     }
   }
-  DBUG_PRINT("info", ("num binlogs deleted = %lu", no_of_log_files_purged));
+  DBUG_PRINT("info",
+             ("num binlogs deleted = %" PRIu64, no_of_log_files_purged));
 
 err:
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
