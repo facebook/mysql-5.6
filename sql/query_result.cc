@@ -286,7 +286,7 @@ static File create_file(THD *thd, char *path, const char *file_name,
  */
 bool Query_result_export::open_new_compressed_file(THD *thd) {
   char new_file_buff[FN_REFLEN];
-  int wr = snprintf(new_file_buff, sizeof(new_file_buff), "%s.%lu.zst",
+  int wr = snprintf(new_file_buff, sizeof(new_file_buff), "%s.%" PRIu64 ".zst",
                     exchange->file_name, current_chunk_idx++);
 
   if (wr >= FN_REFLEN || wr < 0) return true;
