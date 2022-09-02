@@ -3276,7 +3276,12 @@ static void set_user(const char *user, const PasswdValue &user_info_arg) {
     LogErr(ERROR_LEVEL, ER_FAIL_SETGID, strerror(errno));
     unireg_abort(MYSQLD_ABORT_EXIT);
   }
+
+#ifndef __APPLE__
   if (setresuid(user_info_arg.pw_uid, user_info_arg.pw_uid, -1) == -1) {
+#else
+  if (setuid(user_info_arg.pw_uid) == -1) {
+#endif
     LogErr(ERROR_LEVEL, ER_FAIL_SETUID, strerror(errno));
     unireg_abort(MYSQLD_ABORT_EXIT);
   }
