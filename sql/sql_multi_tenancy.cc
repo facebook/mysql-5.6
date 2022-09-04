@@ -22,6 +22,7 @@
 #include "global_threads.h"
 #include "handler.h"
 #include "m_string.h"
+#include "debug_sync.h"
 
 #ifndef EMBEDDED_LIBRARY
 
@@ -301,6 +302,25 @@ int multi_tenancy_exit_query(THD *thd)
   return 0;
 }
 
+/**
+ * Set the admission control queue based on the sql id
+ *
+ * @param thd THD structure
+ * @param sql_id str
+ *
+ * @return 0 if successful, 1 if otherwise
+ */
+int multi_tenancy_set_admission_control_queue(THD *thd, std::string sql_id)
+{
+  if (db_ac->is_low_pri_sql_id(sql_id)) {
+    DEBUG_SYNC(thd, "sql_id_assigned_low_pri");
+    int queue = db_ac->get_lowest_weight_queue();
+    char queue_buf[3];
+    char *result = my_safe_itoa(10, queue, &queue_buf[2]);
+    thd->set_query_attr("@@admission_control_queue", result);
+  }
+  return 0;
+}
 
 /*
  * Get the resource counter of database or user from multi-tenancy plugin
@@ -393,6 +413,10 @@ int multi_tenancy_exit_query(THD *thd)
   return 1;
 }
 
+int multi_tenancy_set_admission_control_queue(THD *thd, std::string sql_id)
+{
+  return 1;
+}
 
 int initialize_multi_tenancy_plugin(st_plugin_int *plugin)
 {
@@ -913,9 +937,74 @@ int AC::update_queue_weights(char *s) {
   }
   mysql_rwlock_wrlock(&LOCK_ac);
   weights = tmp;
+  lowest_weight_queue = get_lowest_queue_weight_number_under_lock();
   mysql_rwlock_unlock(&LOCK_ac);
 
   return 0;
+}
+
+/*
+ * Retrieve the lowest queue weight available
+ *
+ * @returns queue with lowest weight
+ *
+ */
+int AC::get_lowest_queue_weight_number_under_lock() {
+  int lowest_weight_queue_number = 0;
+  unsigned long lowest_weight = INT_MAX;
+
+  for (ulong i = 0; i < std::min(MAX_AC_QUEUES, weights.size()); i++) {
+    if (weights[i] > 0 && lowest_weight > weights[i]) {
+      lowest_weight = weights[i];
+      lowest_weight_queue_number = i;
+    }
+  }
+
+  return lowest_weight_queue_number;
+}
+
+/*
+ * @param s comma delimited string containing the weights
+ *
+ * Updates AC::low_priority sql ids based on the comma
+ *             delimited string passed in.
+ *
+ * @returns -1 on failure
+ *          0 on success.
+ */
+int AC::update_queue_low_pri_sql_ids(char *s) {
+  if (!s) {
+    return 0;
+  }
+
+  auto v = split_into_vector(s, ',');
+  std::unordered_set<std::string> tmp;
+
+  if (v.size() == 0) {
+    return 0;
+  }
+
+  for (ulong i = 0; i < v.size(); i++) {
+    if (v[i].length() != MD5_BUFF_LENGTH) {
+      return -1;
+    }
+    tmp.insert(v[i]);
+  }
+  mysql_rwlock_wrlock(&LOCK_ac);
+  low_pri_sql_ids = tmp;
+  mysql_rwlock_unlock(&LOCK_ac);
+
+  return 0;
+}
+
+/*
+ * @param sql_id sql_id whose priority needs to be determined
+ *
+ * Check if a sql_id is marked as low pri
+ */
+bool AC::is_low_pri_sql_id(const std::string& sql_id)
+{
+  return low_pri_sql_ids.find(sql_id) != low_pri_sql_ids.end();
 }
 
 /*

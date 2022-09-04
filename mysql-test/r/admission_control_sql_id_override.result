@@ -1,0 +1,25 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+grant all on test to test_user@localhost;
+use test_db;
+set @save_admission_control_weights = @@admission_control_weights;
+#
+# Test weights (2,3) on queue 1,2
+#
+set global admission_control_weights = "3,2,1";
+flush sql_statistics;
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.max_digest_sample_age=1;
+set @@GLOBAL.min_examined_row_limit_sql_stats=1;
+set @@GLOBAL.admission_control_low_pri_sql_ids = "15cb839cade515dc3decca4b2afa8533";
+SET DEBUG_SYNC = "sql_id_assigned_low_pri HIT_LIMIT 1";
+create table t71 (i int);
+ERROR HY000: debug sync point hit limit reached
+set global admission_control_weights = @save_admission_control_weights;
+set @@GLOBAL.max_digest_sample_age=DEFAULT;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.min_examined_row_limit_sql_stats=DEFAULT;
+set @@GLOBAL.admission_control_low_pri_sql_ids = "";
+drop database test_db;
+drop user test_user@localhost;

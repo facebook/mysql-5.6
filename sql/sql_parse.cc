@@ -2287,7 +2287,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       statistic_increment(thd->status_var.questions, &LOCK_status);
       thd->set_time(); /* Reset the query start time. */
       DBUG_EXECUTE_IF("add_busy_loop", {
-          auto finish = std::chrono::system_clock::now() + 
+          auto finish = std::chrono::system_clock::now() +
             std::chrono::seconds(2);
           while (finish > std::chrono::system_clock::now()) {}
       });
@@ -10590,6 +10590,11 @@ bool parse_sql(THD *thd,
         md5_key sql_id;
         compute_digest_md5(&thd->m_digest->m_digest_storage, sql_id.data());
         thd->mt_key_set(THD::SQL_ID, sql_id.data());
+
+        char hex_string[MD5_BUFF_LENGTH];
+        array_to_hex(hex_string, sql_id.data(), sql_id.size());
+        std::string sql_id_str(hex_string, MD5_BUFF_LENGTH);
+        multi_tenancy_set_admission_control_queue(thd, sql_id_str);
       }
   }
 

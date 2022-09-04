@@ -3696,6 +3696,22 @@ static Sys_var_mybool Sys_slave_sql_verify_checksum(
        "log. Enabled by default.",
        GLOBAL_VAR(opt_slave_sql_verify_checksum), CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
+static bool check_admission_control_low_pri_sql_ids(
+    sys_var *self, THD *thd, set_var *var)
+{
+  return db_ac->update_queue_low_pri_sql_ids(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_admission_control_low_pri_sql_ids(
+       "admission_control_low_pri_sql_ids",
+       "Specify the sql ids as a comma-separated list. "
+       "These sql ids will be added to the low priority "
+       "admission control queues.",
+       GLOBAL_VAR(admission_control_low_pri_sql_ids),
+       CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(0),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_admission_control_low_pri_sql_ids));
+
 static const char *slave_check_before_image_consistency_names[]= {"OFF",
                                                                   "COUNT",
                                                                   "ON", 0};

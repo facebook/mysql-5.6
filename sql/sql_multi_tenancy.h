@@ -59,6 +59,7 @@ extern int multi_tenancy_add_connection(THD *, const char *);
 extern int multi_tenancy_close_connection(THD *);
 extern int multi_tenancy_admit_query(THD *, enum_admission_control_request_mode mode = AC_REQUEST_QUERY);
 extern int multi_tenancy_exit_query(THD *);
+extern int multi_tenancy_set_admission_control_queue(THD *, std::string);
 extern std::string multi_tenancy_get_entity_counter(
     THD *thd, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *,
     const char *entity_name, int *limit, int *count);
@@ -192,6 +193,8 @@ class AC {
   ulong max_connections;
 
   std::array<unsigned long, MAX_AC_QUEUES> weights{};
+  std::unordered_set<std::string> low_pri_sql_ids;
+  int lowest_weight_queue = 0;
   /**
     Protects the above variables.
 
@@ -310,7 +313,13 @@ public:
   void close_connection(THD*);
 
   int update_queue_weights(char *str);
+  int get_lowest_queue_weight_number_under_lock();
+  int update_queue_low_pri_sql_ids(char *str);
+  bool is_low_pri_sql_id(const std::string& str);
 
+  int get_lowest_weight_queue() const {
+    return lowest_weight_queue;
+  }
   ulonglong get_total_aborted_queries() const {
     return total_aborted_queries;
   }
