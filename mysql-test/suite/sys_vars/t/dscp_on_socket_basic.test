@@ -18,6 +18,7 @@
 #              * Data Integrity                                               #
 #                                                                             #
 ###############################################################################
+--source include/not_mac_os.inc
 
 --source include/load_sysvars.inc
 
