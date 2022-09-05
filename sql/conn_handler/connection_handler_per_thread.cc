@@ -294,7 +294,9 @@ static void *handle_connection(void *arg) {
     MYSQL_SOCKET socket = thd->get_protocol_classic()->get_vio()->mysql_socket;
     mysql_socket_set_thread_owner(socket);
     thd->set_thread_priority();
+#ifndef __APPLE__
     thd->set_dscp_on_socket();
+#endif
 
     thd_manager->add_thd(thd);
 
