@@ -2434,7 +2434,12 @@ static MYSQL_SYSVAR_ULONGLONG(
 
 static MYSQL_SYSVAR_INT(
     table_stats_background_thread_nice_value,
-    rocksdb_table_stats_background_thread_nice_value, PLUGIN_VAR_RQCMDARG,
+    rocksdb_table_stats_background_thread_nice_value,
+    PLUGIN_VAR_RQCMDARG
+#ifdef __APPLE__
+        | PLUGIN_VAR_READONLY
+#endif
+    ,
     "nice value for index stats", rocksdb_index_stats_thread_renice, nullptr,
     /* default */ rocksdb_table_stats_background_thread_nice_value,
     /* min */ THREAD_PRIO_MIN, /* max */ THREAD_PRIO_MAX, 0);
@@ -16037,7 +16042,11 @@ int Rdb_index_stats_thread::renice(int nice_val) {
   }
 
 #ifndef _WIN32
+#ifdef __linux__
   int ret = setpriority(PRIO_PROCESS, m_tid, nice_val);
+#elif defined(__APPLE__)
+  int ret = setpriority(PRIO_DARWIN_THREAD, 0, nice_val);
+#endif
   if (ret != 0) {
     // NO_LINT_DEBUG
     sql_print_error("Set index stats thread priority failed due to %s",
@@ -16045,7 +16054,7 @@ int Rdb_index_stats_thread::renice(int nice_val) {
     RDB_MUTEX_UNLOCK_CHECK(m_is_mutex);
     return HA_EXIT_FAILURE;
   }
-#endif
+#endif  // ! _WIN32
 
   RDB_MUTEX_UNLOCK_CHECK(m_is_mutex);
   return HA_EXIT_SUCCESS;
@@ -16667,6 +16676,7 @@ static void rocksdb_update_table_stats_use_table_scan(
 static int rocksdb_index_stats_thread_renice(
     THD *const /* thd */, struct SYS_VAR *const /* var */, void *const save,
     struct st_mysql_value *const value) {
+#ifndef __APPLE__
   long long nice_val;
   /* value is NULL */
   if (value->val_int(value, &nice_val)) {
@@ -16679,6 +16689,12 @@ static int rocksdb_index_stats_thread_renice(
 
   *static_cast<int32_t *>(save) = static_cast<int32_t>(nice_val);
   return HA_EXIT_SUCCESS;
+#else   // ! __APPLE__
+  (void)save;
+  (void)value;
+  assert(0);
+  return HA_EXIT_SUCCESS;
+#endif  // ! __APPLE__
 }
 
 /*
