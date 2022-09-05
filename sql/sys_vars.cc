@@ -9530,7 +9530,7 @@ static Sys_var_longlong Sys_max_tmp_disk_usage(
     "if this limit is exceeded. 0 means no limit. -1 disables global "
     "tmp disk usage accounting and can only be re-enabled after restart.",
     GLOBAL_VAR(max_tmp_disk_usage), CMD_LINE(OPT_ARG),
-    VALID_RANGE(-1, LONG_LONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    VALID_RANGE(-1, LLONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_max_tmp_disk_usage));
 
 static Sys_var_bool Sys_reset_period_status_vars(
