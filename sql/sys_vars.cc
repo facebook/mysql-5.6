@@ -8862,7 +8862,7 @@ static Sys_var_ulonglong Sys_hlc_upper_bound_delta(
     "Min acceptable difference between current HLC value and upper HLC "
     "boundary specified for the query",
     GLOBAL_VAR(hlc_upper_bound_delta), CMD_LINE(OPT_ARG),
-    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG);
 
 static Sys_var_bool Sys_fast_integer_to_string(
