@@ -9176,13 +9176,13 @@ static Sys_var_ulonglong Sys_apply_log_retention_num(
     "apply_log_retention_num",
     "Minimum number of apply logs that need to be retained.",
     GLOBAL_VAR(apply_log_retention_num), CMD_LINE(OPT_ARG),
-    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(10), BLOCK_SIZE(1));
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(10), BLOCK_SIZE(1));
 
 static Sys_var_ulonglong Sys_apply_log_retention_duration(
     "apply_log_retention_duration",
     "Minimum duration (mins) that apply logs need to be retained.",
     GLOBAL_VAR(apply_log_retention_duration), CMD_LINE(OPT_ARG),
-    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
 
 static Sys_var_bool Sys_recover_raft_log(
     "recover_raft_log",
