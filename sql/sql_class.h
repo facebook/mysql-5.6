@@ -4802,6 +4802,7 @@ class THD : public MDL_context_owner,
   int validate_schema_info(TABLE_LIST *tl);
 
   void set_connection_attrs(const char *attrs, size_t length);
+  void set_query_attr(const char *attr, const char *value);
   void set_query_attrs(const char *attrs, size_t length);
   int parse_query_info_attr();
   void reset_query_attrs() {

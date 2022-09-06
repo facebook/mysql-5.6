@@ -51,6 +51,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 /**
@@ -61,6 +62,7 @@ class Ac_info;
 extern bool opt_admission_control_by_trx;
 extern ulonglong admission_control_filter;
 extern char *admission_control_weights;
+extern char *admission_control_low_pri_sql_ids;
 extern ulonglong admission_control_wait_events;
 extern ulonglong admission_control_yield_freq;
 extern bool admission_control_multiquery_filter;
@@ -385,7 +387,9 @@ class AC {
   ulong max_waiting_queries = 0;
   ulong max_connections = 0;
 
+  std::unordered_set<std::string> low_pri_sql_ids;
   std::array<unsigned long, MAX_AC_QUEUES> weights{};
+  int lowest_weight_queue = 0;
   /**
     Protects the above variables.
 
@@ -436,11 +440,15 @@ class AC {
 
   int update_queue_weights(char *str);
 
+  int update_queue_low_pri_sql_ids(char *str);
+  bool is_low_pri_sql_id(const std::string &str);
+
   ulonglong get_total_aborted_queries() const { return total_aborted_queries; }
   ulonglong get_total_timeout_queries() const { return total_timeout_queries; }
   ulonglong get_total_rejected_connections() const {
     return total_rejected_connections;
   }
+  int get_lowest_queue_weight_number() { return lowest_weight_queue; }
 
   ulong get_total_running_queries() const;
 

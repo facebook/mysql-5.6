@@ -1,0 +1,38 @@
+Default value of admission_control_low_pri_sql_ids is empty string
+SELECT @@global.admission_control_low_pri_sql_ids;
+@@global.admission_control_low_pri_sql_ids
+NULL
+SELECT @@session.admission_control_low_pri_sql_ids;
+ERROR HY000: Variable 'admission_control_low_pri_sql_ids' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+set @@global.admission_control_low_pri_sql_ids = "34e88a1155b13f86bcea1673de80d26b";
+SELECT @@global.admission_control_low_pri_sql_ids;
+@@global.admission_control_low_pri_sql_ids
+34e88a1155b13f86bcea1673de80d26b
+set @@global.admission_control_low_pri_sql_ids = "34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d";
+SELECT @@global.admission_control_low_pri_sql_ids;
+@@global.admission_control_low_pri_sql_ids
+34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d
+set @@global.admission_control_low_pri_sql_ids = ",,,";
+SELECT @@global.admission_control_low_pri_sql_ids;
+@@global.admission_control_low_pri_sql_ids
+,,,
+set @@global.admission_control_low_pri_sql_ids = "34e88a1155b13f86bcea1673de80d26b,,,";
+SELECT @@global.admission_control_low_pri_sql_ids;
+@@global.admission_control_low_pri_sql_ids
+34e88a1155b13f86bcea1673de80d26b,,,
+set @@global.admission_control_low_pri_sql_ids = "34e88a-1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d";
+ERROR 42000: Variable 'admission_control_low_pri_sql_ids' can't be set to the value of '34e88a-1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d'
+SELECT @@global.admission_control_low_pri_sql_ids;
+@@global.admission_control_low_pri_sql_ids
+34e88a1155b13f86bcea1673de80d26b,,,
+set @@global.admission_control_low_pri_sql_ids = "1,1,1,1,1,1,1,1,1,1";
+ERROR 42000: Variable 'admission_control_low_pri_sql_ids' can't be set to the value of '1,1,1,1,1,1,1,1,1,1'
+SELECT @@global.admission_control_low_pri_sql_ids;
+@@global.admission_control_low_pri_sql_ids
+34e88a1155b13f86bcea1673de80d26b,,,
+restore the default value
+SET @@global.admission_control_low_pri_sql_ids = "";
+SELECT @@global.admission_control_low_pri_sql_ids;
+@@global.admission_control_low_pri_sql_ids
+
