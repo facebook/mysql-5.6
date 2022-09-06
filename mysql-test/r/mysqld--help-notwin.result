@@ -53,6 +53,10 @@ The following options may be given as the first argument:
  The legal values are: ALTER, BEGIN, COMMIT, CREATE,
  DELETE, DROP, INSERT, LOAD, SELECT, SET, REPLACE,
  ROLLBACK, TRUNCATE, UPDATE, SHOW and empty string
+ --admission-control-low-pri-sql-ids[=name] 
+ Specify the sqlids as a comma-separated list. These sql
+ ids will be added to the low priority admission control
+ queues.
  --admission-control-multiquery-filter 
  Run filter on subsequent queries in multi-query statement
  --admission-control-queue[=#] 
@@ -3041,6 +3045,7 @@ admin-tls-ciphersuites (No default value)
 admission-control-by-trx FALSE
 admission-control-errors-size 128
 admission-control-filter 
+admission-control-low-pri-sql-ids (No default value)
 admission-control-multiquery-filter FALSE
 admission-control-queue 0
 admission-control-queue-timeout -1

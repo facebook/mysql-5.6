@@ -3354,6 +3354,19 @@ static Sys_var_ulong Sys_admission_control_errors_size(
     VALID_RANGE(128, 1048576), DEFAULT(128), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_admission_control_errors_size));
 
+static bool check_admission_control_low_pri_sql_ids(sys_var *, THD *,
+                                                    set_var *var) {
+  return db_ac->update_queue_low_pri_sql_ids(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_admission_control_low_pri_sql_ids(
+    "admission_control_low_pri_sql_ids",
+    "Specify the sqlids as a comma-separated list. "
+    "These sql ids will be added to the low priority admission control queues.",
+    GLOBAL_VAR(admission_control_low_pri_sql_ids), CMD_LINE(OPT_ARG),
+    IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_admission_control_low_pri_sql_ids));
+
 static Sys_var_ulong Sys_max_connect_errors(
     "max_connect_errors",
     "If there is more than this number of interrupted connections from "

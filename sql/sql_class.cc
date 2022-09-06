@@ -4061,6 +4061,26 @@ void THD::set_connection_attrs(const char *attrs, size_t length) {
   mysql_mutex_unlock(&LOCK_thd_data);
 }
 
+void THD::set_query_attr(const char *attr, const char *value) {
+  std::string attr_key(attr);
+  std::string attr_value(value);
+
+  bool updated_key_value = false;
+
+  mysql_mutex_lock(&LOCK_thd_data);
+  for (auto &kvp : query_attrs_list) {
+    if (kvp.first == attr_key) {
+      kvp.second = std::move(attr_value);
+      updated_key_value = true;
+    }
+  }
+  if (!updated_key_value) {
+    query_attrs_list.emplace_back(std::make_pair<std::string, std::string>(
+        std::move(attr_key), std::move(attr_value)));
+  }
+  mysql_mutex_unlock(&LOCK_thd_data);
+}
+
 void THD::set_query_attrs(const char *attrs, size_t length) {
   query_attrs_string = std::string(attrs, length);
 

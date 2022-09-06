@@ -15,16 +15,21 @@
  */
 
 #include "sql/sql_admission_control.h"
+#include <my_stacktrace.h>
+#include "debug_sync.h"
 #include "sql/auth/auth_acls.h"
+#include "sql/log.h"
 #include "sql/mysqld.h"
 #include "sql/sql_class.h"
 #include "sql/sql_lex.h"
+#include "sql/sql_thd_internal_api.h"
 
 #define IS_BIT_SET(val, n) ((val) & (1 << (n)))
 
 bool opt_admission_control_by_trx = false;
 ulonglong admission_control_filter;
 char *admission_control_weights;
+char *admission_control_low_pri_sql_ids;
 ulonglong admission_control_wait_events;
 ulonglong admission_control_yield_freq;
 bool admission_control_multiquery_filter;
@@ -230,6 +235,14 @@ int multi_tenancy_admit_query(THD *thd,
     admission_check = true;
   }
 
+  DBUG_EXECUTE_IF("sql_id_assigned_low_pri", {
+    if (db_ac->is_low_pri_sql_id(thd_get_sql_id(thd))) {
+      my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
+               db_ac->get_max_waiting_queries(), "dummy");
+      return 1;
+    }
+  });
+
   if (admission_check) {
     Ac_result res = db_ac->admission_control_enter(thd, mode);
     if (res == Ac_result::AC_ABORTED) {
@@ -306,10 +319,17 @@ int stoul_noexcept(const std::string str, ulong *val) {
 static ulong get_queue(THD *thd) {
   // To get queue name, we look at query attribute, connection attribute,
   // and then session variable in that order.
-  return thd->get_query_or_connect_attr_value(
-      "@@admission_control_queue",             // name
-      thd->variables.admission_control_queue,  // default
+  ulong queue = 0;
+  if (db_ac->is_low_pri_sql_id(thd_get_sql_id(thd))) {
+    queue = db_ac->get_lowest_queue_weight_number();
+  } else {
+    queue = thd->get_query_or_connect_attr_value(
+        "@@admission_control_queue",             // name
+        thd->variables.admission_control_queue,  // default
       MAX_AC_QUEUES);                          // maximum
+  }
+
+  return queue;
 }
 
 /**
@@ -746,6 +766,8 @@ void AC::dequeue_and_run(THD *thd, Ac_info_ptr ac_info) {
 int AC::update_queue_weights(char *s) {
   auto v = split_into_vector(s ? s : "", ',');
   auto tmp = weights;
+  int lowest_weight_queue_iter = 0;
+  unsigned long lowest_weight = INT_MAX;
 
   if (v.size() > MAX_AC_QUEUES) {
     return -1;
@@ -755,15 +777,63 @@ int AC::update_queue_weights(char *s) {
     ulong value = 0;
     if (!stoul_noexcept(v[i], &value) && value > 0 && value < LONG_MAX) {
       tmp[i] = (ulong)value;
+      if (tmp[i] < lowest_weight) {
+        lowest_weight = tmp[i];
+        lowest_weight_queue_iter = i;
+      }
     } else {
       return -1;
     }
   }
   mysql_rwlock_wrlock(&LOCK_ac);
   weights = tmp;
+  lowest_weight_queue = lowest_weight_queue_iter;
   mysql_rwlock_unlock(&LOCK_ac);
 
   return 0;
+}
+
+/**
+ * @param s comma delimited string containing the weights
+ *
+ * Updates AC::low_priority sql ids based on the comma delimited string passed
+ * in.
+ *
+ * @returns -1 on failure
+ *          0 on success.
+ */
+int AC::update_queue_low_pri_sql_ids(char *s) {
+  int error = 0;
+  if (s) {
+    auto v = split_into_vector(s, ',');
+    std::unordered_set<std::string> tmp;
+
+    if (v.size() > 0) {
+      for (ulong i = 0; i < v.size(); i++) {
+        if (v[i].length() != 2 * DIGEST_HASH_SIZE) {
+          error = -1;
+          break;
+        }
+        tmp.insert(v[i]);
+      }
+
+      if (error == 0) {
+        mysql_rwlock_wrlock(&LOCK_ac);
+        low_pri_sql_ids = tmp;
+        mysql_rwlock_unlock(&LOCK_ac);
+      }
+    }
+  }
+  return error;
+}
+
+/**
+ * @param sql_id sql_id whose priority needs to be determined
+ *
+ * Check if a sql_id is marked as low pri
+ */
+bool AC::is_low_pri_sql_id(const std::string &sql_id) {
+  return low_pri_sql_ids.find(sql_id) != low_pri_sql_ids.end();
 }
 
 /**
