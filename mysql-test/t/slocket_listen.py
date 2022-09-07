@@ -9,7 +9,7 @@ from sys import argv, exit
 
 def main():
   if len(argv) < 2:
-    print 'Usage: %s <socket name>' % argv[0]
+    print('Usage: %s <socket name>' % argv[0])
     exit(1)
 
   sn = relpath(argv[1] + 'slocket', getcwd())
@@ -21,16 +21,16 @@ def main():
   try_unlink(sn)
   s.bind(sn)
 
-  print 'listening on %r' % sn
+  print('listening on %r' % sn)
 
   while not exists(relpath(argv[1] + '/slocket_listen_kill_flag', getcwd())):
     x,_,_ = select([s], [], [], 1.0)
     if len(x) > 0:
       x = x[0]
       y = x.recv(1024)
-      print y
+      print(y.decode('utf-8'))
 
-  print 'found slocket_listen_kill_flag... closing'
+  print('found slocket_listen_kill_flag... closing')
   s.close()
   try_unlink(sn)
 
