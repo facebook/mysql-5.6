@@ -5410,6 +5410,24 @@ class THD : public MDL_context_owner,
 #ifndef __APPLE__
   bool set_dscp_on_socket();
 #endif
+
+  /**
+   Query_formatter is used for populating rpc command in SHOW PROCESSLIST.
+  */
+  class Query_formatter {
+   public:
+    virtual ~Query_formatter() {}
+    virtual void format_query(String &buf) = 0;
+  };
+  void set_query_formatter(Query_formatter *query_formatter) {
+    mysql_mutex_lock(&LOCK_thd_query);
+    m_query_formatter = query_formatter;
+    mysql_mutex_unlock(&LOCK_thd_query);
+  }
+  Query_formatter *get_query_formatter() { return m_query_formatter; }
+
+ private:
+  Query_formatter *m_query_formatter{nullptr};
 };
 
 /**

@@ -101,7 +101,8 @@ class Protocol {
     PROTOCOL_BINARY = 1,  // binary protocol type
     PROTOCOL_LOCAL = 2,   // local protocol type(intercepts communication)
     PROTOCOL_ERROR = 3,   // error protocol instance
-    PROTOCOL_PLUGIN = 4   // pluggable protocol type
+    PROTOCOL_PLUGIN = 4,  // pluggable protocol type
+    PROTOCOL_RPC = 5,     // RPC protocol (eg. thrift protocol)
   };
 
   /**

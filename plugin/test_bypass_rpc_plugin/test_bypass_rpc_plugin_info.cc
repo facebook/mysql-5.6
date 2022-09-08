@@ -34,6 +34,9 @@
 #include "my_inttypes.h"
 #include "my_io.h"
 #include "my_sys.h"
+#include "sql/debug_sync.h"
+#include "sql/mysqld_thd_manager.h"
+#include "sql/srv_session.h"
 
 #define RPC_MAX_QUERY_LENGTH 1000
 #define MAX_STRING_LENGTH 1000
@@ -60,6 +63,12 @@ static void *test_sql_threaded_wrapper(void *param) {
   srv_session_deinit_thread();
 
   context->thread_finished = true;
+  if (current_thd) {
+    THD *thd = current_thd;
+    thd->release_resources();
+    Global_THD_manager::get_instance()->remove_thd(thd);
+    delete thd;
+  }
   return nullptr;
 }
 
@@ -258,18 +267,18 @@ static void test_in_spawned_thread(void *p, void (*test_function)(void *)) {
   my_thread_attr_init(&attr);
   (void)my_thread_attr_setdetachstate(&attr, MY_THREAD_CREATE_JOINABLE);
 
-  struct test_thread_context context;
-
-  context.p = p;
-  context.thread_finished = false;
-  context.test_function = test_function;
+  struct test_thread_context *context = (struct test_thread_context *)my_malloc(
+      PSI_INSTRUMENT_ME, sizeof(struct test_thread_context), MYF(0));
+  context->p = p;
+  context->thread_finished = false;
+  context->test_function = test_function;
 
   /* now create the thread and call test_session within the thread. */
-  if (my_thread_create(&(context.thread), &attr, test_sql_threaded_wrapper,
-                       &context) != 0)
+  if (my_thread_create(&context->thread, &attr, test_sql_threaded_wrapper,
+                       context) != 0)
     fprintf(outfile_rpc, "Could not create test session thread");
-  else
-    my_thread_join(&context.thread, nullptr);
+  struct st_plugin_int *plugin = (struct st_plugin_int *)p;
+  plugin->data = (void *)context;
 }
 
 static void fill_table_and_columns(myrocks_select_from_rpc &param,
@@ -503,8 +512,13 @@ static int test_bypass_rpc_plugin_init(void *p) {
   return 0;
 }
 
-static int test_bypass_rpc_plugin_deinit(void *) {
+static int test_bypass_rpc_plugin_deinit(void *p) {
   DBUG_TRACE;
+  struct st_plugin_int *plugin = (struct st_plugin_int *)p;
+  struct test_thread_context *context =
+      (struct test_thread_context *)plugin->data;
+  my_thread_join(&context->thread, nullptr);
+  my_free(context);
   my_fclose(outfile_rpc, MYF(0));
   my_fclose(outfile_sql, MYF(0));
   return 0;

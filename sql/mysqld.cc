@@ -13674,6 +13674,7 @@ PSI_mutex_key key_LOCK_global_active_sql;
 PSI_mutex_key key_LOCK_ac_node;
 PSI_mutex_key key_LOCK_ac_info;
 PSI_mutex_key key_LOCK_thd_db_default_collation_hash;
+PSI_mutex_key key_LOCK_rpc_query;
 
 /* clang-format off */
 static PSI_mutex_info all_server_mutexes[]=
@@ -13791,7 +13792,9 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_thd_db_default_collation_hash,
     "THD::LOCK_thd_db_default_collation_hash", 0, PSI_VOLATILITY_SESSION,
     PSI_DOCUMENT_ME},
-  { &key_LOCK_global_conn_mem_limit, "LOCK_global_conn_mem_limit", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}
+  { &key_LOCK_global_conn_mem_limit, "LOCK_global_conn_mem_limit", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_rpc_query, "RPC_Query_formatter::LOCK_rpc_query", 0,
+    PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 

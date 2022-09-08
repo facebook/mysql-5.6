@@ -3130,6 +3130,14 @@ class List_process_list : public Do_THD_Impl {
         query_str = buf.c_ptr();
         query_length = buf.length();
       }
+
+      /* Fill query_str with rpc query if query formatter is available */
+      if (auto query_formatter = inspect_thd->get_query_formatter()) {
+        query_formatter->format_query(buf);
+        query_str = buf.c_ptr();
+        query_length = buf.length();
+      }
+
       /* No else. We need fall-through */
       /* If we managed to create query info, set a copy on thd_info. */
       if (query_str) {
@@ -3415,6 +3423,14 @@ class Fill_process_list : public Do_THD_Impl {
         query_str = buf.c_ptr();
         query_length = buf.length();
       }
+
+      /* Fill query_str with rpc query if query formatter is available */
+      if (auto query_formatter = inspect_thd->get_query_formatter()) {
+        query_formatter->format_query(buf);
+        query_str = buf.c_ptr();
+        query_length = buf.length();
+      }
+
       /* No else. We need fall-through */
       /* If we managed to create query info, set a copy on thd_info. */
       if (query_str) {

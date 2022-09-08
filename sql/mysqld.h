@@ -759,6 +759,7 @@ extern PSI_mutex_key key_LOCK_global_write_throttling_log;
 extern PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
 extern PSI_mutex_key key_LOCK_global_sql_findings;
 extern PSI_mutex_key key_LOCK_global_active_sql;
+extern PSI_mutex_key key_LOCK_rpc_query;
 
 extern PSI_mutex_key key_commit_order_manager_mutex;
 extern PSI_mutex_key key_mutex_replica_worker_hash;
