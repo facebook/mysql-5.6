@@ -51,6 +51,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <time.h>
 
 #include <chrono>
+#include <cinttypes>
 
 #include "btr0sea.h"
 #include "buf0flu.h"
@@ -1396,7 +1397,7 @@ void srv_printf_innodb_binlog_position(FILE *file) /*!< in: output stream */
           " INNODB BINLOG POSITION OUTPUT\n"
           "=================================================\n"
           "BINLOG FILE %s\n"
-          "BINLOG OFFSET %lu\n"
+          "BINLOG OFFSET %" PRIu64 "\n"
           "MAX GTID %s\n"
           "----------------------------------------\n"
           "END OF INNODB BINLOG POSITION OUTPUT\n"
