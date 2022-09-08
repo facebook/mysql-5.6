@@ -1,6 +1,5 @@
 # Test remote clone after upgrading from 5.7
 
---source include/linux.inc
 --source include/have_innodb_16k.inc
 --source include/big_test.inc
 
