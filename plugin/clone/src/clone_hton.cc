@@ -56,6 +56,21 @@ struct Hton {
 
 }  // namespace myclone
 
+static void rollback_clone_begin(THD *thd, const Storage_Vector &clone_loc_vec,
+                                 const Task_Vector &task_vec) {
+  auto task_vec_itr = task_vec.cbegin();
+  for (auto &rollback_loc_iter : clone_loc_vec) {
+    if (task_vec_itr == task_vec.cend()) break;
+    // Ignore any errors from clone_end because we are already returning an
+    // error from clone_begin.
+    rollback_loc_iter.m_hton->clone_interface.clone_end(
+        rollback_loc_iter.m_hton, thd, rollback_loc_iter.m_loc,
+        rollback_loc_iter.m_loc_len, *task_vec_itr, 0);
+    ++task_vec_itr;
+  }
+  assert(task_vec_itr == task_vec.cend());
+}
+
 /** Begin clone operation for current storage engine plugin
 @param[in,out]	thd	server thread handle
 @param[in]	plugin	storage plugin
@@ -75,6 +90,9 @@ static bool run_hton_clone_begin(THD *thd, plugin_ref plugin, void *arg) {
     clone_arg->m_err = hton->clone_interface.clone_begin(
         hton, thd, loc.m_loc, loc.m_loc_len, task_id, clone_arg->m_type,
         clone_arg->m_mode);
+
+    if (clone_arg->m_err != 0)
+      rollback_clone_begin(thd, *clone_arg->m_loc_vec, *clone_arg->m_task_vec);
 
     clone_arg->m_loc_vec->push_back(loc);
     clone_arg->m_task_vec->push_back(task_id);
@@ -132,6 +150,7 @@ int hton_clone_begin(THD *thd, Storage_Vector &clone_loc_vec,
         clone_type, clone_mode);
 
     if (err != 0) {
+      rollback_clone_begin(thd, clone_loc_vec, task_vec);
       return (err);
     }
 
