@@ -1689,6 +1689,7 @@ int Client::set_descriptor(const uchar *buffer, size_t length) {
 
   /* Apply using descriptor */
   assert(loc_index < m_tasks.size());
+  clone_callback->set_loc_index(loc_index);
   err = hton->clone_interface.clone_apply(loc->m_hton, get_thd(), loc->m_loc,
                                           loc->m_loc_len, m_tasks[loc_index], 0,
                                           clone_callback);
