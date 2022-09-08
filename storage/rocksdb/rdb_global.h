@@ -23,6 +23,10 @@
 #include <string>
 #include <vector>
 
+#ifdef __APPLE__
+#include <sys/resource.h>
+#endif
+
 /* MySQL header files */
 #include "./sql_string.h"
 #include "sql/handler.h" /* handler */
@@ -172,7 +176,12 @@ const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
 #define RDB_MIN_RECALC_INTERVAL 10 /* seconds */
 
 #define THREAD_PRIO_MIN -20
+#ifndef __APPLE__
 #define THREAD_PRIO_MAX 19
+#else
+#define THREAD_PRIO_MAX PRIO_DARWIN_BG
+#endif
+
 /*
   Default and maximum values for rocksdb-compaction-sequential-deletes and
   rocksdb-compaction-sequential-deletes-window to add basic boundary checking.
