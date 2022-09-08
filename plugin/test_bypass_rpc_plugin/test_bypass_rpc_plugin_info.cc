@@ -20,6 +20,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include <cinttypes>
 #include <regex>
 #include <string>
 
@@ -110,11 +111,11 @@ static void send_row(void * /* unused */, myrocks_columns *values,
           break;
         }
         case myrocks_value_type::UNSIGNED_INT: {
-          fprintf(outfile_rpc, "%lu ", column.i64Val);
+          fprintf(outfile_rpc, "%" PRIu64 " ", column.i64Val);
           break;
         }
         case myrocks_value_type::SIGNED_INT: {
-          fprintf(outfile_rpc, "%ld ", column.signed_i64Val);
+          fprintf(outfile_rpc, "%" PRId64 " ", column.signed_i64Val);
           break;
         }
         case myrocks_value_type::DOUBLE: {
@@ -448,7 +449,7 @@ static void test_rpc(void *) {
 
   // read hlc input value from the input file if it exists
   if (hlc_file != nullptr) {
-    auto c = fscanf(hlc_file, "%ld", &hlc_lower_bound_ts);
+    auto c = fscanf(hlc_file, "%" PRIu64, &hlc_lower_bound_ts);
     my_fclose(hlc_file, MYF(0));
     if (c == 0) {
       fprintf(outfile_rpc, "error in reading hlc value\n");
