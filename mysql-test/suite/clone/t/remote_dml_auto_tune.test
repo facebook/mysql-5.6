@@ -1,5 +1,4 @@
 # Test clone with concurrent DML
---source include/linux.inc
 --source include/not_windows.inc
 --source include/no_valgrind_without_big.inc
 
