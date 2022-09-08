@@ -22,6 +22,7 @@
 
 #include <time.h>
 #include <atomic>
+#include <cinttypes>
 #include <string>
 #include <vector>
 
@@ -1000,8 +1001,9 @@ enum_return_status Gtid_state::remove_logged_gtid_on_trim(
     assert(first_sidno == gtid.sidno);
     if (gtid.sidno > 0) {
       /* Remove Gtid from logged_gtid set. */
-      DBUG_PRINT("info", ("Removing gtid(sidno:%d, gno:%ld) from logged gtids",
-                          gtid.sidno, gtid.gno));
+      DBUG_PRINT("info",
+                 ("Removing gtid(sidno:%d, gno:%" PRId64 ") from logged gtids",
+                  gtid.sidno, gtid.gno));
       // TODO(pgl) - confirm once if the below code is good?
       executed_gtids._remove_gtid(gtid);
       gtids_only_in_table._remove_gtid(gtid);
