@@ -9047,6 +9047,8 @@ static Sys_var_enum Sys_commit_consensus_error_action(
     commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+#ifndef __APPLE__
+
 static bool update_session_dscp_on_socket(sys_var *, THD *thd,
                                           enum_var_type type) {
   if (type == OPT_GLOBAL) return false;
@@ -9061,6 +9063,8 @@ static Sys_var_ulong Sys_session_set_dscp_on_socket(
     SESSION_VAR(dscp_on_socket), CMD_LINE(OPT_ARG), VALID_RANGE(0, 63),
     DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(update_session_dscp_on_socket));
+
+#endif  // ! __APPLE__
 
 static Sys_var_bool Sys_enable_group_replication_plugin_hooks(
     "group_replication_plugin_hooks",
