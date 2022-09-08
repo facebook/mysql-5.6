@@ -1,0 +1,59 @@
+--source include/have_rocksdb.inc
+--source include/have_debug_sync.inc
+
+--let $MYSQLD_DATADIR= `select @@datadir`
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+--replace_result $MYSQLD_DATADIR MYSQLD_DATADIR
+
+SET GLOBAL DEBUG = "+d,bypass_rpc_processlist_test";
+
+connect (con0, localhost, root, , );
+
+--connection default
+CREATE DATABASE a;
+USE a;
+# This table is created only to avoid missing table error
+CREATE TABLE `table_a` (
+  `id1` bigint(20) NOT NULL DEFAULT '0',
+  `id2` bigint(20) NOT NULL DEFAULT '0',
+  `id3` bigint(11) NOT NULL DEFAULT '0',
+  `val` bigint(20) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id1`, `id2`),
+  KEY `id3` (`id3`) COMMENT 'cf_link',
+  UNIQUE KEY `unique_id3` (`id3`) COMMENT 'cf_link'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8;
+
+--connection con0
+--write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+SELECT /*+ bypass */ id1,id2,link_type,visibility,data,time,version FROM a.table_a FORCE INDEX (id1_type) WHERE link_type=3 AND id1=1 AND visibility=4 AND time>=10 ORDER BY TIME DESC LIMIT 0,10;
+SELECT /*+ bypass */ id1,id2,link_type,visibility,data,TIME,version FROM a.table_a FORCE INDEX (PRIMARY) WHERE link_type=1 AND id1=2 AND id2<6 ORDER BY id2 ASC LIMIT 1000;
+SELECT /*+ bypass */ id1,id2,link_type,visibility,data,TIME,version FROM a.table_a FORCE INDEX (id1_type) WHERE link_type=3 AND id1=3 AND visibility=4 AND TIME>=9 AND TIME<=16 ORDER BY TIME ASC, id2 ASC LIMIT 0,1000;
+EOF
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+eval INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME '$TEST_BYPASS_RPC_PLUGIN';
+send UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+
+--connection default
+let $i = 3;
+while ($i)
+{
+  set DEBUG_SYNC='now WAIT_FOR ready_to_run_processlist';
+  SELECT USER, COMMAND, INFO FROM INFORMATION_SCHEMA.PROCESSLIST
+    WHERE USER IN ('rpc_plugin');
+  set DEBUG_SYNC='now SIGNAL continue';
+  dec $i;
+}
+
+--connection con0
+--reap
+
+--connection default
+--disable_query_log
+SET GLOBAL DEBUG = "-d,bypass_rpc_processlist_test";
+DROP TABLE table_a;
+DROP DATABASE a;
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+--enable_query_log

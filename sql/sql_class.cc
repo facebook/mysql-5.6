@@ -1728,7 +1728,9 @@ THD::~THD() {
   if (killed_reason != nullptr) {
     my_free(killed_reason);
   }
-
+  if (m_query_formatter != nullptr) {
+    delete m_query_formatter;
+  }
   m_thd_life_cycle_stage = enum_thd_life_cycle_stages::DISPOSED;
   assert(mem_cnt == &thd_cnt_noop);
 }
