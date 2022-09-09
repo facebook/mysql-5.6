@@ -1989,28 +1989,30 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     */
     ret = mysql_bin_log.write_cache(thd, cache_data, writer);
   } else {
-    std::unique_ptr<Binlog_cache_storage> temp_binlog_cache =
-        std::make_unique<Binlog_cache_storage>();
+    if (unlikely(!raft_trx_cache)) {
+      raft_trx_cache = std::make_unique<Binlog_cache_storage>();
+      ret = raft_trx_cache->open(binlog_cache_size, max_binlog_cache_size);
+      if (ret) {
+        raft_trx_cache.reset();
+        goto end;
+      }
+    } else {
+      raft_trx_cache->reset();
+    }
 
-    temp_binlog_cache->open(
-        cache_data->is_transactional() ? binlog_cache_size
-                                       : binlog_stmt_cache_size,
-        cache_data->is_transactional() ? max_binlog_cache_size
-                                       : max_binlog_stmt_cache_size);
-
-    (void)gtid_event.write(temp_binlog_cache.get());
+    ret = gtid_event.write(raft_trx_cache.get());
+    if (ret) goto end;
 
     ret =
-        write_metadata_event(thd, cache_data, writer, temp_binlog_cache.get());
-
-    assert(!ret);
+        write_metadata_event(thd, cache_data, writer, raft_trx_cache.get());
+    if (ret) goto end;
 
 
     thd->commit_consensus_error = false;
     // TODO(luqun): perf concern? merge in plugin?
-    cache_data->get_cache()->copy_to(temp_binlog_cache.get());
+    cache_data->get_cache()->copy_to(raft_trx_cache.get());
     ret = RUN_HOOK_STRICT(raft_replication, before_flush,
-                          (thd, temp_binlog_cache->get_io_cache(),
+                          (thd, raft_trx_cache->get_io_cache(),
                            RaftReplicateMsgOpType::OP_TYPE_TRX));
 
     DBUG_EXECUTE_IF("fail_binlog_flush_raft", { ret = 1; });
@@ -4670,6 +4672,8 @@ void MYSQL_BIN_LOG::cleanup() {
 
   delete m_binlog_file;
   m_binlog_file = nullptr;
+
+  raft_trx_cache = nullptr;
 }
 
 void MYSQL_BIN_LOG::init_pthread_objects() {

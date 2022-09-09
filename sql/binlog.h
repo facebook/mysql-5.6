@@ -1006,6 +1006,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   bool setup_flush_done;
 
+  // Used create IO_CACHE for a transaction which is finally passed to the raft
+  // plugin (before_flush hook)
+  std::unique_ptr<Binlog_cache_storage> raft_trx_cache;
+
   int open(const char *opt_name) override { return open_binlog(opt_name); }
 
   /**
