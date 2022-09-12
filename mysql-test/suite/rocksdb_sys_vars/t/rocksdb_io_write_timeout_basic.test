@@ -1,4 +1,5 @@
 --source include/have_rocksdb.inc
+--source include/not_mac_os.inc
 
 CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
 INSERT INTO valid_values VALUES(10);

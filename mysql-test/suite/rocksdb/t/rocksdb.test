@@ -796,7 +796,8 @@ show variables where
   variable_name like 'rocksdb%' and
   variable_name not like 'rocksdb_max_open_files' and
   variable_name not like 'rocksdb_wsenv_%' and
-  variable_name not like 'rocksdb_table_stats_background_thread_nice_value';
+  variable_name not like 'rocksdb_table_stats_background_thread_nice_value' and
+  variable_name not like 'rocksdb_io_write_timeout';
 create table t47 (pk int primary key, col1 varchar(12)) ENGINE=RocksDB CHARSET=latin1;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');

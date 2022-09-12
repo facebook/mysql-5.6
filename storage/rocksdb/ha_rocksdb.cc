@@ -290,11 +290,13 @@ static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
 static std::shared_ptr<Rdb_tbl_prop_coll_factory> properties_collector_factory;
 
-Rdb_dict_manager dict_manager;
-Rdb_cf_manager cf_manager;
-Rdb_ddl_manager ddl_manager;
-Rdb_binlog_manager binlog_manager;
-Rdb_io_watchdog *io_watchdog = nullptr;
+static Rdb_dict_manager dict_manager;
+static Rdb_cf_manager cf_manager;
+static Rdb_ddl_manager ddl_manager;
+static Rdb_binlog_manager binlog_manager;
+#ifndef __APPLE__
+static Rdb_io_watchdog *io_watchdog = nullptr;
+#endif
 
 /**
   MyRocks background thread control
@@ -733,7 +735,9 @@ static int rocksdb_debug_ttl_snapshot_ts = 0;
 static int rocksdb_debug_ttl_read_filter_ts = 0;
 static bool rocksdb_debug_ttl_ignore_pk = 0;
 static bool rocksdb_reset_stats = 0;
+#ifndef __APPLE__
 static uint32_t rocksdb_io_write_timeout_secs = 0;
+#endif
 static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static long long rocksdb_compaction_sequential_deletes = 0l;
 static long long rocksdb_compaction_sequential_deletes_window = 0l;
@@ -1005,6 +1009,8 @@ static void rocksdb_set_reset_stats(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
+#ifndef __APPLE__
+
 static void rocksdb_set_io_write_timeout(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -1022,6 +1028,8 @@ static void rocksdb_set_io_write_timeout(
 
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
+
+#endif  // !__APPLE__
 
 enum rocksdb_flush_log_at_trx_commit_type : unsigned int {
   FLUSH_LOG_NEVER = 0,
@@ -2000,12 +2008,16 @@ static MYSQL_SYSVAR_BOOL(
     "Reset the RocksDB internal statistics without restarting the DB.", nullptr,
     rocksdb_set_reset_stats, false);
 
+#ifndef __APPLE__
+
 static MYSQL_SYSVAR_UINT(io_write_timeout, rocksdb_io_write_timeout_secs,
                          PLUGIN_VAR_RQCMDARG,
                          "Timeout for experimental I/O watchdog.", nullptr,
                          rocksdb_set_io_write_timeout, /* default */ 0,
                          /* min */ 0L,
                          /* max */ UINT_MAX, 0);
+
+#endif  // !__APPLE__
 
 static MYSQL_SYSVAR_BOOL(enable_2pc, rocksdb_enable_2pc, PLUGIN_VAR_RQCMDARG,
                          "Enable two phase commit for MyRocks", nullptr,
@@ -2391,7 +2403,9 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(debug_ttl_read_filter_ts),
     MYSQL_SYSVAR(debug_ttl_ignore_pk),
     MYSQL_SYSVAR(reset_stats),
+#ifndef __APPLE__
     MYSQL_SYSVAR(io_write_timeout),
+#endif
     MYSQL_SYSVAR(seconds_between_stat_computes),
 
     MYSQL_SYSVAR(compaction_sequential_deletes),
@@ -6146,8 +6160,10 @@ static int rocksdb_init_internal(void *const p) {
     directories.push_back(myrocks::rocksdb_wal_dir);
   }
 
+#ifndef __APPLE__
   io_watchdog = new Rdb_io_watchdog(std::move(directories));
   io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
+#endif
 
   compaction_stats.resize_history(rocksdb_max_compaction_history);
 
@@ -6307,8 +6323,10 @@ static int rocksdb_shutdown(bool minimalShutdown) {
     delete commit_latency_stats;
     commit_latency_stats = nullptr;
 
+#ifndef __APPLE__
     delete io_watchdog;
     io_watchdog = nullptr;
+#endif
 
     // Disown the cache data since we're shutting down.
     // This results in memory leaks but it improved the shutdown time.

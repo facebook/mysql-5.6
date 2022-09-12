@@ -17,6 +17,8 @@
 /* This C++ file's header */
 #include "./rdb_io_watchdog.h"
 
+#ifndef __APPLE__
+
 /* C++ standard header files */
 #include <string>
 #include <vector>
@@ -236,3 +238,5 @@ int Rdb_io_watchdog::reset_timeout(const uint32_t write_timeout) {
 }
 
 }  // namespace myrocks
+
+#endif  // !__APPLE__
