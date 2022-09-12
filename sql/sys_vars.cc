@@ -8862,7 +8862,7 @@ static Sys_var_ulonglong Sys_hlc_upper_bound_delta(
     "Min acceptable difference between current HLC value and upper HLC "
     "boundary specified for the query",
     GLOBAL_VAR(hlc_upper_bound_delta), CMD_LINE(OPT_ARG),
-    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG);
 
 static Sys_var_bool Sys_fast_integer_to_string(
@@ -9176,13 +9176,13 @@ static Sys_var_ulonglong Sys_apply_log_retention_num(
     "apply_log_retention_num",
     "Minimum number of apply logs that need to be retained.",
     GLOBAL_VAR(apply_log_retention_num), CMD_LINE(OPT_ARG),
-    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(10), BLOCK_SIZE(1));
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(10), BLOCK_SIZE(1));
 
 static Sys_var_ulonglong Sys_apply_log_retention_duration(
     "apply_log_retention_duration",
     "Minimum duration (mins) that apply logs need to be retained.",
     GLOBAL_VAR(apply_log_retention_duration), CMD_LINE(OPT_ARG),
-    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
 
 static Sys_var_bool Sys_recover_raft_log(
     "recover_raft_log",
@@ -9530,7 +9530,7 @@ static Sys_var_longlong Sys_max_tmp_disk_usage(
     "if this limit is exceeded. 0 means no limit. -1 disables global "
     "tmp disk usage accounting and can only be re-enabled after restart.",
     GLOBAL_VAR(max_tmp_disk_usage), CMD_LINE(OPT_ARG),
-    VALID_RANGE(-1, LONG_LONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    VALID_RANGE(-1, LLONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_max_tmp_disk_usage));
 
 static Sys_var_bool Sys_reset_period_status_vars(
