@@ -1112,8 +1112,8 @@
    fun:_ZN10my_rocksdb14ThreadLocalPtr14InitSingletonsEv
    fun:_ZN10my_rocksdb3Env7DefaultEv
    fun:_ZN10my_rocksdb9DBOptionsC1Ev
+   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv*
    ...
-   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv
 }
 
 {
@@ -1125,7 +1125,7 @@
    fun:_ZN10my_rocksdb3Env7DefaultEv
    fun:_ZN10my_rocksdb9DBOptionsC1Ev
    ...
-   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv
+   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv*
 }
 
 {
