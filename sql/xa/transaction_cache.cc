@@ -171,7 +171,10 @@ xa::Transaction_cache::list xa::Transaction_cache::get_cached_transactions() {
   auto &instance = xa::Transaction_cache::instance();
   list to_return;
   MUTEX_LOCK(mutex_guard, &instance.m_LOCK_transaction_cache);
+  MY_COMPILER_DIAGNOSTIC_PUSH()
+  MY_COMPILER_GCC_DIAGNOSTIC_IGNORE("-Wunused-variable")
   for (auto [_, trx] : instance.m_transaction_cache) to_return.push_back(trx);
+  MY_COMPILER_DIAGNOSTIC_POP()
   return to_return;
 }
 

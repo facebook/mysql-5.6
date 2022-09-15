@@ -131,7 +131,10 @@ static bool FitsIntoBuckets(const Value_map<T> &value_map,
   size_t used_buckets = 1;
   ha_rows current_bucket_values = 0;
 
+  MY_COMPILER_DIAGNOSTIC_PUSH()
+  MY_COMPILER_GCC_DIAGNOSTIC_IGNORE("-Wunused-variable")
   for (const auto &[value, count] : value_map) {
+    MY_COMPILER_DIAGNOSTIC_POP()
     assert(count > 0);
     /*
       If the current bucket is not empty and adding the values causes it to
@@ -192,7 +195,10 @@ template <class T>
 static ha_rows FindBucketMaxValues(const Value_map<T> &value_map,
                                    size_t max_buckets) {
   ha_rows total_values = 0;
+  MY_COMPILER_DIAGNOSTIC_PUSH()
+  MY_COMPILER_GCC_DIAGNOSTIC_IGNORE("-Wunused-variable")
   for (const auto &[value, count] : value_map) total_values += count;
+  MY_COMPILER_DIAGNOSTIC_POP()
   if (max_buckets == 1) return total_values;
 
   // Conservative upper bound to avoid dealing with rounding and odd max_buckets
@@ -388,7 +394,10 @@ bool Equi_height<T>::build_histogram(const Value_map<T> &value_map,
 
   // Get total count of non-null values.
   ha_rows num_non_null_values = 0;
+  MY_COMPILER_DIAGNOSTIC_PUSH()
+  MY_COMPILER_GCC_DIAGNOSTIC_IGNORE("-Wunused-variable")
   for (const auto &[value, count] : value_map) num_non_null_values += count;
+  MY_COMPILER_DIAGNOSTIC_POP()
 
   // No non-null values, nothing to do.
   if (num_non_null_values == 0) {

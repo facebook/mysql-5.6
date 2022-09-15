@@ -78,9 +78,12 @@ inline void SetJoinConditions(const mem_root_deque<Table_ref *> &join_list);
 
 inline void DestroyFakeTables(
     const std::unordered_map<string, Fake_TABLE *> &fake_tables) {
+  MY_COMPILER_DIAGNOSTIC_PUSH()
+  MY_COMPILER_GCC_DIAGNOSTIC_IGNORE("-Wunused-variable")
   for (const auto &[name, table] : fake_tables) {
     destroy(table);
   }
+  MY_COMPILER_DIAGNOSTIC_POP()
 }
 
 namespace optimizer_test {
@@ -358,7 +361,10 @@ inline handlerton *OptimizerTestBase::EnableSecondaryEngine(
   }
   hton->secondary_engine_modify_access_path_cost = nullptr;
 
+  MY_COMPILER_DIAGNOSTIC_PUSH()
+  MY_COMPILER_GCC_DIAGNOSTIC_IGNORE("-Wunused-variable")
   for (const auto &[name, table] : m_fake_tables) {
+    MY_COMPILER_DIAGNOSTIC_POP()
     table->file->ht = hton;
     static_cast<Fake_TABLE_SHARE *>(table->s)->set_secondary_engine(true);
     ON_CALL(table->mock_handler, table_type())

@@ -1477,7 +1477,10 @@ void VerifyEquiHeightSelectivities(const Value_map<T> &value_map,
       static_cast<double>(histogram->get_num_buckets_specified());
 
   ha_rows non_null_values = 0;
+  MY_COMPILER_DIAGNOSTIC_PUSH()
+  MY_COMPILER_GCC_DIAGNOSTIC_IGNORE("-Wunused-variable")
   for (const auto &[value, count] : value_map) non_null_values += count;
+  MY_COMPILER_DIAGNOSTIC_POP()
   ha_rows total_values = non_null_values + value_map.get_num_null_values();
 
   ha_rows cumulative_values = 0;

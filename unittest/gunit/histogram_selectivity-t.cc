@@ -29,6 +29,7 @@
 
 #include "m_ctype.h"                     // my_charset_utf8mb4_0900_ai_ci
 #include "my_alloc.h"                    // MEM_ROOT
+#include "my_compiler.h"
 #include "my_time.h"                     // MYSQL_TIME
 #include "sql/field.h"                   // my_charset_numeric
 #include "sql/histograms/equi_height.h"  // Equi_height
@@ -319,8 +320,12 @@ void VerifySelectivityEstimates(MEM_ROOT *mem_root, CHARSET_INFO *charset,
   EXPECT_FALSE(histogram->build_histogram(key_frequencies, number_of_buckets));
 
   ha_rows total_frequency = 0;
-  for (const auto &[key, frequency] : key_frequencies)
+  MY_COMPILER_DIAGNOSTIC_PUSH()
+  MY_COMPILER_GCC_DIAGNOSTIC_IGNORE("-Wunused-variable")
+  for (const auto &[key, frequency] : key_frequencies) {
+    MY_COMPILER_DIAGNOSTIC_POP()
     total_frequency += frequency;
+  }
 
   const double max_abs_error =
       2.0 / static_cast<double>(number_of_buckets) + 0.00000001;
