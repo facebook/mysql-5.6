@@ -63,12 +63,6 @@ static void *test_sql_threaded_wrapper(void *param) {
   srv_session_deinit_thread();
 
   context->thread_finished = true;
-  if (current_thd) {
-    THD *thd = current_thd;
-    thd->release_resources();
-    Global_THD_manager::get_instance()->remove_thd(thd);
-    delete thd;
-  }
   return nullptr;
 }
 
@@ -425,6 +419,7 @@ static void test_sql() {
   FILE *infile = my_fopen(input_filename, O_RDONLY, MYF(0));
   if (infile == nullptr) {
     fprintf(outfile_sql, "error in opening input file: %s\n", input_filename);
+    srv_session_close(st_session);
     return;
   }
   char line_buffer[RPC_MAX_QUERY_LENGTH];
@@ -440,10 +435,12 @@ static void test_sql() {
         CS_TEXT_REPRESENTATION, nullptr);
     if (fail) {
       fprintf(outfile_sql, "error in running cmd: %d\n", fail);
+      srv_session_close(st_session);
       return;
     }
   }
   my_fclose(infile, MYF(0));
+  srv_session_close(st_session);
 }
 
 static void test_rpc(void *) {
@@ -499,6 +496,7 @@ static void test_rpc(void *) {
     }
   }
   my_fclose(infile, MYF(0));
+  bypass_select(nullptr);  // inform that rpc plugin will be uninstalled
 }
 
 static int test_bypass_rpc_plugin_init(void *p) {
