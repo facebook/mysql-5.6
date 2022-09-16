@@ -52,3 +52,14 @@ UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
 --remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
 
 --source ../include/bypass_drop_table.inc
+
+# check if shutdown hangs
+--echo # shutdown the server
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--shutdown_server
+--source include/wait_until_disconnected.inc
+
+--echo # restart the server
+--exec echo "restart:" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc

@@ -96,3 +96,5 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+# shutdown the server
+# restart the server

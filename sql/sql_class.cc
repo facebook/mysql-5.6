@@ -1745,6 +1745,14 @@ THD::~THD() {
   if (m_query_formatter != nullptr) {
     delete m_query_formatter;
   }
+  // THD created by rpc plugin initially allocates memory for protocol
+  // and lex, which need to be explicitly freed
+  if (m_protocol && m_protocol->type() == Protocol::PROTOCOL_RPC) {
+    if (lex) {
+      delete lex;
+    }
+    delete m_protocol;
+  }
   m_thd_life_cycle_stage = enum_thd_life_cycle_stages::DISPOSED;
 }
 

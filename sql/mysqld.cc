@@ -2621,6 +2621,29 @@ class Call_close_conn : public Do_THD_Impl {
   bool is_server_shutdown;
 };
 
+class Call_delete_rpc_thds : public Do_THD_Impl {
+ public:
+  Call_delete_rpc_thds() {}
+
+  void operator()(THD *closing_thd) override {
+    if (closing_thd->get_protocol()->type() == Protocol::PROTOCOL_RPC) {
+      thd_to_be_deleted.push_back(closing_thd);
+    }
+  }
+
+  void delete_thds() {
+    for (THD *thd : thd_to_be_deleted) {
+      thd->release_resources();
+      Global_THD_manager::get_instance()->remove_thd(thd);
+      delete thd;
+    }
+    thd_to_be_deleted.clear();
+  }
+
+ private:
+  std::vector<THD *> thd_to_be_deleted;
+};
+
 static void close_connections(void) {
   DBUG_TRACE;
 
@@ -2720,6 +2743,11 @@ static void close_connections(void) {
 
   Call_close_conn call_close_conn(true);
   thd_manager->do_for_all_thd(&call_close_conn);
+
+  // Delete THDs created by rpc plugin threads, if there is any
+  Call_delete_rpc_thds call_delete_rpc_thds;
+  thd_manager->do_for_all_thd(&call_delete_rpc_thds);
+  call_delete_rpc_thds.delete_thds();
 
   (void)RUN_HOOK(server_state, after_server_shutdown, (nullptr));
 
