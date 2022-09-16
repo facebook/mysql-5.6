@@ -149,6 +149,8 @@ extern "C" struct rpc_plugin_service_st {
   Run bypass select query
 
   @param param       struct containing the details of the given query
+                     if param is nullptr, bypass engine does nothing but
+                     destroying its THD, preparing to uninstall rpc plugin.
   @return bypass_rpc_exception containing exception info if exception happens
 */
 bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param);

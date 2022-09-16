@@ -271,6 +271,18 @@ thd_err:
   Run bypass select query
 */
 bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
+  if (param == nullptr) {
+    // this means rpc plugin wants to destroy THD before killing rpc thread
+    if (current_thd) {
+      THD *thd = current_thd;
+      thd->release_resources();
+      Global_THD_manager::get_instance()->remove_thd(thd);
+      delete thd;
+    }
+    bypass_rpc_exception ret;
+    return ret;
+  }
+
   initialize_thd();
   if (check_input(param)) {
     bypass_rpc_exception ret;
