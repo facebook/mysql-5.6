@@ -599,6 +599,20 @@ class base_select_parser {
     m_error_msg = m_error_msg_buf;
   }
 
+  bool check_field_collation(Field *field) {
+    auto field_type = field->real_type();
+    if (field_type == MYSQL_TYPE_VARCHAR &&
+        field->charset() != &my_charset_bin &&
+        field->charset() != &my_charset_utf8mb3_bin &&
+        field->charset() != &my_charset_latin1_bin) {
+      m_error_msg =
+          "only binary, utf8_bin, latin1_bin is supported for varchar "
+          "cond field";
+      return true;
+    }
+    return false;
+  }
+
   THD *m_thd;
   TABLE *m_table;
   Table_ref *m_table_list;
@@ -783,16 +797,6 @@ class sql_select_parser : public base_select_parser {
         return true;
       }
 
-      auto field_type = field->real_type();
-      if (field_type == MYSQL_TYPE_VARCHAR &&
-          field->charset() != &my_charset_bin &&
-          field->charset() != &my_charset_utf8mb3_bin &&
-          field->charset() != &my_charset_latin1_bin) {
-        m_error_msg =
-            "only binary, utf8_bin, latin1_bin is supported for varchar field";
-        return true;
-      }
-
       // This is needed so that we can use protocol->send_items and
       // item->send
       field_item->set_field(field);
@@ -903,6 +907,9 @@ class sql_select_parser : public base_select_parser {
         find_field_in_table(m_table, field_name, false, &field_index);
     if (!found) {
       update_error_msg("Unrecognized field name: '%s'", field_name);
+      return true;
+    }
+    if (check_field_collation(found)) {
       return true;
     }
 
@@ -1101,31 +1108,17 @@ class rpc_select_parser : public base_select_parser {
         return true;
       }
 
-      if (add_field_list(field)) {
-        return true;
-      }
+      add_field_list(field);
     }
     return false;
   }
 
   // update field_list and field_index
   // the order of calling this matters
-  bool inline add_field_list(Field *field) {
-    auto field_type = field->real_type();
-    if (field_type == MYSQL_TYPE_VARCHAR &&
-        field->charset() != &my_charset_bin &&
-        field->charset() != &my_charset_utf8mb3_bin &&
-        field->charset() != &my_charset_latin1_bin) {
-      m_error_msg =
-          "only binary, utf8_bin, latin1_bin is supported for varchar "
-          "field";
-      return true;
-    }
-
+  void inline add_field_list(Field *field) {
     int idx = m_field_list.size();
     m_field_list.push_back(field);
     m_field_index[field->field_index()] = idx;
-    return false;
   }
 
   bool parse_order_by() {
@@ -1247,10 +1240,11 @@ class rpc_select_parser : public base_select_parser {
     auto idx = m_field_index[found->field_index()];
     if (idx < 0) {
       // unrequested field is in where in clause
-      if (add_field_list(found)) {
-        return true;
-      }
+      add_field_list(found);
       idx = m_field_list.size() - 1;
+    }
+    if (check_field_collation(found)) {
+      return true;
     }
     m_cond_list[m_cond_count++] = {
         Item_func::IN_FUNC, found,
@@ -1280,12 +1274,12 @@ class rpc_select_parser : public base_select_parser {
     auto idx = m_field_index[found->field_index()];
     if (idx < 0) {
       // unrequested field is in where clause
-      if (add_field_list(found)) {
-        return true;
-      }
+      add_field_list(found);
       idx = m_field_list.size() - 1;
     }
-
+    if (check_field_collation(found)) {
+      return true;
+    }
     auto op = convert_where_op(item.op);
 
     // TAO-specific optimizations

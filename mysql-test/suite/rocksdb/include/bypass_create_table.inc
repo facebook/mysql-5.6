@@ -209,6 +209,7 @@ insert into count_table values (9, 1, 1, 1, 10, 20);
 
 insert into count_table values (10, 1, 1, 1, 10, 20);
 
+# using latin1_swedish_ci to verify non binary collation fileds can be returned.
 CREATE TABLE `link_table5` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
@@ -216,7 +217,7 @@ CREATE TABLE `link_table5` (
   `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
   `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
   `visibility` tinyint(3) NOT NULL DEFAULT '0',
-  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `data` varchar(255) COLLATE latin1_swedish_ci NOT NULL DEFAULT '',
   `time` int(10) unsigned NOT NULL DEFAULT '0',
   `version` bigint(20) unsigned NOT NULL DEFAULT '0',
     PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link'
@@ -271,7 +272,7 @@ CREATE TABLE `link_table5_rev` (
   `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
   `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
   `visibility` tinyint(3) NOT NULL DEFAULT '0',
-  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `data` varchar(255) COLLATE latin1_swedish_ci NOT NULL DEFAULT '',
   `time` int(10) unsigned NOT NULL DEFAULT '0',
   `version` bigint(20) unsigned NOT NULL DEFAULT '0',
     PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'rev:cf_link'

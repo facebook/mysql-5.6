@@ -5,6 +5,7 @@ c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
 create table t3 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
 c VARCHAR(15) CHARACTER SET latin1 NOT NULL, KEY a (a, b)) ENGINE=ROCKSDB;
 create table t4 (pk INT PRIMARY KEY, a INT) ENGINE=ROCKSDB;
+create table t5 (pk int primary key, a varchar(128) not null collate latin1_swedish_ci, b varchar(128) not null collate latin1_swedish_ci, index (a)) engine=rocksdb;
 
 # Interesting SELECT patterns that are not supported
 # Use https://dev.mysql.com/doc/refman/5.7/en/select.html as reference
@@ -461,10 +462,18 @@ if ($bypass_fallback==0) {
 SELECT /*+ bypass */ a FROM t4 WHERE a=1;
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
+# case insensitive condition is not supported
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ a,b FROM t5 FORCE INDEX (a) WHERE a='abc';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+
 drop table t1;
 drop table t2;
 drop table t3;
 drop table t4;
+drop table t5;
 if ($bypass_fallback != 0) {
 --remove_file $datadir/select.out
 --remove_file $datadir/select.dump
