@@ -418,7 +418,7 @@ static inline bool isPlaceHolder(int client_errno) {
          client_errno <= 2199;
 }
 static inline const char *ER_CLIENT(int client_errno) {
-  if (client_errno >= 2000 && client_errno <= 2202 &&
+  if (client_errno >= 2000 && client_errno <= 2203 &&
       !isPlaceHolder(client_errno)) {
     return client_errors[client_errno - 2000];
   }
