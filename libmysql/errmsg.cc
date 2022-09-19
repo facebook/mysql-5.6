@@ -249,6 +249,7 @@ const char *client_errors[] = {
     "Write timeout is reached",
     "Server rejected the ssl handshake for specified sni servername, sslerror: "
     "%-.100s",
+    "Connection attempt throttled",
     ""};
 
 static const char *get_client_errmsg(int nr) {
