@@ -38,12 +38,15 @@
 #include <utility>
 #include <vector>
 
+#ifdef __linux__
 #include <linux/inet_diag.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/sock_diag.h>
 #include <linux/tcp.h>
 #include <linux/unix_diag.h>
+#endif
+
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -3459,6 +3462,8 @@ static int fill_slave_db_load(THD *thd, TABLE_LIST *tables, Item *) {
   DBUG_RETURN(error);
 }
 
+#ifdef __linux__
+
 /* Return pid/seq for matching netlink socket */
 static void get_pid_seq(uint32_t *pid, uint32_t *seq) noexcept {
   pid_t cur_pid = getpid();
@@ -3910,6 +3915,8 @@ int fill_socket_diag_slaves(THD *thd, TABLE_LIST *tables, Item *) {
 
   DBUG_RETURN(0);
 }
+
+#endif  // __linux__
 
 int fill_rbr_bi_inconsistencies(THD *thd, TABLE_LIST *tables, Item *) {
   DBUG_ENTER("fill_rbr_bi_inconsistencies");
@@ -5799,6 +5806,8 @@ ST_FIELD_INFO failure_injection_points_fields_info[] = {
     {"FAILURE_INJECTION_POINT_VALUE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+#ifdef __linux__
+
 #define LIST_PROCESS_HOST_LEN 64
 
 ST_FIELD_INFO socket_diag_slaves_fields_info[] = {
@@ -5822,6 +5831,8 @@ ST_FIELD_INFO socket_diag_slaves_fields_info[] = {
     {"IS_SEMI_SYNC", 7, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0, 0},
     {"REPLICATION STATUS", 64, MYSQL_TYPE_STRING, 0, 0, 0, 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
+#endif  // __linux__
 
 ST_FIELD_INFO admission_control_queue_fields_info[] = {
     {"SCHEMA_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
@@ -5904,8 +5915,10 @@ ST_SCHEMA_TABLE schema_tables[] = {
      nullptr, false},
     {"RBR_BI_INCONSISTENCIES", rbr_bi_inconsistencies_fields_info,
      fill_rbr_bi_inconsistencies, nullptr, nullptr, false},
+#ifdef __linux__
     {"SOCKET_DIAG_SLAVES", socket_diag_slaves_fields_info,
      fill_socket_diag_slaves, make_old_format, nullptr, false},
+#endif
     {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, fill_db_applied_hlc,
      nullptr, nullptr, false},
     {"ADMISSION_CONTROL_ENTITIES", admission_control_entities_fields_info,
