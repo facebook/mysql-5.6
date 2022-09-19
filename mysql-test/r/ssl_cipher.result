@@ -3,7 +3,7 @@
 #
 SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
-Ssl_cipher	AES128-SHA
+Ssl_cipher	TLS_AES_128_GCM_SHA256
 SHOW STATUS LIKE 'Ssl_cipher_list';
 Variable_name	Value
 Ssl_cipher_list	AES128-SHA
