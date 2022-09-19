@@ -102,7 +102,6 @@
 #include "./sql_dd.h"
 #include "my_rapidjson_size_t.h"
 
-
 #ifdef FB_HAVE_WSENV
 #include "./ObjectFactory.h"
 #endif
@@ -720,6 +719,10 @@ static int rocksdb_check_bulk_load_allow_unsorted(
     THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
     struct st_mysql_value *value);
 
+static int rocksdb_check_bulk_load_fail_if_not_bottommost_level(
+    THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
+    struct st_mysql_value *value);
+
 static void rocksdb_set_max_background_jobs(THD *thd, struct SYS_VAR *const var,
                                             void *const var_ptr,
                                             const void *const save);
@@ -1291,6 +1294,14 @@ static MYSQL_THDVAR_BOOL(bulk_load_allow_unsorted, PLUGIN_VAR_RQCMDARG,
                          "Can be changed only when bulk load is disabled.",
                          rocksdb_check_bulk_load_allow_unsorted, nullptr,
                          false);
+
+static MYSQL_THDVAR_BOOL(
+    bulk_load_fail_if_not_bottommost_level, PLUGIN_VAR_RQCMDARG,
+    "Fail the bulk load if a sst file created from bulk load "
+    "cannot fit in the rocksdb bottommost level. "
+    "Turn off this variable could have severe performance impact. "
+    "Can be changed only when bulk load is disabled.",
+    rocksdb_check_bulk_load_fail_if_not_bottommost_level, nullptr, false);
 
 static MYSQL_SYSVAR_BOOL(enable_bulk_load_api, rocksdb_enable_bulk_load_api,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -2684,6 +2695,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(bulk_load),
     MYSQL_SYSVAR(bulk_load_allow_sk),
     MYSQL_SYSVAR(bulk_load_allow_unsorted),
+    MYSQL_SYSVAR(bulk_load_fail_if_not_bottommost_level),
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(blind_delete_primary_key),
@@ -3042,6 +3054,37 @@ uint32_t rocksdb_perf_context_level(THD *const thd) {
   }
 
   return rocksdb::PerfLevel::kDisable;
+}
+
+rocksdb::IngestExternalFileOptions
+rocksdb_bulk_load_ingest_external_file_options(THD *const thd) {
+  rocksdb::IngestExternalFileOptions opts;
+  opts.move_files = true;
+  opts.snapshot_consistency = false;
+  opts.allow_global_seqno = false;
+  opts.allow_blocking_flush = false;
+  opts.fail_if_not_bottommost_level =
+      THDVAR(thd, bulk_load_fail_if_not_bottommost_level);
+  return opts;
+}
+
+std::string dump_ingest_external_file_options(
+    const rocksdb::IngestExternalFileOptions &opts) {
+  std::ostringstream s;
+  s << "{move_files=" << opts.move_files
+    << ",failed_move_fall_back_to_copy=" << opts.failed_move_fall_back_to_copy
+    << ",snapshot_consistency=" << opts.snapshot_consistency
+    << ",allow_global_seqno=" << opts.allow_global_seqno
+    << ",allow_blocking_flush=" << opts.allow_blocking_flush
+    << ",ingest_behind=" << opts.ingest_behind
+    << ",write_global_seqno=" << opts.write_global_seqno
+    << ",verify_checksums_before_ingest=" << opts.verify_checksums_before_ingest
+    << ",verify_checksums_readahead_size="
+    << opts.verify_checksums_readahead_size
+    << ",verify_file_checksum=" << opts.verify_file_checksum
+    << ",fail_if_not_bottommost_level=" << opts.fail_if_not_bottommost_level
+    << "}";
+  return s.str();
 }
 
 /*
@@ -3835,11 +3878,8 @@ class Rdb_transaction {
     // INGEST phase: Group all Rdb_sst_commit_info by cf (as they might
     // have the same cf across different indexes) and call out to RocksDB
     // to ingest all SST files in one atomic operation
-    rocksdb::IngestExternalFileOptions options;
-    options.move_files = true;
-    options.snapshot_consistency = false;
-    options.allow_global_seqno = false;
-    options.allow_blocking_flush = false;
+    const rocksdb::IngestExternalFileOptions options =
+        rocksdb_bulk_load_ingest_external_file_options(m_thd);
 
     std::map<rocksdb::ColumnFamilyHandle *, rocksdb::IngestExternalFileArg>
         arg_map;
@@ -3885,6 +3925,13 @@ class Rdb_transaction {
       if (print_client_error) {
         Rdb_sst_info::report_error_msg(s, nullptr);
       }
+      // NO_LINT_DEBUG
+      sql_print_warning(
+          "MyRocks: failed to bulk load. "
+          "status code = %d, status = %s, IngestExternalFileOptions=%s",
+          s.code(), s.ToString().c_str(),
+          dump_ingest_external_file_options((*args.cbegin()).options).c_str());
+
       return HA_ERR_ROCKSDB_BULK_LOAD;
     }
 
@@ -11568,11 +11615,8 @@ int ha_rocksdb::finalize_bulk_load(bool print_client_error) {
       // Make sure we have work to do - under race condition we could lose
       // to another thread and end up with no work
       if (commit_info.has_work()) {
-        rocksdb::IngestExternalFileOptions opts;
-        opts.move_files = true;
-        opts.snapshot_consistency = false;
-        opts.allow_global_seqno = false;
-        opts.allow_blocking_flush = false;
+        const rocksdb::IngestExternalFileOptions opts =
+            rocksdb_bulk_load_ingest_external_file_options(table->in_use);
 
         const rocksdb::Status s = rdb->IngestExternalFile(
             commit_info.get_cf(), commit_info.get_committed_files(), opts);
@@ -11581,6 +11625,12 @@ int ha_rocksdb::finalize_bulk_load(bool print_client_error) {
             Rdb_sst_info::report_error_msg(s, nullptr);
           }
           res = HA_ERR_ROCKSDB_BULK_LOAD;
+          // NO_LINT_DEBUG
+          sql_print_warning(
+              "MyRocks: failed to bulk load. "
+              "status code = %d, status = %s, IngestExternalFileOptions=%s",
+              s.code(), s.ToString().c_str(),
+              dump_ingest_external_file_options(opts).c_str());
         } else {
           // Mark the list of SST files as committed, otherwise they'll get
           // cleaned up when commit_info destructs
@@ -17039,6 +17089,7 @@ static int rocksdb_check_bulk_load(
   return 0;
 }
 
+/** only allow setting the variable when bulk_load is off */
 static int rocksdb_check_bulk_load_allow_unsorted(
     THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
     struct st_mysql_value *value) {
@@ -17056,6 +17107,13 @@ static int rocksdb_check_bulk_load_allow_unsorted(
 
   *static_cast<bool *>(save) = new_value;
   return 0;
+}
+
+static int rocksdb_check_bulk_load_fail_if_not_bottommost_level(
+    THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
+    struct st_mysql_value *value) {
+  // reuse the same logic
+  return rocksdb_check_bulk_load_allow_unsorted(thd, var, save, value);
 }
 
 static void rocksdb_set_max_background_jobs(

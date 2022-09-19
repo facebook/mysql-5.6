@@ -82,7 +82,7 @@ Warning	1292	Truncated incorrect table_open_cache value: '0'
 INSERT INTO t1 VALUES(51479+0.333333333,1);
 DROP TABLE t1;
 SET @@global.table_open_cache=@orig_table_open_cache;
-# restart
+# restart: --log-error=MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.4.err
 CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;
 CREATE TABLE t2 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;
 SET rocksdb_bulk_load=1;
@@ -94,3 +94,13 @@ ERROR HY000: Rows inserted during bulk load must not overlap existing rows
 SET rocksdb_bulk_load=0;
 DROP TABLE t1;
 DROP TABLE t2;
+CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;
+SET rocksdb_bulk_load_fail_if_not_bottommost_level=1;
+INSERT INTO t1 VALUES (1), (10);
+SET GLOBAL ROCKSDB_FORCE_FLUSH_MEMTABLE_NOW=1;
+SET rocksdb_bulk_load=1;
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (22);
+SET rocksdb_bulk_load=0;
+ERROR HY000: [(null)] bulk load error: Operation failed. Try again.: Files cannot be ingested to Lmax. Please make sure key range of Lmax and ongoing compaction's output to Lmaxdoes not overlap with files to ingest.
+DROP TABLE t1;
