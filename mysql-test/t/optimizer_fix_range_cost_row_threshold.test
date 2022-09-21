@@ -1,0 +1,33 @@
+create table t1 (
+ id int primary key,
+ c1 int,
+ c2 int,
+ c3 int,
+ index i1 (c1),
+ index i2 (c1, c2)
+) engine=innodb;
+
+--disable_query_log
+--let $i=0
+--let $modulo1=10
+--let $modulo2=7
+while ($i<1000)
+{
+  --inc $i
+  --expr $c1= $i % $modulo1
+  --expr $c2= $i % $modulo2
+  eval insert into t1(id, c1, c2, c3)
+  values($i,$c1, $c2, $i);
+}
+--enable_query_log
+
+analyze table t1;
+
+explain select count(c3) from t1 where c1=1 and c2 between 1 and 2;
+
+set session optimizer_fix_range_cost_row_threshold=10;
+explain select count(c3) from t1 where c1=1 and c2 between 1 and 2;
+
+select count(c3) from t1 where c1=1 and c2 between 1 and 2;
+
+drop table t1;
