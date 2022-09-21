@@ -578,13 +578,20 @@ Key_use *Optimize_table_order::find_best_ref(
               Q: Why do we choose to use 'ref'? Won't quick select be
               cheaper in some cases ?
               TODO: figure this out and adjust the plan choice if needed.
+
+              Keep the index as a fallback plan candidate
+              if optimizer_fix_range_cost_row_threshold is set
             */
             if (!table_deps && table->quick_keys.is_set(key) &&   // (1)
                 table->quick_key_parts[key] > cur_used_keyparts)  // (2)
             {
-              trace_access_idx.add("chosen", false)
-                  .add_alnum("cause", "range_uses_more_keyparts");
-              continue;
+              if (thd->variables.optimizer_fix_range_cost_row_threshold == 0 ||
+                  table->file->stats.records <=
+                      thd->variables.optimizer_fix_range_cost_row_threshold) {
+                trace_access_idx.add("chosen", false)
+                    .add_alnum("cause", "range_uses_more_keyparts");
+                continue;
+              }
             }
           } else {
             /*

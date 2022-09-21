@@ -28,6 +28,7 @@
 */
 
 #include "sql/handler.h"
+#include "sql/sql_optimizer.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -6356,9 +6357,21 @@ Cost_estimate handler::read_cost(uint index, double ranges, double rows) {
   assert(ranges >= 0.0);
   assert(rows >= 0.0);
 
-  const double io_cost =
+  double io_cost =
       read_time(index, static_cast<uint>(ranges), static_cast<ha_rows>(rows)) *
       table->cost_model()->page_read_cost(1.0);
+
+  // For large tables (estimated rows larger than
+  // optimizer_use_worst_seeks_row_threshold), read I/O cost should not be
+  // higher than "worst_seek"
+  if (table->in_use->variables.optimizer_fix_range_cost_row_threshold > 0 &&
+      table->file->stats.records >
+          table->in_use->variables.optimizer_fix_range_cost_row_threshold) {
+    double worst_seeks =
+        find_worst_seeks(table, table->file->stats.records,
+                         table->file->table_scan_cost().get_io_cost());
+    io_cost = min(io_cost, worst_seeks);
+  }
   Cost_estimate cost;
   cost.add_io(io_cost);
   return cost;

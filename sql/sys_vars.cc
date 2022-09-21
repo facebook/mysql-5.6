@@ -3763,6 +3763,18 @@ static Sys_var_ulong Sys_optimizer_prune_level(
     HINT_UPDATEABLE SESSION_VAR(optimizer_prune_level), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, 1), DEFAULT(1), BLOCK_SIZE(1));
 
+static Sys_var_ulong Sys_optimizer_fix_range_cost_row_threshold(
+    "optimizer_fix_range_cost_row_threshold",
+    "For large tables, range scan may end up picking suboptimal index due to "
+    "not considering 'worst_seeks' io cost for range scans, and "
+    "ignoring the index even for ref plan due to 'range_uses_more_keyparts'. "
+    "This variable changes these behaviors when estimated rows of the table "
+    "is bigger than this value, which makes range scans for the index is "
+    "more likely to get picked. "
+    "Default is 0, which disables the feature.",
+    HINT_UPDATEABLE SESSION_VAR(optimizer_fix_range_cost_row_threshold),
+    CMD_LINE(OPT_ARG), VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_optimizer_search_depth(
     "optimizer_search_depth",
     "Maximum depth of search performed by the query optimizer. Values "

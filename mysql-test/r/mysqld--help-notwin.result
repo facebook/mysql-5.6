@@ -1147,6 +1147,15 @@ The following options may be given as the first argument:
  value is 0 then mysqld will reserve max_connections*5 or
  max_connections + table_open_cache*2 (whichever is
  larger) number of file descriptors
+ --optimizer-fix-range-cost-row-threshold[=#] 
+ For large tables, range scan may end up picking
+ suboptimal index due to not considering 'worst_seeks' io
+ cost for range scans, and ignoring the index even for ref
+ plan due to 'range_uses_more_keyparts'. This variable
+ changes these behaviors when estimated rows of the table
+ is bigger than this value, which makes range scans for
+ the index is more likely to get picked. Default is 0,
+ which disables the feature.
  --optimizer-force-index-for-range 
  If enabled, FORCE INDEX will also try to force a range
  plan.
@@ -3351,6 +3360,7 @@ offline-mode FALSE
 old FALSE
 old-alter-table FALSE
 old-style-user-limits FALSE
+optimizer-fix-range-cost-row-threshold 0
 optimizer-force-index-for-range FALSE
 optimizer-force-index-rewrite (No default value)
 optimizer-full-scan TRUE

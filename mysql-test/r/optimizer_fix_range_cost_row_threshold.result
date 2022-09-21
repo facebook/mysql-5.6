@@ -1,0 +1,26 @@
+create table t1 (
+id int primary key,
+c1 int,
+c2 int,
+c3 int,
+index i1 (c1),
+index i2 (c1, c2)
+) engine=innodb;
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+explain select count(c3) from t1 where c1=1 and c2 between 1 and 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	i1,i2	i1	5	const	100	11.11	Using where
+Warnings:
+Note	1003	/* select#1 */ select count(`test`.`t1`.`c3`) AS `count(c3)` from `test`.`t1` where ((`test`.`t1`.`c1` = 1) and (`test`.`t1`.`c2` between 1 and 2))
+set session optimizer_fix_range_cost_row_threshold=10;
+explain select count(c3) from t1 where c1=1 and c2 between 1 and 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	range	i1,i2	i2	10	NULL	29	100.00	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select count(`test`.`t1`.`c3`) AS `count(c3)` from `test`.`t1` where ((`test`.`t1`.`c1` = 1) and (`test`.`t1`.`c2` between 1 and 2))
+select count(c3) from t1 where c1=1 and c2 between 1 and 2;
+count(c3)
+29
+drop table t1;
