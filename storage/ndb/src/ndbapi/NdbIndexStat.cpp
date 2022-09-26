@@ -202,7 +202,7 @@ NdbIndexStat::records_in_range(const NdbDictionary::Index* index,
   {
     Uint32 out[4] = { 0, 0, 0, 0 };  // rows, in, before, after
     float tot[4] = { 0, 0, 0, 0 };   // totals of above
-    int cnt, ret;
+    int ret;
     bool forceSend = true;
     const Uint32 codeWords= 1;
     Uint32 codeSpace[ codeWords ];
@@ -261,7 +261,6 @@ NdbIndexStat::records_in_range(const NdbDictionary::Index* index,
                            op->getNdbError().code));
       DBUG_RETURN(-1);
     }
-    cnt = 0;
     const char* dummy_out_ptr= NULL;
     while ((ret = op->nextResult(&dummy_out_ptr,
                                  true, forceSend)) == 0) {
@@ -271,7 +270,6 @@ NdbIndexStat::records_in_range(const NdbDictionary::Index* index,
       unsigned i;
       for (i = 0; i < 4; i++)
         tot[i] += (float)out[i];
-      cnt++;
     }
     if (ret == -1) {
       m_impl.setError(op->getNdbError().code, __LINE__);

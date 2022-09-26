@@ -333,7 +333,7 @@ int hton_clone_apply_begin(THD *thd, const char *clone_data_dir,
 
   assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
 
-  uint32_t loop_index = 0;
+  uint32_t loop_index [[maybe_unused]] = 0;
 
   for (auto &loc_iter : clone_loc_vec) {
     uint32_t task_id = 0;

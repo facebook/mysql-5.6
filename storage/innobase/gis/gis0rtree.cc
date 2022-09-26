@@ -939,7 +939,7 @@ rec_t *rtr_page_split_and_insert(
   lock_prdt_t new_prdt;
   rec_t *first_rec = nullptr;
   int first_rec_group = 1;
-  ulint n_iterations = 0;
+  ulint n_iterations [[maybe_unused]] = 0;
 
   if (!*heap) {
     *heap = mem_heap_create(1024);

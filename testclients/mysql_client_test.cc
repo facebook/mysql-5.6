@@ -22168,14 +22168,14 @@ static void test_bug31691060_2() {
   rc = mysql_stmt_execute(stmt);
   check_execute(stmt, rc);
 
-  int count = 0;
-  while (mysql_stmt_fetch(stmt) == 0) count++;
+  while (mysql_stmt_fetch(stmt) == 0) {
+  }
 
   mysql_stmt_execute(stmt);
   check_execute(stmt, rc);
 
-  count = 0;
-  while (mysql_stmt_fetch(stmt) == 0) count++;
+  while (mysql_stmt_fetch(stmt) == 0) {
+  }
 
   rc = mysql_stmt_close(stmt);
 }

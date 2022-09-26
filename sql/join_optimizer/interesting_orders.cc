@@ -39,7 +39,6 @@ using std::fill;
 using std::lower_bound;
 using std::make_pair;
 using std::max;
-using std::move;
 using std::none_of;
 using std::pair;
 using std::sort;
@@ -1183,7 +1182,7 @@ int LogicalOrderings::AddArtificialState(THD *thd, Ordering ordering) {
   state.satisfied_ordering_idx = -1;  // Irrelevant, but placate the compiler.
   state.outgoing_edges.init(thd->mem_root);
   state.type = NFSMState::ARTIFICIAL;
-  m_states.push_back(move(state));
+  m_states.push_back(std::move(state));
   return m_states.size() - 1;
 }
 
@@ -1248,7 +1247,7 @@ void LogicalOrderings::BuildNFSM(THD *thd) {
     state.type = m_orderings[i].type == OrderingWithInfo::INTERESTING
                      ? NFSMState::INTERESTING
                      : NFSMState::ARTIFICIAL;
-    m_states.push_back(move(state));
+    m_states.push_back(std::move(state));
   }
 
   // Add an edge from the initial state to each producable ordering/grouping.
@@ -1659,7 +1658,7 @@ void LogicalOrderings::ConvertNFSMToDFSM(THD *thd) {
   initial.nfsm_states.push_back(0);
   ExpandThroughAlwaysActiveFDs(&initial.nfsm_states, &generation,
                                /*extra_allowed_fd_idx=*/0);
-  m_dfsm_states.push_back(move(initial));
+  m_dfsm_states.push_back(std::move(initial));
   FinalizeDFSMState(thd, /*state_idx=*/0);
 
   // Reachability information set by FinalizeDFSMState() will include those
@@ -1758,8 +1757,8 @@ void LogicalOrderings::ConvertNFSMToDFSM(THD *thd) {
         // There's none, so create a new one. The type doesn't really matter,
         // except for printing out the graph.
         DFSMState state;
-        state.nfsm_states = move(nfsm_states);
-        m_dfsm_states.push_back(move(state));
+        state.nfsm_states = std::move(nfsm_states);
+        m_dfsm_states.push_back(std::move(state));
         FinalizeDFSMState(thd, m_dfsm_states.size() - 1);
         target_dfsm_state_idx = m_dfsm_states.size() - 1;
       }
