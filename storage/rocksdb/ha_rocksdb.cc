@@ -13102,13 +13102,22 @@ static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices) {
     uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
     rocksdb::Range range = get_range(d.index_id, buf, is_reverse_cf ? 1 : 0,
                                      is_reverse_cf ? 0 : 1);
-    rocksdb::Status status =
-        batch.DeleteRange(cfh.get(), range.start, range.limit);
+    rocksdb::Status status = DeleteFilesInRange(rdb->GetBaseDB(), cfh.get(),
+                                                &range.start, &range.limit);
+    if (!status.ok()) {
+      // NO_LINT_DEBUG
+      sql_print_warning(
+          "RocksDB: Failed to call DeleteFilesInRange for [cf_id %u, index_id "
+          "%u] with status [%s]",
+          d.cf_id, d.index_id, status.ToString().c_str());
+    }
+    status = batch.DeleteRange(cfh.get(), range.start, range.limit);
     if (!status.ok()) {
       // NO_LINT_DEBUG
       sql_print_error(
-          "RocksDB: Failed to call DeleteRange for [cf_id %u, index_id %u]",
-          d.cf_id, d.index_id);
+          "RocksDB: Failed to call DeleteRange for [cf_id %u, index_id %u] "
+          "with status [%s]",
+          d.cf_id, d.index_id, status.ToString().c_str());
       ret = 1;
       return ret;
     }
