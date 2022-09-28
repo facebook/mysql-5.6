@@ -323,6 +323,12 @@ static bool WriteRowToChunk(
   }
 }
 
+// Helper to check if yielding is OK for this query.
+static bool YieldCondition() {
+  // Allow yielding in all cases.
+  return true;
+}
+
 // Write all the remaining rows from the given iterator out to chunk files
 // on disk. If the function returns true, an unrecoverable error occurred
 // (IO error etc.).
@@ -339,6 +345,8 @@ static bool WriteRowsToChunks(
              thd->killed);  // my_error should have been called.
       return true;
     }
+
+    thd->check_yield(YieldCondition);
 
     if (res == -1) {
       return false;  // EOF; success.
@@ -458,6 +466,8 @@ bool HashJoinIterator::BuildHashTable() {
              thd()->killed);  // my_error should have been called.
       return true;
     }
+
+    thd()->check_yield(YieldCondition);
 
     if (res == -1) {
       m_build_iterator_has_more_rows = false;
