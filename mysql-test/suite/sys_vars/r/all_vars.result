@@ -108,6 +108,8 @@ partial_revokes
 partial_revokes
 password_require_current
 password_require_current
+pfs_ees_by_object_by_error
+pfs_ees_by_object_by_error
 regexp_stack_limit
 regexp_stack_limit
 regexp_time_limit
