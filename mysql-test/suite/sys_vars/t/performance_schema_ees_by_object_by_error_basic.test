@@ -1,0 +1,30 @@
+#
+# Only global
+#
+
+select @@global.performance_schema_ees_by_object_by_error;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.performance_schema_ees_by_object_by_error;
+
+show global variables like 'performance_schema_ees_by_object_by_error';
+
+show session variables like 'performance_schema_ees_by_object_by_error';
+
+--disable_warnings
+select * from performance_schema.global_variables
+  where variable_name='performance_schema_ees_by_object_by_error';
+
+select * from performance_schema.session_variables
+  where variable_name='performance_schema_ees_by_object_by_error';
+--enable_warnings
+
+#
+# Read-only
+#
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global performance_schema_ees_by_object_by_error = 1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session performance_schema_ees_by_object_by_error = 1;
