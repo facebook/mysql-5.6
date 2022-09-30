@@ -1030,6 +1030,13 @@ static Sys_var_bool Sys_pfs_ews_by_thread_by_event_name(
     CMD_LINE(OPT_ARG), DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
 
+static Sys_var_bool Sys_pfs_performance_schema_ees_by_object_by_error(
+    "performance_schema_ees_by_object_by_error",
+    "Enables all 4 events_errors_summary tables",
+    READ_ONLY GLOBAL_VAR(pfs_param.m_performance_schema_ees_by_object_by_error),
+    CMD_LINE(OPT_ARG), DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL), NULL, sys_var::PARSE_EARLY);
+
 static Sys_var_bool Sys_pfs_enable_histogram(
     "performance_schema_histogram_enabled",
     "Enables the histogram for events_statements_summary_by_all / by_digest",

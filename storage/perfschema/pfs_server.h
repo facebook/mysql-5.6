@@ -141,6 +141,9 @@ struct PFS_global_param {
   /** True if histogram is enabled */
   bool m_histogram_enabled;
 
+  /** True if ees tables are enabled */
+  bool m_performance_schema_ees_by_object_by_error;
+
   /** True if esms_by_thread_by_event_name table is enabled */
   bool m_esms_by_thread_by_event_name;
 

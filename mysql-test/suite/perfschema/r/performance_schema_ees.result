@@ -1,0 +1,20 @@
+show global variables like 'performance_schema_ees_by_object_by_error';
+Variable_name	Value
+performance_schema_ees_by_object_by_error	OFF
+truncate table performance_schema.events_errors_summary_global_by_error;
+select * from foo;
+ERROR 42S02: Table 'test.foo' doesn't exist
+select ERROR_NAME, SQL_STATE, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where
+SUM_ERROR_RAISED != 0 AND
+SQL_STATE='42S02' AND
+ERROR_NAME='ER_NO_SUCH_TABLE';
+ERROR_NAME	SQL_STATE	SUM_ERROR_RAISED
+ER_NO_SUCH_TABLE	42S02	1
+select * from performance_schema.events_errors_summary_by_thread_by_error where SUM_ERROR_RAISED != 0;
+THREAD_ID	ERROR_NUMBER	ERROR_NAME	SQL_STATE	SUM_ERROR_RAISED	SUM_ERROR_HANDLED	FIRST_SEEN	LAST_SEEN
+select * from performance_schema.events_errors_summary_by_account_by_error where SUM_ERROR_RAISED != 0;
+USER	HOST	ERROR_NUMBER	ERROR_NAME	SQL_STATE	SUM_ERROR_RAISED	SUM_ERROR_HANDLED	FIRST_SEEN	LAST_SEEN
+select * from performance_schema.events_errors_summary_by_user_by_error where SUM_ERROR_RAISED != 0;
+USER	ERROR_NUMBER	ERROR_NAME	SQL_STATE	SUM_ERROR_RAISED	SUM_ERROR_HANDLED	FIRST_SEEN	LAST_SEEN
+select * from performance_schema.events_errors_summary_by_host_by_error where SUM_ERROR_RAISED != 0;
+HOST	ERROR_NUMBER	ERROR_NAME	SQL_STATE	SUM_ERROR_RAISED	SUM_ERROR_HANDLED	FIRST_SEEN	LAST_SEEN

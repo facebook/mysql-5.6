@@ -151,6 +151,7 @@ extern uint socket_class_start;
 extern uint wait_class_max;
 extern bool flag_ews_by_thread_by_event_name;
 extern bool flag_esms_by_thread_by_event_name;
+extern bool flag_performance_schema_ees_by_object_by_error;
 
 /**
   Encapsulates the name of an instrumented entity.

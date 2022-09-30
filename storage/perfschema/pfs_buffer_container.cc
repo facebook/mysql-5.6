@@ -199,7 +199,7 @@ int PFS_account_allocator::alloc_array(PFS_account_array *array) {
     }
   }
 
-  if (errors_sizing > 0) {
+  if (errors_sizing > 0 && flag_performance_schema_ees_by_object_by_error) {
     array->m_instr_class_errors_array = PFS_MALLOC_ARRAY(
         &builtin_memory_account_errors, errors_sizing, sizeof(PFS_error_stat),
         PFS_error_stat, MYF(MY_ZEROFILL));
@@ -382,7 +382,7 @@ int PFS_host_allocator::alloc_array(PFS_host_array *array) {
     }
   }
 
-  if (errors_sizing > 0) {
+  if (errors_sizing > 0 && flag_performance_schema_ees_by_object_by_error) {
     array->m_instr_class_errors_array = PFS_MALLOC_ARRAY(
         &builtin_memory_host_errors, errors_sizing, sizeof(PFS_error_stat),
         PFS_error_stat, MYF(MY_ZEROFILL));
@@ -597,7 +597,7 @@ int PFS_thread_allocator::alloc_array(PFS_thread_array *array) {
     }
   }
 
-  if (errors_sizing > 0) {
+  if (errors_sizing > 0 && flag_performance_schema_ees_by_object_by_error) {
     array->m_instr_class_errors_array = PFS_MALLOC_ARRAY(
         &builtin_memory_thread_errors, errors_sizing, sizeof(PFS_error_stat),
         PFS_error_stat, MYF(MY_ZEROFILL));
@@ -987,7 +987,7 @@ int PFS_user_allocator::alloc_array(PFS_user_array *array) {
     }
   }
 
-  if (errors_sizing > 0) {
+  if (errors_sizing > 0 && flag_performance_schema_ees_by_object_by_error) {
     array->m_instr_class_errors_array = PFS_MALLOC_ARRAY(
         &builtin_memory_user_errors, errors_sizing, sizeof(PFS_error_stat),
         PFS_error_stat, MYF(MY_ZEROFILL));

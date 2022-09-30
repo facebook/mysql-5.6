@@ -1,0 +1,8 @@
+# Tests for PERFORMANCE_SCHEMA
+# Check server start options, read from a .cnf file
+
+# Use default setting for mysqld processes
+!include include/default_mysqld.cnf
+
+[mysqld.1]
+loose-performance_schema_ees_by_object_by_error=OFF

@@ -1,0 +1,23 @@
+# Tests for PERFORMANCE_SCHEMA
+# Check server start options, read from a .cnf file
+
+show global variables like 'performance_schema_ees_by_object_by_error';
+
+# Reset stats before the test
+truncate table performance_schema.events_errors_summary_global_by_error;
+
+# Generate an arbitrary error
+--error ER_NO_SUCH_TABLE
+select * from foo;
+
+# Check that error exists in events_errors_summary_global_by_error table
+select ERROR_NAME, SQL_STATE, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where
+    SUM_ERROR_RAISED != 0 AND
+    SQL_STATE='42S02' AND
+    ERROR_NAME='ER_NO_SUCH_TABLE';
+
+# Check that granular ees tables do not exist
+select * from performance_schema.events_errors_summary_by_thread_by_error where SUM_ERROR_RAISED != 0;
+select * from performance_schema.events_errors_summary_by_account_by_error where SUM_ERROR_RAISED != 0;
+select * from performance_schema.events_errors_summary_by_user_by_error where SUM_ERROR_RAISED != 0;
+select * from performance_schema.events_errors_summary_by_host_by_error where SUM_ERROR_RAISED != 0;

@@ -8800,6 +8800,7 @@ void pfs_log_error_v1(uint error_num, PSI_error_operation error_operation) {
   }
 
   if (flag_thread_instrumentation &&
+      flag_performance_schema_ees_by_object_by_error &&
       (error_stat_index < max_session_server_errors)) {
     PFS_thread *pfs_thread = my_thread_get_THR_PFS();
     if (unlikely(pfs_thread == nullptr)) {
