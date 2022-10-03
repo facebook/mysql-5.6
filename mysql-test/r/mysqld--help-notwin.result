@@ -2266,6 +2266,8 @@ The following options may be given as the first argument:
  --rocksdb-print-snapshot-conflict-queries 
  Logging queries that got snapshot conflict errors into
  *.err log
+ --rocksdb-protection-bytes-per-key=# 
+ WriteOptions::protection_bytes_per_key for RocksDB
  --rocksdb-rate-limiter-bytes-per-sec=# 
  DBOptions::rate_limiter bytes_per_sec for RocksDB
  --rocksdb-read-free-rpl=name 
@@ -3666,6 +3668,7 @@ rocksdb-persistent-cache-path
 rocksdb-persistent-cache-size-mb 0
 rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
 rocksdb-print-snapshot-conflict-queries FALSE
+rocksdb-protection-bytes-per-key 0
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-read-free-rpl OFF
 rocksdb-read-free-rpl-tables .*

@@ -1212,6 +1212,31 @@ static int rocksdb_validate_flush_log_at_trx_commit(
   *static_cast<uint32_t *>(var_ptr) = static_cast<uint32_t>(new_value);
   return HA_EXIT_SUCCESS;
 }
+
+static int rocksdb_validate_protection_bytes_per_key(
+    THD *thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *var_ptr,
+    struct st_mysql_value *value) {
+  assert(value != nullptr);
+
+  long long new_value;
+
+  /* value is NULL */
+  if (value->val_int(value, &new_value)) {
+    return HA_EXIT_FAILURE;
+  }
+
+  if (new_value != 0 && new_value != 1 && new_value != 2 && new_value != 4 &&
+      new_value != 8) {
+    return HA_EXIT_FAILURE;
+  }
+
+  *static_cast<unsigned long *>(var_ptr) =
+      static_cast<unsigned long>(new_value);
+
+  return HA_EXIT_SUCCESS;
+}
+
 static void rocksdb_compact_column_family_stub(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -2083,6 +2108,11 @@ static MYSQL_THDVAR_BOOL(
     "WriteOptions::ignore_missing_column_families for RocksDB", nullptr,
     nullptr, rocksdb::WriteOptions().ignore_missing_column_families);
 
+static MYSQL_THDVAR_ULONG(protection_bytes_per_key, PLUGIN_VAR_RQCMDARG,
+                          "WriteOptions::protection_bytes_per_key for RocksDB",
+                          rocksdb_validate_protection_bytes_per_key, nullptr,
+                          0 /* default */, 0 /* min */, ULONG_MAX /* max */, 0);
+
 static MYSQL_THDVAR_BOOL(skip_fill_cache, PLUGIN_VAR_RQCMDARG,
                          "Skip filling block cache on read requests", nullptr,
                          nullptr, false);
@@ -2793,6 +2823,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(flush_log_at_trx_commit),
     MYSQL_SYSVAR(write_disable_wal),
     MYSQL_SYSVAR(write_ignore_missing_column_families),
+    MYSQL_SYSVAR(protection_bytes_per_key),
 
     MYSQL_SYSVAR(skip_fill_cache),
     MYSQL_SYSVAR(unsafe_for_binlog),
@@ -4755,6 +4786,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
     tx_opts.write_batch_flush_threshold =
         THDVAR(m_thd, write_batch_flush_threshold);
 
+    write_opts.protection_bytes_per_key =
+        THDVAR(m_thd, protection_bytes_per_key);
     if (table_type == INTRINSIC_TMP) {
       write_opts.sync = false;
       write_opts.disableWAL = true;
@@ -5141,6 +5174,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families =
         THDVAR(m_thd, write_ignore_missing_column_families);
+    write_opts.protection_bytes_per_key =
+        THDVAR(m_thd, protection_bytes_per_key);
 
     set_initial_savepoint();
   }
