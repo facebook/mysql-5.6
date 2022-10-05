@@ -176,12 +176,17 @@ IF (INSTALL_EXTRA_HEADERS)
     mysql/thread_pool_priv.h
   )
   SET(HEADERS_MYSQL_COMPONENTS_DIR
+    mysql/components/component_implementation.h
     mysql/components/service.h
+    mysql/components/service_implementation.h
   )
   SET(HEADERS_MYSQL_COMPONENTS_SERVICES_DIR
     ${HEADERS_MYSQL_COMPONENTS_SERVICES_DIR}
+    mysql/components/services/dynamic_loader.h
+    mysql/components/services/mysql_current_thread_reader.h
     mysql/components/services/mysql_rwlock_bits.h
     mysql/components/services/mysql_socket_bits.h
+    mysql/components/services/mysql_string.h
     mysql/components/services/page_track_service.h
     mysql/components/services/psi_mdl_bits.h
     mysql/components/services/psi_rwlock_bits.h
@@ -191,11 +196,13 @@ IF (INSTALL_EXTRA_HEADERS)
     mysql/components/services/psi_thread_bits.h
     mysql/components/services/registry.h
     mysql/components/services/system_variable_source_type.h
+    mysql/components/services/table_access_service.h
     mysql/components/services/thr_rwlock_bits.h
   )
   SET(HEADERS_MYSQL_COMPONENTS_SERVICES_BITS_DIR
     mysql/components/services/bits/plugin_audit_connection_types.h
     mysql/components/services/bits/psi_bits.h
+    mysql/components/services/bits/table_access_bits.h
   )
   SET(HEADERS_MYSQL_PSI_DIR
     ${HEADERS_MYSQL_PSI_DIR}
