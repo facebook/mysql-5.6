@@ -2234,6 +2234,11 @@ The following options may be given as the first argument:
  --rocksdb-paranoid-checks 
  DBOptions::paranoid_checks for RocksDB
  (Defaults to on; use --skip-rocksdb-paranoid-checks to disable.)
+ --rocksdb-partial-index-blind-delete 
+ If OFF, always read from partial index to check if key
+ exists before deleting. Otherwise, delete marker is
+ unconditionally written.
+ (Defaults to on; use --skip-rocksdb-partial-index-blind-delete to disable.)
  --rocksdb-partial-index-sort-max-mem=# 
  Maximum memory to use when sorting an unmaterialized
  group for partial indexes. 0 means no limit.
@@ -3658,6 +3663,7 @@ rocksdb-mrr-batch-size 100
 rocksdb-no-block-cache FALSE
 rocksdb-override-cf-options 
 rocksdb-paranoid-checks TRUE
+rocksdb-partial-index-blind-delete TRUE
 rocksdb-partial-index-sort-max-mem 0
 rocksdb-pause-background-work FALSE
 rocksdb-pause-ttl-compaction-filter FALSE

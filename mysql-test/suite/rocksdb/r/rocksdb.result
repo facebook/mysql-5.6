@@ -1013,6 +1013,7 @@ rocksdb_mrr_batch_size	100
 rocksdb_no_block_cache	OFF
 rocksdb_override_cf_options	
 rocksdb_paranoid_checks	ON
+rocksdb_partial_index_blind_delete	ON
 rocksdb_partial_index_sort_max_mem	0
 rocksdb_pause_background_work	ON
 rocksdb_pause_ttl_compaction_filter	OFF

@@ -865,6 +865,7 @@ static unsigned long long  // NOLINT(runtime/int)
 static bool rocksdb_skip_locks_if_skip_unique_check = false;
 static bool rocksdb_alter_column_default_inplace = false;
 static bool rocksdb_alter_table_comment_inplace = false;
+static bool rocksdb_partial_index_blind_delete = true;
 bool rocksdb_disable_instant_ddl = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
@@ -2684,6 +2685,13 @@ static MYSQL_THDVAR_ULONGLONG(
     nullptr, nullptr,
     /* default */ 0, /* min */ 0, /* max */ SIZE_T_MAX, 1);
 
+static MYSQL_SYSVAR_BOOL(
+    partial_index_blind_delete, rocksdb_partial_index_blind_delete,
+    PLUGIN_VAR_RQCMDARG,
+    "If OFF, always read from partial index to check if key exists before "
+    "deleting. Otherwise, delete marker is unconditionally written.",
+    nullptr, nullptr, true);
+
 static MYSQL_SYSVAR_BOOL(disable_instant_ddl, rocksdb_disable_instant_ddl,
                          PLUGIN_VAR_RQCMDARG,
                          "Disable instant ddl during alter table", nullptr,
@@ -2919,6 +2927,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(skip_locks_if_skip_unique_check),
     MYSQL_SYSVAR(alter_column_default_inplace),
     MYSQL_SYSVAR(partial_index_sort_max_mem),
+    MYSQL_SYSVAR(partial_index_blind_delete),
     MYSQL_SYSVAR(disable_instant_ddl),
     MYSQL_SYSVAR(enable_tmp_table),
     MYSQL_SYSVAR(alter_table_comment_inplace),
@@ -11797,6 +11806,35 @@ void ha_rocksdb::record_disk_usage_change(longlong delta) {
   }
 }
 
+int ha_rocksdb::check_partial_index_prefix(const TABLE *table_arg,
+                                           const Rdb_key_def &kd,
+                                           Rdb_transaction *tx,
+                                           const uchar *data) {
+  assert(kd.is_partial_index());
+  // TODO(mung) - We've already calculated prefix len when locking. If we
+  // cache that value, we can avoid recalculating here.
+  int size = kd.pack_record(table_arg, m_pack_buffer, data, m_sk_packed_tuple,
+                            nullptr, false, 0, kd.partial_index_keyparts());
+  const rocksdb::Slice prefix_slice =
+      rocksdb::Slice((const char *)m_sk_packed_tuple, size);
+
+  rocksdb::PinnableSlice value;
+  const rocksdb::Status s = tx->get_for_update(
+      kd, prefix_slice, &value, m_tbl_def->get_table_type(),
+      false /* exclusive */, false /* do validate */, false /* no_wait */);
+  if (!s.ok() && !s.IsNotFound()) {
+    return tx->set_status_error(table_arg->in_use, s, kd, m_tbl_def,
+                                m_table_handler);
+  }
+
+  // We can skip updating the index, if the prefix is not materialized.
+  if (s.IsNotFound()) {
+    return HA_ERR_KEY_NOT_FOUND;
+  }
+
+  return 0;
+}
+
 /**
   update an existing secondary key record or write a new secondary key record
 
@@ -11884,38 +11922,48 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
     // group (ie. have the same prefix), we can make use of the read below to
     // determine whether to issue SingleDelete or not.
     //
-    // Currently we unconditionally issue SingleDelete, meaning that it is
-    // possible for SD to be compacted out without meeting any Puts. This bumps
-    // the num_single_delete_fallthrough counter in rocksdb, but is otherwise
-    // fine as the SD markers just get compacted out. We will have to revisit
-    // this if we want stronger consistency checks though.
-    row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-        ->SingleDelete(kd.get_cf(), old_key_slice);
-
-    bytes_written = old_key_slice.size();
+    // Currently we unconditionally issue SingleDelete if
+    // rocksdb_partial_index_blind_delete is on, meaning that it is possible for
+    // SD to be compacted out without meeting any Puts. This bumps the
+    // num_single_delete_fallthrough counter in rocksdb, but is otherwise fine
+    // as the SD markers just get compacted out. We will have to revisit this if
+    // we want stronger consistency checks though.
+    //
+    // If rocksdb_partial_index_blind_delete is off, then we check if a prefix
+    // is materialized before issuing the SingleDelete.
+    if (kd.is_partial_index() && !rocksdb_partial_index_blind_delete) {
+      rc = check_partial_index_prefix(table_arg, kd, row_info.tx,
+                                      row_info.old_data);
+      if (!rc) {
+        row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
+            ->SingleDelete(kd.get_cf(), old_key_slice);
+        bytes_written = old_key_slice.size();
+      } else if (rc != HA_ERR_KEY_NOT_FOUND) {
+        return rc;
+      }
+    } else {
+      // Unconditionally issue SD if rocksdb_partial_index_blind_delete.
+      row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
+          ->SingleDelete(kd.get_cf(), old_key_slice);
+      bytes_written = old_key_slice.size();
+    }
   }
 
-  if (kd.is_partial_index() && !bulk_load_sk) {
-    // TODO(mung) - We've already calculated prefix len when locking. If we
-    // cache that value, we can avoid recalculating here.
-    int size = kd.pack_record(table_arg, m_pack_buffer, row_info.new_data,
-                              m_sk_packed_tuple, nullptr, false, 0,
-                              kd.partial_index_keyparts());
-    const rocksdb::Slice prefix_slice =
-        rocksdb::Slice((const char *)m_sk_packed_tuple, size);
-
-    rocksdb::PinnableSlice value;
-    const rocksdb::Status s = row_info.tx->get_for_update(
-        kd, prefix_slice, &value, m_tbl_def->get_table_type(),
-        false /* exclusive */, false /* do validate */, false /* no_wait */);
-    if (!s.ok() && !s.IsNotFound()) {
-      return row_info.tx->set_status_error(table_arg->in_use, s, kd, m_tbl_def,
-                                           m_table_handler);
+  auto grd = create_scope_guard([&]() {
+    if (rc == HA_EXIT_SUCCESS) {
+      row_info.tx->update_bytes_written(bytes_written,
+                                        m_tbl_def->get_table_type());
     }
+  });
 
-    // We can skip updating the index, if the prefix is not materialized.
-    if (s.IsNotFound()) {
-      return 0;
+  if (kd.is_partial_index() && !bulk_load_sk) {
+    rc = check_partial_index_prefix(table_arg, kd, row_info.tx,
+                                    row_info.new_data);
+    if (rc == HA_ERR_KEY_NOT_FOUND) {
+      rc = 0;
+      return rc;
+    } else if (rc != 0) {
+      return rc;
     }
   }
 
@@ -11939,9 +11987,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
         ->Put(kd.get_cf(), new_key_slice, new_value_slice);
   }
 
-  row_info.tx->update_bytes_written(
-      bytes_written + new_key_slice.size() + new_value_slice.size(),
-      m_tbl_def->get_table_type());
+  bytes_written += new_key_slice.size() + new_value_slice.size();
 
   return rc;
 }

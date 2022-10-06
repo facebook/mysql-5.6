@@ -812,6 +812,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                       const struct update_row_info &row_info,
                       const bool pk_changed)
       MY_ATTRIBUTE((__warn_unused_result__));
+
+  int check_partial_index_prefix(const TABLE *table_arg, const Rdb_key_def &kd,
+                                 Rdb_transaction *tx, const uchar *data)
+      MY_ATTRIBUTE((__warn_unused_result__));
   int update_write_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
                       const struct update_row_info &row_info,
                       const bool bulk_load_sk)
