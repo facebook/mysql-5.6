@@ -38,8 +38,11 @@ use `∀p∊ℙ`;
 
 show tables;
 
+--let $DEFAULT_ENGINE = `select @@global.default_storage_engine`
+--replace_result $DEFAULT_ENGINE ENGINE
 show create table `∃s∊ℚ`;
 
+--replace_result $DEFAULT_ENGINE ENGINE
 show create table `∃s∊𝕊`;
 
 SELECT * FROM `∀p∊ℙ`.`∃s∊ℚ`;
@@ -75,4 +78,3 @@ DROP TABLE `∀p∊ℙ`.`∃s∊𝕊`;
 DROP SCHEMA `∀p∊ℙ`;
 
 UNINSTALL COMPONENT 'file://component_test_table_access';
-

@@ -84,6 +84,8 @@ SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, IS_VISIB
   WHERE TABLE_SCHEMA = 'shop'
   ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;
 
+--let $DEFAULT_ENGINE = `select @@global.default_storage_engine`
+--replace_result $DEFAULT_ENGINE ENGINE
 SHOW CREATE TABLE `shop`.`order`;
 
 SELECT test_table_access_driver("FETCH-ORDER");
@@ -255,4 +257,3 @@ DROP TABLE shop.customer;
 DROP SCHEMA shop;
 
 UNINSTALL COMPONENT 'file://component_test_table_access';
-
