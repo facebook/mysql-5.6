@@ -6101,15 +6101,6 @@ void THD::set_connection_attrs(const char *attrs, size_t length)
   mysql_mutex_unlock(&LOCK_thd_data);
 }
 
-void THD::set_query_attr(const char *attr, const char* value)
-{
-  mysql_mutex_lock(&LOCK_thd_data);
-  std::string attr_key(attr);
-  std::string attr_value(value);
-  query_attrs_map[attr_key] = attr_value;
-  mysql_mutex_unlock(&LOCK_thd_data);
-}
-
 void THD::set_query_attrs(const char *attrs, size_t length)
 {
   mysql_mutex_lock(&LOCK_thd_data);
@@ -6275,7 +6266,7 @@ void THD::serialize_client_attrs()
     // Populate mt caller from query comments, if it wasn't passed as query or
     // connection attribute already. We only search the first 100 characters to
     // avoid scanning the whole query and only consider the first match. The
-    // tag must be terminated with a colon(:).
+    // tag must be terminated with a colon(:). 
     // Example - mtcaller-tsp_global/myservice:
     if (write_throttle_parse_query_comments) {
       if (!found_caller) {

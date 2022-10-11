@@ -973,7 +973,6 @@ extern ulong opt_max_running_queries, opt_max_waiting_queries;
 extern ulong opt_max_db_connections;
 extern my_bool opt_admission_control_by_trx;
 extern char *admission_control_weights;
-extern char *admission_control_low_pri_sql_ids;
 extern my_bool opt_slave_allow_batching;
 extern my_bool allow_slave_start;
 extern char *enable_jemalloc_hpp;

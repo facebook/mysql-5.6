@@ -899,7 +899,6 @@ ulong opt_max_running_queries, opt_max_waiting_queries;
 ulong opt_max_db_connections;
 my_bool opt_admission_control_by_trx= 0;
 char *admission_control_weights;
-char *admission_control_low_pri_sql_ids;
 extern AC *db_ac;
 ulong rpl_stop_slave_timeout= LONG_TIMEOUT;
 my_bool rpl_slave_flow_control = 1;
