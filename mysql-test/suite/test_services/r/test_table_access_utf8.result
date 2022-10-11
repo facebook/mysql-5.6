@@ -35,12 +35,12 @@ show create table `∃s∊ℚ`;
 Table	Create Table
 ∃s∊ℚ	CREATE TABLE `∃s∊ℚ` (
   `s(p)≎⊤` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table `∃s∊𝕊`;
 Table	Create Table
 ∃s∊?	CREATE TABLE `∃s∊?` (
   `s(p)≎⊤` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 Warnings:
 Warning	1300	Cannot convert string '\xE2\x88\x83s\xE2\x88...' from utf8mb4 to utf8mb3
 SELECT * FROM `∀p∊ℙ`.`∃s∊ℚ`;

@@ -93,7 +93,7 @@ order	CREATE TABLE `order` (
   `ORDER_COMMENT` varchar(50) DEFAULT NULL,
   `DATE_CREATED` date DEFAULT NULL,
   KEY `index_date_created` (`DATE_CREATED`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=ENGINE DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 SELECT test_table_access_driver("FETCH-ORDER");
 test_table_access_driver("FETCH-ORDER")
 init(order::pk) failed
