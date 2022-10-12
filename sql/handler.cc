@@ -3530,6 +3530,7 @@ int handler::ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,
   int result;
   DBUG_TRACE;
   assert(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
+  assert(inited == NONE);
   assert(end_range == nullptr);
   assert(!pushed_idx_cond || buf == table->record[0]);
   if (is_using_prohibited_gap_locks(
@@ -3548,6 +3549,7 @@ int handler::ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,
     m_update_generated_read_fields = false;
   }
   table->set_row_status_from_handler(result);
+  assert(inited == NONE);
   return result;
 }
 
