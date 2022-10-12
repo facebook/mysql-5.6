@@ -219,6 +219,17 @@ inline int purge_all_jemalloc_arenas() {
 #endif
 }
 
+template <typename... Params>
+// format attribute would be great here too, but it's unavailable with the
+// variadic templates
+MY_ATTRIBUTE((cold, noreturn,
+              noinline)) void rdb_fatal_error(const char *fmt,
+                                              Params &&...params) {
+  // NO_LINT_DEBUG
+  sql_print_error(fmt, std::forward<Params>(params)...);
+  abort();
+}
+
 /*
   Helper function to check the result of locking or unlocking a mutex. We'll
   intentionally abort in case of a failure because it's better to terminate
@@ -229,15 +240,12 @@ inline void rdb_check_mutex_call_result(const char *function_name,
                                         const bool attempt_lock,
                                         const int result) {
   if (unlikely(result)) {
-    /* NO_LINT_DEBUG */
-    sql_print_error(
+    // This will hopefully result in a meaningful stack trace which we can use
+    // to efficiently debug the root cause.
+    rdb_fatal_error(
         "%s a mutex inside %s failed with an "
         "error code %d.",
         attempt_lock ? "Locking" : "Unlocking", function_name, result);
-
-    // This will hopefully result in a meaningful stack trace which we can use
-    // to efficiently debug the root cause.
-    abort();
   }
 }
 
