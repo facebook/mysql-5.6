@@ -1,0 +1,16 @@
+call mtr.add_suppression("dir NotFound");
+# restart:--rocksdb-wal-dir=WAL_DIR
+CREATE TABLE t1 (a INT PRIMARY KEY, b VARCHAR(50)) ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (1, "foo");
+INSERT INTO t1 VALUES (2, "bar");
+SELECT * FROM t1;
+a	b
+1	foo
+2	bar
+SET GLOBAL rocksdb_force_flush_memtable_now=1;
+SELECT * FROM t1;
+a	b
+1	foo
+2	bar
+DROP TABLE t1;
+# restart
