@@ -752,6 +752,7 @@ static int rocksdb_validate_max_bottom_pri_background_compactions(
     THD *thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *var_ptr,
     struct st_mysql_value *value);
+static int handle_rocksdb_corrupt_data_error();
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -845,6 +846,8 @@ Regex_list_handler rdb_read_free_regex_handler;
 #endif
 enum read_free_rpl_type { OFF = 0, PK_ONLY, PK_SK };
 static ulong rocksdb_read_free_rpl = read_free_rpl_type::OFF;
+enum corrupt_data_action { ERROR = 0, ABORT_SERVER, WARNING };
+static ulong rocksdb_corrupt_data_action = corrupt_data_action::ERROR;
 static bool rocksdb_error_on_suboptimal_collation = 1;
 static uint32_t rocksdb_stats_recalc_rate = 0;
 static uint32_t rocksdb_debug_manual_compaction_delay = 0;
@@ -1045,6 +1048,23 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
   return HA_EXIT_SUCCESS;
 }
 
+static int handle_rocksdb_corrupt_data_error() {
+  switch (rocksdb_corrupt_data_action) {
+    case corrupt_data_action::ABORT_SERVER:
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "MyRocks: aborting on HA_ERR_ROCKSDB_CORRUPT_DATA error.");
+      rdb_persist_corruption_marker();
+      abort();
+    case corrupt_data_action::WARNING:
+      // NO_LINT_DEBUG
+      sql_print_warning("MyRocks: hit error HA_ERR_ROCKSDB_CORRUPT_DATA.");
+      return 0;
+    default:
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+}
+
 static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
   auto o = std::unique_ptr<rocksdb::DBOptions>(new rocksdb::DBOptions());
 
@@ -1111,6 +1131,14 @@ static TYPELIB bottommost_level_compaction_typelib = {
     array_elements(bottommost_level_compaction_names) - 1,
     "bottommost_level_compaction_typelib", bottommost_level_compaction_names,
     nullptr};
+
+/* This enum needs to be kept up to date with corrupt_data_action */
+static const char *corrupt_data_action_names[] = {"ERROR", "ABORT_SERVER",
+                                                  "WARNING", NullS};
+
+static TYPELIB corrupt_data_action_typelib = {
+    array_elements(corrupt_data_action_names) - 1,
+    "corrupt_data_action_typelib", corrupt_data_action_names, nullptr};
 
 static void rocksdb_set_rocksdb_info_log_level(
     THD *const thd MY_ATTRIBUTE((__unused__)),
@@ -1458,6 +1486,12 @@ static MYSQL_SYSVAR_ENUM(
     "primary key. PK_ONLY will enable it on tables where the only key is the "
     "primary key (i.e. no secondary keys).",
     nullptr, nullptr, read_free_rpl_type::OFF, &read_free_rpl_typelib);
+
+static MYSQL_SYSVAR_ENUM(
+    corrupt_data_action, rocksdb_corrupt_data_action, PLUGIN_VAR_RQCMDARG,
+    "Control behavior when hitting data corruption. We can fail the query, "
+    "crash the server or pass the query and give users a warning. ",
+    nullptr, nullptr, corrupt_data_action::ERROR, &corrupt_data_action_typelib);
 
 static MYSQL_THDVAR_BOOL(skip_bloom_filter_on_read, PLUGIN_VAR_RQCMDARG,
                          "Skip using bloom filter for reads", nullptr, nullptr,
@@ -2947,6 +2981,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(column_default_value_as_expression),
     MYSQL_SYSVAR(enable_delete_range_for_drop_index),
     MYSQL_SYSVAR(max_intrinsic_tmp_table_write_count),
+    MYSQL_SYSVAR(corrupt_data_action),
     nullptr};
 
 static bool is_tmp_table(const std::string &tablename) {
@@ -3784,12 +3819,12 @@ class Rdb_transaction {
               // Determine the length of the new group prefix
               Rdb_string_reader reader(&merge_key);
               if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE))) {
-                rc2 = HA_ERR_ROCKSDB_CORRUPT_DATA;
+                rc2 = handle_rocksdb_corrupt_data_error();
                 break;
               }
               for (uint i = 0; i < keydef->partial_index_keyparts(); i++) {
                 if (keydef->read_memcmp_key_part(&reader, i) > 0) {
-                  rc2 = HA_ERR_ROCKSDB_CORRUPT_DATA;
+                  rc2 = handle_rocksdb_corrupt_data_error();
                   break;
                 }
               }
@@ -8228,14 +8263,14 @@ int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong *const hidden_pk_id) {
   // Get hidden primary key from old key slice
   Rdb_string_reader reader(&rowkey_slice);
   if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    return handle_rocksdb_corrupt_data_error();
   }
 
   const int length = Field_longlong::PACK_LENGTH;
   const uchar *from = reinterpret_cast<const uchar *>(reader.read(length));
   if (from == nullptr) {
     /* Mem-comparable image doesn't have enough bytes */
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    return handle_rocksdb_corrupt_data_error();
   }
 
   *hidden_pk_id = rdb_netbuf_read_uint64(&from);
@@ -8508,7 +8543,13 @@ int ha_rocksdb::convert_record_from_storage_format(
 int ha_rocksdb::convert_record_from_storage_format(
     const rocksdb::Slice *const key, const rocksdb::Slice *const value,
     uchar *const buf) {
-  return m_converter->decode(m_pk_descr, buf, key, value);
+  int rc = m_converter->decode(m_pk_descr, buf, key, value);
+
+  DBUG_EXECUTE_IF("stimulate_corrupt_data_read",
+                  { rc = HA_ERR_ROCKSDB_CORRUPT_DATA; });
+
+  return rc == HA_ERR_ROCKSDB_CORRUPT_DATA ? handle_rocksdb_corrupt_data_error()
+                                           : rc;
 }
 
 int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
@@ -9781,7 +9822,7 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
                                  table_def));
     } else {
       my_error(ER_METADATA_INCONSISTENCY, MYF(0), str.c_str());
-      DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
+      DBUG_RETURN(handle_rocksdb_corrupt_data_error());
     }
   }
   TABLE_TYPE table_type;
@@ -10672,8 +10713,9 @@ int ha_rocksdb::get_row_by_sk(uchar *buf, const Rdb_key_def &kd,
 
   const uint size =
       kd.get_primary_key_tuple(*m_pk_descr, key, m_pk_packed_tuple);
+
   if (size == RDB_INVALID_KEY_LEN) {
-    DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
+    DBUG_RETURN(handle_rocksdb_corrupt_data_error());
   }
 
   m_last_rowkey.copy((const char *)m_pk_packed_tuple, size, &my_charset_bin);
@@ -10873,6 +10915,10 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
     if (rc == HA_ERR_KEY_NOT_FOUND) {
       rc = HA_ERR_END_OF_FILE;
     }
+  }
+
+  if (rc == HA_ERR_ROCKSDB_CORRUPT_DATA) {
+    rc = handle_rocksdb_corrupt_data_error();
   }
 
   DBUG_RETURN(rc);
@@ -11684,8 +11730,10 @@ int ha_rocksdb::check_and_lock_sk(
     const rocksdb::Slice &rkey = all_parts_used ? new_slice : iter.key();
     uint pk_size =
         kd.get_primary_key_tuple(*m_pk_descr, &rkey, m_pk_packed_tuple);
+    DBUG_EXECUTE_IF("stimulate_corrupt_data_update",
+                    { pk_size = RDB_INVALID_KEY_LEN; });
     if (pk_size == RDB_INVALID_KEY_LEN) {
-      rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
+      rc = handle_rocksdb_corrupt_data_error();
     } else {
       m_dup_key_found = true;
       m_last_rowkey.copy((const char *)m_pk_packed_tuple, pk_size,
@@ -12938,7 +12986,7 @@ int ha_rocksdb::rnd_pos(uchar *const buf, uchar *const pos) {
   const rocksdb::Slice &key = rocksdb::Slice((const char *)pos, ref_length);
   len = m_pk_descr->key_length(table, key);
   if (len == size_t(-1)) {
-    DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA); /* Data corruption? */
+    DBUG_RETURN(handle_rocksdb_corrupt_data_error()); /* Data corruption? */
   }
 
   /*

@@ -938,6 +938,7 @@ rocksdb_compaction_sequential_deletes	0
 rocksdb_compaction_sequential_deletes_count_sd	OFF
 rocksdb_compaction_sequential_deletes_file_size	0
 rocksdb_compaction_sequential_deletes_window	0
+rocksdb_corrupt_data_action	ERROR
 rocksdb_create_checkpoint	
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF

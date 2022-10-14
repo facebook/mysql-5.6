@@ -1,0 +1,10 @@
+SET GLOBAL rocksdb_corrupt_data_action = ERROR;
+SET GLOBAL rocksdb_corrupt_data_action = ABORT_SERVER;
+SET GLOBAL rocksdb_corrupt_data_action = WARNING;
+== wrong argument type
+SET GLOBAL rocksdb_corrupt_data_action = "abc";
+ERROR 42000: Variable 'rocksdb_corrupt_data_action' can't be set to the value of 'abc'
+== wrong argument type
+SET GLOBAL rocksdb_corrupt_data_action = 4;
+ERROR 42000: Variable 'rocksdb_corrupt_data_action' can't be set to the value of '4'
+SET GLOBAL rocksdb_corrupt_data_action = default;

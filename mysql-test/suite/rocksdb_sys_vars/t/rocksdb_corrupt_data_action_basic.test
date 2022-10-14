@@ -1,0 +1,15 @@
+--source include/have_rocksdb.inc
+
+SET GLOBAL rocksdb_corrupt_data_action = ERROR;
+SET GLOBAL rocksdb_corrupt_data_action = ABORT_SERVER;
+SET GLOBAL rocksdb_corrupt_data_action = WARNING;
+
+--echo == wrong argument type
+--error 1231
+SET GLOBAL rocksdb_corrupt_data_action = "abc";
+
+--echo == wrong argument type
+--error 1231
+SET GLOBAL rocksdb_corrupt_data_action = 4;
+
+SET GLOBAL rocksdb_corrupt_data_action = default;

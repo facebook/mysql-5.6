@@ -1969,6 +1969,10 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_COMPACTION_STATS plugin.
  Possible values are ON, OFF, FORCE (don't start if the
  plugin fails to load).
+ --rocksdb-corrupt-data-action=name 
+ Control behavior when hitting data corruption. We can
+ fail the query, crash the server or pass the query and
+ give users a warning. 
  --rocksdb-create-checkpoint=name 
  Checkpoint directory
  --rocksdb-create-if-missing 
@@ -3587,6 +3591,7 @@ rocksdb-compaction-sequential-deletes-count-sd FALSE
 rocksdb-compaction-sequential-deletes-file-size 0
 rocksdb-compaction-sequential-deletes-window 0
 rocksdb-compaction-stats ON
+rocksdb-corrupt-data-action ERROR
 rocksdb-create-checkpoint 
 rocksdb-create-if-missing TRUE
 rocksdb-create-missing-column-families FALSE
