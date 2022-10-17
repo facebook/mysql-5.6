@@ -47,13 +47,32 @@ static SERVICE_TYPE(registry) *reg_srv = nullptr;
 SERVICE_TYPE(log_builtins) *log_bi = nullptr;
 SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 
+static void switch_user(MYSQL_SESSION session, const char *user);
+
 struct st_test_statement {
   const char *db;
   bool generates_result_set;
   const char *query;
+  const char *user = nullptr;
 };
 
 using StatementList = std::vector<struct st_test_statement>;
+
+static StatementList setup_statements = {
+    /* DB    RESULT                    QUERY   */
+    {nullptr, false, "create user 'ordinary'@'localhost'"},
+    {nullptr, false, "create database test_db"},
+    {nullptr, false, "grant all on test_db.* to 'ordinary'@'localhost'"},
+};
+
+static StatementList teardown_statements = {
+    /* DB    RESULT                    QUERY   */
+    {nullptr, false,
+     "/* expect no conns */select CONNECTIONS from "
+     "information_schema.admission_control_entities"},
+    {nullptr, false, "drop user 'ordinary'@'localhost'"},
+    {nullptr, false, "drop database test_db"},
+};
 
 static StatementList test_query_plan = {
     /* DB    RESULT                    QUERY   */
@@ -154,7 +173,12 @@ static StatementList test_fb_statements = {
     {nullptr, false, "use test1"},
     {nullptr, true, "set @a='expect no schema tracker'"},
     {nullptr, false, "set session session_track_schema=OFF"},
-    {nullptr, false, "DROP DATABASE test1"},
+    {nullptr, true, "/* force user before change db */select 1", "ordinary"},
+    {"test_db", true,
+     "/* expect 1 conn */ select CONNECTIONS from "
+     "information_schema.admission_control_entities",
+     "ordinary"},
+    {nullptr, false, "DROP DATABASE test1", "root"},
 };
 
 #define STRING_BUFFER_SIZE 512
@@ -899,12 +923,17 @@ static void test_selects(MYSQL_SESSION session, void *p,
   struct st_plugin_ctx *plugin_ctx = new st_plugin_ctx();
 
   const char *last_db = nullptr;
+  const char *last_user = nullptr;
   for (const auto &statement : statements) {
     /* Change current DB if needed */
     if (last_db != statement.db) {
       last_db = statement.db;
 
       change_current_db(session, last_db ? last_db : "", plugin_ctx, p);
+    }
+    if (statement.user && last_user != statement.user) {
+      last_user = statement.user;
+      switch_user(session, last_user);
     }
     run_statement(session, statement.query, plugin_ctx,
                   statement.generates_result_set, p);
@@ -1027,6 +1056,10 @@ static int test_sql_service_plugin_init(void *p) {
   create_log_file(log_filename);
 
   WRITE_SEP();
+  WRITE_STR("Initializing test state\n");
+  test_sql(p, setup_statements);
+
+  WRITE_SEP();
   WRITE_STR("Test in a server thread\n");
   test_sql(p, test_query_plan);
 
@@ -1042,6 +1075,10 @@ static int test_sql_service_plugin_init(void *p) {
 
   WRITE_STR("Test fb statements in spawned thread\n");
   test_in_spawned_thread(p, test_fb_statements, test_sql);
+
+  WRITE_SEP();
+  WRITE_STR("Cleaning up test state\n");
+  test_sql(p, teardown_statements);
 
   my_close(outfile, MYF(0));
 

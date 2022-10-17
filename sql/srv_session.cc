@@ -1051,11 +1051,6 @@ bool Srv_session::close() {
   */
   query_logger.general_log_print(m_thd, COM_QUIT, NullS);
 
-#ifdef HAVE_PSI_THREAD_INTERFACE
-  PSI_THREAD_CALL(notify_session_disconnect)(m_thd->get_psi());
-#endif /* HAVE_PSI_THREAD_INTERFACE */
-
-  m_thd->security_context()->logout();
   m_thd->m_view_ctx_list.clear();
   close_mysql_tables(m_thd);
 
@@ -1071,7 +1066,8 @@ bool Srv_session::close() {
   // this connection as killed, which disables DEBUG_SYNC.
   DEBUG_SYNC(m_thd, "srv_session_close");
 
-  m_thd->disconnect();
+  close_connection(m_thd, 0 /* errno */, false /* shutdown */,
+                   true /* generate_event */);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   set_psi(nullptr);
