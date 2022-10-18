@@ -22158,6 +22158,12 @@ static MYSQL_SYSVAR_ULONGLONG(
     nullptr, nullptr, 20, 1, ~0ULL, 0);
 
 static MYSQL_SYSVAR_BOOL(
+    stats_update_online_ddl, srv_stats_update_online_ddl, PLUGIN_VAR_OPCMDARG,
+    "Control If InnoDB should update index statistics, While related index is"
+    " being created or rebuilt.",
+    nullptr, nullptr, true);
+
+static MYSQL_SYSVAR_BOOL(
     adaptive_hash_index, srv_btr_search_enabled, PLUGIN_VAR_OPCMDARG,
     "Enable InnoDB adaptive hash index (enabled by default). "
     " Disable with --skip-innodb-adaptive-hash-index.",
@@ -23246,6 +23252,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(stats_persistent),
     MYSQL_SYSVAR(stats_persistent_sample_pages),
     MYSQL_SYSVAR(stats_auto_recalc),
+    MYSQL_SYSVAR(stats_update_online_ddl),
     MYSQL_SYSVAR(adaptive_hash_index),
     MYSQL_SYSVAR(adaptive_hash_index_parts),
     MYSQL_SYSVAR(stats_method),

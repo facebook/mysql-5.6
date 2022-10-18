@@ -577,7 +577,7 @@ bool srv_stats_persistent = true;
 bool srv_stats_include_delete_marked = false;
 unsigned long long srv_stats_persistent_sample_pages = 20;
 bool srv_stats_auto_recalc = true;
-
+bool srv_stats_update_online_ddl = true;
 ulong srv_replication_delay = 0;
 std::chrono::milliseconds get_srv_replication_delay() {
   return std::chrono::milliseconds{srv_replication_delay};

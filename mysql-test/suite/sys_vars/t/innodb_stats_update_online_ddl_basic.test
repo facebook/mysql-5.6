@@ -1,0 +1,30 @@
+#
+# innodb_stats_update_online_ddl
+#
+
+
+# show the default value
+SELECT @@innodb_stats_update_online_ddl;
+
+# check that it is writeable
+SET GLOBAL innodb_stats_update_online_ddl=ON;
+SELECT @@innodb_stats_update_online_ddl;
+
+SET GLOBAL innodb_stats_update_online_ddl=OFF;
+SELECT @@innodb_stats_update_online_ddl;
+
+SET GLOBAL innodb_stats_update_online_ddl=1;
+SELECT @@innodb_stats_update_online_ddl;
+
+SET GLOBAL innodb_stats_update_online_ddl=0;
+SELECT @@innodb_stats_update_online_ddl;
+
+# should be a boolean
+-- error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_stats_update_online_ddl=123;
+
+-- error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_stats_update_online_ddl='foo';
+
+# restore the environment
+SET GLOBAL innodb_stats_update_online_ddl=default;
