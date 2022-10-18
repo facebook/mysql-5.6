@@ -1,0 +1,118 @@
+--source include/have_debug_sync.inc
+
+--echo #
+--echo # update PK column
+--echo #
+CREATE TABLE t1 (a int,
+                b int,
+                c int) ENGINE=InnoDB;
+
+insert into t1 values (1, 1, 1), (2, 2, 2), (3, 3, 3), (4, 4, 4);
+insert into t1 select a+4, b+4, c+4 from t1;
+insert into t1 select a+8, b+8, c+8 from t1;
+insert into t1 select a+16, b+16, c+16 from t1;
+insert into t1 select a+32, b+32, c+32 from t1;
+insert into t1 select a+64, b+64, c+64 from t1;
+insert into t1 select a+128, b+128, c+128 from t1;
+insert into t1 select a+256, b+256, c+256 from t1;
+insert into t1 select a+512, b+512, c+512 from t1;
+insert into t1 select a+1024, b+1024, c+1024 from t1;
+
+analyze table t1;
+flush tables;
+
+--echo #
+--echo # repro issue when  innodb_stats_update_online_ddl = true(by default)
+--echo #
+connect (con1,localhost,root,,);
+SET DEBUG_SYNC = "innodb_inplace_alter_table_enter signal ddl_in_progress wait_for finish_ddl";
+send alter table t1 drop column b;
+
+connection default;
+SET DEBUG_SYNC = "now wait_for ddl_in_progress";
+analyze table t1;
+select stat_value from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+SET DEBUG_SYNC = "now signal finish_ddl";
+
+connection con1;
+--reap
+select stat_value from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+
+
+--echo # 
+--echo # don't update stats during DDL, it should return old stats
+--echo #
+connection default;
+set global innodb_stats_update_online_ddl = false;
+
+connection con1;
+SET DEBUG_SYNC = "innodb_inplace_alter_table_enter signal ddl_in_progress wait_for finish_ddl";
+send alter table t1 drop column c;
+
+connection default;
+SET DEBUG_SYNC = "now wait_for ddl_in_progress";
+analyze table t1;
+select stat_value from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+SET DEBUG_SYNC = "now signal finish_ddl";
+
+connection con1;
+--reap
+select stat_value from mysql.innodb_index_stats where table_name = 't1' and stat_name = 'n_diff_pfx01';
+
+
+--echo #
+--echo # update SK column
+--echo #
+set global innodb_stats_update_online_ddl = true;
+CREATE TABLE t2 (a int,
+                b varchar(8) not NULL,
+                c varchar(8) not NULL,
+                primary key(a),
+                key(b),
+                key(c)) ENGINE=InnoDB;
+
+
+insert into t2 values(1,'1', '1'),(2,'2','2'),(3,'3','3'),(4,'4','4'),(5,'5','5'),(6,'6','6'),(7,'7','7'),(8,'8','8'),(9,'9','9');
+analyze table t2;
+flush tables;
+
+connection con1;
+SET DEBUG_SYNC = "innodb_inplace_alter_table_enter signal ddl_in_progress wait_for finish_ddl";
+send alter table t2 MODIFY b varchar(8) NULL;
+
+connection default;
+SET DEBUG_SYNC = "now wait_for ddl_in_progress";
+analyze table t2;
+select stat_value from mysql.innodb_index_stats where table_name = 't2' and stat_name = 'n_diff_pfx01';
+SET DEBUG_SYNC = "now signal finish_ddl";
+
+connection con1;
+--reap
+select stat_value from mysql.innodb_index_stats where table_name = 't2' and stat_name = 'n_diff_pfx01';
+
+#
+# don't update stats during DDL, it should return old stats
+#
+connection default;
+set global innodb_stats_update_online_ddl = false;
+
+connection con1;
+SET DEBUG_SYNC = "innodb_inplace_alter_table_enter signal ddl_in_progress wait_for finish_ddl";
+send alter table t2 MODIFY c varchar(8) NULL;
+
+connection default;
+SET DEBUG_SYNC = "now wait_for ddl_in_progress";
+analyze table t2;
+select stat_value from mysql.innodb_index_stats where table_name = 't2' and stat_name = 'n_diff_pfx01';
+SET DEBUG_SYNC = "now signal finish_ddl";
+
+connection con1;
+--reap
+select stat_value from mysql.innodb_index_stats where table_name = 't2' and stat_name = 'n_diff_pfx01';
+
+--echo #
+--echo # cleanup
+--echo #
+connection default;
+drop table t1,t2;
+set global innodb_stats_update_online_ddl = default;

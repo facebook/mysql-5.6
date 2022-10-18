@@ -1696,13 +1696,21 @@ static bool dict_stats_analyze_index_low(ib_uint64_t &n_sample_pages,
 
   DEBUG_PRINTF("  %s(index=%s)\n", __func__, index->name());
 
-  dict_stats_empty_index(index);
-
   mtr_start(&mtr);
 
   mtr_s_lock(dict_index_get_lock(index), &mtr);
 
   size = btr_get_size(index, BTR_TOTAL_SIZE, &mtr);
+
+  /* Disable clear index stats if
+   - size is ULINT_UNDEFINED and
+   - srv_stats_update_online_ddl is false and
+   - online ddl is running in that index
+  */
+  if (size != ULINT_UNDEFINED || srv_stats_update_online_ddl ||
+      !dict_index_is_online_ddl(index)) {
+    dict_stats_empty_index(index);
+  }
 
   if (size != ULINT_UNDEFINED) {
     index->stat_index_size = size;
