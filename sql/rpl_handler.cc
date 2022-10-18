@@ -1949,11 +1949,12 @@ void RaftListenerQueue::deinit() {
   fprintf(stderr, "Shutting down Raft listener queue");
   // Queue an exit event in the queue. The listener thread will eventually pick
   // this up and exit
-  std::promise<RaftListenerCallbackResult> prms;
-  auto fut = prms.get_future();
+  std::shared_ptr<std::promise<RaftListenerCallbackResult>> prms =
+      std::make_shared<std::promise<RaftListenerCallbackResult>>();
+  auto fut = prms->get_future();
   QueueElement element;
   element.type = RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT;
-  element.result = &prms;
+  element.result = std::move(prms);
   add(element);
   fut.get();
   inited_ = false;
