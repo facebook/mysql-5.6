@@ -5,7 +5,7 @@
 --replace_result $MYSQLD_DATADIR MYSQLD_DATADIR
 --source ../include/bypass_create_table.inc
 
---echo # Bloom filter with complete SK but shorter than bloom filter
+--disable_query_log
 CREATE TABLE `id_table_bloom` (
   `id1` bigint(20) NOT NULL DEFAULT '0',
   `id2` bigint(20) NOT NULL DEFAULT '0',
@@ -106,6 +106,19 @@ INSERT INTO meta_table VALUES (100, 0, 4, 0, 'data4', 1, 2, 3, 'context4',
 INSERT INTO meta_table VALUES (101, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
 1, 0x1, 1, 1, 1, 1, 1, 0, 0);
 
+CREATE TABLE `obj_info` (
+  `id` bigint unsigned NOT NULL DEFAULT '0',
+  `type` int unsigned NOT NULL DEFAULT '0',
+  `version` bigint unsigned NOT NULL DEFAULT '0',
+  `update_time` int unsigned NOT NULL DEFAULT '0',
+  `is_deleted` tinyint DEFAULT NULL,
+  PRIMARY KEY (`type`, `id`),
+  KEY `id` (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+
+INSERT INTO obj_info (id, type, version, update_time) VALUES (100, 1, 2, 3);
+--enable_query_log
 
 --write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
 # Bloom filter with complete SK but shorter than bloom filter
@@ -179,6 +192,8 @@ SELECT /*+ bypass */ id2,version,data FROM test.link_varchar FORCE INDEX (PRIMAR
 # Uncovered TEXT/VARCHAR in SK
 SELECT /*+ bypass */ id2,version,data FROM test.link_text FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4 and time>=10;
 SELECT /*+ bypass */ id2,version,data FROM test.link_varchar FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4 and time>=10;
+# Read a column which is null by default
+SELECT /*+ bypass */ id,type,version,is_deleted,update_time FROM test.obj_info WHERE id=100;
 EOF
 
 --replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
@@ -195,5 +210,6 @@ DROP TABLE id_table_bloom;
 DROP TABLE link_table7;
 DROP TABLE link_table8;
 DROP TABLE meta_table;
+DROP TABLE obj_info;
 
 --source ../include/bypass_drop_table.inc

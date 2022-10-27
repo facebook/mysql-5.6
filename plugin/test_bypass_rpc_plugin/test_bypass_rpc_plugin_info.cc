@@ -136,6 +136,8 @@ static void send_row(void * /* unused */, myrocks_columns *values,
           fprintf(outfile_rpc, "null ");
         }
       }
+    } else {
+      fprintf(outfile_rpc, "<null> ");
     }
   }
   fprintf(outfile_rpc, "\n");
@@ -177,6 +179,7 @@ static ulong sql_get_client_capabilities(void *) {
 
 static int sql_get_null(void *) {
   DBUG_TRACE;
+  fprintf(outfile_sql, "<null> ");
   return false;
 }
 
