@@ -94,41 +94,11 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-# Bloom filter with complete SK but shorter than bloom filter
-CREATE TABLE `id_table_bloom` (
-`id1` bigint(20) NOT NULL DEFAULT '0',
-`id2` bigint(20) NOT NULL DEFAULT '0',
-`id3` bigint(11) NOT NULL DEFAULT '0',
-`val` bigint(20) NOT NULL DEFAULT '0',
-PRIMARY KEY (`id1`, `id2`),
-KEY `id3` (`id3`) COMMENT 'cf_link',
-UNIQUE KEY `unique_id3` (`id3`) COMMENT 'cf_link'
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
-KEY_BLOCK_SIZE=8;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-INSERT INTO id_table_bloom values (1, 1, 1, 101);
-INSERT INTO id_table_bloom values (1, 2, 2, 102);
-INSERT INTO id_table_bloom values (1, 3, 3, 103);
-INSERT INTO id_table_bloom values (1, 4, 4, 104);
-CREATE TABLE `link_table7` (
-`id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
-`id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
-`id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
-`id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
-`link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
-`visibility` tinyint(3) NOT NULL DEFAULT '0' ,
-`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
-`time` int(10) unsigned NOT NULL DEFAULT '0' ,
-`version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
-PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
-KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
-COMMENT 'rev:cf_link_id1_type'
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
-ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -138,36 +108,6 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-insert into link_table7 values (9223372036854775807, 100, 9223372036854775801,
-100, 9223372036854775807, 0,
-'data1', 1234561, 9223372036854775801);
-insert into link_table7 values (9223372036854775807, 100, 1223372036854775802,
-100, 9223372036854775807, 0,
-'0123456789012345678901234567890123456789012345678901234567890123456789'
-  '0123456789012345678901234567890123456789012345678901234567890123456789'
-  '0123456789012345678901234567890123456789012345678901234567890123456789'
-  '0123456789012345678901234567890', 1234562, 9223372036854775802);
-insert into link_table7 values (9223372036854775807, 100, 1223372036854775803,
-100, 9223372036854775807, 0,
-'0123456789012345678901234567890123456789012345678901234567890123456789'
-  '0123456789012345678901234567890123456789012345678901234567890123456789'
-  '0123456789012345678901234567890123456789012345678901234567890123456789'
-  '0123456789012345678901234567890', 1234563, 9223372036854775803);
-CREATE TABLE `link_table8` (
-`id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
-`id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
-`id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
-`id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
-`link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
-`visibility` tinyint(3) NOT NULL DEFAULT '0' ,
-`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
-`time` int(10) unsigned NOT NULL DEFAULT '0' ,
-`version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
-PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
-KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
-COMMENT 'rev:cf_link_id1_type'
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
-ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -177,31 +117,6 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-insert into link_table8 values (1, 0x03030303, 1, 0, 100, 0, 'data1', 0, 0);
-CREATE TABLE `meta_table` (
-`lvid` int(10) unsigned NOT NULL DEFAULT '0',
-`mt_object_type` int(10) unsigned NOT NULL DEFAULT '0',
-`id` bigint(20) unsigned NOT NULL DEFAULT '0',
-`mt_object_cookie` bigint(20) unsigned NOT NULL DEFAULT '0',
-`mt_alt_key_data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
-`mt_total_size` bigint(20) unsigned NOT NULL DEFAULT '0',
-`mt_object_type2` int(10) unsigned NOT NULL DEFAULT '0',
-`mt_object_state` smallint(5) unsigned NOT NULL DEFAULT '0',
-`context` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
-`mt_ref` bigint(20) DEFAULT NULL,
-`mt_key` varbinary(80) DEFAULT NULL,
-`mt_ctime` int(10) NOT NULL DEFAULT '0',
-`mt_rtime` int(10) NOT NULL DEFAULT '0',
-`policy_id` tinyint(3) unsigned DEFAULT NULL,
-`policy` bigint(20) unsigned DEFAULT NULL,
-`parent_id` bigint(20) unsigned NOT NULL DEFAULT '0',
-`ttl` int(10) DEFAULT NULL,
-`mt_last_update` int(10) unsigned NOT NULL DEFAULT '0',
-PRIMARY KEY (`lvid`,`id`),
-KEY `key1` (`lvid`,`mt_object_state`,`mt_key`(1)),
-KEY `key2` (`lvid`,`mt_last_update`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
-ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -218,19 +133,10 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
-INSERT INTO meta_table VALUES (100, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
-1, 0x1, 1, 1, 1, 1, 1, 0, 0);
-INSERT INTO meta_table VALUES (100, 0, 2, 0, 'data2', 1, 2, 3, 'context2',
-1, 0x1, 1, 1, 1, 1, 1, 0, 0);
-INSERT INTO meta_table VALUES (100, 0, 3, 0, 'data3', 1, 2, 3, 'context3',
-1, 0x1, 1, 1, 1, 1, 1, 0, 0);
-INSERT INTO meta_table VALUES (100, 0, 4, 0, 'data4', 1, 2, 3, 'context4',
-1, 0x1, 1, 1, 1, 1, 1, 0, 0);
-INSERT INTO meta_table VALUES (101, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
-1, 0x1, 1, 1, 1, 1, 1, 0, 0);
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
 DROP TABLE id_table_bloom;
 DROP TABLE link_table7;
 DROP TABLE link_table8;
 DROP TABLE meta_table;
+DROP TABLE obj_info;

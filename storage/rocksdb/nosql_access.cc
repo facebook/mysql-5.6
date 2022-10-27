@@ -151,6 +151,10 @@ class rpc_protocol : public base_protocol {
     int idx = 0;
     for (const auto field : *m_field_list) {
       auto rpcbuf = &m_columns->at(idx++);
+      if (field->is_null()) {
+        rpcbuf->isNull = true;
+        continue;
+      }
       switch (field->real_type()) {
         case MYSQL_TYPE_LONGLONG: {
           pack_integer<8>(rpcbuf, field->field_ptr(),
