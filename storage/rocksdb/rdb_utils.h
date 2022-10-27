@@ -289,6 +289,9 @@ std::string rdb_hexdump(const char *data, const std::size_t data_len,
                         const std::size_t maxsize = 0)
     MY_ATTRIBUTE((__nonnull__));
 
+// Return dir + '/' + file
+std::string rdb_concat_paths(const std::string &dir, const std::string &file);
+
 /*
   Helper function to see if a database exists
  */
