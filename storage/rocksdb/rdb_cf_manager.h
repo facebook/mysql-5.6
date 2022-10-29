@@ -115,10 +115,11 @@ class Rdb_cf_manager : public Ensure_initialized {
                                 const uint32 &cf_id, const std::string &cf_name,
                                 const bool is_per_partition_cf = false);
 
-  void get_cf_options(const std::string &cf_name,
+  /* return true when success */
+  bool get_cf_options(const std::string &cf_name,
                       rocksdb::ColumnFamilyOptions *const opts)
       MY_ATTRIBUTE((__nonnull__)) {
-    m_cf_options->get_cf_options(cf_name, opts);
+    return m_cf_options->get_cf_options(cf_name, opts);
   }
 
   void update_options_map(const std::string &cf_name,

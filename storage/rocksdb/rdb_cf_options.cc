@@ -33,6 +33,7 @@
 #include "./ha_rocksdb.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_compact_filter.h"
+#include "./rdb_sst_partitioner_factory.h"
 
 namespace myrocks {
 
@@ -58,6 +59,14 @@ bool Rdb_cf_options::init(
 
   if (!set_default(std::string(default_cf_options)) ||
       !set_override(std::string(override_cf_options))) {
+    return false;
+  }
+
+  if (m_default_cf_opts.sst_partitioner_factory != nullptr) {
+    // NO_LINT_DEBUG
+    LogPluginErrMsg(
+        WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+        "Invalid cf options, sst_partitioner_factory should not be set");
     return false;
   }
 
@@ -367,7 +376,7 @@ std::shared_ptr<rocksdb::MergeOperator> Rdb_cf_options::get_cf_merge_operator(
              : nullptr;
 }
 
-void Rdb_cf_options::get_cf_options(const std::string &cf_name,
+bool Rdb_cf_options::get_cf_options(const std::string &cf_name,
                                     rocksdb::ColumnFamilyOptions *const opts) {
   *opts = m_default_cf_opts;
   get(cf_name, opts);
@@ -375,6 +384,25 @@ void Rdb_cf_options::get_cf_options(const std::string &cf_name,
   // Set the comparator according to 'rev:'
   opts->comparator = get_cf_comparator(cf_name);
   opts->merge_operator = get_cf_merge_operator(cf_name);
+  // this sst partitioner is used in bulk load scenario, no need to set it for
+  // non-data cfs.
+  if (cf_name != DEFAULT_SYSTEM_CF_NAME && cf_name != DEFAULT_TMP_CF_NAME &&
+      cf_name != DEFAULT_TMP_SYSTEM_CF_NAME) {
+    if (opts->sst_partitioner_factory != nullptr) {
+      // NO_LINT_DEBUG
+      LogPluginErrMsg(
+          WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+          "Invalid cf options for %s, sst_partitioner_factory should not be "
+          "set.",
+          cf_name.c_str());
+      return false;
+    }
+    opts->sst_partitioner_factory =
+        std::make_shared<Rdb_sst_partitioner_factory>(
+            opts->comparator, opts->num_levels,
+            Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str()));
+  }
+  return true;
 }
 
 }  // namespace myrocks

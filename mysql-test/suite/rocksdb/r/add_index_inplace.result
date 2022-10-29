@@ -299,6 +299,7 @@ rocksdb_bulk_load_allow_unsorted	OFF
 rocksdb_bulk_load_fail_if_not_bottommost_level	OFF
 rocksdb_bulk_load_partial_index	ON
 rocksdb_bulk_load_size	1000
+rocksdb_bulk_load_use_sst_partitioner	OFF
 show session variables like 'rocksdb_bulk_load%';
 Variable_name	Value
 rocksdb_bulk_load	ON
@@ -307,6 +308,7 @@ rocksdb_bulk_load_allow_unsorted	OFF
 rocksdb_bulk_load_fail_if_not_bottommost_level	OFF
 rocksdb_bulk_load_partial_index	ON
 rocksdb_bulk_load_size	1000
+rocksdb_bulk_load_use_sst_partitioner	OFF
 CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (1,1);
 # Disconnecting on con1
@@ -353,6 +355,7 @@ rocksdb_bulk_load_allow_unsorted	OFF
 rocksdb_bulk_load_fail_if_not_bottommost_level	OFF
 rocksdb_bulk_load_partial_index	ON
 rocksdb_bulk_load_size	1000
+rocksdb_bulk_load_use_sst_partitioner	OFF
 CREATE TABLE t1 (a VARCHAR(80)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));

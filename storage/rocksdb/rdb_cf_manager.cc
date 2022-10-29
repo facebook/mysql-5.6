@@ -166,7 +166,10 @@ std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_or_create_cf(
   } else {
     /* Create a Column Family. */
     rocksdb::ColumnFamilyOptions opts;
-    m_cf_options->get_cf_options(cf_name, &opts);
+    if (!m_cf_options->get_cf_options(cf_name, &opts)) {
+      RDB_MUTEX_UNLOCK_CHECK(m_mutex);
+      return cf_handle;
+    }
 
     // NO_LINT_DEBUG
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
