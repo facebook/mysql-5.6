@@ -1,0 +1,97 @@
+# test cases verify the features that ensure the bulk load sst files
+# will be placed in rocksdb bottommost level
+--source include/have_rocksdb.inc
+--source include/not_valgrind.inc
+
+# use custom error log to assert on error message in search_pattern_in_file.inc
+--let LOG=$MYSQLTEST_VARDIR/tmp/bulk_load_use_sst_partitioner.err
+--let SEARCH_FILE=$LOG
+
+# restart server to change error log
+--replace_result $LOG LOG
+--let restart_parameters="restart: --log-error=$LOG"
+--source include/restart_mysqld.inc
+
+--disable_query_log
+call mtr.add_suppression("failed to bulk load. status code = 13, status = Operation failed. Try again.");
+call mtr.add_suppression("Error 504 finalizing last SST file while setting bulk loading variable");
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2,t3,t4,t5,t6;
+--enable_warnings
+--enable_query_log
+
+# test case:
+# verify bulk load fail when bottommost lvl has sst file with overlap key range
+SET rocksdb_bulk_load_use_sst_partitioner=0;
+SET rocksdb_bulk_load_fail_if_not_bottommost_level=1;
+SET rocksdb_bulk_load_allow_sk=1;
+
+# index numbers in t2 will be greater than index number in t1 and less than
+# index numbers in t3
+CREATE TABLE t1(a INT, b INT, c INT, PRIMARY KEY(a), KEY k1(b, c), KEY k2(c) COMMENT 'rev:cf1') ENGINE=ROCKSDB;
+CREATE TABLE t2(a INT, b INT, c INT, PRIMARY KEY(a), KEY k1(b, c), KEY k2(c) COMMENT 'rev:cf1') ENGINE=ROCKSDB;
+CREATE TABLE t3(a INT, b INT, c INT, PRIMARY KEY(a), KEY k1(b, c), KEY k2(c) COMMENT 'rev:cf1') ENGINE=ROCKSDB;
+
+SET rocksdb_bulk_load=1;
+INSERT INTO t1 VALUES (1, 1, 1), (2, 1, 1), (3, 2, 1);
+INSERT INTO t3 VALUES (1, 1, 3), (2, 1, 3), (3, 2, 3);
+SET rocksdb_bulk_load=0;
+
+# compact the LMAX sst files created in the bulk load before
+set global rocksdb_compact_cf="";
+set global rocksdb_compact_cf="rev:cf1";
+
+SET rocksdb_bulk_load=1;
+INSERT INTO t2 VALUES(1, 1, 2);
+INSERT INTO t2 VALUES(2, 1, 2);
+INSERT INTO t2 VALUES(3, 2, 2);
+
+# verify we get an error
+--error ER_UNKNOWN_ERROR
+SET rocksdb_bulk_load=0;
+
+# verify data not loaded to db
+select * from t2;
+
+# test case:
+# same as previous test case, except rocksdb_bulk_load_use_sst_partitioner
+# is set
+SET rocksdb_bulk_load_use_sst_partitioner=1;
+
+CREATE TABLE t4(a INT, b INT, c INT, PRIMARY KEY(a), KEY k1(b, c), KEY k2(c) COMMENT 'rev:cf1') ENGINE=ROCKSDB;
+CREATE TABLE t5(a INT, b INT, c INT, PRIMARY KEY(a), KEY k1(b, c), KEY k2(c) COMMENT 'rev:cf1') ENGINE=ROCKSDB;
+CREATE TABLE t6(a INT, b INT, c INT, PRIMARY KEY(a), KEY k1(b, c), KEY k2(c) COMMENT 'rev:cf1') ENGINE=ROCKSDB;
+
+SET rocksdb_bulk_load=1;
+INSERT INTO t4 VALUES (1, 1, 4), (2, 1, 4), (3, 2, 4);
+INSERT INTO t6 VALUES (1, 1, 6), (2, 1, 6), (3, 2, 6);
+SET rocksdb_bulk_load=0;
+
+# compact the LMAX sst files created in the bulk load before
+set global rocksdb_compact_cf="";
+set global rocksdb_compact_cf="rev:cf1";
+
+SET rocksdb_bulk_load=1;
+INSERT INTO t5 VALUES(1, 1, 5);
+INSERT INTO t5 VALUES(2, 1, 5);
+INSERT INTO t5 VALUES(3, 2, 5);
+
+# now there is no error
+SET rocksdb_bulk_load=0;
+
+# verify data loaded to db
+select * from t5;
+
+# clean up
+drop table t1, t2, t3, t4, t5, t6;
+
+--let SEARCH_FILE=$LOG
+--let SEARCH_PATTERN=MyRocks: failed to bulk load, retry with compaction.
+--source include/search_pattern_in_file.inc
+
+# Restart mysqld with default options
+--let restart_parameters=
+--source include/restart_mysqld.inc
+
+# clean up log file
+--remove_file $LOG

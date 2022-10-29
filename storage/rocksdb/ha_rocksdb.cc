@@ -97,6 +97,7 @@
 #include "./rdb_iterator.h"
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_psi.h"
+#include "./rdb_sst_partitioner_factory.h"
 #include "./rdb_threads.h"
 #include "./sql_dd.h"
 #include "my_rapidjson_size_t.h"
@@ -741,6 +742,10 @@ static int rocksdb_check_bulk_load_fail_if_not_bottommost_level(
     THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
     struct st_mysql_value *value);
 
+static int rocksdb_check_bulk_load_use_sst_partitioner(
+    THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
+    struct st_mysql_value *value);
+
 static void rocksdb_set_max_background_jobs(THD *thd, struct SYS_VAR *const var,
                                             void *const var_ptr,
                                             const void *const save);
@@ -1382,6 +1387,12 @@ static MYSQL_THDVAR_BOOL(
     "Turn off this variable could have severe performance impact. "
     "Can be changed only when bulk load is disabled.",
     rocksdb_check_bulk_load_fail_if_not_bottommost_level, nullptr, false);
+
+static MYSQL_THDVAR_BOOL(
+    bulk_load_use_sst_partitioner, PLUGIN_VAR_RQCMDARG,
+    "Use sst partitioner to split sst files to ensure bulk load sst files "
+    "can be ingested to bottommost level",
+    rocksdb_check_bulk_load_use_sst_partitioner, nullptr, false);
 
 static MYSQL_SYSVAR_BOOL(enable_bulk_load_api, rocksdb_enable_bulk_load_api,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -2802,6 +2813,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(bulk_load_allow_sk),
     MYSQL_SYSVAR(bulk_load_allow_unsorted),
     MYSQL_SYSVAR(bulk_load_fail_if_not_bottommost_level),
+    MYSQL_SYSVAR(bulk_load_use_sst_partitioner),
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(blind_delete_primary_key),
@@ -3597,6 +3609,10 @@ class Rdb_transaction {
   /* External merge sorts for bulk load: key ID -> merge sort instance */
   std::unordered_map<GL_INDEX_ID, Rdb_index_merge> m_key_merge;
 
+  // register indexes used in bulk load to Rdb_sst_partitioner_factory, see
+  // comments in Rdb_sst_partitioner_factory for details
+  Rdb_bulk_load_index_registry m_bulk_load_index_registry;
+
   /*
     Used to check for duplicate entries during fast unique secondary index
     creation.
@@ -3629,6 +3645,32 @@ class Rdb_transaction {
       dup_sk_buf_old = nullptr;
     }
   };
+
+  rocksdb::Status ingest_bulk_load_files(
+      std::vector<rocksdb::IngestExternalFileArg> &args) {
+    rocksdb::Status s = rdb->IngestExternalFiles(args);
+    if (!s.ok() &&
+        m_bulk_load_index_registry.index_registered_in_sst_partitioner()) {
+      // NO_LINT_DEBUG
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "MyRocks: failed to bulk load, retry with compaction. "
+                      "status code = %d, status = %s",
+                      s.code(), s.ToString().c_str());
+      s = m_bulk_load_index_registry.compact_index_ranges(
+          rdb, getCompactRangeOptions());
+      if (!s.ok()) {
+        // NO_LINT_DEBUG
+        LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                        "MyRocks: compaction failed in bulk load. "
+                        "status code = %d, status = %s",
+                        s.code(), s.ToString().c_str());
+        return s;
+      }
+      // try again after compaction
+      s = rdb->IngestExternalFiles(args);
+    }
+    return s;
+  }
 
  public:
   int get_key_merge(GL_INDEX_ID kd_gl_id, rocksdb::ColumnFamilyHandle *cf,
@@ -3676,6 +3718,7 @@ class Rdb_transaction {
       m_curr_bulk_load.clear();
       m_curr_bulk_load_tablename.clear();
       m_key_merge.clear();
+      m_bulk_load_index_registry.clear();
     });
 
     int rc = 0;
@@ -4039,7 +4082,8 @@ class Rdb_transaction {
           "SST Tracing: Calling IngestExternalFile with '%zu' files",
           file_count);
     }
-    const rocksdb::Status s = rdb->IngestExternalFiles(args);
+
+    const rocksdb::Status s = ingest_bulk_load_files(args);
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
       LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
@@ -4116,6 +4160,11 @@ class Rdb_transaction {
 
     sk_info->sk_memcmp_key_old = sk_info->sk_memcmp_key;
     return 0;
+  }
+
+  bool add_index_to_sst_partitioner(rocksdb::ColumnFamilyHandle *cf,
+                                    const Rdb_key_def &kd) {
+    return m_bulk_load_index_registry.add_index(rdb, cf, kd.get_index_number());
   }
 
   int start_bulk_load(ha_rocksdb *const bulk_load,
@@ -7591,7 +7640,9 @@ static int rocksdb_init_internal(void *const p) {
                   "RocksDB: Column Families at start:");
   for (size_t i = 0; i < cf_names.size(); ++i) {
     rocksdb::ColumnFamilyOptions opts;
-    cf_options_map->get_cf_options(cf_names[i], &opts);
+    if (!cf_options_map->get_cf_options(cf_names[i], &opts)) {
+      DBUG_RETURN(HA_EXIT_FAILURE);
+    }
 
     // NO_LINT_DEBUG
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "  cf=%s",
@@ -11923,6 +11974,16 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
   }
 
   rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
+
+  if (THDVAR(thd, bulk_load_use_sst_partitioner) &&
+      !tx->add_index_to_sst_partitioner(cf, kd)) {
+    // NO_LINT_DEBUG
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "MyRocks: failed to bulk load. Index number %d "
+                    "is being used by another bulk load transaction.",
+                    kd.get_index_number());
+    DBUG_RETURN(HA_ERR_ROCKSDB_BULK_LOAD);
+  }
 
   // In the case of unsorted inserts, m_sst_info allocated here is not
   // used to store the keys. It is still used to indicate when tables
@@ -17501,6 +17562,13 @@ static int rocksdb_check_bulk_load_allow_unsorted(
 }
 
 static int rocksdb_check_bulk_load_fail_if_not_bottommost_level(
+    THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
+    struct st_mysql_value *value) {
+  // reuse the same logic
+  return rocksdb_check_bulk_load_allow_unsorted(thd, var, save, value);
+}
+
+static int rocksdb_check_bulk_load_use_sst_partitioner(
     THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
     struct st_mysql_value *value) {
   // reuse the same logic

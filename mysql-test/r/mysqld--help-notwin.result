@@ -1897,6 +1897,9 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-bulk-load-partial-index to disable.)
  --rocksdb-bulk-load-size=# 
  Max #records in a batch for bulk-load mode
+ --rocksdb-bulk-load-use-sst-partitioner 
+ Use sst partitioner to split sst files to ensure bulk
+ load sst files can be ingested to bottommost level
  --rocksdb-bypass-rejected-query-history[=name] 
  Enable or disable ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY
  plugin. Possible values are ON, OFF, FORCE (don't start
@@ -3575,6 +3578,7 @@ rocksdb-bulk-load-allow-unsorted FALSE
 rocksdb-bulk-load-fail-if-not-bottommost-level FALSE
 rocksdb-bulk-load-partial-index TRUE
 rocksdb-bulk-load-size 1000
+rocksdb-bulk-load-use-sst-partitioner FALSE
 rocksdb-bypass-rejected-query-history ON
 rocksdb-bypass-rpc-log-rejected FALSE
 rocksdb-bypass-rpc-on TRUE

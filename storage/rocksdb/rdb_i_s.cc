@@ -473,7 +473,9 @@ static int rdb_i_s_cfoptions_fill_table(
     rocksdb::ColumnFamilyOptions opts;
 
     assert(!cf_name.empty());
-    cf_manager.get_cf_options(cf_name, &opts);
+    if (!cf_manager.get_cf_options(cf_name, &opts)) {
+      DBUG_RETURN(HA_EXIT_FAILURE);
+    }
 
     std::vector<std::pair<std::string, std::string>> cf_option_types = {
         {"COMPARATOR", opts.comparator == nullptr
