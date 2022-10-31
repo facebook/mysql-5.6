@@ -2733,7 +2733,7 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup) {
 }
 
 void THD::check_yield(std::function<bool()> cond) {
-  yield_cond = cond;
+  yield_cond = std::move(cond);
   thd_wait_begin(this, THD_WAIT_YIELD);
   thd_wait_end(this);
   yield_cond = nullptr;
