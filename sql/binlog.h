@@ -611,6 +611,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   uint64_t get_ttl_compaction_ts() const { return ttl_compaction_ts.load(); }
 
+  std::atomic<bool> is_raft_log_purge_active{false};
+
  private:
   /**
     Checks binlog error action to identify if the server needs to abort on

@@ -389,6 +389,11 @@ The following options may be given as the first argument:
  tables
  --default-week-format=# 
  The default week format used by WEEK() functions
+ --delay-auto-rotation-on-raft-log-purge 
+ On the leader, when raft logs are being purged delay
+ automatic log rotation until purge is done even if we go
+ a beyond the max binlog size.
+ (Defaults to on; use --skip-delay-auto-rotation-on-raft-log-purge to disable.)
  --delay-key-write[=name] 
  Type of DELAY_KEY_WRITE
  --delayed-insert-limit=# 
@@ -3115,6 +3120,7 @@ default-table-encryption FALSE
 default-time-zone (No default value)
 default-tmp-storage-engine InnoDB
 default-week-format 0
+delay-auto-rotation-on-raft-log-purge TRUE
 delay-key-write ON
 delayed-insert-limit 100
 delayed-insert-timeout 300

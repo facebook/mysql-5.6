@@ -9211,6 +9211,14 @@ static Sys_var_bool Sys_enable_raft_plugin(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(validate_enable_raft),
     ON_UPDATE(update_enable_raft_change));
 
+static Sys_var_bool Sys_delay_auto_rotation_on_raft_log_purge(
+    "delay_auto_rotation_on_raft_log_purge",
+    "On the leader, when raft logs are being purged delay automatic log "
+    "rotation until purge is done even if we go a beyond the max binlog size.",
+    GLOBAL_VAR(delay_auto_rotation_on_raft_log_purge), CMD_LINE(OPT_ARG),
+    DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
+
 static Sys_var_bool Sys_abort_on_raft_purge_error(
     "abort_on_raft_purge_error",
     "Any error in raft plugin to purge files will abort the server",

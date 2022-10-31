@@ -1,0 +1,27 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 1
+####
+--echo Default value of delay_auto_rotation_on_raft_log_purge is 1
+SELECT @@global.delay_auto_rotation_on_raft_log_purge;
+
+####
+# Verify that this is not a session variable #
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.delay_auto_rotation_on_raft_log_purge;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo delay_auto_rotation_on_raft_log_purge is a dynamic variable
+SET @@global.delay_auto_rotation_on_raft_log_purge = 1;
+SELECT @@global.delay_auto_rotation_on_raft_log_purge;
+
+SET @@global.delay_auto_rotation_on_raft_log_purge = 0;
+SELECT @@global.delay_auto_rotation_on_raft_log_purge;
+
+SET @@global.delay_auto_rotation_on_raft_log_purge = default;
+SELECT @@global.delay_auto_rotation_on_raft_log_purge;

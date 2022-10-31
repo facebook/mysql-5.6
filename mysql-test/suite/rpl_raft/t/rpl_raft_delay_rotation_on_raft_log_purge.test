@@ -1,0 +1,43 @@
+source include/have_debug_sync.inc;
+source ../include/raft_3_node.inc;
+
+connection server_1;
+FLUSH BINARY LOGS;
+FLUSH BINARY LOGS;
+FLUSH BINARY LOGS;
+FLUSH BINARY LOGS;
+SELECT SLEEP(1);
+
+SET @@GLOBAL.max_binlog_size = 4096;
+CREATE TABLE t1(a INT PRIMARY KEY, b TEXT);
+
+SET debug_sync='raft_purge_flag_set SIGNAL purge_reached WAIT_FOR purge_continue';
+send PURGE RAFT LOGS BEFORE NOW();
+
+connection server_1_1;
+SET debug_sync='now WAIT_FOR purge_reached';
+INSERT INTO t1 VALUES(1, REPEAT('a', 5000));
+SET debug_sync='now SIGNAL purge_continue';
+
+connection server_1;
+reap;
+
+echo "There should be only one raft log:";
+replace_column 1 # 2 #;
+SHOW RAFT LOGS;
+INSERT INTO t1 VALUES(2, "");
+echo "Now we should have two raft logs:";
+replace_column 1 # 2 #;
+SHOW RAFT LOGS;
+
+# Cleanup
+connection server_1;
+SET @@GLOBAL.max_binlog_size = default;
+DROP TABLE t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

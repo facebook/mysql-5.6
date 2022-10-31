@@ -3995,7 +3995,21 @@ bool purge_raft_logs(THD *thd, const char *to_log) {
 
   // If mysql_bin_log is not an apply log, then it represents the 'raft logs' on
   // leader. Call purge_source_logs_to_file() to handle the purge correctly
-  if (!mysql_bin_log.is_apply_log) return purge_source_logs_to_file(thd, to_log);
+  if (!mysql_bin_log.is_apply_log) {
+    mysql_bin_log.is_raft_log_purge_active = true;
+    const auto start = std::chrono::system_clock::now();
+    DEBUG_SYNC(thd, "raft_purge_flag_set");
+    bool retval = purge_source_logs_to_file(thd, to_log);
+    mysql_bin_log.is_raft_log_purge_active = false;
+    const auto end = std::chrono::system_clock::now();
+    sql_print_information(
+        "Raft log purging was active for %s usecs",
+        std::to_string(
+            std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+                .count())
+            .c_str());
+    return retval;
+  }
 
   Master_info *active_mi;
   if (!get_and_lock_master_info(&active_mi)) {
@@ -4055,8 +4069,21 @@ bool purge_raft_logs_before_date(THD *thd, time_t purge_time) {
   // If mysql_bin_log is not an apply log, then it represents the 'raft logs' on
   // leader. Call purge_source_logs_before_date() to handle the purge
   // correctly
-  if (!mysql_bin_log.is_apply_log)
-    return purge_source_logs_before_date(thd, purge_time);
+  if (!mysql_bin_log.is_apply_log) {
+    mysql_bin_log.is_raft_log_purge_active = true;
+    const auto start = std::chrono::system_clock::now();
+    DEBUG_SYNC(thd, "raft_purge_flag_set");
+    bool retval = purge_source_logs_before_date(thd, purge_time);
+    mysql_bin_log.is_raft_log_purge_active = false;
+    const auto end = std::chrono::system_clock::now();
+    sql_print_information(
+        "Raft log purging was active for %s usecs",
+        std::to_string(
+            std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+                .count())
+            .c_str());
+    return retval;
+  }
 
   Master_info *active_mi;
   if (!get_and_lock_master_info(&active_mi)) {
@@ -12028,7 +12055,8 @@ commit_stage:
    */
   if (DBUG_EVALUATE_IF("force_rotate", 1, 0) ||
       (do_rotate && thd->commit_error == THD::CE_NONE &&
-       !is_rotating_caused_by_incident)) {
+       !is_rotating_caused_by_incident &&
+       (!delay_auto_rotation_on_raft_log_purge || !is_raft_log_purge_active))) {
     /*
       Do not force the rotate as several consecutive groups may
       request unnecessary rotations.
