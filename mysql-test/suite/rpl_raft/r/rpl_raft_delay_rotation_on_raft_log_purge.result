@@ -1,0 +1,52 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+FLUSH BINARY LOGS;
+FLUSH BINARY LOGS;
+FLUSH BINARY LOGS;
+FLUSH BINARY LOGS;
+SELECT SLEEP(1);
+SLEEP(1)
+0
+SET @@GLOBAL.max_binlog_size = 4096;
+CREATE TABLE t1(a INT PRIMARY KEY, b TEXT);
+SET debug_sync='raft_purge_flag_set SIGNAL purge_reached WAIT_FOR purge_continue';
+PURGE RAFT LOGS BEFORE NOW();
+SET debug_sync='now WAIT_FOR purge_reached';
+INSERT INTO t1 VALUES(1, REPEAT('a', 5000));
+SET debug_sync='now SIGNAL purge_continue';
+Warnings:
+Warning	1868	file ./binary-logs-13000.000006 was not purged because it is the active log file.
+"There should be only one raft log:"
+SHOW RAFT LOGS;
+Log_name	File_size	Encrypted
+#	#	No
+INSERT INTO t1 VALUES(2, "");
+"Now we should have two raft logs:"
+SHOW RAFT LOGS;
+Log_name	File_size	Encrypted
+#	#	No
+#	#	No
+SET @@GLOBAL.max_binlog_size = default;
+DROP TABLE t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
