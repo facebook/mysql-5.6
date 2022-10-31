@@ -1,0 +1,20 @@
+Default value of delay_auto_rotation_on_raft_log_purge is 1
+SELECT @@global.delay_auto_rotation_on_raft_log_purge;
+@@global.delay_auto_rotation_on_raft_log_purge
+1
+SELECT @@session.delay_auto_rotation_on_raft_log_purge;
+ERROR HY000: Variable 'delay_auto_rotation_on_raft_log_purge' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+delay_auto_rotation_on_raft_log_purge is a dynamic variable
+SET @@global.delay_auto_rotation_on_raft_log_purge = 1;
+SELECT @@global.delay_auto_rotation_on_raft_log_purge;
+@@global.delay_auto_rotation_on_raft_log_purge
+1
+SET @@global.delay_auto_rotation_on_raft_log_purge = 0;
+SELECT @@global.delay_auto_rotation_on_raft_log_purge;
+@@global.delay_auto_rotation_on_raft_log_purge
+0
+SET @@global.delay_auto_rotation_on_raft_log_purge = default;
+SELECT @@global.delay_auto_rotation_on_raft_log_purge;
+@@global.delay_auto_rotation_on_raft_log_purge
+1
