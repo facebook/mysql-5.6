@@ -364,7 +364,7 @@ void Rdb_tbl_prop_coll::read_stats_from_tbl_props(
 std::string Rdb_index_stats::materialize(
     const std::vector<Rdb_index_stats> &stats) {
   String ret;
-  rdb_netstr_append_uint16(&ret, INDEX_STATS_VERSION_ENTRY_TYPES);
+  rdb_netstr_append_uint16(&ret, INDEX_STATS_VERSION_WITH_NAME);
   for (const auto &i : stats) {
     rdb_netstr_append_uint32(&ret, i.m_gl_index_id.cf_id);
     rdb_netstr_append_uint32(&ret, i.m_gl_index_id.index_id);
@@ -380,6 +380,8 @@ std::string Rdb_index_stats::materialize(
     for (const auto &num_keys : i.m_distinct_keys_per_prefix) {
       rdb_netstr_append_uint64(&ret, num_keys);
     }
+    rdb_netstr_append_uint16(&ret, i.m_name.size());
+    ret.append(i.m_name.data(), i.m_name.size());
   }
 
   return std::string((char *)ret.ptr(), ret.length());
@@ -406,7 +408,7 @@ int Rdb_index_stats::unmaterialize(const std::string &s,
   Rdb_index_stats stats;
   // Make sure version is within supported range.
   if (version < INDEX_STATS_VERSION_INITIAL ||
-      version > INDEX_STATS_VERSION_ENTRY_TYPES) {
+      version > INDEX_STATS_VERSION_WITH_NAME) {
     // NO_LINT_DEBUG
     sql_print_error(
         "Index stats version %d was outside of supported range. "
@@ -447,6 +449,11 @@ int Rdb_index_stats::unmaterialize(const std::string &s,
     }
     for (std::size_t i = 0; i < stats.m_distinct_keys_per_prefix.size(); i++) {
       stats.m_distinct_keys_per_prefix[i] = rdb_netbuf_read_uint64(&p);
+    }
+    if (version >= INDEX_STATS_VERSION_WITH_NAME) {
+      size_t namelen = rdb_netbuf_read_uint16(&p);
+      stats.m_name.assign((const char*)p, namelen);
+      p += namelen;
     }
     ret->push_back(stats);
   }

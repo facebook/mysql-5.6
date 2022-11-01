@@ -49,6 +49,7 @@ struct Rdb_index_stats {
   enum {
     INDEX_STATS_VERSION_INITIAL = 1,
     INDEX_STATS_VERSION_ENTRY_TYPES = 2,
+    INDEX_STATS_VERSION_WITH_NAME = 3,
   };
   GL_INDEX_ID m_gl_index_id;
   int64_t m_data_size, m_rows, m_actual_disk_size;
