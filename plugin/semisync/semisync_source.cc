@@ -1206,6 +1206,11 @@ void ReplSemiSyncMaster::setExportStats() {
                              ((double)rpl_semi_sync_source_net_wait_num))
            : 0);
 
+  for (size_t i_bins = 0; i_bins < NUMBER_OF_HISTOGRAM_BINS; ++i_bins) {
+    histogram_trx_wait_values[i_bins] =
+        latency_histogram_get_count(&histogram_trx_wait, i_bins);
+  }
+
   unlock();
 }
 
@@ -1223,11 +1228,6 @@ int ReplSemiSyncMaster::setWaitSlaveCount(unsigned int new_value) {
     rpl_semi_sync_source_wait_for_replica_count = new_value;
     if (ackinfo != nullptr)
       reportReplyBinlog(ackinfo->binlog_name, ackinfo->binlog_pos);
-  }
-
-  for (size_t i_bins = 0; i_bins < NUMBER_OF_HISTOGRAM_BINS; ++i_bins) {
-    histogram_trx_wait_values[i_bins] =
-        latency_histogram_get_count(&histogram_trx_wait, i_bins);
   }
 
   unlock();
