@@ -176,12 +176,10 @@ void Rdb_tbl_prop_coll::CollectStatsForRow(const rocksdb::Slice &key,
       stats->m_entry_others++;
       break;
     default:
-      // NO_LINT_DEBUG
-      sql_print_error(
+      rdb_fatal_error(
           "RocksDB: Unexpected entry type found: %u. "
           "This should not happen so aborting the system.",
           type);
-      abort();
       break;
   }
 
@@ -407,12 +405,10 @@ int Rdb_index_stats::unmaterialize(const std::string &s,
   // Make sure version is within supported range.
   if (version < INDEX_STATS_VERSION_INITIAL ||
       version > INDEX_STATS_VERSION_ENTRY_TYPES) {
-    // NO_LINT_DEBUG
-    sql_print_error(
+    rdb_fatal_error(
         "Index stats version %d was outside of supported range. "
         "This should not happen so aborting the system.",
         version);
-    abort();
   }
 
   size_t needed = sizeof(stats.m_gl_index_id.cf_id) +

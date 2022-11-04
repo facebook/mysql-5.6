@@ -275,6 +275,12 @@ bool rdb_database_exists(const std::string &db_name) {
   return true;
 }
 
+void rdb_fatal_error(const char *msg) {
+  // NO_LINT_DEBUG
+  sql_print_error("%s", msg);
+  abort();
+}
+
 void rdb_log_status_error(const rocksdb::Status &s, const char *msg) {
   if (msg == nullptr) {
     // NO_LINT_DEBUG

@@ -5483,14 +5483,14 @@ bool Rdb_dict_manager::get_index_info(
   }
 
   if (error) {
-    // NO_LINT_DEBUG
-    sql_print_error(
-        "RocksDB: Found invalid key version number (%u, %u, %u, %llu) "
+    rdb_fatal_error(
+        "RocksDB: Found invalid key version number (%u, %u, %u, %" PRIu64
+        ") "
         "from data dictionary. This should never happen "
         "and it may be a bug.",
-        index_info->m_index_dict_version, index_info->m_index_type,
-        index_info->m_kv_version, index_info->m_ttl_duration);
-    abort();
+        (unsigned int)index_info->m_index_dict_version,
+        (unsigned int)index_info->m_index_type,
+        (unsigned int)index_info->m_kv_version, index_info->m_ttl_duration);
   }
 
   return found;
@@ -5867,14 +5867,12 @@ void Rdb_dict_manager::resume_drop_indexes() const {
   for (const auto &gl_index_id : gl_index_ids) {
     log_start_drop_index(gl_index_id, "Resume");
     if (max_index_id_in_dict < gl_index_id.index_id) {
-      // NO_LINT_DEBUG
-      sql_print_error(
+      rdb_fatal_error(
           "RocksDB: Found max index id %u from data dictionary "
           "but also found dropped index id (%u,%u) from drop_index "
           "dictionary. This should never happen and is possibly a "
           "bug.",
           max_index_id_in_dict, gl_index_id.cf_id, gl_index_id.index_id);
-      abort();
     }
   }
 }
@@ -5925,13 +5923,11 @@ void Rdb_dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
 
     if (!incomplete_create_indexes.count(gl_index_id)) {
       /* If it's not a partially created index, something is very wrong. */
-      // NO_LINT_DEBUG
-      sql_print_error(
+      rdb_fatal_error(
           "RocksDB: Failed to get column family info "
           "from index id (%u,%u). MyRocks data dictionary may "
           "get corrupted.",
           gl_index_id.cf_id, gl_index_id.index_id);
-      abort();
     }
   }
 }

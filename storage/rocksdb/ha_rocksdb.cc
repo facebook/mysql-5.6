@@ -13538,13 +13538,11 @@ void Rdb_drop_index_thread::run() {
         for (const auto d : indices) {
           uint32 cf_flags = 0;
           if (!local_dict_manager->get_cf_flags(d.cf_id, &cf_flags)) {
-            // NO_LINT_DEBUG
-            sql_print_error(
+            rdb_fatal_error(
                 "RocksDB: Failed to get column family flags "
                 "from cf id %u. MyRocks data dictionary may "
                 "get corrupted.",
                 d.cf_id);
-            abort();
           }
 
           std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
@@ -17072,23 +17070,17 @@ void rdb_handle_io_error(const rocksdb::Status status,
       case RDB_IO_ERROR_TX_COMMIT:
       case RDB_IO_ERROR_DICT_COMMIT: {
         rdb_log_status_error(status, "failed to write to WAL");
-        /* NO_LINT_DEBUG */
-        sql_print_error("MyRocks: aborting on WAL write error.");
-        abort();
+        rdb_fatal_error("MyRocks: aborting on WAL write error.");
         break;
       }
       case RDB_IO_ERROR_BG_THREAD: {
         rdb_log_status_error(status, "BG thread failed to write to RocksDB");
-        /* NO_LINT_DEBUG */
-        sql_print_error("MyRocks: aborting on BG write error.");
-        abort();
+        rdb_fatal_error("MyRocks: aborting on BG write error.");
         break;
       }
       case RDB_IO_ERROR_GENERAL: {
         rdb_log_status_error(status, "failed on I/O");
-        /* NO_LINT_DEBUG */
-        sql_print_error("MyRocks: aborting on I/O error.");
-        abort();
+        rdb_fatal_error("MyRocks: aborting on I/O error.");
         break;
       }
       default:
@@ -17098,17 +17090,13 @@ void rdb_handle_io_error(const rocksdb::Status status,
   } else if (status.IsCorruption()) {
     rdb_log_status_error(status, "data corruption detected!");
     rdb_persist_corruption_marker();
-    /* NO_LINT_DEBUG */
-    sql_print_error("MyRocks: aborting because of data corruption.");
-    abort();
+    rdb_fatal_error("MyRocks: aborting because of data corruption.");
   } else if (!status.ok()) {
     switch (err_type) {
       case RDB_IO_ERROR_TX_COMMIT:
       case RDB_IO_ERROR_DICT_COMMIT: {
         rdb_log_status_error(status, "Failed to write to WAL (non kIOError)");
-        /* NO_LINT_DEBUG */
-        sql_print_error("MyRocks: aborting on WAL write error.");
-        abort();
+        rdb_fatal_error("MyRocks: aborting on WAL write error.");
         break;
       }
       default:
