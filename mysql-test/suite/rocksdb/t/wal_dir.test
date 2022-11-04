@@ -1,0 +1,30 @@
+#
+# Test MyRocks with non-default rocksdb-wal-dir setting
+#
+--source include/have_rocksdb.inc
+
+--let WAL_DIR=$MYSQL_TMP_DIR/rdb_wal
+
+call mtr.add_suppression("dir NotFound");
+
+--replace_result $WAL_DIR WAL_DIR
+--let $restart_parameters=restart:--rocksdb-wal-dir=$WAL_DIR
+--source include/restart_mysqld.inc
+
+CREATE TABLE t1 (a INT PRIMARY KEY, b VARCHAR(50)) ENGINE=ROCKSDB;
+
+INSERT INTO t1 VALUES (1, "foo");
+INSERT INTO t1 VALUES (2, "bar");
+
+SELECT * FROM t1;
+
+SET GLOBAL rocksdb_force_flush_memtable_now=1;
+
+SELECT * FROM t1;
+
+DROP TABLE t1;
+
+--let $restart_parameters=
+--source include/restart_mysqld.inc
+
+--force-rmdir $WAL_DIR
