@@ -120,7 +120,7 @@ int Rdb_io_watchdog::check_write_access(const std::string &dirname) const {
   assert(!dirname.empty());
   assert(m_buf != nullptr);
 
-  const std::string fname = dirname + FN_DIRSEP + RDB_IO_DUMMY_FILE_NAME;
+  const auto fname = myrocks::rdb_concat_paths(dirname, RDB_IO_DUMMY_FILE_NAME);
 
   // O_DIRECT is a key flag here to make sure that we'll bypass the kernel's
   // buffer cache.

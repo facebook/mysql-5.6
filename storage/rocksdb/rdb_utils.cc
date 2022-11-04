@@ -259,12 +259,21 @@ std::string rdb_hexdump(const char *data, const std::size_t data_len,
   return str;
 }
 
+// Return dir + '/' + file
+std::string rdb_concat_paths(const std::string &dir, const std::string &file) {
+  std::string result;
+  result.reserve(dir.length() + file.length() + 2);
+  result = dir;
+  result += FN_LIBCHAR;
+  result += file;
+  return result;
+}
+
 /*
   Attempt to access the database subdirectory to see if it exists
 */
 bool rdb_database_exists(const std::string &db_name) {
-  const std::string dir =
-      std::string(mysql_real_data_home) + FN_DIRSEP + db_name;
+  const auto dir = rdb_concat_paths(mysql_real_data_home, db_name);
   struct MY_DIR *const dir_info =
       my_dir(dir.c_str(), MYF(MY_DONT_SORT | MY_WANT_STAT));
   if (dir_info == nullptr) {
