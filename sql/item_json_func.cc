@@ -87,9 +87,15 @@ bool ensure_utf8mb4(const String &val, String *buf, const char **resptr,
   const CHARSET_INFO *cs = val.charset();
 
   if (cs == &my_charset_bin) {
-    if (require_string)
-      my_error(ER_INVALID_JSON_CHARSET, MYF(0), my_charset_bin.csname);
-    return true;
+    size_t valid_length = 0;
+    bool length_error = false;
+    if (!enable_json_binary_charset ||
+        validate_string(&my_charset_utf8mb4_bin, val.ptr(), val.length(),
+                        &valid_length, &length_error)) {
+      if (require_string)
+        my_error(ER_INVALID_JSON_CHARSET, MYF(0), my_charset_bin.csname);
+      return true;
+    }
   }
 
   const char *s = val.ptr();

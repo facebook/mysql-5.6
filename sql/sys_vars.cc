@@ -10091,3 +10091,11 @@ static Sys_var_bool Sys_skip_backup_lock_for_stop_replica(
     GLOBAL_VAR(skip_backup_lock_for_stop_replica), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(NULL), NULL, sys_var::PARSE_NORMAL);
+
+static Sys_var_bool Sys_enable_json_binary_charset(
+    "enable_json_binary_charset",
+    "This will allow insert or loading tables with json fields using "
+    "dump or load data with binary charset",
+    GLOBAL_VAR(enable_json_binary_charset), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL), NULL,
+    sys_var::PARSE_NORMAL);

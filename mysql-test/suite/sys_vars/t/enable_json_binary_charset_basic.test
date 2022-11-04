@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value false
+####
+--echo Default value of enable_json_binary_charset is false
+SELECT @@global.enable_json_binary_charset;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_json_binary_charset;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable can be updated correctly
+####
+SET @@global.enable_json_binary_charset = true;
+SELECT @@global.enable_json_binary_charset;
+
+CREATE TABLE t1 (doc JSON) ENGINE=INNODB;
+INSERT INTO t1 VALUES (_binary '{"foo": 3, "bar": "你好"}');
+INSERT INTO t1 VALUES (_binary '"foo"');
+
+# Insert "foo"
+INSERT INTO t1 VALUES (_binary X'22666F6F22');
+
+# 0xff is not a valid utf8 character, so this should fail.
+--error ER_INVALID_JSON_CHARSET
+INSERT INTO t1 VALUES (_binary X'22666F6FFF22');
+SELECT * FROM t1;
+
+SET @@global.enable_json_binary_charset = false;
+SELECT @@global.enable_json_binary_charset;
+
+--error ER_INVALID_JSON_CHARSET
+INSERT INTO t1 VALUES (_binary '"foo"');
+
+SET @@global.enable_json_binary_charset = default;
+SELECT @@global.enable_json_binary_charset;
+
+DROP TABLE t1;

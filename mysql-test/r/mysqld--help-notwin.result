@@ -486,6 +486,9 @@ The following options may be given as the first argument:
  usage. Only set this option if you know what you are
  doing
  --enable-hlc-bound  Enable HLC bound enforcement for transactional operations
+ --enable-json-binary-charset 
+ This will allow insert or loading tables with json fields
+ using dump or load data with binary charset
  --enable-optimizer-cputime-with-wallclock 
  This will control how we track optimizer cputime i.e
  compliation cputime, index dive cputime. If false then we
@@ -3191,6 +3194,7 @@ enable-cputime-with-wallclock FALSE
 enable-deprecation-warning TRUE
 enable-failure-injection FALSE
 enable-hlc-bound FALSE
+enable-json-binary-charset FALSE
 enable-optimizer-cputime-with-wallclock FALSE
 enable-pfs-global-select FALSE
 enable-query-checksum FALSE
