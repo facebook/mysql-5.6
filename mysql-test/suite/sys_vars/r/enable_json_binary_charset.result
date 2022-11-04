@@ -1,0 +1,33 @@
+Default value of enable_json_binary_charset is false
+SELECT @@global.enable_json_binary_charset;
+@@global.enable_json_binary_charset
+0
+SELECT @@session.enable_json_binary_charset;
+ERROR HY000: Variable 'enable_json_binary_charset' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.enable_json_binary_charset = true;
+SELECT @@global.enable_json_binary_charset;
+@@global.enable_json_binary_charset
+1
+CREATE TABLE t1 (doc JSON) ENGINE=INNODB;
+INSERT INTO t1 VALUES (_binary '{"foo": 3, "bar": "你好"}');
+INSERT INTO t1 VALUES (_binary '"foo"');
+INSERT INTO t1 VALUES (_binary X'22666F6F22');
+INSERT INTO t1 VALUES (_binary X'22666F6FFF22');
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+SELECT * FROM t1;
+doc
+{"bar": "你好", "foo": 3}
+"foo"
+"foo"
+SET @@global.enable_json_binary_charset = false;
+SELECT @@global.enable_json_binary_charset;
+@@global.enable_json_binary_charset
+0
+INSERT INTO t1 VALUES (_binary '"foo"');
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+SET @@global.enable_json_binary_charset = default;
+SELECT @@global.enable_json_binary_charset;
+@@global.enable_json_binary_charset
+0
+DROP TABLE t1;
