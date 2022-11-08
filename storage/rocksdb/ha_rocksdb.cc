@@ -6990,6 +6990,7 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->update_binlog_ttl_compaction_ts =
       rocksdb_update_binlog_ttl_compaction_ts;
   rocksdb_hton->is_user_table_blocked = rocksdb_user_table_blocked;
+  rocksdb_hton->bypass_select_by_key = rocksdb_select_by_key;
 
   rocksdb_hton->flags = HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
 

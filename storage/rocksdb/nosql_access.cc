@@ -2664,7 +2664,7 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
   return true;
 }
 
-bypass_rpc_exception myrocks_select_by_key(
+bypass_rpc_exception rocksdb_select_by_key(
     THD *thd, myrocks_columns *columns, const myrocks_select_from_rpc &param) {
   bypass_rpc_exception ret;
 

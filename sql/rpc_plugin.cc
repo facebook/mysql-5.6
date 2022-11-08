@@ -3,7 +3,6 @@
 #include <unordered_map>
 
 #include <mysql/service_rpc_plugin.h>
-#include "./storage/rocksdb/nosql_access.h"
 #include "sql/binlog.h"
 #include "sql/debug_sync.h" /* DEBUG_SYNC */
 #include "sql/mysqld_thd_manager.h"
@@ -295,27 +294,22 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   if (wait_for_hlc_timeout_ms != 0 && param->hlc_lower_bound_ts != 0) {
     // bypass rpc doesn't allow nonzero value in wait_for_hlc_timeout_ms,
     // because it will block one of rpc threads
-    bypass_rpc_exception ret;
-    ret.errnum = ER_NOT_SUPPORTED_YET;
-    ret.sqlstate = "MYF(0)";
-    ret.message =
-        "Bypass rpc does not allow nonzero value in wait_for_hlc_timeout_ms";
+    bypass_rpc_exception ret{
+        ER_NOT_SUPPORTED_YET, "MYF(0)",
+        "Bypass rpc does not allow nonzero value in wait_for_hlc_timeout_ms"};
     return ret;
   }
 
   if (check_hlc_bound(current_thd, param)) {
-    bypass_rpc_exception ret;
-    ret.errnum = ER_STALE_HLC_READ;
-    ret.sqlstate = "MYF(0)";
-    ret.message = "Requested HLC timestamp is higher than current engine HLC";
+    bypass_rpc_exception ret{
+        ER_STALE_HLC_READ, "MYF(0)",
+        "Requested HLC timestamp is higher than current engine HLC"};
     return ret;
   }
 
   if (rpc_open_table(current_thd, param)) {
-    bypass_rpc_exception ret;
-    ret.errnum = ER_NOT_SUPPORTED_YET;
-    ret.sqlstate = "MYF(0)";
-    ret.message = "error in opening a table";
+    bypass_rpc_exception ret{ER_NOT_SUPPORTED_YET, "MYF(0)",
+                             "Error in opening a table"};
     return ret;
   }
   current_thd->status_var.com_stat[SQLCOM_SELECT]++;
@@ -334,7 +328,13 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
     assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
   });
 
-  const auto &ret = myrocks::myrocks_select_by_key(thd, &columns, *param);
+  if (rocksdb_hton == nullptr ||
+      rocksdb_hton->bypass_select_by_key == nullptr) {
+    bypass_rpc_exception ret{ER_UNKNOWN_ERROR, "MYF(0)",
+                             "Handlerton is not set"};
+    return ret;
+  }
+  const auto &ret = rocksdb_hton->bypass_select_by_key(thd, &columns, *param);
 
   // clean up before returning back to the rpc plugin
   trans_commit_stmt(thd);  // need to call this because we locked table

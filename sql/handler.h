@@ -45,7 +45,8 @@
 #include <vector>
 
 #include <mysql/components/services/page_track_service.h>
-#include "ft_global.h"  // ft_hints
+#include <mysql/service_rpc_plugin.h>  // bypass_rpc
+#include "ft_global.h"                 // ft_hints
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "map_helpers.h"
@@ -2383,6 +2384,10 @@ typedef bool (*is_reserved_db_name_t)(handlerton *hton, const char *name);
 /* Overriding single table SELECT implementation if returns TRUE */
 typedef bool (*handle_single_table_select_t)(THD *thd, Query_block *select_lex);
 
+/* Send select query directly to storage engine, bypassing mysql parser */
+typedef bypass_rpc_exception (*bypass_select_by_key_t)(
+    THD *thd, myrocks_columns *columns, const myrocks_select_from_rpc &str);
+
 /**
   Prepare the secondary engine for executing a statement. This function is
   called right after the secondary engine TABLE objects have been opened by
@@ -2734,6 +2739,7 @@ struct handlerton {
   dict_set_server_version_t dict_set_server_version;
   is_reserved_db_name_t is_reserved_db_name;
   handle_single_table_select_t handle_single_table_select;
+  bypass_select_by_key_t bypass_select_by_key;
 
   /** Global handler flags. */
   uint32 flags{0};
