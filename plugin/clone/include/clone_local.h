@@ -31,6 +31,7 @@ Clone Plugin: Local clone interface
 
 #include "plugin/clone/include/clone.h"
 #include "plugin/clone/include/clone_client.h"
+#include "plugin/clone/include/clone_common.h"
 #include "plugin/clone/include/clone_hton.h"
 #include "plugin/clone/include/clone_server.h"
 
@@ -78,7 +79,7 @@ class Local {
 };
 
 /** Clone Local interface to handle callback from Storage Engines */
-class Local_Callback : public Ha_clone_cbk {
+class Local_Callback : public Ha_clone_common_cbk {
  public:
   /** Construct Callback. Set clone local object.
   @param[in]	clone	clone local object */

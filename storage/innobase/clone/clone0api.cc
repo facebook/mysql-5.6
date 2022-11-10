@@ -37,6 +37,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "os0thread-create.h"
 
 #include "sql/clone_handler.h"
+#include "sql/json_dom.h"
 #include "sql/mysqld.h"
 #include "sql/sql_backup_lock.h"
 #include "sql/sql_class.h"
@@ -542,6 +543,22 @@ int innodb_clone_copy(handlerton *hton, THD *thd, const byte *loc, uint loc_len,
   clone_hdl->save_error(err);
 
   return (err);
+}
+
+void innodb_clone_set_log_stop(const uchar *loc, uint loc_len,
+                               const Json_dom &log_stop_pos) {
+  ut_ad(log_stop_pos.json_type() == enum_json_type::J_OBJECT);
+  const auto &json_obj = static_cast<const Json_object &>(log_stop_pos);
+
+  const auto &lsn_json = *json_obj.get(log_status_lsn_key);
+
+  ut_ad(lsn_json.json_type() == enum_json_type::J_INT);
+  const auto &lsn_json_int = static_cast<const Json_int &>(lsn_json);
+  const lsn_t log_stop_lsn = lsn_json_int.value();
+
+  auto *const clone_hdl = clone_sys->get_clone_by_index(loc, loc_len);
+  auto &snapshot = clone_hdl->get_active_snapshot();
+  snapshot.set_stop_lsn(log_stop_lsn);
 }
 
 int innodb_clone_ack(handlerton *hton, THD *thd, const byte *loc, uint loc_len,
@@ -2772,3 +2789,6 @@ Clone_Sys::Wait_stage::~Wait_stage() {
     thd->set_proc_info(m_saved_info);
   }
 }
+
+// Make it header-only constexpr once in C++20
+const std::string log_status_lsn_key{"LSN"};

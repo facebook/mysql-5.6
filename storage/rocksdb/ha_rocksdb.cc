@@ -6704,6 +6704,10 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
 static bool rocksdb_lock_hton_log(
     handlerton *const MY_ATTRIBUTE((__unused__))) {
   assert(rdb != nullptr);
+  // FIXME(laurynas): workaround MyRocks bug of hanging if pfs.log_status is
+  // queried without disabling file deletions first. Remove later in the patch
+  // series.
+  rdb->DisableFileDeletions();
   return !rdb->LockWAL().ok();
 }
 
@@ -6714,7 +6718,10 @@ static bool rocksdb_lock_hton_log(
 */
 static bool rocksdb_unlock_hton_log(handlerton *const /* unused */) {
   assert(rdb != nullptr);
-  return !rdb->UnlockWAL().ok();
+  const auto result = !rdb->UnlockWAL().ok();
+  // FIXME(laurynas): see above
+  rdb->EnableFileDeletions(false);
+  return result;
 }
 
 /*

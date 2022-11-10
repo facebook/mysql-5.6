@@ -30,6 +30,7 @@ Clone Plugin: Server interface
 #define CLONE_SERVER_H
 
 #include "plugin/clone/include/clone.h"
+#include "plugin/clone/include/clone_common.h"
 #include "plugin/clone/include/clone_hton.h"
 #include "plugin/clone/include/clone_os.h"
 
@@ -244,7 +245,7 @@ class Server {
 };
 
 /** Clone server interface to handle callback from Storage Engine */
-class Server_Cbk : public Ha_clone_cbk {
+class Server_Cbk : public Ha_clone_common_cbk {
  public:
   /** Construct Callback. Set clone server object.
   @param[in]	clone	clone server object */

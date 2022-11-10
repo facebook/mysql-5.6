@@ -137,11 +137,12 @@ class Table_pfs {
     STAGE_CLEANUP = 1,
     STAGE_FILE_COPY = 2,
     STAGE_PAGE_COPY = 3,
-    STAGE_REDO_COPY = 4,
-    STAGE_FILE_SYNC = 5,
-    STAGE_RESTART = 6,
-    STAGE_RECOVERY = 7,
-    NUM_STAGES = 8
+    STAGE_PRECOPY = 4,
+    STAGE_REDO_COPY = 5,
+    STAGE_FILE_SYNC = 6,
+    STAGE_RESTART = 7,
+    STAGE_RECOVERY = 8,
+    NUM_STAGES = 9
   };
 
   /** All clone Stages. */

@@ -301,6 +301,25 @@ int Clone_Snapshot::init_page_copy(Snapshot_State new_state, byte *page_buffer,
   return err;
 }
 
+int Clone_Snapshot::init_sst_copy(Snapshot_State new_state) {
+  // Redo log archiving keeps running throughout this stage
+  State_transit transit_guard(this, new_state);
+
+  const auto err = transit_guard.get_error();
+  if (err != 0) return err;
+
+  m_monitor.init_state(srv_stage_clone_sst_copy.m_key, m_enable_pfs);
+
+  /* Iterate all tablespace files and add new data files created. */
+  const auto f_err = Fil_iterator::for_each_file(
+      false, [&](fil_node_t *file) { return (add_node(file, true)); });
+  if (f_err != DB_SUCCESS) return ER_INTERNAL_ERROR;
+
+  m_monitor.change_phase();
+
+  return 0;
+}
+
 int Clone_Snapshot::synchronize_binlog_gtid(Clone_Alert_Func cbk) {
   /* Get a list of binlog prepared transactions and wait for them to commit
   or rollback. This is to ensure that any possible unordered transactions
@@ -447,10 +466,15 @@ int Clone_Snapshot::wait_for_binlog_prepared_trx() {
 }
 
 int Clone_Snapshot::init_redo_copy(Snapshot_State new_state,
-                                   Clone_Alert_Func cbk) {
+                                   Clone_Alert_Func cbk,
+                                   Ha_clone_cbk *clone_cbk) {
   ut_ad(m_snapshot_handle_type == CLONE_HDL_COPY);
   ut_ad(m_snapshot_type != HA_CLONE_BLOCKING);
 
+  /* This code is disabled due to clone cross-engine synchronization happenning
+  through a performance_schema.LOG_STATUS query, see the synchronize_engines
+  call below. */
+#if 0
   /* Block external XA operations. XA prepare commit and rollback operations
   are first logged to binlog and added to global gtid_executed before doing
   operation in SE. Without blocking, we might persist such GTIDs from global
@@ -485,6 +509,10 @@ int Clone_Snapshot::init_redo_copy(Snapshot_State new_state,
   redo log during recovery. */
   dict_persist_t::Enable_immediate dyn_metadata_guard(dict_persist);
 
+#else
+  int binlog_error = 0;
+#endif
+
   /* Use it only for local clone. For remote clone, donor session is different
   from the sessions created within mtr test case. */
   DEBUG_SYNC_C("clone_donor_after_saving_dynamic_metadata");
@@ -492,9 +520,15 @@ int Clone_Snapshot::init_redo_copy(Snapshot_State new_state,
   /* Start transition to next state. */
   State_transit transit_guard(this, new_state);
 
+  const auto sync_error = clone_cbk->synchronize_engines();
+
   /* Stop redo archiving even on error. */
   auto redo_error = m_redo_ctx.stop(m_redo_trailer, m_redo_trailer_size,
                                     m_redo_trailer_offset);
+
+  if (sync_error != 0) {
+    return sync_error;
+  }
 
   if (binlog_error != 0) {
     return binlog_error; /* purecov: inspected */
@@ -805,6 +839,7 @@ int Clone_Snapshot::add_file(const char *name, uint64_t size_bytes,
     }
   }
 
+  bool is_sst_copy = (get_state() == CLONE_SNAPSHOT_SST_COPY);
   bool is_redo_copy = (get_state() == CLONE_SNAPSHOT_REDO_COPY);
 
   /* Save current encryption key information. */
@@ -824,7 +859,7 @@ int Clone_Snapshot::add_file(const char *name, uint64_t size_bytes,
 
     We always check for SSL connection before sending keys for encrypted tables
     and error out for security. */
-    if (is_redo_copy && by_ddl) {
+    if ((is_redo_copy || is_sst_copy) && by_ddl) {
       file_meta->m_transfer_encryption_key = true;
     }
   }
@@ -1349,6 +1384,9 @@ int Clone_Handle::copy(THD *thd, uint task_id, Ha_clone_cbk *callback) {
   uint32_t percent_done = 0;
 
   while (m_clone_task_manager.get_state() != CLONE_SNAPSHOT_DONE) {
+    const auto in_sst_copy_state =
+        snapshot->get_state() == CLONE_SNAPSHOT_SST_COPY;
+
     /* Reserve next chunk for current state from snapshot. */
     uint32_t current_chunk = 0;
     uint32_t current_block = 0;
@@ -1377,6 +1415,13 @@ int Clone_Handle::copy(THD *thd, uint task_id, Ha_clone_cbk *callback) {
 
       if (err != 0) {
         break;
+      }
+
+      if (in_sst_copy_state) {
+        err = callback->precopy(thd, task_id);
+        if (err != 0) {
+          break;
+        }
       }
 
       /* Inform that the data transfer for current state
@@ -1436,6 +1481,7 @@ int Clone_Handle::process_chunk(Clone_Task *task, uint32_t chunk_num,
   }
 
   auto state = m_clone_task_manager.get_state();
+  ut_ad(state != CLONE_SNAPSHOT_SST_COPY);
   bool is_page_copy = (state == CLONE_SNAPSHOT_PAGE_COPY);
   bool is_redo_copy = (state == CLONE_SNAPSHOT_REDO_COPY);
 
@@ -1760,9 +1806,10 @@ int Clone_Handle::send_all_ddl_metadata(Clone_Task *task,
   }
   auto state = m_clone_task_manager.get_state();
 
-  /* Send DDL metadata added during 'file copy' and 'page copy' in the
-  beginning of next stage. */
-  if (state != CLONE_SNAPSHOT_PAGE_COPY && state != CLONE_SNAPSHOT_REDO_COPY) {
+  /* Send DDL metadata added during 'file copy', 'page copy', and 'sst_copy' in
+  the beginning of next stage. */
+  if (state != CLONE_SNAPSHOT_PAGE_COPY && state != CLONE_SNAPSHOT_SST_COPY &&
+      state != CLONE_SNAPSHOT_REDO_COPY) {
     return 0;
   }
 

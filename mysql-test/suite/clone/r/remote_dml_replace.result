@@ -186,6 +186,7 @@ ID	STAGE	STATE
 1	DROP DATA	Completed
 1	FILE COPY	Completed
 1	PAGE COPY	Completed
+1	SST COPY	Completed
 1	REDO COPY	Completed
 1	FILE SYNC	Completed
 1	RESTART	Completed
@@ -308,6 +309,7 @@ ID	STAGE	STATE
 1	DROP DATA	Completed
 1	FILE COPY	Completed
 1	PAGE COPY	Completed
+1	SST COPY	Completed
 1	REDO COPY	Completed
 1	FILE SYNC	Completed
 1	RESTART	Completed
@@ -424,6 +426,7 @@ ID	STAGE	STATE
 1	DROP DATA	Completed
 1	FILE COPY	Completed
 1	PAGE COPY	Completed
+1	SST COPY	Completed
 1	REDO COPY	Completed
 1	FILE SYNC	Completed
 1	RESTART	Completed

@@ -30,6 +30,7 @@ Clone Plugin: Client Interface
 #define CLONE_CLIENT_H
 
 #include "plugin/clone/include/clone.h"
+#include "plugin/clone/include/clone_common.h"
 #include "plugin/clone/include/clone_hton.h"
 #include "plugin/clone/include/clone_status.h"
 
@@ -784,7 +785,7 @@ class Client {
 };
 
 /** Clone client interface to handle callback from Storage Engine */
-class Client_Cbk : public Ha_clone_cbk {
+class Client_Cbk : public Ha_clone_common_cbk {
  public:
   /** Construct Callback. Set clone client object.
   @param[in]	clone	clone client object */

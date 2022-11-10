@@ -896,6 +896,9 @@ extern PSI_stage_info srv_stage_buffer_pool_load;
 /** Performance schema stage event for monitoring clone file copy progress. */
 extern PSI_stage_info srv_stage_clone_file_copy;
 
+/** Performance schema stage event for monitoring clone precopy progress. */
+extern PSI_stage_info srv_stage_clone_sst_copy;
+
 /** Performance schema stage event for monitoring clone redo copy progress. */
 extern PSI_stage_info srv_stage_clone_redo_copy;
 

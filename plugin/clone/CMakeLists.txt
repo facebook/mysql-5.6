@@ -29,6 +29,7 @@ ADD_DEFINITIONS(-DLOG_COMPONENT_TAG="Clone")
 MYSQL_ADD_PLUGIN(clone
   src/clone_plugin.cc
   src/clone_client.cc
+  src/clone_common.cc
   src/clone_server.cc
   src/clone_status.cc
   src/clone_local.cc
