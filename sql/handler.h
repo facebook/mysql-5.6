@@ -1082,6 +1082,10 @@ class Ha_clone_cbk {
   @return error code */
   virtual int apply_buffer_cbk(uchar *&to_buffer, uint &len) = 0;
 
+  /** Callback to update clone data size estimate for the current SE.
+  @param[in]  estimate_delta  how many bytes to add to the clone size estimate */
+  virtual void add_to_data_size_estimate(std::uint64_t estimate_delta) = 0;
+
   /** virtual destructor. */
   virtual ~Ha_clone_cbk() = default;
 

@@ -601,6 +601,13 @@ void Client::pfs_change_stage(uint64_t estimate) {
   mysql_mutex_unlock(&s_table_mutex);
 }
 
+void Client::add_to_data_size_estimate(uint64_t estimate_delta) {
+  mysql_mutex_lock(&s_table_mutex);
+  s_progress_data.add_to_data_size_estimate(estimate_delta);
+  s_status_data.write(false);
+  mysql_mutex_unlock(&s_table_mutex);
+}
+
 void Client::pfs_end_state(uint32_t err_num, const char *err_mesg) {
   if (!is_master()) {
     return;
@@ -1778,6 +1785,11 @@ int Client_Cbk::buffer_cbk(uchar *from_buffer [[maybe_unused]], uint buf_len) {
   aux_conn->reset();
 
   return (err);
+}
+
+void Client_Cbk::add_to_data_size_estimate(std::uint64_t estimate_delta) {
+  auto *const client = get_clone_client();
+  client->add_to_data_size_estimate(estimate_delta);
 }
 
 int Client_Cbk::apply_buffer_cbk(uchar *&to_buffer, uint &len) {

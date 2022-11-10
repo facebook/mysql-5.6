@@ -280,6 +280,13 @@ class Server_Cbk : public Ha_clone_cbk {
   @return error code */
   int apply_buffer_cbk(uchar *&to_buffer, uint &len) override;
 
+  /** Callback to update data size estimate for the current SE: not used for
+  server.
+  @param[in]  estimate_delta  how many bytes to add to the estimate */
+  void add_to_data_size_estimate(std::uint64_t) override {
+    assert(0);
+  }
+
  private:
   /** Clone server object */
   Server *m_clone_server;

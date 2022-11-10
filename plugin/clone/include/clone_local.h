@@ -129,6 +129,10 @@ class Local_Callback : public Ha_clone_cbk {
   @return error code */
   int apply_buffer_cbk(uchar *&to_buffer, uint &len) override;
 
+  /** Add to the data size estimate.
+  @param[in]  estimate_delta  how many bytes to add to the estimate */
+  void add_to_data_size_estimate(std::uint64_t estimated_delta) override;
+
  private:
   /** Apply data using storage engine apply interface.
   @return error code */

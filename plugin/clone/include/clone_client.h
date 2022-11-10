@@ -552,6 +552,10 @@ class Client {
   /** Change stage in PFS progress table. */
   void pfs_change_stage(uint64_t estimate);
 
+  /** Add to the data size estimate.
+  @param[in]  estimate_delta  how many bytes to add to the estimate */
+  void add_to_data_size_estimate(uint64_t estimate_delta);
+
   /** End state in PFS table.
   @param[in]	err_num		error number
   @param[in]	err_mesg	error message */
@@ -813,6 +817,10 @@ class Client_Cbk : public Ha_clone_cbk {
   @param[out]  len        data length
   @return error code */
   int apply_buffer_cbk(uchar *&to_buffer, uint &len) override;
+
+  /** Add to the data size estimate.
+  @param[in]  estimate_delta  how many bytes to add to the estimate */
+  void add_to_data_size_estimate(uint64_t estimate_delta) override;
 
  private:
   /** Apply data to local file or buffer.
