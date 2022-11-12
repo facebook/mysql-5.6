@@ -118,15 +118,8 @@ struct Fetch_sequence : public Context::FTS::Sequence {
 
 /** Physical row context. */
 struct Row {
-  /** Constructor. */
-  Row() = default;
-
-  Row(const Row &) = default;
-
-  /** Destructor. */
-  ~Row() = default;
-
-  /** Build a row from a raw record.
+  /** Build a row for the given index using the available clustered index
+  record (member m_rec).
   @param[in,out] ctx            DDL context.
   @param[in,out] index          Index the record belongs to.
   @param[in,out] heap           Heap to use for allocation.
