@@ -141,6 +141,57 @@ rollback;
 delete from non_ttl_table;
 delete from ttl_table;
 include/sync_slave_sql_with_master.inc
+"Case: Consistent and explicit snapshots should assign read filtering ts on snapshot creation"
+"1. Regular consistent snapshots"
+insert into short_ttl_table values(unix_timestamp());
+start transaction with consistent snapshot;
+select sleep(5);
+sleep(5)
+0
+insert into non_ttl_table values(unix_timestamp());
+select count(*) from short_ttl_table;
+count(*)
+1
+commit;
+delete from short_ttl_table;
+delete from non_ttl_table;
+include/sync_slave_sql_with_master.inc
+"2. Explicit snapshots"
+insert into short_ttl_table values(unix_timestamp());
+select sleep(5);
+sleep(5)
+0
+insert into non_ttl_table values(unix_timestamp());
+select count(*) from short_ttl_table;
+count(*)
+1
+start transaction with existing rocksdb snapshot 1;
+select count(*) from short_ttl_table;
+count(*)
+1
+commit;
+commit;
+delete from short_ttl_table;
+delete from non_ttl_table;
+include/sync_slave_sql_with_master.inc
+"3. Thread level explicit snapshots"
+insert into short_ttl_table values(unix_timestamp());
+select sleep(5);
+sleep(5)
+0
+insert into non_ttl_table values(unix_timestamp());
+select count(*) from short_ttl_table;
+count(*)
+1
+attach explicit rocksdb snapshot 2;
+select count(*) from short_ttl_table;
+count(*)
+1
+release explicit rocksdb snapshot;
+release explicit rocksdb snapshot;
+delete from short_ttl_table;
+delete from non_ttl_table;
+include/sync_slave_sql_with_master.inc
 "Case: Partial rollout should work"
 "1. Enabled on primary but not on secondary"
 set @@global.rocksdb_binlog_ttl = 0;

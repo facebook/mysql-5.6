@@ -244,6 +244,97 @@ delete from non_ttl_table;
 delete from ttl_table;
 source include/sync_slave_sql_with_master.inc;
 
+echo "Case: Consistent and explicit snapshots should assign read filtering ts on snapshot creation";
+echo "1. Regular consistent snapshots";
+connection master;
+insert into short_ttl_table values(unix_timestamp());
+
+connection master1;
+start transaction with consistent snapshot;
+
+connection master;
+# Move the HLC such that the row expires wrt to the current time
+eval select sleep($short_ttl);
+insert into non_ttl_table values(unix_timestamp());
+
+connection master1;
+# The row should still be visible since the snapshot was taken before expiry
+select count(*) from short_ttl_table;
+commit;
+
+connection master;
+delete from short_ttl_table;
+delete from non_ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "2. Explicit snapshots";
+connection master;
+insert into short_ttl_table values(unix_timestamp());
+
+connection master1;
+let $snapshot= query_get_value(start transaction with shared rocksdb snapshot, Snapshot_ID, 1);
+
+connection master;
+# Move the HLC such that the row expires wrt to the current time
+eval select sleep($short_ttl);
+insert into non_ttl_table values(unix_timestamp());
+
+connection master1;
+# The row should still be visible since the snapshot was taken before expiry
+select count(*) from short_ttl_table;
+
+connection master;
+disable_result_log;
+eval start transaction with existing rocksdb snapshot $snapshot;
+enable_result_log;
+# The row should still be visible since the snapshot was taken before expiry
+select count(*) from short_ttl_table;
+commit;
+
+connection master1;
+commit;
+
+connection master;
+delete from short_ttl_table;
+delete from non_ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+echo "3. Thread level explicit snapshots";
+connection master;
+insert into short_ttl_table values(unix_timestamp());
+
+connection master1;
+let $snapshot= query_get_value(create explicit rocksdb snapshot, Snapshot_ID, 1);
+
+connection master;
+# Move the HLC such that the row expires wrt to the current time
+eval select sleep($short_ttl);
+insert into non_ttl_table values(unix_timestamp());
+
+connection master1;
+# The row should still be visible since the snapshot was taken before expiry
+select count(*) from short_ttl_table;
+
+connection master;
+disable_result_log;
+eval attach explicit rocksdb snapshot $snapshot;
+enable_result_log;
+# The row should still be visible since the snapshot was taken before expiry
+select count(*) from short_ttl_table;
+disable_result_log;
+release explicit rocksdb snapshot;
+enable_result_log;
+
+connection master1;
+disable_result_log;
+release explicit rocksdb snapshot;
+enable_result_log;
+
+connection master;
+delete from short_ttl_table;
+delete from non_ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
 echo "Case: Partial rollout should work";
 echo "1. Enabled on primary but not on secondary";
 connection slave;

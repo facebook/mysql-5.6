@@ -4295,6 +4295,10 @@ class Rdb_transaction {
       modified_tables.insert(tbl);
   }
 
+  void set_ttl_read_filtering_ts(uint64_t ts) {
+    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = ts;
+  }
+
   uint64_t get_or_create_ttl_read_filtering_ts() {
     if (!rdb_is_binlog_ttl_enabled()) {
       return static_cast<uint64_t>(m_snapshot_timestamp);
@@ -4305,9 +4309,12 @@ class Rdb_transaction {
     if (m_thd->binlog_ttl_read_filtering_ts) {
       assert(thd_is_executing_binlog_events(m_thd));
       m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts;
+    } else if (m_explicit_snapshot) {
+      set_ttl_read_filtering_ts(m_explicit_snapshot->ss_info.snapshot_hlc /
+                                1000000000UL);
     } else {
-      m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts =
-          mysql_bin_log.get_max_write_hlc_nsec() / 1000000000UL;
+      set_ttl_read_filtering_ts(mysql_bin_log.get_max_write_hlc_nsec() /
+                                1000000000UL);
     }
     return m_binlog_ttl_read_filtering_ts;
   }
@@ -6768,10 +6775,12 @@ static int rocksdb_explicit_snapshot(
     InnoDB and RocksDB transactions.
 */
 static int rocksdb_start_tx_and_assign_read_view(
-    handlerton *const hton, /*!< in: RocksDB handlerton */
-    THD *const thd          /*!< in: MySQL thread handle of the
-                            user for whom the transaction should
-                            be committed */
+    handlerton *const hton,   /*!< in: RocksDB handlerton */
+    THD *const thd,           /*!< in: MySQL thread handle of the
+                             user for whom the transaction should
+                             be committed */
+    snapshot_info_st *ss_info /*!< in: Snapshot info like binlog file, pos,
+                               gtid executed and HLC */
 ) {
   ulong const tx_isolation = my_core::thd_tx_isolation(thd);
 
@@ -6787,6 +6796,11 @@ static int rocksdb_start_tx_and_assign_read_view(
   tx->set_tx_read_only(true);
   rocksdb_register_tx(hton, thd, tx);
   tx->acquire_snapshot(true, TABLE_TYPE::USER_TABLE);
+  if (!ss_info) {
+    (void)tx->get_or_create_ttl_read_filtering_ts();
+  } else {
+    tx->set_ttl_read_filtering_ts(ss_info->snapshot_hlc / 1000000000UL);
+  }
 
   return HA_EXIT_SUCCESS;
 }
@@ -6864,7 +6878,7 @@ static int rocksdb_start_tx_with_shared_read_view(
   assert(error == HA_EXIT_FAILURE || tx->m_explicit_snapshot);
 
   // copy over the snapshot details to pass to the upper layers
-  if (tx->m_explicit_snapshot) {
+  if (error == HA_EXIT_SUCCESS && tx && tx->m_explicit_snapshot) {
     *ss_info = tx->m_explicit_snapshot->ss_info;
     ss_info->op = op;
   }

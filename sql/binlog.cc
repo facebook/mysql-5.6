@@ -9561,7 +9561,13 @@ void MYSQL_BIN_LOG::lock_commits(snapshot_info_st *ss_info) {
 
   if (gtid_buff != nullptr) {
     if (enable_binlog_hlc) {
-      ss_info->snapshot_hlc = get_current_hlc();
+      // NOTE: Why are we not using get_current_hlc()? In general
+      // get_current_hlc() == get_max_write_hlc_nsec(). However, HLC can be
+      // bumped by the user without committing any writes using minimum_hlc_ns
+      // sys_var. We want the snapshot to represent writes in the binlog so it
+      // can be compared with a secondary, so using get_max_write_hlc_nsec()
+      // instead.
+      ss_info->snapshot_hlc = get_max_write_hlc_nsec();
     }
 
     ss_info->binlog_file = log_file_name;

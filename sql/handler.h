@@ -1521,7 +1521,8 @@ typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
 typedef int (*explicit_snapshot_t)(handlerton *hton, THD *thd,
                                    snapshot_info_st *ss_info);
 
-typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd);
+typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd,
+                                           snapshot_info_st *ss_info);
 
 typedef int (*start_shared_snapshot_t)(handlerton *hton, THD *thd,
                                        snapshot_info_st *ss_info);

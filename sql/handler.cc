@@ -2419,7 +2419,7 @@ static bool snapshot_handlerton(THD *thd, plugin_ref plugin, void *arg) {
   snapshot_context_st *ss_ctx = static_cast<snapshot_context_st *>(arg);
 
   if (hton->state == SHOW_OPTION_YES && hton->start_consistent_snapshot) {
-    if (hton->start_consistent_snapshot(hton, thd)) {
+    if (hton->start_consistent_snapshot(hton, thd, ss_ctx->ss_info)) {
       my_printf_error(ER_UNKNOWN_ERROR, "Cannot start transaction", MYF(0));
       return true;
     }
@@ -2458,7 +2458,7 @@ int ha_start_consistent_snapshot(THD *thd, snapshot_info_st *ss_info,
   } else {
     ss_ctx.error = false;
     if (hton->state == SHOW_OPTION_YES && hton->start_consistent_snapshot) {
-      if (hton->start_consistent_snapshot(hton, thd)) {
+      if (hton->start_consistent_snapshot(hton, thd, ss_info)) {
         my_printf_error(ER_UNKNOWN_ERROR,
                         "Cannot start transaction or binlog disabled", MYF(0));
         if (binlog_locked) {
