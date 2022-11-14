@@ -1703,10 +1703,12 @@ static void innodb_pre_dd_shutdown(handlerton *) {
  have one.
  @return 0 */
 static int innobase_start_trx_and_assign_read_view(
-    handlerton *hton, /* in: InnoDB handlerton */
-    THD *thd);        /* in: MySQL thread handle of the
-                      user for whom the transaction should
-                      be committed */
+    handlerton *hton,           /* in: InnoDB handlerton */
+    THD *thd,                   /* in: MySQL thread handle of the
+                                 user for whom the transaction should
+                                 be committed */
+    snapshot_info_st *ss_info); /* in: Binlog snapshot info like binlog pos,
+                                 gtid etc */
 /** Flush InnoDB redo logs to the file system.
 @param[in]	hton			InnoDB handlerton
 @param[in]	binlog_group_flush	true if we got invoked by binlog
@@ -5768,11 +5770,13 @@ void innobase_commit_low(trx_t *trx) /*!< in: transaction handle */
  have one.
  @return 0 */
 static int innobase_start_trx_and_assign_read_view(
-    handlerton *hton, /*!< in: InnoDB handlerton */
-    THD *thd          /*!< in: MySQL thread handle of
-                      the user for whom the
-                      transaction should be
-                      committed */
+    handlerton *hton,              /*!< in: InnoDB handlerton */
+    THD *thd,                      /*!< in: MySQL thread handle of
+                                    the user for whom the
+                                    transaction should be
+                                    committed */
+    snapshot_info_st * /*ss_info*/ /*!< in: Snapshot info like binlog file, pos,
+                                    gtid executed etc */
 ) {
   DBUG_TRACE;
   assert(hton == innodb_hton_ptr);
