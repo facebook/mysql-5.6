@@ -1,0 +1,46 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+call mtr.add_suppression("Trying to write new transaction into apply log");
+create table trx (a int primary key) engine = innodb;
+create table non_trx (a int primary key) engine = blackhole;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+set @@global.read_only = 0;
+error 1180;
+insert into trx values(1);
+error 1180;
+insert into non_trx values(1);
+
+connection server_1;
+select * from trx;
+select * from non_trx;
+
+connection server_2;
+select * from trx;
+select * from non_trx;
+
+connection server_2;
+# we can still write after setting a sysvar
+set @@global.allow_binlog_writes_on_raft_follower = 1;
+insert into trx values(1);
+insert into non_trx values(1);
+set @@global.allow_binlog_writes_on_raft_follower = 0;
+
+connection server_1;
+drop table trx;
+drop table non_trx;
+
+connection server_1;
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+connection server_1;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
