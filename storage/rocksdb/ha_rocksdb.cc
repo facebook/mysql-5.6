@@ -13666,8 +13666,8 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
          means a query has finished. It's the time to decrease the disk usage.
       2. Update the total tmp table usage in __tmp__ column family
     */
-    auto ha_data = get_ha_data(ha_thd());
     if (tbl->is_intrinsic_tmp_table()) {
+      auto ha_data = get_ha_data(ha_thd());
       ha_data->open_tmp_tables--;
       if (ha_data->open_tmp_tables == 0) {
         record_disk_usage_change(-ha_data->total_tmp_table_size);
