@@ -1,0 +1,15 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 0
+####
+--echo Default value of allow_binlog_writes_on_raft_follower is 0
+SELECT @@global.allow_binlog_writes_on_raft_follower;
+
+####
+# Verify that this is not a session variable #
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.allow_binlog_writes_on_raft_follower;
+--echo Expected error 'Variable is a GLOBAL variable'
+

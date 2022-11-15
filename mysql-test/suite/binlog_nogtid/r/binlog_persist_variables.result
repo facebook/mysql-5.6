@@ -36,6 +36,7 @@ ORDER BY VARIABLE_NAME;
 include/assert.inc ['Expect $expected variables in the table.']
 
 # Test SET PERSIST
+SET PERSIST allow_binlog_writes_on_raft_follower = @@GLOBAL.allow_binlog_writes_on_raft_follower;
 SET PERSIST binlog_cache_size = @@GLOBAL.binlog_cache_size;
 SET PERSIST binlog_checksum = @@GLOBAL.binlog_checksum;
 SET PERSIST binlog_direct_non_transactional_updates = @@GLOBAL.binlog_direct_non_transactional_updates;
@@ -299,6 +300,7 @@ include/assert.inc ['Expect $expected persisted variables with matching persiste
 ############################################################
 # 3. Test RESET PERSIST IF EXISTS. Verify persisted variable
 #    settings are removed.
+RESET PERSIST IF EXISTS allow_binlog_writes_on_raft_follower;
 RESET PERSIST IF EXISTS binlog_cache_size;
 RESET PERSIST IF EXISTS binlog_checksum;
 RESET PERSIST IF EXISTS binlog_direct_non_transactional_updates;

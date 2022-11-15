@@ -9242,6 +9242,12 @@ static Sys_var_bool Sys_disable_raft_log_repointing(
     READ_ONLY GLOBAL_VAR(disable_raft_log_repointing), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_bool Sys_allow_binlog_writes_on_raft_follower(
+    "allow_binlog_writes_on_raft_follower",
+    "Enable/Disable binlog writes on raft followers",
+    GLOBAL_VAR(allow_binlog_writes_on_raft_follower), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static Sys_var_bool Sys_enable_blind_replace(
     "enable_blind_replace",
     "Optimize 'replace into' statement by doing a blind insert. Engine "

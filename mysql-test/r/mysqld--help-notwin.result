@@ -75,6 +75,8 @@ The following options may be given as the first argument:
  --admission-control-yield-freq[=#] 
  Controls how frequently a query exits admission control
  to yield to other queries.
+ --allow-binlog-writes-on-raft-follower 
+ Enable/Disable binlog writes on raft followers
  --allow-noncurrent-db-rw=name 
  Switch to allow/deny reads and writes to a table not in
  the current database.
@@ -3045,6 +3047,7 @@ admission-control-queue-timeout -1
 admission-control-wait-events 
 admission-control-weights (No default value)
 admission-control-yield-freq 1000
+allow-binlog-writes-on-raft-follower FALSE
 allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 apply-log (No default value)

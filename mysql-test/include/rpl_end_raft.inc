@@ -4,17 +4,25 @@ connection server_1;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
 connection server_2;
+set @@sql_log_bin = 0;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
+set @@sql_log_bin = 1;
 connection server_3;
+set @@sql_log_bin = 0;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
+set @@sql_log_bin = 1;
 connection server_4;
+set @@sql_log_bin = 0;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
+set @@sql_log_bin = 1;
 connection server_5;
+set @@sql_log_bin = 0;
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
 call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-replica-updates.*");
+set @@sql_log_bin = 1;
 --enable_query_log
 
 let $_rpl_server= $rpl_server_count;

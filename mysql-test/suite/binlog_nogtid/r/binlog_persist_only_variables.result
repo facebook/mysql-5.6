@@ -59,6 +59,7 @@ INSERT INTO aliases(name) VALUES
 include/assert.inc ['Expect $expected variables in the table.']
 
 # Test SET PERSIST_ONLY
+SET PERSIST_ONLY allow_binlog_writes_on_raft_follower = @@GLOBAL.allow_binlog_writes_on_raft_follower;
 SET PERSIST_ONLY binlog_cache_size = @@GLOBAL.binlog_cache_size;
 SET PERSIST_ONLY binlog_checksum = @@GLOBAL.binlog_checksum;
 SET PERSIST_ONLY binlog_direct_non_transactional_updates = @@GLOBAL.binlog_direct_non_transactional_updates;
@@ -319,6 +320,7 @@ include/assert.inc ['Expect $expected persisted variables with matching persiste
 ############################################################
 # 3. Test RESET PERSIST. Verify persisted variable settings
 #    are removed.
+RESET PERSIST allow_binlog_writes_on_raft_follower;
 RESET PERSIST binlog_cache_size;
 RESET PERSIST binlog_checksum;
 RESET PERSIST binlog_direct_non_transactional_updates;

@@ -252,6 +252,13 @@ static std::pair<std::string, uint> extract_file_index(
     const std::string &file_name);
 extern int ha_update_binlog_pos(const char *, my_off_t, Gtid *);
 
+static ulong raft_new_trx_apply_log_err_window = 5000000 /* 5 sec */;
+
+static Error_log_throttle raft_new_trx_apply_log_err_log_throttle(
+    raft_new_trx_apply_log_err_window, ERROR_LEVEL, 0, "Repl",
+    "Error log throttle: %10lu 'Trying to write new transaction into apply log'"
+    " error(s) suppressed");
+
 /* Some static functions used by failure injection for binlog */
 static void failure_inject_stall_binlog_rotate() {
   std::string sleep_duration =
@@ -1976,7 +1983,8 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
              ("transaction_length= %llu", gtid_event.transaction_length));
 
   bool ret = false;
-  if (!enable_raft_plugin || mysql_bin_log.is_apply_log) {
+  if (!enable_raft_plugin || (mysql_bin_log.is_apply_log && thd->rli_slave) ||
+      allow_binlog_writes_on_raft_follower) {
     ret = gtid_event.write(writer);
     if (ret) goto end;
 
@@ -1989,6 +1997,19 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     */
     ret = mysql_bin_log.write_cache(thd, cache_data, writer);
   } else {
+    if (mysql_bin_log.is_apply_log) {
+      if (!raft_new_trx_apply_log_err_log_throttle.log()) {
+        sql_print_error(
+            "Trying to write new transaction into apply log!"
+            " Error log throttle is enabled. This error will not be"
+            " displayed for next %lu secs. It will be suppressed.",
+            (raft_new_trx_apply_log_err_window / 1000000));
+      }
+      ret = true;
+      thd->commit_consensus_error = true;
+      thd->commit_error = THD::CE_FLUSH_ERROR;
+      goto end;
+    }
     if (unlikely(!raft_trx_cache)) {
       raft_trx_cache = std::make_unique<Binlog_cache_storage>();
       ret = raft_trx_cache->open(binlog_cache_size, max_binlog_cache_size);

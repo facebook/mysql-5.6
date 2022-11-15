@@ -1,0 +1,48 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+call mtr.add_suppression("Trying to write new transaction into apply log");
+create table trx (a int primary key) engine = innodb;
+create table non_trx (a int primary key) engine = blackhole;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+set @@global.read_only = 0;
+insert into trx values(1);
+ERROR HY000: Got error 1 - 'Operation not permitted' during COMMIT
+insert into non_trx values(1);
+ERROR HY000: Got error 1 - 'Operation not permitted' during COMMIT
+select * from trx;
+a
+select * from non_trx;
+a
+select * from trx;
+a
+select * from non_trx;
+a
+set @@global.allow_binlog_writes_on_raft_follower = 1;
+insert into trx values(1);
+insert into non_trx values(1);
+set @@global.allow_binlog_writes_on_raft_follower = 0;
+drop table trx;
+drop table non_trx;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
