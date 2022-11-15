@@ -1269,6 +1269,18 @@ static void old_file_rollback(std::string &data_file) {
   }
 }
 
+/** Write a marker file that will force clone in other storage engines to
+rollback on startup. */
+static void force_other_engines_clone_rollback() {
+  std::ifstream existing_file(CLONE_FORCE_OTHER_ENGINES_ROLLBACK_FILE);
+  if (existing_file.is_open()) {
+    existing_file.close();
+  } else {
+    std::ofstream new_file(CLONE_FORCE_OTHER_ENGINES_ROLLBACK_FILE);
+    if (new_file.is_open()) new_file.close();
+  }
+}
+
 /** Fatal error callback function. Don't call other functions from here. Don't
 use ut_a, ut_ad asserts or ib::fatal to avoid recursive invocation. */
 static void clone_files_fatal_error() {
@@ -1287,10 +1299,12 @@ static void clone_files_fatal_error() {
     std::ofstream new_file(CLONE_INNODB_ERROR_FILE);
     /* On creation failure, return and abort. */
     if (!new_file.is_open()) {
+      force_other_engines_clone_rollback();
       return;
     }
     new_file.close();
   }
+  force_other_engines_clone_rollback();
   /* In case of fatal error, from ib::fatal and ut_a asserts
   we terminate the process here and send the exit status so that a
   managed server can be restarted with older data files. */

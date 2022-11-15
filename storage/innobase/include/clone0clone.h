@@ -90,6 +90,11 @@ const char CLONE_INNODB_OLD_FILES[] =
 const char CLONE_INNODB_DDL_FILES[] =
     CLONE_FILES_DIR OS_FILE_PREFIX "ddl_files";
 
+/** Clone file name for the marker file to force clone rollback in other storage
+engines. */
+constexpr char CLONE_FORCE_OTHER_ENGINES_ROLLBACK_FILE[] =
+    CLONE_FILES_DIR OS_FILE_PREFIX "force_other_engines_rollback";
+
 /** Clone file extension for files to be replaced. */
 const char CLONE_INNODB_REPLACED_FILE_EXTN[] = "." OS_FILE_PREFIX "clone";
 
