@@ -503,6 +503,11 @@ void static update_monitoring_status_for_entity(std::string name,
       currently_monitored_entity.name == name) {
     // increment monitor hits counter
     currently_monitored_entity.hits++;
+    sql_print_information(
+        "[Write Throttling]Incrementing monitored entity hit count. "
+        "dim:%s, name:%s, count:%u",
+        WRITE_STATS_TYPE_STRING[dimension].c_str(), name.c_str(),
+        currently_monitored_entity.hits);
   } else {
     // update the currently monitored entity
     sql_print_information(
@@ -581,8 +586,9 @@ void check_lag_and_throttle(time_t time_now) {
     if (are_replicas_lagging) {
       are_replicas_lagging = false;
       sql_print_information(
-          "[Write Throttling]Lag is over. Starting to release throttled "
-          "entites");
+          "[Write Throttling]Lag is over (%u ms). "
+          "Starting to release throttled entites",
+          lag);
     }
     // Replication lag below safe threshold, reduce throttle rate or release
     // at most one throttled entity. If releasing, erase corresponding
@@ -603,6 +609,10 @@ void check_lag_and_throttle(time_t time_now) {
         currently_throttled_entities.pop_front();
       } else if (iter->second.throttle_rate > write_throttle_rate_step) {
         iter->second.throttle_rate -= write_throttle_rate_step;
+        sql_print_information(
+            "[Write Throttling]Rule updated. dim:%s, name:%s, rate:%d",
+            WRITE_STATS_TYPE_STRING[wtr_dim].c_str(), name.c_str(),
+            iter->second.throttle_rate);
       } else {
         sql_print_information("[Write Throttling]Rule removed. dim:%s, name:%s",
                               WRITE_STATS_TYPE_STRING[wtr_dim].c_str(),
@@ -624,21 +634,30 @@ void check_lag_and_throttle(time_t time_now) {
     if (!are_replicas_lagging) {
       are_replicas_lagging = true;
       sql_print_information(
-          "[Write Throttling]Lag detected. Starting auto throttling.");
+          "[Write Throttling]Lag detected (%u ms). Starting auto throttling.",
+          lag);
+    } else {
+      sql_print_information("[Write Throttling]Lag continues (%u ms).", lag);
     }
     // Replication lag above threshold, Check if we can increase throttle rate
     // for last throttled entity
     if (!currently_throttled_entities.empty()) {
       auto last_throttled_entity = currently_throttled_entities.back();
+      enum_wtr_dimension wtr_dim = last_throttled_entity.second;
+      std::string &name = last_throttled_entity.first;
+
       bool throttle_rate_increased = false;
       mysql_mutex_lock(&LOCK_global_write_throttling_rules);
-      auto &rules_map =
-          global_write_throttling_rules[last_throttled_entity.second];
-      auto iter = rules_map.find(last_throttled_entity.first);
+      auto &rules_map = global_write_throttling_rules[wtr_dim];
+      auto iter = rules_map.find(name);
       if (iter != rules_map.end() && iter->second.throttle_rate < 100) {
         iter->second.throttle_rate = std::min(
             (uint)100, iter->second.throttle_rate + write_throttle_rate_step);
         throttle_rate_increased = true;
+        sql_print_information(
+            "[Write Throttling]Rule updated. dim:%s, name:%s, rate:%d",
+            WRITE_STATS_TYPE_STRING[wtr_dim].c_str(), name.c_str(),
+            iter->second.throttle_rate);
       }
       mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
       if (throttle_rate_increased) return;
@@ -649,6 +668,7 @@ void check_lag_and_throttle(time_t time_now) {
     if (global_write_statistics_map.size() == 0) {
       // no stats collected so far
       mysql_mutex_unlock(&LOCK_global_write_statistics);
+      sql_print_information("[Write Throttling]No write statistics.");
       return;
     }
 
@@ -686,6 +706,13 @@ void check_lag_and_throttle(time_t time_now) {
         // significant gap in time since we last did culprit analysis. It is
         // outdated.
         currently_monitored_entity.resetHits();
+        sql_print_information(
+            "[Write Throttling]Resetting monitored entity hit count. "
+            "dim:%s, name:%s, count:%u",
+            WRITE_STATS_TYPE_STRING[currently_monitored_entity.dimension]
+                .c_str(),
+            currently_monitored_entity.name.c_str(),
+            currently_monitored_entity.hits);
         mysql_mutex_unlock(&LOCK_global_write_statistics);
         return;
       }
