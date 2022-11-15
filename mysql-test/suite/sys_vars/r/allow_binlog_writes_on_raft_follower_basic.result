@@ -1,0 +1,7 @@
+Default value of allow_binlog_writes_on_raft_follower is 0
+SELECT @@global.allow_binlog_writes_on_raft_follower;
+@@global.allow_binlog_writes_on_raft_follower
+0
+SELECT @@session.allow_binlog_writes_on_raft_follower;
+ERROR HY000: Variable 'allow_binlog_writes_on_raft_follower' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
