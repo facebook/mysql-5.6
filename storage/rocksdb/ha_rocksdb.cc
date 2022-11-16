@@ -731,7 +731,7 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
 static long long rocksdb_sim_cache_size;
-static bool rocksdb_use_clock_cache;
+static bool rocksdb_use_hyper_clock_cache;
 static bool rocksdb_charge_memory;
 static bool rocksdb_use_write_buffer_manager;
 static double rocksdb_cache_high_pri_pool_ratio;
@@ -1845,10 +1845,10 @@ static MYSQL_SYSVAR_LONGLONG(sim_cache_size, rocksdb_sim_cache_size,
                              /* Block size */ 0);
 
 static MYSQL_SYSVAR_BOOL(
-    use_clock_cache, rocksdb_use_clock_cache,
+    use_hyper_clock_cache, rocksdb_use_hyper_clock_cache,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "Use ClockCache instead of default LRUCache for RocksDB", nullptr, nullptr,
-    false);
+    "Use HyperClockCache instead of default LRUCache for RocksDB", nullptr,
+    nullptr, false);
 
 static MYSQL_SYSVAR_BOOL(cache_dump, rocksdb_cache_dump,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -2553,7 +2553,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
 
     MYSQL_SYSVAR(block_cache_size),
     MYSQL_SYSVAR(sim_cache_size),
-    MYSQL_SYSVAR(use_clock_cache),
+    MYSQL_SYSVAR(use_hyper_clock_cache),
     MYSQL_SYSVAR(cache_high_pri_pool_ratio),
     MYSQL_SYSVAR(cache_dump),
     MYSQL_SYSVAR(cache_index_and_filter_blocks),
@@ -6215,12 +6215,14 @@ static int rocksdb_init_internal(void *const p) {
 #endif  // HAVE_JEMALLOC
     }
     std::shared_ptr<rocksdb::Cache> block_cache =
-        rocksdb_use_clock_cache
+        rocksdb_use_hyper_clock_cache
+            ? rocksdb::HyperClockCacheOptions(
+                  rocksdb_block_cache_size, rocksdb_tbl_options->block_size,
+                  -1
+                  /* num_shard_bits */,
+                  false /* strict_capacity_limit */, memory_allocator)
+                  .MakeSharedCache()
 
-            ? rocksdb::NewClockCache(rocksdb_block_cache_size,
-                                     -1 /*num_shard_bits*/,
-                                     false /*strict_capacity_limit*/,
-                                     rocksdb::kDefaultCacheMetadataChargePolicy)
             : rocksdb::NewLRUCache(
                   rocksdb_block_cache_size, -1 /*num_shard_bits*/,
                   false /*strict_capcity_limit*/,

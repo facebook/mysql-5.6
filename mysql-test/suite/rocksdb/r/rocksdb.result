@@ -1039,11 +1039,11 @@ rocksdb_two_write_queues	ON
 rocksdb_unsafe_for_binlog	OFF
 rocksdb_update_cf_options	
 rocksdb_use_adaptive_mutex	OFF
-rocksdb_use_clock_cache	OFF
 rocksdb_use_default_sk_cf	OFF
 rocksdb_use_direct_io_for_flush_and_compaction	OFF
 rocksdb_use_direct_reads	OFF
 rocksdb_use_fsync	OFF
+rocksdb_use_hyper_clock_cache	OFF
 rocksdb_use_write_buffer_manager	OFF
 rocksdb_validate_tables	1
 rocksdb_verify_row_debug_checksums	OFF
