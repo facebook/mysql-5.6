@@ -2398,8 +2398,6 @@ The following options may be given as the first argument:
  Option updates per column family for RocksDB
  --rocksdb-use-adaptive-mutex 
  DBOptions::use_adaptive_mutex for RocksDB
- --rocksdb-use-clock-cache 
- Use ClockCache instead of default LRUCache for RocksDB
  --rocksdb-use-default-sk-cf 
  Use default_sk for secondary keys
  --rocksdb-use-direct-io-for-flush-and-compaction 
@@ -2408,6 +2406,9 @@ The following options may be given as the first argument:
  --rocksdb-use-direct-reads 
  DBOptions::use_direct_reads for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
+ --rocksdb-use-hyper-clock-cache 
+ Use HyperClockCache instead of default LRUCache for
+ RocksDB
  --rocksdb-use-write-buffer-manager 
  For experiment only. Use write buffer manager
  --rocksdb-validate-tables=# 
@@ -3689,11 +3690,11 @@ rocksdb-two-write-queues TRUE
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-update-cf-options (No default value)
 rocksdb-use-adaptive-mutex FALSE
-rocksdb-use-clock-cache FALSE
 rocksdb-use-default-sk-cf FALSE
 rocksdb-use-direct-io-for-flush-and-compaction FALSE
 rocksdb-use-direct-reads FALSE
 rocksdb-use-fsync FALSE
+rocksdb-use-hyper-clock-cache FALSE
 rocksdb-use-write-buffer-manager FALSE
 rocksdb-validate-tables 1
 rocksdb-verify-row-debug-checksums FALSE
