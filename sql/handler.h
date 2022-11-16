@@ -44,8 +44,7 @@
 #include <vector>
 
 #include <mysql/components/services/page_track_service.h>
-#include <mysql/service_rpc_plugin.h>  // bypass_rpc
-#include "ft_global.h"                 // ft_hints
+#include "ft_global.h"  // ft_hints
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "map_helpers.h"
@@ -2201,6 +2200,13 @@ typedef bool (*is_reserved_db_name_t)(handlerton *hton, const char *name);
 
 /* Overriding single table SELECT implementation if returns TRUE */
 typedef bool (*handle_single_table_select_t)(THD *thd, Query_block *select_lex);
+
+struct bypass_rpc_exception;
+struct myrocks_column_value;
+// 200 == MAX_COLUMNS_PER_RPC_BUFFER in service_rpc_plugin.h. Compiler will tell
+// if they desync.
+using myrocks_columns = std::array<myrocks_column_value, 200>;
+struct myrocks_select_from_rpc;
 
 /* Send select query directly to storage engine, bypassing mysql parser */
 typedef bypass_rpc_exception (*bypass_select_by_key_t)(

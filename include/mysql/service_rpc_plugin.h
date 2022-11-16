@@ -98,7 +98,7 @@ struct myrocks_where_in_item {
 };
 
 // This rpc buffer is allocated per each thrift io thread
-const int MAX_COLUMNS_PER_RPC_BUFFER = 200;
+constexpr int MAX_COLUMNS_PER_RPC_BUFFER = 200;
 using myrocks_columns =
     std::array<myrocks_column_value, MAX_COLUMNS_PER_RPC_BUFFER>;
 
