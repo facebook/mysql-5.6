@@ -1,0 +1,10 @@
+--source include/have_rocksdb.inc
+
+# Test clone remote command
+
+--let $HOST = 127.0.0.1
+--let $PORT =`select @@port`
+--let $USER = root
+--let remote_clone = 1
+
+--source ../../clone/t/local_basic.test

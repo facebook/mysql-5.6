@@ -1,0 +1,4 @@
+--source include/have_rocksdb.inc
+
+--let $extra_restart_params=
+--source ../include/local_minimal_wal_dir.inc

@@ -1,0 +1,3 @@
+--source include/have_rocksdb.inc
+
+--source ../../clone/t/local_insert.test

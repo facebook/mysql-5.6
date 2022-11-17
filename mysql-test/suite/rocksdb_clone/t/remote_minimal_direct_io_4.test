@@ -1,0 +1,52 @@
+--source include/big_test.inc
+--source include/have_rocksdb.inc
+
+--let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
+
+--connection default
+
+--echo Donor:
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64)) ENGINE=ROCKSDB;
+
+INSERT INTO t1 VALUES (10, 'clone row 1');
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--connect(clone_conn_1,127.0.0.1,root,,test,$SERVER_PORT_2)
+
+--echo Client:
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--connection default
+
+--echo donor: direct reads = on, writes = on, client: reads = off, writes = off
+
+--let $clone_donor_params="--rocksdb_use_direct_reads=ON --rocksdb_use_direct_io_for_flush_and_compaction=ON"
+--let $clone_client_params="--rocksdb_use_direct_reads=OFF --rocksdb_use_direct_io_for_flush_and_compaction=OFF"
+
+--source ../include/remote_direct_io.inc
+
+--echo donor: direct reads = on, writes = on, client: reads = off, writes = on
+
+--let $clone_donor_params="--rocksdb_use_direct_reads=ON --rocksdb_use_direct_io_for_flush_and_compaction=ON"
+--let $clone_client_params="--rocksdb_use_direct_reads=OFF --rocksdb_use_direct_io_for_flush_and_compaction=ON"
+
+--source ../include/remote_direct_io.inc
+
+--echo donor: direct reads = on, writes = on, client: reads = on, writes = off
+
+--let $clone_donor_params="--rocksdb_use_direct_reads=ON --rocksdb_use_direct_io_for_flush_and_compaction=ON"
+--let $clone_client_params="--rocksdb_use_direct_reads=ON --rocksdb_use_direct_io_for_flush_and_compaction=OFF"
+
+--source ../include/remote_direct_io.inc
+
+--echo donor: direct reads = on, writes = on, client: reads = on, writes = on
+
+--let $clone_donor_params="--rocksdb_use_direct_reads=ON --rocksdb_use_direct_io_for_flush_and_compaction=ON"
+--let $clone_client_params="--rocksdb_use_direct_reads=ON --rocksdb_use_direct_io_for_flush_and_compaction=ON"
+
+--source ../include/remote_direct_io.inc
+
+DROP TABLE t1;

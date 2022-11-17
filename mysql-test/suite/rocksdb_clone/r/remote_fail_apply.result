@@ -1,0 +1,15 @@
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64));
+INSERT INTO t1 VALUES(1, "string 1");
+INSERT INTO t1 VALUES(2, "string 2");
+INSERT INTO t1 VALUES(3, "string 3");
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+SET GLOBAL DEBUG="+d,myrocks_clone_apply_fail";
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_valid_donor_list = 'HOST:PORT';
+CLONE INSTANCE FROM USER@HOST:PORT IDENTIFIED BY '' DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+select ID, STAGE, STATE from performance_schema.clone_progress;
+SET GLOBAL DEBUG="-d,myrocks_clone_apply_fail";
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;

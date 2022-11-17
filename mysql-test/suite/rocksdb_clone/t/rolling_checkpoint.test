@@ -1,0 +1,46 @@
+# MyRocks clone rolling checkpoint tests
+# Absent new status vars and/or performance schema extensions, the tests below
+# merely check that the server does not crash.
+--source include/have_rocksdb.inc
+
+--let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
+
+--let $saved_max_age=`SELECT @@rocksdb_clone_checkpoint_max_age`
+--let $saved_max_count=`SELECT @@rocksdb_clone_checkpoint_max_count`
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--source ../../clone/include/create_schema.inc
+
+--let num_rows = 1000
+--let clone_throttle = 1
+
+--echo # Test 1: checkpoint never rolls because of unlimited age
+SET GLOBAL rocksdb_clone_checkpoint_max_age = 0;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = 10;
+--source ../include/rolling_checkpoint.inc
+
+--echo # Test 2: checkpoint rolls freely because of unlimited count
+SET GLOBAL rocksdb_clone_checkpoint_max_age = 1;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = 0;
+--source ../include/rolling_checkpoint.inc
+
+--echo # Test 3: checkpoint never rolls because of max_count == 1
+SET GLOBAL rocksdb_clone_checkpoint_max_age = 1;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = 1;
+--source ../include/rolling_checkpoint.inc
+
+--echo # Test 4: checkpoint may roll once because of max_count == 2
+SET GLOBAL rocksdb_clone_checkpoint_max_age = 1;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = 2;
+--source ../include/rolling_checkpoint.inc
+
+--source ../../clone/include/drop_schema.inc
+
+UNINSTALL PLUGIN clone;
+
+--replace_result $saved_max_age saved_max_age
+EVAL SET GLOBAL rocksdb_clone_checkpoint_max_age = $saved_max_age;
+--replace_result $saved_max_count saved_max_count
+EVAL SET GLOBAL rocksdb_clone_checkpoint_max_count = $saved_max_count;

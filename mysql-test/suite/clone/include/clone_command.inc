@@ -41,6 +41,11 @@ if ($clone_remote_replace) {
 }
 
 if ($clone_err != ER_PLUGIN_IS_NOT_LOADED) {
+  if ($clone_single_threaded) {
+    SET GLOBAL clone_autotune_concurrency = OFF;
+    SET GLOBAL clone_max_concurrency = 1;
+  }
+
   if (!$clone_auto_tune) {
     SET GLOBAL clone_autotune_concurrency = OFF;
     SET GLOBAL clone_max_concurrency = 8;
