@@ -1,5 +1,12 @@
 # TODO: Copyrights
 
+IF(WITHOUT_ROCKSDB_STORAGE_ENGINE)
+  RETURN()
+ENDIF()
+IF(ROCKSDB_DYNAMIC_PLUGIN)
+  SET (WITH_ROCKSDB 1)
+ENDIF()
+
 # This is a strong requirement coming from RocksDB. No conditional checks here.
 ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DROCKSDB_LIB_IO_POSIX)
 
@@ -172,13 +179,22 @@ SET(ROCKSDB_SOURCES
   rdb_utils.cc rdb_utils.h rdb_buff.h
   rdb_threads.cc rdb_threads.h
   ha_rockspart.cc ha_rockspart.h
-  ../../sql/partitioning/partition_base.cc
   nosql_access.cc nosql_access.h
   sql_dd.cc sql_dd.h
   ${ROCKSDB_LIB_SOURCES}
 )
 
-IF(WITH_FB_TSAN)
+IF(NOT ROCKSDB_DYNAMIC_PLUGIN)
+  SET(ROCKSDB_SOURCES
+  ${ROCKSDB_SOURCES}
+  ../../sql/partitioning/partition_base.cc
+  )
+ENDIF()
+
+# To avoid compiler error on rdb_fatal_error() in rdb_util.h
+add_compile_flags(${ROCKSDB_SOURCES} COMPILE_FLAGS "-Wno-format-security")
+
+IF(WITH_FB_TSAN OR ROCKSDB_DYNAMIC_PLUGIN)
   SET(PIC_EXT "_pic")
 ELSE()
   SET(PIC_EXT "")
@@ -189,8 +205,12 @@ IF(HAVE_EXTERNAL_ROCKSDB)
 ENDIF()
 
 IF (WITH_JEMALLOC)
-  SET(rocksdb_static_libs ${rocksdb_static_libs} -Wl,-rpath=$ORIGIN
-    ${JEMALLOC_LIBRARY})
+  # Not staic linking jemalloc with a dynamic plugin to avoid
+  # "cannot allocate memory in static TLS block" error
+  IF(NOT ROCKSDB_DYNAMIC_PLUGIN)
+    SET(rocksdb_static_libs ${rocksdb_static_libs} -Wl,-rpath=$ORIGIN
+      ${JEMALLOC_LIBRARY})
+  ENDIF()
   ADD_DEFINITIONS(-DROCKSDB_JEMALLOC)
   ADD_DEFINITIONS(-DROCKSDB_MALLOC_USABLE_SIZE)
 ENDIF()
@@ -253,15 +273,19 @@ IF(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
   SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt")
 ENDIF()
 
-MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
-  LINK_LIBRARIES ${rocksdb_static_libs}
-)
+IF (ROCKSDB_DYNAMIC_PLUGIN)
+  MYSQL_ADD_PLUGIN(rocksdb ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT
+    MODULE_ONLY LINK_LIBRARIES ${rocksdb_static_libs})
+ELSE()
+  MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT
+    STATIC_ONLY LINK_LIBRARIES ${rocksdb_static_libs})
+ENDIF()
 
 IF(WITH_EMBEDDED_SERVER)
   ADD_SUBDIRECTORY(unittest)
 ENDIF()
 
-IF (WITH_ROCKSDB_SE_STORAGE_ENGINE AND (NOT HAVE_EXTERNAL_ROCKSDB))
+IF (NOT HAVE_EXTERNAL_ROCKSDB)
   # TODO: read this file list from src.mk:TOOL_SOURCES
   SET(ROCKSDB_TOOL_SOURCES
     ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb_tool.cc
@@ -269,10 +293,22 @@ IF (WITH_ROCKSDB_SE_STORAGE_ENGINE AND (NOT HAVE_EXTERNAL_ROCKSDB))
     ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump_tool.cc
     ${CMAKE_SOURCE_DIR}/rocksdb/utilities/blob_db/blob_dump_tool.cc
   )
-  MYSQL_ADD_EXECUTABLE(sst_dump ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump.cc ${ROCKSDB_TOOL_SOURCES})
-  TARGET_LINK_LIBRARIES(sst_dump rocksdb_se)
 
-  MYSQL_ADD_EXECUTABLE(ldb ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb.cc ${ROCKSDB_TOOL_SOURCES})
-  TARGET_LINK_LIBRARIES(ldb rocksdb_se)
+  IF (ROCKSDB_DYNAMIC_PLUGIN)
+    SET(ROCKSDB_TOOL_SOURCES ${ROCKSDB_TOOL_SOURCES} ${ROCKSDB_LIB_SOURCES})
+  ENDIF()
+
+  MYSQL_ADD_EXECUTABLE(sst_dump ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump.cc
+                       ${ROCKSDB_TOOL_SOURCES})
+  MYSQL_ADD_EXECUTABLE(ldb ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb.cc
+                       ${ROCKSDB_TOOL_SOURCES})
+
+  IF (ROCKSDB_DYNAMIC_PLUGIN)
+    TARGET_LINK_LIBRARIES(sst_dump ${rocksdb_static_libs})
+    TARGET_LINK_LIBRARIES(ldb ${rocksdb_static_libs})
+  ELSE()
+    TARGET_LINK_LIBRARIES(sst_dump rocksdb_se)
+    TARGET_LINK_LIBRARIES(ldb rocksdb_se)
+  ENDIF()
 
 ENDIF()

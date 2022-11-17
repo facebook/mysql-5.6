@@ -19,7 +19,6 @@
 /* MySQL header files */
 #include "mysql/plugin.h"
 #include "sql/handler.h" /* handler */
-#include "sql/log.h"
 
 /* C++ standard header files */
 #include <queue>

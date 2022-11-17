@@ -23,7 +23,7 @@ show variables like 'rocksdb_%checksum%';
 create table t1 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
 insert into t1 values (1,1,1),(2,2,2),(3,3,3);
 check table t1;
---exec grep "\[Server\] CHECKTABLE t1" $LOG | cut -d] -f4
+--exec grep "Server" $LOG | grep "CHECKTABLE t1"  | cut -d] -f4 | perl -pe "s/Plugin rocksdb reported: '//"  | perl -pe "s/'//g"
 
 drop table t1;
 
@@ -31,7 +31,7 @@ set session rocksdb_store_row_debug_checksums=on;
 create table t2 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
 insert into t2 values (1,1,1),(2,2,2),(3,3,3);
 check table t2;
---exec grep "\[Server\] CHECKTABLE t2" $LOG | cut -d] -f4
+--exec grep "Server" $LOG | grep "CHECKTABLE t2"  | cut -d] -f4 | perl -pe "s/Plugin rocksdb reported: '//"  | perl -pe "s/'//g"
 
 --echo # Now, make a table that has both rows with checksums and without
 create table t3 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
@@ -40,7 +40,7 @@ set session rocksdb_store_row_debug_checksums=off;
 update t3 set b=3 where a=2;
 set session rocksdb_store_row_debug_checksums=on;
 check table t3;
---exec grep "\[Server\] CHECKTABLE t3" $LOG | cut -d] -f4
+--exec grep "Server" $LOG | grep "CHECKTABLE t3"  | cut -d] -f4 | perl -pe "s/Plugin rocksdb reported: '//"  | perl -pe "s/'//g"
 
 set session rocksdb_store_row_debug_checksums=on;
 set session rocksdb_checksums_pct=5;
@@ -57,7 +57,7 @@ while ($i<4000)
 }
 --enable_query_log
 check table t4;
---exec grep "\[Server\] CHECKTABLE t4" $LOG | cut -d] -f4 > $MYSQL_TMP_DIR/rocksdb_checksums.log
+--exec  grep "Server" $LOG | grep "CHECKTABLE t4"  | cut -d] -f4 | perl -pe "s/Plugin rocksdb reported: '//"  | perl -pe "s/'//g" > $MYSQL_TMP_DIR/rocksdb_checksums.log
 --exec perl suite/rocksdb/t/rocksdb_checksums.pl $MYSQL_TMP_DIR/rocksdb_checksums.log 4000 5
 --remove_file $MYSQL_TMP_DIR/rocksdb_checksums.log
 set session rocksdb_checksums_pct=100;
