@@ -65,6 +65,9 @@ int Ha_clone_common_cbk::precopy(THD *thd, uint task_id) {
 // Perform the cross-engine synchronization: execute a
 // performance_schema.log_status query, and call set_log_stop for each storage
 // engine with its part of STORAGE_ENGINES column JSON object from that query.
+// If InnoDB is present, this is called between SST COPY and REDO COPY clone
+// stages. When MyRocks is the sole storage engine, it should be called after
+// creating the final checkpoint.
 int Ha_clone_common_cbk::synchronize_engines() {
   const auto &all_locators = get_all_locators();
 

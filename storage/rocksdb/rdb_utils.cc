@@ -351,4 +351,28 @@ void rdb_persist_corruption_marker() {
   }
 }
 
+bool for_each_in_dir(const std::string &path, int flags,
+                     std::function<bool(const fileinfo &)> fn) {
+  auto *const dir_handle =
+      my_dir(path.c_str(), MYF(flags | MY_WME | MY_DONT_SORT));
+
+  if (dir_handle == nullptr) {
+    if ((flags & MY_FAE) != 0) abort();
+    return false;
+  }
+
+  for (uint i = 0; i < dir_handle->number_off_files; ++i) {
+    const auto &f_info = dir_handle->dir_entry[i];
+    if (strcmp(f_info.name, ".") == 0 || strcmp(f_info.name, "..") == 0)
+      continue;
+    if (!fn(f_info)) {
+      my_dirend(dir_handle);
+      return false;
+    }
+  }
+
+  my_dirend(dir_handle);
+  return true;
+}
+
 }  // namespace myrocks

@@ -179,6 +179,7 @@ SET(ROCKSDB_SOURCES
   ha_rockspart.cc ha_rockspart.h
   nosql_access.cc nosql_access.h
   sql_dd.cc sql_dd.h
+  clone/common.h clone/common.cc clone/donor.h clone/donor.cc clone/client.cc
   ${ROCKSDB_LIB_SOURCES}
 )
 

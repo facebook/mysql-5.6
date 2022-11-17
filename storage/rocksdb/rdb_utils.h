@@ -39,6 +39,8 @@
 #include <jemalloc/jemalloc.h>
 #endif
 
+struct fileinfo;
+
 namespace myrocks {
 
 /*
@@ -277,6 +279,14 @@ bool rdb_has_rocksdb_corruption();
 // is still aware that rocksdb data is corrupted
 void rdb_persist_corruption_marker();
 
+// Perform the given function on each directory entry. Supported flags are
+// MY_FAE to make any errors fatal and MY_WANT_STAT if each directory entry
+// should be stat'ed too. These flags may be combined.
+// The fn function should
+// return false if the directory iteration should be stopped and error returned.
+bool for_each_in_dir(const std::string &path, int flags,
+                     std::function<bool(const fileinfo &)> fn);
+
 /*
   Helper functions to parse strings.
 */
@@ -431,5 +441,17 @@ class Ensure_initialized {
  protected:
   bool initialized = false;
 };
+
+// extension must start with a dot.
+[[nodiscard]] inline bool has_file_extension(const std::string &fn,
+                                             const std::string &extension) {
+  const auto ext_len = extension.length();
+  assert(ext_len > 0);
+  assert(extension[0] == '.');
+
+  const auto fn_len = fn.length();
+  if (fn_len < ext_len) return false;
+  return fn.compare(fn_len - ext_len, ext_len, extension) == 0;
+}
 
 }  // namespace myrocks
