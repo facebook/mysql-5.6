@@ -1220,6 +1220,10 @@ extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
 extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
 
+extern std::atomic<uint64_t> rocksdb_bypass_rpc_executed;
+extern std::atomic<uint64_t> rocksdb_bypass_rpc_rejected;
+extern std::atomic<uint64_t> rocksdb_bypass_rpc_failed;
+
 extern std::atomic<uint64_t> rocksdb_partial_index_groups_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_groups_materialized;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;

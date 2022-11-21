@@ -881,6 +881,10 @@ std::atomic<uint64_t> rocksdb_select_bypass_executed(0);
 std::atomic<uint64_t> rocksdb_select_bypass_rejected(0);
 std::atomic<uint64_t> rocksdb_select_bypass_failed(0);
 
+std::atomic<uint64_t> rocksdb_bypass_rpc_executed(0);
+std::atomic<uint64_t> rocksdb_bypass_rpc_rejected(0);
+std::atomic<uint64_t> rocksdb_bypass_rpc_failed(0);
+
 std::atomic<uint64_t> rocksdb_partial_index_groups_sorted(0);
 std::atomic<uint64_t> rocksdb_partial_index_groups_materialized(0);
 std::atomic<uint64_t> rocksdb_partial_index_rows_sorted(0);
@@ -15913,6 +15917,13 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR_PTR("select_bypass_rejected",
                        &rocksdb_select_bypass_rejected, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("select_bypass_failed", &rocksdb_select_bypass_failed,
+                       SHOW_LONGLONG),
+
+    DEF_STATUS_VAR_PTR("bypass_rpc_executed", &rocksdb_bypass_rpc_executed,
+                       SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("bypass_rpc_rejected", &rocksdb_bypass_rpc_rejected,
+                       SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("bypass_rpc_failed", &rocksdb_bypass_rpc_failed,
                        SHOW_LONGLONG),
 
     DEF_STATUS_VAR_PTR("partial_index_groups_sorted",
