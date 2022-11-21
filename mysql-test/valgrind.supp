@@ -2877,8 +2877,8 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb16ThreadStatusUtil19NewColumnFamilyInfoEPKNS_2DBEPKNS_16ColumnFamilyDataERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPKNS_3EnvE
-   fun:_ZNK10my_rocksdb6DBImpl21NewThreadStatusCfInfoEPNS_16ColumnFamilyDataE
+   fun:_ZN*16ThreadStatusUtil19NewColumnFamilyInfoEPKNS_2DBEPKNS_16ColumnFamilyDataERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPKNS_3EnvE
+   fun:_ZNK*6DBImpl21NewThreadStatusCfInfoEPNS_16ColumnFamilyDataE
    ...
 }
 
@@ -2888,9 +2888,9 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
-   fun:_ZN10my_rocksdb16ThreadStatusUtil14RegisterThreadEPKNS_3EnvENS_12ThreadStatus10ThreadTypeE
-   fun:_ZN10my_rocksdb14ThreadPoolImpl4Impl15BGThreadWrapperEPv
+   fun:_ZN*19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
+   fun:_ZN*16ThreadStatusUtil14RegisterThreadEPKNS_3EnvENS_12ThreadStatus10ThreadTypeE
+   fun:_ZN*14ThreadPoolImpl4Impl15BGThreadWrapperEPv
    ...
 }
 
@@ -2908,8 +2908,8 @@
    match-leak-kinds: reachable
    ...
    fun:_ZNSt13unordered_mapIjPFvPvESt4hashIjESt8equal_toIjESaISt4pairIKjS2_EEEixERS8_
-   fun:_ZN10my_rocksdb14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
-   fun:_ZN10my_rocksdb14ThreadLocalPtrC1EPFvPvE
+   fun:_ZN*14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
+   fun:_ZN*14ThreadLocalPtrC1EPFvPvE
    ...
 }
 
@@ -2918,9 +2918,9 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb10autovectorIjLm8EE9push_backERKj
-   fun:_ZN10my_rocksdb14ThreadLocalPtr10StaticMeta9ReclaimIdEj
-   fun:_ZN10my_rocksdb14ThreadLocalPtrD1Ev
+   fun:_ZN*10autovectorIjLm8EE9push_backERKj
+   fun:_ZN*14ThreadLocalPtr10StaticMeta9ReclaimIdEj
+   fun:_ZN*14ThreadLocalPtrD1Ev
    ...
 }
 
@@ -2938,7 +2938,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   fun:_ZN*24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
    ...
 }
 
@@ -2947,7 +2947,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
+   fun:_ZN*24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
    ...
 }
 
@@ -2966,7 +2966,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
+   fun:_ZN*14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
    ...
 }
 
@@ -2975,7 +2975,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb12_GLOBAL__N_18Registry8RegisterEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   fun:_ZN*12_GLOBAL__N_18Registry8RegisterEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
    ...
 }
 
@@ -2984,7 +2984,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   fun:_ZN*24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
    ...
 }
 
@@ -2994,7 +2994,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
+   fun:_ZN*19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
    ...
 }
 
@@ -3003,7 +3003,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb19ThreadStatusUpdater19NewColumnFamilyInfoEPKvRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES2_SA_
+   fun:_ZN*19ThreadStatusUpdater19NewColumnFamilyInfoEPKvRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES2_SA_
    ...
 }
 
@@ -3013,7 +3013,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
+   fun:_ZN*24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
    ...
 }
 
