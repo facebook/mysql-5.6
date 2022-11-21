@@ -2667,15 +2667,19 @@ bypass_rpc_exception rocksdb_select_by_key(
     rpc_protocol protocol(&select_stmt.get_field_list(), &param, columns);
     select_exec exec(select_stmt, protocol);
     if (exec.run()) {
-      rocksdb_select_bypass_failed++;
+      if (exec.is_unsupported()) {
+        rocksdb_bypass_rpc_rejected++;
+      }
+      rocksdb_bypass_rpc_failed++;
       ret.errnum = ER_NOT_SUPPORTED_YET;
       ret.sqlstate = "MYF(0)";
       ret.message = "SELECT statement pattern not supported: ";
       ret.message.append(exec.get_error_msg());
     } else {
-      rocksdb_select_bypass_executed++;
+      rocksdb_bypass_rpc_executed++;
     }
   } else {
+    rocksdb_bypass_rpc_rejected++;
     ret.errnum = ER_NOT_SUPPORTED_YET;
     ret.sqlstate = "MYF(0)";
     ret.message = "SELECT statement pattern not supported: ";

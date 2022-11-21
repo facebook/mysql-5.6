@@ -2,6 +2,12 @@ SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
 SET GLOBAL rocksdb_select_bypass_policy=2;
 SELECT @@rocksdb_select_bypass_allow_filters into @save_rocksdb_select_bypass_allow_filters;
 SET GLOBAL rocksdb_select_bypass_allow_filters=0;
+SELECT variable_value INTO @queries_executed_0 FROM performance_schema.global_status WHERE
+variable_name="rocksdb_bypass_rpc_executed";
+SELECT variable_value INTO @queries_failed_0 FROM performance_schema.global_status WHERE
+variable_name="rocksdb_bypass_rpc_failed";
+SELECT variable_value INTO @queries_rejected_0 FROM performance_schema.global_status WHERE
+variable_name="rocksdb_bypass_rpc_rejected";
 create table t1 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
 c INT NOT NULL, d INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
 create table t2 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
@@ -12,6 +18,21 @@ create table t4 (pk INT PRIMARY KEY, a INT) ENGINE=ROCKSDB;
 create table t5 (pk int primary key, a varchar(128) not null collate latin1_swedish_ci, b varchar(128) not null collate latin1_swedish_ci, index (a)) engine=rocksdb;
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+SELECT variable_value INTO @queries_executed_1 FROM performance_schema.global_status WHERE
+variable_name="rocksdb_bypass_rpc_executed";
+SELECT variable_value INTO @queries_failed_1 FROM performance_schema.global_status WHERE
+variable_name="rocksdb_bypass_rpc_failed";
+SELECT variable_value INTO @queries_rejected_1 FROM performance_schema.global_status WHERE
+variable_name="rocksdb_bypass_rpc_rejected";
+SELECT @queries_executed_1 - @queries_executed_0;
+@queries_executed_1 - @queries_executed_0
+0
+SELECT @queries_failed_1 - @queries_failed_0;
+@queries_failed_1 - @queries_failed_0
+14
+SELECT @queries_rejected_1 - @queries_rejected_0;
+@queries_rejected_1 - @queries_rejected_0
+26
 set global rocksdb_select_bypass_allow_filters=@save_rocksdb_select_bypass_allow_filters;
 set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
 drop table t1;
