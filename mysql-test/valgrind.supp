@@ -1168,6 +1168,16 @@
 }
 
 {
+   General protobuf globals
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:_Znwm
+   ...
+   fun:_ZN6google8protobuf8internal24InitProtobufDefaultsSlowEv
+   ...
+}
+
+{
    mysqlx plugin install
    Memcheck:Leak
    fun:*alloc
@@ -2750,6 +2760,20 @@
 }
 
 {
+   Ssl_acceptor_context_data is created on main, thread local from boringssl not cleaned
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:OPENSSL_malloc
+   fun:OPENSSL_malloc
+   fun:RAND_bytes_with_additional_data.part.0
+   fun:RAND_bytes_with_additional_data
+   ...
+   fun:_ZN25Ssl_acceptor_context_dataC1ENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEbP17Ssl_init_callbackbP19enum_ssl_init_error
+   ...
+}
+
+{
    BoringSSL opt_ssl_key and locks are static, or TLS data on main
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -2806,6 +2830,42 @@
    fun:_Z21ssl_get_ex_data_indexv
    ...
    fun:_ZL16test_ssl_connectv
+}
+
+#
+# gflags flags suppressions
+#
+{
+   gflags flags are global state
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN6gflags14FlagRegistererC1IiEEPKcS3_S3_PT_S5_
+   ...
+}
+{
+   gflags flags are global state
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN6gflags14FlagRegistererC1IbEEPKcS3_S3_PT_S5_
+   ...
+}
+{
+   gflags flags are global state
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN6gflags12_GLOBAL__N_123RegisterCommandLineFlagEPKcS2_S2_PNS0_9FlagValueES4_.constprop.0
+   ...
+}
+{
+   gflags flags are global state
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN6gflags14FlagRegistererC1INSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEEPKcS9_S9_PT_SB_
+   ...
 }
 
 #
@@ -2970,6 +3030,15 @@
    match-leak-kinds: reachable
    ...
    fun:_ZN7rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
+   ...
+}
+
+{
+   myrocks::rdb_init_rocksdb_db_options() creates a singleton db options object
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv.__uniq.139504330336072172663997982448787994910
    ...
 }
 
