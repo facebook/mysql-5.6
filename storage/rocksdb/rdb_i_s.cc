@@ -1323,6 +1323,11 @@ static int rdb_i_s_bypass_rejected_query_history_fill_table(
     // Error message
     field[2]->store(entry.error_msg.c_str(), entry.error_msg.size(),
                     system_charset_info);
+    // Bypass type
+    std::string bypass_type_entry =
+        entry.unsupported_bypass_type == bypass_type::SQL ? "SQL" : "RPC";
+    field[3]->store(bypass_type_entry.c_str(), bypass_type_entry.size(),
+                    system_charset_info);
 
     int ret = static_cast<int>(
         my_core::schema_table_store_record(thd, tables->table));
@@ -1374,6 +1379,7 @@ static ST_FIELD_INFO rdb_i_s_bypass_rejected_query_history_fields_info[] = {
     ROCKSDB_FIELD_INFO("CREATE_TIME", 0, MYSQL_TYPE_TIMESTAMP, 0),
     ROCKSDB_FIELD_INFO("QUERY", 100, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("ERROR_MSG", 100, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("BYPASS_TYPE", 10, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO_END};
 
 namespace  // anonymous namespace = not visible outside this source file

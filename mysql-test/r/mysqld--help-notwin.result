@@ -1877,6 +1877,11 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY
  plugin. Possible values are ON, OFF, FORCE (don't start
  if the plugin fails to load).
+ --rocksdb-bypass-rpc-log-rejected 
+ Log rejected Bypass RPC queries
+ --rocksdb-bypass-rpc-rejected-log-ts-interval-secs=# 
+ Interval in seconds when rejected Bypass RPC is written
+ to the query history. Default: 1 second
  --rocksdb-bytes-per-sync=# 
  DBOptions::bytes_per_sync for RocksDB
  --rocksdb-cache-dump 
@@ -3523,6 +3528,8 @@ rocksdb-bulk-load-allow-unsorted FALSE
 rocksdb-bulk-load-partial-index TRUE
 rocksdb-bulk-load-size 1000
 rocksdb-bypass-rejected-query-history ON
+rocksdb-bypass-rpc-log-rejected FALSE
+rocksdb-bypass-rpc-rejected-log-ts-interval-secs 1
 rocksdb-bytes-per-sync 0
 rocksdb-cache-dump TRUE
 rocksdb-cache-high-pri-pool-ratio 0

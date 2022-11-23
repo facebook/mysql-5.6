@@ -1139,6 +1139,9 @@ uint32_t get_select_bypass_debug_row_delay();
 unsigned long long  // NOLINT(runtime/int)
 get_select_bypass_multiget_min();
 
+/* Whether we should log rejected unsupported bypass rpc */
+bool should_log_rejected_bypass_rpc();
+
 unsigned long long get_partial_index_sort_max_mem(THD *thd);
 
 Rdb_transaction *get_tx_from_thd(THD *const thd);
@@ -1220,6 +1223,7 @@ extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
 extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
 
+extern uint32_t rocksdb_bypass_rpc_rejected_log_ts_interval_secs;
 extern std::atomic<uint64_t> rocksdb_bypass_rpc_executed;
 extern std::atomic<uint64_t> rocksdb_bypass_rpc_rejected;
 extern std::atomic<uint64_t> rocksdb_bypass_rpc_failed;

@@ -855,6 +855,7 @@ static bool rocksdb_select_bypass_log_failed = false;
 static bool rocksdb_select_bypass_allow_filters = true;
 static uint32_t rocksdb_select_bypass_rejected_query_history_size = 0;
 static uint32_t rocksdb_select_bypass_debug_row_delay = 0;
+static bool rocksdb_bypass_rpc_log_rejected = false;
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
 static bool rocksdb_skip_locks_if_skip_unique_check = false;
@@ -881,6 +882,7 @@ std::atomic<uint64_t> rocksdb_select_bypass_executed(0);
 std::atomic<uint64_t> rocksdb_select_bypass_rejected(0);
 std::atomic<uint64_t> rocksdb_select_bypass_failed(0);
 
+uint32_t rocksdb_bypass_rpc_rejected_log_ts_interval_secs = 0;
 std::atomic<uint64_t> rocksdb_bypass_rpc_executed(0);
 std::atomic<uint64_t> rocksdb_bypass_rpc_rejected(0);
 std::atomic<uint64_t> rocksdb_bypass_rpc_failed(0);
@@ -2597,6 +2599,20 @@ static MYSQL_SYSVAR_ULONGLONG(
     "MultiGet",
     nullptr, nullptr, SIZE_T_MAX, /* min */ 0, /* max */ SIZE_T_MAX, 0);
 
+static MYSQL_SYSVAR_UINT(bypass_rpc_rejected_log_ts_interval_secs,
+                         rocksdb_bypass_rpc_rejected_log_ts_interval_secs,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Interval in seconds when rejected Bypass RPC is "
+                         "written to the query history. Default: 1 second",
+                         nullptr, nullptr, 1,
+                         /* min */ 0,
+                         /* max */ UINT_MAX, 0);
+
+static MYSQL_SYSVAR_BOOL(bypass_rpc_log_rejected,
+                         rocksdb_bypass_rpc_log_rejected, PLUGIN_VAR_RQCMDARG,
+                         "Log rejected Bypass RPC queries", nullptr, nullptr,
+                         false);
+
 static MYSQL_THDVAR_ULONG(mrr_batch_size, PLUGIN_VAR_RQCMDARG,
                           "maximum number of keys to fetch during each MRR",
                           nullptr, nullptr, /* default */ 100, /* min */ 0,
@@ -2848,6 +2864,8 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(select_bypass_allow_filters),
     MYSQL_SYSVAR(select_bypass_debug_row_delay),
     MYSQL_SYSVAR(select_bypass_multiget_min),
+    MYSQL_SYSVAR(bypass_rpc_rejected_log_ts_interval_secs),
+    MYSQL_SYSVAR(bypass_rpc_log_rejected),
     MYSQL_SYSVAR(skip_locks_if_skip_unique_check),
     MYSQL_SYSVAR(alter_column_default_inplace),
     MYSQL_SYSVAR(partial_index_sort_max_mem),
@@ -17632,6 +17650,10 @@ uint32_t get_select_bypass_rejected_query_history_size() {
 
 uint32_t get_select_bypass_debug_row_delay() {
   return rocksdb_select_bypass_debug_row_delay;
+}
+
+bool should_log_rejected_bypass_rpc() {
+  return rocksdb_bypass_rpc_log_rejected;
 }
 
 unsigned long long  // NOLINT(runtime/int)
