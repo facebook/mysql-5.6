@@ -40,8 +40,8 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	1
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
 set global rocksdb_select_bypass_rejected_query_history_size=3;
 SELECT @@rocksdb_select_bypass_rejected_query_history_size;
 @@rocksdb_select_bypass_rejected_query_history_size
@@ -53,9 +53,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	2
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported	SQL
 SELECT /*+ bypass */ * from t1 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: Unrecognized field name: '*'
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -63,10 +63,10 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	3
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'
-SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported	SQL
 SELECT /*+ bypass */ 1 from t1 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -74,11 +74,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	4
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'
-SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported	SQL
 SELECT /*+ bypass */ 1+2 from t1 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -86,11 +86,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	5
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'	SQL
 SELECT /*+ bypass */ COUNT(*) from t1 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -98,11 +98,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	6
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ COUNT(pk) from t1 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -110,11 +110,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	7
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ pk+1 from t1 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -122,11 +122,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	8
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ pk from t1 USE INDEX (PRIMARY) WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: Index hint must be FORCE INDEX
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -134,11 +134,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	9
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX
-SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX	SQL
+SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ pk from t1;
 ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -146,11 +146,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	10
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX
-SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX	SQL
+SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=1 or pk=2;
 ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -158,11 +158,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	11
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = ? OR `pk` = ?	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = ? OR `pk` = ?	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
 ERROR 42000: SELECT statement pattern not supported: Unsupported range query pattern
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -170,11 +170,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	12
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ? AND `pk` > ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` = ? OR `pk` = ?	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ? AND `pk` > ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = ? OR `pk` = ?	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND a = 1;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -228,11 +228,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	15
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern
-SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed
-SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` = ? AND `d` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern	SQL
+SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` = ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk < 2;
 ERROR 42000: SELECT statement pattern not supported: Unsupported range query pattern
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -240,11 +240,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	16
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern
-SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern	SQL
+SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk <= 2;
 ERROR 42000: SELECT statement pattern not supported: Unsupported range query pattern
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -252,11 +252,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	17
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk >= 2;
 ERROR 42000: SELECT statement pattern not supported: Unsupported range query pattern
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -264,11 +264,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	18
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
 ERROR 42000: SELECT statement pattern not supported: Unsupported range query pattern
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -276,11 +276,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	19
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` >= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` >= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk > 2;
 ERROR 42000: SELECT statement pattern not supported: Unsupported range query pattern
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -288,11 +288,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	20
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` > ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` >= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` > ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` >= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
 ERROR 42000: SELECT statement pattern not supported: Unsupported range query pattern
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2;
@@ -326,11 +326,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	34
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` <= ?	Unsupported range query pattern
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` <= ?	Unsupported range query pattern	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2;
 ERROR 42000: SELECT statement pattern not supported: Unsupported range query pattern
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -338,11 +338,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	35
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` < ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` <= ?	Unsupported range query pattern
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` < ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` <= ?	Unsupported range query pattern	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0;
 ERROR 42000: SELECT statement pattern not supported: Non-optimal queries with filters are not allowed
 SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b in (1, 2);
@@ -354,11 +354,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	38
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk<=>1;
 ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE - needs to be >, >=, <, <=, =, IN
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -366,11 +366,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	39
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=(1,2,3);
 ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE - operand should be int/string/real/varbinary
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -378,11 +378,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	4
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	40
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
 set global rocksdb_select_bypass_rejected_query_history_size=4;
 SELECT @@rocksdb_select_bypass_rejected_query_history_size;
 @@rocksdb_select_bypass_rejected_query_history_size
@@ -394,11 +394,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	5
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	40
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=TIME '18:01:00';
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -406,11 +406,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	6
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	40
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=TIMESTAMP '2019-03-25 18:01:00';
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -418,11 +418,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	40
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=ANY (SELECT pk FROM t1);
 ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -430,12 +430,12 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	41
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk>ALL (SELECT pk FROM t1);
 ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE - needs to be >, >=, <, <=, =, IN
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -443,12 +443,12 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	42
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ DISTINCT a from t1;
 ERROR 42000: SELECT statement pattern not supported: SELECT options not supported (such as SELECT DISTINCT)
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -456,12 +456,12 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	43
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT DISTINCTROW `a` FROM `t1`	SELECT options not supported (such as SELECT DISTINCT)
-SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT DISTINCTROW `a` FROM `t1`	SELECT options not supported (such as SELECT DISTINCT)	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = (...)	Unsupported WHERE - operand should be int/string/real/varbinary	SQL
 SELECT /*+ bypass */ ALL a, b from t1;
 ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -469,19 +469,19 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	44
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT DISTINCTROW `a` FROM `t1`	SELECT options not supported (such as SELECT DISTINCT)
-SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT DISTINCTROW `a` FROM `t1`	SELECT options not supported (such as SELECT DISTINCT)	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 set global rocksdb_select_bypass_rejected_query_history_size=1;
 SELECT @@rocksdb_select_bypass_rejected_query_history_size;
 @@rocksdb_select_bypass_rejected_query_history_size
 1
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ t1.pk, t2.pk from t1, t2;
 pk	pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -489,9 +489,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	44
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ t1.pk FROM t1 LEFT JOIN t2 using (pk)
 WHERE t1.pk=1;
 pk
@@ -500,9 +500,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	44
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ pk, a from (SELECT pk, a FROM t1) AS t1_temp;
 pk	a
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -510,9 +510,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	44
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ pk FROM t1 WHERE pk=3 UNION DISTINCT
 SELECT pk FROM t2 WHERE pk=3;
 pk
@@ -524,9 +524,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	44
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ a, b, c FROM t1 WHERE a=1 ORDER BY a;
 ERROR 42000: SELECT statement pattern not supported: ORDER BY field doesn't belong to the index
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, a;
@@ -550,9 +550,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	52
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` , `b` , `c` FROM `t3` FORCE INDEX ( `a` ) WHERE `a` = ? ORDER BY `b` , `b`	ORDER BY is not in index order
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` , `b` , `c` FROM `t3` FORCE INDEX ( `a` ) WHERE `a` = ? ORDER BY `b` , `b`	ORDER BY is not in index order	SQL
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`abc`) WHERE a=1 ORDER BY b, a;
 ERROR 42000: SELECT statement pattern not supported: Unrecognized index: 'abc'
 SELECT /*+ bypass */ a from t1 WHERE a=1 INTO OUTFILE 'datadir/select.out';
@@ -577,9 +577,9 @@ SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE NOWAIT;
 ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
 SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 LOCK IN SHARE MODE;
 ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` , `b` , `c` FROM `t3` WHERE `pk` = ? LOCK IN SHARE MODE	Only SELECT with default READ lock is supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` , `b` , `c` FROM `t3` WHERE `pk` = ? LOCK IN SHARE MODE	Only SELECT with default READ lock is supported	SQL
 SELECT /*+ bypass */ HIGH_PRIORITY a, b, c FROM t3 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
 SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
@@ -587,19 +587,19 @@ a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1;
 ERROR 42000: SELECT statement pattern not supported: Too many WHERE expressions
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` FROM `t3` WHERE `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `	Too many WHERE expressions
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` FROM `t3` WHERE `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `	Too many WHERE expressions	SQL
 SELECT /*+ bypass */ a FROM t4 WHERE a=1;
 ERROR 42000: SELECT statement pattern not supported: NULL fields not supported
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` FROM `t4` WHERE `a` = ?	NULL fields not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` FROM `t4` WHERE `a` = ?	NULL fields not supported	SQL
 SELECT /*+ bypass */ a,b FROM t5 FORCE INDEX (a) WHERE a='abc';
 ERROR 42000: SELECT statement pattern not supported: only binary, utf8_bin, latin1_bin is supported for varchar cond field
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` , `b` FROM `t5` FORCE INDEX ( `a` ) WHERE `a` = ?	only binary, utf8_bin, latin1_bin is supported for varchar cond field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` , `b` FROM `t5` FORCE INDEX ( `a` ) WHERE `a` = ?	only binary, utf8_bin, latin1_bin is supported for varchar cond field	SQL
 drop table t1;
 drop table t2;
 drop table t3;
@@ -625,9 +625,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	64
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = ? HAVING `pk` = ?	HAVING not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = ? HAVING `pk` = ?	HAVING not supported	SQL
 set global rocksdb_select_bypass_rejected_query_history_size=3;
 SELECT @@rocksdb_select_bypass_rejected_query_history_size;
 @@rocksdb_select_bypass_rejected_query_history_size
@@ -639,10 +639,10 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	65
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported
-SELECT `pk` FROM `t1` WHERE `pk` = ? HAVING `pk` = ?	HAVING not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = ? HAVING `pk` = ?	HAVING not supported	SQL
 SELECT /*+ bypass */ * from t1 WHERE pk=1;
 pk	a	b	c	d
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -650,11 +650,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	66
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'
-SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported
-SELECT `pk` FROM `t1` WHERE `pk` = ? HAVING `pk` = ?	HAVING not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = ? HAVING `pk` = ?	HAVING not supported	SQL
 SELECT /*+ bypass */ 1 from t1 WHERE pk=1;
 1
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -662,11 +662,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	67
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'
-SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = ? GROUP BY `pk`	GROUP BY not supported	SQL
 SELECT /*+ bypass */ 1+2 from t1 WHERE pk=1;
 1+2
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -674,11 +674,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	68
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT * FROM `t1` WHERE `pk` = ?	Unrecognized field name: '*'	SQL
 SELECT /*+ bypass */ COUNT(*) from t1 WHERE pk=1;
 COUNT(*)
 0
@@ -687,11 +687,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	69
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ COUNT(pk) from t1 WHERE pk=1;
 COUNT(pk)
 0
@@ -700,11 +700,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	70
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT ? + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ pk+1 from t1 WHERE pk=1;
 pk+1
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -712,11 +712,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	71
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT COUNT ( * ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ pk from t1 USE INDEX (PRIMARY) WHERE pk=1;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -724,11 +724,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	72
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX
-SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
-SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX	SQL
+SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
+SELECT COUNT ( `pk` ) FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ pk from t1;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -736,11 +736,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	73
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX
-SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX	SQL
+SELECT `pk` + ? FROM `t1` WHERE `pk` = ?	SELECT expressions can only be field	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=1 or pk=2;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -748,11 +748,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	74
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = ? OR `pk` = ?	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = ? OR `pk` = ?	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` USE INDEX ( PRIMARY ) WHERE `pk` = ?	Index hint must be FORCE INDEX	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -760,11 +760,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	7
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	75
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ? AND `pk` > ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` = ? OR `pk` = ?	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ? AND `pk` > ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = ? OR `pk` = ?	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND a = 1;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -818,11 +818,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	78
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern
-SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed
-SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` = ? AND `d` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern	SQL
+SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` = ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk < 2;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -830,11 +830,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	79
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern
-SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern	SQL
+SELECT `d` FROM `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk <= 2;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -842,11 +842,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	80
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` > ?	Unsupported range query pattern	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk >= 2;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -854,11 +854,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	81
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` < ?	Unsupported range query pattern	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -866,11 +866,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	82
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` >= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` >= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` <= ?	Unsupported range query pattern	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk > 2;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -878,11 +878,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	83
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` > ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` >= ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` > ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ? AND `pk` >= ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` >= ? AND `pk` >= ?	Unsupported range query pattern	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
 pk
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2;
@@ -916,11 +916,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	97
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` <= ?	Unsupported range query pattern
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` <= ?	Unsupported range query pattern	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -928,11 +928,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	98
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` < ?	Unsupported range query pattern
-SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` <= ?	Unsupported range query pattern
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <= ? AND `pk` < ?	Unsupported range query pattern	SQL
+SELECT `pk` FROM `t1` WHERE `pk` < ? AND `pk` <= ?	Unsupported range query pattern	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0;
 a	b	c
 SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b in (1, 2);
@@ -944,11 +944,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	101
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk<=>1;
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -956,11 +956,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	11
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	102
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=DATE '2019-03-25';
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -968,11 +968,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	12
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	102
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=TIME '18:01:00';
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -980,11 +980,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	13
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	102
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=TIMESTAMP '2019-03-25 18:01:00';
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -992,11 +992,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	102
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` IN (...)	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk=ANY (SELECT pk FROM t1);
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -1004,11 +1004,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	103
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `a` , `b` , `c` FROM `t1` WHERE `a` > ? AND `b` > ? AND `c` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT /*+ bypass */ pk from t1 WHERE pk>ALL (SELECT pk FROM t1);
 pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -1016,11 +1016,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	104
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` <=> ?	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ DISTINCT a from t1;
 a
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -1028,11 +1028,11 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	105
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT DISTINCTROW `a` FROM `t1`	SELECT options not supported (such as SELECT DISTINCT)
-SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
-SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT DISTINCTROW `a` FROM `t1`	SELECT options not supported (such as SELECT DISTINCT)	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
+SELECT `pk` FROM `t1` WHERE `pk` = SOME ( SELECT `pk` FROM `t1` )	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ ALL a, b from t1;
 a	b
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -1040,18 +1040,18 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	106
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
-SELECT DISTINCTROW `a` FROM `t1`	SELECT options not supported (such as SELECT DISTINCT)
-SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
+SELECT DISTINCTROW `a` FROM `t1`	SELECT options not supported (such as SELECT DISTINCT)	SQL
+SELECT `pk` FROM `t1` WHERE `pk` > ALL ( SELECT `pk` FROM `t1` )	Unsupported WHERE - needs to be >, >=, <, <=, =, IN	SQL
 set global rocksdb_select_bypass_rejected_query_history_size=1;
 SELECT @@rocksdb_select_bypass_rejected_query_history_size;
 @@rocksdb_select_bypass_rejected_query_history_size
 1
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ t1.pk, t2.pk from t1, t2;
 pk	pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -1059,9 +1059,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	106
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ t1.pk FROM t1 LEFT JOIN t2 using (pk)
 WHERE t1.pk=1;
 pk
@@ -1070,9 +1070,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	106
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ pk, a from (SELECT pk, a FROM t1) AS t1_temp;
 pk	a
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
@@ -1080,9 +1080,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	106
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ pk FROM t1 WHERE pk=3 UNION DISTINCT
 SELECT pk FROM t2 WHERE pk=3;
 pk
@@ -1094,9 +1094,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	106
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT ALL `a` , `b` FROM `t1`	Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN	SQL
 SELECT /*+ bypass */ a, b, c FROM t1 WHERE a=1 ORDER BY a;
 a	b	c
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, a;
@@ -1120,9 +1120,9 @@ Variable_name	Value
 rocksdb_select_bypass_executed	14
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	114
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` , `b` , `c` FROM `t3` FORCE INDEX ( `a` ) WHERE `a` = ? ORDER BY `b` , `b`	ORDER BY is not in index order
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` , `b` , `c` FROM `t3` FORCE INDEX ( `a` ) WHERE `a` = ? ORDER BY `b` , `b`	ORDER BY is not in index order	SQL
 SELECT /*+ bypass */ a from t1 WHERE a=1 INTO OUTFILE 'datadir/select.out';
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 Variable_name	Value
@@ -1143,9 +1143,9 @@ SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE NOWAIT;
 a	b	c
 SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 LOCK IN SHARE MODE;
 a	b	c
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` , `b` , `c` FROM `t3` WHERE `pk` = ? LOCK IN SHARE MODE	Only SELECT with default READ lock is supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` , `b` , `c` FROM `t3` WHERE `pk` = ? LOCK IN SHARE MODE	Only SELECT with default READ lock is supported	SQL
 SELECT /*+ bypass */ HIGH_PRIORITY a, b, c FROM t3 WHERE pk=1;
 a	b	c
 SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
@@ -1153,19 +1153,19 @@ a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1;
 a
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` FROM `t3` WHERE `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `	Too many WHERE expressions
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` FROM `t3` WHERE `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `a` = ? AND `	Too many WHERE expressions	SQL
 SELECT /*+ bypass */ a FROM t4 WHERE a=1;
 a
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` FROM `t4` WHERE `a` = ?	NULL fields not supported
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` FROM `t4` WHERE `a` = ?	NULL fields not supported	SQL
 SELECT /*+ bypass */ a,b FROM t5 FORCE INDEX (a) WHERE a='abc';
 a	b
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` , `b` FROM `t5` FORCE INDEX ( `a` ) WHERE `a` = ?	only binary, utf8_bin, latin1_bin is supported for varchar cond field
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+QUERY	ERROR_MSG	BYPASS_TYPE
+SELECT `a` , `b` FROM `t5` FORCE INDEX ( `a` ) WHERE `a` = ?	only binary, utf8_bin, latin1_bin is supported for varchar cond field	SQL
 drop table t1;
 drop table t2;
 drop table t3;

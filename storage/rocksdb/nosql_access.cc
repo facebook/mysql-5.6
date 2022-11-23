@@ -2569,16 +2569,46 @@ bool inline is_bypass_on(Query_block *select_lex) {
 
 std::deque<REJECTED_ITEM> rejected_bypass_queries;
 std::mutex rejected_bypass_query_lock;
-bool handle_unsupported_bypass(THD *thd, const char *error_msg) {
-  rocksdb_select_bypass_rejected++;
+static std::time_t last_bypass_rpc_rejected_log_ts = std::time(nullptr);
+bool handle_unsupported_bypass(THD *thd, const char *error_msg,
+                               bypass_type btype) {
+  bool should_log_rejected_bypass;
+  if (btype == bypass_type::SQL) {
+    rocksdb_select_bypass_rejected++;
+    should_log_rejected_bypass = should_log_rejected_select_bypass();
+  } else {
+    rocksdb_bypass_rpc_rejected++;
+    should_log_rejected_bypass = should_log_rejected_bypass_rpc();
+  }
 
-  if (should_log_rejected_select_bypass()) {
+  if (should_log_rejected_bypass) {
+    // Normalize rejected query
+    String normalized_query_text;
+
+    // Rate throttling formatting and logging for Bypass RPC
+    if (btype == bypass_type::RPC) {
+      const std::time_t now = std::time(nullptr);
+      if (rocksdb_bypass_rpc_rejected_log_ts_interval_secs > 0 &&
+          now - last_bypass_rpc_rejected_log_ts <
+              rocksdb_bypass_rpc_rejected_log_ts_interval_secs) {
+        return true;
+      }
+
+      last_bypass_rpc_rejected_log_ts = now;
+
+      auto query_formatter = thd->get_query_formatter();
+      if (!query_formatter) return true;
+      query_formatter->format_query(normalized_query_text);
+    }
+
     // Record the rejected query into the error log if rejected query history
     // size equals zero
     if (get_select_bypass_rejected_query_history_size() == 0) {
-      // NO_LINT_DEBUG
-      sql_print_information("[REJECTED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
-                            thd->query().str, error_msg);
+      if (btype == bypass_type::SQL) {
+        // NO_LINT_DEBUG
+        sql_print_information("[REJECTED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
+                              thd->query().str, error_msg);
+      }
     } else {
       // Otherwise, record the rejected query into information_schema
       const std::lock_guard<std::mutex> lock(rejected_bypass_query_lock);
@@ -2591,13 +2621,14 @@ bool handle_unsupported_bypass(THD *thd, const char *error_msg) {
       REJECTED_ITEM rejected_query_record;
       rejected_query_record.rejected_bypass_query_timestamp =
           thd->query_start_timeval_trunc(0);
-      // Normalize rejected query
-      String normalized_query_text;
-      compute_digest_text(&thd->m_digest->m_digest_storage,
-                          &normalized_query_text);
+      if (btype == bypass_type::SQL) {
+        compute_digest_text(&thd->m_digest->m_digest_storage,
+                            &normalized_query_text);
+      }
       rejected_query_record.rejected_bypass_query =
           normalized_query_text.c_ptr_safe();
       rejected_query_record.error_msg = error_msg;
+      rejected_query_record.unsupported_bypass_type = btype;
 
       rejected_bypass_queries.push_front(rejected_query_record);
     }
@@ -2606,7 +2637,7 @@ bool handle_unsupported_bypass(THD *thd, const char *error_msg) {
   // During parse you can just let unsupported scenario fallback to MySQL
   // implementation - but keep in mind it may regress performance
   // Default is TRUE - let unsupported SELECT scenario just fail
-  if (should_fail_unsupported_select_bypass()) {
+  if (btype == bypass_type::SQL && should_fail_unsupported_select_bypass()) {
     my_printf_error(ER_NOT_SUPPORTED_YET,
                     "SELECT statement pattern not supported: %s", MYF(0),
                     error_msg);
@@ -2626,7 +2657,8 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
   // Parse the SELECT statement
   sql_select_parser select_stmt(thd, select_lex);
   if (select_stmt.parse()) {
-    return handle_unsupported_bypass(thd, select_stmt.get_error_msg());
+    return handle_unsupported_bypass(thd, select_stmt.get_error_msg(),
+                                     bypass_type::SQL);
   }
 
   // Execute SELECT statement
@@ -2634,7 +2666,8 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
   select_exec exec(select_stmt, protocol);
   if (exec.run()) {
     if (exec.is_unsupported()) {
-      return handle_unsupported_bypass(thd, exec.get_error_msg());
+      return handle_unsupported_bypass(thd, exec.get_error_msg(),
+                                       bypass_type::SQL);
     }
     if (!thd->is_error()) {
       // The contract is that any booleaning return function should do its
@@ -2668,7 +2701,7 @@ bypass_rpc_exception rocksdb_select_by_key(
     select_exec exec(select_stmt, protocol);
     if (exec.run()) {
       if (exec.is_unsupported()) {
-        rocksdb_bypass_rpc_rejected++;
+        handle_unsupported_bypass(thd, exec.get_error_msg(), bypass_type::RPC);
       }
       rocksdb_bypass_rpc_failed++;
       ret.errnum = ER_NOT_SUPPORTED_YET;
@@ -2679,7 +2712,7 @@ bypass_rpc_exception rocksdb_select_by_key(
       rocksdb_bypass_rpc_executed++;
     }
   } else {
-    rocksdb_bypass_rpc_rejected++;
+    handle_unsupported_bypass(thd, select_stmt.get_error_msg(), bypass_type::RPC);
     ret.errnum = ER_NOT_SUPPORTED_YET;
     ret.sqlstate = "MYF(0)";
     ret.message = "SELECT statement pattern not supported: ";

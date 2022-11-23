@@ -33,6 +33,11 @@
 
 #pragma once
 
+enum bypass_type {
+  SQL,
+  RPC,
+};
+
 struct REJECTED_ITEM {
   // Timestamp of rejected query
   my_timeval rejected_bypass_query_timestamp;
@@ -40,6 +45,8 @@ struct REJECTED_ITEM {
   std::string rejected_bypass_query;
   // Error message
   std::string error_msg;
+  // Type of "nosql" access
+  bypass_type unsupported_bypass_type;
 };
 
 class Query_block;
