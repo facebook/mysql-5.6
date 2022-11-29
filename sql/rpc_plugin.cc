@@ -313,6 +313,7 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
     return ret;
   }
   current_thd->status_var.com_stat[SQLCOM_SELECT]++;
+  current_thd->status_var.questions++;
   myrocks_columns columns;
   THD *thd = current_thd;
   RPC_Query_formatter *formatter =
