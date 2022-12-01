@@ -9628,6 +9628,7 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
 
             if (recheck_reason == LOW_LIMIT) {
               int read_direction = 0;
+              bool check_ordering_index = true;
 
               /*
                 If the current plan is to use range, then check if the
@@ -9653,13 +9654,29 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
                 if (read_direction == 1 ||
                     (read_direction == -1 &&
                      reverse_sort_possible(tab->range_scan()))) {
-                  recheck_reason = DONT_RECHECK;
+                  if (read_direction == 1) {
+                    recheck_reason = DONT_RECHECK;
+                  } else {
+                    // The only reason why we can't set DONT_RECHECK (like for
+                    // the ASC case) is so that we call test_quick_select again
+                    // with the correct interesting_order flag. Calling it again
+                    // sets the correct MRR flags for descending scans. Note
+                    // that ReverseIndexRangeScanIterator always disables MRR
+                    // anyway during execution, so doing this is only useful for
+                    // EXPLAIN.
+                    //
+                    // A cleaner approach would be to just call
+                    // test_quick_select with the correct flags in the first
+                    // place.
+                    check_ordering_index = false;
+                    interesting_order = ORDER_DESC;
+                  }
                 }
               }
               // We do a cost based search for an ordering index here. Do this
               // only if prefer_ordering_index switch is on or an index is
               // forced for order by
-              if (recheck_reason != DONT_RECHECK &&
+              if (recheck_reason != DONT_RECHECK && check_ordering_index &&
                   (tab->table()->force_index_order ||
                    thd->optimizer_switch_flag(
                        OPTIMIZER_SWITCH_PREFER_ORDERING_INDEX))) {
