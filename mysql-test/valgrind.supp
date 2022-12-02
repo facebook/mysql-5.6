@@ -2899,23 +2899,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb14ThreadLocalPtr14InitSingletonsEv
-   fun:_ZN10my_rocksdb3Env7DefaultEv
-   fun:_ZN10my_rocksdb9DBOptionsC1Ev
-   ...
-   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv
-}
-
-{
-   Still reachable for once-per-process initializations
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   ...
-   fun:_ZN10my_rocksdb12_GLOBAL__N_18PosixEnv*
-   fun:_ZN10my_rocksdb3Env7DefaultEv
-   fun:_ZN10my_rocksdb9DBOptionsC1Ev
-   ...
-   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv
+   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsE*
 }
 
 {
@@ -3030,15 +3014,6 @@
    match-leak-kinds: reachable
    ...
    fun:_ZN7rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
-   ...
-}
-
-{
-   myrocks::rdb_init_rocksdb_db_options() creates a singleton db options object
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   ...
-   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv.__uniq.139504330336072172663997982448787994910
    ...
 }
 
