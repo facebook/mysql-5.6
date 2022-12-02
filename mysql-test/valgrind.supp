@@ -1168,16 +1168,6 @@
 }
 
 {
-   General protobuf globals
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   ...
-   fun:_ZN6google8protobuf8internal24InitProtobufDefaultsSlowEv
-   ...
-}
-
-{
    mysqlx plugin install
    Memcheck:Leak
    fun:*alloc
