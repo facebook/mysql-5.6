@@ -1,0 +1,51 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is empty string
+####
+--echo Default value of full_sql_ids is empty string
+SELECT @@global.full_sql_ids;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.full_sql_ids;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+set @@global.full_sql_ids = "34e88a1155b13f86bcea1673de80d26b";
+SELECT @@global.full_sql_ids;
+
+set @@global.full_sql_ids = "34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d";
+SELECT @@global.full_sql_ids;
+
+####
+## Verify invalid values
+####
+--Error ER_WRONG_VALUE_FOR_VAR
+set @@global.full_sql_ids = ",,,";
+-- echo empty values
+SELECT @@global.full_sql_ids;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+set @@global.full_sql_ids = "34e88a1155b13f86bcea1673de80d26b,,,";
+-- echo empty values after the first sql id
+SELECT @@global.full_sql_ids;
+
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.full_sql_ids = "34e88a-1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d";
+SELECT @@global.full_sql_ids;
+
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.full_sql_ids = "1,1,1,1,1,1,1,1,1,1";
+SELECT @@global.full_sql_ids;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.full_sql_ids = "";
+SELECT @@global.full_sql_ids;

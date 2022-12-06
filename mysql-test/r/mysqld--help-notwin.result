@@ -608,6 +608,8 @@ The following options may be given as the first argument:
  Number of best matches to use for query expansion
  --ft-stopword-file=name 
  Use stopwords from this file instead of built-in list
+ --full-sql-ids[=name] 
+ Comma separated SQL IDs to capture full SQL text for.
  --gap-lock-exceptions[=name] 
  List of tables (using regex) that are excluded from gap
  lock detection.
@@ -3227,6 +3229,7 @@ ft-max-word-len 84
 ft-min-word-len 4
 ft-query-expansion-limit 20
 ft-stopword-file (No default value)
+full-sql-ids 
 gap-lock-exceptions (No default value)
 gap-lock-raise-error OFF
 gap-lock-write-log FALSE

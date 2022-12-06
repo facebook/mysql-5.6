@@ -97,6 +97,7 @@
 #include "storage/perfschema/table_file_instances.h"
 #include "storage/perfschema/table_file_summary_by_event_name.h"
 #include "storage/perfschema/table_file_summary_by_instance.h"
+#include "storage/perfschema/table_full_sql.h"
 #include "storage/perfschema/table_global_status.h"
 #include "storage/perfschema/table_global_variables.h"
 #include "storage/perfschema/table_host_cache.h"
@@ -506,6 +507,7 @@ static PFS_engine_table_share *all_shares[] = {
     &table_file_instances::m_share,
     &table_file_summary_by_event_name::m_share,
     &table_file_summary_by_instance::m_share,
+    &table_full_sql::m_share,
     &table_host_cache::m_share,
     &table_index_statistics::m_share,
     &table_mutex_instances::m_share,

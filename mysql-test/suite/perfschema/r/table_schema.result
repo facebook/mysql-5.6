@@ -30,6 +30,7 @@ def	performance_schema	column_statistics	TABLE_INSTANCE	4	NULL	YES	varchar	192	7
 def	performance_schema	column_statistics	COLUMN_NAME	5	NULL	YES	varchar	192	768	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(192)			select,insert,update,references			NULL	NULL
 def	performance_schema	column_statistics	SQL_OPERATION	6	NULL	YES	varchar	192	768	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(192)			select,insert,update,references			NULL	NULL
 def	performance_schema	column_statistics	OPERATOR_TYPE	7	NULL	YES	varchar	192	768	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(192)			select,insert,update,references			NULL	NULL
+def	performance_schema	column_statistics	EXTRA_DATA	8	NULL	YES	mediumtext	16777215	16777215	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	mediumtext			select,insert,update,references			NULL	NULL
 def	performance_schema	cond_instances	NAME	1	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)	MUL		select,insert,update,references			NULL	NULL
 def	performance_schema	cond_instances	OBJECT_INSTANCE_BEGIN	2	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned	PRI		select,insert,update,references			NULL	NULL
 def	performance_schema	data_locks	ENGINE	1	NULL	NO	varchar	32	128	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(32)	PRI		select,insert,update,references			NULL	NULL
@@ -1023,6 +1024,8 @@ def	performance_schema	file_summary_by_instance	SUM_TIMER_MISC	22	NULL	NO	bigint
 def	performance_schema	file_summary_by_instance	MIN_TIMER_MISC	23	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL	NULL
 def	performance_schema	file_summary_by_instance	AVG_TIMER_MISC	24	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL	NULL
 def	performance_schema	file_summary_by_instance	MAX_TIMER_MISC	25	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL	NULL
+def	performance_schema	full_sql	SQL_ID	1	NULL	YES	varchar	192	768	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(192)			select,insert,update,references			NULL	NULL
+def	performance_schema	full_sql	FULL_SQL_TEXT	2	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	longtext			select,insert,update,references			NULL	NULL
 def	performance_schema	global_status	VARIABLE_NAME	1	NULL	NO	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	PRI		select,insert,update,references			NULL	NULL
 def	performance_schema	global_status	VARIABLE_VALUE	2	NULL	YES	varchar	1024	4096	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(1024)			select,insert,update,references			NULL	NULL
 def	performance_schema	global_variables	VARIABLE_NAME	1	NULL	NO	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	PRI		select,insert,update,references			NULL	NULL

@@ -102,9 +102,9 @@
 #include "sql/conn_handler/socket_connection.h"  // MY_BIND_ALL_ADDRESSES
 #include "sql/derror.h"                          // read_texts
 #include "sql/discrete_interval.h"
-#include "sql/events.h"          // Events
+#include "sql/events.h"             // Events
 #include "sql/failure_injection.h"  // Failure injection framework
-#include "sql/hostname_cache.h"  // host_cache_resize
+#include "sql/hostname_cache.h"     // host_cache_resize
 #include "sql/index_statistics.h"
 #include "sql/log.h"
 #include "sql/log_event.h"  // MAX_MAX_ALLOWED_PACKET
@@ -7083,8 +7083,8 @@ static Sys_var_deprecated_alias Sys_log_slave_updates("log_slave_updates",
 
 static Sys_var_charptr Sys_apply_log(
     "apply_log", "The location and name to use for apply logs for raft",
-    READ_ONLY NON_PERSIST GLOBAL_VAR(opt_apply_logname),
-    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(0));
+    READ_ONLY NON_PERSIST GLOBAL_VAR(opt_apply_logname), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(0));
 
 static Sys_var_charptr Sys_apply_log_index(
     "apply_log_index",
@@ -9683,6 +9683,20 @@ static Sys_var_enum Sys_sql_findings_control(
     GLOBAL_VAR(sql_findings_control), CMD_LINE(REQUIRED_ARG),
     sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_sql_findings_control));
+
+static bool check_full_sql_ids(sys_var * /*sys_var*/, THD * /*thd*/,
+                               set_var *var) {
+  std::string sql_id_csv;
+  if (var->save_result.string_value.str != nullptr) {
+    sql_id_csv = to_string(var->save_result.string_value);
+  }
+  return update_full_sql_ids(sql_id_csv);
+}
+
+static Sys_var_charptr Sys_full_sql_ids(
+    "full_sql_ids", "Comma separated SQL IDs to capture full SQL text for.",
+    GLOBAL_VAR(full_sql_ids), CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(""),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_full_sql_ids));
 
 static bool set_column_stats_control(sys_var *, THD *, enum_var_type) {
   if (column_stats_control == SQL_INFO_CONTROL_OFF_HARD) {

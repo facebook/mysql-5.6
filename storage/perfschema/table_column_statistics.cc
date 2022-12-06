@@ -53,7 +53,8 @@ Plugin_table table_column_statistics::m_table_def(
     "  TABLE_INSTANCE VARCHAR(192),\n"
     "  COLUMN_NAME    VARCHAR(192),\n"
     "  SQL_OPERATION  VARCHAR(192),\n"
-    "  OPERATOR_TYPE  VARCHAR(192)\n",
+    "  OPERATOR_TYPE  VARCHAR(192),\n"
+    "  EXTRA_DATA     VARCHAR(32768)\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
@@ -81,7 +82,8 @@ enum column_statistics_field_offset {
   FO_TABLE_INSTANCE,
   FO_COLUMN_NAME,
   FO_SQL_OPERATION,
-  FO_OPERATOR_TYPE
+  FO_OPERATOR_TYPE,
+  FO_EXTRA_DATA
 };
 
 table_column_statistics::table_column_statistics()
@@ -164,6 +166,10 @@ int table_column_statistics::read_row_values(TABLE *table, unsigned char *buf,
         case FO_OPERATOR_TYPE:
           set_field_varchar_utf8mb4(f, curr_row.op_type().c_str(),
                                     curr_row.op_type().length());
+          break;
+        case FO_EXTRA_DATA:
+          set_field_varchar_utf8mb4(f, curr_row.extra_data().c_str(),
+                                    curr_row.extra_data().length());
           break;
         default:
           assert(false);

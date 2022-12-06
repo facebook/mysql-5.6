@@ -1,0 +1,42 @@
+Default value of full_sql_ids is empty string
+SELECT @@global.full_sql_ids;
+@@global.full_sql_ids
+
+SELECT @@session.full_sql_ids;
+ERROR HY000: Variable 'full_sql_ids' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+set @@global.full_sql_ids = "34e88a1155b13f86bcea1673de80d26b";
+SELECT @@global.full_sql_ids;
+@@global.full_sql_ids
+34e88a1155b13f86bcea1673de80d26b
+set @@global.full_sql_ids = "34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d";
+SELECT @@global.full_sql_ids;
+@@global.full_sql_ids
+34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d
+set @@global.full_sql_ids = ",,,";
+ERROR 42000: Variable 'full_sql_ids' can't be set to the value of ',,,'
+empty values
+SELECT @@global.full_sql_ids;
+@@global.full_sql_ids
+34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d
+set @@global.full_sql_ids = "34e88a1155b13f86bcea1673de80d26b,,,";
+ERROR 42000: Variable 'full_sql_ids' can't be set to the value of '34e88a1155b13f86bcea1673de80d26b,,,'
+empty values after the first sql id
+SELECT @@global.full_sql_ids;
+@@global.full_sql_ids
+34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d
+set @@global.full_sql_ids = "34e88a-1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d";
+ERROR 42000: Variable 'full_sql_ids' can't be set to the value of '34e88a-1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d'
+SELECT @@global.full_sql_ids;
+@@global.full_sql_ids
+34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d
+set @@global.full_sql_ids = "1,1,1,1,1,1,1,1,1,1";
+ERROR 42000: Variable 'full_sql_ids' can't be set to the value of '1,1,1,1,1,1,1,1,1,1'
+SELECT @@global.full_sql_ids;
+@@global.full_sql_ids
+34e88a1155b13f86bcea1673de80d26b,34e88a1155b13f86bcea1673de80d26c,34e88a1155b13f86bcea1673de80d26d
+restore the default value
+SET @@global.full_sql_ids = "";
+SELECT @@global.full_sql_ids;
+@@global.full_sql_ids
+

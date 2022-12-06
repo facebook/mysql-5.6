@@ -56,6 +56,7 @@ performance_schema	events_waits_summary_global_by_event_name	def
 performance_schema	file_instances	def
 performance_schema	file_summary_by_event_name	def
 performance_schema	file_summary_by_instance	def
+performance_schema	full_sql	def
 performance_schema	global_status	def
 performance_schema	global_variables	def
 performance_schema	host_cache	def
@@ -183,6 +184,7 @@ events_waits_summary_global_by_event_name	BASE TABLE	PERFORMANCE_SCHEMA
 file_instances	BASE TABLE	PERFORMANCE_SCHEMA
 file_summary_by_event_name	BASE TABLE	PERFORMANCE_SCHEMA
 file_summary_by_instance	BASE TABLE	PERFORMANCE_SCHEMA
+full_sql	BASE TABLE	PERFORMANCE_SCHEMA
 global_status	BASE TABLE	PERFORMANCE_SCHEMA
 global_variables	BASE TABLE	PERFORMANCE_SCHEMA
 host_cache	BASE TABLE	PERFORMANCE_SCHEMA
@@ -310,6 +312,7 @@ events_waits_summary_global_by_event_name	10	Dynamic
 file_instances	10	Dynamic
 file_summary_by_event_name	10	Dynamic
 file_summary_by_instance	10	Dynamic
+full_sql	10	Dynamic
 global_status	10	Dynamic
 global_variables	10	Dynamic
 host_cache	10	Dynamic
@@ -438,6 +441,7 @@ events_waits_summary_global_by_event_name	0
 file_instances	0
 file_summary_by_event_name	0
 file_summary_by_instance	0
+full_sql	0
 host_cache	0
 hosts	0
 index_statistics	0
@@ -570,6 +574,7 @@ events_waits_summary_global_by_event_name	0	0
 file_instances	0	0
 file_summary_by_event_name	0	0
 file_summary_by_instance	0	0
+full_sql	0	0
 global_status	0	0
 global_variables	0	0
 host_cache	0	0
@@ -697,6 +702,7 @@ events_waits_summary_global_by_event_name	0	0	NULL
 file_instances	0	0	NULL
 file_summary_by_event_name	0	0	NULL
 file_summary_by_instance	0	0	NULL
+full_sql	0	0	NULL
 global_status	0	0	NULL
 global_variables	0	0	NULL
 host_cache	0	0	NULL
@@ -824,6 +830,7 @@ events_waits_summary_global_by_event_name	NULL	NULL	NULL
 file_instances	NULL	NULL	NULL
 file_summary_by_event_name	NULL	NULL	NULL
 file_summary_by_instance	NULL	NULL	NULL
+full_sql	NULL	NULL	NULL
 global_status	NULL	NULL	NULL
 global_variables	NULL	NULL	NULL
 host_cache	NULL	NULL	NULL
@@ -951,6 +958,7 @@ events_waits_summary_global_by_event_name	utf8mb4_0900_ai_ci	NULL
 file_instances	utf8mb4_0900_ai_ci	NULL
 file_summary_by_event_name	utf8mb4_0900_ai_ci	NULL
 file_summary_by_instance	utf8mb4_0900_ai_ci	NULL
+full_sql	utf8mb4_0900_ai_ci	NULL
 global_status	utf8mb4_0900_ai_ci	NULL
 global_variables	utf8mb4_0900_ai_ci	NULL
 host_cache	utf8mb4_0900_ai_ci	NULL
@@ -1078,6 +1086,7 @@ events_waits_summary_global_by_event_name
 file_instances	
 file_summary_by_event_name	
 file_summary_by_instance	
+full_sql	
 global_status	
 global_variables	
 host_cache	
@@ -1205,6 +1214,7 @@ events_waits_summary_global_by_event_name
 file_instances	
 file_summary_by_event_name	
 file_summary_by_instance	
+full_sql	
 global_status	
 global_variables	
 host_cache	

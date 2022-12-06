@@ -298,6 +298,7 @@ def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	COMPACTION_REASON	5		NO	v
 def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	CREATE_TIME	1		NO	timestamp	NULL	NULL	NULL	NULL	NULL	NULL	NULL	timestamp			select			NULL	#
 def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	QUERY	2		NO	varchar	33	100	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(100)			select			NULL	#
 def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	ERROR_MSG	3		NO	varchar	33	100	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(100)			select			NULL	#
+def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	BYPASS_TYPE	4		NO	varchar	3	10	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(10)			select			NULL	#
 def	information_schema	ROCKSDB_CFSTATS	CF_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL	#
 def	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	2		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL	#
 def	information_schema	ROCKSDB_CFSTATS	VALUE	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL	#
@@ -1051,6 +1052,7 @@ NULL	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	THREAD_ID	bigint	NULL	NU
 NULL	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	CREATE_TIME	timestamp	NULL	NULL	NULL	NULL	timestamp
 3.0303	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	QUERY	varchar	33	100	utf8mb3	utf8mb3_general_ci	varchar(100)
 3.0303	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	ERROR_MSG	varchar	33	100	utf8mb3	utf8mb3_general_ci	varchar(100)
+3.3333	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	BYPASS_TYPE	varchar	3	10	utf8mb3	utf8mb3_general_ci	varchar(10)
 3.0156	information_schema	ROCKSDB_CFSTATS	CF_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
 3.0156	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
 NULL	information_schema	ROCKSDB_CFSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint

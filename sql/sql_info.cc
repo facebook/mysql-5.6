@@ -21,7 +21,10 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "sql/sql_info.h"
+
 #include <algorithm>
+#include <atomic>
+#include <set>
 #include <string>
 #include <vector>
 #include "include/my_macros.h"
@@ -32,6 +35,7 @@
 #include "sql/sql_class.h"
 #include "sql/sql_error.h"
 #include "sql/sql_lex.h"
+#include "sql/sql_thd_internal_api.h"
 #include "unordered_map"
 
 /***********************************************************************
@@ -357,7 +361,7 @@ void free_global_sql_findings(bool limits_updated) {
     finding_vec out: - vector that stores the findings of the statement
                        (key is the warning code)
 */
-static void populate_sql_findings(THD *thd, char *query_text,
+static void populate_sql_findings(THD *thd, const std::string &query_text,
                                   SQL_FINDING_VEC &finding_vec) {
   Diagnostics_area::Sql_condition_iterator it =
       thd->get_stmt_da()->sql_conditions();
@@ -385,8 +389,8 @@ static void populate_sql_findings(THD *thd, char *query_text,
           err->message_text(),
           std::min((uint)err->message_octet_length(), sf_max_message_size));
       sql_find.query_text.append(
-          query_text, std::min((uint)strlen(query_text),
-                               performance_schema_max_sql_text_length));
+          query_text, 0,
+          std::min(query_text.size(), performance_schema_max_sql_text_length));
       sql_find.count = 1;
       sql_find.last_recorded = now;
       finding_vec.push_back(sql_find);
@@ -413,7 +417,7 @@ static void populate_sql_findings(THD *thd, char *query_text,
     thd         in:  - THD
     query_text  in:  - text of the SQL statement
 */
-void store_sql_findings(THD *thd, char *query_text) {
+void store_sql_findings(THD *thd, const std::string &query_text) {
   if (sql_findings_control == SQL_INFO_CONTROL_ON &&
       thd->mt_key_is_set(THD::SQL_ID) && thd->get_stmt_da()->cond_count() > 0) {
     mysql_mutex_lock(&LOCK_global_sql_findings);
@@ -471,6 +475,80 @@ std::vector<sql_findings_row> get_all_sql_findings() {
 
 /***********************************************************************
                 End - Functions to support SQL findings
+************************************************************************/
+
+/***********************************************************************
+              Begin - Functions to support full SQL
+************************************************************************/
+
+static std::atomic_bool empty(true);
+static std::set<std::string> full_sql_ids_set;
+static std::unordered_map<std::string, std::string> global_full_sql_text;
+
+bool update_full_sql_ids(const std::string &sql_id_csv) {
+  if (!sql_id_csv.empty()) {
+    std::istringstream csv_stream(sql_id_csv);
+    std::string sql_id;
+    std::set<std::string> sql_ids;
+    while (std::getline(csv_stream, sql_id, ',')) {
+      if (sql_id.size() != 2 * DIGEST_HASH_SIZE) {
+        return true; /* error */
+      }
+      sql_ids.insert(sql_id);
+    }
+    mysql_mutex_lock(&LOCK_full_sql_text);
+    full_sql_ids_set.clear();
+    full_sql_ids_set.insert(sql_ids.begin(), sql_ids.end());
+    mysql_mutex_unlock(&LOCK_full_sql_text);
+    empty = false;
+  } else {
+    free_full_sql_text();
+  }
+  return false; /* success */
+}
+
+void free_full_sql_text() {
+  mysql_mutex_lock(&LOCK_full_sql_text);
+  full_sql_ids_set.clear();
+  global_full_sql_text.clear();
+  mysql_mutex_unlock(&LOCK_full_sql_text);
+  empty = true;
+}
+
+void store_full_sql_text(THD *thd, const std::string &query_text) {
+  if (!empty && thd->mt_key_is_set(THD::SQL_ID)) {
+    std::string sql_id_str(thd_get_sql_id(thd));
+
+    auto fsis_it = full_sql_ids_set.find(sql_id_str);
+    if (fsis_it == full_sql_ids_set.end()) {
+      return;
+    }
+
+    mysql_mutex_lock(&LOCK_full_sql_text);
+    auto gfst_it = global_full_sql_text.find(sql_id_str);
+    if (gfst_it == global_full_sql_text.end()) {
+      global_full_sql_text.emplace(sql_id_str, query_text);
+    }
+    mysql_mutex_unlock(&LOCK_full_sql_text);
+  }
+}
+
+std::vector<full_sql_row> get_all_full_sql() {
+  std::vector<full_sql_row> full_sql;
+  mysql_mutex_lock(&LOCK_full_sql_text);
+
+  for (auto sql_iter = global_full_sql_text.cbegin();
+       sql_iter != global_full_sql_text.cend(); ++sql_iter) {
+    full_sql.emplace_back(sql_iter->first,    // SQL_ID
+                          sql_iter->second);  // SQL_TEXT
+  }
+
+  mysql_mutex_unlock(&LOCK_full_sql_text);
+  return full_sql;
+}
+
+/***********************************************************************
+                End - Functions to support full SQL
 ************************************************************************/
 
 /*

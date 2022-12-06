@@ -66,6 +66,7 @@ struct ColumnUsageInfo {
   std::string column_name;
   sql_operation sql_op;
   operator_type op_type;
+  std::string extra_data;
 
   // Comparator required for defining a strict weak ordering of
   // `ColumnUsageInfo` structs.

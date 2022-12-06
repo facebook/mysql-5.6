@@ -61,6 +61,7 @@ events_waits_summary_global_by_event_name
 file_instances
 file_summary_by_event_name
 file_summary_by_instance
+full_sql
 global_status
 global_variables
 host_cache

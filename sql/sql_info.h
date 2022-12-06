@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "sql/sql_error.h"
+#include "storage/perfschema/table_full_sql.h"
 #include "storage/perfschema/table_sql_findings.h"
 
 /*
@@ -84,7 +85,7 @@ typedef struct st_sql_finding {
 typedef std::vector<SQL_FINDING> SQL_FINDING_VEC;
 
 void free_global_sql_findings(bool limits_updated);
-void store_sql_findings(THD *thd, char *query_text);
+void store_sql_findings(THD *thd, const std::string &query_text);
 std::vector<sql_findings_row> get_all_sql_findings();
 
 /* initializes sql info related variables/structures at instance start */
@@ -92,6 +93,19 @@ void init_sql_info();
 
 /***********************************************************************
                 End - Functions to support SQL findings
+************************************************************************/
+
+/***********************************************************************
+              Begin - Functions to support full SQL
+************************************************************************/
+
+bool update_full_sql_ids(const std::string &sql_id_csv);
+void free_full_sql_text();
+void store_full_sql_text(THD *thd, const std::string &query_text);
+std::vector<full_sql_row> get_all_full_sql();
+
+/***********************************************************************
+                End - Functions to support full SQL
 ************************************************************************/
 
 /***********************************************************************

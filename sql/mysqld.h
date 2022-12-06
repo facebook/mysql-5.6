@@ -601,6 +601,9 @@ extern uint sql_maximum_duplicate_executions;
 /* Controls the mode of enforcement of duplicate executions of the same stmt */
 extern ulong sql_duplicate_executions_control;
 
+/* List of sql_ids to store full SQL text for */
+extern char *full_sql_ids;
+
 /* Global variable to control collecting column statistics */
 extern ulong column_stats_control;
 
@@ -780,6 +783,7 @@ extern PSI_mutex_key key_LOCK_global_write_throttling_rules;
 extern PSI_mutex_key key_LOCK_global_write_throttling_log;
 extern PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
 extern PSI_mutex_key key_LOCK_global_sql_findings;
+extern PSI_mutex_key key_LOCK_full_sql_text;
 extern PSI_mutex_key key_LOCK_global_active_sql;
 extern PSI_mutex_key key_LOCK_client_attribute_names;
 extern PSI_mutex_key key_LOCK_rpc_query;
@@ -1050,6 +1054,7 @@ extern mysql_mutex_t LOCK_global_write_throttling_rules;
 extern mysql_mutex_t LOCK_global_write_throttling_log;
 extern mysql_mutex_t LOCK_replication_lag_auto_throttling;
 extern mysql_mutex_t LOCK_global_sql_findings;
+extern mysql_mutex_t LOCK_full_sql_text;
 extern mysql_mutex_t LOCK_client_attribute_names;
 extern mysql_mutex_t LOCK_global_active_sql;
 extern mysql_mutex_t LOCK_global_system_variables;
@@ -1089,7 +1094,7 @@ extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_replica;
 extern mysql_rwlock_t LOCK_system_variables_hash;
 
-extern uint performance_schema_max_sql_text_length;
+extern ulong performance_schema_max_sql_text_length;
 
 extern ulong opt_ssl_fips_mode;
 
