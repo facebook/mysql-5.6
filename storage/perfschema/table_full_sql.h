@@ -22,8 +22,8 @@
   */
 
 /**
-  @file storage/perfschema/table_column_statistics.h
-  Performance schema column_statistics table.
+  @file storage/perfschema/table_full_sql.h
+  Performance schema full_sql table.
 */
 
 #pragma once
@@ -33,53 +33,29 @@
 
 #include "storage/perfschema/pfs_engine_table.h"
 
-class column_statistics_row {
+class full_sql_row {
  public:
-  column_statistics_row(const std::string sql_id,
-                        const std::string table_schema,
-                        const std::string table_name,
-                        const std::string table_instance,
-                        const std::string column_name, const std::string sql_op,
-                        const std::string op_type, const std::string extra_data)
-      : m_sql_id(sql_id),
-        m_table_schema(table_schema),
-        m_table_name(table_name),
-        m_table_instance(table_instance),
-        m_column_name(column_name),
-        m_sql_op(sql_op),
-        m_op_type(op_type),
-        m_extra_data(extra_data) {}
+  full_sql_row(const std::string sql_id, const std::string full_sql_text)
+      : m_sql_id(sql_id), m_full_sql_text(full_sql_text) {}
 
   /* Disabled copy. */
-  column_statistics_row(column_statistics_row &) = delete;
-  column_statistics_row &operator=(column_statistics_row &) = delete;
+  full_sql_row(full_sql_row &) = delete;
+  full_sql_row &operator=(full_sql_row &) = delete;
 
   /* Allow std::move copies. */
-  column_statistics_row(column_statistics_row &&) = default;
-  column_statistics_row &operator=(column_statistics_row &&) = default;
+  full_sql_row(full_sql_row &&) = default;
+  full_sql_row &operator=(full_sql_row &&) = default;
 
  public:
   std::string sql_id() const { return m_sql_id; }
-  std::string table_schema() const { return m_table_schema; }
-  std::string table_name() const { return m_table_name; }
-  std::string table_instance() const { return m_table_instance; }
-  std::string column_name() const { return m_column_name; }
-  std::string sql_op() const { return m_sql_op; }
-  std::string op_type() const { return m_op_type; }
-  std::string extra_data() const { return m_extra_data; }
+  std::string full_sql_text() const { return m_full_sql_text; }
 
  private:
   std::string m_sql_id;
-  std::string m_table_schema;
-  std::string m_table_name;
-  std::string m_table_instance;
-  std::string m_column_name;
-  std::string m_sql_op;
-  std::string m_op_type;
-  std::string m_extra_data;
+  std::string m_full_sql_text;
 };
 
-class table_column_statistics : public PFS_engine_table {
+class table_full_sql : public PFS_engine_table {
  public:
   /** Table share */
   static PFS_engine_table_share m_share;
@@ -99,14 +75,14 @@ class table_column_statistics : public PFS_engine_table {
                       bool read_all) override;
 
  private:
-  table_column_statistics();
+  table_full_sql();
 
  private:
   /** Current position. */
   PFS_simple_index m_pos;
 
-  std::vector<column_statistics_row> m_all_rows;
-  const column_statistics_row *m_current_row;
+  std::vector<full_sql_row> m_all_rows;
+  const full_sql_row *m_current_row;
 
   /** Table share lock. */
   static THR_LOCK m_table_lock;

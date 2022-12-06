@@ -165,7 +165,7 @@ SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
 TABLE_NAME	tbl1
-COLUMN_USAGE_COUNT	5
+COLUMN_USAGE_COUNT	6
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test
@@ -445,6 +445,13 @@ TABLE_NAME	tbl1
 COLUMN_NAME	col1_1
 SQL_OPERATION	PROJECTION
 OPERATOR_TYPE	WILDCARD_STAR
+SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
+DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
+TABLE_SCHEMA	cus_test
+TABLE_NAME	tbl1
+COLUMN_NAME	col1_1
+SQL_OPERATION	TABLE_JOIN
+OPERATOR_TYPE	EQUAL
 SQL_ID	dc20b3862db6cfa2f3baccdb3d452f5a
 DIGEST_TEXT	SELECT * FROM `tbl1` , `tbl2` , `tbl3` , `tbl2` `t21` , `tbl1` `t11` WHERE `tbl1` . `col1_1` = `tbl2` . `col2_1` AND `t21` . `col2_2` > `t11` . `col1_3` AND `t11` . `col1_1` = `tbl1` . `col1_1` AND `tbl3` . `col3_2` > ?
 TABLE_SCHEMA	cus_test

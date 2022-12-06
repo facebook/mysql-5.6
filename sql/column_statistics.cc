@@ -76,7 +76,11 @@ bool ColumnUsageInfo::operator<(const ColumnUsageInfo &other) const {
           if (sql_op < other.sql_op) {
             return true;
           } else if (sql_op == other.sql_op) {
-            return op_type < other.op_type;
+            if (op_type < other.op_type) {
+              return true;
+            } else if (op_type == other.op_type) {
+              return extra_data.compare(other.extra_data) < 0;
+            }
           }
         }
       }
@@ -289,7 +293,9 @@ void populate_fields_info(const sql_operation &op, const operator_type &op_type,
     if (!fill_column_usage_struct(op, op_type, field_args[idx], cuis[idx])) {
       DBUG_VOID_RETURN;
     }
-    table_instances.insert(cuis[idx].table_instance);
+
+    table_instances.insert(cuis[idx].table_name +
+                           "::" + cuis[idx].table_instance);
   }
 
   // Override SQL operation when multiple table instances are detected.
@@ -299,6 +305,16 @@ void populate_fields_info(const sql_operation &op, const operator_type &op_type,
   if (table_instances.size() > 1) {
     for (ColumnUsageInfo &cui : cuis) {
       cui.sql_op = sql_operation::TABLE_JOIN;
+      std::vector<std::string> tiv(table_instances.begin(),
+                                   table_instances.end());
+      std::sort(tiv.begin(), tiv.end());
+      cui.extra_data = "";
+      for (const std::string &ti : tiv) {
+        if (!cui.extra_data.empty()) {
+          cui.extra_data += ",";
+        }
+        cui.extra_data += ti;
+      }
     }
   }
   // TODO(ritwikyadav): Handle cases where the predicate is on two columns of
@@ -669,13 +685,14 @@ std::vector<column_statistics_row> get_all_column_statistics() {
 
     for (const ColumnUsageInfo &cui : iter->second) {
       column_statistics.emplace_back(
-          sql_id_string,                       // SQL_ID
-          cui.table_schema,                    // TABLE_SCHEMA
-          cui.table_name,                      // TABLE_NAME
-          cui.table_instance,                  // TABLE_INSTANCE
-          cui.column_name,                     // COLUMN_NAME
-          sql_operation_string(cui.sql_op),    // SQL_OPERATION
-          operator_type_string(cui.op_type));  // OPERATOR_TYPE
+          sql_id_string,                      // SQL_ID
+          cui.table_schema,                   // TABLE_SCHEMA
+          cui.table_name,                     // TABLE_NAME
+          cui.table_instance,                 // TABLE_INSTANCE
+          cui.column_name,                    // COLUMN_NAME
+          sql_operation_string(cui.sql_op),   // SQL_OPERATION
+          operator_type_string(cui.op_type),  // OPERATOR_TYPE
+          cui.extra_data);                    // EXTRA_DATA
     }
   }
 

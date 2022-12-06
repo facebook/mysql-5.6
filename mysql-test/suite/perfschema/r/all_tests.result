@@ -24,9 +24,11 @@ update t2 set test_name= replace(test_name, "user_variables_", "uvar_");
 delete from t2 where t2.test_name in (select t1.test_name from t1);
 select test_name as `MISSING DDL/DML TESTS` from t2;
 MISSING DDL/DML TESTS
+ddl_full_sql.test
 ddl_replication_asynchronous_connection_failover.test
 ddl_replication_asynchronous_connection_failover_managed.test
 ddl_table_statistics_by_table.test
+dml_full_sql.test
 dml_replication_asynchronous_connection_failover.test
 dml_replication_asynchronous_connection_failover_managed.test
 dml_table_statistics_by_table.test
@@ -34,6 +36,7 @@ idx_binary_log_transaction_compression_stats.test
 idx_client_attributes.test
 idx_column_statistics.test
 idx_esms_by_all.test
+idx_full_sql.test
 idx_index_statistics.test
 idx_log_status.test
 idx_replica_statistics.test

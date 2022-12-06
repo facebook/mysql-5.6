@@ -138,6 +138,7 @@ table_mems_by_user_by_event_name.h
 table_mems_global_by_event_name.h
 table_file_summary_by_instance.h
 table_file_summary_by_event_name.h
+table_full_sql.h
 table_socket_instances.h
 table_socket_summary_by_instance.h
 table_socket_summary_by_event_name.h
@@ -326,6 +327,7 @@ table_mems_by_user_by_event_name.cc
 table_mems_global_by_event_name.cc
 table_file_summary_by_instance.cc
 table_file_summary_by_event_name.cc
+table_full_sql.cc
 table_socket_instances.cc
 table_socket_summary_by_instance.cc
 table_socket_summary_by_event_name.cc
@@ -457,4 +459,3 @@ MARK_AS_ADVANCED(DISABLE_PSI_TRANSACTION)
 MARK_AS_ADVANCED(DISABLE_PSI_ERROR)
 MARK_AS_ADVANCED(DISABLE_PSI_DATA_LOCK)
 MARK_AS_ADVANCED(DISABLE_PSI_TLS_CHANNEL)
-
