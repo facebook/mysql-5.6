@@ -271,4 +271,12 @@ MACRO(ROCKSDB_SET_DEFINTIONS)
 	if(HAVE_AUXV_GETAUXVAL AND NOT ROCKSDB_DISABLE_AUXV_GETAUXVAL)
 	  add_definitions(-DROCKSDB_AUXV_GETAUXVAL_PRESENT)
 	endif()
+
+        if(WITH_UBSAN)
+          add_definitions(-DROCKSDB_UBSAN_RUN)
+        endif()
+
+        if(WITH_VALGRIND)
+          add_definitions(-DROCKSDB_VALGRIND_RUN)
+        endif()
 ENDMACRO()

@@ -1,4 +1,4 @@
-# Copyright (c) 2005, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2005, 2022, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
@@ -1131,50 +1131,25 @@
    fun:numa_node_*_cpu*
 }
 
+# _Znwm is operator new(unsigned long)
+# google::protobuf::internal::LazyString::Init() const
 {
    General protobuf globals
    Memcheck:Leak
    fun:_Znwm
    ...
-   fun:_GLOBAL__sub_I_mysqlx*.pb.cc
+   fun:_ZNK6google8protobuf8internal10LazyString4InitEv
    ...
 }
 
+# _Znwm is operator new(unsigned long)
 {
    General protobuf globals
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:_Znwm
    ...
-   fun:_Z41__static_initialization_and_destruction_0ii
-}
-
-{
-   General protobuf globals
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   ...
-   fun:_ZN6Mysqlx23protobuf_mysqlx_2eproto27StaticDescriptorInitializerC1Ev
-}
-
-{
-   General protobuf globals
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   ...
-   fun:_ZN6google8protobuf8internal11InitSCCImplEPNS1_11SCCInfoBaseE
-}
-
-{
-   General protobuf globals
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   ...
-   fun:_ZN6google8protobuf8internal24InitProtobufDefaultsSlowEv
-   ...
+   fun:_dl_init
 }
 
 {
@@ -2877,8 +2852,8 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb16ThreadStatusUtil19NewColumnFamilyInfoEPKNS_2DBEPKNS_16ColumnFamilyDataERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPKNS_3EnvE
-   fun:_ZNK10my_rocksdb6DBImpl21NewThreadStatusCfInfoEPNS_16ColumnFamilyDataE
+   fun:_ZN*16ThreadStatusUtil19NewColumnFamilyInfoEPKNS_2DBEPKNS_16ColumnFamilyDataERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPKNS_3EnvE
+   fun:_ZNK*6DBImpl21NewThreadStatusCfInfoEPNS_16ColumnFamilyDataE
    ...
 }
 
@@ -2888,9 +2863,9 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
-   fun:_ZN10my_rocksdb16ThreadStatusUtil14RegisterThreadEPKNS_3EnvENS_12ThreadStatus10ThreadTypeE
-   fun:_ZN10my_rocksdb14ThreadPoolImpl4Impl15BGThreadWrapperEPv
+   fun:_ZN*19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
+   fun:_ZN*16ThreadStatusUtil14RegisterThreadEPKNS_3EnvENS_12ThreadStatus10ThreadTypeE
+   fun:_ZN*14ThreadPoolImpl4Impl15BGThreadWrapperEPv
    ...
 }
 
@@ -2899,23 +2874,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb14ThreadLocalPtr14InitSingletonsEv
-   fun:_ZN10my_rocksdb3Env7DefaultEv
-   fun:_ZN10my_rocksdb9DBOptionsC1Ev
-   ...
-   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv
-}
-
-{
-   Still reachable for once-per-process initializations
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   ...
-   fun:_ZN10my_rocksdb12_GLOBAL__N_18PosixEnv*
-   fun:_ZN10my_rocksdb3Env7DefaultEv
-   fun:_ZN10my_rocksdb9DBOptionsC1Ev
-   ...
-   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv
+   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsE*
 }
 
 {
@@ -2924,8 +2883,8 @@
    match-leak-kinds: reachable
    ...
    fun:_ZNSt13unordered_mapIjPFvPvESt4hashIjESt8equal_toIjESaISt4pairIKjS2_EEEixERS8_
-   fun:_ZN10my_rocksdb14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
-   fun:_ZN10my_rocksdb14ThreadLocalPtrC1EPFvPvE
+   fun:_ZN*14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
+   fun:_ZN*14ThreadLocalPtrC1EPFvPvE
    ...
 }
 
@@ -2934,9 +2893,9 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb10autovectorIjLm8EE9push_backERKj
-   fun:_ZN10my_rocksdb14ThreadLocalPtr10StaticMeta9ReclaimIdEj
-   fun:_ZN10my_rocksdb14ThreadLocalPtrD1Ev
+   fun:_ZN*10autovectorIjLm8EE9push_backERKj
+   fun:_ZN*14ThreadLocalPtr10StaticMeta9ReclaimIdEj
+   fun:_ZN*14ThreadLocalPtrD1Ev
    ...
 }
 
@@ -2954,7 +2913,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   fun:_ZN*24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
    ...
 }
 
@@ -2963,7 +2922,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN10my_rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
+   fun:_ZN*24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
    ...
 }
 
@@ -2982,7 +2941,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
+   fun:_ZN*14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
    ...
 }
 
@@ -2991,7 +2950,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb12_GLOBAL__N_18Registry8RegisterEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   fun:_ZN*12_GLOBAL__N_18Registry8RegisterEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
    ...
 }
 
@@ -3000,7 +2959,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
+   fun:_ZN*24RegisterCacheDeleterRoleEPFvRKNS_5SliceEPvENS_14CacheEntryRoleE
    ...
 }
 
@@ -3010,7 +2969,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
+   fun:_ZN*19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
    ...
 }
 
@@ -3019,7 +2978,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb19ThreadStatusUpdater19NewColumnFamilyInfoEPKvRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES2_SA_
+   fun:_ZN*19ThreadStatusUpdater19NewColumnFamilyInfoEPKvRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES2_SA_
    ...
 }
 
@@ -3029,16 +2988,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:_ZN7rocksdb24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
-   ...
-}
-
-{
-   myrocks::rdb_init_rocksdb_db_options() creates a singleton db options object
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   ...
-   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv.__uniq.139504330336072172663997982448787994910
+   fun:_ZN*24CacheEntryStatsCollectorINS_13InternalStats19CacheEntryRoleStatsEE9GetSharedEPNS_5CacheEPNS_11SystemClockEPSt10shared_ptrIS3_E
    ...
 }
 
