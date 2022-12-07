@@ -3870,21 +3870,18 @@ class Rdb_transaction {
 
             if (materialized) {
               rc2 = sst_info->put(merge_key, merge_val);
-              if (rc != 0) {
-                rc = rc2;
+              if (rc2 != 0) {
                 break;
               }
             }
-
-            if (rc2) break;
           }
 
-          if (!rc2 && keydef->m_is_reverse_cf && materialized) {
+          // Either we finished iterating through all keys (rc2 == -1) or we hit
+          // an error (rc2 > 0)
+          assert(rc2 != 0);
+          if (rc2 <= 0 && keydef->m_is_reverse_cf && materialized) {
             // Write sentinel before moving to next prefix.
             rc2 = sst_info->put(cur_prefix, rocksdb::Slice());
-            if (rc2 != 0) {
-              break;
-            }
           }
         } else {
           struct unique_sk_buf_info sk_info;
