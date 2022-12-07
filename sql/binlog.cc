@@ -4667,6 +4667,8 @@ void MYSQL_BIN_LOG::cleanup() {
 
   delete m_binlog_file;
   m_binlog_file = nullptr;
+
+  raft_trx_cache = nullptr;
 }
 
 void MYSQL_BIN_LOG::init_pthread_objects() {
