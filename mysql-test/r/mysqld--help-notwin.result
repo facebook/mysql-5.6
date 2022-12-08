@@ -2557,6 +2557,9 @@ The following options may be given as the first argument:
  Scan binlogs to determine encryption property during show
  binlogs
  (Defaults to on; use --skip-show-binlogs-encryption to disable.)
+ --show-create-table-contain-privacy-policy 
+ Controls if the the SHOW CREATE TABLE command should
+ display the PRIVACY_POLICY of the table
  --show-create-table-verbosity 
  When this option is enabled, it increases the verbosity
  of 'SHOW CREATE TABLE'.
@@ -3738,6 +3741,7 @@ shardbeat-table blackhole
 shardbeat-user 
 shardbeat-vlog-level 0
 show-binlogs-encryption TRUE
+show-create-table-contain-privacy-policy FALSE
 show-create-table-verbosity FALSE
 show-old-temporals FALSE
 show-query-digest FALSE

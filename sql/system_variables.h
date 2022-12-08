@@ -400,6 +400,11 @@ struct System_variables {
   bool session_track_response_attributes;
 
   /*
+    Display PRIVACY_POLICY for SHOW CREATE TABLE command
+  */
+  bool show_create_table_contain_privacy_policy;
+
+  /*
     Force primary index if all the keys of primary index have equality
     predicates on them
   */

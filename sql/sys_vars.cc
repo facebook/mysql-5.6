@@ -9699,6 +9699,13 @@ static Sys_var_bool Sys_force_pk_for_equality_preds_on_pk(
     SESSION_VAR(force_pk_for_equality_preds_on_pk), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_bool Sys_show_create_table_contain_privacy_policy(
+    "show_create_table_contain_privacy_policy",
+    "Controls if the the SHOW CREATE TABLE command should display "
+    "the PRIVACY_POLICY of the table",
+    SESSION_VAR(show_create_table_contain_privacy_policy), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static Sys_var_uint Sys_response_attrs_contain_read_tables_bytes(
     "response_attrs_contain_read_tables_bytes",
     "Specifies the size of the tables information (specified in bytes) "

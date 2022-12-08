@@ -1,0 +1,117 @@
+SET @@session.show_create_table_contain_privacy_policy = TRUE;
+########################################################################
+=== Creating table with PRIVACY_POLICY!
+########################################################################
+CREATE TABLE t1 (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+PRIMARY KEY (`id`)
+) PRIVACY_POLICY='policy_original';
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_original'
+########################################################################
+=== Disable show_create_table_contain_privacy_policy
+########################################################################
+SET @@session.show_create_table_contain_privacy_policy = FALSE;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SET @@session.show_create_table_contain_privacy_policy = TRUE;
+########################################################################
+=== Altering table for PRIVACY_POLICY!
+########################################################################
+ALTER TABLE t1 PRIVACY_POLICY='policy_altered';
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_altered'
+########################################################################
+=== Usual Alter table on a policied table should retain privacy policy
+########################################################################
+ALTER TABLE t1 rename t2;
+ALTER TABLE t2 ADD Column new_col int not null;
+ALTER TABLE t2 ADD KEY (name(20));
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `new_col` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`(20))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_altered'
+ALTER TABLE t2 rename t1;
+########################################################################
+=== Create table for Super Long policy!
+########################################################################
+CREATE TABLE longPolicy (c1 int) PRIVACY_POLICY='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789a
+bcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456
+789abcdef0123456789abcdef0123456789abcdef0123456789abcdefasdajhdgjasgdasjhdgasjhgdasjkdgkjahsgdfkjhgsdfkjdhsgfjk agjkdhsgfas
+kjdhsagfshdagfkjhdsgf jksadgf kjdsahgf kjdsahgf kjadhsgfouaywegfkausbfkaj dhsg fjkgsfkjgdsafkjhdsgfjkhdsagfdsjkahfgdaskjhgfs
+dasjkhgfdskjagfdksajhgfdskajhfgdsakjfhgsadjlhgfadsljfhgadslj gadsjklgfdsajkgfdsakjgfdaskjfgdsajkhfgdsaljhfgadsougfudsayfjkhd
+avfjhdsagfkjhasdgfjkhsgfkjhadsgfsdjahkgfjagjdhsvfhvjkhvcdskjhvkcjhvkjdshvckjadsvckjsdhvckjhdasvckjhsdavcgjkhadsvchgdsavchgkd
+vckasdgcvkshdgacvdsakgvcasdkgchjvdsakcgvadskgvckhgadsvchksadgvckjavdsckgadsvckhgadsvckjgavsdckjagvsckjgadsvcjkadgsvcjkasgdvc
+kscdsajhgfjdslhgfkdasjhfgkjasdhfgdskjhg0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefghij';
+SHOW CREATE TABLE longPolicy;
+Table	Create Table
+longPolicy	CREATE TABLE `longPolicy` (
+  `c1` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789a\nbcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456\n789abcdef0123456789abcdef0123456789abcdef0123456789abcdefasdajhdgjasgdasjhdgasjhgdasjkdgkjahsgdfkjhgsdfkjdhsgfjk agjkdhsgfas\nkjdhsagfshdagfkjhdsgf jksadgf kjdsahgf kjdsahgf kjadhsgfouaywegfkausbfkaj dhsg fjkgsfkjgdsafkjhdsgfjkhdsagfdsjkahfgdaskjhgfs\ndasjkhgfdskjagfdksajhgfdskajhfgdsakjfhgsadjlhgfadsljfhgadslj gadsjklgfdsajkgfdsakjgfdaskjfgdsajkhfgdsaljhfgadsougfudsayfjkhd\navfjhdsagfkjhasdgfjkhsgfkjhadsgfsdjahkgfjagjdhsvfhvjkhvcdskjhvkcjhvkjdshvckjadsvckjsdhvckjhdasvckjhsdavcgjkhadsvchgdsavchgkd\nvckasdgcvkshdgacvdsakgvcasdkgchjvdsakcgvadskgvckhgadsvchksadgvckjavdsckgadsvckhgadsvckjgavsdckjagvsckjgadsvcjkadgsvcjkasgdvc\nkscdsajhgfjdslhgfkdasjhfgkjasdhfgdskjhg0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefghij'
+########################################################################
+=== Alter table for Super Long policy!
+########################################################################
+ALTER TABLE longPolicy PRIVACY_POLICY='NEW_CHANGE_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789a
+bcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456
+789abcdef0123456789abcdef0123456789abcdef0123456789abcdefasdajhdgjasgdasjhdgasjhgdasjkdgkjahsgdfkjhgsdfkjdhsgfjk agjkdhsgfas
+kjdhsagfshdagfkjhdsgf jksadgf kjdsahgf kjdsahgf kjadhsgfouaywegfkausbfkaj dhsg fjkgsfkjgdsafkjhdsgfjkhdsagfdsjkahfgdaskjhgfs
+dasjkhgfdskjagfdksajhgfdskajhfgdsakjfhgsadjlhgfadsljfhgadslj gadsjklgfdsajkgfdsakjgfdaskjfgdsajkhfgdsaljhfgadsougfudsayfjkhd
+avfjhdsagfkjhasdgfjkhsgfkjhadsgfsdjahkgfjagjdhsvfhvjkhvcdskjhvkcjhvkjdshvckjadsvckjsdhvckjhdasvckjhsdavcgjkhadsvchgdsavchgkd
+vckasdgcvkshdgacvdsakgvcasdkgchjvdsakcgvadskgvckhgadsvchksadgvckjavdsckgadsvckhgadsvckjgavsdckjagvsckjgadsvcjkadgsvcjkasgdvc
+kscdsajhgfjdslhgfkdasjhfgkjasdhfgdskjhg0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefghij';
+SHOW CREATE TABLE longPolicy;
+Table	Create Table
+longPolicy	CREATE TABLE `longPolicy` (
+  `c1` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='NEW_CHANGE_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789a\nbcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456\n789abcdef0123456789abcdef0123456789abcdef0123456789abcdefasdajhdgjasgdasjhdgasjhgdasjkdgkjahsgdfkjhgsdfkjdhsgfjk agjkdhsgfas\nkjdhsagfshdagfkjhdsgf jksadgf kjdsahgf kjdsahgf kjadhsgfouaywegfkausbfkaj dhsg fjkgsfkjgdsafkjhdsgfjkhdsagfdsjkahfgdaskjhgfs\ndasjkhgfdskjagfdksajhgfdskajhfgdsakjfhgsadjlhgfadsljfhgadslj gadsjklgfdsajkgfdsakjgfdaskjfgdsajkhfgdsaljhfgadsougfudsayfjkhd\navfjhdsagfkjhasdgfjkhsgfkjhadsgfsdjahkgfjagjdhsvfhvjkhvcdskjhvkcjhvkjdshvckjadsvckjsdhvckjhdasvckjhsdavcgjkhadsvchgdsavchgkd\nvckasdgcvkshdgacvdsakgvcasdkgchjvdsakcgvadskgvckhgadsvchksadgvckjavdsckgadsvckhgadsvckjgavsdckjagvsckjgadsvcjkadgsvcjkasgdvc\nkscdsajhgfjdslhgfkdasjhfgkjasdhfgdskjhg0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefghij'
+########################################################################
+=== Create table with empty privacy policy!
+########################################################################
+CREATE TABLE nopolicy (c1 int) PRIVACY_POLICY='';
+SHOW CREATE TABLE nopolicy;
+Table	Create Table
+nopolicy	CREATE TABLE `nopolicy` (
+  `c1` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+########################################################################
+=== Alter table to assign policy on a no policy table
+########################################################################
+ALTER TABLE nopolicy PRIVACY_POLICY='policy_original';
+SHOW CREATE TABLE nopolicy;
+Table	Create Table
+nopolicy	CREATE TABLE `nopolicy` (
+  `c1` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_original'
+########################################################################
+=== Alter table to remove policy on a policied table
+########################################################################
+ALTER TABLE nopolicy PRIVACY_POLICY='';
+SHOW CREATE TABLE nopolicy;
+Table	Create Table
+nopolicy	CREATE TABLE `nopolicy` (
+  `c1` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+drop table longPolicy;
+drop table nopolicy;

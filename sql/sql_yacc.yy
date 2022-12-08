@@ -1413,6 +1413,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> SHARED_SYM 1209              /* MYSQL */
 %token<lexer.keyword> RAFT_SYM 1210                /* MYSQL */
 %token<lexer.keyword> SHARDBEATER 1211             /* FB MYSQL */
+%token<lexer.keyword> PRIVACY_POLICY 1212          /* FB MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -6921,6 +6922,10 @@ create_table_option:
         | option_autoextend_size
           {
             $$ = NEW_PTN PT_create_ts_autoextend_size_option($1);
+          }
+        | PRIVACY_POLICY opt_equal TEXT_STRING_sys
+          {
+            $$= NEW_PTN PT_create_table_privacy_policy($3);
           }
         ;
 
@@ -15744,6 +15749,7 @@ ident_keywords_unambiguous:
         | PRECEDING_SYM
         | PRESERVE_SYM
         | PREV_SYM
+        | PRIVACY_POLICY
         | PRIVILEGES
         | PRIVILEGE_CHECKS_USER_SYM
         | PROCESSLIST_SYM

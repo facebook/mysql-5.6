@@ -1,0 +1,84 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: show_create_table_contain_privacy_policy
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of show_create_table_contain_privacy_policy
+set @original_show_create_table_contain_privacy_policy=@@global.show_create_table_contain_privacy_policy;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+####
+## Verify that the variable is dynamic
+####
+--echo show_create_table_contain_privacy_policy is set to true
+set @@global.show_create_table_contain_privacy_policy = true;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+--echo show_create_table_contain_privacy_policy is set to false
+set @@global.show_create_table_contain_privacy_policy = false;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+--echo show_create_table_contain_privacy_policy is set to TRUE
+set @@global.show_create_table_contain_privacy_policy = TRUE;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+--echo show_create_table_contain_privacy_policy is set to FALSE
+set @@global.show_create_table_contain_privacy_policy = FALSE;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+--echo show_create_table_contain_privacy_policy is set to 1
+set @@global.show_create_table_contain_privacy_policy = 1;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+--echo show_create_table_contain_privacy_policy is set to 0
+set @@global.show_create_table_contain_privacy_policy = 0;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+
+--echo show_create_table_contain_privacy_policy is set to ON
+set @@global.show_create_table_contain_privacy_policy = ON;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+--echo show_create_table_contain_privacy_policy is set to OFF
+set @@global.show_create_table_contain_privacy_policy = OFF;
+SELECT @@global.show_create_table_contain_privacy_policy;
+
+
+####
+## Functional test
+####
+set @@session.show_create_table_contain_privacy_policy = ON;
+
+let $privacy_policy= policy_original;
+eval CREATE TABLE t1 (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`)
+) PRIVACY_POLICY='$privacy_policy';
+
+SHOW CREATE TABLE t1;
+
+set @@session.show_create_table_contain_privacy_policy = OFF;
+
+SHOW CREATE TABLE t1;
+
+drop table t1;
+
+####
+## Invalid Values
+####
+--echo Set show_create_table_contain_privacy_policy is set to number
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.show_create_table_contain_privacy_policy = 123;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+# set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+SET @@global.show_create_table_contain_privacy_policy=@original_show_create_table_contain_privacy_policy;
+SELECT @@global.show_create_table_contain_privacy_policy;
