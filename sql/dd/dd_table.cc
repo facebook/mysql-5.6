@@ -1998,7 +1998,16 @@ static bool fill_dd_table_from_create_info(
   // Set options
   //
   dd::Properties *table_options = &tab_obj->options();
-
+  DBUG_PRINT("info",
+             ("Setting privacy_policy for table to:%s",
+              create_info->privacy_policy.str ? create_info->privacy_policy.str
+                                              : "Undefined"));
+  if (create_info->privacy_policy.str && create_info->privacy_policy.length) {
+    dd::String_type privacy_policy;
+    privacy_policy.assign(create_info->privacy_policy.str,
+                          create_info->privacy_policy.length);
+    table_options->set("privacy_policy", privacy_policy);
+  }
   if (create_info->max_rows)
     table_options->set("max_rows", create_info->max_rows);
 
@@ -3146,5 +3155,14 @@ bool get_implicit_tablespace_options(THD *thd, const Table *table,
   }
 
   return false;
+}
+
+bool get_privacy_policy_options(THD *thd, const Table *table,
+                                LEX_STRING *privacy_policy_str) {
+  if (table && table->options().exists("privacy_policy")) {
+    return table->options().get("privacy_policy", privacy_policy_str,
+                                thd->mem_root);
+  }
+  return true;
 }
 }  // namespace dd

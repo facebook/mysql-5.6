@@ -1,0 +1,75 @@
+Default value of show_create_table_contain_privacy_policy
+set @original_show_create_table_contain_privacy_policy=@@global.show_create_table_contain_privacy_policy;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+0
+show_create_table_contain_privacy_policy is set to true
+set @@global.show_create_table_contain_privacy_policy = true;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+1
+show_create_table_contain_privacy_policy is set to false
+set @@global.show_create_table_contain_privacy_policy = false;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+0
+show_create_table_contain_privacy_policy is set to TRUE
+set @@global.show_create_table_contain_privacy_policy = TRUE;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+1
+show_create_table_contain_privacy_policy is set to FALSE
+set @@global.show_create_table_contain_privacy_policy = FALSE;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+0
+show_create_table_contain_privacy_policy is set to 1
+set @@global.show_create_table_contain_privacy_policy = 1;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+1
+show_create_table_contain_privacy_policy is set to 0
+set @@global.show_create_table_contain_privacy_policy = 0;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+0
+show_create_table_contain_privacy_policy is set to ON
+set @@global.show_create_table_contain_privacy_policy = ON;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+1
+show_create_table_contain_privacy_policy is set to OFF
+set @@global.show_create_table_contain_privacy_policy = OFF;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+0
+set @@session.show_create_table_contain_privacy_policy = ON;
+CREATE TABLE t1 (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+PRIMARY KEY (`id`)
+) PRIVACY_POLICY='policy_original';
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_original'
+set @@session.show_create_table_contain_privacy_policy = OFF;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+Set show_create_table_contain_privacy_policy is set to number
+set @@global.show_create_table_contain_privacy_policy = 123;
+ERROR 42000: Variable 'show_create_table_contain_privacy_policy' can't be set to the value of '123'
+restore the default value
+SET @@global.show_create_table_contain_privacy_policy=@original_show_create_table_contain_privacy_policy;
+SELECT @@global.show_create_table_contain_privacy_policy;
+@@global.show_create_table_contain_privacy_policy
+0

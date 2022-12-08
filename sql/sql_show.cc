@@ -2624,6 +2624,13 @@ bool store_create_info(THD *thd, Table_ref *table_list, String *packet,
       packet->append(STRING_WITH_LEN(" COMMENT="));
       append_unescaped(packet, share->comment.str, share->comment.length);
     }
+    if (table_obj && thd->variables.show_create_table_contain_privacy_policy) {
+      LEX_STRING policy;
+      if (!dd::get_privacy_policy_options(thd, table_obj, &policy)) {
+        packet->append(STRING_WITH_LEN(" PRIVACY_POLICY="));
+        append_unescaped(packet, policy.str, policy.length);
+      }
+    }
     if (share->connect_string.length) {
       packet->append(STRING_WITH_LEN(" CONNECTION="));
       append_unescaped(packet, share->connect_string.str,

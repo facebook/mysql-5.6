@@ -2492,6 +2492,10 @@ typedef PT_traceable_create_table_option<
     HA_CREATE_USED_AUTOEXTEND_SIZE>
     PT_create_ts_autoextend_size_option;
 
+typedef PT_traceable_create_table_option<
+    TYPE_AND_REF(HA_CREATE_INFO::privacy_policy), HA_CREATE_USED_PRIVACY_POLICY>
+    PT_create_table_privacy_policy;
+
 typedef decltype(HA_CREATE_INFO::table_options) table_options_t;
 
 /**

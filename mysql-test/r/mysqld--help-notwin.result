@@ -2324,6 +2324,9 @@ The following options may be given as the first argument:
  to TRUE, the plugin will flag associated authenticated
  accounts to be mapped to proxy users when the server
  option check_proxy_users is enabled.
+ --show-create-table-contain-privacy-policy 
+ Controls if the the SHOW CREATE TABLE command should
+ display the PRIVACY_POLICY of the table
  --show-create-table-verbosity 
  When this option is enabled, it increases the verbosity
  of 'SHOW CREATE TABLE'.
@@ -3426,6 +3429,7 @@ session-track-system-variables time_zone,autocommit,character_set_client,charact
 session-track-transaction-info OFF
 set-read-only-on-shutdown FALSE
 sha256-password-proxy-users FALSE
+show-create-table-contain-privacy-policy FALSE
 show-create-table-verbosity FALSE
 show-gipk-in-create-table-and-information-schema TRUE
 show-old-temporals FALSE

@@ -398,6 +398,11 @@ struct System_variables {
   bool session_track_response_attributes;
 
   /*
+    Display PRIVACY_POLICY for SHOW CREATE TABLE command
+  */
+  bool show_create_table_contain_privacy_policy;
+
+  /*
     Time in seconds, after which the statistics in mysql.table/index_stats
     get invalid
   */

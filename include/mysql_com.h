@@ -96,6 +96,8 @@
 #define TABLE_PARTITION_COMMENT_MAXLEN 1024
 #define TABLESPACE_COMMENT_MAXLEN 2048
 
+#define TABLE_POLICY_LENGTH 65535
+
 /**
   Maximum length of protocol packet.
   @ref page_protocol_basic_ok_packet length limit also restricted to this value

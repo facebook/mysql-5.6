@@ -821,6 +821,8 @@ constexpr const uint64_t HA_CREATE_USED_READ_ONLY{1ULL << 34};
 */
 constexpr const uint64_t HA_CREATE_USED_AUTOEXTEND_SIZE{1ULL << 35};
 
+constexpr const uint64_t HA_CREATE_USED_PRIVACY_POLICY{1ULL << 36};
+
 /*
   End of bits used in used_fields
 */
@@ -3062,6 +3064,7 @@ struct HA_CREATE_INFO {
   const char *password{nullptr};
   const char *tablespace{nullptr};
   LEX_STRING comment{nullptr, 0};
+  LEX_STRING privacy_policy{nullptr, 0};
 
   /**
   Algorithm (and possible options) to be used for InnoDB's transparent

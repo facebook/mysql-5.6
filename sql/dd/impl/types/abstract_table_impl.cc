@@ -76,6 +76,7 @@ static const std::set<String_type> default_valid_option_keys = {
     "pack_keys",
     "pack_record",
     "plugin_version",
+    "privacy_policy",
     "row_type",
     "secondary_engine",
     "secondary_load",

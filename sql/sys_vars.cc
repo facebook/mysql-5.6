@@ -9544,3 +9544,10 @@ static Sys_var_bool Sys_set_read_only_on_shutdown(
     "Set read_only and super_read_only in shutdown path after trying to "
     "kill connections but before shutting down plugins",
     GLOBAL_VAR(set_read_only_on_shutdown), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_show_create_table_contain_privacy_policy(
+    "show_create_table_contain_privacy_policy",
+    "Controls if the the SHOW CREATE TABLE command should display "
+    "the PRIVACY_POLICY of the table",
+    SESSION_VAR(show_create_table_contain_privacy_policy), CMD_LINE(OPT_ARG),
+    DEFAULT(false));

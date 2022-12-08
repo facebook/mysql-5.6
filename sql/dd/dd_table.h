@@ -505,5 +505,18 @@ void warn_on_deprecated_prefix_key_partition(THD *thd, const char *schema_name,
 */
 bool get_implicit_tablespace_options(THD *thd, const Table *table,
                                      ulonglong *autoextend_size);
+
+/**
+  Get the privacy_policy option value for the table
+  @param  thd             Thread handler
+  @param  table           dd::Table instance, can be null for temp tables
+  @param  privacy_policy_str Privacy Policy Str
+
+  @return true  - On failure
+  @return false - On success
+*/
+bool get_privacy_policy_options(THD *thd, const Table *table,
+                                LEX_STRING *privacy_policy_str);
 }  // namespace dd
+
 #endif  // DD_TABLE_INCLUDED

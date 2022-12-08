@@ -7951,6 +7951,14 @@ bool mysql_prepare_create_table(
     return true;
   }
 
+  LEX_STRING *privacy_policy = &create_info->privacy_policy;
+  if (privacy_policy->length != 0 &&
+      privacy_policy->length > TABLE_POLICY_LENGTH) {
+    my_error(ER_WRONG_STRING_LENGTH, MYF(0), privacy_policy->str,
+             "PRIVACY_POLICY", TABLE_POLICY_LENGTH);
+    return true;
+  }
+
   // Validate table comment string
   std::string invalid_sub_str;
   if (is_invalid_string({create_info->comment.str, create_info->comment.length},
@@ -15212,6 +15220,15 @@ bool mysql_prepare_alter_table(THD *thd, const dd::Table *src_table,
     /* Table has an autoincrement, copy value to new table */
     table->file->info(HA_STATUS_AUTO);
     create_info->auto_increment_value = table->file->stats.auto_increment_value;
+  }
+
+  // Copy the fields from src_table dd::Table
+  if (src_table && !(used_fields & HA_CREATE_USED_PRIVACY_POLICY) &&
+      !dd::get_privacy_policy_options(thd, src_table,
+                                      &(create_info->privacy_policy))) {
+    DBUG_PRINT("info",
+               ("Copied the privacy_policy in create_info from src table: %s",
+                create_info->privacy_policy.str));
   }
 
   if (prepare_fields_and_keys(thd, src_table, table, create_info, alter_info,

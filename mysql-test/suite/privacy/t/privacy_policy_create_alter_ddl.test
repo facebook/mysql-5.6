@@ -1,0 +1,2 @@
+let $allow_debug_commands= 0;
+--source privacy_policy_create_alter_ddl.inc
