@@ -127,6 +127,12 @@ FUNCTION(ADD_LINUX_DEB_FLAGS)
       MESSAGE(FATAL_ERROR
         "WITH_PACKAGE_FLAGS=on but dpkg-buildflags --get failed")
     ENDIF()
+
+    # remove "-flto=auto -ffat-lto-objects" returned on Ubuntu 22.04
+    REMOVE_CMAKE_COMPILER_FLAGS(GET_CFLAGS   "-flto(=[0-9a-z]+)?|-ffat-lto-objects")
+    REMOVE_CMAKE_COMPILER_FLAGS(GET_CXXFLAGS "-flto(=[0-9a-z]+)?|-ffat-lto-objects")
+    REMOVE_CMAKE_COMPILER_FLAGS(GET_LDFLAGS  "-flto(=[0-9a-z]+)?|-ffat-lto-objects")
+
     SET(CMAKE_C_FLAGS   "${GET_CFLAGS}   ${GET_CPPFLAGS}" PARENT_SCOPE)
     SET(CMAKE_CXX_FLAGS "${GET_CXXFLAGS} ${GET_CPPFLAGS}" PARENT_SCOPE)
     SET(CMAKE_EXE_LINKER_FLAGS    "${GET_LDFLAGS}" PARENT_SCOPE)
