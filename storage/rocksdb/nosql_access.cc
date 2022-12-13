@@ -2695,6 +2695,13 @@ bypass_rpc_exception rocksdb_select_by_key(
     THD *thd, myrocks_columns *columns, const myrocks_select_from_rpc &param) {
   bypass_rpc_exception ret;
 
+  if (!is_bypass_rpc_on()) {
+    ret.errnum = ER_FEATURE_DISABLED;
+    ret.sqlstate = "MYF(0)";
+    ret.message = "Bypass RPC is disabled.";
+    return ret;
+  }
+
   rpc_select_parser select_stmt(thd, &param, columns);
   if (!select_stmt.parse()) {
     rpc_protocol protocol(&select_stmt.get_field_list(), &param, columns);

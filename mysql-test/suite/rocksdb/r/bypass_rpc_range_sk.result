@@ -94,5 +94,8 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
+SELECT @@rocksdb_bypass_rpc_on INTO @save_rocksdb_bypass_rpc_on;
+set global rocksdb_bypass_rpc_on=1;
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+set global rocksdb_bypass_rpc_on=@save_rocksdb_bypass_rpc_on;

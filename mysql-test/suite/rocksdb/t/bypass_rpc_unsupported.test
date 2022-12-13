@@ -3,6 +3,9 @@
 --let $MYSQLD_DATADIR= `select @@datadir`
 --replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
 --replace_result $MYSQLD_DATADIR MYSQLD_DATADIR
+SELECT @@rocksdb_bypass_rpc_on INTO @save_rocksdb_bypass_rpc_on;
+set global rocksdb_bypass_rpc_on=1;
+
 SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
 SET GLOBAL rocksdb_select_bypass_policy=2;
 SELECT @@rocksdb_select_bypass_allow_filters into @save_rocksdb_select_bypass_allow_filters;
@@ -159,6 +162,8 @@ SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJE
 --remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result
 --remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
 --remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+
+set global rocksdb_bypass_rpc_on=@save_rocksdb_bypass_rpc_on;
 
 set global rocksdb_bypass_rpc_log_rejected=@save_rocksdb_bypass_rpc_log_rejected;
 set global rocksdb_select_bypass_rejected_query_history_size=@save_rocksdb_select_bypass_rejected_query_history_size;

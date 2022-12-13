@@ -24,6 +24,9 @@ CREATE TABLE `table_a` (
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
 KEY_BLOCK_SIZE=8;
 
+SELECT @@rocksdb_bypass_rpc_on INTO @save_rocksdb_bypass_rpc_on;
+set global rocksdb_bypass_rpc_on=1;
+
 --connection con0
 --write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
 SELECT /*+ bypass */ id1,id2,link_type,visibility,data,time,version FROM a.table_a FORCE INDEX (id1_type) WHERE link_type=3 AND id1=1 AND visibility=4 AND time>=10 ORDER BY TIME DESC LIMIT 0,10;
@@ -57,3 +60,5 @@ DROP DATABASE a;
 --remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
 --remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
 --enable_query_log
+
+set global rocksdb_bypass_rpc_on=@save_rocksdb_bypass_rpc_on;
