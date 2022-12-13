@@ -5,6 +5,9 @@
 --replace_result $MYSQLD_DATADIR MYSQLD_DATADIR
 --source ../include/bypass_create_table.inc
 
+SELECT @@rocksdb_bypass_rpc_on INTO @save_rocksdb_bypass_rpc_on;
+set global rocksdb_bypass_rpc_on=1;
+
 --write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
 # Range query, PRIMARY KEY, forward column family + Ascending
 SELECT /*+ bypass */ id1,id2,link_type,visibility,data,TIME,version FROM test.link_table5 FORCE INDEX (PRIMARY) WHERE link_type=1 AND id1=1 AND visibility=1 ORDER BY id2 ASC LIMIT 1000;
@@ -235,3 +238,5 @@ UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
 --remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
 
 --source ../include/bypass_drop_table.inc
+
+set global rocksdb_bypass_rpc_on=@save_rocksdb_bypass_rpc_on;

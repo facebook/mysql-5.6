@@ -1879,6 +1879,9 @@ The following options may be given as the first argument:
  if the plugin fails to load).
  --rocksdb-bypass-rpc-log-rejected 
  Log rejected Bypass RPC queries
+ --rocksdb-bypass-rpc-on 
+ Toggle Bypass RPC feature
+ (Defaults to on; use --skip-rocksdb-bypass-rpc-on to disable.)
  --rocksdb-bypass-rpc-rejected-log-ts-interval-secs=# 
  Interval in seconds when rejected Bypass RPC is written
  to the query history. Default: 1 second
@@ -3529,6 +3532,7 @@ rocksdb-bulk-load-partial-index TRUE
 rocksdb-bulk-load-size 1000
 rocksdb-bypass-rejected-query-history ON
 rocksdb-bypass-rpc-log-rejected FALSE
+rocksdb-bypass-rpc-on TRUE
 rocksdb-bypass-rpc-rejected-log-ts-interval-secs 1
 rocksdb-bytes-per-sync 0
 rocksdb-cache-dump TRUE

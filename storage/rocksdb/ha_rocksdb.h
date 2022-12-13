@@ -1139,6 +1139,9 @@ uint32_t get_select_bypass_debug_row_delay();
 unsigned long long  // NOLINT(runtime/int)
 get_select_bypass_multiget_min();
 
+/* Whether ROCKSDB_BYPASS_RPC_ON is enabled */
+bool is_bypass_rpc_on();
+
 /* Whether we should log rejected unsupported bypass rpc */
 bool should_log_rejected_bypass_rpc();
 

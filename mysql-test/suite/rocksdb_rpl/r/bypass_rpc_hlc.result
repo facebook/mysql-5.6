@@ -8,11 +8,13 @@ SET @@session.allow_noncurrent_db_rw = OFF;
 SET @@global.enable_block_stale_hlc_read = true;
 SET @@global.enable_binlog_hlc = true;
 SET @@global.maintain_database_hlc = true;
+SET @@global.rocksdb_bypass_rpc_on = true;
 SET @@session.response_attrs_contain_hlc = true;
 SET @@session.allow_noncurrent_db_rw = OFF;
 SET @@global.enable_block_stale_hlc_read = true;
 SET @@global.enable_binlog_hlc = true;
 SET @@global.maintain_database_hlc = true;
+SET @@global.rocksdb_bypass_rpc_on = true;
 CREATE DATABASE a;
 USE a;
 CREATE TABLE `table_a` (
@@ -59,7 +61,9 @@ DROP DATABASE a;
 SET @@global.enable_binlog_hlc = default;
 SET @@global.enable_block_stale_hlc_read = default;
 SET @@global.maintain_database_hlc = default;
+SET @@global.rocksdb_bypass_rpc_on = default;
 SET @@global.enable_binlog_hlc = default;
 SET @@global.enable_block_stale_hlc_read = default;
 SET @@global.maintain_database_hlc = default;
+SET @@global.rocksdb_bypass_rpc_on = default;
 include/rpl_end.inc

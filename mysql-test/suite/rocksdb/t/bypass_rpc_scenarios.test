@@ -120,6 +120,9 @@ ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 INSERT INTO obj_info (id, type, version, update_time) VALUES (100, 1, 2, 3);
 --enable_query_log
 
+SELECT @@rocksdb_bypass_rpc_on INTO @save_rocksdb_bypass_rpc_on;
+set global rocksdb_bypass_rpc_on=1;
+
 --write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
 # Bloom filter with complete SK but shorter than bloom filter
 SELECT /*+ bypass */ val FROM test.id_table_bloom FORCE INDEX (unique_id3) WHERE id3=1;
@@ -213,3 +216,5 @@ DROP TABLE meta_table;
 DROP TABLE obj_info;
 
 --source ../include/bypass_drop_table.inc
+
+set global rocksdb_bypass_rpc_on=@save_rocksdb_bypass_rpc_on;
