@@ -3633,24 +3633,7 @@ static bool check_optimizer_force_index_rewrite(sys_var *, THD *,
 
 static bool update_check_optimizer_force_index_rewrite(sys_var *, THD *,
                                                        enum_var_type) {
-  MUTEX_LOCK(lock, &LOCK_optimizer_force_index_rewrite_map);
-  optimizer_force_index_rewrite_map.clear();
-
-  if (!optimizer_force_index_rewrite) {
-    return false;
-  }
-
-  std::vector<std::string> pairs =
-      split_into_vector(optimizer_force_index_rewrite, ',');
-  for (const auto &p : pairs) {
-    std::vector<std::string> v = split_into_vector(p, ':');
-    if (v.size() != 2) {
-      assert(false);
-      continue;
-    }
-    optimizer_force_index_rewrite_map[v[0]] = v[1];
-  }
-  return false;
+  return update_optimizer_force_index_rewrite();
 }
 
 static Sys_var_charptr Sys_optimizer_force_index_rewrite(

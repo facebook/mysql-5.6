@@ -1409,8 +1409,8 @@ bool enable_query_checksum = false;
 bool enable_resultset_checksum = false;
 
 char *optimizer_force_index_rewrite;
-mysql_mutex_t LOCK_optimizer_force_index_rewrite_map;
-std::unordered_map<std::string, std::string> optimizer_force_index_rewrite_map;
+static mysql_mutex_t LOCK_optimizer_force_index_rewrite_map;
+static std::unordered_map<std::string, std::string> optimizer_force_index_rewrite_map;
 
 #if defined(ENABLED_DEBUG_SYNC)
 MYSQL_PLUGIN_IMPORT uint opt_debug_sync_timeout = 0;
@@ -9044,6 +9044,8 @@ int mysqld_main(int argc, char **argv)
   update_cached_slave_high_priority_lock_wait_timeout(nullptr, nullptr,
                                                       OPT_GLOBAL);
 
+  update_optimizer_force_index_rewrite();
+
   create_compress_gtid_table_thread();
 
   // NO_LINT_DEBUG
@@ -14419,4 +14421,26 @@ bool lookup_optimizer_force_index_rewrite(const std::string &lookup,
     return true;
   }
   return false;
+}
+
+bool update_optimizer_force_index_rewrite() {
+  MUTEX_LOCK(lock, &LOCK_optimizer_force_index_rewrite_map);
+  optimizer_force_index_rewrite_map.clear();
+
+  if (!optimizer_force_index_rewrite) {
+    return false;
+  }
+
+  bool rc = false;
+  std::vector<std::string> pairs =
+      split_into_vector(optimizer_force_index_rewrite, ',');
+  for (const auto &p : pairs) {
+    std::vector<std::string> v = split_into_vector(p, ':');
+    if (v.size() != 2) {
+      rc = true;
+      continue;
+    }
+    optimizer_force_index_rewrite_map[v[0]] = v[1];
+  }
+  return true;
 }

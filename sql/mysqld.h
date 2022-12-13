@@ -497,9 +497,6 @@ extern bool enable_query_checksum;
 extern bool enable_resultset_checksum;
 
 extern char *optimizer_force_index_rewrite;
-extern mysql_mutex_t LOCK_optimizer_force_index_rewrite_map;
-extern std::unordered_map<std::string, std::string>
-    optimizer_force_index_rewrite_map;
 
 extern uint net_compression_level;
 extern long zstd_net_compression_level;
@@ -1399,5 +1396,11 @@ bool set_system_thread_priority(pid_t tid, int pri);
  */
 bool lookup_optimizer_force_index_rewrite(const std::string &lookup,
                                           std::string *out);
+/**
+ * Update optimizer_force_index_rewrite_map based on current value of optimizer_force_index_rewrite.
+ *
+ * @return       false for success, true otherwise
+ */
+bool update_optimizer_force_index_rewrite();
 
 #endif /* MYSQLD_INCLUDED */
