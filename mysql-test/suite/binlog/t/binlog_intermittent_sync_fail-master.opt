@@ -1,0 +1,1 @@
+--gtid_mode=ON --enforce_gtid_consistency --log_bin --trim-binlog-to-recover --binlog_error_action=ABORT_SERVER --update_binlog_pos_threshold=0
