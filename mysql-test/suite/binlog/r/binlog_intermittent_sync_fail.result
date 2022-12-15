@@ -1,0 +1,33 @@
+CALL mtr.add_suppression("Binary logging not possible");
+CALL mtr.add_suppression("Attempting backtrace. You can use the following information to find out");
+CALL mtr.add_suppression("Taking backup from");
+CREATE TABLE t1 (pk INT PRIMARY KEY) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1), (10), (100);
+SELECT * FROM t1 ORDER BY pk;
+pk
+1
+10
+100
+# Enable debug sync points to simulate sync error and crash the server
+SET DEBUG = "+d,simulate_intermittent_error_during_sync_binlog_file";
+SET DEBUG_SYNC = "pause_before_binlog_abort SIGNAL abort_pending WAIT_FOR abort_continue";
+INSERT INTO t1 VALUES(200);
+SET DEBUG_SYNC = "now WAIT_FOR abort_pending";
+SET DEBUG_SYNC = "bgc_after_flush_stage_before_sync_stage SIGNAL flush_complete";
+INSERT INTO t1 VALUES (300);
+SET DEBUG_SYNC = "now WAIT_FOR flush_complete";
+SELECT SLEEP(10);
+SLEEP(10)
+0
+# Crashing the server
+SET DEBUG_SYNC = "now SIGNAL abort_continue";
+INSERT INTO t1 VALUES (400);
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the server
+# Verify pk > 100 were not added to the table
+SELECT * FROM t1 ORDER BY pk;
+pk
+1
+10
+100
+DROP TABLE t1;

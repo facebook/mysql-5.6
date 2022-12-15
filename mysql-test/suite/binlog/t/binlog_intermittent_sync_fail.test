@@ -1,0 +1,65 @@
+# Test case to ensure mysqld handles intermittent binlog sync failures correctly
+# when trim_binlog and abort_on_error are enabled.
+
+--source include/have_debug_sync.inc
+--source include/count_sessions.inc
+
+--connection default
+
+CALL mtr.add_suppression("Binary logging not possible");
+CALL mtr.add_suppression("Attempting backtrace. You can use the following information to find out");
+CALL mtr.add_suppression("Taking backup from");
+CREATE TABLE t1 (pk INT PRIMARY KEY) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1), (10), (100);
+SELECT * FROM t1 ORDER BY pk;
+
+# Open up two connections. Use the first connection to trigger the sync/crash
+# and use the second to commit a new transaction while the first is waiting.
+# Verify the second transaction is never committed.
+connect(con2,localhost,root,,);
+connect(con1,localhost,root,,);
+
+# Connection 1 triggers the error
+--connection con1
+--echo # Enable debug sync points to simulate sync error and crash the server
+SET DEBUG = "+d,simulate_intermittent_error_during_sync_binlog_file";
+SET DEBUG_SYNC = "pause_before_binlog_abort SIGNAL abort_pending WAIT_FOR abort_continue";
+
+--send INSERT INTO t1 VALUES(200)
+
+# Connection 2 issues a new transaction
+--connection con2
+SET DEBUG_SYNC = "now WAIT_FOR abort_pending";
+SET DEBUG_SYNC = "bgc_after_flush_stage_before_sync_stage SIGNAL flush_complete";
+--send INSERT INTO t1 VALUES (300)
+
+# Waiting for flush complete on connection is probably as close as we will get to
+# committing the transaction. Wait another 10 seconds and hope it's enough time for
+# the transaction to commit if there is a bug.
+--connection default
+SET DEBUG_SYNC = "now WAIT_FOR flush_complete";
+SELECT SLEEP(10);
+
+--echo # Crashing the server
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+SET DEBUG_SYNC = "now SIGNAL abort_continue";
+--error CR_SERVER_LOST
+INSERT INTO t1 VALUES (400);
+--source include/wait_until_disconnected.inc
+
+--enable_reconnect
+--echo # Restart the server
+--exec echo "restart:--gtid_mode=ON --enforce_gtid_consistency --log_bin --trim-binlog-to-recover --binlog_error_action=ABORT_SERVER --update_binlog_pos_threshold=0" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+--echo # Verify pk > 100 were not added to the table
+SELECT * FROM t1 ORDER BY pk;
+
+--disconnect con1
+--disconnect con2
+
+DROP TABLE t1;
+
+--source include/wait_until_count_sessions.inc

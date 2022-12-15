@@ -2754,6 +2754,7 @@ static void exec_binlog_error_action_abort(const char *err_string) {
       Send error to both client and to the server error log.
     */
     my_error(ER_BINLOG_LOGGING_IMPOSSIBLE, MYF(ME_FATALERROR), err_string);
+    DEBUG_SYNC(thd, "pause_before_binlog_abort");
   }
 
   LogErr(ERROR_LEVEL, ER_BINLOG_LOGGING_NOT_POSSIBLE, err_string);
@@ -11354,6 +11355,12 @@ std::pair<bool, bool> MYSQL_BIN_LOG::sync_binlog_file(bool force) {
       latency_histogram_increment(&histogram_binlog_fsync, binlog_fsync_time,
                                   1);
 
+    DBUG_EXECUTE_IF("simulate_intermittent_error_during_sync_binlog_file", {
+      static bool executed = false;
+      if (!executed) ret = 1;
+      executed = true;
+    });
+
     if (ret) {
       THD *thd = current_thd;
       thd->commit_error = THD::CE_SYNC_ERROR;
@@ -11944,6 +11951,21 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
     DEBUG_SYNC(thd, "before_sync_binlog_file");
     std::pair<bool, bool> result = sync_binlog_file(false);
     sync_error = result.first;
+
+    /*
+      If we are going to abort on binlog error, then abort immediately instead
+      of waiting to release locks. Otherwise this group will skip the commit
+      stage, release locks, and then execute error processing. The transactions
+      in this group remain in the prepared state.  However, when locks are
+      released, intermittent sync errors or setting sync_binlog > 1 could
+      result in new transactions being committed whose GTID is assigned after
+      the current group. This causes inconsistencies between the binlog and the
+      storage engine if opt_trim_binlog is also set because opt_trim_binlog
+      always rolls back prepared transactions.
+    */
+    if (sync_error && should_abort_on_binlog_error()) {
+      handle_binlog_flush_or_sync_error(thd, true /* need_lock_log */, nullptr);
+    }
   }
 
   if (update_binlog_end_pos_after_sync && flush_error == 0 && sync_error == 0) {
