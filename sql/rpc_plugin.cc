@@ -301,9 +301,16 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   }
 
   if (check_hlc_bound(current_thd, param)) {
-    bypass_rpc_exception ret{
-        ER_STALE_HLC_READ, "MYF(0)",
-        "Requested HLC timestamp is higher than current engine HLC"};
+    char error_msg[180];
+    snprintf(error_msg, sizeof(error_msg) / sizeof(char),
+             "Requested HLC timestamp %" PRIu64
+             " is higher than current engine HLC of %" PRIu64
+             " for database %s",
+             param->hlc_lower_bound_ts,
+             mysql_bin_log.get_selected_database_hlc(param->db_name),
+             param->db_name.c_str());
+
+    bypass_rpc_exception ret{ER_STALE_HLC_READ, "MYF(0)", error_msg};
     return ret;
   }
 

@@ -34,6 +34,7 @@
 #include "my_inttypes.h"
 #include "my_io.h"
 #include "my_sys.h"
+#include "mysqld_error.h"
 #include "sql/debug_sync.h"
 #include "sql/mysqld_thd_manager.h"
 #include "sql/srv_session.h"
@@ -487,8 +488,15 @@ static void test_rpc(void *) {
 
     const auto &exception = bypass_select(&param);
     if (exception.errnum) {
-      fprintf(outfile_rpc, "ERROR %d: %s\n", exception.errnum,
-              exception.message.c_str());
+      std::string emsg;
+      if (exception.errnum == ER_STALE_HLC_READ) {
+        std::regex timestamp_re("[0-9]+");
+        emsg = std::regex_replace(exception.message.c_str(), timestamp_re,
+                                  "HLC_TS");
+      } else {
+        emsg = exception.message.c_str();
+      }
+      fprintf(outfile_rpc, "ERROR %d: %s\n", exception.errnum, emsg.c_str());
     }
 
     // if allocated, more_values needs to be deallocated

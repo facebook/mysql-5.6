@@ -48,7 +48,7 @@ COMMIT;
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
 SELECT /*+ bypass */ val FROM a.table_a WHERE id3=2;
-ERROR 50085: Requested HLC timestamp is higher than current engine HLC
+ERROR 50085: Requested HLC timestamp HLC_TS is higher than current engine HLC of HLC_TS for database a
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
