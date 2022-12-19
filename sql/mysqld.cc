@@ -14442,5 +14442,5 @@ bool update_optimizer_force_index_rewrite() {
     }
     optimizer_force_index_rewrite_map[v[0]] = v[1];
   }
-  return true;
+  return rc;
 }
