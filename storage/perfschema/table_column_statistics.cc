@@ -168,8 +168,8 @@ int table_column_statistics::read_row_values(TABLE *table, unsigned char *buf,
                                     curr_row.op_type().length());
           break;
         case FO_EXTRA_DATA:
-          set_field_varchar_utf8mb4(f, curr_row.extra_data().c_str(),
-                                    curr_row.extra_data().length());
+          set_field_longtext_utf8mb4(f, curr_row.extra_data().c_str(),
+                                     curr_row.extra_data().length());
           break;
         default:
           assert(false);
