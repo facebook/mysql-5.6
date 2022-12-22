@@ -59,7 +59,7 @@ SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 --vertical_results
 SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COUNT(DISTINCT TABLE_INSTANCE) AS NUM_INSTANCES
 FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
-WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST 
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
 GROUP BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME
 ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, NUM_INSTANCES DESC;
 
@@ -73,7 +73,7 @@ SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_USAGE_COUNT FROM (
 ) t ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_USAGE_COUNT DESC;
 
 --echo Unique column accesses per table instance per SQL_ID
-SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE, REGEXP_REPLACE(EXTRA_DATA, '::[:digit:]+', '') AS EXTRA_DATA
 FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
 WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
 ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
