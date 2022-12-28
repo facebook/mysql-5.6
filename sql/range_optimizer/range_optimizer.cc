@@ -294,8 +294,13 @@ QUICK_RANGE::QUICK_RANGE(MEM_ROOT *alloc, const uchar *min_key_arg,
       max_keypart_map(max_keypart_map_arg) {
   min_key =
       static_cast<uchar *>(memdup_root(alloc, min_key_arg, min_length_arg + 1));
-  max_key =
-      static_cast<uchar *>(memdup_root(alloc, max_key_arg, max_length_arg + 1));
+  if (flag_arg & EQ_RANGE) {
+    // max and min is the same, reuse the same memory
+    max_key = min_key;
+  } else {
+    max_key = static_cast<uchar *>(
+        memdup_root(alloc, max_key_arg, max_length_arg + 1));
+  }
   // If we get is_null_string as argument, the memdup is undefined behavior.
   assert(min_key_arg != is_null_string);
   assert(max_key_arg != is_null_string);
