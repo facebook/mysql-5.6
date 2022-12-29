@@ -1,3 +1,5 @@
+# In raft mode IO thread will never run, no need to check it
+let $slave_io_running_check_disable= 1;
 
 # TODO: check if the topology is supported in raft
 
