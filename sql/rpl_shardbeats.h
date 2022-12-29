@@ -145,6 +145,8 @@ class Shardbeats_manager {
   // create latest list of blocked dbs on update of global variable.
   void create_blocked_dbs();
 
+  // destroy the THD and restart the execute loop
+  bool restart_execute_loop = false;
  private:
   // Private constructor
   Shardbeats_manager();
