@@ -51,8 +51,11 @@
 #include "mysql/psi/mysql_socket.h"
 #include "mysql/thread_type.h"
 #include "sql/auth/auth_acls.h"  // SUPER_ACL
-#include "sql/binlog.h"       // mysql_bin_log
-#include "sql/current_thd.h"  // current_thd
+#include "sql/binlog.h"          // mysql_bin_log
+#include "sql/current_thd.h"     // current_thd
+#include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
+#include "sql/dd/dd_table.h"                 // dd::Table
+#include "sql/dd/dictionary.h"
 #include "sql/mysqld.h"
 #include "sql/mysqld_thd_manager.h"  // Global_THD_manager
 #include "sql/protocol_classic.h"
@@ -739,4 +742,34 @@ void thd_add_response_attr(THD *thd, const std::string &rattr_key,
     LEX_CSTRING value = {rattr_val.c_str(), rattr_val.length()};
     tracker->mark_as_changed(thd, key, &value);
   }
+}
+
+bool thd_get_table_privacy_policy(THD *thd, const std::string &db_name,
+                                  const std::string &table_name,
+                                  LEX_STRING *privacy_policy_str) {
+  privacy_policy_str->str = nullptr;
+  privacy_policy_str->length = 0;
+
+  dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+  // Acquire MDL_EXPLICIT lock on table.
+  MDL_ticket *mdl_ticket = nullptr;
+  if (dd::acquire_shared_table_mdl(thd, db_name.c_str(), table_name.c_str(),
+                                   false, &mdl_ticket)) {
+    return false;
+  }
+
+  bool returned_value = true;
+  const dd::Table *table_obj = nullptr;
+  returned_value = thd->dd_client()->acquire(db_name.c_str(),
+                                             table_name.c_str(), &table_obj);
+  if (table_obj) {
+    returned_value =
+        dd::get_privacy_policy_options(thd, table_obj, privacy_policy_str);
+  } else {
+    // Temporary table, return no policy for now.
+    // TODO: Extract policy from temp tables
+    returned_value = true;
+  }
+  dd::release_mdl(thd, mdl_ticket);
+  return !returned_value;
 }

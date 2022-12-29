@@ -470,4 +470,19 @@ const std::string &thd_get_connection_attr(THD *thd,
 void thd_add_response_attr(THD *thd, const std::string &rattr_key,
                            const std::string &rattr_val);
 
+/**
+  Get the privacy_policy option value for the table
+  @param  thd             Thread handler
+  @param  table           dd::Table instance, can be null for temp tables
+  @param  privacy_policy_str Privacy Policy Str.This string is allocated in
+                             MemRoot and will be freed when query finishes.
+
+  @return true  - Return value follows success semantics.
+                  On success, if able to get the privacy policy
+  @return false - otherwise
+*/
+bool thd_get_table_privacy_policy(THD *thd, const std::string &db_name,
+                                  const std::string &table_name,
+                                  LEX_STRING *privacy_policy_str);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED
