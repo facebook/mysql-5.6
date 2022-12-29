@@ -123,9 +123,23 @@ int get_dbs_with_filter(THD *thd,
                         std::vector<std::pair<std::string, shard_rs_t>> *dbs) {
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
 
+  static int dd_fetch_error_msg_count = 0;
   std::vector<const dd::Schema *> schema_vector;
   if (thd->dd_client()->fetch_global_components(&schema_vector)) {
+    if ((dd_fetch_error_msg_count++ % INFREQUENT_LOGGING == 0 &&
+         shardbeat_vlog_level >= 1) ||
+        shardbeat_vlog_level >= 2 || dd_fetch_error_msg_count <= 10) {
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Fetch global components returned error:"
+          " killed: %d err: %d fatal: %d err_count: %d",
+          thd->is_killed(), thd->is_error(), thd->is_fatal_error(),
+          dd_fetch_error_msg_count);
+    }
     return 1;
+  } else {
+    // reset error count
+    dd_fetch_error_msg_count = 0;
   }
 
   for (const dd::Schema *schema : schema_vector) {
@@ -237,8 +251,11 @@ extern "C" void *generate_shardbeats(void *shardbeat_singleton) {
 
   Shardbeats_manager *smgr = (Shardbeats_manager *)shardbeat_singleton;
   assert(smgr != nullptr);
-  // Call the actual execute function.
-  smgr->execute();
+
+  do {
+    // Call the actual execute function.
+    smgr->execute();
+  } while (smgr->restart_execute_loop);
 
   // NO_LINT_DEBUG
   sql_print_information("Shard level Heartbeater thread finished");
@@ -493,15 +510,24 @@ void Shardbeats_manager::check_and_insert_shardbeat(
       // NO_LINT_DEBUG
       sql_print_error(
           "Error hit while inserting shardbeat: %s errcode: %u %s "
-          "duration_ms: %u sb_num:%ld sb_val:%ld",
+          "duration_ms: %u sb_num:%ld sb_val:%ld"
+          " killed: %d fatal: %d",
           db.c_str(), sb_thd->get_stmt_da()->mysql_errno(),
           sb_thd->get_stmt_da()->message_text(), total_duration_ms, sb_num,
-          sb_val);
+          sb_val, sb_thd->is_killed(), sb_thd->is_fatal_error());
     }
   }
+
+  // We can hit errors during inserts and some of the errors can be fatal
+  // is_fatal_error. The pipeline can stop due to this
+  // We have to do this both before and after the command is because we
+  // have to leave the THD able to interact with DD fetch_global_components
+  sb_thd->reset_for_next_command();
 }
 
 void Shardbeats_manager::execute() {
+  // reset the execute loop
+  restart_execute_loop = false;
   sb_thd = new THD;
   sb_thd->set_new_thread_id();
   sb_thd->thread_stack = (char *)&sb_thd;
@@ -636,9 +662,34 @@ void Shardbeats_manager::execute() {
     skip_databases_iter = skip_databases;
     mysql_mutex_unlock(&LOCK_shardbeater);
 
+    static int dd_fetch_error_msg_count = 0;
     // We fetch dbs each time, as Shard Migrations makes the set dynamic
     std::vector<std::pair<std::string, shard_rs_t>> shards;
-    get_dbs_with_filter(sb_thd, skip_databases_iter, &shards);
+    if (get_dbs_with_filter(sb_thd, skip_databases_iter, &shards)) {
+      if ((dd_fetch_error_msg_count++ % INFREQUENT_LOGGING == 0 &&
+           shardbeat_vlog_level >= 1) ||
+          shardbeat_vlog_level >= 3 || dd_fetch_error_msg_count <= 10) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "Failure in get_dbs_with_filter. Most likely issue in data "
+            "dictionary fetch repeat: %d",
+            dd_fetch_error_msg_count);
+      }
+      // If you are hitting this error 10 times consecutively, quit
+      if (dd_fetch_error_msg_count < 10) {
+        continue;
+      } else {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "Exiting shardbeater loop due to repeated errors (10)");
+        // we try to recreate the THD and restart the execute loop
+        restart_execute_loop = true;
+        break;
+      }
+    } else {
+      // reset error count
+      dd_fetch_error_msg_count = 0;
+    }
 
     for (const auto &dbinfo : shards) {
       check_and_insert_shardbeat(dbinfo, SLA);
