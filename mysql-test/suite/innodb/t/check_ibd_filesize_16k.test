@@ -68,10 +68,20 @@ DROP TABLE t2;
 #
 # Table 3: compressed BLOB
 #
-CREATE TABLE t3 (a INT PRIMARY KEY, b BLOB)
+# Because of PS-7359 we use longer table name than original 't3'.
+# PS introduced new DD attributes like 'explicit_encryption'. They cause SDI
+# compressed string to be larger than upstream version. Its compressed version
+# size varies +/-2 bytes because of non constant parts like timestamp,
+# tablespace id, table id, and sometimes does not fit 1kB page causing 2nd SDI
+# page to be allocated. In such case test fails as its result is recorded for
+# the case when we have one SDI page.
+# The solution is to increase table name length. That will cause SDI string to
+# to be even longer and its compressed version to always occupy 2 1kB pages.
+
+CREATE TABLE test_table_3 (a INT PRIMARY KEY, b BLOB)
        ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1;
 
-let FILE_TO_CHECK=test/t3.ibd;
+let FILE_TO_CHECK=test/test_table_3.ibd;
 echo Empty table:;
 --source include/show_file_size.inc
 
@@ -80,7 +90,7 @@ let $i = 0;
 --disable_query_log
 BEGIN;
 while ($i < 40) {
-      eval INSERT INTO t3 VALUES($i, REPEAT('a', 30000));
+      eval INSERT INTO test_table_3 VALUES($i, REPEAT('a', 30000));
       inc $i;
       let $print= `SELECT $i MOD 8`;
       if ($print == 0) {
@@ -93,6 +103,6 @@ while ($i < 40) {
 COMMIT;
 --enable_query_log
 
-DROP TABLE t3;
+DROP TABLE test_table_3;
 
 SET GLOBAL innodb_file_per_table=default;
