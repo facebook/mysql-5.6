@@ -102,5 +102,5 @@ SET rocksdb_bulk_load=1;
 INSERT INTO t1 VALUES (2);
 INSERT INTO t1 VALUES (22);
 SET rocksdb_bulk_load=0;
-ERROR HY000: [(null)] bulk load error: Operation failed. Try again.: Files cannot be ingested to Lmax. Please make sure key range of Lmax does not overlap with files to ingest.
+ERROR HY000: [(null)] bulk load error: Operation failed. Try again.: Files cannot be ingested to Lmax. Please make sure key range of Lmax and ongoing compaction's output to Lmaxdoes not overlap with files to ingest.
 DROP TABLE t1;
