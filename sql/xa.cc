@@ -326,10 +326,15 @@ int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
     info.dry_run = false;
   }
 
-  for (info.len = MAX_XID_LIST_SIZE;
-       info.list == nullptr && info.len > MIN_XID_LIST_SIZE; info.len /= 2) {
+  info.len = MAX_XID_LIST_SIZE;
+  while (info.len > MIN_XID_LIST_SIZE) {
     info.list = new (std::nothrow) XA_recover_txn[info.len];
+    if (info.list != nullptr) {
+      break;
+    }
+    info.len /= 2;
   }
+
   if (!info.list) {
     LogErr(ERROR_LEVEL, ER_SERVER_OUTOFMEMORY,
            static_cast<int>(info.len * sizeof(XID)));

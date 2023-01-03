@@ -10312,6 +10312,22 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
     /* Trim the crashed binlog file to last valid transaction
       or event (non-transaction) base on valid_pos. */
     if (valid_pos > 0) {
+      if (opt_trim_binlog) {
+        char backup_file[FN_REFLEN];
+        myf opt = MY_REPLACE_DIR | MY_UNPACK_FILENAME | MY_APPEND_EXT;
+        fn_format(backup_file, "binlog_backup", opt_mysql_tmpdir, ".bak", opt);
+
+        // NO_LINT_DEBUG
+        sql_print_error("Taking backup from %s to %s", log_name, backup_file);
+        /* MY_HOLD_ORIGINAL_MODES prevents attempts to chown the file */
+        if (my_copy(log_name, backup_file,
+                    MYF(MY_WME | MY_HOLD_ORIGINAL_MODES))) {
+          // NO_LINT_DEBUG
+          sql_print_error("Could not take backup of the crashed binlog file %s",
+                          log_name);
+        }
+      }
+
       std::unique_ptr<Binlog_ofile> ofile(
           Binlog_ofile::open_existing(key_file_binlog, log_name, MYF(MY_WME)));
 
@@ -10322,25 +10338,6 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
 
       /* Change binlog file size to valid_pos */
       if (valid_pos < binlog_size) {
-        if (opt_trim_binlog) {
-          char backup_file[FN_REFLEN];
-          myf opt = MY_REPLACE_DIR | MY_UNPACK_FILENAME | MY_APPEND_EXT;
-          fn_format(backup_file, "binlog_backup", opt_mysql_tmpdir, ".trunc",
-                    opt);
-
-          // NO_LINT_DEBUG
-          sql_print_error("Taking backup from %s to %s\n", log_name,
-                          backup_file);
-          /* MY_HOLD_ORIGINAL_MODES prevents attempts to chown the file */
-          if (my_copy(log_name, backup_file,
-                      MYF(MY_WME | MY_HOLD_ORIGINAL_MODES))) {
-            // NO_LINT_DEBUG
-            sql_print_error(
-                "Could not take backup of the truncated binlog file %s",
-                log_name);
-          }
-        }
-
         if (ofile->truncate(valid_pos)) {
           LogErr(ERROR_LEVEL, ER_BINLOG_CANT_TRIM_CRASHED_BINLOG);
           return -1;

@@ -69,7 +69,8 @@ constexpr size_t STATS_COMMITTED = 0,  // The committed counter
 void recover_one_internal_trx(xarecover_st const &info, handlerton &ht,
                               XA_recover_txn const &xa_trx, my_xid xid,
                               ::recovery_statistics &stats,
-                              Gtid &recovered_max_gtid);
+                              Gtid &recovered_max_gtid, std::string &xid_str,
+                              std::string &gtid_str);
 /**
   Processes an externally coordinated transaction against the transaction
   coordinator internal state.
@@ -329,8 +330,25 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
       for (int i = 0; i < got; ++i) {
         auto &xa_trx = info->list[i];
         my_xid xid = xa_trx.id.get_my_xid();
+        std::string xid_str = std::to_string(xid);
+        std::string gtid_str;
+        if (info->commit_list) {
+          gtid_str.resize(Gtid::MAX_TEXT_LENGTH + 1);
+          const auto itr = info->commit_list->find(xid);
+          if (itr != info->commit_list->end() && itr->second.gno > 0 &&
+              itr->second.sidno > 0) {
+            global_sid_lock->rdlock();
+            int len = itr->second.to_string(global_sid_map, gtid_str.data());
+            gtid_str.resize(len + 1);
+            global_sid_lock->unlock();
+          }
+        }
 
         if (!xid) {  // Externally coordinated transaction
+          // NO_LINT_DEBUG
+          sql_print_information(
+              "Ignoring XID: %s (GTID: %s)", xid_str.c_str(),
+              gtid_str.empty() ? "Not found" : gtid_str.c_str());
           ::recover_one_external_trx(*info, *ht, xa_trx, external_stats);
           ++info->found_foreign_xids;
           continue;
@@ -345,7 +363,7 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
 
         // Internally coordinated transaction
         ::recover_one_internal_trx(*info, *ht, xa_trx, xid, internal_stats,
-                                   recovered_max_gtid);
+                                   recovered_max_gtid, xid_str, gtid_str);
       }
       if (got < info->len) break;
     }
@@ -386,7 +404,8 @@ namespace {
 void recover_one_internal_trx(xarecover_st const &info, handlerton &ht,
                               XA_recover_txn const &xa_trx, my_xid xid,
                               ::recovery_statistics &stats,
-                              Gtid &recovered_max_gtid) {
+                              Gtid &recovered_max_gtid, std::string &xid_str,
+                              std::string &gtid_str) {
   const Gtid *current_gtid = nullptr;
   bool recovery_mode_condition;
   if (info.commit_list != nullptr) {
@@ -418,8 +437,12 @@ void recover_one_internal_trx(xarecover_st const &info, handlerton &ht,
     enum xa_status_code exec_status;
     if (DBUG_EVALUATE_IF("xa_recovery_error_reporting", true, false))
       exec_status = ::generate_xa_recovery_error();
-    else
+    else {
+      // NO_LINT_DEBUG
+      sql_print_information("Committing XID: %s (GTID: %s)", xid_str.c_str(),
+                            gtid_str.empty() ? "Not found" : gtid_str.c_str());
       exec_status = ht.commit_by_xid(&ht, const_cast<XID *>(&xa_trx.id));
+    }
 
     if (exec_status == XA_OK)
       ::add_to_stats<STATS_SUCCESS, STATS_COMMITTED>(stats);
@@ -432,8 +455,12 @@ void recover_one_internal_trx(xarecover_st const &info, handlerton &ht,
     enum xa_status_code exec_status;
     if (DBUG_EVALUATE_IF("xa_recovery_error_reporting", true, false))
       exec_status = ::generate_xa_recovery_error();
-    else
+    else {
+      // NO_LINT_DEBUG
+      sql_print_information("Rolling back XID: %s (GTID: %s)", xid_str.c_str(),
+                            gtid_str.empty() ? "Not found" : gtid_str.c_str());
       exec_status = ht.rollback_by_xid(&ht, const_cast<XID *>(&xa_trx.id));
+    }
 
     if (exec_status == XA_OK)
       ::add_to_stats<STATS_SUCCESS, STATS_ROLLEDBACK>(stats);
