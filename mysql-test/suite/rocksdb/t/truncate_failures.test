@@ -104,7 +104,7 @@ TRUNCATE TABLE t1_crash;
 --enable_reconnect
 --source include/wait_until_connected_again.inc
 --disable_reconnect
---exec grep 'Removing truncated leftover' $LOG | cut -d] -f2
+--exec grep 'Removing truncated leftover' $LOG | wc -l
 DROP TABLE IF EXISTS t1_crash;
 --remove_file $LOG
 

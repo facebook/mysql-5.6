@@ -26,7 +26,6 @@
 /* MySQL header files */
 #include "./my_stacktrace.h"
 #include "sql/field.h"
-#include "sql/log.h"
 #include "sql/sql_array.h"
 
 /* MyRocks header files */

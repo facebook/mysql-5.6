@@ -42,7 +42,6 @@
 #include <vector>
 
 /* MySQL includes */
-#include <mysql/components/services/log_builtins.h>
 #include <mysql/psi/mysql_file.h>
 #include <mysql/psi/mysql_table.h>
 #include <mysql/thread_pool_priv.h>
@@ -104,6 +103,13 @@
 
 #ifdef FB_HAVE_WSENV
 #include "./ObjectFactory.h"
+#endif
+
+#ifdef MYSQL_DYNAMIC_PLUGIN
+// MySQL 8.0 logger service interface
+static SERVICE_TYPE(registry) *reg_srv = nullptr;
+SERVICE_TYPE(log_builtins) *log_bi = nullptr;
+SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 #endif
 
 // Internal MySQL APIs not exposed in any header.
@@ -436,16 +442,18 @@ static int rocksdb_create_checkpoint(const char *checkpoint_dir_raw) {
   assert(checkpoint_dir_raw);
 
   const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
-  sql_print_information("creating checkpoint in directory: %s\n",
-                        checkpoint_dir.c_str());
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "creating checkpoint in directory: %s\n",
+                  checkpoint_dir.c_str());
   rocksdb::Checkpoint *checkpoint;
   auto status = rocksdb::Checkpoint::Create(rdb, &checkpoint);
   if (status.ok()) {
     status = checkpoint->CreateCheckpoint(checkpoint_dir.c_str());
     delete checkpoint;
     if (status.ok()) {
-      sql_print_information("created checkpoint in directory: %s\n",
-                            checkpoint_dir.c_str());
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "created checkpoint in directory: %s\n",
+                      checkpoint_dir.c_str());
       return HA_EXIT_SUCCESS;
     } else {
       my_error(ER_GET_ERRMSG, MYF(0), status.code(), status.ToString().c_str(),
@@ -461,8 +469,9 @@ static int rocksdb_create_checkpoint(const char *checkpoint_dir_raw) {
 
 static int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw) {
   const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
-  sql_print_information("deleting temporary checkpoint in directory : %s\n",
-                        checkpoint_dir.c_str());
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "deleting temporary checkpoint in directory : %s\n",
+                  checkpoint_dir.c_str());
   const auto status = rocksdb::DestroyDB(checkpoint_dir, rocksdb::Options());
   if (status.ok()) {
     return HA_EXIT_SUCCESS;
@@ -543,7 +552,8 @@ static int rocksdb_force_flush_memtable_now(
   }
 
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Manual memtable flush.");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Manual memtable flush.");
   rocksdb_flush_all_memtables();
   return HA_EXIT_SUCCESS;
 }
@@ -560,7 +570,8 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
     void *const var_ptr MY_ATTRIBUTE((__unused__)),
     struct st_mysql_value *const value MY_ATTRIBUTE((__unused__))) {
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Manual memtable and L0 flush.");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Manual memtable and L0 flush.");
   rocksdb_flush_all_memtables();
 
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
@@ -597,8 +608,9 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
         // error. We are done with this CF and proceed to the next CF.
         if (!cfh) {
           // NO_LINT_DEBUG
-          sql_print_information("cf %s has been dropped during CompactFiles.",
-                                cf_handle->GetName().c_str());
+          LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                          "cf %s has been dropped during CompactFiles.",
+                          cf_handle->GetName().c_str());
           break;
         }
 
@@ -637,10 +649,12 @@ static int rocksdb_cancel_manual_compactions(
     struct st_mysql_value *const value MY_ATTRIBUTE((__unused__))) {
   rdb_mc_thread.cancel_all_pending_manual_compaction_requests();
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Stopping all Manual Compactions.");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Stopping all Manual Compactions.");
   rdb->GetBaseDB()->DisableManualCompaction();
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Enabling Manual Compactions.");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Enabling Manual Compactions.");
   rdb->GetBaseDB()->EnableManualCompaction();
   return HA_EXIT_SUCCESS;
 }
@@ -950,8 +964,8 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
   if (trace_opt_str.empty()) {
     // End tracing block cache accesses or queries.
     // NO_LINT_DEBUG
-    sql_print_information(
-        "RocksDB: Stop tracing block cache accesses or queries.\n");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Stop tracing block cache accesses or queries.\n");
     s = trace_block_cache_access ? rdb->EndBlockCacheTrace() : rdb->EndTrace();
 
     if (!s.ok()) {
@@ -979,7 +993,8 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
     trace_opt.max_trace_file_size = std::stoull(trace_opts_strs[1]);
   } catch (const std::exception &e) {
     // NO_LINT_DEBUG
-    sql_print_information(
+    LogPluginErrMsg(
+        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: Failed to parse trace option string: %s. The correct "
         "format is sampling_frequency:max_trace_file_size:trace_file_name. "
         "sampling_frequency and max_trace_file_size are positive integers. "
@@ -991,7 +1006,8 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
   const std::string &trace_file_name = trace_opts_strs[2];
   if (trace_file_name.find('/') != std::string::npos) {
     // NO_LINT_DEBUG
-    sql_print_information(
+    LogPluginErrMsg(
+        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: Start tracing failed (trace option string: %s). The file "
         "name contains directory separator.\n",
         trace_opt_str.c_str());
@@ -1001,7 +1017,8 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
   s = rdb->GetEnv()->CreateDirIfMissing(trace_dir);
   if (!s.ok()) {
     // NO_LINT_DEBUG
-    sql_print_information(
+    LogPluginErrMsg(
+        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: Start tracing failed (trace option string: %s). Failed to "
         "create the trace directory %s: %s\n",
         trace_opt_str.c_str(), trace_dir.c_str(), s.ToString().c_str());
@@ -1011,7 +1028,8 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
   s = rdb->GetEnv()->FileExists(trace_file_path);
   if (s.ok() || !s.IsNotFound()) {
     // NO_LINT_DEBUG
-    sql_print_information(
+    LogPluginErrMsg(
+        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: Start tracing failed (trace option string: %s). The trace "
         "file either already exists or we encountered an error "
         "when calling rdb->GetEnv()->FileExists. The returned status string "
@@ -1037,12 +1055,13 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
     return HA_EXIT_FAILURE;
   }
   // NO_LINT_DEBUG
-  sql_print_information(
-      "RocksDB: Start tracing block cache accesses or queries. Sampling "
-      "frequency: %lu, "
-      "Maximum trace file size: %lu, Trace file path %s.\n",
-      trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
-      trace_file_path.c_str());
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Start tracing block cache accesses or queries. "
+                  "Sampling frequency: %" PRIu64
+                  ", Maximum trace file size: %" PRIu64
+                  ", Trace file path %s.\n",
+                  trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
+                  trace_file_path.c_str());
   // Save the trace option.
   *static_cast<const char **>(save) = trace_opt_str_raw;
   return HA_EXIT_SUCCESS;
@@ -1052,13 +1071,15 @@ static int handle_rocksdb_corrupt_data_error() {
   switch (rocksdb_corrupt_data_action) {
     case corrupt_data_action::ABORT_SERVER:
       // NO_LINT_DEBUG
-      sql_print_error(
+      LogPluginErrMsg(
+          ERROR_LEVEL, ER_LOG_PRINTF_MSG,
           "MyRocks: aborting on HA_ERR_ROCKSDB_CORRUPT_DATA error.");
       rdb_persist_corruption_marker();
       abort();
     case corrupt_data_action::WARNING:
       // NO_LINT_DEBUG
-      sql_print_warning("MyRocks: hit error HA_ERR_ROCKSDB_CORRUPT_DATA.");
+      LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                      "MyRocks: hit error HA_ERR_ROCKSDB_CORRUPT_DATA.");
       return 0;
     default:
       return HA_ERR_ROCKSDB_CORRUPT_DATA;
@@ -1463,10 +1484,10 @@ static void rocksdb_set_max_bottom_pri_background_compactions_internal(
     // the threads in the BOTTOM pool run with lower OS priority (19 in Linux).
     rdb->GetEnv()->SetBackgroundThreads(val, rocksdb::Env::Priority::BOTTOM);
     rdb->GetEnv()->LowerThreadPoolCPUPriority(rocksdb::Env::Priority::BOTTOM);
-    sql_print_information(
-        "Set %d compaction thread(s) with "
-        "lower scheduling priority.",
-        val);
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Set %d compaction thread(s) with "
+                    "lower scheduling priority.",
+                    val);
   }
 }
 
@@ -3037,8 +3058,8 @@ static int rocksdb_compact_column_family(
       auto grd =
           create_scope_guard([&]() { rdb_mc_thread.set_client_done(mc_id); });
       // NO_LINT_DEBUG
-      sql_print_information("RocksDB: Manual compaction of column family: %s\n",
-                            cf);
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Manual compaction of column family: %s\n", cf);
       // Checking thd state every short cycle (100ms). This is for allowing to
       // exiting this function without waiting for CompactRange to finish.
       Rdb_manual_compaction_thread::Manual_compaction_request::mc_state
@@ -3381,10 +3402,10 @@ class Rdb_transaction {
         char user_host_buff[MAX_USER_HOST_SIZE + 1];
         make_user_name(thd->security_context(), user_host_buff);
         // NO_LINT_DEBUG
-        sql_print_warning(
-            "Got snapshot conflict errors: User: %s "
-            "Query: %s",
-            user_host_buff, thd->query());
+        LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                        "Got snapshot conflict errors: User: %s "
+                        "Query: %s",
+                        user_host_buff, thd->query().str);
       }
       m_detailed_error = String(" (snapshot conflict)", system_charset_info);
       /* TODO(yzha) - row stats are gone in 8.0
@@ -3644,7 +3665,8 @@ class Rdb_transaction {
 
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
-      sql_print_information(
+      LogPluginErrMsg(
+          INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
           "SST Tracing : Finishing bulk loading operation for table '%s'",
           m_curr_bulk_load_tablename.c_str());
     }
@@ -3665,8 +3687,9 @@ class Rdb_transaction {
     // collect all Rdb_sst_commit_info containing (SST files, cf)
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
-      sql_print_information("SST Tracing : Finishing '%zu' active SST files",
-                            m_curr_bulk_load.size());
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "SST Tracing : Finishing '%zu' active SST files",
+                      m_curr_bulk_load.size());
     }
 
     int rc2 = 0;
@@ -3693,7 +3716,8 @@ class Rdb_transaction {
 
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
-      sql_print_information("SST Tracing : All active SST files finished");
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "SST Tracing : All active SST files finished");
     }
 
     if (rc) {
@@ -3706,7 +3730,8 @@ class Rdb_transaction {
     if (!m_key_merge.empty()) {
       if (THDVAR(m_thd, trace_sst_api)) {
         // NO_LINT_DEBUG
-        sql_print_information(
+        LogPluginErrMsg(
+            INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
             "SST Tracing : Started flushing index_merge sort buffer");
       }
 
@@ -3775,7 +3800,8 @@ class Rdb_transaction {
           }
 
           // NO_LINT_DEBUG
-          sql_print_information(
+          LogPluginErrMsg(
+              INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
               "SST Tracing : Flushing index_merge sort buffer for table '%s' "
               "and index '%s'",
               full_name.c_str(), index_name.c_str());
@@ -3962,7 +3988,8 @@ class Rdb_transaction {
 
       if (THDVAR(m_thd, trace_sst_api)) {
         // NO_LINT_DEBUG
-        sql_print_information(
+        LogPluginErrMsg(
+            INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
             "SST Tracing : Flushing index_merge sort buffer completed");
       }
     }
@@ -4007,16 +4034,17 @@ class Rdb_transaction {
 
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
-      sql_print_information(
+      LogPluginErrMsg(
+          INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
           "SST Tracing: Calling IngestExternalFile with '%zu' files",
           file_count);
     }
     const rocksdb::Status s = rdb->IngestExternalFiles(args);
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
-      sql_print_information(
-          "SST Tracing: IngestExternalFile '%zu' files returned %s", file_count,
-          s.ok() ? "ok" : "not ok");
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "SST Tracing: IngestExternalFile '%zu' files returned %s",
+                      file_count, s.ok() ? "ok" : "not ok");
     }
 
     if (!s.ok()) {
@@ -4024,7 +4052,8 @@ class Rdb_transaction {
         Rdb_sst_info::report_error_msg(s, nullptr);
       }
       // NO_LINT_DEBUG
-      sql_print_warning(
+      LogPluginErrMsg(
+          WARNING_LEVEL, ER_LOG_PRINTF_MSG,
           "MyRocks: failed to bulk load. "
           "status code = %d, status = %s, IngestExternalFileOptions=%s",
           s.code(), s.ToString().c_str(),
@@ -4042,7 +4071,8 @@ class Rdb_transaction {
 
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
-      sql_print_information(
+      LogPluginErrMsg(
+          INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
           "SST Tracing : Bulk loading operation completed for table '%s'",
           m_curr_bulk_load_tablename.c_str());
     }
@@ -4108,7 +4138,8 @@ class Rdb_transaction {
 
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
-      sql_print_information(
+      LogPluginErrMsg(
+          INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
           "SST Tracing : Starting bulk loading operation for table '%s'",
           bulk_load->get_table_basename().c_str());
     }
@@ -5498,10 +5529,10 @@ static int rocksdb_close_connection(
     int rc = tx->finish_bulk_load(&is_critical_error, false);
     if (rc != 0 && is_critical_error) {
       // NO_LINT_DEBUG
-      sql_print_error(
-          "RocksDB: Error %d finalizing last SST file while "
-          "disconnecting",
-          rc);
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Error %d finalizing last SST file while "
+                      "disconnecting",
+                      rc);
     }
 
     delete tx;
@@ -6567,7 +6598,8 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     // ROCKSDB_USING_THREAD_STATUS is not defined
     if (!s.ok() && !s.IsNotSupported()) {
       // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Returned error (%s) from GetThreadList.\n",
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Returned error (%s) from GetThreadList.\n",
                       s.ToString().c_str());
       res |= true;
     } else {
@@ -7066,8 +7098,9 @@ static void rocksdb_truncation_table_cleanup(void) {
   ha_rocksdb table(rocksdb_hton, nullptr);
   for (Rdb_tbl_def *tbl_def : collector.m_tbl_list) {
     // NO_LINT_DEBUG
-    sql_print_warning("MyRocks: Removing truncated leftover table %s",
-                      tbl_def->full_tablename().c_str());
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "MyRocks: Removing truncated leftover table %s",
+                    tbl_def->full_tablename().c_str());
     table.delete_table(tbl_def);
   }
 }
@@ -7079,14 +7112,21 @@ static void rocksdb_truncation_table_cleanup(void) {
 static int rocksdb_init_internal(void *const p) {
   DBUG_ENTER_FUNC();
 
+#ifdef MYSQL_DYNAMIC_PLUGIN
+  // Initialize error logging service.
+  if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs)) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+#endif
+
 #ifdef FB_HAVE_WSENV
   // Initialize WSEnv with rocksdb_ws_env_path
   if (rdb_has_wsenv()) {
     // NO_LINT_DEBUG
-    sql_print_information(
-        "RocksDB: Initializing WSEnvironment: "
-        "rocksdb_wsenv_path = %s, rocksdb_wsenv_tenant = %s",
-        rocksdb_wsenv_path, rocksdb_wsenv_tenant);
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Initializing WSEnvironment: "
+                    "rocksdb_wsenv_path = %s, rocksdb_wsenv_tenant = %s",
+                    rocksdb_wsenv_path, rocksdb_wsenv_tenant);
 
     std::string rdb_tenant(rocksdb_wsenv_tenant);
     facebook::rocks::WSEnvCreationArgs args(rdb_tenant);
@@ -7104,31 +7144,35 @@ static int rocksdb_init_internal(void *const p) {
   if (rocksdb_wsenv_path != nullptr && *rocksdb_wsenv_path) {
     // We've turned on WSEnv in the wrong build
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: WSEnvironment not supported. ");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: WSEnvironment not supported. ");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 #endif
 
   if (rdb_has_rocksdb_corruption()) {
     // NO_LINT_DEBUG
-    sql_print_error(
-        "RocksDB: There was a corruption detected in RockDB files. "
-        "Check error log emitted earlier for more details.");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: There was a corruption detected in RockDB files. "
+                    "Check error log emitted earlier for more details.");
     if (rocksdb_allow_to_start_after_corruption) {
       // NO_LINT_DEBUG
-      sql_print_information(
+      LogPluginErrMsg(
+          INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
           "RocksDB: Remove rocksdb_allow_to_start_after_corruption to prevent "
           "server operating if RocksDB corruption is detected.");
     } else {
       // NO_LINT_DEBUG
-      sql_print_error(
-          "RocksDB: The server will exit normally and stop restart "
-          "attempts. Remove %s file from data directory and "
-          "start mysqld manually.",
-          rdb_corruption_marker_file_name().c_str());
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: The server will exit normally and stop restart "
+                      "attempts. Remove %s file from data directory and "
+                      "start mysqld manually.",
+                      rdb_corruption_marker_file_name().c_str());
 
+#ifndef MYSQL_DYNAMIC_PLUGIN
       // Flush error log to ensure everything is written before exit
       flush_error_log_messages();
+#endif
       exit(0);
     }
   }
@@ -7153,7 +7197,8 @@ static int rocksdb_init_internal(void *const p) {
 
     uint32_t seed = rand();
     // NO_LINT_DEBUG
-    sql_print_information(
+    LogPluginErrMsg(
+        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: Initializing fault injection with params (retry=%d, "
         "failure_ratio=%d, seed=%d)",
         retryable, failure_ratio, seed);
@@ -7250,11 +7295,11 @@ static int rocksdb_init_internal(void *const p) {
 
   if (rocksdb_db_options->max_open_files > (long)open_files_limit) {
     // NO_LINT_DEBUG
-    sql_print_information(
-        "RocksDB: rocksdb_max_open_files should not be "
-        "greater than the open_files_limit, effective value "
-        "of rocksdb_max_open_files is being set to "
-        "open_files_limit / 2.");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: rocksdb_max_open_files should not be "
+                    "greater than the open_files_limit, effective value "
+                    "of rocksdb_max_open_files is being set to "
+                    "open_files_limit / 2.");
     rocksdb_db_options->max_open_files = open_files_limit / 2;
   } else if (rocksdb_db_options->max_open_files == -2) {
     rocksdb_db_options->max_open_files = open_files_limit / 2;
@@ -7302,9 +7347,9 @@ static int rocksdb_init_internal(void *const p) {
       rocksdb_db_options->use_direct_reads) {
     // allow_mmap_reads implies !use_direct_reads and RocksDB will not open if
     // mmap_reads and direct_reads are both on.   (NO_LINT_DEBUG)
-    sql_print_error(
-        "RocksDB: Can't enable both use_direct_reads "
-        "and allow_mmap_reads\n");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Can't enable both use_direct_reads "
+                    "and allow_mmap_reads\n");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -7332,10 +7377,10 @@ static int rocksdb_init_internal(void *const p) {
 
     if (!check_status.ok()) {
       // NO_LINT_DEBUG
-      sql_print_error(
-          "RocksDB: Unable to use direct io in rocksdb-datadir:"
-          "(%s)",
-          check_status.ToString().c_str());
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Unable to use direct io in rocksdb-datadir:"
+                      "(%s)",
+                      check_status.ToString().c_str());
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   }
@@ -7347,19 +7392,19 @@ static int rocksdb_init_internal(void *const p) {
   if (rocksdb_db_options->allow_mmap_writes &&
       rocksdb_db_options->use_direct_io_for_flush_and_compaction) {
     // See above comment for allow_mmap_reads. (NO_LINT_DEBUG)
-    sql_print_error(
-        "RocksDB: Can't enable both "
-        "use_direct_io_for_flush_and_compaction and "
-        "allow_mmap_writes\n");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Can't enable both "
+                    "use_direct_io_for_flush_and_compaction and "
+                    "allow_mmap_writes\n");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
   if (rocksdb_db_options->allow_mmap_writes &&
       rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
     // NO_LINT_DEBUG
-    sql_print_error(
-        "RocksDB: rocksdb_flush_log_at_trx_commit needs to be 0 "
-        "to use allow_mmap_writes");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: rocksdb_flush_log_at_trx_commit needs to be 0 "
+                    "to use allow_mmap_writes");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -7385,20 +7430,21 @@ static int rocksdb_init_internal(void *const p) {
     */
     if (status.IsPathNotFound()) {
       // NO_LINT_DEBUG
-      sql_print_information(
+      LogPluginErrMsg(
+          INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
           "RocksDB: Got kPathNotFound when listing column families");
 
       // NO_LINT_DEBUG
-      sql_print_information(
-          "RocksDB:   assuming that we're creating a new database");
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB:   assuming that we're creating a new database");
     } else {
       rdb_log_status_error(status, "Error listing column families");
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   } else {
     // NO_LINT_DEBUG
-    sql_print_information("RocksDB: %ld column families found",
-                          cf_names.size());
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: %ld column families found", cf_names.size());
   }
 
   std::vector<rocksdb::ColumnFamilyDescriptor> cf_descr;
@@ -7430,7 +7476,8 @@ static int rocksdb_init_internal(void *const p) {
       }
 #else
       // NO_LINT_DEBUG
-      sql_print_warning(
+      LogPluginErrMsg(
+          WARNING_LEVEL, ER_LOG_PRINTF_MSG,
           "Ignoring rocksdb_cache_dump because jemalloc is missing.");
 #endif  // HAVE_JEMALLOC
     }
@@ -7500,14 +7547,16 @@ static int rocksdb_init_internal(void *const p) {
         cache_size_bytes, myrocks_logger, true, &pcache);
     if (!status.ok()) {
       // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Persistent cache returned error: (%s)",
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Persistent cache returned error: (%s)",
                       status.getState());
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
     rocksdb_tbl_options->persistent_cache = pcache;
   } else if (strlen(rocksdb_persistent_cache_path)) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Must specify rocksdb_persistent_cache_size_mb");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Must specify rocksdb_persistent_cache_size_mb");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -7520,7 +7569,8 @@ static int rocksdb_init_internal(void *const p) {
                             rocksdb_default_cf_options,
                             rocksdb_override_cf_options)) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Failed to initialize CF options map.");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Failed to initialize CF options map.");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -7537,20 +7587,24 @@ static int rocksdb_init_internal(void *const p) {
   std::set<std::string> prev_compaction_enabled_cf_names;
 
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Column Families at start:");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Column Families at start:");
   for (size_t i = 0; i < cf_names.size(); ++i) {
     rocksdb::ColumnFamilyOptions opts;
     cf_options_map->get_cf_options(cf_names[i], &opts);
 
     // NO_LINT_DEBUG
-    sql_print_information("  cf=%s", cf_names[i].c_str());
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "  cf=%s",
+                    cf_names[i].c_str());
 
     // NO_LINT_DEBUG
-    sql_print_information("    write_buffer_size=%ld", opts.write_buffer_size);
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "    write_buffer_size=%ld", opts.write_buffer_size);
 
     // NO_LINT_DEBUG
-    sql_print_information("    target_file_size_base=%" PRIu64,
-                          opts.target_file_size_base);
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "    target_file_size_base=%" PRIu64,
+                    opts.target_file_size_base);
 
     /*
       Temporarily disable compactions to prevent a race condition where
@@ -7589,7 +7643,8 @@ static int rocksdb_init_internal(void *const p) {
   }
 
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Opening TransactionDB...");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Opening TransactionDB...");
   status = rocksdb::TransactionDB::Open(
       main_opts, tx_db_options, rocksdb_datadir, cf_descr, &cf_handles, &rdb);
 
@@ -7606,28 +7661,33 @@ static int rocksdb_init_internal(void *const p) {
   }
 
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB:Init column families...");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB:Init column families...");
   if (st_rdb_exec_time.exec("cf_manager::init", [&]() {
         return cf_manager.init(rdb, std::move(cf_options_map), &cf_handles);
       })) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Failed to init column families.");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Failed to init column families.");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Initializing data dictionary...");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Initializing data dictionary...");
   if (st_rdb_exec_time.exec("Rdb_dict_manager_selector::init", [&]() {
         return dict_manager.init(rdb, &cf_manager,
                                  rocksdb_enable_remove_orphaned_dropped_cfs);
       })) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Failed to initialize data dictionary.");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Failed to initialize data dictionary.");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Initializing binlog manager...");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Initializing binlog manager...");
 
   if (st_rdb_exec_time.exec("Rdb_binlog_manager::init", [&]() {
         return binlog_manager.init(
@@ -7635,19 +7695,22 @@ static int rocksdb_init_internal(void *const p) {
                 false /*is_tmp_table*/));
       })) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Failed to initialize binlog manager.");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Failed to initialize binlog manager.");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Initializing DDL Manager...");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Initializing DDL Manager...");
 
   if (st_rdb_exec_time.exec("Rdb_ddl_manager::init", [&]() {
         return ddl_manager.init(&dict_manager, &cf_manager,
                                 rocksdb_validate_tables);
       })) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Failed to initialize DDL manager.");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Failed to initialize DDL manager.");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -7682,7 +7745,8 @@ static int rocksdb_init_internal(void *const p) {
 #endif
   if (err != 0) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Couldn't start the background thread: (errno=%d)",
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Couldn't start the background thread: (errno=%d)",
                     err);
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
@@ -7695,7 +7759,8 @@ static int rocksdb_init_internal(void *const p) {
 #endif
   if (err != 0) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Couldn't start the drop index thread: (errno=%d)",
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Couldn't start the drop index thread: (errno=%d)",
                     err);
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
@@ -7708,7 +7773,8 @@ static int rocksdb_init_internal(void *const p) {
 #endif
   if (err != 0) {
     // NO_LINT_DEBUG
-    sql_print_error(
+    LogPluginErrMsg(
+        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: Couldn't start the index stats calculation thread: "
         "(errno=%d)",
         err);
@@ -7723,7 +7789,8 @@ static int rocksdb_init_internal(void *const p) {
   );
   if (err != 0) {
     // NO_LINT_DEBUG
-    sql_print_error(
+    LogPluginErrMsg(
+        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: Couldn't start the manual compaction thread: (errno=%d)",
         err);
     DBUG_RETURN(HA_EXIT_FAILURE);
@@ -7739,14 +7806,15 @@ static int rocksdb_init_internal(void *const p) {
   }
 
   // NO_LINT_DEBUG
-  sql_print_information("RocksDB: global statistics using %s indexer",
-                        STRINGIFY_ARG(RDB_INDEXER));
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: global statistics using %s indexer",
+                  STRINGIFY_ARG(RDB_INDEXER));
 #if defined(HAVE_SCHED_GETCPU)
   if (sched_getcpu() == -1) {
     // NO_LINT_DEBUG
-    sql_print_information(
-        "RocksDB: sched_getcpu() failed - "
-        "global statistics will use thread_id_indexer_t instead");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: sched_getcpu() failed - "
+                    "global statistics will use thread_id_indexer_t instead");
   }
 #endif
 
@@ -7754,7 +7822,8 @@ static int rocksdb_init_internal(void *const p) {
                           HA_ERR_ROCKSDB_LAST);
   if (err != 0) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Couldn't initialize error messages");
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Couldn't initialize error messages");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -7785,9 +7854,9 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_truncation_table_cleanup();
 
   // NO_LINT_DEBUG
-  sql_print_information(
-      "MyRocks storage engine plugin has been successfully "
-      "initialized.");
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "MyRocks storage engine plugin has been successfully "
+                  "initialized.");
 
   st_rdb_exec_time.report();
 
@@ -7841,33 +7910,39 @@ static int rocksdb_shutdown(bool minimalShutdown) {
 
     // Wait for the background thread to finish.
     // NO_LINT_DEBUG
-    sql_print_information("Waiting for MyRocks background to finish");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Waiting for MyRocks background to finish");
     auto err = rdb_bg_thread.join();
     if (err != 0) {
       // We'll log the message and continue because we're shutting down and
       // continuation is the optimal strategy.
       // NO_LINT_DEBUG
-      sql_print_error(
+      LogPluginErrMsg(
+          ERROR_LEVEL, ER_LOG_PRINTF_MSG,
           "RocksDB: Couldn't stop the background thread: (errno=%d)", err);
     }
 
     // Wait for the drop index thread to finish.
     // NO_LINT_DEBUG
-    sql_print_information("Waiting for MyRocks drop index thread to finish");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Waiting for MyRocks drop index thread to finish");
     err = rdb_drop_idx_thread.join();
     if (err != 0) {
       // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Couldn't stop the index thread: (errno=%d)",
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Couldn't stop the index thread: (errno=%d)",
                       err);
     }
 
     // Wait for the index stats calculation thread to finish.
     // NO_LINT_DEBUG
-    sql_print_information("Waiting for MyRocks index stats thread to finish");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Waiting for MyRocks index stats thread to finish");
     err = rdb_is_thread.join();
     if (err != 0) {
       // NO_LINT_DEBUG
-      sql_print_error(
+      LogPluginErrMsg(
+          ERROR_LEVEL, ER_LOG_PRINTF_MSG,
           "RocksDB: Couldn't stop the index stats calculation thread: "
           "(errno=%d)",
           err);
@@ -7875,11 +7950,13 @@ static int rocksdb_shutdown(bool minimalShutdown) {
 
     // Wait for the manual compaction thread to finish.
     // NO_LINT_DEBUG
-    sql_print_information("Waiting for MyRocks compaction thread to finish");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Waiting for MyRocks compaction thread to finish");
     err = rdb_mc_thread.join();
     if (err != 0) {
       // NO_LINT_DEBUG
-      sql_print_error(
+      LogPluginErrMsg(
+          ERROR_LEVEL, ER_LOG_PRINTF_MSG,
           "RocksDB: Couldn't stop the manual compaction thread: (errno=%d)",
           err);
     }
@@ -7887,7 +7964,8 @@ static int rocksdb_shutdown(bool minimalShutdown) {
     if (rdb_open_tables.count()) {
       // Looks like we are getting unloaded and yet we have some open tables
       // left behind.
-      sql_print_error("RocksDB: there're tables still opened during shutdown");
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: there're tables still opened during shutdown");
       error = 1;
     }
 
@@ -7951,6 +8029,10 @@ static int rocksdb_shutdown(bool minimalShutdown) {
   if (!minimalShutdown) {
     my_error_unregister(HA_ERR_ROCKSDB_FIRST, HA_ERR_ROCKSDB_LAST);
   }
+
+#ifdef MYSQL_DYNAMIC_PLUGIN
+  deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
+#endif
 
   return error;
 }
@@ -8363,10 +8445,10 @@ ha_rocksdb::~ha_rocksdb() {
   err = finalize_bulk_load(false);
   if (err != 0) {
     // NO_LINT_DEBUG
-    sql_print_error(
-        "RocksDB: Error %d finalizing bulk load while closing "
-        "handler.",
-        err);
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Error %d finalizing bulk load while closing "
+                    "handler.",
+                    err);
   }
 }
 
@@ -8467,10 +8549,10 @@ bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
                       RDB_MAX_HEXDUMP_LEN);
     const GL_INDEX_ID gl_index_id = kd.get_gl_index_id();
     // NO_LINT_DEBUG
-    sql_print_error(
-        "Decoding ttl from PK value failed, "
-        "for index (%u,%u), val: %s",
-        gl_index_id.cf_id, gl_index_id.index_id, buf.c_str());
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Decoding ttl from PK value failed, "
+                    "for index (%u,%u), val: %s",
+                    gl_index_id.cf_id, gl_index_id.index_id, buf.c_str());
     assert(0);
     return false;
   }
@@ -9226,11 +9308,11 @@ int ha_rocksdb::create_inplace_key_defs(
       if (!dict_manager.get_dict_manager_selector_const(gl_index_id.cf_id)
                ->get_index_info(gl_index_id, &index_info)) {
         // NO_LINT_DEBUG
-        sql_print_error(
-            "RocksDB: Could not get index information "
-            "for Index Number (%u,%u), table %s",
-            gl_index_id.cf_id, gl_index_id.index_id,
-            old_tbl_def_arg->full_tablename().c_str());
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "RocksDB: Could not get index information "
+                        "for Index Number (%u,%u), table %s",
+                        gl_index_id.cf_id, gl_index_id.index_id,
+                        old_tbl_def_arg->full_tablename().c_str());
         DBUG_RETURN(HA_EXIT_FAILURE);
       }
 
@@ -9926,10 +10008,10 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
       should_remove_old_table = false;
     } else {
       // NO_LINT_DEBUG
-      sql_print_error(
-          "MyRocks: Failure during truncation of table %s "
-          "being renamed from %s",
-          orig_tablename.c_str(), tmp_tablename.c_str());
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "MyRocks: Failure during truncation of table %s "
+                      "being renamed from %s",
+                      orig_tablename.c_str(), tmp_tablename.c_str());
       err = rename_err;
     }
   }
@@ -9944,10 +10026,10 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
     m_tbl_def = old_tbl_def;
     if (delete_table(old_tbl_def) != HA_EXIT_SUCCESS) {
       // NO_LINT_DEBUG
-      sql_print_error(
-          "Failure when trying to drop table %s during "
-          "truncation of table %s",
-          tmp_tablename.c_str(), orig_tablename.c_str());
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "Failure when trying to drop table %s during "
+                      "truncation of table %s",
+                      tmp_tablename.c_str(), orig_tablename.c_str());
     }
   }
 
@@ -10395,8 +10477,8 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
   m_converter->set_verify_row_debug_checksums(true);
   /* For each secondary index, check that we can get a PK value from it */
   // NO_LINT_DEBUG
-  sql_print_information("CHECKTABLE %s: Checking table %s", table_name,
-                        table_name);
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "CHECKTABLE %s: Checking table %s", table_name, table_name);
   ha_rows row_checksums_at_start =
       ha_rows(0);  // set/used iff first_index==true
   ha_rows row_checksums = ha_rows(-1);
@@ -10413,8 +10495,9 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
       }
       int res;
       // NO_LINT_DEBUG
-      sql_print_information("CHECKTABLE %s:   Checking index %s", table_name,
-                            table->key_info[keyno].name);
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "CHECKTABLE %s:   Checking index %s", table_name,
+                      table->key_info[keyno].name);
       while (1) {
         if (!rows) {
           res = index_first(table->record[0]);
@@ -10426,7 +10509,8 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
         if (res) {
           // error
           // NO_LINT_DEBUG
-          sql_print_error("CHECKTABLE %s:   .. row %lld: index scan error %d",
+          LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                          "CHECKTABLE %s:   .. row %lld: index scan error %d",
                           table_name, rows, res);
           goto error;
         }
@@ -10439,10 +10523,10 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
                                     rowkey_copy.length(), nullptr, false,
                                     !rdb_is_binlog_ttl_enabled()))) {
           // NO_LINT_DEBUG
-          sql_print_error(
-              "CHECKTABLE %s:   .. row %lld: "
-              "failed to fetch row by rowid",
-              table_name, rows);
+          LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                          "CHECKTABLE %s:   .. row %lld: "
+                          "failed to fetch row by rowid",
+                          table_name, rows);
           goto error;
         }
 
@@ -10458,7 +10542,8 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
         if (packed_size != rowkey_copy.length() ||
             memcmp(m_pk_packed_tuple, rowkey_copy.ptr(), packed_size)) {
           // NO_LINT_DEBUG
-          sql_print_error("CHECKTABLE %s:   .. row %lld: PK value mismatch",
+          LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                          "CHECKTABLE %s:   .. row %lld: PK value mismatch",
                           table_name, rows);
           goto print_and_error;
         }
@@ -10469,10 +10554,10 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
         if (packed_size != sec_key_copy.length() ||
             memcmp(m_sk_packed_tuple, sec_key_copy.ptr(), packed_size)) {
           // NO_LINT_DEBUG
-          sql_print_error(
-              "CHECKTABLE %s:   .. row %lld: "
-              "secondary index value mismatch",
-              table_name, rows);
+          LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                          "CHECKTABLE %s:   .. row %lld: "
+                          "secondary index value mismatch",
+                          table_name, rows);
           goto print_and_error;
         }
         rows++;
@@ -10483,26 +10568,29 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
         buf = rdb_hexdump(rowkey_copy.ptr(), rowkey_copy.length(),
                           RDB_MAX_HEXDUMP_LEN);
         // NO_LINT_DEBUG
-        sql_print_error("CHECKTABLE %s:   rowkey: %s", table_name, buf.c_str());
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "CHECKTABLE %s:   rowkey: %s", table_name, buf.c_str());
 
         buf = rdb_hexdump(m_retrieved_record.data(), m_retrieved_record.size(),
                           RDB_MAX_HEXDUMP_LEN);
         // NO_LINT_DEBUG
-        sql_print_error("CHECKTABLE %s:   record: %s", table_name, buf.c_str());
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "CHECKTABLE %s:   record: %s", table_name, buf.c_str());
 
         buf = rdb_hexdump(sec_key_copy.ptr(), sec_key_copy.length(),
                           RDB_MAX_HEXDUMP_LEN);
         // NO_LINT_DEBUG
-        sql_print_error("CHECKTABLE %s:   index: %s", table_name, buf.c_str());
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "CHECKTABLE %s:   index: %s", table_name, buf.c_str());
 
         goto error;
       }
       }
       // NO_LINT_DEBUG
-      sql_print_information(
-          "CHECKTABLE %s:   ... %lld index entries checked "
-          "(%lld had checksums)",
-          table_name, rows, m_validated_checksums);
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "CHECKTABLE %s:   ... %lld index entries checked "
+                      "(%lld had checksums)",
+                      table_name, rows, m_validated_checksums);
 
       if (first_index) {
         row_checksums =
@@ -10514,8 +10602,9 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
   }
   if (row_checksums != ha_rows(-1)) {
     // NO_LINT_DEBUG
-    sql_print_information("CHECKTABLE %s:   %lld table records had checksums",
-                          table_name, row_checksums);
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "CHECKTABLE %s:   %lld table records had checksums",
+                    table_name, row_checksums);
   }
   extra(HA_EXTRA_NO_KEYREAD);
 
@@ -11156,7 +11245,8 @@ bool ha_rocksdb::do_intrinsic_table_commit(Rdb_transaction *const tx) {
     res = tx->flush_batch(m_tbl_def->get_table_type());
     if (res) {
       // NO_LINT_DEBUG
-      sql_print_error("flush_batch failed for intrinsic table commit");
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "flush_batch failed for intrinsic table commit");
       return res;
     }
     res = get_ha_data(ha_thd())->refresh_iterator_for_all_handlers(&output);
@@ -11900,7 +11990,8 @@ int ha_rocksdb::finalize_bulk_load(bool print_client_error) {
           }
           res = HA_ERR_ROCKSDB_BULK_LOAD;
           // NO_LINT_DEBUG
-          sql_print_warning(
+          LogPluginErrMsg(
+              WARNING_LEVEL, ER_LOG_PRINTF_MSG,
               "MyRocks: failed to bulk load. "
               "status code = %d, status = %s, IngestExternalFileOptions=%s",
               s.code(), s.ToString().c_str(),
@@ -13423,11 +13514,11 @@ static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices) {
     uint32 cf_flags = 0;
     if (!local_dict_manager->get_cf_flags(d.cf_id, &cf_flags)) {
       // NO_LINT_DEBUG
-      sql_print_error(
-          "RocksDB: Failed to get column family flags "
-          "from cf id %u. MyRocks data dictionary may "
-          "get corrupted.",
-          d.cf_id);
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Failed to get column family flags "
+                      "from cf id %u. MyRocks data dictionary may "
+                      "get corrupted.",
+                      d.cf_id);
       ret = 1;
       return ret;
     }
@@ -13443,7 +13534,8 @@ static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices) {
                                                 &range.start, &range.limit);
     if (!status.ok()) {
       // NO_LINT_DEBUG
-      sql_print_warning(
+      LogPluginErrMsg(
+          WARNING_LEVEL, ER_LOG_PRINTF_MSG,
           "RocksDB: Failed to call DeleteFilesInRange for [cf_id %u, index_id "
           "%u] with status [%s]",
           d.cf_id, d.index_id, status.ToString().c_str());
@@ -13451,7 +13543,8 @@ static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices) {
     status = batch.DeleteRange(cfh.get(), range.start, range.limit);
     if (!status.ok()) {
       // NO_LINT_DEBUG
-      sql_print_error(
+      LogPluginErrMsg(
+          ERROR_LEVEL, ER_LOG_PRINTF_MSG,
           "RocksDB: Failed to call DeleteRange for [cf_id %u, index_id %u] "
           "with status [%s]",
           d.cf_id, d.index_id, status.ToString().c_str());
@@ -14207,7 +14300,8 @@ static int calculate_cardinality_table_scan(
     for (it->Seek(first_index_key); is_valid_iterator(it.get()); it->Next()) {
       if (killed && *killed) {
         // NO_LINT_DEBUG
-        sql_print_information(
+        LogPluginErrMsg(
+            INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
             "Index stats calculation for index %s with id (%u,%u) is "
             "terminated",
             kd->get_name().c_str(), stat.m_gl_index_id.cf_id,
@@ -15402,7 +15496,8 @@ int ha_rocksdb::inplace_populate_sk(
       if (hidden_pk_exists &&
           (res = read_hidden_pk_id_from_rowkey(&hidden_pk_id))) {
         // NO_LINT_DEBUG
-        sql_print_error("Error retrieving hidden pk id.");
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "Error retrieving hidden pk id.");
         ha_rnd_end();
         DBUG_RETURN(res);
       }
@@ -15436,7 +15531,8 @@ int ha_rocksdb::inplace_populate_sk(
 
     if (res != HA_ERR_END_OF_FILE) {
       // NO_LINT_DEBUG
-      sql_print_error("Error retrieving index entry from primary key.");
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "Error retrieving index entry from primary key.");
       ha_rnd_end();
       DBUG_RETURN(res);
     }
@@ -15456,7 +15552,8 @@ int ha_rocksdb::inplace_populate_sk(
 
     if (res && is_critical_error) {
       // NO_LINT_DEBUG
-      sql_print_error("Error finishing bulk load.");
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "Error finishing bulk load.");
       DBUG_RETURN(res);
     }
   }
@@ -16583,7 +16680,8 @@ int Rdb_index_stats_thread::renice(int nice_val) {
 #endif
   if (ret != 0) {
     // NO_LINT_DEBUG
-    sql_print_error("Set index stats thread priority failed due to %s",
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Set index stats thread priority failed due to %s",
                     strerror(errno));
     RDB_MUTEX_UNLOCK_CHECK(m_is_mutex);
     return HA_EXIT_FAILURE;
@@ -16672,8 +16770,9 @@ void Rdb_manual_compaction_thread::run() {
 
     assert(mcr.state == Manual_compaction_request::RUNNING);
     // NO_LINT_DEBUG
-    sql_print_information("Manual Compaction id %d cf %s started.", mcr.mc_id,
-                          mcr.cf->GetName().c_str());
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Manual Compaction id %d cf %s started.", mcr.mc_id,
+                    mcr.cf->GetName().c_str());
     if (rocksdb_debug_manual_compaction_delay > 0) {
       uint32 delay = rocksdb_debug_manual_compaction_delay;
       for (uint32 i = 0; i < delay; ++i) {
@@ -16708,28 +16807,31 @@ void Rdb_manual_compaction_thread::run() {
     if (s.ok()) {
       rocksdb_manual_compactions_processed++;
       // NO_LINT_DEBUG
-      sql_print_information("Manual Compaction id %d cf %s ended.", mcr.mc_id,
-                            mcr.cf->GetName().c_str());
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "Manual Compaction id %d cf %s ended.", mcr.mc_id,
+                      mcr.cf->GetName().c_str());
       set_state(&mcr, Manual_compaction_request::SUCCESS);
     } else {
       if (!cf_manager.get_cf(mcr.cf->GetID())) {
         // NO_LINT_DEBUG
-        sql_print_information("cf %s has been dropped",
-                              mcr.cf->GetName().c_str());
+        LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                        "cf %s has been dropped", mcr.cf->GetName().c_str());
         set_state(&mcr, Manual_compaction_request::SUCCESS);
       } else if (s.IsIncomplete()) {
         // NO_LINT_DEBUG
-        sql_print_information(
-            "Manual Compaction id %d cf %s cancelled. (%d:%d, %s)", mcr.mc_id,
-            mcr.cf->GetName().c_str(), s.code(), s.subcode(), s.getState());
+        LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                        "Manual Compaction id %d cf %s cancelled. (%d:%d, %s)",
+                        mcr.mc_id, mcr.cf->GetName().c_str(), s.code(),
+                        s.subcode(), s.getState());
         // Cancelled
         set_state(&mcr, Manual_compaction_request::CANCEL);
         rocksdb_manual_compactions_cancelled++;
       } else {
         // NO_LINT_DEBUG
-        sql_print_information(
-            "Manual Compaction id %d cf %s aborted. (%d:%d, %s)", mcr.mc_id,
-            mcr.cf->GetName().c_str(), s.code(), s.subcode(), s.getState());
+        LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                        "Manual Compaction id %d cf %s aborted. (%d:%d, %s)",
+                        mcr.mc_id, mcr.cf->GetName().c_str(), s.code(),
+                        s.subcode(), s.getState());
         set_state(&mcr, Manual_compaction_request::FAILURE);
         if (!s.IsShutdownInProgress()) {
           rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
@@ -17282,10 +17384,10 @@ static void rocksdb_set_delayed_write_rate(
 
     if (!s.ok()) {
       /* NO_LINT_DEBUG */
-      sql_print_warning(
-          "MyRocks: failed to update delayed_write_rate. "
-          "status code = %d, status = %s",
-          s.code(), s.ToString().c_str());
+      LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                      "MyRocks: failed to update delayed_write_rate. "
+                      "status code = %d, status = %s",
+                      s.code(), s.ToString().c_str());
     }
   }
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
@@ -17365,10 +17467,10 @@ static int rocksdb_check_bulk_load(
     const int rc = tx->finish_bulk_load(&is_critical_error);
     if (rc != 0 && is_critical_error) {
       // NO_LINT_DEBUG
-      sql_print_error(
-          "RocksDB: Error %d finalizing last SST file while "
-          "setting bulk loading variable",
-          rc);
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Error %d finalizing last SST file while "
+                      "setting bulk loading variable",
+                      rc);
       THDVAR(thd, bulk_load) = 0;
       return 1;
     }
@@ -17424,10 +17526,10 @@ static void rocksdb_set_max_background_jobs(
 
     if (!s.ok()) {
       /* NO_LINT_DEBUG */
-      sql_print_warning(
-          "MyRocks: failed to update max_background_jobs. "
-          "Status code = %d, status = %s.",
-          s.code(), s.ToString().c_str());
+      LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                      "MyRocks: failed to update max_background_jobs. "
+                      "Status code = %d, status = %s.",
+                      s.code(), s.ToString().c_str());
     }
   }
 
@@ -17453,10 +17555,10 @@ static void rocksdb_set_max_background_compactions(
 
     if (!s.ok()) {
       /* NO_LINT_DEBUG */
-      sql_print_warning(
-          "MyRocks: failed to update max_background_compactions. "
-          "Status code = %d, status = %s.",
-          s.code(), s.ToString().c_str());
+      LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                      "MyRocks: failed to update max_background_compactions. "
+                      "Status code = %d, status = %s.",
+                      s.code(), s.ToString().c_str());
     }
   }
 
@@ -17523,10 +17625,10 @@ static void rocksdb_set_bytes_per_sync(
 
     if (!s.ok()) {
       /* NO_LINT_DEBUG */
-      sql_print_warning(
-          "MyRocks: failed to update max_background_jobs. "
-          "Status code = %d, status = %s.",
-          s.code(), s.ToString().c_str());
+      LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                      "MyRocks: failed to update max_background_jobs. "
+                      "Status code = %d, status = %s.",
+                      s.code(), s.ToString().c_str());
     }
   }
 
@@ -17552,10 +17654,10 @@ static void rocksdb_set_wal_bytes_per_sync(
 
     if (!s.ok()) {
       /* NO_LINT_DEBUG */
-      sql_print_warning(
-          "MyRocks: failed to update max_background_jobs. "
-          "Status code = %d, status = %s.",
-          s.code(), s.ToString().c_str());
+      LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                      "MyRocks: failed to update max_background_jobs. "
+                      "Status code = %d, status = %s.",
+                      s.code(), s.ToString().c_str());
     }
   }
 
@@ -17688,7 +17790,8 @@ static void rocksdb_set_update_cf_options(THD *const /* unused */,
 
     if (!cfh) {
       // NO_LINT_DEBUG
-      sql_print_information(
+      LogPluginErrMsg(
+          INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
           "Skip updating options for cf %s because the cf has been dropped.",
           cf_name.c_str());
       continue;
@@ -17703,10 +17806,10 @@ static void rocksdb_set_update_cf_options(THD *const /* unused */,
 
       if (s != rocksdb::Status::OK()) {
         // NO_LINT_DEBUG
-        sql_print_warning(
-            "MyRocks: failed to convert the options for column "
-            "family '%s' to a map. %s",
-            cf_name.c_str(), s.ToString().c_str());
+        LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                        "MyRocks: failed to convert the options for column "
+                        "family '%s' to a map. %s",
+                        cf_name.c_str(), s.ToString().c_str());
       } else {
         assert(rdb != nullptr);
 
@@ -17718,16 +17821,16 @@ static void rocksdb_set_update_cf_options(THD *const /* unused */,
 
         if (s != rocksdb::Status::OK()) {
           // NO_LINT_DEBUG
-          sql_print_warning(
-              "MyRocks: failed to apply the options for column "
-              "family '%s'. %s",
-              cf_name.c_str(), s.ToString().c_str());
+          LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                          "MyRocks: failed to apply the options for column "
+                          "family '%s'. %s",
+                          cf_name.c_str(), s.ToString().c_str());
         } else {
           // NO_LINT_DEBUG
-          sql_print_information(
-              "MyRocks: options for column family '%s' "
-              "have been successfully updated.",
-              cf_name.c_str());
+          LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                          "MyRocks: options for column family '%s' "
+                          "have been successfully updated.",
+                          cf_name.c_str());
 
           // Make sure that data is internally consistent as well and update
           // the CF options. This is necessary also to make sure that the CF
@@ -18674,10 +18777,11 @@ static bool parse_fault_injection_params(
   rapidjson::ParseResult ok = doc.Parse(opt_rocksdb_fault_injection_options);
   if (!ok) {
     // NO_LINT_DEBUG
-    sql_print_error(
-        "RocksDB: Parse error (errcode=%d offset=%d)  "
-        "rocksdb_fault_injection_options=%s",
-        ok.Code(), ok.Offset(), opt_rocksdb_fault_injection_options);
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Parse error (errcode=%d offset=%zu)  "
+                    "rocksdb_fault_injection_options=%s",
+                    ok.Code(), ok.Offset(),
+                    opt_rocksdb_fault_injection_options);
     return true;
   }
 
@@ -18688,7 +18792,8 @@ static bool parse_fault_injection_params(
   if (retry_it == doc.MemberEnd() || fr_it == doc.MemberEnd() ||
       ft_it == doc.MemberEnd()) {
     // NO_LINT_DEBUG
-    sql_print_error(
+    LogPluginErrMsg(
+        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: rocksdb_fault_injection_options=%s schema not valid",
         opt_rocksdb_fault_injection_options);
     return true;
@@ -18697,7 +18802,8 @@ static bool parse_fault_injection_params(
   if (!retry_it->value.IsBool() || !fr_it->value.IsInt() ||
       !ft_it->value.IsArray()) {
     // NO_LINT_DEBUG
-    sql_print_error(
+    LogPluginErrMsg(
+        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
         "RocksDB: rocksdb_fault_injection_options=%s schema not valid (wrong "
         "types)",
         opt_rocksdb_fault_injection_options);
@@ -18711,12 +18817,12 @@ static bool parse_fault_injection_params(
     if (!ft_it->value[i].IsString() ||
         parse_fault_injection_file_type(ft_it->value[i].GetString(), &type)) {
       // NO_LINT_DEBUG
-      sql_print_error(
-          "RocksDB: Wrong filetype = %s to  "
-          "rocksdb_fault_injection_options=%s",
-          ft_it->value[i].IsString() ? ft_it->value[i].GetString()
-                                     : "(wrong type)",
-          opt_rocksdb_fault_injection_options);
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "RocksDB: Wrong filetype = %s to  "
+                      "rocksdb_fault_injection_options=%s",
+                      ft_it->value[i].IsString() ? ft_it->value[i].GetString()
+                                                 : "(wrong type)",
+                      opt_rocksdb_fault_injection_options);
       return true;
     }
     types->push_back(type);

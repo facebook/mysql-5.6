@@ -132,11 +132,12 @@ SELECT prio,error_code,subsystem,data
 # MY-010821: Symbol: ER_BINLOG_EVENTS_READ_FROM_BINLOG_INFO
 # MY-011332: Plugin mysqlx reported
 # MY-013503: Directory '.rocksdb' will not be scanned because it is a hidden directory
+# MY-011071: LogPluginErrMsg for both static and dynamic plugins
 
 SELECT prio,error_code,subsystem
   FROM performance_schema.error_log
  WHERE logged>=@startup
-   AND error_code NOT IN("MY-010821", "MY-011332", "MY-013503",
+   AND error_code NOT IN("MY-010821", "MY-011332", "MY-013503", "MY-011071",
                          "MY-011243", "MY-011240", "MY-011245", "MY-010931",
                          "MY-010949", "MY-010747", "MY-013546", "MY-010051",
                          "MY-011946", "MY-012922", "MY-011810", "MY-012932",

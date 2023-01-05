@@ -29,7 +29,6 @@
 #include <vector>
 
 /* MySQL header files */
-#include <mysql/components/services/log_builtins.h>
 #include "my_checksum.h"
 #include "my_dbug.h"
 #include "my_icp.h" /* icp_result */

@@ -482,6 +482,7 @@ SET(SQL_SHARED_SOURCES
   select_lex_visitor.cc
   parser_service.cc
   partition_info.cc
+  partitioning/partition_base.cc
   partitioning/partition_handler.cc
   persisted_variable.cc
   privacy_service.cc
@@ -1134,6 +1135,15 @@ ENDIF()
 TARGET_LINK_LIBRARIES(sql_main rpl master slave binlog)
 IF(WITH_ICU STREQUAL "bundled")
   TARGET_LINK_LIBRARIES(sql_main ${ICU_LIBRARIES})
+ENDIF()
+
+# linking with jemalloc here since sql/sql_show.cc uses it.
+IF (WITH_JEMALLOC)
+  TARGET_LINK_LIBRARIES(sql_main ${JEMALLOC_LIBRARY})
+  FIND_LIBRARY(UNWIND_LIBRARY
+    NAMES libunwind${PIC_EXT}.a unwind
+    HINTS ${WITH_UNWIND}/lib)
+  TARGET_LINK_LIBRARIES(sql_main ${UNWIND_LIBRARY})
 ENDIF()
 
 IF(WIN32)

@@ -2692,8 +2692,9 @@ bool handle_unsupported_bypass(THD *thd, const char *error_msg,
     if (get_select_bypass_rejected_query_history_size() == 0) {
       if (btype == bypass_type::SQL) {
         // NO_LINT_DEBUG
-        sql_print_information("[REJECTED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
-                              thd->query().str, error_msg);
+        LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                        "[REJECTED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
+                        thd->query().str, error_msg);
       }
     } else {
       // Otherwise, record the rejected query into information_schema
@@ -2765,9 +2766,9 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
     }
     if (should_log_failed_select_bypass()) {
       // NO_LINT_DEBUG
-      sql_print_information("[FAILED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
-                            thd->query().str,
-                            thd->get_stmt_da()->message_text());
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "[FAILED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
+                      thd->query().str, thd->get_stmt_da()->message_text());
     }
     rocksdb_select_bypass_failed++;
   } else {

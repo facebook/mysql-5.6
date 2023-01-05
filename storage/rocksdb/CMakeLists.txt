@@ -1,5 +1,9 @@
 # TODO: Copyrights
 
+IF(WITHOUT_ROCKSDB_STORAGE_ENGINE)
+  RETURN()
+ENDIF()
+
 # This is a strong requirement coming from RocksDB. No conditional checks here.
 ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DROCKSDB_LIB_IO_POSIX)
 
@@ -175,11 +179,10 @@ SET(ROCKSDB_SE_SOURCES
   rdb_threads.cc rdb_threads.h
   nosql_access.cc nosql_access.h
   ha_rockspart.cc ha_rockspart.h
-  ../../sql/partitioning/partition_base.cc
   sql_dd.cc sql_dd.h
 )
 
-IF(WITH_FB_TSAN)
+IF(WITH_FB_TSAN OR ROCKSDB_DYNAMIC_PLUGIN)
   SET(PIC_EXT "_pic")
 ELSE()
   SET(PIC_EXT "")
@@ -190,8 +193,12 @@ IF(HAVE_EXTERNAL_ROCKSDB)
 ENDIF()
 
 IF (WITH_JEMALLOC)
-  SET(rocksdb_static_libs ${rocksdb_static_libs} -Wl,-rpath=$ORIGIN
-    ${JEMALLOC_LIBRARY})
+  # Not static linking jemalloc with a dynamic plugin to avoid
+  # "cannot allocate memory in static TLS block" error
+  IF(NOT ROCKSDB_DYNAMIC_PLUGIN)
+    SET(rocksdb_static_libs ${rocksdb_static_libs} -Wl,-rpath=$ORIGIN
+      ${JEMALLOC_LIBRARY})
+  ENDIF()
   ADD_DEFINITIONS(-DROCKSDB_JEMALLOC)
   IF (HAVE_MALLOC_USABLE_SIZE)
     ADD_DEFINITIONS(-DROCKSDB_MALLOC_USABLE_SIZE)
@@ -259,16 +266,21 @@ ENDIF()
 ADD_LIBRARY(rocksdb_sources ${ROCKSDB_LIB_SOURCES})
 TARGET_LINK_LIBRARIES(rocksdb_sources ${rocksdb_static_libs})
 
-MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SE_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
-  LINK_LIBRARIES rocksdb_sources)
-# to fix linkage error on partition_base
-TARGET_LINK_LIBRARIES(rocksdb_se sql_main)
+IF (ROCKSDB_DYNAMIC_PLUGIN)
+  MYSQL_ADD_PLUGIN(rocksdb ${ROCKSDB_SE_SOURCES} STORAGE_ENGINE DEFAULT
+    MODULE_ONLY LINK_LIBRARIES rocksdb_sources)
+ELSE()
+  MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SE_SOURCES} STORAGE_ENGINE DEFAULT
+    STATIC_ONLY LINK_LIBRARIES rocksdb_sources)
+    # to fix linkage error on partition_base
+    TARGET_LINK_LIBRARIES(rocksdb_se sql_main)
+ENDIF()
 
 IF(WITH_EMBEDDED_SERVER)
   ADD_SUBDIRECTORY(unittest)
 ENDIF()
 
-IF (WITH_ROCKSDB_SE_STORAGE_ENGINE AND (NOT HAVE_EXTERNAL_ROCKSDB))
+IF (NOT HAVE_EXTERNAL_ROCKSDB)
   # TODO: read this file list from src.mk:TOOL_SOURCES
   ADD_LIBRARY(rocksdb_tool
     ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb_tool.cc

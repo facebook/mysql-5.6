@@ -89,7 +89,7 @@ pk
 SET DEBUG = "+d,rocksdb_truncate_failure_crash";
 TRUNCATE TABLE t1_crash;
 ERROR HY000: Lost connection to MySQL server during query
- [MY-000000
+1
 DROP TABLE IF EXISTS t1_crash;
 Warnings:
 Warning	1146	Table 'test.t1_crash' doesn't exist
