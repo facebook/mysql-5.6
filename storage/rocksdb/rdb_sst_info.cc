@@ -27,7 +27,6 @@
 /* MySQL header files */
 #include "./my_dir.h"
 #include "mysqld_error.h"
-#include "sql/log.h"
 
 /* RocksDB header files */
 #include "rocksdb/db.h"
@@ -86,8 +85,9 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
   s = m_sst_file_writer->Open(m_name);
   if (m_tracing) {
     // NO_LINT_DEBUG
-    sql_print_information("SST Tracing: Open(%s) returned %s", m_name.c_str(),
-                          s.ok() ? "ok" : "not ok");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "SST Tracing: Open(%s) returned %s", m_name.c_str(),
+                    s.ok() ? "ok" : "not ok");
   }
 
   if (!s.ok()) {
@@ -136,22 +136,23 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::commit() {
   s = m_sst_file_writer->Finish(&fileinfo);
   if (m_tracing) {
     // NO_LINT_DEBUG
-    sql_print_information("SST Tracing: Finish returned %s",
-                          s.ok() ? "ok" : "not ok");
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "SST Tracing: Finish returned %s",
+                    s.ok() ? "ok" : "not ok");
   }
 
   if (s.ok()) {
     if (m_tracing) {
       // NO_LINT_DEBUG
-      sql_print_information(
-          "SST Tracing: Adding file %s, smallest key: %s, "
-          "largest key: %s, file size: %" PRIu64
-          ", "
-          "num_entries: %" PRIu64,
-          fileinfo.file_path.c_str(),
-          generateKey(fileinfo.smallest_key).c_str(),
-          generateKey(fileinfo.largest_key).c_str(), fileinfo.file_size,
-          fileinfo.num_entries);
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "SST Tracing: Adding file %s, smallest key: %s, "
+                      "largest key: %s, file size: %" PRIu64
+                      ", "
+                      "num_entries: %" PRIu64,
+                      fileinfo.file_path.c_str(),
+                      generateKey(fileinfo.smallest_key).c_str(),
+                      generateKey(fileinfo.largest_key).c_str(),
+                      fileinfo.file_size, fileinfo.num_entries);
     }
   }
 
@@ -535,8 +536,9 @@ void Rdb_sst_info::init(const rocksdb::DB *const db) {
       fs->GetChildren(dir, rocksdb::IOOptions(), &files_in_dir, nullptr);
   if (!s.ok()) {
     // NO_LINT_DEBUG
-    sql_print_warning("RocksDB: Could not access database directory: %s",
-                      dir.c_str());
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "RocksDB: Could not access database directory: %s",
+                    dir.c_str());
     return;
   }
 

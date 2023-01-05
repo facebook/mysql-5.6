@@ -101,7 +101,8 @@ class Rdb_thread : public Ensure_initialized {
     int err = pthread_setname_np(m_handle.thread, m_name.c_str());
     if (err) {
       // NO_LINT_DEBUG
-      sql_print_warning(
+      LogPluginErrMsg(
+          WARNING_LEVEL, ER_LOG_PRINTF_MSG,
           "MyRocks: Failed to set name (%s) for current thread, errno=%d,%d",
           m_name.c_str(), errno, err);
     }
