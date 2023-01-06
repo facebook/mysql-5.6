@@ -29,19 +29,19 @@ class RPC_Query_formatter : public THD::Query_formatter {
  private:
   void append_where_op(String &buf, myrocks_where_item::where_op op) {
     switch (op) {
-      case myrocks_where_item::where_op::EQ:
+      case myrocks_where_item::where_op::_EQ:
         buf.append("=");
         return;
-      case myrocks_where_item::where_op::LT:
+      case myrocks_where_item::where_op::_LT:
         buf.append("<");
         return;
-      case myrocks_where_item::where_op::GT:
+      case myrocks_where_item::where_op::_GT:
         buf.append(">");
         return;
-      case myrocks_where_item::where_op::LE:
+      case myrocks_where_item::where_op::_LE:
         buf.append("<=");
         return;
-      case myrocks_where_item::where_op::GE:
+      case myrocks_where_item::where_op::_GE:
         buf.append(">=");
         return;
       default:
@@ -71,10 +71,10 @@ class RPC_Query_formatter : public THD::Query_formatter {
 
   void append_order_op(String &buf, myrocks_order_by_item::order_by_op op) {
     switch (op) {
-      case myrocks_order_by_item::ASC:
+      case myrocks_order_by_item::order_by_op::_ASC:
         buf.append("ASC");
         return;
-      case myrocks_order_by_item::DESC:
+      case myrocks_order_by_item::order_by_op::_DESC:
         buf.append("DESC");
         return;
       default:

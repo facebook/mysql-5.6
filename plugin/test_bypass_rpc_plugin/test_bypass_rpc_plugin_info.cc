@@ -95,12 +95,12 @@ static void fillDbname(myrocks_select_from_rpc &param, std::string &dbname) {
 }
 
 static myrocks_where_item::where_op convertToWhereOp(std::string &op) {
-  if (op == "=") return myrocks_where_item::where_op::EQ;
-  if (op == "<") return myrocks_where_item::where_op::LT;
-  if (op == ">") return myrocks_where_item::where_op::GT;
-  if (op == "<=") return myrocks_where_item::where_op::LE;
-  if (op == ">=") return myrocks_where_item::where_op::GE;
-  return myrocks_where_item::where_op::EQ;
+  if (op == "=") return myrocks_where_item::where_op::_EQ;
+  if (op == "<") return myrocks_where_item::where_op::_LT;
+  if (op == ">") return myrocks_where_item::where_op::_GT;
+  if (op == "<=") return myrocks_where_item::where_op::_LE;
+  if (op == ">=") return myrocks_where_item::where_op::_GE;
+  return myrocks_where_item::where_op::_EQ;
 }
 
 static void send_row(void * /* unused */, myrocks_columns *values,
@@ -313,9 +313,9 @@ static void fill_order_by(myrocks_select_from_rpc &param, std::string &query) {
     myrocks_order_by_item oitem;
     oitem.column = std::move(column);
     if (order == "DESC") {
-      oitem.op = myrocks_order_by_item::order_by_op::DESC;
+      oitem.op = myrocks_order_by_item::order_by_op::_DESC;
     } else {
-      oitem.op = myrocks_order_by_item::order_by_op::ASC;
+      oitem.op = myrocks_order_by_item::order_by_op::_ASC;
     }
     param.order_by.push_back(std::move(oitem));
     query = m.suffix();

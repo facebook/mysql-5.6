@@ -30,14 +30,14 @@
 
 #include "my_inttypes.h"
 
-// These structs are defined for communication between thrift plugin and myrocks
-typedef enum {
-  BOOL = 0,
-  UNSIGNED_INT = 1,
-  SIGNED_INT = 2,
-  DOUBLE = 3,
-  STRING = 4
-} myrocks_value_type;
+// These structs are defined for communication between rpc plugin and myrocks
+enum class myrocks_value_type {
+  BOOL,
+  UNSIGNED_INT,
+  SIGNED_INT,
+  DOUBLE,
+  STRING,
+};
 
 struct myrocks_column_cond_value {
   myrocks_value_type type;
@@ -51,27 +51,20 @@ struct myrocks_column_cond_value {
 };
 
 struct myrocks_where_item {
-  typedef enum {
-    EQ = 0,
-    LT = 1,
-    GT = 2,
-    LE = 3,
-    GE = 4,
-  } where_op;
-
   std::string column;
-  where_op op;
+  enum class where_op {
+    _EQ,
+    _LT,
+    _GT,
+    _LE,
+    _GE,
+  } op;
   myrocks_column_cond_value value;
 };
 
 struct myrocks_order_by_item {
-  typedef enum {
-    ASC = 0,
-    DESC = 1,
-  } order_by_op;
-
   std::string column;
-  order_by_op op;
+  enum class order_by_op { _ASC, _DESC } op;
 };
 
 struct myrocks_column_value {
@@ -87,7 +80,7 @@ struct myrocks_column_value {
   };
 };
 
-static const int MAX_VALUES_PER_RPC_WHERE_ITEM = 30;
+constexpr int MAX_VALUES_PER_RPC_WHERE_ITEM = 30;
 struct myrocks_where_in_item {
   std::string column;
   std::array<myrocks_column_cond_value, MAX_VALUES_PER_RPC_WHERE_ITEM> values;
@@ -97,8 +90,8 @@ struct myrocks_where_in_item {
   uint32_t num_values;
 };
 
-// This rpc buffer is allocated per each thrift io thread
-const int MAX_COLUMNS_PER_RPC_BUFFER = 200;
+// This rpc buffer is allocated per each rpc thread
+constexpr int MAX_COLUMNS_PER_RPC_BUFFER = 200;
 using myrocks_columns =
     std::array<myrocks_column_value, MAX_COLUMNS_PER_RPC_BUFFER>;
 
@@ -116,7 +109,7 @@ using myrocks_bypass_rpc_send_row_fn =
     void (*)(void *rpc_buffer, myrocks_columns *myrocks_columns_values,
              uint64_t num_columns);
 
-// This is allocated and populated by thrift plugin
+// This is allocated and populated by rpc plugin
 struct myrocks_select_from_rpc {
   std::string db_name;
   std::string table_name;

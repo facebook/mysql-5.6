@@ -1140,7 +1140,7 @@ class rpc_select_parser : public base_select_parser {
     uint cur_index = key->actual_key_parts;
     for (const auto &it : m_param->order_by) {
       if (process_order_by(key,
-                           it.op == myrocks_order_by_item::order_by_op::DESC,
+                           it.op == myrocks_order_by_item::order_by_op::_DESC,
                            it.column.c_str(), is_first, cur_index)) {
         return true;
       }
@@ -1152,15 +1152,15 @@ class rpc_select_parser : public base_select_parser {
   // TODO: rpc plugin directly calls with Item_func type
   inline Item_func::Functype convert_where_op(myrocks_where_item::where_op op) {
     switch (op) {
-      case myrocks_where_item::where_op::EQ:
+      case myrocks_where_item::where_op::_EQ:
         return Item_func::EQ_FUNC;
-      case myrocks_where_item::where_op::LT:
+      case myrocks_where_item::where_op::_LT:
         return Item_func::LT_FUNC;
-      case myrocks_where_item::where_op::GT:
+      case myrocks_where_item::where_op::_GT:
         return Item_func::GT_FUNC;
-      case myrocks_where_item::where_op::LE:
+      case myrocks_where_item::where_op::_LE:
         return Item_func::LE_FUNC;
-      case myrocks_where_item::where_op::GE:
+      case myrocks_where_item::where_op::_GE:
         return Item_func::GE_FUNC;
     }
 
