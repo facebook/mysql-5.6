@@ -32,6 +32,7 @@
 
 class MysqlError {
  public:
+  MysqlError() = default;
   MysqlError(unsigned int code, std::string message, std::string sql_state)
       : code_{code},
         message_{std::move(message)},
@@ -44,7 +45,7 @@ class MysqlError {
   unsigned int value() const { return code_; }
 
  private:
-  unsigned int code_;
+  unsigned int code_{0};
   std::string message_;
   std::string sql_state_;
 };

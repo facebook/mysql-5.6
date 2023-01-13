@@ -262,6 +262,7 @@ class Eof : public Ok {
  */
 class Error {
  public:
+  Error() = default;
   /**
    * construct an Error message.
    *
@@ -280,7 +281,7 @@ class Error {
   std::string message() const { return message_; }
 
  private:
-  uint16_t error_code_;
+  uint16_t error_code_{0};
   std::string message_;
   std::string sql_state_;
 };
