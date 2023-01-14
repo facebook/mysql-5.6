@@ -117,6 +117,8 @@ class Mysqld_socket_listener {
   uint m_admin_tcp_port;  // TCP port to bind to for support admin connection
   bool m_use_separate_thread_for_admin;  // use a separate thread for listening
                                          // to admin interface
+  uint m_start_index;                    // first regular port index.
+  uint m_next_index;    // next index to check after previous check.
   uint m_backlog;       // backlog specifying length of pending connection queue
   uint m_port_timeout;  // port timeout value
   std::string m_unix_sockname;  // unix socket pathname to bind to
@@ -220,7 +222,7 @@ class Mysqld_socket_listener {
     Get a socket ready to accept incoming connection.
     @return A socket ready to accept a new incoming connection.
   */
-  const Listen_socket *get_listen_socket() const;
+  const Listen_socket *get_listen_socket();
 
   /**
     Set up connection events for poll or select.

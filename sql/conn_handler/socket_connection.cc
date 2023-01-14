@@ -843,6 +843,8 @@ Mysqld_socket_listener::Mysqld_socket_listener(
       m_tcp_port(tcp_port),
       m_admin_tcp_port(admin_tcp_port),
       m_use_separate_thread_for_admin(use_separate_thread_for_admin),
+      m_start_index(0),
+      m_next_index(0),
       m_backlog(backlog),
       m_port_timeout(port_timeout),
       m_unix_sockname(unix_sockname),
@@ -1274,6 +1276,11 @@ bool Mysqld_socket_listener::setup_listener() {
       m_socket_vector.emplace_back(mysql_socket, Socket_type::TCP_SOCKET,
                                    &m_admin_bind_address.network_namespace,
                                    Socket_interface_type::ADMIN_INTERFACE);
+
+      // Exclude admin port from the rest of the sockets because it will be
+      // checked separately.
+      m_start_index = 1;
+      m_next_index = 1;
     }
   }
 
@@ -1309,46 +1316,45 @@ bool Mysqld_socket_listener::setup_listener() {
   return false;
 }
 
-const Listen_socket *Mysqld_socket_listener::get_listen_socket() const {
-/*
+const Listen_socket *Mysqld_socket_listener::get_listen_socket() {
+  /*
   In case admin interface was set up, then first check whether an admin socket
   ready to accept a new connection. Doing this way provides higher priority
   to admin interface over other listeners.
-*/
+  */
+  if (m_start_index) {
 #ifdef HAVE_POLL
-  uint start_index = 0;
-  if (!m_admin_bind_address.address.empty() &&
-      !m_use_separate_thread_for_admin) {
-    if (m_poll_info.m_fds[0].revents & POLLIN) {
+    if (m_poll_info.m_fds[0].revents & POLLIN)
+#else   // HAVE_POLL
+    if (FD_ISSET(mysql_socket_getfd(m_admin_interface_listen_socket),
+                 &m_select_info.m_read_fds))
+#endif  // HAVE_POLL
+    {
       return &m_socket_vector[0];
-    } else
-      start_index = 1;
+    }
   }
 
-  for (uint i = start_index; i < m_socket_vector.size(); ++i) {
-    if (m_poll_info.m_fds[i].revents & POLLIN) {
+  // Loop though sockets once, starting where it stopped last time. This helps
+  // avoid starvation of later socket if earlier one always has new events.
+  uint last_index = m_next_index;
+  do {
+    uint i = m_next_index++;
+    if (m_next_index >= m_socket_vector.size()) {
+      m_next_index = m_start_index;
+    }
+
+#ifdef HAVE_POLL
+    if (m_poll_info.m_fds[i].revents & POLLIN)
+#else  // HAVE_POLL
+    if (FD_ISSET(mysql_socket_getfd(m_socket_vector[i].m_socket),
+                 const_cast<fd_set *>(&m_select_info.m_read_fds))) {
+#endif  // HAVE_POLL
+    {
       return &m_socket_vector[i];
     }
-  }
+  } while (m_next_index != last_index);
 
-#else  // HAVE_POLL
-  if (!m_admin_bind_address.address.empty() &&
-      !m_use_separate_thread_for_admin &&
-      FD_ISSET(mysql_socket_getfd(m_admin_interface_listen_socket),
-               const_cast<fd_set *>(&m_select_info.m_read_fds))) {
-    return &m_socket_vector[0];
-  }
-
-  for (const auto &socket_element : m_socket_vector) {
-    if (FD_ISSET(mysql_socket_getfd(socket_element.m_socket),
-                 const_cast<fd_set *>(&m_select_info.m_read_fds))) {
-      return &socket_element;
-    }
-  }
-
-#endif  // HAVE_POLL
   return nullptr;
-  ;
 }
 
 Channel_info *Mysqld_socket_listener::listen_for_connection_event() {
