@@ -1016,6 +1016,11 @@ bool ha_is_externally_disabled(const handlerton &);
 
 /** File reference for clone */
 struct Ha_clone_file {
+  // Whether this file is opened with O_DIRECT flag and the size of this file is
+  // allowed to be a non-multiple of 4K. MyRocks sets this as needed. InnoDB,
+  // while using O_DIRECT, has all file sizes as 4K multiples.
+  bool o_direct_uneven_file_size;
+
   /** File reference type */
   enum {
     /** File handle */

@@ -524,8 +524,10 @@ void Client::check_and_throttle() {
   info.throttle(data_speed, net_speed);
 }
 
-uchar *Client::get_aligned_buffer(uint32_t len) {
-  auto err = m_copy_buff.allocate(len + CLONE_OS_ALIGN);
+uchar *Client::get_aligned_buffer(uint32_t len,
+                                  bool for_o_direct_uneven_file_size) {
+  auto err = m_copy_buff.allocate(clone_os_pad_for_o_direct(
+      len + CLONE_OS_ALIGN, for_o_direct_uneven_file_size));
 
   if (err != 0) {
     return (nullptr);
@@ -1780,6 +1782,7 @@ int Client_Cbk::buffer_cbk(uchar *from_buffer [[maybe_unused]], uint buf_len) {
 
 int Client_Cbk::apply_buffer_cbk(uchar *&to_buffer, uint &len) {
   Ha_clone_file dummy_file;
+  dummy_file.o_direct_uneven_file_size = false;
   dummy_file.type = Ha_clone_file::FILE_HANDLE;
   dummy_file.file_handle = nullptr;
   return (apply_cbk(dummy_file, false, to_buffer, len));
@@ -1838,7 +1841,8 @@ int Client_Cbk::apply_cbk(Ha_clone_file to_file, bool apply_file,
 
   if (!is_os_buffer_cache()) {
     /* Allocate aligned buffer */
-    buf_ptr = client->get_aligned_buffer(length);
+    buf_ptr = client->get_aligned_buffer(
+        length, apply_file && to_file.o_direct_uneven_file_size);
 
     if (buf_ptr == nullptr) {
       err = ER_OUTOFMEMORY;

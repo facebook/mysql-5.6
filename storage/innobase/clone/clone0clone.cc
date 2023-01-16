@@ -2350,9 +2350,11 @@ int Clone_Handle::file_callback(Ha_clone_cbk *cbk, Clone_Task *task, uint len,
 
   /* Platform specific code to set file handle */
 #ifdef _WIN32
+  file.o_direct_uneven_file_size = false;
   file.type = Ha_clone_file::FILE_HANDLE;
   file.file_handle = static_cast<void *>(task->m_current_file_des.m_file);
 #else
+  file.o_direct_uneven_file_size = false;
   file.type = Ha_clone_file::FILE_DESC;
   file.file_desc = task->m_current_file_des.m_file;
 #endif /* _WIN32 */

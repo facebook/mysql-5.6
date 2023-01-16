@@ -478,7 +478,7 @@ class Client {
   when called for first time.
   @param[in]	len	length of allocated buffer
   @return allocated buffer pointer */
-  uchar *get_aligned_buffer(uint32_t len);
+  uchar *get_aligned_buffer(uint32_t len, bool for_o_direct_uneven_file_size);
 
   /** Limit total memory used for clone transfer buffer.
   @param[in]	buffer_size	configured buffer size
