@@ -1055,13 +1055,13 @@ static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
     return HA_EXIT_FAILURE;
   }
   // NO_LINT_DEBUG
-  LogPluginErrMsg(
-      INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-      "RocksDB: Start tracing block cache accesses or queries. Sampling "
-      "frequency: %lu, "
-      "Maximum trace file size: %lu, Trace file path %s.\n",
-      trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
-      trace_file_path.c_str());
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Start tracing block cache accesses or queries. "
+                  "Sampling frequency: %" PRIu64
+                  ", Maximum trace file size: %" PRIu64
+                  ", Trace file path %s.\n",
+                  trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
+                  trace_file_path.c_str());
   // Save the trace option.
   *static_cast<const char **>(save) = trace_opt_str_raw;
   return HA_EXIT_SUCCESS;
