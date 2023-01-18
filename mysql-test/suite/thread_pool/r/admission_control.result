@@ -63,16 +63,20 @@ select @@global.thread_pool_admission_control_filter;
 @@global.thread_pool_admission_control_filter
 
 Check status variables
+correct_utilization_1 = 1; 
+correct_utilization_2 = 1;  
 aborted_queries = 3
 running_queries = 10
 waiting_queries = 5
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	5	10	3	0	15	0
 test_db2	0	0	0	0	0	0
 Filled up queues on one db doesn't affect queries on other db.
 use test_db2;
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+correct_utilization_1 = 1; 
+correct_utilization_2 = 1;  
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	5	10	3	0	15	0
 test_db2	0	1	0	0	1	0
@@ -87,13 +91,17 @@ select 1;
 Query on new connection will wait on the table lock.
 select * from t1;
 Query on another new connection will succeed.
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+correct_utilization_1 = 1; 
+correct_utilization_2 = 1;  
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	5	10	4	0	16	0
 test_db2	0	0	0	0	0	0
 set @@global.thread_pool_on=true;
 Query on the second connection will still run even with thread pool enabled.
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+correct_utilization_1 = 1; 
+correct_utilization_2 = 1;  
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	5	10	4	0	16	0
 test_db2	0	0	0	0	0	0
@@ -132,7 +140,9 @@ timeout_queries should be 1
 timeout_queries = 1
 waiting_queries should be 0
 waiting_queries = 0
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+correct_utilization_1 = 1; 
+correct_utilization_2 = 1;  
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	0	0	6	1	15	0
 test_db2	0	0	0	0	0	0
@@ -142,7 +152,9 @@ begin;
 insert into t3 values (1);
 begin;
 insert into t3 values (1)||||
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+correct_utilization_1 = 1; 
+correct_utilization_2 = 1;  
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	0	1	6	1	17	0
 test_db2	0	0	0	0	0	0
@@ -156,7 +168,9 @@ begin;
 insert into t3 values (1);
 begin;
 insert into t3 values (1)||||
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+correct_utilization_1 = 1; 
+correct_utilization_2 = 1; 
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	0	0	6	2	17	0
 test_db2	0	0	0	0	0	0
@@ -179,7 +193,7 @@ Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
 count(*)
 0
-select * from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 set @@global.thread_pool_max_running_queries=@start_max_running_queries;
 set @@global.thread_pool_max_waiting_queries=@start_max_waiting_queries;
