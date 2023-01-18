@@ -1722,6 +1722,16 @@ int Client::set_descriptor(const uchar *buffer, size_t length) {
   /* Reset buffers */
   aux_conn->reset();
 
+  // If the error happened in any other storage engine than InnoDB, notify
+  // InnoDB too to break any waits there
+  if (loc_index != 0) {
+    assert(m_share->m_storage_vec[0].m_hton->db_type == DB_TYPE_INNODB);
+    aux_conn->m_error = err;
+    aux_conn->m_cur_index = 0;
+    remote_command(COM_ACK, true);
+    aux_conn->reset();
+  }
+
   return (err);
 }
 
