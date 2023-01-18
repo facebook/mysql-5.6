@@ -2807,6 +2807,18 @@
    fun:_ZL16test_ssl_connectv
 }
 
+{
+   TLS data is not cleaned up properly on keyring main thread init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:RAND_bytes
+   ...
+   fun:_Z24plugin_foreach_with_maskP3THDPFbS0_PP13st_plugin_intPvEijS4_
+   ...
+}
+
 #
 # gflags flags suppressions
 #
