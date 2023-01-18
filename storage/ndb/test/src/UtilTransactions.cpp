@@ -1468,7 +1468,7 @@ UtilTransactions::verifyTableReplicasWithSource(Ndb* pNdb, Uint32 sourceNodeId)
       return NDBT_FAILED;
     }
 
-    int eof;
+    int eof = 0;
     int rows = 0;
     int checks = 0;
     int mismatchRows = 0;
