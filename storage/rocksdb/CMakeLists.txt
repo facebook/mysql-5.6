@@ -266,6 +266,8 @@ IF (ROCKSDB_DYNAMIC_PLUGIN)
 ELSE()
   MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT
     STATIC_ONLY LINK_LIBRARIES ${rocksdb_static_libs})
+    # to fix linkage error on partition_base
+    TARGET_LINK_LIBRARIES(rocksdb_se sql_main)
 ENDIF()
 
 IF(WITH_EMBEDDED_SERVER)
