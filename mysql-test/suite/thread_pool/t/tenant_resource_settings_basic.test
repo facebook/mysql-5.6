@@ -8,59 +8,59 @@ grant all on test.* to test_user@localhost;
 grant all on test_db.* to test_user@localhost;
 use test_db;
 
-let $ac_entities_query=select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities;
+let $ac_entities_query=select SCHEMA_NAME, CPU_MIN_PERCENT, CPU_MAX_PERCENT from information_schema.tp_admission_control_entities where schema_name like 'test_db%' or schema_name='__system__';
 
 enable_connect_log;
 
-connect (con, localhost, test_user,, test_db); 
-connect (con1, localhost, root,, test_db); 
+connect (con, localhost, test_user,, test_db);
+connect (con1, localhost, root,, test_db);
 
-# Default Values 
-eval $ac_entities_query; 
+# Default Values
+eval $ac_entities_query;
 
-connection con1; 
+connection con1;
 
 set @@global.thread_pool_tenant_resource_settings = "test_db cpu_min_percent=0";
-eval $ac_entities_query; 
+eval $ac_entities_query;
 
-set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=100"; 
-eval $ac_entities_query; 
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=100";
+eval $ac_entities_query;
 
 set @@global.thread_pool_tenant_resource_settings = "test_db cpu_min_percent=20";
-eval $ac_entities_query; 
+eval $ac_entities_query;
 
-set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=60"; 
-eval $ac_entities_query; 
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=60";
+eval $ac_entities_query;
 
---error 1231
-set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=101"; 
-eval $ac_entities_query; 
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=101";
+eval $ac_entities_query;
 
---error 1231
-set @@global.thread_pool_tenant_resource_settings = "test_db max_percent=60"; 
-eval $ac_entities_query; 
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.thread_pool_tenant_resource_settings = "test_db max_percent=60";
+eval $ac_entities_query;
 
---error 1231
-set @@global.thread_pool_tenant_resource_settings = "test_db cpu_min_percent=-1"; 
-eval $ac_entities_query; 
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_min_percent=-1";
+eval $ac_entities_query;
 
---error 1231
-set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=60 cpu_min_percent=10"; 
-eval $ac_entities_query; 
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.thread_pool_tenant_resource_settings = "test_db cpu_max_percent=60 cpu_min_percent=10";
+eval $ac_entities_query;
 
---error 1231
-set @@global.thread_pool_tenant_resource_settings = "__system__ cpu_min_percent=10"; 
-eval $ac_entities_query; 
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.thread_pool_tenant_resource_settings = "__system__ cpu_min_percent=10";
+eval $ac_entities_query;
 
---error 1231
-set @@global.thread_pool_tenant_resource_settings = "test_db3 cpu_max_percent=60"; 
-eval $ac_entities_query; 
+# Specifying non-existing db (or db with no connections to yet) is allowed.
+set @@global.thread_pool_tenant_resource_settings = "test_db3 cpu_max_percent=60";
+eval $ac_entities_query;
 
-disconnect con; 
+disconnect con;
 disconnect con1;
-connection default; 
+connection default;
 
-set @@global.thread_pool_tenant_resource_settings = DEFAULT; 
+set @@global.thread_pool_tenant_resource_settings = DEFAULT;
 
 drop database test_db;
 drop user test_user@localhost;

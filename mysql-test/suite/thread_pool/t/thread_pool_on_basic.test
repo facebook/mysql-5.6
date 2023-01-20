@@ -45,8 +45,6 @@ SET @@global.thread_pool_on = "ON";
 SELECT @@global.thread_pool_on;
 SET @@global.thread_pool_on = 'off';
 SELECT @@global.thread_pool_on;
-SET @@global.thread_pool_on = -1000;
-SELECT @@global.thread_pool_on;
 
 
 ####
@@ -90,6 +88,9 @@ SET @@global.thread_pool_on = "0";
 
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.thread_pool_on = "1";
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.thread_pool_on = -1000;
 
 
 ####

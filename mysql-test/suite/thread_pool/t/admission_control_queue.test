@@ -7,7 +7,7 @@ grant all on test.* to test_user@localhost;
 use test_db;
 
 --let $ac_entities_query=select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where waiting_queries + running_queries + aborted_queries + timeout_queries != 0 and schema_name like 'test%'
---let $ac_queue_query=select * from information_schema.tp_admission_control_queue where schema_name like 'test%'
+--let $ac_queue_query=select SCHEMA_NAME, QUEUE_ID, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, DELAYED_QUERIES from information_schema.tp_admission_control_queue where schema_name like 'test%'
 
 set @save_max_running_queries = @@thread_pool_max_running_queries;
 set @save_max_waiting_queries = @@thread_pool_max_waiting_queries;

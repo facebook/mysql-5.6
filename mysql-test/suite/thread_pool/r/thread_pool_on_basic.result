@@ -62,10 +62,6 @@ SET @@global.thread_pool_on = 'off';
 SELECT @@global.thread_pool_on;
 @@global.thread_pool_on
 0
-SET @@global.thread_pool_on = -1000;
-SELECT @@global.thread_pool_on;
-@@global.thread_pool_on
-1
 SET @@global.thread_pool_on = 65530.34;
 ERROR 42000: Incorrect argument type to variable 'thread_pool_on'
 SET @@global.thread_pool_on = 1.0;
@@ -92,6 +88,8 @@ SET @@global.thread_pool_on = "0";
 ERROR 42000: Variable 'thread_pool_on' can't be set to the value of '0'
 SET @@global.thread_pool_on = "1";
 ERROR 42000: Variable 'thread_pool_on' can't be set to the value of '1'
+SET @@global.thread_pool_on = -1000;
+ERROR 42000: Variable 'thread_pool_on' can't be set to the value of '-1000'
 restart the server with non default value (OFF)
 # restart: --thread_pool_on=0
 SELECT @@global.thread_pool_on;
