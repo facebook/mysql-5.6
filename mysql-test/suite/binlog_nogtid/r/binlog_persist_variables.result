@@ -30,6 +30,7 @@ VARIABLE_NAME LIKE '%source%') AND
 'reset_seconds_behind_master', 'group_replication_plugin_hooks',
 'innodb_master_thread_disabled_debug', 'innodb_replication_delay'))
 AND (VARIABLE_NAME NOT LIKE 'rocksdb%')
+AND (VARIABLE_NAME NOT LIKE 'thread_pool%')
 ORDER BY VARIABLE_NAME;
 
 include/assert.inc ['Expect $expected variables in the table.']
