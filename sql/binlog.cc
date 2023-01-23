@@ -11621,7 +11621,7 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
   arg.log_name = log_file_name;
   arg.cur_log_ext = &raft_cur_log_ext;
   arg.endpos_log_name = log_file_name;
-  arg.endpos = (ulonglong *)&atomic_binlog_end_pos;
+  arg.endpos = &atomic_binlog_end_pos;
   arg.signal_cnt = &signal_cnt;
   arg.lock_log = &LOCK_log;
   arg.lock_index = &LOCK_index;

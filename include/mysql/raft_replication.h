@@ -84,7 +84,11 @@ typedef struct Raft_replication_observer {
     // Log name for the last log
     char *endpos_log_name = nullptr;
     // Last position of in the last log
+#if MYSQL_VERSION_ID >= 80004
+    std::atomic<unsigned long long> *endpos = nullptr;
+#else
     unsigned long long *endpos = nullptr;
+#endif
     // Number of times changes to endpos was signalled
     unsigned long *signal_cnt = nullptr;
 
