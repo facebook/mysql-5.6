@@ -3994,9 +3994,11 @@ bool purge_raft_logs(THD *thd, const char *to_log) {
     mysql_bin_log.is_raft_log_purge_active = false;
     const auto end = std::chrono::system_clock::now();
     sql_print_information(
-        "Raft log purging was active for %f usecs",
-        std::chrono::duration_cast<std::chrono::microseconds>(end - start)
-            .count());
+        "Raft log purging was active for %s usecs",
+        std::to_string(
+            std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+                .count())
+            .c_str());
     return retval;
   }
 
@@ -4066,9 +4068,11 @@ bool purge_raft_logs_before_date(THD *thd, time_t purge_time) {
     mysql_bin_log.is_raft_log_purge_active = false;
     const auto end = std::chrono::system_clock::now();
     sql_print_information(
-        "Raft log purging was active for %f usecs",
-        std::chrono::duration_cast<std::chrono::microseconds>(end - start)
-            .count());
+        "Raft log purging was active for %s usecs",
+        std::to_string(
+            std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+                .count())
+            .c_str());
     return retval;
   }
 
