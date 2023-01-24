@@ -20,6 +20,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+# Fix "undefined reference to '__muloti4'" for clang-7 or older
+# https://stackoverflow.com/questions/49793632/clang-fsanitize-undefined-with-128-integer-operations-undefined-reference-to
+IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8)
+  STRING_APPEND(CMAKE_CXX_LINK_FLAGS " --rtlib=compiler-rt -lgcc_s")
+ENDIF()
+
+IF(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.1)
+  MESSAGE(FATAL_ERROR "Compiler version not supported. Please, use -DWITH_ROUTER=OFF or use at least gcc 8.1.")
+ENDIF()
+
 INCLUDE(cmake/version.cmake)
 SET(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}

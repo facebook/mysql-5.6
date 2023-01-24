@@ -265,11 +265,13 @@ class SocketTimestampingBase : public ControlMsgBase<Lvl, Type> {
   value_type ts_;
 };
 
+#if defined(SO_TIMESTAMPING) && !defined(SO_TIMESTAMPING_NEW)
 template <typename, typename = void>
 constexpr bool is_type_complete_v = false;
 
 template <typename T>
 constexpr bool is_type_complete_v<T, std::void_t<decltype(sizeof(T))>> = true;
+#endif
 
 namespace fallback {
 // scm_timestamping is defined in <linux/errqueue.h>

@@ -725,8 +725,9 @@ Certification_handler::generate_view_change_bgc_ticket() {
     all transactions ordered after the view will have a ticket
     greater that the one assigned to the view.
   */
-  auto [ticket, _] =
-      ticket_manager.push_new_ticket(binlog::BgcTmOptions::inc_session_count);
+  auto ticket =
+      ticket_manager.push_new_ticket(binlog::BgcTmOptions::inc_session_count)
+          .first;
 
   return ticket.get();
 }

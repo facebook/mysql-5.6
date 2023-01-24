@@ -114,8 +114,10 @@ TEST_F(Bgc_ticket_manager_test, Several_tickets_test) {
               std::this_thread::sleep_for(
                   std::chrono::duration<int, std::micro>{
                       uniform_dist(r_engine)});
-              auto [this_thread_ticket, _] = ticket_manager.push_new_ticket(
-                  binlog::BgcTmOptions::inc_session_count);
+              auto this_thread_ticket =
+                  ticket_manager
+                      .push_new_ticket(binlog::BgcTmOptions::inc_session_count)
+                      .first;
 
               while (this_thread_ticket != ticket_manager.get_front_ticket()) {
                 std::this_thread::yield();
