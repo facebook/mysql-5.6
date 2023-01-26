@@ -33,6 +33,12 @@
 
 #include "mysql/harness/stdx/attribute.h"
 
+#ifdef NDEBUG
+#define MYSQLD_BIN "mysqld"
+#else
+#define MYSQLD_BIN "mysqld-debug"
+#endif
+
 #define SKIP_GIT_TESTS(COND)                                       \
   if (COND) {                                                      \
     std::cout << "[  SKIPPED ] Tests using Git repository skipped" \

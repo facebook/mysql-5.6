@@ -450,7 +450,7 @@ class SharedServer {
   // from that into mysqld_dir_
   void initialize_server(const std::string &datadir) {
     auto bindir = process_manager().get_origin();
-    auto mysqld = bindir.join("mysqld" EXE_EXTENSION);
+    auto mysqld = bindir.join(MYSQLD_BIN EXE_EXTENSION);
 
     if (!mysqld.exists()) {
       mysqld_failed_to_start_ = true;
@@ -573,7 +573,7 @@ class SharedServer {
 
     auto &proc =
         process_manager()
-            .spawner(bindir.join("mysqld").str())
+            .spawner(bindir.join(MYSQLD_BIN).str())
 #ifdef _WIN32
             // on windows, mysqld has no notify-socket
             .wait_for_sync_point(ProcessManager::Spawner::SyncPoint::NONE)
