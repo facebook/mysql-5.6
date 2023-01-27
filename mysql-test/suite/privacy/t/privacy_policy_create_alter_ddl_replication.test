@@ -16,6 +16,7 @@ eval CREATE TABLE t1 (
 ) PRIVACY_POLICY='$privacy_policy';
 
 SHOW CREATE TABLE t1;
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 
 --echo ## Connecting to replica
 --source include/sync_slave_sql_with_master.inc
@@ -24,6 +25,7 @@ SHOW CREATE TABLE t1;
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
 
 SHOW CREATE TABLE t1;
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 
 --echo ########################################################################
 --echo === Altering table with POLICY!
@@ -36,11 +38,13 @@ ALTER TABLE t1 rename t2;
 ALTER TABLE t2 ADD Column new_col int not null;
 ALTER TABLE t2 ADD KEY (name(20));
 SHOW CREATE TABLE t2;
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t2';
 
 --source include/sync_slave_sql_with_master.inc
 --echo ## Connecting to replica
 --connection slave
 SHOW CREATE TABLE t2;
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t2';
 
 --echo ## Connecting to primary
 --connection master
@@ -51,12 +55,14 @@ ALTER TABLE t2 rename t1;
 --echo ########################################################################
 eval ALTER TABLE t1 PRIVACY_POLICY='';
 SHOW CREATE TABLE t1;
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 
 
 --echo ## Connecting to replica
 --source include/sync_slave_sql_with_master.inc
 --connection slave
 SHOW CREATE TABLE t1;
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 
 # Cleanup
 --echo ## Connecting to primary

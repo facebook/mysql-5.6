@@ -19,6 +19,9 @@ t1	CREATE TABLE `t1` (
   `name` varchar(30) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_original'
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
+TABLE_NAME	CREATE_OPTIONS
+t1	privacy_policy="policy_original"
 ## Connecting to replica
 include/sync_slave_sql_with_master.inc
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
@@ -29,6 +32,9 @@ t1	CREATE TABLE `t1` (
   `name` varchar(30) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_original'
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
+TABLE_NAME	CREATE_OPTIONS
+t1	privacy_policy="policy_original"
 ########################################################################
 === Altering table with POLICY!
 ########################################################################
@@ -46,6 +52,9 @@ t2	CREATE TABLE `t2` (
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_altered'
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t2';
+TABLE_NAME	CREATE_OPTIONS
+t2	privacy_policy="policy_altered"
 include/sync_slave_sql_with_master.inc
 ## Connecting to replica
 SHOW CREATE TABLE t2;
@@ -57,6 +66,9 @@ t2	CREATE TABLE `t2` (
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_altered'
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t2';
+TABLE_NAME	CREATE_OPTIONS
+t2	privacy_policy="policy_altered"
 ## Connecting to primary
 ALTER TABLE t2 rename t1;
 ########################################################################
@@ -72,6 +84,9 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
+TABLE_NAME	CREATE_OPTIONS
+t1	
 ## Connecting to replica
 include/sync_slave_sql_with_master.inc
 SHOW CREATE TABLE t1;
@@ -83,6 +98,9 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
+TABLE_NAME	CREATE_OPTIONS
+t1	
 ## Connecting to primary
 drop table t1;
 include/rpl_end.inc
