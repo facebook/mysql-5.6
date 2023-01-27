@@ -1,0 +1,175 @@
+--disable_warnings
+DROP TABLE IF EXISTS MyGuests;
+DROP DATABASE IF EXISTS cus_test;
+CREATE DATABASE cus_test;
+USE cus_test;
+--enable_warnings
+
+CREATE TABLE MyGuests (
+  id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  firstname VARCHAR(30) NOT NULL,
+  lastname VARCHAR(30) NOT NULL,
+  email VARCHAR(50) DEFAULT NULL,
+  reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO MyGuests (firstname, lastname, email)
+VALUES ('John', 'Doe', 'john@example.com');
+
+INSERT INTO MyGuests (firstname, lastname, email)
+VALUES ('Johnny', 'Doe', 'john2@example.com');
+
+INSERT INTO MyGuests (firstname, lastname, email)
+VALUES ('Mohandas', 'Gandhi', NULL);
+
+set global column_stats_control = ON;
+
+# performance_schema_esms_by_all is OFF by default.
+# enable it to populate performance_schema.events_statements_summary_by_all
+SET @start_value = @@global.performance_schema_esms_by_all;
+SET @@global.performance_schema_esms_by_all = ON;
+
+--echo
+--echo Part I: Executing queries that would populate column_statistics
+
+SELECT firstname, lastname, email FROM MyGuests WHERE id = 1;
+
+SELECT firstname, email FROM MyGuests WHERE id IN (1, 2) AND lastname = 'Doe';
+
+SELECT email FROM MyGuests WHERE id > 1;
+
+SELECT firstname, email FROM MyGuests WHERE id IN (1, -2) OR firstname = 'Doe';
+
+SELECT firstname, email FROM MyGuests WHERE (id = 1 AND ((id > -1) OR (id > 2 AND lastname = 'Doe'))) ORDER BY id, lastname LIMIT 2;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE email <=> 'john@example.com' AND id <> 1000 AND firstname != 'gandhi';
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
+
+SELECT firstname FROM MyGuests WHERE email LIKE 'john%';
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email REGEXP '^[jo]{2}h.*';
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE REGEXP_LIKE(email, '^[jo]{2}h.*');
+
+SELECT lastname, email FROM MyGuests WHERE firstname REGEXP '^Mohan.*';
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email NOT LIKE 'john2%';
+
+SELECT firstname FROM MyGuests WHERE email IS NULL;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE id >= 1 AND email IS NOT NULL;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE id BETWEEN 2 AND 5;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE id NOT BETWEEN 2 AND 5;
+
+SELECT firstname, email FROM MyGuests WHERE id NOT IN (1, 2);
+
+SELECT email, lastname AS ln FROM MyGuests MyGuestsAlias WHERE lastname LIKE 'Do%';
+
+SELECT lastname, firstname FROM MyGuests WHERE email IN ('a@b.com', 'b@c.com', 'c@d.com');
+
+# Verification of stats accumulated
+--echo
+--echo Number of distinct queries present in column statistics.
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+--vertical_results
+--echo Unique column accesses per table instance per SQL_ID
+
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
+
+--echo
+--echo Part II : Lowering the limit on column column_statistics
+SET GLOBAL max_column_statistics_size = 10;
+
+SELECT @@GLOBAL.max_column_statistics_size;
+
+--echo Column statistics are completely cleared.
+
+--echo
+--echo
+--echo Number of distinct queries present in column statistics.
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+--echo
+--echo Part III a: Rexecuting some queries
+SELECT email, lastname AS ln FROM MyGuests MyGuestsAlias WHERE lastname LIKE 'Do%';
+
+--echo
+--echo Number of distinct queries present in column statistics.
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+--echo
+--echo Part III b: Rexecuting more queries
+SELECT firstname, lastname, email FROM MyGuests WHERE id = 1;
+
+SELECT firstname, email FROM MyGuests WHERE id IN (1, 2) AND lastname = 'Doe';
+
+SELECT email FROM MyGuests WHERE id > 1;
+
+SELECT firstname, email FROM MyGuests WHERE id IN (1, -2) OR firstname = 'Doe';
+
+SELECT firstname, email FROM MyGuests WHERE (id = 1 AND ((id > -1) OR (id > 2 AND lastname = 'Doe'))) ORDER BY id, lastname LIMIT 2;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE email <=> 'john@example.com' AND id <> 1000 AND firstname != 'gandhi';
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
+
+--echo
+--echo Number of distinct queries executed. Prohibitively low limit prevents accumulation of more stats.
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+--echo
+--echo Part IV : Relaxing limit further to accommodate more stats.
+SET GLOBAL max_column_statistics_size = 128;
+
+--echo
+--echo Executing the same queries as in III b
+
+SELECT firstname, lastname, email FROM MyGuests WHERE id = 1;
+
+SELECT firstname, email FROM MyGuests WHERE id IN (1, 2) AND lastname = 'Doe';
+
+SELECT email FROM MyGuests WHERE id > 1;
+
+SELECT firstname, email FROM MyGuests WHERE id IN (1, -2) OR firstname = 'Doe';
+
+SELECT firstname, email FROM MyGuests WHERE (id = 1 AND ((id > -1) OR (id > 2 AND lastname = 'Doe'))) ORDER BY id, lastname LIMIT 2;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE email <=> 'john@example.com' AND id <> 1000 AND firstname != 'gandhi';
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
+
+--echo
+--echo Number of distinct queries executed. All of the queries are still not logged due to exceeding the limit.
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+--echo
+--echo Part V : Setting the limit to an invalid value.
+--error 1232
+SET GLOBAL max_column_statistics_size = '128a';
+
+--echo
+--echo Number of distinct queries executed. Nothing changes.
+SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
+
+--vertical_results
+--echo Unique column accesses per table instance per SQL_ID
+
+SELECT SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM performance_schema.column_statistics cs, performance_schema.events_statements_summary_by_all mt, performance_schema.sql_text st
+WHERE TABLE_SCHEMA <> 'performance_schema' AND cs.SQL_ID = mt.DIGEST AND cs.SQL_ID = st.DIGEST
+ORDER BY SQL_ID, DIGEST_TEXT, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE;
+
+SET GLOBAL max_column_statistics_size = 104857600;
+SET GLOBAL column_stats_control = OFF_HARD;
+# set performance_schema_esms_by_all to original value
+SET @@global.performance_schema_esms_by_all = @start_value;
+
+DROP TABLE MyGuests;
+DROP DATABASE cus_test;

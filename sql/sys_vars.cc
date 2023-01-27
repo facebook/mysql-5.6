@@ -9969,6 +9969,24 @@ static Sys_var_ulonglong Sys_max_sql_findings_size(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(update_max_sql_findings_limits));
 
+static bool update_max_column_statistics_limits(sys_var *, THD *,
+                                                set_var *var) {
+  // This will clear out all column statistics collected so far if new limit
+  // is less than the current limit
+  if (var->save_result.ulonglong_value < max_column_statistics_size) {
+    free_column_stats();
+  }
+  return false;  // success
+}
+
+static Sys_var_ulonglong Sys_max_column_statistics_size(
+    "max_column_statistics_size",
+    "Maximum allowed memory for column statistics (in bytes)",
+    GLOBAL_VAR(max_column_statistics_size), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(100 * 1024 * 1024), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(update_max_column_statistics_limits), ON_UPDATE(nullptr));
+
 static Sys_var_bool Sys_enable_deprecation_warning(
     "enable_deprecation_warning",
     "If set to false, will not show deprecation warnings ",

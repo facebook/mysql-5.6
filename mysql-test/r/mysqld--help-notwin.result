@@ -976,6 +976,8 @@ The following options may be given as the first argument:
  max_relay_log_size is 0
  --max-binlog-stmt-cache-size=# 
  Sets the total size of the statement cache
+ --max-column-statistics-size[=#] 
+ Maximum allowed memory for column statistics (in bytes)
  --max-connect-errors=# 
  If there is more than this number of interrupted
  connections from a host this host will be blocked from
@@ -3332,6 +3334,7 @@ max-binlog-cache-size 18446744073709547520
 max-binlog-dump-events 0
 max-binlog-size 1073741824
 max-binlog-stmt-cache-size 18446744073709547520
+max-column-statistics-size 104857600
 max-connect-errors 100
 max-connections 151
 max-db-connections 0

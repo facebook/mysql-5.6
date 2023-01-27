@@ -592,6 +592,8 @@ extern uint write_throttle_rate_step;
 extern ulong sql_findings_control;
 /* The maximum size of the memory to store SQL findings */
 extern ulonglong max_sql_findings_size;
+/* The maximum size of the memory to store column statistics */
+extern ulonglong max_column_statistics_size;
 // client attributes names system variable
 extern std::vector<std::string> client_attribute_names;
 extern char *latest_client_attribute_names;

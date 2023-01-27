@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify the default value
+####
+--echo Default value of max_column_statistics_size
+SELECT @@global.max_column_statistics_size;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.max_column_statistics_size;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo max_column_statistics_size is a dynamic variable
+set @@global.max_column_statistics_size = 17;
+SELECT @@global.max_column_statistics_size;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.max_column_statistics_size = 104857600;
+SELECT @@global.max_column_statistics_size;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (103)
+--let $restart_parameters = restart: --max_column_statistics_size=103
+--source include/restart_mysqld.inc
+
+SELECT @@global.max_column_statistics_size;
+
+--echo restart the server with the default value (104857600)
+--source include/restart_mysqld.inc
+
+# check value is default (104857600)
+SELECT @@global.max_column_statistics_size;

@@ -71,4 +71,7 @@ struct ColumnUsageInfo {
   // Comparator required for defining a strict weak ordering of
   // `ColumnUsageInfo` structs.
   bool operator<(const ColumnUsageInfo &) const;
+
+  // Returns the total size of ColumnUsageInfo
+  ulonglong size() const;
 };
