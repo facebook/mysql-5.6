@@ -4430,16 +4430,14 @@ String *Item_func_get_dd_create_options::val_str(String *str) {
     return str;
   }
 
-  // Read used_flags
-  char option_buff[350], *ptr;
-  ptr = option_buff;
+  char tmp_buff[64];
 
   if (p->exists("max_rows")) {
     uint opt_value = 0;
     p->get("max_rows", &opt_value);
     if (opt_value != 0) {
-      ptr = my_stpcpy(ptr, " max_rows=");
-      ptr = longlong10_to_str(opt_value, ptr, 10);
+      longlong10_to_str(opt_value, tmp_buff, 10);
+      oss << " max_rows=" << tmp_buff;
     }
   }
 
@@ -4447,8 +4445,8 @@ String *Item_func_get_dd_create_options::val_str(String *str) {
     uint opt_value = 0;
     p->get("min_rows", &opt_value);
     if (opt_value != 0) {
-      ptr = my_stpcpy(ptr, " min_rows=");
-      ptr = longlong10_to_str(opt_value, ptr, 10);
+      longlong10_to_str(opt_value, tmp_buff, 10);
+      oss << " min_rows=" << tmp_buff;
     }
   }
 
@@ -4456,23 +4454,23 @@ String *Item_func_get_dd_create_options::val_str(String *str) {
     uint opt_value = 0;
     p->get("avg_row_length", &opt_value);
     if (opt_value != 0) {
-      ptr = my_stpcpy(ptr, " avg_row_length=");
-      ptr = longlong10_to_str(opt_value, ptr, 10);
+      longlong10_to_str(opt_value, tmp_buff, 10);
+      oss << " avg_row_length=" << tmp_buff;
     }
   }
 
   if (p->exists("row_type")) {
     uint opt_value = 0;
     p->get("row_type", &opt_value);
-    ptr = strxmov(ptr, " row_format=", ha_row_type[(uint)opt_value], NullS);
+    oss << " row_format=" << ha_row_type[(uint)opt_value];
   }
 
   if (p->exists("stats_sample_pages")) {
     uint opt_value = 0;
     p->get("stats_sample_pages", &opt_value);
     if (opt_value != 0) {
-      ptr = my_stpcpy(ptr, " stats_sample_pages=");
-      ptr = longlong10_to_str(opt_value, ptr, 10);
+      longlong10_to_str(opt_value, tmp_buff, 10);
+      oss << " stats_sample_pages=" << tmp_buff;
     }
   }
 
@@ -4481,18 +4479,19 @@ String *Item_func_get_dd_create_options::val_str(String *str) {
     p->get("stats_auto_recalc", &opt_value);
     enum_stats_auto_recalc sar = (enum_stats_auto_recalc)opt_value;
 
-    if (sar == HA_STATS_AUTO_RECALC_ON)
-      ptr = my_stpcpy(ptr, " stats_auto_recalc=1");
-    else if (sar == HA_STATS_AUTO_RECALC_OFF)
-      ptr = my_stpcpy(ptr, " stats_auto_recalc=0");
+    if (sar == HA_STATS_AUTO_RECALC_ON) {
+      oss << " stats_auto_recalc=1";
+    } else if (sar == HA_STATS_AUTO_RECALC_OFF) {
+      oss << " stats_auto_recalc=0";
+    }
   }
 
   if (p->exists("key_block_size")) {
     uint opt_value = 0;
     p->get("key_block_size", &opt_value);
     if (opt_value != 0) {
-      ptr = my_stpcpy(ptr, " KEY_BLOCK_SIZE=");
-      ptr = longlong10_to_str(opt_value, ptr, 10);
+      longlong10_to_str(opt_value, tmp_buff, 10);
+      oss << " KEY_BLOCK_SIZE=" << tmp_buff;
     }
   }
 
@@ -4501,9 +4500,15 @@ String *Item_func_get_dd_create_options::val_str(String *str) {
     p->get("compress", &opt_value);
     if (!opt_value.empty()) {
       if (opt_value.size() > 7) opt_value.erase(7, dd::String_type::npos);
-      ptr = my_stpcpy(ptr, " COMPRESSION=\"");
-      ptr = my_stpcpy(ptr, opt_value.c_str());
-      ptr = my_stpcpy(ptr, "\"");
+      oss << " COMPRESSION=\"" << opt_value.c_str() << "\"";
+    }
+  }
+
+  if (p->exists("privacy_policy")) {
+    dd::String_type opt_value;
+    p->get("privacy_policy", &opt_value);
+    if (!opt_value.empty()) {
+      oss << " privacy_policy=\"" << opt_value.c_str() << "\"";
     }
   }
 
@@ -4521,51 +4526,55 @@ String *Item_func_get_dd_create_options::val_str(String *str) {
   bool encryption_request_type = is_encrypted(encrypt_type);
   if (encryption_request_type ||
       (is_schema_encrypted != encryption_request_type)) {
-    ptr = my_stpcpy(ptr, " ENCRYPTION=\'");
-    ptr = my_stpcpy(ptr, encrypt_type.c_str());
-    ptr = my_stpcpy(ptr, "\'");
+    oss << " ENCRYPTION=\'" << encrypt_type.c_str() << "\'";
   }
 
   if (p->exists("stats_persistent")) {
     uint opt_value = 0;
     p->get("stats_persistent", &opt_value);
-    if (opt_value)
-      ptr = my_stpcpy(ptr, " stats_persistent=1");
-    else
-      ptr = my_stpcpy(ptr, " stats_persistent=0");
+    if (opt_value) {
+      oss << " stats_persistent=1";
+    } else {
+      oss << " stats_persistent=0";
+    }
   }
 
   if (p->exists("pack_keys")) {
     uint opt_value = 0;
     p->get("pack_keys", &opt_value);
-    if (opt_value)
-      ptr = my_stpcpy(ptr, " pack_keys=1");
-    else
-      ptr = my_stpcpy(ptr, " pack_keys=0");
+    if (opt_value) {
+      oss << " pack_keys=1";
+    } else {
+      oss << " pack_keys=0";
+    }
   }
 
   if (p->exists("checksum")) {
     uint opt_value = 0;
     p->get("checksum", &opt_value);
-    if (opt_value) ptr = my_stpcpy(ptr, " checksum=1");
+    if (opt_value) {
+      oss << " checksum=1";
+    }
   }
 
   if (p->exists("delay_key_write")) {
     uint opt_value = 0;
     p->get("delay_key_write", &opt_value);
-    if (opt_value) ptr = my_stpcpy(ptr, " delay_key_write=1");
+    if (opt_value) {
+      oss << " delay_key_write=1";
+    }
   }
 
   bool is_partitioned = args[1]->val_int();
-  if (is_partitioned) ptr = my_stpcpy(ptr, " partitioned");
+  if (is_partitioned) {
+    oss << " partitioned";
+  }
 
   if (p->exists("secondary_engine")) {
     dd::String_type opt_value;
     p->get("secondary_engine", &opt_value);
     if (!opt_value.empty()) {
-      ptr = my_stpcpy(ptr, " SECONDARY_ENGINE=\"");
-      ptr = my_stpcpy(ptr, opt_value.c_str());
-      ptr = my_stpcpy(ptr, "\"");
+      oss << " SECONDARY_ENGINE=\"" << opt_value.c_str() << "\"";
     }
   }
 
@@ -4573,18 +4582,19 @@ String *Item_func_get_dd_create_options::val_str(String *str) {
     dd::String_type opt_value;
     p->get("secondary_load", &opt_value);
     if (!opt_value.empty()) {
-      ptr = my_stpcpy(ptr, " SECONDARY_LOAD=\"");
-      ptr = my_stpcpy(ptr, opt_value.c_str());
-      ptr = my_stpcpy(ptr, "\"");
+      oss << " SECONDARY_LOAD=\"" << opt_value.c_str() << "\"";
     }
   }
 
-  if (ptr == option_buff)
-    oss << "";
-  else
-    oss << option_buff + 1;
+  std::string output_str = oss.str();
+  if (output_str.length() > 0) {
+    // Remove the preceding space added while creating options list
+    str->copy(output_str.c_str() + 1, output_str.length() - 1,
+              system_charset_info);
+  } else {
+    str->copy(output_str.c_str(), output_str.length(), system_charset_info);
+  }
 
-  str->copy(oss.str().c_str(), oss.str().length(), system_charset_info);
 
   return str;
 }

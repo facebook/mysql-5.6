@@ -17,6 +17,8 @@ eval CREATE TABLE t1 (
 if($allow_debug_commands) {
     SELECT name,options FROM mysql.tables WHERE `name`="t1";
 }
+
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 SHOW CREATE TABLE t1;
 
 --echo ########################################################################
@@ -37,6 +39,7 @@ if($allow_debug_commands) {
     SELECT name,options FROM mysql.tables WHERE `name`="t1";
 }
 
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 SHOW CREATE TABLE t1;
 
 --echo ########################################################################
@@ -50,6 +53,8 @@ ALTER TABLE t2 ADD KEY (name(20));
 if($allow_debug_commands) {
     SELECT name,options FROM mysql.tables WHERE `name`="t2";
 }
+
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t2';
 SHOW CREATE TABLE t2;
 
 ALTER TABLE t2 rename t1;
@@ -65,12 +70,14 @@ kjdhsagfshdagfkjhdsgf jksadgf kjdsahgf kjdsahgf kjadhsgfouaywegfkausbfkaj dhsg f
 dasjkhgfdskjagfdksajhgfdskajhfgdsakjfhgsadjlhgfadsljfhgadslj gadsjklgfdsajkgfdsakjgfdaskjfgdsajkhfgdsaljhfgadsougfudsayfjkhd
 avfjhdsagfkjhasdgfjkhsgfkjhadsgfsdjahkgfjagjdhsvfhvjkhvcdskjhvkcjhvkjdshvckjadsvckjsdhvckjhdasvckjhsdavcgjkhadsvchgdsavchgkd
 vckasdgcvkshdgacvdsakgvcasdkgchjvdsakcgvadskgvckhgadsvchksadgvckjavdsckgadsvckhgadsvckjgavsdckjagvsckjgadsvcjkadgsvcjkasgdvc
+vckasdgcvkshdgacvdsakgvcasdkgchjvdsakcgvadskgvckhgadsvchksadgvckjavdsckgadsvckhgadsvckjgavsdckjagvsckjgadsvcjkadgsvcjkasgdvc
 kscdsajhgfjdslhgfkdasjhfgkjasdhfgdskjhg0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefghij';
 
 if($allow_debug_commands) {
     SELECT name,options FROM mysql.tables WHERE `name`="longPolicy";
 }
 
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='longPolicy';
 SHOW CREATE TABLE longPolicy;
 
 --echo ########################################################################
@@ -84,12 +91,14 @@ kjdhsagfshdagfkjhdsgf jksadgf kjdsahgf kjdsahgf kjadhsgfouaywegfkausbfkaj dhsg f
 dasjkhgfdskjagfdksajhgfdskajhfgdsakjfhgsadjlhgfadsljfhgadslj gadsjklgfdsajkgfdsakjgfdaskjfgdsajkhfgdsaljhfgadsougfudsayfjkhd
 avfjhdsagfkjhasdgfjkhsgfkjhadsgfsdjahkgfjagjdhsvfhvjkhvcdskjhvkcjhvkjdshvckjadsvckjsdhvckjhdasvckjhsdavcgjkhadsvchgdsavchgkd
 vckasdgcvkshdgacvdsakgvcasdkgchjvdsakcgvadskgvckhgadsvchksadgvckjavdsckgadsvckhgadsvckjgavsdckjagvsckjgadsvcjkadgsvcjkasgdvc
+vckasdgcvkshdgacvdsakgvcasdkgchjvdsakcgvadskgvckhgadsvchksadgvckjavdsckgadsvckhgadsvckjgavsdckjagvsckjgadsvcjkadgsvcjkasgdvc
 kscdsajhgfjdslhgfkdasjhfgkjasdhfgdskjhg0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefghij';
 
 if($allow_debug_commands) {
     SELECT name,options FROM mysql.tables WHERE `name`="longPolicy";
 }
 
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='longPolicy';
 SHOW CREATE TABLE longPolicy;
 
 --echo ########################################################################
@@ -102,6 +111,7 @@ if($allow_debug_commands) {
     SELECT name,options FROM mysql.tables WHERE `name`="nopolicy";
 }
 
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='nopolicy';
 SHOW CREATE TABLE nopolicy;
 
 --echo ########################################################################
@@ -114,6 +124,7 @@ if($allow_debug_commands) {
     SELECT name,options FROM mysql.tables WHERE `name`="nopolicy";
 }
 
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='nopolicy';
 SHOW CREATE TABLE nopolicy;
 
 
@@ -127,6 +138,7 @@ if($allow_debug_commands) {
     SELECT name,options FROM mysql.tables WHERE `name`="nopolicy";
 }
 
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='nopolicy';
 SHOW CREATE TABLE nopolicy;
 
 
