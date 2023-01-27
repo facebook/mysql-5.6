@@ -36,6 +36,19 @@
 class column_statistics_row;
 
 /*
+  string_buffer_overhead
+    Estimates the size of the string in bytes. This estimation is based on
+    the assumption that upto a certain length std::string stores the data
+    on the stack and progressively allocates more space on the heap if the
+    underlying string is larger than that.
+  Input:
+    str                in: Input string
+  Output:
+    size               Size in bytes of the input str
+*/
+ulonglong string_buffer_overhead(const std::string &str);
+
+/*
   sql_operation_string
     Stringifies sql_operation enum.
   Input:
@@ -232,13 +245,13 @@ int parse_columns_from_order_list(sql_operation sql_op, ORDER *first_col,
 extern int parse_column_usage_info(THD *thd);
 
 /*
-  exists_column_usage_info
+  exists_column_usage_info_and_limit_check
     Returns TRUE if we already collected column usage statistics for the SQL
-    statement
+    statement or the memory consumed by statistics is already over the limit.
   Input:
     thd        in: THD
 */
-extern bool exists_column_usage_info(THD *thd);
+extern bool exists_column_usage_info_and_limit_check(THD *thd);
 
 /*
   populate_column_usage_info
@@ -272,6 +285,12 @@ extern ulong column_stats_control;
 
 // Read-write lock to make the unordered map storing column usage, threadsafe.
 extern mysql_rwlock_t LOCK_column_statistics;
+
+// Current size of the column stats.
+extern ulonglong column_stats_size;
+
+// Limit on the memory utilized for storing column statistics.
+extern ulonglong max_column_statistics_size;
 
 // Mapping from SQL_ID to all the column usage information.
 extern std::unordered_map<digest_key, std::set<ColumnUsageInfo>>
