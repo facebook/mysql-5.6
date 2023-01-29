@@ -1689,16 +1689,18 @@ static ST_FIELD_INFO rdb_i_s_sst_props_fields_info[] = {
                        MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("FILTER_BLOCK_SIZE", sizeof(int64_t),
                        MYSQL_TYPE_LONGLONG, 0),
-    ROCKSDB_FIELD_INFO("COMPRESSION_ALGO", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("COMPRESSION_ALGO", NAME_LEN + 1, MYSQL_TYPE_STRING,
+                       MY_I_S_MAYBE_NULL),
     ROCKSDB_FIELD_INFO("CREATION_TIME", sizeof(int64_t), MYSQL_TYPE_LONGLONG,
                        0),
     ROCKSDB_FIELD_INFO("FILE_CREATION_TIME", sizeof(int64_t),
                        MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("OLDEST_KEY_TIME", sizeof(int64_t), MYSQL_TYPE_LONGLONG,
                        0),
-    ROCKSDB_FIELD_INFO("FILTER_POLICY", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("FILTER_POLICY", NAME_LEN + 1, MYSQL_TYPE_STRING,
+                       MY_I_S_MAYBE_NULL),
     ROCKSDB_FIELD_INFO("COMPRESSION_OPTIONS", NAME_LEN + 1, MYSQL_TYPE_STRING,
-                       0),
+                       MY_I_S_MAYBE_NULL),
     ROCKSDB_FIELD_INFO_END};
 
 static int rdb_i_s_sst_props_fill_table(
@@ -1765,7 +1767,6 @@ static int rdb_i_s_sst_props_fill_table(
       field[RDB_SST_PROPS_FIELD::FILTER_BLOCK_SIZE]->store(
           props.second->filter_size, true);
       if (props.second->compression_name.empty()) {
-        field[RDB_SST_PROPS_FIELD::COMPRESSION_ALGO]->store("NULL", 4, system_charset_info);
         field[RDB_SST_PROPS_FIELD::COMPRESSION_ALGO]->set_null();
       } else {
         field[RDB_SST_PROPS_FIELD::COMPRESSION_ALGO]->store(
@@ -1779,7 +1780,6 @@ static int rdb_i_s_sst_props_fill_table(
       field[RDB_SST_PROPS_FIELD::OLDEST_KEY_TIME]->store(
           props.second->oldest_key_time, true);
       if (props.second->filter_policy_name.empty()) {
-        field[RDB_SST_PROPS_FIELD::FILTER_POLICY]->store("NULL", 4, system_charset_info);
         field[RDB_SST_PROPS_FIELD::FILTER_POLICY]->set_null();
       } else {
         field[RDB_SST_PROPS_FIELD::FILTER_POLICY]->store(
@@ -1787,7 +1787,6 @@ static int rdb_i_s_sst_props_fill_table(
             props.second->filter_policy_name.size(), system_charset_info);
       }
       if (props.second->compression_options.empty()) {
-        field[RDB_SST_PROPS_FIELD::COMPRESSION_OPTIONS]->store("NULL", 4, system_charset_info);
         field[RDB_SST_PROPS_FIELD::COMPRESSION_OPTIONS]->set_null();
       } else {
         field[RDB_SST_PROPS_FIELD::COMPRESSION_OPTIONS]->store(
