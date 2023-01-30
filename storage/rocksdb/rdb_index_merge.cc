@@ -156,8 +156,8 @@ int Rdb_index_merge::add(const rocksdb::Slice &key, const rocksdb::Slice &val) {
     if (m_offset_tree.empty()) {
       // NO_LINT_DEBUG
       LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                      "Current value of rocksdb_merge_buf_size=%lu is too "
-                      "small. At least %u bytes required.",
+                      "Current value of rocksdb_merge_buf_size=%" PRIu64
+                      " is too small. At least %u bytes required.",
                       m_rec_buf_unsorted->m_total_size, total_offset);
       return HA_ERR_ROCKSDB_MERGE_FILE_ERR;
     }
@@ -177,8 +177,8 @@ int Rdb_index_merge::add(const rocksdb::Slice &key, const rocksdb::Slice &val) {
     if (data_size > m_rec_buf_unsorted->m_total_size) {
       // NO_LINT_DEBUG
       LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                      "Current value of rocksdb_merge_buf_size=%lu is too "
-                      "small. At least %u bytes required.",
+                      "Current value of rocksdb_merge_buf_size=%" PRIu64
+                      " is too small. At least %u bytes required.",
                       m_rec_buf_unsorted->m_total_size, data_size);
       return HA_ERR_ROCKSDB_MERGE_FILE_ERR;
     }
