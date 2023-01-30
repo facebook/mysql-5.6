@@ -101,9 +101,11 @@ rec_per_key_t guess_rec_per_key(const TABLE *const table, const KEY *const key,
     if (key->user_defined_key_parts > 1) {
       // See formula above
       rec_per_key =
-          rec_per_key_first - (rec_per_key_t(used_keyparts - 1) /
-                               (key->user_defined_key_parts - 1)) *
-                                  (rec_per_key_first - rec_per_key_all);
+          rec_per_key_first -
+          (rec_per_key_t(std::min(used_keyparts, key->user_defined_key_parts) -
+                         1) /
+           (key->user_defined_key_parts - 1)) *
+              (rec_per_key_first - rec_per_key_all);
     } else {
       // Single column index
       if (key->actual_flags & HA_NOSAME)
