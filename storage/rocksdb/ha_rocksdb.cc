@@ -3160,14 +3160,15 @@ class Rdb_transaction {
   }
 
   void set_auto_incr(const GL_INDEX_ID &gl_index_id, ulonglong curr_id) {
-    m_auto_incr_map[gl_index_id] =
-        std::max(m_auto_incr_map[gl_index_id], curr_id);
+    auto &existing = m_auto_incr_map[gl_index_id];
+    existing = std::max(existing, curr_id);
   }
 
 #ifndef NDEBUG
   ulonglong get_auto_incr(const GL_INDEX_ID &gl_index_id) {
-    if (m_auto_incr_map.count(gl_index_id) > 0) {
-      return m_auto_incr_map[gl_index_id];
+    auto iter = m_auto_incr_map.find(gl_index_id);
+    if (m_auto_incr_map.end() != iter) {
+      return iter->second;
     }
     return 0;
   }
