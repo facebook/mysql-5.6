@@ -69,14 +69,20 @@ void Rdb_cf_options::get(const std::string &cf_name,
                          rocksdb::ColumnFamilyOptions *const opts) {
   assert(opts != nullptr);
 
+  rocksdb::ConfigOptions config_options;
+  config_options.input_strings_escaped = false;
+  config_options.ignore_unknown_options = false;
+
   // Get defaults.
-  rocksdb::GetColumnFamilyOptionsFromString(*opts, m_default_config, opts);
+  rocksdb::GetColumnFamilyOptionsFromString(config_options, *opts,
+                                            m_default_config, opts);
 
   // Get a custom confguration if we have one.
   Name_to_config_t::iterator it = m_name_map.find(cf_name);
 
   if (it != m_name_map.end()) {
-    rocksdb::GetColumnFamilyOptionsFromString(*opts, it->second, opts);
+    rocksdb::GetColumnFamilyOptionsFromString(config_options, *opts, it->second,
+                                              opts);
   }
 }
 
@@ -93,10 +99,13 @@ void Rdb_cf_options::update(const std::string &cf_name,
 
 bool Rdb_cf_options::set_default(const std::string &default_config) {
   rocksdb::ColumnFamilyOptions options;
+  rocksdb::ConfigOptions config_options;
+  config_options.input_strings_escaped = false;
+  config_options.ignore_unknown_options = false;
 
   if (!default_config.empty()) {
     rocksdb::Status s = rocksdb::GetColumnFamilyOptionsFromString(
-        options, default_config, &options);
+        config_options, options, default_config, &options);
     if (!s.ok()) {
       // NO_LINT_DEBUG
       fprintf(stderr,
@@ -260,6 +269,9 @@ bool Rdb_cf_options::parse_cf_options(const std::string &cf_options,
   std::string opt_str;
   std::stringstream ss;
   rocksdb::ColumnFamilyOptions options;
+  rocksdb::ConfigOptions config_options;
+  config_options.input_strings_escaped = false;
+  config_options.ignore_unknown_options = false;
 
   // Only print warnings if the caller didn't pass an output stream
   bool print_warnings = (output == nullptr);
@@ -298,8 +310,8 @@ bool Rdb_cf_options::parse_cf_options(const std::string &cf_options,
     }
 
     // Generate an error if the <opt_str> is not valid according to RocksDB.
-    rocksdb::Status s =
-        rocksdb::GetColumnFamilyOptionsFromString(options, opt_str, &options);
+    rocksdb::Status s = rocksdb::GetColumnFamilyOptionsFromString(
+        config_options, options, opt_str, &options);
     if (!s.ok()) {
       (*output) << "Invalid cf config for '" << cf.c_str()
                 << "' in override options: " << s.getState()
