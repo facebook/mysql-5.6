@@ -889,6 +889,8 @@ TEST_F(XComControlTest, JoinTestSkipOwnNodeAndCycleThroughPeerNodes) {
   result = xcom_control_if->leave();
   ASSERT_EQ(GCS_OK, result);
   ASSERT_FALSE(xcom_control_if->is_xcom_running());
+
+  free(con);
 }
 
 TEST_F(XComControlTest, JoinTestAllPeersUnavailable) {
