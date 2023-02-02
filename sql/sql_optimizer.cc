@@ -6103,7 +6103,11 @@ static ha_rows get_quick_record_count(THD *thd, JOIN_TAB *tab, ha_rows limit) {
     size_t max_capacity = thd->mem_root->get_max_capacity();
     bool error_for_capacity_exceeded =
         thd->mem_root->get_error_for_capacity_exceeded();
+    // The main mem_root may already have allocated memory on it which may
+    // exceed range_optimizer_max_mem_size. Thus, set the max capacity to be the
+    // sum of the two.
     thd->mem_root->set_max_capacity(
+        thd->mem_root->allocated_size() +
         thd->variables.range_optimizer_max_mem_size);
     thd->mem_root->set_error_for_capacity_exceeded(true);
 

@@ -591,12 +591,14 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
 
   /* set up parameter that is passed to all functions */
   RANGE_OPT_PARAM param;
+
+  thd->push_internal_handler(&param.error_handler);
+  auto cleanup = create_scope_guard([thd] { thd->pop_internal_handler(); });
+
   if (setup_range_optimizer_param(thd, return_mem_root, temp_mem_root,
                                   keys_to_use, table, query_block, &param)) {
     return 0;
   }
-  thd->push_internal_handler(&param.error_handler);
-  auto cleanup = create_scope_guard([thd] { thd->pop_internal_handler(); });
 
   /*
     Set index_merge_allowed from OPTIMIZER_SWITCH_INDEX_MERGE.
