@@ -5951,6 +5951,7 @@ mysql_state_machine_status run_plugin_auth_nonblocking(
         my_free(ctx->saved_db);
 
         // alloc new connect information
+        my_free(mysql->db);
         mysql->db = db ? my_strdup(PSI_NOT_INSTRUMENTED, db, MYF(MY_WME)) : 0;
       } else {  // STATE_MACHINE_FAILED
         // free temporary connect information
