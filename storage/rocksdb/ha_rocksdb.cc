@@ -7178,14 +7178,9 @@ static void move_wals_to_target_dir() {
           if (!S_ISREG(f_info.mystat->st_mode) ||
               !has_file_extension(f_info.name, ".log"))
             return true;
-          LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-                          "Moving %s to %s", f_info.name, rocksdb_wal_dir);
           const auto src_path = rdb_concat_paths(rocksdb_datadir, f_info.name);
           const auto dst_path = rdb_concat_paths(rocksdb_wal_dir, f_info.name);
-          if (my_rename(src_path.c_str(), dst_path.c_str(),
-                        MYF(MY_WME | MY_FAE)) == -1)
-            rdb_fatal_error("Failed to move %s to %s", f_info.name,
-                            rocksdb_wal_dir);
+          rdb_path_rename_or_abort(src_path, dst_path);
           return true;
         });
   }

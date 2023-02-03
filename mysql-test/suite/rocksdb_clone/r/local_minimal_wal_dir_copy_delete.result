@@ -18,7 +18,7 @@ ID	STAGE	STATE
 1	FILE SYNC	Completed
 1	RESTART	Not Started
 1	RECOVERY	Not Started
-# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new --rocksdb-wal-dir=MYSQL_TMP_DIR/extra_dir/rdb_wal --debug=+d,simulate_myrocks_clone_rename_exdev
+# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new --rocksdb-wal-dir=MYSQL_TMP_DIR/extra_dir/rdb_wal --debug=+d,simulate_myrocks_rename_exdev
 SELECT @@rocksdb_wal_dir;
 @@rocksdb_wal_dir
 MYSQL_TMP_DIR/extra_dir/rdb_wal
@@ -42,7 +42,7 @@ ID	STAGE	STATE
 1	FILE SYNC	Completed
 1	RESTART	Not Started
 1	RECOVERY	Not Started
-# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new2 --rocksdb-wal-dir=MYSQL_TMP_DIR/extra_dir/rdb_wal2 --debug=+d,simulate_myrocks_clone_rename_exdev
+# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new2 --rocksdb-wal-dir=MYSQL_TMP_DIR/extra_dir/rdb_wal2 --debug=+d,simulate_myrocks_rename_exdev
 SELECT @@rocksdb_wal_dir;
 @@rocksdb_wal_dir
 MYSQL_TMP_DIR/extra_dir/rdb_wal2
@@ -66,7 +66,7 @@ ID	STAGE	STATE
 1	FILE SYNC	Completed
 1	RESTART	Not Started
 1	RECOVERY	Not Started
-# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new3 --debug=+d,simulate_myrocks_clone_rename_exdev
+# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new3 --debug=+d,simulate_myrocks_rename_exdev
 SELECT @@rocksdb_wal_dir;
 @@rocksdb_wal_dir
 
@@ -90,7 +90,7 @@ ID	STAGE	STATE
 1	FILE SYNC	Completed
 1	RESTART	Not Started
 1	RECOVERY	Not Started
-# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new4 --rocksdb-datadir=.rocksdb --rocksdb-wal-dir=.rocksdb --debug=+d,simulate_myrocks_clone_rename_exdev
+# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new4 --rocksdb-datadir=.rocksdb --rocksdb-wal-dir=.rocksdb --debug=+d,simulate_myrocks_rename_exdev
 include/assert.inc [rocksdb_datadir must be identical to rocksdb_wal_dir]
 SELECT * FROM t1 ORDER BY col1;
 col1	col2

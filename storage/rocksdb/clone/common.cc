@@ -22,7 +22,6 @@
 
 #include "my_dir.h"
 #include "my_sys.h"
-#include "mysys_err.h"
 
 #include "sql/sql_class.h"
 
@@ -37,42 +36,10 @@ constexpr char old_wal_suffix[] = ".saved";
 // storage/innobase/include/clone0clone.h.
 constexpr char force_rollback_marker[] = "#clone/#force_other_engines_rollback";
 
-void delete_or_abort(const std::string &path) {
-  const auto err = my_delete(path.c_str(), MYF(MY_WME | MY_FAE));
-  if (err != 0) abort();
-}
-
-void copy_and_delete_file(const std::string &old_fn,
-                          const std::string &new_fn) {
-  const auto err = my_copy(
-      old_fn.c_str(), new_fn.c_str(),
-      MYF(MY_WME | MY_FAE | MY_HOLD_ORIGINAL_MODES | MY_DONT_OVERWRITE_FILE));
-  if (err != 0) {
-    myrocks::rdb_fatal_error("Failed to copy %s to %s", old_fn.c_str(),
-                             new_fn.c_str());
-  }
-  delete_or_abort(old_fn);
-}
-
 void mkdir_or_abort(const std::string &dir) {
   const auto err =
       my_mkdir(dir.c_str(), myrocks::clone::dir_mode, MYF(MY_WME | MY_FAE));
   if (err != 0) abort();
-}
-
-bool fixup_rmdir(const std::string &dir, bool fatal_error) {
-  const auto ret = rmdir(dir.c_str());
-  if (ret == -1) {
-    set_my_errno(errno);
-    const auto err = my_errno();
-    char errbuf[MYSYS_STRERROR_SIZE];
-    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                    "Failed to remove dir %s, errno = %d (%s)", dir.c_str(),
-                    err, my_strerror(errbuf, sizeof(errbuf), err));
-    if (fatal_error) abort();
-  }
-  assert(ret == 0 || !fatal_error);
-  return ret == 0;
 }
 
 [[nodiscard]] bool is_dir_empty(const std::string &dir) {
@@ -82,50 +49,6 @@ bool fixup_rmdir(const std::string &dir, bool fatal_error) {
   const auto file_count = dir_handle->number_off_files;
   my_dirend(dir_handle);
   return file_count == 2;
-}
-
-void fixup_rename(const std::string &old_fn, const std::string &new_fn) {
-  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "Renaming %s to %s",
-                  old_fn.c_str(), new_fn.c_str());
-  int err = 0;
-  if (!DBUG_EVALUATE_IF("simulate_myrocks_clone_rename_exdev", true, false)) {
-    err = my_rename(old_fn.c_str(), new_fn.c_str(), MYF(0));
-  } else {
-    err = -1;
-    set_my_errno(EXDEV);
-  }
-
-  if (err == -1) {
-    const auto errn = my_errno();
-    if (errn != EXDEV) {
-      MyOsError(errn, EE_LINK, MYF(0), old_fn.c_str(), new_fn.c_str());
-      abort();
-    }
-
-    LogPluginErrMsg(
-        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-        "Source and destination paths are on different filesystems, reverting "
-        "to copy and delete");
-
-    struct stat stat_info;
-    if (my_stat(old_fn.c_str(), &stat_info, MYF(MY_WME | MY_FAE)) == nullptr)
-      abort();
-    if (S_ISDIR(stat_info.st_mode)) {
-      mkdir_or_abort(new_fn);
-      myrocks::for_each_in_dir(
-          old_fn, MY_FAE, [&old_fn, &new_fn](const fileinfo &f_info) {
-            const auto old_file =
-                myrocks::rdb_concat_paths(old_fn, f_info.name);
-            const auto new_file =
-                myrocks::rdb_concat_paths(new_fn, f_info.name);
-            copy_and_delete_file(old_file, new_file);
-            return true;
-          });
-      fixup_rmdir(old_fn, true);
-    } else {
-      copy_and_delete_file(old_fn, new_fn);
-    }
-  }
 }
 
 [[nodiscard]] bool temp_dir_exists_abort_if_not_dir(const std::string &path) {
@@ -176,9 +99,9 @@ void move_temp_dir_to_destination(const std::string &temp,
   }
 
   const auto dest_exists = path_exists(dest);
-  if (dest_exists) fixup_rename(dest, old);
+  if (dest_exists) myrocks::rdb_path_rename_or_abort(dest, old);
 
-  fixup_rename(temp, dest);
+  myrocks::rdb_path_rename_or_abort(temp, dest);
 
   if (dest_exists) {
     const auto success [[maybe_unused]] =
@@ -222,10 +145,10 @@ void move_temp_dir_contents_to_dest(const std::string &temp,
         temp, MY_FAE, [&temp, &dest](const fileinfo &f_info) {
           const auto old_path = myrocks::rdb_concat_paths(temp, f_info.name);
           const auto new_path = myrocks::rdb_concat_paths(dest, f_info.name);
-          fixup_rename(old_path, new_path);
+          myrocks::rdb_path_rename_or_abort(old_path, new_path);
           return true;
         });
-    fixup_rmdir(temp, true);
+    myrocks::rdb_rmdir(temp, true);
     if (dest_existed) {
       // Pass 3: remove old files
       myrocks::for_each_in_dir(dest, MY_FAE, [&dest](const fileinfo &f_info) {
@@ -233,7 +156,7 @@ void move_temp_dir_contents_to_dest(const std::string &temp,
           return true;
         const auto saved_old_path =
             myrocks::rdb_concat_paths(dest, f_info.name);
-        delete_or_abort(saved_old_path);
+        myrocks::rdb_file_delete_or_abort(saved_old_path);
         return true;
       });
     }
@@ -265,7 +188,7 @@ std::string checkpoint_base_dir() { return std::string{rocksdb_datadir}; }
           }))
     return false;
 
-  return fixup_rmdir(dir, fatal_error);
+  return rdb_rmdir(dir, fatal_error);
 }
 
 // Perform MyRocks clone fixup on the instance startup:
@@ -298,7 +221,7 @@ void fixup_on_startup() {
 
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "Removing %s",
                     force_rollback_marker);
-    delete_or_abort(force_rollback_marker);
+    myrocks::rdb_file_delete_or_abort(force_rollback_marker);
   }
 
   const auto current_datadir_in_progress_marker_path =
@@ -316,7 +239,7 @@ void fixup_on_startup() {
       const auto old_log_path =
           rdb_concat_paths(in_place_temp_wal_dir, f_info.name);
       const auto new_log_path = rdb_concat_paths(rocksdb_datadir, f_info.name);
-      fixup_rename(old_log_path, new_log_path);
+      myrocks::rdb_path_rename_or_abort(old_log_path, new_log_path);
       return true;
     });
   }

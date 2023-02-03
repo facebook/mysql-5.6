@@ -287,6 +287,25 @@ void rdb_persist_corruption_marker();
 bool for_each_in_dir(const std::string &path, int flags,
                      std::function<bool(const fileinfo &)> fn);
 
+// A wrapper for mkdir that aborts in the case of error
+void rdb_mkdir_or_abort(const std::string &dir, mode_t mode);
+
+// A wrapper for rmdir that optionally aborts in the case of error
+bool rdb_rmdir(const std::string &dir, bool fatal_error);
+
+// A wrapper for my_delete that aborts in the case of error
+void rdb_file_delete_or_abort(const std::string &path);
+
+// Move a file by copying and deleting it. Errors are fatal.
+void rdb_file_copy_and_delete_or_abort(const std::string &source,
+                                       const std::string &dest);
+
+// Rename/move a file or directory, supporting the case where source and
+// destination are on different file systems by reverting to copy and delete.
+// Errors are fatal.
+void rdb_path_rename_or_abort(const std::string &source,
+                              const std::string &dest);
+
 /*
   Helper functions to parse strings.
 */
