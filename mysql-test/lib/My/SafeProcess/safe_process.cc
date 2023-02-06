@@ -216,7 +216,10 @@ int main(int argc, char *const argv[]) {
       } else if (strcmp(arg, "--nocore") == 0) {
         nocore = true;  // Don't allow the process to dump core
       } else if (strncmp(arg, "--env ", 6) == 0) {
-        putenv(strdup(arg + 6));
+        static char *env = nullptr;
+        if (env) free(env);
+        env = strdup(arg + 6);
+        putenv(env);
       } else
         die("Unknown option: %s", arg);
     }

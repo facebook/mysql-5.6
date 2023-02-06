@@ -562,7 +562,10 @@ bool Gcs_xcom_control::try_send_add_node_request_to_seeds(
     connection_descriptor *con = nullptr;
     std::tie(connected, con) = connect_to_peer(peer, my_addresses);
 
-    if (m_view_control->is_finalized()) break;
+    if (m_view_control->is_finalized()) {
+      if (con != nullptr) free(con);
+      break;
+    }
 
     if (connected) {
       MYSQL_GCS_LOG_INFO("Sucessfully connected to peer "

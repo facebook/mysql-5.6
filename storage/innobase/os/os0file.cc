@@ -6439,7 +6439,11 @@ void os_fusionio_get_sector_size() {
 
     /* Try to write the file with different sector size
     alignment. */
+#ifdef UNIV_DEBUG
+    alignas(MAX_SECTOR_SIZE) byte data[MAX_SECTOR_SIZE] = { 0 };
+#else
     alignas(MAX_SECTOR_SIZE) byte data[MAX_SECTOR_SIZE];
+#endif
 
     while (sector_size <= MAX_SECTOR_SIZE) {
       block_ptr = static_cast<byte *>(ut_align(&data, sector_size));
