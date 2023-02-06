@@ -42,7 +42,8 @@ Rdb_iterator_base::Rdb_iterator_base(THD *thd, ha_rocksdb *rocksdb_handler,
       m_scan_it_lower_bound(nullptr),
       m_scan_it_upper_bound(nullptr),
       m_prefix_buf(nullptr),
-      m_table_type(tbl_def->get_table_type()) {
+      m_table_type(tbl_def->get_table_type()),
+      m_valid(false) {
   if (tbl_def->get_table_type() == INTRINSIC_TMP) {
     if (m_rocksdb_handler) {
       add_tmp_table_handler(m_thd, m_rocksdb_handler);
@@ -226,6 +227,8 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
   const auto &kd = *m_kd;
   Rdb_transaction *const tx = get_tx_from_thd(m_thd);
 
+  if (!m_valid) return HA_ERR_END_OF_FILE;
+
   for (;;) {
     DEBUG_SYNC(m_thd, "rocksdb.check_flags_nwd");
     if (thd_killed(m_thd)) {
@@ -271,6 +274,10 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
     break;
   }
 
+  if (rc) {
+    assert(m_valid);
+    m_valid = false;
+  }
   return rc;
 }
 
@@ -335,11 +342,12 @@ int Rdb_iterator_base::seek(enum ha_rkey_function find_flag,
     rc = read_before_key(full_key_match, start_key);
   }
 
-  if (rc) {
-    return rc;
+  if (!rc) {
+    m_valid = true;
+    rc = next_with_direction(direction, true);
   }
 
-  rc = next_with_direction(direction, true);
+  m_valid = !rc;
   return rc;
 }
 
@@ -347,6 +355,7 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
                            rocksdb::PinnableSlice *value, Rdb_lock_type type,
                            bool skip_ttl_check, bool skip_wait) {
   int rc = HA_EXIT_SUCCESS;
+  m_valid = false;
   Rdb_transaction *const tx = get_tx_from_thd(m_thd);
   rocksdb::Status s;
   if (type == RDB_LOCK_NONE) {
@@ -382,7 +391,7 @@ Rdb_iterator_partial::Rdb_iterator_partial(
       m_table(table),
       m_iterator_pk(thd, nullptr, pkd, pkd, tbl_def),
       m_converter(thd, tbl_def, table, dd_table),
-      m_valid(false),
+      m_partial_valid(false),
       m_materialized(false),
       m_iterator_pk_position(Iterator_position::UNKNOWN),
       m_threshold(kd->partial_index_threshold()),
@@ -934,7 +943,7 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
     if (!m_kd->value_matches_prefix(key(), m_prefix_tuple)) {
       rc = HA_ERR_END_OF_FILE;
     } else {
-      m_valid = true;
+      m_partial_valid = true;
     }
   }
 
@@ -973,7 +982,7 @@ int Rdb_iterator_partial::get(const rocksdb::Slice *key,
     rc = 0;
   }
 
-  m_valid = false;
+  m_partial_valid = false;
   return rc;
 }
 
@@ -1010,7 +1019,7 @@ int Rdb_iterator_partial::next_with_direction_in_group(bool direction) {
 }
 
 int Rdb_iterator_partial::next_with_direction(bool direction) {
-  if (!m_valid) return HA_ERR_INTERNAL_ERROR;
+  if (!m_partial_valid) return HA_ERR_END_OF_FILE;
 
   int rc = next_with_direction_in_group(direction);
 
@@ -1034,23 +1043,25 @@ int Rdb_iterator_partial::next_with_direction(bool direction) {
     rc = seek_next_prefix(direction);
   }
 
+  if (rc) {
+    assert(m_partial_valid);
+    m_partial_valid = false;
+  }
   return rc;
 }
 
 int Rdb_iterator_partial::next() {
   int rc = next_with_direction(true);
-  if (rc == HA_ERR_END_OF_FILE) m_valid = false;
   return rc;
 }
 
 int Rdb_iterator_partial::prev() {
   int rc = next_with_direction(false);
-  if (rc == HA_ERR_END_OF_FILE) m_valid = false;
   return rc;
 }
 
 void Rdb_iterator_partial::reset() {
-  m_valid = false;
+  m_partial_valid = false;
   m_materialized = false;
   m_mem_root.ClearForReuse();
   m_iterator_pk_position = Iterator_position::UNKNOWN;

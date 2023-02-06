@@ -109,9 +109,12 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   rocksdb::Slice value() override { return m_scan_it->value(); }
 
-  void reset() override { release_scan_iterator(); }
+  void reset() override {
+    release_scan_iterator();
+    m_valid = false;
+  }
 
-  bool is_valid() override { return is_valid_iterator(m_scan_it); }
+  bool is_valid() override { return m_valid; }
 
  protected:
   friend class Rdb_iterator;
@@ -143,6 +146,7 @@ class Rdb_iterator_base : public Rdb_iterator {
   uchar *m_prefix_buf;
   rocksdb::Slice m_prefix_tuple;
   TABLE_TYPE m_table_type;
+  bool m_valid;
 };
 
 class Rdb_iterator_partial : public Rdb_iterator_base {
@@ -153,7 +157,7 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
   Rdb_iterator_base m_iterator_pk;
   Rdb_converter m_converter;
 
-  bool m_valid;
+  bool m_partial_valid;
   bool m_materialized;
 
   enum class Iterator_position {
@@ -228,7 +232,11 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
   rocksdb::Slice key() override;
   rocksdb::Slice value() override;
   void reset() override;
-  bool is_valid() override { return false; }
+  bool is_valid() override {
+    // This function only used for intrinsic temp tables.
+    assert(false);
+    return false;
+  }
 };
 
 }  // namespace myrocks

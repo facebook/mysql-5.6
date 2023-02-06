@@ -4621,8 +4621,11 @@ class Rdb_transaction_impl : public Rdb_transaction {
     m_rocksdb_reuse_tx[TABLE_TYPE::USER_TABLE] =
         m_rocksdb_tx[TABLE_TYPE::USER_TABLE];
     m_rocksdb_tx[TABLE_TYPE::USER_TABLE] = nullptr;
-    m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
-    m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
+    if (m_rocksdb_tx[INTRINSIC_TMP] != nullptr) {
+      assert(m_rocksdb_reuse_tx[INTRINSIC_TMP] == nullptr);
+      m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
+      m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
+    }
   }
 
   bool prepare() override {
@@ -4701,8 +4704,11 @@ class Rdb_transaction_impl : public Rdb_transaction {
     } else {
       m_write_count[INTRINSIC_TMP] = 0;
       // clean up only tmp table tx
-      m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
-      m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
+      if (m_rocksdb_tx[INTRINSIC_TMP] != nullptr) {
+        assert(m_rocksdb_reuse_tx[INTRINSIC_TMP] == nullptr);
+        m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
+        m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
+      }
     }
     return res;
   }
@@ -4729,8 +4735,11 @@ class Rdb_transaction_impl : public Rdb_transaction {
       set_tx_read_only(false);
       m_rollback_only = false;
     } else {
-      m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
-      m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
+      if (m_rocksdb_tx[INTRINSIC_TMP] != nullptr) {
+        assert(m_rocksdb_reuse_tx[INTRINSIC_TMP] == nullptr);
+        m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
+        m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
+      }
     }
   }
 
@@ -5102,11 +5111,10 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
     // Free any transaction memory that is still hanging around.
     delete m_rocksdb_reuse_tx[TABLE_TYPE::USER_TABLE];
-    if (m_rocksdb_reuse_tx[TABLE_TYPE::INTRINSIC_TMP]) {
-      delete m_rocksdb_reuse_tx[TABLE_TYPE::INTRINSIC_TMP];
-      assert(m_rocksdb_tx[TABLE_TYPE::INTRINSIC_TMP] == nullptr);
-    }
     assert(m_rocksdb_tx[TABLE_TYPE::USER_TABLE] == nullptr);
+
+    delete m_rocksdb_reuse_tx[TABLE_TYPE::INTRINSIC_TMP];
+    assert(m_rocksdb_tx[TABLE_TYPE::INTRINSIC_TMP] == nullptr);
   }
 };
 
@@ -12561,8 +12569,7 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
     DBUG_RETURN(HA_ERR_ROCKSDB_BULK_LOAD);
   }
 
-  if (m_tbl_def->get_table_type() != INTRINSIC_TMP &&
-      do_intrinsic_table_commit(row_info.tx)) {
+  if (do_intrinsic_table_commit(row_info.tx)) {
     DBUG_RETURN(HA_ERR_ROCKSDB_TMP_TABLE_COMMIT_FAILED);
   }
 
@@ -12877,8 +12884,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
     DBUG_RETURN(HA_ERR_ROCKSDB_BULK_LOAD);
   }
 
-  if (m_tbl_def->get_table_type() != INTRINSIC_TMP &&
-      do_intrinsic_table_commit(tx)) {
+  if (do_intrinsic_table_commit(tx)) {
     DBUG_RETURN(HA_ERR_ROCKSDB_TMP_TABLE_COMMIT_FAILED);
   }
   /* TODO(yzha) - row stats are gone in 8.0
