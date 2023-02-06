@@ -68,8 +68,8 @@ class Rdb_index_boundary_sst_partitioner : public rocksdb::SstPartitioner {
    * if a partition is required for given index
    */
   bool should_partition(const std::string &index_key,
-                        const my_rocksdb::Slice *previous_key,
-                        const my_rocksdb::Slice *current_key) {
+                        const rocksdb::Slice *previous_key,
+                        const rocksdb::Slice *current_key) const {
     // for reverse cf, indexKey is upper limit of index data,
     // for normal cf, indexKey is lower limit of index data.
     // we want indexKey itself get partitioned with other keys in the index.
@@ -82,9 +82,9 @@ class Rdb_index_boundary_sst_partitioner : public rocksdb::SstPartitioner {
   }
 
  public:
-  explicit Rdb_index_boundary_sst_partitioner(
-      const std::set<Index_id> &index_ids,
-      const rocksdb::Comparator *comparator, const bool is_reverse_cf)
+  Rdb_index_boundary_sst_partitioner(const std::set<Index_id> &index_ids,
+                                     const rocksdb::Comparator *comparator,
+                                     const bool is_reverse_cf)
       : m_comparator(comparator), m_is_reverse_cf(is_reverse_cf) {
     assert(!index_ids.empty());
     for (auto index_id : index_ids) {
@@ -112,7 +112,7 @@ class Rdb_index_boundary_sst_partitioner : public rocksdb::SstPartitioner {
     m_max_index_key = get_index_key(max_index);
   }
 
-  virtual ~Rdb_index_boundary_sst_partitioner() override {}
+  ~Rdb_index_boundary_sst_partitioner() override {}
 
   const char *Name() const override {
     return "Rdb_index_boundary_sst_partitioner";
@@ -127,7 +127,7 @@ class Rdb_index_boundary_sst_partitioner : public rocksdb::SstPartitioner {
         m_comparator->Compare(*request.current_user_key, m_min_index_key) < 0) {
       return rocksdb::PartitionerResult::kNotRequired;
     }
-    for (auto &index_key_range : m_index_key_ranges) {
+    for (const auto &index_key_range : m_index_key_ranges) {
       // partition sst file when the request keys cross index boundary
       if (should_partition(index_key_range.first, request.prev_user_key,
                            request.current_user_key) ||
@@ -155,25 +155,18 @@ class Rdb_sst_partitioner_factory : public rocksdb::SstPartitionerFactory {
   const rocksdb::Comparator *m_comparator;
   const int m_num_levels;
   const bool m_is_reverse_cf;
-  std::mutex m_index_ids_mutex;
+  mutable std::mutex m_index_ids_mutex;
   std::set<Index_id> m_index_ids;
 
   std::set<Index_id> get_index_ids() const {
-    // this method is marked const so we can call it
-    // in const CreatePartitioner method.
-    // and it is a real const method as it does not change
-    // the object's state. the const_cast here is needed
-    // to get a non-const reference to mutex, which is needed
-    // for lock_guard
-    const std::lock_guard<std::mutex> lock(
-        const_cast<Rdb_sst_partitioner_factory *>(this)->m_index_ids_mutex);
+    const std::lock_guard<std::mutex> lock(m_index_ids_mutex);
     std::set<Index_id> result(m_index_ids);
     return result;
   };
 
  public:
-  explicit Rdb_sst_partitioner_factory(const rocksdb::Comparator *comparator,
-                                       int num_levels, int is_reverse_cf)
+  Rdb_sst_partitioner_factory(const rocksdb::Comparator *comparator,
+                              int num_levels, int is_reverse_cf)
       : m_comparator(comparator),
         m_num_levels(num_levels),
         m_is_reverse_cf(is_reverse_cf){};
@@ -309,7 +302,7 @@ class Rdb_bulk_load_index_registry {
    */
   bool clear() {
     bool success = true;
-    for (auto entry : m_partitioner_factories) {
+    for (auto &entry : m_partitioner_factories) {
       bool removed = entry.second->remove_index(entry.first);
       if (!removed) {
         // unlikely
@@ -325,7 +318,7 @@ class Rdb_bulk_load_index_registry {
    * returns true when we have index registered in
    * sst partitioner factory
    */
-  bool index_registered_in_sst_partitioner() {
+  bool index_registered_in_sst_partitioner() const {
     return !m_partitioner_factories.empty();
   }
 
@@ -337,7 +330,7 @@ class Rdb_bulk_load_index_registry {
       rocksdb::TransactionDB *rdb,
       const rocksdb::CompactRangeOptions compact_range_options) {
     rocksdb::Status status;
-    for (auto entry : m_cf_indexes) {
+    for (auto &entry : m_cf_indexes) {
       auto cf = entry.first;
       const auto is_reverse_cf =
           Rdb_cf_manager::is_cf_name_reverse(cf->GetName().c_str());
