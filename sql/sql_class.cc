@@ -2740,6 +2740,13 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup) {
   }
 }
 
+/**
+  Default yield condition.
+*/
+bool THD::always_yield() {
+  return true;
+}
+
 void THD::check_yield(std::function<bool()> cond) {
   yield_cond = std::move(cond);
   thd_wait_begin(this, THD_WAIT_YIELD);

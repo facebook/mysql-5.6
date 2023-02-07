@@ -5140,9 +5140,14 @@ class THD : public MDL_context_owner,
   std::function<bool()> yield_cond;
 
   /**
+    Default yield condition.
+  */
+  static bool always_yield();
+
+  /**
     Check if we should exit and reenter admission control.
   */
-  void check_yield(std::function<bool()> cond);
+  void check_yield(std::function<bool()> cond = always_yield);
 
   /**
     Periodic calls to update pfs stats on processing a number of rows.
