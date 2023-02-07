@@ -81,6 +81,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'query_cache_type',
 'rocksdb_enable_tmp_table',
 'temptable_track_shared_block_ram',
+'thread_pool_tenant_resource_settings',
 'tx_isolation',
 'tx_read_only',
 'sql_wsenv_tenant',

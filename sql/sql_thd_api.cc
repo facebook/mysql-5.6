@@ -335,6 +335,9 @@ void psi_set_socket_thread_owner(THD *thd) {
 */
 void net_send_conn_timeout_error(THD *thd) {
   if (send_error_before_closing_timed_out_connection) {
+    // Clear diagnostic area before setting new error.
+    thd->get_stmt_da()->reset_diagnostics_area();
+
     Protocol_classic *proto = thd->get_protocol_classic();
     /* Force the packet serial number to 1 for client compatibility */
     proto->set_output_pkt_nr(1);
