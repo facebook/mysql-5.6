@@ -404,12 +404,12 @@ def	information_schema	ROCKSDB_SST_PROPS	INDEX_BLOCK_SIZE	8		NO	bigint	NULL	NULL
 def	information_schema	ROCKSDB_SST_PROPS	INDEX_PARTITIONS	9		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL	#
 def	information_schema	ROCKSDB_SST_PROPS	TOP_LEVEL_INDEX_SIZE	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL	#
 def	information_schema	ROCKSDB_SST_PROPS	FILTER_BLOCK_SIZE	11		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL	#
-def	information_schema	ROCKSDB_SST_PROPS	COMPRESSION_ALGO	12		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL	#
+def	information_schema	ROCKSDB_SST_PROPS	COMPRESSION_ALGO	12		YES	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL	#
 def	information_schema	ROCKSDB_SST_PROPS	CREATION_TIME	13		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL	#
 def	information_schema	ROCKSDB_SST_PROPS	FILE_CREATION_TIME	14		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL	#
 def	information_schema	ROCKSDB_SST_PROPS	OLDEST_KEY_TIME	15		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL	#
-def	information_schema	ROCKSDB_SST_PROPS	FILTER_POLICY	16		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL	#
-def	information_schema	ROCKSDB_SST_PROPS	COMPRESSION_OPTIONS	17		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL	#
+def	information_schema	ROCKSDB_SST_PROPS	FILTER_POLICY	16		YES	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL	#
+def	information_schema	ROCKSDB_SST_PROPS	COMPRESSION_OPTIONS	17		YES	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL	#
 def	information_schema	ROCKSDB_TRX	TRANSACTION_ID	1		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL	#
 def	information_schema	ROCKSDB_TRX	STATE	2		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL	#
 def	information_schema	ROCKSDB_TRX	NAME	3		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL	#

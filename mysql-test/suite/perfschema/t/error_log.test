@@ -125,6 +125,7 @@ SELECT prio,error_code,subsystem,data
 # MY-011332: Plugin mysqlx reported
 # MY-013503: Directory '.rocksdb' will not be scanned because it is a hidden directory
 # MY-011071: LogPluginErrMsg for both static and dynamic plugins
+# MY-010990: Resource group feature shall not be available. Incompatible thread handling option.
 
 SELECT prio,error_code,subsystem
   FROM performance_schema.error_log
@@ -137,7 +138,7 @@ SELECT prio,error_code,subsystem
                          "MY-012937", "MY-012366", "MY-000067", "MY-010159",
                          "MY-013602", "MY-010069", "MY-013595", "MY-010108",
                          "MY-012363", "MY-011953", "MY-013711", "MY-010821",
-                         "MY-011071")
+                         "MY-011071", "MY-010990")
  ORDER BY logged, error_code;
 
 --echo
