@@ -358,7 +358,7 @@ id1	id2	link_type	visibility	version
 2	2	2	1	data22
 2	3	2	1	data32
 ROWS_READ
-39
+43
 COVERED_SK_LOOKUP
 0
 include/assert.inc [Verify executed in bypass]
@@ -1862,7 +1862,7 @@ id1	id2	link_type	visibility	version
 0	3	0	2	data13
 0	2	0	1	data12
 ROWS_READ
-39
+43
 COVERED_SK_LOOKUP
 0
 include/assert.inc [Verify executed in bypass]
@@ -3366,7 +3366,7 @@ id1	id2	link_type	visibility	version
 2	2	2	1	data22
 2	3	2	1	data32
 ROWS_READ
-39
+43
 COVERED_SK_LOOKUP
 0
 include/assert.inc [Verify executed in bypass]
@@ -4870,7 +4870,7 @@ id1	id2	link_type	visibility	version
 0	3	0	2	data13
 0	2	0	1	data12
 ROWS_READ
-39
+43
 COVERED_SK_LOOKUP
 0
 include/assert.inc [Verify executed in bypass]
@@ -6471,7 +6471,7 @@ id1	id2	link_type	visibility	version
 2	2	2	1	data22
 2	3	2	1	data32
 ROWS_READ
-39
+43
 COVERED_SK_LOOKUP
 0
 include/assert.inc [Verify executed in bypass]
@@ -7975,7 +7975,7 @@ id1	id2	link_type	visibility	version
 0	3	0	2	data13
 0	2	0	1	data12
 ROWS_READ
-39
+43
 COVERED_SK_LOOKUP
 0
 include/assert.inc [Verify executed in bypass]
@@ -9479,7 +9479,7 @@ id1	id2	link_type	visibility	version
 2	2	2	1	data22
 2	3	2	1	data32
 ROWS_READ
-39
+43
 COVERED_SK_LOOKUP
 0
 include/assert.inc [Verify executed in bypass]
@@ -10983,7 +10983,7 @@ id1	id2	link_type	visibility	version
 0	3	0	2	data13
 0	2	0	1	data12
 ROWS_READ
-39
+43
 COVERED_SK_LOOKUP
 0
 include/assert.inc [Verify executed in bypass]

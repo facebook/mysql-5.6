@@ -445,7 +445,9 @@ class rpc_cond : public base_cond {
     return value;
   }
 
-  nosql_cond_value get_value(String *str) const override { return get_value(str, 0); }
+  nosql_cond_value get_value(String *str) const override {
+    return get_value(str, 0);
+  }
   int get_size() const override { return cond_val_count; }
   bool fix_fields(THD *) const override { return false; }
   bool evaluate() const override {
@@ -532,7 +534,11 @@ class rpc_cond : public base_cond {
 class base_select_parser {
  public:
   base_select_parser(THD *thd, Query_block *select_lex)
-      : m_thd(thd), m_select_lex(select_lex) {}
+      : m_thd(thd), m_select_lex(select_lex) {
+    m_table_list = select_lex->m_table_list.first;
+    m_table = m_table_list->table;
+    m_error_msg = "UNKNOWN";
+  }
   virtual ~base_select_parser() = default;
 
   THD *get_thd() const { return m_thd; }
@@ -541,11 +547,16 @@ class base_select_parser {
   uint get_index() const { return m_index; }
   bool is_order_desc() const { return m_is_order_desc; }
   const std::vector<Field *> &get_field_list() const { return m_field_list; }
-  virtual const std::vector<base_cond *> &get_cond_list() const = 0;
+  // get condition
+  virtual const base_cond *get_cond(uint index) const = 0;
   uint get_cond_count() const { return m_cond_count; }
   uint64_t get_select_limit() const { return m_select_limit; }
   uint64_t get_offset_limit() const { return m_offset_limit; }
   const char *get_error_msg() const { return m_error_msg; }
+  const std::vector<std::pair<Item_field *, Field *>> &get_item_field_list()
+      const {
+    return m_item_field_list;
+  };
 
  protected:
   // Update m_is_order_desc. If orders are not matched or orders are not in
@@ -626,6 +637,9 @@ class base_select_parser {
   const char *m_error_msg;
   // Buffer to store snprintf-ed error messages
   char m_error_msg_buf[FN_REFLEN];
+  // items saved to be set up later in execution phase,
+  // it is combination of select item and condition items
+  std::vector<std::pair<Item_field *, Field *>> m_item_field_list;
 };
 
 /*
@@ -637,14 +651,11 @@ class sql_select_parser : public base_select_parser {
       : base_select_parser(thd, select_lex) {
     // Single table only
     assert(select_lex->m_table_list.elements == 1);
-    m_table_list = select_lex->m_table_list.first;
-    m_table = m_table_list->table;
     assert(ha_legacy_type(m_table->s->db_type()) == DB_TYPE_ROCKSDB);
-    m_error_msg = "UNKNOWN";
   }
 
-  const std::vector<base_cond *> &get_cond_list() const override {
-    return m_cond_list_ptr;
+  const base_cond *get_cond(uint index) const override {
+    return &m_cond_list[index];
   }
 
   bool INLINE_ATTR parse() {
@@ -731,7 +742,6 @@ class sql_select_parser : public base_select_parser {
 
  private:
   sql_cond m_cond_list[MAX_NOSQL_COND_COUNT];
-  std::vector<base_cond *> m_cond_list_ptr;
 
  private:
   bool parse_index() {
@@ -797,9 +807,7 @@ class sql_select_parser : public base_select_parser {
         return true;
       }
 
-      // This is needed so that we can use protocol->send_items and
-      // item->send
-      field_item->set_field(field);
+      m_item_field_list.emplace_back(field_item, field);
 
       m_field_list.push_back(field);
     }
@@ -935,9 +943,7 @@ class sql_select_parser : public base_select_parser {
       }
     }
 
-    // Let MySQL know about the field so that we can evaluate the conditional
-    // expression later
-    field_arg->set_field(found);
+    m_item_field_list.emplace_back(field_arg, found);
 
     if (m_cond_count >= MAX_NOSQL_COND_COUNT) {
       m_error_msg = "Too many WHERE expressions";
@@ -997,10 +1003,6 @@ class sql_select_parser : public base_select_parser {
       return true;
     }
 
-    m_cond_list_ptr.reserve(m_cond_count);
-    for (uint i = 0; i < m_cond_count; i++) {
-      m_cond_list_ptr.push_back(&m_cond_list[i]);
-    }
     return false;
   }
 
@@ -1042,16 +1044,12 @@ class rpc_select_parser : public base_select_parser {
       : base_select_parser(thd, thd->lex->query_block),
         m_param(param),
         m_columns(columns) {
-    m_table_list = m_select_lex->m_table_list.first;
-    m_table = m_table_list->table;
-    m_error_msg = "UNKNOWN";
-
     // initialize field_index
     m_field_index.assign(m_table->s->fields, -1);
   }
 
-  const std::vector<base_cond *> &get_cond_list() const override {
-    return m_cond_list_ptr;
+  const base_cond *get_cond(uint index) const override {
+    return &m_cond_list[index];
   }
 
   bool INLINE_ATTR parse() {
@@ -1067,7 +1065,6 @@ class rpc_select_parser : public base_select_parser {
   myrocks_columns *m_columns;
   std::vector<int> m_field_index;
   rpc_cond m_cond_list[MAX_NOSQL_COND_COUNT];
-  std::vector<base_cond *> m_cond_list_ptr;
   int m_num_used_columns;
 
   bool parse_index() {
@@ -1315,15 +1312,11 @@ class rpc_select_parser : public base_select_parser {
       }
     }
 
-    m_cond_list_ptr.reserve(m_cond_count);
-    for (uint i = 0; i < m_cond_count; i++) {
-      m_cond_list_ptr.push_back(&m_cond_list[i]);
-    }
-
     if (m_cond_count == 0) {
       m_error_msg = "No WHERE expressions found";
       return true;
     }
+
     return false;
   }
 
@@ -1336,6 +1329,15 @@ class rpc_select_parser : public base_select_parser {
   }
 };
 
+enum select_exec_result {
+  // success
+  SUCCESS,
+  // failed
+  FAIL,
+  // current query is not supported
+  UNSUPPORTED
+};
+
 /*
   Executes the SELECT query directly without going through MySQL
  */
@@ -1343,9 +1345,7 @@ class select_exec {
  public:
   explicit select_exec(const base_select_parser &parser,
                        const base_protocol &protocol)
-      : m_parser(parser),
-        m_protocol(protocol),
-        m_cond_list(parser.get_cond_list()) {
+      : m_parser(parser), m_protocol(protocol) {
     m_table = parser.get_table();
     m_table_share = m_table->s;
     m_index = parser.get_index();
@@ -1363,19 +1363,15 @@ class select_exec {
     m_offset_limit = m_parser.get_offset_limit();
     m_select_limit = m_parser.get_select_limit() + m_offset_limit;
     m_debug_row_delay = get_select_bypass_debug_row_delay();
-
     m_field_index_to_where.resize(m_table_share->fields,
                                   std::make_pair(-1, -1));
-    m_unsupported = false;
     m_error_msg = "UNKNOWN";
     m_start_inclusive = m_end_inclusive = true;
   }
 
   ~select_exec() { bitmap_free(&m_lookup_bitmap); }
 
-  bool run();
-
-  bool is_unsupported() { return m_unsupported; }
+  select_exec_result run();
   const char *get_error_msg() { return m_error_msg; }
 
  private:
@@ -1459,7 +1455,7 @@ class select_exec {
     }
   };
 
-  bool scan_where();
+  select_exec_result scan_where();
   void scan_value();
   bool run_query();
   bool run_range_query(txn_wrapper *txn);
@@ -1486,10 +1482,36 @@ class select_exec {
     return false;
   }
 
+  // After this point, we should not fallback to mysql, because
+  // field objects are 'dirty'.
+  // Falling back to mysql will result in the wrong result sets
+  // unless the field objects were reset correctly, so ensure
+  // fallback does not happen once the item_field changes are made.
+  bool prepare_fields() {
+    auto &item_field_list = m_parser.get_item_field_list();
+    for (auto &item_field : item_field_list) {
+      item_field.first->set_field(item_field.second);
+    }
+
+    for (auto cond : m_filter_conditions) {
+      if (cond->fix_fields(m_thd)) {
+        return true;
+      }
+    }
+
+    for (uint i = 0; i < m_filter_count; ++i) {
+      Field *field = m_parser.get_cond(m_filter_list[i])->field;
+
+      // Since we bypassed prepare function, read_set might not be set.
+      // Let's set it before calling eval_cond().
+      bitmap_set_bit(m_table->read_set, field->field_index());
+    }
+    return false;
+  }
+
  private:
   const base_select_parser &m_parser;
   const base_protocol &m_protocol;
-  std::vector<base_cond *> m_cond_list;
   TABLE *m_table;
   TABLE_SHARE *m_table_share;
   Rdb_ddl_manager *m_ddl_manager;
@@ -1503,13 +1525,12 @@ class select_exec {
   KEY *m_index_info;
   KEY *m_pk_info;
   const dd::Table *m_dd_table;
-  // Current query is not supported
-  bool m_unsupported;
   const char *m_error_msg;
 
   // All filters (such as A=1)
   uint m_filter_list[MAX_NOSQL_COND_COUNT];
   uint m_filter_count = 0;
+  std::vector<const base_cond *> m_filter_conditions;
 
   // All key index tuples we packed during scanning the WHERE clause
   std::vector<key_index_tuple_writer> m_key_index_tuples;
@@ -1686,13 +1707,13 @@ bool inline select_exec::pack_cond(uint key_part_no, const base_cond *cond,
   query plan. The goal is to break the WHERE clause into prefix and
   filter in index order, and build the key as we go
  */
-bool INLINE_ATTR select_exec::scan_where() {
+select_exec_result INLINE_ATTR select_exec::scan_where() {
   m_index_tuple_buf.resize(m_key_def->max_storage_fmt_length());
 
   // Approximation of the required buff
   m_row_buf.reserve(m_table_share->reclength);
 
-  auto where_list_count = m_cond_list.size();
+  const auto where_list_count = m_parser.get_cond_count();
 
   std::array<bool, MAX_NOSQL_COND_COUNT> where_list_processed = {};
 
@@ -1700,17 +1721,16 @@ bool INLINE_ATTR select_exec::scan_where() {
   // Will be used later to reverse lookup from index -> expression
   // inside WHERE clause
   for (uint i = 0; i < where_list_count; ++i) {
-    int field_index = m_cond_list[i]->field->field_index();
-    std::pair<int, int> &index_pair = m_field_index_to_where[field_index];
+    const auto field_index = m_parser.get_cond(i)->field->field_index();
+    auto &index_pair = m_field_index_to_where[field_index];
     if (index_pair.first == -1) {
       index_pair.first = i;
     } else {
       // We have multiple sql_cond for the same field
       if (index_pair.second != -1) {
         // We've already seen 2 of conditions already - fail
-        m_unsupported = true;
         m_error_msg = "Unsupported range query pattern";
-        return true;
+        return UNSUPPORTED;
       }
 
       index_pair.second = i;
@@ -1753,11 +1773,11 @@ bool INLINE_ATTR select_exec::scan_where() {
     if (index_pair.first >= 0) {
       // The current key_part in the index has a corresponding match in
       // WHERE clause. Pack the current value in WHERE into the key
-      const base_cond *cond = m_cond_list[index_pair.first];
+      const base_cond *cond = m_parser.get_cond(index_pair.first);
       if (cond->op_type == Item_func::EQ_FUNC) {
         // This is = operator - just keep packing the key
         if (pack_cond(key_part_no, cond)) {
-          return true;
+          return FAIL;
         }
 
         if (eq_only) {
@@ -1795,7 +1815,7 @@ bool INLINE_ATTR select_exec::scan_where() {
             if (pack_index_tuple(key_part_no,
                                  &new_writers[new_writers.size() - 1].start,
                                  cond->field, cond->get_value(&str, j))) {
-              return true;
+              return FAIL;
             }
           }
         }
@@ -1842,13 +1862,12 @@ bool INLINE_ATTR select_exec::scan_where() {
       }
 
       if (index_pair.second >= 0) {
-        auto second_cond = m_cond_list[index_pair.second];
+        auto second_cond = m_parser.get_cond(index_pair.second);
         if (second_cond->op_type == Item_func::GT_FUNC ||
             second_cond->op_type == Item_func::GE_FUNC) {
           if (start_id != -1) {
-            m_unsupported = true;
             m_error_msg = "Unsupported range query pattern";
-            return true;
+            return UNSUPPORTED;
           } else {
             start_id = index_pair.second;
             if (second_cond->op_type == Item_func::GE_FUNC) {
@@ -1858,9 +1877,8 @@ bool INLINE_ATTR select_exec::scan_where() {
         } else if (second_cond->op_type == Item_func::LE_FUNC ||
                    second_cond->op_type == Item_func::LT_FUNC) {
           if (end_id != -1) {
-            m_unsupported = true;
             m_error_msg = "Unsupported range query pattern";
-            return true;
+            return UNSUPPORTED;
           } else {
             end_id = index_pair.second;
             if (second_cond->op_type == Item_func::LE_FUNC) {
@@ -1898,9 +1916,9 @@ bool INLINE_ATTR select_exec::scan_where() {
         // accounted for them in (start, end) range
         where_list_processed[start_id] = true;
         m_start_inclusive = start_inclusive;
-        if (pack_cond(key_part_no, m_cond_list[start_id],
+        if (pack_cond(key_part_no, m_parser.get_cond(start_id),
                       true /* is_start */)) {
-          return true;
+          return FAIL;
         }
         start_key_count++;
       }
@@ -1909,8 +1927,9 @@ bool INLINE_ATTR select_exec::scan_where() {
         // filters
         where_list_processed[end_id] = true;
         m_end_inclusive = end_inclusive;
-        if (pack_cond(key_part_no, m_cond_list[end_id], false /* is_end */)) {
-          return true;
+        if (pack_cond(key_part_no, m_parser.get_cond(end_id),
+                      false /* is_end */)) {
+          return FAIL;
         }
         end_key_count++;
       }
@@ -1977,9 +1996,7 @@ bool INLINE_ATTR select_exec::scan_where() {
   // Any condition we haven't processed in prefix key are filters
   for (uint i = 0; i < where_list_count; ++i) {
     if (!where_list_processed[i]) {
-      if (m_cond_list[i]->fix_fields(m_thd)) {
-        return true;
-      }
+      m_filter_conditions.push_back(m_parser.get_cond(i));
       m_filter_list[m_filter_count++] = i;
     }
   }
@@ -1989,19 +2006,11 @@ bool INLINE_ATTR select_exec::scan_where() {
     // Only support filter usage in well supported cases such as point query
     // or simple range query where key is fully specified with well defined
     // (start, end) with only the last column is a range
-    m_unsupported = true;
     m_error_msg = "Non-optimal queries with filters are not allowed";
-    return true;
+    return UNSUPPORTED;
   }
 
-  for (uint i = 0; i < m_filter_count; ++i) {
-    Field *field = m_cond_list[m_filter_list[i]]->field;
-
-    // Since we bypassed prepare function, read_set might not be set.
-    // Let's set it before calling eval_cond().
-    bitmap_set_bit(m_table->read_set, field->field_index());
-  }
-  return false;
+  return SUCCESS;
 }
 
 /*
@@ -2042,7 +2051,7 @@ void INLINE_ATTR select_exec::scan_value() {
                                     false /* keyread_only */);
 }
 
-bool INLINE_ATTR select_exec::run() {
+select_exec_result INLINE_ATTR select_exec::run() {
   if (!m_thd->lex->is_query_tables_locked()) {
     /*
       If tables are not locked at this point, it means that we have delayed
@@ -2056,7 +2065,7 @@ bool INLINE_ATTR select_exec::run() {
     if (lock_tables(m_thd, m_thd->lex->query_tables, m_thd->lex->table_count,
                     0)) {
       assert(m_thd->is_error());
-      return true;
+      return FAIL;
     }
   }
 
@@ -2068,7 +2077,7 @@ bool INLINE_ATTR select_exec::run() {
   m_tbl_def = m_ddl_manager->find(db_table);
   if (m_tbl_def == nullptr) {
     m_handler->print_error(HA_ERR_ROCKSDB_INVALID_TABLE, 0);
-    return true;
+    return FAIL;
   }
 
   m_key_def = m_tbl_def->m_key_descr_arr[m_index];
@@ -2081,13 +2090,21 @@ bool INLINE_ATTR select_exec::run() {
       dd_client->acquire(m_table_share->db.str, m_table_share->table_name.str,
                          &m_dd_table)) {
     m_handler->print_error(HA_ERR_ROCKSDB_INVALID_TABLE, 0);
-    return true;
+    return FAIL;
   }
   m_converter.reset(new Rdb_converter(m_thd, m_tbl_def, m_table, m_dd_table));
 
   // Scans WHERE and build the key and filter list
-  if (scan_where()) {
-    return true;
+  const auto scan_where_result = scan_where();
+  if (scan_where_result != SUCCESS) {
+    return scan_where_result;
+  }
+
+  // after prepare_fields it is not safe to fall back.
+  // since we only fall back for UNSUPPORTED, do not return UNSUPPORTED after
+  // this.
+  if (prepare_fields()) {
+    return FAIL;
   }
 
   // Scan the value and devise a strategy to unpack the values
@@ -2095,14 +2112,18 @@ bool INLINE_ATTR select_exec::run() {
 
   // Prepare to send
   if (m_protocol.send_result_metadata()) {
-    return true;
+    return FAIL;
   }
 
   if (m_select_limit == 0) {
-    return false;
+    return SUCCESS;
   }
 
-  return run_query();
+  if (run_query()) {
+    return FAIL;
+  }
+
+  return SUCCESS;
 }
 
 /*
@@ -2294,7 +2315,7 @@ bool INLINE_ATTR select_exec::run_sk_point_query(txn_wrapper *txn) {
 bool INLINE_ATTR select_exec::eval_cond() {
   if (unlikely(m_filter_count > 0)) {
     for (uint i = 0; i < m_filter_count; ++i) {
-      if (!m_cond_list[m_filter_list[i]]->evaluate()) return false;
+      if (!m_parser.get_cond(m_filter_list[i])->evaluate()) return false;
     }
   }
   return true;
@@ -2664,8 +2685,9 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
   // Execute SELECT statement
   sql_protocol protocol(thd, *select_stmt.get_select_lex()->get_fields_list());
   select_exec exec(select_stmt, protocol);
-  if (exec.run()) {
-    if (exec.is_unsupported()) {
+  const auto exec_result = exec.run();
+  if (exec_result != SUCCESS) {
+    if (exec_result == UNSUPPORTED) {
       return handle_unsupported_bypass(thd, exec.get_error_msg(),
                                        bypass_type::SQL);
     }
@@ -2706,8 +2728,9 @@ bypass_rpc_exception rocksdb_select_by_key(
   if (!select_stmt.parse()) {
     rpc_protocol protocol(&select_stmt.get_field_list(), &param, columns);
     select_exec exec(select_stmt, protocol);
-    if (exec.run()) {
-      if (exec.is_unsupported()) {
+    const auto exec_result = exec.run();
+    if (exec_result != SUCCESS) {
+      if (exec_result == UNSUPPORTED) {
         handle_unsupported_bypass(thd, exec.get_error_msg(), bypass_type::RPC);
       }
       rocksdb_bypass_rpc_failed++;
@@ -2719,7 +2742,8 @@ bypass_rpc_exception rocksdb_select_by_key(
       rocksdb_bypass_rpc_executed++;
     }
   } else {
-    handle_unsupported_bypass(thd, select_stmt.get_error_msg(), bypass_type::RPC);
+    handle_unsupported_bypass(thd, select_stmt.get_error_msg(),
+                              bypass_type::RPC);
     ret.errnum = ER_NOT_SUPPORTED_YET;
     ret.sqlstate = "MYF(0)";
     ret.message = "SELECT statement pattern not supported: ";
