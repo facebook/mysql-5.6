@@ -263,6 +263,14 @@ insert into link_table5 values (1, 1, 5, 2, 2, 1, 'data15', 1, 1);
 insert into link_table5 values (2, 1, 1, 2, 2, 1, 'data21', 1, 1);
 insert into link_table5 values (2, 1, 2, 2, 2, 1, 'data22', 1, 1);
 insert into link_table5 values (2, 1, 3, 2, 2, 1, 'data32', 1, 1);
+insert into link_table5 values
+  (100, 101, 102, 103, 104, 1, 'data100', 105, 106);
+insert into link_table5 values
+  (200, 201, 202, 203, 204, 2, 'data200', 205, 206);
+insert into link_table5 values
+  (300, 301, 302, 303, 304, 3, 'data300', 305, 306);
+insert into link_table5 values
+  (400, 401, 402, 403, 404, 4, 'data400', 405, 406);
 
 
 CREATE TABLE `link_table5_rev` (
