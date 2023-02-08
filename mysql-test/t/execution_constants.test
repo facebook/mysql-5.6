@@ -62,15 +62,15 @@ while ($i)
   # Trading exactness for speed.
 
   # go one more level deep
-  let $query_head = $query_head IF(logTime <= 1104091$i, $i, //
+  let $query_head = $query_head IFNULL(logTime, 0+//
   let $query_tail =) $query_tail//
 
   # go one more level deep
-  let $query_head = $query_head IF(logTime <= 1105091$i, $i, //
+  let $query_head = $query_head IFNULL(logTime, 0+//
   let $query_tail =) $query_tail//
 
   # go one more level deep
-  let $query_head = $query_head IF(logTime <= 1106091$i, $i, //
+  let $query_head = $query_head IFNULL(logTime, 0+//
   let $query_tail =) $query_tail//
 
   dec $i//
