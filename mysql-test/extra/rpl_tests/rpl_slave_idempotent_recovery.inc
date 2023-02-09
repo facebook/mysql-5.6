@@ -133,9 +133,15 @@ eval update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 
 eval delete from t1 where a = $j + 100;
 inc $j;
 
-echo "PrimaryKey(t2): insert then update"
-eval insert into t2 values(1, 1, 1);
+echo "PrimaryKey(t2): insert then update";
+eval insert into t2 values(1, 1, 1, 1);
 eval update t2 set a = a + 100 where a = 1;
+
+echo "Multi statement trx (t2)";
+begin;
+insert into t2 values(2, 2, 2, 2);
+insert into t2 values(3, 3, 3, 3);
+commit;
 
 source include/sync_slave_sql_with_master.inc;
 

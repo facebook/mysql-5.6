@@ -342,20 +342,22 @@ static const char *HA_ERR(int i) {
 /**
    Error reporting facility for Rows_log_event::do_apply_event
 
-   @param level     error, warning or info
-   @param ha_error  HA_ERR_ code
-   @param rli       pointer to the active Relay_log_info instance
-   @param thd       pointer to the slave thread's thd
-   @param table     pointer to the event's table object
-   @param type      the type of the event
-   @param log_name  the master binlog file name
-   @param pos       the master binlog file pos (the next after the event)
+   @param level               error, warning or info
+   @param ha_error            HA_ERR_ code
+   @param rli                 pointer to the active Relay_log_info instance
+   @param thd                 pointer to the slave thread's thd
+   @param table               pointer to the event's table object
+   @param type                the type of the event
+   @param log_name            the master binlog file name
+   @param pos                 the master binlog pos (the next after the event)
+   @param idempotent_recovery are we running in idempotent recovery mode?
 
 */
 static void inline slave_rows_error_report(enum loglevel level, int ha_error,
                                            Relay_log_info const *rli, THD *thd,
                                            TABLE *table, const char *type,
-                                           const char *log_name, ulong pos) {
+                                           const char *log_name, ulong pos,
+                                           bool idempotent_recovery = false) {
   const char *handler_error = (ha_error ? HA_ERR(ha_error) : nullptr);
   bool is_group_replication_applier_channel =
       channel_map.is_group_replication_channel_name(
@@ -373,42 +375,49 @@ static void inline slave_rows_error_report(enum loglevel level, int ha_error,
     len = snprintf(slider, buff_end - slider, " %s, Error_code: %d;",
                    err->message_text(), err->mysql_errno());
   }
+
+  const char *idempotent_recovery_hint =
+      idempotent_recovery ? "[IDEMPOTENT RECOVERY] " : "";
+
   if (is_group_replication_applier_channel) {
     if (ha_error != 0) {
       rli->report(level,
                   thd->is_error() ? thd->get_stmt_da()->mysql_errno()
                                   : ER_UNKNOWN_ERROR,
-                  "Could not execute %s event on table %s.%s;"
+                  "%sCould not execute %s event on table %s.%s;"
                   "%s handler error %s",
-                  type, table->s->db.str, table->s->table_name.str, buff,
+                  idempotent_recovery_hint, type, table->s->db.str,
+                  table->s->table_name.str, buff,
                   handler_error == nullptr ? "<unknown>" : handler_error);
     } else {
       rli->report(level,
                   thd->is_error() ? thd->get_stmt_da()->mysql_errno()
                                   : ER_UNKNOWN_ERROR,
-                  "Could not execute %s event on table %s.%s;"
+                  "%sCould not execute %s event on table %s.%s;"
                   "%s",
-                  type, table->s->db.str, table->s->table_name.str, buff);
+                  idempotent_recovery_hint, type, table->s->db.str,
+                  table->s->table_name.str, buff);
     }
   } else {
     if (ha_error != 0) {
       rli->report(level,
                   thd->is_error() ? thd->get_stmt_da()->mysql_errno()
                                   : ER_UNKNOWN_ERROR,
-                  "Could not execute %s event on table %s.%s;"
+                  "%sCould not execute %s event on table %s.%s;"
                   "%s handler error %s; "
                   "the event's master log %s, end_log_pos %lu",
-                  type, table->s->db.str, table->s->table_name.str, buff,
+                  idempotent_recovery_hint, type, table->s->db.str,
+                  table->s->table_name.str, buff,
                   handler_error == nullptr ? "<unknown>" : handler_error,
                   log_name, pos);
     } else {
       rli->report(level,
                   thd->is_error() ? thd->get_stmt_da()->mysql_errno()
                                   : ER_UNKNOWN_ERROR,
-                  "Could not execute %s event on table %s.%s;"
+                  "%sCould not execute %s event on table %s.%s;"
                   "%s the event's master log %s, end_log_pos %lu",
-                  type, table->s->db.str, table->s->table_name.str, buff,
-                  log_name, pos);
+                  idempotent_recovery_hint, type, table->s->db.str,
+                  table->s->table_name.str, buff, log_name, pos);
     }
   }
 }
@@ -9380,7 +9389,7 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(
       slave_rows_error_report(
           ll, error, rli, thd, m_table, get_type_str(),
           const_cast<Relay_log_info *>(rli)->get_rpl_log_name(),
-          (ulong)common_header->log_pos);
+          (ulong)common_header->log_pos, m_force_binlog_idempotent);
       thd->get_stmt_da()->reset_condition_info(thd);
       clear_all_errors(thd, const_cast<Relay_log_info *>(rli));
       *err = 0;

@@ -102,8 +102,13 @@ update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 12;
 update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 1010;
 delete from t1 where a = 1010 + 100;
 "PrimaryKey(t2): insert then update"
-eval insert into t2 values(1, 1, 1)
+insert into t2 values(1, 1, 1, 1);
 update t2 set a = a + 100 where a = 1;
+"Multi statement trx (t2)"
+begin;
+insert into t2 values(2, 2, 2, 2);
+insert into t2 values(3, 3, 3, 3);
+commit;
 include/sync_slave_sql_with_master.inc
 flush engine logs;
 include/rpl_restart_server.inc [server_number=2 parameters: --binlog_row_image=FULL]
@@ -369,8 +374,13 @@ update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 12;
 update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 1010;
 delete from t1 where a = 1010 + 100;
 "PrimaryKey(t2): insert then update"
-eval insert into t2 values(1, 1, 1)
+insert into t2 values(1, 1, 1, 1);
 update t2 set a = a + 100 where a = 1;
+"Multi statement trx (t2)"
+begin;
+insert into t2 values(2, 2, 2, 2);
+insert into t2 values(3, 3, 3, 3);
+commit;
 include/sync_slave_sql_with_master.inc
 flush engine logs;
 include/rpl_restart_server.inc [server_number=2 parameters: --binlog_row_image=FULL]
@@ -644,8 +654,13 @@ update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 12;
 update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 1010;
 delete from t1 where a = 1010 + 100;
 "PrimaryKey(t2): insert then update"
-eval insert into t2 values(1, 1, 1)
+insert into t2 values(1, 1, 1, 1);
 update t2 set a = a + 100 where a = 1;
+"Multi statement trx (t2)"
+begin;
+insert into t2 values(2, 2, 2, 2);
+insert into t2 values(3, 3, 3, 3);
+commit;
 include/sync_slave_sql_with_master.inc
 flush engine logs;
 include/rpl_restart_server.inc [server_number=2 parameters: --binlog_row_image=COMPLETE]
@@ -911,8 +926,13 @@ update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 12;
 update t1 set a = a + 100, b = b + 100, c = c + 100, d = d + 100 where a = 1010;
 delete from t1 where a = 1010 + 100;
 "PrimaryKey(t2): insert then update"
-eval insert into t2 values(1, 1, 1)
+insert into t2 values(1, 1, 1, 1);
 update t2 set a = a + 100 where a = 1;
+"Multi statement trx (t2)"
+begin;
+insert into t2 values(2, 2, 2, 2);
+insert into t2 values(3, 3, 3, 3);
+commit;
 include/sync_slave_sql_with_master.inc
 flush engine logs;
 include/rpl_restart_server.inc [server_number=2 parameters: --binlog_row_image=COMPLETE]
