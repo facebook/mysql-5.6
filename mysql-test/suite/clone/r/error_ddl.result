@@ -35,6 +35,7 @@ ID	STAGE	STATE
 1	DROP DATA	Completed
 1	FILE COPY	In Progress
 1	PAGE COPY	Not Started
+1	SST COPY	Not Started
 1	REDO COPY	Not Started
 1	FILE SYNC	Not Started
 1	RESTART	Not Started

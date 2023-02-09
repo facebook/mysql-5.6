@@ -85,6 +85,10 @@ class Log_Arch_Client_Ctx {
   /** Release archived data so that system can purge it */
   void release();
 
+  /** Set log archiving target stop LSN.
+  @param[in]	stop_lsn	target stop LSN */
+  void set_stop_lsn(lsn_t stop_lsn) { arch_log_sys->set_stop_lsn(stop_lsn); }
+
  private:
   /** Archiver client state */
   Arch_Client_State m_state;

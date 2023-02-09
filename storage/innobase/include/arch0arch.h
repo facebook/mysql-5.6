@@ -1418,6 +1418,24 @@ class Arch_Log_Sys {
   /** Release redo log archiver mutex */
   void arch_mutex_exit() { mutex_exit(&m_mutex); }
 
+  lsn_t get_stop_lsn_any_thread() const noexcept {
+    return m_stop_lsn.load(std::memory_order_acquire);
+  }
+
+  lsn_t get_stop_lsn_master_thread() const noexcept {
+    // Not entirely correct for debug builds - m_stop_lsn may be updated by the
+    // log archiver thread in "clone_arch_log_stop_file_end" debug injection.
+    // Let's ignore it until it's an actual issue there.
+    return m_stop_lsn.load(std::memory_order_relaxed);
+  }
+
+  void set_stop_lsn(lsn_t stop_lsn) noexcept {
+    ut_ad(get_stop_lsn_any_thread() == LSN_MAX ||
+          DBUG_EVALUATE_IF("clone_arch_log_stop_file_end", true, false));
+
+    m_stop_lsn.store(stop_lsn, std::memory_order_release);
+  }
+
   /** Disable copy construction */
   Arch_Log_Sys(Arch_Log_Sys const &) = delete;
 
@@ -1481,6 +1499,8 @@ class Arch_Log_Sys {
   the state both needs to be acquired. For reading, hold any of the two
   mutexes. Same is true for #m_archived_lsn. */
   Arch_State m_state;
+
+  atomic_lsn_t m_stop_lsn{LSN_MAX};
 
   /** System has archived log up to this LSN */
   atomic_lsn_t m_archived_lsn;

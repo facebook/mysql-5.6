@@ -214,15 +214,6 @@ static bool recv_writer_is_active() {
 
 #ifndef UNIV_HOTBACKUP
 
-/** Reads a specified log segment to a buffer.
-@param[in,out]  log             redo log
-@param[in,out]  buf             buffer where to read
-@param[in]      start_lsn       read area start
-@param[in]      end_lsn         read area end
-@return lsn up to which data was available on disk (ideally end_lsn) */
-static lsn_t recv_read_log_seg(log_t &log, byte *buf, lsn_t start_lsn,
-                               lsn_t end_lsn);
-
 /** Initialize crash recovery environment. Can be called iff
 recv_needed_recovery == false. */
 static dberr_t recv_init_crash_recovery();
@@ -3667,9 +3658,9 @@ bool meb_scan_log_recs(
 }
 
 #ifndef UNIV_HOTBACKUP
-static lsn_t recv_read_log_seg(log_t &log, byte *buf, lsn_t start_lsn,
-                               const lsn_t end_lsn) {
-  log_background_threads_inactive_validate();
+lsn_t recv_read_log_seg(log_t &log, byte *buf, lsn_t start_lsn,
+                        const lsn_t end_lsn, bool online) {
+  if (!online) log_background_threads_inactive_validate();
 
   ut_a(start_lsn < end_lsn);
 

@@ -90,6 +90,11 @@ const char CLONE_INNODB_OLD_FILES[] =
 const char CLONE_INNODB_DDL_FILES[] =
     CLONE_FILES_DIR OS_FILE_PREFIX "ddl_files";
 
+/** Clone file name for the marker file to force clone rollback in other storage
+engines. */
+constexpr char CLONE_FORCE_OTHER_ENGINES_ROLLBACK_FILE[] =
+    CLONE_FILES_DIR OS_FILE_PREFIX "force_other_engines_rollback";
+
 /** Clone file extension for files to be replaced. */
 const char CLONE_INNODB_REPLACED_FILE_EXTN[] = "." OS_FILE_PREFIX "clone";
 
@@ -358,11 +363,12 @@ class Clone_Task_Manager {
   @param[in]    state_desc      descriptor for next state
   @param[in]    new_state       next state to move to
   @param[in]    cbk             alert callback for long wait
+  @param[in]	clone_cbk	clone callback
   @param[out]   num_wait        unfinished tasks in current state
   @return error code */
   int change_state(Clone_Task *task, Clone_Desc_State *state_desc,
                    Snapshot_State new_state, Clone_Alert_Func cbk,
-                   uint &num_wait);
+                   Ha_clone_cbk *clone_cbk, uint &num_wait);
 
   /** Check if state transition is over and all tasks moved to next state
   @param[in]    task            requesting task
@@ -752,6 +758,10 @@ class Clone_Handle {
   /** Close master task file if open and unpin. */
   void close_master_file();
 #endif /* UNIV_DEBUG */
+
+  auto &get_active_snapshot() noexcept {
+    return *m_clone_task_manager.get_snapshot();
+  }
 
  private:
   /** Check if enough space is there to clone.

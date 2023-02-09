@@ -650,7 +650,8 @@ int Server_Cbk::file_cbk(Ha_clone_file from_file, uint len) {
 
   /* Add one byte for descriptor type */
   auto buf_len = len + 1;
-  auto buf_ptr = server->alloc_copy_buffer(buf_len + CLONE_OS_ALIGN);
+  auto buf_ptr = server->alloc_copy_buffer(clone_os_pad_for_o_direct(
+      buf_len + CLONE_OS_ALIGN, from_file.o_direct_uneven_file_size));
 
   if (buf_ptr == nullptr) {
     return (ER_OUTOFMEMORY);

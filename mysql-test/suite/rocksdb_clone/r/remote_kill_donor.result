@@ -1,0 +1,55 @@
+Donor:
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64)) ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (10, 'clone row 1');
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+Client:
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+Donor:
+SET GLOBAL clone_donor_timeout_after_network_failure=0;
+SET GLOBAL DEBUG="+d,myrocks_clone_donor_init_crash";
+Client:
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_valid_donor_list = 'HOST:PORT';
+CLONE INSTANCE FROM USER@HOST:PORT IDENTIFIED BY '' DATA DIRECTORY = 'CLONE_DATADIR';
+ERROR HY000: Clone Donor Error: Connect failed: 2003 : Can't connect to MySQL server on 'HOST:PORT' (socket errno).
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Failed	3862
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Failed
+1	REDO COPY	Not Started
+1	FILE SYNC	Not Started
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# restart
+Donor:
+SET GLOBAL clone_donor_timeout_after_network_failure=0;
+SET GLOBAL DEBUG="+d,myrocks_clone_donor_copy_file_crash";
+Client:
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_valid_donor_list = 'HOST:PORT';
+CLONE INSTANCE FROM USER@HOST:PORT IDENTIFIED BY '' DATA DIRECTORY = 'CLONE_DATADIR';
+ERROR HY000: Clone Donor Error: Connect failed: 2003 : Can't connect to MySQL server on 'HOST:PORT' (socket errno).
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Failed	3862
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Failed
+1	REDO COPY	Not Started
+1	FILE SYNC	Not Started
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# restart
+UNINSTALL PLUGIN clone;
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;

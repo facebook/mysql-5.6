@@ -134,4 +134,15 @@ inline uchar *clone_os_align(uchar *pointer) {
   return (aligned_ptr);
 }
 
+/** Make the buffer length suitable for I/O with O_DIRECT, if needed.
+@param[in]      buf_len         buffer length
+@param[in]      o_direct        whether this buffer will be used for O_DIRECT
+@return If o_direct, bumped buf_len to a CLONE_OS_ALIGN multiple if it's not
+already one, otherwise buf_len without any changes. */
+inline size_t clone_os_pad_for_o_direct(size_t buf_len, bool o_direct) {
+  static_assert((CLONE_OS_ALIGN & (CLONE_OS_ALIGN - 1)) == 0);
+  return o_direct ? ((buf_len + (CLONE_OS_ALIGN - 1)) & ~(CLONE_OS_ALIGN - 1))
+                  : buf_len;
+}
+
 #endif /* CLONE_OS_H */

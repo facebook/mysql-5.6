@@ -8,7 +8,7 @@ CALL sys.ps_setup_disable_thread(CONNECTION_ID());
 summary
 Disabled 1 thread
 INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
-CALL sys.ps_setup_enable_instrument('%stage/innodb/clone%');
+CALL sys.ps_setup_enable_instrument("%stage/innodb/clone%");
 summary
 Enabled X instruments
 CALL sys.ps_setup_enable_instrument('statement/clone/%');
@@ -65,6 +65,7 @@ ID	STAGE	STATE
 1	DROP DATA	Completed
 1	FILE COPY	Completed
 1	PAGE COPY	Completed
+1	SST COPY	Completed
 1	REDO COPY	Completed
 1	FILE SYNC	Completed
 1	RESTART	Not Started

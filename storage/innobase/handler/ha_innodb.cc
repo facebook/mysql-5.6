@@ -5327,6 +5327,8 @@ static int innodb_init(void *p) {
 
   innobase_hton->clone_interface.clone_capability = innodb_clone_get_capability;
   innobase_hton->clone_interface.clone_begin = innodb_clone_begin;
+  innobase_hton->clone_interface.clone_precopy = nullptr;
+  innobase_hton->clone_interface.clone_set_log_stop = innodb_clone_set_log_stop;
   innobase_hton->clone_interface.clone_copy = innodb_clone_copy;
   innobase_hton->clone_interface.clone_ack = innodb_clone_ack;
   innobase_hton->clone_interface.clone_end = innodb_clone_end;
@@ -19168,7 +19170,7 @@ static bool innobase_collect_hton_log_info(handlerton *hton, Json_dom *json) {
   Json_int json_lsn(lsn);
   Json_int json_lsn_checkpoint(lsn_checkpoint);
 
-  ret_val = json_innodb.add_clone("LSN", &json_lsn);
+  ret_val = json_innodb.add_clone(log_status_lsn_key, &json_lsn);
   if (!ret_val)
     ret_val = json_innodb.add_clone("LSN_checkpoint", &json_lsn_checkpoint);
   if (!ret_val) ret_val = json_engines->add_clone("InnoDB", &json_innodb);

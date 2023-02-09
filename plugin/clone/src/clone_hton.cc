@@ -105,6 +105,27 @@ static bool run_hton_clone_begin(THD *thd, plugin_ref plugin, void *arg) {
   return (false);
 }
 
+// Make InnoDB first in the storage locator and task vectors - to drive the
+// cross-engine synchronization & to wait for reconnects
+static void make_innodb_first(Storage_Vector &clone_loc_vec,
+                              Task_Vector &task_vec) {
+  auto innodb_loc_itr =
+      std::find_if(clone_loc_vec.begin(), clone_loc_vec.end(),
+                   [](const myclone::Locator &loc) {
+                     return loc.m_hton->db_type == DB_TYPE_INNODB;
+                   });
+  assert(innodb_loc_itr != clone_loc_vec.end());
+  if (innodb_loc_itr != clone_loc_vec.begin()) {
+    std::iter_swap(innodb_loc_itr, clone_loc_vec.begin());
+    if (!task_vec.empty()) {
+      assert(task_vec.size() == clone_loc_vec.size());
+      const auto index = innodb_loc_itr - clone_loc_vec.begin();
+      std::swap(task_vec[index], task_vec[0]);
+    }
+  }
+  assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
+}
+
 int hton_clone_begin(THD *thd, Storage_Vector &clone_loc_vec,
                      Task_Vector &task_vec, Ha_clone_type clone_type,
                      Ha_clone_mode clone_mode) {
@@ -124,8 +145,12 @@ int hton_clone_begin(THD *thd, Storage_Vector &clone_loc_vec,
     plugin_foreach(thd, run_hton_clone_begin, MYSQL_STORAGE_ENGINE_PLUGIN,
                    &clone_args);
 
+    make_innodb_first(clone_loc_vec, task_vec);
+
     return (clone_args.m_err);
   }
+
+  assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
 
   for (auto &loc_iter : clone_loc_vec) {
     uint32_t task_id = 0;
@@ -162,8 +187,11 @@ int hton_clone_begin(THD *thd, Storage_Vector &clone_loc_vec,
 
 int hton_clone_copy(THD *thd, Storage_Vector &clone_loc_vec,
                     Task_Vector &task_vec, Ha_clone_cbk *clone_cbk) {
-  uint index = 0;
+  assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
 
+  clone_cbk->set_all_locators(&clone_loc_vec);
+
+  uint index = 0;
   for (auto &loc_iter : clone_loc_vec) {
     assert(index < task_vec.size());
     clone_cbk->set_loc_index(index);
@@ -173,16 +201,20 @@ int hton_clone_copy(THD *thd, Storage_Vector &clone_loc_vec,
         task_vec[index], clone_cbk);
 
     if (err != 0) {
+      clone_cbk->reset_all_locators();
       return (err);
     }
     index++;
   }
 
+  clone_cbk->reset_all_locators();
   return (0);
 }
 
 int hton_clone_end(THD *thd, Storage_Vector &clone_loc_vec,
                    Task_Vector &task_vec, int in_err) {
+  assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
+
   uint index = 0;
 
   for (auto &loc_iter : clone_loc_vec) {
@@ -252,8 +284,12 @@ int hton_clone_apply_begin(THD *thd, const char *clone_data_dir,
     plugin_foreach(thd, run_hton_clone_apply_begin, MYSQL_STORAGE_ENGINE_PLUGIN,
                    &clone_args);
 
+    make_innodb_first(clone_loc_vec, task_vec);
+
     return (clone_args.m_err);
   }
+
+  assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
 
   uint32_t loop_index [[maybe_unused]] = 0;
 
@@ -296,6 +332,7 @@ int hton_clone_apply_begin(THD *thd, const char *clone_data_dir,
 
 int hton_clone_apply_error(THD *thd, Storage_Vector &clone_loc_vec,
                            Task_Vector &task_vec, int in_err) {
+  assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
   assert(in_err != 0);
 
   uint index = 0;
@@ -316,6 +353,8 @@ int hton_clone_apply_error(THD *thd, Storage_Vector &clone_loc_vec,
 
 int hton_clone_apply_end(THD *thd, Storage_Vector &clone_loc_vec,
                          Task_Vector &task_vec, int in_err) {
+  assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
+
   uint index = 0;
   for (auto &loc_iter : clone_loc_vec) {
     /* Task vector could be empty if we are exiting immediately

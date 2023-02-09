@@ -1,0 +1,47 @@
+SELECT @@rocksdb_use_direct_reads;
+@@rocksdb_use_direct_reads
+0
+SELECT @@rocksdb_use_direct_io_for_flush_and_compaction;
+@@rocksdb_use_direct_io_for_flush_and_compaction
+0
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64)) ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (10, 'clone row 1');
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 1;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# restart: --datadir=CLONE_DATADIR 
+SELECT @@rocksdb_use_direct_reads;
+@@rocksdb_use_direct_reads
+0
+SELECT @@rocksdb_use_direct_io_for_flush_and_compaction;
+@@rocksdb_use_direct_io_for_flush_and_compaction
+0
+SELECT * FROM t1 ORDER BY col1;
+col1	col2
+10	clone row 1
+# restart:
+SELECT @@rocksdb_use_direct_reads;
+@@rocksdb_use_direct_reads
+0
+SELECT @@rocksdb_use_direct_io_for_flush_and_compaction;
+@@rocksdb_use_direct_io_for_flush_and_compaction
+0
+SELECT * FROM t1 ORDER BY col1;
+col1	col2
+10	clone row 1
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;

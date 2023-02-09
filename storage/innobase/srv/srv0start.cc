@@ -2085,10 +2085,17 @@ dberr_t srv_start(bool create_new_db) {
 
     srv_dict_metadata = recv_recovery_from_checkpoint_finish(false);
 
+    // Disabled for the clone cross-engine synchronization: the metadata updates
+    // are redo-logged and the clone will take the ones up to the clone LSN.
+    // Any metadata past that point is inconsistent. Thus keep the metadata we
+    // reconstructed from the redo log. In the case there is no second storage
+    // engine this is still a correct implementation.
+#if 0
     if (recv_sys->is_cloned_db && srv_dict_metadata != nullptr) {
       ut::delete_(srv_dict_metadata);
       srv_dict_metadata = nullptr;
     }
+#endif
 
     /* We need to save the dynamic metadata collected from redo log to DD
     buffer table here. This is to make sure that the dynamic metadata is not
@@ -2102,7 +2109,13 @@ dberr_t srv_start(bool create_new_db) {
       DBUG_SUICIDE();
     });
 
-    if (srv_dict_metadata != nullptr && !srv_dict_metadata->empty()) {
+    // Do not do this in the case of cross-engine consistent clone: any redo log
+    // writes risk failing due to not enough redo log space, and we already have
+    // metadata from redo log application. If we crash before the first
+    // checkpoint, we'd read it again from the redo, otherwise the first
+    // checkpoint will write it to its table.
+    if (!recv_sys->is_cloned_db && srv_dict_metadata != nullptr &&
+        !srv_dict_metadata->empty()) {
       ut_a(redo_writes_allowed);
 
       /* Open this table in case srv_dict_metadata should be applied to this

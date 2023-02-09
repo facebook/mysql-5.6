@@ -521,8 +521,10 @@ void Client::check_and_throttle() {
   info.throttle(data_speed, net_speed);
 }
 
-uchar *Client::get_aligned_buffer(uint32_t len) {
-  auto err = m_copy_buff.allocate(len + CLONE_OS_ALIGN);
+uchar *Client::get_aligned_buffer(uint32_t len,
+                                  bool for_o_direct_uneven_file_size) {
+  auto err = m_copy_buff.allocate(clone_os_pad_for_o_direct(
+      len + CLONE_OS_ALIGN, for_o_direct_uneven_file_size));
 
   if (err != 0) {
     return (nullptr);
@@ -592,6 +594,13 @@ void Client::pfs_change_stage(uint64_t estimate) {
   s_progress_data.end_stage(false, get_data_dir());
   s_progress_data.begin_stage(1, get_data_dir(), m_num_active_workers + 1,
                               estimate);
+  s_status_data.write(false);
+  mysql_mutex_unlock(&s_table_mutex);
+}
+
+void Client::add_to_data_size_estimate(uint64_t estimate_delta) {
+  mysql_mutex_lock(&s_table_mutex);
+  s_progress_data.add_to_data_size_estimate(estimate_delta);
   s_status_data.write(false);
   mysql_mutex_unlock(&s_table_mutex);
 }
@@ -1716,6 +1725,16 @@ int Client::set_descriptor(const uchar *buffer, size_t length) {
   /* Reset buffers */
   aux_conn->reset();
 
+  // If the error happened in any other storage engine than InnoDB, notify
+  // InnoDB too to break any waits there
+  if (loc_index != 0) {
+    assert(m_share->m_storage_vec[0].m_hton->db_type == DB_TYPE_INNODB);
+    aux_conn->m_error = err;
+    aux_conn->m_cur_index = 0;
+    remote_command(COM_ACK, true);
+    aux_conn->reset();
+  }
+
   return (err);
 }
 
@@ -1853,8 +1872,14 @@ int Client_Cbk::buffer_cbk(uchar *from_buffer [[maybe_unused]], uint buf_len) {
   return (err);
 }
 
+void Client_Cbk::add_to_data_size_estimate(std::uint64_t estimate_delta) {
+  auto *const client = get_clone_client();
+  client->add_to_data_size_estimate(estimate_delta);
+}
+
 int Client_Cbk::apply_buffer_cbk(uchar *&to_buffer, uint &len) {
   Ha_clone_file dummy_file;
+  dummy_file.o_direct_uneven_file_size = false;
   dummy_file.type = Ha_clone_file::FILE_HANDLE;
   dummy_file.file_handle = nullptr;
   return (apply_cbk(dummy_file, false, to_buffer, len));
@@ -1913,7 +1938,8 @@ int Client_Cbk::apply_cbk(Ha_clone_file to_file, bool apply_file,
 
   if (!is_os_buffer_cache()) {
     /* Allocate aligned buffer */
-    buf_ptr = client->get_aligned_buffer(length);
+    buf_ptr = client->get_aligned_buffer(
+        length, apply_file && to_file.o_direct_uneven_file_size);
 
     if (buf_ptr == nullptr) {
       err = ER_OUTOFMEMORY;

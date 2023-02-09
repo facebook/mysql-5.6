@@ -1020,6 +1020,11 @@ bool ha_is_externally_disabled(const handlerton &);
 
 /** File reference for clone */
 struct Ha_clone_file {
+  // Whether this file is opened with O_DIRECT flag and the size of this file is
+  // allowed to be a non-multiple of 4K. MyRocks sets this as needed. InnoDB,
+  // while using O_DIRECT, has all file sizes as 4K multiples.
+  bool o_direct_uneven_file_size;
+
   /** File reference type */
   enum {
     /** File handle */
@@ -1039,6 +1044,13 @@ struct Ha_clone_file {
     void *file_handle;
   };
 };
+
+namespace myclone {
+
+struct Locator;
+using Storage_Vector = std::vector<Locator>;
+
+}  // namespace myclone
 
 /* Abstract callback interface to stream data back to the caller. */
 class Ha_clone_cbk {
@@ -1080,6 +1092,20 @@ class Ha_clone_cbk {
   @param[out]  len        data length
   @return error code */
   virtual int apply_buffer_cbk(uchar *&to_buffer, uint &len) = 0;
+
+  /** Callback to update clone data size estimate for the current SE.
+  @param[in]  estimate_delta  how many bytes to add to the clone size estimate
+*/
+  virtual void add_to_data_size_estimate(std::uint64_t estimate_delta) = 0;
+
+  /** Callback to perform optional non-consistent precopy in participating
+  storage engines. Precopy is beneficial when it allows reducing the volume and
+  duration of the consistent copy later. */
+  [[nodiscard]] virtual int precopy(THD *thd, uint task_id) = 0;
+
+  /** Callback to synchronize all the transactional storage engines for
+  consistent clone. */
+  [[nodiscard]] virtual int synchronize_engines() = 0;
 
   /** virtual destructor. */
   virtual ~Ha_clone_cbk() = default;
@@ -1192,6 +1218,22 @@ class Ha_clone_cbk {
     return (m_flag & HA_CLONE_STATE_CHANGE);
   }
 
+  void set_all_locators(myclone::Storage_Vector *new_all_locators) noexcept {
+    assert(all_locators == nullptr);
+    all_locators = new_all_locators;
+  }
+
+  void reset_all_locators() noexcept {
+    assert(all_locators != nullptr);
+    all_locators = nullptr;
+  }
+
+ protected:
+  [[nodiscard]] const myclone::Storage_Vector &get_all_locators()
+      const noexcept {
+    return *all_locators;
+  }
+
  private:
   /** Handlerton for the SE */
   handlerton *m_hton;
@@ -1216,6 +1258,10 @@ class Ha_clone_cbk {
 
   /** Estimated bytes to be transferred. */
   uint64_t m_state_estimate;
+
+  /** Current clone storage vector, used by cross-engine synchronization.
+  nullptr when not in the cross-engine synchronization code path. */
+  myclone::Storage_Vector *all_locators{nullptr};
 
   /** Flag storing data related options */
   int m_flag;
@@ -2257,6 +2303,36 @@ using Clone_ack_t = int (*)(handlerton *hton, THD *thd, const uchar *loc,
                             uint loc_len, uint task_id, int in_err,
                             Ha_clone_cbk *cbk);
 
+/** Precopy data from source database in chunks via callback. Different from the
+actual copy, the precopied data is allowed to be inconsistent with the
+expectation that the copy will make it consistent while at the same time running
+faster than without precopy. This method is optional. If this method is
+implemented, then at the end of the precopy it should do any necessary
+preparations for the consistent data copy. If it is not implemented, then that
+is the job of clone_begin.
+@param[in]      hton    handlerton for the SE
+@param[in]      thd     server thread handle
+@param[in]      loc     locator
+@param[in]      loc_len locator length in bytes
+@param[in]      task_id task identifier
+@param[in]      cbk     callback interface
+@return error code */
+using Clone_precopy_t = int (*)(handlerton *hton, THD *thd, const uchar *loc,
+                                uint loc_len, uint task_id, Ha_clone_cbk *cbk);
+
+/** Use the result of performance_schema.log_status query to set the clone data
+end point, such as log archiving stop LSN. The cloned instance will contain data
+up to this point inclusively, and nothing after. This implements cross-engine
+consistency for clone.
+@param[in]      loc             locator
+@param[in]      loc_len         locator length in bytes
+@param[in]      log_stop_pos    The part of the JSON document from
+                                performance_schema.log_status query result set
+                                STORAGE_ENGINES column that corresponds to this
+                                SE. */
+using Clone_set_log_stop_t = void (*)(const uchar *loc, uint loc_len,
+                                      const Json_dom &log_stop_pos);
+
 /** End copy from source database
 @param[in]      hton    handlerton for SE
 @param[in]      thd     server thread handle
@@ -2313,6 +2389,8 @@ struct Clone_interface_t {
   /* Interfaces to copy data. */
   Clone_begin_t clone_begin;
   Clone_copy_t clone_copy;
+  Clone_precopy_t clone_precopy;
+  Clone_set_log_stop_t clone_set_log_stop;
   Clone_ack_t clone_ack;
   Clone_end_t clone_end;
 

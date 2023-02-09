@@ -270,6 +270,9 @@ class Rdb_string_reader {
     m_len = slice->size();
   }
 
+  Rdb_string_reader(const uchar *buf, uint buf_len) noexcept
+      : m_ptr{reinterpret_cast<const char *>(buf)}, m_len{buf_len} {}
+
   /*
     Read the next @param size bytes. Returns pointer to the bytes read, or
     nullptr if the remaining string doesn't have that many bytes.
@@ -302,6 +305,16 @@ class Rdb_string_reader {
       return true;  // error
     } else {
       *res = rdb_netbuf_to_uint16(p);
+      return false;  // Ok
+    }
+  }
+
+  [[nodiscard]] bool read_uint32(uint32 *const res) {
+    const uchar *p;
+    if (!(p = reinterpret_cast<const uchar *>(read(sizeof(uint32))))) {
+      return true;  // error
+    } else {
+      *res = rdb_netbuf_to_uint32(p);
       return false;  // Ok
     }
   }

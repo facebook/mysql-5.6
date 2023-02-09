@@ -122,6 +122,7 @@ void Clone_Snapshot::get_state_info(bool do_estimate,
       state_desc->m_num_files = num_redo_files();
       break;
 
+    case CLONE_SNAPSHOT_SST_COPY:
     case CLONE_SNAPSHOT_DONE:
     case CLONE_SNAPSHOT_INIT:
       state_desc->m_num_files = 0;
@@ -152,6 +153,13 @@ void Clone_Snapshot::set_state_info(Clone_Desc_State *state_desc) {
     m_num_pages = state_desc->m_num_files;
 
     m_monitor.init_state(srv_stage_clone_page_copy.m_key, m_enable_pfs);
+    m_monitor.add_estimate(state_desc->m_estimate);
+    m_monitor.change_phase();
+
+  } else if (m_snapshot_state == CLONE_SNAPSHOT_SST_COPY) {
+    ut_ad(m_num_current_chunks == 0);
+
+    m_monitor.init_state(srv_stage_clone_sst_copy.m_key, m_enable_pfs);
     m_monitor.add_estimate(state_desc->m_estimate);
     m_monitor.change_phase();
 
@@ -186,14 +194,21 @@ Snapshot_State Clone_Snapshot::get_next_state() {
       next_state = CLONE_SNAPSHOT_PAGE_COPY;
 
     } else if (m_snapshot_type == HA_CLONE_REDO) {
+      // Does not take into account CLONE_SNAPSHOT_PRECOPY
+      ut_ad(0);
       next_state = CLONE_SNAPSHOT_REDO_COPY;
 
     } else {
+      // Does not take into account CLONE_SNAPSHOT_PRECOPY
+      ut_ad(0);
       ut_ad(m_snapshot_type == HA_CLONE_BLOCKING);
       next_state = CLONE_SNAPSHOT_DONE;
     }
 
   } else if (m_snapshot_state == CLONE_SNAPSHOT_PAGE_COPY) {
+    next_state = CLONE_SNAPSHOT_SST_COPY;
+
+  } else if (m_snapshot_state == CLONE_SNAPSHOT_SST_COPY) {
     next_state = CLONE_SNAPSHOT_REDO_COPY;
 
   } else {
@@ -290,7 +305,8 @@ Clone_file_ctx *Clone_Snapshot::get_file_ctx_by_index(uint index) {
   Clone_file_ctx *file_ctx = nullptr;
 
   if (m_snapshot_state == CLONE_SNAPSHOT_FILE_COPY ||
-      m_snapshot_state == CLONE_SNAPSHOT_PAGE_COPY) {
+      m_snapshot_state == CLONE_SNAPSHOT_PAGE_COPY ||
+      m_snapshot_state == CLONE_SNAPSHOT_SST_COPY) {
     auto num_data_files = m_data_file_vector.size();
 
     if (index < num_data_files) {
@@ -318,6 +334,7 @@ int Clone_Snapshot::iterate_files(File_Cbk_Func &&func) {
     case CLONE_SNAPSHOT_REDO_COPY:
       err = iterate_redo_files(std::forward<File_Cbk_Func>(func));
       break;
+    case CLONE_SNAPSHOT_SST_COPY:
     default:
       err = 0;
   }
@@ -354,6 +371,7 @@ int Clone_Snapshot::get_next_block(uint chunk_num, uint &block_num,
   const auto file_meta = file_ctx->get_file_meta_read();
   file_size = 0;
 
+  ut_ad(m_snapshot_state != CLONE_SNAPSHOT_SST_COPY);
   if (m_snapshot_state == CLONE_SNAPSHOT_PAGE_COPY) {
     /* Copy the page from buffer pool. */
     auto err = get_next_page(chunk_num, block_num, file_ctx, data_offset,
@@ -529,6 +547,7 @@ uint32_t Clone_Snapshot::get_blocks_per_chunk() const {
   IB_mutex_guard guard(&m_snapshot_mutex, UT_LOCATION_HERE);
   uint32_t num_blocks = 0;
 
+  ut_ad(m_snapshot_state != CLONE_SNAPSHOT_SST_COPY);
   switch (m_snapshot_state) {
     case CLONE_SNAPSHOT_PAGE_COPY:
       num_blocks = chunk_size();
@@ -552,7 +571,8 @@ uint32_t Clone_Snapshot::get_blocks_per_chunk() const {
 
 int Clone_Snapshot::change_state(Clone_Desc_State *state_desc,
                                  Snapshot_State new_state, byte *temp_buffer,
-                                 uint temp_buffer_len, Clone_Alert_Func cbk) {
+                                 uint temp_buffer_len, Clone_Alert_Func cbk,
+                                 Ha_clone_cbk *clone_cbk) {
   ut_ad(m_snapshot_state != CLONE_SNAPSHOT_NONE);
 
   int err = 0;
@@ -588,10 +608,17 @@ int Clone_Snapshot::change_state(Clone_Desc_State *state_desc,
       DEBUG_SYNC_C("clone_start_redo_archiving");
       break;
 
+    case CLONE_SNAPSHOT_SST_COPY:
+      ib::info(ER_IB_CLONE_OPERATION) << "Clone State BEGIN SST COPY";
+
+      err = init_sst_copy(new_state);
+
+      break;
+
     case CLONE_SNAPSHOT_REDO_COPY:
       ib::info(ER_IB_CLONE_OPERATION) << "Clone State BEGIN REDO COPY";
 
-      err = init_redo_copy(new_state, cbk);
+      err = init_redo_copy(new_state, cbk, clone_cbk);
 
       break;
 
@@ -1147,6 +1174,7 @@ bool Clone_Snapshot::begin_ddl_state(Clone_notify::Type type, space_id_t space,
         break;
 
       case CLONE_SNAPSHOT_PAGE_COPY:
+      case CLONE_SNAPSHOT_SST_COPY:
         /* 1. Bulk operation currently need to wait if clone has entered page
               copy. This is because bulk changes don't generate any redo log.
            2. We don't let new encryption alter to begin during page copy state.
@@ -1203,7 +1231,8 @@ void Clone_Snapshot::end_ddl_state(Clone_notify::Type type, space_id_t space) {
   IB_mutex_guard guard(&m_snapshot_mutex, UT_LOCATION_HERE);
   auto state = get_state();
 
-  if (state == CLONE_SNAPSHOT_FILE_COPY || state == CLONE_SNAPSHOT_PAGE_COPY) {
+  if (state == CLONE_SNAPSHOT_FILE_COPY || state == CLONE_SNAPSHOT_PAGE_COPY ||
+      state == CLONE_SNAPSHOT_SST_COPY) {
     end_ddl_file(type, space);
   }
   unblock_state_change();
@@ -1219,8 +1248,8 @@ void Clone_Snapshot::get_wait_mesg(Wait_type wait_type, std::string &info,
       error.assign("DDL wait for clone state transition timed out");
       break;
     case Wait_type::STATE_END_PAGE_COPY:
-      info.assign("DDL waiting for Clone PAGE COPY to finish");
-      error.assign("DDL wait for Clone PAGE COPY timed out");
+      info.assign("DDL waiting for Clone PAGE COPY & SST COPY to finish");
+      error.assign("DDL wait for Clone PAGE COPY & SST COPY timed out");
       break;
     case Wait_type::STATE_BLOCKER:
       info.assign("Clone state transition waiting for DDL file operation");
@@ -1258,7 +1287,7 @@ const char *Clone_Snapshot::wait_string(Wait_type wait_type) const {
 
     /* DDL waiting till Clone PAGE COPY state is over. */
     case Wait_type::STATE_END_PAGE_COPY:
-      wait_info = "Waiting for clone PAGE_COPY state";
+      wait_info = "Waiting for clone PAGE_COPY & PRECOPY states";
       break;
 
     /*DDL waiting for clone file operation. */
@@ -1309,7 +1338,8 @@ int Clone_Snapshot::wait(Wait_type wait_type, const Clone_file_ctx *ctx,
         break;
       case Wait_type::STATE_END_PAGE_COPY:
         /* If clone has aborted, don't wait for state to end. */
-        wait = !is_aborted() && (get_state() == CLONE_SNAPSHOT_PAGE_COPY);
+        wait = !is_aborted() && (get_state() == CLONE_SNAPSHOT_PAGE_COPY ||
+                                 get_state() == CLONE_SNAPSHOT_SST_COPY);
         DBUG_EXECUTE_IF("clone_ddl_abort_wait_page_copy", {
           if (wait) {
             my_error(ER_INTERNAL_ERROR, MYF(0), "Simulated Clone DDL error");
@@ -1476,6 +1506,7 @@ bool Clone_Snapshot::blocks_clone(const Clone_file_ctx *file_ctx) {
       block = file_ctx->modifying();
       break;
     case CLONE_SNAPSHOT_PAGE_COPY:
+    case CLONE_SNAPSHOT_SST_COPY:
       /* Block clone operation only if deleting. In page copy state we don't
       bother about space/file rename. If the page is not found in buffer pool,
       it would need to be read from underlying file but this IO needs to be
@@ -1493,7 +1524,8 @@ int Clone_Snapshot::begin_ddl_file(Clone_notify::Type type, space_id_t space,
                                    bool no_wait, bool check_intr) {
   ut_ad(mutex_own(&m_snapshot_mutex));
   ut_ad(get_state() == CLONE_SNAPSHOT_FILE_COPY ||
-        get_state() == CLONE_SNAPSHOT_PAGE_COPY);
+        get_state() == CLONE_SNAPSHOT_PAGE_COPY ||
+        get_state() == CLONE_SNAPSHOT_SST_COPY);
 
   auto target_state = get_target_file_state(type, true);
 
@@ -1546,7 +1578,8 @@ int Clone_Snapshot::begin_ddl_file(Clone_notify::Type type, space_id_t space,
 void Clone_Snapshot::end_ddl_file(Clone_notify::Type type, space_id_t space) {
   ut_ad(mutex_own(&m_snapshot_mutex));
   ut_ad(get_state() == CLONE_SNAPSHOT_FILE_COPY ||
-        get_state() == CLONE_SNAPSHOT_PAGE_COPY);
+        get_state() == CLONE_SNAPSHOT_PAGE_COPY ||
+        get_state() == CLONE_SNAPSHOT_SST_COPY);
 
   auto target_state = get_target_file_state(type, false);
 

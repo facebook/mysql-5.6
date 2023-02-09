@@ -1423,6 +1423,11 @@ void Clone_Task_Manager::reinit_apply_state(const byte *ref_loc, uint ref_len,
           << "Clone Apply Restarting State: PAGE COPY";
       break;
 
+    case CLONE_SNAPSHOT_SST_COPY:
+      ib::info(ER_IB_CLONE_OPERATION)
+          << "Clone Apply Restarting State: SST COPY";
+      break;
+
     case CLONE_SNAPSHOT_REDO_COPY:
       ib::info(ER_IB_CLONE_OPERATION)
           << "Clone Apply Restarting State: REDO COPY";
@@ -1519,6 +1524,10 @@ void Clone_Task_Manager::reinit_copy_state(const byte *loc, uint loc_len) {
       ib::info(ER_IB_CLONE_RESTART) << "Clone Restarting State: PAGE COPY";
       break;
 
+    case CLONE_SNAPSHOT_SST_COPY:
+      ib::info(ER_IB_CLONE_RESTART) << "Clone Restarting State: SST COPY";
+      break;
+
     case CLONE_SNAPSHOT_REDO_COPY:
       ib::info(ER_IB_CLONE_RESTART) << "Clone Restarting State: REDO COPY";
       break;
@@ -1559,6 +1568,9 @@ void Clone_Task_Manager::reinit_copy_state(const byte *loc, uint loc_len) {
       ut_ad(m_current_state == CLONE_SNAPSHOT_PAGE_COPY);
 
     } else if (temp_locator.m_state == CLONE_SNAPSHOT_PAGE_COPY) {
+      ut_ad(m_current_state == CLONE_SNAPSHOT_SST_COPY);
+
+    } else if (temp_locator.m_state == CLONE_SNAPSHOT_SST_COPY) {
       ut_ad(m_current_state == CLONE_SNAPSHOT_REDO_COPY);
 
     } else if (temp_locator.m_state == CLONE_SNAPSHOT_REDO_COPY) {
@@ -1766,7 +1778,8 @@ int Clone_Task_Manager::finish_state(Clone_Task *task) {
 int Clone_Task_Manager::change_state(Clone_Task *task,
                                      Clone_Desc_State *state_desc,
                                      Snapshot_State new_state,
-                                     Clone_Alert_Func cbk, uint &num_wait) {
+                                     Clone_Alert_Func cbk,
+                                     Ha_clone_cbk *clone_cbk, uint &num_wait) {
   mutex_enter(&m_state_mutex);
 
   num_wait = 0;
@@ -1821,10 +1834,9 @@ int Clone_Task_Manager::change_state(Clone_Task *task,
         << "Clone Apply State Change : Number of tasks = " << m_num_tasks;
   }
 
-  err = m_clone_snapshot->change_state(state_desc, m_next_state,
-                                       task->m_current_buffer,
-                                       task->m_buffer_alloc_len, cbk);
-
+  err = m_clone_snapshot->change_state(
+      state_desc, m_next_state, task->m_current_buffer,
+      task->m_buffer_alloc_len, cbk, clone_cbk);
   if (err != 0) {
     return (err);
   }
@@ -2147,8 +2159,8 @@ int Clone_Handle::move_to_next_state(Clone_Task *task, Ha_clone_cbk *callback,
 
   /* Move to new state */
   uint num_wait = 0;
-  auto err = m_clone_task_manager.change_state(task, state_desc, next_state,
-                                               alert_callback, num_wait);
+  auto err = m_clone_task_manager.change_state(
+      task, state_desc, next_state, alert_callback, callback, num_wait);
 
   /* Need to wait for all other tasks to move over, if any. */
   if (num_wait > 0) {
@@ -2158,8 +2170,9 @@ int Clone_Handle::move_to_next_state(Clone_Task *task, Ha_clone_cbk *callback,
         [&](bool alert, bool &result) {
           /* For multi threaded clone, master task does the state change. */
           if (task->m_is_master) {
-            err = m_clone_task_manager.change_state(
-                task, state_desc, next_state, alert_callback, num_wait);
+            err = m_clone_task_manager.change_state(task, state_desc,
+                                                    next_state, alert_callback,
+                                                    callback, num_wait);
           } else {
             err = m_clone_task_manager.check_state(task, next_state, false, 0,
                                                    num_wait);
@@ -2346,9 +2359,11 @@ int Clone_Handle::file_callback(Ha_clone_cbk *cbk, Clone_Task *task, uint len,
 
   /* Platform specific code to set file handle */
 #ifdef _WIN32
+  file.o_direct_uneven_file_size = false;
   file.type = Ha_clone_file::FILE_HANDLE;
   file.file_handle = static_cast<void *>(task->m_current_file_des.m_file);
 #else
+  file.o_direct_uneven_file_size = false;
   file.type = Ha_clone_file::FILE_DESC;
   file.file_desc = task->m_current_file_des.m_file;
 #endif /* _WIN32 */

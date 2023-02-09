@@ -30,6 +30,7 @@ Clone Plugin: Client Interface
 #define CLONE_CLIENT_H
 
 #include "plugin/clone/include/clone.h"
+#include "plugin/clone/include/clone_common.h"
 #include "plugin/clone/include/clone_hton.h"
 #include "plugin/clone/include/clone_status.h"
 
@@ -478,7 +479,7 @@ class Client {
   when called for first time.
   @param[in]	len	length of allocated buffer
   @return allocated buffer pointer */
-  uchar *get_aligned_buffer(uint32_t len);
+  uchar *get_aligned_buffer(uint32_t len, bool for_o_direct_uneven_file_size);
 
   /** Limit total memory used for clone transfer buffer.
   @param[in]	buffer_size	configured buffer size
@@ -551,6 +552,10 @@ class Client {
 
   /** Change stage in PFS progress table. */
   void pfs_change_stage(uint64_t estimate);
+
+  /** Add to the data size estimate.
+  @param[in]  estimate_delta  how many bytes to add to the estimate */
+  void add_to_data_size_estimate(uint64_t estimate_delta);
 
   /** End state in PFS table.
   @param[in]	err_num		error number
@@ -789,7 +794,7 @@ class Client {
 };
 
 /** Clone client interface to handle callback from Storage Engine */
-class Client_Cbk : public Ha_clone_cbk {
+class Client_Cbk : public Ha_clone_common_cbk {
  public:
   /** Construct Callback. Set clone client object.
   @param[in]	clone	clone client object */
@@ -822,6 +827,10 @@ class Client_Cbk : public Ha_clone_cbk {
   @param[out]  len        data length
   @return error code */
   int apply_buffer_cbk(uchar *&to_buffer, uint &len) override;
+
+  /** Add to the data size estimate.
+  @param[in]  estimate_delta  how many bytes to add to the estimate */
+  void add_to_data_size_estimate(uint64_t estimate_delta) override;
 
  private:
   /** Apply data to local file or buffer.

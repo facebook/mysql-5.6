@@ -62,11 +62,11 @@
 #include "sql/sql_thd_internal_api.h"
 
 /* RocksDB includes */
+#include "env/composite_env_wrapper.h"
 #include "monitoring/histogram.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/compaction_job_stats.h"
 #include "rocksdb/env.h"
-#include "env/composite_env_wrapper.h"
 #include "rocksdb/memory_allocator.h"
 #include "rocksdb/persistent_cache.h"
 #include "rocksdb/rate_limiter.h"
@@ -75,14 +75,17 @@
 #include "rocksdb/trace_reader_writer.h"
 #include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/convenience.h"
-#include "utilities/fault_injection_fs.h"
 #include "rocksdb/utilities/memory_util.h"
 #include "rocksdb/utilities/sim_cache.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
 #include "util/stop_watch.h"
+#include "utilities/fault_injection_fs.h"
 
 /* MyRocks includes */
 #include <rapidjson/document.h>
+#include "./clone/client.h"
+#include "./clone/common.h"
+#include "./clone/donor.h"
 #include "./event_listener.h"
 #include "./ha_rocksdb_proto.h"
 #include "./ha_rockspart.h"
@@ -439,7 +442,7 @@ static std::string rdb_normalize_dir(std::string dir) {
   return dir;
 }
 
-static int rocksdb_create_checkpoint(const char *checkpoint_dir_raw) {
+int rocksdb_create_checkpoint(const char *checkpoint_dir_raw) {
   assert(checkpoint_dir_raw);
 
   const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
@@ -468,7 +471,7 @@ static int rocksdb_create_checkpoint(const char *checkpoint_dir_raw) {
   return HA_EXIT_FAILURE;
 }
 
-static int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw) {
+int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw) {
   const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
   LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                   "deleting temporary checkpoint in directory : %s\n",
@@ -792,7 +795,7 @@ static uint32_t rocksdb_max_latest_deadlocks;
 static unsigned long  // NOLINT(runtime/int)
     rocksdb_persistent_cache_size_mb;
 static ulong rocksdb_info_log_level;
-static char *rocksdb_wal_dir;
+char *rocksdb_wal_dir;
 static char *rocksdb_persistent_cache_path;
 static char *rocksdb_wsenv_path;
 static char *rocksdb_wsenv_tenant;
@@ -841,7 +844,7 @@ static long long rocksdb_compaction_sequential_deletes = 0l;
 static long long rocksdb_compaction_sequential_deletes_window = 0l;
 static long long rocksdb_compaction_sequential_deletes_file_size = 0l;
 static uint32_t rocksdb_validate_tables = 1;
-static char *rocksdb_datadir;
+char *rocksdb_datadir;
 static uint32_t rocksdb_max_bottom_pri_background_compactions = 0;
 static uint32_t rocksdb_table_stats_sampling_pct;
 static uint32_t rocksdb_table_stats_recalc_threshold_pct = 10;
@@ -896,6 +899,8 @@ static bool rocksdb_partial_index_blind_delete = true;
 bool rocksdb_disable_instant_ddl = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
+uint rocksdb_clone_checkpoint_max_age;
+uint rocksdb_clone_checkpoint_max_count;
 static std::time_t last_binlog_ttl_compaction_ts = std::time(nullptr);
 
 static std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
@@ -2722,10 +2727,9 @@ static MYSQL_SYSVAR_UINT(bypass_rpc_rejected_log_ts_interval_secs,
                          /* min */ 0,
                          /* max */ UINT_MAX, 0);
 
-static MYSQL_SYSVAR_BOOL(bypass_rpc_on,
-                         rocksdb_bypass_rpc_on, PLUGIN_VAR_RQCMDARG,
-                         "Toggle Bypass RPC feature", nullptr, nullptr,
-                         true);
+static MYSQL_SYSVAR_BOOL(bypass_rpc_on, rocksdb_bypass_rpc_on,
+                         PLUGIN_VAR_RQCMDARG, "Toggle Bypass RPC feature",
+                         nullptr, nullptr, true);
 
 static MYSQL_SYSVAR_BOOL(bypass_rpc_log_rejected,
                          rocksdb_bypass_rpc_log_rejected, PLUGIN_VAR_RQCMDARG,
@@ -2797,6 +2801,22 @@ static MYSQL_SYSVAR_UINT(
     "After this, current transaction holding write batch will commit and new"
     "transaction will be started.",
     nullptr, nullptr, /* default */ 1000, /* min */ 1, /* max */ UINT_MAX, 0);
+
+static MYSQL_SYSVAR_UINT(
+    clone_checkpoint_max_age, rocksdb_clone_checkpoint_max_age,
+    PLUGIN_VAR_RQCMDARG,
+    "Maximum checkpoint age in seconds during clone operations. The checkpoint "
+    "will be rolled if it becomes older, unless "
+    "rocksdb_clone_checkpoint_max_count would be violated. If 0, the age is "
+    "unlimited.",
+    nullptr, nullptr, 10 * 60, 0, UINT_MAX, 0);
+
+static MYSQL_SYSVAR_UINT(clone_checkpoint_max_count,
+                         rocksdb_clone_checkpoint_max_count,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Maximum number of rolled checkpoints during a single "
+                         "clone operation. If 0, the number is unlimited.",
+                         nullptr, nullptr, 90, 0, UINT_MAX, 0);
 
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
@@ -3015,6 +3035,8 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(enable_delete_range_for_drop_index),
     MYSQL_SYSVAR(max_intrinsic_tmp_table_write_count),
     MYSQL_SYSVAR(corrupt_data_action),
+    MYSQL_SYSVAR(clone_checkpoint_max_age),
+    MYSQL_SYSVAR(clone_checkpoint_max_count),
     nullptr};
 
 static bool is_tmp_table(const std::string &tablename) {
@@ -4522,9 +4544,9 @@ class Rdb_transaction {
   explicit Rdb_transaction(THD *const thd)
       : m_thd(thd), m_tbl_io_perf(nullptr) {
     m_read_opts[INTRINSIC_TMP].ignore_range_deletions =
-          !rocksdb_enable_delete_range_for_drop_index;
+        !rocksdb_enable_delete_range_for_drop_index;
     m_read_opts[USER_TABLE].ignore_range_deletions =
-          !rocksdb_enable_delete_range_for_drop_index;
+        !rocksdb_enable_delete_range_for_drop_index;
   }
 
   virtual ~Rdb_transaction() {
@@ -4978,7 +5000,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
       m_read_opts[table_type] = rocksdb::ReadOptions();
       m_read_opts[table_type].ignore_range_deletions =
-            !rocksdb_enable_delete_range_for_drop_index;
+          !rocksdb_enable_delete_range_for_drop_index;
 
       set_initial_savepoint();
 
@@ -5104,7 +5126,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     m_batch->Clear();
     m_read_opts[USER_TABLE] = rocksdb::ReadOptions();
     m_read_opts[USER_TABLE].ignore_range_deletions =
-          !rocksdb_enable_delete_range_for_drop_index;
+        !rocksdb_enable_delete_range_for_drop_index;
     m_ddl_transaction = false;
   }
 
@@ -7154,6 +7176,25 @@ static void rocksdb_truncation_table_cleanup(void) {
   }
 }
 
+static void move_wals_to_target_dir() {
+  if (is_wal_dir_separate()) {
+    if ((my_mkdir(rocksdb_wal_dir, S_IRWXU, MYF(0)) == -1) &&
+        (my_errno() != EEXIST))
+      rdb_fatal_error("Failed to create %s", rocksdb_wal_dir);
+
+    for_each_in_dir(
+        rocksdb_datadir, MY_WANT_STAT | MY_FAE, [](const fileinfo &f_info) {
+          if (!S_ISREG(f_info.mystat->st_mode) ||
+              !has_file_extension(f_info.name, ".log"))
+            return true;
+          const auto src_path = rdb_concat_paths(rocksdb_datadir, f_info.name);
+          const auto dst_path = rdb_concat_paths(rocksdb_wal_dir, f_info.name);
+          rdb_path_rename_or_abort(src_path, dst_path);
+          return true;
+        });
+  }
+}
+
 /*
   Storage Engine initialization function, invoked when plugin is loaded.
 */
@@ -7198,6 +7239,9 @@ static int rocksdb_init_internal(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 #endif
+
+  clone::fixup_on_startup();
+  move_wals_to_target_dir();
 
   if (rdb_has_rocksdb_corruption()) {
     // NO_LINT_DEBUG
@@ -7302,9 +7346,8 @@ static int rocksdb_init_internal(void *const p) {
       MY_MUTEX_INIT_FAST);
   Rdb_transaction::init_mutex();
 
-  DBUG_EXECUTE_IF("rocksdb_init_failure_mutexes_initialized", {
-    DBUG_RETURN(HA_EXIT_FAILURE);
-  });
+  DBUG_EXECUTE_IF("rocksdb_init_failure_mutexes_initialized",
+                  { DBUG_RETURN(HA_EXIT_FAILURE); });
 
   rocksdb_hton->state = SHOW_OPTION_YES;
   rocksdb_hton->create = rocksdb_create_handler;
@@ -7337,6 +7380,17 @@ static int rocksdb_init_internal(void *const p) {
       rocksdb_update_binlog_ttl_compaction_ts;
   rocksdb_hton->is_user_table_blocked = rocksdb_user_table_blocked;
   rocksdb_hton->bypass_select_by_key = rocksdb_select_by_key;
+
+  rocksdb_hton->clone_interface.clone_capability = rocksdb_clone_get_capability;
+  rocksdb_hton->clone_interface.clone_begin = rocksdb_clone_begin;
+  rocksdb_hton->clone_interface.clone_precopy = rocksdb_clone_precopy;
+  rocksdb_hton->clone_interface.clone_set_log_stop = rocksdb_clone_set_log_stop;
+  rocksdb_hton->clone_interface.clone_copy = rocksdb_clone_copy;
+  rocksdb_hton->clone_interface.clone_ack = rocksdb_clone_ack;
+  rocksdb_hton->clone_interface.clone_end = rocksdb_clone_end;
+  rocksdb_hton->clone_interface.clone_apply_begin = rocksdb_clone_apply_begin;
+  rocksdb_hton->clone_interface.clone_apply = rocksdb_clone_apply;
+  rocksdb_hton->clone_interface.clone_apply_end = rocksdb_clone_apply_end;
 
   rocksdb_hton->flags = HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
 
@@ -7434,9 +7488,8 @@ static int rocksdb_init_internal(void *const p) {
     }
   }
 
-  DBUG_EXECUTE_IF("rocksdb_init_failure_reads", {
-    DBUG_RETURN(HA_EXIT_FAILURE);
-  });
+  DBUG_EXECUTE_IF("rocksdb_init_failure_reads",
+                  { DBUG_RETURN(HA_EXIT_FAILURE); });
 
   if (rocksdb_db_options->allow_mmap_writes &&
       rocksdb_db_options->use_direct_io_for_flush_and_compaction) {
@@ -7609,9 +7662,8 @@ static int rocksdb_init_internal(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
-  DBUG_EXECUTE_IF("rocksdb_init_failure_cache", {
-    DBUG_RETURN(HA_EXIT_FAILURE);
-  });
+  DBUG_EXECUTE_IF("rocksdb_init_failure_cache",
+                  { DBUG_RETURN(HA_EXIT_FAILURE); });
 
   std::unique_ptr<Rdb_cf_options> cf_options_map(new Rdb_cf_options());
   if (!cf_options_map->init(*rocksdb_tbl_options, properties_collector_factory,
@@ -7623,9 +7675,8 @@ static int rocksdb_init_internal(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
-  DBUG_EXECUTE_IF("rocksdb_init_failure_cf_options", {
-    DBUG_RETURN(HA_EXIT_FAILURE);
-  });
+  DBUG_EXECUTE_IF("rocksdb_init_failure_cf_options",
+                  { DBUG_RETURN(HA_EXIT_FAILURE); });
 
   /*
     If there are no column families, we're creating the new database.
@@ -7890,7 +7941,7 @@ static int rocksdb_init_internal(void *const p) {
   directories.push_back(mysql_real_data_home);
 
   // 2. Transaction logs.
-  if (myrocks::rocksdb_wal_dir && *myrocks::rocksdb_wal_dir) {
+  if (is_wal_dir_separate()) {
     directories.push_back(myrocks::rocksdb_wal_dir);
   }
 
@@ -8051,6 +8102,8 @@ static int rocksdb_shutdown(bool minimalShutdown) {
     binlog_manager.cleanup();
     dict_manager.cleanup();
     cf_manager.cleanup();
+    clone::client_shutdown();
+    clone::donor_shutdown();
 
     delete rdb;
     rdb = nullptr;
@@ -8548,7 +8601,7 @@ bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
   uint64_t read_filtering_ts = tx->get_or_create_ttl_read_filtering_ts();
 #ifndef NDEBUG
   assert(static_cast<int64_t>(read_filtering_ts) >=
-              rdb_dbug_set_ttl_read_filter_ts());
+         rdb_dbug_set_ttl_read_filter_ts());
   read_filtering_ts -= rdb_dbug_set_ttl_read_filter_ts();
 #endif
 
@@ -14882,7 +14935,7 @@ const char *dbug_print_item(Item *const item) {
   }
 }
 
-#endif // NDEBUG
+#endif  // NDEBUG
 
 /**
   SQL layer calls this function to push an index condition.
@@ -18177,9 +18230,7 @@ uint32_t get_select_bypass_debug_row_delay() {
   return rocksdb_select_bypass_debug_row_delay;
 }
 
-bool is_bypass_rpc_on() {
-  return rocksdb_bypass_rpc_on;
-}
+bool is_bypass_rpc_on() { return rocksdb_bypass_rpc_on; }
 
 bool should_log_rejected_bypass_rpc() {
   return rocksdb_bypass_rpc_log_rejected;

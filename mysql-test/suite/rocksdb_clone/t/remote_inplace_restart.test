@@ -1,0 +1,42 @@
+--source include/have_debug.inc
+--source include/have_mysqld_safe.inc
+
+--disable_query_log
+call mtr.add_suppression("\\[Warning\\] .*MY-\\d+.* Clone removing all user data for provisioning: .*");
+--enable_query_log
+
+--let $HOST = 127.0.0.1
+--let $PORT = `select @@port`
+--let $USER = root
+--let remote_clone = 1
+--let clone_remote_replace = 1
+--let clone_inst_number = 2
+--let CLONE_DATADIR = not used but has to be set
+--let inst_monitor = 1
+
+--source ../../clone/include/clone_connection_begin.inc
+
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64));
+
+INSERT INTO t1 VALUES(10, 'clone row 1');
+INSERT INTO t1 VALUES(20, 'clone row 2');
+INSERT INTO t1 VALUES(30, 'clone row 3');
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--connection clone_conn_1
+SET GLOBAL DEBUG="+d,clone_restart_apply";
+--source ../../clone/include/clone_command.inc
+SET GLOBAL DEBUG="-d,clone_restart_apply";
+
+SELECT * FROM t1;
+
+DROP TABLE t1;
+
+--connection default
+
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;
+
+--source ../../clone/include/clone_connection_end.inc

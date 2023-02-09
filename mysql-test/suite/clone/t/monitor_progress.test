@@ -17,12 +17,21 @@ CALL sys.ps_setup_disable_thread(CONNECTION_ID());
 --let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
 --let $MYSQLD_DATADIR = `SELECT @@datadir`
 
+if (`SELECT @@default_storage_engine = "InnoDB"`) {
+  --let pfs_clone_se_stages="%stage/innodb/clone%"
+  --let pfs_clone_se_io_waits="wait/io/file/innodb/innodb_clone_file"
+}
+if (`SELECT @@default_storage_engine = "RocksDB"`) {
+--let pfs_clone_se_stages="%stage/rocksdb/clone%"
+--let pfs_clone_se_io_waits="wait/io/file/rocksdb/clone_%_file"
+}
+
 --replace_result $CLONE_PLUGIN CLONE_PLUGIN
 --eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
 
 # Enable all the required PFS instruments.
 --replace_regex /[0-9]/X/
-CALL sys.ps_setup_enable_instrument('%stage/innodb/clone%');
+eval CALL sys.ps_setup_enable_instrument($pfs_clone_se_stages);
 --replace_regex /[0-9]/X/
 CALL sys.ps_setup_enable_instrument('statement/clone/%');
 
@@ -31,11 +40,11 @@ CALL sys.ps_setup_enable_consumer('events_statements%');
 --replace_regex /[0-9]/X/
 CALL sys.ps_setup_enable_consumer('events_stages%');
 
-SELECT *
+eval SELECT *
 FROM performance_schema.setup_instruments
-WHERE name LIKE "%stage/innodb/clone%"
+WHERE name LIKE $pfs_clone_se_stages
 OR name LIKE "statement/clone/%"
-OR name LIKE "wait/io/file/innodb/innodb_clone_file"
+OR name LIKE $pfs_clone_se_io_waits
 ORDER BY NAME;
 
 SELECT *
@@ -60,10 +69,10 @@ FROM performance_schema.events_statements_history_long
 WHERE event_name LIKE "statement/clone/%"
 ORDER BY EVENT_NAME;
 
-SELECT EVENT_NAME, TIMER_START > 0,
+eval SELECT EVENT_NAME, TIMER_START > 0,
 TIMER_END > 0, WORK_COMPLETED = WORK_ESTIMATED
 FROM performance_schema.events_stages_history_long
-WHERE event_name LIKE "%stage/innodb/clone%"
+WHERE event_name LIKE $pfs_clone_se_stages
 ORDER BY EVENT_NAME;
 
 TRUNCATE TABLE performance_schema.events_stages_history;
@@ -136,10 +145,10 @@ SET DEBUG_SYNC = 'now SIGNAL go_redo';
 # Check PFS stage and statements event in their corresponding
 # history_long tables.
 
-SELECT EVENT_NAME, WORK_COMPLETED > 0, TIMER_START > 0,
+eval SELECT EVENT_NAME, WORK_COMPLETED > 0, TIMER_START > 0,
 TIMER_END > 0, WORK_COMPLETED = WORK_ESTIMATED
 FROM performance_schema.events_stages_history_long
-WHERE event_name LIKE "%stage/innodb/clone%"
+WHERE event_name LIKE $pfs_clone_se_stages
 ORDER BY EVENT_NAME;
 
 --replace_regex /FROM '.*'@'.*':[0-9]+ /FROM USER@HOST:PORT / /DATA DIRECTORY = '.*'/DATA DIRECTORY = '$CLONE_DATADIR'/

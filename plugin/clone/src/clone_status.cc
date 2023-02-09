@@ -188,6 +188,9 @@ void Table_pfs::init_state_names() {
       case STAGE_PAGE_COPY:
         stage_name = "PAGE COPY";
         break;
+      case STAGE_PRECOPY:
+        stage_name = "SST COPY";
+        break;
       case STAGE_REDO_COPY:
         stage_name = "REDO COPY";
         break;

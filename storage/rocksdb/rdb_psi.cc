@@ -53,7 +53,9 @@ my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key, rdb_signal_bg_psi_mutex_key,
     rdb_signal_mc_psi_mutex_key, rdb_collation_data_mutex_key,
     rdb_mem_cmp_space_mutex_key, key_mutex_tx_list, rdb_sysvars_psi_mutex_key,
     rdb_cfm_mutex_key, rdb_sst_commit_key, rdb_block_cache_resize_mutex_key,
-    rdb_bottom_pri_background_compactions_resize_mutex_key;
+    rdb_bottom_pri_background_compactions_resize_mutex_key,
+    clone_donor_file_metadata_mutex_key, key_rwlock_clone_client_files,
+    clone_main_task_remaining_mutex_key, clone_error_mutex_key;
 
 my_core::PSI_mutex_info all_rocksdb_mutexes[] = {
     {&rdb_psi_open_tbls_mutex_key, "open tables", PSI_FLAG_SINGLETON, 0,
@@ -81,21 +83,33 @@ my_core::PSI_mutex_info all_rocksdb_mutexes[] = {
     {&rdb_bottom_pri_background_compactions_resize_mutex_key,
      "resizing bottom pri compaction threads", PSI_FLAG_SINGLETON, 0,
      PSI_DOCUMENT_ME},
+    {&clone_donor_file_metadata_mutex_key, "clone donor file metadata", 0, 0,
+     PSI_DOCUMENT_ME},
+    {&clone_main_task_remaining_mutex_key, "clone main task remaining", 0, 0,
+     PSI_DOCUMENT_ME},
+    {&clone_error_mutex_key, "clone session error", 0, 0, PSI_DOCUMENT_ME},
 };
 
 my_core::PSI_rwlock_key key_rwlock_collation_exception_list,
-    key_rwlock_read_free_rpl_tables;
+    key_rwlock_read_free_rpl_tables, key_rwlock_clone_task_id_set,
+    key_rwlock_clone_active_clones;
 
 my_core::PSI_rwlock_info all_rocksdb_rwlocks[] = {
     {&key_rwlock_collation_exception_list, "collation_exception_list",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
     {&key_rwlock_read_free_rpl_tables, "read_free_rpl_tables",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+    {&key_rwlock_clone_task_id_set, "clone_task_id_set", 0, 0, PSI_DOCUMENT_ME},
+    {&key_rwlock_clone_active_clones, "clone_active_clones", PSI_FLAG_SINGLETON,
+     0, PSI_DOCUMENT_ME},
+    {&key_rwlock_clone_client_files, "clone_client_files", PSI_FLAG_SINGLETON,
+     0, PSI_DOCUMENT_ME},
 };
 
 my_core::PSI_cond_key rdb_signal_bg_psi_cond_key,
     rdb_signal_drop_idx_psi_cond_key, rdb_signal_is_psi_cond_key,
-    rdb_signal_mc_psi_cond_key;
+    rdb_signal_mc_psi_cond_key, rdb_signal_clone_main_task_remaining_key,
+    rdb_signal_clone_reconnection_key;
 
 my_core::PSI_cond_info all_rocksdb_conds[] = {
     {&rdb_signal_bg_psi_cond_key, "cond signal background", PSI_FLAG_SINGLETON,
@@ -106,6 +120,17 @@ my_core::PSI_cond_info all_rocksdb_conds[] = {
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
     {&rdb_signal_mc_psi_cond_key, "cond signal manual compaction",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+    {&rdb_signal_clone_main_task_remaining_key,
+     "cond signal clone main task remaining", 0, 0, PSI_DOCUMENT_ME},
+    {&rdb_signal_clone_reconnection_key, "cond signal clone reconnected", 0, 0,
+     PSI_DOCUMENT_ME},
+};
+
+my_core::PSI_file_key rdb_clone_donor_file_key, rdb_clone_client_file_key;
+
+my_core::PSI_file_info all_rocksdb_files[] = {
+    {&rdb_clone_donor_file_key, "clone_donor_file", 0, 0, PSI_DOCUMENT_ME},
+    {&rdb_clone_client_file_key, "clone_client_file", 0, 0, PSI_DOCUMENT_ME},
 };
 
 void init_rocksdb_psi_keys() {
@@ -128,6 +153,9 @@ void init_rocksdb_psi_keys() {
 
   count = array_elements(all_rocksdb_threads);
   mysql_thread_register(category, all_rocksdb_threads, count);
+
+  count = array_elements(all_rocksdb_files);
+  mysql_file_register(category, all_rocksdb_files, count);
 }
 #else   // HAVE_PSI_INTERFACE
 void init_rocksdb_psi_keys() {}

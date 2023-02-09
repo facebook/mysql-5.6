@@ -1,0 +1,221 @@
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 int, col3 varchar(64), col4 BLOB);
+CREATE TABLE t2(col1 INT PRIMARY KEY, col2 int, col3 varchar(64), col4 BLOB)
+PARTITION BY KEY(col1) PARTITIONS 5;
+CREATE PROCEDURE execute_dml(
+p_dml_type	INT,
+p_key_min	INT,
+p_key_range	INT,
+p_loop_count	INT,
+p_frequency	INT,
+p_is_rand	INT)
+BEGIN
+DECLARE v_idx		INT DEFAULT 0;
+DECLARE v_commit	INT DEFAULT 0;
+DECLARE v_key		INT DEFAULT 0;
+/* Loop and INSERT data at random position */
+WHILE(v_idx < p_loop_count) DO
+/* Generate key between 1 to p_loop_count */
+IF p_is_rand = 1 THEN
+SET v_key = p_key_min + FLOOR(RAND() * p_key_range);
+ELSE
+SET v_key = p_key_min + (v_idx  % p_key_range);
+END IF;
+CASE p_dml_type
+WHEN 0 THEN
+SET @clol3_text = CONCAT('Clone Test Row - ', v_key);
+INSERT INTO t1 (col1, col2, col3, col4) VALUES (
+v_key, v_key * 10,
+@clol3_text, REPEAT('Large Column Data ', 2048))
+ON DUPLICATE KEY UPDATE col2 = col2 + 1;
+INSERT INTO t2 (col1, col2, col3, col4) VALUES (
+v_key, v_key * 10,
+@clol3_text, REPEAT('Large Column Data ', 2048))
+ON DUPLICATE KEY UPDATE col2 = col2 + 1;
+WHEN 1 THEN
+UPDATE t1 SET col2 = v_idx + 1 WHERE col1 = v_key;
+UPDATE t2 SET col2 = v_idx + 1 WHERE col1 = v_key;
+WHEN 2 THEN
+DELETE FROM t1 WHERE col1 = v_key;
+DELETE FROM t2 WHERE col1 = v_key;
+ELSE
+DELETE FROM t1;
+DELETE FROM t2;
+END CASE;
+SET v_idx = v_idx + 1;
+/* Commit or rollback work at specified frequency. */
+IF v_idx % p_frequency = 0 THEN
+SET v_commit = FLOOR(RAND() * 2);
+IF v_commit = 0 AND p_is_rand = 1 THEN
+ROLLBACK;
+START TRANSACTION;
+ELSE
+COMMIT;
+START TRANSACTION;
+END IF;
+END IF;
+END WHILE;
+COMMIT;
+END|
+# Test 1: checkpoint never rolls because of unlimited age
+SET GLOBAL rocksdb_clone_checkpoint_max_age = 0;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = 10;
+# In connection con1 - Running Insert Random [100 - 200 Key range]
+call execute_dml(0, 100, 100, 100, 20, 1);
+# In connection clone_conn_1 - Cloning database
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_max_data_bandwidth = 5;
+SET GLOBAL clone_max_network_bandwidth = 4;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# In connection con1 - Waiting
+# In connection default
+# Restart cloned database
+# restart: --datadir=CLONE_DATADIR
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `col1` int NOT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` varchar(64) DEFAULT NULL,
+  `col4` blob,
+  PRIMARY KEY (`col1`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+# restart:
+TRUNCATE TABLE t1;
+# Test 2: checkpoint rolls freely because of unlimited count
+SET GLOBAL rocksdb_clone_checkpoint_max_age = 1;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = 0;
+# In connection con1 - Running Insert Random [100 - 200 Key range]
+call execute_dml(0, 100, 100, 100, 20, 1);
+# In connection clone_conn_1 - Cloning database
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_max_data_bandwidth = 5;
+SET GLOBAL clone_max_network_bandwidth = 4;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# In connection con1 - Waiting
+# In connection default
+# Restart cloned database
+# restart: --datadir=CLONE_DATADIR
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `col1` int NOT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` varchar(64) DEFAULT NULL,
+  `col4` blob,
+  PRIMARY KEY (`col1`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+# restart:
+TRUNCATE TABLE t1;
+# Test 3: checkpoint never rolls because of max_count == 1
+SET GLOBAL rocksdb_clone_checkpoint_max_age = 1;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = 1;
+# In connection con1 - Running Insert Random [100 - 200 Key range]
+call execute_dml(0, 100, 100, 100, 20, 1);
+# In connection clone_conn_1 - Cloning database
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_max_data_bandwidth = 5;
+SET GLOBAL clone_max_network_bandwidth = 4;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# In connection con1 - Waiting
+# In connection default
+# Restart cloned database
+# restart: --datadir=CLONE_DATADIR
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `col1` int NOT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` varchar(64) DEFAULT NULL,
+  `col4` blob,
+  PRIMARY KEY (`col1`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+# restart:
+TRUNCATE TABLE t1;
+# Test 4: checkpoint may roll once because of max_count == 2
+SET GLOBAL rocksdb_clone_checkpoint_max_age = 1;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = 2;
+# In connection con1 - Running Insert Random [100 - 200 Key range]
+call execute_dml(0, 100, 100, 100, 20, 1);
+# In connection clone_conn_1 - Cloning database
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_max_data_bandwidth = 5;
+SET GLOBAL clone_max_network_bandwidth = 4;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# In connection con1 - Waiting
+# In connection default
+# Restart cloned database
+# restart: --datadir=CLONE_DATADIR
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `col1` int NOT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` varchar(64) DEFAULT NULL,
+  `col4` blob,
+  PRIMARY KEY (`col1`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+# restart:
+TRUNCATE TABLE t1;
+DROP TABLE t1;
+DROP TABLE t2;
+DROP PROCEDURE execute_dml;
+UNINSTALL PLUGIN clone;
+SET GLOBAL rocksdb_clone_checkpoint_max_age = saved_max_age;
+SET GLOBAL rocksdb_clone_checkpoint_max_count = saved_max_count;

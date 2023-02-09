@@ -246,6 +246,7 @@ is attached to current group.
 @param[out]     start_lsn       start lsn for client
 @param[out]     header          redo log header
 @param[in]      is_durable      if client needs durable archiving
+@param[in]	stop_lsn	archiving target stop LSN
 @return error code */
 int Arch_Log_Sys::start(Arch_Group *&group, lsn_t &start_lsn, byte *header,
                         bool is_durable) {
@@ -254,6 +255,8 @@ int Arch_Log_Sys::start(Arch_Group *&group, lsn_t &start_lsn, byte *header,
   memset(header, 0, LOG_FILE_HDR_SIZE);
 
   log_request_checkpoint(*log_sys, true);
+
+  ut_ad(get_stop_lsn_master_thread() == LSN_MAX);
 
   arch_mutex_enter();
 
@@ -441,20 +444,73 @@ int Arch_Log_Sys::stop(Arch_Group *group, lsn_t &stop_lsn, byte *log_blk,
   int err = 0;
   blk_len = 0;
   stop_lsn = m_archived_lsn.load();
+  auto se_sync_stop_lsn = get_stop_lsn_master_thread();
+  ut_ad(se_sync_stop_lsn != LSN_MAX || log_blk == nullptr);
+  ut_ad(stop_lsn <= se_sync_stop_lsn);
 
   if (log_blk != nullptr) {
-    /* Get the current LSN and trailer block. */
-    log_buffer_get_last_block(*log_sys, stop_lsn, log_blk, blk_len);
-
-    DBUG_EXECUTE_IF("clone_arch_log_stop_file_end",
-                    group->adjust_end_lsn(stop_lsn, blk_len););
+    DBUG_EXECUTE_IF("clone_arch_log_stop_file_end", {
+      // This desyncs storage engines - use in InnoDB-only tests
+      group->adjust_end_lsn(stop_lsn, blk_len);
+      set_stop_lsn(stop_lsn);
+      se_sync_stop_lsn = stop_lsn;
+    });
 
     /* Will throw error, if shutdown. We still continue
     with detach but return the error. */
-    err = wait_archive_complete(stop_lsn);
+    err = wait_archive_complete(se_sync_stop_lsn);
+    if (!err) {
+      stop_lsn = se_sync_stop_lsn;
+      const auto last_log_seg_start_lsn =
+          ut_uint64_align_down(stop_lsn, OS_FILE_LOG_BLOCK_SIZE);
+      if (last_log_seg_start_lsn < stop_lsn) {
+        ut_ad(stop_lsn <= last_log_seg_start_lsn + OS_FILE_LOG_BLOCK_SIZE);
+
+        // In the older InnoDB-only clone implementation log archiving could
+        // only stop at the end of the log. If that fell in a middle of a redo
+        // log block, that block was present in the in-memory log buffer.
+        //
+        // With clone synchronized across storage engines, the log archiving
+        // will stop at an LSN not greater than the redo log end LSN, which may
+        // still be in a middle of a block. Depending on how much this LSN is
+        // behind the current LSN, the needed block might be on disk, in memory,
+        // or be in a middle of move from memory to disk. Handle all those cases
+        // uniformly by forcing the write of this block, and reading it from the
+        // disk like any older block.
+        const auto needs_log_write =
+            log_sys->write_lsn.load(std::memory_order_acquire) < stop_lsn;
+        if (needs_log_write) log_write_up_to(*log_sys, stop_lsn, false);
+
+        const auto last_log_seg_end_lsn =
+            last_log_seg_start_lsn + OS_FILE_LOG_BLOCK_SIZE;
+        byte last_log_seg_buf[OS_FILE_LOG_BLOCK_SIZE];
+        recv_read_log_seg(*log_sys, &last_log_seg_buf[0],
+                          last_log_seg_start_lsn, last_log_seg_end_lsn, true);
+
+        // Roughly mimicking log_buffer_get_last_block, but without setting the
+        // fields that should be already set as we read the actual valid block
+        // from disk.
+        const auto data_len = stop_lsn % OS_FILE_LOG_BLOCK_SIZE;
+        ut_ad(data_len >= LOG_BLOCK_HDR_SIZE);
+        std::memcpy(log_blk, last_log_seg_buf, data_len);
+        // Our redo block copy must not include any records past the log
+        // archiving stop LSN.
+        std::memset(log_blk + data_len, 0x00,
+                    OS_FILE_LOG_BLOCK_SIZE - data_len);
+        log_block_set_data_len(log_blk, data_len);
+        ut_ad(log_block_get_first_rec_group(log_blk) <= data_len);
+        log_block_store_checksum(log_blk);
+        blk_len = OS_FILE_LOG_BLOCK_SIZE;
+      }
+    }
   }
 
   arch_mutex_enter();
+
+  // Relaxed store will be ordered by the arch_mutex release. This is fine as
+  // all the reads from any non-master threads later will be after arch_mutex
+  // acquisition.
+  m_stop_lsn.store(LSN_MAX, std::memory_order_relaxed);
 
   if (m_state == ARCH_STATE_READ_ONLY) {
     arch_mutex_exit();
@@ -545,6 +601,7 @@ Arch_State Arch_Log_Sys::check_set_state(bool is_abort, lsn_t *archived_lsn,
       if (*archived_lsn != LSN_MAX) {
         /* Update system archived LSN from input */
         ut_ad(*archived_lsn >= m_archived_lsn.load());
+        ut_ad(*archived_lsn <= get_stop_lsn_any_thread());
         m_archived_lsn.store(*archived_lsn);
       } else {
         /* If input is not initialized,
@@ -555,9 +612,20 @@ Arch_State Arch_Log_Sys::check_set_state(bool is_abort, lsn_t *archived_lsn,
       lsn_t lsn_diff;
 
       /* Check redo log data ready to archive. */
-      ut_ad(log_sys->write_lsn.load() >= m_archived_lsn.load());
+      {
+#ifdef UNIV_DEBUG
+        const auto local_lsn = log_get_lsn(*log_sys);
+#endif
+        const auto local_write_lsn = log_sys->write_lsn.load();
+        const auto local_archived_lsn = m_archived_lsn.load();
+        ut_ad(local_write_lsn >= local_archived_lsn);
+        const auto stop_lsn = get_stop_lsn_any_thread();
+        ut_ad(stop_lsn >= local_archived_lsn);
+        ut_ad(stop_lsn <= local_lsn || stop_lsn == LSN_MAX ||
+              DBUG_EVALUATE_IF("clone_arch_log_stop_file_end", true, false));
 
-      lsn_diff = log_sys->write_lsn.load() - m_archived_lsn.load();
+        lsn_diff = std::min(stop_lsn, local_write_lsn) - local_archived_lsn;
+      }
 
       lsn_diff = ut_uint64_align_down(lsn_diff, OS_FILE_LOG_BLOCK_SIZE);
 
@@ -761,6 +829,8 @@ We need to wait till current log sys LSN during archive stop.
 @param[in]      target_lsn      target archive LSN to wait for
 @return error code */
 int Arch_Log_Sys::wait_archive_complete(lsn_t target_lsn) {
+  ut_ad(target_lsn != LSN_MAX);
+
   target_lsn = ut_uint64_align_down(target_lsn, OS_FILE_LOG_BLOCK_SIZE);
 
   /* Check and wait for archiver thread if needed. */
@@ -869,8 +939,19 @@ bool Arch_Log_Sys::archive(bool init, Arch_File_Ctx *curr_ctx, lsn_t *arch_lsn,
 
   if (curr_state == ARCH_STATE_ACTIVE) {
     /* Adjust archiver length to no go beyond file end. */
-    DBUG_EXECUTE_IF("clone_arch_log_stop_file_end",
-                    m_current_group->adjust_copy_length(*arch_lsn, arch_len););
+    DBUG_EXECUTE_IF(
+        "clone_arch_log_stop_file_end",
+        // This desyncs storage engines - use in InnoDB-only tests
+        if (get_stop_lsn_any_thread() == LSN_MAX) {
+          // Get the end LSN of the current log file and set that as
+          // the stop LSN.
+          lsn_t file_stop_lsn;
+          uint32_t blk_len;
+          m_current_group->adjust_end_lsn(file_stop_lsn, blk_len);
+          set_stop_lsn(file_stop_lsn);
+        }
+        // This desyncs storage engines - use in InnoDB-only tests
+        m_current_group->adjust_copy_length(*arch_lsn, arch_len););
 
     /* Simulate archive error. */
     DBUG_EXECUTE_IF("clone_redo_no_archive", arch_len = 0;);

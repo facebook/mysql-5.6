@@ -252,6 +252,11 @@ int Local_Callback::apply_ack() {
   return (error);
 }
 
+void Local_Callback::add_to_data_size_estimate(std::uint64_t estimated_delta) {
+  auto *const client = get_clone_client();
+  client->add_to_data_size_estimate(estimated_delta);
+}
+
 int Local_Callback::apply_data() {
   uint loc_len = 0;
 
@@ -345,6 +350,8 @@ int Local_Callback::apply_cbk(Ha_clone_file to_file, bool apply_file,
     uchar *buf_ptr;
     uint buf_len;
 
+    auto from_file = ext_link->get_file();
+
     if (is_os_buffer_cache() && is_zero_copy() &&
         clone_os_supports_zero_copy()) {
       buf_ptr = nullptr;
@@ -352,14 +359,15 @@ int Local_Callback::apply_cbk(Ha_clone_file to_file, bool apply_file,
     } else {
       /* For direct IO use client buffer. */
       buf_len = client->limit_buffer(clone_buffer_size);
-      buf_ptr = client->get_aligned_buffer(buf_len);
+      buf_ptr = client->get_aligned_buffer(
+          buf_len,
+          apply_file && (from_file->m_file_desc.o_direct_uneven_file_size ||
+                         to_file.o_direct_uneven_file_size));
 
       if (buf_ptr == nullptr) {
         return (ER_OUTOFMEMORY);
       }
     }
-
-    auto from_file = ext_link->get_file();
 
     if (apply_file) {
       error = clone_os_copy_file_to_file(from_file->m_file_desc, to_file,
@@ -367,7 +375,8 @@ int Local_Callback::apply_cbk(Ha_clone_file to_file, bool apply_file,
                                          get_source_name(), get_dest_name());
     } else {
       to_len = from_file->m_length;
-      to_buffer = client->get_aligned_buffer(to_len);
+      to_buffer =
+          client->get_aligned_buffer(to_len, false /* not for O_DIRECT */);
       if (to_buffer == nullptr) {
         return (ER_OUTOFMEMORY); /* purecov: inspected */
       }

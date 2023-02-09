@@ -53,6 +53,7 @@ int Clone_Snapshot::get_file_from_desc(const Clone_File_Meta *file_meta,
 
   ut_ad(m_snapshot_state == CLONE_SNAPSHOT_FILE_COPY ||
         m_snapshot_state == CLONE_SNAPSHOT_PAGE_COPY ||
+        m_snapshot_state == CLONE_SNAPSHOT_SST_COPY ||
         m_snapshot_state == CLONE_SNAPSHOT_REDO_COPY);
 
   desc_exists = false;
@@ -506,7 +507,8 @@ bool Clone_Snapshot::add_file_from_desc(Clone_file_ctx *&file_ctx,
   auto file_meta = file_ctx->get_file_meta();
 
   if (m_snapshot_state == CLONE_SNAPSHOT_FILE_COPY ||
-      m_snapshot_state == CLONE_SNAPSHOT_PAGE_COPY) {
+      m_snapshot_state == CLONE_SNAPSHOT_PAGE_COPY ||
+      m_snapshot_state == CLONE_SNAPSHOT_SST_COPY) {
     if (ddl_create) {
       ut_a(file_meta->m_file_index == num_data_files());
       /* Add data file at the end and extend length. */
@@ -636,7 +638,7 @@ int Clone_Handle::apply_state_metadata(Clone_Task *task,
     err = fix_all_renamed(task);
 
     if (err == 0) {
-      err = move_to_next_state(task, nullptr, &state_desc);
+      err = move_to_next_state(task, callback, &state_desc);
     }
 
 #ifdef UNIV_DEBUG
@@ -797,7 +799,8 @@ int Clone_Handle::apply_ddl(const Clone_File_Meta *new_meta,
                             Clone_file_ctx *file_ctx) {
   auto snapshot = m_clone_task_manager.get_snapshot();
   ut_ad(snapshot->get_state() == CLONE_SNAPSHOT_FILE_COPY ||
-        snapshot->get_state() == CLONE_SNAPSHOT_PAGE_COPY);
+        snapshot->get_state() == CLONE_SNAPSHOT_PAGE_COPY ||
+        snapshot->get_state() == CLONE_SNAPSHOT_SST_COPY);
 
   std::string old_file;
   file_ctx->get_file_name(old_file);
@@ -937,7 +940,8 @@ int Clone_Handle::fix_all_renamed(const Clone_Task *task) {
   auto current_state = m_clone_task_manager.get_state();
 
   bool fix_needed = current_state == CLONE_SNAPSHOT_FILE_COPY ||
-                    current_state == CLONE_SNAPSHOT_PAGE_COPY;
+                    current_state == CLONE_SNAPSHOT_PAGE_COPY ||
+                    current_state == CLONE_SNAPSHOT_SST_COPY;
 
   if (!task->m_is_master || !fix_needed) {
     return 0;
@@ -946,7 +950,8 @@ int Clone_Handle::fix_all_renamed(const Clone_Task *task) {
   auto snapshot = m_clone_task_manager.get_snapshot();
 
   ut_ad(snapshot->get_state() == CLONE_SNAPSHOT_FILE_COPY ||
-        snapshot->get_state() == CLONE_SNAPSHOT_PAGE_COPY);
+        snapshot->get_state() == CLONE_SNAPSHOT_PAGE_COPY ||
+        snapshot->get_state() == CLONE_SNAPSHOT_SST_COPY);
 
   auto fix_func = [&](Clone_file_ctx *file_ctx) {
     /* Need to handle files with DDL extension. */
@@ -1185,8 +1190,9 @@ int Clone_Handle::apply_file_metadata(Clone_Task *task,
 
   bool is_file_copy = snapshot->get_state() == CLONE_SNAPSHOT_FILE_COPY;
   bool is_page_copy = snapshot->get_state() == CLONE_SNAPSHOT_PAGE_COPY;
+  bool is_sst_copy = snapshot->get_state() == CLONE_SNAPSHOT_SST_COPY;
 
-  if (is_file_copy || is_page_copy) {
+  if (is_file_copy || is_page_copy || is_sst_copy) {
     ut_ad(is_file_copy || ddl_desc);
 
     auto file_type = OS_CLONE_DATA_FILE;
@@ -1339,6 +1345,7 @@ int Clone_Handle::modify_and_write(const Clone_Task *task, uint64_t offset,
   if (file_meta->can_encrypt()) {
     bool success = true;
 
+    ut_ad(snapshot->get_state() != CLONE_SNAPSHOT_SST_COPY);
     bool is_page_copy = (snapshot->get_state() == CLONE_SNAPSHOT_PAGE_COPY);
     bool key_page = (is_page_copy && offset == 0);
 
@@ -1418,6 +1425,7 @@ int Clone_Handle::receive_data(Clone_Task *task, uint64_t offset,
 
   bool is_page_copy = (snapshot->get_state() == CLONE_SNAPSHOT_PAGE_COPY);
   bool is_log_file = (snapshot->get_state() == CLONE_SNAPSHOT_REDO_COPY);
+  ut_ad(snapshot->get_state() != CLONE_SNAPSHOT_SST_COPY);
 
   /* During page and redo copy, we encrypt the key in header page. */
   bool key_page = (is_page_copy && offset == 0);
@@ -1682,6 +1690,10 @@ int Clone_Snapshot::init_apply_state(Clone_Desc_State *state_desc) {
 
     case CLONE_SNAPSHOT_PAGE_COPY:
       ib::info(ER_IB_CLONE_OPERATION) << "Clone Apply State PAGE COPY: ";
+      break;
+
+    case CLONE_SNAPSHOT_SST_COPY:
+      ib::info(ER_IB_CLONE_OPERATION) << "Clone Apply State SST COPY: ";
       break;
 
     case CLONE_SNAPSHOT_REDO_COPY:

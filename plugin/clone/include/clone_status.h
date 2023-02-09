@@ -137,11 +137,12 @@ class Table_pfs {
     STAGE_CLEANUP = 1,
     STAGE_FILE_COPY = 2,
     STAGE_PAGE_COPY = 3,
-    STAGE_REDO_COPY = 4,
-    STAGE_FILE_SYNC = 5,
-    STAGE_RESTART = 6,
-    STAGE_RECOVERY = 7,
-    NUM_STAGES = 8
+    STAGE_PRECOPY = 4,
+    STAGE_REDO_COPY = 5,
+    STAGE_FILE_SYNC = 6,
+    STAGE_RESTART = 7,
+    STAGE_RECOVERY = 8,
+    NUM_STAGES = 9
   };
 
   /** All clone Stages. */
@@ -417,6 +418,13 @@ class Progress_pfs : public Table_pfs {
       m_data_speed = 0;
       m_network_speed = 0;
       write(data_dir);
+    }
+
+    /** Add to the data size estimate.
+    @param[in]  estimate_delta  how many bytes to add to the estimate */
+    void add_to_data_size_estimate(uint64_t estimate) {
+      assert(m_current_stage != STAGE_NONE);
+      m_estimate[m_current_stage] += estimate;
     }
 
     /** Set PFS table data while ending a Clone stage.

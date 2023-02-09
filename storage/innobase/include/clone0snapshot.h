@@ -442,7 +442,7 @@ class Clone_Snapshot {
   @return error code */
   int change_state(Clone_Desc_State *state_desc, Snapshot_State new_state,
                    byte *temp_buffer, uint temp_buffer_len,
-                   Clone_Alert_Func cbk);
+                   Clone_Alert_Func cbk, Ha_clone_cbk *clone_cbk);
 
   /** Add file metadata entry at destination
   @param[in]    file_meta       file metadata from donor
@@ -573,6 +573,12 @@ class Clone_Snapshot {
   @param[in]            chunk_num       current chunk
   @param[in,out]        block_num       current, next block */
   void skip_deleted_blocks(uint32_t chunk_num, uint32_t &block_num);
+
+  /** Set clone stop target LSN.
+  @param[in]	stop_lsn	archiving target stop LSN */
+  void set_stop_lsn(lsn_t stop_lsn) noexcept {
+    m_redo_ctx.set_stop_lsn(stop_lsn);
+  }
 
  private:
   /** Allow DDL file operation after 64 pages. */
@@ -775,11 +781,14 @@ class Clone_Snapshot {
   int init_page_copy(Snapshot_State new_state, byte *page_buffer,
                      uint page_buffer_len);
 
+  [[nodiscard]] int init_sst_copy(Snapshot_State new_state);
+
   /** Initialize snapshot state for redo copy
   @param[in]    new_state       state to move for apply
   @param[in]    cbk             alert callback for long wait
   @return error code */
-  int init_redo_copy(Snapshot_State new_state, Clone_Alert_Func cbk);
+  int init_redo_copy(Snapshot_State new_state, Clone_Alert_Func cbk,
+                     Ha_clone_cbk *clone_cbk);
 
   /** Initialize state while applying cloned data
   @param[in]    state_desc      snapshot state descriptor

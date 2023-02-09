@@ -91,6 +91,10 @@ SELECT col1, col2, col3, SUBSTRING(col4, 1000, 32) FROM t2 ORDER BY col1 DESC LI
 --source include/restart_mysqld.inc
 --force-rmdir $CLONE_DATADIR
 
+# These debug-only tests artificially adjust InnoDB clone LSN, de-syncing it
+# from other transactional SEs. Thus run those tests only for InnoDB.
+if (`SELECT @@default_storage_engine = "InnoDB"`) {
+
 ## Test-2A: Clone with redo log ending at file boundary
 SET GLOBAL innodb_redo_log_capacity = 100*1024*1024;
 SET GLOBAL DEBUG ="+d,clone_arch_log_stop_file_end";
@@ -166,6 +170,13 @@ SET GLOBAL DEBUG ="-d,clone_arch_log_extra_bytes";
 
 # Removed cloned data
 --force-rmdir $CLONE_DATADIR
+
+} # `SELECT @@default_storage_engine = "InnoDB"`
+
+if (`SELECT @@default_storage_engine != "InnoDB"`) {
+  connect (con1,localhost,root,,);
+  connection default;
+}
 
 ## Test-3A: Shutdown while Clone in progress [FILE_COPY]
 SET DEBUG_SYNC = 'RESET';

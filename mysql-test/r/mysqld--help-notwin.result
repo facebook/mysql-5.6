@@ -1942,6 +1942,14 @@ The following options may be given as the first argument:
  RocksDB
  --rocksdb-checksums-pct=# 
  How many percentages of rows to be checksummed
+ --rocksdb-clone-checkpoint-max-age=# 
+ Maximum checkpoint age in seconds during clone
+ operations. The checkpoint will be rolled if it becomes
+ older, unless rocksdb_clone_checkpoint_max_count would be
+ violated. If 0, the age is unlimited.
+ --rocksdb-clone-checkpoint-max-count=# 
+ Maximum number of rolled checkpoints during a single
+ clone operation. If 0, the number is unlimited.
  --rocksdb-collect-sst-properties 
  Enables collecting SST file properties on each flush
  (Defaults to on; use --skip-rocksdb-collect-sst-properties to disable.)
@@ -3593,6 +3601,8 @@ rocksdb-cf-options ON
 rocksdb-cfstats ON
 rocksdb-charge-memory FALSE
 rocksdb-checksums-pct 100
+rocksdb-clone-checkpoint-max-age 600
+rocksdb-clone-checkpoint-max-count 90
 rocksdb-collect-sst-properties TRUE
 rocksdb-column-default-value-as-expression TRUE
 rocksdb-commit-in-the-middle FALSE

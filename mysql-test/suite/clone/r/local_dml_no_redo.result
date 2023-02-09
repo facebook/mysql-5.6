@@ -182,6 +182,7 @@ ID	STAGE	STATE
 1	DROP DATA	Failed
 1	FILE COPY	Not Started
 1	PAGE COPY	Not Started
+1	SST COPY	Not Started
 1	REDO COPY	Not Started
 1	FILE SYNC	Not Started
 1	RESTART	Not Started
@@ -198,6 +199,7 @@ ID	STAGE	STATE
 1	DROP DATA	Completed
 1	FILE COPY	Completed
 1	PAGE COPY	Completed
+1	SST COPY	Completed
 1	REDO COPY	Completed
 1	FILE SYNC	Completed
 1	RESTART	Not Started
@@ -323,6 +325,7 @@ ID	STAGE	STATE
 1	DROP DATA	Completed
 1	FILE COPY	Completed
 1	PAGE COPY	Completed
+1	SST COPY	Completed
 1	REDO COPY	Completed
 1	FILE SYNC	Completed
 1	RESTART	Not Started

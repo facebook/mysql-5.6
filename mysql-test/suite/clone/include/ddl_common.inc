@@ -18,6 +18,7 @@ RESET MASTER;
 
 --let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
 --let $MYSQLD_DATADIR= `select @@datadir;`
+--let $DEFAULT_SE = `SELECT @@default_storage_engine`
 
 if ($remote_clone) {
   SET GLOBAL DEBUG = '+d,remote_release_clone_file_pin';
@@ -91,10 +92,12 @@ SET DEBUG_SYNC = 'now WAIT_FOR start_ddl_file';
 
 --let $table_num = 1
 
-if($remote_clone) {
-  --echo # For remote clone, let the donor progress concurrently
-  --echo # otherwise file pins may not be released causing deadlock
-  SET DEBUG_SYNC = 'clone_notify_ddl SIGNAL resume_file';
+if ($DEFAULT_SE == "InnoDB") {
+  if($remote_clone) {
+    --echo # For remote clone, let the donor progress concurrently
+    --echo # otherwise file pins may not be released causing deadlock
+    SET DEBUG_SYNC = 'clone_notify_ddl SIGNAL resume_file';
+  }
 }
 
 if (!$skip_ddl) {
@@ -155,6 +158,7 @@ if ($ddl_page_copy) {
 # clone to proceed concurrently.
 
 if($in_place_ddl) {
+  # Only InnoDB supports in-place DDL
   SET DEBUG_SYNC = 'clone_notify_ddl SIGNAL resume_page';
 }
 

@@ -29,6 +29,7 @@
 /* MySQL header files */
 #include "m_ctype.h"
 #include "my_dir.h"
+#include "mysys_err.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
@@ -348,6 +349,109 @@ void rdb_persist_corruption_marker() {
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "RocksDB: Error (%s) closing the file %s",
                     io_s.ToString().c_str(), fileName.c_str());
+  }
+}
+
+bool for_each_in_dir(const std::string &path, int flags,
+                     std::function<bool(const fileinfo &)> fn) {
+  auto *const dir_handle =
+      my_dir(path.c_str(), MYF(flags | MY_WME | MY_DONT_SORT));
+
+  if (dir_handle == nullptr) {
+    if ((flags & MY_FAE) != 0) abort();
+    return false;
+  }
+
+  for (uint i = 0; i < dir_handle->number_off_files; ++i) {
+    const auto &f_info = dir_handle->dir_entry[i];
+    if (strcmp(f_info.name, ".") == 0 || strcmp(f_info.name, "..") == 0)
+      continue;
+    if (!fn(f_info)) {
+      my_dirend(dir_handle);
+      return false;
+    }
+  }
+
+  my_dirend(dir_handle);
+  return true;
+}
+
+void rdb_mkdir_or_abort(const std::string &dir, mode_t mode) {
+  const auto err = my_mkdir(dir.c_str(), mode, MYF(MY_WME | MY_FAE));
+  if (err != 0) abort();
+}
+
+bool rdb_rmdir(const std::string &dir, bool fatal_error) {
+  const auto ret = rmdir(dir.c_str());
+  if (ret == -1) {
+    set_my_errno(errno);
+    const auto err = my_errno();
+    char errbuf[MYSYS_STRERROR_SIZE];
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Failed to remove dir %s, errno = %d (%s)", dir.c_str(),
+                    err, my_strerror(errbuf, sizeof(errbuf), err));
+    if (fatal_error) abort();
+  }
+  assert(ret == 0 || !fatal_error);
+  return ret == 0;
+}
+
+void rdb_file_delete_or_abort(const std::string &path) {
+  const auto err = my_delete(path.c_str(), MYF(MY_WME | MY_FAE));
+  if (err != 0) abort();
+}
+
+void rdb_file_copy_and_delete_or_abort(const std::string &source,
+                                       const std::string &dest) {
+  const auto err = my_copy(
+      source.c_str(), dest.c_str(),
+      MYF(MY_WME | MY_FAE | MY_HOLD_ORIGINAL_MODES | MY_DONT_OVERWRITE_FILE));
+  if (err != 0) {
+    rdb_fatal_error("Failed to copy %s to %s", source.c_str(), dest.c_str());
+  }
+  rdb_file_delete_or_abort(source);
+}
+
+void rdb_path_rename_or_abort(const std::string &source,
+                              const std::string &dest) {
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "Renaming/moving %s to %s", source.c_str(), dest.c_str());
+  int err = 0;
+  if (!DBUG_EVALUATE_IF("simulate_myrocks_rename_exdev", true, false)) {
+    err = my_rename(source.c_str(), dest.c_str(), MYF(0));
+  } else {
+    err = -1;
+    set_my_errno(EXDEV);
+  }
+
+  if (err == -1) {
+    const auto errn = my_errno();
+    if (errn != EXDEV) {
+      MyOsError(errn, EE_LINK, MYF(0), source.c_str(), dest.c_str());
+      abort();
+    }
+
+    LogPluginErrMsg(
+        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+        "Source and destination paths are on different filesystems, reverting "
+        "to copy and delete");
+
+    struct stat stat_info;
+    if (my_stat(source.c_str(), &stat_info, MYF(MY_WME | MY_FAE)) == nullptr)
+      abort();
+    if (S_ISDIR(stat_info.st_mode)) {
+      rdb_mkdir_or_abort(dest, stat_info.st_mode);
+      myrocks::for_each_in_dir(
+          source, MY_FAE, [&source, &dest](const fileinfo &f_info) {
+            const auto old_file = rdb_concat_paths(source, f_info.name);
+            const auto new_file = rdb_concat_paths(dest, f_info.name);
+            rdb_file_copy_and_delete_or_abort(old_file, new_file);
+            return true;
+          });
+      rdb_rmdir(source, true);
+    } else {
+      rdb_file_copy_and_delete_or_abort(source, dest);
+    }
   }
 }
 

@@ -493,8 +493,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   bool should_store_row_debug_checksums() const;
 
   int rename_table(const char *const from, const char *const to,
-                   const dd::Table *from_table_def,
-                   dd::Table *to_table_def) override
+                   const dd::Table *from_table_def [[maybe_unused]],
+                   dd::Table *to_table_def [[maybe_unused]]) override
       MY_ATTRIBUTE((__warn_unused_result__, __nonnull__(2, 3)));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
@@ -1232,6 +1232,9 @@ int rdb_tx_set_status_error(Rdb_transaction *tx, const rocksdb::Status &s,
                             const Rdb_key_def &kd,
                             const Rdb_tbl_def *const tbl_def);
 
+int rocksdb_create_checkpoint(const char *checkpoint_dir_raw);
+int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw);
+
 extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
 extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
@@ -1249,4 +1252,23 @@ extern std::atomic<uint64_t> rocksdb_binlog_ttl_compaction_timestamp;
 extern bool rocksdb_enable_tmp_table;
 extern bool rocksdb_enable_delete_range_for_drop_index;
 extern bool rocksdb_disable_instant_ddl;
+
+extern char *rocksdb_wal_dir;
+extern char *rocksdb_datadir;
+
+extern uint rocksdb_clone_checkpoint_max_age;
+extern uint rocksdb_clone_checkpoint_max_count;
+
+inline bool is_wal_dir_separate() noexcept {
+  return rocksdb_wal_dir && *rocksdb_wal_dir &&
+         // Prefer cheapness over accuracy by doing lexicographic
+         // path comparison only
+         strcmp(rocksdb_wal_dir, rocksdb_datadir);
+}
+
+inline char *get_wal_dir() noexcept {
+  return (rocksdb_wal_dir && *rocksdb_wal_dir) ? rocksdb_wal_dir
+                                               : rocksdb_datadir;
+}
+
 }  // namespace myrocks

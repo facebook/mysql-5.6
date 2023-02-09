@@ -1,0 +1,58 @@
+--source include/have_rocksdb.inc
+--source include/have_blackhole.inc
+
+--source ../../clone/include/clone_connection_begin.inc
+
+--let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
+
+CREATE TABLE t_innodb(col1 INT PRIMARY KEY, col2 CHAR(64)) ENGINE=InnoDB;
+CREATE TABLE t_myrocks(col1 INT PRIMARY KEY, col2 CHAR(64)) ENGINE=RocksDB;
+CREATE TABLE t_blackhole(col1 INT PRIMARY KEY, col2 CHAR(64)) ENGINE=blackhole;
+
+INSERT INTO t_innodb VALUES(10, 'InnoDB clone row 1');
+INSERT INTO t_innodb VALUES(20, 'InnoDB clone row 2');
+INSERT INTO t_innodb VALUES(30, 'InnoDB clone row 3');
+
+INSERT INTO t_myrocks VALUES(10, 'MyRocks clone row 1');
+INSERT INTO t_myrocks VALUES(20, 'MyRocks clone row 2');
+INSERT INTO t_myrocks VALUES(30, 'MyRocks clone row 3');
+
+INSERT INTO t_blackhole VALUES(10, 'blackhole clone row 1');
+INSERT INTO t_blackhole VALUES(20, 'blackhole clone row 2');
+INSERT INTO t_blackhole VALUES(30, 'blackhole clone row 3');
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--connection clone_conn_1
+--source ../../clone/include/clone_command.inc
+
+# Restart server on cloned data directory
+--replace_result $CLONE_DATADIR CLONE_DATADIR
+--let restart_parameters="restart: --datadir=$CLONE_DATADIR"
+--source include/restart_mysqld.inc
+
+SELECT * FROM t_innodb;
+INSERT INTO t_innodb VALUES(40, 'InnoDB clone row 4');
+SELECT * FROM t_innodb;
+
+SELECT * FROM t_myrocks;
+INSERT INTO t_myrocks VALUES(40, 'MyRocks clone row 4');
+SELECT * FROM t_myrocks;
+
+SELECT * FROM t_blackhole;
+INSERT INTO t_blackhole VALUES(40, 'blackhole clone row 4');
+SELECT * FROM t_blackhole;
+
+--let restart_parameters=
+--source include/restart_mysqld.inc
+
+DROP TABLE t_innodb;
+DROP TABLE t_myrocks;
+DROP TABLE t_blackhole;
+
+--force-rmdir $CLONE_DATADIR
+
+UNINSTALL PLUGIN clone;
+
+--source ../../clone/include/clone_connection_end.inc

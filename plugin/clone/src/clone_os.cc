@@ -164,9 +164,11 @@ int clone_os_copy_file_to_buf(Ha_clone_file from_file, uchar *to_buffer,
   auto len_left = length;
 
   while (len_left > 0) {
+    const auto padded_length = clone_os_pad_for_o_direct(
+        len_left, from_file.o_direct_uneven_file_size);
     uint ret_length = 0;
-    auto error =
-        read_from_file(from_file, to_buffer, len_left, src_name, ret_length);
+    auto error = read_from_file(from_file, to_buffer, padded_length, src_name,
+                                ret_length);
 
     if (error != 0) {
       DBUG_PRINT("debug", ("Error: clone read failed."
@@ -175,6 +177,8 @@ int clone_os_copy_file_to_buf(Ha_clone_file from_file, uchar *to_buffer,
 
       return (error);
     }
+
+    assert(ret_length <= len_left);
 
     len_left -= ret_length;
     to_buffer += ret_length;
@@ -234,6 +238,9 @@ int clone_os_copy_file_to_file(Ha_clone_file from_file, Ha_clone_file to_file,
 
   while (length > 0) {
     auto request_size = (length > buff_len) ? buff_len : length;
+    request_size = clone_os_pad_for_o_direct(
+        request_size, from_file.o_direct_uneven_file_size);
+    assert(request_size <= buff_len);
     uint actual_size = 0;
 
     error =
@@ -267,8 +274,15 @@ int clone_os_copy_buf_to_file(uchar *from_buffer, Ha_clone_file to_file,
   CLONE_OS_CHECK_FILE(to_file);
 
   while (length > 0) {
+    const auto last_block_used = length % CLONE_OS_ALIGN;
+    const auto block_pad_len =
+        to_file.o_direct_uneven_file_size && (last_block_used != 0)
+            ? CLONE_OS_ALIGN - last_block_used
+            : 0;
+    if (block_pad_len > 0) memset(from_buffer + length, 0, block_pad_len);
+
     errno = 0;
-    auto ret_size = os_write(to_file, from_buffer, length);
+    auto ret_size = os_write(to_file, from_buffer, length + block_pad_len);
 
     if (errno == EINTR) {
       DBUG_PRINT("debug", ("clone write() interrupted"));
@@ -289,7 +303,21 @@ int clone_os_copy_buf_to_file(uchar *from_buffer, Ha_clone_file to_file,
     }
 
     auto actual_size = static_cast<uint>(ret_size);
+    assert(length + block_pad_len == actual_size);
 
+    if (actual_size > length) {
+      assert(block_pad_len > 0);
+      assert(to_file.o_direct_uneven_file_size);
+      const auto file_size = my_tell(to_file.file_desc, MYF(MY_WME));
+      if (file_size == MY_FILEPOS_ERROR) {
+        return ER_ERROR_ON_WRITE;
+      }
+      if (my_chsize(to_file.file_desc, file_size - block_pad_len, 0,
+                    MYF(MY_WME)) != 0) {
+        return ER_ERROR_ON_WRITE;
+      }
+      actual_size -= block_pad_len;
+    }
     assert(length >= actual_size);
 
     length -= actual_size;

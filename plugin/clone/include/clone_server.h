@@ -30,6 +30,7 @@ Clone Plugin: Server interface
 #define CLONE_SERVER_H
 
 #include "plugin/clone/include/clone.h"
+#include "plugin/clone/include/clone_common.h"
 #include "plugin/clone/include/clone_hton.h"
 #include "plugin/clone/include/clone_os.h"
 
@@ -244,7 +245,7 @@ class Server {
 };
 
 /** Clone server interface to handle callback from Storage Engine */
-class Server_Cbk : public Ha_clone_cbk {
+class Server_Cbk : public Ha_clone_common_cbk {
  public:
   /** Construct Callback. Set clone server object.
   @param[in]	clone	clone server object */
@@ -279,6 +280,11 @@ class Server_Cbk : public Ha_clone_cbk {
   @param[out]  len        data length
   @return error code */
   int apply_buffer_cbk(uchar *&to_buffer, uint &len) override;
+
+  /** Callback to update data size estimate for the current SE: not used for
+  server.
+  @param[in]  estimate_delta  how many bytes to add to the estimate */
+  void add_to_data_size_estimate(std::uint64_t) override { assert(0); }
 
  private:
   /** Clone server object */

@@ -36,6 +36,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef UNIV_HOTBACKUP
 #include "sql/handler.h"
 
+class Json_dom;
+
 /** Get capability flags for clone operation
 @param[out]     flags   capability flag */
 void innodb_clone_get_capability(Ha_clone_flagset &flags);
@@ -63,6 +65,13 @@ int innodb_clone_begin(handlerton *hton, THD *thd, const byte *&loc,
 @return error code */
 int innodb_clone_copy(handlerton *hton, THD *thd, const byte *loc, uint loc_len,
                       uint task_id, Ha_clone_cbk *cbk);
+
+/** Set log position to stop cloning for InnoDB
+@param[in]	loc		locator
+@param[in]	loc_len		locator length in bytes
+@param[in]	log_stop_pos	log position to stop cloning in JSON */
+void innodb_clone_set_log_stop(const uchar *loc, uint loc_len,
+                               const Json_dom &log_stop_pos);
 
 /** Acknowledge data to source database
 @param[in]      hton    handlerton for SE
@@ -264,5 +273,7 @@ class Clone_notify {
   /** Saved error. */
   int m_error;
 };
+
+extern const std::string log_status_lsn_key;
 
 #endif /* CLONE_API_INCLUDE */

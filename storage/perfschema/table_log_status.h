@@ -90,6 +90,9 @@ class table_log_status : public PFS_engine_table {
 
   int rnd_next() override;
   int rnd_pos(const void *pos) override;
+
+  // Added for the MyRocks clone cross-engine sync
+  st_row_log_status &get_row() noexcept { return m_row; }
 };
 
 #endif

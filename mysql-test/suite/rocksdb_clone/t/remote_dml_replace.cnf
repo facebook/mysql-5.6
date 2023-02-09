@@ -1,0 +1,8 @@
+# Test remote clone command to replace data directory
+!include ../../clone/t/remote_dml_replace.cnf
+
+[mysqld.1]
+default_storage_engine=RocksDB
+
+[mysqld.2]
+default_storage_engine=RocksDB
