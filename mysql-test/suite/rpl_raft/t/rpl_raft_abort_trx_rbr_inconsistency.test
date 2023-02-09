@@ -1,0 +1,59 @@
+# Tests if no rbr inconsistency is reported on secondary when transactions are
+# aborted and rolled back
+source ../include/raft_3_node.inc;
+source include/have_mts_dependency_replication_tbl.inc;
+source include/have_debug_sync.inc;
+
+call mtr.add_suppression("Got error 1 - 'Operation not permitted' during COMMIT");
+call mtr.add_suppression("Slave worker has stopped after at least one previous worker encountered an error");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+
+connection server_1;
+create table t1 (a int primary key, b int) engine = innodb;
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+insert into t1 values(3, 3);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+stop slave sql_thread;
+
+connection server_1;
+update t1 set b = 30 where a = 3;
+# this trx will block behind prev trx on server_2
+update t1 set b = 3 where a = 3;
+
+connection server_2;
+set @@global.debug = '+d,handle_commit_consensus_error,simulate_commit_consensus_error';
+start slave sql_thread;
+
+set debug_sync="now WAIT_FOR reached";
+
+let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE STATE LIKE "%Applying batch of row changes%";
+source include/wait_condition.inc;
+
+set debug_sync = "now SIGNAL continue";
+
+connection server_2;
+let $slave_sql_errno = 3030;
+source include/wait_for_slave_sql_error.inc;
+
+select count(*) = 0 from information_schema.rbr_bi_inconsistencies;
+
+set @@global.debug = '-d,handle_commit_consensus_error,simulate_commit_consensus_error';
+start slave sql_thread;
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

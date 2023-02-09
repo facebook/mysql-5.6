@@ -6602,6 +6602,8 @@ static void *handle_slave_worker(void *arg) {
 
   w->set_filter(rli->rpl_filter);
 
+  w->bi_mismatch_infos.clear();
+
   if ((w->deferred_events_collecting = w->rpl_filter->is_on()))
     w->deferred_events = new Deferred_log_events();
   assert(thd->rli_slave->info_thd == thd);
@@ -7621,6 +7623,8 @@ extern "C" void *handle_slave_sql(void *arg) {
     thd->thread_stack = (char *)&thd;  // remember where our stack is
     mysql_mutex_lock(&rli->info_thd_lock);
     rli->info_thd = thd;
+
+    rli->bi_mismatch_infos.clear();
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
     // save the instrumentation for SQL thread in rli->info_thd
@@ -12255,11 +12259,49 @@ std::unordered_map<std::string, before_image_mismatch> bi_inconsistencies;
 /* mutex for counter and map */
 std::mutex bi_inconsistency_lock;
 
-void update_before_image_inconsistencies(
-    const before_image_mismatch &mismatch) {
+bool update_before_image_inconsistencies(Relay_log_info *rli) {
+  if (likely(rli->bi_mismatch_infos.empty())) {
+    return true;
+  }
+
+  bool should_error_out =
+      opt_slave_check_before_image_consistency ==
+      Log_event::enum_check_before_image_consistency::BI_CHECK_ON;
+
   const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
-  ++before_image_inconsistencies;
-  bi_inconsistencies[mismatch.table] = mismatch;
+
+  for (const auto &mismatch_info : rli->bi_mismatch_infos) {
+    ++before_image_inconsistencies;
+    bi_inconsistencies[mismatch_info.table] = mismatch_info;
+    if (should_error_out || log_error_verbosity > 1) {
+      std::string bi = mismatch_info.source_img;
+      std::string li = mismatch_info.local_img;
+      if (bi.length() > 256) {
+        bi.resize(253);
+        bi += "...";
+      }
+      if (li.length() > 256) {
+        li.resize(253);
+        li += "...";
+      }
+
+      std::stringstream msg;
+      msg << "Slave before-image consistency check failed at position: "
+          << mismatch_info.log_pos << " (gtid: " << mismatch_info.gtid
+          << "). Mismatch (table: " << mismatch_info.table << "): " << bi
+          << " (source) vs. " << li << " (local)";
+
+      if (!should_error_out) {
+        sql_print_warning("%s", msg.str().c_str());
+      } else {
+        rli->report(ERROR_LEVEL, ER_INCONSISTENT_ERROR, "%s",
+                    msg.str().c_str());
+      }
+    }
+  }
+
+  rli->bi_mismatch_infos.clear();
+  return !should_error_out;
 }
 
 ulong get_num_before_image_inconsistencies() {

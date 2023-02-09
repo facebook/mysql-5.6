@@ -11240,6 +11240,11 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd) {
   DBUG_ENTER("MYSQL_BIN_LOG::handle_commit_consensus_error");
   bool all = thd->get_transaction()->m_flags.real_commit;
 
+  DBUG_EXECUTE_IF("handle_commit_consensus_error", {
+    const char action[] = "now SIGNAL reached WAIT_FOR continue";
+    assert(!debug_sync_set_action(thd, STRING_WITH_LEN(action)));
+  };);
+
   /* Handle commit consensus error appropriately */
   switch (opt_commit_consensus_error_action) {
     case ROLLBACK_TRXS_IN_GROUP:
@@ -15589,7 +15594,8 @@ int THD::binlog_query(THD::enum_binlog_query_type qtype, const char *query_arg,
 
 void MYSQL_BIN_LOG::finish_transaction_in_engines(THD *thd, bool all, bool run_after_commit) {
   if (thd->get_transaction()->m_flags.commit_low) {
-    if (thd->commit_consensus_error) {
+    if (thd->commit_consensus_error ||
+        DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false)) {
       handle_commit_consensus_error(thd);
     } else if (trx_coordinator::commit_in_engines(thd, all, run_after_commit)) {
       thd->commit_error = THD::CE_COMMIT_ERROR;

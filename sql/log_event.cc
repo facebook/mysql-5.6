@@ -4760,6 +4760,12 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   bool is_invalid_db_name =
       validate_string(system_charset_info, db, db_len, &valid_len, &len_error);
 
+  if (ends_group() &&
+      !update_before_image_inconsistencies(const_cast<Relay_log_info *>(rli))) {
+    thd->is_slave_error = true;
+    goto end;
+  }
+
   DBUG_PRINT("debug", ("is_invalid_db_name= %s, valid_len=%zu, len_error=%s",
                        is_invalid_db_name ? "true" : "false", valid_len,
                        len_error ? "true" : "false"));
@@ -6474,6 +6480,11 @@ int Xid_apply_log_event::do_apply_event_worker(Slave_worker *w) {
   ulong gaq_idx = mts_group_idx;
   Slave_job_group *ptr_group = coordinator_gaq->get_job_group(gaq_idx);
 
+  if (!update_before_image_inconsistencies(w)) {
+    error = 1;
+    goto err;
+  }
+
   if (!thd->get_transaction()->xid_state()->check_in_xa(false) &&
       w->is_transactional()) {
     /*
@@ -6543,6 +6554,10 @@ int Xid_apply_log_event::do_apply_event(Relay_log_info const *rli) {
   */
   gtid_reacquire_ownership_if_anonymous(thd);
   Relay_log_info *rli_ptr = const_cast<Relay_log_info *>(rli);
+
+  if (!update_before_image_inconsistencies(rli_ptr)) {
+    return 1;
+  }
 
   /* For a slave Xid_log_event is COMMIT */
   query_logger.general_log_print(thd, COM_QUERY,
@@ -9742,29 +9757,8 @@ end:
 
     if (likely(!mismatch_info.source_img.empty() &&
                !mismatch_info.local_img.empty())) {
-      update_before_image_inconsistencies(mismatch_info);
-      if (log_error_verbosity > 1) {
-        std::string bi = mismatch_info.source_img;
-        std::string li = mismatch_info.local_img;
-        if (bi.length() > 256) {
-          bi.resize(253);
-          bi += "...";
-        }
-        if (li.length() > 256) {
-          li.resize(253);
-          li += "...";
-        }
-        sql_print_warning(
-            "Slave before-image consistency check failed at "
-            "position: %s (gtid: %s). "
-            "Mismatch (table: %s): %s (source) vs. %s (local)",
-            mismatch_info.log_pos.c_str(), mismatch_info.gtid.c_str(),
-            mismatch_info.table.c_str(), bi.c_str(), li.c_str());
-      }
-      if (opt_slave_check_before_image_consistency ==
-          Log_event::enum_check_before_image_consistency::BI_CHECK_ON) {
-        error = HA_ERR_END_OF_FILE;
-      }
+      const_cast<Relay_log_info *>(rli)->bi_mismatch_infos.push_back(
+          mismatch_info);
     }
   }
 

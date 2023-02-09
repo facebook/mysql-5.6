@@ -1,0 +1,53 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+call mtr.add_suppression("Got error 1 - 'Operation not permitted' during COMMIT");
+call mtr.add_suppression("Slave worker has stopped after at least one previous worker encountered an error");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+create table t1 (a int primary key, b int) engine = innodb;
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+insert into t1 values(3, 3);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+stop slave sql_thread;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
+update t1 set b = 30 where a = 3;
+update t1 set b = 3 where a = 3;
+set @@global.debug = '+d,handle_commit_consensus_error,simulate_commit_consensus_error';
+start slave sql_thread;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+set debug_sync="now WAIT_FOR reached";
+set debug_sync = "now SIGNAL continue";
+include/wait_for_slave_sql_error.inc [errno=3030]
+select count(*) = 0 from information_schema.rbr_bi_inconsistencies;
+count(*) = 0
+1
+set @@global.debug = '-d,handle_commit_consensus_error,simulate_commit_consensus_error';
+start slave sql_thread;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

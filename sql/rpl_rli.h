@@ -72,6 +72,7 @@ class Slave_worker;
 class String;
 struct LEX_MASTER_INFO;
 struct db_worker_hash_entry;
+struct before_image_mismatch;
 
 extern uint sql_replica_skip_counter;
 
@@ -342,6 +343,8 @@ class Relay_log_info : public Rpl_info {
   char last_gtid[Gtid::MAX_TEXT_LENGTH + 1];
 
   std::pair<int64_t, int64_t> last_opid = std::make_pair(-1, -1);
+
+  std::vector<before_image_mismatch> bi_mismatch_infos;
 
   /* The following variables are safe to read any time */
 
