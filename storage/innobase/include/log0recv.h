@@ -238,6 +238,15 @@ void recv_sys_init(ulint max_mem);
 @return LSN after data addition */
 lsn_t recv_calc_lsn_on_data_add(lsn_t lsn, uint64_t len);
 
+/** Reads a specified log segment to a buffer.
+@param[in,out]	log		redo log
+@param[in,out]	buf		buffer where to read
+@param[in]	start_lsn	read area start
+@param[in]	end_lsn		read area end
+@param[in]	online		whether this read is for a running server */
+void recv_read_log_seg(log_t &log, byte *buf, lsn_t start_lsn, lsn_t end_lsn,
+                       bool online = false);
+
 /** Empties the hash table of stored log records, applying them to appropriate
 pages.
 @param[in,out]	log		Redo log

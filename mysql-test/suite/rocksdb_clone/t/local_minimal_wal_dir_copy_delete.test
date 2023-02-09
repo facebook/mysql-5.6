@@ -1,0 +1,5 @@
+--source include/have_rocksdb.inc
+--source include/have_debug.inc
+
+--let $extra_restart_params=--debug=+d,simulate_myrocks_rename_exdev
+--source ../include/local_minimal_wal_dir.inc

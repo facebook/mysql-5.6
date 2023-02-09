@@ -1,0 +1,40 @@
+Install clone plugin on recipient server
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+CREATE TABLE t_recipient(col1 INT PRIMARY KEY, col2 int);
+INSERT INTO t_recipient VALUES(1, 10);
+CREATE UNDO TABLESPACE undo_005 ADD DATAFILE 'undo_005.ibu';
+CREATE TABLESPACE tbs1_recipient ADD DATAFILE 'tbs1_data1.ibd';
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64));
+INSERT INTO t1 VALUES(10, 'clone row 1');
+INSERT INTO t1 VALUES(20, 'clone row 2');
+INSERT INTO t1 VALUES(30, 'clone row 3');
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+SET GLOBAL DEBUG="+d,clone_restart_apply";
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_valid_donor_list = 'HOST:PORT';
+CLONE INSTANCE FROM USER@HOST:PORT IDENTIFIED BY '' ;
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Completed
+1	RECOVERY	Completed
+SET GLOBAL DEBUG="-d,clone_restart_apply";
+SELECT * FROM t1;
+col1	col2
+10	clone row 1
+20	clone row 2
+30	clone row 3
+DROP TABLE t1;
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;
+Uninstall clone plugin on recipient server
+UNINSTALL PLUGIN clone;

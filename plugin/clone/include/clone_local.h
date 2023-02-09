@@ -31,6 +31,7 @@ Clone Plugin: Local clone interface
 
 #include "plugin/clone/include/clone.h"
 #include "plugin/clone/include/clone_client.h"
+#include "plugin/clone/include/clone_common.h"
 #include "plugin/clone/include/clone_hton.h"
 #include "plugin/clone/include/clone_server.h"
 
@@ -78,7 +79,7 @@ class Local {
 };
 
 /** Clone Local interface to handle callback from Storage Engines */
-class Local_Callback : public Ha_clone_cbk {
+class Local_Callback : public Ha_clone_common_cbk {
  public:
   /** Construct Callback. Set clone local object.
   @param[in]	clone	clone local object */
@@ -128,6 +129,10 @@ class Local_Callback : public Ha_clone_cbk {
   @param[out]	len		data length
   @return error code */
   int apply_buffer_cbk(uchar *&to_buffer, uint &len) override;
+
+  /** Add to the data size estimate.
+  @param[in]  estimate_delta  how many bytes to add to the estimate */
+  void add_to_data_size_estimate(std::uint64_t estimated_delta) override;
 
  private:
   /** Apply data using storage engine apply interface.

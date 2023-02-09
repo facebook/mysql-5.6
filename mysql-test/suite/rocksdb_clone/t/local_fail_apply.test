@@ -1,0 +1,35 @@
+--source include/have_debug.inc
+--source include/have_rocksdb.inc
+
+--let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
+
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64));
+
+INSERT INTO t1 VALUES(1, "string 1");
+INSERT INTO t1 VALUES(2, "string 2");
+INSERT INTO t1 VALUES(3, "string 3");
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--source ../../clone/include/clone_connection_begin.inc
+
+--connection clone_conn_1
+
+SET GLOBAL DEBUG="+d,myrocks_clone_apply_fail";
+--let clone_err = ER_ERROR_ON_WRITE
+# Disable output log because it contains non-deterministic and incorrect errno
+# value from a different thread: https://bugs.mysql.com/bug.php?id=108872 (No
+# reasonable way to report clone client errors if >1 SE)
+--disable_result_log
+--source ../../clone/include/clone_command.inc
+--enable_result_log
+SET GLOBAL DEBUG="-d,myrocks_clone_apply_fail";
+
+--source ../../clone/include/clone_connection_end.inc
+
+--connection default
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;
+
+--force-rmdir $CLONE_DATADIR

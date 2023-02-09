@@ -1,0 +1,100 @@
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64)) ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (10, 'clone row 1');
+1. Clone to an instance with non-default rocksdb_wal_dir
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new --rocksdb-wal-dir=MYSQL_TMP_DIR/extra_dir/rdb_wal 
+SELECT @@rocksdb_wal_dir;
+@@rocksdb_wal_dir
+MYSQL_TMP_DIR/extra_dir/rdb_wal
+SELECT * FROM t1 ORDER BY col1;
+col1	col2
+10	clone row 1
+2. Clone between two instances with non-default rocksdb_wal_dir
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new2 --rocksdb-wal-dir=MYSQL_TMP_DIR/extra_dir/rdb_wal2 
+SELECT @@rocksdb_wal_dir;
+@@rocksdb_wal_dir
+MYSQL_TMP_DIR/extra_dir/rdb_wal2
+SELECT * FROM t1 ORDER BY col1;
+col1	col2
+10	clone row 1
+3. Clone from an instance with non-default rocksdb_wal_dir
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new3 
+SELECT @@rocksdb_wal_dir;
+@@rocksdb_wal_dir
+
+SELECT * FROM t1 ORDER BY col1;
+col1	col2
+10	clone row 1
+4. Clone with rocksdb_wal_dir == rocksdb_data_dir
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# restart:--datadir=MYSQL_TMP_DIR/extra_dir/data_new4 --rocksdb-datadir=.rocksdb --rocksdb-wal-dir=.rocksdb 
+include/assert.inc [rocksdb_datadir must be identical to rocksdb_wal_dir]
+SELECT * FROM t1 ORDER BY col1;
+col1	col2
+10	clone row 1
+# restart
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;

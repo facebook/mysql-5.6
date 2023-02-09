@@ -102,6 +102,10 @@ enum Snapshot_State : uint32_t {
   /** Snapshot state while transferring pages. */
   CLONE_SNAPSHOT_PAGE_COPY,
 
+  /** Snapshot state while doing precopy in other storage engines, specifically
+  copying SSTs from a MyRocks rolling checkpoint. */
+  CLONE_SNAPSHOT_SST_COPY,
+
   /** Snapshot state while transferring redo. */
   CLONE_SNAPSHOT_REDO_COPY,
 
@@ -110,7 +114,7 @@ enum Snapshot_State : uint32_t {
 };
 
 /** Total number of data transfer stages in clone. */
-const size_t CLONE_MAX_TRANSFER_STAGES = 3;
+const size_t CLONE_MAX_TRANSFER_STAGES = 4;
 
 /** Choose lowest descriptor version between reference locator
 and currently supported version.

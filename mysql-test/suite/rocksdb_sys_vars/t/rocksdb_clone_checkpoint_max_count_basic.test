@@ -1,0 +1,19 @@
+--source include/have_rocksdb.inc
+
+CREATE TABLE valid_values(value VARCHAR(255)) ENGINE=MEMORY;
+INSERT INTO valid_values VALUES(0);
+INSERT INTO valid_values VALUES(1);
+INSERT INTO valid_values VALUES(2);
+INSERT INTO valid_values VALUES(20000000);
+
+CREATE TABLE invalid_values(value VARCHAR(255)) ENGINE=MEMORY;
+INSERT INTO invalid_values VALUES("aaaa");
+INSERT INTO invalid_values VALUES(0.5);
+
+--let $sys_var=ROCKSDB_CLONE_CHECKPOINT_MAX_COUNT
+--let $read_only=0
+--let $session=0
+--source ../include/rocksdb_sys_var.inc
+
+DROP TABLE valid_values;
+DROP TABLE invalid_values;

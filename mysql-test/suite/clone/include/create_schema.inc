@@ -4,6 +4,8 @@ CREATE TABLE t1(col1 INT PRIMARY KEY, col2 int, col3 varchar(64), col4 BLOB);
 CREATE TABLE t2(col1 INT PRIMARY KEY, col2 int, col3 varchar(64), col4 BLOB)
 PARTITION BY KEY(col1) PARTITIONS 5;
 
+--let $DEFAULT_SE = `SELECT @@default_storage_engine`
+
 DELIMITER |;
 
 # Procedure to execute dml commands in loop
@@ -90,6 +92,8 @@ if ($clone_ddl) {
 # Procedure to execute ddl rebuild in loop
 #	p_loop_count	[IN]	Number of times to execute
 
+if ($DEFAULT_SE == "InnoDB") {
+
 CREATE PROCEDURE execute_ddl(
 	p_loop_count	INT)
 BEGIN
@@ -111,5 +115,7 @@ BEGIN
 END|
 
 }
+
+} # $DEFAULT_SE == "InnoDB"
 
 DELIMITER ;|

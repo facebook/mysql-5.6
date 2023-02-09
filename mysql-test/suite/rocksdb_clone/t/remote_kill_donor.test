@@ -1,0 +1,39 @@
+--source include/have_debug.inc
+--source include/have_rocksdb.inc
+--source include/not_valgrind.inc
+--source include/not_crashrep.inc
+
+--let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
+
+--echo Donor:
+
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64)) ENGINE=ROCKSDB;
+
+INSERT INTO t1 VALUES (10, 'clone row 1');
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--echo Client:
+--connect(clone_conn_1,127.0.0.1,root,,test,$SERVER_PORT_2)
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--connection clone_conn_1
+
+--let donor_crash_point=myrocks_clone_donor_init_crash
+--source ../include/remote_kill_donor.inc
+
+--connection clone_conn_1
+
+--let donor_crash_point=myrocks_clone_donor_copy_file_crash
+--source ../include/remote_kill_donor.inc
+
+--connection clone_conn_1
+UNINSTALL PLUGIN clone;
+
+--disconnect clone_conn_1
+--connection default
+
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;

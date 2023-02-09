@@ -213,14 +213,6 @@ static bool recv_writer_is_active() {
 
 #ifndef UNIV_HOTBACKUP
 
-/** Reads a specified log segment to a buffer.
-@param[in,out]	log		redo log
-@param[in,out]	buf		buffer where to read
-@param[in]	start_lsn	read area start
-@param[in]	end_lsn		read area end */
-static void recv_read_log_seg(log_t &log, byte *buf, lsn_t start_lsn,
-                              lsn_t end_lsn);
-
 /** Initialize crash recovery environment. Can be called if
 recv_needed_recovery == false
 @return DB_SUCCESS for success, others for errors */
@@ -3683,15 +3675,18 @@ bool meb_read_log_encryption(IORequest &encryption_request,
 @param[in,out]	log		redo log
 @param[in,out]	buf		buffer where to read
 @param[in]	start_lsn	read area start
-@param[in]	end_lsn		read area end */
-static void recv_read_log_seg(log_t &log, byte *buf, lsn_t start_lsn,
-                              lsn_t end_lsn) {
-  log_background_threads_inactive_validate(log);
+@param[in]	end_lsn		read area end
+@param[in]	online		whether this read is for a running server */
+void recv_read_log_seg(log_t &log, byte *buf, lsn_t start_lsn, lsn_t end_lsn,
+                       bool online) {
+  if (!online) log_background_threads_inactive_validate(log);
 
   do {
     lsn_t source_offset;
 
+    if (online) log_writer_mutex_enter(log);
     source_offset = log_files_real_offset_for_lsn(log, start_lsn);
+    if (online) log_writer_mutex_exit(log);
 
     ut_a(end_lsn - start_lsn <= ULINT_MAX);
 
