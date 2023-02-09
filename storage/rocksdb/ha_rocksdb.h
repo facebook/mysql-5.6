@@ -1169,6 +1169,12 @@ rocksdb::Iterator *rdb_tx_get_iterator(
     const rocksdb::Snapshot **snapshot, TABLE_TYPE table_type,
     bool read_current = false, bool create_snapshot = true);
 
+rocksdb::Iterator *rdb_tx_refresh_iterator(
+    THD *thd, rocksdb::ColumnFamilyHandle *const cf, bool skip_bloom_filter,
+    const rocksdb::Slice &eq_cond_lower_bound,
+    const rocksdb::Slice &eq_cond_upper_bound,
+    const rocksdb::Snapshot *snapshot, TABLE_TYPE table_type);
+
 rocksdb::Status rdb_tx_get(Rdb_transaction *tx,
                            rocksdb::ColumnFamilyHandle *const column_family,
                            const rocksdb::Slice &key,
