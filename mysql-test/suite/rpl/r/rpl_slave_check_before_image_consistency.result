@@ -5,6 +5,7 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 include/rpl_set_gtid_mode.inc [ON on servers 1,2]
 call mtr.add_suppression("Error_code: 1032");
+call mtr.add_suppression("Slave before-image consistency check failed");
 set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
 set @@global.slave_check_before_image_consistency = OFF;
 set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
@@ -24,13 +25,13 @@ update t3 set c = 2;
 update t4 set c = 2;
 set @@sql_log_bin = 1;
 update t1 set b = 2;
-include/wait_for_slave_sql_error.inc [errno=1032]
+include/wait_for_slave_sql_error.inc [errno=13113]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:10	master-bin.000001:2763	c=1	c=2
+test.t1	uuid:11	master-bin.000001:3091	c=1	c=2
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -44,7 +45,7 @@ Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:10	master-bin.000001:2763	c=1	c=2
+test.t1	uuid:11	master-bin.000001:3091	c=1	c=2
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -58,7 +59,7 @@ Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:10	master-bin.000001:2763	c=1	c=2
+test.t1	uuid:11	master-bin.000001:3091	c=1	c=2
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -71,7 +72,7 @@ Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:10	master-bin.000001:2763	c=1	c=2
+test.t1	uuid:11	master-bin.000001:3091	c=1	c=2
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;
@@ -147,13 +148,13 @@ update t3 set c = 2;
 update t4 set c = 2;
 set @@sql_log_bin = 1;
 update t1 set b = 2;
-include/wait_for_slave_sql_error.inc [errno=1032]
+include/wait_for_slave_sql_error.inc [errno=13113]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:30	master-bin.000001:8052	c=1	c=2
+test.t1	uuid:31	master-bin.000001:8380	c=1	c=2
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -167,7 +168,7 @@ Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:30	master-bin.000001:8052	c=1	c=2
+test.t1	uuid:31	master-bin.000001:8380	c=1	c=2
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -181,7 +182,7 @@ Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:30	master-bin.000001:8052	c=1	c=2
+test.t1	uuid:31	master-bin.000001:8380	c=1	c=2
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -194,7 +195,7 @@ Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:30	master-bin.000001:8052	c=1	c=2
+test.t1	uuid:31	master-bin.000001:8380	c=1	c=2
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;

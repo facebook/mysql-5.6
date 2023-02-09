@@ -25,7 +25,7 @@ set @@sql_log_bin = 1;
 connection master;
 update t1 set b = 2;
 connection slave;
-let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
+let $slave_sql_errno = convert_error(ER_INCONSISTENT_ERROR);
 source include/wait_for_slave_sql_error.inc;
 let $current_value = query_get_value(show global status like "Slave_before_image_inconsistencies", Value, 1);
 --disable_query_log
@@ -50,7 +50,7 @@ eval select $current_value - $initial_value as "inconsistency_count";
 connection master;
 update t2 set b = 2;
 connection slave;
-let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
+let $slave_sql_errno = convert_error(ER_INCONSISTENT_ERROR);
 source include/wait_for_slave_sql_error.inc;
 let $current_value = query_get_value(show global status like "Slave_before_image_inconsistencies", Value, 1);
 --disable_query_log
@@ -75,7 +75,7 @@ eval select $current_value - $initial_value as "inconsistency_count";
 connection master;
 update t3 set b = 2;
 connection slave;
-let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
+let $slave_sql_errno = convert_error(ER_INCONSISTENT_ERROR);
 source include/wait_for_slave_sql_error.inc;
 let $current_value = query_get_value(show global status like "Slave_before_image_inconsistencies", Value, 1);
 --disable_query_log

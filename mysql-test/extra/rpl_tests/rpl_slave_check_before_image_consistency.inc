@@ -35,7 +35,7 @@ set @@sql_log_bin = 1;
 connection master;
 update t1 set b = 2;
 connection slave;
-let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
+let $slave_sql_errno= convert_error(ER_INCONSISTENT_ERROR);
 source include/wait_for_slave_sql_error.inc;
 show status like 'Slave_before_image_inconsistencies';
 replace_result $uuid uuid;
@@ -51,7 +51,7 @@ source include/sync_slave_sql_with_master.inc;
 connection master;
 update t2 set b = 2;
 connection slave;
-let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
+let $slave_sql_errno= 1032; # HA_ERR_KEY_NOT_FOUND;
 source include/wait_for_slave_sql_error.inc;
 show status like 'Slave_before_image_inconsistencies';
 replace_result $uuid uuid;
@@ -67,7 +67,7 @@ source include/sync_slave_sql_with_master.inc;
 connection master;
 update t3 set b = 2;
 connection slave;
-let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
+let $slave_sql_errno= 1032; # HA_ERR_KEY_NOT_FOUND;
 source include/wait_for_slave_sql_error.inc;
 show status like 'Slave_before_image_inconsistencies';
 replace_result $uuid uuid;
@@ -83,7 +83,7 @@ source include/sync_slave_sql_with_master.inc;
 connection master;
 update t4 set b = 2;
 connection slave;
-let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
+let $slave_sql_errno= 1032; # HA_ERR_KEY_NOT_FOUND;
 show status like 'Slave_before_image_inconsistencies';
 replace_result $uuid uuid;
 select * from information_schema.RBR_BI_INCONSISTENCIES;

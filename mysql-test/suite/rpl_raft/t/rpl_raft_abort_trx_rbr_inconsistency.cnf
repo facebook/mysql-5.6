@@ -1,0 +1,10 @@
+!include ../my.cnf
+
+[mysqld.1]
+slave_check_before_image_consistency = COUNT
+
+[mysqld.2]
+slave_check_before_image_consistency = COUNT
+
+[mysqld.3]
+slave_check_before_image_consistency = COUNT

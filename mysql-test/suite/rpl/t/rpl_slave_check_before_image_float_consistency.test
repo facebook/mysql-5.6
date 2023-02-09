@@ -2,7 +2,7 @@ source include/master-slave.inc;
 source include/have_binlog_format_row.inc;
 source include/rpl_set_gtid_mode.inc;
 
-call mtr.add_suppression("Error_code: 1032");
+call mtr.add_suppression("Error_code: MY-013113");
 
 connection slave;
 set @@global.slave_rows_search_algorithms = 'INDEX_SCAN,TABLE_SCAN';

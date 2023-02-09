@@ -11002,7 +11002,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
         storage engine commit
        */
       bool error = false;
-      if (head->commit_consensus_error) {
+      if (head->commit_consensus_error ||
+          DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false)) {
         error = true;
         handle_commit_consensus_error(head);
       } else if (ha_commit_low(head, all, false)) {
@@ -11195,6 +11196,11 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd) {
   DBUG_ENTER("MYSQL_BIN_LOG::handle_commit_consensus_error");
   bool all = thd->get_transaction()->m_flags.real_commit;
 
+  DBUG_EXECUTE_IF("handle_commit_consensus_error", {
+    const char action[] = "now SIGNAL reached WAIT_FOR continue";
+    assert(!debug_sync_set_action(thd, STRING_WITH_LEN(action)));
+  };);
+
   /* Handle commit consensus error appropriately */
   switch (opt_commit_consensus_error_action) {
     case ROLLBACK_TRXS_IN_GROUP:
@@ -11371,7 +11377,8 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     /*
       storage engine commit
     */
-    if (thd->commit_consensus_error)
+    if (thd->commit_consensus_error ||
+        DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false))
       handle_commit_consensus_error(thd);
     else if (ha_commit_low(thd, all, false))
       thd->commit_error = THD::CE_COMMIT_ERROR;

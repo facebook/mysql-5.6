@@ -4,7 +4,7 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 include/rpl_set_gtid_mode.inc [ON on servers 1,2]
-call mtr.add_suppression("Error_code: 1032");
+call mtr.add_suppression("Error_code: MY-013113");
 set @@global.slave_rows_search_algorithms = 'INDEX_SCAN,TABLE_SCAN';
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
@@ -22,12 +22,12 @@ update t3 set c = 0.798321;
 set @@sql_log_bin = 1;
 # Test inconsistencies for table with primary key
 update t1 set b = 2;
-include/wait_for_slave_sql_error.inc [errno=1032]
+include/wait_for_slave_sql_error.inc [errno=13113]
 inconsistency_count
 1
 select * from information_schema.RBR_BI_INCONSISTENCIES ORDER BY SOURCE_LOG_POS;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:8	master-bin.000001:2297	c=0.79832	c=0.798321
+test.t1	uuid:8	master-bin.000001:2302	c=0.79832	c=0.798321
 set @@sql_log_bin = 0;
 update t1 set c = 0.798320;
 set @@sql_log_bin = 1;
@@ -38,13 +38,13 @@ inconsistency_count
 1
 # Test inconsistencies for table with unique key
 update t2 set b = 2;
-include/wait_for_slave_sql_error.inc [errno=1032]
+include/wait_for_slave_sql_error.inc [errno=13113]
 inconsistency_count
 2
 select * from information_schema.RBR_BI_INCONSISTENCIES ORDER BY SOURCE_LOG_POS;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:8	master-bin.000001:2297	c=0.79832	c=0.798321
-test.t2	uuid:9	master-bin.000001:2603	c=0.79832	c=0.798321
+test.t1	uuid:8	master-bin.000001:2302	c=0.79832	c=0.798321
+test.t2	uuid:9	master-bin.000001:2608	c=0.79832	c=0.798321
 set @@sql_log_bin = 0;
 update t2 set c = 0.798320;
 set @@sql_log_bin = 1;
@@ -55,14 +55,14 @@ inconsistency_count
 2
 # Test inconsistencies for table with not null keys
 update t3 set b = 2;
-include/wait_for_slave_sql_error.inc [errno=1032]
+include/wait_for_slave_sql_error.inc [errno=13113]
 inconsistency_count
 3
 select * from information_schema.RBR_BI_INCONSISTENCIES ORDER BY SOURCE_LOG_POS;
 TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:8	master-bin.000001:2297	c=0.79832	c=0.798321
-test.t2	uuid:9	master-bin.000001:2603	c=0.79832	c=0.798321
-test.t3	uuid:10	master-bin.000001:2911	c=0.79832	c=0.798321
+test.t1	uuid:8	master-bin.000001:2302	c=0.79832	c=0.798321
+test.t2	uuid:9	master-bin.000001:2608	c=0.79832	c=0.798321
+test.t3	uuid:10	master-bin.000001:2916	c=0.79832	c=0.798321
 set @@sql_log_bin = 0;
 update t3 set c = 0.798320;
 set @@sql_log_bin = 1;
