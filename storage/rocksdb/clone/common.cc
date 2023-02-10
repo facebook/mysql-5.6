@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "my_compiler.h"
 #include "my_dir.h"
 #include "my_sys.h"
 
@@ -292,6 +293,8 @@ void fixup_on_startup() {
     case mode_for_direct_io::CLIENT:
       return rdb_opts.use_direct_io_for_flush_and_compaction;
   }
+
+  MY_ASSERT_UNREACHABLE();
 }
 
 }  // namespace clone

@@ -21,6 +21,7 @@
 #include <forward_list>
 #include <unordered_map>
 
+#include "my_compiler.h"
 #include "mysql/psi/mysql_file.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysqld_error.h"
@@ -818,6 +819,8 @@ int rocksdb_clone_apply(handlerton *, THD *thd, const uchar *loc, uint loc_len,
       return client::instance().save_and_return_error(
           ER_CLONE_PROTOCOL, "Received invalid clone data descriptor");
   }
+
+  MY_ASSERT_UNREACHABLE();
 }
 
 // Finish the client-side clone session for this storage engine.
