@@ -309,7 +309,7 @@ int clone_os_copy_buf_to_file(uchar *from_buffer, Ha_clone_file to_file,
       assert(block_pad_len > 0);
       assert(to_file.o_direct_uneven_file_size);
       const auto file_size = my_tell(to_file.file_desc, MYF(MY_WME));
-      if (file_size < 0) {
+      if (file_size == MY_FILEPOS_ERROR) {
         return ER_ERROR_ON_WRITE;
       }
       if (my_chsize(to_file.file_desc, file_size - block_pad_len, 0,
