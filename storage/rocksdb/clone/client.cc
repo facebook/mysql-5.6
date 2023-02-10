@@ -283,7 +283,7 @@ class [[nodiscard]] client final : public myrocks::clone::session {
 
   void update_estimate(Ha_clone_cbk &cbk, std::uint64_t estimate_delta);
 
-  void constexpr assert_inactive() const noexcept {
+  void assert_inactive() const noexcept {
 #ifndef NDEBUG
     assert(m_files_in_progress.empty());
     assert(m_completed_files.empty());
