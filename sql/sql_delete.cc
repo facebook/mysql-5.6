@@ -428,7 +428,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
                     thd, thd->mem_root, &temp_mem_root, keys_to_use, 0, 0,
                     limit, safe_update, ORDER_NOT_RELEVANT, table,
                     /*skip_records_in_range=*/false, conds, &needed_reg_dummy,
-                    table->force_index, query_block, &range_scan) < 0;
+                    table->force_index, false, query_block, &range_scan) < 0;
     }
     if (thd->is_error())  // test_quick_select() has improper error propagation
       return true;

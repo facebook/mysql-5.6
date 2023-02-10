@@ -134,6 +134,8 @@ static bool parse_int(longlong *to, const char *from, size_t from_length)
 
 %token GROUP_BY_LIS_HINT 1050
 %token NO_GROUP_BY_LIS_HINT 1051
+%token RANGE_JOIN_HINT 1052
+%token NO_RANGE_JOIN_HINT 1053
 
 /*
   YYUNDEF in internal to Bison. Please don't change its number, or change
@@ -518,6 +520,10 @@ table_level_hint_type_on:
           {
             $$= DERIVED_CONDITION_PUSHDOWN_HINT_ENUM;
           }
+        | RANGE_JOIN_HINT
+          {
+            $$= RANGE_JOIN_HINT_ENUM;
+          }
         ;
 
 table_level_hint_type_off:
@@ -540,6 +546,10 @@ table_level_hint_type_off:
         | NO_DERIVED_CONDITION_PUSHDOWN_HINT
           {
             $$= DERIVED_CONDITION_PUSHDOWN_HINT_ENUM;
+          }
+        | NO_RANGE_JOIN_HINT
+          {
+            $$= RANGE_JOIN_HINT_ENUM;
           }
         ;
 

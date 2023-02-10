@@ -592,15 +592,26 @@ bool DynamicRangeIterator::Init() {
   m_mem_root.ClearForReuse();
 
   AccessPath *range_scan;
+  // If query has the range join hint, then we should always pick the range
+  // access over full table/index scan, which is achieved by setting
+  // force_quick_range and ignore_index_scan to true. This means that there is
+  // reduced need for costing in test_quick_select so we set
+  // skip_records_in_range to true. In theory, costing may still useful if there
+  // are competing range plans.
+  //
+  // Note that test_quick_select may still fail to
+  // return a range plan if it hits other issues (eg. running out of memory), in
+  // which case we fall back to full table scan.
+  bool range_join = m_qep_tab->force_dynamic_range;
 
-  int rc = test_quick_select(thd(), &m_mem_root, &m_mem_root, m_qep_tab->keys(),
-                             const_tables, read_tables, HA_POS_ERROR,
-                             false,  // don't force quick range
-                             ORDER_NOT_RELEVANT, m_qep_tab->table(),
-                             m_qep_tab->skip_records_in_range(),
-                             m_qep_tab->condition(), &needed_reg_dummy,
-                             m_qep_tab->table()->force_index,
-                             m_qep_tab->join()->query_block, &range_scan);
+  int rc =
+      test_quick_select(thd(), &m_mem_root, &m_mem_root, m_qep_tab->keys(),
+                        const_tables, read_tables, HA_POS_ERROR, range_join,
+                        ORDER_NOT_RELEVANT, m_qep_tab->table(),
+                        range_join ? true : m_qep_tab->skip_records_in_range(),
+                        m_qep_tab->condition(), &needed_reg_dummy,
+                        m_qep_tab->table()->force_index, range_join,
+                        m_qep_tab->join()->query_block, &range_scan);
   if (thd()->is_error())  // @todo consolidate error reporting
                           // of test_quick_select
   {

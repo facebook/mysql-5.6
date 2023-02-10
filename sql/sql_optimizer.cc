@@ -2431,7 +2431,7 @@ static bool test_if_skip_sort_order(JOIN_TAB *tab, ORDER_with_src &order,
                   tab->skip_records_in_range(),
                   // we are after make_join_query_block():
                   tab->condition(), &tab->needed_reg, tab->table()->force_index,
-                  join->query_block, &range_scan) <= 0;
+                  false, join->query_block, &range_scan) <= 0;
           assert(tab->range_scan() == save_range_scan);
           tab->set_range_scan(range_scan);
           if (no_quick) {
@@ -2542,7 +2542,7 @@ static bool test_if_skip_sort_order(JOIN_TAB *tab, ORDER_with_src &order,
                                 : join->query_expression()->select_limit_cnt,
           true,  // force quick range
           order.order->direction, tab->table(), tab->skip_records_in_range(),
-          tab->condition(), &tab->needed_reg, tab->table()->force_index,
+          tab->condition(), &tab->needed_reg, tab->table()->force_index, false,
           join->query_block, &range_scan);
       if (order_direction < 0 && tab->range_scan() != nullptr &&
           tab->range_scan() != save_range_scan) {
@@ -2933,8 +2933,8 @@ static const char *can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
                 tab->join()->row_limit, false, ordering, tab->table(),
                 tab->skip_records_in_range(),
                 tab->join_cond() ? tab->join_cond() : tab->join()->where_cond,
-                &tab->needed_reg, recheck_range, tab->join()->query_block,
-                &range_scan) > 0) {
+                &tab->needed_reg, recheck_range, false,
+                tab->join()->query_block, &range_scan) > 0) {
           if (length < get_max_used_key_length(range_scan)) {
             destroy(tab->range_scan());
             tab->set_range_scan(range_scan);
@@ -6301,7 +6301,7 @@ static ha_rows get_quick_record_count(THD *thd, JOIN_TAB *tab, ha_rows limit,
         limit,
         false,  // don't force quick range
         ORDER_NOT_RELEVANT, tab->table(), tab->skip_records_in_range(),
-        condition, &tab->needed_reg, tab->table()->force_index,
+        condition, &tab->needed_reg, tab->table()->force_index, false,
         tab->join()->query_block, &range_scan);
     // Restore saved MEM_ROOT params
     thd->mem_root->set_max_capacity(max_capacity);
@@ -9071,6 +9071,16 @@ static bool test_if_ref(THD *thd, Item_field *left_item, Item *right_item,
   if (!field->table->const_table &&
       /* "ref_or_null" implements "x=y or x is null", not "x=y" */
       (join_tab->type() != JT_REF_OR_NULL)) {
+    // Keep predicates as-is for dynamic range access. The condition is needed
+    // when rerunning range optimizer for every row.
+    const bool range_join_on =
+        thd->optimizer_switch_flag(OPTIMIZER_SWITCH_RANGE_JOIN) &&
+        hint_table_state(thd, join_tab->table_ref, RANGE_JOIN_HINT_ENUM, 0);
+    if (range_join_on && join_tab->type() == JT_ALL &&
+        join_tab->use_quick == QS_DYNAMIC_RANGE) {
+      return false;
+    }
+
     Item *ref_item = part_of_refkey(field->table, &join_tab->ref(), field);
     if (ref_item != nullptr && ref_item->eq(right_item, true)) {
       if (ref_lookup_subsumes_comparison(thd, field, right_item, redundant)) {
@@ -9795,8 +9805,12 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
           }
         }
 
+        const bool range_join_on =
+            thd->optimizer_switch_flag(OPTIMIZER_SWITCH_RANGE_JOIN) &&
+            hint_table_state(thd, tab->table_ref, RANGE_JOIN_HINT_ENUM, 0);
         if ((tab->type() == JT_ALL || tab->type() == JT_RANGE ||
-             tab->type() == JT_INDEX_MERGE || tab->type() == JT_INDEX_SCAN) &&
+             tab->type() == JT_INDEX_MERGE || tab->type() == JT_INDEX_SCAN ||
+             (range_join_on && tab->type() == JT_REF)) &&
             tab->use_quick != QS_RANGE) {
           /*
             We plan to scan (table/index/range scan).
@@ -9966,7 +9980,7 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
                       false,  // don't force quick range
                       interesting_order, tab->table(),
                       tab->skip_records_in_range(), tab->condition(),
-                      &tab->needed_reg, tab->table()->force_index,
+                      &tab->needed_reg, tab->table()->force_index, false,
                       join->query_block, &range_scan) < 0;
               tab->set_range_scan(range_scan);
             }
@@ -9996,7 +10010,7 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
                       false,  // don't force quick range
                       ORDER_NOT_RELEVANT, tab->table(),
                       tab->skip_records_in_range(), tab->condition(),
-                      &tab->needed_reg, tab->table()->force_index,
+                      &tab->needed_reg, tab->table()->force_index, false,
                       join->query_block, &range_scan) < 0;
               tab->set_range_scan(range_scan);
               if (impossible_where) return true;  // Impossible WHERE
@@ -10014,7 +10028,8 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
           }  // end of "if (recheck_reason != DONT_RECHECK)"
 
           if (!tab->table()->quick_keys.is_subset(tab->checked_keys) ||
-              !tab->needed_reg.is_subset(tab->checked_keys)) {
+              !tab->needed_reg.is_subset(tab->checked_keys) ||
+              (range_join_on && !tab->needed_reg.is_clear_all())) {
             tab->keys().merge(tab->table()->quick_keys);
             tab->keys().merge(tab->needed_reg);
 
@@ -10045,9 +10060,15 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
               Thus, the choice of DYNAMIC RANGE vs SCAN depends on the
               presence of an index that has so bad selectivity that it
               will not be used anyway.
+
+              However, if the range join hint is given to the table, we always
+              want to pick t2.good_idx over t2.other on the assumption that the
+              client is requesting specifically for dynamic range access.
+              Therefore, if dynamic range is possible (indicated by needed_reg
+              being set), always pick dynamic range.
             */
             if (!tab->needed_reg.is_clear_all() &&
-                (tab->table()->quick_keys.is_clear_all() ||
+                (range_join_on || tab->table()->quick_keys.is_clear_all() ||
                  (tab->range_scan() &&
                   (tab->range_scan()->num_output_rows() >= 100.0)))) {
               tab->use_quick = QS_DYNAMIC_RANGE;

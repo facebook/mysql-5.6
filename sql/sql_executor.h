@@ -388,6 +388,7 @@ class QEP_TAB : public QEP_shared_owner {
   };
   Setup_func materialize_table = NO_SETUP;
   bool using_dynamic_range = false;
+  bool force_dynamic_range = false;
 
   /** true <=> remove duplicates on this table. */
   bool needs_duplicate_removal = false;

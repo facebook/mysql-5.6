@@ -467,6 +467,7 @@ bool setup_range_optimizer_param(THD *thd, MEM_ROOT *return_mem_root,
       needed_reg        this info is used in make_join_query_block() even if
                           there is no quick.
       ignore_table_scan Disregard table scan while looking for range.
+      ignore_index_scan Disregard index scan while looking for range.
       query_block       The block the given table is part of.
       path [out]        Calculated AccessPath, or nullptr.
 
@@ -532,7 +533,8 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
                       const enum_order interesting_order, TABLE *table,
                       bool skip_records_in_range, Item *cond,
                       Key_map *needed_reg, bool ignore_table_scan,
-                      Query_block *query_block, AccessPath **path) {
+                      bool ignore_index_scan, Query_block *query_block,
+                      AccessPath **path) {
   DBUG_TRACE;
 
   bool force_group_by = false;
@@ -621,7 +623,8 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
         If optimizer_force_index_for_range is on and force index is used,
         then skip calculating index scan cost.
       */
-      !(thd->variables.optimizer_force_index_for_range && table->force_index)) {
+      !(thd->variables.optimizer_force_index_for_range && table->force_index) &&
+      !ignore_index_scan) {
     int key_for_use = find_shortest_key(table, &table->covering_keys);
     // find_shortest_key() should return a valid key:
     assert(key_for_use != MAX_KEY);

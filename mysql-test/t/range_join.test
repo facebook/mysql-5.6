@@ -1,0 +1,76 @@
+create table t (a int, b int, c int, id int primary key auto_increment, key(a, b, c), key(b)) engine=innodb;
+create table u (a int, b int, c int, id int primary key auto_increment, key(a, b, c)) engine=innodb;
+create table v (a int, b int, c int, id int primary key auto_increment, key(a, b, c)) engine=innodb;
+
+insert into t values (1, 1, 1, 1), (2, 2, 2, 2), (3, 3, 3, 3);
+
+insert into u (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT 1, i, i, null FROM b);
+insert into u (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT 2, i, i, null FROM b);
+insert into u (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT i+10, i, i, null FROM b);
+
+insert into v (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT 1, i, i, null FROM b);
+insert into v (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT 3, i, i, null FROM b);
+insert into v (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT i+10, i, i, null FROM b);
+
+analyze table t, u, v;
+
+--echo #
+--echo # t join u
+--echo #
+--let $query = select straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b < 5
+--let $hint = /*+ RANGE_JOIN(u) */
+--source include/range_join_query.inc
+
+--let $query = select straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b in (1, 2, 3)
+--let $hint = /*+ RANGE_JOIN(u) */
+--source include/range_join_query.inc
+
+--echo #
+--echo # t join u
+--echo # u join v
+--echo #
+--let $query = select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5
+--let $hint = /*+ RANGE_JOIN(u) */
+--source include/range_join_query.inc
+
+--let $query = select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5
+--let $hint = /*+ RANGE_JOIN(u) RANGE_JOIN(v) */
+--source include/range_join_query.inc
+
+--let $query = select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3)
+--let $hint = /*+ RANGE_JOIN(u) */
+--source include/range_join_query.inc
+
+--let $query = select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3)
+--let $hint = /*+ RANGE_JOIN(u) RANGE_JOIN(v) */
+--source include/range_join_query.inc
+
+--echo #
+--echo # t join u
+--echo # t join v
+--echo #
+--let $query = select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5
+--let $hint = /*+ RANGE_JOIN(u) */
+--source include/range_join_query.inc
+
+--let $query = select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5
+--let $hint = /*+ RANGE_JOIN(u) RANGE_JOIN(v) */
+--source include/range_join_query.inc
+
+--let $query = select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3)
+--let $hint = /*+ RANGE_JOIN(u) */
+--source include/range_join_query.inc
+
+--let $query = select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3)
+--let $hint = /*+ RANGE_JOIN(u) RANGE_JOIN(v) */
+--source include/range_join_query.inc
+
+--echo #
+--echo # Test turning off optimizer_switch
+--echo #
+set optimizer_switch='range_join=off';
+explain
+select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+set optimizer_switch='range_join=on';
+
+drop table t, u, v;

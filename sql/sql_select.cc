@@ -3220,6 +3220,11 @@ bool make_join_readinfo(JOIN *join, uint no_jbuf_after) {
       case JT_ALL:
         join->thd->set_status_no_index_used();
         qep_tab->using_dynamic_range = (tab->use_quick == QS_DYNAMIC_RANGE);
+        qep_tab->force_dynamic_range =
+            qep_tab->using_dynamic_range &&
+            join->thd->optimizer_switch_flag(OPTIMIZER_SWITCH_RANGE_JOIN) &&
+            hint_table_state(join->thd, tab->table_ref, RANGE_JOIN_HINT_ENUM,
+                             0);
         [[fallthrough]];
       case JT_INDEX_SCAN:
         if (tab->position()->filter_effect != COND_FILTER_STALE_NO_CONST &&

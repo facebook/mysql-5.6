@@ -1,0 +1,406 @@
+create table t (a int, b int, c int, id int primary key auto_increment, key(a, b, c), key(b)) engine=innodb;
+create table u (a int, b int, c int, id int primary key auto_increment, key(a, b, c)) engine=innodb;
+create table v (a int, b int, c int, id int primary key auto_increment, key(a, b, c)) engine=innodb;
+insert into t values (1, 1, 1, 1), (2, 2, 2, 2), (3, 3, 3, 3);
+insert into u (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT 1, i, i, null FROM b);
+insert into u (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT 2, i, i, null FROM b);
+insert into u (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT i+10, i, i, null FROM b);
+insert into v (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT 1, i, i, null FROM b);
+insert into v (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT 3, i, i, null FROM b);
+insert into v (WITH RECURSIVE a (i) AS (SELECT 0  union all SELECT i+1  from a where i < 9), b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z) SELECT i+10, i, i, null FROM b);
+analyze table t, u, v;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+test.u	analyze	status	OK
+test.v	analyze	status	OK
+#
+# t join u
+#
+EXPLAIN select straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid` from `test`.`t` join `test`.`u` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	3
+Handler_read_last	0
+Handler_read_next	2003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	33.33	Range checked for each record (index map: 0x2)
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid` from `test`.`t` join `test`.`u` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	3
+Handler_read_last	0
+Handler_read_next	13
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+EXPLAIN select straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid` from `test`.`t` join `test`.`u` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	3
+Handler_read_last	0
+Handler_read_next	2003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	30.00	Range checked for each record (index map: 0x2)
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid` from `test`.`t` join `test`.`u` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid from t join u on t.a = u.a where t.b in (1, 2) and u.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	7
+Handler_read_last	0
+Handler_read_next	9
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+#
+# t join u
+# u join v
+#
+EXPLAIN select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	33.33	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.a	2	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5) and (`test`.`v`.`b` < 5))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	7003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	33.33	Range checked for each record (index map: 0x2)
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.a	2	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5) and (`test`.`v`.`b` < 5))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	5013
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+EXPLAIN select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	33.33	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.a	2	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5) and (`test`.`v`.`b` < 5))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	7003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	33.33	Range checked for each record (index map: 0x2)
+1	SIMPLE	v	NULL	ALL	a	a	5	test.t.a	3000	33.33	Range checked for each record (index map: 0x2)
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) RANGE_JOIN(`v`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5) and (`test`.`v`.`b` < 5))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	38
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+EXPLAIN select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	9
+Handler_read_last	0
+Handler_read_next	5003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	30.00	Range checked for each record (index map: 0x2)
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	3009
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+EXPLAIN select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	9
+Handler_read_last	0
+Handler_read_next	5003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	30.00	Range checked for each record (index map: 0x2)
+1	SIMPLE	v	NULL	ALL	a	a	5	test.t.a	3000	30.00	Range checked for each record (index map: 0x2)
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) RANGE_JOIN(`v`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`a`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on u.a = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	25
+Handler_read_last	0
+Handler_read_next	18
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+#
+# t join u
+# t join v
+#
+EXPLAIN select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	33.33	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5) and (`test`.`v`.`b` < 5))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	7003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	33.33	Range checked for each record (index map: 0x2)
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5) and (`test`.`v`.`b` < 5))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	5013
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+EXPLAIN select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	33.33	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5) and (`test`.`v`.`b` < 5))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	7003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	33.33	Range checked for each record (index map: 0x2)
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	33.33	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) RANGE_JOIN(`v`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` < 5) and (`test`.`v`.`b` < 5))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b < 5 and v.b < 5;
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	5013
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+EXPLAIN select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	9
+Handler_read_last	0
+Handler_read_next	5003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	30.00	Range checked for each record (index map: 0x2)
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	3009
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+EXPLAIN select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+FLUSH STATUS;
+select straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	9
+Handler_read_last	0
+Handler_read_next	5003
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+EXPLAIN select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ALL	a	a	5	test.t.a	3000	30.00	Range checked for each record (index map: 0x2)
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) RANGE_JOIN(`v`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+FLUSH STATUS;
+select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+SHOW STATUS LIKE 'handler_read%';
+Variable_name	Value
+Handler_read_first	1
+Handler_read_key	13
+Handler_read_last	0
+Handler_read_next	3009
+Handler_read_prev	0
+Handler_read_rnd	0
+Handler_read_rnd_next	0
+include/diff_tables.inc [test.range_join, test.hint_range_join]
+#
+# Test turning off optimizer_switch
+#
+set optimizer_switch='range_join=off';
+explain
+select /*+ RANGE_JOIN(u) RANGE_JOIN(v) */ straight_join t.id as tid, u.id as uid, v.id as vid from t join u on t.a = u.a join v on t.b = v.a where t.b in (1, 2) and u.b in (1, 2, 3) and v.b in (1, 2, 3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	a,b	a	15	NULL	3	66.67	Using where; Using index
+1	SIMPLE	u	NULL	ref	a	a	5	test.t.a	2	30.00	Using where; Using index
+1	SIMPLE	v	NULL	ref	a	a	5	test.t.b	2	30.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select /*+ RANGE_JOIN(`u`@`select#1`) RANGE_JOIN(`v`@`select#1`) */ straight_join `test`.`t`.`id` AS `tid`,`test`.`u`.`id` AS `uid`,`test`.`v`.`id` AS `vid` from `test`.`t` join `test`.`u` join `test`.`v` where ((`test`.`u`.`a` = `test`.`t`.`a`) and (`test`.`v`.`a` = `test`.`t`.`b`) and (`test`.`t`.`b` in (1,2)) and (`test`.`u`.`b` in (1,2,3)) and (`test`.`v`.`b` in (1,2,3)))
+set optimizer_switch='range_join=on';
+drop table t, u, v;
