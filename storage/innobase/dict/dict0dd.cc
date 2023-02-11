@@ -1512,7 +1512,8 @@ void dd_copy_instant_n_cols(dd::Table &new_table, const dd::Table &old_table) {
 }
 
 template <typename Table>
-void dd_copy_private(Table &new_table, const Table &old_table) {
+void dd_copy_private(Table &new_table, const Table &old_table,
+                     bool copy_old_options) {
   uint64 autoinc = 0;
   uint64 version = 0;
   bool reset = false;
@@ -1559,13 +1560,15 @@ void dd_copy_private(Table &new_table, const Table &old_table) {
   }
 
   new_table.table().set_row_format(old_table.table().row_format());
-  new_table.options().clear();
-  new_table.set_options(old_table.options());
+  if (copy_old_options) {
+    new_table.options().clear();
+    new_table.set_options(old_table.options());
+  }
 }
 
-template void dd_copy_private<dd::Table>(dd::Table &, const dd::Table &);
+template void dd_copy_private<dd::Table>(dd::Table &, const dd::Table &, bool);
 template void dd_copy_private<dd::Partition>(dd::Partition &,
-                                             const dd::Partition &);
+                                             const dd::Partition &, bool);
 
 /** Check if given column is renamed during ALTER.
 @param[in]	ha_alter_info	alter info

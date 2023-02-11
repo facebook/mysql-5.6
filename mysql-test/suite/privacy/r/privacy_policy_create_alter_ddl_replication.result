@@ -11,19 +11,28 @@ CREATE TABLE t1 (
 id int NOT NULL,
 name VARCHAR(30)   NOT NULL DEFAULT '',
 PRIMARY KEY (`id`)
-) PRIVACY_POLICY='policy_original';
+) ENGINE=InnoDB PRIVACY_POLICY='policy_original' STATS_AUTO_RECALC=1;
+CREATE TABLE t1_rocks (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB PRIVACY_POLICY='policy_original' STATS_AUTO_RECALC=1;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `id` int NOT NULL,
   `name` varchar(30) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_original'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_original'
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 TABLE_NAME	CREATE_OPTIONS
-t1	privacy_policy="policy_original"
+t1	stats_auto_recalc=1 privacy_policy="policy_original"
+set @original_rocksdb_disable_instant_ddl_primary=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
 ## Connecting to replica
 include/sync_slave_sql_with_master.inc
+set @original_rocksdb_disable_instant_ddl_replica=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -31,10 +40,10 @@ t1	CREATE TABLE `t1` (
   `id` int NOT NULL,
   `name` varchar(30) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_original'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_original'
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 TABLE_NAME	CREATE_OPTIONS
-t1	privacy_policy="policy_original"
+t1	stats_auto_recalc=1 privacy_policy="policy_original"
 ########################################################################
 === Altering table with POLICY!
 ########################################################################
@@ -51,10 +60,10 @@ t2	CREATE TABLE `t2` (
   `new_col` int NOT NULL,
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_altered'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t2';
 TABLE_NAME	CREATE_OPTIONS
-t2	privacy_policy="policy_altered"
+t2	stats_auto_recalc=1 privacy_policy="policy_altered"
 include/sync_slave_sql_with_master.inc
 ## Connecting to replica
 SHOW CREATE TABLE t2;
@@ -65,12 +74,92 @@ t2	CREATE TABLE `t2` (
   `new_col` int NOT NULL,
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_altered'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t2';
 TABLE_NAME	CREATE_OPTIONS
-t2	privacy_policy="policy_altered"
+t2	stats_auto_recalc=1 privacy_policy="policy_altered"
 ## Connecting to primary
 ALTER TABLE t2 rename t1;
+########################################################################
+=== INPLACE Altering table with POLICY!
+########################################################################
+ALTER TABLE t1 PRIVACY_POLICY='policy_altered_again', ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `new_col` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`(20))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered_again'
+ALTER TABLE t1_rocks PRIVACY_POLICY='policy_altered_again', ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered_again'
+include/sync_slave_sql_with_master.inc
+## Connecting to replica
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `new_col` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`(20))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered_again'
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered_again'
+## Connecting to primary
+########################################################################
+=== INSTANT Altering table with POLICY!
+########################################################################
+ALTER TABLE t1 PRIVACY_POLICY='policy_altered', ALGORITHM=INSTANT;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `new_col` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`(20))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+ALTER TABLE t1_rocks PRIVACY_POLICY='policy_altered', ALGORITHM=INSTANT;
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+include/sync_slave_sql_with_master.inc
+## Connecting to replica
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `new_col` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`(20))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+## Connecting to primary
 ########################################################################
 === Cleanup POLICY!
 ########################################################################
@@ -83,10 +172,10 @@ t1	CREATE TABLE `t1` (
   `new_col` int NOT NULL,
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 TABLE_NAME	CREATE_OPTIONS
-t1	
+t1	stats_auto_recalc=1
 ## Connecting to replica
 include/sync_slave_sql_with_master.inc
 SHOW CREATE TABLE t1;
@@ -97,10 +186,13 @@ t1	CREATE TABLE `t1` (
   `new_col` int NOT NULL,
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 TABLE_NAME	CREATE_OPTIONS
-t1	
+t1	stats_auto_recalc=1
+set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl_replica;
 ## Connecting to primary
 drop table t1;
+drop table t1_rocks;
+set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl_primary;
 include/rpl_end.inc

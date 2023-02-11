@@ -563,9 +563,11 @@ private data between dd::Table and dd::Partition
 @tparam		Table		dd::Table or dd::Partition
 @param[in,out]	new_table	Copy of old table or partition
 definition
-@param[in]	old_table	Old table or partition definition */
+@param[in]	old_table	Old table or partition definition
+@param[in]	copy_old_options Clear options on new table and copy from old */
 template <typename Table>
-void dd_copy_private(Table &new_table, const Table &old_table);
+void dd_copy_private(Table &new_table, const Table &old_table,
+                     bool copy_old_options = true);
 
 /** Copy the engine-private parts of column definitions of a table
 @param[in,out]	new_table	Copy of old table

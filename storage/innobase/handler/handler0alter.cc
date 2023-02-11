@@ -121,7 +121,10 @@ enum class Instant_Type : uint16_t {
   INSTANT_ADD_COLUMN,
 
   /** Column rename */
-  INSTANT_COLUMN_RENAME
+  INSTANT_COLUMN_RENAME,
+
+  /** Only metadata (Privacy_policy) in data dictionary is being changed. */
+  INSTANT_PRIVACY_POLICY,
 };
 
 /** Function to convert the Instant_Type to a comparable int */
@@ -185,6 +188,10 @@ static const Alter_inplace_info::HA_ALTER_FLAGS INNOBASE_ALTER_NOREBUILD =
     Alter_inplace_info::DROP_VIRTUAL_COLUMN |
     Alter_inplace_info::ALTER_VIRTUAL_COLUMN_ORDER |
     Alter_inplace_info::ALTER_COLUMN_INDEX_LENGTH;
+
+/** Table Create options for altering a table that InnoDB does not care about */
+static const uint64_t INNOBASE_CREATE_OPTIONS_INSTANT_ALLOWED =
+    HA_CREATE_USED_PRIVACY_POLICY;
 
 struct ha_innobase_inplace_ctx : public inplace_alter_handler_ctx {
   /** Dummy query graph */
@@ -720,6 +727,15 @@ static inline Instant_Type innobase_support_instant(
     return (Instant_Type::INSTANT_NO_CHANGE);
   }
 
+  // If only create options are modified and privacy policy is being changed,
+  // allow Instant Alter
+  if (!(ha_alter_info->handler_flags &
+        ~(Alter_inplace_info::CHANGE_CREATE_OPTION)) &&
+      !(ha_alter_info->create_info->used_fields &
+        ~INNOBASE_CREATE_OPTIONS_INSTANT_ALLOWED)) {
+    return Instant_Type::INSTANT_PRIVACY_POLICY;
+  }
+
   Alter_inplace_info::HA_ALTER_FLAGS alter_inplace_flags =
       ha_alter_info->handler_flags & ~INNOBASE_INPLACE_IGNORE;
 
@@ -933,6 +949,7 @@ enum_alter_inplace_result ha_innobase::check_if_supported_inplace_alter(
       case Instant_Type::INSTANT_NO_CHANGE:
       case Instant_Type::INSTANT_VIRTUAL_ONLY:
       case Instant_Type::INSTANT_COLUMN_RENAME:
+      case Instant_Type::INSTANT_PRIVACY_POLICY:
         ha_alter_info->handler_trivial_ctx = instant_type_to_int(instant_type);
         return HA_ALTER_INPLACE_INSTANT;
     }
@@ -1231,11 +1248,13 @@ static void dd_commit_inplace_alter_table(
 no change to the table
 @param[in]	old_dd_tab	Old dd::Table or dd::Partition
 @param[in]	new_dd_tab	New dd::Table or dd::Partition
-@param[in]	ignore_fts	ignore FTS update if true */
+@param[in]	ignore_fts	ignore FTS update if true
+@param[in]	copy_old_options Clear options on new table and copy from old */
 template <typename Table>
 static void dd_commit_inplace_no_change(const Alter_inplace_info *ha_alter_info,
                                         const Table *old_dd_tab,
-                                        Table *new_dd_tab, bool ignore_fts);
+                                        Table *new_dd_tab, bool ignore_fts,
+                                        bool copy_old_options = true);
 
 /** Update metadata in commit phase if it is instant ALTER TABLE
 @param[in]	ha_alter_info	the DDL operation
@@ -4274,12 +4293,13 @@ static void dd_commit_instant_part(const dict_table_t *new_table,
 template <typename Table>
 static void dd_commit_inplace_no_change(const Alter_inplace_info *ha_alter_info,
                                         const Table *old_dd_tab,
-                                        Table *new_dd_tab, bool ignore_fts) {
+                                        Table *new_dd_tab, bool ignore_fts,
+                                        bool copy_old_options) {
   if (!ignore_fts) {
     dd_add_fts_doc_id_index(new_dd_tab->table(), old_dd_tab->table());
   }
 
-  dd_copy_private(*new_dd_tab, *old_dd_tab);
+  dd_copy_private(*new_dd_tab, *old_dd_tab, copy_old_options);
 
   if (!dd_table_is_partitioned(new_dd_tab->table()) ||
       dd_part_is_first(reinterpret_cast<dd::Partition *>(new_dd_tab))) {
@@ -4302,6 +4322,11 @@ static void dd_commit_inplace_instant(Alter_inplace_info *ha_alter_info,
   switch (type) {
     case Instant_Type::INSTANT_NO_CHANGE:
       dd_commit_inplace_no_change(ha_alter_info, old_dd_tab, new_dd_tab, false);
+      break;
+    case Instant_Type::INSTANT_PRIVACY_POLICY:
+      // Use the options populated on the new table
+      dd_commit_inplace_no_change(ha_alter_info, old_dd_tab, new_dd_tab, false,
+                                  false);
       break;
     case Instant_Type::INSTANT_COLUMN_RENAME:
       dd_commit_inplace_no_change(ha_alter_info, old_dd_tab, new_dd_tab, false);
@@ -10162,6 +10187,7 @@ enum_alter_inplace_result ha_innopart::check_if_supported_inplace_alter(
     case Instant_Type::INSTANT_NO_CHANGE:
     case Instant_Type::INSTANT_VIRTUAL_ONLY:
     case Instant_Type::INSTANT_COLUMN_RENAME:
+    case Instant_Type::INSTANT_PRIVACY_POLICY:
       if (altered_table->s->fields > REC_MAX_N_USER_FIELDS) {
         /* Deny the inplace ALTER TABLE. MySQL will try to
         re-create the table and ha_innobase::create() will
