@@ -198,6 +198,10 @@ bool Instant_ddl_impl<Table>::commit_instant_ddl() {
     case Instant_Type::INSTANT_NO_CHANGE:
       dd_commit_inplace_no_change(false);
       break;
+    case Instant_Type::INSTANT_PRIVACY_POLICY:
+      // Use the options populated on the new table
+      dd_commit_inplace_no_change(false);
+      break;
     case Instant_Type::INSTANT_COLUMN_RENAME:
       dd_commit_inplace_no_change(false);
 

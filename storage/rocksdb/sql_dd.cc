@@ -177,14 +177,18 @@ when the change does not affect RocksDB. This mainly copies the common
 private data between dd::Table
 @tparam		Table		dd::Table
 @param[in,out]	new_table	Copy of old table or partition definition
-@param[in]	old_table	Old table or partition definition */
-void dd_copy_private(dd::Table &new_table, const dd::Table &old_table) {
+@param[in]	old_table	Old table or partition definition
+@param[in]	copy_old_options Clear options on new table and copy from old */
+void dd_copy_private(dd::Table &new_table, const dd::Table &old_table,
+                     bool copy_old_options) {
   new_table.se_private_data().clear();
   new_table.set_se_private_id(old_table.se_private_id());
   new_table.set_se_private_data(old_table.se_private_data());
   new_table.table().set_row_format(old_table.table().row_format());
-  new_table.options().clear();
-  new_table.set_options(old_table.options());
+  if (copy_old_options) {
+    new_table.options().clear();
+    new_table.set_options(old_table.options());
+  }
 }
 
 /** The encode() will change the byte stream into char stream, by spliting

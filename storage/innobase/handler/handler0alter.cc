@@ -173,6 +173,10 @@ static const Alter_inplace_info::HA_ALTER_FLAGS INNOBASE_ALTER_NOREBUILD =
     Alter_inplace_info::ALTER_VIRTUAL_COLUMN_ORDER |
     Alter_inplace_info::ALTER_COLUMN_INDEX_LENGTH;
 
+/** Table Create options for altering a table that InnoDB does not care about */
+static const uint64_t INNOBASE_CREATE_OPTIONS_INSTANT_ALLOWED =
+    HA_CREATE_USED_PRIVACY_POLICY;
+
 struct ha_innobase_inplace_ctx : public inplace_alter_handler_ctx {
   /** Dummy query graph */
   que_thr_t *thr;
@@ -833,6 +837,15 @@ static inline Instant_Type innobase_support_instant(
     return (Instant_Type::INSTANT_NO_CHANGE);
   }
 
+  // If only create options are modified and privacy policy is being changed,
+  // allow Instant Alter
+  if (!(ha_alter_info->handler_flags &
+        ~(Alter_inplace_info::CHANGE_CREATE_OPTION)) &&
+      !(ha_alter_info->create_info->used_fields &
+        ~INNOBASE_CREATE_OPTIONS_INSTANT_ALLOWED)) {
+    return Instant_Type::INSTANT_PRIVACY_POLICY;
+  }
+
   Alter_inplace_info::HA_ALTER_FLAGS alter_inplace_flags =
       ha_alter_info->handler_flags & ~INNOBASE_INPLACE_IGNORE;
 
@@ -1094,6 +1107,7 @@ enum_alter_inplace_result ha_innobase::check_if_supported_inplace_alter(
       case Instant_Type::INSTANT_NO_CHANGE:
       case Instant_Type::INSTANT_VIRTUAL_ONLY:
       case Instant_Type::INSTANT_COLUMN_RENAME:
+      case Instant_Type::INSTANT_PRIVACY_POLICY:
         ha_alter_info->handler_trivial_ctx = instant_type_to_int(instant_type);
         return HA_ALTER_INPLACE_INSTANT;
     }
@@ -10261,6 +10275,7 @@ enum_alter_inplace_result ha_innopart::check_if_supported_inplace_alter(
     case Instant_Type::INSTANT_NO_CHANGE:
     case Instant_Type::INSTANT_VIRTUAL_ONLY:
     case Instant_Type::INSTANT_COLUMN_RENAME:
+    case Instant_Type::INSTANT_PRIVACY_POLICY:
       if (altered_table->s->fields > REC_MAX_N_USER_FIELDS) {
         /* Deny the inplace ALTER TABLE. MySQL will try to
         re-create the table and ha_innobase::create() will

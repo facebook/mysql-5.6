@@ -734,7 +734,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
     /** ADD COLUMN which can be done instantly, including
     adding stored column only (or along with adding virtual columns) */
-    INSTANT_ADD_COLUMN
+    INSTANT_ADD_COLUMN,
+
+    /** Only metadata (Privacy_policy) in data dictionary is being changed. */
+    INSTANT_PRIVACY_POLICY,
   };
 
   int create_cfs(const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,

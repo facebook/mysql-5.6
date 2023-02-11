@@ -51,7 +51,10 @@ enum class Instant_Type : uint16_t {
   INSTANT_ADD_DROP_COLUMN,
 
   /** Column rename */
-  INSTANT_COLUMN_RENAME
+  INSTANT_COLUMN_RENAME,
+
+  /** Only metadata (Privacy_policy) in data dictionary is being changed. */
+  INSTANT_PRIVACY_POLICY,
 };
 
 using Columns = std::vector<Field *>;

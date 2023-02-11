@@ -1,67 +1,178 @@
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
+set @original_rocksdb_disable_instant_ddl=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
 ########################################################################
 === Creating table with PRIVACY_POLICY!
 ########################################################################
-CREATE TABLE t1 (
+CREATE TABLE t1_inno (
 id int NOT NULL,
 name VARCHAR(30)   NOT NULL DEFAULT '',
 PRIMARY KEY (`id`)
-) PRIVACY_POLICY='policy_original';
-SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
+) ENGINE=InnoDB PRIVACY_POLICY='policy_original'  STATS_AUTO_RECALC=1;
+CREATE TABLE t1_rocks (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB PRIVACY_POLICY='policy_original'  STATS_AUTO_RECALC=1;
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME like 't1%';
 TABLE_NAME	CREATE_OPTIONS
-t1	privacy_policy="policy_original"
-SHOW CREATE TABLE t1;
+t1_inno	stats_auto_recalc=1 privacy_policy="policy_original"
+t1_rocks	stats_auto_recalc=1 privacy_policy="policy_original"
+SHOW CREATE TABLE t1_inno;
 Table	Create Table
-t1	CREATE TABLE `t1` (
+t1_inno	CREATE TABLE `t1_inno` (
   `id` int NOT NULL,
   `name` varchar(30) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_original'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_original'
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_original'
 ########################################################################
 === Disable show_create_table_contain_privacy_policy
 ########################################################################
 SET @@session.show_create_table_contain_privacy_policy = FALSE;
-SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t1_inno;
 Table	Create Table
-t1	CREATE TABLE `t1` (
+t1_inno	CREATE TABLE `t1_inno` (
   `id` int NOT NULL,
   `name` varchar(30) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
 ########################################################################
 === Altering table for PRIVACY_POLICY!
 ########################################################################
-ALTER TABLE t1 PRIVACY_POLICY='policy_altered';
-SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
+ALTER TABLE t1_inno PRIVACY_POLICY='policy_altered';
+ALTER TABLE t1_rocks PRIVACY_POLICY='policy_altered';
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME like 't1%';
 TABLE_NAME	CREATE_OPTIONS
-t1	privacy_policy="policy_altered"
-SHOW CREATE TABLE t1;
+t1_inno	stats_auto_recalc=1 privacy_policy="policy_altered"
+t1_rocks	stats_auto_recalc=1 privacy_policy="policy_altered"
+SHOW CREATE TABLE t1_inno;
 Table	Create Table
-t1	CREATE TABLE `t1` (
+t1_inno	CREATE TABLE `t1_inno` (
   `id` int NOT NULL,
   `name` varchar(30) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_altered'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+########################################################################
+=== INPLACE Altering table for PRIVACY_POLICY!
+########################################################################
+ALTER TABLE t1_inno PRIVACY_POLICY='policy_altered_again', ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1_inno;
+Table	Create Table
+t1_inno	CREATE TABLE `t1_inno` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered_again'
+ALTER TABLE t1_rocks PRIVACY_POLICY='policy_altered_again', ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered_again'
+########################################################################
+=== INSTANT Altering table for PRIVACY_POLICY!
+########################################################################
+ALTER TABLE t1_inno PRIVACY_POLICY='policy_original', ALGORITHM=INSTANT;
+ALTER TABLE t1_inno ADD COLUMN c1 INT NOT NULL, ALGORITHM=INSTANT;
+SHOW CREATE TABLE t1_inno;
+Table	Create Table
+t1_inno	CREATE TABLE `t1_inno` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `c1` int NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_original'
+ALTER TABLE t1_inno PRIVACY_POLICY='policy_altered', ALGORITHM=INSTANT;
+SHOW CREATE TABLE t1_inno;
+Table	Create Table
+t1_inno	CREATE TABLE `t1_inno` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `c1` int NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+ALTER TABLE t1_rocks PRIVACY_POLICY='policy_original', ALGORITHM=INSTANT;
+ALTER TABLE t1_rocks ADD COLUMN c1 INT NOT NULL, ALGORITHM=INSTANT;
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `c1` int NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_original'
+ALTER TABLE t1_rocks PRIVACY_POLICY='policy_altered', ALGORITHM=INSTANT;
+SHOW CREATE TABLE t1_rocks;
+Table	Create Table
+t1_rocks	CREATE TABLE `t1_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `c1` int NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+ALTER TABLE t1_inno ADD COLUMN c2 INT NOT NULL, PRIVACY_POLICY='policy_altered_again', ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
+ALTER TABLE t1_rocks ADD COLUMN c2 INT NOT NULL, PRIVACY_POLICY='policy_altered_again', ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
 ########################################################################
 === Usual Alter table on a policied table should retain privacy policy
 ########################################################################
-ALTER TABLE t1 rename t2;
-ALTER TABLE t2 ADD Column new_col int not null;
-ALTER TABLE t2 ADD KEY (name(20));
-SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t2';
-TABLE_NAME	CREATE_OPTIONS
-t2	privacy_policy="policy_altered"
-SHOW CREATE TABLE t2;
+ALTER TABLE t1_inno rename t2_inno;
+ALTER TABLE t2_inno ADD Column new_col int not null;
+ALTER TABLE t2_inno ADD KEY (name(20));
+SHOW CREATE TABLE t2_inno;
 Table	Create Table
-t2	CREATE TABLE `t2` (
+t2_inno	CREATE TABLE `t2_inno` (
   `id` int NOT NULL,
   `name` varchar(30) NOT NULL DEFAULT '',
+  `c1` int NOT NULL,
   `new_col` int NOT NULL,
   PRIMARY KEY (`id`),
   KEY `name` (`name`(20))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci PRIVACY_POLICY='policy_altered'
-ALTER TABLE t2 rename t1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+ALTER TABLE t1_rocks rename t2_rocks;
+ALTER TABLE t2_rocks ADD Column new_col int not null;
+ALTER TABLE t2_rocks ADD KEY (name(20));
+SHOW CREATE TABLE t2_rocks;
+Table	Create Table
+t2_rocks	CREATE TABLE `t2_rocks` (
+  `id` int NOT NULL,
+  `name` varchar(30) NOT NULL DEFAULT '',
+  `c1` int NOT NULL,
+  `new_col` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`(20))
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci STATS_AUTO_RECALC=1 PRIVACY_POLICY='policy_altered'
+SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME like 't2%';
+TABLE_NAME	CREATE_OPTIONS
+t2_inno	stats_auto_recalc=1 privacy_policy="policy_altered"
+t2_rocks	stats_auto_recalc=1 privacy_policy="policy_altered"
+ALTER TABLE t2_inno rename t1_inno;
+ALTER TABLE t2_rocks rename t1_rocks;
 ########################################################################
 === Create table for Super Long policy!
 ########################################################################
@@ -154,6 +265,8 @@ Table	Create Table
 nopolicy	CREATE TABLE `nopolicy` (
   `c1` int DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-drop table t1;
+drop table t1_inno;
+drop table t1_rocks;
 drop table longPolicy;
 drop table nopolicy;
+set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl;

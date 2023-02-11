@@ -15062,6 +15062,15 @@ static constexpr Alter_inplace_info::HA_ALTER_FLAGS ROCKSDB_INPLACE_IGNORE =
     Alter_inplace_info::DROP_CHECK_CONSTRAINT |
     Alter_inplace_info::SUSPEND_CHECK_CONSTRAINT;
 
+/** Table Create options for instant altering a table that RocksDB does not care
+ * about */
+static const uint64_t ROCKSDB_CREATE_OPTIONS_INSTANT_ALLOWED =
+    HA_CREATE_USED_PRIVACY_POLICY;
+/** Table Create options for inplace altering a table that RocksDB does not care
+ * about */
+static const uint64_t ROCKSDB_CREATE_OPTIONS_INPLACE_ALLOWED =
+    HA_CREATE_USED_AUTO | HA_CREATE_USED_COMMENT |
+    HA_CREATE_USED_PRIVACY_POLICY;
 /*
     Checks if instant alter is supported for a given operation.
 */
@@ -15076,6 +15085,15 @@ ha_rocksdb::Instant_Type ha_rocksdb::rocksdb_support_instant(
   if (!(ha_alter_info->handler_flags & ~ROCKSDB_INPLACE_IGNORE)) {
     /* after adding support, return (Instant_Type::INSTANT_NO_CHANGE) */
     return (Instant_Type::INSTANT_IMPOSSIBLE);
+  }
+
+  // If only create options are modified and privacy policy is being changed,
+  // allow Instant Alter
+  if (!(ha_alter_info->handler_flags &
+        ~(my_core::Alter_inplace_info::CHANGE_CREATE_OPTION)) &&
+      !(ha_alter_info->create_info->used_fields &
+        ~ROCKSDB_CREATE_OPTIONS_INSTANT_ALLOWED)) {
+    return Instant_Type::INSTANT_PRIVACY_POLICY;
   }
 
   Alter_inplace_info::HA_ALTER_FLAGS alter_inplace_flags =
@@ -15156,6 +15174,7 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
       [[fallthrough]];
     case Instant_Type::INSTANT_NO_CHANGE:
     case Instant_Type::INSTANT_VIRTUAL_ONLY:
+    case Instant_Type::INSTANT_PRIVACY_POLICY:
       ha_alter_info->handler_trivial_ctx = static_cast<uint8>(instant_type);
       DBUG_RETURN(HA_ALTER_INPLACE_INSTANT);
   }
@@ -15180,11 +15199,12 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
-  /* We only support changing auto_increment or comments for table options. */
+  /* We only support changing auto_increment or comments or privacy_policy for
+   * table options. */
   if ((ha_alter_info->handler_flags &
        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
       (ha_alter_info->create_info->used_fields &
-       ~(HA_CREATE_USED_AUTO | HA_CREATE_USED_COMMENT))) {
+       ~ROCKSDB_CREATE_OPTIONS_INPLACE_ALLOWED)) {
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
@@ -15866,10 +15886,16 @@ bool ha_rocksdb::commit_inplace_alter_table(
     /* update dd data  */
     Instant_Type type =
         static_cast<Instant_Type>(ha_alter_info->handler_trivial_ctx);
-    if (type == Instant_Type::INSTANT_ADD_COLUMN)
+    if (type == Instant_Type::INSTANT_ADD_COLUMN) {
       dd_commit_instant_table(table, altered_table, old_dd_tab, new_dd_tab);
-    else
+    } else if (type == Instant_Type::INSTANT_PRIVACY_POLICY) {
+      // Copy SE data but use the options configured on the new table
+      // which contains the privacy policy
+      dd_copy_private(*new_dd_tab, *old_dd_tab, false);
+      dd_copy_table_columns(*new_dd_tab, *old_dd_tab);
+    } else {
       assert(0);  // not supported yet
+    }
   } else if (!rocksdb_disable_instant_ddl) {
     dd_copy_private(*new_dd_tab, *old_dd_tab);
     dd_copy_table_columns(*new_dd_tab, *old_dd_tab);

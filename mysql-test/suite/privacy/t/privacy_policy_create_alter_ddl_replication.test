@@ -8,19 +8,30 @@ SET @@session.show_create_table_contain_privacy_policy = TRUE;
 
 let $privacy_policy= policy_original;
 let $privacy_policy_2= policy_altered;
+let $privacy_policy_3= policy_altered_again;
 
 eval CREATE TABLE t1 (
     id int NOT NULL,
     name VARCHAR(30)   NOT NULL DEFAULT '',
     PRIMARY KEY (`id`)
-) PRIVACY_POLICY='$privacy_policy';
+) ENGINE=InnoDB PRIVACY_POLICY='$privacy_policy' STATS_AUTO_RECALC=1;
+
+eval CREATE TABLE t1_rocks (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB PRIVACY_POLICY='$privacy_policy' STATS_AUTO_RECALC=1;
 
 SHOW CREATE TABLE t1;
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
+set @original_rocksdb_disable_instant_ddl_primary=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
 
 --echo ## Connecting to replica
 --source include/sync_slave_sql_with_master.inc
 --connection slave
+set @original_rocksdb_disable_instant_ddl_replica=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
 
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
 
@@ -51,6 +62,46 @@ SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAM
 ALTER TABLE t2 rename t1;
 
 --echo ########################################################################
+--echo === INPLACE Altering table with POLICY!
+--echo ########################################################################
+
+eval ALTER TABLE t1 PRIVACY_POLICY='$privacy_policy_3', ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1;
+
+eval ALTER TABLE t1_rocks PRIVACY_POLICY='$privacy_policy_3', ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1_rocks;
+
+
+--source include/sync_slave_sql_with_master.inc
+--echo ## Connecting to replica
+--connection slave
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t1_rocks;
+
+--echo ## Connecting to primary
+--connection master
+
+--echo ########################################################################
+--echo === INSTANT Altering table with POLICY!
+--echo ########################################################################
+# Instant support for Innodb
+eval ALTER TABLE t1 PRIVACY_POLICY='$privacy_policy_2', ALGORITHM=INSTANT;
+SHOW CREATE TABLE t1;
+
+eval ALTER TABLE t1_rocks PRIVACY_POLICY='$privacy_policy_2', ALGORITHM=INSTANT;
+SHOW CREATE TABLE t1_rocks;
+
+
+--source include/sync_slave_sql_with_master.inc
+--echo ## Connecting to replica
+--connection slave
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t1_rocks;
+
+--echo ## Connecting to primary
+--connection master
+
+--echo ########################################################################
 --echo === Cleanup POLICY!
 --echo ########################################################################
 eval ALTER TABLE t1 PRIVACY_POLICY='';
@@ -65,8 +116,12 @@ SHOW CREATE TABLE t1;
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 
 # Cleanup
+
+set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl_replica;
 --echo ## Connecting to primary
---connection default
+--connection master
 drop table t1;
+drop table t1_rocks;
+set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl_primary;
 
 --source include/rpl_end.inc
