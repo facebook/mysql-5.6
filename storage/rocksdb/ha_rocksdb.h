@@ -322,7 +322,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   int create_key_defs(const TABLE *const table_arg,
                       Rdb_tbl_def *const tbl_def_arg,
-                      const std::string &actual_user_table_name,
+                      const std::string &actual_user_table_name, bool is_dd_tbl,
                       const TABLE *const old_table_arg = nullptr,
                       const Rdb_tbl_def *const old_tbl_def_arg = nullptr) const
       MY_ATTRIBUTE((__nonnull__(2, 3), __warn_unused_result__));
@@ -739,14 +739,16 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   int create_cfs(const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
                  const std::string &actual_user_table_name,
-                 std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs)
-      const MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+                 std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs,
+                 bool is_dd_tbl) const
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int create_key_def(const TABLE *const table_arg, const uint i,
                      const Rdb_tbl_def *const tbl_def_arg,
                      std::shared_ptr<Rdb_key_def> *const new_key_def,
                      const struct key_def_cf_info &cf_info, uint64 ttl_duration,
-                     const std::string &ttl_column) const
+                     const std::string &ttl_column,
+                     bool is_dd_tbl = false) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int create_inplace_key_defs(

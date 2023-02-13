@@ -1386,8 +1386,10 @@ class Rdb_ddl_manager : public Ensure_initialized {
       m_index_num_to_uncommitted_keydef;
   mysql_rwlock_t m_rwlock;
 
+  Rdb_seq_generator m_dd_table_sequence;
   Rdb_seq_generator m_user_table_sequence;
   Rdb_seq_generator m_tmp_table_sequence;
+
   // A queue of table stats to write into data dictionary
   // It is produced by event listener (ie compaction and flush threads)
   // and consumed by the rocksdb background thread
@@ -1428,7 +1430,7 @@ class Rdb_ddl_manager : public Ensure_initialized {
   bool rename(const std::string &from, const std::string &to,
               rocksdb::WriteBatch *const batch);
 
-  uint get_and_update_next_number(uint cf_id);
+  uint get_and_update_next_number(uint cf_id, bool is_dd_tbl);
 
   const std::string safe_get_table_name(const GL_INDEX_ID &gl_index_id);
 
