@@ -1,0 +1,31 @@
+create table u1 (a int primary key, b int) engine=rocksdb;
+select CF from information_schema.ROCKSDB_DDL where TABLE_NAME = 'u1';
+CF
+default
+SET debug="+d,simulate_dd_table";
+create table d0 (a int primary key, b int) engine=rocksdb;
+select CF from information_schema.ROCKSDB_DDL where TABLE_NAME = 'd0';
+CF
+__system__
+create table d1 (a int primary key, b int) engine=rocksdb;
+select CF from information_schema.ROCKSDB_DDL where TABLE_NAME = 'd1';
+CF
+__system__
+create table d2 (a int primary key, b int, c int, KEY secondary_key (b, c)) engine=rocksdb;
+select CF from information_schema.ROCKSDB_DDL where TABLE_NAME = 'd2';
+CF
+__system__
+__system__
+SET debug="-d,simulate_dd_table";
+1
+1
+create table u2 (a int primary key, b int) engine=rocksdb;
+select CF from information_schema.ROCKSDB_DDL where TABLE_NAME = 'u2';
+CF
+default
+1
+drop table d0;
+drop table d1;
+drop table d2;
+drop table u1;
+drop table u2;

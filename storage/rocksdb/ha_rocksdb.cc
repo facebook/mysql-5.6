@@ -52,6 +52,8 @@
 #include "scope_guard.h"
 #include "sql/binlog.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
+#include "sql/dd/dd.h"                       //  dd::get_dictionary
+#include "sql/dd/dictionary.h"               // dd::Dictionary
 #include "sql/debug_sync.h"
 #include "sql-common/json_dom.h"
 #include "sql/sql_audit.h"
@@ -9141,7 +9143,7 @@ int ha_rocksdb::rdb_error_to_mysql(const rocksdb::Status &s,
 */
 int ha_rocksdb::create_key_defs(
     const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
-    const std::string &actual_user_table_name,
+    const std::string &actual_user_table_name, bool is_dd_tbl,
     const TABLE *const old_table_arg /* = nullptr */,
     const Rdb_tbl_def *const old_tbl_def_arg
     /* = nullptr */) const {
@@ -9168,7 +9170,8 @@ int ha_rocksdb::create_key_defs(
     allocated to each key definition. See below for more details.
     http://github.com/MySQLOnRocksDB/mysql-5.6/issues/86#issuecomment-138515501
   */
-  if (create_cfs(table_arg, tbl_def_arg, actual_user_table_name, &cfs)) {
+  if (create_cfs(table_arg, tbl_def_arg, actual_user_table_name, &cfs,
+                 is_dd_tbl)) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -9212,7 +9215,7 @@ int ha_rocksdb::create_key_defs(
     */
     for (uint i = 0; i < tbl_def_arg->m_key_count; i++) {
       if (create_key_def(table_arg, i, tbl_def_arg, &m_key_descr_arr[i], cfs[i],
-                         ttl_duration, ttl_column)) {
+                         ttl_duration, ttl_column, is_dd_tbl)) {
         DBUG_RETURN(HA_EXIT_FAILURE);
       }
     }
@@ -9252,7 +9255,8 @@ int ha_rocksdb::create_key_defs(
 int ha_rocksdb::create_cfs(
     const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
     const std::string &actual_user_table_name,
-    std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs) const {
+    std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs,
+    bool is_dd_tbl) const {
   DBUG_ENTER_FUNC();
 
   assert(table_arg->s != nullptr);
@@ -9295,8 +9299,19 @@ int ha_rocksdb::create_cfs(
                "reserved column family for storing temporary table data.");
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
+
+    // Populate cf_name for data dictionary table
+    if (is_dd_tbl) {
+      if (!cf_name.empty()) {
+        my_error(
+            ER_WRONG_ARGUMENTS, MYF(0),
+            "custom column family for data dictionary table is not allowed.");
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
+      cf_name = DEFAULT_SYSTEM_CF_NAME;
+    }
     // Populate cf_name for tmp tables.
-    if (is_tmp_table(tbl_def_arg->full_tablename())) {
+    else if (is_tmp_table(tbl_def_arg->full_tablename())) {
       if (!cf_name.empty()) {
         my_error(ER_WRONG_ARGUMENTS, MYF(0),
                  "custom column family for temporary table is not allowed.");
@@ -9606,13 +9621,14 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
                                std::shared_ptr<Rdb_key_def> *const new_key_def,
                                const struct key_def_cf_info &cf_info,
                                uint64 ttl_duration,
-                               const std::string &ttl_column) const {
+                               const std::string &ttl_column,
+                               bool is_dd_tbl /* = false */) const {
   DBUG_ENTER_FUNC();
 
   assert(*new_key_def == nullptr);
 
-  const uint index_id =
-      ddl_manager.get_and_update_next_number(cf_info.cf_handle->GetID());
+  const uint index_id = ddl_manager.get_and_update_next_number(
+      cf_info.cf_handle->GetID(), is_dd_tbl);
   const uint16_t index_dict_version = Rdb_key_def::INDEX_INFO_VERSION_LATEST;
   uchar index_type;
   uint16_t kv_version;
@@ -9869,6 +9885,9 @@ int ha_rocksdb::create_table(const std::string &table_name,
   DBUG_ENTER_FUNC();
 
   int err;
+  bool is_dd_tbl = dd::get_dictionary()->is_dd_table_name(
+      table_arg->s->db.str, table_arg->s->table_name.str);
+  DBUG_EXECUTE_IF("simulate_dd_table", { is_dd_tbl = true; });
   auto local_dict_manager = dict_manager.get_dict_manager_selector_non_const(
       is_tmp_table(table_name));
   const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
@@ -9900,7 +9919,8 @@ int ha_rocksdb::create_table(const std::string &table_name,
   m_tbl_def->m_pk_index = table_arg->s->primary_key;
   m_tbl_def->m_key_descr_arr = m_key_descr_arr;
 
-  err = create_key_defs(table_arg, m_tbl_def, actual_user_table_name);
+  err =
+      create_key_defs(table_arg, m_tbl_def, actual_user_table_name, is_dd_tbl);
   if (err != HA_EXIT_SUCCESS) {
     goto error;
   }
@@ -15266,7 +15286,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
         m_tbl_def->m_hidden_pk_val.load(std::memory_order_relaxed);
 
     if (create_key_defs(altered_table, new_tdef, "" /*actual_user_table_name*/,
-                        table, m_tbl_def)) {
+                        false /*is_dd_tbl*/, table, m_tbl_def)) {
       /* Delete the new key descriptors */
       delete[] new_key_descr;
 
