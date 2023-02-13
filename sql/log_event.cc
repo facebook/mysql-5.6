@@ -6593,8 +6593,7 @@ int Xid_apply_log_event::do_apply_event(Relay_log_info const *rli) {
   Relay_log_info *rli_ptr = const_cast<Relay_log_info *>(rli);
 
   if (!update_before_image_inconsistencies(rli_ptr)) {
-    error = 1;
-    goto err;
+    return 1;
   }
 
   /* For a slave Xid_log_event is COMMIT */
