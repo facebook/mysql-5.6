@@ -94,6 +94,9 @@ SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1;
 a_1	a_2	common	c_1	c_2	c_3	common	b_1	b_2	common
 SELECT * FROM a JOIN (SELECT 1, 2, 3) AS c ON a.a_1 = c.2;
 a_1	a_2	common	1	2	3
+SELECT * FROM (SELECT * FROM a) al LEFT JOIN (SELECT * FROM b) br ON al.a_1 = br.b_1;
+a_1	a_2	common	b_1	b_2	common
+1	2	a_common	NULL	NULL	NULL
 SELECT 1, 2 UNION SELECT 'a', 'b';
 1	2
 1	2
@@ -209,6 +212,9 @@ Test query: SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1
 Column_lineage_info succeeded
 
 Test query: SELECT * FROM a JOIN (SELECT 1, 2, 3) AS c ON a.a_1 = c.2
+Column_lineage_info succeeded
+
+Test query: SELECT * FROM (SELECT * FROM a) al LEFT JOIN (SELECT * FROM b) br ON al.a_1 = br.b_1
 Column_lineage_info succeeded
 
 Test query: SELECT 1, 2 UNION SELECT 'a', 'b'
@@ -906,6 +912,43 @@ SELECT c_1, c_2, c_3 FROM c
 | | | | | | | | | | column_lineage_info: Field 2 (3)
 | | | | | | | | | <validate_column_lineage_info
 | | | | | | | | <validate_column_lineage_info
+| | | | | | | <validate_column_lineage_info
+| | | | | | <validate_column_lineage_info
+| | | | | <validate_column_lineage_info
+| | | | | column_lineage_info: 
+
+| | | | | column_lineage_info: query: SELECT * FROM (SELECT * FROM a) al LEFT JOIN (SELECT * FROM b) br ON al.a_1 = br.b_1
+| | | | | >validate_column_lineage_info
+| | | | | | column_lineage_info: level 0 id 3
+| | | | | | column_lineage_info: type: UNIT
+| | | | | | >validate_column_lineage_info
+| | | | | | | column_lineage_info: level 1 id 0
+| | | | | | | column_lineage_info: type: SELECT_LEX
+| | | | | | | column_lineage_info: Field 0 (a_1)
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (1)
+| | | | | | | column_lineage_info: Field 1 (a_2)
+| | | | | | | column_lineage_info: Item lineage: index (1), source lineage info (1)
+| | | | | | | column_lineage_info: Field 2 (common)
+| | | | | | | column_lineage_info: Item lineage: index (2), source lineage info (1)
+| | | | | | | column_lineage_info: Field 3 (b_1)
+| | | | | | | column_lineage_info: Item lineage: index (0), source lineage info (2)
+| | | | | | | column_lineage_info: Field 4 (b_2)
+| | | | | | | column_lineage_info: Item lineage: index (1), source lineage info (2)
+| | | | | | | column_lineage_info: Field 5 (common)
+| | | | | | | column_lineage_info: Item lineage: index (2), source lineage info (2)
+| | | | | | | >validate_column_lineage_info
+| | | | | | | | column_lineage_info: level 2 id 1
+| | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: a, alias_name: a
+| | | | | | | | column_lineage_info: column: a_1, index: 0
+| | | | | | | | column_lineage_info: column: a_2, index: 1
+| | | | | | | | column_lineage_info: column: common, index: 2
+| | | | | | | <validate_column_lineage_info
+| | | | | | | >validate_column_lineage_info
+| | | | | | | | column_lineage_info: level 2 id 2
+| | | | | | | | column_lineage_info: type: TABLE, db_name: test, table_name: b, alias_name: b
+| | | | | | | | column_lineage_info: column: b_1, index: 0
+| | | | | | | | column_lineage_info: column: b_2, index: 1
+| | | | | | | | column_lineage_info: column: common, index: 2
 | | | | | | | <validate_column_lineage_info
 | | | | | | <validate_column_lineage_info
 | | | | | <validate_column_lineage_info
