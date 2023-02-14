@@ -16077,12 +16077,10 @@ struct rocksdb_status_counters_t {
   uint64_t block_cache_index_hit;
   uint64_t block_cache_index_add;
   uint64_t block_cache_index_bytes_insert;
-  uint64_t block_cache_index_bytes_evict;
   uint64_t block_cache_filter_miss;
   uint64_t block_cache_filter_hit;
   uint64_t block_cache_filter_add;
   uint64_t block_cache_filter_bytes_insert;
-  uint64_t block_cache_filter_bytes_evict;
   uint64_t block_cache_bytes_read;
   uint64_t block_cache_bytes_write;
   uint64_t block_cache_data_bytes_insert;
@@ -16112,15 +16110,12 @@ struct rocksdb_status_counters_t {
   uint64_t number_db_prev;
   uint64_t number_db_prev_found;
   uint64_t iter_bytes_read;
-  uint64_t no_file_closes;
   uint64_t no_file_opens;
   uint64_t no_file_errors;
   uint64_t stall_micros;
-  uint64_t num_iterators;
   uint64_t number_multiget_get;
   uint64_t number_multiget_keys_read;
   uint64_t number_multiget_bytes_read;
-  uint64_t number_deletes_filtered;
   uint64_t number_merge_failures;
   uint64_t bloom_filter_prefix_checked;
   uint64_t bloom_filter_prefix_useful;
@@ -16132,7 +16127,6 @@ struct rocksdb_status_counters_t {
   uint64_t wal_bytes;
   uint64_t write_self;
   uint64_t write_other;
-  uint64_t write_timedout;
   uint64_t write_wal;
   uint64_t flush_write_bytes;
   uint64_t compact_read_bytes;
@@ -16153,12 +16147,10 @@ DEF_SHOW_FUNC(block_cache_index_miss, BLOCK_CACHE_INDEX_MISS)
 DEF_SHOW_FUNC(block_cache_index_hit, BLOCK_CACHE_INDEX_HIT)
 DEF_SHOW_FUNC(block_cache_index_add, BLOCK_CACHE_INDEX_ADD)
 DEF_SHOW_FUNC(block_cache_index_bytes_insert, BLOCK_CACHE_INDEX_BYTES_INSERT)
-DEF_SHOW_FUNC(block_cache_index_bytes_evict, BLOCK_CACHE_INDEX_BYTES_EVICT)
 DEF_SHOW_FUNC(block_cache_filter_miss, BLOCK_CACHE_FILTER_MISS)
 DEF_SHOW_FUNC(block_cache_filter_hit, BLOCK_CACHE_FILTER_HIT)
 DEF_SHOW_FUNC(block_cache_filter_add, BLOCK_CACHE_FILTER_ADD)
 DEF_SHOW_FUNC(block_cache_filter_bytes_insert, BLOCK_CACHE_FILTER_BYTES_INSERT)
-DEF_SHOW_FUNC(block_cache_filter_bytes_evict, BLOCK_CACHE_FILTER_BYTES_EVICT)
 DEF_SHOW_FUNC(block_cache_bytes_read, BLOCK_CACHE_BYTES_READ)
 DEF_SHOW_FUNC(block_cache_bytes_write, BLOCK_CACHE_BYTES_WRITE)
 DEF_SHOW_FUNC(block_cache_data_bytes_insert, BLOCK_CACHE_DATA_BYTES_INSERT)
@@ -16188,15 +16180,12 @@ DEF_SHOW_FUNC(number_db_next_found, NUMBER_DB_NEXT_FOUND)
 DEF_SHOW_FUNC(number_db_prev, NUMBER_DB_PREV)
 DEF_SHOW_FUNC(number_db_prev_found, NUMBER_DB_PREV_FOUND)
 DEF_SHOW_FUNC(iter_bytes_read, ITER_BYTES_READ)
-DEF_SHOW_FUNC(no_file_closes, NO_FILE_CLOSES)
 DEF_SHOW_FUNC(no_file_opens, NO_FILE_OPENS)
 DEF_SHOW_FUNC(no_file_errors, NO_FILE_ERRORS)
 DEF_SHOW_FUNC(stall_micros, STALL_MICROS)
-DEF_SHOW_FUNC(num_iterators, NO_ITERATORS)
 DEF_SHOW_FUNC(number_multiget_get, NUMBER_MULTIGET_CALLS)
 DEF_SHOW_FUNC(number_multiget_keys_read, NUMBER_MULTIGET_KEYS_READ)
 DEF_SHOW_FUNC(number_multiget_bytes_read, NUMBER_MULTIGET_BYTES_READ)
-DEF_SHOW_FUNC(number_deletes_filtered, NUMBER_FILTERED_DELETES)
 DEF_SHOW_FUNC(number_merge_failures, NUMBER_MERGE_FAILURES)
 DEF_SHOW_FUNC(bloom_filter_prefix_checked, BLOOM_FILTER_PREFIX_CHECKED)
 DEF_SHOW_FUNC(bloom_filter_prefix_useful, BLOOM_FILTER_PREFIX_USEFUL)
@@ -16208,7 +16197,6 @@ DEF_SHOW_FUNC(wal_synced, WAL_FILE_SYNCED)
 DEF_SHOW_FUNC(wal_bytes, WAL_FILE_BYTES)
 DEF_SHOW_FUNC(write_self, WRITE_DONE_BY_SELF)
 DEF_SHOW_FUNC(write_other, WRITE_DONE_BY_OTHER)
-DEF_SHOW_FUNC(write_timedout, WRITE_TIMEDOUT)
 DEF_SHOW_FUNC(write_wal, WRITE_WITH_WAL)
 DEF_SHOW_FUNC(flush_write_bytes, FLUSH_WRITE_BYTES)
 DEF_SHOW_FUNC(compact_read_bytes, COMPACT_READ_BYTES)
@@ -16419,12 +16407,10 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(block_cache_index_hit),
     DEF_STATUS_VAR(block_cache_index_add),
     DEF_STATUS_VAR(block_cache_index_bytes_insert),
-    DEF_STATUS_VAR(block_cache_index_bytes_evict),
     DEF_STATUS_VAR(block_cache_filter_miss),
     DEF_STATUS_VAR(block_cache_filter_hit),
     DEF_STATUS_VAR(block_cache_filter_add),
     DEF_STATUS_VAR(block_cache_filter_bytes_insert),
-    DEF_STATUS_VAR(block_cache_filter_bytes_evict),
     DEF_STATUS_VAR(block_cache_bytes_read),
     DEF_STATUS_VAR(block_cache_bytes_write),
     DEF_STATUS_VAR(block_cache_data_bytes_insert),
@@ -16454,15 +16440,12 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(number_db_prev),
     DEF_STATUS_VAR(number_db_prev_found),
     DEF_STATUS_VAR(iter_bytes_read),
-    DEF_STATUS_VAR(no_file_closes),
     DEF_STATUS_VAR(no_file_opens),
     DEF_STATUS_VAR(no_file_errors),
     DEF_STATUS_VAR(stall_micros),
-    DEF_STATUS_VAR(num_iterators),
     DEF_STATUS_VAR(number_multiget_get),
     DEF_STATUS_VAR(number_multiget_keys_read),
     DEF_STATUS_VAR(number_multiget_bytes_read),
-    DEF_STATUS_VAR(number_deletes_filtered),
     DEF_STATUS_VAR(number_merge_failures),
     DEF_STATUS_VAR(bloom_filter_prefix_checked),
     DEF_STATUS_VAR(bloom_filter_prefix_useful),
@@ -16474,7 +16457,6 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(wal_bytes),
     DEF_STATUS_VAR(write_self),
     DEF_STATUS_VAR(write_other),
-    DEF_STATUS_VAR(write_timedout),
     DEF_STATUS_VAR(write_wal),
     DEF_STATUS_VAR(flush_write_bytes),
     DEF_STATUS_VAR(compact_read_bytes),
