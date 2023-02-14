@@ -73,6 +73,9 @@ a_1	a_2	common	c_1	c_2	c_3	common	b_1	b_2	common
 1	2	a_common	10	20	30	c_common	3	2	b_common
 SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1;
 a_1	a_2	common	c_1	c_2	c_3	common	b_1	b_2	common
+SELECT * FROM (SELECT * FROM a) al LEFT JOIN (SELECT * FROM b) br ON al.a_1 = br.b_1;
+a_1	a_2	common	b_1	b_2	common
+1	2	a_common	NULL	NULL	NULL
 SELECT 1, 2 UNION SELECT 'a', 'b';
 1	2
 1	2
@@ -211,6 +214,16 @@ Column_ref_info db = (test), table (b), field (b_1)
 Column_ref_info db = (test), table (b), field (b_2)
 Column_ref_info db = (test), table (b), field (common)
 Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (b), field (b_1)
+
+Test query: SELECT * FROM (SELECT * FROM a) al LEFT JOIN (SELECT * FROM b) br ON al.a_1 = br.b_1
+Column_ref_info db = (test), table (a), field (a_1)
+Column_ref_info db = (test), table (a), field (a_2)
+Column_ref_info db = (test), table (a), field (common)
+Column_ref_info db = (test), table (b), field (b_1)
+Column_ref_info db = (test), table (b), field (b_2)
+Column_ref_info db = (test), table (b), field (common)
+Column_ref_info db = (test), table (a), field (a_1)
 Column_ref_info db = (test), table (b), field (b_1)
 
 Test query: SELECT 1, 2 UNION SELECT 'a', 'b'

@@ -3487,7 +3487,8 @@ bool accept_for_join(mem_root_deque<TABLE_LIST *> *tables,
 bool accept_table(TABLE_LIST *t, Select_lex_visitor *visitor) {
   if (t->nested_join && accept_for_join(&t->nested_join->join_list, visitor))
     return true;
-  else if (t->is_derived())
+  else if (t->is_derived() &&
+           !t->is_merged())  // Visit derived table if its not merged
     t->derived_query_expression()->accept(visitor);
   if (walk_item(t->join_cond(), visitor)) return true;
   return false;

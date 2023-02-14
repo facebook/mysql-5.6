@@ -57,6 +57,9 @@ SELECT * FROM a JOIN (c, b) ON a.a_2 = b.b_1;
 # Cannot test deterministically due to temporary table name
 # SELECT * FROM a JOIN (SELECT 1, 2, 3) AS c ON a.a_1 = c.2;
 
+## LEFT JOIN
+SELECT * FROM (SELECT * FROM a) al LEFT JOIN (SELECT * FROM b) br ON al.a_1 = br.b_1;
+
 # UNION
 SELECT 1, 2 UNION SELECT 'a', 'b';
 SELECT * FROM a UNION SELECT c_1, c_2, common FROM c;
