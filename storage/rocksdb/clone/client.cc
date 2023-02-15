@@ -21,6 +21,7 @@
 #include <forward_list>
 #include <unordered_map>
 
+#include "my_compiler.h"
 #include "mysql/psi/mysql_file.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysqld_error.h"
@@ -71,6 +72,18 @@ namespace {
   }
 
   return HA_EXIT_SUCCESS;
+}
+
+[[nodiscard]] bool metadata_buf_valid(
+    const char *payload_start_pos, const char *payload_end_pos,
+    const myrocks::clone::metadata_header &header) noexcept {
+  const auto payload_len = header.get_payload_len();
+
+  if (payload_len < myrocks::clone::metadata_header::m_length) return false;
+
+  return payload_end_pos - payload_start_pos ==
+         static_cast<std::ptrdiff_t>(payload_len -
+                                     myrocks::clone::metadata_header::m_length);
 }
 
 class [[nodiscard]] file_in_progress final {
@@ -157,8 +170,7 @@ client_file_metadata client_file_metadata::deserialize(
   if (read_fn == nullptr) return invalid();
 
   const auto payload_end_pos = buf.get_current_ptr();
-  if (payload_end_pos - payload_start_pos !=
-      header.get_payload_len() - myrocks::clone::metadata_header::m_length)
+  if (!metadata_buf_valid(payload_start_pos, payload_end_pos, header))
     return invalid();
 
   std::string fn{read_fn, read_fn_len};
@@ -187,8 +199,7 @@ class [[nodiscard]] client_chunk_metadata final
     if (buf.read_uint64(&read_size)) return invalid();
 
     const auto payload_end_pos = buf.get_current_ptr();
-    if (payload_end_pos - payload_start_pos !=
-        header.get_payload_len() - myrocks::clone::metadata_header::m_length)
+    if (!metadata_buf_valid(payload_start_pos, payload_end_pos, header))
       return invalid();
 
     client_chunk_metadata result{read_file_id, static_cast<uint>(read_size)};
@@ -218,8 +229,7 @@ class [[nodiscard]] client_estimate final
     if (buf.read_uint64(&read_estimate_delta)) return invalid();
 
     const auto payload_end_pos = buf.get_current_ptr();
-    if (payload_end_pos - payload_start_pos !=
-        header.get_payload_len() - myrocks::clone::metadata_header::m_length)
+    if (!metadata_buf_valid(payload_start_pos, payload_end_pos, header))
       return invalid();
 
     client_estimate result{read_estimate_delta};
@@ -274,7 +284,7 @@ class [[nodiscard]] client final : public myrocks::clone::session {
 
   void update_estimate(Ha_clone_cbk &cbk, std::uint64_t estimate_delta);
 
-  void constexpr assert_inactive() const noexcept {
+  void assert_inactive() const noexcept {
 #ifndef NDEBUG
     assert(m_files_in_progress.empty());
     assert(m_completed_files.empty());
@@ -809,6 +819,8 @@ int rocksdb_clone_apply(handlerton *, THD *thd, const uchar *loc, uint loc_len,
       return client::instance().save_and_return_error(
           ER_CLONE_PROTOCOL, "Received invalid clone data descriptor");
   }
+
+  MY_ASSERT_UNREACHABLE();
 }
 
 // Finish the client-side clone session for this storage engine.

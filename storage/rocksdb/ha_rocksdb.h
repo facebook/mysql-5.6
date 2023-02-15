@@ -492,11 +492,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   bool should_store_row_debug_checksums() const;
 
-  int rename_table(const char *const from MY_ATTRIBUTE((__nonnull__)),
-                   const char *const to MY_ATTRIBUTE((__nonnull__)),
+  int rename_table(const char *const from, const char *const to,
                    const dd::Table *from_table_def MY_ATTRIBUTE((__unused__)),
                    dd::Table *to_table_def MY_ATTRIBUTE((__unused__))) override
-      MY_ATTRIBUTE((__warn_unused_result__));
+      MY_ATTRIBUTE((__warn_unused_result__, __nonnull__(2, 3)));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
                                          const rocksdb::Slice *const value,
