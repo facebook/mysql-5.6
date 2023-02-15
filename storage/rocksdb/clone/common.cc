@@ -243,6 +243,7 @@ void fixup_on_startup() {
       myrocks::rdb_path_rename_or_abort(old_log_path, new_log_path);
       return true;
     });
+    rdb_rmdir(in_place_temp_wal_dir, true);
   }
 
   const auto checkpoint_base_dir_str = checkpoint_base_dir();
