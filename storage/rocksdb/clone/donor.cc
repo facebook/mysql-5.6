@@ -525,7 +525,7 @@ class [[nodiscard]] donor final : public myrocks::clone::session {
   }
 
   [[nodiscard]] std::string path(const std::string &fn) const {
-    assert(get_state() != donor_state::INITIAL);
+    assert(m_state != donor_state::INITIAL);
 
     return myrocks::has_file_extension(fn, ".log")
                ? myrocks::rdb_concat_paths(myrocks::get_wal_dir(), fn)
@@ -780,11 +780,6 @@ int donor::copy(const THD *thd, uint task_id, Ha_clone_cbk &cbk) {
            m_state == donor_state::FINAL_CHECKPOINT ||
            m_state == donor_state::FINAL_CHECKPOINT_WITH_LOGS);
 
-    mysql_mutex_unlock(&m_donor_mutex);
-
-    auto err = handle_any_error(thd);
-    if (err != 0) return err;
-
     const auto &name = metadata.get_name();
     const auto donor_file_path = path(name);
     auto open_flags = O_RDONLY;
@@ -804,17 +799,23 @@ int donor::copy(const THD *thd, uint task_id, Ha_clone_cbk &cbk) {
                         "Not found, assuming old checkpoint: %s",
                         donor_file_path.c_str());
         assert(myrocks::has_file_extension(donor_file_path, ".sst"));
-        mysql_mutex_lock(&m_donor_mutex);
         const auto erased_count [[maybe_unused]] =
             m_in_progress_files.erase(metadata.get_id());
-        mysql_mutex_unlock(&m_donor_mutex);
         assert(erased_count == 1);
+        mysql_mutex_unlock(&m_donor_mutex);
         continue;
       }
+      mysql_mutex_unlock(&m_donor_mutex);
+
       MyOsError(errn, EE_FILENOTFOUND, MYF(0), donor_file_path.c_str());
       save_error(ER_CANT_OPEN_FILE, donor_file_path, errn);
       return ER_CANT_OPEN_FILE;
     }
+
+    mysql_mutex_unlock(&m_donor_mutex);
+
+    auto err = handle_any_error(thd);
+    if (err != 0) return err;
 
 #ifdef __APPLE__
     if (use_direct_io && fcntl(fd, F_NOCACHE, 1) == -1) {
