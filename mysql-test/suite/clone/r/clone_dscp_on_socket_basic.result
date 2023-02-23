@@ -1,0 +1,68 @@
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+SET @global_start_value = @@global.clone_dscp_on_socket;
+SELECT @global_start_value;
+@global_start_value
+0
+SET @@global.clone_dscp_on_socket = 0;
+SET @@global.clone_dscp_on_socket = DEFAULT;
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+0
+SET @@global.clone_dscp_on_socket = 1;
+SET @@global.clone_dscp_on_socket = DEFAULT;
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+0
+SET global clone_dscp_on_socket = 1;
+SELECT @@clone_dscp_on_socket;
+@@clone_dscp_on_socket
+1
+SELECT global.clone_dscp_on_socket;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT local.clone_dscp_on_socket;
+ERROR 42S02: Unknown table 'local' in field list
+SET global clone_dscp_on_socket = 0;
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+0
+SET @@global.clone_dscp_on_socket = 0;
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+0
+SET @@global.clone_dscp_on_socket = 1;
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+1
+SET @@global.clone_dscp_on_socket = -1;
+Warnings:
+Warning	1292	Truncated incorrect clone_dscp_on_socket value: '-1'
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+0
+SET @@global.clone_dscp_on_socket = 64;
+Warnings:
+Warning	1292	Truncated incorrect clone_dscp_on_socket value: '64'
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+63
+SET @@global.clone_dscp_on_socket = "T";
+ERROR 42000: Incorrect argument type to variable 'clone_dscp_on_socket'
+SET @@global.clone_dscp_on_socket = 1000;
+Warnings:
+Warning	1292	Truncated incorrect clone_dscp_on_socket value: '1000'
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+63
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='clone_dscp_on_socket';
+count(VARIABLE_VALUE)
+1
+SET @@global.clone_dscp_on_socket = OFF;
+ERROR 42000: Incorrect argument type to variable 'clone_dscp_on_socket'
+SET @@global.clone_dscp_on_socket = ON;
+ERROR 42000: Incorrect argument type to variable 'clone_dscp_on_socket'
+SET @@global.clone_dscp_on_socket = @global_start_value;
+SELECT @@global.clone_dscp_on_socket;
+@@global.clone_dscp_on_socket
+0
+UNINSTALL PLUGIN clone;
