@@ -1,0 +1,27 @@
+create table i1 (a int primary key, b int) engine=rocksdb;
+SET debug="+d,simulate_dd_table_for_adding_max_dd_index_id";
+create table i2 (a int primary key, b int) engine=rocksdb;
+SET debug="-d,simulate_dd_table_for_adding_max_dd_index_id";
+create table i3 (a int primary key, b int) engine=rocksdb;
+# restart
+create table u1 (a int primary key, b int) engine=rocksdb;
+1
+0
+SET debug="+d,simulate_dd_table_for_adding_max_dd_index_id";
+create table d1 (a int primary key, b int) engine=rocksdb;
+0
+3
+create table d2 (a int primary key, b int, c int, KEY secondary_key (b, c)) engine=rocksdb;
+0
+2
+SET debug="-d,simulate_dd_table_for_adding_max_dd_index_id";
+create table u2 (a int primary key, b int) engine=rocksdb;
+4
+0
+drop table i1;
+drop table i2;
+drop table i3;
+drop table u1;
+drop table u2;
+drop table d1;
+drop table d2;

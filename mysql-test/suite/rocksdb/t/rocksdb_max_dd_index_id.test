@@ -1,0 +1,87 @@
+--source include/have_rocksdb.inc
+--source include/have_debug.inc
+
+# Initialization
+# Create a user table
+create table i1 (a int primary key, b int) engine=rocksdb;
+
+# Create a dd table
+SET debug="+d,simulate_dd_table_for_adding_max_dd_index_id";
+create table i2 (a int primary key, b int) engine=rocksdb;
+SET debug="-d,simulate_dd_table_for_adding_max_dd_index_id";
+
+# Create a user table
+create table i3 (a int primary key, b int) engine=rocksdb;
+
+# Restart mysqld
+# Read MAX_INDEX_ID and MAX_DD_INDEX_ID as initial value
+--source include/restart_mysqld.inc
+let $start_max_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1);
+let $start_max_dd_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_DD_INDEX_ID', VALUE, 1);
+
+
+# Create a user table
+# the MAX_INDEX_ID should bump by 1
+# the MAX_DD_INDEX_ID should not change
+create table u1 (a int primary key, b int) engine=rocksdb;
+let $max_index_id_0 = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1);
+let $max_dd_index_id_0 = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_DD_INDEX_ID', VALUE, 1);
+# expect 1 and 0
+expr $diff = $max_index_id_0 - $start_max_index_id;
+echo $diff;
+expr $diff = $max_dd_index_id_0 - $start_max_dd_index_id;
+echo $diff;
+
+SET debug="+d,simulate_dd_table_for_adding_max_dd_index_id";
+
+# Create a dd table with primary key
+# the MAX_INDEX_ID should not change
+# the MAX_DD_INDEX_ID should bump
+create table d1 (a int primary key, b int) engine=rocksdb;
+let $max_index_id_1 = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1);
+let $max_dd_index_id_1 = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_DD_INDEX_ID', VALUE, 1);
+# expect 0 and 3
+# Since index and dd index share the same sequence number, diff for MAX_DD_INDEX_ID should be 3
+# i3 bumps 1, u1 bumps 1,d1 bumps 1
+expr $diff = $max_index_id_1 - $max_index_id_0;
+echo $diff;
+expr $diff = $max_dd_index_id_1 - $max_dd_index_id_0;
+echo $diff;
+
+# Create a dd table with 2 keys
+# the MAX_INDEX_ID should not change
+# the MAX_DD_INDEX_ID should bump
+create table d2 (a int primary key, b int, c int, KEY secondary_key (b, c)) engine=rocksdb;
+let $max_index_id_2 = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1);
+let $max_dd_index_id_2 = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_DD_INDEX_ID', VALUE, 1);
+# expect 0 and 2
+# Since this dd table has 2 keys, d2 bumps 2
+expr $diff = $max_index_id_2 - $max_index_id_1;
+echo $diff;
+expr $diff = $max_dd_index_id_2 - $max_dd_index_id_1;
+echo $diff;
+
+SET debug="-d,simulate_dd_table_for_adding_max_dd_index_id";
+
+# Create another user table
+# the MAX_INDEX_ID should bump
+# the MAX_DD_INDEX_ID should not change
+create table u2 (a int primary key, b int) engine=rocksdb;
+let $max_index_id_3 = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1);
+let $max_dd_index_id_3 = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_DD_INDEX_ID', VALUE, 1);
+# expect 4 and 0
+# Since index and dd index share the same sequence number, diff for MAX_INDEX_ID should be 4
+# u1 bumps 1, d1 bumps 1, d2 bumps 2
+expr $diff = $max_index_id_3 - $max_index_id_2;
+echo $diff;
+expr $diff = $max_dd_index_id_3 - $max_dd_index_id_2;
+echo $diff;
+
+
+drop table i1;
+drop table i2;
+drop table i3;
+drop table u1;
+drop table u2;
+drop table d1;
+drop table d2;
