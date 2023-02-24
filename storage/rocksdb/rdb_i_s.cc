@@ -789,6 +789,16 @@ static int rdb_i_s_global_info_fill_table(
                                     max_index_id_buf);
   }
 
+  uint32_t max_dd_index_id;
+  char max_dd_index_id_buf[INT_BUF_LEN] = {0};
+  if (dict_manager->get_dict_manager_selector_const(false /*is_tmp_table*/)
+          ->get_max_index_id(&max_dd_index_id, true /*is_dd_tbl*/)) {
+    snprintf(max_dd_index_id_buf, INT_BUF_LEN, "%u", max_dd_index_id);
+
+    ret |= rdb_global_info_fill_row(thd, tables, "MAX_DD_INDEX_ID",
+                                    "MAX_DD_INDEX_ID", max_dd_index_id_buf);
+  }
+
   /* cf_id -> cf_flags */
   char cf_id_buf[INT_BUF_LEN] = {0};
   char cf_value_buf[FN_REFLEN + 1] = {0};

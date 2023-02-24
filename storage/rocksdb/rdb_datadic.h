@@ -456,6 +456,7 @@ class Rdb_key_def {
     DDL_CREATE_INDEX_ONGOING = 8,
     AUTO_INC = 9,
     DROPPED_CF = 10,
+    MAX_DD_INDEX_ID = 11,
     END_DICT_INDEX_ID = 255
   };
 
@@ -467,6 +468,7 @@ class Rdb_key_def {
     BINLOG_INFO_INDEX_NUMBER_VERSION = 1,
     DDL_DROP_INDEX_ONGOING_VERSION = 1,
     MAX_INDEX_ID_VERSION = 1,
+    MAX_DD_INDEX_ID_VERSION = 1,
     DDL_CREATE_INDEX_ONGOING_VERSION = 1,
     AUTO_INCREMENT_VERSION = 1,
     DROPPED_CF_VERSION = 1,
@@ -1349,7 +1351,8 @@ class Rdb_seq_generator {
     m_next_number = initial_number;
   }
 
-  uint get_and_update_next_number(Rdb_dict_manager *const dict);
+  uint get_and_update_next_number(Rdb_dict_manager *const dict,
+                                  bool is_dd_tbl = false);
 
   void cleanup() { mysql_mutex_destroy(&m_mutex); }
 };
@@ -1531,9 +1534,9 @@ class Rdb_binlog_manager {
   key: Rdb_key_def::INDEX_STATISTICS(0x6) + cf_id + index_id
   value: version, {materialized PropertiesCollector::IndexStats}
 
-  7. maximum index id
+  7. user table maximum index id
   key: Rdb_key_def::MAX_INDEX_ID(0x7)
-  value: index_id
+  value: version, index_id
   index_id is 4 bytes
 
   8. Ongoing create index entry
@@ -1548,6 +1551,11 @@ class Rdb_binlog_manager {
   10. dropped cfs
   key: Rdb_key_def::DROPPED_CF(0xa) + cf_id
   value: version
+
+  11. data dictionary table maximum index id
+  key: Rdb_key_def::MAX_DD_INDEX_ID(0xb)
+  value: version, index_id
+  index_id is 4 bytes
 
   Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
@@ -1564,6 +1572,9 @@ class Rdb_dict_manager : public Ensure_initialized {
 
   uchar m_key_buf_max_index_id[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
   rocksdb::Slice m_key_slice_max_index_id;
+
+  uchar m_key_buf_max_dd_index_id[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
+  rocksdb::Slice m_key_slice_max_dd_index_id;
 
   static void dump_index_id(uchar *const netbuf,
                             Rdb_key_def::DATA_DICT_TYPE dict_type,
@@ -1708,9 +1719,10 @@ class Rdb_dict_manager : public Ensure_initialized {
                                       Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
   }
 
-  bool get_max_index_id(uint32_t *const index_id) const;
+  bool get_max_index_id(uint32_t *const index_id, bool is_dd_tbl = false) const;
   bool update_max_index_id(rocksdb::WriteBatch *const batch,
-                           const uint32_t index_id) const;
+                           const uint32_t index_id,
+                           bool is_dd_tbl = false) const;
   void add_stats(rocksdb::WriteBatch *const batch,
                  const std::vector<Rdb_index_stats> &stats) const;
   Rdb_index_stats get_stats(GL_INDEX_ID gl_index_id) const;

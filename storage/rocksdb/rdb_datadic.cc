@@ -5265,8 +5265,13 @@ bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
     return HA_EXIT_FAILURE;
   }
 
-  rdb_netbuf_store_index(m_key_buf_max_index_id, Rdb_key_def::MAX_INDEX_ID);
+  rdb_netbuf_store_index(m_key_buf_max_dd_index_id,
+                         Rdb_key_def::MAX_DD_INDEX_ID);
+  m_key_slice_max_dd_index_id =
+      rocksdb::Slice(reinterpret_cast<char *>(m_key_buf_max_dd_index_id),
+                     Rdb_key_def::INDEX_NUMBER_SIZE);
 
+  rdb_netbuf_store_index(m_key_buf_max_index_id, Rdb_key_def::MAX_INDEX_ID);
   m_key_slice_max_index_id =
       rocksdb::Slice(reinterpret_cast<char *>(m_key_buf_max_index_id),
                      Rdb_key_def::INDEX_NUMBER_SIZE);
@@ -5939,15 +5944,20 @@ void Rdb_dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
   }
 }
 
-bool Rdb_dict_manager::get_max_index_id(uint32_t *const index_id) const {
+bool Rdb_dict_manager::get_max_index_id(uint32_t *const index_id,
+                                        bool is_dd_tbl) const {
   bool found = false;
   std::string value;
 
-  const rocksdb::Status status = get_value(m_key_slice_max_index_id, &value);
+  const rocksdb::Status status =
+      is_dd_tbl ? get_value(m_key_slice_max_dd_index_id, &value)
+                : get_value(m_key_slice_max_index_id, &value);
+  const uint16_t cur_version = is_dd_tbl ? Rdb_key_def::MAX_DD_INDEX_ID_VERSION
+                                         : Rdb_key_def::MAX_INDEX_ID_VERSION;
   if (status.ok()) {
     const uchar *const val = (const uchar *)value.c_str();
     const uint16_t version = rdb_netbuf_to_uint16(val);
-    if (version == Rdb_key_def::MAX_INDEX_ID_VERSION) {
+    if (version == cur_version) {
       *index_id = rdb_netbuf_to_uint32(val + Rdb_key_def::VERSION_SIZE);
       found = true;
     }
@@ -5956,11 +5966,15 @@ bool Rdb_dict_manager::get_max_index_id(uint32_t *const index_id) const {
 }
 
 bool Rdb_dict_manager::update_max_index_id(rocksdb::WriteBatch *const batch,
-                                           const uint32_t index_id) const {
+                                           const uint32_t index_id,
+                                           bool is_dd_tbl) const {
   assert(batch != nullptr);
 
+  DBUG_EXECUTE_IF("simulate_dd_table_for_adding_max_dd_index_id",
+                  { is_dd_tbl = true; });
+
   uint32_t old_index_id = -1;
-  if (get_max_index_id(&old_index_id)) {
+  if (get_max_index_id(&old_index_id, is_dd_tbl)) {
     if (old_index_id > index_id) {
       // NO_LINT_DEBUG
       LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
@@ -5974,10 +5988,18 @@ bool Rdb_dict_manager::update_max_index_id(rocksdb::WriteBatch *const batch,
 
   Rdb_buf_writer<Rdb_key_def::VERSION_SIZE + Rdb_key_def::INDEX_NUMBER_SIZE>
       value_writer;
-  value_writer.write_uint16(Rdb_key_def::MAX_INDEX_ID_VERSION);
-  value_writer.write_uint32(index_id);
 
-  batch->Put(m_system_cfh, m_key_slice_max_index_id, value_writer.to_slice());
+  if (is_dd_tbl) {
+    value_writer.write_uint16(Rdb_key_def::MAX_DD_INDEX_ID_VERSION);
+    value_writer.write_uint32(index_id);
+    batch->Put(m_system_cfh, m_key_slice_max_dd_index_id,
+               value_writer.to_slice());
+  } else {
+    value_writer.write_uint16(Rdb_key_def::MAX_INDEX_ID_VERSION);
+    value_writer.write_uint32(index_id);
+    batch->Put(m_system_cfh, m_key_slice_max_index_id, value_writer.to_slice());
+  }
+
   return false;
 }
 
@@ -6056,8 +6078,8 @@ bool Rdb_dict_manager::get_auto_incr_val(const GL_INDEX_ID &gl_index_id,
   return false;
 }
 
-uint Rdb_seq_generator::get_and_update_next_number(
-    Rdb_dict_manager *const dict) {
+uint Rdb_seq_generator::get_and_update_next_number(Rdb_dict_manager *const dict,
+                                                   bool is_dd_tbl) {
   assert(dict != nullptr);
 
   uint res;
@@ -6069,7 +6091,7 @@ uint Rdb_seq_generator::get_and_update_next_number(
   rocksdb::WriteBatch *const batch = wb.get();
 
   assert(batch != nullptr);
-  dict->update_max_index_id(batch, res);
+  dict->update_max_index_id(batch, res, is_dd_tbl);
   dict->commit(batch);
 
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
