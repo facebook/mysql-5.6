@@ -6,6 +6,7 @@ drop table if exists t1,t2,t3;
 show variables like 'rocksdb_%checksum%';
 Variable_name	Value
 rocksdb_checksums_pct	100
+rocksdb_file_checksums	OFF
 rocksdb_store_row_debug_checksums	OFF
 rocksdb_verify_row_debug_checksums	OFF
 create table t1 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
