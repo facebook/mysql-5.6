@@ -355,6 +355,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
 
 Rdb_sst_info::~Rdb_sst_info() {
   assert(m_sst_file == nullptr);
+  SHIP_ASSERT(m_commiting_threads.empty());
 
   for (const auto &sst_file : m_committed_files) {
     // In case something went wrong attempt to delete the temporary file.
@@ -392,13 +393,23 @@ int Rdb_sst_info::open_new_sst_file() {
 }
 
 void Rdb_sst_info::commit_sst_file(Rdb_sst_file_ordered *sst_file) {
+  m_commiting_threads_mutex.lock();
+  m_commiting_threads.emplace_back(
+    &Rdb_sst_info::commit_sst_file_func, this, sst_file);
+  m_commiting_threads_mutex.unlock();
+}
+
+void Rdb_sst_info::commit_sst_file_func(Rdb_sst_file_ordered* sst_file) {
   const rocksdb::Status s = sst_file->commit();
+
+  m_commiting_threads_mutex.lock();
   if (!s.ok()) {
     set_error_msg(sst_file->get_name(), s);
     set_background_error(HA_ERR_ROCKSDB_BULK_LOAD);
   }
 
   m_committed_files.push_back(sst_file->get_name());
+  m_commiting_threads_mutex.unlock();
 
   delete sst_file;
 }
@@ -472,11 +483,20 @@ int Rdb_sst_info::finish(Rdb_sst_commit_info *commit_info,
     return ret;
   }
 
+  auto join_commiting_threads = [this]() {
+    for (auto& thr : m_commiting_threads) {
+      thr.join();
+    }
+    m_commiting_threads.clear();
+  };
+  join_commiting_threads();
+
   m_print_client_error = print_client_error;
 
   if (m_curr_size > 0) {
     // Close out any existing files
     close_curr_sst_file();
+    join_commiting_threads();
   }
 
   // This checks out the list of files so that the caller can collect/group
