@@ -132,7 +132,7 @@ extern const char *client_errors[]; /* Error messages */
 #define CR_MANDATORY_TRACKER_NOT_FOUND 2071
 #define CR_INVALID_FACTOR_NO 2072
 #define CR_CANT_GET_SESSION_DATA 2073
-#define CR_PLACEHOLDER_2074 2074
+#define CR_INVALID_CLIENT_CHARSET 2074
 #define CR_PLACEHOLDER_2075 2075
 #define CR_PLACEHOLDER_2076 2076
 #define CR_PLACEHOLDER_2077 2077
@@ -268,7 +268,7 @@ extern const char *client_errors[]; /* Error messages */
 #define CR_ERROR_LAST /*Copy last error nr:*/ 2203
 /* Add error numbers before CR_ERROR_LAST and change it accordingly. */
 
-#define CR_PLACEHOLDER_FIRST CR_PLACEHOLDER_2074
+#define CR_PLACEHOLDER_FIRST CR_PLACEHOLDER_2075
 #define CR_PLACEHOLDER_LAST CR_PLACEHOLDER_2199
 
 static inline bool isPlaceHolder(int client_errno) {

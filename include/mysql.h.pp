@@ -414,7 +414,7 @@ void init_client_errs(void);
 void finish_client_errs(void);
 extern const char *client_errors[];
 static inline bool isPlaceHolder(int client_errno) {
-  return client_errno >= 2074 &&
+  return client_errno >= 2075 &&
          client_errno <= 2199;
 }
 static inline const char *ER_CLIENT(int client_errno) {
