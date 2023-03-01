@@ -483,21 +483,17 @@ int Rdb_sst_info::finish(Rdb_sst_commit_info *commit_info,
     return ret;
   }
 
-  auto join_commiting_threads = [this]() {
-    for (auto& thr : m_commiting_threads) {
-      thr.join();
-    }
-    m_commiting_threads.clear();
-  };
-  join_commiting_threads();
-
   m_print_client_error = print_client_error;
 
   if (m_curr_size > 0) {
     // Close out any existing files
     close_curr_sst_file();
-    join_commiting_threads();
   }
+
+  for (auto& thr : m_commiting_threads) {
+    thr.join();
+  }
+  m_commiting_threads.clear();
 
   // This checks out the list of files so that the caller can collect/group
   // them and ingest them all in one go, and any racing calls to commit
