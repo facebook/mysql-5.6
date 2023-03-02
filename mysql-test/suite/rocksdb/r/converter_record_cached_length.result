@@ -1,0 +1,10 @@
+CREATE TABLE t (i int primary key, a longtext);
+include/assert.inc [Memory allocated to String is low]
+INSERT INTO t VALUES (1, REPEAT("A", 10000000));
+include/assert.inc [Memory allocated to String is high]
+FLUSH TABLES;
+SET GLOBAL rocksdb_converter_record_cached_length = 1000;
+INSERT INTO t VALUES (2, REPEAT("A", 10000000));
+include/assert.inc [Memory allocated to String is low even after large insert]
+SET GLOBAL rocksdb_converter_record_cached_length = DEFAULT;
+DROP TABLE t;

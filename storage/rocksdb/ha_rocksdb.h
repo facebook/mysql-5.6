@@ -1261,6 +1261,8 @@ extern char *rocksdb_datadir;
 extern uint rocksdb_clone_checkpoint_max_age;
 extern uint rocksdb_clone_checkpoint_max_count;
 
+extern unsigned long long rocksdb_converter_record_cached_length;
+
 inline bool is_wal_dir_separate() noexcept {
   return rocksdb_wal_dir && *rocksdb_wal_dir &&
          // Prefer cheapness over accuracy by doing lexicographic
