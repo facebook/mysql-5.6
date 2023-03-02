@@ -138,6 +138,16 @@ class Rdb_converter {
 
   void setup_field_decoders(const MY_BITMAP *field_map, uint active_index,
                             bool keyread_only, bool decode_all_fields = false);
+  /*
+    Releases any excessive memory in m_storage_record
+  */
+  void reset_buffer() {
+    if (rocksdb_converter_record_cached_length > 0 &&
+        m_storage_record.alloced_length() >
+            rocksdb_converter_record_cached_length) {
+      m_storage_record.mem_free();
+    }
+  }
 
   int decode(const std::shared_ptr<Rdb_key_def> &key_def, uchar *dst,
              const rocksdb::Slice *key_slice, const rocksdb::Slice *value_slice,

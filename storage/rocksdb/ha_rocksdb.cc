@@ -903,6 +903,7 @@ bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
 uint rocksdb_clone_checkpoint_max_age;
 uint rocksdb_clone_checkpoint_max_count;
+unsigned long long rocksdb_converter_record_cached_length = 0;
 static std::time_t last_binlog_ttl_compaction_ts = std::time(nullptr);
 
 static std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
@@ -2820,6 +2821,14 @@ static MYSQL_SYSVAR_UINT(clone_checkpoint_max_count,
                          "clone operation. If 0, the number is unlimited.",
                          nullptr, nullptr, 90, 0, UINT_MAX, 0);
 
+static MYSQL_SYSVAR_ULONGLONG(
+    converter_record_cached_length, rocksdb_converter_record_cached_length,
+    PLUGIN_VAR_RQCMDARG,
+    "Maximum number of bytes to cache on table handler for encoding table "
+    "record data. 0 means no limit.",
+    nullptr, nullptr, /* default */ rocksdb_converter_record_cached_length,
+    /* min */ 0, /* max */ UINT64_MAX, 0);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct SYS_VAR *rocksdb_system_variables[] = {
@@ -3039,6 +3048,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(corrupt_data_action),
     MYSQL_SYSVAR(clone_checkpoint_max_age),
     MYSQL_SYSVAR(clone_checkpoint_max_count),
+    MYSQL_SYSVAR(converter_record_cached_length),
     nullptr};
 
 static bool is_tmp_table(const std::string &tablename) {
@@ -12805,6 +12815,7 @@ int ha_rocksdb::reset() {
   release_blob_buffer();
   m_iterator.reset(nullptr);
   m_pk_iterator.reset(nullptr);
+  m_converter->reset_buffer();
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 

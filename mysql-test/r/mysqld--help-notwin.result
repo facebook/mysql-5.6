@@ -1987,6 +1987,9 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_COMPACTION_STATS plugin.
  Possible values are ON, OFF, FORCE (don't start if the
  plugin fails to load).
+ --rocksdb-converter-record-cached-length=# 
+ Maximum number of bytes to cache on table handler for
+ encoding table record data. 0 means no limit.
  --rocksdb-corrupt-data-action=name 
  Control behavior when hitting data corruption. We can
  fail the query, crash the server or pass the query and
@@ -3615,6 +3618,7 @@ rocksdb-compaction-sequential-deletes-count-sd FALSE
 rocksdb-compaction-sequential-deletes-file-size 0
 rocksdb-compaction-sequential-deletes-window 0
 rocksdb-compaction-stats ON
+rocksdb-converter-record-cached-length 0
 rocksdb-corrupt-data-action ERROR
 rocksdb-create-checkpoint 
 rocksdb-create-if-missing TRUE

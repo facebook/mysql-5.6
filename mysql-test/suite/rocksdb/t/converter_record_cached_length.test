@@ -1,0 +1,30 @@
+CREATE TABLE t (i int primary key, a longtext);
+
+#
+# Test that memory used increases after large insert
+#
+--let $assert_text= Memory allocated to String is low
+--let $assert_cond= [SELECT CURRENT_NUMBER_OF_BYTES_USED FROM performance_schema.memory_summary_global_by_event_name WHERE EVENT_NAME = "memory/sql/String::value"] < 10000000
+--source include/assert.inc
+
+INSERT INTO t VALUES (1, REPEAT("A", 10000000));
+
+--let $assert_text= Memory allocated to String is high
+--let $assert_cond= [SELECT CURRENT_NUMBER_OF_BYTES_USED FROM performance_schema.memory_summary_global_by_event_name WHERE EVENT_NAME = "memory/sql/String::value"] > 10000000
+--source include/assert.inc
+
+#
+# Test that memory used remains low even after large insert
+#
+FLUSH TABLES;
+SET GLOBAL rocksdb_converter_record_cached_length = 1000;
+
+INSERT INTO t VALUES (2, REPEAT("A", 10000000));
+
+--let $assert_text= Memory allocated to String is low even after large insert
+--let $assert_cond= [SELECT CURRENT_NUMBER_OF_BYTES_USED FROM performance_schema.memory_summary_global_by_event_name WHERE EVENT_NAME = "memory/sql/String::value"] < 10000000
+--source include/assert.inc
+
+# Cleanup
+SET GLOBAL rocksdb_converter_record_cached_length = DEFAULT;
+DROP TABLE t;
