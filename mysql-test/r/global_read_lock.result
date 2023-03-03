@@ -1,8 +1,13 @@
 SET @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
-CREATE TABLE t1(a INT) Engine=InnoDB;
+SET @save_blackhole_transactions = @@global.blackhole_transactions;
 SET @@global.legacy_global_read_lock_mode = 0;
+# Test setting read only with long running transactions engine=INNODB,
+# legacy_mode=0, with_transactions=1
+# should_fail_on_commit=1
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=INNODB;
 BEGIN WORK;
 SELECT * FROM t1;
 a
@@ -27,13 +32,22 @@ COUNT(*)
 1
 COMMIT;
 ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
 SELECT COUNT(*) FROM t1;
 COUNT(*)
 0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
 SET @@global.super_read_only = @save_super_read_only;
 SET @@global.read_only = @save_read_only;
+# Test setting read only with long running transactions engine=INNODB,
+# legacy_mode=0, with_transactions=0
+# should_fail_on_commit=1
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=INNODB;
 SELECT * FROM t1;
 a
 INSERT INTO t1 SELECT sleep(10);
@@ -53,14 +67,23 @@ Sleep	NULL
 CREATE TABLE t2 (a INT) Engine=InnoDB;
 ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
 ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
 SELECT COUNT(*) FROM t1;
 COUNT(*)
 0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
 SET @@global.super_read_only = @save_super_read_only;
 SET @@global.read_only = @save_read_only;
 SET @@global.legacy_global_read_lock_mode = 1;
+# Test setting read only with long running transactions engine=INNODB,
+# legacy_mode=1, with_transactions=1
+# should_fail_on_commit=1
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=INNODB;
 BEGIN WORK;
 SELECT * FROM t1;
 a
@@ -83,13 +106,223 @@ COUNT(*)
 1
 COMMIT;
 ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
 SELECT COUNT(*) FROM t1;
 COUNT(*)
 0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
 SET @@global.super_read_only = @save_super_read_only;
 SET @@global.read_only = @save_read_only;
+# Test setting read only with long running transactions engine=INNODB,
+# legacy_mode=1, with_transactions=0
+# should_fail_on_commit=1
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=INNODB;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+1
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test setting read only with LOCK TABLES transactions engine=INNODB,
+# legacy_mode=0 should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=INNODB;
+SET autocommit=0;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES (1), (2);
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+Sleep	NULL
+# setting read only should succeed
+# Also try to create a table - this should fail when running in
+# default mode because READ ONLY is on
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Changes should be visible
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+2
+# Commit should fail because read-only is on
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# The changes should not exist
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET autocommit=default;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 1;
+# Test setting read only with LOCK TABLES transactions engine=INNODB,
+# legacy_mode=1 should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=INNODB;
+SET autocommit=0;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES (1), (2);
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+Sleep	NULL
+COMMIT;
+UNLOCK TABLES;
+# setting read only should succeed after unlocking the table
+# The changes should exist
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+2
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET autocommit=default;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test that we don't leak locks on INNODB
+SET @save_read_only = @@global.read_only;
+SET @save_super_read_only = @@global.super_read_only;
+SET @@global.super_read_only = 0;
+SET @@global.read_only = 0;
+CREATE TABLE t(a INT NOT NULL) ENGINE=INNODB;
+BEGIN;
+LOCK TABLES t WRITE;
+INSERT INTO t VALUES(100);
+# The In_use column should be 1 to indicate the lock;
+SHOW OPEN TABLES like 't';
+Database	Table	In_use	Name_locked
+test	t	1	0
+SET @@global.super_read_only = 1;
+UNLOCK TABLES;
+#The In_use column should be 0 to indicate the lock was removed;
+SHOW OPEN TABLES like 't';
+Database	Table	In_use	Name_locked
+test	t	0	0
+SET @@global.super_read_only = 0;
+DROP TABLE t;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test setting read only with long running transactions engine=ROCKSDB,
+# legacy_mode=0, with_transactions=1
+# should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=ROCKSDB;
+BEGIN WORK;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+1
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+# Test setting read only with long running transactions engine=ROCKSDB,
+# legacy_mode=0, with_transactions=0
+# should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=ROCKSDB;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 1;
+# Test setting read only with long running transactions engine=ROCKSDB,
+# legacy_mode=1, with_transactions=1
+# should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=ROCKSDB;
+BEGIN WORK;
 SELECT * FROM t1;
 a
 INSERT INTO t1 SELECT sleep(10);
@@ -109,25 +342,612 @@ Query	SET GLOBAL super_read_only=1
 SELECT COUNT(*) FROM t1;
 COUNT(*)
 1
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+# Test setting read only with long running transactions engine=ROCKSDB,
+# legacy_mode=1, with_transactions=0
+# should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=ROCKSDB;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+1
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
 SET @@global.super_read_only = @save_super_read_only;
 SET @@global.read_only = @save_read_only;
 SET @@global.legacy_global_read_lock_mode = 0;
+# Test setting read only with LOCK TABLES transactions engine=ROCKSDB,
+# legacy_mode=0 should_fail_on_commit=1
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
-BEGIN;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=ROCKSDB;
+SET autocommit=0;
 LOCK TABLES t1 WRITE;
-INSERT INTO t1 VALUES(100);
-The In_use column should be 1 to indicate the lock
-SHOW OPEN TABLES like 't1';
-Database	Table	In_use	Name_locked
-test	t1	1	0
+INSERT INTO t1 VALUES (1), (2);
 SET GLOBAL super_read_only=1;
-UNLOCK TABLES;
-The In_use column should be 0 to indicate the lock was removed
-SHOW OPEN TABLES like 't1';
-Database	Table	In_use	Name_locked
-test	t1	0	0
-SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+Sleep	NULL
+# setting read only should succeed
+# Also try to create a table - this should fail when running in
+# default mode because READ ONLY is on
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Changes should be visible
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+2
+# Commit should fail because read-only is on
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# The changes should not exist
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET autocommit=default;
 SET @@global.super_read_only = @save_super_read_only;
 SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 1;
+# Test setting read only with LOCK TABLES transactions engine=ROCKSDB,
+# legacy_mode=1 should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=ROCKSDB;
+SET autocommit=0;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES (1), (2);
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+Sleep	NULL
+COMMIT;
+UNLOCK TABLES;
+# setting read only should succeed after unlocking the table
+# The changes should exist
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+2
+SET @@global.super_read_only = 0;
 DROP TABLE t1;
+SET autocommit=default;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test that we don't leak locks on ROCKSDB
+SET @save_read_only = @@global.read_only;
+SET @save_super_read_only = @@global.super_read_only;
+SET @@global.super_read_only = 0;
+SET @@global.read_only = 0;
+CREATE TABLE t(a INT NOT NULL) ENGINE=ROCKSDB;
+BEGIN;
+LOCK TABLES t WRITE;
+INSERT INTO t VALUES(100);
+# The In_use column should be 1 to indicate the lock;
+SHOW OPEN TABLES like 't';
+Database	Table	In_use	Name_locked
+test	t	1	0
+SET @@global.super_read_only = 1;
+UNLOCK TABLES;
+#The In_use column should be 0 to indicate the lock was removed;
+SHOW OPEN TABLES like 't';
+Database	Table	In_use	Name_locked
+test	t	0	0
+SET @@global.super_read_only = 0;
+DROP TABLE t;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.blackhole_transactions = 1;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test setting read only with long running transactions engine=BLACKHOLE,
+# legacy_mode=0, with_transactions=1
+# should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+BEGIN WORK;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+# Test setting read only with long running transactions engine=BLACKHOLE,
+# legacy_mode=0, with_transactions=0
+# should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 1;
+# Test setting read only with long running transactions engine=BLACKHOLE,
+# legacy_mode=1, with_transactions=1
+# should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+BEGIN WORK;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+# Test setting read only with long running transactions engine=BLACKHOLE,
+# legacy_mode=1, with_transactions=0
+# should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test setting read only with LOCK TABLES transactions engine=BLACKHOLE,
+# legacy_mode=0 should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+SET autocommit=0;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES (1), (2);
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+Sleep	NULL
+# setting read only should succeed
+# Also try to create a table - this should fail when running in
+# default mode because READ ONLY is on
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Changes should be visible
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+# Commit should fail because read-only is on
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# The changes should not exist
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET autocommit=default;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 1;
+# Test setting read only with LOCK TABLES transactions engine=BLACKHOLE,
+# legacy_mode=1 should_fail_on_commit=1
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+SET autocommit=0;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES (1), (2);
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+Sleep	NULL
+COMMIT;
+UNLOCK TABLES;
+# setting read only should succeed after unlocking the table
+# The changes should exist
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET autocommit=default;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test that we don't leak locks on BLACKHOLE
+SET @save_read_only = @@global.read_only;
+SET @save_super_read_only = @@global.super_read_only;
+SET @@global.super_read_only = 0;
+SET @@global.read_only = 0;
+CREATE TABLE t(a INT NOT NULL) ENGINE=BLACKHOLE;
+BEGIN;
+LOCK TABLES t WRITE;
+INSERT INTO t VALUES(100);
+# The In_use column should be 1 to indicate the lock;
+SHOW OPEN TABLES like 't';
+Database	Table	In_use	Name_locked
+test	t	1	0
+SET @@global.super_read_only = 1;
+UNLOCK TABLES;
+#The In_use column should be 0 to indicate the lock was removed;
+SHOW OPEN TABLES like 't';
+Database	Table	In_use	Name_locked
+test	t	0	0
+SET @@global.super_read_only = 0;
+DROP TABLE t;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.blackhole_transactions = 0;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test setting read only with long running transactions engine=BLACKHOLE,
+# legacy_mode=0, with_transactions=1
+# should_fail_on_commit=0
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+BEGIN WORK;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+COMMIT;
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+# Test setting read only with long running transactions engine=BLACKHOLE,
+# legacy_mode=0, with_transactions=0
+# should_fail_on_commit=0
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 1;
+# Test setting read only with long running transactions engine=BLACKHOLE,
+# legacy_mode=1, with_transactions=1
+# should_fail_on_commit=0
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+BEGIN WORK;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+COMMIT;
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+# Test setting read only with long running transactions engine=BLACKHOLE,
+# legacy_mode=1, with_transactions=0
+# should_fail_on_commit=0
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+# Should not have any records unless legacy_mode=1 and
+# with_transactions=0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test setting read only with LOCK TABLES transactions engine=BLACKHOLE,
+# legacy_mode=0 should_fail_on_commit=0
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+SET autocommit=0;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES (1), (2);
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+Sleep	NULL
+# setting read only should succeed
+# Also try to create a table - this should fail when running in
+# default mode because READ ONLY is on
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+# Changes should be visible
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+COMMIT;
+# The changes should not exist
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET autocommit=default;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 1;
+# Test setting read only with LOCK TABLES transactions engine=BLACKHOLE,
+# legacy_mode=1 should_fail_on_commit=0
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SET @@global.super_read_only = 0;
+CREATE TABLE t1(a INT NOT NULL) ENGINE=BLACKHOLE;
+SET autocommit=0;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES (1), (2);
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+Sleep	NULL
+COMMIT;
+UNLOCK TABLES;
+# setting read only should succeed after unlocking the table
+# The changes should exist
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
+SET autocommit=default;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+# Test that we don't leak locks on BLACKHOLE
+SET @save_read_only = @@global.read_only;
+SET @save_super_read_only = @@global.super_read_only;
+SET @@global.super_read_only = 0;
+SET @@global.read_only = 0;
+CREATE TABLE t(a INT NOT NULL) ENGINE=BLACKHOLE;
+BEGIN;
+LOCK TABLES t WRITE;
+INSERT INTO t VALUES(100);
+# The In_use column should be 1 to indicate the lock;
+SHOW OPEN TABLES like 't';
+Database	Table	In_use	Name_locked
+test	t	1	0
+SET @@global.super_read_only = 1;
+UNLOCK TABLES;
+#The In_use column should be 0 to indicate the lock was removed;
+SHOW OPEN TABLES like 't';
+Database	Table	In_use	Name_locked
+test	t	0	0
+SET @@global.super_read_only = 0;
+DROP TABLE t;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
+SET @@global.blackhole_transactions = @save_blackhole_transactions;

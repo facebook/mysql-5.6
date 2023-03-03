@@ -109,6 +109,7 @@ class ha_blackhole : public handler {
   void position(const uchar *record) override;
   int info(uint flag) override;
   int external_lock(THD *thd, int lock_type) override;
+  int start_stmt(THD *thd, thr_lock_type lock_type) override;
   int create(const char *name, TABLE *table_arg, HA_CREATE_INFO *create_info,
              dd::Table *table_def) override;
   THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
@@ -123,4 +124,5 @@ class ha_blackhole : public handler {
   int write_row(uchar *buf) override;
   int update_row(const uchar *old_data, uchar *new_data) override;
   int delete_row(const uchar *buf) override;
+  void register_transaction(THD *thd);
 };

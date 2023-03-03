@@ -3,6 +3,6 @@ WHERE ENGINE = 'BLACKHOLE';
 ENGINE	BLACKHOLE
 SUPPORT	YES
 COMMENT	/dev/null storage engine (anything you write to it disappears)
-TRANSACTIONS	NO
+TRANSACTIONS	YES
 XA	NO
 SAVEPOINTS	NO

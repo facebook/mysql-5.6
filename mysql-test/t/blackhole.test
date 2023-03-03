@@ -41,3 +41,11 @@ SELECT MATCH (a) AGAINST ('abc') AS score FROM t;
 # But this index scan failed. Should succeed now.
 SELECT 1 FROM t WHERE MATCH (a) AGAINST ('abc');
 DROP TABLE t;
+
+-- echo # Test transactions with blackhole transactions enabled
+SET @@global.blackhole_transactions=1;
+--source blackhole_transactions.inc
+
+-- echo # Test transactions with blackhole transactions disabled
+SET @@global.blackhole_transactions=0;
+--source blackhole_transactions.inc
