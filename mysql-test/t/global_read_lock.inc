@@ -1,7 +1,14 @@
+--echo # Test setting read only with long running transactions engine=$engine,
+--echo # legacy_mode=$legacy_mode, with_transactions=$with_transactions
+--echo # should_fail_on_commit=$should_fail_on_commit
+
 # Save the current settings for read_only and super_read_only
 connection default;
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
+
+SET @@global.super_read_only = 0;
+eval CREATE TABLE t1(a INT NOT NULL) ENGINE=$engine;
 
 # In one thread start a statement that takes 10 seconds
 connection con1;
@@ -57,7 +64,9 @@ if (!$with_transactions) {
   }
 
   if (!$legacy_mode) {
-    --error ER_OPTION_PREVENTS_STATEMENT
+    if ($should_fail_on_commit) {
+      --error ER_OPTION_PREVENTS_STATEMENT
+    }
     reap;
   }
 }
@@ -71,13 +80,19 @@ if ($with_transactions) {
   # transactions
   SELECT COUNT(*) FROM t1;
 
-  # But should fail when the transaction is committed (read_only mode is on)
-  --error ER_OPTION_PREVENTS_STATEMENT
+  if ($should_fail_on_commit) {
+    # But should fail when the transaction is committed (read_only mode is on)
+    --error ER_OPTION_PREVENTS_STATEMENT
+  }
   COMMIT;
 }
 
-# The changes should not exist
+--echo # Should not have any records unless legacy_mode=1 and
+--echo # with_transactions=0
 SELECT COUNT(*) FROM t1;
+
+SET @@global.super_read_only = 0;
+DROP TABLE t1;
 
 # Reset the super_read_only and read_only variables
 connection default;

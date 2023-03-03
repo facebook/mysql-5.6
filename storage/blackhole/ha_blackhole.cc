@@ -40,6 +40,7 @@ using std::string;
 using std::unique_ptr;
 
 static PSI_memory_key bh_key_memory_blackhole_share;
+static bool blackhole_transactions;
 
 static bool is_slave_applier(THD *thd) {
   return thd->system_thread == SYSTEM_THREAD_SLAVE_SQL ||
@@ -153,8 +154,32 @@ int ha_blackhole::info(uint flag) {
   return 0;
 }
 
-int ha_blackhole::external_lock(THD *, int) {
+void ha_blackhole::register_transaction(THD *thd) {
   DBUG_TRACE;
+  if (!blackhole_transactions) {
+    return;
+  }
+
+  trans_register_ha(thd, /*all=*/false, ht, /*trxid=*/NULL);
+  if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)) {
+    // No autocommit mode
+    trans_register_ha(thd, /*all=*/true, ht, /*trxid=*/NULL);
+  }
+}
+
+int ha_blackhole::external_lock(THD *thd, int lock_type) {
+  DBUG_TRACE;
+  if (lock_type != F_UNLCK) {
+    register_transaction(thd);
+  }
+  return 0;
+}
+
+int ha_blackhole::start_stmt(THD *thd, thr_lock_type) {
+  DBUG_TRACE;
+  // external_lock() isn't called when transaction is started with LOCK TABLES.
+  // This method is called instead.
+  register_transaction(thd);
   return 0;
 }
 
@@ -320,6 +345,10 @@ static PSI_memory_info all_blackhole_memory[] = {
     {&bh_key_memory_blackhole_share, "blackhole_share",
      PSI_FLAG_ONLY_GLOBAL_STAT, 0, PSI_DOCUMENT_ME}};
 
+static int blackhole_rollback(handlerton *const, THD *const, bool) { return 0; }
+
+static int blackhole_commit(handlerton *const, THD *const, bool) { return 0; }
+
 static void init_blackhole_psi_keys() {
   const char *category = "blackhole";
   int count;
@@ -344,6 +373,8 @@ static int blackhole_init(void *p) {
   blackhole_hton->db_type = DB_TYPE_BLACKHOLE_DB;
   blackhole_hton->create = blackhole_create_handler;
   blackhole_hton->flags = HTON_CAN_RECREATE;
+  blackhole_hton->commit = blackhole_commit;
+  blackhole_hton->rollback = blackhole_rollback;
 
   mysql_mutex_init(bh_key_mutex_blackhole, &blackhole_mutex,
                    MY_MUTEX_INIT_FAST);
@@ -363,6 +394,16 @@ static int blackhole_fini(void *) {
 struct st_mysql_storage_engine blackhole_storage_engine = {
     MYSQL_HANDLERTON_INTERFACE_VERSION};
 
+static MYSQL_SYSVAR_BOOL(transactions, blackhole_transactions,
+                         PLUGIN_VAR_OPCMDARG,
+                         "Enables transaction support for Blackhole engine",
+                         /*check=*/nullptr,
+                         /*update=*/nullptr,
+                         /*default=*/blackhole_transactions);
+
+static struct SYS_VAR *blackhole_system_variables[] = {
+    MYSQL_SYSVAR(transactions), nullptr};
+
 mysql_declare_plugin(blackhole){
     MYSQL_STORAGE_ENGINE_PLUGIN,
     &blackhole_storage_engine,
@@ -375,7 +416,7 @@ mysql_declare_plugin(blackhole){
     blackhole_fini, /* Plugin Deinit */
     0x0100 /* 1.0 */,
     nullptr, /* status variables                */
-    nullptr, /* system variables                */
+    blackhole_system_variables,
     nullptr, /* config options                  */
     0,       /* flags                           */
 } mysql_declare_plugin_end;
