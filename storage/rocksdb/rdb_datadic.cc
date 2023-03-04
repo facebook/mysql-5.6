@@ -3044,7 +3044,7 @@ int Rdb_key_def::unpack_binary_or_utf8_varlength(
     /*
       Now, we need to decode used_bytes of data and append them to the value.
     */
-    if (fpi->m_varlength_charset == &my_charset_utf8_bin) {
+    if (fpi->m_varlength_charset == &my_charset_utf8mb3_bin) {
       int err = unpack_charset(fpi->m_varlength_charset, ptr, used_bytes, data,
                                data_len, &used_bytes);
       if (err != UNPACK_SUCCESS) {
@@ -3135,7 +3135,7 @@ int Rdb_key_def::unpack_binary_or_utf8_varlength_space_pad(
     }
 
     // Now, need to decode used_bytes of data and append them to the value.
-    if (fpi->m_varlength_charset == &my_charset_utf8_bin) {
+    if (fpi->m_varlength_charset == &my_charset_utf8mb3_bin) {
       if (used_bytes & 1) {
         /*
           UTF-8 characters are encoded into two-byte entities. There is no way
@@ -3930,7 +3930,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
                           ? Rdb_key_def::unpack_binary_or_utf8_varlength
                           : Rdb_key_def::unpack_binary_str;
       m_covered = Rdb_key_def::KEY_COVERED;
-    } else if (cs == &my_charset_latin1_bin || cs == &my_charset_utf8_bin) {
+    } else if (cs == &my_charset_latin1_bin || cs == &my_charset_utf8mb3_bin) {
       // For _bin collations, mem-comparable form of the string is the string
       // itself.
 
@@ -3990,7 +3990,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
           sql_print_warning(
               "RocksDB: you're trying to create an index "
               "with a multi-level collation %s",
-              cs->name);
+              cs->m_coll_name);
           //  NO_LINT_DEBUG
           sql_print_warning(
               "MyRocks will handle this collation internally "
