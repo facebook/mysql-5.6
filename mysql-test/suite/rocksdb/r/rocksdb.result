@@ -1219,7 +1219,7 @@ col1 int,
 key (key1)
 ) ENGINE=RocksDB CHARSET=latin1;
 Warnings:
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t3 values(1, 'one',11), (2,'two',22);
 explain 
 select key1 from t3 where key1='one';
@@ -1298,7 +1298,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (pk INT PRIMARY KEY, c1 CHAR(1), c2 CHAR(1), KEY(c1)) ENGINE=RocksDB CHARSET utf8 COLLATE utf8_bin;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 INSERT INTO t1 VALUES (1,'h','h');
 SELECT * FROM t1;
 pk	c1	c2
@@ -1552,6 +1552,8 @@ drop table t0, t1;
 #
 show status where variable_name like 'rocksdb%' and variable_name not like '%num_get_for_update%';
 Variable_name	Value
+Rocksdb_git_date	#
+Rocksdb_git_hash	#
 rocksdb_rows_deleted	#
 rocksdb_rows_inserted	#
 rocksdb_rows_read	#
@@ -1711,6 +1713,8 @@ ROCKSDB_GETUPDATESSINCE_CALLS
 ROCKSDB_GET_HIT_L0
 ROCKSDB_GET_HIT_L1
 ROCKSDB_GET_HIT_L2_AND_UP
+ROCKSDB_GIT_DATE
+ROCKSDB_GIT_HASH
 ROCKSDB_ITER_BYTES_READ
 ROCKSDB_LAST_LEVEL_SEEK_DATA
 ROCKSDB_LAST_LEVEL_SEEK_DATA_USEFUL_FILTER_MATCH
@@ -1835,6 +1839,8 @@ ROCKSDB_GETUPDATESSINCE_CALLS
 ROCKSDB_GET_HIT_L0
 ROCKSDB_GET_HIT_L1
 ROCKSDB_GET_HIT_L2_AND_UP
+ROCKSDB_GIT_DATE
+ROCKSDB_GIT_HASH
 ROCKSDB_ITER_BYTES_READ
 ROCKSDB_LAST_LEVEL_SEEK_DATA
 ROCKSDB_LAST_LEVEL_SEEK_DATA_USEFUL_FILTER_MATCH

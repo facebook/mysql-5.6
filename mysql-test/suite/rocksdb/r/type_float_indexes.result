@@ -125,7 +125,7 @@ Warning	1681	Specifying number of digits for floating point data types is deprec
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	d	1	d	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	d	1	d	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
@@ -196,7 +196,7 @@ Warning	1681	Specifying number of digits for floating point data types is deprec
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	f	1	f	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	f	1	f	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),

@@ -246,6 +246,117 @@ def	information_schema	RESOURCE_GROUPS	RESOURCE_GROUP_TYPE	2	NULL	NO	enum	6	18	N
 def	information_schema	RESOURCE_GROUPS	RESOURCE_GROUP_ENABLED	3	NULL	NO	tinyint	NULL	NULL	3	0	NULL	NULL	NULL	tinyint(1)			select			NULL
 def	information_schema	RESOURCE_GROUPS	VCPU_IDS	4	NULL	YES	blob	65535	65535	NULL	NULL	NULL	NULL	NULL	blob			select			NULL
 def	information_schema	RESOURCE_GROUPS	THREAD_PRIORITY	5	NULL	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	THREAD_ID	1		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	CF_NAME	2		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	INPUT_FILES	3		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	OUTPUT_FILES	4		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	COMPACTION_REASON	5		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	CREATE_TIME	1		NO	timestamp	NULL	NULL	NULL	NULL	NULL	NULL	NULL	timestamp			select			NULL
+def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	QUERY	2		NO	varchar	33	100	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(100)			select			NULL
+def	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	ERROR_MSG	3		NO	varchar	33	100	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(100)			select			NULL
+def	information_schema	ROCKSDB_CFSTATS	CF_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	2		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_CFSTATS	VALUE	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_CF_OPTIONS	CF_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_CF_OPTIONS	OPTION_TYPE	2		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_CF_OPTIONS	VALUE	3		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	THREAD_ID	1		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	CF_NAME	2		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_LEVEL	3		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_LEVEL	4		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_FILES	5		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_FILES	6		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	COMPACTION_REASON	7		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	START_TIMESTAMP	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	END_TIMESTAMP	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_COMPACTION_BYTES	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_COMPACTION_BYTES	11		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_FILE_COUNT	12		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_FILE_COUNT	13		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_HISTORY	CPU_MICROS	14		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_STATS	CF_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_STATS	LEVEL	2		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_STATS	TYPE	3		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_COMPACTION_STATS	VALUE	4		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(8,0)			select			NULL
+def	information_schema	ROCKSDB_DBSTATS	STAT_TYPE	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DBSTATS	VALUE	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_DDL	TABLE_SCHEMA	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DDL	TABLE_NAME	2		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DDL	PARTITION_NAME	3		YES	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DDL	INDEX_NAME	4		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DDL	COLUMN_FAMILY	5		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_DDL	INDEX_NUMBER	6		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_DDL	INDEX_TYPE	7		NO	smallint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	smallint			select			NULL
+def	information_schema	ROCKSDB_DDL	KV_FORMAT_VERSION	8		NO	smallint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	smallint			select			NULL
+def	information_schema	ROCKSDB_DDL	TTL_DURATION	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_DDL	INDEX_FLAGS	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_DDL	CF	11		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DDL	AUTO_INCREMENT	12		YES	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	DEADLOCK_ID	1		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	TIMESTAMP	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	TRANSACTION_ID	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	CF_NAME	4		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	WAITING_KEY	5		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	LOCK_TYPE	6		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	INDEX_NAME	7		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	TABLE_NAME	8		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_DEADLOCK	ROLLED_BACK	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_GLOBAL_INFO	TYPE	1		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_GLOBAL_INFO	NAME	2		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_GLOBAL_INFO	VALUE	3		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	COLUMN_FAMILY	1		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	INDEX_NUMBER	2		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	SST_NAME	3		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	NUM_ROWS	4		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	DATA_SIZE	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_DELETES	6		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_SINGLEDELETES	7		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_MERGES	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_OTHERS	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_INDEX_FILE_MAP	DISTINCT_KEYS_PREFIX	10		NO	varchar	133	400	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(400)			select			NULL
+def	information_schema	ROCKSDB_LOCKS	COLUMN_FAMILY_ID	1		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_LOCKS	TRANSACTION_ID	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_LOCKS	KEY	3		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_LOCKS	MODE	4		NO	varchar	10	32	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(32)			select			NULL
+def	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_SCHEMA	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_NAME	2		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_PERF_CONTEXT	PARTITION_NAME	3		YES	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_PERF_CONTEXT	STAT_TYPE	4		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_PERF_CONTEXT	VALUE	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_PERF_CONTEXT_GLOBAL	STAT_TYPE	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_PERF_CONTEXT_GLOBAL	VALUE	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	SST_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	COLUMN_FAMILY	2		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	DATA_BLOCKS	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	ENTRIES	4		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	RAW_KEY_SIZE	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	RAW_VALUE_SIZE	6		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	DATA_BLOCK_SIZE	7		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	INDEX_BLOCK_SIZE	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	INDEX_PARTITIONS	9		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	TOP_LEVEL_INDEX_SIZE	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	FILTER_BLOCK_SIZE	11		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	COMPRESSION_ALGO	12		YES	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	CREATION_TIME	13		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	FILE_CREATION_TIME	14		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	OLDEST_KEY_TIME	15		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	FILTER_POLICY	16		YES	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_SST_PROPS	COMPRESSION_OPTIONS	17		YES	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_TRX	TRANSACTION_ID	1		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_TRX	STATE	2		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_TRX	NAME	3		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
+def	information_schema	ROCKSDB_TRX	WRITE_COUNT	4		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_TRX	LOCK_COUNT	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	ROCKSDB_TRX	TIMEOUT_SEC	6		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_TRX	WAITING_KEY	7		NO	varchar	171	513	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_TRX	WAITING_COLUMN_FAMILY_ID	8		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_TRX	IS_REPLICATION	9		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_TRX	SKIP_TRX_API	10		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_TRX	READ_ONLY	11		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_TRX	HAS_DEADLOCK_DETECTION	12		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_TRX	NUM_ONGOING_BULKLOAD	13		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_TRX	THREAD_ID	14		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	ROCKSDB_TRX	QUERY	15		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	GRANTOR	1	NULL	YES	varchar	97	291	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(97)			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	GRANTOR_HOST	2	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	GRANTEE	3		NO	char	32	96	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(32)			select			NULL
@@ -504,8 +615,11 @@ COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
 3.0000	set	utf8mb3	utf8mb3_general_ci
 3.0000	varchar	utf8mb3	utf8mb3_general_ci
 3.0029	varchar	utf8mb3	utf8mb3_general_ci
+3.0075	varchar	utf8mb3	utf8mb3_general_ci
 3.0103	varchar	utf8mb3	utf8mb3_general_ci
 3.0118	varchar	utf8mb3	utf8mb3_general_ci
+3.0156	varchar	utf8mb3	utf8mb3_general_ci
+3.0303	varchar	utf8mb3	utf8mb3_general_ci
 3.0476	varchar	utf8mb3	utf8mb3_general_ci
 3.0769	varchar	utf8mb3	utf8mb3_general_ci
 3.2000	varchar	utf8mb3	utf8mb3_general_ci
@@ -530,6 +644,7 @@ NULL	datetime	NULL	NULL
 NULL	double	NULL	NULL
 NULL	int	NULL	NULL
 NULL	json	NULL	NULL
+NULL	smallint	NULL	NULL
 NULL	timestamp	NULL	NULL
 NULL	tinyint	NULL	NULL
 NULL	char	utf8mb3	utf8mb3_general_ci
@@ -790,6 +905,117 @@ NULL	information_schema	PROCESSLIST	TIME	int	NULL	NULL	NULL	NULL	int
 NULL	information_schema	RESOURCE_GROUPS	RESOURCE_GROUP_ENABLED	tinyint	NULL	NULL	NULL	NULL	tinyint(1)
 1.0000	information_schema	RESOURCE_GROUPS	VCPU_IDS	blob	65535	65535	NULL	NULL	blob
 NULL	information_schema	RESOURCE_GROUPS	THREAD_PRIORITY	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	THREAD_ID	bigint	NULL	NULL	NULL	NULL	bigint
+3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	CF_NAME	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	INPUT_FILES	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	OUTPUT_FILES	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	COMPACTION_REASON	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	CREATE_TIME	timestamp	NULL	NULL	NULL	NULL	timestamp
+3.0303	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	QUERY	varchar	33	100	utf8mb3	utf8mb3_general_ci	varchar(100)
+3.0303	information_schema	ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY	ERROR_MSG	varchar	33	100	utf8mb3	utf8mb3_general_ci	varchar(100)
+3.0156	information_schema	ROCKSDB_CFSTATS	CF_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_CFSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_CF_OPTIONS	CF_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_CF_OPTIONS	OPTION_TYPE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_CF_OPTIONS	VALUE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	THREAD_ID	bigint	NULL	NULL	NULL	NULL	bigint
+3.0000	information_schema	ROCKSDB_COMPACTION_HISTORY	CF_NAME	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_LEVEL	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_LEVEL	int	NULL	NULL	NULL	NULL	int
+3.0000	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_FILES	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_FILES	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_COMPACTION_HISTORY	COMPACTION_REASON	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	START_TIMESTAMP	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	END_TIMESTAMP	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_COMPACTION_BYTES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_COMPACTION_BYTES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	INPUT_FILE_COUNT	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	OUTPUT_FILE_COUNT	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_COMPACTION_HISTORY	CPU_MICROS	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_COMPACTION_STATS	CF_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0000	information_schema	ROCKSDB_COMPACTION_STATS	LEVEL	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_COMPACTION_STATS	TYPE	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_COMPACTION_STATS	VALUE	double	NULL	NULL	NULL	NULL	double(8,0)
+3.0156	information_schema	ROCKSDB_DBSTATS	STAT_TYPE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_DBSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_DDL	TABLE_SCHEMA	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_DDL	TABLE_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_DDL	PARTITION_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_DDL	INDEX_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_DDL	COLUMN_FAMILY	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_DDL	INDEX_NUMBER	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_DDL	INDEX_TYPE	smallint	NULL	NULL	NULL	NULL	smallint
+NULL	information_schema	ROCKSDB_DDL	KV_FORMAT_VERSION	smallint	NULL	NULL	NULL	NULL	smallint
+NULL	information_schema	ROCKSDB_DDL	TTL_DURATION	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_DDL	INDEX_FLAGS	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_DDL	CF	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_DDL	AUTO_INCREMENT	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ROCKSDB_DEADLOCK	DEADLOCK_ID	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_DEADLOCK	TIMESTAMP	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_DEADLOCK	TRANSACTION_ID	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_DEADLOCK	CF_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0000	information_schema	ROCKSDB_DEADLOCK	WAITING_KEY	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0156	information_schema	ROCKSDB_DEADLOCK	LOCK_TYPE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_DEADLOCK	INDEX_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_DEADLOCK	TABLE_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_DEADLOCK	ROLLED_BACK	bigint	NULL	NULL	NULL	NULL	bigint
+3.0000	information_schema	ROCKSDB_GLOBAL_INFO	TYPE	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_GLOBAL_INFO	NAME	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_GLOBAL_INFO	VALUE	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	COLUMN_FAMILY	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	INDEX_NUMBER	int	NULL	NULL	NULL	NULL	int
+3.0156	information_schema	ROCKSDB_INDEX_FILE_MAP	SST_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	NUM_ROWS	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	DATA_SIZE	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_DELETES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_SINGLEDELETES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_MERGES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_INDEX_FILE_MAP	ENTRY_OTHERS	bigint	NULL	NULL	NULL	NULL	bigint
+3.0075	information_schema	ROCKSDB_INDEX_FILE_MAP	DISTINCT_KEYS_PREFIX	varchar	133	400	utf8mb3	utf8mb3_general_ci	varchar(400)
+NULL	information_schema	ROCKSDB_LOCKS	COLUMN_FAMILY_ID	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_LOCKS	TRANSACTION_ID	bigint	NULL	NULL	NULL	NULL	bigint
+3.0000	information_schema	ROCKSDB_LOCKS	KEY	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+3.2000	information_schema	ROCKSDB_LOCKS	MODE	varchar	10	32	utf8mb3	utf8mb3_general_ci	varchar(32)
+3.0156	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_SCHEMA	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_PERF_CONTEXT	PARTITION_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_PERF_CONTEXT	STAT_TYPE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_PERF_CONTEXT	VALUE	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_PERF_CONTEXT_GLOBAL	STAT_TYPE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_PERF_CONTEXT_GLOBAL	VALUE	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_SST_PROPS	SST_NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_SST_PROPS	COLUMN_FAMILY	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_SST_PROPS	DATA_BLOCKS	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	ENTRIES	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	RAW_KEY_SIZE	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	RAW_VALUE_SIZE	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	DATA_BLOCK_SIZE	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	INDEX_BLOCK_SIZE	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	INDEX_PARTITIONS	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_SST_PROPS	TOP_LEVEL_INDEX_SIZE	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	FILTER_BLOCK_SIZE	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_SST_PROPS	COMPRESSION_ALGO	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_SST_PROPS	CREATION_TIME	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	FILE_CREATION_TIME	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_SST_PROPS	OLDEST_KEY_TIME	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_SST_PROPS	FILTER_POLICY	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_SST_PROPS	COMPRESSION_OPTIONS	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_TRX	TRANSACTION_ID	bigint	NULL	NULL	NULL	NULL	bigint
+3.0156	information_schema	ROCKSDB_TRX	STATE	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+3.0156	information_schema	ROCKSDB_TRX	NAME	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
+NULL	information_schema	ROCKSDB_TRX	WRITE_COUNT	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_TRX	LOCK_COUNT	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	ROCKSDB_TRX	TIMEOUT_SEC	int	NULL	NULL	NULL	NULL	int
+3.0000	information_schema	ROCKSDB_TRX	WAITING_KEY	varchar	171	513	utf8mb3	utf8mb3_general_ci	varchar(513)
+NULL	information_schema	ROCKSDB_TRX	WAITING_COLUMN_FAMILY_ID	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_TRX	IS_REPLICATION	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_TRX	SKIP_TRX_API	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_TRX	READ_ONLY	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_TRX	HAS_DEADLOCK_DETECTION	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_TRX	NUM_ONGOING_BULKLOAD	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	ROCKSDB_TRX	THREAD_ID	int	NULL	NULL	NULL	NULL	int
+3.0156	information_schema	ROCKSDB_TRX	QUERY	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
 3.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTOR	varchar	97	291	utf8mb3	utf8mb3_general_ci	varchar(97)
 3.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTOR_HOST	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
 3.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTEE	char	32	96	utf8mb3	utf8mb3_bin	char(32)

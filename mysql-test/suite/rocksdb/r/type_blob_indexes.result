@@ -113,7 +113,7 @@ INDEX (m(128))
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	m	1	m	A	500	128	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	m	1	m	A	1000	128	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (b,t,m,l) VALUES
 ('','','',''),
 ('a','b','c','d'),

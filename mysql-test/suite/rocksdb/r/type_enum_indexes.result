@@ -50,7 +50,7 @@ INSERT INTO t1 (a,b,c,pk) VALUES
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	b	1	b	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	b	1	b	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 EXPLAIN SELECT DISTINCT b FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	b	b	2	NULL	#	#	Using index
@@ -88,10 +88,10 @@ INSERT INTO t1 (a,b,c,d,pk) VALUES
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	a_b_c_d	1	a	A	62	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	a_b_c_d	2	b	A	125	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	a_b_c_d	3	c	A	250	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	a_b_c_d	4	d	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	1	a	A	125	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	2	b	A	250	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	3	c	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	4	d	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 EXPLAIN SELECT DISTINCT a,b,c,d FROM t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	a_b_c_d	a_b_c_d	8	NULL	#	#	Using index

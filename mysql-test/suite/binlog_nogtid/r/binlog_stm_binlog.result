@@ -507,7 +507,7 @@ SELECT * FROM t1;
 c1
 1
 # Their values should be ON
-SHOW SESSION VARIABLES LIKE "%_checks";
+SHOW SESSION VARIABLES LIKE "%e%_checks";
 Variable_name	Value
 foreign_key_checks	ON
 unique_checks	ON
@@ -525,7 +525,7 @@ c1
 1
 2
 # Their values should be OFF
-SHOW SESSION VARIABLES LIKE "%_checks";
+SHOW SESSION VARIABLES LIKE "%e%_checks";
 Variable_name	Value
 foreign_key_checks	OFF
 unique_checks	OFF
@@ -543,7 +543,7 @@ c1
 1
 2
 # Their values should be OFF
-SHOW SESSION VARIABLES LIKE "%_checks";
+SHOW SESSION VARIABLES LIKE "%e%_checks";
 Variable_name	Value
 foreign_key_checks	OFF
 unique_checks	OFF

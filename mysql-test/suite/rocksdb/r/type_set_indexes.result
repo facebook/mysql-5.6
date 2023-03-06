@@ -62,7 +62,7 @@ INDEX(a)
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	a	1	a	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a	1	a	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (a,b,c,pk) VALUES
 ('','test2,test3','01,34,44,23',1),
 ('',5,2,2),
@@ -131,10 +131,10 @@ INDEX a_b_c_d (a,b,c,d)
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	a_b_c_d	1	a	A	62	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	a_b_c_d	2	b	A	125	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	a_b_c_d	3	c	A	250	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	a_b_c_d	4	d	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	1	a	A	125	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	2	b	A	250	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	3	c	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	4	d	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (a,b,c,d,pk) VALUES
 ('','test2,test3','01,34,44,23','01,34,44,23',1),
 ('',5,2,2,2),

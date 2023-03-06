@@ -379,7 +379,7 @@ dfLtTBcBAAAAIgAAAPkAAAAAABcAAAAAAAcAAf/+AQAAAA==
 
 SELECT * FROM t1;
 --echo # Their values should be ON
-SHOW SESSION VARIABLES LIKE "%_checks";
+SHOW SESSION VARIABLES LIKE "%e%_checks";
 
 --echo
 SET @@SESSION.foreign_key_checks= OFF;
@@ -394,7 +394,7 @@ dfLtTBcBAAAAIgAAAM0BAAAAABcAAAAAAAEAAf/+AgAAAA==
 
 SELECT * FROM t1;
 --echo # Their values should be OFF
-SHOW SESSION VARIABLES LIKE "%_checks";
+SHOW SESSION VARIABLES LIKE "%e%_checks";
 
 --echo # INSERT INTO t1 VALUES(2)
 --echo # foreign_key_checks=1 and unique_checks=1
@@ -408,7 +408,7 @@ dfLtTBcBAAAAIgAAAM0BAAAAABcAAAAAAAEAAf/+AgAAAA==
 
 SELECT * FROM t1;
 --echo # Their values should be OFF
-SHOW SESSION VARIABLES LIKE "%_checks";
+SHOW SESSION VARIABLES LIKE "%e%_checks";
 
 DROP TABLE t1;
 
