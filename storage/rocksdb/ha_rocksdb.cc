@@ -801,6 +801,7 @@ char *rocksdb_wal_dir;
 static char *rocksdb_persistent_cache_path;
 static char *rocksdb_wsenv_path;
 static char *rocksdb_wsenv_tenant;
+static char *rocksdb_wsenv_oncall;
 static ulong rocksdb_index_type;
 static uint32_t rocksdb_flush_log_at_trx_commit;
 static uint32_t rocksdb_debug_optimizer_n_rows;
@@ -1812,6 +1813,10 @@ static MYSQL_SYSVAR_STR(wsenv_path, rocksdb_wsenv_path,
 static MYSQL_SYSVAR_STR(wsenv_tenant, rocksdb_wsenv_tenant,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                         "Tenant for RocksDB WSEnv", nullptr, nullptr, "");
+
+static MYSQL_SYSVAR_STR(wsenv_oncall, rocksdb_wsenv_oncall,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                        "Oncall for RocksDB WSEnv", nullptr, nullptr, "");
 
 static MYSQL_SYSVAR_STR(fault_injection_options,
                         opt_rocksdb_fault_injection_options,
@@ -2882,6 +2887,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(fault_injection_options),
     MYSQL_SYSVAR(wsenv_path),
     MYSQL_SYSVAR(wsenv_tenant),
+    MYSQL_SYSVAR(wsenv_oncall),
     MYSQL_SYSVAR(delete_obsolete_files_period_micros),
     MYSQL_SYSVAR(max_background_jobs),
     MYSQL_SYSVAR(max_background_flushes),
@@ -7235,11 +7241,14 @@ static int rocksdb_init_internal(void *const p) {
     // NO_LINT_DEBUG
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                     "RocksDB: Initializing WSEnvironment: "
-                    "rocksdb_wsenv_path = %s, rocksdb_wsenv_tenant = %s",
-                    rocksdb_wsenv_path, rocksdb_wsenv_tenant);
+                    "rocksdb_wsenv_path = %s, rocksdb_wsenv_tenant = %s, "
+                    "rocksdb_wsenv_oncall = %s",
+                    rocksdb_wsenv_path, rocksdb_wsenv_tenant,
+                    rocksdb_wsenv_oncall);
 
     std::string rdb_tenant(rocksdb_wsenv_tenant);
-    facebook::rocks::WSEnvCreationArgs args(rdb_tenant);
+    std::string rdb_oncall(rocksdb_wsenv_oncall);
+    facebook::rocks::WSEnvCreationArgs args(rdb_tenant, rdb_oncall);
     RegisterWarmStorageSimple(args);
     rocksdb::Env *ws_env = nullptr;
     auto s = rocksdb::Env::LoadEnv(rocksdb_wsenv_path, &ws_env);

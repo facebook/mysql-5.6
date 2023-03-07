@@ -2487,6 +2487,8 @@ The following options may be given as the first argument:
  WriteOptions::ignore_missing_column_families for RocksDB
  --rocksdb-write-policy=name 
  DBOptions::write_policy for RocksDB
+ --rocksdb-wsenv-oncall=name 
+ Oncall for RocksDB WSEnv
  --rocksdb-wsenv-path=name 
  Path for RocksDB WSEnv
  --rocksdb-wsenv-tenant=name 
@@ -3784,6 +3786,7 @@ rocksdb-write-batch-max-bytes 0
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE
 rocksdb-write-policy write_committed
+rocksdb-wsenv-oncall 
 rocksdb-wsenv-path 
 rocksdb-wsenv-tenant 
 rpl-read-size 8192
