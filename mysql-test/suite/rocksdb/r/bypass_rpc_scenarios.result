@@ -133,6 +133,23 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
+CREATE TABLE `time_range` (
+`id1` bigint unsigned NOT NULL DEFAULT '0' ,
+`id1_type` int unsigned NOT NULL DEFAULT '0' ,
+`id2` bigint unsigned NOT NULL DEFAULT '0' ,
+`id2_type` int unsigned NOT NULL DEFAULT '0' ,
+`link_type` bigint unsigned NOT NULL DEFAULT '0' ,
+`time` int unsigned NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+KEY `id1_type` (`id1`,`link_type`,`time`,`id2`)
+COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+INSERT INTO time_range VALUES (100, 10, 200, 20, 1000, 1);
+INSERT INTO time_range VALUES (100, 10, 201, 21, 1000, 2);
+INSERT INTO time_range VALUES (100, 10, 202, 22, 1000, 3);
+INSERT INTO time_range VALUES (100, 10, 203, 23, 1000, 4);
+INSERT INTO time_range VALUES (100, 10, 204, 24, 1000, 5);
 SELECT @@rocksdb_bypass_rpc_on INTO @save_rocksdb_bypass_rpc_on;
 set global rocksdb_bypass_rpc_on=1;
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
@@ -142,4 +159,5 @@ DROP TABLE link_table7;
 DROP TABLE link_table8;
 DROP TABLE meta_table;
 DROP TABLE obj_info;
+DROP TABLE time_range;
 set global rocksdb_bypass_rpc_on=@save_rocksdb_bypass_rpc_on;

@@ -120,6 +120,25 @@ ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 INSERT INTO obj_info (id, type, version, update_time) VALUES (100, 1, 2, 3);
 --enable_query_log
 
+CREATE TABLE `time_range` (
+  `id1` bigint unsigned NOT NULL DEFAULT '0' ,
+  `id1_type` int unsigned NOT NULL DEFAULT '0' ,
+  `id2` bigint unsigned NOT NULL DEFAULT '0' ,
+  `id2_type` int unsigned NOT NULL DEFAULT '0' ,
+  `link_type` bigint unsigned NOT NULL DEFAULT '0' ,
+  `time` int unsigned NOT NULL DEFAULT '0' ,
+  PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+  KEY `id1_type` (`id1`,`link_type`,`time`,`id2`)
+  COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+
+INSERT INTO time_range VALUES (100, 10, 200, 20, 1000, 1);
+INSERT INTO time_range VALUES (100, 10, 201, 21, 1000, 2);
+INSERT INTO time_range VALUES (100, 10, 202, 22, 1000, 3);
+INSERT INTO time_range VALUES (100, 10, 203, 23, 1000, 4);
+INSERT INTO time_range VALUES (100, 10, 204, 24, 1000, 5);
+
 SELECT @@rocksdb_bypass_rpc_on INTO @save_rocksdb_bypass_rpc_on;
 set global rocksdb_bypass_rpc_on=1;
 
@@ -197,6 +216,15 @@ SELECT /*+ bypass */ id2,version,data FROM test.link_text FORCE INDEX (id1_type)
 SELECT /*+ bypass */ id2,version,data FROM test.link_varchar FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4 and time>=10;
 # Read a column which is null by default
 SELECT /*+ bypass */ id,type,version,is_deleted,update_time FROM test.obj_info WHERE id=100;
+# Multiple time ranges
+SELECT /*+ bypass */ id1,id2,link_type,time FROM test.time_range FORCE INDEX (id1_type) WHERE link_type=1000 AND id1=100 AND time>=1 AND time>=2 AND time>=3 ORDER BY time ASC, id2 ASC limit 0,1000;
+SELECT /*+ bypass */ id1,id2,link_type,time FROM test.time_range FORCE INDEX (id1_type) WHERE link_type=1000 AND id1=100 AND time>=2 AND time>=1 AND time>=3 ORDER BY time ASC, id2 ASC limit 0,1000;
+SELECT /*+ bypass */ id1,id2,link_type,time FROM test.time_range FORCE INDEX (id1_type) WHERE link_type=1000 AND id1=100 AND time>=3 AND time>=2 AND time>=1 ORDER BY time ASC, id2 ASC limit 0,1000;
+SELECT /*+ bypass */ id1,id2,link_type,time FROM test.time_range FORCE INDEX (id1_type) WHERE link_type=1000 AND id1=100 AND time<=3 AND time<=4 AND time<=5 ORDER BY time ASC, id2 ASC limit 0,1000;
+SELECT /*+ bypass */ id1,id2,link_type,time FROM test.time_range FORCE INDEX (id1_type) WHERE link_type=1000 AND id1=100 AND time<=4 AND time<=3 AND time<=5 ORDER BY time ASC, id2 ASC limit 0,1000;
+SELECT /*+ bypass */ id1,id2,link_type,time FROM test.time_range FORCE INDEX (id1_type) WHERE link_type=1000 AND id1=100 AND time>=5 AND time<=4 AND time<=3 ORDER BY time ASC, id2 ASC limit 0,1000;
+SELECT /*+ bypass */ id1,id2,link_type,time FROM test.time_range FORCE INDEX (id1_type) WHERE link_type=1000 AND id1=100 AND time>=1 AND time>=3 AND time<=5 AND time<=4 ORDER BY time ASC, id2 ASC limit 0,1000;
+SELECT /*+ bypass */ id1,id2,link_type,time FROM test.time_range FORCE INDEX (id1_type) WHERE link_type=1000 AND id1=100 AND time<=5 AND time>=3 AND time<=4 AND time>=1 ORDER BY time ASC, id2 ASC limit 0,1000;
 EOF
 
 --replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
@@ -214,6 +242,7 @@ DROP TABLE link_table7;
 DROP TABLE link_table8;
 DROP TABLE meta_table;
 DROP TABLE obj_info;
+DROP TABLE time_range;
 
 --source ../include/bypass_drop_table.inc
 

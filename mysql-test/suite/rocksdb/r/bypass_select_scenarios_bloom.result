@@ -1338,6 +1338,23 @@ INSERT INTO meta_table VALUES (100, 0, 4, 0, 'data4', 1, 2, 3, 'context4',
 1, 0x1, 1, 1, 1, 1, 1, 0, 0);
 INSERT INTO meta_table VALUES (101, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
 1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+CREATE TABLE `time_range` (
+`id1` bigint unsigned NOT NULL DEFAULT '0' ,
+`id1_type` int unsigned NOT NULL DEFAULT '0' ,
+`id2` bigint unsigned NOT NULL DEFAULT '0' ,
+`id2_type` int unsigned NOT NULL DEFAULT '0' ,
+`link_type` bigint unsigned NOT NULL DEFAULT '0' ,
+`time` int unsigned NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+KEY `id1_type` (`id1`,`link_type`,`time`,`id2`)
+COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+INSERT INTO time_range VALUES (100, 10, 200, 20, 1000, 1);
+INSERT INTO time_range VALUES (100, 10, 201, 21, 1000, 2);
+INSERT INTO time_range VALUES (100, 10, 202, 22, 1000, 3);
+INSERT INTO time_range VALUES (100, 10, 203, 23, 1000, 4);
+INSERT INTO time_range VALUES (100, 10, 204, 24, 1000, 5);
 ========== Verifying Bypass Query ==========
 WITH BYPASS:
 SELECT /*+ bypass */ `mt_object_state`, `id`, `mt_object_cookie`,
@@ -1468,6 +1485,197 @@ id2	version	data
 include/assert.inc [Verify not executed in bypass]
 include/assert.inc [Verify bypass and regular query return same number of rows]
 include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=1 AND time>=2 AND time>=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+100	204	1000	5
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=1 AND time>=2 AND time>=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+100	204	1000	5
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=2 AND time>=1 AND time>=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+100	204	1000	5
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=2 AND time>=1 AND time>=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+100	204	1000	5
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=3 AND time>=2 AND time>=1
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+100	204	1000	5
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=3 AND time>=2 AND time>=1
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+100	204	1000	5
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=3 AND time<=4 AND time<=5
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	200	1000	1
+100	201	1000	2
+100	202	1000	3
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=3 AND time<=4 AND time<=5
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	200	1000	1
+100	201	1000	2
+100	202	1000	3
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=4 AND time<=3 AND time<=5
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	200	1000	1
+100	201	1000	2
+100	202	1000	3
+ROWS_READ
+3
+COVERED_SK_LOOKUP
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=4 AND time<=3 AND time<=5
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	200	1000	1
+100	201	1000	2
+100	202	1000	3
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=5 AND time<=4 AND time<=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+ROWS_READ
+0
+COVERED_SK_LOOKUP
+0
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=5 AND time<=4 AND time<=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=1 AND time>=3 AND
+time<=5 AND time<=4 ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+ROWS_READ
+2
+COVERED_SK_LOOKUP
+2
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=1 AND time>=3 AND
+time<=5 AND time<=4 ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=5 AND time>=3 AND
+time<=4 AND time>=1 ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+ROWS_READ
+2
+COVERED_SK_LOOKUP
+2
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=5 AND time>=3 AND
+time<=4 AND time>=1 ORDER BY time ASC, id2 ASC limit 0,1000;
+id1	id2	link_type	time
+100	202	1000	3
+100	203	1000	4
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+DROP TABLE time_range;
 # Establish connection con1 (user=root)
 # Switch to connection con1
 ========== Verifying Bypass Query ==========
@@ -1506,4 +1714,4 @@ FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT @executed_end-@executed_start AS ROCKSDB_SELECT_BYPASS_EXECUTED;
 ROCKSDB_SELECT_BYPASS_EXECUTED
-52
+60
