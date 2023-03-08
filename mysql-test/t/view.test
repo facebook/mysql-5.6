@@ -6253,7 +6253,7 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 DROP VIEW v1;
 
---replace_regex /[0-9][0-9]/XX/
+--replace_regex /[0-9][0-9][0-9]/XX/ /[0-9][0-9]/XX/
 call sys.create_synonym_db("INFORMATION_SCHEMA", "I_S");
 DROP DATABASE I_S;
 

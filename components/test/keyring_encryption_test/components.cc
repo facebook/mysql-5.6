@@ -144,7 +144,7 @@ bool Keyring_encryption_test::test_aes() {
   size_t block_size = 256;
   bool padding = true;
   const unsigned char plaintext[] = "Quick brown fox jumped over the lazy dog.";
-  size_t plaintext_length = strlen(reinterpret_cast<const char *>(plaintext));
+  size_t plaintext_length = strlen(reinterpret_cast<const char *>(plaintext)) + 1;
   size_t ciphertext_length = 0;
   if (aes->get_size(plaintext_length, mode.c_str(), block_size,
                     &ciphertext_length) != 0) {
