@@ -119,13 +119,6 @@ SELECT /*+ bypass */ pk from t1 WHERE pk=1 or pk=2;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
 
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
-SHOW STATUS LIKE 'rocksdb_select_bypass%';
-SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND a = 1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 
@@ -157,34 +150,6 @@ SHOW STATUS LIKE 'rocksdb_select_bypass%';
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
-SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2;
-SHOW STATUS LIKE 'rocksdb_select_bypass%';
-SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk < 2;
-SHOW STATUS LIKE 'rocksdb_select_bypass%';
-SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk <= 2;
-SHOW STATUS LIKE 'rocksdb_select_bypass%';
-SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk >= 2;
-SHOW STATUS LIKE 'rocksdb_select_bypass%';
-SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
@@ -199,18 +164,6 @@ SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJE
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
-SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk >= 2;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
@@ -220,14 +173,6 @@ if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
 SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk < 2;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk <= 2;
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }

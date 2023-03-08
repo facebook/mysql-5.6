@@ -1702,6 +1702,58 @@ bool inline select_exec::pack_cond(uint key_part_no, const base_cond *cond,
   return false;
 }
 
+enum skip_cond_result {
+  CANNOT_SKIP,
+  SKIP_OLD_COND,
+  SKIP_NEW_COND,
+};
+
+skip_cond_result skip_cond(const base_cond *old_cond,
+                           const base_cond *new_cond) {
+  if (old_cond->op_type != new_cond->op_type)
+    return skip_cond_result::CANNOT_SKIP;
+  assert(old_cond->field == new_cond->field);
+  switch (new_cond->field->type()) {
+    case MYSQL_TYPE_LONGLONG:
+    case MYSQL_TYPE_LONG:
+    case MYSQL_TYPE_SHORT:
+    case MYSQL_TYPE_TINY: {
+      break;
+    }
+    default: {
+      return skip_cond_result::CANNOT_SKIP;
+    }
+  }
+  String str;
+  auto old_value = old_cond->get_value(&str);
+  auto new_value = new_cond->get_value(&str);
+  if (old_value.type != nosql_cond_value_type::UNSIGNED_INT ||
+      new_value.type != nosql_cond_value_type::UNSIGNED_INT) {
+    return skip_cond_result::CANNOT_SKIP;
+  }
+  if (new_cond->op_type == Item_func::GE_FUNC ||
+      new_cond->op_type == Item_func::GT_FUNC) {
+    if (new_value.i64Val >= old_value.i64Val) {
+      // (example) old_cond : a >= 3, new_cond : a >= 5
+      return skip_cond_result::SKIP_OLD_COND;
+    } else {
+      // (example) old_cond : a >= 5, new_cond : a >= 3
+      return skip_cond_result::SKIP_NEW_COND;
+    }
+  }
+  if (new_cond->op_type == Item_func::LE_FUNC ||
+      new_cond->op_type == Item_func::LT_FUNC) {
+    if (new_value.i64Val <= old_value.i64Val) {
+      // (example) old_cond : a <= 5, new_cond : a <= 3
+      return skip_cond_result::SKIP_OLD_COND;
+    } else {
+      // (example) old_cond : a <= 3, new_cond : a <= 5
+      return skip_cond_result::SKIP_NEW_COND;
+    }
+  }
+  return skip_cond_result::CANNOT_SKIP;
+}
+
 /*
   Scan the entire WHERE clause using the given index, and create a
   query plan. The goal is to break the WHERE clause into prefix and
@@ -1726,8 +1778,21 @@ select_exec_result INLINE_ATTR select_exec::scan_where() {
     if (index_pair.first == -1) {
       index_pair.first = i;
     } else {
+      const auto &new_cond = m_parser.get_cond(i);
+      const auto &old_cond1 = m_parser.get_cond(index_pair.first);
+      auto ret1 = skip_cond(old_cond1, new_cond);
+      if (ret1 != skip_cond_result::CANNOT_SKIP) {
+        if (ret1 == skip_cond_result::SKIP_OLD_COND) index_pair.first = i;
+        continue;
+      }
       // We have multiple sql_cond for the same field
       if (index_pair.second != -1) {
+        const auto &old_cond2 = m_parser.get_cond(index_pair.second);
+        auto ret2 = skip_cond(old_cond2, new_cond);
+        if (ret2 != skip_cond_result::CANNOT_SKIP) {
+          if (ret2 == skip_cond_result::SKIP_OLD_COND) index_pair.second = i;
+          continue;
+        }
         // We've already seen 2 of conditions already - fail
         m_error_msg = "Unsupported range query pattern";
         return UNSUPPORTED;

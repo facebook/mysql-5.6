@@ -409,6 +409,25 @@ INSERT INTO meta_table VALUES (100, 0, 4, 0, 'data4', 1, 2, 3, 'context4',
 INSERT INTO meta_table VALUES (101, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
 1, 0x1, 1, 1, 1, 1, 1, 0, 0);
 
+CREATE TABLE `time_range` (
+  `id1` bigint unsigned NOT NULL DEFAULT '0' ,
+  `id1_type` int unsigned NOT NULL DEFAULT '0' ,
+  `id2` bigint unsigned NOT NULL DEFAULT '0' ,
+  `id2_type` int unsigned NOT NULL DEFAULT '0' ,
+  `link_type` bigint unsigned NOT NULL DEFAULT '0' ,
+  `time` int unsigned NOT NULL DEFAULT '0' ,
+  PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+  KEY `id1_type` (`id1`,`link_type`,`time`,`id2`)
+  COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+
+INSERT INTO time_range VALUES (100, 10, 200, 20, 1000, 1);
+INSERT INTO time_range VALUES (100, 10, 201, 21, 1000, 2);
+INSERT INTO time_range VALUES (100, 10, 202, 22, 1000, 3);
+INSERT INTO time_range VALUES (100, 10, 203, 23, 1000, 4);
+INSERT INTO time_range VALUES (100, 10, 204, 24, 1000, 5);
+
 let bypass_query=
 SELECT /*+ bypass */ `mt_object_state`, `id`, `mt_object_cookie`,
 `mt_alt_key_data`, `mt_key`, `mt_ctime`, `mt_rtime`,
@@ -441,6 +460,57 @@ SELECT /*+ bypass */ id2, version, data from link_varchar
 FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4
 and time >= 10;
 --source ../include/verify_bypass_query.inc
+
+# Multiple time ranges
+let bypass_query=
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=1 AND time>=2 AND time>=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=2 AND time>=1 AND time>=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=3 AND time>=2 AND time>=1
+ORDER BY time ASC, id2 ASC limit 0,1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=3 AND time<=4 AND time<=5
+ORDER BY time ASC, id2 ASC limit 0,1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=4 AND time<=3 AND time<=5
+ORDER BY time ASC, id2 ASC limit 0,1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=5 AND time<=4 AND time<=3
+ORDER BY time ASC, id2 ASC limit 0,1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time>=1 AND time>=3 AND
+time<=5 AND time<=4 ORDER BY time ASC, id2 ASC limit 0,1000;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ id1,id2,link_type,time FROM time_range FORCE INDEX
+(id1_type) WHERE link_type=1000 AND id1=100 AND time<=5 AND time>=3 AND
+time<=4 AND time>=1 ORDER BY time ASC, id2 ASC limit 0,1000;
+--source ../include/verify_bypass_query.inc
+
+DROP TABLE time_range;
 
 # KILL
 --echo # Establish connection con1 (user=root)

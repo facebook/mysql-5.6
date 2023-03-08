@@ -41,13 +41,8 @@ performance_schema.global_status WHERE
 variable_name="rocksdb_bypass_rpc_rejected";
 
 --write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
-SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>1 AND pk>2 AND pk>3;
 SELECT /*+ bypass */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b=2 AND d>4;
 SELECT /*+ bypass */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b>2 AND d>4;
-SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>1 AND pk>2;
-SELECT /*+ bypass */ pk FROM test.t1 WHERE pk<1 AND pk<2;
-SELECT /*+ bypass */ pk FROM test.t1 WHERE pk<=1 AND pk<=2;
-SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>=1 AND pk>=2;
 SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>1 AND pk>=2;
 SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>=1 AND pk>2;
 SELECT /*+ bypass */ pk FROM test.t1 WHERE pk<1 AND pk<=2;
@@ -104,7 +99,6 @@ SELECT @@rocksdb_select_bypass_rejected_query_history_size;
 SELECT @@rocksdb_bypass_rpc_rejected_log_ts_interval_secs;
 
 --write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
-SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>1 AND pk>2 AND pk>3;
 SELECT /*+ bypass */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b=2 AND d>4;
 SELECT /*+ bypass */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b>2 AND d>4;
 EOF
@@ -136,7 +130,6 @@ set global rocksdb_bypass_rpc_rejected_log_ts_interval_secs=999;
 SELECT @@rocksdb_bypass_rpc_rejected_log_ts_interval_secs;
 
 --write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
-SELECT /*+ bypass */ pk FROM test.t1 WHERE pk>1 AND pk>2 AND pk>3;
 SELECT /*+ bypass */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b=2 AND d>4;
 SELECT /*+ bypass */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b>2 AND d>4;
 EOF
