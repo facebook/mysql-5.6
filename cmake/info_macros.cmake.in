@@ -182,6 +182,7 @@ MACRO(CREATE_INFO_BIN)
       OUTPUT_STRIP_TRAILING_WHITESPACE
       )
     IF(mysqld_help_result)
+      MESSAGE(ERROR "MYSQLD_EXECUTABLE=${MYSQLD_EXECUTABLE}\nmysqld_help_result=${mysqld_help_result}\nmysqld_help_error=${mysqld_help_error}\nmysqld_help=${mysqld_help}\n")
       MESSAGE(FATAL_ERROR
         "mysqld --no-defaults --help failed: ${mysqld_help_error}")
     ENDIF()
