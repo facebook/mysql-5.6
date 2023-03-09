@@ -109,6 +109,11 @@ set @@global.rocksdb_compact_cf = 'default';
 
 let $show_rpl_debug_info= 1; # to force post-failure printout
 let $wait_timeout= 300; # Override default 30 seconds with 300.
+--let $timeout_multiplier = 6
+if ($VALGRIND_TEST)
+{
+  --expr $wait_timeout = $wait_timeout * $timeout_multiplier
+}
 let $wait_condition = select count(*) = 0 
                       as c from information_schema.rocksdb_global_info
                       where TYPE = 'DDL_DROP_INDEX_ONGOING';
