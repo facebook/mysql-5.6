@@ -42,8 +42,9 @@ if ($attr) {
 
 -- echo # Case 2: session level variable is TRUE
 set @@session.response_attrs_contain_server_cpu = true;
+set global enable_cputime_with_wallclock = 1;
 --disable_result_log
-select * from mytbl;
+SELECT SLEEP(1);
 --enable_result_log
 
 let $attr = get_response_attribute(server_cpu);
@@ -55,6 +56,42 @@ if ($attr == "") {
 if ($attr) {
   echo Found valid value for server_cpu in query response attributes;
 }
+
+# the server_cpu wall clock time here should be at least 1s,
+# at most 10s when server runs slower in valgrind
+--let $assert_text= invalid server_cpu value.
+--let $assert_cond= $attr >= 1000000
+--source include/assert.inc
+
+--let $assert_text= invalid server_cpu value.
+--let $assert_cond= $attr < 10000000
+--source include/assert.inc
+
+set global enable_cputime_with_wallclock = 0;
+--disable_result_log
+SELECT SLEEP(1);
+--enable_result_log
+let $attr = get_response_attribute(server_cpu);
+
+if ($attr == "") {
+  echo Did not find server_cpu in query response attributes;
+}
+
+if ($attr) {
+  echo Found valid value for server_cpu in query response attributes;
+}
+
+# the server_cpu here is the actual time spent on cpu, could be
+# less than 1s here
+--let $assert_text= invalid server_cpu real cpu time value.
+--let $assert_cond= $attr > 0
+--source include/assert.inc
+
+--let $assert_text= invalid server_cpu real cpu time value.
+--let $assert_cond= $attr < 10000000
+--source include/assert.inc
+
+set global enable_cputime_with_wallclock = default;
 
 ## Uncomment this test after fixing task T70725359
 ##-- echo # Case 3: session level variable is FALSE

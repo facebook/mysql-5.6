@@ -24,8 +24,17 @@ select * from mytbl;
 Did not find server_cpu in query response attributes
 # Case 2: session level variable is TRUE
 set @@session.response_attrs_contain_server_cpu = true;
-select * from mytbl;
+set global enable_cputime_with_wallclock = 1;
+SELECT SLEEP(1);
 Found valid value for server_cpu in query response attributes
+include/assert.inc [invalid server_cpu value.]
+include/assert.inc [invalid server_cpu value.]
+set global enable_cputime_with_wallclock = 0;
+SELECT SLEEP(1);
+Found valid value for server_cpu in query response attributes
+include/assert.inc [invalid server_cpu real cpu time value.]
+include/assert.inc [invalid server_cpu real cpu time value.]
+set global enable_cputime_with_wallclock = default;
 set @@session.response_attrs_contain_server_cpu = default;
 # Case 4: global level variable is TRUE but session is FALSE
 set @@global.response_attrs_contain_server_cpu = true;
