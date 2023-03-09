@@ -6309,6 +6309,8 @@ PSI_statement_locker *pfs_refine_statement_vc(PSI_statement_locker *locker,
   return reinterpret_cast<PSI_statement_locker *>(state);
 }
 
+inline unsigned long long nano_time() { return my_micro_time() * 1000; }
+
 void pfs_start_statement_vc(PSI_statement_locker *locker, const char *db,
                             uint db_len, const char *src_file, uint src_line) {
   PSI_statement_locker_state *state =
@@ -6326,7 +6328,7 @@ void pfs_start_statement_vc(PSI_statement_locker *locker, const char *db,
   if (flags & STATE_FLAG_CPU) {
     state->m_start_cputime_wallclock = 0;
     if (pfs_param.m_enable_cputime_with_wallclock) {
-      state->m_start_cputime_wallclock = my_micro_time();
+      state->m_start_cputime_wallclock = nano_time();
     } else {
       state->m_cpu_time_start = get_thread_cpu_timer();
     }
@@ -6648,7 +6650,7 @@ void pfs_snapshot_statement_helper(PSI_statement_locker *locker, void *stmt_da,
 
   if (flags & STATE_FLAG_CPU) {
     if (state->m_start_cputime_wallclock > 0) {
-      ulonglong time_end = my_micro_time();
+      ulonglong time_end = nano_time();
       if (time_end > state->m_start_cputime_wallclock) {
         cpu_time = time_end - state->m_start_cputime_wallclock;
       }
@@ -7320,7 +7322,7 @@ unsigned long long pfs_get_statement_cpu_time_vc(PSI_statement_locker *locker) {
   if (!(flags & STATE_FLAG_CPU)) return 0;
 
   if (state->m_start_cputime_wallclock > 0) {
-    ulonglong time_end = my_micro_time();
+    ulonglong time_end = nano_time();
     if (time_end > state->m_start_cputime_wallclock) {
       return time_end - state->m_start_cputime_wallclock;
     }

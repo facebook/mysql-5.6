@@ -956,7 +956,7 @@ struct PFS_statement_stat_row {
       m_sort_scan = stat->m_sort_scan;
       m_no_index_used = stat->m_no_index_used;
       m_no_good_index_used = stat->m_no_good_index_used;
-      m_cpu_time = stat->m_cpu_time * MICROSEC_TO_PICOSEC;
+      m_cpu_time = stat->m_cpu_time * NANOSEC_TO_PICOSEC;
       m_max_controlled_memory = stat->m_max_controlled_memory;
       m_max_total_memory = stat->m_max_total_memory;
       m_count_secondary = stat->m_count_secondary;

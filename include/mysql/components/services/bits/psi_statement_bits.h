@@ -246,8 +246,9 @@ struct PSI_statement_locker_state_v4 {
   unsigned int m_query_sample_length;
   /** True if @c m_query_sample was truncated. */
   bool m_query_sample_truncated;
-  /** THREAD CPU time start. */
+  /** THREAD CPU time start, in nanoseconds. */
   unsigned long long m_cpu_time_start;
+  /** wallclock cpu time start, in nanoseconds. */
   unsigned long long m_start_cputime_wallclock;
 
   PSI_statement_locker_mutating_state_v1 current_state;
