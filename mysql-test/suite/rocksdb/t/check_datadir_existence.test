@@ -1,0 +1,32 @@
+--source include/have_rocksdb.inc
+# Make sure mysqld will not crash when creating a new db instance,
+# if rocksdb_wal_dir and rocksdb_datadir both exist and are different
+
+let BASEDIR= `select @@basedir`;
+let DDIR=$MYSQL_TMP_DIR/installdb_test;
+let WDIR=$MYSQL_TMP_DIR/waltest;
+let MYSQLD_LOG=$MYSQL_TMP_DIR/server.log;
+let extra_args=--no-defaults --basedir=$BASEDIR;
+
+--echo # shut server down
+--source include/shutdown_mysqld.inc
+--echo # Server is down
+
+--echo #
+--echo # Try --initialize
+--echo #
+
+--echo # Run the server with --initialize
+--exec $MYSQLD $extra_args --initialize --datadir=$DDIR --rocksdb_wal_dir=$WDIR --log-error-verbosity=1 > $MYSQLD_LOG 2>&1
+
+--echo # Remove data dir and log file.
+--remove_file $MYSQLD_LOG
+--force-rmdir $DDIR
+--error 1,0
+--force-rmdir $WDIR
+
+--echo #
+--echo # Cleanup
+--echo #
+--echo # Restarting the server
+--source include/start_mysqld.inc
