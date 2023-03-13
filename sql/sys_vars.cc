@@ -6202,6 +6202,13 @@ static Sys_var_plugin Sys_default_tmp_storage_engine(
     MYSQL_STORAGE_ENGINE_PLUGIN, DEFAULT(&default_tmp_storage_engine),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_storage_engine));
 
+static const char *dd_storage_engine[] = {"InnoDB", "RocksDB", NullS};
+static Sys_var_enum Sys_default_dd_storage_engine(
+    "default_dd_storage_engine",
+    "The default storage engine for data dictionary",
+    READ_ONLY GLOBAL_VAR(default_dd_storage_engine), CMD_LINE(REQUIRED_ARG),
+    dd_storage_engine, DEFAULT(DEFAULT_DD_INNODB));
+
 #if defined(ENABLED_DEBUG_SYNC)
 /*
   Variable can be set for the session only.

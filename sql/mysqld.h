@@ -271,6 +271,11 @@ extern char *default_tz_name;
 extern Time_zone *default_tz;
 extern const char *default_storage_engine;
 extern const char *default_tmp_storage_engine;
+enum enum_dd_default_engine {
+  DEFAULT_DD_INNODB,
+  DEFAULT_DD_ROCKSDB,
+};
+extern ulong default_dd_storage_engine;
 extern ulonglong temptable_max_ram;
 extern ulonglong temptable_max_mmap;
 extern bool temptable_track_shared_block_ram;
