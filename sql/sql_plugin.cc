@@ -1441,9 +1441,9 @@ static bool plugin_init_initialize_and_reap() {
   for (st_plugin_int **it = plugin_array->begin(); it != plugin_array->end();
        ++it) {
     plugin_ptr = *it;
-    // Delay initialze raft plugin
-    if (0 == strcmp(plugin_ptr->name.str, raft_plugin_name.str)) continue;
-    if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED) {
+    // Delay initialization of raft plugin
+    if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED &&
+        strcmp(plugin_ptr->name.str, raft_plugin_name.str) != 0) {
       if (plugin_initialize(plugin_ptr)) {
         plugin_ptr->state = PLUGIN_IS_DYING;
         *(reap++) = plugin_ptr;
