@@ -1,0 +1,14 @@
+# shut server down
+# Server is down
+#
+# Try --initialize
+#
+# Run the server with --initialize
+#
+# Cleanup
+#
+# Restarting the server
+# restart
+include/assert_grep.inc [Check RocksDB:Init column families]
+include/assert_grep.inc [Check Data dictionary initializing]
+# Remove data dir and log file.
