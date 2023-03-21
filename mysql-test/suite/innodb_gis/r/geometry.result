@@ -3,6 +3,7 @@ SET innodb_strict_mode=OFF;
 SET SESSION debug="+d,row_print_geometry_data";
 SHOW VARIABLES LIKE '%storage_engine%';
 Variable_name	Value
+default_dd_storage_engine	InnoDB
 default_storage_engine	InnoDB
 default_tmp_storage_engine	InnoDB
 disabled_storage_engines	
