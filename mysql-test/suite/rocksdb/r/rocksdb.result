@@ -1574,8 +1574,6 @@ rocksdb_block_cache_index_bytes_insert	#
 rocksdb_block_cache_index_hit	#
 rocksdb_block_cache_index_miss	#
 rocksdb_block_cache_miss	#
-rocksdb_block_cachecompressed_hit	#
-rocksdb_block_cachecompressed_miss	#
 rocksdb_bloom_filter_full_positive	#
 rocksdb_bloom_filter_full_true_positive	#
 rocksdb_bloom_filter_prefix_checked	#
@@ -1645,8 +1643,6 @@ rocksdb_write_self	#
 rocksdb_write_wal	#
 select UPPER(VARIABLE_NAME) from performance_schema.global_status where VARIABLE_NAME LIKE 'rocksdb%' and VARIABLE_NAME NOT LIKE '%num_get_for_update%';
 UPPER(VARIABLE_NAME)
-ROCKSDB_BLOCK_CACHECOMPRESSED_HIT
-ROCKSDB_BLOCK_CACHECOMPRESSED_MISS
 ROCKSDB_BLOCK_CACHE_ADD
 ROCKSDB_BLOCK_CACHE_ADD_FAILURES
 ROCKSDB_BLOCK_CACHE_BYTES_READ
@@ -1757,8 +1753,6 @@ ROCKSDB_WRITE_WAL
 #  but they are shown as both session and global, like InnoDB's status vars.
 select UPPER(VARIABLE_NAME) from performance_schema.session_status where VARIABLE_NAME LIKE 'rocksdb%' and VARIABLE_NAME NOT LIKE '%num_get_for_update%';
 UPPER(VARIABLE_NAME)
-ROCKSDB_BLOCK_CACHECOMPRESSED_HIT
-ROCKSDB_BLOCK_CACHECOMPRESSED_MISS
 ROCKSDB_BLOCK_CACHE_ADD
 ROCKSDB_BLOCK_CACHE_ADD_FAILURES
 ROCKSDB_BLOCK_CACHE_BYTES_READ
