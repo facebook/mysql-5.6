@@ -270,7 +270,7 @@ primary key (pk)
 );
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t1 values ('a','a');
 insert into t1 values ('a ', 'a-space');
 ERROR 23000: Duplicate entry 'a ' for key 't1.PRIMARY'
@@ -310,7 +310,7 @@ key (col1)
 );
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t1 values (0, 'ab', 'a-b');
 insert into t1 values (1, 'a ', 'a-space');
 insert into t1 values (2, 'a',  'a');
@@ -369,127 +369,6 @@ pk	col1	hex(col1)	length(col1)
 22	                 	2020202020202020202020202020202020	17
 23	                  	202020202020202020202020202020202020	18
 14	                a	2020202020202020202020202020202061	17
-drop table t1;
-create table t1 (pk int primary key, a varchar(512), key(a)) ENGINE=rocksdb CHARSET=latin1;
-insert into t1 values (1, concat('a', repeat(' ', 300)));
-insert into t1 values (2, concat('b', repeat(' ', 300)));
-select pk,length(a) from t1 force index(a) where a < 'zz';
-pk	length(a)
-1	301
-2	301
-select pk,length(a),rtrim(a) from t1 force index(a) where a < 'zz';
-pk	length(a)	rtrim(a)
-1	301	a
-2	301	b
-select pk,length(a),rtrim(a) from t1 ignore index(a) where a < 'zz';
-pk	length(a)	rtrim(a)
-1	301	a
-2	301	b
-drop table t1;
-#
-# Issue 257: Sort order for varchars is different between
-#            MyISAM/InnoDB vs MyRocks
-#
-create table t1 (
-pk varchar(64) CHARACTER SET ucs2 COLLATE ucs2_bin,
-col1 varchar(64),
-primary key (pk)
-);
-insert into t1 values ('a','a');
-insert into t1 values ('a ', 'a-space');
-ERROR 23000: Duplicate entry 'a ' for key 't1.PRIMARY'
-insert into t1 values('b  ', 'b-2x-space');
-insert into t1 values ('b', 'b');
-ERROR 23000: Duplicate entry 'b' for key 't1.PRIMARY'
-select pk, hex(pk), col1 from t1;
-pk	hex(pk)	col1
-a	0061	a
-b  	006200200020	b-2x-space
-insert into t1 values ('a\t', 'a-tab');
-insert into t1 values ('a \t', 'a-space-tab');
-select pk, hex(pk), col1 from t1 order by pk;
-pk	hex(pk)	col1
-a		00610009	a-tab
-a 		006100200009	a-space-tab
-a	0061	a
-b  	006200200020	b-2x-space
-# Try longer values
-insert into t1 values (concat('a', repeat(' ',10)), 'a-10-x-space');
-ERROR 23000: Duplicate entry 'a          ' for key 't1.PRIMARY'
-insert into t1 values (concat('c', repeat(' ',10)), 'c-10-x-space');
-select * from t1;
-pk	col1
-a		a-tab
-a 		a-space-tab
-a	a
-b  	b-2x-space
-c          	c-10-x-space
-drop table t1;
-# Secondary index
-create table t1 (
-pk int not null primary key,
-col1 varchar(64) CHARACTER SET ucs2 COLLATE ucs2_bin,
-col2 varchar(64),
-key (col1)
-);
-insert into t1 values (0, 'ab', 'a-b');
-insert into t1 values (1, 'a ', 'a-space');
-insert into t1 values (2, 'a',  'a');
-insert into t1 values (3, 'a  \t', 'a-tab');
-analyze table t1;
-Table	Op	Msg_type	Msg_text
-test.t1	analyze	status	OK
-# Must show 'using index' for latin1_bin and utf8_bin:
-explain
-select col1, hex(col1) from t1 force index(col1);
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	col1	131	NULL	#	#	Using index
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` FORCE INDEX (`col1`)
-select col1, hex(col1) from t1 force index(col1);
-col1	hex(col1)
-a  		0061002000200009
-a 	00610020
-a	0061
-ab	00610062
-# Must show 'using index' for latin1_bin and utf8_bin:
-explain
-select col1, hex(col1) from t1 where col1 < 'b';
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	#	index	col1	col1	131	NULL	#	#	Using where; Using index
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
-select col1, hex(col1) from t1 where col1 < 'b';
-col1	hex(col1)
-a  		0061002000200009
-a 	00610020
-a	0061
-ab	00610062
-delete from t1;
-insert into t1 values(10, '', 'empty');
-insert into t1 values(11, repeat(' ', 8), '8x-space');
-insert into t1 values(12, repeat(' ', 16), '16x-space');
-insert into t1 values(13, repeat(' ', 24), '24x-space');
-insert into t1 values(14, concat(repeat(' ', 16),'a'), '16x-space-a');
-insert into t1 values(21, repeat(' ', 9), '9x-space');
-insert into t1 values(22, repeat(' ',17), '17x-space');
-insert into t1 values(23, repeat(' ',18), '18x-space');
-explain
-select pk, col1, hex(col1), length(col1) from t1;
-id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	#	index	NULL	col1	131	NULL	#	#	Using index
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
-select pk, col1, hex(col1), length(col1) from t1;
-pk	col1	hex(col1)	length(col1)
-10			0
-11	        	00200020002000200020002000200020	16
-12	                	0020002000200020002000200020002000200020002000200020002000200020	32
-13	                        	002000200020002000200020002000200020002000200020002000200020002000200020002000200020002000200020	48
-21	         	002000200020002000200020002000200020	18
-22	                 	00200020002000200020002000200020002000200020002000200020002000200020	34
-23	                  	002000200020002000200020002000200020002000200020002000200020002000200020	36
-14	                a	00200020002000200020002000200020002000200020002000200020002000200061	34
 drop table t1;
 create table t1 (pk int primary key, a varchar(512), key(a)) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
@@ -800,7 +679,7 @@ Note	1051	Unknown table 'test.t'
 create table t (h varchar(31) character set utf8 collate utf8_bin not null, i varchar(19) collate latin1_bin not null, primary key(i), key(h)) ENGINE=rocksdb CHARSET=latin1;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t(i,h) values('a','b');
 check table t;
 Table	Op	Msg_type	Msg_text

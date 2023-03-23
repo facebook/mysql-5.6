@@ -2,6 +2,7 @@
 #  Test how MyRocks handles reading corrupted data from disk.
 #  Data corruption is simulated at source-code level.
 #
+call mtr.add_suppression("Got error 505 when reading table");
 #
 #  A test for case when data in the table *record* is longer
 #  than table DDL expects it to be

@@ -5,11 +5,10 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 call mtr.add_suppression(".*");
 include/stop_slave.inc
-change master to master_auto_position=1;
+change replication source to source_auto_position=1;
 include/start_slave.inc
 call mtr.add_suppression('Slave: Error dropping database');
-start slave;
-stop slave sql_thread;
+stop replica sql_thread;
 insert into test0.benchmark set state='slave is processing load';
 start slave sql_thread;
 use test0;
@@ -26,6 +25,6 @@ select time_to_sec(@m_1) - time_to_sec(@m_0) as 'delta_m',
 time_to_sec(@s_1) - time_to_sec(@s_0) as 'delta_s',
 time_to_sec(@s_m1) - time_to_sec(@s_m0) as 'delta.out';
 include/stop_slave.inc
-change master to master_auto_position=0;
+change replication source to source_auto_position=0;
 include/start_slave.inc
 include/rpl_end.inc

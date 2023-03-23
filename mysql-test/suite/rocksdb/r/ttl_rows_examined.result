@@ -28,7 +28,7 @@ SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info
 ###	###	###	###	Daemon	###	Waiting on empty queue	NULL
 ###	###	###	###	Query	###	debug sync point: rocksdb.ttl_rows_examined	SELECT * FROM t_re
-###	###	###	###	Query	###	starting	SHOW PROCESSLIST
+###	###	###	###	Query	###	init	SHOW PROCESSLIST
 ###	###	###	###	Sleep	###		NULL
 affected rows: 4
 set debug_sync='now SIGNAL go';

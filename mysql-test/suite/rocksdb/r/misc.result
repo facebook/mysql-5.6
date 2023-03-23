@@ -1,10 +1,11 @@
 CREATE EVENT micro_test ON SCHEDULE EVERY 100 MICROSECOND DO SELECT 1;
 ERROR 42000: This version of MySQL doesn't yet support 'MICROSECOND'
 SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
-FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE ORDER BY TABLE_NAME;
+FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_NAME != 'ndb_binlog_index' ORDER BY TABLE_NAME;
 TABLE_NAME	COLUMN_NAME	REFERENCED_TABLE_NAME	REFERENCED_COLUMN_NAME
 accounts	HOST	NULL	NULL
 accounts	USER	NULL	NULL
+asserted_test_suppressions	message	NULL	NULL
 columns_priv	Column_name	NULL	NULL
 columns_priv	Db	NULL	NULL
 columns_priv	Host	NULL	NULL
@@ -24,6 +25,7 @@ default_roles	USER	NULL	NULL
 engine_cost	cost_name	NULL	NULL
 engine_cost	device_type	NULL	NULL
 engine_cost	engine_name	NULL	NULL
+error_log	LOGGED	NULL	NULL
 events_errors_summary_by_account_by_error	ERROR_NUMBER	NULL	NULL
 events_errors_summary_by_account_by_error	HOST	NULL	NULL
 events_errors_summary_by_account_by_error	USER	NULL	NULL
@@ -150,6 +152,7 @@ plugin	name	NULL	NULL
 prepared_statements_instances	OBJECT_INSTANCE_BEGIN	NULL	NULL
 prepared_statements_instances	OWNER_EVENT_ID	NULL	NULL
 prepared_statements_instances	OWNER_THREAD_ID	NULL	NULL
+processlist	ID	NULL	NULL
 procs_priv	Db	NULL	NULL
 procs_priv	Host	NULL	NULL
 procs_priv	Routine_name	NULL	NULL
@@ -164,8 +167,18 @@ replication_applier_status	CHANNEL_NAME	NULL	NULL
 replication_applier_status_by_coordinator	CHANNEL_NAME	NULL	NULL
 replication_applier_status_by_worker	CHANNEL_NAME	NULL	NULL
 replication_applier_status_by_worker	WORKER_ID	NULL	NULL
+replication_asynchronous_connection_failover	Channel_name	NULL	NULL
+replication_asynchronous_connection_failover	Host	NULL	NULL
+replication_asynchronous_connection_failover	Managed_name	NULL	NULL
+replication_asynchronous_connection_failover	Network_namespace	NULL	NULL
+replication_asynchronous_connection_failover	Port	NULL	NULL
+replication_asynchronous_connection_failover_managed	Channel_name	NULL	NULL
+replication_asynchronous_connection_failover_managed	Managed_name	NULL	NULL
 replication_connection_configuration	CHANNEL_NAME	NULL	NULL
 replication_connection_status	CHANNEL_NAME	NULL	NULL
+replication_group_configuration_version	name	NULL	NULL
+replication_group_member_actions	event	NULL	NULL
+replication_group_member_actions	name	NULL	NULL
 role_edges	FROM_HOST	NULL	NULL
 role_edges	FROM_USER	NULL	NULL
 role_edges	TO_HOST	NULL	NULL
@@ -216,13 +229,11 @@ table_io_waits_summary_by_table	OBJECT_TYPE	NULL	NULL
 table_lock_waits_summary_by_table	OBJECT_NAME	NULL	NULL
 table_lock_waits_summary_by_table	OBJECT_SCHEMA	NULL	NULL
 table_lock_waits_summary_by_table	OBJECT_TYPE	NULL	NULL
-table_statistics_by_table	OBJECT_NAME	NULL	NULL
-table_statistics_by_table	OBJECT_SCHEMA	NULL	NULL
-table_statistics_by_table	OBJECT_TYPE	NULL	NULL
 tables_priv	Db	NULL	NULL
 tables_priv	Host	NULL	NULL
 tables_priv	Table_name	NULL	NULL
 tables_priv	User	NULL	NULL
+test_ignored_global_suppressions	pattern	NULL	NULL
 threads	THREAD_ID	NULL	NULL
 time_zone	Time_zone_id	NULL	NULL
 time_zone_leap_second	Transition_time	NULL	NULL

@@ -149,9 +149,7 @@ t1	CREATE TABLE `t1` (
   `c` char(8) COLLATE latin1_general_cs DEFAULT NULL,
   PRIMARY KEY (`pk`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_general_cs
-ALTER TABLE t1 CONVERT TO CHARACTER SET utf8;
-Warnings:
-Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+ALTER TABLE t1 CONVERT TO CHARACTER SET utf8mb4;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -160,15 +158,15 @@ t1	CREATE TABLE `t1` (
   `b` char(8) DEFAULT NULL,
   `c` char(8) DEFAULT NULL,
   PRIMARY KEY (`pk`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 ALTER TABLE t1 DEFAULT CHARACTER SET = latin1 COLLATE latin1_general_ci;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `pk` int NOT NULL,
   `a` int DEFAULT NULL,
-  `b` char(8) CHARACTER SET utf8 DEFAULT NULL,
-  `c` char(8) CHARACTER SET utf8 DEFAULT NULL,
+  `b` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `c` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   PRIMARY KEY (`pk`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci
 ALTER TABLE t1 FORCE;
@@ -177,8 +175,8 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `pk` int NOT NULL,
   `a` int DEFAULT NULL,
-  `b` char(8) CHARACTER SET utf8 DEFAULT NULL,
-  `c` char(8) CHARACTER SET utf8 DEFAULT NULL,
+  `b` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `c` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   PRIMARY KEY (`pk`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci
 DROP TABLE t1;

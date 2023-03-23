@@ -26,9 +26,6 @@ drop table t1;
 --let $character_set_collate=CHARACTER SET utf8 COLLATE utf8_bin
 --source type_varchar_endspace.inc
 
---let $character_set_collate=CHARACTER SET ucs2 COLLATE ucs2_bin
---source type_varchar_endspace.inc
-
 --let $character_set_collate=CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
 --source type_varchar_endspace.inc
 

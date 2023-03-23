@@ -105,7 +105,7 @@ S13(8), S14(8), S15(8), S16(8))
 ) ENGINE=rocksdb CHARACTER SET UTF8 COLLATE UTF8_BIN;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 INSERT INTO T1 VALUES (10000000,
 '50000000', '60000000', '70000000', '80000000',
 '90000000', '10000000', '11000000', '12000000',
@@ -152,7 +152,7 @@ S13(8), S14(8), S15(8), S16(8))
 ) ENGINE=rocksdb CHARACTER SET UTF8 COLLATE UTF8_BIN;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
-Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 INSERT INTO T1 VALUES (10000000,
 '50000000', '60000000', '70000000', '80000000',
 '90000000', '10000000', '11000000', '12000000',

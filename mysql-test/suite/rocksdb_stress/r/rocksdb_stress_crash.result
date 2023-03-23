@@ -14,10 +14,18 @@ KEY(auto_inc),
 KEY msg_i(msg(255), zero_sum))
 ENGINE=RocksDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
 stop slave;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
 start slave;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
 DROP TABLE t1;
 stop slave;
+Warnings:
+Warning	1287	'STOP SLAVE' is deprecated and will be removed in a future release. Please use STOP REPLICA instead
 start slave;
+Warnings:
+Warning	1287	'START SLAVE' is deprecated and will be removed in a future release. Please use START REPLICA instead
 include/stop_slave.inc
 include/start_slave.inc
 include/stop_slave.inc

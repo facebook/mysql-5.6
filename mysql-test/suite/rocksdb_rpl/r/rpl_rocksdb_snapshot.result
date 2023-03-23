@@ -3,17 +3,16 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-DROP TABLE IF EXISTS t1;
 # Establish connection con1 (user=root)
 # Establish connection con2 (user=root)
 # Establish connection con3 (user=root)
 # Establish connection con4 (user=root)
 # reset replication to guarantee that master-bin.000001 is used
 include/stop_slave.inc
-RESET SLAVE;
+RESET REPLICA;
 RESET MASTER;
 RESET MASTER;
-CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root";
+CHANGE REPLICATION SOURCE TO source_host="127.0.0.1",source_port=MASTER_PORT,source_user="root";
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -30,7 +29,7 @@ ROLLBACK;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	636	UUID:1-2
+master-bin.000001	637	UUID:1-2
 # Switch to connection con2
 INSERT INTO t1 VALUES(2);
 INSERT INTO t1 VALUES(3);
@@ -50,16 +49,16 @@ CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=rocksdb;
 INSERT INTO t1 VALUES(1);
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	1859	UUID:1-7
+master-bin.000001	1860	UUID:1-7
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	1859	UUID:1-7
+master-bin.000001	1860	UUID:1-7
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	1859	UUID:1-7
+master-bin.000001	1860	UUID:1-7
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	1859	UUID:1-7
+master-bin.000001	1860	UUID:1-7
 # Switch to connection con2
 INSERT INTO t1 VALUES(2);
 INSERT INTO t1 VALUES(3);
@@ -73,14 +72,14 @@ COMMIT;
 CREATE TABLE t1_backup LIKE t1;
 INSERT INTO t1_backup SELECT * FROM t1;
 include/stop_slave.inc
-RESET SLAVE;
+RESET REPLICA;
 RESET MASTER;
 DELETE FROM t1;
 LOAD DATA INFILE '<MYSQLTEST_VARDIR>/tmp/rpl_rocksdb_snapshot.out.file' INTO TABLE t1;
 SELECT * FROM t1;
 a
 1
-CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root",master_log_file="master-bin.000001",master_log_pos=binlog_pos,master_auto_position=0;
+CHANGE REPLICATION SOURCE TO source_host="127.0.0.1",source_port=MASTER_PORT,source_user="root",source_log_file="master-bin.000001",source_log_pos=binlog_pos,source_auto_position=0;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -115,11 +114,11 @@ COMMIT;
 CREATE TABLE t1_backup LIKE t1;
 INSERT INTO t1_backup SELECT * FROM t1;
 include/stop_slave.inc
-RESET SLAVE;
+RESET REPLICA;
 RESET MASTER;
 DELETE FROM t1;
 LOAD DATA INFILE '<MYSQLTEST_VARDIR>/tmp/rpl_rocksdb_snapshot.out.file' INTO TABLE t1;
-CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root",master_log_file="master-bin.000001",master_log_pos=binlog_pos;
+CHANGE REPLICATION SOURCE TO source_host="127.0.0.1",source_port=MASTER_PORT,source_user="root",source_log_file="master-bin.000001",source_log_pos=binlog_pos;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -134,16 +133,16 @@ CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=rocksdb;
 INSERT INTO t1 VALUES(1);
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	4579	UUID:1-18
+master-bin.000001	4580	UUID:1-18
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	4579	UUID:1-18
+master-bin.000001	4580	UUID:1-18
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	4579	UUID:1-18
+master-bin.000001	4580	UUID:1-18
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	4579	UUID:1-18
+master-bin.000001	4580	UUID:1-18
 # Switch to connection con2
 INSERT INTO t1 VALUES(2);
 INSERT INTO t1 VALUES(3);
@@ -157,7 +156,7 @@ COMMIT;
 CREATE TABLE t1_backup LIKE t1;
 INSERT INTO t1_backup SELECT * FROM t1;
 include/stop_slave.inc
-RESET SLAVE;
+RESET REPLICA;
 RESET MASTER;
 SET @@global.gtid_purged='gtid_executed_from_snapshot';
 DELETE FROM t1;
@@ -165,7 +164,7 @@ LOAD DATA INFILE '<MYSQLTEST_VARDIR>/tmp/rpl_rocksdb_snapshot.out.file' INTO TAB
 SELECT * FROM t1;
 a
 1
-CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root", master_auto_position=1;
+CHANGE REPLICATION SOURCE TO source_host="127.0.0.1",source_port=MASTER_PORT,source_user="root", source_auto_position=1;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -200,12 +199,12 @@ COMMIT;
 CREATE TABLE t1_backup LIKE t1;
 INSERT INTO t1_backup SELECT * FROM t1;
 include/stop_slave.inc
-RESET SLAVE;
+RESET REPLICA;
 RESET MASTER;
 SET @@global.gtid_purged='gtid_executed_from_snapshot';
 DELETE FROM t1;
 LOAD DATA INFILE '<MYSQLTEST_VARDIR>/tmp/rpl_rocksdb_snapshot.out.file' INTO TABLE t1;
-CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root", master_auto_position=1;
+CHANGE REPLICATION SOURCE TO source_host="127.0.0.1",source_port=MASTER_PORT,source_user="root", source_auto_position=1;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -217,6 +216,6 @@ DROP TABLE t1_backup;
 DROP TABLE t1;
 # Switch to connection default + close connections con1 and con2
 include/stop_slave.inc
-CHANGE MASTER to master_auto_position=0;
+CHANGE REPLICATION SOURCE to source_auto_position=0;
 include/start_slave.inc
 include/rpl_end.inc
