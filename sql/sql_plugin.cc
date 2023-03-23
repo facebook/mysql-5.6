@@ -1569,6 +1569,10 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
   mysql_rwlock_wrlock(&LOCK_system_variables_hash);
   mysql_mutex_lock(&LOCK_plugin);
   initialized = true;
+  bool rocksdb_loaded [[maybe_unused]] = false;
+
+  const char *ROCKSDB = "ROCKSDB";
+  const size_t rocksdb_len = strlen(ROCKSDB);
 
   /* First we register the builtin mandatory and optional plugins */
   for (struct st_mysql_plugin **builtins = mysql_mandatory_plugins;
@@ -1589,8 +1593,21 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
       tmp.state = 0;
       /* tmp.load_option is set by test_plugin_option call further down */
 
+      // There are several plugins inside rocksdb, such as ROCKSDB,
+      // ROCKSDB_CFSTATS. All of the rocksdb plugins are prefixed with ROCKSDB.
+      // only force load rocksdb SE plugin iff it is default DD SE,
+      // for other plugins in rocksdb, switch to default load
+      bool is_rocksdb = !strncmp(plugin->name, ROCKSDB, rocksdb_len);
+      bool is_rocksdb_dd_se =
+          !my_strcasecmp(&my_charset_latin1, plugin->name, ROCKSDB) &&
+          default_dd_storage_engine == DEFAULT_DD_ROCKSDB;
+
       std::optional<enum_plugin_load_option> force_load_option;
-      if (mandatory) force_load_option = PLUGIN_FORCE;
+      if (is_rocksdb) {
+        if (is_rocksdb_dd_se) force_load_option = PLUGIN_FORCE;
+      } else {
+        if (mandatory) force_load_option = PLUGIN_FORCE;
+      }
 
       /*
         If the performance schema is compiled in,
@@ -1629,11 +1646,11 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
         disable_extra_plugins = true;
 
       /*
-        Only initialize daemon_keyring_proxy, MyISAM, InnoDB and CSV at this
-        stage. Note that when the --help option is supplied,
-        daemon_keyring_proxy and InnoDB are not initialized because the plugin
-        table will not be read anyway, as indicated by the flag set when the
-        plugin_init() function is called.
+        Only initialize daemon_keyring_proxy, MyISAM, InnoDB, CSV and ROCKSDB
+        (only when defaul dd storage engine is ROCKSDB) at this stage. Note that
+        when the --help option is supplied, daemon_keyring_proxy and InnoDB are
+        not initialized because the plugin table will not be read anyway, as
+        indicated by the flag set when the plugin_init() function is called.
       */
       bool is_daemon_keyring_proxy = !my_strcasecmp(
           &my_charset_latin1, plugin->name, "daemon_keyring_proxy_plugin");
@@ -1643,12 +1660,16 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
           !my_strcasecmp(&my_charset_latin1, plugin->name, "InnoDB");
       if ((!is_daemon_keyring_proxy || is_help_or_validate_option()) &&
           !is_myisam && (!is_innodb || is_help_or_validate_option()) &&
+          (!is_rocksdb_dd_se || is_help_or_validate_option()) &&
           my_strcasecmp(&my_charset_latin1, plugin->name, "CSV"))
         continue;
 
       if (plugin_ptr->state != PLUGIN_IS_UNINITIALIZED ||
           plugin_initialize(plugin_ptr))
         goto err_unlock;
+
+      if (is_rocksdb && default_dd_storage_engine == DEFAULT_DD_ROCKSDB)
+        rocksdb_loaded = plugin_ptr->state == PLUGIN_IS_READY;
 
       /*
         Once server is started and plugin initialized and if there are persisted
@@ -1675,6 +1696,9 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
   /* Should now be set to MyISAM storage engine */
   assert(global_system_variables.table_plugin);
   assert(global_system_variables.temp_table_plugin);
+
+  /* if ddse is rocksdb, rocksdb plugin should be loaded */
+  assert(rocksdb_loaded || default_dd_storage_engine != DEFAULT_DD_ROCKSDB);
 
   mysql_mutex_unlock(&LOCK_plugin);
   mysql_rwlock_unlock(&LOCK_system_variables_hash);

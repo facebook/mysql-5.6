@@ -4340,6 +4340,14 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
 */
 bool Rdb_validate_tbls::validate(void) {
   THD *const thd = my_core::thd_get_current_thd();
+  // When ddse is ROCKSDB, we are not able to validate the Rocksdb tables since
+  // we load rocksdb plugin before initializing dd. So skip validation here.
+  // TODO(chni): enable the validation once rocksdb dd is loaded
+  if (!thd) {
+    assert(opt_initialize || default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+    return true;
+  }
+
   bool result = true;
 
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
