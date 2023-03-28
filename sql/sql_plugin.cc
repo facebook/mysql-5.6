@@ -1530,6 +1530,9 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
   initialized = true;
   bool rocksdb_loaded = false;
 
+  const char *ROCKSDB = "ROCKSDB";
+  const size_t rocksdb_len = strlen(ROCKSDB);
+
   /* First we register the builtin mandatory and optional plugins */
   for (struct st_mysql_plugin **builtins = mysql_mandatory_plugins;
        *builtins || mandatory; builtins++) {
@@ -1546,6 +1549,18 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
       tmp.name.length = strlen(plugin->name);
       tmp.state = 0;
       tmp.load_option = mandatory ? PLUGIN_FORCE : PLUGIN_ON;
+
+      // There are several plugins inside rocksdb, such as ROCKSDB,
+      // ROCKSDB_CFSTATS. All of the rocksdb plugins are prefixed with ROCKSDB.
+      // only force load rocksdb SE plugin iff it is default DD SE,
+      // for other plugins in rocksdb, switch to default load
+      bool is_rocksdb = !strncmp(plugin->name, ROCKSDB, rocksdb_len);
+      bool is_rocksdb_dd_se =
+          !my_strcasecmp(&my_charset_latin1, plugin->name, ROCKSDB) &&
+          default_dd_storage_engine == DEFAULT_DD_ROCKSDB;
+      if (is_rocksdb) {
+        tmp.load_option = is_rocksdb_dd_se ? PLUGIN_FORCE : PLUGIN_ON;
+      }
 
       /*
         If the performance schema is compiled in,
@@ -1590,11 +1605,9 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
           !my_strcasecmp(&my_charset_latin1, plugin->name, "MyISAM");
       bool is_innodb =
           !my_strcasecmp(&my_charset_latin1, plugin->name, "InnoDB");
-      bool is_rocksdb =
-          !my_strcasecmp(&my_charset_latin1, plugin->name, "ROCKSDB");
       if ((!is_daemon_keyring_proxy || is_help_or_validate_option()) &&
           !is_myisam && (!is_innodb || is_help_or_validate_option()) &&
-          (!is_rocksdb || default_dd_storage_engine != DEFAULT_DD_ROCKSDB) &&
+          (!is_rocksdb_dd_se || is_help_or_validate_option()) &&
           my_strcasecmp(&my_charset_latin1, plugin->name, "CSV"))
         continue;
 
