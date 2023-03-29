@@ -1,0 +1,15 @@
+CREATE TABLE t1 (
+a INT NOT NULL, b CHAR(128),
+PRIMARY KEY (a) COMMENT 'cfname=cf1') ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (1, "foo");
+INSERT INTO t1 VALUES (2, "bar");
+# restart
+include/assert.inc [RocksDB file checksums must be enabled]
+SELECT * FROM t1;
+a	b
+1	foo
+2	bar
+SET GLOBAL rocksdb_pause_background_work = 1;
+# Kill the server
+# restart
+DROP TABLE t1;
