@@ -55,6 +55,9 @@ EOF
 remove_file $BOOTSTRAP_SQL;
 --force-rmdir $DDIR
 
+--echo # 1.6 Delete log file.
+remove_file $MYSQLD_LOG;
+
 --echo #
 --echo # 2. Try restart after dropping the properties table.
 --echo # ---------------------------------------------------
@@ -87,6 +90,9 @@ EOF
 --echo # 2.4 Delete bootstrap file and datadir.
 remove_file $BOOTSTRAP_SQL;
 --force-rmdir $DDIR
+
+--echo # 2.5 Delete log file.
+remove_file $MYSQLD_LOG;
 
 --echo #
 --echo # 3. Try restart after dropping the tables table.
@@ -121,6 +127,9 @@ EOF
 --echo # 3.4 Delete bootstrap file and datadir.
 remove_file $BOOTSTRAP_SQL;
 --force-rmdir $DDIR
+
+--echo # 3.5 Delete log file.
+remove_file $MYSQLD_LOG;
 
 --echo #
 --echo # 4. Try restart after altering the schemata table.
@@ -169,6 +178,9 @@ disconnect root_con;
 remove_file $BOOTSTRAP_SQL;
 --force-rmdir $DDIR
 
+--echo # 4.9 Delete log file.
+remove_file $MYSQLD_LOG;
+
 --echo #
 --echo # 5. Try to access a DD table in an init-file during --initialize.
 --echo # ----------------------------------------------------------------
@@ -198,6 +210,9 @@ EOF
 --echo # 5.4 Delete bootstrap file and datadir.
 remove_file $BOOTSTRAP_SQL;
 --force-rmdir $DDIR
+
+--echo # 5.5 Delete log file.
+remove_file $MYSQLD_LOG;
 
 --echo #
 --echo # 6. Try to access a DD table in an init-file during plain restart.
@@ -239,6 +254,8 @@ EOF
 remove_file $BOOTSTRAP_SQL;
 --force-rmdir $DDIR
 
+--echo # 6.7 Delete log file.
+remove_file $MYSQLD_LOG;
 
 --echo #
 --echo # 7. Try initialize and start with --require-primary-key
