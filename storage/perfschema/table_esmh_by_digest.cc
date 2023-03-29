@@ -190,7 +190,7 @@ int table_esmh_by_digest::index_next(void) {
   for (m_pos.set_at(&m_next_pos); m_pos.has_more_digest();
        m_pos.next_digest()) {
     digest_stat = &statements_digest_stat_array[m_pos.m_index_1];
-    if (digest_stat->m_first_seen != 0) {
+    if (digest_stat->m_lock.is_populated() && digest_stat->m_first_seen != 0) {
       if (!m_opened_index->match_digest(
               digest_stat, pfs_digest_name_id_map.get_name(
                                &m_db_map, digest_stat->m_digest_key.db_id))) {
