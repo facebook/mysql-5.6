@@ -1,0 +1,53 @@
+--source include/have_rocksdb.inc
+
+--let $sst_dir=`SELECT CONCAT(@@datadir, @@rocksdb_datadir)`
+
+CREATE TABLE t1 (
+       a INT NOT NULL, b CHAR(128),
+       PRIMARY KEY (a) COMMENT 'cfname=cf1') ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (1, "foo");
+INSERT INTO t1 VALUES (2, "bar");
+
+# Restart to check the file checksums
+--source include/restart_mysqld.inc
+
+--let $assert_text = RocksDB file checksums must be enabled
+--let $assert_cond = @@rocksdb_file_checksums = 1
+--source include/assert.inc
+
+SELECT * FROM t1;
+
+SET GLOBAL rocksdb_pause_background_work = 1;
+
+let sst_file=`SELECT SST_NAME
+       FROM INFORMATION_SCHEMA.rocksdb_index_file_map AS file_map
+       INNER JOIN INFORMATION_SCHEMA.rocksdb_ddl AS ddl
+       ON file_map.COLUMN_FAMILY = ddl.COLUMN_FAMILY`;
+
+--let sst=$sst_dir/$sst_file
+--file_exists $sst
+
+--copy_file $sst $sst.bak
+
+--exec echo "corrupt me" | dd if=$sst of=$sst conv=notrunc seek=100 bs=1 count=10
+
+--let $fail_err_log=$MYSQLTEST_VARDIR/checksum-fail.err
+
+# Cannot shutdown with background threads stopped, thus kill it
+--source include/kill_mysqld.inc
+
+# Must fail to start. This used to grep $fail_err_log for the specific file
+# checksum corruption error, but intermittently it hit block checksum error on
+# DB open first.
+--error 1
+exec $MYSQLD --defaults-group-suffix=.1 --defaults-file=$MYSQLTEST_VARDIR/my.cnf
+     --rocksdb-file-checksums > $fail_err_log 2>&1;
+
+--remove_file $sst
+--move_file $sst.bak $sst
+
+--source include/start_mysqld.inc
+
+--remove_file $fail_err_log
+
+DROP TABLE t1;
