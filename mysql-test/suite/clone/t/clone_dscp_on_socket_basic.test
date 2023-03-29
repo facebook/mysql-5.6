@@ -1,0 +1,125 @@
+##################### dscp_on_socket_basic.test ###############################
+#                                                                             #
+# Variable Name: clone_dscp_on_socket                                         #
+# Scope: GLOBAL                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: int                                                              #
+# Default Value: 0                                                            #
+# Valid Values: 0-63                                                          #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2023-02-25                                                   #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable clone_dscp_on_socket     #
+#              that checks the behavior of variable in the following ways     #
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+###############################################################################
+--source include/not_mac_os.inc
+
+--source include/load_sysvars.inc
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+########################################################################
+#               START OF clone_dscp_on_socket TESTS                    #
+########################################################################
+
+
+##############################################################################
+#   Saving initial value of clone_dscp_on_socket in a temporary variable     #
+##############################################################################
+
+SET @global_start_value = @@global.clone_dscp_on_socket;
+SELECT @global_start_value;
+
+########################################################################
+#           Display the DEFAULT value of clone_dscp_on_socket          #
+########################################################################
+
+SET @@global.clone_dscp_on_socket = 0;
+SET @@global.clone_dscp_on_socket = DEFAULT;
+SELECT @@global.clone_dscp_on_socket;
+
+SET @@global.clone_dscp_on_socket = 1;
+SET @@global.clone_dscp_on_socket = DEFAULT;
+SELECT @@global.clone_dscp_on_socket;
+
+
+#############################################################################
+# Check if clone_dscp_on_socket can be accessed with and without @@ sign    #
+#############################################################################
+
+SET global clone_dscp_on_socket = 1;
+SELECT @@clone_dscp_on_socket;
+
+--Error ER_UNKNOWN_TABLE
+SELECT global.clone_dscp_on_socket;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.clone_dscp_on_socket;
+
+SET global clone_dscp_on_socket = 0;
+SELECT @@global.clone_dscp_on_socket;
+
+
+########################################################################
+#      change the value of clone_dscp_on_socket to a valid value       #
+########################################################################
+
+SET @@global.clone_dscp_on_socket = 0;
+SELECT @@global.clone_dscp_on_socket;
+SET @@global.clone_dscp_on_socket = 1;
+SELECT @@global.clone_dscp_on_socket;
+
+
+###########################################################################
+#       Change the value of clone_dscp_on_socket to invalid value         #
+###########################################################################
+
+SET @@global.clone_dscp_on_socket = -1;
+SELECT @@global.clone_dscp_on_socket;
+
+SET @@global.clone_dscp_on_socket = 64;
+SELECT @@global.clone_dscp_on_socket;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.clone_dscp_on_socket = "T";
+
+SET @@global.clone_dscp_on_socket = 1000;
+SELECT @@global.clone_dscp_on_socket;
+
+
+#########################################################################
+#     Check if the value in GLOBAL Table contains variable value        #
+#########################################################################
+
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='clone_dscp_on_socket';
+
+###################################################################
+#        Check if ON and OFF values can be used on variable       #
+###################################################################
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.clone_dscp_on_socket = OFF;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.clone_dscp_on_socket = ON;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.clone_dscp_on_socket = @global_start_value;
+SELECT @@global.clone_dscp_on_socket;
+
+###############################################################
+#             END OF clone_dscp_on_socket TESTS               #
+###############################################################
+
+--eval UNINSTALL PLUGIN clone

@@ -88,6 +88,11 @@ uint clone_restart_timeout;
 /** Clone system variable: time delay after removing data */
 uint clone_delay_after_data_drop;
 
+#ifndef __APPLE__
+/** Clone system variable: DSCP value to set on socket */
+static uint clone_dscp_on_socket;
+#endif
+
 /** Key for registering clone allocations with performance schema */
 PSI_memory_key clone_mem_key;
 
@@ -520,6 +525,43 @@ static int plugin_clone_remote_client(THD *thd, const char *remote_host,
 @param[in]	socket	network socket to remote client
 @return error code */
 static int plugin_clone_remote_server(THD *thd, MYSQL_SOCKET socket) {
+#ifndef __APPLE__
+  int dscp_val = clone_dscp_on_socket;
+
+  if (dscp_val != 0) {
+    int tos = dscp_val << 2;
+    uint16_t test_family;
+    socklen_t len = sizeof(test_family);
+    int res =
+        mysql_socket_getsockopt(socket, SOL_SOCKET, SO_DOMAIN,
+                                reinterpret_cast<void *>(&test_family), &len);
+
+    if (res != 0) {
+      // NO_LINT_DEBUG
+      LogPluginErr(
+          WARNING_LEVEL, ER_CLONE_DONOR,
+          "Failed to get socket domain while adjusting DSCP_QOS on donor");
+    } else if (test_family == AF_INET6) {
+      res = mysql_socket_setsockopt(socket, IPPROTO_IPV6, IPV6_TCLASS, &tos,
+                                    sizeof(tos));
+    } else if (test_family == AF_INET) {
+      res = mysql_socket_setsockopt(socket, IPPROTO_IP, IP_TOS, &tos,
+                                    sizeof(tos));
+    } else {
+      // NO_LINT_DEBUG
+      LogPluginErr(
+          WARNING_LEVEL, ER_CLONE_DONOR,
+          "Failed to get socket family while adjusting DSCP_QOS on donor");
+    }
+
+    if (res != 0) {
+      // NO_LINT_DEBUG
+      LogPluginErr(WARNING_LEVEL, ER_CLONE_DONOR,
+                   "Failed to set TOS/TCLASS on donor");
+    }
+  }
+#endif  // !__APPLE__
+
   myclone::Server clone_inst(thd, socket);
 
   auto err = clone_inst.clone();
@@ -650,11 +692,26 @@ static MYSQL_SYSVAR_UINT(delay_after_data_drop, clone_delay_after_data_drop,
                          60 * 60,             /* Maximum =  1 hour */
                          1);                  /* Step    =  1 sec */
 
+#ifndef __APPLE__
+
+/** DSCP value to set on socket */
+static MYSQL_SYSVAR_UINT(dscp_on_socket, clone_dscp_on_socket,
+                         PLUGIN_VAR_RQCMDARG, "DSCP value to set on socket",
+                         nullptr, nullptr, 0, /* Default =   0 */
+                         0,                   /* Minimum =   0 */
+                         63,                  /* Maximum =  63 */
+                         1);                  /* Step    =   1 */
+
+#endif  // !__APPLE
+
 /** Clone system variables */
 static SYS_VAR *clone_system_variables[] = {
     MYSQL_SYSVAR(buffer_size),
     MYSQL_SYSVAR(block_ddl),
     MYSQL_SYSVAR(ddl_timeout),
+#ifndef __APPLE__
+    MYSQL_SYSVAR(dscp_on_socket),
+#endif
     MYSQL_SYSVAR(max_concurrency),
     MYSQL_SYSVAR(max_network_bandwidth),
     MYSQL_SYSVAR(max_data_bandwidth),
