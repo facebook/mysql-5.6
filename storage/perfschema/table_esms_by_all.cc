@@ -241,7 +241,7 @@ int table_esms_by_all::index_next(void) {
 
   for (m_pos.set_at(&m_next_pos); m_pos.m_index < digest_max; m_pos.next()) {
     digest_stat = &statements_digest_stat_array[m_pos.m_index];
-    if (digest_stat->m_first_seen != 0) {
+    if (digest_stat->m_lock.is_populated() && digest_stat->m_first_seen != 0) {
       if (m_opened_index->match(
               digest_stat,
               pfs_digest_name_id_map.get_name(&m_db_map,
