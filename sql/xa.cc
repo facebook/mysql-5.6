@@ -714,8 +714,10 @@ int ha_recover(const xid_to_gtid_container *commit_list, Gtid *binlog_max_gtid,
 
     global_sid_lock->rdlock();
     info.binlog_max_gtid->to_string(global_sid_map, max_gtid_buf);
-    info.binlog_smallest_max_gtid->to_string(global_sid_map,
-                                             smallest_max_gtid_buf);
+    if (!info.binlog_smallest_max_gtid->is_empty()) {
+      info.binlog_smallest_max_gtid->to_string(global_sid_map,
+                                               smallest_max_gtid_buf);
+    }
     global_sid_lock->unlock();
 
     /*
