@@ -168,6 +168,9 @@ typedef int (*unregister_notification_v1_t)(int handle);
 typedef void (*notify_session_connect_v1_t)(PSI_thread *thread);
 typedef void (*notify_session_disconnect_v1_t)(PSI_thread *thread);
 typedef void (*notify_session_change_user_v1_t)(PSI_thread *thread);
+typedef int (*get_thread_held_locks_v1_t)(PSI_thread *thread,
+                                          const char **held_lock_names,
+                                          int max_count);
 typedef struct PSI_thread_info_v5 PSI_thread_info;
 struct PSI_thread_bootstrap {
   void *(*get_interface)(int version);
@@ -254,6 +257,7 @@ struct PSI_thread_service_v5 {
   notify_session_disconnect_v1_t notify_session_disconnect;
   notify_session_change_user_v1_t notify_session_change_user;
   set_mem_cnt_THD_v1_t set_mem_cnt_THD;
+  get_thread_held_locks_v1_t get_thread_held_locks;
 };
 struct PSI_thread_service_v6 {
   register_thread_v5_t register_thread;
@@ -296,6 +300,7 @@ struct PSI_thread_service_v6 {
   notify_session_disconnect_v1_t notify_session_disconnect;
   notify_session_change_user_v1_t notify_session_change_user;
   set_mem_cnt_THD_v1_t set_mem_cnt_THD;
+  get_thread_held_locks_v1_t get_thread_held_locks;
 };
 typedef struct PSI_thread_service_v6 PSI_thread_service_t;
 extern PSI_thread_service_t *psi_thread_service;

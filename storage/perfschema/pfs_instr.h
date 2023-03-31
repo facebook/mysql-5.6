@@ -379,6 +379,12 @@ struct PFS_ALIGNED PFS_metadata_lock : public PFS_instr {
 */
 #define WAIT_STACK_SIZE (WAIT_STACK_BOTTOM + WAIT_STACK_LOGICAL_SIZE)
 
+/**
+  @def LOCK_ARRAY_SIZE
+  Size of per thread array tracking currently held locks.
+*/
+#define LOCK_ARRAY_SIZE 4
+
 /** Max size of the statements stack. */
 extern uint statement_stack_max;
 /** Max size of the digests token array. */
@@ -541,6 +547,13 @@ struct PFS_ALIGNED PFS_thread : PFS_connection_slice {
     and works without if conditions, which helps performances.
   */
   PFS_events_waits m_events_waits_stack[WAIT_STACK_SIZE];
+
+  /**
+    Array of currently held locks.
+  */
+  void *m_held_locks[LOCK_ARRAY_SIZE];
+  int m_held_lock_count;
+
   /** True if the circular buffer @c m_waits_history is full. */
   bool m_waits_history_full;
   /** Current index in the circular buffer @c m_waits_history. */
@@ -751,6 +764,14 @@ struct PFS_ALIGNED PFS_thread : PFS_connection_slice {
   PFS_session_all_memory_stat m_session_all_memory_stat;
 
   void set_priority(int pri) { m_thread_priority = pri; }
+
+  /**
+    Methods for managing held locks.
+  */
+  void reset_held_locks();
+  void add_held_lock(void *lock);
+  void remove_held_lock(void *lock);
+  int get_held_locks(const char **held_lock_names, int max_count);
 };
 
 void carry_global_memory_stat_alloc_delta(PFS_memory_stat_alloc_delta *delta,

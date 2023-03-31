@@ -120,6 +120,15 @@
 */
 #define mysql_thread_set_psi_THD(T) inline_mysql_thread_set_psi_THD(T)
 
+/**
+  @def mysql_thread_get_held_locks(V)
+  Return the number and array of currently held lock names.
+  @param V Returned array of held lock names.
+  @param S Max size of array of held lock names.
+*/
+#define mysql_thread_get_held_locks(V, S) \
+  inline_mysql_thread_get_held_locks(V, S)
+
 static inline void inline_mysql_thread_register(const char *category
                                                 [[maybe_unused]],
                                                 PSI_thread_info *info
@@ -184,6 +193,22 @@ static inline void mysql_thread_set_secondary_engine(bool secondary
 #ifdef HAVE_PSI_THREAD_INTERFACE
   PSI_THREAD_CALL(set_thread_secondary_engine)(secondary);
 #endif
+}
+
+/**
+  Return the number and array of currently held lock names.
+  @param held_lock_names Returned array of held lock names.
+  @param max_count Max size of held_lock_names array.
+*/
+static inline int inline_mysql_thread_get_held_locks(
+    const char **held_lock_names, int max_count) {
+  int result = 0;
+#ifdef HAVE_PSI_THREAD_INTERFACE
+  struct PSI_thread *psi = PSI_THREAD_CALL(get_thread)();
+  result =
+      PSI_THREAD_CALL(get_thread_held_locks)(psi, held_lock_names, max_count);
+#endif
+  return result;
 }
 
 /** @} (end of group psi_api_thread) */

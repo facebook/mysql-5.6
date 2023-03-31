@@ -216,6 +216,8 @@ notify_session_connect_v1_t notify_session_connect;
 notify_session_disconnect_v1_t notify_session_disconnect;
 /** @sa notify_session_change_user_v1_t. */
 notify_session_change_user_v1_t notify_session_change_user;
+/** @sa get_thread_held_locks_v1_t. */
+get_thread_held_locks_v1_t get_thread_held_locks;
 END_SERVICE_DEFINITION(psi_thread_v5)
 
 /*

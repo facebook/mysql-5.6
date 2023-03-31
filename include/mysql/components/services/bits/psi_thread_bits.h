@@ -624,6 +624,18 @@ typedef void (*notify_session_disconnect_v1_t)(PSI_thread *thread);
 */
 typedef void (*notify_session_change_user_v1_t)(PSI_thread *thread);
 
+/**
+  Return the number and array of currently held lock names.
+
+  @param thread the thread instrumentation
+  @param held_lock_names Returned array of held lock names.
+  @param max_count Max size of held_lock_names array.
+  @return The number of held lock names up to max_count.
+*/
+typedef int (*get_thread_held_locks_v1_t)(PSI_thread *thread,
+                                          const char **held_lock_names,
+                                          int max_count);
+
 typedef struct PSI_thread_info_v5 PSI_thread_info;
 
 /** @} (end of group psi_abi_thread) */

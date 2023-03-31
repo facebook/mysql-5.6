@@ -7759,6 +7759,22 @@ static void lo_set_mem_cnt_THD(THD *thd, THD **backup_thd) {
   }
 }
 
+static int lo_get_thread_held_locks(PSI_thread *thread,
+                                    const char **held_lock_names,
+                                    int max_count) {
+  LO_thread *lo = LO_thread::from_psi(thread);
+  int lock_count = 0;
+
+  if (lo != nullptr) {
+    if ((g_thread_chain != nullptr) && (lo->m_chain != nullptr)) {
+      lock_count = g_thread_chain->get_thread_held_locks(
+          lo->m_chain, held_lock_names, max_count);
+    }
+  }
+
+  return lock_count;
+}
+
 PSI_thread_service_v6 LO_thread_v6 = {lo_register_thread,
                                       lo_spawn_thread,
                                       lo_new_thread,
@@ -7794,7 +7810,8 @@ PSI_thread_service_v6 LO_thread_v6 = {lo_register_thread,
                                       lo_notify_session_connect,
                                       lo_notify_session_disconnect,
                                       lo_notify_session_change_user,
-                                      lo_set_mem_cnt_THD};
+                                      lo_set_mem_cnt_THD,
+                                      lo_get_thread_held_locks};
 
 static void *lo_get_thread_interface(int version) {
   switch (version) {

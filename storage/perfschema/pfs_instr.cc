@@ -596,6 +596,87 @@ void PFS_thread::mem_cnt_free(size_t size) {
 }
 
 /**
+  Reset held locks array.
+*/
+void PFS_thread::reset_held_locks() {
+  m_held_lock_count = 0;
+  memset(m_held_locks, 0, sizeof(m_held_locks));
+}
+
+/**
+  Track lock in held locks array if room is available.
+*/
+void PFS_thread::add_held_lock(void *lock) {
+  ++m_held_lock_count;
+
+  // Remember the lock if unused element can be found.
+  for (auto &element : m_held_locks) {
+    if (!element) {
+      element = lock;
+      break;
+    }
+  }
+}
+
+/**
+  Remove lock from held locks array if it is tracked there.
+*/
+void PFS_thread::remove_held_lock(void *lock) {
+  // It is possible that tracking is or was disabled and add_held_lock was not
+  // called.
+  if (m_held_lock_count) {
+    --m_held_lock_count;
+  }
+
+  // Clear the lock if it was previously added in add_held_lock.
+  for (auto &element : m_held_locks) {
+    if (element == lock) {
+      element = nullptr;
+      break;
+    }
+  }
+}
+
+/**
+  Get held lock names.
+
+  @param held_lock_names Output null-terminated array of lock names.
+  @param max_count Max size of the array.
+  @return Total number of held locks. Could be greater than number of locks
+          names returned in held_lock_names.
+*/
+int PFS_thread::get_held_locks(const char **held_lock_names, int max_count) {
+  if (!held_lock_names || max_count <= 0) {
+    return 0;
+  }
+
+  int lock_count = 0;
+  for (auto &element : m_held_locks) {
+    if (element) {
+      // For now all locks are mutexes.
+      auto mutex = reinterpret_cast<PFS_mutex *>(element);
+      PFS_mutex_class *safe_class = sanitize_mutex_class(mutex->m_class);
+      if (safe_class) {
+        held_lock_names[lock_count] = safe_class->m_name.str();
+        if (++lock_count == max_count) {
+          // Filled all available lock names in output array.
+          break;
+        }
+      }
+    }
+  }
+
+  if (lock_count < max_count) {
+    // Null terminate lock names array if not full.
+    held_lock_names[lock_count] = nullptr;
+  }
+
+  // If tracking is enabled/disabled back and forth our counters could be
+  // incorrect. So just make sure to return whichever is greater.
+  return std::max(m_held_lock_count, lock_count);
+}
+
+/**
   Create instrumentation for a thread instance.
   @param klass                        the thread class
   @param seqnum                       the thread instance sequence number
@@ -636,6 +717,7 @@ PFS_thread *create_thread(PFS_thread_class *klass, PSI_thread_seqnum seqnum,
 
     pfs->reset_stats();
     pfs->reset_session_connect_attrs();
+    pfs->reset_held_locks();
 
     pfs->m_filename_hash_pins = nullptr;
     pfs->m_table_share_hash_pins = nullptr;

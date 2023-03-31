@@ -211,6 +211,10 @@ static void set_mem_cnt_THD_noop(THD *, THD **backup_thd) {
   return;
 }
 
+static int pfs_get_thread_held_locks_noop(PSI_thread *, const char **, int) {
+  return 0;
+}
+
 static PSI_thread_service_t psi_thread_noop = {
     register_thread_noop,
     spawn_thread_noop,
@@ -251,7 +255,8 @@ static PSI_thread_service_t psi_thread_noop = {
     notify_session_connect_noop,
     notify_session_disconnect_noop,
     notify_session_change_user_noop,
-    set_mem_cnt_THD_noop};
+    set_mem_cnt_THD_noop,
+    pfs_get_thread_held_locks_noop};
 
 struct PSI_thread_bootstrap *psi_thread_hook = nullptr;
 PSI_thread_service_t *psi_thread_service = &psi_thread_noop;

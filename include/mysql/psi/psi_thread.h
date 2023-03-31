@@ -288,6 +288,8 @@ struct PSI_thread_service_v5 {
   notify_session_change_user_v1_t notify_session_change_user;
   /** @sa  set_mem_cnt_THD_v1_t. */
   set_mem_cnt_THD_v1_t set_mem_cnt_THD;
+  /** @sa  get_thread_held_locks_v1_t. */
+  get_thread_held_locks_v1_t get_thread_held_locks;
 };
 
 /**
@@ -377,6 +379,8 @@ struct PSI_thread_service_v6 {
   notify_session_change_user_v1_t notify_session_change_user;
   /** @sa  set_mem_cnt_THD_v1_t. */
   set_mem_cnt_THD_v1_t set_mem_cnt_THD;
+  /** @sa  get_thread_held_locks_v1_t. */
+  get_thread_held_locks_v1_t get_thread_held_locks;
 };
 
 typedef struct PSI_thread_service_v6 PSI_thread_service_t;
