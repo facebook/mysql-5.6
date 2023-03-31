@@ -44,7 +44,7 @@ class TransactionPayloadCodecTest : public ::testing::Test {
       unsigned char *payload = new unsigned char[payload_size];
 
       memset(payload, 'a', payload_size);
-      auto ctype = binary_log::transaction::compression::type::ZSTD;
+      auto ctype = binary_log::transaction::compression::type::ALGORITHM_ZSTD;
       TransactionPayloadCodecTest::codec_idempotency_test(
           codec, payload, payload_size, ctype, payload_size * 2);
 

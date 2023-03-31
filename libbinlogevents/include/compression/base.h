@@ -34,8 +34,11 @@ namespace compression {
 const static size_t BLOCK_BYTES = 8 * 1024;
 
 enum type {
-  /* ZSTD compression. */
-  ZSTD = 0,
+  /* ZSTD compression.
+  Original name 'ZSTD' that came from upstream changed to 'ALGORITHM_ZSTD'
+  to avoid conflicts with 'RocksDB' library where 'ZSTD' is defined as a
+  macro. */
+  ALGORITHM_ZSTD = 0,
 
   /* No compression. */
   NONE = 255,
