@@ -3661,6 +3661,22 @@ void pfs_delete_thread_vc(PSI_thread *thread) {
 }
 
 /**
+  Implementation of the thread instrumentation interface.
+  @sa PSI_v5::get_thread_held_locks.
+*/
+int pfs_get_thread_held_locks_vc(PSI_thread *thread,
+                                 const char **held_lock_names, int max_count) {
+  int lock_count = 0;
+  PFS_thread *pfs = reinterpret_cast<PFS_thread *>(thread);
+
+  if (pfs != nullptr) {
+    lock_count = pfs->get_held_locks(held_lock_names, max_count);
+  }
+
+  return lock_count;
+}
+
+/**
   Implementation of the mutex instrumentation interface.
   @sa PSI_v1::start_mutex_wait.
 */
@@ -4723,6 +4739,20 @@ void pfs_unlock_mutex_v1(PSI_mutex *mutex) {
   }
 #endif
 
+  // Unfortunately m_owner could be nullptr or a different thread due to cond
+  // var code unlocking the mutex without notifying PSI.
+  // 1.  T1 locks mutex and waits for cond var. Mutex is unlocked but T1 is
+  //     still marked as owner.
+  // 2.  T2 locks mutex and waits for cond var. T2 is owner now.
+  // 3a. T1 times out and tries to unlock mutex. It will find owner set to T2.
+  // 3b. T3 signals cond var. It locks/unlocks mutex resetting the owner. When
+  //     T1 or T2 unlock mutex the owner is nullptr.
+  // So don't use m_owner and get the current thread instead.
+  PFS_thread *pfs_thread = my_thread_get_THR_PFS();
+  if (likely(pfs_thread)) {
+    pfs_thread->remove_held_lock(pfs_mutex);
+  }
+
   pfs_mutex->m_owner = nullptr;
 
 #ifdef LATER_WL2333
@@ -5031,6 +5061,11 @@ void pfs_end_mutex_wait_v1(PSI_mutex_locker *locker, int rc) {
   }
 
   if (flags & STATE_FLAG_THREAD) {
+    // If the wait is successful, record it on the thread.
+    if (likely(rc == 0)) {
+      thread->add_held_lock(mutex);
+    }
+
     PFS_single_stat *event_name_array;
     event_name_array = thread->write_instr_class_waits_stats();
     uint index = mutex->m_class->m_event_name_index;
@@ -8843,7 +8878,8 @@ PSI_thread_service_v5 pfs_thread_service_v5 = {
     pfs_notify_session_connect_vc,
     pfs_notify_session_disconnect_vc,
     pfs_notify_session_change_user_vc,
-    pfs_set_mem_cnt_THD_vc};
+    pfs_set_mem_cnt_THD_vc,
+    pfs_get_thread_held_locks_vc};
 
 SERVICE_TYPE(psi_thread_v5)
 SERVICE_IMPLEMENTATION(performance_schema, psi_thread_v5) = {
@@ -8883,7 +8919,8 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_thread_v5) = {
     pfs_unregister_notification_vc,
     pfs_notify_session_connect_vc,
     pfs_notify_session_disconnect_vc,
-    pfs_notify_session_change_user_vc};
+    pfs_notify_session_change_user_vc,
+    pfs_get_thread_held_locks_vc};
 
 PSI_mutex_service_v1 pfs_mutex_service_v1 = {
     /* Old interface, for plugins. */
