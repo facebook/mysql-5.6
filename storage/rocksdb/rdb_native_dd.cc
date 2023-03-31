@@ -16,6 +16,7 @@
 
 /* This C++ file's header file */
 #include "rdb_native_dd.h"
+#include <cstring>
 
 /* MySQL header files */
 #include "sql/dd/types/table.h"  // dd::Table
@@ -64,7 +65,15 @@ bool rocksdb_dict_set_server_version() {
       ->set_server_version();
 };
 
-bool rocksdb_is_supported_system_table(const char *, const char *, bool) {
+bool rocksdb_is_supported_system_table([[maybe_unused]] const char *db_name,
+                                       [[maybe_unused]] const char *tbl_name,
+                                       bool) {
+  DBUG_EXECUTE_IF("ddse_rocksdb", {
+    if (strcmp(db_name, "mysql") == 0 &&
+        strcmp(tbl_name, "password_history") == 0) {
+      return true;
+    }
+  });
   return false;
 }
 
