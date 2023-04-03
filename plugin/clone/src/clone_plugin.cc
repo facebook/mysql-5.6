@@ -85,8 +85,10 @@ static char *clone_ssl_ca;
 /** Clone system variable: timeout for clone restart after n/w failure */
 uint clone_restart_timeout;
 
+#ifndef __APPLE__
 /** Clone system variable: DSCP value to set on socket */
 static uint clone_dscp_on_socket;
+#endif
 
 /** Key for registering clone allocations with performance schema */
 PSI_memory_key clone_mem_key;
@@ -520,6 +522,7 @@ static int plugin_clone_remote_client(THD *thd, const char *remote_host,
 @param[in]	socket	network socket to remote client
 @return error code */
 static int plugin_clone_remote_server(THD *thd, MYSQL_SOCKET socket) {
+#ifndef __APPLE__
   int dscp_val = clone_dscp_on_socket;
 
   if (dscp_val != 0) {
@@ -554,6 +557,8 @@ static int plugin_clone_remote_server(THD *thd, MYSQL_SOCKET socket) {
                    "Failed to set TOS/TCLASS on donor");
     }
   }
+#endif  // !__APPLE__
+
   myclone::Server clone_inst(thd, socket);
 
   auto err = clone_inst.clone();
@@ -670,6 +675,8 @@ static MYSQL_SYSVAR_UINT(donor_timeout_after_network_failure,
                          30,                  /* Maximum =  30 min */
                          1);                  /* Step    =   1 min */
 
+#ifndef __APPLE__
+
 /** DSCP value to set on socket */
 static MYSQL_SYSVAR_UINT(dscp_on_socket, clone_dscp_on_socket,
                          PLUGIN_VAR_RQCMDARG, "DSCP value to set on socket",
@@ -678,12 +685,16 @@ static MYSQL_SYSVAR_UINT(dscp_on_socket, clone_dscp_on_socket,
                          63,                  /* Maximum =  63 */
                          1);                  /* Step    =   1 */
 
+#endif  // !__APPLE
+
 /** Clone system variables */
 static SYS_VAR *clone_system_variables[] = {
     MYSQL_SYSVAR(buffer_size),
     MYSQL_SYSVAR(block_ddl),
     MYSQL_SYSVAR(ddl_timeout),
+#ifndef __APPLE__
     MYSQL_SYSVAR(dscp_on_socket),
+#endif
     MYSQL_SYSVAR(max_concurrency),
     MYSQL_SYSVAR(max_network_bandwidth),
     MYSQL_SYSVAR(max_data_bandwidth),
