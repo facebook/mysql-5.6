@@ -5130,7 +5130,6 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
             } else {
               internal_cache_count++;
             }
-            cache_set.insert(bbt_opt->block_cache_compressed.get());
           }
         }
       }
@@ -5538,9 +5537,12 @@ static rocksdb::Status check_rocksdb_options_compatibility(
 
   rocksdb::DBOptions loaded_db_opt;
   std::vector<rocksdb::ColumnFamilyDescriptor> loaded_cf_descs;
-  rocksdb::Status status =
-      LoadLatestOptions(dbpath, rocksdb::Env::Default(), &loaded_db_opt,
-                        &loaded_cf_descs, rocksdb_ignore_unknown_options);
+  rocksdb::ConfigOptions config_options;
+  config_options.ignore_unknown_options = rocksdb_ignore_unknown_options;
+  config_options.input_strings_escaped = true;
+  config_options.env = rocksdb::Env::Default();
+  rocksdb::Status status = LoadLatestOptions(config_options, dbpath,
+                                             &loaded_db_opt, &loaded_cf_descs);
 
   // If we're starting from scratch and there are no options saved yet then this
   // is a valid case. Therefore we can't compare the current set of options to
@@ -5579,9 +5581,15 @@ static rocksdb::Status check_rocksdb_options_compatibility(
 
   // This is the essence of the function - determine if it's safe to open the
   // database or not.
-  status = CheckOptionsCompatibility(dbpath, rocksdb::Env::Default(), main_opts,
-                                     loaded_cf_descs,
-                                     rocksdb_ignore_unknown_options);
+  rocksdb::ConfigOptions config_options_for_check(main_opts);
+  config_options_for_check.sanity_level =
+      rocksdb::ConfigOptions::kSanityLevelLooselyCompatible;
+  config_options_for_check.ignore_unknown_options =
+      rocksdb_ignore_unknown_options;
+  config_options_for_check.input_strings_escaped = true;
+  config_options_for_check.env = rocksdb::Env::Default();
+  status = CheckOptionsCompatibility(config_options_for_check, dbpath,
+                                     main_opts, loaded_cf_descs);
 
   return status;
 }
@@ -14183,12 +14191,10 @@ struct rocksdb_status_counters_t {
   uint64_t block_cache_index_hit;
   uint64_t block_cache_index_add;
   uint64_t block_cache_index_bytes_insert;
-  uint64_t block_cache_index_bytes_evict;
   uint64_t block_cache_filter_miss;
   uint64_t block_cache_filter_hit;
   uint64_t block_cache_filter_add;
   uint64_t block_cache_filter_bytes_insert;
-  uint64_t block_cache_filter_bytes_evict;
   uint64_t block_cache_bytes_read;
   uint64_t block_cache_bytes_write;
   uint64_t block_cache_data_bytes_insert;
@@ -14218,27 +14224,21 @@ struct rocksdb_status_counters_t {
   uint64_t number_db_prev;
   uint64_t number_db_prev_found;
   uint64_t iter_bytes_read;
-  uint64_t no_file_closes;
   uint64_t no_file_opens;
   uint64_t no_file_errors;
   uint64_t stall_micros;
-  uint64_t num_iterators;
   uint64_t number_multiget_get;
   uint64_t number_multiget_keys_read;
   uint64_t number_multiget_bytes_read;
-  uint64_t number_deletes_filtered;
   uint64_t number_merge_failures;
   uint64_t bloom_filter_prefix_checked;
   uint64_t bloom_filter_prefix_useful;
   uint64_t number_reseeks_iteration;
   uint64_t getupdatessince_calls;
-  uint64_t block_cachecompressed_miss;
-  uint64_t block_cachecompressed_hit;
   uint64_t wal_synced;
   uint64_t wal_bytes;
   uint64_t write_self;
   uint64_t write_other;
-  uint64_t write_timedout;
   uint64_t write_wal;
   uint64_t flush_write_bytes;
   uint64_t compact_read_bytes;
@@ -14259,12 +14259,10 @@ DEF_SHOW_FUNC(block_cache_index_miss, BLOCK_CACHE_INDEX_MISS)
 DEF_SHOW_FUNC(block_cache_index_hit, BLOCK_CACHE_INDEX_HIT)
 DEF_SHOW_FUNC(block_cache_index_add, BLOCK_CACHE_INDEX_ADD)
 DEF_SHOW_FUNC(block_cache_index_bytes_insert, BLOCK_CACHE_INDEX_BYTES_INSERT)
-DEF_SHOW_FUNC(block_cache_index_bytes_evict, BLOCK_CACHE_INDEX_BYTES_EVICT)
 DEF_SHOW_FUNC(block_cache_filter_miss, BLOCK_CACHE_FILTER_MISS)
 DEF_SHOW_FUNC(block_cache_filter_hit, BLOCK_CACHE_FILTER_HIT)
 DEF_SHOW_FUNC(block_cache_filter_add, BLOCK_CACHE_FILTER_ADD)
 DEF_SHOW_FUNC(block_cache_filter_bytes_insert, BLOCK_CACHE_FILTER_BYTES_INSERT)
-DEF_SHOW_FUNC(block_cache_filter_bytes_evict, BLOCK_CACHE_FILTER_BYTES_EVICT)
 DEF_SHOW_FUNC(block_cache_bytes_read, BLOCK_CACHE_BYTES_READ)
 DEF_SHOW_FUNC(block_cache_bytes_write, BLOCK_CACHE_BYTES_WRITE)
 DEF_SHOW_FUNC(block_cache_data_bytes_insert, BLOCK_CACHE_DATA_BYTES_INSERT)
@@ -14294,27 +14292,21 @@ DEF_SHOW_FUNC(number_db_next_found, NUMBER_DB_NEXT_FOUND)
 DEF_SHOW_FUNC(number_db_prev, NUMBER_DB_PREV)
 DEF_SHOW_FUNC(number_db_prev_found, NUMBER_DB_PREV_FOUND)
 DEF_SHOW_FUNC(iter_bytes_read, ITER_BYTES_READ)
-DEF_SHOW_FUNC(no_file_closes, NO_FILE_CLOSES)
 DEF_SHOW_FUNC(no_file_opens, NO_FILE_OPENS)
 DEF_SHOW_FUNC(no_file_errors, NO_FILE_ERRORS)
 DEF_SHOW_FUNC(stall_micros, STALL_MICROS)
-DEF_SHOW_FUNC(num_iterators, NO_ITERATORS)
 DEF_SHOW_FUNC(number_multiget_get, NUMBER_MULTIGET_CALLS)
 DEF_SHOW_FUNC(number_multiget_keys_read, NUMBER_MULTIGET_KEYS_READ)
 DEF_SHOW_FUNC(number_multiget_bytes_read, NUMBER_MULTIGET_BYTES_READ)
-DEF_SHOW_FUNC(number_deletes_filtered, NUMBER_FILTERED_DELETES)
 DEF_SHOW_FUNC(number_merge_failures, NUMBER_MERGE_FAILURES)
 DEF_SHOW_FUNC(bloom_filter_prefix_checked, BLOOM_FILTER_PREFIX_CHECKED)
 DEF_SHOW_FUNC(bloom_filter_prefix_useful, BLOOM_FILTER_PREFIX_USEFUL)
 DEF_SHOW_FUNC(number_reseeks_iteration, NUMBER_OF_RESEEKS_IN_ITERATION)
 DEF_SHOW_FUNC(getupdatessince_calls, GET_UPDATES_SINCE_CALLS)
-DEF_SHOW_FUNC(block_cachecompressed_miss, BLOCK_CACHE_COMPRESSED_MISS)
-DEF_SHOW_FUNC(block_cachecompressed_hit, BLOCK_CACHE_COMPRESSED_HIT)
 DEF_SHOW_FUNC(wal_synced, WAL_FILE_SYNCED)
 DEF_SHOW_FUNC(wal_bytes, WAL_FILE_BYTES)
 DEF_SHOW_FUNC(write_self, WRITE_DONE_BY_SELF)
 DEF_SHOW_FUNC(write_other, WRITE_DONE_BY_OTHER)
-DEF_SHOW_FUNC(write_timedout, WRITE_TIMEDOUT)
 DEF_SHOW_FUNC(write_wal, WRITE_WITH_WAL)
 DEF_SHOW_FUNC(flush_write_bytes, FLUSH_WRITE_BYTES)
 DEF_SHOW_FUNC(compact_read_bytes, COMPACT_READ_BYTES)
@@ -14415,10 +14407,9 @@ static void show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
   var->value = reinterpret_cast<char *>(&myrocks_status_variables);
 }
 
-static ulonglong io_stall_prop_value(
+static ulonglong get_prop_value_as_ulong(
     const std::map<std::string, std::string> &props, const std::string &key) {
-  std::map<std::string, std::string>::const_iterator iter =
-      props.find("io_stalls." + key);
+  std::map<std::string, std::string>::const_iterator iter = props.find(key);
   if (iter != props.end()) {
     return std::stoull(iter->second);
   } else {
@@ -14445,25 +14436,47 @@ static void update_rocksdb_stall_status() {
       continue;
     }
 
-    local_io_stall_stats.level0_slowdown +=
-        io_stall_prop_value(props, "level0_slowdown");
+    using rocksdb::WriteStallCause;
+    using rocksdb::WriteStallCondition;
+    using rocksdb::WriteStallStatsMapKeys;
+    local_io_stall_stats.level0_slowdown += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CauseConditionCount(
+            WriteStallCause::kL0FileCountLimit, WriteStallCondition::kDelayed));
     local_io_stall_stats.level0_slowdown_with_compaction +=
-        io_stall_prop_value(props, "level0_slowdown_with_compaction");
-    local_io_stall_stats.level0_numfiles +=
-        io_stall_prop_value(props, "level0_numfiles");
-    local_io_stall_stats.level0_numfiles_with_compaction +=
-        io_stall_prop_value(props, "level0_numfiles_with_compaction");
+        get_prop_value_as_ulong(
+            props, WriteStallStatsMapKeys::
+                       CFL0FileCountLimitDelaysWithOngoingCompaction());
+    local_io_stall_stats.level0_numfiles += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CauseConditionCount(
+            WriteStallCause::kL0FileCountLimit, WriteStallCondition::kStopped));
+    local_io_stall_stats
+        .level0_numfiles_with_compaction += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CFL0FileCountLimitStopsWithOngoingCompaction());
     local_io_stall_stats.stop_for_pending_compaction_bytes +=
-        io_stall_prop_value(props, "stop_for_pending_compaction_bytes");
+        get_prop_value_as_ulong(props,
+                                WriteStallStatsMapKeys::CauseConditionCount(
+                                    WriteStallCause::kPendingCompactionBytes,
+                                    WriteStallCondition::kStopped));
     local_io_stall_stats.slowdown_for_pending_compaction_bytes +=
-        io_stall_prop_value(props, "slowdown_for_pending_compaction_bytes");
-    local_io_stall_stats.memtable_compaction +=
-        io_stall_prop_value(props, "memtable_compaction");
-    local_io_stall_stats.memtable_slowdown +=
-        io_stall_prop_value(props, "memtable_slowdown");
-    local_io_stall_stats.total_stop += io_stall_prop_value(props, "total_stop");
+        get_prop_value_as_ulong(props,
+                                WriteStallStatsMapKeys::CauseConditionCount(
+                                    WriteStallCause::kPendingCompactionBytes,
+                                    WriteStallCondition::kDelayed));
+    local_io_stall_stats.memtable_compaction += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CauseConditionCount(
+            WriteStallCause::kMemtableLimit, WriteStallCondition::kStopped));
+    local_io_stall_stats.memtable_slowdown += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CauseConditionCount(
+            WriteStallCause::kMemtableLimit, WriteStallCondition::kDelayed));
+    local_io_stall_stats.total_stop +=
+        get_prop_value_as_ulong(props, WriteStallStatsMapKeys::TotalStops());
     local_io_stall_stats.total_slowdown +=
-        io_stall_prop_value(props, "total_slowdown");
+        get_prop_value_as_ulong(props, WriteStallStatsMapKeys::TotalDelays());
   }
   io_stall_stats = local_io_stall_stats;
 }
@@ -14511,12 +14524,10 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(block_cache_index_hit),
     DEF_STATUS_VAR(block_cache_index_add),
     DEF_STATUS_VAR(block_cache_index_bytes_insert),
-    DEF_STATUS_VAR(block_cache_index_bytes_evict),
     DEF_STATUS_VAR(block_cache_filter_miss),
     DEF_STATUS_VAR(block_cache_filter_hit),
     DEF_STATUS_VAR(block_cache_filter_add),
     DEF_STATUS_VAR(block_cache_filter_bytes_insert),
-    DEF_STATUS_VAR(block_cache_filter_bytes_evict),
     DEF_STATUS_VAR(block_cache_bytes_read),
     DEF_STATUS_VAR(block_cache_bytes_write),
     DEF_STATUS_VAR(block_cache_data_bytes_insert),
@@ -14546,27 +14557,21 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(number_db_prev),
     DEF_STATUS_VAR(number_db_prev_found),
     DEF_STATUS_VAR(iter_bytes_read),
-    DEF_STATUS_VAR(no_file_closes),
     DEF_STATUS_VAR(no_file_opens),
     DEF_STATUS_VAR(no_file_errors),
     DEF_STATUS_VAR(stall_micros),
-    DEF_STATUS_VAR(num_iterators),
     DEF_STATUS_VAR(number_multiget_get),
     DEF_STATUS_VAR(number_multiget_keys_read),
     DEF_STATUS_VAR(number_multiget_bytes_read),
-    DEF_STATUS_VAR(number_deletes_filtered),
     DEF_STATUS_VAR(number_merge_failures),
     DEF_STATUS_VAR(bloom_filter_prefix_checked),
     DEF_STATUS_VAR(bloom_filter_prefix_useful),
     DEF_STATUS_VAR(number_reseeks_iteration),
     DEF_STATUS_VAR(getupdatessince_calls),
-    DEF_STATUS_VAR(block_cachecompressed_miss),
-    DEF_STATUS_VAR(block_cachecompressed_hit),
     DEF_STATUS_VAR(wal_synced),
     DEF_STATUS_VAR(wal_bytes),
     DEF_STATUS_VAR(write_self),
     DEF_STATUS_VAR(write_other),
-    DEF_STATUS_VAR(write_timedout),
     DEF_STATUS_VAR(write_wal),
     DEF_STATUS_VAR(flush_write_bytes),
     DEF_STATUS_VAR(compact_read_bytes),

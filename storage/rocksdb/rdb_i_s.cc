@@ -25,6 +25,7 @@
 #include <sql_show.h>
 
 /* RocksDB header files */
+#include "rocksdb/advanced_cache.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/convenience.h"
 #include "rocksdb/filter_policy.h"
