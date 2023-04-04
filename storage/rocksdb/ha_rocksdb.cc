@@ -14061,10 +14061,9 @@ static int show_myrocks_vars(THD *thd MY_ATTRIBUTE((unused)), SHOW_VAR *var,
   return 0;
 }
 
-static ulonglong io_stall_prop_value(
+static ulonglong get_prop_value_as_ulong(
     const std::map<std::string, std::string> &props, const std::string &key) {
-  std::map<std::string, std::string>::const_iterator iter =
-      props.find("io_stalls." + key);
+  std::map<std::string, std::string>::const_iterator iter = props.find(key);
   if (iter != props.end()) {
     return std::stoull(iter->second);
   } else {
@@ -14087,29 +14086,52 @@ static void update_rocksdb_stall_status() {
     // Retrieve information from valid CF handle object. It is safe
     // even if the CF is removed from cf_manager at this point.
     std::map<std::string, std::string> props;
-    if (!rdb->GetMapProperty(cfh.get(), "rocksdb.cfstats", &props)) {
+    if (!rdb->GetMapProperty(
+            cfh.get(), rocksdb::DB::Properties::kCFWriteStallStats, &props)) {
       continue;
     }
 
-    local_io_stall_stats.level0_slowdown +=
-        io_stall_prop_value(props, "level0_slowdown");
+    using rocksdb::WriteStallCause;
+    using rocksdb::WriteStallCondition;
+    using rocksdb::WriteStallStatsMapKeys;
+    local_io_stall_stats.level0_slowdown += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CauseConditionCount(
+            WriteStallCause::kL0FileCountLimit, WriteStallCondition::kDelayed));
     local_io_stall_stats.level0_slowdown_with_compaction +=
-        io_stall_prop_value(props, "level0_slowdown_with_compaction");
-    local_io_stall_stats.level0_numfiles +=
-        io_stall_prop_value(props, "level0_numfiles");
-    local_io_stall_stats.level0_numfiles_with_compaction +=
-        io_stall_prop_value(props, "level0_numfiles_with_compaction");
+        get_prop_value_as_ulong(
+            props, WriteStallStatsMapKeys::
+                       CFL0FileCountLimitDelaysWithOngoingCompaction());
+    local_io_stall_stats.level0_numfiles += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CauseConditionCount(
+            WriteStallCause::kL0FileCountLimit, WriteStallCondition::kStopped));
+    local_io_stall_stats
+        .level0_numfiles_with_compaction += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CFL0FileCountLimitStopsWithOngoingCompaction());
     local_io_stall_stats.stop_for_pending_compaction_bytes +=
-        io_stall_prop_value(props, "stop_for_pending_compaction_bytes");
+        get_prop_value_as_ulong(props,
+                                WriteStallStatsMapKeys::CauseConditionCount(
+                                    WriteStallCause::kPendingCompactionBytes,
+                                    WriteStallCondition::kStopped));
     local_io_stall_stats.slowdown_for_pending_compaction_bytes +=
-        io_stall_prop_value(props, "slowdown_for_pending_compaction_bytes");
-    local_io_stall_stats.memtable_compaction +=
-        io_stall_prop_value(props, "memtable_compaction");
-    local_io_stall_stats.memtable_slowdown +=
-        io_stall_prop_value(props, "memtable_slowdown");
-    local_io_stall_stats.total_stop += io_stall_prop_value(props, "total_stop");
+        get_prop_value_as_ulong(props,
+                                WriteStallStatsMapKeys::CauseConditionCount(
+                                    WriteStallCause::kPendingCompactionBytes,
+                                    WriteStallCondition::kDelayed));
+    local_io_stall_stats.memtable_compaction += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CauseConditionCount(
+            WriteStallCause::kMemtableLimit, WriteStallCondition::kStopped));
+    local_io_stall_stats.memtable_slowdown += get_prop_value_as_ulong(
+        props,
+        WriteStallStatsMapKeys::CauseConditionCount(
+            WriteStallCause::kMemtableLimit, WriteStallCondition::kDelayed));
+    local_io_stall_stats.total_stop +=
+        get_prop_value_as_ulong(props, WriteStallStatsMapKeys::TotalStops());
     local_io_stall_stats.total_slowdown +=
-        io_stall_prop_value(props, "total_slowdown");
+        get_prop_value_as_ulong(props, WriteStallStatsMapKeys::TotalDelays());
   }
   io_stall_stats = local_io_stall_stats;
 }
