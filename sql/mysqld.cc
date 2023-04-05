@@ -4666,8 +4666,10 @@ histogram_display_string histogram_bucket_to_display_string(
 void free_latency_histogram_sysvars(SHOW_VAR *latency_histogram_data) {
   size_t i;
   for (i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i) {
-    if (latency_histogram_data[i].name)
+    if (latency_histogram_data[i].name) {
       my_free(const_cast<char *>(latency_histogram_data[i].name));
+      latency_histogram_data[i].name = nullptr;
+    }
   }
 }
 
