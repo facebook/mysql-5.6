@@ -59,6 +59,11 @@ let $messages =
 ;
 --source include/suppress_messages.inc
 
+let $messages =
+.*The slave coordinator and worker threads are stopped.*
+;
+--source include/suppress_messages.inc
+
 --let $messages = rpl_semi_sync.*is deprecated and will be removed in a future release.*
 --let $suppress_mode = IGNORE_GLOBAL_SUPPRESSIONS
 --source include/suppress_messages.inc

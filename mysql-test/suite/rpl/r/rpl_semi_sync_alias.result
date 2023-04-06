@@ -15,6 +15,9 @@ include/suppress_messages.inc
 # Connection 1 suppresses message <.*A message intended for a client cannot be sent there as no client-session is attached.*Got an error reading communication packets.*>.
 # Connection 2 suppresses message <.*A message intended for a client cannot be sent there as no client-session is attached.*Got an error reading communication packets.*>.
 include/suppress_messages.inc
+# Connection 1 suppresses message <.*The slave coordinator and worker threads are stopped.*>.
+# Connection 2 suppresses message <.*The slave coordinator and worker threads are stopped.*>.
+include/suppress_messages.inc
 # Connection 1 un-suppresses message <rpl_semi_sync.*is deprecated and will be removed in a future release.*>.
 # Connection 2 un-suppresses message <rpl_semi_sync.*is deprecated and will be removed in a future release.*>.
 ==== R3. Replication: old source library -> old replica library ====
