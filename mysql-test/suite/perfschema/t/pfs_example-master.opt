@@ -1,1 +1,1 @@
-$PFS_EXAMPLE_OPT
+$PFS_EXAMPLE_OPT --loose-performance-schema-max-rwlock-classes=123
