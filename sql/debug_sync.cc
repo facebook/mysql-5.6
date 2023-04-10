@@ -932,9 +932,14 @@ static void debug_sync_remove_action(st_debug_sync_control *ds_control,
   uint dsp_idx = static_cast<uint>(action - ds_control->ds_action);
   DBUG_TRACE;
   assert(ds_control);
-  assert(ds_control == current_thd->debug_sync_control);
   assert(action);
   assert(dsp_idx < ds_control->ds_active);
+
+  // This could be called from debug_sync_end_thread after current_thd has been
+  // already reset.
+  if (current_thd) {
+    assert(ds_control == current_thd->debug_sync_control);
+  }
 
   /* Decrement the number of currently active actions. */
   ds_control->ds_active--;

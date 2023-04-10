@@ -134,7 +134,7 @@ bool Commit_order_manager::wait_on_graph(Slave_worker *worker, std::string db) {
     set_timespec(&abs_timeout, opt_slave_commit_order_wait_timeout);
     auto wait_status = worker_thd->mdl_context.m_wait.timed_wait(
         worker_thd, &abs_timeout, true,
-        &stage_worker_waiting_for_its_turn_to_commit);
+        &stage_worker_waiting_for_its_turn_to_commit, false /*ignore_killed*/);
 
     switch (wait_status) {
       case MDL_wait::GRANTED:
