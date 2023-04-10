@@ -1061,6 +1061,11 @@ The following options may be given as the first argument:
  is only used when setting a lower/minimum bound on HLC
  using minimum_hlc_ns system variable. The default value
  is 300 secs
+ --mdl-mutex-thread-remove 
+ Use thread pool friendly MDL lock when removing
+ connection threads. If disabled, the regular mutex is
+ used.
+ (Defaults to on; use --skip-mdl-mutex-thread-remove to disable.)
  --memlock           Lock mysqld in memory.
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
@@ -3388,6 +3393,7 @@ max-user-connections 0
 max-waiting-queries 0
 max-write-lock-count 18446744073709551615
 maximum-hlc-drift-ns 300000000000
+mdl-mutex-thread-remove TRUE
 memlock FALSE
 min-examined-row-limit 0
 min-examined-row-limit-sql-stats 0

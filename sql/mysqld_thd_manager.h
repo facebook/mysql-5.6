@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <atomic>
 
+#include "mdl.h"  // MDL_request.
 #include "my_inttypes.h"
 #include "my_thread_local.h"  // my_thread_id
 #include "mysql/components/services/bits/mysql_cond_bits.h"
@@ -338,7 +339,7 @@ class Global_THD_manager {
   /**
     This function calls func() for all THDs in every thd list partition
     after taking local copy of the THD list partition. It acquires
-    LOCK_thd_remove to prevent removal of the THD.
+    mdl_mutex_thd_remove to prevent removal of the THD.
     @param func Object of class which overrides operator()
   */
   void do_for_all_thd_copy(Do_THD_Impl *func);
@@ -389,6 +390,8 @@ class Global_THD_manager {
   mysql_mutex_t LOCK_thd_list[NUM_PARTITIONS];
   // Mutexes used to guard removal of elements from thd_list partitions.
   mysql_mutex_t LOCK_thd_remove[NUM_PARTITIONS];
+  // MDL mutexes guarding removal of elements from thd_list partitions.
+  MDL_mutex mdl_mutex_thd_remove[NUM_PARTITIONS];
   // Mutex protecting thread_ids
   mysql_mutex_t LOCK_thread_ids;
 

@@ -1621,17 +1621,7 @@ void THD::release_resources() {
   stmt_map.reset(); /* close all prepared statements */
   if (!is_cleanup_done()) cleanup();
 
-  mdl_context.destroy();
   ha_close_connection(this);
-
-  /*
-    Debug sync system must be closed after ha_close_connection, because
-    DEBUG_SYNC is used in InnoDB connection handlerton close.
-  */
-#if defined(ENABLED_DEBUG_SYNC)
-  /* End the Debug Sync Facility. See debug_sync.cc. */
-  debug_sync_end_thread(this);
-#endif /* defined(ENABLED_DEBUG_SYNC) */
 
   plugin_thdvar_cleanup(this, m_enable_plugins);
 
@@ -1676,6 +1666,19 @@ THD::~THD() {
   DBUG_PRINT("info", ("THD dtor, this %p", this));
 
   if (!release_resources_done()) release_resources();
+
+  // MDL context may be needed by Global_THD_manager to remove this THD
+  // after release_resources() is called.
+  mdl_context.destroy();
+
+  /*
+    Debug sync system must be closed after ha_close_connection, because
+    DEBUG_SYNC is used in InnoDB connection handlerton close.
+  */
+#if defined(ENABLED_DEBUG_SYNC)
+  /* End the Debug Sync Facility. See debug_sync.cc. */
+  debug_sync_end_thread(this);
+#endif /* defined(ENABLED_DEBUG_SYNC) */
 
   assert(nonsuper_ref == 0);
 

@@ -4042,7 +4042,8 @@ bool TABLE_SHARE::wait_for_old_version(THD *thd, struct timespec *abstime,
   DEBUG_SYNC(thd, "flush_complete");
 
   wait_status = mdl_context->m_wait.timed_wait(thd, abstime, true,
-                                               &stage_waiting_for_table_flush);
+                                               &stage_waiting_for_table_flush,
+                                               false /*ignore_killed*/);
 
   mdl_context->done_waiting_for();
 

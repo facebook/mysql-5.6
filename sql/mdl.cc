@@ -151,7 +151,9 @@ MDL_key::PSI_stage_info_with_name
         {{0, "Waiting for foreign key metadata lock", 0, PSI_DOCUMENT_ME},
          "foreign key metadata"},
         {{0, "Waiting for check constraint metadata lock", 0, PSI_DOCUMENT_ME},
-         "constraint metadata"}};
+         "constraint metadata"},
+        {{0, "Waiting for thread remove metadata lock", 0, PSI_DOCUMENT_ME},
+         "thread remove"}};
 
 #ifdef HAVE_PSI_INTERFACE
 void MDL_key::init_psi_keys() {
@@ -857,6 +859,7 @@ class MDL_lock {
       case MDL_key::RESOURCE_GROUPS:
       case MDL_key::FOREIGN_KEY:
       case MDL_key::CHECK_CONSTRAINT:
+      case MDL_key::MUTEX:
         return &m_scoped_lock_strategy;
       default:
         return &m_object_lock_strategy;
@@ -1498,7 +1501,10 @@ void MDL_context::destroy() {
   assert(m_ticket_store.is_empty());
 
   mysql_prlock_destroy(&m_LOCK_waiting_for);
-  if (m_pins) lf_hash_put_pins(m_pins);
+  if (m_pins) {
+    lf_hash_put_pins(m_pins);
+    m_pins = nullptr;
+  }
 }
 
 /**
@@ -1838,14 +1844,16 @@ void MDL_wait::reset_status() {
                                        context should close the wait slot by
                                        sending TIMEOUT to itself.
                                false - Otherwise.
-  @param wait_state_name  Thread state name to be set for duration of wait.
+  @param wait_state_name Thread state name to be set for duration of wait.
+  @param ignore_killed   Ignore owner killed state.
 
   @returns Signal posted.
 */
 
 MDL_wait::enum_wait_status MDL_wait::timed_wait(
     MDL_context_owner *owner, struct timespec *abs_timeout,
-    bool set_status_on_timeout, const PSI_stage_info *wait_state_name) {
+    bool set_status_on_timeout, const PSI_stage_info *wait_state_name,
+    bool ignore_killed) {
   PSI_stage_info old_stage;
   enum_wait_status result;
   int wait_result = 0;
@@ -1855,7 +1863,8 @@ MDL_wait::enum_wait_status MDL_wait::timed_wait(
   owner->ENTER_COND(&m_COND_wait_status, &m_LOCK_wait_status, wait_state_name,
                     &old_stage);
   thd_wait_begin(owner->get_thd(), THD_WAIT_META_DATA_LOCK);
-  while (!m_wait_status && !owner->is_killed() && !is_timeout(wait_result)) {
+  while (!m_wait_status && (!owner->is_killed() || ignore_killed) &&
+         !is_timeout(wait_result)) {
     wait_result = mysql_cond_timedwait(&m_COND_wait_status, &m_LOCK_wait_status,
                                        abs_timeout);
   }
@@ -1873,7 +1882,7 @@ MDL_wait::enum_wait_status MDL_wait::timed_wait(
       false, which means that the caller intends to restart the
       wait.
     */
-    if (owner->is_killed())
+    if (owner->is_killed() && !ignore_killed)
       m_wait_status = KILLED;
     else if (set_status_on_timeout)
       m_wait_status = TIMEOUT;
@@ -3330,8 +3339,11 @@ bool MDL_lock::scoped_lock_kill_conflicting_locks(
   // except for alter/drop database.
   // SCHEMA namespace locks are treated as object locks for the purposes
   // of killing conflicting connections.
-  if (ctx->get_owner()->get_thd()->variables.kill_conflicting_connections ||
-      lock->key.mdl_namespace() == MDL_key::SCHEMA) {
+  // MUTEX namespace lock acquires should not be killed as mutex lock() never
+  // returns any errors.
+  if ((ctx->get_owner()->get_thd()->variables.kill_conflicting_connections ||
+       lock->key.mdl_namespace() == MDL_key::SCHEMA) &&
+       lock->key.mdl_namespace() != MDL_key::MUTEX) {
     return MDL_lock::object_lock_kill_conflicting_locks(ctx, lock,
                                                         kill_lower_than);
   }
@@ -3602,6 +3614,8 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   bool set_status_on_timeout =
       !kill_conflicting_connections_after_timeout_and_retry;
 
+  bool ignore_killed = mdl_request->m_ignore_killed;
+
   if (lock->needs_notification(ticket) || lock->needs_connection_check()) {
     struct timespec abs_shortwait;
     set_timespec(&abs_shortwait, 1);
@@ -3611,7 +3625,8 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
            cmp_timespec(&abs_shortwait, &abs_timeout) <= 0) {
       /* abs_timeout is far away. Wait a short while and notify locks. */
       wait_status = m_wait.timed_wait(m_owner, &abs_shortwait, false,
-                                      mdl_request->key.get_wait_state_name());
+                                      mdl_request->key.get_wait_state_name(),
+                                      ignore_killed);
 
       if (wait_status != MDL_wait::WS_EMPTY) break;
 
@@ -3647,11 +3662,11 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
     if (wait_status == MDL_wait::WS_EMPTY)
       wait_status =
           m_wait.timed_wait(m_owner, &abs_timeout, set_status_on_timeout,
-                            mdl_request->key.get_wait_state_name());
+          mdl_request->key.get_wait_state_name(), ignore_killed);
   } else {
     wait_status =
         m_wait.timed_wait(m_owner, &abs_timeout, set_status_on_timeout,
-                          mdl_request->key.get_wait_state_name());
+        mdl_request->key.get_wait_state_name(), ignore_killed);
   }
 
   /*
@@ -3683,7 +3698,8 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
     set_timespec(&abs_timeout,
                  thd->variables.kill_conflicting_connections_timeout);
     wait_status = m_wait.timed_wait(m_owner, &abs_timeout, true,
-                                    mdl_request->key.get_wait_state_name());
+                                    mdl_request->key.get_wait_state_name(),
+                                    ignore_killed);
   }
 
   done_waiting_for();
@@ -5122,3 +5138,58 @@ String timeout_message(const char *command, const char *name1,
   }
   return msg;
 }
+
+/**
+  Init underlying MDL key.
+
+  @param name Name of the mutex object.
+*/
+void MDL_mutex::init(const std::string &name) {
+  m_mdl_key.mdl_key_init(MDL_key::MUTEX, "", name.c_str());
+}
+
+/**
+  Acquire MDL lock object.
+
+  @param thd MDL_context of this THD is used to acquire MDL lock.
+  @return Pointer to valid MDL_ticket object, cannot be nullptr.
+*/
+MDL_ticket *MDL_mutex::lock(THD *thd) {
+  assert(thd);
+
+  MDL_request mdl_request;
+  MDL_REQUEST_INIT_BY_KEY(&mdl_request, &m_mdl_key, MDL_EXCLUSIVE,
+                          MDL_EXPLICIT);
+  mdl_request.ignore_owner_killed();
+  bool acquire_error [[maybe_unused]] =
+      thd->mdl_context.acquire_lock_nsec(&mdl_request, TIMEOUT_INF);
+  assert(!acquire_error);
+
+  return mdl_request.ticket;
+}
+
+/**
+  Release MDL lock object.
+
+  @param thd MDL_context of this THD is used to release MDL lock.
+  @param ticket MDL_ticket object returned from lock().
+*/
+void MDL_mutex::unlock(THD *thd, MDL_ticket *ticket) {
+  assert(thd);
+  assert(ticket);
+
+  thd->mdl_context.release_lock(ticket);
+}
+
+/**
+  Guard constructor locks the mutex.
+*/
+MDL_mutex_guard::MDL_mutex_guard(MDL_mutex *mdl_mutex, THD *thd)
+    : m_mdl_mutex(mdl_mutex), m_thd(thd) {
+  m_ticket = m_mdl_mutex->lock(m_thd);
+}
+
+/**
+  Guard destructor unlocks the mutex.
+*/
+MDL_mutex_guard::~MDL_mutex_guard() { m_mdl_mutex->unlock(m_thd, m_ticket); }

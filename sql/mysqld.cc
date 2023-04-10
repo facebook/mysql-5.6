@@ -1667,6 +1667,7 @@ bool enable_deprecation_warning = true;
 bool enable_optimizer_cputime_with_wallclock = true;
 bool enable_pfs_global_select = false;
 bool enable_rocksdb_intrinsic_tmp_table = false;
+bool mdl_mutex_thread_remove = true;
 
 /**
   This variable holds handle to the object that's responsible

@@ -197,7 +197,7 @@ class MDL_context_owner {
       MDL_scoped_lock::can_grant_lock() for details.
 */
 
-enum enum_mdl_type {
+enum enum_mdl_type : unsigned char {
   /*
     An intention exclusive metadata lock. Used only for scoped locks.
     Owner of this type of lock can acquire upgradable exclusive locks on
@@ -334,7 +334,7 @@ enum enum_mdl_type {
 
 /** Duration of metadata lock. */
 
-enum enum_mdl_duration {
+enum enum_mdl_duration : unsigned char {
   /**
     Locks with statement duration are automatically released at the end
     of statement or transaction.
@@ -420,6 +420,7 @@ struct MDL_key {
     RESOURCE_GROUPS,
     FOREIGN_KEY,
     CHECK_CONSTRAINT,
+    MUTEX,
     /* This should be the last ! */
     NAMESPACE_END
   };
@@ -816,6 +817,8 @@ class MDL_request {
   enum_mdl_type type{MDL_INTENTION_EXCLUSIVE};
   /** Duration for requested lock. */
   enum_mdl_duration duration{MDL_STATEMENT};
+  /** Whether killed state of context owner should be ignored. */
+  bool m_ignore_killed{false};
 
   /**
     Pointers for participating in the list of lock requests for this context.
@@ -865,6 +868,11 @@ class MDL_request {
     assert(ticket == nullptr);
     type = type_arg;
   }
+
+  /**
+    Set to ignore killed state of the context owner.
+  */
+  void ignore_owner_killed() { m_ignore_killed = true; }
 
   /**
     Is this a request for a lock which allow data to be updated?
@@ -1366,7 +1374,8 @@ class MDL_wait {
   void reset_status();
   enum_wait_status timed_wait(MDL_context_owner *owner,
                               struct timespec *abs_timeout, bool signal_timeout,
-                              const PSI_stage_info *wait_state_name);
+                              const PSI_stage_info *wait_state_name,
+                              bool ignore_killed);
 
  private:
   /**
@@ -1807,5 +1816,51 @@ class MDL_lock_is_owned_visitor : public MDL_context_visitor {
 
 String timeout_message(const char *command, const char *name1,
                        const char *name2);
+
+/**
+  Helper class to use MDL lock as general purpose mutex friendly for thread
+  pool and allowing to be used across long operations that could also wait
+  and yield.
+*/
+class MDL_mutex {
+ public:
+  /**
+    Init underlying MDL key.
+  */
+  void init(const std::string &name);
+
+  /**
+    Acquire MDL lock object.
+  */
+  MDL_ticket *lock(THD *thd);
+
+  /**
+    Release MDL lock object.
+  */
+  void unlock(THD *thd, MDL_ticket *ticket);
+
+ private:
+  // Key to initialize MDL request.
+  MDL_key m_mdl_key;
+};
+
+/**
+  MDL_mutex guard.
+*/
+class MDL_mutex_guard {
+ public:
+  MDL_mutex_guard(MDL_mutex *mdl_mutex, THD *thd);
+  ~MDL_mutex_guard();
+
+ private:
+  // MDL mutex to lock and unlock.
+  MDL_mutex *m_mdl_mutex{nullptr};
+
+  // THD for locking/unlocking the mutex.
+  THD *m_thd{nullptr};
+
+  // MDL ticket of the held mutex.
+  MDL_ticket *m_ticket{nullptr};
+};
 
 #endif

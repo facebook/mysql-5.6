@@ -1,0 +1,40 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value true
+####
+--echo Default value of mdl_mutex_thread_remove is true
+SELECT @@global.mdl_mutex_thread_remove;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.mdl_mutex_thread_remove;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--echo mdl_mutex_thread_remove is a read-only variable
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@global.mdl_mutex_thread_remove = false;
+SELECT @@global.mdl_mutex_thread_remove;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo Restart the server with non default value (OFF)
+--let $restart_parameters="restart: --mdl_mutex_thread_remove=OFF"
+--source include/restart_mysqld.inc
+
+SELECT @@global.mdl_mutex_thread_remove;
+
+--echo mdl_mutex_thread_remove is still a read-only variable
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@global.mdl_mutex_thread_remove = true;
+SELECT @@global.mdl_mutex_thread_remove;
+
+
+--echo Restart the server with default value (ON)
+--let $restart_parameters="restart: "
+--source include/restart_mysqld.inc
+
+SELECT @@global.mdl_mutex_thread_remove;
