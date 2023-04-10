@@ -22,6 +22,7 @@
 --source include/big_test.inc
 
 CALL mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT.");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
 
 # Increasing master_connect_retry to increase the time interval between connection retries due to Bug#23615424:
 # WL#6338: RPL.RPL_INNODB_AUTO_INCREMENT FAILS WITH ERROR IN SYNC_WITH_MASTER.INC
