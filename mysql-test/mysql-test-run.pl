@@ -100,6 +100,7 @@ my $parent_pid;
 my $opt_boot_dbx;
 my $opt_boot_ddd;
 my $opt_boot_gdb;
+my $opt_boot_lldb;
 my $opt_callgrind;
 my $opt_charset_for_testdb;
 my $opt_compress;
@@ -240,6 +241,7 @@ our $opt_gdb_secondary_engine;
 our $opt_gprof;
 our $opt_lldb;
 our $opt_manual_boot_gdb;
+our $opt_manual_boot_lldb;
 our $opt_manual_dbx;
 our $opt_manual_ddd;
 our $opt_manual_debug;
@@ -1802,6 +1804,7 @@ sub command_line_setup {
     'boot-dbx'             => \$opt_boot_dbx,
     'boot-ddd'             => \$opt_boot_ddd,
     'boot-gdb'             => \$opt_boot_gdb,
+    'boot-lldb'            => \$opt_boot_lldb,
     'client-dbx'           => \$opt_client_dbx,
     'client-ddd'           => \$opt_client_ddd,
     'client-debugger=s'    => \$opt_client_debugger,
@@ -1817,6 +1820,7 @@ sub command_line_setup {
     'gdb-secondary-engine' => \$opt_gdb_secondary_engine,
     'lldb'                 => \$opt_lldb,
     'manual-boot-gdb'      => \$opt_manual_boot_gdb,
+    'manual-boot-lldb'     => \$opt_manual_boot_lldb,
     'manual-dbx'           => \$opt_manual_dbx,
     'manual-ddd'           => \$opt_manual_ddd,
     'manual-debug'         => \$opt_manual_debug,
@@ -2356,7 +2360,8 @@ sub command_line_setup {
       $opt_manual_dbx           ||
       $opt_debugger             ||
       $opt_client_debugger      ||
-      $opt_manual_boot_gdb) {
+      $opt_manual_boot_gdb      ||
+      $opt_manual_boot_lldb) {
     # Indicate that we are using debugger
     $glob_debugger = 1;
 
@@ -4478,6 +4483,11 @@ sub mysql_install_db {
                   $mysqld->name(), $bootstrap_sql_file);
   }
 
+  if ($opt_boot_lldb || $opt_manual_boot_lldb) {
+    lldb_arguments(\$args,          \$exe_mysqld_bootstrap,
+                   $mysqld->name(), $bootstrap_sql_file);
+  }
+
   if ($opt_boot_dbx) {
     dbx_arguments(\$args,          \$exe_mysqld_bootstrap,
                   $mysqld->name(), $bootstrap_sql_file);
@@ -4568,7 +4578,7 @@ sub mysql_install_db {
     $ENV{'TSAN_OPTIONS'} .= "suppressions=${glob_mysql_test_dir}/tsan.supp";
   }
 
-  if ($opt_manual_boot_gdb) {
+  if ($opt_manual_boot_gdb || $opt_manual_boot_lldb) {
     # The configuration has been set up and user has been prompted for
     # how to start the servers manually in the requested debugger.
     # At this time mtr.pl have no knowledge about the server processes
@@ -7657,7 +7667,7 @@ sub lldb_arguments {
   # write init file for mysqld or client
   mtr_tofile($lldb_init_file, "process launch --stop-at-entry -- " . $str);
 
-  if ($opt_manual_lldb) {
+  if ($opt_manual_lldb || $opt_manual_boot_lldb) {
     print "\nTo start lldb for $type, type in another window:\n";
     print "cd $glob_mysql_test_dir && lldb -s $lldb_init_file $$exe\n";
 
