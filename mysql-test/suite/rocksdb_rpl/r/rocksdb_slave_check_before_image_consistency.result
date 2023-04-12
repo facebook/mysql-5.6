@@ -247,7 +247,40 @@ drop table t2;
 drop table t3;
 drop table t4;
 include/sync_slave_sql_with_master.inc
+create table ttl_table(a bigint unsigned primary key, b int) engine = rocksdb comment = 'ttl_duration=3600;ttl_col=a';
+insert into ttl_table values(unix_timestamp(), 1);
+insert into ttl_table values(unix_timestamp() + 10, 2);
+include/sync_slave_sql_with_master.inc
+set @@sql_log_bin = 0;
+update ttl_table set b = b + 10;
+set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = COUNT;
+set @save.enable_strict_consistency_for_ttl_tables = @@global.enable_strict_consistency_for_ttl_tables;
+set @@global.enable_strict_consistency_for_ttl_tables = 1;
+update ttl_table set b = 100 where b = 1;
+include/sync_slave_sql_with_master.inc
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	1
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
+test.ttl_table	uuid:47	master-bin.000001:12746	b=1	b=11
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = COUNT;
+set @@global.enable_strict_consistency_for_ttl_tables = 0;
+update ttl_table set b = 200 where b = 2;
+include/sync_slave_sql_with_master.inc
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	0
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
+drop table ttl_table;
+include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
+set @@global.enable_strict_consistency_for_ttl_tables = @save.enable_strict_consistency_for_ttl_tables;
+set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
 set @@global.slave_rows_search_algorithms = DEFAULT;
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
