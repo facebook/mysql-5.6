@@ -4833,6 +4833,15 @@ static Sys_var_enum Sys_slave_check_before_image_consistency(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(slave_check_before_image_consistency_update));
 
+static Sys_var_bool Sys_enable_strict_consistency_for_ttl_tables(
+    "enable_strict_consistency_for_ttl_tables",
+    "On secondary enable all consistency checks for TTL tables which regular "
+    "tables are subjected to. This includes RBR BI inconsistency checks and "
+    "other things like not using idempotent exec mode for TTL tables.",
+    GLOBAL_VAR(opt_enable_strict_consistency_for_ttl_tables), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL), NULL, sys_var::PARSE_NORMAL);
+
 static bool check_not_null_not_empty(sys_var *self, THD *thd, set_var *var) {
   String str, *res;
   /* null value is not allowed */

@@ -9368,7 +9368,8 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(
     int actual_error = convert_handler_error(error, thd, m_table);
     bool idempotent_error = (idempotent_error_code(error) &&
                              (rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT ||
-                              m_table->file->last_part_has_ttl_column()));
+                              (!opt_enable_strict_consistency_for_ttl_tables &&
+                               m_table->file->last_part_has_ttl_column())));
     bool ignore_delete_error =
         (rbr_exec_mode == RBR_EXEC_MODE_SEMI_STRICT &&
          (error == HA_ERR_RECORD_CHANGED || error == HA_ERR_KEY_NOT_FOUND));
@@ -9743,7 +9744,8 @@ end:
       (!error && opt_slave_check_before_image_consistency &&
        rbr_exec_mode != RBR_EXEC_MODE_IDEMPOTENT &&
        !(m_table->file->ha_table_flags() & HA_READ_BEFORE_WRITE_REMOVAL) &&
-       !m_table->file->last_part_has_ttl_column() &&
+       (opt_enable_strict_consistency_for_ttl_tables ||
+        !m_table->file->last_part_has_ttl_column()) &&
        record_compare(m_table, tabledef, &m_cols));
 
   DBUG_EXECUTE_IF("dbg.fire_bi_inconsistency",

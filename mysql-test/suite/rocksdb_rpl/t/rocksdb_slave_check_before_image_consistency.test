@@ -16,8 +16,64 @@ set @@global.slave_rows_search_algorithms = 'INDEX_SCAN,TABLE_SCAN,HASH_SCAN';
 source include/start_slave.inc;
 source extra/rpl_tests/rpl_slave_check_before_image_consistency.inc;
 
+# check if TTL tables are handled
+connection master;
+let $uuid = `select @@global.server_uuid`;
+create table ttl_table(a bigint unsigned primary key, b int) engine = rocksdb comment = 'ttl_duration=3600;ttl_col=a';
+insert into ttl_table values(unix_timestamp(), 1);
+insert into ttl_table values(unix_timestamp() + 10, 2);
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+# introduce an inconsistencies
+set @@sql_log_bin = 0;
+update ttl_table set b = b + 10;
+
+# resetting the counter by disabling and then enabling
+set @save.slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = COUNT;
+
+# enabling consistency checkes for TTL tables
+set @save.enable_strict_consistency_for_ttl_tables = @@global.enable_strict_consistency_for_ttl_tables;
+set @@global.enable_strict_consistency_for_ttl_tables = 1;
+
+connection master;
+update ttl_table set b = 100 where b = 1;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+show status like 'Slave_before_image_inconsistencies';
+replace_result $uuid uuid;
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+
+connection slave;
+# resetting the counter by disabling and then enabling
+set @@global.slave_check_before_image_consistency = OFF;
+set @@global.slave_check_before_image_consistency = COUNT;
+
+# disabling consistency checkes for TTL tables
+set @@global.enable_strict_consistency_for_ttl_tables = 0;
+
+connection master;
+update ttl_table set b = 200 where b = 2;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+show status like 'Slave_before_image_inconsistencies';
+replace_result $uuid uuid;
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+
 # cleanup
+connection master;
+drop table ttl_table;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
 source include/stop_slave.inc;
+set @@global.enable_strict_consistency_for_ttl_tables = @save.enable_strict_consistency_for_ttl_tables;
+set @@global.slave_check_before_image_consistency = @save.slave_check_before_image_consistency;
 set @@global.slave_rows_search_algorithms = DEFAULT;
 source include/start_slave.inc;
 

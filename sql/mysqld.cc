@@ -1462,6 +1462,7 @@ ulong binlog_row_metadata;
 bool opt_source_verify_checksum = false;
 bool opt_replica_sql_verify_checksum = true;
 ulong opt_slave_check_before_image_consistency = 0;
+bool opt_enable_strict_consistency_for_ttl_tables = false;
 const char *binlog_format_names[] = {"MIXED", "STATEMENT", "ROW", NullS};
 bool binlog_gtid_simple_recovery;
 ulong binlog_error_action;

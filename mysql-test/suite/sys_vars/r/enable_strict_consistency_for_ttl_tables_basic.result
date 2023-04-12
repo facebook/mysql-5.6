@@ -1,0 +1,7 @@
+Default value of enable_strict_consistency_for_ttl_tables is 0
+SELECT @@global.enable_strict_consistency_for_ttl_tables;
+@@global.enable_strict_consistency_for_ttl_tables
+0
+SELECT @@session.enable_strict_consistency_for_ttl_tables;
+ERROR HY000: Variable 'enable_strict_consistency_for_ttl_tables' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'

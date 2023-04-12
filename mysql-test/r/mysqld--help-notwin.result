@@ -523,6 +523,11 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-enable-shardbeater to disable.)
  --enable-sql-wsenv  Enable dumping/loading file to/from warm storage for
  SELECT INTO OUTFILE/LOAD DATA. Set true to enable.
+ --enable-strict-consistency-for-ttl-tables 
+ On secondary enable all consistency checks for TTL tables
+ which regular tables are subjected to. This includes RBR
+ BI inconsistency checks and other things like not using
+ idempotent exec mode for TTL tables.
  --enable-super-log-bin-read-only 
  If set, prevents super from writing to a read_only
  instance when sql_log_bin is also enabled
@@ -3228,6 +3233,7 @@ enable-resultset-checksum FALSE
 enable-rocksdb-intrinsic-tmp-table FALSE
 enable-shardbeater TRUE
 enable-sql-wsenv FALSE
+enable-strict-consistency-for-ttl-tables FALSE
 enable-super-log-bin-read-only FALSE
 enable-user-tables-engine-check FALSE
 enable-xa-transaction TRUE
