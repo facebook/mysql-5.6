@@ -2836,7 +2836,6 @@ class Sys_var_gtid_purged_for_tailing : public sys_var {
   const uchar *global_value_ptr(THD *thd, LEX_STRING *) override {
     DBUG_TRACE;
     char *buf = nullptr;
-    global_sid_lock->wrlock();
     if (opt_bin_log) {
       Sid_map gtids_lost_sid_map(nullptr);
       Gtid_set gs(&gtids_lost_sid_map, nullptr);
@@ -2844,21 +2843,25 @@ class Sys_var_gtid_purged_for_tailing : public sys_var {
       buf = reinterpret_cast<char *>(thd->alloc(gs.get_string_length() + 1));
       if (buf == nullptr)
         my_error(ER_OUT_OF_RESOURCES, MYF(0));
-      else
+      else {
+        global_sid_lock->wrlock();
         gs.to_string(buf);
+        global_sid_lock->unlock();
+      }
     } else {
       /*
         When binlog is off, report @@GLOBAL.GTID_PURGED_FOR_TAILING
         from executed_gtids. Same as GTID_PURGED.
       */
+      global_sid_lock->wrlock();
       const Gtid_set *gs = gtid_state->get_executed_gtids();
       buf = reinterpret_cast<char *>(thd->alloc(gs->get_string_length() + 1));
       if (buf == nullptr)
         my_error(ER_OUT_OF_RESOURCES, MYF(0));
       else
         gs->to_string(buf);
+      global_sid_lock->unlock();
     }
-    global_sid_lock->unlock();
     return reinterpret_cast<uchar *>(buf);
   }
 };
