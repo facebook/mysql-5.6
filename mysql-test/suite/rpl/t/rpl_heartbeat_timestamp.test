@@ -41,12 +41,12 @@ let $heartbeat_guarantee_sleep= `SELECT $new_slave_heartbeat_period + 1`;
 
 connection slave;
 --source include/stop_slave.inc
-eval CHANGE REPLICATION SOURCE TO SOURCE_HEARTBEAT_PERIOD=$new_slave_heartbeat_period;
+eval CHANGE REPLICATION SOURCE TO SOURCE_HEARTBEAT_PERIOD=$new_slave_heartbeat_period, SOURCE_RETRY_COUNT=90, SOURCE_CONNECT_RETRY=10;
 --source include/start_slave.inc
 
 connection slave_2;
 --source include/stop_slave.inc
-eval CHANGE REPLICATION SOURCE TO SOURCE_HEARTBEAT_PERIOD=$new_slave_heartbeat_period;
+eval CHANGE REPLICATION SOURCE TO SOURCE_HEARTBEAT_PERIOD=$new_slave_heartbeat_period, SOURCE_RETRY_COUNT=90, SOURCE_CONNECT_RETRY=10;
 SET GLOBAL RESET_SECONDS_BEHIND_MASTER=0;
 --source include/start_slave.inc
 
