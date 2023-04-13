@@ -4945,10 +4945,12 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
     assert(refkey_rows_estimate >= 1.0);
   }
 
+  ha_rows orig_select_limit = select_limit;
   for (nr = 0; nr < table->s->keys; nr++) {
     int direction = 0;
     uint used_key_parts;
     bool skip_quick;
+    select_limit = orig_select_limit;
 
     if (usable_keys.is_set(nr) &&
         (direction = test_if_order_by_key(order, table, nr, &used_key_parts,
