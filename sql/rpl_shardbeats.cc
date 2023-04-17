@@ -252,10 +252,12 @@ extern "C" void *generate_shardbeats(void *shardbeat_singleton) {
   Shardbeats_manager *smgr = (Shardbeats_manager *)shardbeat_singleton;
   assert(smgr != nullptr);
 
+  int execute_loop_count = 0;
   do {
     // Call the actual execute function.
     smgr->execute();
-  } while (smgr->restart_execute_loop);
+    execute_loop_count++;
+  } while (smgr->restart_execute_loop && execute_loop_count < 5);
 
   // NO_LINT_DEBUG
   sql_print_information("Shard level Heartbeater thread finished");
@@ -684,6 +686,8 @@ void Shardbeats_manager::execute() {
             "Exiting shardbeater loop due to repeated errors (10)");
         // we try to recreate the THD and restart the execute loop
         restart_execute_loop = true;
+        // each time we restart the loop we reset the error count
+        dd_fetch_error_msg_count = 0;
         break;
       }
     } else {
@@ -995,6 +999,7 @@ bool Shardbeats_manager::stop_shardbeater_thread(THD *thd,
   }
 
   state = State::STOPPING;
+  restart_execute_loop = false;
   if (reason == Start_Stop_Reason::READ_ONLY_ON) {
     current_ro_state = true;
     unsigned long long current_ts = my_micro_time();

@@ -146,7 +146,7 @@ class Shardbeats_manager {
   void create_blocked_dbs();
 
   // destroy the THD and restart the execute loop
-  bool restart_execute_loop = false;
+  std::atomic<bool> restart_execute_loop = false;
  private:
   // Private constructor
   Shardbeats_manager();
