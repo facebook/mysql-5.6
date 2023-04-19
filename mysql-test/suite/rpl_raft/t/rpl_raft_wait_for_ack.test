@@ -50,22 +50,24 @@ echo "Case 1: Test AFTER_CONSENSUS on leader";
 connection server_1;
 # Should be AFTER_CONSENSUS
 select @@global.raft_signal_async_dump_threads;
-# Wait before executing replicationDone i.e. before commit hook
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+# Wait before executing ReplicationDoneCallback i.e. before commit hook
+set @@global.rpl_raft_debug_sync_point = 'ReplicationDoneCallback';
 
 # Execute a trx on the leader
 connection server_1_1;
 send insert into t1 values(1);
 
-# Wait till we've reached the beginning of replicationDone
+# Wait till we've reached the beginning of ReplicationDoneCallback
 connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for ReplicationDoneCallback';
 
 # Sync both raft nodes
 let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Check the contents of the table in all servers, server 4 should not receive
 # the insert
@@ -78,9 +80,9 @@ select * from t1;
 connection server_5;
 select * from t1;
 
-# Continue replicationDone
+# Continue ReplicationDoneCallback
 connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'continue ReplicationDoneCallback';
 set @@global.rpl_raft_debug_sync_point = '';
 
 connection server_1_1;
@@ -93,6 +95,8 @@ source include/sync_slave_sql_with_master.inc;
 connection server_2;
 let $sync_slave_connection = server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -109,20 +113,22 @@ echo "Case 2: Test AFTER_CONSENSUS on follower";
 connection server_2;
 # Should be AFTER_CONSENSUS
 select @@global.raft_signal_async_dump_threads;
-# Wait before executing replicationDone
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+# Wait before executing ReplicationDoneCallback
+set @@global.rpl_raft_debug_sync_point = 'ReplicationDoneCallback';
 
 # Execute a trx on the leader
 connection server_1;
 insert into t1 values(2);
 
-# Wait till we've reached the beginning of replicationDone
+# Wait till we've reached the beginning of ReplicationDoneCallback
 connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for ReplicationDoneCallback';
 
 # Sync server3
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Check the contents of the table in all servers, server5 should not receive the
 # insert
@@ -135,9 +141,9 @@ select * from t1;
 connection server_5;
 select * from t1;
 
-# Continue replicationDone
+# Continue ReplicationDoneCallback
 connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'continue ReplicationDoneCallback';
 set @@global.rpl_raft_debug_sync_point = '';
 
 connection server_1;
@@ -150,6 +156,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -165,22 +173,24 @@ echo "Case 3: Test AFTER_ENGINE_COMMIT on leader";
 
 connection server_1;
 set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
-# Wait before executing updateConsensusApplied i.e. after commit
-set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
+# Wait before executing UpdateConsensusApplied i.e. after commit
+set @@global.rpl_raft_debug_sync_point = 'UpdateConsensusApplied';
 
 # Execute a trx on the leader
 connection server_1_1;
 send insert into t1 values(3);
 
-# Wait till we've reached the beginning of replicationDone
+# Wait till we've reached the beginning of ReplicationDoneCallback
 connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for UpdateConsensusApplied';
 
 # Sync both raft nodes
 let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Check the contents of the table in all servers, server 4 should not receive
 # the insert
@@ -193,9 +203,9 @@ select * from t1;
 connection server_5;
 select * from t1;
 
-# Continue replicationDone
+# Continue ReplicationDoneCallback
 connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point_action = 'continue UpdateConsensusApplied';
 set @@global.rpl_raft_debug_sync_point = '';
 
 connection server_1_1;
@@ -206,6 +216,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -224,20 +236,22 @@ echo "Case 4: Test AFTER_ENGINE_COMMIT on follower";
 
 connection server_2;
 set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
-# Wait before executing updateConsensusApplied
-set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
+# Wait before executing UpdateConsensusApplied
+set @@global.rpl_raft_debug_sync_point = 'UpdateConsensusApplied';
 
 # Execute a trx on the leader
 connection server_1;
 insert into t1 values(4);
 
-# Wait till we've reached the beginning of replicationDone
+# Wait till we've reached the beginning of ReplicationDoneCallback
 connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for UpdateConsensusApplied';
 
 # Sync server3
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Check the contents of the table in all servers, server5 should not receive the
 # insert
@@ -250,9 +264,9 @@ select * from t1;
 connection server_5;
 select * from t1;
 
-# Continue replicationDone
+# Continue ReplicationDoneCallback
 connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point_action = 'continue UpdateConsensusApplied';
 set @@global.rpl_raft_debug_sync_point = '';
 
 connection server_1;
@@ -265,6 +279,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -284,16 +300,16 @@ echo "Case 5: Check if rotation is handled correctly on leader";
 connection server_1;
 # Rotate raft log
 flush binary logs;
-# Wait before executing replicationDone i.e. before commit hook
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+# Wait before executing ReplicationDoneCallback i.e. before commit hook
+set @@global.rpl_raft_debug_sync_point = 'ReplicationDoneCallback';
 
 # Execute a trx on the leader
 connection server_1_1;
 send insert into t1 values(5);
 
-# Wait till we've reached the beginning of replicationDone
+# Wait till we've reached the beginning of ReplicationDoneCallback
 connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for ReplicationDoneCallback';
 
 let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
@@ -308,6 +324,8 @@ let $field= State;
 let $condition= = 'Replica has read all relay log; waiting for more updates';
 source include/wait_show_condition.inc;
 
+sleep 2;
+
 # Check the contents of the table in all servers, server 4 should not receive
 # the insert
 connection server_2;
@@ -319,9 +337,9 @@ select * from t1;
 connection server_5;
 select * from t1;
 
-# Continue replicationDone
+# Continue ReplicationDoneCallback
 connection server_1;
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'continue ReplicationDoneCallback';
 set @@global.rpl_raft_debug_sync_point = '';
 
 connection server_1_1;
@@ -337,6 +355,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
@@ -354,16 +374,16 @@ connection server_1;
 # Rotate raft logs
 flush binary logs;
 connection server_2;
-# Wait before executing replicationDone
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+# Wait before executing ReplicationDoneCallback
+set @@global.rpl_raft_debug_sync_point = 'ReplicationDoneCallback';
 
 # Execute a trx on the leader
 connection server_1;
 insert into t1 values(6);
 
-# Wait till we've reached the beginning of replicationDone
+# Wait till we've reached the beginning of ReplicationDoneCallback
 connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for ReplicationDoneCallback';
 
 let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
@@ -376,6 +396,8 @@ let $field= State;
 let $condition= = 'Replica has read all relay log; waiting for more updates';
 source include/wait_show_condition.inc;
 
+sleep 2;
+
 # Check the contents of the table in all servers, server5 should not receive the
 # insert
 connection server_2;
@@ -387,9 +409,9 @@ select * from t1;
 connection server_5;
 select * from t1;
 
-# Continue replicationDone
+# Continue ReplicationDoneCallback
 connection server_2;
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'continue ReplicationDoneCallback';
 set @@global.rpl_raft_debug_sync_point = '';
 
 # Sync all servers
@@ -402,6 +424,8 @@ let $sync_slave_connection= server_4;
 source include/sync_slave_sql_with_master.inc;
 let $sync_slave_connection= server_5;
 source include/sync_slave_sql_with_master.inc;
+
+sleep 2;
 
 # Now all servers should have the inserted row
 connection server_2;
