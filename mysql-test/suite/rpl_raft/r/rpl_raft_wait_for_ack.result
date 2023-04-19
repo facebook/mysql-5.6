@@ -59,9 +59,9 @@ include/sync_slave_sql_with_master.inc
 select @@global.raft_signal_async_dump_threads;
 @@global.raft_signal_async_dump_threads
 AFTER_CONSENSUS
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+set @@global.rpl_raft_debug_sync_point = 'ReplicationDoneCallback';
 insert into t1 values(1);
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for ReplicationDoneCallback';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 select * from t1;
@@ -75,7 +75,7 @@ a
 select * from t1;
 a
 1
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'continue ReplicationDoneCallback';
 set @@global.rpl_raft_debug_sync_point = '';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
@@ -95,9 +95,9 @@ a
 select @@global.raft_signal_async_dump_threads;
 @@global.raft_signal_async_dump_threads
 AFTER_CONSENSUS
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+set @@global.rpl_raft_debug_sync_point = 'ReplicationDoneCallback';
 insert into t1 values(2);
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for ReplicationDoneCallback';
 include/sync_slave_sql_with_master.inc
 select * from t1;
 a
@@ -113,7 +113,7 @@ a
 select * from t1;
 a
 1
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'continue ReplicationDoneCallback';
 set @@global.rpl_raft_debug_sync_point = '';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
@@ -137,9 +137,9 @@ a
 2
 "Case 3: Test AFTER_ENGINE_COMMIT on leader"
 set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
-set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point = 'UpdateConsensusApplied';
 insert into t1 values(3);
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for UpdateConsensusApplied';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 select * from t1;
@@ -161,7 +161,7 @@ a
 1
 2
 3
-set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point_action = 'continue UpdateConsensusApplied';
 set @@global.rpl_raft_debug_sync_point = '';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
@@ -188,9 +188,9 @@ a
 set @@global.raft_signal_async_dump_threads = AFTER_CONSENSUS;
 "Case 4: Test AFTER_ENGINE_COMMIT on follower"
 set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
-set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point = 'UpdateConsensusApplied';
 insert into t1 values(4);
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for UpdateConsensusApplied';
 include/sync_slave_sql_with_master.inc
 select * from t1;
 a
@@ -215,7 +215,7 @@ a
 1
 2
 3
-set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point_action = 'continue UpdateConsensusApplied';
 set @@global.rpl_raft_debug_sync_point = '';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
@@ -248,9 +248,9 @@ a
 set @@global.raft_signal_async_dump_threads = AFTER_CONSENSUS;
 "Case 5: Check if rotation is handled correctly on leader"
 flush binary logs;
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+set @@global.rpl_raft_debug_sync_point = 'ReplicationDoneCallback';
 insert into t1 values(5);
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for ReplicationDoneCallback';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
@@ -281,7 +281,7 @@ a
 3
 4
 5
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'continue ReplicationDoneCallback';
 set @@global.rpl_raft_debug_sync_point = '';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
@@ -317,9 +317,9 @@ a
 5
 "Case 6: Check if rotation is handled correctly on follower"
 flush binary logs;
-set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+set @@global.rpl_raft_debug_sync_point = 'ReplicationDoneCallback';
 insert into t1 values(6);
-set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for ReplicationDoneCallback';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 select * from t1;
@@ -352,7 +352,7 @@ a
 3
 4
 5
-set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point_action = 'continue ReplicationDoneCallback';
 set @@global.rpl_raft_debug_sync_point = '';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
