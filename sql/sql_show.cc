@@ -3026,8 +3026,11 @@ class List_process_list : public Do_THD_Impl {
 
     thread_info *thd_info = nullptr;
 
+    // Scope for thd_security_ctx lock.
     {
-      MUTEX_LOCK(grd_secctx, &inspect_thd->LOCK_thd_security_ctx);
+      MDL_mutex_guard grd_secctx(inspect_thd->get_mutex_thd_security_ctx(),
+                                 m_client_thd,
+                                 &inspect_thd->LOCK_thd_security_ctx);
 
       Security_context *inspect_sctx = inspect_thd->security_context();
 
@@ -3297,8 +3300,11 @@ class Fill_process_list : public Do_THD_Impl {
     TABLE *table;
     const char *val = nullptr;
 
+    // Scope for thd_security_ctx lock.
     {
-      MUTEX_LOCK(grd_secctx, &inspect_thd->LOCK_thd_security_ctx);
+      MDL_mutex_guard grd_secctx(inspect_thd->get_mutex_thd_security_ctx(),
+                                 m_client_thd,
+                                 &inspect_thd->LOCK_thd_security_ctx);
 
       Security_context *inspect_sctx = inspect_thd->security_context();
 

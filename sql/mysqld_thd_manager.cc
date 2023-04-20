@@ -46,7 +46,7 @@
 #include "my_sys.h"
 #include "mysql/components/services/bits/psi_bits.h"
 #include "mysql/thread_pool_priv.h"  // inc_thread_created
-#include "sql/mysqld.h"              // mdl_mutex_thread_remove
+#include "sql/mysqld.h"              // use_mdl_mutex
 #include "sql/rpl_source.h"          // unregister_replica
 #include "sql/sql_class.h"           // THD
 #include "thr_mutex.h"
@@ -253,39 +253,24 @@ void Global_THD_manager::remove_thd(THD *thd) {
   assert(cur_thd);
 
   const int partition = thd_partition(thd->thread_id());
-  MDL_ticket *ticket = nullptr;
+  MDL_mutex_guard guard(&mdl_mutex_thd_remove[partition], cur_thd,
+                        &LOCK_thd_remove[partition]);
+  MUTEX_LOCK(lock_list, &LOCK_thd_list[partition]);
 
-  if (mdl_mutex_thread_remove) {
-    ticket = mdl_mutex_thd_remove[partition].lock(cur_thd);
-  } else {
-    mysql_mutex_lock(&LOCK_thd_remove[partition]);
-  }
+  assert(unit_test || thd->release_resources_done());
 
-  // Scope for LOCK_thd_list mutex.
-  {
-    MUTEX_LOCK(lock_list, &LOCK_thd_list[partition]);
+  /*
+    Used by binlog_reset_master.  It would be cleaner to use
+    DEBUG_SYNC here, but that's not possible because the THD's debug
+    sync feature has been shut down at this point.
+  */
+  DBUG_EXECUTE_IF("sleep_after_lock_thread_count_before_delete_thd", sleep(5););
 
-    assert(unit_test || thd->release_resources_done());
-
-    /*
-      Used by binlog_reset_master.  It would be cleaner to use
-      DEBUG_SYNC here, but that's not possible because the THD's debug
-      sync feature has been shut down at this point.
-    */
-    DBUG_EXECUTE_IF("sleep_after_lock_thread_count_before_delete_thd", sleep(5););
-
-    const size_t num_erased = thd_list[partition].erase_unique(thd);
-    if (num_erased == 1) --atomic_global_thd_count;
-    // Removing a THD that was never added is an error.
-    assert(1 == num_erased);
-    mysql_cond_broadcast(&COND_thd_list[partition]);
-  }
-
-  if (mdl_mutex_thread_remove) {
-    mdl_mutex_thd_remove[partition].unlock(cur_thd, ticket);
-  } else {
-    mysql_mutex_unlock(&LOCK_thd_remove[partition]);
-  }
+  const size_t num_erased = thd_list[partition].erase_unique(thd);
+  if (num_erased == 1) --atomic_global_thd_count;
+  // Removing a THD that was never added is an error.
+  assert(1 == num_erased);
+  mysql_cond_broadcast(&COND_thd_list[partition]);
 }
 
 my_thread_id Global_THD_manager::get_new_thread_id() {
@@ -325,15 +310,11 @@ void Global_THD_manager::wait_till_no_thd() {
 void Global_THD_manager::do_for_all_thd_copy(Do_THD_Impl *func) {
   Do_THD doit(func);
   THD *cur_thd = current_thd;
-  assert(cur_thd);
-  MDL_ticket *ticket = nullptr;
+  if (use_mdl_mutex) assert(cur_thd);
 
   for (int i = 0; i < NUM_PARTITIONS; i++) {
-    if (mdl_mutex_thread_remove) {
-      ticket = mdl_mutex_thd_remove[i].lock(cur_thd);
-    } else {
-      mysql_mutex_lock(&LOCK_thd_remove[i]);
-    }
+    MDL_mutex_guard guard(&mdl_mutex_thd_remove[i], cur_thd,
+                          &LOCK_thd_remove[i]);
 
     mysql_mutex_lock(&LOCK_thd_list[i]);
 
@@ -350,12 +331,6 @@ void Global_THD_manager::do_for_all_thd_copy(Do_THD_Impl *func) {
     std::for_each(thd_list_copy.begin(), thd_list_copy.end(), doit);
 
     DEBUG_SYNC_C("inside_do_for_all_thd_copy");
-
-    if (mdl_mutex_thread_remove) {
-      mdl_mutex_thd_remove[i].unlock(cur_thd, ticket);
-    } else {
-      mysql_mutex_unlock(&LOCK_thd_remove[i]);
-    }
   }
 }
 

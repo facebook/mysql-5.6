@@ -10148,9 +10148,8 @@ static Sys_var_bool Sys_enable_json_binary_charset(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL), NULL,
     sys_var::PARSE_NORMAL);
 
-static Sys_var_bool Sys_mdl_mutex_thread_remove(
-    "mdl_mutex_thread_remove",
-    "Use thread pool friendly MDL lock when removing connection threads. "
-    "If disabled, the regular mutex is used.",
-    READ_ONLY GLOBAL_VAR(mdl_mutex_thread_remove), CMD_LINE(OPT_ARG),
-    DEFAULT(true));
+static Sys_var_bool Sys_use_mdl_mutex(
+    "use_mdl_mutex",
+    "Use thread pool friendly MDL lock instead of regular mutex where "
+    "instrumented. If disabled, the regular mutex is used.",
+    READ_ONLY GLOBAL_VAR(use_mdl_mutex), CMD_LINE(OPT_ARG), DEFAULT(true));

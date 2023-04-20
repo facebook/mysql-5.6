@@ -1061,11 +1061,6 @@ The following options may be given as the first argument:
  is only used when setting a lower/minimum bound on HLC
  using minimum_hlc_ns system variable. The default value
  is 300 secs
- --mdl-mutex-thread-remove 
- Use thread pool friendly MDL lock when removing
- connection threads. If disabled, the regular mutex is
- used.
- (Defaults to on; use --skip-mdl-mutex-thread-remove to disable.)
  --memlock           Lock mysqld in memory.
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
@@ -2993,6 +2988,10 @@ The following options may be given as the first argument:
  --use-fb-json-functions=name 
  Use legacy behavior of FB json functions implemented in
  5.6
+ --use-mdl-mutex     Use thread pool friendly MDL lock instead of regular
+ mutex where instrumented. If disabled, the regular mutex
+ is used.
+ (Defaults to on; use --skip-use-mdl-mutex to disable.)
  -u, --user=name     Run mysqld daemon as user.
  --validate-config   Validate the server configuration specified by the user.
  --validate-schema-from-attributes 
@@ -3393,7 +3392,6 @@ max-user-connections 0
 max-waiting-queries 0
 max-write-lock-count 18446744073709551615
 maximum-hlc-drift-ns 300000000000
-mdl-mutex-thread-remove TRUE
 memlock FALSE
 min-examined-row-limit 0
 min-examined-row-limit-sql-stats 0
@@ -3939,6 +3937,7 @@ updatable-views-with-limit YES
 update-binlog-pos-threshold 5242880
 upgrade AUTO
 use-fb-json-functions 
+use-mdl-mutex TRUE
 validate-config FALSE
 validate-schema-from-attributes FALSE
 validate-user-plugins TRUE

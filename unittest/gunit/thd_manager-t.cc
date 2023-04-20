@@ -40,6 +40,8 @@
 using thread::Notification;
 using thread::Thread;
 
+extern bool use_mdl_mutex;
+
 namespace thd_manager_unittest {
 
 class ThreadManagerTest : public ::testing::Test {
@@ -67,6 +69,8 @@ enum TEST_TYPE { TEST_WAIT = 0, TEST_TIMED_WAIT = 1 };
   Verify add_thd(), remove_thd() methods
 */
 TEST_F(ThreadManagerTest, AddRemoveTHDWithGuard) {
+  use_mdl_mutex = false;
+
   THD thd1(false), thd2(false);
   thd1.server_id = 1;
   thd1.set_new_thread_id();

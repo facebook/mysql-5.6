@@ -51,15 +51,15 @@ send SELECT user from information_schema.processlist order by user;
 --echo # I.3
 # Go back to C0, wait for X1
 --connection default
---let $mdl_mutex_thread_remove = `select @@global.mdl_mutex_thread_remove`
-if ($mdl_mutex_thread_remove) {
+--let $use_mdl_mutex = `select @@global.use_mdl_mutex`
+if ($use_mdl_mutex) {
   let $wait_condition=
     select count(*) from performance_schema.events_waits_current
         where EVENT_NAME = 'wait/lock/metadata/sql/mdl' and 
               OBJECT_TYPE = 'MUTEX' and
               OBJECT_NAME like 'THREAD_REMOVE%';
 }
-if (!$mdl_mutex_thread_remove) {
+if (!$use_mdl_mutex) {
   let $wait_condition=
     select count(*) from performance_schema.events_waits_current
         where EVENT_NAME like 'wait/synch/mutex/sql/LOCK_thd_remove';

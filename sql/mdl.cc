@@ -4760,6 +4760,27 @@ bool MDL_context::has_locks(MDL_key::enum_mdl_namespace mdl_namespace) const {
 }
 
 /**
+  Does this context have locks other than the given namespace?
+
+  @retval true    At least one lock other than given namespace is held.
+  @retval false   No locks outside of the given namespace are held.
+*/
+bool MDL_context::has_locks_except(
+    MDL_key::enum_mdl_namespace mdl_namespace) const {
+  MDL_ticket *ticket;
+
+  for (int i = 0; i < MDL_DURATION_END; i++) {
+    enum_mdl_duration duration = static_cast<enum_mdl_duration>(i);
+
+    MDL_ticket_store::List_iterator it = m_ticket_store.list_iterator(duration);
+    while ((ticket = it++)) {
+      if (ticket->get_key()->mdl_namespace() != mdl_namespace) return true;
+    }
+  }
+  return false;
+}
+
+/**
   Do we hold any locks which are possibly being waited
   for by another MDL_context?
 
@@ -5184,12 +5205,30 @@ void MDL_mutex::unlock(THD *thd, MDL_ticket *ticket) {
 /**
   Guard constructor locks the mutex.
 */
-MDL_mutex_guard::MDL_mutex_guard(MDL_mutex *mdl_mutex, THD *thd)
-    : m_mdl_mutex(mdl_mutex), m_thd(thd) {
-  m_ticket = m_mdl_mutex->lock(m_thd);
+MDL_mutex_guard::MDL_mutex_guard(MDL_mutex *mdl_mutex, THD *thd,
+                                 mysql_mutex_t *mutex)
+    : m_mdl_mutex(mdl_mutex), m_thd(thd), m_mutex(mutex) {
+  assert(m_mdl_mutex);
+
+  // If regular mutex is not passed in then ignore use_mdl_mutex flag.
+  if (use_mdl_mutex || !m_mutex) {
+    assert(m_thd);
+    m_ticket = m_mdl_mutex->lock(m_thd);
+  } else {
+    mysql_mutex_lock(m_mutex);
+  }
 }
 
 /**
   Guard destructor unlocks the mutex.
 */
-MDL_mutex_guard::~MDL_mutex_guard() { m_mdl_mutex->unlock(m_thd, m_ticket); }
+MDL_mutex_guard::~MDL_mutex_guard() {
+  // Don't look at use_mdl_mutex any more and unlock whatever mutex was locked.
+  if (m_ticket) {
+    assert(m_mdl_mutex);
+    m_mdl_mutex->unlock(m_thd, m_ticket);
+  } else {
+    assert(m_mutex);
+    mysql_mutex_unlock(m_mutex);
+  }
+}

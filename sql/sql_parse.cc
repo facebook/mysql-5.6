@@ -2335,7 +2335,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         inspection by SHOW PROCESSLIST while we're updating it. Nested
         acquiring of LOCK_thd_data is fine (see below).
       */
-      MUTEX_LOCK(grd_secctx, &thd->LOCK_thd_security_ctx);
+      MDL_mutex_guard grd_secctx(thd->get_mutex_thd_security_ctx(), thd,
+                                 &thd->LOCK_thd_security_ctx);
 
       int auth_rc;
       thd->status_var.com_other++;

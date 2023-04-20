@@ -1214,6 +1214,14 @@ class THD : public MDL_context_owner,
   */
   mysql_mutex_t LOCK_thd_security_ctx;
 
+ private:
+  static constexpr int mutex_thd_security_ctx_partitions = 8;
+  static MDL_mutex mutex_thd_security_ctx[mutex_thd_security_ctx_partitions];
+
+ public:
+  static void init_mutex_thd_security_ctx();
+  MDL_mutex *get_mutex_thd_security_ctx();
+
   /**
     Protects THD::db_read_only_hash.
   */
