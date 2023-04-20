@@ -134,6 +134,9 @@ using std::max;
 using std::min;
 using std::unique_ptr;
 
+// Static objects.
+MDL_mutex THD::mutex_thd_security_ctx[THD::mutex_thd_security_ctx_partitions];
+
 /*
   The following is used to initialise Table_ident with a internal
   table name
@@ -876,6 +879,24 @@ THD::THD(bool enable_plugins, bool is_slave)
   mem_cnt = &thd_cnt_noop;
 }
 
+/**
+  Initialize static array of mutex_thd_security_ctx.
+*/
+void THD::init_mutex_thd_security_ctx() {
+  std::string thd_security_ctx{"THREAD_SECURITY_CTX_"};
+  for (int i = 0; i < mutex_thd_security_ctx_partitions; ++i) {
+    mutex_thd_security_ctx[i].init(thd_security_ctx + std::to_string(i));
+  }
+}
+
+/**
+  Return mutex_thd_security_ctx of this THD.
+*/
+MDL_mutex *THD::get_mutex_thd_security_ctx() {
+  int partition = thread_id() % mutex_thd_security_ctx_partitions;
+  return &mutex_thd_security_ctx[partition];
+}
+
 void THD::copy_table_access_properties(THD *thd) {
   thread_stack = thd->thread_stack;
   variables.option_bits = thd->variables.option_bits & OPTION_BIN_LOG;
@@ -1497,7 +1518,7 @@ void THD::cleanup(void) {
   release_backup_lock(this);
 
   /* All metadata locks must have been released by now. */
-  assert(!mdl_context.has_locks());
+  assert(!mdl_context.has_locks_except(MDL_key::MUTEX));
 
   /* Protects user_vars. */
   mysql_mutex_lock(&LOCK_thd_data);

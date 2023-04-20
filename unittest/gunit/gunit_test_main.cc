@@ -124,6 +124,7 @@ uint opt_debug_sync_timeout = 0;
 thread_local MEM_ROOT **THR_MALLOC = nullptr;
 thread_local THD *current_thd = nullptr;
 size_t malloc_chunk_size = 1024;
+bool use_mdl_mutex = true;
 
 extern "C" void sql_alloc_error_handler(void) { ADD_FAILURE(); }
 
