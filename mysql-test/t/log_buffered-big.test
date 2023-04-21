@@ -137,6 +137,11 @@ SELECT "[ PASS ] Server has restarted.";
    close($outfh);
  EOF
 
+# Filter out glog messages coming from plugins.
+--let $script= DOLLAR_ = '' if (m{[VIEW][0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6} [0-9]+ .*});
+--let $input_file= $LOG_FILE_TRAD
+--source include/filter_file.inc
+
 # Now, compare the two logs ("native" trad log, and JSON-converted-to-trad):
 --perl
    use strict;

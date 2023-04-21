@@ -8,6 +8,7 @@ SELECT "[ PASS ] Server has restarted.";
 [ PASS ] Successfully read JSON log file.
 [ PASS ] Error log successfully parsed as a JSON document.
 [ PASS ] Lines were converted from JSON to trad.
+include/filter_file.inc
 [ PASS ] Traditional log and JSON-converted-to-trad log are the same.
 RESET PERSIST log_error_services;
 RESET PERSIST log_error_suppression_list;
