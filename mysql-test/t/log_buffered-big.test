@@ -246,6 +246,11 @@ SELECT @@log_error_services;
    close($outfh);
  EOF
 
+# Filter out glog messages coming from plugins.
+--let $script= DOLLAR_ = '' if (m{[VIEW][0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6} [0-9]+ .*});
+--let $input_file= $LOG_FILE_TRAD
+--source include/filter_file.inc
+
 --diff_files $LOG_FILE_JSON_TO_TRAD $LOG_FILE_TRAD
 
 # Cleanup

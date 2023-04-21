@@ -7,5 +7,6 @@ SELECT @@log_error_services;
 log_filter_internal,log_sink_internal,log_sink_json
 # restart
 [ PASS ] Error log successfully parsed as a json document
+include/filter_file.inc
 SET GLOBAL log_error_services=default;
 UNINSTALL COMPONENT "file://component_log_sink_json";
