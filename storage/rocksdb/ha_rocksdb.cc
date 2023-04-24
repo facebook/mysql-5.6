@@ -7434,6 +7434,8 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->clone_interface.clone_apply_end = rocksdb_clone_apply_end;
 
   rocksdb_hton->dict_register_dd_table_id = rocksdb_dict_register_dd_table_id;
+  rocksdb_hton->dict_get_server_version = rocksdb_dict_get_server_version;
+  rocksdb_hton->dict_set_server_version = rocksdb_dict_set_server_version;
 
   rocksdb_hton->flags = HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
 
