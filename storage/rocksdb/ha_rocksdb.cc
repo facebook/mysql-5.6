@@ -101,6 +101,7 @@
 #include "./rdb_index_merge.h"
 #include "./rdb_iterator.h"
 #include "./rdb_mutex_wrapper.h"
+#include "./rdb_native_dd.h"
 #include "./rdb_psi.h"
 #include "./rdb_sst_partitioner_factory.h"
 #include "./rdb_threads.h"
@@ -7432,6 +7433,8 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->clone_interface.clone_apply = rocksdb_clone_apply;
   rocksdb_hton->clone_interface.clone_apply_end = rocksdb_clone_apply_end;
 
+  rocksdb_hton->dict_register_dd_table_id = rocksdb_dict_register_dd_table_id;
+
   rocksdb_hton->flags = HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
 
   rocksdb_hton->partition_flags = rocksdb_partition_flags;
@@ -10132,6 +10135,9 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
                                dd::Table *table_def) {
   DBUG_ENTER_FUNC();
 
+  int err = native_dd::reject_if_dd_table(table_def);
+  if (err != 0) DBUG_RETURN(err);
+
   /*
     Fast table truncation involves deleting the table and then recreating
     it. However, it is possible recreating the table fails. In this case, a
@@ -10155,8 +10161,8 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
     should be locked via MDL, no other process thread be able to access this
     table.
   */
-  int err = rdb_split_normalized_tablename(orig_tablename, &dbname, &tblname,
-                                           &partition);
+  err = rdb_split_normalized_tablename(orig_tablename, &dbname, &tblname,
+                                       &partition);
   assert(err == 0);
   if (err != HA_EXIT_SUCCESS) DBUG_RETURN(err);
   tblname = std::string(TRUNCATE_TABLE_PREFIX) + tblname;
@@ -14065,11 +14071,13 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
 */
 
 int ha_rocksdb::delete_table(const char *const tablename,
-                             const dd::Table *table_def
-                                 MY_ATTRIBUTE((__unused__))) {
+                             const dd::Table *table_def) {
   DBUG_ENTER_FUNC();
 
   assert(tablename != nullptr);
+
+  int err = native_dd::reject_if_dd_table(table_def);
+  if (err != 0) DBUG_RETURN(err);
 
   /* Find the table in the hash */
   Rdb_tbl_def *const tbl = get_table_if_exists(tablename);
@@ -14085,17 +14093,19 @@ int ha_rocksdb::delete_table(const char *const tablename,
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (cannot be SE-specific)
 */
-int ha_rocksdb::rename_table(
-    const char *const from, const char *const to,
-    const dd::Table *from_table_def MY_ATTRIBUTE((__unused__)),
-    dd::Table *to_table_def MY_ATTRIBUTE((__unused__))) {
+int ha_rocksdb::rename_table(const char *const from, const char *const to,
+                             const dd::Table *from_table_def,
+                             [[maybe_unused]] dd::Table *to_table_def) {
   DBUG_ENTER_FUNC();
+
+  int rc;
+  rc = native_dd::reject_if_dd_table(from_table_def);
+  if (rc != 0) DBUG_RETURN(rc);
 
   std::string from_str;
   std::string to_str;
   std::string from_db;
   std::string to_db;
-  int rc;
 
   if (rdb_is_tablename_normalized(from)) {
     from_str = from;
@@ -19015,6 +19025,16 @@ static bool parse_fault_injection_params(
       return true;
     }
     types->push_back(type);
+  }
+
+  return false;
+}
+
+bool ha_rocksdb::get_se_private_data(dd::Table *, bool reset) {
+  // TODO: Remove the assert once we fully migrate to using RocksDB DD API.
+  assert(false);
+  if (reset) {
+    native_dd::clear_dd_table_ids();
   }
 
   return false;
