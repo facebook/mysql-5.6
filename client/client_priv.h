@@ -210,6 +210,7 @@ enum options_client {
   OPT_COMPRESS_DATA_CHUNK_SIZE,
   OPT_ORDER_BY_PRIMARY_FORCE_INDEX,
   OPT_READ_FROM_BINLOG_SERVER,
+  OPT_DATA_PATH,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };

@@ -1,0 +1,55 @@
+CREATE DATABASE database1;
+USE database1;
+CREATE TABLE t1(a INT PRIMARY KEY, b INT UNIQUE) ENGINE = INNODB;
+INSERT INTO t1 VALUES (1, 3);
+INSERT INTO t1 VALUES (2, 2);
+INSERT INTO t1 VALUES (3, 1);
+==== mysqldump with --data-path ====
+DROP TABLE t1;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t1.txt' INTO TABLE t1;;
+DROP TABLE t1;
+CREATE TABLE t2(x VARCHAR(100));
+CREATE TABLE t3(x VARCHAR(100));
+  20000   20000 1620000
+ 200000  200000 16200000
+LOAD DATA LOCAL INFILE 'VARDIR/t2.tmp' INTO TABLE t2;;
+LOAD DATA LOCAL INFILE 'VARDIR/t3.tmp' INTO TABLE t3;;
+DROP TABLE t2, t3;
+t2.txt.0.zst
+t2.txt.1.zst
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t2.txt.0.zst' INTO TABLE t2 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t2.txt.1.zst' INTO TABLE t2 compressed;
+t3.txt.0.zst
+t3.txt.1.zst
+t3.txt.10.zst
+t3.txt.11.zst
+t3.txt.12.zst
+t3.txt.13.zst
+t3.txt.14.zst
+t3.txt.15.zst
+t3.txt.2.zst
+t3.txt.3.zst
+t3.txt.4.zst
+t3.txt.5.zst
+t3.txt.6.zst
+t3.txt.7.zst
+t3.txt.8.zst
+t3.txt.9.zst
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.0.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.1.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.2.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.3.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.4.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.5.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.6.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.7.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.8.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.9.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.10.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.11.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.12.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.13.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.14.zst' INTO TABLE t3 compressed;
+LOAD DATA LOCAL INFILE 'VARDIR/.txt/t3.txt.15.zst' INTO TABLE t3 compressed;
+DROP TABLE t2, t3;
+DROP DATABASE database1;

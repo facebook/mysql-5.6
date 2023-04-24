@@ -157,6 +157,7 @@ static bool ansi_quotes_mode = false;
 
 static uint opt_zstd_compress_level = default_zstd_compression_level;
 static char *opt_compress_algorithm = nullptr;
+static char *opt_data_path = nullptr;
 
 #define MYSQL_OPT_SOURCE_DATA_EFFECTIVE_SQL 1
 #define MYSQL_OPT_SOURCE_DATA_COMMENTED_SQL 2
@@ -783,6 +784,12 @@ static struct my_option my_long_options[] = {
      "Split compressed data on chunks of specified size in megabytes",
      &opt_compression_chunk_size, &opt_compression_chunk_size, 0, GET_ULL,
      OPT_ARG, 0, 0, (ulonglong)(~(my_off_t)0), nullptr, 0, nullptr},
+    {"data-path", OPT_DATA_PATH,
+     "Store data textfile for each table to specificed data-path. if specified,"
+     ".txt file will be stored in specified data-path, while .sql will be "
+     "stored in --tab path.",
+     &opt_data_path, &opt_data_path, nullptr, GET_STR, OPT_ARG, 0, 0, 0,
+     nullptr, 0, nullptr},
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
@@ -1317,6 +1324,11 @@ static int get_options(int *argc, char ***argv) {
     return (EX_USAGE);
   }
 
+  if (opt_data_path && !path) {
+    // NO_LINT_DEBUG
+    fprintf(stderr, "%s: --data-path must be used with --tab.\n", my_progname);
+    return (EX_USAGE);
+  }
   return (0);
 } /* get_options */
 
@@ -4041,21 +4053,25 @@ static void dump_table(char *table, char *db) {
   if (path) {
     char filename[FN_REFLEN], tmp_path[FN_REFLEN];
 
-    /*
-      Convert the path to native os format
-      and resolve to the full filepath.
-    */
-    convert_dirname(tmp_path, path, NullS);
-    my_load_path(tmp_path, tmp_path, nullptr);
-    fn_format(filename, table, tmp_path, ".txt",
-              MYF(MY_UNPACK_FILENAME | MY_APPEND_EXT));
+    if (opt_data_path) {
+      /* construct data file full path */
+      fn_format(filename, table, opt_data_path, ".txt", MYF(MY_APPEND_EXT));
+    } else {
+      /*
+          Convert the path to native os format
+          and resolve to the full filepath.
+      */
+      convert_dirname(tmp_path, path, NullS);
+      my_load_path(tmp_path, tmp_path, nullptr);
+      fn_format(filename, table, tmp_path, ".txt",
+                MYF(MY_UNPACK_FILENAME | MY_APPEND_EXT));
 
-    /* Must delete the file that 'INTO OUTFILE' will write to */
-    my_delete(filename, MYF(0));
+      /* Must delete the file that 'INTO OUTFILE' will write to */
+      my_delete(filename, MYF(0));
 
-    /* convert to a unix path name to stick into the query */
-    to_unix_path(filename);
-
+      /* convert to a unix path name to stick into the query */
+      to_unix_path(filename);
+    }
     /* now build the query string */
 
     dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ ");
