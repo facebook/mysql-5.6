@@ -60,11 +60,6 @@ ELSE()
   STRING(REGEX MATCHALL "[^\n]+" ROCKSDB_LIB_SOURCES ${SCRIPT_OUTPUT})
 
   SET(ROCKSDB_ROOT ${CMAKE_SOURCE_DIR}/rocksdb)
-
-  # Statically include all RocksDB source
-  SET(ROCKSDB_SOURCES
-    ${ROCKSDB_LIB_SOURCES}
-  )
 ENDIF()
 
 IF (WITH_UBSAN)
@@ -154,8 +149,7 @@ INCLUDE_DIRECTORIES(
   ${ROCKSDB_ROOT}/third-party/gtest-1.8.1/fused-src
 )
 
-SET(ROCKSDB_SOURCES
-  ${ROCKSDB_SOURCES}
+SET(ROCKSDB_SE_SOURCES
   ha_rocksdb.cc ha_rocksdb.h ha_rocksdb_proto.h
   logger.h
   rdb_datadic.cc rdb_datadic.h
@@ -256,9 +250,13 @@ IF(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
   SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt")
 ENDIF()
 
-MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
-  LINK_LIBRARIES ${rocksdb_static_libs}
-)
+ADD_LIBRARY(rocksdb_sources ${ROCKSDB_LIB_SOURCES})
+TARGET_LINK_LIBRARIES(rocksdb_sources ${rocksdb_static_libs})
+
+MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SE_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
+  LINK_LIBRARIES rocksdb_sources)
+# to fix linkage error on partition_base
+TARGET_LINK_LIBRARIES(rocksdb_se sql_main)
 
 IF(WITH_EMBEDDED_SERVER)
   ADD_SUBDIRECTORY(unittest)
@@ -266,16 +264,18 @@ ENDIF()
 
 IF (WITH_ROCKSDB_SE_STORAGE_ENGINE AND (NOT HAVE_EXTERNAL_ROCKSDB))
   # TODO: read this file list from src.mk:TOOL_SOURCES
-  SET(ROCKSDB_TOOL_SOURCES
+  ADD_LIBRARY(rocksdb_tool
     ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb_tool.cc
     ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb_cmd.cc
     ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump_tool.cc
     ${CMAKE_SOURCE_DIR}/rocksdb/utilities/blob_db/blob_dump_tool.cc
   )
-  MYSQL_ADD_EXECUTABLE(sst_dump ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump.cc ${ROCKSDB_TOOL_SOURCES})
-  TARGET_LINK_LIBRARIES(sst_dump rocksdb_se)
+  TARGET_LINK_LIBRARIES(rocksdb_tool rocksdb_sources)
 
-  MYSQL_ADD_EXECUTABLE(ldb ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb.cc ${ROCKSDB_TOOL_SOURCES})
-  TARGET_LINK_LIBRARIES(ldb rocksdb_se)
+  MYSQL_ADD_EXECUTABLE(sst_dump ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump.cc)
+  TARGET_LINK_LIBRARIES(sst_dump rocksdb_tool)
+
+  MYSQL_ADD_EXECUTABLE(ldb ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb.cc)
+  TARGET_LINK_LIBRARIES(ldb rocksdb_tool)
 
 ENDIF()
