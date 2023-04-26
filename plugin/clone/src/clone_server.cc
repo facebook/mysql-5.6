@@ -381,6 +381,12 @@ int Server::deserialize_init_buffer(const uchar *init_buf, size_t init_len) {
       goto err_end;
     }
 
+    if (!loc.m_hton) {
+      my_error(ER_CLONE_PROTOCOL, MYF(0),
+               "storage engine plugin set mismatch between donor and client");
+      return (ER_CLONE_PROTOCOL);
+    }
+
     m_storage_vec.push_back(loc);
 
     init_len -= serialized_length;

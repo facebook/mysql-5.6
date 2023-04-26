@@ -27,6 +27,7 @@ Clone Plugin: Interface with SE handlerton
 */
 
 #include "plugin/clone/include/clone_hton.h"
+#include "mysqld_error.h"
 
 /* Namespace for all clone data types */
 namespace myclone {
@@ -105,6 +106,15 @@ static bool run_hton_clone_begin(THD *thd, plugin_ref plugin, void *arg) {
   return (false);
 }
 
+static bool run_collect_expected_storage_vector(THD *, plugin_ref plugin,
+                                                void *arg) {
+  auto clone_arg = static_cast<std::vector<legacy_db_type> *>(arg);
+  auto hton = plugin_data<handlerton *>(plugin);
+  if (hton->clone_interface.clone_begin != nullptr)
+    clone_arg->push_back(hton->db_type);
+  return (false);
+}
+
 // Make InnoDB first in the storage locator and task vectors - to drive the
 // cross-engine synchronization & to wait for reconnects
 static void make_innodb_first(Storage_Vector &clone_loc_vec,
@@ -124,6 +134,31 @@ static void make_innodb_first(Storage_Vector &clone_loc_vec,
     }
   }
   assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
+}
+
+static int validate_storage_engine(THD *thd, Storage_Vector &clone_loc_vec) {
+  std::vector<legacy_db_type> expected_storage_vec;
+  expected_storage_vec.reserve(clone_loc_vec.capacity());
+
+  std::unordered_set<legacy_db_type> storage_vec;
+
+  std::transform(
+      clone_loc_vec.begin(), clone_loc_vec.end(),
+      std::inserter(storage_vec, storage_vec.end()),
+      [](const myclone::Locator &loc) { return loc.m_hton->db_type; });
+
+  plugin_foreach(thd, run_collect_expected_storage_vector,
+                 MYSQL_STORAGE_ENGINE_PLUGIN, &expected_storage_vec);
+
+  for (const auto &iter : expected_storage_vec) {
+    if (storage_vec.find(iter) == storage_vec.end()) {
+      my_error(ER_CLONE_PROTOCOL, MYF(0),
+               "storage engine plugin set mismatch between donor and client");
+      return (ER_CLONE_PROTOCOL);
+    }
+  }
+
+  return (0);
 }
 
 int hton_clone_begin(THD *thd, Storage_Vector &clone_loc_vec,
@@ -152,6 +187,9 @@ int hton_clone_begin(THD *thd, Storage_Vector &clone_loc_vec,
 
   assert(clone_loc_vec[0].m_hton->db_type == DB_TYPE_INNODB);
 
+  auto err = validate_storage_engine(thd, clone_loc_vec);
+  if (err != 0) return (err);
+
   for (auto &loc_iter : clone_loc_vec) {
     uint32_t task_id = 0;
 
@@ -170,7 +208,7 @@ int hton_clone_begin(THD *thd, Storage_Vector &clone_loc_vec,
       assert(flags[HA_CLONE_RESTART]);
     }
 #endif
-    auto err = loc_iter.m_hton->clone_interface.clone_begin(
+    err = loc_iter.m_hton->clone_interface.clone_begin(
         loc_iter.m_hton, thd, loc_iter.m_loc, loc_iter.m_loc_len, task_id,
         clone_type, clone_mode);
 
@@ -247,6 +285,10 @@ static bool run_hton_clone_apply_begin(THD *thd, plugin_ref plugin, void *arg) {
     uint32_t task_id = 0;
 
     assert(clone_arg->m_mode == HA_CLONE_MODE_VERSION);
+
+    DBUG_EXECUTE_IF(
+        "client_has_less_se",
+        if (hton->db_type == DB_TYPE_ROCKSDB) { return (false); });
 
     clone_arg->m_err = hton->clone_interface.clone_apply_begin(
         hton, thd, loc.m_loc, loc.m_loc_len, task_id, clone_arg->m_mode,
