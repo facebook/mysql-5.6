@@ -1,0 +1,27 @@
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+SET global debug="+d,client_has_less_se";
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_valid_donor_list = 'HOST:PORT';
+CLONE INSTANCE FROM USER@HOST:PORT IDENTIFIED BY '' DATA DIRECTORY = 'CLONE_DATADIR';
+ERROR 08S01: Got an error reading communication packets
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Failed	1158
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+SET global debug="-d,client_has_less_se";
+SET global debug="+d,client_has_more_se";
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_valid_donor_list = 'HOST:PORT';
+CLONE INSTANCE FROM USER@HOST:PORT IDENTIFIED BY '' DATA DIRECTORY = 'CLONE_DATADIR';
+ERROR 08S01: Got an error reading communication packets
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Failed	1158
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+SET global debug="-d,client_has_more_se";
+# restart
+UNINSTALL PLUGIN clone;

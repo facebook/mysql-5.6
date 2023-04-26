@@ -75,6 +75,9 @@ struct Locator {
       /* Should not lock plugin for auxiliary threads */
       assert(thd != nullptr);
 
+      DBUG_EXECUTE_IF("client_has_more_se", if (db_type == DB_TYPE_ROCKSDB)
+                                                db_type = DB_TYPE_UNKNOWN;);
+
       m_hton = ha_resolve_by_legacy_type(thd, db_type);
 
     } else {
