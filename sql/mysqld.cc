@@ -11490,6 +11490,8 @@ SHOW_VAR status_vars[] = {
     {"Uptime_since_flush_status", (char *)&show_flushstatustime, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
 #endif
+    {"Write_throttle_lag_ms", (char *)&last_write_throttle_lag_ms, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
     {"Json_contains_key_count", (char *)&json_contains_key_count, SHOW_LONGLONG,
      SHOW_SCOPE_GLOBAL},
     {"Json_array_length_count", (char *)&json_array_length_count, SHOW_LONGLONG,

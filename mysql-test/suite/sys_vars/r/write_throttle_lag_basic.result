@@ -1,0 +1,23 @@
+use test;
+DROP TABLE IF EXISTS t1;
+create table t1(a int);
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=1;
+SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=3000;
+SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=1000;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_ms';
+Variable_name	Value
+Write_throttle_lag_ms	0
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into t1 values (1);
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_ms';
+Variable_name	Value
+Write_throttle_lag_ms	3001
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+drop table t1;
+SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=DEFAULT;
+SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=DEFAULT;
+SET @@GLOBAL.WRITE_STATS_COUNT=DEFAULT;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=DEFAULT;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=DEFAULT;

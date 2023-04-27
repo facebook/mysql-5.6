@@ -45,6 +45,7 @@ OBJECTS & METHODS TO SUPPORT WRITE_STATISTICS
 void store_write_statistics(THD *thd);
 void free_global_write_statistics();
 std::vector<write_statistics_row> get_all_write_statistics();
+extern ulong last_write_throttle_lag_ms;
 
 /***********************************************************************
 OBJECTS & METHODS TO SUPPORT WRITE_THROTTLING_RULES
@@ -135,7 +136,7 @@ struct WRITE_THROTTLING_LOG {
   ulonglong count;  /* Number of times this rule has been used to throttle */
 };
 
-void store_write_throttling_log(THD *thd, int type, std::string value,
+void store_write_throttling_log(THD *thd, int type, const std::string &entity,
                                 WRITE_THROTTLING_RULE &rule);
 
 void store_long_qry_abort_log(THD *thd);
@@ -153,7 +154,7 @@ struct WRITE_MONITORED_ENTITY {
   uint hits;
 
   void reset() {
-    name = "";
+    name.clear();
     dimension = WTR_DIM_UNKNOWN;
     hits = 0;
   }

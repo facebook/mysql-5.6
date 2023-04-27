@@ -32,7 +32,7 @@
 
   NOTES
     This function assumes that all variables are longlong/ulonglong.
-    If this assumption will change, then we have to explictely add
+    If this assumption will change, then we have to explictly add
     the other variables after the while loop
 */
 

@@ -1,0 +1,51 @@
+# This test verifies that the 'Write_throttle_lag_ms' status var works correctly.
+
+# This test requires debug_sync.
+source include/have_debug_sync.inc;
+
+# Set up a basic table for writes.
+use test;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(a int);
+
+# Enable basic globals required for write throttle evaluation to happen.
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=1;
+
+# These are not required for write throttling policy evaluation to function, but
+# setting them to a known value to reduce test breakages if the default values
+# change.
+SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=3000;
+SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=1000;
+
+# Check Write_throttle_lag_ms status var under normal conditions. Should be zero.
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_ms';
+
+# Set lag via DBUG package to force it to a significant value the next
+# time the policy is evaluated.
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+
+# Write throttle policy eval requires at least one write statement.
+insert into t1 values (1);
+
+# Wait for the policy cycle to happen.
+let $wait_condition= SELECT VARIABLE_VALUE <> 0
+FROM performance_schema.global_status where variable_name='Write_throttle_lag_ms';
+--source include/wait_condition.inc
+
+# Now the value should be exactly @@WRITE_START_THROTTLE_LAG_MILLISECONDS + 1.
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_ms';
+
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+
+# Clean up.
+drop table t1;
+SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=DEFAULT;
+SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=DEFAULT;
+SET @@GLOBAL.WRITE_STATS_COUNT=DEFAULT;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=DEFAULT;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=DEFAULT;
