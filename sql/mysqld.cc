@@ -11790,6 +11790,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Resource_group_supported", (char *)show_resource_group_support, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Write_throttle_lag_ms", (char *)&last_write_throttle_lag_ms, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
     {"Json_contains_key_count", (char *)&json_contains_key_count, SHOW_LONGLONG,
      SHOW_SCOPE_GLOBAL},
     {"Json_array_length_count", (char *)&json_array_length_count, SHOW_LONGLONG,

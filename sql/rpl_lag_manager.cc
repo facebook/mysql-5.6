@@ -52,8 +52,23 @@ const std::string WRITE_STATS_TYPE_STRING[] = {"USER", "CLIENT", "SHARD",
 typedef std::array<std::unordered_map<std::string, WRITE_STATS>,
                    WRITE_STATISTICS_DIMENSION_COUNT>
     TIME_BUCKET_STATS;
-/* Global write statistics map */
+
+/**
+  Global write statistics map, in descending time order.
+  I.e. global_write_statistics_map.front() is the most recent time bucket.
+
+  Time is sliced into buckets of `write_stats_frequency` seconds, with the most
+  recent at the head of the list.
+
+  Each element is a pair containing the bucket key, which is the time slice that
+  bucket represents, and the stats for that time slice (or bucket).
+*/
 std::list<std::pair<int, TIME_BUCKET_STATS>> global_write_statistics_map;
+
+/* Last computed write-throttling lag value computed in milliseconds.
+   Exposed via SHOW STATUS.
+*/
+ulong last_write_throttle_lag_ms;
 
 /*
   free_global_write_statistics
@@ -117,6 +132,8 @@ void store_write_statistics(THD *thd) {
   mysql_mutex_lock(&LOCK_global_write_statistics);
   time_t timestamp = time(0);
   int time_bucket_key = timestamp - (timestamp % write_stats_frequency_cached);
+
+  // Fetch the most recent time bucket.
   auto time_bucket_iter = global_write_statistics_map.begin();
 
   DBUG_EXECUTE_IF("dbug.add_write_stats_to_most_recent_bucket", {
@@ -128,7 +145,9 @@ void store_write_statistics(THD *thd) {
   if (time_bucket_iter == global_write_statistics_map.end() ||
       time_bucket_key > time_bucket_iter->first) {
     // time_bucket is newer than last registered bucket...
-    // need to insert a new one
+    // need to insert a new one at the head of the list.
+
+    // First, prune any excess entries.
     while (!global_write_statistics_map.empty() &&
            (uint)global_write_statistics_map.size() >= write_stats_count) {
       // We are over the configured size. Erase older entries first.
@@ -171,7 +190,9 @@ std::vector<write_statistics_row> get_all_write_statistics() {
 OBJECTS & METHODS TO SUPPORT WRITE_THROTTLING_RULES
 ************************************************************************/
 
+// Per dimension, per entity map of write throttling rules.
 GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
+
 /* Queue to store all the entities being currently auto throttled. It is used to
 release entities in order they were throttled when replication lag goes below
 safe threshold  */
@@ -385,18 +406,25 @@ void free_global_write_throttling_log(void) {
 */
 std::unordered_map<std::string, WRITE_THROTTLING_LOG> global_long_qry_abort_log;
 
-/*
+/**
   store_write_throttling_log
     Stores a log for when a query was throttled due to a throttling
-    rule in I_S.WRITE_THROTTLING_RULES
+    rule in P_S.WRITE_THROTTLING_RULES
+
+  @param entity              The entity that is being throttled.
+
 */
-void store_write_throttling_log(THD *, int type, std::string value,
+void store_write_throttling_log(THD *, int type, const std::string &entity,
                                 WRITE_THROTTLING_RULE &rule) {
   mysql_mutex_lock(&LOCK_global_write_throttling_log);
   WRITE_THROTTLING_LOG log{};
   time_t timestamp = time(0);
   auto &log_map = global_write_throttling_log[type][rule.mode];
-  auto &inserted_log = log_map.insert(std::make_pair(value, log)).first->second;
+  // Upsert the element and capture a ref to it. std::unordered_map::insert only
+  // inserts if the key doesn't already exist, otherwise it just returns the
+  // existing element.
+  auto &inserted_log =
+      log_map.insert(std::make_pair(entity, log)).first->second;
   inserted_log.last_time = timestamp;
   inserted_log.count++;
   mysql_mutex_unlock(&LOCK_global_write_throttling_log);
@@ -487,6 +515,7 @@ OBJECTS & METHODS TO SUPPORT AUTO_THROTTLING OF WRITE QUERIES
 
 /* timestamp when replication lag check was last done */
 std::atomic<time_t> last_replication_lag_check_time(0);
+
 /* Stores the info about the entity that is currently being monitored for
  * replication lag */
 WRITE_MONITORED_ENTITY currently_monitored_entity;
@@ -552,7 +581,7 @@ void static update_monitoring_status_for_entity(std::string name,
   @retval pair<first_key, second key>
 */
 std::pair<std::string, std::string> get_top_two_entities(
-    std::unordered_map<std::string, WRITE_STATS> &dim_stats) {
+    const std::unordered_map<std::string, WRITE_STATS> &dim_stats) {
   std::string first_entity = "";
   std::string second_entity = "";
   ulonglong first_bytes_written = 0;
@@ -580,7 +609,10 @@ std::pair<std::string, std::string> get_top_two_entities(
   lag is below safe threshold.
 */
 void check_lag_and_throttle(time_t time_now) {
-  ulong lag = get_current_replication_lag();
+  const ulong lag = get_current_replication_lag();
+
+  // Save the lag value for SHOW STATUS.
+  last_write_throttle_lag_ms = lag;
 
   if (lag < write_stop_throttle_lag_milliseconds) {
     if (are_replicas_lagging) {
@@ -594,10 +626,10 @@ void check_lag_and_throttle(time_t time_now) {
     // at most one throttled entity. If releasing, erase corresponding
     // throttling rule.
     if (currently_throttled_entities.empty()) return;
-    auto throttled_entity = currently_throttled_entities.front();
+    const auto &throttled_entity = currently_throttled_entities.front();
 
-    enum_wtr_dimension wtr_dim = throttled_entity.second;
-    std::string name = throttled_entity.first;
+    const enum_wtr_dimension wtr_dim = throttled_entity.second;
+    const std::string &name = throttled_entity.first;
 
     mysql_mutex_lock(&LOCK_global_write_throttling_rules);
     auto &rules_map = global_write_throttling_rules[wtr_dim];
@@ -697,7 +729,7 @@ void check_lag_and_throttle(time_t time_now) {
     if (!dbug_skip_last_complete_bucket_check) {
       if (latest_write_stats_iter->first != time_bucket_key) {
         // move to the second from front time bucket
-        latest_write_stats_iter++;
+        ++latest_write_stats_iter;
       }
       if (latest_write_stats_iter == global_write_statistics_map.end() ||
           latest_write_stats_iter->first != time_bucket_key) {
@@ -728,7 +760,7 @@ void check_lag_and_throttle(time_t time_now) {
     std::pair<std::string, enum_wtr_dimension> entity_to_throttle;
 
     for (auto dim_iter = dimensions.begin(); dim_iter != dimensions.end();
-         dim_iter++) {
+         ++dim_iter) {
       enum_wtr_dimension dim = *dim_iter;
       auto &dim_stats = latest_write_stats[dim];
       std::pair<std::string, std::string> top_entities =
