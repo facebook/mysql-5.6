@@ -30,6 +30,8 @@ insert into t1 values(2);
 --eval SET GLOBAL debug = `$old_debug`
 
 connection slave;
+stop replica;
+change replication source to source_retry_count=90, source_connect_retry=10;
 disable_warnings;
 --let $rpl_allow_error=1
 source include/start_slave.inc;
