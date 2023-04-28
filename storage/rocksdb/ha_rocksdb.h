@@ -493,8 +493,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   bool should_store_row_debug_checksums() const;
 
   int rename_table(const char *const from, const char *const to,
-                   const dd::Table *from_table_def [[maybe_unused]],
-                   dd::Table *to_table_def [[maybe_unused]]) override
+                   const dd::Table *from_table_def,
+                   dd::Table *to_table_def) override
       MY_ATTRIBUTE((__warn_unused_result__, __nonnull__(2, 3)));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
@@ -669,6 +669,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice);
   static bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
                                    const rocksdb::Slice &eq_cond);
+
+  bool get_se_private_data(dd::Table *, bool reset) override;
 
  private:
   bool mrr_sorted_mode;  // true <=> we are in ordered-keys, ordered-results
