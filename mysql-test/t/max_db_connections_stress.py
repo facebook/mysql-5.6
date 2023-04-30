@@ -61,7 +61,7 @@ def generate_load(args, worker_id):
 
             # print("WORKER %d: Executing iteration %d" % (worker_id, i))
             cursor = con.cursor()
-            cursor.execute('select 1;')
+            cursor.execute('select sleep(0.1);')
             cursor.close()
             con.close()
         except MySQLdb.OperationalError as e:

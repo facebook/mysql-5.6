@@ -92,7 +92,7 @@ disconnect con11;
 --echo == Change con10 back to regular user
 connection con10;
 # wait for con11 to be disconnected
-let $wait_condition= select count(*)=9 from information_schema.processlist where user='test_user';
+let $wait_condition = select connections = 9 from information_schema.admission_control_entities where schema_name = 'test';
 source include/wait_condition.inc;
 # now change user in con10
 change_user test_user,,test;
@@ -133,7 +133,7 @@ eval $ac_entities_query;
 connection default;
 disconnect con10;
 # Wait for con10 to go away
-let $wait_condition = select count(*) = 19 from information_schema.processlist where user = 'test_user';
+let $wait_condition = select connections = 9 from information_schema.admission_control_entities where schema_name = 'test';
 source include/wait_condition.inc;
 # Now create external connection. First change_user to test should succeed,
 # second one to test_db should fail.
@@ -164,7 +164,7 @@ while ($i)
   dec $i;
 }
 # wait for connections to go away
-let $wait_condition = select count(*) = 0 from information_schema.processlist where user = 'test_user';
+let $wait_condition = select sum(connections) = 0 from information_schema.admission_control_entities where schema_name like 'test%';
 source include/wait_condition.inc;
 eval $ac_entities_query;
 
@@ -221,7 +221,7 @@ while ($i > 4)
   dec $i;
 }
 # wait for connections to go away
-let $wait_condition = select count(*) = 4 from information_schema.processlist where user = 'test_user';
+let $wait_condition = select connections = 4 from information_schema.admission_control_entities where schema_name = 'test';
 source include/wait_condition.inc;
 eval $ac_entities_query;
 connect (con5, localhost, test_user,,test);
@@ -233,7 +233,7 @@ eval $ac_entities_query;
 # Release one slot on test for the test below.
 connection default;
 disconnect con5;
-let $wait_condition = select count(*) = 4 from information_schema.processlist where user = 'test_user';
+let $wait_condition = select connections = 4 from information_schema.admission_control_entities where schema_name = 'test';
 source include/wait_condition.inc;
 
 --echo == Drop database with connections
@@ -246,7 +246,7 @@ eval $ac_entities_query;
 connection default;
 disconnect con2_1;
 disconnect con2_2;
-let $wait_condition = select count(*) = 4 from information_schema.processlist where user = 'test_user';
+let $wait_condition = select connections = 4 from information_schema.admission_control_entities where schema_name = 'test';
 source include/wait_condition.inc;
 
 --echo == Cleanup
