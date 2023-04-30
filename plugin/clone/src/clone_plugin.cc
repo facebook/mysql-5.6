@@ -70,6 +70,10 @@ uint clone_max_io_bandwidth;
 /** Clone system variable: If network compression is enabled */
 bool clone_enable_compression;
 
+ulong clone_compression_algorithm;
+
+uint clone_zstd_compression_level;
+
 /** Clone system variable: valid list of donor addresses. */
 static char *clone_valid_donor_list;
 
@@ -639,6 +643,28 @@ static MYSQL_SYSVAR_BOOL(enable_compression, clone_enable_compression,
                          "If compression is done at network", nullptr, nullptr,
                          false); /* Disable compression by default */
 
+enum enum_clone_compression_algorithm { ZLIB = 0, ZSTD };
+const char *clone_compression_lib_names[] = {COMPRESSION_ALGORITHM_ZLIB,
+                                             COMPRESSION_ALGORITHM_ZSTD, NullS};
+
+static TYPELIB clone_compression_algorithms_typelib = {
+    array_elements(clone_compression_lib_names) - 1,
+    "clone_compression_algorithms_typelib", clone_compression_lib_names,
+    nullptr};
+
+static MYSQL_SYSVAR_ENUM(compression_algorithm, clone_compression_algorithm,
+                         PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
+                         "compression algorithm used in clone", nullptr,
+                         nullptr, enum_clone_compression_algorithm::ZSTD,
+                         &clone_compression_algorithms_typelib);
+
+static MYSQL_SYSVAR_UINT(zstd_compression_level, clone_zstd_compression_level,
+                         PLUGIN_VAR_NOCMDARG, "zstd compression level", nullptr,
+                         nullptr, 3, /* Default */
+                         1,          /* Minimum */
+                         10,         /* Maximum */
+                         1);
+
 /** List of valid donor addresses allowed to clone from. */
 static MYSQL_SYSVAR_STR(valid_donor_list, clone_valid_donor_list,
                         PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -723,6 +749,8 @@ static SYS_VAR *clone_system_variables[] = {
     MYSQL_SYSVAR(ssl_ca),
     MYSQL_SYSVAR(donor_timeout_after_network_failure),
     MYSQL_SYSVAR(delay_after_data_drop),
+    MYSQL_SYSVAR(compression_algorithm),
+    MYSQL_SYSVAR(zstd_compression_level),
     nullptr};
 
 /** Declare clone plugin */

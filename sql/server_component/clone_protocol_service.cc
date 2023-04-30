@@ -396,6 +396,12 @@ DEFINE_METHOD(MYSQL *, mysql_clone_connect,
   /* Enable compression. */
   if (ssl_ctx->m_enable_compression) {
     mysql_options(mysql, MYSQL_OPT_COMPRESS, nullptr);
+    if (ssl_ctx->m_compression_algorithm) {
+      mysql_options(mysql, MYSQL_OPT_COMPRESSION_ALGORITHMS,
+                    ssl_ctx->m_compression_algorithm);
+      mysql_options(mysql, MYSQL_OPT_ZSTD_COMPRESSION_LEVEL,
+                    &ssl_ctx->m_compression_level);
+    }
     mysql_extension_set_server_extn(mysql, ssl_ctx->m_server_extn);
   }
 
@@ -542,6 +548,13 @@ DEFINE_METHOD(int, mysql_clone_get_response,
   *net_length = 0;
   *length = my_net_read(net);
 
+  /* The ZSTD object has been updated to include the newly created decompressor
+     context. Include the change in the net extension so that the resource can
+     be released when de-init compress context. */
+  if (net->compress) {
+    static_cast<NET_SERVER *>(saved_extn)->compress_ctx =
+        server_extn.compress_ctx;
+  }
   net->extension = saved_extn;
   server_extn.compress_ctx.algorithm = MYSQL_UNCOMPRESSED;
 

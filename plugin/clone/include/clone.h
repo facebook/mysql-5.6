@@ -90,6 +90,10 @@ extern uint clone_max_io_bandwidth;
 /** Clone system variable: If network compression is enabled */
 extern bool clone_enable_compression;
 
+extern ulong clone_compression_algorithm;
+
+extern uint clone_zstd_compression_level;
+
 /** Clone system variable: SSL private key */
 extern char *clone_client_ssl_private_key;
 
@@ -113,6 +117,11 @@ const uint CLONE_MIN_BLOCK = 1024 * 1024;
 
 /** Minimum network packet. Safe margin for meta information */
 const uint CLONE_MIN_NET_BLOCK = 2 * CLONE_MIN_BLOCK;
+
+/** Clone supported compression libs */
+#define CLONE_COMPRESSION_ALGORITHM_COUNT_MAX 3
+extern const char
+    *clone_compression_lib_names[CLONE_COMPRESSION_ALGORITHM_COUNT_MAX];
 
 /* Namespace for all clone data types */
 namespace myclone {
