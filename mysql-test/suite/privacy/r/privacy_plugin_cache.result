@@ -51,6 +51,17 @@ select digest_text, policy_value, policy_type, result_policy, status, pass_count
 digest_text	policy_value	policy_type	result_policy	status	pass_count	fail_count	eval_count
 SELECT * FROM `privacy_research` WHERE `id` > ?	fbig::research	DI	fbig::research or fbig::safety_security_integrity	PASS	3	0	1
 SELECT * FROM `privacy_research`	fbig::research	DI	fbig::research or fbig::safety_security_integrity	PASS	4	0	1
+set privacy_plugin_test_throw_exception =1;
+select * from privacy_research where id=1;
+id	name
+1	User1
+Warnings:
+Warning	50302	Purpose policy check failed. Exception 'std::runtime_error: MySQL test exception'
+select digest_text, policy_value, policy_type, result_policy, status, pass_count, fail_count, eval_count, exception, reason from performance_schema.sql_text a, information_schema.SQL_PRIVACY_LOG b where a.digest=b.sql_id and digest_text like 'SELECT * FROM `privacy_research`%';
+digest_text	policy_value	policy_type	result_policy	status	pass_count	fail_count	eval_count	exception	reason
+SELECT * FROM `privacy_research` WHERE `id` = ?		DI		PASS	1	0	1	std::runtime_error: MySQL test exception	
+SELECT * FROM `privacy_research` WHERE `id` > ?	fbig::research	DI	fbig::research or fbig::safety_security_integrity	PASS	3	0	1		PES FlowsTo result
+SELECT * FROM `privacy_research`	fbig::research	DI	fbig::research or fbig::safety_security_integrity	PASS	4	0	1		PES FlowsTo result
 use test;
 set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
 set global privacy_plugin_purpose_policy_cache_control=@original_privacy_plugin_purpose_policy_cache_control;
