@@ -116,15 +116,12 @@ stdx::expected<std::vector<uint8_t>, void> MySQLNativePassword::scramble(
   return impl::scramble(nonce, password, EVP_sha1(), true);
 }
 
-constexpr char MySQLNativePassword::name[];
-
 // caching_sha2_password
 
 stdx::expected<std::vector<uint8_t>, void> CachingSha2Password::scramble(
     std::string_view nonce, std::string_view password) {
   return impl::scramble(nonce, password, EVP_sha256(), false);
 }
-constexpr char CachingSha2Password::name[];
 
 // clear_text_password
 
@@ -137,5 +134,3 @@ stdx::expected<std::vector<uint8_t>, void> ClearTextPassword::scramble(
 
   return res;
 }
-
-constexpr char ClearTextPassword::name[];

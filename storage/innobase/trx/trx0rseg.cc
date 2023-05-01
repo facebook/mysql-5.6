@@ -812,7 +812,6 @@ bool trx_rseg_add_rollback_segments(space_id_t space_id, ulong target_rsegs,
   mtr_t mtr;
   page_no_t page_no;
   trx_rseg_t *rseg;
-  ulint n_existing = 0;
   ulint n_created = 0;
   ulint n_tracked = 0;
 
@@ -838,7 +837,6 @@ bool trx_rseg_add_rollback_segments(space_id_t space_id, ulong target_rsegs,
     rseg = rsegs->find(rseg_id);
     if (rseg != nullptr) {
       ut_ad(rseg->id == rseg_id);
-      n_existing++;
       continue;
     }
 
@@ -873,8 +871,6 @@ bool trx_rseg_add_rollback_segments(space_id_t space_id, ulong target_rsegs,
         any more. */
         break;
       }
-    } else {
-      n_existing++;
     }
 
     /* Create the trx_rseg_t object. */

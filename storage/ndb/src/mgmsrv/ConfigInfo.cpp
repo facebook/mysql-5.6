@@ -4626,7 +4626,7 @@ ConfigInfo::get_enum_values(const Properties * section, const char* fname,
   Properties::Iterator it(values);
   Vector<const char*> enum_names;
   const char* fill = nullptr;
-  unsigned cnt = 0;
+  unsigned cnt [[maybe_unused]] = 0;
   for (const char* name = it.first(); name != NULL; name = it.next())
   {
     Uint32 val;
@@ -6943,8 +6943,8 @@ saveSectionsInConfigValues(Vector<ConfigInfo::ConfigRuleSection>& notused,
     // Estimate size of Properties when saved as ConfigValues
     // and expand ConfigValues to that size in order to avoid
     // the need of allocating memory and copying from new to old
-    Uint32 keys = 0;
-    Uint64 data_sz = 0;
+    Uint32 keys [[maybe_unused]] = 0;
+    Uint64 data_sz [[maybe_unused]] = 0;
     for (const char * name = it.first(); name != 0; name = it.next())
     {
       PropertiesType pt;

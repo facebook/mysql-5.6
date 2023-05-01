@@ -80,7 +80,6 @@ inline uchar fts_get_word(const CHARSET_INFO *cs, uchar **start, uchar *end,
   uchar *doc = *start;
   int ctype;
   uint mwc;
-  uint length;
   int mbl;
 
   info->yesno = (FTB_YES == ' ') ? 1 : (info->quot != nullptr);
@@ -144,9 +143,9 @@ inline uchar fts_get_word(const CHARSET_INFO *cs, uchar **start, uchar *end,
       info->weight_adjust = info->wasign = 0;
     }
 
-    mwc = length = 0;
+    mwc = 0;
     for (word->pos = doc; doc < end;
-         length++, doc += (mbl > 0 ? mbl : (mbl < 0 ? -mbl : 1))) {
+         doc += (mbl > 0 ? mbl : (mbl < 0 ? -mbl : 1))) {
       mbl = cs->cset->ctype(cs, &ctype, doc, end);
 
       if (true_word_char(ctype, *doc)) {

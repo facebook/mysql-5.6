@@ -26,7 +26,6 @@
 #include "my_alloc.h"
 #include "sql/join_optimizer/overflow_bitset.h"
 
-using std::move;
 using std::vector;
 
 TEST(OverflowBitsetTest, ZeroInitialize) {
@@ -67,7 +66,7 @@ TEST(OverflowBitsetTest, MutateInline) {
   }
   s.ClearBits(2, 9);
 
-  OverflowBitset cs = move(s);
+  OverflowBitset cs = std::move(s);
   for (int i = 0; i < 30; ++i) {
     SCOPED_TRACE(i);
     EXPECT_EQ(i % 3 == 0 && (i < 2 || i >= 9), IsBitSet(i, cs));
@@ -85,7 +84,7 @@ TEST(OverflowBitsetTest, MutateOverflow) {
   s.ClearBits(2, 9);
   s.ClearBits(60, 150);
 
-  OverflowBitset cs = move(s);
+  OverflowBitset cs = std::move(s);
   for (int i = 0; i < 200; ++i) {
     SCOPED_TRACE(i);
     EXPECT_EQ(i % 3 == 0 && (i < 2 || i >= 9) && (i < 60 || i >= 150),
@@ -146,7 +145,7 @@ TEST(OverflowBitsetTest, BitsSetInOverflow) {
   s.SetBit(199);
 
   vector<int> ret;
-  for (int bit_num : BitsSetIn(move(s))) {
+  for (int bit_num : BitsSetIn(std::move(s))) {
     ret.push_back(bit_num);
   }
   EXPECT_THAT(ret, testing::ElementsAre(100, 180, 181, 199));
@@ -173,7 +172,7 @@ TEST(OverflowBitsetTest, BitsSetInBothOverflow) {
   t.SetBit(181);
 
   vector<int> ret;
-  for (int bit_num : BitsSetInBoth(move(s), move(t))) {
+  for (int bit_num : BitsSetInBoth(std::move(s), std::move(t))) {
     ret.push_back(bit_num);
   }
   EXPECT_THAT(ret, testing::ElementsAre(100, 181));
@@ -211,9 +210,9 @@ TEST(OverflowBitsetTest, OverlapsOverflow) {
   s3_tmp.SetBit(1);
   s3_tmp.SetBit(160);
 
-  OverflowBitset s1 = move(s1_tmp);
-  OverflowBitset s2 = move(s2_tmp);
-  OverflowBitset s3 = move(s3_tmp);
+  OverflowBitset s1 = std::move(s1_tmp);
+  OverflowBitset s2 = std::move(s2_tmp);
+  OverflowBitset s3 = std::move(s3_tmp);
   EXPECT_FALSE(Overlaps(s1, s2));
   EXPECT_TRUE(Overlaps(s2, s3));
   EXPECT_TRUE(Overlaps(s1, s3));
@@ -238,9 +237,9 @@ TEST(OverflowBitsetTest, IsEmptyInline) {
 TEST(OverflowBitsetTest, IsEmptyOverflow) {
   MEM_ROOT mem_root;
   MutableOverflowBitset s1{&mem_root, 200};
-  EXPECT_TRUE(IsEmpty(move(s1)));
+  EXPECT_TRUE(IsEmpty(std::move(s1)));
 
   MutableOverflowBitset s2{&mem_root, 200};
   s2.SetBit(186);
-  EXPECT_FALSE(IsEmpty(move(s2)));
+  EXPECT_FALSE(IsEmpty(std::move(s2)));
 }

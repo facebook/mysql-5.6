@@ -623,7 +623,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
                ItemToString(table->file->pushed_idx_cond);
       }
       ret += table->file->explain_extra();
-      description.push_back(move(ret));
+      description.push_back(std::move(ret));
       AddChildrenFromPushedCondition(table, &children);
       break;
     }
@@ -840,7 +840,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
       // like a join.)
       ExplainData table_explain =
           ExplainAccessPath(path->temptable_aggregate().table_path, join);
-      description = move(table_explain.description);
+      description = std::move(table_explain.description);
       description.emplace_back("Aggregate using temporary table");
       children.push_back({path->temptable_aggregate().subquery_path});
       break;

@@ -266,10 +266,12 @@ class HashJoinTestHelper {
 
     left_iterator.reset(new (&m_mem_root) FakeIntegerIterator(
         initializer->thd(), m_left_table.get(),
-        down_cast<Field_long *>(m_left_table->field[0]), move(left_dataset)));
+        down_cast<Field_long *>(m_left_table->field[0]),
+        std::move(left_dataset)));
     right_iterator.reset(new (&m_mem_root) FakeIntegerIterator(
         initializer->thd(), m_right_table.get(),
-        down_cast<Field_long *>(m_right_table->field[0]), move(right_dataset)));
+        down_cast<Field_long *>(m_right_table->field[0]),
+        std::move(right_dataset)));
   }
 
   HashJoinTestHelper(Server_initializer *initializer,
@@ -289,11 +291,11 @@ class HashJoinTestHelper {
     left_iterator.reset(new (&m_mem_root) FakeStringIterator(
         initializer->thd(), m_left_table.get(),
         down_cast<Field_varstring *>(m_left_table->field[0]),
-        move(left_dataset)));
+        std::move(left_dataset)));
     right_iterator.reset(new (&m_mem_root) FakeStringIterator(
         initializer->thd(), m_right_table.get(),
         down_cast<Field_varstring *>(m_right_table->field[0]),
-        move(right_dataset)));
+        std::move(right_dataset)));
   }
 
   Prealloced_array<TABLE *, 4> left_tables() const {

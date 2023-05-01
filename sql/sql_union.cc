@@ -95,7 +95,6 @@
 #include "sql/window.h"  // Window
 #include "template_utils.h"
 
-using std::move;
 using std::vector;
 
 class Item_rollup_group_item;
@@ -924,7 +923,7 @@ Query_expression::setup_materialization(THD *thd, TABLE *dst_table,
     query_block.copy_items = true;
     query_block.temp_table_param = &join->tmp_table_param;
     query_block.is_recursive_reference = select->recursive_reference;
-    query_blocks.push_back(move(query_block));
+    query_blocks.push_back(std::move(query_block));
 
     if (select == union_distinct) {
       // Last query block that is part of a UNION DISTINCT.
@@ -1010,7 +1009,7 @@ void Query_expression::create_access_paths(THD *thd) {
         global_parameters()->order_list.size() == 0 && !calc_found_rows;
     AppendPathParameters param;
     param.path = NewMaterializeAccessPath(
-        thd, move(query_blocks), /*invalidators=*/nullptr, tmp_table,
+        thd, std::move(query_blocks), /*invalidators=*/nullptr, tmp_table,
         table_path,
         /*cte=*/nullptr, /*unit=*/nullptr,
         /*ref_slice=*/-1,

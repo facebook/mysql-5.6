@@ -1723,7 +1723,7 @@ void btr_cur_search_to_nth_level_with_no_latch(dict_index_t *index, ulint level,
   Page_fetch fetch;
   page_cur_t *page_cursor;
   ulint root_height = 0; /* remove warning */
-  ulint n_blocks = 0;
+  ulint n_blocks [[maybe_unused]] = 0;
 
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
@@ -2167,7 +2167,7 @@ void btr_cur_open_at_index_side_with_no_latch_func(
   page_cur_t *page_cursor;
   ulint height;
   rec_t *node_ptr;
-  ulint n_blocks = 0;
+  ulint n_blocks [[maybe_unused]] = 0;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
   ulint *offsets = offsets_;

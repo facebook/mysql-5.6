@@ -5984,7 +5984,6 @@ NdbDictionaryImpl::createEvent(NdbEventImpl & evnt)
 		     evnt.m_name.c_str(),
 		     evnt.m_columns.size()));
 
-  int pk_count = 0;
   evnt.m_attrListBitmask.clear();
 
   for(i = 0; i<attributeList_sz; i++){
@@ -5996,10 +5995,6 @@ NdbDictionaryImpl::createEvent(NdbEventImpl & evnt)
     }
     // Copy column definition
     *evnt.m_columns[i] = *col;
-    
-    if(col->m_pk){
-      pk_count++;
-    }
     
     evnt.m_attrListBitmask.set(col->m_attrId);
   }
