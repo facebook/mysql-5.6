@@ -568,7 +568,6 @@ void Shardbeats_manager::execute() {
   Protocol_classic *protocol = sb_thd->get_protocol_classic();
   protocol->add_client_capability(CLIENT_MULTI_QUERIES);
   protocol->set_vio(nullptr);
-  int64_t loop_cnt = 0;
 
   unsigned long long SLA_iter = shardbeat_interval_ms * 1000;
   // Allow 1/10th of the SLA to be waited for locks per db.
@@ -595,7 +594,6 @@ void Shardbeats_manager::execute() {
 
     // Each loop iteration sleeps for half-life of SLA
     usleep(SLA / 2);
-    loop_cnt++;
 
     if (!enable_shardbeater) {
       static int error_msg_count = 0;
