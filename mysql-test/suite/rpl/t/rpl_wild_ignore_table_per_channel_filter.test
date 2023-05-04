@@ -34,6 +34,7 @@
 
 call mtr.add_suppression("There are per-channel replication filter.s. configured for channel '' which does not exist. The filter.s. have been discarded.");
 call mtr.add_suppression("There are per-channel replication filter.s. configured for channel 'channel_3_2' which does not exist. The filter.s. have been discarded.");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
 
 --disable_warnings
 --replace_result $MASTER_MYPORT MASTER_PORT

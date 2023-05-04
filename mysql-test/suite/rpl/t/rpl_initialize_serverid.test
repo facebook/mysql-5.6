@@ -68,6 +68,8 @@ EOF
 # 1. Stop slave server so that it can be initialized by specifying server-id and
 # started without specifying server-id
 --let $rpl_server_number= 2
+set session sql_log_bin=0;
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
 --source include/rpl_stop_server.inc
 
 # 2. Since server-2 has previously been initialized to a data directory by MTR,
