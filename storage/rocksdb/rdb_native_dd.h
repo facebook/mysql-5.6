@@ -16,6 +16,7 @@
 #pragma once
 
 /* C++ standard header files */
+#include <sys/types.h>
 #include <unordered_set>
 
 /* MySQL header files */
@@ -28,6 +29,9 @@ class Table;
 namespace myrocks {
 
 void rocksdb_dict_register_dd_table_id(dd::Object_id dd_table_id);
+bool rocksdb_dict_get_server_version(uint *version);
+bool rocksdb_dict_set_server_version();
+bool rocksdb_is_supported_system_table(const char *, const char *, bool);
 
 class native_dd {
  private:

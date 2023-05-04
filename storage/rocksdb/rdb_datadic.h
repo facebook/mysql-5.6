@@ -421,6 +421,7 @@ class Rdb_key_def {
     CF_NUMBER_SIZE = 4,
     CF_FLAG_SIZE = 4,
     PACKED_SIZE = 4,  // one int
+    SERVER_VERSION_SIZE = 4,
   };
 
   // bit flags for combining bools when writing to disk
@@ -457,6 +458,7 @@ class Rdb_key_def {
     AUTO_INC = 9,
     DROPPED_CF = 10,
     MAX_DD_INDEX_ID = 11,
+    SERVER_VERSION = 12,
     END_DICT_INDEX_ID = 255
   };
 
@@ -472,6 +474,7 @@ class Rdb_key_def {
     DDL_CREATE_INDEX_ONGOING_VERSION = 1,
     AUTO_INCREMENT_VERSION = 1,
     DROPPED_CF_VERSION = 1,
+    SERVER_VERSION_VERSION = 1,
     // Version for index stats is stored in IndexStats struct
   };
 
@@ -1559,6 +1562,11 @@ class Rdb_binlog_manager {
   value: version, index_id
   index_id is 4 bytes
 
+  12. server version
+  key: Rdb_key_def::SERVER_VERSION(0xc)
+  value: version, {server version}
+  server version is 4 bytes
+
   Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
   three times. They have to be atomic. Rdb_dict_manager has a wrapper function
@@ -1577,6 +1585,9 @@ class Rdb_dict_manager : public Ensure_initialized {
 
   uchar m_key_buf_max_dd_index_id[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
   rocksdb::Slice m_key_slice_max_dd_index_id;
+
+  uchar m_key_buf_server_version[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
+  rocksdb::Slice m_key_slice_server_version;
 
   static void dump_index_id(uchar *const netbuf,
                             Rdb_key_def::DATA_DICT_TYPE dict_type,
@@ -1725,6 +1736,22 @@ class Rdb_dict_manager : public Ensure_initialized {
   bool update_max_index_id(rocksdb::WriteBatch *const batch,
                            const uint32_t index_id,
                            bool is_dd_tbl = false) const;
+
+  /**
+    Get the server version from the private data dictionary table
+    @param version  out parameter
+    @retval false   ok
+    @retval true    error
+  */
+  bool get_server_version(uint *const version) const;
+
+  /**
+    Set the server version to the private data dictionary table
+    @retval false   ok
+    @retval true    error
+  */
+  bool set_server_version() const;
+
   void add_stats(rocksdb::WriteBatch *const batch,
                  const std::vector<Rdb_index_stats> &stats) const;
   Rdb_index_stats get_stats(GL_INDEX_ID gl_index_id) const;

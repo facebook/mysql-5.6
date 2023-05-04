@@ -22,6 +22,8 @@
 
 /* MyRocks header files */
 #include "ha_rocksdb.h"
+#include "storage/rocksdb/ha_rocksdb_proto.h"
+#include "storage/rocksdb/rdb_datadic.h"
 
 namespace myrocks {
 std::unordered_set<dd::Object_id> native_dd::s_dd_table_ids = {};
@@ -49,5 +51,21 @@ void native_dd::clear_dd_table_ids() { s_dd_table_ids.clear(); }
 void rocksdb_dict_register_dd_table_id(dd::Object_id dd_table_id) {
   native_dd::insert_dd_table_ids(dd_table_id);
 };
+
+bool rocksdb_dict_get_server_version(uint *version) {
+  return rdb_get_dict_manager()
+      ->get_dict_manager_selector_non_const(false /*is_tmp_table*/)
+      ->get_server_version(version);
+};
+
+bool rocksdb_dict_set_server_version() {
+  return rdb_get_dict_manager()
+      ->get_dict_manager_selector_non_const(false /*is_tmp_table*/)
+      ->set_server_version();
+};
+
+bool rocksdb_is_supported_system_table(const char *, const char *, bool) {
+  return false;
+}
 
 }  // namespace myrocks
