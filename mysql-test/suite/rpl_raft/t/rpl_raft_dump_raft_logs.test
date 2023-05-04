@@ -190,6 +190,12 @@ connection server_1;
 let $rpl_server_number= 1;
 source include/rpl_restart_server.inc;
 
+# We need to sleep for at least one heartbeat interval after restarting the
+# server before we can promote to it because the leader would have failed
+# heartbeats while it's restarting and we will fail to promote if there are
+# recent failed rpcs.
+sleep 1;
+
 let $rpl_raft_leader_number= 1;
 source ../include/raft_promote_to_leader.inc;
 
