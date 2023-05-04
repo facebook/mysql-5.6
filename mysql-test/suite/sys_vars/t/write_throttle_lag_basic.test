@@ -1,4 +1,4 @@
-# This test verifies that the 'Write_throttle_lag_ms' status var works correctly.
+# This test verifies that the 'Write_throttle_lag_period_peak_ms' status var works correctly.
 
 # This test requires debug_sync.
 source include/have_debug_sync.inc;
@@ -14,16 +14,23 @@ create table t1(a int);
 # Enable basic globals required for write throttle evaluation to happen.
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
-SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=1;
+
+# The minimum number of seconds between each write throttle policy evaluation.
+# The evaluation occurs on a write statement (i.e. INSERT/UPDATE/DELETE) if
+# the time since the last evaluation exceeds this value.
+# Set it to 1 second to avoid waiting too long in the test.
+let $auto_throttle_freq = 1;
+eval SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=$auto_throttle_freq;
 
 # These are not required for write throttling policy evaluation to function, but
 # setting them to a known value to reduce test breakages if the default values
 # change.
-SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=3000;
+let $start_throttle_lag_ms=3000;
+eval SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=$start_throttle_lag_ms;
 SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=1000;
 
-# Check Write_throttle_lag_ms status var under normal conditions. Should be zero.
-SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_ms';
+# Check Write_throttle_lag_period_peak_ms status var under normal conditions. Should be zero.
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
 
 # Set lag via DBUG package to force it to a significant value the next
 # time the policy is evaluated.
@@ -34,15 +41,91 @@ insert into t1 values (1);
 
 # Wait for the policy cycle to happen.
 let $wait_condition= SELECT VARIABLE_VALUE <> 0
-FROM performance_schema.global_status where variable_name='Write_throttle_lag_ms';
+FROM performance_schema.global_status where variable_name='Write_throttle_lag_period_peak_ms';
 --source include/wait_condition.inc
 
 # Now the value should be exactly @@WRITE_START_THROTTLE_LAG_MILLISECONDS + 1.
-SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_ms';
+echo expect $start_throttle_lag_ms + 1;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
 
+# Reset the lag value to the true lag value, which we expect to be 0 on this
+# simple functional test. However, since the `Write_throttle_lag_period_peak_ms`
+# variable tracks the peak over some period (until it is reset), it should
+# remain at its original value.
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 
+# Wait one second to guarantee `WRITE_STATS_FREQUENCY` condition is met.
+sleep $auto_throttle_freq;
+
+# Start another policy evaluation round by issuing a write.
+insert into t1 values (1);
+
+# The value should still be exactly @@WRITE_START_THROTTLE_LAG_MILLISECONDS + 1,
+# though internally, the "current lag" (not peak) should have been reduced to
+# zero. We will verify that shortly.
+echo expect $start_throttle_lag_ms + 1;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+
+# Now, enable period resets on subsequent queries.
+set reset_period_status_vars = on;
+
+# The first time we query `Write_throttle_lag_period_peak_ms`, we will still
+# expect to see the same value, because the reset happens as a side effect
+# and only affects later queries. Thus this should yet again report
+# @@WRITE_START_THROTTLE_LAG_MILLISECONDS + 1.
+echo expect $start_throttle_lag_ms + 1;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+
+# However, this call should report 0 now that the both the "current value"
+# and peak were reset to the "true" lag value of 0.
+echo expect 0;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+
+# Ask for it again, expecting 0.
+echo expect 0;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+
+# Wait one second to guarantee `WRITE_STATS_FREQUENCY` condition is met.
+sleep $auto_throttle_freq;
+
+# Force some lag for the next evaluation.
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+
+# Start another policy evaluation round by issuing a write.
+insert into t1 values (1);
+
+# Now, it should once again reflect @@WRITE_START_THROTTLE_LAG_MILLISECONDS + 1
+# since the moment a policy eval happens with a higher value than the peak,
+# peak will be updated to the new value.
+echo expect $start_throttle_lag_ms + 1;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+
+# Now, verify that when reset_period_status_vars is off, it doesn't
+# reset the peak, even if the "current value" changes.
+set reset_period_status_vars = off;
+
+# Disable the forced lag for the next eval cycle.
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+
+# Wait one second to guarantee `WRITE_STATS_FREQUENCY` condition is met.
+sleep $auto_throttle_freq;
+
+# Start another policy evaluation round by issuing a write.
+insert into t1 values (1);
+
+# The current lag value (internal) should be zero, but the peak should remain, no
+# matter how many times we ask for it.
+echo expect $start_throttle_lag_ms + 1;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+echo expect $start_throttle_lag_ms + 1;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+echo expect $start_throttle_lag_ms + 1;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+echo expect $start_throttle_lag_ms + 1;
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+
 # Clean up.
+set reset_period_status_vars = off;
 drop table t1;
 SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=DEFAULT;
 SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=DEFAULT;

@@ -4573,11 +4573,11 @@ static void adjust_global_by(std::atomic<longlong> *unreported_delta,
     one is doing global update. Only one will grab the whole unreported
     amount.
   */
-  longlong delta = unreported_delta->exchange(0);
+  const longlong delta = unreported_delta->exchange(0);
 
   /*
-    It's possible that delta now is less than the increment but it would
-    be very rare so just do the update regardless.
+    It's possible that delta now is less than `DISK_USAGE_REPORTING_INCREMENT`
+    but it would be very rare so just do the update regardless.
   */
   if (delta != 0) {
     ulonglong old_value = g_value->fetch_add(delta);
@@ -4627,8 +4627,8 @@ static void adjust_by(ulonglong *value, std::atomic<ulonglong> *peak,
 
   /* Avoid frequent updates of global usage. */
   constexpr ulonglong DISK_USAGE_REPORTING_INCREMENT = 8192;
-  longlong new_delta = unreported_delta->fetch_add(delta) + delta;
-  ulonglong abs_delta = new_delta >= 0 ? new_delta : -new_delta;
+  const longlong new_delta = unreported_delta->fetch_add(delta) + delta;
+  const ulonglong abs_delta = new_delta >= 0 ? new_delta : -new_delta;
 
   if (abs_delta >= DISK_USAGE_REPORTING_INCREMENT) {
     adjust_global_by(unreported_delta, g_value, g_peak, g_period_peak);

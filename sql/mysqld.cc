@@ -11178,6 +11178,10 @@ static int show_resource_group_support(THD *, SHOW_VAR *var, char *buf) {
   return 0;
 }
 
+/**
+  Atomically set `peak` to `new_value` IFF it is greater than `peak`, else
+  do nothing.
+*/
 void update_peak(std::atomic<ulonglong> *peak, ulonglong new_value) {
   ulonglong old_peak = *peak;
   while (old_peak < new_value) {
@@ -11186,12 +11190,17 @@ void update_peak(std::atomic<ulonglong> *peak, ulonglong new_value) {
   }
 }
 
+/**
+  Atomically reset `peak` to a value that is no less than `value`.
+
+  @return previous value of `peak`.
+*/
 ulonglong reset_peak(std::atomic<ulonglong> *peak,
                      const std::atomic<ulonglong> &value) {
-  /* First, reset to 0 not to miss updates to value between reading it
-      and setting the peak. If update is missed then peak could be smaller
+  /* First, reset to 0 not to miss updates to `value` between reading it
+      and setting the peak. If update is missed then `peak` could be smaller
       than current value. */
-  ulonglong result = peak->exchange(0);
+  const ulonglong result = peak->exchange(0);
 
   /* Now update peak with latest value, possibly racing with others. */
   update_peak(peak, value);
@@ -11230,18 +11239,29 @@ static int show_tmp_table_disk_usage_peak(THD *thd, SHOW_VAR *var, char *buff) {
              : show_longlong(var, buff, tmp_table_disk_usage_peak);
 }
 
+/**
+  Helper to show a periodic-peak style status variable with an optional reset
+  to the current value if `reset_period_status_vars` is set.
+*/
 static int show_peak_with_reset(THD *thd, SHOW_VAR *var, char *buff,
                                 std::atomic<ulonglong> *peak,
-                                const std::atomic<ulonglong> &usage) {
+                                const std::atomic<ulonglong> &cur_value) {
   var->type = SHOW_LONGLONG;
   var->value = buff;
   if (thd->variables.reset_period_status_vars) {
-    *reinterpret_cast<ulonglong *>(buff) = reset_peak(peak, usage);
+    *reinterpret_cast<ulonglong *>(buff) = reset_peak(peak, cur_value);
   } else {
     *reinterpret_cast<ulonglong *>(buff) = *peak;
   }
 
   return 0;
+}
+
+static int show_write_throttle_lag_period_peak(THD *thd, SHOW_VAR *var,
+                                               char *buff) {
+  return show_peak_with_reset(thd, var, buff,
+                              &write_throttle_lag_ms_period_peak,
+                              last_write_throttle_lag_ms);
 }
 
 static int show_filesort_disk_usage_period_peak(THD *thd, SHOW_VAR *var,
@@ -11790,8 +11810,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Resource_group_supported", (char *)show_resource_group_support, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
-    {"Write_throttle_lag_ms", (char *)&last_write_throttle_lag_ms, SHOW_LONG,
-     SHOW_SCOPE_GLOBAL},
+    {"Write_throttle_lag_period_peak_ms",
+     (char *)show_write_throttle_lag_period_peak, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Json_contains_key_count", (char *)&json_contains_key_count, SHOW_LONGLONG,
      SHOW_SCOPE_GLOBAL},
     {"Json_array_length_count", (char *)&json_array_length_count, SHOW_LONGLONG,

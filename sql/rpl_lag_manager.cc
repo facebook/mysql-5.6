@@ -65,10 +65,23 @@ typedef std::array<std::unordered_map<std::string, WRITE_STATS>,
 */
 std::list<std::pair<int, TIME_BUCKET_STATS>> global_write_statistics_map;
 
-/* Last computed write-throttling lag value computed in milliseconds.
-   Exposed via SHOW STATUS.
+/**
+  Last computed write-throttling lag value computed in milliseconds.
 */
 ulong last_write_throttle_lag_ms;
+
+/**
+  Write throttling lag period-peak value in milliseconds.
+
+  Exposed via SHOW GLOBAL STATUS and optionally reset to the last computed value
+  as a side effect, if `reset_period_status_vars` session sysvar is set.
+
+  This allows us compute the peak value over an arbitrary time periods, directed
+  by an external client polling the value.
+
+  @sa show_peak_with_reset
+*/
+std::atomic<ulonglong> write_throttle_lag_ms_period_peak{0};
 
 /*
   free_global_write_statistics
@@ -611,8 +624,9 @@ std::pair<std::string, std::string> get_top_two_entities(
 void check_lag_and_throttle(time_t time_now) {
   const ulong lag = get_current_replication_lag();
 
-  // Save the lag value for SHOW STATUS.
+  // Maintain the current and peak lag value for SHOW [GLOBAL] STATUS.
   last_write_throttle_lag_ms = lag;
+  update_peak(&write_throttle_lag_ms_period_peak, lag);
 
   if (lag < write_stop_throttle_lag_milliseconds) {
     if (are_replicas_lagging) {

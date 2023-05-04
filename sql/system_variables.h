@@ -585,6 +585,11 @@ struct System_variables {
   bool conn_global_mem_tracking;
 
   bool write_throttle_tag_only;
+
+  /**
+    If set, will reset "periodic" status vars to their current value.
+    @sa show_peak_with_reset
+  */
   bool reset_period_status_vars;
 
   bool validate_schema_from_attributes;
