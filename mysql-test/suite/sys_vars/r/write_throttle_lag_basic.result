@@ -6,15 +6,60 @@ SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
 SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=1;
 SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=3000;
 SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=1000;
-SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_ms';
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
 Variable_name	Value
-Write_throttle_lag_ms	0
+Write_throttle_lag_period_peak_ms	0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into t1 values (1);
-SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_ms';
+expect 3000 + 1
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
 Variable_name	Value
-Write_throttle_lag_ms	3001
+Write_throttle_lag_period_peak_ms	3001
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into t1 values (1);
+expect 3000 + 1
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	3001
+set reset_period_status_vars = on;
+expect 3000 + 1
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	3001
+expect 0
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	0
+expect 0
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	0
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into t1 values (1);
+expect 3000 + 1
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	3001
+set reset_period_status_vars = off;
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+insert into t1 values (1);
+expect 3000 + 1
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	3001
+expect 3000 + 1
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	3001
+expect 3000 + 1
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	3001
+expect 3000 + 1
+SHOW GLOBAL STATUS LIKE 'Write_throttle_lag_period_peak_ms';
+Variable_name	Value
+Write_throttle_lag_period_peak_ms	3001
+set reset_period_status_vars = off;
 drop table t1;
 SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=DEFAULT;
 SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=DEFAULT;
