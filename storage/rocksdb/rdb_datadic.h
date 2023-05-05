@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <boost/optional.hpp>
 #include <map>
 #include <mutex>
 #include <string>

@@ -172,6 +172,7 @@ SET(ROCKSDB_SE_SOURCES
   rdb_utils.cc rdb_utils.h rdb_buff.h
   rdb_threads.cc rdb_threads.h
   ha_rockspart.cc ha_rockspart.h
+  rdb_nosql_digest.cc rdb_nosql_digest.h
   nosql_access.cc nosql_access.h
   sql_dd.cc sql_dd.h
   clone/common.h clone/common.cc clone/donor.h clone/donor.cc clone/client.cc
