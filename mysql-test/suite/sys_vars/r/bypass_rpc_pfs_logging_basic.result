@@ -1,0 +1,85 @@
+SET @start_value = @@global.bypass_rpc_pfs_logging;
+SELECT @start_value;
+@start_value
+0
+SET @@global.bypass_rpc_pfs_logging = DEFAULT;
+SELECT @@global.bypass_rpc_pfs_logging = TRUE;
+@@global.bypass_rpc_pfs_logging = TRUE
+0
+SET @@global.bypass_rpc_pfs_logging = ON;
+SELECT @@global.bypass_rpc_pfs_logging;
+@@global.bypass_rpc_pfs_logging
+1
+SET @@global.bypass_rpc_pfs_logging = OFF;
+SELECT @@global.bypass_rpc_pfs_logging;
+@@global.bypass_rpc_pfs_logging
+0
+SET @@global.bypass_rpc_pfs_logging = 2;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of '2'
+SET @@global.bypass_rpc_pfs_logging = -1;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of '-1'
+SET @@global.bypass_rpc_pfs_logging = TRUEF;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of 'TRUEF'
+SET @@global.bypass_rpc_pfs_logging = TRUE_F;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of 'TRUE_F'
+SET @@global.bypass_rpc_pfs_logging = FALSE0;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of 'FALSE0'
+SET @@global.bypass_rpc_pfs_logging = OON;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of 'OON'
+SET @@global.bypass_rpc_pfs_logging = ONN;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of 'ONN'
+SET @@global.bypass_rpc_pfs_logging = OOFF;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of 'OOFF'
+SET @@global.bypass_rpc_pfs_logging = 0FF;
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of '0FF'
+SET @@global.bypass_rpc_pfs_logging = ' ';
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of ' '
+SET @@global.bypass_rpc_pfs_logging = " ";
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of ' '
+SET @@global.bypass_rpc_pfs_logging = '';
+ERROR 42000: Variable 'bypass_rpc_pfs_logging' can't be set to the value of ''
+SET @@session.bypass_rpc_pfs_logging = OFF;
+ERROR HY000: Variable 'bypass_rpc_pfs_logging' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.bypass_rpc_pfs_logging;
+ERROR HY000: Variable 'bypass_rpc_pfs_logging' is a GLOBAL variable
+SELECT IF(@@global.bypass_rpc_pfs_logging, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='bypass_rpc_pfs_logging';
+IF(@@global.bypass_rpc_pfs_logging, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.bypass_rpc_pfs_logging = 0;
+SELECT @@global.bypass_rpc_pfs_logging;
+@@global.bypass_rpc_pfs_logging
+0
+SET @@global.bypass_rpc_pfs_logging = 1;
+SELECT @@global.bypass_rpc_pfs_logging;
+@@global.bypass_rpc_pfs_logging
+1
+SET @@global.bypass_rpc_pfs_logging = TRUE;
+SELECT @@global.bypass_rpc_pfs_logging;
+@@global.bypass_rpc_pfs_logging
+1
+SET @@global.bypass_rpc_pfs_logging = FALSE;
+SELECT @@global.bypass_rpc_pfs_logging;
+@@global.bypass_rpc_pfs_logging
+0
+SET @@global.bypass_rpc_pfs_logging = ON;
+SELECT @@bypass_rpc_pfs_logging = @@global.bypass_rpc_pfs_logging;
+@@bypass_rpc_pfs_logging = @@global.bypass_rpc_pfs_logging
+1
+SET bypass_rpc_pfs_logging = ON;
+ERROR HY000: Variable 'bypass_rpc_pfs_logging' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.bypass_rpc_pfs_logging = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.bypass_rpc_pfs_logging = OFF' at line 1
+SELECT local.bypass_rpc_pfs_logging;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.bypass_rpc_pfs_logging = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.bypass_rpc_pfs_logging = ON' at line 1
+SELECT global.bypass_rpc_pfs_logging;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT bypass_rpc_pfs_logging = @@session.bypass_rpc_pfs_logging;
+ERROR HY000: Variable 'bypass_rpc_pfs_logging' is a GLOBAL variable
+SET @@global.bypass_rpc_pfs_logging = @start_value;
+SELECT @@global.bypass_rpc_pfs_logging;
+@@global.bypass_rpc_pfs_logging
+0

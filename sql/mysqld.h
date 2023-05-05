@@ -735,6 +735,11 @@ extern ulonglong global_conn_mem_counter;
 */
 extern bool migrate_connect_options;
 
+/**
+  Variables for Bypass-specific features
+*/
+extern bool bypass_rpc_pfs_logging;
+
 extern LEX_CSTRING sql_statement_names[(uint)SQLCOM_END + 1];
 
 extern thread_local MEM_ROOT **THR_MALLOC;

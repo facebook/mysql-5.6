@@ -3,6 +3,7 @@
 #include <unordered_map>
 
 #include <mysql/service_rpc_plugin.h>
+#include "mysqld.h"
 #include "sql/binlog.h"
 #include "sql/debug_sync.h" /* DEBUG_SYNC */
 #include "sql/mysqld_thd_manager.h"
@@ -218,6 +219,19 @@ void initialize_thd() {
     thd->set_query_formatter(formatter);
     Global_THD_manager::get_instance()->add_thd(thd);
 
+#ifdef HAVE_PSI_THREAD_INTERFACE
+    {
+      PSI_thread *psi = PSI_THREAD_CALL(new_thread)(key_thread_one_connection,
+                                                    0 /* no sequence number */,
+                                                    thd, thd->thread_id());
+      PSI_THREAD_CALL(set_thread_os_id)(psi);
+      PSI_THREAD_CALL(set_thread)(psi);
+      thd->set_psi(psi);
+      PSI_THREAD_CALL(set_thread_id)(psi, thd->thread_id());
+      PSI_THREAD_CALL(set_thread_THD)(psi, thd);
+    }
+#endif
+
     LEX *lex = new LEX();
     thd->lex = lex;
   }
@@ -232,6 +246,14 @@ bool check_hlc_bound(THD *thd, uint64_t requested_hlc, uint64_t applied_hlc) {
   if (requested_hlc > applied_hlc) {
     return true;
   }
+  return false;
+}
+
+// return true if the incoming rpc request should be formatted to plain text
+bool check_bypass_rpc_needs_formatting() {
+  // if pfs logging is enabled
+  if (pfs_param.m_esms_by_all_enabled && bypass_rpc_pfs_logging)
+    return true;
   return false;
 }
 
@@ -315,6 +337,9 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
       THD *thd = current_thd;
       thd->release_resources();
       Global_THD_manager::get_instance()->remove_thd(thd);
+#ifdef HAVE_PSI_THREAD_INTERFACE
+      PSI_THREAD_CALL(delete_current_thread)();
+#endif
       delete thd;
     }
     bypass_rpc_exception ret;
@@ -393,8 +418,37 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
     assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
   });
 
+  /* PSI begin */
+  assert(thd->m_statement_psi == nullptr);
+  thd->m_statement_psi = MYSQL_START_STATEMENT(
+      &thd->m_statement_state, com_statement_info[COM_QUERY].m_key,
+      param->db_name.c_str(), param->db_name.size(), thd->charset(), nullptr);
+  THD_STAGE_INFO(thd, stage_starting);
+
+  thd->m_digest = &thd->m_digest_state;
+  thd->m_digest->reset(thd->m_token_array, max_digest_length);
+
+  String buf;
+  if (check_bypass_rpc_needs_formatting()) {
+    formatter->format_query(buf);
+  }
+
+  thd->set_query(buf.c_ptr(), buf.length());
+  thd->set_query_for_display(buf.c_ptr(), buf.length());
+  thd->set_query_id(next_query_id());
+  thd->set_time();
+
+  auto m_digest_psi = MYSQL_DIGEST_START(thd->m_statement_psi);
+
   auto ret = rocksdb_hton->bypass_select_by_key(thd, &columns, *param);
   ret.hlc_lower_bound_ts = applied_hlc;
+
+  /* PSI end */
+  MYSQL_DIGEST_END(m_digest_psi, &thd->m_digest->m_digest_storage);
+
+  MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+  thd->m_statement_psi = nullptr;
+  thd->m_digest = nullptr;
 
   // clean up before returning back to the rpc plugin
   trans_commit_stmt(thd);  // need to call this because we locked table
@@ -402,6 +456,8 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   thd->lex->unit->cleanup(true);
   lex_end(thd->lex);
   thd->free_items();
+	thd->reset_query();
+  thd->reset_query_for_display();
   thd->reset_query_attrs();
   thd->mdl_context.release_transactional_locks();
   thd->mem_root->ClearForReuse();

@@ -2713,6 +2713,12 @@ static bool transaction_write_set_check(sys_var *self, THD *thd, set_var *var) {
   return false;
 }
 
+static Sys_var_bool Sys_bypass_rpc_pfs_logging(
+    "bypass_rpc_pfs_logging",
+    "Enables logging in from Bypass RPC path to the "
+    "events_statements_summary_by_all table",
+    GLOBAL_VAR(bypass_rpc_pfs_logging), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_enum Sys_extract_write_set(
     "transaction_write_set_extraction",
     "This option is used to let the server know when to "

@@ -1,0 +1,78 @@
+SET @start_value = @@global.bypass_rpc_pfs_logging;
+SELECT @start_value;
+
+
+SET @@global.bypass_rpc_pfs_logging = DEFAULT;
+SELECT @@global.bypass_rpc_pfs_logging = TRUE;
+
+
+SET @@global.bypass_rpc_pfs_logging = ON;
+SELECT @@global.bypass_rpc_pfs_logging;
+SET @@global.bypass_rpc_pfs_logging = OFF;
+SELECT @@global.bypass_rpc_pfs_logging;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.bypass_rpc_pfs_logging = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.bypass_rpc_pfs_logging = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.bypass_rpc_pfs_logging;
+
+
+SELECT IF(@@global.bypass_rpc_pfs_logging, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='bypass_rpc_pfs_logging';
+
+
+SET @@global.bypass_rpc_pfs_logging = 0;
+SELECT @@global.bypass_rpc_pfs_logging;
+SET @@global.bypass_rpc_pfs_logging = 1;
+SELECT @@global.bypass_rpc_pfs_logging;
+
+SET @@global.bypass_rpc_pfs_logging = TRUE;
+SELECT @@global.bypass_rpc_pfs_logging;
+SET @@global.bypass_rpc_pfs_logging = FALSE;
+SELECT @@global.bypass_rpc_pfs_logging;
+
+SET @@global.bypass_rpc_pfs_logging = ON;
+SELECT @@bypass_rpc_pfs_logging = @@global.bypass_rpc_pfs_logging;
+
+--Error ER_GLOBAL_VARIABLE
+SET bypass_rpc_pfs_logging = ON;
+--Error ER_PARSE_ERROR
+SET local.bypass_rpc_pfs_logging = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.bypass_rpc_pfs_logging;
+--Error ER_PARSE_ERROR
+SET global.bypass_rpc_pfs_logging = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.bypass_rpc_pfs_logging;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT bypass_rpc_pfs_logging = @@session.bypass_rpc_pfs_logging;
+
+SET @@global.bypass_rpc_pfs_logging = @start_value;
+SELECT @@global.bypass_rpc_pfs_logging;

@@ -14,7 +14,6 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include "rdb_utils.h"
 #define MYSQL_SERVER 1
 
 /* This C++ file's header */
@@ -37,6 +36,7 @@
 #include "./sql/item_func.h"
 #include "./sql/query_result.h"
 #include "./sql/sql_base.h"
+#include "./sql/sql_lex_hash.h"
 #include "./sql/sql_select.h"
 #include "./sql/strfunc.h"
 #include "./sql/transaction.h"
@@ -51,6 +51,7 @@
 #include "./rdb_converter.h"
 #include "./rdb_datadic.h"
 #include "./rdb_iterator.h"
+#include "./rdb_nosql_digest.h"
 
 static const size_t DEFAULT_FIELD_LIST_SIZE = 16;
 static const size_t MAX_NOSQL_COND_COUNT = 16;
@@ -1047,6 +1048,8 @@ class rpc_select_parser : public base_select_parser {
         m_columns(columns) {
     // initialize field_index
     m_field_index.assign(m_table->s->fields, -1);
+    // initialize digest_state
+    m_digest = m_thd->m_digest;
   }
 
   const base_cond *get_cond(uint index) const override {
@@ -1065,8 +1068,72 @@ class rpc_select_parser : public base_select_parser {
   const myrocks_select_from_rpc *m_param;
   myrocks_columns *m_columns;
   std::vector<int> m_field_index;
+  sql_digest_state *m_digest;
   rpc_cond m_cond_list[MAX_NOSQL_COND_COUNT];
   int m_num_used_columns;
+
+  // TODO(ptgvo): move digest methods into rdb_nosql_digest.cc
+  bool check_digest_compute() {
+    return m_digest == nullptr || !pfs_param.m_esms_by_all_enabled ||
+           !bypass_rpc_pfs_logging;
+  }
+
+  void inline add_digest_token(uint token, Lexer_yystype *yylval) {
+    m_digest = digest_add_token(m_digest, token, yylval);
+  }
+
+  bool add_digest_identifier(const std::string &ident) {
+    if (check_digest_compute()) {
+      return true;
+    }
+
+    Lexer_yystype ident_token{};
+    ident_token.lex_str.str = const_cast<char *>(ident.data());
+    ident_token.lex_str.length = ident.length();
+
+    add_digest_token(nosql_ident_token(), &ident_token);
+    return false;
+  }
+
+  bool add_digest_keyword(LEX_CSTRING key) {
+    if (check_digest_compute()) {
+      return true;
+    }
+
+    const SYMBOL *symbol =
+        Lex_hash::sql_keywords.get_hash_symbol(key.str, key.length);
+
+    if (symbol != nullptr) {
+      Lexer_yystype token{};
+      token.keyword.symbol = symbol;
+      token.keyword.str = const_cast<char *>(key.str);
+      token.keyword.length = key.length;
+
+      add_digest_token(symbol->tok, &token);
+    }
+    return false;
+  }
+
+  bool add_digest_placeholder(myrocks_value_type val_type) {
+    if (check_digest_compute()) {
+      return true;
+    }
+
+    Lexer_yystype val_token{.lex_str = NULL_STR};
+
+    add_digest_token(val_type == myrocks_value_type::UNSIGNED_INT
+                         ? nosql_decimal_num_token()
+                         : nosql_text_string_token(),
+                     &val_token);
+    return false;
+  }
+
+  bool add_digest_condition(const std::string &ident, Item_func::Functype op,
+                            myrocks_value_type val_type) {
+    return add_digest_identifier(ident) ||
+           add_digest_keyword(get_op_lex_string(op)) ||
+           add_digest_placeholder(val_type);
+  }
 
   bool parse_index() {
     if (!m_param->force_index.empty()) {
@@ -1080,6 +1147,12 @@ class rpc_select_parser : public base_select_parser {
         return true;
       }
       m_index = pos - 1;
+
+      // FORCE INDEX keywords
+      add_digest_keyword(force_tok);
+      add_digest_keyword(index_tok);
+
+      add_digest_identifier(m_param->force_index);
     } else {
       // Default to PRIMARY
       m_index = m_table->s->primary_key;
@@ -1095,6 +1168,9 @@ class rpc_select_parser : public base_select_parser {
       return true;
     }
 
+    // SELECT keyword
+    add_digest_keyword(select_tok);
+
     m_field_list.reserve(m_param->columns.size());
 
     for (auto &fname : m_param->columns) {
@@ -1107,7 +1183,13 @@ class rpc_select_parser : public base_select_parser {
       }
 
       add_field_list(field);
+
+      add_digest_identifier(fname);
     }
+
+    add_digest_keyword(from_tok);
+    add_digest_identifier(m_param->table_name);
+
     return false;
   }
 
@@ -1126,6 +1208,10 @@ class rpc_select_parser : public base_select_parser {
       return false;
     }
 
+    // ORDER BY keywords
+    add_digest_keyword(order_tok);
+    add_digest_keyword(by_tok);
+
     bool is_first = true;
     KEY *key = &get_table()->key_info[get_index()];
     uint cur_index = key->actual_key_parts;
@@ -1135,6 +1221,11 @@ class rpc_select_parser : public base_select_parser {
                            it.column.c_str(), is_first, cur_index)) {
         return true;
       }
+
+      add_digest_identifier(it.column);
+      add_digest_keyword(it.op == myrocks_order_by_item::order_by_op::_DESC
+                             ? desc_tok
+                             : asc_tok);
     }
 
     return false;
@@ -1248,6 +1339,8 @@ class rpc_select_parser : public base_select_parser {
         Item_func::IN_FUNC, found,
         more_values ? item.more_values : item.values.data(), item.num_values,
         &m_columns->at(idx)};
+    add_digest_condition(item.column, Item_func::IN_FUNC,
+                         desired_type);
     return false;
   }
 
@@ -1295,11 +1388,15 @@ class rpc_select_parser : public base_select_parser {
 
     m_cond_list[m_cond_count++] = {op, found, &item.value, 1,
                                    &m_columns->at(idx)};
+    add_digest_condition(item.column, op, desired_type);
     return false;
   }
 
   bool parse_where() {
     std::vector<std::pair<std::string, uint64_t>> fields;
+
+    // WHERE keyword
+    add_digest_keyword(where_tok);
 
     for (const auto &item : m_param->where) {
       if (parse_cond(item)) {
@@ -1325,6 +1422,11 @@ class rpc_select_parser : public base_select_parser {
     // thrift plugin already set it as uint64_t max if no limit is set
     m_select_limit = m_param->limit;
     m_offset_limit = m_param->limit_offset;
+
+    // LIMIT keyword
+    add_digest_keyword(limit_tok);
+
+    add_digest_placeholder(myrocks_value_type::UNSIGNED_INT);
 
     return false;
   }

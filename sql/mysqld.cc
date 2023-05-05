@@ -1224,6 +1224,7 @@ char *opt_keyring_migration_source = nullptr;
 char *opt_keyring_migration_destination = nullptr;
 ulong opt_keyring_migration_port = 0;
 bool migrate_connect_options = false;
+bool bypass_rpc_pfs_logging = false;
 uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool opt_keyring_migration_to_component = false;
