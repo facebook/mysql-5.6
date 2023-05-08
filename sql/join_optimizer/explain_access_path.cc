@@ -489,7 +489,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
       }
       str += table->file->explain_extra();
 
-      description.push_back(move(str));
+      description.push_back(std::move(str));
       AddChildrenFromPushedCondition(table, &children);
       break;
     }
@@ -509,7 +509,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
                ItemToString(table->file->pushed_idx_cond);
       }
       str += table->file->explain_extra();
-      description.push_back(move(str));
+      description.push_back(std::move(str));
       AddChildrenFromPushedCondition(table, &children);
       break;
     }
@@ -527,7 +527,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
                ItemToString(table->file->pushed_idx_cond);
       }
       str += table->file->explain_extra();
-      description.push_back(move(str));
+      description.push_back(std::move(str));
       AddChildrenFromPushedCondition(table, &children);
       break;
     }
@@ -544,7 +544,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
                ItemToString(table->file->pushed_idx_cond);
       }
       str += table->file->explain_extra();
-      description.push_back(move(str));
+      description.push_back(std::move(str));
       AddChildrenFromPushedCondition(table, &children);
       break;
     }
@@ -564,7 +564,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
              RefToString(*path->pushed_join_ref().ref, key,
                          /*include_nulls=*/false) +
              ")" + table->file->explain_extra();
-      description.push_back(move(str));
+      description.push_back(std::move(str));
       break;
     }
     case AccessPath::FULL_TEXT_SEARCH: {
@@ -600,7 +600,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
                ItemToString(table->file->pushed_idx_cond);
       }
       str += table->file->explain_extra();
-      description.push_back(move(str));
+      description.push_back(std::move(str));
       AddChildrenFromPushedCondition(table, &children);
       break;
     }
@@ -673,7 +673,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
                ItemToString(table->file->pushed_idx_cond);
       }
       str += table->file->explain_extra();
-      description.push_back(move(str));
+      description.push_back(std::move(str));
       AddChildrenFromPushedCondition(table, &children);
       break;
     }
@@ -753,7 +753,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
         ret += ItemToString(cond);
       }
 
-      description.push_back(move(ret));
+      description.push_back(std::move(ret));
       children.push_back({path->hash_join().outer});
       children.push_back({path->hash_join().inner, "Hash"});
       break;
@@ -798,7 +798,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
                  path->sort().filesort->limit);
         ret += buf;
       }
-      description.push_back(move(ret));
+      description.push_back(std::move(ret));
       children.push_back({path->sort().child});
       break;
     }
@@ -830,7 +830,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
           ret += ItemToString(*item);
         }
       }
-      description.push_back(move(ret));
+      description.push_back(std::move(ret));
       children.push_back({path->aggregate().child});
       break;
     }
@@ -914,7 +914,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
           first = false;
         }
       }
-      description.push_back(move(buf));
+      description.push_back(std::move(buf));
       children.push_back({path->window().child});
       break;
     }
@@ -989,7 +989,7 @@ ExplainData ExplainAccessPath(const AccessPath *path, JOIN *join) {
         ret += ")";
       }
       ret += " IS NULL";
-      description.push_back(move(ret));
+      description.push_back(std::move(ret));
       children.push_back({path->alternative().child});
       children.push_back({path->alternative().table_scan_path});
       break;
