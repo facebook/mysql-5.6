@@ -2489,6 +2489,7 @@ bool acl_reload(THD *thd, bool mdl_locked) {
   old_acl_dbs = acl_dbs;
   old_acl_proxy_users = acl_proxy_users;
   old_acl_restrictions = std::move(acl_restrictions);
+  old_acl_fast_lookup = acl_fast_lookup;
   swap_role_cache();
   roles_init();
 
