@@ -484,3 +484,7 @@ drop table t3;
 drop table t4;
 drop table t5;
 drop table t6;
+if ($bypass_fallback != 0) {
+--remove_file $datadir/select.out
+--remove_file $datadir/select.dump
+}
