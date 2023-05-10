@@ -2110,7 +2110,7 @@ EXPLAIN
 -> Zero rows (no matching row in const table)  (rows=0)
 
 SET @a = 2;
-SET @b = '2023-05-06 16:49:45';
+SET @b = '2033-05-06 16:49:45';
 EXECUTE stmt USING @a, @b;
 EXPLAIN
 -> Table scan on dt  (rows=2)
