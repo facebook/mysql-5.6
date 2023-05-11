@@ -10109,8 +10109,8 @@ ER_WARN_SKIP_SCAN_KEYS_NOT_CONSIDERED
 ER_IS_TABLE_READ_DISABLED
   eng "Reads are disabled on %s performance schema table"
 
-ER_THRIFT_PLACEHOLDER_50122
-  eng "Placeholder"
+ER_THRIFT_PLUGIN_FEATURE_DISABLED
+  eng "Plugin feature is currently disabled"
 
 ER_THRIFT_PLACEHOLDER_50123
   eng "Placeholder"
