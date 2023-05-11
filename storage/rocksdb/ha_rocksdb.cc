@@ -542,6 +542,8 @@ static void rocksdb_select_bypass_rejected_query_history_size_update(
     my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
     void *const var_ptr, const void *const save);
 
+static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices);
+
 static void rocksdb_force_flush_memtable_now_stub(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -554,8 +556,11 @@ static int rocksdb_force_flush_memtable_now(
     void *const var_ptr MY_ATTRIBUTE((__unused__)),
     struct st_mysql_value *const value MY_ATTRIBUTE((__unused__))) {
   bool parsed_value = false;
-  if (mysql_value_to_bool(value, &parsed_value) != 0 || !parsed_value) {
+  if (mysql_value_to_bool(value, &parsed_value) != 0) {
     return 1;
+  } else if (!parsed_value) {
+    // Setting to OFF is a no-op and this supports mtr tests
+    return HA_EXIT_SUCCESS;
   }
 
   // NO_LINT_DEBUG
@@ -564,22 +569,10 @@ static int rocksdb_force_flush_memtable_now(
   rocksdb_flush_all_memtables();
   return HA_EXIT_SUCCESS;
 }
-static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices);
-static void rocksdb_force_flush_memtable_and_lzero_now_stub(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)),
-    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
-static int rocksdb_force_flush_memtable_and_lzero_now(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)),
-    struct st_mysql_value *const value MY_ATTRIBUTE((__unused__))) {
+static int rocksdb_compact_lzero() {
   // NO_LINT_DEBUG
-  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-                  "RocksDB: Manual memtable and L0 flush.");
-  rocksdb_flush_all_memtables();
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "RocksDB: compact L0.");
 
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
   rocksdb::CompactionOptions c_options = rocksdb::CompactionOptions();
@@ -594,6 +587,25 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
       cf_handle->GetDescriptor(&cf_descr);
       c_options.output_file_size_limit = cf_descr.options.target_file_size_base;
 
+      // Lets RocksDB use the configured compression for this level
+      c_options.compression = rocksdb::kDisableCompressionOption;
+
+      uint64_t base_level;
+      if (!rdb->GetIntProperty(cf_handle.get(),
+                               rocksdb::DB::Properties::kBaseLevel,
+                               &base_level)) {
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "MyRocks: compact L0 cannot get base level");
+        break;
+      }
+
+      if (base_level == 0) {
+        LogPluginErrMsg(
+            ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+            "MyRocks: compact L0 cannot flush to base level when 0");
+        break;
+      }
+
       assert(metadata.levels[0].level == 0);
       std::vector<std::string> file_names;
       for (auto &file : metadata.levels[0].files) {
@@ -601,11 +613,13 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
       }
 
       if (file_names.empty()) {
+        LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                        "MyRocks: no files in L0");
         break;
       }
 
       rocksdb::Status s;
-      s = rdb->CompactFiles(c_options, cf_handle.get(), file_names, 1);
+      s = rdb->CompactFiles(c_options, cf_handle.get(), file_names, base_level);
 
       if (!s.ok()) {
         std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
@@ -641,6 +655,60 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
   }
 
   return num_errors == 0 ? HA_EXIT_SUCCESS : HA_EXIT_FAILURE;
+}
+
+static void rocksdb_compact_lzero_now_stub(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    const void *const save MY_ATTRIBUTE((__unused__))) {}
+
+static int rocksdb_compact_lzero_now(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value) {
+  bool parsed_value = false;
+
+  if (mysql_value_to_bool(value, &parsed_value) != 0) {
+    return 1;
+  } else if (!parsed_value) {
+    // Setting to OFF is a no-op and this supports mtr tests
+    return HA_EXIT_SUCCESS;
+  }
+
+  return rocksdb_compact_lzero();
+}
+
+static void rocksdb_force_flush_memtable_and_lzero_now_stub(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    const void *const save MY_ATTRIBUTE((__unused__))) {}
+
+static int rocksdb_force_flush_memtable_and_lzero_now(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value) {
+  bool parsed_value = false;
+
+  if (mysql_value_to_bool(value, &parsed_value) != 0) {
+    return 1;
+  } else if (!parsed_value) {
+    // Setting to OFF is a no-op and this supports mtr tests
+    return HA_EXIT_SUCCESS;
+  }
+
+  // NO_LINT_DEBUG
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "RocksDB: Manual memtable and L0 flush.");
+  rocksdb_flush_all_memtables();
+
+  // Try to avoid https://github.com/facebook/mysql-5.6/issues/1200
+  my_sleep(1000000);
+
+  return rocksdb_compact_lzero();
 }
 
 static void rocksdb_cancel_manual_compactions_stub(
@@ -825,8 +893,9 @@ static bool rocksdb_ignore_unknown_options = 1;
 static bool rocksdb_enable_2pc = 0;
 static char *rocksdb_strict_collation_exceptions;
 static bool rocksdb_collect_sst_properties = 1;
-static bool rocksdb_force_flush_memtable_now_var = 1;
+static bool rocksdb_force_flush_memtable_now_var = 0;
 static bool rocksdb_force_flush_memtable_and_lzero_now_var = 0;
+static bool rocksdb_compact_lzero_now_var = 0;
 static bool rocksdb_cancel_manual_compactions_var = 0;
 static bool rocksdb_enable_ttl = 1;
 static bool rocksdb_enable_ttl_read_filtering = 1;
@@ -2441,7 +2510,12 @@ static MYSQL_SYSVAR_BOOL(
     PLUGIN_VAR_RQCMDARG,
     "Forces memstore flush which may block all write requests so be careful",
     rocksdb_force_flush_memtable_now, rocksdb_force_flush_memtable_now_stub,
-    true);
+    false);
+
+static MYSQL_SYSVAR_BOOL(compact_lzero_now, rocksdb_compact_lzero_now_var,
+                         PLUGIN_VAR_RQCMDARG, "Compacts all L0 files.",
+                         rocksdb_compact_lzero_now,
+                         rocksdb_compact_lzero_now_stub, false);
 
 static MYSQL_SYSVAR_BOOL(
     force_flush_memtable_and_lzero_now,
@@ -2980,6 +3054,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(collect_sst_properties),
     MYSQL_SYSVAR(force_flush_memtable_now),
     MYSQL_SYSVAR(force_flush_memtable_and_lzero_now),
+    MYSQL_SYSVAR(compact_lzero_now),
     MYSQL_SYSVAR(cancel_manual_compactions),
     MYSQL_SYSVAR(enable_ttl),
     MYSQL_SYSVAR(enable_ttl_read_filtering),
