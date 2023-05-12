@@ -1,4 +1,5 @@
 --source include/have_rocksdb.inc
+--source include/have_debug.inc
 
 # Set the default ddse to Rocksdb
 # Bootstrap by starting mysqld with --initialize
@@ -7,8 +8,7 @@
 let BASEDIR= `select @@basedir`;
 let DDIR=$MYSQL_TMP_DIR/installdb_test;
 let MYSQLD_LOG=$MYSQL_TMP_DIR/server.log;
-let extra_args=--no-defaults --basedir=$BASEDIR;
-
+let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 
 --echo # shut server down
 --source include/shutdown_mysqld.inc
