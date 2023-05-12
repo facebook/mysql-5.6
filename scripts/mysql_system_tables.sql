@@ -26,6 +26,7 @@
 
 set @have_innodb= (select count(engine) from information_schema.engines where engine='INNODB' and support != 'NO');
 set @is_mysql_encrypted = (select ENCRYPTION from information_schema.INNODB_TABLESPACES where NAME='mysql');
+set @ddse= (select @@default_dd_storage_engine);
 
 -- Tables below are NOT treated as DD tables by MySQL server yet.
 
@@ -183,11 +184,8 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS password_history
   Host CHAR(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
   User CHAR(80) BINARY DEFAULT '' NOT NULL,
   Password_timestamp TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  Password TEXT,
-  PRIMARY KEY(Host, User, Password_timestamp DESC)
- ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
- comment='Password history for user accounts' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+  Password TEXT,";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "PRIMARY KEY(Host, User, Password_timestamp))", " engine=ROCKSDB CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Password history for user accounts'"), CONCAT(@cmd, "PRIMARY KEY(Host, User, Password_timestamp DESC))", " engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Password history for user accounts' ROW_FORMAT=DYNAMIC TABLESPACE=mysql", " ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
