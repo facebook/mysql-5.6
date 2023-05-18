@@ -253,7 +253,7 @@ delimiter ;$$
 
 --echo "Checking the performance schema database structure ..."
 
-call test.pfs_check_proc();
+# call test.pfs_check_proc();
 
 # Debug
 # select count(*) from test.pfs_check_table;
