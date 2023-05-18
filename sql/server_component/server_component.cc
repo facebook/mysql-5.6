@@ -646,6 +646,7 @@ PROVIDES_SERVICE(mysql_server_path_filter, dynamic_loader_scheme_file),
     PROVIDES_SERVICE(performance_schema, pfs_plugin_column_timestamp_v2),
     PROVIDES_SERVICE(performance_schema, pfs_plugin_column_year_v1),
     PROVIDES_SERVICE(performance_schema, psi_tls_channel_v1),
+    PROVIDES_SERVICE(performance_schema, pfs_plugin_column_text_v1),
 
     PROVIDES_SERVICE(mysql_server, mysql_query_attributes_iterator),
     PROVIDES_SERVICE(mysql_server, mysql_query_attribute_string),
