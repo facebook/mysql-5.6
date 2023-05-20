@@ -153,3 +153,75 @@ let $cond  = WHERE (a >= 10) AND (c = 3 or c=40) AND
 let $query = SELECT a, MIN(b), MAX(b) FROM t;
 let $cond  = WHERE a > 9 GROUP BY a;
 --source include/group_min_max_ext_query.inc
+
+# Testing GROUP MIN/MAX with groups implied equality predicates
+let $query = SELECT a, MAX(d), MIN(d) FROM t;
+let $cond  =  WHERE a = 1 AND (b = 2 OR b = 15 OR b = 3) AND (c = 3 OR c = 40) GROUP BY b;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT a, MAX(d), MIN(d) FROM t;
+let $cond  =  WHERE a = 1 AND b = 2 AND (c = 3 OR c = 40) GROUP BY c;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT a, MAX(d), MIN(d) FROM t;
+let $cond  =  WHERE a = 1 AND b = 2 AND (c = 3 OR c = 40) GROUP BY c, b;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT a, MAX(d), MIN(d) FROM t;
+let $cond  =  WHERE a = 1 AND b = 2 AND (c = 3 OR c = 40) GROUP BY c, b, c;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT a, MAX(d), MIN(d) FROM t;
+let $cond = WHERE b = 2 AND(c = 3 OR c = 40) GROUP BY a, c;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT b FROM t;
+let $cond  = WHERE a = 1;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT b, a FROM t;
+let $cond  = WHERE a = 1;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT c, b, a FROM t;
+let $cond  = WHERE a = 1;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT c FROM t;
+let $cond  = WHERE a = 1 and b = 2;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT b, a FROM t;
+let $cond  = WHERE a = 1 and b = 2 GROUP BY b, a;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT b FROM t;
+let $cond  = WHERE a = 1 GROUP BY b, a;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT b, a FROM t;
+let $cond  = GROUP BY b, a;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT b FROM t;
+let $cond  = GROUP BY b, a;
+--source include/group_min_max_ext_query.inc
+
+let $query = SELECT DISTINCT c, a FROM t;
+let $cond = WHERE b = 2;
+--source include/group_min_max_ext_query.inc
+
+# Examples where GROUP MIN/MAX plan should not apply
+
+# Grouped columns (a, c) don't form a prefix
+EXPLAIN SELECT a, MAX(d), MIN(d) FROM t WHERE a = 1 AND(b = 2 OR b = 15 OR b = 3) AND(c = 3 OR c = 40) GROUP BY c;
+EXPLAIN SELECT a, MAX(d), MIN(d) FROM t WHERE a = 1 AND (c = 3 OR c = 40) GROUP BY c;
+
+# Grouped columns (b, c) don't form a prefix
+EXPLAIN SELECT b, MAX(d), MIN(d) FROM t WHERE (a = 1 OR a = 2) AND b = 2 AND (c = 3 OR c = 40) GROUP BY c, b;
+
+# Grouped columns (a, c) don't form a prefix
+EXPLAIN SELECT DISTINCT c FROM t WHERE a = 1;
+
+# Grouped columns (b, c) don't form a prefix
+EXPLAIN SELECT DISTINCT b, c FROM t WHERE a in (1, 2);

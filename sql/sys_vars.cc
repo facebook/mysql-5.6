@@ -3834,6 +3834,13 @@ static Sys_var_enum Sys_range_optimizer_fail_mode(
     SESSION_VAR(range_optimizer_fail_mode), CMD_LINE(OPT_ARG),
     range_optimizer_fail_mode_names, DEFAULT(0));
 
+static Sys_var_bool Sys_optimizer_implicit_groups_for_lis(
+    "optimizer_implicit_groups_for_lis",
+    "Detect groups implied by equality conditions when costing group by loose "
+    "index scans.",
+    HINT_UPDATEABLE SESSION_VAR(optimizer_implicit_groups_for_lis),
+    CMD_LINE(OPT_ARG), DEFAULT(true));
+
 static bool limit_parser_max_mem_size(sys_var *, THD *thd, set_var *var) {
   if (var->is_global_persist()) return false;
   ulonglong val = var->save_result.ulonglong_value;

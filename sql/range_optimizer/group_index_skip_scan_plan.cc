@@ -522,122 +522,317 @@ AccessPath *get_best_group_min_max(THD *thd, RANGE_OPT_PARAM *param,
     }
     trace_idx.add("covering", true);
 
-    /*
-      Check (GA1) for GROUP BY queries. While at it, check if the query produces
-      only one group.
-    */
-    if (!join->group_list.empty()) {
-      cur_part = cur_index_info->key_part;
-      end_part = cur_part + actual_key_parts(cur_index_info);
-      SEL_ROOT *cur_tree = nullptr;
-      if (tree) cur_tree = get_index_range_tree(cur_index, tree, param);
-      /* Iterate in parallel over the GROUP list and the index parts. */
-      for (tmp_group = join->group_list.order;
-           tmp_group && (cur_part != end_part);
-           tmp_group = tmp_group->next, cur_part++) {
-        /*
-          TODO:
-          tmp_group::item is an array of Item, is it OK to consider only the
-          first Item? If so, then why? What is the array for?
-        */
-        /* Above we already checked that all group items are fields. */
-        assert((*tmp_group->item)->real_item()->type() == Item::FIELD_ITEM);
-        Item_field *group_field = (Item_field *)(*tmp_group->item)->real_item();
-        if (group_field->field->eq(cur_part->field)) {
+    // TODO: There's a lot of code duplication here, and I couldn't find an easy
+    // to merge how we perform the iteration without complicating the (already)
+    // complex logic too much. Instead, I've duplicated the code with the hope
+    // that we can remove the other branch once the feature proves stable
+    // enough.
+    if (thd->variables.optimizer_implicit_groups_for_lis) {
+      /*
+        Check (GA1) for GROUP BY queries. While at it, check if the query
+        produces only one group.
+      */
+      assert(!is_agg_distinct || !join->select_distinct);
+      if (!join->group_list.empty() || join->select_distinct) {
+        cur_part = cur_index_info->key_part;
+        end_part = cur_part + actual_key_parts(cur_index_info);
+        SEL_ROOT *cur_tree = nullptr;
+        if (tree) cur_tree = get_index_range_tree(cur_index, tree, param);
+
+        // group_fields is a bitmap of all group by columns
+        // cur_group_fields is a bitmap tracking how many group by columns are
+        // covered as we iterate through the keyparts.
+        Field_map group_fields;
+        Field_map cur_group_fields;
+        if (!join->group_list.empty()) {
+          for (tmp_group = join->group_list.order; tmp_group;
+               tmp_group = tmp_group->next) {
+            /*
+            TODO:
+            tmp_group::item is an array of Item, is it OK to consider only the
+            first Item? If so, then why? What is the array for?
+            */
+            /* Above we already checked that all group items are fields. */
+            assert((*tmp_group->item)->real_item()->type() == Item::FIELD_ITEM);
+            item_field = (Item_field *)(*tmp_group->item)->real_item();
+            group_fields.set_bit(item_field->field->field_index());
+
+            /* Find the order of the key part in the index. */
+            key_part_nr = get_field_keypart(cur_index_info, item_field->field);
+            max_key_part = max(max_key_part, key_part_nr);
+          }
+        } else {
+          for (auto select_items_it = VisibleFields(*join->fields).begin();
+               select_items_it != VisibleFields(*join->fields).end();
+               select_items_it++) {
+            Item *item = *select_items_it;
+
+            assert(item->real_item()->type() == Item::FIELD_ITEM);
+            item_field = (Item_field *)item->real_item();
+
+            /* not doing loose index scan for derived tables */
+            if (!item_field->field) {
+              cause = "derived_table";
+              goto next_index;
+            }
+            group_fields.set_bit(item_field->field->field_index());
+
+            /* Find the order of the key part in the index. */
+            key_part_nr = get_field_keypart(cur_index_info, item_field->field);
+            max_key_part = max(max_key_part, key_part_nr);
+          }
+        }
+
+        bool is_eq_range_pred_is_set = false;
+        for (; cur_part < end_part; cur_part++) {
+          bool single_eq_range = false;
+
+          if (cur_tree &&
+              // Check if the range tree is for the key part that is being
+              // looked into.
+              (cur_tree->root->part == cur_part - cur_index_info->key_part) &&
+              // There should not be any disjuntive predicates on the key part.
+              cur_tree->root->first() != nullptr &&
+              cur_tree->root->first()->next == nullptr) {
+            SEL_ARG *range = cur_tree->root->first();
+            const uint is_open_range =
+                (NO_MIN_RANGE | NO_MAX_RANGE | NEAR_MIN | NEAR_MAX | GEOM_FLAG);
+            single_eq_range = !(range->min_flag & is_open_range) &&
+                              !(range->max_flag & is_open_range) &&
+                              ((range->maybe_null() && range->min_value[0] &&
+                                range->max_value[0]) ||
+                               memcmp(range->min_value, range->max_value,
+                                      cur_part->store_length) == 0);
+          }
+
+          // There are two usages of single_eq_range here. One is to determine
+          // if the query produces only one group because of equality
+          // conditions. The other is to check whether there's an implied group
+          // on the current key part due to an equality condition.
+          if (group_fields.is_set(cur_part->field->field_index())) {
+            // Special case (determine if the query produces only one group):
+            // If all the grouping attributes have an equality predicate or
+            // have NULL range (IS NULL), query produces only one group.
+            // Determining this will help in cost calculation for using this
+            // index.
+            //
+            // is_eq_range_pred is true if single_eq_range is true for all group
+            // by columns.
+            is_eq_range_pred = is_eq_range_pred_is_set
+                                   ? is_eq_range_pred && single_eq_range
+                                   : single_eq_range;
+            is_eq_range_pred_is_set = true;
+          } else {
+            if (!single_eq_range) {
+              // There is no implied group, so we cannot use any more keyparts.
+              break;
+            }
+          }
+
           cur_group_prefix_len += cur_part->store_length;
           ++cur_group_key_parts;
-          max_key_part = cur_part - cur_index_info->key_part + 1;
-          used_key_parts_map.set_bit(max_key_part);
-        } else {
+          used_key_parts_map.set_bit(cur_part - cur_index_info->key_part + 1);
+
+          cur_group_fields.set_bit(cur_part->field->field_index());
+          // No need to keep looking at keyparts if entire group by is already
+          // covered.
+          if (cur_group_fields == group_fields) {
+            break;
+          }
+
+          if (cur_tree &&
+              cur_tree->root->part == cur_part - cur_index_info->key_part) {
+            cur_tree = cur_tree->root->first()
+                           ? cur_tree->root->first()->next_key_part
+                           : nullptr;
+          }
+        }
+
+        /*
+          Check that used key parts forms a prefix of the index.
+          To check this we compare bits in all_parts and cur_parts.
+          all_parts have all bits set from 0 to (max_key_part-1).
+          cur_parts have bits set for only used keyparts.
+        */
+        ulonglong all_parts, cur_parts;
+        all_parts = (1ULL << max_key_part) - 1;
+        cur_parts = used_key_parts_map.to_ulonglong() >> 1;
+        if (all_parts != (cur_parts & all_parts)) {
           cause = "group_attribute_not_prefix_in_index";
           goto next_index;
         }
-        // Special case (determine if the query produces only one group):
-        // If all the grouping attributes have an equality predicate or
-        // have NULL range (IS NULL), query produces only one group.
-        // Determining this will help in cost calculation for using this
-        // index.
-        if (cur_tree &&
-            // Check if the range tree is for the key part that is being looked
-            // into.
-            (cur_tree->root->part == cur_part - cur_index_info->key_part) &&
-            // There should not be any disjuntive predicates on the key part.
-            cur_tree->root->first() != nullptr &&
-            cur_tree->root->first()->next == nullptr) {
-          SEL_ARG *range = cur_tree->root->first();
-          const uint is_open_range =
-              (NO_MIN_RANGE | NO_MAX_RANGE | NEAR_MIN | NEAR_MAX | GEOM_FLAG);
-          is_eq_range_pred = !(range->min_flag & is_open_range) &&
-                             !(range->max_flag & is_open_range) &&
-                             ((range->maybe_null() && range->min_value[0] &&
-                               range->max_value[0]) ||
-                              memcmp(range->min_value, range->max_value,
-                                     cur_part->store_length) == 0);
-        } else
-          is_eq_range_pred = false;
-        cur_tree =
-            is_eq_range_pred ? cur_tree->root->first()->next_key_part : nullptr;
       }
-    }
 
-    /*
-      Check (GA2) if this is a DISTINCT query.
-      If GA2, then Store a new ORDER object in group_fields_array at the
-      position of the key part of item_field->field. Thus we get the ORDER
-      objects for each field ordered as the corresponding key parts.
-      Later group_fields_array of ORDER objects is used to convert the query
-      to a GROUP query.
-    */
-    if ((join->group_list.empty() && join->select_distinct) ||
-        is_agg_distinct) {
-      auto agg_distinct_flds_it = agg_distinct_flds.begin();
-      auto select_items_it = VisibleFields(*join->fields).begin();
-      while (is_agg_distinct
-                 ? (agg_distinct_flds_it != agg_distinct_flds.end())
-                 : (select_items_it != VisibleFields(*join->fields).end())) {
-        Item *item =
-            (is_agg_distinct ? static_cast<Item *>(*agg_distinct_flds_it++)
-                             : *select_items_it++);
-
-        /* (SA5) already checked above. */
-        item_field = (Item_field *)item->real_item();
-        assert(item->real_item()->type() == Item::FIELD_ITEM);
-
-        /* not doing loose index scan for derived tables */
-        if (!item_field->field) {
-          cause = "derived_table";
-          goto next_index;
-        }
-
-        /* Find the order of the key part in the index. */
-        key_part_nr = get_field_keypart(cur_index_info, item_field->field);
-        /*
-          Check if this attribute was already present in the select list.
-          If it was present, then its corresponding key part was already used.
-        */
-        if (used_key_parts_map.is_set(key_part_nr)) continue;
-        if (key_part_nr < 1 ||
-            (!is_agg_distinct &&
-             key_part_nr > CountVisibleFields(*join->fields))) {
-          cause = "select_attribute_not_prefix_in_index";
-          goto next_index;
-        }
-        cur_part = cur_index_info->key_part + key_part_nr - 1;
-        cur_group_prefix_len += cur_part->store_length;
-        used_key_parts_map.set_bit(key_part_nr);
-        ++cur_group_key_parts;
-        max_key_part = max(max_key_part, key_part_nr);
-      }
       /*
-        Check that used key parts forms a prefix of the index.
-        To check this we compare bits in all_parts and cur_parts.
-        all_parts have all bits set from 0 to (max_key_part-1).
-        cur_parts have bits set for only used keyparts.
+        Check (GA2) if this is a DISTINCT query.
+        If GA2, then Store a new ORDER object in group_fields_array at the
+        position of the key part of item_field->field. Thus we get the ORDER
+        objects for each field ordered as the corresponding key parts.
+        Later group_fields_array of ORDER objects is used to convert the query
+        to a GROUP query.
       */
-      ulonglong all_parts, cur_parts;
-      all_parts = (1ULL << max_key_part) - 1;
-      cur_parts = used_key_parts_map.to_ulonglong() >> 1;
-      if (all_parts != cur_parts) goto next_index;
+      if (is_agg_distinct) {
+        auto agg_distinct_flds_it = agg_distinct_flds.begin();
+        while (agg_distinct_flds_it != agg_distinct_flds.end()) {
+          Item *item = static_cast<Item *>(*agg_distinct_flds_it++);
+
+          /* (SA5) already checked above. */
+          item_field = (Item_field *)item->real_item();
+          assert(item->real_item()->type() == Item::FIELD_ITEM);
+
+          /* not doing loose index scan for derived tables */
+          if (!item_field->field) {
+            cause = "derived_table";
+            goto next_index;
+          }
+
+          /* Find the order of the key part in the index. */
+          key_part_nr = get_field_keypart(cur_index_info, item_field->field);
+          /*
+            Check if this attribute was already present in the select list.
+            If it was present, then its corresponding key part was alredy used.
+          */
+          if (used_key_parts_map.is_set(key_part_nr)) continue;
+          if (key_part_nr < 1) {
+            cause = "select_attribute_not_prefix_in_index";
+            goto next_index;
+          }
+          cur_part = cur_index_info->key_part + key_part_nr - 1;
+          cur_group_prefix_len += cur_part->store_length;
+          used_key_parts_map.set_bit(key_part_nr);
+          ++cur_group_key_parts;
+          max_key_part = max(max_key_part, key_part_nr);
+        }
+        /*
+          Check that used key parts forms a prefix of the index.
+          To check this we compare bits in all_parts and cur_parts.
+          all_parts have all bits set from 0 to (max_key_part-1).
+          cur_parts have bits set for only used keyparts.
+        */
+        ulonglong all_parts, cur_parts;
+        all_parts = (1ULL << max_key_part) - 1;
+        cur_parts = used_key_parts_map.to_ulonglong() >> 1;
+        if (all_parts != cur_parts) goto next_index;
+      }
+    } else {
+      /*
+        Check (GA1) for GROUP BY queries. While at it, check if the query
+        produces only one group.
+      */
+      if (!join->group_list.empty()) {
+        cur_part = cur_index_info->key_part;
+        end_part = cur_part + actual_key_parts(cur_index_info);
+        SEL_ROOT *cur_tree = nullptr;
+        if (tree) cur_tree = get_index_range_tree(cur_index, tree, param);
+        /* Iterate in parallel over the GROUP list and the index parts. */
+        for (tmp_group = join->group_list.order;
+             tmp_group && (cur_part != end_part);
+             tmp_group = tmp_group->next, cur_part++) {
+          /*
+            TODO:
+            tmp_group::item is an array of Item, is it OK to consider only the
+            first Item? If so, then why? What is the array for?
+          */
+          /* Above we already checked that all group items are fields. */
+          assert((*tmp_group->item)->real_item()->type() == Item::FIELD_ITEM);
+          Item_field *group_field =
+              (Item_field *)(*tmp_group->item)->real_item();
+          if (group_field->field->eq(cur_part->field)) {
+            cur_group_prefix_len += cur_part->store_length;
+            ++cur_group_key_parts;
+            max_key_part = cur_part - cur_index_info->key_part + 1;
+            used_key_parts_map.set_bit(max_key_part);
+          } else {
+            cause = "group_attribute_not_prefix_in_index";
+            goto next_index;
+          }
+          // Special case (determine if the query produces only one group):
+          // If all the grouping attributes have an equality predicate or
+          // have NULL range (IS NULL), query produces only one group.
+          // Determining this will help in cost calculation for using this
+          // index.
+          if (cur_tree &&
+              // Check if the range tree is for the key part that is being
+              // looked into.
+              (cur_tree->root->part == cur_part - cur_index_info->key_part) &&
+              // There should not be any disjuntive predicates on the key part.
+              cur_tree->root->first() != nullptr &&
+              cur_tree->root->first()->next == nullptr) {
+            SEL_ARG *range = cur_tree->root->first();
+            const uint is_open_range =
+                (NO_MIN_RANGE | NO_MAX_RANGE | NEAR_MIN | NEAR_MAX | GEOM_FLAG);
+            is_eq_range_pred = !(range->min_flag & is_open_range) &&
+                               !(range->max_flag & is_open_range) &&
+                               ((range->maybe_null() && range->min_value[0] &&
+                                 range->max_value[0]) ||
+                                memcmp(range->min_value, range->max_value,
+                                       cur_part->store_length) == 0);
+          } else
+            is_eq_range_pred = false;
+          cur_tree = is_eq_range_pred ? cur_tree->root->first()->next_key_part
+                                      : nullptr;
+        }
+      }
+
+      /*
+        Check (GA2) if this is a DISTINCT query.
+        If GA2, then Store a new ORDER object in group_fields_array at the
+        position of the key part of item_field->field. Thus we get the ORDER
+        objects for each field ordered as the corresponding key parts.
+        Later group_fields_array of ORDER objects is used to convert the query
+        to a GROUP query.
+      */
+      if ((join->group_list.empty() && join->select_distinct) ||
+          is_agg_distinct) {
+        auto agg_distinct_flds_it = agg_distinct_flds.begin();
+        auto select_items_it = VisibleFields(*join->fields).begin();
+        while (is_agg_distinct
+                   ? (agg_distinct_flds_it != agg_distinct_flds.end())
+                   : (select_items_it != VisibleFields(*join->fields).end())) {
+          Item *item =
+              (is_agg_distinct ? static_cast<Item *>(*agg_distinct_flds_it++)
+                               : *select_items_it++);
+
+          /* (SA5) already checked above. */
+          item_field = (Item_field *)item->real_item();
+          assert(item->real_item()->type() == Item::FIELD_ITEM);
+
+          /* not doing loose index scan for derived tables */
+          if (!item_field->field) {
+            cause = "derived_table";
+            goto next_index;
+          }
+
+          /* Find the order of the key part in the index. */
+          key_part_nr = get_field_keypart(cur_index_info, item_field->field);
+          /*
+            Check if this attribute was already present in the select list.
+            If it was present, then its corresponding key part was already used.
+          */
+          if (used_key_parts_map.is_set(key_part_nr)) continue;
+          if (key_part_nr < 1 ||
+              (!is_agg_distinct &&
+               key_part_nr > CountVisibleFields(*join->fields))) {
+            cause = "select_attribute_not_prefix_in_index";
+            goto next_index;
+          }
+          cur_part = cur_index_info->key_part + key_part_nr - 1;
+          cur_group_prefix_len += cur_part->store_length;
+          used_key_parts_map.set_bit(key_part_nr);
+          ++cur_group_key_parts;
+          max_key_part = max(max_key_part, key_part_nr);
+        }
+        /*
+          Check that used key parts forms a prefix of the index.
+          To check this we compare bits in all_parts and cur_parts.
+          all_parts have all bits set from 0 to (max_key_part-1).
+          cur_parts have bits set for only used keyparts.
+        */
+        ulonglong all_parts, cur_parts;
+        all_parts = (1ULL << max_key_part) - 1;
+        cur_parts = used_key_parts_map.to_ulonglong() >> 1;
+        if (all_parts != cur_parts) goto next_index;
+      }
     }
 
     /* Check (SA2). */
