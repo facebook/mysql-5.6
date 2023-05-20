@@ -1,0 +1,102 @@
+--source include/load_sysvars.inc
+
+
+# Saving initial value of optimizer_implicit_groups_for_lis in a temporary variable
+
+SET @session_start_value = @@session.optimizer_implicit_groups_for_lis;
+SELECT @session_start_value;
+SET @global_start_value = @@global.optimizer_implicit_groups_for_lis;
+SELECT @global_start_value;
+
+# Display the DEFAULT value of optimizer_implicit_groups_for_lis
+
+SET @@session.optimizer_implicit_groups_for_lis = 0;
+SET @@session.optimizer_implicit_groups_for_lis = DEFAULT;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+
+SET @@session.optimizer_implicit_groups_for_lis = 1;
+SET @@session.optimizer_implicit_groups_for_lis = DEFAULT;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+
+
+# Check if optimizer_implicit_groups_for_lis can be accessed with and without @@ sign
+
+SET optimizer_implicit_groups_for_lis = 1;
+SELECT @@optimizer_implicit_groups_for_lis;
+
+--Error ER_UNKNOWN_TABLE
+SELECT session.optimizer_implicit_groups_for_lis;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.optimizer_implicit_groups_for_lis;
+
+SET session optimizer_implicit_groups_for_lis = 0;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+
+# change the value of optimizer_implicit_groups_for_lis to a valid value
+
+SET @@session.optimizer_implicit_groups_for_lis = 0;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+SET @@session.optimizer_implicit_groups_for_lis = 1;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+
+
+# Change the value of optimizer_implicit_groups_for_lis to invalid value
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_implicit_groups_for_lis = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_implicit_groups_for_lis = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_implicit_groups_for_lis = "T";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_implicit_groups_for_lis = "Y";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_implicit_groups_for_lis = NO;
+
+
+# Test if accessing global optimizer_implicit_groups_for_lis gives error
+
+SET @@global.optimizer_implicit_groups_for_lis = 1;
+SELECT @@global.optimizer_implicit_groups_for_lis;
+SET @@global.optimizer_implicit_groups_for_lis = 0;
+
+
+# Check if the value in GLOBAL Table contains variable value
+
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='optimizer_implicit_groups_for_lis';
+
+
+# Check if the value in GLOBAL Table matches value in variable
+
+SELECT IF(@@session.optimizer_implicit_groups_for_lis, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_implicit_groups_for_lis';
+SELECT @@session.optimizer_implicit_groups_for_lis;
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_implicit_groups_for_lis';
+
+
+# Check if ON and OFF values can be used on variable
+
+SET @@session.optimizer_implicit_groups_for_lis = OFF;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+SET @@session.optimizer_implicit_groups_for_lis = ON;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+
+
+# Check if TRUE and FALSE values can be used on variable
+
+SET @@session.optimizer_implicit_groups_for_lis = TRUE;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+SET @@session.optimizer_implicit_groups_for_lis = FALSE;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+
+
+# Restore initial value
+
+SET @@session.optimizer_implicit_groups_for_lis = @session_start_value;
+SELECT @@session.optimizer_implicit_groups_for_lis;
+SET @@global.optimizer_implicit_groups_for_lis = @global_start_value;
+SELECT @@global.optimizer_implicit_groups_for_lis;
