@@ -936,6 +936,7 @@ rocksdb_column_default_value_as_expression	ON
 rocksdb_commit_in_the_middle	OFF
 rocksdb_commit_time_batch_for_recovery	ON
 rocksdb_compact_cf	
+rocksdb_compact_lzero_now	OFF
 rocksdb_compaction_readahead_size	0
 rocksdb_compaction_sequential_deletes	0
 rocksdb_compaction_sequential_deletes_count_sd	OFF
@@ -984,7 +985,7 @@ rocksdb_flush_log_at_trx_commit	1
 rocksdb_force_compute_memtable_stats	ON
 rocksdb_force_compute_memtable_stats_cachetime	0
 rocksdb_force_flush_memtable_and_lzero_now	OFF
-rocksdb_force_flush_memtable_now	ON
+rocksdb_force_flush_memtable_now	OFF
 rocksdb_force_index_records_in_range	0
 rocksdb_ignore_unknown_options	ON
 rocksdb_index_type	kBinarySearch

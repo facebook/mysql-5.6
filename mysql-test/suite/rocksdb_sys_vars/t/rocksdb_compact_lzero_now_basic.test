@@ -10,7 +10,7 @@ INSERT INTO valid_values VALUES('false');
 
 CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
 
---let $sys_var=ROCKSDB_FORCE_FLUSH_MEMTABLE_AND_LZERO_NOW
+--let $sys_var=ROCKSDB_COMPACT_LZERO_NOW
 --let $read_only=0
 --let $session=0
 --let $sticky=1
