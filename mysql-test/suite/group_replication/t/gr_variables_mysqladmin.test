@@ -17,7 +17,7 @@ SET @@GLOBAL.group_replication_ip_allowlist= "AUTOMATIC";
 
 #=============== Checking the group replication variable values ================
 --echo =====mysqladmin -u root -P MASTER_MYPORT --protocol=TCP check all the GR variable outputs=====
---exec $MYSQLADMIN -u root -P $MASTER_MYPORT --protocol=TCP variables >$MYSQLTEST_VARDIR/tmp/group_replication_variables_mysqladmin.tmp
+--exec $MYSQLADMIN --no-defaults -u root -P $MASTER_MYPORT --protocol=TCP variables >$MYSQLTEST_VARDIR/tmp/group_replication_variables_mysqladmin.tmp
 
 # This subroutine checks for group replication variables in the dump file and
 # adds it to @varlist and then prints the item from the list
@@ -70,4 +70,3 @@ EOF
 --remove_file "$MYSQLTEST_VARDIR/tmp/group_replication_variables_mysqladmin.tmp";
 --echo
 --source include/group_replication_end.inc
-

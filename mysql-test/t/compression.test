@@ -459,7 +459,7 @@ DROP TABLE wl12475.t1;
 SELECT COUNT(*) FROM wl12475.t1;
 
 # check mysqladmin client
---exec $MYSQLADMIN -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT --compression-algorithms="zstd" --zstd-compression-level=7  --skip-verbose ping 2>&1
+--exec $MYSQLADMIN --no-defaults -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT --compression-algorithms="zstd" --zstd-compression-level=7  --skip-verbose ping 2>&1
 
 # check mysqlcheck client
 --exec $MYSQL_CHECK --repair --compression-algorithms="zstd" --zstd-compression-level=7 --databases wl12475 > /dev/null 2>&1
