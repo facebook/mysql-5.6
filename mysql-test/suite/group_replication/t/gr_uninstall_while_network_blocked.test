@@ -89,7 +89,7 @@ UNINSTALL PLUGIN group_replication;
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --disable_result_log
 --replace_regex /.*mysqladmin.*: /mysqladmin: /
---exec $MYSQLADMIN -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT shutdown 2>&1
+--exec $MYSQLADMIN --no-defaults -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT shutdown 2>&1
 --enable_result_log
 
 --source include/wait_until_disconnected.inc

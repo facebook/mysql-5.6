@@ -88,7 +88,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR gr_clone_paused';
 --let $_expect_file_name= $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
 --exec echo "wait" > $_expect_file_name
 
---exec $MYSQLADMIN -uroot --password="" -S $SLAVE_MYSOCK shutdown 2>&1
+--exec $MYSQLADMIN --no-defaults -uroot --password="" -S $SLAVE_MYSOCK shutdown 2>&1
 
 --source include/wait_until_disconnected.inc
 
