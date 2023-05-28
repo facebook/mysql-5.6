@@ -454,6 +454,7 @@ mysql_mutex_t LOCK_plugin;
   Must be taken before LOCK_plugin.
 */
 mysql_mutex_t LOCK_plugin_install;
+MDL_mutex mutex_plugin_install;
 static Prealloced_array<st_plugin_dl *, 16> *plugin_dl_array;
 static Prealloced_array<st_plugin_int *, 16> *plugin_array;
 static collation_unordered_map<std::string, st_plugin_int *>
@@ -1418,6 +1419,7 @@ static bool plugin_init_internals() {
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_plugin_install, &LOCK_plugin_install,
                    MY_MUTEX_INIT_FAST);
+  mutex_plugin_install.init("PLUGIN_INSTALL");
 
   plugin_dl_array = new (std::nothrow)
       Prealloced_array<st_plugin_dl *, 16>(key_memory_mysql_plugin_dl);
@@ -2389,7 +2391,7 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
   mysql_audit_acquire_plugins(thd, MYSQL_AUDIT_GENERAL_CLASS,
                               MYSQL_AUDIT_GENERAL_ALL);
 
-  mysql_mutex_lock(&LOCK_plugin_install);
+  MDL_mutex_guard guard(&mutex_plugin_install, thd, &LOCK_plugin_install);
   mysql_rwlock_wrlock(&LOCK_system_variables_hash);
   mysql_mutex_lock(&LOCK_plugin);
 
@@ -2535,7 +2537,6 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
   }
 
 err:
-  mysql_mutex_unlock(&LOCK_plugin_install);
   return end_transaction(thd, error);
 }
 
@@ -2593,7 +2594,7 @@ static bool mysql_uninstall_plugin(THD *thd, LEX_CSTRING name) {
   if (table_intact.check(thd, table, &mysql_plugin_table_def))
     return end_transaction(thd, error);
 
-  mysql_mutex_lock(&LOCK_plugin_install);
+  MDL_mutex_guard guard(&mutex_plugin_install, thd, &LOCK_plugin_install);
   if (!table->key_info) {
     my_error(ER_MISSING_KEY, MYF(0), table->s->db.str,
              table->s->table_name.str);
@@ -2753,7 +2754,6 @@ static bool mysql_uninstall_plugin(THD *thd, LEX_CSTRING name) {
   }
 
 err:
-  mysql_mutex_unlock(&LOCK_plugin_install);
   return end_transaction(thd, error || thd->transaction_rollback_request);
 }
 
