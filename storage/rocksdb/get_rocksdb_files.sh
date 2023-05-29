@@ -1,4 +1,8 @@
 #!/bin/bash
+if [ -z "$PATH" ]; then
+    export PATH="/sbin:/usr/sbin:/bin:/usr/bin"
+fi
+
 MKFILE=`mktemp`
 # create and run a simple makefile
 # include rocksdb make file relative to the path of this script
