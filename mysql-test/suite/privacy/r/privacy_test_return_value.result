@@ -13,7 +13,7 @@ set session privacy_plugin_purpose_policy_check=fail_open;
 select * from privacy_blood_donation_table;
 id	name
 1	User1
-ResultWhenNotSendingResponse: 
+ResultWhenNotSendingResponse: PASS
 set @original_privacy_plugin_response_attrs_contain_policy_status=@@session.privacy_plugin_response_attrs_contain_policy_status;
 set session privacy_plugin_response_attrs_contain_policy_status=on;
 select * from privacy_blood_donation_table;

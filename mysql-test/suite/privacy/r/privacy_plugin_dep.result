@@ -39,16 +39,16 @@ set session privacy_plugin_dep_check=fail_open;
 select * from privacy_blood_donation_table;
 id	name
 1	User1
-ResultWhenDisabledAndDepOn: 
+ResultWhenDisabledAndDepOn: SKIPPED
 ReasonWhenDisabledAndDepOn: 
-ResultWhenDisabledAndPurposePolicyOn: 
+ResultWhenDisabledAndPurposePolicyOn: SKIPPED
 ReasonWhenDisabledAndPurposePolicyOn: 
 select 23;
 23
 23
-ResultWhenNoTablesAndPluginDisabled: 
+ResultWhenNoTablesAndPluginDisabled: SKIPPED
 ReasonWhenNoTablesAndPluginDisabled: 
-ResultWhenNoTablesAndPluginDisabled: 
+ResultWhenNoTablesAndPluginDisabled: SKIPPED
 ReasonWhenNoTablesAndPluginDisabled: 
 # Test 3: Plugin enabled, Endorsement Off, Purpose Policy On
 set global privacy_plugin_on = 1;
@@ -60,7 +60,7 @@ id	name
 ResultWhenEnabledAndDepOff: SKIPPED
 ReasonWhenEnabledAndDepOff: Endorsement policy check off
 ResultWhenEnabledAndPurposePolicyOn: PASS
-ReasonWhenEnabledAndPurposePolicyOn: PES FlowsTo result
+ReasonWhenEnabledAndPurposePolicyOn: FlowsTo result
 select 23;
 23
 23

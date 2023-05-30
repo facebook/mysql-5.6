@@ -38,15 +38,8 @@ if ($value !=  No such row)
 }
 
 # Check if the plugin has column level check implemented
-let $value = query_get_value(SHOW VARIABLES LIKE 'privacy_plugin_purpose_policy_column_level_check', Value, 1);
-if ($value ==  No such row)
-{
-  let $has_column_level_check = 0;
-}
-if ($value !=  No such row)
-{
-  let $has_column_level_check = 1;
-}
+set @original_privacy_plugin_purpose_policy_column_level_check=@@privacy_plugin_purpose_policy_column_level_check;
+let $has_column_level_check = 1;
 
 # Check if the plugin has column level check implemented
 let $value = query_get_value(SHOW VARIABLES LIKE 'purpose_policy_column_level_check_fine_grained', Value, 1);
@@ -56,6 +49,7 @@ if ($value ==  No such row)
 }
 if ($value !=  No such row)
 {
+  set @original_has_column_level_check_fine_grained=@@has_column_level_check_fine_grained;
   let $has_column_level_check_fine_grained = 1;
 }
 
