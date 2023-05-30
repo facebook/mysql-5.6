@@ -27,11 +27,11 @@ set global privacy_plugin_on = 0;
 select * from privacy_blood_donation_table;
 id	name
 1	User1
-ResultWhenEnabledAndQUery: 
+ResultWhenEnabledAndQUery: SKIPPED
 select 23;
 23
 23
-ResultWhenNoTables: 
+ResultWhenNoTables: SKIPPED
 # Test 3: Plugin re-enabled and we should again do evaluations and populate results
 set global privacy_plugin_on = 1;
 # Test 3: set gloabl
