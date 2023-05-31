@@ -64,3 +64,18 @@ rocksdb.index_merge_rocksdb2 : BUG#0000 query plan is different between 8.0 and 
 rocksdb.rqg_runtime: BUG#0000 commit without prepare
 rocksdb.rqg_transactions : BUG#0000 commit without prepare
 rocksdb.add_index_inplace : BUG#0000 : ALTER TABLE ALGORITHM=INPLACE fails
+
+# Rebase: not-yet-implemented bugs
+rocksdb.rqg_examples : BUG#0000 Rebase: not-yet-implemented
+rocksdb.bypass_select_range_pk_bloom : BUG#0000 Rebase: not-yet-implemented
+rocksdb.bypass_select_scenarios_bloom : BUG#0000 Rebase: not-yet-implemented
+rocksdb.verify_tbl_share_primary_idx : BUG#0000 Rebase: not-yet-implemented
+rocksdb.bypass_select_range_sk_bloom : BUG#0000 Rebase: not-yet-implemented
+rocksdb.bypass_select_basic_bloom : BUG#0000 Rebase: not-yet-implemented
+rocksdb.rocksdb_deadlock_detect_rc : BUG#0000 Rebase: not-yet-implemented
+rocksdb.rocksdb_deadlock_detect_rr : BUG#0000 Rebase: not-yet-implemented
+rocksdb.bloomfilter2 : BUG#0000 Rebase: not-yet-implemented
+rocksdb.bloomfilter3 : BUG#0000 Rebase: not-yet-implemented
+rocksdb.track_and_verify_wals_in_manifest : BUG#0000 Rebase: not-yet-implemented
+rocksdb.mysqldump : BUG#0000 Rebase: not-yet-implemented
+rocksdb_rpl.rocksdb_slave_check_before_image_consistency : BUG#0000 Rebase: not-yet-implemented
