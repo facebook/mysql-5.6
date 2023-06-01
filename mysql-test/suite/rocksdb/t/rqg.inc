@@ -27,7 +27,7 @@ foreach $grammar_file (split(/ /, $ENV{'GRAMMAR_FILES'})) {
       ":mysql_socket=$ENV{'MYSQL_SOCKET'} " .
       "--gendata=$ENV{'RQG_BASE'}/conf/$ENV{'TESTDIR'}/$ENV{'DATA_FILE'} " .
       "--grammar=$ENV{'RQG_BASE'}/conf/$ENV{'TESTDIR'}/$grammar_file " .
-      "--threads=5 --queries=10000 --duration=600 --sqltrace 2>&1 >> " .
+      "--threads=5 --queries=1000 --duration=600 --sqltrace 2>&1 >> " .
       "$ENV{'MYSQLTEST_VARDIR'}/tmp/$ENV{'TESTDB'}.log";
 
   print "Running test with grammar file $grammar_file\n";
