@@ -47,6 +47,10 @@ while ($i < 10) {
   inc $i;
 }
 
+--let $query1= SELECT DISTINCT link_type FROM link_table FORCE INDEX (id1_type)
+--let $query2= SELECT DISTINCT link_type FROM link_table FORCE INDEX (id1_type2)
+--source include/diff_queries.inc
+
 # Rebuild the table so that nothing is materialized anymore.
 ALTER TABLE link_table ENGINE=ROCKSDB;
 

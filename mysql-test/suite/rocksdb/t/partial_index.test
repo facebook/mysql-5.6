@@ -77,6 +77,15 @@ SELECT variable_name, t2.variable_value - t1.variable_value AS diff FROM t1 JOIN
 
 DROP TABLE t1, t2;
 
+#
+# Test consecutive sentinel values
+#
+DELETE FROM sentinel where c2 <= 2;
+
+--let $query1= SELECT c1, c2 FROM sentinel FORCE INDEX(c1);
+--let $query2= SELECT c1, c2 FROM sentinel FORCE INDEX(PRIMARY);
+--source include/diff_queries.inc
+
 DROP TABLE sentinel;
 
 set optimizer_force_index_for_range = off;
