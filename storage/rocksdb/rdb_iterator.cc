@@ -854,7 +854,10 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
   rc = Rdb_iterator_base::seek(find_flag, start_key, true, end_key,
                                read_current);
 
-  if (rc == 0 && Rdb_iterator_base::key().size() == m_cur_prefix_key_len) {
+  while (rc == 0 && Rdb_iterator_base::key().size() == m_cur_prefix_key_len) {
+    if (thd_killed(m_thd)) {
+      return HA_ERR_QUERY_INTERRUPTED;
+    }
     rc = direction ? Rdb_iterator_base::next() : Rdb_iterator_base::prev();
   }
 

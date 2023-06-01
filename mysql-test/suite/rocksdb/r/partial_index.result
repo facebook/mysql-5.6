@@ -231,5 +231,6 @@ rocksdb_partial_index_rows_sorted	1
 include/assert.inc [Check that materialized groups are zero.]
 include/assert.inc [Check that materialized rows are zero.]
 DROP TABLE t1, t2;
+DELETE FROM sentinel where c2 <= 2;
 DROP TABLE sentinel;
 set optimizer_force_index_for_range = off;
