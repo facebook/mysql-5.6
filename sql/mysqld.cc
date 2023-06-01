@@ -7830,10 +7830,9 @@ static int init_server_components() {
   if (opt_general_log && query_logger.reopen_log_file(QUERY_LOG_GENERAL))
     opt_general_log = false;
 
-  // Open gap lock log file if enabled.
+  // Open gap lock log file
   query_logger.set_log_file(QUERY_LOG_GAP_LOCK);
-  if (query_logger.reopen_log_file(QUERY_LOG_GAP_LOCK))
-    LogErr(ERROR_LEVEL, ER_CANT_OPEN_FILE);
+  query_logger.reopen_log_file(QUERY_LOG_GAP_LOCK);
 
   /*
     Set the default storage engines
