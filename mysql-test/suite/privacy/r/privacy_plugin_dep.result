@@ -12,8 +12,10 @@ set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpo
 set @original_privacy_plugin_dep_check=@@session.privacy_plugin_dep_check;
 set @original_privacy_plugin_response_attrs_contain_pp_status=@@session.privacy_plugin_response_attrs_contain_policy_status;
 set @original_privacy_plugin_response_attrs_contain_dep_status=@@session.privacy_plugin_response_attrs_contain_dep_status;
+set @original_privacy_plugin_is_pxl_enabled=@@session.privacy_plugin_pxl_policy_flow_enabled;
 set session privacy_plugin_response_attrs_contain_dep_status=on;
 set session privacy_plugin_response_attrs_contain_policy_status=on;
+set session privacy_plugin_pxl_policy_flow_enabled=on;
 set global privacy_plugin_on = 1;
 set session privacy_plugin_purpose_policy_check=off;
 set session privacy_plugin_dep_check=off;
@@ -21,15 +23,13 @@ set session privacy_plugin_dep_check=off;
 select * from privacy_blood_donation_table;
 id	name
 1	User1
-ResultWhenEnabledAndDepOff: SKIPPED
-ReasonWhenEnabledAndDepOff: Endorsement policy check off
+PrivacyResultWhenEnabledAndDepOff: {"result":{"2":{"checkResult":"SKIPPED","reason":"Endorsement policy check off"},"1":{"checkResult":"SKIPPED","reason":"Purpose policy check off"}}}
 ResultWhenEnabledAndPurposePolicyOff: SKIPPED
 ReasonWhenEnabledAndPurposePolicyOff: Purpose policy check off
 select 23;
 23
 23
-ResultWhenNoTablesAndDepOff: SKIPPED
-ReasonWhenNoTablesAndDepOff: Endorsement policy check off
+PrivacyResultWhenNoTablesAndDepOff: {"result":{"2":{"checkResult":"SKIPPED","reason":"Endorsement policy check off"},"1":{"checkResult":"SKIPPED","reason":"Purpose policy check off"}}}
 ResultWhenNoTablesAndPurposePolicyOff: SKIPPED
 ReasonWhenNoTablesAndPurposePolicyOff: Purpose policy check off
 # Test 2: Plugin disabled and we shouldn't do evaluations and result would be missing
@@ -39,15 +39,13 @@ set session privacy_plugin_dep_check=fail_open;
 select * from privacy_blood_donation_table;
 id	name
 1	User1
-ResultWhenDisabledAndDepOn: SKIPPED
-ReasonWhenDisabledAndDepOn: 
+PrivacyResultWhenDisabledAndDepOn: {"result":{"2":{"checkResult":"SKIPPED","reason":""},"1":{"checkResult":"SKIPPED","reason":""}}}
 ResultWhenDisabledAndPurposePolicyOn: SKIPPED
 ReasonWhenDisabledAndPurposePolicyOn: 
 select 23;
 23
 23
-ResultWhenNoTablesAndPluginDisabled: SKIPPED
-ReasonWhenNoTablesAndPluginDisabled: 
+PrivacyResultWhenNoTablesAndPluginDisabled: {"result":{"2":{"checkResult":"SKIPPED","reason":""},"1":{"checkResult":"SKIPPED","reason":""}}}
 ResultWhenNoTablesAndPluginDisabled: SKIPPED
 ReasonWhenNoTablesAndPluginDisabled: 
 # Test 3: Plugin enabled, Endorsement Off, Purpose Policy On
@@ -57,43 +55,52 @@ set session privacy_plugin_dep_check=off;
 select * from privacy_blood_donation_table;
 id	name
 1	User1
-ResultWhenEnabledAndDepOff: SKIPPED
-ReasonWhenEnabledAndDepOff: Endorsement policy check off
+PrivacyResultWhenEnabledAndDepOff: {"result":{"1":{"checkResult":"PASS","reason":"Purpose FlowsTo result","policy":"fbig::consumer_products::core_products::blood_donation and pxl_ref(\"purpose_policies/blood_donor\")","enforcementMode":"FAIL_OPEN"},"2":{"checkResult":"SKIPPED","reason":"Endorsement policy check off"}}}
 ResultWhenEnabledAndPurposePolicyOn: PASS
-ReasonWhenEnabledAndPurposePolicyOn: FlowsTo result
+ReasonWhenEnabledAndPurposePolicyOn: Purpose FlowsTo result
 select 23;
 23
 23
-ResultWhenNoTablesAndDepOff: SKIPPED
-ReasonWhenNoTablesAndDepOff: Endorsement policy check off
+PrivacyResultWhenNoTablesAndDepOff: {"result":{"1":{"checkResult":"PASS","reason":"No non-user tables found"},"2":{"checkResult":"SKIPPED","reason":"Endorsement policy check off"}}}
 ResultWhenNoTablesAndPurposePolicyOn: PASS
 ReasonWhenNoTablesAndPurposePolicyOn: No non-user tables found
 # Test 4: Plugin enabled, Endorsement On, Purpose Policy Off
 set global privacy_plugin_on = 1;
 set session privacy_plugin_purpose_policy_check=off;
 set session privacy_plugin_dep_check=fail_open;
+select * from privacy_blood_donation_table;
+id	name
+1	User1
+PrivacyResultWhenEnabledAndDepOn: {"result":{"2":{"checkResult":"PASS","reason":"Endorsement FlowsTo result","policy":"pxl_ref(\"endorsement/ads_curated\")","enforcementMode":"FAIL_OPEN"},"1":{"checkResult":"SKIPPED","reason":"Purpose policy check off"}}}
+ResultWhenEnabledAndPurposePolicyOn: SKIPPED
+ReasonWhenEnabledAndPurposePolicyOn: Purpose policy check off
 select 23;
 23
 23
-ResultWhenNoTablesAndDepOn: PASS
-ReasonWhenNoTablesAndDepOn: No non-user tables found
+PrivacyResultWhenNoTablesAndDepOn: {"result":{"2":{"checkResult":"PASS","reason":"No non-user tables found"},"1":{"checkResult":"SKIPPED","reason":"Purpose policy check off"}}}
 ResultWhenNoTablesAndPurposePolicyOff: SKIPPED
 ReasonWhenNoTablesAndPurposePolicyOff: Purpose policy check off
 # Test 5: Plugin enabled, Endorsement On, Purpose Policy On
 set global privacy_plugin_on = 1;
 set session privacy_plugin_purpose_policy_check=fail_open;
 set session privacy_plugin_dep_check=fail_open;
+select * from privacy_blood_donation_table;
+id	name
+1	User1
+PrivacyResultWhenEnabledAndDepOff: {"result":{"2":{"checkResult":"PASS","reason":"Endorsement FlowsTo result","policy":"pxl_ref(\"endorsement/ads_curated\")","enforcementMode":"FAIL_OPEN"},"1":{"checkResult":"PASS","reason":"Purpose FlowsTo result","policy":"fbig::consumer_products::core_products::blood_donation and pxl_ref(\"purpose_policies/blood_donor\")","enforcementMode":"FAIL_OPEN"}}}
+ResultWhenEnabledAndPurposePolicyOn: PASS
+ReasonWhenEnabledAndPurposePolicyOn: Purpose FlowsTo result
 select 23;
 23
 23
-ResultWhenNoTablesAndDepOn: PASS
-ReasonWhenNoTablesAndDepOn: No non-user tables found
+PrivacyResultWhenNoTablesAndDepOn: {"result":{"2":{"checkResult":"PASS","reason":"No non-user tables found"},"1":{"checkResult":"PASS","reason":"No non-user tables found"}}}
 ResultWhenNoTablesAndPurposePolicyOn: PASS
 ReasonWhenNoTablesAndPurposePolicyOn: No non-user tables found
 set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
 set session privacy_plugin_dep_check=@original_privacy_plugin_dep_check;
 set session privacy_plugin_response_attrs_contain_policy_status=@original_privacy_plugin_response_attrs_contain_pp_status;
 set session privacy_plugin_response_attrs_contain_dep_status=@original_privacy_plugin_response_attrs_contain_dep_status;
+set session privacy_plugin_pxl_policy_flow_enabled=@original_privacy_plugin_is_pxl_enabled;
 drop table privacy_blood_donation_table;
 set session session_track_response_attributes=@original_session_track_response_attributes;
 set global privacy_plugin_on=@original_privacy_plugin_on;
