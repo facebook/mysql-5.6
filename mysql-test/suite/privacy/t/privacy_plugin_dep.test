@@ -11,12 +11,14 @@ set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpo
 set @original_privacy_plugin_dep_check=@@session.privacy_plugin_dep_check;
 set @original_privacy_plugin_response_attrs_contain_pp_status=@@session.privacy_plugin_response_attrs_contain_policy_status;
 set @original_privacy_plugin_response_attrs_contain_dep_status=@@session.privacy_plugin_response_attrs_contain_dep_status;
+set @original_privacy_plugin_is_pxl_enabled=@@session.privacy_plugin_pxl_policy_flow_enabled;
 
 set session privacy_plugin_response_attrs_contain_dep_status=on;
 set session privacy_plugin_response_attrs_contain_policy_status=on;
+set session privacy_plugin_pxl_policy_flow_enabled=on;
 
 query_attrs_add shard xdb.dbclient_test.1;
-query_attrs_add cipp_context {"policySet":{"purposePolicyInstance":{"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"cippEnforcementMode":1,"wasToken":false,"inEnforcementMode":1,"outEnforcementMode":1},"casdPolicyInstance":{"casdPolicy":{"policyName":"public_data"},"cippEnforcementMode":1},"endorsementPolicyInstance":{"cippEnforcementMode":1,"name":"blood_donor_dep"},"wasToken":false}};
+query_attrs_add cipp_context {"policySet":{"purposePolicyInstance":{"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"cippEnforcementMode":1,"wasToken":false,"inEnforcementMode":1,"outEnforcementMode":1},"casdPolicyInstance":{"casdPolicy":{"policyName":"public_data"},"cippEnforcementMode":1},"endorsementPolicyInstance":{"cippEnforcementMode":1,"name":"ads_contracted"},"wasToken":false}};
 
 
 # When sending response is enabled and both policy check is disabled, attribute should set to skip for query
@@ -26,24 +28,20 @@ set session privacy_plugin_dep_check=off;
 
 --echo # Test 1: Plugin enabled and both policy check is disabled, we should do evaluations and get the results
 select * from privacy_blood_donation_table;
-let $dep_result = get_response_attribute(dep_check_result);
-let $dep_result_reason = get_response_attribute(dep_check_result_reason);
+let $privacy_result = get_response_attribute(privacy_policy_result);
 let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
 let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
 
---echo ResultWhenEnabledAndDepOff: $dep_result
---echo ReasonWhenEnabledAndDepOff: $dep_result_reason
+--echo PrivacyResultWhenEnabledAndDepOff: $privacy_result
 --echo ResultWhenEnabledAndPurposePolicyOff: $purpose_policy_result
 --echo ReasonWhenEnabledAndPurposePolicyOff: $purpose_policy_result_reason
 
 select 23;
-let $dep_result = get_response_attribute(dep_check_result);
-let $dep_result_reason = get_response_attribute(dep_check_result_reason);
+let $privacy_result = get_response_attribute(privacy_policy_result);
 let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
 let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
 
---echo ResultWhenNoTablesAndDepOff: $dep_result
---echo ReasonWhenNoTablesAndDepOff: $dep_result_reason
+--echo PrivacyResultWhenNoTablesAndDepOff: $privacy_result
 --echo ResultWhenNoTablesAndPurposePolicyOff: $purpose_policy_result
 --echo ReasonWhenNoTablesAndPurposePolicyOff: $purpose_policy_result_reason
 
@@ -55,24 +53,20 @@ set session privacy_plugin_purpose_policy_check=fail_open;
 set session privacy_plugin_dep_check=fail_open;
 
 select * from privacy_blood_donation_table;
-let $dep_result = get_response_attribute(dep_check_result);
-let $dep_result_reason = get_response_attribute(dep_check_result_reason);
+let $privacy_result = get_response_attribute(privacy_policy_result);
 let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
 let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
 
---echo ResultWhenDisabledAndDepOn: $dep_result
---echo ReasonWhenDisabledAndDepOn: $dep_result_reason
+--echo PrivacyResultWhenDisabledAndDepOn: $privacy_result
 --echo ResultWhenDisabledAndPurposePolicyOn: $purpose_policy_result
 --echo ReasonWhenDisabledAndPurposePolicyOn: $purpose_policy_result_reason
 
 select 23;
-let $dep_result = get_response_attribute(dep_check_result);
-let $dep_result_reason = get_response_attribute(dep_check_result_reason);
+let $privacy_result = get_response_attribute(privacy_policy_result);
 let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
 let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
 
---echo ResultWhenNoTablesAndPluginDisabled: $dep_result
---echo ReasonWhenNoTablesAndPluginDisabled: $dep_result_reason
+--echo PrivacyResultWhenNoTablesAndPluginDisabled: $privacy_result
 --echo ResultWhenNoTablesAndPluginDisabled: $purpose_policy_result
 --echo ReasonWhenNoTablesAndPluginDisabled: $purpose_policy_result_reason
 
@@ -84,24 +78,20 @@ set session privacy_plugin_purpose_policy_check=fail_open;
 set session privacy_plugin_dep_check=off;
 
 select * from privacy_blood_donation_table;
-let $dep_result = get_response_attribute(dep_check_result);
-let $dep_result_reason = get_response_attribute(dep_check_result_reason);
+let $privacy_result = get_response_attribute(privacy_policy_result);
 let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
 let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
 
---echo ResultWhenEnabledAndDepOff: $dep_result
---echo ReasonWhenEnabledAndDepOff: $dep_result_reason
+--echo PrivacyResultWhenEnabledAndDepOff: $privacy_result
 --echo ResultWhenEnabledAndPurposePolicyOn: $purpose_policy_result
 --echo ReasonWhenEnabledAndPurposePolicyOn: $purpose_policy_result_reason
 
 select 23;
-let $dep_result = get_response_attribute(dep_check_result);
-let $dep_result_reason = get_response_attribute(dep_check_result_reason);
+let $privacy_result = get_response_attribute(privacy_policy_result);
 let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
 let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
 
---echo ResultWhenNoTablesAndDepOff: $dep_result
---echo ReasonWhenNoTablesAndDepOff: $dep_result_reason
+--echo PrivacyResultWhenNoTablesAndDepOff: $privacy_result
 --echo ResultWhenNoTablesAndPurposePolicyOn: $purpose_policy_result
 --echo ReasonWhenNoTablesAndPurposePolicyOn: $purpose_policy_result_reason
 
@@ -113,24 +103,20 @@ set session privacy_plugin_purpose_policy_check=off;
 set session privacy_plugin_dep_check=fail_open;
 
 # Will remove the comment block once the Plugin start doing flow to check for endorsement policy
-# select * from privacy_blood_donation_table;
-# let $dep_result = get_response_attribute(dep_check_result);
-# let $dep_result_reason = get_response_attribute(dep_check_result_reason);
-# let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
-# let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
-# --echo ResultWhenEnabledAndDepOff: $dep_result
-# --echo ReasonWhenEnabledAndDepOff: $dep_result_reason
-# --echo ResultWhenEnabledAndPurposePolicyOn: $purpose_policy_result
-# --echo ReasonWhenEnabledAndPurposePolicyOn: $purpose_policy_result_reason
+select * from privacy_blood_donation_table;
+let $privacy_result = get_response_attribute(privacy_policy_result);
+let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
+let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
+--echo PrivacyResultWhenEnabledAndDepOn: $privacy_result
+--echo ResultWhenEnabledAndPurposePolicyOn: $purpose_policy_result
+--echo ReasonWhenEnabledAndPurposePolicyOn: $purpose_policy_result_reason
 
 select 23;
-let $dep_result = get_response_attribute(dep_check_result);
-let $dep_result_reason = get_response_attribute(dep_check_result_reason);
+let $privacy_result = get_response_attribute(privacy_policy_result);
 let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
 let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
 
---echo ResultWhenNoTablesAndDepOn: $dep_result
---echo ReasonWhenNoTablesAndDepOn: $dep_result_reason
+--echo PrivacyResultWhenNoTablesAndDepOn: $privacy_result
 --echo ResultWhenNoTablesAndPurposePolicyOff: $purpose_policy_result
 --echo ReasonWhenNoTablesAndPurposePolicyOff: $purpose_policy_result_reason
 
@@ -142,24 +128,20 @@ set session privacy_plugin_purpose_policy_check=fail_open;
 set session privacy_plugin_dep_check=fail_open;
 
 # Will remove the comment block once the Plugin start doing flow to check for endorsement policy
-# select * from privacy_blood_donation_table;
-# let $dep_result = get_response_attribute(dep_check_result);
-# let $dep_result_reason = get_response_attribute(dep_check_result_reason);
-# let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
-# let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
-# --echo ResultWhenEnabledAndDepOff: $dep_result
-# --echo ReasonWhenEnabledAndDepOff: $dep_result_reason
-# --echo ResultWhenEnabledAndPurposePolicyOn: $purpose_policy_result
-# --echo ReasonWhenEnabledAndPurposePolicyOn: $purpose_policy_result_reason
+select * from privacy_blood_donation_table;
+let $privacy_result = get_response_attribute(privacy_policy_result);
+let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
+let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
+--echo PrivacyResultWhenEnabledAndDepOff: $privacy_result
+--echo ResultWhenEnabledAndPurposePolicyOn: $purpose_policy_result
+--echo ReasonWhenEnabledAndPurposePolicyOn: $purpose_policy_result_reason
 
 select 23;
-let $dep_result = get_response_attribute(dep_check_result);
-let $dep_result_reason = get_response_attribute(dep_check_result_reason);
+let $privacy_result = get_response_attribute(privacy_policy_result);
 let $purpose_policy_result = get_response_attribute(purpose_policy_check_result);
 let $purpose_policy_result_reason = get_response_attribute(purpose_policy_check_result_reason);
 
---echo ResultWhenNoTablesAndDepOn: $dep_result
---echo ReasonWhenNoTablesAndDepOn: $dep_result_reason
+--echo PrivacyResultWhenNoTablesAndDepOn: $privacy_result
 --echo ResultWhenNoTablesAndPurposePolicyOn: $purpose_policy_result
 --echo ReasonWhenNoTablesAndPurposePolicyOn: $purpose_policy_result_reason
 
@@ -170,6 +152,7 @@ set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose
 set session privacy_plugin_dep_check=@original_privacy_plugin_dep_check;
 set session privacy_plugin_response_attrs_contain_policy_status=@original_privacy_plugin_response_attrs_contain_pp_status;
 set session privacy_plugin_response_attrs_contain_dep_status=@original_privacy_plugin_response_attrs_contain_dep_status;
+set session privacy_plugin_pxl_policy_flow_enabled=@original_privacy_plugin_is_pxl_enabled;
 query_attrs_delete shard;
 drop table privacy_blood_donation_table;
 
