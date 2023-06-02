@@ -1,0 +1,43 @@
+set @original_session_track_response_attributes=@@session.session_track_response_attributes;
+set session session_track_response_attributes = 1;
+set @original_privacy_plugin_on=@@privacy_plugin_on;
+set global privacy_plugin_on = 1;
+CREATE TABLE privacy_research (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_research VALUES(1, "User1");
+CREATE TABLE privacy_column_research (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+score int NOT NULL,
+PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_column_research VALUES(1, "User1", 100);
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set @original_privacy_plugin_dep_check=@@session.privacy_plugin_dep_check;
+set @original_privacy_plugin_response_attrs_contain_policy_status=@@session.privacy_plugin_response_attrs_contain_policy_status;
+set @original_privacy_plugin_is_pxl_enabled=@@session.privacy_plugin_pxl_policy_flow_enabled;
+set session privacy_plugin_response_attrs_contain_policy_status=on;
+set session privacy_plugin_pxl_policy_flow_enabled=on;
+set session privacy_plugin_purpose_policy_check=fail_close;
+set session privacy_plugin_dep_check=fail_close;
+select * from privacy_research;
+ERROR HY000: Purpose policy check `Both Purpose and Endorsement check failed, (fbig::research or fbig::safety_security_integrity) and pxl_ref("purpose_policies/safety_security_integrity"),pxl_ref("endorsement/ads_contracted")` (query policy: `{"policySet":{"purposePolicyInstance":{"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"cippEnforcementMode":1,"wasToken":false,"inEnforcementMode":1,"outEnforcementMode":1},"endorsementPolicyInstance":{"cippEnforcementMode":1,"name":"ads_curated"},"wasT
+select * from privacy_research where id >= 1;
+ERROR HY000: Purpose policy check `Both Purpose and Endorsement check failed, (fbig::research or fbig::safety_security_integrity) and pxl_ref("purpose_policies/safety_security_integrity"),pxl_ref("endorsement/ads_contracted")` (query policy: `{"policySet":{"purposePolicyInstance":{"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"cippEnforcementMode":1,"wasToken":false,"inEnforcementMode":1,"outEnforcementMode":1},"endorsementPolicyInstance":{"cippEnforcementMode":1,"name":"ads_curated"},"wasT
+select name, count(id) from privacy_research group by name;
+ERROR HY000: Purpose policy check `Both Purpose and Endorsement check failed, (fbig::research or fbig::safety_security_integrity) and pxl_ref("purpose_policies/safety_security_integrity"),pxl_ref("endorsement/ads_contracted")` (query policy: `{"policySet":{"purposePolicyInstance":{"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"cippEnforcementMode":1,"wasToken":false,"inEnforcementMode":1,"outEnforcementMode":1},"endorsementPolicyInstance":{"cippEnforcementMode":1,"name":"ads_curated"},"wasT
+select name, count(id) from privacy_research group by name order by 1;
+ERROR HY000: Purpose policy check `Both Purpose and Endorsement check failed, (fbig::research or fbig::safety_security_integrity) and pxl_ref("purpose_policies/safety_security_integrity"),pxl_ref("endorsement/ads_contracted")` (query policy: `{"policySet":{"purposePolicyInstance":{"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"cippEnforcementMode":1,"wasToken":false,"inEnforcementMode":1,"outEnforcementMode":1},"endorsementPolicyInstance":{"cippEnforcementMode":1,"name":"ads_curated"},"wasT
+select name from privacy_column_research;
+ERROR HY000: Purpose policy check `Both Purpose and Endorsement check failed, test::test_a and test::test_b::test_c and pxl_ref("purpose_policies/example_test_a") and pxl_ref("purpose_policies/example_test_c"),pxl_ref("endorsement/test_dep_a") and pxl_ref("endorsement/test_dep_b")` (query policy: `{"policySet":{"purposePolicyInstance":{"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"cippEnforcementMode":1,"wasToken":false,"inEnforcementMode":1,"outEnforcementMode":1},"endorsementPolicyInstan
+set session privacy_plugin_response_attrs_contain_policy_status=@original_privacy_plugin_response_attrs_contain_policy_status;
+set session privacy_plugin_pxl_policy_flow_enabled=@original_privacy_plugin_is_pxl_enabled;
+set session privacy_plugin_dep_check=@original_privacy_plugin_dep_check;
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+drop table privacy_research;
+drop table privacy_column_research;
+set session session_track_response_attributes=@original_session_track_response_attributes;
+set global privacy_plugin_on=@original_privacy_plugin_on;

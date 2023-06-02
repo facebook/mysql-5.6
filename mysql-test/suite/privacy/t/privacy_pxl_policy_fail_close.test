@@ -1,0 +1,56 @@
+--source ../include/privacy_init.inc
+
+CREATE TABLE privacy_research (
+    id int NOT NULL,
+    name VARCHAR(30)   NOT NULL DEFAULT '',
+    PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_research VALUES(1, "User1");
+
+CREATE TABLE privacy_column_research (
+id int NOT NULL,
+name VARCHAR(30)   NOT NULL DEFAULT '',
+score int NOT NULL,
+PRIMARY KEY (`id`)
+);
+INSERT INTO privacy_column_research VALUES(1, "User1", 100);
+
+set @original_privacy_plugin_purpose_policy_check=@@session.privacy_plugin_purpose_policy_check;
+set @original_privacy_plugin_dep_check=@@session.privacy_plugin_dep_check;
+set @original_privacy_plugin_response_attrs_contain_policy_status=@@session.privacy_plugin_response_attrs_contain_policy_status;
+set @original_privacy_plugin_is_pxl_enabled=@@session.privacy_plugin_pxl_policy_flow_enabled;
+
+set session privacy_plugin_response_attrs_contain_policy_status=on;
+set session privacy_plugin_pxl_policy_flow_enabled=on;
+set session privacy_plugin_purpose_policy_check=fail_close;
+set session privacy_plugin_dep_check=fail_close;
+
+query_attrs_add shard xdb.dbclient_test.1;
+query_attrs_add cipp_context {"policySet":{"purposePolicyInstance":{"purposePolicy":{"policyName":"blood_donor","version":1,"schemaVersion":1},"cippEnforcementMode":1,"wasToken":false,"inEnforcementMode":1,"outEnforcementMode":1},"endorsementPolicyInstance":{"cippEnforcementMode":1,"name":"ads_curated"},"wasToken":false}};
+
+
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select * from privacy_research;
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select * from privacy_research where id >= 1;
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select name, count(id) from privacy_research group by name;
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select name, count(id) from privacy_research group by name order by 1;
+--error ER_PURPOSE_POLICY_CHECK_FAILED
+select name from privacy_column_research;
+
+
+# Cleanup
+set session privacy_plugin_response_attrs_contain_policy_status=@original_privacy_plugin_response_attrs_contain_policy_status;
+set session privacy_plugin_pxl_policy_flow_enabled=@original_privacy_plugin_is_pxl_enabled;
+set session privacy_plugin_dep_check=@original_privacy_plugin_dep_check;
+set session privacy_plugin_purpose_policy_check=@original_privacy_plugin_purpose_policy_check;
+
+
+query_attrs_delete shard;
+query_attrs_delete query_policy;
+drop table privacy_research;
+drop table privacy_column_research;
+
+--source ../include/privacy_end.inc
