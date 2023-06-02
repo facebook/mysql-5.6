@@ -204,7 +204,7 @@ Rdb_key_field_iterator::Rdb_key_field_iterator(
   m_buf = buf;
   m_secondary_key =
       (key_def->m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY);
-  m_hidden_pk_exists = Rdb_key_def::table_has_hidden_pk(table);
+  m_hidden_pk_exists = Rdb_key_def::table_has_hidden_pk(*table);
   m_is_hidden_pk =
       (key_def->m_index_type == Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY);
   m_curr_bitmap_pos = 0;
@@ -295,15 +295,16 @@ Rdb_key_def::Rdb_key_def(
       m_prefix_extractor(nullptr),
       m_maxlength(0)  // means 'not intialized'
 {
+  assert(m_index_number != INVALID_INDEX_NUMBER);
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
-  rdb_netbuf_store_index(m_index_number_storage_form, m_index_number);
+  rdb_netbuf_store_index(m_index_number_storage_form, get_index_number());
   m_total_index_flags_length =
       calculate_index_flag_offset(m_index_flags_bitmap, MAX_FLAG);
   assert(m_cf_handle);
 }
 
 Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
-    : m_index_number(k.m_index_number),
+    : m_index_number(k.get_index_number()),
       m_cf_handle(k.m_cf_handle),
       m_is_reverse_cf(k.m_is_reverse_cf),
       m_is_per_partition_cf(k.m_is_per_partition_cf),
@@ -324,7 +325,7 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
       m_prefix_extractor(k.m_prefix_extractor),
       m_maxlength(k.m_maxlength) {
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
-  rdb_netbuf_store_index(m_index_number_storage_form, m_index_number);
+  rdb_netbuf_store_index(m_index_number_storage_form, get_index_number());
   m_total_index_flags_length =
       calculate_index_flag_offset(m_index_flags_bitmap, MAX_FLAG);
   if (k.m_pack_info) {
@@ -361,7 +362,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
     multiple threads, so there is a mutex to protect this code.
   */
   const bool is_hidden_pk = (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
-  const bool hidden_pk_exists = table_has_hidden_pk(tbl);
+  const bool hidden_pk_exists = table_has_hidden_pk(*tbl);
   const bool secondary_key = (m_index_type == INDEX_TYPE_SECONDARY);
   if (!m_maxlength) {
     RDB_MUTEX_LOCK_CHECK(m_mutex);
@@ -714,7 +715,7 @@ uint Rdb_key_def::extract_partial_index_info(
     return HA_EXIT_FAILURE;
   }
 
-  if (table_has_hidden_pk(table_arg)) {
+  if (table_has_hidden_pk(*table_arg)) {
     my_printf_error(ER_NOT_SUPPORTED_YET,
                     "Table with no primary key cannot have a partial index.",
                     MYF(0));
@@ -954,7 +955,7 @@ uint Rdb_key_def::get_primary_key_tuple(const Rdb_key_def &pk_descr,
   assert(m_pk_key_parts);
 
   /* Put the PK number */
-  rdb_netbuf_store_index(buf, pk_descr.m_index_number);
+  rdb_netbuf_store_index(buf, pk_descr.get_index_number());
   buf += INDEX_NUMBER_SIZE;
   size += INDEX_NUMBER_SIZE;
 
@@ -1007,7 +1008,7 @@ uint Rdb_key_def::get_memcmp_sk_parts(const TABLE *table,
   assert(table != nullptr);
   assert(sk_buffer != nullptr);
   assert(n_null_fields != nullptr);
-  assert(m_keyno != table->s->primary_key && !table_has_hidden_pk(table));
+  assert(m_keyno != table->s->primary_key && !table_has_hidden_pk(*table));
 
   uchar *buf = sk_buffer;
 
@@ -1131,7 +1132,7 @@ void Rdb_key_def::get_lookup_bitmap(const TABLE *table, MY_BITMAP *map) const {
   bitmap_init(&maybe_covered_bitmap, nullptr, table->read_set->n_bits);
 
   for (uint i = 0; i < m_key_parts; i++) {
-    if (table_has_hidden_pk(table) && i + 1 == m_key_parts) {
+    if (table_has_hidden_pk(*table) && i + 1 == m_key_parts) {
       continue;
     }
 
@@ -1304,15 +1305,15 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
   // Checksums for PKs are made when record is packed.
   // We should never attempt to make checksum just from PK values
   assert_IMP(should_store_row_debug_checksums,
-                  (m_index_type == INDEX_TYPE_SECONDARY));
+             (m_index_type == INDEX_TYPE_SECONDARY));
 
   uchar *tuple = packed_tuple;
   size_t unpack_start_pos = size_t(-1);
   size_t unpack_len_pos = size_t(-1);
   size_t covered_bitmap_pos = size_t(-1);
-  const bool hidden_pk_exists = table_has_hidden_pk(tbl);
+  const bool hidden_pk_exists = table_has_hidden_pk(*tbl);
 
-  rdb_netbuf_store_index(tuple, m_index_number);
+  rdb_netbuf_store_index(tuple, get_index_number());
   tuple += INDEX_NUMBER_SIZE;
 
   // If n_key_parts is 0, it means all columns.
@@ -1477,7 +1478,7 @@ uint Rdb_key_def::pack_hidden_pk(const longlong hidden_pk_id,
   assert(packed_tuple != nullptr);
 
   uchar *tuple = packed_tuple;
-  rdb_netbuf_store_index(tuple, m_index_number);
+  rdb_netbuf_store_index(tuple, get_index_number());
   tuple += INDEX_NUMBER_SIZE;
   assert(m_key_parts == 1);
   assert(is_storage_available(tuple - packed_tuple,
@@ -1738,8 +1739,8 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   return HA_EXIT_SUCCESS;
 }
 
-bool Rdb_key_def::table_has_hidden_pk(const TABLE *const table) {
-  return table->s->primary_key == MAX_INDEXES;
+bool Rdb_key_def::table_has_hidden_pk(const TABLE &table) {
+  return table.s->primary_key == MAX_INDEXES;
 }
 
 void Rdb_key_def::report_checksum_mismatch(const bool is_key,

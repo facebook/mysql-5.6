@@ -392,7 +392,7 @@ Rdb_converter::~Rdb_converter() {
 void Rdb_converter::get_storage_type(Rdb_field_encoder *const encoder,
                                      const uint kp) {
   auto pk_descr =
-      m_tbl_def->m_key_descr_arr[ha_rocksdb::pk_index(m_table, m_tbl_def)];
+      m_tbl_def->m_key_descr_arr[ha_rocksdb::pk_index(*m_table, *m_tbl_def)];
 
   // STORE_SOME uses unpack_info.
   if (pk_descr->has_unpack_info(kp)) {
@@ -532,7 +532,7 @@ void Rdb_converter::setup_field_encoders(const dd::Table *dd_table) {
       If hidden pk exists, we skip this check since the field will never be
       part of the hidden pk.
     */
-    if (!Rdb_key_def::table_has_hidden_pk(m_table)) {
+    if (!Rdb_key_def::table_has_hidden_pk(*m_table)) {
       KEY *const pk_info = &m_table->key_info[m_table->s->primary_key];
       for (uint kp = 0; kp < pk_info->user_defined_key_parts; kp++) {
         // key_part->fieldnr is counted from 1

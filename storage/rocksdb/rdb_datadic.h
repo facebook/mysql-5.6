@@ -38,6 +38,9 @@
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_utils.h"
 
+/* Server header files */
+#include "sql/dd/object_id.h"
+
 namespace myrocks {
 
 class Rdb_dict_manager;
@@ -289,13 +292,13 @@ class Rdb_key_def {
 
   /* Get the key that is the "infimum" for this index */
   inline void get_infimum_key(uchar *const key, uint *const size) const {
-    rdb_netbuf_store_index(key, m_index_number);
+    rdb_netbuf_store_index(key, get_index_number());
     *size = INDEX_NUMBER_SIZE;
   }
 
   /* Get the key that is a "supremum" for this index */
   inline void get_supremum_key(uchar *const key, uint *const size) const {
-    rdb_netbuf_store_index(key, m_index_number + 1);
+    rdb_netbuf_store_index(key, get_index_number() + 1);
     *size = INDEX_NUMBER_SIZE;
   }
 
@@ -359,10 +362,13 @@ class Rdb_key_def {
 
   uint32 get_keyno() const { return m_keyno; }
 
-  uint32 get_index_number() const { return m_index_number; }
+  uint32 get_index_number() const {
+    assert(m_index_number != INVALID_INDEX_NUMBER);
+    return m_index_number;
+  }
 
   GL_INDEX_ID get_gl_index_id() const {
-    const GL_INDEX_ID gl_index_id = {m_cf_handle->GetID(), m_index_number};
+    const GL_INDEX_ID gl_index_id = {m_cf_handle->GetID(), get_index_number()};
     return gl_index_id;
   }
 
@@ -616,7 +622,7 @@ class Rdb_key_def {
   inline bool has_unpack_info(const uint kp) const;
 
   /* Check if given table has a primary key */
-  static bool table_has_hidden_pk(const TABLE *const table);
+  [[nodiscard]] static bool table_has_hidden_pk(const TABLE &table);
 
   void report_checksum_mismatch(const bool is_key, const char *const data,
                                 const size_t data_size) const;
@@ -809,6 +815,9 @@ class Rdb_key_def {
     return (storage_length - offset) >= needed;
   }
 #endif  // NDEBUG
+
+  static constexpr auto INVALID_INDEX_NUMBER =
+      static_cast<std::uint32_t>(dd::INVALID_OBJECT_ID);
 
   /* Global number of this index (used as prefix in StorageFormat) */
   const uint32 m_index_number;

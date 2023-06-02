@@ -5379,8 +5379,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
           "Not supported for intrinsic tmp tables");
     }
     ++m_write_count[table_type];
-    m_batch->SingleDelete(column_family, key);
-    return rocksdb::Status::OK();
+    return m_batch->SingleDelete(column_family, key);
   }
 
   bool has_modifications() const override {
@@ -8589,7 +8588,7 @@ exit:
 
 /* Get PK value from m_tbl_def->m_hidden_pk_info. */
 longlong ha_rocksdb::update_hidden_pk_val() {
-  assert(has_hidden_pk(table));
+  assert(has_hidden_pk(*table));
   const longlong new_val = m_tbl_def->m_hidden_pk_val++;
   return new_val;
 }
@@ -8597,7 +8596,7 @@ longlong ha_rocksdb::update_hidden_pk_val() {
 /* Get the id of the hidden pk id from m_last_rowkey */
 int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong *const hidden_pk_id) {
   assert(table != nullptr);
-  assert(has_hidden_pk(table));
+  assert(has_hidden_pk(*table));
 
   rocksdb::Slice rowkey_slice(m_last_rowkey.ptr(), m_last_rowkey.length());
 
@@ -8902,7 +8901,7 @@ int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
   uint max_packed_sk_len = 0;
   uint pack_key_len = 0;
 
-  m_pk_descr = kd_arr[pk_index(table_arg, tbl_def_arg)];
+  m_pk_descr = kd_arr[pk_index(*table_arg, *tbl_def_arg)];
 
   // move this into get_table_handler() ??
   m_pk_descr->setup(table_arg, tbl_def_arg);
@@ -9069,7 +9068,7 @@ int ha_rocksdb::open(const char *const name,
   }
 
   /* Load hidden pk only once on first use. */
-  if (has_hidden_pk(table) && m_tbl_def->m_hidden_pk_val == 0 &&
+  if (has_hidden_pk(*table) && m_tbl_def->m_hidden_pk_val == 0 &&
       (err = load_hidden_pk_value()) != HA_EXIT_SUCCESS) {
     rdb_open_tables.release_table_handler(m_table_handler);
     free_key_buffers();
@@ -9273,14 +9272,13 @@ int ha_rocksdb::rdb_error_to_mysql(const rocksdb::Status &s,
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
 int ha_rocksdb::create_key_defs(
-    const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
+    const TABLE &table_arg, Rdb_tbl_def &tbl_def_arg,
     const std::string &actual_user_table_name, bool is_dd_tbl,
     const TABLE *const old_table_arg /* = nullptr */,
-    const Rdb_tbl_def *const old_tbl_def_arg
-    /* = nullptr */) const {
+    const Rdb_tbl_def *const old_tbl_def_arg /* = nullptr */) const {
   DBUG_ENTER_FUNC();
 
-  assert(table_arg->s != nullptr);
+  assert(table_arg.s != nullptr);
 
   DBUG_EXECUTE_IF("rocksdb_truncate_failure", {
     my_error(ER_INTERNAL_ERROR, MYF(0), "Simulated truncation failure.");
@@ -9301,7 +9299,7 @@ int ha_rocksdb::create_key_defs(
     allocated to each key definition. See below for more details.
     http://github.com/MySQLOnRocksDB/mysql-5.6/issues/86#issuecomment-138515501
   */
-  if (create_cfs(table_arg, tbl_def_arg, actual_user_table_name, &cfs,
+  if (create_cfs(table_arg, tbl_def_arg, actual_user_table_name, cfs,
                  is_dd_tbl)) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
@@ -9311,12 +9309,12 @@ int ha_rocksdb::create_key_defs(
   uint ttl_field_offset;
 
   uint err;
-  if ((err = Rdb_key_def::extract_ttl_duration(table_arg, tbl_def_arg,
+  if ((err = Rdb_key_def::extract_ttl_duration(&table_arg, &tbl_def_arg,
                                                &ttl_duration))) {
     DBUG_RETURN(err);
   }
 
-  if ((err = Rdb_key_def::extract_ttl_col(table_arg, tbl_def_arg, &ttl_column,
+  if ((err = Rdb_key_def::extract_ttl_col(&table_arg, &tbl_def_arg, &ttl_column,
                                           &ttl_field_offset))) {
     DBUG_RETURN(err);
   }
@@ -9344,9 +9342,9 @@ int ha_rocksdb::create_key_defs(
       Get the index numbers (this will update the next_index_number)
       and create Rdb_key_def structures.
     */
-    for (uint i = 0; i < tbl_def_arg->m_key_count; i++) {
-      if (create_key_def(table_arg, i, tbl_def_arg, &m_key_descr_arr[i], cfs[i],
-                         ttl_duration, ttl_column, is_dd_tbl)) {
+    for (uint i = 0; i < tbl_def_arg.m_key_count; i++) {
+      if (create_key_def(&table_arg, i, &tbl_def_arg, &m_key_descr_arr[i],
+                         cfs[i], ttl_duration, ttl_column, is_dd_tbl)) {
         DBUG_RETURN(HA_EXIT_FAILURE);
       }
     }
@@ -9356,8 +9354,8 @@ int ha_rocksdb::create_key_defs(
       in-place alter table.  Copy over existing keys from the old_tbl_def and
       generate the necessary new key definitions if any.
     */
-    if (create_inplace_key_defs(table_arg, tbl_def_arg, old_table_arg,
-                                old_tbl_def_arg, cfs, ttl_duration,
+    if (create_inplace_key_defs(table_arg, tbl_def_arg, *old_table_arg,
+                                *old_tbl_def_arg, cfs, ttl_duration,
                                 ttl_column)) {
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
@@ -9383,17 +9381,17 @@ int ha_rocksdb::create_key_defs(
     0      - Ok
     other  - error
 */
-int ha_rocksdb::create_cfs(
-    const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
+bool ha_rocksdb::create_cfs(
+    const TABLE &table_arg, const Rdb_tbl_def &tbl_def_arg,
     const std::string &actual_user_table_name,
-    std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs,
+    std::array<struct key_def_cf_info, MAX_INDEXES + 1> &cfs,
     bool is_dd_tbl) const {
-  DBUG_ENTER_FUNC();
+  DBUG_TRACE;
 
-  assert(table_arg->s != nullptr);
+  assert(table_arg.s != nullptr);
 
   char tablename_sys[NAME_LEN + 1];
-  my_core::filename_to_tablename(tbl_def_arg->base_tablename().c_str(),
+  my_core::filename_to_tablename(tbl_def_arg.base_tablename().c_str(),
                                  tablename_sys, sizeof(tablename_sys));
 
   std::string table_with_enforced_collation =
@@ -9404,31 +9402,31 @@ int ha_rocksdb::create_cfs(
     The first loop checks the index parameters and creates
     column families if necessary.
   */
-  for (uint i = 0; i < tbl_def_arg->m_key_count; i++) {
+  for (uint i = 0; i < tbl_def_arg.m_key_count; i++) {
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
 
     // Internal consistency check to make sure that data in TABLE and
     // Rdb_tbl_def structures matches. Either both are missing or both are
     // specified. Yes, this is critical enough to make it into SHIP_ASSERT.
-    SHIP_ASSERT(!table_arg->part_info == tbl_def_arg->base_partition().empty());
+    SHIP_ASSERT(!table_arg.part_info == tbl_def_arg.base_partition().empty());
 
     // Generate the name for the column family to use.
     bool per_part_match_found = false;
     std::string cf_name =
-        generate_cf_name(i, table_arg, tbl_def_arg, &per_part_match_found);
+        generate_cf_name(i, &table_arg, &tbl_def_arg, &per_part_match_found);
 
     // Prevent create from using the system column family.
     if (cf_name == DEFAULT_SYSTEM_CF_NAME ||
         cf_name == DEFAULT_TMP_SYSTEM_CF_NAME) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
                "column family not valid for storing index data.");
-      DBUG_RETURN(HA_EXIT_FAILURE);
+      return true;
     }
 
     if (cf_name == DEFAULT_TMP_CF_NAME) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
                "reserved column family for storing temporary table data.");
-      DBUG_RETURN(HA_EXIT_FAILURE);
+      return true;
     }
 
     // Populate cf_name for data dictionary table
@@ -9437,16 +9435,16 @@ int ha_rocksdb::create_cfs(
         my_error(
             ER_WRONG_ARGUMENTS, MYF(0),
             "custom column family for data dictionary table is not allowed.");
-        DBUG_RETURN(HA_EXIT_FAILURE);
+        return true;
       }
       cf_name = DEFAULT_SYSTEM_CF_NAME;
     }
     // Populate cf_name for tmp tables.
-    else if (is_tmp_table(tbl_def_arg->full_tablename())) {
+    else if (is_tmp_table(tbl_def_arg.full_tablename())) {
       if (!cf_name.empty()) {
         my_error(ER_WRONG_ARGUMENTS, MYF(0),
                  "custom column family for temporary table is not allowed.");
-        DBUG_RETURN(HA_EXIT_FAILURE);
+        return true;
       }
       cf_name = DEFAULT_TMP_CF_NAME;
     }
@@ -9488,7 +9486,7 @@ int ha_rocksdb::create_cfs(
       std::lock_guard<Rdb_dict_manager> dm_lock(*local_dict_manager);
       cf_handle = cf_manager.get_or_create_cf(rdb, cf_name);
       if (!cf_handle) {
-        DBUG_RETURN(HA_EXIT_FAILURE);
+        return true;
       }
 
       uint32 cf_id = cf_handle->GetID();
@@ -9498,27 +9496,27 @@ int ha_rocksdb::create_cfs(
       // check again when committing metadata changes.
       if (local_dict_manager->get_dropped_cf(cf_id)) {
         my_error(ER_CF_DROPPED, MYF(0), cf_name.c_str());
-        DBUG_RETURN(HA_EXIT_FAILURE);
+        return true;
       }
 
       if (cf_manager.create_cf_flags_if_needed(local_dict_manager,
                                                cf_handle->GetID(), cf_name,
                                                per_part_match_found)) {
-        DBUG_RETURN(HA_EXIT_FAILURE);
+        return true;
       }
     }
 
     // The CF can be dropped from cf_manager at this point. This is part of
     // create table or alter table. If the drop happens before metadata are
     // written, create table or alter table will fail.
-    auto &cf = (*cfs)[i];
+    auto &cf = cfs[i];
 
     cf.cf_handle = cf_handle;
     cf.is_reverse_cf = Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str());
     cf.is_per_partition_cf = per_part_match_found;
   }
 
-  DBUG_RETURN(HA_EXIT_SUCCESS);
+  return false;
 }
 
 /*
@@ -9532,27 +9530,28 @@ int ha_rocksdb::create_cfs(
     cfs               Struct array which contains column family information
 
   @return
-    0      - Ok
-    other  - error, either given table ddl is not supported by rocksdb or OOM.
+    false - Ok
+    true  - error, either given table ddl is not supported by rocksdb or OOM.
 */
-int ha_rocksdb::create_inplace_key_defs(
-    const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
-    const TABLE *const old_table_arg, const Rdb_tbl_def *const old_tbl_def_arg,
+bool ha_rocksdb::create_inplace_key_defs(
+    const TABLE &table_arg, Rdb_tbl_def &tbl_def_arg,
+    const TABLE &old_table_arg, const Rdb_tbl_def &old_tbl_def_arg,
     const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs,
     uint64 ttl_duration, const std::string &ttl_column) const {
-  DBUG_ENTER_FUNC();
+  DBUG_TRACE;
 
   std::shared_ptr<Rdb_key_def> *const old_key_descr =
-      old_tbl_def_arg->m_key_descr_arr;
+      old_tbl_def_arg.m_key_descr_arr;
   std::shared_ptr<Rdb_key_def> *const new_key_descr =
-      tbl_def_arg->m_key_descr_arr;
+      tbl_def_arg.m_key_descr_arr;
   const std::unordered_map<std::string, uint> old_key_pos =
-      get_old_key_positions(table_arg, tbl_def_arg, old_table_arg,
-                            old_tbl_def_arg);
+      get_old_key_positions(&table_arg, &tbl_def_arg, &old_table_arg,
+                            &old_tbl_def_arg);
 
   uint i;
-  for (i = 0; i < tbl_def_arg->m_key_count; i++) {
-    const auto &it = old_key_pos.find(get_key_name(i, table_arg, tbl_def_arg));
+  for (i = 0; i < tbl_def_arg.m_key_count; i++) {
+    const auto &it =
+        old_key_pos.find(get_key_name(i, &table_arg, &tbl_def_arg));
 
     if (it != old_key_pos.end()) {
       /*
@@ -9570,8 +9569,8 @@ int ha_rocksdb::create_inplace_key_defs(
                         "RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
                         gl_index_id.cf_id, gl_index_id.index_id,
-                        old_tbl_def_arg->full_tablename().c_str());
-        DBUG_RETURN(HA_EXIT_FAILURE);
+                        old_tbl_def_arg.full_tablename().c_str());
+        return true;
       }
 
       uint32 ttl_rec_offset =
@@ -9594,18 +9593,18 @@ int ha_rocksdb::create_inplace_key_defs(
           dict_manager.get_dict_manager_selector_const(gl_index_id.cf_id)
               ->get_stats(gl_index_id),
           index_info.m_index_flags, ttl_rec_offset, ttl_duration);
-    } else if (create_key_def(table_arg, i, tbl_def_arg, &new_key_descr[i],
+    } else if (create_key_def(&table_arg, i, &tbl_def_arg, &new_key_descr[i],
                               cfs[i], ttl_duration, ttl_column)) {
-      DBUG_RETURN(HA_EXIT_FAILURE);
+      return true;
     }
 
     assert(new_key_descr[i] != nullptr);
-    new_key_descr[i]->setup(table_arg, tbl_def_arg);
+    new_key_descr[i]->setup(&table_arg, &tbl_def_arg);
   }
 
-  tbl_def_arg->m_tbl_stats.set(new_key_descr[0]->m_stats.m_rows, 0, 0);
+  tbl_def_arg.m_tbl_stats.set(new_key_descr[0]->m_stats.m_rows, 0, 0);
 
-  DBUG_RETURN(HA_EXIT_SUCCESS);
+  return false;
 }
 
 std::unordered_map<std::string, uint> ha_rocksdb::get_old_key_positions(
@@ -10009,15 +10008,15 @@ static void rdb_gen_normalized_tablename(const std::string *db,
 */
 int ha_rocksdb::create_table(const std::string &table_name,
                              const std::string &actual_user_table_name,
-                             const TABLE *table_arg,
+                             const TABLE &table_arg,
                              ulonglong auto_increment_value,
-                             dd::Table *table_def MY_ATTRIBUTE((__unused__)),
+                             const dd::Table *table_def [[maybe_unused]],
                              TABLE_TYPE table_type) {
   DBUG_ENTER_FUNC();
 
   int err;
   bool is_dd_tbl = dd::get_dictionary()->is_dd_table_name(
-      table_arg->s->db.str, table_arg->s->table_name.str);
+      table_arg.s->db.str, table_arg.s->table_name.str);
   DBUG_EXECUTE_IF("simulate_dd_table", { is_dd_tbl = true; });
   auto local_dict_manager = dict_manager.get_dict_manager_selector_non_const(
       is_tmp_table(table_name));
@@ -10032,7 +10031,7 @@ int ha_rocksdb::create_table(const std::string &table_name,
     get_ha_data(ha_thd())->open_tmp_tables++;
   }
 
-  uint n_keys = table_arg->s->keys;
+  uint n_keys = table_arg.s->keys;
 
   /*
     If no primary key found, create a hidden PK and place it inside table
@@ -10047,16 +10046,16 @@ int ha_rocksdb::create_table(const std::string &table_name,
 
   m_key_descr_arr = new std::shared_ptr<Rdb_key_def>[n_keys];
   m_tbl_def->m_key_count = n_keys;
-  m_tbl_def->m_pk_index = table_arg->s->primary_key;
+  m_tbl_def->m_pk_index = table_arg.s->primary_key;
   m_tbl_def->m_key_descr_arr = m_key_descr_arr;
 
   err =
-      create_key_defs(table_arg, m_tbl_def, actual_user_table_name, is_dd_tbl);
+      create_key_defs(table_arg, *m_tbl_def, actual_user_table_name, is_dd_tbl);
   if (err != HA_EXIT_SUCCESS) {
     goto error;
   }
 
-  m_pk_descr = m_key_descr_arr[pk_index(table_arg, m_tbl_def)];
+  m_pk_descr = m_key_descr_arr[pk_index(table_arg, *m_tbl_def)];
 
   if (auto_increment_value) {
     bool autoinc_upgrade_test = false;
@@ -10190,7 +10189,7 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
   } else {
     table_type = TABLE_TYPE::USER_TABLE;
   }
-  DBUG_RETURN(create_table(str, create_info->actual_user_table_name, table_arg,
+  DBUG_RETURN(create_table(str, create_info->actual_user_table_name, *table_arg,
                            create_info->auto_increment_value, table_def,
                            table_type));
 }
@@ -10257,7 +10256,7 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
     Attempt to create the table. If this succeeds, then drop the old table.
     Otherwise, try to restore it.
   */
-  err = create_table(orig_tablename, actual_user_table_name, table_arg,
+  err = create_table(orig_tablename, actual_user_table_name, *table_arg,
                      auto_increment_value, table_def, table_type);
   bool should_remove_old_table = true;
 
@@ -10797,7 +10796,7 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
         }
 
         longlong hidden_pk_id = 0;
-        if (has_hidden_pk(table) &&
+        if (has_hidden_pk(*table) &&
             read_hidden_pk_id_from_rowkey(&hidden_pk_id)) {
           goto error;
         }
@@ -10943,7 +10942,7 @@ bool ha_rocksdb::is_blind_delete_enabled() {
   return (THDVAR(thd, blind_delete_primary_key) &&
           thd->lex->sql_command == SQLCOM_DELETE &&
           thd->lex->table_count == 1 && table->s->keys == 1 &&
-          !has_hidden_pk(table) && !thd->rli_slave);
+          !has_hidden_pk(*table) && !thd->rli_slave);
 }
 
 /*
@@ -11434,8 +11433,8 @@ void ha_rocksdb::unlock_row() {
     are covered by the PRIMARY KEY, SingleDelete can be used.
 */
 bool ha_rocksdb::can_use_single_delete(const uint index) const {
-  return (index != pk_index(table, m_tbl_def) ||
-          (!has_hidden_pk(table) &&
+  return (index != pk_index(*table, *m_tbl_def) ||
+          (!has_hidden_pk(*table) &&
            table->key_info[index].actual_key_parts == table->s->fields));
 }
 
@@ -11566,8 +11565,8 @@ void ha_rocksdb::extract_snapshot_keys(std::string *key) {
   does not contain a primary key. (In which case we generate a hidden
   'auto-incremented' pk.)
 */
-bool ha_rocksdb::has_hidden_pk(const TABLE *const tabl) const {
-  return Rdb_key_def::table_has_hidden_pk(tabl);
+bool ha_rocksdb::has_hidden_pk(const TABLE &t) {
+  return Rdb_key_def::table_has_hidden_pk(t);
 }
 
 /*
@@ -11583,12 +11582,12 @@ bool ha_rocksdb::is_hidden_pk(const uint index, const TABLE *const table_arg,
 }
 
 /* Returns index of primary key */
-uint ha_rocksdb::pk_index(const TABLE *const table_arg,
-                          const Rdb_tbl_def *const tbl_def_arg) {
-  assert(table_arg->s != nullptr);
+uint ha_rocksdb::pk_index(const TABLE &table_arg,
+                          const Rdb_tbl_def &tbl_def_arg) {
+  assert(table_arg.s != nullptr);
 
-  return table_arg->s->primary_key == MAX_INDEXES ? tbl_def_arg->m_key_count - 1
-                                                  : table_arg->s->primary_key;
+  return table_arg.s->primary_key == MAX_INDEXES ? tbl_def_arg.m_key_count - 1
+                                                 : table_arg.s->primary_key;
 }
 
 /* Returns the index into m_key_descr_arr array based on active_index */
@@ -11795,8 +11794,7 @@ void ha_rocksdb::dec_table_n_rows() {
   called without setting m_last_rowkey. This function sets m_last_rowkey
   for Read Free Replication.
 */
-void ha_rocksdb::set_last_rowkey(
-    const uchar *const old_data MY_ATTRIBUTE((__unused__))) {
+void ha_rocksdb::set_last_rowkey(const uchar *const old_data) {
   if (old_data && use_read_free_rpl()) {
     const int old_pk_size = m_pk_descr->pack_record(
         table, m_pack_buffer, old_data, m_pk_packed_tuple, nullptr, false);
@@ -11825,7 +11823,7 @@ int ha_rocksdb::get_pk_for_update(struct update_row_info *const row_info) {
     Get new row key for any insert, and any update where the pk is not hidden.
     Row key for updates with hidden pk is handled below.
   */
-  if (!has_hidden_pk(table)) {
+  if (!has_hidden_pk(*table)) {
     row_info->hidden_pk_id = 0;
 
     row_info->new_pk_unpack_info = &m_pk_unpack_info;
@@ -11963,6 +11961,10 @@ int ha_rocksdb::check_and_lock_sk(
     const uint key_id, const struct update_row_info &row_info,
     bool *const found,
     const bool skip_unique_check MY_ATTRIBUTE((__unused__))) {
+  assert(
+      (row_info.old_data == table->record[1] &&
+       row_info.new_data == table->record[0]) ||
+      (row_info.old_data == nullptr && row_info.new_data == table->record[0]));
   assert(found != nullptr);
   *found = false;
 
@@ -12131,6 +12133,11 @@ int ha_rocksdb::check_and_lock_sk(
 int ha_rocksdb::check_uniqueness_and_lock(
     const struct update_row_info &row_info, bool pk_changed,
     bool skip_unique_check) {
+  assert(
+      (row_info.old_data == table->record[1] &&
+       row_info.new_data == table->record[0]) ||
+      (row_info.old_data == nullptr && row_info.new_data == table->record[0]));
+
   Rdb_transaction *const tx =
       get_or_create_tx(ha_thd(), m_tbl_def->get_table_type());
   tx->acquire_snapshot(false, m_tbl_def->get_table_type());
@@ -12532,16 +12539,26 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
       rc = check_partial_index_prefix(table_arg, kd, row_info.tx,
                                       row_info.old_data);
       if (!rc) {
-        row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-            ->SingleDelete(kd.get_cf(), old_key_slice);
+        const auto s =
+            row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
+                ->SingleDelete(kd.get_cf(), old_key_slice);
+        if (!s.ok()) {
+          return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                               m_table_handler);
+        }
         bytes_written = old_key_slice.size();
       } else if (rc != HA_ERR_KEY_NOT_FOUND) {
         return rc;
       }
     } else {
       // Unconditionally issue SD if rocksdb_partial_index_blind_delete.
-      row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-          ->SingleDelete(kd.get_cf(), old_key_slice);
+      const auto s =
+          row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
+              ->SingleDelete(kd.get_cf(), old_key_slice);
+      if (!s.ok()) {
+        return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                             m_table_handler);
+      }
       bytes_written = old_key_slice.size();
     }
   }
@@ -12643,6 +12660,9 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
                                  const uchar *const new_data,
                                  const bool skip_unique_check) {
   DBUG_ENTER_FUNC();
+
+  assert((old_data == table->record[1] && new_data == table->record[0]) ||
+         (old_data == nullptr && new_data == table->record[0]));
 
   THD *thd = ha_thd();
   if (thd && thd->killed) {
@@ -12787,7 +12807,7 @@ int ha_rocksdb::rnd_init(bool scan MY_ATTRIBUTE((__unused__))) {
   m_need_build_decoder = true;
   m_rnd_scan_started = false;
   DBUG_RETURN(
-      index_init(has_hidden_pk(table) ? MAX_KEY : pk_index(table, m_tbl_def),
+      index_init(has_hidden_pk(*table) ? MAX_KEY : pk_index(*table, *m_tbl_def),
                  false /* sorted */));
 }
 
@@ -12958,7 +12978,7 @@ int ha_rocksdb::reset() {
 int ha_rocksdb::delete_row(const uchar *const buf) {
   DBUG_ENTER_FUNC();
 
-  assert(buf != nullptr);
+  assert(buf == table->record[0] || buf == table->record[1]);
 
   ha_statistic_increment(&System_status_var::ha_delete_count);
   set_last_rowkey(buf);
@@ -12968,7 +12988,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
       get_or_create_tx(table->in_use, m_tbl_def->get_table_type());
   ulonglong bytes_written = 0;
 
-  const uint index = pk_index(table, m_tbl_def);
+  const uint index = pk_index(*table, *m_tbl_def);
   rocksdb::Status s = delete_or_singledelete(
       index, tx, m_pk_descr->get_cf(), key_slice, m_tbl_def->get_table_type());
   if (!s.ok()) {
@@ -12979,7 +12999,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
   }
 
   longlong hidden_pk_id = 0;
-  if (m_tbl_def->m_key_count > 1 && has_hidden_pk(table)) {
+  if (m_tbl_def->m_key_count > 1 && has_hidden_pk(*table)) {
     int err = read_hidden_pk_id_from_rowkey(&hidden_pk_id);
     if (err) {
       DBUG_RETURN(err);
@@ -13026,8 +13046,11 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
                                    nullptr, false, hidden_pk_id);
       rocksdb::Slice secondary_key_slice(
           reinterpret_cast<const char *>(m_sk_packed_tuple), packed_size);
-      tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-          ->SingleDelete(kd.get_cf(), secondary_key_slice);
+      s = tx->get_indexed_write_batch(m_tbl_def->get_table_type())
+              ->SingleDelete(kd.get_cf(), secondary_key_slice);
+      if (!s.ok()) {
+        DBUG_RETURN(rdb_error_to_mysql(s));
+      }
       bytes_written += secondary_key_slice.size();
     }
   }
@@ -13275,7 +13298,7 @@ void ha_rocksdb::position(const uchar *const record) {
   DBUG_ENTER_FUNC();
 
   longlong hidden_pk_id = 0;
-  if (has_hidden_pk(table) && read_hidden_pk_id_from_rowkey(&hidden_pk_id)) {
+  if (has_hidden_pk(*table) && read_hidden_pk_id_from_rowkey(&hidden_pk_id)) {
     assert(false);  // should never reach here
   }
 
@@ -13309,7 +13332,7 @@ void ha_rocksdb::position(const uchar *const record) {
 void ha_rocksdb::encode_autogenerated_pk(const longlong hidden_pk_id,
                                          uchar *packed_pk_id) {
   DBUG_ENTER_FUNC();
-  assert(has_hidden_pk(table));
+  assert(has_hidden_pk(*table));
 
   const uint packed_size =
       m_pk_descr->pack_hidden_pk(hidden_pk_id, packed_pk_id);
@@ -13437,7 +13460,7 @@ void ha_rocksdb::calc_updated_indexes() {
     /* Walk over all key parts, including the "extended key" suffix */
     const uint key_parts = kd.get_key_parts();
     for (uint kp = 0; kp < key_parts; kp++) {
-      if (has_hidden_pk(table) && kp + 1 == key_parts) break;
+      if (has_hidden_pk(*table) && kp + 1 == key_parts) break;
 
       Field *const field = kd.get_table_field_for_part_no(table, kp);
       if (bitmap_is_set(table->write_set, field->field_index())) {
@@ -13459,8 +13482,8 @@ void ha_rocksdb::calc_updated_indexes() {
 int ha_rocksdb::update_row(const uchar *const old_data, uchar *const new_data) {
   DBUG_ENTER_FUNC();
 
-  assert(old_data != nullptr);
-  assert(new_data != nullptr);
+  assert(old_data == table->record[1]);
+  assert(new_data == table->record[0]);
   assert(m_lock_rows == RDB_LOCK_WRITE || m_tbl_def->is_intrinsic_tmp_table());
   /*
     old_data points to record we're updating. It is the same as the record
@@ -14894,13 +14917,12 @@ int ha_rocksdb::adjust_handler_stats_sst_and_memtable(ha_statistics *ha_stats,
     uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
     std::shared_ptr<Rdb_key_def> pk_def = tbl_def->get_pk_def();
     auto r = ha_rocksdb::get_range(*pk_def, buf);
-    uint64_t sz = 0;
-
-    rocksdb::DB::SizeApproximationFlags include_flags =
-        rocksdb::DB::SizeApproximationFlags::INCLUDE_FILES;
 
     // recompute SST files stats only if records count is 0
     if (ha_stats->records == 0) {
+      uint64_t sz = 0;
+      rocksdb::DB::SizeApproximationFlags include_flags =
+          rocksdb::DB::SizeApproximationFlags::INCLUDE_FILES;
       rdb->GetApproximateSizes(pk_def->get_cf(), &r, 1, &sz, include_flags);
       ha_stats->records += sz / ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
       ha_stats->data_file_length += sz;
@@ -15311,7 +15333,7 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
   /* We don't support unique keys on table w/ no primary keys */
   if ((ha_alter_info->handler_flags &
        my_core::Alter_inplace_info::ADD_UNIQUE_INDEX) &&
-      has_hidden_pk(altered_table)) {
+      has_hidden_pk(*altered_table)) {
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
@@ -15338,7 +15360,7 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
       DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
 
     // check ttl column
-    uint pk = pk_index(altered_table, m_tbl_def);
+    uint pk = pk_index(*altered_table, *m_tbl_def);
     std::string ttl_col = m_tbl_def->m_key_descr_arr[pk]->m_ttl_column;
     std::string altered_ttl_col;
     uint altered_ttl_field_offset;
@@ -15427,7 +15449,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
         my_core::Alter_inplace_info::ADD_INDEX |
         my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)) ||
       update_comment) {
-    if (has_hidden_pk(altered_table)) {
+    if (has_hidden_pk(*altered_table)) {
       new_n_keys += 1;
     }
 
@@ -15445,8 +15467,9 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     new_tdef->m_hidden_pk_val =
         m_tbl_def->m_hidden_pk_val.load(std::memory_order_relaxed);
 
-    if (create_key_defs(altered_table, new_tdef, "" /*actual_user_table_name*/,
-                        false /*is_dd_tbl*/, table, m_tbl_def)) {
+    if (create_key_defs(*altered_table, *new_tdef,
+                        "" /*actual_user_table_name*/, false /*is_dd_tbl*/,
+                        table, m_tbl_def)) {
       /* Delete the new key descriptors */
       delete[] new_key_descr;
 
@@ -15735,7 +15758,7 @@ int ha_rocksdb::inplace_populate_sk(
     ddl_manager.add_uncommitted_keydefs(indexes);
   }
 
-  const bool hidden_pk_exists = has_hidden_pk(table);
+  const bool hidden_pk_exists = has_hidden_pk(*table);
 
   Rdb_transaction *tx =
       get_or_create_tx(table->in_use, m_tbl_def->get_table_type());
@@ -16031,7 +16054,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
 
     m_tbl_def = ctx0->m_new_tdef;
     m_key_descr_arr = m_tbl_def->m_key_descr_arr;
-    m_pk_descr = m_key_descr_arr[pk_index(altered_table, m_tbl_def)];
+    m_pk_descr = m_key_descr_arr[pk_index(*altered_table, *m_tbl_def)];
 
     DBUG_EXECUTE_IF("rocksdb_commit_alter_table", {
       const char act[] =
@@ -16144,7 +16167,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
 
     m_tbl_def = ctx0->m_new_tdef;
     m_key_descr_arr = m_tbl_def->m_key_descr_arr;
-    m_pk_descr = m_key_descr_arr[pk_index(altered_table, m_tbl_def)];
+    m_pk_descr = m_key_descr_arr[pk_index(*altered_table, *m_tbl_def)];
 
     {
       auto local_dict_manager =
@@ -18224,9 +18247,9 @@ bool ha_rocksdb::use_read_free_rpl() const {
     case read_free_rpl_type::OFF:
       DBUG_RETURN(false);
     case read_free_rpl_type::PK_ONLY:
-      DBUG_RETURN(!has_hidden_pk(table) && table->s->keys == 1);
+      DBUG_RETURN(!has_hidden_pk(*table) && table->s->keys == 1);
     case read_free_rpl_type::PK_SK:
-      DBUG_RETURN(!has_hidden_pk(table));
+      DBUG_RETURN(!has_hidden_pk(*table));
   }
 
   assert(false);
