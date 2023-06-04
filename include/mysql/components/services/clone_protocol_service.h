@@ -61,6 +61,8 @@ struct mysql_clone_ssl_context {
 
   /** Enable network compression. */
   bool m_enable_compression;
+  const char *m_compression_algorithm;
+  uint m_compression_level;
   NET_SERVER *m_server_extn;
 };
 

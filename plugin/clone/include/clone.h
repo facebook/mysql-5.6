@@ -90,6 +90,10 @@ extern uint clone_max_io_bandwidth;
 /** Clone system variable: If network compression is enabled */
 extern bool clone_enable_compression;
 
+extern ulong clone_compression_algorithm;
+
+extern uint clone_zstd_compression_level;
+
 /** Clone system variable: SSL private key */
 extern char *clone_client_ssl_private_key;
 
