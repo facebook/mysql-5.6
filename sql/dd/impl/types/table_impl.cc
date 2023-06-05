@@ -66,6 +66,7 @@
 #include "sql/dd/types/index.h"
 #include "sql/dd/types/partition.h"
 #include "sql/dd/types/weak_object.h"
+#include "sql/dd/dd_utility.h"
 #include "sql/sql_class.h"
 
 using dd::tables::Check_constraints;
@@ -226,11 +227,7 @@ bool Table_impl::load_foreign_key_parents(Open_dictionary_tables_ctx *otx) {
 ///////////////////////////////////////////////////////////////////////////
 
 bool Table_impl::reload_foreign_key_parents(THD *thd) {
-  /*
-     Use READ UNCOMMITTED isolation, so this method works correctly when
-     called from the middle of atomic DDL statements.
-   */
-  dd::Transaction_ro trx(thd, ISO_READ_UNCOMMITTED);
+  dd::Transaction_ro trx(thd, get_dd_isolation_level());
 
   // Register and open tables.
   trx.otx.register_tables<dd::Table>();

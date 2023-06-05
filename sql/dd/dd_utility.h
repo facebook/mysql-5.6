@@ -24,6 +24,8 @@
 #define DD__UTILITY_INCLUDED
 
 #include "sql/dd/string_type.h"  // dd::String_type
+#include "sql/handler.h"
+#include "sql/mysqld.h"
 
 struct CHARSET_INFO;
 class THD;
@@ -62,6 +64,20 @@ size_t normalize_string(const CHARSET_INFO *cs, const String_type &src,
   @returns false on success, otherwise true.
 */
 bool check_if_server_ddse_readonly(THD *thd, const char *schema_name);
+
+/**
+  Get the isolation level for a data dictionary transaction. InnoDB uses READ
+  UNCOMMITTED to work correctly in the following cases:
+  - when called in the middle of an atomic DDL statement;
+  - wehn called during the server startup when the undo logs have not been
+  initialized yet.
+  @return isolation level */
+inline enum_tx_isolation get_dd_isolation_level() {
+  assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB ||
+         default_dd_storage_engine == DEFAULT_DD_INNODB);
+  return default_dd_storage_engine == DEFAULT_DD_ROCKSDB ? ISO_READ_COMMITTED
+      : ISO_READ_UNCOMMITTED;
+}
 
 ///////////////////////////////////////////////////////////////////////////
 
