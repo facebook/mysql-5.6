@@ -917,7 +917,10 @@ int donor::copy(const THD *thd, uint task_id, Ha_clone_cbk &cbk) {
     }
 
     err = handle_any_error(thd);
-    if (err != 0) return err;
+    if (err != 0) {
+      mysql_mutex_unlock(&m_donor_mutex);
+      return err;
+    }
 
     if (should_roll_checkpoint()) {
       std::size_t checkpoint_size_delta;
