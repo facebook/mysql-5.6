@@ -618,6 +618,10 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE* io_cache,
 {
   DBUG_ENTER("Raft_replication_delegate::before_flush");
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
 
   int ret= 0;
 
@@ -636,6 +640,10 @@ int Raft_replication_delegate::before_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Raft_replications_delegate::before_commit");
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
 
   thd->get_trans_marker(&param.term, &param.index);
 
@@ -654,10 +662,14 @@ int Raft_replication_delegate::setup_flush(
 {
   DBUG_ENTER("Raft_replication_delegate::setup_flush");
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
 
   int ret= 0;
 
-  FOREACH_OBSERVER_STRICT(ret, setup_flush, thd, (arg));
+  FOREACH_OBSERVER_STRICT(ret, setup_flush, thd, (&param, arg));
 
   DBUG_RETURN(ret);
 }
@@ -667,8 +679,12 @@ int Raft_replication_delegate::before_shutdown(THD *thd)
   DBUG_ENTER("Raft_replication_delegate::before_shutdown");
   int ret= 0;
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
 
-  FOREACH_OBSERVER_STRICT(ret, before_shutdown, thd, ());
+  FOREACH_OBSERVER_STRICT(ret, before_shutdown, thd, (&param));
 
   DBUG_RETURN(ret);
 }
@@ -682,9 +698,13 @@ int Raft_replication_delegate::register_paths(
   DBUG_ENTER("Raft_replication_delegate::register_paths");
   int ret= 0;
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
 
   FOREACH_OBSERVER_STRICT(ret, register_paths, thd,
-                          (&raft_listener_queue, s_uuid, server_id,
+                          (&param, &raft_listener_queue, s_uuid, server_id,
                            wal_dir_parent, log_dir_parent, raft_log_path_prefix,
                            s_hostname, port));
 
@@ -695,6 +715,10 @@ int Raft_replication_delegate::after_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Raft_replication_delegate::after_commit");
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
 
   thd->get_trans_marker(&param.term, &param.index);
 
@@ -717,6 +741,10 @@ int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext)
   DBUG_ENTER("Raft_replication_delegate::purge_logs");
   Raft_replication_param param;
   param.purge_file_ext = file_ext;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
   int ret= 0;
   FOREACH_OBSERVER_STRICT(ret, purge_logs, thd, (&param));
 
@@ -732,8 +760,13 @@ int Raft_replication_delegate::show_raft_status(
 {
   DBUG_ENTER("Raft_replication_delegate::show_raft_status");
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
   int ret= 0;
-  FOREACH_OBSERVER_STRICT(ret, show_raft_status, thd, (var_value_pairs));
+  FOREACH_OBSERVER_STRICT(ret, show_raft_status, thd,
+                          (&param, var_value_pairs));
   DBUG_RETURN(ret);
 }
 
@@ -741,8 +774,12 @@ int Raft_replication_delegate::inform_applier_health(THD *thd, bool healthy)
 {
   DBUG_ENTER("Raft_replication_delegate::inform_applier_health");
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
   int ret= 0;
-  FOREACH_OBSERVER_STRICT(ret, inform_applier_health, thd, (healthy));
+  FOREACH_OBSERVER_STRICT(ret, inform_applier_health, thd, (&param, healthy));
   DBUG_RETURN(ret);
 }
 
@@ -750,8 +787,13 @@ int Raft_replication_delegate::inform_heartbeats_health(THD *thd, bool healthy)
 {
   DBUG_ENTER("Raft_replication_delegate::inform_heartbeats_health");
   Raft_replication_param param;
+  // set the pshard index to route to the proper ring
+  // TODO: Once we merge with mt ring replication we will start
+  // populating this from THD.
+  // param.pshard_index = thd->opaque_pshard_id;
   int ret= 0;
-  FOREACH_OBSERVER_STRICT(ret, inform_heartbeats_health, thd, (healthy));
+  FOREACH_OBSERVER_STRICT(ret, inform_heartbeats_health, thd,
+                          (&param, healthy));
   DBUG_RETURN(ret);
 }
 

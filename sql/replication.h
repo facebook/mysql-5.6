@@ -426,6 +426,9 @@ typedef struct Raft_replication_param {
 
   // The file that is safe to be deleted. Plugin will set it in purge_logs hook
   std::string purge_file;
+
+  // The slice of the pshard/ring/multi-tenant slice that this request is for
+  int32_t pshard_index = -1;
 } Raft_replication_param;
 
 /**
@@ -500,31 +503,30 @@ typedef struct Raft_replication_observer {
      This callback is called once upfront to setup the appropriate
      binlog file, io_cache and its mutexes
 
-     @param is_relay_log whether the file being registered is relay or binlog
-     @param log_file_cache  the IO_CACHE pointer
-     @param log_prefix the prefix of logs e.g. /binlogs/binary-logs-3306
-     @param log_name the pointer to current log name
-     @param lock_log the mutex that protects the current log
-     @param lock_index the mutex that protects the index file
-     @param update_cond the condvar that is fired after writing to log
-     @param cur_log_ext a pointer the number of the file.
-     @param context context of the call (0 for 1st run, 1 for next time)
+     @param param Observer common parameter
+     @param arg st_setup_flush_arg structure contains log_file_cache,
+     log_prefix, log_namem etc
 
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*setup_flush)(Raft_replication_observer::st_setup_flush_arg *arg);
+  int (*setup_flush)(Raft_replication_param *param,
+                     Raft_replication_observer::st_setup_flush_arg *arg);
 
   /**
    * This callback is invoked by the server to gracefully shutdown the
    * Raft threads
+   *
+   * @param param Observer common parameter
    */
-  int (*before_shutdown)();
+  int (*before_shutdown)(Raft_replication_param *param);
 
   /**
+   * @param param Observer common parameter
    * @param raft_listener_queue - the listener queue in which to add requests
    * @param s_uuid - the uuid of the server to be used as the INSTANCE UUID
    *                 in Raft
+   * @param server_id - mysqld server id
    * @param wal_dir_parent - the parent directory under which raft will create
    * config metadata
    * @param log_dir_parent - the parent directory under which raft will create
@@ -535,7 +537,8 @@ typedef struct Raft_replication_observer {
    * @param port - the port of the server
    * raft where to find raft binlogs.
    */
-  int (*register_paths)(RaftListenerQueueIf *raft_listener_queue,
+  int (*register_paths)(Raft_replication_param *param,
+                        RaftListenerQueueIf *raft_listener_queue,
                         const std::string &s_uuid, uint32_t server_id,
                         const std::string &wal_dir_parent,
                         const std::string &log_dir_parent,
@@ -568,34 +571,32 @@ typedef struct Raft_replication_observer {
 
   /**
      This callback is called to get a comprehensive status of RAFT
+     @param param The parameter for the observers
      @param var_value_pairs vector of status vars value pairs
 
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*show_raft_status)(
+  int (*show_raft_status)(Raft_replication_param *param,
       std::vector<std::pair<std::string, std::string>>* var_value_pairs);
 
   /**
    * This callback is called to inform Raft of the health of the applier
+   * @param param The parameter for the observers
    * @param healthy = true, the applier has turned back healthy
    * healthy = false, the applier is broken. Do not try to make it primary.
    */
-  int (*inform_applier_health)(bool healthy);
+  int (*inform_applier_health)(Raft_replication_param *param, bool healthy);
 
   /**
-   * This callback is called to inform Raft of the health of the "self
-   * injecting heartbeater". If these writes are failing Raft should
-   * know, so that it can start a Dead Primary Promotion to another instance.
-   * Not to be confused with Raft protocol heartbeats.
-   * These are shardbeats (Shard level) or heartbeats (instance level)
-   * which inject INSERTs into a BLACKHOLE table to ascertain
-   * the health of mysql.
-   *
+   * This callback is called to inform Raft of the health of the self
+   * injected heartbeats checker. If heartbeats are failing Raft should
+   * know
+   * @param param The parameter for the observers
    * @param healthy = true, the heartbeat injector has turned back healthy
    * healthy = false, the heartbeat injector is broken now.
    */
-  int (*inform_heartbeats_health)(bool healthy);
+  int (*inform_heartbeats_health)(Raft_replication_param *param, bool healthy);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer
