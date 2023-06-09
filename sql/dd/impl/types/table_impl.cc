@@ -36,8 +36,9 @@
 #include "m_string.h"
 
 #include "my_sys.h"
-#include "mysqld_error.h"                         // ER_*
-#include "sql/current_thd.h"                      // current_thd
+#include "mysqld_error.h"     // ER_*
+#include "sql/current_thd.h"  // current_thd
+#include "sql/dd/dd_utility.h"
 #include "sql/dd/impl/bootstrap/bootstrap_ctx.h"  // dd::bootstrap::DD_bootstrap_ctx
 #include "sql/dd/impl/dictionary_impl.h"          // Dictionary_impl
 #include "sql/dd/impl/properties_impl.h"          // Properties_impl
@@ -226,11 +227,7 @@ bool Table_impl::load_foreign_key_parents(Open_dictionary_tables_ctx *otx) {
 ///////////////////////////////////////////////////////////////////////////
 
 bool Table_impl::reload_foreign_key_parents(THD *thd) {
-  /*
-     Use READ UNCOMMITTED isolation, so this method works correctly when
-     called from the middle of atomic DDL statements.
-   */
-  dd::Transaction_ro trx(thd, ISO_READ_UNCOMMITTED);
+  dd::Transaction_ro trx(thd, get_dd_isolation_level());
 
   // Register and open tables.
   trx.otx.register_tables<dd::Table>();
