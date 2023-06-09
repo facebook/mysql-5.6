@@ -592,8 +592,9 @@ class Dictionary_client {
     not known by the object registry.
 
     When the object is read from the persistent tables, the transaction
-    isolation level is READ UNCOMMITTED. This is necessary to be able to
-    read uncommitted data from an earlier stage of the same session.
+    isolation level is READ UNCOMMITTED if the DD is stored in InnoDB. This is
+    necessary to be able to read uncommitted data from an earlier stage of the
+    same session. Under MyRocks, READ COMMITTED is used.
 
     @tparam       T       Dictionary object type.
     @param        id      Object id to retrieve.
@@ -614,8 +615,9 @@ class Dictionary_client {
     dictionary client methods since it is not known by the object registry.
 
     When the object is read from the persistent tables, the transaction
-    isolation level is READ UNCOMMITTED. This is necessary to be able to
-    read uncommitted data from an earlier stage of the same session.
+    isolation level is READ UNCOMMITTED if the DD is stored in InnoDB. This is
+    necessary to be able to read uncommitted data from an earlier stage of the
+    same session. Under MyRocks, READ COMMITTED is used.
 
     @tparam       T           Dictionary object type.
     @param        id          Object id to retrieve.
@@ -1046,9 +1048,10 @@ class Dictionary_client {
 
   /**
     Fetch Object ids of all the views referencing base table/ view/ stored
-    function name specified in "schema"."name". The views are retrieved
-    using READ_UNCOMMITTED reads as the views could be changed by the same
-    statement (e.g. multi-table/-view RENAME TABLE).
+    function name specified in "schema"."name". The views are retrieved using
+    READ_UNCOMMITTED reads if InnoDB is the DD storage engine as the views could
+    be changed by the same statement (e.g. multi-table/-view RENAME TABLE).
+    Under MyRocks, READ_COMMITTED is used.
 
     @tparam       T               Type of the object (View_table/View_routine)
                                   to retrieve view names for.
@@ -1072,7 +1075,8 @@ class Dictionary_client {
     @param        parent_schema    Schema name of parent table.
     @param        parent_name      Table name of parent table.
     @param        parent_engine    Storage engine of parent table.
-    @param        uncommitted      Use READ_UNCOMMITTED isolation.
+    @param        uncommitted      Use READ_UNCOMMITTED isolation if DD SE is
+                                   InnoDB.
     @param[out]   children_schemas Schema names of child tables.
     @param[out]   children_names   Table names of child tables.
 

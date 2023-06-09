@@ -34,6 +34,7 @@
 #include "mysql/udf_registration_types.h"
 #include "mysqld_error.h"
 #include "sql/auth/sql_security_ctx.h"
+#include "sql/dd/dd_utility.h"
 #include "sql/dd/dd_version.h"  // dd::DD_VERSION
 #include "sql/dd/impl/raw/raw_table.h"
 #include "sql/dd/impl/transaction_impl.h"
@@ -117,12 +118,7 @@ bool DD_properties::init_cached_properties(THD *thd) {
   // Early exit in case the properties are already initialized.
   if (!m_properties.empty()) return false;
 
-  /*
-    Start a DD transaction to get the properties. Please note that we
-    must do this read using isolation level ISO_READ_UNCOMMITTED
-    because the SE undo logs may not yet be available.
-  */
-  Transaction_ro trx(thd, ISO_READ_UNCOMMITTED);
+  Transaction_ro trx(thd, get_dd_isolation_level());
   trx.otx.add_table<DD_properties>();
 
   if (trx.otx.open_tables()) {
