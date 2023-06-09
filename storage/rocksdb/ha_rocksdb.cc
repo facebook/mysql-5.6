@@ -14296,6 +14296,16 @@ struct rocksdb_status_counters_t {
   uint64_t number_merge_failures;
   uint64_t bloom_filter_prefix_checked;
   uint64_t bloom_filter_prefix_useful;
+  uint64_t last_level_seek_filtered;
+  uint64_t last_level_seek_filter_match;
+  uint64_t last_level_seek_data;
+  uint64_t last_level_seek_data_useful_no_filter;
+  uint64_t last_level_seek_data_useful_filter_match;
+  uint64_t non_last_level_seek_filtered;
+  uint64_t non_last_level_seek_filter_match;
+  uint64_t non_last_level_seek_data;
+  uint64_t non_last_level_seek_data_useful_no_filter;
+  uint64_t non_last_level_seek_data_useful_filter_match;
   uint64_t number_reseeks_iteration;
   uint64_t getupdatessince_calls;
   uint64_t wal_synced;
@@ -14364,6 +14374,21 @@ DEF_SHOW_FUNC(number_multiget_bytes_read, NUMBER_MULTIGET_BYTES_READ)
 DEF_SHOW_FUNC(number_merge_failures, NUMBER_MERGE_FAILURES)
 DEF_SHOW_FUNC(bloom_filter_prefix_checked, BLOOM_FILTER_PREFIX_CHECKED)
 DEF_SHOW_FUNC(bloom_filter_prefix_useful, BLOOM_FILTER_PREFIX_USEFUL)
+DEF_SHOW_FUNC(last_level_seek_filtered, LAST_LEVEL_SEEK_FILTERED)
+DEF_SHOW_FUNC(last_level_seek_filter_match, LAST_LEVEL_SEEK_FILTER_MATCH)
+DEF_SHOW_FUNC(last_level_seek_data, LAST_LEVEL_SEEK_DATA)
+DEF_SHOW_FUNC(last_level_seek_data_useful_no_filter,
+              LAST_LEVEL_SEEK_DATA_USEFUL_NO_FILTER)
+DEF_SHOW_FUNC(last_level_seek_data_useful_filter_match,
+              LAST_LEVEL_SEEK_DATA_USEFUL_FILTER_MATCH)
+DEF_SHOW_FUNC(non_last_level_seek_filtered, NON_LAST_LEVEL_SEEK_FILTERED)
+DEF_SHOW_FUNC(non_last_level_seek_filter_match,
+              NON_LAST_LEVEL_SEEK_FILTER_MATCH)
+DEF_SHOW_FUNC(non_last_level_seek_data, NON_LAST_LEVEL_SEEK_DATA)
+DEF_SHOW_FUNC(non_last_level_seek_data_useful_no_filter,
+              NON_LAST_LEVEL_SEEK_DATA_USEFUL_NO_FILTER)
+DEF_SHOW_FUNC(non_last_level_seek_data_useful_filter_match,
+              NON_LAST_LEVEL_SEEK_DATA_USEFUL_FILTER_MATCH)
 DEF_SHOW_FUNC(number_reseeks_iteration, NUMBER_OF_RESEEKS_IN_ITERATION)
 DEF_SHOW_FUNC(getupdatessince_calls, GET_UPDATES_SINCE_CALLS)
 DEF_SHOW_FUNC(wal_synced, WAL_FILE_SYNCED)
@@ -14635,6 +14660,16 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(number_merge_failures),
     DEF_STATUS_VAR(bloom_filter_prefix_checked),
     DEF_STATUS_VAR(bloom_filter_prefix_useful),
+    DEF_STATUS_VAR(last_level_seek_filtered),
+    DEF_STATUS_VAR(last_level_seek_filter_match),
+    DEF_STATUS_VAR(last_level_seek_data),
+    DEF_STATUS_VAR(last_level_seek_data_useful_no_filter),
+    DEF_STATUS_VAR(last_level_seek_data_useful_filter_match),
+    DEF_STATUS_VAR(non_last_level_seek_filtered),
+    DEF_STATUS_VAR(non_last_level_seek_filter_match),
+    DEF_STATUS_VAR(non_last_level_seek_data),
+    DEF_STATUS_VAR(non_last_level_seek_data_useful_no_filter),
+    DEF_STATUS_VAR(non_last_level_seek_data_useful_filter_match),
     DEF_STATUS_VAR(number_reseeks_iteration),
     DEF_STATUS_VAR(getupdatessince_calls),
     DEF_STATUS_VAR(wal_synced),

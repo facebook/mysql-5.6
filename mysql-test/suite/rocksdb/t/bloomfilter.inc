@@ -6,12 +6,22 @@ let ddl= $MYSQL_TMP_DIR/bloomfilter_create.sql;
 DELIMITER //;
 CREATE PROCEDURE bloom_start()
 BEGIN
- select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
- select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+  select sum(variable_value) into @sf from performance_schema.global_status
+  where variable_name in (
+    'rocksdb_last_level_seek_filter_match',
+    'rocksdb_last_level_seek_filtered',
+    'rocksdb_non_last_level_seek_filter_match',
+    'rocksdb_non_last_level_seek_filtered');
+  select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
 END//
 CREATE PROCEDURE bloom_end()
 BEGIN
-select case when variable_value-@c > 0 then 'true' else 'false' end as checked from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+  select case when sum(variable_value)-@sf > 0 then 'true' else 'false' end as checked from performance_schema.global_status
+    where variable_name in (
+      'rocksdb_last_level_seek_filter_match',
+      'rocksdb_last_level_seek_filtered',
+      'rocksdb_non_last_level_seek_filter_match',
+      'rocksdb_non_last_level_seek_filtered');
 END//
 DELIMITER ;//
 

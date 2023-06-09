@@ -1,5 +1,44 @@
 --source include/have_rocksdb.inc
 
+DELIMITER //;
+CREATE PROCEDURE bloom_start()
+BEGIN
+  select sum(variable_value) into @u from performance_schema.global_status
+  where variable_name in (
+    'rocksdb_bloom_filter_prefix_useful',
+    'rocksdb_last_level_seek_filter_match',
+    'rocksdb_last_level_seek_filtered',
+    'rocksdb_last_level_seek_data_useful_filter_match',
+    'rocksdb_non_last_level_seek_filter_match',
+    'rocksdb_non_last_level_seek_filtered',
+    'rocksdb_non_last_level_seek_data_useful_filter_match');
+END//
+CREATE PROCEDURE bloom_eq_check()
+BEGIN
+  select case when sum(variable_value)-@u = 0 then 'true' else 'false' end as useful from performance_schema.global_status
+  where variable_name in (
+    'rocksdb_bloom_filter_prefix_useful',
+    'rocksdb_last_level_seek_filter_match',
+    'rocksdb_last_level_seek_filtered',
+    'rocksdb_last_level_seek_data_useful_filter_match',
+    'rocksdb_non_last_level_seek_filter_match',
+    'rocksdb_non_last_level_seek_filtered',
+    'rocksdb_non_last_level_seek_data_useful_filter_match');
+END//
+CREATE PROCEDURE bloom_gt_check()
+BEGIN
+  select case when sum(variable_value)-@u > 0 then 'true' else 'false' end as useful from performance_schema.global_status
+  where variable_name in (
+    'rocksdb_bloom_filter_prefix_useful',
+    'rocksdb_last_level_seek_filter_match',
+    'rocksdb_last_level_seek_filtered',
+    'rocksdb_last_level_seek_data_useful_filter_match',
+    'rocksdb_non_last_level_seek_filter_match',
+    'rocksdb_non_last_level_seek_filtered',
+    'rocksdb_non_last_level_seek_data_useful_filter_match');
+END//
+DELIMITER ;//
+
 ## Test 0: Eq cond len includs VARCHAR, and real cond len < prefix bloom len < VARCHAR definition len
 CREATE TABLE t0 (id1 VARCHAR(30), id2 INT, value INT, PRIMARY KEY (id1, id2)) ENGINE=rocksdb collate latin1_bin;
 --disable_query_log
@@ -12,9 +51,9 @@ while ($i <= 10000) {
 --enable_query_log
 
 # BF not used
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_start();
 SELECT COUNT(*) FROM t0 WHERE id1='X' AND id2>=1;
-select case when variable_value-@u = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_eq_check();
 
 DROP TABLE t0;
 
@@ -32,14 +71,14 @@ while ($i <= 10000) {
 --enable_query_log
 
 # BF not used (4+8+4=16)
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_start();
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3>=2;
-select case when variable_value-@u = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_eq_check();
 
 # BF not used (4+8=12)
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_start();
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2>=1 AND id3>=2;
-select case when variable_value-@u = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_eq_check();
 
 DROP TABLE t1;
 
@@ -56,18 +95,18 @@ while ($i <= 10000) {
 --enable_query_log
 
 # BF used for large cond, not used for short cond
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_start();
 select count(*) from t2 WHERE id1=100 and id2 IN ('00000000000000000000', '100');
-select case when variable_value-@u > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_gt_check();
 
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_start();
 select count(*) from t2 WHERE id1=200 and id2 IN ('00000000000000000000', '200');
-select case when variable_value-@u > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_gt_check();
 
 # BF not used because cond length is too small in all cases
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_start();
 select count(*) from t2 WHERE id1=200 and id2 IN ('3', '200');
-select case when variable_value-@u = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_eq_check();
 
 DROP TABLE t2;
 
@@ -86,18 +125,21 @@ while ($i <= 10000) {
 --enable_query_log
 
 # Full BF works with Get(), Block based does not.
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_useful';
+call bloom_start();
 SELECT COUNT(*) FROM t3 WHERE id1=1 AND id2=5000 AND id3=1 AND id4=1;
-select case when variable_value-@u > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_useful';
+call bloom_gt_check();
 
 # BF used (4+8+8+8)
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_start();
 SELECT COUNT(*) FROM t3 WHERE id1=1 AND id2=1 AND id3=1;
-select case when variable_value-@u > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_gt_check();
 
-select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_start();
 SELECT COUNT(*) FROM t3 WHERE id1=1 AND id2=1 AND id3=1 AND id4 <= 500;
-select case when variable_value-@u > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+call bloom_gt_check();
 
 DROP TABLE t3;
 
+DROP PROCEDURE bloom_start;
+DROP PROCEDURE bloom_eq_check;
+DROP PROCEDURE bloom_gt_check;
