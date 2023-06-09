@@ -1,6 +1,45 @@
 --source include/have_rocksdb.inc
 
 --source include/restart_mysqld.inc
+DELIMITER //;
+CREATE PROCEDURE bloom_start()
+BEGIN
+  select sum(variable_value) into @u from performance_schema.global_status
+  where variable_name in (
+    'rocksdb_bloom_filter_prefix_useful',
+    'rocksdb_last_level_seek_filter_match',
+    'rocksdb_last_level_seek_filtered',
+    'rocksdb_last_level_seek_data_useful_filter_match',
+    'rocksdb_non_last_level_seek_filter_match',
+    'rocksdb_non_last_level_seek_filtered',
+    'rocksdb_non_last_level_seek_data_useful_filter_match');
+END//
+CREATE PROCEDURE bloom_eq_check()
+BEGIN
+  select case when sum(variable_value)-@u = 0 then 'true' else 'false' end as useful from performance_schema.global_status
+  where variable_name in (
+    'rocksdb_bloom_filter_prefix_useful',
+    'rocksdb_last_level_seek_filter_match',
+    'rocksdb_last_level_seek_filtered',
+    'rocksdb_last_level_seek_data_useful_filter_match',
+    'rocksdb_non_last_level_seek_filter_match',
+    'rocksdb_non_last_level_seek_filtered',
+    'rocksdb_non_last_level_seek_data_useful_filter_match');
+END//
+CREATE PROCEDURE bloom_gt_check()
+BEGIN
+  select case when sum(variable_value)-@u > 0 then 'true' else 'false' end as useful from performance_schema.global_status
+  where variable_name in (
+    'rocksdb_bloom_filter_prefix_useful',
+    'rocksdb_last_level_seek_filter_match',
+    'rocksdb_last_level_seek_filtered',
+    'rocksdb_last_level_seek_data_useful_filter_match',
+    'rocksdb_non_last_level_seek_filter_match',
+    'rocksdb_non_last_level_seek_filtered',
+    'rocksdb_non_last_level_seek_data_useful_filter_match');
+END//
+DELIMITER ;//
+
 CREATE TABLE `linktable` (
   `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
   `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
@@ -30,47 +69,47 @@ while ($i <= 10000) {
 ## HA_READ_PREFIX_LAST_OR_PREV
 set @tmp_force_index_for_range=@@optimizer_force_index_for_range;
 # BF len 21
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type`)  where id1 = 100 and link_type = 1 and time >= 0 and time <= 9223372036854775807 and visibility = 1 order by time desc;
-select case when variable_value-@c > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_gt_check();
 
 # BF len 20
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type2`)  where id1 = 100 and link_type = 1 and time >= 0 and time <= 9223372036854775807 order by time desc;
-select case when variable_value-@c > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_gt_check();
 
 # BF len 13
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type3`)  where id1 = 100 and time >= 0 and time <= 9223372036854775807 and visibility = 1 order by time desc;
-select case when variable_value-@c = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_eq_check();
 set global optimizer_force_index_for_range=@tmp_force_index_for_range;
 
 ## HA_READ_PREFIX_LAST_OR_PREV (no end range)
 # BF len 20
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type`)  where id1 = 100 and link_type = 1 and visibility = 1 and time >= 0 order by time desc;
-select case when variable_value-@c > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_gt_check();
 
 # BF len 19
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type2`)  where id1 = 100 and link_type = 1 and time >= 0 order by time desc;
-select case when variable_value-@c = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_eq_check();
 
 --echo ## HA_READ_PREFIX_LAST
 --echo # BF len 20
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type`)  where id1 = 100 and link_type = 1 and visibility = 1 order by time desc;
-select case when variable_value-@c > 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_gt_check();
 
 --echo # BF len 19
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type2`)  where id1 = 100 and link_type = 1 order by time desc;
-select case when variable_value-@c = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_eq_check();
 
 --echo # BF len 12
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type3`)  where id1 = 100 and visibility = 1 order by time desc;
-select case when variable_value-@c = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_eq_check();
 
 
 DROP TABLE linktable;
@@ -108,14 +147,15 @@ insert into t1 values (21,2,2,0x12FFFFFFFFFF,1);
 --replace_column 10 # 11 #
 explain 
 select * from t1 where kp0=1 and kp1=1 and kp2=0x12FFFFFFFFFF order by kp3 desc;
-show status like '%rocksdb_bloom_filter_prefix%';
 
-select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_start();
 select * from t1 where kp0=1 and kp1=1 and kp2=0x12FFFFFFFFFF order by kp3 desc;
-show status like '%rocksdb_bloom_filter_prefix%';
 --echo # The following MUST show TRUE:
-select case when variable_value-@c = 0 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+call bloom_gt_check();
 
 drop table t1;
 # Key length is 4 + 8 + 8 = 20
 
+DROP PROCEDURE bloom_start;
+DROP PROCEDURE bloom_eq_check;
+DROP PROCEDURE bloom_gt_check;
