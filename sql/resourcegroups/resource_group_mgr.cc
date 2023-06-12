@@ -49,6 +49,7 @@
 #include "sql/current_thd.h"                 // current_thd
 #include "sql/dd/cache/dictionary_client.h"  // Dictionary_client
 #include "sql/dd/dd_resource_group.h"        // dd::create_resource_group
+#include "sql/dd/dd_utility.h"
 #include "sql/dd/string_type.h"
 #include "sql/dd/types/resource_group.h"
 #include "sql/handler.h"
@@ -119,7 +120,7 @@ Resource_group_mgr *Resource_group_mgr::instance() {
 static inline bool persist_resource_group(
     THD *thd, const resourcegroups::Resource_group &resource_group,
     bool update) {
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = dd::get_dd_engine(thd);
   if (ddse->is_dict_readonly && ddse->is_dict_readonly()) {
     LogErr(WARNING_LEVEL, ER_RESOURCE_GROUP_METADATA_UPDATE_SKIPPED);
     return false;

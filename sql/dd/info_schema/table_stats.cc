@@ -25,6 +25,7 @@
 #include "my_time.h"  // TIME_to_ulonglong_datetime
 #include "sql/dd/cache/dictionary_client.h"
 #include "sql/dd/dd.h"          // dd::create_object
+#include "sql/dd/dd_utility.h"
 #include "sql/dd/impl/utils.h"  // dd::my_time_t_to_ull_datetime()
 #include "sql/dd/properties.h"
 #include "sql/dd/types/index_stat.h"             // dd::Index_stat
@@ -69,7 +70,7 @@ namespace {
 inline bool can_persist_I_S_dynamic_statistics(THD *thd,
                                                const char *schema_name,
                                                const char *partition_name) {
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = dd::get_dd_engine(thd);
   if (ddse == nullptr || ddse->is_dict_readonly()) return false;
 
   return (thd->variables.information_schema_stats_expiry &&
