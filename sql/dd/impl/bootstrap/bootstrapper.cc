@@ -41,6 +41,7 @@
 #include "sql/auth/sql_security_ctx.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/dd/dd.h"                       // dd::create_object
+#include "sql/dd/dd_utility.h"
 #include "sql/dd/impl/bootstrap/bootstrap_ctx.h"        // DD_bootstrap_ctx
 #include "sql/dd/impl/cache/shared_dictionary_cache.h"  // Shared_dictionary_cache
 #include "sql/dd/impl/cache/storage_adapter.h"          // Storage_adapter
@@ -81,7 +82,7 @@ namespace {
 // Initialize recovery in the DDSE.
 bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
                        uint version) {
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = get_dd_engine(thd);
   if (ddse->dict_recover == nullptr) return true;
 
   bool error = ddse->dict_recover(dict_recovery_mode, version);
@@ -616,14 +617,14 @@ bool populate_tables(THD *thd) {
 // Re-populate character sets and collations upon normal restart.
 bool repopulate_charsets_and_collations(THD *thd) {
   /*
-    We must check if the DDSE is started in a way that makes the DD
-    read only. For now, we only support InnoDB as SE for the DD. The call
-    to retrieve the handlerton for the DDSE should be replaced by a more
-    generic mechanism.
+    We must check if the DDSE is started in a way that makes the DD read only.
+    The call to retrieve the handlerton for the DDSE should be replaced by a
+    more generic mechanism.
   */
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = get_dd_engine(thd);
   if (ddse->is_dict_readonly && ddse->is_dict_readonly()) {
-    LogErr(WARNING_LEVEL, ER_DD_NO_WRITES_NO_REPOPULATION, "InnoDB", " ");
+    LogErr(WARNING_LEVEL, ER_DD_NO_WRITES_NO_REPOPULATION, get_dd_engine_name(),
+           " ");
     return false;
   }
 
@@ -724,7 +725,7 @@ namespace bootstrap {
   predefined tables and tablespaces.
 */
 bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = get_dd_engine(thd);
 
   /*
     The lists with element wrappers are mem root allocated. The wrapped
@@ -829,8 +830,8 @@ bool initialize_dictionary(THD *thd, bool is_dd_upgrade_57,
     return true;
 
   if (is_dd_upgrade_57) {
-    // Add status to mark creation of dictionary in InnoDB.
-    // Till this step, no new undo log is created by InnoDB.
+    // Add status to mark creation of dictionary in DDSE. In case it is InnoDB,
+    // till this step, no new undo log is created there.
     if (upgrade_57::Upgrade_status().update(
             upgrade_57::Upgrade_status::enum_stage::DICT_TABLES_CREATED))
       return true;
@@ -1551,7 +1552,7 @@ bool sync_meta_data(THD *thd) {
     return true;
 
   // Reset the DDSE local dictionary cache.
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = get_dd_engine(thd);
   if (ddse->dict_cache_reset == nullptr) return true;
 
   for (System_tables::Const_iterator it = System_tables::instance()->begin();
@@ -1846,7 +1847,7 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
     back in case of an abort, so this better be the last step we
     do before committing.
   */
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = get_dd_engine(thd);
   if (bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade()) {
     if (ddse->dict_set_server_version == nullptr ||
         ddse->dict_set_server_version()) {

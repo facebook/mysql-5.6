@@ -1,19 +1,23 @@
 # shut server down
 # Server is down
 #
-# Try --initialize
-#
 # Try to run the server with --initialize --rocksdb_large_prefix=OFF
+#
+#
+# Error log checks
+#
+Occurrences of 'disabling rocksdb_large_prefix is not allowed with MySQL data dictionary in MyRocks ' in the input file: 0
+#
 # Run the server with --initialize
+#
+#
+# Error log checks
+#
+Occurrences of 'Check RocksDB:Init column families' in the input file: 0
+Occurrences of 'Check Data dictionary initializing' in the input file: 0
 #
 # Cleanup
 #
 # Restarting the server
 # restart
-#
-# Error log checks
-#
-include/assert_grep.inc [Check RocksDB:Init column families]
-include/assert_grep.inc [Check Data dictionary initializing]
-include/assert_grep.inc [disabling rocksdb_large_prefix is not allowed with MySQL data dictionary in MyRocks]
 # Remove data dir and log file.

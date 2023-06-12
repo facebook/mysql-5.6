@@ -32,6 +32,7 @@
 #include "mysql_version.h"  // MYSQL_VERSION_ID
 #include "mysqld_error.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
+#include "sql/dd/dd_utility.h"
 #include "sql/dd/impl/bootstrap/bootstrap_ctx.h"        // DD_bootstrap_ctx
 #include "sql/dd/impl/cache/shared_dictionary_cache.h"  // Shared_dictionary_cache
 #include "sql/dd/impl/system_registry.h"                // dd::System_tables
@@ -1189,7 +1190,7 @@ bool upgrade_tables(THD *thd) {
   Object_table_definition_impl::set_dd_tablespace_encrypted(false);
 
   // Reset the DDSE local dictionary cache.
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = get_dd_engine(thd);
   if (ddse->dict_cache_reset == nullptr) return true;
 
   for (System_tables::Const_iterator it =

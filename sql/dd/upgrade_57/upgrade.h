@@ -107,8 +107,8 @@ class Upgrade_status {
     STARTED,
 
     /*
-      Started InnoDB in upgrade mode, i.e., undo and redo logs are
-      upgraded and mysql.ibd is created.
+      Started DDSE in upgrade mode, i.e. in the case of InnoDB, undo and redo
+      logs are upgraded and mysql.ibd is created.
     */
     DICT_SPACE_CREATED,
 

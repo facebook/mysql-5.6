@@ -236,7 +236,7 @@ bool setup_dd_objects_and_collations(THD *thd);
 /**
   This function is used in case of crash during upgrade.
   It tries to initialize dictionary and calls DDSE_dict_recover.
-  InnoDB should do the recovery and empty undo log. Upgrade
+  The DDSE should do the recovery and, if it is InnoDB, empty undo log. Upgrade
   process will do the cleanup and exit.
 
   @param thd    Thread context.
@@ -244,7 +244,7 @@ bool setup_dd_objects_and_collations(THD *thd);
 void recover_innodb_upon_upgrade(THD *thd);
 
 /**
-  Initialize InnoDB for
+  Initialize DDSE for
   - creating new data directory : InnoDB creates system tablespace and
                                   dictionary tablespace.
   - normal server restart.      : Verifies existence of system and dictionary
@@ -253,7 +253,7 @@ void recover_innodb_upon_upgrade(THD *thd);
                                   create dictionary tablespace.
 
   @param thd             Thread context.
-  @param dict_init_mode  mode to initialize InnoDB
+  @param dict_init_mode  mode to initialize DDSE
   @param version         Dictionary version.
 
   @return       Upon failure, return true, otherwise false.

@@ -44,6 +44,7 @@
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/dd/collection.h"               // dd::Collection
 #include "sql/dd/dd.h"                       // dd::get_dictionary
+#include "sql/dd/dd_utility.h"
 #include "sql/dd/dictionary.h"               // dd::Dictionary
 // TODO: Avoid exposing dd/impl headers in public files.
 #include "sql/dd/impl/dictionary_impl.h"       // default_catalog_name
@@ -2364,7 +2365,7 @@ static std::unique_ptr<dd::Table> create_dd_system_table(
   }
 
   // Register the se private id with the DDSE.
-  handlerton *ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+  handlerton *ddse = get_dd_engine(thd);
   if (ddse->dict_register_dd_table_id == nullptr) return nullptr;
   ddse->dict_register_dd_table_id(tab_obj->se_private_id());
 
