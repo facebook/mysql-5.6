@@ -41,6 +41,7 @@
 #include "sql/dd/cache/dictionary_client.h"      // dd::Dictionary_client
 #include "sql/dd/dd.h"                           // enum_dd_init_type
 #include "sql/dd/dd_schema.h"                    // dd::Schema_MDL_locker
+#include "sql/dd/dd_utility.h"
 #include "sql/dd/dd_version.h"                   // dd::DD_VERSION
 #include "sql/dd/impl/bootstrap/bootstrapper.h"  // dd::Bootstrapper
 #include "sql/dd/impl/cache/shared_dictionary_cache.h"  // Shared_dictionary_cache
@@ -694,7 +695,7 @@ bool drop_native_table(THD *thd, const char *schema_name,
 
 bool reset_tables_and_tablespaces() {
   Auto_THD thd;
-  handlerton *ddse = ha_resolve_by_legacy_type(thd.thd, DB_TYPE_INNODB);
+  handlerton *ddse = get_dd_engine(thd.thd);
 
   // Acquire transactional metadata locks and evict all cached objects.
   if (dd::cache::Shared_dictionary_cache::reset_tables_and_tablespaces(thd.thd))

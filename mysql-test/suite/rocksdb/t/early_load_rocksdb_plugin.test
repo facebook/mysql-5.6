@@ -16,43 +16,43 @@ let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 --echo # Server is down
 
 --echo #
---echo # Try --initialize
---echo #
-
 --echo # Try to run the server with --initialize --rocksdb_large_prefix=OFF
+--echo #
 --error 1
 --exec $MYSQLD $extra_args --initialize --default_dd_storage_engine=RocksDB --rocksdb_large_prefix=OFF --datadir=$DDIR --log-error-verbosity=3 > $MYSQLD_LPO_LOG 2>&1
-
 --force-rmdir $DDIR
+--echo #
+--echo # Error log checks
+--echo #
+--let $grep_file= $MYSQLD_LPO_LOG 
+--let $grep_pattern=disabling rocksdb_large_prefix is not allowed with MySQL data dictionary in MyRocks 
+--let $grep_output= print_count
+--source include/grep_pattern.inc
 
+--echo #
 --echo # Run the server with --initialize
+--echo #
+--error 1
 --exec $MYSQLD $extra_args --initialize --default_dd_storage_engine=RocksDB --datadir=$DDIR --log-error-verbosity=3 > $MYSQLD_LOG 2>&1
-
 --force-rmdir $DDIR
+--echo #
+--echo # Error log checks
+--echo #
+--let $grep_file= $MYSQLD_LOG 
+--let $grep_pattern=Check RocksDB:Init column families
+--let $grep_output= print_count
+--source include/grep_pattern.inc
+
+--let $grep_file= $MYSQLD_LOG 
+--let $grep_pattern=Check Data dictionary initializing
+--let $grep_output= print_count
+--source include/grep_pattern.inc
 
 --echo #
 --echo # Cleanup
 --echo #
 --echo # Restarting the server
 --source include/start_mysqld.inc
-
---echo #
---echo # Error log checks
---echo #
---let $assert_file = $MYSQLD_LOG
---let $assert_count = 1
-
---let $assert_text = Check RocksDB:Init column families
---let $assert_select = RocksDB:Init column families
---source include/assert_grep.inc
-
---let $assert_text = Check Data dictionary initializing
---let $assert_select = Data dictionary initializing
---let $assert_only_after = Check RocksDB:Init column families
---source include/assert_grep.inc
-
---let $assert_text=disabling rocksdb_large_prefix is not allowed with MySQL data dictionary in MyRocks
---source include/assert_grep.inc
 
 --echo # Remove data dir and log file.
 --remove_file $MYSQLD_LOG
