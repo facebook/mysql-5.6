@@ -97,7 +97,11 @@ bool Raw_record::update() {
 bool Raw_record::drop() {
   DBUG_TRACE;
 
-  int rc = m_table->file->ha_delete_row(m_table->record[1]);
+  // DD Retrived data is stored in record[0]
+  // ROCKSDB require correct record to extract SK data from passing record
+  // INNODB works either record[0]/record[1], since
+  // INNODB use prebuilt->pcur to delete keys in delete_row()
+  int rc = m_table->file->ha_delete_row(m_table->record[0]);
 
   if (rc) {
     m_table->file->print_error(rc, MYF(0));
