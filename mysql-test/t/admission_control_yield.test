@@ -205,7 +205,7 @@ insert into t2 select a.i + 10 * b.i + 100 * c.i + 1000 * d.i from t1 a, t1 b, t
 
 --connection default
 let $wait_condition =
-  select count(*) = 1 from information_schema.processlist where state = 'Sending data';
+  select RUNNING_QUERIES = 1 from information_schema.admission_control_entities where schema_name='test_db';
 --source include/wait_condition.inc
 
 --connection con2
@@ -231,7 +231,7 @@ set global admission_control_yield_freq = 1;
 
 --connection default
 let $wait_condition =
-  select count(*) = 1 from information_schema.processlist where state = 'Sending data';
+  select RUNNING_QUERIES = 1 from information_schema.admission_control_entities where schema_name='test_db';
 --source include/wait_condition.inc
 
 --connection con2
@@ -255,7 +255,8 @@ drop table t2;
 
 --source include/wait_until_count_sessions.inc
 
-select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
+# Exclude KILLED error, it may or may not appear when we kill frequently yielding query.
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors where error != 'KILLED';
 set global max_running_queries = @save_max_running_queries;
 set global max_waiting_queries = @save_max_waiting_queries;
 set global admission_control_wait_events = @save_admission_control_wait_events;

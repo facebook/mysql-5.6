@@ -79,21 +79,19 @@ insert into t1 values (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
 create table t2 (i int primary key) engine=innodb;
 insert into t2 select a.i + 10 * b.i + 100 * c.i + 1000 * d.i from t1 a, t1 b, t1 c, t1 d;
 select * from t2 a, t2 b, t2 c, t2 d, t2 e, t2 f, t2 g, t2 h limit 10000000000, 1;;
-Timeout in wait_condition.inc for select count(*) = 1 from information_schema.processlist where state = 'Sending data'
 select 1;
 ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
 ERROR 70100: Query execution was interrupted
 set global admission_control_wait_events = 'YIELD';
 set global admission_control_yield_freq = 1;
 select * from t2 a, t2 b, t2 c, t2 d, t2 e, t2 f, t2 g, t2 h limit 10000000000, 1;;
-Timeout in wait_condition.inc for select count(*) = 1 from information_schema.processlist where state = 'Sending data'
 select 1;
 1
 1
 drop table t1;
 drop table t2;
 ERROR 70100: Query execution was interrupted
-select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors;
+select schema_name, error, mode, exits, admissions, queue, queue_boosts, sql_id, info from information_schema.admission_control_errors where error != 'KILLED';
 schema_name	error	mode	exits	admissions	queue	queue_boosts	sql_id	info
 test_db	TIMEOUT	QUERY	0	1	0	0	a532c6f3e890282b7eee77f35ee85ae9	{"q0":{"wait":0, "run":1}}
 test_db	TIMEOUT	QUERY	0	1	0	0	a532c6f3e890282b7eee77f35ee85ae9	{"q0":{"wait":0, "run":1}}
