@@ -100,6 +100,7 @@ class DD_bootstrap_ctx {
 
   uint m_did_I_S_upgrade_from = 0;
   uint m_actual_I_S_version = 0;
+  uint m_actual_dd_engine = 0;
 
  public:
   DD_bootstrap_ctx() = default;
@@ -123,9 +124,15 @@ class DD_bootstrap_ctx {
     m_actual_I_S_version = actual_I_S_version;
   }
 
+  void set_actual_dd_engine(uint actual_dd_engine) {
+    m_actual_dd_engine = actual_dd_engine;
+  }
+
   uint get_actual_dd_version() const { return m_actual_dd_version; }
 
   uint get_actual_I_S_version() const { return m_actual_I_S_version; }
+
+  uint get_actual_dd_engine() const { return m_actual_dd_engine; }
 
   void set_dd_upgrade_done() {
     assert(m_did_dd_upgrade_from == 0);

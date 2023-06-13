@@ -7226,6 +7226,28 @@ static bool rocksdb_get_table_statistics(
   return false;
 }
 
+/**
+  Check if a table exists in ROCKSDB during DD upgrade/restart
+  NOTE: Don't call any DD API, due to this function maybe called during
+  DD initializing.
+
+  @return HA_ERR_TABLE_EXIST - if table exist in ROCKSDB
+  @return HA_ERR_NO_SUCH_TABLE - if table isn't exists in ROCKSDB.
+*/
+static int rocksdb_table_exists_in_engine(handlerton *, THD *,
+                                          const char *db_name,
+                                          const char *table_name) {
+  std::string fullname = db_name;
+  fullname.append(".");
+  fullname.append(table_name);
+
+  auto tbl_def = ddl_manager.find(fullname);
+  if (!tbl_def) {
+    return HA_ERR_NO_SUCH_TABLE;
+  }
+  return HA_ERR_TABLE_EXIST;
+}
+
 static rocksdb::Status check_rocksdb_options_compatibility(
     const char *const dbpath, const rocksdb::Options &main_opts,
     const std::vector<rocksdb::ColumnFamilyDescriptor> &cf_descr) {
@@ -7580,6 +7602,7 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->dict_set_server_version = rocksdb_dict_set_server_version;
   rocksdb_hton->is_supported_system_table = rocksdb_is_supported_system_table;
   rocksdb_hton->ddse_dict_init = rocksdb_ddse_dict_init;
+  rocksdb_hton->table_exists_in_engine = rocksdb_table_exists_in_engine;
 
   rocksdb_hton->flags = HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
 
