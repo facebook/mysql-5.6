@@ -8,7 +8,7 @@ set @@global.innodb_lock_wait_timeout = 10000;
 set @start_admission_control_filter = @@global.thread_pool_admission_control_filter;
 set @@global.thread_pool_admission_control_filter = 'COMMIT';
 set @start_admission_control_queue_timeout = @@global.thread_pool_admission_control_queue_timeout;
-set @@global.thread_pool_admission_control_queue_timeout = 0;
+set @@global.thread_pool_admission_control_queue_timeout = 100;
 create table t1 (a int) engine=innodb;
 insert into t1 values(1);
 begin;

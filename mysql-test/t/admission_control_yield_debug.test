@@ -67,7 +67,7 @@ set global admission_control_wait_events = 'NET_IO';
 
 --connection default
 let $wait_condition =
-  select count(*) > 0 from information_schema.processlist where state = 'Sending to client';
+  select count(*) > 0 from information_schema.processlist where state = 'Sending to client' and id = $con1_id;
 --source include/wait_condition.inc
 
 --connection con2
