@@ -1074,23 +1074,24 @@ bool create_dd_schema(THD *thd) {
 
 bool initialize_dd_properties(THD *thd) {
   if (!opt_initialize) {
-    // Find out which ddse contains dd_properties table during restart
+    // Find out which SE contains dd_properties table during restart
     // Try rocksdb first
-    handlerton *rocksdb_ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_ROCKSDB);
+    handlerton *rocksdb_hton = ha_resolve_by_legacy_type(thd, DB_TYPE_ROCKSDB);
     int error = HA_ERR_NO_SUCH_TABLE;
-    if (rocksdb_ddse != nullptr || rocksdb_ddse->table_exists_in_engine) {
-      error = rocksdb_ddse->table_exists_in_engine(
-          rocksdb_ddse, thd, MYSQL_SCHEMA_NAME.str,
+    if (rocksdb_hton != nullptr &&
+        rocksdb_hton->table_exists_in_engine != nullptr) {
+      error = rocksdb_hton->table_exists_in_engine(
+          rocksdb_hton, thd, MYSQL_SCHEMA_NAME.str,
           dd::tables::DD_properties::instance().name().c_str());
     }
     if (error == HA_ERR_TABLE_EXIST) {
       // actual ddse maybe rocksdb
       bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
-          enum_dd_default_engine::DEFAULT_DD_ROCKSDB);
+          DB_TYPE_ROCKSDB);
     } else {
       // actual ddse maybe innodb
       bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
-          enum_dd_default_engine::DEFAULT_DD_INNODB);
+          DB_TYPE_INNODB);
     }
   }
 
