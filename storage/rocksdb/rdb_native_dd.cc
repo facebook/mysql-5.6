@@ -23,6 +23,7 @@
 
 /* MyRocks header files */
 #include "ha_rocksdb.h"
+#include "sql/plugin_table.h"
 #include "storage/rocksdb/ha_rocksdb_proto.h"
 #include "storage/rocksdb/rdb_datadic.h"
 
@@ -77,4 +78,18 @@ bool rocksdb_is_supported_system_table([[maybe_unused]] const char *db_name,
   return false;
 }
 
+bool rocksdb_ddse_dict_init(
+    [[maybe_unused]] dict_init_mode_t dict_init_mode, uint,
+    [[maybe_unused]] List<const dd::Object_table> *tables,
+    [[maybe_unused]] List<const Plugin_tablespace> *tablespaces) {
+  assert(tables);
+  assert(tables->is_empty());
+  assert(tablespaces);
+  assert(tablespaces->is_empty());
+
+  assert(dict_init_mode == DICT_INIT_CREATE_FILES ||
+         dict_init_mode == DICT_INIT_CHECK_FILES);
+
+  return false;
+}
 }  // namespace myrocks
