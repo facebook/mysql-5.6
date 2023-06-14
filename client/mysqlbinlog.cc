@@ -793,7 +793,7 @@ static const std::string binlog_server_finish_err_msg =
     "The binlog server has finished sending all available binlogs from the "
     "HDFS and has no more binlogs to send.";
 
-enum class Check_database_decision : char {
+enum class Check_database_decision {
   EMPTY_EVENT_DATABASE = 2,
   CHANGED = 1,
   OK = 0,
