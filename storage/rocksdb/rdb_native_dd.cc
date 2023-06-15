@@ -25,6 +25,7 @@
 #include "ha_rocksdb.h"
 #include "storage/rocksdb/ha_rocksdb_proto.h"
 #include "storage/rocksdb/rdb_datadic.h"
+#include "sql/plugin_table.h"
 
 namespace myrocks {
 std::unordered_set<dd::Object_id> native_dd::s_dd_table_ids = {};
@@ -77,4 +78,22 @@ bool rocksdb_is_supported_system_table([[maybe_unused]] const char *db_name,
   return false;
 }
 
+bool rocksdb_ddse_dict_init(
+    [[maybe_unused]] dict_init_mode_t dict_init_mode, uint,
+    [[maybe_unused]] List<const dd::Object_table> *tables,
+    List<const Plugin_tablespace> *tablespaces) {
+  assert(tables);
+  assert(tables->is_empty());
+  assert(tablespaces);
+  assert(tablespaces->is_empty());
+
+  assert(dict_init_mode == DICT_INIT_CREATE_FILES ||
+         dict_init_mode == DICT_INIT_CHECK_FILES);
+
+  static Plugin_tablespace dd_space(rocksdb_dd_space_name, "", "", "",
+                                    rocksdb_hton_name);
+  tablespaces->push_back(&dd_space);
+
+  return false;
+}
 }  // namespace myrocks
