@@ -11248,6 +11248,12 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd) {
   /* Handle commit consensus error appropriately */
   switch (opt_commit_consensus_error_action) {
     case ROLLBACK_TRXS_IN_GROUP:
+      if (opt_commit_consensus_error_rollback_clear_logpos) {
+        // We'll be rolling back the transaction, clear the log position to
+        // prevent it from being pushed to the engine
+        thd->set_trans_pos(nullptr, 0);
+      }
+
       /* Rollbak the trx and set commit_error in thd->commit_error
        * Also clear commit_low flag to prevent commit getting
        * triggered when the session ends. ha_rollback_low() could fail,
