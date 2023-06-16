@@ -7912,6 +7912,12 @@ static int rocksdb_init_internal(void *const p) {
       alloc_opt.limit_tcache_size = true;
       alloc_opt.tcache_size_lower_bound = block_size / 4;
       alloc_opt.tcache_size_upper_bound = block_size;
+      // MyRocks commonly runs with reduced `tcache_max`, which prevents block
+      // allocations from using `tcache`, despite the generous bounds set just
+      // above. In this case jemalloc arena contention can be a bottleneck.
+      // Using multiple arenas alleviates the bottleneck with the downside of
+      // increasing fragmentation.
+      alloc_opt.num_arenas = 8;
       rocksdb::Status new_alloc_status =
           rocksdb::NewJemallocNodumpAllocator(alloc_opt, &memory_allocator);
       if (!new_alloc_status.ok()) {
