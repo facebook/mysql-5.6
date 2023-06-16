@@ -7,6 +7,7 @@
 
 let BASEDIR= `select @@basedir`;
 let DDIR=$MYSQL_TMP_DIR/installdb_test;
+let MYSQLD_LPO_LOG=$MYSQL_TMP_DIR/server-lpo.log;
 let MYSQLD_LOG=$MYSQL_TMP_DIR/server.log;
 let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 
@@ -17,6 +18,12 @@ let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 --echo #
 --echo # Try --initialize
 --echo #
+
+--echo # Try to run the server with --initialize --rocksdb_large_prefix=OFF
+--error 1
+--exec $MYSQLD $extra_args --initialize --default_dd_storage_engine=RocksDB --rocksdb_large_prefix=OFF --datadir=$DDIR --log-error-verbosity=3 > $MYSQLD_LPO_LOG 2>&1
+
+--force-rmdir $DDIR
 
 --echo # Run the server with --initialize
 --exec $MYSQLD $extra_args --initialize --default_dd_storage_engine=RocksDB --datadir=$DDIR --log-error-verbosity=3 > $MYSQLD_LOG 2>&1
@@ -29,6 +36,9 @@ let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 --echo # Restarting the server
 --source include/start_mysqld.inc
 
+--echo #
+--echo # Error log checks
+--echo #
 --let $assert_file = $MYSQLD_LOG
 --let $assert_count = 1
 
@@ -41,5 +51,9 @@ let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 --let $assert_only_after = Check RocksDB:Init column families
 --source include/assert_grep.inc
 
+--let $assert_text=disabling rocksdb_large_prefix is not allowed with MySQL data dictionary in MyRocks
+--source include/assert_grep.inc
+
 --echo # Remove data dir and log file.
 --remove_file $MYSQLD_LOG
+--remove_file $MYSQLD_LPO_LOG

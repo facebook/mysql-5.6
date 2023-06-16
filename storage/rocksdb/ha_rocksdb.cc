@@ -62,6 +62,7 @@
 #include "sql/sql_partition.h"
 #include "sql/sql_table.h"
 #include "sql/sql_thd_internal_api.h"
+#include "sql/strfunc.h"
 
 /* RocksDB includes */
 #include "env/composite_env_wrapper.h"
@@ -930,7 +931,7 @@ static unsigned long long rocksdb_table_stats_max_num_rows_scanned = 0ul;
 static bool rocksdb_enable_bulk_load_api = 1;
 static bool rocksdb_enable_remove_orphaned_dropped_cfs = 1;
 static bool rocksdb_print_snapshot_conflict_queries = 0;
-static bool rocksdb_large_prefix = 0;
+static bool rocksdb_large_prefix = true;
 static bool rocksdb_allow_to_start_after_corruption = 0;
 static ulong rocksdb_write_policy = rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
 static char *rocksdb_read_free_rpl_tables;
@@ -1413,6 +1414,63 @@ static constexpr ulong RDB_DEADLOCK_DETECT_DEPTH = 50;
 static constexpr ulonglong RDB_DEFAULT_MAX_COMPACTION_HISTORY = 64;
 static constexpr ulong ROCKSDB_MAX_MRR_BATCH_SIZE = 1000;
 static constexpr uint ROCKSDB_MAX_BOTTOM_PRI_BACKGROUND_COMPACTIONS = 64;
+
+static constexpr char large_prefix_deprecated_msg[] =
+    "using rocksdb_large_prefix is deprecated and it will be removed in a "
+    "future release";
+
+static constexpr char ddse_enforced_large_prefix_msg[] =
+    "disabling rocksdb_large_prefix is not allowed with MySQL data dictionary "
+    "in MyRocks";
+
+// Copied over from InnoDB with minor changes. Returns false on success, true on
+// failure.
+static bool check_func_bool(void *save, st_mysql_value *value) {
+  int result;
+  if (value->value_type(value) == MYSQL_VALUE_TYPE_STRING) {
+    char buff[STRING_BUFFER_USUAL_SIZE];
+    int length = sizeof(buff);
+
+    const auto *const str = value->val_str(value, buff, &length);
+
+    if (str == nullptr) return true;
+
+    result = find_type(&bool_typelib, str, length, true) - 1;
+
+    if (result < 0) return true;
+  } else {
+    long long tmp;
+    if (value->val_int(value, &tmp) < 0) return true;
+    if (tmp > 1 || tmp < 0) return true;
+    result = static_cast<int>(tmp);
+  }
+  *(bool *)save = result != 0;
+  return false;
+}
+
+static int rocksdb_large_prefix_check(THD *, SYS_VAR *, void *save,
+                                      st_mysql_value *value) {
+  if (check_func_bool(save, value)) return HA_EXIT_FAILURE;
+
+  if (default_dd_storage_engine != DEFAULT_DD_ROCKSDB) return HA_EXIT_SUCCESS;
+
+  const auto proposed_value = *static_cast<bool *>(save);
+
+  if (default_dd_storage_engine == DEFAULT_DD_ROCKSDB && !proposed_value) {
+    my_error(ER_RDB_DDSE_CANNOT_DISABLE_LARGE_PREFIX, MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+static void rocksdb_large_prefix_update(THD *thd, SYS_VAR *, void *var_ptr,
+                                        const void *save) {
+  push_warning(thd, Sql_condition::SL_WARNING, HA_ERR_WRONG_COMMAND,
+               large_prefix_deprecated_msg);
+
+  *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+}
 
 // TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -2690,9 +2748,9 @@ static MYSQL_SYSVAR_BOOL(table_stats_use_table_scan,
 
 static MYSQL_SYSVAR_BOOL(
     large_prefix, rocksdb_large_prefix, PLUGIN_VAR_RQCMDARG,
-    "Support large index prefix length of 3072 bytes. If off, the maximum "
-    "index prefix length is 767.",
-    nullptr, nullptr, false);
+    "Deprecated: support large index prefix length of 3072 bytes. If off, the "
+    "maximum index prefix length is 767.",
+    rocksdb_large_prefix_check, rocksdb_large_prefix_update, true);
 
 static MYSQL_SYSVAR_BOOL(
     allow_to_start_after_corruption, rocksdb_allow_to_start_after_corruption,
@@ -7355,6 +7413,16 @@ static int rocksdb_init_internal(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 #endif
+
+  if (!rocksdb_large_prefix) {
+    if (default_dd_storage_engine == DEFAULT_DD_ROCKSDB) {
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      ddse_enforced_large_prefix_msg);
+      DBUG_RETURN(HA_EXIT_FAILURE);
+    }
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    large_prefix_deprecated_msg);
+  }
 
   clone::fixup_on_startup();
   move_wals_to_target_dir();
