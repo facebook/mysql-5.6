@@ -1983,8 +1983,9 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
              ("transaction_length= %llu", gtid_event.transaction_length));
 
   bool ret = false;
-  if (!enable_raft_plugin || (mysql_bin_log.is_apply_log && thd->rli_slave) ||
-      allow_binlog_writes_on_raft_follower) {
+  if (!enable_raft_plugin ||
+      (mysql_bin_log.is_apply_log &&
+       (thd->rli_slave || allow_binlog_writes_on_raft_follower))) {
     ret = gtid_event.write(writer);
     if (ret) goto end;
 
