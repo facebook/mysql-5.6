@@ -41,6 +41,21 @@ set @@global.allow_binlog_writes_on_raft_follower = 1;
 insert into trx values(1);
 insert into non_trx values(1);
 set @@global.allow_binlog_writes_on_raft_follower = 0;
+set @@global.allow_binlog_writes_on_raft_follower = 1;
+insert into trx values(2);
+insert into non_trx values(2);
+set @@global.allow_binlog_writes_on_raft_follower = 0;
+select * from trx;
+a
+2
+select * from non_trx;
+a
+select * from trx;
+a
+1
+2
+select * from non_trx;
+a
 drop table trx;
 drop table non_trx;
 include/sync_slave_sql_with_master.inc
