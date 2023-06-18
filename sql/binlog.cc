@@ -11792,7 +11792,7 @@ int ask_server_to_register_with_raft(Raft_Registration_Item item) {
       err = RUN_HOOK_STRICT(
           raft_replication, register_paths,
           (thd, server_uuid, ::server_id, s_wal_dir, s_log_dir,
-           log_bin_basename, glob_hostname, (uint64_t)mysqld_port));
+           log_bin_basename, glob_hostname_ptr, (uint64_t)mysqld_port));
       break;
     }
     default:

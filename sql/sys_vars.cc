@@ -6638,7 +6638,6 @@ static Sys_var_ulong Sys_group_concat_max_len(
   hostname. Their names are still based on the default hostname which is taken
   from syscall.
 */
-static char *glob_hostname_ptr;
 static Sys_var_charptr Sys_hostname(
     "hostname", "Server host name",
     READ_ONLY NON_PERSIST GLOBAL_VAR(glob_hostname_ptr), CMD_LINE(OPT_ARG),
