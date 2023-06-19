@@ -5258,6 +5258,7 @@ class THD : public MDL_context_owner,
     Kill current query and defer error.
   */
   void kill_query_with_error(uint error, ...);
+  void kill_query_with_error_va(uint error, va_list args);
 
   /**
     Clear kill query error.

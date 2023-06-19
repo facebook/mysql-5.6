@@ -777,3 +777,17 @@ bool thd_get_table_privacy_policy(THD *thd, const std::string &db_name,
   dd::release_mdl(thd, mdl_ticket);
   return !returned_value;
 }
+
+/**
+  Kill current query and defer error.
+
+  @param thd       The MySQL internal thread pointer.
+  @param error     Error code, followed by additional parameters required
+                   by the error code, same as my_error().
+*/
+void thd_kill_query_with_error(THD *thd, uint error, ...) {
+  va_list args;
+  va_start(args, error);
+  thd->kill_query_with_error_va(error, args);
+  va_end(args);
+}

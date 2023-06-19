@@ -501,4 +501,13 @@ bool thd_get_table_privacy_policy(THD *thd, const std::string &db_name,
                                   const std::string &table_name,
                                   LEX_STRING *privacy_policy_str);
 
+/**
+  Kill current query and defer error.
+
+  @param thd       The MySQL internal thread pointer.
+  @param error     Error code, followed by additional parameters required
+                   by the error code, same as my_error().
+*/
+void thd_kill_query_with_error(THD *thd, uint error, ...);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

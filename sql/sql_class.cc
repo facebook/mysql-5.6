@@ -2544,13 +2544,20 @@ void THD::send_kill_message() const {
   Kill current query and defer error.
 */
 void THD::kill_query_with_error(uint error, ...) {
+  va_list args;
+  va_start(args, error);
+  kill_query_with_error_va(error, args);
+  va_end(args);
+}
+
+/**
+  Kill current query and defer error.
+*/
+void THD::kill_query_with_error_va(uint error, va_list args) {
   assert(this == current_thd);
   assert(!deferred_error.is_set());
 
-  va_list args;
-  va_start(args, error);
   deferred_error.set_error(error, args);
-  va_end(args);
 
   mysql_mutex_lock(&LOCK_thd_data);
   awake(KILL_QUERY);
