@@ -1,0 +1,72 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+use test_db;
+create table t1(a int) engine=InnoDB;
+set @save_max_running_queries = @@thread_pool_max_running_queries;
+set @save_admission_control_queue_timeout = @@thread_pool_admission_control_queue_timeout;
+set @save_admission_control_wait_events = @@thread_pool_admission_control_wait_events;
+set @@global.thread_pool_max_running_queries=1;
+set @@global.thread_pool_admission_control_queue_timeout=0;
+set @@global.sql_findings_control=on;
+
+# Test 1: MDL table lock.
+#
+set @@global.thread_pool_admission_control_wait_events='META_DATA_LOCK';
+lock table t1 write;
+insert into t1 values(1);
+select sleep(1000);
+unlock tables;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+sleep(1000)
+1
+
+# Test 2: Row lock with update.
+#
+set @@global.thread_pool_admission_control_wait_events='ROW_LOCK';
+insert into t1 values(1);
+begin;
+update t1 set a = 2 where a = 1;
+update t1 set a = 2 where a = 1;
+select sleep(1000);
+rollback;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+sleep(1000)
+1
+
+# Test 3: Gap lock with insert.
+#
+CREATE TABLE t2 (id int NOT NULL, PRIMARY KEY(id)) ENGINE=InnoDB;
+insert into t2 values(100);
+begin;
+select * from t2 where id <= 100 for update;
+id
+100
+insert into t2 values(80);
+select sleep(1000);
+rollback;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+sleep(1000)
+1
+
+# Test 4: Row lock with delete.
+#
+begin;
+update t1 set a = 2 where a = 1;
+delete from t1 where a = 1;
+select sleep(1000);
+rollback;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+sleep(1000)
+1
+
+# Cleanup
+#
+drop table t1;
+drop table t2;
+set global thread_pool_max_running_queries = @save_max_running_queries;
+set global thread_pool_admission_control_queue_timeout = @save_admission_control_queue_timeout;
+set global thread_pool_admission_control_wait_events = @save_admission_control_wait_events;
+set global sql_findings_control = default;
+drop database test_db;
+drop user test_user@localhost;
