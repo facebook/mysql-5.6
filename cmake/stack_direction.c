@@ -30,7 +30,8 @@ int f(int *a) {
  Prevent compiler optimizations by calling function
  through pointer.
 */
-volatile int (*ptr_f)(int *) = f;
+typedef int (*test_function_ptr)(int *);
+volatile test_function_ptr ptr_f = f;
 int main() {
   int a;
   return ptr_f(&a);

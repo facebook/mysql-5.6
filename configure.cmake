@@ -422,19 +422,42 @@ int main()
 IF(NOT STACK_DIRECTION)
   IF(CMAKE_CROSSCOMPILING)
    MESSAGE(FATAL_ERROR 
-   "STACK_DIRECTION is not defined.  Please specify -DSTACK_DIRECTION=1 "
-   "or -DSTACK_DIRECTION=-1 when calling cmake.")
+   "STACK_DIRECTION is not defined.  Please specify -DSTACK_DIRECTION=1, "
+   "-DSTACK_DIRECTION=-1 or -DSTACK_DIRECTION=0 (disables stack overrun "
+   "checking, should be used for ASan builds) when calling cmake.")
   ELSE()
-    TRY_RUN(STACKDIR_RUN_RESULT STACKDIR_COMPILE_RESULT    
-     ${CMAKE_BINARY_DIR} 
-     ${CMAKE_SOURCE_DIR}/cmake/stack_direction.c
-     )
-     # Test program returns 0 (down) or 1 (up).
-     # Convert to -1 or 1
-     IF(STACKDIR_RUN_RESULT EQUAL 0)
-       SET(STACK_DIRECTION -1 CACHE INTERNAL "Stack grows direction")
-     ELSE()
-       SET(STACK_DIRECTION 1 CACHE INTERNAL "Stack grows direction")
+    # Under Address Sanitizer when "detect_stack_use_after_return" runtime
+    # option is enabled (either via ASAN_OPTIONS environment variable or via
+    # "__asan_default_options()" function), there is no such concept as stack
+    # growth direction as stack frames are allocated with
+    # "__asan_stack_malloc()" special function that can return random
+    # addresses.
+    # Here, we just detect that the binaries are compiled under ASan
+    # and set "STACK_DIRECTION" to a special value "0" which will be
+    # processed by the #cmakedefine in the "config.h.cmake" into an
+    # /* #undef STACK_DIRECTION */
+    IF(WITH_ASAN)
+       SET(STACK_DIRECTION 0 CACHE INTERNAL "Stack growth direction")
+       MESSAGE(STATUS
+        "Stack growth direction under Address Sanitizer could be an "
+        "invalid concept. STACK_DIRECTION is set to a special value")
+    ELSE()
+      TRY_RUN(STACKDIR_RUN_RESULT STACKDIR_COMPILE_RESULT
+        ${CMAKE_BINARY_DIR}
+        ${CMAKE_SOURCE_DIR}/cmake/stack_direction.c
+       )
+       IF(NOT STACKDIR_COMPILE_RESULT)
+         MESSAGE(FATAL_ERROR
+          "Cannot compile stack_direction.c needed to detect stack growth "
+          "direction")
+       ENDIF()
+       # Test program returns 0 (down) or 1 (up).
+       # Convert to -1 or 1
+       IF(STACKDIR_RUN_RESULT EQUAL 0)
+         SET(STACK_DIRECTION -1 CACHE INTERNAL "Stack growth direction")
+       ELSE()
+         SET(STACK_DIRECTION 1 CACHE INTERNAL "Stack growth direction")
+       ENDIF()
      ENDIF()
      MESSAGE(STATUS "Checking stack direction : ${STACK_DIRECTION}")
    ENDIF()

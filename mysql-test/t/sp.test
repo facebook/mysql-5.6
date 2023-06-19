@@ -1,4 +1,6 @@
-# ER_STACK_OVERRUN_NEED_MORE does not currenly work well with TSan
+# ER_STACK_OVERRUN_NEED_MORE does not currenly work well with neither TSan
+# nor ASan (when ASAN_OPTIONS include 'detect_stack_use_after_return=true')
+--source include/not_asan.inc
 --source include/not_tsan.inc
 
 --source include/no_valgrind_without_big.inc

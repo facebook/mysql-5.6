@@ -1,3 +1,6 @@
+# ER_STACK_OVERRUN_NEED_MORE does not currenly work well with ASan
+# (when ASAN_OPTIONS include 'detect_stack_use_after_return=true')
+--source include/not_asan.inc
 --source include/have_debug.inc
 
 --echo #
