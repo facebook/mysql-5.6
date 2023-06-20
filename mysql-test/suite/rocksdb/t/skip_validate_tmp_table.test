@@ -25,7 +25,7 @@ SET @@session.debug = "-d,gen_sql_table_name";
 
 
 # Test statements on "t2_rdb_only" table
---error ER_METADATA_INCONSISTENCY
+--error ER_TABLE_EXISTS_ERROR
 CREATE TABLE t2_rdb_only (pk INT PRIMARY KEY) ENGINE=RocksDB;
 
 --error ER_NO_SUCH_TABLE

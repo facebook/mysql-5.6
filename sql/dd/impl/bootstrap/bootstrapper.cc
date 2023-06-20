@@ -1073,6 +1073,28 @@ bool create_dd_schema(THD *thd) {
 }
 
 bool initialize_dd_properties(THD *thd) {
+  if (!opt_initialize) {
+    // Find out which SE contains dd_properties table during restart
+    // Try rocksdb first
+    handlerton *rocksdb_hton = ha_resolve_by_legacy_type(thd, DB_TYPE_ROCKSDB);
+    int error = HA_ERR_NO_SUCH_TABLE;
+    if (rocksdb_hton != nullptr &&
+        rocksdb_hton->table_exists_in_engine != nullptr) {
+      error = rocksdb_hton->table_exists_in_engine(
+          rocksdb_hton, thd, MYSQL_SCHEMA_NAME.str,
+          dd::tables::DD_properties::instance().name().c_str());
+    }
+    if (error == HA_ERR_TABLE_EXIST) {
+      // actual ddse maybe rocksdb
+      bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
+          DB_TYPE_ROCKSDB);
+    } else {
+      // actual ddse maybe innodb
+      bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
+          DB_TYPE_INNODB);
+    }
+  }
+
   // Create the dd_properties table.
   const Object_table_definition *dd_properties_def =
       dd::tables::DD_properties::instance().target_table_definition();

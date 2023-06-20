@@ -27,7 +27,7 @@ CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
 --let $restart_parameters=restart:--rocksdb_validate_tables=2
 --source include/start_mysqld.inc
 
---error ER_METADATA_INCONSISTENCY
+--error ER_TABLE_EXISTS_ERROR
 CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
 
 # Shut down and restore MySQL DD with t table

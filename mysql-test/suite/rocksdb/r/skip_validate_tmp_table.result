@@ -8,7 +8,7 @@ SET @@session.debug = "-d,gen_sql_table_name";
 include/assert.inc [The "test" database should have 1 table in MySQL DD (t2)]
 include/assert.inc [The "test" database should have 1 table in RocksDB DD (t2_rdb_only)]
 CREATE TABLE t2_rdb_only (pk INT PRIMARY KEY) ENGINE=RocksDB;
-ERROR HY000: Table 'test.t2_rdb_only' does not exist, but metadata information exists inside MyRocks. This is a sign of data inconsistency.
+ERROR 42S01: Table 't2_rdb_only' already exists
 INSERT INTO t2_rdb_only VALUES (1);
 ERROR 42S02: Table 'test.t2_rdb_only' doesn't exist
 DROP TABLE t2_rdb_only;
