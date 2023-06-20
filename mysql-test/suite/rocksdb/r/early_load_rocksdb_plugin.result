@@ -8,6 +8,9 @@
 #
 Occurrences of 'disabling rocksdb_large_prefix is not allowed with MySQL data dictionary in MyRocks ' in the input file: 0
 #
+# Run the server with --help (a too-restrictive assert regression test)
+#
+#
 # Run the server with --initialize
 #
 #
