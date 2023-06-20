@@ -14,6 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#include "rdb_utils.h"
 #define MYSQL_SERVER 1
 
 /* This C++ file's header */
@@ -2135,10 +2136,9 @@ select_exec_result INLINE_ATTR select_exec::run() {
   }
 
   // Look for the table metadata
-  std::string db_table;
-  db_table.append(m_table_share->db.str);
-  db_table.append(".");
-  db_table.append(m_table_share->table_name.str);
+  std::string db_table =
+      get_full_tablename(m_table_share->db.str, m_table_share->table_name.str);
+
   m_tbl_def = m_ddl_manager->find(db_table);
   if (m_tbl_def == nullptr) {
     m_handler->print_error(HA_ERR_ROCKSDB_INVALID_TABLE, 0);

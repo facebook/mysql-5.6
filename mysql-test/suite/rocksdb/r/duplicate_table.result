@@ -6,7 +6,7 @@ CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
 ERROR 42S01: Table 't' already exists
 # restart:--rocksdb_validate_tables=2
 CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
-ERROR HY000: Table 'test.t' does not exist, but metadata information exists inside MyRocks. This is a sign of data inconsistency.
+ERROR 42S01: Table 't' already exists
 # restart:--rocksdb_validate_tables=2
 include/assert.inc [t should have 3 rows]
 DROP TABLE t;

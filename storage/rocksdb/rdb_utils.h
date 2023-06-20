@@ -473,4 +473,16 @@ class Ensure_initialized {
   return fn.compare(fn_len - ext_len, ext_len, extension) == 0;
 }
 
+// return <db_name>.<table_name>
+inline std::string get_full_tablename(const char *const db_name,
+                                      const char *const table_name) {
+  std::string fullname;
+  // + 1 for '.'
+  fullname.reserve(strlen(db_name) + strlen(table_name) + 1);
+  fullname.append(db_name);
+  fullname += '.';
+  fullname.append(table_name);
+  return fullname;
+}
+
 }  // namespace myrocks

@@ -30,7 +30,8 @@
 #include "mysql_version.h"                // MYSQL_VERSION_ID
 #include "sql/dd/dd_version.h"            // DD_VERSION
 #include "sql/dd/info_schema/metadata.h"  // IS_DD_VERSION
-#include "sql/mysqld.h"                   // opt_initialize
+#include "sql/handler.h"
+#include "sql/mysqld.h"  // opt_initialize
 
 class THD;
 
@@ -100,6 +101,12 @@ class DD_bootstrap_ctx {
 
   uint m_did_I_S_upgrade_from = 0;
   uint m_actual_I_S_version = 0;
+  // actual DDSE holds dd tables
+  // its values is indicted by which SE hold mysql.dd_properties table
+  //  Druing boostrap time,  its value is equal to default_dd_storage_engine
+  //  During upgrade time, its value maybe not equal to
+  //  default_dd_storage_engine
+  legacy_db_type m_actual_dd_engine = DB_TYPE_UNKNOWN;
 
  public:
   DD_bootstrap_ctx() = default;
@@ -123,9 +130,20 @@ class DD_bootstrap_ctx {
     m_actual_I_S_version = actual_I_S_version;
   }
 
+  void set_actual_dd_engine(enum legacy_db_type actual_dd_engine) {
+    assert(m_actual_dd_engine == DB_TYPE_UNKNOWN ||
+           m_actual_dd_engine == actual_dd_engine);
+    m_actual_dd_engine = actual_dd_engine;
+  }
+
   uint get_actual_dd_version() const { return m_actual_dd_version; }
 
   uint get_actual_I_S_version() const { return m_actual_I_S_version; }
+
+  uint get_actual_dd_engine() const {
+    assert(m_actual_dd_engine != DB_TYPE_UNKNOWN);
+    return m_actual_dd_engine;
+  }
 
   void set_dd_upgrade_done() {
     assert(m_did_dd_upgrade_from == 0);
