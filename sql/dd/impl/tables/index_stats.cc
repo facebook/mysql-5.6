@@ -32,6 +32,9 @@ namespace tables {
 ///////////////////////////////////////////////////////////////////////////
 
 Index_stats::Index_stats() {
+  assert(default_dd_storage_engine == DEFAULT_DD_INNODB ||
+         default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+
   m_target_def.set_table_name("index_stats");
 
   m_target_def.add_field(FIELD_SCHEMA_NAME, "FIELD_SCHEMA_NAME",
@@ -47,10 +50,17 @@ Index_stats::Index_stats() {
   m_target_def.add_field(FIELD_CACHED_TIME, "FIELD_CACHED_TIME",
                          "cached_time TIMESTAMP NOT NULL");
 
-  m_target_def.add_index(INDEX_UK_SCHEMA_TABLE_INDEX_COLUMN,
-                         "INDEX_UK_SCHEMA_TABLE_INDEX_COLUMN",
-                         "UNIQUE KEY (schema_name, table_name, "
-                         "index_name, column_name)");
+  if (default_dd_storage_engine == DEFAULT_DD_INNODB) {
+    m_target_def.add_index(INDEX_UK_SCHEMA_TABLE_INDEX_COLUMN,
+                           "INDEX_UK_SCHEMA_TABLE_INDEX_COLUMN",
+                           "UNIQUE KEY (schema_name, table_name, "
+                           "index_name, column_name)");
+  } else {
+    m_target_def.add_index(INDEX_UK_SCHEMA_TABLE_INDEX_COLUMN,
+                           "INDEX_UK_SCHEMA_TABLE_INDEX_COLUMN",
+                           "PRIMARY KEY (schema_name, table_name, "
+                           "index_name, column_name)");
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////

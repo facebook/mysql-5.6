@@ -36,8 +36,13 @@ Object_table_impl::Object_table_impl()
       m_actual_present(false),
       m_actual_def(),
       m_hidden(true) {
-  m_target_def.add_option(static_cast<int>(Common_option::ENGINE), "ENGINE",
-                          "ENGINE=INNODB");
+  assert(default_dd_storage_engine == DEFAULT_DD_INNODB ||
+         default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+
+  m_target_def.add_option(
+      static_cast<int>(Common_option::ENGINE), "ENGINE",
+      (default_dd_storage_engine == DEFAULT_DD_INNODB ? "ENGINE=INNODB"
+                                                      : "ENGINE=ROCKSDB"));
   m_target_def.add_option(static_cast<int>(Common_option::CHARSET), "CHARSET",
                           "DEFAULT CHARSET=utf8mb3");
   m_target_def.add_option(static_cast<int>(Common_option::COLLATION),
@@ -46,9 +51,11 @@ Object_table_impl::Object_table_impl()
                           "ROW_FORMAT", "ROW_FORMAT=DYNAMIC");
   m_target_def.add_option(static_cast<int>(Common_option::STATS_PERSISTENT),
                           "STATS_PERSISTENT", "STATS_PERSISTENT=0");
-  m_target_def.add_option(
-      static_cast<int>(Common_option::TABLESPACE), "TABLESPACE",
-      String_type("TABLESPACE=") + String_type(MYSQL_TABLESPACE_NAME.str));
+  if (default_dd_storage_engine == DEFAULT_DD_INNODB) {
+    m_target_def.add_option(
+        static_cast<int>(Common_option::TABLESPACE), "TABLESPACE",
+        String_type("TABLESPACE=") + String_type(MYSQL_TABLESPACE_NAME.str));
+  }
 }
 
 bool Object_table_impl::set_actual_table_definition(

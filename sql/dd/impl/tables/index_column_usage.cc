@@ -39,6 +39,9 @@ const Index_column_usage &Index_column_usage::instance() {
 ///////////////////////////////////////////////////////////////////////////
 
 Index_column_usage::Index_column_usage() {
+  assert(default_dd_storage_engine == DEFAULT_DD_INNODB ||
+         default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+
   m_target_def.set_table_name("index_column_usage");
 
   m_target_def.add_field(FIELD_INDEX_ID, "FIELD_INDEX_ID",
@@ -58,9 +61,15 @@ Index_column_usage::Index_column_usage() {
                          "NOT NULL");
   m_target_def.add_field(FIELD_HIDDEN, "FIELD_HIDDEN", "hidden BOOL NOT NULL");
 
-  m_target_def.add_index(INDEX_UK_INDEX_ID_ORDINAL_POSITION,
-                         "INDEX_UK_INDEX_ID_ORDINAL_POSITION",
-                         "UNIQUE KEY (index_id, ordinal_position)");
+  if (default_dd_storage_engine == DEFAULT_DD_INNODB) {
+    m_target_def.add_index(INDEX_UK_INDEX_ID_ORDINAL_POSITION,
+                           "INDEX_UK_INDEX_ID_ORDINAL_POSITION",
+                           "UNIQUE KEY (index_id, ordinal_position)");
+  } else {
+    m_target_def.add_index(INDEX_UK_INDEX_ID_ORDINAL_POSITION,
+                           "INDEX_UK_INDEX_ID_ORDINAL_POSITION",
+                           "PRIMARY KEY (index_id, ordinal_position)");
+  }
   m_target_def.add_index(INDEX_UK_INDEX_ID_COLUMN_ID_HIDDEN,
                          "INDEX_UK_INDEX_ID_COLUMN_ID_HIDDEN",
                          "UNIQUE KEY (index_id, column_id, hidden)");

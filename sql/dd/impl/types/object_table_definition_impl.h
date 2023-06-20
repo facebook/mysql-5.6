@@ -229,6 +229,9 @@ class Object_table_definition_impl : public Object_table_definition {
   virtual void add_foreign_key(int foreign_key_number,
                                const String_type &foreign_key_name,
                                const String_type &foreign_key_definition) {
+    // This gets called for DDSE == RocksDB, even though it does not support
+    // foreign keys. They will get filtered from the actual executed CREATE
+    // TABLE statement later.
     add_element(foreign_key_number, foreign_key_name, foreign_key_definition,
                 &m_foreign_key_numbers, &m_foreign_key_definitions);
   }

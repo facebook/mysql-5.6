@@ -38,7 +38,7 @@ let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 --echo #
 --echo # Run the server with --initialize
 --echo #
---error 1
+--error 1,2
 --exec $MYSQLD $extra_args --initialize --default_dd_storage_engine=RocksDB --datadir=$DDIR --log-error-verbosity=3 > $MYSQLD_LOG 2>&1
 --force-rmdir $DDIR
 --echo #
