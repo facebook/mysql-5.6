@@ -476,8 +476,11 @@ class Ensure_initialized {
 // return <db_name>.<table_name>
 inline std::string get_full_tablename(const char *const db_name,
                                       const char *const table_name) {
-  std::string fullname = db_name;
-  fullname.append(".");
+  std::string fullname;
+  // + 1 for '.'
+  fullname.reserve(strlen(db_name) + strlen(table_name) + 1);
+  fullname.append(db_name);
+  fullname += '.';
   fullname.append(table_name);
   return fullname;
 }
