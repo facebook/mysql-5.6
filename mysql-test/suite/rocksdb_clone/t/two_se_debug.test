@@ -1,0 +1,75 @@
+--source include/have_rocksdb.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+--connect(con2,localhost,root,,)
+
+--source ../../clone/include/clone_connection_begin.inc
+
+--let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
+
+CREATE TABLE t_innodb(col1 INT PRIMARY KEY, col2 CHAR(255)) ENGINE=InnoDB;
+CREATE TABLE t_myrocks(col1 INT PRIMARY KEY, col2 CHAR(255)) ENGINE=RocksDB;
+
+INSERT INTO t_innodb VALUES(10, 'InnoDB clone row 1');
+INSERT INTO t_innodb VALUES(20, 'InnoDB clone row 2');
+
+INSERT INTO t_myrocks VALUES(10, 'MyRocks clone row 1');
+INSERT INTO t_myrocks VALUES(20, 'MyRocks clone row 2');
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--connection clone_conn_1
+
+SET DEBUG_SYNC = 'after_clone_se_sync SIGNAL se_synced WAIT_FOR resume_clone';
+
+--source ../../clone/include/clone_command_send.inc
+
+--connection con2
+
+SET DEBUG_SYNC = 'now WAIT_FOR se_synced';
+
+SET GLOBAL innodb_monitor_enable=module_log;
+
+--let $arch_lsn_1=`SELECT COUNT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE NAME="log_lsn_archived"`
+
+INSERT INTO t_innodb VALUES(30, REPEAT('a', 255));
+INSERT INTO t_innodb VALUES(40, REPEAT('b', 255));
+INSERT INTO t_myrocks VALUES(30, 'MyRocks uncloned row');
+
+--let $wait_condition=SELECT COUNT >= $arch_lsn_1 FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE NAME="log_lsn_archived"
+--source include/wait_condition.inc
+
+SET DEBUG_SYNC = 'now SIGNAL resume_clone';
+
+--connection clone_conn_1
+--reap
+
+SELECT * FROM t_innodb;
+SELECT * FROM t_myrocks;
+
+# Restart server on cloned data directory
+--replace_result $CLONE_DATADIR CLONE_DATADIR
+--let restart_parameters="restart: --datadir=$CLONE_DATADIR"
+--source include/restart_mysqld.inc
+
+SELECT * FROM t_innodb;
+INSERT INTO t_innodb VALUES(40, 'InnoDB cloned instance row 4');
+SELECT * FROM t_innodb;
+
+SELECT * FROM t_myrocks;
+INSERT INTO t_myrocks VALUES(40, 'MyRocks cloned instance row 4');
+SELECT * FROM t_myrocks;
+
+--let restart_parameters=
+--source include/restart_mysqld.inc
+
+DROP TABLE t_innodb;
+DROP TABLE t_myrocks;
+
+--force-rmdir $CLONE_DATADIR
+
+UNINSTALL PLUGIN clone;
+
+--source ../../clone/include/clone_connection_end.inc

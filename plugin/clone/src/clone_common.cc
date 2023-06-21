@@ -103,6 +103,8 @@ int Ha_clone_common_cbk::synchronize_engines() {
 
   assert(json_dom->json_type() == enum_json_type::J_OBJECT);
 
+  DEBUG_SYNC_C("after_clone_se_sync");
+
   const auto *const json_obj = static_cast<const Json_object *>(json_dom);
   for (const auto &json_se_pos : *json_obj) {
     const auto &se_name = json_se_pos.first;
