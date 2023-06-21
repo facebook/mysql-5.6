@@ -80,6 +80,18 @@ select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_Q
 SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
 test_db	5	10	3	0	15	0
 test_db2	0	1	0	0	1	0
+set @@global.thread_pool_max_waiting_queries=6;
+Kill a thread that is waiting for admission.
+select count(*) from t1;
+kill ID;
+set @@global.thread_pool_max_waiting_queries=5;
+Even though connection was killed before admission, pre-admission utilization is still accounted towards test_db.
+correct_utilization_1 = 1;
+correct_utilization_2 = 1;
+select SCHEMA_NAME, WAITING_QUERIES, RUNNING_QUERIES, ABORTED_QUERIES, TIMEOUT_QUERIES, CONNECTIONS, REJECTED_CONNECTIONS from information_schema.tp_admission_control_entities where schema_name like 'test_db%' order by schema_name;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES	CONNECTIONS	REJECTED_CONNECTIONS
+test_db	5	10	3	0	15	0
+test_db2	0	0	0	0	0	0
 Dynamically disable/enable thread pool plugin.
 select * from t1;
 ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
