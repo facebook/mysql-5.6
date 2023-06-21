@@ -27,3 +27,56 @@ select j from t order by j asc;
 select j from t order by j desc;
 
 drop table t;
+
+#
+# check bounds for writebatch(forward cf), all data changes are in writebatch
+#
+create table t(
+  a int unsigned not null,
+  b int unsigned not null,
+  c varchar(64) not null COLLATE utf8_bin,
+  primary key(a),
+  key(b,c)
+) DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+begin;
+insert into t values(101, 101, 'view_routine_usage');
+# SD(101, 'view_routine_usage',101)
+update t set b = 100 where b = 101 and c like 'view_routine_usage';
+# dring iterating, writebatchwithindex may return "out of range" record after 
+# checking with upper bounds. sometimes the "out of range" record is a SD record.
+# For SD record, its value slice will be empty. Try to decode a key slice
+# which contains varchar with empty value slice, decoder will crash due missing
+# upack_info in value slice
+update t set b = 101 where b = 100 and c like 'view_routine_usage';
+select a from t where b = 101 and c like 'view_routine_usage';
+rollback;
+
+drop table t;
+
+
+#
+# check bounds for writebatch(rev cf), all data changes are in writebatch
+#
+create table t(
+  a int unsigned not null,
+  b int unsigned not null,
+  c varchar(64) not null COLLATE utf8_bin,
+  primary key(a),
+  key(b,c) comment 'rev:bc'
+) DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+begin;
+insert into t values(110, 110, 'view_routine_usage');
+insert into t values(100, 100, 'view_routine_usage');
+# SD(100, 'view_routine_usage',100)
+update t set b = 101 where b = 100 and c like 'view_routine_usage';
+# during iterating, we don't check with lower bound in writebatchwithindex
+# in rev cf,
+update t set b = 100 where b = 101 and c like 'view_routine_usage';
+select a from t where b = 101 and c like 'view_routine_usage';
+rollback;
+
+drop table t;
+
+

@@ -928,6 +928,7 @@ rocksdb_cache_index_and_filter_blocks	ON
 rocksdb_cache_index_and_filter_with_high_priority	ON
 rocksdb_cancel_manual_compactions	OFF
 rocksdb_charge_memory	OFF
+rocksdb_check_iterate_bounds	ON
 rocksdb_checksums_pct	100
 rocksdb_clone_checkpoint_max_age	600
 rocksdb_clone_checkpoint_max_count	90
