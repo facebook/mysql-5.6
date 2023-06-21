@@ -13,3 +13,43 @@ select j from t order by j desc;
 j
 1
 drop table t;
+create table t(
+a int unsigned not null,
+b int unsigned not null,
+c varchar(64) not null COLLATE utf8_bin,
+primary key(a),
+key(b,c)
+) DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+Warnings:
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+begin;
+insert into t values(101, 101, 'view_routine_usage');
+update t set b = 100 where b = 101 and c like 'view_routine_usage';
+update t set b = 101 where b = 100 and c like 'view_routine_usage';
+select a from t where b = 101 and c like 'view_routine_usage';
+a
+101
+rollback;
+drop table t;
+create table t(
+a int unsigned not null,
+b int unsigned not null,
+c varchar(64) not null COLLATE utf8_bin,
+primary key(a),
+key(b,c) comment 'rev:bc'
+) DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+Warnings:
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8mb3_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+begin;
+insert into t values(110, 110, 'view_routine_usage');
+insert into t values(100, 100, 'view_routine_usage');
+update t set b = 101 where b = 100 and c like 'view_routine_usage';
+update t set b = 100 where b = 101 and c like 'view_routine_usage';
+select a from t where b = 101 and c like 'view_routine_usage';
+a
+rollback;
+drop table t;

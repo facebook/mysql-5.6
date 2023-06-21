@@ -43,7 +43,8 @@ Rdb_iterator_base::Rdb_iterator_base(THD *thd, ha_rocksdb *rocksdb_handler,
       m_scan_it_upper_bound(nullptr),
       m_prefix_buf(nullptr),
       m_table_type(tbl_def->get_table_type()),
-      m_valid(false) {
+      m_valid(false),
+      m_check_iterate_bounds(false) {
   if (tbl_def->get_table_type() == INTRINSIC_TMP) {
     if (m_rocksdb_handler) {
       add_tmp_table_handler(m_thd, m_rocksdb_handler);
@@ -147,7 +148,8 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
           m_thd, *m_kd, eq_cond,
           std::max(eq_cond_len, (uint)Rdb_key_def::INDEX_NUMBER_SIZE),
           m_scan_it_lower_bound, m_scan_it_upper_bound,
-          &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice)) {
+          &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice,
+          &m_check_iterate_bounds)) {
     skip_bloom = false;
   }
 
@@ -228,6 +230,7 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
   Rdb_transaction *const tx = get_tx_from_thd(m_thd);
 
   if (!m_valid) return HA_ERR_END_OF_FILE;
+  const rocksdb::Comparator *kd_comp = kd.get_cf()->GetComparator();
 
   for (;;) {
     DEBUG_SYNC(m_thd, "rocksdb.check_flags_nwd");
@@ -262,6 +265,23 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
 
     // Outside our range, return EOF.
     if (!kd.value_matches_prefix(key, m_prefix_tuple)) {
+      rc = HA_ERR_END_OF_FILE;
+      break;
+    }
+
+    // Check specified lower/upper bounds
+    // For example, retrieved key is 00077
+    // in     cf, lower_bound: 0076 and uppper bound: 0078
+    //     cf->Compare(0077, 0078) > 0 ==> False
+    //     cf->Compare(0077, 0076) < 0 ==> False
+    // in rev cf, lower_bound: 0078 and uppper bound: 0076
+    //     revcf->Compare(0077, 0076) > 0 ==> False
+    //     revcf->Compare(0077, 0078) < 0 ==> False
+    if (m_check_iterate_bounds &&
+        ((!m_scan_it_upper_bound_slice.empty() &&
+          kd_comp->Compare(key, m_scan_it_upper_bound_slice) > 0) ||
+         (!m_scan_it_lower_bound_slice.empty() &&
+          kd_comp->Compare(key, m_scan_it_lower_bound_slice) < 0))) {
       rc = HA_ERR_END_OF_FILE;
       break;
     }

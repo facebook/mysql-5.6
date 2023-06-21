@@ -1952,6 +1952,10 @@ The following options may be given as the first argument:
  --rocksdb-charge-memory 
  For experiment only. Turn on memory charging feature of
  RocksDB
+ --rocksdb-check-iterate-bounds 
+ Check rocksdb iterator upper/lower bounds during
+ iterating.
+ (Defaults to on; use --skip-rocksdb-check-iterate-bounds to disable.)
  --rocksdb-checksums-pct=# 
  How many percentages of rows to be checksummed
  --rocksdb-clone-checkpoint-max-age=# 
@@ -3628,6 +3632,7 @@ rocksdb-cancel-manual-compactions FALSE
 rocksdb-cf-options ON
 rocksdb-cfstats ON
 rocksdb-charge-memory FALSE
+rocksdb-check-iterate-bounds TRUE
 rocksdb-checksums-pct 100
 rocksdb-clone-checkpoint-max-age 600
 rocksdb-clone-checkpoint-max-count 90

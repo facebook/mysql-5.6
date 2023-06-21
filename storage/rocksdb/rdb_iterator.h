@@ -147,6 +147,7 @@ class Rdb_iterator_base : public Rdb_iterator {
   rocksdb::Slice m_prefix_tuple;
   TABLE_TYPE m_table_type;
   bool m_valid;
+  bool m_check_iterate_bounds;
 };
 
 class Rdb_iterator_partial : public Rdb_iterator_base {

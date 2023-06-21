@@ -1566,6 +1566,11 @@ static MYSQL_THDVAR_BOOL(
     "Enable rocksdb iterator upper/lower bounds in read options.", nullptr,
     nullptr, true);
 
+static MYSQL_THDVAR_BOOL(
+    check_iterate_bounds, PLUGIN_VAR_OPCMDARG,
+    "Check rocksdb iterator upper/lower bounds during iterating.", nullptr,
+    nullptr, true);
+
 static const char *const DEFAULT_READ_FREE_RPL_TABLES = ".*";
 
 static int rocksdb_validate_read_free_rpl_tables(
@@ -2994,6 +2999,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(blind_delete_primary_key),
     MYSQL_SYSVAR(enable_iterate_bounds),
+    MYSQL_SYSVAR(check_iterate_bounds),
     MYSQL_SYSVAR(read_free_rpl_tables),
     MYSQL_SYSVAR(read_free_rpl),
     MYSQL_SYSVAR(bulk_load_size),
@@ -17627,11 +17633,13 @@ bool ha_rocksdb::can_assume_tracked(THD *thd) {
 bool ha_rocksdb::check_bloom_and_set_bounds(
     THD *thd, const Rdb_key_def &kd, const rocksdb::Slice &eq_cond,
     size_t bound_len, uchar *const lower_bound, uchar *const upper_bound,
-    rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice) {
+    rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice,
+    bool *check_iterate_bounds) {
   bool can_use_bloom = can_use_bloom_filter(thd, kd, eq_cond);
   if (!can_use_bloom && (THDVAR(thd, enable_iterate_bounds))) {
     setup_iterator_bounds(kd, eq_cond, bound_len, lower_bound, upper_bound,
                           lower_bound_slice, upper_bound_slice);
+    *check_iterate_bounds = THDVAR(thd, check_iterate_bounds);
   }
   return can_use_bloom;
 }
