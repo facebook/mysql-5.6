@@ -1084,15 +1084,11 @@ bool initialize_dd_properties(THD *thd) {
           rocksdb_hton, thd, MYSQL_SCHEMA_NAME.str,
           dd::tables::DD_properties::instance().name().c_str());
     }
-    if (error == HA_ERR_TABLE_EXIST) {
-      // actual ddse maybe rocksdb
-      bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
-          DB_TYPE_ROCKSDB);
-    } else {
-      // actual ddse maybe innodb
-      bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
-          DB_TYPE_INNODB);
-    }
+
+    // HA_ERR_TABLE_EXIST means actual ddse maybe rocksdb
+    // otherwise, actual ddse maybe innodb
+    bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
+        error == HA_ERR_TABLE_EXIST ? DB_TYPE_ROCKSDB : DB_TYPE_INNODB);
   }
 
   // Create the dd_properties table.

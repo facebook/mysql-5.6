@@ -14,7 +14,6 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include "rdb_utils.h"
 #define MYSQL_SERVER 1
 
 /* This C++ file's header */
@@ -51,6 +50,7 @@
 #include "./rdb_converter.h"
 #include "./rdb_datadic.h"
 #include "./rdb_iterator.h"
+#include "./rdb_utils.h"
 
 static const size_t DEFAULT_FIELD_LIST_SIZE = 16;
 static const size_t MAX_NOSQL_COND_COUNT = 16;
