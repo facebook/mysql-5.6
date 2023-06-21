@@ -174,6 +174,39 @@ let $cpu_util_2 = $cpu_util_2_new;
 eval $ac_entities_query;
 disconnect con_test;
 
+connection default;
+set @@global.thread_pool_max_waiting_queries=6;
+
+--echo Kill a thread that is waiting for admission.
+connect (killed_connection, localhost, test_user,,test_db);
+connection killed_connection;
+send select count(*) from t1;
+connection default;
+# Need to first wait for the state in processlist, otherwise we run the risk
+# of a race condition and test will fail because $id would be empty.
+let $wait_timeout= 300;
+let $wait_condition=
+  select count(*) = 1 from information_schema.processlist where state='waiting for admission' and info='select count(*) from t1';
+source include/wait_condition.inc;
+let $id=
+  `select id from information_schema.processlist where state='waiting for admission' and info='select count(*) from t1'`;
+--replace_result $id ID
+eval kill $id;
+disconnect killed_connection;
+
+connection default;
+set @@global.thread_pool_max_waiting_queries=5;
+--echo Even though connection was killed before admission, pre-admission utilization is still accounted towards test_db.
+let $cpu_util_1_new = `select CPU_USEC from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
+let $cpu_util_2_new = `select CPU_USEC from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
+let $res1 = `select if ($cpu_util_1_new > $cpu_util_1, 1, 0)`;
+let $res2 = `select if ($cpu_util_2_new > $cpu_util_2, 1, 0)`;
+let $cpu_util_1 = $cpu_util_1_new;
+let $cpu_util_2 = $cpu_util_2_new;
+--echo correct_utilization_1 = $res1;
+--echo correct_utilization_2 = $res2;
+eval $ac_entities_query;
+
 --echo Dynamically disable/enable thread pool plugin.
 connect (con_disabled0, localhost, test_user,,test_db);
 connection con_disabled0;
@@ -198,7 +231,7 @@ connection con_disabled2;
 let $cpu_util_1_new = `select CPU_USEC from information_schema.tp_admission_control_entities where schema_name like 'test_db' order by schema_name`;
 let $cpu_util_2_new = `select CPU_USEC from information_schema.tp_admission_control_entities where schema_name like 'test_db2' order by schema_name`;
 let $res1 = `select if ($cpu_util_1_new = $cpu_util_1, 1, 0)`;
-let $res2 = `select if ($cpu_util_2_new > $cpu_util_2, 1, 0)`;
+let $res2 = `select if ($cpu_util_2_new = $cpu_util_2, 1, 0)`;
 let $cpu_util_1 = $cpu_util_1_new;
 let $cpu_util_2 = $cpu_util_2_new;
 --echo correct_utilization_1 = $res1;
