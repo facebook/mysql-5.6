@@ -462,7 +462,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                 HA_GENERATED_COLUMNS | HA_CAN_INDEX_VIRTUAL_GENERATED_COLUMN |
                 (rocksdb_column_default_value_as_expression
                      ? HA_SUPPORTS_DEFAULT_EXPRESSION
-                     : 0));
+                     : 0) |
+                HA_ATTACHABLE_TRX_COMPATIBLE);
   }
 
   bool init_with_fields() override;

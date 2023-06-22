@@ -1,0 +1,62 @@
+SET @debug_saved = @@global.debug;
+
+START TRANSACTION;
+
+CREATE TABLE t1(a INT PRIMARY KEY AUTO_INCREMENT, b VARCHAR(255));
+
+INSERT INTO t1(b) VALUES ('aaa');
+INSERT INTO t1(b) VALUES ('bbb');
+INSERT INTO t1(b) VALUES ('ccc');
+
+COMMIT;
+
+# 2. Check that inner transaction has different visibility scope than
+# the outer transaction.
+# Start READ ONLY transaction.
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+START TRANSACTION READ ONLY;
+# SELECT to actually start a transaction.
+SELECT * FROM t1;
+a	b
+1	aaa
+2	bbb
+3	ccc
+
+# [another connection]
+
+START TRANSACTION;
+UPDATE t1 SET b = 'zzz' WHERE a = 2;
+COMMIT;
+
+# [default connection]
+
+# SELECT in the outer transaction doesn't see the changes.
+SELECT * FROM t1;
+a	b
+1	aaa
+2	bbb
+3	ccc
+
+# SELECT in the inner transaction sees the changes.
+SET @@global.debug = '+d,use_attachable_trx';
+SELECT * FROM t1;
+a	b
+1	aaa
+2	zzz
+3	ccc
+SET @@global.debug = '-d,use_attachable_trx';
+
+# COMMIT the outer transaction.
+COMMIT;
+# SELECT in the outer transaction now sees the changes.
+SELECT * FROM t1;
+a	b
+1	aaa
+2	zzz
+3	ccc
+COMMIT;
+
+# Cleanup.
+DROP TABLE t1;
+
+SET @@global.debug = @debug_saved;
