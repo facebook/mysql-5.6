@@ -351,6 +351,11 @@ The following options may be given as the first argument:
  --commit-consensus-error-action[=name] 
  Defines the server action when a thread fails inside
  ordered commit due to consensus error
+ --commit-consensus-error-rollback-clear-logpos 
+ Controls if we should clear the log position before
+ rolling back a transaction when we encounter a consensus
+ error
+ (Defaults to on; use --skip-commit-consensus-error-rollback-clear-logpos to disable.)
  --completion-type=name 
  The transaction completion type, one of NO_CHAIN, CHAIN,
  RELEASE
@@ -3189,6 +3194,7 @@ client-attribute-names caller,async_id
 collation-server utf8mb4_0900_ai_ci
 column-stats-control OFF_HARD
 commit-consensus-error-action ROLLBACK_TRXS_IN_GROUP
+commit-consensus-error-rollback-clear-logpos TRUE
 completion-type NO_CHAIN
 concurrent-insert AUTO
 connect-timeout 10
