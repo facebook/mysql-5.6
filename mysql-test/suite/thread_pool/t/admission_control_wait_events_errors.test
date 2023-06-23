@@ -1,3 +1,5 @@
+--source include/have_thread_pool_plugin.inc
+
 create database test_db;
 create user test_user@localhost;
 grant all on test_db.* to test_user@localhost;
