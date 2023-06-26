@@ -443,9 +443,11 @@ int Arch_Log_Sys::stop(Arch_Group *group, lsn_t &stop_lsn, byte *log_blk,
                        uint32_t &blk_len) {
   int err = 0;
   blk_len = 0;
-  stop_lsn = m_archived_lsn.load();
+
   auto se_sync_stop_lsn = get_stop_lsn_master_thread();
   ut_ad(se_sync_stop_lsn != LSN_MAX || log_blk == nullptr);
+
+  stop_lsn = std::min(m_archived_lsn.load(), se_sync_stop_lsn);
   ut_ad(stop_lsn <= se_sync_stop_lsn);
 
   if (log_blk != nullptr) {
@@ -601,7 +603,6 @@ Arch_State Arch_Log_Sys::check_set_state(bool is_abort, lsn_t *archived_lsn,
       if (*archived_lsn != LSN_MAX) {
         /* Update system archived LSN from input */
         ut_ad(*archived_lsn >= m_archived_lsn.load());
-        ut_ad(*archived_lsn <= get_stop_lsn_any_thread());
         m_archived_lsn.store(*archived_lsn);
       } else {
         /* If input is not initialized,
@@ -620,11 +621,13 @@ Arch_State Arch_Log_Sys::check_set_state(bool is_abort, lsn_t *archived_lsn,
         const auto local_archived_lsn = m_archived_lsn.load();
         ut_ad(local_write_lsn >= local_archived_lsn);
         const auto stop_lsn = get_stop_lsn_any_thread();
-        ut_ad(stop_lsn >= local_archived_lsn);
         ut_ad(stop_lsn <= local_lsn || stop_lsn == LSN_MAX ||
               DBUG_EVALUATE_IF("clone_arch_log_stop_file_end", true, false));
 
-        lsn_diff = std::min(stop_lsn, local_write_lsn) - local_archived_lsn;
+        const auto archive_up_to_lsn = stop_lsn > local_archived_lsn
+                                           ? std::min(stop_lsn, local_write_lsn)
+                                           : local_archived_lsn;
+        lsn_diff = archive_up_to_lsn - local_archived_lsn;
       }
 
       lsn_diff = ut_uint64_align_down(lsn_diff, OS_FILE_LOG_BLOCK_SIZE);

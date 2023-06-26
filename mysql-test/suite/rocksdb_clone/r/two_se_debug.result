@@ -1,0 +1,53 @@
+CREATE TABLE t_innodb(col1 INT PRIMARY KEY, col2 CHAR(255)) ENGINE=InnoDB;
+CREATE TABLE t_myrocks(col1 INT PRIMARY KEY, col2 CHAR(255)) ENGINE=RocksDB;
+INSERT INTO t_innodb VALUES(10, 'InnoDB clone row 1');
+INSERT INTO t_innodb VALUES(20, 'InnoDB clone row 2');
+INSERT INTO t_myrocks VALUES(10, 'MyRocks clone row 1');
+INSERT INTO t_myrocks VALUES(20, 'MyRocks clone row 2');
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+SET DEBUG_SYNC = 'after_clone_se_sync SIGNAL se_synced WAIT_FOR resume_clone';
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
+SET DEBUG_SYNC = 'now WAIT_FOR se_synced';
+SET GLOBAL innodb_monitor_enable=module_log;
+INSERT INTO t_innodb VALUES(30, REPEAT('a', 255));
+INSERT INTO t_innodb VALUES(40, REPEAT('b', 255));
+INSERT INTO t_myrocks VALUES(30, 'MyRocks uncloned row');
+SET DEBUG_SYNC = 'now SIGNAL resume_clone';
+SELECT * FROM t_innodb;
+col1	col2
+10	InnoDB clone row 1
+20	InnoDB clone row 2
+30	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+40	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+SELECT * FROM t_myrocks;
+col1	col2
+10	MyRocks clone row 1
+20	MyRocks clone row 2
+30	MyRocks uncloned row
+# restart: --datadir=CLONE_DATADIR
+SELECT * FROM t_innodb;
+col1	col2
+10	InnoDB clone row 1
+20	InnoDB clone row 2
+INSERT INTO t_innodb VALUES(40, 'InnoDB cloned instance row 4');
+SELECT * FROM t_innodb;
+col1	col2
+10	InnoDB clone row 1
+20	InnoDB clone row 2
+40	InnoDB cloned instance row 4
+SELECT * FROM t_myrocks;
+col1	col2
+10	MyRocks clone row 1
+20	MyRocks clone row 2
+INSERT INTO t_myrocks VALUES(40, 'MyRocks cloned instance row 4');
+SELECT * FROM t_myrocks;
+col1	col2
+10	MyRocks clone row 1
+20	MyRocks clone row 2
+40	MyRocks cloned instance row 4
+# restart
+DROP TABLE t_innodb;
+DROP TABLE t_myrocks;
+UNINSTALL PLUGIN clone;
