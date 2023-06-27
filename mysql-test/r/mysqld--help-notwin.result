@@ -1453,6 +1453,8 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-commit-time-batch-for-recovery to disable.)
  --rocksdb-compact-cf=name 
  Compact column family
+ --rocksdb-compact-lzero-now 
+ Compacts all L0 files.
  --rocksdb-compaction-readahead-size=# 
  DBOptions::compaction_readahead_size for RocksDB
  --rocksdb-compaction-sequential-deletes=# 
@@ -2868,6 +2870,7 @@ rocksdb-collect-sst-properties TRUE
 rocksdb-commit-in-the-middle FALSE
 rocksdb-commit-time-batch-for-recovery TRUE
 rocksdb-compact-cf 
+rocksdb-compact-lzero-now FALSE
 rocksdb-compaction-readahead-size 0
 rocksdb-compaction-sequential-deletes 0
 rocksdb-compaction-sequential-deletes-count-sd FALSE

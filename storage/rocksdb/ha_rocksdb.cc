@@ -445,17 +445,7 @@ static int rocksdb_force_flush_memtable_now(
   return HA_EXIT_SUCCESS;
 }
 
-static void rocksdb_force_flush_memtable_and_lzero_now_stub(
-    THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
-    const void *const save) {}
-
-static int rocksdb_force_flush_memtable_and_lzero_now(
-    THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
-    struct st_mysql_value *const value) {
-  // NO_LINT_DEBUG
-  sql_print_information("RocksDB: Manual memtable and L0 flush.");
-  rocksdb_flush_all_memtables();
-
+static int rocksdb_compact_lzero() {
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
   rocksdb::CompactionOptions c_options = rocksdb::CompactionOptions();
   rocksdb::ColumnFamilyMetaData metadata;
@@ -469,6 +459,25 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
       cf_handle->GetDescriptor(&cf_descr);
       c_options.output_file_size_limit = cf_descr.options.target_file_size_base;
 
+      // Lets RocksDB use the configured compression for this level
+      c_options.compression = rocksdb::kDisableCompressionOption;
+
+      uint64_t base_level;
+      if (!rdb->GetIntProperty(cf_handle.get(),
+                               rocksdb::DB::Properties::kBaseLevel,
+                               &base_level)) {
+        // NO_LINT_DEBUG
+        sql_print_information("RocksDB: compact L0 cannot get base level");
+        break;
+      }
+
+      if (base_level == 0) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "RocksDB: compact L0 cannot flush to base level when 0");
+        break;
+      }
+
       DBUG_ASSERT(metadata.levels[0].level == 0);
       std::vector<std::string> file_names;
       for (auto &file : metadata.levels[0].files) {
@@ -476,11 +485,13 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
       }
 
       if (file_names.empty()) {
+        // NO_LINT_DEBUG
+        sql_print_information("RocksDB: compact L0 no files in L0");
         break;
       }
 
       rocksdb::Status s;
-      s = rdb->CompactFiles(c_options, cf_handle.get(), file_names, 1);
+      s = rdb->CompactFiles(c_options, cf_handle.get(), file_names, base_level);
 
       if (!s.ok()) {
         std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
@@ -490,8 +501,9 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
         // error. We are done with this CF and proceed to the next CF.
         if (!cfh) {
           // NO_LINT_DEBUG
-          sql_print_information("cf %s has been dropped during CompactFiles.",
-                                cf_handle->GetName().c_str());
+          sql_print_information(
+              "RocksDB: cf %s has been dropped during compact L0.",
+              cf_handle->GetName().c_str());
           break;
         }
 
@@ -515,6 +527,37 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
   }
 
   return num_errors == 0 ? HA_EXIT_SUCCESS : HA_EXIT_FAILURE;
+}
+
+static void rocksdb_compact_lzero_now_stub(THD *const thd,
+                                           struct st_mysql_sys_var *const var,
+                                           void *const var_ptr,
+                                           const void *const save) {}
+
+static int rocksdb_compact_lzero_now(THD *const thd,
+                                     struct st_mysql_sys_var *const var,
+                                     void *const var_ptr,
+                                     struct st_mysql_value *const value) {
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: Manual compact L0.");
+  return rocksdb_compact_lzero();
+}
+
+static void rocksdb_force_flush_memtable_and_lzero_now_stub(
+    THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
+    const void *const save) {}
+
+static int rocksdb_force_flush_memtable_and_lzero_now(
+    THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
+    struct st_mysql_value *const value) {
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: Manual memtable and L0 flush.");
+  rocksdb_flush_all_memtables();
+
+  // Try to avoid https://github.com/facebook/mysql-5.6/issues/1200
+  my_sleep(1000000);
+
+  return rocksdb_compact_lzero();
 }
 
 static void rocksdb_cancel_manual_compactions_stub(
@@ -695,6 +738,7 @@ static char *rocksdb_strict_collation_exceptions;
 static my_bool rocksdb_collect_sst_properties = 1;
 static my_bool rocksdb_force_flush_memtable_now_var = 0;
 static my_bool rocksdb_force_flush_memtable_and_lzero_now_var = 0;
+static my_bool rocksdb_compact_lzero_now_var = 0;
 static my_bool rocksdb_cancel_manual_compactions_var = 0;
 static my_bool rocksdb_enable_ttl = 1;
 static my_bool rocksdb_enable_ttl_read_filtering = 1;
@@ -2102,6 +2146,11 @@ static MYSQL_SYSVAR_BOOL(
     rocksdb_force_flush_memtable_and_lzero_now,
     rocksdb_force_flush_memtable_and_lzero_now_stub, FALSE);
 
+static MYSQL_SYSVAR_BOOL(compact_lzero_now, rocksdb_compact_lzero_now_var,
+                         PLUGIN_VAR_RQCMDARG, "Compacts all L0 files.",
+                         rocksdb_compact_lzero_now,
+                         rocksdb_compact_lzero_now_stub, FALSE);
+
 static MYSQL_SYSVAR_BOOL(cancel_manual_compactions,
                          rocksdb_cancel_manual_compactions_var,
                          PLUGIN_VAR_RQCMDARG,
@@ -2515,6 +2564,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(collect_sst_properties),
     MYSQL_SYSVAR(force_flush_memtable_now),
     MYSQL_SYSVAR(force_flush_memtable_and_lzero_now),
+    MYSQL_SYSVAR(compact_lzero_now),
     MYSQL_SYSVAR(cancel_manual_compactions),
     MYSQL_SYSVAR(enable_ttl),
     MYSQL_SYSVAR(enable_ttl_read_filtering),
