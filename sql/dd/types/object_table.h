@@ -86,7 +86,7 @@ class Object_table {
 
     @returns pointer to new Object_table instance.
   */
-  static Object_table *create_object_table();
+  static Object_table *create_object_table(const String_type &engine);
 
   /**
     Get the table name used by the target definition for the dictionary table.
