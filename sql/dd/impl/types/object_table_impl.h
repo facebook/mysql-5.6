@@ -85,6 +85,7 @@ class Object_table_impl : virtual public Object_table {
     common options.
   */
   Object_table_impl();
+  explicit Object_table_impl(const String_type &engine);
 
   const String_type &name() const override {
     return m_target_def.get_table_name();

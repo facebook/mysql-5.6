@@ -13064,7 +13064,7 @@ static bool innobase_ddse_dict_init(
 
   /* Instantiate table defs only if we are successful so far. */
   dd::Object_table *innodb_dynamic_metadata =
-      dd::Object_table::create_object_table();
+      dd::Object_table::create_object_table("INNODB");
   innodb_dynamic_metadata->set_hidden(true);
   dd::Object_table_definition *def =
       innodb_dynamic_metadata->target_table_definition();
@@ -13099,7 +13099,7 @@ static bool innobase_ddse_dict_init(
   std::string table_field = table_name_field.str();
 
   dd::Object_table *innodb_table_stats =
-      dd::Object_table::create_object_table();
+      dd::Object_table::create_object_table("INNODB");
   innodb_table_stats->set_hidden(false);
   def = innodb_table_stats->target_table_definition();
   def->set_table_name("innodb_table_stats");
@@ -13118,7 +13118,7 @@ static bool innobase_ddse_dict_init(
   /* Options and tablespace are set at the SQL layer. */
 
   dd::Object_table *innodb_index_stats =
-      dd::Object_table::create_object_table();
+      dd::Object_table::create_object_table("INNODB");
   innodb_index_stats->set_hidden(false);
   def = innodb_index_stats->target_table_definition();
   def->set_table_name("innodb_index_stats");
@@ -13144,7 +13144,8 @@ static bool innobase_ddse_dict_init(
                  "index_name, stat_name)");
   /* Options and tablespace are set at the SQL layer. */
 
-  dd::Object_table *innodb_ddl_log = dd::Object_table::create_object_table();
+  dd::Object_table *innodb_ddl_log =
+      dd::Object_table::create_object_table("INNODB");
   innodb_ddl_log->set_hidden(true);
   def = innodb_ddl_log->target_table_definition();
   def->set_table_name("innodb_ddl_log");

@@ -93,7 +93,7 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name = nullptr);
 [[nodiscard]] inline const char *get_dd_engine_name() {
   assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB ||
          default_dd_storage_engine == DEFAULT_DD_INNODB);
-  return default_dd_storage_engine == DEFAULT_DD_ROCKSDB ? "RocksDB" : "InnoDB";
+  return default_dd_storage_engine == DEFAULT_DD_ROCKSDB ? "ROCKSDB" : "INNODB";
 }
 
 ///////////////////////////////////////////////////////////////////////////

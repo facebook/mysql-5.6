@@ -8,7 +8,7 @@
 # 2.1 Request shutdown and wait for disconnect.
 # 2.2 Restart the server with --innodb-read-only and wait for reconnect.
 # 2.3 Search for the expected warning in the log file.
-Pattern "Skip re-populating collations and character sets tables in InnoDB read-only mode." found
+Pattern "Skip re-populating collations and character sets tables in (InnoDB|INNODB) read-only mode." found
 Pattern "Skip updating information_schema metadata in InnoDB read-only mode." found
 # 3. Clean server restart.
 # 3.1 Request shutdown and wait for disconnect.
