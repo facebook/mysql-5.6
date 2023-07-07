@@ -45,8 +45,24 @@ let $hlc1 = get_response_attribute(hlc_ts);
 
 --source include/sync_slave_sql_with_master.inc
 
-# (1) read with $hlc1 : expects success
+# (0) read hlc value
 connection slave;
+--write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+SELECT /*+ bypass */ applied_hlc FROM information_schema.database_applied_hlc where database_name="a";
+SELECT /*+ bypass */ applied_hlc FROM information_schema.database_applied_hlc where database_name="abcd";
+EOF
+
+--replace_result $TEST_BYPASS_RPC_PLUGIN TEST_BYPASS_RPC_PLUGIN
+eval INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME '$TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+
+--diff_files $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_sql.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_rpc.result
+--remove_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
+
+# (1) read with $hlc1 : expects success
 --write_file $MYSQLD_DATADIR/test_bypass_rpc_plugin_input.txt
 SELECT /*+ bypass */ val FROM a.table_a WHERE id3=1;
 EOF
