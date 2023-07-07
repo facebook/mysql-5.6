@@ -12,6 +12,8 @@
 #include "sql/strfunc.h"
 #include "sql/transaction.h" /* trans_commit_stmt */
 
+#include <boost/algorithm/string.hpp>
+
 namespace {
 // return true if input is not valid, otherwise return false
 bool check_input(const myrocks_select_from_rpc *param) {
@@ -264,6 +266,28 @@ thd_err:
   thd->reset_query_attrs();
   return true;
 }
+
+// returns the requested database name iff the query is in the form of
+// "SELECT applied_hlc FROM information_schema.database_applied_hlc
+//  WHERE database_name = "abcd"
+const char *getHlcQueryDatabaseName(const myrocks_select_from_rpc *param) {
+  if (!boost::iequals(param->db_name, "information_schema") ||
+      !boost::iequals(param->table_name, "database_applied_hlc")) {
+    return nullptr;
+  }
+  if (param->columns.size() != 1 ||
+      !boost::iequals(param->columns[0], "applied_hlc")) {
+    return nullptr;
+  }
+  if (param->where.size() == 1 &&
+      boost::iequals(param->where[0].column, "database_name") &&
+      param->where[0].op == myrocks_where_item::where_op::_EQ) {
+    return param->where[0].value.stringVal;
+  }
+  return nullptr;
+}
+
+static const bypass_rpc_exception clean_return;
 }  // namespace
 
 /**
@@ -289,6 +313,18 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
     ret.sqlstate = "MYF(0)";
     ret.message = "Bypass rpc input is not valid";
     return ret;
+  }
+
+  if (const char *dbname = getHlcQueryDatabaseName(param)) {
+    uint64_t hlc = mysql_bin_log.get_selected_database_hlc(dbname);
+    if (hlc != 0) {
+      myrocks_columns columns;
+      auto rpcbuf = &columns.at(0);
+      rpcbuf->i64Val = hlc;
+      rpcbuf->type = myrocks_value_type::UNSIGNED_INT;
+      param->send_row(param->rpc_buffer, &columns, 1);
+    }
+    return clean_return;
   }
 
   if (wait_for_hlc_timeout_ms != 0 && param->hlc_lower_bound_ts != 0) {

@@ -40,6 +40,8 @@ COMMIT;
 include/sync_slave_sql_with_master.inc
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
+INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
+UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
 SELECT /*+ bypass */ val FROM a.table_a WHERE id3=1;
 101 
 include/stop_slave.inc
