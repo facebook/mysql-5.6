@@ -39,5 +39,11 @@ let $count= query_get_value(select count(*) as Value from information_schema.roc
 }
 
 connection master;
+delete from t1 where a = 1;
+--sync_slave_with_master
+
+
+connection master;
 DROP TABLE t1;
+
 --source include/rpl_end.inc
