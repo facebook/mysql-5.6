@@ -5637,10 +5637,10 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
     rocksdb::ColumnFamilyHandle *const column_family = key_descr.get_cf();
     if (value == nullptr) {
-      rocksdb::PinnableSlice pin_val;
-      rocksdb::Status s = get(column_family, key, &pin_val, table_type);
-      pin_val.Reset();
-      return s;
+      // minic tranaction API get_for_update() behavior:
+      // if value isn't nullptr, get_for_update() will lock and fetch value
+      // if value is nullptr, get_for_update will only lock
+      return rocksdb::Status::OK();
     }
 
     return get(column_family, key, value, table_type);

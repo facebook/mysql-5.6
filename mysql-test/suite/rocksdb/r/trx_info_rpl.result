@@ -11,5 +11,6 @@ Variable_name	Value
 rpl_skip_tx_api	ON
 include/start_slave.inc
 found
+delete from t1 where a = 1;
 DROP TABLE t1;
 include/rpl_end.inc
