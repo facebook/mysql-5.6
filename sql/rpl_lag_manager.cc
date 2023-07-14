@@ -71,6 +71,20 @@ std::list<std::pair<int, TIME_BUCKET_STATS>> global_write_statistics_map;
 ulong last_write_throttle_lag_ms;
 
 /**
+  Number of write throttle actions performed since server startup. I.e. queries
+  potentially rejected due to write throttling.
+
+  They might not be rejected depending on the `write_control_level` sysvar or
+  `mt_throttle_okay` query attribute. @sa THD::get_mt_throttle_tag_level for the
+  latter.
+
+  Note that this is not atomic because all writes to it happen under a mutex.
+  Reading the 64bit word (done by MySQL implicitly via exposure to sysvars)
+  is atomic.
+*/
+ulonglong write_throttle_action_count{0};
+
+/**
   Write throttling lag period-peak value in milliseconds.
 
   Exposed via SHOW GLOBAL STATUS and optionally reset to the last computed value
@@ -440,6 +454,7 @@ void store_write_throttling_log(THD *, int type, const std::string &entity,
       log_map.insert(std::make_pair(entity, log)).first->second;
   inserted_log.last_time = timestamp;
   inserted_log.count++;
+  ++write_throttle_action_count;
   mysql_mutex_unlock(&LOCK_global_write_throttling_log);
 }
 

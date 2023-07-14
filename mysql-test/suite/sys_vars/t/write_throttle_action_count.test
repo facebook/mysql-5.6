@@ -1,0 +1,56 @@
+# This test verifies that sysvar `write_throttle_action_count` works correctly.
+
+# Set up a basic table for writes.
+use test;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+create table t1(a int);
+
+# Bypass admin checks to ensure throttling happens.
+set @@global.bypass_write_throttle_admin_check=1;
+
+# First, insert one row without any throttling. Should succeed.
+insert into t1 values (1);
+
+--echo expect write_throttle_action_count=0
+show global status like 'write_throttle_action_count';
+
+# Set write_control_level ERROR to ensure writes fail.
+SET @@global.write_control_level = ERROR;
+
+--echo expect write_control_level = ERROR
+SELECT @@global.write_control_level;
+
+# Set up a simple manual rule on the test DB / shard.
+SET GLOBAL write_throttle_patterns='+SHARD=test';
+
+# Now the insert should fail with ER_WRITE_QUERY_THROTTLED.
+--error ER_WRITE_QUERY_THROTTLED
+insert into t1 values (1);
+
+# We should have recorded this action.
+--echo expect write_throttle_action_count=1
+show global status like 'write_throttle_action_count';
+
+--replace_column 2 TIME
+select * from performance_schema.write_throttling_log;
+
+# Now the insert should fail with ER_WRITE_QUERY_THROTTLED.
+--error ER_WRITE_QUERY_THROTTLED
+insert into t1 values (1);
+
+# We should have recorded this action.
+--echo expect write_throttle_action_count=2
+show global status like 'write_throttle_action_count';
+
+--replace_column 2 TIME
+select * from performance_schema.write_throttling_log;
+
+####
+## Restore the default state
+####
+drop table t1;
+SET @@global.bypass_write_throttle_admin_check = DEFAULT;
+SET GLOBAL write_throttle_patterns = DEFAULT;
+SET @@global.write_control_level = DEFAULT;

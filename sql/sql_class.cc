@@ -4493,8 +4493,10 @@ void THD::get_mt_keys_for_write_query(
 }
 
 /**
-   Should the query be throttled(error/warning) to avoid replication lag based
-   on query tags Returns 1 for warning only, 2 for throwing error and 0 if query
+   Should the query be throttled (error/warning) to avoid replication lag based
+   on query tags?
+
+   @return 1 for warning only, 2 for throwing error and 0 if query
    tag isn't present.
 */
 enum_control_level THD::get_mt_throttle_tag_level() const {

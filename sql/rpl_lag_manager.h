@@ -47,6 +47,7 @@ void free_global_write_statistics();
 std::vector<write_statistics_row> get_all_write_statistics();
 extern ulong last_write_throttle_lag_ms;
 extern std::atomic<ulonglong> write_throttle_lag_ms_period_peak;
+extern ulonglong write_throttle_action_count;
 
 /***********************************************************************
 OBJECTS & METHODS TO SUPPORT WRITE_THROTTLING_RULES

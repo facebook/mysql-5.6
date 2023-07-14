@@ -1,0 +1,37 @@
+use test;
+DROP TABLE IF EXISTS t1;
+create table t1(a int);
+set @@global.bypass_write_throttle_admin_check=1;
+insert into t1 values (1);
+expect write_throttle_action_count=0
+show global status like 'write_throttle_action_count';
+Variable_name	Value
+Write_throttle_action_count	0
+SET @@global.write_control_level = ERROR;
+expect write_control_level = ERROR
+SELECT @@global.write_control_level;
+@@global.write_control_level
+ERROR
+SET GLOBAL write_throttle_patterns='+SHARD=test';
+insert into t1 values (1);
+ERROR HY000: Exceeded write workload limit. Try again later
+expect write_throttle_action_count=1
+show global status like 'write_throttle_action_count';
+Variable_name	Value
+Write_throttle_action_count	1
+select * from performance_schema.write_throttling_log;
+MODE	CREATION_TIME	TYPE	VALUE	TRANSACTION_TYPE	COUNT
+MANUAL	TIME	SHARD	test	SHORT	1
+insert into t1 values (1);
+ERROR HY000: Exceeded write workload limit. Try again later
+expect write_throttle_action_count=2
+show global status like 'write_throttle_action_count';
+Variable_name	Value
+Write_throttle_action_count	2
+select * from performance_schema.write_throttling_log;
+MODE	CREATION_TIME	TYPE	VALUE	TRANSACTION_TYPE	COUNT
+MANUAL	TIME	SHARD	test	SHORT	2
+drop table t1;
+SET @@global.bypass_write_throttle_admin_check = DEFAULT;
+SET GLOBAL write_throttle_patterns = DEFAULT;
+SET @@global.write_control_level = DEFAULT;
