@@ -5382,8 +5382,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   rocksdb::WriteOptions write_opts;
   // Called after commit/rollback.
   void reset() {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     m_batch->Clear();
     m_read_opts[USER_TABLE] = rocksdb::ReadOptions();
     m_read_opts[USER_TABLE].ignore_range_deletions =
@@ -5393,8 +5391,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
  private:
   bool prepare() override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     return true;
   }
 
@@ -5439,27 +5435,19 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
   /* Implementations of do_*savepoint based on rocksdB::WriteBatch savepoints */
   void do_set_savepoint() override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     m_batch->SetSavePoint();
   }
 
   rocksdb::Status do_pop_savepoint() override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     return m_batch->PopSavePoint();
   }
 
   void do_rollback_to_savepoint() override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     m_batch->RollbackToSavePoint();
   }
 
  public:
   bool is_writebatch_trx() const override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     return true;
   }
 
@@ -5471,8 +5459,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   void set_sync(bool sync) override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     write_opts.sync = sync;
   }
 
@@ -5485,8 +5471,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   void rollback() override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     on_rollback();
     m_write_count[TABLE_TYPE::USER_TABLE] = 0;
     m_insert_count = 0;
@@ -5502,8 +5486,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
   void acquire_snapshot(bool acquire_now MY_ATTRIBUTE((unused)),
                         TABLE_TYPE table_type) override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
@@ -5513,8 +5495,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   void release_snapshot(TABLE_TYPE table_type) override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
@@ -5573,33 +5553,26 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       return rocksdb::Status::NotSupported(
           "Not supported for intrinsic tmp tables");
     }
-    assert(!is_ac_nl_ro_rc_transaction());
 
     ++m_write_count[table_type];
     return m_batch->SingleDelete(column_family, key);
   }
 
   bool has_modifications() const override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     return m_batch->GetWriteBatch()->Count() > 0;
   }
 
   rocksdb::WriteBatchBase *get_write_batch() override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     return m_batch;
   }
 
   rocksdb::WriteBatchBase *get_indexed_write_batch(
       TABLE_TYPE table_type) override {
     assert(!is_ac_nl_ro_rc_transaction());
-
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
       assert(false);
       return nullptr;
     }
-    assert(!is_ac_nl_ro_rc_transaction());
 
     ++m_write_count[table_type];
     return m_batch;
@@ -5609,8 +5582,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                       const rocksdb::Slice &key,
                       rocksdb::PinnableSlice *const value,
                       TABLE_TYPE table_type) const override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return rocksdb::Status::NotSupported(
@@ -5626,8 +5597,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                  rocksdb::PinnableSlice *values, TABLE_TYPE table_type,
                  rocksdb::Status *statuses,
                  const bool sorted_input) const override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
@@ -5665,8 +5634,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle *const /* column_family */,
       const TABLE_TYPE table_type) override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return nullptr;
@@ -5676,8 +5643,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   bool is_tx_started(TABLE_TYPE table_type) const override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return false;
@@ -5686,8 +5651,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   void start_tx(TABLE_TYPE table_type) override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
@@ -5704,13 +5667,11 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     set_initial_savepoint();
   }
 
-  void set_name() override { assert(!is_ac_nl_ro_rc_transaction()); }
+  void set_name() override {}
 
-  void start_stmt() override { assert(!is_ac_nl_ro_rc_transaction()); }
+  void start_stmt() override {}
 
   void rollback_stmt() override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     if (m_batch) rollback_to_stmt_savepoint();
   }
 
@@ -5721,8 +5682,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   virtual ~Rdb_writebatch_impl() override {
-    assert(!is_ac_nl_ro_rc_transaction());
-
     // Remove from the global list before all other processing is started.
     // Otherwise, information_schema.rocksdb_trx can crash on this object.
     Rdb_transaction::remove_from_global_trx_list();
