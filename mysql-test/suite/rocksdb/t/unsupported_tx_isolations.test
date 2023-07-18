@@ -23,5 +23,5 @@ select * from t1 where id=1;
 rollback;
 
 # rocksdb dd doesn't support serializable
-SET session transaction isolation level read committed;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
 DROP TABLE t1;

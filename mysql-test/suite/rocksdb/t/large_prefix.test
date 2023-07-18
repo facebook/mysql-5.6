@@ -2,9 +2,7 @@
 
 # skip rocksdb_large_prefix test for rocksdb DD
 # RocksDB DD doesn't support rocksdb_large_prefix=0
-if (`select count(*) = 1 from performance_schema.global_variables where variable_name = 'default_dd_storage_engine' and variable_value = 'RocksDB';`) {
-  --skip rocksdb_large_prefix Test for rocksdb DD 
-}
+--source include/not_rocksdb_dd.inc
 
 #
 # Test index prefix length limits.

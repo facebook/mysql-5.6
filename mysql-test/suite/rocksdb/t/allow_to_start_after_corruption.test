@@ -8,6 +8,8 @@
 
 --source include/have_debug.inc
 
+--let ddse= query_get_value(SELECT @@default_dd_storage_engine, @@default_dd_storage_engine, 1)
+
 # use custom error log to assert on error message in search_pattern_in_file.inc
 --let LOG=$MYSQLTEST_VARDIR/tmp/allow_to_start_after_corruption_debug.err
 --let SEARCH_FILE=$LOG
@@ -60,7 +62,7 @@ select * from t1;
 # remove flag to ignore corruption
 --let $_mysqld_option=--log-error=$LOG
 --error 0
---exec $MYSQLD_CMD $_mysqld_option
+--exec $MYSQLD_CMD $_mysqld_option --default_dd_storage_engine=$ddse
 --let SEARCH_PATTERN=The server will exit normally and stop restart attempts
 --source include/search_pattern_in_file.inc
 --remove_file $LOG
