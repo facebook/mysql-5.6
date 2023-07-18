@@ -1,5 +1,12 @@
 --source include/have_rocksdb.inc
 
+# skip validate_datadic test for rocksdb DD
+# With rocksdb DD, table metadata lives in rocksdb
+# update mysql.ibd file won't get these error message
+if (`select count(*) = 1 from performance_schema.global_variables where variable_name = 'default_dd_storage_engine' and variable_value = 'RocksDB';`) {
+  --skip validate_datadic Test for rocksdb DD 
+}
+
 #
 # Validate that the server starts when everything is okay, but detects errors
 # if a table exists in the RocksDB data dictionary but not in the MySQL data

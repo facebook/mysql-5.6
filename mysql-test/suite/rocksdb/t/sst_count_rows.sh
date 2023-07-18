@@ -13,7 +13,13 @@ while : ; do
   TOTAL_E=0
   for f in `ls $1/mysqld.1/data/.rocksdb/*.sst`
   do
-    # excluding system cf
+    # excluding system cf whose id is 1
+    SYSTEM_COLUMN_FAMILY=`$sst_dump --command=scan --show_properties --file=$f | \
+      grep "column family ID: 1" | wc -l`
+    if [[ "$SYSTEM_COLUMN_FAMILY" == '1' ]]; then
+        continue
+    fi
+
     DELETED=`$sst_dump --command=scan --output_hex --file=$f | \
       perl -ne 'print  if(/''(\d\d\d\d\d\d\d\d)/ && $1 >= 11)' | \
       grep -e ", type:0" -e ", type:7" | wc -l`

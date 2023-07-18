@@ -10214,8 +10214,9 @@ int ha_rocksdb::create_table(const std::string &table_name,
   DBUG_ENTER_FUNC();
 
   int err;
-  bool is_dd_tbl = dd::get_dictionary()->is_dd_table_name(
-      table_arg.s->db.str, table_arg.s->table_name.str);
+  bool is_dd_tbl = false;
+
+  if (ha_thd()->is_dd_system_thread()) is_dd_tbl = true;
   DBUG_EXECUTE_IF("simulate_dd_table", { is_dd_tbl = true; });
   auto local_dict_manager = dict_manager.get_dict_manager_selector_non_const(
       is_tmp_table(table_name));
@@ -10573,8 +10574,11 @@ ulong ha_rocksdb::index_flags(bool &pk_can_be_decoded,
   ulong base_flags = HA_READ_NEXT |  // doesn't seem to be used
                      HA_READ_ORDER | HA_READ_RANGE | HA_READ_PREV;
 
-  DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx",
-                  { assert(table_arg->primary_key == MAX_INDEXES); };);
+  DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx", {
+    if (!dd::get_dictionary()->is_dd_table_name(table_arg->db.str,
+                                                table_arg->table_name.str))
+      assert(table_arg->primary_key == MAX_INDEXES);
+  };);
 
   if (check_keyread_allowed(pk_can_be_decoded, table_arg, inx, part,
                             all_parts)) {
