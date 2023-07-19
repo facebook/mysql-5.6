@@ -907,6 +907,7 @@ rocksdb_binlog_ttl	OFF
 rocksdb_binlog_ttl_compaction_ts_interval_secs	3600
 rocksdb_binlog_ttl_compaction_ts_offset_secs	60
 rocksdb_blind_delete_primary_key	OFF
+rocksdb_block_cache_numshardbits	-1
 rocksdb_block_cache_size	536870912
 rocksdb_block_restart_interval	16
 rocksdb_block_size	4096
