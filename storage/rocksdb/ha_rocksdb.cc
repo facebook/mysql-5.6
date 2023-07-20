@@ -920,7 +920,7 @@ static long long rocksdb_compaction_sequential_deletes_file_size = 0l;
 static uint32_t rocksdb_validate_tables = 1;
 char *rocksdb_datadir;
 static uint32_t rocksdb_max_bottom_pri_background_compactions = 0;
-static int32_t rocksdb_block_cache_numshardbits = -1;
+static int rocksdb_block_cache_numshardbits = -1;
 static uint32_t rocksdb_table_stats_sampling_pct;
 static uint32_t rocksdb_table_stats_recalc_threshold_pct = 10;
 static unsigned long long rocksdb_table_stats_recalc_threshold_count = 100ul;
@@ -2056,9 +2056,9 @@ static MYSQL_SYSVAR_INT(table_cache_numshardbits,
 static MYSQL_SYSVAR_INT(block_cache_numshardbits,
                         rocksdb_block_cache_numshardbits,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                        "Block cache numshardbits for RocksDB",
-                        nullptr, nullptr,
-                       /* default */ -1, /* min */ -1, /* max */ 8, 0);
+                        "Block cache numshardbits for RocksDB", nullptr,
+                        nullptr,
+                        /* default */ -1, /* min */ -1, /* max */ 8, 0);
 
 static MYSQL_SYSVAR_UINT64_T(wal_ttl_seconds,
                              rocksdb_db_options->WAL_ttl_seconds,
@@ -7961,13 +7961,12 @@ static int rocksdb_init_internal(void *const p) {
         rocksdb_use_hyper_clock_cache
             ? rocksdb::HyperClockCacheOptions(
                   rocksdb_block_cache_size, rocksdb_tbl_options->block_size,
-                  rocksdb_block_cache_numshardbits /* num_shard_bits */,
+                  rocksdb_block_cache_numshardbits,
                   false /* strict_capacity_limit */, memory_allocator)
                   .MakeSharedCache()
 
             : rocksdb::NewLRUCache(
-                  rocksdb_block_cache_size,
-                  rocksdb_block_cache_numshardbits /*num_shard_bits*/,
+                  rocksdb_block_cache_size, rocksdb_block_cache_numshardbits,
                   false /*strict_capcity_limit*/,
                   rocksdb_cache_high_pri_pool_ratio, memory_allocator);
     if (rocksdb_sim_cache_size > 0) {
