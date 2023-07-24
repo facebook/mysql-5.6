@@ -4769,12 +4769,6 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   bool is_invalid_db_name =
       validate_string(system_charset_info, db, db_len, &valid_len, &len_error);
 
-  if (ends_group() &&
-      !update_before_image_inconsistencies(const_cast<Relay_log_info *>(rli))) {
-    thd->is_slave_error = true;
-    goto end;
-  }
-
   DBUG_PRINT("debug", ("is_invalid_db_name= %s, valid_len=%zu, len_error=%s",
                        is_invalid_db_name ? "true" : "false", valid_len,
                        len_error ? "true" : "false"));
@@ -6489,11 +6483,6 @@ int Xid_apply_log_event::do_apply_event_worker(Slave_worker *w) {
   ulong gaq_idx = mts_group_idx;
   Slave_job_group *ptr_group = coordinator_gaq->get_job_group(gaq_idx);
 
-  if (!update_before_image_inconsistencies(w)) {
-    error = 1;
-    goto err;
-  }
-
   if (!thd->get_transaction()->xid_state()->check_in_xa(false) &&
       w->is_transactional()) {
     /*
@@ -6563,10 +6552,6 @@ int Xid_apply_log_event::do_apply_event(Relay_log_info const *rli) {
   */
   gtid_reacquire_ownership_if_anonymous(thd);
   Relay_log_info *rli_ptr = const_cast<Relay_log_info *>(rli);
-
-  if (!update_before_image_inconsistencies(rli_ptr)) {
-    return 1;
-  }
 
   /* For a slave Xid_log_event is COMMIT */
   query_logger.general_log_print(thd, COM_QUERY,
@@ -9768,8 +9753,7 @@ end:
 
     if (likely(!mismatch_info.source_img.empty() &&
                !mismatch_info.local_img.empty())) {
-      const_cast<Relay_log_info *>(rli)->bi_mismatch_infos.push_back(
-          mismatch_info);
+      thd->bi_mismatch_infos.push_back(mismatch_info);
     }
   }
 

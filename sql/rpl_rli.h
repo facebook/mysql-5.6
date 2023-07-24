@@ -344,8 +344,6 @@ class Relay_log_info : public Rpl_info {
 
   std::pair<int64_t, int64_t> last_opid = std::make_pair(-1, -1);
 
-  std::vector<before_image_mismatch> bi_mismatch_infos;
-
   /* The following variables are safe to read any time */
 
   /*

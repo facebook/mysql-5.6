@@ -1834,6 +1834,11 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit) {
 
   DBUG_TRACE;
 
+  if (!update_before_image_inconsistencies(thd)) {
+    error = 1;
+    goto err;
+  }
+
   if (ha_list) {
     bool restore_backup_ha_data = false;
     /*

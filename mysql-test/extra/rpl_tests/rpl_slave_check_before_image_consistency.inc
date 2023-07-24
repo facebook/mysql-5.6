@@ -35,7 +35,7 @@ set @@sql_log_bin = 1;
 connection master;
 update t1 set b = 2;
 connection slave;
-let $slave_sql_errno= convert_error(ER_INCONSISTENT_ERROR);
+let $slave_sql_errno= convert_error(ER_RBR_BEFORE_IMAGE_INCONSISTENT);
 source include/wait_for_slave_sql_error.inc;
 show status like 'Slave_before_image_inconsistencies';
 replace_result $uuid uuid;

@@ -173,6 +173,7 @@ class Table_ref;
 struct timeval;
 struct User_level_lock;
 struct YYLTYPE;
+struct before_image_mismatch;
 
 namespace dd {
 namespace cache {
@@ -1033,6 +1034,9 @@ class THD : public MDL_context_owner,
  public:
   ulong add_nonsuper_connections_ref();
   void remove_nonsuper_connections_ref(bool clear = false);
+
+  // RBR BI inconsistencies
+  std::vector<before_image_mismatch> bi_mismatch_infos;
 
   /* Next HLC value */
   uint64_t hlc_time_ns_next = 0;

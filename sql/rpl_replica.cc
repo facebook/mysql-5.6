@@ -6588,6 +6588,7 @@ static void *handle_slave_worker(void *arg) {
   }
   thd->rli_slave = w;
   thd->init_query_mem_roots();
+  thd->bi_mismatch_infos.clear();
 
   if (channel_map.is_group_replication_channel_name(rli->get_channel())) {
     if (channel_map.is_group_replication_channel_name(rli->get_channel(),
@@ -6601,8 +6602,6 @@ static void *handle_slave_worker(void *arg) {
   }
 
   w->set_filter(rli->rpl_filter);
-
-  w->bi_mismatch_infos.clear();
 
   if ((w->deferred_events_collecting = w->rpl_filter->is_on()))
     w->deferred_events = new Deferred_log_events();
@@ -7624,7 +7623,7 @@ extern "C" void *handle_slave_sql(void *arg) {
     mysql_mutex_lock(&rli->info_thd_lock);
     rli->info_thd = thd;
 
-    rli->bi_mismatch_infos.clear();
+    thd->bi_mismatch_infos.clear();
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
     // save the instrumentation for SQL thread in rli->info_thd
@@ -12259,8 +12258,8 @@ std::unordered_map<std::string, before_image_mismatch> bi_inconsistencies;
 /* mutex for counter and map */
 std::mutex bi_inconsistency_lock;
 
-bool update_before_image_inconsistencies(Relay_log_info *rli) {
-  if (likely(rli->bi_mismatch_infos.empty())) {
+bool update_before_image_inconsistencies(THD *thd) {
+  if (likely(!thd || thd->bi_mismatch_infos.empty())) {
     return true;
   }
 
@@ -12270,7 +12269,7 @@ bool update_before_image_inconsistencies(Relay_log_info *rli) {
 
   const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
 
-  for (const auto &mismatch_info : rli->bi_mismatch_infos) {
+  for (const auto &mismatch_info : thd->bi_mismatch_infos) {
     ++before_image_inconsistencies;
     bi_inconsistencies[mismatch_info.table] = mismatch_info;
     if (should_error_out || log_error_verbosity > 1) {
@@ -12285,22 +12284,22 @@ bool update_before_image_inconsistencies(Relay_log_info *rli) {
         li += "...";
       }
 
-      std::stringstream msg;
-      msg << "Slave before-image consistency check failed at position: "
-          << mismatch_info.log_pos << " (gtid: " << mismatch_info.gtid
-          << "). Mismatch (table: " << mismatch_info.table << "): " << bi
-          << " (source) vs. " << li << " (local)";
-
       if (!should_error_out) {
+        std::stringstream msg;
+        msg << "Slave before-image consistency check failed at position: "
+            << mismatch_info.log_pos << " (gtid: " << mismatch_info.gtid
+            << "). Mismatch (table: " << mismatch_info.table << "): " << bi
+            << " (source) vs. " << li << " (local)";
         sql_print_warning("%s", msg.str().c_str());
       } else {
-        rli->report(ERROR_LEVEL, ER_INCONSISTENT_ERROR, "%s",
-                    msg.str().c_str());
+        my_error(ER_RBR_BEFORE_IMAGE_INCONSISTENT, MYF(0),
+                 mismatch_info.log_pos.c_str(), mismatch_info.gtid.c_str(),
+                 mismatch_info.table.c_str(), bi.c_str(), li.c_str());
       }
     }
   }
 
-  rli->bi_mismatch_infos.clear();
+  thd->bi_mismatch_infos.clear();
   return !should_error_out;
 }
 

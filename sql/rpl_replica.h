@@ -699,7 +699,7 @@ extern ulong before_image_inconsistencies;
 extern std::unordered_map<std::string, before_image_mismatch>
     bi_inconsistencies;
 extern std::mutex bi_inconsistency_lock;
-bool update_before_image_inconsistencies(Relay_log_info *rli);
+bool update_before_image_inconsistencies(THD *thd);
 extern ulong get_num_before_image_inconsistencies();
 
 int init_replica_thread(THD *thd, SLAVE_THD_TYPE thd_type);
