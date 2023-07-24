@@ -3,7 +3,7 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-call mtr.add_suppression("Error_code: MY-013113");
+call mtr.add_suppression("Error_code: MY-050306");
 set @@global.slave_rows_search_algorithms = 'INDEX_SCAN,TABLE_SCAN';
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
@@ -21,7 +21,7 @@ update t3 set c = 0.798321;
 set @@sql_log_bin = 1;
 # Test inconsistencies for table with primary key
 update t1 set b = 2;
-include/wait_for_slave_sql_error.inc [errno=13113]
+include/wait_for_slave_sql_error.inc [errno=50306]
 inconsistency_count
 1
 select * from information_schema.RBR_BI_INCONSISTENCIES ORDER BY SOURCE_LOG_POS;
@@ -37,7 +37,7 @@ inconsistency_count
 1
 # Test inconsistencies for table with unique key
 update t2 set b = 2;
-include/wait_for_slave_sql_error.inc [errno=13113]
+include/wait_for_slave_sql_error.inc [errno=50306]
 inconsistency_count
 2
 select * from information_schema.RBR_BI_INCONSISTENCIES ORDER BY SOURCE_LOG_POS;
@@ -54,7 +54,7 @@ inconsistency_count
 2
 # Test inconsistencies for table with not null keys
 update t3 set b = 2;
-include/wait_for_slave_sql_error.inc [errno=13113]
+include/wait_for_slave_sql_error.inc [errno=50306]
 inconsistency_count
 3
 select * from information_schema.RBR_BI_INCONSISTENCIES ORDER BY SOURCE_LOG_POS;
