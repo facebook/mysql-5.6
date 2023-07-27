@@ -39,14 +39,15 @@ class sql_findings_row {
   sql_findings_row(const std::string sql_id, const ulonglong code,
                    const std::string level, const std::string message,
                    const std::string query_text, const ulonglong count,
-                   const ulonglong last_recorded)
+                   const ulonglong last_recorded, const std::string db_name)
       : m_sql_id(sql_id),
         m_code(code),
         m_level(level),
         m_message(message),
         m_query_text(query_text),
         m_count(count),
-        m_last_recorded(last_recorded) {}
+        m_last_recorded(last_recorded),
+        m_db_name(db_name) {}
 
   /* Disabled copy. */
   sql_findings_row(sql_findings_row &) = delete;
@@ -64,6 +65,7 @@ class sql_findings_row {
   std::string query_text() const { return m_query_text; }
   ulonglong count() const { return m_count; }
   ulonglong last_recorded() const { return m_last_recorded; }
+  std::string db_name() const { return m_db_name; }
 
  private:
   std::string m_sql_id;
@@ -73,6 +75,7 @@ class sql_findings_row {
   std::string m_query_text;
   ulonglong m_count;
   ulonglong m_last_recorded;
+  std::string m_db_name;
 };
 
 class table_sql_findings : public PFS_engine_table {

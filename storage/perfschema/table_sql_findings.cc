@@ -52,7 +52,8 @@ Plugin_table table_sql_findings::m_table_def(
     "  MESSAGE       VARCHAR(512),\n"
     "  QUERY_TEXT    LONGTEXT,\n"
     "  COUNT         BIGINT unsigned NOT NULL,\n"
-    "  LAST_RECORDED BIGINT unsigned NOT NULL \n",
+    "  LAST_RECORDED BIGINT unsigned NOT NULL,\n"
+    "  DB_NAME       VARCHAR(64) \n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
@@ -80,7 +81,8 @@ enum sql_findings_field_offset {
   FO_MESSAGE,
   FO_QUERY_TEXT,
   FO_COUNT,
-  FO_LAST_RECORDED
+  FO_LAST_RECORDED,
+  FO_DB_NAME
 };
 
 table_sql_findings::table_sql_findings()
@@ -169,6 +171,10 @@ int table_sql_findings::read_row_values(TABLE *table, unsigned char *buf,
           break;
         case FO_LAST_RECORDED:
           set_field_ulonglong(f, curr_row.last_recorded());
+          break;
+        case FO_DB_NAME:
+          set_field_varchar_utf8mb4(f, curr_row.db_name().c_str(),
+                                    curr_row.db_name().length());
           break;
         default:
           assert(false);

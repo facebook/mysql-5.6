@@ -35,7 +35,7 @@ select * from t1 where c1=1;
 
 ## no findings (normally we would see 2)
 --echo -> no findings captured
-select sql_id, code, message, query_text, count from performance_schema.sql_findings;
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings;
 
 ##################################################
 ### Case 2: both parameters are default (ON)
@@ -57,7 +57,7 @@ insert into t2 values('momo', -1);
 --enable_warnings
 
 ## report truncation
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 --disable_warnings
@@ -65,7 +65,7 @@ select * from t2 where c1=1;
 --enable_warnings
 
 ## report type mismatch
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 create table t3 (c1 char(2) PRIMARY KEY) collate latin1_danish_ci
@@ -73,7 +73,7 @@ create table t3 (c1 char(2) PRIMARY KEY) collate latin1_danish_ci
 insert into t3 values('zoro');
 
 ## report truncation
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 --disable_warnings
@@ -81,7 +81,7 @@ select * from t3 where c1=2;
 --enable_warnings
 
 ## report type mismatch
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 ################################
@@ -108,7 +108,7 @@ delimiter ;||||
 --enable_warnings
 
 ## report findings: truncated, mismatch
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 ###########################
@@ -124,7 +124,7 @@ set @@GLOBAL.max_sql_findings_size=333;
 select @@max_sql_findings_size;
 
 ## all sql findings are gone
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 connect (con42, localhost, user1,u1,test);
@@ -138,7 +138,7 @@ select * from t5 where c1=1;
 --enable_warnings
 
 ## only one sql finding reported (hit the size limit)
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 ###########################
@@ -159,13 +159,13 @@ insert into t6 values('case4');
 select * from t6 where c1=1;
 --enable_warnings
 
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 # truncate table
 truncate performance_schema.sql_findings;
 
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 
@@ -174,13 +174,13 @@ order by sql_id, code, query_text;
 ###########################
 --error ER_USER_LOCK_WRONG_NAME
 select GET_LOCK("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 3);
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 # truncate table
 truncate performance_schema.sql_findings;
 
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
 
 ###########

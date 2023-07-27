@@ -301,6 +301,8 @@ void remove_active_sql(THD *thd) {
   Associates a SQL ID with its findings (aka SQL conditions).
 */
 const uint sf_max_message_size = 512;  // max message text size
+/* standard limit for field, table, DB name length */
+const uint max_db_name_length = NAME_CHAR_LEN;
 
 /* Global SQL findings map to track findings for all SQL statements */
 static std::unordered_map<digest_key, SQL_FINDING_VEC> global_sql_findings_map;
@@ -367,6 +369,7 @@ static void populate_sql_findings(THD *thd, const std::string &query_text,
       thd->get_stmt_da()->sql_conditions();
 
   const Sql_condition *err;
+  const char *db_name = thd->get_db_name();
   while ((err = it++)) {
     ulonglong now = my_getsystime() / 10000000;
     const uint err_no = err->mysql_errno();
@@ -393,11 +396,14 @@ static void populate_sql_findings(THD *thd, const std::string &query_text,
           std::min(query_text.size(), performance_schema_max_sql_text_length));
       sql_find.count = 1;
       sql_find.last_recorded = now;
+      sql_find.db_name.append(
+          db_name, std::min((uint)strlen(db_name), max_db_name_length));
       finding_vec.push_back(sql_find);
 
       sql_findings_size += sizeof(SQL_FINDING);
       sql_findings_size += sql_find.message.size();
       sql_findings_size += sql_find.query_text.size();
+      sql_findings_size += sql_find.db_name.size();
     } else {
       // Increment the count and update the time
       iter->count++;
@@ -465,7 +471,8 @@ std::vector<sql_findings_row> get_all_sql_findings() {
           f_iter->message.c_str(),                 // MESSAGE
           f_iter->query_text.c_str(),              // QUERY_TEXT
           f_iter->count,                           // COUNT
-          f_iter->last_recorded);                  // LAST_RECORDED
+          f_iter->last_recorded,                   // LAST_RECORDED
+          f_iter->db_name);                        // DB_NAME
     }
   }
 

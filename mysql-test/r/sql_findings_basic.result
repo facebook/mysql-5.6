@@ -13,6 +13,7 @@ MESSAGE	varchar(512)	YES		NULL
 QUERY_TEXT	longtext	YES		NULL	
 COUNT	bigint unsigned	NO		NULL	
 LAST_RECORDED	bigint unsigned	NO		NULL	
+DB_NAME	varchar(64)	YES		NULL	
 -> Case 1: sql findings is default (OFF_HARD)
 select @@sql_findings_control;
 @@sql_findings_control
@@ -29,8 +30,8 @@ c1	c2
 Warnings:
 Warning	1292	Truncated incorrect DOUBLE value: 'mo'
 -> no findings captured
-select sql_id, code, message, query_text, count from performance_schema.sql_findings;
-sql_id	code	message	query_text	count
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings;
+sql_id	code	message	query_text	count	db_name
 -> Case 2: sql findings is ON
 set @@GLOBAL.sql_findings_control=ON;
 select @@sql_findings_control;
@@ -40,43 +41,43 @@ set session sql_mode=NO_ENGINE_SUBSTITUTION;
 create table t2 (c1 char(2) PRIMARY KEY, c2 int unsigned)
 engine=myisam;
 insert into t2 values('momo', -1);
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
-65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+sql_id	code	message	query_text	count	db_name
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1	test
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1	test
 select * from t2 where c1=1;
 c1	c2
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
-4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
-65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
+sql_id	code	message	query_text	count	db_name
+4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1	test
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1	test
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1	test
 create table t3 (c1 char(2) PRIMARY KEY) collate latin1_danish_ci
 engine=myisam;
 insert into t3 values('zoro');
 Warnings:
 Warning	1265	Data truncated for column 'c1' at row 1
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
-4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
-65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
-7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1
-cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
+sql_id	code	message	query_text	count	db_name
+4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1	test
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1	test
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1	test
+7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1	test
+cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1	test
 select * from t3 where c1=2;
 c1
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
-4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
-65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
-7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
-7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1
-cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
+sql_id	code	message	query_text	count	db_name
+4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1	test
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1	test
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1	test
+7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1	test
+7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1	test
+cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1	test
 -> Case 3: multi-query scenario
 set session sql_mode=NO_ENGINE_SUBSTITUTION;
 create table t4(c1 char(2) PRIMARY KEY)
@@ -87,17 +88,17 @@ select * from t4 where c1=1;
 drop table t4;
 ||||
 c1
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
-183ce38d3b8510e459f005ce4140ae85	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t4 where c1=1;	1
-4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1
-643317334990228a29749ffb51d6ac51	1265	Data truncated for column 'c1' at row 1	insert into t4 values('case3');	1
-65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1
-65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1
-7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1
-7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1
-cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1
+sql_id	code	message	query_text	count	db_name
+183ce38d3b8510e459f005ce4140ae85	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t4 where c1=1;	1	test
+4cded6a1ee88e57c47e3eb9bd62b0401	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t2 where c1=1	1	test
+643317334990228a29749ffb51d6ac51	1265	Data truncated for column 'c1' at row 1	insert into t4 values('case3');	1	test
+65b59820d51531cc40c26bc7a319eea8	1264	Out of range value for column 'c2' at row 1	insert into t2 values('momo', -1)	1	test
+65b59820d51531cc40c26bc7a319eea8	1265	Data truncated for column 'c1' at row 1	insert into t2 values('momo', -1)	1	test
+7414ed901c65b07d3158174c30a9199f	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t3 where c1=2	1	test
+7524601035d002a39c388c4358ec2e5f	1265	Data truncated for column 'c1' at row 1	SHOW WARNINGS	1	test
+cf9999cf55dcc15c7b9b44af8fd19567	1265	Data truncated for column 'c1' at row 1	insert into t3 values('zoro')	1	test
 -> Case 4: with size limit
 select @@max_sql_findings_size;
 @@max_sql_findings_size
@@ -106,20 +107,20 @@ set @@GLOBAL.max_sql_findings_size=333;
 select @@max_sql_findings_size;
 @@max_sql_findings_size
 333
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
+sql_id	code	message	query_text	count	db_name
 set session sql_mode=NO_ENGINE_SUBSTITUTION;
 create table t5(c1 char(2) PRIMARY KEY)
 engine=myisam;
 insert into t5 values('case4');
 select * from t5 where c1=1;
 c1
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
-36459a163c517e235f28d25dc42a0a82	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t5 where c1=1	1
-9b0b6882ba54fc1549afcd3109e18aa5	1265	Data truncated for column 'c1' at row 1	insert into t5 values('case4')	1
+sql_id	code	message	query_text	count	db_name
+36459a163c517e235f28d25dc42a0a82	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t5 where c1=1	1	test
+9b0b6882ba54fc1549afcd3109e18aa5	1265	Data truncated for column 'c1' at row 1	insert into t5 values('case4')	1	test
 -> Case 5: table truncate
 set session sql_mode=NO_ENGINE_SUBSTITUTION;
 set @@GLOBAL.sql_findings_control=ON;
@@ -131,25 +132,25 @@ engine=myisam;
 insert into t6 values('case4');
 select * from t6 where c1=1;
 c1
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
-36459a163c517e235f28d25dc42a0a82	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t5 where c1=1	1
-9b0b6882ba54fc1549afcd3109e18aa5	1265	Data truncated for column 'c1' at row 1	insert into t5 values('case4')	1
+sql_id	code	message	query_text	count	db_name
+36459a163c517e235f28d25dc42a0a82	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t5 where c1=1	1	test
+9b0b6882ba54fc1549afcd3109e18aa5	1265	Data truncated for column 'c1' at row 1	insert into t5 values('case4')	1	test
 truncate performance_schema.sql_findings;
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
+sql_id	code	message	query_text	count	db_name
 select GET_LOCK("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 3);
 ERROR 42000: Incorrect user-level lock name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
-6f4e2c51c95e6a28d18797e7fcf0c6c6	3057	Incorrect user-level lock name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.	select GET_LOCK("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 3)	1
+sql_id	code	message	query_text	count	db_name
+6f4e2c51c95e6a28d18797e7fcf0c6c6	3057	Incorrect user-level lock name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.	select GET_LOCK("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 3)	1	test
 truncate performance_schema.sql_findings;
-select sql_id, code, message, query_text, count from performance_schema.sql_findings
+select sql_id, code, message, query_text, count, db_name from performance_schema.sql_findings
 order by sql_id, code, query_text;
-sql_id	code	message	query_text	count
+sql_id	code	message	query_text	count	db_name
 -> Cleanup
 set @@GLOBAL.sql_findings_control=DEFAULT;
 set @@GLOBAL.max_sql_findings_size=DEFAULT;
