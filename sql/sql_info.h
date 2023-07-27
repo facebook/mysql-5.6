@@ -77,6 +77,7 @@ typedef struct st_sql_finding {
   std::string query_text;                   /* query text */
   ulonglong count;         /* number of times the finding was recorded */
   ulonglong last_recorded; /* last recorded, seconds since epoch */
+  std::string db_name;     /* name of current DB, from THD */
 } SQL_FINDING;
 
 /* SQL_FINDING_VEC - stores all the findings for a SQL statement.

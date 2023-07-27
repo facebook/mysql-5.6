@@ -293,10 +293,13 @@
   80028-022:
   - Adding support for full query text.
 
+  80028-023:
+  - Adding support for DB_NAME in SQL_FINDINGS.
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80028-021. i.e. 8.0.28 Facebook schema change no. 21.
+  Version published is now 80028-023. i.e. 8.0.28 Facebook schema change no. 23.
 */
 
-static const uint PFS_DD_VERSION = 80028022;
+static const uint PFS_DD_VERSION = 80028023;
 
 #endif /* PFS_DD_VERSION_H */
