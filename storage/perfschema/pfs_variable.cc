@@ -73,7 +73,8 @@ PFS_variable_cache<Var_type>::PFS_variable_cache(bool external_init)
       m_version(0),
       m_query_scope(OPT_DEFAULT),
       m_use_mem_root(false),
-      m_aggregate(false) {}
+      m_aggregate(false),
+      m_prefix_match(current_thd) {}
 
 PFS_system_variable_cache::PFS_system_variable_cache(bool external_init)
     : PFS_variable_cache<System_variable>(external_init),
@@ -97,7 +98,8 @@ bool PFS_system_variable_cache::init_show_var_array(enum_var_type scope,
   m_version = get_system_variable_hash_version();
 
   /* Build the SHOW_VAR array from the system variable hash. */
-  enumerate_sys_vars(&m_show_var_array, true, m_query_scope, strict);
+  enumerate_sys_vars(&m_show_var_array, true, m_query_scope, strict,
+                     m_prefix_match.m_wild, m_prefix_match.m_before_wild_len);
 
   mysql_rwlock_unlock(&LOCK_system_variables_hash);
 
@@ -145,6 +147,46 @@ bool PFS_system_variable_cache::match_scope(int scope) {
       break;
   }
   return false;
+}
+
+template <class Var_type>
+PFS_variable_cache<Var_type>::prefix_match::prefix_match(THD *thd) {
+  const LEX *lex = thd->lex;
+  m_wild = (lex && lex->wild) ? lex->wild->ptr() : nullptr;
+  m_before_wild_len = 0;
+
+  // Only perform matching for show variable and status commands
+  if (m_wild == nullptr || (lex->sql_command != SQLCOM_SHOW_VARIABLES &&
+                            lex->sql_command != SQLCOM_SHOW_STATUS)) {
+    return;
+  }
+
+  // Find the length of the user's 'LIKE' parameter until the first wildcard
+  while (m_wild && m_wild[m_before_wild_len] != wild_one &&
+         m_wild[m_before_wild_len] != wild_many &&
+         m_wild[m_before_wild_len] != wild_prefix &&
+         m_wild[m_before_wild_len] != '\0') {
+    ++m_before_wild_len;
+  }
+
+  if (m_before_wild_len == 0) {
+    m_wild = nullptr;
+  }
+}
+
+template <class Var_type>
+bool PFS_variable_cache<Var_type>::prefix_match::match(const char *name) {
+  // Skip prefix matching, which means everything is considered a match
+  if (m_before_wild_len == 0) {
+    return true;
+  }
+
+  const auto len = strlen(name);
+  // Perform prefix match
+  return system_charset_info->coll->strnncoll(
+             system_charset_info, reinterpret_cast<const uchar *>(name), len,
+             reinterpret_cast<const uchar *>(m_wild), m_before_wild_len,
+             true) == 0;
 }
 
 /**
@@ -860,7 +902,8 @@ bool PFS_status_variable_cache::filter_by_name(const SHOW_VAR *show_var) {
       return true;
     }
   }
-  return false;
+
+  return !m_prefix_match.match(show_var->name);
 }
 
 /**
@@ -1320,18 +1363,6 @@ void PFS_status_variable_cache::manifest(THD *thd,
                                          System_status_var *status_vars,
                                          const char *prefix, bool nested_array,
                                          bool strict) {
-  const LEX *lex = thd->lex;
-  const char *const wild = lex->wild ? lex->wild->ptr() : nullptr;
-
-  // Find the length of the user's 'LIKE' parameter until the first wildcard
-  std::size_t before_wild_len = 0;
-  while (wild && wild[before_wild_len] != wild_one &&
-         wild[before_wild_len] != wild_many &&
-         wild[before_wild_len] != wild_prefix &&
-         wild[before_wild_len] != '\0') {
-    ++before_wild_len;
-  }
-
   for (const SHOW_VAR *show_var_iter = show_var_array;
        show_var_iter && show_var_iter->name; show_var_iter++) {
     // work buffer, must be aligned to handle long/longlong values
@@ -1345,17 +1376,6 @@ void PFS_status_variable_cache::manifest(THD *thd,
       SHOW_FUNC resolves to another SHOW_FUNC.
     */
     if (show_var_ptr->type == SHOW_FUNC) {
-      if (before_wild_len > 0) {
-        const auto len = strlen(show_var_ptr->name);
-        /* Perform prefix match */
-        if (system_charset_info->coll->strnncoll(
-                system_charset_info,
-                reinterpret_cast<const uchar *>(show_var_ptr->name), len,
-                reinterpret_cast<const uchar *>(wild), before_wild_len,
-                true) != 0)
-          continue;
-      }
-
       show_var_tmp = *show_var_ptr;
       /*
         Execute the function reference in show_var_tmp->value, which returns
