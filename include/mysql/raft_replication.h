@@ -240,6 +240,18 @@ typedef struct Raft_replication_observer {
    * healthy = false, the heartbeat injector is broken now.
    */
   int (*inform_heartbeats_health)(Raft_replication_param *param, bool healthy);
+
+  /**
+   * This callback is called before triggering logic for stopping the applier
+   * @param param The parameter for the observers
+   */
+  int (*before_stop_applier)(Raft_replication_param *param);
+
+  /**
+   * This callback is called after triggering logic for stopping the applier
+   * @param param The parameter for the observers
+   */
+  int (*after_stop_applier)(Raft_replication_param *param);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

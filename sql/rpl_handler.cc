@@ -1521,6 +1521,22 @@ int Raft_replication_delegate::show_raft_status(
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::before_stop_applier(THD * /* thd */) {
+  DBUG_ENTER("Raft_replication_delegate::before_stop_applier");
+  Raft_replication_param param;
+  int ret = 0;
+  FOREACH_OBSERVER_STRICT(ret, before_stop_applier, (&param));
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::after_stop_applier(THD * /* thd */) {
+  DBUG_ENTER("Raft_replication_delegate::after_stop_applier");
+  Raft_replication_param param;
+  int ret = 0;
+  FOREACH_OBSERVER_STRICT(ret, after_stop_applier, (&param));
+  DBUG_RETURN(ret);
+}
+
 int register_trans_observer(Trans_observer *observer, void *p) {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);
 }

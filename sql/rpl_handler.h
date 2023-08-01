@@ -461,6 +461,8 @@ class Raft_replication_delegate : public Delegate {
   int show_raft_status(
       THD *thd,
       std::vector<std::pair<std::string, std::string>> *var_value_pairs);
+  int before_stop_applier(THD *thd);
+  int after_stop_applier(THD *thd);
 };
 
 int delegates_init();

@@ -45,6 +45,7 @@
 
 #include "include/compression.h"
 #include "include/mutex_lock.h"
+#include "include/scope_guard.h"
 #include "mysql/components/services/bits/psi_bits.h"
 #include "mysql/components/services/bits/psi_memory_bits.h"
 #include "mysql/components/services/bits/psi_stage_bits.h"
@@ -9969,7 +9970,8 @@ int raft_stop_sql_thread(THD *thd) {
 
   res = stop_slave(thd, mi,
                    /*net_report=*/0,
-                   /*for_one_channel=*/true, &push_temp_table_warning);
+                   /*for_one_channel=*/true, &push_temp_table_warning,
+                   /*invoked_by_raft=*/true);
   if (!res) {
     // set this flag to prevent other non-raft actors from
     // starting sql thread during critical raft operations
@@ -10032,12 +10034,13 @@ end:
                                    This parameter can be removed when the
                                    warning is issued with per-channel
                                    information.
+  @param invoked_by_raft           If this method is called by raft plugin
 
   @retval 0 success
   @retval 1 error
 */
 int stop_slave(THD *thd, Master_info *mi, bool net_report, bool for_one_channel,
-               bool *push_temp_tables_warning) {
+               bool *push_temp_tables_warning, bool invoked_by_raft) {
   DBUG_TRACE;
 
   int slave_errno = 0;
@@ -10090,6 +10093,19 @@ int stop_slave(THD *thd, Master_info *mi, bool net_report, bool for_one_channel,
       thread_mask |= SLAVE_MONITOR;
     }
   }
+
+  const bool should_call_stop_applier_hooks =
+      (thread_mask & SLAVE_SQL) && enable_raft_plugin && !invoked_by_raft;
+
+  if (should_call_stop_applier_hooks) {
+    RUN_HOOK_STRICT(raft_replication, before_stop_applier, (current_thd));
+  }
+
+  auto stop_applier_grd = create_scope_guard([&]() {
+    if (should_call_stop_applier_hooks) {
+      RUN_HOOK_STRICT(raft_replication, after_stop_applier, (current_thd));
+    }
+  });
 
   if (thread_mask) {
     slave_errno =
