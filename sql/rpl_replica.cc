@@ -12275,7 +12275,7 @@ std::unordered_map<std::string, before_image_mismatch> bi_inconsistencies;
 std::mutex bi_inconsistency_lock;
 
 bool update_before_image_inconsistencies(THD *thd) {
-  if (likely(!thd || thd->bi_mismatch_infos.empty())) {
+  if (likely(!thd || !thd->rli_slave || thd->bi_mismatch_infos.empty())) {
     return true;
   }
 

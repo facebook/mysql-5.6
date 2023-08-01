@@ -1404,7 +1404,11 @@ void Relay_log_info::cleanup_context(THD *thd, bool error) {
     So, without the "if (error)" below, the isolation level might be reset
     in the middle of a pure row based transaction.
   */
-  if (error) trans_reset_one_shot_chistics(thd);
+  if (error) {
+    trans_reset_one_shot_chistics(thd);
+    // clear bi mismatches on error
+    thd->bi_mismatch_infos.clear();
+  }
 }
 
 void Relay_log_info::clear_tables_to_lock() {
