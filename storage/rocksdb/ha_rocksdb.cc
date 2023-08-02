@@ -12580,7 +12580,7 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
   }
 
   if (rocksdb_enable_bulk_load_api && THDVAR(table->in_use, bulk_load) &&
-      !hidden_pk) {
+      !hidden_pk && !is_dd_update()) {
     /*
       Write the primary key directly to an SST file using an SstFileWriter
      */
@@ -12853,10 +12853,10 @@ int ha_rocksdb::update_write_indexes(const struct update_row_info &row_info,
   }
 
   // Update the remaining indexes. Allow bulk loading only if
-  // allow_sk is enabled
+  // allow_sk is enabled and isn't dd operation(change table metadata)
   bulk_load_sk = rocksdb_enable_bulk_load_api &&
                  THDVAR(table->in_use, bulk_load) &&
-                 THDVAR(table->in_use, bulk_load_allow_sk);
+                 THDVAR(table->in_use, bulk_load_allow_sk) && !is_dd_update();
   for (uint key_id = 0; key_id < m_tbl_def->m_key_count; key_id++) {
     if (is_pk(key_id, table, m_tbl_def)) {
       continue;
@@ -16460,6 +16460,19 @@ after check_if_supported_inplace_alter()
 inline bool ha_rocksdb::is_instant(const Alter_inplace_info *ha_alter_info) {
   return (ha_alter_info->handler_trivial_ctx !=
           static_cast<uint8_t>(Instant_Type::INSTANT_IMPOSSIBLE));
+}
+
+/*
+  DDL trx update both table metadata(DD table) and raw data,
+  - For table metadata(thd_is_dd_update_stmt()==True), always skip bulk loading
+  due to DD will read/restore latest metadata after updating metadata and bulk
+  loading doesn't suppose read before commit
+  - For raw data(thd_is_dd_update_stmt()==False), use bulk-load if requested
+  @return True if DDSE is rocksdb and it is updating table metadata
+*/
+bool ha_rocksdb::is_dd_update() const {
+  return default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+         thd_is_dd_update_stmt(ha_thd());
 }
 
 #define SHOW_FNAME(name) rocksdb_show_##name

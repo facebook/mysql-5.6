@@ -1000,6 +1000,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   void build_decoder();
   void check_build_decoder();
 
+  bool is_dd_update() const;
+
  protected:
   int records(ha_rows *num_rows) override;
   int records_from_index(ha_rows *num_rows, uint index) override;
