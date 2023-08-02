@@ -12548,8 +12548,17 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
     get_ha_data(ha_thd())->total_tmp_table_size += row_size;
   }
 
+  /*
+    DDL trx update table metadata(DD table) and raw data,
+    For table metadata(thd_is_dd_update_stmt()==True), always skip bulk loading
+    due to DD will read/restore latest metadata after updating metadata
+    For raw data(thd_is_dd_update_stmt()==False), use bulk-load if requested
+  */
+  bool is_dd_operation = default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+                         thd_is_dd_update_stmt(ha_thd());
+
   if (rocksdb_enable_bulk_load_api && THDVAR(table->in_use, bulk_load) &&
-      !hidden_pk) {
+      !hidden_pk && !is_dd_operation) {
     /*
       Write the primary key directly to an SST file using an SstFileWriter
      */
@@ -12821,11 +12830,20 @@ int ha_rocksdb::update_write_indexes(const struct update_row_info &row_info,
     return rc;
   }
 
+  /*
+    DDL trx update table metadata(DD table) and raw data,
+    For table metadata(thd_is_dd_update_stmt()==True), always skip bulk loading
+    due to DD will read/restore latest metadata after updating metadata
+    For raw data(thd_is_dd_update_stmt()==False), use bulk-load if requested
+  */
+  bool is_dd_operation = default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+                         thd_is_dd_update_stmt(ha_thd());
+
   // Update the remaining indexes. Allow bulk loading only if
   // allow_sk is enabled
   bulk_load_sk = rocksdb_enable_bulk_load_api &&
                  THDVAR(table->in_use, bulk_load) &&
-                 THDVAR(table->in_use, bulk_load_allow_sk);
+                 THDVAR(table->in_use, bulk_load_allow_sk) && !is_dd_operation;
   for (uint key_id = 0; key_id < m_tbl_def->m_key_count; key_id++) {
     if (is_pk(key_id, table, m_tbl_def)) {
       continue;
