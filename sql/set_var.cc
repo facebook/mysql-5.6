@@ -738,19 +738,13 @@ ulonglong get_system_variable_hash_version(void) {
   @retval               True on error, false otherwise
 */
 bool enumerate_sys_vars(Show_var_array *show_var_array, bool sort,
-                        enum enum_var_type query_scope, bool strict,
-                        const char *prefix, std::size_t prefix_len) {
+                        enum enum_var_type query_scope, bool strict) {
   assert(show_var_array != nullptr);
   assert(query_scope == OPT_SESSION || query_scope == OPT_GLOBAL);
   int count = system_variable_hash->size();
 
   /* Resize array if necessary. */
   if (show_var_array->reserve(count + 1)) return true;
-
-  /* If there is no prefix string, ensure the prefix_len is 0 */
-  if (!prefix) {
-    prefix_len = 0;
-  }
 
   if (show_var_array) {
     for (const auto &key_and_value : *system_variable_hash) {
@@ -776,17 +770,6 @@ bool enumerate_sys_vars(Show_var_array *show_var_array, bool sort,
 
       /* Don't show non-visible variables. */
       if (sysvar->not_visible()) continue;
-
-      /* Filter for prefix */
-      if (prefix_len > 0) {
-        const auto len = strlen(sysvar->name.str);
-        if (system_charset_info->coll->strnncoll(
-                system_charset_info,
-                reinterpret_cast<const uchar *>(sysvar->name.str), len,
-                reinterpret_cast<const uchar *>(prefix), prefix_len, true)) {
-          continue;
-        }
-      }
 
       SHOW_VAR show_var;
       show_var.name = sysvar->name.str;

@@ -688,8 +688,7 @@ extern bool get_sysvar_source(const char *name, uint length,
                               enum enum_variable_source *source);
 
 bool enumerate_sys_vars(Show_var_array *show_var_array, bool sort,
-                        enum enum_var_type type, bool strict,
-                        const char *prefix, std::size_t prefix_len);
+                        enum enum_var_type type, bool strict);
 void lock_plugin_mutex();
 void unlock_plugin_mutex();
 sys_var *find_sys_var(THD *thd, const char *str, size_t length = 0);

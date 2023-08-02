@@ -446,20 +446,6 @@ class PFS_variable_cache {
 
   /* True if summarizing across users, hosts or accounts. */
   bool m_aggregate;
-
-  /**
-    Helper class to filter out variables and status that don't match
-    a prefix conditional like `SHOW VARIABLES LIKE 'sql%';` to speed
-    up `SHOW VARIABLES | STATUS` processing.
-  */
-  class prefix_match {
-   public:
-    const char *m_wild;
-    std::size_t m_before_wild_len;
-
-    prefix_match(THD *thd);
-    bool match(const char *name);
-  } m_prefix_match;
 };
 
 /**
