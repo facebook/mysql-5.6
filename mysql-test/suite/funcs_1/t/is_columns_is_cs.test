@@ -1,4 +1,4 @@
-# suite/funcs_1/t/is_columns_is.test
+# suite/funcs_1/t/is_columns_is_cs.test
 #
 # Check the content of information_schema.columns about tables within
 # the database information_schema.
