@@ -1,18 +1,13 @@
-# suite/funcs_1/t/is_columns_is.test
+# suite/thread_pool/t/is_columns_is_cs.test
 #
-# Check the content of information_schema.columns about tables within
-# the database information_schema.
+# Note: This is forked from suite/funcs_1/t/is_columns_is_cs.test with the
+# addition of requiring thread_pool plugin to be loaded.
+# This has the effect of testing the column metadata of all I_S tables including
+# those introduced by thread_pool, such as TP_ADMISSION_CONTROL_ENTITIES.
 #
-# Note: The INFORMATION_SCHEMA table PROFILING is optional (exists in MySQL
-#       Community version only) and therefore we exclude it from retrieval.
-#
-# Author:
-# 2008-01-23 mleich WL#4203 Reorganize and fix the data dictionary tests of
-#                           testsuite funcs_1
-#                   Create this script based on older scripts and new code.
-#
---source include/have_thread_pool_plugin.inc
+# See the original test for details of the test's purpose.
 
+--source include/have_thread_pool_plugin.inc
 
 # Result differences depending on FS case sensitivity.
 if (!$require_case_insensitive_file_system)

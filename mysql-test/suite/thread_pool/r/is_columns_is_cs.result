@@ -623,21 +623,22 @@ def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	ABORTED_QUERIES	4		NO	bigin
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TIMEOUT_QUERIES	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CONNECTIONS	6		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	REJECTED_CONNECTIONS	7		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MIN_PERCENT	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MAX_PERCENT	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_USEC	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_CPU_PERCENT	11		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	AVG_LAST_TEN_CPU_PERCENT	12		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	QUANTUM_COUNT	13		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MIN_RRU	14		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MAX_RRU	15		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_CPU_RRU	16		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_USEC	17		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAYED_QUERIES	18		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_PERCENT	19		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_RRU	20		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_RRU	21		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_RRU	22		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	STARVATIONS	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MIN_PERCENT	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MAX_PERCENT	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_USEC	11		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_CPU_PERCENT	12		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	AVG_LAST_TEN_CPU_PERCENT	13		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	QUANTUM_COUNT	14		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MIN_RRU	15		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MAX_RRU	16		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_CPU_RRU	17		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_USEC	18		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAYED_QUERIES	19		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_PERCENT	20		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_RRU	21		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_RRU	22		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_RRU	23		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_QUEUE	QUEUE_ID	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
@@ -655,6 +656,7 @@ def	information_schema	TP_SCHEDULERS	IDLE_CONNECTIONS	6		NO	bigint	NULL	NULL	NUL
 def	information_schema	TP_SCHEDULERS	IDLE	7		NO	varchar	1	3	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select			NULL	#
 def	information_schema	TP_SCHEDULERS	CONTEXT_SWITCHES	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_SCHEDULERS	STALLS	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULERS	STARVED_TENANTS	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TRIGGERS	TRIGGER_CATALOG	1	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_bin	varchar(64)			select			NULL	#
 def	information_schema	TRIGGERS	TRIGGER_SCHEMA	2	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_bin	varchar(64)			select			NULL	#
 def	information_schema	TRIGGERS	TRIGGER_NAME	3	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select			NULL	#
@@ -1416,6 +1418,7 @@ NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	ABORTED_QUERIES	bigint	NUL
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TIMEOUT_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CONNECTIONS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	REJECTED_CONNECTIONS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	STARVATIONS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MIN_PERCENT	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MAX_PERCENT	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
@@ -1448,6 +1451,7 @@ NULL	information_schema	TP_SCHEDULERS	IDLE_CONNECTIONS	bigint	NULL	NULL	NULL	NUL
 3.0000	information_schema	TP_SCHEDULERS	IDLE	varchar	1	3	utf8	utf8_general_ci	varchar(3)
 NULL	information_schema	TP_SCHEDULERS	CONTEXT_SWITCHES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_SCHEDULERS	STALLS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_SCHEDULERS	STARVED_TENANTS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 3.0000	information_schema	TRIGGERS	TRIGGER_CATALOG	varchar	64	192	utf8	utf8_bin	varchar(64)
 3.0000	information_schema	TRIGGERS	TRIGGER_SCHEMA	varchar	64	192	utf8	utf8_bin	varchar(64)
 3.0000	information_schema	TRIGGERS	TRIGGER_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
