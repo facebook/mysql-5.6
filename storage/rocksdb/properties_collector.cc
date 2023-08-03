@@ -39,7 +39,7 @@ std::atomic<uint64_t> rocksdb_num_sst_entry_singledelete(0);
 std::atomic<uint64_t> rocksdb_num_sst_entry_merge(0);
 std::atomic<uint64_t> rocksdb_num_sst_entry_other(0);
 std::atomic<uint64_t> rocksdb_additional_compaction_triggers(0);
-bool rocksdb_compaction_sequential_deletes_count_sd = false;
+bool rocksdb_compaction_sequential_deletes_count_sd = true;
 
 Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
                                      const Rdb_compact_params &params,

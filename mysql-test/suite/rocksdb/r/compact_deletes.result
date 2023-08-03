@@ -27,9 +27,9 @@ sleep(1)
 0
 wait_for_delete: 0
 There are deletes left
-SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes= 149999;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
-SET GLOBAL rocksdb_compaction_sequential_deletes_window= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes_window= 150000;
 Test 2: Do a bunch of updates and set the compaction sysvar
 Expect: compaction
 set global rocksdb_compaction_sequential_deletes_window=1000;
@@ -41,9 +41,9 @@ sleep(1)
 0
 wait_for_delete: 1
 No more deletes left
-SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes= 149999;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
-SET GLOBAL rocksdb_compaction_sequential_deletes_window= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes_window= 150000;
 Test 3: Do a bunch of updates and set the compaction sysvar and a file size to something large
 Expect: no compaction
 set global rocksdb_compaction_sequential_deletes_window=1000;
@@ -55,9 +55,9 @@ sleep(1)
 0
 wait_for_delete: 0
 There are deletes left
-SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes= 149999;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
-SET GLOBAL rocksdb_compaction_sequential_deletes_window= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes_window= 150000;
 Test 4: Do a bunch of secondary key updates and set the compaction sysvar
 Expect: compaction
 set global rocksdb_compaction_sequential_deletes_window=1000;
@@ -69,9 +69,9 @@ sleep(1)
 0
 wait_for_delete: 1
 No more deletes left
-SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes= 149999;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
-SET GLOBAL rocksdb_compaction_sequential_deletes_window= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes_window= 150000;
 Test 5: Do a bunch of secondary key updates and set the compaction sysvar,
 and rocksdb_compaction_sequential_deletes_count_sd turned on
 Expect: compaction
@@ -86,8 +86,8 @@ sleep(1)
 0
 wait_for_delete: 1
 No more deletes left
-SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes= 149999;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
-SET GLOBAL rocksdb_compaction_sequential_deletes_window= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes_window= 150000;
 SET GLOBAL rocksdb_compaction_sequential_deletes_count_sd= @save_rocksdb_compaction_sequential_deletes_count_sd;
 drop table r1;

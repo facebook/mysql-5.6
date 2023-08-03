@@ -2000,6 +2000,7 @@ The following options may be given as the first argument:
  --rocksdb-compaction-sequential-deletes-count-sd 
  Counting SingleDelete as
  rocksdb_compaction_sequential_deletes
+ (Defaults to on; use --skip-rocksdb-compaction-sequential-deletes-count-sd to disable.)
  --rocksdb-compaction-sequential-deletes-file-size=# 
  Minimum file size required for
  compaction_sequential_deletes
@@ -3651,10 +3652,10 @@ rocksdb-compact-cf
 rocksdb-compact-lzero-now FALSE
 rocksdb-compaction-history ON
 rocksdb-compaction-readahead-size 0
-rocksdb-compaction-sequential-deletes 0
-rocksdb-compaction-sequential-deletes-count-sd FALSE
+rocksdb-compaction-sequential-deletes 149999
+rocksdb-compaction-sequential-deletes-count-sd TRUE
 rocksdb-compaction-sequential-deletes-file-size 0
-rocksdb-compaction-sequential-deletes-window 0
+rocksdb-compaction-sequential-deletes-window 150000
 rocksdb-compaction-stats ON
 rocksdb-converter-record-cached-length 0
 rocksdb-corrupt-data-action ERROR

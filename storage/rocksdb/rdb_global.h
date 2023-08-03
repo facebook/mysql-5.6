@@ -217,10 +217,10 @@ const char *const RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER =
   Default and maximum values for rocksdb-compaction-sequential-deletes and
   rocksdb-compaction-sequential-deletes-window to add basic boundary checking.
 */
-#define DEFAULT_COMPACTION_SEQUENTIAL_DELETES 0
+#define DEFAULT_COMPACTION_SEQUENTIAL_DELETES 149999
 #define MAX_COMPACTION_SEQUENTIAL_DELETES 2000000
 
-#define DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW 0
+#define DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW 150000
 #define MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW 2000000
 
 /*
