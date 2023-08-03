@@ -3537,6 +3537,8 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
   Table_ref *all_tables;
   // keep GTID violation state in order to roll it back on statement failure
   bool gtid_consistency_violation_state = thd->has_gtid_consistency_violation;
+  State_tracker *tracker =
+      thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
   assert(query_block->master_query_expression() == lex->unit);
   DBUG_TRACE;
   /* EXPLAIN OTHER isn't explainable command, but can have describe flag. */
@@ -3981,6 +3983,17 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
   if (!command_satisfy_acl_cache_requirement(lex->sql_command)) {
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     goto error;
+  }
+
+  if (enable_binlog_hlc && maintain_database_hlc && thd->db().length &&
+      thd->variables.response_attrs_contain_hlc_lower_bound &&
+      tracker->is_enabled()) {
+    LEX_CSTRING key = {STRING_WITH_LEN("hlc_ts_lower_bound")};
+    std::string db(thd->db().str, thd->db().length);
+    const std::string &value_str =
+        std::to_string(mysql_bin_log.get_selected_database_hlc(db));
+    const LEX_CSTRING value = {value_str.c_str(), value_str.length()};
+    tracker->mark_as_changed(thd, key, &value);
   }
 
   /* Check if the HLC read bound/wait is satisfied */

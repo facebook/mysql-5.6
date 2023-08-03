@@ -6083,6 +6083,14 @@ static Sys_var_bool Sys_response_attrs_contain_hlc(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_outside_transaction),
     ON_UPDATE(nullptr));
 
+static Sys_var_bool Sys_response_attrs_contain_hlc_lower_bound(
+    "response_attrs_contain_hlc_lower_bound",
+    "When enabled lower bound HLC timestamp is sent in response attrs with key "
+    "'hlc_ts_lower_bound'",
+    SESSION_VAR(response_attrs_contain_hlc_lower_bound), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_outside_transaction), ON_UPDATE(nullptr));
+
 static Sys_var_bool Sys_response_attrs_contain_binlog_row_image_delta(
     "response_attrs_contain_binlog_row_image_delta",
     "When enabled we send difference between the field sizes of after image "

@@ -1814,6 +1814,9 @@ The following options may be given as the first argument:
  pair - 'hlc_ts' is the key and the value is the
  stringified HLC timestamp. Note that HLC should be
  enabled by setting enable_binlog_hlc
+ --response-attrs-contain-hlc-lower-bound 
+ When enabled lower bound HLC timestamp is sent in
+ response attrs with key 'hlc_ts_lower_bound'
  --response-attrs-contain-read-tables-bytes[=#] 
  Specifies the size of the tables information (specified
  in bytes) that can be included in the query response
@@ -3592,6 +3595,7 @@ reset-period-status-vars FALSE
 reset-seconds-behind-master TRUE
 response-attrs-contain-binlog-row-image-delta FALSE
 response-attrs-contain-hlc FALSE
+response-attrs-contain-hlc-lower-bound FALSE
 response-attrs-contain-read-tables-bytes 0
 response-attrs-contain-server-cpu FALSE
 response-attrs-contain-warnings-bytes 0

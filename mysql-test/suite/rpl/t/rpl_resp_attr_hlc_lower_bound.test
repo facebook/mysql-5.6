@@ -1,0 +1,84 @@
+source include/master-slave.inc;
+source include/have_debug.inc;
+source include/not_parallel.inc;
+
+connection master;
+# Set minimum_hlc_ns to a high value. Subsequent txn's should see monotonically
+# increasing timestamp from this point
+connection master;
+set session debug="+d,allow_long_hlc_drift_for_tests";
+set @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+
+create table t1 (a int primary key auto_increment, b int default 0) engine = innodb;
+
+
+echo "Autocommit insert should return lower bound HLC";
+insert into t1 values();
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+echo "Autocommit update should return lower bound HLC";
+update t1 set b = 1;
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+echo "Select should return lower bound HLC";
+select * from t1;
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+echo "Checking lower bound HLC returned by multi statement trx";
+echo "BEGIN will return lower bound HLC";
+begin;
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+echo "Insert will return lower bound HLC (which has not changed since last time)";
+insert into t1 values();
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+echo "Select will return lower bound HLC (which has not changed since last time)";
+select * from t1;
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+echo "Committing trx in another connection to bump HLC";
+connection master1;
+insert into t1 values();
+
+connection master;
+echo "Now the select will get the updated lower bound HLC";
+select * from t1;
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+echo "COMMIT will return lower bound HLC";
+commit;
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+echo "Lower bound HLC is also returned on secondary";
+select * from t1;
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+connection master;
+echo "When session var is not set, no HLC is returned";
+set @@session.response_attrs_contain_hlc_lower_bound = 0;
+insert into t1 values();
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+set @@session.response_attrs_contain_hlc_lower_bound = 1;
+echo "DDL will return lower bound HLC";
+drop table t1;
+let $delta = get_response_attribute(hlc_ts_lower_bound);
+echo $delta;
+
+set @@global.minimum_hlc_ns = 0;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

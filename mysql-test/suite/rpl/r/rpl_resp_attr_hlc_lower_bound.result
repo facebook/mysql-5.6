@@ -1,0 +1,62 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set session debug="+d,allow_long_hlc_drift_for_tests";
+set @@global.minimum_hlc_ns = 2538630000000000000;
+create table t1 (a int primary key auto_increment, b int default 0) engine = innodb;
+"Autocommit insert should return lower bound HLC"
+insert into t1 values();
+2538630000000000001
+"Autocommit update should return lower bound HLC"
+update t1 set b = 1;
+2538630000000000002
+"Select should return lower bound HLC"
+select * from t1;
+a	b
+1	1
+2538630000000000003
+"Checking lower bound HLC returned by multi statement trx"
+"BEGIN will return lower bound HLC"
+begin;
+2538630000000000003
+"Insert will return lower bound HLC (which has not changed since last time)"
+insert into t1 values();
+2538630000000000003
+"Select will return lower bound HLC (which has not changed since last time)"
+select * from t1;
+a	b
+1	1
+2	0
+2538630000000000003
+"Committing trx in another connection to bump HLC"
+insert into t1 values();
+"Now the select will get the updated lower bound HLC"
+select * from t1;
+a	b
+1	1
+2	0
+2538630000000000004
+"COMMIT will return lower bound HLC"
+commit;
+2538630000000000004
+include/sync_slave_sql_with_master.inc
+"Lower bound HLC is also returned on secondary"
+select * from t1;
+a	b
+1	1
+2	0
+3	0
+2538630000000000005
+"When session var is not set, no HLC is returned"
+set @@session.response_attrs_contain_hlc_lower_bound = 0;
+insert into t1 values();
+
+set @@session.response_attrs_contain_hlc_lower_bound = 1;
+"DDL will return lower bound HLC"
+drop table t1;
+2538630000000000006
+set @@global.minimum_hlc_ns = 0;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
