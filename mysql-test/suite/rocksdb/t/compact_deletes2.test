@@ -60,6 +60,8 @@ SET GLOBAL rocksdb_compaction_sequential_deletes_count_sd= @save_rocksdb_compact
 --source compact_deletes2_load.inc
 --exec echo Test 3: Do a bunch of deletions with save_rocksdb_compaction_sequential_deletes_count_sd=OFF
 --exec echo Expect: compaction
+SET @save_rocksdb_compaction_sequential_deletes_count_sd = @@global.rocksdb_compaction_sequential_deletes_count_sd;
+SET GLOBAL rocksdb_compaction_sequential_deletes_count_sd= OFF;
 let $window = 10000;
 let $deletes = 9999;
 let $file_size = 0;
@@ -71,5 +73,6 @@ let $no_more_rows = 1;
 select variable_value into @a from performance_schema.global_status where variable_name='rocksdb_additional_compaction_triggers';
 --source compact_deletes_test.inc
 select case when variable_value-@a > 0 then 'true' else 'false' end as additional_compaction from performance_schema.global_status where variable_name='rocksdb_additional_compaction_triggers';
+SET GLOBAL rocksdb_compaction_sequential_deletes_count_sd= @save_rocksdb_compaction_sequential_deletes_count_sd;
 
 drop table r1;
