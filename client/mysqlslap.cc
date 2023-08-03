@@ -87,9 +87,11 @@ TODO:
 
 #include "my_config.h"
 
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <fcntl.h>
 #include <mysqld_error.h>
+#include <netdb.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -293,6 +295,7 @@ void concurrency_loop(MYSQL *mysql, uint current, option_string *eptr);
 static int run_statements(MYSQL *mysql, statement *stmt);
 int slap_connect(MYSQL *mysql);
 static int run_query(MYSQL *mysql, const char *query, size_t len);
+static void convert_host_to_ip_address();
 
 static const char ALPHANUMERICS[] =
     "0123456789ABCDEFGHIJKLMNOPQRSTWXYZabcdefghijklmnopqrstuvwxyz";
@@ -384,6 +387,7 @@ int main(int argc, char **argv) {
   set_server_public_key(&mysql);
   set_get_server_public_key_option(&mysql);
   set_password_options(&mysql);
+  convert_host_to_ip_address();
   if (!opt_only_print) {
     if (!(mysql_real_connect(&mysql, host, user, nullptr, nullptr,
                              opt_mysql_port, opt_mysql_unix_port,
@@ -440,6 +444,7 @@ int main(int argc, char **argv) {
   /* now free all the strings we created */
   free_passwords();
   my_free(concurrency);
+  my_free(host);
 
   statement_cleanup(create_statements);
   statement_cleanup(query_statements);
@@ -2072,4 +2077,67 @@ int slap_connect(MYSQL *mysql) {
   }
 
   return 0;
+}
+
+static char *ipv4_to_string(const sockaddr_in *addr) {
+  char str[sizeof("255.255.255.255")];
+  inet_ntop(AF_INET, &addr->sin_addr, str, sizeof(str));
+  return my_strdup(PSI_NOT_INSTRUMENTED, str, MYF(0));
+}
+
+static char *ipv6_to_string(const sockaddr_in6 *addr) {
+  char str[sizeof("2001:0db8:0000:0000:0000:ff00:0042:8329")];
+  inet_ntop(AF_INET6, &addr->sin6_addr, str, sizeof(str));
+  return my_strdup(PSI_NOT_INSTRUMENTED, str, MYF(0));
+}
+
+void convert_host_to_ip_address() {
+  char *host_orig = host;
+
+  /* Converting localhost to IP address can cause SSL failures. */
+  if (strcmp(host, "localhost") != 0) {
+    int families[] = {AF_INET6, AF_INET};
+    for (auto family : families) {
+      addrinfo hints;
+      memset(&hints, 0, sizeof(hints));
+      hints.ai_family = family;
+
+      addrinfo *addrs = nullptr;
+      if (getaddrinfo(host, nullptr, &hints, &addrs) != 0) {
+        /* If host is invalid it will fail for all families and will remain
+          unchanged. As a result, connection to MySQL will fail, and that
+          error will be reported to the user. */
+        continue;
+      }
+
+      auto addr = addrs;
+      while (addr && addr->ai_family != family) {
+        addr = addr->ai_next;
+      }
+
+      if (addr) {
+        if (family == AF_INET) {
+          host = ipv4_to_string(reinterpret_cast<sockaddr_in *>(addr->ai_addr));
+        } else {
+          host = ipv6_to_string(reinterpret_cast<sockaddr_in6 *>(addr->ai_addr));
+        }
+      }
+
+      /* Free addrinfo structures and break the loop if success. */
+      freeaddrinfo(addrs);
+      if (addr) {
+        if (verbose >= 2) {
+          printf("Host %s is converted to %s\n", host_orig, host);
+        }
+
+        break;
+      }
+    }
+  }
+
+  if (host == host_orig) {
+    /* Duplicate host if it wasn't converted so that it can be freed
+       at the end without checks. */
+    host = my_strdup(PSI_NOT_INSTRUMENTED, host, MYF(0));
+  }
 }
