@@ -1,0 +1,14 @@
+
+!include ../my.cnf
+
+[mysqld.1]
+enable_binlog_hlc=1
+maintain_database_hlc=1
+response_attrs_contain_hlc_lower_bound=1
+session_track_response_attributes=1
+
+[mysqld.2]
+enable_binlog_hlc=1
+maintain_database_hlc=1
+response_attrs_contain_hlc_lower_bound=1
+session_track_response_attributes=1
