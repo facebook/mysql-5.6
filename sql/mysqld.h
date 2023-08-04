@@ -497,6 +497,7 @@ extern char *opt_applylog_index_name;
 extern ulong opt_commit_consensus_error_action;
 /* If server should clear log position on rollback */
 extern bool opt_commit_consensus_error_rollback_clear_logpos;
+extern bool opt_commit_consensus_wait_max_marker;
 
 /* Failure injection related variables */
 extern bool enable_failure_injection;

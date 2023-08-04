@@ -9328,6 +9328,13 @@ static Sys_var_bool Sys_commit_consensus_error_rollback_clear_logpos(
     GLOBAL_VAR(opt_commit_consensus_error_rollback_clear_logpos),
     CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_commit_consensus_wait_max_marker(
+    "commit_consensus_wait_max_marker",
+    "Controls if we wait on the THD with the highest marker within a batch in "
+    "ordered_commit to be consensus committed as opposed to the last THD",
+    GLOBAL_VAR(opt_commit_consensus_wait_max_marker), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
+
 #ifndef __APPLE__
 
 static bool update_session_dscp_on_socket(sys_var *, THD *thd,

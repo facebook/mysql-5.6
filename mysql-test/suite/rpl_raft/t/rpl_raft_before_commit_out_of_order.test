@@ -1,0 +1,90 @@
+source ../include/raft_3_node.inc;
+source include/have_mts_dependency_replication_tbl.inc;
+source include/have_debug_sync.inc;
+
+# Setup two DBs so we can commit out of order
+connection server_1;
+create database db1;
+use db1;
+create table tbl (a int primary key) engine = innodb;
+insert into tbl values(1);
+
+create database db2;
+use db2;
+create table tbl (a int primary key) engine = innodb;
+insert into tbl values(1);
+
+# Ensure replicas are in sync
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+# Setup the debug points for the replica under test
+# Also lock up db1.tbl to prevent db1 transactions from entering ordered commit
+connection server_2;
+stop replica sql_thread;
+set @@global.mts_dependency_order_commits = DB;
+start replica sql_thread;
+set @@global.rpl_raft_debug_sync_point = "ReplicationDoneCallback,UpdateConsensusApplied";
+set debug_sync = "bgc_after_enrolling_for_commit_stage SIGNAL reached WAIT_FOR continue";
+set @@sql_log_bin = 0;
+begin;
+update db1.tbl set a = 11;
+
+# Fire the write for db1, this should be OpID 1:8
+connection server_1;
+update db1.tbl set a = 10;
+
+# Allow replica to mark write for 1:8 as committed
+connection server_2;
+set @@global.rpl_raft_debug_sync_point_action = "wait_for ReplicationDoneCallback";
+set @@global.rpl_raft_debug_sync_point_action = "continue ReplicationDoneCallback";
+
+# Fire the write for db1, this should be OpID 1:9
+connection server_1;
+update db2.tbl set a = 10;
+
+# Hold up marking 1:9 as committed
+connection server_2;
+set @@global.rpl_raft_debug_sync_point_action = "wait_for ReplicationDoneCallback";
+
+# 1:9 should hit this point first, let it through, then release the lock for 1:8
+set debug_sync = "bgc_after_enrolling_for_commit_stage wait_for reached";
+rollback;
+set debug_sync = "bgc_after_enrolling_for_commit_stage wait_for reached";
+set debug_sync = "bgc_after_enrolling_for_commit_stage signal continue";
+set debug_sync = "bgc_after_enrolling_for_commit_stage signal continue";
+set @@sql_log_bin = 1;
+
+# At this point before_commit should trigger for 1:9 even though the transaction
+# chain is [1:9, 1:8], and we should be stuck. Nothing commits
+let $wait_condition = select COUNT(*) = 2 from performance_schema.processlist where STATE = "waiting for handler commit";
+source include/wait_condition.inc;
+
+select * from db1.tbl;
+select * from db2.tbl;
+
+# Allow 1:9 to be marked as committed and wait for the applier
+set @@global.rpl_raft_debug_sync_point_action = "continue ReplicationDoneCallback";
+set @@global.rpl_raft_debug_sync_point_action = "wait_for UpdateConsensusApplied";
+set @@global.rpl_raft_debug_sync_point_action = "continue UpdateConsensusApplied";
+set @@global.rpl_raft_debug_sync_point_action = "wait_for UpdateConsensusApplied";
+set @@global.rpl_raft_debug_sync_point_action = "continue UpdateConsensusApplied";
+
+# Both tranactions should now be committed
+select * from db1.tbl;
+select * from db2.tbl;
+
+# Clean up
+set @@global.rpl_raft_debug_sync_point = "";
+
+connection server_1;
+drop database db1;
+drop database db2;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+source include/rpl_end.inc;

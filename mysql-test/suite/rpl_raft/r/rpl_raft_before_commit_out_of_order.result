@@ -1,0 +1,73 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+create database db1;
+use db1;
+create table tbl (a int primary key) engine = innodb;
+insert into tbl values(1);
+create database db2;
+use db2;
+create table tbl (a int primary key) engine = innodb;
+insert into tbl values(1);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+stop replica sql_thread;
+set @@global.mts_dependency_order_commits = DB;
+start replica sql_thread;
+set @@global.rpl_raft_debug_sync_point = "ReplicationDoneCallback,UpdateConsensusApplied";
+set debug_sync = "bgc_after_enrolling_for_commit_stage SIGNAL reached WAIT_FOR continue";
+set @@sql_log_bin = 0;
+begin;
+update db1.tbl set a = 11;
+update db1.tbl set a = 10;
+set @@global.rpl_raft_debug_sync_point_action = "wait_for ReplicationDoneCallback";
+set @@global.rpl_raft_debug_sync_point_action = "continue ReplicationDoneCallback";
+update db2.tbl set a = 10;
+set @@global.rpl_raft_debug_sync_point_action = "wait_for ReplicationDoneCallback";
+set debug_sync = "bgc_after_enrolling_for_commit_stage wait_for reached";
+rollback;
+set debug_sync = "bgc_after_enrolling_for_commit_stage wait_for reached";
+set debug_sync = "bgc_after_enrolling_for_commit_stage signal continue";
+set debug_sync = "bgc_after_enrolling_for_commit_stage signal continue";
+set @@sql_log_bin = 1;
+select * from db1.tbl;
+a
+1
+select * from db2.tbl;
+a
+1
+set @@global.rpl_raft_debug_sync_point_action = "continue ReplicationDoneCallback";
+set @@global.rpl_raft_debug_sync_point_action = "wait_for UpdateConsensusApplied";
+set @@global.rpl_raft_debug_sync_point_action = "continue UpdateConsensusApplied";
+set @@global.rpl_raft_debug_sync_point_action = "wait_for UpdateConsensusApplied";
+set @@global.rpl_raft_debug_sync_point_action = "continue UpdateConsensusApplied";
+select * from db1.tbl;
+a
+10
+select * from db2.tbl;
+a
+10
+set @@global.rpl_raft_debug_sync_point = "";
+drop database db1;
+drop database db2;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

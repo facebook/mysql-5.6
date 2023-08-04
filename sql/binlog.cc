@@ -10970,14 +10970,26 @@ void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
   });
 
   THD *last_thd = NULL;
+  THD *max_marker_thd = NULL;
   int error = 0;
-  for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit)
-    if (thd->commit_error == THD::CE_NONE) last_thd = thd;
+  for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit) {
+    if (thd->commit_error == THD::CE_NONE) {
+      last_thd = thd;
+      max_marker_thd = (max_marker_thd == NULL)
+                           ? thd
+                           : max_marker_thd->compare_trans_marker(thd);
+    }
+  }
 
   if (last_thd) {
     auto start_time = my_timer_now();
 
-    error = RUN_HOOK_STRICT(raft_replication, before_commit, (last_thd));
+    if (opt_commit_consensus_wait_max_marker) {
+      error =
+          RUN_HOOK_STRICT(raft_replication, before_commit, (max_marker_thd));
+    } else {
+      error = RUN_HOOK_STRICT(raft_replication, before_commit, (last_thd));
+    }
 
     if (!this->is_apply_log) {
       auto wait_time = my_timer_since(start_time);

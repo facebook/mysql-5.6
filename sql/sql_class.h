@@ -3045,6 +3045,20 @@ class THD : public MDL_context_owner,
   /* Stash the trans marker i.e (term, index) tuple in this THD */
   void set_trans_marker(int64_t term, int64_t index);
 
+  /* Compares our transaction marker with other and returns one of them based on
+   * comparator */
+  template <class Compare = std::greater<int64_t>>
+  THD *compare_trans_marker(THD *other) {
+    Compare comparator;
+    int64_t other_term, other_index;
+    other->get_trans_marker(&other_term, &other_index);
+
+    if (term_ != other_term) {
+      return comparator(term_, other_term) ? this : other;
+    }
+    return comparator(index_, other_index) ? this : other;
+  }
+
   /* Returns the file that is considered safe to be deleted */
   std::string get_safe_purge_file() const;
 
