@@ -248,6 +248,8 @@ our $opt_manual_ddd;
 our $opt_manual_debug;
 our $opt_manual_gdb;
 our $opt_manual_lldb;
+our $opt_manual_gdb_server = "";
+our $opt_manual_lldb_server = "";
 our $opt_no_skip;
 our $opt_record;
 our $opt_report_unstable_tests;
@@ -1850,6 +1852,8 @@ sub command_line_setup {
     'manual-debug'         => \$opt_manual_debug,
     'manual-gdb'           => \$opt_manual_gdb,
     'manual-lldb'          => \$opt_manual_lldb,
+    'manual-gdb-server=s'  => \$opt_manual_gdb_server,
+    'manual-lldb-server=s'  => \$opt_manual_lldb_server,
     'max-save-core=i'      => \$opt_max_save_core,
     'max-save-datadir=i'   => \$opt_max_save_datadir,
     'max-test-fail=i'      => \$opt_max_test_fail,
@@ -2377,6 +2381,8 @@ sub command_line_setup {
       $opt_manual_gdb           ||
       $opt_manual_lldb          ||
       $opt_manual_ddd           ||
+      $opt_manual_gdb_server    ||
+      $opt_manual_lldb_server   ||
       $opt_manual_debug         ||
       $opt_dbx                  ||
       $opt_client_dbx           ||
@@ -5374,7 +5380,9 @@ sub run_testcase ($) {
     }
 
     if ($opt_manual_gdb ||
+        $opt_manual_gdb_server ||
         $opt_manual_lldb  ||
+        $opt_manual_lldb_server ||
         $opt_manual_ddd   ||
         $opt_manual_debug ||
         $opt_manual_dbx) {
@@ -5409,7 +5417,9 @@ sub run_testcase ($) {
   }
 
   if ($opt_manual_gdb ||
+      $opt_manual_gdb_server ||
       $opt_manual_lldb  ||
+      $opt_manual_lldb_server ||
       $opt_manual_ddd   ||
       $opt_manual_debug ||
       $opt_manual_dbx) {
@@ -6884,9 +6894,11 @@ sub mysqld_start ($$$$) {
 
   $pid_file = $mysqld->value('pid-file') if not defined $pid_file;
 
-  if ($opt_gdb || $opt_manual_gdb) {
+  if ($opt_gdb || $opt_manual_gdb ||
+      $opt_manual_gdb_server eq $mysqld->name()) {
     gdb_arguments(\$args, \$exe, $mysqld->name());
-  } elsif ($opt_lldb || $opt_manual_lldb) {
+  } elsif ($opt_lldb || $opt_manual_lldb ||
+      $opt_manual_lldb_server eq $mysqld->name()) {
     lldb_arguments(\$args, \$exe, $mysqld->name());
   } elsif ($opt_ddd || $opt_manual_ddd) {
     ddd_arguments(\$args, \$exe, $mysqld->name());
@@ -7754,7 +7766,8 @@ sub gdb_arguments {
   # write init file for mysqld or client
   mtr_tofile($gdb_init_file, "break main\n" . $runline);
 
-  if ($opt_manual_gdb || $opt_manual_boot_gdb) {
+  if ($opt_manual_gdb || $opt_manual_boot_gdb ||
+      $opt_manual_gdb_server eq $type) {
     print "\nTo start gdb for $type, type in another window:\n";
     print "gdb -cd $glob_mysql_test_dir -x $gdb_init_file $$exe\n";
 
@@ -7795,7 +7808,8 @@ sub lldb_arguments {
   # write init file for mysqld or client
   mtr_tofile($lldb_init_file, "process launch --stop-at-entry -- " . $str);
 
-  if ($opt_manual_lldb || $opt_manual_boot_lldb) {
+  if ($opt_manual_lldb || $opt_manual_boot_lldb ||
+      $opt_manual_lldb_server eq $type) {
     print "\nTo start lldb for $type, type in another window:\n";
     print "cd $glob_mysql_test_dir && lldb -s $lldb_init_file $$exe\n";
 
