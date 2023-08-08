@@ -3508,8 +3508,6 @@ class Rdb_transaction {
     @param wb
    */
   rocksdb::Status merge_auto_incr_map(rocksdb::WriteBatchBase *const wb) {
-    DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", return rocksdb::Status::OK(););
-
     // Iterate through the merge map merging all keys into data dictionary.
     rocksdb::Status s;
     for (auto &it : m_auto_incr_map) {
@@ -8611,39 +8609,28 @@ std::vector<std::string> Rdb_open_tables_map::get_table_names(void) const {
 
 void ha_rocksdb::load_auto_incr_value() {
   ulonglong auto_incr = 0;
-  bool validate_last = false, use_datadic = true;
-#ifndef NDEBUG
-  DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", use_datadic = false;);
-  validate_last = true;
-#endif
 
-  if (use_datadic &&
-      dict_manager
+  // fetch auto incr value from dd
+  if (dict_manager
           .get_dict_manager_selector_const(
               m_tbl_def->get_autoincr_gl_index_id().cf_id)
           ->get_auto_incr_val(m_tbl_def->get_autoincr_gl_index_id(),
                               &auto_incr)) {
-    update_auto_incr_val(auto_incr);
-  }
-
-  // If we find nothing in the data dictionary, or if we are in debug mode,
-  // then call index_last to get the last value.
-  //
-  // This is needed when upgrading from a server that did not support
-  // persistent auto_increment, of if the table is empty.
-  //
-  // For debug mode, we are just verifying that the data dictionary value is
-  // greater than or equal to the maximum value in the table.
-  if (auto_incr == 0 || validate_last) {
+#ifndef NDEBUG
+    // For debug mode, verify the value against the last value in the index.
+    load_auto_incr_value_from_index();
+#endif
+  } else {
+    // if not found, fetch auto incr value from index_last
     auto_incr = load_auto_incr_value_from_index();
-    update_auto_incr_val(auto_incr);
   }
 
   // If we failed to find anything from the data dictionary and index, then
   // initialize auto_increment to 1.
-  if (m_tbl_def->m_auto_incr_val == 0) {
-    update_auto_incr_val(1);
+  if (auto_incr == 0) {
+    auto_incr = 1;
   }
+  update_auto_incr_val(auto_incr);
 }
 
 ulonglong ha_rocksdb::load_auto_incr_value_from_index() {
@@ -10271,16 +10258,12 @@ int ha_rocksdb::create_table(const std::string &table_name,
   m_pk_descr = m_key_descr_arr[pk_index(table_arg, *m_tbl_def)];
 
   if (auto_increment_value) {
-    bool autoinc_upgrade_test = false;
     m_tbl_def->m_auto_incr_val = auto_increment_value;
-    DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", autoinc_upgrade_test = true;);
-    if (!autoinc_upgrade_test) {
-      auto s = local_dict_manager->put_auto_incr_val(
-          batch, m_tbl_def->get_autoincr_gl_index_id(),
-          m_tbl_def->m_auto_incr_val);
-      if (!s.ok()) {
-        goto error;
-      }
+    const auto s = local_dict_manager->put_auto_incr_val(
+        batch, m_tbl_def->get_autoincr_gl_index_id(),
+        m_tbl_def->m_auto_incr_val);
+    if (!s.ok()) {
+      goto error;
     }
   }
 
