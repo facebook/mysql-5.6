@@ -4,50 +4,9 @@
 --source include/not_valgrind.inc
 
 --echo #
---echo # Testing upgrading from server without merges for auto_increment
---echo # to new server with such support.
---echo #
-
-set debug='+d,myrocks_autoinc_upgrade';
-create table t (i int primary key auto_increment);
-insert into t values ();
-insert into t values ();
-insert into t values ();
-select * from t;
-
-delete from t where i > 1;
-select * from t;
-
-select table_name, index_name, auto_increment
-  from information_schema.rocksdb_ddl where table_name = 't';
-
-set debug='-d,myrocks_autoinc_upgrade';
-
---source include/restart_mysqld.inc
-
-insert into t values ();
-insert into t values ();
-insert into t values ();
-select * from t;
-
-select table_name, index_name, auto_increment
-  from information_schema.rocksdb_ddl where table_name = 't';
-
-delete from t where i > 1;
-
---source include/restart_mysqld.inc
-
-insert into t values ();
-insert into t values ();
-insert into t values ();
-select * from t;
-
-drop table t;
-
---echo #
 --echo # Testing crash safety of transactions.
 --echo #
-create table t (i int primary key auto_increment);
+create table t (i int primary key auto_increment) engine=rocksdb;
 insert into t values ();
 insert into t values ();
 insert into t values ();

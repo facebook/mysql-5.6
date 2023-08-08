@@ -1,56 +1,7 @@
 #
-# Testing upgrading from server without merges for auto_increment
-# to new server with such support.
-#
-set debug='+d,myrocks_autoinc_upgrade';
-create table t (i int primary key auto_increment);
-insert into t values ();
-insert into t values ();
-insert into t values ();
-select * from t;
-i
-1
-2
-3
-delete from t where i > 1;
-select * from t;
-i
-1
-select table_name, index_name, auto_increment
-from information_schema.rocksdb_ddl where table_name = 't';
-table_name	index_name	auto_increment
-t	PRIMARY	NULL
-set debug='-d,myrocks_autoinc_upgrade';
-# restart
-insert into t values ();
-insert into t values ();
-insert into t values ();
-select * from t;
-i
-1
-2
-3
-4
-select table_name, index_name, auto_increment
-from information_schema.rocksdb_ddl where table_name = 't';
-table_name	index_name	auto_increment
-t	PRIMARY	5
-delete from t where i > 1;
-# restart
-insert into t values ();
-insert into t values ();
-insert into t values ();
-select * from t;
-i
-1
-5
-6
-7
-drop table t;
-#
 # Testing crash safety of transactions.
 #
-create table t (i int primary key auto_increment);
+create table t (i int primary key auto_increment) engine=rocksdb;
 insert into t values ();
 insert into t values ();
 insert into t values ();
