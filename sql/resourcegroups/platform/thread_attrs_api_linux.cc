@@ -166,10 +166,10 @@ uint32_t num_vcpus_using_affinity() {
 uint32_t num_vcpus_using_config() {
   cpu_id_t num_vcpus = 0;
 
-#ifdef _SC_NPROCESSORS_ONLN
-  num_vcpus = sysconf(_SC_NPROCESSORS_ONLN);
-#elif defined(_SC_NPROCESSORS_CONF)
+#if defined(_SC_NPROCESSORS_CONF)
   num_vcpus = sysconf(_SC_NPROCESSORS_CONF);
+#elif defined(_SC_NPROCESSORS_ONLN)
+  num_vcpus = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
 
   return num_vcpus;
