@@ -1,0 +1,48 @@
+source include/master-slave.inc;
+source include/have_slave_use_idempotent_for_recovery.inc;
+source include/have_gtid.inc;
+source include/have_debug_sync.inc;
+
+connection master;
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT) ENGINE = INNODB;
+INSERT INTO t1 VALUES(1, 1);
+let $uuid = `SELECT @@GLOBAL.SERVER_UUID`;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+# Construct a new gtid set which is gtid_executed + 2
+let $gtid_purged = `SELECT CONCAT(SUBSTRING_INDEX((SELECT @@GLOBAL.GTID_EXECUTED), ':', 1), ':', "1-", CAST(SUBSTRING_INDEX((SELECT @@GLOBAL.GTID_EXECUTED), '-', -1) AS UNSIGNED) + 2)`;
+
+RESET MASTER;
+replace_result $uuid uuid;
+eval SET @@GLOBAL.GTID_PURGED = "$gtid_purged";
+
+# Enable idempotent recovery for all transactions
+SET @@GLOBAL.DEBUG = '+d,dbg_enable_idempotent_recovery';
+
+# Execute two transactions, they are part of gtid_executed in replica so will be entirely skipped
+connection master;
+INSERT INTO t1 VALUES(2, 2);
+INSERT INTO t1 VALUES(3, 3);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+# Disable idempotent recovery for all transactions
+SET @@GLOBAL.DEBUG = '-d,dbg_enable_idempotent_recovery';
+
+connection master;
+# This insert should NOT skip row logging functions so we should see a row event in the binlog for it
+INSERT INTO t1 VALUES(4, 4);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+# Check if we have one Write_rows event in the binlog
+let $MYSQLD_DATADIR = `SELECT @@DATADIR`;
+exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/slave-bin.0* | grep Write_rows | wc -l;
+
+# Cleanup
+connection master;
+DROP TABLE t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

@@ -274,7 +274,6 @@ Slave_worker::Slave_worker(Relay_log_info *rli,
     So when factoring out this code, please, consider this.
   */
   assert(internal_id == id + 1);
-  worker_last_gtid[0] = 0;
   checkpoint_relay_log_name[0] = 0;
   checkpoint_master_log_name[0] = 0;
 
@@ -1903,13 +1902,11 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
   set_master_log_pos(static_cast<ulong>(ev->common_header->log_pos));
   set_gaq_index(ev->mts_group_idx);
 
-  ev->check_and_set_idempotent_recovery(this, worker_last_gtid);
-
   ret = ev->do_apply_event_worker(this);
 
   if (is_gtid_event(ev)) {
     auto gtid_ev = static_cast<Gtid_log_event *>(ev);
-    gtid_ev->extract_last_gtid_to(worker_last_gtid);
+    gtid_ev->extract_last_gtid_to(last_gtid);
   }
 
   DBUG_EXECUTE_IF("after_executed_write_rows_event", {

@@ -45,6 +45,7 @@
 
 #include "base64.h"
 #include "decimal.h"
+#include "include/scope_guard.h"
 #include "libbinlogevents/export/binary_log_funcs.h"  // my_timestamp_binary_length
 #include "libbinlogevents/include/debug_vars.h"
 #include "libbinlogevents/include/table_id.h"
@@ -3280,42 +3281,6 @@ bool Log_event::is_row_log_event() const noexcept {
 }
 
 /**
- * Checks if the event needs to run in idempotent recovery mode and sets
- * things up if it's required
- */
-void Log_event::check_and_set_idempotent_recovery(Relay_log_info *rli,
-                                                  const char *gtid) {
-  if (!is_row_log_event()) {
-    return;
-  }
-
-  DBUG_EXECUTE_IF("dbg_enable_idempotent_recovery", {
-    Gtid current_gtid;
-    current_gtid.clear();
-    assert(current_gtid.parse(&rli->recovery_sid_map, gtid) ==
-           RETURN_STATUS_OK);
-    rli->recovery_max_engine_gtid = current_gtid;
-  });
-
-  // Check if idempotent mode is required (used after crash recovery)
-  if (gtid[0] != '\0' && thd->is_enabled_idempotent_recovery() &&
-      !rli->recovery_max_engine_gtid.is_empty()) {
-    Gtid current_gtid;
-    current_gtid.clear();
-    current_gtid.parse(&rli->recovery_sid_map, gtid);
-
-    if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
-        current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
-      sql_print_information("Enabling idempotent mode for %s", gtid);
-      rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
-      auto rev = static_cast<Rows_log_event *>(this);
-      rev->m_force_binlog_idempotent = true;
-      thd->m_skip_row_logging_functions = true;
-    }
-  }
-}
-
-/**
    Scheduling event to execute in parallel or execute it directly.
    In MTS case the event gets associated with either Coordinator or a
    Worker.  A special case of the association is NULL when the Worker
@@ -3463,8 +3428,6 @@ int Log_event::apply_event(Relay_log_info *rli) {
         assert(actual_exec_mode == EVENT_EXEC_ASYNC);
       }
     }
-
-    check_and_set_idempotent_recovery(rli, rli->last_gtid);
 
     int error = do_apply_event(rli);
 
@@ -8481,6 +8444,38 @@ size_t Rows_log_event::get_data_size() {
 }
 
 #ifdef MYSQL_SERVER
+/**
+ * Checks if the event needs to run in idempotent recovery mode and sets
+ * things up if it's required
+ */
+void Rows_log_event::check_and_set_idempotent_recovery(Relay_log_info *rli) {
+  const char *gtid = rli->last_gtid;
+
+  DBUG_EXECUTE_IF("dbg_enable_idempotent_recovery", {
+    Gtid current_gtid;
+    current_gtid.clear();
+    assert(current_gtid.parse(&rli->recovery_sid_map, gtid) ==
+           RETURN_STATUS_OK);
+    rli->recovery_max_engine_gtid = current_gtid;
+  });
+
+  // Check if idempotent mode is required (used after crash recovery)
+  if (gtid[0] != '\0' && thd->is_enabled_idempotent_recovery() &&
+      !rli->recovery_max_engine_gtid.is_empty()) {
+    Gtid current_gtid;
+    current_gtid.clear();
+    current_gtid.parse(&rli->recovery_sid_map, gtid);
+
+    if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
+        current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
+      sql_print_information("Enabling idempotent mode for %s", gtid);
+      rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
+      m_force_binlog_idempotent = true;
+      thd->m_skip_row_logging_functions = true;
+    }
+  }
+}
+
 int Rows_log_event::do_add_row_data(uchar *row_data, size_t length) {
   /*
     When the table has a primary key, we would probably want, by default, to
@@ -10231,9 +10226,6 @@ int Rows_log_event::force_write_to_binlog(table_def *tabledef,
                                           Relay_log_info *rli) {
   int error = 0;
 
-  // reset the row logging function flag
-  thd->m_skip_row_logging_functions = false;
-
   reset_log_pos();
   // Table map events are necessary before every row event.
   if (write_locked_table_maps(thd)) return HA_ERR_RBR_LOGGING_FAILED;
@@ -10433,6 +10425,15 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     errors.
   */
   assert(rli->info_thd == thd);
+
+  auto idempotent_recovery_grd = create_scope_guard([&]() {
+    // Reset from THD level state when this method returns
+    thd->m_skip_row_logging_functions = false;
+    if (get_flags(STMT_END_F) && m_force_binlog_idempotent) {
+      thd->clear_binlog_table_maps();
+    }
+  });
+  check_and_set_idempotent_recovery(const_cast<Relay_log_info *>(rli));
 
   /*
     If there is no locks taken, this is the first binrow event seen
@@ -11168,9 +11169,6 @@ end:
             const_cast<Relay_log_info *>(rli)->get_rpl_log_name(),
             (ulong)common_header->log_pos);
       }
-    } else if (m_force_binlog_idempotent) {
-      // This is end row update in the current statement.
-      thd->clear_binlog_table_maps();
     }
     /* We are at end of the statement (STMT_END_F flag), lets clean
       the memory which was used from thd's mem_root now.
