@@ -178,7 +178,8 @@ let $g_tmp_table_disk_usage_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_
 disable_query_log;
 eval select $g_tmp_table_disk_usage > $big_limit as "global usage above limit";
 eval select $tmp_table_disk_usage + $tmp_table_disk_usage2 = $g_tmp_table_disk_usage - $g_init as "two sessions usage same as global";
-eval select $g_tmp_table_disk_usage = $g_tmp_table_disk_usage_peak as "global usage equal to global peak";
+# print out delta for debugging purpose
+eval select if($g_tmp_table_disk_usage = $g_tmp_table_disk_usage_peak, 'true', $g_tmp_table_disk_usage_peak - $g_tmp_table_disk_usage) as "global usage equal to global peak";
 eval select $tmp_table_disk_usage = $tablespace_query;
 enable_query_log;
 
