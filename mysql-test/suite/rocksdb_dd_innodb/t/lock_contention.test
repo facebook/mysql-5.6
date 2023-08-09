@@ -1,0 +1,1 @@
+--source ../../innodb/t/lock_contention.test
