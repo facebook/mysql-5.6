@@ -123,7 +123,7 @@ global usage above limit
 two sessions usage same as global
 1
 global usage equal to global peak
-1
+true
 usage equals tablespace size for current session
 1
 
