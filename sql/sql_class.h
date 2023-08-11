@@ -203,6 +203,32 @@ struct st_ac_node;
 using st_ac_node_ptr = std::shared_ptr<st_ac_node>;
 using database_container = std::unordered_set<std::string>;
 
+using DocumentType =
+    rapidjson::GenericDocument<rapidjson::UTF8<>,
+                               rapidjson::MemoryPoolAllocator<>,
+                               rapidjson::MemoryPoolAllocator<>>;
+struct Document_wrapper {
+  char valueBuffer[4096];
+  char parseBuffer[1024];
+  rapidjson::MemoryPoolAllocator<> valueAllocator;
+  rapidjson::MemoryPoolAllocator<> parseAllocator;
+  DocumentType doc;
+  // There is some memory related bookkeeping overhead in rapidjson
+  // allocators, which means we should set the stack size to sizeof(parseBuffer)
+  // - sizeof(ChunkHeader) instead. However, ChunkHeader is a private struct on
+  // rapidjson::MemoryPoolAllocator so we just set stack size to half of the
+  // buffer size.
+  //
+  // We're only wasting 25% of the buffer space, since the stack
+  // grows by a factor 1.5x, so we're able to accomodate the first expansion
+  // which will take ~75% of the space. The next expansion will have to allocate
+  // a new chunk from heap.
+  Document_wrapper()
+      : valueAllocator(valueBuffer, sizeof(valueBuffer)),
+        parseAllocator(parseBuffer, sizeof(parseBuffer)),
+        doc(&valueAllocator, sizeof(parseBuffer) >> 1, &parseAllocator) {}
+};
+
 enum enum_slave_use_idempotent_for_recovery {
   SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO,
   SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES
@@ -1709,8 +1735,8 @@ class THD : public MDL_context_owner,
 
   std::string gen_trx_metadata();
 
-  bool add_time_metadata(rapidjson::Document &meta_data_root);
-  bool add_db_metadata(rapidjson::Document &meta_data_root);
+  bool add_time_metadata(DocumentType &meta_data_root);
+  bool add_db_metadata(DocumentType &meta_data_root);
 
   /* Force a call to raft's after_commit hook even if the binlog cache is empty
    * or uninitialized. Currently this is used to call after_commit hook for

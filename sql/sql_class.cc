@@ -926,7 +926,8 @@ int THD::get_shard_rs_id(const std::string &db_metadata,
                          std::pair<std::string, std::string> *shard_rs,
                          bool *olm) {
   try {
-    rapidjson::Document db_metadata_root;
+    Document_wrapper wrapper;
+    auto &db_metadata_root = wrapper.doc;
     // The local_db_metadata format should be:
     // {"shard":"<shard_name>", "replicaset":"<replicaset_id>"}
     if (db_metadata_root.Parse(db_metadata.c_str()).HasParseError() ||
@@ -961,7 +962,8 @@ int THD::get_shard_rs_id(const std::string &db_metadata,
 
 std::string THD::get_shard_id(const std::string &db_metadata) {
   try {
-    rapidjson::Document db_metadata_root;
+    Document_wrapper wrapper;
+    auto &db_metadata_root = wrapper.doc;
     // The local_db_metadata format should be:
     // {"shard":"<shard_name>", "replicaset":"<replicaset_id>"}
     if (db_metadata_root.Parse(db_metadata.c_str()).HasParseError() ||
@@ -4147,7 +4149,8 @@ int THD::parse_query_info_attr() {
     if (kvp.first == traceid_key) {
       this->trace_id = kvp.second;
     } else if (kvp.first == query_info_key) {
-      rapidjson::Document root;
+      Document_wrapper wrapper;
+      auto &root = wrapper.doc;
       if (root.Parse(kvp.second.c_str()).HasParseError()) {
         my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
         return -1;
@@ -4184,8 +4187,8 @@ int THD::parse_query_info_attr() {
       if (!variables.validate_schema_from_attributes) {
         continue;
       }
-
-      rapidjson::Document root;
+      Document_wrapper wrapper;
+      auto &root = wrapper.doc;
       if (root.Parse(kvp.second.c_str()).HasParseError()) {
         my_error(ER_MALFORMED_QUERY_ATTRS, MYF(0), kvp.second.c_str());
         return -1;

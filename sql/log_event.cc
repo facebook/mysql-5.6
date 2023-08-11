@@ -77,6 +77,7 @@
 #include "sql/my_decimal.h"   // my_decimal
 #include "sql/rpl_handler.h"  // RUN_HOOK
 #include "sql/rpl_tblmap.h"
+#include "sql/sql_class.h"
 #include "sql/sql_show_processlist.h"  // pfs_processlist_enabled
 #include "sql/system_variables.h"
 #include "sql/tc_log.h"
@@ -14167,7 +14168,8 @@ void Ignorable_log_event::print(FILE *,
 static const std::string ts_key{"ts"};
 
 ulonglong Rows_query_log_event::extract_last_timestamp() const {
-  rapidjson::Document pt;
+  Document_wrapper wrapper;
+  auto &pt = wrapper.doc;
   std::string json = extract_trx_meta_data();
   if (json.empty()) return 0;
   if (pt.Parse(json.c_str()).HasParseError()) {
