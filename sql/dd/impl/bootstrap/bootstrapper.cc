@@ -82,11 +82,30 @@ namespace {
 // Initialize recovery in the DDSE.
 bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
                        uint version) {
-  handlerton *ddse = get_dd_engine(thd);
+  handlerton *ddse = nullptr;
+
+  if (opt_initialize) {
+    ddse = get_dd_engine(thd);
+  } else {
+    ddse = ha_resolve_by_legacy_type(
+        thd, bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine());
+  }
+
   if (ddse->dict_recover == nullptr) return true;
-
   bool error = ddse->dict_recover(dict_recovery_mode, version);
+  if (error) return error;
 
+  /*
+    Always call innodb handler API unless disabled
+    innobase_dict_recover will initialze innodb services, which is required
+    for DDSE dd change
+  */
+  if (ddse->db_type != DB_TYPE_INNODB) {
+    ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+    bool disabled = ha_is_storage_engine_disabled(ddse);
+    if (!disabled && ddse->dict_recover == nullptr) return true;
+    if (!disabled) error = ddse->dict_recover(dict_recovery_mode, version);
+  }
   /*
     Commit when tablespaces have been initialized, since in that
     case, tablespace meta data is added.
@@ -725,7 +744,13 @@ namespace bootstrap {
   predefined tables and tablespaces.
 */
 bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
-  handlerton *ddse = get_dd_engine(thd);
+  handlerton *ddse = nullptr;
+  if (opt_initialize) {
+    ddse = get_dd_engine(thd);
+  } else {
+    ddse = ha_resolve_by_legacy_type(
+        thd, bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine());
+  }
 
   /*
     The lists with element wrappers are mem root allocated. The wrapped
@@ -738,6 +763,22 @@ bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
       ddse->ddse_dict_init(dict_init_mode, version, &ddse_tables,
                            &ddse_tablespaces))
     return true;
+
+  /*
+    Always call innodb handler API unless disabled
+    innobase_dict_init will initialze these innodb specific tables
+  */
+  if (ddse->db_type != DB_TYPE_INNODB) {
+    handlerton *innodb_ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+    bool innodb_disabled = ha_is_storage_engine_disabled(innodb_ddse);
+    if (!innodb_disabled) {
+      assert(!ddse_tablespaces.size());
+      if (innodb_ddse->ddse_dict_init == nullptr ||
+          innodb_ddse->ddse_dict_init(dict_init_mode, version, &ddse_tables,
+                                      &ddse_tablespaces))
+        return true;
+    }
+  }
 
   /*
     Iterate over the table definitions and add them to the System_tables
@@ -1525,7 +1566,15 @@ bool sync_meta_data(THD *thd) {
     return true;
 
   // Reset the DDSE local dictionary cache.
-  handlerton *ddse = get_dd_engine(thd);
+  handlerton *ddse = nullptr;
+  if (opt_initialize) {
+    ddse = get_dd_engine(thd);
+  } else {
+    ddse = ha_resolve_by_legacy_type(
+        thd, bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine()
+
+    );
+  }
   if (ddse->dict_cache_reset == nullptr) return true;
 
   for (System_tables::Const_iterator it = System_tables::instance()->begin();
@@ -1815,13 +1864,16 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
 
   /*
     Update the server version number in the bootstrap ctx and the
-    DD tablespace header if we have been doing a server upgrade.
+    DD tablespace header if we have been doing a server upgrade
+    or dd upgrade.
     Note that the update of the tablespace header is not rolled
     back in case of an abort, so this better be the last step we
     do before committing.
   */
   handlerton *ddse = get_dd_engine(thd);
-  if (bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade()) {
+  if (opt_initialize ||
+      bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() ||
+      bootstrap::DD_bootstrap_ctx::instance().is_dd_upgrade()) {
     if (ddse->dict_set_server_version == nullptr ||
         ddse->dict_set_server_version()) {
       LogErr(ERROR_LEVEL, ER_CANNOT_SET_SERVER_VERSION_IN_TABLESPACE_HEADER);
