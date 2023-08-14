@@ -1,0 +1,34 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+let $uuid1= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+create table t1 (a int primary key);
+insert into t1 values (1);
+flush logs;
+flush logs;
+
+sleep 5;
+
+replace_result $uuid1 uuid1;
+select @@global.prev_gtid_and_opid;
+
+insert into t1 values (2);
+
+replace_result $uuid1 uuid1;
+select @@global.prev_gtid_and_opid;
+
+connection server_2;
+replace_result $uuid1 uuid1;
+select @@global.prev_gtid_and_opid;
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
+
+reset master;

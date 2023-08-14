@@ -4710,6 +4710,7 @@ void MYSQL_BIN_LOG::cleanup() {
     mysql_mutex_destroy(&LOCK_xids);
     mysql_mutex_destroy(&LOCK_non_xid_trxs);
     mysql_mutex_destroy(&LOCK_lost_gtids_for_tailing);
+    mysql_mutex_destroy(&LOCK_prev_gtid_and_opid);
     mysql_cond_destroy(&update_cond);
     mysql_cond_destroy(&m_prep_xids_cond);
     mysql_cond_destroy(&non_xid_trxs_cond);
@@ -4741,6 +4742,8 @@ void MYSQL_BIN_LOG::init_pthread_objects() {
   mysql_mutex_init(m_key_LOCK_xids, &LOCK_xids, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_lost_gtids_for_tailing,
                    &LOCK_lost_gtids_for_tailing, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(m_key_LOCK_prev_gtid_and_opid, &LOCK_prev_gtid_and_opid,
+                   MY_MUTEX_INIT_FAST);
   mysql_cond_init(m_key_update_cond, &update_cond);
   mysql_cond_init(m_key_prep_xids_cond, &m_prep_xids_cond);
   mysql_cond_init(m_key_non_xid_trxs_cond, &non_xid_trxs_cond);
@@ -6331,6 +6334,19 @@ end:
   return error != 0 ? true : false;
 }
 
+void MYSQL_BIN_LOG::update_prev_gtid_and_opid(Gtid_set *prev_gtid,
+                                              int64_t raft_term,
+                                              int64_t raft_index) {
+  std::string term_str = std::to_string(raft_term);
+  std::string index_str = std::to_string(raft_index);
+  char *buf = nullptr;
+  prev_gtid->to_string(&buf);
+  mysql_mutex_lock(&LOCK_prev_gtid_and_opid);
+  prev_gtid_and_opid = std::string(buf) + ",\n" + term_str + "," + index_str;
+  mysql_mutex_unlock(&LOCK_prev_gtid_and_opid);
+  my_free(buf);
+}
+
 /**
   Open a (new) binlog file.
 
@@ -6607,6 +6623,9 @@ bool MYSQL_BIN_LOG::open_binlog(
       if (raft_rotate_info) {
         metadata_ev.set_raft_prev_opid(raft_rotate_info->rotate_opid.first,
                                        raft_rotate_info->rotate_opid.second);
+        update_prev_gtid_and_opid(previous_logged_gtids,
+                                  raft_rotate_info->rotate_opid.first,
+                                  raft_rotate_info->rotate_opid.second);
       }
       if (write_event_to_binlog(&metadata_ev)) goto err;
     }

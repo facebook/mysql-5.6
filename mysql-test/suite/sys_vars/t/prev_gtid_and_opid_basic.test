@@ -1,0 +1,26 @@
+
+SET @start_global_value = @@global.prev_gtid_and_opid;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+select @@global.prev_gtid_and_opid;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.prev_gtid_and_opid;
+show global variables like 'prev_gtid_and_opid';
+show session variables like 'prev_gtid_and_opid';
+select * from performance_schema.global_variables where variable_name='prev_gtid_and_opid';
+select * from performance_schema.session_variables where variable_name='prev_gtid_and_opid';
+
+#
+# show that it's read only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@global.prev_gtid_and_opid='11111111-1111-1111-1111-111111111111:2; 1,2';
+--echo Expected error 'Read only variable'
+
+
+#
+# See rpl_raft_prev_gtid_and_opid.test for a comprehensive test case.
+#

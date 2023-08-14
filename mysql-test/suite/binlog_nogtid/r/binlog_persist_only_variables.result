@@ -35,7 +35,7 @@ AND (VARIABLE_NAME NOT LIKE 'thread_pool%')
 ORDER BY VARIABLE_NAME;
 CREATE TABLE non_persisted (name VARCHAR(100) PRIMARY KEY);
 INSERT INTO non_persisted VALUES
-('gtid_committed'),
+('gtid_committed'), ('prev_gtid_and_opid'),
 ('gtid_executed'), ('gtid_owned'), ('gtid_purged'), ('log_bin'),
 ('log_bin_basename'), ('log_bin_index'), ('relay_log'), ('relay_log_basename'),
 ('relay_log_index'), ('relay_log_info_file'), ('replica_load_tmpdir'),
@@ -144,6 +144,8 @@ SET PERSIST_ONLY max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST_ONLY max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
 SET PERSIST_ONLY max_relay_log_size = @@GLOBAL.max_relay_log_size;
 SET PERSIST_ONLY mts_dependency_replication = @@GLOBAL.mts_dependency_replication;
+SET PERSIST_ONLY prev_gtid_and_opid = @@GLOBAL.prev_gtid_and_opid;
+ERROR HY000: Variable 'prev_gtid_and_opid' is a non persistent read only variable
 SET PERSIST_ONLY raft_send_replica_statistics = @@GLOBAL.raft_send_replica_statistics;
 SET PERSIST_ONLY relay_log = @@GLOBAL.relay_log;
 ERROR HY000: Variable 'relay_log' is a non persistent read only variable
@@ -383,6 +385,8 @@ RESET PERSIST max_binlog_size;
 RESET PERSIST max_binlog_stmt_cache_size;
 RESET PERSIST max_relay_log_size;
 RESET PERSIST mts_dependency_replication;
+RESET PERSIST prev_gtid_and_opid;
+ERROR HY000: Variable prev_gtid_and_opid does not exist in persisted config file
 RESET PERSIST raft_send_replica_statistics;
 RESET PERSIST relay_log;
 ERROR HY000: Variable relay_log does not exist in persisted config file

@@ -75,6 +75,7 @@ wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_lost_gtids_for_tailing	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_non_xid_trxs	MANY
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_prev_gtid_and_opid	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_wait_for_group_turn	NONE
@@ -107,6 +108,7 @@ wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_index	MANY	MANY	MANY	MANY	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_log	MANY	MANY	MANY	MANY	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_log_end_pos	NONE	NONE	NONE	NONE	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_lost_gtids_for_tailing	NONE	NONE	NONE	NONE	NONE
+wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_prev_gtid_and_opid	NONE	NONE	NONE	NONE	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_sync	NONE	NONE	NONE	NONE	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_xids	NONE	NONE	NONE	NONE	NONE
 "============ Performance schema on slave ============"
@@ -181,6 +183,7 @@ wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_lost_gtids_for_tailing	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_non_xid_trxs	MANY
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_prev_gtid_and_opid	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_wait_for_group_turn	NONE
@@ -229,6 +232,7 @@ wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_log_end_pos	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_lost_gtids_for_tailing	MANY
+wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_prev_gtid_and_opid	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_sync	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_xids	MANY
 include/rpl_end.inc

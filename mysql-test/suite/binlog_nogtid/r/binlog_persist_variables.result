@@ -123,6 +123,8 @@ SET PERSIST max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
 SET PERSIST max_relay_log_size = @@GLOBAL.max_relay_log_size;
 SET PERSIST mts_dependency_replication = @@GLOBAL.mts_dependency_replication;
+SET PERSIST prev_gtid_and_opid = @@GLOBAL.prev_gtid_and_opid;
+ERROR HY000: Variable 'prev_gtid_and_opid' is a read only variable
 SET PERSIST raft_send_replica_statistics = @@GLOBAL.raft_send_replica_statistics;
 SET PERSIST relay_log = @@GLOBAL.relay_log;
 ERROR HY000: Variable 'relay_log' is a read only variable
@@ -389,6 +391,9 @@ RESET PERSIST IF EXISTS max_binlog_size;
 RESET PERSIST IF EXISTS max_binlog_stmt_cache_size;
 RESET PERSIST IF EXISTS max_relay_log_size;
 RESET PERSIST IF EXISTS mts_dependency_replication;
+RESET PERSIST IF EXISTS prev_gtid_and_opid;
+Warnings:
+Warning	3615	Variable prev_gtid_and_opid does not exist in persisted config file
 RESET PERSIST IF EXISTS raft_send_replica_statistics;
 RESET PERSIST IF EXISTS relay_log;
 Warnings:

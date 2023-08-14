@@ -78,6 +78,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'performance_schema_max_client_attrs',
 'performance_schema_sql_text_size',
 'per_user_session_var_user_name_delimiter',
+'prev_gtid_and_opid',
 'query_cache_size',
 'query_cache_type',
 'rocksdb_enable_tmp_table',

@@ -450,6 +450,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   PSI_mutex_key m_key_LOCK_xids;
   PSI_mutex_key m_key_LOCK_non_xid_trxs;
   PSI_mutex_key m_key_LOCK_lost_gtids_for_tailing;
+  PSI_mutex_key m_key_LOCK_prev_gtid_and_opid;
   /** The instrumentation key to use for @ update_cond. */
   PSI_cond_key m_key_update_cond;
   /** The instrumentation key to use for @ prep_xids_cond. */
@@ -475,6 +476,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   mysql_mutex_t LOCK_xids;
   mysql_mutex_t LOCK_non_xid_trxs;
   mysql_mutex_t LOCK_lost_gtids_for_tailing;
+  mysql_mutex_t LOCK_prev_gtid_and_opid;
   mysql_cond_t update_cond;
 
   std::atomic<my_off_t> atomic_binlog_end_pos;
@@ -559,6 +561,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   my_off_t ha_last_updated_binlog_pos;
   char ha_last_updated_binlog_file; /* Only need the last char */
 
+  std::string prev_gtid_and_opid;
+
   /**
     Increment the prepared XID counter.
    */
@@ -585,6 +589,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
   }
 
   inline uint get_sync_period() { return *sync_period_ptr; }
+
+  void update_prev_gtid_and_opid(Gtid_set *prev_gtid, int64_t raft_term,
+                                 int64_t raft_index);
 
  public:
   /*
@@ -743,7 +750,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
       PSI_mutex_key key_LOCK_sync_queue, PSI_mutex_key key_LOCK_xids,
       PSI_mutex_key key_LOCK_non_xid_trxs,
       PSI_mutex_key key_LOCK_wait_for_group_turn,
-      PSI_mutex_key key_LOCK_lost_gtids_for_tailing, PSI_cond_key key_COND_done,
+      PSI_mutex_key key_LOCK_lost_gtids_for_tailing,
+      PSI_mutex_key key_LOCK_prev_gtid_and_opid, PSI_cond_key key_COND_done,
       PSI_cond_key key_COND_flush_queue, PSI_cond_key key_update_cond,
       PSI_cond_key key_prep_xids_cond, PSI_cond_key key_non_xid_trxs_cond,
       PSI_cond_key key_COND_wait_for_group_turn, PSI_file_key key_file_log,
@@ -765,6 +773,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
     m_key_LOCK_xids = key_LOCK_xids;
     m_key_LOCK_non_xid_trxs = key_LOCK_non_xid_trxs;
     m_key_LOCK_lost_gtids_for_tailing = key_LOCK_lost_gtids_for_tailing;
+    m_key_LOCK_prev_gtid_and_opid = key_LOCK_prev_gtid_and_opid;
     m_key_update_cond = key_update_cond;
     m_key_prep_xids_cond = key_prep_xids_cond;
     m_key_non_xid_trxs_cond = key_non_xid_trxs_cond;
@@ -1730,6 +1739,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
       @retval !=0    Error
   */
   int get_gtid_executed(Sid_map *sid_map, Gtid_set *gtid_set);
+
+  void get_prev_gtid_and_opid(std::string *out) {
+    mysql_mutex_lock(&LOCK_prev_gtid_and_opid);
+    *out = prev_gtid_and_opid;
+    mysql_mutex_unlock(&LOCK_prev_gtid_and_opid);
+  }
 
   /*
     True while rotating binlog, which is caused by logging Incident_log_event.

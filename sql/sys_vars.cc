@@ -7888,6 +7888,10 @@ static Sys_var_uint Sys_gtid_executed_compression_period(
     GLOBAL_VAR(gtid_executed_compression_period), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX32), DEFAULT(0), BLOCK_SIZE(1));
 
+static Sys_var_prev_gtid_and_opid Sys_var_prev_gtid_and_opid(
+    "prev_gtid_and_opid",
+    "Previous GTIDs and Previous OpIDs for the current Raft log");
+
 static Sys_var_bool Sys_disconnect_on_expired_password(
     "disconnect_on_expired_password",
     "Give clients that don't signal password expiration support execution "

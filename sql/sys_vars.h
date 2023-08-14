@@ -2983,4 +2983,22 @@ class Sys_var_binlog_encryption : public Sys_var_bool {
   bool global_update(THD *thd, set_var *var) override;
 };
 
+/**
+  Class for @@global.gtid_executed.
+*/
+class Sys_var_prev_gtid_and_opid : Sys_var_charptr_func {
+ public:
+  Sys_var_prev_gtid_and_opid(const char *name_arg, const char *comment_arg)
+      : Sys_var_charptr_func(name_arg, comment_arg, GLOBAL) {}
+
+  const uchar *global_value_ptr(THD *thd, std::string_view) override {
+    DBUG_TRACE;
+    std::string prev_gtid_and_opid;
+    mysql_bin_log.get_prev_gtid_and_opid(&prev_gtid_and_opid);
+    char *buf = (char *)thd->alloc(prev_gtid_and_opid.length() + 1);
+    strcpy(buf, prev_gtid_and_opid.data());
+    return (uchar *)buf;
+  }
+};
+
 #endif /* SYS_VARS_H_INCLUDED */
