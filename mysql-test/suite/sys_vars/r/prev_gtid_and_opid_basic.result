@@ -1,0 +1,24 @@
+SET @start_global_value = @@global.prev_gtid_and_opid;
+SELECT @start_global_value;
+@start_global_value
+
+select @@global.prev_gtid_and_opid;
+@@global.prev_gtid_and_opid
+
+select @@session.prev_gtid_and_opid;
+ERROR HY000: Variable 'prev_gtid_and_opid' is a GLOBAL variable
+show global variables like 'prev_gtid_and_opid';
+Variable_name	Value
+prev_gtid_and_opid	
+show session variables like 'prev_gtid_and_opid';
+Variable_name	Value
+prev_gtid_and_opid	
+select * from performance_schema.global_variables where variable_name='prev_gtid_and_opid';
+VARIABLE_NAME	VARIABLE_VALUE
+prev_gtid_and_opid	
+select * from performance_schema.session_variables where variable_name='prev_gtid_and_opid';
+VARIABLE_NAME	VARIABLE_VALUE
+prev_gtid_and_opid	
+SET @@global.prev_gtid_and_opid='11111111-1111-1111-1111-111111111111:2; 1,2';
+ERROR HY000: Variable 'prev_gtid_and_opid' is a read only variable
+Expected error 'Read only variable'

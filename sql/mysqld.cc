@@ -1087,6 +1087,7 @@ static PSI_mutex_key key_BINLOG_LOCK_xids;
 static PSI_mutex_key key_BINLOG_LOCK_non_xid_trxs;
 static PSI_mutex_key key_BINLOG_LOCK_lost_gtids_for_tailing;
 static PSI_rwlock_key key_rwlock_LOCK_global_system_variables;
+static PSI_mutex_key key_BINLOG_LOCK_prev_gtid_and_opid;
 static PSI_rwlock_key key_rwlock_global_sid_lock;
 PSI_rwlock_key key_rwlock_gtid_mode_lock;
 static PSI_rwlock_key key_rwlock_LOCK_system_variables_hash;
@@ -5659,7 +5660,8 @@ int init_common_variables() {
       key_BINLOG_LOCK_binlog_end_pos, key_BINLOG_LOCK_sync,
       key_BINLOG_LOCK_sync_queue, key_BINLOG_LOCK_xids,
       key_BINLOG_LOCK_non_xid_trxs, key_BINLOG_LOCK_lost_gtids_for_tailing,
-      key_BINLOG_COND_done, key_BINLOG_COND_flush_queue, key_BINLOG_update_cond,
+      key_BINLOG_LOCK_prev_gtid_and_opid, key_BINLOG_COND_done,
+      key_BINLOG_COND_flush_queue, key_BINLOG_update_cond,
       key_BINLOG_prep_xids_cond, key_BINLOG_non_xid_trxs_cond, key_file_binlog,
       key_file_binlog_index, key_file_binlog_cache,
       key_file_binlog_index_cache);
@@ -13377,6 +13379,7 @@ PSI_mutex_key key_RELAYLOG_LOCK_sync;
 PSI_mutex_key key_RELAYLOG_LOCK_xids;
 PSI_mutex_key key_RELAYLOG_LOCK_non_xid_trxs;
 PSI_mutex_key key_RELAYLOG_LOCK_lost_gtids_for_tailing;
+PSI_mutex_key key_RELAYLOG_LOCK_prev_gtid_and_opid;
 PSI_mutex_key key_gtid_ensure_index_mutex;
 PSI_mutex_key key_hlc_wait_mutex;
 PSI_mutex_key key_object_cache_mutex;  // TODO need to initialize
@@ -13418,7 +13421,9 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_BINLOG_LOCK_xids, "MYSQL_BIN_LOG::LOCK_xids", 0, 0, PSI_DOCUMENT_ME},
   { &key_BINLOG_LOCK_non_xid_trxs, "MYSQL_BIN_LOG::LOCK_non_xid_trxs", 0, 0, PSI_DOCUMENT_ME},
   { &key_BINLOG_LOCK_lost_gtids_for_tailing,
-    "MYSQL_BIN_LOG::LOCK_lost_gtids_for_tailing", 0, 0, PSI_DOCUMENT_ME},
+      "MYSQL_BIN_LOG::LOCK_lost_gtids_for_tailing", 0, 0, PSI_DOCUMENT_ME},
+  { &key_BINLOG_LOCK_prev_gtid_and_opid,
+    "MYSQL_BIN_LOG::LOCK_prev_gtid_and_opid", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_commit, "MYSQL_RELAY_LOG::LOCK_commit", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_index, "MYSQL_RELAY_LOG::LOCK_index", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_log, "MYSQL_RELAY_LOG::LOCK_log", 0, 0, PSI_DOCUMENT_ME},
@@ -13428,6 +13433,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_RELAYLOG_LOCK_non_xid_trxs, "MYSQL_RELAY_LOG::LOCK_xids", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_lost_gtids_for_tailing,
     "MYSQL_RELAY_LOG::LOCK_lost_gtids_for_tailing",0, 0, PSI_DOCUMENT_ME},
+  { &key_RELAYLOG_LOCK_prev_gtid_and_opid,
+    "MYSQL_RELAY_LOG::LOCK_prev_gtid_and_opid",0, 0, PSI_DOCUMENT_ME},
   { &key_hash_filo_lock, "hash_filo::lock", 0, 0, PSI_DOCUMENT_ME},
   { &Gtid_set::key_gtid_executed_free_intervals_mutex, "Gtid_set::gtid_executed::free_intervals_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_crypt, "LOCK_crypt", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
