@@ -307,7 +307,8 @@ static struct plugin_registry_service_st plugin_registry_handler = {
 static struct mysql_privacy_service_st mysql_privacy_handler = {
     get_column_ref_info, build_column_lineage_info};
 
-static struct rpc_plugin_service_st rpc_plugin_handler = {bypass_select};
+static struct rpc_plugin_service_st rpc_plugin_handler = {
+    bypass_select, get_hlc};
 
 static struct st_service_ref list_of_services[] = {
     {"srv_session_service", VERSION_srv_session_service,
