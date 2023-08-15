@@ -393,3 +393,10 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   }
   return ret;
 }
+
+/**
+  Get applied HLC of a database by name
+*/
+uint64_t get_hlc(const std::string& dbname) {
+  return mysql_bin_log.get_selected_database_hlc(dbname);
+}

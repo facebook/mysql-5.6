@@ -133,10 +133,12 @@ struct bypass_rpc_exception {
 
 extern "C" struct rpc_plugin_service_st {
   bypass_rpc_exception (*bypass_select)(const myrocks_select_from_rpc *param);
+  uint64_t (*get_hlc)(const std::string& dbname);
 } * rpc_plugin_service;
 
 #ifdef MYSQL_DYNAMIC_PLUGIN
 #define bypass_select(a) rpc_plugin_service->bypass_select((a))
+#define get_hlc(dbname) rpc_plugin_service->get_hlc((dbname))
 #else
 /**
   Run bypass select query
@@ -147,6 +149,15 @@ extern "C" struct rpc_plugin_service_st {
   @return bypass_rpc_exception containing exception info if exception happens
 */
 bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param);
+
+/**
+  Get the applied HLC of a given database by name
+
+  @param dbname Database name to fetch HLC for.
+  @return       HLC on success, 0 on failure.
+*/
+uint64_t get_hlc(const std::string& dbname);
+
 #endif /* MYSQL_DYNAMIC_PLUGIN */
 
 #endif /* MYSQL_SERVICE_RPC_PLUGIN_INCLUDED */
