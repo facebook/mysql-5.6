@@ -13170,6 +13170,24 @@ int ha_rocksdb::reset() {
   /* Free blob data */
   m_retrieved_record.Reset();
   m_dup_key_retrieved_record.Reset();
+  // The cached memory on std::string in PinnableSlice isn't trimmed in Reset()
+  // above, so do it manually here.
+  //
+  // According to the standard, std::string::reserve is only a hint to shrink
+  // memory. There doesn't seem to be any standard approved way of shrinking
+  // memory, so to be safe, we just destruct/construct the object in place.
+  if (rocksdb_converter_record_cached_length) {
+    if (m_retrieved_record.GetSelf()->capacity() >
+        rocksdb_converter_record_cached_length) {
+      std::destroy_at(m_retrieved_record.GetSelf());
+      ::new (m_retrieved_record.GetSelf()) std::string();
+    }
+    if (m_dup_key_retrieved_record.GetSelf()->capacity() >
+        rocksdb_converter_record_cached_length) {
+      std::destroy_at(m_dup_key_retrieved_record.GetSelf());
+      ::new (m_dup_key_retrieved_record.GetSelf()) std::string();
+    }
+  }
   release_blob_buffer();
   m_iterator.reset(nullptr);
   m_pk_iterator.reset(nullptr);
