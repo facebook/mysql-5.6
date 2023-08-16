@@ -425,7 +425,7 @@ static void populate_sql_findings(THD *thd, const std::string &query_text,
 */
 void store_sql_findings(THD *thd, const std::string &query_text) {
   if (sql_findings_control == SQL_INFO_CONTROL_ON &&
-      thd->mt_key_is_set(THD::SQL_ID)) {
+      thd->mt_key_is_set(THD::SQL_ID) && thd->get_stmt_da()->cond_count() > 0) {
     mysql_mutex_lock(&LOCK_global_sql_findings);
 
     // Lookup finding map for this statement
