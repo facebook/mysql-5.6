@@ -1832,6 +1832,16 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit) {
       all ? Transaction_ctx::SESSION : Transaction_ctx::STMT;
   auto ha_list = trn_ctx->ha_trx_info(trx_scope);
 
+  if (enable_raft_plugin && thd->rli_slave && thd->commit_consensus_error &&
+      log_error_verbosity >= 3) {
+    int64_t term, index;
+    thd->get_trans_marker(&term, &index);
+    sql_print_error(
+        "Applier is committing transaction after consensus error. "
+        "gtid: %s, opid: %l:%l, commit error: %d",
+        thd->rli_slave->last_gtid, term, index, thd->commit_error);
+  }
+
   DBUG_TRACE;
 
   if (thd->rli_slave && all && !update_before_image_inconsistencies(thd)) {
@@ -1938,6 +1948,14 @@ int ha_rollback_low(THD *thd, bool all) {
   Transaction_ctx::enum_trx_scope trx_scope =
       all ? Transaction_ctx::SESSION : Transaction_ctx::STMT;
   auto ha_list = trn_ctx->ha_trx_info(trx_scope);
+
+  if (enable_raft_plugin && thd->rli_slave && log_error_verbosity >= 3) {
+    int64_t term, index;
+    thd->get_trans_marker(&term, &index);
+    sql_print_warning(
+        "Applier is rolling back transaction with gtid: %s, opid: %l:%l",
+        thd->rli_slave->last_gtid, term, index);
+  }
 
   (void)RUN_HOOK(transaction, before_rollback, (thd, all));
 
