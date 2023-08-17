@@ -1008,6 +1008,7 @@ rocksdb_max_background_flushes	-1
 rocksdb_max_background_jobs	2
 rocksdb_max_bottom_pri_background_compactions	0
 rocksdb_max_compaction_history	64
+rocksdb_max_file_opening_threads	16
 rocksdb_max_intrinsic_tmp_table_write_count	1000
 rocksdb_max_latest_deadlocks	5
 rocksdb_max_log_file_size	0

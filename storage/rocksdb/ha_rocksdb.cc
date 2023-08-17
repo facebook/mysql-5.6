@@ -1908,6 +1908,14 @@ static MYSQL_SYSVAR_INT(max_open_files, rocksdb_db_options->max_open_files,
                         nullptr, rocksdb_db_options->max_open_files,
                         /* min */ -2, /* max */ INT_MAX, 0);
 
+static MYSQL_SYSVAR_INT(max_file_opening_threads,
+                        rocksdb_db_options->max_file_opening_threads,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                        "DBOptions::max_file_opening_threads for RocksDB",
+                        nullptr, nullptr,
+                        rocksdb_db_options->max_file_opening_threads,
+                        /* min */ 1, /* max */ INT_MAX, 0);
+
 static MYSQL_SYSVAR_UINT64_T(max_total_wal_size,
                              rocksdb_db_options->max_total_wal_size,
                              PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -3033,6 +3041,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(max_latest_deadlocks),
     MYSQL_SYSVAR(info_log_level),
     MYSQL_SYSVAR(max_open_files),
+    MYSQL_SYSVAR(max_file_opening_threads),
     MYSQL_SYSVAR(max_total_wal_size),
     MYSQL_SYSVAR(use_fsync),
     MYSQL_SYSVAR(wal_dir),
