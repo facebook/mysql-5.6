@@ -1,0 +1,6 @@
+--source ../include/init_thrift_server_plugin.inc
+# assert plugin is installed
+SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'THRIFT_SERVER';
+--source ../include/uninit_thrift_server_plugin.inc
+# assert plugin is uninstalled
+SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'THRIFT_SERVER';
