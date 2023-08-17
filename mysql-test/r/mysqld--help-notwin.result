@@ -2252,6 +2252,8 @@ The following options may be given as the first argument:
  Track history for at most this many completed
  compactions. The history is in the
  INFORMATION_SCHEMA.ROCKSDB_COMPACTION_HISTORY table.
+ --rocksdb-max-file-opening-threads=# 
+ DBOptions::max_file_opening_threads for RocksDB
  --rocksdb-max-intrinsic-tmp-table-write-count=# 
  Intrinsic tmp table max allowed write batch size.After
  this, current transaction holding write batch will commit
@@ -3735,6 +3737,7 @@ rocksdb-max-background-flushes -1
 rocksdb-max-background-jobs 2
 rocksdb-max-bottom-pri-background-compactions 0
 rocksdb-max-compaction-history 64
+rocksdb-max-file-opening-threads 16
 rocksdb-max-intrinsic-tmp-table-write-count 1000
 rocksdb-max-latest-deadlocks 5
 rocksdb-max-log-file-size 0
