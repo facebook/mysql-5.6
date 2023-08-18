@@ -40,11 +40,5 @@ if ($value != No such row)
 set global privacy_plugin_purpose_policy_column_level_check=@original_privacy_plugin_purpose_policy_column_level_check;
 
 
-# Restore privacy_plugin_purpose_policy_column_level_check setting
-if ($has_column_level_check_fine_grained)
-{
-  set global purpose_policy_column_level_check_fine_grained=@original_has_column_level_check_fine_grained;
-}
-
 # Enable query log
 enable_query_log;
