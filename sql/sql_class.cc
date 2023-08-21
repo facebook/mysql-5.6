@@ -2804,12 +2804,27 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup) {
 }
 
 /**
-  Default yield condition.
+  Default yield predicate that always returns true.
 */
 bool THD::always_yield() {
   return true;
 }
 
+/**
+  Check if we should exit and reenter admission control.
+
+  This function stores the provided `cond` predicate in the THD and notifies
+  any registered `thd_wait_begin` callback with the `THD_WAIT_YIELD` pseudo-wait
+  type. This has the effect of informing a plugin whether it should yield
+  according to this predicate's result.
+
+  Even though thd_wait_begin is being called, the server does not actually put
+  this thread to sleep and immediately calls thd_wait_end after. The effect is
+  that a scheduler plugin may delay this thread's re-entry into admission
+  control or similar throttling mechanism.
+
+  @param cond A predicate that returns true if a yield should take place.
+*/
 void THD::check_yield(std::function<bool()> cond) {
   yield_cond = std::move(cond);
   thd_wait_begin(this, THD_WAIT_YIELD);
@@ -2854,8 +2869,8 @@ int THD::admit_query() {
   @param new_mode New AC request mode if AC slot is released.
   @return true if should release, false otherwise.
 */
-bool THD::filter_wait_type(int wait_type,
-                           enum_admission_control_request_mode &new_mode) {
+bool THD::should_exit_ac(int wait_type,
+                         enum_admission_control_request_mode &new_mode) {
   new_mode = AC_REQUEST_QUERY_READMIT_HIPRI;
   switch (wait_type) {
     case THD_WAIT_SLEEP:
@@ -2916,7 +2931,7 @@ void THD::wait_begin(int wait_type) {
     assert(readmission_mode == AC_REQUEST_NONE);
 
     enum_admission_control_request_mode new_mode;
-    if (filter_wait_type(wait_type, new_mode)) {
+    if (should_exit_ac(wait_type, new_mode)) {
       multi_tenancy_exit_query(this);
 
       readmission_mode = new_mode;

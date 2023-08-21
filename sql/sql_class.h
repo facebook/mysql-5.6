@@ -5231,7 +5231,7 @@ class THD : public MDL_context_owner,
   std::function<bool()> yield_cond;
 
   /**
-    Default yield condition.
+    Default yield predicate that always returns true.
   */
   static bool always_yield();
 
@@ -5269,8 +5269,8 @@ class THD : public MDL_context_owner,
 
     @return true if should release, false otherwise.
   */
-  bool filter_wait_type(int wait_type,
-                        enum_admission_control_request_mode &new_mode);
+  bool should_exit_ac(int wait_type,
+                      enum_admission_control_request_mode &new_mode);
 
   /**
     Kill current query and defer error.
