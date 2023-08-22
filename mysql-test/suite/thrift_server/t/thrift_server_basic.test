@@ -1,0 +1,21 @@
+source ../include/init_thrift_server_plugin.inc;
+
+disable_query_log;
+disable_warnings;
+DROP TABLE IF EXISTS t1;
+enable_warnings;
+enable_query_log;
+
+CREATE TABLE t1(c1 BIGINT NOT NULL, c2 VARCHAR(64), c3 int, PRIMARY KEY (c1));
+insert into t1 values (1, 'v1', 2), (2, 'v2', 3), (3, null, 4);
+
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='SELECT * from t1;';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+
+# test empty result set
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='SELECT * from t1 where c1>10;';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+
+DROP TABLE t1;
+source ../include/uninit_thrift_server_plugin.inc;
