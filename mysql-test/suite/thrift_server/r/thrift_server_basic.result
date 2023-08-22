@@ -1,0 +1,17 @@
+CREATE TABLE t1(c1 BIGINT NOT NULL, c2 VARCHAR(64), c3 int, PRIMARY KEY (c1));
+insert into t1 values (1, 'v1', 2), (2, 'v2', 3), (3, null, 4);
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='SELECT * from t1;';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	columnDefs	[{"name":"c1","type":108,"flags":20483,"charsetnr":8}, {"name":"c2","type":115,"flags":0,"charsetnr":255}, {"name":"c3","type":103,"flags":0,"charsetnr":8}]
+1	row	[{"signedIntVal":1}, {"stringVal":"v1"}, {"signedIntVal":2}]
+2	row	[{"signedIntVal":2}, {"stringVal":"v2"}, {"signedIntVal":3}]
+3	row	[{"signedIntVal":3}, {"isNull":true}, {"signedIntVal":4}]
+4	okPacket	{"statusFlags":34,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{}}
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='SELECT * from t1 where c1>10;';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	columnDefs	[{"name":"c1","type":108,"flags":20483,"charsetnr":8}, {"name":"c2","type":115,"flags":0,"charsetnr":255}, {"name":"c3","type":103,"flags":0,"charsetnr":8}]
+1	okPacket	{"statusFlags":2,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{}}
+DROP TABLE t1;
