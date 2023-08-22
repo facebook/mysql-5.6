@@ -586,8 +586,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   inline uint get_sync_period() { return *sync_period_ptr; }
 
-  void update_prev_gtid_and_opid(Gtid_set *prev_gtid, long raft_term,
-                                 long raft_index);
+  void update_prev_gtid_and_opid(Gtid_set *prev_gtid, int64_t raft_term,
+                                 int64_t raft_index);
 
  public:
   /*
