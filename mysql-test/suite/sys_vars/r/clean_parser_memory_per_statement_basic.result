@@ -1,0 +1,53 @@
+Default value of clean_parser_memory_per_statement
+SELECT @@global.clean_parser_memory_per_statement;
+@@global.clean_parser_memory_per_statement
+0
+clean_parser_memory_per_statement is set to true 
+set @@global.clean_parser_memory_per_statement = true;
+SELECT @@global.clean_parser_memory_per_statement;
+@@global.clean_parser_memory_per_statement
+1
+set @@clean_parser_memory_per_statement = true;
+SELECT @@clean_parser_memory_per_statement;
+@@clean_parser_memory_per_statement
+1
+clean_parser_memory_per_statement is set to false 
+set @@global.clean_parser_memory_per_statement = false;
+SELECT @@global.clean_parser_memory_per_statement;
+@@global.clean_parser_memory_per_statement
+0
+set @@clean_parser_memory_per_statement = false;
+SELECT @@clean_parser_memory_per_statement;
+@@clean_parser_memory_per_statement
+0
+set session clean_parser_memory_per_statement = true;
+select @@session.clean_parser_memory_per_statement;
+@@session.clean_parser_memory_per_statement
+1
+show session variables like 'clean_parser_memory_per_statement';
+Variable_name	Value
+clean_parser_memory_per_statement	ON
+set session clean_parser_memory_per_statement = false;
+select @@session.clean_parser_memory_per_statement;
+@@session.clean_parser_memory_per_statement
+0
+show session variables like 'clean_parser_memory_per_statement';
+Variable_name	Value
+clean_parser_memory_per_statement	OFF
+setting clean_parser_memory_per_statement to a random number gives error
+set @@global.clean_parser_memory_per_statement = 255;
+ERROR 42000: Variable 'clean_parser_memory_per_statement' can't be set to the value of '255'
+SELECT @@global.clean_parser_memory_per_statement;
+@@global.clean_parser_memory_per_statement
+0
+setting clean_parser_memory_per_statement to a random string gives error
+set @@global.clean_parser_memory_per_statement = 'XYZ';
+ERROR 42000: Variable 'clean_parser_memory_per_statement' can't be set to the value of 'XYZ'
+SELECT @@global.clean_parser_memory_per_statement;
+@@global.clean_parser_memory_per_statement
+0
+restore the default value
+SET @@global.clean_parser_memory_per_statement = default;
+SELECT @@global.clean_parser_memory_per_statement;
+@@global.clean_parser_memory_per_statement
+0

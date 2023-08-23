@@ -573,6 +573,8 @@ struct System_variables {
   long thread_priority;
 
   bool sql_stats_read_control;
+
+  bool clean_parser_memory_per_statement;
 };
 
 /**

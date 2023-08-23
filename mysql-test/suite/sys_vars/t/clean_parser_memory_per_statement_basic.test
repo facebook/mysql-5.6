@@ -1,0 +1,55 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: clean_parser_memory_per_statement
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of clean_parser_memory_per_statement
+SELECT @@global.clean_parser_memory_per_statement;
+
+####
+## Verify that the variable is dynamic
+####
+--echo clean_parser_memory_per_statement is set to true 
+set @@global.clean_parser_memory_per_statement = true;
+SELECT @@global.clean_parser_memory_per_statement;
+
+set @@clean_parser_memory_per_statement = true;
+SELECT @@clean_parser_memory_per_statement;
+
+--echo clean_parser_memory_per_statement is set to false 
+set @@global.clean_parser_memory_per_statement = false;
+SELECT @@global.clean_parser_memory_per_statement;
+
+set @@clean_parser_memory_per_statement = false;
+SELECT @@clean_parser_memory_per_statement;
+
+set session clean_parser_memory_per_statement = true;
+select @@session.clean_parser_memory_per_statement;
+show session variables like 'clean_parser_memory_per_statement';
+ 
+set session clean_parser_memory_per_statement = false;
+select @@session.clean_parser_memory_per_statement;
+show session variables like 'clean_parser_memory_per_statement';
+
+
+-- echo setting clean_parser_memory_per_statement to a random number gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.clean_parser_memory_per_statement = 255;
+SELECT @@global.clean_parser_memory_per_statement;
+
+-- echo setting clean_parser_memory_per_statement to a random string gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.clean_parser_memory_per_statement = 'XYZ';
+SELECT @@global.clean_parser_memory_per_statement;
+
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.clean_parser_memory_per_statement = default;
+SELECT @@global.clean_parser_memory_per_statement;
