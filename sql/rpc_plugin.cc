@@ -217,15 +217,11 @@ void initialize_thd() {
 }
 
 // return true if the requested hlc bound is not met, otherwise return false
-bool check_hlc_bound(THD *thd, const myrocks_select_from_rpc *param) {
-  if (param->hlc_lower_bound_ts == 0 ||
-      !thd->variables.enable_block_stale_hlc_read) {
+bool check_hlc_bound(THD *thd, uint64_t requested_hlc, uint64_t applied_hlc) {
+  if (requested_hlc == 0 || !thd->variables.enable_block_stale_hlc_read) {
     // no hlc bound from client, or block_stale_hlc_read is not enabled
     return false;
   }
-  uint64_t requested_hlc = param->hlc_lower_bound_ts;
-  uint64_t applied_hlc =
-      mysql_bin_log.get_selected_database_hlc(param->db_name);
   if (requested_hlc > applied_hlc) {
     return true;
   }
@@ -336,23 +332,25 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
     return ret;
   }
 
-  if (check_hlc_bound(current_thd, param)) {
+  uint64_t applied_hlc =
+      mysql_bin_log.get_selected_database_hlc(param->db_name);
+  uint64_t requested_hlc = param->hlc_lower_bound_ts;
+  if (check_hlc_bound(current_thd, requested_hlc, applied_hlc)) {
     char error_msg[180];
     snprintf(error_msg, sizeof(error_msg) / sizeof(char),
              "Requested HLC timestamp %" PRIu64
              " is higher than current engine HLC of %" PRIu64
              " for database %s",
-             param->hlc_lower_bound_ts,
-             mysql_bin_log.get_selected_database_hlc(param->db_name),
-             param->db_name.c_str());
+             requested_hlc, applied_hlc, param->db_name.c_str());
 
-    bypass_rpc_exception ret{ER_STALE_HLC_READ, "MYF(0)", error_msg};
+    bypass_rpc_exception ret{ER_STALE_HLC_READ, "MYF(0)", error_msg,
+                             applied_hlc};
     return ret;
   }
 
   if (rpc_open_table(current_thd, param)) {
     bypass_rpc_exception ret{ER_NOT_SUPPORTED_YET, "MYF(0)",
-                             "Error in opening a table"};
+                             "Error in opening a table", applied_hlc};
     return ret;
   }
   current_thd->status_var.com_stat[SQLCOM_SELECT]++;
@@ -374,10 +372,11 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   if (rocksdb_hton == nullptr ||
       rocksdb_hton->bypass_select_by_key == nullptr) {
     bypass_rpc_exception ret{ER_UNKNOWN_ERROR, "MYF(0)",
-                             "Handlerton is not set"};
+                             "Handlerton is not set", applied_hlc};
     return ret;
   }
-  const auto &ret = rocksdb_hton->bypass_select_by_key(thd, &columns, *param);
+  auto ret = rocksdb_hton->bypass_select_by_key(thd, &columns, *param);
+  ret.hlc_lower_bound_ts = applied_hlc;
 
   // clean up before returning back to the rpc plugin
   trans_commit_stmt(thd);  // need to call this because we locked table
