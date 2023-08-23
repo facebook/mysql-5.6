@@ -129,6 +129,7 @@ struct bypass_rpc_exception {
   uint32_t errnum = 0;
   std::string sqlstate;
   std::string message;
+  uint64_t hlc_lower_bound_ts = 0;  // current HLC lower bound
 };
 
 extern "C" struct rpc_plugin_service_st {
