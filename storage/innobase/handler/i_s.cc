@@ -5395,6 +5395,44 @@ static int i_s_dict_fill_innodb_tables(THD *thd, dict_table_t *table,
   return 0;
 }
 
+static void fill_i_s_innodb_tables_row(THD *thd, Table_ref &tables,
+                                       dd::Object_id table_id) {
+  assert(dd_access_through_server());
+  assert(table_id != dd::INVALID_OBJECT_ID);
+
+  if (dict_sys_t::is_dd_table_id(table_id)) return;
+
+  MDL_ticket *mdl_on_tab = nullptr;
+  auto *const table_rec =
+      dd_table_open_on_id(table_id, thd, &mdl_on_tab, false, false);
+  if (table_rec != nullptr) {
+    i_s_dict_fill_innodb_tables(thd, table_rec, tables.table);
+    dd_table_close(table_rec, thd, &mdl_on_tab, false);
+  }
+}
+
+template <typename O, typename F>
+[[nodiscard]] static int for_all_innodb_objects_in_dd(THD *thd, F f) {
+  assert(dd_access_through_server());
+
+  auto *const dc = dd::get_dd_client(thd);
+  const dd::cache::Dictionary_client::Auto_releaser releaser(dc);
+  std::vector<const O *> dd_objs;
+  if (dc->fetch_global_components(&dd_objs)) {
+    assert(false);
+    return 1;
+  }
+
+  for (const auto *obj : dd_objs) {
+    if (obj->engine() != innobase_hton_name) continue;
+
+    const auto ret = f(thd, *obj);
+    if (ret) return ret;
+  }
+
+  return 0;
+}
+
 /** Function to go through each record in INNODB_TABLES table, and fill the
 information_schema.innodb_tables table with related table information
 @param[in]      thd             thread
@@ -5414,6 +5452,29 @@ static int i_s_innodb_tables_fill_table(THD *thd, Table_ref *tables, Item *) {
   if (check_global_access(thd, PROCESS_ACL)) {
     return 0;
   }
+
+  if (dd_access_through_server()) {
+    return for_all_innodb_objects_in_dd<dd::Table>(
+        thd, [&tables](THD *thd, const dd::Table &table) {
+          const auto table_id = table.se_private_id();
+          if (dict_sys_t::is_dd_table_id(table_id)) return 0;
+
+          if (table_id != dd::INVALID_OBJECT_ID) {
+            fill_i_s_innodb_tables_row(thd, *tables, table_id);
+          } else {
+            assert(!table.leaf_partitions().empty());
+            for (const auto *partition : table.leaf_partitions()) {
+              assert(partition->engine() == innobase_hton_name);
+              const auto table_id = partition->se_private_id();
+              if (table_id != dd::INVALID_OBJECT_ID)
+                fill_i_s_innodb_tables_row(thd, *tables, table_id);
+            }
+          }
+          return 0;
+        });
+  }
+
+  assert(!dd_access_through_server());
 
   heap = mem_heap_create(100, UT_LOCATION_HERE);
   dict_sys_mutex_enter();
@@ -5717,6 +5778,26 @@ static int i_s_innodb_tables_fill_table_stats(THD *thd, Table_ref *tables,
     return 0;
   }
 
+  if (dd_access_through_server()) {
+    return for_all_innodb_objects_in_dd<dd::Table>(
+        thd, [&tables](THD *thd, const dd::Table &table) {
+          const auto table_id = table.se_private_id();
+          if (dict_sys_t::is_dd_table_id(table_id)) return 0;
+
+          MDL_ticket *mdl_on_tab = nullptr;
+          auto *const table_rec =
+              dd_table_open_on_id(table_id, thd, &mdl_on_tab, false, false);
+          if (table_rec != nullptr) {
+            i_s_dict_fill_innodb_tablestats(
+                thd, table_rec, table_rec->get_ref_count(), tables->table);
+            dd_table_close(table_rec, thd, &mdl_on_tab, false);
+          }
+          return 0;
+        });
+  }
+
+  assert(!dd_access_through_server());
+
   heap = mem_heap_create(100, UT_LOCATION_HERE);
 
   /* Prevent DDL to drop tables. */
@@ -5960,6 +6041,27 @@ static int i_s_innodb_indexes_fill_table(THD *thd, Table_ref *tables, Item *) {
   if (check_global_access(thd, PROCESS_ACL)) {
     return 0;
   }
+
+  if (dd_access_through_server()) {
+    return for_all_innodb_objects_in_dd<dd::Table>(
+        thd, [&tables](THD *thd, const dd::Table &table) {
+          const auto table_id = table.se_private_id();
+          if (dict_sys_t::is_dd_table_id(table_id)) return 0;
+
+          MDL_ticket *mdl_on_tab = nullptr;
+          auto *const table_rec =
+              dd_table_open_on_id(table_id, thd, &mdl_on_tab, false, false);
+          if (table_rec == nullptr) return 0;
+          for (const auto *index_rec = table_rec->first_index();
+               index_rec != nullptr; index_rec = index_rec->next()) {
+            i_s_dict_fill_innodb_indexes(thd, index_rec, tables->table);
+          }
+          dd_table_close(table_rec, thd, &mdl_on_tab, false);
+          return 0;
+        });
+  }
+
+  assert(!dd_access_through_server());
 
   heap = mem_heap_create(100, UT_LOCATION_HERE);
   dict_sys_mutex_enter();
@@ -6363,6 +6465,68 @@ static void process_rows(THD *thd, Table_ref *tables, const rec_t *rec,
   }
 }
 
+static void fill_i_s_innodb_columns_one_table(THD *thd, Table_ref &tables,
+                                              dd::Object_id table_id) {
+  assert(dd_access_through_server());
+  assert(table_id != dd::INVALID_OBJECT_ID);
+
+  if (dict_sys_t::is_dd_table_id(table_id)) return;
+
+  MDL_ticket *mdl_on_tab = nullptr;
+  auto *const table_rec =
+      dd_table_open_on_id(table_id, thd, &mdl_on_tab, false, false);
+  if (table_rec == nullptr) return;
+
+  /* For each column in the table, fill in innodb_columns. */
+  auto *column = table_rec->cols;
+  const auto *name = table_rec->col_names;
+  dict_v_col_t *v_column = nullptr;
+  const char *v_name = nullptr;
+
+  const auto has_virtual_cols = table_rec->n_v_cols > 0;
+  if (has_virtual_cols) {
+    v_column = table_rec->v_cols;
+    v_name = table_rec->v_col_names;
+  }
+
+  for (size_t i = 0, v_i = 0;
+       i < table_rec->n_cols || v_i < table_rec->n_v_cols;) {
+    if (i < table_rec->n_cols &&
+        (!has_virtual_cols || v_i == table_rec->n_v_cols ||
+         column->ind < v_column->m_col.ind)) {
+      /* Fill up normal column */
+      ut_ad(!column->is_virtual());
+
+      if (column->is_visible) {
+        i_s_dict_fill_innodb_columns(thd, table_rec->id, name, column,
+                                     UINT32_UNDEFINED, tables.table);
+      }
+
+      column++;
+      i++;
+      name += strlen(name) + 1;
+    } else {
+      /* Fill up virtual column */
+      ut_ad(v_column->m_col.is_virtual());
+      ut_ad(v_i < table_rec->n_v_cols);
+
+      if (v_column->m_col.is_visible) {
+        const auto v_pos =
+            dict_create_v_col_pos(v_column->v_pos, v_column->m_col.ind);
+        const auto nth_v_col = dict_get_v_col_pos(v_pos);
+
+        i_s_dict_fill_innodb_columns(thd, table_rec->id, v_name,
+                                     &v_column->m_col, nth_v_col, tables.table);
+      }
+
+      v_column++;
+      v_i++;
+      v_name += strlen(v_name) + 1;
+    }
+  }
+  dd_table_close(table_rec, thd, &mdl_on_tab, false);
+}
+
 /** Function to fill information_schema.innodb_columns with information
 collected by scanning INNODB_COLUMNS table.
 @param[in]      thd             thread
@@ -6382,6 +6546,29 @@ static int i_s_innodb_columns_fill_table(THD *thd, Table_ref *tables, Item *) {
   if (check_global_access(thd, PROCESS_ACL)) {
     return 0;
   }
+
+  if (dd_access_through_server()) {
+    return for_all_innodb_objects_in_dd<dd::Table>(
+        thd, [&tables](THD *thd, const dd::Table &table) {
+          const auto table_id = table.se_private_id();
+          if (dict_sys_t::is_dd_table_id(table_id)) return 0;
+
+          if (table_id != dd::INVALID_OBJECT_ID) {
+            fill_i_s_innodb_columns_one_table(thd, *tables, table_id);
+          } else {
+            assert(!table.leaf_partitions().empty());
+            for (const auto *partition : table.leaf_partitions()) {
+              assert(partition->engine() == innobase_hton_name);
+              const auto table_id = partition->se_private_id();
+              if (table_id != dd::INVALID_OBJECT_ID)
+                fill_i_s_innodb_columns_one_table(thd, *tables, table_id);
+            }
+          }
+          return 0;
+        });
+  }
+
+  assert(!dd_access_through_server());
 
   heap = mem_heap_create(100, UT_LOCATION_HERE);
   dict_sys_mutex_enter();
@@ -6563,6 +6750,52 @@ static int i_s_innodb_virtual_fill_table(THD *thd, Table_ref *tables, Item *) {
   if (check_global_access(thd, PROCESS_ACL)) {
     return 0;
   }
+
+  if (dd_access_through_server()) {
+    return for_all_innodb_objects_in_dd<dd::Table>(
+        thd, [&tables](THD *thd, const dd::Table &table) {
+          const auto table_id = table.se_private_id();
+          if (dict_sys_t::is_dd_table_id(table_id)) return 0;
+
+          dict_table_t *table_rec = nullptr;
+          MDL_ticket *mdl_on_tab = nullptr;
+
+          for (const auto *column : table.columns()) {
+            if (!column->is_virtual()) continue;
+            if (column->hidden() ==
+                dd::Column::enum_hidden_type::HT_HIDDEN_SE) {
+              continue;
+            }
+            const auto origin_pos = column->ordinal_position() - 1;
+            if (table_rec == nullptr) {
+              assert(mdl_on_tab == nullptr);
+
+              table_rec =
+                  dd_table_open_on_id(table_id, thd, &mdl_on_tab, false, false);
+              if (table_rec == nullptr) break;
+            }
+            auto *const vcol =
+                dict_table_get_nth_v_col_mysql(table_rec, origin_pos);
+            if (vcol == nullptr || vcol->num_base == 0) continue;
+            const auto n_row = vcol->num_base;
+            for (ulint i = 0; i < n_row; i++) {
+              const auto pos =
+                  dict_create_v_col_pos(vcol->v_pos, vcol->m_col.ind);
+              const auto base_pos = vcol->base_col[i]->ind;
+              i_s_dict_fill_innodb_virtual(thd, table_id, pos, base_pos,
+                                           tables->table);
+            }
+          }
+
+          if (table_rec != nullptr) {
+            assert(mdl_on_tab != nullptr);
+            dd_table_close(table_rec, thd, &mdl_on_tab, false);
+          }
+          return 0;
+        });
+  }
+
+  assert(!dd_access_through_server());
 
   heap = mem_heap_create(100, UT_LOCATION_HERE);
   dict_sys_mutex_enter();
@@ -6959,6 +7192,96 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
   }
 
   heap = mem_heap_create(100, UT_LOCATION_HERE);
+
+  if (dd_access_through_server()) {
+    return for_all_innodb_objects_in_dd<dd::Tablespace>(
+        thd, [&heap, &tables](THD *thd, const dd::Tablespace &tablespace) {
+          const auto &se_private_data = tablespace.se_private_data();
+
+          space_id_t space;
+          if (se_private_data.get(dd_space_key_strings[DD_SPACE_ID], &space)) {
+            assert(false);
+            mem_heap_free(heap);
+            return 1;
+          }
+
+          if (space == 0) return 0;
+
+          auto *const name = static_cast<char *>(
+              mem_heap_zalloc(heap, tablespace.name().length() + 1));
+          memcpy(name, tablespace.name().c_str(),
+                 tablespace.name().length() + 1);
+
+          const auto &properties = tablespace.options();
+
+          uint32_t flags;
+          if (se_private_data.get(dd_space_key_strings[DD_SPACE_FLAGS],
+                                  &flags)) {
+            assert(false);
+            mem_heap_free(heap);
+            return 1;
+          }
+
+          dd::String_type encryption;
+          if (properties.exists("encryption") &&
+              properties.get("encryption", &encryption)) {
+            assert(false);
+            mem_heap_free(heap);
+            return 1;
+          }
+
+          auto is_encrypted = !Encryption::is_none(encryption.c_str());
+          if (fsp_is_undo_tablespace(space)) {
+            is_encrypted = srv_undo_log_encrypt;
+          } else if (FSP_FLAGS_GET_ENCRYPTION(flags)) {
+            is_encrypted = true;
+          }
+
+          uint32 server_version;
+          if (se_private_data.get(dd_space_key_strings[DD_SPACE_SERVER_VERSION],
+                                  &server_version)) {
+            assert(false);
+            mem_heap_free(heap);
+            return 1;
+          }
+
+          uint32 space_version;
+          if (se_private_data.get(dd_space_key_strings[DD_SPACE_VERSION],
+                                  &space_version)) {
+            assert(false);
+            mem_heap_free(heap);
+            return 1;
+          }
+
+          assert(se_private_data.exists(dd_space_key_strings[DD_SPACE_STATE]));
+          dd::String_type state;
+          if (se_private_data.get(dd_space_key_strings[DD_SPACE_STATE],
+                                  &state)) {
+            assert(false);
+            mem_heap_free(heap);
+            return 1;
+          }
+
+          uint64_t autoextend_size = 0;
+          if (properties.exists(autoextend_size_str) &&
+              properties.get(autoextend_size_str, &autoextend_size)) {
+            assert(false);
+            mem_heap_free(heap);
+            return 1;
+          }
+
+          i_s_dict_fill_innodb_tablespaces(
+              thd, space, name, flags, server_version, space_version,
+              is_encrypted, autoextend_size, state.c_str(), tables->table);
+
+          mem_heap_empty(heap);
+
+          return 0;
+        });
+  }
+
+  assert(!dd_access_through_server());
+
   dict_sys_mutex_enter();
   mtr_start(&mtr);
 
@@ -7154,6 +7477,28 @@ static int i_s_innodb_cached_indexes_fill_table(THD *thd, Table_ref *tables,
   if (check_global_access(thd, PROCESS_ACL)) {
     return 0;
   }
+
+  if (dd_access_through_server()) {
+    return for_all_innodb_objects_in_dd<dd::Table>(
+        thd, [&tables](THD *thd, const dd::Table &table) {
+          for (const auto *index : table.indexes()) {
+            const auto &se_private_data = index->se_private_data();
+            uint32_t index_id;
+            if (se_private_data.get(dd_index_key_strings[DD_INDEX_ID],
+                                    &index_id))
+              return 0;
+            space_id_t space_id;
+            if (se_private_data.get(dd_index_key_strings[DD_INDEX_SPACE_ID],
+                                    &space_id))
+              return 0;
+            i_s_fill_innodb_cached_indexes_row(thd, space_id, index_id,
+                                               tables->table);
+          }
+          return 0;
+        });
+  }
+
+  assert(!dd_access_through_server());
 
   mem_heap_t *heap = mem_heap_create(100, UT_LOCATION_HERE);
 

@@ -1,0 +1,1 @@
+--source ../../innodb/t/optimizer_temporary_table.test

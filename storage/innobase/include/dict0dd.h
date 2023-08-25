@@ -34,6 +34,7 @@ Data dictionary interface */
 #include "dict0mem.h"
 #include "dict0types.h"
 #include "my_compiler.h"
+#include "mysqld.h"
 #include "univ.i"
 
 #ifndef UNIV_HOTBACKUP
@@ -1593,6 +1594,16 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
                      const Field *field, unsigned &col_len, ulint &mtype,
                      ulint &prtype);
 #endif
+
+/** Check if InnoDB must access MySQL data dictionary through the server layer
+APIs. If InnoDB is the data dictionary storage engine, it may access the data
+dictionary through lower level direct InnoDB interface. But if it is not the
+DDSE, the tables will be in another storage engine, thus the server layer
+interface must be used.
+@return whether server layer interface must be used to access the DD */
+[[nodiscard]] inline bool dd_access_through_server() noexcept {
+  return (default_dd_storage_engine != DEFAULT_DD_INNODB);
+}
 
 #include "dict0dd.ic"
 #endif

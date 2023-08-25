@@ -1,0 +1,1 @@
+--source ../../innodb/t/innodb_autoextend_import_export.test

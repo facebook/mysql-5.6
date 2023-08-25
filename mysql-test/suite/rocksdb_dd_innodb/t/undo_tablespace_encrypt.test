@@ -1,0 +1,1 @@
+--source ../../innodb_undo/t/undo_tablespace_encrypt.test
