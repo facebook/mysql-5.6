@@ -4622,6 +4622,8 @@ template dict_table_t *dd_open_table<dd::Partition>(
 @param[in]     mtr             Mini-transaction
 @return the next rec of the dd system table */
 static const rec_t *dd_getnext_system_low(btr_pcur_t *pcur, mtr_t *mtr) {
+  assert(!dd_access_through_server());
+
   rec_t *rec = nullptr;
   bool is_comp = dict_table_is_comp(pcur->index()->table);
 
@@ -4649,6 +4651,8 @@ static const rec_t *dd_getnext_system_low(btr_pcur_t *pcur, mtr_t *mtr) {
 @param[in]	mtr		Mini-transaction
 @retval next record */
 const rec_t *dd_getnext_system_rec(btr_pcur_t *pcur, mtr_t *mtr) {
+  assert(!dd_access_through_server());
+
   /* Restore the position */
   btr_pcur_restore_position(BTR_SEARCH_LEAF, pcur, mtr);
 
@@ -4666,6 +4670,8 @@ const rec_t *dd_getnext_system_rec(btr_pcur_t *pcur, mtr_t *mtr) {
 const rec_t *dd_startscan_system(THD *thd, MDL_ticket **mdl, btr_pcur_t *pcur,
                                  mtr_t *mtr, const char *system_table_name,
                                  dict_table_t **table) {
+  assert(!dd_access_through_server());
+
   dict_index_t *clust_index;
   const rec_t *rec = nullptr;
 
@@ -4701,6 +4707,8 @@ static const int DD_FIELD_OFFSET = 2;
 const char *dd_process_dd_tables_rec_and_mtr_commit(
     mem_heap_t *heap, const rec_t *rec, dict_table_t **table,
     dict_table_t *dd_tables, MDL_ticket **mdl, mtr_t *mtr) {
+  assert(!dd_access_through_server());
+
   ulint len;
   const byte *field;
   const char *err_msg = nullptr;
@@ -4771,6 +4779,8 @@ const char *dd_process_dd_tables_rec_and_mtr_commit(
 const char *dd_process_dd_partitions_rec_and_mtr_commit(
     mem_heap_t *heap, const rec_t *rec, dict_table_t **table,
     dict_table_t *dd_tables, MDL_ticket **mdl, mtr_t *mtr) {
+  assert(!dd_access_through_server());
+
   ulint len;
   const byte *field;
   const char *err_msg = nullptr;
@@ -5003,6 +5013,8 @@ bool dd_process_dd_virtual_columns_rec(mem_heap_t *heap, const rec_t *rec,
                                        table_id_t *table_id, ulint **pos,
                                        ulint **base_pos, ulint *n_row,
                                        dict_table_t *dd_columns, mtr_t *mtr) {
+  assert(!dd_access_through_server());
+
   ulint len;
   const byte *field;
   ulint origin_pos;
@@ -5125,6 +5137,8 @@ bool dd_process_dd_indexes_rec(mem_heap_t *heap, const rec_t *rec,
                                const dict_index_t **index, MDL_ticket **mdl,
                                dict_table_t **parent, MDL_ticket **parent_mdl,
                                dict_table_t *dd_indexes, mtr_t *mtr) {
+  assert(!dd_access_through_server());
+
   ulint len;
   const byte *field;
   uint32 index_id;
@@ -5280,6 +5294,8 @@ bool dd_process_dd_indexes_rec_simple(mem_heap_t *heap, const rec_t *rec,
                                       space_index_t *index_id,
                                       space_id_t *space_id,
                                       dict_table_t *dd_indexes) {
+  assert(!dd_access_through_server());
+
   ulint len;
   const byte *field;
   uint32 idx_id;
@@ -5346,6 +5362,8 @@ bool dd_process_dd_tablespaces_rec(mem_heap_t *heap, const rec_t *rec,
                                    uint64_t *autoextend_size,
                                    dd::String_type *state,
                                    dict_table_t *dd_spaces) {
+  assert(!dd_access_through_server());
+
   ulint len;
   const byte *field;
   char *prop_str;
