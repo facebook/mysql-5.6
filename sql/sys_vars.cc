@@ -3966,6 +3966,16 @@ static Sys_var_bool Sys_clean_parser_memory_per_statement(
     SESSION_VAR(clean_parser_memory_per_statement), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_bool Sys_clean_all_memory_per_statement(
+    "clean_all_memory_per_statement",
+    "When enabled, most memory used for parser, optimizer, executor will be "
+    "allocated in THD::main_mem_root and will be release after finish each "
+    "statement execution; small memory will be allocated in "
+    "THD::m_per_query_mem_root and released after finish all statements "
+    "executeion",
+    SESSION_VAR(clean_all_memory_per_statement), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static bool check_optimizer_switch(sys_var *, THD *thd [[maybe_unused]],
                                    set_var *var) {
   const bool current_hypergraph_optimizer =

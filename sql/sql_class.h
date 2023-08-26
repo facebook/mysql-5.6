@@ -5018,6 +5018,14 @@ class THD : public MDL_context_owner,
     else
       mem_root->Clear();
   }
+  inline MEM_ROOT *get_per_query_mem_root() { return &m_per_query_mem_root; }
+  inline void clean_per_query_memory() {
+    if (m_per_query_mem_root.allocated_size() <= 8192)
+      m_per_query_mem_root.ClearForReuse();
+    else
+      m_per_query_mem_root.Clear();
+  }
+
   // serialize client attributes and compute CLIENT_ID
   void serialize_client_attrs(const char *query, size_t query_length);
   std::vector<std::pair<std::string, std::string>> query_attrs_list;
@@ -5048,6 +5056,12 @@ class THD : public MDL_context_owner,
     after finish each statement(multi-statement query).
   */
   MEM_ROOT m_parser_mem_root;
+  /**
+    only used when clean_all_memory_per_statement is true
+    when used, per query mem will be allocated using m_per_query_mem_root
+    and per statemement mem will be allocated using main_mem_root
+  */
+  MEM_ROOT m_per_query_mem_root;
   Diagnostics_area main_da;
   Diagnostics_area m_parser_da; /**< cf. get_parser_da() */
   Diagnostics_area m_query_rewrite_plugin_da;

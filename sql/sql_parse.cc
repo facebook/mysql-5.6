@@ -2641,6 +2641,11 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         if (thd->variables.clean_parser_memory_per_statement) {
           thd->clean_parser_memory();
         }
+        if (thd->variables.clean_all_memory_per_statement) {
+          /* remove all memory used by current statement */
+          thd->clean_main_memory();
+        }
+
 /* SHOW PROFILE end */
 #if defined(ENABLED_PROFILING)
         thd->profiling->finish_current_query();
@@ -3102,7 +3107,10 @@ done:
 
   thd->clean_main_memory();
 
-    /* SHOW PROFILE instrumentation, end */
+  /* remove all memory used by current query */
+  thd->clean_per_query_memory();
+
+  /* SHOW PROFILE instrumentation, end */
 #if defined(ENABLED_PROFILING)
   thd->profiling->finish_current_query();
 #endif
@@ -3285,7 +3293,20 @@ bool alloc_query(THD *thd, const char *packet, size_t packet_length) {
     packet_length--;
   }
 
-  char *query = static_cast<char *>(thd->alloc(packet_length + 1));
+  char *query = nullptr;
+  /*
+    When clean_all_memory_per_statement is true and memory isn't swapped,
+    query will be allocated in per-query mem_root and released after finish
+    all statement. If memory is swapped, such as prepared statement, etc
+    swap caller will allocate and release these memory
+  */
+  if (thd->variables.clean_all_memory_per_statement &&
+      !thd->is_query_arena_swapped()) {
+    query = static_cast<char *>(
+        thd->get_per_query_mem_root()->Alloc(packet_length + 1));
+  } else {
+    query = static_cast<char *>(thd->alloc(packet_length + 1));
+  }
   if (!query) return true;
   memcpy(query, packet, packet_length);
   query[packet_length] = '\0';

@@ -205,8 +205,19 @@ bool Lex_input_stream::init(THD *thd, const char *buff, size_t length) {
 
   query_charset = thd->charset();
 
-  m_cpp_buf = (char *)thd->alloc(length + 1);
-
+  /*
+    m_cpp_buf keep multi-statements query buffer
+    When clean_all_memory_per_statement is true and memory isn't swapped,
+    query will be allocated in per-query mem_root and released after finish
+    all statement. If memory is swapped, such as prepared statement, etc
+    swap caller will allocate and release these memory
+  */
+  if (thd->variables.clean_all_memory_per_statement &&
+      !thd->is_query_arena_swapped()) {
+    m_cpp_buf = (char *)thd->get_per_query_mem_root()->Alloc(length + 1);
+  } else {
+    m_cpp_buf = (char *)thd->alloc(length + 1);
+  }
   DBUG_EXECUTE_IF("bug42064_simulate_oom",
                   DBUG_SET("-d,bug42064_simulate_oom"););
 

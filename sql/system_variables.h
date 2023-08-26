@@ -626,6 +626,11 @@ struct System_variables {
 
   bool clean_parser_memory_per_statement;
 
+  /**
+   If set, will release all memory used for current statement
+  */
+  bool clean_all_memory_per_statement;
+
   ulong load_data_infile_buffer_size;
 
   long thread_priority;

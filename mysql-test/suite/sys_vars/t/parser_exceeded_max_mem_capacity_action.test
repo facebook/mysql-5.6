@@ -14,6 +14,7 @@ while ($selects)
 
 set parser_max_mem_size=10000000;
 set session clean_parser_memory_per_statement = false;
+set session clean_all_memory_per_statement = false;
 
 # error
 set parser_exceeded_max_mem_capacity_action=ERROR;
@@ -53,9 +54,44 @@ eval $str; //
 --enable_result_log
 DELIMITER ;//
 
+# clean_all_memory_per_statement case
+# No error should occurs
+set parser_exceeded_max_mem_capacity_action=ERROR;
+set session clean_parser_memory_per_statement = false;
+set session clean_all_memory_per_statement = true;
+# let's double query size > 5k
+-- let $str1= $str; select 1; $str
+DELIMITER //;
+--disable_query_log
+--disable_result_log
+eval $str1; //
+--enable_query_log
+--enable_result_log
+DELIMITER ;//
+
+# check whether memory leak if one query contains this variable changes during query
+-- let $str = select 1;select 2;select 3;select 4;select 5;select 6;select 7;select 8;select 9
+-- let $str1 = set session clean_all_memory_per_statement = false; $str; set session clean_all_memory_per_statement = true; $str
+DELIMITER //;
+--disable_query_log
+--disable_result_log
+eval $str1; //
+--enable_query_log
+--enable_result_log
+DELIMITER ;//
+
+-- let $str2 = set session clean_all_memory_per_statement = true; $str; set session clean_all_memory_per_statement = false; $str
+DELIMITER //;
+--disable_query_log
+--disable_result_log
+eval $str2; //
+--enable_query_log
+--enable_result_log
+DELIMITER ;//
 
 # cleanup
 set parser_exceeded_max_mem_capacity_action=default;
 set parser_max_mem_size=default;
 set session clean_parser_memory_per_statement = default;
+set session clean_all_memory_per_statement = default;
 DROP table parser_exceeded_max_mem_capacity_actions_table;
