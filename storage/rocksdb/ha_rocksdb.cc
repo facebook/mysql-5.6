@@ -16421,7 +16421,7 @@ inline bool ha_rocksdb::is_instant(const Alter_inplace_info *ha_alter_info) {
   - For raw data(thd_is_dd_update_stmt()==False), use bulk-load if requested
   @return True if DDSE is rocksdb and it is updating table metadata
 */
-inline bool ha_rocksdb::is_dd_update() {
+bool ha_rocksdb::is_dd_update() {
   return default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
          thd_is_dd_update_stmt(ha_thd());
 }
