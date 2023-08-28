@@ -1000,7 +1000,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   void build_decoder();
   void check_build_decoder();
 
-  inline bool is_dd_operation();
+  inline bool is_dd_update() const;
 
  protected:
   int records(ha_rows *num_rows) override;
