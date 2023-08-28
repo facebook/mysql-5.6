@@ -8903,6 +8903,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_sk_packed_tuple(nullptr),
       m_end_key_packed_tuple(nullptr),
       m_sk_packed_tuple_old(nullptr),
+      m_sk_packed_tuple_updated(nullptr),
       m_pack_buffer(nullptr),
       m_lock_rows(RDB_LOCK_NONE),
       m_keyread_only(false),
@@ -9164,14 +9165,17 @@ int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
       my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
   m_sk_packed_tuple_old = reinterpret_cast<uchar *>(
       my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
+  m_sk_packed_tuple_updated = reinterpret_cast<uchar *>(
+      my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
   m_end_key_packed_tuple = reinterpret_cast<uchar *>(
       my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
   m_pack_buffer = reinterpret_cast<uchar *>(
       my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
 
   if (m_pk_packed_tuple == nullptr || m_sk_packed_tuple == nullptr ||
-      m_sk_packed_tuple_old == nullptr || m_end_key_packed_tuple == nullptr ||
-      m_pack_buffer == nullptr) {
+      m_sk_packed_tuple_old == nullptr ||
+      m_sk_packed_tuple_updated == nullptr ||
+      m_end_key_packed_tuple == nullptr || m_pack_buffer == nullptr) {
     // One or more of the above allocations failed.  Clean up and exit
     free_key_buffers();
 
@@ -9190,6 +9194,9 @@ void ha_rocksdb::free_key_buffers() {
 
   my_free(m_sk_packed_tuple_old);
   m_sk_packed_tuple_old = nullptr;
+
+  my_free(m_sk_packed_tuple_updated);
+  m_sk_packed_tuple_updated = nullptr;
 
   my_free(m_end_key_packed_tuple);
   m_end_key_packed_tuple = nullptr;
@@ -10652,20 +10659,22 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const {
   pair for.
 */
 int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf,
+                                     const rocksdb::Slice *key,
                                      const rocksdb::Slice *value,
                                      bool *skip_row) {
+  DBUG_TRACE;
   assert(table != nullptr);
 
   int rc = 0;
+  const Rdb_key_def &kd = *m_key_descr_arr[keyno];
 
 #ifndef NDEBUG
   bool save_keyread_only = m_keyread_only;
   DBUG_EXECUTE_IF("dbug.rocksdb.HA_EXTRA_KEYREAD", { m_keyread_only = true; });
 #endif
   bool covered_lookup =
-      (m_keyread_only && m_key_descr_arr[keyno]->can_cover_lookup()) ||
-      m_key_descr_arr[keyno]->covers_lookup(value,
-                                            m_converter->get_lookup_bitmap());
+      (m_keyread_only && kd.can_cover_lookup()) ||
+      kd.covers_lookup(value, m_converter->get_lookup_bitmap());
 #ifndef NDEBUG
   m_keyread_only = save_keyread_only;
 #endif
@@ -10673,11 +10682,66 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf,
   if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
     inc_covered_sk_lookup();
   } else {
-    DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete_sk");
+    DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_upd_or_delete_sk");
     rc = get_row_by_rowid(buf, m_last_rowkey.ptr(), m_last_rowkey.length(),
                           skip_row, false, !rdb_is_binlog_ttl_enabled());
+
+    if (skip_row && *skip_row) goto done;
+
+    if (m_lock_rows != RDB_LOCK_NONE &&
+        (my_core::thd_tx_isolation(ha_thd()) == ISO_READ_COMMITTED)) {
+      /*
+        At this point, buf contains `row`, read via the primary key
+        generated from the secondary key (saved onto
+        m_last_rowkey in the calling function)
+
+        Next step, we recreate secondary key from the newly read `row`, and
+        compare with secondary key send by caller as `key`
+      */
+
+      longlong hidden_pk_id = 0;
+      if (has_hidden_pk(*table) &&
+          (rc = read_hidden_pk_id_from_rowkey(&hidden_pk_id))) {
+        goto done;
+      }
+
+      const uint new_packed_size =
+          kd.pack_record(table, m_pack_buffer, buf, m_sk_packed_tuple_updated,
+                         nullptr, 0, hidden_pk_id, 0, nullptr, 0);
+      const rocksdb::Slice updated_key(
+          reinterpret_cast<char *>(m_sk_packed_tuple_updated), new_packed_size);
+
+      if (updated_key.compare(*key)) {
+        /*
+           This catches the situation where the secondary key in an ongoing
+           locking read differs from the secondary key the row read via the
+           primary key.
+
+           This would happen if there's a parallel connection that has updated
+           this same row after the secondary key is read, but before the primary
+           key is fetched.
+
+           If we return this row in spite of the changed key, then we get
+           incorrect behaviour depending on the scenario. For point queries, we
+           will return rows that don't match the query. For range scans, the
+           other sql iterator code will exit (EOF) prematurely due to the
+           secondar key value not falling within the scan range, signifying that
+           the range scan is over, even though there are in fact matching keys
+           left.
+
+           By returning HA_ERR_KEY_NOT_FOUND here, range queries can skip over
+           the problematic row, continue and cover all remaining matching rows.
+           This works in conjunction with should_skip_invalidated_record().
+           Point queries will just return empty result set.
+
+        */
+
+        rc = HA_ERR_KEY_NOT_FOUND;
+      }
+    }
   }
 
+done:
   return rc;
 }
 
@@ -11325,7 +11389,8 @@ int ha_rocksdb::get_row_by_sk(uchar *buf, const Rdb_key_def &kd,
 
   m_last_rowkey.copy((const char *)m_pk_packed_tuple, size, &my_charset_bin);
 
-  rc = secondary_index_read(active_index, buf, &m_retrieved_record, nullptr);
+  rc = secondary_index_read(active_index, buf, key, &m_retrieved_record,
+                            nullptr);
   if (!rc) {
     table->m_status = 0;
   }
@@ -11493,7 +11558,8 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
                          &my_charset_bin);
 
       bool skip_row = false;
-      rc = secondary_index_read(active_index, buf, &value, &skip_row);
+      rc = secondary_index_read(active_index, buf, &key, &value, &skip_row);
+
       if (!rc && skip_row) {
         // SKIP LOCKED
         continue;
@@ -13090,7 +13156,7 @@ int ha_rocksdb::rnd_end() {
 void ha_rocksdb::build_decoder() {
   m_converter->setup_field_decoders(table->read_set, active_index,
                                     m_keyread_only,
-                                    m_lock_rows == RDB_LOCK_WRITE);
+                                    m_lock_rows != RDB_LOCK_NONE);
 }
 
 void ha_rocksdb::check_build_decoder() {

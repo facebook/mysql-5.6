@@ -1,0 +1,86 @@
+Creating TABLE `table1`
+CREATE TABLE table1 (
+row_key BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+val1 TINYINT NOT NULL,
+val2 VARCHAR(128) NOT NULL,
+PRIMARY KEY (row_key),
+KEY idx_val1 (val1, val2(1))
+) ENGINE=RocksDB;
+INSERT INTO table1 (val1, val2) VALUES (14, 'Alfa'), (14, 'Bravo'), (14, 'Charlie'), (14, 'Delta');
+`table1` created with 4 rows
+Table before
+SELECT * FROM table1;
+row_key	val1	val2
+1	14	Alfa
+2	14	Bravo
+3	14	Charlie
+4	14	Delta
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+START TRANSACTION;
+Conn A: Started RC TRANSACTION 
+Conn A: SELECT with val1 referenced - NO LOCKS
+SELECT val1 from table1 WHERE val1 = 14;
+val1
+14
+14
+14
+14
+Conn A: SELECT .. FOR SHARE with val1 referenced - READ LOCK
+SELECT val1 from table1 WHERE val1 = 14 FOR SHARE;
+val1
+14
+14
+14
+14
+Conn A: SELECT .. FOR UPDATE with val1 referenced - WRITE LOCK
+SELECT val1 from table1 WHERE val1 = 14 FOR UPDATE;
+val1
+14
+14
+14
+14
+ROLLBACK;
+DROP TABLE table1;
+Creating TABLE `table1`
+CREATE TABLE table1 (
+
+val1 TINYINT NOT NULL,
+val2 VARCHAR(128) NOT NULL,
+
+KEY idx_val1 (val1, val2(1))
+) ENGINE=RocksDB;
+INSERT INTO table1 (val1, val2) VALUES (14, 'Alfa'), (14, 'Bravo'), (14, 'Charlie'), (14, 'Delta');
+`table1` created with 4 rows
+Table before
+SELECT * FROM table1;
+val1	val2
+14	Alfa
+14	Bravo
+14	Charlie
+14	Delta
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+START TRANSACTION;
+Conn A: Started RC TRANSACTION 
+Conn A: SELECT with val1 referenced - NO LOCKS
+SELECT val1 from table1 WHERE val1 = 14;
+val1
+14
+14
+14
+14
+Conn A: SELECT .. FOR SHARE with val1 referenced - READ LOCK
+SELECT val1 from table1 WHERE val1 = 14 FOR SHARE;
+val1
+14
+14
+14
+14
+Conn A: SELECT .. FOR UPDATE with val1 referenced - WRITE LOCK
+SELECT val1 from table1 WHERE val1 = 14 FOR UPDATE;
+val1
+14
+14
+14
+14
+ROLLBACK;
+DROP TABLE table1;

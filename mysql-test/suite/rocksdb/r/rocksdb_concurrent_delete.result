@@ -36,7 +36,7 @@ CREATE TABLE t1 (pk INT PRIMARY KEY, a INT, index a(a));
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --SK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
 DELETE FROM t1 WHERE pk = 1;
@@ -47,14 +47,14 @@ a
 4
 5
 --SK middle row delete
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
 DELETE FROM t1 WHERE pk = 3;
 SET debug_sync='now SIGNAL go';
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction (snapshot conflict)
 --SK end row delete
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
 DELETE FROM t1 WHERE pk = 5;
@@ -289,7 +289,7 @@ CREATE TABLE t1 (pk INT PRIMARY KEY, a INT, index a(a));
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --SK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
 DELETE FROM t1 WHERE pk = 1;
@@ -300,7 +300,7 @@ a
 4
 5
 --SK middle row delete
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
 DELETE FROM t1 WHERE pk = 3;
@@ -310,7 +310,7 @@ a
 4
 5
 --SK end row delete
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
 DELETE FROM t1 WHERE pk = 5;

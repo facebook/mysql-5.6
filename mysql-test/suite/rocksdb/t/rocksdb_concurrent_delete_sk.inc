@@ -17,7 +17,7 @@ INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --echo --SK first row delete
 connection con;
 eval SET SESSION TRANSACTION ISOLATION LEVEL $isolation_level;
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 send_eval SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 
 # While that connection is waiting, delete the first row (the one con
@@ -34,7 +34,7 @@ reap;
 
 # Deleting a middle row
 --echo --SK middle row delete
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 send_eval SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 
 connection default;
@@ -55,7 +55,7 @@ if ($isolation_level == "READ COMMITTED")
 
 # Deleting the end row
 --echo --SK end row delete
-SET debug_sync='rocksdb_concurrent_delete_sk SIGNAL parked WAIT_FOR go';
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 send_eval SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 
 connection default;
