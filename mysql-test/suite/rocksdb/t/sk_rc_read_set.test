@@ -1,0 +1,63 @@
+--connection default
+
+let $i = 1;
+let $define_row_key = row_key BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,;
+let $define_pk = PRIMARY KEY (row_key),;
+
+while ($i <= 2) {
+
+--echo Creating TABLE `table1`
+eval CREATE TABLE table1 (
+  $define_row_key
+  val1 TINYINT NOT NULL,
+  val2 VARCHAR(128) NOT NULL,
+  $define_pk
+  KEY idx_val1 (val1, val2(1))
+) ENGINE=RocksDB;
+
+# first, create a table with a few rows, keeping the val1 column all the same
+INSERT INTO table1 (val1, val2) VALUES (14, 'Alfa'), (14, 'Bravo'), (14, 'Charlie'), (14, 'Delta');
+--echo `table1` created with 4 rows
+
+--echo Table before
+SELECT * FROM table1;
+
+# next, start an RC transaction and send SELECT queries that result in: 
+# RDB_LOCK_NONE, RDB_LOCK_READ and RDB_LOCK_WRITE getting set for the query
+# All three below should result in the same output.
+
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+START TRANSACTION;
+--echo Conn A: Started RC TRANSACTION 
+
+--echo Conn A: SELECT with val1 referenced - NO LOCKS
+SELECT val1 from table1 WHERE val1 = 14;
+
+--echo Conn A: SELECT .. FOR SHARE with val1 referenced - READ LOCK
+SELECT val1 from table1 WHERE val1 = 14 FOR SHARE;
+
+--echo Conn A: SELECT .. FOR UPDATE with val1 referenced - WRITE LOCK
+SELECT val1 from table1 WHERE val1 = 14 FOR UPDATE;
+
+# Further explanation: 
+# The fix for correctly returning KEY_NOT_FOUND for stale secondary keys
+# (that had been concurrently updated by another transaction) involves
+# comparing secondary key with a fresh copy of the SK built from newly 
+# read record. The newly read record does rely on the read_set bitmap. 
+# Depending on the query, all fields may not get copied into the record
+# from which the 'fresh' copy of SK gets built. This can cause simple
+# comparisons to fail for the SELECT .. FOR SHARE case without the fix. 
+# The fix makes sure that the entire record is read by ignoring the 
+# read_set bitmap.
+  
+ROLLBACK;
+DROP TABLE table1;
+
+# next, run the above tests a second time without explicitly defining
+# the primary key. this tests scenarios around hidden PK. 
+
+inc $i;
+let $define_row_key = ;
+let $define_pk = ; 
+
+}

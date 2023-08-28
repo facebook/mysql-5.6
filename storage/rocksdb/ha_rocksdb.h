@@ -225,6 +225,14 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   Rdb_string_writer m_sk_tails_old;
 
   /*
+     Temporary buffer being used to store updated values of SK tuple
+     to compare with possibly stale SK due to a concurrent update
+     (like in the case of a snapshot conflict)
+     currently being used in the iterator and point query paths
+  */
+  uchar *m_sk_packed_tuple_updated;
+
+  /*
     Temporary space for packing VARCHARs (we provide it to
     pack_record()/pack_index_tuple() calls).
   */
@@ -327,6 +335,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       const Rdb_tbl_def *const old_tbl_def_arg = nullptr) const;
 
   int secondary_index_read(const int keyno, uchar *const buf,
+                           const rocksdb::Slice *key,
                            const rocksdb::Slice *value, bool *skip_row)
       MY_ATTRIBUTE((__warn_unused_result__));
 
