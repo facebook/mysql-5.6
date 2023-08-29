@@ -972,6 +972,7 @@ static bool rocksdb_skip_locks_if_skip_unique_check = false;
 static bool rocksdb_alter_column_default_inplace = false;
 static bool rocksdb_alter_table_comment_inplace = false;
 static bool rocksdb_partial_index_blind_delete = true;
+bool rocksdb_partial_index_ignore_killed = true;
 bool rocksdb_disable_instant_ddl = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
@@ -2931,6 +2932,16 @@ static MYSQL_SYSVAR_BOOL(
     "deleting. Otherwise, delete marker is unconditionally written.",
     nullptr, nullptr, true);
 
+static MYSQL_SYSVAR_BOOL(
+    partial_index_ignore_killed, rocksdb_partial_index_ignore_killed,
+    PLUGIN_VAR_RQCMDARG,
+    "If ON, partial index materialization will ignore the killed flag and "
+    "continue materialization until completion. If queries are killed during "
+    "materialization due to timeout, then the work done so far is wasted, and "
+    "it is likely that killed query will be retried later, hitting the same "
+    "problem.",
+    nullptr, nullptr, true);
+
 static MYSQL_SYSVAR_BOOL(disable_instant_ddl, rocksdb_disable_instant_ddl,
                          PLUGIN_VAR_RQCMDARG,
                          "Disable instant ddl during alter table", nullptr,
@@ -3211,6 +3222,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(alter_column_default_inplace),
     MYSQL_SYSVAR(partial_index_sort_max_mem),
     MYSQL_SYSVAR(partial_index_blind_delete),
+    MYSQL_SYSVAR(partial_index_ignore_killed),
     MYSQL_SYSVAR(disable_instant_ddl),
     MYSQL_SYSVAR(enable_tmp_table),
     MYSQL_SYSVAR(alter_table_comment_inplace),

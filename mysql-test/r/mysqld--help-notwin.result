@@ -2304,6 +2304,14 @@ The following options may be given as the first argument:
  exists before deleting. Otherwise, delete marker is
  unconditionally written.
  (Defaults to on; use --skip-rocksdb-partial-index-blind-delete to disable.)
+ --rocksdb-partial-index-ignore-killed 
+ If ON, partial index materialization will ignore the
+ killed flag and continue materialization until
+ completion. If queries are killed during materialization
+ due to timeout, then the work done so far is wasted, and
+ it is likely that killed query will be retried later,
+ hitting the same problem.
+ (Defaults to on; use --skip-rocksdb-partial-index-ignore-killed to disable.)
  --rocksdb-partial-index-sort-max-mem=# 
  Maximum memory to use when sorting an unmaterialized
  group for partial indexes. 0 means no limit.
@@ -3755,6 +3763,7 @@ rocksdb-no-block-cache FALSE
 rocksdb-override-cf-options 
 rocksdb-paranoid-checks TRUE
 rocksdb-partial-index-blind-delete TRUE
+rocksdb-partial-index-ignore-killed TRUE
 rocksdb-partial-index-sort-max-mem 0
 rocksdb-pause-background-work FALSE
 rocksdb-pause-ttl-compaction-filter FALSE
