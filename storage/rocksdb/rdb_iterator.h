@@ -115,6 +115,7 @@ class Rdb_iterator_base : public Rdb_iterator {
   }
 
   bool is_valid() override { return m_valid; }
+  void set_ignore_killed(bool flag) { m_ignore_killed = flag; }
 
  protected:
   friend class Rdb_iterator;
@@ -152,6 +153,7 @@ class Rdb_iterator_base : public Rdb_iterator {
   TABLE_TYPE m_table_type;
   bool m_valid;
   bool m_check_iterate_bounds;
+  bool m_ignore_killed;
 };
 
 class Rdb_iterator_partial : public Rdb_iterator_base {
