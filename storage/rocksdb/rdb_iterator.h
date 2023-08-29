@@ -118,6 +118,10 @@ class Rdb_iterator_base : public Rdb_iterator {
 
  protected:
   friend class Rdb_iterator;
+
+  void setup_prefix_buffer(enum ha_rkey_function find_flag,
+                           const rocksdb::Slice start_key);
+
   const std::shared_ptr<Rdb_key_def> m_kd;
 
   // Rdb_key_def of the primary key
