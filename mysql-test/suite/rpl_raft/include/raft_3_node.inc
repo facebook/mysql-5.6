@@ -92,6 +92,11 @@ source include/rpl_connect.inc;
 
 connection server_1;
 show status like 'rpl_raft_role';
+--disable_query_log
+SET SQL_LOG_BIN=0;
+call mtr.add_suppression("Applier is rolling back transaction with gtid:");
+SET SQL_LOG_BIN=1;
+--enable_query_log
 
 connection server_2;
 show status like 'rpl_raft_role';
@@ -99,6 +104,9 @@ let $exec_gtid_set= query_get_value(SHOW MASTER STATUS, Executed_Gtid_Set, 1);
 reset master;
 --disable_query_log
 eval set global gtid_purged='$exec_gtid_set';
+SET SQL_LOG_BIN=0;
+call mtr.add_suppression("Applier is rolling back transaction with gtid:");
+SET SQL_LOG_BIN=1;
 --enable_query_log
 
 connection server_3;
@@ -107,6 +115,9 @@ let $exec_gtid_set= query_get_value(SHOW MASTER STATUS, Executed_Gtid_Set, 1);
 reset master;
 --disable_query_log
 eval set global gtid_purged='$exec_gtid_set';
+SET SQL_LOG_BIN=0;
+call mtr.add_suppression("Applier is rolling back transaction with gtid:");
+SET SQL_LOG_BIN=1;
 --enable_query_log
 
 connection server_4;

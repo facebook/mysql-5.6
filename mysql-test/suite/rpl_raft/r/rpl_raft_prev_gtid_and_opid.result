@@ -25,12 +25,12 @@ flush logs;
 flush logs;
 select @@global.prev_gtid_and_opid;
 @@global.prev_gtid_and_opid
-uuid1:1-2,
+uuid1:1-2;
 1,5
 insert into t1 values (2);
 select @@global.prev_gtid_and_opid;
 @@global.prev_gtid_and_opid
-uuid1:1-2,
+uuid1:1-2;
 1,5
 select @@global.prev_gtid_and_opid;
 @@global.prev_gtid_and_opid

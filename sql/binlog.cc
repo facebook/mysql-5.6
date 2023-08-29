@@ -6336,13 +6336,14 @@ end:
 
 void MYSQL_BIN_LOG::update_prev_gtid_and_opid(Gtid_set *prev_gtid,
                                               int64_t raft_term,
-                                              int64_t raft_index) {
+                                              int64_t raft_index,
+                                              bool need_sid_lock) {
   std::string term_str = std::to_string(raft_term);
   std::string index_str = std::to_string(raft_index);
   char *buf = nullptr;
-  prev_gtid->to_string(&buf);
+  prev_gtid->to_string(&buf, need_sid_lock);
   mysql_mutex_lock(&LOCK_prev_gtid_and_opid);
-  prev_gtid_and_opid = std::string(buf) + ",\n" + term_str + "," + index_str;
+  prev_gtid_and_opid = std::string(buf) + ";\n" + term_str + "," + index_str;
   mysql_mutex_unlock(&LOCK_prev_gtid_and_opid);
   my_free(buf);
 }
@@ -6623,9 +6624,9 @@ bool MYSQL_BIN_LOG::open_binlog(
       if (raft_rotate_info) {
         metadata_ev.set_raft_prev_opid(raft_rotate_info->rotate_opid.first,
                                        raft_rotate_info->rotate_opid.second);
-        update_prev_gtid_and_opid(previous_logged_gtids,
-                                  raft_rotate_info->rotate_opid.first,
-                                  raft_rotate_info->rotate_opid.second);
+        update_prev_gtid_and_opid(
+            previous_logged_gtids, raft_rotate_info->rotate_opid.first,
+            raft_rotate_info->rotate_opid.second, need_sid_lock);
       }
       if (write_event_to_binlog(&metadata_ev)) goto err;
     }
