@@ -1,0 +1,61 @@
+create table parser_exceeded_max_mem_capacity_actions_table ( long_user_id int, super_long_group_id int);
+
+let $str=SELECT `long_user_id`, `super_long_group_id` FROM `parser_exceeded_max_mem_capacity_actions_table` WHERE ((`super_long_group_id` IN (1,2))) ORDER BY `long_user_id` ASC LIMIT 4 OFFSET 3;
+# generate 2048 select query
+let $selects=11;
+while ($selects)
+{
+  -- let $str= $str; $str
+  dec $selects;
+}
+
+# add select 1 to verify select 1 is executed during warn case
+-- let $str= $str; select 1
+
+set parser_max_mem_size=10000000;
+set session clean_parser_memory_per_statement = false;
+
+# error
+set parser_exceeded_max_mem_capacity_action=ERROR;
+DELIMITER //;
+--disable_query_log
+--disable_result_log
+--Error ER_CAPACITY_EXCEEDED
+eval $str; //
+--enable_query_log
+--enable_result_log
+DELIMITER ;//
+
+# warn
+set global sql_findings_control=ON;
+set parser_exceeded_max_mem_capacity_action=WARN;
+DELIMITER //;
+--disable_query_log
+--disable_result_log
+eval $str; //
+--enable_query_log
+--enable_result_log
+DELIMITER ;//
+
+# check how many time hit CAPACITY_EXCEEDED warning
+select count(*) from performance_schema.sql_findings where code = 3170 and QUERY_TEXT like '%parser_exceeded_max_mem_capacity_actions_table%';
+set global sql_findings_control=default;
+
+# error
+set parser_exceeded_max_mem_capacity_action=ERROR;
+set session clean_parser_memory_per_statement = true;
+DELIMITER //;
+--disable_query_log
+--disable_result_log
+--Error ER_CAPACITY_EXCEEDED
+eval $str; //
+--enable_query_log
+--enable_result_log
+DELIMITER ;//
+
+
+# cleanup
+set parser_exceeded_max_mem_capacity_action=default;
+set parser_max_mem_size=default;
+set session clean_parser_memory_per_statement = default;
+DROP table parser_exceeded_max_mem_capacity_actions_table;

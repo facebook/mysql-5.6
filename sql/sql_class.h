@@ -4937,6 +4937,17 @@ class THD : public MDL_context_owner,
   inline uint32 query_attrs_length() const {
     return query_attrs_string.length();
   }
+  // whether mem_root is swapped
+  inline bool is_query_arena_swapped() const {
+    return mem_root != &(main_mem_root);
+  }
+  inline MEM_ROOT *get_parser_mem_root() { return &m_parser_mem_root; }
+  inline void clean_parser_memory() {
+    if (m_parser_mem_root.allocated_size() <= 8192)
+      m_parser_mem_root.ClearForReuse();
+    else
+      m_parser_mem_root.Clear();
+  }
   // serialize client attributes and compute CLIENT_ID
   void serialize_client_attrs(const char *query, size_t query_length);
   std::vector<std::pair<std::string, std::string>> query_attrs_list;
@@ -4960,6 +4971,13 @@ class THD : public MDL_context_owner,
     tree itself is reused between executions and thus is stored elsewhere.
   */
   MEM_ROOT main_mem_root;
+  /**
+    This memory root is only used for parser AST when
+    clean_parser_memory_per_statement is enabled.
+    The reason to add this parser only MEM_ROOT is to early clean these memory
+    after finish each statement(multi-statement query).
+  */
+  MEM_ROOT m_parser_mem_root;
   Diagnostics_area main_da;
   Diagnostics_area m_parser_da; /**< cf. get_parser_da() */
   Diagnostics_area m_query_rewrite_plugin_da;

@@ -30,6 +30,14 @@ Parse_context::Parse_context(THD *thd_arg, Query_block *sl_arg)
       mem_root(thd->mem_root),
       select(sl_arg),
       m_stack(thd->mem_root) {
+  // When thd query arena is swapped, the caller for query_arena swap will
+  // manage its own mem_root lifetime.
+  // When thd query arena isn't swapped and
+  // clean_parser_memory_per_statement is set, use parser_mem_root
+  // instead of main_mem_root to release parser memory after each statement
+  if (thd->variables.clean_parser_memory_per_statement &&
+      !thd->is_query_arena_swapped())
+    mem_root = thd->get_parser_mem_root();
   m_stack.push_back(QueryLevel(thd->mem_root, SC_TOP));
 }
 

@@ -335,6 +335,11 @@ The following options may be given as the first argument:
  proxy user mapping should be done according to GRANT
  PROXY privilege definition.
  -r, --chroot=name   Chroot mysqld daemon during startup.
+ --clean-parser-memory-per-statement 
+ When enabled, most AST memory will be allocated into
+ THD::m_parser_mem_root instead of THD::main_mem_root,
+ THD::m_parser_mem_root memory will be release memory
+ after finish each statement execution.
  --client-attribute-names[=name] 
  List of supported query/connection attributes to use for
  client_attributes (default: caller,async_id).
@@ -1255,6 +1260,11 @@ The following options may be given as the first argument:
  Offset of first optimizer trace to show; see manual
  --override-enable-raft-check 
  Disable some strict raft checks. Use with caution
+ --parser-exceeded-max-mem-capacity-action[=name] 
+ Controls how to handle when Parser OOM handler receive
+ EE_CAPACITY_EXCEEDED. Support following values: WARN:
+ Raise warning. ERROR: Raise error and interrupt the
+ execution. by default
  --parser-max-mem-size=# 
  Maximum amount of memory available to the parser
  --parthandler-allow-drop-partition 
@@ -3215,6 +3225,7 @@ character-set-server utf8mb4
 character-sets-dir MYSQL_CHARSETSDIR/
 check-proxy-users FALSE
 chroot (No default value)
+clean-parser-memory-per-statement FALSE
 client-attribute-names caller,async_id
 collation-server utf8mb4_0900_ai_ci
 column-stats-control OFF_HARD
@@ -3474,6 +3485,7 @@ optimizer-trace-limit 1
 optimizer-trace-max-mem-size 1048576
 optimizer-trace-offset -1
 override-enable-raft-check FALSE
+parser-exceeded-max-mem-capacity-action ERROR
 parser-max-mem-size 18446744073709551615
 parthandler-allow-drop-partition TRUE
 partial-revokes ####

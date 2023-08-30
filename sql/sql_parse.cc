@@ -2614,6 +2614,9 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         thd->m_statement_psi = nullptr;
         thd->m_digest = nullptr;
 
+        if (thd->variables.clean_parser_memory_per_statement) {
+          thd->clean_parser_memory();
+        }
 /* SHOW PROFILE end */
 #if defined(ENABLED_PROFILING)
         thd->profiling->finish_current_query();
@@ -3061,6 +3064,10 @@ done:
 
   /* Freeing the memroot will leave the THD::work_part_info invalid. */
   thd->work_part_info = nullptr;
+
+  if (thd->variables.clean_parser_memory_per_statement) {
+    thd->clean_parser_memory();
+  }
 
   /*
     If we've allocated a lot of memory (compared to the default preallocation
@@ -7893,12 +7900,21 @@ class Parser_oom_handler : public Internal_error_handler {
         return true;
       if (sql_errno == EE_CAPACITY_EXCEEDED || sql_errno == EE_OUTOFMEMORY) {
         m_is_mem_error = true;
-        if (sql_errno == EE_CAPACITY_EXCEEDED)
-          my_error(ER_CAPACITY_EXCEEDED, MYF(0),
-                   static_cast<ulonglong>(thd->variables.parser_max_mem_size),
-                   "parser_max_mem_size",
+        if (sql_errno == EE_CAPACITY_EXCEEDED) {
+          if (thd->variables.parser_exceeded_max_mem_capacity_action ==
+              PARSER_EXCEEDED_MAX_MEM_CAPACITY_ACTION_WARN) {
+            push_warning_printf(
+                thd, Sql_condition::SL_WARNING, ER_CAPACITY_EXCEEDED, nullptr,
+                static_cast<ulonglong>(thd->variables.parser_max_mem_size),
+                "parser_max_mem_size",
+                ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_PARSER));
+          } else {
+            my_error(ER_CAPACITY_EXCEEDED, MYF(0),
+                     static_cast<ulonglong>(thd->variables.parser_max_mem_size),
+                     "parser_max_mem_size",
                    ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_PARSER));
-        else
+          }
+        } else
           my_error(ER_OUT_OF_RESOURCES, MYF(ME_FATALERROR));
         return true;
       }
@@ -8029,6 +8045,13 @@ bool parse_sql(THD *thd, Parser_state *parser_state,
   Parser_oom_handler poomh;
   // Note that we may be called recursively here, on INFORMATION_SCHEMA queries.
 
+  // when clean_parser_memory_per_statement is enabled, parser memory may
+  // allocated in thd->parser_mem_root
+  if (thd->variables.clean_parser_memory_per_statement) {
+    thd->get_parser_mem_root()->set_max_capacity(
+        thd->variables.parser_max_mem_size);
+    thd->get_parser_mem_root()->set_error_for_capacity_exceeded(true);
+  }
   thd->mem_root->set_max_capacity(thd->variables.parser_max_mem_size);
   thd->mem_root->set_error_for_capacity_exceeded(true);
   thd->push_internal_handler(&poomh);
@@ -8038,6 +8061,10 @@ bool parse_sql(THD *thd, Parser_state *parser_state,
   bool mysql_parse_status = thd->sql_parser();
 
   thd->pop_internal_handler();
+  if (thd->variables.clean_parser_memory_per_statement) {
+    thd->get_parser_mem_root()->set_max_capacity(0);
+    thd->get_parser_mem_root()->set_error_for_capacity_exceeded(false);
+  }
   thd->mem_root->set_max_capacity(0);
   thd->mem_root->set_error_for_capacity_exceeded(false);
   /*

@@ -1,0 +1,16 @@
+create table parser_exceeded_max_mem_capacity_actions_table ( long_user_id int, super_long_group_id int);
+set parser_max_mem_size=10000000;
+set session clean_parser_memory_per_statement = false;
+set parser_exceeded_max_mem_capacity_action=ERROR;
+set global sql_findings_control=ON;
+set parser_exceeded_max_mem_capacity_action=WARN;
+select count(*) from performance_schema.sql_findings where code = 3170 and QUERY_TEXT like '%parser_exceeded_max_mem_capacity_actions_table%';
+count(*)
+1
+set global sql_findings_control=default;
+set parser_exceeded_max_mem_capacity_action=ERROR;
+set session clean_parser_memory_per_statement = true;
+set parser_exceeded_max_mem_capacity_action=default;
+set parser_max_mem_size=default;
+set session clean_parser_memory_per_statement = default;
+DROP table parser_exceeded_max_mem_capacity_actions_table;
