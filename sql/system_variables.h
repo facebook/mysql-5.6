@@ -200,6 +200,11 @@ enum enum_protocol_mode {
   PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD = 1,
 };
 
+enum enum_parser_exceeded_max_mem_capacity_action {
+  PARSER_EXCEEDED_MAX_MEM_CAPACITY_ACTION_ERROR = 0,
+  PARSER_EXCEEDED_MAX_MEM_CAPACITY_ACTION_WARN = 1,
+};
+
 struct System_variables {
   /*
     How dynamically allocated system variables are handled:
@@ -266,6 +271,7 @@ struct System_variables {
   ulong optimizer_search_depth;
   ulong optimizer_skip_scan_in_list_limit;
   ulonglong parser_max_mem_size;
+  ulong parser_exceeded_max_mem_capacity_action;
   ulong range_optimizer_max_mem_size;
   ulong range_optimizer_fail_mode;
   ulong preload_buff_size;

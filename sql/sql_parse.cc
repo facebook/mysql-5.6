@@ -7795,12 +7795,21 @@ class Parser_oom_handler : public Internal_error_handler {
         return true;
       if (sql_errno == EE_CAPACITY_EXCEEDED || sql_errno == EE_OUTOFMEMORY) {
         m_is_mem_error = true;
-        if (sql_errno == EE_CAPACITY_EXCEEDED)
-          my_error(ER_CAPACITY_EXCEEDED, MYF(0),
-                   static_cast<ulonglong>(thd->variables.parser_max_mem_size),
-                   "parser_max_mem_size",
+        if (sql_errno == EE_CAPACITY_EXCEEDED) {
+          if (thd->variables.parser_exceeded_max_mem_capacity_action ==
+              PARSER_EXCEEDED_MAX_MEM_CAPACITY_ACTION_WARN) {
+            push_warning_printf(
+                thd, Sql_condition::SL_WARNING, ER_CAPACITY_EXCEEDED, nullptr,
+                static_cast<ulonglong>(thd->variables.parser_max_mem_size),
+                "parser_max_mem_size",
+                ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_PARSER));
+          } else {
+            my_error(ER_CAPACITY_EXCEEDED, MYF(0),
+                     static_cast<ulonglong>(thd->variables.parser_max_mem_size),
+                     "parser_max_mem_size",
                    ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_PARSER));
-        else
+          }
+        } else
           my_error(ER_OUT_OF_RESOURCES, MYF(ME_FATALERROR));
         return true;
       }

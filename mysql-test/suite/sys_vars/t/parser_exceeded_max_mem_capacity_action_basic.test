@@ -1,0 +1,60 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: parser_exceeded_max_mem_capacity_action
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of parser_exceeded_max_mem_capacity_action
+SELECT @@global.parser_exceeded_max_mem_capacity_action;
+
+####
+## Verify that the variable is dynamic
+####
+--echo parser_exceeded_max_mem_capacity_action is set to WARN
+set @@global.parser_exceeded_max_mem_capacity_action = WARN;
+SELECT @@global.parser_exceeded_max_mem_capacity_action;
+
+set @@parser_exceeded_max_mem_capacity_action = WARN;
+SELECT @@parser_exceeded_max_mem_capacity_action;
+
+--echo parser_exceeded_max_mem_capacity_action is set to 'WARN'
+set @@global.parser_exceeded_max_mem_capacity_action = 'WARN';
+SELECT @@global.parser_exceeded_max_mem_capacity_action;
+
+set @@parser_exceeded_max_mem_capacity_action = 'WARN';
+SELECT @@parser_exceeded_max_mem_capacity_action;
+
+--echo parser_exceeded_max_mem_capacity_action is set to ERROR
+set @@global.parser_exceeded_max_mem_capacity_action = ERROR;
+SELECT @@global.parser_exceeded_max_mem_capacity_action;
+
+set @@parser_exceeded_max_mem_capacity_action = ERROR;
+SELECT @@parser_exceeded_max_mem_capacity_action;
+
+--echo parser_exceeded_max_mem_capacity_action is set to 'ERROR'
+set @@global.parser_exceeded_max_mem_capacity_action = 'ERROR';
+SELECT @@global.parser_exceeded_max_mem_capacity_action;
+
+set @@parser_exceeded_max_mem_capacity_action = 'ERROR';
+SELECT @@parser_exceeded_max_mem_capacity_action;
+
+-- echo setting parser_exceeded_max_mem_capacity_action to a random number gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.parser_exceeded_max_mem_capacity_action = 255;
+SELECT @@global.parser_exceeded_max_mem_capacity_action;
+
+-- echo setting parser_exceeded_max_mem_capacity_action to a random string gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.parser_exceeded_max_mem_capacity_action = 'XYZ';
+SELECT @@global.parser_exceeded_max_mem_capacity_action;
+
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.parser_exceeded_max_mem_capacity_action = default;
+SELECT @@global.parser_exceeded_max_mem_capacity_action;

@@ -1235,6 +1235,11 @@ The following options may be given as the first argument:
  Offset of first optimizer trace to show; see manual
  --override-enable-raft-check 
  Disable some strict raft checks. Use with caution
+ --parser-exceeded-max-mem-capacity-action[=name] 
+ Controls how to handle when Parser OOM handler receive
+ EE_CAPACITY_EXCEEDED. Support following values: WARN:
+ Raise warning. ERROR: Raise error and interrupt the
+ execution. by default
  --parser-max-mem-size=# 
  Maximum amount of memory available to the parser
  --parthandler-allow-drop-partition 
@@ -3424,6 +3429,7 @@ optimizer-trace-limit 1
 optimizer-trace-max-mem-size 1048576
 optimizer-trace-offset -1
 override-enable-raft-check FALSE
+parser-exceeded-max-mem-capacity-action ERROR
 parser-max-mem-size 18446744073709551615
 parthandler-allow-drop-partition TRUE
 partial-revokes ####

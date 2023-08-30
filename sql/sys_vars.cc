@@ -3802,6 +3802,20 @@ export void update_parser_max_mem_size() {
   global_system_variables.parser_max_mem_size = new_val;
 }
 
+static const char *parser_exceeded_max_mem_capacity_actions[] = {"ERROR",
+                                                                 "WARN", 0};
+
+static Sys_var_enum Sys_parser_exceeded_max_mem_capacity_action(
+    "parser_exceeded_max_mem_capacity_action",
+    "Controls how to handle when Parser OOM handler receive "
+    "EE_CAPACITY_EXCEEDED. Support following values: "
+    "WARN: Raise warning. "
+    "ERROR: Raise error and interrupt the execution. by default",
+    SESSION_VAR(parser_exceeded_max_mem_capacity_action), CMD_LINE(OPT_ARG),
+    parser_exceeded_max_mem_capacity_actions,
+    DEFAULT(PARSER_EXCEEDED_MAX_MEM_CAPACITY_ACTION_ERROR), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
 static bool check_optimizer_switch(sys_var *, THD *thd [[maybe_unused]],
                                    set_var *var) {
   const bool current_hypergraph_optimizer =
