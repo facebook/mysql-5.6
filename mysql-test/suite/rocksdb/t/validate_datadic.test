@@ -3,7 +3,7 @@
 # skip validate_datadic test for rocksdb DD
 # With rocksdb DD, table metadata lives in rocksdb
 # update mysql.ibd file won't get these error message
---source include/not_rocksdb_dd.inc
+--source include/have_innodb_ddse.inc
 
 #
 # Validate that the server starts when everything is okay, but detects errors

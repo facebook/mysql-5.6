@@ -4,4 +4,4 @@
 rocksdb_enable_delete_range_for_drop_index = ON
 
 [rocksdb_dd]
-default_dd_storage_engine = 1
+default_dd_storage_engine = DEFAULT_DD_ROCKSDB
