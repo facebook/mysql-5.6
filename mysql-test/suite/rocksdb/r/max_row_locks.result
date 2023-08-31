@@ -107,4 +107,5 @@ ERROR HY000: Got error 10 'Operation aborted: Failed to acquire lock due to rock
 select * from t1 where c7 between 101 and 110 for update;
 ERROR HY000: Got error 10 'Operation aborted: Failed to acquire lock due to rocksdb_max_row_locks limit' from ROCKSDB
 set session rocksdb_lock_scanned_rows=off;
+set session rocksdb_max_row_locks = default;
 drop table t1;

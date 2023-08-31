@@ -4,6 +4,9 @@
 --source include/have_compact_range_for_drop_table.inc
 --source include/count_sessions.inc
 
+set @@global.rocksdb_compact_cf = '__system__';
+set @@global.rocksdb_compact_cf = 'default';
+
 set @old_debug = @@global.debug;
 
 connect (conn1,localhost,root,,);

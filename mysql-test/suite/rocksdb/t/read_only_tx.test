@@ -1,6 +1,10 @@
 --source include/have_log_bin.inc
 --source include/have_rocksdb.inc
 --source include/count_sessions.inc
+#rocksdb_number_sst_entry_put value is mono-increase during compaction
+# with rocksdb dd, compaction may occurs in __system__ col, cuase its value increase much more than innodb dd
+--source include/have_innodb_ddse.inc
+
 -- let $uuid = `select @@server_uuid;`
 
 connect (con1,localhost,root,,);

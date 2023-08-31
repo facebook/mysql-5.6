@@ -15,4 +15,5 @@ ERROR HY000: MyRocks supports only READ COMMITTED and REPEATABLE READ isolation 
 select * from t1 where id=1;
 ERROR HY000: MyRocks supports only READ COMMITTED and REPEATABLE READ isolation levels. Please change from current isolation level SERIALIZABLE
 rollback;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
 DROP TABLE t1;

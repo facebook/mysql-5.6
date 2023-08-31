@@ -4794,7 +4794,9 @@ class Rdb_transaction {
 
   void remove_from_global_trx_list(void) {
     DBUG_EXECUTE_IF("rocksdb_trx_list_crash", {
-      THD *thd = new THD();
+      if (!m_thd->is_system_thread() &&
+          !m_thd->is_attachable_transaction_active()) {
+        THD *thd = new THD();
       thd->thread_stack = reinterpret_cast<char *>(&(thd));
       thd->store_globals();
 
@@ -4804,6 +4806,7 @@ class Rdb_transaction {
 
       thd->restore_globals();
       delete thd;
+      }
     });
     RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
     s_tx_list.erase(this);
@@ -9116,7 +9119,9 @@ int ha_rocksdb::convert_record_from_storage_format(
   int rc = m_converter->decode(m_pk_descr, buf, key, value);
 
   DBUG_EXECUTE_IF("stimulate_corrupt_data_read",
-                  { rc = HA_ERR_ROCKSDB_CORRUPT_DATA; });
+      if (m_tbl_def->full_tablename() == "a.t1") {
+        rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
+      });
 
   return rc == HA_ERR_ROCKSDB_CORRUPT_DATA ? handle_rocksdb_corrupt_data_error()
                                            : rc;
@@ -10604,8 +10609,11 @@ ulong ha_rocksdb::index_flags(bool &pk_can_be_decoded,
   ulong base_flags = HA_READ_NEXT |  // doesn't seem to be used
                      HA_READ_ORDER | HA_READ_RANGE | HA_READ_PREV;
 
-  DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx",
-                  { assert(table_arg->primary_key == MAX_INDEXES); };);
+  DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx", {
+    if (!dd::get_dictionary()->is_dd_table_name(table_arg->db.str,
+                                                table_arg->table_name.str))
+      assert(table_arg->primary_key == MAX_INDEXES);
+  };);
 
   if (check_keyread_allowed(pk_can_be_decoded, table_arg, inx, part,
                             all_parts)) {
@@ -11200,14 +11208,17 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
   assert(tx != nullptr);
 
   DEBUG_SYNC(ha_thd(), "rocksdb.get_row_by_rowid");
-  DBUG_EXECUTE_IF("dbug.rocksdb.get_row_by_rowid", {
-    THD *thd = ha_thd();
-    const char act[] =
-        "now signal Reached "
-        "wait_for signal.rocksdb.get_row_by_rowid_let_running";
-    assert(opt_debug_sync_timeout > 0);
-    assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
-  };);
+  DBUG_EXECUTE_IF(
+      "dbug.rocksdb.get_row_by_rowid",
+      if (m_tbl_def->full_tablename() == "test.t2" ||
+          m_tbl_def->full_tablename() == "test.t3") {
+        THD *thd = ha_thd();
+        const char act[] =
+            "now signal Reached "
+            "wait_for signal.rocksdb.get_row_by_rowid_let_running";
+        assert(opt_debug_sync_timeout > 0);
+        assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+      });
 
   /* Pretend row found without looking up */
   if (skip_lookup) {
@@ -12329,7 +12340,9 @@ int ha_rocksdb::check_and_lock_sk(
     uint pk_size =
         kd.get_primary_key_tuple(*m_pk_descr, &rkey, m_pk_packed_tuple);
     DBUG_EXECUTE_IF("stimulate_corrupt_data_update",
-                    { pk_size = RDB_INVALID_KEY_LEN; });
+        if (m_tbl_def->full_tablename() == "a.t2") {
+          pk_size = RDB_INVALID_KEY_LEN;
+        });
     if (pk_size == RDB_INVALID_KEY_LEN) {
       rc = handle_rocksdb_corrupt_data_error();
     } else {

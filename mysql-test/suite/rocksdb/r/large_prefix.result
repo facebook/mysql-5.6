@@ -1,0 +1,28 @@
+set global rocksdb_large_prefix=0;
+Warnings:
+Warning	131	using rocksdb_large_prefix is deprecated and it will be removed in a future release
+CREATE TABLE t1 (
+a BLOB(1024),
+PRIMARY KEY (a(767))
+) ENGINE=rocksdb;
+DROP TABLE t1;
+CREATE TABLE t1 (
+a BLOB(1024),
+PRIMARY KEY (a(768))
+) ENGINE=rocksdb;
+ERROR 42000: Specified key was too long; max key length is 767 bytes
+CREATE TABLE t1 (
+a BLOB(1024),
+KEY (a(767))
+) ENGINE=rocksdb;
+DROP TABLE t1;
+CREATE TABLE t1 (
+a BLOB(1024),
+KEY (a(768))
+) ENGINE=rocksdb;
+Warnings:
+Warning	1071	Specified key was too long; max key length is 767 bytes
+DROP TABLE t1;
+set global rocksdb_large_prefix=DEFAULT;
+Warnings:
+Warning	131	using rocksdb_large_prefix is deprecated and it will be removed in a future release

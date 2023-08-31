@@ -56,4 +56,5 @@ select * from t1 where c3=1 for update;
 select * from t1 where c7 between 101 and 110 for update;
 set session rocksdb_lock_scanned_rows=off;
 
+set session rocksdb_max_row_locks = default;
 drop table t1;

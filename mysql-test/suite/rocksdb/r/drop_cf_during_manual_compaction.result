@@ -1,3 +1,5 @@
+set @@global.rocksdb_compact_cf = '__system__';
+set @@global.rocksdb_compact_cf = 'default';
 set @old_debug = @@global.debug;
 set @@global.rocksdb_update_cf_options= 'cf_primary_key={};';
 select * from information_schema.rocksdb_cfstats where cf_name='cf_primary_key';

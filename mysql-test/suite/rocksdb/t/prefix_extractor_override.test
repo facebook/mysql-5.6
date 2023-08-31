@@ -1,4 +1,7 @@
 --source include/have_rocksdb.inc
+# with rocksdb DD, these status variable values also inclue DD tables. etc
+# thus these status variable value change much more
+--source include/have_innodb_ddse.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;

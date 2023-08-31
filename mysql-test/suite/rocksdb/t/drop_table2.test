@@ -14,6 +14,7 @@ call mtr.add_suppression("Column family 'rev:cf2' not found");
 # Start from clean slate
 set global rocksdb_compact_cf = 'cf1';
 set global rocksdb_compact_cf = 'rev:cf2';
+set global rocksdb_compact_cf = '__system__';
 set global rocksdb_signal_drop_index_thread = 1;
 --let $shutdown_server_timeout = 300
 --source include/restart_mysqld.inc
@@ -93,6 +94,7 @@ let $table = t5;
 set @@global.rocksdb_compact_cf = 'cf1';
 set @@global.rocksdb_compact_cf = 'rev:cf2';
 set @@global.rocksdb_compact_cf = 'default';
+set @@global.rocksdb_compact_cf = '__system__';
 
 let $output= $MYSQLTEST_VARDIR/tmp/size_output;
 
@@ -106,6 +108,7 @@ drop table t5;
 set @@global.rocksdb_compact_cf = 'cf1';
 set @@global.rocksdb_compact_cf = 'rev:cf2';
 set @@global.rocksdb_compact_cf = 'default';
+set @@global.rocksdb_compact_cf = '__system__';
 
 let $show_rpl_debug_info= 1; # to force post-failure printout
 let $wait_timeout= 300; # Override default 30 seconds with 300.

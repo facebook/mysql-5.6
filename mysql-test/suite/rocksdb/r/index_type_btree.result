@@ -49,21 +49,6 @@ t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
 t1	1	a	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC		simple index on a	YES	NULL
 ALTER TABLE t1 DROP KEY a;
 DROP TABLE t1;
-set global rocksdb_large_prefix=0;
-Warnings:
-Warning	131	using rocksdb_large_prefix is deprecated and it will be removed in a future release
-CREATE TABLE t1 (
-a BLOB(1024),
-KEY (a(767))
-) ENGINE=rocksdb;
-DROP TABLE t1;
-CREATE TABLE t1 (
-a BLOB(1024),
-KEY (a(768))
-) ENGINE=rocksdb;
-Warnings:
-Warning	1071	Specified key was too long; max key length is 767 bytes
-DROP TABLE t1;
 set global rocksdb_large_prefix=1;
 Warnings:
 Warning	131	using rocksdb_large_prefix is deprecated and it will be removed in a future release
