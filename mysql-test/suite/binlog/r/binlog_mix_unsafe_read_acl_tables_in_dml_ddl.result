@@ -879,6 +879,7 @@ include/save_binlog_position.inc
 DELETE FROM tmp WHERE EXISTS (SELECT * FROM  mysql.global_grants);
 include/assert_binlog_events.inc [!Gtid_or_anon # !Begin # Table_map # Delete_rows # Xid]
 DROP TABLE tmp;
+SET SESSION transaction_isolation = DEFAULT;
 DROP PROCEDURE proc1;
 DROP FUNCTION func1;
 DROP USER u1;

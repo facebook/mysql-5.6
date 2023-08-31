@@ -1,3 +1,5 @@
+# Test uses SERIALIZABLE transaction isolation level
+--source include/have_innodb_ddse.inc
 # t/unsafe_binlog_innodb.test
 #
 # Note that this test uses at least in case of InnoDB options

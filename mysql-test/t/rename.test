@@ -1,3 +1,6 @@
+# Multiple FK operations in a single SQL statement depend on the READ
+# UNCOMMITTED support
+--source include/have_innodb_ddse.inc
 
 #
 # Test of rename table

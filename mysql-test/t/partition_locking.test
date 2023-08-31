@@ -1,3 +1,5 @@
+# Handler counter values are bumped differently between InnoDB and MyRocks DDSEs
+--source include/have_innodb_ddse.inc
 
 # Test have expected differences in count of commit and prepare handlers
 # when run with and without binlog and/or with different binlog formats.

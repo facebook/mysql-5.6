@@ -1,3 +1,6 @@
+# --innodb-read-only does not block DD updates when InnoDB is not the DDSE
+--source include/have_innodb_ddse.inc
+
 #
 # A series of tests to show the correct behavior for
 # CREATE TABLESPACE and associated SQL statements.

@@ -123,6 +123,7 @@ while($i <= 4)
   --inc $i
 }
 
+SET SESSION transaction_isolation = DEFAULT;
 DROP PROCEDURE proc1;
 DROP FUNCTION func1;
 DROP USER u1;

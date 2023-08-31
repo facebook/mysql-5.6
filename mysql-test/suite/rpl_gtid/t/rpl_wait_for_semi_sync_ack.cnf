@@ -5,15 +5,15 @@ rpl_semi_sync_master_enabled= 1
 rpl_wait_for_semi_sync_ack= 1
 rpl_semi_sync_master_timeout= 10000000
 rpl_semi_sync_master_wait_no_slave= 1
-loose_rocksdb=0
+loose-rocksdb=0
 
 [mysqld.2]
-loose_rocksdb=0
+loose-rocksdb=0
 
 [mysqld.3]
 rpl_semi_sync_slave_enabled= 1
 rpl_semi_sync_master_wait_no_slave= 1
-loose_rocksdb=0
+loose-rocksdb=0
 
 [ENV]
 SERVER_MYPORT_3= @mysqld.3.port
