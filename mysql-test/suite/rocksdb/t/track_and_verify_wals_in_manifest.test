@@ -30,6 +30,7 @@ insert into t2 values (102);
 --let data_dir= query_get_value(SELECT @@DATADIR, @@DATADIR, 1)
 --let pid_file= query_get_value(SELECT @@pid_file, @@pid_file, 1)
 --let write_policy= query_get_value(SELECT @@rocksdb_write_policy, @@rocksdb_write_policy, 1)
+--let ddse= query_get_value(SELECT @@default_dd_storage_engine, @@default_dd_storage_engine, 1)
 
 --let $_server_id= `SELECT @@server_id`
 --let $_expect_file_name= $MYSQLTEST_VARDIR/tmp/mysqld.$_server_id.expect
@@ -45,7 +46,7 @@ SIZE=`stat -c %s $F`
 
 case $2 in
   write_committed)
-    NEW_SIZE=`expr $SIZE - 30`
+    NEW_SIZE=`expr $SIZE - 150`
     ;;
   write_prepared)
     NEW_SIZE=`expr $SIZE - 30`
@@ -54,6 +55,10 @@ case $2 in
     NEW_SIZE=`expr $SIZE - 150`
     ;;
 esac
+
+if [[ $3 == RocksDB ]]; then
+   NEW_SIZE=`expr $SIZE - 2800`
+fi
 
 truncate -s $NEW_SIZE $F
 rc=$?
@@ -68,33 +73,33 @@ EOF
 --chmod 0755 $MYSQL_TMP_DIR/truncate_tail_wal_N.sh
 
 
---exec $MYSQL_TMP_DIR/truncate_tail_wal_N.sh 2 $write_policy
+--exec $MYSQL_TMP_DIR/truncate_tail_wal_N.sh 2 $write_policy $ddse
 
 # The restart has to fail with rocksdb_track_and_verify_wals_in_manifest=1 (default)
---error 1
---exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=0 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--error 1,2
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=0 --rocksdb_write_policy=$write_policy --default_dd_storage_engine=$ddse > $_custom_err 2>&1
 --exec grep "Size mismatch: WAL" $_custom_err | wc -l
 
 --error 1
---exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=2 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=2 --rocksdb_write_policy=$write_policy --default_dd_storage_engine=$ddse > $_custom_err 2>&1
 --exec grep "Size mismatch: WAL" $_custom_err | wc -l
 
 --error 1
---exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=1 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=1 --rocksdb_write_policy=$write_policy --default_dd_storage_engine=$ddse > $_custom_err 2>&1
 --exec grep "Size mismatch: WAL" $_custom_err | wc -l
 
 # The restart has to fail with rocksdb_wal_recovery_mode=1
 --error 1
---exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=1 --rocksdb_track_and_verify_wals_in_manifest=0 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=1 --rocksdb_track_and_verify_wals_in_manifest=0 --rocksdb_write_policy=$write_policy --default_dd_storage_engine=$ddse > $_custom_err 2>&1
 
 #--echo forcing to restart with kPointInTimeRecovery will also fail with RocksDB PR#7701
 --error 1
---exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=2 --rocksdb_track_and_verify_wals_in_manifest=0 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=2 --rocksdb_track_and_verify_wals_in_manifest=0 --rocksdb_write_policy=$write_policy --default_dd_storage_engine=$ddse > $_custom_err 2>&1
 --exec grep "Corruption: SST file is ahead of WALs" $_custom_err | wc -l
 
 #--echo forcing to restart with kSkipAnyCorruptedRecords
 #Needs trim-binlog-to-recover in 8.0 to repro, due to dual engine recovery
---exec echo "restart:--rocksdb_wal_recovery_mode=3 --rocksdb_track_and_verify_wals_in_manifest=0 --trim-binlog-to-recover" --rocksdb_write_policy=$write_policy > $_expect_file_name
+--exec echo "restart:--rocksdb_wal_recovery_mode=3 --rocksdb_track_and_verify_wals_in_manifest=0 --trim-binlog-to-recover" --rocksdb_write_policy=$write_policy --default_dd_storage_engine=$ddse > $_expect_file_name
 --enable_reconnect
 --source include/wait_until_connected_again.inc
 

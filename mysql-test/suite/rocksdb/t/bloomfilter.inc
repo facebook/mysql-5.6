@@ -1,4 +1,7 @@
 --source include/have_rocksdb.inc
+# with rocksdb DD, these status variable values also inclue DD tables. etc
+# thus these status variable value change much more
+--source include/have_innodb_ddse.inc
 
 let tmpl_ddl= suite/rocksdb/t/bloomfilter_table_def.tmpl;
 let ddl= $MYSQL_TMP_DIR/bloomfilter_create.sql;

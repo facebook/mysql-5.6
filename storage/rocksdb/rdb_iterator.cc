@@ -392,7 +392,9 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
   }
 
   DBUG_EXECUTE_IF("rocksdb_return_status_corrupted",
-                  { s = rocksdb::Status::Corruption(); });
+      if (m_tbl_def->full_tablename() == "test.t1") {
+        s = rocksdb::Status::Corruption();
+      });
 
   if (!s.IsNotFound() && !s.ok()) {
     return rdb_tx_set_status_error(tx, s, *m_kd, m_tbl_def);
