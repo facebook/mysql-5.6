@@ -196,6 +196,15 @@ class DD_properties : public Object_table_impl {
   */
   bool remove(THD *thd, const String_type &key);
 
+  /**
+    Set dd_properties table actual definition with specified SE
+    if actual definition isn't initialized, it will clone target table
+    definition
+
+    @param engine     Table SE
+  */
+  void set_actual_engine(const String_type &engine);
+
  private:
   // A cache of the table contents.
   Properties_impl m_properties;
