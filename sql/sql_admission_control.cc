@@ -668,7 +668,8 @@ void AC::admission_control_exit(THD *thd) {
       // Skip queues that don't have waiting queries.
       if (queue.waiting_queries() == 0) continue;
 
-      double score = queue.running_queries / (weights[i] ? weights[i] : 1);
+      double score = static_cast<double>(queue.running_queries) /
+                     (weights[i] ? weights[i] : 1);
 
       if (score < min_score) {
         min_queue = i;
