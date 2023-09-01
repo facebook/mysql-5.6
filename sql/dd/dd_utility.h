@@ -80,12 +80,17 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name);
                                                          : ISO_READ_UNCOMMITTED;
 }
 
-[[nodiscard]] inline handlerton *get_dd_engine(THD *thd) {
+[[nodiscard]] inline legacy_db_type get_dd_engine_type() {
   assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB ||
          default_dd_storage_engine == DEFAULT_DD_INNODB);
   const auto db_type = default_dd_storage_engine == DEFAULT_DD_ROCKSDB
                            ? DB_TYPE_ROCKSDB
                            : DB_TYPE_INNODB;
+  return db_type;
+}
+
+[[nodiscard]] inline handlerton *get_dd_engine(THD *thd) {
+  const auto db_type = get_dd_engine_type();
   return ha_resolve_by_legacy_type(thd, db_type);
 }
 
