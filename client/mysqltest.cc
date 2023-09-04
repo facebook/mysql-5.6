@@ -3228,7 +3228,7 @@ static void var_set_query_get_value_by_name(struct st_command *command,
   {
     /* Get the value */
     MYSQL_ROW row;
-    long rows = 0;
+    long rows [[maybe_unused]] = 0;
     const char *value = "No such row";
 
     while ((row = mysql_fetch_row_wrapper(res))) {
