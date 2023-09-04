@@ -95,7 +95,7 @@ void validate_column_lineage_info(Column_lineage_info *cli, int32_t level) {
           (Query_block_column_lineage_info *)cli;
 
       // Validate lineage info from the expressions in SELECT clause
-      int32_t field_id = 0;
+      int32_t field_id [[maybe_unused]] = 0;
       for (const auto &field_lineage_info : query_block_cli->m_selected_field) {
         DBUG_PRINT("column_lineage_info", ("Field %d (%s)", field_id,
                                            field_lineage_info.m_field_name));
@@ -137,14 +137,13 @@ void validate_column_lineage_info(Column_lineage_info *cli, int32_t level) {
                   table_cli->m_db_name, table_cli->m_table_name,
                   table_cli->m_table_alias));
 
-      int32_t field_id = 0;
+      int32_t field_id [[maybe_unused]] = 0;
       for (const auto &column : table_cli->m_column_refs) {
         if (!column) {
           DBUG_PRINT("column_lineage_info", ("Column name is empty"));
         }
         DBUG_PRINT("column_lineage_info",
                    ("column: %s, index: %d", column, field_id));
-        // suppress unused variable warning when DBUG_PRINT is optimized away
         field_id++;
       }
 
