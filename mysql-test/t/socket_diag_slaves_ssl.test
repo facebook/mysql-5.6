@@ -1,3 +1,4 @@
+--source include/linux.inc
 --source include/master-slave.inc
 
 # create a user for replication that requires ssl encryption
