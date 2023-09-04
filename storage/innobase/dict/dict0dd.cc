@@ -1739,7 +1739,7 @@ void dd_add_instant_columns(IF_DEBUG(const Alter_inplace_info *ha_alter_info, )
                             const TABLE *altered_table, dd::Table *new_dd_table,
                             const dict_table_t *new_table) {
   DD_instant_col_val_coder coder;
-  uint32_t old_n_stored_cols = 0;
+  uint32_t old_n_stored_cols [[maybe_unused]] = 0;
   uint32_t old_cols = 0;
   uint32_t new_cols = 0;
   ut_d(uint32_t n_stored_checked = 0);
