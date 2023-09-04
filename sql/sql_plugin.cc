@@ -1535,7 +1535,7 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
 
   mysql_mutex_lock(&LOCK_plugin);
   initialized = true;
-  bool rocksdb_loaded = false;
+  bool rocksdb_loaded [[maybe_unused]] = false;
 
   const char *ROCKSDB = "ROCKSDB";
   const size_t rocksdb_len = strlen(ROCKSDB);
