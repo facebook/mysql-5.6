@@ -76,6 +76,7 @@ class Transaction_boundary_parser;
 class binlog_cache_data;
 class user_var_entry;
 class Binlog_cache_storage;
+class Basic_ostream;
 
 struct Gtid;
 struct snapshot_info_st;
@@ -1411,15 +1412,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
    *
    * @param thd - the THD in group commit
    * @param cache_data - The cache that is being written during flush stage
-   * @param writer - Binlog writer (metadata event will be written here)
-   * @param obuffer - if not null, metadata event will be written here (instead
-   *                  of writing to writer)
+   * @param ostream - Metadata event will be written here
    *
    * @return false on success, true on failure
    */
   bool write_metadata_event(THD *thd, binlog_cache_data *cache_data,
-                            Binlog_event_writer *writer,
-                            Binlog_cache_storage *obuffer);
+                            Basic_ostream *ostream);
 
   /**
     Assign automatic generated GTIDs for all commit group threads in the flush

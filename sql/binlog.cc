@@ -1700,16 +1700,13 @@ bool MYSQL_BIN_LOG::assign_hlc(THD *thd) {
  *
  * @param thd - the THD in group commit
  * @param cache_data - The cache that is being written during flush stage
- * @param writer - Binlog writer (metadata event will be written here)
- * @param obuffer - if not null, metadata event will be written here (instead
- *                  of writing to writer)
+ * @param ostream - Metadata event will be written here
  *
  * @return false on success, true on failure
  */
 bool MYSQL_BIN_LOG::write_metadata_event(THD *thd,
                                          binlog_cache_data *cache_data,
-                                         Binlog_event_writer *writer,
-                                         Binlog_cache_storage *obuffer) {
+                                         Basic_ostream *ostream) {
   Metadata_log_event metadata_ev(thd, cache_data->is_trx_cache());
   bool write_event = false;
   bool wrote_hlc = false;
@@ -1764,12 +1761,11 @@ bool MYSQL_BIN_LOG::write_metadata_event(THD *thd,
     return false;
   }
 
-  bool result = false;
-  if (obuffer) {
-    (void)metadata_ev.write(obuffer);
-  } else {
-    result = metadata_ev.write(writer);
+  if (!ostream) {
+    return true;
   }
+
+  bool result = metadata_ev.write(ostream);
 
   /* Update session tracker with hlc timestamp of this trx */
   auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
@@ -1989,7 +1985,7 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     ret = gtid_event.write(writer);
     if (ret) goto end;
 
-    ret = write_metadata_event(thd, cache_data, writer, nullptr);
+    ret = write_metadata_event(thd, cache_data, writer);
     if (ret) goto end;
 
     /*
@@ -2025,14 +2021,17 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     ret = gtid_event.write(raft_trx_cache.get());
     if (ret) goto end;
 
-    ret =
-        write_metadata_event(thd, cache_data, writer, raft_trx_cache.get());
+    ret = write_metadata_event(thd, cache_data, raft_trx_cache.get());
     if (ret) goto end;
 
 
     thd->commit_consensus_error = false;
+
     // TODO(luqun): perf concern? merge in plugin?
-    cache_data->get_cache()->copy_to(raft_trx_cache.get());
+    ret = cache_data->get_cache()->copy_to(raft_trx_cache.get());
+    DBUG_EXECUTE_IF("fail_raft_cache_copy", { ret = 1; });
+    if (ret) goto end;
+
     ret = RUN_HOOK_STRICT(raft_replication, before_flush,
                           (thd, raft_trx_cache->get_io_cache(),
                            RaftReplicateMsgOpType::OP_TYPE_TRX));
@@ -10913,7 +10912,7 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
 #endif
   assert(total_bytes_var && rotate_var && out_queue_var);
   my_off_t total_bytes = 0;
-  int flush_error = 1;
+  int flush_error = 0;
   int commit_consensus_error = 0;
   mysql_mutex_assert_owner(&LOCK_log);
 
@@ -10930,15 +10929,12 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
     std::pair<int, my_off_t> result = flush_thread_caches(head);
 
     total_bytes += result.second;
-    if (flush_error == 1) flush_error = result.first;
+    if (flush_error == 0) flush_error = result.first;
 #ifndef NDEBUG
     no_flushes++;
 #endif
 
-    /* There is a weird check above that if first thread in the group could
-     * flush successfully, then every thread in the group will also flush
-     * successfully. This does not look right - so for the time being, we will
-     * use commit_consensus_error flag to identify if there was a error in
+    /* We use commit_consensus_error flag to identify if there was a error in
      * before_flush hook of raft plugin and set commit_consensus_error here.
      * This will subsequently fail the entire group
      */

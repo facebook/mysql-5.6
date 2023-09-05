@@ -1953,7 +1953,7 @@ int ha_rollback_low(THD *thd, bool all) {
     int64_t term, index;
     thd->get_trans_marker(&term, &index);
     sql_print_warning(
-        "Applier is rolling back transaction with gtid: %s, opid: %l:%l",
+        "Applier is rolling back transaction with gtid: %s, opid: %ld:%ld",
         thd->rli_slave->last_gtid, term, index);
   }
 
