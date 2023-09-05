@@ -86,6 +86,15 @@ bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
   if (ddse->dict_recover == nullptr) return true;
 
   bool error = ddse->dict_recover(dict_recovery_mode, version);
+  if (error && dict_recovery_mode == DICT_RECOVERY_INITIALIZE_TABLESPACES)
+    return dd::end_transaction(thd, error);
+
+  // InnoDB dict_recover handlerton method performs initialization that must be
+  // done even when InnoDB is not the DDSE.
+  if (!error && default_dd_storage_engine != DEFAULT_DD_INNODB) {
+    auto *const innodb_se = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+    error = innodb_se->dict_recover(dict_recovery_mode, version);
+  }
 
   /*
     Commit when tablespaces have been initialized, since in that
@@ -736,8 +745,23 @@ bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
   List<const Plugin_tablespace> ddse_tablespaces;
   if (ddse->ddse_dict_init == nullptr ||
       ddse->ddse_dict_init(dict_init_mode, version, &ddse_tables,
-                           &ddse_tablespaces))
+                           &ddse_tablespaces)) {
+    LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+           "Calling DDSE handlerton ddse_dict_init failed");
     return true;
+  }
+
+  // Some of the initialization in InnoDB ddse_dict_init handlerton method must
+  // be performed even when InnoDB is not the DDSE.
+  if (default_dd_storage_engine != DEFAULT_DD_INNODB) {
+    auto *const innodb_se = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+    if (innodb_se->ddse_dict_init(dict_init_mode, version, &ddse_tables,
+                                  &ddse_tablespaces)) {
+      LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+             "Calling non-DDSE InnoDB handlerton ddse_dict_init failed");
+      return true;
+    }
+  }
 
   /*
     Iterate over the table definitions and add them to the System_tables
@@ -897,8 +921,10 @@ bool initialize(THD *thd) {
     operations in the "populate()" methods). Thus, there is no need to
     commit explicitly here.
   */
-  if (DDSE_dict_init(thd, DICT_INIT_CREATE_FILES, d->get_target_dd_version()) ||
-      initialize_dictionary(thd, false, d))
+  if (DDSE_dict_init(thd, DICT_INIT_CREATE_FILES, d->get_target_dd_version()))
+    return true;
+
+  if (initialize_dictionary(thd, false, d))
     return true;
 
   assert(d->get_target_dd_version() == d->get_actual_dd_version(thd));
