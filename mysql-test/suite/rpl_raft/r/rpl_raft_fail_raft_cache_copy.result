@@ -1,0 +1,65 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+call mtr.add_suppression("Binary logging not possible");
+call mtr.add_suppression("Attempting backtrace");
+set @@global.update_binlog_pos_threshold = 0;
+create table t1 (a int primary key) engine = innodb;
+insert into t1 values(1);
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-4
+select * from t1;
+a
+1
+set @@global.debug = '+d,fail_raft_cache_copy';
+insert into t1 values(2);
+ERROR HY000: Binary logging not possible. Message: An error occurred during flush stage of the commit. 'binlog_error_action' is set to 'ROLLBACK_TRX'. Server is being stopped.
+include/rpl_start_server.inc [server_number=1]
+include/raft_leadership.inc
+set @@global.debug = '-d,fail_raft_cache_copy';
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-4
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-4
+select * from t1;
+a
+1
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-4
+select * from t1;
+a
+1
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-4
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
