@@ -1,3 +1,5 @@
+--source include/linux.inc
+
 # A simple test to verify the interface of mysqldump with
 # logical read ahead options
 
