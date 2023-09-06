@@ -575,19 +575,20 @@ class Rdb_key_def {
     KEY_MAY_BE_COVERED = 3,
   };
 
-  void setup(const TABLE *const table, const Rdb_tbl_def *const tbl_def);
+  void setup(const TABLE &table, const Rdb_tbl_def &tbl_def);
 
-  static uint extract_ttl_duration(const TABLE *const table_arg,
-                                   const Rdb_tbl_def *const tbl_def_arg,
-                                   uint64 *ttl_duration);
-  static uint extract_ttl_col(const TABLE *const table_arg,
-                              const Rdb_tbl_def *const tbl_def_arg,
-                              std::string *ttl_column, uint *ttl_field_index,
-                              bool skip_checks = false);
+  [[nodiscard]] static uint extract_ttl_duration(const TABLE &table_arg,
+                                   const Rdb_tbl_def &tbl_def_arg,
+                                   uint64 &ttl_duration);
+  [[nodiscard]] static uint extract_ttl_col(const TABLE &table_arg,
+                                            const Rdb_tbl_def &tbl_def_arg,
+                                            std::string &ttl_column,
+                                            uint &ttl_field_index,
+                                            bool skip_checks = false);
   inline bool has_ttl() const { return m_ttl_duration > 0; }
 
-  uint extract_partial_index_info(const TABLE *const table_arg,
-                                  const Rdb_tbl_def *const tbl_def_arg);
+  [[nodiscard]] uint extract_partial_index_info(const TABLE &table_arg,
+                                                const Rdb_tbl_def &tbl_def_arg);
   inline bool is_partial_index() const { return m_partial_index_threshold > 0; }
   inline uint partial_index_threshold() const {
     return m_partial_index_threshold;
@@ -606,9 +607,9 @@ class Rdb_key_def {
 
   static const std::string gen_qualifier_for_table(
       const char *const qualifier, const std::string &partition_name = "");
-  static const std::string parse_comment_for_qualifier(
-      const std::string &comment, const TABLE *const table_arg,
-      const Rdb_tbl_def *const tbl_def_arg, bool *per_part_match_found,
+  [[nodiscard]] static const std::string parse_comment_for_qualifier(
+      const std::string &comment, const TABLE &table_arg,
+      const Rdb_tbl_def &tbl_def_arg, bool &per_part_match_found,
       const char *const qualifier);
 
   rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle.get(); }

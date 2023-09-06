@@ -387,9 +387,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   void set_last_rowkey(const uchar *const old_data);
   void set_last_rowkey(const char *str, size_t len);
 
-  int alloc_key_buffers(const TABLE *const table_arg,
-                        const Rdb_tbl_def *const tbl_def_arg)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int alloc_key_buffers(const TABLE &table_arg,
+                                      const Rdb_tbl_def &tbl_def_arg);
   void free_key_buffers();
 
   // the buffer size should be at least 2*Rdb_key_def::INDEX_NUMBER_SIZE
@@ -518,35 +517,30 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   static const std::vector<std::string> parse_into_tokens(const std::string &s,
                                                           const char delim);
 
-  static const std::string generate_cf_name(
-      const uint index, const TABLE *const table_arg,
-      const Rdb_tbl_def *const tbl_def_arg, bool *per_part_match_found);
+  [[nodiscard]] static const std::string generate_cf_name(
+      uint index, const TABLE &table_arg, const Rdb_tbl_def &tbl_def_arg,
+      bool &per_part_match_found);
 
-  static const char *get_key_name(const uint index,
-                                  const TABLE *const table_arg,
-                                  const Rdb_tbl_def *const tbl_def_arg)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] static const char *get_key_name(uint index,
+                                                const TABLE &table_arg,
+                                                const Rdb_tbl_def &tbl_def_arg);
 
-  static const char *get_key_comment(const uint index,
-                                     const TABLE *const table_arg,
-                                     const Rdb_tbl_def *const tbl_def_arg)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] static const char *get_key_comment(
+      uint index, const TABLE &table_arg, const Rdb_tbl_def &tbl_def_arg);
 
   static const std::string get_table_comment(const TABLE *const table_arg)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  static bool is_hidden_pk(const uint index, const TABLE *const table_arg,
-                           const Rdb_tbl_def *const tbl_def_arg)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] static bool is_hidden_pk(uint index, const TABLE &table_arg,
+                                         const Rdb_tbl_def &tbl_def_arg);
 
   [[nodiscard]] static uint pk_index(const TABLE &table_arg,
                                      const Rdb_tbl_def &tbl_def_arg);
 
   uint active_index_pos() MY_ATTRIBUTE((__warn_unused_result__));
 
-  static bool is_pk(const uint index, const TABLE *table_arg,
-                    const Rdb_tbl_def *tbl_def_arg)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] static bool is_pk(uint index, const TABLE &table_arg,
+                                  const Rdb_tbl_def &tbl_def_arg);
   /** @brief
     unireg.cc will call max_supported_record_length(), max_supported_keys(),
     max_supported_key_parts(), uint max_supported_key_length()
@@ -764,13 +758,13 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       std::array<struct key_def_cf_info, MAX_INDEXES + 1> &cfs,
       bool is_dd_tbl) const;
 
-  int create_key_def(const TABLE *const table_arg, const uint i,
-                     const Rdb_tbl_def *const tbl_def_arg,
-                     std::shared_ptr<Rdb_key_def> *const new_key_def,
-                     const struct key_def_cf_info &cf_info, uint64 ttl_duration,
-                     const std::string &ttl_column,
-                     bool is_dd_tbl = false) const
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int create_key_def(const TABLE &table_arg, uint i,
+                                   const Rdb_tbl_def &tbl_def_arg,
+                                   std::shared_ptr<Rdb_key_def> &new_key_def,
+                                   const struct key_def_cf_info &cf_info,
+                                   uint64 ttl_duration,
+                                   const std::string &ttl_column,
+                                   bool is_dd_tbl = false) const;
 
   [[nodiscard]] bool create_inplace_key_defs(
       const TABLE &table_arg, Rdb_tbl_def &tbl_def_arg,
@@ -778,10 +772,9 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs,
       uint64 ttl_duration, const std::string &ttl_column) const;
 
-  std::unordered_map<std::string, uint> get_old_key_positions(
-      const TABLE *table_arg, const Rdb_tbl_def *tbl_def_arg,
-      const TABLE *old_table_arg, const Rdb_tbl_def *old_tbl_def_arg) const
-      MY_ATTRIBUTE((__nonnull__));
+  [[nodiscard]] std::unordered_map<std::string, uint> get_old_key_positions(
+      const TABLE &table_arg, const Rdb_tbl_def &tbl_def_arg,
+      const TABLE &old_table_arg, const Rdb_tbl_def &old_tbl_def_arg) const;
 
   int compare_key_parts(const KEY *const old_key,
                         const KEY *const new_key) const
