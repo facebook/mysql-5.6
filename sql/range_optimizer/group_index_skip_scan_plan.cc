@@ -1561,7 +1561,7 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
   uint keys_per_block;
   rec_per_key_t keys_per_group;
   double p_overlap; /* Probability that a sub-group overlaps two blocks. */
-  double quick_prefix_selectivity;
+  double quick_prefix_selectivity = 1.0;
   double io_blocks;  // Number of blocks to read from table
   DBUG_TRACE;
   assert(cost_est->is_zero());
@@ -1597,49 +1597,17 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
     }
   }
 
-  if (used_key_parts > group_key_parts) {
-    // Average number of keys in sub-groups formed by a key infixes
-    rec_per_key_t keys_in_subgroup;
-    if (index_info->has_records_per_key(used_key_parts - 1))
-      // Use index statistics
-      keys_in_subgroup = index_info->records_per_key(used_key_parts - 1);
-    else {
-      // If no index statistics then we use a guessed records per key value.
-      keys_in_subgroup = guess_rec_per_key(table, index_info, used_key_parts);
-      keys_in_subgroup = std::min(keys_in_subgroup, keys_per_group);
-    }
-
-    /*
-      Compute the probability that two ends of subgroups are inside
-      different blocks. Keys in subgroup need to be increases by the number
-      of infix ranges possible.
-    */
-    keys_in_subgroup = keys_in_subgroup * infix_factor;
-    if (keys_in_subgroup >= keys_per_block) /* If a subgroup is bigger than */
-      p_overlap = 1.0; /* a block, it will overlap at least two blocks. */
-    else {
-      double blocks_per_group = (double)num_blocks / (double)num_groups;
-      p_overlap = (blocks_per_group * (keys_in_subgroup - 1)) / keys_per_group;
-      p_overlap = min(p_overlap, 1.0);
-    }
-    io_blocks = min<double>(num_groups * (1 + p_overlap), num_blocks);
-  } else
-    io_blocks = (keys_per_group > keys_per_block)
-                    ? (have_min && have_max) ? (double)(num_groups + 1)
-                                             : (double)num_groups
-                    : (double)num_blocks;
-
   /*
-    Estimate IO cost.
-  */
-  const Cost_model_table *const cost_model = table->cost_model();
-  cost_est->add_io(cost_model->page_read_cost_index(key, io_blocks));
+     This switch uses a new cost model that takes into LIMIT clause into
+     account. It also removes code that tries to determine whether ends of
+     subgroups formed by the infix fall inside the same block or not. It's not
+     clear that this code is even correct (see https://bugs.mysql.com/112280).
 
-  /* Infix factor increases the number of groups (rows) examined. */
-  num_groups *= infix_factor;
-
-  /* Calculate filtering effect for the infix condition */
+     Note that this only impacts io cost which is the dominating cost. The cpu
+     cost still uses the upstream calculation.
+   */
   if (table->in_use->optimizer_switch_flag(OPTIMIZER_SWITCH_GROUP_BY_LIMIT)) {
+    /* Calculate filtering effect for the infix condition */
     float filtering_effect = 1.0f;
     if (where_cond) {
       table_map used_tables = 0;
@@ -1673,7 +1641,55 @@ static void cost_group_min_max(TABLE *table, uint key, uint used_key_parts,
             ? (uint)(limit / filtering_effect)
             : std::numeric_limits<uint>::max(),
         num_groups);
+
+    // Having both MIN/MAX doubles the number of lookups we have to do.
+    uint min_max_factor = (have_min && have_max) ? 2 : 1;
+
+    io_blocks = min<double>(num_groups * infix_factor * min_max_factor,
+                            num_blocks * quick_prefix_selectivity);
+  } else {
+    if (used_key_parts > group_key_parts) {
+      // Average number of keys in sub-groups formed by a key infixes
+      rec_per_key_t keys_in_subgroup;
+      if (index_info->has_records_per_key(used_key_parts - 1))
+        // Use index statistics
+        keys_in_subgroup = index_info->records_per_key(used_key_parts - 1);
+      else {
+        // If no index statistics then we use a guessed records per key value.
+        keys_in_subgroup = guess_rec_per_key(table, index_info, used_key_parts);
+        keys_in_subgroup = std::min(keys_in_subgroup, keys_per_group);
+      }
+
+      /*
+        Compute the probability that two ends of subgroups are inside
+        different blocks. Keys in subgroup need to be increases by the number
+        of infix ranges possible.
+      */
+      keys_in_subgroup = keys_in_subgroup * infix_factor;
+      if (keys_in_subgroup >= keys_per_block) /* If a subgroup is bigger than */
+        p_overlap = 1.0; /* a block, it will overlap at least two blocks. */
+      else {
+        double blocks_per_group = (double)num_blocks / (double)num_groups;
+        p_overlap =
+            (blocks_per_group * (keys_in_subgroup - 1)) / keys_per_group;
+        p_overlap = min(p_overlap, 1.0);
+      }
+      io_blocks = min<double>(num_groups * (1 + p_overlap), num_blocks);
+    } else
+      io_blocks = (keys_per_group > keys_per_block)
+                      ? (have_min && have_max) ? (double)(num_groups + 1)
+                                               : (double)num_groups
+                      : (double)num_blocks;
   }
+
+  /*
+    Estimate IO cost.
+  */
+  const Cost_model_table *const cost_model = table->cost_model();
+  cost_est->add_io(cost_model->page_read_cost_index(key, io_blocks));
+
+  /* Infix factor increases the number of groups (rows) examined. */
+  num_groups *= infix_factor;
 
   /*
     CPU cost must be comparable to that of an index scan as computed
