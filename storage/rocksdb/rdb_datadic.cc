@@ -352,17 +352,13 @@ Rdb_key_def::~Rdb_key_def() {
   m_pack_info = nullptr;
 }
 
-void Rdb_key_def::setup(const TABLE *const tbl,
-                        const Rdb_tbl_def *const tbl_def) {
-  assert(tbl != nullptr);
-  assert(tbl_def != nullptr);
-
+void Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
   /*
     Set max_length based on the table.  This can be called concurrently from
     multiple threads, so there is a mutex to protect this code.
   */
   const bool is_hidden_pk = (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
-  const bool hidden_pk_exists = table_has_hidden_pk(*tbl);
+  const bool hidden_pk_exists = table_has_hidden_pk(tbl);
   const bool secondary_key = (m_index_type == INDEX_TYPE_SECONDARY);
   if (!m_maxlength) {
     RDB_MUTEX_LOCK_CHECK(m_mutex);
@@ -374,8 +370,8 @@ void Rdb_key_def::setup(const TABLE *const tbl,
     KEY *key_info = nullptr;
     KEY *pk_info = nullptr;
     if (!is_hidden_pk) {
-      key_info = &tbl->key_info[m_keyno];
-      if (!hidden_pk_exists) pk_info = &tbl->key_info[tbl->s->primary_key];
+      key_info = &tbl.key_info[m_keyno];
+      if (!hidden_pk_exists) pk_info = &tbl.key_info[tbl.s->primary_key];
       m_name = std::string(key_info->name);
     } else {
       m_name = HIDDEN_PK_NAME;
@@ -424,9 +420,11 @@ void Rdb_key_def::setup(const TABLE *const tbl,
       Guaranteed not to error here as checks have been made already during
       table creation.
     */
-    Rdb_key_def::extract_ttl_col(tbl, tbl_def, &m_ttl_column,
-                                 &m_ttl_field_index, true);
-    extract_partial_index_info(tbl, tbl_def);
+    const auto res [[maybe_unused]] = Rdb_key_def::extract_ttl_col(
+        tbl, tbl_def, m_ttl_column, m_ttl_field_index, true);
+    assert(res == HA_EXIT_SUCCESS);
+    const auto res2 [[maybe_unused]] = extract_partial_index_info(tbl, tbl_def);
+    assert(res2 == HA_EXIT_SUCCESS);
 
     size_t max_len = INDEX_NUMBER_SIZE;
     int unpack_len = 0;
@@ -531,11 +529,11 @@ void Rdb_key_def::setup(const TABLE *const tbl,
         if (secondary_key && src_i + 1 == key_info->actual_key_parts) {
           simulating_extkey = true;
           if (!hidden_pk_exists) {
-            keyno_to_set = tbl->s->primary_key;
+            keyno_to_set = tbl.s->primary_key;
             key_part = pk_info->key_part;
             keypart_to_set = (uint)-1;
           } else {
-            keyno_to_set = tbl_def->m_key_count - 1;
+            keyno_to_set = tbl_def.m_key_count - 1;
             key_part = nullptr;
             keypart_to_set = 0;
           }
@@ -572,18 +570,15 @@ void Rdb_key_def::setup(const TABLE *const tbl,
   @param[IN]  tbl_def_arg
   @param[OUT] ttl_duration        Default TTL value parsed from table comment
 */
-uint Rdb_key_def::extract_ttl_duration(const TABLE *const table_arg,
-                                       const Rdb_tbl_def *const tbl_def_arg,
-                                       uint64 *ttl_duration) {
-  assert(table_arg != nullptr);
-  assert(tbl_def_arg != nullptr);
-  assert(ttl_duration != nullptr);
-  std::string table_comment(table_arg->s->comment.str,
-                            table_arg->s->comment.length);
+uint Rdb_key_def::extract_ttl_duration(const TABLE &table_arg,
+                                       const Rdb_tbl_def &tbl_def_arg,
+                                       uint64 &ttl_duration) {
+  std::string table_comment(table_arg.s->comment.str,
+                            table_arg.s->comment.length);
 
   bool ttl_duration_per_part_match_found = false;
   std::string ttl_duration_str = Rdb_key_def::parse_comment_for_qualifier(
-      table_comment, table_arg, tbl_def_arg, &ttl_duration_per_part_match_found,
+      table_comment, table_arg, tbl_def_arg, ttl_duration_per_part_match_found,
       RDB_TTL_DURATION_QUALIFIER);
 
   /* If we don't have a ttl duration, nothing to do here. */
@@ -595,8 +590,8 @@ uint Rdb_key_def::extract_ttl_duration(const TABLE *const table_arg,
     Catch errors where a non-integral value was used as ttl duration, strtoull
     will return 0.
   */
-  *ttl_duration = std::strtoull(ttl_duration_str.c_str(), nullptr, 0);
-  if (!*ttl_duration) {
+  ttl_duration = std::strtoull(ttl_duration_str.c_str(), nullptr, 0);
+  if (!ttl_duration) {
     my_error(ER_RDB_TTL_DURATION_FORMAT, MYF(0), ttl_duration_str.c_str());
     return HA_EXIT_FAILURE;
   }
@@ -613,12 +608,12 @@ uint Rdb_key_def::extract_ttl_duration(const TABLE *const table_arg,
   @param[IN]  skip_checks         Skip validation checks (when called in
                                   setup())
 */
-uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
-                                  const Rdb_tbl_def *const tbl_def_arg,
-                                  std::string *ttl_column,
-                                  uint *ttl_field_index, bool skip_checks) {
-  std::string table_comment(table_arg->s->comment.str,
-                            table_arg->s->comment.length);
+uint Rdb_key_def::extract_ttl_col(const TABLE &table_arg,
+                                  const Rdb_tbl_def &tbl_def_arg,
+                                  std::string &ttl_column,
+                                  uint &ttl_field_index, bool skip_checks) {
+  std::string table_comment(table_arg.s->comment.str,
+                            table_arg.s->comment.length);
   /*
     Check if there is a TTL column specified. Note that this is not required
     and if omitted, an 8-byte ttl field will be prepended to each record
@@ -626,16 +621,16 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
   */
   bool ttl_col_per_part_match_found = false;
   std::string ttl_col_str = Rdb_key_def::parse_comment_for_qualifier(
-      table_comment, table_arg, tbl_def_arg, &ttl_col_per_part_match_found,
+      table_comment, table_arg, tbl_def_arg, ttl_col_per_part_match_found,
       RDB_TTL_COL_QUALIFIER);
 
   if (skip_checks) {
-    for (uint i = 0; i < table_arg->s->fields; i++) {
-      Field *const field = table_arg->field[i];
+    for (uint i = 0; i < table_arg.s->fields; i++) {
+      Field *const field = table_arg.field[i];
       if (!my_strcasecmp(system_charset_info, field->field_name,
                          ttl_col_str.c_str())) {
-        *ttl_column = ttl_col_str;
-        *ttl_field_index = i;
+        ttl_column = ttl_col_str;
+        ttl_field_index = i;
       }
     }
     return HA_EXIT_SUCCESS;
@@ -644,16 +639,16 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
   /* Check if TTL column exists in table */
   if (!ttl_col_str.empty()) {
     bool found = false;
-    for (uint i = 0; i < table_arg->s->fields; i++) {
-      Field *const field = table_arg->field[i];
+    for (uint i = 0; i < table_arg.s->fields; i++) {
+      Field *const field = table_arg.field[i];
       if (!my_strcasecmp(system_charset_info, field->field_name,
                          ttl_col_str.c_str()) &&
           (field->type() == MYSQL_TYPE_TIMESTAMP ||
            (field->real_type() == MYSQL_TYPE_LONGLONG &&
             field->key_type() == HA_KEYTYPE_ULONGLONG)) &&
           !field->is_nullable()) {
-        *ttl_column = ttl_col_str;
-        *ttl_field_index = i;
+        ttl_column = ttl_col_str;
+        ttl_field_index = i;
         found = true;
         break;
       }
@@ -668,26 +663,26 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
   return HA_EXIT_SUCCESS;
 }
 
-uint Rdb_key_def::extract_partial_index_info(
-    const TABLE *const table_arg, const Rdb_tbl_def *const tbl_def_arg) {
+uint Rdb_key_def::extract_partial_index_info(const TABLE &table_arg,
+                                             const Rdb_tbl_def &tbl_def_arg) {
   // Nothing to parse if this is a hidden PK.
   if (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY ||
-      tbl_def_arg->is_intrinsic_tmp_table()) {
+      tbl_def_arg.is_intrinsic_tmp_table()) {
     return HA_EXIT_SUCCESS;
   }
 
-  std::string key_comment(table_arg->key_info[m_keyno].comment.str,
-                          table_arg->key_info[m_keyno].comment.length);
-  std::string table_comment(table_arg->s->comment.str,
-                            table_arg->s->comment.length);
+  std::string key_comment(table_arg.key_info[m_keyno].comment.str,
+                          table_arg.key_info[m_keyno].comment.length);
+  std::string table_comment(table_arg.s->comment.str,
+                            table_arg.s->comment.length);
 
   bool per_part_match = false;
   std::string keyparts_str = Rdb_key_def::parse_comment_for_qualifier(
-      key_comment, table_arg, tbl_def_arg, &per_part_match,
+      key_comment, table_arg, tbl_def_arg, per_part_match,
       RDB_PARTIAL_INDEX_KEYPARTS_QUALIFIER);
 
   std::string threshold_str = Rdb_key_def::parse_comment_for_qualifier(
-      key_comment, table_arg, tbl_def_arg, &per_part_match,
+      key_comment, table_arg, tbl_def_arg, per_part_match,
       RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER);
 
   if (threshold_str.empty() && keyparts_str.empty()) {
@@ -696,7 +691,7 @@ uint Rdb_key_def::extract_partial_index_info(
     return HA_EXIT_SUCCESS;
   }
 
-  if (table_arg->part_info != nullptr) {
+  if (table_arg.part_info != nullptr) {
     my_printf_error(ER_NOT_SUPPORTED_YET,
                     "Partial indexes not supported for partitioned tables.",
                     MYF(0));
@@ -709,20 +704,20 @@ uint Rdb_key_def::extract_partial_index_info(
     return HA_EXIT_FAILURE;
   }
 
-  if (table_arg->key_info[m_keyno].flags & HA_NOSAME) {
+  if (table_arg.key_info[m_keyno].flags & HA_NOSAME) {
     my_printf_error(ER_NOT_SUPPORTED_YET,
                     "Unique key cannot be a partial index.", MYF(0));
     return HA_EXIT_FAILURE;
   }
 
-  if (table_has_hidden_pk(*table_arg)) {
+  if (table_has_hidden_pk(table_arg)) {
     my_printf_error(ER_NOT_SUPPORTED_YET,
                     "Table with no primary key cannot have a partial index.",
                     MYF(0));
     return HA_EXIT_FAILURE;
   }
 
-  if (table_arg->s->next_number_index == m_keyno) {
+  if (table_arg.s->next_number_index == m_keyno) {
     my_printf_error(ER_NOT_SUPPORTED_YET,
                     "Autoincrement key cannot be a partial index.", MYF(0));
     return HA_EXIT_FAILURE;
@@ -744,8 +739,8 @@ uint Rdb_key_def::extract_partial_index_info(
   }
 
   uint n_keyparts =
-      std::min(table_arg->key_info[table_arg->s->primary_key].actual_key_parts,
-               table_arg->key_info[m_keyno].actual_key_parts);
+      std::min(table_arg.key_info[table_arg.s->primary_key].actual_key_parts,
+               table_arg.key_info[m_keyno].actual_key_parts);
   if (n_keyparts <= m_partial_index_keyparts) {
     my_printf_error(ER_WRONG_ARGUMENTS,
                     "Too many keyparts in partial index group.", MYF(0));
@@ -753,9 +748,9 @@ uint Rdb_key_def::extract_partial_index_info(
   }
 
   // Verify that PK/SK actually share a common prefix.
-  KEY_PART_INFO *key_part_sk = table_arg->key_info[m_keyno].key_part;
+  KEY_PART_INFO *key_part_sk = table_arg.key_info[m_keyno].key_part;
   KEY_PART_INFO *key_part_pk =
-      table_arg->key_info[table_arg->s->primary_key].key_part;
+      table_arg.key_info[table_arg.s->primary_key].key_part;
 
   for (uint i = 0; i < m_partial_index_keyparts; i++) {
     if (key_part_sk->fieldnr != key_part_pk->fieldnr ||
@@ -771,7 +766,7 @@ uint Rdb_key_def::extract_partial_index_info(
 
   bool ttl_duration_per_part_match_found;
   std::string ttl_duration_str = Rdb_key_def::parse_comment_for_qualifier(
-      table_comment, table_arg, tbl_def_arg, &ttl_duration_per_part_match_found,
+      table_comment, table_arg, tbl_def_arg, ttl_duration_per_part_match_found,
       RDB_TTL_DURATION_QUALIFIER);
 
   if (!ttl_duration_str.empty()) {
@@ -807,18 +802,15 @@ const std::string Rdb_key_def::gen_qualifier_for_table(
 }
 
 const std::string Rdb_key_def::parse_comment_for_qualifier(
-    const std::string &comment, const TABLE *const table_arg,
-    const Rdb_tbl_def *const tbl_def_arg, bool *per_part_match_found,
+    const std::string &comment, const TABLE &table_arg,
+    const Rdb_tbl_def &tbl_def_arg, bool &per_part_match_found,
     const char *const qualifier) {
-  assert(table_arg != nullptr);
-  assert(tbl_def_arg != nullptr);
-  assert(per_part_match_found != nullptr);
   assert(qualifier != nullptr);
 
   std::string empty_result;
 
   // Flag which marks if partition specific options were found.
-  *per_part_match_found = false;
+  per_part_match_found = false;
 
   if (comment.empty()) {
     return empty_result;
@@ -837,8 +829,8 @@ const std::string Rdb_key_def::parse_comment_for_qualifier(
   // NOTE: this means if you specify a qualifier for a specific partition it
   // will take precedence the 'table level' qualifier if one exists.
   std::string search_str_part;
-  if (table_arg->part_info != nullptr) {
-    std::string partition_name = tbl_def_arg->base_partition();
+  if (table_arg.part_info != nullptr) {
+    std::string partition_name = tbl_def_arg.base_partition();
     assert(!partition_name.empty());
     search_str_part = gen_qualifier_for_table(qualifier, partition_name);
   }
@@ -863,7 +855,7 @@ const std::string Rdb_key_def::parse_comment_for_qualifier(
         // If no value was specified then we'll return an empty string which
         // later gets translated into using a default CF.
         if (tokens.size() == 2) {
-          *per_part_match_found = true;
+          per_part_match_found = true;
           return tokens[1];
         } else {
           return empty_result;
