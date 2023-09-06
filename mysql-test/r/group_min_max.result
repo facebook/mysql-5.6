@@ -4565,8 +4565,8 @@ test.t1	analyze	status	OK
 set optimizer_switch='group_by_limit=on';
 EXPLAIN format=tree SELECT MAX(c2), c1 FROM t1 GROUP BY c1 LIMIT 1;
 EXPLAIN
--> Limit: 1 row(s)  (cost=1.30 rows=1)
-    -> Covering index skip scan for grouping on t1 using c1  (cost=1.30 rows=1)
+-> Limit: 1 row(s)  (cost=0.55 rows=1)
+    -> Covering index skip scan for grouping on t1 using c1  (cost=0.55 rows=1)
 
 SELECT MAX(c2), c1 FROM t1 GROUP BY c1 LIMIT 1;
 MAX(c2)	c1
