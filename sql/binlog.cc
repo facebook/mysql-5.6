@@ -10400,12 +10400,6 @@ int MYSQL_BIN_LOG::prepare(THD *thd, bool all) {
   DBUG_TRACE;
 
   assert(opt_bin_log);
-  /*
-    The applier thread explicitly overrides the value of sql_log_bin
-    with the value of log_replica_updates.
-  */
-  assert(thd->slave_thread ? opt_log_replica_updates
-                           : thd->variables.sql_log_bin);
 
   /*
     Set HA_IGNORE_DURABILITY to not flush the prepared record of the
