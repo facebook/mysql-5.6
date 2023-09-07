@@ -38,7 +38,7 @@ WHERE variable_name LIKE 'rocksdb_partial_index%';
 connect (con1, localhost, root,,);
 --let $conn_id = `SELECT CONNECTION_ID()`
 set debug_sync='rocksdb.partial_index_exceed_threshold SIGNAL parked WAIT_FOR go';
-send SELECT c1, c2 FROM t WHERE c1 = 1 AND c2 = 4;
+send SELECT c1, c2 FROM t FORCE INDEX(c1) WHERE c1 = 1 AND c2 = 4;
 
 connection default;
 set debug_sync='now WAIT_FOR parked';
