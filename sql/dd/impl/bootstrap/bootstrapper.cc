@@ -1214,7 +1214,11 @@ bool initialize_dd_properties(THD *thd) {
       return true;
     }
 
-    // read actual dd engine from dd_properties
+    /*
+      Read actual dd engine from dd_properties: reject restarting if found
+      unsupported DD_ENGINE; use INNODB if couldn't find DD_ENGINE, since
+      existing INNODB DDSE instance doesn't contains DD_ENGINE property
+    */
     uint actual_dd_engine = DB_TYPE_INNODB;
     exists = false;
     if (dd::tables::DD_properties::instance().get(thd, "DD_ENGINE",
@@ -1222,8 +1226,13 @@ bool initialize_dd_properties(THD *thd) {
         !exists) {
       LogErr(WARNING_LEVEL, ER_DD_ENGINE_NOT_FOUND, actual_dd_engine);
     }
+    if ((actual_dd_engine != DB_TYPE_INNODB) &&
+        (actual_dd_engine != DB_TYPE_ROCKSDB)) {
+      LogErr(ERROR_LEVEL, ER_UNSUPPORTED_DD_ENGINE, actual_dd_engine);
+      return true;
+    }
     bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
-        (legacy_db_type)actual_dd_engine);
+        static_cast<legacy_db_type>(actual_dd_engine));
   }
 
   if (bootstrap::DD_bootstrap_ctx::instance().is_initialize())

@@ -28,6 +28,7 @@
 
 #include "my_inttypes.h"                  // uint
 #include "mysql_version.h"                // MYSQL_VERSION_ID
+#include "sql/dd/dd_utility.h"            // get_dd_engine_type
 #include "sql/dd/dd_version.h"            // DD_VERSION
 #include "sql/dd/info_schema/metadata.h"  // IS_DD_VERSION
 #include "sql/handler.h"
@@ -232,10 +233,7 @@ class DD_bootstrap_ctx {
   }
 
   bool is_dd_engine_change() const {
-    return !opt_initialize &&
-           (m_actual_dd_engine !=
-            (default_dd_storage_engine == DEFAULT_DD_INNODB ? DB_TYPE_INNODB
-                                                            : DB_TYPE_ROCKSDB));
+    return !opt_initialize && (m_actual_dd_engine != get_dd_engine_type());
   }
 };
 
