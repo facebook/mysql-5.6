@@ -21,7 +21,7 @@ CREATE TEMPORARY TABLE t1 AS
 SELECT * FROM performance_schema.global_status
 WHERE variable_name LIKE 'rocksdb_partial_index%';
 set debug_sync='rocksdb.partial_index_exceed_threshold SIGNAL parked WAIT_FOR go';
-SELECT c1, c2 FROM t WHERE c1 = 1 AND c2 = 4;
+SELECT c1, c2 FROM t FORCE INDEX(c1) WHERE c1 = 1 AND c2 = 4;
 set debug_sync='now WAIT_FOR parked';
 set debug_sync='now SIGNAL go';
 ERROR 70100: Query execution was interrupted
@@ -61,7 +61,7 @@ CREATE TEMPORARY TABLE t1 AS
 SELECT * FROM performance_schema.global_status
 WHERE variable_name LIKE 'rocksdb_partial_index%';
 set debug_sync='rocksdb.partial_index_exceed_threshold SIGNAL parked WAIT_FOR go';
-SELECT c1, c2 FROM t WHERE c1 = 1 AND c2 = 4;
+SELECT c1, c2 FROM t FORCE INDEX(c1) WHERE c1 = 1 AND c2 = 4;
 set debug_sync='now WAIT_FOR parked';
 set debug_sync='now SIGNAL go';
 ERROR 70100: Query execution was interrupted
