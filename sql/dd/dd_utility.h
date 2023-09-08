@@ -81,12 +81,17 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name = nullptr);
                                                          : ISO_READ_UNCOMMITTED;
 }
 
-[[nodiscard]] inline handlerton *get_dd_engine(THD *thd) {
+[[nodiscard]] inline legacy_db_type get_dd_engine_type() {
   assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB ||
          default_dd_storage_engine == DEFAULT_DD_INNODB);
   const auto db_type = default_dd_storage_engine == DEFAULT_DD_ROCKSDB
                            ? DB_TYPE_ROCKSDB
                            : DB_TYPE_INNODB;
+  return db_type;
+}
+
+[[nodiscard]] inline handlerton *get_dd_engine(THD *thd) {
+  const auto db_type = get_dd_engine_type();
   return ha_resolve_by_legacy_type(thd, db_type);
 }
 
@@ -96,6 +101,10 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name = nullptr);
   return default_dd_storage_engine == DEFAULT_DD_ROCKSDB ? "ROCKSDB" : "INNODB";
 }
 
+[[nodiscard]] inline const char *get_dd_engine_name(legacy_db_type db_type) {
+  assert(db_type == DB_TYPE_INNODB || db_type == DB_TYPE_ROCKSDB);
+  return db_type == DB_TYPE_ROCKSDB ? "ROCKSDB" : "INNODB";
+}
 ///////////////////////////////////////////////////////////////////////////
 
 }  // namespace dd

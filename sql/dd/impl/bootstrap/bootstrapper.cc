@@ -1111,6 +1111,8 @@ bool initialize_dd_properties(THD *thd) {
   bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_version(actual_version);
   bootstrap::DD_bootstrap_ctx::instance().set_upgraded_server_version(
       actual_server_version);
+  bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
+      get_dd_engine_type());
 
   if (!opt_initialize) {
     bool exists = false;
@@ -1211,6 +1213,35 @@ bool initialize_dd_properties(THD *thd) {
       LogErr(ERROR_LEVEL, ER_LCTN_CHANGED, lower_case_table_names, actual_lctn);
       return true;
     }
+
+    /*
+      Read actual dd engine from dd_properties: reject restarting if found
+      unsupported DD_ENGINE; use INNODB if couldn't find DD_ENGINE, since
+      existing INNODB DDSE instance doesn't contain DD_ENGINE property
+    */
+    uint actual_dd_engine = DB_TYPE_UNKNOWN;
+    exists = false;
+    if (dd::tables::DD_properties::instance().get(thd, "DD_ENGINE",
+                                                  &actual_dd_engine, &exists) ||
+        !exists) {
+      LogErr(INFORMATION_LEVEL, ER_DD_ENGINE_NOT_FOUND,
+             get_dd_engine_name(DB_TYPE_INNODB));
+      actual_dd_engine = DB_TYPE_INNODB;
+    }
+
+    if ((actual_dd_engine != DB_TYPE_INNODB) &&
+        (actual_dd_engine != DB_TYPE_ROCKSDB)) {
+      // construct supported DDSE name and its value
+      std::ostringstream oss;
+      oss << get_dd_engine_name(DB_TYPE_INNODB) << "(" << DB_TYPE_INNODB << ")"
+          << "," << get_dd_engine_name(DB_TYPE_ROCKSDB) << "("
+          << DB_TYPE_ROCKSDB << ")";
+      LogErr(ERROR_LEVEL, ER_UNSUPPORTED_DD_ENGINE, actual_dd_engine,
+             oss.str().c_str());
+      return true;
+    }
+    bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
+        static_cast<legacy_db_type>(actual_dd_engine));
   }
 
   if (bootstrap::DD_bootstrap_ctx::instance().is_initialize())
@@ -1220,12 +1251,18 @@ bool initialize_dd_properties(THD *thd) {
   else if (bootstrap::DD_bootstrap_ctx::instance().is_minor_downgrade())
     LogErr(INFORMATION_LEVEL, ER_DD_MINOR_DOWNGRADE, actual_version,
            dd::DD_VERSION);
+  else if (bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change())
+    LogErr(INFORMATION_LEVEL, ER_DDSE_CHANGE,
+           get_dd_engine_name(
+               bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine()),
+           get_dd_engine_name());
   else {
     /*
       If none of the above, then this must be DD upgrade or server
-      upgrade, or both.
+      upgrade, or DD engine change.
     */
     if (bootstrap::DD_bootstrap_ctx::instance().is_dd_upgrade()) {
+      assert(!bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change());
       LogErr(SYSTEM_LEVEL, ER_DD_UPGRADE, actual_version, dd::DD_VERSION);
       sysd::notify("STATUS=Data Dictionary upgrade in progress\n");
     }
@@ -1763,7 +1800,9 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
         dd::tables::DD_properties::instance().set(thd, "MYSQLD_VERSION_HI",
                                                   MYSQL_VERSION_ID) ||
         dd::tables::DD_properties::instance().set(thd, "MYSQLD_VERSION",
-                                                  MYSQL_VERSION_ID))
+                                                  MYSQL_VERSION_ID) ||
+        dd::tables::DD_properties::instance().set(thd, "DD_ENGINE",
+                                                  get_dd_engine_type()))
       return dd::end_transaction(thd, true);
 
     if (is_dd_upgrade_57) {
@@ -1848,6 +1887,12 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
         (dd_version < dd::DD_VERSION &&
          dd::tables::DD_properties::instance().set(thd, "DD_VERSION",
                                                    dd::DD_VERSION)))
+      return dd::end_transaction(thd, true);
+
+    // Update DD ENGINE with target engine
+    if (bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change() &&
+        dd::tables::DD_properties::instance().set(thd, "DD_ENGINE",
+                                                  get_dd_engine_type()))
       return dd::end_transaction(thd, true);
 
     /*

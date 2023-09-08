@@ -12081,6 +12081,15 @@ ER_IB_SLOWRM_CREATE_DIR
 ER_IB_SLOWRM_MOVE_FILE
   eng "%s"
 
+ER_DDSE_CHANGE
+  eng "MySQL DDSE is changing from '%s' to '%s'."
+
+ER_DD_ENGINE_NOT_FOUND
+  eng "The DD_ENGINE property for the data dictionary was not found. Starting the server using DD_ENGINE='%s'."
+
+ER_UNSUPPORTED_DD_ENGINE
+  eng "The DD_ENGINE value '%u' found in dd_properties isn't supported DDSE. Currently supported DDSE are '%s'"
+
 # DO NOT add server-to-client messages here;
 # they go in messages_to_clients.txt
 # in the same directory as this file.
