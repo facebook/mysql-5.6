@@ -45,7 +45,7 @@
 --let $file = $target_dd_props
   # We must filter out unpredictable values such as root page no and ids.
   # This simple filter will remove a bit more than strictly necessary.
---let $filter = id|root|MYSQLD_VERSION_LO
+--let $filter = id|root|MYSQLD_VERSION_LO|DD_ENGINE
 --source include/dd_schema_dd_properties.inc
 
 --echo ########################################################################
