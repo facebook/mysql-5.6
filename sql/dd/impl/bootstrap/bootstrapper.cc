@@ -1084,7 +1084,8 @@ bool create_dd_schema(THD *thd) {
     compute.
   The only difference between "actual" and "target" is SE.
 */
-const Object_table_definition *get_dd_properties_table_definition(THD *thd) {
+[[nodiscard]] const Object_table_definition *get_dd_properties_table_definition(
+    THD *thd) {
   if (!opt_initialize) {
     // Find out which SE contains dd_properties table during restart
     // Try rocksdb first
@@ -1097,7 +1098,8 @@ const Object_table_definition *get_dd_properties_table_definition(THD *thd) {
           dd::tables::DD_properties::instance().name().c_str());
     }
     dd::tables::DD_properties::instance().set_actual_engine(
-        error == HA_ERR_TABLE_EXIST ? String_type("ROCkSDB"): String_type("INNODB"));
+        error == HA_ERR_TABLE_EXIST ? String_type("ROCkSDB")
+                                    : String_type("INNODB"));
   }
 
   // Create the dd_properties table.
