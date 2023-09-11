@@ -94,7 +94,8 @@ bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
   handlerton *ddse = calculate_dd_engine(thd);
   if (ddse->dict_recover == nullptr) return true;
   bool error = ddse->dict_recover(dict_recovery_mode, version);
-  if (error) return error;
+  if (error && dict_recovery_mode == DICT_RECOVERY_INITIALIZE_TABLESPACES)
+    return dd::end_transaction(thd, error);
 
   /*
     Always call innodb handler API unless disabled
@@ -107,6 +108,7 @@ bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
     if (!disabled && ddse->dict_recover == nullptr) return true;
     if (!disabled) error = ddse->dict_recover(dict_recovery_mode, version);
   }
+
   /*
     Commit when tablespaces have been initialized, since in that
     case, tablespace meta data is added.
