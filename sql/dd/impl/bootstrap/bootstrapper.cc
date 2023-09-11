@@ -79,18 +79,19 @@ using namespace dd;
 
 namespace {
 
+[[nodiscard]] handlerton *calculate_dd_engine(THD *thd) {
+  if (opt_initialize) {
+    return get_dd_engine(thd);
+  } else {
+    return ha_resolve_by_legacy_type(
+        thd, bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine());
+  }
+}
+
 // Initialize recovery in the DDSE.
 bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
                        uint version) {
-  handlerton *ddse = nullptr;
-
-  if (opt_initialize) {
-    ddse = get_dd_engine(thd);
-  } else {
-    ddse = ha_resolve_by_legacy_type(
-        thd, bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine());
-  }
-
+  handlerton *ddse = calculate_dd_engine(thd);
   if (ddse->dict_recover == nullptr) return true;
   bool error = ddse->dict_recover(dict_recovery_mode, version);
   if (error) return error;
@@ -744,14 +745,7 @@ namespace bootstrap {
   predefined tables and tablespaces.
 */
 bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
-  handlerton *ddse = nullptr;
-  if (opt_initialize) {
-    ddse = get_dd_engine(thd);
-  } else {
-    ddse = ha_resolve_by_legacy_type(
-        thd, bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine());
-  }
-
+  handlerton *ddse = calculate_dd_engine(thd);
   /*
     The lists with element wrappers are mem root allocated. The wrapped
     instances are allocated dynamically in the DDSE. These instances will be
@@ -761,12 +755,15 @@ bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
   List<const Plugin_tablespace> ddse_tablespaces;
   if (ddse->ddse_dict_init == nullptr ||
       ddse->ddse_dict_init(dict_init_mode, version, &ddse_tables,
-                           &ddse_tablespaces))
+                           &ddse_tablespaces)) {
+    LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+           "Calling DDSE handlerton ddse_dict_init failed");
     return true;
+  }
 
   /*
     Always call innodb handler API unless disabled
-    innobase_dict_init will initialze these innodb specific tables
+    innobase_dict_init will initialize these innodb specific tables
   */
   if (ddse->db_type != DB_TYPE_INNODB) {
     handlerton *innodb_ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
@@ -775,8 +772,12 @@ bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
       assert(!ddse_tablespaces.size());
       if (innodb_ddse->ddse_dict_init == nullptr ||
           innodb_ddse->ddse_dict_init(dict_init_mode, version, &ddse_tables,
-                                      &ddse_tablespaces))
+                                      &ddse_tablespaces)) {
+        LogErr(
+            ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+            "Calling non-Default DDSE InnoDB handlerton ddse_dict_init failed");
         return true;
+      }
     }
   }
 
@@ -1566,15 +1567,7 @@ bool sync_meta_data(THD *thd) {
     return true;
 
   // Reset the DDSE local dictionary cache.
-  handlerton *ddse = nullptr;
-  if (opt_initialize) {
-    ddse = get_dd_engine(thd);
-  } else {
-    ddse = ha_resolve_by_legacy_type(
-        thd, bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine()
-
-    );
-  }
+  handlerton *ddse = calculate_dd_engine(thd);
   if (ddse->dict_cache_reset == nullptr) return true;
 
   for (System_tables::Const_iterator it = System_tables::instance()->begin();
@@ -1865,7 +1858,7 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
   /*
     Update the server version number in the bootstrap ctx and the
     DD tablespace header if we have been doing a server upgrade
-    or dd upgrade.
+    or DDSE change.
     Note that the update of the tablespace header is not rolled
     back in case of an abort, so this better be the last step we
     do before committing.

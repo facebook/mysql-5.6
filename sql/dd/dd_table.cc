@@ -2339,8 +2339,7 @@ static std::unique_ptr<dd::Table> create_dd_system_table(
   } else {
     assert(file->ht->db_type == DB_TYPE_INNODB ||
            file->ht->db_type == DB_TYPE_ROCKSDB);
-    if (file->ht == nullptr || file->ht->dict_register_dd_table_id == nullptr)
-      return nullptr;
+    if (file->ht->dict_register_dd_table_id == nullptr) return nullptr;
     file->ht->dict_register_dd_table_id(tab_obj->se_private_id());
   }
   return tab_obj;
