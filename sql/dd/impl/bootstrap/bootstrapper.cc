@@ -1219,16 +1219,25 @@ bool initialize_dd_properties(THD *thd) {
       unsupported DD_ENGINE; use INNODB if couldn't find DD_ENGINE, since
       existing INNODB DDSE instance doesn't contains DD_ENGINE property
     */
-    uint actual_dd_engine = DB_TYPE_INNODB;
+    uint actual_dd_engine = DB_TYPE_UNKNOWN;
     exists = false;
     if (dd::tables::DD_properties::instance().get(thd, "DD_ENGINE",
                                                   &actual_dd_engine, &exists) ||
         !exists) {
-      LogErr(WARNING_LEVEL, ER_DD_ENGINE_NOT_FOUND, actual_dd_engine);
+      LogErr(INFORMATION_LEVEL, ER_DD_ENGINE_NOT_FOUND,
+             get_dd_engine_name(DB_TYPE_INNODB));
+      actual_dd_engine = DB_TYPE_INNODB;
     }
+
     if ((actual_dd_engine != DB_TYPE_INNODB) &&
         (actual_dd_engine != DB_TYPE_ROCKSDB)) {
-      LogErr(ERROR_LEVEL, ER_UNSUPPORTED_DD_ENGINE, actual_dd_engine);
+      // construct supported DDSE name and its value
+      std::ostringstream oss;
+      oss << get_dd_engine_name(DB_TYPE_INNODB) << "(" << DB_TYPE_INNODB << ")"
+          << "," << get_dd_engine_name(DB_TYPE_ROCKSDB) << "("
+          << DB_TYPE_ROCKSDB << ")";
+      LogErr(ERROR_LEVEL, ER_UNSUPPORTED_DD_ENGINE, actual_dd_engine,
+             oss.str().c_str());
       return true;
     }
     bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
@@ -1244,10 +1253,8 @@ bool initialize_dd_properties(THD *thd) {
            dd::DD_VERSION);
   else if (bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change())
     LogErr(INFORMATION_LEVEL, ER_DDSE_CHANGE,
-           bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine() ==
-                   DB_TYPE_INNODB
-               ? "INNODB"
-               : "ROCKSDB",
+           get_dd_engine_name(
+               bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine()),
            get_dd_engine_name());
   else {
     /*

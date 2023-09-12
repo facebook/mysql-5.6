@@ -100,6 +100,10 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name);
   return default_dd_storage_engine == DEFAULT_DD_ROCKSDB ? "ROCKSDB" : "INNODB";
 }
 
+[[nodiscard]] inline const char *get_dd_engine_name(legacy_db_type db_type) {
+  assert(db_type == DB_TYPE_INNODB || db_type == DB_TYPE_ROCKSDB);
+  return db_type == DB_TYPE_ROCKSDB ? "ROCKSDB" : "INNODB";
+}
 ///////////////////////////////////////////////////////////////////////////
 
 }  // namespace dd
