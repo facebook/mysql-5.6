@@ -55,7 +55,7 @@ struct generic_indexer_t {
 };
 
 #ifdef HAVE_SCHED_GETCPU
-//#include <utmpx.h>  // Including this causes problems with EMPTY symbol
+// #include <utmpx.h>  // Including this causes problems with EMPTY symbol
 #include <sched.h>  // Include this instead
 /** Use the cpu id to index into the counter array. If it fails then
 use the thread id. */

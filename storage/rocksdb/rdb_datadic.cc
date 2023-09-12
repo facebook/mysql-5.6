@@ -888,8 +888,8 @@ const std::string Rdb_key_def::parse_comment_for_qualifier(
 
   Returns -1 if field was null, 1 if error, 0 otherwise.
 */
-int Rdb_key_def::read_memcmp_key_part(
-    Rdb_string_reader *reader, const uint part_num) const {
+int Rdb_key_def::read_memcmp_key_part(Rdb_string_reader *reader,
+                                      const uint part_num) const {
   /* It is impossible to unpack the column. Skip it. */
   if (m_pack_info[part_num].m_field_is_nullable) {
     const char *nullp;
@@ -1474,7 +1474,7 @@ uint Rdb_key_def::pack_hidden_pk(const longlong hidden_pk_id,
   tuple += INDEX_NUMBER_SIZE;
   assert(m_key_parts == 1);
   assert(is_storage_available(tuple - packed_tuple,
-                                   m_pack_info[0].m_max_image_len));
+                              m_pack_info[0].m_max_image_len));
 
   m_pack_info[0].fill_hidden_pk_val(&tuple, hidden_pk_id);
 
@@ -1644,7 +1644,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   // the layout there is different. The checksum is verified in
   // ha_rocksdb::convert_record_from_storage_format instead.
   assert_IMP(!(m_index_type == INDEX_TYPE_SECONDARY),
-                  !verify_row_debug_checksums);
+             !verify_row_debug_checksums);
 
   // Skip the index number
   if (unlikely(!reader.read(INDEX_NUMBER_SIZE))) {
@@ -4180,8 +4180,7 @@ bool Rdb_key_def::has_index_flag(uint32 index_flags, enum INDEX_FLAG flag) {
 uint32 Rdb_key_def::calculate_index_flag_offset(uint32 index_flags,
                                                 enum INDEX_FLAG flag,
                                                 uint *const length) {
-  assert_IMP(flag != MAX_FLAG,
-                  Rdb_key_def::has_index_flag(index_flags, flag));
+  assert_IMP(flag != MAX_FLAG, Rdb_key_def::has_index_flag(index_flags, flag));
 
   uint offset = 0;
   for (size_t bit = 0; bit < sizeof(index_flags) * CHAR_BIT; ++bit) {
@@ -5135,9 +5134,7 @@ void Rdb_binlog_manager::update(const char *const binlog_name,
                                 const my_off_t binlog_pos,
                                 const char *const binlog_max_gtid,
                                 rocksdb::WriteBatchBase *const batch) {
-  DBUG_EXECUTE_IF("rocksdb_skip_binlog_pos_update", {
-    return;
-  };);
+  DBUG_EXECUTE_IF("rocksdb_skip_binlog_pos_update", { return; };);
 
   if (binlog_name && binlog_pos) {
     // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
@@ -5650,7 +5647,7 @@ void Rdb_dict_manager::get_ongoing_index_operation(
     std::unordered_set<GL_INDEX_ID> *gl_index_ids,
     Rdb_key_def::DATA_DICT_TYPE dd_type) const {
   assert(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
-              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+         dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
 
   Rdb_buf_writer<Rdb_key_def::INDEX_NUMBER_SIZE> index_writer;
   index_writer.write_uint32(dd_type);
@@ -5746,7 +5743,7 @@ int Rdb_dict_manager::remove_orphaned_dropped_cfs(
 bool Rdb_dict_manager::is_index_operation_ongoing(
     const GL_INDEX_ID &gl_index_id, Rdb_key_def::DATA_DICT_TYPE dd_type) const {
   assert(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
-              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+         dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
 
   bool found = false;
   std::string value;
@@ -5768,7 +5765,7 @@ void Rdb_dict_manager::start_ongoing_index_operation(
     rocksdb::WriteBatch *const batch, const GL_INDEX_ID &gl_index_id,
     Rdb_key_def::DATA_DICT_TYPE dd_type) const {
   assert(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
-              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+         dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
 
   Rdb_buf_writer<Rdb_key_def::INDEX_NUMBER_SIZE * 3> key_writer;
   Rdb_buf_writer<Rdb_key_def::VERSION_SIZE> value_writer;
@@ -5793,7 +5790,7 @@ void Rdb_dict_manager::end_ongoing_index_operation(
     rocksdb::WriteBatch *const batch, const GL_INDEX_ID &gl_index_id,
     Rdb_key_def::DATA_DICT_TYPE dd_type) const {
   assert(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
-              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+         dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
 
   delete_with_prefix(batch, dd_type, gl_index_id);
 }
@@ -5863,7 +5860,7 @@ void Rdb_dict_manager::finish_indexes_operation(
     const std::unordered_set<GL_INDEX_ID> &gl_index_ids,
     Rdb_key_def::DATA_DICT_TYPE dd_type) const {
   assert(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
-              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+         dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
 
   const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
   rocksdb::WriteBatch *const batch = wb.get();

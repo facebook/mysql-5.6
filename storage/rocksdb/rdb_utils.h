@@ -403,7 +403,7 @@ class Rdb_exec_time {
    * static cast on overloaded functions passed in as template param.
    */
   template <class Fn, class... Args>
-  auto exec(const std::string &key, const Fn &&fn, Args &&... args)
+  auto exec(const std::string &key, const Fn &&fn, Args &&...args)
       -> decltype(fn(args...)) {
     Auto_timer timer([&](uint64_t &e) { entries_.emplace(key, e); });
     return fn(args...);

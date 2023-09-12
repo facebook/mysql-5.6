@@ -391,7 +391,8 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
                               type == RDB_LOCK_WRITE, skip_wait);
   }
 
-  DBUG_EXECUTE_IF("rocksdb_return_status_corrupted",
+  DBUG_EXECUTE_IF(
+      "rocksdb_return_status_corrupted",
       if (m_tbl_def->full_tablename() == "test.t1") {
         s = rocksdb::Status::Corruption();
       });

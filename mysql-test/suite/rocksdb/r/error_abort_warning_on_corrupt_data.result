@@ -1,4 +1,4 @@
-SET SESSION debug="+d, stimulate_corrupt_data_read";
+SET SESSION debug="+d, simulate_corrupt_data_read";
 CREATE DATABASE a;
 USE a;
 CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdB;
@@ -12,14 +12,14 @@ ERROR HY000: Got error 505 'Found data corruption.' from ROCKSDB
 fail server
 SET GLOBAL rocksdb_corrupt_data_action = ABORT_SERVER;
 select * from t1;
-SET SESSION debug="+d, stimulate_corrupt_data_read";
+SET SESSION debug="+d, simulate_corrupt_data_read";
 pass query with warning
 SET GLOBAL rocksdb_corrupt_data_action = WARNING;
 select * from t1;
 a	b
 3	bar
 4	bar
-SET SESSION debug="-d, stimulate_corrupt_data_read";
+SET SESSION debug="-d, simulate_corrupt_data_read";
 write
 USE a;
 CREATE table t2 (
@@ -29,7 +29,7 @@ val int default 0,
 unique(sk)
 ) engine=rocksdb;
 insert into t2 (sk) values (1), (2);
-SET SESSION debug="+d, stimulate_corrupt_data_update";
+SET SESSION debug="+d, simulate_corrupt_data_update";
 fail query
 SET GLOBAL rocksdb_corrupt_data_action = ERROR;
 insert into t2 (sk) values (1), (2) on duplicate key update val = val + 1;
@@ -37,11 +37,11 @@ ERROR HY000: Got error 505 'Found data corruption.' from ROCKSDB
 fail server
 SET GLOBAL rocksdb_corrupt_data_action = ABORT_SERVER;
 insert into t2 (sk) values (1), (2) on duplicate key update val = val + 1;
-SET SESSION debug="+d, stimulate_corrupt_data_update";
+SET SESSION debug="+d, simulate_corrupt_data_update";
 pass query with warning
 SET GLOBAL rocksdb_corrupt_data_action = WARNING;
 insert into t2 (sk) values (1), (2) on duplicate key update val = val + 1;
-SET SESSION debug="-d, stimulate_corrupt_data_update";
+SET SESSION debug="-d, simulate_corrupt_data_update";
 select * from t2;
 pk0	sk	val
 1	1	1
