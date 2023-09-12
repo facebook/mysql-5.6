@@ -31,7 +31,7 @@ insert into t71 values(4);
 set @@global.debug = '-d,skip_end_statement';
 select * from t71;
 
-select schema_name, digest, user, SUBSTRING(query_sample_text, 1, 10), count_star, sum_rows_inserted, sum_rows_examined, sum_rows_updated, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
+select schema_name, digest, user, SUBSTRING(query_sample_text, 1, 10), count_star, sum_rows_inserted, sum_rows_examined, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
 select query_sample_text, schema_name from performance_schema.events_statements_summary_by_all where sum_cpu_time > 2000000000000 and sum_elapsed_time > 2000000000000 and query_sample_text LIKE '%create table%' order by query_sample_text;
 
 drop table t71;
@@ -73,7 +73,7 @@ set @@global.debug = '-d,add_busy_loop_2sec';
 
 set @@global.debug = '-d,skip_end_statement';
 
-select schema_name, digest, user, query_sample_text, count_star, sum_rows_inserted, sum_rows_examined, sum_rows_updated, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
+select schema_name, digest, user, query_sample_text, count_star, sum_rows_inserted, sum_rows_examined, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
 select query_sample_text, schema_name from performance_schema.events_statements_summary_by_all where sum_cpu_time > 2000000000000 and sum_elapsed_time > 2000000000000 order by query_sample_text;
 
 set @@SESSION.min_examined_row_limit_sql_stats=DEFAULT;

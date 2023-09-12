@@ -1,3 +1,5 @@
+# --innodb-read-only will not prevent updates to the data dictionary in MyRocks
+--source include/have_innodb_ddse.inc
 --echo # Verify that restarting the server in --read-only mode skips
 --echo # re-populating character sets and collations. Also verify the
 --echo # same for --innodb-read-only.

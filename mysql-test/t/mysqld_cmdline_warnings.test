@@ -50,5 +50,4 @@
 --source include/search_pattern.inc
 
 # Cleanup
---remove_files_wildcard $WL11109_DATADIR *
---rmdir $WL11109_DATADIR
+--force-rmdir $WL11109_DATADIR

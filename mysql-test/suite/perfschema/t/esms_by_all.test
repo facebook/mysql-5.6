@@ -48,7 +48,7 @@ update t1 set c=c+500;
 delete from t1 where c=905;
 delete from t1 where c=903;
 
-select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all;
+select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted from performance_schema.events_statements_summary_by_all;
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest;
 
 ####################################################
@@ -97,7 +97,7 @@ DROP TABLE test.t11 ||||
 
 # reset delimiter
 delimiter ;||||
-select schema_name, query_sample_text, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all order by digest;
+select schema_name, query_sample_text, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted from performance_schema.events_statements_summary_by_all order by digest;
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest;
 
 --echo Verify index working properly

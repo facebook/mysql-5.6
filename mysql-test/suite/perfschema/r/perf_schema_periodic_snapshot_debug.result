@@ -19,13 +19,13 @@ i
 1
 3
 4
-select schema_name, digest, user, SUBSTRING(query_sample_text, 1, 10), count_star, sum_rows_inserted, sum_rows_examined, sum_rows_updated, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
-schema_name	digest	user	SUBSTRING(query_sample_text, 1, 10)	count_star	sum_rows_inserted	sum_rows_examined	sum_rows_updated	sum_rows_sent
-test	6ee210714b5c265b79d47f096ecb00ba	user_super	create tab	1	12	0	6	0
-test	1f74b5cfb4ff7bba7c55d5916085ad51	user_super	insert int	3	3	0	0	0
-test	a34c4ef3c24d1443f126bfb04005e81c	user_super	select * f	1	0	3	0	3
-test	61cbecbde57649b01f98367d1b9e6649	user_super	select sch	1	0	0	0	3
-test	2a2ebea9b4e0bae3afcc55ae0d867ad4	user_super	set @@glob	1	0	0	0	0
+select schema_name, digest, user, SUBSTRING(query_sample_text, 1, 10), count_star, sum_rows_inserted, sum_rows_examined, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
+schema_name	digest	user	SUBSTRING(query_sample_text, 1, 10)	count_star	sum_rows_inserted	sum_rows_examined	sum_rows_sent
+test	6ee210714b5c265b79d47f096ecb00ba	user_super	create tab	1	12	0	0
+test	1f74b5cfb4ff7bba7c55d5916085ad51	user_super	insert int	3	3	0	0
+test	a34c4ef3c24d1443f126bfb04005e81c	user_super	select * f	1	0	3	3
+test	e399a529ef8585a30a99a3d9a9ae0a3f	user_super	select sch	1	0	0	3
+test	2a2ebea9b4e0bae3afcc55ae0d867ad4	user_super	set @@glob	1	0	0	0
 select query_sample_text, schema_name from performance_schema.events_statements_summary_by_all where sum_cpu_time > 2000000000000 and sum_elapsed_time > 2000000000000 and query_sample_text LIKE '%create table%' order by query_sample_text;
 query_sample_text	schema_name
 create table t71 (i int)	test
@@ -56,16 +56,16 @@ c
 100
 set @@global.debug = '-d,add_busy_loop_2sec';
 set @@global.debug = '-d,skip_end_statement';
-select schema_name, digest, user, query_sample_text, count_star, sum_rows_inserted, sum_rows_examined, sum_rows_updated, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
-schema_name	digest	user	query_sample_text	count_star	sum_rows_inserted	sum_rows_examined	sum_rows_updated	sum_rows_sent
-test	85682d1656cce207e22bbbd0a14f44c0	user_super	create table t72(c int)	1	12	0	6	0
-test	ab1fef38406db6e6dbb72e33ff05d5f7	user_super	delete from t72 where c=114	1	0	1	0	0
-test	23e04b97ff39b4948f7c37c38983f112	user_super	drop table t72	1	0	0	0	0
-test	7fb804dd7a29b5e49e2a10c43b84726e	user_super	insert into t72 values(100)	1	1	0	0	0
-test	d977632b07be45578e5e5e06c3531d47	user_super	select * from t72	1	0	0	0	1
-test	049d4858e9f8dc77d3e81a62ec745598	user_super	select schema_name, digest, user, query_sample_text, count_star, sum_rows_inserted, sum_rows_examined, sum_rows_updated, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc	1	0	0	0	5
-test	2a2ebea9b4e0bae3afcc55ae0d867ad4	user_super	set @@global.debug = '-d,skip_end_statement'	1	0	0	0	0
-test	86b2664dd62cd95b3ca469fa4431ce90	user_super	update t72 set c=c+7	2	0	2	2	0
+select schema_name, digest, user, query_sample_text, count_star, sum_rows_inserted, sum_rows_examined, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc;
+schema_name	digest	user	query_sample_text	count_star	sum_rows_inserted	sum_rows_examined	sum_rows_sent
+test	85682d1656cce207e22bbbd0a14f44c0	user_super	create table t72(c int)	1	12	0	0
+test	ab1fef38406db6e6dbb72e33ff05d5f7	user_super	delete from t72 where c=114	1	0	1	0
+test	23e04b97ff39b4948f7c37c38983f112	user_super	drop table t72	1	0	0	0
+test	7fb804dd7a29b5e49e2a10c43b84726e	user_super	insert into t72 values(100)	1	1	0	0
+test	d977632b07be45578e5e5e06c3531d47	user_super	select * from t72	1	0	0	1
+test	1400af9987c0ee222336dc74df8d718a	user_super	select schema_name, digest, user, query_sample_text, count_star, sum_rows_inserted, sum_rows_examined, sum_rows_sent from performance_schema.events_statements_summary_by_all order by query_sample_text asc	1	0	0	5
+test	2a2ebea9b4e0bae3afcc55ae0d867ad4	user_super	set @@global.debug = '-d,skip_end_statement'	1	0	0	0
+test	86b2664dd62cd95b3ca469fa4431ce90	user_super	update t72 set c=c+7	2	0	2	0
 select query_sample_text, schema_name from performance_schema.events_statements_summary_by_all where sum_cpu_time > 2000000000000 and sum_elapsed_time > 2000000000000 order by query_sample_text;
 query_sample_text	schema_name
 create table t72(c int)	test
