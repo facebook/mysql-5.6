@@ -7,7 +7,7 @@
 
 let DATADIR_LOCATION=$MYSQLTEST_VARDIR/mysqld.1/data;
 
-SET SESSION debug="+d, stimulate_corrupt_data_read";
+SET SESSION debug="+d, simulate_corrupt_data_read";
 	
 CREATE DATABASE a;
 USE a;
@@ -35,13 +35,13 @@ select * from t1;
 let $WAIT_COUNT=6000;
 --source include/wait_time_until_connected_again.inc
 
-SET SESSION debug="+d, stimulate_corrupt_data_read";
+SET SESSION debug="+d, simulate_corrupt_data_read";
 
 --echo pass query with warning
 SET GLOBAL rocksdb_corrupt_data_action = WARNING;
 select * from t1;
 
-SET SESSION debug="-d, stimulate_corrupt_data_read";
+SET SESSION debug="-d, simulate_corrupt_data_read";
 
 --echo write
 
@@ -55,7 +55,7 @@ CREATE table t2 (
 
 insert into t2 (sk) values (1), (2);
 
-SET SESSION debug="+d, stimulate_corrupt_data_update";
+SET SESSION debug="+d, simulate_corrupt_data_update";
 
 --echo fail query
 SET GLOBAL rocksdb_corrupt_data_action = ERROR;
@@ -74,13 +74,13 @@ insert into t2 (sk) values (1), (2) on duplicate key update val = val + 1;
 let $WAIT_COUNT=6000;
 --source include/wait_time_until_connected_again.inc
 
-SET SESSION debug="+d, stimulate_corrupt_data_update";
+SET SESSION debug="+d, simulate_corrupt_data_update";
 
 --echo pass query with warning
 SET GLOBAL rocksdb_corrupt_data_action = WARNING;
 insert into t2 (sk) values (1), (2) on duplicate key update val = val + 1;
 
-SET SESSION debug="-d, stimulate_corrupt_data_update";
+SET SESSION debug="-d, simulate_corrupt_data_update";
 
 select * from t2;
 
