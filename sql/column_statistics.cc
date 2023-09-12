@@ -662,14 +662,23 @@ void populate_column_usage_info(THD *thd) {
     DBUG_VOID_RETURN;
   }
 
+  // Calculate the size of column usage statistics.
+  // Start with overhead of std::set itself plus per item overhead of
+  // std::unordered_map and the size of SQL_ID. See below for details.
+  // https://chromium.googlesource.com/chromium/src/+/HEAD/base/containers/README.md
+  auto column_usage_info_size =
+      sizeof(thd->column_usage_info) + DIGEST_HASH_SIZE + 16;
+  for (const auto &cui : thd->column_usage_info) {
+    // Include per item overhead of std::set.
+    column_usage_info_size += cui.size() + 32;
+  }
+
   mysql_rwlock_wrlock(&LOCK_column_statistics);
   auto iter = col_statistics_map.find(thd->mt_key_value(THD::SQL_ID));
   if (iter == col_statistics_map.end()) {
     col_statistics_map.insert(
         std::make_pair(thd->mt_key_value(THD::SQL_ID), thd->column_usage_info));
-    // Size of the column statistics struct inclusive of the space required
-    // to store the SQL ID.
-    column_stats_size += thd->column_usage_info.size() + DIGEST_HASH_SIZE;
+    column_stats_size += column_usage_info_size;
   }
   mysql_rwlock_unlock(&LOCK_column_statistics);
 
