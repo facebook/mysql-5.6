@@ -1072,7 +1072,20 @@ bool create_dd_schema(THD *thd) {
                                     dd::String_type(MYSQL_SCHEMA_NAME.str));
 }
 
-bool initialize_dd_properties(THD *thd) {
+/*
+  With multiple DDSE, dd_properties table may exists in other SE instead of
+  default DDSE. thus add two table definition: actual and target
+    - "actual" means existing table definition,
+    - "target" means expected table definition, it should be table definiton
+      using default DDSE.
+  For bootstrap, "actual" doesn't exist.
+  For restart without upgrade, "actual" and "target" should be same.
+  For upgrade, "actual" is gotten by checking table_exists_in_engine and then
+    compute.
+  The only difference between "actual" and "target" is SE.
+*/
+[[nodiscard]] const Object_table_definition *get_dd_properties_table_definition(
+    THD *thd) {
   if (!opt_initialize) {
     // Find out which SE contains dd_properties table during restart
     // Try rocksdb first
@@ -1084,20 +1097,28 @@ bool initialize_dd_properties(THD *thd) {
           rocksdb_hton, thd, MYSQL_SCHEMA_NAME.str,
           dd::tables::DD_properties::instance().name().c_str());
     }
-    if (error == HA_ERR_TABLE_EXIST) {
-      // actual ddse maybe rocksdb
-      bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
-          DB_TYPE_ROCKSDB);
-    } else {
-      // actual ddse maybe innodb
-      bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
-          DB_TYPE_INNODB);
-    }
+    dd::tables::DD_properties::instance().set_actual_engine(
+        error == HA_ERR_TABLE_EXIST ? String_type("ROCKSDB")
+                                    : String_type("INNODB"));
   }
 
   // Create the dd_properties table.
+  const Object_table_definition *dd_properties_def = nullptr;
+  if (opt_initialize) {
+    dd_properties_def =
+        dd::tables::DD_properties::instance().target_table_definition();
+  } else {
+    dd_properties_def =
+        dd::tables::DD_properties::instance().actual_table_definition();
+  }
+  return dd_properties_def;
+}
+
+bool initialize_dd_properties(THD *thd) {
+  // Create the dd_properties table.
   const Object_table_definition *dd_properties_def =
-      dd::tables::DD_properties::instance().target_table_definition();
+      get_dd_properties_table_definition(thd);
+
   if (dd::execute_query(thd, dd_properties_def->get_ddl())) return true;
 
   /*

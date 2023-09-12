@@ -301,5 +301,16 @@ bool DD_properties::remove(THD *thd, const String_type &key) {
   return flush_cached_properties(thd);
 }
 
+void DD_properties::set_actual_engine(const String_type &engine) {
+  // clone table definition from target table if actual table isn't constructed
+  if (!m_actual_present) {
+    std::unique_ptr<Properties> definition(Properties::parse_properties(""));
+    target_table_definition()->store_into_properties(definition.get());
+    set_actual_table_definition(*definition);
+  }
+  m_actual_def.update_option(static_cast<int>(Common_option::ENGINE), "ENGINE",
+                             String_type("ENGINE=") + engine);
+}
+
 }  // namespace tables
 }  // namespace dd
