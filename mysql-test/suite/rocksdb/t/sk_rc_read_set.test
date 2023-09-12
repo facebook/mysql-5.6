@@ -1,4 +1,4 @@
---connection default
+--source include/have_rocksdb.inc
 
 let $i = 1;
 let $define_row_key = row_key BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,;

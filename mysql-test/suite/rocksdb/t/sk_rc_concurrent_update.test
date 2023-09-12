@@ -1,3 +1,7 @@
+--source include/have_rocksdb.inc
+--source include/have_debug_sync.inc
+--source include/count_sessions.inc
+
 --connect(con0, localhost, root,, test)
 --connection default
 
@@ -75,3 +79,5 @@ let $define_pk = ;
 }
 
 --disconnect con0
+
+--source include/wait_until_count_sessions.inc
