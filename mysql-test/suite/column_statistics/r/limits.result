@@ -662,7 +662,7 @@ SELECT COUNT(DISTINCT SQL_ID) FROM performance_schema.column_statistics;
 COUNT(DISTINCT SQL_ID)	1
 
 Part IV : Relaxing limit further to accommodate more stats.
-SET GLOBAL max_column_statistics_size = 128;
+SET GLOBAL max_column_statistics_size = 5500;
 
 Executing the same queries as in III b
 SELECT firstname, lastname, email FROM MyGuests WHERE id = 1;
