@@ -242,6 +242,12 @@ class Object_table_definition_impl : public Object_table_definition {
                 &m_option_numbers, &m_option_definitions);
   }
 
+  virtual void update_option(int option_number, const String_type &option_name,
+                             const String_type &option_definition) {
+    m_option_numbers[option_name] = option_number;
+    m_option_definitions[option_number] = option_definition;
+  }
+
   virtual void add_populate_statement(const String_type &statement) {
     m_dml_statements.push_back(statement);
   }
