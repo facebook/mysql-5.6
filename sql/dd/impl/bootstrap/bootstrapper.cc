@@ -1098,7 +1098,7 @@ bool create_dd_schema(THD *thd) {
           dd::tables::DD_properties::instance().name().c_str());
     }
     dd::tables::DD_properties::instance().set_actual_engine(
-        error == HA_ERR_TABLE_EXIST ? String_type("ROCkSDB")
+        error == HA_ERR_TABLE_EXIST ? String_type("ROCKSDB")
                                     : String_type("INNODB"));
   }
 
