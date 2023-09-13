@@ -1,0 +1,40 @@
+#
+# Additional test coverage for LOCK TABLES ... READ LOCAL
+# for ROCKSDB tables.
+#
+# Check that we correctly handle deadlocks which can occur
+# during metadata lock upgrade which happens when one tries
+# to use LOCK TABLES ... READ LOCAL for ROCKSDB tables.
+CREATE TABLE t1 (i INT) ENGINE=ROCKSDB;
+CREATE TABLE t2 (j INT) ENGINE=ROCKSDB;
+# Execute LOCK TABLE READ LOCK which will pause after acquiring
+# SR metadata lock and before upgrading it to SRO lock.
+SET DEBUG_SYNC="after_open_table_mdl_shared SIGNAL locked WAIT_FOR go";
+# Sending:
+LOCK TABLE t1 READ LOCAL;
+connect  con1, localhost, root;
+SET DEBUG_SYNC="now WAIT_FOR locked";
+# Execute RENAME TABLE which will try to acquire X lock.
+# Sending:
+RENAME TABLE t1 TO t3, t2 TO t1, t3 TO t2;
+connect  con2, localhost, root;
+# Wait until RENAME TABLE is blocked.
+# Resume LOCK TABLE statement. It should try to
+# upgrade SR lock to SRO lock which will create
+# deadlock due to presence of pending X lock.
+# Deadlock should be detected and LOCK TABLES should
+# release its MDL and retry opening of tables.
+SET DEBUG_SYNC="now SIGNAL go";
+connection con1;
+# RENAME TABLE should be able to complete. Reap it.
+connection default;
+# Reap LOCK TABLES.
+# Check that we see new version of table.
+SELECT * FROM t1;
+j
+UNLOCK TABLES;
+# Clean-up.
+SET DEBUG_SYNC="RESET";
+disconnect con1;
+disconnect con2;
+DROP TABLES t1, t2;

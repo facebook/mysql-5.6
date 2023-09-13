@@ -1,0 +1,66 @@
+--source include/have_debug_sync.inc
+--source include/have_rocksdb.inc
+
+# Taken from main.lock_sync test
+
+--echo #
+--echo # Additional test coverage for LOCK TABLES ... READ LOCAL
+--echo # for ROCKSDB tables.
+--echo #
+--echo # Check that we correctly handle deadlocks which can occur
+--echo # during metadata lock upgrade which happens when one tries
+--echo # to use LOCK TABLES ... READ LOCAL for ROCKSDB tables.
+
+--source include/count_sessions.inc
+
+--enable_connect_log
+CREATE TABLE t1 (i INT) ENGINE=ROCKSDB;
+CREATE TABLE t2 (j INT) ENGINE=ROCKSDB;
+
+--echo # Execute LOCK TABLE READ LOCK which will pause after acquiring
+--echo # SR metadata lock and before upgrading it to SRO lock.
+SET DEBUG_SYNC="after_open_table_mdl_shared SIGNAL locked WAIT_FOR go";
+--echo # Sending:
+--send LOCK TABLE t1 READ LOCAL
+
+connect (con1, localhost, root);
+SET DEBUG_SYNC="now WAIT_FOR locked";
+--echo # Execute RENAME TABLE which will try to acquire X lock.
+--echo # Sending:
+--send RENAME TABLE t1 TO t3, t2 TO t1, t3 TO t2
+
+connect (con2, localhost, root);
+--echo # Wait until RENAME TABLE is blocked.
+let $wait_condition=
+select count(*) = 1 from information_schema.processlist
+where state = "Waiting for table metadata lock" and
+info = "RENAME TABLE t1 TO t3, t2 TO t1, t3 TO t2";
+--source include/wait_condition.inc
+--echo # Resume LOCK TABLE statement. It should try to
+--echo # upgrade SR lock to SRO lock which will create
+--echo # deadlock due to presence of pending X lock.
+--echo # Deadlock should be detected and LOCK TABLES should
+--echo # release its MDL and retry opening of tables.
+SET DEBUG_SYNC="now SIGNAL go";
+
+connection con1;
+--echo # RENAME TABLE should be able to complete. Reap it.
+--reap
+
+connection default;
+--echo # Reap LOCK TABLES.
+--reap
+--echo # Check that we see new version of table.
+SELECT * FROM t1;
+UNLOCK TABLES;
+
+--echo # Clean-up.
+SET DEBUG_SYNC="RESET";
+disconnect con1;
+disconnect con2;
+DROP TABLES t1, t2;
+--disable_connect_log
+
+# Check that all connections opened by test cases in this file are really
+# gone so execution of other tests won't be affected by their presence.
+--source include/wait_until_count_sessions.inc

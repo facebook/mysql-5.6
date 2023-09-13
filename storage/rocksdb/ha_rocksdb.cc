@@ -8597,7 +8597,6 @@ Rdb_table_handler *Rdb_open_tables_map::get_table_handler(
 
     m_table_map.emplace(table_name_str, table_handler);
 
-    thr_lock_init(&table_handler->m_thr_lock);
     table_handler->m_io_perf_read.init();
     table_handler->m_io_perf_write.init();
   }
@@ -8856,7 +8855,6 @@ void Rdb_open_tables_map::release_table_handler(
     const auto ret MY_ATTRIBUTE((__unused__)) =
         m_table_map.erase(std::string(table_handler->m_table_name));
     assert(ret == 1);  // the hash entry must actually be found and deleted
-    my_core::thr_lock_delete(&table_handler->m_thr_lock);
     my_free(table_handler);
   }
 
@@ -9217,8 +9215,6 @@ int ha_rocksdb::open(const char *const name,
     DBUG_RETURN(HA_ERR_OUT_OF_MEM);
   }
 
-  my_core::thr_lock_data_init(&m_table_handler->m_thr_lock, &m_db_lock,
-                              nullptr);
   m_io_perf.init(&m_table_handler->m_table_perf_context,
                  &m_table_handler->m_io_perf_read,
                  &m_table_handler->m_io_perf_write, &stats);
@@ -13841,17 +13837,21 @@ void ha_rocksdb::update_table_stats_if_needed() {
   DBUG_VOID_RETURN;
 }
 
-/* The following function was copied from ha_blackhole::store_lock: */
+/** Inform the storage engine about the THR_LOCK that server would have acquired
+for this statement for this table, so that the storage engine could decide on
+its internal locking.
+@param[in]      thd     user thread handle
+@param[in]      to      pointer to the current element in an array of pointers
+                        to THR_LOCK structs. Returned without modifications.
+@param[in]      lock_type       requested lock type
+@return 'to' parameter. */
 THR_LOCK_DATA **ha_rocksdb::store_lock(THD *const thd, THR_LOCK_DATA **to,
                                        enum thr_lock_type lock_type) {
   DBUG_ENTER_FUNC();
 
   assert(thd != nullptr);
-  assert(to != nullptr);
 
-  bool in_lock_tables = my_core::thd_in_lock_tables(thd);
-
-  /* First, make a decision about MyRocks's internal locking */
+  /* Make a decision about MyRocks's internal locking */
   if (lock_type >= TL_WRITE_ALLOW_WRITE) {
     m_lock_rows = RDB_LOCK_WRITE;
   } else if (lock_type == TL_READ_WITH_SHARED_LOCKS) {
@@ -13866,6 +13866,7 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *const thd, THR_LOCK_DATA **to,
         locks in place on rows that are in a table that is not being updated.
       */
       const uint sql_command = my_core::thd_sql_command(thd);
+      bool in_lock_tables = my_core::thd_in_lock_tables(thd);
       if ((lock_type == TL_READ && in_lock_tables) ||
           (lock_type == TL_READ_HIGH_PRIORITY && in_lock_tables) ||
           can_hold_read_locks_on_select(thd, lock_type)) {
@@ -13885,35 +13886,6 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *const thd, THR_LOCK_DATA **to,
     }
   }
 
-  /* Then, tell the SQL layer what kind of locking it should use: */
-  if (lock_type != TL_IGNORE && m_db_lock.type == TL_UNLOCK) {
-    /*
-      Here is where we get into the guts of a row level lock.
-      If TL_UNLOCK is set
-      If we are not doing a LOCK TABLE or DISCARD/IMPORT
-      TABLESPACE, then allow multiple writers
-    */
-
-    if ((lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE) &&
-        !in_lock_tables && !my_core::thd_tablespace_op(thd)) {
-      lock_type = TL_WRITE_ALLOW_WRITE;
-    }
-
-    /*
-      In queries of type INSERT INTO t1 SELECT ... FROM t2 ...
-      MySQL would use the lock TL_READ_NO_INSERT on t2, and that
-      would conflict with TL_WRITE_ALLOW_WRITE, blocking all inserts
-      to t2. Convert the lock to a normal read lock to allow
-      concurrent inserts to t2.
-    */
-
-    if (lock_type == TL_READ_NO_INSERT && !in_lock_tables) {
-      lock_type = TL_READ;
-    }
-
-    m_db_lock.type = lock_type;
-  }
-
   m_locked_row_action = THR_WAIT;
   if (lock_type != TL_IGNORE) {
     auto action = table->pos_in_table_list->lock_descriptor().action;
@@ -13928,8 +13900,6 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *const thd, THR_LOCK_DATA **to,
         break;
     }
   }
-
-  *to++ = &m_db_lock;
 
 #ifndef NDEBUG
   const auto *ha_data = get_ha_data_or_null(thd);
