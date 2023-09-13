@@ -95,8 +95,6 @@ struct Rdb_table_handler {
   atomic_stat<int> m_lock_wait_timeout_counter;
   atomic_stat<int> m_deadlock_counter;
 
-  my_core::THR_LOCK m_thr_lock;  ///< MySQL latch needed by m_db_lock
-
   /* Stores cumulative table statistics */
   my_io_perf_atomic_t m_io_perf_read;
   my_io_perf_atomic_t m_io_perf_write;
@@ -181,8 +179,6 @@ class blob_buffer {
 */
 
 class ha_rocksdb : public my_core::handler, public blob_buffer {
-  my_core::THR_LOCK_DATA m_db_lock;  ///< MySQL database lock
-
   Rdb_table_handler *m_table_handler;  ///< Open table handler
 
   Rdb_tbl_def *m_tbl_def;
@@ -471,7 +467,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                 (rocksdb_column_default_value_as_expression
                      ? HA_SUPPORTS_DEFAULT_EXPRESSION
                      : 0) |
-                HA_ATTACHABLE_TRX_COMPATIBLE);
+                HA_ATTACHABLE_TRX_COMPATIBLE | HA_NO_READ_LOCAL_LOCK);
   }
 
   bool init_with_fields() override;
@@ -944,6 +940,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                                   uint table_changes) override
       MY_ATTRIBUTE((__warn_unused_result__));
 
+  [[nodiscard]] uint lock_count() const override { return 0; }
   THR_LOCK_DATA **store_lock(THD *const thd, THR_LOCK_DATA **to,
                              enum thr_lock_type lock_type) override
       MY_ATTRIBUTE((__warn_unused_result__));
