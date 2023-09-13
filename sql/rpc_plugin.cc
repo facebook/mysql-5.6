@@ -260,6 +260,7 @@ thd_err:
   lex_end(thd->lex);
   thd->free_items();
   thd->reset_query_attrs();
+  thd->mem_root->ClearForReuse();
   return true;
 }
 
@@ -304,10 +305,15 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
 
   initialize_thd();
   if (check_input(param)) {
-    bypass_rpc_exception ret;
-    ret.errnum = ER_NOT_SUPPORTED_YET;
-    ret.sqlstate = "MYF(0)";
-    ret.message = "Bypass rpc input is not valid";
+    bypass_rpc_exception ret{ER_NOT_SUPPORTED_YET, "MYF(0)",
+                             "Bypass rpc input is not valid"};
+    return ret;
+  }
+
+  if (rocksdb_hton == nullptr ||
+      rocksdb_hton->bypass_select_by_key == nullptr) {
+    bypass_rpc_exception ret{ER_UNKNOWN_ERROR, "MYF(0)",
+                             "Handlerton is not set"};
     return ret;
   }
 
@@ -369,12 +375,6 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
     assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
   });
 
-  if (rocksdb_hton == nullptr ||
-      rocksdb_hton->bypass_select_by_key == nullptr) {
-    bypass_rpc_exception ret{ER_UNKNOWN_ERROR, "MYF(0)",
-                             "Handlerton is not set", applied_hlc};
-    return ret;
-  }
   auto ret = rocksdb_hton->bypass_select_by_key(thd, &columns, *param);
   ret.hlc_lower_bound_ts = applied_hlc;
 
