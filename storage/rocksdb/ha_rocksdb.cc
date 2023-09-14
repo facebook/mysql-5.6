@@ -31,6 +31,7 @@
 #endif
 
 /* C++ standard header files */
+#include <array>
 #include <inttypes.h>
 #include <algorithm>
 #include <deque>
@@ -3469,6 +3470,77 @@ static int rdb_dbug_set_ttl_read_filter_ts();
   return !my_core::thd_test_options(&thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN);
 }
 
+using sql_com_flags = std::array<bool, SQLCOM_END + 1>;
+
+static constexpr sql_com_flags init_sql_cmd_safe_for_wb() {
+  sql_com_flags result = {false};
+  result[SQLCOM_CREATE_TABLE] = true;
+  result[SQLCOM_CREATE_INDEX] = true;
+  result[SQLCOM_ALTER_TABLE] = true;
+  result[SQLCOM_TRUNCATE] = true;
+  result[SQLCOM_DROP_TABLE] = true;
+  result[SQLCOM_DROP_INDEX] = true;
+  result[SQLCOM_GRANT] = true;
+  result[SQLCOM_CREATE_DB] = true;
+  result[SQLCOM_DROP_DB] = true;
+  result[SQLCOM_ALTER_DB] = true;
+  result[SQLCOM_CREATE_FUNCTION] = true;
+  result[SQLCOM_DROP_FUNCTION] = true;
+  result[SQLCOM_REVOKE] = true;
+  result[SQLCOM_OPTIMIZE] = true;
+  result[SQLCOM_ANALYZE] = true;
+  result[SQLCOM_CHANGE_MASTER] = true;
+  result[SQLCOM_CHANGE_REPLICATION_FILTER] = true;
+  result[SQLCOM_RENAME_TABLE] = true;
+  result[SQLCOM_RESET] = true;
+  result[SQLCOM_CREATE_USER] = true;
+  result[SQLCOM_DROP_USER] = true;
+  result[SQLCOM_RENAME_USER] = true;
+  result[SQLCOM_REVOKE_ALL] = true;
+  result[SQLCOM_CREATE_PROCEDURE] = true;
+  result[SQLCOM_CREATE_SPFUNCTION] = true;
+  result[SQLCOM_DROP_PROCEDURE] = true;
+  result[SQLCOM_ALTER_PROCEDURE] = true;
+  result[SQLCOM_ALTER_FUNCTION] = true;
+  result[SQLCOM_CREATE_VIEW] = true;
+  result[SQLCOM_DROP_VIEW] = true;
+  result[SQLCOM_CREATE_TRIGGER] = true;
+  result[SQLCOM_DROP_TRIGGER] = true;
+  result[SQLCOM_ALTER_TABLESPACE] = true;
+  result[SQLCOM_INSTALL_PLUGIN] = true;
+  result[SQLCOM_UNINSTALL_PLUGIN] = true;
+  result[SQLCOM_CREATE_SERVER] = true;
+  result[SQLCOM_DROP_SERVER] = true;
+  result[SQLCOM_ALTER_TABLE] = true;
+  result[SQLCOM_CREATE_EVENT] = true;
+  result[SQLCOM_ALTER_EVENT] = true;
+  result[SQLCOM_DROP_EVENT] = true;
+  result[SQLCOM_ALTER_USER] = true;
+  result[SQLCOM_SET_PASSWORD] = true;
+  result[SQLCOM_ALTER_INSTANCE] = true;
+  result[SQLCOM_INSTALL_COMPONENT] = true;
+  result[SQLCOM_UNINSTALL_COMPONENT] = true;
+  result[SQLCOM_CREATE_ROLE] = true;
+  result[SQLCOM_DROP_ROLE] = true;
+  result[SQLCOM_SET_ROLE] = true;
+  result[SQLCOM_GRANT_ROLE] = true;
+  result[SQLCOM_REVOKE_ROLE] = true;
+  result[SQLCOM_ALTER_USER_DEFAULT_ROLE] = true;
+  result[SQLCOM_CREATE_RESOURCE_GROUP] = true;
+  result[SQLCOM_ALTER_RESOURCE_GROUP] = true;
+  result[SQLCOM_DROP_RESOURCE_GROUP] = true;
+  result[SQLCOM_SET_RESOURCE_GROUP] = true;
+  result[SQLCOM_CREATE_SRS] = true;
+  result[SQLCOM_DROP_SRS] = true;
+  return result;
+}
+
+static constexpr sql_com_flags sql_cmd_safe_for_wb = init_sql_cmd_safe_for_wb();
+
+[[nodiscard]] static constexpr bool is_safe_for_wb(const THD &thd) {
+  return sql_cmd_safe_for_wb[thd.lex->sql_command];
+}
+
 /* This is the base class for transactions when interacting with rocksdb.
  */
 class Rdb_transaction {
@@ -3493,8 +3565,6 @@ class Rdb_transaction {
     any changes)
   */
   ulonglong m_writes_at_last_savepoint;
-
-  bool m_ddl_transaction = false;
 
  protected:
   THD *m_thd = nullptr;
@@ -3542,8 +3612,6 @@ class Rdb_transaction {
     m_auto_incr_map.clear();
     return s;
   }
-
-  void reset_ddl_transaction() { m_ddl_transaction = false; }
 
  protected:
   /*
@@ -3719,13 +3787,6 @@ class Rdb_transaction {
     }
   }
 
-  void set_ddl_transaction() {
-    assert(!is_ac_nl_ro_rc_transaction());
-    m_ddl_transaction = true;
-  }
-
-  [[nodiscard]] bool is_ddl_transaction() const { return m_ddl_transaction; }
-
   virtual void set_lock_timeout(int timeout_sec_arg, TABLE_TYPE table_type) = 0;
 
   ulonglong get_write_count(
@@ -3823,7 +3884,7 @@ class Rdb_transaction {
       assert(!is_ac_nl_ro_rc_transaction());
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
                               &m_mysql_log_offset, nullptr, &m_mysql_max_gtid);
-      if (m_thd->rli_slave && !is_ddl_transaction() && get_write_count() &&
+      if (m_thd->rli_slave && !is_safe_for_wb(*m_thd) && get_write_count() &&
           (!m_mysql_log_file_name || !m_mysql_log_offset)) {
         LogPluginErrMsg(
             ERROR_LEVEL, ER_LOG_PRINTF_MSG,
@@ -5001,7 +5062,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
     m_delete_count = 0;
     m_row_lock_count = 0;
     m_auto_incr_map.clear();
-    reset_ddl_transaction();
     if (m_rocksdb_tx[TABLE_TYPE::USER_TABLE]) {
       release_snapshot(TABLE_TYPE::USER_TABLE);
       /* This will also release all of the locks: */
@@ -5296,7 +5356,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
       set_initial_savepoint();
 
-      reset_ddl_transaction();
       m_is_delayed_snapshot = false;
     }
   }
@@ -5417,7 +5476,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     m_read_opts[USER_TABLE] = rocksdb::ReadOptions();
     m_read_opts[USER_TABLE].ignore_range_deletions =
         !rocksdb_enable_delete_range_for_drop_index;
-    reset_ddl_transaction();
   }
 
  private:
@@ -12646,7 +12704,7 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
      */
     rc = bulk_load_key(row_info.tx, kd, row_info.new_pk_slice, value_slice,
                        THDVAR(table->in_use, bulk_load_allow_unsorted));
-  } else if (row_info.skip_unique_check || row_info.tx->is_ddl_transaction()) {
+  } else if (row_info.skip_unique_check || is_safe_for_wb(*ha_thd())) {
     /*
       It is responsibility of the user to make sure that the data being
       inserted doesn't violate any unique keys.
@@ -14041,12 +14099,6 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
         ::store_lock call.  That's why we need to set lock_* members here, too.
       */
       m_lock_rows = RDB_LOCK_WRITE;
-
-      if (thd->lex->sql_command == SQLCOM_CREATE_INDEX ||
-          thd->lex->sql_command == SQLCOM_DROP_INDEX ||
-          thd->lex->sql_command == SQLCOM_ALTER_TABLE) {
-        tx->set_ddl_transaction();
-      }
     }
     tx->m_n_mysql_tables_in_use++;
     rocksdb_register_tx(rocksdb_hton, thd, tx);
