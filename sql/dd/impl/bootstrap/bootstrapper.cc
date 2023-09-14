@@ -79,6 +79,8 @@ using namespace dd;
 
 namespace {
 
+// This method is required for upgrade sceanrio
+// during upgrade, there are two dd engine: actual engine and target engine
 [[nodiscard]] handlerton *calculate_dd_engine(THD *thd) {
   if (opt_initialize) {
     return get_dd_engine(thd);
@@ -99,7 +101,7 @@ bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
 
   /*
     Always call innodb handler API unless disabled
-    innobase_dict_recover will initialze innodb services, which is required
+    innobase_dict_recover will initialize innodb services, which is required
     for DDSE dd change
   */
   if (ddse->db_type != DB_TYPE_INNODB) {
@@ -768,16 +770,16 @@ bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
     innobase_dict_init will initialize these innodb specific tables
   */
   if (ddse->db_type != DB_TYPE_INNODB) {
-    handlerton *innodb_ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
-    bool innodb_disabled = ha_is_storage_engine_disabled(innodb_ddse);
+    handlerton *innodb_se = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+    bool innodb_disabled = ha_is_storage_engine_disabled(innodb_se);
     if (!innodb_disabled) {
-      assert(!ddse_tablespaces.size());
-      if (innodb_ddse->ddse_dict_init == nullptr ||
-          innodb_ddse->ddse_dict_init(dict_init_mode, version, &ddse_tables,
-                                      &ddse_tablespaces)) {
+      assert(ddse_tablespaces.is_empty());
+      if (innodb_se->ddse_dict_init == nullptr ||
+          innodb_se->ddse_dict_init(dict_init_mode, version, &ddse_tables,
+                                    &ddse_tablespaces)) {
         LogErr(
             ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-            "Calling non-Default DDSE InnoDB handlerton ddse_dict_init failed");
+               "Calling non-DDSE InnoDB handlerton ddse_dict_init failed");
         return true;
       }
     }
@@ -941,9 +943,10 @@ bool initialize(THD *thd) {
     operations in the "populate()" methods). Thus, there is no need to
     commit explicitly here.
   */
-  if (DDSE_dict_init(thd, DICT_INIT_CREATE_FILES, d->get_target_dd_version()) ||
-      initialize_dictionary(thd, false, d))
+  if (DDSE_dict_init(thd, DICT_INIT_CREATE_FILES, d->get_target_dd_version()))
     return true;
+
+  if (initialize_dictionary(thd, false, d)) return true;
 
   assert(d->get_target_dd_version() == d->get_actual_dd_version(thd));
   LogErr(INFORMATION_LEVEL, ER_DD_VERSION_INSTALLED,
