@@ -13937,15 +13937,6 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
   assert(thd != nullptr);
 
   int res = HA_EXIT_SUCCESS;
-  int binlog_format = my_core::thd_binlog_format(thd);
-  bool unsafe_for_binlog = THDVAR(ha_thd(), unsafe_for_binlog);
-  if (lock_type == F_WRLCK && !thd->rli_slave && !unsafe_for_binlog &&
-      binlog_format != BINLOG_FORMAT_ROW &&
-      binlog_format != BINLOG_FORMAT_UNSPEC &&
-      my_core::thd_binlog_filter_ok(thd)) {
-    my_error(ER_REQUIRE_ROW_BINLOG_FORMAT, MYF(0));
-    DBUG_RETURN(HA_ERR_UNSUPPORTED);
-  }
 
   if (lock_type == F_UNLCK) {
     Rdb_transaction *const tx = get_tx_from_thd(thd);
@@ -13976,14 +13967,18 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
       DBUG_RETURN(HA_ERR_UNSUPPORTED);
     }
 
-    /*
-      It's nice to do the following on start of every statement. The problem
-      is, handler->start_stmt() is not called for INSERTs.
-      So, we put this code here.
-    */
-    Rdb_transaction *const tx =
-        get_or_create_tx(thd, m_tbl_def->get_table_type());
-    read_thd_vars(thd);
+    if (lock_type == F_WRLCK) {
+      int binlog_format = my_core::thd_binlog_format(thd);
+      bool unsafe_for_binlog = THDVAR(thd, unsafe_for_binlog);
+      if (!thd->rli_slave && !unsafe_for_binlog &&
+          binlog_format != BINLOG_FORMAT_ROW &&
+          binlog_format != BINLOG_FORMAT_UNSPEC &&
+          thd_sqlcom_can_generate_row_events(thd) &&
+          my_core::thd_binlog_filter_ok(thd)) {
+        my_error(ER_REQUIRE_ROW_BINLOG_FORMAT, MYF(0));
+        DBUG_RETURN(HA_ERR_UNSUPPORTED);
+      }
+    }
 
     if (skip_unique_check()) {
       if ((thd->lex->sql_command == SQLCOM_INSERT ||
@@ -13995,6 +13990,15 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
         DBUG_RETURN(HA_ERR_UNSUPPORTED);
       }
     }
+
+    /*
+      It's nice to do the following on start of every statement. The problem
+      is, handler->start_stmt() is not called for INSERTs.
+      So, we put this code here.
+    */
+    Rdb_transaction *const tx =
+        get_or_create_tx(thd, m_tbl_def->get_table_type());
+    read_thd_vars(thd);
 
     if (lock_type == F_WRLCK) {
       if (tx->is_tx_read_only()) {
