@@ -64,7 +64,8 @@ const std::unordered_map<int, std::string> slow_log_ddls = {
     {SQLCOM_CREATE_INDEX, "CREATE_INDEX"},
     {SQLCOM_DROP_INDEX, "DROP_INDEX"},
     {SQLCOM_RENAME_TABLE, "RENAME_TABLE"},
-    {SQLCOM_TRUNCATE, "TRUNCATE_TABLE"}};
+    {SQLCOM_TRUNCATE, "TRUNCATE_TABLE"},
+    {SQLCOM_DROP_DB, "DROP_DATABASE"}};
 
 extern "C" int test_if_data_home_dir(const char *dir);
 
