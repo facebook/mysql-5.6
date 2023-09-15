@@ -8,6 +8,10 @@ truncate mysql.slow_log;
 set @my_log_ddl = @@global.log_ddl;
 set global log_ddl = true;
 
+# Create test database.
+create database test_db;
+use test_db;
+
 # Create table t1
 create table t1 (
 id1 int unsigned not null default '0',
@@ -96,11 +100,18 @@ primary key (id1));
 --let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%CREATE_TABLE%create table t4%"] = 1
 --source include/assert.inc
 
-drop table t2, t3, t4;
-
-truncate mysql.slow_log;
-set global log_output = default;
-set @@global.log_ddl = @my_log_ddl;
+# Restore the default value for log_throttle_ddl.
 set @@global.log_throttle_ddl = @my_log_throttle_ddl;
 
+drop table t2, t3, t4;
+drop database test_db;
+
+--let $assert_text = There is one slow log entry for drop database test_db
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%DROP_DATABASE%drop database test_db%"] = 1
+--source include/assert.inc
+
+set global log_output = default;
+set @@global.log_ddl = @my_log_ddl;
+
+truncate mysql.slow_log;
 truncate mysql.general_log;
