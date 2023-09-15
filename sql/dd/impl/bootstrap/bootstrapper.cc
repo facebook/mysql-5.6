@@ -79,13 +79,68 @@ using namespace dd;
 
 namespace {
 
+/**
+  During restart, 'guess' actual/current DDSE by handler table_exists_in_engine
+  API, If one SE contains mysql.dd_properties table, then set it as
+  actual/current DDSE.
+
+  @param[in]    thd         Thread Handle
+
+*/
+void find_actual_ddse_from_handler(THD *thd) {
+  if (opt_initialize) return;
+
+  // Find out which SE contains dd_properties table during restart
+  // Try rocksdb first
+  auto *rocksdb_se = ha_resolve_by_legacy_type(thd, DB_TYPE_ROCKSDB);
+  int error = HA_ERR_NO_SUCH_TABLE;
+  if (rocksdb_se != nullptr && rocksdb_se->table_exists_in_engine != nullptr) {
+    error = rocksdb_se->table_exists_in_engine(
+        rocksdb_se, thd, MYSQL_SCHEMA_NAME.str,
+        dd::tables::DD_properties::instance().name().c_str());
+  }
+  if (error == HA_ERR_TABLE_EXIST) {
+    // actual ddse maybe rocksdb
+    bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
+        DB_TYPE_ROCKSDB);
+  } else {
+    // actual ddse maybe innodb
+    bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
+        DB_TYPE_INNODB);
+  }
+}
+
+// This method is required for upgrade sceanrio
+// during upgrade, there are two dd engine: actual engine and target engine
+[[nodiscard]] handlerton *calculate_dd_engine(THD *thd) {
+  if (opt_initialize) {
+    return get_dd_engine(thd);
+  } else {
+    return ha_resolve_by_legacy_type(
+        thd, bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_engine());
+  }
+}
+
 // Initialize recovery in the DDSE.
 bool DDSE_dict_recover(THD *thd, dict_recovery_mode_t dict_recovery_mode,
                        uint version) {
-  handlerton *ddse = get_dd_engine(thd);
+  handlerton *ddse = calculate_dd_engine(thd);
   if (ddse->dict_recover == nullptr) return true;
-
   bool error = ddse->dict_recover(dict_recovery_mode, version);
+  if (error && dict_recovery_mode == DICT_RECOVERY_INITIALIZE_TABLESPACES)
+    return dd::end_transaction(thd, error);
+
+  /*
+    Always call innodb handler API unless disabled
+    innobase_dict_recover will initialize innodb services, which is required
+    for DDSE dd change
+  */
+  if (ddse->db_type != DB_TYPE_INNODB) {
+    ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+    bool disabled = ha_is_storage_engine_disabled(ddse);
+    if (!disabled && ddse->dict_recover == nullptr) return true;
+    if (!disabled) error = ddse->dict_recover(dict_recovery_mode, version);
+  }
 
   /*
     Commit when tablespaces have been initialized, since in that
@@ -725,8 +780,9 @@ namespace bootstrap {
   predefined tables and tablespaces.
 */
 bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
-  handlerton *ddse = get_dd_engine(thd);
+  find_actual_ddse_from_handler(thd);
 
+  handlerton *ddse = calculate_dd_engine(thd);
   /*
     The lists with element wrappers are mem root allocated. The wrapped
     instances are allocated dynamically in the DDSE. These instances will be
@@ -736,8 +792,30 @@ bool DDSE_dict_init(THD *thd, dict_init_mode_t dict_init_mode, uint version) {
   List<const Plugin_tablespace> ddse_tablespaces;
   if (ddse->ddse_dict_init == nullptr ||
       ddse->ddse_dict_init(dict_init_mode, version, &ddse_tables,
-                           &ddse_tablespaces))
+                           &ddse_tablespaces)) {
+    LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+           "Calling DDSE handlerton ddse_dict_init failed");
     return true;
+  }
+
+  /*
+    Always call innodb handler API unless disabled
+    innobase_dict_init will initialize these innodb specific tables
+  */
+  if (ddse->db_type != DB_TYPE_INNODB) {
+    handlerton *innodb_se = ha_resolve_by_legacy_type(thd, DB_TYPE_INNODB);
+    bool innodb_disabled = ha_is_storage_engine_disabled(innodb_se);
+    if (!innodb_disabled) {
+      assert(ddse_tablespaces.is_empty());
+      if (innodb_se->ddse_dict_init == nullptr ||
+          innodb_se->ddse_dict_init(dict_init_mode, version, &ddse_tables,
+                                    &ddse_tablespaces)) {
+        LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+               "Calling non-DDSE InnoDB handlerton ddse_dict_init failed");
+        return true;
+      }
+    }
+  }
 
   /*
     Iterate over the table definitions and add them to the System_tables
@@ -897,9 +975,10 @@ bool initialize(THD *thd) {
     operations in the "populate()" methods). Thus, there is no need to
     commit explicitly here.
   */
-  if (DDSE_dict_init(thd, DICT_INIT_CREATE_FILES, d->get_target_dd_version()) ||
-      initialize_dictionary(thd, false, d))
+  if (DDSE_dict_init(thd, DICT_INIT_CREATE_FILES, d->get_target_dd_version()))
     return true;
+
+  if (initialize_dictionary(thd, false, d)) return true;
 
   assert(d->get_target_dd_version() == d->get_actual_dd_version(thd));
   LogErr(INFORMATION_LEVEL, ER_DD_VERSION_INSTALLED,
@@ -1632,7 +1711,7 @@ bool sync_meta_data(THD *thd) {
     return true;
 
   // Reset the DDSE local dictionary cache.
-  handlerton *ddse = get_dd_engine(thd);
+  handlerton *ddse = calculate_dd_engine(thd);
   if (ddse->dict_cache_reset == nullptr) return true;
 
   for (System_tables::Const_iterator it = System_tables::instance()->begin();
@@ -1930,13 +2009,16 @@ bool update_versions(THD *thd, bool is_dd_upgrade_57) {
 
   /*
     Update the server version number in the bootstrap ctx and the
-    DD tablespace header if we have been doing a server upgrade.
+    DD tablespace header if we have been doing a server upgrade
+    or DDSE change.
     Note that the update of the tablespace header is not rolled
     back in case of an abort, so this better be the last step we
     do before committing.
   */
   handlerton *ddse = get_dd_engine(thd);
-  if (bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade()) {
+  if (opt_initialize ||
+      bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() ||
+      bootstrap::DD_bootstrap_ctx::instance().is_dd_upgrade()) {
     if (ddse->dict_set_server_version == nullptr ||
         ddse->dict_set_server_version()) {
       LogErr(ERROR_LEVEL, ER_CANNOT_SET_SERVER_VERSION_IN_TABLESPACE_HEADER);

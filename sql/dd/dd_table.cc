@@ -2365,10 +2365,16 @@ static std::unique_ptr<dd::Table> create_dd_system_table(
   }
 
   // Register the se private id with the DDSE.
-  handlerton *ddse = get_dd_engine(thd);
-  if (ddse->dict_register_dd_table_id == nullptr) return nullptr;
-  ddse->dict_register_dd_table_id(tab_obj->se_private_id());
-
+  if (opt_initialize) {
+    handlerton *ddse = get_dd_engine(thd);
+    if (ddse->dict_register_dd_table_id == nullptr) return nullptr;
+    ddse->dict_register_dd_table_id(tab_obj->se_private_id());
+  } else {
+    assert(file->ht->db_type == DB_TYPE_INNODB ||
+           file->ht->db_type == DB_TYPE_ROCKSDB);
+    if (file->ht->dict_register_dd_table_id == nullptr) return nullptr;
+    file->ht->dict_register_dd_table_id(tab_obj->se_private_id());
+  }
   return tab_obj;
 }
 
