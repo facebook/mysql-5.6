@@ -140,7 +140,7 @@ class DD_bootstrap_ctx {
 
   uint get_actual_I_S_version() const { return m_actual_I_S_version; }
 
-  legacy_db_type get_actual_dd_engine() const {
+  [[nodiscard]] legacy_db_type get_actual_dd_engine() const {
     assert(m_actual_dd_engine != DB_TYPE_UNKNOWN);
     return m_actual_dd_engine;
   }
