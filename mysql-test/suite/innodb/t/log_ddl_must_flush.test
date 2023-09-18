@@ -1,3 +1,5 @@
+# Test for DDSE-specific code path in InnoDB
+--source include/have_innodb_ddse.inc
 --source include/have_debug.inc
 
 SET DEBUG_SYNC='trx_flush_log_if_needed SIGNAL hit';

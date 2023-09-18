@@ -1,3 +1,5 @@
+# See the upstream comment below
+--source include/have_innodb_ddse.inc
 #
 # Skip this test when MySQL has been built with other storage engines
 # than InnoDB, it is because dumping SDI from mysql.ibd
