@@ -14055,9 +14055,8 @@ int ha_rocksdb::start_stmt(THD *const thd,
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
-rocksdb::Range get_range(uint32_t i,
-                         uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2],
-                         int offset1, int offset2) {
+[[nodiscard]] static rocksdb::Range get_range(uint32_t i, uchar *buf,
+                                              int offset1, int offset2) {
   uchar *buf_begin = buf;
   uchar *buf_end = buf + Rdb_key_def::INDEX_NUMBER_SIZE;
   rdb_netbuf_store_index(buf_begin, i + offset1);
@@ -14068,14 +14067,12 @@ rocksdb::Range get_range(uint32_t i,
       rocksdb::Slice((const char *)buf_end, Rdb_key_def::INDEX_NUMBER_SIZE));
 }
 
-static rocksdb::Range get_range(const Rdb_key_def &kd,
-                                uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2],
-                                int offset1, int offset2) {
+[[nodiscard]] static rocksdb::Range get_range(const Rdb_key_def &kd, uchar *buf,
+                                              int offset1, int offset2) {
   return get_range(kd.get_index_number(), buf, offset1, offset2);
 }
 
-rocksdb::Range ha_rocksdb::get_range(
-    const Rdb_key_def &kd, uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2]) {
+rocksdb::Range ha_rocksdb::get_range(const Rdb_key_def &kd, uchar *buf) {
   if (kd.m_is_reverse_cf) {
     return myrocks::get_range(kd, buf, 1, 0);
   } else {
@@ -14083,8 +14080,7 @@ rocksdb::Range ha_rocksdb::get_range(
   }
 }
 
-rocksdb::Range ha_rocksdb::get_range(
-    const int i, uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2]) const {
+rocksdb::Range ha_rocksdb::get_range(int i, uchar *buf) const {
   return get_range(*m_key_descr_arr[i], buf);
 }
 
