@@ -79,7 +79,6 @@ SET_TARGET_PROPERTIES(routertest_http_auth_method PROPERTIES
 
 add_test_file(test_content_type.cc
   MODULE http
-  EXTRA_SOURCES ../src/content_type.cc
   )
 ## content_type.cc is from the http_server plugin and its symbols are marked a "dllimport"
 ## by default. As we use them directly, mark them as "static" instead.
