@@ -60,8 +60,6 @@
 #include "sql_string.h"
 #include "template_utils.h"
 
-constexpr size_t Session_resp_attr_tracker::MAX_RESP_ATTR_LEN;
-
 static void store_lenenc_string(String &to, const char *from, size_t length);
 
 /**
