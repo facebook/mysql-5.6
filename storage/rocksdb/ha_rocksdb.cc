@@ -3823,7 +3823,10 @@ class Rdb_transaction {
       assert(!is_ac_nl_ro_rc_transaction());
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
                               &m_mysql_log_offset, nullptr, &m_mysql_max_gtid);
-      if (m_thd->rli_slave && !is_ddl_transaction() && get_write_count() &&
+      if (m_thd->rli_slave && thd_sqlcom_can_generate_row_events(m_thd) &&
+          (m_thd->lex->sql_command != SQLCOM_CREATE_TABLE ||
+           !m_thd->lex->query_block->field_list_is_empty()) &&
+          get_write_count() &&
           (!m_mysql_log_file_name || !m_mysql_log_offset)) {
         LogPluginErrMsg(
             ERROR_LEVEL, ER_LOG_PRINTF_MSG,
