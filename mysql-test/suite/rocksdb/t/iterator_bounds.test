@@ -79,4 +79,48 @@ rollback;
 
 drop table t;
 
+#
+# check query return correct result while query will switch between using bloomfilter 
+# and using iterate bounds during execution
+#
+# force range query
+set optimizer_force_index_for_range = on;
+# use latin1_swedish_ci to not use bloomfilter
+# for query with "", its eq_cond size = 5, while prefix_extractor=capped:12
+# since 5 < 12, so bloomfilter isn't used. 
+# 5 === 4 for index size + 1 for "" encoding size
+# don't use DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci, 
+# since for "", its encoding size is 10
+create table t3(
+  a int, 
+  b varchar(36) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL, 
+  c int, 
+  primary key(a), key b(b, c)
+);
+insert into t3 values(1, "11",1),(2,"22",2),(3,"33",3);
+--replace_column 8 # 10 # 11 #
+explain select count(*) from t3 force index(b) where b in ("", "33");
+select count(*) from t3 force index(b) where b in ("", "33");
+--replace_column 8 # 10 # 11 #
+explain select count(*) from t3 force index(b) where b in ("", "33", "","33");
+select count(*) from t3 force index(b) where b in ("", "33", "","33");
+drop table t3;
 
+# force range query
+set optimizer_force_index_for_range = on;
+create table t2(
+  a int, 
+  b int, 
+  c bigint, 
+  d bigint, 
+  primary key(a), key b(b,c,d)
+);
+insert into t2 values(1,1,1,1),(2,2,2,2),(3,3,3,3);
+--replace_column 8 # 10 # 11 #
+explain select count(*) from t2 force index(b) where b = 2 or (b = 3 and c=3);
+select count(*) from t2 force index(b) where b = 2 or (b = 3 and c=3);
+--replace_column 8 # 10 # 11 #
+explain select count(*) from t2 force index(b) where (b = 3 and c=3) or b = 2;
+select count(*) from t2 force index(b) where (b = 3 and c=3) or b = 2;
+
+drop table t2;

@@ -17682,6 +17682,12 @@ bool ha_rocksdb::check_bloom_and_set_bounds(
     setup_iterator_bounds(kd, eq_cond, bound_len, lower_bound, upper_bound,
                           lower_bound_slice, upper_bound_slice);
     *check_iterate_bounds = THDVAR(thd, check_iterate_bounds);
+  } else {
+    // when bloom filter is used or iterate bound isn't used,
+    // skip check these stale iterate bounds and reset these bounds
+    *check_iterate_bounds = false;
+    upper_bound_slice->clear();
+    lower_bound_slice->clear();
   }
   return can_use_bloom;
 }
