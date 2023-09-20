@@ -53,3 +53,54 @@ select a from t where b = 101 and c like 'view_routine_usage';
 a
 rollback;
 drop table t;
+set optimizer_force_index_for_range = on;
+create table t3(
+a int, 
+b varchar(36) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL, 
+c int, 
+primary key(a), key b(b, c)
+);
+insert into t3 values(1, "11",1),(2,"22",2),(3,"33",3);
+explain select count(*) from t3 force index(b) where b in ("", "33");
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	b	b	#	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t3` FORCE INDEX (`b`) where (`test`.`t3`.`b` in ('','33'))
+select count(*) from t3 force index(b) where b in ("", "33");
+count(*)
+1
+explain select count(*) from t3 force index(b) where b in ("", "33", "","33");
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	b	b	#	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t3` FORCE INDEX (`b`) where (`test`.`t3`.`b` in ('','33','','33'))
+select count(*) from t3 force index(b) where b in ("", "33", "","33");
+count(*)
+1
+drop table t3;
+set optimizer_force_index_for_range = on;
+create table t2(
+a int, 
+b int, 
+c bigint, 
+d bigint, 
+primary key(a), key b(b,c,d)
+);
+insert into t2 values(1,1,1,1),(2,2,2,2),(3,3,3,3);
+explain select count(*) from t2 force index(b) where b = 2 or (b = 3 and c=3);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	b	b	#	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t2` FORCE INDEX (`b`) where ((`test`.`t2`.`b` = 2) or ((`test`.`t2`.`c` = 3) and (`test`.`t2`.`b` = 3)))
+select count(*) from t2 force index(b) where b = 2 or (b = 3 and c=3);
+count(*)
+2
+explain select count(*) from t2 force index(b) where (b = 3 and c=3) or b = 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	b	b	#	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t2` FORCE INDEX (`b`) where (((`test`.`t2`.`c` = 3) and (`test`.`t2`.`b` = 3)) or (`test`.`t2`.`b` = 2))
+select count(*) from t2 force index(b) where (b = 3 and c=3) or b = 2;
+count(*)
+2
+drop table t2;
