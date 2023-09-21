@@ -211,20 +211,14 @@ class Client_Stat {
  private:
   /** Calculate target for each task based on current performance.
   @param[in]	target_speed	overall target speed in bytes per second
-  @param[in]	current_speed	overall current speed in bytes per second
-  @param[in]	current_target	current target for a task in bytes per second
   @param[in]	num_tasks	number of clone tasks
   @return target for a task in bytes per second. */
-  uint64_t task_target(uint64_t target_speed, uint64_t current_speed,
-                       uint64_t current_target, uint32_t num_tasks);
+  uint64_t task_target(uint64_t target_speed, uint32_t num_tasks);
 
   /** Set target bandwidth for data and network per thread.
   @param[in]	num_workers	current number of worker threads
-  @param[in]	is_reset	if called during stage reset
-  @param[in]	data_speed	current data speed in bytes per second
-  @param[in]	net_speed	current network speed in bytes per second */
-  void set_target_bandwidth(uint32_t num_workers, bool is_reset,
-                            uint64_t data_speed, uint64_t net_speed);
+  @param[in]	is_reset	if called during stage reset */
+  void set_target_bandwidth(uint32_t num_workers, bool is_reset);
 
   /** @return true if bandwidth limit is already reached. */
   bool is_bandwidth_saturated();

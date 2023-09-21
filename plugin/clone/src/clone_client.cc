@@ -129,7 +129,7 @@ void Client_Stat::update(bool reset, const Thread_Vector &threads,
     m_start_time = cur_time;
     m_initialized = true;
     reset_history(true);
-    set_target_bandwidth(num_workers, true, 0, 0);
+    set_target_bandwidth(num_workers, true);
     return;
   }
 
@@ -212,11 +212,10 @@ void Client_Stat::update(bool reset, const Thread_Vector &threads,
   }
 
   /* Set targets for all tasks. */
-  set_target_bandwidth(num_workers, reset, data_speed, net_speed);
+  set_target_bandwidth(num_workers, reset);
 }
 
-uint64_t Client_Stat::task_target(uint64_t target_speed, uint64_t current_speed,
-                                  uint64_t current_target, uint32_t num_tasks) {
+uint64_t Client_Stat::task_target(uint64_t target_speed, uint32_t num_tasks) {
   assert(num_tasks > 0);
 
   /* Zero is special value indicating unlimited bandwidth. */
@@ -224,19 +223,7 @@ uint64_t Client_Stat::task_target(uint64_t target_speed, uint64_t current_speed,
     return (0);
   }
 
-  /* Estimate number of active tasks based on current performance. If target is
-  not set yet, start by assuming all active thread. */
-  auto active_tasks =
-      (current_target == 0) ? num_tasks : (current_speed / current_target);
-
-  /* Keep the value within current boundary. */
-  if (active_tasks == 0) {
-    active_tasks = 1;
-  } else if (active_tasks > num_tasks) {
-    active_tasks = num_tasks;
-  }
-
-  auto task_target = target_speed / active_tasks;
+  auto task_target = target_speed / num_tasks;
 
   /* Don't set anything lower than a minimum threshold. Protection against
   bad configuration asking too many threads and very less bandwidth. */
@@ -246,20 +233,16 @@ uint64_t Client_Stat::task_target(uint64_t target_speed, uint64_t current_speed,
   return (task_target);
 }
 
-void Client_Stat::set_target_bandwidth(uint32_t num_workers, bool is_reset,
-                                       uint64_t data_speed,
-                                       uint64_t net_speed) {
+void Client_Stat::set_target_bandwidth(uint32_t num_workers, bool is_reset) {
   ++num_workers;
 
   uint64_t data_target = clone_max_io_bandwidth * 1024 * 1024;
   uint64_t net_target = clone_max_network_bandwidth * 1024 * 1024;
 
   if (!is_reset) {
-    data_target =
-        task_target(data_target, data_speed, m_target_data_speed, num_workers);
+    data_target = task_target(data_target, num_workers);
 
-    net_target =
-        task_target(net_target, net_speed, m_target_network_speed, num_workers);
+    net_target = task_target(net_target, num_workers);
   }
 
   m_target_data_speed.store(data_target);
