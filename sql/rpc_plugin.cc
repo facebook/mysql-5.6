@@ -61,7 +61,9 @@ class RPC_Query_formatter : public THD::Query_formatter {
       }
       case myrocks_value_type::STRING: {
         String str(value.stringVal, value.length, system_charset_info);
+        buf.append("'");
         buf.append(str.c_ptr());
+        buf.append("'");
         return;
       }
       default: {
@@ -96,6 +98,11 @@ class RPC_Query_formatter : public THD::Query_formatter {
     if (m_param == nullptr) {
       mysql_mutex_unlock(&LOCK_rpc_query);
       return;
+    }
+    if (!m_param->comment.empty()) {
+      buf.append("/* ");
+      buf.append(m_param->comment.c_str());
+      buf.append("*/ ");
     }
     bool is_first = true;  // first item in the vector?
     buf.append("SELECT /* bypass rpc */ ");

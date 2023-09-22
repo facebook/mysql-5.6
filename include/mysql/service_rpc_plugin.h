@@ -123,6 +123,7 @@ struct myrocks_select_from_rpc {
   void *rpc_buffer;
   myrocks_bypass_rpc_send_row_fn send_row;
   uint64_t hlc_lower_bound_ts;  // 0 if hlc lower bound is not given
+  std::string comment;
 };
 
 struct bypass_rpc_exception {
