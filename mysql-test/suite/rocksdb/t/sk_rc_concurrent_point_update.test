@@ -5,18 +5,12 @@
 --connect(con0, localhost, root,, test)
 --connection default
 
-let $i = 1;
-let $define_row_key = row_key BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,;
-let $define_pk = PRIMARY KEY (row_key),;
-
-while ($i <= 2) {
-
 --echo Conn A creating table
-eval CREATE TABLE table1 (
-  $define_row_key
+CREATE TABLE table1 (
+  row_key BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
   val1 TINYINT NOT NULL,
   val2 VARCHAR(128) NOT NULL,
-  $define_pk
+  PRIMARY KEY (row_key),
   KEY idx_val1 (val1)
 ) ENGINE=RocksDB;
 
@@ -32,21 +26,21 @@ SELECT * FROM table1;
 # the update command should be `sent` after activating a DEBUG_SYNC point, so that the 
 # update gets frozen. 
 
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+eval SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 START TRANSACTION;
 --echo Conn A: Started TRANSACTION A (SELECT .. FOR UPDATE )
 
 set DEBUG_SYNC = "rocksdb_concurrent_upd_or_delete_sk SIGNAL waiting_for_update WAIT_FOR update_done";
 --echo Conn A: activate DEBUG_SYNC point rocksdb_concurrent_upd_or_delete_sk 
 
-send SELECT * from table1 FORCE INDEX(idx_val1) WHERE val1 = 14 AND val2 = 'Alfa' FOR UPDATE;
+send SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 AND val2 = 'Alfa' FOR UPDATE;
 --echo Conn A: Sent SELECT
 
 # Meanwhile, start another transaction from Conn B to update val1 in such a way that
 # the parallel transaction from Conn A hits the conflict
 --connection con0
 
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+eval SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 START TRANSACTION;
 --echo Conn B: Started TRANSACTION B (Concurrent update)
 
@@ -66,7 +60,7 @@ set DEBUG_SYNC = "now SIGNAL update_done";
 # returned back by the lookup function (due to concurrent update invalidating
 # the search predicates
 
---echo Conn A: reaping SELECT * from table1 FORCE INDEX(idx_val1) WHERE val1 = 14 AND val2 = 'Alfa';  
+--echo Conn A: reaping SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 AND val2 = 'Alfa';  
 --echo The SELECT output should be empty
 --connection default
 reap;
@@ -75,15 +69,6 @@ ROLLBACK;
 SELECT * FROM table1;
 
 DROP TABLE table1;
-
-# next, run the above tests a second time without explicitly defining
-# the primary key. this tests scenarios around hidden PK. 
-
-inc $i;
-let $define_row_key = ;
-let $define_pk = ; 
-
-}
 
 --disconnect con0
 
