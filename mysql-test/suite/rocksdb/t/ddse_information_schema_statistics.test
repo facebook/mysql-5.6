@@ -1,0 +1,4 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+--source ../../../t/information_schema_statistics.test

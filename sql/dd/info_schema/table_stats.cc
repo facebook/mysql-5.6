@@ -149,11 +149,15 @@ bool store_statistics_record(THD *thd, T *object) {
     trans_rollback_stmt(thd);
     trans_rollback(thd);
     /**
-      It is ok to ignore ER_DUP_ENTRY, because there is possibility
-      that another thread would have updated statistics in high
-      concurrent environment. See Bug#29948755 for more information.
+      It is ok to ignore ER_DUP_ENTRY and additionally ER_LOCK_WAIT_TIMEOUT
+      under MyRocks, because there is possibility that another thread would have
+      updated statistics in high concurrent environment. See Bug#29948755 for
+      more information.
     */
-    if (thd->get_stmt_da()->mysql_errno() == ER_DUP_ENTRY) {
+    const auto mysql_errno = thd->get_stmt_da()->mysql_errno();
+    if (mysql_errno == ER_DUP_ENTRY ||
+        (default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+         mysql_errno == ER_LOCK_WAIT_TIMEOUT)) {
       thd->clear_error();
       return false;
     }
