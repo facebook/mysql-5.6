@@ -1,0 +1,35 @@
+source ../include/init_thrift_server_plugin.inc;
+
+disable_query_log;
+disable_warnings;
+DROP TABLE IF EXISTS t1, t2;
+enable_warnings;
+enable_query_log;
+
+CREATE TABLE t1(c1 BIGINT NOT NULL, c2 VARCHAR(64), c3 int NOT NULL, PRIMARY KEY (c1));
+insert into t1 values (1, 'v1', 2), (2, 'v2', 3), (3, null, 4);
+
+echo;
+echo TEST CASE simple select test;
+echo;
+
+# select c1, c2 from t1 where c3 > 2
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+
+# empty result set
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+
+echo;
+echo TEST CASE: table not exist;
+echo;
+
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t2","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+
+# empty result set
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+
+DROP TABLE t1;
+source ../include/uninit_thrift_server_plugin.inc;

@@ -1,0 +1,22 @@
+CREATE TABLE t1(c1 BIGINT NOT NULL, c2 VARCHAR(64), c3 int NOT NULL, PRIMARY KEY (c1));
+insert into t1 values (1, 'v1', 2), (2, 'v2', 3), (3, null, 4);
+
+TEST CASE simple select test
+
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	header	[{"type":2,"name":"c1"}, {"type":4,"name":"c2"}]
+1	row	[{"signedIntVal":2}, {"stringVal":"v2"}]
+2	row	[{"signedIntVal":3}, {"isNull":true}]
+3	hlcTsLowerBound	0
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+
+TEST CASE: table not exist
+
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t2","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	error	mysql::thrift_server::MySQLException: Error in opening a table
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+DROP TABLE t1;
