@@ -228,6 +228,8 @@ uint64_t Client_Stat::task_target(uint64_t target_speed, uint64_t current_speed,
   not set yet, start by assuming all active thread. */
   auto active_tasks =
       (current_target == 0) ? num_tasks : (current_speed / current_target);
+  
+  active_tasks = num_tasks;
 
   /* Keep the value within current boundary. */
   if (active_tasks == 0) {
