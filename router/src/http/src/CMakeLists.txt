@@ -1,4 +1,4 @@
-# Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2018, 2022, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
@@ -162,7 +162,6 @@ TARGET_INCLUDE_DIRECTORIES(http_auth_realm PRIVATE
 
 ADD_HARNESS_PLUGIN(http_server
   SOURCES
-  content_type.cc
   http_auth.cc
   http_auth_method_basic.cc
   http_server_component.cc
