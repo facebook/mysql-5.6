@@ -55,6 +55,7 @@
 #include "sql/dd/types/schema.h"
 #include "sql/sd_notify.h"  // sysd::notify
 #include "sql/sql_class.h"  // THD
+#include "sql/sql_table.h"  // build_table_filename
 #include "sql/table.h"      // MYSQL_SCHEMA_NAME
 
 namespace dd {
@@ -1066,6 +1067,126 @@ bool update_object_ids(THD *thd, const std::set<String_type> &create_set,
 }
 /* purecov: end */
 
+/*
+  Update myrocks internal data dictionary during dd_engine change from innodb
+  to rocksdb
+  This function will change table name inside myrocks internal data dictionary
+  from old_schema_name.table_name to new_schema_name.table_name and commit
+  these changes with rocksdb writebatch.
+
+  @param  thd                      Thread context.
+  @param  old_schema_name          Name of the old(from) schema
+  @param  new_schema_name          Name of the new(to) schema
+  @param  table_names              table name set to be updated
+
+  @returns false if success, true otherwise.
+*/
+bool update_myrocks_table_names(THD *thd, const String_type &old_schema_name,
+                                const String_type &new_schema_name,
+                                const std::set<String_type> &table_names) {
+  assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+  assert(bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change());
+
+  auto *rocksdb_ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_ROCKSDB);
+  if (!rocksdb_ddse) {
+    assert(false);
+    return true;
+  }
+  auto *handler = get_new_handler(nullptr, false, thd->mem_root, rocksdb_ddse);
+  if (!handler) {
+    assert(false);
+    return true;
+  }
+  bool err = false;
+  for (const auto &table_name : table_names) {
+    char old_table[FN_REFLEN + 1];
+    char new_table[FN_REFLEN + 1];
+    // old table full name under old schema name
+    build_table_filename(old_table, sizeof(old_table) - 1,
+                         old_schema_name.c_str(), table_name.c_str(), "", 0);
+    // new table full name under new schema name
+    build_table_filename(new_table, sizeof(new_table) - 1,
+                         new_schema_name.c_str(), table_name.c_str(), "", 0);
+    err = handler->ha_rename_table(old_table, new_table, nullptr, nullptr);
+    if (err) {
+      char errbuf[MYSYS_STRERROR_SIZE];
+      LogErr(ERROR_LEVEL, ER_ERROR_ON_RENAME, old_table, new_table, err,
+             my_strerror(errbuf, sizeof(errbuf), err));
+      break;
+    }
+  }
+
+  destroy(handler);
+  return err;
+}
+
+/*
+  upgrade dd_properties table during dd_engine change
+
+  @param  thd                         Thread context.
+  @param  mysql_schema_id             Id of the 'mysql' schema.
+  @param  target_table_schema_id      Id of the 'target_table' schema
+                                      during upgrade, DD table target(expect)
+                                      version is created on target_table_schema
+  @param  target_table_schema_name    Name of the 'target_table_schema' schema
+  @param  actual_table_schema_id      Id of the 'actual_table' schema
+                                      during upgrade, DD table actual(old)
+                                      version is moved to 'actual_table' scheme
+
+  @returns false if success, true otherwise.
+
+*/
+bool upgrade_dd_properties_table(THD *thd, Object_id mysql_schema_id,
+                                 Object_id target_table_schema_id,
+                                 const String_type &target_table_schema_name,
+                                 Object_id actual_table_schema_id) {
+  auto dd_property_table_name = dd::tables::DD_properties::instance().name();
+  // only upgrade dd_properties table for dd_engine table
+  // during dd_version change, dd_properties table keep same
+  if (!bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change())
+    return false;
+
+  // create <target_table>.dd_properties table with default_ddse
+  auto *dd_properties_def =
+      dd::tables::DD_properties::instance().target_table_definition();
+  if (dd::execute_query(thd, dd_properties_def->get_ddl())) {
+    assert(false);
+    return dd::end_transaction(thd, true);
+  }
+
+  // copy data from existing mysql.dd_properties to <target_table>.dd_properties
+  std::stringstream ss;
+  ss << "INSERT INTO dd_properties SELECT * FROM " << MYSQL_SCHEMA_NAME.str
+     << "." << dd_property_table_name;
+  if (dd::execute_query(thd, ss.str().c_str())) {
+    assert(false);
+    return dd::end_transaction(thd, true);
+  }
+
+  // 'rename' <target_table>.dd_properties to mysql.dd_properties
+  std::set<String_type> dd_properties_set({dd_property_table_name});
+  if (update_object_ids(thd, dd_properties_set, dd_properties_set,
+                        mysql_schema_id, target_table_schema_id,
+                        target_table_schema_name, actual_table_schema_id)) {
+    assert(false);
+    return true;
+  }
+
+  // update myrocks own data dictionary
+  if (default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+      update_myrocks_table_names(thd, target_table_schema_name,
+                                 MYSQL_SCHEMA_NAME.str,
+                                 {dd_property_table_name})) {
+    LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+           "Failed to update myrocks table name for dd_properties table");
+    return true;
+  }
+
+  // dd_properties has been upgraded to target engine
+  dd::tables::DD_properties::instance().set_actual_engine(get_dd_engine_name());
+  return false;
+}
+
 }  // namespace
 
 namespace upgrade {
@@ -1085,6 +1206,14 @@ bool upgrade_tables(THD *thd) {
   if (create_temporary_schemas(thd, &mysql_schema_id, &target_table_schema_id,
                                &target_table_schema_name,
                                &actual_table_schema_id))
+    return true;
+
+  /*
+    Upgrade dd_properties table during ddse change(innodb->rocksdb, vice verse)
+  */
+  if (upgrade_dd_properties_table(thd, mysql_schema_id, target_table_schema_id,
+                                  target_table_schema_name,
+                                  actual_table_schema_id))
     return true;
 
   /*
@@ -1154,9 +1283,21 @@ bool upgrade_tables(THD *thd) {
                         target_table_schema_name) ||
       update_object_ids(thd, create_set, remove_set, mysql_schema_id,
                         target_table_schema_id, target_table_schema_name,
-                        actual_table_schema_id) ||
-      update_versions(thd, false))
+                        actual_table_schema_id))
     return true;
+
+  // update myrocks own data dictionary
+  if (bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change() &&
+      (default_dd_storage_engine == DEFAULT_DD_ROCKSDB) &&
+      update_myrocks_table_names(thd, target_table_schema_name,
+                                 MYSQL_SCHEMA_NAME.str, create_set)) {
+    LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+           "Failed to update myrocks table name for non-dd_properties tables");
+    return true;
+  }
+
+  // always last step to update properties in dd_properties table
+  if (update_versions(thd, false)) return true;
 
   LogErr(SYSTEM_LEVEL, ER_DD_UPGRADE_COMPLETED,
          bootstrap::DD_bootstrap_ctx::instance().get_actual_dd_version(),
