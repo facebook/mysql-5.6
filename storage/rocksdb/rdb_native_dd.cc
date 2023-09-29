@@ -16,13 +16,11 @@
 
 /* This C++ file's header file */
 #include "rdb_native_dd.h"
-#include <cstring>
 
 /* MySQL header files */
 #include "sql/dd/types/table.h"  // dd::Table
 
 /* MyRocks header files */
-#include "ha_rocksdb.h"
 #include "sql/plugin_table.h"
 #include "storage/rocksdb/ha_rocksdb_proto.h"
 #include "storage/rocksdb/rdb_datadic.h"
@@ -52,29 +50,21 @@ void native_dd::clear_dd_table_ids() { s_dd_table_ids.clear(); }
 
 void rocksdb_dict_register_dd_table_id(dd::Object_id dd_table_id) {
   native_dd::insert_dd_table_ids(dd_table_id);
-};
+}
 
 bool rocksdb_dict_get_server_version(uint *version) {
   return rdb_get_dict_manager()
       ->get_dict_manager_selector_non_const(false /*is_tmp_table*/)
       ->get_server_version(version);
-};
+}
 
 bool rocksdb_dict_set_server_version() {
   return rdb_get_dict_manager()
       ->get_dict_manager_selector_non_const(false /*is_tmp_table*/)
       ->set_server_version();
-};
+}
 
-bool rocksdb_is_supported_system_table([[maybe_unused]] const char *db_name,
-                                       [[maybe_unused]] const char *tbl_name,
-                                       bool) {
-  DBUG_EXECUTE_IF("ddse_rocksdb", {
-    if (strcmp(db_name, "mysql") == 0 &&
-        strcmp(tbl_name, "password_history") == 0) {
-      return true;
-    }
-  });
+bool rocksdb_is_supported_system_table(const char *, const char *, bool) {
   return false;
 }
 
@@ -92,4 +82,26 @@ bool rocksdb_ddse_dict_init(
 
   return false;
 }
+
+bool rocksdb_is_dict_readonly() { return false; }
+
+void rocksdb_dict_cache_reset_tables_and_tablespaces() {
+  rdb_get_ddl_manager()->reset_map();
+}
+
+bool rocksdb_dict_recover(dict_recovery_mode_t dict_recovery_mode, uint) {
+  switch (dict_recovery_mode) {
+    case DICT_RECOVERY_INITIALIZE_SERVER:
+    case DICT_RECOVERY_INITIALIZE_TABLESPACES:
+    case DICT_RECOVERY_RESTART_SERVER:
+      return false;
+  }
+}
+
+void rocksdb_dict_cache_reset(const char *, const char *) {
+  // TODO(laurynas): in theory, should remove this entry from the DDL manager?
+  // But we can reload only the whole thing, like
+  // rocksdb_dict_cache_reset_tables_and_tablespaces does.
+}
+
 }  // namespace myrocks
