@@ -15904,6 +15904,12 @@ bool ha_rocksdb::inplace_alter_table(
     DBUG_RETURN(res);
   }
 
+  /* If it's only converting a unique key to non-unique key with no key parts
+   * changed, return. */
+  if (ctx->m_added_indexes.empty()) {
+    DBUG_RETURN(res);
+  }
+
   /*
     Buffers need to be set up again to account for new, possibly longer
     secondary keys.
