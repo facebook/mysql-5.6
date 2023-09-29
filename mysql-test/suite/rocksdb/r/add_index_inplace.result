@@ -48,6 +48,64 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 a	b
 3	7
 DROP TABLE t1;
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT, c INT, UNIQUE KEY kbc(b,c)) ENGINE=RocksDB CHARSET=latin1;
+INSERT INTO t1 (a, b, c) VALUES (1, 5, 4);
+INSERT INTO t1 (a, b, c) VALUES (2, 6, 6);
+INSERT INTO t1 (a, b, c) VALUES (3, 7, 8);
+INSERT INTO t1 (a, b, c) VALUES (4, 7, 8);
+ERROR 23000: Duplicate entry '7-8' for key 't1.kbc'
+ALTER TABLE t1 DROP KEY kbc, ADD KEY kbc(b,c), ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
+  PRIMARY KEY (`a`),
+  KEY `kbc` (`b`,`c`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1 (a, b, c) VALUES (5, 7, 8);
+SELECT * FROM t1 FORCE INDEX(kbc) WHERE b > 5;
+a	b	c
+2	6	6
+3	7	8
+5	7	8
+SELECT * FROM t1 FORCE INDEX(kbc) WHERE a > 2;
+a	b	c
+3	7	8
+5	7	8
+DROP TABLE t1;
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT, c INT, UNIQUE KEY kbc(b,c)) ENGINE=RocksDB CHARSET=latin1;
+INSERT INTO t1 (a, b, c) VALUES (1, 5, 4);
+INSERT INTO t1 (a, b, c) VALUES (2, 6, 6);
+INSERT INTO t1 (a, b, c) VALUES (3, 7, 8);
+INSERT INTO t1 (a, b, c) VALUES (4, 7, 8);
+ERROR 23000: Duplicate entry '7-8' for key 't1.kbc'
+ALTER TABLE t1 DROP KEY kbc, ADD KEY kac(a,c), ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
+  PRIMARY KEY (`a`),
+  KEY `kac` (`a`,`c`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1 (a, b, c) VALUES (5, 7, 8);
+SELECT * FROM t1 FORCE INDEX(kac) WHERE a > 4 and c > 7;
+a	b	c
+5	7	8
+SELECT * FROM t1 FORCE INDEX(kac) WHERE a > 2;
+a	b	c
+3	7	8
+5	7	8
+DROP TABLE t1;
 CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);

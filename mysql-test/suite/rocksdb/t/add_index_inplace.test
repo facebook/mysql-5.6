@@ -36,6 +36,42 @@ SELECT * FROM t1 FORCE INDEX(kb) WHERE b > 5;
 SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 DROP TABLE t1;
 
+# test convert unique key to secondary key
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT, c INT, UNIQUE KEY kbc(b,c)) ENGINE=RocksDB CHARSET=latin1;
+INSERT INTO t1 (a, b, c) VALUES (1, 5, 4);
+INSERT INTO t1 (a, b, c) VALUES (2, 6, 6);
+INSERT INTO t1 (a, b, c) VALUES (3, 7, 8);
+--error ER_DUP_ENTRY
+INSERT INTO t1 (a, b, c) VALUES (4, 7, 8);
+
+ALTER TABLE t1 DROP KEY kbc, ADD KEY kbc(b,c), ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1;
+CHECK TABLE t1;
+INSERT INTO t1 (a, b, c) VALUES (5, 7, 8);
+--sorted_result
+SELECT * FROM t1 FORCE INDEX(kbc) WHERE b > 5;
+--sorted_result
+SELECT * FROM t1 FORCE INDEX(kbc) WHERE a > 2;
+DROP TABLE t1;
+
+# test convert unique key to secondary key(2)
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT, c INT, UNIQUE KEY kbc(b,c)) ENGINE=RocksDB CHARSET=latin1;
+INSERT INTO t1 (a, b, c) VALUES (1, 5, 4);
+INSERT INTO t1 (a, b, c) VALUES (2, 6, 6);
+INSERT INTO t1 (a, b, c) VALUES (3, 7, 8);
+--error ER_DUP_ENTRY
+INSERT INTO t1 (a, b, c) VALUES (4, 7, 8);
+
+ALTER TABLE t1 DROP KEY kbc, ADD KEY kac(a,c), ALGORITHM=INPLACE;
+SHOW CREATE TABLE t1;
+CHECK TABLE t1;
+INSERT INTO t1 (a, b, c) VALUES (5, 7, 8);
+--sorted_result
+SELECT * FROM t1 FORCE INDEX(kac) WHERE a > 4 and c > 7;
+--sorted_result
+SELECT * FROM t1 FORCE INDEX(kac) WHERE a > 2;
+DROP TABLE t1;
+
 ## test multi-drop + multi-add
 CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
