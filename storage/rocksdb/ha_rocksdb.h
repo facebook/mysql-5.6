@@ -324,11 +324,24 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   */
   uint m_dupp_errkey;
 
+  /** Get the index ID for a DD table key definition
+  @param[in]    i               key definition index in table_arg.key_info array
+  @param[in]    table_arg       MySQL table
+  @param[in]    tbl_def_arg     MyRocks table definition
+  @param[in]    dd_table        MySQL table DD definition
+  @param[out]   index_id        The index id
+  @return false on success
+  */
+  [[nodiscard]] static bool get_index_id_for_dd_key_def(
+      uint i, const TABLE &table_arg, const Rdb_tbl_def &tbl_def_arg,
+      const dd::Table &dd_table, dd::Object_id &index_id);
+
   [[nodiscard]] int create_key_defs(
       const TABLE &table_arg, Rdb_tbl_def &tbl_def_arg,
       const std::string &actual_user_table_name, bool is_dd_tbl,
       const TABLE *const old_table_arg = nullptr,
-      const Rdb_tbl_def *const old_tbl_def_arg = nullptr) const;
+      const Rdb_tbl_def *const old_tbl_def_arg = nullptr,
+      const dd::Table *dd_table = nullptr) const;
 
   int secondary_index_read(const int keyno, uchar *const buf,
                            const rocksdb::Slice *key,
@@ -755,13 +768,12 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       std::array<struct key_def_cf_info, MAX_INDEXES + 1> &cfs,
       bool is_dd_tbl) const;
 
-  [[nodiscard]] int create_key_def(const TABLE &table_arg, uint i,
-                                   const Rdb_tbl_def &tbl_def_arg,
-                                   std::shared_ptr<Rdb_key_def> &new_key_def,
-                                   const struct key_def_cf_info &cf_info,
-                                   uint64 ttl_duration,
-                                   const std::string &ttl_column,
-                                   bool is_dd_tbl = false) const;
+  [[nodiscard]] int create_key_def(
+      const TABLE &table_arg, uint i, const Rdb_tbl_def &tbl_def_arg,
+      std::shared_ptr<Rdb_key_def> &new_key_def,
+      const struct key_def_cf_info &cf_info, uint64 ttl_duration,
+      const std::string &ttl_column,
+      dd::Object_id index_id = dd::INVALID_OBJECT_ID) const;
 
   [[nodiscard]] bool create_inplace_key_defs(
       const TABLE &table_arg, Rdb_tbl_def &tbl_def_arg,

@@ -36,6 +36,10 @@ bool rocksdb_is_supported_system_table(const char *, const char *, bool);
 bool rocksdb_ddse_dict_init(dict_init_mode_t dict_init_mode, uint version,
                             List<const dd::Object_table> *tables,
                             List<const Plugin_tablespace> *tablespaces);
+bool rocksdb_is_dict_readonly();
+void rocksdb_dict_cache_reset_tables_and_tablespaces();
+bool rocksdb_dict_recover(dict_recovery_mode_t, uint);
+void rocksdb_dict_cache_reset(const char *, const char *);
 
 class native_dd {
  private:
