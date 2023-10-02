@@ -19,9 +19,6 @@
 #include <string>
 #include <vector>
 
-/* MySQL header files */
-#include "./sql_string.h"
-
 /* RocksDB includes */
 #include "rocksdb/table.h"
 #include "rocksdb/utilities/transaction_db.h"
@@ -30,6 +27,9 @@
 #include "./rdb_global.h"
 
 namespace myrocks {
+
+class Rdb_perf_counters;
+class Rdb_tbl_def;
 
 enum RDB_IO_ERROR_TYPE {
   RDB_IO_ERROR_TX_COMMIT,

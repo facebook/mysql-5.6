@@ -5883,8 +5883,9 @@ static Rdb_transaction *get_or_create_tx(THD *const thd,
   Rdb_transaction *tx = get_tx_from_thd(thd);
   // TODO: this is called too many times.. O(#rows)
   if (tx == nullptr) {
-    if ((rpl_skip_tx_api && thd->rli_slave) ||
-        (THDVAR(thd, master_skip_tx_api) && !thd->rli_slave)) {
+    if (((rpl_skip_tx_api && thd->rli_slave) ||
+         (THDVAR(thd, master_skip_tx_api) && !thd->rli_slave)) &&
+        !thd_tx_is_dd_trx(thd)) {
       tx = new Rdb_writebatch_impl(thd);
     } else {
       tx = new Rdb_transaction_impl(thd);
@@ -7742,6 +7743,11 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->is_supported_system_table = rocksdb_is_supported_system_table;
   rocksdb_hton->ddse_dict_init = rocksdb_ddse_dict_init;
   rocksdb_hton->table_exists_in_engine = rocksdb_table_exists_in_engine;
+  rocksdb_hton->is_dict_readonly = rocksdb_is_dict_readonly;
+  rocksdb_hton->dict_cache_reset_tables_and_tablespaces =
+      rocksdb_dict_cache_reset_tables_and_tablespaces;
+  rocksdb_hton->dict_recover = rocksdb_dict_recover;
+  rocksdb_hton->dict_cache_reset = rocksdb_dict_cache_reset;
 
   rocksdb_hton->flags = HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
 
@@ -9482,6 +9488,28 @@ int ha_rocksdb::rdb_error_to_mysql(const rocksdb::Status &s,
   return err;
 }
 
+bool ha_rocksdb::get_index_id_for_dd_key_def(uint i, const TABLE &table_arg,
+                                             const Rdb_tbl_def &tbl_def_arg,
+                                             const dd::Table &dd_table,
+                                             dd::Object_id &index_id) {
+  if (i == pk_index(table_arg, tbl_def_arg)) {
+    index_id = dd_table.se_private_id();
+  } else {
+    for (const auto &dd_index : dd_table.indexes()) {
+      if (dd_index->name() == table_arg.key_info[i].name) {
+        if (dd_index->se_private_data().get("index_id", &index_id)) {
+          assert(false);
+          return true;
+        }
+        break;
+      }
+    }
+  }
+  assert(index_id != dd::INVALID_OBJECT_ID);
+  assert(index_id >= Rdb_key_def::MIN_DD_INDEX_ID);
+  return false;
+}
+
 /*
   Create structures needed for storing data in rocksdb. This is called when the
   table is created. The structures will be shared by all TABLE* objects.
@@ -9504,7 +9532,8 @@ int ha_rocksdb::create_key_defs(
     const TABLE &table_arg, Rdb_tbl_def &tbl_def_arg,
     const std::string &actual_user_table_name, bool is_dd_tbl,
     const TABLE *const old_table_arg /* = nullptr */,
-    const Rdb_tbl_def *const old_tbl_def_arg /* = nullptr */) const {
+    const Rdb_tbl_def *const old_tbl_def_arg /* = nullptr */,
+    const dd::Table *dd_table /* = nullptr */) const {
   DBUG_ENTER_FUNC();
 
   assert(table_arg.s != nullptr);
@@ -9572,8 +9601,19 @@ int ha_rocksdb::create_key_defs(
       and create Rdb_key_def structures.
     */
     for (uint i = 0; i < tbl_def_arg.m_key_count; i++) {
+      dd::Object_id index_id;
+      if (is_dd_tbl) {
+        if (get_index_id_for_dd_key_def(i, table_arg, tbl_def_arg, *dd_table,
+                                        index_id)) {
+          assert(false);
+          DBUG_RETURN(HA_EXIT_FAILURE);
+        }
+        assert(index_id != dd::INVALID_OBJECT_ID);
+      } else {
+        index_id = dd::INVALID_OBJECT_ID;
+      }
       if (create_key_def(table_arg, i, tbl_def_arg, m_key_descr_arr[i], cfs[i],
-                         ttl_duration, ttl_column, is_dd_tbl)) {
+                         ttl_duration, ttl_column, index_id)) {
         DBUG_RETURN(HA_EXIT_FAILURE);
       }
     }
@@ -9973,19 +10013,26 @@ int ha_rocksdb::compare_key_parts(const KEY *const old_key,
     0      - Ok
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
-int ha_rocksdb::create_key_def(const TABLE &table_arg, uint i,
-                               const Rdb_tbl_def &tbl_def_arg,
-                               std::shared_ptr<Rdb_key_def> &new_key_def,
-                               const struct key_def_cf_info &cf_info,
-                               uint64 ttl_duration,
-                               const std::string &ttl_column,
-                               bool is_dd_tbl /* = false */) const {
+int ha_rocksdb::create_key_def(
+    const TABLE &table_arg, uint i, const Rdb_tbl_def &tbl_def_arg,
+    std::shared_ptr<Rdb_key_def> &new_key_def,
+    const struct key_def_cf_info &cf_info, uint64 ttl_duration,
+    const std::string &ttl_column,
+    dd::Object_id index_id /* = dd::INVALID_OBJECT_ID */) const {
   DBUG_ENTER_FUNC();
 
   assert(new_key_def == nullptr);
 
-  const uint index_id = ddl_manager.get_and_update_next_number(
-      cf_info.cf_handle->GetID(), is_dd_tbl);
+  const auto is_dd_tbl = index_id != dd::INVALID_OBJECT_ID;
+
+  if (is_dd_tbl) {
+    ddl_manager.update_next_dd_index_id(cf_info.cf_handle->GetID(), index_id);
+  } else {
+    index_id =
+        ddl_manager.get_and_update_next_number(cf_info.cf_handle->GetID());
+  }
+  assert(index_id != dd::INVALID_OBJECT_ID);
+
   const uint16_t index_dict_version = Rdb_key_def::INDEX_INFO_VERSION_LATEST;
   uchar index_type;
   uint16_t kv_version;
@@ -10237,14 +10284,13 @@ int ha_rocksdb::create_table(const std::string &table_name,
                              const std::string &actual_user_table_name,
                              const TABLE &table_arg,
                              ulonglong auto_increment_value,
-                             const dd::Table *table_def [[maybe_unused]],
+                             const dd::Table *table_def,
                              TABLE_TYPE table_type) {
   DBUG_ENTER_FUNC();
 
   int err;
   bool is_dd_tbl = dd::get_dictionary()->is_dd_table_name(
       table_arg.s->db.str, table_arg.s->table_name.str);
-  DBUG_EXECUTE_IF("simulate_dd_table", { is_dd_tbl = true; });
   auto local_dict_manager = dict_manager.get_dict_manager_selector_non_const(
       is_tmp_table(table_name));
   const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
@@ -10276,8 +10322,8 @@ int ha_rocksdb::create_table(const std::string &table_name,
   m_tbl_def->m_pk_index = table_arg.s->primary_key;
   m_tbl_def->m_key_descr_arr = m_key_descr_arr;
 
-  err =
-      create_key_defs(table_arg, *m_tbl_def, actual_user_table_name, is_dd_tbl);
+  err = create_key_defs(table_arg, *m_tbl_def, actual_user_table_name,
+                        is_dd_tbl, nullptr, nullptr, table_def);
   if (err != HA_EXIT_SUCCESS) {
     goto error;
   }
@@ -14498,6 +14544,17 @@ int ha_rocksdb::rename_table(const char *const from, const char *const to,
                              const dd::Table *from_table_def,
                              [[maybe_unused]] dd::Table *to_table_def) {
   DBUG_ENTER_FUNC();
+
+#ifndef NDEBUG
+  if (from_table_def != nullptr) {
+    assert(to_table_def != nullptr);
+    assert(from_table_def->se_private_id() == to_table_def->se_private_id());
+    assert(from_table_def->se_private_data().raw_string() ==
+           to_table_def->se_private_data().raw_string());
+  } else {
+    assert(to_table_def == nullptr);
+  }
+#endif
 
   int rc;
   rc = native_dd::reject_if_dd_table(from_table_def);
@@ -19490,12 +19547,38 @@ static bool parse_fault_injection_params(
 
   return false;
 }
-bool ha_rocksdb::get_se_private_data(dd::Table *, bool reset) {
-  // TODO: Remove the assert once we fully migrate to using RocksDB DD API.
-  assert(false);
+
+
+bool ha_rocksdb::get_se_private_data(dd::Table *dd_table, bool reset) {
+  static dd::Object_id next_dd_index_id = Rdb_key_def::MIN_DD_INDEX_ID;
+
   if (reset) {
+    next_dd_index_id = Rdb_key_def::MIN_DD_INDEX_ID;
     native_dd::clear_dd_table_ids();
   }
+
+  dd_table->set_se_private_id(next_dd_index_id++);
+
+  // MyRocks enforces that the DD tables either have a primary key, either have
+  // no unique keys. Otherwise one of the unique (non-NULL) keys gets promoted
+  // to a primary key implicitly, and at this point we wouldn't know which one.
+  bool primary_key_found [[maybe_unused]] = false;
+  bool unique_key_found [[maybe_unused]] = false;
+  for (auto *index : *dd_table->indexes()) {
+    if (index->type() == dd::Index::IT_PRIMARY) {
+      assert(!primary_key_found);
+      primary_key_found = true;
+      // Don't bother setting the index ID for the primary index: it would be
+      // identical to the table ID, and the index is found through the latter
+      continue;
+    }
+    if (index->type() == dd::Index::IT_UNIQUE) {
+      unique_key_found = true;
+    }
+    auto &properties = index->se_private_data();
+    properties.set("index_id", next_dd_index_id++);
+  }
+  assert(primary_key_found || !unique_key_found);
 
   return false;
 }

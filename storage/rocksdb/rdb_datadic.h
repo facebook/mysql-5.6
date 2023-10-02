@@ -465,7 +465,8 @@ class Rdb_key_def {
     DROPPED_CF = 10,
     MAX_DD_INDEX_ID = 11,
     SERVER_VERSION = 12,
-    END_DICT_INDEX_ID = 255
+    END_DICT_INDEX_ID = 255,
+    MIN_DD_INDEX_ID = 256,
   };
 
   // Data dictionary schema version. Introduce newer versions
@@ -809,6 +810,9 @@ class Rdb_key_def {
 
   Rdb_field_packing *get_pack_info(uint pack_no);
 
+  static constexpr auto INVALID_INDEX_NUMBER =
+      static_cast<std::uint32_t>(dd::INVALID_OBJECT_ID);
+
  private:
 #ifndef NDEBUG
   inline bool is_storage_available(const int offset, const int needed) const {
@@ -816,9 +820,6 @@ class Rdb_key_def {
     return (storage_length - offset) >= needed;
   }
 #endif  // NDEBUG
-
-  static constexpr auto INVALID_INDEX_NUMBER =
-      static_cast<std::uint32_t>(dd::INVALID_OBJECT_ID);
 
   /* Global number of this index (used as prefix in StorageFormat) */
   const uint32 m_index_number;
@@ -1367,6 +1368,8 @@ class Rdb_seq_generator {
   uint get_and_update_next_number(Rdb_dict_manager *const dict,
                                   bool is_dd_tbl = false);
 
+  void update_next_dd_index_id(const Rdb_dict_manager &dict, uint next_id);
+
   void cleanup() { mysql_mutex_destroy(&m_mutex); }
 };
 
@@ -1419,6 +1422,8 @@ class Rdb_ddl_manager : public Ensure_initialized {
   bool init(Rdb_dict_manager_selector *const dict_arg,
             Rdb_cf_manager *const cf_manager, const uint32_t validate_tables);
 
+  void reset_map();
+
   void cleanup();
 
   Rdb_tbl_def *find(const std::string &table_name, const bool lock = true);
@@ -1443,7 +1448,9 @@ class Rdb_ddl_manager : public Ensure_initialized {
   bool rename(const std::string &from, const std::string &to,
               rocksdb::WriteBatch *const batch);
 
-  uint get_and_update_next_number(uint cf_id, bool is_dd_tbl);
+  [[nodiscard]] uint get_and_update_next_number(uint cf_id);
+
+  void update_next_dd_index_id(uint cf_id, uint next_id);
 
   const std::string safe_get_table_name(const GL_INDEX_ID &gl_index_id);
 
@@ -1458,6 +1465,8 @@ class Rdb_ddl_manager : public Ensure_initialized {
   int find_in_uncommitted_keydef(const uint32_t cf_id);
 
  private:
+  bool populate(uint32_t validate_tables);
+
   /* Put the data into in-memory table (only) */
   int put(Rdb_tbl_def *const key_descr, const bool lock = true);
 

@@ -4495,13 +4495,7 @@ bool Rdb_ddl_manager::validate_auto_incr() {
   return true;
 }
 
-bool Rdb_ddl_manager::init(Rdb_dict_manager_selector *const dict_arg,
-                           Rdb_cf_manager *const cf_manager,
-                           const uint32_t validate_tables) {
-  m_dict = dict_arg;
-  m_cf_manager = cf_manager;
-  mysql_rwlock_init(0, &m_rwlock);
-
+bool Rdb_ddl_manager::populate(uint32_t validate_tables) {
   /* Read the data dictionary and populate the hash */
   uchar ddl_entry[Rdb_key_def::INDEX_NUMBER_SIZE];
   rdb_netbuf_store_index(ddl_entry, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
@@ -4617,7 +4611,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager_selector *const dict_arg,
       }
 
       std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
-          cf_manager->get_cf(gl_index_id.cf_id);
+          m_cf_manager->get_cf(gl_index_id.cf_id);
       assert(cfh);
 
       uint32 ttl_rec_offset =
@@ -4703,6 +4697,18 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager_selector *const dict_arg,
   // NO_LINT_DEBUG
   LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                   "RocksDB: Table_store: loaded DDL data for %d tables", i);
+
+  return false;
+}
+
+bool Rdb_ddl_manager::init(Rdb_dict_manager_selector *const dict_arg,
+                           Rdb_cf_manager *const cf_manager,
+                           const uint32_t validate_tables) {
+  m_dict = dict_arg;
+  m_cf_manager = cf_manager;
+  mysql_rwlock_init(0, &m_rwlock);
+
+  if (populate(validate_tables)) return true;
 
   initialized = true;
   return false;
@@ -4934,11 +4940,7 @@ void Rdb_ddl_manager::set_table_stats(const std::string &tbl_name) {
   mysql_rwlock_unlock(&m_rwlock);
 }
 
-uint Rdb_ddl_manager::get_and_update_next_number(uint cf_id, bool is_dd_tbl) {
-  if (is_dd_tbl) {
-    return m_dd_table_sequence.get_and_update_next_number(
-        m_dict->get_dict_manager_selector_non_const(cf_id), true /*is_dd_tbl*/);
-  }
+uint Rdb_ddl_manager::get_and_update_next_number(uint cf_id) {
   if (m_cf_manager->is_tmp_column_family(cf_id)) {
     return m_tmp_table_sequence.get_and_update_next_number(
         m_dict->get_dict_manager_selector_non_const(cf_id));
@@ -4946,6 +4948,13 @@ uint Rdb_ddl_manager::get_and_update_next_number(uint cf_id, bool is_dd_tbl) {
     return m_user_table_sequence.get_and_update_next_number(
         m_dict->get_dict_manager_selector_non_const(cf_id));
   }
+}
+
+void Rdb_ddl_manager::update_next_dd_index_id(uint cf_id, uint next_id) {
+  assert(next_id != Rdb_key_def::INVALID_INDEX_NUMBER);
+
+  m_dd_table_sequence.update_next_dd_index_id(
+      *m_dict->get_dict_manager_selector_non_const(cf_id), next_id);
 }
 
 /*
@@ -5066,6 +5075,11 @@ bool Rdb_ddl_manager::rename(const std::string &from, const std::string &to,
 
   mysql_rwlock_unlock(&m_rwlock);
   return res;
+}
+
+void Rdb_ddl_manager::reset_map() {
+  m_ddl_map.clear();
+  populate(0);
 }
 
 void Rdb_ddl_manager::cleanup() {
@@ -5304,6 +5318,15 @@ bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
   m_key_slice_server_version =
       rocksdb::Slice(reinterpret_cast<char *>(m_key_buf_server_version),
                      Rdb_key_def::INDEX_NUMBER_SIZE);
+
+  uint server_version;
+  if (get_server_version(&server_version)) {
+    // Assume new instance, write the server version
+    if (set_server_version()) return HA_EXIT_FAILURE;
+  } else {
+    // TODO(laurynas): upgrades not implemented
+    assert(server_version == MYSQL_VERSION_ID);
+  }
 
   resume_drop_indexes();
   rollback_ongoing_index_creation();
@@ -5996,6 +6019,8 @@ bool Rdb_dict_manager::update_max_index_id(rocksdb::WriteBatch *const batch,
                                            const uint32_t index_id,
                                            bool is_dd_tbl) const {
   assert(batch != nullptr);
+  assert(index_id != Rdb_key_def::INVALID_INDEX_NUMBER);
+  assert(index_id >= Rdb_key_def::MIN_DD_INDEX_ID || !is_dd_tbl);
 
   uint32_t old_index_id = -1;
   if (get_max_index_id(&old_index_id, is_dd_tbl)) {
@@ -6154,6 +6179,21 @@ uint Rdb_seq_generator::get_and_update_next_number(Rdb_dict_manager *const dict,
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return res;
+}
+
+void Rdb_seq_generator::update_next_dd_index_id(const Rdb_dict_manager &dict,
+                                                uint next_id) {
+  assert(next_id != Rdb_key_def::INVALID_INDEX_NUMBER);
+
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
+  assert(next_id == m_next_number);
+  ++m_next_number;
+  assert(next_id >= Rdb_key_def::MIN_DD_INDEX_ID);
+
+  const auto wb = dict.begin();
+  dict.update_max_index_id(wb.get(), next_id, true);
+  dict.commit(wb.get());
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 }
 
 const Rdb_dict_manager *
