@@ -639,6 +639,18 @@ def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_PERCENT
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_RRU	21		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_RRU	22		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_RRU	23		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	TIME	2		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	THREAD_ID	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	ERROR	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	MODE	5		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	LAST_EXIT_TIME	6		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	EXITS	7		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	ADMISSIONS	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	QUEUE	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	QUEUE_BOOSTS	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	SQL_ID	11		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ERRORS	INFO	12		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_QUEUE	QUEUE_ID	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
@@ -1434,6 +1446,18 @@ NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_PERCEN
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_RRU	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_RRU	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_RRU	double	NULL	NULL	NULL	NULL	double(22,0)
+3.0000	information_schema	TP_ADMISSION_CONTROL_ERRORS	SCHEMA_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	TIME	double	NULL	NULL	NULL	NULL	double(22,0)
+NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	THREAD_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+3.0000	information_schema	TP_ADMISSION_CONTROL_ERRORS	ERROR	varchar	64	192	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	TP_ADMISSION_CONTROL_ERRORS	MODE	varchar	64	192	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	LAST_EXIT_TIME	double	NULL	NULL	NULL	NULL	double(22,0)
+NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	EXITS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	ADMISSIONS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	QUEUE	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	QUEUE_BOOSTS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+3.0000	information_schema	TP_ADMISSION_CONTROL_ERRORS	SQL_ID	varchar	64	192	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	TP_ADMISSION_CONTROL_ERRORS	INFO	varchar	64	192	utf8	utf8_general_ci	varchar(192)
 3.0000	information_schema	TP_ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(192)
 NULL	information_schema	TP_ADMISSION_CONTROL_QUEUE	QUEUE_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
