@@ -1,3 +1,6 @@
+# CREATE TABLE ... SELECT ... FROM a locked table returns different errors with
+# different DDSEs
+--source include/have_innodb_ddse.inc
 #Want to skip this test from daily Valgrind execution
 --source include/no_valgrind_without_big.inc
 
