@@ -188,6 +188,7 @@ void my_end(int infoflag) {
 #ifdef _WIN32
   MyWinfileEnd();
 #endif /* WIN32 */
+  MyWSFileEnd();
 
   if ((infoflag & MY_CHECK_ERROR) || (info_file != stderr))
 

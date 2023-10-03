@@ -105,3 +105,7 @@ set enable_sql_wsenv=1;
 --eval SELECT * FROM t1 INTO OUTFILE '$output_file';
 
 drop table t1;
+
+
+# restart mysqld
+--source include/restart_mysqld.inc
