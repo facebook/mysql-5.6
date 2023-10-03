@@ -14,6 +14,7 @@
 #include "include/my_thread_local.h"
 #include "mysql/psi/mysql_rwlock.h"
 #include "mysys/my_wsenv.h"
+#include "mysys_priv.h"
 #include "rocksdb/env.h"
 #include "rocksdb/status.h"
 #include "scope_guard.h"
@@ -445,3 +446,5 @@ size_t my_ws_write(File fd, const uchar *buffer, size_t count) {
   size_t result = iter->second->ws_write(buffer, count);
   return result;
 }
+
+void MyWSFileEnd() { ws_file_map.clear(); }
