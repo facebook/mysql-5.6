@@ -2364,17 +2364,15 @@ static std::unique_ptr<dd::Table> create_dd_system_table(
     if (get_se_private_data(thd, tab_obj.get())) return nullptr;
   }
 
-  // Register the se private id with the DDSE.
-  if (opt_initialize) {
-    handlerton *ddse = get_dd_engine(thd);
-    if (ddse->dict_register_dd_table_id == nullptr) return nullptr;
-    ddse->dict_register_dd_table_id(tab_obj->se_private_id());
-  } else {
-    assert(file->ht->db_type == DB_TYPE_INNODB ||
-           file->ht->db_type == DB_TYPE_ROCKSDB);
-    if (file->ht->dict_register_dd_table_id == nullptr) return nullptr;
-    file->ht->dict_register_dd_table_id(tab_obj->se_private_id());
-  }
+  // Register the se private id with the table SE.
+  const auto &table_se = *file->ht;
+  assert(table_se.db_type == DB_TYPE_INNODB ||
+         table_se.db_type == DB_TYPE_ROCKSDB);
+
+  assert(table_se.dict_register_dd_table_id != nullptr);
+  if (table_se.dict_register_dd_table_id == nullptr) return nullptr;
+  table_se.dict_register_dd_table_id(tab_obj->se_private_id());
+
   return tab_obj;
 }
 
