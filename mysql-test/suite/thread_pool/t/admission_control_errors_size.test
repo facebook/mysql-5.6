@@ -1,0 +1,149 @@
+--source include/have_thread_pool_plugin.inc
+
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+grant all on test.* to test_user@localhost;
+use test_db;
+
+set @save_max_running_queries = @@thread_pool_max_running_queries;
+set @save_admission_control_queue_timeout = @@thread_pool_admission_control_queue_timeout;
+
+set global thread_pool_max_running_queries = 1;
+set global thread_pool_admission_control_queue_timeout = 0;
+
+--source include/count_sessions.inc
+
+--echo #
+--echo # Test that the errors table is capped at the default value.
+--echo #
+
+select @@global.thread_pool_admission_control_errors_size;
+
+select GET_LOCK('lock1', -1);
+
+--connect (con1,localhost,test_user,,test_db)
+--send select GET_LOCK('lock1', -1)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.tp_admission_control_queue where running_queries = 1;
+--source include/wait_condition.inc
+--replace_column 7 # 8 #
+select * from information_schema.tp_admission_control_queue;
+
+--connect (con2,localhost,test_user,,test_db)
+--disable_query_log
+--disable_result_log
+let $i = 1000;
+while ($i) {
+  --error ER_DB_ADMISSION_CONTROL_TIMEOUT
+  select 1;
+  dec $i;
+}
+--enable_query_log
+--enable_result_log
+
+--connection default
+select count(*) from information_schema.tp_admission_control_errors where schema_name='test_db';
+
+--echo #
+--echo # Existing database doesn't see updated errors table size.
+--echo #
+
+set global thread_pool_admission_control_errors_size = 256;
+
+--connection con2
+--disable_query_log
+--disable_result_log
+let $i = 1000;
+while ($i) {
+  --error ER_DB_ADMISSION_CONTROL_TIMEOUT
+  select 1;
+  dec $i;
+}
+--enable_query_log
+--enable_result_log
+
+--connection default
+select count(*) from information_schema.tp_admission_control_errors where schema_name='test_db';
+
+select RELEASE_LOCK('lock1');
+
+let $wait_condition =
+  select count(*) = 0 from information_schema.tp_admission_control_queue where running_queries != 0;
+--source include/wait_condition.inc
+--replace_column 7 # 8 #
+select * from information_schema.tp_admission_control_queue;
+
+--connection con1
+--reap
+
+--connection default
+--disconnect con1
+--disconnect con2
+
+--echo #
+--echo # Test that new database will have updated errors table size.
+--echo #
+
+create database test_db2;
+grant all on test_db2.* to test_user@localhost;
+use test_db2;
+
+select GET_LOCK('lock1', -1);
+
+--connect (con1,localhost,test_user,,test_db2)
+--send select GET_LOCK('lock1', -1)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.tp_admission_control_queue where running_queries = 1;
+--source include/wait_condition.inc
+--replace_column 7 # 8 #
+select * from information_schema.tp_admission_control_queue;
+
+--connect (con2,localhost,test_user,,test_db2)
+--disable_query_log
+--disable_result_log
+let $i = 1000;
+while ($i) {
+  --error ER_DB_ADMISSION_CONTROL_TIMEOUT
+  select 1;
+  dec $i;
+}
+--enable_query_log
+--enable_result_log
+
+--connection default
+select count(*) from information_schema.tp_admission_control_errors where schema_name='test_db';
+select count(*) from information_schema.tp_admission_control_errors where schema_name='test_db2';
+
+select RELEASE_LOCK('lock1');
+
+let $wait_condition =
+  select count(*) = 0 from information_schema.tp_admission_control_queue where running_queries != 0;
+--source include/wait_condition.inc
+--replace_column 7 # 8 #
+select * from information_schema.tp_admission_control_queue;
+
+--connection con1
+--reap
+
+--connection default
+--disconnect con1
+--disconnect con2
+
+--echo #
+--echo # Cleanup.
+--echo #
+
+--source include/wait_until_count_sessions.inc
+
+set global thread_pool_max_running_queries = @save_max_running_queries;
+set global thread_pool_admission_control_queue_timeout = @save_admission_control_queue_timeout;
+set global thread_pool_admission_control_errors_size = default;
+
+drop database test_db;
+drop database test_db2;
+drop user test_user@localhost;
