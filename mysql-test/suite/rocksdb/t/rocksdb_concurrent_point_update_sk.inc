@@ -26,7 +26,7 @@ SELECT * FROM table1;
 # the update command should be `sent` after activating a DEBUG_SYNC point, so that the 
 # update gets frozen. 
 
-eval SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+eval SET TRANSACTION ISOLATION LEVEL $isolation_level;
 START TRANSACTION;
 --echo Conn A: Started TRANSACTION A (SELECT .. FOR UPDATE )
 
@@ -40,7 +40,7 @@ send SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 
 # the parallel transaction from Conn A hits the conflict
 --connection con0
 
-eval SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+eval SET TRANSACTION ISOLATION LEVEL $isolation_level;
 START TRANSACTION;
 --echo Conn B: Started TRANSACTION B (Concurrent update)
 
@@ -61,10 +61,20 @@ set DEBUG_SYNC = "now SIGNAL update_done";
 # the search predicates
 
 --echo Conn A: reaping SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 AND val2 = 'Alfa';  
---echo The SELECT output should be empty
 --connection default
-reap;
+if ($isolation_level == "REPEATABLE READ")
+{
+   --echo The SELECT output should see the snapshot conflict error
+   --error ER_LOCK_DEADLOCK
+   reap;
+}
+if ($isolation_level == "READ COMMITTED")
+{
+   --echo The SELECT output should be empty
+   reap;
+}
 ROLLBACK;
+
 --echo Conn A: Table after
 SELECT * FROM table1;
 
