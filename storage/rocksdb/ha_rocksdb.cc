@@ -11362,6 +11362,17 @@ int ha_rocksdb::get_row_by_sk(uchar *buf, const Rdb_key_def &kd,
                               const rocksdb::Slice *key) {
   DBUG_ENTER_FUNC();
 
+  THD *thd = ha_thd();
+  if (thd && thd->killed) {
+    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  }
+
+  Rdb_transaction *const tx = get_tx_from_thd(thd);
+  assert(tx != nullptr);
+
+  tx->acquire_snapshot(true /* acquire_now */,
+                       m_tbl_def->get_table_type());
+
   int rc = m_iterator->get(key, &m_retrieved_record, RDB_LOCK_NONE);
   if (rc) DBUG_RETURN(rc);
 

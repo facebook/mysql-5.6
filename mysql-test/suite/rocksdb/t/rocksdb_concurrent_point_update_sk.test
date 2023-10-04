@@ -1,0 +1,24 @@
+--source include/have_rocksdb.inc
+--source include/have_debug_sync.inc
+
+# This test verified the behavior of RocksDB in the path of point updates 
+# (or locking reads) using SK as the index, when a concurrent transaction 
+# modifies the same row
+
+# The behavior will be different for READ COMMITTED and REPEATABLE READ 
+# isolation levels. 
+
+# In the case of REPEATABLE READ, the locking read
+# that got affected by the concurrent update will hit a snapshot conflict
+# and return the error back to the SQL layer. The user will see the error.
+
+# In the case of READ COMMITTED, the locking read that gets impacted
+# by the concurrent update will return KEY_NOT_FOUND back to the SQL layer
+# In this case, the user will be returned no row. 
+
+let $isolation_level = REPEATABLE READ;
+--source rocksdb_concurrent_point_update_sk.inc
+
+let $isolation_level = READ COMMITTED;
+--source rocksdb_concurrent_point_update_sk.inc
+
