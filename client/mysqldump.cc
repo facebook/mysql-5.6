@@ -172,6 +172,11 @@ static ulong opt_long_query_time = 0;
 static bool long_query_time_opt_provided = false;
 static bool opt_compress_data = false;
 static ulonglong opt_compression_chunk_size = 0;
+static ulong opt_select_into_buffer_size = 0;
+static bool opt_select_into_disk_sync = false;
+static uint opt_select_into_disk_sync_delay = 0;
+static ulong opt_select_into_file_fsync_size = 0;
+static uint opt_select_into_file_fsync_timeout = 0;
 static bool do_compress = 0;
 static ulong opt_lra_size = 0;
 static ulong opt_lra_sleep = 0;
@@ -790,6 +795,32 @@ static struct my_option my_long_options[] = {
      "stored in --tab path.",
      &opt_data_path, &opt_data_path, nullptr, GET_STR, OPT_ARG, 0, 0, 0,
      nullptr, 0, nullptr},
+    {"select_into_buffer_size", OPT_SELECT_INTO_BUFFER_SIZE,
+     "For mysqldump session, Buffer size for SELECT INTO OUTFILE/DUMPFILE."
+     "(default server setting, if 0)",
+     &opt_select_into_buffer_size, &opt_select_into_buffer_size, 0, GET_ULONG,
+     OPT_ARG, 0, 0, (ulong)(~(my_off_t)0), nullptr, IO_SIZE, nullptr},
+    {"select_into_disk_sync", OPT_SELECT_INTO_DISK_SYNC,
+     "For mysqldump session, Synchronize flushed buffer with disk for SELECT "
+     "INTO OUTFILE/DUMPFILE. (default server setting, if 0)",
+     &opt_select_into_disk_sync, &opt_select_into_disk_sync, 0, GET_BOOL,
+     OPT_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"select_into_disk_sync_delay", OPT_SELECT_INTO_DISK_SYNC_DELAY,
+     "For mysqldump session, The delay in milliseconds after each buffer sync "
+     "for SELECT INTO OUTFILE/DUMPFILE. Requires select_into_sync_disk = ON."
+     "(default server setting, if 0)",
+     &opt_select_into_disk_sync_delay, &opt_select_into_disk_sync_delay, 0,
+     GET_UINT, OPT_ARG, 0, 0, LONG_TIMEOUT, nullptr, 1, nullptr},
+    {"select_into_file_fsync_size", OPT_SELECT_INTO_FILE_FSYNC_SIZE,
+     "For mysqldump session, Do an fsync to disk when the buffer grows by these"
+     "many bytes for SELECT INTO OUTFILE. (default server setting, if 0)",
+     &opt_select_into_file_fsync_size, &opt_select_into_file_fsync_size, 0,
+     GET_ULONG, OPT_ARG, 0, 0, (ulong)(~(my_off_t)0), nullptr, 1024, nullptr},
+    {"select_into_file_fsync_timeout", OPT_SELECT_INTO_FILE_FSYNC_TIMEOUT,
+     "For mysqldump session, The timeout/sleep in milliseconds after each fsync"
+     " with SELECT INTO OUTFILE, (default server setting, if 0)",
+     &opt_select_into_file_fsync_timeout, &opt_select_into_file_fsync_timeout,
+     0, GET_UINT, OPT_ARG, 0, 0, UINT_MAX, nullptr, 1, nullptr},
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
@@ -1985,6 +2016,33 @@ static int connect_to_db(char *host, char *user) {
   if (opt_thread_priority) {
     snprintf(buff, sizeof(buff), "SET session thread_priority=%d",
              opt_thread_priority);
+    if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+  }
+
+  if (opt_select_into_buffer_size) {
+    snprintf(buff, sizeof(buff), "SET session select_into_buffer_size=%lu",
+             opt_select_into_buffer_size);
+    if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+  }
+  if (opt_select_into_disk_sync) {
+    snprintf(buff, sizeof(buff), "SET session select_into_disk_sync=%d",
+             opt_select_into_disk_sync);
+    if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+  }
+  if (opt_select_into_disk_sync_delay) {
+    snprintf(buff, sizeof(buff), "SET session select_into_disk_sync_delay=%d",
+             opt_select_into_disk_sync_delay);
+    if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+  }
+  if (opt_select_into_file_fsync_size) {
+    snprintf(buff, sizeof(buff), "SET session select_into_file_fsync_size=%lu",
+             opt_select_into_file_fsync_size);
+    if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+  }
+  if (opt_select_into_file_fsync_timeout) {
+    snprintf(buff, sizeof(buff),
+             "SET session select_into_file_fsync_timeout=%d",
+             opt_select_into_file_fsync_timeout);
     if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
   }
 
