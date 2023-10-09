@@ -30,6 +30,7 @@
 #include <boost/algorithm/string.hpp>
 #include <functional>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -55,6 +56,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/service_mysql_alloc.h"
 #include "mysqld_error.h"
+#include "rpl_source.h"
 #include "sql/auth/auth_acls.h"
 #include "sql/auth/auth_common.h"  // check_global_access
 #include "sql/binlog.h"            // mysql_bin_log
@@ -346,39 +348,99 @@ int get_current_replication_lag() {
   if (write_throttle_lag_pct_min_secondaries == 0) return 0;
 
   // find the lag
-  std::vector<int> replica_lags;
+  struct Replica_lag_info {
+    int server_id{0};
+    int lag{0};
+  };
+
+  std::vector<Replica_lag_info> replica_lags;
+
   mysql_mutex_lock(&LOCK_replica_list);
+
+  const size_t num_replicas_total = slave_list.size();
+
+  // Preallocate memory for the lag data.
+  replica_lags.reserve(num_replicas_total);
+
   for (const auto &key_and_value : slave_list) {
     REPLICA_INFO *si = key_and_value.second.get();
     if (!si->slave_stats.empty()) {
-      // collect the most recent(front) lag by this secondary
-      replica_lags.push_back(si->slave_stats.front().milli_sec_behind_master);
+      // collect the most recent (front) lag by this secondary
+      const SLAVE_STATS &lastStat = si->slave_stats.front();
+
+      replica_lags.emplace_back(Replica_lag_info{
+          lastStat.server_id, lastStat.milli_sec_behind_master});
     }
   }
   mysql_mutex_unlock(&LOCK_replica_list);
 
+  int debug_lag = -1;
+
+  // Debug hooks for changing the lag computation.
   DBUG_EXECUTE_IF("dbug.simulate_lag_above_start_throttle_threshold",
-                  { return write_start_throttle_lag_milliseconds + 1; });
+                  { debug_lag = write_start_throttle_lag_milliseconds + 1; });
   DBUG_EXECUTE_IF("dbug.simulate_lag_below_end_throttle_threshold",
-                  { return write_stop_throttle_lag_milliseconds - 1; });
+                  { debug_lag = write_stop_throttle_lag_milliseconds - 1; });
   DBUG_EXECUTE_IF("dbug.simulate_lag_between_start_end_throttle_threshold", {
-    return (write_start_throttle_lag_milliseconds +
-            write_stop_throttle_lag_milliseconds) /
-           2;
+    debug_lag = (write_start_throttle_lag_milliseconds +
+                 write_stop_throttle_lag_milliseconds) /
+                2;
   });
 
-  int min_secondaries_to_lag =
-      ceil(replica_lags.size() *
+  // Do all the computation for diagnostic purposes even if the DBUG hooks above
+  // have already decided the final value.
+  const size_t num_replicas_with_stats = replica_lags.size();
+
+  const int min_secondaries_to_lag =
+      ceil(num_replicas_with_stats *
            (double)write_throttle_lag_pct_min_secondaries / 100);
-  if (min_secondaries_to_lag == 0) {
-    // not enough secondaries(registered so far) in replication topology to
-    // qualify for lag
-    return 0;
+
+  int final_lag = 0;
+
+  // Check if there are enough secondaries (registered so far) in replication
+  // topology to qualify for lag.
+  if (min_secondaries_to_lag > 0) {
+    // return the kth largest lag value where k = min_secondaries_to_lag
+    std::sort(replica_lags.begin(), replica_lags.end(),
+              [](const auto &a, const auto &b) { return a.lag > b.lag; });
+
+    final_lag = replica_lags[min_secondaries_to_lag - 1].lag;
   }
 
-  // return the kth largest lag value where k = min_secondaries_to_lag
-  std::sort(replica_lags.begin(), replica_lags.end(), std::greater<int>());
-  return replica_lags[min_secondaries_to_lag - 1];
+
+  if (debug_lag != -1) {
+    sql_print_information(
+        "[Write Throttling] Debug override of lag value: %d -> %d ms.",
+        final_lag, debug_lag);
+    final_lag = debug_lag;
+  }
+
+  // Print various diagnostics about lag computation only when lag is above
+  // start threshold to reduce logging noise.
+  if (final_lag > static_cast<int>(write_start_throttle_lag_milliseconds)) {
+    std::string lags;
+    for (size_t i = 0; i < replica_lags.size(); ++i) {
+      lags += "(" + std::to_string(replica_lags[i].server_id) + ", " +
+              std::to_string(replica_lags[i].lag) + ")";
+      if (i < replica_lags.size() - 1) {
+        lags += ", ";
+      }
+    }
+    sql_print_information(
+        "[Write Throttling] Final replica lag value computed: %d ms. "
+        "ceil(%d%%) (%d "
+        "of %d) replicas lagging. Lag values (serverId, lagInMs): %s",
+        final_lag, write_throttle_lag_pct_min_secondaries,
+        min_secondaries_to_lag, num_replicas_with_stats, lags.c_str());
+    if (num_replicas_with_stats < num_replicas_total) {
+      sql_print_warning(
+          "[Write Throttling] Some replicas are missing lag stats (%d of %d "
+          "total replicas have stats).",
+          num_replicas_with_stats, num_replicas_total);
+    }
+  }
+
+  return final_lag;
 }
 
 void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list) {
