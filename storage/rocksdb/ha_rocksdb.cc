@@ -3469,6 +3469,33 @@ static int rdb_dbug_set_ttl_read_filter_ts();
   return !my_core::thd_test_options(&thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN);
 }
 
+/**
+   Check if the current thread query may generate row events for MyRocks data
+   outside of DD. It wraps thd_sqlcom_can_generate_row_events but is more exact
+   for the CREATE TABLE case.
+   @param       thd     thread handle
+   @returns whether the query may generate row events.
+ */
+[[nodiscard]] static bool command_generates_myrocks_row_events(const THD &thd) {
+  // This could be written as a single return statement but let's spell out the
+  // cases for clarity
+  if (!thd_sqlcom_can_generate_row_events(&thd)) return false;
+
+  if (thd.lex->sql_command == SQLCOM_CREATE_TABLE) {
+    if (thd.lex->query_block->field_list_is_empty()) {
+      // This is not a CREATE TABLE ... SELECT statement
+      return false;
+    }
+
+    if (thd.lex->create_info->db_type != rocksdb_hton) {
+      // This is a CREATE TABLE ... ENGINE != ROCKSDB ... SELECT statement
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /* This is the base class for transactions when interacting with rocksdb.
  */
 class Rdb_transaction {
@@ -3823,9 +3850,7 @@ class Rdb_transaction {
       assert(!is_ac_nl_ro_rc_transaction());
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
                               &m_mysql_log_offset, nullptr, &m_mysql_max_gtid);
-      if (m_thd->rli_slave && thd_sqlcom_can_generate_row_events(m_thd) &&
-          (m_thd->lex->sql_command != SQLCOM_CREATE_TABLE ||
-           !m_thd->lex->query_block->field_list_is_empty()) &&
+      if (m_thd->rli_slave && command_generates_myrocks_row_events(*m_thd) &&
           get_write_count() &&
           (!m_mysql_log_file_name || !m_mysql_log_offset)) {
         LogPluginErrMsg(
