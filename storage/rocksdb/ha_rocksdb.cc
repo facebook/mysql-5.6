@@ -7377,11 +7377,21 @@ static bool rocksdb_get_table_statistics(
     const dd::Properties & /*ts_se_private_data*/,
     const dd::Properties & /*tbl_se_private_data*/, uint /*stat_flags*/,
     ha_statistics *stats) {
-  std::string fullname = get_full_tablename(db_name, table_name);
+  /* 2 * NAME_CHAR_LEN is for dbname and tablename, 5 assumes max bytes
+  for charset, + 2 is for path separator and +1 is for NULL. */
+  char buf[2 * NAME_CHAR_LEN * 5 + 2 + 1];
+  bool truncated;
+  build_table_filename(buf, sizeof(buf), db_name, table_name, nullptr, 0,
+                       &truncated);
+  std::string norm_name;
+  if (truncated || rdb_normalize_tablename(buf, &norm_name)) {
+    assert(false);
+    return true;  // (HA_ERR_TOO_LONG_PATH);
+  }
 
   // We are called from within metadata lock MDL_EXPLICIT, so it should be
   // safe to access Rdb_tbl_def here
-  auto tbl_def = ddl_manager.find(fullname);
+  auto tbl_def = ddl_manager.find(norm_name);
   if (!tbl_def) {
     // Table is missing due to a possible race condition
     my_error(HA_ERR_NO_SUCH_TABLE, MYF(0), "Table is missing");

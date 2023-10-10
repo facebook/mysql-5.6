@@ -175,3 +175,41 @@ select create_time IS NOT NULL , update_time IS NOT NULL
 from information_schema.tables 
 where table_schema=database() and table_name='t1';
 drop table t1;
+
+--echo #
+--echo # special table names
+--echo #
+create table `!"#$%&'()*+,./;<=>?@[\]^``test_2023-09-01:`(a int, primary key(a));
+insert into `!"#$%&'()*+,./;<=>?@[\]^``test_2023-09-01:` value (1),(2);
+
+select create_time IS NOT NULL, update_time IS NOT NULL, TABLE_COMMENT
+from information_schema.tables 
+where table_schema=database() and table_name like '%test_2023-09-01:%';
+
+# force table stats
+analyze table `!"#$%&'()*+,./;<=>?@[\]^``test_2023-09-01:`;
+
+select table_rows > 0, TABLE_COMMENT
+from information_schema.tables 
+where table_schema=database() and table_name like '%test_2023-09-01:%';
+
+drop table `!"#$%&'()*+,./;<=>?@[\]^``test_2023-09-01:`;
+
+--echo #
+--echo # special partition table names
+--echo #
+create table `!"#$%&'()*+,./;<=>?@[\]^``ptest_2023-09-01:`(a int, primary key(a))
+partition by hash(a) partitions 2;
+insert into `!"#$%&'()*+,./;<=>?@[\]^``ptest_2023-09-01:` value (1),(2);
+
+select create_time IS NOT NULL , update_time IS NOT NULL, TABLE_COMMENT
+from information_schema.tables
+where table_schema=database() and table_name like '%ptest_2023-09-01:%';
+# force table stats
+analyze table `!"#$%&'()*+,./;<=>?@[\]^``ptest_2023-09-01:`;
+
+select table_rows > 0, TABLE_COMMENT
+from information_schema.tables 
+where table_schema=database() and table_name like '%ptest_2023-09-01:%';
+
+drop table `!"#$%&'()*+,./;<=>?@[\]^``ptest_2023-09-01:`;
