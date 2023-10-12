@@ -1,0 +1,69 @@
+source include/have_thread_pool_plugin.inc;
+source include/big_test.inc;
+source include/not_valgrind.inc;
+
+# Check for thread_pool_admission_control_admission_yield_freq
+disable_query_log;
+
+let $thread_pool_admission_control_admission_yield_freq_installed =
+`SELECT COUNT(*) = 1 FROM performance_schema.global_variables
+WHERE variable_name = 'thread_pool_admission_control_admission_yield_freq'`;
+if (!$thread_pool_admission_control_admission_yield_freq_installed)
+{
+  --skip mysql_thread_pool.so is not new enough to include thread_pool_admission_control_admission_yield_freq.
+}
+
+enable_query_log;
+
+# https://www.internalfb.com/code/fbsource/[996b9d8a548b]/fbcode/folly/logging/LogLevel.h?lines=39
+let $dbg_level = 1000;
+eval set global thread_pool_log_level = $dbg_level;
+
+let $db = test_db;
+let $user = test_user;
+let $n_tables = 1000;
+let $outfile = $MYSQLTEST_VARDIR/tmp/admission_control_stall_gen.output;
+let $exec = $MYSQL_TEST_DIR/suite/thread_pool/t/admission_control_stall_gen.py
+    --user=$user --port=$MASTER_MYPORT --database=$db -n $n_tables > $outfile;
+
+eval create database $db;
+eval create user $user@localhost identified with 'mysql_native_password' BY '';
+eval grant all on $db.* to $user@localhost;
+
+--echo Disable yielding between queries in a batch.
+set global thread_pool_admission_control_admission_yield_freq = 0;
+
+eval use $db;
+
+let $stalls_before = `SELECT SUM(stalls) FROM information_schema.tp_schedulers`;
+
+echo Running $exec;
+exec $exec;
+
+let $stalls_after = `SELECT SUM(stalls) FROM information_schema.tp_schedulers`;
+expr $delta_stalls = $stalls_after - $stalls_before;
+assert($delta_stalls > 0);
+
+--echo TODO: DROP DATABASE is currently known to stall.
+eval drop database $db;
+eval create database $db;
+eval use $db;
+
+--echo Yield every N queries in a batch.
+set global thread_pool_admission_control_admission_yield_freq = 1;
+
+let $stalls_before = `SELECT SUM(stalls) FROM information_schema.tp_schedulers`;
+
+--echo Run main workload again.
+echo Running $exec;
+exec $exec;
+
+let $stalls_after = `SELECT SUM(stalls) FROM information_schema.tp_schedulers`;
+expr $delta_stalls = $stalls_after - $stalls_before;
+assert($delta_stalls == 0);
+
+eval drop database $db;
+eval drop user $user@localhost;
+--remove_file $MYSQLTEST_VARDIR/tmp/admission_control_stall_gen.output
+set global thread_pool_log_level = default;
+set global thread_pool_admission_control_admission_yield_freq = default;
