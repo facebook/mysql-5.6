@@ -14,6 +14,7 @@ let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
 
 connection server_2;
+set @@global.rpl_raft_stop_applier_commit_timeout_ms = 20;
 set @@global.rpl_raft_debug_sync_point = "ReplicationDoneCallback";
 
 connection server_1;
