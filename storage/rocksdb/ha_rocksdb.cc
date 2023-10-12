@@ -10288,8 +10288,15 @@ int ha_rocksdb::create_table(const std::string &table_name,
   DBUG_ENTER_FUNC();
 
   int err;
+  // DD tables should create in __system CF.
+  // During DDSE change, sql layer will create DD tables as <upgrade>.<table>
+  // first, then rename it to mysql.<table>.
+  // rename is meta-data only change, thus treat these <upgrade>.<table>
+  // as DD table.
+  auto db_name =
+      ha_thd()->is_dd_system_thread() ? "mysql" : table_arg.s->db.str;
   bool is_dd_tbl = dd::get_dictionary()->is_dd_table_name(
-      table_arg.s->db.str, table_arg.s->table_name.str);
+      db_name, table_arg.s->table_name.str);
   auto local_dict_manager = dict_manager.get_dict_manager_selector_non_const(
       is_tmp_table(table_name));
   const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();

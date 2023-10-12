@@ -34,7 +34,10 @@ bool native_dd::is_dd_table_id(dd::Object_id id) {
 }
 
 int native_dd::reject_if_dd_table(const dd::Table *table_def) {
-  if (table_def != nullptr && is_dd_table_id(table_def->se_private_id())) {
+  // during ddse change, s_dd_table_ids may contain old dd table ids, thus
+  // allow drop/rename if current se isn't target ddse
+  if (table_def != nullptr && is_dd_table_id(table_def->se_private_id()) &&
+      (default_dd_storage_engine == DEFAULT_DD_ROCKSDB)) {
     my_error(ER_NOT_ALLOWED_COMMAND, MYF(0));
     return HA_ERR_UNSUPPORTED;
   }

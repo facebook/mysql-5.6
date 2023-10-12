@@ -54,8 +54,9 @@
 #include "sql/dd/performance_schema/init.h"    // performance_schema::
                                                //   set_PS_version_for_table
 #include "sql/create_field.h"
-#include "sql/dd/dd_version.h"  // DD_VERSION
-#include "sql/dd/properties.h"  // dd::Properties
+#include "sql/dd/dd_version.h"                    // DD_VERSION
+#include "sql/dd/impl/bootstrap/bootstrap_ctx.h"  // DD_bootstrap_ctx
+#include "sql/dd/properties.h"                    // dd::Properties
 #include "sql/dd/string_type.h"
 #include "sql/dd/tablespace_id_owner_visitor.h"  // visit_tablespace_id_owners
 #include "sql/dd/types/abstract_table.h"
@@ -2315,14 +2316,15 @@ static std::unique_ptr<dd::Table> create_dd_system_table(
     return nullptr;
 
   /*
-    During --initialize, and for inert tables, get the SE private data
-    from the SE, and store it in the dd_properties table at a later stage.
+    During --initialize, DDSE change and for inert tables, get the SE private
+    data from the SE, and store it in the dd_properties table at a later stage.
     Otherwise, get the SE private data from the 'dd_properties' table.
   */
   const System_tables::Types *table_type =
       System_tables::instance()->find_type(system_schema.name(), table_name);
   if (opt_initialize ||
-      (table_type != nullptr && *table_type == System_tables::Types::INERT)) {
+      (table_type != nullptr && *table_type == System_tables::Types::INERT) ||
+      dd::bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change()) {
     if (file->ha_get_se_private_data(
             tab_obj.get(), (table_type != nullptr &&
                             *table_type == System_tables::Types::INERT)))
@@ -2390,6 +2392,16 @@ std::unique_ptr<dd::Table> create_table(
   const dd::Object_table *dd_table =
       dict->get_dd_table(sch_obj.name(), table_name);
 
+  // During DDSE change, when create a myrocks table
+  // treat <upgrade>.<table> as dd table if mysql.<table> is a dd table
+  if (dd_table == nullptr && sch_obj.name() != MYSQL_SCHEMA_NAME.str &&
+      thd->is_dd_system_thread() &&
+      dd::bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change() &&
+      create_info->db_type->db_type == DB_TYPE_ROCKSDB &&
+      dd::get_dictionary()->is_dd_table_name(MYSQL_SCHEMA_NAME.str,
+                                             table_name)) {
+    dd_table = dict->get_dd_table(MYSQL_SCHEMA_NAME.str, table_name);
+  }
   return dd_table
              ? create_dd_system_table(thd, sch_obj, table_name, create_info,
                                       create_fields, keyinfo, keys, fk_keyinfo,
