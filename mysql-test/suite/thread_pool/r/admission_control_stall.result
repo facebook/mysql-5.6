@@ -1,0 +1,22 @@
+set global thread_pool_log_level = 1000;
+create database test_db;
+create user test_user@localhost identified with 'mysql_native_password' BY '';
+grant all on test_db.* to test_user@localhost;
+Disable yielding between queries in a batch.
+set global thread_pool_admission_control_admission_yield_freq = 0;
+use test_db;
+Running /data/users/alexbud/mysql/mysql-fork/mysql-test/suite/thread_pool/t/admission_control_stall_gen.py
+--user=test_user --port=13610 --database=test_db -n 1000 > /data/users/alexbud/mysql/mysql-fork/_build-8.0-Debug/mysql-test/var/tmp/admission_control_stall_gen.output
+TODO: DROP DATABASE is currently known to stall.
+drop database test_db;
+create database test_db;
+use test_db;
+Yield every N queries in a batch.
+set global thread_pool_admission_control_admission_yield_freq = 1;
+Run main workload again.
+Running /data/users/alexbud/mysql/mysql-fork/mysql-test/suite/thread_pool/t/admission_control_stall_gen.py
+--user=test_user --port=13610 --database=test_db -n 1000 > /data/users/alexbud/mysql/mysql-fork/_build-8.0-Debug/mysql-test/var/tmp/admission_control_stall_gen.output
+drop database test_db;
+drop user test_user@localhost;
+set global thread_pool_log_level = default;
+set global thread_pool_admission_control_admission_yield_freq = default;
