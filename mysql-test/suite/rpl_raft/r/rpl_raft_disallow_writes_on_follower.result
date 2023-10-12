@@ -50,6 +50,7 @@ a
 2
 select * from non_trx;
 a
+include/sync_slave_sql_with_master.inc
 select * from trx;
 a
 1
