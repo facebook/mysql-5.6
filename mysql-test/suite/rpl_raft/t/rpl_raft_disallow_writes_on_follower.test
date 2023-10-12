@@ -41,6 +41,11 @@ set @@global.allow_binlog_writes_on_raft_follower = 0;
 select * from trx;
 select * from non_trx;
 
+# catchup server_2
+connection server_1;
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+
 connection server_2;
 select * from trx;
 select * from non_trx;
