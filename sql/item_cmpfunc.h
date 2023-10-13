@@ -458,6 +458,7 @@ class Item_func_truth final : public Item_bool_func {
       case BOOL_IS_TRUE:
       case BOOL_IS_FALSE:
         null_on_null = true;
+        [[fallthrough]];
       default:
         break;
     }
