@@ -1,0 +1,37 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CREATE TABLE t1 (a INT, b INT, c INT, PRIMARY KEY (a), KEY (B), KEY(c)) ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5), (6,6,6), (7,7,7), (8,8,8), (9,9,9), (10,10,10);
+ERROR HY000: Got error 10 'Operation aborted: Failed to acquire lock due to rocksdb_max_row_locks limit' from ROCKSDB
+SET SESSION rocksdb_max_row_locks=1000;
+INSERT INTO t1 VALUES (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5), (6,6,6), (7,7,7), (8,8,8), (9,9,9), (10,10,10);
+UPDATE t1 SET b = 100;
+SELECT * FROM t1 ORDER BY a;
+a	b	c
+1	100	1
+2	100	2
+3	100	3
+4	100	4
+5	100	5
+6	100	6
+7	100	7
+8	100	8
+9	100	9
+10	100	10
+SELECT * FROM t1 ORDER BY a;
+a	b	c
+1	100	1
+2	100	2
+3	100	3
+4	100	4
+5	100	5
+6	100	6
+7	100	7
+8	100	8
+9	100	9
+10	100	10
+DROP TABLE t1;
+include/rpl_end.inc

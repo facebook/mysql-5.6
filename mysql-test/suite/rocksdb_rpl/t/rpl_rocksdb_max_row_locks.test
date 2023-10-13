@@ -1,0 +1,27 @@
+--source include/have_rocksdb.inc
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+
+connection master;
+CREATE TABLE t1 (a INT, b INT, c INT, PRIMARY KEY (a), KEY (B), KEY(c)) ENGINE=ROCKSDB;
+
+--error 1296
+INSERT INTO t1 VALUES (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5), (6,6,6), (7,7,7), (8,8,8), (9,9,9), (10,10,10);
+
+SET SESSION rocksdb_max_row_locks=1000;
+
+# Multi row update should not break replica even if exceeding max_row_locks
+INSERT INTO t1 VALUES (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5), (6,6,6), (7,7,7), (8,8,8), (9,9,9), (10,10,10);
+UPDATE t1 SET b = 100;
+
+# Switch to the replica
+sync_slave_with_master slave;
+
+SELECT * FROM t1 ORDER BY a;
+
+connection master;
+SELECT * FROM t1 ORDER BY a;
+DROP TABLE t1;
+sync_slave_with_master slave;
+
+--source include/rpl_end.inc
