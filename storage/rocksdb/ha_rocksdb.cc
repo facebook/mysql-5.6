@@ -10288,12 +10288,12 @@ int ha_rocksdb::create_table(const std::string &table_name,
   DBUG_ENTER_FUNC();
 
   int err;
-  // DD tables should create in __system CF.
-  // During DDSE change, sql layer will create DD tables as <upgrade>.<table>
-  // first, then rename it to mysql.<table>.
-  // rename is meta-data only change, thus treat these <upgrade>.<table>
-  // as DD table.
-  auto db_name =
+  // DD tables should be created in the __system__ CF.
+  // During the DDSE change, the SQL layer will create DD tables as
+  // <upgrade>.<table> first, then rename them to mysql.<table>.
+  // The rename is a meta-data only change, thus treat these <upgrade>.<table>
+  // tables as DD tables.
+  const auto db_name =
       ha_thd()->is_dd_system_thread() ? "mysql" : table_arg.s->db.str;
   bool is_dd_tbl = dd::get_dictionary()->is_dd_table_name(
       db_name, table_arg.s->table_name.str);
@@ -10488,7 +10488,8 @@ int ha_rocksdb::truncate_table(Rdb_tbl_def *tbl_def_arg,
                                dd::Table *table_def) {
   DBUG_ENTER_FUNC();
 
-  int err = native_dd::reject_if_dd_table(table_def);
+  int err = native_dd::reject_if_dd_table(
+      table_def, ha_thd() != nullptr && ha_thd()->is_dd_system_thread());
   if (err != 0) DBUG_RETURN(err);
 
   /*
@@ -14529,7 +14530,8 @@ int ha_rocksdb::delete_table(const char *const tablename,
 
   assert(tablename != nullptr);
 
-  int err = native_dd::reject_if_dd_table(table_def);
+  int err = native_dd::reject_if_dd_table(
+      table_def, ha_thd() != nullptr && ha_thd()->is_dd_system_thread());
   if (err != 0) DBUG_RETURN(err);
 
   /* Find the table in the hash */
@@ -14563,7 +14565,8 @@ int ha_rocksdb::rename_table(const char *const from, const char *const to,
 #endif
 
   int rc;
-  rc = native_dd::reject_if_dd_table(from_table_def);
+  rc = native_dd::reject_if_dd_table(
+      from_table_def, ha_thd() != nullptr && ha_thd()->is_dd_system_thread());
   if (rc != 0) DBUG_RETURN(rc);
 
   std::string from_str;
