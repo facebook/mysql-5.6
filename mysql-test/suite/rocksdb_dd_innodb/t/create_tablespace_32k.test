@@ -1,0 +1,1 @@
+--source ../../innodb/t/create_tablespace_32k.test
