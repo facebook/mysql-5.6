@@ -55,6 +55,7 @@ Data dictionary interface */
 #include "dd/types/tablespace.h"
 #include "dd/types/tablespace_file.h"
 #include "dd_table_share.h"
+#include "ha_prototypes.h"
 #include "sess0sess.h"
 #else
 #include "mysql_com.h"
@@ -1602,7 +1603,7 @@ DDSE, the tables will be in another storage engine, thus the server layer
 interface must be used.
 @return whether server layer interface must be used to access the DD */
 [[nodiscard]] inline bool dd_access_through_server() noexcept {
-  return (default_dd_storage_engine != DEFAULT_DD_INNODB);
+  return !innobase_is_ddse();
 }
 
 #include "dict0dd.ic"

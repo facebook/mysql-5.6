@@ -73,10 +73,27 @@ dberr_t dict_build_table_def(dict_table_t *table,
   static uint32_t dd_table_id = 1;
 
   if (is_dd_table) {
-    table->id = dd_table_id++;
     table->is_dd_table = true;
+    if (!innobase_is_ddse()) {
+      if (tbl_name == "dd_properties_placeholder") {
+        table->id = 1;
+      } else if (tbl_name == "innodb_dynamic_metadata") {
+        table->id = 2;
+      } else if (tbl_name == "innodb_table_stats") {
+        table->id = 3;
+      } else if (tbl_name == "innodb_index_stats") {
+        table->id = 4;
+      } else {
+        assert(tbl_name == "innodb_ddl_log");
+        table->id = 5;
+      }
+    } else {
+      table->id = dd_table_id++;
+    }
 
-    ut_ad(strcmp(tbl_name.c_str(), innodb_dd_table[table->id - 1].name) == 0);
+    ut_ad(strcmp(tbl_name.c_str(), innodb_dd_table[table->id - 1].name) == 0 ||
+          (!innobase_is_ddse() && tbl_name == "dd_properties_placeholder" &&
+           strcmp(innodb_dd_table[table->id - 1].name, "dd_properties") == 0));
 
   } else {
     dict_table_assign_new_id(table);

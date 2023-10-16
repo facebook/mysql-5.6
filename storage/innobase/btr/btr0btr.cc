@@ -871,6 +871,52 @@ ulint btr_create(ulint type, space_id_t space, space_index_t index_id,
   }
 
   page_no = block->page.id.page_no();
+
+#ifdef UNIV_DEBUG
+  if (space == dict_sys_t::s_dict_space_id && !innobase_is_ddse()) {
+    if (strcmp(index->table_name, "mysql/innodb_dynamic_metadata") == 0) {
+      assert(page_no == 5);
+      assert(index_id == 2);
+    } else if (strcmp(index->table_name, "mysql/innodb_table_stats") == 0) {
+      assert(page_no == 6);
+      assert(index_id == 3);
+    } else if (strcmp(index->table_name, "mysql/innodb_index_stats") == 0) {
+      switch (srv_page_size) {
+      case 4096:
+        assert(page_no == 8);
+        break;
+      case 8192:
+      case 16384:
+      case 32768:
+      case 65536:
+        assert(page_no == 7);
+        break;
+      default:
+        assert(false);
+      }
+      assert(index_id == 4);
+    } else if (strcmp(index->table_name, "mysql/innodb_ddl_log") == 0) {
+      if (index_id == 5) {  // The primary index
+        switch (srv_page_size) {
+        case 4096:
+          assert(page_no == 9);
+          break;
+        case 8192:
+        case 16384:
+        case 32768:
+        case 65536:
+          assert(page_no == 8);
+          break;
+        default:
+          assert(false);
+        }
+      } else {
+        assert(index_id == 6);
+      }
+    }
+  }
+#endif
+
   frame = buf_block_get_frame(block);
 
   if (type & DICT_IBUF) {

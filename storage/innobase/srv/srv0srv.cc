@@ -3045,6 +3045,7 @@ static ulint srv_do_purge(ulint *n_total_purged) {
 
     /* Take a snapshot of the history list before purge. */
     if ((rseg_history_len = trx_sys->rseg_history_len.load()) == 0) {
+      if (!innobase_is_ddse()) trx_purge_truncate_undo_spaces();
       break;
     }
 

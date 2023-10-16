@@ -1659,7 +1659,7 @@ static void trx_purge_truncate_history(purge_iter_t *limit,
 
 /** Select an undo tablespace to truncate, make sure it is empty of undo logs,
 then finally truncate it. */
-static void trx_purge_truncate_undo_spaces() {
+void trx_purge_truncate_undo_spaces() {
   /* If the server has been started for the purpose of upgrading from a
   previous version, do not do undo truncation. */
   if (srv_is_upgrade_mode) {

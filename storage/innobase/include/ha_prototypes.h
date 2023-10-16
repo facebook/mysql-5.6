@@ -464,4 +464,6 @@ ulong thd_parallel_read_threads(THD *thd);
 /** @return the number of DDL threads to use (global/session). */
 [[nodiscard]] size_t thd_ddl_threads(THD *thd) noexcept;
 
+[[nodiscard]] bool innobase_is_ddse();
+
 #endif /* HA_INNODB_PROTOTYPES_H */

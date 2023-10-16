@@ -5971,7 +5971,8 @@ static int innobase_commit(handlerton *hton, /*!< in: InnoDB handlerton */
     }
 
     /* If SE needs to persist GTID we must have a transaction. */
-    if (thd->se_persists_gtid_explicit()) {
+    if (thd->se_persists_gtid_explicit() &&
+        (innobase_is_ddse() || !trx_state_eq(trx, TRX_STATE_PREPARED))) {
       trx_start_if_not_started(trx, true, UT_LOCATION_HERE);
     }
 
@@ -13062,6 +13063,18 @@ static bool innobase_ddse_dict_init(
     return true;
   }
 
+  if (!innobase_is_ddse()) {
+    dd::Object_table *dd_properties_placeholder =
+        dd::Object_table::create_object_table("INNODB");
+    dd_properties_placeholder->set_hidden(true);
+    dd::Object_table_definition *def =
+        dd_properties_placeholder->target_table_definition();
+    def->set_table_name("dd_properties_placeholder");
+    def->add_field(0, "dummy", "dummy INT UNSIGNED NOT NULL");
+    def->add_index(0, "dummy_pk", "PRIMARY KEY (dummy)");
+    tables->push_back(dd_properties_placeholder);
+  }
+
   /* Instantiate table defs only if we are successful so far. */
   dd::Object_table *innodb_dynamic_metadata =
       dd::Object_table::create_object_table("INNODB");
@@ -15154,6 +15167,56 @@ bool ha_innobase::get_se_private_data(dd::Table *dd_table, bool reset) {
     // Also need to reset the set of DD table ids.
     dict_sys_t::s_dd_table_ids.clear();
   }
+
+  if (!innobase_is_ddse()) {
+    if (dd_table->name() == "dd_properties_placeholder") {
+      n_tables = 0;
+      n_indexes = 0;
+      n_pages = 4;
+    } else if (dd_table->name() == "innodb_dynamic_metadata") {
+      n_tables = 1;
+      n_indexes = 1;
+      n_pages = 5;
+    } else if (dd_table->name() == "innodb_table_stats") {
+      n_tables = 2;
+      n_indexes = 2;
+      n_pages = 6;
+    } else if (dd_table->name() == "innodb_index_stats") {
+      n_tables = 3;
+      n_indexes = 3;
+      switch (srv_page_size) {
+      case 4096:
+        n_pages = 8;
+        break;
+      case 8192:
+      case 16384:
+      case 32768:
+      case 65536:
+        n_pages = 7;
+        break;
+      default:
+        assert(false);
+      }
+    } else {
+      assert(dd_table->name() == "innodb_ddl_log");
+      n_tables = 4;
+      n_indexes = 4;
+      switch (srv_page_size) {
+      case 4096:
+        n_pages = 9;
+        break;
+      case 8192:
+      case 16384:
+      case 32768:
+      case 65536:
+        n_pages = 8;
+        break;
+      default:
+        assert(false);
+      }
+    }
+  }
+
 #ifdef UNIV_DEBUG
   const uint n_indexes_old = n_indexes;
 #endif
@@ -15176,7 +15239,10 @@ bool ha_innobase::get_se_private_data(dd::Table *dd_table, bool reset) {
   const innodb_dd_table_t &data = innodb_dd_table[n_tables];
 #endif
 
-  assert(dd_table->name() == data.name);
+  assert(dd_table->name() == data.name ||
+         (!innobase_is_ddse() &&
+          dd_table->name() == "dd_properties_placeholder" &&
+          strcmp(data.name, "dd_properties") == 0));
 
   dd_table->set_se_private_id(++n_tables);
   dd_table->set_tablespace_id(dict_sys_t::s_dd_dict_space_id);
@@ -16161,6 +16227,9 @@ static int innodb_drop_tablespace(handlerton *hton, THD *thd,
   trx_t *trx = check_trx_exists(thd);
   TrxInInnoDB trx_in_innodb(trx);
   trx_start_if_not_started(trx, true, UT_LOCATION_HERE);
+  if (!innobase_is_ddse()) {
+    innobase_register_trx(hton, thd, trx);
+  }
   ++trx->will_lock;
 
   /* Acquire Exclusive MDL on SDI table of tablespace.
@@ -16485,6 +16554,9 @@ static int innodb_drop_undo_tablespace(handlerton *hton, THD *thd,
     can continue. */
     trx_t *trx = check_trx_exists(thd);
     trx_start_if_not_started(trx, true, UT_LOCATION_HERE);
+    if (!innobase_is_ddse()) {
+      innobase_register_trx(hton, thd, trx);
+    }
     ++trx->will_lock;
 
     return (0);
@@ -16529,6 +16601,9 @@ static int innodb_drop_undo_tablespace(handlerton *hton, THD *thd,
   trx_t *trx = check_trx_exists(thd);
   TrxInInnoDB trx_in_innodb(trx);
   trx_start_if_not_started(trx, true, UT_LOCATION_HERE);
+  if (!innobase_is_ddse()) {
+    innobase_register_trx(hton, thd, trx);
+  }
   ++trx->will_lock;
 
   auto err = log_ddl->write_delete_space_log(trx, nullptr, space_id,
@@ -24497,3 +24572,7 @@ static bool innobase_check_reserved_file_name(handlerton *, const char *name) {
   return (true);
 }
 #endif /* !UNIV_HOTBACKUP */
+
+bool innobase_is_ddse() {
+  return default_dd_storage_engine == DEFAULT_DD_INNODB;
+}
