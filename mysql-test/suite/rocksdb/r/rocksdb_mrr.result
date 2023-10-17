@@ -47,9 +47,6 @@ pk	col1	filler	a
 7	7	7	7
 8	8	8	8
 9	9	9	9
-show status like 'Handler_mrr_init';
-Variable_name	Value
-Handler_mrr_init	1
 create temporary table t11 as 
 select * from performance_schema.global_status
 where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
@@ -70,6 +67,9 @@ rocksdb_number_multiget_get	1
 rocksdb_number_multiget_keys_read	10
 rocksdb_rows_read	20
 drop table t10, t11;
+show status like 'Handler_mrr_init';
+Variable_name	Value
+Handler_mrr_init	1
 # Check rocksdb_mrr_batch_size use MRR
 set @saved_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;
 set rocksdb_mrr_batch_size=5;

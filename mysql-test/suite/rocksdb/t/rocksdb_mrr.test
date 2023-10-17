@@ -34,8 +34,6 @@ flush status; # for Handler_mrr_init
 
 select * from t2,t0 where t2.pk=t0.a;
 
-show status like 'Handler_mrr_init';
-
 create temporary table t11 as 
 select * from performance_schema.global_status
 where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
@@ -48,6 +46,9 @@ from
 having
   DIFF>0;
 drop table t10, t11;
+
+# for MyRocks DD, it will increase ROCKSDB_NUMBER_DB_NEXT stats.
+show status like 'Handler_mrr_init';
 
 --echo # Check rocksdb_mrr_batch_size use MRR
 set @saved_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;

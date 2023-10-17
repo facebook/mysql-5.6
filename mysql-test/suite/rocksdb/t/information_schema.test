@@ -1,6 +1,7 @@
 --source include/have_rocksdb.inc
 --source include/have_log_bin.inc
 --source include/have_compact_range_for_drop_table.inc
+--source include/have_innodb_ddse.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
