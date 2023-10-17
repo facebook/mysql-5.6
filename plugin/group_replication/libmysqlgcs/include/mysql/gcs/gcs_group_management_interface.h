@@ -23,6 +23,7 @@
 #ifndef GCS_GROUP_MANAGEMENT_INTERFACE_INCLUDED
 #define GCS_GROUP_MANAGEMENT_INTERFACE_INCLUDED
 
+#include <cstdint>
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_member_identifier.h"
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_types.h"
 
