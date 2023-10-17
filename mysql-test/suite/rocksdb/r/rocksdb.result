@@ -939,7 +939,7 @@ rocksdb_commit_in_the_middle	OFF
 rocksdb_commit_time_batch_for_recovery	ON
 rocksdb_compact_cf	
 rocksdb_compact_lzero_now	OFF
-rocksdb_compaction_readahead_size	0
+rocksdb_compaction_readahead_size	2097152
 rocksdb_compaction_sequential_deletes	149999
 rocksdb_compaction_sequential_deletes_count_sd	ON
 rocksdb_compaction_sequential_deletes_file_size	0

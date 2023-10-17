@@ -11,10 +11,14 @@ Warning	1292	Truncated incorrect rocksdb_compaction_readahead_size value: '-1'
 SELECT @@global.rocksdb_compaction_readahead_size;
 @@global.rocksdb_compaction_readahead_size
 0
+SET @@global.rocksdb_compaction_readahead_size = DEFAULT;
+SELECT @@global.rocksdb_compaction_readahead_size;
+@@global.rocksdb_compaction_readahead_size
+2097152
 SET @start_global_value = @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 SELECT @start_global_value;
 @start_global_value
-0
+2097152
 '# Setting to valid values in global scope#'
 "Trying to set variable @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE to 1"
 SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE   = 1;
@@ -25,7 +29,7 @@ SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE = DEFAULT;
 SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE
-0
+2097152
 "Trying to set variable @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE to 0"
 SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE   = 0;
 SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
@@ -35,7 +39,7 @@ SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE = DEFAULT;
 SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE
-0
+2097152
 "Trying to set variable @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE to 222333"
 SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE   = 222333;
 SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
@@ -45,7 +49,7 @@ SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE = DEFAULT;
 SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE
-0
+2097152
 "Trying to set variable @@session.ROCKSDB_COMPACTION_READAHEAD_SIZE to 444. It should fail because it is not session."
 SET @@session.ROCKSDB_COMPACTION_READAHEAD_SIZE   = 444;
 ERROR HY000: Variable 'rocksdb_compaction_readahead_size' is a GLOBAL variable and should be set with SET GLOBAL
@@ -55,16 +59,16 @@ SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE   = 'aaa';
 Got one of the listed errors
 SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE
-0
+2097152
 "Trying to set variable @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE to 'bbb'"
 SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE   = 'bbb';
 Got one of the listed errors
 SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE
-0
+2097152
 SET @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE = @start_global_value;
 SELECT @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE;
 @@global.ROCKSDB_COMPACTION_READAHEAD_SIZE
-0
+2097152
 DROP TABLE valid_values;
 DROP TABLE invalid_values;

@@ -3679,7 +3679,7 @@ rocksdb-commit-time-batch-for-recovery TRUE
 rocksdb-compact-cf 
 rocksdb-compact-lzero-now FALSE
 rocksdb-compaction-history ON
-rocksdb-compaction-readahead-size 0
+rocksdb-compaction-readahead-size 2097152
 rocksdb-compaction-sequential-deletes 149999
 rocksdb-compaction-sequential-deletes-count-sd TRUE
 rocksdb-compaction-sequential-deletes-file-size 0

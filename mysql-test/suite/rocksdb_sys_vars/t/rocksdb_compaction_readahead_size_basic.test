@@ -14,6 +14,9 @@ INSERT INTO invalid_values VALUES('\'bbb\'');
 SET @@global.rocksdb_compaction_readahead_size = -1;
 SELECT @@global.rocksdb_compaction_readahead_size;
 
+SET @@global.rocksdb_compaction_readahead_size = DEFAULT;
+SELECT @@global.rocksdb_compaction_readahead_size;
+
 --let $sys_var=ROCKSDB_COMPACTION_READAHEAD_SIZE
 --let $read_only=0
 --let $session=0
