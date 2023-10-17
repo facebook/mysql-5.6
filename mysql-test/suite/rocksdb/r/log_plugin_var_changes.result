@@ -39,7 +39,7 @@ SELECT @@global.rocksdb_max_latest_deadlocks;
 SET @old_val = @@global.rocksdb_compaction_readahead_size;
 SELECT @old_val;
 @old_val
-0
+2097152
 SET GLOBAL rocksdb_compaction_readahead_size = 1000000;
 SELECT @@global.rocksdb_compaction_readahead_size;
 @@global.rocksdb_compaction_readahead_size
@@ -47,7 +47,7 @@ SELECT @@global.rocksdb_compaction_readahead_size;
 SET @@global.rocksdb_compaction_readahead_size = @old_val;
 SELECT @@global.rocksdb_compaction_readahead_size;
 @@global.rocksdb_compaction_readahead_size
-0
+2097152
 ### MYSQL_SYSVAR_LONGLONG
 SET @old_val = @@global.rocksdb_compaction_sequential_deletes_file_size;
 SELECT @old_val;
@@ -157,8 +157,8 @@ SELECT @@global.log_global_var_changes;
  Global variable @@rocksdb_max_background_jobs has been changed from 1 to 2 by user root from host localhost
  Global variable @@rocksdb_max_latest_deadlocks has been changed from 5 to 10 by user root from host localhost
  Global variable @@rocksdb_max_latest_deadlocks has been changed from 10 to 5 by user root from host localhost
- Global variable @@rocksdb_compaction_readahead_size has been changed from 0 to 1000000 by user root from host localhost
- Global variable @@rocksdb_compaction_readahead_size has been changed from 1000000 to 0 by user root from host localhost
+ Global variable @@rocksdb_compaction_readahead_size has been changed from 2097152 to 1000000 by user root from host localhost
+ Global variable @@rocksdb_compaction_readahead_size has been changed from 1000000 to 2097152 by user root from host localhost
  Global variable @@rocksdb_compaction_sequential_deletes_file_size has been changed from 0 to -1 by user root from host localhost
  Global variable @@rocksdb_compaction_sequential_deletes_file_size has been changed from -1 to 1000000000000 by user root from host localhost
  Global variable @@rocksdb_compaction_sequential_deletes_file_size has been changed from 1000000000000 to 0 by user root from host localhost
