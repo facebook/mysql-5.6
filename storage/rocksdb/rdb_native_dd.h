@@ -53,7 +53,8 @@ class native_dd {
 
   static void clear_dd_table_ids();
 
-  static int reject_if_dd_table(const dd::Table *table_def);
+  static int reject_if_dd_table(const dd::Table *table_def,
+                                bool is_dd_system_thread);
 };
 
 }  // namespace myrocks
