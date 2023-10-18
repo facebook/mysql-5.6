@@ -1173,7 +1173,12 @@ bool upgrade_dd_properties_table(THD *thd, Object_id mysql_schema_id,
   }
 
   // update myrocks own data dictionary
+  // for MyRocks, previous changes involve <target_table> tbl_def and
+  // update_myrocks_table_names will delete <target_table> tbl_def
+  // If the changes are committed after update_myrocks_table_names, it will
+  // cause a use-after-free issue
   if (default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+      !dd::end_transaction(thd, false) &&
       update_myrocks_table_names(thd, target_table_schema_name,
                                  MYSQL_SCHEMA_NAME.str,
                                  {dd_property_table_name})) {
@@ -1289,6 +1294,7 @@ bool upgrade_tables(THD *thd) {
   // update myrocks own data dictionary
   if (bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change() &&
       (default_dd_storage_engine == DEFAULT_DD_ROCKSDB) &&
+      !dd::end_transaction(thd, false) &&
       update_myrocks_table_names(thd, target_table_schema_name,
                                  MYSQL_SCHEMA_NAME.str, create_set)) {
     LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,

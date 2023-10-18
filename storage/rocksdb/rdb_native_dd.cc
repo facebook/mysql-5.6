@@ -33,8 +33,14 @@ bool native_dd::is_dd_table_id(dd::Object_id id) {
           native_dd::s_dd_table_ids.end());
 }
 
-int native_dd::reject_if_dd_table(const dd::Table *table_def) {
-  if (table_def != nullptr && is_dd_table_id(table_def->se_private_id())) {
+int native_dd::reject_if_dd_table(const dd::Table *table_def,
+                                  bool is_dd_system_thread) {
+  // during DDSE change, s_dd_table_ids may contain old dd table ids, thus
+  // allow drop/rename if current SE isn't target DDSE and current thread is
+  // dd bootstrap system thread
+  if (table_def != nullptr && is_dd_table_id(table_def->se_private_id()) &&
+      !(is_dd_system_thread &&
+        default_dd_storage_engine != DEFAULT_DD_ROCKSDB)) {
     my_error(ER_NOT_ALLOWED_COMMAND, MYF(0));
     return HA_ERR_UNSUPPORTED;
   }
