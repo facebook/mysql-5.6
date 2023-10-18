@@ -54,6 +54,9 @@ class Worker(threading.Thread):
     cur.execute("select data_type = 'binary' from information_schema.columns where table_schema = database() and table_name = '%s' and column_name = 'id1'" % self.table_name)
     binary_id1 = cur.fetchone()[0] == 1
     cur.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
+    # commit isolation change immediately, since set session transaction doesn't
+    # apply to cur trx
+    self.con.commit()
     for x in range(self.num_iters):
       if self.event.is_set():
         break
