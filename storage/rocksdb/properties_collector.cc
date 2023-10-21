@@ -474,10 +474,10 @@ void Rdb_index_stats::merge(const Rdb_index_stats &s, const bool increment,
 
     /*
       The Data_length and Avg_row_length are trailing statistics, meaning
-      they don't get updated for the current SST until the next SST is
-      written.  So, if rocksdb reports the data_length as 0,
+      they don't get updated for the current data block until the next data
+      block is written.  So, if rocksdb reports the data_length as 0,
       we make a reasoned estimate for the data_file_length for the
-      index in the current SST.
+      index in the current data block.
     */
     m_actual_disk_size += s.m_actual_disk_size ? s.m_actual_disk_size
                                                : estimated_data_len * s.m_rows;
@@ -493,6 +493,8 @@ void Rdb_index_stats::merge(const Rdb_index_stats &s, const bool increment,
     m_data_size -= s.m_data_size;
     m_actual_disk_size -= s.m_actual_disk_size ? s.m_actual_disk_size
                                                : estimated_data_len * s.m_rows;
+    // actual disk size should always >=0
+    if (m_actual_disk_size < 0) m_actual_disk_size = 0;
     m_entry_deletes -= s.m_entry_deletes;
     m_entry_single_deletes -= s.m_entry_single_deletes;
     m_entry_merges -= s.m_entry_merges;
