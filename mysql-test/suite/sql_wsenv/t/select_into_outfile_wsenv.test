@@ -106,6 +106,20 @@ set enable_sql_wsenv=1;
 
 drop table t1;
 
+# scenario5: load_data_file_buffer_size
+create table t1(a int primary key, b varchar(1024));
+set @@cte_max_recursion_depth=1000000;
+INSERT INTO t1(a) WITH RECURSIVE qn(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM qn WHERE n<100000) select n from qn;
+set load_data_infile_buffer_size = 64 * 1024 * 1024;
+# dump from t2 and load to t4
+--let $output_file=$SQL_WSENV_MTR_PATH/a/s5_t1.txt
+--replace_result $output_file OUTPUT_FILE
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+
+create table t2(a int primary key, b varchar(1024));
+--replace_result $output_file OUTPUT_FILE
+--eval load data infile '$output_file' into table t2;
+drop table t1, t2;
 
 # restart mysqld
 --source include/restart_mysqld.inc
