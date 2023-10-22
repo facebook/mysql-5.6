@@ -149,7 +149,8 @@ class READ_INFO {
   READ_INFO(File file, size_t tot_length, const CHARSET_INFO *cs,
             const String &field_term, const String &line_start,
             const String &line_term, const String &enclosed, int escape,
-            bool get_it_from_net, bool is_fifo, bool load_compressed);
+            bool get_it_from_net, bool is_fifo, bool load_compressed,
+            ulong load_data_infile_buffer_size);
   ~READ_INFO();
   bool read_field();
   bool read_fixed_length();
@@ -537,7 +538,7 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
       m_exchange.cs ? m_exchange.cs : thd->variables.collation_database,
       *field_term, *m_exchange.line.line_start, *m_exchange.line.line_term,
       *enclosed, info.escape_char, m_is_local_file, is_fifo,
-      m_exchange.load_compressed);
+      m_exchange.load_compressed, thd->variables.load_data_infile_buffer_size);
   if (read_info.error) {
     if (file >= 0) mysql_file_close(file, MYF(0));  // no files in net reading
     return true;                                    // Can't allocate buffers
@@ -1349,7 +1350,7 @@ READ_INFO::READ_INFO(File file_par, size_t tot_length, const CHARSET_INFO *cs,
                      const String &field_term, const String &line_start,
                      const String &line_term, const String &enclosed_par,
                      int escape, bool get_it_from_net, bool is_fifo,
-                     bool load_compressed)
+                     bool load_compressed, ulong load_data_infile_buffer_size)
     : file(file_par),
       buff_length(tot_length),
       escape_char(escape),
@@ -1406,7 +1407,7 @@ READ_INFO::READ_INFO(File file_par, size_t tot_length, const CHARSET_INFO *cs,
   } else {
     end_of_buff = buffer + buff_length;
     if (init_io_cache_with_opt_compression(
-            &cache, (get_it_from_net) ? -1 : file, 0,
+            &cache, (get_it_from_net) ? -1 : file, load_data_infile_buffer_size,
             (get_it_from_net) ? READ_NET : (is_fifo ? READ_FIFO : READ_CACHE),
             0L, true, MYF(MY_WME), load_compressed)) {
       my_free(buffer); /* purecov: inspected */

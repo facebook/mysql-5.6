@@ -833,6 +833,9 @@ The following options may be given as the first argument:
  setting global read lock when a long transaction is
  running
  (Defaults to on; use --skip-legacy-global-read-lock-mode to disable.)
+ --load-data-infile-buffer-size[=#] 
+ Buffer size for LOAD DATA INFILE. set 0 to use default
+ record size
  --local-infile      Enable LOAD DATA LOCAL INFILE
  --lock-wait-timeout=# 
  Timeout in seconds to wait for a lock before returning an
@@ -3366,6 +3369,7 @@ large-pages FALSE
 lc-messages en_US
 lc-time-names en_US
 legacy-global-read-lock-mode TRUE
+load-data-infile-buffer-size 0
 local-infile FALSE
 lock-wait-timeout 3.1536e+07
 log-bin (No default value)

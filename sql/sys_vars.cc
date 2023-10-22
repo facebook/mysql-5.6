@@ -1911,6 +1911,13 @@ static Sys_var_uint Sys_select_into_file_fsync_timeout(
     SESSION_VAR(select_into_file_fsync_timeout), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
+static Sys_var_ulong Sys_load_data_infile_bbuffer_size(
+    "load_data_infile_buffer_size",
+    "Buffer size for LOAD DATA INFILE. set 0 to use default record size",
+    HINT_UPDATEABLE SESSION_VAR(load_data_infile_buffer_size),
+    CMD_LINE(OPT_ARG), VALID_RANGE(0, INT_MAX32), DEFAULT(0), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_session_admin_no_super));
+
 static bool check_not_null(sys_var *, THD *, set_var *var) {
   return var->value && var->value->is_null();
 }
