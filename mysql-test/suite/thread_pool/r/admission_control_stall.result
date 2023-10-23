@@ -3,19 +3,29 @@ create database test_db;
 create user test_user@localhost identified with 'mysql_native_password' BY '';
 grant all on test_db.* to test_user@localhost;
 Disable yielding between queries in a batch.
-set global thread_pool_admission_control_admission_yield_freq = 0;
-use test_db;
-Running /data/users/alexbud/mysql/mysql-fork/mysql-test/suite/thread_pool/t/admission_control_stall_gen.py
---user=test_user --port=13610 --database=test_db -n 1000 > /data/users/alexbud/mysql/mysql-fork/_build-8.0-Debug/mysql-test/var/tmp/admission_control_stall_gen.output
 TODO: DROP DATABASE is currently known to stall.
-drop database test_db;
+drop database if exists test_db;
 create database test_db;
 use test_db;
-Yield every N queries in a batch.
+Yield every 0 queries in a batch. (0 turns it off.)
+set global thread_pool_admission_control_admission_yield_freq = 0;
+Run main workload.
+Yield every query in a batch.
+TODO: DROP DATABASE is currently known to stall.
+drop database if exists test_db;
+create database test_db;
+use test_db;
+Yield every 1 queries in a batch. (0 turns it off.)
 set global thread_pool_admission_control_admission_yield_freq = 1;
-Run main workload again.
-Running /data/users/alexbud/mysql/mysql-fork/mysql-test/suite/thread_pool/t/admission_control_stall_gen.py
---user=test_user --port=13610 --database=test_db -n 1000 > /data/users/alexbud/mysql/mysql-fork/_build-8.0-Debug/mysql-test/var/tmp/admission_control_stall_gen.output
+Run main workload.
+Yield every 5 queries in a batch.
+TODO: DROP DATABASE is currently known to stall.
+drop database if exists test_db;
+create database test_db;
+use test_db;
+Yield every 5 queries in a batch. (0 turns it off.)
+set global thread_pool_admission_control_admission_yield_freq = 5;
+Run main workload.
 drop database test_db;
 drop user test_user@localhost;
 set global thread_pool_log_level = default;
