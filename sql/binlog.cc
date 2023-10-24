@@ -12213,6 +12213,10 @@ int binlog_change_to_apply() {
     DBUG_RETURN(0);
   }
 
+  if (ha_flush_logs()) {
+    DBUG_RETURN(1);
+  }
+
   int error = 0;
   LOG_INFO linfo;
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
@@ -12297,7 +12301,9 @@ int binlog_change_to_binlog(THD *thd) {
   // batch of transactions. This is important because the act of switching trx
   // logs from "apply-logs-*" to "binary-logs-*" looks like a rotation to other
   // parts of the system and rotation is always a 'sync' point
-  ha_flush_logs(NULL);
+  if (ha_flush_logs()) {
+    DBUG_RETURN(1);
+  }
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
   const bool is_locked = dump_log.lock();
