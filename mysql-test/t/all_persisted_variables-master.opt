@@ -1,2 +1,2 @@
 --mysqlx=ON
---skip-rocksdb
+--loose-skip-rocksdb

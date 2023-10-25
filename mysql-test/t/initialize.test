@@ -297,7 +297,7 @@ EOF
 --enable_reconnect
 --source include/wait_until_connected_again.inc
 
-SELECT * FROM information_schema.schemata;
+SELECT * FROM information_schema.schemata ORDER BY SCHEMA_NAME;
 
 --echo # Shut server down
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect

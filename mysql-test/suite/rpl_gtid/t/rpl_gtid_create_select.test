@@ -1,1 +1,5 @@
+# The test results in different replica positions in different storage engines,
+# making it incompatible with idempotent RBR recovery patch.
+--source include/have_innodb_ddse.inc
+
 --source extra/rpl_tests/rpl_create_select.inc
