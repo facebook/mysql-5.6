@@ -1,3 +1,5 @@
+# We want to skip the MyRocks sysvars, which is impossible when it's the DDSE
+--source include/have_innodb_ddse.inc
 --source include/not_threadpool.inc
 
 # 2010-01-28 OBN Added support to load 'innodb' and 'semisync' if possible.
