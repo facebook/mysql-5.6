@@ -1,3 +1,4 @@
+set global rocksdb_enable_delete_range_for_drop_index=0;
 CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;
 SET rocksdb_bulk_load_allow_unsorted=1;
 SET rocksdb_bulk_load=1;
@@ -6,3 +7,13 @@ DROP TABLE t1;
 SET rocksdb_bulk_load=0;
 SELECT * FROM t1;
 ERROR 42S02: Table 'test.t1' doesn't exist
+set global rocksdb_enable_delete_range_for_drop_index=1;
+CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;
+SET rocksdb_bulk_load_allow_unsorted=1;
+SET rocksdb_bulk_load=1;
+INSERT INTO t1 VALUES (1);
+DROP TABLE t1;
+SET rocksdb_bulk_load=0;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+set @@global.rocksdb_enable_delete_range_for_drop_index = default;
