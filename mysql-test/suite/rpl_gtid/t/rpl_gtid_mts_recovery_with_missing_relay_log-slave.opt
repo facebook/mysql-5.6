@@ -1,1 +1,1 @@
---skip-rocksdb
+--loose-skip-rocksdb

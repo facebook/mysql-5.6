@@ -13,6 +13,7 @@ let DDIR=       $MYSQL_TMP_DIR/dd_bootstrap_test;
 let extra_args= --no-defaults --innodb_dedicated_server=OFF --secure-file-priv="" --loose-skip-auto_generate_certs --loose-skip-sha256_password_auto_generate_rsa_keys --skip-ssl --basedir=$BASEDIR --lc-messages-dir=$MYSQL_SHAREDIR;
 let BOOTSTRAP_SQL= $MYSQL_TMP_DIR/tiny_bootstrap.sql;
 let PASSWD_FILE=   $MYSQL_TMP_DIR/password_file.txt;
+let DEFAULT_DDSE= `SELECT @@default_dd_storage_engine`;
 
 --echo # Preparation: Shut server down.
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
@@ -131,6 +132,11 @@ remove_file $BOOTSTRAP_SQL;
 --echo # 3.5 Delete log file.
 remove_file $MYSQLD_LOG;
 
+# With MyRocks DDSE, ALTER TABLE on DD tables that involve temporary tables are
+# not currently supported with skip_dd_table_access_check enabled. The reason is
+# that MyRocks handlerton does not support HTON_SUPPORTS_ATOMIC_DDL, thus does
+# intermediate commits, observing inconsistent data dictionary.
+if ($DEFAULT_DDSE == "InnoDB") {
 --echo #
 --echo # 4. Try restart after altering the schemata table.
 --echo # -------------------------------------------------
@@ -180,6 +186,8 @@ remove_file $BOOTSTRAP_SQL;
 
 --echo # 4.9 Delete log file.
 remove_file $MYSQLD_LOG;
+
+} # if ($DEFAULT_DDSE == "InnoDB")
 
 --echo #
 --echo # 5. Try to access a DD table in an init-file during --initialize.

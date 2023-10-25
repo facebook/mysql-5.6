@@ -1,3 +1,6 @@
+# --innodb-read-only does not prevent server startup on P_S version change if
+# the DDSE is not InnoDB
+--source include/have_innodb_ddse.inc
 --echo #
 --echo # WL7900 -- New DD: Support flexible creation and versioning of
 --echo #           virtual P_S tables

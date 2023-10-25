@@ -3,4 +3,4 @@
 --log_slave_updates
 --binlog_rows_query_log_events=ON
 --log_column_names
---skip-rocksdb
+--loose-skip-rocksdb

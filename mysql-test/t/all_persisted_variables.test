@@ -1,3 +1,5 @@
+# We want to skip the MyRocks sysvars, which is impossible when it's the DDSE
+--source include/have_innodb_ddse.inc
 ################################################################################
 #
 # Creation Date: 19-Feb-2018

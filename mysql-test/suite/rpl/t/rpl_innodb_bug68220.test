@@ -1,3 +1,5 @@
+# If InnoDB is not the DDSE, the system row counters will not be bumped.
+--source include/have_innodb_ddse.inc
 --source include/master-slave.inc
 
 #

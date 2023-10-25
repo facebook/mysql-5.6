@@ -1,2 +1,2 @@
 --gtid-mode=ON --enforce-gtid-consistency
---skip-rocksdb
+--loose-skip-rocksdb

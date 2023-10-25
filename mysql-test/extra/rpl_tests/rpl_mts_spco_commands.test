@@ -207,7 +207,13 @@ SET @@global.binlog_transaction_dependency_tracking = COMMIT_ORDER;
 --echo # $tc_count. CREATE TABLE and CREATE TABLE IF NOT EXISTS
 --echo ####################################################################
 
---let $mts_num_preceding_trans= 6
+--let $DEFAULT_DDSE = `SELECT @@default_dd_storage_engine`
+if ($DEFAULT_DDSE == "RocksDB") {
+  --let $mts_num_preceding_trans= 5
+}
+if ($DEFAULT_DDSE == "InnoDB") {
+  --let $mts_num_preceding_trans= 6
+}
 
 --let $mts_spco_skip_init_statement= 1
 --let $mts_spco_start_statement = CREATE TABLE t1 (c1 INT PRIMARY KEY) ENGINE = InnoDB; CREATE TABLE t2 (c1 INT PRIMARY KEY) ENGINE = InnoDB
