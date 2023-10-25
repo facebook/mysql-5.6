@@ -44,8 +44,9 @@ update ttl_table set b = 100 where b = 1;
 source include/sync_slave_sql_with_master.inc;
 
 connection slave;
+let $pk = `select a from ttl_table where b = 100`;
 show status like 'Slave_before_image_inconsistencies';
-replace_result $uuid uuid;
+replace_result $uuid uuid $pk pk;
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 
 connection slave;
@@ -61,8 +62,9 @@ update ttl_table set b = 200 where b = 2;
 source include/sync_slave_sql_with_master.inc;
 
 connection slave;
+let $pk = `select a from ttl_table where b = 200`;
 show status like 'Slave_before_image_inconsistencies';
-replace_result $uuid uuid;
+replace_result $uuid uuid $pk pk;
 select * from information_schema.RBR_BI_INCONSISTENCIES;
 
 # cleanup
