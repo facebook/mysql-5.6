@@ -84,3 +84,12 @@ SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
 ERROR HY000: Can't create/write to file 'OUTPUT_FILE' (OS errno 21 - Is a directory)
 SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
 drop table t1;
+create table t1(a int primary key, b varchar(1024));
+set @@cte_max_recursion_depth=1000000;
+INSERT INTO t1(a) WITH RECURSIVE qn(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM qn WHERE n<100000) select n from qn;
+set load_data_infile_buffer_size = 64 * 1024 * 1024;
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';;
+create table t2(a int primary key, b varchar(1024));
+load data infile 'OUTPUT_FILE' into table t2;;
+drop table t1, t2;
+# restart

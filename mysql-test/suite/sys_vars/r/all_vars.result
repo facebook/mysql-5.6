@@ -110,8 +110,6 @@ innodb_log_writer_timeout
 innodb_log_writer_timeout
 keyring_operations
 keyring_operations
-load_data_infile_buffer_size
-load_data_infile_buffer_size
 log_global_var_changes
 log_global_var_changes
 log_replica_updates
