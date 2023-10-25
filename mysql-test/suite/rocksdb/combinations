@@ -1,4 +1,0 @@
-[drop_table_with_compact_range]
-
-[drop_table_with_delete_range]
-rocksdb_enable_delete_range_for_drop_index = ON

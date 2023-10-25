@@ -1,5 +1,12 @@
 --source include/have_rocksdb.inc
+set global rocksdb_enable_delete_range_for_drop_index=0;
+--let $truncate_table = 0
+--let $drop_table = 1
+--source drop_table3.inc
 
--- let $truncate_table = 0
--- let $drop_table = 1
--- source drop_table3.inc
+set global rocksdb_enable_delete_range_for_drop_index=1;
+--let $truncate_table = 0
+--let $drop_table = 1
+--source drop_table3.inc
+
+set @@global.rocksdb_enable_delete_range_for_drop_index = default;
