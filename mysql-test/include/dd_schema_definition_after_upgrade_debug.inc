@@ -65,7 +65,7 @@ if (!$VERSION)
 --echo ########################################################################
 --let $actual_dd_props = $MYSQL_TMP_DIR/actual_dd_properties.txt
 --let $file = $actual_dd_props
---let $filter = id|root|MYSQLD_VERSION_LO
+--let $filter = id|root|MYSQLD_VERSION_LO|DD_ENGINE_UPGRADED
 --source include/dd_schema_dd_properties.inc
 --diff_files $target_dd_props $actual_dd_props
 

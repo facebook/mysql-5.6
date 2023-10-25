@@ -1,6 +1,7 @@
 # WL#13681: Make error-log available for queries from a connection
 
 SET @@global.log_error_verbosity=3;
+SET GLOBAL skip_sys_tables_engine_check=1;
 
 # FR-1.1 Table name
 # FR-1.2 Columns and names
@@ -130,6 +131,7 @@ Note	MY-013627	InnoDB
 Note	MY-013018	InnoDB
 Note	MY-012976	InnoDB
 System	MY-013577	InnoDB
+Note	MY-014007	Server
 Note	MY-011089	Server
 Note	MY-012357	InnoDB
 Note	MY-012356	InnoDB

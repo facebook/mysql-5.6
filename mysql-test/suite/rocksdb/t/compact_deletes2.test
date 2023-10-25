@@ -1,4 +1,7 @@
 --source include/have_rocksdb.inc
+# current test expects no entry during compaction
+# with rocksdb DDSE, this couldn't happen
+--source include/have_innodb_ddse.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS r1;

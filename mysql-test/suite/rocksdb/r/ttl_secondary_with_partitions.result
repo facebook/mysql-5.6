@@ -469,6 +469,7 @@ CREATE INDEX kc2 on t1 (c2);
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='foo';
 set global rocksdb_compact_cf='default';
+set global rocksdb_compact_cf='default';
 SELECT * FROM t1 FORCE INDEX (PRIMARY);
 c1	c2
 2	2
