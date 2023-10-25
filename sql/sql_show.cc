@@ -3995,6 +3995,9 @@ int fill_rbr_bi_inconsistencies(THD *thd, Table_ref *tables, Item *) {
     table->field[3]->store(info.source_img.c_str(), info.source_img.size(), cs);
     /* Column values from local DB */
     table->field[4]->store(info.local_img.c_str(), info.local_img.size(), cs);
+    /* Column values for primary key (if any) */
+    table->field[5]->store(info.primary_key.c_str(), info.primary_key.size(),
+                           cs);
 
     if (schema_table_store_record(thd, table)) {
       error = 1;
@@ -5893,6 +5896,7 @@ ST_FIELD_INFO rbr_bi_inconsistencies_fields_info[] = {
     {"SOURCE_LOG_POS", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Source Log Pos", 0},
     {"SOURCE_IMAGE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Source Image", 0},
     {"LOCAL_IMAGE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Local Image", 0},
+    {"PRIMARY_KEY", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Primary Key", 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
 ST_FIELD_INFO plugin_fields_info[] = {

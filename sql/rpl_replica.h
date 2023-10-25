@@ -694,6 +694,7 @@ struct before_image_mismatch {
   std::string log_pos;
   std::string source_img;
   std::string local_img;
+  std::string primary_key;
 };
 extern ulong before_image_inconsistencies;
 extern std::unordered_map<std::string, before_image_mismatch>

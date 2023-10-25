@@ -40,6 +40,8 @@
 #include <string>
 #include <utility>
 
+#include <boost/algorithm/string.hpp>
+
 #include "my_rapidjson_size_t.h"
 #include "rapidjson/document.h"
 
@@ -9123,17 +9125,14 @@ static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols) {
 
 /**
  * Assumes that the relay log before image is stored in record[1] and the local
- * image read from the storage engine is stored in record[0] and calculates the
- * difference in column values
+ * image read from the storage engine is stored in record[0], calculates the
+ * difference in column values and stores it in passed mismatch_info obj
  *
- * @return A pair of strings where the 1st string is the column values in the
- * source (i.e. relay log) and 2nd is the col values of the local DB. The
- * strings are in col=val format, comma separated if multiple cols have
- * mismatch. Only cols that have mismatch are recorded.
+ * All column info populated by this method is a comma separated string where
+ * each unit is a key val pair of form "col name = col val"
  */
-static std::pair<std::string, std::string> calculate_diff(TABLE *table,
-                                                          table_def *tabledef,
-                                                          MY_BITMAP *cols) {
+static void calculate_diff(TABLE *table, table_def *tabledef, MY_BITMAP *cols,
+                           before_image_mismatch *mismatch_info) {
   DBUG_ENTER("calculate_diff");
   std::string source, local;
 
@@ -9185,14 +9184,16 @@ static std::pair<std::string, std::string> calculate_diff(TABLE *table,
           const ptrdiff_t offset = table->s->rec_buff_length;
           field->val_str(&str1);
           const std::string local_val =
-              field->is_null() ? "NULL" : std::string(str1.c_ptr_safe());
+              field->is_null() ? "NULL"
+                               : std::string(str1.c_ptr_safe(), str1.length());
 #ifndef NDEBUG
           const uchar *prev = field->field_ptr();
 #endif
           field->move_field_offset(offset);
           field->val_str(&str2);
           const std::string source_val =
-              field->is_null() ? "NULL" : std::string(str2.c_ptr_safe());
+              field->is_null() ? "NULL"
+                               : std::string(str2.c_ptr_safe(), str2.length());
 
           if (source_val != local_val) {
             local += std::string(field->field_name) + "=" + local_val + ",";
@@ -9215,17 +9216,42 @@ static std::pair<std::string, std::string> calculate_diff(TABLE *table,
           String str1, str2;
           const ptrdiff_t offset = table->s->rec_buff_length;
           field->val_str(&str1);
-          const std::string local_val =
-              field->is_null() ? "NULL" : std::string(str1.c_ptr_safe());
+          std::string local_val =
+              field->is_null() ? "NULL"
+                               : std::string(str1.c_ptr_safe(), str1.length());
 #ifndef NDEBUG
           const uchar *prev = field->field_ptr();
 #endif
           field->move_field_offset(offset);
           field->val_str(&str2);
-          const std::string source_val =
-              field->is_null() ? "NULL" : std::string(str2.c_ptr_safe());
+          std::string source_val =
+              field->is_null() ? "NULL"
+                               : std::string(str2.c_ptr_safe(), str2.length());
 
           if (source_val != local_val) {
+            // case: convert values to base64 if there are any non-printable
+            // chars
+            if (std::any_of(source_val.begin(), source_val.end(),
+                            [](char c) { return !std::isgraph(c); }) ||
+                std::any_of(local_val.begin(), local_val.end(),
+                            [](char c) { return !std::isgraph(c); })) {
+              std::string source_base64;
+              std::string local_base64;
+              source_base64.resize(
+                  base64_needed_encoded_length(source_val.size()));
+              local_base64.resize(
+                  base64_needed_encoded_length(local_val.size()));
+              if (!base64_encode(source_val.data(), source_val.size(),
+                                 source_base64.data())) {
+                source_base64.resize(std::strlen(source_base64.c_str()));
+                source_val = "base64(" + source_base64 + ")";
+              }
+              if (!base64_encode(local_val.data(), local_val.size(),
+                                 local_base64.data())) {
+                local_base64.resize(std::strlen(local_base64.c_str()));
+                local_val = "base64(" + local_base64 + ")";
+              }
+            }
             local += std::string(field->field_name) + "=" + local_val + ",";
             source += std::string(field->field_name) + "=" + source_val + ",";
           }
@@ -9247,11 +9273,41 @@ static std::pair<std::string, std::string> calculate_diff(TABLE *table,
     }
   }
 
+  // case: fill PK info if available
+  std::string pk;
+  if (table->s->primary_key < MAX_KEY) {
+    KEY *keyinfo = table->key_info + table->s->primary_key;
+    for (uint i = 0; i < keyinfo->user_defined_key_parts; i++) {
+      auto field = keyinfo->key_part[i].field;
+      String str;
+      field->val_str(&str);
+      std::string val = field->is_null()
+                            ? "NULL"
+                            : std::string(str.c_ptr_safe(), str.length());
+      // case: convert values to base64 if there are any non-printable
+      // chars
+      if (std::any_of(val.begin(), val.end(),
+                      [](char c) { return !std::isgraph(c); })) {
+        std::string base64;
+        base64.resize(base64_needed_encoded_length(val.size()));
+        if (!base64_encode(val.data(), val.size(), base64.data())) {
+          base64.resize(std::strlen(base64.c_str()));
+          val = "base64(" + base64 + ")";
+        }
+      }
+      pk += std::string(field->field_name) + "=" + val + ",";
+    }
+  }
+
   // Remove trailing comma
   if (source.size()) source.pop_back();
   if (local.size()) local.pop_back();
+  if (pk.size()) pk.pop_back();
 
-  DBUG_RETURN(std::make_pair(source, local));
+  mismatch_info->local_img = std::move(local);
+  mismatch_info->source_img = std::move(source);
+  mismatch_info->primary_key = std::move(pk);
+  DBUG_VOID_RETURN;
 }
 
 void Rows_log_event::do_post_row_operations(Relay_log_info const *rli,
@@ -9744,8 +9800,7 @@ end:
                           std::string(m_table->s->table_name.str);
     mismatch_info.log_pos = std::string(rli->get_rpl_log_name()) + ":" +
                             std::to_string(common_header->log_pos);
-    std::tie(mismatch_info.source_img, mismatch_info.local_img) =
-        calculate_diff(m_table, tabledef, &m_cols);
+    calculate_diff(m_table, tabledef, &m_cols, &mismatch_info);
 
     if (likely(!mismatch_info.source_img.empty() &&
                !mismatch_info.local_img.empty())) {

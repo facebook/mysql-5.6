@@ -30,8 +30,8 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:11	master-bin.000001:3091	c=1	c=2
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
+test.t1	uuid:11	master-bin.000001:3091	c=1	c=2	a=1
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -44,8 +44,8 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:11	master-bin.000001:3091	c=1	c=2
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
+test.t1	uuid:11	master-bin.000001:3091	c=1	c=2	a=1
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -58,8 +58,8 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:11	master-bin.000001:3091	c=1	c=2
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
+test.t1	uuid:11	master-bin.000001:3091	c=1	c=2	a=1
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -71,8 +71,8 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:11	master-bin.000001:3091	c=1	c=2
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
+test.t1	uuid:11	master-bin.000001:3091	c=1	c=2	a=1
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;
@@ -93,7 +93,7 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	0
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
 set @@global.debug = "-d,dbg.fire_bi_inconsistency";
 select * from t1;
 a	b	c
@@ -153,8 +153,8 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:31	master-bin.000001:8380	c=1	c=2
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
+test.t1	uuid:31	master-bin.000001:8380	c=1	c=2	a=1
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -167,8 +167,8 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:31	master-bin.000001:8380	c=1	c=2
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
+test.t1	uuid:31	master-bin.000001:8380	c=1	c=2	a=1
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -181,8 +181,8 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:31	master-bin.000001:8380	c=1	c=2
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
+test.t1	uuid:31	master-bin.000001:8380	c=1	c=2	a=1
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -194,8 +194,8 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
-test.t1	uuid:31	master-bin.000001:8380	c=1	c=2
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
+test.t1	uuid:31	master-bin.000001:8380	c=1	c=2	a=1
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;
@@ -216,7 +216,7 @@ show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	0
 select * from information_schema.RBR_BI_INCONSISTENCIES;
-TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE
+TABLE	LAST_GTID	SOURCE_LOG_POS	SOURCE_IMAGE	LOCAL_IMAGE	PRIMARY_KEY
 set @@global.debug = "-d,dbg.fire_bi_inconsistency";
 select * from t1;
 a	b	c

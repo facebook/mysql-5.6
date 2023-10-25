@@ -10433,7 +10433,7 @@ ER_DB_DISCOVERY_FAILURE
   eng "Placeholder"
 
 ER_RBR_BEFORE_IMAGE_INCONSISTENT
-  eng "Slave before-image consistency check failed at position: %s (gtid: %s). Mismatch (table: %s): %s (source) vs. %s (local)"
+  eng "Slave before-image consistency check failed at position: %s (gtid: %s). Mismatch (table: %s, PK: %s): %s (source) vs. %s (local)"
 
 #
 # End of new range for 5.6.35 FB MySQL error messages.

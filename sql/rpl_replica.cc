@@ -12291,6 +12291,7 @@ bool update_before_image_inconsistencies(THD *thd) {
     if (should_error_out || log_error_verbosity > 1) {
       std::string bi = mismatch_info.source_img;
       std::string li = mismatch_info.local_img;
+      std::string pk = mismatch_info.primary_key;
       if (bi.length() > 256) {
         bi.resize(253);
         bi += "...";
@@ -12299,18 +12300,23 @@ bool update_before_image_inconsistencies(THD *thd) {
         li.resize(253);
         li += "...";
       }
+      if (pk.length() > 256) {
+        pk.resize(253);
+        pk += "...";
+      }
 
       if (!should_error_out) {
         std::stringstream msg;
         msg << "Slave before-image consistency check failed at position: "
             << mismatch_info.log_pos << " (gtid: " << mismatch_info.gtid
-            << "). Mismatch (table: " << mismatch_info.table << "): " << bi
-            << " (source) vs. " << li << " (local)";
+            << "). Mismatch (table: " << mismatch_info.table << ", PK: " << pk
+            << "): " << bi << " (source) vs. " << li << " (local)";
         sql_print_warning("%s", msg.str().c_str());
       } else {
         my_error(ER_RBR_BEFORE_IMAGE_INCONSISTENT, MYF(0),
                  mismatch_info.log_pos.c_str(), mismatch_info.gtid.c_str(),
-                 mismatch_info.table.c_str(), bi.c_str(), li.c_str());
+                 mismatch_info.table.c_str(), mismatch_info.primary_key.c_str(),
+                 bi.c_str(), li.c_str());
       }
     }
   }
