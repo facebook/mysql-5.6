@@ -1769,7 +1769,8 @@ bool sync_meta_data(THD *thd) {
 
 bool update_properties(THD *thd, const std::set<String_type> *create_set,
                        const std::set<String_type> *remove_set,
-                       const String_type &target_table_schema_name) {
+                       const String_type &target_table_schema_name,
+                       std::set<String_type> *innodb_set) {
   /*
     Populate the dd properties with the SQL DDL and SE private data.
     Store meta data of non-inert tables only.
@@ -1827,6 +1828,10 @@ bool update_properties(THD *thd, const std::set<String_type> *create_set,
       // All non-abandoned tables should have a table object present.
       assert(dd_table != nullptr);
 
+      // Record all innodb table name
+      if (innodb_set != nullptr && dd_table->engine() == "InnoDB") {
+        innodb_set->insert(dd_table->name());
+      }
       std::unique_ptr<dd::Properties> tbl_props(
           dd::Properties::parse_properties(""));
 

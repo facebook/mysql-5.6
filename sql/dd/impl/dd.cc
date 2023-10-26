@@ -23,6 +23,7 @@
 #include "sql/dd/dd.h"
 
 #include "sql/dd/cache/object_registry.h"
+#include "sql/dd/impl/bootstrap/bootstrap_ctx.h"        // dd::DD_bootstrap_ctx
 #include "sql/dd/impl/cache/shared_dictionary_cache.h"  // dd::cache::Shared_...
 #include "sql/dd/impl/dictionary_impl.h"                // dd::Dictionary_impl
 #include "sql/dd/impl/system_registry.h"                // dd::System_tables
@@ -77,6 +78,10 @@ Dictionary *get_dictionary() { return Dictionary_impl::instance(); }
 template <typename X>
 X *create_object() {
   return dynamic_cast<X *>(new (std::nothrow) typename X::Impl());
+}
+
+bool is_dd_engine_change_in_progress() {
+  return bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change();
 }
 
 template Charset_impl *create_object<Charset_impl>();

@@ -18902,6 +18902,7 @@ static bool check_engine(THD *thd, const char *db_name, const char *table_name,
   handlerton **new_engine = &create_info->db_type;
 
   if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE) && !opt_initialize &&
+      !dd::is_dd_engine_change_in_progress() &&
       ha_check_user_table_blocked(thd, *new_engine, db_name)) {
     handlerton *default_engine = ha_default_handlerton(thd);
     bool no_substitution = (!is_engine_substitution_allowed(thd));

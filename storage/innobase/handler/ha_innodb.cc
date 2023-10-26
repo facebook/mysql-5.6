@@ -15168,7 +15168,9 @@ bool ha_innobase::get_se_private_data(dd::Table *dd_table, bool reset) {
     dict_sys_t::s_dd_table_ids.clear();
   }
 
-  if (!innobase_is_ddse()) {
+  // Similar to boostrap, During DDSE change, SQL layer may also ask
+  // se_private_data for other DD tables
+  if (!innobase_is_ddse() && !dd::is_dd_engine_change_in_progress()) {
     if (dd_table->name() == "dd_properties_placeholder") {
       n_tables = 0;
       n_indexes = 0;

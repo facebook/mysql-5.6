@@ -1083,7 +1083,8 @@ bool update_object_ids(THD *thd, const std::set<String_type> &create_set,
 */
 bool update_myrocks_table_names(THD *thd, const String_type &old_schema_name,
                                 const String_type &new_schema_name,
-                                const std::set<String_type> &table_names) {
+    const std::set<String_type> &table_names,
+    const std::set<String_type> &filter_table_names) {
   assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
   assert(bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change());
 
@@ -1097,8 +1098,12 @@ bool update_myrocks_table_names(THD *thd, const String_type &old_schema_name,
     assert(false);
     return true;
   }
+
   bool err = false;
   for (const auto &table_name : table_names) {
+    // Skip some tables, such as InnoDB tables
+    if (filter_table_names.find(table_name) != filter_table_names.cend())
+      continue;
     char old_table[FN_REFLEN + 1];
     char new_table[FN_REFLEN + 1];
     // old table full name under old schema name
@@ -1181,7 +1186,7 @@ bool upgrade_dd_properties_table(THD *thd, Object_id mysql_schema_id,
       !dd::end_transaction(thd, false) &&
       update_myrocks_table_names(thd, target_table_schema_name,
                                  MYSQL_SCHEMA_NAME.str,
-                                 {dd_property_table_name})) {
+                                 {dd_property_table_name}, {})) {
     LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
            "Failed to update myrocks table name for dd_properties table");
     return true;
@@ -1284,8 +1289,9 @@ bool upgrade_tables(THD *thd) {
     - Finally, update the version numbers and commit. In update_versions(),
       the atomic switch will either be committed.
   */
-  if (update_properties(thd, &create_set, &remove_set,
-                        target_table_schema_name) ||
+  std::set<String_type> innodb_set = {};
+  if (update_properties(thd, &create_set, &remove_set, target_table_schema_name,
+                        &innodb_set) ||
       update_object_ids(thd, create_set, remove_set, mysql_schema_id,
                         target_table_schema_id, target_table_schema_name,
                         actual_table_schema_id))
@@ -1296,7 +1302,8 @@ bool upgrade_tables(THD *thd) {
       (default_dd_storage_engine == DEFAULT_DD_ROCKSDB) &&
       !dd::end_transaction(thd, false) &&
       update_myrocks_table_names(thd, target_table_schema_name,
-                                 MYSQL_SCHEMA_NAME.str, create_set)) {
+                                 MYSQL_SCHEMA_NAME.str, create_set,
+                                 innodb_set)) {
     LogErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
            "Failed to update myrocks table name for non-dd_properties tables");
     return true;
