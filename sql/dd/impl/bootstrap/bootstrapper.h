@@ -383,12 +383,15 @@ bool sync_meta_data(THD *thd);
                                     version of DD.
   @param target_table_schema_name   Schema name in which the final changes are
                                     required.
+  @param innodb_set                 A set of create_set table names whose engine
+                                    is innodb
 
   @return       Upon failure, return true, otherwise false.
 */
 bool update_properties(THD *thd, const std::set<String_type> *create_set,
                        const std::set<String_type> *remove_set,
-                       const String_type &target_table_schema_name);
+                       const String_type &target_table_schema_name,
+                       std::set<String_type> *innodb_set = nullptr);
 
 /**
   Updates the DD Version in the DD_properties table to the current version.

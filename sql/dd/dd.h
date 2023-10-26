@@ -78,6 +78,12 @@ class Dictionary *get_dictionary();
 template <typename X>
 X *create_object();
 
+/**
+  Whether DD engine is changing in progress,such as INNODB DDSE to MyRocks DDSE
+  or vice versa.
+*/
+bool is_dd_engine_change_in_progress();
+
 ///////////////////////////////////////////////////////////////////////////
 
 }  // namespace dd
