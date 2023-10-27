@@ -7194,14 +7194,13 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
   heap = mem_heap_create(100, UT_LOCATION_HERE);
 
   if (dd_access_through_server()) {
-    return for_all_innodb_objects_in_dd<dd::Tablespace>(
+    int result = for_all_innodb_objects_in_dd<dd::Tablespace>(
         thd, [&heap, &tables](THD *thd, const dd::Tablespace &tablespace) {
           const auto &se_private_data = tablespace.se_private_data();
 
           space_id_t space;
           if (se_private_data.get(dd_space_key_strings[DD_SPACE_ID], &space)) {
             assert(false);
-            mem_heap_free(heap);
             return 1;
           }
 
@@ -7218,7 +7217,6 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
           if (se_private_data.get(dd_space_key_strings[DD_SPACE_FLAGS],
                                   &flags)) {
             assert(false);
-            mem_heap_free(heap);
             return 1;
           }
 
@@ -7226,7 +7224,6 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
           if (properties.exists("encryption") &&
               properties.get("encryption", &encryption)) {
             assert(false);
-            mem_heap_free(heap);
             return 1;
           }
 
@@ -7241,7 +7238,6 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
           if (se_private_data.get(dd_space_key_strings[DD_SPACE_SERVER_VERSION],
                                   &server_version)) {
             assert(false);
-            mem_heap_free(heap);
             return 1;
           }
 
@@ -7249,7 +7245,6 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
           if (se_private_data.get(dd_space_key_strings[DD_SPACE_VERSION],
                                   &space_version)) {
             assert(false);
-            mem_heap_free(heap);
             return 1;
           }
 
@@ -7258,7 +7253,6 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
           if (se_private_data.get(dd_space_key_strings[DD_SPACE_STATE],
                                   &state)) {
             assert(false);
-            mem_heap_free(heap);
             return 1;
           }
 
@@ -7266,7 +7260,6 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
           if (properties.exists(autoextend_size_str) &&
               properties.get(autoextend_size_str, &autoextend_size)) {
             assert(false);
-            mem_heap_free(heap);
             return 1;
           }
 
@@ -7278,6 +7271,8 @@ static int i_s_innodb_tablespaces_fill_table(THD *thd, Table_ref *tables,
 
           return 0;
         });
+    mem_heap_free(heap);
+    return result;
   }
 
   assert(!dd_access_through_server());
