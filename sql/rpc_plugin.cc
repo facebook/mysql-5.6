@@ -292,12 +292,23 @@ const char *getHlcQueryDatabaseName(const myrocks_select_from_rpc *param) {
 }
 
 static const bypass_rpc_exception clean_return;
+static const bypass_rpc_exception shutdown_error{
+    ER_SERVER_SHUTDOWN, "MYF(0)", "MySQL server is shutting down"};
+static std::atomic_bool about_to_shutdown{false};
 }  // namespace
 
 /**
   Run bypass select query
 */
 bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
+  if (about_to_shutdown) {
+    return shutdown_error;
+  }
+  if (current_thd && current_thd->killed == THD::KILL_CONNECTION) {
+    about_to_shutdown = true;
+    return shutdown_error;
+  }
+
   if (param == nullptr) {
     // this means rpc plugin wants to destroy THD before killing rpc thread
     if (current_thd) {
