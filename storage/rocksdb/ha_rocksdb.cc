@@ -476,20 +476,6 @@ int rocksdb_create_checkpoint(const char *checkpoint_dir_raw) {
   return HA_EXIT_FAILURE;
 }
 
-int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw) {
-  const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
-  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-                  "deleting temporary checkpoint in directory : %s\n",
-                  checkpoint_dir.c_str());
-  const auto status = rocksdb::DestroyDB(checkpoint_dir, rocksdb::Options());
-  if (status.ok()) {
-    return HA_EXIT_SUCCESS;
-  }
-  my_error(ER_GET_ERRMSG, MYF(0), status.code(), status.ToString().c_str(),
-           rocksdb_hton_name);
-  return HA_EXIT_FAILURE;
-}
-
 static int rocksdb_create_checkpoint_validate(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -1323,6 +1309,27 @@ static void rocksdb_set_io_write_timeout(
   io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
 
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
+int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw) {
+  const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
+  LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                  "deleting temporary checkpoint in directory : %s\n",
+                  checkpoint_dir.c_str());
+
+  std::string trash_dir = std::string(rocksdb_datadir) + "/trash";
+  rocksdb::Options op = rocksdb::Options();
+  op.sst_file_manager.reset(NewSstFileManager(
+      rocksdb_db_options->env, rocksdb_db_options->info_log, trash_dir,
+      rocksdb_sst_mgr_rate_bytes_per_sec, true /* delete_existing_trash */));
+  const auto status = rocksdb::DestroyDB(checkpoint_dir, op);
+
+  if (status.ok()) {
+    return HA_EXIT_SUCCESS;
+  }
+  my_error(ER_GET_ERRMSG, MYF(0), status.code(), status.ToString().c_str(),
+           rocksdb_hton_name);
+  return HA_EXIT_FAILURE;
 }
 
 #endif  // !__APPLE__

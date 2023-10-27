@@ -68,7 +68,9 @@ class [[nodiscard]] rdb_checkpoint final {
   // Returns MySQL error code
   [[nodiscard]] int init() {
     assert(!m_active);
-    const auto result = myrocks::rocksdb_create_checkpoint(m_dir.c_str());
+    m_full_dir = make_dir_full_name(
+        m_dir.c_str(), m_next_sub_id.fetch_add(1, std::memory_order_relaxed));
+    const auto result = myrocks::rocksdb_create_checkpoint(m_full_dir.c_str());
     m_active = (result == HA_EXIT_SUCCESS);
     return m_active ? 0 : ER_INTERNAL_ERROR;
   }
@@ -77,21 +79,22 @@ class [[nodiscard]] rdb_checkpoint final {
   [[nodiscard]] int cleanup() {
     if (!m_active) return 0;
     m_active = false;
-    return myrocks::rocksdb_remove_checkpoint(m_dir.c_str()) == HA_EXIT_SUCCESS
+    return myrocks::rocksdb_remove_checkpoint(m_full_dir.c_str()) ==
+                   HA_EXIT_SUCCESS
                ? 0
                : ER_INTERNAL_ERROR;
   }
 
   [[nodiscard]] constexpr const std::string &get_dir() const noexcept {
     assert(m_active);
-    return m_dir;
+    return m_full_dir;
   }
 
   [[nodiscard]] std::string path(const std::string &file_name) const {
     // We might be calling this for inactive checkpoint too, if the donor is in
     // the middle of a checkpoint roll. The caller will handle any ENOENTs as
     // needed.
-    return myrocks::rdb_concat_paths(m_dir, file_name);
+    return myrocks::rdb_concat_paths(m_full_dir, file_name);
   }
 
   rdb_checkpoint(const rdb_checkpoint &) = delete;
@@ -102,9 +105,13 @@ class [[nodiscard]] rdb_checkpoint final {
  private:
   const std::string m_dir;
 
+  std::string m_full_dir;
+
   bool m_active = false;
 
   static std::atomic<std::uint64_t> m_next_id;
+
+  std::atomic<std::uint64_t> m_next_sub_id{1};
 
   [[nodiscard]] static std::string make_dir_name(std::uint64_t id) {
     const auto base_str = myrocks::clone::checkpoint_base_dir();
@@ -117,6 +124,19 @@ class [[nodiscard]] rdb_checkpoint final {
     result = base_str;
     result += FN_LIBCHAR;
     result += myrocks::clone::checkpoint_name_prefix;
+    result += id_str;
+    return result;
+  }
+
+  [[nodiscard]] static std::string make_dir_full_name(std::string base_dir,
+                                                      std::uint64_t id) {
+    const auto id_str = std::to_string(id);
+    std::string result;
+    result.reserve(base_dir.length() + id_str.length() +
+                   1);  // +1 for '-', the trailing
+                        // '\0' is accounted by the sizeof.
+    result = base_dir;
+    result += '-';
     result += id_str;
     return result;
   }
