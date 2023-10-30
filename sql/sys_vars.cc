@@ -10215,3 +10215,45 @@ static Sys_var_bool Sys_use_mdl_mutex(
     "Use thread pool friendly MDL lock instead of regular mutex where "
     "instrumented. If disabled, the regular mutex is used.",
     READ_ONLY GLOBAL_VAR(use_mdl_mutex), CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static bool check_mta_binlog_statement_workers(sys_var * /*self*/, THD *thd,
+                                               set_var *var) {
+  uint prev_val = thd->variables.mta_binlog_statement_workers;
+  uint val = (uint)var->save_result.ulonglong_value;
+
+  // case: we need to cleanup workers
+  if (prev_val > 0 && val == 0) {
+    assert(thd->variables.mta_binlog_statement_workers);
+    if (!thd->rli_fake) {
+      push_warning(
+          thd, Sql_condition::SL_WARNING, ER_WRONG_VALUE_FOR_VAR,
+          "mta_binlog_statement_workers can only be set from mysqlbinlog");
+      return false;
+    }
+    bool mts_inited = true;
+    auto save_mts_parallel_option = mts_parallel_option;
+    auto save_opt_mts_dependency_replication = opt_mts_dependency_replication;
+    mts_parallel_option = MTS_PARALLEL_TYPE_DEPENDENCY;
+    opt_mts_dependency_replication = DEP_RPL_STATEMENT;
+    auto submode = static_cast<Mts_submode_dependency *>(
+        thd->rli_fake->current_mts_submode);
+    if (!submode->wait_for_dep_workers_to_finish(thd->rli_fake, false)) {
+      push_warning(thd, Sql_condition::SL_WARNING, ER_WRONG_VALUE_FOR_VAR,
+                   "Could not wait for all transactions to complete");
+    }
+    slave_stop_workers(thd->rli_fake, &mts_inited);
+    mts_parallel_option = save_mts_parallel_option;
+    opt_mts_dependency_replication = save_opt_mts_dependency_replication;
+  }
+
+  return false;
+}
+
+static Sys_var_uint Sys_mta_binlog_statement_workers(
+    "mta_binlog_statement_workers",
+    "Internal variable to specify the Number of workers to spawn to apply "
+    "binlogs thru mysqlbinlog piping",
+    SESSION_VAR(mta_binlog_statement_workers), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, MTS_MAX_WORKERS), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_mta_binlog_statement_workers),
+    ON_UPDATE(nullptr));

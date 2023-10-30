@@ -269,6 +269,9 @@ Slave_worker::Slave_worker(Relay_log_info *rli,
       worker_checkpoint_seqno(0),
       running_status(NOT_RUNNING),
       exit_incremented(false) {
+  if (c_rli && c_rli->is_fake()) {
+    sql_print_information("Creating a fake worker thread");
+  }
   /*
     In the future, it would be great if we use only one identifier.
     So when factoring out this code, please, consider this.
@@ -284,6 +287,9 @@ Slave_worker::Slave_worker(Relay_log_info *rli,
 }
 
 Slave_worker::~Slave_worker() {
+  if (c_rli && c_rli->is_fake()) {
+    sql_print_information("Destroying a fake worker thread");
+  }
   end_info();
   if (jobs.inited_queue) {
     assert(jobs.m_Q.size() == jobs.capacity);
@@ -492,7 +498,7 @@ int Slave_worker::flush_info(const bool force) {
 
   if (!inited) return 0;
 
-  if (c_rli->mi->is_gtid_only_mode()) return 0;
+  if (c_rli->mi && c_rli->mi->is_gtid_only_mode()) return 0;
 
   /*
     We update the sync_period at this point because only here we

@@ -639,6 +639,8 @@ struct System_variables {
     @sa Sys_explain_format
    */
   Explain_format_type explain_format;
+
+  uint mta_binlog_statement_workers;
 };
 
 /**

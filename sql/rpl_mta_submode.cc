@@ -1471,7 +1471,9 @@ void Mts_submode_dependency::handle_terminal_event(
       assert(opt_debug_sync_timeout > 0);
       assert(!debug_sync_set_action(rli->info_thd, STRING_WITH_LEN(act)));
     };);
-    thd->mem_root->ClearForReuse();
+    if (!thd->variables.mta_binlog_statement_workers) {
+      thd->mem_root->ClearForReuse();
+    }
   }
 }
 

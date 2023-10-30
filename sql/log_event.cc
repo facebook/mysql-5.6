@@ -2558,7 +2558,10 @@ void Log_event::print_base64(IO_CACHE *file, PRINT_EVENT_INFO *print_event_info,
   }
 
   if (print_event_info->base64_output_mode != BASE64_OUTPUT_DECODE_ROWS) {
-    if (my_b_tell(file) == 0) {
+    // In BASE64_OUTPUT_FULL mode mysqlbinlog.cc will determine when to print
+    // "BINLOG". See @print_event()
+    if (print_event_info->base64_output_mode != BASE64_OUTPUT_FULL &&
+        my_b_tell(file) == 0) {
       my_b_printf(file, "\nBINLOG '\n");
       print_event_info->inside_binlog = true;
     }

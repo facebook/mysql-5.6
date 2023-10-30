@@ -591,6 +591,9 @@ bool start_slave_thread(PSI_thread_key thread_key, my_start_routine h_func,
                         std::atomic<uint> *slave_running,
                         std::atomic<ulong> *slave_run_id, Master_info *mi);
 
+int slave_start_workers(Relay_log_info *rli, ulong n, bool *mts_inited);
+void slave_stop_workers(Relay_log_info *rli, bool *mts_inited);
+
 std::string get_active_master_info();
 bool show_slave_status(THD *thd, Master_info *mi);
 bool show_slave_status(THD *thd);

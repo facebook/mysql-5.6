@@ -226,13 +226,14 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
   inited_hash_workers = false;
   commit_timestamps_status = COMMIT_TS_UNKNOWN;
 
+  mysql_mutex_init(key_mutex_slave_parallel_pend_jobs, &pending_jobs_lock,
+                   MY_MUTEX_INIT_FAST);
+  mysql_cond_init(key_cond_slave_parallel_pend_jobs, &pending_jobs_cond);
+
   if (!rli_fake) {
     mysql_mutex_init(key_relay_log_info_log_space_lock, &log_space_lock,
                      MY_MUTEX_INIT_FAST);
     mysql_cond_init(key_relay_log_info_log_space_cond, &log_space_cond);
-    mysql_mutex_init(key_mutex_slave_parallel_pend_jobs, &pending_jobs_lock,
-                     MY_MUTEX_INIT_FAST);
-    mysql_cond_init(key_cond_slave_parallel_pend_jobs, &pending_jobs_cond);
     mysql_mutex_init(key_mutex_slave_parallel_worker_count, &exit_count_lock,
                      MY_MUTEX_INIT_FAST);
     mysql_mutex_init(key_mta_temp_table_LOCK, &mts_temp_table_LOCK,
@@ -294,9 +295,17 @@ void Relay_log_info::deinit_workers() { workers.clear(); }
 Relay_log_info::~Relay_log_info() {
   DBUG_TRACE;
 
+  delete current_mts_submode;
+  if (workers_copy_pfs.size()) {
+    for (int i = static_cast<int>(workers_copy_pfs.size()) - 1; i >= 0; i--)
+      delete workers_copy_pfs[i];
+    workers_copy_pfs.clear();
+  }
+  mysql_mutex_destroy(&pending_jobs_lock);
+  mysql_cond_destroy(&pending_jobs_cond);
+
   if (!rli_fake) {
     if (recovery_groups_inited) bitmap_free(&recovery_groups);
-    delete current_mts_submode;
 
     if (rpl_filter != nullptr) {
       /* Remove the channel's replication filter from rpl_channel_filters. */
@@ -304,16 +313,8 @@ Relay_log_info::~Relay_log_info() {
       rpl_filter = nullptr;
     }
 
-    if (workers_copy_pfs.size()) {
-      for (int i = static_cast<int>(workers_copy_pfs.size()) - 1; i >= 0; i--)
-        delete workers_copy_pfs[i];
-      workers_copy_pfs.clear();
-    }
-
     mysql_mutex_destroy(&log_space_lock);
     mysql_cond_destroy(&log_space_cond);
-    mysql_mutex_destroy(&pending_jobs_lock);
-    mysql_cond_destroy(&pending_jobs_cond);
     mysql_mutex_destroy(&exit_count_lock);
     mysql_mutex_destroy(&mts_temp_table_LOCK);
     mysql_mutex_destroy(&mts_gaq_LOCK);

@@ -671,6 +671,8 @@ class Relay_log_info : public Rpl_info {
   */
   bool is_applier_source_position_info_invalid() const;
 
+  bool is_fake() const { return rli_fake; }
+
   /*
     Let's call a group (of events) :
       - a transaction

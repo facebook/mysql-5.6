@@ -143,6 +143,7 @@ SET PERSIST_ONLY max_binlog_cache_size = @@GLOBAL.max_binlog_cache_size;
 SET PERSIST_ONLY max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST_ONLY max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
 SET PERSIST_ONLY max_relay_log_size = @@GLOBAL.max_relay_log_size;
+SET PERSIST_ONLY mta_binlog_statement_workers = @@GLOBAL.mta_binlog_statement_workers;
 SET PERSIST_ONLY mts_dependency_replication = @@GLOBAL.mts_dependency_replication;
 SET PERSIST_ONLY prev_gtid_and_opid = @@GLOBAL.prev_gtid_and_opid;
 ERROR HY000: Variable 'prev_gtid_and_opid' is a non persistent read only variable
@@ -384,6 +385,7 @@ RESET PERSIST max_binlog_cache_size;
 RESET PERSIST max_binlog_size;
 RESET PERSIST max_binlog_stmt_cache_size;
 RESET PERSIST max_relay_log_size;
+RESET PERSIST mta_binlog_statement_workers;
 RESET PERSIST mts_dependency_replication;
 RESET PERSIST prev_gtid_and_opid;
 ERROR HY000: Variable prev_gtid_and_opid does not exist in persisted config file

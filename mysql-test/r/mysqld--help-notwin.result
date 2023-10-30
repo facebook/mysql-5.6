@@ -1092,6 +1092,9 @@ The following options may be given as the first argument:
  minimum_hlc_ns is successfully updated is guranteed to be
  greater than this value. The maximum allowed drift 
  (forward) is controlled by maximum_hlc_drift_ns
+ --mta-binlog-statement-workers[=#] 
+ Internal variable to specify the Number of workers to
+ spawn to apply binlogs thru mysqlbinlog piping
  --mts-dependency-cond-wait-timeout[=#] 
  Timeout for all conditional waits in dependency repl in
  milliseconds
@@ -3449,6 +3452,7 @@ memlock FALSE
 min-examined-row-limit 0
 min-examined-row-limit-sql-stats 0
 minimum-hlc-ns 0
+mta-binlog-statement-workers 0
 mts-dependency-cond-wait-timeout 5000
 mts-dependency-max-keys 100000
 mts-dependency-order-commits DB

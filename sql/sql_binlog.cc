@@ -28,6 +28,7 @@
 #include <utility>
 
 #include "base64.h"  // base64_needed_decoded_length
+#include "include/scope_guard.h"
 #include "lex_string.h"
 #include "libbinlogevents/include/binlog_event.h"
 #include "m_string.h"
@@ -44,18 +45,27 @@
 #include "sql/psi_memory_key.h"
 #include "sql/rpl_info_factory.h"  // Rpl_info_factory
 #include "sql/rpl_info_handler.h"
-#include "sql/rpl_rli.h"  // Relay_log_info
+#include "sql/rpl_replica.h"  // slave_start_workers
+#include "sql/rpl_rli.h"      // Relay_log_info
 #include "sql/sql_class.h"
 #include "sql/sql_lex.h"
 #include "sql/system_variables.h"
 
+enum check_event_status {
+  SUCCESS,
+  ERROR,
+  SKIP,
+};
+
 /**
   Check if the event type is allowed in a BINLOG statement.
 
-  @retval 0 if the event type is ok.
-  @retval 1 if the event type is not ok.
+  @retval SUCCESS if the event type is ok.
+  @retval ERROR if the event type is not ok.
+  @retval SKIP if the event type should be skipped
 */
-static int check_event_type(int type, Relay_log_info *rli) {
+static check_event_status check_event_type(int type, THD *thd) {
+  Relay_log_info *rli = thd->rli_fake;
   Format_description_log_event *fd_event = rli->get_rli_description_event();
 
   switch (type) {
@@ -68,12 +78,12 @@ static int check_event_type(int type, Relay_log_info *rli) {
         fd_event = new Format_description_log_event();
         if (rli->set_rli_description_event(fd_event)) {
           delete fd_event;
-          return 1;
+          return ERROR;
         }
       }
 
       /* It is always allowed to execute FD events. */
-      return 0;
+      return SUCCESS;
 
     case binary_log::ROWS_QUERY_LOG_EVENT:
     case binary_log::TABLE_MAP_EVENT:
@@ -90,13 +100,21 @@ static int check_event_type(int type, Relay_log_info *rli) {
         already been seen.
       */
       if (fd_event)
-        return 0;
+        return SUCCESS;
       else {
         my_error(ER_NO_FORMAT_DESCRIPTION_EVENT_BEFORE_BINLOG_STATEMENT, MYF(0),
                  Log_event::get_type_str((Log_event_type)type));
-        return 1;
+        return ERROR;
       }
       break;
+
+    case binary_log::ROTATE_EVENT:
+    case binary_log::STOP_EVENT:
+      // We need to skip applying these events. Read comment below
+      if (thd->variables.mta_binlog_statement_workers) {
+        return SKIP;
+      }
+      [[fallthrough]];
 
     default:
       /*
@@ -105,10 +123,16 @@ static int check_event_type(int type, Relay_log_info *rli) {
         and Rotate_log_event since they call flush_relay_log_info, which
         is not allowed to call by other threads than the slave SQL
         thread when the slave SQL thread is running.
+
+        When mta_binlog_statement_workers is enabled all events are in base64 so
+        we skip selected events above and return success on all others
       */
+      if (thd->variables.mta_binlog_statement_workers) {
+        return SUCCESS;
+      }
       my_error(ER_ONLY_FD_AND_RBR_EVENTS_ALLOWED_IN_BINLOG_STATEMENT, MYF(0),
                Log_event::get_type_str((Log_event_type)type));
-      return 1;
+      return ERROR;
   }
 }
 
@@ -161,7 +185,10 @@ void mysql_client_binlog_statement(THD *thd) {
     Allocation
   */
   int err = 0;
+  const char *error = nullptr;
   Relay_log_info *rli = thd->rli_fake;
+  char *buf = nullptr;
+  Log_event *ev = nullptr;
   if (!rli) {
     /*
       We create a Relay_log_info object with a INFO_REPOSITORY_DUMMY because
@@ -183,13 +210,55 @@ void mysql_client_binlog_statement(THD *thd) {
     } else
       rli->set_rbr_column_type_mismatch_whitelist(
           std::unordered_set<std::string>());
+
+    if (thd->variables.mta_binlog_statement_workers) {
+      bool mts_inited = false;
+
+      mysql_mutex_lock(&rli->run_lock);
+      auto save_mts_parallel_option = mts_parallel_option;
+      auto save_opt_mts_dependency_replication = opt_mts_dependency_replication;
+      auto save_opt_mts_replica_parallel_workers =
+          opt_mts_replica_parallel_workers;
+
+      auto grd = create_scope_guard([&]() {
+        mts_parallel_option = save_mts_parallel_option;
+        opt_mts_dependency_replication = save_opt_mts_dependency_replication;
+        opt_mts_replica_parallel_workers =
+            save_opt_mts_replica_parallel_workers;
+
+        mysql_mutex_unlock(&rli->run_lock);
+      });
+
+      mts_parallel_option = MTS_PARALLEL_TYPE_DEPENDENCY;
+      opt_mts_dependency_replication = DEP_RPL_STATEMENT;
+      opt_mts_replica_parallel_workers = rli->opt_replica_parallel_workers =
+          thd->variables.mta_binlog_statement_workers;
+
+      rli->channel_mts_submode = (enum_mts_parallel_type)mts_parallel_option;
+      rli->current_mts_submode = new Mts_submode_dependency();
+      rli->mts_dependency_size = opt_mts_dependency_size;
+
+      if ((err = slave_start_workers(rli, opt_mts_replica_parallel_workers,
+                                     &mts_inited)) ||
+          !mts_inited) {
+        my_error(ER_SLAVE_THREAD, MYF(0));
+        goto end;
+      }
+      rli->slave_running = 1;
+      rli->reported_unsafe_warning = false;
+      rli->sql_thread_kill_accepted = false;
+    }
   }
 
-  const char *error = nullptr;
-  char *buf = (char *)my_malloc(key_memory_binlog_statement_buffer, decoded_len,
-                                MYF(MY_WME));
-  Log_event *ev = nullptr;
+  if (thd->variables.mta_binlog_statement_workers &&
+      sql_slave_killed(thd, rli)) {
+    err = 1;
+    my_error(ER_SLAVE_THREAD, MYF(0));
+    goto end;
+  }
 
+  buf = (char *)my_malloc(key_memory_binlog_statement_buffer, decoded_len,
+                          MYF(MY_WME));
   /*
     Out of memory check
   */
@@ -255,7 +324,18 @@ void mysql_client_binlog_statement(THD *thd) {
       DBUG_PRINT("info", ("event_len=%lu, bytes_decoded=%" PRId64, event_len,
                           bytes_decoded));
 
-      if (check_event_type(bufptr[EVENT_TYPE_OFFSET], rli)) goto end;
+      switch (check_event_type(bufptr[EVENT_TYPE_OFFSET], thd)) {
+        case check_event_status::ERROR:
+          goto end;
+        case check_event_status::SKIP:
+          bytes_decoded -= event_len;
+          bufptr += event_len;
+          continue;
+        case check_event_status::SUCCESS:
+          break;
+        default:
+          break;
+      }
 
       Binlog_read_error binlog_read_error = binlog_event_deserialize(
           reinterpret_cast<unsigned char *>(bufptr), event_len,
@@ -276,6 +356,15 @@ void mysql_client_binlog_statement(THD *thd) {
 
       DBUG_PRINT("info", ("ev->common_header()=%d", ev->get_type_code()));
       ev->thd = thd;
+
+      if (thd->variables.mta_binlog_statement_workers) {
+        const bool force = rli->rli_checkpoint_seqno >= rli->checkpoint_group;
+        if ((force || rli->is_time_for_mta_checkpoint()) &&
+            mta_checkpoint_routine(rli, force)) {
+          err = 1;
+        }
+      }
+
       /*
         We go directly to the application phase, since we don't need
         to check if the event shall be skipped or not.
@@ -284,7 +373,20 @@ void mysql_client_binlog_statement(THD *thd) {
         not used at all: the rli_fake instance is used only for error
         reporting.
       */
-      err = ev->apply_event(rli);
+      err = err || ev->apply_event(rli);
+
+      if (!err && thd->variables.mta_binlog_statement_workers &&
+          (ev->worker != rli) && is_mts_parallel_type_dependency(rli)) {
+        // we'll pass owership to workers, so we reset the pointer
+        auto grd = create_scope_guard([&]() { ev = nullptr; });
+        assert(ev->worker == nullptr);
+        if (ev->m_mts_dep_allowed &&
+            !static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
+                 ->schedule_dep(rli, ev)) {
+          err = 1;
+        }
+      }
+
       /*
         Format_description_log_event should not be deleted because it
         will be used to read info about the relay log's format; it
@@ -293,7 +395,7 @@ void mysql_client_binlog_statement(THD *thd) {
         ROWS_QUERY_LOG_EVENT if present in rli is deleted at the end
         of the event but ones with trx meta data are deleted here.
       */
-      if (ev->get_type_code() != binary_log::FORMAT_DESCRIPTION_EVENT &&
+      if (ev && ev->get_type_code() != binary_log::FORMAT_DESCRIPTION_EVENT &&
           ev->get_type_code() != binary_log::ROWS_QUERY_LOG_EVENT) {
         delete ev;
         ev = nullptr;
@@ -314,9 +416,17 @@ void mysql_client_binlog_statement(THD *thd) {
 
 end:
   if (rli) {
-    if ((error || err) && rli->rows_query_ev) {
-      delete rli->rows_query_ev;
-      rli->rows_query_ev = nullptr;
+    if (error || err) {
+      if (rli->rows_query_ev) {
+        delete rli->rows_query_ev;
+        rli->rows_query_ev = nullptr;
+      }
+      if (thd->variables.mta_binlog_statement_workers) {
+        bool mts_inited = true;
+        slave_stop_workers(rli, &mts_inited);
+        delete rli->current_mts_submode;
+        rli->current_mts_submode = nullptr;
+      }
     }
     rli->slave_close_thread_tables(thd);
   }
