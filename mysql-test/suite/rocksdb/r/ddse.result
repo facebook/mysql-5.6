@@ -1,0 +1,5 @@
+include/assert.inc [MAX_DD_INDEX_ID must be non-zero]
+include/assert.inc [a DD table must exist in MyRocks and be in the __system__ CF]
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=ROCKSDB;
+include/assert.inc [Creating user table should not bump MAX_DD_INDEX_ID]
+DROP TABLE t1;
