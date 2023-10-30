@@ -21,3 +21,16 @@ let $max_dd_index_id_1=query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_
 --source include/assert.inc
 
 DROP TABLE t1;
+
+--echo #
+--echo # Incompatible transaction isolation levels should not prevent DDL
+--echo #
+SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+CREATE TABLE t1 (a INT PRIMARY KEY);
+DROP TABLE t1;
+
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+CREATE TABLE t1 (a INT PRIMARY KEY);
+DROP TABLE t1;
