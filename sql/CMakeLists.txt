@@ -1010,6 +1010,9 @@ IF(WIN32)
   ENDIF()
 ENDIF()
 
+SET(COMPRESSION_SOURCE compression.cc)
+ADD_LIBRARY(compression STATIC ${COMPRESSION_SOURCE})
+
 SET(BINLOG_SOURCE
   basic_istream.cc
   basic_ostream.cc
@@ -1055,6 +1058,7 @@ SET(BINLOG_SOURCE
 ADD_LIBRARY(binlog STATIC ${BINLOG_SOURCE})
 TARGET_LINK_LIBRARIES(binlog binlogevents_static)
 TARGET_LINK_LIBRARIES(binlog rpl)
+TARGET_LINK_LIBRARIES(binlog compression)
 
 SET (RPL_SOURCE rpl_handler.cc rpl_tblmap.cc rpl_context.cc)
 ADD_DEPENDENCIES(binlog GenError)
@@ -1067,6 +1071,41 @@ ADD_DEPENDENCIES(rpl GenError)
 ADD_LIBRARY(master STATIC ${MASTER_SOURCE})
 ADD_DEPENDENCIES(master GenError)
 TARGET_LINK_LIBRARIES(master binlog sql_main)
+
+IF(WITH_THRIFT)
+  ADD_DEFINITIONS(-DHAVE_THRIFT)
+  SET(THRIFT_LIBRARIES ${THRIFT_LIBRARIES}
+    ${WITH_THRIFT}/lib/libthrift${PIC_EXT}.a)
+  ADD_LIBRARY(thrift_lib STATIC IMPORTED GLOBAL)
+  SET_PROPERTY(TARGET thrift_lib PROPERTY IMPORTED_LOCATION ${THRIFT_LIBRARIES})
+
+  SET(THRIFT_COMPILER "${WITH_THRIFT}/bin/thrift")
+  SET(THRIFT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thrift_if")
+  SET(THRIFT_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen")
+  FILE(MAKE_DIRECTORY ${THRIFT_OUTPUT_DIR})
+
+  SET(THRIFT_FILES "${THRIFT_SOURCE_DIR}/LogWrapper.thrift")
+  SET(
+    GENERATED_THRIFT_FILES
+    ${THRIFT_OUTPUT_DIR}/LogWrapper_types.cpp
+    ${THRIFT_OUTPUT_DIR}/LogWrapper_types.h)
+  SET_SOURCE_FILES_PROPERTIES(
+    ${GENERATED_THRIFT_FILES}
+    PROPERTIES
+    COMPILE_OPTIONS
+    "-Wno-inconsistent-missing-override;-Wno-cast-qual;-Wno-inconsistent-missing-destructor-override")
+
+  ADD_CUSTOM_COMMAND(
+    OUTPUT ${GENERATED_THRIFT_FILES}
+    COMMAND ${THRIFT_COMPILER} --out ${THRIFT_OUTPUT_DIR} --gen cpp ${THRIFT_FILES}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Generating Thrift files")
+
+  ADD_LIBRARY(thrift_gen STATIC ${GENERATED_THRIFT_FILES})
+  TARGET_LINK_LIBRARIES(thrift_gen thrift_lib)
+
+  TARGET_LINK_LIBRARIES(master thrift_gen)
+ENDIF()
 
 SET (SLAVE_SOURCE
   dynamic_ids.cc

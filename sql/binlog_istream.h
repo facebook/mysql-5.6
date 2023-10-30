@@ -23,6 +23,9 @@
 #ifndef BINLOG_ISTREAM_INCLUDED
 #define BINLOG_ISTREAM_INCLUDED
 #include "my_sys.h"
+#ifdef HAVE_THRIFT
+#include "sql/compression.h"
+#endif
 #include "sql/basic_istream.h"
 #include "sql/rpl_log_encryption.h"
 
@@ -255,4 +258,37 @@ class Relaylog_ifile : public Basic_binlog_ifile {
 };
 #endif
 
+#ifdef HAVE_THRIFT
+/**
+ * In thrift format we wrap the binlog transaction (compressed or uncompressed)
+ * into a thrift struct (LogEntry in LogWrapper.thrift) and write this to file
+ * in <length, data> format where length is the size of serialized thrift obj
+ * and data is the serialized thrift obj.
+ *
+ * This class presents the thrift format file for reading as if it was a regular
+ * binlog file.
+ */
+class Binlog_thrift_istream : public Basic_seekable_istream {
+ public:
+  ~Binlog_thrift_istream() override;
+  bool open(std::unique_ptr<Basic_seekable_istream> down_istream,
+            Binlog_read_error *binlog_read_error);
+  void close();
+  ssize_t read(unsigned char *buffer, size_t length) override;
+  bool seek(my_off_t offset) override;
+  my_off_t length() override;
+
+ private:
+  /* Codec to decompress binlog payload */
+  std::unique_ptr<CompressionCodec> m_codec;
+  /* The down stream containing the thrift content */
+  std::unique_ptr<Basic_seekable_istream> m_down_istream;
+  /* Buffer to store raw binlog format transaction */
+  std::string buf_;
+  /* Offset within buf_ */
+  size_t buf_offset_ = 0;
+  /* Last compression dict id seen */
+  unsigned int last_compression_dict_id = 0;
+};
+#endif  // HAVE_THRIFT
 #endif  // BINLOG_ISTREAM_INCLUDED
