@@ -20,6 +20,32 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#ifdef HAVE_THRIFT
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#pragma clang diagnostic ignored "-Winconsistent-missing-destructor-override"
+#pragma clang diagnostic ignored "-Wcast-qual"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winconsistent-missing-override"
+#pragma GCC diagnostic ignored "-Winconsistent-missing-destructor-override"
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+#include <sql/gen/LogWrapper_types.h>
+#include <thrift/protocol/TCompactProtocol.h>
+#include <thrift/transport/TBufferTransports.h>
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+#undef PACKAGE
+#undef PACKAGE_VERSION
+#endif
+
+#include <boost/endian/conversion.hpp>
+
 #include "sql/binlog_istream.h"
 #include "sql/log_event.h"
 #include "sql/mysqld.h"
@@ -163,8 +189,24 @@ bool Basic_binlog_ifile::read_binlog_magic() {
 #endif
   }
 
-  if (memcmp(magic, BINLOG_MAGIC, BINLOG_MAGIC_SIZE))
+  if (memcmp(magic, BINLOG_MAGIC, BINLOG_MAGIC_SIZE)) {
+#ifdef HAVE_THRIFT
+    // assuming it is a thrift file
+    std::unique_ptr<Binlog_thrift_istream> thrift_istream{
+        new Binlog_thrift_istream()};
+    if (thrift_istream->open(std::move(m_istream), m_error)) return true;
+
+    /* Setup thrift stream pipeline */
+    m_istream = std::move(thrift_istream);
+
+    /* Read binlog magic from thrift data */
+    if (m_istream->read(magic, BINLOG_MAGIC_SIZE) != BINLOG_MAGIC_SIZE) {
+      return m_error->set_type(Binlog_read_error::BAD_BINLOG_MAGIC);
+    }
+#else
     return m_error->set_type(Binlog_read_error::BAD_BINLOG_MAGIC);
+#endif  // HAVE_THRIFT
+  }
   m_position = BINLOG_MAGIC_SIZE;
   return m_error->set_type(Binlog_read_error::SUCCESS);
 }
@@ -234,3 +276,146 @@ std::unique_ptr<Basic_seekable_istream> Relaylog_ifile::open_file(
 }
 
 #endif  // ifdef MYSQL_SERVER
+
+#ifdef HAVE_THRIFT
+Binlog_thrift_istream::~Binlog_thrift_istream() { close(); }
+
+bool Binlog_thrift_istream::open(
+    std::unique_ptr<Basic_seekable_istream> down_istream,
+    Binlog_read_error * /*binlog_read_error*/) {
+  m_down_istream = std::move(down_istream);
+  if (!m_down_istream) {
+    return true;
+  }
+  return m_down_istream->seek(0);
+}
+
+void Binlog_thrift_istream::close() {
+  m_down_istream.reset(nullptr);
+  m_codec.reset(nullptr);
+}
+
+ssize_t Binlog_thrift_istream::read(unsigned char *buffer, size_t length) {
+  ssize_t ret = 0;
+  while (length) {
+    // Case: we have stuff in buf_ that can be copied over
+    if (buf_offset_ < buf_.size()) {
+      size_t copy_size = std::min(length, buf_.size() - buf_offset_);
+      memcpy(buffer, buf_.c_str() + buf_offset_, copy_size);
+      buf_offset_ += copy_size;
+      buffer += copy_size;
+      length -= copy_size;
+      ret += copy_size;
+      continue;
+    }
+
+    assert(buf_offset_ == buf_.size());
+    // reset offset now that we're going to read a fresh buffer
+    buf_offset_ = 0;
+
+    // read the size of the next thrift obj
+    uint8_t size_buf[sizeof(uint32_t)];
+    memset(size_buf, 0, sizeof(size_buf));
+    uint32_t bytes_read = m_down_istream->read(size_buf, sizeof(uint32_t));
+    if (bytes_read == 0) {
+      break;
+    }
+    if (bytes_read != sizeof(uint32_t)) {
+      return -1;
+    }
+
+    uint32_t size = boost::endian::big_to_native(
+        *reinterpret_cast<const uint32_t *>(size_buf));
+
+    // read the thrift obj into a buffer
+    auto data_buf = std::make_unique<unsigned char[]>(size);
+    bytes_read = m_down_istream->read(data_buf.get(), size);
+    if (bytes_read != size) {
+      return -1;
+    }
+
+    // deserialize the thrift obj
+    using namespace apache::thrift::transport;
+    using namespace apache::thrift::protocol;
+    std::shared_ptr<TMemoryBuffer> transport =
+        std::make_shared<TMemoryBuffer>();
+    transport->resetBuffer(reinterpret_cast<uint8_t *>(data_buf.get()), size);
+    std::shared_ptr<TCompactProtocol> protocol =
+        std::make_shared<TCompactProtocol>(transport);
+
+    LogEntry entry;
+    try {
+      entry.read(protocol.get());
+    } catch (const apache::thrift::TException &ex) {
+      return -1;
+    }
+
+    if (!entry.__isset.data) {
+      return -1;
+    }
+
+    LogData &data = entry.data;
+
+    if (!data.__isset.payload) {
+      return -1;
+    }
+
+    if (!entry.__isset.metadata) {
+      buf_ = std::move(data.payload);
+      continue;
+    }
+
+    const LogMetadata &metadata = entry.metadata;
+
+    if (!metadata.__isset.compression_codec ||
+        metadata.compression_codec == "NO_COMPRESSION") {
+      buf_ = std::move(data.payload);
+      continue;
+    }
+
+    if (!m_codec || metadata.compression_codec != m_codec->type()) {
+      m_codec = CompressionCodec::GetCodec(metadata.compression_codec);
+      if (!m_codec) return -1;
+    }
+
+    if (!metadata.__isset.uncompressed_size) {
+      return -1;
+    }
+
+    if (metadata.__isset.compression_dict) {
+      m_codec->SetDictionary(metadata.compression_dict);
+      if (metadata.__isset.compression_dict_id &&
+          metadata.compression_dict_id != m_codec->GetDictionaryID()) {
+        return -1;
+      }
+      unsigned int dict_id = metadata.__isset.compression_dict_id
+                                 ? metadata.compression_dict_id
+                                 : m_codec->GetDictionaryID();
+      last_compression_dict_id = dict_id;
+    }
+
+    const int64_t uncompressed_size = metadata.uncompressed_size;
+    buf_.resize(uncompressed_size);
+    if (!m_codec->Uncompress(data.payload, (uint8_t *)buf_.data(),
+                             uncompressed_size)) {
+      return -1;
+    }
+  }
+  return ret;
+}
+
+bool Binlog_thrift_istream::seek(my_off_t offset) {
+  auto data_buf = std::make_unique<unsigned char[]>(offset);
+  return read(data_buf.get(), offset) == -1;
+}
+
+my_off_t Binlog_thrift_istream::length() {
+  unsigned char buf[1024];
+  my_off_t length = 0;
+  ssize_t bytes_read = 0;
+  while ((bytes_read = read(buf, sizeof(buf))) != 0) {
+    length += bytes_read;
+  }
+  return length;
+}
+#endif  // HAVE_THRIFT
