@@ -1,0 +1,49 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+
+call mtr.add_suppression("HA_ERR_FOUND_DUPP_KEY");
+
+connection master;
+let $MYSQLD_DATADIR = `select @@global.datadir`;
+
+let $binlog_file = query_get_value(SHOW MASTER STATUS, File, 1);
+create table t1 (a int primary key) engine = innodb;
+
+flush binary logs;
+eval purge binary logs to '$binlog_file';
+
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+let $binlog_file = query_get_value(SHOW MASTER STATUS, File, 1);
+
+flush binary logs;
+delete from t1;
+
+echo "Case 1: No errors";
+exec $MYSQL_BINLOG --skip-gtids --mta-workers=2 $MYSQLD_DATADIR/$binlog_file | $MYSQL --host=127.0.0.1 -P $MASTER_MYPORT -uroot;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+select * from t1;
+
+connection slave;
+select * from t1;
+
+echo "Case 2: Duplicate key error on worker";
+connection master;
+delete from t1;
+insert into t1 values(3); # this will cause dup key error
+
+exec $MYSQL_BINLOG --skip-gtids --mta-workers=2 $MYSQLD_DATADIR/$binlog_file | $MYSQL --host=127.0.0.1 -P $MASTER_MYPORT -uroot || true;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

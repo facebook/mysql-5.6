@@ -459,6 +459,7 @@ enum enum_base64_output_mode {
   BASE64_OUTPUT_AUTO = 1,
   BASE64_OUTPUT_UNSPEC = 2,
   BASE64_OUTPUT_DECODE_ROWS = 3,
+  BASE64_OUTPUT_FULL = 4,
   /* insert new output modes here */
   BASE64_OUTPUT_MODE_COUNT
 };
@@ -571,6 +572,9 @@ struct PRINT_EVENT_INFO {
     It omits the SET @@session.pseudo_thread_id printed on Query events
   */
   bool require_row_format;
+
+  // Are we inside a binlog group/transaction? Only used in MTA mode
+  bool inside_group = false;
 };
 #endif
 

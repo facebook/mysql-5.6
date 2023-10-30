@@ -576,7 +576,10 @@ struct System_variables {
   bool sql_stats_read_control;
 
   bool clean_parser_memory_per_statement;
+
   ulong load_data_infile_buffer_size;
+
+  uint mta_binlog_statement_workers;
 };
 
 /**

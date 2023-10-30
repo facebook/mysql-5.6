@@ -1,0 +1,37 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("HA_ERR_FOUND_DUPP_KEY");
+create table t1 (a int primary key) engine = innodb;
+flush binary logs;
+purge binary logs to 'master-bin.000001';
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+include/sync_slave_sql_with_master.inc
+flush binary logs;
+delete from t1;
+"Case 1: No errors"
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+"Case 2: Duplicate key error on worker"
+delete from t1;
+insert into t1 values(3);
+include/sync_slave_sql_with_master.inc
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

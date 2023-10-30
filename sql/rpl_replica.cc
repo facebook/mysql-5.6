@@ -7120,8 +7120,9 @@ static int slave_start_single_worker(Relay_log_info *rli, ulong i) {
 
   mysql_mutex_assert_owner(&rli->run_lock);
 
-  if (!(w = Rpl_info_factory::create_worker(opt_rli_repository_id, i, rli,
-                                            false))) {
+  if (!(w = Rpl_info_factory::create_worker(
+            rli->is_fake() ? INFO_REPOSITORY_DUMMY : opt_rli_repository_id, i,
+            rli, false))) {
     LogErr(ERROR_LEVEL, ER_RPL_SLAVE_WORKER_THREAD_CREATION_FAILED,
            rli->get_for_channel_str());
     error = 1;
@@ -7182,7 +7183,7 @@ err:
    @return 0         success
            non-zero  as failure
 */
-static int slave_start_workers(Relay_log_info *rli, ulong n, bool *mts_inited) {
+int slave_start_workers(Relay_log_info *rli, ulong n, bool *mts_inited) {
   int error = 0;
   /**
     gtid_monitoring_info must be cleared when MTS is enabled or
@@ -7284,7 +7285,7 @@ err:
    worker's running_status.
    Coordinator finalizes with its MTS running status to reset few objects.
 */
-static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited) {
+void slave_stop_workers(Relay_log_info *rli, bool *mts_inited) {
   THD *thd = rli->info_thd;
 
   if (!*mts_inited)

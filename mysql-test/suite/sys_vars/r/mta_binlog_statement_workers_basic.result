@@ -1,0 +1,10 @@
+SET @start_value = @@global.mta_binlog_statement_workers;
+SELECT @start_value;
+@start_value
+0
+SET @@GLOBAL.mta_binlog_statement_workers = 4;
+SET @@SESSION.mta_binlog_statement_workers = 4;
+SET @@SESSION.mta_binlog_statement_workers = 0;
+Warnings:
+Warning	1231	mta_binlog_statement_workers can only be set from mysqlbinlog
+SET @@GLOBAL.mta_binlog_statement_workers = @start_value;

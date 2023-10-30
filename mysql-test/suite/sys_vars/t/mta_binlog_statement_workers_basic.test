@@ -1,0 +1,12 @@
+source include/load_sysvars.inc;
+
+SET @start_value = @@global.mta_binlog_statement_workers;
+SELECT @start_value;
+
+SET @@GLOBAL.mta_binlog_statement_workers = 4;
+
+SET @@SESSION.mta_binlog_statement_workers = 4;
+
+SET @@SESSION.mta_binlog_statement_workers = 0;
+
+SET @@GLOBAL.mta_binlog_statement_workers = @start_value;

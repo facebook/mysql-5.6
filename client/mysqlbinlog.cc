@@ -733,6 +733,7 @@ static char *database = nullptr;
 static char *output_file = nullptr;
 static char *rewrite = nullptr;
 bool force_opt = false, short_form = false, idempotent_mode = false;
+int mta_workers = 0;
 static bool debug_info_flag, debug_check_flag;
 static bool force_if_open_opt = true, raw_mode = false;
 static bool to_last_remote_log = false, stop_never = false;
@@ -1269,6 +1270,26 @@ static bool shall_skip_gtids(const Log_event *ev, Gtid *cached_gtid) {
   return filtered;
 }
 
+static void print_event(Log_event *ev, FILE *result_file,
+                        PRINT_EVENT_INFO *info) {
+  if (info->base64_output_mode != BASE64_OUTPUT_FULL) {
+    return ev->print(result_file, info);
+  }
+
+  auto cache = &info->head_cache;
+
+  if (!info->inside_group) my_b_printf(cache, "BINLOG '\n");
+  if (ev->starts_group() || is_gtid_event(ev)) info->inside_group = true;
+  if (ev->ends_group()) info->inside_group = false;
+  ev->print_base64(cache, info, info->inside_group);
+
+  if (ev->get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT) {
+    info->printed_fd_event = true;
+    my_b_printf(cache, "/*!50616 SET @@SESSION.GTID_NEXT='AUTOMATIC'*/%s\n",
+                info->delimiter);
+  }
+}
+
 /**
   Helper function that prints the cached begin query event to the output
 
@@ -1278,7 +1299,7 @@ static bool shall_skip_gtids(const Log_event *ev, Gtid *cached_gtid) {
   @retval False  ERROR
 */
 static bool print_cached_begin_query(PRINT_EVENT_INFO *print_event_info) {
-  begin_query_ev_cache->print(result_file, print_event_info);
+  print_event(begin_query_ev_cache, result_file, print_event_info);
   auto head = &print_event_info->head_cache;
   if (head->error == -1) {
     return false;
@@ -1510,7 +1531,7 @@ void handle_last_rows_query_event(bool print,
     my_off_t temp_log_pos = last_rows_query_event.event_pos;
     auto old_hexdump_from = print_event_info->hexdump_from;
     print_event_info->hexdump_from = (opt_hexdump ? temp_log_pos : 0);
-    last_rows_query_event.event->print(result_file, print_event_info);
+    print_event(last_rows_query_event.event, result_file, print_event_info);
     print_event_info->hexdump_from = old_hexdump_from;
   }
   last_rows_query_event.event->register_temp_buf(old_temp_buf);
@@ -1627,7 +1648,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
 
     switch (ev_type) {
       case binary_log::TRANSACTION_PAYLOAD_EVENT:
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
         if (head->error == -1) goto err;
         break;
       case binary_log::QUERY_EVENT: {
@@ -1650,7 +1671,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
           my_off_t temp_log_pos = pop_event_array.event_pos;
           print_event_info->hexdump_from = (opt_hexdump ? temp_log_pos : 0);
           if (!parent_query_skips)
-            temp_event->print(result_file, print_event_info);
+            print_event(temp_event, result_file, print_event_info);
           delete temp_event;
         }
 
@@ -1751,7 +1772,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
           if (!in_transaction) seen_gtid = false;
         }
 
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
         if (head->error == -1) goto err;
         break;
       }
@@ -1785,7 +1806,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
           the subsequent call load_processor.process fails, because the
           output of Append_block_log_event::print is only a comment.
         */
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
 
         if (opt_print_gtids && encounter_gtid(cached_gtid)) goto err;
 
@@ -1823,7 +1844,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
 
         print_event_info->common_header_len =
             dynamic_cast<Format_description_event *>(ev)->common_header_len;
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
 
         if (head->error == -1) goto err;
         if (!force_if_open_opt &&
@@ -1838,7 +1859,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
         break;
       }
       case binary_log::BEGIN_LOAD_QUERY_EVENT:
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
         if (head->error == -1) goto err;
         if ((retval = load_processor.process(
                  (Begin_load_query_log_event *)ev)) != OK_CONTINUE)
@@ -1854,6 +1875,10 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
         if (shall_skip_database(exlq->db))
           print_event_info->skipped_event_in_transaction = true;
         else {
+          if (print_event_info->base64_output_mode == BASE64_OUTPUT_FULL) {
+            error("Cannot handle Execute_load_query");
+            goto err;
+          }
           if (fname) {
             convert_path_to_forward_slashes(fname);
             exlq->print(result_file, print_event_info, fname);
@@ -2028,7 +2053,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
           goto err;
         }
 
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
 
         print_event_info->have_unflushed_events = true;
 
@@ -2057,7 +2082,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
                   print_event_info->delimiter);
         print_event_info->skipped_event_in_transaction = false;
 
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
         if (head->error == -1) goto err;
         break;
       }
@@ -2079,12 +2104,12 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
           begin_query_ev_cache = nullptr;
           if (skip) break;
         }
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
         if (head->error == -1) goto err;
         break;
       }
       case binary_log::METADATA_EVENT: {
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
         if (head->error == -1) goto err;
 
         /* Copy and flush head cache and body cache */
@@ -2106,7 +2131,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
               "--include-gtids, respectively, instead.");
         [[fallthrough]];
       default:
-        ev->print(result_file, print_event_info);
+        print_event(ev, result_file, print_event_info);
         if (head->error == -1) goto err;
     }
     /* Flush head cache to result_file for every event */
@@ -2225,6 +2250,11 @@ static struct my_option my_long_options[] = {
      "Notify the server to use idempotent mode before "
      "applying Row Events",
      &idempotent_mode, &idempotent_mode, nullptr, GET_BOOL, NO_ARG, 0, 0, 0,
+     nullptr, 0, nullptr},
+    {"mta-workers", 'w',
+     "Number of multi-threaded workers to spawn on the "
+     "server to apply binlogs",
+     &mta_workers, &mta_workers, nullptr, GET_INT, REQUIRED_ARG, 0, 0, 0,
      nullptr, 0, nullptr},
     {"local-load", 'l',
      "Prepare local temporary files for LOAD DATA INFILE in the specified "
@@ -3771,6 +3801,11 @@ static int args_post_process(void) {
     global_sid_lock->unlock();
   }
 
+  if (mta_workers && opt_skip_gtids == 0) {
+    error("--mta-workers requires --skip-gtids option");
+    return ERROR_STOP;
+  }
+
   return OK_CONTINUE;
 }
 
@@ -4145,6 +4180,17 @@ int main(int argc, char **argv) {
     fprintf(result_file, "/*!80019 SET @@SESSION.REQUIRE_ROW_FORMAT=1*/;\n\n");
   }
 
+  auto orig_base64_output_mode = opt_base64_output_mode;
+  auto orig_short_form = short_form;
+  if (mta_workers) {
+    // we need to work in full base64 and short form mode for MTA
+    opt_base64_output_mode = BASE64_OUTPUT_FULL;
+    short_form = true;
+    fprintf(result_file,
+            "/*!50700 SET @@SESSION.MTA_BINLOG_STATEMENT_WORKERS=%d*/;\n",
+            mta_workers);
+  }
+
   if (opt_start_gtid_str != nullptr || opt_find_gtid_str != nullptr) {
     if (opt_start_gtid_str != nullptr && opt_remote_proto == BINLOG_DUMP_GTID) {
       char *args = const_cast<char *>("");
@@ -4173,7 +4219,12 @@ int main(int argc, char **argv) {
 
   if (!raw_mode && opt_find_gtid_str == nullptr) {
     fprintf(result_file, "# End of log file\n");
-
+    if (mta_workers) {
+      opt_base64_output_mode = orig_base64_output_mode;
+      short_form = orig_short_form;
+      fprintf(result_file,
+              "/*!50700 SET @@SESSION.MTA_BINLOG_STATEMENT_WORKERS=0*/;\n");
+    }
     fprintf(result_file,
             "/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;\n");
     if (disable_log_bin)
