@@ -185,7 +185,7 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS password_history
   User CHAR(80) BINARY DEFAULT '' NOT NULL,
   Password_timestamp TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   Password TEXT,";
-SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "PRIMARY KEY(Host, User, Password_timestamp))", " engine=ROCKSDB CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Password history for user accounts'"), CONCAT(@cmd, "PRIMARY KEY(Host, User, Password_timestamp DESC))", " engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Password history for user accounts' ROW_FORMAT=DYNAMIC TABLESPACE=mysql", " ENCRYPTION='", @is_mysql_encrypted, "'"));
+SET @str = CONCAT(@cmd, "PRIMARY KEY(Host, User, Password_timestamp DESC))", " engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Password history for user accounts' ROW_FORMAT=DYNAMIC TABLESPACE=mysql", " ENCRYPTION='", @is_mysql_encrypted, "'");
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
