@@ -56,8 +56,8 @@ namespace {
 class [[nodiscard]] rdb_checkpoint final {
  public:
   rdb_checkpoint()
-      : m_dir{
-            make_dir_name(m_next_id.fetch_add(1, std::memory_order_relaxed))} {}
+      : m_prefix_dir{make_dir_prefix_name(
+            m_next_id.fetch_add(1, std::memory_order_relaxed))} {}
 
   ~rdb_checkpoint() {
     // Ignore the return value - at this point the clone operation is completing
@@ -68,6 +68,7 @@ class [[nodiscard]] rdb_checkpoint final {
   // Returns MySQL error code
   [[nodiscard]] int init() {
     assert(!m_active);
+    m_dir = make_dir_name(m_prefix_dir, m_next_sub_id++);
     const auto result = myrocks::rocksdb_create_checkpoint(m_dir.c_str());
     m_active = (result == HA_EXIT_SUCCESS);
     return m_active ? 0 : ER_INTERNAL_ERROR;
@@ -100,13 +101,17 @@ class [[nodiscard]] rdb_checkpoint final {
   rdb_checkpoint &operator=(rdb_checkpoint &&) = delete;
 
  private:
-  const std::string m_dir;
+  const std::string m_prefix_dir;
+
+  std::string m_dir;
 
   bool m_active = false;
 
   static std::atomic<std::uint64_t> m_next_id;
 
-  [[nodiscard]] static std::string make_dir_name(std::uint64_t id) {
+  std::uint64_t m_next_sub_id = 1;
+
+  [[nodiscard]] static std::string make_dir_prefix_name(std::uint64_t id) {
     const auto base_str = myrocks::clone::checkpoint_base_dir();
     const auto id_str = std::to_string(id);
     std::string result;
@@ -117,6 +122,19 @@ class [[nodiscard]] rdb_checkpoint final {
     result = base_str;
     result += FN_LIBCHAR;
     result += myrocks::clone::checkpoint_name_prefix;
+    result += id_str;
+    return result;
+  }
+
+  [[nodiscard]] static std::string make_dir_name(
+      const std::string &dir_name_prefix, std::uint64_t id) {
+    const auto id_str = std::to_string(id);
+    std::string result;
+    result.reserve(dir_name_prefix.length() + id_str.length() +
+                   1);  // +1 for '-', the trailing
+                        // '\0' is accounted by the sizeof.
+    result = dir_name_prefix;
+    result += '-';
     result += id_str;
     return result;
   }
