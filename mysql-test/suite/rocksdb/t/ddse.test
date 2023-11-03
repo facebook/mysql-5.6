@@ -1,0 +1,23 @@
+--source include/have_rocksdb.inc
+
+let $max_dd_index_id_0=query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO WHERE type='MAX_DD_INDEX_ID', VALUE, 1);
+
+--let $assert_text=MAX_DD_INDEX_ID must be non-zero
+--let $assert_cond=$max_dd_index_id_0 > 0
+--source include/assert.inc
+
+let dd_properties_cf=`SELECT CF FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME='dd_properties'`;
+
+--let $assert_text=a DD table must exist in MyRocks and be in the __system__ CF
+--let $assert_cond="$dd_properties_cf"="__system__"
+--source include/assert.inc
+
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=ROCKSDB;
+
+let $max_dd_index_id_1=query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO WHERE type='MAX_DD_INDEX_ID', VALUE, 1);
+
+--let $assert_text=Creating user table should not bump MAX_DD_INDEX_ID
+--let $assert_cond=$max_dd_index_id_0=$max_dd_index_id_1
+--source include/assert.inc
+
+DROP TABLE t1;
