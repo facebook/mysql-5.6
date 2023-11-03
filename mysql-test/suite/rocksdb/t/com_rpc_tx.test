@@ -15,8 +15,6 @@ CREATE DATABASE db_rpc;
 USE db_rpc;
 CREATE TABLE t1(pk INT PRIMARY KEY) ENGINE=rocksdb;
 
-SET GLOBAL rocksdb_enable_2pc=1;
-
 connect(con2,localhost,root,,);
 connection default;
 

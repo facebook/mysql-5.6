@@ -1,7 +1,6 @@
 CREATE DATABASE db_rpc;
 USE db_rpc;
 CREATE TABLE t1(pk INT PRIMARY KEY) ENGINE=rocksdb;
-SET GLOBAL rocksdb_enable_2pc=1;
 SET autocommit = 0;
 SET autocommit = 0;
 BEGIN;
