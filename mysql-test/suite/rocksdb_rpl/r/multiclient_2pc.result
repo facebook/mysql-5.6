@@ -1,6 +1,4 @@
-DROP TABLE IF EXISTS t1;
 SET GLOBAL MAX_BINLOG_SIZE = 4096;
-SET GLOBAL ROCKSDB_ENABLE_2PC = ON;
 create table t1 (a int primary key, b int, c varchar(255)) engine=rocksdb;
 'con1'
 SET SESSION debug="d,crash_commit_after_log";

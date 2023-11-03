@@ -4,7 +4,6 @@
 log_slave_updates
 gtid_mode=ON
 enforce_gtid_consistency=ON
-rocksdb_enable_2pc=OFF
 rocksdb_wal_recovery_mode=2
 
 [mysqld.2]
@@ -14,7 +13,6 @@ relay_log_info_repository=FILE
 log_slave_updates
 gtid_mode=ON
 enforce_gtid_consistency=ON
-rocksdb_enable_2pc=OFF
 rocksdb_wal_recovery_mode=2
 slave_use_idempotent_for_recovery=Yes
 update_binlog_pos_threshold=0

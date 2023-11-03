@@ -9,13 +9,8 @@
 # coverage should be missed by not running it under valgrind.
 --source include/not_valgrind.inc
 
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
-
 # Set it to the minimum so that we can make the binlog rotate with a few inserts
 SET GLOBAL MAX_BINLOG_SIZE = 4096;
-SET GLOBAL ROCKSDB_ENABLE_2PC = ON;
 create table t1 (a int primary key, b int, c varchar(255)) engine=rocksdb;
 
 connect (con1, localhost, root,,);
@@ -40,7 +35,7 @@ connection con2;
 --echo 'con2'
 insert into t1 values (2, 1, "i_am_just_here_to_trigger_a_flush");
 
-# Disable 2PC and syncing for faster inserting of dummy rows
+# Disable syncing for faster inserting of dummy rows
 # These rows only purpose is to rotate the binlog
 SET GLOBAL ROCKSDB_FLUSH_LOG_AT_TRX_COMMIT = 0;
 SET GLOBAL SYNC_BINLOG = 0;
@@ -55,7 +50,7 @@ while ($pk < 4096) {
 }
 --enable_query_log
 
-# re-enable 2PC an syncing then write to trigger a flush
+# re-enable syncing then write to trigger a flush
 # before we trigger the crash to simulate full-durability
 SET GLOBAL ROCKSDB_FLUSH_LOG_AT_TRX_COMMIT = 2;
 SET GLOBAL SYNC_BINLOG = 1;

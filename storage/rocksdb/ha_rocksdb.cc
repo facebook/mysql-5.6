@@ -878,7 +878,6 @@ static char *rocksdb_trace_options_str;
 static bool rocksdb_signal_drop_index_thread;
 static bool rocksdb_strict_collation_check = 1;
 static bool rocksdb_ignore_unknown_options = 1;
-static bool rocksdb_enable_2pc = 0;
 static char *rocksdb_strict_collation_exceptions;
 static bool rocksdb_collect_sst_properties = 1;
 static bool rocksdb_force_flush_memtable_now_var = 0;
@@ -2562,10 +2561,6 @@ static MYSQL_SYSVAR_UINT(io_write_timeout, rocksdb_io_write_timeout_secs,
 
 #endif  // !__APPLE__
 
-static MYSQL_SYSVAR_BOOL(enable_2pc, rocksdb_enable_2pc, PLUGIN_VAR_RQCMDARG,
-                         "Enable two phase commit for MyRocks", nullptr,
-                         nullptr, true);
-
 static MYSQL_SYSVAR_BOOL(ignore_unknown_options, rocksdb_ignore_unknown_options,
                          PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
                          "Enable ignoring unknown options passed to RocksDB",
@@ -3147,7 +3142,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(delete_cf),
     MYSQL_SYSVAR(signal_drop_index_thread),
     MYSQL_SYSVAR(pause_background_work),
-    MYSQL_SYSVAR(enable_2pc),
     MYSQL_SYSVAR(ignore_unknown_options),
     MYSQL_SYSVAR(strict_collation_check),
     MYSQL_SYSVAR(strict_collation_exceptions),
@@ -5314,7 +5308,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
       write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
       write_opts.ignore_missing_column_families =
           THDVAR(m_thd, write_ignore_missing_column_families);
-      m_is_two_phase = rocksdb_enable_2pc;
+      m_is_two_phase = true;
 
       /*
         If m_rocksdb_reuse_tx is null this will create a new transaction object.
@@ -6036,9 +6030,6 @@ static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
                               bool binlog_group_flush) {
   assert(rdb != nullptr);
 
-  // Don't flush log if 2pc isn't enabled
-  if (binlog_group_flush && !rocksdb_enable_2pc) return HA_EXIT_SUCCESS;
-
   rocksdb::Status s;
   if ((!binlog_group_flush && !rocksdb_db_options->allow_mmap_writes) ||
       rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
@@ -6098,6 +6089,7 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   /* TODO(yzha) - 0f402cb8381b - Improve singled thread replication performance
    */
   if (prepare_tx || is_autocommit(*thd)) {
+    assert(tx->is_two_phase() || tx->is_writebatch_trx());
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
     if (tx->is_two_phase()) {
