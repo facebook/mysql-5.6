@@ -1,0 +1,1 @@
+--initialize --default_dd_storage_engine=RocksDB
