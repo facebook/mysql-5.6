@@ -7551,7 +7551,7 @@ static void move_wals_to_target_dir() {
         (my_errno() != EEXIST))
       rdb_fatal_error("Failed to create %s", rocksdb_wal_dir);
 
-    if ((my_mkdir(rocksdb_datadir, S_IRWXU, MYF(0)) == -1) &&
+    if ((my_mkdir(rocksdb_datadir, S_IRWXU | S_IRWXG, MYF(0)) == -1) &&
         (my_errno() != EEXIST))
       rdb_fatal_error("Failed to create %s", rocksdb_datadir);
 
