@@ -1,0 +1,4 @@
+[innodb_ddse]
+
+[rocksdb_ddse]
+default_dd_storage_engine = rocksdb
