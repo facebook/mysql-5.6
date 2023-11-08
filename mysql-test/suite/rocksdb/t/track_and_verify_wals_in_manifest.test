@@ -1,6 +1,7 @@
 -- source include/have_rocksdb.inc
 -- source include/not_valgrind.inc
-
+# WAL file size change during different ddse
+--source include/have_innodb_ddse.inc
 
 --source include/restart_mysqld.inc
 
