@@ -5972,7 +5972,8 @@ static int innobase_commit(handlerton *hton, /*!< in: InnoDB handlerton */
 
     /* If SE needs to persist GTID we must have a transaction. */
     if (thd->se_persists_gtid_explicit() &&
-        (innobase_is_ddse() || !trx_state_eq(trx, TRX_STATE_PREPARED))) {
+        (innobase_is_ddse() ||
+         trx->state.load(std::memory_order_relaxed) != TRX_STATE_PREPARED)) {
       trx_start_if_not_started(trx, true, UT_LOCATION_HERE);
     }
 
@@ -15278,6 +15279,18 @@ bool ha_innobase::get_se_private_data(dd::Table *dd_table, bool reset) {
   return false;
 }
 
+/** Mark transaction as read-write in the server layer.
+Normally this is handled by handler::mark_trx_read_write, but when InnoDB is not
+the DDSE (and transactions do not call that method many times), the few
+remaining calls happen too early, when the transaction is not started yet, or
+with an incompatible table_share value.
+@param  thd     thread handle */
+void mark_trx_rw(THD &thd) {
+  auto &ha_info = thd.get_ha_data(innodb_hton_ptr->slot)->ha_info[0];
+  if (ha_info.is_started())
+    ha_info.set_trx_read_write();
+}
+
 /** Create an InnoDB table.
 @param[in]      name            table name in filename-safe encoding
 @param[in]      form            table structure
@@ -15299,6 +15312,10 @@ int ha_innobase::create(const char *name, TABLE *form,
 
   if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE)) {
     innobase_register_trx(ht, thd, trx);
+  }
+
+  if (!innobase_is_ddse()) {
+    mark_trx_rw(*thd);
   }
 
   /* Determine if this CREATE TABLE will be making a file-per-table
@@ -15496,6 +15513,10 @@ int ha_innobase::truncate_impl(const char *name, TABLE *form,
   trx_t *trx = check_trx_exists(thd);
   innobase_register_trx(ht, thd, trx);
 
+  if (!innobase_is_ddse()) {
+    mark_trx_rw(*thd);
+  }
+
   error = truncator.exec();
 
   if (error == 0) {
@@ -15525,8 +15546,7 @@ int ha_innobase::delete_table(const char *name, const dd::Table *table_def) {
   // dd bootstrap system thread
   if (table_def != nullptr &&
       dict_sys_t::is_dd_table_id(table_def->se_private_id()) &&
-      !(ha_thd()->is_dd_system_thread() &&
-        default_dd_storage_engine != DEFAULT_DD_INNODB)) {
+      !(ha_thd()->is_dd_system_thread() && !innobase_is_ddse())) {
     my_error(ER_NOT_ALLOWED_COMMAND, MYF(0));
     return (HA_ERR_UNSUPPORTED);
   }
@@ -15536,6 +15556,10 @@ int ha_innobase::delete_table(const char *name, const dd::Table *table_def) {
 
   if (table_def != nullptr && table_def->is_persistent()) {
     innobase_register_trx(ht, thd, trx);
+  }
+
+  if (!innobase_is_ddse()) {
+    mark_trx_rw(*thd);
   }
 
   return (innobase_basic_ddl::delete_impl(thd, name, table_def, nullptr));
@@ -15806,6 +15830,10 @@ static int innodb_create_tablespace(handlerton *hton, THD *thd,
   trx_t *trx = check_trx_exists(thd);
   TrxInInnoDB trx_in_innodb(trx);
   trx_start_if_not_started(trx, true, UT_LOCATION_HERE);
+  if (!innobase_is_ddse()) {
+    innobase_register_trx(hton, thd, trx);
+    mark_trx_rw(*thd);
+  }
   ++trx->will_lock;
 
   row_mysql_lock_data_dictionary(trx, UT_LOCATION_HERE);
@@ -16787,6 +16815,10 @@ int ha_innobase::rename_table(const char *from, const char *to,
   }
 
   innobase_register_trx(ht, thd, trx);
+
+  if (!innobase_is_ddse()) {
+    mark_trx_rw(*thd);
+  }
 
   return innobase_basic_ddl::rename_impl<dd::Table>(
       thd, from, to, from_table_def, to_table_def, nullptr);
@@ -20204,6 +20236,7 @@ static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
   trx_t *trx = check_trx_exists(thd);
 
   assert(hton == innodb_hton_ptr);
+  assert(!trx->read_only);
 
   thd_get_xid(thd, (MYSQL_XID *)trx->xid);
 
@@ -20224,6 +20257,13 @@ static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
 
   if (prepare_trx ||
       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
+
+    /* If SE needs to persist GTID we must have a transaction. */
+    assert(trx->state.load(std::memory_order_relaxed) != TRX_STATE_PREPARED);
+    if (thd->se_persists_gtid_explicit() && !innobase_is_ddse()) {
+      trx_start_if_not_started(trx, true, UT_LOCATION_HERE);
+    }
+
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
 

@@ -371,6 +371,9 @@ bool dict_sdi_set(handlerton *hton, const dd::Tablespace &tablespace,
   trx_start_if_not_started(trx, true, UT_LOCATION_HERE);
 
   innobase_register_trx(hton, current_thd, trx);
+  if (!innobase_is_ddse()) {
+    mark_trx_rw(*current_thd);
+  }
 
   ib_sdi_key_t ib_sdi_key;
   ib_sdi_key.sdi_key = sdi_key;

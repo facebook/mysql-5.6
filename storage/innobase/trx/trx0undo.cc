@@ -1782,7 +1782,7 @@ dberr_t trx_undo_assign_undo(
   /* For GTID persistence we might add undo segment to prepared transaction. If
   the transaction is in prepared state, we need to set XA properties. */
   if (trx_state_eq(trx, TRX_STATE_PREPARED)) {
-    ut_ad(!is_first);
+    ut_ad(!is_first || !innobase_is_ddse());
     undo->set_prepared(trx->xid);
   }
 

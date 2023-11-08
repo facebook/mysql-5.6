@@ -3045,6 +3045,10 @@ static ulint srv_do_purge(ulint *n_total_purged) {
 
     /* Take a snapshot of the history list before purge. */
     if ((rseg_history_len = trx_sys->rseg_history_len.load()) == 0) {
+      // If InnoDB is not the DDSE, a DROP UNDO TABLESPACE query will not cause
+      // history length increase, which will cause the existing code to skip
+      // truncating of undo tablespaces, preventing the final cleanup of the
+      // dropped tablespace. Thus, do that here.
       if (!innobase_is_ddse()) trx_purge_truncate_undo_spaces();
       break;
     }

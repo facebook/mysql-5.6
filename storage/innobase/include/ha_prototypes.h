@@ -466,4 +466,6 @@ ulong thd_parallel_read_threads(THD *thd);
 
 [[nodiscard]] bool innobase_is_ddse();
 
+void mark_trx_rw(THD &thd);
+
 #endif /* HA_INNODB_PROTOTYPES_H */

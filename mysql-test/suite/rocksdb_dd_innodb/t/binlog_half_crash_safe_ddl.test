@@ -1,0 +1,1 @@
+--source ../../binlog/t/binlog_half_crash_safe_ddl.test
