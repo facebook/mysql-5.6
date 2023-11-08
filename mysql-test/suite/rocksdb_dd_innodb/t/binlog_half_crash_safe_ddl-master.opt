@@ -1,2 +1,2 @@
 --initialize --default-dd-storage-engine=ROCKSDB
---innodb-buffer-pool-size=10M
+--force-restart --binlog-format=MIXED

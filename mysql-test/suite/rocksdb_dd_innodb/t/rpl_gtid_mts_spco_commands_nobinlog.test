@@ -1,0 +1,1 @@
+--source ../../rpl_gtid/t/rpl_mts_spco_commands_nobinlog.test
