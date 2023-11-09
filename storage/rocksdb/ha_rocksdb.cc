@@ -14032,6 +14032,7 @@ void ha_rocksdb::read_thd_vars(THD *const thd) {
 int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
   DBUG_ENTER_FUNC();
 
+  assert(table_share != nullptr);
   assert(thd != nullptr);
 
   int res = HA_EXIT_SUCCESS;
@@ -14058,8 +14059,12 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
       }
     }
   } else {
-    if (my_core::thd_tx_isolation(thd) < ISO_READ_COMMITTED ||
-        my_core::thd_tx_isolation(thd) > ISO_REPEATABLE_READ) {
+    // Check for unsupported transaction isolation levels but allow them for DD
+    // tables. In the latter case they get silenty clamped to RC or RR, which is
+    // good enough for DD operations.
+    if (table_share->table_category != TABLE_CATEGORY_DICTIONARY &&
+        (my_core::thd_tx_isolation(thd) < ISO_READ_COMMITTED ||
+         my_core::thd_tx_isolation(thd) > ISO_REPEATABLE_READ)) {
       my_error(ER_ISOLATION_MODE_NOT_SUPPORTED, MYF(0),
                tx_isolation_names[my_core::thd_tx_isolation(thd)]);
       DBUG_RETURN(HA_ERR_UNSUPPORTED);
