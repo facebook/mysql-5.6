@@ -28,7 +28,6 @@ eval set global thread_pool_admission_control_admission_yield_freq = $yield_freq
 let $stalls_before = `$stall_query`;
 
 --echo Run main workload.
-echo Running $exec;
 exec $exec;
 
 let $stalls_after = `$stall_query`;
