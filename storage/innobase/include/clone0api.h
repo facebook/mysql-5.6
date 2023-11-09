@@ -147,7 +147,7 @@ int clone_add_to_list_file(const char *list_file_name, const char *file_name);
 void clone_remove_list_file(const char *file_name);
 
 /** Revert back clone changes in case of an error. */
-void clone_files_error();
+void clone_files_error(bool after_restart = false);
 
 #ifdef UNIV_DEBUG
 /** Debug function to check and crash during recovery.
