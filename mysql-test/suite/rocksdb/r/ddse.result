@@ -3,3 +3,12 @@ include/assert.inc [a DD table must exist in MyRocks and be in the __system__ CF
 CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=ROCKSDB;
 include/assert.inc [Creating user table should not bump MAX_DD_INDEX_ID]
 DROP TABLE t1;
+#
+# Incompatible transaction isolation levels should not prevent DDL
+#
+SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+CREATE TABLE t1 (a INT PRIMARY KEY);
+DROP TABLE t1;
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+CREATE TABLE t1 (a INT PRIMARY KEY);
+DROP TABLE t1;
