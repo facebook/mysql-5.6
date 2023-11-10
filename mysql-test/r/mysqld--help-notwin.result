@@ -2995,7 +2995,6 @@ The following options may be given as the first argument:
  Set the priority of a thread. The input format is
  OSthreadId:PriValue. The priority values are in the range
  -20 to 19, similar to nice.
- --thread-stack=#    The stack size for each thread
  --tls-ciphersuites=name 
  --tmp-table-size=#  If an internal in-memory temporary table in the MEMORY or
  TempTable storage engine exceeds this size, MySQL will
@@ -3989,7 +3988,6 @@ thread-cache-size 9
 thread-handling one-thread-per-connection
 thread-priority 0
 thread-priority-str 
-thread-stack 1048576
 tls-ciphersuites (No default value)
 tmp-table-size 16777216
 transaction-alloc-block-size 8192

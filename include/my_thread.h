@@ -50,8 +50,12 @@
 // Pick a value which is enough for all mtr tests,
 // on all known/supported platforms.
 // Currently the largest stack requirement is with
-// clang with DEBUG and UBSAN -O0 -fno-inline
+// clang with DEBUG and ASAN
+#ifdef HAVE_ASAN
+#define DEFAULT_THREAD_STACK (10 * 1024UL * 1024UL)
+#else
 #define DEFAULT_THREAD_STACK (1024UL * 1024UL)
+#endif
 
 static inline int is_timeout(int e) {
 #if ETIMEDOUT == ETIME
