@@ -23,6 +23,7 @@ START REPLICA;
 
 # Check raft roles, 4 and 5 should be empty
 connection server_1;
+set @@global.rpl_raft_async_notify_commit_index=1;
 show status like 'rpl_raft_role';
 connection server_2;
 show status like 'rpl_raft_role';
