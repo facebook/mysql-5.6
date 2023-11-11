@@ -1,13 +1,19 @@
 #
 # only global
 #
+# NOTE: Replace the specific value of the var since it varies per build type.
+--replace_column 1 #
 select @@global.thread_stack;
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 select @@session.thread_stack;
+--replace_column 2 #
 show global variables like 'thread_stack';
+--replace_column 2 #
 show session variables like 'thread_stack';
 --disable_warnings
+--replace_column 2 #
 select * from performance_schema.global_variables where variable_name='thread_stack';
+--replace_column 2 #
 select * from performance_schema.session_variables where variable_name='thread_stack';
 --enable_warnings
 
