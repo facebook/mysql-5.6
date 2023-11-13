@@ -3521,8 +3521,6 @@ class Rdb_transaction {
   */
   ulonglong m_writes_at_last_savepoint;
 
-  bool m_ddl_transaction = false;
-
  protected:
   THD *m_thd = nullptr;
 
@@ -3569,8 +3567,6 @@ class Rdb_transaction {
     m_auto_incr_map.clear();
     return s;
   }
-
-  void reset_ddl_transaction() { m_ddl_transaction = false; }
 
  protected:
   /*
@@ -3745,13 +3741,6 @@ class Rdb_transaction {
       set_lock_timeout(m_timeout_sec, table_type);
     }
   }
-
-  void set_ddl_transaction() {
-    assert(!is_ac_nl_ro_rc_transaction());
-    m_ddl_transaction = true;
-  }
-
-  [[nodiscard]] bool is_ddl_transaction() const { return m_ddl_transaction; }
 
   virtual void set_lock_timeout(int timeout_sec_arg, TABLE_TYPE table_type) = 0;
 
@@ -5029,7 +5018,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
     m_delete_count = 0;
     m_row_lock_count = 0;
     m_auto_incr_map.clear();
-    reset_ddl_transaction();
     if (m_rocksdb_tx[TABLE_TYPE::USER_TABLE]) {
       release_snapshot(TABLE_TYPE::USER_TABLE);
       /* This will also release all of the locks: */
@@ -5324,7 +5312,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
       set_initial_savepoint();
 
-      reset_ddl_transaction();
       m_is_delayed_snapshot = false;
     }
   }
@@ -5445,7 +5432,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     m_read_opts[USER_TABLE] = rocksdb::ReadOptions();
     m_read_opts[USER_TABLE].ignore_range_deletions =
         !rocksdb_enable_delete_range_for_drop_index;
-    reset_ddl_transaction();
   }
 
  private:
@@ -11831,12 +11817,18 @@ bool ha_rocksdb::skip_unique_check() const {
          any indexes. If the table has secondary keys, then those might becomes
          inconsisted/corrupted
       3) We're using read-free replication
+      4) For CREATE INDEX, DROP INDEX, & ALTER TABLE when any duplicate key
+         violations are user's responsibility
   */
-  return THDVAR(table->in_use, bulk_load) ||
-         (my_core::thd_test_options(table->in_use,
-                                    OPTION_RELAXED_UNIQUE_CHECKS) &&
+  auto *const thd = table->in_use;
+  return THDVAR(thd, bulk_load) ||
+         (my_core::thd_test_options(thd, OPTION_RELAXED_UNIQUE_CHECKS) &&
           m_tbl_def->m_key_count == 1) ||
-         use_read_free_rpl();
+         use_read_free_rpl() ||
+         (table_share->table_category == TABLE_CATEGORY_USER &&
+          (thd->lex->sql_command == SQLCOM_CREATE_INDEX ||
+           thd->lex->sql_command == SQLCOM_DROP_INDEX ||
+           thd->lex->sql_command == SQLCOM_ALTER_TABLE));
 }
 
 static bool commit_in_the_middle(THD *thd) {
@@ -12112,7 +12104,7 @@ int ha_rocksdb::write_row(uchar *const buf) {
   // values from INSERT
   m_dup_key_found = false;
 
-  rv = update_write_row(nullptr, buf, skip_unique_check());
+  rv = update_write_row(nullptr, buf);
 
   if (rv == 0) {
     /* TODO(yzha) - row stats are gone in 8.0
@@ -12240,14 +12232,12 @@ int ha_rocksdb::get_pk_for_update(struct update_row_info *const row_info) {
   @param[in] row_info         hold all data for update row, such as old row
                               data and new row data
   @param[out] found           whether the primary key exists before.
-  @param[out] pk_changed      whether primary key is changed
   @return
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
 */
 int ha_rocksdb::check_and_lock_unique_pk(const struct update_row_info &row_info,
-                                         bool *const found,
-                                         const bool skip_unique_check) {
+                                         bool *const found) {
   assert(found != nullptr);
 
   assert(row_info.old_pk_slice.size() == 0 ||
@@ -12255,7 +12245,7 @@ int ha_rocksdb::check_and_lock_unique_pk(const struct update_row_info &row_info,
 
   /* Ignore PK violations if this is a optimized 'replace into' */
   const bool ignore_pk_unique_check =
-      ha_thd()->lex->blind_replace_into || skip_unique_check;
+      ha_thd()->lex->blind_replace_into || row_info.skip_unique_check;
   rocksdb::PinnableSlice value;
   rocksdb::PinnableSlice *pslice =
       m_insert_with_update ? &m_dup_key_retrieved_record : &value;
@@ -12337,10 +12327,9 @@ int ha_rocksdb::acquire_prefix_lock(const Rdb_key_def &kd, Rdb_transaction *tx,
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
 */
-int ha_rocksdb::check_and_lock_sk(
-    const uint key_id, const struct update_row_info &row_info,
-    bool *const found,
-    const bool skip_unique_check MY_ATTRIBUTE((__unused__))) {
+int ha_rocksdb::check_and_lock_sk(const uint key_id,
+                                  const struct update_row_info &row_info,
+                                  bool *const found) {
   assert(
       (row_info.old_data == table->record[1] &&
        row_info.new_data == table->record[0]) ||
@@ -12514,8 +12503,7 @@ int ha_rocksdb::check_and_lock_sk(
     other            HA_ERR error code (can be SE-specific)
 */
 int ha_rocksdb::check_uniqueness_and_lock(
-    const struct update_row_info &row_info, bool pk_changed,
-    bool skip_unique_check) {
+    const struct update_row_info &row_info, bool pk_changed) {
   assert(
       (row_info.old_data == table->record[1] &&
        row_info.new_data == table->record[0]) ||
@@ -12542,11 +12530,11 @@ int ha_rocksdb::check_uniqueness_and_lock(
         found = false;
         rc = HA_EXIT_SUCCESS;
       } else {
-        rc = check_and_lock_unique_pk(row_info, &found, skip_unique_check);
+        rc = check_and_lock_unique_pk(row_info, &found);
         DEBUG_SYNC(ha_thd(), "rocksdb.after_unique_pk_check");
       }
     } else {
-      rc = check_and_lock_sk(key_id, row_info, &found, skip_unique_check);
+      rc = check_and_lock_sk(key_id, row_info, &found);
       DEBUG_SYNC(ha_thd(), "rocksdb.after_unique_sk_check");
     }
     DBUG_EXECUTE_IF("rocksdb_blob_crash",
@@ -12743,7 +12731,7 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
      */
     rc = bulk_load_key(row_info.tx, kd, row_info.new_pk_slice, value_slice,
                        THDVAR(table->in_use, bulk_load_allow_unsorted));
-  } else if (row_info.skip_unique_check || row_info.tx->is_ddl_transaction()) {
+  } else if (row_info.skip_unique_check) {
     /*
       It is responsibility of the user to make sure that the data being
       inserted doesn't violate any unique keys.
@@ -13040,8 +13028,7 @@ int ha_rocksdb::update_write_indexes(const struct update_row_info &row_info,
     Other           HA_ERR error code (can be SE-specific)
  */
 int ha_rocksdb::update_write_row(const uchar *const old_data,
-                                 const uchar *const new_data,
-                                 const bool skip_unique_check) {
+                                 const uchar *const new_data) {
   DBUG_ENTER_FUNC();
 
   assert((old_data == table->record[1] && new_data == table->record[0]) ||
@@ -13057,7 +13044,7 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
 
   row_info.old_data = old_data;
   row_info.new_data = new_data;
-  row_info.skip_unique_check = skip_unique_check;
+  row_info.skip_unique_check = skip_unique_check();
   row_info.new_pk_unpack_info = nullptr;
   set_last_rowkey(old_data);
 
@@ -13090,12 +13077,13 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
   // Case: We skip both unique checks and rows locks only when bulk load is
   // enabled or if rocksdb_skip_locks_if_skip_unique_check is ON
   if (!THDVAR(table->in_use, bulk_load) &&
-      (!rocksdb_skip_locks_if_skip_unique_check || !skip_unique_check)) {
+      (!rocksdb_skip_locks_if_skip_unique_check ||
+       !row_info.skip_unique_check)) {
     /*
       Check to see if we are going to have failures because of unique
       keys.  Also lock the appropriate key values.
     */
-    rc = check_uniqueness_and_lock(row_info, pk_changed, skip_unique_check);
+    rc = check_uniqueness_and_lock(row_info, pk_changed);
     if (rc != HA_EXIT_SUCCESS) {
       DBUG_RETURN(rc);
     }
@@ -13896,7 +13884,7 @@ int ha_rocksdb::update_row(const uchar *const old_data, uchar *const new_data) {
   int err = check_disk_usage();
   if (err) DBUG_RETURN(err);
 
-  const int rv = update_write_row(old_data, new_data, skip_unique_check());
+  const int rv = update_write_row(old_data, new_data);
 
   if (rv == 0) {
     /* TODO(yzha) - row stats are gone in 8.0
@@ -14121,12 +14109,6 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
         ::store_lock call.  That's why we need to set lock_* members here, too.
       */
       m_lock_rows = RDB_LOCK_WRITE;
-
-      if (thd->lex->sql_command == SQLCOM_CREATE_INDEX ||
-          thd->lex->sql_command == SQLCOM_DROP_INDEX ||
-          thd->lex->sql_command == SQLCOM_ALTER_TABLE) {
-        tx->set_ddl_transaction();
-      }
     }
     tx->m_n_mysql_tables_in_use++;
     rocksdb_register_tx(rocksdb_hton, thd, tx);
