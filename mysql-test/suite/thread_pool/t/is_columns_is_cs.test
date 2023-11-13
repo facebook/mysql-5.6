@@ -1,9 +1,10 @@
 # suite/thread_pool/t/is_columns_is_cs.test
 #
 # Note: This is forked from suite/funcs_1/t/is_columns_is_cs.test with the
-# addition of requiring thread_pool plugin to be loaded.
-# This has the effect of testing the column metadata of all I_S tables including
-# those introduced by thread_pool, such as TP_ADMISSION_CONTROL_ENTITIES.
+# addition of requiring thread_pool plugin to be loaded and only examining TP_*
+# tables.
+# This has the effect of testing the column metadata of all I_S tables
+# introduced by thread_pool, such as TP_ADMISSION_CONTROL_ENTITIES.
 #
 # See the original test for details of the test's purpose.
 
@@ -16,5 +17,5 @@ if (!$require_case_insensitive_file_system)
 }
 
 let $my_where = WHERE table_schema = 'information_schema'
-AND table_name <> 'PROFILING' AND table_name not like 'INNODB_%' AND table_name not like 'ndb%';
+AND table_name like 'TP_%';
 --source suite/funcs_1/datadict/columns.inc
