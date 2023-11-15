@@ -9,7 +9,7 @@ Pattern "\[ERROR\]" not found
 #
 # 8.0.17 - MYSQL_UPGRADE with enable_user_tables_engine_check and skip rocksdb
 #
-# restart: --enable_user_tables_engine_check=ON --skip-rocksdb --upgrade=FORCE --log-error=MYSQLD_LOG
+# restart: --enable_user_tables_engine_check=ON --loose-skip-rocksdb --upgrade=FORCE --log-error=MYSQLD_LOG
 # There should be no errors
 Pattern "\[ERROR\]" not found
 TRUNCATE TABLE mysql.tables_priv;

@@ -6,6 +6,8 @@
 --source include/have_debug.inc
 SET debug = '+d,skip_dd_table_access_check';
 
+--let $DEFAULT_DDSE = `SELECT @@default_dd_storage_engine`
+
 --echo ########################################################################
 --echo # The id of the mysql schema must be fixed.
 --echo ########################################################################
@@ -40,29 +42,48 @@ let $assert_cond = "[SELECT id FROM mysql.tables
 --let $assert_text = The id of 'mysql.dd_properties' is 1.
 --source include/assert.inc
 
-let $assert_cond = "[SELECT se_private_id FROM mysql.tables
-                       WHERE name LIKE \'dd_properties\' AND schema_id = 1]"
-                    = 1;
---let $assert_text = The SE private id of 'mysql.dd_properties' is 1.
+if ($DEFAULT_DDSE == "InnoDB") {
+  let $assert_cond = "[SELECT se_private_id FROM mysql.tables
+                         WHERE name LIKE \'dd_properties\' AND schema_id = 1]"
+                      = 1;
+  --let $assert_text = The SE private id of 'mysql.dd_properties' is 1.
+}
+if ($DEFAULT_DDSE == "RocksDB") {
+  let $assert_cond = "[SELECT se_private_id FROM mysql.tables
+                         WHERE name LIKE \'dd_properties\' AND schema_id = 1]"
+                      = 256;
+  --let $assert_text = The SE private id of 'mysql.dd_properties' is 256.
+}
 --source include/assert.inc
 
-let $assert_cond = "[SELECT id FROM mysql.indexes
-                       WHERE table_id =
-                         (SELECT id FROM mysql.tables
-                            WHERE name LIKE \'dd_properties\'
-                            AND schema_id = 1)]"
-                    = 1;
---let $assert_text = The clustering index id of 'mysql.dd_properties' is 1.
---source include/assert.inc
+if ($DEFAULT_DDSE == "InnoDB") {
+  let $assert_cond = "[SELECT id FROM mysql.indexes
+                         WHERE table_id =
+                           (SELECT id FROM mysql.tables
+                              WHERE name LIKE \'dd_properties\'
+                              AND schema_id = 1)]"
+                      = 1;
+  --let $assert_text = The clustering index id of 'mysql.dd_properties' is 1.
+  --source include/assert.inc
+}
 
 --echo ########################################################################
 --echo # The ids of the innodb_dynamic_metadata table must be fixed.
 --echo ########################################################################
-let $assert_cond = "[SELECT id FROM mysql.tables
-                       WHERE name LIKE \'innodb_dynamic_metadata\'
-                       AND schema_id = 1]"
-                    = 2;
---let $assert_text = The id of 'mysql.innodb_dynamic_metadata' is 2.
+if ($DEFAULT_DDSE == "InnoDB") {
+  let $assert_cond = "[SELECT id FROM mysql.tables
+                         WHERE name LIKE \'innodb_dynamic_metadata\'
+                         AND schema_id = 1]"
+                      = 2;
+  --let $assert_text = The id of 'mysql.innodb_dynamic_metadata' is 2.
+}
+if ($DEFAULT_DDSE == "RocksDB") {
+  let $assert_cond = "[SELECT id FROM mysql.tables
+                         WHERE name LIKE \'innodb_dynamic_metadata\'
+                         AND schema_id = 1]"
+                      = 3;
+  --let $assert_text = The id of 'mysql.innodb_dynamic_metadata' is 3.
+}
 --source include/assert.inc
 
 let $assert_cond = "[SELECT se_private_id FROM mysql.tables
