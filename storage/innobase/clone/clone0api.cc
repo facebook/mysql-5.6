@@ -1132,6 +1132,7 @@ static int file_roll_forward(const std::string &data_file, int final_state) {
 /** Roll back clone file state to normal state.
 @param[in]      data_file       data file name */
 static void file_rollback(const std::string &data_file) {
+  assert(innobase_is_ddse());
   auto cur_state = get_file_state(data_file);
 
   switch (cur_state) {
@@ -1523,7 +1524,7 @@ static void process_remove_file(const char *file_name,
   }
 }
 
-void clone_files_error() {
+void clone_files_error(bool after_restart) {
   /* Check if clone file directory exists. */
   if (!os_file_exists(CLONE_FILES_DIR)) {
     return;
@@ -1534,6 +1535,12 @@ void clone_files_error() {
   /* Create error status file if not there. */
   if (!file_exists(err_file)) {
     create_file(err_file);
+  }
+
+  if (after_restart && !innobase_is_ddse()) {
+    // Clone rollback is unsupported across transactional storage engines when
+    // InnoDB is not the first one to initialize.
+    abort();
   }
 
   /* Process all old files to be moved. */
@@ -1580,7 +1587,7 @@ void clone_files_recovery(bool finished) {
 
   if (file_exists(file_name)) {
     ut_ad(!finished);
-    clone_files_error();
+    clone_files_error(true);
     return;
   }
 
