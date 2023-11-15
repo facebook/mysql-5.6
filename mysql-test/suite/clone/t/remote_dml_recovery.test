@@ -1,5 +1,9 @@
 # Test recovery crash for remote clone with concurrent DML
 
+# Clone rollback is not supported across MyRocks and InnoDB when MyRocks is the
+# DDSE
+--source include/have_innodb_ddse.inc
+
 --source include/not_valgrind.inc
 --source include/have_mysqld_safe.inc
 --source include/have_debug.inc
