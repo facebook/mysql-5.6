@@ -4512,7 +4512,7 @@ int STDCALL mysql_reset_connection(MYSQL *mysql) {
 }
 
 net_async_status STDCALL mysql_reset_connection_nonblocking(MYSQL *mysql) {
-  DBUG_ENTER("mysql_reset_connection_nonblocking");
+  DBUG_TRACE;
   bool err;
   net_async_status status = simple_command_nonblocking(
       mysql, COM_RESET_CONNECTION, (uchar *)0, 0, 0, &err);
@@ -4525,5 +4525,5 @@ net_async_status STDCALL mysql_reset_connection_nonblocking(MYSQL *mysql) {
     }
   }
 
-  DBUG_RETURN(status);
+  return status;
 }

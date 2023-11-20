@@ -1,3 +1,10 @@
+# Test crashes on asan because of an assertion when comparing the m_protocol
+# pointers across execution loops. These structures are allocated on the stack
+# and ASAN results in slightly different stack addresses for each execution
+# loop, resulting in possibly invalid assertion that the pointers be exactly
+# the same.
+--source include/not_asan.inc
+
 ## Test of cursor fetch functionality
 
 ## Preamble
