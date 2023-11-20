@@ -22,10 +22,12 @@ let $MYSQLD_OLD                = $MYSQL_TMP_DIR/old;
 let $MYSQLD_OLD_REMOTE_DIR     = $MYSQLD_OLD/remote_dir;
 let $MYSQLD_OLD_REDO_LOG_DIR   = $MYSQLD_OLD_DATADIR/#innodb_redo;
 
+let $DEFAULT_DDSE = `select @@default_dd_storage_engine`;
+
 --disable_query_log
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
---let $restart_parameters = restart: --innodb-directories=$MYSQLD_OLD_REMOTE_DIR
---replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
+--let $restart_parameters = restart: --innodb-directories=$MYSQLD_OLD_REMOTE_DIR --default-dd-storage-engine=$DEFAULT_DDSE
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $DEFAULT_DDSE DEFAULT_DDSE
 --source include/restart_mysqld.inc
 --enable_query_log
 
@@ -117,6 +119,9 @@ SELECT path FROM INFORMATION_SCHEMA.INNODB_DATAFILES WHERE path LIKE '%undo_0%' 
 --source include/shutdown_mysqld.inc
 
 --echo # Copy whole --datadir files into new locations
+if ($DEFAULT_DDSE == "RocksDB") {
+  --force-cpdir $MYSQLD_OLD_DATADIR/.rocksdb $MYSQLD_NEW_DATADIR
+}
 --copy_file $MYSQLD_OLD_DATADIR/auto.cnf         $MYSQLD_NEW_DATADIR/auto.cnf
 --copy_file $MYSQLD_OLD_DATADIR/ib_buffer_pool   $MYSQLD_NEW_DATA_HOME_DIR/ib_buffer_pool
 --copy_file $MYSQLD_OLD_DATADIR/ibdata1          $MYSQLD_NEW_DATA_HOME_DIR/ibdata1
@@ -138,6 +143,9 @@ SELECT path FROM INFORMATION_SCHEMA.INNODB_DATAFILES WHERE path LIKE '%undo_0%' 
 --copy_files_wildcard $MYSQLD_OLD_REMOTE_DIR/test/ $MYSQLD_NEW_REMOTE_DIR/test tab3*.ibd
 
 --echo # Remove the old datadir files and *.ibd files
+if ($DEFAULT_DDSE == "RocksDB") {
+  --force-rmdir $MYSQLD_OLD_DATADIR/.rocksdb
+}
 --remove_files_wildcard $MYSQLD_OLD_REMOTE_DIR/test/ *.ibd
 --remove_files_wildcard $MYSQLD_OLD_REDO_LOG_DIR/ #ib_redo*
 --remove_files_wildcard $MYSQLD_OLD_DATADIR/ ib_buffer*
@@ -153,8 +161,8 @@ SELECT path FROM INFORMATION_SCHEMA.INNODB_DATAFILES WHERE path LIKE '%undo_0%' 
 --remove_files_wildcard $MYSQLD_OLD_DATADIR/mtr/ *
 
 --echo # Start with --innodb-directories along with other initDB options
---replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
---let $restart_parameters=restart: --datadir=$MYSQLD_NEW_DATADIR --innodb_undo_directory=$MYSQLD_NEW_UNDO_DIR --innodb_data_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb_log_group_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb-directories=$MYSQLD_NEW_REMOTE_DIR
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $DEFAULT_DDSE DEFAULT_DDSE
+--let $restart_parameters=restart: --datadir=$MYSQLD_NEW_DATADIR --innodb_undo_directory=$MYSQLD_NEW_UNDO_DIR --innodb_data_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb_log_group_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb-directories=$MYSQLD_NEW_REMOTE_DIR --default-dd-storage-engine=$DEFAULT_DDSE
 --source include/start_mysqld_no_echo.inc
 
 --echo # Check new datadir
@@ -175,7 +183,8 @@ SHOW CREATE TABLE tab3;
 
 # Check if the metadata info is correct.
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
-SELECT file_name,file_type,tablespace_name FROM INFORMATION_SCHEMA.FILES WHERE file_type LIKE '%undo%';
+SELECT file_name,file_type,tablespace_name FROM INFORMATION_SCHEMA.FILES
+       WHERE file_type LIKE '%undo%' ORDER BY tablespace_name;
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
 SELECT path FROM INFORMATION_SCHEMA.INNODB_DATAFILES WHERE path LIKE '%undo_0%' ORDER BY path;
 
@@ -184,8 +193,8 @@ SELECT path FROM INFORMATION_SCHEMA.INNODB_DATAFILES WHERE path LIKE '%undo_0%' 
 --source include/shutdown_mysqld.inc
 
 --echo # Start with new --datadir only
---replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
---let $restart_parameters=restart: --datadir=$MYSQLD_NEW_DATADIR --innodb_undo_directory=$MYSQLD_NEW_UNDO_DIR --innodb_data_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb_log_group_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb-directories=$MYSQLD_NEW_REMOTE_DIR
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $DEFAULT_DDSE DEFAULT_DDSE
+--let $restart_parameters=restart: --datadir=$MYSQLD_NEW_DATADIR --innodb_undo_directory=$MYSQLD_NEW_UNDO_DIR --innodb_data_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb_log_group_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb-directories=$MYSQLD_NEW_REMOTE_DIR --default-dd-storage-engine=$DEFAULT_DDSE
 --source include/start_mysqld.inc
 
 --echo # Check with new --datadir
@@ -211,7 +220,8 @@ SHOW CREATE TABLE tab3;
 
 # Check if the metadata info is correct.
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
-SELECT file_name,file_type,tablespace_name FROM INFORMATION_SCHEMA.FILES WHERE file_type LIKE '%undo%';
+SELECT file_name,file_type,tablespace_name FROM INFORMATION_SCHEMA.FILES
+       WHERE file_type LIKE '%undo%' ORDER BY tablespace_name;
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
 SELECT path FROM INFORMATION_SCHEMA.INNODB_DATAFILES WHERE path LIKE '%undo_0%' ORDER BY path;
 
@@ -289,6 +299,10 @@ DROP TABLESPACE ts1;
 --source include/shutdown_mysqld.inc
 
 --echo # Copy back --datadir and *.ibd files into old location
+if ($DEFAULT_DDSE == "RocksDB") {
+  --force-cpdir $MYSQLD_NEW_DATADIR/.rocksdb $MYSQLD_OLD_DATADIR
+}
+
 --copy_files_wildcard $MYSQLD_NEW_REMOTE_DIR/test $MYSQLD_OLD_REMOTE_DIR/test *.ibd
 --copy_files_wildcard $MYSQLD_NEW_REMOTE_DIR  $MYSQLD_OLD_REMOTE_DIR/test ts3.ibd
 --copy_files_wildcard $MYSQLD_NEW_UNDO_DIR  $MYSQLD_OLD_DATADIR undo*
@@ -314,8 +328,8 @@ DROP TABLESPACE ts1;
 
 --echo # Test by providing the relative path
 --echo # Re-start with old --datadir with --innodb-directories as remote *.ibd files are existing.
---replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
---let $restart_parameters= restart: --innodb-directories=$MYSQLD_OLD_REMOTE_DIR
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $DEFAULT_DDSE DEFAULT_DDSE
+--let $restart_parameters= restart: --innodb-directories=$MYSQLD_OLD_REMOTE_DIR --default-dd-storage-engine=$DEFAULT_DDSE
 --source include/start_mysqld.inc
 
 --echo # Check --datadir started with old

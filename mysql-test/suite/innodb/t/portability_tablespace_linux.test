@@ -1,3 +1,5 @@
+# The Windows datadir was not prepared with MyRocks DDSE
+--source include/have_innodb_ddse.inc
 # *************************************************************************
 # wl#8619 : Test the functionality of portability to a different OS
 # Test windows --datadir and tablespaces runs on Linx (posix compliant) OS

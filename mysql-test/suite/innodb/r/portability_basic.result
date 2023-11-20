@@ -94,7 +94,7 @@ DROP UNDO TABLESPACE undo_003;
 DROP UNDO TABLESPACE undo_004;
 # Stop DB server with new datadir
 # Re-start with old --datadir
-# restart: --datadir=OLD_DATADIR
+# restart: --datadir=OLD_DATADIR --default-dd-storage-engine=DDSE
 # Check --datadir started with old
 SELECT @@datadir;
 @@datadir
