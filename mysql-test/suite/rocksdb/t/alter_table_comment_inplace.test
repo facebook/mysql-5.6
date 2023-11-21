@@ -245,9 +245,11 @@ ALTER TABLE t3 COMMENT="ttl_duration=1;custom_p1_ttl_duration=1000;custom_p1_ttl
 ALTER TABLE t3 COMMENT="ttl_duration=1;custom_p1_ttl_duration=1000;custom_p1_ttl_col=c2;custom_p2_ttl_col=c1;custom_p2_ttl_duration=5000;",ALGORITHM=INPLACE;
 
 # support inplace change ttl duration value
-SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't3';
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS FROM INFORMATION_SCHEMA.ROCKSDB_DDL
+       WHERE TABLE_NAME = 't3' ORDER BY TTL_DURATION;
 ALTER TABLE t3 comment = 'ttl_duration=5;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
-SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't3';
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS FROM INFORMATION_SCHEMA.ROCKSDB_DDL
+       WHERE TABLE_NAME = 't3' ORDER BY TTL_DURATION;
 
 SET GLOBAL rocksdb_debug_ttl_snapshot_ts = 300;
 set global rocksdb_force_flush_memtable_now=1;
