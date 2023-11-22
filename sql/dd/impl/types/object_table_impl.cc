@@ -33,8 +33,8 @@ namespace dd {
 
 Object_table_impl::Object_table_impl()
     : Object_table_impl(get_dd_engine_name()) {
-  assert(default_dd_storage_engine == DEFAULT_DD_INNODB ||
-         default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+  assert(default_dd_system_storage_engine == DEFAULT_DD_INNODB ||
+         default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB);
 }
 
 Object_table_impl::Object_table_impl(const String_type &engine)

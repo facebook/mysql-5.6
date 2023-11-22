@@ -1,4 +1,4 @@
---initialize --default-dd-storage-engine=ROCKSDB
+--initialize --default-dd-system-storage-engine=ROCKSDB
 --early-plugin-load="keyring_file=$KEYRING_PLUGIN"
 --loose-keyring-file-data=$MYSQL_TMP_DIR/my_keyring2
 $KEYRING_PLUGIN_OPT

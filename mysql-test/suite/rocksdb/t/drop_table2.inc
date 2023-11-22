@@ -120,7 +120,7 @@ let $wait_condition = select count(*) = 0
                       where TYPE = 'DDL_DROP_INDEX_ONGOING';
 --source include/wait_condition.inc
 
-let $is_rocksdb_ddse = `SELECT @@default_dd_storage_engine = 'RocksDB'`;
+let $is_rocksdb_ddse = `SELECT @@default_dd_system_storage_engine = 'RocksDB'`;
 # Check that space is reclaimed
 --exec du -c $MYSQLTEST_VARDIR/mysqld.1/data/.rocksdb/*.sst |grep total |sed 's/[\t]total/ after/' >> $output
 --exec perl suite/rocksdb/t/drop_table2_check.pl $output $is_rocksdb_ddse

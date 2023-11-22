@@ -9,7 +9,7 @@
 
 --disable_query_log
 call mtr.add_suppression("\\[ERROR\\] .*MY-\\d+.* Cannot find a free slot for an undo log");
---let $DEFAULT_DDSE = `SELECT @@default_dd_storage_engine`
+--let $DEFAULT_DDSE = `SELECT @@default_dd_system_storage_engine`
 if ($DEFAULT_DDSE == "RocksDB") {
    # The InnoDB transactions will encounter lack of undo slots at different
    # points if it's DDSE and if it's not. When it's not, it will happen when

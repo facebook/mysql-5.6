@@ -16545,7 +16545,7 @@ inline bool ha_rocksdb::is_instant(const Alter_inplace_info *ha_alter_info) {
   @return True if DDSE is rocksdb and it is updating table metadata
 */
 bool ha_rocksdb::is_dd_update() const {
-  return default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+  return default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB &&
          thd_is_dd_update_stmt(ha_thd());
 }
 

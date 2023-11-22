@@ -1,1 +1,1 @@
---initialize --default_dd_storage_engine=RocksDB --binlog_format=ROW
+--initialize --default_dd_system_storage_engine=RocksDB --binlog_format=ROW

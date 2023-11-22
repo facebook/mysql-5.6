@@ -156,7 +156,7 @@ bool store_statistics_record(THD *thd, T *object) {
     */
     const auto mysql_errno = thd->get_stmt_da()->mysql_errno();
     if (mysql_errno == ER_DUP_ENTRY ||
-        (default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+        (default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB &&
          mysql_errno == ER_LOCK_WAIT_TIMEOUT)) {
       thd->clear_error();
       return false;

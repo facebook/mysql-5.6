@@ -1,2 +1,2 @@
---initialize --default-dd-storage-engine=ROCKSDB
+--initialize --default-dd-system-storage-engine=ROCKSDB
 $UDF_EXAMPLE_LIB_OPT --binlog-format=mixed

@@ -11,7 +11,7 @@
 --echo # Bug #29492911 : ENABLING UNDO-TABLESPACE ENCRYPTION DOESN'T MARK TABLESPACE ENCRYPTION FLAG
 --echo #
 
-let $DDSE = `select @@default_dd_storage_engine`;
+let $DDSE = `select @@default_dd_system_storage_engine`;
 let $MYSQL_DATA_DIR = `select @@datadir`;
 
 SHOW VARIABLES LIKE "%innodb_undo_log_encrypt%";
@@ -33,7 +33,7 @@ EOF
 --source include/shutdown_mysqld.inc
 --source include/wait_until_disconnected.inc
 
---let NEW_CMD = $MYSQLD --no-defaults --innodb_dedicated_server=OFF --initialize-insecure --innodb_redo_log_capacity=$LOG_SIZE --innodb_page_size=$PAGE_SIZE --datadir=$MYSQL_ENC_DATADIR --init-file=$BOOTSTRAP_SQL --secure-file-priv="" --default-dd-storage-engine=$DDSE >>$BOOTSTRAP_LOG 2>&1
+--let NEW_CMD = $MYSQLD --no-defaults --innodb_dedicated_server=OFF --initialize-insecure --innodb_redo_log_capacity=$LOG_SIZE --innodb_page_size=$PAGE_SIZE --datadir=$MYSQL_ENC_DATADIR --init-file=$BOOTSTRAP_SQL --secure-file-priv="" --default-dd-system-storage-engine=$DDSE >>$BOOTSTRAP_LOG 2>&1
 --exec $NEW_CMD
 
 --echo ###############################################################################

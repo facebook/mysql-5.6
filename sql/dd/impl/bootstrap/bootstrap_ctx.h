@@ -104,9 +104,10 @@ class DD_bootstrap_ctx {
   uint m_actual_I_S_version = 0;
   // actual DDSE holds dd tables
   // its values is indicted by which SE hold mysql.dd_properties table
-  //  Druing boostrap time,  its value is equal to default_dd_storage_engine
-  //  During upgrade time, its value maybe not equal to
-  //  default_dd_storage_engine
+  // During boostrap time, its value is equal to
+  // default_dd_system_storage_engine
+  // During upgrade time, its value maybe be not equal to
+  // default_dd_system_storage_engine
   legacy_db_type m_actual_dd_engine = DB_TYPE_UNKNOWN;
   legacy_db_type m_did_dd_engine_upgrade_from = DB_TYPE_UNKNOWN;
 

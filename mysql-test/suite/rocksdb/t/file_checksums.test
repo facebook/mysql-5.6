@@ -1,7 +1,7 @@
 --source include/have_rocksdb.inc
 
 --let $sst_dir=`SELECT CONCAT(@@datadir, @@rocksdb_datadir)`
---let ddse= query_get_value(SELECT @@default_dd_storage_engine, @@default_dd_storage_engine, 1)
+--let ddse=`SELECT @@default_dd_system_storage_engine`
 
 CREATE TABLE t1 (
        a INT NOT NULL, b CHAR(128),
@@ -42,7 +42,7 @@ let sst_file=`SELECT SST_NAME
 # DB open first.
 --error 1
 exec $MYSQLD --defaults-group-suffix=.1 --defaults-file=$MYSQLTEST_VARDIR/my.cnf
-     --rocksdb-file-checksums --default_dd_storage_engine=$ddse > $fail_err_log 2>&1;
+     --rocksdb-file-checksums --default_dd_system_storage_engine=$ddse > $fail_err_log 2>&1;
 
 --remove_file $sst
 --move_file $sst.bak $sst

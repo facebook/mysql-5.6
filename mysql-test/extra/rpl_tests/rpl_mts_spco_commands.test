@@ -207,7 +207,7 @@ SET @@global.binlog_transaction_dependency_tracking = COMMIT_ORDER;
 --echo # $tc_count. CREATE TABLE and CREATE TABLE IF NOT EXISTS
 --echo ####################################################################
 
---let $DEFAULT_DDSE = `SELECT @@default_dd_storage_engine`
+--let $DEFAULT_DDSE = `SELECT @@default_dd_system_storage_engine`
 if ($DEFAULT_DDSE == "RocksDB") {
   --let $mts_num_preceding_trans= 5
 }
