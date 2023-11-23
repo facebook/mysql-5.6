@@ -380,6 +380,7 @@ SET(SQL_SHARED_SOURCES
   derror.cc
   error_handler.cc
   failure_injection.cc
+  fb_vector_base.cc
   field.cc
   field_conv.cc
   filesort.cc

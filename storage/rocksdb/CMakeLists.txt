@@ -183,6 +183,7 @@ SET(ROCKSDB_SE_SOURCES
   nosql_access.cc nosql_access.h
   ha_rockspart.cc ha_rockspart.h
   sql_dd.cc sql_dd.h
+  rdb_vector_db.cc rdb_vector_db.h
   clone/common.h clone/common.cc clone/donor.h clone/donor.cc clone/client.cc
 )
 
@@ -256,6 +257,14 @@ IF (WITH_TBB)
 ENDIF()
 
 CHECK_INCLUDE_FILES(zlib.h HAVE_ZLIB_H)
+
+IF (WITH_FB_VECTORDB)
+  MESSAGE(STATUS "Building myrocks with fb vectordb support")
+  INCLUDE_DIRECTORIES("${FAISS_SOURCE_DIR}")
+  # Suppress warnings brought by faiss header files
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-shadow-field FILES rdb_vector_db.cc rdb_vector_db.h)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-unused-parameter FILES rdb_vector_db.cc rdb_vector_db.h)
+ENDIF()
 
 IF (HAVE_ZLIB_H)
   ADD_DEFINITIONS(-DZLIB)

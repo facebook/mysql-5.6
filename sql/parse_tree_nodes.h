@@ -5314,4 +5314,11 @@ PT_column_attr_base *make_column_secondary_engine_attribute(MEM_ROOT *,
 PT_base_index_option *make_index_engine_attribute(MEM_ROOT *, LEX_CSTRING);
 PT_base_index_option *make_index_secondary_engine_attribute(MEM_ROOT *,
                                                             LEX_CSTRING);
+
+PT_base_index_option *make_fb_vector_index_type_attribute(MEM_ROOT *,
+                                                          LEX_CSTRING);
+PT_base_index_option *make_fb_vector_index_metric_attribute(MEM_ROOT *,
+                                                            LEX_CSTRING);
+PT_base_index_option *make_fb_vector_index_dimension_attribute(MEM_ROOT *,
+                                                               ulong);
 #endif /* PARSE_TREE_NODES_INCLUDED */

@@ -1300,6 +1300,33 @@ static void fill_index_elements_from_dd(TABLE_SHARE *share,
 }
 
 /**
+  fill fb vector index options
+*/
+static void fill_fb_vector_index_from_dd(const dd::Properties &idx_options,
+                                         KEY *keyinfo) {
+  if (idx_options.exists("fb_vector_index_type")) {
+    uint fb_vector_index_type;
+    if (idx_options.get("fb_vector_index_type", &fb_vector_index_type)) {
+      assert(false);
+    }
+
+    uint fb_vector_index_metric;
+    if (idx_options.get("fb_vector_index_metric", &fb_vector_index_metric)) {
+      assert(false);
+    }
+
+    FB_vector_dimension vector_dimension;
+    if (idx_options.get("fb_vector_dimension", &vector_dimension)) {
+      assert(false);
+    }
+
+    keyinfo->fb_vector_index_config = FB_vector_index_config(
+        (FB_VECTOR_INDEX_TYPE)fb_vector_index_type,
+        (FB_VECTOR_INDEX_METRIC)fb_vector_index_metric, vector_dimension);
+  }
+}
+
+/**
   Add KEY constructed according to index metadata from dd::Index object to
   the TABLE_SHARE.
 */
@@ -1435,6 +1462,8 @@ static bool fill_index_from_dd(THD *thd, TABLE_SHARE *share,
 
     keyinfo->flags |= HA_USES_PARSER;
   }
+
+  fill_fb_vector_index_from_dd(idx_options, keyinfo);
 
   // Read comment
   dd::String_type comment = idx_obj->comment();

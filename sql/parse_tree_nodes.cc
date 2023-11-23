@@ -4850,3 +4850,52 @@ PT_base_index_option *make_index_secondary_engine_attribute(MEM_ROOT *mem_root,
         return false;
       });
 }
+
+/**
+   create a fb_vector index type attribute
+
+   @param mem_root Memory arena.
+   @param attr     Attribute value from parser.
+
+   @return PT_base_index_option* to PT_attribute object.
+ */
+PT_base_index_option *make_fb_vector_index_type_attribute(MEM_ROOT *mem_root,
+                                                          LEX_CSTRING attr) {
+  return new (mem_root) PT_attribute<LEX_CSTRING, PT_base_index_option>(
+      attr, +[](LEX_CSTRING a, Table_ddl_parse_context *pc) {
+        pc->key_create_info->m_fb_vector_index_type = a;
+        return false;
+      });
+}
+
+/**
+   create a fb_vector index metric attribute
+   @param mem_root Memory arena.
+   @param attr     Attribute value from parser.
+
+   @return PT_base_index_option* to PT_attribute object.
+ */
+PT_base_index_option *make_fb_vector_index_metric_attribute(MEM_ROOT *mem_root,
+                                                            LEX_CSTRING attr) {
+  return new (mem_root) PT_attribute<LEX_CSTRING, PT_base_index_option>(
+      attr, +[](LEX_CSTRING a, Table_ddl_parse_context *pc) {
+        pc->key_create_info->m_fb_vector_index_metric = a;
+        return false;
+      });
+}
+
+/**
+   create a fb_vector index dimension attribute
+   @param mem_root Memory arena.
+   @param attr     Attribute value from parser.
+
+   @return PT_base_index_option* to PT_attribute object.
+ */
+PT_base_index_option *make_fb_vector_index_dimension_attribute(
+    MEM_ROOT *mem_root, ulong attr) {
+  return new (mem_root) PT_attribute<ulong, PT_base_index_option>(
+      attr, +[](ulong a, Table_ddl_parse_context *pc) {
+        pc->key_create_info->m_fb_vector_dimension = a;
+        return false;
+      });
+}

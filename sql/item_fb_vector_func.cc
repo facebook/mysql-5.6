@@ -15,6 +15,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include "sql/item_fb_vector_func.h"
+#include "sql/fb_vector_base.h"
 #ifdef WITH_FB_VECTORDB
 #include <faiss/utils/distances.h>
 #endif
@@ -48,46 +49,16 @@ class Fb_vector {
   }
 };
 
-bool parse_fb_vector(Item **args, uint arg_idx, String &str,
-                     const char *func_name, Fb_vector &vector) {
+bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
+                               const char *func_name, Fb_vector &vector) {
   if (get_json_wrapper(args, arg_idx, &str, func_name, &vector.wrapper)) {
     return true;
   }
-  if (vector.wrapper.type() != enum_json_type::J_ARRAY) {
+
+  if (parse_fb_vector(vector.wrapper, vector.data)) {
     my_error(ER_INCORRECT_TYPE, MYF(0), std::to_string(arg_idx).c_str(),
              func_name);
     return true;
-  }
-
-  Json_array *arr = down_cast<Json_array *>(vector.wrapper.to_dom());
-  vector.data.reserve(arr->size());
-  for (auto it = arr->begin(); it != arr->end(); ++it) {
-    const auto ele_type = (*it)->json_type();
-    if (ele_type == enum_json_type::J_DOUBLE) {
-      Json_double &val = down_cast<Json_double &>(**it);
-      vector.data.push_back(val.value());
-    } else if (ele_type == enum_json_type::J_INT) {
-      Json_int &val = down_cast<Json_int &>(**it);
-      vector.data.push_back(val.value());
-    } else if (ele_type == enum_json_type::J_UINT) {
-      Json_uint &val = down_cast<Json_uint &>(**it);
-      vector.data.push_back(val.value());
-    } else if (ele_type == enum_json_type::J_DECIMAL) {
-      Json_decimal &val = down_cast<Json_decimal &>(**it);
-      double val_double;
-      if (decimal2double(val.value(), &val_double)) {
-        my_error(ER_INVALID_CAST, MYF(0), "double");
-        return true;
-      }
-      vector.data.push_back(val_double);
-    } else if (ele_type == enum_json_type::J_BOOLEAN) {
-      Json_boolean &val = down_cast<Json_boolean &>(**it);
-      vector.data.push_back(val.value() ? 1.0 : 0.0);
-    } else {
-      my_error(ER_INCORRECT_TYPE, MYF(0), std::to_string(arg_idx).c_str(),
-               func_name);
-      return true;
-    }
   }
 
   return false;
@@ -120,8 +91,8 @@ double Item_func_fb_vector_distance::val_real() {
   try {
     Fb_vector vector1;
     Fb_vector vector2;
-    if (parse_fb_vector(args, 0, m_value, func_name(), vector1) ||
-        parse_fb_vector(args, 1, m_value, func_name(), vector2)) {
+    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1) ||
+        parse_fb_vector_from_item(args, 1, m_value, func_name(), vector2)) {
       return error_real();
     }
     size_t dimension = std::max(vector1.data.size(), vector2.data.size());

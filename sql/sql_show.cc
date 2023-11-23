@@ -110,6 +110,7 @@
 #include "sql/error_handler.h"  // Internal_error_handler
 #include "sql/events.h"         // Events
 #include "sql/failure_injection.h"  // Failure injection framework
+#include "sql/fb_vector_base.h"
 #include "sql/field.h"          // Field
 #include "sql/handler.h"
 #include "sql/item.h"  // Item_empty_string
@@ -2358,7 +2359,8 @@ bool store_create_info(THD *thd, Table_ref *table_list, String *packet,
       if (key_part->field &&
           (key_part->length !=
                table->field[key_part->fieldnr - 1]->key_length() &&
-           !(key_info->flags & (HA_FULLTEXT | HA_SPATIAL)))) {
+           !(key_info->flags & (HA_FULLTEXT | HA_SPATIAL))) &&
+          !key_info->is_fb_vector_index()) {
         packet->append_parenthesized((long)key_part->length /
                                      key_part->field->charset()->mbmaxlen);
       }
@@ -2690,6 +2692,33 @@ bool store_create_info(THD *thd, Table_ref *table_list, String *packet,
   return error;
 }
 
+/**
+  show fb vector index options
+*/
+static void store_fb_vector_index_options(String *packet, KEY *key_info) {
+  if (!key_info->is_fb_vector_index()) {
+    return;
+  }
+
+  FB_vector_index_config vector_index_info = key_info->fb_vector_index_config;
+  packet->append(" FB_VECTOR_INDEX_TYPE '");
+  auto fb_vector_index_type_str =
+      fb_vector_index_type_to_string(vector_index_info.type());
+  packet->append(fb_vector_index_type_str);
+  packet->append("'");
+
+  packet->append(" FB_VECTOR_INDEX_METRIC '");
+  auto fb_vector_index_metric_str =
+      fb_vector_index_metric_to_string(vector_index_info.metric());
+
+  packet->append(fb_vector_index_metric_str);
+  packet->append("'");
+
+  packet->append(" FB_VECTOR_DIMENSION ");
+  auto dimension_str = std::to_string(vector_index_info.dimension());
+  packet->append(dimension_str);
+}
+
 static void store_key_options(THD *thd, String *packet, TABLE *table,
                               KEY *key_info) {
   bool foreign_db_mode = (thd->variables.sql_mode & MODE_ANSI) != 0;
@@ -2713,6 +2742,8 @@ static void store_key_options(THD *thd, String *packet, TABLE *table,
         packet->append(STRING_WITH_LEN(" USING RTREE"));
       }
     }
+
+    store_fb_vector_index_options(packet, key_info);
 
     if ((key_info->flags & HA_USES_BLOCK_SIZE) &&
         table->s->key_block_size != key_info->block_size) {

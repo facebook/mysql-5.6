@@ -1404,6 +1404,18 @@ struct Rdb_ddl_scanner : public Rdb_tables_scanner {
 
   int add_table(Rdb_tbl_def *tdef) override;
 };
+
+class Rdb_vector_index_scanner : public Rdb_tables_scanner {
+ public:
+  Rdb_vector_index_scanner(my_core::THD *thd, my_core::TABLE *table)
+      : m_thd(thd), m_table(table) {}
+  int add_table(Rdb_tbl_def *tdef) override;
+
+ private:
+  my_core::THD *m_thd;
+  my_core::TABLE *m_table;
+};
+
 }  // anonymous namespace
 
 /*
@@ -1646,6 +1658,124 @@ static int rdb_i_s_bypass_rejected_query_history_init(void *p) {
 
   schema->fields_info = rdb_i_s_bypass_rejected_query_history_fields_info;
   schema->fill_table = rdb_i_s_bypass_rejected_query_history_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX dynamic table
+ */
+namespace RDB_VECTOR_INDEX_FIELD {
+enum {
+  INDEX_NUMBER = 0,
+  TABLE_SCHEMA,
+  TABLE_NAME,
+  INDEX_NAME,
+  INDEX_TYPE,
+  METRIC_TYPE,
+  DIMENSION,
+  NTOTAL
+};
+}  // namespace RDB_VECTOR_INDEX_FIELD
+
+static ST_FIELD_INFO rdb_i_s_vector_index_config_fields_info[] = {
+    ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32), MYSQL_TYPE_LONG, 0),
+    ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("INDEX_TYPE", 100, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("METRIC_TYPE", 100, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("DIMENSION", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("NTOTAL", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO_END};
+
+int Rdb_vector_index_scanner::add_table(Rdb_tbl_def *tdef) {
+  assert(tdef != nullptr);
+
+  int ret = 0;
+
+  assert(m_table != nullptr);
+  Field **field = m_table->field;
+  assert(field != nullptr);
+
+  const std::string &dbname = tdef->base_dbname();
+  field[RDB_VECTOR_INDEX_FIELD::TABLE_SCHEMA]->store(
+      dbname.c_str(), dbname.size(), system_charset_info);
+
+  const std::string &tablename = tdef->base_tablename();
+  field[RDB_VECTOR_INDEX_FIELD::TABLE_NAME]->store(
+      tablename.c_str(), tablename.size(), system_charset_info);
+
+  for (uint i = 0; i < tdef->m_key_count; i++) {
+    const Rdb_key_def &kd = *tdef->m_key_descr_arr[i];
+    if (!kd.is_vector_index()) {
+      continue;
+    }
+
+    field[RDB_VECTOR_INDEX_FIELD::INDEX_NAME]->store(
+        kd.m_name.c_str(), kd.m_name.size(), system_charset_info);
+
+    GL_INDEX_ID gl_index_id = kd.get_gl_index_id();
+    field[RDB_VECTOR_INDEX_FIELD::INDEX_NUMBER]->store(gl_index_id.index_id,
+                                                       true);
+
+    FB_vector_index_config vector_config = kd.get_vector_index_config();
+    std::string_view index_type =
+        fb_vector_index_type_to_string(vector_config.type());
+    field[RDB_VECTOR_INDEX_FIELD::INDEX_TYPE]->store(
+        index_type.data(), index_type.size(), system_charset_info);
+    std::string_view metric_type =
+        fb_vector_index_metric_to_string(vector_config.metric());
+    field[RDB_VECTOR_INDEX_FIELD::METRIC_TYPE]->store(
+        metric_type.data(), metric_type.size(), system_charset_info);
+    field[RDB_VECTOR_INDEX_FIELD::DIMENSION]->store(vector_config.dimension(),
+                                                    true);
+    auto vector_index = kd.get_vector_index();
+    auto vector_index_info = vector_index->dump_info();
+    field[RDB_VECTOR_INDEX_FIELD::NTOTAL]->store(vector_index_info.m_ntotal,
+                                                 true);
+
+    ret = my_core::schema_table_store_record(m_thd, m_table);
+    if (ret) return ret;
+  }
+  return HA_EXIT_SUCCESS;
+}
+
+static int rdb_i_s_vector_index_config_fill_table(
+    my_core::THD *thd, my_core::Table_ref *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__))) {
+  DBUG_ENTER_FUNC();
+
+  assert(thd != nullptr);
+  assert(tables != nullptr);
+  assert(tables->table != nullptr);
+
+  int ret = HA_EXIT_SUCCESS;
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
+
+  Rdb_vector_index_scanner ddl_arg(thd, tables->table);
+  Rdb_ddl_manager *ddl_manager = rdb_get_ddl_manager();
+  assert(ddl_manager != nullptr);
+
+  ret = ddl_manager->scan_for_tables(&ddl_arg);
+
+  DBUG_RETURN(ret);
+}
+
+static int rdb_i_s_vector_index_config_init(void *p) {
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER_FUNC();
+  assert(p != nullptr);
+
+  schema = reinterpret_cast<my_core::ST_SCHEMA_TABLE *>(p);
+
+  schema->fields_info = rdb_i_s_vector_index_config_fields_info;
+  schema->fill_table = rdb_i_s_vector_index_config_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -2635,4 +2765,22 @@ struct st_mysql_plugin rdb_i_s_bypass_rejected_query_history = {
     nullptr, /* config options */
     0,       /* flags */
 };
+
+struct st_mysql_plugin rdb_i_s_vector_index_config = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_VECTOR_INDEX",
+    "Facebook",
+    "vector index information",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_vector_index_config_init,
+    nullptr, /* uninstall */
+    rdb_i_s_deinit,
+    0x0001,  /* version number (0.1) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
 }  // namespace myrocks

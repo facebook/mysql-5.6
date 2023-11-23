@@ -1098,6 +1098,16 @@ static void fill_dd_indexes_from_keyinfo(
     if (key->parser_name.str)
       idx_options->set("parser_name", key->parser_name.str);
 
+    // storing fb_vector info
+    if (key->fb_vector_index_config.type() != FB_VECTOR_INDEX_TYPE::NONE) {
+      idx_options->set("fb_vector_index_type",
+                       (uint)key->fb_vector_index_config.type());
+      idx_options->set("fb_vector_index_metric",
+                       (uint)key->fb_vector_index_config.metric());
+      idx_options->set("fb_vector_dimension",
+                       key->fb_vector_index_config.dimension());
+    }
+
     /*
       If we have no primary key, then we pick the first candidate primary
       key and promote it. When we promote, the field's of key_part needs to

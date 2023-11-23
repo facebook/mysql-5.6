@@ -642,6 +642,16 @@ struct System_variables {
   Explain_format_type explain_format;
 
   uint mta_binlog_statement_workers;
+
+  /**
+   minimum vector dimension.
+  */
+  uint fb_vector_min_dimension;
+
+  /**
+   maximum vector dimension.
+  */
+  uint fb_vector_max_dimension;
 };
 
 /**

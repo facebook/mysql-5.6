@@ -307,6 +307,7 @@ Rdb_key_def::Rdb_key_def(
 Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
     : m_index_number(k.get_index_number()),
       m_cf_handle(k.m_cf_handle),
+      m_vector_index_config(k.m_vector_index_config),
       m_is_reverse_cf(k.m_is_reverse_cf),
       m_is_per_partition_cf(k.m_is_per_partition_cf),
       m_name(k.m_name),
@@ -374,6 +375,7 @@ void Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
       key_info = &tbl.key_info[m_keyno];
       if (!hidden_pk_exists) pk_info = &tbl.key_info[tbl.s->primary_key];
       m_name = std::string(key_info->name);
+      m_vector_index_config = key_info->fb_vector_index_config;
     } else {
       m_name = HIDDEN_PK_NAME;
     }
@@ -553,6 +555,8 @@ void Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
     /* Cache prefix extractor for bloom filter usage later */
     rocksdb::Options opt = rdb_get_rocksdb_db()->GetOptions(get_cf());
     m_prefix_extractor = opt.prefix_extractor;
+
+    setup_vector_index(tbl_def);
 
     /*
       This should be the last member variable set before releasing the mutex
@@ -3489,6 +3493,16 @@ Rdb_field_packing *Rdb_key_def::get_pack_info(uint pack_no) {
   return &m_pack_info[pack_no];
 }
 
+void Rdb_key_def::setup_vector_index(const Rdb_tbl_def &tbl_def
+                                     [[maybe_unused]]) {
+  if (m_vector_index_config.type() == FB_VECTOR_INDEX_TYPE::NONE) {
+    return;
+  }
+  assert(!is_primary_key());
+  assert(tbl_def.get_table_type() == TABLE_TYPE::USER_TABLE);
+  m_vector_index = std::make_unique<Rdb_vector_index>(m_vector_index_config);
+}
+
 // See Rdb_charset_space_info::spaces_xfrm
 const int RDB_SPACE_XFRM_SIZE = 32;
 
@@ -3867,11 +3881,20 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       m_pack_func = Rdb_key_def::pack_string;
       break;  // handling below
 
+    case MYSQL_TYPE_JSON:
+      if (!key_descr->is_vector_index()) {
+        SHIP_ASSERT(
+          !"Unexpected MYSQL_TYPE_JSON seen in packing for none vector index");
+        return false;
+      }
+      m_pack_func = Rdb_key_def::pack_with_varlength_encoding;
+      break;
+
     default:
       // MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TIMESTAMP,
       // MYSQL_TYPE_TIME, MYSQL_TYPE_DATETIME,
       // MYSQL_TYPE_VAR_STRING are obsolete
-      // MYSQL_TYPE_JSON is not supported as index
+      // MYSQL_TYPE_JSON is not supported as index except for vector index
       // MYSQL_TYPE_GEOMETRY is not supported by MyRocks yet
       SHIP_ASSERT(!"Unexpected MYSQL_TYPE_* seen in packing");
       return false;

@@ -159,6 +159,7 @@ Database: information_schema
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
 | ROCKSDB_SST_PROPS                     |
 | ROCKSDB_TRX                           |
+| ROCKSDB_VECTOR_INDEX                  |
 | ROLE_COLUMN_GRANTS                    |
 | ROLE_ROUTINE_GRANTS                   |
 | ROLE_TABLE_GRANTS                     |
@@ -270,6 +271,7 @@ Database: INFORMATION_SCHEMA
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
 | ROCKSDB_SST_PROPS                     |
 | ROCKSDB_TRX                           |
+| ROCKSDB_VECTOR_INDEX                  |
 | ROLE_COLUMN_GRANTS                    |
 | ROLE_ROUTINE_GRANTS                   |
 | ROLE_TABLE_GRANTS                     |

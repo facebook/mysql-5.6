@@ -75,6 +75,7 @@ class Rdb_transaction;
 class Rdb_transaction_impl;
 class Rdb_writebatch_impl;
 class Rdb_field_encoder;
+class Rdb_vector_db_handler;
 
 #if defined(HAVE_PSI_INTERFACE)
 extern PSI_rwlock_key key_rwlock_read_free_rpl_tables;
@@ -206,6 +207,11 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
     for secondary indexes.
   */
   uchar *m_sk_packed_tuple;
+
+  /*
+    store state for vector db operations
+  */
+  std::unique_ptr<Rdb_vector_db_handler> m_vector_db_handler;
 
   /*
     Temporary buffers for storing end key part of the Key/Value pair.
@@ -890,6 +896,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   Instant_Type rocksdb_support_instant(
       my_core::Alter_inplace_info *const ha_alter_info, const TABLE *old_table,
       const TABLE *altered_table) const;
+
+  Rdb_vector_db_handler *get_vector_db_handler();
 
  public:
   void set_pk_can_be_decoded(bool flag) { m_pk_can_be_decoded = flag; }

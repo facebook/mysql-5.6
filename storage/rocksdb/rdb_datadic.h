@@ -36,9 +36,11 @@
 #include "./rdb_buff.h"
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_utils.h"
+#include "./rdb_vector_db.h"
 
 /* Server header files */
 #include "sql/dd/object_id.h"
+#include "sql/fb_vector_base.h"
 
 namespace myrocks {
 
@@ -617,6 +619,16 @@ class Rdb_key_def {
     return m_cf_handle;
   }
 
+  bool is_vector_index() const {
+    return m_vector_index_config.type() != FB_VECTOR_INDEX_TYPE::NONE;
+  }
+
+  FB_vector_index_config get_vector_index_config() const {
+    return m_vector_index_config;
+  }
+
+  Rdb_vector_index *get_vector_index() const { return m_vector_index.get(); }
+
   /* Check if keypart #kp can be unpacked from index tuple */
   inline bool can_unpack(const uint kp) const;
   /* Check if keypart #kp needs unpack info */
@@ -826,6 +838,12 @@ class Rdb_key_def {
   uchar m_index_number_storage_form[INDEX_NUMBER_SIZE];
 
   std::shared_ptr<rocksdb::ColumnFamilyHandle> m_cf_handle;
+
+  FB_vector_index_config m_vector_index_config{};
+
+  std::unique_ptr<Rdb_vector_index> m_vector_index;
+
+  void setup_vector_index(const Rdb_tbl_def &tbl_def);
 
   static void pack_variable_format(const uchar *src, size_t src_len,
                                    uchar **dst);

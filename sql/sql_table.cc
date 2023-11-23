@@ -118,6 +118,7 @@
 #include "sql/derror.h"          // ER_THD
 #include "sql/enum_query_type.h"
 #include "sql/error_handler.h"  // Drop_table_error_handler
+#include "sql/fb_vector_base.h"
 #include "sql/field.h"
 #include "sql/field_common_properties.h"
 #include "sql/filesort.h"  // Filesort
@@ -4913,8 +4914,18 @@ static bool prepare_key_column(THD *thd, HA_CREATE_INFO *create_info,
     key_info->flags |= HA_VIRTUAL_GEN_KEY;
   }
 
+  // fb_vector index only support json type
+  if (key_info->is_fb_vector_index()) {
+    if (sql_field->sql_type != MYSQL_TYPE_JSON) {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0),
+               "fb_vector index only support json type");
+      return true;
+    }
+  }
+
   // JSON columns cannot be used as keys.
-  if (sql_field->sql_type == MYSQL_TYPE_JSON) {
+  if (sql_field->sql_type == MYSQL_TYPE_JSON &&
+      !key_info->is_fb_vector_index()) {
     my_error(ER_JSON_USED_AS_KEY, MYF(0), column->get_field_name());
     return true;
   }
@@ -5198,7 +5209,7 @@ static bool prepare_key_column(THD *thd, HA_CREATE_INFO *create_info,
   }
 
   if (key_part_length > file->max_key_part_length(create_info) &&
-      key->type != KEYTYPE_FULLTEXT) {
+      key->type != KEYTYPE_FULLTEXT && !key_info->is_fb_vector_index()) {
     key_part_length = file->max_key_part_length(create_info);
     if (key->type == KEYTYPE_MULTIPLE) {
       /* not a critical problem */
@@ -7168,6 +7179,60 @@ static bool prepare_preexisting_foreign_key(
   return false;
 }
 
+/**
+  set vector index info to key_info
+*/
+static bool prepare_fb_vector_index(THD *thd, const Key_spec *key,
+                                    KEY *key_info) {
+  if (key->key_create_info.m_fb_vector_index_type.length == 0) {
+    // not a vector index, do nothing and return
+    return false;
+  }
+
+  if (!FB_VECTORDB_ENABLED) {
+    my_error(ER_FEATURE_DISABLED, MYF(0), "vector db", "WITH_FB_VECTORDB");
+    return true;
+  }
+
+  // do not allow create primary/unique/spatial index for fb_vector index
+  if (key->type != KEYTYPE_MULTIPLE) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0),
+             "fb_vector index can only be KEYTYPE_MULTIPLE");
+    return true;
+  }
+
+  // column type is checked in prepare_key_column, here
+  // we only check number of columns
+  if (key->columns.size() != 1) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0),
+             "fb_vector index can only have one column");
+    return true;
+  }
+
+  FB_VECTOR_INDEX_TYPE fb_vector_index_type;
+  if (parse_fb_vector_index_type(key->key_create_info.m_fb_vector_index_type,
+                                 fb_vector_index_type)) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), "invalid fb_vector_index_type");
+    return true;
+  }
+  FB_VECTOR_INDEX_METRIC fb_vector_index_metric;
+  if (parse_fb_vector_index_metric(
+          key->key_create_info.m_fb_vector_index_metric,
+          fb_vector_index_metric)) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), "invalid fb_vector_index_metric");
+    return true;
+  }
+  ulong vector_dimension = key->key_create_info.m_fb_vector_dimension;
+  if (vector_dimension < thd->variables.fb_vector_min_dimension ||
+      vector_dimension > thd->variables.fb_vector_max_dimension) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), "fb_vector_dimension out of bounds");
+    return true;
+  }
+  key_info->fb_vector_index_config = FB_vector_index_config(
+      fb_vector_index_type, fb_vector_index_metric, vector_dimension);
+  return false;
+}
+
 static bool prepare_key(
     THD *thd, const char *error_schema_name, const char *error_table_name,
     HA_CREATE_INFO *create_info, List<Create_field> *create_list,
@@ -7373,6 +7438,10 @@ static bool prepare_key(
 
   if (key_info->block_size) key_info->flags |= HA_USES_BLOCK_SIZE;
 
+  if (prepare_fb_vector_index(thd, key, key_info)) {
+    return true;
+  }
+
   const CHARSET_INFO *ft_key_charset = nullptr;  // for FULLTEXT
   key_info->key_length = 0;
   for (size_t column_nr = 0; column_nr < key->columns.size();
@@ -7386,7 +7455,7 @@ static bool prepare_key(
   key_info->actual_flags = key_info->flags;
 
   if (key_info->key_length > file->max_key_length() &&
-      key->type != KEYTYPE_FULLTEXT) {
+      key->type != KEYTYPE_FULLTEXT && !key_info->is_fb_vector_index()) {
     my_error(ER_TOO_LONG_KEY, MYF(0), file->max_key_length());
     if (thd->is_error())  // May be silenced - see Bug#20629014
       return true;

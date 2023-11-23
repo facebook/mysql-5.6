@@ -56,6 +56,10 @@ enable_shardbeater
 enable_shardbeater
 explain_format
 explain_format
+fb_vector_max_dimension
+fb_vector_max_dimension
+fb_vector_min_dimension
+fb_vector_min_dimension
 force_pk_for_equality_preds_on_pk
 force_pk_for_equality_preds_on_pk
 generated_random_password_length
