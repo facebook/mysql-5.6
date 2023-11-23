@@ -297,7 +297,11 @@ class Item_func : public Item_result_field {
     MEMBER_OF_FUNC,
     STRCMP_FUNC,
     TRUE_FUNC,
-    FALSE_FUNC
+    FALSE_FUNC,
+    // vector db functions
+    FB_VECTOR_L2,
+    FB_VECTOR_IP,
+    FB_VECTOR_COSINE
   };
   enum optimize_type {
     OPTIMIZE_NONE,

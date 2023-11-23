@@ -2207,6 +2207,11 @@ ADD_CUSTOM_TARGET(clang_tidy_prerequisites)
 ADD_DEPENDENCIES(clang_tidy_prerequisites protobuf_generated_all)
 ADD_DEPENDENCIES(clang_tidy_prerequisites GenError)
 
+IF (WITH_FB_VECTORDB)
+  ADD_DEFINITIONS(-DWITH_FB_VECTORDB=1)
+  INCLUDE(cmake/faiss.cmake)
+ENDIF()
+
 ADD_SUBDIRECTORY(include)
 ADD_SUBDIRECTORY(strings)
 ADD_SUBDIRECTORY(vio)

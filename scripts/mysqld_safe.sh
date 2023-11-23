@@ -999,6 +999,10 @@ cur_retry_times=0
 max_restart_a_day=10
 prev_date=`date +%D`
 
+# see https://github.com/OpenMathLib/OpenBLAS/wiki/faq#multi-threaded,
+# OpenBLAS multi-threading causes server hang during shutdown.
+export OPENBLAS_NUM_THREADS=1
+
 while true
 do
   start_time=`date +%M%S`

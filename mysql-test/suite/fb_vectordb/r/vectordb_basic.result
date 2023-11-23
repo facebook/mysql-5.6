@@ -1,0 +1,41 @@
+
+TEST CASE basic distance calculation
+
+select FB_VECTOR_L2('[1, 2, 3]', '[1, 2, 3]') as v1;
+v1
+0
+select FB_VECTOR_L2('[1, 2, 3]', '[2, 3, 5]') as v1, FB_VECTOR_L2('[1, 2, 3]', '[2]') as v2, FB_VECTOR_L2('[1]', '[2, 3, 5]') as v3;
+v1	v2	v3
+6	14	35
+select FB_VECTOR_IP('[1, 2, 3]', '[1, 2, 3]') as v1;
+v1
+14
+select FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5]') as v1;
+v1
+23
+select FB_VECTOR_COSINE('[1, 2, 3]', '[1, 2, 3]') as v1;
+v1
+0.9999998807907104
+select FB_VECTOR_COSINE('[1, 2, 3]', '[2, 3, 5]') as v1;
+v1
+0.9971764087677002
+
+TEST CASE basic error handling
+
+select FB_VECTOR_L2('[1, 2, 3]', 'abc') as v1;
+ERROR 22032: Invalid JSON text in argument 2 to function fb_vector_l2: "Invalid value." at position 0.
+select FB_VECTOR_L2('[1, 2, "abc"]', '[1, 2, 3]') as v1;
+ERROR HY000: Incorrect type for argument 0 in function fb_vector_l2.
+
+TEST CASE distance function with column prameter
+
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 64) SELECT i+10, json_array(i+10, i+11, i) from a);
+select *, FB_VECTOR_L2(c2, '[20, 21, 10]') as dis from t1 order by dis limit 5;
+c1	c2	dis
+20	[20, 21, 10]	0
+19	[19, 20, 9]	3
+21	[21, 22, 11]	3
+22	[22, 23, 12]	12
+18	[18, 19, 8]	12
+DROP TABLE t1;

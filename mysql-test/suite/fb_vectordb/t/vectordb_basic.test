@@ -1,0 +1,37 @@
+disable_query_log;
+disable_warnings;
+DROP TABLE IF EXISTS t1;
+enable_warnings;
+enable_query_log;
+
+echo;
+echo TEST CASE basic distance calculation;
+echo;
+# same vector, should return 0
+select FB_VECTOR_L2('[1, 2, 3]', '[1, 2, 3]') as v1;
+# vector of same length, different length
+select FB_VECTOR_L2('[1, 2, 3]', '[2, 3, 5]') as v1, FB_VECTOR_L2('[1, 2, 3]', '[2]') as v2, FB_VECTOR_L2('[1]', '[2, 3, 5]') as v3;
+# ip
+select FB_VECTOR_IP('[1, 2, 3]', '[1, 2, 3]') as v1;
+select FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5]') as v1;
+# cosine
+select FB_VECTOR_COSINE('[1, 2, 3]', '[1, 2, 3]') as v1;
+select FB_VECTOR_COSINE('[1, 2, 3]', '[2, 3, 5]') as v1;
+
+echo;
+echo TEST CASE basic error handling;
+echo;
+error ER_INVALID_JSON_TEXT_IN_PARAM;
+select FB_VECTOR_L2('[1, 2, 3]', 'abc') as v1;
+error ER_INCORRECT_TYPE;
+select FB_VECTOR_L2('[1, 2, "abc"]', '[1, 2, 3]') as v1;
+
+echo;
+echo TEST CASE distance function with column prameter;
+echo;
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 64) SELECT i+10, json_array(i+10, i+11, i) from a);
+
+select *, FB_VECTOR_L2(c2, '[20, 21, 10]') as dis from t1 order by dis limit 5;
+
+DROP TABLE t1;

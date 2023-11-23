@@ -8,3 +8,6 @@
 	path = boost
 	url = https://github.com/boostorg/boost.git
 	ignore = dirty
+[submodule "faiss"]
+	path = faiss
+	url = https://github.com/facebookresearch/faiss.git

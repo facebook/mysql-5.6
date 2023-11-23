@@ -3401,6 +3401,10 @@ sub environment_setup {
   $ENV{'MYSQLTEST_VARDIR'}    = $opt_vardir;
   $ENV{'USE_RUNNING_SERVER'}  = using_extern();
 
+  # see https://github.com/OpenMathLib/OpenBLAS/wiki/faq#multi-threaded,
+  # OpenBLAS multi-threading causes server hang during shutdown.
+  $ENV{'OPENBLAS_NUM_THREADS'}  = 1;
+
   if (IS_WINDOWS) {
     $ENV{'SECURE_LOAD_PATH'}      = $glob_mysql_test_dir . "\\std_data";
     $ENV{'MYSQL_TEST_LOGIN_FILE'} = $opt_tmpdir . "\\.mylogin.cnf";
