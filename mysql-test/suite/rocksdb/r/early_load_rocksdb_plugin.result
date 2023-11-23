@@ -1,13 +1,6 @@
 # shut server down
 # Server is down
 #
-# Try to run the server with --initialize --rocksdb_large_prefix=OFF
-#
-#
-# Error log checks
-#
-Occurrences of 'disabling rocksdb_large_prefix is not allowed with MySQL data dictionary in MyRocks ' in the input file: 0
-#
 # Run the server with --help (a too-restrictive assert regression test)
 #
 #

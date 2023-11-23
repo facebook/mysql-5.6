@@ -119,9 +119,6 @@ DROP TABLE t1;
 
 --enable_testcase
 
-
-set global rocksdb_large_prefix=1;
-
 CREATE TABLE t1 (
   a BLOB(4096),
   KEY (a(3072))
@@ -134,5 +131,3 @@ CREATE TABLE t1 (
   KEY (a(3073))
 ) ENGINE=rocksdb;
 DROP TABLE t1;
-
-set global rocksdb_large_prefix=DEFAULT;

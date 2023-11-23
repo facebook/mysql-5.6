@@ -2213,10 +2213,6 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-is-fd-close-on-exec to disable.)
  --rocksdb-keep-log-file-num=# 
  DBOptions::keep_log_file_num for RocksDB
- --rocksdb-large-prefix 
- Deprecated: support large index prefix length of 3072
- bytes. If off, the maximum index prefix length is 767.
- (Defaults to on; use --skip-rocksdb-large-prefix to disable.)
  --rocksdb-live-files-metadata[=name] 
  Enable or disable ROCKSDB_LIVE_FILES_METADATA plugin.
  Possible values are ON, OFF, FORCE (don't start if the
@@ -3753,7 +3749,6 @@ rocksdb-info-log-level error_level
 rocksdb-io-write-timeout 0
 rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000
-rocksdb-large-prefix TRUE
 rocksdb-live-files-metadata ON
 rocksdb-lock-scanned-rows FALSE
 rocksdb-lock-wait-timeout 1

@@ -46,9 +46,6 @@ SHOW KEYS IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	b	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
 DROP TABLE t1;
-set global rocksdb_large_prefix=1;
-Warnings:
-Warning	131	using rocksdb_large_prefix is deprecated and it will be removed in a future release
 CREATE TABLE t1 (
 a BLOB(4096),
 PRIMARY KEY (a(3072))
@@ -59,6 +56,3 @@ a BLOB(4096),
 PRIMARY KEY (a(3073))
 ) ENGINE=rocksdb;
 ERROR 42000: Specified key was too long; max key length is 3072 bytes
-set global rocksdb_large_prefix=DEFAULT;
-Warnings:
-Warning	131	using rocksdb_large_prefix is deprecated and it will be removed in a future release
