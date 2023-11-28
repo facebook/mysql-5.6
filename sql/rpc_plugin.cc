@@ -2,14 +2,21 @@
 #include <thread>
 #include <unordered_map>
 
+#include <mysql/plugin_audit.h>
 #include <mysql/service_rpc_plugin.h>
+#include "lex_string.h"
+#include "my_sys.h"
+#include "mysql/mysql_lex_string.h"
 #include "mysqld.h"
 #include "sql/binlog.h"
 #include "sql/debug_sync.h" /* DEBUG_SYNC */
+#include "sql/log.h"        // query_logger
 #include "sql/mysqld_thd_manager.h"
 #include "sql/protocol_rpc.h"
+#include "sql/sql_audit.h"
 #include "sql/sql_base.h"
 #include "sql/sql_lex.h"
+#include "sql/sql_parse.h"  // sql_command_flags
 #include "sql/strfunc.h"
 #include "sql/transaction.h" /* trans_commit_stmt */
 
@@ -33,22 +40,22 @@ class RPC_Query_formatter : public THD::Query_formatter {
   void append_where_op(String &buf, myrocks_where_item::where_op op) {
     switch (op) {
       case myrocks_where_item::where_op::_EQ:
-        buf.append("=");
+        buf.append(" = ");
         return;
       case myrocks_where_item::where_op::_LT:
-        buf.append("<");
+        buf.append(" < ");
         return;
       case myrocks_where_item::where_op::_GT:
-        buf.append(">");
+        buf.append(" > ");
         return;
       case myrocks_where_item::where_op::_LE:
-        buf.append("<=");
+        buf.append(" <= ");
         return;
       case myrocks_where_item::where_op::_GE:
-        buf.append(">=");
+        buf.append(" >= ");
         return;
       default:
-        buf.append("?");
+        buf.append(" ? ");
     }
   }
 
@@ -215,6 +222,7 @@ void initialize_thd() {
     Protocol_RPC *protocol = new Protocol_RPC();
     thd->push_protocol(protocol);
     thd->security_context()->assign_user(STRING_WITH_LEN("rpc_plugin"));
+    thd->security_context()->set_host_ptr(STRING_WITH_LEN(glob_hostname_ptr));
     RPC_Query_formatter *formatter = new RPC_Query_formatter();
     thd->set_query_formatter(formatter);
     Global_THD_manager::get_instance()->add_thd(thd);
@@ -252,8 +260,9 @@ bool check_hlc_bound(THD *thd, uint64_t requested_hlc, uint64_t applied_hlc) {
 // return true if the incoming rpc request should be formatted to plain text
 bool check_bypass_rpc_needs_formatting() {
   // if pfs logging is enabled
-  if (pfs_param.m_esms_by_all_enabled && bypass_rpc_pfs_logging)
+  if (pfs_param.m_esms_by_all_enabled && bypass_rpc_pfs_logging) {
     return true;
+  }
   return false;
 }
 
@@ -318,6 +327,38 @@ static const bypass_rpc_exception shutdown_error{
     ER_SERVER_SHUTDOWN, "MYF(0)", "MySQL server is shutting down"};
 static std::atomic_bool about_to_shutdown{false};
 }  // namespace
+
+void thd_format_query(THD *thd, MYSQL_LEX_CSTRING &query) {
+  if (query.length > 0) {
+    // Query already formatted, nothing to do
+    return;
+  }
+
+  THD::Query_formatter *formatter = thd->get_query_formatter();
+  if (thd->query().length > 0) {
+    // Work is already done, just reuse the result
+    query.str = thd->query().str;
+    query.length = thd->query().length;
+  } else if (formatter) {
+    // Need to format the query
+    String formatted_str;
+    formatter->format_query(formatted_str);
+
+    // Allocate memory on the THD MEMROOT
+    char *thd_query =
+        static_cast<char *>(thd->alloc(formatted_str.length() + 1));
+    if (!thd_query) return;
+    memcpy(thd_query, formatted_str.c_ptr(), formatted_str.length());
+    thd_query[formatted_str.length()] = '\0';
+
+    thd->set_query(thd_query, formatted_str.length());
+    query.str = thd->query().str;
+    query.length = thd->query().length;
+  } else {
+    // Cannot format the query
+    return;
+  }
+}
 
 /**
   Helper to quickly check if bypass is supported on the current server before
@@ -452,6 +493,15 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   auto ret = rocksdb_hton->bypass_select_by_key(thd, &columns, *param);
   ret.hlc_lower_bound_ts = applied_hlc;
 
+  query_logger.general_log_write(thd, COM_QUERY, buf.c_ptr(), buf.length());
+
+  mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_RESULT), 0, nullptr,
+                     0);
+
+  const std::string &cn = Command_names::str_global(COM_QUERY);
+  mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS), ret.errnum,
+                     cn.c_str(), cn.length());
+
   /* PSI end */
   MYSQL_DIGEST_END(m_digest_psi, &thd->m_digest->m_digest_storage);
 
@@ -465,11 +515,11 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   thd->lex->unit->cleanup(true);
   lex_end(thd->lex);
   thd->free_items();
-	thd->reset_query();
+  thd->reset_query();  // This is needed after call to general_log_write()
   thd->reset_query_for_display();
   thd->reset_query_attrs();
   thd->mdl_context.release_transactional_locks();
-  thd->mem_root->ClearForReuse();
+  thd->clean_main_memory();
   if (formatter) {
     formatter->set_rpc_query(nullptr);
   }

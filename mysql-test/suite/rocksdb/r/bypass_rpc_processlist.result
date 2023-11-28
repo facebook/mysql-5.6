@@ -24,18 +24,18 @@ set DEBUG_SYNC='now WAIT_FOR ready_to_run_processlist';
 SELECT USER, COMMAND, INFO FROM INFORMATION_SCHEMA.PROCESSLIST
 WHERE USER IN ('rpc_plugin');
 USER	COMMAND	INFO
-rpc_plugin	Connect	SELECT /* bypass rpc */ id1,id2,link_type,visibility,data,time,version FROM a.table_a FORCE INDEX (id1_type) WHERE link_type=3 AND id1=1 AND visibility=4 AND time>=10 ORDER BY TIME DESC LIMIT 10
+rpc_plugin	Connect	SELECT /* bypass rpc */ id1,id2,link_type,visibility,data,time,version FROM a.table_a FORCE INDEX (id1_type) WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10 ORDER BY TIME DESC LIMIT 10
 set DEBUG_SYNC='now SIGNAL continue';
 set DEBUG_SYNC='now WAIT_FOR ready_to_run_processlist';
 SELECT USER, COMMAND, INFO FROM INFORMATION_SCHEMA.PROCESSLIST
 WHERE USER IN ('rpc_plugin');
 USER	COMMAND	INFO
-rpc_plugin	Connect	SELECT /* bypass rpc */ id1,id2,link_type,visibility,data,TIME,version FROM a.table_a FORCE INDEX (PRIMARY) WHERE link_type=1 AND id1=2 AND id2<6 ORDER BY id2 ASC LIMIT 1000
+rpc_plugin	Connect	SELECT /* bypass rpc */ id1,id2,link_type,visibility,data,TIME,version FROM a.table_a FORCE INDEX (PRIMARY) WHERE link_type = 1 AND id1 = 2 AND id2 < 6 ORDER BY id2 ASC LIMIT 1000
 set DEBUG_SYNC='now SIGNAL continue';
 set DEBUG_SYNC='now WAIT_FOR ready_to_run_processlist';
 SELECT USER, COMMAND, INFO FROM INFORMATION_SCHEMA.PROCESSLIST
 WHERE USER IN ('rpc_plugin');
 USER	COMMAND	INFO
-rpc_plugin	Connect	SELECT /* bypass rpc */ id1,id2,link_type,visibility,data,TIME,version FROM a.table_a FORCE INDEX (id1_type) WHERE link_type=3 AND id1=3 AND visibility=4 AND TIME>=9 AND TIME<=16 ORDER BY TIME ASC, id2 ASC LIMIT 1000
+rpc_plugin	Connect	SELECT /* bypass rpc */ id1,id2,link_type,visibility,data,TIME,version FROM a.table_a FORCE INDEX (id1_type) WHERE link_type = 3 AND id1 = 3 AND visibility = 4 AND TIME >= 9 AND TIME <= 16 ORDER BY TIME ASC, id2 ASC LIMIT 1000
 set DEBUG_SYNC='now SIGNAL continue';
 set global rocksdb_bypass_rpc_on=@save_rocksdb_bypass_rpc_on;

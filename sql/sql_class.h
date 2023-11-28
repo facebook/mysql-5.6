@@ -4962,6 +4962,22 @@ class THD : public MDL_context_owner,
     else
       m_parser_mem_root.Clear();
   }
+  /*
+    If we've allocated a lot of memory (compared to the default preallocation
+    size = 8192; note that we don't actually preallocate anymore), free
+    it so that one big query won't cause us to hold on to a lot of RAM forever.
+    If not, keep the last block so that the next query will hopefully be able to
+    run without allocating memory from the OS.
+
+    The factor 5 is pretty much arbitrary, but ends up allowing three
+    allocations (1 + 1.5 + 1.5²) under the current allocation policy.
+  */
+  inline void clean_main_memory() {
+    if (mem_root->allocated_size() < 40960)
+      mem_root->ClearForReuse();
+    else
+      mem_root->Clear();
+  }
   // serialize client attributes and compute CLIENT_ID
   void serialize_client_attrs(const char *query, size_t query_length);
   std::vector<std::pair<std::string, std::string>> query_attrs_list;

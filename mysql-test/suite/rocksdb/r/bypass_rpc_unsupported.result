@@ -78,8 +78,8 @@ SELECT @queries_rejected_2 - @queries_rejected_0;
 23
 SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
 QUERY	ERROR_MSG	BYPASS_TYPE
-SELECT /* bypass rpc */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b>2 AND d>4	Non-optimal queries with filters are not allowed	RPC
-SELECT /* bypass rpc */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b=2 AND d>4	Non-optimal queries with filters are not allowed	RPC
+SELECT /* bypass rpc */ d FROM test.t1 FORCE INDEX (a) WHERE a = 1 AND b > 2 AND d > 4	Non-optimal queries with filters are not allowed	RPC
+SELECT /* bypass rpc */ d FROM test.t1 FORCE INDEX (a) WHERE a = 1 AND b = 2 AND d > 4	Non-optimal queries with filters are not allowed	RPC
 SELECT `d` FROM `test` . `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT `d` FROM `test` . `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` = ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
 set global rocksdb_bypass_rpc_rejected_log_ts_interval_secs=999;
@@ -107,8 +107,8 @@ SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJE
 QUERY	ERROR_MSG	BYPASS_TYPE
 SELECT `d` FROM `test` . `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` > ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
 SELECT `d` FROM `test` . `t1` FORCE INDEX ( `a` ) WHERE `a` = ? AND `b` = ? AND `d` > ?	Non-optimal queries with filters are not allowed	SQL
-SELECT /* bypass rpc */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b>2 AND d>4	Non-optimal queries with filters are not allowed	RPC
-SELECT /* bypass rpc */ d FROM test.t1 FORCE INDEX (a) WHERE a=1 AND b=2 AND d>4	Non-optimal queries with filters are not allowed	RPC
+SELECT /* bypass rpc */ d FROM test.t1 FORCE INDEX (a) WHERE a = 1 AND b > 2 AND d > 4	Non-optimal queries with filters are not allowed	RPC
+SELECT /* bypass rpc */ d FROM test.t1 FORCE INDEX (a) WHERE a = 1 AND b = 2 AND d > 4	Non-optimal queries with filters are not allowed	RPC
 set global rocksdb_bypass_rpc_on=@save_rocksdb_bypass_rpc_on;
 set global rocksdb_bypass_rpc_log_rejected=@save_rocksdb_bypass_rpc_log_rejected;
 set global rocksdb_select_bypass_rejected_query_history_size=@save_rocksdb_select_bypass_rejected_query_history_size;

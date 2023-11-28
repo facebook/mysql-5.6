@@ -642,4 +642,9 @@ struct mysql_event_message {
   size_t key_value_map_length;
 };
 
+/*
+  Formats request from Thrift server into a SQL query
+*/
+void thd_format_query(MYSQL_THD thd, MYSQL_LEX_CSTRING &query);
+
 #endif
