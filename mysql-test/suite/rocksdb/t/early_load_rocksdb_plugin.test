@@ -7,27 +7,12 @@
 
 let BASEDIR= `select @@basedir`;
 let DDIR=$MYSQL_TMP_DIR/installdb_test;
-let MYSQLD_LPO_LOG=$MYSQL_TMP_DIR/server-lpo.log;
 let MYSQLD_LOG=$MYSQL_TMP_DIR/server.log;
 let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 
 --echo # shut server down
 --source include/shutdown_mysqld.inc
 --echo # Server is down
-
---echo #
---echo # Try to run the server with --initialize --rocksdb_large_prefix=OFF
---echo #
---error 1
---exec $MYSQLD $extra_args --initialize --default_dd_storage_engine=RocksDB --rocksdb_large_prefix=OFF --datadir=$DDIR --log-error-verbosity=3 > $MYSQLD_LPO_LOG 2>&1
---force-rmdir $DDIR
---echo #
---echo # Error log checks
---echo #
---let $grep_file= $MYSQLD_LPO_LOG 
---let $grep_pattern=disabling rocksdb_large_prefix is not allowed with MySQL data dictionary in MyRocks 
---let $grep_output= print_count
---source include/grep_pattern.inc
 
 --echo #
 --echo # Run the server with --help (a too-restrictive assert regression test)
@@ -61,4 +46,3 @@ let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 
 --echo # Remove data dir and log file.
 --remove_file $MYSQLD_LOG
---remove_file $MYSQLD_LPO_LOG

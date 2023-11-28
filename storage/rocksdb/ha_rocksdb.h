@@ -576,8 +576,12 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
     DBUG_RETURN(MAX_REF_PARTS);
   }
 
-  uint max_supported_key_part_length(
-      HA_CREATE_INFO *create_info) const override;
+  [[nodiscard]] uint max_supported_key_part_length(
+      HA_CREATE_INFO *) const override {
+    DBUG_TRACE;
+
+    return MAX_INDEX_COL_LEN;
+  }
 
   /** @brief
     unireg.cc will call this to make sure that the storage engine can handle

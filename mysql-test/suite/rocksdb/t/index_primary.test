@@ -62,8 +62,6 @@ ALTER TABLE t1 ADD CONSTRAINT PRIMARY KEY pk (a);
 SHOW KEYS IN t1;
 DROP TABLE t1;
 
-set global rocksdb_large_prefix=1;
-
 CREATE TABLE t1 (
   a BLOB(4096),
   PRIMARY KEY (a(3072))
@@ -75,5 +73,3 @@ CREATE TABLE t1 (
   a BLOB(4096),
   PRIMARY KEY (a(3073))
 ) ENGINE=rocksdb;
-
-set global rocksdb_large_prefix=DEFAULT;
