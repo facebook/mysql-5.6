@@ -24,7 +24,7 @@ alter table t0 modify b char(100) default 'xyz';
 
 # for MyRocks DDSE, alter table require hold lock in DD
 --disable_query_log
-if (`SELECT @@default_dd_storage_engine = 'RocksDB'`) {
+if (`SELECT @@default_dd_system_storage_engine = 'RocksDB'`) {
 set @@rocksdb_max_row_locks = 10000;
 }
 --enable_query_log

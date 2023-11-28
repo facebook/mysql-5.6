@@ -42,6 +42,8 @@ cte_max_recursion_depth
 cte_max_recursion_depth
 default_collation_for_utf8mb4
 default_collation_for_utf8mb4
+default_dd_system_storage_engine
+default_dd_system_storage_engine
 disabled_storage_engines
 disabled_storage_engines
 enable_acl_db_cache

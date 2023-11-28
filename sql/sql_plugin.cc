@@ -1607,7 +1607,7 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
       bool is_rocksdb = !strncmp(plugin->name, ROCKSDB, rocksdb_len);
       bool is_rocksdb_dd_se =
           !my_strcasecmp(&my_charset_latin1, plugin->name, ROCKSDB) &&
-          default_dd_storage_engine == DEFAULT_DD_ROCKSDB;
+          default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB;
 
       std::optional<enum_plugin_load_option> force_load_option;
       if (is_rocksdb) {
@@ -1675,7 +1675,7 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
           plugin_initialize(plugin_ptr))
         goto err_unlock;
 
-      if (is_rocksdb && default_dd_storage_engine == DEFAULT_DD_ROCKSDB)
+      if (is_rocksdb && default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB)
         rocksdb_loaded = plugin_ptr->state == PLUGIN_IS_READY;
 
       /*
@@ -1705,7 +1705,8 @@ bool plugin_register_builtin_and_init_core_se(int *argc, char **argv) {
   assert(global_system_variables.temp_table_plugin);
 
   /* if ddse is rocksdb, rocksdb plugin should be loaded */
-  assert(rocksdb_loaded || default_dd_storage_engine != DEFAULT_DD_ROCKSDB ||
+  assert(rocksdb_loaded ||
+         default_dd_system_storage_engine != DEFAULT_DD_ROCKSDB ||
          is_help_or_validate_option());
 
   mysql_mutex_unlock(&LOCK_plugin);

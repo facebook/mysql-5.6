@@ -8,10 +8,10 @@
 
 --let LOG=$MYSQLTEST_VARDIR/tmp/use_direct_reads_writes.err
 --let SEARCH_FILE=$LOG
---let ddse= query_get_value(SELECT @@default_dd_storage_engine, @@default_dd_storage_engine, 1)
+--let ddse=`SELECT @@default_dd_system_storage_engine`
 
 --echo Checking direct reads
---let $_mysqld_option=--log-error=$LOG --rocksdb_use_direct_reads=1 --rocksdb_allow_mmap_reads=1 --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--log-error=$LOG --rocksdb_use_direct_reads=1 --rocksdb_allow_mmap_reads=1 --default_dd_system_storage_engine=$ddse
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
 --source include/restart_mysqld_with_invalid_option.inc
 
@@ -22,7 +22,7 @@
 
 # Repeat with direct-writes
 --echo Checking direct writes
---let $_mysqld_option=--log-error=$LOG --rocksdb_use_direct_io_for_flush_and_compaction=1 --rocksdb_allow_mmap_writes=1 --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--log-error=$LOG --rocksdb_use_direct_io_for_flush_and_compaction=1 --rocksdb_allow_mmap_writes=1 --default_dd_system_storage_engine=$ddse
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
 --source include/restart_mysqld_with_invalid_option.inc
 
@@ -33,7 +33,7 @@
 
 # Verify invalid direct-writes and --rocksdb_flush_log_at_trx_commit combination at startup fails
 --echo Checking rocksdb_flush_log_at_trx_commit
---let $_mysqld_option=--log-error=$LOG --rocksdb_flush_log_at_trx_commit=1 --rocksdb_allow_mmap_writes=1 --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--log-error=$LOG --rocksdb_flush_log_at_trx_commit=1 --rocksdb_allow_mmap_writes=1 --default_dd_system_storage_engine=$ddse
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
 --source include/restart_mysqld_with_invalid_option.inc
 

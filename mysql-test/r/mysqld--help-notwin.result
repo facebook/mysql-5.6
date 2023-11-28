@@ -398,7 +398,7 @@ The following options may be given as the first argument:
  hash the password.
  --default-collation-for-utf8mb4-init=name 
  The default collation for utf8mb4 charsets
- --default-dd-storage-engine=name 
+ --default-dd-system-storage-engine=name 
  The default storage engine for data dictionary
  --default-password-lifetime=# 
  The number of days after which the password will expire.
@@ -3249,7 +3249,7 @@ cte-max-recursion-depth 1000
 daemonize FALSE
 default-authentication-plugin caching_sha2_password
 default-collation-for-utf8mb4-init (No default value)
-default-dd-storage-engine InnoDB
+default-dd-system-storage-engine InnoDB
 default-password-lifetime 0
 default-storage-engine InnoDB
 default-table-encryption FALSE

@@ -1,37 +1,37 @@
 --source include/have_debug.inc
 # 
 #--source include/have_innodb_ddse.inc
---let ddse= query_get_value(SELECT @@default_dd_storage_engine, @@default_dd_storage_engine, 1)
+--let ddse=`SELECT @@default_dd_system_storage_engine`
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_files_corruption" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_files_corruption" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_mutexes_initialized" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_mutexes_initialized" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_reads" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_reads" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_list_cf" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_list_cf" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_cache" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_cache" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_cf_options" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_cf_options" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_incompatible_options" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_incompatible_options" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_open_db" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_open_db" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_managers" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_managers" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_threads" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_threads" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_everything_initialized" --default_dd_storage_engine=$ddse
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_everything_initialized" --default_dd_system_storage_engine=$ddse
 --source include/restart_mysqld_with_invalid_option.inc

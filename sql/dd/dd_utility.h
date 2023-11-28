@@ -75,16 +75,17 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name = nullptr);
   @return isolation level
 */
 [[nodiscard]] inline enum_tx_isolation get_dd_isolation_level() {
-  assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB ||
-         default_dd_storage_engine == DEFAULT_DD_INNODB);
-  return default_dd_storage_engine == DEFAULT_DD_ROCKSDB ? ISO_READ_COMMITTED
-                                                         : ISO_READ_UNCOMMITTED;
+  assert(default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB ||
+         default_dd_system_storage_engine == DEFAULT_DD_INNODB);
+  return default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB
+             ? ISO_READ_COMMITTED
+             : ISO_READ_UNCOMMITTED;
 }
 
 [[nodiscard]] inline legacy_db_type get_dd_engine_type() {
-  assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB ||
-         default_dd_storage_engine == DEFAULT_DD_INNODB);
-  const auto db_type = default_dd_storage_engine == DEFAULT_DD_ROCKSDB
+  assert(default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB ||
+         default_dd_system_storage_engine == DEFAULT_DD_INNODB);
+  const auto db_type = default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB
                            ? DB_TYPE_ROCKSDB
                            : DB_TYPE_INNODB;
   return db_type;
@@ -96,9 +97,10 @@ bool check_if_server_ddse_readonly(THD *thd, const char *schema_name = nullptr);
 }
 
 [[nodiscard]] inline const char *get_dd_engine_name() {
-  assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB ||
-         default_dd_storage_engine == DEFAULT_DD_INNODB);
-  return default_dd_storage_engine == DEFAULT_DD_ROCKSDB ? "ROCKSDB" : "INNODB";
+  assert(default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB ||
+         default_dd_system_storage_engine == DEFAULT_DD_INNODB);
+  return default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB ? "ROCKSDB"
+                                                                : "INNODB";
 }
 
 [[nodiscard]] inline const char *get_dd_engine_name(legacy_db_type db_type) {

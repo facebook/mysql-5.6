@@ -1171,7 +1171,7 @@ bool listen_admin_interface_in_separate_thread;
 static const char *default_collation_name;
 const char *default_storage_engine;
 const char *default_tmp_storage_engine;
-ulong default_dd_storage_engine;
+ulong default_dd_system_storage_engine;
 ulonglong temptable_max_ram;
 ulonglong temptable_max_mmap;
 bool temptable_track_shared_block_ram = false;

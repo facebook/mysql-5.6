@@ -1,11 +1,11 @@
-SET @start_global_value = @@global.default_dd_storage_engine;
+SET @start_global_value = @@global.default_dd_system_storage_engine;
 SELECT @start_global_value;
 @start_global_value
 InnoDB
-select @@global.default_dd_storage_engine;
-@@global.default_dd_storage_engine
+select @@global.default_dd_system_storage_engine;
+@@global.default_dd_system_storage_engine
 InnoDB
-select @@session.default_dd_storage_engine;
-ERROR HY000: Variable 'default_dd_storage_engine' is a GLOBAL variable
-SET @@global.default_dd_storage_engine = @start_global_value;
-ERROR HY000: Variable 'default_dd_storage_engine' is a read only variable
+select @@session.default_dd_system_storage_engine;
+ERROR HY000: Variable 'default_dd_system_storage_engine' is a GLOBAL variable
+SET @@global.default_dd_system_storage_engine = @start_global_value;
+ERROR HY000: Variable 'default_dd_system_storage_engine' is a read only variable

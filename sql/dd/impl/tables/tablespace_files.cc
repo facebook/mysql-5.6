@@ -39,8 +39,8 @@ const Tablespace_files &Tablespace_files::instance() {
 ///////////////////////////////////////////////////////////////////////////
 
 Tablespace_files::Tablespace_files() {
-  assert(default_dd_storage_engine == DEFAULT_DD_INNODB ||
-         default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+  assert(default_dd_system_storage_engine == DEFAULT_DD_INNODB ||
+         default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB);
 
   m_target_def.set_table_name("tablespace_files");
 
@@ -53,7 +53,7 @@ Tablespace_files::Tablespace_files() {
   m_target_def.add_field(FIELD_SE_PRIVATE_DATA, "FIELD_SE_PRIVATE_DATA",
                          "se_private_data MEDIUMTEXT");
 
-  if (default_dd_storage_engine == DEFAULT_DD_INNODB) {
+  if (default_dd_system_storage_engine == DEFAULT_DD_INNODB) {
     m_target_def.add_index(INDEX_UK_TABLESPACE_ID_ORDINAL_POSITION,
                            "INEDX_UK_TABLESPACE_ID_ORDINAL_POSITION",
                            "UNIQUE KEY (tablespace_id, ordinal_position)");

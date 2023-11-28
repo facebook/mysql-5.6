@@ -1,14 +1,14 @@
 --source include/load_sysvars.inc
 
-SET @start_global_value = @@global.default_dd_storage_engine;
+SET @start_global_value = @@global.default_dd_system_storage_engine;
 SELECT @start_global_value;
 
-select @@global.default_dd_storage_engine;
+select @@global.default_dd_system_storage_engine;
 
 # Global variable
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
-select @@session.default_dd_storage_engine;
+select @@session.default_dd_system_storage_engine;
 
 # Read only variable
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
-SET @@global.default_dd_storage_engine = @start_global_value;
+SET @@global.default_dd_system_storage_engine = @start_global_value;

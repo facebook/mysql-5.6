@@ -705,7 +705,7 @@ bool reset_tables_and_tablespaces() {
   if (ddse->dict_cache_reset_tables_and_tablespaces != nullptr)
     ddse->dict_cache_reset_tables_and_tablespaces();
 
-  if (default_dd_storage_engine != DEFAULT_DD_INNODB) {
+  if (default_dd_system_storage_engine != DEFAULT_DD_INNODB) {
     auto *const innodb_se = ha_resolve_by_legacy_type(thd.thd, DB_TYPE_INNODB);
     assert(innodb_se->dict_cache_reset_tables_and_tablespaces != nullptr);
     if (!ha_is_storage_engine_disabled(innodb_se) &&

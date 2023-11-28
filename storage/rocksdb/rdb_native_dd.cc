@@ -40,7 +40,7 @@ int native_dd::reject_if_dd_table(const dd::Table *table_def,
   // dd bootstrap system thread
   if (table_def != nullptr && is_dd_table_id(table_def->se_private_id()) &&
       !(is_dd_system_thread &&
-        default_dd_storage_engine != DEFAULT_DD_ROCKSDB)) {
+        default_dd_system_storage_engine != DEFAULT_DD_ROCKSDB)) {
     my_error(ER_NOT_ALLOWED_COMMAND, MYF(0));
     return HA_ERR_UNSUPPORTED;
   }

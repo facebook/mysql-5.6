@@ -1,2 +1,2 @@
---initialize --default-dd-storage-engine=ROCKSDB
+--initialize --default-dd-system-storage-engine=ROCKSDB
 --initialize --innodb_page_size=4k

@@ -6,9 +6,9 @@
 [mysqld]
 gtid-mode=on
 enforce-gtid-consistency
-default-dd-storage-engine=ROCKSDB
+default-dd-system-storage-engine=ROCKSDB
 
 [mysqld.2]
 skip-log-bin
 log-replica-updates=0
-default-dd-storage-engine=ROCKSDB
+default-dd-system-storage-engine=ROCKSDB

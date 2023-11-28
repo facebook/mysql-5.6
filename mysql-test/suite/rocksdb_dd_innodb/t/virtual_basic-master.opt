@@ -1,1 +1,1 @@
---initialize --default-dd-storage-engine=ROCKSDB
+--initialize --default-dd-system-storage-engine=ROCKSDB

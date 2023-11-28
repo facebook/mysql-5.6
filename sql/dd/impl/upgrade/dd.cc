@@ -1085,7 +1085,7 @@ bool update_myrocks_table_names(THD *thd, const String_type &old_schema_name,
                                 const String_type &new_schema_name,
     const std::set<String_type> &table_names,
     const std::set<String_type> &filter_table_names) {
-  assert(default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+  assert(default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB);
   assert(bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change());
 
   auto *rocksdb_ddse = ha_resolve_by_legacy_type(thd, DB_TYPE_ROCKSDB);
@@ -1182,7 +1182,7 @@ bool upgrade_dd_properties_table(THD *thd, Object_id mysql_schema_id,
   // update_myrocks_table_names will delete <target_table> tbl_def
   // If the changes are committed after update_myrocks_table_names, it will
   // cause a use-after-free issue
-  if (default_dd_storage_engine == DEFAULT_DD_ROCKSDB &&
+  if (default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB &&
       !dd::end_transaction(thd, false) &&
       update_myrocks_table_names(thd, target_table_schema_name,
                                  MYSQL_SCHEMA_NAME.str,
@@ -1299,7 +1299,7 @@ bool upgrade_tables(THD *thd) {
 
   // update myrocks own data dictionary
   if (bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change() &&
-      (default_dd_storage_engine == DEFAULT_DD_ROCKSDB) &&
+      (default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB) &&
       !dd::end_transaction(thd, false) &&
       update_myrocks_table_names(thd, target_table_schema_name,
                                  MYSQL_SCHEMA_NAME.str, create_set,

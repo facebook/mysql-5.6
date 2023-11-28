@@ -17,13 +17,13 @@ let extra_args=--no-defaults --basedir=$BASEDIR --debug=+d,ddse_rocksdb;
 --echo #
 --echo # Run the server with --help (a too-restrictive assert regression test)
 --echo #
---exec $MYSQLD --verbose --help --default_dd_storage_engine=RocksDB > /dev/null 2>&1
+--exec $MYSQLD --verbose --help --default_dd_system_storage_engine=RocksDB > /dev/null 2>&1
 
 
 --echo #
 --echo # Run the server with --initialize
 --echo #
---exec $MYSQLD $extra_args --initialize --default_dd_storage_engine=RocksDB --datadir=$DDIR --log-error-verbosity=3 > $MYSQLD_LOG 2>&1
+--exec $MYSQLD $extra_args --initialize --default_dd_system_storage_engine=RocksDB --datadir=$DDIR --log-error-verbosity=3 > $MYSQLD_LOG 2>&1
 --force-rmdir $DDIR
 --echo #
 --echo # Error log checks

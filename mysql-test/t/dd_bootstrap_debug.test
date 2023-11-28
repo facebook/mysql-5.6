@@ -13,7 +13,7 @@ let DDIR=       $MYSQL_TMP_DIR/dd_bootstrap_test;
 let extra_args= --no-defaults --innodb_dedicated_server=OFF --secure-file-priv="" --loose-skip-auto_generate_certs --loose-skip-sha256_password_auto_generate_rsa_keys --skip-ssl --basedir=$BASEDIR --lc-messages-dir=$MYSQL_SHAREDIR;
 let BOOTSTRAP_SQL= $MYSQL_TMP_DIR/tiny_bootstrap.sql;
 let PASSWD_FILE=   $MYSQL_TMP_DIR/password_file.txt;
-let DEFAULT_DDSE= `SELECT @@default_dd_storage_engine`;
+let DEFAULT_DDSE= `SELECT @@default_dd_system_storage_engine`;
 
 --echo # Preparation: Shut server down.
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect

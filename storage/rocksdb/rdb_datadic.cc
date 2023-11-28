@@ -4337,7 +4337,8 @@ bool Rdb_validate_tbls::validate(void) {
   // we load rocksdb plugin before initializing dd. So skip validation here.
   // TODO(chni): enable the validation once rocksdb dd is loaded
   if (!thd) {
-    assert(opt_initialize || default_dd_storage_engine == DEFAULT_DD_ROCKSDB);
+    assert(opt_initialize ||
+           default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB);
     return true;
   }
 

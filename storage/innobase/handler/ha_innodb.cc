@@ -24616,5 +24616,5 @@ static bool innobase_check_reserved_file_name(handlerton *, const char *name) {
 #endif /* !UNIV_HOTBACKUP */
 
 bool innobase_is_ddse() {
-  return default_dd_storage_engine == DEFAULT_DD_INNODB;
+  return default_dd_system_storage_engine == DEFAULT_DD_INNODB;
 }

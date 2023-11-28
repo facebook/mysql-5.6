@@ -26,7 +26,7 @@
 
 set @have_innodb= (select count(engine) from information_schema.engines where engine='INNODB' and support != 'NO');
 set @is_mysql_encrypted = (select ENCRYPTION from information_schema.INNODB_TABLESPACES where NAME='mysql');
-set @ddse= (select @@default_dd_storage_engine);
+set @ddse= (select @@default_dd_system_storage_engine);
 
 -- Tables below are NOT treated as DD tables by MySQL server yet.
 
