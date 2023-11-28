@@ -209,17 +209,19 @@ ALTER TABLE t3 COMMENT="ttl_duration=1;custom_p1_ttl_duration=1000;custom_p1_ttl
 ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
 ALTER TABLE t3 COMMENT="ttl_duration=1;custom_p1_ttl_duration=1000;custom_p1_ttl_col=c2;custom_p2_ttl_col=c1;custom_p2_ttl_duration=5000;",ALGORITHM=INPLACE;
 ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
-SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't3';
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS FROM INFORMATION_SCHEMA.ROCKSDB_DDL
+WHERE TABLE_NAME = 't3' ORDER BY TTL_DURATION;
 TABLE_NAME	TTL_DURATION	INDEX_FLAGS
-t3	5000	1
-t3	1000	1
 t3	1	1
-ALTER TABLE t3 comment = 'ttl_duration=5;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
-SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS from INFORMATION_SCHEMA.ROCKSDB_DDL where TABLE_NAME = 't3';
-TABLE_NAME	TTL_DURATION	INDEX_FLAGS
 t3	1000	1
-t3	100	1
+t3	5000	1
+ALTER TABLE t3 comment = 'ttl_duration=5;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=1000;', ALGORITHM=INPLACE;
+SELECT TABLE_NAME,TTL_DURATION,INDEX_FLAGS FROM INFORMATION_SCHEMA.ROCKSDB_DDL
+WHERE TABLE_NAME = 't3' ORDER BY TTL_DURATION;
+TABLE_NAME	TTL_DURATION	INDEX_FLAGS
 t3	5	1
+t3	100	1
+t3	1000	1
 SET GLOBAL rocksdb_debug_ttl_snapshot_ts = 300;
 set global rocksdb_force_flush_memtable_now=1;
 set @@global.rocksdb_compact_cf = 'foo';
