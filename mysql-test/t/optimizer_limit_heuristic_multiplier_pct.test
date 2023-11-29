@@ -1,0 +1,143 @@
+# Ported from 5.6 optimizer_low_limit_heuristic.test
+# optimizer_low_limit_heuristic=0 means optimizer_limit_heuristic_multiplier_pct = 100.
+# optimizer_low_limit_heuristic=1 means optimizer_limit_heuristic_multiplier_pct = 0.
+# Even with optimizer_limit_heuristic_multiplier_pct = 0, some plans changed from 5.6
+
+let $start_value= `SELECT @@optimizer_limit_heuristic_multiplier_pct`;
+SET optimizer_limit_heuristic_multiplier_pct = 0;
+
+CREATE TABLE t1 (
+  pk INT PRIMARY KEY AUTO_INCREMENT,
+  i INT,
+  j INT,
+  INDEX (i),
+  INDEX (j)
+);
+
+INSERT INTO t1 (i,j) VALUES (1,1);
+
+let $1=7;
+SET @d=1;
+while ($1)
+{
+  eval INSERT INTO t1 (i,j) SELECT i+@d, j+@d from t1;
+  eval SET @d=@d*2;
+  dec $1;
+}
+
+ANALYZE TABLE t1;
+
+let $query= SELECT * FROM t1
+            WHERE i<100 AND j<40
+            ORDER BY i LIMIT 5;
+
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+eval EXPLAIN $query;
+
+SET optimizer_limit_heuristic_multiplier_pct = 100;
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+eval EXPLAIN $query;
+
+SET optimizer_limit_heuristic_multiplier_pct = 0;
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+DROP TABLE t1;
+
+CREATE TABLE t0 (
+  i0 INTEGER NOT NULL
+  );
+
+INSERT INTO t0 VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+CREATE TABLE t1 (
+  pk INTEGER PRIMARY KEY,
+  i1 INTEGER NOT NULL,
+  i2 INTEGER NOT NULL,
+  INDEX k1 (i1),
+  INDEX k2 (i1,i2)
+) ENGINE=InnoDB;
+
+INSERT INTO t1
+SELECT a0.i0 + 10*a1.i0 + 100*a0.i0 + 1000*a1.i0,
+       a0.i0 + 10*a1.i0 + 100*a0.i0 + 1000*a1.i0,
+       a0.i0 + 10*a1.i0 + 100*a0.i0 + 1000*a1.i0
+FROM t0 AS a0, t0 AS a1;
+
+CREATE TABLE t2 (
+  pk INTEGER PRIMARY KEY,
+  i1 INTEGER NOT NULL,
+  INDEX k1 (i1)
+) ENGINE=InnoDB;
+
+INSERT INTO t2
+SELECT a0.i0 + 10*a1.i0 + 100*a0.i0 + 1000*a1.i0,
+       a0.i0 + 10*a1.i0 + 100*a0.i0 + 1000*a1.i0
+FROM t0 AS a0, t0 AS a1;
+
+ANALYZE TABLE t1,t2;
+
+--echo # Query 1
+--echo # Query should use index to optimize the ORDER BY LIMIT
+
+let query=
+SELECT * FROM t1 STRAIGHT_JOIN t2 ON t1.i1=t2.i1
+WHERE t1.pk > 7000 and t1.i1 > 2
+ORDER BY t1.i1 LIMIT 2;
+
+select @@optimizer_limit_heuristic_multiplier_pct;
+
+eval EXPLAIN $query;
+
+SET optimizer_limit_heuristic_multiplier_pct = 100;
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+eval EXPLAIN $query;
+
+SET optimizer_limit_heuristic_multiplier_pct = 0;
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+
+--echo # Query 2
+--echo # Query should use index to optimize the ORDER BY LIMIT
+
+let query=
+SELECT * FROM t1 STRAIGHT_JOIN t2 ON t1.i1=t2.i1
+WHERE t1.pk > 5000 and t1.i1 > 2
+ORDER BY t1.i1 LIMIT 5;
+
+eval EXPLAIN $query;
+
+SET optimizer_limit_heuristic_multiplier_pct = 100;
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+eval EXPLAIN $query;
+
+SET optimizer_limit_heuristic_multiplier_pct = 0;
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+
+--echo # Query 3
+--echo # Changing range condition on i1 should make
+--echo # key on i1 get picked to give the order.
+--echo # Unaffected by system variable.
+
+let query=
+SELECT * FROM t1 STRAIGHT_JOIN t2 ON t1.i1=t2.i1
+WHERE t1.pk > 5000 and t1.i1 > 800
+ORDER BY t1.i1 LIMIT 5;
+
+eval EXPLAIN $query;
+
+SET optimizer_limit_heuristic_multiplier_pct = 100;
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+eval EXPLAIN $query;
+
+SET optimizer_limit_heuristic_multiplier_pct = 0;
+SELECT @@optimizer_limit_heuristic_multiplier_pct;
+
+DROP TABLE t0, t1, t2;
+
+eval SET @@optimizer_limit_heuristic_multiplier_pct = $start_value;

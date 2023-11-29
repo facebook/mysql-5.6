@@ -1,0 +1,24 @@
+Default value of optimizer_limit_heuristic_multiplier_pct is 0
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+@@global.optimizer_limit_heuristic_multiplier_pct
+0
+optimizer_limit_heuristic_multiplier_pct is a dynamic variable (change to 100)
+set @@global.optimizer_limit_heuristic_multiplier_pct = 100;
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+@@global.optimizer_limit_heuristic_multiplier_pct
+100
+restore the default value
+SET @@global.optimizer_limit_heuristic_multiplier_pct = 0;
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+@@global.optimizer_limit_heuristic_multiplier_pct
+0
+restart the server with non default value (1)
+# restart: --optimizer_limit_heuristic_multiplier_pct=1
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+@@global.optimizer_limit_heuristic_multiplier_pct
+1
+restart the server with the default value (0)
+# restart:
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+@@global.optimizer_limit_heuristic_multiplier_pct
+0

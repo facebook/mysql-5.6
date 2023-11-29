@@ -1202,6 +1202,9 @@ The following options may be given as the first argument:
  Detect groups implied by equality conditions when costing
  group by loose index scans.
  (Defaults to on; use --skip-optimizer-implicit-groups-for-lis to disable.)
+ --optimizer-limit-heuristic-multiplier-pct[=#] 
+ Percent of the table rows that SELECT ... LIMIT is
+ estimated to scan.
  --optimizer-prune-level=# 
  Controls the heuristic(s) applied during query
  optimization to prune less-promising partial plans from
@@ -3438,6 +3441,7 @@ optimizer-force-index-rewrite (No default value)
 optimizer-full-scan TRUE
 optimizer-group-by-cost-adjust 1
 optimizer-implicit-groups-for-lis TRUE
+optimizer-limit-heuristic-multiplier-pct 0
 optimizer-prune-level 1
 optimizer-search-depth 62
 optimizer-skip-scan-in-list-limit 0
