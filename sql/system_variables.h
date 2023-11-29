@@ -264,6 +264,7 @@ struct System_variables {
   bool optimizer_implicit_groups_for_lis;
   double optimizer_group_by_cost_adjust;
   ulong optimizer_fix_range_cost_row_threshold;
+  uint optimizer_limit_heuristic_multiplier_pct;
   sql_mode_t sql_mode;  ///< which non-standard SQL behaviour should be enabled
   bool error_partial_strict;
   ulong audit_instrumented_event;

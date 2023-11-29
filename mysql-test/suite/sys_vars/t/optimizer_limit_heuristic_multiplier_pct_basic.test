@@ -1,0 +1,37 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 0
+####
+--echo Default value of optimizer_limit_heuristic_multiplier_pct is 0
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+
+####
+## Verify that the variable is dynamic
+####
+--echo optimizer_limit_heuristic_multiplier_pct is a dynamic variable (change to 100)
+set @@global.optimizer_limit_heuristic_multiplier_pct = 100;
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.optimizer_limit_heuristic_multiplier_pct = 0;
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (1)
+--let $restart_parameters = restart: --optimizer_limit_heuristic_multiplier_pct=1
+--source include/restart_mysqld.inc
+
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;
+
+--echo restart the server with the default value (0)
+--let $restart_parameters = restart:
+--source include/restart_mysqld.inc
+
+# check value is default (0)
+SELECT @@global.optimizer_limit_heuristic_multiplier_pct;

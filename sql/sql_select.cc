@@ -5131,9 +5131,19 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
          */
         if (select_limit > refkey_rows_estimate)
           select_limit = table_records;
-        else if (table_records >= refkey_rows_estimate)
+        else if (table_records >= refkey_rows_estimate) {
           select_limit = (ha_rows)(select_limit * (double)table_records /
                                    refkey_rows_estimate);
+          if (table->in_use->variables
+                  .optimizer_limit_heuristic_multiplier_pct) {
+            select_limit =
+                std::max(select_limit,
+                         table_records *
+                             table->in_use->variables
+                                 .optimizer_limit_heuristic_multiplier_pct /
+                             100);
+          }
+        }
         rec_per_key =
             keyinfo->records_per_key(keyinfo->user_defined_key_parts - 1);
         rec_per_key = std::max(rec_per_key, 1.0f);

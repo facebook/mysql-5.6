@@ -1217,6 +1217,9 @@ The following options may be given as the first argument:
  Detect groups implied by equality conditions when costing
  group by loose index scans.
  (Defaults to on; use --skip-optimizer-implicit-groups-for-lis to disable.)
+ --optimizer-limit-heuristic-multiplier-pct[=#] 
+ Percent of the table rows that SELECT ... LIMIT is
+ estimated to scan.
  --optimizer-max-subgraph-pairs=# 
  Maximum depth of subgraph pairs a query can have before
  the hypergraph join optimizer starts reducing the search
@@ -3489,6 +3492,7 @@ optimizer-force-index-rewrite (No default value)
 optimizer-full-scan TRUE
 optimizer-group-by-cost-adjust 1
 optimizer-implicit-groups-for-lis TRUE
+optimizer-limit-heuristic-multiplier-pct 0
 optimizer-max-subgraph-pairs 100000
 optimizer-prune-level 1
 optimizer-search-depth 62

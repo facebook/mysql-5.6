@@ -3773,6 +3773,12 @@ static Sys_var_double Sys_optimizer_group_by_cost_adjust(
     SESSION_VAR(optimizer_group_by_cost_adjust), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, DBL_MAX), DEFAULT(1));
 
+static Sys_var_uint Sys_optimizer_limit_heuristic_multiplier_pct(
+    "optimizer_limit_heuristic_multiplier_pct",
+    "Percent of the table rows that SELECT ... LIMIT is estimated to scan.",
+    HINT_UPDATEABLE SESSION_VAR(optimizer_limit_heuristic_multiplier_pct),
+    CMD_LINE(OPT_ARG), VALID_RANGE(0, 100), DEFAULT(0), BLOCK_SIZE(1));
+
 /// @todo change to enum
 static Sys_var_ulong Sys_optimizer_prune_level(
     "optimizer_prune_level",
