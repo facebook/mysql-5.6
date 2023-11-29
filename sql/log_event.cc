@@ -14997,6 +14997,10 @@ bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
 
   if (write_ttl_compaction_timestamp(ostream)) DBUG_RETURN(1);
 
+  if (write_raft_ingestion_checkpoint(ostream)) DBUG_RETURN(1);
+
+  if (write_raft_ingestion_upper_bound(ostream)) DBUG_RETURN(1);
+
   DBUG_RETURN(0);
 }
 
@@ -15188,6 +15192,60 @@ bool Metadata_log_event::write_rotate_tag(Basic_ostream *ostream) {
   DBUG_RETURN(ret);
 }
 
+bool Metadata_log_event::write_raft_ingestion_checkpoint(
+    Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_raft_ingestion_checkpoint");
+
+  if (!does_exist(Metadata_event_types::RAFT_INGESTION_CHECKPOINT_TYPE)) {
+    DBUG_RETURN(0);
+  }
+
+  char buffer[ENCODED_RAFT_INGESTION_CHECKPOINT_SIZE];
+  char *ptr_buffer = buffer;
+
+  if (write_type_and_length(
+          ostream, Metadata_event_types::RAFT_INGESTION_CHECKPOINT_TYPE,
+          sizeof(int64_t) * 2)) {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, raft_ingestion_checkpoint_.first);
+  ptr_buffer += sizeof(raft_ingestion_checkpoint_.first);
+
+  int8store(ptr_buffer, raft_ingestion_checkpoint_.second);
+  ptr_buffer += sizeof(raft_ingestion_checkpoint_.second);
+
+  assert(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_raft_ingestion_upper_bound(
+    Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_raft_ingestion_upper_bound");
+
+  if (!does_exist(Metadata_event_types::RAFT_INGESTION_UPPER_BOUND_TYPE))
+    DBUG_RETURN(0);
+
+  char buffer[ENCODED_RAFT_INGESTION_UPPER_BOUND_SIZE];
+  char *ptr_buffer = buffer;
+
+  if (write_type_and_length(
+          ostream, Metadata_event_types::RAFT_INGESTION_UPPER_BOUND_TYPE,
+          sizeof(raft_ingestion_upper_bound_))) {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, raft_ingestion_upper_bound_);
+  ptr_buffer += ENCODED_RAFT_INGESTION_UPPER_BOUND_SIZE;
+
+  assert(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
 bool Metadata_log_event::write_type_and_length(Basic_ostream *ostream,
                                                Metadata_event_types type,
                                                uint16_t length) {
@@ -15224,6 +15282,8 @@ uint32 Metadata_log_event::write_data_body(uchar *obuffer) {
   length += write_rotate_tag(obuffer + length);
   length += write_ttl_read_filtering_timestamp(obuffer + length);
   length += write_ttl_compaction_timestamp(obuffer + length);
+  length += write_raft_ingestion_checkpoint(obuffer + length);
+  length += write_raft_ingestion_upper_bound(obuffer + length);
   DBUG_RETURN(length);
 }
 
@@ -15355,6 +15415,46 @@ uint32 Metadata_log_event::write_rotate_tag(uchar *obuffer) {
   DBUG_RETURN(length);
 }
 
+uint32 Metadata_log_event::write_raft_ingestion_checkpoint(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_raft_ingestion_checkpoint");
+
+  if (!does_exist(Metadata_event_types::RAFT_INGESTION_CHECKPOINT_TYPE))
+    DBUG_RETURN(0);
+
+  uint32 length = 0;
+
+  length += write_type_and_length(
+      obuffer + length, Metadata_event_types::RAFT_INGESTION_CHECKPOINT_TYPE,
+      sizeof(raft_ingestion_checkpoint_.first) +
+          sizeof(raft_ingestion_checkpoint_.second));
+
+  int8store(obuffer + length, raft_ingestion_checkpoint_.first);
+  length += sizeof(raft_ingestion_checkpoint_.first);
+  int8store(obuffer + length, raft_ingestion_checkpoint_.second);
+  length += sizeof(raft_ingestion_checkpoint_.second);
+
+  DBUG_RETURN(length);
+}
+
+uint32 Metadata_log_event::write_raft_ingestion_upper_bound(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_raft_ingestion_upper_bound");
+
+  if (!does_exist(Metadata_event_types::RAFT_INGESTION_UPPER_BOUND_TYPE)) {
+    DBUG_RETURN(0);
+  }
+
+  uint32 length = 0;
+
+  length += write_type_and_length(
+      obuffer + length, Metadata_event_types::RAFT_INGESTION_UPPER_BOUND_TYPE,
+      sizeof(raft_ingestion_upper_bound_));
+
+  int8store(obuffer + length, raft_ingestion_upper_bound_);
+  length += sizeof(raft_ingestion_upper_bound_);
+
+  DBUG_RETURN(length);
+}
+
 uint32 Metadata_log_event::write_type_and_length(uchar *obuffer,
                                                  Metadata_event_types type,
                                                  uint16_t length) {
@@ -15480,6 +15580,15 @@ void Metadata_log_event::print(FILE * /* file */,
     if (does_exist(Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE))
       buffer.append("\tTTL compaction time: " +
                     std::to_string(ttl_compaction_timestamp_));
+
+    if (does_exist(Metadata_event_types::RAFT_INGESTION_CHECKPOINT_TYPE))
+      buffer.append("\tRaft ingestion checkpoint: " +
+                    std::to_string(raft_ingestion_checkpoint_.first) + ":" +
+                    std::to_string(raft_ingestion_checkpoint_.second));
+
+    if (does_exist(Metadata_event_types::RAFT_INGESTION_UPPER_BOUND_TYPE))
+      buffer.append("\tRaft ingestion upper bound: " +
+                    std::to_string(raft_ingestion_upper_bound_));
 
     print_header(head, print_event_info, false);
     my_b_printf(head, "%s\n", buffer.c_str());

@@ -4274,6 +4274,24 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   bool write_ttl_compaction_timestamp(Basic_ostream *ostream);
 
   /**
+   * Write raft ingestion checkpoint to file
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_ingestion_checkpoint(Basic_ostream *ostream);
+
+  /**
+   * Write raft ingestion upper bound to file
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_ingestion_upper_bound(Basic_ostream *ostream);
+
+  /**
    * Write type and length to file
    *
    * @param ostream - stream to write to
@@ -4357,6 +4375,24 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - number of bytes written
    */
   uint32 write_ttl_compaction_timestamp(uchar *obuffer);
+
+  /**
+   * Write raft ingestion checkpoint
+   *
+   * @param obffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_raft_ingestion_checkpoint(uchar *obuffer);
+
+  /**
+   * Write raft ingestion upper bound
+   *
+   * @param obffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_raft_ingestion_upper_bound(uchar *obuffer);
 
   /**
    * Write type and length to memory buffer
