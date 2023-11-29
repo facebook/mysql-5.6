@@ -851,6 +851,35 @@ class Metadata_event : public Binary_log_event {
   uint64_t get_ttl_compaction_timestamp() const;
 
   /**
+   * Sets raft ingestion checkpoint
+   *
+   * @param raft term/index of the ingestion checkpoint
+   */
+  void set_raft_ingestion_checkpoint(
+      const std::pair<int64_t, int64_t> &checkpoint);
+
+  /**
+   * Get raft ingestion checkpoint
+   *
+   * @return term/index if present. -1, -1 otherwise
+   */
+  std::pair<int64_t, int64_t> get_raft_ingestion_checkpoint() const;
+
+  /**
+   * Sets raft ingestion upper bound
+   *
+   * @param raft ingestion upper bound
+   */
+  void set_raft_ingestion_upper_bound(const uint64_t &upper_bound);
+
+  /**
+   * Get raft ingestion upper bound
+   *
+   * @return timestamp if present. 0 otherwise
+   */
+  uint64_t get_raft_ingestion_upper_bound() const;
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_event_types : unsigned char {
@@ -875,6 +904,12 @@ class Metadata_event : public Binary_log_event {
     TTL_READ_FILTERING_TIMESTAMP_TYPE = 6,
     /* MyRocks TTL compaction timestamp */
     TTL_COMPACTION_TIMESTAMP_TYPE = 7,
+    /* A Generic transaction payload as string */
+    ALLOY_PAYLOAD_STR_TYPE = 8,
+    /* Raft ingestion checkpoint is a raft term/index pair */
+    RAFT_INGESTION_CHECKPOINT_TYPE = 9,
+    /* Raft ingestion upper bound timestamp */
+    RAFT_INGESTION_UPPER_BOUND_TYPE = 10,
 
     METADATA_EVENT_TYPE_MAX,
   };
@@ -952,6 +987,15 @@ class Metadata_event : public Binary_log_event {
   uint64_t ttl_compaction_timestamp_ = 0;
   static const uint32_t ENCODED_TTL_COMPACTION_TIMESTAMP_SIZE =
       sizeof(ttl_compaction_timestamp_);
+
+  std::pair<int64_t, int64_t> raft_ingestion_checkpoint_ = {-1, -1};
+  static const uint32_t ENCODED_RAFT_INGESTION_CHECKPOINT_SIZE =
+      sizeof(raft_ingestion_checkpoint_.first) +
+      sizeof(raft_ingestion_checkpoint_.second);
+
+  uint64_t raft_ingestion_upper_bound_ = 0;
+  static const uint32_t ENCODED_RAFT_INGESTION_UPPER_BOUND_SIZE =
+      sizeof(raft_ingestion_upper_bound_);
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;
