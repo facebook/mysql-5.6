@@ -24,6 +24,7 @@ numa_nodebind=
 logging=init
 want_syslog=0
 want_glibc_tunables=1
+openssl_fb_exdata=1
 syslog_tag=
 user='@MYSQLD_USER@'
 pid_file=
@@ -271,6 +272,7 @@ parse_arguments() {
       --malloc-conf=*) malloc_conf_options="$val" ;;
       --glibc-tunables=*) glibc_tunables_options="$val" ;;
       --skip-glibc-tunables) want_glibc_tunables=0 ;;
+      --skip-openssl-fb-exdata) openssl_fb_exdata=0 ;;
       --mysqld=*)
         if [ -z "$pick_args" ]; then
           log_error "--mysqld option can only be used as command line option, found in config file"
@@ -974,6 +976,11 @@ then
   cmd="GLIBC_TUNABLES=$glibc_tunables_options $cmd"
 elif [ $want_glibc_tunables -eq 1 ]; then
   cmd="GLIBC_TUNABLES=glibc.rtld.optional_static_tls=16384 $cmd"
+fi
+
+if [ "$openssl_fb_exdata" -eq 1 ]
+then
+  cmd="OPENSSL_USE_FB_EXDATA_IMPL=1 $cmd"
 fi
 
 # Avoid 'nohup: ignoring input' warning
