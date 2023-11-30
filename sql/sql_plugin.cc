@@ -2477,19 +2477,25 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
   */
   if (!error) {
     Disable_binlog_guard binlog_guard(thd);
-    table->use_all_columns();
-    restore_record(table, s->default_values);
-    table->field[0]->store(name.str, name.length, system_charset_info);
-    table->field[1]->store(dl->str, dl->length, files_charset_info);
-    error = table->file->ha_write_row(table->record[0]);
-    if (error) {
-      const char msg[] = "got '%s' writing to mysql.plugin";
-      char buf[MYSQL_ERRMSG_SIZE + sizeof(msg) - 2];
-      char errbuf[MYSQL_ERRMSG_SIZE];
-      my_strerror(errbuf, sizeof(errbuf), error);
-      snprintf(buf, sizeof(buf), msg, errbuf);
-      report_error(REPORT_TO_USER, ER_DA_PLUGIN_INSTALL_ERROR, name.str, buf);
-    } else {
+
+    if (!install_plugin_skip_registration) {
+      // Register plugin in the plugin table for load on restart.
+      table->use_all_columns();
+      restore_record(table, s->default_values);
+      table->field[0]->store(name.str, name.length, system_charset_info);
+      table->field[1]->store(dl->str, dl->length, files_charset_info);
+      error = table->file->ha_write_row(table->record[0]);
+      if (error) {
+        const char msg[] = "got '%s' writing to mysql.plugin";
+        char buf[MYSQL_ERRMSG_SIZE + sizeof(msg) - 2];
+        char errbuf[MYSQL_ERRMSG_SIZE];
+        my_strerror(errbuf, sizeof(errbuf), error);
+        snprintf(buf, sizeof(buf), msg, errbuf);
+        report_error(REPORT_TO_USER, ER_DA_PLUGIN_INSTALL_ERROR, name.str, buf);
+      }
+    }
+
+    if (!error) {
       mysql_rwlock_wrlock(&LOCK_system_variables_hash);
       mysql_mutex_lock(&LOCK_plugin);
 

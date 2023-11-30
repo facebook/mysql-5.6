@@ -453,6 +453,7 @@ extern std::vector<std::string> authentication_policy_list;
 extern bool opt_log_ddl;
 extern bool slave_high_priority_ddl;
 extern bool use_mdl_mutex;
+extern bool install_plugin_skip_registration;
 extern ulonglong slave_high_priority_lock_wait_timeout_nsec;
 extern double slave_high_priority_lock_wait_timeout_double;
 extern std::atomic<ulonglong> slave_high_priority_ddl_killed_connections;

@@ -98,6 +98,7 @@
 #include "mysql/plugin.h"
 #include "sql/sql_class.h"
 #include "sql/sql_plugin.h"
+#include "sql/sql_show.h"
 #include "typelib.h"
 
 static handler *example_create_handler(handlerton *hton, TABLE_SHARE *table,
@@ -120,6 +121,51 @@ static int example_init_func(void *p) {
   example_hton->create = example_create_handler;
   example_hton->flags = HTON_CAN_RECREATE;
   example_hton->is_supported_system_table = example_is_supported_system_table;
+
+  return 0;
+}
+
+/**
+  Field definitions for information schema tables.
+*/
+#define FIELD_STRING(name) \
+  { name, NAME_LEN, MYSQL_TYPE_STRING, 0, 0, nullptr, 0 }
+#define FIELD_ULONGLONG(name) \
+  { name, 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, nullptr, 0 }
+#define FIELD_DOUBLE(name) \
+  { name, DBL_DIG + 7, MYSQL_TYPE_DOUBLE, 0, 0, nullptr, 0 }
+#define FIELD_END \
+  { nullptr, 0, MYSQL_TYPE_STRING, 0, 0, nullptr, 0 }
+
+static std::array<ST_FIELD_INFO, 4> example_fields_info = {
+    {FIELD_STRING("COL_STRING"), FIELD_ULONGLONG("COL_ULONGLONG"),
+     FIELD_DOUBLE("COL_DOUBLE"), FIELD_END}};
+
+static int fill_example_info_schema(THD *thd, Table_ref *tables, Item *) {
+  DBUG_ENTER("fill_example_info_schema");
+  TABLE *table = tables->table;
+  int f = 0;
+
+  // COL_STRING
+  std::string str{"Test"};
+  table->field[f++]->store(str.c_str(), str.size(), system_charset_info);
+
+  // COL_ULONGLONG
+  table->field[f++]->store(1ULL, true);
+
+  // COL_DOUBLE
+  table->field[f++]->store(2.5);
+
+  DBUG_RETURN(schema_table_store_record(thd, table));
+}
+
+static int example_info_schema_init_func(void *p) {
+  DBUG_TRACE;
+  assert(p);
+
+  ST_SCHEMA_TABLE *schema = reinterpret_cast<ST_SCHEMA_TABLE *>(p);
+  schema->fields_info = example_fields_info.data();
+  schema->fill_table = fill_example_info_schema;
 
   return 0;
 }
@@ -764,6 +810,9 @@ int ha_example::create(const char *name, TABLE *, HA_CREATE_INFO *,
 struct st_mysql_storage_engine example_storage_engine = {
     MYSQL_HANDLERTON_INTERFACE_VERSION};
 
+st_mysql_information_schema example_info_schema = {
+    MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
+
 static ulong srv_enum_var = 0;
 static ulong srv_ulong_var = 0;
 static double srv_double_var = 0;
@@ -899,4 +948,20 @@ mysql_declare_plugin(example){
     example_system_variables, /* system variables */
     nullptr,                  /* config options */
     0,                        /* flags */
-} mysql_declare_plugin_end;
+},
+    {
+        MYSQL_INFORMATION_SCHEMA_PLUGIN,
+        &example_info_schema,
+        "EXAMPLE_INFO_SCHEMA",
+        PLUGIN_AUTHOR_ORACLE,
+        "Example information schema plugin",
+        PLUGIN_LICENSE_GPL,
+        example_info_schema_init_func,
+        nullptr, /* check_uninstall */
+        nullptr, /* deinit */
+        0x0001,  /* version number (0.1) */
+        nullptr, /* status variables */
+        nullptr, /* system variables */
+        nullptr, /* config options */
+        0,       /* flags */
+    } mysql_declare_plugin_end;

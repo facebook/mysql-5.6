@@ -1,0 +1,102 @@
+Default value of install_plugin_skip_registration is false
+SELECT @@global.install_plugin_skip_registration;
+@@global.install_plugin_skip_registration
+0
+SELECT @@session.install_plugin_skip_registration;
+ERROR HY000: Variable 'install_plugin_skip_registration' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+INSTALL PLUGIN example SONAME 'ha_example.so';
+INSTALL PLUGIN example_info_schema SONAME 'ha_example.so';
+select * from mysql.plugin;
+name	dl
+example	ha_example.so
+example_info_schema	ha_example.so
+select * from information_schema.plugins where plugin_name like 'example%';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+EXAMPLE	0.1	ACTIVE	STORAGE ENGINE	80032.0	ha_example.so	1.11	Oracle Corporation	Example storage engine	GPL	ON
+EXAMPLE_INFO_SCHEMA	0.1	ACTIVE	INFORMATION SCHEMA	80032.0	ha_example.so	1.11	Oracle Corporation	Example information schema plugin	GPL	ON
+select * from information_schema.example_info_schema;
+COL_STRING	COL_ULONGLONG	COL_DOUBLE
+Test	1	2.5
+Restart the server.
+# restart: 
+select * from mysql.plugin;
+name	dl
+example	ha_example.so
+example_info_schema	ha_example.so
+select * from information_schema.plugins where plugin_name like 'example%';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+EXAMPLE	0.1	ACTIVE	STORAGE ENGINE	80032.0	ha_example.so	1.11	Oracle Corporation	Example storage engine	GPL	ON
+EXAMPLE_INFO_SCHEMA	0.1	ACTIVE	INFORMATION SCHEMA	80032.0	ha_example.so	1.11	Oracle Corporation	Example information schema plugin	GPL	ON
+select * from information_schema.example_info_schema;
+COL_STRING	COL_ULONGLONG	COL_DOUBLE
+Test	1	2.5
+UNINSTALL PLUGIN example;
+UNINSTALL PLUGIN example_info_schema;
+select * from mysql.plugin;
+name	dl
+select * from information_schema.plugins where plugin_name like 'example%';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+select * from information_schema.example_info_schema;
+ERROR 42S02: Unknown table 'EXAMPLE_INFO_SCHEMA' in information_schema
+Restart the server.
+# restart: 
+select * from mysql.plugin;
+name	dl
+select * from information_schema.plugins where plugin_name like 'example%';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+select * from information_schema.example_info_schema;
+ERROR 42S02: Unknown table 'EXAMPLE_INFO_SCHEMA' in information_schema
+set global install_plugin_skip_registration=on;
+select @@global.install_plugin_skip_registration;
+@@global.install_plugin_skip_registration
+1
+INSTALL PLUGIN example SONAME 'ha_example.so';
+INSTALL PLUGIN example_info_schema SONAME 'ha_example.so';
+select * from mysql.plugin;
+name	dl
+select * from information_schema.plugins where plugin_name like 'example%';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+EXAMPLE	0.1	ACTIVE	STORAGE ENGINE	80032.0	ha_example.so	1.11	Oracle Corporation	Example storage engine	GPL	ON
+EXAMPLE_INFO_SCHEMA	0.1	ACTIVE	INFORMATION SCHEMA	80032.0	ha_example.so	1.11	Oracle Corporation	Example information schema plugin	GPL	ON
+select * from information_schema.example_info_schema;
+COL_STRING	COL_ULONGLONG	COL_DOUBLE
+Test	1	2.5
+Restart the server.
+# restart: 
+select * from mysql.plugin;
+name	dl
+select * from information_schema.plugins where plugin_name like 'example%';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+select * from information_schema.example_info_schema;
+ERROR 42S02: Unknown table 'EXAMPLE_INFO_SCHEMA' in information_schema
+select @@global.install_plugin_skip_registration;
+@@global.install_plugin_skip_registration
+0
+set global install_plugin_skip_registration=on;
+select @@global.install_plugin_skip_registration;
+@@global.install_plugin_skip_registration
+1
+INSTALL PLUGIN example SONAME 'ha_example.so';
+INSTALL PLUGIN example_info_schema SONAME 'ha_example.so';
+select * from mysql.plugin;
+name	dl
+select * from information_schema.plugins where plugin_name like 'example%';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+EXAMPLE	0.1	ACTIVE	STORAGE ENGINE	80032.0	ha_example.so	1.11	Oracle Corporation	Example storage engine	GPL	ON
+EXAMPLE_INFO_SCHEMA	0.1	ACTIVE	INFORMATION SCHEMA	80032.0	ha_example.so	1.11	Oracle Corporation	Example information schema plugin	GPL	ON
+select * from information_schema.example_info_schema;
+COL_STRING	COL_ULONGLONG	COL_DOUBLE
+Test	1	2.5
+UNINSTALL PLUGIN example;
+UNINSTALL PLUGIN example_info_schema;
+select * from mysql.plugin;
+name	dl
+select * from information_schema.plugins where plugin_name like 'example%';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+select * from information_schema.example_info_schema;
+ERROR 42S02: Unknown table 'EXAMPLE_INFO_SCHEMA' in information_schema
+set global install_plugin_skip_registration=default;
+select @@global.install_plugin_skip_registration;
+@@global.install_plugin_skip_registration
+0

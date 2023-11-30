@@ -10252,3 +10252,10 @@ static Sys_var_uint Sys_mta_binlog_statement_workers(
     VALID_RANGE(0, MTS_MAX_WORKERS), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_mta_binlog_statement_workers),
     ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_install_plugin_skip_registration(
+    "install_plugin_skip_registration",
+    "Controls whether INSTALL PLUGIN registers plugin in mysql.plugin table "
+    "permanently, or skips registration making it a one time installation",
+    GLOBAL_VAR(install_plugin_skip_registration), CMD_LINE(OPT_ARG),
+    DEFAULT(false));

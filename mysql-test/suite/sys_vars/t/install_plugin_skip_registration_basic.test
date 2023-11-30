@@ -1,0 +1,116 @@
+--source include/load_sysvars.inc
+--source include/have_example_plugin.inc
+
+####
+# Verify default value false
+####
+--echo Default value of install_plugin_skip_registration is false
+SELECT @@global.install_plugin_skip_registration;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.install_plugin_skip_registration;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Install and register plugins in mysql.plugin.
+####
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN example SONAME '$EXAMPLE_PLUGIN';
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN example_info_schema SONAME '$EXAMPLE_PLUGIN';
+
+select * from mysql.plugin;
+select * from information_schema.plugins where plugin_name like 'example%';
+select * from information_schema.example_info_schema;
+
+--echo Restart the server.
+--let $restart_parameters="restart: "
+--source include/restart_mysqld.inc
+
+####
+## The plugins should be auto loaded on restart.
+####
+select * from mysql.plugin;
+select * from information_schema.plugins where plugin_name like 'example%';
+select * from information_schema.example_info_schema;
+
+####
+## Uninstall plugins and verify that they are gone.
+####
+UNINSTALL PLUGIN example;
+UNINSTALL PLUGIN example_info_schema;
+
+select * from mysql.plugin;
+select * from information_schema.plugins where plugin_name like 'example%';
+--error 1109
+select * from information_schema.example_info_schema;
+
+--echo Restart the server.
+--let $restart_parameters="restart: "
+--source include/restart_mysqld.inc
+
+select * from mysql.plugin;
+select * from information_schema.plugins where plugin_name like 'example%';
+--error 1109
+select * from information_schema.example_info_schema;
+
+####
+## Install plugins as one-time without registering in mysql.plugin.
+####
+set global install_plugin_skip_registration=on;
+select @@global.install_plugin_skip_registration;
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN example SONAME '$EXAMPLE_PLUGIN';
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN example_info_schema SONAME '$EXAMPLE_PLUGIN';
+
+select * from mysql.plugin;
+select * from information_schema.plugins where plugin_name like 'example%';
+select * from information_schema.example_info_schema;
+
+--echo Restart the server.
+--let $restart_parameters="restart: "
+--source include/restart_mysqld.inc
+
+####
+## The plugins should be gone.
+####
+select * from mysql.plugin;
+select * from information_schema.plugins where plugin_name like 'example%';
+--error 1109
+select * from information_schema.example_info_schema;
+
+####
+## Install plugins as one-time again and verify uninstall.
+####
+select @@global.install_plugin_skip_registration;
+set global install_plugin_skip_registration=on;
+select @@global.install_plugin_skip_registration;
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN example SONAME '$EXAMPLE_PLUGIN';
+--replace_regex /\.dll/.so/
+eval INSTALL PLUGIN example_info_schema SONAME '$EXAMPLE_PLUGIN';
+
+select * from mysql.plugin;
+select * from information_schema.plugins where plugin_name like 'example%';
+select * from information_schema.example_info_schema;
+
+####
+## Uninstall plugins and verify that they are gone.
+####
+UNINSTALL PLUGIN example;
+UNINSTALL PLUGIN example_info_schema;
+
+select * from mysql.plugin;
+select * from information_schema.plugins where plugin_name like 'example%';
+--error 1109
+select * from information_schema.example_info_schema;
+
+####
+## Cleanup.
+####
+set global install_plugin_skip_registration=default;
+select @@global.install_plugin_skip_registration;
