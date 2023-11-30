@@ -37,10 +37,6 @@
 #include <gtest/gtest.h>
 
 namespace {
-#if defined(OPENSSL_IS_BORINGSSL) && BORINGSSL_API_VERSION < 11
-const BIGNUM *RSA_get0_n(const RSA *rsa) { return rsa->n; }
-#endif
-
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L)
 const BIGNUM *RSA_get0_n(const RSA *rsa) { return rsa->n; }
 

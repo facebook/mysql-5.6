@@ -60,8 +60,6 @@ generated_random_password_length
 generated_random_password_length
 group_replication_consistency
 group_replication_consistency
-have_boringssl
-have_boringssl
 histogram_step_size_binlog_commit_time
 histogram_step_size_binlog_commit_time
 hlc_upper_bound_delta

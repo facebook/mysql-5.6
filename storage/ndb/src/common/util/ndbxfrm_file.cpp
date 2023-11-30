@@ -1845,10 +1845,6 @@ ndb_off_t ndbxfrm_file::move_to_end()
 
 int main()
 {
-#if defined(OPENSSL_IS_BORINGSSL)
-  return 0; // cipher_xts not supported
-#endif
-
   ndb_openssl_evp::library_init();
 
   using byte = unsigned char;

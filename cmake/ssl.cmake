@@ -122,18 +122,12 @@ ENDMACRO(RESET_SSL_VARIABLES)
 #     |(OPENSSL_VERSION_PATCH<<4)
 #     |_OPENSSL_VERSION_PRE_RELEASE )
 MACRO(FIND_OPENSSL_VERSION)
-  if(EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/base.h")
-    OPTION(WITH_BORINGSSL "BoringSSL detected" ON)
-    SET(SSL_VERSION_FILE "${OPENSSL_INCLUDE_DIR}/openssl/base.h")
-  else()
-    SET(SSL_VERSION_FILE "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h")
-  endif()
   FOREACH(version_part
       OPENSSL_VERSION_MAJOR
       OPENSSL_VERSION_MINOR
       OPENSSL_VERSION_PATCH
       )
-    FILE(STRINGS "${SSL_VERSION_FILE}" ${version_part}
+    FILE(STRINGS "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h" ${version_part}
       REGEX "^#[\t ]*define[\t ]+${version_part}[\t ]+([0-9]+).*")
     STRING(REGEX REPLACE
       "^.*${version_part}[\t ]+([0-9]+).*" "\\1"
@@ -146,7 +140,7 @@ MACRO(FIND_OPENSSL_VERSION)
     # Verify version number. Version information looks like:
     #   #define OPENSSL_VERSION_NUMBER 0x1000103fL
     # Encoded as MNNFFPPS: major minor fix patch status
-    FILE(STRINGS "${SSL_VERSION_FILE}"
+    FILE(STRINGS "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h"
       OPENSSL_VERSION_NUMBER
       REGEX "^#[ ]*define[\t ]+OPENSSL_VERSION_NUMBER[\t ]+0x[0-9].*"
       )
@@ -369,33 +363,12 @@ MACRO (MYSQL_CHECK_SSL)
       ENDIF()
     ENDIF()
 
-    IF(WITHOUT_SERVER)
-      # Facebook: tp2: Do *NOT* link dependencies like OpenSSL statically. This
-      # will make runtime updates to OpenSSL impossible.
-      SET(_OLD_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
-      SET(CMAKE_FIND_LIBRARY_SUFFIXES .so .dylib .dll)
-
-      # Facebook: tp2: Do *NOT* use ssl_pic or crypto_pic. We *always* want to
-      # dynamically link to OpenSSL.
-      SET(_OLD_PIC_EXT ${PIC_EXT})
-      SET(PIC_EXT "")
-    ENDIF()
-
-    # "_pic" suffix isn't a standard convention so probe for both with and
-    # without, preferring with _pic
     FIND_LIBRARY(OPENSSL_LIBRARY
-      NAMES ssl${PIC_EXT} libssl${PIC_EXT} ssleay32${PIC_EXT} ssleay32MD${PIC_EXT}
-            ssl libssl ssleay32 ssleay32MD
+                 NAMES ssl libssl ssleay32 ssleay32MD
                  HINTS ${OPENSSL_ROOT_DIR}/lib ${OPENSSL_ROOT_DIR}/lib64)
     FIND_LIBRARY(CRYPTO_LIBRARY
-      NAMES crypto${PIC_EXT} libcrypto${PIC_EXT} libeay32${PIC_EXT}
-            crypto libcrypto libeay32
+                 NAMES crypto libcrypto libeay32
                  HINTS ${OPENSSL_ROOT_DIR}/lib ${OPENSSL_ROOT_DIR}/lib64)
-
-    IF(WITHOUT_SERVER)
-      SET(CMAKE_FIND_LIBRARY_SUFFIXES ${_OLD_FIND_LIBRARY_SUFFIXES})
-      SET(PIC_EXT ${_OLD_PIC_EXT})
-    ENDIF()
 
     IF(OPENSSL_INCLUDE_DIR)
       FIND_OPENSSL_VERSION()

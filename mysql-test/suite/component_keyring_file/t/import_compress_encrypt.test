@@ -1,4 +1,3 @@
---source include/not_boringssl.inc
 --source include/have_component_keyring_file.inc
 # InnoDB tablespace import with compression + encryption
 --source include/have_lowercase0.inc

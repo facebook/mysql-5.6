@@ -41,8 +41,7 @@
 
 #include "openssl_version.h"
 
-#if OPENSSL_VERSION_NUMBER < ROUTER_OPENSSL_VERSION(1, 1, 0) || \
-    defined(OPENSSL_IS_BORINGSSL)
+#if OPENSSL_VERSION_NUMBER < ROUTER_OPENSSL_VERSION(1, 1, 0)
 #define RSA_bits(rsa) BN_num_bits(rsa->n)
 #define DH_bits(dh) BN_num_bits(dh->p)
 #endif
@@ -53,8 +52,7 @@
 #endif
 
 // type == decltype(BN_num_bits())
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2) && \
-    (!defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 11)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2)
 constexpr int kMinRsaKeySize{2048};
 #endif
 constexpr int kMinDhKeySize{1024};
@@ -114,7 +112,6 @@ struct OsslDeleter<RSA> {
 };
 #endif
 
-#if !defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 11
 /**
  * get the key size of an RSA key.
  *
@@ -125,7 +122,7 @@ struct OsslDeleter<RSA> {
 [[maybe_unused]]  // unused with openssl == 1.0.1 (RHEL6)
 stdx::expected<int, std::error_code>
 get_rsa_key_size(X509 *x509) {
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0) && (!defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 17)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0)
   EVP_PKEY *public_key = X509_get0_pubkey(x509);
 #else
   // if X509_get0_pubkey() isn't available, fall back to X509_get_pubkey() which
@@ -168,7 +165,6 @@ get_rsa_key_size(X509 *x509) {
   return RSA_bits(rsa_key);
 #endif
 }
-#endif // #if !defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 11
 
 /**
  * set DH params from filename to a SSL_CTX.
@@ -273,7 +269,7 @@ stdx::expected<void, std::error_code> set_auto_dh_params(SSL_CTX *ssl_ctx) {
 #if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(3, 0, 0)
   SSL_CTX_set_dh_auto(ssl_ctx, 1);
 #else
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0) && (!defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 17)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0)
   OsslUniquePtr<DH> dh_storage(DH_get_2048_256());
 #else
   /*
@@ -333,8 +329,7 @@ stdx::expected<void, std::error_code> TlsServerContext::load_key_and_cert(
       return stdx::make_unexpected(make_tls_error());
     }
   }
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2) && \
-    (!defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 11)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2)
   // openssl 1.0.1 has no SSL_CTX_get0_certificate() and doesn't allow
   // to access ctx->cert->key->x509 as cert_st is opaque to us.
 

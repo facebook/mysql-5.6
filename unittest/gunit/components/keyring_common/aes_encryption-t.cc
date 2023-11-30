@@ -56,7 +56,6 @@ TEST_F(AESEncryption_test, CiphertextsizeTest) {
       get_ciphertext_size(input_size, Keyring_aes_opmode::keyring_aes_256_cbc);
   EXPECT_TRUE(output_size > input_size);
 
-#ifndef OPENSSL_IS_BORINGSSL
   output_size =
       get_ciphertext_size(input_size, Keyring_aes_opmode::keyring_aes_256_cfb1);
   EXPECT_TRUE(output_size == input_size);
@@ -72,7 +71,6 @@ TEST_F(AESEncryption_test, CiphertextsizeTest) {
   output_size =
       get_ciphertext_size(input_size, Keyring_aes_opmode::keyring_aes_256_ofb);
   EXPECT_TRUE(output_size == input_size);
-#endif /* OPENSSL_IS_BORINGSSL */
 }
 
 TEST_F(AESEncryption_test, EncryptDecryptTest) {

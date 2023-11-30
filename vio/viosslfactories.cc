@@ -580,9 +580,6 @@ void ssl_start() {
   }
 }
 
-#if defined(OPENSSL_IS_BORINGSSL) && (BORINGSSL_API_VERSION < 16)
-#include "my_openssl_fips.h" // FIPS_mode_set
-#endif
 long process_tls_version(const char *tls_version) {
   const char *separator = ",";
   char *token, *lasts = nullptr;
@@ -687,8 +684,7 @@ static struct st_VioSSLFd *new_VioSSLFd(
     return nullptr;
   }
 
-// BoringSSL doesn't support SSL_CTX_set_ciphersuites
-#if defined(HAVE_TLSv13) && !defined(OPENSSL_IS_BORINGSSL)
+#ifdef HAVE_TLSv13
   /*
     Set OpenSSL TLS v1.3 ciphersuites.
     Note that an empty list is permissible.
@@ -833,12 +829,7 @@ static struct st_VioSSLFd *new_VioSSLFd(
       (not valid IP address), call X509_VERIFY_PARAM_set1_host().
     */
     if (1 != X509_VERIFY_PARAM_set1_ip_asc(param, server_host)) {
-#if defined(OPENSSL_IS_BORINGSSL)
-      if (1 != X509_VERIFY_PARAM_set1_host(param, server_host,
-                                           strlen(server_host))) {
-#else
       if (1 != X509_VERIFY_PARAM_set1_host(param, server_host, 0)) {
-#endif
         *error = SSL_INITERR_X509_VERIFY_PARAM;
         goto error;
       }
@@ -847,9 +838,6 @@ static struct st_VioSSLFd *new_VioSSLFd(
 #endif /* OPENSSL_VERSION_NUMBER >= 0x10002000L */
 
   SSL_CTX_set_options(ssl_fd->ssl_context, ssl_ctx_options);
-  if (!is_client) {
-    SSL_CTX_set_session_cache_mode(ssl_fd->ssl_context, SSL_SESS_CACHE_OFF);
-  }
 
   DBUG_PRINT("exit", ("OK 1"));
 

@@ -45,11 +45,6 @@
 #include "openssl/engine.h"
 #endif
 
-#if defined(OPENSSL_IS_BORINGSSL) && (BORINGSSL_API_VERSION < 17)
-#include "my_openssl_fips.h" // FIPS_mode_set
-const EVP_CIPHER *EVP_aes_256_xts(void) { return nullptr; } // requires libdecrepit
-#endif
-
 // clang-format off
 #ifndef REQUIRE
 #define REQUIRE(r) do { if (unlikely(!(r))) { fprintf(stderr, "\nYYY: %s: %u: %s: r = %d\n", __FILE__, __LINE__, __func__, (r)); require((r)); } } while (0)
@@ -149,9 +144,7 @@ int ndb_openssl_evp::library_end()
 #else
   FIPS_mode_set(0);
 #endif
-#if !defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 17
   CONF_modules_unload(1);
-#endif
   EVP_cleanup();
   CRYPTO_cleanup_all_ex_data();
   ERR_free_strings();
@@ -239,10 +232,6 @@ int ndb_openssl_evp::set_aes_256_cbc(bool padding, size_t data_unit_size)
 
 int ndb_openssl_evp::set_aes_256_xts(bool padding, size_t data_unit_size)
 {
- #if defined(OPENSSL_IS_BORINGSSL)
-  return -1; // EVP_aes_256_xts() requires libdecrepit
- #endif
-
   require(m_evp_cipher == nullptr);
 
   assert(data_unit_size % XTS_BLOCK_LEN == 0);
@@ -1239,10 +1228,6 @@ int ndb_openssl_evp::operation::decrypt_end()
   m_op_mode = NO_OP;
   return 0;
 }
-
-#if defined(OPENSSL_IS_BORINGSSL)
-#undef EVP_CIPHER_CTX_FLAG_WRAP_ALLOW
-#endif
 
 bool ndb_openssl_evp::is_aeskw256_supported()
 {
