@@ -7159,11 +7159,17 @@ static int init_server_components() {
 
   setup_error_log();  // opens the log if needed
 
+  // Mysys THD hooks.
   enter_cond_hook = thd_enter_cond;
   exit_cond_hook = thd_exit_cond;
   enter_stage_hook = thd_enter_stage;
   set_waiting_for_disk_space_hook = thd_set_waiting_for_disk_space;
   is_killed_hook = thd_killed;
+  wait_begin_hook = thd_wait_begin_check;
+  wait_end_hook = thd_wait_end_check;
+
+  // Validate that mysys wait constants are as they should be.
+  static_assert(MY_THD_WAIT_WS_IO == THD_WAIT_WS_IO);
 
   xa::Transaction_cache::initialize();
 

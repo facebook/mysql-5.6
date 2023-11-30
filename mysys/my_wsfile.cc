@@ -337,6 +337,7 @@ int my_ws_fsync(File fd) {
     return -1;
   }
 
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   int result = iter->second->ws_fsync();
   return result;
 }
@@ -384,6 +385,7 @@ size_t my_ws_read(File fd, uchar *buffer, size_t count) {
     return -1;
   }
 
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   size_t result = iter->second->ws_read(buffer, count);
   return result;
 }
@@ -414,6 +416,7 @@ int my_ws_sync(File fd) {
     return -1;
   }
 
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   int result = iter->second->ws_sync();
   return result;
 }
@@ -443,6 +446,8 @@ size_t my_ws_write(File fd, const uchar *buffer, size_t count) {
     errno = EINVAL;
     return -1;
   }
+
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   size_t result = iter->second->ws_write(buffer, count);
   return result;
 }

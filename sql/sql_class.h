@@ -270,6 +270,13 @@ extern "C" void thd_enter_stage(void *opaque_thd,
 extern "C" void thd_set_waiting_for_disk_space(void *opaque_thd,
                                                const bool waiting);
 
+/**
+  Versions of thd_wait_begin/end callbacks that accept nullptr thd and
+  default to the current thd.
+*/
+void thd_wait_begin_check(void *opaque_thd, int wait_type);
+void thd_wait_end_check(void *opaque_thd);
+
 #define THD_STAGE_INFO(thd, stage) \
   (thd)->enter_stage(&stage, NULL, __func__, __FILE__, __LINE__)
 

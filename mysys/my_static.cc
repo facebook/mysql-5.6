@@ -194,6 +194,11 @@ static void set_waiting_for_disk_space_dummy(void *a [[maybe_unused]],
 
 static int is_killed_dummy(const void *a [[maybe_unused]]) { return 0; }
 
+static void wait_begin_dummy(void *a [[maybe_unused]], int b [[maybe_unused]]) {
+}
+
+static void wait_end_dummy(void *a [[maybe_unused]]) {}
+
 /*
   Initialize these hooks to dummy implementations. The real server
   implementations will be set during server startup by
@@ -213,6 +218,18 @@ void (*set_waiting_for_disk_space_hook)(void *, bool) =
     set_waiting_for_disk_space_dummy;
 
 int (*is_killed_hook)(const void *) = is_killed_dummy;
+
+void (*wait_begin_hook)(void *opaque_thd, int wait_type) = wait_begin_dummy;
+
+void (*wait_end_hook)(void *opaque_thd) = wait_end_dummy;
+
+/**
+  Mark a scope as thd_wait_begin/thd_wait_end.
+*/
+My_thd_wait_scope::My_thd_wait_scope(int wait_type) {
+  wait_begin_hook(nullptr, wait_type);
+}
+My_thd_wait_scope::~My_thd_wait_scope() { wait_end_hook(nullptr); }
 
 #if defined(ENABLED_DEBUG_SYNC)
 /**

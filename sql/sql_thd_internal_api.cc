@@ -49,6 +49,7 @@
 #include "mysql/psi/mysql_file.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/psi/mysql_socket.h"
+#include "mysql/service_thd_wait.h"
 #include "mysql/thread_type.h"
 #include "sql/auth/auth_acls.h"  // SUPER_ACL
 #include "sql/binlog.h"          // mysql_bin_log
@@ -244,6 +245,22 @@ extern "C" void thd_set_waiting_for_disk_space(void *opaque_thd,
   if (thd != nullptr) {
     thd->set_waiting_for_disk_space(waiting);
   }
+}
+
+/**
+  Versions of thd_wait_begin/end callbacks that accept nullptr thd and
+  default to the current thd.
+*/
+void thd_wait_begin_check(void *opaque_thd, int wait_type) {
+  THD *thd = static_cast<THD *>(opaque_thd);
+  if (!thd) thd = current_thd;
+  thd_wait_begin(thd, wait_type);
+}
+
+void thd_wait_end_check(void *opaque_thd) {
+  THD *thd = static_cast<THD *>(opaque_thd);
+  if (!thd) thd = current_thd;
+  thd_wait_end(thd);
 }
 
 void thd_increment_bytes_sent(size_t length) {

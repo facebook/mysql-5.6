@@ -272,6 +272,13 @@ extern void (*set_waiting_for_disk_space_hook)(void *opaque_thd, bool waiting);
 */
 extern int (*is_killed_hook)(const void *opaque_thd);
 
+/**
+  Hooks for notifying the scheduler about waits.
+*/
+constexpr int MY_THD_WAIT_WS_IO = 16;
+extern void (*wait_begin_hook)(void *opaque_thd, int wait_type);
+extern void (*wait_end_hook)(void *opaque_thd);
+
 /* charsets */
 #define MY_ALL_CHARSETS_SIZE 2048
 extern MYSQL_PLUGIN_IMPORT CHARSET_INFO *default_charset_info;

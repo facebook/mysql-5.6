@@ -170,4 +170,13 @@ void MyFileEnd();
 
 void MyWSFileEnd();
 
+/**
+  Mark a scope as thd_wait_begin/thd_wait_end.
+*/
+class My_thd_wait_scope {
+ public:
+  My_thd_wait_scope(int wait_type);
+  ~My_thd_wait_scope();
+};
+
 #endif /* MYSYS_PRIV_INCLUDED */

@@ -111,7 +111,14 @@ typedef enum _thd_wait_type_e {
     due to factors such as disk IO and quorum acknowledgements for replication.
   */
   THD_WAIT_COMMIT = 15,
-  THD_WAIT_LAST = 16
+
+  /**
+    Used for all Warm Storage IO operations in my_wsfile.cc. All of them are
+    accessing remote storage over the network so quite often end up blocking
+    the scheduler.
+  */
+  THD_WAIT_WS_IO = 16,
+  THD_WAIT_LAST = 17
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {
