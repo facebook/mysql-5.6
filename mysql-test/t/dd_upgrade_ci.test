@@ -1,3 +1,5 @@
+# Upgrade and DDSE change at the same time is not supported
+--source include/have_innodb_ddse.inc
 --echo ########################################################################
 --echo # This test scripts covers meta data related aspects of upgrade
 --echo # after 8.0. For upgrade from 5.7 to 8.0, see dd_upgrade_test.

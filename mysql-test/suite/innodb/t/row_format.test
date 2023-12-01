@@ -1,3 +1,5 @@
+# Upgrade and DDSE change at the same time is not supported
+--source include/have_innodb_ddse.inc
 # TEST
 --echo #
 --echo # Bug#31479542 : MYSQL 8 ORPHANED TABLE DUE TO UNCHECKED NON-EXISTENT ROW FORMAT CHECK.

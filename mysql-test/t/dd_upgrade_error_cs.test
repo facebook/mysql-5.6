@@ -1,3 +1,5 @@
+# Upgrade and DDSE change at the same time is not supported
+--source include/have_innodb_ddse.inc
 --source include/have_case_sensitive_file_system.inc
 
 --echo # Stop DB server which was created by MTR default

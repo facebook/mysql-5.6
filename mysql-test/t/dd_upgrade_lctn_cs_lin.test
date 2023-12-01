@@ -1,3 +1,5 @@
+# Upgrade and DDSE change at the same time is not supported
+--source include/have_innodb_ddse.inc
 ###############################################################################
 #
 # Upgrade from 5.7 to 8.0 while at the same time changing the setting

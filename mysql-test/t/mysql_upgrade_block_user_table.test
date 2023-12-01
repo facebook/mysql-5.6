@@ -27,7 +27,7 @@
 --echo #
 
 --replace_result $MYSQLD_LOG MYSQLD_LOG
---let restart_parameters=restart: --enable_user_tables_engine_check=ON --skip-rocksdb --upgrade=FORCE --log-error=$MYSQLD_LOG
+--let restart_parameters=restart: --enable_user_tables_engine_check=ON --loose-skip-rocksdb --upgrade=FORCE --log-error=$MYSQLD_LOG
 --let $wait_counter= 10000
 --source include/restart_mysqld.inc
 

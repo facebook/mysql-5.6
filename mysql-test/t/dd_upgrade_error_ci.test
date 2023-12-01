@@ -1,3 +1,5 @@
+# Upgrade and DDSE change at the same time is not supported
+--source include/have_innodb_ddse.inc
 --source include/have_case_insensitive_file_system.inc
 
 --let ZIP_FILE= $MYSQLTEST_VARDIR/std_data/data80011_upgrade_groupby_desc_ci_win.zip
