@@ -1,5 +1,5 @@
 # Define old data locations
-# restart: --innodb-directories=MYSQL_TMP_DIR/old/remote_dir
+# restart: --innodb-directories=MYSQL_TMP_DIR/old/remote_dir --default-dd-storage-engine=DEFAULT_DDSE
 # Define and create new datadir folders
 ## create all kinds of tables including absolute paths
 CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.ibd' Engine=InnoDB;
@@ -101,7 +101,8 @@ tab3	CREATE TABLE `tab3` (
 /*!50100 PARTITION BY HASH (`empno`)
 (PARTITION P0 DATA DIRECTORY = 'MYSQL_TMP_DIR/new/remote_dir' ENGINE = InnoDB,
  PARTITION P1 DATA DIRECTORY = 'MYSQL_TMP_DIR/new/remote_dir' ENGINE = InnoDB) */
-SELECT file_name,file_type,tablespace_name FROM INFORMATION_SCHEMA.FILES WHERE file_type LIKE '%undo%';
+SELECT file_name,file_type,tablespace_name FROM INFORMATION_SCHEMA.FILES
+WHERE file_type LIKE '%undo%' ORDER BY tablespace_name;
 FILE_NAME	FILE_TYPE	TABLESPACE_NAME
 MYSQL_TMP_DIR/new/undo_dir/undo_001	UNDO LOG	innodb_undo_001
 MYSQL_TMP_DIR/new/undo_dir/undo_002	UNDO LOG	innodb_undo_002
@@ -115,7 +116,7 @@ MYSQL_TMP_DIR/new/undo_dir/undo_002
 MYSQL_TMP_DIR/new/undo_dir/undo_003.ibu
 # Stop DB server
 # Start with new --datadir only
-# restart: --datadir=MYSQL_TMP_DIR/new/data --innodb_undo_directory=MYSQL_TMP_DIR/new/undo_dir --innodb_data_home_dir=MYSQL_TMP_DIR/new/data_home_dir --innodb_log_group_home_dir=MYSQL_TMP_DIR/new/data_home_dir --innodb-directories=MYSQL_TMP_DIR/new/remote_dir
+# restart: --datadir=MYSQL_TMP_DIR/new/data --innodb_undo_directory=MYSQL_TMP_DIR/new/undo_dir --innodb_data_home_dir=MYSQL_TMP_DIR/new/data_home_dir --innodb_log_group_home_dir=MYSQL_TMP_DIR/new/data_home_dir --innodb-directories=MYSQL_TMP_DIR/new/remote_dir --default-dd-storage-engine=DEFAULT_DDSE
 # Check with new --datadir
 SELECT @@datadir;
 @@datadir
@@ -155,7 +156,8 @@ tab3	CREATE TABLE `tab3` (
 /*!50100 PARTITION BY HASH (`empno`)
 (PARTITION P0 DATA DIRECTORY = 'MYSQL_TMP_DIR/new/remote_dir' ENGINE = InnoDB,
  PARTITION P1 DATA DIRECTORY = 'MYSQL_TMP_DIR/new/remote_dir' ENGINE = InnoDB) */
-SELECT file_name,file_type,tablespace_name FROM INFORMATION_SCHEMA.FILES WHERE file_type LIKE '%undo%';
+SELECT file_name,file_type,tablespace_name FROM INFORMATION_SCHEMA.FILES
+WHERE file_type LIKE '%undo%' ORDER BY tablespace_name;
 FILE_NAME	FILE_TYPE	TABLESPACE_NAME
 MYSQL_TMP_DIR/new/undo_dir/undo_001	UNDO LOG	innodb_undo_001
 MYSQL_TMP_DIR/new/undo_dir/undo_002	UNDO LOG	innodb_undo_002
@@ -241,7 +243,7 @@ DROP TABLESPACE ts1;
 # Cleanup the new DATA DIRECTORY *.ibd files
 # Test by providing the relative path
 # Re-start with old --datadir with --innodb-directories as remote *.ibd files are existing.
-# restart: --innodb-directories=MYSQL_TMP_DIR/old/remote_dir
+# restart: --innodb-directories=MYSQL_TMP_DIR/old/remote_dir --default-dd-storage-engine=DEFAULT_DDSE
 # Check --datadir started with old
 SELECT @@datadir;
 @@datadir
