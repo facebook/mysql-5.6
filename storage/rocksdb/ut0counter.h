@@ -27,6 +27,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef UT0COUNTER_H
 #define UT0COUNTER_H
 
+#include <cassert>
 #include <string.h>
 
 /** CPU cache line size */

@@ -14,9 +14,12 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+// C++ standard header files
+#include <cstdint>
+#include <string>
+
 /* MyRocks header files */
-#include "../ha_rocksdb.h"
-#include "../rdb_datadic.h"
+#include "../properties_collector.h"
 
 void putKeys(myrocks::Rdb_tbl_prop_coll *coll, int num, bool is_delete,
              uint64_t expected_deleted) {

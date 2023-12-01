@@ -16,10 +16,8 @@
 #pragma once
 
 /* C++ system header files */
-#include <map>
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 /* RocksDB header files */

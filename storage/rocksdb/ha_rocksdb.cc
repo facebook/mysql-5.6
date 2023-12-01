@@ -36,7 +36,6 @@
 #include <deque>
 #include <limits>
 #include <map>
-#include <queue>
 #include <set>
 #include <string>
 #include <vector>
@@ -46,8 +45,6 @@
 #include <mysql/psi/mysql_table.h>
 #include <mysql/thread_pool_priv.h>
 #include <mysys_err.h>
-#include "my_bit.h"
-#include "my_stacktrace.h"
 #include "my_sys.h"
 #include "scope_guard.h"
 #include "sql/binlog.h"
@@ -66,20 +63,22 @@
 #include "sql/strfunc.h"
 
 /* RocksDB includes */
+#include "rocksdb/convenience.h"
 #include "env/composite_env_wrapper.h"
 #include "monitoring/histogram.h"
 #include "rocksdb/compaction_filter.h"
-#include "rocksdb/compaction_job_stats.h"
 #include "rocksdb/env.h"
 #include "rocksdb/memory_allocator.h"
+#include "rocksdb/perf_level.h"
 #include "rocksdb/persistent_cache.h"
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice_transform.h"
+#include "rocksdb/sst_file_manager.h"
 #include "rocksdb/thread_status.h"
 #include "rocksdb/trace_reader_writer.h"
 #include "rocksdb/utilities/checkpoint.h"
-#include "rocksdb/utilities/convenience.h"
 #include "rocksdb/utilities/memory_util.h"
+#include "rocksdb/utilities/options_util.h"
 #include "rocksdb/utilities/sim_cache.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
 #include "util/stop_watch.h"

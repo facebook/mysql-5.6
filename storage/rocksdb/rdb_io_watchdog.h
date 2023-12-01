@@ -19,19 +19,17 @@
 #ifndef __APPLE__
 
 /* C++ standard header files */
+#include <cassert>
 #include <signal.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 #include <atomic>
 #include <string>
 #include <vector>
 
 /* MySQL header files */
-#include "./my_stacktrace.h"
-
-/* MyRocks header files */
-#include "./rdb_utils.h"
+#include "thr_mutex.h"
+#include "mysql/psi/mysql_mutex.h"
 
 namespace myrocks {
 

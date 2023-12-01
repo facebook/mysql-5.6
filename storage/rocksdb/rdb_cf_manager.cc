@@ -19,9 +19,11 @@
 #endif
 
 /* MySQL header files */
+#ifndef NDEBUG
+#include "sql/sql_class.h"
 #include "sql/debug_sync.h"
+#endif
 
-#include "./rdb_threads.h"
 /* This C++ files header file */
 #include "./rdb_cf_manager.h"
 

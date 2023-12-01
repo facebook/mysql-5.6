@@ -15,8 +15,16 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #pragma once
 
-#include <sstream>
 #include <string>
+
+#include "rocksdb/env.h"
+
+#include "rdb_utils.h"  // LOG_COMPONENT_TAG for includes below
+
+#include "my_loglevel.h"
+#include "mysql/components/services/log_builtins.h"
+#include "mysql/components/services/log_shared.h"
+#include "mysqld_error.h"
 
 namespace myrocks {
 

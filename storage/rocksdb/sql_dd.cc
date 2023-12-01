@@ -17,10 +17,8 @@
 #include "sql_dd.h"
 #include <assert.h>
 #include <memory>
-#include "./rdb_utils.h"
-#include "my_sys.h"
-#include "mysql/psi/psi_memory.h"
 #include "mysql/service_mysql_alloc.h"
+#include "sql/field.h"
 
 namespace myrocks {
 

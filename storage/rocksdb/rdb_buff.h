@@ -44,7 +44,6 @@
 
 /* RocksDB header files */
 #include "rocksdb/slice.h"
-#include "rocksdb/status.h"
 
 namespace myrocks {
 

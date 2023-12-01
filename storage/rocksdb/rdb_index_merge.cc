@@ -17,14 +17,17 @@
 /* This C++ file's header file */
 #include "./rdb_index_merge.h"
 
+#include "rdb_utils.h"  // LOG_COMPONENT_TAG for includes below
+
 /* MySQL header files */
+#include "mysql/components/services/log_builtins.h"
+#include "mysql/plugin.h"
 #include "mysql/psi/mysql_file.h"
-#include "sql/sql_class.h"
+#include "mysqld_error.h"
 #include "sql/sql_thd_internal_api.h"
 
 /* MyRocks header files */
-#include "./ha_rocksdb.h"
-#include "./rdb_datadic.h"
+#include "rdb_global.h"
 
 namespace myrocks {
 
