@@ -5,6 +5,9 @@ BEGIN;
 SELECT * FROM t1 WHERE a = 1 FOR SHARE;
 a	b
 1	1
+PREPARE stmt1 FROM 'SHOW ENGINE INNODB TRANSACTION STATUS';
+EXECUTE stmt1;
+# EXECUTE PREPARE completed
 # CONNECTION default
 SET SESSION DEBUG = "+d,force_wait_mutex_during_print_for_tests";
 SET SESSION DEBUG = "-d,force_wait_mutex_during_print_for_tests";
