@@ -3456,7 +3456,8 @@ class Rdb_transaction {
   */
   ulonglong m_writes_at_last_savepoint;
 
-  bool m_ddl_transaction = false;
+  bool m_bulk_index_transaction = false;
+  bool m_dd_transaction = false;
 
  protected:
   THD *m_thd = nullptr;
@@ -3505,7 +3506,10 @@ class Rdb_transaction {
     return s;
   }
 
-  void reset_ddl_transaction() { m_ddl_transaction = false; }
+  void reset_flags() {
+    m_bulk_index_transaction = false;
+    m_dd_transaction = false;
+  }
 
  protected:
   /*
@@ -3681,12 +3685,23 @@ class Rdb_transaction {
     }
   }
 
-  void set_ddl_transaction() {
+  void set_bulk_index_transaction() {
     assert(!is_ac_nl_ro_rc_transaction());
-    m_ddl_transaction = true;
+    m_bulk_index_transaction = true;
   }
 
-  [[nodiscard]] bool is_ddl_transaction() const { return m_ddl_transaction; }
+  [[nodiscard]] bool is_bulk_index_transaction() const {
+    return m_bulk_index_transaction;
+  }
+
+  void set_dd_transaction() {
+    assert(default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB);
+    assert(!is_ac_nl_ro_rc_transaction());
+
+    m_dd_transaction = true;
+  }
+
+  [[nodiscard]] bool is_dd_transaction() const { return m_dd_transaction; }
 
   virtual void set_lock_timeout(int timeout_sec_arg, TABLE_TYPE table_type) = 0;
 
@@ -4964,7 +4979,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     m_delete_count = 0;
     m_row_lock_count = 0;
     m_auto_incr_map.clear();
-    reset_ddl_transaction();
+    reset_flags();
     if (m_rocksdb_tx[TABLE_TYPE::USER_TABLE]) {
       release_snapshot(TABLE_TYPE::USER_TABLE);
       /* This will also release all of the locks: */
@@ -5259,7 +5274,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
       set_initial_savepoint();
 
-      reset_ddl_transaction();
+      reset_flags();
       m_is_delayed_snapshot = false;
     }
   }
@@ -5380,7 +5395,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     m_read_opts[USER_TABLE] = rocksdb::ReadOptions();
     m_read_opts[USER_TABLE].ignore_range_deletions =
         !rocksdb_enable_delete_range_for_drop_index;
-    reset_ddl_transaction();
+    reset_flags();
   }
 
  private:
@@ -6028,7 +6043,9 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
     if (tx->is_two_phase()) {
-      if (thd->durability_property == HA_IGNORE_DURABILITY) {
+      if (tx->is_dd_transaction()) {
+        tx->set_sync(true);
+      } else if (thd->durability_property == HA_IGNORE_DURABILITY) {
         tx->set_sync(false);
       }
       // For write unprepared, set_name is called at the start of a transaction.
@@ -12659,7 +12676,8 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
      */
     rc = bulk_load_key(row_info.tx, kd, row_info.new_pk_slice, value_slice,
                        THDVAR(table->in_use, bulk_load_allow_unsorted));
-  } else if (row_info.skip_unique_check || row_info.tx->is_ddl_transaction()) {
+  } else if (row_info.skip_unique_check ||
+             row_info.tx->is_bulk_index_transaction()) {
     /*
       It is responsibility of the user to make sure that the data being
       inserted doesn't violate any unique keys.
@@ -14041,7 +14059,12 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
       if (thd->lex->sql_command == SQLCOM_CREATE_INDEX ||
           thd->lex->sql_command == SQLCOM_DROP_INDEX ||
           thd->lex->sql_command == SQLCOM_ALTER_TABLE) {
-        tx->set_ddl_transaction();
+        tx->set_bulk_index_transaction();
+      }
+
+      if (table_share->table_category == TABLE_CATEGORY_DICTIONARY) {
+        assert(default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB);
+        tx->set_dd_transaction();
       }
     }
     tx->m_n_mysql_tables_in_use++;
@@ -16542,8 +16565,9 @@ inline bool ha_rocksdb::is_instant(const Alter_inplace_info *ha_alter_info) {
   @return True if DDSE is rocksdb and it is updating table metadata
 */
 bool ha_rocksdb::is_dd_update() const {
-  return default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB &&
-         thd_is_dd_update_stmt(ha_thd());
+  const auto result = thd_is_dd_update_stmt(ha_thd());
+  assert(!result || default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB);
+  return result;
 }
 
 #define SHOW_FNAME(name) rocksdb_show_##name
