@@ -520,4 +520,7 @@ MEMORY_STATS	#	#
 BG_THREADS	#	#
 BG_THREADS	#	#
 BINLOG POSITION	#	#
+PREPARE stmt1 FROM 'SHOW ENGINE ROCKSDB TRANSACTION STATUS';
+EXECUTE stmt1;
+# EXECUTE PREPARE complete
 SET GLOBAL rocksdb_max_background_jobs= @save.rocksdb_max_background_jobs;
