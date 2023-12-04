@@ -9,7 +9,7 @@
 --source include/have_innodb_default_undo_tablespaces.inc
 
 let $MYSQLD_OLD_DATADIR = `select @@datadir`;
-let $DEFAULT_DDSE = `select @@default_dd_storage_engine`;
+let $DEFAULT_DDSE = `select @@default_dd_system_storage_engine`;
 
 # Create new datadir folders like data
 --mkdir $MYSQL_TMP_DIR/new_datadir
@@ -67,7 +67,7 @@ if ($DEFAULT_DDSE == "RocksDB") {
 --copy_files_wildcard $MYSQLD_OLD_DATADIR/mtr/  $MYSQLD_NEW_DATADIR/mtr/ *.*
 
 --echo ## Start with new --datadir
---let $restart_parameters="restart: --datadir=$MYSQLD_NEW_DATADIR" --default-dd-storage-engine=$DEFAULT_DDSE
+--let $restart_parameters="restart: --datadir=$MYSQLD_NEW_DATADIR" --default-dd-system-storage-engine=$DEFAULT_DDSE
 --source include/start_mysqld_no_echo.inc
 
 --echo ## Check datadir started with new one
@@ -144,7 +144,7 @@ DROP UNDO TABLESPACE undo_004;
 
 --echo # Re-start with old --datadir
 --replace_result $MYSQLD_OLD_DATADIR OLD_DATADIR $DEFAULT_DDSE DDSE
---let $restart_parameters="restart: --datadir=$MYSQLD_OLD_DATADIR --default-dd-storage-engine=$DEFAULT_DDSE"
+--let $restart_parameters="restart: --datadir=$MYSQLD_OLD_DATADIR --default-dd-system-storage-engine=$DEFAULT_DDSE"
 --source include/start_mysqld.inc
 
 --echo # Check --datadir started with old
