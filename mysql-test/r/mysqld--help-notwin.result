@@ -764,6 +764,10 @@ The following options may be given as the first argument:
  --initialize-insecure 
  Create the default database and exit. Create a super user
  with empty password.
+ --install-plugin-skip-registration 
+ Controls whether INSTALL PLUGIN registers plugin in
+ mysql.plugin table permanently, or skips registration
+ making it a one time installation
  --interactive-timeout=# 
  The number of seconds the server waits for activity on an
  interactive connection before closing it
@@ -3349,6 +3353,7 @@ init-replica
 init-slave 
 initialize TRUE
 initialize-insecure TRUE
+install-plugin-skip-registration FALSE
 interactive-timeout 28800
 internal-tmp-mem-storage-engine TempTable
 join-buffer-size 262144
