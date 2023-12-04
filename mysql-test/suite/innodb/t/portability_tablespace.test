@@ -22,11 +22,11 @@ let $MYSQLD_OLD                = $MYSQL_TMP_DIR/old;
 let $MYSQLD_OLD_REMOTE_DIR     = $MYSQLD_OLD/remote_dir;
 let $MYSQLD_OLD_REDO_LOG_DIR   = $MYSQLD_OLD_DATADIR/#innodb_redo;
 
-let $DEFAULT_DDSE = `select @@default_dd_storage_engine`;
+let $DEFAULT_DDSE = `select @@default_dd_system_storage_engine`;
 
 --disable_query_log
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
---let $restart_parameters = restart: --innodb-directories=$MYSQLD_OLD_REMOTE_DIR --default-dd-storage-engine=$DEFAULT_DDSE
+--let $restart_parameters = restart: --innodb-directories=$MYSQLD_OLD_REMOTE_DIR --default-dd-system-storage-engine=$DEFAULT_DDSE
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $DEFAULT_DDSE DEFAULT_DDSE
 --source include/restart_mysqld.inc
 --enable_query_log
@@ -162,7 +162,7 @@ if ($DEFAULT_DDSE == "RocksDB") {
 
 --echo # Start with --innodb-directories along with other initDB options
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $DEFAULT_DDSE DEFAULT_DDSE
---let $restart_parameters=restart: --datadir=$MYSQLD_NEW_DATADIR --innodb_undo_directory=$MYSQLD_NEW_UNDO_DIR --innodb_data_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb_log_group_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb-directories=$MYSQLD_NEW_REMOTE_DIR --default-dd-storage-engine=$DEFAULT_DDSE
+--let $restart_parameters=restart: --datadir=$MYSQLD_NEW_DATADIR --innodb_undo_directory=$MYSQLD_NEW_UNDO_DIR --innodb_data_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb_log_group_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb-directories=$MYSQLD_NEW_REMOTE_DIR --default-dd-system-storage-engine=$DEFAULT_DDSE
 --source include/start_mysqld_no_echo.inc
 
 --echo # Check new datadir
@@ -194,7 +194,7 @@ SELECT path FROM INFORMATION_SCHEMA.INNODB_DATAFILES WHERE path LIKE '%undo_0%' 
 
 --echo # Start with new --datadir only
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $DEFAULT_DDSE DEFAULT_DDSE
---let $restart_parameters=restart: --datadir=$MYSQLD_NEW_DATADIR --innodb_undo_directory=$MYSQLD_NEW_UNDO_DIR --innodb_data_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb_log_group_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb-directories=$MYSQLD_NEW_REMOTE_DIR --default-dd-storage-engine=$DEFAULT_DDSE
+--let $restart_parameters=restart: --datadir=$MYSQLD_NEW_DATADIR --innodb_undo_directory=$MYSQLD_NEW_UNDO_DIR --innodb_data_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb_log_group_home_dir=$MYSQLD_NEW_DATA_HOME_DIR --innodb-directories=$MYSQLD_NEW_REMOTE_DIR --default-dd-system-storage-engine=$DEFAULT_DDSE
 --source include/start_mysqld.inc
 
 --echo # Check with new --datadir
@@ -329,7 +329,7 @@ if ($DEFAULT_DDSE == "RocksDB") {
 --echo # Test by providing the relative path
 --echo # Re-start with old --datadir with --innodb-directories as remote *.ibd files are existing.
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR $DEFAULT_DDSE DEFAULT_DDSE
---let $restart_parameters= restart: --innodb-directories=$MYSQLD_OLD_REMOTE_DIR --default-dd-storage-engine=$DEFAULT_DDSE
+--let $restart_parameters= restart: --innodb-directories=$MYSQLD_OLD_REMOTE_DIR --default-dd-system-storage-engine=$DEFAULT_DDSE
 --source include/start_mysqld.inc
 
 --echo # Check --datadir started with old

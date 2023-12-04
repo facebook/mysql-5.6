@@ -6,7 +6,7 @@
 --source include/have_debug.inc
 SET debug = '+d,skip_dd_table_access_check';
 
---let $DEFAULT_DDSE = `SELECT @@default_dd_storage_engine`
+--let $DEFAULT_DDSE = `SELECT @@default_dd_system_storage_engine`
 
 --echo ########################################################################
 --echo # The number of hidden DD/DDSE tables must be as expected.
