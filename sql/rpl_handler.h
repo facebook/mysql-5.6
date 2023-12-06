@@ -582,4 +582,8 @@ struct RaftRotateInfo {
   // During rotation of raft logs, this is put into Metadata event
   // as previous opid
   std::pair<int64_t, int64_t> rotate_opid = std::make_pair(0, 0);
+  // Ingestion checkpoint opid
+  std::pair<int64_t, int64_t> ingestion_checkpoint = std::make_pair(-1, -1);
+  // Ingestion upper bound
+  uint64_t ingestion_upper_bound = 0;
 };

@@ -2046,7 +2046,6 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     ret = write_metadata_event(thd, cache_data, raft_trx_cache.get());
     if (ret) goto end;
 
-
     thd->commit_consensus_error = false;
 
     // TODO(luqun): perf concern? merge in plugin?
@@ -6627,30 +6626,48 @@ bool MYSQL_BIN_LOG::open_binlog(
     if (need_sid_lock) sid_lock->unlock();
     if (write_event_to_binlog(&prev_gtids_ev)) goto err;
 
-    /* If HLC is enabled, then write the current HLC value into binlog. This is
-     * used during server restart to intialize the HLC clock of the instance.
-     * This is a guarantee that all trx's in all of the previous binlog have a
-     * HLC timestamp lower than or equal to the value seen here. Note that this
-     * function (open_binlog()) should be called during server restart only
-     * after initializing the local instance's HLC clock (by reading the
-     * previous binlog file) */
-    if (enable_binlog_hlc && (!is_relay_log || raft_rotate_info)) {
-      uint64_t current_hlc = 0;
-      if (!is_relay_log) {
-        current_hlc = mysql_bin_log.get_current_hlc();
+    Metadata_log_event metadata_ev;
+    bool should_write_metadata_event = false;
+    if (rotate_in_listener_context)
+      metadata_ev.common_header->when.tv_sec = time(0);
+
+    // case: we write previous metadata event to the top of the file if we're
+    // not in relay log mode or this is a raft rotation (e.g. noop rotation)
+    if (!is_relay_log || raft_rotate_info) {
+      /* If HLC is enabled, then write the current HLC value into binlog. This
+       * is used during server restart to intialize the HLC clock of the
+       * instance. This is a guarantee that all trx's in all of the previous
+       * binlog have a HLC timestamp lower than or equal to the value seen here.
+       * Note that this function (open_binlog()) should be called during server
+       * restart only after initializing the local instance's HLC clock (by
+       * reading the previous binlog file) */
+      if (enable_binlog_hlc) {
+        uint64_t current_hlc = mysql_bin_log.get_current_hlc();
+        metadata_ev.set_prev_hlc_time(current_hlc);
+        should_write_metadata_event = true;
       }
-      Metadata_log_event metadata_ev(current_hlc);
-      if (rotate_in_listener_context)
-        metadata_ev.common_header->when.tv_sec = time(0);
+
+      // Now handle raft metadata to be written on the top of the file
       if (raft_rotate_info) {
         metadata_ev.set_raft_prev_opid(raft_rotate_info->rotate_opid.first,
                                        raft_rotate_info->rotate_opid.second);
         update_prev_gtid_and_opid(
             previous_logged_gtids, raft_rotate_info->rotate_opid.first,
             raft_rotate_info->rotate_opid.second, need_sid_lock);
+        if (raft_rotate_info->ingestion_checkpoint != std::pair(-1L, -1L)) {
+          metadata_ev.set_raft_ingestion_prev_checkpoint(
+              raft_rotate_info->ingestion_checkpoint);
+        }
+        if (raft_rotate_info->ingestion_upper_bound) {
+          metadata_ev.set_raft_ingestion_prev_upper_bound(
+              raft_rotate_info->ingestion_upper_bound);
+        }
+        should_write_metadata_event = true;
       }
-      if (write_event_to_binlog(&metadata_ev)) goto err;
     }
+
+    if (should_write_metadata_event && write_event_to_binlog(&metadata_ev))
+      goto err;
   }
 
   // in raft, it isn't necessary to write these extra description event
@@ -8813,8 +8830,25 @@ int MYSQL_BIN_LOG::new_file_impl(
         me.set_raft_rotate_tag(Metadata_log_event::RRET_SIMPLE_ROTATE);
       }
 
-      if (rotate_in_listener_context)
-        me.common_header->when.tv_sec = time(0);
+      // Write ingestion info in metadata event
+      assert(!current_thd->rli_slave);
+      Raft_ingestion_param param;
+      param.force = true;  // we force a checkpoint update on rotation
+      if (!RUN_HOOK_STRICT(raft_replication, ingestion,
+                           (current_thd, &param))) {
+        if (param.checkpoint != std::pair(-1L, -1L)) {
+          me.set_raft_ingestion_checkpoint(param.checkpoint);
+          raft_rotate_info->ingestion_checkpoint = param.checkpoint;
+        }
+        if (param.upper_bound != 0) {
+          me.set_raft_ingestion_upper_bound(param.upper_bound);
+          raft_rotate_info->ingestion_upper_bound = param.upper_bound;
+        }
+      } else {
+        sql_print_error("Ingestion hook failed while writing NoOp event");
+      }
+
+      if (rotate_in_listener_context) me.common_header->when.tv_sec = time(0);
       // checksum has to be turned off, because the raft plugin
       // will patch the events and generate the final checksum.
       me.common_footer->checksum_alg = binary_log::BINLOG_CHECKSUM_ALG_OFF;
@@ -9020,6 +9054,8 @@ end:
     register_log_entities(current_thd, /*context=*/0,
                           /*need_lock=*/false, is_relay_log);
   }
+
+  current_thd->clear_raft_info();
 
   if (need_lock_log) mysql_mutex_unlock(&LOCK_log);
 
@@ -11107,7 +11143,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
            head->get_transaction()->m_flags.ready_preempt);
     finish_transaction_in_engines(head, all, false);
     if (head->commit_error != THD::CE_COMMIT_ERROR &&
-        !head->commit_consensus_error) candidate = head;
+        !head->commit_consensus_error)
+      candidate = head;
 
     DBUG_PRINT("debug", ("commit_error: %d, commit_pending: %s",
                          head->commit_error, YESNO(head->tx_commit_pending)));
@@ -11327,7 +11364,8 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd) {
       break;
     case IGNORE_COMMIT_CONSENSUS_ERROR:
       /* Ignore commit consensus error and commit to engine as usual */
-      if (trx_coordinator::commit_in_engines(thd, all)) thd->commit_error = THD::CE_COMMIT_ERROR;
+      if (trx_coordinator::commit_in_engines(thd, all))
+        thd->commit_error = THD::CE_COMMIT_ERROR;
 
       break;
     default:
@@ -11704,7 +11742,6 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
     mysql_mutex_lock(&LOCK_log);
   else
     mysql_mutex_assert_owner(&LOCK_log);
-
 
   Raft_replication_observer::st_setup_flush_arg arg;
   arg.log_file_cache = m_binlog_file->get_io_cache();
@@ -15658,7 +15695,8 @@ int THD::binlog_query(THD::enum_binlog_query_type qtype, const char *query_arg,
   return 0;
 }
 
-void MYSQL_BIN_LOG::finish_transaction_in_engines(THD *thd, bool all, bool run_after_commit) {
+void MYSQL_BIN_LOG::finish_transaction_in_engines(THD *thd, bool all,
+                                                  bool run_after_commit) {
   if (thd->get_transaction()->m_flags.commit_low) {
     if (thd->commit_consensus_error ||
         DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false)) {

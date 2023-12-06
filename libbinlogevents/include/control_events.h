@@ -880,6 +880,35 @@ class Metadata_event : public Binary_log_event {
   uint64_t get_raft_ingestion_upper_bound() const;
 
   /**
+   * Sets raft prev ingestion checkpoint
+   *
+   * @param raft term/index of the ingestion checkpoint
+   */
+  void set_raft_ingestion_prev_checkpoint(
+      const std::pair<int64_t, int64_t> &checkpoint);
+
+  /**
+   * Get raft prev ingestion checkpoint
+   *
+   * @return term/index if present. -1, -1 otherwise
+   */
+  std::pair<int64_t, int64_t> get_raft_ingestion_prev_checkpoint() const;
+
+  /**
+   * Sets raft prev ingestion upper bound
+   *
+   * @param timestamp
+   */
+  void set_raft_ingestion_prev_upper_bound(const uint64_t& upper_bound);
+
+  /**
+   * Get raft prev ingestion upper bound
+   *
+   * @return timestamp
+   */
+  uint64_t get_raft_ingestion_prev_upper_bound() const;
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_event_types : unsigned char {
@@ -910,6 +939,10 @@ class Metadata_event : public Binary_log_event {
     RAFT_INGESTION_CHECKPOINT_TYPE = 9,
     /* Raft ingestion upper bound timestamp */
     RAFT_INGESTION_UPPER_BOUND_TYPE = 10,
+    /* Previous raft ingestion checkpoint written on top of the log */
+    RAFT_INGESTION_PREV_CHECKPOINT_TYPE = 11,
+    /* Previous raft ingestion upper bound written on top of the log */
+    RAFT_INGESTION_PREV_UPPER_BOUND_TYPE = 12,
 
     METADATA_EVENT_TYPE_MAX,
   };
@@ -996,6 +1029,15 @@ class Metadata_event : public Binary_log_event {
   uint64_t raft_ingestion_upper_bound_ = 0;
   static const uint32_t ENCODED_RAFT_INGESTION_UPPER_BOUND_SIZE =
       sizeof(raft_ingestion_upper_bound_);
+
+  std::pair<int64_t, int64_t> raft_ingestion_prev_checkpoint_ = {-1, -1};
+  static const uint32_t ENCODED_RAFT_INGESTION_PREV_CHECKPOINT_SIZE =
+      sizeof(raft_ingestion_prev_checkpoint_.first) +
+      sizeof(raft_ingestion_prev_checkpoint_.second);
+
+  uint64_t raft_ingestion_prev_upper_bound_ = 0;
+  static const uint32_t ENCODED_RAFT_INGESTION_PREV_UPPER_BOUND_SIZE =
+      sizeof(raft_ingestion_prev_upper_bound_);
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;
