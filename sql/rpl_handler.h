@@ -463,6 +463,7 @@ class Raft_replication_delegate : public Delegate {
       std::vector<std::pair<std::string, std::string>> *var_value_pairs);
   int before_stop_applier(THD *thd);
   int after_stop_applier(THD *thd);
+  int ingestion(THD *thd, Raft_ingestion_param *param);
 };
 
 int delegates_init();

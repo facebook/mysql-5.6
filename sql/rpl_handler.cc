@@ -1392,7 +1392,10 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
 
   int ret = 0;
 
-  FOREACH_OBSERVER_STRICT(ret, before_flush, (&param, io_cache, op_type));
+  FOREACH_OBSERVER_STRICT(
+      ret, before_flush,
+      (&param, io_cache, op_type, thd->raft_ingestion_upper_bound,
+       thd->raft_ingestion_checkpoint));
 
   DBUG_PRINT("return",
              ("term: %" PRId64 ", index: %" PRId64, param.term, param.index));
@@ -1534,6 +1537,20 @@ int Raft_replication_delegate::after_stop_applier(THD * /* thd */) {
   Raft_replication_param param;
   int ret = 0;
   FOREACH_OBSERVER_STRICT(ret, after_stop_applier, (&param));
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::ingestion(THD *thd,
+                                         Raft_ingestion_param *param) {
+  DBUG_ENTER("Raft_replication_delegate::ingestion");
+  int ret = 0;
+  FOREACH_OBSERVER_STRICT(ret, ingestion, (param));
+  // Populate thd vars if we're doing this on primary since for the secondary
+  // these vars will already be populated
+  if (!ret && !param->is_from_applier) {
+    thd->raft_ingestion_upper_bound = param->upper_bound;
+    thd->raft_ingestion_checkpoint = param->checkpoint;
+  }
   DBUG_RETURN(ret);
 }
 
