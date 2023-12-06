@@ -6595,30 +6595,48 @@ bool MYSQL_BIN_LOG::open_binlog(
     if (need_sid_lock) sid_lock->unlock();
     if (write_event_to_binlog(&prev_gtids_ev)) goto err;
 
-    /* If HLC is enabled, then write the current HLC value into binlog. This is
-     * used during server restart to intialize the HLC clock of the instance.
-     * This is a guarantee that all trx's in all of the previous binlog have a
-     * HLC timestamp lower than or equal to the value seen here. Note that this
-     * function (open_binlog()) should be called during server restart only
-     * after initializing the local instance's HLC clock (by reading the
-     * previous binlog file) */
-    if (enable_binlog_hlc && (!is_relay_log || raft_rotate_info)) {
-      uint64_t current_hlc = 0;
-      if (!is_relay_log) {
-        current_hlc = mysql_bin_log.get_current_hlc();
+    Metadata_log_event metadata_ev;
+    bool should_write_metadata_event = false;
+    if (rotate_in_listener_context)
+      metadata_ev.common_header->when.tv_sec = my_time(0);
+
+    // case: we write previous metadata event to the top of the file if we're
+    // not in relay log mode or this is a raft rotation (e.g. noop rotation)
+    if (!is_relay_log || raft_rotate_info) {
+      /* If HLC is enabled, then write the current HLC value into binlog. This
+       * is used during server restart to intialize the HLC clock of the
+       * instance. This is a guarantee that all trx's in all of the previous
+       * binlog have a HLC timestamp lower than or equal to the value seen here.
+       * Note that this function (open_binlog()) should be called during server
+       * restart only after initializing the local instance's HLC clock (by
+       * reading the previous binlog file) */
+      if (enable_binlog_hlc) {
+        uint64_t current_hlc = mysql_bin_log.get_current_hlc();
+        metadata_ev.set_prev_hlc_time(current_hlc);
+        should_write_metadata_event = true;
       }
-      Metadata_log_event metadata_ev(current_hlc);
-      if (rotate_in_listener_context)
-        metadata_ev.common_header->when.tv_sec = my_time(0);
+
+      // Now handle raft metadata to be written on the top of the file
       if (raft_rotate_info) {
         metadata_ev.set_raft_prev_opid(raft_rotate_info->rotate_opid.first,
                                        raft_rotate_info->rotate_opid.second);
         update_prev_gtid_and_opid(
             previous_logged_gtids, raft_rotate_info->rotate_opid.first,
             raft_rotate_info->rotate_opid.second, need_sid_lock);
+        if (raft_rotate_info->ingestion_checkpoint != std::pair(-1L, -1L)) {
+          metadata_ev.set_raft_ingestion_prev_checkpoint(
+              raft_rotate_info->ingestion_checkpoint);
+        }
+        if (raft_rotate_info->ingestion_upper_bound) {
+          metadata_ev.set_raft_ingestion_prev_upper_bound(
+              raft_rotate_info->ingestion_upper_bound);
+        }
+        should_write_metadata_event = true;
       }
-      if (write_event_to_binlog(&metadata_ev)) goto err;
     }
+
+    if (should_write_metadata_event && write_event_to_binlog(&metadata_ev))
+      goto err;
   }
 
   // in raft, it isn't necessary to write these extra description event
@@ -8781,6 +8799,24 @@ int MYSQL_BIN_LOG::new_file_impl(
         me.set_raft_rotate_tag(Metadata_log_event::RRET_SIMPLE_ROTATE);
       }
 
+      // Write ingestion info in metadata event
+      assert(!current_thd->rli_slave);
+      Raft_ingestion_param param;
+      param.force = true;  // we force a checkpoint update on rotation
+      if (!RUN_HOOK_STRICT(raft_replication, ingestion,
+                           (current_thd, &param))) {
+        if (param.checkpoint != std::pair(-1L, -1L)) {
+          me.set_raft_ingestion_checkpoint(param.checkpoint);
+          raft_rotate_info->ingestion_checkpoint = param.checkpoint;
+        }
+        if (param.upper_bound != 0) {
+          me.set_raft_ingestion_upper_bound(param.upper_bound);
+          raft_rotate_info->ingestion_upper_bound = param.upper_bound;
+        }
+      } else {
+        sql_print_error("Ingestion hook failed while writing NoOp event");
+      }
+
       if (rotate_in_listener_context)
         me.common_header->when.tv_sec = my_time(0);
       // checksum has to be turned off, because the raft plugin
@@ -8988,6 +9024,8 @@ end:
     register_log_entities(current_thd, /*context=*/0,
                           /*need_lock=*/false, is_relay_log);
   }
+
+  current_thd->clear_raft_info();
 
   if (need_lock_log) mysql_mutex_unlock(&LOCK_log);
 

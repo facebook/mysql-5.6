@@ -580,6 +580,34 @@ uint64_t Metadata_event::get_raft_ingestion_upper_bound() const {
   return raft_ingestion_upper_bound_;
 }
 
+void Metadata_event::set_raft_ingestion_prev_checkpoint(
+    const std::pair<int64_t, int64_t> &checkpoint) {
+  raft_ingestion_prev_checkpoint_ = checkpoint;
+  set_exist(Metadata_event_types::RAFT_INGESTION_PREV_CHECKPOINT_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE +
+            ENCODED_RAFT_INGESTION_PREV_CHECKPOINT_SIZE);
+}
+
+std::pair<int64_t, int64_t> Metadata_event::get_raft_ingestion_prev_checkpoint()
+    const {
+  return raft_ingestion_prev_checkpoint_;
+}
+
+void Metadata_event::set_raft_ingestion_prev_upper_bound(
+    const uint64_t &upper_bound) {
+  raft_ingestion_prev_upper_bound_ = upper_bound;
+  set_exist(Metadata_event_types::RAFT_INGESTION_PREV_UPPER_BOUND_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE +
+            ENCODED_RAFT_INGESTION_PREV_UPPER_BOUND_SIZE);
+}
+
+uint64_t Metadata_event::get_raft_ingestion_prev_upper_bound() const {
+  return raft_ingestion_prev_upper_bound_;
+}
+
+
 std::string Metadata_event::get_rotate_tag_string() const {
   switch (raft_rotate_tag_) {
     case RRET_SIMPLE_ROTATE:
@@ -610,6 +638,7 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   uint64_t ttl_read_filtering_timestamp = 0;
   uint64_t ttl_compaction_timestamp = 0;
   std::pair<int64_t, int64_t> raft_ingestion_checkpoint = {-1, -1};
+  std::pair<int64_t, int64_t> raft_ingestion_prev_checkpoint = {-1, -1};
   uint64_t raft_ingestion_upper_bound = 0;
   READER_TRY_SET(value_length, read<uint16_t>);
 
@@ -665,6 +694,13 @@ uint Metadata_event::read_type(Metadata_event_types type) {
       READER_TRY_SET(raft_ingestion_checkpoint.first, read<int64_t>);
       READER_TRY_SET(raft_ingestion_checkpoint.second, read<int64_t>);
       set_raft_ingestion_checkpoint(raft_ingestion_checkpoint);
+      break;
+    case MET::RAFT_INGESTION_PREV_CHECKPOINT_TYPE:
+      // Checkpoint is a term index pair stored one after another
+      assert(value_length == 16);
+      READER_TRY_SET(raft_ingestion_prev_checkpoint.first, read<int64_t>);
+      READER_TRY_SET(raft_ingestion_prev_checkpoint.second, read<int64_t>);
+      set_raft_ingestion_prev_checkpoint(raft_ingestion_prev_checkpoint);
       break;
     case MET::RAFT_INGESTION_UPPER_BOUND_TYPE:
       // Upper bound is a uint_64 timestamp

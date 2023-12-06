@@ -4292,6 +4292,24 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   bool write_raft_ingestion_upper_bound(Basic_ostream *ostream);
 
   /**
+   * Write raft prev ingestion checkpoint to file
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_ingestion_prev_checkpoint(Basic_ostream *ostream);
+
+  /**
+   * Write raft prev ingestion upper bound to file
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_ingestion_prev_upper_bound(Basic_ostream *ostream);
+
+  /**
    * Write type and length to file
    *
    * @param ostream - stream to write to
@@ -4393,6 +4411,24 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - number of bytes written
    */
   uint32 write_raft_ingestion_upper_bound(uchar *obuffer);
+
+  /**
+   * Write raft ingestion prev checkpoint
+   *
+   * @param obffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_raft_ingestion_prev_checkpoint(uchar *obuffer);
+
+  /**
+   * Write raft ingestion prev upper bound
+   *
+   * @param obffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_raft_ingestion_prev_upper_bound(uchar *obuffer);
 
   /**
    * Write type and length to memory buffer
