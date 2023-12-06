@@ -1919,6 +1919,9 @@ class THD : public MDL_context_owner,
   std::string safe_purge_file;
 
  public:
+  std::pair<int64_t, int64_t> raft_ingestion_checkpoint = {-1, -1};
+  uint64_t raft_ingestion_upper_bound = 0;
+
   bool has_net_vio() const noexcept { return net.vio != nullptr; }
   const Vio *get_net_vio() const noexcept { return net.vio; }
   bool has_net_vio_ssl_arg() const noexcept {
@@ -1942,14 +1945,16 @@ class THD : public MDL_context_owner,
   void clear_binlog_table_maps() { binlog_table_maps = 0; }
 
   /**
-   * Clear the raft opid which was cached, in preparation for next apply round
+   * Clear the raft info which was cached, in preparation for next apply round
    * Should be only called at a safe point, like finish_commit or ends_group of
    * a slave applier.
    *
    */
-  void clear_raft_opid() {
+  void clear_raft_info() {
     term_ = -1;
     index_ = -1;
+    raft_ingestion_checkpoint = {-1, -1};
+    raft_ingestion_upper_bound = 0;
   }
 
   /*

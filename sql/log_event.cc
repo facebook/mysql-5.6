@@ -15626,6 +15626,16 @@ int Metadata_log_event::do_apply_event(
     thd->binlog_ttl_compaction_ts = ttl_compaction_timestamp_;
   }
 
+  if (does_exist(Metadata_event_types::RAFT_INGESTION_CHECKPOINT_TYPE)) {
+    // Stash the raft ingestion checkpoint
+    thd->raft_ingestion_checkpoint = raft_ingestion_checkpoint_;
+  }
+
+  if (does_exist(Metadata_event_types::RAFT_INGESTION_UPPER_BOUND_TYPE)) {
+    // Stash the raft ingestion upper bound
+    thd->raft_ingestion_upper_bound = raft_ingestion_upper_bound_;
+  }
+
   DBUG_RETURN(error);
 }
 

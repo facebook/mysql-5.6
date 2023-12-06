@@ -1634,6 +1634,28 @@ bool MYSQL_BIN_LOG::write_metadata_event(THD *thd,
     write_event = true;
   }
 
+  Raft_ingestion_param param;
+  // case: we're applying a trx on secondary, populate the ingestion param
+  if (thd->rli_slave) {
+    param.checkpoint = thd->raft_ingestion_checkpoint;
+    param.upper_bound = thd->raft_ingestion_upper_bound;
+    param.is_from_applier = true;
+  }
+
+  if (RUN_HOOK_STRICT(raft_replication, ingestion, (thd, &param))) {
+    return false;
+  }
+
+  if (param.checkpoint != std::pair(-1L, -1L)) {
+    metadata_ev.set_raft_ingestion_checkpoint(param.checkpoint);
+    write_event = true;
+  }
+
+  if (param.upper_bound != 0) {
+    metadata_ev.set_raft_ingestion_upper_bound(param.upper_bound);
+    write_event = true;
+  }
+
   if (thd->rli_slave || thd->rli_fake) {
     // When a Metadata event with Raft OpId is picked up from
     // relay log and applied, ev->apply_event in rpl_slave.cc stashes
@@ -11242,7 +11264,7 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd) {
 
       // Clear hlc_time since we did not commit this trx
       thd->hlc_time_ns_next = 0;
-      thd->clear_raft_opid();
+      thd->clear_raft_info();
 
       thd->clear_error();  // Clear previous errors first
       char errbuf[MYSQL_ERRMSG_SIZE];
@@ -11484,9 +11506,9 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
   }
   thd->hlc_time_ns_next = 0;
 
-  // Clear the raft opid that is stashed, so that if the thread
-  // is reused, it does not have stale terms and indexes
-  thd->clear_raft_opid();
+  // Clear the raft info that is stashed, so that if the thread
+  // is reused, it does not have stale info
+  thd->clear_raft_info();
 
   DBUG_EXECUTE_IF("leaving_finish_commit", {
     const char act[] = "now SIGNAL signal_leaving_finish_commit";

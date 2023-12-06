@@ -66,6 +66,16 @@ typedef struct Raft_replication_param {
 } Raft_replication_param;
 
 /**
+  Raft ingestion parameter
+*/
+typedef struct Raft_ingestion_param {
+  std::pair<int64_t, int64_t> checkpoint = {-1, -1};
+  uint64_t upper_bound = 0;
+  bool is_from_applier = false;
+  bool force = false;
+} Raft_ingestion_param;
+
+/**
    Observe special events for Raft replication to work
 */
 typedef struct Raft_replication_observer {
@@ -134,12 +144,18 @@ typedef struct Raft_replication_observer {
      @param param Observer common parameter
      @param cache IO_CACHE containing binlog events for the txn
      @param op_type The type of operation for which before_flush is called
+     @param next_ingestion_upper_bound Next ingestion upper bound, will become
+                                       upper bound when this trx commits
+     @param next_ingestion_checkpoint Next ingestion checkpoint, will become
+                                      current checkpoint when this trx commits
 
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*before_flush)(Raft_replication_param *param, IO_CACHE *cache,
-                      RaftReplicateMsgOpType op_type);
+  int (*before_flush)(
+      Raft_replication_param *param, IO_CACHE *cache,
+      RaftReplicateMsgOpType op_type, uint64_t next_ingestion_upper_bound,
+      const std::pair<int64_t, int64_t> &next_ingestion_checkpoint);
 
   /**
      This callback is called once upfront to setup the appropriate
@@ -250,6 +266,23 @@ typedef struct Raft_replication_observer {
    * @param param The parameter for the observers
    */
   int (*after_stop_applier)(Raft_replication_param *param);
+
+  /**
+   * During the bring up of a shard for Alloy, we need to call from mysqld
+   * into plugin to do some initialization.
+   */
+  int (*raft_init_for_shard)(Raft_replication_param *param, const char *shard,
+                             int step);
+
+  /**
+   * This callback is called when constructing metadata event
+   * On the primary it's used to get checkpoint and upper bound info from the
+   * plugin to write into the metadata event.
+   * On the secondary it's used to set checkpoint and upper bound info in the
+   * plugin from the metadata event.
+   * The primary/secondary behavior is governed by param->is_from_applier
+   */
+  int (*ingestion)(Raft_ingestion_param *param);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer
