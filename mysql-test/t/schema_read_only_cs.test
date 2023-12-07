@@ -1,3 +1,4 @@
+--source include/have_innodb_system_tables.inc
 --source include/have_case_sensitive_file_system.inc
 --echo #--------------------------------------------------------------------
 --echo # Test of WL#13369 for l_c_t_n = 0.

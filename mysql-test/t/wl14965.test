@@ -19,6 +19,7 @@ SHOW KEYS FROM mysql.procs_priv;
 --let $wait_counter= 10000
 --source include/restart_mysqld.inc
 
+--replace_result BTREE INDEX_TYPE SE_SPECIFIC INDEX_TYPE
 SHOW KEYS FROM mysql.db;
 SHOW KEYS FROM mysql.tables_priv;
 SHOW KEYS FROM mysql.columns_priv;
@@ -30,7 +31,7 @@ SHOW GRANTS FOR wl14965_u2;
 DROP USER wl14965_u2;
 
 --echo # ensure that key_len is 351 which includes length of host(255) + user(96)
---replace_column 10 # 11 #
+--replace_column 7 # 10 # 11 #
 EXPLAIN SELECT * FROM mysql.db WHERE host='' AND user='';
 --replace_column 10 # 11 #
 EXPLAIN SELECT * FROM mysql.tables_priv WHERE host='' AND user='';

@@ -1,3 +1,4 @@
+--source include/have_innodb_system_tables.inc
 
 #
 # Clean up after previous tests

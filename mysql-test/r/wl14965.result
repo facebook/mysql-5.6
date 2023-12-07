@@ -33,10 +33,10 @@ procs_priv	1	Grantor	1	Grantor	A	0	NULL	NULL		BTREE			YES	NULL
 # restart:--upgrade=force
 SHOW KEYS FROM mysql.db;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-db	0	PRIMARY	1	Host	A	1	NULL	NULL		BTREE			YES	NULL
-db	0	PRIMARY	2	User	A	1	NULL	NULL		BTREE			YES	NULL
-db	0	PRIMARY	3	Db	A	1	NULL	NULL		BTREE			YES	NULL
-db	1	User	1	User	A	1	NULL	NULL		BTREE			YES	NULL
+db	0	PRIMARY	1	Host	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+db	0	PRIMARY	2	User	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+db	0	PRIMARY	3	Db	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+db	1	User	1	User	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
 SHOW KEYS FROM mysql.tables_priv;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 tables_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		BTREE			YES	NULL
@@ -69,7 +69,7 @@ DROP USER wl14965_u2;
 # ensure that key_len is 351 which includes length of host(255) + user(96)
 EXPLAIN SELECT * FROM mysql.db WHERE host='' AND user='';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	db	NULL	ref	PRIMARY,User	PRIMARY	495	const,const	#	#	NULL
+1	SIMPLE	db	NULL	ref	PRIMARY,User	#	495	const,const	#	#	NULL
 Warnings:
 Note	1003	/* select#1 */ select `mysql`.`db`.`Host` AS `Host`,`mysql`.`db`.`Db` AS `Db`,`mysql`.`db`.`User` AS `User`,`mysql`.`db`.`Select_priv` AS `Select_priv`,`mysql`.`db`.`Insert_priv` AS `Insert_priv`,`mysql`.`db`.`Update_priv` AS `Update_priv`,`mysql`.`db`.`Delete_priv` AS `Delete_priv`,`mysql`.`db`.`Create_priv` AS `Create_priv`,`mysql`.`db`.`Drop_priv` AS `Drop_priv`,`mysql`.`db`.`Grant_priv` AS `Grant_priv`,`mysql`.`db`.`References_priv` AS `References_priv`,`mysql`.`db`.`Index_priv` AS `Index_priv`,`mysql`.`db`.`Alter_priv` AS `Alter_priv`,`mysql`.`db`.`Create_tmp_table_priv` AS `Create_tmp_table_priv`,`mysql`.`db`.`Lock_tables_priv` AS `Lock_tables_priv`,`mysql`.`db`.`Create_view_priv` AS `Create_view_priv`,`mysql`.`db`.`Show_view_priv` AS `Show_view_priv`,`mysql`.`db`.`Create_routine_priv` AS `Create_routine_priv`,`mysql`.`db`.`Alter_routine_priv` AS `Alter_routine_priv`,`mysql`.`db`.`Execute_priv` AS `Execute_priv`,`mysql`.`db`.`Event_priv` AS `Event_priv`,`mysql`.`db`.`Trigger_priv` AS `Trigger_priv` from `mysql`.`db` where ((`mysql`.`db`.`User` = '') and (`mysql`.`db`.`Host` = ''))
 EXPLAIN SELECT * FROM mysql.tables_priv WHERE host='' AND user='';

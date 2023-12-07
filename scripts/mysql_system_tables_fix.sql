@@ -30,6 +30,8 @@
 # Warning message(s) produced for a statement can be printed by explicitly
 # adding a 'SHOW WARNINGS' after the statement.
 
+set @ddse= (select @@default_dd_system_storage_engine);
+
 set default_storage_engine=InnoDB;
 
 # We meed to turn off the default strict mode in case legacy data contains e.g.
@@ -1040,7 +1042,12 @@ ALTER TABLE time_zone_leap_second ENGINE=InnoDB STATS_PERSISTENT=0;
 ALTER TABLE time_zone_name ENGINE=InnoDB STATS_PERSISTENT=0;
 ALTER TABLE time_zone_transition ENGINE=InnoDB STATS_PERSISTENT=0;
 ALTER TABLE time_zone_transition_type ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE db ENGINE=InnoDB STATS_PERSISTENT=0;
+SET @cmd = CONCAT("ALTER TABLE db ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
 ALTER TABLE user ENGINE=InnoDB STATS_PERSISTENT=0;
 SET SESSION innodb_strict_mode=OFF;
 ALTER TABLE tables_priv ENGINE=InnoDB STATS_PERSISTENT=0;

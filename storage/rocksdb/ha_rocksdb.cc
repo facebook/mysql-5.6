@@ -8904,6 +8904,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_iteration_only(false),
       m_insert_with_update(false),
       m_dup_key_found(false),
+      m_no_read_locking(false),
       mrr_rowid_reader(nullptr),
       mrr_n_elements(0),
       mrr_enabled_keyread(false),
@@ -13319,6 +13320,7 @@ int ha_rocksdb::reset() {
   m_iterator.reset(nullptr);
   m_pk_iterator.reset(nullptr);
   m_converter->reset_buffer();
+  m_no_read_locking = false;
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
@@ -14016,25 +14018,44 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
       }
     }
   } else {
+    // Shorten the conditions below
+    const auto table_cat = table_share->table_category;
+    const auto isolation = my_core::thd_tx_isolation(thd);
     // Check for unsupported transaction isolation levels but allow them for DD
-    // tables. In the latter case they get silenty clamped to RC or RR, which is
-    // good enough for DD operations.
-    if (table_share->table_category != TABLE_CATEGORY_DICTIONARY &&
-        (my_core::thd_tx_isolation(thd) < ISO_READ_COMMITTED ||
-         my_core::thd_tx_isolation(thd) > ISO_REPEATABLE_READ)) {
+    // and system tables. In the latter case they get silenty clamped to RC or
+    // RR, which is good enough for DD and administrative operations.
+    if (table_cat != TABLE_CATEGORY_DICTIONARY &&
+        table_cat != TABLE_CATEGORY_SYSTEM &&
+        table_cat != TABLE_CATEGORY_ACL_TABLE &&
+        (isolation < ISO_READ_COMMITTED || isolation > ISO_REPEATABLE_READ)) {
       my_error(ER_ISOLATION_MODE_NOT_SUPPORTED, MYF(0),
-               tx_isolation_names[my_core::thd_tx_isolation(thd)]);
+               tx_isolation_names[isolation]);
       DBUG_RETURN(HA_ERR_UNSUPPORTED);
     }
 
-    if (lock_type == F_WRLCK) {
+    if (lock_type == F_RDLCK) {
+      assert(!m_no_read_locking || table_cat == TABLE_CATEGORY_DICTIONARY ||
+             table_cat == TABLE_CATEGORY_ACL_TABLE ||
+             table_cat == TABLE_CATEGORY_SYSTEM);
+
+      if (m_no_read_locking || table_cat == TABLE_CATEGORY_DICTIONARY ||
+          table_cat == TABLE_CATEGORY_SYSTEM) {
+        m_lock_rows = RDB_LOCK_NONE;
+      } else if (isolation == ISO_SERIALIZABLE &&
+                 m_lock_rows == RDB_LOCK_NONE && !is_autocommit(*thd)) {
+        m_lock_rows = RDB_LOCK_READ;
+      } else {
+        assert(m_lock_rows == RDB_LOCK_NONE || m_lock_rows == RDB_LOCK_READ);
+      }
+    } else if (lock_type == F_WRLCK) {
       int binlog_format = my_core::thd_binlog_format(thd);
       bool unsafe_for_binlog = THDVAR(thd, unsafe_for_binlog);
       if (!thd->rli_slave && !unsafe_for_binlog &&
           binlog_format != BINLOG_FORMAT_ROW &&
           binlog_format != BINLOG_FORMAT_UNSPEC &&
           thd_sqlcom_can_generate_row_events(thd) &&
-          my_core::thd_binlog_filter_ok(thd)) {
+          my_core::thd_binlog_filter_ok(thd) &&
+          table_cat != TABLE_CATEGORY_ACL_TABLE) {
         my_error(ER_REQUIRE_ROW_BINLOG_FORMAT, MYF(0));
         DBUG_RETURN(HA_ERR_UNSUPPORTED);
       }
@@ -14686,7 +14707,8 @@ int ha_rocksdb::extra(enum ha_extra_function operation) {
       // that indicates the end of REPLACE / INSERT ON DUPLICATE KEY
       m_insert_with_update = false;
       break;
-
+    case HA_EXTRA_NO_READ_LOCKING:
+      m_no_read_locking = true;
     default:
       break;
   }

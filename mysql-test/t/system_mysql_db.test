@@ -1,4 +1,4 @@
-
+--source include/have_innodb_system_tables.inc
 #
 # This test must examine integrity of system database "mysql"
 #
