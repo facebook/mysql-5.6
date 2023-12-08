@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 --disable_warnings
 drop table if exists t1;
 --enable_warnings
@@ -448,3 +451,5 @@ ALTER TABLE t1 DROP INDEX idx, ADD UNIQUE KEY idx (j);
 --enable_result_log
 CHECK TABLE t1;
 DROP TABLE t1;
+
+--source include/wait_until_count_sessions.inc

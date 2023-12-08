@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
@@ -142,3 +145,5 @@ disconnect con1;
 disconnect con2;
 disconnect con3;
 drop table t1;
+
+--source include/wait_until_count_sessions.inc

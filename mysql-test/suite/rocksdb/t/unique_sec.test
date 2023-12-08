@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 let ddl= $MYSQL_TMP_DIR/unique_sec.sql;
 --exec sed s/##CF##//g suite/rocksdb/t/unique_sec.inc > $ddl
 --source $ddl
@@ -87,3 +90,5 @@ SELECT * FROM t3;
 
 disconnect con1;
 DROP TABLE t3;
+
+--source include/wait_until_count_sessions.inc

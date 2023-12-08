@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 #
 # MyRocks-specific tests for locking
 #
@@ -92,3 +95,5 @@ ROLLBACK;
 --disconnect con1
 --connection default
 drop table t1;
+
+--source include/wait_until_count_sessions.inc

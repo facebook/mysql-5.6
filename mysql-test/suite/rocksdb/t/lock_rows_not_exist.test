@@ -108,3 +108,5 @@ disconnect con1;
 disconnect con2;
 
 DROP TABLE t;
+
+--source include/wait_until_count_sessions.inc

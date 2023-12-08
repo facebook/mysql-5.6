@@ -65,3 +65,5 @@ disconnect con2;
 OPTIMIZE TABLE t1;
 DROP TABLE t1;
 reset master;
+
+--source include/wait_until_count_sessions.inc

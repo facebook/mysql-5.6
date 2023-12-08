@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 --echo #---------------------------
 --echo # ten threads inserting simultaneously with increment > 1
 --echo # Issue #390
@@ -139,3 +142,4 @@ remove_file $file;
 # Drop the table to finally clean up
 DROP TABLE t1;
 
+--source include/wait_until_count_sessions.inc

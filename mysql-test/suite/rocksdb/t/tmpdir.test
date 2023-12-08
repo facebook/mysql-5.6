@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 --echo # If rocksdb_tmpdir is NULL or "", temporary file will be created in
 --echo # server configuration variable location(--tmpdir)
 
@@ -32,4 +35,4 @@ connection default;
 set global rocksdb_tmpdir=NULL;
 DROP TABLE t1;
 
-
+--source include/wait_until_count_sessions.inc

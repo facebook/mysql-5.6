@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 --source ../include/bypass_create_table.inc
 
 --echo # Default
@@ -601,3 +604,4 @@ SELECT @@rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
 SELECT @@rocksdb_select_bypass_policy;
 
+--source include/wait_until_count_sessions.inc

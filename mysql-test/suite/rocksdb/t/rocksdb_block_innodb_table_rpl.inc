@@ -1,5 +1,8 @@
 --source include/master-slave.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 connection master;
 select @@global.enable_user_tables_engine_check;
 connection slave;
@@ -42,3 +45,5 @@ drop table t1;
 disconnect master;
 disconnect slave;
 --source include/rpl_end.inc
+
+--source include/wait_until_count_sessions.inc

@@ -1,6 +1,9 @@
 --source include/have_rocksdb.inc
 --source suite/rocksdb/include/have_write_committed.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 --disable_warnings
 DROP TABLE IF EXISTS t1, t2;
 --enable_warnings
@@ -66,3 +69,5 @@ ALTER TABLE t1 RENAME TO t3;
 DROP TABLE t3;
 --disconnect con1
 --disconnect con2
+
+--source include/wait_until_count_sessions.inc

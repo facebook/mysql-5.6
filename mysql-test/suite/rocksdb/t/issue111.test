@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 connect (con2,localhost,root,,);
 connection default;
 
@@ -36,3 +39,5 @@ update t1 set col2=col2+1 where col1 < 10 limit 5;
 
 disconnect con2;
 drop table t1, ten, one_k;
+
+--source include/wait_until_count_sessions.inc
