@@ -7204,8 +7204,9 @@ static int slave_start_single_worker(Relay_log_info *rli, ulong i) {
   mysql_mutex_assert_owner(&rli->run_lock);
 
   if (!(w = Rpl_info_factory::create_worker(
-            rli->is_fake() ? INFO_REPOSITORY_DUMMY : opt_rli_repository_id, i,
-            rli, false))) {
+            rli->is_fake() ? static_cast<ulong>(INFO_REPOSITORY_DUMMY)
+                           : opt_rli_repository_id,
+            i, rli, false))) {
     LogErr(ERROR_LEVEL, ER_RPL_SLAVE_WORKER_THREAD_CREATION_FAILED,
            rli->get_for_channel_str());
     error = 1;
