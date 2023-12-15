@@ -320,6 +320,15 @@ static std::atomic_bool about_to_shutdown{false};
 }  // namespace
 
 /**
+  Helper to quickly check if bypass is supported on the current server before
+  attempting to call into bypass_select().
+*/
+bool is_bypass_supported() {
+  return rocksdb_hton != nullptr &&
+         rocksdb_hton->bypass_select_by_key != nullptr;
+}
+
+/**
   Run bypass select query
 */
 bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {

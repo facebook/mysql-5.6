@@ -136,11 +136,13 @@ struct bypass_rpc_exception {
 extern "C" struct rpc_plugin_service_st {
   bypass_rpc_exception (*bypass_select)(const myrocks_select_from_rpc *param);
   uint64_t (*get_hlc)(const std::string& dbname);
+  bool (*is_bypass_supported)();
 } * rpc_plugin_service;
 
 #ifdef MYSQL_DYNAMIC_PLUGIN
 #define bypass_select(a) rpc_plugin_service->bypass_select((a))
 #define get_hlc(dbname) rpc_plugin_service->get_hlc((dbname))
+#define is_bypass_supported() rpc_plugin_service->is_bypass_supported()
 #else
 /**
   Run bypass select query
@@ -159,6 +161,12 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param);
   @return       HLC on success, 0 on failure.
 */
 uint64_t get_hlc(const std::string& dbname);
+
+/**
+  Helper to quickly check if bypass is supported on the current server before
+  attempting to call into bypass_select().
+*/
+bool is_bypass_supported();
 
 #endif /* MYSQL_DYNAMIC_PLUGIN */
 
