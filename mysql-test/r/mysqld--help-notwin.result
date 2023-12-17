@@ -2143,6 +2143,8 @@ The following options may be given as the first argument:
  from a failed insertion attempt in INSERT ON DUPLICATE
  KEY UPDATE
  (Defaults to on; use --skip-rocksdb-enable-insert-with-update-caching to disable.)
+ --rocksdb-enable-instant-ddl-for-column-default-changes 
+ Enable instant ddl for column default during alter table
  --rocksdb-enable-iterate-bounds 
  Enable rocksdb iterator upper/lower bounds in read
  options.
@@ -3734,6 +3736,7 @@ rocksdb-disable-instant-ddl TRUE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-delete-range-for-drop-index FALSE
 rocksdb-enable-insert-with-update-caching TRUE
+rocksdb-enable-instant-ddl-for-column-default-changes FALSE
 rocksdb-enable-iterate-bounds TRUE
 rocksdb-enable-remove-orphaned-dropped-cfs TRUE
 rocksdb-enable-thread-tracking TRUE

@@ -958,6 +958,7 @@ static bool rocksdb_alter_table_comment_inplace = false;
 static bool rocksdb_partial_index_blind_delete = true;
 bool rocksdb_partial_index_ignore_killed = true;
 bool rocksdb_disable_instant_ddl = false;
+bool rocksdb_enable_instant_ddl_for_column_default_changes = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
 uint rocksdb_clone_checkpoint_max_age;
@@ -2884,6 +2885,12 @@ static MYSQL_SYSVAR_BOOL(disable_instant_ddl, rocksdb_disable_instant_ddl,
                          "Disable instant ddl during alter table", nullptr,
                          nullptr, true);
 
+static MYSQL_SYSVAR_BOOL(
+    enable_instant_ddl_for_column_default_changes,
+    rocksdb_enable_instant_ddl_for_column_default_changes, PLUGIN_VAR_RQCMDARG,
+    "Enable instant ddl for column default during alter table", nullptr,
+    nullptr, false);
+
 static MYSQL_SYSVAR_BOOL(enable_tmp_table, rocksdb_enable_tmp_table,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Allow rocksdb tmp tables", nullptr, nullptr, false);
@@ -3159,6 +3166,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(partial_index_blind_delete),
     MYSQL_SYSVAR(partial_index_ignore_killed),
     MYSQL_SYSVAR(disable_instant_ddl),
+    MYSQL_SYSVAR(enable_instant_ddl_for_column_default_changes),
     MYSQL_SYSVAR(enable_tmp_table),
     MYSQL_SYSVAR(alter_table_comment_inplace),
     MYSQL_SYSVAR(column_default_value_as_expression),
@@ -15532,6 +15540,11 @@ enum icp_result ha_rocksdb::check_index_cond() const {
   return pushed_idx_cond->val_int() ? ICP_MATCH : ICP_NO_MATCH;
 }
 
+/** Operations for altering a table that RocksDB that can be performed instantly
+ */
+static constexpr Alter_inplace_info::HA_ALTER_FLAGS ROCKSDB_INPLACE_INSTANT =
+    Alter_inplace_info::ALTER_COLUMN_DEFAULT;
+
 /** Operations for altering a table that RocksDB does not care about */
 static constexpr Alter_inplace_info::HA_ALTER_FLAGS ROCKSDB_INPLACE_IGNORE =
     Alter_inplace_info::ALTER_COLUMN_DEFAULT |
@@ -15560,6 +15573,11 @@ ha_rocksdb::Instant_Type ha_rocksdb::rocksdb_support_instant(
     const TABLE *altered_table MY_ATTRIBUTE((unused))) const {
   if (rocksdb_disable_instant_ddl) {
     return Instant_Type::INSTANT_IMPOSSIBLE;
+  }
+
+  if (rocksdb_enable_instant_ddl_for_column_default_changes &&
+      !(ha_alter_info->handler_flags & ~ROCKSDB_INPLACE_INSTANT)) {
+    return (Instant_Type::INSTANT_NO_CHANGE);
   }
 
   if (!(ha_alter_info->handler_flags & ~ROCKSDB_INPLACE_IGNORE)) {
@@ -16373,7 +16391,9 @@ bool ha_rocksdb::commit_inplace_alter_table(
     /* update dd data  */
     Instant_Type type =
         static_cast<Instant_Type>(ha_alter_info->handler_trivial_ctx);
-    if (type == Instant_Type::INSTANT_ADD_COLUMN) {
+    if (type == Instant_Type::INSTANT_NO_CHANGE) {
+      dd_commit_inplace_no_change(old_dd_tab, new_dd_tab);
+    } else if (type == Instant_Type::INSTANT_ADD_COLUMN) {
       dd_commit_instant_table(table, altered_table, old_dd_tab, new_dd_tab);
     } else if (type == Instant_Type::INSTANT_PRIVACY_POLICY) {
       // Copy SE data but use the options configured on the new table

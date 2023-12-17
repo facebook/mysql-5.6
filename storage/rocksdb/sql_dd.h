@@ -136,6 +136,17 @@ class DD_instant_col_val_coder {
   uchar *decode(const char *stream, size_t in_len, size_t *out_len);
 };
 
+/** Update metadata in commit phase for INSTANT_NO_CHANGE.
+Note this function should only update the metadata which would not result
+in failure
+@param[in]     old_dd_tab      Old dd::Table
+@param[in,out] new_dd_tab      New dd::Table */
+inline void dd_commit_inplace_no_change(const dd::Table *old_dd_tab,
+                                        dd::Table *new_dd_tab) {
+  dd_copy_private(*new_dd_tab, *old_dd_tab);
+  dd_copy_table_columns(*new_dd_tab, *old_dd_tab);
+}
+
 /** Update metadata in commit phase for instant ADD COLUMN. Basically, it
 should remember number of instant columns, and the default value of newly
 added columns.
