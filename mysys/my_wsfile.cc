@@ -252,6 +252,8 @@ int my_ws_access(const std::string &uri, int mode) {
     errno = EINVAL;
     return -1;
   }
+
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   rocksdb::Status s = env->FileExists(file);
 
   if (s.ok()) {
@@ -272,6 +274,8 @@ int my_ws_close(File fd) {
     errno = EINVAL;
     return -1;
   }
+
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   int result = iter->second->ws_close();
   if (result == 0) {
     ws_file_map.erase(iter);
@@ -302,6 +306,9 @@ File my_ws_create(const std::string &uri, int access_flags) {
     errno = EINVAL;
     return -1;
   }
+
+  // Protect all network operations with wait scope.
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
 
   // Create ws directory if necessary
   size_t last = filename.find_last_of('/');
@@ -360,6 +367,7 @@ File my_ws_open(const std::string &uri, int access_flags) {
   }
 
   // open existing file in WS
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   std::unique_ptr<rocksdb::RandomAccessFile> ws_file;
   rocksdb::Status s = env->NewRandomAccessFile(filename, &ws_file, *opt);
   if (s.ok()) {
@@ -401,6 +409,7 @@ my_off_t my_ws_seek(File fd, my_off_t pos, int whence) {
     return -1;
   }
 
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   my_off_t result = iter->second->ws_seek(pos, whence);
   return result;
 }
@@ -432,6 +441,7 @@ my_off_t my_ws_tell(File fd) {
     return -1;
   }
 
+  My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   my_off_t offset = iter->second->ws_tell();
   return offset;
 }

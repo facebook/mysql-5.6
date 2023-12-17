@@ -118,7 +118,12 @@ typedef enum _thd_wait_type_e {
     the scheduler.
   */
   THD_WAIT_WS_IO = 16,
-  THD_WAIT_LAST = 17
+
+  /**
+    Used by blocking operations of binlog sender threads.
+  */
+  THD_WAIT_BINLOG_SEND = 17,
+  THD_WAIT_LAST = 18
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {

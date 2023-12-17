@@ -55,6 +55,7 @@
 #include "mysql/psi/mysql_file.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/service_mysql_alloc.h"
+#include "mysql/service_thd_wait.h"  // THD_WAIT_BINLOG_SEND
 #include "mysqld_error.h"
 #include "rpl_source.h"
 #include "sql/auth/auth_acls.h"
@@ -1355,7 +1356,11 @@ void mysql_binlog_send(THD *thd, char *log_ident, my_off_t pos,
 
   Binlog_sender sender(thd, log_ident, pos, slave_gtid_executed, flags);
 
-  sender.run();
+  {
+    // Binlog sender does lots of blocking operations so cover them all.
+    Thd_wait_scope wait(thd, THD_WAIT_BINLOG_SEND);
+    sender.run();
+  }
 
   thd_manager->inc_thread_running();
   thd_manager->dec_thread_binlog_client();

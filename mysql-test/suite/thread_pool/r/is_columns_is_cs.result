@@ -60,6 +60,18 @@ def	information_schema	TP_SCHEDULERS	IDLE	7		NO	varchar	1	3	NULL	NULL	NULL	utf8m
 def	information_schema	TP_SCHEDULERS	CONTEXT_SWITCHES	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_SCHEDULERS	STALLS	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_SCHEDULERS	STARVED_TENANTS	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	TIME	1		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	EVENT	2		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	TASK	3		YES	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	WORKER_OS_ID	4		YES	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	PROCESSLIST_ID	5		YES	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	TENANT	6		YES	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	SCHEDULER_ID	7		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	SUBQUEUE_ID	8		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	SUBQUEUE_LENGTH	9		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	QUEUE_LENGTH	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	SCHEDULING_MODE	11		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_SCHEDULER_EVENTS	PRIORITY	12		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
 ##########################################################################
 # Show the quotient of CHARACTER_OCTET_LENGTH and CHARACTER_MAXIMUM_LENGTH
 ##########################################################################
@@ -170,4 +182,16 @@ NULL	information_schema	TP_SCHEDULERS	IDLE_CONNECTIONS	bigint	NULL	NULL	NULL	NUL
 NULL	information_schema	TP_SCHEDULERS	CONTEXT_SWITCHES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_SCHEDULERS	STALLS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_SCHEDULERS	STARVED_TENANTS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_SCHEDULER_EVENTS	TIME	double	NULL	NULL	NULL	NULL	double(22,0)
+3.0000	information_schema	TP_SCHEDULER_EVENTS	EVENT	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+NULL	information_schema	TP_SCHEDULER_EVENTS	TASK	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_SCHEDULER_EVENTS	WORKER_OS_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_SCHEDULER_EVENTS	PROCESSLIST_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+3.0000	information_schema	TP_SCHEDULER_EVENTS	TENANT	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+NULL	information_schema	TP_SCHEDULER_EVENTS	SCHEDULER_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_SCHEDULER_EVENTS	SUBQUEUE_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_SCHEDULER_EVENTS	SUBQUEUE_LENGTH	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_SCHEDULER_EVENTS	QUEUE_LENGTH	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+3.0000	information_schema	TP_SCHEDULER_EVENTS	SCHEDULING_MODE	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+3.0000	information_schema	TP_SCHEDULER_EVENTS	PRIORITY	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
 SET sql_mode = default;
