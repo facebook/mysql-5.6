@@ -1439,7 +1439,67 @@ t1	CREATE TABLE `t1` (
 DROP TABLE t1;
 set global rocksdb_enable_instant_ddl_for_column_default_changes = @saved_rocksdb_column_default_changes;
 #
-# Scenario 26:
+# Scenario 26: Scenario for table comment changes
+# Create a small table, and change table comment
+#
+set @saved_rocksdb_table_comment_changes=@@global.rocksdb_enable_instant_ddl_for_table_comment_changes;
+set global rocksdb_enable_instant_ddl_for_table_comment_changes = true;
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 COMMENT 'A comment', ALGORITHM=INSTANT;
+INSERT INTO t1(a) VALUES(6);
+SELECT b FROM t1 WHERE a = 6;
+b
+NULL
+ALTER TABLE t1 comment = 'ttl_duration=5;custom_p1_ttl_duration=100;custom_p1_ttl_col=b;custom_p2_ttl_duration=1000;';
+ALTER TABLE t1 comment = 'ttl_duration=5;custom_p1_ttl_duration=100;custom_p1_ttl_col=b;custom_p2_ttl_duration=1000;comments;', ALGORITHM=INSTANT;
+ALTER TABLE t1 comment = 'ttl_duration=10;custom_p1_ttl_duration=100;custom_p1_ttl_col=b;custom_p2_ttl_duration=1000;comments;', ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='ttl_duration=5;custom_p1_ttl_duration=100;custom_p1_ttl_col=b;custom_p2_ttl_duration=1000;comments;'
+DROP TABLE t1;
+set global rocksdb_enable_instant_ddl_for_table_comment_changes = @saved_rocksdb_table_comment_changes;
+#
+# Scenario 26.1: Scenario for table comment changes
+# Create a small table, and change table comment
+#
+set @saved_rocksdb_table_comment_changes=@@global.rocksdb_enable_instant_ddl_for_table_comment_changes;
+set global rocksdb_enable_instant_ddl_for_table_comment_changes = true;
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) PARTITION BY RANGE(a) (PARTITION p0 VALUES LESS THAN (1990),PARTITION p1 VALUES LESS THAN (1995),PARTITION p2 VALUES LESS THAN (2000),PARTITION p3 VALUES LESS THAN (2005));;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 COMMENT 'A comment', ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
+INSERT INTO t1(a) VALUES(6);
+SELECT b FROM t1 WHERE a = 6;
+b
+NULL
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+(PARTITION p0 VALUES LESS THAN (1990) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES LESS THAN (1995) ENGINE = ROCKSDB,
+ PARTITION p2 VALUES LESS THAN (2000) ENGINE = ROCKSDB,
+ PARTITION p3 VALUES LESS THAN (2005) ENGINE = ROCKSDB) */
+DROP TABLE t1;
+set global rocksdb_enable_instant_ddl_for_table_comment_changes = @saved_rocksdb_table_comment_changes;
+#
+# Scenario 27:
 # bypass query
 #
 SELECT @@rocksdb_select_bypass_policy;

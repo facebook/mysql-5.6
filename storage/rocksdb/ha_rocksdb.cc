@@ -959,6 +959,7 @@ static bool rocksdb_partial_index_blind_delete = true;
 bool rocksdb_partial_index_ignore_killed = true;
 bool rocksdb_disable_instant_ddl = false;
 bool rocksdb_enable_instant_ddl_for_column_default_changes = false;
+bool rocksdb_enable_instant_ddl_for_table_comment_changes = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
 uint rocksdb_clone_checkpoint_max_age;
@@ -2891,6 +2892,12 @@ static MYSQL_SYSVAR_BOOL(
     "Enable instant ddl for column default during alter table", nullptr,
     nullptr, false);
 
+static MYSQL_SYSVAR_BOOL(
+    enable_instant_ddl_for_table_comment_changes,
+    rocksdb_enable_instant_ddl_for_table_comment_changes, PLUGIN_VAR_RQCMDARG,
+    "Enable instant ddl for table comment changes during alter table", nullptr,
+    nullptr, false);
+
 static MYSQL_SYSVAR_BOOL(enable_tmp_table, rocksdb_enable_tmp_table,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Allow rocksdb tmp tables", nullptr, nullptr, false);
@@ -3167,6 +3174,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(partial_index_ignore_killed),
     MYSQL_SYSVAR(disable_instant_ddl),
     MYSQL_SYSVAR(enable_instant_ddl_for_column_default_changes),
+    MYSQL_SYSVAR(enable_instant_ddl_for_table_comment_changes),
     MYSQL_SYSVAR(enable_tmp_table),
     MYSQL_SYSVAR(alter_table_comment_inplace),
     MYSQL_SYSVAR(column_default_value_as_expression),
@@ -15712,9 +15720,9 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
       (ha_alter_info->create_info->used_fields & HA_CREATE_USED_COMMENT)) {
     // if variable isn't enabled, don't support inplace
-    if (!rocksdb_alter_table_comment_inplace)
+    if (!rocksdb_alter_table_comment_inplace &&
+        !rocksdb_enable_instant_ddl_for_table_comment_changes)
       DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
-
     // this shouldn't happen, just in case
     if (m_tbl_def == nullptr || m_tbl_def->m_key_count == 0)
       DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
@@ -15745,6 +15753,14 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
     if ((ttl_duration == 0 && altered_ttl_duration > 0) ||
         (ttl_duration > 0 && altered_ttl_duration == 0))
       DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+
+    // Support instant alter when ttl duration is unchanged
+    if (rocksdb_enable_instant_ddl_for_table_comment_changes &&
+        (ttl_duration == altered_ttl_duration)) {
+      ha_alter_info->handler_trivial_ctx =
+          static_cast<uint8>(Instant_Type::INSTANT_NO_CHANGE);
+      DBUG_RETURN(HA_ALTER_INPLACE_INSTANT);
+    }
   }
 
   DBUG_RETURN(my_core::HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
