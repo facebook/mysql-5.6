@@ -15,7 +15,7 @@ set debug_sync = "now signal mark_cf_dropped_done_before_delete_table";
 show tables;
 Tables_in_test
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
+t1	ROCKSDB	10	Dynamic	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
 Warnings:
 Warning	155	No such table: 'Table is missing'
 set @@global.debug = @old_debug;
@@ -33,7 +33,7 @@ set debug_sync = "now signal mark_cf_dropped_done_after_delete_table";
 show tables;
 Tables_in_test
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
+t1	ROCKSDB	10	Dynamic	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
 Warnings:
 Warning	155	No such table: 'Table is missing'
 set @@global.debug = @old_debug;
@@ -54,7 +54,7 @@ set debug_sync = "now signal mark_cf_dropped_done_before_delete_table";
 show tables;
 Tables_in_test
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
+t1	ROCKSDB	10	Dynamic	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
 Warnings:
 Warning	155	No such table: 'Table is missing'
 set @@global.debug = @old_debug;
@@ -72,7 +72,7 @@ set debug_sync = "now signal mark_cf_dropped_done_after_delete_table";
 show tables;
 Tables_in_test
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
+t1	ROCKSDB	10	Dynamic	4294967295	0	0	0	0	0	NULL	#	#	NULL	#	NULL		No such table: 'Table is missing'
 Warnings:
 Warning	155	No such table: 'Table is missing'
 set @@global.debug = @old_debug;
