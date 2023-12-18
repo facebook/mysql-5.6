@@ -2349,15 +2349,18 @@ static std::unique_ptr<dd::Table> create_dd_system_table(
     return nullptr;
 
   /*
-    During --initialize, DDSE change and for inert tables, get the SE private
-    data from the SE, and store it in the dd_properties table at a later stage.
+    During --initialize, upgrade table (SYNCED stage) in DDSE change and for
+    inert tables, get the SE private data from the SE, and store it in the
+    dd_properties table at a later stage.
     Otherwise, get the SE private data from the 'dd_properties' table.
   */
   const System_tables::Types *table_type =
       System_tables::instance()->find_type(system_schema.name(), table_name);
   if (opt_initialize ||
       (table_type != nullptr && *table_type == System_tables::Types::INERT) ||
-      bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change()) {
+      (bootstrap::DD_bootstrap_ctx::instance().is_dd_engine_change() &&
+       bootstrap::DD_bootstrap_ctx::instance().get_stage() ==
+           bootstrap::Stage::SYNCED)) {
     if (file->ha_get_se_private_data(
             tab_obj.get(), (table_type != nullptr &&
                             *table_type == System_tables::Types::INERT)))
