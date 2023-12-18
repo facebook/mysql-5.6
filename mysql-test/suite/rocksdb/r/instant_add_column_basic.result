@@ -1587,7 +1587,127 @@ t1	CREATE TABLE `t1` (
 DROP TABLE t1;
 set global rocksdb_enable_instant_ddl_for_column_default_changes = @saved_rocksdb_column_default_changes;
 #
-# Scenario 28:
+#
+# Scenario 28: Scenario for drop index changes
+# Create a small table, and drop index
+#
+set @saved_rocksdb_drop_index_changes=@@global.rocksdb_enable_instant_ddl_for_drop_index_changes;
+set global rocksdb_enable_instant_ddl_for_drop_index_changes = true;
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT, KEY idx_b (b)) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 DROP KEY idx_b, ALGORITHM=INSTANT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 ADD KEY idx_ba(b, a);
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`),
+  KEY `idx_ba` (`b`,`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 DROP KEY idx_ba, ALGORITHM=INSTANT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 ADD UNIQUE KEY idx_ba(b, a);
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`),
+  UNIQUE KEY `idx_ba` (`b`,`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 DROP KEY idx_ba, ALGORITHM=INSTANT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 ADD UNIQUE KEY idx_ba(b, a), ADD KEY idx_b(b);
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`),
+  UNIQUE KEY `idx_ba` (`b`,`a`),
+  KEY `idx_b` (`b`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 DROP KEY idx_ba, DROP KEY idx_b, ALGORITHM=INSTANT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+set global rocksdb_enable_instant_ddl_for_drop_index_changes = @saved_rocksdb_drop_index_changes;
+#
+#
+# Scenario 28.1: Scenario for drop index changes
+# Create a small table, and drop index
+#
+set @saved_rocksdb_drop_index_changes=@@global.rocksdb_enable_instant_ddl_for_drop_index_changes;
+set global rocksdb_enable_instant_ddl_for_drop_index_changes = true;
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT, KEY idx_b (b)) PARTITION BY RANGE(a) (PARTITION p0 VALUES LESS THAN (1990),PARTITION p1 VALUES LESS THAN (1995),PARTITION p2 VALUES LESS THAN (2000),PARTITION p3 VALUES LESS THAN (2005));;
+ALTER TABLE t1 DROP KEY idx_b, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`),
+  KEY `idx_b` (`b`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+(PARTITION p0 VALUES LESS THAN (1990) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES LESS THAN (1995) ENGINE = ROCKSDB,
+ PARTITION p2 VALUES LESS THAN (2000) ENGINE = ROCKSDB,
+ PARTITION p3 VALUES LESS THAN (2005) ENGINE = ROCKSDB) */
+DROP TABLE t1;
+set global rocksdb_enable_instant_ddl_for_drop_index_changes = @saved_rocksdb_drop_index_changes;
+#
+# Scenario 29:
 # bypass query
 #
 SELECT @@rocksdb_select_bypass_policy;

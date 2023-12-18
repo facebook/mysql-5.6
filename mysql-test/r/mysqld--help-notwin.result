@@ -2145,6 +2145,9 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-enable-insert-with-update-caching to disable.)
  --rocksdb-enable-instant-ddl-for-column-default-changes 
  Enable instant ddl for column default during alter table
+ --rocksdb-enable-instant-ddl-for-drop-index-changes 
+ Enable instant ddl for index drop changes during alter
+ table
  --rocksdb-enable-instant-ddl-for-table-comment-changes 
  Enable instant ddl for table comment changes during alter
  table
@@ -3740,6 +3743,7 @@ rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-delete-range-for-drop-index FALSE
 rocksdb-enable-insert-with-update-caching TRUE
 rocksdb-enable-instant-ddl-for-column-default-changes FALSE
+rocksdb-enable-instant-ddl-for-drop-index-changes FALSE
 rocksdb-enable-instant-ddl-for-table-comment-changes FALSE
 rocksdb-enable-iterate-bounds TRUE
 rocksdb-enable-remove-orphaned-dropped-cfs TRUE

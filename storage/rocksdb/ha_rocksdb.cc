@@ -960,6 +960,7 @@ bool rocksdb_partial_index_ignore_killed = true;
 bool rocksdb_disable_instant_ddl = false;
 bool rocksdb_enable_instant_ddl_for_column_default_changes = false;
 bool rocksdb_enable_instant_ddl_for_table_comment_changes = false;
+bool rocksdb_enable_instant_ddl_for_drop_index_changes = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
 uint rocksdb_clone_checkpoint_max_age;
@@ -2898,6 +2899,12 @@ static MYSQL_SYSVAR_BOOL(
     "Enable instant ddl for table comment changes during alter table", nullptr,
     nullptr, false);
 
+static MYSQL_SYSVAR_BOOL(
+    enable_instant_ddl_for_drop_index_changes,
+    rocksdb_enable_instant_ddl_for_drop_index_changes, PLUGIN_VAR_RQCMDARG,
+    "Enable instant ddl for index drop changes during alter table", nullptr,
+    nullptr, false);
+
 static MYSQL_SYSVAR_BOOL(enable_tmp_table, rocksdb_enable_tmp_table,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Allow rocksdb tmp tables", nullptr, nullptr, false);
@@ -3175,6 +3182,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(disable_instant_ddl),
     MYSQL_SYSVAR(enable_instant_ddl_for_column_default_changes),
     MYSQL_SYSVAR(enable_instant_ddl_for_table_comment_changes),
+    MYSQL_SYSVAR(enable_instant_ddl_for_drop_index_changes),
     MYSQL_SYSVAR(enable_tmp_table),
     MYSQL_SYSVAR(alter_table_comment_inplace),
     MYSQL_SYSVAR(column_default_value_as_expression),
@@ -15588,6 +15596,17 @@ ha_rocksdb::Instant_Type ha_rocksdb::rocksdb_support_instant(
     return (Instant_Type::INSTANT_NO_CHANGE);
   }
 
+  if (rocksdb_enable_instant_ddl_for_drop_index_changes &&
+      (!(ha_alter_info->handler_flags &
+         ~my_core::Alter_inplace_info::DROP_INDEX) ||
+       !(ha_alter_info->handler_flags &
+         ~my_core::Alter_inplace_info::DROP_UNIQUE_INDEX) ||
+       !(ha_alter_info->handler_flags &
+         ~(my_core::Alter_inplace_info::DROP_INDEX |
+           my_core::Alter_inplace_info::DROP_UNIQUE_INDEX)))) {
+    return (Instant_Type::INSTANT_DROP_INDEX);
+  }
+
   if (!(ha_alter_info->handler_flags & ~ROCKSDB_INPLACE_IGNORE)) {
     /* after adding support, return (Instant_Type::INSTANT_NO_CHANGE) */
     return (Instant_Type::INSTANT_IMPOSSIBLE);
@@ -15681,6 +15700,7 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
     case Instant_Type::INSTANT_NO_CHANGE:
     case Instant_Type::INSTANT_VIRTUAL_ONLY:
     case Instant_Type::INSTANT_PRIVACY_POLICY:
+    case Instant_Type::INSTANT_DROP_INDEX:
       ha_alter_info->handler_trivial_ctx = static_cast<uint8>(instant_type);
       DBUG_RETURN(HA_ALTER_INPLACE_INSTANT);
   }
@@ -16407,7 +16427,8 @@ bool ha_rocksdb::commit_inplace_alter_table(
     /* update dd data  */
     Instant_Type type =
         static_cast<Instant_Type>(ha_alter_info->handler_trivial_ctx);
-    if (type == Instant_Type::INSTANT_NO_CHANGE) {
+    if (type == Instant_Type::INSTANT_DROP_INDEX ||
+        type == Instant_Type::INSTANT_NO_CHANGE) {
       dd_commit_inplace_no_change(old_dd_tab, new_dd_tab);
     } else if (type == Instant_Type::INSTANT_ADD_COLUMN) {
       dd_commit_instant_table(table, altered_table, old_dd_tab, new_dd_tab);

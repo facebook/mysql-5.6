@@ -757,6 +757,9 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
     /** Only metadata (Privacy_policy) in data dictionary is being changed. */
     INSTANT_PRIVACY_POLICY,
+
+    /** Only reference to an index is being removed. */
+    INSTANT_DROP_INDEX,
   };
 
   [[nodiscard]] int create_table(const std::string &table_name,
@@ -1277,6 +1280,7 @@ extern bool rocksdb_disable_instant_ddl;
 extern bool rocksdb_partial_index_ignore_killed;
 extern bool rocksdb_enable_instant_ddl_for_column_default_changes;
 extern bool rocksdb_enable_instant_ddl_for_table_comment_changes;
+extern bool rocksdb_enable_instant_ddl_for_drop_index_changes;
 
 extern char *rocksdb_wal_dir;
 extern char *rocksdb_datadir;

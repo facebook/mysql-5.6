@@ -1364,7 +1364,88 @@ DROP TABLE t1;
 set global rocksdb_enable_instant_ddl_for_column_default_changes = @saved_rocksdb_column_default_changes;
 
 --echo #
---echo # Scenario 28:
+--echo #
+--echo # Scenario 28: Scenario for drop index changes
+--echo # Create a small table, and drop index
+--echo #
+
+set @saved_rocksdb_drop_index_changes=@@global.rocksdb_enable_instant_ddl_for_drop_index_changes;
+set global rocksdb_enable_instant_ddl_for_drop_index_changes = true;
+
+--eval CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT, KEY idx_b (b)) 
+
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+
+ALTER TABLE t1 DROP KEY idx_b, ALGORITHM=INSTANT;
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t1 ADD KEY idx_ba(b, a);
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t1 DROP KEY idx_ba, ALGORITHM=INSTANT;
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t1 ADD UNIQUE KEY idx_ba(b, a);
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t1 DROP KEY idx_ba, ALGORITHM=INSTANT;
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t1 ADD UNIQUE KEY idx_ba(b, a), ADD KEY idx_b(b);
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+ALTER TABLE t1 DROP KEY idx_ba, DROP KEY idx_b, ALGORITHM=INSTANT;
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+DROP TABLE t1;
+
+set global rocksdb_enable_instant_ddl_for_drop_index_changes = @saved_rocksdb_drop_index_changes;
+
+--echo #
+--echo #
+--echo # Scenario 28.1: Scenario for drop index changes
+--echo # Create a small table, and drop index
+--echo #
+
+set @saved_rocksdb_drop_index_changes=@@global.rocksdb_enable_instant_ddl_for_drop_index_changes;
+set global rocksdb_enable_instant_ddl_for_drop_index_changes = true;
+
+--eval CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT, KEY idx_b (b)) PARTITION BY RANGE(a) (PARTITION p0 VALUES LESS THAN (1990),PARTITION p1 VALUES LESS THAN (1995),PARTITION p2 VALUES LESS THAN (2000),PARTITION p3 VALUES LESS THAN (2005));
+
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t1 DROP KEY idx_b, ALGORITHM=INSTANT;
+
+CHECK TABLE t1;
+
+SHOW CREATE TABLE t1;
+
+DROP TABLE t1;
+
+set global rocksdb_enable_instant_ddl_for_drop_index_changes = @saved_rocksdb_drop_index_changes;
+
+--echo #
+--echo # Scenario 29:
 --echo # bypass query
 --echo #
 SELECT @@rocksdb_select_bypass_policy;
