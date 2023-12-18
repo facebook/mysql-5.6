@@ -1,3 +1,62 @@
+#
+# Check the default row format and the ability to change it
+#
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=RocksDB;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL		
+ALTER TABLE t1 ROW_FORMAT=FIXED;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Fixed	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=FIXED	
+ALTER TABLE t1 ROW_FORMAT=REDUNDANT;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Redundant	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=REDUNDANT	
+ALTER TABLE t1 ROW_FORMAT=COMPACT;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Compact	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=COMPACT	
+ALTER TABLE t1 ROW_FORMAT=DYNAMIC;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=DYNAMIC	
+ALTER TABLE t1 ROW_FORMAT=COMPRESSED;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Compressed	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=COMPRESSED	
+DROP TABLE t1;
+CREATE TABLE t1 (
+Host char(255) CHARACTER SET ASCII,
+PRIMARY KEY Host (Host)) ENGINE=RocksDB;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL		
+ALTER TABLE t1 ROW_FORMAT=FIXED;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Fixed	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=FIXED	
+ALTER TABLE t1 ROW_FORMAT=REDUNDANT;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Redundant	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=REDUNDANT	
+ALTER TABLE t1 ROW_FORMAT=COMPACT;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Compact	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=COMPACT	
+ALTER TABLE t1 ROW_FORMAT=DYNAMIC;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=DYNAMIC	
+ALTER TABLE t1 ROW_FORMAT=COMPRESSED;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Compressed	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL	row_format=COMPRESSED	
+ALTER TABLE t1 ROW_FORMAT=DEFAULT;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	0	0	0	0	0	0	NULL	TIMESTAMP	NULL	NULL	utf8mb4_0900_ai_ci	NULL		
+DROP TABLE t1;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=rocksdb CHARSET=latin1 ROW_FORMAT=FIXED;
 SHOW CREATE TABLE t1;

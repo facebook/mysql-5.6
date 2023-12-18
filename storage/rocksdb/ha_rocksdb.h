@@ -484,6 +484,14 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                 HA_ATTACHABLE_TRX_COMPATIBLE | HA_NO_READ_LOCAL_LOCK);
   }
 
+  [[nodiscard]] enum row_type get_real_row_type(
+      const HA_CREATE_INFO *create_info) const override {
+    return (create_info->row_type == ROW_TYPE_NOT_USED ||
+            create_info->row_type == ROW_TYPE_DEFAULT)
+               ? ROW_TYPE_DYNAMIC
+               : create_info->row_type;
+  }
+
   bool init_with_fields() override;
 
   static ulong index_flags(bool &pk_can_be_decoded,
