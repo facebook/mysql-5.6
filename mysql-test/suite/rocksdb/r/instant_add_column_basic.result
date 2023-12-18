@@ -1469,7 +1469,7 @@ DROP TABLE t1;
 set global rocksdb_enable_instant_ddl_for_table_comment_changes = @saved_rocksdb_table_comment_changes;
 #
 # Scenario 26.1: Scenario for table comment changes
-# Create a small table, and change table comment
+# Create a small partitioned table, and change table comment
 #
 set @saved_rocksdb_table_comment_changes=@@global.rocksdb_enable_instant_ddl_for_table_comment_changes;
 set global rocksdb_enable_instant_ddl_for_table_comment_changes = true;
@@ -1498,8 +1498,96 @@ t1	CREATE TABLE `t1` (
  PARTITION p3 VALUES LESS THAN (2005) ENGINE = ROCKSDB) */
 DROP TABLE t1;
 set global rocksdb_enable_instant_ddl_for_table_comment_changes = @saved_rocksdb_table_comment_changes;
+# Scenario 27: Scenario for column comment changes
+# Create a small table, and alter column default
 #
-# Scenario 27:
+set @saved_rocksdb_column_default_changes=@@global.rocksdb_enable_instant_ddl_for_column_default_changes;
+set global rocksdb_enable_instant_ddl_for_column_default_changes = true;
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) ;
+INSERT INTO t1 VALUES(0, 1), (0, 2), (0, 3), (0, 4), (0, 5);
+ALTER TABLE t1 MODIFY COLUMN b INT COMMENT 'Modified column with comment', ALGORITHM=INSTANT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL COMMENT 'Modified column with comment',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 MODIFY COLUMN b INT COMMENT 'Modified same column with comment', ALGORITHM=INSTANT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL COMMENT 'Modified same column with comment',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 MODIFY COLUMN b INT COMMENT 'Modified same column with comment', ALGORITHM=INSTANT;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL COMMENT 'Modified same column with comment',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+ALTER TABLE t1 MODIFY COLUMN b INT DEFAULT 1000, ALGORITHM=INSTANT;
+ALTER TABLE t1 COMMENT 'A comment', MODIFY COLUMN b INT COMMENT 'Modified same column with new comment', ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
+INSERT INTO t1(a) VALUES(6);
+SELECT b FROM t1 WHERE a = 6;
+b
+1000
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT '1000',
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;
+set global rocksdb_enable_instant_ddl_for_column_default_changes = @saved_rocksdb_column_default_changes;
+# Scenario 27.1: Scenario for column comment changes
+# Create a small partitioned table, and alter column default
+#
+set @saved_rocksdb_column_default_changes=@@global.rocksdb_enable_instant_ddl_for_column_default_changes;
+set global rocksdb_enable_instant_ddl_for_column_default_changes = true;
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT) PARTITION BY RANGE(a) (PARTITION p0 VALUES LESS THAN (1990),PARTITION p1 VALUES LESS THAN (1995),PARTITION p2 VALUES LESS THAN (2000),PARTITION p3 VALUES LESS THAN (2005));;
+ALTER TABLE t1 MODIFY COLUMN b INT DEFAULT 1000, ALGORITHM=INSTANT;
+ERROR 0A000: ALGORITHM=INSTANT is not supported for this operation. Try ALGORITHM=COPY/INPLACE.
+INSERT INTO t1(a) VALUES(6);
+SELECT b FROM t1 WHERE a = 6;
+b
+NULL
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL AUTO_INCREMENT,
+  `b` int DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+(PARTITION p0 VALUES LESS THAN (1990) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES LESS THAN (1995) ENGINE = ROCKSDB,
+ PARTITION p2 VALUES LESS THAN (2000) ENGINE = ROCKSDB,
+ PARTITION p3 VALUES LESS THAN (2005) ENGINE = ROCKSDB) */
+DROP TABLE t1;
+set global rocksdb_enable_instant_ddl_for_column_default_changes = @saved_rocksdb_column_default_changes;
+#
+# Scenario 28:
 # bypass query
 #
 SELECT @@rocksdb_select_bypass_policy;
