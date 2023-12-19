@@ -1416,21 +1416,21 @@ void warn_about_deprecated_binary(THD *thd)
 /*
    Tokens from FB MySQL
 
-   Token numbers starting 1250.
+   Token numbers starting 10000.
 */
-%token  FIND 1250
-%token<lexer.keyword> GTID_SYM 1251
-%token<lexer.keyword> GTID_EXECUTED 1252           /* MYSQL */
-%token<lexer.keyword> SUPER_READ_ONLY_SYM 1253
-%token<lexer.keyword> DB_METADATA_SYM 1254
-%token<lexer.keyword> SQL_NO_FCACHE_SYM 1255       /* MYSQL */
-%token<lexer.keyword> ATTACH_SYM 1256              /* MYSQL */
-%token<lexer.keyword> EXISTING_SYM 1257            /* MYSQL */
-%token<lexer.keyword> EXPLICIT_SYM 1258            /* MYSQL */
-%token<lexer.keyword> SHARED_SYM 1259              /* MYSQL */
-%token<lexer.keyword> RAFT_SYM 1260                /* MYSQL */
-%token<lexer.keyword> PRIVACY_POLICY 1262          /* FB MYSQL */
-%token<lexer.keyword> SHARDBEATER 1263             /* FB MYSQL */
+%token  FIND 10000
+%token<lexer.keyword> GTID_SYM 10001
+%token<lexer.keyword> GTID_EXECUTED 10002           /* MYSQL */
+%token<lexer.keyword> SUPER_READ_ONLY_SYM 10003
+%token<lexer.keyword> DB_METADATA_SYM 10004
+%token<lexer.keyword> SQL_NO_FCACHE_SYM 10005       /* MYSQL */
+%token<lexer.keyword> ATTACH_SYM 10006              /* MYSQL */
+%token<lexer.keyword> EXISTING_SYM 10007            /* MYSQL */
+%token<lexer.keyword> EXPLICIT_SYM 10008            /* MYSQL */
+%token<lexer.keyword> SHARED_SYM 10009              /* MYSQL */
+%token<lexer.keyword> RAFT_SYM 10010                /* MYSQL */
+%token<lexer.keyword> SHARDBEATER 10011             /* FB MYSQL */
+%token<lexer.keyword> PRIVACY_POLICY 10012          /* FB MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
