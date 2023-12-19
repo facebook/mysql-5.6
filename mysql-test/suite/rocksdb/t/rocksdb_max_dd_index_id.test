@@ -1,7 +1,3 @@
-# The test previously worked with debug injections, which have been removed by
-# the DDSE handlerton patch. It will be restored once the rest of the feature is
-# merged.
---skip The test needs finished MyRocks DDSE implementation
 --source include/have_rocksdb.inc
 
 # Initialization
