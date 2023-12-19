@@ -4118,6 +4118,8 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
                            Rdb_cf_manager *cf_manager,
                            rocksdb::WriteBatch *const batch,
                            const rocksdb::Slice &key) {
+  assert(m_pk_index <= MAX_INDEXES);
+
   StringBuffer<8 * Rdb_key_def::PACKED_SIZE> indexes;
   indexes.alloc(Rdb_key_def::VERSION_SIZE +
                 m_key_count * Rdb_key_def::PACKED_SIZE * 2);
@@ -4245,6 +4247,8 @@ void Rdb_tbl_def::set_name(const std::string &name) {
 }
 
 GL_INDEX_ID Rdb_tbl_def::get_autoincr_gl_index_id() {
+  assert(m_pk_index <= MAX_INDEXES);
+
   for (uint i = 0; i < m_key_count; i++) {
     auto &k = m_key_descr_arr[i];
     if (k->m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY ||
