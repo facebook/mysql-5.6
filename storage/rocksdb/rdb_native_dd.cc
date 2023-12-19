@@ -102,6 +102,8 @@ bool rocksdb_dict_recover(dict_recovery_mode_t dict_recovery_mode, uint) {
     case DICT_RECOVERY_RESTART_SERVER:
       return false;
   }
+  MY_ASSERT_UNREACHABLE();
+  return true;
 }
 
 void rocksdb_dict_cache_reset(const char *, const char *) {
