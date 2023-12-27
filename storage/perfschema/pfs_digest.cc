@@ -180,7 +180,7 @@ static LF_PINS *get_digest_hash_pins(PFS_thread *thread) {
 PFS_statements_digest_stat *find_or_create_digest(
     PFS_thread *thread, const sql_digest_storage *digest_storage,
     const char *schema_name, uint schema_name_length, const uchar *client_id,
-    const uchar *plan_id MY_ATTRIBUTE((unused))) {
+    const uchar *plan_id) {
   assert(digest_storage != nullptr);
 
   if (statements_digest_stat_array == nullptr) {
@@ -229,6 +229,13 @@ PFS_statements_digest_stat *find_or_create_digest(
 
     memcpy(&hash_key.client_id, client_id, MD5_HASH_SIZE);
   }
+
+  /* Add the PLAN_ID, if captured, to the hash key.
+     If no plan capture is not enabled, or a plan was not captured due to
+     other reasons, like unexplainable or unsupported statement, then the
+     value stays as zero, as the hash_key is initialized to zeroes above
+  */
+  if (plan_id) memcpy(&hash_key.plan_id, plan_id, MD5_HASH_SIZE);
 
   int res;
   uint retry_count = 0;

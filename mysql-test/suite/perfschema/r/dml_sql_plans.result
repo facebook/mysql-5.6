@@ -1,0 +1,19 @@
+SELECT * FROM performance_schema.sql_plans
+LIMIT 1;
+INSERT INTO performance_schema.sql_plans
+VALUES(NOW(), SQL_ID, 123, 10, 10);
+ERROR 42000: INSERT command denied to user 'root'@'localhost' for table 'sql_plans'
+UPDATE performance_schema.sql_plans
+SET VALUE=123 WHERE VALUE=2;
+ERROR 42000: UPDATE command denied to user 'root'@'localhost' for table 'sql_plans'
+DELETE FROM performance_schema.sql_plans
+WHERE VALUE=2;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'sql_plans'
+DELETE FROM performance_schema.sql_plans;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'sql_plans'
+LOCK TABLES performance_schema.sql_plans READ;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'sql_plans'
+UNLOCK TABLES;
+LOCK TABLES performance_schema.sql_plans WRITE;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'sql_plans'
+UNLOCK TABLES;

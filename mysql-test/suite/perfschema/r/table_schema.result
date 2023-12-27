@@ -1481,6 +1481,10 @@ def	performance_schema	sql_findings	QUERY_TEXT	5	NULL	YES	longtext	4294967295	42
 def	performance_schema	sql_findings	COUNT	6	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL	NULL
 def	performance_schema	sql_findings	LAST_RECORDED	7	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL	NULL
 def	performance_schema	sql_findings	DB_NAME	8	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL	NULL
+def	performance_schema	sql_plans	PLAN_ID	1	NULL	NO	varchar	32	128	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(32)			select,insert,update,references			NULL	NULL
+def	performance_schema	sql_plans	COUNT_OCCUR	2	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL	NULL
+def	performance_schema	sql_plans	LAST_RECORDED	3	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL	NULL
+def	performance_schema	sql_plans	PLAN_ROW	4	NULL	YES	text	65535	65535	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	text			select,insert,update,references			NULL	NULL
 def	performance_schema	sql_text	DIGEST	1	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	UNI		select,insert,update,references			NULL	NULL
 def	performance_schema	sql_text	DIGEST_TEXT	2	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	longtext			select,insert,update,references			NULL	NULL
 def	performance_schema	status_by_account	USER	1	NULL	YES	char	80	320	NULL	NULL	NULL	utf8mb4	utf8mb4_bin	char(80)	MUL		select,insert,update,references			NULL	NULL

@@ -1329,6 +1329,8 @@ void THD::init(bool is_slave) {
   mt_key_clear(THD::SQL_ID);
   mt_key_clear(THD::SQL_HASH);
   mt_key_clear(THD::CLIENT_ID);
+  mt_key_clear(THD::PLAN_ID);
+
   reset_stmt_stats();
   set_trx_dml_row_count(0);
   set_trx_dml_cpu_time_limit_warning(false);

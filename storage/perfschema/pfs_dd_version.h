@@ -327,10 +327,13 @@
   80032-023:
   - Adding support for DB_NAME in SQL_FINDINGS.
 
+  80032-024:
+  - Add new table SQL_PLANS for capturing query execution PLANS
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80032-023. i.e. 8.0.32 Facebook schema change no. 23.
+  Version published is now 80032-024. i.e. 8.0.32 Facebook schema change no. 24.
 */
 
-static const uint PFS_DD_VERSION = 80032023;
+static const uint PFS_DD_VERSION = 80032024;
 
 #endif /* PFS_DD_VERSION_H */

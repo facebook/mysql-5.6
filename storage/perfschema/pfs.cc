@@ -6664,6 +6664,7 @@ static inline enum_object_type sp_type_to_object_type(uint sp_type) {
 
 void pfs_snapshot_statement_helper(PSI_statement_locker *locker, void *stmt_da,
                                    bool statement_completed) {
+  DBUG_TRACE;
   PSI_statement_locker_state *state =
       reinterpret_cast<PSI_statement_locker_state *>(locker);
   Diagnostics_area *da = reinterpret_cast<Diagnostics_area *>(stmt_da);
@@ -6743,11 +6744,19 @@ void pfs_snapshot_statement_helper(PSI_statement_locker *locker, void *stmt_da,
       digest_storage = state->m_digest;
 
       if (digest_storage != nullptr) {
+        const uchar *plan_id = nullptr;
+
+        if (thread->m_thd && thread->m_thd->mt_key_is_set(THD::PLAN_ID))
+          plan_id = thread->m_thd->mt_key_value(THD::PLAN_ID).data();
+
         /* Populate PFS_statements_digest_stat with computed digest
          * information.*/
         digest_stat = find_or_create_digest(
             thread, digest_storage, state->m_schema_name,
-            state->m_schema_name_length, thread->m_client_id, nullptr);
+            state->m_schema_name_length, thread->m_client_id, plan_id);
+
+        if (thread->m_thd && thread->m_thd->mt_key_is_set(THD::PLAN_ID))
+          thread->m_thd->mt_key_clear(THD::PLAN_ID);
       }
     }
 

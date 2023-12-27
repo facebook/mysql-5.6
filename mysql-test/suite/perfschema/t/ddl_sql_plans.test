@@ -1,0 +1,28 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DDLs on the table sql_plans
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.sql_plans
+  ADD COLUMN foo integer;
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.sql_plans
+   ADD INDEX test_index(VALUE);
+
+-- error ER_DBACCESS_DENIED_ERROR
+CREATE UNIQUE INDEX test_index ON
+  performance_schema.sql_plans(VALUE);
+
+TRUNCATE TABLE performance_schema.sql_plans;
+
+-- error ER_TABLEACCESS_DENIED_ERROR 
+DROP TABLE performance_schema.sql_plans;
+
+CREATE TABLE test.create_select
+  AS SELECT * from performance_schema.sql_plans;
+
+DROP TABLE test.create_select;

@@ -1,0 +1,15 @@
+ALTER TABLE performance_schema.sql_plans
+ADD COLUMN foo integer;
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+ALTER TABLE performance_schema.sql_plans
+ADD INDEX test_index(VALUE);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+CREATE UNIQUE INDEX test_index ON
+performance_schema.sql_plans(VALUE);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+TRUNCATE TABLE performance_schema.sql_plans;
+DROP TABLE performance_schema.sql_plans;
+ERROR 42000: DROP command denied to user 'root'@'localhost' for table 'sql_plans'
+CREATE TABLE test.create_select
+AS SELECT * from performance_schema.sql_plans;
+DROP TABLE test.create_select;

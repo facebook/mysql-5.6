@@ -2757,7 +2757,7 @@ class THD : public MDL_context_owner,
     SQL_ID = 0,
     CLIENT_ID = 1,
     SQL_HASH = 2,
-    //    PLAN_ID   = 3
+    PLAN_ID = 3,
     MT_KEY_MAX
   };
 

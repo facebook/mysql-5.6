@@ -46,6 +46,7 @@ idx_replication_asynchronous_connection_failover.test
 idx_replication_asynchronous_connection_failover_managed.test
 idx_session_query_attrs.test
 idx_sql_findings.test
+idx_sql_plans.test
 idx_sql_text.test
 idx_table_statistics_by_table.test
 idx_user_defined_functions.test
