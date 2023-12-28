@@ -30,6 +30,8 @@
 */
 
 #include <cassert>
+#include <cstdint>      // std::uint32_t
+#include <cstring>      // memcpy
 #include <limits>       // std::numeric_limits
 #include <type_traits>  // std::is_convertible
 
