@@ -1,5 +1,6 @@
 CREATE TABLE t1(c1 BIGINT NOT NULL, c2 VARCHAR(64), c3 int NOT NULL, PRIMARY KEY (c1));
 insert into t1 values (1, 'v1', 2), (2, 'v2', 3), (3, null, 4);
+SELECT @@bypass_rpc_pfs_logging INTO @save_bypass_rpc_pfs_logging;
 TRUNCATE TABLE performance_schema.events_statements_summary_by_all;
 
 TEST CASE performance_schema_esms_by_all=off. bypass_rpc_pfs_logging=off. No data in events_statements_summary_by_all
@@ -108,10 +109,11 @@ SEQ_NUMBER	TYPE	VALUE
 TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
 select schema_name, digest, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all where query_sample_text like '%bypass rpc%';
 schema_name	digest	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
-test	0a842ba19a33b8850ca1d07dfe0cb0da	00000000000000000000000000000000	00000000000000000000000000000000	2	0	0	0
-test	982ad3058166850211d1631ccf6c850b	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0
+test	5c3a390111f66b62dee3b0fca221c091	00000000000000000000000000000000	00000000000000000000000000000000	2	0	0	0
+test	aac67466d0e9c28fa3daff45bf1c4d20	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_digest where query_sample_text like '%bypass rpc%';
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated
 Cleanup
 set global performance_schema_esms_by_all = DEFAULT;
+SET GLOBAL bypass_rpc_pfs_logging = @save_bypass_rpc_pfs_logging;
 drop table t1;

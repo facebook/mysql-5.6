@@ -11,6 +11,7 @@ if (!$plugin_installed)
   set global thrift_server_vlog=on;
   set global thrift_server_on=on;
   SET GLOBAL THRIFT_SERVER_SQUIFT=ON;
+  SET GLOBAL THRIFT_SERVER_BYPASS=ON;
 }
 
 disable_warnings;
