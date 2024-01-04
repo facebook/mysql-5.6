@@ -9025,7 +9025,9 @@ end:
                           /*need_lock=*/false, is_relay_log);
   }
 
-  current_thd->clear_raft_info();
+  if (enable_raft_plugin && rotate_via_raft && current_thd) {
+    current_thd->clear_raft_info();
+  }
 
   if (need_lock_log) mysql_mutex_unlock(&LOCK_log);
 
