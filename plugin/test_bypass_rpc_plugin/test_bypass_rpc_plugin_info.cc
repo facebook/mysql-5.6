@@ -19,12 +19,15 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
+#define LOG_COMPONENT_TAG "test_bypass_rpc_plugin"
 
 #include <cinttypes>
 #include <regex>
 #include <string>
 
 #include <fcntl.h>
+#include <mysql/components/my_service.h>
+#include <mysql/components/services/log_builtins.h>
 #include <mysql/plugin.h>
 #include <mysql/service_rpc_plugin.h>
 #include <sql/sql_class.h>
@@ -41,6 +44,13 @@
 
 #define RPC_MAX_QUERY_LENGTH 1000
 #define MAX_STRING_LENGTH 1000
+
+/**
+ Initialize parameters required for error logging
+*/
+static SERVICE_TYPE(registry) *reg_srv = nullptr;
+SERVICE_TYPE(log_builtins) *log_bi = nullptr;
+SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 
 struct test_thread_context {
   my_thread_handle thread;
@@ -224,7 +234,7 @@ static int sql_get_string(void *, const char *const value, size_t length,
                           const CHARSET_INFO *const) {
   DBUG_TRACE;
   char tmp[MAX_STRING_LENGTH];
-  auto len = std::min((int)length, MAX_STRING_LENGTH-1);
+  auto len = std::min((int)length, MAX_STRING_LENGTH - 1);
   strncpy(tmp, value, len);
   tmp[len] = '\0';
   fprintf(outfile_sql, "%s ", tmp);
@@ -486,6 +496,10 @@ static void test_rpc(void *) {
     fill_order_by(param, query_str);
     fill_limit(param, query_str);
 
+    LogPluginErrMsg(
+        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+        "calling bypass_select with query '%s', hlc_lower_bound_ts %lu",
+        query_str.c_str(), hlc_lower_bound_ts);
     const auto &exception = bypass_select(&param);
     if (exception.errnum) {
       std::string emsg;
@@ -497,6 +511,9 @@ static void test_rpc(void *) {
         emsg = exception.message.c_str();
       }
       fprintf(outfile_rpc, "ERROR %d: %s\n", exception.errnum, emsg.c_str());
+    } else {
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "bypass rpc returned with no error ");
     }
 
     // if allocated, more_values needs to be deallocated
@@ -512,6 +529,7 @@ static void test_rpc(void *) {
 
 static int test_bypass_rpc_plugin_init(void *p) {
   DBUG_TRACE;
+  if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs)) return 1;
   unlink(log_filename_sql);
   unlink(log_filename_rpc);
   outfile_sql = my_fopen(log_filename_sql, O_CREAT | O_RDWR, MYF(0));
@@ -530,6 +548,7 @@ static int test_bypass_rpc_plugin_deinit(void *p) {
   my_free(context);
   my_fclose(outfile_rpc, MYF(0));
   my_fclose(outfile_sql, MYF(0));
+  deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
   return 0;
 }
 
