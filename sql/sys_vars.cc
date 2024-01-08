@@ -10074,6 +10074,94 @@ static Sys_var_ulonglong Sys_max_column_statistics_size(
     NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(update_max_column_statistics_limits), ON_UPDATE(nullptr));
 
+/* SQL PLANS related STARTS */
+
+static bool set_sql_plans_control(sys_var *, THD *, enum_var_type) {
+  if (sql_plans_control == SQL_INFO_CONTROL_OFF_HARD) {
+    reset_sql_plans();
+  }
+
+  return false;  // success
+}
+
+static Sys_var_enum Sys_sql_plans_control(
+    "sql_plans_control",
+    "Provides a control to captured SQL execution plans from "
+    "optimizer/executing SQL "
+    "statements. This data is exposed through the SQL_PLANS table. "
+    "It accepts the following values: "
+    "OFF_HARD: Default value. Stop capturing SQL plans and flush "
+    "all SQL plans related data from memory. "
+    "OFF_SOFT: Stop collecting the SQL plans, but retain any data "
+    "collected so far. "
+    "ON: Capture the SQL plans.",
+    GLOBAL_VAR(sql_plans_control), CMD_LINE(REQUIRED_ARG),
+    sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_sql_plans_control));
+
+static bool update_sql_plans_max_buffer(sys_var *, THD *, set_var *var) {
+  // if new limit is less than the current limit, then clean up the
+  // existing SQL Plans footprint. In the future, if the SQL Plans table
+  // gets implemented as an LRU cache, then this can be done based
+  // on LRU semantics.
+  //
+  if (var->save_result.ulonglong_value < sql_plans_max_buffer) {
+    reset_sql_plans();
+  }
+  return false;  // success
+}
+
+static Sys_var_ulonglong Sys_sql_plans_max_buffer(
+    "sql_plans_max_buffer",
+    "Maximum allowed memory for storing normalized SQL Plans (in bytes). "
+    "This can be set to any value between 100 and 100 * 1024 * 1024. ",
+    GLOBAL_VAR(sql_plans_max_buffer), CMD_LINE(OPT_ARG),
+    VALID_RANGE(100, 100 * 1024 * 1024), DEFAULT(10 * 1024 * 1024),
+    BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(update_sql_plans_max_buffer), ON_UPDATE(nullptr));
+
+static Sys_var_uint Sys_sql_plans_sampling_rate(
+    "sql_plans_sampling_rate",
+    "This variable allows capturing every Nth valid SQL Plan "
+    "rather than every valid SQL Plan. N can be specified between 1 and "
+    "1000 (inclusive). A value of 1 means that every valid SQL Plan will "
+    "be captured, a value of 1000 means that every 1000th valid SQL plan "
+    "will get captured, and so on.",
+    GLOBAL_VAR(sql_plans_sampling_rate), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 1000), DEFAULT(1), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_sql_plans_norm_prune_expr_trees(
+    "sql_plans_norm_prune_expr_trees",
+    "If set to true, SQL query execution plans will be normalized by "
+    "pruning expression trees that appear in WHERE clauses, FILTER "
+    "conditions etc. This will lead to more SQL queries possibly "
+    "matching the same normalized SQL plan.",
+    GLOBAL_VAR(sql_plans_norm_prune_expr_trees), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
+static Sys_var_bool Sys_sql_plans_norm_prune_in_lists(
+    "sql_plans_norm_prune_in_lists",
+    "If set to true, SQL query execution plans will be normalized by "
+    "replacing IN lists in captured SQL plans with ellipsis. This can help "
+    "avoid very long IN lists in captured plans. This will lead to more SQL "
+    "queries possibly matching the same normalized SQL plan. ",
+    GLOBAL_VAR(sql_plans_norm_prune_in_lists), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
+static Sys_var_bool Sys_sql_plans_norm_use_arg_counts(
+    "sql_plans_norm_use_arg_counts",
+    "If set to true, SQL query execution plans will be normalized by "
+    "replacing expression trees, IN lists etc by argument counts "
+    "when possible. This can avoid retaining long expressions and IN lists "
+    "in captured plans but still get a sense of the scale of the expressions "
+    "and IN lists. This works only in conjunction with the other two "
+    "sql_plans_norm_* normalization controls. ",
+    GLOBAL_VAR(sql_plans_norm_use_arg_counts), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
+/* SQL PLANS related ENDS */
+
 static Sys_var_bool Sys_enable_deprecation_warning(
     "enable_deprecation_warning",
     "If set to false, will not show deprecation warnings ",

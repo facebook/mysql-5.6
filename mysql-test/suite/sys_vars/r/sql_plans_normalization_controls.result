@@ -1,0 +1,236 @@
+Default value of sql_plans_contract_* is false
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+0
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+0
+show global variables like 'sql_plans_norm%';
+Variable_name	Value
+sql_plans_norm_prune_expr_trees	OFF
+sql_plans_norm_prune_in_lists	OFF
+sql_plans_norm_use_arg_counts	OFF
+select * from performance_schema.global_variables
+where variable_name='sql_plans_norm_prune_expr_trees';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_norm_prune_expr_trees	OFF
+select * from performance_schema.global_variables
+where variable_name='sql_plans_norm_prune_in_lists';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_norm_prune_in_lists	OFF
+select * from performance_schema.global_variables
+where variable_name='sql_plans_norm_use_arg_counts';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_norm_use_arg_counts	OFF
+SELECT @@session.sql_plans_norm_prune_expr_trees;
+ERROR HY000: Variable 'sql_plans_norm_prune_expr_trees' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT @@session.sql_plans_norm_use_arg_counts;
+ERROR HY000: Variable 'sql_plans_norm_use_arg_counts' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT @@session.sql_plans_norm_prune_in_lists;
+ERROR HY000: Variable 'sql_plans_norm_prune_in_lists' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+show session variables like 'sql_plans_contract%';
+Variable_name	Value
+select * from performance_schema.session_variables
+where variable_name='sql_plans_norm_prune_expr_trees';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_norm_prune_expr_trees	OFF
+select * from performance_schema.session_variables
+where variable_name='sql_plans_norm_use_arg_counts';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_norm_use_arg_counts	OFF
+select * from performance_schema.session_variables
+where variable_name='sql_plans_norm_prune_in_lists';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_norm_prune_in_lists	OFF
+sql_plans_norm_prune_expr_trees is a dynamic variable (change to true)
+set @@global.sql_plans_norm_prune_expr_trees = true;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+set @@global.sql_plans_norm_use_arg_counts = true;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+1
+set @@global. sql_plans_norm_prune_in_lists = true;
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+1
+restore the default value
+SET @@global.sql_plans_norm_prune_expr_trees = false;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+set @@global.sql_plans_norm_use_arg_counts = false;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+0
+set @@global. sql_plans_norm_prune_in_lists = false;
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+0
+Verify other accepted values
+SET @@global.sql_plans_norm_prune_expr_trees = 0;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+SET @@global.sql_plans_norm_prune_expr_trees = 1;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SET @@global.sql_plans_norm_prune_expr_trees = True;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SET @@global.sql_plans_norm_prune_expr_trees = False;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+SET @@global.sql_plans_norm_prune_expr_trees = On;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SET @@global.sql_plans_norm_prune_expr_trees = Off;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+SET @@global.sql_plans_norm_prune_expr_trees = "On";
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SET @@global.sql_plans_norm_prune_expr_trees = "Off";
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+Verify other accepted values
+SET @@global.sql_plans_norm_use_arg_counts = 0;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+0
+SET @@global.sql_plans_norm_use_arg_counts = 1;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+1
+SET @@global.sql_plans_norm_use_arg_counts = True;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+1
+SET @@global.sql_plans_norm_use_arg_counts = False;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+0
+SET @@global.sql_plans_norm_use_arg_counts = On;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+1
+SET @@global.sql_plans_norm_use_arg_counts = Off;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+0
+Verify other accepted values
+SET @@global.sql_plans_norm_prune_in_lists = 0;
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+0
+SET @@global.sql_plans_norm_prune_in_lists = 1;
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+1
+SET @@global.sql_plans_norm_prune_in_lists = True;
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+1
+SET @@global.sql_plans_norm_prune_in_lists = False;
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+0
+SET @@global.sql_plans_norm_prune_in_lists = On;
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+1
+SET @@global.sql_plans_norm_prune_in_lists = Off;
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+0
+Attempt setting invalid values
+SET @@global.sql_plans_norm_prune_expr_trees = "True";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of 'True'
+SET @@global.sql_plans_norm_prune_expr_trees = "false";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of 'false'
+SET @@global.sql_plans_norm_prune_expr_trees = "onn";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of 'onn'
+SET @@global.sql_plans_norm_prune_expr_trees = " ";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of ' '
+SET @@global.sql_plans_norm_prune_expr_trees = "";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of ''
+SET @@global.sql_plans_norm_prune_expr_trees = '';
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of ''
+SET @@global.sql_plans_norm_prune_expr_trees = ' ';
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of ' '
+SET @@global.sql_plans_norm_prune_expr_trees = 3;
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of '3'
+SET @@global.sql_plans_norm_prune_expr_trees = -1;
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of '-1'
+SET sql_plans_norm_prune_expr_trees = ON;
+ERROR HY000: Variable 'sql_plans_norm_prune_expr_trees' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.sql_plans_norm_prune_expr_trees = OFF_HARD;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.sql_plans_norm_prune_expr_trees = OFF_HARD' at line 1
+SELECT local.sql_plans_norm_prune_expr_trees;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.sql_plans_norm_prune_expr_trees = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.sql_plans_norm_prune_expr_trees = ON' at line 1
+SELECT global.sql_plans_norm_prune_expr_trees;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT sql_plans_norm_prune_expr_trees = @@session.sql_plans_norm_prune_expr_trees;
+ERROR HY000: Variable 'sql_plans_norm_prune_expr_trees' is a GLOBAL variable
+SET sql_plans_norm_use_arg_counts = ON;
+ERROR HY000: Variable 'sql_plans_norm_use_arg_counts' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.sql_plans_norm_use_arg_counts = OFF_HARD;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.sql_plans_norm_use_arg_counts = OFF_HARD' at line 1
+SELECT local.sql_plans_norm_use_arg_counts;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.sql_plans_norm_use_arg_counts = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.sql_plans_norm_use_arg_counts = ON' at line 1
+SELECT global.sql_plans_norm_use_arg_counts;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT sql_plans_norm_use_arg_counts = @@session.sql_plans_norm_use_arg_counts;
+ERROR HY000: Variable 'sql_plans_norm_use_arg_counts' is a GLOBAL variable
+SET sql_plans_norm_prune_in_lists = ON;
+ERROR HY000: Variable 'sql_plans_norm_prune_in_lists' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.sql_plans_norm_prune_in_lists = OFF_HARD;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.sql_plans_norm_prune_in_lists = OFF_HARD' at line 1
+SELECT local.sql_plans_norm_prune_in_lists;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.sql_plans_norm_prune_in_lists = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.sql_plans_norm_prune_in_lists = ON' at line 1
+SELECT global.sql_plans_norm_prune_in_lists;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT sql_plans_norm_prune_in_lists = @@session.sql_plans_norm_prune_in_lists;
+ERROR HY000: Variable 'sql_plans_norm_prune_in_lists' is a GLOBAL variable
+restart the server with non default value (true)
+# restart: --sql_plans_norm_prune_expr_trees=true --sql_plans_norm_use_arg_counts=true --sql_plans_norm_prune_in_lists=true
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+1
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+1
+restart the server with the default values (false)
+# restart
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+SELECT @@global.sql_plans_norm_use_arg_counts;
+@@global.sql_plans_norm_use_arg_counts
+0
+SELECT @@global.sql_plans_norm_prune_in_lists;
+@@global.sql_plans_norm_prune_in_lists
+0

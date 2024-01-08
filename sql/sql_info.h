@@ -124,4 +124,14 @@ void remove_active_sql(THD *thd);
 /* Stores the client attribute names */
 void store_client_attribute_names(char *new_value);
 
+/***********************************************************************
+          Begin - Functions to support full SQL Plan Capture
+************************************************************************/
+
+void reset_sql_plans();
+
+/***********************************************************************
+               End - Functions to support SQL Plan Capture
+************************************************************************/
+
 #endif

@@ -1,0 +1,99 @@
+Default value of sql_plans_sampling_rate is 1
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+1
+show global variables like 'sql_plans_sampling_rate';
+Variable_name	Value
+sql_plans_sampling_rate	1
+select * from performance_schema.global_variables
+where variable_name='sql_plans_sampling_rate';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_sampling_rate	1
+SELECT @@session.sql_plans_sampling_rate;
+ERROR HY000: Variable 'sql_plans_sampling_rate' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+show session variables like 'sql_plans_sampling_rate';
+Variable_name	Value
+sql_plans_sampling_rate	1
+select * from performance_schema.session_variables
+where variable_name='sql_plans_sampling_rate';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_sampling_rate	1
+sql_plans_sampling_rate is a dynamic variable (change to 2)
+set @@global.sql_plans_sampling_rate = 2;
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+2
+restore the default value
+SET @@global.sql_plans_sampling_rate = 1;
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+1
+Verify other accepted values
+SET @@global.sql_plans_sampling_rate = 10;
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+10
+SET @@global.sql_plans_sampling_rate = 100;
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+100
+SET @@global.sql_plans_sampling_rate = 1000;
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+1000
+SET @@global.sql_plans_sampling_rate = True;
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+1
+SET @@global.sql_plans_sampling_rate = False;
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+1
+SET @@global.sql_plans_sampling_rate = -1;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_sampling_rate value: '-1'
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+1
+SET @@global.sql_plans_sampling_rate = 1001;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_sampling_rate value: '1001'
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+1000
+Attempt setting invalid values
+SET @@global.sql_plans_sampling_rate = "off";
+ERROR 42000: Incorrect argument type to variable 'sql_plans_sampling_rate'
+SET @@global.sql_plans_sampling_rate = "on";
+ERROR 42000: Incorrect argument type to variable 'sql_plans_sampling_rate'
+SET @@global.sql_plans_sampling_rate = " ";
+ERROR 42000: Incorrect argument type to variable 'sql_plans_sampling_rate'
+SET @@global.sql_plans_sampling_rate = "";
+ERROR 42000: Incorrect argument type to variable 'sql_plans_sampling_rate'
+SET @@global.sql_plans_sampling_rate = '';
+ERROR 42000: Incorrect argument type to variable 'sql_plans_sampling_rate'
+SET @@global.sql_plans_sampling_rate = ' ';
+ERROR 42000: Incorrect argument type to variable 'sql_plans_sampling_rate'
+SET sql_plans_sampling_rate = 1;
+ERROR HY000: Variable 'sql_plans_sampling_rate' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.sql_plans_sampling_rate = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.sql_plans_sampling_rate = 1' at line 1
+SELECT local.sql_plans_sampling_rate;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.sql_plans_sampling_rate = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.sql_plans_sampling_rate = 1' at line 1
+SELECT global.sql_plans_sampling_rate;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT sql_plans_sampling_rate = @@session.sql_plans_sampling_rate;
+ERROR HY000: Variable 'sql_plans_sampling_rate' is a GLOBAL variable
+restart the server with non default value (2)
+# restart: --sql_plans_sampling_rate=2
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+2
+restart the server with the default value (1)
+# restart
+SELECT @@global.sql_plans_sampling_rate;
+@@global.sql_plans_sampling_rate
+1

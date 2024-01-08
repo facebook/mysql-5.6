@@ -608,6 +608,21 @@ extern ulong sql_findings_control;
 extern ulonglong max_sql_findings_size;
 /* The maximum size of the memory to store column statistics */
 extern ulonglong max_column_statistics_size;
+
+/* The main flag to turn ON/OFF/HARD_OFF SQL Plans feature */
+extern ulong sql_plans_control;
+/* The maximum space in bytes available for storing SQL Plans */
+extern ulonglong sql_plans_max_buffer;
+/* The sampling rate to be used for capturing SQL Plans */
+extern uint sql_plans_sampling_rate;
+/* This control allows SQL Plans to be saved with pruned expr trees */
+extern bool sql_plans_norm_prune_expr_trees;
+/* This control allows SQL Plans to be saved with pruned IN lists */
+extern bool sql_plans_norm_prune_in_lists;
+/* This control allows SQL Plans to be saved with argument counts
+ * when possible, used in conjunction with above two flags */
+extern bool sql_plans_norm_use_arg_counts;
+
 // client attributes names system variable
 extern std::vector<std::string> client_attribute_names;
 extern char *latest_client_attribute_names;

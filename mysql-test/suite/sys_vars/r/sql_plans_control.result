@@ -1,0 +1,95 @@
+Default value of sql_plans_control is OFF_HARD
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_HARD
+show global variables like 'sql_plans_control';
+Variable_name	Value
+sql_plans_control	OFF_HARD
+select * from performance_schema.global_variables
+where variable_name='sql_plans_control';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_control	OFF_HARD
+SELECT @@session.sql_plans_control;
+ERROR HY000: Variable 'sql_plans_control' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+show session variables like 'sql_plans_control';
+Variable_name	Value
+sql_plans_control	OFF_HARD
+select * from performance_schema.session_variables
+where variable_name='sql_plans_control';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_control	OFF_HARD
+sql_plans_control is a dynamic variable (change to "ON")
+set @@global.sql_plans_control = "on";
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+ON
+restore the default value
+SET @@global.sql_plans_control = "off_hard";
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_HARD
+Verify other accepted values
+SET @@global.sql_plans_control = 0;
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_HARD
+SET @@global.sql_plans_control = 1;
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_SOFT
+SET @@global.sql_plans_control = 2;
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+ON
+SET @@global.sql_plans_control = True;
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_SOFT
+SET @@global.sql_plans_control = False;
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_HARD
+Attempt setting invalid values
+SET @@global.sql_plans_control = "off";
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of 'off'
+SET @@global.sql_plans_control = "on_soft";
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of 'on_soft'
+SET @@global.sql_plans_control = "on_hard";
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of 'on_hard'
+SET @@global.sql_plans_control = "onn";
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of 'onn'
+SET @@global.sql_plans_control = " ";
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of ' '
+SET @@global.sql_plans_control = "";
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of ''
+SET @@global.sql_plans_control = '';
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of ''
+SET @@global.sql_plans_control = ' ';
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of ' '
+SET @@global.sql_plans_control = 3;
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of '3'
+SET @@global.sql_plans_control = -1;
+ERROR 42000: Variable 'sql_plans_control' can't be set to the value of '-1'
+SET sql_plans_control = ON;
+ERROR HY000: Variable 'sql_plans_control' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.sql_plans_control = OFF_HARD;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.sql_plans_control = OFF_HARD' at line 1
+SELECT local.sql_plans_control;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.sql_plans_control = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.sql_plans_control = ON' at line 1
+SELECT global.sql_plans_control;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT sql_plans_control = @@session.sql_plans_control;
+ERROR HY000: Variable 'sql_plans_control' is a GLOBAL variable
+restart the server with non default value (OFF_SOFT)
+# restart: --sql_plans_control=off_soft
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_SOFT
+restart the server with the default value (OFF_HARD)
+# restart
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_HARD

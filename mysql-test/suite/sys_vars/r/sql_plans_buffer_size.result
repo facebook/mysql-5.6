@@ -1,0 +1,111 @@
+Default value of sql_plans_max_buffer is 10485760
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+10485760
+show global variables like 'sql_plans_max_buffer';
+Variable_name	Value
+sql_plans_max_buffer	10485760
+select * from performance_schema.global_variables
+where variable_name='sql_plans_max_buffer';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_max_buffer	10485760
+SELECT @@session.sql_plans_max_buffer;
+ERROR HY000: Variable 'sql_plans_max_buffer' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+show session variables like 'sql_plans_max_buffer';
+Variable_name	Value
+sql_plans_max_buffer	10485760
+select * from performance_schema.session_variables
+where variable_name='sql_plans_max_buffer';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_max_buffer	10485760
+sql_plans_max_buffer is a dynamic variable (change to 1024)
+set @@global.sql_plans_max_buffer = 1024;
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+1024
+restore the default value
+SET @@global.sql_plans_max_buffer = 10485760;
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+10485760
+Verify other accepted values
+SET @@global.sql_plans_max_buffer = 100;
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+100
+SET @@global.sql_plans_max_buffer = 104857600;
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+104857600
+SET @@global.sql_plans_max_buffer = 1;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_max_buffer value: '1'
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+100
+SET @@global.sql_plans_max_buffer = -1;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_max_buffer value: '-1'
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+100
+SET @@global.sql_plans_max_buffer = 0;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_max_buffer value: '0'
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+100
+SET @@global.sql_plans_max_buffer = 104857601;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_max_buffer value: '104857601'
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+104857600
+SET @@global.sql_plans_max_buffer = True;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_max_buffer value: '1'
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+100
+SET @@global.sql_plans_max_buffer = False;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_max_buffer value: '0'
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+100
+Attempt setting invalid values
+SET @@global.sql_plans_max_buffer = "off";
+ERROR 42000: Incorrect argument type to variable 'sql_plans_max_buffer'
+SET @@global.sql_plans_max_buffer = "on";
+ERROR 42000: Incorrect argument type to variable 'sql_plans_max_buffer'
+SET @@global.sql_plans_max_buffer = " ";
+ERROR 42000: Incorrect argument type to variable 'sql_plans_max_buffer'
+SET @@global.sql_plans_max_buffer = "";
+ERROR 42000: Incorrect argument type to variable 'sql_plans_max_buffer'
+SET @@global.sql_plans_max_buffer = '';
+ERROR 42000: Incorrect argument type to variable 'sql_plans_max_buffer'
+SET @@global.sql_plans_max_buffer = ' ';
+ERROR 42000: Incorrect argument type to variable 'sql_plans_max_buffer'
+SET sql_plans_max_buffer = 1;
+ERROR HY000: Variable 'sql_plans_max_buffer' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.sql_plans_max_buffer = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.sql_plans_max_buffer = 1' at line 1
+SELECT local.sql_plans_max_buffer;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.sql_plans_max_buffer = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.sql_plans_max_buffer = 1' at line 1
+SELECT global.sql_plans_max_buffer;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT sql_plans_max_buffer = @@session.sql_plans_max_buffer;
+ERROR HY000: Variable 'sql_plans_max_buffer' is a GLOBAL variable
+restart the server with non default value (1024)
+# restart: --sql_plans_max_buffer=1024
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+1024
+restart the server with the default value (10485760)
+# restart
+SELECT @@global.sql_plans_max_buffer;
+@@global.sql_plans_max_buffer
+10485760

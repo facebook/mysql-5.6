@@ -2899,6 +2899,45 @@ The following options may be given as the first argument:
  off
  --sql-mode=name     Syntax: sql-mode=mode[,mode[,mode...]]. See the manual
  for the complete list of valid sql modes
+ --sql-plans-control=name 
+ Provides a control to captured SQL execution plans from
+ optimizer/executing SQL statements. This data is exposed
+ through the SQL_PLANS table. It accepts the following
+ values: OFF_HARD: Default value. Stop capturing SQL plans
+ and flush all SQL plans related data from memory.
+ OFF_SOFT: Stop collecting the SQL plans, but retain any
+ data collected so far. ON: Capture the SQL plans.
+ --sql-plans-max-buffer[=#] 
+ Maximum allowed memory for storing normalized SQL Plans
+ (in bytes). This can be set to any value between 100 and
+ 100 * 1024 * 1024. 
+ --sql-plans-norm-prune-expr-trees 
+ If set to true, SQL query execution plans will be
+ normalized by pruning expression trees that appear in
+ WHERE clauses, FILTER conditions etc. This will lead to
+ more SQL queries possibly matching the same normalized
+ SQL plan.
+ --sql-plans-norm-prune-in-lists 
+ If set to true, SQL query execution plans will be
+ normalized by replacing IN lists in captured SQL plans
+ with ellipsis. This can help avoid very long IN lists in
+ captured plans. This will lead to more SQL queries
+ possibly matching the same normalized SQL plan. 
+ --sql-plans-norm-use-arg-counts 
+ If set to true, SQL query execution plans will be
+ normalized by replacing expression trees, IN lists etc by
+ argument counts when possible. This can avoid retaining
+ long expressions and IN lists in captured plans but still
+ get a sense of the scale of the expressions and IN lists.
+ This works only in conjunction with the other two
+ sql_plans_norm_* normalization controls. 
+ --sql-plans-sampling-rate[=#] 
+ This variable allows capturing every Nth valid SQL Plan
+ rather than every valid SQL Plan. N can be specified
+ between 1 and 1000 (inclusive). A value of 1 means that
+ every valid SQL Plan will be captured, a value of 1000
+ means that every 1000th valid SQL plan will get captured,
+ and so on.
  --sql-require-primary-key 
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
@@ -3977,6 +4016,12 @@ sql-generate-invisible-primary-key FALSE
 sql-log-bin-triggers TRUE
 sql-maximum-duplicate-executions 0
 sql-mode ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+sql-plans-control OFF_HARD
+sql-plans-max-buffer 10485760
+sql-plans-norm-prune-expr-trees FALSE
+sql-plans-norm-prune-in-lists FALSE
+sql-plans-norm-use-arg-counts FALSE
+sql-plans-sampling-rate 1
 sql-require-primary-key FALSE
 sql-stats-read-control TRUE
 sql-wsenv-lib-name 

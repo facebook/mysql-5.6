@@ -576,3 +576,31 @@ void init_sql_info() {
   // set the current sql findings size limit
   current_max_sql_findings_size = max_sql_findings_size;
 }
+
+/***********************************************************************
+          Begin - Functions to support full SQL Plan Capture
+************************************************************************/
+
+/* The main flag to turn ON/OFF/HARD_OFF SQL Plans feature */
+ulong sql_plans_control{SQL_INFO_CONTROL_OFF_HARD};
+/* The maximum space in bytes available for storing SQL Plans */
+ulonglong sql_plans_max_buffer;
+/* The sampling rate to be used for capturing SQL Plans */
+uint sql_plans_sampling_rate;
+
+/* This control allows SQL Plans to be saved with pruned expr trees */
+bool sql_plans_norm_prune_expr_trees;
+/* This control allows SQL Plans to be saved with pruned IN lists */
+bool sql_plans_norm_prune_in_lists;
+/* This control allows SQL Plans to be saved with argument counts
+ * when possible, used in conjunction with above two flags */
+bool sql_plans_norm_use_arg_counts;
+
+void reset_sql_plans() {
+  // to be filled out in a follow up commit
+  return;
+}
+
+/***********************************************************************
+               End - Functions to support SQL Plan Capture
+************************************************************************/
