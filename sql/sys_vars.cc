@@ -9569,6 +9569,13 @@ static Sys_var_ulong Sys_write_stats_frequency(
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_write_stats_frequency));
 
+static Sys_var_bool Sys_(
+    "write_stats_eligible_only",
+    "Collect write stats only for queries eligible for throttling if "
+    "write_throttle_tag_only is enabled",
+    GLOBAL_VAR(write_stats_eligible_only), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 /*
   Update global_write_throttling_rules data structure with the
   new value specified in write_throttling_patterns

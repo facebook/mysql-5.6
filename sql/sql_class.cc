@@ -4535,6 +4535,24 @@ enum_control_level THD::get_mt_throttle_tag_level() const {
   return CONTROL_LEVEL_OFF;
 }
 
+/**
+  Should write stats be collected for this query? Collecting stats for writes
+  that cannot be throttled can lead to picking wrong entities for throttling
+  and the lag will stay/increase.
+*/
+bool THD::should_collect_stats_for_write_query() {
+  bool result = get_row_binlog_bytes_written() > 0;
+  if (result && write_stats_eligible_only) {
+    if (variables.write_throttle_tag_only) {
+      result = get_mt_throttle_tag_level() != CONTROL_LEVEL_OFF;
+    } else {
+      result = write_control_level != CONTROL_LEVEL_OFF;
+    }
+  }
+
+  return result;
+}
+
 void THD::set_trx_dml_start_time() {
   /* if the dml_start_time is already initialized then do nothing */
   if (m_trx_dml_start_time_is_set) return;

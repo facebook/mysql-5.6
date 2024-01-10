@@ -1602,6 +1602,8 @@ uint write_stats_count;
 /* Controls the frequency(seconds) at which write stats and replica lag stats
  * are collected*/
 ulong write_stats_frequency;
+/* Should write stats be limited to writes eligible for throttling? */
+bool write_stats_eligible_only;
 /* Stores the (latest)value for sys_var write_throttle_patterns  */
 char *latest_write_throttling_rule;
 /* Stores the (latest)value for sys_var

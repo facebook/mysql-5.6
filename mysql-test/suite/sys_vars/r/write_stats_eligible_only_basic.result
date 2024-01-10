@@ -1,0 +1,33 @@
+Default value of write_stats_eligible_only is false
+SELECT @@global.write_stats_eligible_only;
+@@global.write_stats_eligible_only
+0
+show global variables like 'write_stats_eligible_only';
+Variable_name	Value
+write_stats_eligible_only	OFF
+select * from performance_schema.global_variables where variable_name='write_stats_eligible_only';
+VARIABLE_NAME	VARIABLE_VALUE
+write_stats_eligible_only	OFF
+select @@session.write_stats_eligible_only;
+ERROR HY000: Variable 'write_stats_eligible_only' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+show session variables like 'write_stats_eligible_only';
+Variable_name	Value
+write_stats_eligible_only	OFF
+select * from performance_schema.session_variables where variable_name='write_stats_eligible_only';
+VARIABLE_NAME	VARIABLE_VALUE
+write_stats_eligible_only	OFF
+SET @@global.write_stats_eligible_only=true;
+select @@global.write_stats_eligible_only;
+@@global.write_stats_eligible_only
+1
+set global write_stats_eligible_only=default;
+select @@global.write_stats_eligible_only;
+@@global.write_stats_eligible_only
+0
+set session write_stats_eligible_only=true;
+ERROR HY000: Variable 'write_stats_eligible_only' is a GLOBAL variable and should be set with SET GLOBAL
+set global write_stats_eligible_only=1.1;
+ERROR 42000: Incorrect argument type to variable 'write_stats_eligible_only'
+set global write_stats_eligible_only="foobar";
+ERROR 42000: Variable 'write_stats_eligible_only' can't be set to the value of 'foobar'

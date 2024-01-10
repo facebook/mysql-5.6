@@ -3112,6 +3112,9 @@ The following options may be given as the first argument:
  Maximum number of most recent data points to be collected
  for information_schema.write_statistics &
  information_schema.replica_statistics time series.
+ --write-stats-eligible-only 
+ Collect write stats only for queries eligible for
+ throttling if write_throttle_tag_only is enabled
  --write-stats-frequency[=#] 
  This variable determines the frequency(seconds) at which
  write stats and replica lag stats are collected on
@@ -4033,6 +4036,7 @@ write-cpu-limit-milliseconds 0
 write-send-replica-statistics-wait-time-seconds 0
 write-start-throttle-lag-milliseconds 86400000
 write-stats-count 0
+write-stats-eligible-only FALSE
 write-stats-frequency 0
 write-stop-throttle-lag-milliseconds 86400000
 write-throttle-lag-pct-min-secondaries 100

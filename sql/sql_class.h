@@ -2642,6 +2642,8 @@ class THD : public MDL_context_owner,
 
   enum_control_level get_mt_throttle_tag_level() const;
 
+  bool should_collect_stats_for_write_query();
+
   void set_sent_row_count(ha_rows count);
 
   void set_accessed_rows_and_keys(ulonglong count);

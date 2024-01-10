@@ -829,6 +829,145 @@ SET @@GLOBAL.WRITE_THROTTLE_RATE_STEP=100;
 truncate table performance_schema.events_errors_summary_global_by_error;
 select sleep(@wat_freq);
 
+--echo ################################################################################
+--echo ### Test 15: With tag based throttling it only collects stats and throttles sources of eligible writes.
+--echo ################################################################################
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=OFF;
+SET @@GLOBAL.WRITE_STATS_ELIGIBLE_ONLY=TRUE;
+SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=TRUE;
+--echo ### Store total error logs until now for comparison later ###
+Select sum(count) from performance_schema.write_throttling_log into @log_count;
+
+insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
+delete from test.t where a = 2;
+use test1;
+insert into test1.t values(2);
+delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+
+--echo ### Write statistics should be empty. ###
+select type, value, write_data_bytes from performance_schema.write_statistics;
+
+--echo ####### Next Cycle 1 #######
+--echo ### Expectation - There is replication lag. However the stats are empty so no culprit is identified ###
+select sleep(@wat_freq);
+set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
+
+--echo ### Verify that query without tag is not throttled.
+insert into test.t values(2);
+
+--echo ### Verify that query with tag is not throttled.
+query_attrs_add mt_throttle_okay ERROR;
+insert into test1.t values(2);
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
+query_attrs_reset;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
+
+--echo ### Due to the query with tag write statistics should not be empty. ###
+select type, value, write_data_bytes from performance_schema.write_statistics where timestamp = (select max(timestamp) from performance_schema.write_statistics) order by type, value;
+
+--echo ####### Next Cycle 2 #######
+--echo ### Expectation - There is replication lag. The client should be identified as the entity to be throttled. ###
+--echo ### Should throw errors when client attribute mt_throttle_okay is set. ###
+select sleep(@wat_freq);
+--echo ### Should quarantine the client, next query should not be throttled as the query tag is not present.
+insert into test1.t values(2);
+--echo ### Next query should be throttled (warning) as the query tag is present
+query_attrs_add mt_throttle_okay WARN;
+insert into test1.t values(2);
+query_attrs_reset;
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
+
+--echo ### Next query should be throttled (error) as the query tag is present.
+query_attrs_add mt_throttle_okay ERROR;
+--error ER_WRITE_QUERY_THROTTLED
+insert into test1.t values(2);
+query_attrs_reset;
+
+--echo ### Next query should not be throttled as tag is not set correctly.
+query_attrs_add mt_throttle_okay BLAHBLAH;
+insert into test1.t values(2);
+query_attrs_reset;
+
+--echo ### Multi-query should also be throttled based on tag present at the beginning.
+query_attrs_add mt_throttle_okay ERROR;
+delimiter ||||;
+--error ER_WRITE_QUERY_THROTTLED
+select 1; 
+insert into test1.t values(2);
+||||
+delimiter ;||||
+query_attrs_reset;
+
+--echo ### Next query should be throttled as tag based throttling is turned off but client is still the culprit.
+SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=FALSE;
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
+query_attrs_add mt_throttle_okay WARN;
+--error ER_WRITE_QUERY_THROTTLED
+insert into test1.t values(2);
+query_attrs_reset;
+select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
+select error_number, error_name, SUM_ERROR_RAISED from performance_schema.events_errors_summary_global_by_error where error_number = 50092;
+
+--echo ### Clear out throttling rules.
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+select type, value from performance_schema.write_throttling_rules where mode = 'AUTO';
+
+--echo ### Clear out write stats.
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_STATS_COUNT=10;
+select type, value, write_data_bytes from performance_schema.write_statistics;
+
+--echo ####### Next Cycle 3 #######
+select sleep(@wat_freq);
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=OFF;
+
+--echo ### Verify that query without tag does not store stats (dd344876a41a9ca8aec34362fadfb2bc).
+insert into test.t values(2);
+
+--echo ### Verify that query with tag does not store stats since session var is OFF (d1a61efcfc6659dee601fc851fef4374).
+query_attrs_add mt_throttle_okay ERROR;
+insert into test1.t values(2);
+query_attrs_reset;
+
+--echo ### Write control with and without tag is disabled so no stats.
+select type, value, write_data_bytes from performance_schema.write_statistics;
+
+--echo ### Enable write control and confirm that queries produced stats.
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
+
+--echo ### Verify that query without tag stores stats (dd344876a41a9ca8aec34362fadfb2bc).
+insert into test.t values(2);
+
+--echo ### Query with tag but with session var OFF is treated like without tag so stores stats (d1a61efcfc6659dee601fc851fef4374).
+query_attrs_add mt_throttle_okay ERROR;
+insert into test1.t values(2);
+query_attrs_reset;
+
+--echo ### Both queries above should be in write statistics. ###
+select type, value, write_data_bytes from performance_schema.write_statistics order by type, value;
+
+--echo ### Total throttling error/warning for this test  ###
+Select CAST(sum(count) - IFNULL(@log_count, 0) AS UNSIGNED) from performance_schema.write_throttling_log;
+
+--echo ####### Reset #######
+use test;
+TRUNCATE test.t;
+TRUNCATE test1.t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_STATS_ELIGIBLE_ONLY=FALSE;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
+SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=FALSE;
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
+truncate table performance_schema.events_errors_summary_global_by_error;
+set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+
 --echo ####################################################
 --echo ### Test End: Full Reset
 --echo ####################################################

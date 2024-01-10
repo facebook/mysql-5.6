@@ -589,6 +589,7 @@ extern std::atomic<bool> are_replicas_lagging;
 extern bool bypass_write_throttle_admin_check;
 extern uint write_stats_count;
 extern ulong write_stats_frequency;
+extern bool write_stats_eligible_only;
 extern char *latest_write_throttling_rule;
 extern char *latest_write_throttle_permissible_dimensions_in_order;
 extern std::vector<enum_wtr_dimension>

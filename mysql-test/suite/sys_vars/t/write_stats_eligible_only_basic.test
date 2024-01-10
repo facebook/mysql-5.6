@@ -1,0 +1,34 @@
+####
+# Verify default value false
+####
+--echo Default value of write_stats_eligible_only is false
+SELECT @@global.write_stats_eligible_only;
+show global variables like 'write_stats_eligible_only';
+select * from performance_schema.global_variables where variable_name='write_stats_eligible_only';
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.write_stats_eligible_only;
+--echo Expected error 'Variable is a GLOBAL variable'
+show session variables like 'write_stats_eligible_only';
+select * from performance_schema.session_variables where variable_name='write_stats_eligible_only';
+
+#
+# Correct assignments.
+#
+SET @@global.write_stats_eligible_only=true;
+select @@global.write_stats_eligible_only;
+set global write_stats_eligible_only=default;
+select @@global.write_stats_eligible_only;
+
+#
+# Incorrect assignments.
+#
+--error ER_GLOBAL_VARIABLE
+set session write_stats_eligible_only=true;
+--error ER_WRONG_TYPE_FOR_VAR
+set global write_stats_eligible_only=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+set global write_stats_eligible_only="foobar";
