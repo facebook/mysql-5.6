@@ -7905,7 +7905,8 @@ class Parser_oom_handler : public Internal_error_handler {
           if (thd->variables.parser_exceeded_max_mem_capacity_action ==
               PARSER_EXCEEDED_MAX_MEM_CAPACITY_ACTION_WARN) {
             push_warning_printf(
-                thd, Sql_condition::SL_WARNING, ER_CAPACITY_EXCEEDED, nullptr,
+                thd, Sql_condition::SL_WARNING, ER_CAPACITY_EXCEEDED,
+                ER_THD(thd, ER_CAPACITY_EXCEEDED),
                 static_cast<ulonglong>(thd->variables.parser_max_mem_size),
                 "parser_max_mem_size",
                 ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_PARSER));
