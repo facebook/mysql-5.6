@@ -498,7 +498,7 @@ static void test_rpc(void *) {
 
     LogPluginErrMsg(
         INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-        "calling bypass_select with query '%s', hlc_lower_bound_ts %lu",
+        "calling bypass_select with query '%s', hlc_lower_bound_ts %" PRIu64,
         query_str.c_str(), hlc_lower_bound_ts);
     const auto &exception = bypass_select(&param);
     if (exception.errnum) {
