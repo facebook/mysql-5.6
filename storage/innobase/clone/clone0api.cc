@@ -134,7 +134,7 @@ static void remove_file(const std::string &file) {
       return;
     }
 
-    auto ret = std::remove(file.c_str());
+    auto ret = slowfileremove(file.c_str());
 
     if (ret != 0) {
       ib::error(ER_IB_CLONE_STATUS_FILE)
