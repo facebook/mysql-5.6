@@ -77,6 +77,17 @@ bool inline is_supported_item_func(Item_func::Functype type) {
 
 namespace {
 
+LEX_CSTRING select_tok{STRING_WITH_LEN("SELECT")};
+LEX_CSTRING from_tok{STRING_WITH_LEN("FROM")};
+LEX_CSTRING where_tok{STRING_WITH_LEN("WHERE")};
+LEX_CSTRING force_tok{STRING_WITH_LEN("FORCE")};
+LEX_CSTRING index_tok{STRING_WITH_LEN("INDEX")};
+LEX_CSTRING order_tok{STRING_WITH_LEN("ORDER")};
+LEX_CSTRING by_tok{STRING_WITH_LEN("BY")};
+LEX_CSTRING limit_tok{STRING_WITH_LEN("LIMIT")};
+LEX_CSTRING asc_tok{STRING_WITH_LEN("ASC")};
+LEX_CSTRING desc_tok{STRING_WITH_LEN("DESC")};
+
 bool check_field_name_match(Field *field, const char *field_name) {
   return (field->field_name &&
           !my_strcasecmp(system_charset_info, field->field_name, field_name));

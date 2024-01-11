@@ -16,25 +16,14 @@
 
 namespace myrocks {
 
-static LEX_CSTRING select_tok{STRING_WITH_LEN("SELECT")};
-static LEX_CSTRING from_tok{STRING_WITH_LEN("FROM")};
-static LEX_CSTRING where_tok{STRING_WITH_LEN("WHERE")};
-static LEX_CSTRING force_tok{STRING_WITH_LEN("FORCE")};
-static LEX_CSTRING index_tok{STRING_WITH_LEN("INDEX")};
-static LEX_CSTRING order_tok{STRING_WITH_LEN("ORDER")};
-static LEX_CSTRING by_tok{STRING_WITH_LEN("BY")};
-static LEX_CSTRING limit_tok{STRING_WITH_LEN("LIMIT")};
-static LEX_CSTRING asc_tok{STRING_WITH_LEN("ASC")};
-static LEX_CSTRING desc_tok{STRING_WITH_LEN("DESC")};
-
-static LEX_CSTRING eq_tok{STRING_WITH_LEN("=")};
-static LEX_CSTRING lt_tok{STRING_WITH_LEN("<")};
-static LEX_CSTRING gt_tok{STRING_WITH_LEN(">")};
-static LEX_CSTRING le_tok{STRING_WITH_LEN("<=")};
-static LEX_CSTRING ge_tok{STRING_WITH_LEN(">=")};
-
 // This should always be synced with rocksdb::convert_where_op
 inline LEX_CSTRING get_op_lex_string(Item_func::Functype op) {
+  static LEX_CSTRING eq_tok{STRING_WITH_LEN("=")};
+  static LEX_CSTRING lt_tok{STRING_WITH_LEN("<")};
+  static LEX_CSTRING gt_tok{STRING_WITH_LEN(">")};
+  static LEX_CSTRING le_tok{STRING_WITH_LEN("<=")};
+  static LEX_CSTRING ge_tok{STRING_WITH_LEN(">=")};
+
   switch (op) {
     case Item_func::EQ_FUNC:
       return eq_tok;
