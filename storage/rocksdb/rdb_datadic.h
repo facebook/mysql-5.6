@@ -1213,11 +1213,13 @@ class Rdb_tbl_def {
   Rdb_tbl_def(const Rdb_tbl_def &) = delete;
   Rdb_tbl_def &operator=(const Rdb_tbl_def &) = delete;
 
-  explicit Rdb_tbl_def(const std::string &name, Rdb_tbl_def &&other)
-      : m_key_descr_arr(other.m_key_descr_arr),
-        m_hidden_pk_val(0),
-        m_auto_incr_val(0),
-        m_pk_index(other.m_pk_index),
+  Rdb_tbl_def(const std::string &name, Rdb_tbl_def &&other)
+      : m_table_type(other.get_table_type()),
+        m_key_count(other.m_key_count),
+        m_key_descr_arr(std::exchange(other.m_key_descr_arr, nullptr)),
+        m_hidden_pk_val(other.m_hidden_pk_val.load(std::memory_order_relaxed)),
+        m_auto_incr_val(other.m_auto_incr_val.load(std::memory_order_relaxed)),
+        m_pk_index(other.get_pk_index()),
         m_tbl_stats(other.m_tbl_stats),
         m_update_time(0),
         m_mtcache_lock(0),
@@ -1225,17 +1227,12 @@ class Rdb_tbl_def {
         m_mtcache_size(0),
         m_mtcache_last_update(0) {
     set_name(name);
-    m_auto_incr_val = other.m_auto_incr_val.load(std::memory_order_relaxed);
-    m_hidden_pk_val = other.m_hidden_pk_val.load(std::memory_order_relaxed);
-    m_key_count = other.m_key_count;
-    m_table_type = other.get_table_type();
-
-    // so that it's not free'd when deleting the old rec
-    other.m_key_descr_arr = nullptr;
+    other.m_pk_index = MAX_INDEXES + 1;
   }
 
-  explicit Rdb_tbl_def(const std::string &name, TABLE_TYPE table_type)
-      : m_key_descr_arr(nullptr),
+  Rdb_tbl_def(const std::string &name, TABLE_TYPE table_type)
+      : m_table_type(table_type),
+        m_key_descr_arr(nullptr),
         m_hidden_pk_val(0),
         m_auto_incr_val(0),
         m_pk_index(MAX_INDEXES + 1),
@@ -1246,12 +1243,12 @@ class Rdb_tbl_def {
         m_mtcache_size(0),
         m_mtcache_last_update(0) {
     set_name(name);
-    m_table_type = table_type;
   }
 
-  explicit Rdb_tbl_def(const rocksdb::Slice &slice, const size_t pos,
+  Rdb_tbl_def(const rocksdb::Slice &slice, const size_t pos,
                        TABLE_TYPE table_type)
-      : m_key_descr_arr(nullptr),
+      : m_table_type(table_type),
+        m_key_descr_arr(nullptr),
         m_hidden_pk_val(0),
         m_auto_incr_val(0),
         m_pk_index(MAX_INDEXES + 1),
@@ -1262,7 +1259,6 @@ class Rdb_tbl_def {
         m_mtcache_size(0),
         m_mtcache_last_update(0) {
     set_name(std::string(slice.data() + pos, slice.size() - pos));
-    m_table_type = table_type;
   }
 
   ~Rdb_tbl_def();
@@ -1302,6 +1298,8 @@ class Rdb_tbl_def {
 
   /* Does this table have a ttl col */
   bool has_ttl_col() {
+    assert(m_pk_index <= MAX_INDEXES);
+
     int local_copy = m_cached_has_ttl_col.load();
     if (local_copy != -1) {
       return local_copy;
