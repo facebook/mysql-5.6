@@ -49,7 +49,7 @@ class Protocol_RPC : public Protocol {
                struct st_ok_metadata *) override {
     return false;
   }
-  bool send_eof(uint, uint) override { return false; }
+  bool send_eof(uint, uint, struct st_ok_metadata *) override { return false; }
   bool send_error(uint, const char *, const char *) override { return false; }
   bool flush() override { return false; }
   bool store_ps_status(ulong, uint, uint, ulong) override { return false; }

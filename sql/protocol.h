@@ -318,7 +318,8 @@ class Protocol {
     @retval false The message was successfully sent
     @retval true An error occurred and the messages wasn't sent properly
   */
-  virtual bool send_eof(uint server_status, uint statement_warn_count) = 0;
+  virtual bool send_eof(uint server_status, uint statement_warn_count,
+                        struct st_ok_metadata *metadata) = 0;
   /**
     Send error message to the client.
 

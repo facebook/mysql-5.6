@@ -128,7 +128,7 @@ class Mock_protocol : public Protocol {
     return false;
   }
 
-  bool send_eof(uint, uint) override { return false; }
+  bool send_eof(uint, uint, struct st_ok_metadata *) override { return false; }
   bool send_error(uint, const char *, const char *) override { return false; }
   bool end_result_metadata() override { return false; }
 

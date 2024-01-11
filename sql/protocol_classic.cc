@@ -1319,7 +1319,8 @@ bool Protocol_classic::send_ok(uint server_status, uint statement_warn_count,
   Binary and text protocol do not differ in their EOF packet format.
 */
 
-bool Protocol_classic::send_eof(uint server_status, uint statement_warn_count) {
+bool Protocol_classic::send_eof(uint server_status, uint statement_warn_count,
+                                struct st_ok_metadata *) {
   DBUG_TRACE;
   bool retval;
   /*

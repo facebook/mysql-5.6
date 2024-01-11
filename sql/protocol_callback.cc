@@ -406,10 +406,11 @@ bool Protocol_callback::flush() { return false; }
     true  failure
     false success
 */
-bool Protocol_callback::send_eof(uint server_status, uint warn_count) {
+bool Protocol_callback::send_eof(uint server_status, uint warn_count,
+                                 struct st_ok_metadata *metadata) {
   if (callbacks.handle_ok)
     callbacks.handle_ok(callbacks_ctx, server_status, warn_count, 0, 0, nullptr,
-                        nullptr);
+                        metadata);
   return false;
 }
 

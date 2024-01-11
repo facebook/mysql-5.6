@@ -3676,7 +3676,8 @@ void THD::send_statement_status() {
       break;
     case Diagnostics_area::DA_EOF:
       error =
-          m_protocol->send_eof(server_status, da->last_statement_cond_count());
+          m_protocol->send_eof(server_status, da->last_statement_cond_count(),
+                               sendMetadata ? &meta : nullptr);
       break;
     case Diagnostics_area::DA_OK:
       error = m_protocol->send_ok(

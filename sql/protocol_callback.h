@@ -375,7 +375,8 @@ class Protocol_callback final : public Protocol {
     @retval true  failure
     @retval false success
   */
-  bool send_eof(uint server_status, uint warn_count) override;
+  bool send_eof(uint server_status, uint warn_count,
+                struct st_ok_metadata *metadata) override;
 
   /**
     Sends error

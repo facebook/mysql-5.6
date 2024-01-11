@@ -78,7 +78,8 @@ class Protocol_classic : public Protocol {
                ulonglong affected_rows, ulonglong last_insert_id,
                const char *message, struct st_ok_metadata *metadata) override;
 
-  bool send_eof(uint server_status, uint statement_warn_count) override;
+  bool send_eof(uint server_status, uint statement_warn_count,
+                struct st_ok_metadata *metadata = nullptr) override;
 
   bool send_error(uint sql_errno, const char *err_msg,
                   const char *sql_state) override;

@@ -296,7 +296,8 @@ class Protocol_local final : public Protocol {
                ulonglong affected_rows, ulonglong last_insert_id,
                const char *message, struct st_ok_metadata *) override;
 
-  bool send_eof(uint server_status, uint statement_warn_count) override;
+  bool send_eof(uint server_status, uint statement_warn_count,
+                struct st_ok_metadata *) override;
   bool send_error(uint sql_errno, const char *err_msg,
                   const char *sqlstate) override;
 
@@ -4004,7 +4005,7 @@ bool Protocol_local::send_ok(uint, uint, ulonglong, ulonglong, const char *,
   building of the result set at hand.
 */
 
-bool Protocol_local::send_eof(uint, uint) {
+bool Protocol_local::send_eof(uint, uint, struct st_ok_metadata *) {
   Ed_result_set *ed_result_set;
 
   assert(m_rset);

@@ -164,6 +164,10 @@ static StatementList test_fb_statements = {
     {nullptr, false, "set session dscp_on_socket=18"},
     {nullptr, false, "set session session_track_response_attributes = on"},
     {nullptr, false, "set wait_timeout=86400"},
+    {nullptr, false, "set session response_attrs_contain_server_cpu = on"},
+    // test response attribute exists for selects
+    {nullptr, false, "select 1"},
+    {nullptr, false, "set session response_attrs_contain_server_cpu = off"},
     {nullptr, false, "set session session_track_response_attributes = off"},
     {nullptr, false, "set session session_track_state_change=ON"},
     {nullptr, false, "set wait_timeout=86400"},
@@ -846,8 +850,13 @@ static void dump_closing_ok(struct st_plugin_ctx *ctx) {
       WRITE_VAL("\t\t[end] schema: %s\n", ctx->current_schema.c_str());
     }
     for (const auto &kv : ctx->response_attributes) {
+      auto response_attr_val = kv.second;
+      // make the test result comparison easier
+      if (kv.first == "server_cpu") {
+        response_attr_val = "TEST_VALUE";
+      }
       WRITE_VAL2("\t\t[end] response attribute: '%s' = '%s'\n",
-                 kv.first.c_str(), kv.second.c_str());
+                 kv.first.c_str(), response_attr_val.c_str());
     }
   }
 }
