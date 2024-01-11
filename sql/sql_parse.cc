@@ -2011,7 +2011,7 @@ ulong performance_schema_max_sql_text_length = 1024;
 */
 static void update_mt_stmt_stats(THD *thd, const std::string &sub_query) {
   /* Update write statistics if stats collection is turned on and
-    this stmt a write eligible for throttling.
+    this stmt is a write eligible for throttling.
   */
   if (write_stats_capture_enabled() &&
       thd->should_collect_stats_for_write_query()) {
