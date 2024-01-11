@@ -33,7 +33,7 @@ namespace {
 constexpr char in_place_old_datadir[] = ".rocksdb.saved";
 constexpr char old_wal_suffix[] = ".saved";
 
-// Must be kept in sync with CLONE_OTHER_ENGINES_MYROCKS_ROLLBACK_FILE in
+// Must be kept in sync with CLONE_FORCE_OTHER_ENGINES_ROLLBACK_FILE in
 // storage/innobase/include/clone0clone.h.
 constexpr char force_rollback_marker[] = "#clone/#force_other_engines_rollback";
 
@@ -77,7 +77,7 @@ void remove_temp_dir(const std::string &dir) {
 
 void move_temp_dir_to_destination(const std::string &temp,
                                   const std::string &old,
-                                  const std::string &dest, bool empty_allowed) {
+                                  const std::string &dest) {
   if (!temp_dir_exists_abort_if_not_dir(temp)) return;
   LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                   "Found in-place clone temp dir %s", temp.c_str());
@@ -94,7 +94,7 @@ void move_temp_dir_to_destination(const std::string &temp,
                              temp_dir_marker_path.c_str());
   }
 
-  if (!empty_allowed && is_dir_empty(temp)) {
+  if (is_dir_empty(temp)) {
     myrocks::rdb_fatal_error("In-place clone temp directory %s is empty",
                              temp.c_str());
   }
@@ -231,7 +231,7 @@ void fixup_on_startup() {
     rdb_fatal_error("In-progress clone marker found in the MyRocks datadir");
 
   move_temp_dir_to_destination(in_place_temp_datadir, in_place_old_datadir,
-                               rocksdb_datadir, false);
+                               rocksdb_datadir);
 
   if (is_wal_dir_separate()) {
     move_temp_dir_contents_to_dest(in_place_temp_wal_dir, rocksdb_wal_dir);
