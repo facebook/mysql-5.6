@@ -46,9 +46,9 @@ class native_dd {
   /* Set of ids of DD tables */
   static std::unordered_set<dd::Object_id> s_dd_table_ids;
 
- public:
-  static bool is_dd_table_id(dd::Object_id id);
+  [[nodiscard]] static bool is_dd_table_id(dd::Object_id id);
 
+ public:
   static void insert_dd_table_ids(dd::Object_id dd_table_id);
 
   static void clear_dd_table_ids();
