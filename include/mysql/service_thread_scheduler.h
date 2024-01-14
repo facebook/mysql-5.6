@@ -31,17 +31,19 @@
 
 struct Connection_handler_functions;
 struct THD_event_functions;
+struct Cpu_scheduler_functions;
 
 extern "C" struct my_thread_scheduler_service {
-  int (*connection_handler_set)(struct Connection_handler_functions *,
-                                struct THD_event_functions *);
+  int (*connection_handler_set)(Connection_handler_functions *,
+                                THD_event_functions *,
+                                Cpu_scheduler_functions *);
   int (*connection_handler_reset)();
 } * my_thread_scheduler_service;
 
 #ifdef MYSQL_DYNAMIC_PLUGIN
 
-#define my_connection_handler_set(F, M) \
-  my_thread_scheduler_service->connection_handler_set((F), (M))
+#define my_connection_handler_set(F, M, C) \
+  my_thread_scheduler_service->connection_handler_set((F), (M), (C))
 #define my_connection_handler_reset() \
   my_thread_scheduler_service->connection_handler_reset()
 
@@ -61,6 +63,8 @@ extern "C" struct my_thread_scheduler_service {
                new clients.
    @param tef  struct with functions to be called when events
                (e.g. lock wait) happens.
+   @param csf  struct with functions to be called for interaction with
+               cpu scheduler.
 
    @note Both pointers (i.e. not the structs themselves) will be copied,
          so the structs must not disappear.
@@ -70,8 +74,9 @@ extern "C" struct my_thread_scheduler_service {
    @retval 1  failure
    @retval 0  success
 */
-int my_connection_handler_set(struct Connection_handler_functions *chf,
-                              struct THD_event_functions *tef);
+int my_connection_handler_set(Connection_handler_functions *chf,
+                              THD_event_functions *tef,
+                              Cpu_scheduler_functions *csf);
 
 /**
    Destroys the current connection handler and restores the previous.

@@ -56,6 +56,10 @@ ulong Connection_handler_manager::max_used_connections_time = 0;
 THD_event_functions *Connection_handler_manager::event_functions = nullptr;
 THD_event_functions *Connection_handler_manager::saved_event_functions =
     nullptr;
+Cpu_scheduler_functions *Connection_handler_manager::cpu_scheduler_functions =
+    nullptr;
+Cpu_scheduler_functions
+    *Connection_handler_manager::saved_cpu_scheduler_functions = nullptr;
 mysql_mutex_t Connection_handler_manager::LOCK_connection_count;
 mysql_cond_t Connection_handler_manager::COND_connection_count;
 Connection_handler_manager *Connection_handler_manager::m_instance = nullptr;
@@ -296,7 +300,8 @@ void increment_aborted_connects() {
 }
 
 int my_connection_handler_set(Connection_handler_functions *chf,
-                              THD_event_functions *tef) {
+                              THD_event_functions *tef,
+                              Cpu_scheduler_functions *csf) {
   assert(chf != nullptr && tef != nullptr);
   if (chf == nullptr || tef == nullptr) return 1;
 
@@ -306,12 +311,19 @@ int my_connection_handler_set(Connection_handler_functions *chf,
   Connection_handler_manager::saved_event_functions =
       Connection_handler_manager::event_functions;
   Connection_handler_manager::event_functions = tef;
+
+  Connection_handler_manager::saved_cpu_scheduler_functions =
+      Connection_handler_manager::cpu_scheduler_functions;
+  Connection_handler_manager::cpu_scheduler_functions = csf;
+
   return 0;
 }
 
 int my_connection_handler_reset() {
   Connection_handler_manager::event_functions =
       Connection_handler_manager::saved_event_functions;
+  Connection_handler_manager::cpu_scheduler_functions =
+      Connection_handler_manager::saved_cpu_scheduler_functions;
   bool error =
       Connection_handler_manager::get_instance()->unload_connection_handler();
   if (!error) {

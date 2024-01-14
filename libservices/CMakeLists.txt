@@ -45,7 +45,8 @@ SET(MYSQLSERVICES_SOURCES
   rpl_transaction_write_set_service.c
   security_context_service.c
   mysql_keyring_service.c
-  plugin_registry_service.c)
+  plugin_registry_service.c
+  cpu_scheduler_service.c)
 
 ADD_LIBRARY(mysqlservices STATIC ${MYSQLSERVICES_SOURCES})
 IF(INSTALL_STATIC_LIBRARIES)

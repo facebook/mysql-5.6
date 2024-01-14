@@ -789,3 +789,45 @@ unsigned int thd_get_current_thd_terminology_use_previous() {
   if (!current_thd) return 0;
   return current_thd->variables.terminology_use_previous;
 }
+
+/**
+  Cpu scheduler APIs.
+*/
+bool tp_enqueue_task(tp_routine routine, void *param,
+                     tp_tenant_id_handle tenant_id, tp_scheduler_hint &hint) {
+  MYSQL_CALLBACK_RETURN(Connection_handler_manager::cpu_scheduler_functions,
+                        enqueue_task, (routine, param, tenant_id, hint));
+  return false;
+}
+
+tp_conn_handle tp_create_connection(THD *thd, const char *db) {
+  MYSQL_CALLBACK_RETURN(Connection_handler_manager::cpu_scheduler_functions,
+                        create_connection, (thd, db));
+  return nullptr;
+}
+
+void tp_destroy_connection(tp_conn_handle conn_handle) {
+  MYSQL_CALLBACK(Connection_handler_manager::cpu_scheduler_functions,
+                 destroy_connection, (conn_handle));
+}
+
+void tp_attach_connection(tp_conn_handle conn_handle) {
+  MYSQL_CALLBACK(Connection_handler_manager::cpu_scheduler_functions,
+                 attach_connection, (conn_handle));
+}
+
+void tp_detach_connection(tp_conn_handle conn_handle) {
+  MYSQL_CALLBACK(Connection_handler_manager::cpu_scheduler_functions,
+                 detach_connection, (conn_handle));
+}
+
+tp_tenant_id_handle tp_get_connection_tenant_id(tp_conn_handle conn_handle) {
+  MYSQL_CALLBACK_RETURN(Connection_handler_manager::cpu_scheduler_functions,
+                        get_connection_tenant_id, (conn_handle));
+  return nullptr;
+}
+
+void tp_destroy_tenant_id(tp_tenant_id_handle tenant_id) {
+  MYSQL_CALLBACK(Connection_handler_manager::cpu_scheduler_functions,
+                 destroy_tenant_id, (tenant_id));
+}

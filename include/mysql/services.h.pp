@@ -235,6 +235,31 @@ int command_service_run_command(MYSQL_SESSION session,
                                 const struct st_command_service_cbs *callbacks,
                                 enum cs_text_or_binary text_or_binary,
                                 void *service_callbacks_ctx);
+#include <mysql/service_cpu_scheduler.h>
+
+class THD;
+using tp_scheduler_hint = void *;
+using tp_conn_handle = void *;
+using tp_tenant_id_handle = void *;
+using tp_routine = void *(*)(void *);
+extern "C" struct cpu_scheduler_service_st {
+  bool (*enqueue_task)(tp_routine routine, void *param,
+                       tp_tenant_id_handle tenant_id, tp_scheduler_hint &hint);
+  tp_conn_handle (*create_connection)(THD *thd, const char *db);
+  void (*destroy_connection)(tp_conn_handle conn_handle);
+  void (*attach_connection)(tp_conn_handle conn_handle);
+  void (*detach_connection)(tp_conn_handle conn_handle);
+  tp_tenant_id_handle (*get_connection_tenant_id)(tp_conn_handle conn_handle);
+  void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
+} * cpu_scheduler_service;
+bool tp_enqueue_task(tp_routine routine, void *param,
+                     tp_tenant_id_handle tenant_id, tp_scheduler_hint &hint);
+tp_conn_handle tp_create_connection(THD *thd, const char *db);
+void tp_destroy_connection(tp_conn_handle conn_handle);
+void tp_attach_connection(tp_conn_handle conn_handle);
+void tp_detach_connection(tp_conn_handle conn_handle);
+tp_tenant_id_handle tp_get_connection_tenant_id(tp_conn_handle conn_handle);
+void tp_destroy_tenant_id(tp_tenant_id_handle tenant_id);
 #include <mysql/service_locking.h>
 #include "my_inttypes.h"
 enum enum_locking_service_lock_type {

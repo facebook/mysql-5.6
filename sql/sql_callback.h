@@ -37,18 +37,21 @@
    therefore return no error.
  */
 
-#define MYSQL_CALLBACK(OBJ, FUNC, PARAMS) \
-  do {                                    \
-    auto __obj = (OBJ);                   \
-    if (__obj) {                          \
-      auto __func = __obj->FUNC;          \
-      if (__func) {                       \
-        __func PARAMS;                    \
-      }                                   \
-    }                                     \
+#define MYSQL_CALLBACK_IMPL(OBJ, FUNC, PARAMS, RETURN) \
+  do {                                                 \
+    auto __obj = (OBJ);                                \
+    if (__obj) {                                       \
+      auto __func = __obj->FUNC;                       \
+      if (__func) {                                    \
+        RETURN __func PARAMS;                          \
+      }                                                \
+    }                                                  \
   } while (0)
 
-#define MYSQL_CALLBACK_ELSE(OBJ, FUNC, PARAMS, ELSE) \
-  (((OBJ) && ((OBJ)->FUNC)) ? (OBJ)->FUNC PARAMS : (ELSE))
+#define MYSQL_CALLBACK(OBJ, FUNC, PARAMS) \
+  MYSQL_CALLBACK_IMPL(OBJ, FUNC, PARAMS, )
+
+#define MYSQL_CALLBACK_RETURN(OBJ, FUNC, PARAMS) \
+  MYSQL_CALLBACK_IMPL(OBJ, FUNC, PARAMS, return )
 
 #endif /* SQL_CALLBACK_INCLUDED */

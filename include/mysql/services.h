@@ -26,6 +26,7 @@
 */
 
 #include <mysql/service_command.h>
+#include <mysql/service_cpu_scheduler.h>
 #include <mysql/service_locking.h>
 #include <mysql/service_my_plugin_log.h>
 #include <mysql/service_mysql_alloc.h>

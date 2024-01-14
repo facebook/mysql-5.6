@@ -138,6 +138,7 @@ IF (INSTALL_EXTRA_HEADERS)
     ${HEADERS_MYSQL_DIR}
     mysql/com_data.h
     mysql/service_command.h
+    mysql/service_cpu_scheduler.h
     mysql/service_locking.h
     mysql/service_my_plugin_log.h
     mysql/service_mysql_keyring.h

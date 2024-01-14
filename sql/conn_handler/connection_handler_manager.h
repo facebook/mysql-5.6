@@ -31,6 +31,7 @@
 
 #include "mysql/psi/mysql_cond.h"  // mysql_cond_t
 #include "mysql/psi/mysql_mutex.h"
+#include "mysql/service_cpu_scheduler.h"
 #include "sql/conn_handler/connection_handler.h"  // Connection_handler
 
 class Channel_info;
@@ -47,6 +48,20 @@ struct THD_event_functions {
   void (*thd_wait_begin)(THD *thd, int wait_type);
   void (*thd_wait_end)(THD *thd);
   void (*post_kill_notification)(THD *thd);
+};
+
+/**
+  Functions to work with the CPU scheduler.
+*/
+struct Cpu_scheduler_functions {
+  bool (*enqueue_task)(tp_routine routine, void *param,
+                       tp_tenant_id_handle tenant_id, tp_scheduler_hint &hint);
+  tp_conn_handle (*create_connection)(THD *thd, const char *db);
+  void (*destroy_connection)(tp_conn_handle conn_handle);
+  void (*attach_connection)(tp_conn_handle conn_handle);
+  void (*detach_connection)(tp_conn_handle conn_handle);
+  tp_tenant_id_handle (*get_connection_tenant_id)(tp_conn_handle conn_handle);
+  void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
 };
 
 /**
@@ -124,6 +139,11 @@ class Connection_handler_manager {
   static THD_event_functions *event_functions;
   // Saved event functions
   static THD_event_functions *saved_event_functions;
+
+  // Functions for CPU scheduler interations.
+  static Cpu_scheduler_functions *cpu_scheduler_functions;
+  // Saved functions for CPU scheduler.
+  static Cpu_scheduler_functions *saved_cpu_scheduler_functions;
 
   /**
      Maximum number of threads that can be created by the current

@@ -253,6 +253,11 @@ static struct thd_wait_service_st thd_wait_handler = {thd_wait_begin,
 static struct my_thread_scheduler_service my_thread_scheduler_handler = {
     my_connection_handler_set, my_connection_handler_reset};
 
+static struct cpu_scheduler_service_st cpu_scheduler_handler = {
+    tp_enqueue_task,      tp_create_connection, tp_destroy_connection,
+    tp_attach_connection, tp_detach_connection, tp_get_connection_tenant_id,
+    tp_destroy_tenant_id};
+
 static struct my_plugin_log_service my_plugin_log_handler = {
     my_plugin_log_message};
 
@@ -341,4 +346,5 @@ static struct st_service_ref list_of_services[] = {
     {"mysql_privacy_service", VERSION_mysql_privacy_service,
      &mysql_privacy_handler},
     {"rpc_plugin_service", VERSION_rpc_plugin_service, &rpc_plugin_handler},
+    {"cpu_scheduler_service", VERSION_cpu_scheduler, &cpu_scheduler_handler},
 };
