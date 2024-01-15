@@ -35,6 +35,7 @@
 #include "sql/sql_class.h"
 #include "sql/sql_error.h"
 #include "sql/sql_lex.h"
+#include "sql/sql_parse.h"
 #include "sql/sql_thd_internal_api.h"
 #include "unordered_map"
 
@@ -614,9 +615,190 @@ bool sql_plans_norm_prune_in_lists;
  * when possible, used in conjunction with above two flags */
 bool sql_plans_norm_use_arg_counts;
 
+bool plan_capture_check_footprint();
+bool plan_capture_check_sql_command(THD *thd);
+bool plan_capture_check_sampling_rate();
+std::string capture_query_tree_plan(THD *thd);
+
+// the main plan hash table, with normalized plan hash serving as key
+std::unordered_map<digest_key, Plan_val> plan_ht;
+
+// Total footprint in bytes of the plan data
+ulonglong current_sql_plans_buffer;
+
+// Total stmts that passed all checks and were ready to be sampled
+std::atomic<ulonglong> total_stmts_seen;
+// Total stmts that got sampled (due to sampling_rate)
+std::atomic<ulonglong> total_stmts_sampled;
+
+void capture_query_plan(THD *thd) {
+  DBUG_TRACE;
+
+  /* Plan capture should get triggered only if:
+     1. plan_capture feature is turned ON (already checked)
+     2. plan_capture memory and disk footprints are under the limit
+     3. a) current SQL_command is valid for plan capture (already checked),
+        b) and part of the filter list, if defined
+     4. check if current command should be sampled
+     */
+
+  assert(sql_plans_control == SQL_INFO_CONTROL_ON); // 1.
+
+  // Insert hook for PLAN CAPTURE here
+  if ((plan_capture_check_footprint()) ||       // 2.
+      (plan_capture_check_sql_command(thd)) ||  // 3.
+      (plan_capture_check_sampling_rate()))     // 4.
+    return;
+
+  // If we're here, then we can trigger the plan capture
+
+  ulong plan_format_modifiers{0};
+
+  if (sql_plans_norm_prune_expr_trees)
+    plan_format_modifiers |= THD::Plan_format::PRUNE_EXPR_TREES;
+
+  if (sql_plans_norm_use_arg_counts)
+    plan_format_modifiers |= THD::Plan_format::USE_ARG_COUNTS;
+
+  if (sql_plans_norm_prune_in_lists)
+    plan_format_modifiers |= THD::Plan_format::PRUNE_IN_LISTS;
+
+  thd->set_plan_capture(true, plan_format_modifiers);
+
+  // Next, capture the query plan for hashing
+  // Note that this output should already be a "normalized" plan
+  std::string plan = capture_query_tree_plan(thd);
+
+  thd->set_plan_capture(false);
+
+  if (plan.empty()) {
+    // nothing captured
+    // decr counter to make sure sampling logic works;
+    total_stmts_seen--;
+    return;
+  }
+  total_stmts_sampled++;
+
+  // at this point we should have the normalized plan captured
+
+  digest_key plan_id;
+  compute_md5_hash((char *)plan_id.data(), (const char *)plan.data(),
+                   plan.length());
+  thd->mt_key_set(THD::PLAN_ID, plan_id.data(), MD5_HASH_SIZE);
+
+  // Check if this can be avoided by picking from THD or elsewhere
+  ulonglong now = my_getsystime() / 10000000;
+
+  mysql_mutex_lock(&LOCK_plan_ht);
+
+  // Lookup plan hash in plan_ht
+  const auto sql_plan_it = plan_ht.find(thd->mt_key_value(THD::PLAN_ID));
+  if (sql_plan_it == plan_ht.end()) {
+    plan_ht[plan_id] = {1, now, plan};
+
+    current_sql_plans_buffer +=
+        MD5_HASH_SIZE + sizeof(Plan_val) + plan.length();
+
+  } else {
+    // hash key already present in plan_ht
+    // Just increment the counter and update the last_recorded
+    sql_plan_it->second.count_occur++;
+    sql_plan_it->second.last_recorded = now;
+  }
+
+  mysql_mutex_unlock(&LOCK_plan_ht);
+}
+
+bool plan_capture_check_footprint() {
+  DBUG_TRACE;
+  // This way, we will end up storing one extra plan above the configured
+  // limit, which should be okay
+  return (current_sql_plans_buffer >= sql_plans_max_buffer);
+}
+
+bool plan_capture_check_sql_command(THD *thd) {
+  DBUG_TRACE;
+  //
+  THD::Query_plan *qp = &thd->query_plan;
+
+  /* At the outset, we don't to capture the plan for a:
+     1. prepared query
+     2. a query that cannot be explained (already checked outside)
+     3. an explain query (probably not needed as this flag may not be set for
+     EXPLAINS: sql_command_flags[command] & CF_CAN_BE_EXPLAINED
+     4. a stored routine query
+   */
+  assert(is_explainable_query(qp->get_command())); // (2)
+
+  if (qp->is_ps_query() ||                         // (1)
+      qp->get_lex()->is_explain() ||               // (3)
+      qp->get_lex()->sphead != nullptr)            // (4)
+  {
+    return true;
+  }
+
+  // For now, only capture plans for SELECT commands:
+  if (qp->get_command() != SQLCOM_SELECT) return true;
+
+  // Additionally, we can filter out plans involving P_S tables or I_S tables
+  // based on configurable params (global or session variables)
+
+  return false;
+}
+
+bool plan_capture_check_sampling_rate() {
+  DBUG_TRACE;
+  // check the global plan_capture state
+  // increment counter for valid SQL CMDs that have reached this point
+  // see if current plan should be sampled
+
+  // NOTE: if plan capture fails, we need to decrement the counter,
+  // so that the next capture (or increment the counter only after
+  // plan capture completed)
+
+  total_stmts_seen++;
+  if (total_stmts_seen % sql_plans_sampling_rate) return true;
+
+  return false;
+}
+
+std::vector<sql_plan_row> get_all_sql_plans() {
+  std::vector<sql_plan_row> sql_plans;
+  mysql_mutex_lock(&LOCK_plan_ht);
+
+  for (auto sql_plans_iter = plan_ht.cbegin(); sql_plans_iter != plan_ht.cend();
+       ++sql_plans_iter) {
+    char plan_id_string[DIGEST_HASH_TO_STRING_LENGTH + 1];
+
+    DIGEST_HASH_TO_STRING(sql_plans_iter->first.data(), plan_id_string);
+    plan_id_string[DIGEST_HASH_TO_STRING_LENGTH] = '\0';
+
+    sql_plans.emplace_back(plan_id_string, sql_plans_iter->second.count_occur,
+                           sql_plans_iter->second.last_recorded,
+                           sql_plans_iter->second.plan);
+  }
+
+  mysql_mutex_unlock(&LOCK_plan_ht);
+  return sql_plans;
+}
+
 void reset_sql_plans() {
-  // to be filled out in a follow up commit
-  return;
+  mysql_mutex_lock(&LOCK_plan_ht);
+
+  plan_ht.clear();
+
+  current_sql_plans_buffer = 0;
+  total_stmts_seen = 0;
+  total_stmts_sampled = 0;
+
+  mysql_mutex_unlock(&LOCK_plan_ht);
+}
+
+int get_captured_plan_count() {
+  // return the total number of entries in the plan map so far
+  // This is used by the optimizer when queries the P_S.SQL_PLANS table
+
+  return plan_ht.size();
 }
 
 /***********************************************************************

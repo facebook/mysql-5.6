@@ -5676,7 +5676,20 @@ finish:
         statement.
       */
       lex->unit->assert_not_fully_clean();
+
+      if (!thd->is_error() && (sql_plans_control == SQL_INFO_CONTROL_ON)) {
+        // To make sure EXPLAIN FOR CONNECTION doesn't interfere,
+        //   one can do the following:
+        //
+        // thd->query_plan.set_query_plan(SQLCOM_END, nullptr, false);
+        //
+        // But to do so, the sql_command in the query_plan will have to
+        //   be cached, or the conditions for plan_capture need to be checked
+        //   beforehand (is_explainable_query() etc).
+        capture_query_plan(thd);
+      }
     }
+
     thd->query_plan.set_query_plan(SQLCOM_END, nullptr, false);
   }
 

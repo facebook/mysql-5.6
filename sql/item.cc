@@ -10778,9 +10778,17 @@ string ItemToString(const Item *item) {
   String str;
   const ulonglong save_bits = current_thd->variables.option_bits;
   current_thd->variables.option_bits &= ~OPTION_QUOTE_SHOW_CREATE;
-  item->print(
-      current_thd, &str,
-      enum_query_type(QT_NO_DEFAULT_DB | QT_SUBSELECT_AS_ONLY_SELECT_NUMBER));
+
+  enum_query_type query_type =
+      enum_query_type(QT_NO_DEFAULT_DB | QT_SUBSELECT_AS_ONLY_SELECT_NUMBER);
+
+  if (current_thd->plan_capture()) {
+    // Force Item_*::print* helper functions to normalize the output
+    query_type = enum_query_type(query_type | QT_NORMALIZED_FORMAT);
+  }
+
+  item->print(current_thd, &str, query_type);
+
   current_thd->variables.option_bits = save_bits;
   return to_string(str);
 }

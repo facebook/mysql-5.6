@@ -29,6 +29,7 @@
 #include "sql/sql_error.h"
 #include "storage/perfschema/table_full_sql.h"
 #include "storage/perfschema/table_sql_findings.h"
+#include "storage/perfschema/table_sql_plans.h"
 
 /*
   Possible values used for gap_lock_raise_error session variable
@@ -128,7 +129,21 @@ void store_client_attribute_names(char *new_value);
           Begin - Functions to support full SQL Plan Capture
 ************************************************************************/
 
+/* the SQL plan map is <plan_id:Plan_val>
+ * If we decide to schematize the plan itself, and represent each row
+ * as a separate row in the P_S.sql_plans table, then each plan row can be
+ * uniquely identified as <plan_id: plan_row>
+ * For now, a string is being used to capture the plan */
+typedef struct Plan_val_ {
+  uint count_occur;
+  ulonglong last_recorded;
+  std::string plan;
+} Plan_val;
+
+void capture_query_plan(THD *thd);
 void reset_sql_plans();
+std::vector<sql_plan_row> get_all_sql_plans();
+int get_captured_plan_count();
 
 /***********************************************************************
                End - Functions to support SQL Plan Capture

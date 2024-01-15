@@ -1438,6 +1438,12 @@ int index_next_different(bool is_index_scan, handler *file,
 */
 void print_key_value(String *out, const KEY_PART_INFO *key_part,
                      const uchar *key) {
+  if (current_thd->plan_capture()) {
+    // Normalize the output
+    out->append("?");
+    return;
+  }
+
   Field *field = key_part->field;
   if (field->is_array()) {
     field = down_cast<Field_typed_array *>(field)->get_conv_field();

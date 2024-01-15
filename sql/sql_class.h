@@ -5456,8 +5456,31 @@ class THD : public MDL_context_owner,
   }
   Query_formatter *get_query_formatter() { return m_query_formatter; }
 
+  bool plan_capture() const { return m_plan_capture_ongoing; }
+
+  enum Plan_format : unsigned short {
+    PRUNE_EXPR_TREES = 1,
+    PRUNE_IN_LISTS = 2,
+    SKIP_P_S_PLANS = 4,
+    SKIP_I_S_PLANS = 8,
+    USE_ARG_COUNTS = 16
+  };
+
+  void set_plan_capture(const bool state,
+                        const ulong plan_format_modifiers = 0) {
+    m_plan_capture_ongoing = state;
+    m_plan_format_modifiers = plan_format_modifiers;
+  }
+
+  bool is_plan_modifier_set(Plan_format plan_format) const {
+    return m_plan_format_modifiers & plan_format;
+  }
+
  private:
   Query_formatter *m_query_formatter{nullptr};
+
+  bool m_plan_capture_ongoing{false};
+  ulong m_plan_format_modifiers{0};
 };
 
 /**

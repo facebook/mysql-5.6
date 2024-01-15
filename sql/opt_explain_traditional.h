@@ -105,7 +105,19 @@ class Explain_format_tree : public Explain_format {
   void AppendChildren(const Json_dom *children, int level, std::string *explain,
                       std::vector<std::string> *tokens_for_force_subplan,
                       std::string *child_token_digest);
-  void ExplainPrintCosts(const Json_object *obj, std::string *explain);
+  virtual void ExplainPrintCosts(const Json_object *obj, std::string *explain);
 };
 
+class Explain_format_tree_plan : public Explain_format_tree {
+ public:
+  Explain_format_tree_plan() = default;
+
+ private:
+  void ExplainPrintCosts(const Json_object *obj [[maybe_unused]],
+                         std::string *explain) {
+    // Costs are not needed for the normalized plan
+    *explain += "\n";
+    return;
+  }
+};
 #endif  // OPT_EXPLAIN_FORMAT_TRADITIONAL_INCLUDED

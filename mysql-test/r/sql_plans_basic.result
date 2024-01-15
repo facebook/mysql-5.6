@@ -1,0 +1,488 @@
+create database test_db;
+use test_db;
+CREATE TABLE t1 (
+pk INT NOT NULL AUTO_INCREMENT,
+a INT,
+b INT,
+c INT,
+PRIMARY KEY (pk),
+KEY idx1 (a),
+KEY idx2 (b, a),
+KEY idx3 (a, b)
+) ENGINE = InnoDB;
+INSERT INTO t1 (a, b, c) VALUES
+(1, 1, 1), (1, 2, 5), (1, 2, 6), (1, 6, 6),
+(2, 1, 1), (2, 2, 5), (2, 3, 8), (2, 6, 9),
+(3, 1, 1), (3, 2, 5), (3, 3, 8), (3, 6, 9);
+CREATE TABLE t2 (
+pk_col1 INT NOT NULL,
+pk_col2 INT NOT NULL,
+c1 CHAR(64) NOT NULL,
+c2 CHAR(64) NOT NULL,
+PRIMARY KEY(pk_col1, pk_col2),
+KEY c1_c2_idx (c1, c2)
+) ENGINE=INNODB;
+INSERT INTO t2 VALUES (1,1,'a','b'), (1,2,'a','b'),
+(1,3,'a','c'), (1,4,'a','c'),
+(2,1,'a','d'), (3,1,'a','b'),
+(4,1,'d','b'), (4,2,'e','b'),
+(5,3,'f','c'), (5,4,'k','c'),
+(6,1,'y','d'), (6,2,'f','b');
+SELECT @@sql_plans_control;
+@@sql_plans_control
+OFF_HARD
+SELECT @@sql_plans_max_buffer;
+@@sql_plans_max_buffer
+10485760
+SELECT @@sql_plans_sampling_rate;
+@@sql_plans_sampling_rate
+1
+SELECT @@sql_plans_norm_prune_expr_trees;
+@@sql_plans_norm_prune_expr_trees
+0
+SELECT @@sql_plans_norm_prune_in_lists;
+@@sql_plans_norm_prune_in_lists
+0
+SELECT @@sql_plans_norm_use_arg_counts;
+@@sql_plans_norm_use_arg_counts
+0
+SELECT * FROM t1;
+pk	a	b	c
+1	1	1	1
+2	1	2	5
+3	1	2	6
+4	1	6	6
+5	2	1	1
+6	2	2	5
+7	2	3	8
+8	2	6	9
+9	3	1	1
+10	3	2	5
+11	3	3	8
+12	3	6	9
+SELECT * FROM t2;
+pk_col1	pk_col2	c1	c2
+1	1	a	b
+1	2	a	b
+3	1	a	b
+1	3	a	c
+1	4	a	c
+2	1	a	d
+4	1	d	b
+4	2	e	b
+6	2	f	b
+5	3	f	c
+5	4	k	c
+6	1	y	d
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+set @@GLOBAL.sql_plans_control=ON;
+select @@sql_plans_control;
+@@sql_plans_control
+ON
+SELECT * FROM t1;
+SELECT * FROM t2;
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+bc85a4885b10aa0987188e1a7ce95b72	1	-> Covering index scan on t2 using c1_c2_idx
+
+0b3ac009b76c4f8aee63f56b3280a8b6	1	-> Table scan on t1
+
+5bc5fc561530fd7fedb817e8a8171e88	1	-> Rows fetched before execution
+
+
+.*********************************************************.
+| Test that SQL Plans got captured in P_S.SQL_PLANS table |
+`*********************************************************`
+
+-> There should be a count of 4 in the following SELECT query
+These include the previous 4 SELECTs issued above
+
+SELECT COUNT(*) FROM performance_schema.sql_plans;
+COUNT(*)
+4
+
+.*************************************************************.
+| Test that OFF_HARD switch cleans up the P_S.SQL_PLANS table |
+`*************************************************************`
+
+-> There should be no output in the following SELECT query 
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+
+.**************************************************************.
+| Test basic plan normalization, plan hashing and plan capture |
+`**************************************************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+SELECT #1
+SELECT * FROM t1;
+SELECT #2
+SELECT * FROM t2;
+SELECT #3
+SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col1;
+SELECT #4
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk > 3 AND t2.pk_col1 <= 3;
+SELECT #5
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk >= 3 AND t1.pk <= 3 AND t2.pk_col2 IN (5, 6, 7, 8, 9);
+
+-> There should be 5 different plans captured corresponding to the
+above SELECTs
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+9e5d6f55dc5dc1e32e1c35dd60002411	1	-> Nested loop inner join
+    -> Filter: ((t1.pk >= ?) and (t1.pk <= ?) and (t1.a is not null))
+        -> Index range scan on t1 using PRIMARY over (pk = ?)
+    -> Filter: (t2.pk_col2 in (?,?,?,?,?))
+        -> Covering index lookup on t2 using PRIMARY (pk_col1=t1.a)
+
+a3371a0d7d74569b3c34bc4cb1b3a6d1	1	-> Nested loop inner join
+    -> Filter: (t2.pk_col1 <= ?)
+        -> Covering index range scan on t2 using PRIMARY over (pk_col1 <= ?)
+    -> Index lookup on t1 using idx1 (a=t2.pk_col1), with index condition: (t1.pk > ?)
+
+39b61da68f021611d063c21377d95aa5	1	-> Nested loop inner join
+    -> Filter: (t1.c is not null)
+        -> Table scan on t1
+    -> Index lookup on t2 using PRIMARY (pk_col1=t1.c)
+
+bc85a4885b10aa0987188e1a7ce95b72	1	-> Covering index scan on t2 using c1_c2_idx
+
+0b3ac009b76c4f8aee63f56b3280a8b6	1	-> Table scan on t1
+
+
+.*******************************************.
+| Test correct hashing for repeated queries |
+`*******************************************`
+
+SELECT #1
+SELECT * FROM t1;
+SELECT #2
+SELECT * FROM t2;
+SELECT #3
+SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col1;
+SELECT #4
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk > 3 AND t2.pk_col1 <= 3;
+SELECT #5
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk >= 3 AND t1.pk <= 3 AND t2.pk_col2 IN (5, 6, 7, 8, 9);
+
+-> Testing that SELECTs issued twice don't add new entries to P_S.SQL_PLANS
+This time, there should be 6 different plans in the output,
+5 corresponding to the previous 5 plans, and a 6th one for the P_S
+SELECT query itself
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+9e5d6f55dc5dc1e32e1c35dd60002411	2	-> Nested loop inner join
+    -> Filter: ((t1.pk >= ?) and (t1.pk <= ?) and (t1.a is not null))
+        -> Index range scan on t1 using PRIMARY over (pk = ?)
+    -> Filter: (t2.pk_col2 in (?,?,?,?,?))
+        -> Covering index lookup on t2 using PRIMARY (pk_col1=t1.a)
+
+a3371a0d7d74569b3c34bc4cb1b3a6d1	2	-> Nested loop inner join
+    -> Filter: (t2.pk_col1 <= ?)
+        -> Covering index range scan on t2 using PRIMARY over (pk_col1 <= ?)
+    -> Index lookup on t1 using idx1 (a=t2.pk_col1), with index condition: (t1.pk > ?)
+
+39b61da68f021611d063c21377d95aa5	2	-> Nested loop inner join
+    -> Filter: (t1.c is not null)
+        -> Table scan on t1
+    -> Index lookup on t2 using PRIMARY (pk_col1=t1.c)
+
+a1c6b5714c67acd183ca6a76db38701c	1	-> Table scan on sql_plans
+
+bc85a4885b10aa0987188e1a7ce95b72	2	-> Covering index scan on t2 using c1_c2_idx
+
+0b3ac009b76c4f8aee63f56b3280a8b6	2	-> Table scan on t1
+
+
+.*************************************************.
+| Test correct hashing for multistatement queries |
+`*************************************************`
+
+SELECT #1 and #2
+SELECT * FROM t1 //
+SELECT * FROM t2 //
+
+-> Testing that repeated SELECTs don't add new entries to P_S.SQL_PLANS
+This time there should, again, be 6 different plans in the output.
+The COUNT for the last two SELECTs will go up to 3. And the count for
+the sql_plans table scan will also go up to 2. 
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+9e5d6f55dc5dc1e32e1c35dd60002411	2	-> Nested loop inner join
+    -> Filter: ((t1.pk >= ?) and (t1.pk <= ?) and (t1.a is not null))
+        -> Index range scan on t1 using PRIMARY over (pk = ?)
+    -> Filter: (t2.pk_col2 in (?,?,?,?,?))
+        -> Covering index lookup on t2 using PRIMARY (pk_col1=t1.a)
+
+a3371a0d7d74569b3c34bc4cb1b3a6d1	2	-> Nested loop inner join
+    -> Filter: (t2.pk_col1 <= ?)
+        -> Covering index range scan on t2 using PRIMARY over (pk_col1 <= ?)
+    -> Index lookup on t1 using idx1 (a=t2.pk_col1), with index condition: (t1.pk > ?)
+
+39b61da68f021611d063c21377d95aa5	2	-> Nested loop inner join
+    -> Filter: (t1.c is not null)
+        -> Table scan on t1
+    -> Index lookup on t2 using PRIMARY (pk_col1=t1.c)
+
+a1c6b5714c67acd183ca6a76db38701c	2	-> Table scan on sql_plans
+
+bc85a4885b10aa0987188e1a7ce95b72	3	-> Covering index scan on t2 using c1_c2_idx
+
+0b3ac009b76c4f8aee63f56b3280a8b6	3	-> Table scan on t1
+
+
+.*********************************.
+| Test sql_plans_control=OFF_SOFT |
+`*********************************`
+
+set @@GLOBAL.sql_plans_control=OFF_SOFT;
+SELECT #1
+SELECT * FROM t1 where a = 5 and b > 10;
+SELECT #2
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4;
+SELECT #3
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4 or c > 10;
+SELECT #4
+SELECT * FROM t1 where a = 5 and b > 10 and (c < 4 or c > 10) or b in (1, 8, 88);
+
+-> Testing that SELECTs issued after sql_plans_control=OFF_SOFT
+don't add new entries to P_S.SQL_PLANS
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+9e5d6f55dc5dc1e32e1c35dd60002411	2	-> Nested loop inner join
+    -> Filter: ((t1.pk >= ?) and (t1.pk <= ?) and (t1.a is not null))
+        -> Index range scan on t1 using PRIMARY over (pk = ?)
+    -> Filter: (t2.pk_col2 in (?,?,?,?,?))
+        -> Covering index lookup on t2 using PRIMARY (pk_col1=t1.a)
+
+a3371a0d7d74569b3c34bc4cb1b3a6d1	2	-> Nested loop inner join
+    -> Filter: (t2.pk_col1 <= ?)
+        -> Covering index range scan on t2 using PRIMARY over (pk_col1 <= ?)
+    -> Index lookup on t1 using idx1 (a=t2.pk_col1), with index condition: (t1.pk > ?)
+
+39b61da68f021611d063c21377d95aa5	2	-> Nested loop inner join
+    -> Filter: (t1.c is not null)
+        -> Table scan on t1
+    -> Index lookup on t2 using PRIMARY (pk_col1=t1.c)
+
+a1c6b5714c67acd183ca6a76db38701c	3	-> Table scan on sql_plans
+
+bc85a4885b10aa0987188e1a7ce95b72	3	-> Covering index scan on t2 using c1_c2_idx
+
+0b3ac009b76c4f8aee63f56b3280a8b6	3	-> Table scan on t1
+
+
+.*****************************************.
+| Test sql_plans_control=ON from OFF_SOFT |
+`*****************************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+SELECT #1
+SELECT * FROM t1 where a = 5 and b > 10;
+SELECT #2
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4;
+SELECT #3
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4 or c > 10;
+SELECT #4
+SELECT * FROM t1 where a = 5 and b > 10 and (c < 4 or c > 10) or b in (1, 8, 88);
+
+-> Testing that SELECTs issued after sql_plans_control=ON after being
+at OFF_SOFT start adding new entries to P_S.SQL_PLANS again,
+carrying from before.
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+15f9aaefe251fc285b3c75edfd313396	1	-> Filter: ((t1.b > ?) and (t1.c < ?))
+    -> Index lookup on t1 using idx1 (a=?)
+
+00da2e027480a54ccf17c47256dd41d8	1	-> Filter: (t1.b > ?)
+    -> Index lookup on t1 using idx1 (a=?)
+
+9e5d6f55dc5dc1e32e1c35dd60002411	2	-> Nested loop inner join
+    -> Filter: ((t1.pk >= ?) and (t1.pk <= ?) and (t1.a is not null))
+        -> Index range scan on t1 using PRIMARY over (pk = ?)
+    -> Filter: (t2.pk_col2 in (?,?,?,?,?))
+        -> Covering index lookup on t2 using PRIMARY (pk_col1=t1.a)
+
+f0a5aee7587caba0868aeb9dd52c58b1	1	-> Filter: (((t1.a = ?) and (t1.b > ?) and ((t1.c < ?) or (t1.c > ?))) or (t1.b in (?,?,?)))
+    -> Table scan on t1
+
+a3371a0d7d74569b3c34bc4cb1b3a6d1	2	-> Nested loop inner join
+    -> Filter: (t2.pk_col1 <= ?)
+        -> Covering index range scan on t2 using PRIMARY over (pk_col1 <= ?)
+    -> Index lookup on t1 using idx1 (a=t2.pk_col1), with index condition: (t1.pk > ?)
+
+bfed04f82a856191142aec5e142ff6fb	1	-> Filter: (((t1.a = ?) and (t1.b > ?) and (t1.c < ?)) or (t1.c > ?))
+    -> Table scan on t1
+
+39b61da68f021611d063c21377d95aa5	2	-> Nested loop inner join
+    -> Filter: (t1.c is not null)
+        -> Table scan on t1
+    -> Index lookup on t2 using PRIMARY (pk_col1=t1.c)
+
+a1c6b5714c67acd183ca6a76db38701c	3	-> Table scan on sql_plans
+
+bc85a4885b10aa0987188e1a7ce95b72	3	-> Covering index scan on t2 using c1_c2_idx
+
+0b3ac009b76c4f8aee63f56b3280a8b6	3	-> Table scan on t1
+
+Reset state before next test
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_control=ON;
+
+.********************************************.
+| Test plan normalization for basic literals |
+`********************************************`
+
+SELECT #1
+SELECT * FROM t2 where pk_col1 > 3 AND pk_col2 <= 5;
+SELECT #2
+SELECT * FROM t2 where pk_col1 > 13 AND pk_col2 <= 15;
+SELECT #3
+SELECT * FROM t2 where pk_col1 > 23 AND pk_col2 <= 25;
+
+-> There should be only one plan for the above 3 SELECT statements
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+16958bdf6935049edca960803ba464c8	3	-> Filter: ((t2.pk_col1 > ?) and (t2.pk_col2 <= ?))
+    -> Index range scan on t2 using PRIMARY over (? < pk_col1)
+
+Reset state before next test
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+
+.******************************.
+| Test sql_plans_sampling_rate |
+`******************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+set @@GLOBAL.sql_plans_sampling_rate=2;
+SELECT #1
+SELECT * FROM t1;
+SELECT #2
+SELECT * FROM t2;
+SELECT #3
+SELECT * FROM t1 JOIN t2 ON t1.c > 1;
+SELECT #4
+SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col1;
+SELECT #5
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk > 3 AND t2.pk_col1 <= 3;
+SELECT #6
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk >= 3 AND t1.pk <= 3 AND t2.pk_col2 IN (5, 6, 7, 8, 9);
+
+-> There should be only 3 plans captured for the above 6 SELECT statements 
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+9e5d6f55dc5dc1e32e1c35dd60002411	1	-> Nested loop inner join
+    -> Filter: ((t1.pk >= ?) and (t1.pk <= ?) and (t1.a is not null))
+        -> Index range scan on t1 using PRIMARY over (pk = ?)
+    -> Filter: (t2.pk_col2 in (?,?,?,?,?))
+        -> Covering index lookup on t2 using PRIMARY (pk_col1=t1.a)
+
+39b61da68f021611d063c21377d95aa5	1	-> Nested loop inner join
+    -> Filter: (t1.c is not null)
+        -> Table scan on t1
+    -> Index lookup on t2 using PRIMARY (pk_col1=t1.c)
+
+bc85a4885b10aa0987188e1a7ce95b72	1	-> Covering index scan on t2 using c1_c2_idx
+
+Reset state before next test
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_sampling_rate=1;
+
+.*****************************.
+| Test sql_plans_max_buffer A |
+`*****************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+set @@GLOBAL.sql_plans_max_buffer=20;
+Warnings:
+Warning	1292	Truncated incorrect sql_plans_max_buffer value: '20'
+SELECT #1
+SELECT * FROM t1 limit 1;
+SELECT #2
+SELECT * FROM t2 limit 1;
+SELECT #3
+SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col1 limit 1;
+SELECT #4
+SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col2 limit 1;
+SELECT #5
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk > 3 AND t2.pk_col1 <= 3 limit 1;
+SELECT #6
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk >= 3 AND t1.pk <= 3 AND t2.pk_col2 IN (5, 6, 7, 8, 9) limit 1;
+
+-> There should be only 1 plan captured for the above 6 SELECT statements 
+because of "sql_plans_max_buffer" set to 20 bytes
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+04d919553d7cfda90b689560bc18e3a4	1	-> Limit: 1 row(s)
+    -> Table scan on t1
+
+Reset state before next test
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_max_buffer=10485760;
+
+.*****************************.
+| Test sql_plans_max_buffer B |
+`*****************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+set @@GLOBAL.sql_plans_max_buffer=150;
+SELECT #1
+SELECT * FROM t1 limit 1;
+SELECT #2
+SELECT * FROM t2 limit 1;
+SELECT #3
+SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col1 limit 1;
+SELECT #4
+SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col2 limit 1;
+SELECT #5
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk > 3 AND t2.pk_col1 <= 3 limit 1;
+SELECT #6
+SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk >= 3 AND t1.pk <= 3 AND t2.pk_col2 IN (5, 6, 7, 8, 9) limit 1;
+
+-> There should be only 2 plans captured for the above 6 SELECT statements 
+because of "sql_plans_max_buffer" set to 150 bytes
+
+SELECT PLAN_ROW, PLAN_ID, COUNT_OCCUR FROM performance_schema.sql_plans;
+PLAN_ROW	PLAN_ID	COUNT_OCCUR
+-> Limit: 1 row(s)
+    -> Covering index scan on t2 using c1_c2_idx
+	395b7fe073f546f216511d00ee811bbd	1
+-> Limit: 1 row(s)
+    -> Table scan on t1
+	04d919553d7cfda90b689560bc18e3a4	1
+Reset state before next test
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_max_buffer=10485760;
+
+.**************************.
+| Test PLAN_ID in MT STATS |
+`**************************`
+
+set @@GLOBAL.performance_schema_esms_by_all=ON;
+set @@GLOBAL.sql_plans_control=ON;
+SELECT * FROM t1 LIMIT 1;
+pk	a	b	c
+1	1	1	1
+
+-> PLAN_ID obtained from P_S.SQL_PLANS: 04d919553d7cfda90b689560bc18e3a4
+QUERY_TEXT from P_S.ESMS_BY_ALL using the above PLAN_ID: SELECT * FROM t1 LIMIT 1
+
+If the following assert holds true, then the correct PLAN ID is being
+stored in P_S.ESMS_BY_ALL for the sample query
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.performance_schema_esms_by_all=off;
+drop table t1;
+drop table t2;
+drop database test_db;

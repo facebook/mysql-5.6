@@ -86,23 +86,14 @@ PFS_engine_table *table_sql_plans::create(PFS_engine_table_share *) {
 }
 
 int table_sql_plans::delete_all_rows(void) {
-  // Temporarily commenting out
-  // reset_sql_plans();
+  reset_sql_plans();
   return 0;
 }
 
 ha_rows table_sql_plans::get_row_count(void) {
   // Calculate this based on actual # of entries
   // Could also return the max because this table will fill up quickly
-  // Temporarily commenting out
-  // return get_captured_plan_count();
-  return 0;
-}
-
-// Temporary dummy function
-std::vector<sql_plan_row> get_all_sql_plans() {
-  std::vector<sql_plan_row> sql_plans;
-  return sql_plans;
+  return get_captured_plan_count();
 }
 
 table_sql_plans::table_sql_plans()
@@ -163,9 +154,14 @@ int table_sql_plans::read_row_values(TABLE *table, unsigned char *buf,
                                                  */
           set_field_ulonglong(f, curr_row.last_recorded());
           break;
-        case sql_plans_field_id::PLAN_ROW: /* PLAN_ROW VARCHAR(2048) */
-          set_field_varchar_utf8mb4(f, curr_row.plan_row().c_str(),
-                                    curr_row.plan_row().length());
+        case sql_plans_field_id::PLAN_ROW: /* PLAN_ROW TEXT */
+          if (curr_row.plan_row().length())
+            set_field_text(f, curr_row.plan_row().c_str(),
+                           curr_row.plan_row().length(),
+                           &my_charset_utf8mb4_bin);
+          else {
+            f->set_null();
+          }
           break;
         default:
           assert(false);
