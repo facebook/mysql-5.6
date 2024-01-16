@@ -20,6 +20,8 @@
   @file include/mysql/service_cpu_scheduler.h
 */
 
+#include "my_inttypes.h"
+
 class THD;
 
 /**
@@ -43,6 +45,14 @@ using tp_tenant_id_handle = void *;
 */
 using tp_routine = void *(*)(void *);
 
+/**
+  CPU usage stats.
+*/
+struct tp_cpu_stats {
+  int64_t cpu_usage_ns;
+  int64_t delay_total_ns;
+};
+
 extern "C" struct cpu_scheduler_service_st {
   bool (*enqueue_task)(tp_routine routine, void *param,
                        tp_tenant_id_handle tenant_id, tp_scheduler_hint &hint);
@@ -52,6 +62,7 @@ extern "C" struct cpu_scheduler_service_st {
   void (*detach_connection)(tp_conn_handle conn_handle);
   tp_tenant_id_handle (*get_connection_tenant_id)(tp_conn_handle conn_handle);
   void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
+  bool (*get_current_task_cpu_stats)(tp_cpu_stats &cpu_stats);
 } * cpu_scheduler_service;
 
 /**
@@ -73,6 +84,8 @@ extern "C" struct cpu_scheduler_service_st {
   cpu_scheduler_service->get_connection_tenant_id(_CONN_HANDLE)
 #define tp_destroy_tenant_id(_TENANT_ID) \
   cpu_scheduler_service->destroy_tenant_id(_TENANT_ID)
+#define tp_get_current_task_cpu_stats(_CPU_STATS) \
+  cpu_scheduler_service->get_current_task_cpu_stats(_CPU_STATS)
 
 #else
 
@@ -132,5 +145,14 @@ tp_tenant_id_handle tp_get_connection_tenant_id(tp_conn_handle conn_handle);
   @param tenant_id Tenant id handle to destroy.
 */
 void tp_destroy_tenant_id(tp_tenant_id_handle tenant_id);
+
+/**
+  Get CPU stats for current task.
+
+  @param cpu_stats Stats struct to populate.
+  @return true  if stats are populated,
+          false if current thread doesn't have a CPU scheduler task.
+*/
+bool tp_get_current_task_cpu_stats(tp_cpu_stats &cpu_stats);
 
 #endif

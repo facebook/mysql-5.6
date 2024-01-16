@@ -256,7 +256,7 @@ static struct my_thread_scheduler_service my_thread_scheduler_handler = {
 static struct cpu_scheduler_service_st cpu_scheduler_handler = {
     tp_enqueue_task,      tp_create_connection, tp_destroy_connection,
     tp_attach_connection, tp_detach_connection, tp_get_connection_tenant_id,
-    tp_destroy_tenant_id};
+    tp_destroy_tenant_id, tp_get_current_task_cpu_stats};
 
 static struct my_plugin_log_service my_plugin_log_handler = {
     my_plugin_log_message};

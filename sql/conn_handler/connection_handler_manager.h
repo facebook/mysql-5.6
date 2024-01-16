@@ -62,6 +62,7 @@ struct Cpu_scheduler_functions {
   void (*detach_connection)(tp_conn_handle conn_handle);
   tp_tenant_id_handle (*get_connection_tenant_id)(tp_conn_handle conn_handle);
   void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
+  bool (*get_current_task_cpu_stats)(tp_cpu_stats &cpu_stats);
 };
 
 /**

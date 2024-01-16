@@ -831,3 +831,9 @@ void tp_destroy_tenant_id(tp_tenant_id_handle tenant_id) {
   MYSQL_CALLBACK(Connection_handler_manager::cpu_scheduler_functions,
                  destroy_tenant_id, (tenant_id));
 }
+
+bool tp_get_current_task_cpu_stats(tp_cpu_stats &cpu_stats) {
+  MYSQL_CALLBACK_RETURN(Connection_handler_manager::cpu_scheduler_functions,
+                        get_current_task_cpu_stats, (cpu_stats));
+  return false;
+}
