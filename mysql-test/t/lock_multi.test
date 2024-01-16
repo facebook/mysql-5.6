@@ -1,3 +1,5 @@
+--source include/have_innodb_system_tables.inc
+
 # This tests Bug#16986 Deadlock condition with MyISAM tables
 # All tests are required to run with Myisam.
 # Hence MTR starts mysqld with MyISAM as default

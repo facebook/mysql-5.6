@@ -1,0 +1,19 @@
+use mysql;
+--source include/system_db_struct.inc
+
+--echo #
+--echo # System table updates should be allowed in all binlog formats
+--echo #
+SET SESSION binlog_format = 'STATEMENT';
+#
+DELETE FROM mysql.db WHERE user LIKE "mysqltest%";
+
+SET SESSION binlog_format = 'MIXED';
+# CREATE USER mysqltest2@localhost;
+DELETE FROM mysql.db WHERE user LIKE "mysqltest%";
+
+SET SESSION binlog_format = 'ROW';
+# CREATE USER mysqltest3@localhost;
+DELETE FROM mysql.db WHERE user LIKE "mysqltest%";
+
+SET SESSION binlog_format = DEFAULT;

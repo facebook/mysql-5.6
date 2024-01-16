@@ -2228,6 +2228,7 @@ ORDER BY table_name;
 
 --echo
 --echo # The ACL tables must have been upgraded.
+--replace_result InnoDB SYSSE ROCKSDB SYSSE
 SELECT table_name, engine FROM INFORMATION_SCHEMA.TABLES
 WHERE table_schema = 'mysql' AND
       table_name IN ('user', 'db', 'columns_priv', 'procs_priv',

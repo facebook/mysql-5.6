@@ -300,6 +300,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   */
   bool m_dup_key_found;
 
+  /** Whether the server layer has requested to skip the read locks for DD and
+  ACL table reads. */
+  bool m_no_read_locking;
+
 #ifndef NDEBUG
   /*
     Index tuple (for duplicate PK/unique SK). Used for sanity checking.

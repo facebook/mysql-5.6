@@ -1,3 +1,5 @@
+--source include/have_innodb_system_tables.inc
+
 # suite/funcs_1/t/is_statistics_mysql.test
 #
 # Check the content of information_schema.statistics about tables within

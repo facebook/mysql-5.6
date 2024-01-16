@@ -62,8 +62,12 @@ Event_priv enum('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 Trigger_priv enum('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 PRIMARY KEY Host (Host,User,Db), KEY User (User)
 )
-engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Database privileges' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='Database privileges'
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB ROW_FORMAT=DYNAMIC"),
+CONCAT(@cmd, "InnoDB ROW_FORMAT=DYNAMIC TABLESPACE=mysql ENCRYPTION='",
+@is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
