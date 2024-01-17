@@ -125,6 +125,8 @@ enum enum_slow_query_log_table_field {
   SQLT_FIELD_SERVER_ID,
   SQLT_FIELD_SQL_TEXT,
   SQLT_FIELD_THREAD_ID,
+  SQLT_FIELD_CPU_USAGE,
+  SQLT_FIELD_DELAY_TOTAL,
   SQLT_FIELD_COUNT
 };
 
@@ -160,6 +162,12 @@ static const TABLE_FIELD_TYPE slow_query_log_table_fields[SQLT_FIELD_COUNT] = {
      {nullptr, 0}},
     {{STRING_WITH_LEN("thread_id")},
      {STRING_WITH_LEN("bigint unsigned")},
+     {nullptr, 0}},
+    {{STRING_WITH_LEN("cpu_usage")},
+     {STRING_WITH_LEN("time(6)")},
+     {nullptr, 0}},
+    {{STRING_WITH_LEN("delay_total")},
+     {STRING_WITH_LEN("time(6)")},
      {nullptr, 0}}};
 
 static const TABLE_FIELD_DEF slow_query_log_table_def = {
@@ -347,7 +355,7 @@ class File_query_log {
                   ulonglong query_start_utime, const char *user_host,
                   size_t user_host_len, ulonglong query_utime,
                   ulonglong lock_utime, bool is_command, const char *sql_text,
-                  size_t sql_text_len);
+                  size_t sql_text_len, tp_cpu_stats &cpu_stats);
 
   /**
     Write a command to gap lock log file.
@@ -872,9 +880,11 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
                                 const char *user_host, size_t,
                                 ulonglong query_utime, ulonglong lock_utime,
                                 bool is_command, const char *sql_text,
-                                size_t sql_text_len) {
+                                size_t sql_text_len, tp_cpu_stats &cpu_stats) {
   char buff[80], *end;
   char query_time_buff[22 + 7], lock_time_buff[22 + 7];
+  char cpu_usage_buff[22 + 7];
+  char delay_total_buff[22 + 7];
   size_t buff_len;
   end = buff;
 
@@ -905,6 +915,10 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
   /* For slow query log */
   sprintf(query_time_buff, "%.6f", ulonglong2double(query_utime) / 1000000.0);
   sprintf(lock_time_buff, "%.6f", ulonglong2double(lock_utime) / 1000000.0);
+  sprintf(cpu_usage_buff, "%.6f",
+          static_cast<double>(cpu_stats.cpu_usage_ns) / 1000000000.0);
+  sprintf(delay_total_buff, "%.6f",
+          static_cast<double>(cpu_stats.delay_total_ns) / 1000000000.0);
 
   /*
     As a general rule, if opt_log_slow_extra is set, the caller will
@@ -914,10 +928,12 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
   if (!thd->copy_status_var_ptr) {
     if (my_b_printf(&log_file,
                     "# Query_time: %s  Lock_time: %s"
-                    " Rows_sent: %lu  Rows_examined: %lu\n",
+                    " Rows_sent: %lu  Rows_examined: %lu"
+                    " Cpu_usage: %s Delay_total: %s\n",
                     query_time_buff, lock_time_buff,
                     (ulong)thd->get_sent_row_count(),
-                    (ulong)thd->get_examined_row_count()) == (uint)-1)
+                    (ulong)thd->get_examined_row_count(), cpu_usage_buff,
+                    delay_total_buff) == (uint)-1)
       goto err; /* purecov: inspected */
   } else {
     char start_time_buff[iso8601_size];
@@ -950,7 +966,8 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
         " Created_tmp_disk_tables: %lu"
         " Created_tmp_tables: %lu"
         " Start: %s End: %s"
-        " Trace_Id: %s Instruction_Cost: %lu";
+        " Trace_Id: %s Instruction_Cost: %lu"
+        " Cpu_usage: %s Delay_total: %s";
 
     // If the query start status is valid - i.e. the current thread's
     // status values should be no less than the query start status,
@@ -1033,7 +1050,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
                   thd->copy_status_var_ptr->created_tmp_tables),
           start_time_buff, end_time_buff,
           (tid_present ? thd->trace_id.c_str() : "NA"),
-          (tid_present ? thd->pc_val : 0));
+          (tid_present ? thd->pc_val : 0), cpu_usage_buff, delay_total_buff);
     } else {
       error = my_b_printf(
           &log_file, log_str, query_time_buff, lock_time_buff,
@@ -1059,7 +1076,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
           (ulong)thd->status_var.created_tmp_disk_tables,
           (ulong)thd->status_var.created_tmp_tables, start_time_buff,
           end_time_buff, (tid_present ? thd->trace_id.c_str() : "NA"),
-          (tid_present ? thd->pc_val : 0));
+          (tid_present ? thd->pc_val : 0), cpu_usage_buff, delay_total_buff);
     }
     if (error == (uint)-1) goto err;
 
@@ -1271,7 +1288,8 @@ bool Log_to_csv_event_handler::log_gap_lock(THD *, ulonglong, const char *,
 bool Log_to_csv_event_handler::log_slow(
     THD *thd, ulonglong current_utime, ulonglong query_start_arg,
     const char *user_host, size_t user_host_len, ulonglong query_utime,
-    ulonglong lock_utime, bool, const char *sql_text, size_t sql_text_len) {
+    ulonglong lock_utime, bool, const char *sql_text, size_t sql_text_len,
+    tp_cpu_stats &cpu_stats) {
   TABLE *table = nullptr;
   bool result = true;
   bool need_close = false;
@@ -1368,11 +1386,27 @@ bool Log_to_csv_event_handler::log_slow(
                     { rows_examined = 4294967294LL; });  // overflow 4-byte int
     table->field[SQLT_FIELD_ROWS_EXAMINED]->store((longlong)rows_examined,
                                                   true);
+
+    // CPU usage.
+    cpu_stats.cpu_usage_ns = min(cpu_stats.cpu_usage_ns,
+                                 (int64_t)TIME_MAX_VALUE_SECONDS * 1000000000);
+    calc_time_from_sec(&t, cpu_stats.cpu_usage_ns / 1000000000,
+                       cpu_stats.cpu_usage_ns / 1000 % 1000000);
+    table->field[SQLT_FIELD_CPU_USAGE]->store_time(&t);
+
+    // CPU scheduler total delay.
+    cpu_stats.delay_total_ns = min(
+        cpu_stats.delay_total_ns, (int64_t)TIME_MAX_VALUE_SECONDS * 1000000000);
+    calc_time_from_sec(&t, cpu_stats.delay_total_ns / 1000000000,
+                       cpu_stats.delay_total_ns / 1000 % 1000000);
+    table->field[SQLT_FIELD_DELAY_TOTAL]->store_time(&t);
   } else {
     table->field[SQLT_FIELD_QUERY_TIME]->set_null();
     table->field[SQLT_FIELD_LOCK_TIME]->set_null();
     table->field[SQLT_FIELD_ROWS_SENT]->set_null();
     table->field[SQLT_FIELD_ROWS_EXAMINED]->set_null();
+    table->field[SQLT_FIELD_CPU_USAGE]->set_null();
+    table->field[SQLT_FIELD_DELAY_TOTAL]->set_null();
   }
   /* fill database field */
   if (thd->db().str) {
@@ -1489,7 +1523,8 @@ class Log_to_file_event_handler : public Log_event_handler {
   bool log_slow(THD *thd, ulonglong current_utime, ulonglong query_start_arg,
                 const char *user_host, size_t user_host_len,
                 ulonglong query_utime, ulonglong lock_utime, bool is_command,
-                const char *sql_text, size_t sql_text_len) override;
+                const char *sql_text, size_t sql_text_len,
+                tp_cpu_stats &cpu_stats) override;
 
   /**
      Wrapper around File_query_log::write_general() for general log.
@@ -1538,14 +1573,14 @@ bool Log_to_file_event_handler::log_slow(
     THD *thd, ulonglong current_utime, ulonglong query_start_utime,
     const char *user_host, size_t user_host_len, ulonglong query_utime,
     ulonglong lock_utime, bool is_command, const char *sql_text,
-    size_t sql_text_len) {
+    size_t sql_text_len, tp_cpu_stats &cpu_stats) {
   if (!mysql_slow_log.is_open()) return false;
 
   Silence_log_table_errors error_handler;
   thd->push_internal_handler(&error_handler);
   bool retval = mysql_slow_log.write_slow(
       thd, current_utime, query_start_utime, user_host, user_host_len,
-      query_utime, lock_utime, is_command, sql_text, sql_text_len);
+      query_utime, lock_utime, is_command, sql_text, sql_text_len, cpu_stats);
   thd->pop_internal_handler();
   return retval;
 }
@@ -1648,6 +1683,12 @@ bool Query_logger::slow_log_write(THD *thd, const char *query,
     query_length = cn.length();
   }
 
+  // Get CPU scheduler stats if available.
+  tp_cpu_stats cpu_stats;
+  if (!tp_get_current_task_cpu_stats(cpu_stats)) {
+    memset(&cpu_stats, 0, sizeof(cpu_stats));
+  }
+
   mysql_rwlock_rdlock(&LOCK_logger);
 
   bool error = false;
@@ -1657,8 +1698,8 @@ bool Query_logger::slow_log_write(THD *thd, const char *query,
                  ->log_slow(thd, current_utime,
                             (thd->start_time.tv_sec * 1000000ULL) +
                                 thd->start_time.tv_usec,
-                            user_host_buff, user_host_len, query_utime,
-                            lock_utime, is_command, query, query_length);
+                user_host_buff, user_host_len, query_utime, lock_utime,
+                is_command, query, query_length, cpu_stats);
   }
 
   mysql_rwlock_unlock(&LOCK_logger);

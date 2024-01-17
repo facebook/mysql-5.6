@@ -84,6 +84,7 @@ set @@global.thread_pool_max_waiting_queries=6;
 Kill a thread that is waiting for admission.
 select count(*) from t1;
 kill ID;
+Wait for killed connection to be gone.
 set @@global.thread_pool_max_waiting_queries=5;
 Even though connection was killed before admission, pre-admission utilization is still accounted towards test_db.
 correct_utilization_1 = 1;

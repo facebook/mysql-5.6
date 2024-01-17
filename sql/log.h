@@ -55,6 +55,7 @@
 #include "mysql/components/services/bits/mysql_rwlock_bits.h"
 #include "mysql/components/services/bits/psi_file_bits.h"
 #include "mysql/psi/mysql_mutex.h"
+#include "mysql/service_cpu_scheduler.h"
 #include "mysql_com.h"
 #include "sql/auth/sql_security_ctx.h"  // Security_context
 
@@ -182,7 +183,8 @@ class Log_event_handler {
                         ulonglong query_start_arg, const char *user_host,
                         size_t user_host_len, ulonglong query_utime,
                         ulonglong lock_utime, bool is_command,
-                        const char *sql_text, size_t sql_text_len) = 0;
+                        const char *sql_text, size_t sql_text_len,
+                        tp_cpu_stats &cpu_stats) = 0;
 
   /**
      Log command to the general log.
@@ -249,7 +251,8 @@ class Log_to_csv_event_handler : public Log_event_handler {
   bool log_slow(THD *thd, ulonglong current_utime, ulonglong query_start_arg,
                 const char *user_host, size_t user_host_len,
                 ulonglong query_utime, ulonglong lock_utime, bool is_command,
-                const char *sql_text, size_t sql_text_len) override;
+                const char *sql_text, size_t sql_text_len,
+                tp_cpu_stats &cpu_stats) override;
 
   /** @see Log_event_handler::log_general(). */
   bool log_general(THD *thd, ulonglong event_utime, const char *user_host,

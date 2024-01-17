@@ -136,7 +136,9 @@ CREATE TABLE `slow_log` (
   `insert_id` int(11) NOT NULL,
   `server_id` int(10) unsigned NOT NULL,
   `sql_text` mediumblob NOT NULL,
-  `thread_id` bigint(21) unsigned NOT NULL
+  `thread_id` bigint(21) unsigned NOT NULL,
+  `cpu_usage` time(6) NOT NULL,
+  `delay_total` time(6) NOT NULL
 ) ENGINE=CSV DEFAULT CHARSET=utf8 COMMENT='Slow log';
 
 set global general_log='ON';
@@ -146,4 +148,3 @@ TRUNCATE TABLE mysql.general_log;
 
 --enable_ps_protocol
 use test;
-

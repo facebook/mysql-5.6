@@ -209,7 +209,9 @@ slow_log	CREATE TABLE `slow_log` (
   `insert_id` int NOT NULL,
   `server_id` int unsigned NOT NULL,
   `sql_text` mediumblob NOT NULL,
-  `thread_id` bigint unsigned NOT NULL
+  `thread_id` bigint unsigned NOT NULL,
+  `cpu_usage` time(6) NOT NULL,
+  `delay_total` time(6) NOT NULL
 ) ENGINE=CSV DEFAULT CHARSET=utf8mb3 COMMENT='Slow log'
 #
 # System table updates should be allowed in all binlog formats

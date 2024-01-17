@@ -178,7 +178,7 @@ drop table bug16905;
 truncate table mysql.slow_log;
 set session long_query_time=1;
 select sleep(2);
---replace_column 1 TIMESTAMP 2 USER_HOST 3 QUERY_TIME 4 LOCK_TIME 11 QUERY 12 THREAD_ID
+--replace_column 1 TIMESTAMP 2 USER_HOST 3 QUERY_TIME 4 LOCK_TIME 11 QUERY 12 THREAD_ID 13 CPU_USAGE 14 DELAY_TOTAL
 select * from mysql.slow_log;
 set @@session.long_query_time = @saved_long_query_time;
 
@@ -521,7 +521,9 @@ CREATE TABLE `db_17876.slow_log_data` (
   `insert_id` int(11) default NULL,
   `server_id` int(11) default NULL,
   `sql_text` mediumblob,
-  `thread_id` bigint(21) unsigned not NULL
+  `thread_id` bigint(21) unsigned not NULL,
+  `cpu_usage` time,
+  `delay_total` time
 );
 
 CREATE TABLE `db_17876.general_log_data` (
@@ -537,7 +539,7 @@ DELIMITER //;
 
 CREATE procedure `db_17876.archiveSlowLog`()
 BEGIN
-  DECLARE start_time, query_time, lock_time CHAR(20);
+  DECLARE start_time, query_time, lock_time, cpu_usage, delay_total CHAR(20);
   DECLARE user_host MEDIUMTEXT;
   DECLARE rows_set, rows_examined, last_insert_id, insert_id, server_id INT;
   DECLARE thread_id BIGINT UNSIGNED;
@@ -558,7 +560,8 @@ BEGIN
         FETCH cur1 INTO
            start_time, user_host, query_time, lock_time,
            rows_set, rows_examined, dbname, last_insert_id,
-           insert_id, server_id, sql_text, thread_id;
+           insert_id, server_id, sql_text, thread_id,
+           cpu_usage, delay_total;
       END;
 
       IF NOT done THEN
@@ -566,7 +569,8 @@ BEGIN
           INSERT INTO
             `db_17876.slow_log_data`
             VALUES(start_time, user_host, query_time, lock_time, rows_set, rows_examined,
-                   dbname, last_insert_id,  insert_id, server_id, sql_text, thread_id);
+                   dbname, last_insert_id,  insert_id, server_id, sql_text, thread_id,
+                   cpu_usage, delay_total);
         END;
       END IF;
     END;
