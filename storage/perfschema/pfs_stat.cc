@@ -1036,4 +1036,9 @@ void memory_monitoring_aggregate(const PFS_memory_shared_stat *from,
   }
 }
 
+/**
+  Reset CPU stats.
+*/
+void PFS_cpu_sched_stat::reset() { memset(this, 0, sizeof(*this)); }
+
 /** @} */

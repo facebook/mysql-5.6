@@ -73,6 +73,8 @@ struct row_processlist {
   uint m_processlist_info_length;
   /** Column EXECUTION_ENGINE. */
   bool m_secondary;
+  /** Data for columns CPU_USAGE and DELAY_TOTAL. */
+  PFS_cpu_sched_stat m_cpu_sched_stat;
 };
 
 class PFS_index_processlist_by_processlist_id : public PFS_index_threads {

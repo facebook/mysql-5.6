@@ -171,6 +171,13 @@ typedef void (*notify_session_change_user_v1_t)(PSI_thread *thread);
 typedef int (*get_thread_held_locks_v1_t)(PSI_thread *thread,
                                           const char **held_lock_names,
                                           int max_count);
+typedef void (*thread_start_delay_v1_t)(PSI_thread *thread,
+                                        int64_t delay_start);
+typedef void (*thread_start_quantum_v1_t)(PSI_thread *thread,
+                                          int64_t quantum_start);
+typedef void (*thread_end_quantum_v1_t)(PSI_thread *thread,
+                                        int64_t quantum_end);
+typedef void (*thread_reset_cpu_stats_v1_t)(PSI_thread *thread);
 typedef struct PSI_thread_info_v5 PSI_thread_info;
 struct PSI_thread_bootstrap {
   void *(*get_interface)(int version);
@@ -301,6 +308,10 @@ struct PSI_thread_service_v6 {
   notify_session_change_user_v1_t notify_session_change_user;
   set_mem_cnt_THD_v1_t set_mem_cnt_THD;
   get_thread_held_locks_v1_t get_thread_held_locks;
+  thread_start_delay_v1_t thread_start_delay;
+  thread_start_quantum_v1_t thread_start_quantum;
+  thread_end_quantum_v1_t thread_end_quantum;
+  thread_reset_cpu_stats_v1_t thread_reset_cpu_stats;
 };
 typedef struct PSI_thread_service_v6 PSI_thread_service_t;
 extern PSI_thread_service_t *psi_thread_service;

@@ -226,6 +226,8 @@ END_SERVICE_DEFINITION(psi_thread_v5)
   Status: active
   Changes compared to version 5:
   - added set_thread_secondary_engine
+  - added thread_start_delay, thread_start_quantum, thread_end_quantum,
+          thread_reset_cpu_stats
 */
 
 BEGIN_SERVICE_DEFINITION(psi_thread_v6)
@@ -303,6 +305,16 @@ notify_session_connect_v1_t notify_session_connect;
 notify_session_disconnect_v1_t notify_session_disconnect;
 /** @sa notify_session_change_user_v1_t. */
 notify_session_change_user_v1_t notify_session_change_user;
+/** @sa get_thread_held_locks_v1_t. */
+get_thread_held_locks_v1_t get_thread_held_locks;
+/** @sa thread_start_delay_v1_t. */
+thread_start_delay_v1_t thread_start_delay;
+/** @sa thread_start_quantum_v1_t. */
+thread_start_quantum_v1_t thread_start_quantum;
+/** @sa thread_end_quantum_v1_t. */
+thread_end_quantum_v1_t thread_end_quantum;
+/** @sa thread_reset_cpu_stats_v1_t. */
+thread_reset_cpu_stats_v1_t thread_reset_cpu_stats;
 END_SERVICE_DEFINITION(psi_thread_v6)
 
 #endif /* COMPONENTS_SERVICES_PSI_THREAD_SERVICE_H */

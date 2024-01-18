@@ -297,6 +297,8 @@ struct PSI_thread_service_v5 {
   @since PSI_THREAD_VERSION_6
   Changes from version 5:
   - added set_thread_secondary_engine
+  - added thread_start_delay, thread_start_quantum, thread_end_quantum,
+          thread_reset_cpu_stats
 */
 struct PSI_thread_service_v6 {
   /** @sa register_thread_v5_t. */
@@ -381,6 +383,14 @@ struct PSI_thread_service_v6 {
   set_mem_cnt_THD_v1_t set_mem_cnt_THD;
   /** @sa  get_thread_held_locks_v1_t. */
   get_thread_held_locks_v1_t get_thread_held_locks;
+  /** @sa thread_start_delay_v1_t. */
+  thread_start_delay_v1_t thread_start_delay;
+  /** @sa thread_start_quantum_v1_t. */
+  thread_start_quantum_v1_t thread_start_quantum;
+  /** @sa thread_end_quantum_v1_t. */
+  thread_end_quantum_v1_t thread_end_quantum;
+  /** @sa thread_reset_cpu_stats_v1_t. */
+  thread_reset_cpu_stats_v1_t thread_reset_cpu_stats;
 };
 
 typedef struct PSI_thread_service_v6 PSI_thread_service_t;

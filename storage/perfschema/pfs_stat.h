@@ -1353,5 +1353,17 @@ struct PFS_connection_stat {
   }
 };
 
+/**
+  CPU scheduler statistics.
+*/
+struct PFS_cpu_sched_stat {
+  int64_t m_cpu_total_ns{0};
+  int64_t m_cpu_start{0};
+  int64_t m_delay_total_ns{0};
+  int64_t m_delay_start{0};
+
+  void reset();
+};
+
 /** @} */
 #endif

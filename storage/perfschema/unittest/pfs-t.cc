@@ -2580,6 +2580,162 @@ static void test_terminology_use_previous() {
   }
 }
 
+/**
+  Verify thread quantum and delay APIs.
+*/
+struct Cpu_stats_test {
+  // CPU stats of PFS_thread being tested.
+  PFS_cpu_sched_stat &cpu_stat;
+
+  // Expected values of CPU stat members.
+  int64_t delay_start = 0;
+  int64_t quantum_start = 0;
+  int64_t delay_total = 0;
+  int64_t cpu_total = 0;
+
+  Cpu_stats_test(PFS_cpu_sched_stat &stat) : cpu_stat(stat) {}
+  void validate_cpu_stats() {
+    ok(cpu_stat.m_delay_start == delay_start, "delay start %ld",
+       cpu_stat.m_delay_start);
+    ok(cpu_stat.m_delay_total_ns == delay_total, "delay total %ld",
+       cpu_stat.m_delay_total_ns);
+    ok(cpu_stat.m_cpu_start == quantum_start, "cpu start %ld",
+       cpu_stat.m_cpu_start);
+    ok(cpu_stat.m_cpu_total_ns == cpu_total, "cpu total %ld",
+       cpu_stat.m_cpu_total_ns);
+  }
+};
+
+static void test_cpu_stats_operations() {
+  PSI_thread_service_t *thread_service;
+  PSI_mutex_service_t *mutex_service;
+  PSI_rwlock_service_t *rwlock_service;
+  PSI_cond_service_t *cond_service;
+  PSI_file_service_t *file_service;
+  PSI_socket_service_t *socket_service;
+  PSI_table_service_t *table_service;
+  PSI_mdl_service_t *mdl_service;
+  PSI_idle_service_t *idle_service;
+  PSI_stage_service_t *stage_service;
+  PSI_statement_service_t *statement_service;
+  PSI_transaction_service_t *transaction_service;
+  PSI_memory_service_t *memory_service;
+  PSI_error_service_t *error_service;
+  PSI_data_lock_service_t *data_lock_service;
+  PSI_system_service_t *system_service;
+  PSI_tls_channel_service_t *tls_channel_service;
+
+  diag("test_cpu_stats_operations");
+
+  load_perfschema(&thread_service, &mutex_service, &rwlock_service,
+                  &cond_service, &file_service, &socket_service, &table_service,
+                  &mdl_service, &idle_service, &stage_service,
+                  &statement_service, &transaction_service, &memory_service,
+                  &error_service, &data_lock_service, &system_service,
+                  &tls_channel_service);
+
+  PSI_thread_key thread_key_1;
+  PSI_thread_info all_thread[] = {{&thread_key_1, "T-1", "T-1", 0, 0, ""}};
+  thread_service->register_thread("test", all_thread, 1);
+
+  // Preparation.
+  PSI_thread *thread_1 =
+      thread_service->new_thread(thread_key_1, 12, nullptr, 0);
+  ok(thread_1 != nullptr, "T-1");
+
+  // Test object to simplify stats validation.
+  Cpu_stats_test t(reinterpret_cast<PFS_thread *>(thread_1)->m_cpu_sched_stat);
+
+  // New thread should have the stats reset.
+  t.validate_cpu_stats();
+
+  // New query starts as a task enqueue which sets the first delay start.
+  diag("thread_start_delay 1");
+  t.delay_start = 100;
+  thread_service->thread_start_delay(thread_1, t.delay_start);
+  t.validate_cpu_stats();
+
+  // When worker picks up the task it starts running first quantum.
+  diag("thread_start_quantum 1");
+  t.quantum_start = 120;
+  t.delay_total = t.quantum_start - t.delay_start;
+  t.delay_start = 0;
+  thread_service->thread_start_quantum(thread_1, t.quantum_start);
+  t.validate_cpu_stats();
+
+  // Task calls thd_wait_begin and leaves scheduler.
+  diag("thread_end_quantum 1");
+  int64_t quantum_end = 150;
+  t.cpu_total = quantum_end - t.quantum_start;
+  t.quantum_start = 0;
+  t.delay_start = quantum_end;
+  thread_service->thread_end_quantum(thread_1, quantum_end);
+  t.validate_cpu_stats();
+
+  // If somehow quantum ends again, it is ignored.
+  diag("thread_end_quantum 2");
+  quantum_end = 155;
+  thread_service->thread_end_quantum(thread_1, quantum_end);
+  t.validate_cpu_stats();
+
+  // Task calls thd_wait_end and enters scheduler.
+  diag("thread_start_quantum 2");
+  t.quantum_start = 160;
+  t.delay_total += t.quantum_start - t.delay_start;
+  t.delay_start = 0;
+  thread_service->thread_start_quantum(thread_1, t.quantum_start);
+  t.validate_cpu_stats();
+
+  // Task wants to yield, thd_wait_begin skips leaving scheduler,
+  // thd_wait_end enters scheduler. No other tasks are on scheduler so this
+  // task keeps running without ending quantum. Start quantum call is ignored.
+  // If delay start is called, it would be recorded but later end quantum will
+  // override it.
+  diag("thread_start_delay 2");
+  t.delay_start = 169;
+  thread_service->thread_start_delay(thread_1, t.delay_start);
+  t.validate_cpu_stats();
+  diag("thread_start_quantum 3");
+  int64_t quantum_start2 = 170;
+  thread_service->thread_start_quantum(thread_1, quantum_start2);
+  t.validate_cpu_stats();
+
+  // Task yields again, this time some other task waits to be scheduled.
+  // So quantum ends and then starts.
+  diag("thread_start_delay 3");
+  t.delay_start = 199;
+  thread_service->thread_start_delay(thread_1, t.delay_start);
+  t.validate_cpu_stats();
+
+  diag("thread_end_quantum 3");
+  quantum_end = 200;
+  t.delay_start = quantum_end;
+  t.cpu_total += quantum_end - t.quantum_start;
+  t.quantum_start = 0;
+  thread_service->thread_end_quantum(thread_1, quantum_end);
+  t.validate_cpu_stats();
+
+  diag("thread_start_quantum 4");
+  t.quantum_start = 210;
+  t.delay_total += t.quantum_start - t.delay_start;
+  t.delay_start = 0;
+  thread_service->thread_start_quantum(thread_1, t.quantum_start);
+  t.validate_cpu_stats();
+
+  // Task is about to be done. No need to record anything, just reset
+  // stats before next task on this thread.
+  diag("thread_reset_cpu_stats 1");
+  t.delay_start = 0;
+  t.quantum_start = 0;
+  t.delay_total = 0;
+  t.cpu_total = 0;
+  thread_service->thread_reset_cpu_stats(thread_1);
+  t.validate_cpu_stats();
+
+  thread_service->delete_thread(thread_1);
+  shutdown_performance_schema();
+}
+
 static void do_all_tests() {
   /* system charset needed by pfs_statements_digest */
   system_charset_info = &my_charset_latin1;
@@ -2595,10 +2751,12 @@ static void do_all_tests() {
   test_leaks();
   test_file_operations();
   test_terminology_use_previous();
+  test_cpu_stats_operations();
 }
 
 int main(int, char **) {
-  plan(419);
+  // This is the expected number of ok's in all tests.
+  plan(468);
 
   MY_INIT("pfs-t");
   do_all_tests();

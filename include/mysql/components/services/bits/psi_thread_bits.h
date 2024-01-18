@@ -636,6 +636,40 @@ typedef int (*get_thread_held_locks_v1_t)(PSI_thread *thread,
                                           const char **held_lock_names,
                                           int max_count);
 
+/**
+  Record start of delay before first quantum.
+
+  @param thread the thread instrumentation
+  @param delay_start Delay start timestamp in ns.
+*/
+typedef void (*thread_start_delay_v1_t)(PSI_thread *thread,
+                                        int64_t delay_start);
+
+/**
+  Record start of quantum and end of delay between quantums.
+
+  @param thread the thread instrumentation
+  @param quantum_start Delay start timestamp in ns.
+*/
+typedef void (*thread_start_quantum_v1_t)(PSI_thread *thread,
+                                          int64_t quantum_start);
+
+/**
+  Record end of quantum and start of delay between quantums.
+
+  @param thread the thread instrumentation
+  @param quantum_end Delay start timestamp in ns.
+*/
+typedef void (*thread_end_quantum_v1_t)(PSI_thread *thread,
+                                        int64_t quantum_end);
+
+/**
+  Reset CPU stats at the end of query.
+
+  @param thread the thread instrumentation
+*/
+typedef void (*thread_reset_cpu_stats_v1_t)(PSI_thread *thread);
+
 typedef struct PSI_thread_info_v5 PSI_thread_info;
 
 /** @} (end of group psi_abi_thread) */

@@ -160,6 +160,14 @@ void pfs_notify_session_change_user_vc(PSI_thread *thread);
 int pfs_get_thread_held_locks_vc(PSI_thread *thread,
                                  const char **held_lock_names, int max_count);
 
+void pfs_thread_start_delay_vc(PSI_thread *thread, int64_t delay_start);
+
+void pfs_thread_start_quantum_vc(PSI_thread *thread, int64_t quantum_start);
+
+void pfs_thread_end_quantum_vc(PSI_thread *thread, int64_t quantum_end);
+
+void pfs_thread_reset_cpu_stats_vc(PSI_thread *thread);
+
 #endif /* WITH_LOCK_ORDER */
 #endif /* MYSQL_DYNAMIC_PLUGIN */
 #endif /* MYSQL_SERVER || PFS_DIRECT_CALL */

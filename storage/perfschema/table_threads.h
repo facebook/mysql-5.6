@@ -94,6 +94,8 @@ struct row_threads {
   PFS_session_all_memory_stat_row m_session_all_memory_row;
   /** Column THREAD_PRIORITY. */
   int m_thread_priority;
+  /** Data for columns CPU_USAGE and DELAY_TOTAL. */
+  PFS_cpu_sched_stat m_cpu_sched_stat;
 };
 
 class PFS_index_threads_by_thread_id : public PFS_index_threads {

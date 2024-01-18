@@ -26,7 +26,7 @@ SHOW FULL PROCESSLIST;
 --echo
 --echo # Performance Schema processlist table
 --echo
---replace_column 1 <Id> 3 <Host> 6 <Time> 7 <State>
+--replace_column 1 <Id> 3 <Host> 6 <Time> 7 <State> 10 <Cpu_usage> 11 <Delay_total>
 --replace_regex /Daemon/<Command>/ /Connect/<Command>/ /Sleep/<Command>/
 select * from performance_schema.processlist order by user, id;
 
@@ -36,4 +36,3 @@ select * from performance_schema.processlist order by user, id;
 --replace_column 1 <Id> 3 <Host> 6 <Time> 7 <State>
 --replace_regex /Daemon/<Command>/ /Connect/<Command>/ /Sleep/<Command>/
 select * from information_schema.processlist order by user, id;
-
