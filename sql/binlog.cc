@@ -6655,7 +6655,8 @@ bool MYSQL_BIN_LOG::open_binlog(
         update_prev_gtid_and_opid(
             previous_logged_gtids, raft_rotate_info->rotate_opid.first,
             raft_rotate_info->rotate_opid.second, need_sid_lock);
-        if (raft_rotate_info->ingestion_checkpoint != std::pair(-1L, -1L)) {
+        if (raft_rotate_info->ingestion_checkpoint !=
+            std::pair<std::int64_t, std::int64_t>(-1L, -1L)) {
           metadata_ev.set_raft_ingestion_prev_checkpoint(
               raft_rotate_info->ingestion_checkpoint);
         }
@@ -8837,7 +8838,8 @@ int MYSQL_BIN_LOG::new_file_impl(
       param.force = true;  // we force a checkpoint update on rotation
       if (!RUN_HOOK_STRICT(raft_replication, ingestion,
                            (current_thd, &param))) {
-        if (param.checkpoint != std::pair(-1L, -1L)) {
+        if (param.checkpoint !=
+            std::pair<std::int64_t, std::int64_t>(-1L, -1L)) {
           me.set_raft_ingestion_checkpoint(param.checkpoint);
           raft_rotate_info->ingestion_checkpoint = param.checkpoint;
         }
