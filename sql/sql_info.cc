@@ -304,8 +304,24 @@ const uint sf_max_message_size = 512;  // max message text size
 /* standard limit for field, table, DB name length */
 const uint max_db_name_length = NAME_CHAR_LEN;
 
+/*
+  SQL statements are identified by their digest and database. Including database
+  name allows avoiding collision between similar SQL statements.
+*/
+typedef std::pair<digest_key, std::string> SQL_FINDING_KEY;
+
+struct hash_pair {
+  template <class T1, class T2>
+  size_t operator()(const std::pair<T1, T2> &p) const {
+    auto hash1 = std::hash<T1>{}(p.first);
+    auto hash2 = std::hash<T2>{}(p.second);
+    return hash1 ^ hash2;
+  }
+};
+
 /* Global SQL findings map to track findings for all SQL statements */
-static std::unordered_map<digest_key, SQL_FINDING_VEC> global_sql_findings_map;
+static std::unordered_map<SQL_FINDING_KEY, SQL_FINDING_VEC, hash_pair>
+    global_sql_findings_map;
 
 /* System variable to control the maximum size of the sql findings map */
 ulonglong max_sql_findings_size;
@@ -428,9 +444,10 @@ void store_sql_findings(THD *thd, const std::string &query_text) {
       thd->mt_key_is_set(THD::SQL_ID) && thd->get_stmt_da()->cond_count() > 0) {
     mysql_mutex_lock(&LOCK_global_sql_findings);
 
+    auto db_name = thd->get_db_name();
+    auto sql_key = std::make_pair(thd->mt_key_value(THD::SQL_ID), db_name);
     // Lookup finding map for this statement
-    auto sql_find_it =
-        global_sql_findings_map.find(thd->mt_key_value(THD::SQL_ID));
+    auto sql_find_it = global_sql_findings_map.find(sql_key);
     if (sql_find_it == global_sql_findings_map.end()) {
       /* Check whether we reached the SQL stats limits  */
       if (!is_sql_stats_collection_above_limit()) {
@@ -438,10 +455,11 @@ void store_sql_findings(THD *thd, const std::string &query_text) {
         SQL_FINDING_VEC finding_vec;
         populate_sql_findings(thd, query_text, finding_vec);
 
-        global_sql_findings_map.insert(
-            std::make_pair(thd->mt_key_value(THD::SQL_ID), finding_vec));
+        global_sql_findings_map.insert(std::make_pair(sql_key, finding_vec));
 
+        sql_findings_size += sizeof(SQL_FINDING_KEY);
         sql_findings_size += DIGEST_HASH_SIZE;  // for SQL_ID
+        sql_findings_size += strlen(db_name);   // for DB name
       }
     } else {
       populate_sql_findings(thd, query_text, sql_find_it->second);
@@ -459,7 +477,7 @@ std::vector<sql_findings_row> get_all_sql_findings() {
        sql_iter != global_sql_findings_map.cend(); ++sql_iter) {
     /* Generate the DIGEST string from the digest */
     char sql_id_string[DIGEST_HASH_TO_STRING_LENGTH + 1];
-    DIGEST_HASH_TO_STRING(sql_iter->first.data(), sql_id_string);
+    DIGEST_HASH_TO_STRING(sql_iter->first.first.data(), sql_id_string);
     sql_id_string[DIGEST_HASH_TO_STRING_LENGTH] = '\0';
 
     for (auto f_iter = sql_iter->second.cbegin();
