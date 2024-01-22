@@ -105,7 +105,7 @@ SET @@GLOBAL.binlog_encryption = ON;
 
 # Try to restart the master server setting the option, but it should fail
 --echo Starting the server with "--binlog_encryption=ON" but no keyring installed
---let $rpl_server_parameters= $RPL_PLUGIN_DIR_OPT --binlog_encryption=ON --log-error=$MYSQL_TMP_DIR/master.err
+--let $rpl_server_parameters= $RPL_PLUGIN_DIR_OPT --binlog_encryption=ON --default-dd-system-storage-engine=$DDSE --log-error=$MYSQL_TMP_DIR/master.err
 --error 0,1
 --exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.$rpl_server_number $rpl_server_parameters
 --let $assert_file= $MYSQL_TMP_DIR/master.err

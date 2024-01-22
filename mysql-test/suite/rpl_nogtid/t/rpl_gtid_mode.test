@@ -63,6 +63,7 @@ call mtr.add_suppression("Slave I/O for channel '': The master uses an unknown G
 call mtr.add_suppression("Could not open .* for logging.*. Turning logging off for the whole duration of the MySQL server process.");
 
 --let $saved_binlog_error_action=`SELECT @@GLOBAL.binlog_error_action`
+--let $DDSE = `select @@default_dd_system_storage_engine`
 
 --source include/sync_slave_sql_with_master.inc
 --source include/stop_slave.inc
@@ -71,9 +72,9 @@ call mtr.add_suppression("Could not open .* for logging.*. Turning logging off f
 --connection master
 --let $saved_innodb_page_size_server1=`SELECT @@innodb_page_size`
 
---let $server1_cmd= $MYSQLD --defaults-group-suffix=.1 --defaults-file=$MYSQLTEST_VARDIR/my.cnf --default-storage-engine=InnoDB --default-tmp-storage-engine=InnoDB --innodb-page-size=$saved_innodb_page_size_server1
+--let $server1_cmd= $MYSQLD --defaults-group-suffix=.1 --defaults-file=$MYSQLTEST_VARDIR/my.cnf --default-storage-engine=InnoDB --default-tmp-storage-engine=InnoDB --innodb-page-size=$saved_innodb_page_size_server1 --default-dd-system-storage-engine=$DDSE
 
---let $server2_cmd= $MYSQLD --defaults-group-suffix=.2 --defaults-file=$MYSQLTEST_VARDIR/my.cnf --default-storage-engine=InnoDB --default-tmp-storage-engine=InnoDB --innodb-page-size=$saved_innodb_page_size_server2
+--let $server2_cmd= $MYSQLD --defaults-group-suffix=.2 --defaults-file=$MYSQLTEST_VARDIR/my.cnf --default-storage-engine=InnoDB --default-tmp-storage-engine=InnoDB --innodb-page-size=$saved_innodb_page_size_server2 --default-dd-system-storage-engine=$DDSE
 
 --echo ==== Checks performed at server start ====
 

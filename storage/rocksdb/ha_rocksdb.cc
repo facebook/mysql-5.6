@@ -13996,22 +13996,26 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *const thd, THR_LOCK_DATA **to,
         storage/innobase/handler/ha_innodb.cc and causes MyRocks to leave
         locks in place on rows that are in a table that is not being updated.
       */
-      const uint sql_command = my_core::thd_sql_command(thd);
       bool in_lock_tables = my_core::thd_in_lock_tables(thd);
+
       if ((lock_type == TL_READ && in_lock_tables) ||
           (lock_type == TL_READ_HIGH_PRIORITY && in_lock_tables) ||
           can_hold_read_locks_on_select(thd, lock_type)) {
-        ulong tx_isolation = my_core::thd_tx_isolation(thd);
-        if (sql_command != SQLCOM_CHECKSUM &&
-            ((my_core::thd_test_options(thd, OPTION_BIN_LOG) &&
-              tx_isolation > ISO_READ_COMMITTED) ||
-             tx_isolation == ISO_SERIALIZABLE ||
-             (lock_type != TL_READ && lock_type != TL_READ_NO_INSERT) ||
-             (sql_command != SQLCOM_INSERT_SELECT &&
-              sql_command != SQLCOM_REPLACE_SELECT &&
-              sql_command != SQLCOM_UPDATE && sql_command != SQLCOM_DELETE &&
-              sql_command != SQLCOM_CREATE_TABLE))) {
-          m_lock_rows = RDB_LOCK_READ;
+        const auto sql_command = my_core::thd_sql_command(thd);
+
+        if (sql_command != SQLCOM_CHECKSUM) {
+          const auto tx_isolation = my_core::thd_tx_isolation(thd);
+
+          if ((my_core::thd_test_options(thd, OPTION_BIN_LOG) &&
+               tx_isolation > ISO_READ_COMMITTED) ||
+              tx_isolation == ISO_SERIALIZABLE ||
+              (lock_type != TL_READ && lock_type != TL_READ_NO_INSERT) ||
+              (sql_command != SQLCOM_INSERT_SELECT &&
+               sql_command != SQLCOM_REPLACE_SELECT &&
+               sql_command != SQLCOM_UPDATE && sql_command != SQLCOM_DELETE &&
+               sql_command != SQLCOM_CREATE_TABLE)) {
+            m_lock_rows = RDB_LOCK_READ;
+          }
         }
       }
     }
@@ -14109,13 +14113,13 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
              table_cat == TABLE_CATEGORY_ACL_TABLE ||
              table_cat == TABLE_CATEGORY_SYSTEM);
 
-      if (m_no_read_locking || table_cat == TABLE_CATEGORY_DICTIONARY ||
-          table_cat == TABLE_CATEGORY_SYSTEM) {
+      if (m_no_read_locking || table_cat == TABLE_CATEGORY_DICTIONARY) {
         m_lock_rows = RDB_LOCK_NONE;
       } else if (isolation == ISO_SERIALIZABLE &&
                  m_lock_rows == RDB_LOCK_NONE && !is_autocommit(*thd)) {
         m_lock_rows = RDB_LOCK_READ;
       } else {
+        // Keep the m_lock_rows value that was set earlier in store_lock()
         assert(m_lock_rows == RDB_LOCK_NONE || m_lock_rows == RDB_LOCK_READ);
       }
     } else if (lock_type == F_WRLCK) {

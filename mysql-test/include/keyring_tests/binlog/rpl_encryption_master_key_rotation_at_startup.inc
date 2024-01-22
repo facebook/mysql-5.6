@@ -31,6 +31,7 @@
 call mtr.add_suppression("Could not find the data corresponding to Data ID:");
 --enable_query_log
 
+--let $DDSE = `SELECT @@default_dd_system_storage_engine`
 --let $master_debug=`SELECT @@GLOBAL.debug`
 --let $MASTER_DATADIR= `select @@datadir`
 --let $master_error_log= $MYSQL_TMP_DIR/master.err
@@ -68,7 +69,7 @@ call mtr.add_suppression("Could not find the data corresponding to Data ID:");
 --echo # Force the server to fail storing master key index
 --let $error_message=Failed to store key
 --let $rpl_server_number= 1
---let $rpl_server_parameters= $RPL_PLUGIN_DIR_OPT --binlog_encryption=ON --binlog_rotate_encryption_master_key_at_startup=ON --debug=d,$debug_point --log-error=$MYSQL_TMP_DIR/master.err
+--let $rpl_server_parameters= $RPL_PLUGIN_DIR_OPT --binlog_encryption=ON --binlog_rotate_encryption_master_key_at_startup=ON --debug=d,$debug_point --log-error=$MYSQL_TMP_DIR/master.err --default-dd-system-storage-engine=$DDSE
 --echo Try to restart the master enabling the options with debug instrumentation
 --error 0,1
 --exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.$rpl_server_number $rpl_server_parameters
@@ -127,7 +128,7 @@ call mtr.add_suppression("Could not find the data corresponding to Data ID:");
 --let $rpl_server_parameters= $RPL_PLUGIN_DIR_OPT --binlog_encryption=ON --binlog_rotate_encryption_master_key_at_startup=ON --debug=d,$debug_point --log-error=$MYSQL_TMP_DIR/master.err
 --echo Try to restart the master enabling the options with debug instrumentation
 --error 0,1
---exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.$rpl_server_number $rpl_server_parameters
+--exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.$rpl_server_number $rpl_server_parameters --default-dd-system-storage-engine=$DDSE
 --let $assert_file= $master_error_log
 --let $assert_text= Server reported: $error_message
 --let $assert_select= $error_message

@@ -15,7 +15,8 @@ let $MYSQL_TIMEZONE= `SELECT @@time_zone`;
 let $MYSQL_PIDFILE= `SELECT @@pid_file`;
 let $MYSQL_PORT= `SELECT @@port`;
 let $MYSQL_MESSAGESDIR= `SELECT @@lc_messages_dir`;
-let extra_opts=--defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=".1" --console;
+let $DDSE = `select @@default_dd_system_storage_engine`;
+let extra_opts=--defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=".1" --console --default-dd-system-storage-engine=$DDSE;
 
 --echo # Test for bad service id
 SELECT test_shutdown_signal_udf(2);

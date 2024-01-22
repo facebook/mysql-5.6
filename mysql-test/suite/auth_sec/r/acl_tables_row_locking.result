@@ -22,7 +22,7 @@
 # of other tests. Also, we would need more than one users for below
 # test cases.
 #
-CREATE TABLE t1 (f1 INT) ENGINE=InnoDB;
+CREATE TABLE t1 (f1 INT);
 CREATE PROCEDURE proc1() BEGIN SELECT * FROM t1; END //
 # User accounts used for testing.
 CREATE USER u1;
@@ -89,9 +89,7 @@ u2
 # is used to test DML on mysql.user.
 CREATE TABLE user_bk AS SELECT * FROM mysql.user WHERE User='u2';
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
-ALTER TABLE user_bk ENGINE=InnoDB;
 CREATE TABLE user_copy AS SELECT * FROM mysql.user LIMIT 0;
-ALTER TABLE user_copy ENGINE=InnoDB;
 CREATE PROCEDURE proc2 ()
 BEGIN
 UPDATE mysql.user SET user='u2x' WHERE User='u2';
@@ -2781,6 +2779,7 @@ Warning	4009	Reads with serializable isolation/SELECT FOR SHARE are not supporte
 LOCK TABLE mysql.user READ;
 SET SESSION lock_wait_timeout=1;
 SET SESSION innodb_lock_wait_timeout=1;
+SET SESSION rocksdb_lock_wait_timeout=1;
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
@@ -3039,7 +3038,7 @@ ROLLBACK;
 INSERT INTO user_copy SELECT * FROM mysql.user WHERE User='u2';
 Warnings:
 Warning	4009	Reads with serializable isolation/SELECT FOR SHARE are not supported for ACL tables.
-CREATE TABLE tmp1 (f1 INT) ENGINE=InnoDB;
+CREATE TABLE tmp1 (f1 INT);
 CREATE TRIGGER read_trig1 BEFORE INSERT ON tmp1 FOR EACH ROW
 BEGIN
 UPDATE user_copy SET User='u2x'
@@ -3097,6 +3096,7 @@ DELETE FROM mysql.user WHERE User='u2';
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 SET SESSION lock_wait_timeout=default;
 SET SESSION innodb_lock_wait_timeout=default;
+SET SESSION rocksdb_lock_wait_timeout=default;
 ROLLBACK;
 DROP TABLE tmp1;
 DELETE FROM user_copy;
@@ -3386,6 +3386,7 @@ u2
 LOCK TABLE mysql.user READ;
 SET SESSION lock_wait_timeout=1;
 SET SESSION innodb_lock_wait_timeout=1;
+SET SESSION rocksdb_lock_wait_timeout=1;
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
@@ -3622,7 +3623,7 @@ ROLLBACK;
 # Read ACL table in a DML inside a trigger in different isolation
 # mode. Make sure a concurrent ACL DML on same table is blocked.
 INSERT INTO user_copy SELECT * FROM mysql.user WHERE User='u2';
-CREATE TABLE tmp1 (f1 INT) ENGINE=InnoDB;
+CREATE TABLE tmp1 (f1 INT);
 CREATE TRIGGER read_trig1 BEFORE INSERT ON tmp1 FOR EACH ROW
 BEGIN
 UPDATE user_copy SET User='u2x'
@@ -3676,6 +3677,7 @@ DELETE FROM mysql.user WHERE User='u2';
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 SET SESSION lock_wait_timeout=default;
 SET SESSION innodb_lock_wait_timeout=default;
+SET SESSION rocksdb_lock_wait_timeout=default;
 ROLLBACK;
 DROP TABLE tmp1;
 DELETE FROM user_copy;
@@ -3961,6 +3963,7 @@ u2
 LOCK TABLE mysql.user READ;
 SET SESSION lock_wait_timeout=1;
 SET SESSION innodb_lock_wait_timeout=1;
+SET SESSION rocksdb_lock_wait_timeout=1;
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
@@ -4195,7 +4198,7 @@ ROLLBACK;
 # Read ACL table in a DML inside a trigger in different isolation
 # mode. Make sure a concurrent ACL DML on same table is blocked.
 INSERT INTO user_copy SELECT * FROM mysql.user WHERE User='u2';
-CREATE TABLE tmp1 (f1 INT) ENGINE=InnoDB;
+CREATE TABLE tmp1 (f1 INT);
 CREATE TRIGGER read_trig1 BEFORE INSERT ON tmp1 FOR EACH ROW
 BEGIN
 UPDATE user_copy SET User='u2x'
@@ -4248,6 +4251,7 @@ DELETE FROM mysql.user WHERE User='u2';
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 SET SESSION lock_wait_timeout=default;
 SET SESSION innodb_lock_wait_timeout=default;
+SET SESSION rocksdb_lock_wait_timeout=default;
 ROLLBACK;
 DROP TABLE tmp1;
 DELETE FROM user_copy;
@@ -4533,6 +4537,7 @@ u2
 LOCK TABLE mysql.user READ;
 SET SESSION lock_wait_timeout=1;
 SET SESSION innodb_lock_wait_timeout=1;
+SET SESSION rocksdb_lock_wait_timeout=1;
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
@@ -4767,7 +4772,7 @@ ROLLBACK;
 # Read ACL table in a DML inside a trigger in different isolation
 # mode. Make sure a concurrent ACL DML on same table is blocked.
 INSERT INTO user_copy SELECT * FROM mysql.user WHERE User='u2';
-CREATE TABLE tmp1 (f1 INT) ENGINE=InnoDB;
+CREATE TABLE tmp1 (f1 INT);
 CREATE TRIGGER read_trig1 BEFORE INSERT ON tmp1 FOR EACH ROW
 BEGIN
 UPDATE user_copy SET User='u2x'
@@ -4820,6 +4825,7 @@ DELETE FROM mysql.user WHERE User='u2';
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 SET SESSION lock_wait_timeout=default;
 SET SESSION innodb_lock_wait_timeout=default;
+SET SESSION rocksdb_lock_wait_timeout=default;
 ROLLBACK;
 DROP TABLE tmp1;
 DELETE FROM user_copy;

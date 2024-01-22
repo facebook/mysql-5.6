@@ -5,6 +5,7 @@
 --let $rpl_skip_start_slave= 1
 --source include/master-slave.inc
 
+--let DDSE = `SELECT @@default_dd_system_storage_engine`
 --let RPL_PLUGIN_DIR_OPT = $KEYRING_FILE_COMPONENT_OPT
 
 --let COMPONENT_LIBRARY = `SELECT SUBSTRING_INDEX('$KEYRING_FILE_COMPONENT_LOAD', '=', -1)`
