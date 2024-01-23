@@ -189,6 +189,7 @@ namespace file_info {
    @param type_of_file tag indicating how the fd was created
  */
 void RegisterFilename(File fd, const char *file_name, OpenType type_of_file) {
+  if (fivp == nullptr) return;
   assert(fd > -1);
   FileInfoVector &fiv = *fivp;
   MUTEX_LOCK(g, &THR_LOCK_open);
@@ -212,6 +213,7 @@ void RegisterFilename(File fd, const char *file_name, OpenType type_of_file) {
    @param fd file descriptor
  */
 void UnregisterFilename(File fd) {
+  if (fivp == nullptr) return;
   FileInfoVector &fiv = *fivp;
   MUTEX_LOCK(g, &THR_LOCK_open);
 
@@ -245,6 +247,8 @@ void UnregisterFilename(File fd) {
 */
 const char *my_filename(File fd) {
   DBUG_TRACE;
+  if (fivp == nullptr) return "<nullptr fivp>";
+
   const FileInfoVector &fiv = *fivp;
   MUTEX_LOCK(g, &THR_LOCK_open);
   if (fd < 0 || fd >= static_cast<int>(fiv.size())) {
