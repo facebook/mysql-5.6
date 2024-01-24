@@ -268,8 +268,32 @@ static int vio_load_cert(SSL_CTX *ctx, const char *cert_file, BIO *bio) {
 
   int ret = SSL_CTX_use_certificate(ctx, cert);
   X509_free(cert);
+  if (ret != 1) {
+    ERR_clear_error();
+    return 1;
+  }
 
-  return ret <= 0;
+  ret = SSL_CTX_clear_extra_chain_certs(ctx);
+  if (ret != 1) {
+    ERR_clear_error();
+    return 1;
+  }
+
+  while (true) {
+    cert = nullptr;
+    if (!PEM_read_bio_X509(bio, &cert, 0, NULL)) { /* takes ownership of cert */
+      ERR_clear_error();
+      return 0;
+    }
+    ret = SSL_CTX_add_extra_chain_cert(ctx, cert);
+    if (ret != 1) {
+      X509_free(cert);
+      ERR_clear_error();
+      return 1;
+    }
+  }
+
+  return 1;
 }
 
 static int vio_load_key(SSL_CTX *ctx, const char *key_file, bool same_file,
