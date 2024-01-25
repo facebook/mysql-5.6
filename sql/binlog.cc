@@ -1749,7 +1749,7 @@ bool MYSQL_BIN_LOG::write_metadata_event(THD *thd,
     return false;
   }
 
-  if (param.checkpoint != std::pair(-1L, -1L)) {
+  if (param.checkpoint != std::pair<std::int64_t, std::int64_t>(-1L, -1L)) {
     metadata_ev.set_raft_ingestion_checkpoint(param.checkpoint);
     write_event = true;
   }
