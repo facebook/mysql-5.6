@@ -87,6 +87,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 #include "my_rnd.h"
 #include "mysql/service_mysql_keyring.h"
 #include "mysqld.h"
+#include "mysys/mysys_priv.h"
 
 #include <sys/types.h>
 #include <zlib.h>
@@ -2046,6 +2047,7 @@ static file::Block *os_file_encrypt_log(const IORequest &type, void *&buf,
 @return the number of bytes read/written or negative value on error */
 ssize_t SyncFileIO::execute(const IORequest &request) {
   ssize_t n_bytes;
+  My_thd_wait_scope wait(THD_WAIT_DISKIO);
 
   if (request.is_read()) {
     n_bytes = pread(m_fh, m_buf, m_n, m_offset);
