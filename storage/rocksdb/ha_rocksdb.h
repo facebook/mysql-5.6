@@ -800,7 +800,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       const std::string &ttl_column,
       dd::Object_id index_id = dd::INVALID_OBJECT_ID) const;
 
-  [[nodiscard]] bool create_inplace_key_defs(
+  [[nodiscard]] uint create_inplace_key_defs(
       const TABLE &table_arg, Rdb_tbl_def &tbl_def_arg,
       const TABLE &old_table_arg, const Rdb_tbl_def &old_tbl_def_arg,
       const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs,

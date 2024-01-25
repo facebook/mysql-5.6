@@ -9135,7 +9135,10 @@ int ha_rocksdb::alloc_key_buffers(const TABLE &table_arg,
   m_pk_descr = kd_arr[pk_index(table_arg, tbl_def_arg)];
 
   // move this into get_table_handler() ??
-  m_pk_descr->setup(table_arg, tbl_def_arg);
+  uint rtn = m_pk_descr->setup(table_arg, tbl_def_arg);
+  if (rtn) {
+    return rtn;
+  }
 
   pack_key_len = m_pk_descr->max_storage_fmt_length();
   m_pk_packed_tuple = reinterpret_cast<uchar *>(
@@ -9148,7 +9151,10 @@ int ha_rocksdb::alloc_key_buffers(const TABLE &table_arg,
     if (i == table_arg.s->primary_key) continue;
 
     // TODO: move this into get_table_handler() ??
-    kd_arr[i]->setup(table_arg, tbl_def_arg);
+    rtn = kd_arr[i]->setup(table_arg, tbl_def_arg);
+    if (rtn) {
+      return rtn;
+    }
 
     const uint packed_len = kd_arr[i]->max_storage_fmt_length();
     if (packed_len > max_packed_sk_len) {
@@ -9623,10 +9629,10 @@ int ha_rocksdb::create_key_defs(
       in-place alter table.  Copy over existing keys from the old_tbl_def and
       generate the necessary new key definitions if any.
     */
-    if (create_inplace_key_defs(table_arg, tbl_def_arg, *old_table_arg,
-                                *old_tbl_def_arg, cfs, ttl_duration,
-                                ttl_column)) {
-      DBUG_RETURN(HA_EXIT_FAILURE);
+    if ((err = create_inplace_key_defs(table_arg, tbl_def_arg, *old_table_arg,
+                                       *old_tbl_def_arg, cfs, ttl_duration,
+                                       ttl_column))) {
+      DBUG_RETURN(err);
     }
   }
 
@@ -9802,7 +9808,7 @@ bool ha_rocksdb::create_cfs(
     false - Ok
     true  - error, either given table ddl is not supported by rocksdb or OOM.
 */
-bool ha_rocksdb::create_inplace_key_defs(
+uint ha_rocksdb::create_inplace_key_defs(
     const TABLE &table_arg, Rdb_tbl_def &tbl_def_arg,
     const TABLE &old_table_arg, const Rdb_tbl_def &old_tbl_def_arg,
     const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs,
@@ -9838,7 +9844,7 @@ bool ha_rocksdb::create_inplace_key_defs(
                         "for Index Number (%u,%u), table %s",
                         gl_index_id.cf_id, gl_index_id.index_id,
                         old_tbl_def_arg.full_tablename().c_str());
-        return true;
+        return HA_EXIT_FAILURE;
       }
 
       uint32 ttl_rec_offset =
@@ -9863,16 +9869,19 @@ bool ha_rocksdb::create_inplace_key_defs(
           index_info.m_index_flags, ttl_rec_offset, ttl_duration);
     } else if (create_key_def(table_arg, i, tbl_def_arg, new_key_descr[i],
                               cfs[i], ttl_duration, ttl_column)) {
-      return true;
+      return HA_EXIT_FAILURE;
     }
 
     assert(new_key_descr[i] != nullptr);
-    new_key_descr[i]->setup(table_arg, tbl_def_arg);
+    int rtn = new_key_descr[i]->setup(table_arg, tbl_def_arg);
+    if (rtn) {
+      return rtn;
+    }
   }
 
   tbl_def_arg.m_tbl_stats.set(new_key_descr[0]->m_stats.m_rows, 0, 0);
 
-  return false;
+  return HA_EXIT_SUCCESS;
 }
 
 std::unordered_map<std::string, uint> ha_rocksdb::get_old_key_positions(
@@ -10073,7 +10082,10 @@ int ha_rocksdb::create_key_def(
   }
 
   // initialize key_def
-  new_key_def->setup(table_arg, tbl_def_arg);
+  uint rtn = new_key_def->setup(table_arg, tbl_def_arg);
+  if (rtn) {
+    return rtn;
+  }
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 

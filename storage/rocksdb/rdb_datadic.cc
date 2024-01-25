@@ -354,7 +354,7 @@ Rdb_key_def::~Rdb_key_def() {
   m_pack_info = nullptr;
 }
 
-void Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
+uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
   /*
     Set max_length based on the table.  This can be called concurrently from
     multiple threads, so there is a mutex to protect this code.
@@ -366,7 +366,7 @@ void Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
     RDB_MUTEX_LOCK_CHECK(m_mutex);
     if (m_maxlength != 0) {
       RDB_MUTEX_UNLOCK_CHECK(m_mutex);
-      return;
+      return HA_EXIT_SUCCESS;
     }
 
     KEY *key_info = nullptr;
@@ -556,7 +556,10 @@ void Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
     rocksdb::Options opt = rdb_get_rocksdb_db()->GetOptions(get_cf());
     m_prefix_extractor = opt.prefix_extractor;
 
-    setup_vector_index(tbl_def);
+    uint rtn = setup_vector_index(tbl, tbl_def);
+    if (rtn) {
+      return rtn;
+    }
 
     /*
       This should be the last member variable set before releasing the mutex
@@ -566,6 +569,8 @@ void Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
 
     RDB_MUTEX_UNLOCK_CHECK(m_mutex);
   }
+
+  return HA_EXIT_SUCCESS;
 }
 
 /*
@@ -3493,14 +3498,43 @@ Rdb_field_packing *Rdb_key_def::get_pack_info(uint pack_no) {
   return &m_pack_info[pack_no];
 }
 
-void Rdb_key_def::setup_vector_index(const Rdb_tbl_def &tbl_def
-                                     [[maybe_unused]]) {
+uint Rdb_key_def::setup_vector_index(const TABLE &tbl,
+                                     const Rdb_tbl_def &tbl_def) {
   if (m_vector_index_config.type() == FB_VECTOR_INDEX_TYPE::NONE) {
-    return;
+    return HA_EXIT_SUCCESS;
   }
-  assert(!is_primary_key());
-  assert(tbl_def.get_table_type() == TABLE_TYPE::USER_TABLE);
+
+  // the upper layer should make sure these conditions are met,
+  // but we still check them here in case there are new use case
+  // that does not set up the vector index config properly in the
+  // KEY object.
+  if (is_primary_key()) {
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "vector index is not supported on primary key");
+    assert(false);
+    return HA_ERR_UNSUPPORTED;
+  }
+  if (tbl_def.get_table_type() != TABLE_TYPE::USER_TABLE) {
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "vector index is only supported on user tables");
+    assert(false);
+    return HA_ERR_UNSUPPORTED;
+  }
+  KEY *key_info = &tbl.key_info[m_keyno];
+  if (key_info->actual_key_parts != 1) {
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "vector index only supports one key part");
+    assert(false);
+    return HA_ERR_UNSUPPORTED;
+  }
+  if (key_info->key_part[0].field->real_type() != MYSQL_TYPE_JSON) {
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "vector index only supports json field");
+    assert(false);
+    return HA_ERR_UNSUPPORTED;
+  }
   m_vector_index = std::make_unique<Rdb_vector_index>(m_vector_index_config);
+  return HA_EXIT_SUCCESS;
 }
 
 // See Rdb_charset_space_info::spaces_xfrm
