@@ -1,3 +1,8 @@
+# If run with a different DDSE, due to the option file, the instance is created
+# with one DDSE and then changed to another on startup, filling the PFS tables
+# with extra events.
+--source include/have_innodb_ddse.inc
+
 # Tests for PERFORMANCE_SCHEMA
 
 --source ../include/start_server_common.inc
