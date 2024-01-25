@@ -40,8 +40,9 @@
 #include "my_thread_local.h"
 #include "mysql/psi/mysql_cond.h"
 #include "mysql/psi/mysql_rwlock.h"  // mysql_rwlock_t
-#include "prealloced_array.h"        // Prealloced_array
-#include "sql/rpl_reporting.h"       // MAX_SLAVE_ERRMSG
+#include "mysql/service_thd_wait.h"
+#include "prealloced_array.h"   // Prealloced_array
+#include "sql/rpl_reporting.h"  // MAX_SLAVE_ERRMSG
 #include "template_utils.h"
 
 class Table_ref;
@@ -2980,7 +2981,7 @@ class Gtid_state {
     Increase the global counter when starting a call to
     WAIT_FOR_EXECUTED_GTID_SET or WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS.
   */
-  void begin_gtid_wait() {
+  void begin_gtid_wait(THD *thd) {
     DBUG_TRACE;
     assert(global_gtid_mode.get() != Gtid_mode::OFF);
 #ifndef NDEBUG
@@ -2990,6 +2991,7 @@ class Gtid_state {
     DBUG_PRINT("info", ("atomic_gtid_wait_count changed from %d to %d",
                         new_value - 1, new_value));
     assert(new_value >= 1);
+    thd_wait_begin(thd, THD_WAIT_GTID_EXECUTED);
     return;
   }
 
@@ -2997,7 +2999,7 @@ class Gtid_state {
     Decrease the global counter when ending a call to
     WAIT_FOR_EXECUTED_GTID_SET or WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS.
   */
-  void end_gtid_wait() {
+  void end_gtid_wait(THD *thd) {
     DBUG_TRACE;
     assert(global_gtid_mode.get() != Gtid_mode::OFF);
 #ifndef NDEBUG
@@ -3007,6 +3009,7 @@ class Gtid_state {
     DBUG_PRINT("info", ("atomic_gtid_wait_count changed from %d to %d",
                         new_value + 1, new_value));
     assert(new_value >= 0);
+    thd_wait_end(thd);
     return;
   }
 

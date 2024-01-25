@@ -576,10 +576,10 @@ bool wait_for_gtid_set_committed(const char *gtid_set_text, double timeout,
     return true;
   }
 
-  gtid_state->begin_gtid_wait();
+  gtid_state->begin_gtid_wait(thd);
   bool result = gtid_state->wait_for_gtid_set(thd, &wait_for_gtid_set, timeout,
                                               update_thd_status);
-  gtid_state->end_gtid_wait();
+  gtid_state->end_gtid_wait(thd);
 
   global_sid_lock->unlock();
 

@@ -110,9 +110,9 @@ longlong Item_wait_for_executed_gtid_set::val_int() {
     return error_int();
   }
 
-  gtid_state->begin_gtid_wait();
+  gtid_state->begin_gtid_wait(thd);
   bool result = gtid_state->wait_for_gtid_set(thd, &wait_for_gtid_set, timeout);
-  gtid_state->end_gtid_wait();
+  gtid_state->end_gtid_wait(thd);
 
   null_value = false;
   return result;
@@ -216,7 +216,7 @@ longlong Item_master_gtid_set_wait::val_int() {
     channel_map.unlock();
     return error_int();
   }
-  gtid_state->begin_gtid_wait();
+  gtid_state->begin_gtid_wait(thd);
 
   if (mi != nullptr) mi->inc_reference();
 
@@ -238,7 +238,7 @@ longlong Item_master_gtid_set_wait::val_int() {
   }
   if (mi != nullptr) mi->dec_reference();
 
-  gtid_state->end_gtid_wait();
+  gtid_state->end_gtid_wait(thd);
 
   null_value = false;
   return null_result ? error_int() : event_count;

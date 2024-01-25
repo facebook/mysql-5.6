@@ -123,7 +123,13 @@ typedef enum _thd_wait_type_e {
     Used by blocking operations of binlog sender threads.
   */
   THD_WAIT_BINLOG_SEND = 17,
-  THD_WAIT_LAST = 18
+
+  /**
+    Used for WAIT_FOR_EXECUTED_GTID_SET() et al.
+  */
+  THD_WAIT_GTID_EXECUTED = 18,
+
+  THD_WAIT_LAST = 19
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {
