@@ -1,0 +1,141 @@
+
+create database test_db;
+use test_db;
+
+CREATE TABLE t1 (
+pk_col1 INT NOT NULL,
+pk_col2 INT NOT NULL,
+c1 CHAR(64) NOT NULL,
+c2 CHAR(64) NOT NULL,
+PRIMARY KEY(pk_col1, pk_col2),
+KEY c1_c2_idx (c1, c2)
+) ENGINE=INNODB;
+
+
+INSERT INTO t1 VALUES (1,1,'a','b'), (1,2,'a','b'),
+(1,3,'a','c'), (1,4,'a','c'),
+(2,1,'a','d'), (3,1,'a','b'),
+(4,1,'d','b'), (4,2,'e','b'),
+(5,3,'f','c'), (5,4,'k','c'),
+(6,1,'y','d'), (6,2,'f','b');
+
+# Make sure all sql_plans controls are OFF
+
+SELECT @@sql_plans_control;
+SELECT @@sql_plans_max_buffer;
+SELECT @@sql_plans_sampling_rate;
+SELECT @@sql_plans_norm_prune_expr_trees;
+SELECT @@sql_plans_norm_prune_in_lists;
+SELECT @@sql_plans_norm_use_arg_counts;
+
+--echo
+--echo  .*************************************************.
+--echo  | Test basic IN list pruning from captured plans  |
+--echo  `*************************************************`
+--echo
+
+# IN lists will appear with WHERE and HAVING clause
+# the queries below test this in a few different situations
+
+set @@GLOBAL.sql_plans_norm_prune_in_lists=ON;
+set @@GLOBAL.sql_plans_control=ON;
+
+disable_result_log;
+SELECT * FROM t1 where pk_col1 in (1, 2, 3, 4, 5) and pk_col2 not in (2, 3, 4, 5, 6, 7);
+enable_result_log;
+
+SELECT PLAN_ID, PLAN_ROW FROM performance_schema.sql_plans ORDER BY LAST_RECORDED DESC LIMIT 1;
+
+disable_result_log;
+SELECT c1, (SELECT AVG(pk_col2) from t1 where c1 in ('d', 'e', 'f', 'g', 'h')  and c2 in ('i', 'j', 'k', 'l', 'm', 'n')) col2_avg from t1 where pk_col1 in (2, 4, 6, 8, 10);
+enable_result_log;
+
+SELECT PLAN_ID, PLAN_ROW FROM performance_schema.sql_plans ORDER BY LAST_RECORDED DESC LIMIT 1;
+
+disable_result_log;
+SELECT * from t1 where pk_col1 > ANY ( select c1 from t1 where pk_col1 IN (1, 2, 3, 4, 5)) and pk_col2 NOT IN (2, 4, 6, 8) and c2 in ('aa', 'bb', 'cc', 'dd');
+enable_result_log;
+
+SELECT PLAN_ID, PLAN_ROW FROM performance_schema.sql_plans ORDER BY LAST_RECORDED DESC LIMIT 1;
+
+disable_result_log;
+with t1_ as (SELECT * from t1 where c1 in ('aa', 'bb', 'cc', 'dd', 'a', 'b', 'c', 'd') and pk_col2 in (4, 5, 6, 7, 8, 9, 10)) SELECT t1.pk_col2, AVG(t1.pk_col1) FROM t1 JOIN t1_ where t1.pk_col1 in (1, 2, 3, 4, 5) group by t1.pk_col2 having t1.pk_col2 in (2, 3, 4, 5, 6, 7);
+enable_result_log;
+
+SELECT PLAN_ID, PLAN_ROW FROM performance_schema.sql_plans ORDER BY LAST_RECORDED DESC LIMIT 1;
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+
+--echo
+--echo  .*******************************************.
+--echo  | Test plan capture without IN list pruning |
+--echo  `*******************************************`
+--echo
+
+set @@GLOBAL.sql_plans_control=ON;
+
+disable_result_log;
+
+--echo SELECT #1
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4) AND pk_col1 NOT IN (5, 6, 7, 8) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5);
+--echo SELECT #2
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4, 5) AND pk_col1 NOT IN (6, 7, 8, 9, 10) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5, 6);
+--echo SELECT #3
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4, 5, 6) AND pk_col1 NOT IN (7, 8, 9, 10, 11, 12) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5, 6, 7);
+
+enable_result_log;
+
+--echo 
+--echo -> There should be three plans for the above 3 SELECT statements
+--echo    without IN list pruning
+--echo 
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+
+--echo Cleaning up state 
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+
+--echo
+--echo  .*******************************************.
+--echo  | Test plan capture with IN list pruning |
+--echo  `*******************************************`
+--echo
+
+set @@GLOBAL.sql_plans_control=ON;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=ON;
+
+disable_result_log;
+
+--echo SELECT #1
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4) AND pk_col1 NOT IN (5, 6, 7, 8) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5);
+--echo SELECT #2
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4, 5) AND pk_col1 NOT IN (6, 7, 8, 9, 10) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5, 6);
+--echo SELECT #3
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4, 5, 6) AND pk_col1 NOT IN (7, 8, 9, 10, 11, 12) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5, 6, 7);
+
+enable_result_log;
+
+--echo 
+--echo -> There should be only one plan for the above 3 SELECT statements
+--echo    with IN list pruning turned ON
+--echo 
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+
+
+# Clean up all state changes 
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+
+drop table t1;
+
+drop database test_db;

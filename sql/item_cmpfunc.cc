@@ -5313,8 +5313,13 @@ void Item_func_in::print(const THD *thd, String *str,
   args[0]->print(thd, str, query_type);
   if (negated) str->append(STRING_WITH_LEN(" not"));
   str->append(STRING_WITH_LEN(" in ("));
-  print_args(thd, str, 1, query_type);
-  str->append(STRING_WITH_LEN("))"));
+  if (thd->plan_capture() &&
+      (thd->is_plan_modifier_set(THD::Plan_format::PRUNE_IN_LISTS))) {
+    str->append(STRING_WITH_LEN("...)"));
+  } else {
+    print_args(thd, str, 1, query_type);
+    str->append(STRING_WITH_LEN("))"));
+  }
 }
 
 /*

@@ -357,6 +357,31 @@ PLAN_ID	COUNT_OCCUR	PLAN_ROW
 
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_control=ON;
+
+.********************************************.
+| Test basic plan normalization for IN lists |
+`********************************************`
+
+SELECT #1
+SELECT * FROM t1 where c IN (5, 6, 7, 8, 9);
+SELECT #2
+SELECT * FROM t1 where c IN (6, 5, 8, 9, 7);
+SELECT #3
+SELECT * FROM t1 where c IN (1, 12, 3, 15, 19, 21, 23);
+SELECT #4
+SELECT * FROM t1 where c IN (21, 22, 23, 25, 29, 31, 33);
+There should be only two plans for the above 4 SELECT statements
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+3b7d821ab75cdd2ac0cff9eba6490d69	2	-> Filter: (t1.c in (?,?,?,?,?,?,?))
+    -> Table scan on t1
+
+d46d28003f9055af551576aa1e3033aa	2	-> Filter: (t1.c in (?,?,?,?,?))
+    -> Table scan on t1
+
+Reset state before next test
+set @@GLOBAL.sql_plans_control=OFF_HARD;
 
 .******************************.
 | Test sql_plans_sampling_rate |

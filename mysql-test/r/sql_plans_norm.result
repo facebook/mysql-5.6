@@ -1,0 +1,156 @@
+create database test_db;
+use test_db;
+CREATE TABLE t1 (
+pk_col1 INT NOT NULL,
+pk_col2 INT NOT NULL,
+c1 CHAR(64) NOT NULL,
+c2 CHAR(64) NOT NULL,
+PRIMARY KEY(pk_col1, pk_col2),
+KEY c1_c2_idx (c1, c2)
+) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1,1,'a','b'), (1,2,'a','b'),
+(1,3,'a','c'), (1,4,'a','c'),
+(2,1,'a','d'), (3,1,'a','b'),
+(4,1,'d','b'), (4,2,'e','b'),
+(5,3,'f','c'), (5,4,'k','c'),
+(6,1,'y','d'), (6,2,'f','b');
+SELECT @@sql_plans_control;
+@@sql_plans_control
+OFF_HARD
+SELECT @@sql_plans_max_buffer;
+@@sql_plans_max_buffer
+10485760
+SELECT @@sql_plans_sampling_rate;
+@@sql_plans_sampling_rate
+1
+SELECT @@sql_plans_norm_prune_expr_trees;
+@@sql_plans_norm_prune_expr_trees
+0
+SELECT @@sql_plans_norm_prune_in_lists;
+@@sql_plans_norm_prune_in_lists
+0
+SELECT @@sql_plans_norm_use_arg_counts;
+@@sql_plans_norm_use_arg_counts
+0
+
+.*************************************************.
+| Test basic IN list pruning from captured plans  |
+`*************************************************`
+
+set @@GLOBAL.sql_plans_norm_prune_in_lists=ON;
+set @@GLOBAL.sql_plans_control=ON;
+SELECT * FROM t1 where pk_col1 in (1, 2, 3, 4, 5) and pk_col2 not in (2, 3, 4, 5, 6, 7);
+SELECT PLAN_ID, PLAN_ROW FROM performance_schema.sql_plans ORDER BY LAST_RECORDED DESC LIMIT 1;
+PLAN_ID	PLAN_ROW
+6dce3e504bb8eb32fc9422591044f86a	-> Filter: ((t1.pk_col1 in (...) and (t1.pk_col2 not in (...))
+    -> Covering index scan on t1 using c1_c2_idx
+
+SELECT c1, (SELECT AVG(pk_col2) from t1 where c1 in ('d', 'e', 'f', 'g', 'h')  and c2 in ('i', 'j', 'k', 'l', 'm', 'n')) col2_avg from t1 where pk_col1 in (2, 4, 6, 8, 10);
+SELECT PLAN_ID, PLAN_ROW FROM performance_schema.sql_plans ORDER BY LAST_RECORDED DESC LIMIT 1;
+PLAN_ID	PLAN_ROW
+01f92bb7fbf7a3d0bf2583fd7f761d0a	-> Filter: (t1.pk_col1 in (...)
+    -> Covering index scan on t1 using c1_c2_idx
+-> Select #2 (subquery in projection; run only once)
+    -> Aggregate: avg(t1.pk_col2)
+        -> Filter: ((t1.c1 in (...) and (t1.c2 in (...))
+            -> Covering index scan on t1 using c1_c2_idx
+
+SELECT * from t1 where pk_col1 > ANY ( select c1 from t1 where pk_col1 IN (1, 2, 3, 4, 5)) and pk_col2 NOT IN (2, 4, 6, 8) and c2 in ('aa', 'bb', 'cc', 'dd');
+SELECT PLAN_ID, PLAN_ROW FROM performance_schema.sql_plans ORDER BY LAST_RECORDED DESC LIMIT 1;
+PLAN_ID	PLAN_ROW
+72b459e9db054be513ec8446f0165881	-> Filter: (<nop>((t1.pk_col1 > (select #2))) and (t1.pk_col2 not in (...) and (t1.c2 in (...))
+    -> Covering index scan on t1 using c1_c2_idx
+    -> Select #2 (subquery in condition; run only once)
+        -> Aggregate: min(t1.c1)
+            -> Filter: (t1.pk_col1 in (...)
+                -> Covering index scan on t1 using c1_c2_idx
+
+with t1_ as (SELECT * from t1 where c1 in ('aa', 'bb', 'cc', 'dd', 'a', 'b', 'c', 'd') and pk_col2 in (4, 5, 6, 7, 8, 9, 10)) SELECT t1.pk_col2, AVG(t1.pk_col1) FROM t1 JOIN t1_ where t1.pk_col1 in (1, 2, 3, 4, 5) group by t1.pk_col2 having t1.pk_col2 in (2, 3, 4, 5, 6, 7);
+SELECT PLAN_ID, PLAN_ROW FROM performance_schema.sql_plans ORDER BY LAST_RECORDED DESC LIMIT 1;
+PLAN_ID	PLAN_ROW
+41d892351b07558a1fc6c1e69a23af41	-> Filter: (t1.pk_col2 in (...)
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Inner hash join (no condition)
+                -> Filter: (t1.pk_col1 in (...)
+                    -> Covering index scan on t1 using c1_c2_idx
+                -> Hash
+                    -> Filter: ((t1.c1 in (...) and (t1.pk_col2 in (...))
+                        -> Covering index scan on t1 using c1_c2_idx
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+
+.*******************************************.
+| Test plan capture without IN list pruning |
+`*******************************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+SELECT #1
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4) AND pk_col1 NOT IN (5, 6, 7, 8) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5);
+SELECT #2
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4, 5) AND pk_col1 NOT IN (6, 7, 8, 9, 10) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5, 6);
+SELECT #3
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4, 5, 6) AND pk_col1 NOT IN (7, 8, 9, 10, 11, 12) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5, 6, 7);
+
+-> There should be three plans for the above 3 SELECT statements
+without IN list pruning
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+aa15a8763db928f576a9f598602169ba	1	-> Filter: (t1.pk_col2 in (?,?,?,?,?,?,?))
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: ((t1.pk_col1 in (?,?,?,?,?,?)) and (t1.pk_col1 not in (?,?,?,?,?,?)))
+                -> Covering index scan on t1 using c1_c2_idx
+
+bb912ff5c8a864ace636f5ede378f2f1	1	-> Filter: (t1.pk_col2 in (?,?,?,?,?,?))
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: ((t1.pk_col1 in (?,?,?,?,?)) and (t1.pk_col1 not in (?,?,?,?,?)))
+                -> Covering index scan on t1 using c1_c2_idx
+
+ea918a0ef6ef0e81c7e36c160e25a507	1	-> Filter: (t1.pk_col2 in (?,?,?,?,?))
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: ((t1.pk_col1 in (?,?,?,?)) and (t1.pk_col1 not in (?,?,?,?)))
+                -> Covering index scan on t1 using c1_c2_idx
+
+Cleaning up state 
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+
+.*******************************************.
+| Test plan capture with IN list pruning |
+`*******************************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=ON;
+SELECT #1
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4) AND pk_col1 NOT IN (5, 6, 7, 8) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5);
+SELECT #2
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4, 5) AND pk_col1 NOT IN (6, 7, 8, 9, 10) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5, 6);
+SELECT #3
+SELECT pk_col2, AVG(pk_col1) FROM t1 WHERE pk_col1 IN (1, 2, 3, 4, 5, 6) AND pk_col1 NOT IN (7, 8, 9, 10, 11, 12) 
+GROUP BY pk_col2 HAVING pk_col2 IN (1, 2, 3, 4, 5, 6, 7);
+
+-> There should be only one plan for the above 3 SELECT statements
+with IN list pruning turned ON
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+572d7df5f92859c99c6635e90780ce01	3	-> Filter: (t1.pk_col2 in (...)
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: ((t1.pk_col1 in (...) and (t1.pk_col1 not in (...))
+                -> Covering index scan on t1 using c1_c2_idx
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+drop table t1;
+drop database test_db;
