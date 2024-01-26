@@ -6489,13 +6489,22 @@ static void fill_i_s_innodb_columns_one_table(THD *thd, Table_ref &tables,
     v_name = table_rec->v_col_names;
   }
 
-  for (size_t i = 0, v_i = 0;
-       i < table_rec->n_cols || v_i < table_rec->n_v_cols;) {
-    if (i < table_rec->n_cols &&
-        (!has_virtual_cols || v_i == table_rec->n_v_cols ||
-         column->ind < v_column->m_col.ind)) {
+  std::uint16_t total_s_cols = table_rec->n_cols;
+
+  DBUG_EXECUTE_IF("show_dropped_column",
+                  total_s_cols = table_rec->get_total_cols(););
+
+  for (size_t i = 0, v_i = 0; i < total_s_cols || v_i < table_rec->n_v_cols;) {
+    if (i < total_s_cols && (!has_virtual_cols || v_i == table_rec->n_v_cols ||
+                             column->ind < v_column->m_col.ind)) {
       /* Fill up normal column */
       ut_ad(!column->is_virtual());
+
+      DBUG_EXECUTE_IF(
+          "show_dropped_column", if (column->is_instant_dropped()) {
+            i_s_dict_fill_innodb_columns(thd, table_rec->id, name, column,
+                                         UINT32_UNDEFINED, tables.table);
+          });
 
       if (column->is_visible) {
         i_s_dict_fill_innodb_columns(thd, table_rec->id, name, column,
