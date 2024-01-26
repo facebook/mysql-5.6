@@ -19719,6 +19719,73 @@ bool ha_rocksdb::get_se_private_data(dd::Table *dd_table, bool reset) {
   return false;
 }
 
+/*
+  Given an ORDER, a TABLE and optionally an index id, check whether this ORDER
+  clause can be used to support KNN search, triggered by the ORDER BY clause.
+
+  The following checks are needed:
+     1. check if chosen index is of type vector, unless an index has not
+        been provided (i.e., a value of < 0)
+     2. check if ORDER's encapsulated item is a FUNC ITEM
+     3. check if this FUNC ITEM is a vector DB func
+     4. check if the first arg is a FIELD_ITEM with data_type MYSQL_TYPE_JSON
+     5. check if the FIELD_ITEM is assocaited with a vector index
+     6. check if the second arg is of type Item::STRING_ITEM/MYSQL_TYPE_VARCHAR
+ */
+bool ha_rocksdb::index_supports_vector_scan(ORDER *order, int idx) {
+  if ((idx >= 0) && !table->key_info[idx].is_fb_vector_index())  // 1.
+    return false;
+
+  if (!order || !order->item ||
+      ((Item *)*(order->item))->type() != Item::FUNC_ITEM)  // 2.
+    return false;
+
+  Item_func *item_func = (Item_func *)*(order->item);
+
+  if ((item_func->functype() != Item_func::FB_VECTOR_L2) &&
+      (item_func->functype() != Item_func::FB_VECTOR_IP) &&
+      (item_func->functype() != Item_func::FB_VECTOR_COSINE))  // 3.
+    return false;
+
+  if (((Item_func *)item_func)->argument_count() != 2) return false;
+
+  Item *arg0 = (Item *)((Item_func *)item_func)->arguments()[0];
+  Item *arg1 = (Item *)((Item_func *)item_func)->arguments()[1];
+
+  if ((arg0->type() != Item::FIELD_ITEM) ||
+      (arg0->data_type() != MYSQL_TYPE_JSON))  // 4.
+    return false;
+
+  Field *field = ((Item_field *)arg0)->field;
+  int fld_index = -1;
+
+  for (uint key_idx = 0; key_idx < table->s->keys && fld_index < 0; ++key_idx) {
+    if (table->key_info[key_idx].is_fb_vector_index()) { // 5.
+       for (uint part = 0; part < table->key_info[key_idx].user_defined_key_parts;
+             part++) {
+          if (table->key_info[key_idx].key_part[part].field == field) {
+             // vector index will always be the only user defined part
+             // i.e. part = 0
+             assert(!part);
+             fld_index = key_idx;
+             break;
+          } else {
+             return false;
+          }
+       }
+    }
+  }
+
+  if (fld_index < 0)
+     return false;
+
+  if ((arg1->type() != Item::STRING_ITEM) ||
+      (arg1->data_type() != MYSQL_TYPE_VARCHAR))  // 6.
+    return false;
+
+  return true;
+}
+
 }  // namespace myrocks
 
 /*

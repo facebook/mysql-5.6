@@ -421,7 +421,7 @@ bool JOIN::optimize(bool finalize_access_paths) {
     Run optimize phase for all derived tables/views used in this SELECT,
     including those in semi-joins.
   */
-  // if (query_block->materialized_derived_table_count) {
+  // if (query_block->materialized_derived_table_count)
   {  // WL#6570
     for (Table_ref *tl = query_block->leaf_tables; tl; tl = tl->next_leaf) {
       tl->access_path_for_derived = nullptr;
@@ -1862,7 +1862,13 @@ int test_if_order_by_key(ORDER_with_src *order_src, TABLE *table, uint idx,
       Since only fields can be indexed, ORDER BY <something> that is
       not a field cannot be resolved by using an index.
     */
-    Item *real_itm = (*order->item)->real_item();
+    const Item *real_itm = (*order->item)->real_item();
+
+    if (table->file->index_supports_vector_scan(order, idx)) {
+      Item_func *item_func = (Item_func *)*(order->item);
+      real_itm = (Item *)(item_func->arguments()[0]);
+    }
+
     if (real_itm->type() != Item::FIELD_ITEM) return 0;
 
     const Field *field = down_cast<const Item_field *>(real_itm)->field;
@@ -2316,10 +2322,17 @@ static bool test_if_skip_sort_order(JOIN_TAB *tab, ORDER_with_src &order,
 
   for (ORDER *tmp_order = order.order; tmp_order; tmp_order = tmp_order->next) {
     const Item *item = (*tmp_order->item)->real_item();
+
+    if (table->file->index_supports_vector_scan(tmp_order, -1)) {
+      Item_func *item_func = (Item_func *)*(tmp_order->item);
+      item = (Item *)(item_func->arguments()[0]);
+    }
+
     if (item->type() != Item::FIELD_ITEM) {
       usable_keys.clear_all();
       return false;
     }
+
     usable_keys.intersect(
         down_cast<const Item_field *>(item)->field->part_of_sortkey);
     if (usable_keys.is_clear_all()) return false;  // No usable keys

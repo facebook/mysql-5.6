@@ -73,6 +73,7 @@
 #include "sql/sql_const.h"       // SHOW_COMP_OPTION
 #include "sql/sql_list.h"        // SQL_I_List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
+#include "sql/table.h"
 #include "sql_string.h"
 #include "thr_lock.h"  // thr_lock_type
 #include "typelib.h"
@@ -7203,6 +7204,22 @@ class handler {
   virtual void rpl_after_delete_rows() {}
   virtual void rpl_before_update_rows() {}
   virtual void rpl_after_update_rows() {}
+
+  /* Vector index related */
+
+  /**
+    Does this storage engine support index scan on a vector index and can
+    provide ordering using the given ORDER and index id.
+    If idx value is -1, then it is not checked in table
+    @return false by default
+            true if the storage engine supports this, and if additional
+            conditions are met by checking the given ORDER
+    */
+
+  virtual bool index_supports_vector_scan(ORDER *order [[maybe_unused]],
+                                          int idx [[maybe_unused]]) {
+    return false;
+  }
 
  protected:
   Handler_share *get_ha_share_ptr();

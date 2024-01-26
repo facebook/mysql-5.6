@@ -757,7 +757,13 @@ void setup_key_part_field(TABLE_SHARE *share, handler *handler_file,
     share->keys_for_keyread.set_bit(key_n);
   }
 
-  if (full_length_key_part &&
+  /*
+    use vector index if configured as a sort key for ORDER BY, preventing
+    recource to filesort. We bypass the full_length_key_part check
+    as the key length for vector index doesn't not follow usual key length
+    semantics
+   */
+  if ((full_length_key_part || keyinfo->is_fb_vector_index()) &&
       (handler_file->index_flags(key_n, key_part_n, true) & HA_READ_ORDER))
     field->part_of_sortkey.set_bit(key_n);
 

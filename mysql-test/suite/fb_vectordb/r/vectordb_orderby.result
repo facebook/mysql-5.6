@@ -1,0 +1,143 @@
+create database test_db;
+use test_db;
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_INDEX_METRIC 'l2' fb_vector_dimension 1024
+);
+insert into t1 values (1, '[1,2,3]'), (2, '[2,22,31]');
+insert into t1 values (3, '[1,2,4]'), (4, '[2,22,33]');
+
+
+1. Verify that the optimizer chooses the vector index for an ORDER BY 
+with the LIMIT clause for the following 3 cases: 
+
+Case A. SELECT *  
+explain select * from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]') limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+
+Case B. SELECT <vector index field>
+explain select vector1 from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]') limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+
+Case C. SELECT <primary key field>
+explain select id from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]') limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+
+
+2. Verify that for the above three cases, the order of the vector field and 
+vector literal DOES matter. 
+
+Case A. SELECT *  
+explain select * from t1 order by FB_VECTOR_L2('[2, 1, 1]', vector1) limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+Case B. SELECT <vector index field>
+explain select vector1 from t1 order by FB_VECTOR_L2('[2, 1, 1]', vector1) limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+Case C. SELECT <primary key field>
+explain select id from t1 order by FB_VECTOR_L2('[2, 1, 1]', vector1) limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+
+3. Verify that the optimizer does not choose the vector index without 
+the LIMIT clause for the above 3 cases 
+
+Case A. SELECT *  
+explain select * from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+Case B. SELECT <vector index field>
+explain select vector1 from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+Case C. SELECT <primary key field>
+explain select id from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+
+4. Verify that the optimizer chooses the vector index for an ORDER BY with 
+the LIMIT clause even when the LIMIT clause value exceeds the table size
+
+Case A. SELECT *  
+explain select * from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]') limit 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+
+Case B. SELECT <vector index field>
+explain select vector1 from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]') limit 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+
+Case C. SELECT <primary key field>
+explain select id from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]') limit 20;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+
+
+5. Verify that the optimizer does not pick the vector index if there's 
+no vector field referenced in the vector function 
+
+Case A. SELECT *  
+explain select * from t1 order by FB_VECTOR_L2('[2, 1, 1]', '[2, 2, 2]') limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+
+Case B. SELECT <vector index field>
+explain select vector1 from t1 order by FB_VECTOR_L2('[2, 1, 1]', '[2, 2, 2]') limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	NULL
+
+Case C. SELECT <primary key field>
+explain select id from t1 order by FB_VECTOR_L2('[2, 1, 1]', '[2, 2, 2]') limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	8	NULL	1	100.00	Using index
+
+
+6. Verify that the optimizer does not pick the vector index if there's 
+no vector literal provided in the vector function 
+
+Case A. SELECT *  
+explain select * from t1 order by FB_VECTOR_L2(vector1, vector1) limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+Case B. SELECT <vector index field>
+explain select vector1 from t1 order by FB_VECTOR_L2(vector1, vector1) limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+Case C. SELECT <primary key field>
+explain select id from t1 order by FB_VECTOR_L2(vector1, vector1) limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+
+
+6. Other scenarios - Vector dist fn as part of SELECT fields
+
+Case A. SELECT *
+explain select *, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 order by dis limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+
+Case B. SELECT <vector index field>
+explain select vector1, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 order by dis limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+
+Case C. SELECT <primary key field>
+explain select id, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 order by dis limit 2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+drop table t1;
+drop database test_db;

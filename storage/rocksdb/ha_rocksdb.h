@@ -1062,6 +1062,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
  public:
   int check_disk_usage();
   void record_disk_usage_change(longlong delta);
+
+  bool index_supports_vector_scan(ORDER *order, int idx) override;
 };
 
 /*
