@@ -216,6 +216,7 @@ enum enum_sql_command {
   SQLCOM_START_SHARDBEATER,
   SQLCOM_STOP_SHARDBEATER,
   SQLCOM_SHOW_SHARDBEATER_STAT,
+  SQLCOM_DUMP,
   /* This should be the last !!! */
   SQLCOM_END
 };

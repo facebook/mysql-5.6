@@ -1853,9 +1853,10 @@ bool PT_foreign_key_definition::contextualize(Table_ddl_parse_context *pc) {
     is used. If both are missing name of generated supporting index is
     automatically produced.
   */
-  const LEX_CSTRING key_name = to_lex_cstring(
-      m_constraint_name.str ? m_constraint_name
-                            : m_key_name.str ? m_key_name : NULL_STR);
+  const LEX_CSTRING key_name =
+      to_lex_cstring(m_constraint_name.str ? m_constraint_name
+                     : m_key_name.str      ? m_key_name
+                                           : NULL_STR);
 
   if (key_name.str && check_string_char_length(key_name, "", NAME_CHAR_LEN,
                                                system_charset_info, true)) {
@@ -3661,6 +3662,18 @@ Sql_cmd *PT_load_table::make_cmd(THD *thd) {
   assert(select->parsing_place == CTX_UPDATE_VALUE);
   select->parsing_place = CTX_NONE;
 
+  return &m_cmd;
+}
+
+Sql_cmd *PT_dump_table::make_cmd(THD *thd) {
+  LEX *const lex = thd->lex;
+  lex->sql_command = SQLCOM_DUMP;
+  m_opts.init();
+  m_cmd.set_thread_count(m_opts.nthreads);
+  m_cmd.set_chunk_size(m_opts.chunk_size);
+  Query_block *const select = lex->current_query_block();
+  if (!select->add_table_to_list(thd, m_cmd.get_table(), nullptr, 0))
+    return nullptr;
   return &m_cmd;
 }
 

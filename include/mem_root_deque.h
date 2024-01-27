@@ -165,6 +165,11 @@ class mem_root_deque {
 
   ~mem_root_deque() { clear(); }
 
+  /**
+    Used when we need to construct a mem_root_deque before we have the mem_root.
+  */
+  void set_mem_root(MEM_ROOT *root) { m_root = root; }
+
   Element_type &operator[](size_t idx) const { return get(idx + m_begin_idx); }
 
   /**

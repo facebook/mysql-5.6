@@ -1,0 +1,19 @@
+use test;
+CREATE TABLE t1 (
+a int not null auto_increment,
+b int not null,
+c int not null,
+d varchar(100),
+e varchar(200),
+primary key (a, b, c),
+key c_idx (c)
+);
+SELECT COUNT(*) INTO @numrows FROM t1;
+SELECT @numrows;
+@numrows
+1024
+call mtr.add_suppression("File 't1dump.0' already exists");
+DUMP TABLE t1 INTO 't1dump';
+DUMP TABLE t1 INTO 't1dump';
+ERROR HY000: worker thread 0 failed: File 't1dump.0' already exists
+DROP TABLE t1;

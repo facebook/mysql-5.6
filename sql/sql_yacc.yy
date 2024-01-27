@@ -1434,6 +1434,9 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> FB_VECTOR_DIMENSION_SYM 10013     /* FB MYSQL */
 %token<lexer.keyword> FB_VECTOR_INDEX_TYPE_SYM 10014    /* FB MYSQL */
 %token<lexer.keyword> FB_VECTOR_INDEX_METRIC_SYM 10015  /* FB MYSQL */
+%token<lexer.keyword> DUMP_SYM 10016                    /* FB MYSQL */
+%token<lexer.keyword> THREADS_SYM 10017                 /* FB MYSQL */
+%token<lexer.keyword> CHUNK_SIZE_SYM 10018              /* FB MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -1787,8 +1790,9 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <select_options> select_option select_option_list select_options
 
-%type <node>
-          option_value
+%type <dump_table_opts> opt_dump_option opt_dump_options opt_dump_option_clause
+
+%type <node> option_value
 
 %type <join_table> joined_table joined_table_parens
 
@@ -1907,6 +1911,7 @@ void warn_about_deprecated_binary(THD *thd)
         drop_resource_group_stmt
         drop_role_stmt
         drop_srs_stmt
+        dump_stmt
         explain_stmt
         explainable_stmt
         handler_stmt
@@ -2394,6 +2399,7 @@ simple_statement:
         | drop_trigger_stmt             { $$= nullptr; }
         | drop_user_stmt                { $$= nullptr; }
         | drop_view_stmt                { $$= nullptr; }
+        | dump_stmt
         | execute                       { $$= nullptr; }
         | explain_stmt
         | flush                         { $$= nullptr; }
@@ -14925,6 +14931,68 @@ opt_load_algorithm:
         | ALGORITHM_SYM EQ BULK_SYM { $$ = true; }
         ;
 
+dump_stmt:
+          DUMP_SYM                      /*  1 */
+          TABLE_SYM                     /*  2 */
+          table_ident                   /*  3 */
+          INTO                          /*  4 */
+          TEXT_STRING_filesystem        /*  5 */
+          opt_dump_option_clause        /*  6 */
+          {
+            $$= NEW_PTN PT_dump_table(
+              $3 /* table_ident */,
+              $5 /* TEXT_STRING_filesystem */,
+              $6 /* opt_dump_option_clause */
+            );
+          }
+        ;
+
+opt_dump_option_clause:
+  /* empty */
+  {
+    $$.clear();
+  }
+  | WITH '(' opt_dump_options ')'
+  {
+    // Simple copy will suffice.
+    $$ = $3;
+  }
+  ;
+
+opt_dump_options:
+  opt_dump_option
+  | opt_dump_options ',' opt_dump_option
+  {
+    $$ = $1;
+    $$.merge($3);
+  }
+  ;
+
+opt_dump_option:
+  THREADS_SYM EQ NUM
+  {
+    int n = atol($3.str);
+    if (n <= 0) {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), "THREADS");
+      MYSQL_YYABORT;
+    }
+    $$.clear();
+    $$.nthreads = n;
+  }
+
+  | CHUNK_SIZE_SYM EQ NUM ROWS_SYM /* TODO: support N {ROWS | KB | MB | GB} */
+  {
+    int n = atol($3.str);
+    if (n <= 0) {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), "CHUNK_SIZE");
+      MYSQL_YYABORT;
+    }
+    $$.clear();
+    $$.chunk_size = n;
+  }
+
+  ;
+
 /* Common definitions */
 
 text_literal:
@@ -15497,6 +15565,7 @@ ident_keywords_ambiguous_2_labels:
         | DB_METADATA_SYM
         | DEALLOCATE_SYM
         | DO_SYM
+        | DUMP_SYM
         | END
         | FLUSH_SYM
         | FOLLOWS_SYM
@@ -15594,6 +15663,7 @@ ident_keywords_unambiguous:
         | CHALLENGE_RESPONSE_SYM
         | CHANGED
         | CHANNEL_SYM
+        | CHUNK_SIZE_SYM
         | CIPHER_SYM
         | CLASS_ORIGIN_SYM
         | CLIENT_SYM
@@ -15961,6 +16031,7 @@ ident_keywords_unambiguous:
         | TEXT_SYM
         | THAN_SYM
         | THREAD_PRIORITY_SYM
+        | THREADS_SYM
         | TIES_SYM
         | TIMESTAMP_ADD
         | TIMESTAMP_DIFF

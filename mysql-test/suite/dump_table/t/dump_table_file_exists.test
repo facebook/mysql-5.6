@@ -1,0 +1,39 @@
+# Test file already exists case.
+# This is done separately so that the supression does not apply to the whole test.
+
+use test;
+
+# Create simple table, populate it with data, and do a dump, then load it back
+# to ensure it works.
+# Verify the contents match.
+
+CREATE TABLE t1 (
+  a int not null auto_increment,
+  b int not null,
+  c int not null,
+  d varchar(100),
+  e varchar(200),
+  primary key (a, b, c),
+  key c_idx (c)
+);
+
+# Insert some dummy data.
+source suite/dump_table/include/populate_table.inc;
+
+SELECT COUNT(*) INTO @numrows FROM t1;
+SELECT @numrows;
+
+# Default chunk size.
+let $chunk_size_rows=128;
+let $numrows = `select @numrows`;
+expr $num_chunks = $numrows / $chunk_size_rows;
+let $chunk_prefix=t1dump;
+call mtr.add_suppression("File 't1dump.0' already exists");
+
+# Test file already exists.
+eval DUMP TABLE t1 INTO '$chunk_prefix';
+--error ER_FILE_EXISTS_ERROR
+eval DUMP TABLE t1 INTO '$chunk_prefix';
+
+# Cleanup
+DROP TABLE t1;

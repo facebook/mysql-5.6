@@ -836,6 +836,7 @@ extern PSI_mutex_key key_LOCK_plan_ht;
 extern PSI_mutex_key key_LOCK_global_active_sql;
 extern PSI_mutex_key key_LOCK_client_attribute_names;
 extern PSI_mutex_key key_LOCK_rpc_query;
+extern PSI_mutex_key key_LOCK_work_queue;
 
 extern PSI_mutex_key key_commit_order_manager_mutex;
 extern PSI_mutex_key key_mutex_replica_worker_hash;
@@ -885,6 +886,7 @@ extern PSI_cond_key key_cond_slave_worker_hash;
 extern PSI_cond_key key_commit_order_manager_cond;
 extern PSI_cond_key key_COND_group_replication_connection_cond_var;
 extern PSI_cond_key key_COND_ac_node;
+extern PSI_cond_key key_COND_work_queue;
 extern PSI_thread_key key_thread_bootstrap;
 extern PSI_thread_key key_thread_handle_manager;
 extern PSI_thread_key key_thread_handle_slave_stats_daemon;
@@ -892,6 +894,7 @@ extern PSI_thread_key key_thread_one_connection;
 extern PSI_thread_key key_thread_compress_gtid_table;
 extern PSI_thread_key key_thread_parser_service;
 extern PSI_thread_key key_thread_handle_con_admin_sockets;
+extern PSI_thread_key key_thread_dump_worker;
 extern PSI_cond_key key_monitor_info_run_cond;
 
 extern PSI_file_key key_file_binlog;
@@ -1035,6 +1038,9 @@ extern PSI_stage_info stage_communication_delegation;
 extern PSI_stage_info stage_slave_waiting_for_dependencies;
 extern PSI_stage_info stage_slave_waiting_for_dependency_workers;
 extern PSI_stage_info stage_waiting_for_hlc;
+extern PSI_stage_info stage_waiting_for_work_item;
+extern PSI_stage_info stage_dumping_table;
+extern PSI_stage_info stage_dumping_chunk;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 /**
   Statement instrumentation keys (sql).

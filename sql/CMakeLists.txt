@@ -559,6 +559,7 @@ SET(SQL_SHARED_SOURCES
   sql_derived.cc
   sql_digest.cc
   sql_do.cc
+  sql_dump.cc
   sql_error.cc
   sql_exception_handler.cc
   sql_executor.cc

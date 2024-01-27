@@ -244,10 +244,10 @@ void key_restore(uchar *to_record, const uchar *from_key, const KEY *key_info,
 }
 
 /**
-  Compare if a key has changed.
+  Compare if 'key' is different from the one stored in table->record[0].
 
   @param table		TABLE
-  @param key		key to compare to row
+  @param key		key to compare to table->record[0]
   @param idx		Index used
   @param key_length	Length of key
 
@@ -258,9 +258,10 @@ void key_restore(uchar *to_record, const uchar *from_key, const KEY *key_info,
     faster by using memcmp() instead.
 
   @retval
-    0	If key is equal
+    false	If key is equal
   @retval
-    1	Key has changed
+    true	Key has changed from the one internally stored in
+  table->record[0]
 */
 
 bool key_cmp_if_same(const TABLE *table, const uchar *key, uint idx,
@@ -285,7 +286,7 @@ bool key_cmp_if_same(const TABLE *table, const uchar *key, uint idx,
     if (key_part->bin_cmp &&
         !(key_part->key_part_flag &
           (HA_BLOB_PART | HA_VAR_LENGTH_PART | HA_BIT_PART))) {
-      // We can use memcpy.
+      // We can use memcmp.
       uint length = min((uint)(key_end - key), store_length);
       if (memcmp(key, table->record[0] + key_part->offset, length)) return true;
     } else {

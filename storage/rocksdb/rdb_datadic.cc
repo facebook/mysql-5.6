@@ -1068,6 +1068,9 @@ uint Rdb_key_def::pack_index_tuple(TABLE *const tbl, uchar *const pack_buffer,
 }
 
 /*
+  Compute the successor to the provided key, in memcmp'arable order, mutating
+  it in place.
+
   @return Number of bytes that were changed
 */
 int Rdb_key_def::successor(uchar *const packed_tuple, const uint len) {
@@ -1087,6 +1090,9 @@ int Rdb_key_def::successor(uchar *const packed_tuple, const uint len) {
 }
 
 /*
+  Compute the predecessor to the provided key, in memcmp'arable order, mutating
+  it in place.
+
   @return Number of bytes that were changed
 */
 int Rdb_key_def::predecessor(uchar *const packed_tuple, const uint len) {
@@ -1274,9 +1280,9 @@ uchar *Rdb_key_def::pack_field(
 
   @param
     tbl                   Table we're working on
-    record           IN   Record buffer with fields in table->record format
     pack_buffer      IN   Temporary area for packing varchars. The size is
                           at least max_storage_fmt_length() bytes.
+    record           IN   Record buffer with fields in table->record format
     packed_tuple     OUT  Key in the mem-comparable form
     unpack_info      OUT  Unpack data
     unpack_info_len  OUT  Unpack data length

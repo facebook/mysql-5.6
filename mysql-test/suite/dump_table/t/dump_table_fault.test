@@ -1,0 +1,64 @@
+# Fault injection tests for DUMP TABLE
+
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+set global debug='d,dump:i';
+
+use test;
+
+CREATE TABLE t1 (
+  a int not null auto_increment,
+  b int not null,
+  c int not null,
+  d varchar(100),
+  e varchar(200),
+  primary key (a, b, c),
+  key c_idx (c)
+);
+
+# Insert some dummy data.
+source suite/dump_table/include/populate_table.inc;
+
+SELECT COUNT(*) INTO @numrows FROM t1;
+SELECT @numrows;
+
+# Establish 2 connections to the server.
+connect (con1, localhost, root);
+connect (con2, localhost, root);
+
+--echo # connection 1
+connection con1;
+
+# Remember the current connection ID to kill from the other client.
+let $ID= `SELECT @id := CONNECTION_ID()`;
+
+# Establish a sync point in the dump loop that waits for a command.
+SET DEBUG_SYNC='dump_table_loop SIGNAL dump_table_started WAIT_FOR dump_table_killed';
+
+# This will now block in the first iteration of the dump loop.
+# Using 'send' to avoid blocking the test client. No need to 'reap' since
+# connection will be killed.
+send DUMP TABLE t1 INTO 't1dump';
+
+--echo # connection 2
+connection con2;
+
+# Wait for the dump loop to start running.
+SET DEBUG_SYNC='now WAIT_FOR dump_table_started';
+
+# Issue the actual kill.
+--replace_result $ID <CONNECTION_ID>
+eval KILL $ID;
+
+# Signal the sync point to continue.
+SET DEBUG_SYNC='now SIGNAL dump_table_killed';
+
+# Cleanup
+--echo # connection default
+connection default;
+disconnect con1;
+disconnect con2;
+SET DEBUG_SYNC= "RESET";
+DROP TABLE t1;
+set global debug=default;

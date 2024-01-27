@@ -1,0 +1,26 @@
+set global debug='d,dump:i';
+use test;
+CREATE TABLE t1 (
+a int not null auto_increment,
+b int not null,
+c int not null,
+d varchar(100),
+e varchar(200),
+primary key (a, b, c),
+key c_idx (c)
+);
+SELECT COUNT(*) INTO @numrows FROM t1;
+SELECT @numrows;
+@numrows
+1024
+# connection 1
+SET DEBUG_SYNC='dump_table_loop SIGNAL dump_table_started WAIT_FOR dump_table_killed';
+DUMP TABLE t1 INTO 't1dump';
+# connection 2
+SET DEBUG_SYNC='now WAIT_FOR dump_table_started';
+KILL <CONNECTION_ID>;
+SET DEBUG_SYNC='now SIGNAL dump_table_killed';
+# connection default
+SET DEBUG_SYNC= "RESET";
+DROP TABLE t1;
+set global debug=default;

@@ -5039,6 +5039,8 @@ SHOW_VAR com_status_vars[] = {
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"load", (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_LOAD]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"dump", (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_DUMP]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"lock_instance",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_LOCK_INSTANCE]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
@@ -13812,6 +13814,7 @@ PSI_mutex_key key_LOCK_ac_node;
 PSI_mutex_key key_LOCK_ac_info;
 PSI_mutex_key key_LOCK_thd_db_default_collation_hash;
 PSI_mutex_key key_LOCK_rpc_query;
+PSI_mutex_key key_LOCK_work_queue;
 
 /* clang-format off */
 static PSI_mutex_info all_server_mutexes[]=
@@ -13941,6 +13944,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_global_conn_mem_limit, "LOCK_global_conn_mem_limit", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_rpc_query, "RPC_Query_formatter::LOCK_rpc_query", 0,
     PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
+  { &key_LOCK_work_queue, "Work_queue::lock", 0, 0, PSI_DOCUMENT_ME},
+
 };
 /* clang-format on */
 
@@ -14032,6 +14037,7 @@ PSI_cond_key key_monitor_info_run_cond;
 PSI_cond_key key_COND_delegate_connection_cond_var;
 PSI_cond_key key_COND_group_replication_connection_cond_var;
 PSI_cond_key key_COND_ac_node;
+PSI_cond_key key_COND_work_queue;
 
 /* clang-format off */
 static PSI_cond_info all_server_conds[]=
@@ -14080,7 +14086,8 @@ static PSI_cond_info all_server_conds[]=
   { &key_monitor_info_run_cond, "Source_IO_monitor::run_cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_COND_ac_node, "st_ac_node::cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_COND_delegate_connection_cond_var, "THD::COND_delegate_connection_cond_var", 0, 0, PSI_DOCUMENT_ME},
-  { &key_COND_group_replication_connection_cond_var, "THD::COND_group_replication_connection_cond_var", 0, 0, PSI_DOCUMENT_ME}
+  { &key_COND_group_replication_connection_cond_var, "THD::COND_group_replication_connection_cond_var", 0, 0, PSI_DOCUMENT_ME},
+  { &key_COND_work_queue, "Work_queue::has_work", 0, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 
@@ -14091,6 +14098,7 @@ PSI_thread_key key_thread_one_connection;
 PSI_thread_key key_thread_compress_gtid_table;
 PSI_thread_key key_thread_parser_service;
 PSI_thread_key key_thread_handle_con_admin_sockets;
+PSI_thread_key key_thread_dump_worker;
 
 /* clang-format off */
 static PSI_thread_info all_server_threads[]=
@@ -14111,6 +14119,7 @@ PSI_FLAG_USER | PSI_FLAG_NO_SEQNUM, 0, PSI_DOCUMENT_ME},
   { &key_thread_compress_gtid_table, "compress_gtid_table", "gtid_zip", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_parser_service, "parser_service", "parser_srv", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_handle_con_admin_sockets, "admin_interface", "con_admin", PSI_FLAG_USER, 0, PSI_DOCUMENT_ME},
+  { &key_thread_dump_worker, "dump_worker", "dump", PSI_FLAG_THREAD_SYSTEM, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 
@@ -14277,6 +14286,9 @@ PSI_stage_info stage_communication_delegation= { 0, "Connection delegated to Gro
 PSI_stage_info stage_slave_waiting_for_dependencies= { 0, "Waiting for dependencies to be satisfied", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_slave_waiting_for_dependency_workers= { 0, "Waiting for dependency workers to finish", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_waiting_for_hlc= { 0, "Waiting for database applied HLC", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_waiting_for_work_item= { 0, "Waiting for work item", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_dumping_table= { 0, "Dumping table", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_dumping_chunk= { 0, "Dumping table chunk", 0, PSI_DOCUMENT_ME};
 /* clang-format on */
 
 extern PSI_stage_info stage_waiting_for_disk_space;
@@ -14387,7 +14399,10 @@ PSI_stage_info *all_server_stages[] = {
     &stage_rpl_failover_updating_source_member_details,
     &stage_rpl_failover_wait_before_next_fetch,
     &stage_waiting_for_hlc,
-    &stage_communication_delegation};
+    &stage_waiting_for_work_item,
+    &stage_communication_delegation,
+    &stage_dumping_table,
+    &stage_dumping_chunk};
 
 PSI_socket_key key_socket_tcpip;
 PSI_socket_key key_socket_unix;

@@ -59,6 +59,7 @@
 #include "sql/sql_alter.h"
 #include "sql/sql_check_constraint.h"  // Sql_check_constraint_spec
 #include "sql/sql_cmd_srs.h"
+#include "sql/sql_dump.h"  // Sql_cmd_dump_table
 #include "sql/sql_exchange.h"
 #include "sql/sql_lex.h"  // LEX
 #include "sql/sql_list.h"
@@ -5025,9 +5026,9 @@ class PT_alter_tablespace_option final
   const Option_type m_value;
 };
 
-typedef PT_alter_tablespace_option<decltype(
-                                       Tablespace_options::autoextend_size),
-                                   &Tablespace_options::autoextend_size>
+typedef PT_alter_tablespace_option<
+    decltype(Tablespace_options::autoextend_size),
+    &Tablespace_options::autoextend_size>
     PT_alter_tablespace_option_autoextend_size;
 
 typedef PT_alter_tablespace_option<decltype(Tablespace_options::extent_size),
@@ -5042,14 +5043,14 @@ typedef PT_alter_tablespace_option<decltype(Tablespace_options::max_size),
                                    &Tablespace_options::max_size>
     PT_alter_tablespace_option_max_size;
 
-typedef PT_alter_tablespace_option<decltype(
-                                       Tablespace_options::redo_buffer_size),
-                                   &Tablespace_options::redo_buffer_size>
+typedef PT_alter_tablespace_option<
+    decltype(Tablespace_options::redo_buffer_size),
+    &Tablespace_options::redo_buffer_size>
     PT_alter_tablespace_option_redo_buffer_size;
 
-typedef PT_alter_tablespace_option<decltype(
-                                       Tablespace_options::undo_buffer_size),
-                                   &Tablespace_options::undo_buffer_size>
+typedef PT_alter_tablespace_option<
+    decltype(Tablespace_options::undo_buffer_size),
+    &Tablespace_options::undo_buffer_size>
     PT_alter_tablespace_option_undo_buffer_size;
 
 typedef PT_alter_tablespace_option<
@@ -5284,6 +5285,19 @@ class PT_load_table final : public Parse_tree_root {
   Sql_cmd_load_table m_cmd;
 
   const thr_lock_type m_lock_type;
+};
+
+class PT_dump_table final : public Parse_tree_root {
+ public:
+  PT_dump_table(Table_ident *table, const LEX_STRING filename,
+                const Dump_table_opts &opts)
+      : m_cmd(table, filename), m_opts(opts) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_dump_table m_cmd;
+  Dump_table_opts m_opts;
 };
 
 /**
