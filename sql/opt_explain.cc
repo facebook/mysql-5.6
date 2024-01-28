@@ -2620,11 +2620,13 @@ std::string capture_query_tree_plan(THD *thd) {
 
   // Attach an Explain_format object in order to trigger conversion
   // of JSON-fied plan data into the tree format
-  if (!lex->explain_format) lex->explain_format = new Explain_format_tree_plan;
+  lex->explain_format = new (thd->mem_root) Explain_format_tree_plan;
 
   if (!qp->is_single_table_plan()) {
     ExplainIterator(thd, thd, lex->unit, &plan);
   }
+
+  lex->explain_format = nullptr;
 
   return plan;
 }
