@@ -221,6 +221,7 @@ IF (INSTALL_EXTRA_HEADERS)
     ../sql/debug_sync.h
     ../sql/discrete_interval.h
     ../sql/enum_query_type.h
+    ../sql/fb_vector_base.h
     ../sql/field.h
     ../sql/field_common_properties.h
     ../sql/filesort_utils.h
@@ -277,6 +278,7 @@ IF (INSTALL_EXTRA_HEADERS)
   SET(HEADERS_SQL_COMMON_DIR
     ../sql-common/json_binary.h
     ../sql-common/json_dom.h
+    ../sql-common/json_error_handler.h
   )
   SET(HEADERS_SQL_CONN_HANDLER_DIR
     ../sql/conn_handler/channel_info.h

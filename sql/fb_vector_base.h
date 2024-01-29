@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "include/lex_string.h"
+#include "lex_string.h"
 #include "sql-common/json_dom.h"
 
 #ifdef WITH_FB_VECTORDB

@@ -510,4 +510,18 @@ bool thd_get_table_privacy_policy(THD *thd, const std::string &db_name,
 */
 void thd_kill_query_with_error(THD *thd, uint error, ...);
 
+/**
+  Set the THD connection to be idle.
+
+  @param thd       The MySQL internal thread pointer.
+*/
+void thd_psi_set_as_idle(THD *thd);
+
+/**
+  Set the THD connection to be active.
+
+  @param thd       The MySQL internal thread pointer.
+*/
+void thd_psi_set_as_active(THD *thd);
+
 #endif  // SQL_THD_INTERNAL_API_INCLUDED

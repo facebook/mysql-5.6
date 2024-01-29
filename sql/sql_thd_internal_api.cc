@@ -47,6 +47,7 @@
 #include "my_psi_config.h"
 #include "my_sys.h"
 #include "mysql/psi/mysql_file.h"
+#include "mysql/psi/mysql_idle.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/psi/mysql_socket.h"
 #include "mysql/service_thd_wait.h"
@@ -807,4 +808,27 @@ void thd_kill_query_with_error(THD *thd, uint error, ...) {
   va_start(args, error);
   thd->kill_query_with_error_va(error, args);
   va_end(args);
+}
+
+/**
+  Set the THD connection to be idle.
+
+  @param thd       The MySQL internal thread pointer.
+*/
+
+void thd_psi_set_as_idle(THD *thd) {
+  MYSQL_SOCKET_SET_STATE(thd->get_net_vio()->mysql_socket,
+                         PSI_SOCKET_STATE_IDLE);
+  MYSQL_START_IDLE_WAIT(thd->m_idle_psi, &thd->m_idle_state);
+}
+
+/**
+  Set the THD connection to be active.
+
+  @param thd       The MySQL internal thread pointer.
+*/
+void thd_psi_set_as_active(THD *thd) {
+  MYSQL_END_IDLE_WAIT(thd->m_idle_psi);
+  MYSQL_SOCKET_SET_STATE(thd->get_net_vio()->mysql_socket,
+                         PSI_SOCKET_STATE_ACTIVE);
 }
