@@ -435,6 +435,13 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
               thd, mem_root, param.table, param.idx, param.use_order,
               path->num_output_rows(), examined_rows);
         }
+        if (join != nullptr && !join->order.empty() &&
+            param.table->file->index_supports_vector_scan(join->order.order,
+                                                          param.idx)) {
+          param.table->file->vector_index_init(
+              *join->order.order->item,
+              join->query_expression()->select_limit_cnt);
+        }
         break;
       }
       case AccessPath::REF: {

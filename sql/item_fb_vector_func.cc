@@ -23,31 +23,11 @@
 #include "sql/item_json_func.h"
 #include "sql/sql_exception_handler.h"
 
-namespace {
 #define FB_VECTORDB_DISABLED_ERR                                            \
   do {                                                                      \
     my_error(ER_FEATURE_DISABLED, MYF(0), "vector db", "WITH_FB_VECTORDB"); \
     return error_real();                                                    \
   } while (0)
-
-/**
- helper class to parse json to float vector
-*/
-class Fb_vector {
- public:
-  /// the parsed json obj
-  Json_wrapper wrapper;
-  std::vector<float> data;
-
-  bool set_dimension(size_t n) {
-    if (n > data.size()) {
-      data.resize(n, 0.0);
-      return false;
-    }
-    // do not allow shrinking the data
-    return n < data.size();
-  }
-};
 
 bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
                                const char *func_name, Fb_vector &vector) {
@@ -63,7 +43,6 @@ bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
 
   return false;
 }
-}  // anonymous namespace
 
 Item_func_fb_vector_distance::Item_func_fb_vector_distance(THD * /* thd */,
                                                            const POS &pos,

@@ -10848,10 +10848,7 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
 
   if (kd.is_vector_index()) {
     auto vector_db_handler = get_vector_db_handler();
-    // hard code query_vector and k value for now to unblock testing
-    const std::vector<float> query_vector{10, 6, 5};
-    rc =
-        vector_db_handler->knn_search(kd.get_vector_index(), query_vector, 128);
+    rc = vector_db_handler->knn_search(kd.get_vector_index());
     if (rc) {
       DBUG_RETURN(rc);
     }
@@ -13328,6 +13325,8 @@ int ha_rocksdb::index_end() {
 
   m_iterator.reset(nullptr);
 
+  vector_index_end();
+
   active_index = MAX_KEY;
   in_range_check_pushed_down = false;
 
@@ -13336,6 +13335,36 @@ int ha_rocksdb::index_end() {
   }
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
+}
+
+/**
+  @return
+    HA_EXIT_SUCCESS  OK
+    other            HA_ERR error code (can be SE-specific)
+*/
+
+int ha_rocksdb::vector_index_init(Item *sort_func, int limit) {
+  // update the ORDER BY parameters
+  auto vector_db_handler = get_vector_db_handler();
+  return vector_db_handler->vector_index_orderby_init(sort_func, limit);
+}
+
+/**
+  Called by index_end() to clean up vector index related state if needed
+
+*/
+
+void ha_rocksdb::vector_index_end() {
+  const Rdb_key_def &kd = *m_key_descr_arr[active_index_pos()];
+
+  if (kd.is_vector_index()) {
+    // If the current key is related with a vector index
+    // then we can reset the ORDER BY pushdown conditions
+    // Note: we are not making sure here that this is, in fact,
+    // a KNN search index, but it should not matter at least today.
+    auto vector_db_handler = get_vector_db_handler();
+    vector_db_handler->vector_index_orderby_end();
+  }
 }
 
 /**
@@ -19760,24 +19789,23 @@ bool ha_rocksdb::index_supports_vector_scan(ORDER *order, int idx) {
   int fld_index = -1;
 
   for (uint key_idx = 0; key_idx < table->s->keys && fld_index < 0; ++key_idx) {
-    if (table->key_info[key_idx].is_fb_vector_index()) { // 5.
-       for (uint part = 0; part < table->key_info[key_idx].user_defined_key_parts;
-             part++) {
-          if (table->key_info[key_idx].key_part[part].field == field) {
-             // vector index will always be the only user defined part
-             // i.e. part = 0
-             assert(!part);
-             fld_index = key_idx;
-             break;
-          } else {
-             return false;
-          }
-       }
+    if (table->key_info[key_idx].is_fb_vector_index()) {  // 5.
+      for (uint part = 0;
+           part < table->key_info[key_idx].user_defined_key_parts; part++) {
+        if (table->key_info[key_idx].key_part[part].field == field) {
+          // vector index will always be the only user defined part
+          // i.e. part = 0
+          assert(!part);
+          fld_index = key_idx;
+          break;
+        } else {
+          return false;
+        }
+      }
     }
   }
 
-  if (fld_index < 0)
-     return false;
+  if (fld_index < 0) return false;
 
   if ((arg1->type() != Item::STRING_ITEM) ||
       (arg1->data_type() != MYSQL_TYPE_VARCHAR))  // 6.

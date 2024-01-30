@@ -16,7 +16,6 @@
 
 #include "./rdb_vector_db.h"
 #include <mutex>
-#include "rdb_utils.h"
 #include "sql-common/json_dom.h"
 #include "sql/field.h"
 #ifdef WITH_FB_VECTORDB

@@ -79,3 +79,25 @@ class Item_func_fb_vector_cosine final : public Item_func_fb_vector_distance {
  protected:
   float compute_distance(float *v1, float *v2, size_t dimension) override;
 };
+
+/**
+ helper class to parse json to float vector
+*/
+class Fb_vector {
+ public:
+  /// the parsed json obj
+  Json_wrapper wrapper;
+  std::vector<float> data;
+
+  bool set_dimension(size_t n) {
+    if (n > data.size()) {
+      data.resize(n, 0.0);
+      return false;
+    }
+    // do not allow shrinking the data
+    return n < data.size();
+  }
+};
+
+bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
+                               const char *func_name, Fb_vector &vector);

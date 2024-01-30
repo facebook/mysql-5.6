@@ -7221,6 +7221,19 @@ class handler {
     return false;
   }
 
+  /**
+    Initialize vector index related params in the storage engine.
+    Currently this includes the vector dist function being used in the
+    query, the input vector and the LIMIT value.
+    @return false to indicate success
+            true if the storage engine encounters an error
+    */
+
+  virtual int vector_index_init(Item *sort_func [[maybe_unused]],
+                                int limit [[maybe_unused]]) {
+    return 0;
+  }
+
  protected:
   Handler_share *get_ha_share_ptr();
   void set_ha_share_ptr(Handler_share *arg_ha_share);
