@@ -71,15 +71,16 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 # 2 entries for the sql_plans for tables t1 and t2
 # 1 entry for the P_S.SQL_PLANS tables (should have 2 COUNT_OCCUR
 #   *after* this statement)
-# 1 entry for the sql_plans_control SELECT access
+# There will no entry for the sql_plans_control SELECT access as plans without
+#   tables are not captured
 
 --echo
 --echo  .*********************************************************.
 --echo  | Test that SQL Plans got captured in P_S.SQL_PLANS table |
 --echo  `*********************************************************`
 --echo
---echo -> There should be a count of 4 in the following SELECT query
---echo    These include the previous 4 SELECTs issued above
+--echo -> There should be a count of 3 in the following SELECT query
+--echo    These include the previous 3 SELECTs issued above
 --echo
 
 SELECT COUNT(*) FROM performance_schema.sql_plans;
@@ -457,11 +458,85 @@ let $query_text = `select QUERY_SAMPLE_TEXT from performance_schema.events_state
 
 assert($query_text == $query);
 
-
 # Clean up all state changes 
 
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.performance_schema_esms_by_all=off;
+
+--echo
+--echo  .****************************************.
+--echo  | Test `sql_plans_skip_builtin_db` control |
+--echo  `****************************************`
+--echo
+
+set @@GLOBAL.sql_plans_skip_builtin_db=ON;
+set @@GLOBAL.sql_plans_control=ON;
+
+--echo 
+--echo -> sql_plans table before
+--echo
+
+SELECT * FROM performance_schema.sql_plans;
+
+--echo 
+--echo -> Issue some system table queries
+--echo 
+
+disable_result_log;
+
+select @@GLOBAL.sql_plans_control;
+select @@GLOBAL.sql_plans_skip_builtin_db;
+
+select * from performance_schema.sql_plans;
+select * from information_schema.processlist;
+select * from sys.host_summary;
+select * from mysql.db;
+
+enable_result_log;
+
+--echo 
+--echo -> sql_plans table with sql_plans_skip_builtin_db=ON
+--echo
+
+# Note that the non table SELECTs also don't have entries 
+
+SELECT * FROM performance_schema.sql_plans;
+
+--echo
+--echo -> Now turn `sql_plans_skip_builtin_db` back OFF
+--echo
+
+set @@GLOBAL.sql_plans_skip_builtin_db=OFF;
+
+--echo 
+--echo -> Issue some system table queries again
+--echo 
+
+disable_result_log;
+
+select @@GLOBAL.sql_plans_control;
+select @@GLOBAL.sql_plans_skip_builtin_db;
+
+select * from performance_schema.sql_plans;
+select * from information_schema.processlist;
+select * from sys.host_summary;
+select * from mysql.db;
+
+enable_result_log;
+
+--echo 
+--echo -> sql_plans table with sql_plans_skip_builtin_db=OFF
+--echo
+
+# Using COUNT to avoid voluminous output for the sys.host_summary table
+
+SELECT COUNT(*) FROM performance_schema.sql_plans;
+
+--echo 
+--echo -> Clean up all state changes
+--echo
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
 
 drop table t1;
 drop table t2;

@@ -621,6 +621,10 @@ extern bool sql_plans_norm_prune_in_lists;
 /* This control allows SQL Plans to be saved with argument counts
  * when possible, used in conjunction with above two flags */
 extern bool sql_plans_norm_use_arg_counts;
+/* This control prevents capturing SQL Plans for system tables
+ * Currently this includes tables in mysql, sys, performance_schema
+ * and information_schema databases. */
+extern bool sql_plans_skip_builtin_db;
 
 // client attributes names system variable
 extern std::vector<std::string> client_attribute_names;

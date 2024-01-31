@@ -88,19 +88,17 @@ bc85a4885b10aa0987188e1a7ce95b72	1	-> Covering index scan on t2 using c1_c2_idx
 
 0b3ac009b76c4f8aee63f56b3280a8b6	1	-> Table scan on t1
 
-5bc5fc561530fd7fedb817e8a8171e88	1	-> Rows fetched before execution
-
 
 .*********************************************************.
 | Test that SQL Plans got captured in P_S.SQL_PLANS table |
 `*********************************************************`
 
--> There should be a count of 4 in the following SELECT query
-These include the previous 4 SELECTs issued above
+-> There should be a count of 3 in the following SELECT query
+These include the previous 3 SELECTs issued above
 
 SELECT COUNT(*) FROM performance_schema.sql_plans;
 COUNT(*)
-4
+3
 
 .*************************************************************.
 | Test that OFF_HARD switch cleans up the P_S.SQL_PLANS table |
@@ -508,6 +506,55 @@ stored in P_S.ESMS_BY_ALL for the sample query
 
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.performance_schema_esms_by_all=off;
+
+.****************************************.
+| Test `sql_plans_skip_builtin_db` control |
+`****************************************`
+
+set @@GLOBAL.sql_plans_skip_builtin_db=ON;
+set @@GLOBAL.sql_plans_control=ON;
+
+-> sql_plans table before
+
+SELECT * FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	LAST_RECORDED	PLAN_ROW
+
+-> Issue some system table queries
+
+select @@GLOBAL.sql_plans_control;
+select @@GLOBAL.sql_plans_skip_builtin_db;
+select * from performance_schema.sql_plans;
+select * from information_schema.processlist;
+select * from sys.host_summary;
+select * from mysql.db;
+
+-> sql_plans table with sql_plans_skip_builtin_db=ON
+
+SELECT * FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	LAST_RECORDED	PLAN_ROW
+
+-> Now turn `sql_plans_skip_builtin_db` back OFF
+
+set @@GLOBAL.sql_plans_skip_builtin_db=OFF;
+
+-> Issue some system table queries again
+
+select @@GLOBAL.sql_plans_control;
+select @@GLOBAL.sql_plans_skip_builtin_db;
+select * from performance_schema.sql_plans;
+select * from information_schema.processlist;
+select * from sys.host_summary;
+select * from mysql.db;
+
+-> sql_plans table with sql_plans_skip_builtin_db=OFF
+
+SELECT COUNT(*) FROM performance_schema.sql_plans;
+COUNT(*)
+4
+
+-> Clean up all state changes
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
 drop table t1;
 drop table t2;
 drop database test_db;

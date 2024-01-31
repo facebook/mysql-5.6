@@ -614,6 +614,10 @@ bool sql_plans_norm_prune_in_lists;
 /* This control allows SQL Plans to be saved with argument counts
  * when possible, used in conjunction with above two flags */
 bool sql_plans_norm_use_arg_counts;
+/* This control prevents capturing SQL Plans for system tables
+ * Currently this includes table in performance_schema and
+ * information_schema databases. */
+bool sql_plans_skip_builtin_db;
 
 bool plan_capture_check_footprint();
 bool plan_capture_check_sql_command(THD *thd);
@@ -721,7 +725,7 @@ bool plan_capture_check_sql_command(THD *thd) {
   //
   THD::Query_plan *qp = &thd->query_plan;
 
-  /* At the outset, we don't to capture the plan for a:
+  /* At the outset, we don't want to capture the plan for a:
      1. prepared query
      2. a query that cannot be explained (already checked outside)
      3. an explain query (probably not needed as this flag may not be set for
@@ -740,8 +744,20 @@ bool plan_capture_check_sql_command(THD *thd) {
   // For now, only capture plans for SELECT commands:
   if (qp->get_command() != SQLCOM_SELECT) return true;
 
-  // Additionally, we can filter out plans involving P_S tables or I_S tables
-  // based on configurable params (global or session variables)
+  // Skip commands that likely won't have interesting plans
+  if (!qp->get_lex()->query_tables) {
+    // the command doesn't have an associated table
+    return true;
+  }
+
+  // Additionally, filter out plans involving P_S, I_S and other builtin DBs
+  // when sql_plans_skip_builtin_db is set
+
+  if (sql_plans_skip_builtin_db &&
+      is_mysql_builtin_database(qp->get_lex()->query_tables->db)) {
+    // matches a system DB
+    return true;
+  }
 
   return false;
 }

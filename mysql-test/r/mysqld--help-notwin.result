@@ -2941,6 +2941,10 @@ The following options may be given as the first argument:
  every valid SQL Plan will be captured, a value of 1000
  means that every 1000th valid SQL plan will get captured,
  and so on.
+ --sql-plans-skip-builtin-db 
+ If set to true, SQL query execution plans will not be
+ captured for tables in builtin databasess (mysql, sys,
+ performance_schema and information_schema). 
  --sql-require-primary-key 
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
@@ -4027,6 +4031,7 @@ sql-plans-norm-prune-expr-trees FALSE
 sql-plans-norm-prune-in-lists FALSE
 sql-plans-norm-use-arg-counts FALSE
 sql-plans-sampling-rate 1
+sql-plans-skip-builtin-db FALSE
 sql-require-primary-key FALSE
 sql-stats-read-control TRUE
 sql-wsenv-lib-name 

@@ -10153,6 +10153,13 @@ static Sys_var_bool Sys_sql_plans_norm_use_arg_counts(
     GLOBAL_VAR(sql_plans_norm_use_arg_counts), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_bool Sys_sql_plans_skip_builtin_db(
+    "sql_plans_skip_builtin_db",
+    "If set to true, SQL query execution plans will not be captured "
+    "for tables in builtin databasess (mysql, sys, performance_schema and "
+    "information_schema). ",
+    GLOBAL_VAR(sql_plans_skip_builtin_db), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 /* SQL PLANS related ENDS */
 
 static Sys_var_bool Sys_enable_deprecation_warning(

@@ -1,5 +1,7 @@
 -- source include/load_sysvars.inc
 
+# Tests for sql_plans_control:
+#
 ####
 # Verify default value is OFF
 ####
@@ -109,3 +111,4 @@ SELECT @@global.sql_plans_control;
 
 # check value is default (OFF_HARD)
 SELECT @@global.sql_plans_control;
+
