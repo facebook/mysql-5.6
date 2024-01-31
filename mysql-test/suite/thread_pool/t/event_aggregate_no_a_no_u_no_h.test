@@ -1,0 +1,7 @@
+# Tests for the performance schema
+
+--source include/have_thread_pool_plugin.inc
+
+--source ../../perfschema/include/event_aggregate_setup.inc
+--source ../../perfschema/include/event_aggregate_load.inc
+--source ../../perfschema/include/event_aggregate_cleanup.inc

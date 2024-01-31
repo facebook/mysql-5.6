@@ -25,11 +25,17 @@ def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MIN_RRU	16		NO	double	N
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MAX_RRU	17		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_CPU_RRU	18		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_USEC	19		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAYED_QUERIES	20		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_PERCENT	21		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_RRU	22		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_RRU	23		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
-def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_RRU	24		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_SHARED_SPACE_USEC	20		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_OVER_LIMIT_USEC	21		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_BELOW_RESERVATION_USEC	22		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAYED_QUERIES	23		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_PERCENT	24		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_RRU	25		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_RRU	26		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_RRU	27		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_WAIT_TIME_USEC	28		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_SIGNAL_TIME_USEC	29		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_WAITS	30		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ERRORS	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ERRORS	TIME	2		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ERRORS	THREAD_ID	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
@@ -72,6 +78,11 @@ def	information_schema	TP_SCHEDULER_EVENTS	SUBQUEUE_LENGTH	9		NO	bigint	NULL	NUL
 def	information_schema	TP_SCHEDULER_EVENTS	QUEUE_LENGTH	10		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_SCHEDULER_EVENTS	SCHEDULING_MODE	11		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
 def	information_schema	TP_SCHEDULER_EVENTS	PRIORITY	12		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_WAIT_STATS	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_WAIT_STATS	WAIT_TYPE	2		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
+def	information_schema	TP_WAIT_STATS	TOTAL_WAIT_TIME_USEC	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_WAIT_STATS	TOTAL_SIGNAL_TIME_USEC	4		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_WAIT_STATS	TOTAL_WAITS	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 ##########################################################################
 # Show the quotient of CHARACTER_OCTET_LENGTH and CHARACTER_MAXIMUM_LENGTH
 ##########################################################################
@@ -147,11 +158,17 @@ NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MIN_RRU	double	NULL	NU
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_MAX_RRU	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_CPU_RRU	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_SHARED_SPACE_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_OVER_LIMIT_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_BELOW_RESERVATION_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAYED_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_PERCENT	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	PREV_INTERVAL_DELAY_RRU	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	CPU_RRU	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	DELAY_RRU	double	NULL	NULL	NULL	NULL	double(22,0)
+NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_WAIT_TIME_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_SIGNAL_TIME_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_WAITS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 3.0000	information_schema	TP_ADMISSION_CONTROL_ERRORS	SCHEMA_NAME	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
 NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	TIME	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	THREAD_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
@@ -194,4 +211,9 @@ NULL	information_schema	TP_SCHEDULER_EVENTS	SUBQUEUE_LENGTH	bigint	NULL	NULL	NUL
 NULL	information_schema	TP_SCHEDULER_EVENTS	QUEUE_LENGTH	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 3.0000	information_schema	TP_SCHEDULER_EVENTS	SCHEDULING_MODE	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
 3.0000	information_schema	TP_SCHEDULER_EVENTS	PRIORITY	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+3.0000	information_schema	TP_WAIT_STATS	SCHEMA_NAME	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+3.0000	information_schema	TP_WAIT_STATS	WAIT_TYPE	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+NULL	information_schema	TP_WAIT_STATS	TOTAL_WAIT_TIME_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_WAIT_STATS	TOTAL_SIGNAL_TIME_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_WAIT_STATS	TOTAL_WAITS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 SET sql_mode = default;
