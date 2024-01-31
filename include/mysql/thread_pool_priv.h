@@ -114,6 +114,7 @@ void thd_set_net_read_write(THD *thd, uint val);
 uint thd_get_net_read_write(THD *thd);
 void thd_set_not_killable(THD *thd);
 ulong thd_get_net_wait_timeout(THD *thd);
+bool thd_get_reset_period_status_vars(THD *thd);
 my_socket thd_get_fd(THD *thd);
 void thd_store_globals(THD *thd);
 void thd_store_globals(THD *thd, pid_t id);

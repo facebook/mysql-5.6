@@ -121,6 +121,18 @@ ulong thd_get_net_wait_timeout(THD *thd) {
 }
 
 /**
+  Get reset_period_status_vars for THD object
+
+  @param thd            THD object
+
+  @retval               reset_period_status_vars value for thread on THD
+*/
+
+bool thd_get_reset_period_status_vars(THD *thd) {
+  return thd->variables.reset_period_status_vars;
+}
+
+/**
   Set reference to Performance Schema object for THD object
 
   @param thd            THD object
