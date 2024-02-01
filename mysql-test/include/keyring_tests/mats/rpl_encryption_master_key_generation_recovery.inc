@@ -56,7 +56,7 @@ while ($point < 3)
     --let $error_message=Failed to store key
   }
   --let $rpl_server_number= 1
-  --let $rpl_server_parameters=$RPL_PLUGIN_DIR_OPT --binlog_encryption=ON --debug=d,$debug_point --log-error=$MYSQL_TMP_DIR/master.err
+  --let $rpl_server_parameters=$RPL_PLUGIN_DIR_OPT --binlog_encryption=ON --debug=d,$debug_point --log-error=$MYSQL_TMP_DIR/master.err --default-dd-system-storage-engine=$DDSE
   --echo Try to restart the master enabling the option with debug instrumentation
   --error 0,1
   --exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.$rpl_server_number $rpl_server_parameters

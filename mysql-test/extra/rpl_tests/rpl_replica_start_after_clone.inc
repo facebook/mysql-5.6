@@ -34,6 +34,7 @@
 # WL#7491: GTID-based replication applier recovery and positioning
 #
 
+--let $DDSE = `select @@default_dd_system_storage_engine`
 
 --echo #
 --echo # 1. Create connections to server3
@@ -65,6 +66,7 @@ CREATE TABLE test.t1 (c1 INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 --source include/rpl_connection.inc
 
 # Make server 3 run with mysqld_safe
+--let $mysqld_extra_settings=--default-dd-system-storage-engine=$DDSE
 --source include/spawn_monitoring_process.inc
 
 # Install clone

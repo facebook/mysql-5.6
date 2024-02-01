@@ -72,7 +72,8 @@ bool rocksdb_dict_set_server_version() {
 
 bool rocksdb_is_supported_system_table(const char *db_name,
                                        const char *tbl_name, bool) {
-  return strcmp(db_name, "mysql") == 0 && strcmp(tbl_name, "db") == 0;
+  return strcmp(db_name, "mysql") == 0 &&
+         (strcmp(tbl_name, "db") == 0 || strcmp(tbl_name, "user") == 0);
 }
 
 bool rocksdb_ddse_dict_init(

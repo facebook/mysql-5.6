@@ -64,6 +64,7 @@ CALL mtr.add_suppression('Could not parse relay log event entry');
 CALL mtr.add_suppression('Failed to fetch key from keyring');
 
 # Setup test case variables
+--let $DDSE = `select @@default_dd_system_storage_engine`
 --let $keyring_master= $MYSQL_TMP_DIR/keyring_master
 --let $keyring_slave= $MYSQL_TMP_DIR/keyring_slave
 --let $keyring_original_file= $MYSQL_TEST_DIR/std_data/rpl_nogtid_encryption_keyring_master
@@ -107,7 +108,7 @@ SET @@GLOBAL.binlog_encryption = ON;
 
 # Try to restart the master server setting the option, but it should fail
 --echo Starting the server with "--binlog_encryption=ON" but no keyring installed
---let $rpl_server_parameters= --binlog_encryption=ON --log-error=$MYSQL_TMP_DIR/master.err
+--let $rpl_server_parameters= --binlog_encryption=ON --log-error=$MYSQL_TMP_DIR/master.err  --default-dd-system-storage-engine=$DDSE
 --error 0,1
 --exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.$rpl_server_number $rpl_server_parameters
 --let $assert_file= $MYSQL_TMP_DIR/master.err

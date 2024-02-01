@@ -29,7 +29,7 @@
 
 --let $SYSSE=`SELECT @@default_dd_system_storage_engine`
 
-CREATE TABLE t1 (f1 INT) ENGINE=InnoDB;
+CREATE TABLE t1 (f1 INT);
 DELIMITER //;
 CREATE PROCEDURE proc1() BEGIN SELECT * FROM t1; END //
 DELIMITER ;//
@@ -83,9 +83,7 @@ SELECT To_user FROM mysql.role_edges WHERE To_user='u2';
 --echo # is used to test DML on mysql.user.
 CREATE TABLE user_bk AS SELECT * FROM mysql.user WHERE User='u2';
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
-ALTER TABLE user_bk ENGINE=InnoDB;
 CREATE TABLE user_copy AS SELECT * FROM mysql.user LIMIT 0;
-ALTER TABLE user_copy ENGINE=InnoDB;
 
 if ($SYSSE == "InnoDB")
 {
@@ -99,7 +97,8 @@ if ($SYSSE == "RocksDB")
 {
 # Remove the first eight bytes (the index ID) as it may differ between the runs
 let query_row_locks= SELECT SUBSTRING(`KEY`, 9), MODE
-    FROM INFORMATION_SCHEMA.ROCKSDB_LOCKS WHERE COLUMN_FAMILY_ID=0;
+    FROM INFORMATION_SCHEMA.ROCKSDB_LOCKS WHERE COLUMN_FAMILY_ID=0
+    ORDER BY SUBSTRING(`KEY`, 9);
 }
 
 # Variables to loop through isolation levels.
@@ -264,6 +263,8 @@ while($c <= 4)
   connection read_con;
   COMMIT;
 
+  if ($supported_isolation)
+  {
   --echo # Case 6:
   --echo # Read ACL table in INSERT ... SELECT command in different
   --echo # isolation mode and run DDL/DML on ACL tables in concurrent.
@@ -351,8 +352,6 @@ while($c <= 4)
   COMMIT;
 
 
-  if ($supported_isolation)
-  {
   --echo # Case 11:
   --echo # Read ACL table in CREATE TABLE ... SELECT in different
   --echo # isolation mode and run DDL/DML on ACL tables in concurrent.
@@ -392,6 +391,7 @@ while($c <= 4)
   connection update_con1;
   SET SESSION lock_wait_timeout=1;
   SET SESSION innodb_lock_wait_timeout=1;
+  SET SESSION rocksdb_lock_wait_timeout=1;
   --echo # Make sure that we do not allow updating ACL table.
   --error ER_LOCK_WAIT_TIMEOUT
   INSERT INTO mysql.user SELECT * FROM user_bk;
@@ -468,6 +468,8 @@ while($c <= 4)
   --source include/wait_innodb_all_purged.inc
   connection update_con2;
 
+  if ($supported_isolation)
+  {
   # Case 14.2: Function reading ACL table.
   connection update_con2;
   SELECT User FROM mysql.user WHERE User='u2';
@@ -480,8 +482,10 @@ while($c <= 4)
 
   connection update_con2;
   ROLLBACK;
+  }  # if ($supported_isolation)
 
 
+  if ($SYSSE != "RocksDB") {
   --echo # Case 15:
   --echo # Reference ACL table in a foreign key. Reading ACL table while
   --echo # updating the table in different isolation mode.
@@ -524,7 +528,9 @@ while($c <= 4)
   connection default;
   --source include/wait_innodb_all_purged.inc
   connection update_con2;
+  }  # if ($SYSSE != "RocksDB")
 
+  if ($supported_isolation) {
   --echo # Case 16:
   --echo # Case 16.1 Update ACL table in a multi-table UPDATE command in
   --echo # different isolation level. Make sure a concurrent DML on ACL table
@@ -554,7 +560,13 @@ while($c <= 4)
   connection default;
   --source include/wait_innodb_all_purged.inc
   connection update_con2;
+  }  # if ($supported_isolation)
 
+  # RocksDB does not take read locks for the scanned rows by the UPDATE
+  # statement, and if it is made to take them by enabling
+  # rocksdb_lock_scanned_rows, it still does not take the gap lock that blocks
+  # the REPLACE statement.
+  if ($SYSSE != "RocksDB") {
   --echo # Case 16.2 Read ACL table in a multi-table UPDATE command in
   --echo # different isolation level. Ideally concurrent DML on ACL table
   --echo # should have been blocked. Due to Bug#31731752 we acquire
@@ -580,8 +592,9 @@ while($c <= 4)
 
   connection update_con2;
   ROLLBACK;
+  }  # if ($SYSSE != "RocksDB")
 
-
+  if ($supported_isolation) {
   --echo # Case 17:
   --echo # Case 17.1: Delete row in ACL table in a multi-table DELETE in
   --echo # different isolation level. Make sure a concurrent DML on ACL
@@ -634,7 +647,7 @@ while($c <= 4)
   connection update_con2;
   INSERT INTO user_copy SELECT * FROM mysql.user WHERE User='u2';
 
-  CREATE TABLE tmp1 (f1 INT) ENGINE=InnoDB;
+  CREATE TABLE tmp1 (f1 INT);
   DELIMITER |;
   CREATE TRIGGER read_trig1 BEFORE INSERT ON tmp1 FOR EACH ROW
   BEGIN
@@ -690,11 +703,13 @@ while($c <= 4)
 
   SET SESSION lock_wait_timeout=default;
   SET SESSION innodb_lock_wait_timeout=default;
+  SET SESSION rocksdb_lock_wait_timeout=default;
 
   connection update_con2;
   ROLLBACK;
   DROP TABLE tmp1;
   DELETE FROM user_copy;
+  }  # if ($supported_isolation)
 
   inc $c;
 }

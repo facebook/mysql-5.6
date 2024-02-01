@@ -1,3 +1,5 @@
+--source include/have_innodb_system_tables.inc
+
 source include/master-slave.inc;
 source include/have_debug.inc;
 source include/not_valgrind.inc;

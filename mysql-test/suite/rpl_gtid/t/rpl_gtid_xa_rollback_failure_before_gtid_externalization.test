@@ -1,3 +1,4 @@
+--source include/have_innodb_ddse.inc
 # ==== Purpose ====
 #
 # This script tests server behavior when a crash occurs while applying

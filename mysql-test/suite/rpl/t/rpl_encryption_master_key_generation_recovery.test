@@ -24,6 +24,7 @@
 # On master
 #
 
+--let $DDSE = `select @@default_dd_system_storage_engine`
 --let $master_debug=`SELECT @@GLOBAL.debug`
 --let $MASTER_DATADIR= `select @@datadir`
 --let $master_error_log= $MYSQL_TMP_DIR/master.err
@@ -63,7 +64,7 @@ while ($point < 3)
   --let $rpl_server_parameters= $KEYRING_PLUGIN_OPT $KEYRING_PLUGIN_LOAD --loose-keyring_file_data=$keyring_master --binlog_encryption=ON --debug=d,$debug_point --log-error=$MYSQL_TMP_DIR/master.err
   --echo Try to restart the master enabling the option with debug instrumentation
   --error 0,1
-  --exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.$rpl_server_number $rpl_server_parameters
+  --exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.$rpl_server_number $rpl_server_parameters --default-dd-system-storage-engine=$DDSE
   --let $assert_file= $master_error_log
   --let $assert_text= Server reported: $error_message
   --let $assert_select= $error_message

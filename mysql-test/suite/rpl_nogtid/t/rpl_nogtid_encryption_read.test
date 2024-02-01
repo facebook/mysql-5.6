@@ -116,6 +116,7 @@
 --let $rpl_skip_start_slave= 1
 --source include/master-slave.inc
 
+--let $DDSE = `select @@default_dd_system_storage_engine`
 --let $keyring_file= $MYSQL_TMP_DIR/keyring_master
 --let $keyring_original_file= $MYSQL_TEST_DIR/std_data/rpl_nogtid_encryption_keyring_master
 --let $encrypted_binlog_file= $MYSQL_TEST_DIR/std_data/rpl_nogtid_encryption_master-bin.000002
@@ -226,7 +227,7 @@ while ($point < 13)
   }
   --echo Try to restart the master with debug instrumentation
   --error 0,1
-  --exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.1 $rpl_server_parameters $debug
+  --exec $MYSQLD --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-group-suffix=.1 $rpl_server_parameters $debug --default-dd-system-storage-engine=$DDSE
   --let $assert_file= $master_error_log
   --let $assert_text= Server reported: $error_message
   --let $assert_select= $error_message
