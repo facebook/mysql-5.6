@@ -11063,12 +11063,7 @@ void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
   if (last_thd) {
     auto start_time = my_timer_now();
 
-    if (opt_commit_consensus_wait_max_marker) {
-      error =
-          RUN_HOOK_STRICT(raft_replication, before_commit, (max_marker_thd));
-    } else {
-      error = RUN_HOOK_STRICT(raft_replication, before_commit, (last_thd));
-    }
+    error = RUN_HOOK_STRICT(raft_replication, before_commit, (max_marker_thd));
 
     if (!this->is_apply_log) {
       auto wait_time = my_timer_since(start_time);
