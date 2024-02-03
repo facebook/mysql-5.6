@@ -8102,10 +8102,6 @@ common_index_option:
           {
             $$ = make_fb_vector_index_type_attribute(YYMEM_ROOT, to_lex_cstring($3));
           }
-        | FB_VECTOR_INDEX_METRIC_SYM opt_equal TEXT_STRING_sys
-          {
-            $$ = make_fb_vector_index_metric_attribute(YYMEM_ROOT, to_lex_cstring($3));
-          }
         | FB_VECTOR_DIMENSION_SYM opt_equal ulong_num
           {
             $$ = make_fb_vector_index_dimension_attribute(YYMEM_ROOT, $3);

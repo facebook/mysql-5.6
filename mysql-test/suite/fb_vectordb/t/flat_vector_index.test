@@ -1,0 +1,56 @@
+disable_query_log;
+disable_warnings;
+DROP TABLE IF EXISTS t1;
+enable_warnings;
+enable_query_log;
+
+CREATE TABLE t1 (
+  id BIGINT NOT NULL PRIMARY KEY,
+  vector1 JSON,
+  name varchar(64),
+  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
+);
+
+insert into t1 values (1, '[1,2,3]', 'val1'), (2, '[2,22,31]', 'val2'), (3, '[10,6,5]', 'val3'), (4, '[3,9,4]', 'val4');
+
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 100) SELECT i+10, json_array(i+2, i+3, 1.4), concat('val', i+10) from a);
+
+# use a small scan batch size so we can test the result merge logic
+set rocksdb_vectordb_scan_batch_size=2;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+
+SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+
+# the rank of 16 should go up in the next query
+update t1 set vector1 = '[9, 5, 2]' where id = 16;
+
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+
+# pk change
+update t1 set id = 1024 where id = 16;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+
+# pk and value change
+update t1 set id = 1025, vector1 = '[9, 5, 3]' where id = 1024;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+
+# update via none indexed column
+update t1 set vector1='[7, 8, 1.5]' where name = 'val15';
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+
+# 12 should disappear from the result
+delete from t1 where id = 12;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+
+# delete via none indexed column
+delete from t1 where name = 'val14';
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+
+SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+
+# IP metric
+select *, fb_vector_ip(vector1, '[10, 6, 5]') as dis from t1 order by dis desc limit 10;
+
+SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+
+drop table t1;

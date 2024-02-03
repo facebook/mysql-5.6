@@ -7216,21 +7216,14 @@ static bool prepare_fb_vector_index(THD *thd, const Key_spec *key,
     my_error(ER_WRONG_ARGUMENTS, MYF(0), "invalid fb_vector_index_type");
     return true;
   }
-  FB_VECTOR_INDEX_METRIC fb_vector_index_metric;
-  if (parse_fb_vector_index_metric(
-          key->key_create_info.m_fb_vector_index_metric,
-          fb_vector_index_metric)) {
-    my_error(ER_WRONG_ARGUMENTS, MYF(0), "invalid fb_vector_index_metric");
-    return true;
-  }
   ulong vector_dimension = key->key_create_info.m_fb_vector_dimension;
   if (vector_dimension < thd->variables.fb_vector_min_dimension ||
       vector_dimension > thd->variables.fb_vector_max_dimension) {
     my_error(ER_WRONG_ARGUMENTS, MYF(0), "fb_vector_dimension out of bounds");
     return true;
   }
-  key_info->fb_vector_index_config = FB_vector_index_config(
-      fb_vector_index_type, fb_vector_index_metric, vector_dimension);
+  key_info->fb_vector_index_config =
+      FB_vector_index_config(fb_vector_index_type, vector_dimension);
   return false;
 }
 

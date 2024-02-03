@@ -2547,6 +2547,8 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_VECTOR_INDEX plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
+ --rocksdb-vectordb-scan-batch-size=# 
+ Batch size for scanning vectors.
  --rocksdb-verify-row-debug-checksums 
  Verify checksums when reading index/table records
  --rocksdb-wal-bytes-per-sync=# 
@@ -3947,6 +3949,7 @@ rocksdb-use-io-uring FALSE
 rocksdb-use-write-buffer-manager FALSE
 rocksdb-validate-tables 1
 rocksdb-vector-index ON
+rocksdb-vectordb-scan-batch-size 2048
 rocksdb-verify-row-debug-checksums FALSE
 rocksdb-wal-bytes-per-sync 0
 rocksdb-wal-dir 

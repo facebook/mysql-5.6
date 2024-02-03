@@ -1668,9 +1668,9 @@ enum {
   TABLE_NAME,
   INDEX_NAME,
   INDEX_TYPE,
-  METRIC_TYPE,
   DIMENSION,
-  NTOTAL
+  NTOTAL,
+  HIT
 };
 }  // namespace RDB_VECTOR_INDEX_FIELD
 
@@ -1680,9 +1680,9 @@ static ST_FIELD_INFO rdb_i_s_vector_index_config_fields_info[] = {
     ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("INDEX_TYPE", 100, MYSQL_TYPE_STRING, 0),
-    ROCKSDB_FIELD_INFO("METRIC_TYPE", 100, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("DIMENSION", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("NTOTAL", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("HIT", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO_END};
 
 int Rdb_vector_index_scanner::add_table(Rdb_tbl_def *tdef) {
@@ -1720,16 +1720,13 @@ int Rdb_vector_index_scanner::add_table(Rdb_tbl_def *tdef) {
         fb_vector_index_type_to_string(vector_config.type());
     field[RDB_VECTOR_INDEX_FIELD::INDEX_TYPE]->store(
         index_type.data(), index_type.size(), system_charset_info);
-    std::string_view metric_type =
-        fb_vector_index_metric_to_string(vector_config.metric());
-    field[RDB_VECTOR_INDEX_FIELD::METRIC_TYPE]->store(
-        metric_type.data(), metric_type.size(), system_charset_info);
     field[RDB_VECTOR_INDEX_FIELD::DIMENSION]->store(vector_config.dimension(),
                                                     true);
     auto vector_index = kd.get_vector_index();
     auto vector_index_info = vector_index->dump_info();
     field[RDB_VECTOR_INDEX_FIELD::NTOTAL]->store(vector_index_info.m_ntotal,
                                                  true);
+    field[RDB_VECTOR_INDEX_FIELD::HIT]->store(vector_index_info.m_hit, true);
 
     ret = my_core::schema_table_store_record(m_thd, m_table);
     if (ret) return ret;

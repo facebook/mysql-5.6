@@ -36,16 +36,13 @@ class FB_vector_index_config {
   FB_vector_index_config() {}
 
   FB_vector_index_config(FB_VECTOR_INDEX_TYPE type,
-                         FB_VECTOR_INDEX_METRIC metric,
                          FB_vector_dimension dimension)
-      : m_type(type), m_metric(metric), m_dimension(dimension) {}
+      : m_type(type), m_dimension(dimension) {}
   FB_VECTOR_INDEX_TYPE type() const { return m_type; }
-  FB_VECTOR_INDEX_METRIC metric() const { return m_metric; }
   FB_vector_dimension dimension() const { return m_dimension; }
 
  private:
   FB_VECTOR_INDEX_TYPE m_type = FB_VECTOR_INDEX_TYPE::NONE;
-  FB_VECTOR_INDEX_METRIC m_metric;
   FB_vector_dimension m_dimension;
 };
 

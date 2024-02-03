@@ -1,0 +1,121 @@
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON,
+name varchar(64),
+INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
+);
+insert into t1 values (1, '[1,2,3]', 'val1'), (2, '[2,22,31]', 'val2'), (3, '[10,6,5]', 'val3'), (4, '[3,9,4]', 'val4');
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 100) SELECT i+10, json_array(i+2, i+3, 1.4), concat('val', i+10) from a);
+set rocksdb_vectordb_scan_batch_size=2;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	vector1	name	dis
+3	[10, 6, 5]	val3	0
+15	[7, 8, 1.4]	val15	25.959999084472656
+16	[8, 9, 1.4]	val16	25.959999084472656
+14	[6, 7, 1.4]	val14	29.959999084472656
+17	[9, 10, 1.4]	val17	29.959999084472656
+13	[5, 6, 1.4]	val13	37.959999084472656
+18	[10, 11, 1.4]	val18	37.959999084472656
+12	[4, 5, 1.4]	val12	49.959999084472656
+19	[11, 12, 1.4]	val19	49.959999084472656
+4	[3, 9, 4]	val4	59
+SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT
+105	1
+update t1 set vector1 = '[9, 5, 2]' where id = 16;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	vector1	name	dis
+3	[10, 6, 5]	val3	0
+16	[9, 5, 2]	val16	11
+15	[7, 8, 1.4]	val15	25.959999084472656
+14	[6, 7, 1.4]	val14	29.959999084472656
+17	[9, 10, 1.4]	val17	29.959999084472656
+13	[5, 6, 1.4]	val13	37.959999084472656
+18	[10, 11, 1.4]	val18	37.959999084472656
+12	[4, 5, 1.4]	val12	49.959999084472656
+19	[11, 12, 1.4]	val19	49.959999084472656
+4	[3, 9, 4]	val4	59
+update t1 set id = 1024 where id = 16;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	vector1	name	dis
+3	[10, 6, 5]	val3	0
+1024	[9, 5, 2]	val16	11
+15	[7, 8, 1.4]	val15	25.959999084472656
+14	[6, 7, 1.4]	val14	29.959999084472656
+17	[9, 10, 1.4]	val17	29.959999084472656
+13	[5, 6, 1.4]	val13	37.959999084472656
+18	[10, 11, 1.4]	val18	37.959999084472656
+12	[4, 5, 1.4]	val12	49.959999084472656
+19	[11, 12, 1.4]	val19	49.959999084472656
+4	[3, 9, 4]	val4	59
+update t1 set id = 1025, vector1 = '[9, 5, 3]' where id = 1024;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	vector1	name	dis
+3	[10, 6, 5]	val3	0
+1025	[9, 5, 3]	val16	6
+15	[7, 8, 1.4]	val15	25.959999084472656
+14	[6, 7, 1.4]	val14	29.959999084472656
+17	[9, 10, 1.4]	val17	29.959999084472656
+13	[5, 6, 1.4]	val13	37.959999084472656
+18	[10, 11, 1.4]	val18	37.959999084472656
+12	[4, 5, 1.4]	val12	49.959999084472656
+19	[11, 12, 1.4]	val19	49.959999084472656
+4	[3, 9, 4]	val4	59
+update t1 set vector1='[7, 8, 1.5]' where name = 'val15';
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	vector1	name	dis
+3	[10, 6, 5]	val3	0
+1025	[9, 5, 3]	val16	6
+15	[7, 8, 1.5]	val15	25.25
+14	[6, 7, 1.4]	val14	29.959999084472656
+17	[9, 10, 1.4]	val17	29.959999084472656
+13	[5, 6, 1.4]	val13	37.959999084472656
+18	[10, 11, 1.4]	val18	37.959999084472656
+12	[4, 5, 1.4]	val12	49.959999084472656
+19	[11, 12, 1.4]	val19	49.959999084472656
+4	[3, 9, 4]	val4	59
+delete from t1 where id = 12;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	vector1	name	dis
+3	[10, 6, 5]	val3	0
+1025	[9, 5, 3]	val16	6
+15	[7, 8, 1.5]	val15	25.25
+14	[6, 7, 1.4]	val14	29.959999084472656
+17	[9, 10, 1.4]	val17	29.959999084472656
+13	[5, 6, 1.4]	val13	37.959999084472656
+18	[10, 11, 1.4]	val18	37.959999084472656
+19	[11, 12, 1.4]	val19	49.959999084472656
+4	[3, 9, 4]	val4	59
+11	[3, 4, 1.4]	val11	65.95999908447266
+delete from t1 where name = 'val14';
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	vector1	name	dis
+3	[10, 6, 5]	val3	0
+1025	[9, 5, 3]	val16	6
+15	[7, 8, 1.5]	val15	25.25
+17	[9, 10, 1.4]	val17	29.959999084472656
+13	[5, 6, 1.4]	val13	37.959999084472656
+18	[10, 11, 1.4]	val18	37.959999084472656
+19	[11, 12, 1.4]	val19	49.959999084472656
+4	[3, 9, 4]	val4	59
+11	[3, 4, 1.4]	val11	65.95999908447266
+20	[12, 13, 1.4]	val20	65.95999908447266
+SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT
+103	7
+select *, fb_vector_ip(vector1, '[10, 6, 5]') as dis from t1 order by dis desc limit 10;
+id	vector1	name	dis
+110	[102, 103, 1.4]	val110	1645
+109	[101, 102, 1.4]	val109	1629
+108	[100, 101, 1.4]	val108	1613
+107	[99, 100, 1.4]	val107	1597
+106	[98, 99, 1.4]	val106	1581
+105	[97, 98, 1.4]	val105	1565
+104	[96, 97, 1.4]	val104	1549
+103	[95, 96, 1.4]	val103	1533
+102	[94, 95, 1.4]	val102	1517
+101	[93, 94, 1.4]	val101	1501
+SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT
+103	8
+drop table t1;

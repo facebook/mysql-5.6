@@ -2336,6 +2336,11 @@ static MYSQL_THDVAR_UINT(force_index_records_in_range, PLUGIN_VAR_RQCMDARG,
                          nullptr, nullptr, 0,
                          /* min */ 0, /* max */ INT_MAX, 0);
 
+static MYSQL_THDVAR_UINT(vectordb_scan_batch_size, PLUGIN_VAR_RQCMDARG,
+                         "Batch size for scanning vectors.", nullptr, nullptr,
+                         2048,
+                         /* min */ 1, /* max */ 1024 * 1024, 0);
+
 static MYSQL_SYSVAR_UINT(
     debug_optimizer_n_rows, rocksdb_debug_optimizer_n_rows,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY | PLUGIN_VAR_NOSYSVAR,
@@ -3116,6 +3121,8 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(force_compute_memtable_stats_cachetime),
     MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
     MYSQL_SYSVAR(debug_cardinality_multiplier),
+
+    MYSQL_SYSVAR(vectordb_scan_batch_size),
 
     MYSQL_SYSVAR(compact_cf),
     MYSQL_SYSVAR(delete_cf),
@@ -7624,7 +7631,6 @@ static void move_wals_to_target_dir() {
 
 static int rocksdb_init_internal(void *const p) {
   DBUG_ENTER_FUNC();
-
 #ifdef MYSQL_DYNAMIC_PLUGIN
   // Initialize error logging service.
   if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs)) {
@@ -10162,7 +10168,7 @@ int ha_rocksdb::create_key_def(
   // initialize key_def
   uint rtn = new_key_def->setup(table_arg, tbl_def_arg);
   if (rtn) {
-    return rtn;
+    DBUG_RETURN(rtn);
   }
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -10926,14 +10932,15 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
 
   if (kd.is_vector_index()) {
     auto vector_db_handler = get_vector_db_handler();
-    rc = vector_db_handler->knn_search(kd.get_vector_index());
+    rc = vector_db_handler->knn_search(thd, kd.get_vector_index());
     if (rc) {
       DBUG_RETURN(rc);
     }
     if (!vector_db_handler->has_more_results()) {
       DBUG_RETURN(HA_ERR_END_OF_FILE);
     }
-    const auto &pk = vector_db_handler->current_pk();
+    const auto &pk =
+        vector_db_handler->current_pk(m_pk_descr->get_index_number());
     rc = get_row_by_rowid(buf, pk.data(), pk.size(), nullptr, false, false);
     DBUG_RETURN(rc);
   }
@@ -11648,7 +11655,8 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
     if (!vector_db_handler->has_more_results()) {
       DBUG_RETURN(HA_ERR_END_OF_FILE);
     }
-    const auto &pk = vector_db_handler->current_pk();
+    const auto &pk =
+        vector_db_handler->current_pk(m_pk_descr->get_index_number());
     rc = get_row_by_rowid(buf, pk.data(), pk.size(), nullptr, false, false);
     DBUG_RETURN(rc);
   }
@@ -12943,18 +12951,40 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
   }
 
   if (kd.is_vector_index()) {
+    // TODO delete vector for row_info.old_pk_slice
     auto vector_db_handler = get_vector_db_handler();
     auto field = kd.get_table_field_for_part_no((TABLE *)table_arg, 0);
-    const auto decode_rtn = vector_db_handler->decode_value(
+    uint rtn = vector_db_handler->decode_value(
         field, kd.get_vector_index_config().dimension());
-    if (decode_rtn) {
-      return decode_rtn;
+    if (rtn) {
+      return rtn;
     }
     auto pk = row_info.new_pk_slice;
-    const auto vector_index_rtn = kd.get_vector_index()->add_vector(
-        pk.ToString(), vector_db_handler->get_buffer());
-    if (vector_index_rtn) {
-      return vector_index_rtn;
+    if (row_info.old_data != nullptr) {
+      ptrdiff_t ptrdiff = row_info.old_data - table->record[0];
+      uchar *save_record_0 = table_arg->record[0];
+      if (ptrdiff) {
+        table->record[0] = const_cast<uchar *>(row_info.old_data);
+        field->move_field_offset(ptrdiff);
+      }
+      auto grd = create_scope_guard([&]() {
+        if (ptrdiff) {
+          table->record[0] = save_record_0;
+          field->move_field_offset(-ptrdiff);
+        }
+      });
+      rtn = vector_db_handler->decode_value2(
+          field, kd.get_vector_index_config().dimension());
+      if (rtn) {
+        return rtn;
+      }
+    }
+    rtn = kd.get_vector_index()->add_vector(
+        row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type()), pk,
+        vector_db_handler->get_buffer(), row_info.old_pk_slice,
+        vector_db_handler->get_buffer2());
+    if (rtn) {
+      return rtn;
     }
     return HA_EXIT_SUCCESS;
   }
@@ -13420,11 +13450,11 @@ int ha_rocksdb::index_end() {
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
 */
-
 int ha_rocksdb::vector_index_init(Item *sort_func, int limit) {
   // update the ORDER BY parameters
   auto vector_db_handler = get_vector_db_handler();
-  return vector_db_handler->vector_index_orderby_init(sort_func, limit);
+  return vector_db_handler->vector_index_orderby_init(
+      sort_func, limit, THDVAR(table->in_use, vectordb_scan_batch_size));
 }
 
 /**
@@ -13547,8 +13577,32 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
       const Rdb_key_def &kd = *m_key_descr_arr[i];
 
       if (kd.is_vector_index()) {
-        // placeholder, not supported now
-        DBUG_RETURN(HA_ERR_UNSUPPORTED);
+        auto vector_db_handler = get_vector_db_handler();
+        auto field = kd.get_table_field_for_part_no(table, 0);
+        ptrdiff_t ptrdiff = buf - table->record[0];
+        uchar *save_record_0 = table->record[0];
+        if (ptrdiff) {
+          table->record[0] = const_cast<uchar *>(buf);
+          field->move_field_offset(ptrdiff);
+        }
+        auto grd = create_scope_guard([&]() {
+          if (ptrdiff) {
+            table->record[0] = save_record_0;
+            field->move_field_offset(-ptrdiff);
+          }
+        });
+        uint rtn = vector_db_handler->decode_value(
+            field, kd.get_vector_index_config().dimension());
+        if (rtn) {
+          DBUG_RETURN(rtn);
+        }
+        rtn = kd.get_vector_index()->delete_vector(
+            tx->get_indexed_write_batch(m_tbl_def->get_table_type()), key_slice,
+            vector_db_handler->get_buffer());
+        if (rtn) {
+          DBUG_RETURN(rtn);
+        }
+        continue;
       }
 
       // The unique key should be locked so that behavior is

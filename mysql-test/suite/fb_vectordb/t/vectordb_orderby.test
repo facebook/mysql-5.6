@@ -4,7 +4,7 @@ use test_db;
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
   vector1 JSON,
-  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_INDEX_METRIC 'l2' fb_vector_dimension 3
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 3
 );
 
 insert into t1 values (1, '[1,2,3]'), (2, '[2,22,31]');

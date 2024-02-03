@@ -318,6 +318,10 @@ class Rdb_string_reader {
     }
   }
 
+  [[nodiscard]] bool read_index_id(Index_id *const res) {
+    return read_uint32(res);
+  }
+
   bool read_uint64(uint64 *const res) {
     const uchar *p;
     if (!(p = reinterpret_cast<const uchar *>(read(sizeof(uint64))))) {
@@ -405,6 +409,9 @@ class Rdb_string_writer {
     rdb_netbuf_store_uint32(m_data.data() + m_pos - sizeof(uint32), val);
   }
 
+  /** write index id */
+  void write_index_id(const Index_id val) { write_uint32(val); }
+
   void write_uint64(const uint64 val) {
     alloc(sizeof(uint64));
     rdb_netbuf_store_uint64(m_data.data() + m_pos - sizeof(uint64), val);
@@ -413,6 +420,16 @@ class Rdb_string_writer {
   void write(const uchar *const new_data, const size_t len) {
     alloc(len);
     memcpy(m_data.data() + m_pos - len, new_data, len);
+  }
+
+  /** write slice */
+  void write_slice(const rocksdb::Slice &val) {
+    write((const uchar *)val.data(), val.size());
+  }
+
+  /** write string */
+  void write_string(const std::string &val) {
+    write((const uchar *)val.data(), val.size());
   }
 
   uchar *ptr() { return m_data.data(); }

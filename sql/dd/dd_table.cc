@@ -1103,8 +1103,6 @@ static void fill_dd_indexes_from_keyinfo(
     if (key->fb_vector_index_config.type() != FB_VECTOR_INDEX_TYPE::NONE) {
       idx_options->set("fb_vector_index_type",
                        (uint)key->fb_vector_index_config.type());
-      idx_options->set("fb_vector_index_metric",
-                       (uint)key->fb_vector_index_config.metric());
       idx_options->set("fb_vector_dimension",
                        key->fb_vector_index_config.dimension());
     }

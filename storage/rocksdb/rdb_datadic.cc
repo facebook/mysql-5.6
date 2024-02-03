@@ -563,6 +563,7 @@ uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
 
     uint rtn = setup_vector_index(tbl, tbl_def);
     if (rtn) {
+      RDB_MUTEX_UNLOCK_CHECK(m_mutex);
       return rtn;
     }
 
@@ -3529,6 +3530,12 @@ uint Rdb_key_def::setup_vector_index(const TABLE &tbl,
     assert(false);
     return HA_ERR_UNSUPPORTED;
   }
+  // do not support ttl or any other index flags for now
+  if (m_index_flags_bitmap != 0) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "vector index is not supported on ttl tables");
+    return HA_ERR_UNSUPPORTED;
+  }
   KEY *key_info = &tbl.key_info[m_keyno];
   if (key_info->actual_key_parts != 1) {
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
@@ -3542,8 +3549,8 @@ uint Rdb_key_def::setup_vector_index(const TABLE &tbl,
     assert(false);
     return HA_ERR_UNSUPPORTED;
   }
-  m_vector_index = std::make_unique<Rdb_vector_index>(m_vector_index_config);
-  return HA_EXIT_SUCCESS;
+  return create_vector_index(m_vector_index_config, m_cf_handle, m_index_number,
+                             m_vector_index);
 }
 
 // See Rdb_charset_space_info::spaces_xfrm

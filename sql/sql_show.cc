@@ -2707,13 +2707,6 @@ static void store_fb_vector_index_options(String *packet, KEY *key_info) {
   packet->append(fb_vector_index_type_str);
   packet->append("'");
 
-  packet->append(" FB_VECTOR_INDEX_METRIC '");
-  auto fb_vector_index_metric_str =
-      fb_vector_index_metric_to_string(vector_index_info.metric());
-
-  packet->append(fb_vector_index_metric_str);
-  packet->append("'");
-
   packet->append(" FB_VECTOR_DIMENSION ");
   auto dimension_str = std::to_string(vector_index_info.dimension());
   packet->append(dimension_str);

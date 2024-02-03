@@ -1310,19 +1310,13 @@ static void fill_fb_vector_index_from_dd(const dd::Properties &idx_options,
       assert(false);
     }
 
-    uint fb_vector_index_metric;
-    if (idx_options.get("fb_vector_index_metric", &fb_vector_index_metric)) {
-      assert(false);
-    }
-
     FB_vector_dimension vector_dimension;
     if (idx_options.get("fb_vector_dimension", &vector_dimension)) {
       assert(false);
     }
 
     keyinfo->fb_vector_index_config = FB_vector_index_config(
-        (FB_VECTOR_INDEX_TYPE)fb_vector_index_type,
-        (FB_VECTOR_INDEX_METRIC)fb_vector_index_metric, vector_dimension);
+        (FB_VECTOR_INDEX_TYPE)fb_vector_index_type, vector_dimension);
   }
 }
 
