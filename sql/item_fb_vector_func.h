@@ -17,6 +17,7 @@
 #pragma once
 
 #include "sql/item_func.h"
+#include "sql/item_json_func.h"
 
 /**
   parent class of vector distance functions
@@ -67,17 +68,20 @@ class Item_func_fb_vector_ip final : public Item_func_fb_vector_distance {
 };
 
 /**
-  Represents the function FB_VECTOR_COSINE()
+  Represents the function FB_VECTOR_NORMALIZE_L2()
 */
-class Item_func_fb_vector_cosine final : public Item_func_fb_vector_distance {
+class Item_func_fb_vector_normalize_l2 final : public Item_json_func {
  public:
-  Item_func_fb_vector_cosine(THD *thd, const POS &pos, PT_item_list *a);
+  Item_func_fb_vector_normalize_l2(THD *thd, const POS &pos, PT_item_list *a);
 
   const char *func_name() const override;
   enum Functype functype() const override;
 
- protected:
-  float compute_distance(float *v1, float *v2, size_t dimension) override;
+  bool resolve_type(THD *thd) override;
+
+  enum_const_item_cache can_cache_json_arg(Item *arg) override;
+
+  bool val_json(Json_wrapper *wr) override;
 };
 
 /**

@@ -15,8 +15,11 @@ select FB_VECTOR_L2('[1, 2, 3]', '[2, 3, 5]') as v1, FB_VECTOR_L2('[1, 2, 3]', '
 select FB_VECTOR_IP('[1, 2, 3]', '[1, 2, 3]') as v1;
 select FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5]') as v1;
 # cosine
-select FB_VECTOR_COSINE('[1, 2, 3]', '[1, 2, 3]') as v1;
-select FB_VECTOR_COSINE('[1, 2, 3]', '[2, 3, 5]') as v1;
+select FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2('[1, 2, 3]'), FB_VECTOR_NORMALIZE_L2('[1, 2, 3]')) as v1;
+select FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2('[1, 2, 3]'), FB_VECTOR_NORMALIZE_L2('[2, 3, 5]')) as v1;
+select FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2('[5, 0]'), FB_VECTOR_NORMALIZE_L2('[2, 0]')) v1, FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2('[5, 0]'), FB_VECTOR_NORMALIZE_L2('[0, 2]')) v2;
+# vector normalize
+select FB_VECTOR_NORMALIZE_L2('[0, 0]') v1, FB_VECTOR_NORMALIZE_L2('[1, 2, 3]') v2, FB_VECTOR_NORMALIZE_L2('[1, 1, 1, 1]') v3;
 
 echo;
 echo TEST CASE basic error handling;

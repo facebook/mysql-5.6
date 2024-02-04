@@ -26,7 +26,6 @@
 #define FB_VECTORDB_DISABLED_ERR                                            \
   do {                                                                      \
     my_error(ER_FEATURE_DISABLED, MYF(0), "vector db", "WITH_FB_VECTORDB"); \
-    return error_real();                                                    \
   } while (0)
 
 bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
@@ -111,16 +110,28 @@ enum Item_func::Functype Item_func_fb_vector_ip::functype() const {
   return FB_VECTOR_IP;
 }
 
-Item_func_fb_vector_cosine::Item_func_fb_vector_cosine(THD *thd, const POS &pos,
-                                                       PT_item_list *a)
-    : Item_func_fb_vector_distance(thd, pos, a) {}
+Item_func_fb_vector_normalize_l2::Item_func_fb_vector_normalize_l2(
+    THD *thd, const POS &pos, PT_item_list *a)
+    : Item_json_func(thd, pos, a) {}
 
-const char *Item_func_fb_vector_cosine::func_name() const {
-  return "fb_vector_cosine";
+bool Item_func_fb_vector_normalize_l2::resolve_type(THD *thd) {
+  if (param_type_is_default(thd, 0, 1, MYSQL_TYPE_JSON)) return true;
+  set_nullable(true);
+
+  return false;
 }
 
-enum Item_func::Functype Item_func_fb_vector_cosine::functype() const {
-  return FB_VECTOR_COSINE;
+Item_func::enum_const_item_cache
+Item_func_fb_vector_normalize_l2::can_cache_json_arg(Item *arg) {
+  return arg == args[0] ? CACHE_JSON_VALUE : CACHE_NONE;
+}
+
+const char *Item_func_fb_vector_normalize_l2::func_name() const {
+  return "fb_vector_normalize_l2";
+}
+
+enum Item_func::Functype Item_func_fb_vector_normalize_l2::functype() const {
+  return FB_VECTOR_NORMALIZE_L2;
 }
 
 #ifdef WITH_FB_VECTORDB
@@ -134,11 +145,30 @@ float Item_func_fb_vector_ip::compute_distance(float *v1, float *v2,
   return faiss::fvec_inner_product(v1, v2, dimension);
 }
 
-float Item_func_fb_vector_cosine::compute_distance(float *v1, float *v2,
-                                                   size_t dimension) {
-  faiss::fvec_renorm_L2(dimension, 1, v1);
-  faiss::fvec_renorm_L2(dimension, 1, v2);
-  return faiss::fvec_inner_product(v1, v2, dimension);
+bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr) {
+  if (args[0]->null_value) {
+    return error_json();
+  }
+  try {
+    Fb_vector vector1;
+    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1)) {
+      return error_json();
+    }
+    faiss::fvec_renorm_L2(vector1.data.size(), 1, vector1.data.data());
+    Json_array_ptr array(new (std::nothrow) Json_array());
+    for (float v : vector1.data) {
+      Json_double d(v);
+      if (array->append_clone(&d)) {
+        return error_json();
+      }
+    }
+    Json_wrapper docw(array.release());
+    *wr = std::move(docw);
+  } catch (...) {
+    handle_std_exception(func_name());
+    return error_json();
+  }
+  return false;
 }
 
 #else
@@ -150,6 +180,7 @@ float Item_func_fb_vector_l2::compute_distance(float *v1 [[maybe_unused]],
                                                size_t dimension
                                                [[maybe_unused]]) {
   FB_VECTORDB_DISABLED_ERR;
+  return error_real();
 }
 
 float Item_func_fb_vector_ip::compute_distance(float *v1 [[maybe_unused]],
@@ -157,12 +188,12 @@ float Item_func_fb_vector_ip::compute_distance(float *v1 [[maybe_unused]],
                                                size_t dimension
                                                [[maybe_unused]]) {
   FB_VECTORDB_DISABLED_ERR;
+  return error_real();
 }
 
-float Item_func_fb_vector_cosine::compute_distance(float *v1 [[maybe_unused]],
-                                                   float *v2 [[maybe_unused]],
-                                                   size_t dimension
-                                                   [[maybe_unused]]) {
+bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr
+                                                [[maybe_unused]]) {
   FB_VECTORDB_DISABLED_ERR;
+  return error_bool();
 }
 #endif

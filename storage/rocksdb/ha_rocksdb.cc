@@ -20054,8 +20054,7 @@ bool ha_rocksdb::index_supports_vector_scan(ORDER *order, int idx) {
   Item_func *item_func = (Item_func *)*(order->item);
 
   if ((item_func->functype() != Item_func::FB_VECTOR_L2) &&
-      (item_func->functype() != Item_func::FB_VECTOR_IP) &&
-      (item_func->functype() != Item_func::FB_VECTOR_COSINE))  // 3.
+      (item_func->functype() != Item_func::FB_VECTOR_IP))  // 3.
     return false;
 
   if (((Item_func *)item_func)->argument_count() != 2) return false;
