@@ -24,6 +24,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -1281,8 +1282,8 @@ int rdb_tx_set_status_error(Rdb_transaction *tx, const rocksdb::Status &s,
                             const Rdb_key_def &kd,
                             const Rdb_tbl_def *const tbl_def);
 
-int rocksdb_create_checkpoint(const char *checkpoint_dir_raw);
-int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw);
+int rocksdb_create_checkpoint(std::string_view checkpoint_dir_raw);
+int rocksdb_remove_checkpoint(std::string_view checkpoint_dir_raw);
 
 extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
@@ -1315,14 +1316,14 @@ extern uint rocksdb_clone_checkpoint_max_count;
 
 extern unsigned long long rocksdb_converter_record_cached_length;
 
-inline bool is_wal_dir_separate() noexcept {
+[[nodiscard]] inline bool is_wal_dir_separate() noexcept {
   return rocksdb_wal_dir && *rocksdb_wal_dir &&
-         // Prefer cheapness over accuracy by doing lexicographic
-         // path comparison only
+         // Prefer cheapness over accuracy by doing lexicographic path
+         // comparison only
          strcmp(rocksdb_wal_dir, rocksdb_datadir);
 }
 
-inline char *get_wal_dir() noexcept {
+[[nodiscard]] inline char *get_wal_dir() noexcept {
   return (rocksdb_wal_dir && *rocksdb_wal_dir) ? rocksdb_wal_dir
                                                : rocksdb_datadir;
 }

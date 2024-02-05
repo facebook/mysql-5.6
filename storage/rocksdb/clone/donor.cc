@@ -41,6 +41,8 @@
 #include "../ha_rocksdb_proto.h"
 #include "common.h"
 
+using namespace std::string_view_literals;
+
 namespace {
 
 // Represents a checkpoint for a single clone session. The checkpoint path will
@@ -69,7 +71,7 @@ class [[nodiscard]] rdb_checkpoint final {
   [[nodiscard]] int init() {
     assert(!m_active);
     m_dir = make_dir_name(m_prefix_dir, m_next_sub_id++);
-    const auto result = myrocks::rocksdb_create_checkpoint(m_dir.c_str());
+    const auto result = myrocks::rocksdb_create_checkpoint(m_dir);
     m_active = (result == HA_EXIT_SUCCESS);
     return m_active ? 0 : ER_INTERNAL_ERROR;
   }
@@ -78,7 +80,7 @@ class [[nodiscard]] rdb_checkpoint final {
   [[nodiscard]] int cleanup() {
     if (!m_active) return 0;
     m_active = false;
-    return myrocks::rocksdb_remove_checkpoint(m_dir.c_str()) == HA_EXIT_SUCCESS
+    return myrocks::rocksdb_remove_checkpoint(m_dir) == HA_EXIT_SUCCESS
                ? 0
                : ER_INTERNAL_ERROR;
   }
@@ -88,7 +90,7 @@ class [[nodiscard]] rdb_checkpoint final {
     return m_dir;
   }
 
-  [[nodiscard]] std::string path(const std::string &file_name) const {
+  [[nodiscard]] std::string path(std::string_view file_name) const {
     // We might be calling this for inactive checkpoint too, if the donor is in
     // the middle of a checkpoint roll. The caller will handle any ENOENTs as
     // needed.
@@ -116,9 +118,8 @@ class [[nodiscard]] rdb_checkpoint final {
     const auto id_str = std::to_string(id);
     std::string result;
     result.reserve(base_str.length() +
-                   sizeof(myrocks::clone::checkpoint_name_prefix) +
-                   id_str.length() + 1);  // +1 for FN_LIBCHAR, the trailing
-                                          // '\0' is accounted by the sizeof.
+                   myrocks::clone::checkpoint_name_prefix.length() +
+                   id_str.length() + 2);  // +2 for FN_LIBCHAR and '\0'
     result = base_str;
     result += FN_LIBCHAR;
     result += myrocks::clone::checkpoint_name_prefix;
@@ -127,12 +128,11 @@ class [[nodiscard]] rdb_checkpoint final {
   }
 
   [[nodiscard]] static std::string make_dir_name(
-      const std::string &dir_name_prefix, std::uint64_t id) {
+      std::string_view dir_name_prefix, std::uint64_t id) {
     const auto id_str = std::to_string(id);
     std::string result;
-    result.reserve(dir_name_prefix.length() + id_str.length() +
-                   1);  // +1 for '-', the trailing
-                        // '\0' is accounted by the sizeof.
+    // +2 for '-' and '\0'
+    result.reserve(dir_name_prefix.length() + id_str.length() + 2);
     result = dir_name_prefix;
     result += '-';
     result += id_str;
@@ -542,10 +542,10 @@ class [[nodiscard]] donor final : public myrocks::clone::session {
     assert(res.inserted);
   }
 
-  [[nodiscard]] std::string path(const std::string &fn) const {
+  [[nodiscard]] std::string path(std::string_view fn) const {
     assert(m_state != donor_state::INITIAL);
 
-    return myrocks::has_file_extension(fn, ".log")
+    return myrocks::has_file_extension(fn, ".log"sv)
                ? myrocks::rdb_concat_paths(myrocks::get_wal_dir(), fn)
                : m_checkpoint.path(fn);
   }
@@ -575,8 +575,10 @@ class [[nodiscard]] donor final : public myrocks::clone::session {
   }
 
 #ifndef NDEBUG
+  // Cannot use std::string_view for fn because we need std::string for
+  // searching in the containers
   void assert_known_file_size_same(const std::string &fn, my_off_t size) const {
-    assert(!myrocks::has_file_extension(fn, ".log"));
+    assert(!myrocks::has_file_extension(fn, ".log"sv));
     const auto name_to_id_map_itr = m_name_to_id_map.find(fn);
     assert(name_to_id_map_itr != m_name_to_id_map.cend());
     const auto id = name_to_id_map_itr->second;
@@ -636,14 +638,14 @@ int donor::add_checkpoint_files(bool final, std::size_t &total_new_size) {
   const auto result = myrocks::for_each_in_dir(
       m_checkpoint.get_dir(), MY_WANT_STAT,
       [final, this, &total_new_size](const fileinfo &f_info) {
-        std::string fn{f_info.name};
+        std::string_view fn{f_info.name};
         // The last WAL in the checkpoint WAL set will be growing until the
         // cross-engine consistency point. To avoid tracking that, postpone
         // copying any WALs until then.
-        if (myrocks::has_file_extension(fn, ".log")) return true;
-        if (!final && !myrocks::has_file_extension(fn, ".sst")) return true;
+        if (myrocks::has_file_extension(fn, ".log"sv)) return true;
+        if (!final && !myrocks::has_file_extension(fn, ".sst"sv)) return true;
         const my_off_t size = f_info.mystat->st_size;
-        add_file(std::move(fn), size);
+        add_file(std::string{fn}, size);
         total_new_size += size;
         return true;
       });
@@ -794,7 +796,7 @@ int donor::copy(const THD *thd, uint task_id, Ha_clone_cbk &cbk) {
 
     // Only SSTs may appear in the rolling checkpoints
     // WALs, METADATA, OPTIONS-*, MANIFEST-* may appear in the final checkpoint
-    assert(myrocks::has_file_extension(metadata.get_name(), ".sst") ||
+    assert(myrocks::has_file_extension(metadata.get_name(), ".sst"sv) ||
            m_state == donor_state::FINAL_CHECKPOINT ||
            m_state == donor_state::FINAL_CHECKPOINT_WITH_LOGS);
 
@@ -816,7 +818,7 @@ int donor::copy(const THD *thd, uint task_id, Ha_clone_cbk &cbk) {
         LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                         "Not found, assuming old checkpoint: %s",
                         donor_file_path.c_str());
-        assert(myrocks::has_file_extension(donor_file_path, ".sst"));
+        assert(myrocks::has_file_extension(donor_file_path, ".sst"sv));
         const auto erased_count [[maybe_unused]] =
             m_in_progress_files.erase(metadata.get_id());
         assert(erased_count == 1);
@@ -1358,7 +1360,7 @@ void rocksdb_clone_set_log_stop(const uchar *loc, uint loc_len,
     const auto &path = path_str_json.value();
     assert(path[0] == '/');
     assert(path.length() > sizeof("/x.log"));
-    assert(myrocks::has_file_extension(path, ".log"));
+    assert(myrocks::has_file_extension(path, ".log"sv));
     auto log_name = path.substr(1, path.length() - 1);
 
     static const std::string size_str = "size_file_bytes";

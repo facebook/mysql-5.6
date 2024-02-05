@@ -24,6 +24,7 @@
 #include <ctime>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 
 #include "my_dbug.h"
@@ -41,17 +42,17 @@ namespace myrocks {
 
 namespace clone {
 
-constexpr char checkpoint_name_prefix[] = ".clone_checkpoint-";
+constexpr std::string_view checkpoint_name_prefix = ".clone_checkpoint-";
 constexpr char in_place_temp_datadir[] = ".rocksdb.cloned";
 constexpr char in_place_temp_wal_dir[] = ".rocksdb.wal.cloned";
-constexpr char in_progress_marker_file[] = ".clone_in_progress";
+constexpr std::string_view in_progress_marker_file = ".clone_in_progress";
 
 constexpr auto dir_mode = S_IRWXU;
 
 constexpr std::uint64_t invalid_file_id =
     std::numeric_limits<std::uint64_t>::max();
 constexpr my_off_t invalid_file_offset = std::numeric_limits<my_off_t>::max();
-constexpr char invalid_file_name[] = "";
+constexpr std::string_view invalid_file_name = "";
 
 [[nodiscard]] std::string checkpoint_base_dir();
 
@@ -65,7 +66,7 @@ void fixup_on_startup();
 
 enum class mode_for_direct_io { DONOR, CLIENT };
 
-[[nodiscard]] bool should_use_direct_io(const std::string &file_name,
+[[nodiscard]] bool should_use_direct_io(std::string_view file_name,
                                         enum mode_for_direct_io mode);
 
 enum class metadata_type : std::uint32_t {
@@ -603,7 +604,7 @@ class [[nodiscard]] session {
     mysql_mutex_unlock(&m_error_mutex);
   }
 
-  void save_error(int new_error, const std::string &new_error_path = "",
+  void save_error(int new_error, std::string_view new_error_path = "",
                   int errno_to_save = 0) {
     // Implementation similar to InnoDB Clone_Task_Manager::set_error in
     // clone0clone.h
@@ -613,9 +614,10 @@ class [[nodiscard]] session {
     if (m_error == 0 || is_restartable_error(m_error)) {
       LogPluginErrMsg(
           INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-          "MyRocks clone session setting error %d (file \"%s\", errno %d), "
+          "MyRocks clone session setting error %d (file \"%.*s\", errno %d), "
           "previous error %d",
-          new_error, new_error_path.c_str(), errno_to_save, m_error);
+          new_error, static_cast<int>(new_error_path.length()),
+          new_error_path.data(), errno_to_save, m_error);
       m_error = new_error;
       if (!new_error_path.empty()) m_error_path = new_error_path;
       if (errno_to_save != 0) m_saved_errno = errno_to_save;

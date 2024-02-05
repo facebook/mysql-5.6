@@ -18,7 +18,7 @@
 
 #include <atomic>
 #include <cstdint>
-#include <cstring>
+#include <string_view>
 
 #include "my_compiler.h"
 #include "my_dir.h"
@@ -30,8 +30,10 @@
 
 namespace {
 
+using namespace std::string_view_literals;
+
 constexpr char in_place_old_datadir[] = ".rocksdb.saved";
-constexpr char old_wal_suffix[] = ".saved";
+constexpr std::string_view old_wal_suffix = ".saved"sv;
 
 // Must be kept in sync with CLONE_FORCE_OTHER_ENGINES_ROLLBACK_FILE in
 // storage/innobase/include/clone0clone.h.
@@ -105,8 +107,7 @@ void move_temp_dir_to_destination(const std::string &temp,
   myrocks::rdb_path_rename_or_abort(temp, dest);
 
   if (dest_exists) {
-    const auto success [[maybe_unused]] =
-        myrocks::clone::remove_dir(old.c_str(), true);
+    const auto success [[maybe_unused]] = myrocks::clone::remove_dir(old, true);
     assert(success);
   }
 }
@@ -127,12 +128,14 @@ void move_temp_dir_contents_to_dest(const std::string &temp,
     // Pass 1: rename old files in the destination directory
     if (dest_existed) {
       myrocks::for_each_in_dir(dest, MY_FAE, [&dest](const fileinfo &f_info) {
-        if (myrocks::has_file_extension(f_info.name, old_wal_suffix))
-          myrocks::rdb_fatal_error("MyRocks clone fixup temp file %s found",
-                                   f_info.name);
+        const auto fn = std::string_view{f_info.name};
 
-        const auto old_path = myrocks::rdb_concat_paths(dest, f_info.name);
-        const auto saved_old_path = old_path + old_wal_suffix;
+        if (myrocks::has_file_extension(fn, old_wal_suffix))
+          myrocks::rdb_fatal_error("MyRocks clone fixup temp file %.*s found",
+                                   static_cast<int>(fn.length()), fn.data());
+
+        const auto old_path = myrocks::rdb_concat_paths(dest, fn);
+        const auto saved_old_path = std::string{old_path} += old_wal_suffix;
         if (my_rename(old_path.c_str(), saved_old_path.c_str(),
                       MYF(MY_WME | MY_FAE))) {
           myrocks::rdb_fatal_error("Failed to rename %s to %s",
@@ -144,8 +147,10 @@ void move_temp_dir_contents_to_dest(const std::string &temp,
     // Pass 2: move new files to the destination
     myrocks::for_each_in_dir(
         temp, MY_FAE, [&temp, &dest](const fileinfo &f_info) {
-          const auto old_path = myrocks::rdb_concat_paths(temp, f_info.name);
-          const auto new_path = myrocks::rdb_concat_paths(dest, f_info.name);
+          const auto fn = std::string_view{f_info.name};
+
+          const auto old_path = myrocks::rdb_concat_paths(temp, fn);
+          const auto new_path = myrocks::rdb_concat_paths(dest, fn);
           myrocks::rdb_path_rename_or_abort(old_path, new_path);
           return true;
         });
@@ -153,10 +158,10 @@ void move_temp_dir_contents_to_dest(const std::string &temp,
     if (dest_existed) {
       // Pass 3: remove old files
       myrocks::for_each_in_dir(dest, MY_FAE, [&dest](const fileinfo &f_info) {
-        if (!myrocks::has_file_extension(f_info.name, old_wal_suffix))
-          return true;
-        const auto saved_old_path =
-            myrocks::rdb_concat_paths(dest, f_info.name);
+        const auto fn = std::string_view{f_info.name};
+
+        if (!myrocks::has_file_extension(fn, old_wal_suffix)) return true;
+        const auto saved_old_path = myrocks::rdb_concat_paths(dest, fn);
         myrocks::rdb_file_delete_or_abort(saved_old_path);
         return true;
       });
@@ -237,9 +242,10 @@ void fixup_on_startup() {
     move_temp_dir_contents_to_dest(in_place_temp_wal_dir, rocksdb_wal_dir);
   } else if (path_exists(in_place_temp_wal_dir)) {
     for_each_in_dir(in_place_temp_wal_dir, MY_FAE, [](const fileinfo &f_info) {
-      const auto old_log_path =
-          rdb_concat_paths(in_place_temp_wal_dir, f_info.name);
-      const auto new_log_path = rdb_concat_paths(rocksdb_datadir, f_info.name);
+      const auto fn = std::string_view{f_info.name};
+
+      const auto old_log_path = rdb_concat_paths(in_place_temp_wal_dir, fn);
+      const auto new_log_path = rdb_concat_paths(rocksdb_datadir, fn);
       myrocks::rdb_path_rename_or_abort(old_log_path, new_log_path);
       return true;
     });
@@ -253,19 +259,20 @@ void fixup_on_startup() {
     const auto errno_copy = my_errno();
     if (errno_copy != ENOENT) {
       rdb_fatal_error("Failed to open directory %s, errno %d",
-                      checkpoint_base_dir().c_str(), errno_copy);
+                      checkpoint_base_dir_str.c_str(), errno_copy);
     }
     return;
   }
 
   for (uint i = 0; i < dir->number_off_files; ++i) {
     const auto &f_info = dir->dir_entry[i];
-    if (!S_ISDIR(f_info.mystat->st_mode) ||
-        strncmp(f_info.name, checkpoint_name_prefix,
-                sizeof(checkpoint_name_prefix) - 1) != 0)
+    if (!S_ISDIR(f_info.mystat->st_mode)) continue;
+    const auto fn = std::string_view{f_info.name};
+    // Replace with fn.starts_with at C++20
+    if (fn.substr(0, checkpoint_name_prefix.length()) != checkpoint_name_prefix)
       continue;
     const auto checkpoint_dir_path =
-        rdb_concat_paths(checkpoint_base_dir_str, f_info.name);
+        rdb_concat_paths(checkpoint_base_dir_str, fn);
     const auto success [[maybe_unused]] = remove_dir(checkpoint_dir_path, true);
     assert(success);
   }
@@ -282,9 +289,9 @@ void fixup_on_startup() {
   return (da != nullptr && da->is_error()) ? da->message_text() : "";
 }
 
-[[nodiscard]] bool should_use_direct_io(const std::string &file_name,
+[[nodiscard]] bool should_use_direct_io(std::string_view file_name,
                                         enum mode_for_direct_io mode) {
-  const auto is_sst = has_file_extension(file_name, ".sst");
+  const auto is_sst = has_file_extension(file_name, ".sst"sv);
   if (!is_sst) return false;
 
   const auto &rdb_opts = *myrocks::get_rocksdb_db_options();
