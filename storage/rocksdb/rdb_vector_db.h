@@ -20,6 +20,8 @@
 #include <rocksdb/slice.h>
 #include <rocksdb/write_batch.h>
 #include <memory>
+#include "./rdb_cmd_srv_helper.h"
+#include "./rdb_global.h"
 #include "rdb_utils.h"
 #include "sql/item_fb_vector_func.h"
 
@@ -37,6 +39,13 @@ class Rdb_vector_index_info {
    number of time the index is used for knn search
   */
   uint m_hit{0};
+
+  /**
+    stats for ivf lists
+  */
+  uint m_min_list_size{0};
+  uint m_max_list_size{0};
+  uint m_avg_list_size{0};
 };
 
 class Rdb_vector_search_params {
@@ -76,9 +85,16 @@ class Rdb_vector_index {
   virtual Rdb_vector_index_info dump_info() = 0;
 
   virtual FB_vector_dimension dimension() const = 0;
+
+  virtual uint setup(const std::string &db_name [[maybe_unused]],
+                     Rdb_cmd_srv_helper &cmd_srv_helper [[maybe_unused]]) {
+    return HA_EXIT_SUCCESS;
+  }
 };
 
-uint create_vector_index(const FB_vector_index_config index_def,
+uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper,
+                         const std::string &db_name,
+                         const FB_vector_index_config index_def,
                          std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle,
                          const Index_id index_id,
                          std::unique_ptr<Rdb_vector_index> &index);

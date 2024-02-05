@@ -22,6 +22,7 @@
 
 #include "sql/dd_table_share.h"
 
+#include "dd/string_type.h"
 #include "my_config.h"
 
 #include <string.h>
@@ -1302,7 +1303,8 @@ static void fill_index_elements_from_dd(TABLE_SHARE *share,
 /**
   fill fb vector index options
 */
-static void fill_fb_vector_index_from_dd(const dd::Properties &idx_options,
+static void fill_fb_vector_index_from_dd(MEM_ROOT *mem_root,
+                                         const dd::Properties &idx_options,
                                          KEY *keyinfo) {
   if (idx_options.exists("fb_vector_index_type")) {
     uint fb_vector_index_type;
@@ -1315,8 +1317,24 @@ static void fill_fb_vector_index_from_dd(const dd::Properties &idx_options,
       assert(false);
     }
 
+    LEX_CSTRING trained_index_table = EMPTY_CSTR;
+    if (idx_options.exists("fb_vector_trained_index_table")) {
+      if (idx_options.get("fb_vector_trained_index_table", &trained_index_table,
+                          mem_root)) {
+        assert(false);
+      }
+    }
+    LEX_CSTRING trained_index_id = EMPTY_CSTR;
+    if (idx_options.exists("fb_vector_trained_index_id")) {
+      if (idx_options.get("fb_vector_trained_index_id", &trained_index_id,
+                          mem_root)) {
+        assert(false);
+      }
+    }
+
     keyinfo->fb_vector_index_config = FB_vector_index_config(
-        (FB_VECTOR_INDEX_TYPE)fb_vector_index_type, vector_dimension);
+        (FB_VECTOR_INDEX_TYPE)fb_vector_index_type, vector_dimension,
+        trained_index_table, trained_index_id);
   }
 }
 
@@ -1457,7 +1475,7 @@ static bool fill_index_from_dd(THD *thd, TABLE_SHARE *share,
     keyinfo->flags |= HA_USES_PARSER;
   }
 
-  fill_fb_vector_index_from_dd(idx_options, keyinfo);
+  fill_fb_vector_index_from_dd(&share->mem_root, idx_options, keyinfo);
 
   // Read comment
   dd::String_type comment = idx_obj->comment();

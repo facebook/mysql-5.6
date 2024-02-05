@@ -1433,10 +1433,11 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> PRIVACY_POLICY 10012          /* FB MYSQL */
 %token<lexer.keyword> FB_VECTOR_DIMENSION_SYM 10013     /* FB MYSQL */
 %token<lexer.keyword> FB_VECTOR_INDEX_TYPE_SYM 10014    /* FB MYSQL */
-%token<lexer.keyword> FB_VECTOR_INDEX_METRIC_SYM 10015  /* FB MYSQL */
-%token<lexer.keyword> DUMP_SYM 10016                    /* FB MYSQL */
-%token<lexer.keyword> THREADS_SYM 10017                 /* FB MYSQL */
-%token<lexer.keyword> CHUNK_SIZE_SYM 10018              /* FB MYSQL */
+%token<lexer.keyword> FB_VECTOR_TRAINED_INDEX_ID_SYM 10015    /* FB MYSQL */
+%token<lexer.keyword> FB_VECTOR_TRAINED_INDEX_TABLE_SYM 10016  /* FB MYSQL */
+%token<lexer.keyword> DUMP_SYM 10017                    /* FB MYSQL */
+%token<lexer.keyword> THREADS_SYM 10018                 /* FB MYSQL */
+%token<lexer.keyword> CHUNK_SIZE_SYM 10019              /* FB MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -8105,6 +8106,14 @@ common_index_option:
         | FB_VECTOR_DIMENSION_SYM opt_equal ulong_num
           {
             $$ = make_fb_vector_index_dimension_attribute(YYMEM_ROOT, $3);
+          }
+        | FB_VECTOR_TRAINED_INDEX_ID_SYM opt_equal TEXT_STRING_sys
+          {
+            $$ = make_fb_vector_trained_index_id_attribute(YYMEM_ROOT, to_lex_cstring($3));
+          }
+        | FB_VECTOR_TRAINED_INDEX_TABLE_SYM opt_equal TEXT_STRING_sys
+          {
+            $$ = make_fb_vector_trained_index_table_attribute(YYMEM_ROOT, to_lex_cstring($3));
           }
         ;
 

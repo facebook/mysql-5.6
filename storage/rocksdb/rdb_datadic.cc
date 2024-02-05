@@ -355,7 +355,8 @@ Rdb_key_def::~Rdb_key_def() {
   m_pack_info = nullptr;
 }
 
-uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
+uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def,
+                        Rdb_cmd_srv_helper &cmd_srv_helper) {
   /*
     Set max_length based on the table.  This can be called concurrently from
     multiple threads, so there is a mutex to protect this code.
@@ -561,7 +562,7 @@ uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
     rocksdb::Options opt = rdb_get_rocksdb_db()->GetOptions(get_cf());
     m_prefix_extractor = opt.prefix_extractor;
 
-    uint rtn = setup_vector_index(tbl, tbl_def);
+    uint rtn = setup_vector_index(tbl, tbl_def, cmd_srv_helper);
     if (rtn) {
       RDB_MUTEX_UNLOCK_CHECK(m_mutex);
       return rtn;
@@ -3509,7 +3510,8 @@ Rdb_field_packing *Rdb_key_def::get_pack_info(uint pack_no) {
 }
 
 uint Rdb_key_def::setup_vector_index(const TABLE &tbl,
-                                     const Rdb_tbl_def &tbl_def) {
+                                     const Rdb_tbl_def &tbl_def,
+                                     Rdb_cmd_srv_helper &cmd_srv_helper) {
   if (m_vector_index_config.type() == FB_VECTOR_INDEX_TYPE::NONE) {
     return HA_EXIT_SUCCESS;
   }
@@ -3549,7 +3551,9 @@ uint Rdb_key_def::setup_vector_index(const TABLE &tbl,
     assert(false);
     return HA_ERR_UNSUPPORTED;
   }
-  return create_vector_index(m_vector_index_config, m_cf_handle, m_index_number,
+
+  return create_vector_index(cmd_srv_helper, tbl_def.base_dbname(),
+                             m_vector_index_config, m_cf_handle, m_index_number,
                              m_vector_index);
 }
 

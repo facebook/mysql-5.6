@@ -98,6 +98,7 @@
 #include "./nosql_access.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_cf_options.h"
+#include "./rdb_cmd_srv_helper.h"
 #include "./rdb_converter.h"
 #include "./rdb_datadic.h"
 #include "./rdb_i_s.h"
@@ -117,9 +118,15 @@
 
 using namespace std::string_view_literals;
 
+static REQUIRES_SERVICE_PLACEHOLDER(mysql_command_factory) = nullptr;
+static REQUIRES_SERVICE_PLACEHOLDER(mysql_command_options) = nullptr;
+static REQUIRES_SERVICE_PLACEHOLDER(mysql_command_query) = nullptr;
+static REQUIRES_SERVICE_PLACEHOLDER(mysql_command_query_result) = nullptr;
+static REQUIRES_SERVICE_PLACEHOLDER(mysql_command_field_info) = nullptr;
+static REQUIRES_SERVICE_PLACEHOLDER(mysql_command_error_info) = nullptr;
+static SERVICE_TYPE(registry) *reg_srv = nullptr;
 #ifdef MYSQL_DYNAMIC_PLUGIN
 // MySQL 8.0 logger service interface
-static SERVICE_TYPE(registry) *reg_srv = nullptr;
 SERVICE_TYPE(log_builtins) *log_bi = nullptr;
 SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 #endif
@@ -347,6 +354,8 @@ static Rdb_drop_index_thread rdb_drop_idx_thread;
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
 static Regex_list_handler *rdb_collation_exceptions;
+
+static std::unique_ptr<Rdb_cmd_srv_helper> cmd_srv_helper;
 
 static const char *rdb_get_error_message(int nr);
 
@@ -7636,7 +7645,66 @@ static int rocksdb_init_internal(void *const p) {
   if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs)) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
+#else
+  reg_srv = mysql_plugin_registry_acquire();
 #endif
+
+  my_h_service h_command_factory_srv = nullptr;
+  my_h_service h_command_srv = nullptr;
+  if (reg_srv->acquire("mysql_command_factory", &h_command_factory_srv)) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  } else {
+    mysql_service_mysql_command_factory =
+        reinterpret_cast<SERVICE_TYPE_NO_CONST(mysql_command_factory) *>(
+            h_command_factory_srv);
+  }
+  if (reg_srv->acquire_related("mysql_command_options", h_command_factory_srv,
+                               &h_command_srv)) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  } else {
+    mysql_service_mysql_command_options =
+        reinterpret_cast<SERVICE_TYPE_NO_CONST(mysql_command_options) *>(
+            h_command_srv);
+  }
+
+  if (reg_srv->acquire_related("mysql_command_query", h_command_factory_srv,
+                               &h_command_srv)) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  } else {
+    mysql_service_mysql_command_query =
+        reinterpret_cast<SERVICE_TYPE_NO_CONST(mysql_command_query) *>(
+            h_command_srv);
+  }
+  if (reg_srv->acquire_related("mysql_command_query_result",
+                               h_command_factory_srv, &h_command_srv)) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  } else {
+    mysql_service_mysql_command_query_result =
+        reinterpret_cast<SERVICE_TYPE_NO_CONST(mysql_command_query_result) *>(
+            h_command_srv);
+  }
+  if (reg_srv->acquire_related("mysql_command_field_info",
+                               h_command_factory_srv, &h_command_srv)) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  } else {
+    mysql_service_mysql_command_field_info =
+        reinterpret_cast<SERVICE_TYPE_NO_CONST(mysql_command_field_info) *>(
+            h_command_srv);
+  }
+  if (reg_srv->acquire_related("mysql_command_error_info",
+                               h_command_factory_srv, &h_command_srv)) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  } else {
+    mysql_service_mysql_command_error_info =
+        reinterpret_cast<SERVICE_TYPE_NO_CONST(mysql_command_error_info) *>(
+            h_command_srv);
+  }
+  cmd_srv_helper = std::make_unique<Rdb_cmd_srv_helper>(
+      mysql_service_mysql_command_factory, mysql_service_mysql_command_options,
+      mysql_service_mysql_command_query,
+      mysql_service_mysql_command_query_result,
+      mysql_service_mysql_command_field_info,
+      mysql_service_mysql_command_error_info);
 
 #ifdef FB_HAVE_WSENV
   // Initialize WSEnv with rocksdb_ws_env_path
@@ -8598,8 +8666,43 @@ static int rocksdb_shutdown(bool minimalShutdown) {
     my_error_unregister(HA_ERR_ROCKSDB_FIRST, HA_ERR_ROCKSDB_LAST);
   }
 
+  cmd_srv_helper = nullptr;
+  if (mysql_service_mysql_command_factory) {
+    reg_srv->release(reinterpret_cast<my_h_service>(
+        const_cast<SERVICE_TYPE_NO_CONST(mysql_command_factory) *>(
+            mysql_service_mysql_command_factory)));
+  }
+  if (mysql_service_mysql_command_options) {
+    reg_srv->release(reinterpret_cast<my_h_service>(
+        const_cast<SERVICE_TYPE_NO_CONST(mysql_command_options) *>(
+            mysql_service_mysql_command_options)));
+  }
+  if (mysql_service_mysql_command_query) {
+    reg_srv->release(reinterpret_cast<my_h_service>(
+        const_cast<SERVICE_TYPE_NO_CONST(mysql_command_query) *>(
+            mysql_service_mysql_command_query)));
+  }
+  if (mysql_service_mysql_command_query_result) {
+    reg_srv->release(reinterpret_cast<my_h_service>(
+        const_cast<SERVICE_TYPE_NO_CONST(mysql_command_query_result) *>(
+            mysql_service_mysql_command_query_result)));
+  }
+  if (mysql_service_mysql_command_field_info) {
+    reg_srv->release(reinterpret_cast<my_h_service>(
+        const_cast<SERVICE_TYPE_NO_CONST(mysql_command_field_info) *>(
+            mysql_service_mysql_command_field_info)));
+  }
+  if (mysql_service_mysql_command_error_info) {
+    reg_srv->release(reinterpret_cast<my_h_service>(
+        const_cast<SERVICE_TYPE_NO_CONST(mysql_command_error_info) *>(
+            mysql_service_mysql_command_error_info)));
+  }
+
 #ifdef MYSQL_DYNAMIC_PLUGIN
   deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
+#else
+  mysql_plugin_registry_release(reg_srv);
+  reg_srv = nullptr;
 #endif
 
   return error;
@@ -9219,7 +9322,7 @@ int ha_rocksdb::alloc_key_buffers(const TABLE &table_arg,
   m_pk_descr = kd_arr[pk_index(table_arg, tbl_def_arg)];
 
   // move this into get_table_handler() ??
-  uint rtn = m_pk_descr->setup(table_arg, tbl_def_arg);
+  uint rtn = m_pk_descr->setup(table_arg, tbl_def_arg, *cmd_srv_helper);
   if (rtn) {
     return rtn;
   }
@@ -9235,7 +9338,7 @@ int ha_rocksdb::alloc_key_buffers(const TABLE &table_arg,
     if (i == table_arg.s->primary_key) continue;
 
     // TODO: move this into get_table_handler() ??
-    rtn = kd_arr[i]->setup(table_arg, tbl_def_arg);
+    rtn = kd_arr[i]->setup(table_arg, tbl_def_arg, *cmd_srv_helper);
     if (rtn) {
       return rtn;
     }
@@ -9957,7 +10060,7 @@ uint ha_rocksdb::create_inplace_key_defs(
     }
 
     assert(new_key_descr[i] != nullptr);
-    int rtn = new_key_descr[i]->setup(table_arg, tbl_def_arg);
+    int rtn = new_key_descr[i]->setup(table_arg, tbl_def_arg, *cmd_srv_helper);
     if (rtn) {
       return rtn;
     }
@@ -10166,7 +10269,7 @@ int ha_rocksdb::create_key_def(
   }
 
   // initialize key_def
-  uint rtn = new_key_def->setup(table_arg, tbl_def_arg);
+  uint rtn = new_key_def->setup(table_arg, tbl_def_arg, *cmd_srv_helper);
   if (rtn) {
     DBUG_RETURN(rtn);
   }

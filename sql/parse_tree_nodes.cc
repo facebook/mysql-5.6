@@ -4897,3 +4897,37 @@ PT_base_index_option *make_fb_vector_index_dimension_attribute(
         return false;
       });
 }
+
+/**
+   create a fb_vector trained index id attribute
+
+   @param mem_root Memory arena.
+   @param attr     Attribute value from parser.
+
+   @return PT_base_index_option* to PT_attribute object.
+ */
+PT_base_index_option *make_fb_vector_trained_index_id_attribute(
+    MEM_ROOT *mem_root, LEX_CSTRING attr) {
+  return new (mem_root) PT_attribute<LEX_CSTRING, PT_base_index_option>(
+      attr, +[](LEX_CSTRING a, Table_ddl_parse_context *pc) {
+        pc->key_create_info->m_fb_vector_trained_index_id = a;
+        return false;
+      });
+}
+
+/**
+   create a fb_vector trained index table attribute
+
+   @param mem_root Memory arena.
+   @param attr     Attribute value from parser.
+
+   @return PT_base_index_option* to PT_attribute object.
+ */
+PT_base_index_option *make_fb_vector_trained_index_table_attribute(
+    MEM_ROOT *mem_root, LEX_CSTRING attr) {
+  return new (mem_root) PT_attribute<LEX_CSTRING, PT_base_index_option>(
+      attr, +[](LEX_CSTRING a, Table_ddl_parse_context *pc) {
+        pc->key_create_info->m_fb_vector_trained_index_table = a;
+        return false;
+      });
+}

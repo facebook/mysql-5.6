@@ -1670,7 +1670,10 @@ enum {
   INDEX_TYPE,
   DIMENSION,
   NTOTAL,
-  HIT
+  HIT,
+  MIN_LIST_SIZE,
+  MAX_LIST_SIZE,
+  AVG_LIST_SIZE
 };
 }  // namespace RDB_VECTOR_INDEX_FIELD
 
@@ -1683,6 +1686,9 @@ static ST_FIELD_INFO rdb_i_s_vector_index_config_fields_info[] = {
     ROCKSDB_FIELD_INFO("DIMENSION", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("NTOTAL", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("HIT", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("MIN_LIST_SIZE", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("MAX_LIST_SIZE", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("AVG_LIST_SIZE", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO_END};
 
 int Rdb_vector_index_scanner::add_table(Rdb_tbl_def *tdef) {
@@ -1727,6 +1733,12 @@ int Rdb_vector_index_scanner::add_table(Rdb_tbl_def *tdef) {
     field[RDB_VECTOR_INDEX_FIELD::NTOTAL]->store(vector_index_info.m_ntotal,
                                                  true);
     field[RDB_VECTOR_INDEX_FIELD::HIT]->store(vector_index_info.m_hit, true);
+    field[RDB_VECTOR_INDEX_FIELD::MIN_LIST_SIZE]->store(
+        vector_index_info.m_min_list_size, true);
+    field[RDB_VECTOR_INDEX_FIELD::MAX_LIST_SIZE]->store(
+        vector_index_info.m_max_list_size, true);
+    field[RDB_VECTOR_INDEX_FIELD::AVG_LIST_SIZE]->store(
+        vector_index_info.m_avg_list_size, true);
 
     ret = my_core::schema_table_store_record(m_thd, m_table);
     if (ret) return ret;

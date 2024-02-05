@@ -139,7 +139,7 @@ constexpr const size_t MAX_PASSWORD_LENGTH{32};
 #if defined HAVE_UBSAN && SIZEOF_CHARP == 4
 constexpr const long STACK_MIN_SIZE{30000};  // Abort if less stack during eval.
 #else
-constexpr const long STACK_MIN_SIZE{20000};  // Abort if less stack during eval.
+constexpr const long STACK_MIN_SIZE{25000};  // Abort if less stack during eval.
 #endif
 
 constexpr const int STACK_BUFF_ALLOC{352};  ///< For stack overrun checks

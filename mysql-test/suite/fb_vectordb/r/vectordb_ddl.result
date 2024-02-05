@@ -32,3 +32,49 @@ vector1 JSON,
 INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
 ) COMMENT "ttl_duration=3600;";
 ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]');
+insert into VECTORDB_DATA values ('id2', 'metadata', 0, '{"version": 2}'), ('id2', 'quantizer', 0, '[0, 0, 0, 0]');
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+);
+SELECT INDEX_TYPE, DIMENSION, NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+INDEX_TYPE	DIMENSION	NTOTAL	HIT
+ivfflat	4	0	0
+drop table t1;
+error case, ivf index require trained index table
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4
+);
+ERROR HY000: Incorrect arguments to missing trained index options
+error case, ivf index require valid trained index table
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA2' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+);
+ERROR HY000: Error in command service backend interface, because of : "Table 'test.VECTORDB_DATA2' doesn't exist"
+error case, ivf index require valid trained index id
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id100'
+);
+ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
+error case, ivf index require valid version number
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id2'
+);
+ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
+error case, quantizer size does not match dimension
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 8 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+);
+ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine

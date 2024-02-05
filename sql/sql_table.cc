@@ -43,6 +43,7 @@
 #include <type_traits>
 
 /* HAVE_PSI_*_INTERFACE */
+#include "fb_vector_base.h"
 #include "my_psi_config.h"  // IWYU pragma: keep
 
 /* drop_table_share with WITH_LOCK_ORDER */
@@ -7222,8 +7223,26 @@ static bool prepare_fb_vector_index(THD *thd, const Key_spec *key,
     my_error(ER_WRONG_ARGUMENTS, MYF(0), "fb_vector_dimension out of bounds");
     return true;
   }
-  key_info->fb_vector_index_config =
-      FB_vector_index_config(fb_vector_index_type, vector_dimension);
+
+  if (fb_vector_index_type == FB_VECTOR_INDEX_TYPE::IVFFLAT ||
+      fb_vector_index_type == FB_VECTOR_INDEX_TYPE::IVFPQ) {
+    if (key->key_create_info.m_fb_vector_trained_index_id.length == 0 ||
+        key->key_create_info.m_fb_vector_trained_index_table.length == 0) {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), "missing trained index options");
+      return true;
+    }
+  } else {
+    if (key->key_create_info.m_fb_vector_trained_index_id.length > 0 ||
+        key->key_create_info.m_fb_vector_trained_index_table.length > 0) {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), "invalid trained index options");
+      return true;
+    }
+  }
+
+  key_info->fb_vector_index_config = FB_vector_index_config(
+      fb_vector_index_type, vector_dimension,
+      key->key_create_info.m_fb_vector_trained_index_table,
+      key->key_create_info.m_fb_vector_trained_index_id);
   return false;
 }
 

@@ -15,17 +15,21 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include "./rdb_vector_db.h"
+#include <sys/types.h>
 #include <algorithm>
 #include <cstddef>
+#include <memory>
 #include <string_view>
 #include "ha_rocksdb.h"
 #include "rdb_buff.h"
+#include "rdb_cmd_srv_helper.h"
 #include "rdb_global.h"
 #include "rdb_utils.h"
 #include "sql-common/json_dom.h"
 #include "sql/field.h"
 #ifdef WITH_FB_VECTORDB
 #include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFFlat.h>
 #include <faiss/utils/Heap.h>
 #include <faiss/utils/distances.h>
 #endif
@@ -35,9 +39,11 @@ namespace myrocks {
 
 #ifdef WITH_FB_VECTORDB
 namespace {
-
 // list number for flat index
 constexpr size_t LIST_NUMBER_FLAT = 0;
+// vector ids are generated in read time.
+// use this dummy value for apis require passing vector ids.
+constexpr faiss::idx_t DUMMY_VECTOR_ID = 42;
 
 static void write_inverted_list_key(Rdb_string_writer &writer,
                                     const Index_id index_id,
@@ -97,14 +103,97 @@ static uint read_inverted_list_key(Rdb_string_reader &reader,
 }
 
 /**
+  context passed to inverted list.
+  no need to synchronize here, as we set openmp threads to 1.
+*/
+class Rdb_faiss_inverted_list_context {
+ public:
+  explicit Rdb_faiss_inverted_list_context(THD *thd) : m_thd(thd) {}
+  THD *m_thd;
+  uint m_error = HA_EXIT_SUCCESS;
+  std::size_t m_current_list_size = 0;
+  std::size_t m_list_count = 0;
+  std::size_t m_total_list_size = 0;
+  std::optional<std::size_t> m_max_list_size;
+  std::optional<std::size_t> m_min_list_size;
+
+  void on_iterator_end() {
+    if (!m_error) {
+      // only update counters when there is no error
+      if (!m_max_list_size.has_value() ||
+          m_current_list_size > m_max_list_size) {
+        m_max_list_size = m_current_list_size;
+      }
+      if (!m_min_list_size.has_value() ||
+          m_current_list_size < m_min_list_size) {
+        m_min_list_size = m_current_list_size;
+      }
+      m_list_count++;
+      m_total_list_size += m_current_list_size;
+    }
+
+    m_current_list_size = 0;
+  }
+
+  void on_iterator_record() { m_current_list_size++; }
+
+  faiss::idx_t add_pk(const std::string &pk) {
+    auto vector_id = m_vector_id++;
+    m_vectorid_pk.emplace(vector_id, pk);
+    return vector_id;
+  }
+
+  uint populate_result(std::vector<faiss::idx_t> &vector_ids,
+                       std::vector<float> &distances,
+                       std::vector<std::pair<std::string, float>> &result) {
+    for (uint i = 0; i < vector_ids.size(); i++) {
+      auto vector_id = vector_ids[i];
+      if (vector_id < 0) {
+        break;
+      }
+      auto iter = m_vectorid_pk.find(vector_id);
+      if (iter == m_vectorid_pk.end()) {
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "Failed to find matching pk for %lu", vector_id);
+        return HA_EXIT_FAILURE;
+      }
+      result.emplace_back(iter->second, distances[i]);
+    }
+    return HA_EXIT_SUCCESS;
+  }
+
+ private:
+  std::map<faiss::idx_t, std::string> m_vectorid_pk;
+  // current vector id
+  faiss::idx_t m_vector_id = 1024;
+};
+
+/**
+  context passed to inverted list for adding vectors.
+  no need to synchronize here, as we set openmp threads to 1.
+*/
+class Rdb_faiss_inverted_list_write_context {
+ public:
+  Rdb_faiss_inverted_list_write_context(rocksdb::WriteBatchBase *wb,
+                                        const rocksdb::Slice &pk)
+      : m_write_batch(wb), m_pk(pk) {}
+  rocksdb::WriteBatchBase *m_write_batch;
+  const rocksdb::Slice &m_pk;
+  rocksdb::Status m_status;
+};
+
+/**
   iterate a inverted list
 */
-class Rdb_vector_iterator {
+class Rdb_vector_iterator : public faiss::InvertedListsIterator {
  public:
-  Rdb_vector_iterator(THD *thd, Index_id index_id,
-                      rocksdb::ColumnFamilyHandle *const cf,
+  Rdb_vector_iterator(Rdb_faiss_inverted_list_context *context,
+                      Index_id index_id, rocksdb::ColumnFamilyHandle *const cf,
                       FB_vector_dimension dimension, const size_t list_id)
-      : m_index_id(index_id), m_list_id(list_id), m_dimension(dimension) {
+      : m_context(context),
+        m_index_id(index_id),
+        m_list_id(list_id),
+        m_dimension(dimension) {
     Rdb_string_writer lower_key_writer;
     write_inverted_list_key(lower_key_writer, index_id, list_id);
     m_iterator_lower_bound_key.PinSelf(lower_key_writer.to_slice());
@@ -113,20 +202,23 @@ class Rdb_vector_iterator {
     write_inverted_list_key(upper_key_writer, index_id, list_id + 1);
     m_iterator_upper_bound_key.PinSelf(upper_key_writer.to_slice());
     m_iterator.reset(rdb_tx_get_iterator(
-        thd, cf, /* skip_bloom_filter */ true, m_iterator_lower_bound_key,
-        m_iterator_upper_bound_key, /* snapshot */ nullptr,
-        TABLE_TYPE::USER_TABLE));
+        context->m_thd, cf, /* skip_bloom_filter */ true,
+        m_iterator_lower_bound_key, m_iterator_upper_bound_key,
+        /* snapshot */ nullptr, TABLE_TYPE::USER_TABLE));
     m_iterator->SeekToFirst();
   }
 
-  bool is_available() const { return m_iterator->Valid(); }
+  bool is_available() const override {
+    bool available = !m_context->m_error && m_iterator->Valid();
+    if (!available) {
+      m_context->on_iterator_end();
+    }
+    return available;
+  }
 
-  void next() { m_iterator->Next(); }
+  void next() override { m_iterator->Next(); }
 
-  /**
-   get the pk for the vector and fill codes with vector codes
-  */
-  uint get_pk_and_codes(std::string &pk, std::vector<float> &codes) {
+  uint get_pk_and_codes(std::string &pk, rocksdb::Slice &codes) {
     rocksdb::Slice key = m_iterator->key();
     Rdb_string_reader key_reader(&key);
     uint rtn = read_inverted_list_key(key_reader, m_index_id, m_list_id);
@@ -150,6 +242,20 @@ class Rdb_vector_iterator {
                       value.size(), m_index_id, m_list_id);
       return HA_ERR_ROCKSDB_CORRUPT_DATA;
     }
+    codes = value;
+    m_context->on_iterator_record();
+    return HA_EXIT_SUCCESS;
+  }
+
+  /**
+   get the pk for the vector and fill codes with vector codes
+  */
+  uint get_pk_and_codes(std::string &pk, std::vector<float> &codes) {
+    rocksdb::Slice value;
+    uint rtn = get_pk_and_codes(pk, value);
+    if (rtn) {
+      return rtn;
+    }
     codes.resize(codes.size() + m_dimension);
     std::copy(reinterpret_cast<const float *>(value.data()),
               reinterpret_cast<const float *>(value.data() + value.size()),
@@ -157,13 +263,124 @@ class Rdb_vector_iterator {
     return HA_EXIT_SUCCESS;
   }
 
+  std::pair<faiss::idx_t, const uint8_t *> get_id_and_codes() override {
+    std::string pk;
+    rocksdb::Slice codes;
+    uint rtn = get_pk_and_codes(pk, codes);
+    if (rtn) {
+      // set error to context so faiss can stop iterating
+      m_context->m_error = rtn;
+      // return some dummy data to faiss so it does not crash
+      faiss::idx_t vector_id = 42;
+      m_codes_buffer.resize(m_dimension * sizeof(float));
+      return {vector_id, m_codes_buffer.data()};
+    }
+
+    faiss::idx_t vector_id = m_context->add_pk(pk);
+    return {vector_id, reinterpret_cast<const uint8_t *>(codes.data())};
+  }
+
  private:
+  Rdb_faiss_inverted_list_context *m_context;
   Index_id m_index_id;
   size_t m_list_id;
   FB_vector_dimension m_dimension;
   std::unique_ptr<rocksdb::Iterator> m_iterator;
   rocksdb::PinnableSlice m_iterator_lower_bound_key;
   rocksdb::PinnableSlice m_iterator_upper_bound_key;
+  std::vector<uint8_t> m_codes_buffer;
+};
+
+/**
+  faiss inverted list implementation.
+  throws exceptions for methods that are not used for our use case.
+*/
+class Rdb_faiss_inverted_list : public faiss::InvertedLists {
+ public:
+  Rdb_faiss_inverted_list(Index_id index_id,
+                          rocksdb::ColumnFamilyHandle *const cf, uint nlist,
+                          FB_vector_dimension dimension, uint code_size)
+      : InvertedLists(nlist, code_size),
+        m_index_id(index_id),
+        m_dimension(dimension),
+        m_cf(cf) {
+    use_iterator = true;
+  }
+  ~Rdb_faiss_inverted_list() override = default;
+
+  size_t list_size(size_t list_no) const override {
+    throw std::runtime_error(std::string("unexpected function call ") +
+                             __PRETTY_FUNCTION__);
+  }
+
+  faiss::InvertedListsIterator *get_iterator(
+      size_t list_no, void *inverted_list_context) const override {
+    // faiss is responsible for releasing the iterator object
+    assert(inverted_list_context);
+    return new Rdb_vector_iterator(
+        reinterpret_cast<Rdb_faiss_inverted_list_context *>(
+            inverted_list_context),
+        m_index_id, m_cf, m_dimension, list_no);
+  }
+
+  const uint8_t *get_codes(size_t list_no) const override {
+    throw std::runtime_error(std::string("unexpected function call ") +
+                             __PRETTY_FUNCTION__);
+  }
+
+  const faiss::idx_t *get_ids(size_t list_no) const override {
+    throw std::runtime_error(std::string("unexpected function call ") +
+                             __PRETTY_FUNCTION__);
+  }
+
+  size_t add_entry(size_t list_no, faiss::idx_t theid, const uint8_t *code,
+                   void *inverted_list_context) override {
+    assert(theid == DUMMY_VECTOR_ID);
+    assert(inverted_list_context);
+    Rdb_faiss_inverted_list_write_context *context =
+        reinterpret_cast<Rdb_faiss_inverted_list_write_context *>(
+            inverted_list_context);
+    Rdb_string_writer key_writer;
+    write_inverted_list_item_key(key_writer, m_index_id, list_no,
+                                 context->m_pk);
+
+    rocksdb::Slice value_slice(reinterpret_cast<const char *>(code), code_size);
+    rocksdb::Status status =
+        context->m_write_batch->Put(m_cf, key_writer.to_slice(), value_slice);
+    if (!status.ok()) {
+      LogPluginErrMsg(
+          INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+          "Failed to put inverted list entry, list no %lu, error %s", list_no,
+          status.ToString().c_str());
+      context->m_status = status;
+    }
+
+    // the return value is the offset in the list, not used for our use case.
+    // always return 0 here.
+    return 0;
+  }
+
+  size_t add_entries(size_t list_no, size_t n_entry, const faiss::idx_t *ids,
+                     const uint8_t *code) override {
+    throw std::runtime_error(std::string("unexpected function call ") +
+                             __PRETTY_FUNCTION__);
+  }
+
+  void update_entries(size_t list_no, size_t offset, size_t n_entry,
+                      const faiss::idx_t *ids, const uint8_t *code) override {
+    throw std::runtime_error(std::string("unexpected function call ") +
+                             __PRETTY_FUNCTION__);
+  }
+
+  void resize(size_t list_no, size_t new_size) override {
+    throw std::runtime_error(std::string("unexpected function call ") +
+                             __PRETTY_FUNCTION__);
+  }
+
+ private:
+  Index_id m_index_id;
+  FB_vector_dimension m_dimension;
+  rocksdb::ColumnFamilyHandle *const m_cf;
 };
 
 /**
@@ -536,7 +753,8 @@ class Rdb_vector_index_flat : public Rdb_vector_index_base {
     // batch size as 2k or batch size, whichever is bigger.
     uint batch_size = std::max(2 * k, params.m_batch_size);
     const auto dimension = m_index_def.dimension();
-    Rdb_vector_iterator vector_iter(thd, m_index_id, m_cf_handle.get(),
+    Rdb_faiss_inverted_list_context context(thd);
+    Rdb_vector_iterator vector_iter(&context, m_index_id, m_cf_handle.get(),
                                     dimension, get_list_id(query_vector));
     uint rtn;
     Rdb_vector_knn_computer computer(query_vector, k, dimension, metric,
@@ -594,25 +812,166 @@ class Rdb_vector_index_flat : public Rdb_vector_index_base {
   std::atomic<int64_t> m_ntotal{0};
 };
 
+class Rdb_vector_index_ivf : public Rdb_vector_index_base {
+ public:
+  Rdb_vector_index_ivf(const FB_vector_index_config index_def,
+                       std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle,
+                       const Index_id index_id)
+      : Rdb_vector_index_base(index_def, cf_handle, index_id) {}
+
+  ~Rdb_vector_index_ivf() override = default;
+
+  virtual uint knn_search(
+      THD *thd, std::vector<float> &query_vector,
+      Rdb_vector_search_params &params,
+      std::vector<std::pair<std::string, float>> &result) override {
+    m_hit++;
+    faiss::IndexIVF *index = m_index_l2.get();
+    if (params.m_metric == FB_VECTOR_INDEX_METRIC::IP) {
+      index = m_index_ip.get();
+    }
+    faiss::idx_t k = params.m_k;
+    std::vector<faiss::idx_t> vector_ids(k);
+    std::vector<float> distances(k);
+    constexpr faiss::idx_t vector_count = 1;
+    faiss::IVFSearchParameters search_params;
+    // TODO make it configurable
+    search_params.nprobe = 16;
+    Rdb_faiss_inverted_list_context context(thd);
+    search_params.inverted_list_context = &context;
+    index->search(vector_count, query_vector.data(), k, distances.data(),
+                  vector_ids.data(), &search_params);
+    if (context.m_error) {
+      return context.m_error;
+    }
+    auto rtn = context.populate_result(vector_ids, distances, result);
+    if (rtn) {
+      return rtn;
+    }
+
+    // update counters
+    if (context.m_list_count > 0) {
+      m_min_list_size = context.m_min_list_size.value_or(0);
+      m_max_list_size = context.m_max_list_size.value_or(0);
+      m_avg_list_size = context.m_total_list_size / context.m_list_count;
+      m_ntotal = context.m_total_list_size;
+    }
+    return HA_EXIT_SUCCESS;
+  }
+
+  virtual uint setup(const std::string &db_name,
+                     Rdb_cmd_srv_helper &cmd_srv_helper) override {
+    std::unique_ptr<Rdb_vector_index_data> m_index_data;
+    const std::string trained_index_table =
+        db_name + "." + to_string(m_index_def.trained_index_table());
+    auto status = cmd_srv_helper.load_index_data(
+        trained_index_table, to_string(m_index_def.trained_index_id()),
+        m_index_data);
+    if (status.error()) {
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "Failed to load vector index data. %s",
+                      status.message().c_str());
+      return HA_EXIT_FAILURE;
+    }
+    m_quantizer = std::make_unique<faiss::IndexFlatL2>(m_index_def.dimension());
+    const auto total_code_size =
+        m_index_data->m_quantizer_codes.size() * sizeof(float);
+    if (total_code_size % m_quantizer->code_size != 0) {
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "Invalid codes, total code size should be a multiply of "
+                      "code size, total code size %lu, code size %lu.",
+                      total_code_size, m_quantizer->code_size);
+      return HA_EXIT_FAILURE;
+    }
+    const auto ncentroids = total_code_size / m_quantizer->code_size;
+    m_quantizer->add(ncentroids, m_index_data->m_quantizer_codes.data());
+    m_index_l2 = std::make_unique<faiss::IndexIVFFlat>(
+        m_quantizer.get(), m_index_def.dimension(), ncentroids,
+        faiss::METRIC_L2);
+    m_index_l2->is_trained = true;
+
+    m_index_ip = std::make_unique<faiss::IndexIVFFlat>(
+        m_quantizer.get(), m_index_def.dimension(), ncentroids,
+        faiss::METRIC_INNER_PRODUCT);
+    m_index_ip->is_trained = true;
+
+    // create inverted list
+    m_inverted_list = std::make_unique<Rdb_faiss_inverted_list>(
+        m_index_id, m_cf_handle.get(), ncentroids, m_index_def.dimension(),
+        m_index_l2->code_size);
+    m_index_l2->replace_invlists(m_inverted_list.get());
+    m_index_ip->replace_invlists(m_inverted_list.get());
+    return HA_EXIT_SUCCESS;
+  }
+
+  Rdb_vector_index_info dump_info() override {
+    return {.m_ntotal = m_ntotal,
+            .m_hit = m_hit,
+            .m_min_list_size = m_min_list_size,
+            .m_max_list_size = m_max_list_size,
+            .m_avg_list_size = m_avg_list_size};
+  }
+
+ protected:
+  uint64 get_list_id(const std::vector<float> &value) const override {
+    faiss::idx_t list_id = 0;
+    constexpr faiss::idx_t vector_count = 1;
+    m_index_l2->quantizer->assign(vector_count, value.data(), &list_id);
+    return list_id;
+  }
+
+  uint add_vector_to_list(rocksdb::WriteBatchBase *write_batch,
+                          faiss::idx_t list_id, const rocksdb::Slice &pk,
+                          std::vector<float> &value) override {
+    constexpr faiss::idx_t vector_count = 1;
+    Rdb_faiss_inverted_list_write_context context(write_batch, pk);
+    // vector id is not actually used, use a dummy value here
+    m_index_l2->add_core(vector_count, value.data(), &DUMMY_VECTOR_ID, &list_id,
+                         &context);
+    if (!context.m_status.ok()) {
+      return ha_rocksdb::rdb_error_to_mysql(context.m_status);
+    }
+    return HA_EXIT_SUCCESS;
+  }
+
+ private:
+  std::unique_ptr<faiss::IndexFlatL2> m_quantizer;
+  std::unique_ptr<faiss::IndexIVFFlat> m_index_l2;
+  std::unique_ptr<faiss::IndexIVFFlat> m_index_ip;
+  std::unique_ptr<Rdb_faiss_inverted_list> m_inverted_list;
+  std::atomic<uint> m_ntotal{0};
+  std::atomic<uint> m_min_list_size{0};
+  std::atomic<uint> m_max_list_size{0};
+  std::atomic<uint> m_avg_list_size{0};
+};
+
 }  // anonymous namespace
 
-uint create_vector_index(const FB_vector_index_config index_def,
+uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper,
+                         const std::string &db_name,
+                         const FB_vector_index_config index_def,
                          std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle,
                          const Index_id index_id,
                          std::unique_ptr<Rdb_vector_index> &index) {
   if (index_def.type() == FB_VECTOR_INDEX_TYPE::FLAT) {
     index =
         std::make_unique<Rdb_vector_index_flat>(index_def, cf_handle, index_id);
-    return HA_EXIT_SUCCESS;
+  } else if (index_def.type() == FB_VECTOR_INDEX_TYPE::IVFFLAT) {
+    index =
+        std::make_unique<Rdb_vector_index_ivf>(index_def, cf_handle, index_id);
+  } else {
+    assert(false);
+    return HA_ERR_UNSUPPORTED;
   }
-  assert(false);
-  return HA_ERR_UNSUPPORTED;
+  return index->setup(db_name, cmd_srv_helper);
 }
 
 #else
 
 // dummy implementation for non-fbvectordb builds
-uint create_vector_index(const FB_vector_index_config index_def
+uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper [[maybe_unused]],
+                         const std::string &db_name [[maybe_unused]],
+                         const FB_vector_index_config index_def
                          [[maybe_unused]],
                          std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle
                          [[maybe_unused]],

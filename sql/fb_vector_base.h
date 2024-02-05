@@ -36,14 +36,23 @@ class FB_vector_index_config {
   FB_vector_index_config() {}
 
   FB_vector_index_config(FB_VECTOR_INDEX_TYPE type,
-                         FB_vector_dimension dimension)
-      : m_type(type), m_dimension(dimension) {}
+                         FB_vector_dimension dimension,
+                         LEX_CSTRING trained_index_table,
+                         LEX_CSTRING trained_index_id)
+      : m_type(type),
+        m_dimension(dimension),
+        m_trained_index_table(trained_index_table),
+        m_trained_index_id(trained_index_id) {}
   FB_VECTOR_INDEX_TYPE type() const { return m_type; }
   FB_vector_dimension dimension() const { return m_dimension; }
+  LEX_CSTRING trained_index_table() const { return m_trained_index_table; }
+  LEX_CSTRING trained_index_id() const { return m_trained_index_id; }
 
  private:
   FB_VECTOR_INDEX_TYPE m_type = FB_VECTOR_INDEX_TYPE::NONE;
   FB_vector_dimension m_dimension;
+  LEX_CSTRING m_trained_index_table;
+  LEX_CSTRING m_trained_index_id;
 };
 
 /**

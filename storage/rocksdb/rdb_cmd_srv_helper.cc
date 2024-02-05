@@ -1,0 +1,328 @@
+/*
+   Copyright (c) 2024, Facebook, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; version 2 of the License.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+
+#include "./rdb_cmd_srv_helper.h"
+#include <string_view>
+#include "rdb_utils.h"
+#include "sql/fb_vector_base.h"
+
+namespace myrocks {
+
+namespace {
+enum class Rdb_vector_index_data_version { NONE, V1 };
+constexpr std::string_view METADATA_KEY_VERSION = "version";
+
+}  // namespace
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::get_error_status(
+    MYSQL_H_wrapper &mysql_wrapper) {
+  MYSQL_H mysql_h = mysql_wrapper.mysql;
+  unsigned int error_no;
+  if (m_command_error_info->sql_errno(mysql_h, &error_no)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to get error number");
+    return Rdb_cmd_srv_status("unknown error, failed to get error number");
+  }
+  std::array<char, MYSQL_ERRMSG_SIZE> error_msg;
+  char *error_msg_ptr = error_msg.data();
+  std::string error_msg_str;
+  if (m_command_error_info->sql_error(mysql_h, &error_msg_ptr)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to get error message");
+  } else {
+    error_msg_str = std::string(error_msg.data());
+  }
+  char *sqlstate = nullptr;
+  std::string sqlstate_str;
+  if (m_command_error_info->sql_state(mysql_h, &sqlstate)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to get sql state");
+  } else if (sqlstate != nullptr) {
+    sqlstate_str = std::string(sqlstate);
+  }
+
+  return Rdb_cmd_srv_status(error_no, error_msg_str, sqlstate_str);
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::connect(MYSQL_H_wrapper &mysql_wrapper) {
+  if (mysql_wrapper.init()) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to init command factory");
+    return Rdb_cmd_srv_status("failed to init command factory");
+  }
+
+  MYSQL_H mysql_h = mysql_wrapper.mysql;
+  m_command_options->set(mysql_h, MYSQL_COMMAND_USER_NAME, "root");
+  if (m_command_factory->connect(mysql_h)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG, "failed to connect");
+    return get_error_status(mysql_wrapper);
+  }
+
+  return Rdb_cmd_srv_status();
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::execute_query(
+    const std::string &query, MYSQL_H_wrapper &mysql_wrapper,
+    MYSQL_RES_H_wrapper &mysql_res_wrapper) {
+  if (m_command_query->query(mysql_wrapper.mysql, query.data(),
+                             query.length())) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to execute query: %s", query.c_str());
+    return get_error_status(mysql_wrapper);
+  }
+
+  if (mysql_res_wrapper.store_result(mysql_wrapper.mysql)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG, "failed to store result");
+    return get_error_status(mysql_wrapper);
+  }
+
+  return Rdb_cmd_srv_status();
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::get_row_count(
+    MYSQL_H_wrapper &mysql_wrapper, uint64_t &row_count) {
+  if (m_command_query->affected_rows(mysql_wrapper.mysql, &row_count)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to get row count");
+    return get_error_status(mysql_wrapper);
+  }
+
+  return Rdb_cmd_srv_status();
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::check_row_count(
+    MYSQL_H_wrapper &mysql_wrapper, uint64_t expected_row_count) {
+  uint64_t row_count;
+  auto status = get_row_count(mysql_wrapper, row_count);
+  if (status.error()) {
+    return status;
+  }
+  if (row_count != expected_row_count) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "expect one row, but got %lu", row_count);
+    return Rdb_cmd_srv_status("Unexpected number of rows returned.");
+  }
+
+  return Rdb_cmd_srv_status();
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::check_column_types(
+    MYSQL_H_wrapper &mysql_wrapper, MYSQL_RES_H_wrapper &mysql_res_wrapper,
+    const std::vector<enum_field_types> &field_types) {
+  MYSQL_RES_H mysql_res = mysql_res_wrapper.mysql_res;
+  unsigned int num_column;
+  if (m_command_field_info->num_fields(mysql_res, &num_column)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to get column count");
+    return get_error_status(mysql_wrapper);
+  }
+
+  if (num_column != field_types.size()) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "expect one column, but got %u", num_column);
+
+    return Rdb_cmd_srv_status("Unexepcted column count");
+  }
+
+  MYSQL_FIELD_H *fields_info = nullptr;
+  if (m_command_field_info->fetch_fields(mysql_res, &fields_info) ||
+      fields_info == nullptr) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG, "failed to fetch fields");
+    return get_error_status(mysql_wrapper);
+  }
+  MYSQL_FIELD *fields = reinterpret_cast<MYSQL_FIELD *>(fields_info);
+  for (unsigned int i = 0; i < num_column; i++) {
+    MYSQL_FIELD &field = fields[i];
+    if (field.type != field_types[i]) {
+      LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                      "expect column %u type %u, but got %u", i, field_types[i],
+                      field.type);
+      return Rdb_cmd_srv_status("Unexpected column type for column " +
+                                std::to_string(i));
+    }
+  }
+  return Rdb_cmd_srv_status();
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::fetch_row(
+    MYSQL_H_wrapper &mysql_wrapper, MYSQL_RES_H_wrapper &mysql_res_wrapper,
+    MYSQL_ROW_H *row, ulong **column_lengths) {
+  MYSQL_RES_H mysql_res = mysql_res_wrapper.mysql_res;
+  if (m_command_query_result->fetch_row(mysql_res, row)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG, "failed to fetch row");
+    return get_error_status(mysql_wrapper);
+  }
+
+  if (m_command_query_result->fetch_lengths(mysql_res, column_lengths)) {
+    return get_error_status(mysql_wrapper);
+  }
+
+  return Rdb_cmd_srv_status();
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::get_json_column(
+    MYSQL_ROW_H row, ulong *column_lengths, int col, Json_dom_ptr &dom_ptr,
+    enum_json_type expected_type) {
+  JsonParseDefaultErrorHandler parse_handler(__func__, 0);
+  dom_ptr = Json_dom::parse(row[col], column_lengths[col], parse_handler,
+                            JsonDocumentDefaultDepthHandler);
+  if (!dom_ptr) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to parse metadata");
+    return Rdb_cmd_srv_status("failed to parse json column " +
+                              std::to_string(col));
+  }
+
+  if (dom_ptr->json_type() != expected_type) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "expect json type %u, but got %u", expected_type,
+                    dom_ptr->json_type());
+    return Rdb_cmd_srv_status("Unexpected json type for column " +
+                              std::to_string(col));
+  }
+
+  return Rdb_cmd_srv_status();
+}
+
+static bool get_json_int_field(Json_object *dom, const std::string_view &field,
+                               longlong &value) {
+  Json_dom *field_dom = dom->get(MYSQL_LEX_CSTRING{field.data(), field.size()});
+  if (field_dom->json_type() != enum_json_type::J_INT) {
+    return true;
+  }
+  Json_int *number = down_cast<Json_int *>(field_dom);
+  value = number->value();
+  return false;
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_metadata(
+    const std::string &table_name, const std::string &id) {
+  MYSQL_H_wrapper mysql_wrapper(m_command_factory);
+  auto status = connect(mysql_wrapper);
+  if (status.error()) {
+    return status;
+  }
+
+  MYSQL_RES_H_wrapper mysql_res_wrapper(m_command_query_result);
+  const std::string query("SELECT value FROM " + table_name + " WHERE id = '" +
+                          id + "' and type = 'metadata'");
+  status = execute_query(query, mysql_wrapper, mysql_res_wrapper);
+  if (status.error()) {
+    return status;
+  }
+  status = check_row_count(mysql_wrapper, 1);
+  if (status.error()) {
+    return status;
+  }
+  status = check_column_types(mysql_wrapper, mysql_res_wrapper,
+                              std::vector<enum_field_types>{MYSQL_TYPE_JSON});
+  if (status.error()) {
+    return status;
+  }
+
+  MYSQL_ROW_H row = nullptr;
+  ulong *column_lengths = nullptr;
+  status = fetch_row(mysql_wrapper, mysql_res_wrapper, &row, &column_lengths);
+  if (status.error()) {
+    return status;
+  }
+  Json_dom_ptr dom_ptr;
+  status = get_json_column(row, column_lengths, 0, dom_ptr,
+                           enum_json_type::J_OBJECT);
+  if (status.error()) {
+    return status;
+  }
+  Json_object *json_object = down_cast<Json_object *>(dom_ptr.get());
+  longlong version_number;
+  if (get_json_int_field(json_object, METADATA_KEY_VERSION, version_number)) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "invalid version number");
+    return Rdb_cmd_srv_status("could not extract version number from metadata");
+  }
+  if (version_number != (int)Rdb_vector_index_data_version::V1) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "invalid version number %lld", version_number);
+    return Rdb_cmd_srv_status("unsupported version number");
+  }
+  return status;
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_quantizer(
+    const std::string &table_name, const std::string &id,
+    std::vector<float> &codes) {
+  MYSQL_H_wrapper mysql_wrapper(m_command_factory);
+  auto status = connect(mysql_wrapper);
+  if (status.error()) {
+    return status;
+  }
+
+  MYSQL_RES_H_wrapper mysql_res_wrapper(m_command_query_result);
+  const std::string query("SELECT value FROM " + table_name + " WHERE id = '" +
+                          id + "' and type = 'quantizer' order by seqno");
+  status = execute_query(query, mysql_wrapper, mysql_res_wrapper);
+  if (status.error()) {
+    return status;
+  }
+  uint64_t row_count;
+  status = get_row_count(mysql_wrapper, row_count);
+  if (status.error()) {
+    return status;
+  }
+  if (row_count < 1) {
+    return Rdb_cmd_srv_status("no quantizer found");
+  }
+  status = check_column_types(mysql_wrapper, mysql_res_wrapper,
+                              std::vector<enum_field_types>{MYSQL_TYPE_JSON});
+  if (status.error()) {
+    return status;
+  }
+  std::vector<float> row_codes;
+  for (uint64_t i = 0; i < row_count; i++) {
+    MYSQL_ROW_H row = nullptr;
+    ulong *column_lengths = nullptr;
+    status = fetch_row(mysql_wrapper, mysql_res_wrapper, &row, &column_lengths);
+    if (status.error()) {
+      return status;
+    }
+    Json_dom_ptr dom_ptr;
+    status = get_json_column(row, column_lengths, 0, dom_ptr,
+                             enum_json_type::J_ARRAY);
+    if (status.error()) {
+      return status;
+    }
+    Json_wrapper wrapper(std::move(dom_ptr));
+    if (parse_fb_vector(wrapper, row_codes)) {
+      return Rdb_cmd_srv_status("failed to parser vector codes");
+    }
+    codes.insert(codes.end(), row_codes.begin(), row_codes.end());
+  }
+
+  return status;
+}
+
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::load_index_data(
+    const std::string &table_name, const std::string &id,
+    std::unique_ptr<Rdb_vector_index_data> &index_data) {
+  auto status = read_index_metadata(table_name, id);
+  if (status.error()) {
+    return status;
+  }
+
+  index_data = std::make_unique<Rdb_vector_index_data>();
+  return read_index_quantizer(table_name, id, index_data->m_quantizer_codes);
+}
+
+}  // namespace myrocks
