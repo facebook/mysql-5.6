@@ -2375,8 +2375,13 @@ void Query_arena::add_item(Item *item) {
 void Query_arena::free_items() {
   Item *next;
   DBUG_TRACE;
+  THD* thd = current_thd;
   /* This works because items are allocated with (*THR_MALLOC)->Alloc() */
   for (; m_item_list; m_item_list = next) {
+    // This may be a long list. Yield every so often to avoid scheduler stalls.
+    if (thd) {
+      thd->check_yield();
+    }
     next = m_item_list->next_free;
     m_item_list->delete_self();
   }
@@ -2810,9 +2815,7 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup) {
 /**
   Default yield predicate that always returns true.
 */
-bool THD::always_yield() {
-  return true;
-}
+bool THD::always_yield() { return true; }
 
 /**
   Check if we should exit and reenter admission control.

@@ -1551,7 +1551,12 @@ void execute_init_command(THD *thd, LEX_STRING *init_command,
 void free_items(Item *item) {
   Item *next;
   DBUG_TRACE;
+  THD* thd = current_thd;
   for (; item; item = next) {
+    // This may be a long list. Yield every so often to avoid scheduler stalls.
+    if (thd) {
+      thd->check_yield();
+    }
     next = item->next_free;
     item->delete_self();
   }
@@ -1563,7 +1568,14 @@ void free_items(Item *item) {
 */
 void cleanup_items(Item *item) {
   DBUG_TRACE;
-  for (; item; item = item->next_free) item->cleanup();
+  THD* thd = current_thd;
+  for (; item; item = item->next_free) {
+    // This may be a long list. Yield every so often to avoid scheduler stalls.
+    if (thd) {
+      thd->check_yield();
+    }
+    item->cleanup();
+  }
 }
 
 /**
@@ -1572,7 +1584,15 @@ void cleanup_items(Item *item) {
   @param first   Pointer to first item, follow "next" chain to visit all items
 */
 void bind_fields(Item *first) {
-  for (Item *item = first; item; item = item->next_free) item->bind_fields();
+  THD* thd = current_thd;
+
+  for (Item *item = first; item; item = item->next_free) {
+    // This may be a long list. Yield every so often to avoid scheduler stalls.
+    if (thd) {
+      thd->check_yield();
+    }
+    item->bind_fields();
+  }
 }
 
 /**
@@ -1814,8 +1834,8 @@ static bool deny_updates_if_read_only_option(THD *thd, Table_ref *all_tables) {
  *   @retval NULL if updates are OK
  *   @retval name of the db whose read_only is turned on
  */
-static const char *deny_implicit_commit_if_db_read_only(
-    THD *thd, Table_ref *all_tables) {
+static const char *deny_implicit_commit_if_db_read_only(THD *thd,
+                                                        Table_ref *all_tables) {
   DBUG_ENTER("deny_implicit_commit_if_db_read_only");
   LEX *lex = thd->lex;
   const char *db_name = nullptr;
@@ -7927,7 +7947,7 @@ class Parser_oom_handler : public Internal_error_handler {
             my_error(ER_CAPACITY_EXCEEDED, MYF(0),
                      static_cast<ulonglong>(thd->variables.parser_max_mem_size),
                      "parser_max_mem_size",
-                   ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_PARSER));
+                     ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_PARSER));
           }
         } else
           my_error(ER_OUT_OF_RESOURCES, MYF(ME_FATALERROR));
