@@ -1,0 +1,105 @@
+Default value of sql_plans_norm_prune_expr_trees is false
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+show global variables like 'sql_plans_norm_prune_expr_trees';
+Variable_name	Value
+sql_plans_norm_prune_expr_trees	OFF
+select * from performance_schema.global_variables
+where variable_name='sql_plans_norm_prune_expr_trees';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_norm_prune_expr_trees	OFF
+SELECT @@session.sql_plans_norm_prune_expr_trees;
+ERROR HY000: Variable 'sql_plans_norm_prune_expr_trees' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+show global variables like 'sql_plans_norm_prune_expr_trees';
+Variable_name	Value
+sql_plans_norm_prune_expr_trees	OFF
+select * from performance_schema.session_variables
+where variable_name='sql_plans_norm_prune_expr_trees';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_norm_prune_expr_trees	OFF
+sql_plans_norm_prune_expr_trees is a dynamic variable (change to true)
+set @@global.sql_plans_norm_prune_expr_trees = true;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+restore the default value
+SET @@global.sql_plans_norm_prune_expr_trees = false;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+Verify other accepted values
+SET @@global.sql_plans_norm_prune_expr_trees = 0;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+SET @@global.sql_plans_norm_prune_expr_trees = 1;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SET @@global.sql_plans_norm_prune_expr_trees = True;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SET @@global.sql_plans_norm_prune_expr_trees = False;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+SET @@global.sql_plans_norm_prune_expr_trees = On;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SET @@global.sql_plans_norm_prune_expr_trees = Off;
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+SET @@global.sql_plans_norm_prune_expr_trees = "On";
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+SET @@global.sql_plans_norm_prune_expr_trees = "Off";
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0
+Attempt setting invalid values
+SET @@global.sql_plans_norm_prune_expr_trees = "True";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of 'True'
+SET @@global.sql_plans_norm_prune_expr_trees = "false";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of 'false'
+SET @@global.sql_plans_norm_prune_expr_trees = "onn";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of 'onn'
+SET @@global.sql_plans_norm_prune_expr_trees = " ";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of ' '
+SET @@global.sql_plans_norm_prune_expr_trees = "";
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of ''
+SET @@global.sql_plans_norm_prune_expr_trees = '';
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of ''
+SET @@global.sql_plans_norm_prune_expr_trees = ' ';
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of ' '
+SET @@global.sql_plans_norm_prune_expr_trees = 3;
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of '3'
+SET @@global.sql_plans_norm_prune_expr_trees = -1;
+ERROR 42000: Variable 'sql_plans_norm_prune_expr_trees' can't be set to the value of '-1'
+SET sql_plans_norm_prune_expr_trees = ON;
+ERROR HY000: Variable 'sql_plans_norm_prune_expr_trees' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.sql_plans_norm_prune_expr_trees = OFF_HARD;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.sql_plans_norm_prune_expr_trees = OFF_HARD' at line 1
+SELECT local.sql_plans_norm_prune_expr_trees;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.sql_plans_norm_prune_expr_trees = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.sql_plans_norm_prune_expr_trees = ON' at line 1
+SELECT global.sql_plans_norm_prune_expr_trees;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT sql_plans_norm_prune_expr_trees = @@session.sql_plans_norm_prune_expr_trees;
+ERROR HY000: Variable 'sql_plans_norm_prune_expr_trees' is a GLOBAL variable
+restart the server with non default value (true)
+# restart: --sql_plans_norm_prune_expr_trees=true 
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+1
+restart the server with the default values (false)
+# restart
+SELECT @@global.sql_plans_norm_prune_expr_trees;
+@@global.sql_plans_norm_prune_expr_trees
+0

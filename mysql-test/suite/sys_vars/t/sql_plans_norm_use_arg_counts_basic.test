@@ -1,0 +1,116 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is false
+####
+--echo Default value of sql_plans_norm_use_arg_counts is false
+SELECT @@global.sql_plans_norm_use_arg_counts;
+
+show global variables like 'sql_plans_norm_use_arg_counts'; 
+
+select * from performance_schema.global_variables
+  where variable_name='sql_plans_norm_use_arg_counts';
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.sql_plans_norm_use_arg_counts;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+show global variables like 'sql_plans_norm_use_arg_counts'; 
+
+select * from performance_schema.session_variables
+  where variable_name='sql_plans_norm_use_arg_counts';
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_plans_norm_use_arg_counts is a dynamic variable (change to true)
+set @@global.sql_plans_norm_use_arg_counts = true;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.sql_plans_norm_use_arg_counts = false;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+
+####
+## Verify other accepted values 
+####
+--echo Verify other accepted values
+SET @@global.sql_plans_norm_use_arg_counts = 0;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+SET @@global.sql_plans_norm_use_arg_counts = 1;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+SET @@global.sql_plans_norm_use_arg_counts = True;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+SET @@global.sql_plans_norm_use_arg_counts = False;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+SET @@global.sql_plans_norm_use_arg_counts = On;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+SET @@global.sql_plans_norm_use_arg_counts = Off;
+SELECT @@global.sql_plans_norm_use_arg_counts;
+SET @@global.sql_plans_norm_use_arg_counts = "On";
+SELECT @@global.sql_plans_norm_use_arg_counts;
+SET @@global.sql_plans_norm_use_arg_counts = "Off";
+SELECT @@global.sql_plans_norm_use_arg_counts;
+
+####
+## Try changing the value to invalid values
+####
+--echo Attempt setting invalid values
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = "True";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = "false";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = "onn";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = "";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = '';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = 3;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_plans_norm_use_arg_counts = -1;
+
+
+####
+## Other negative test cases 
+####
+--Error ER_GLOBAL_VARIABLE
+SET sql_plans_norm_use_arg_counts = ON;
+--Error ER_PARSE_ERROR
+SET local.sql_plans_norm_use_arg_counts = OFF_HARD;
+--Error ER_UNKNOWN_TABLE
+SELECT local.sql_plans_norm_use_arg_counts;
+--Error ER_PARSE_ERROR
+SET global.sql_plans_norm_use_arg_counts = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.sql_plans_norm_use_arg_counts;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT sql_plans_norm_use_arg_counts = @@session.sql_plans_norm_use_arg_counts;
+
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (true)
+--let $restart_parameters = restart: --sql_plans_norm_use_arg_counts=true 
+--source include/restart_mysqld.inc
+
+SELECT @@global.sql_plans_norm_use_arg_counts;
+
+--echo restart the server with the default values (false)
+--let $restart_parameters =
+--source include/restart_mysqld.inc
+
+# check value is default (false)
+SELECT @@global.sql_plans_norm_use_arg_counts;
