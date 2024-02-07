@@ -14,6 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#include <cassert>
 #ifdef USE_PRAGMA_IMPLEMENTATION
 #pragma implementation  // gcc: Class implementation
 #endif
@@ -810,6 +811,10 @@ static int rocksdb_check_bulk_load_use_sst_partitioner(
     THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
     struct st_mysql_value *value);
 
+static int rocksdb_check_bulk_load_unique_key_check(
+    THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
+    struct st_mysql_value *value);
+
 static void rocksdb_set_max_background_jobs(THD *thd, struct SYS_VAR *const var,
                                             void *const var_ptr,
                                             const void *const save);
@@ -1478,6 +1483,12 @@ static MYSQL_THDVAR_BOOL(bulk_load_allow_unsorted, PLUGIN_VAR_RQCMDARG,
                          "Can be changed only when bulk load is disabled.",
                          rocksdb_check_bulk_load_allow_unsorted, nullptr,
                          false);
+
+static MYSQL_THDVAR_BOOL(
+    bulk_load_enable_unique_key_check, PLUGIN_VAR_RQCMDARG,
+    "Check the violation of unique key constraint during bulk-load. "
+    "Can be changed only when bulk load is disabled.",
+    rocksdb_check_bulk_load_unique_key_check, nullptr, false);
 
 static MYSQL_THDVAR_BOOL(
     bulk_load_fail_if_not_bottommost_level, PLUGIN_VAR_RQCMDARG,
@@ -2991,6 +3002,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(bulk_load_allow_unsorted),
     MYSQL_SYSVAR(bulk_load_fail_if_not_bottommost_level),
     MYSQL_SYSVAR(bulk_load_use_sst_partitioner),
+    MYSQL_SYSVAR(bulk_load_enable_unique_key_check),
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(blind_delete_primary_key),
@@ -4091,12 +4103,6 @@ class Rdb_transaction {
           table_name = "./" + table_name;
         }
 
-        // Currently, unique indexes only checked in the inplace alter path,
-        // but not in allow_sk bulk load path.
-        bool is_unique_index =
-            table_arg &&
-            table_arg->key_info[keydef->get_keyno()].flags & HA_NOSAME;
-
         // Unable to find key definition or table name since the
         // table could have been dropped.
         // TODO(herman): there is a race here between dropping the table
@@ -4149,6 +4155,7 @@ class Rdb_transaction {
           // the materialization threshold. The idea is to buffer the rows up to
           // the threshold, and only actually insert the keys once we break the
           // threshold.
+          assert(!keydef->is_unique_sk());
           bool materialized = false;
           rocksdb::Slice cur_prefix;
           std::vector<std::pair<rocksdb::Slice, rocksdb::Slice>> keys;
@@ -4247,9 +4254,26 @@ class Rdb_transaction {
             rc2 = sst_info->put(cur_prefix, rocksdb::Slice());
           }
         } else {
-          struct unique_sk_buf_info sk_info;
+          bool check_unique_index = keydef->is_unique_sk();
 
-          if (is_unique_index) {
+          if (table_arg) {
+#ifndef NDEBUG
+            assert((table_arg->key_info[keydef->get_keyno()].flags &
+                    HA_NOSAME) == keydef->is_unique_sk());
+#endif
+          } else {
+            // skip unique index check if the unique key check flag is disabled
+            if (!THDVAR(m_thd, bulk_load_enable_unique_key_check)) {
+              check_unique_index = false;
+            }
+          }
+          LogPluginErrMsg(
+              INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+              "finish_bulk_load: key name: %s, check_unique_index: %d",
+              keydef->get_name().c_str(), check_unique_index);
+
+          struct unique_sk_buf_info sk_info;
+          if (check_unique_index) {
             uint max_packed_sk_len = keydef->max_storage_fmt_length();
             sk_info.dup_sk_buf = reinterpret_cast<uchar *>(
                 my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
@@ -4259,15 +4283,16 @@ class Rdb_transaction {
 
           while ((rc2 = rdb_merge.next(&merge_key, &merge_val)) == 0) {
             /* Perform uniqueness check if needed */
-            if (is_unique_index &&
-                check_duplicate_sk(table_arg, *keydef, &merge_key, &sk_info)) {
+            if (check_unique_index &&
+                check_duplicate_sk(*keydef, &merge_key, &sk_info)) {
               /*
                 Duplicate entry found when trying to create unique secondary
                 key. We need to unpack the record into new_table_arg->record[0]
                 as it is used inside print_keydup_error so that the error
                 message shows the duplicate record.
                 */
-              if (keydef->unpack_record(table_arg, table_arg->record[0],
+              if (table_arg &&
+                  keydef->unpack_record(table_arg, table_arg->record[0],
                                         &merge_key, &merge_val, false)) {
                 /* Should never reach here */
                 assert(0);
@@ -4276,6 +4301,15 @@ class Rdb_transaction {
               rc = ER_DUP_ENTRY;
               if (is_critical_error) {
                 *is_critical_error = false;
+              }
+
+              if (THDVAR(m_thd, bulk_load_enable_unique_key_check)) {
+                my_printf_error(
+                    ER_DUP_ENTRY,
+                    "Duplicate entry found for key name: %s, key:%s", MYF(0),
+                    keydef->get_name().c_str(),
+                    sk_info.sk_memcmp_key.ToString(true).c_str());
+                *is_critical_error = true;
               }
               break;
             }
@@ -4414,7 +4448,6 @@ class Rdb_transaction {
   /**
     Check whether secondary key value is duplicate or not
 
-    @param[in] table_arg         the table currently working on
     @param[in  key_def           the key_def is being checked
     @param[in] key               secondary key storage data
     @param[out] sk_info          hold secondary key memcmp datas(new/old)
@@ -4423,8 +4456,7 @@ class Rdb_transaction {
       other            HA_ERR error code (can be SE-specific)
   */
 
-  int check_duplicate_sk(const TABLE *table_arg, const Rdb_key_def &key_def,
-                         const rocksdb::Slice *key,
+  int check_duplicate_sk(const Rdb_key_def &key_def, const rocksdb::Slice *key,
                          struct unique_sk_buf_info *sk_info) {
     assert(!is_ac_nl_ro_rc_transaction());
 
@@ -4436,7 +4468,7 @@ class Rdb_transaction {
 
     /* Get memcmp form of sk without extended pk tail */
     uint sk_memcmp_size =
-        key_def.get_memcmp_sk_parts(table_arg, *key, sk_buf, &n_null_fields);
+        key_def.get_memcmp_sk_parts(*key, sk_buf, &n_null_fields);
 
     sk_info->sk_memcmp_key =
         rocksdb::Slice(reinterpret_cast<char *>(sk_buf), sk_memcmp_size);
@@ -18452,6 +18484,13 @@ static int rocksdb_check_bulk_load_fail_if_not_bottommost_level(
 }
 
 static int rocksdb_check_bulk_load_use_sst_partitioner(
+    THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
+    struct st_mysql_value *value) {
+  // reuse the same logic
+  return rocksdb_check_bulk_load_allow_unsorted(thd, var, save, value);
+}
+
+static int rocksdb_check_bulk_load_unique_key_check(
     THD *const thd, struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
     struct st_mysql_value *value) {
   // reuse the same logic

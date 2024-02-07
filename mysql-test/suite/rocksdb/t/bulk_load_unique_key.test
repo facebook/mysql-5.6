@@ -1,0 +1,215 @@
+--source include/have_rocksdb.inc
+
+call mtr.add_suppression("RocksDB: Error 1062 finalizing last SST file while setting bulk loading variable"); 
+call mtr.add_suppression("Error finishing bulk load."); 
+
+# Case: no unique key violation for single column sk
+create table t1(a int, b int, primary key(a), unique key(b));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+set rocksdb_bulk_load=0;
+SELECT * from t1;
+DROP table t1;
+
+# Case: unique key violation, but unique key check is disabled
+create table t1(a int, b int, primary key(a), unique key(b));
+set rocksdb_bulk_load_enable_unique_key_check=0;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+set rocksdb_bulk_load=0;
+SELECT * from t1;
+DROP table t1;
+
+# Case: null value for single column sk
+create table t1(a int, b int, primary key(a), unique key(b));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,null);
+insert into t1 values(2,null);
+set rocksdb_bulk_load=0;
+SELECT * from t1;
+DROP table t1;
+
+# Case: pk violation during bulk load
+create table t1(a int, b int, primary key(a), unique key(b));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,1);
+--error ER_KEYS_OUT_OF_ORDER
+insert into t1 values(1,2);
+set rocksdb_bulk_load=0;
+DROP table t1;
+
+# Case: unique key violation on single column sk
+create table t1(a int, b int, primary key(a), unique key(b));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+--error ER_DUP_ENTRY, 23000
+set rocksdb_bulk_load=0;
+DROP table t1;
+
+# Case: unique key violation on single column sk
+create table t1(a int, b varchar(10), primary key(a), unique key(b));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,'ab');
+insert into t1 values(2,'ab');
+--error ER_DUP_ENTRY, 23000
+set rocksdb_bulk_load=0;
+DROP table t1;
+
+# Case: no unique key violation on multi-column sk
+create table t1(a int, b int, c int, primary key(a), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,10, 100);
+insert into t1 values(2,10, 101);
+set rocksdb_bulk_load=0;
+SELECT * from t1;
+DROP table t1;
+
+# Case: no unique key violation on multi-column sk
+create table t1(a int, b int, c varchar(10), primary key(a), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,10, 'ab');
+insert into t1 values(2,10, 'abc');
+set rocksdb_bulk_load=0;
+SELECT * from t1;
+DROP table t1;
+
+# Case: null value on multi-column sk
+create table t1(a int, b int, c int, primary key(a), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,10, null);
+insert into t1 values(2,10, null);
+set rocksdb_bulk_load=0;
+DROP table t1;
+
+# Case: unique key violation on multi-column sk
+create table t1(a int, b int, c int, primary key(a), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,10, 100);
+insert into t1 values(2,10, 100);
+--error ER_DUP_ENTRY, 23000
+set rocksdb_bulk_load=0;
+DROP table t1;
+
+# Case: unique key violation on multi-column sk
+create table t1(a int, b int, c varchar(10), primary key(a), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,10, 'abc');
+insert into t1 values(2,10, 'abc');
+--error ER_DUP_ENTRY, 23000
+set rocksdb_bulk_load=0;
+DROP table t1;
+
+# Case: no unique key violation on multi-column sk and multi-column pk
+create table t1(a int, b int, c int, primary key(a, b), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,10, 100);
+insert into t1 values(2,10, 101);
+set rocksdb_bulk_load=0;
+SELECT * from t1;
+DROP table t1;
+
+# Case: no unique key violation on multi-column sk and multi-column pk
+create table t1(a int, b varchar(10), c int, primary key(a, b), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,'abc', 100);
+insert into t1 values(2,'abc', 101);
+set rocksdb_bulk_load=0;
+SELECT * from t1;
+DROP table t1;
+
+# Case: unique key violation on multi-column sk and multi-column pk
+create table t1(a int, b int, c int, primary key(a, b), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,10, 100);
+insert into t1 values(2,10, 100);
+--error ER_DUP_ENTRY, 23000
+set rocksdb_bulk_load=0;
+DROP table t1;
+
+# Case: unique key violation on multi-column sk and multi-column pk
+create table t1(a int, b varchar(10), c int, primary key(a, b), unique key(b, c));
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+set rocksdb_bulk_load=1;
+insert into t1 values(1,'abc', 100);
+insert into t1 values(2,'abc', 100);
+--error ER_DUP_ENTRY, 23000
+set rocksdb_bulk_load=0;
+DROP table t1;
+
+# Case: no unique key violation for alerting table(single column unique key)
+create table t1(a int, b int, primary key(a));
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+set rocksdb_bulk_load_allow_sk=1;
+alter table t1 add unique key b(b);
+SELECT * from t1;
+DROP table t1;
+
+# Case: unique key violation for alerting table(single column unique key)
+create table t1(a int, b int, primary key(a));
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+set rocksdb_bulk_load_allow_sk=1;
+--error ER_DUP_ENTRY, 23000
+alter table t1 add unique key b(b);
+DROP table t1;
+
+# Case: no unique key violation for alerting table(multi-column sk and multi-column pk)
+create table t1(a int, b int, c int, primary key(a, b));
+insert into t1 values(1,10, 100);
+insert into t1 values(2,10, 101);
+set rocksdb_bulk_load_allow_sk=1;
+alter table t1 add unique key(b, c);
+SELECT * from t1;
+DROP table t1;
+
+# Case: unique key violation for alerting table(multi-column sk and multi-column pk)
+create table t1(a int, b int, c int, primary key(a, b));
+insert into t1 values(1,10, 100);
+insert into t1 values(2,10, 100);
+set rocksdb_bulk_load_enable_unique_key_check=0;
+set rocksdb_bulk_load_allow_sk=1;
+--error ER_DUP_ENTRY, 23000
+alter table t1 add unique key(b, c);
+DROP table t1;
+
+# Case: unique key violation for alerting table(multi-column sk and multi-column pk)
+create table t1(a int, b int, c int, primary key(a, b));
+insert into t1 values(1,10, 100);
+insert into t1 values(2,10, 100);
+set rocksdb_bulk_load_enable_unique_key_check=1;
+set rocksdb_bulk_load_allow_sk=1;
+--error ER_DUP_ENTRY, 23000
+alter table t1 add unique key(b, c);
+DROP table t1;

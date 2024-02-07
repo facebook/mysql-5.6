@@ -1943,6 +1943,10 @@ The following options may be given as the first argument:
  --rocksdb-bulk-load-allow-unsorted 
  Allow unsorted input during bulk-load. Can be changed
  only when bulk load is disabled.
+ --rocksdb-bulk-load-enable-unique-key-check 
+ Check the violation of unique key constraint during
+ bulk-load. Can be changed only when bulk load is
+ disabled.
  --rocksdb-bulk-load-fail-if-not-bottommost-level 
  Fail the bulk load if a sst file created from bulk load
  cannot fit in the rocksdb bottommost level. Turn off this
@@ -3745,6 +3749,7 @@ rocksdb-block-size-deviation 10
 rocksdb-bulk-load FALSE
 rocksdb-bulk-load-allow-sk FALSE
 rocksdb-bulk-load-allow-unsorted FALSE
+rocksdb-bulk-load-enable-unique-key-check FALSE
 rocksdb-bulk-load-fail-if-not-bottommost-level FALSE
 rocksdb-bulk-load-partial-index TRUE
 rocksdb-bulk-load-size 1000
