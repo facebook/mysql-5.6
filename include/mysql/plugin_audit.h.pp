@@ -599,3 +599,4 @@ struct mysql_event_message {
   mysql_event_message_key_value_t *key_value_map;
   size_t key_value_map_length;
 };
+void thd_format_query(void * thd, MYSQL_LEX_CSTRING &query);
