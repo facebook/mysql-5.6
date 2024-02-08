@@ -15,7 +15,7 @@ if (!$thread_pool_admission_control_admission_yield_freq_installed)
 
 enable_query_log;
 
-# https://www.internalfb.com/code/fbsource/[996b9d8a548b]/fbcode/folly/logging/LogLevel.h?lines=39
+# https://github.com/facebook/folly/blob/main/folly/logging/LogLevel.h#L39
 let $dbg_level = 1000;
 eval set global thread_pool_log_level = $dbg_level;
 
