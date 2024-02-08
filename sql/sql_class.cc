@@ -38,7 +38,6 @@
 
 #include <rapidjson/document.h>
 
-#include "extra/lz4/my_xxhash.h"
 #include "field_types.h"
 #include "m_ctype.h"
 #include "m_string.h"
@@ -52,6 +51,7 @@
 #include "my_thread.h"
 #include "my_thread_os_id.h"
 #include "my_time.h"
+#include "my_xxhash.h"
 #include "mysql/components/services/bits/psi_error_bits.h"
 #include "mysql/components/services/log_builtins.h"  // LogErr
 #include "mysql/components/services/log_shared.h"

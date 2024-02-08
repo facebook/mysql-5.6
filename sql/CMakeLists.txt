@@ -868,6 +868,7 @@ ADD_COMPILE_FLAGS(
   ${BUNDLED_LZ4_PATH}/xxhash.c
   iterators/hash_join_iterator.cc
   rpl_write_set_handler.cc
+  sql_class.cc
   COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/extra/lz4 -I${BUNDLED_LZ4_PATH}
   )
 
