@@ -70,12 +70,6 @@ bool rocksdb_dict_set_server_version() {
       ->set_server_version();
 }
 
-bool rocksdb_is_supported_system_table(const char *db_name,
-                                       const char *tbl_name, bool) {
-  return strcmp(db_name, "mysql") == 0 &&
-         (strcmp(tbl_name, "db") == 0 || strcmp(tbl_name, "user") == 0);
-}
-
 bool rocksdb_ddse_dict_init(
     [[maybe_unused]] dict_init_mode_t dict_init_mode, uint,
     [[maybe_unused]] List<const dd::Object_table> *tables,

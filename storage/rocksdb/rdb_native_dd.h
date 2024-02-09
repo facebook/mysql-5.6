@@ -32,7 +32,6 @@ namespace myrocks {
 void rocksdb_dict_register_dd_table_id(dd::Object_id dd_table_id);
 bool rocksdb_dict_get_server_version(uint *version);
 bool rocksdb_dict_set_server_version();
-bool rocksdb_is_supported_system_table(const char *, const char *, bool);
 bool rocksdb_ddse_dict_init(dict_init_mode_t dict_init_mode, uint version,
                             List<const dd::Object_table> *tables,
                             List<const Plugin_tablespace> *tablespaces);

@@ -10,8 +10,11 @@ CALL mtr.add_suppression("\\[Warning\\] .*MY-\\d+.* Cannot add field.*");
 --exec $MYSQL test < $MYSQL_TMP_DIR/wl14965.dump
 
 SHOW KEYS FROM mysql.db;
+--replace_result BTREE INDEX_TYPE SE_SPECIFIC INDEX_TYPE
 SHOW KEYS FROM mysql.tables_priv;
+--replace_result BTREE INDEX_TYPE SE_SPECIFIC INDEX_TYPE
 SHOW KEYS FROM mysql.columns_priv;
+--replace_result BTREE INDEX_TYPE SE_SPECIFIC INDEX_TYPE
 SHOW KEYS FROM mysql.procs_priv;
 
 --echo # Restart server with upgrade option
@@ -21,8 +24,11 @@ SHOW KEYS FROM mysql.procs_priv;
 
 --replace_result BTREE INDEX_TYPE SE_SPECIFIC INDEX_TYPE
 SHOW KEYS FROM mysql.db;
+--replace_result BTREE INDEX_TYPE SE_SPECIFIC INDEX_TYPE
 SHOW KEYS FROM mysql.tables_priv;
+--replace_result BTREE INDEX_TYPE SE_SPECIFIC INDEX_TYPE
 SHOW KEYS FROM mysql.columns_priv;
+--replace_result BTREE INDEX_TYPE SE_SPECIFIC INDEX_TYPE
 SHOW KEYS FROM mysql.procs_priv;
 
 CREATE USER wl14965_u2;

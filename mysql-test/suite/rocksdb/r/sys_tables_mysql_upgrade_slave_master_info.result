@@ -1,0 +1,51 @@
+CREATE TABLE mysql.tmp_backup_tables_priv AS SELECT * FROM mysql.tables_priv;
+CREATE TABLE mysql.tmp_backup_user AS SELECT * FROM mysql.user;
+USE test;
+CREATE TABLE test.slave_master_info_backup LIKE mysql.slave_master_info;
+INSERT INTO test.slave_master_info_backup SELECT * FROM mysql.slave_master_info;
+CREATE TABLE test.original
+SELECT COLUMN_NAME, ORDINAL_POSITION
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = "slave_master_info"
+  AND TABLE_SCHEMA = "mysql";
+# Scenario 1:
+# Verify that the upgrade script works correctly when upgrading from the same version
+# i.e. when both the columns Channel_name and Tls_version are in the correct order.
+CREATE TABLE test.upgraded
+SELECT COLUMN_NAME, ORDINAL_POSITION
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = "slave_master_info"
+  AND TABLE_SCHEMA = "mysql";
+include/diff_tables.inc [test.upgraded, test.original]
+DROP TABLE test.upgraded;
+# Scenario 2:
+# Verify that the upgrade script corrects the order of columns Channel_name
+# and Tls_version in mysql.slave_master_info if the order is found to be wrong.
+ALTER TABLE mysql.slave_master_info
+MODIFY COLUMN Channel_name char(64) NOT NULL COMMENT
+'The channel on which the slave is connected to a source. Used in Multisource Replication'
+  AFTER Tls_version;
+# Running mysql_upgrade to update slave_master_info table
+# Verify that the columns Channel_name and Tls_version are now in correct order.
+CREATE TABLE test.upgraded
+SELECT COLUMN_NAME, ORDINAL_POSITION
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = "slave_master_info"
+  AND TABLE_SCHEMA = "mysql";
+include/diff_tables.inc [test.upgraded, test.original]
+DROP TABLE test.upgraded;
+TRUNCATE TABLE mysql.slave_master_info;
+INSERT INTO mysql.slave_master_info SELECT * FROM test.slave_master_info_backup;
+ALTER TABLE mysql.slave_master_info
+MODIFY Host VARCHAR(255) CHARACTER SET ASCII NULL COMMENT 'The host name of the source.',
+ALTER COLUMN Channel_name DROP DEFAULT;
+DROP TABLE test.slave_master_info_backup;
+DROP TABLE test.original;
+TRUNCATE TABLE mysql.tables_priv;
+INSERT INTO mysql.tables_priv (SELECT * FROM mysql.tmp_backup_tables_priv);
+DROP TABLE mysql.tmp_backup_tables_priv;
+TRUNCATE TABLE mysql.user;
+INSERT INTO mysql.user (SELECT * FROM mysql.tmp_backup_user);
+DROP TABLE mysql.tmp_backup_user;
+#Restart the server
+# restart

@@ -9,26 +9,26 @@ db	0	PRIMARY	3	User	A	1	NULL	NULL		BTREE			YES	NULL
 db	1	User	1	User	A	1	NULL	NULL		BTREE			YES	NULL
 SHOW KEYS FROM mysql.tables_priv;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-tables_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		BTREE			YES	NULL
-tables_priv	0	PRIMARY	2	Db	A	1	NULL	NULL		BTREE			YES	NULL
-tables_priv	0	PRIMARY	3	User	A	1	NULL	NULL		BTREE			YES	NULL
-tables_priv	0	PRIMARY	4	Table_name	A	1	NULL	NULL		BTREE			YES	NULL
-tables_priv	1	Grantor	1	Grantor	A	1	NULL	NULL		BTREE			YES	NULL
+tables_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+tables_priv	0	PRIMARY	2	Db	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+tables_priv	0	PRIMARY	3	User	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+tables_priv	0	PRIMARY	4	Table_name	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+tables_priv	1	Grantor	1	Grantor	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
 SHOW KEYS FROM mysql.columns_priv;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-columns_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		BTREE			YES	NULL
-columns_priv	0	PRIMARY	2	Db	A	1	NULL	NULL		BTREE			YES	NULL
-columns_priv	0	PRIMARY	3	User	A	1	NULL	NULL		BTREE			YES	NULL
-columns_priv	0	PRIMARY	4	Table_name	A	1	NULL	NULL		BTREE			YES	NULL
-columns_priv	0	PRIMARY	5	Column_name	A	1	NULL	NULL		BTREE			YES	NULL
+columns_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+columns_priv	0	PRIMARY	2	Db	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+columns_priv	0	PRIMARY	3	User	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+columns_priv	0	PRIMARY	4	Table_name	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+columns_priv	0	PRIMARY	5	Column_name	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
 SHOW KEYS FROM mysql.procs_priv;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-procs_priv	0	PRIMARY	1	Host	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	0	PRIMARY	2	Db	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	0	PRIMARY	3	User	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	0	PRIMARY	4	Routine_name	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	0	PRIMARY	5	Routine_type	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	1	Grantor	1	Grantor	A	0	NULL	NULL		BTREE			YES	NULL
+procs_priv	0	PRIMARY	1	Host	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	0	PRIMARY	2	Db	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	0	PRIMARY	3	User	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	0	PRIMARY	4	Routine_name	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	0	PRIMARY	5	Routine_type	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	1	Grantor	1	Grantor	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
 # Restart server with upgrade option
 # restart:--upgrade=force
 SHOW KEYS FROM mysql.db;
@@ -39,26 +39,26 @@ db	0	PRIMARY	3	Db	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
 db	1	User	1	User	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
 SHOW KEYS FROM mysql.tables_priv;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-tables_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		BTREE			YES	NULL
-tables_priv	0	PRIMARY	2	User	A	1	NULL	NULL		BTREE			YES	NULL
-tables_priv	0	PRIMARY	3	Db	A	1	NULL	NULL		BTREE			YES	NULL
-tables_priv	0	PRIMARY	4	Table_name	A	1	NULL	NULL		BTREE			YES	NULL
-tables_priv	1	Grantor	1	Grantor	A	1	NULL	NULL		BTREE			YES	NULL
+tables_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+tables_priv	0	PRIMARY	2	User	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+tables_priv	0	PRIMARY	3	Db	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+tables_priv	0	PRIMARY	4	Table_name	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+tables_priv	1	Grantor	1	Grantor	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
 SHOW KEYS FROM mysql.columns_priv;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-columns_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		BTREE			YES	NULL
-columns_priv	0	PRIMARY	2	User	A	1	NULL	NULL		BTREE			YES	NULL
-columns_priv	0	PRIMARY	3	Db	A	1	NULL	NULL		BTREE			YES	NULL
-columns_priv	0	PRIMARY	4	Table_name	A	1	NULL	NULL		BTREE			YES	NULL
-columns_priv	0	PRIMARY	5	Column_name	A	1	NULL	NULL		BTREE			YES	NULL
+columns_priv	0	PRIMARY	1	Host	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+columns_priv	0	PRIMARY	2	User	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+columns_priv	0	PRIMARY	3	Db	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+columns_priv	0	PRIMARY	4	Table_name	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
+columns_priv	0	PRIMARY	5	Column_name	A	1	NULL	NULL		INDEX_TYPE			YES	NULL
 SHOW KEYS FROM mysql.procs_priv;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-procs_priv	0	PRIMARY	1	Host	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	0	PRIMARY	2	User	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	0	PRIMARY	3	Db	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	0	PRIMARY	4	Routine_name	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	0	PRIMARY	5	Routine_type	A	0	NULL	NULL		BTREE			YES	NULL
-procs_priv	1	Grantor	1	Grantor	A	0	NULL	NULL		BTREE			YES	NULL
+procs_priv	0	PRIMARY	1	Host	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	0	PRIMARY	2	User	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	0	PRIMARY	3	Db	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	0	PRIMARY	4	Routine_name	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	0	PRIMARY	5	Routine_type	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
+procs_priv	1	Grantor	1	Grantor	A	0	NULL	NULL		INDEX_TYPE			YES	NULL
 CREATE USER wl14965_u2;
 GRANT ALL ON test.* to wl14965_u2;
 SHOW GRANTS FOR wl14965_u2;
