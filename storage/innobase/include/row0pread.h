@@ -310,9 +310,11 @@ class Parallel_reader {
 
   /** Wait for the join of threads spawned by the parallel reader. */
   void join() {
+    thd_wait_begin(nullptr, THD_WAIT_SLEEP);
     for (auto &t : m_parallel_read_threads) {
       t.wait();
     }
+    thd_wait_end(nullptr);
   }
 
   /** Get the error stored in the global error state.

@@ -2860,9 +2860,11 @@ static void buf_flush_page_cleaner_close(void) {
   /* Waiting for all worker threads to exit, note that worker 0 is actually
   the page cleaner coordinator itself which is calling the function which
   we are inside. */
+  thd_wait_begin(nullptr, THD_WAIT_SLEEP);
   for (size_t i = 1; i < srv_threads.m_page_cleaner_workers_n; ++i) {
     srv_threads.m_page_cleaner_workers[i].wait();
   }
+  thd_wait_end(nullptr);
 
   mutex_destroy(&page_cleaner->mutex);
 
