@@ -24,6 +24,7 @@ insert into t1 select a,a,a from one_k;
 ALTER table t1 add column c1 int default 99;
 INSERT into t1 select  1000 + a,  a,  a,  a from one_k;
 
+--replace_column 10 ROWS
 explain SELECT DISTINCT filler from t1 order by filler limit 10;
 SELECT DISTINCT filler from t1 order by filler limit 10;
 
@@ -31,6 +32,7 @@ SELECT DISTINCT filler from t1 order by filler limit 10;
 --echo # temp table
 --echo #
 CREATE TEMPORARY TABLE t2 select * from t1;
+--replace_column 10 ROWS
 explain SELECT DISTINCT filler from t2 order by filler limit 10;
 SELECT DISTINCT filler from t2 order by filler limit 10;
 

@@ -15956,7 +15956,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
         my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
         my_core::Alter_inplace_info::ADD_INDEX |
         my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)) ||
-      update_comment) {
+      is_instant(ha_alter_info) || update_comment) {
     if (has_hidden_pk(*altered_table)) {
       new_n_keys += 1;
     }
@@ -16535,8 +16535,8 @@ bool ha_rocksdb::commit_inplace_alter_table(
   assert(ctx0 == ctx_array[0]);
   ha_alter_info->group_commit_ctx = nullptr;
 
+  // MySQL DD changes
   if (is_instant(ha_alter_info)) {
-    /* update dd data  */
     Instant_Type type =
         static_cast<Instant_Type>(ha_alter_info->handler_trivial_ctx);
     if (type == Instant_Type::INSTANT_DROP_INDEX ||
@@ -16556,6 +16556,8 @@ bool ha_rocksdb::commit_inplace_alter_table(
     dd_copy_private(*new_dd_tab, *old_dd_tab);
     dd_copy_table_columns(*new_dd_tab, *old_dd_tab);
   }
+
+  // MyRocks internal DD change
   uint table_default_cf_id =
       m_tbl_def->m_key_descr_arr[0]->get_gl_index_id().cf_id;
   if (ha_alter_info->handler_flags &
@@ -16674,14 +16676,22 @@ bool ha_rocksdb::commit_inplace_alter_table(
     }
   }
 
-  if ((ha_alter_info->handler_flags &
-       my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
-      (ha_alter_info->create_info->used_fields & HA_CREATE_USED_COMMENT)) {
+  // Update tbl_def for comment change and instantly
+  // For drop index DDL, it is handled early
+  if (((ha_alter_info->handler_flags &
+        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
+       (ha_alter_info->create_info->used_fields & HA_CREATE_USED_COMMENT)) ||
+      (is_instant(ha_alter_info) &&
+       ha_alter_info->handler_trivial_ctx !=
+           (uint)Instant_Type::INSTANT_DROP_INDEX)) {
     auto local_dict_manager =
         dict_manager.get_dict_manager_selector_non_const(table_default_cf_id);
     const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
     rocksdb::WriteBatch *const batch = wb.get();
 
+    // for instant DDL, during alter table, write is still running
+    ctx0->m_new_tdef->m_hidden_pk_val =
+        m_tbl_def->m_hidden_pk_val.load(std::memory_order_relaxed);
     m_tbl_def = ctx0->m_new_tdef;
     m_key_descr_arr = m_tbl_def->m_key_descr_arr;
     m_pk_descr = m_key_descr_arr[pk_index(*altered_table, *m_tbl_def)];

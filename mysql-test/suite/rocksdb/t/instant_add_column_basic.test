@@ -1578,5 +1578,61 @@ SHOW CREATE TABLE t1;
 
 DROP TABLE t1;
 
+--echo #
+--echo # Scenario 29: null bit position(key column is nullable)
+--echo # before instant ddl, table
+--echo #   - contain nullable column and
+--echo #   - doesn't contains varchar/text columns and
+--echo #   - contains null value
+--echo # instant ddl will add a varchar/text columns
+CREATE TABLE t1(a INT, b INT DEFAULT NULL, primary key(a), key(b));
+INSERT INTO t1(a) VALUES(1);
+INSERT INTO t1(a,b) VALUES(2,0);
+
+LET $t1_pk_id_expected = query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME = 't1' and INDEX_NAME = 'PRIMARY', INDEX_NUMBER, 1);
+LET $t1_sk_id_expected = query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME = 't1' and INDEX_NAME = 'b', INDEX_NUMBER, 1);
+ALTER TABLE t1 add c MEDIUMTEXT DEFAULT NULL, ALGORITHM=INSTANT;
+LET $t1_pk_id_actual = query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME = 't1' and INDEX_NAME = 'PRIMARY', INDEX_NUMBER, 1);
+LET $t1_sk_id_actual = query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME = 't1' and INDEX_NAME = 'b', INDEX_NUMBER, 1);
+
+# check index ids aren't changed for instant DDL
+ASSERT($t1_pk_id_expected == $t1_pk_id_actual);
+ASSERT($t1_sk_id_expected == $t1_sk_id_actual);
+
+SELECT a,b FROM t1 FORCE INDEX(b);
+SELECT a,b FROM t1 FORCE INDEX(primary);
+
+ALTER TABLE t1 drop column c;
+SELECT a,b FROM t1 FORCE INDEX(b);
+SELECT a,b FROM t1 FORCE INDEX(primary);
+
+DROP table t1;
+
+--echo #
+--echo # Scenario 30: null bit position(value column is nullable)
+--echo #
+CREATE TABLE t1(a INT, b INT DEFAULT NULL, c INT DEFAULT NULL, primary key(a), key(b));
+INSERT INTO t1(a,c) VALUES(1,1);
+INSERT INTO t1(a,b) VALUES(2,0);
+
+LET $t1_pk_id_expected = query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME = 't1' and INDEX_NAME = 'PRIMARY', INDEX_NUMBER, 1);
+LET $t1_sk_id_expected = query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME = 't1' and INDEX_NAME = 'b', INDEX_NUMBER, 1);
+ALTER TABLE t1 add d MEDIUMTEXT DEFAULT NULL, ALGORITHM=INSTANT;
+LET $t1_pk_id_actual = query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME = 't1' and INDEX_NAME = 'PRIMARY', INDEX_NUMBER, 1);
+LET $t1_sk_id_actual = query_get_value(SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME = 't1' and INDEX_NAME = 'b', INDEX_NUMBER, 1);
+
+# check index ids aren't changed for instant DDL
+ASSERT($t1_pk_id_expected == $t1_pk_id_actual);
+ASSERT($t1_sk_id_expected == $t1_sk_id_actual);
+
+SELECT a,b,c FROM t1 FORCE INDEX(b);
+SELECT a,b,c FROM t1 FORCE INDEX(primary);
+
+ALTER TABLE t1 drop column d;
+SELECT a,b FROM t1 FORCE INDEX(b);
+SELECT a,b FROM t1 FORCE INDEX(primary);
+
+DROP table t1;
+
 # cleanup
 set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;

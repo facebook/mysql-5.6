@@ -1905,4 +1905,58 @@ t1	CREATE TABLE `t1` (
   KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`) COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8
 DROP TABLE t1;
+#
+# Scenario 29: null bit position(key column is nullable)
+# before instant ddl, table
+#   - contain nullable column and
+#   - doesn't contains varchar/text columns and
+#   - contains null value
+# instant ddl will add a varchar/text columns
+CREATE TABLE t1(a INT, b INT DEFAULT NULL, primary key(a), key(b));
+INSERT INTO t1(a) VALUES(1);
+INSERT INTO t1(a,b) VALUES(2,0);
+ALTER TABLE t1 add c MEDIUMTEXT DEFAULT NULL, ALGORITHM=INSTANT;
+SELECT a,b FROM t1 FORCE INDEX(b);
+a	b
+1	NULL
+2	0
+SELECT a,b FROM t1 FORCE INDEX(primary);
+a	b
+1	NULL
+2	0
+ALTER TABLE t1 drop column c;
+SELECT a,b FROM t1 FORCE INDEX(b);
+a	b
+1	NULL
+2	0
+SELECT a,b FROM t1 FORCE INDEX(primary);
+a	b
+1	NULL
+2	0
+DROP table t1;
+#
+# Scenario 30: null bit position(value column is nullable)
+#
+CREATE TABLE t1(a INT, b INT DEFAULT NULL, c INT DEFAULT NULL, primary key(a), key(b));
+INSERT INTO t1(a,c) VALUES(1,1);
+INSERT INTO t1(a,b) VALUES(2,0);
+ALTER TABLE t1 add d MEDIUMTEXT DEFAULT NULL, ALGORITHM=INSTANT;
+SELECT a,b,c FROM t1 FORCE INDEX(b);
+a	b	c
+1	NULL	1
+2	0	NULL
+SELECT a,b,c FROM t1 FORCE INDEX(primary);
+a	b	c
+1	NULL	1
+2	0	NULL
+ALTER TABLE t1 drop column d;
+SELECT a,b FROM t1 FORCE INDEX(b);
+a	b
+1	NULL
+2	0
+SELECT a,b FROM t1 FORCE INDEX(primary);
+a	b
+1	NULL
+2	0
+DROP table t1;
 set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;
