@@ -1884,8 +1884,6 @@ The following options may be given as the first argument:
  which disables this feature
  --rocksdb[=name]    Enable or disable ROCKSDB plugin. Possible values are ON,
  OFF, FORCE (don't start if the plugin fails to load).
- --rocksdb-access-hint-on-compaction-start=# 
- DBOptions::access_hint_on_compaction_start for RocksDB
  --rocksdb-active-compaction-stats[=name] 
  Enable or disable ROCKSDB_ACTIVE_COMPACTION_STATS plugin.
  Possible values are ON, OFF, FORCE (don't start if the
@@ -3707,7 +3705,6 @@ response-attrs-contain-server-cpu FALSE
 response-attrs-contain-warnings-bytes 0
 response-attrs-contain-write-tables-bytes 0
 rocksdb ON
-rocksdb-access-hint-on-compaction-start 1
 rocksdb-active-compaction-stats ON
 rocksdb-advise-random-on-open TRUE
 rocksdb-allow-concurrent-memtable-write FALSE

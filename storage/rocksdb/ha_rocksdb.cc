@@ -869,7 +869,6 @@ static uint32_t rocksdb_debug_cardinality_multiplier;
 static uint32_t rocksdb_wal_recovery_mode;
 static bool rocksdb_track_and_verify_wals_in_manifest;
 static uint32_t rocksdb_stats_level;
-static uint32_t rocksdb_access_hint_on_compaction_start;
 static char *rocksdb_compact_cf_name;
 static char *rocksdb_delete_cf_name;
 static char *rocksdb_checkpoint_name;
@@ -1829,14 +1828,6 @@ static MYSQL_SYSVAR_ULONG(compaction_readahead_size,
                           nullptr, nullptr,
                           rocksdb_db_options->compaction_readahead_size,
                           /* min */ 0L, /* max */ ULONG_MAX, 0);
-
-static MYSQL_SYSVAR_UINT(
-    access_hint_on_compaction_start, rocksdb_access_hint_on_compaction_start,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "DBOptions::access_hint_on_compaction_start for RocksDB", nullptr, nullptr,
-    /* default */ (uint)rocksdb::Options::AccessHint::NORMAL,
-    /* min */ (uint)rocksdb::Options::AccessHint::NONE,
-    /* max */ (uint)rocksdb::Options::AccessHint::WILLNEED, 0);
 
 static MYSQL_SYSVAR_BOOL(
     allow_concurrent_memtable_write,
@@ -3052,7 +3043,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(wal_recovery_mode),
     MYSQL_SYSVAR(track_and_verify_wals_in_manifest),
     MYSQL_SYSVAR(stats_level),
-    MYSQL_SYSVAR(access_hint_on_compaction_start),
     MYSQL_SYSVAR(compaction_readahead_size),
     MYSQL_SYSVAR(allow_concurrent_memtable_write),
     MYSQL_SYSVAR(enable_write_thread_adaptive_yield),
@@ -7797,10 +7787,6 @@ static int rocksdb_init_internal(void *const p) {
 
   rocksdb_db_options->track_and_verify_wals_in_manifest =
       rocksdb_track_and_verify_wals_in_manifest;
-
-  rocksdb_db_options->access_hint_on_compaction_start =
-      static_cast<rocksdb::Options::AccessHint>(
-          rocksdb_access_hint_on_compaction_start);
 
   if (rocksdb_db_options->allow_mmap_reads &&
       rocksdb_db_options->use_direct_reads) {
