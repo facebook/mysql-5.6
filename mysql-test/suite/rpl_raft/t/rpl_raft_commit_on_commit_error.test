@@ -10,6 +10,7 @@ set @max_binlog_cache_size_save = @@global.max_binlog_cache_size;
 set @binlog_cache_size_save = @@global.binlog_cache_size;
 set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
 set @commit_on_commit_error_save = @@global.commit_on_commit_error;
+set @set_write_error_on_cache_error_save = @@global.set_write_error_on_cache_error;
 
 # Setting cache size needs to be the first statement before any DML query to ensure transaction cache is init'd
 # with the specified size.
@@ -17,6 +18,8 @@ set @@global.max_binlog_cache_size = 4096;
 set @@global.binlog_cache_size = 4096;
 call mtr.add_suppression(".*Error writing file.*");
 set @commit_on_commit_error_save = 0;
+# We need to turn on marking binlog with a write error to induce a commit error
+set @@global.set_write_error_on_cache_error = 1;
 # To avoid flakiness, disable failure detector.
 set @@global.rpl_raft_disable_failure_detector=1;
 
@@ -88,6 +91,7 @@ set @@global.max_binlog_cache_size = @max_binlog_cache_size_save;
 set @@global.binlog_cache_size = @binlog_cache_size_save;
 set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
 set @@global.commit_on_commit_error = @commit_on_commit_error_save;
+set @@global.set_write_error_on_cache_error = @set_write_error_on_cache_error_save;
 
 connection server_2;
 set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
