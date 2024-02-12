@@ -2883,6 +2883,8 @@ class THD : public MDL_context_owner,
   pid_t m_system_thread_id;
 #endif  // _WIN32
 
+  bool m_managed_by_cpu_scheduler;
+
  public:
   /**
     Assign a value to m_thread_id by calling
@@ -3420,6 +3422,8 @@ class THD : public MDL_context_owner,
   void cleanup_after_query();
   void store_globals(pid_t id = 0);
   void restore_globals();
+
+  void set_managed_by_cpu_scheduler(bool managed_by_cpu_scheduler = false);
 
   inline void set_active_vio(Vio *vio) {
     mysql_mutex_lock(&LOCK_thd_data);

@@ -801,6 +801,7 @@ THD::THD(bool enable_plugins, bool is_slave)
   m_resource_group_ctx.m_switch_resource_group_str[0] = '\0';
   m_resource_group_ctx.m_warn = 0;
   m_safe_to_display.store(false);
+  m_managed_by_cpu_scheduler = false;
 
   m_db_read_only_hash.clear();
   m_db_default_collation.clear();
@@ -2086,6 +2087,14 @@ void THD::restore_globals() {
   /* Undocking the thread specific data. */
   current_thd = nullptr;
   THR_MALLOC = nullptr;
+}
+
+/*
+  Mention if we are managed by cpu scheduler.
+*/
+
+void THD::set_managed_by_cpu_scheduler(bool managed_by_cpu_scheduler) {
+  m_managed_by_cpu_scheduler = managed_by_cpu_scheduler;
 }
 
 /*
@@ -4866,14 +4875,16 @@ bool THD::set_thread_priority(int pri) {
 
   bool ret = true;
 
-  my_thread_os_id_t thread_os_id = get_thread_os_id();
-  if (thread_os_id && get_thread_priority() != pri) {
-    ret = set_system_thread_priority(thread_os_id, pri);
+  if (!m_managed_by_cpu_scheduler) {
+    my_thread_os_id_t thread_os_id = get_thread_os_id();
+    if (thread_os_id && get_thread_priority() != pri) {
+      ret = set_system_thread_priority(thread_os_id, pri);
 #ifdef HAVE_PSI_THREAD_INTERFACE
-    if (ret) {
-      PSI_THREAD_CALL(set_thread_priority)(get_psi(), pri);
-    }
+      if (ret) {
+        PSI_THREAD_CALL(set_thread_priority)(get_psi(), pri);
+      }
 #endif
+    }
   }
 
   DBUG_RETURN(ret);

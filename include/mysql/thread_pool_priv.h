@@ -118,6 +118,7 @@ bool thd_get_reset_period_status_vars(THD *thd);
 my_socket thd_get_fd(THD *thd);
 void thd_store_globals(THD *thd);
 void thd_store_globals(THD *thd, pid_t id);
+void thd_managed_by_scheduler(THD *thd, bool managed_by_scheduler);
 bool thd_check_connection_admin_privilege(THD *thd);
 
 /*
