@@ -202,6 +202,8 @@ select_into_disk_sync
 select_into_disk_sync
 select_into_disk_sync_delay
 select_into_disk_sync_delay
+set_write_error_on_cache_error
+set_write_error_on_cache_error
 shardbeat_interval_ms
 shardbeat_interval_ms
 shardbeat_vlog_level

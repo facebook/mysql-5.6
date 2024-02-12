@@ -1,0 +1,59 @@
+source ../include/raft_3_node.inc;
+
+# Tests that after we hit a cache error, we are able to commit the next transaction.
+
+connection server_1;
+set @max_binlog_cache_size_save = @@global.max_binlog_cache_size;
+set @binlog_cache_size_save = @@global.binlog_cache_size;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+set @set_write_error_on_cache_error_save = @@global.set_write_error_on_cache_error;
+
+set @@global.max_binlog_cache_size = 4096;
+set @@global.binlog_cache_size = 4096;
+set @@global.set_write_error_on_cache_error = 0;
+
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector = 1;
+
+connection server_2;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector = 1;
+
+connection server_3;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector = 1;
+
+connection server_1;
+echo # Create a table and insert a transaction where the size exceeds max_binlog_cache_size. This should fail;
+create table tbl (id int primary key auto_increment, data longtext not null) engine = innodb;
+
+echo # Induce a cache write error by writing a trx that exceeds max_binlog_cache_size;
+error ER_TRANS_CACHE_FULL;
+insert into tbl(id, data) values (null, repeat('x', 10000000));
+
+echo # Table should be empty;
+select count(*) from tbl;
+
+echo # Insert a valid row that fits within cache size should succeed;
+insert into tbl(id, data) values (null, 'x');
+
+echo # Table should have 1 record;
+select count(*) from tbl;
+
+# Clean up
+connection server_1;
+drop table tbl;
+set @@global.max_binlog_cache_size = @max_binlog_cache_size_save;
+set @@global.binlog_cache_size = @binlog_cache_size_save;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+set @@global.set_write_error_on_cache_error = @set_write_error_on_cache_error_save;
+
+connection server_2;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+
+connection server_3;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+
+source include/rpl_end.inc;

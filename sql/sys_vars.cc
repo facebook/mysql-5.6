@@ -9376,6 +9376,12 @@ static Sys_var_bool Sys_commit_on_commit_error(
     "Whether to allow committing when there is a THD commit error",
     GLOBAL_VAR(opt_commit_on_commit_error), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_set_write_error_on_cache_error(
+    "set_write_error_on_cache_error",
+    "Whether to mark binlog with a write error when we hit a cache write error",
+    GLOBAL_VAR(opt_set_write_error_on_cache_error), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 #ifndef __APPLE__
 
 static bool update_session_dscp_on_socket(sys_var *, THD *thd,

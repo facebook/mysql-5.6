@@ -2659,6 +2659,9 @@ The following options may be given as the first argument:
  Set read_only and super_read_only in shutdown path after
  trying to kill connections but before shutting down
  plugins
+ --set-write-error-on-cache-error 
+ Whether to mark binlog with a write error when we hit a
+ cache write error
  --sha256-password-proxy-users 
  If set to FALSE (the default), then the sha256_password
  authentication plugin will not signal for authenticated
@@ -3965,6 +3968,7 @@ session-track-state-change FALSE
 session-track-system-variables time_zone,autocommit,character_set_client,character_set_results,character_set_connection
 session-track-transaction-info OFF
 set-read-only-on-shutdown FALSE
+set-write-error-on-cache-error FALSE
 sha256-password-proxy-users FALSE
 shardbeat-blocked-dbs 
 shardbeat-interval-ms 60000

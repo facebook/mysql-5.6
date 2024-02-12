@@ -7175,7 +7175,14 @@ bool MYSQL_BIN_LOG::check_write_error(const THD *thd) {
 void MYSQL_BIN_LOG::report_cache_write_error(THD *thd, bool is_transactional) {
   DBUG_TRACE;
 
-  write_error = true;
+  if (!enable_raft_plugin || opt_set_write_error_on_cache_error) {
+    // On cache write errors, if we decide to set write_error, we will no longer
+    // be able to write further to this binlog. Since the binlog cache is
+    // cleared on rollback anyway, permanently failing the binlog is not
+    // necessary. To be safe, we have enable_write_error_on_cache_error a flag
+    // to gate this behavior.
+    write_error = true;
+  }
 
   if (check_write_error(thd)) return;
 

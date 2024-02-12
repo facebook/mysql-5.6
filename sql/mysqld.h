@@ -504,6 +504,9 @@ extern bool opt_commit_consensus_error_rollback_clear_logpos;
    ordered commit */
 extern bool opt_commit_on_commit_error;
 
+/* Whether to set write error on cache write errors */
+extern bool opt_set_write_error_on_cache_error;
+
 /* Failure injection related variables */
 extern bool enable_failure_injection;
 extern char *failure_injection_points;
